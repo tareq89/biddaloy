@@ -1,12 +1,11 @@
 {
   "title": "Create fee bills",
   "modal": {
-    "description": "Pick a period, the students to bill, and the fees to apply.",
     "cancel": "Cancel"
   },
   "audience": {
     "heading": "Students",
-    "selectedCount": "{{count}} selected",
+    "selectedCount": "{{n}} selected",
     "searchLabel": "Search students",
     "searchPlaceholder": "Search by name or roll number",
     "classLabel": "Class",
@@ -16,37 +15,45 @@
     "programLabel": "Program",
     "anyProgram": "Any program",
     "includeInactiveLabel": "Include inactive students",
-    "selectAllMatching": "Select all {{count}} matching",
+    "selectAllMatching": "Select all {{n}} matching",
     "loading": "Loading students…",
     "empty": "No students match these filters.",
-    "inactiveTooltip": "This student is not currently active — check before generating a fee for them.",
     "unknownStudentName": "Selected student (name loading…)",
     "selectAllTooManyMatches": "Too many matches — narrow your filters and try again.",
-    "selectAllRetry": "Try again"
+    "selectAllRetry": "Try again",
+    "matchCount_one": "{{n}} match",
+    "matchCount_other": "{{n}} matches",
+    "inactiveBadge": "Inactive",
+    "selectAllFailed": "Couldn't select everyone."
   },
   "fees": {
     "heading": "Fees",
     "loading": "Loading fee structures…",
     "empty": "No fee structures exist for this academic year yet.",
-    "runningTotal": "{{amount}} per student × {{count}} students selected"
+    "description": "Choose from the {{year}} fee structures.",
+    "perStudent": "{{amount}} per student"
   },
   "notify": {
-    "label": "Notify families when fees are generated"
+    "label": "Notify families when bills are created"
   },
   "summary": {
-    "line": "{{students}} students × {{fees}} fees = {{bills}} bills",
+    "bills_one": "{{n}} bill will be created",
+    "bills_other": "{{n}} bills will be created",
+    "detail": "{{students}} students × {{fees}} fees",
     "programAudience": "Billing all active students in the selected program."
   },
   "duplicates": {
-    "heading": "Some fees already exist for this period",
-    "row": "{{student}} already has {{fee}}",
-    "inactiveCount": "{{count}} of the selected students are not active.",
+    "heading": "Some bills for this period already exist",
+    "row": "{{student}} — {{fee}}",
+    "inactiveCount": "{{n}} of the selected students are not active.",
     "skipLabel": "Skip duplicates",
-    "skipHint": "Only students without an existing fee for this period get a new one.",
-    "removeOlderLabel": "Remove the older fee first",
-    "removeOlderHint": "The existing fee record is deleted before the new one is created.",
+    "skipHint": "Only students without a bill for this period get one.",
+    "removeOlderLabel": "Delete the old bill and create a new one",
+    "removeOlderHint": "The old bill is deleted before the new one is created.",
     "createAnywayLabel": "Create anyway",
-    "createAnywayHint": "Creates a second fee record for the same period. Needs admin approval."
+    "createAnywayHint": "Creates a second bill for the same period. Needs admin approval.",
+    "unknownFee": "A fee",
+    "decisionLabel": "What to do with existing bills"
   },
   "steps": {
     "year": "Academic year",
@@ -75,7 +82,8 @@
     "yearLabel": "Year",
     "weekStartLabel": "Week starting",
     "dueDateLabel": "Due date",
-    "outsideYear": "{{month}} {{year}} is outside {{name}} ({{start}} to {{end}}). Choose a month inside the academic year, or go back and choose a different year."
+    "outsideYear": "{{month}} {{year}} is outside {{name}} ({{start}} to {{end}}). Choose a month inside the academic year, or go back and choose a different year.",
+    "dueDateHelp": "9 days after the period starts — change it if you need to."
   },
   "review": {
     "heading": "Check this before generating",
@@ -89,7 +97,8 @@
     "count_one": "{{count}} active student is in scope and will be evaluated.",
     "count_other": "{{count}} active students are in scope and will be evaluated.",
     "estimateNote": "That is how many students will be looked at, not how many fee records will be created. A student with no fee structure that applies this month gets nothing, and a student who already has a fee for this month is skipped.",
-    "submitAction": "Generate fees"
+    "submitAction": "Create bills",
+    "title": "Check and create"
   },
   "result": {
     "title": "Fee generation finished",
@@ -108,22 +117,13 @@
     "rateLimited": "Fee generation is limited to 5 runs per minute — wait a moment and try again.",
     "unknown": "We couldn't confirm the result of this run. Re-running is safe — anything already created will be skipped."
   },
-  "months": {
-    "1": "January",
-    "2": "February",
-    "3": "March",
-    "4": "April",
-    "5": "May",
-    "6": "June",
-    "7": "July",
-    "8": "August",
-    "9": "September",
-    "10": "October",
-    "11": "November",
-    "12": "December"
-  },
   "notifications": {
     "generated": "Generated {{generated}} bills for {{students}} students ({{skipped}} skipped).",
     "failed": "Generating fees failed."
+  },
+  "section": {
+    "periodTitle": "Period",
+    "periodDescription": "Which period to bill, and when it is due.",
+    "studentsDescription": "Choose who gets a bill."
   }
 }
