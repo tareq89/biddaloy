@@ -47,16 +47,19 @@
     "description": "Shown on receipts, invoices and printouts."
   },
   "secret": {
-    "configured": "Configured — ends {{hint}}",
-    "configuredNoHint": "Configured",
-    "notConfigured": "Not configured",
-    "replace": "Replace",
-    "clear": "Clear",
+    "configured": "Added — ends {{hint}}",
+    "configuredNoHint": "Added",
+    "notConfigured": "Not added",
+    "replace": "Change",
+    "clear": "Remove",
     "cancel": "Cancel",
-    "set": "Set"
+    "set": "Add",
+    "metaTokenHelp": "Copy it from Meta Business."
   },
   "testConnection": {
-    "action": "Test connection"
+    "action": "Test connection",
+    "success": "Connection works",
+    "failure": "Couldn't connect — check the details and try again."
   },
   "save": {
     "action": "Save",
@@ -107,32 +110,43 @@
   "whatsapp": {
     "legend": "WhatsApp",
     "phoneNumberId": "Phone number ID",
-    "apiVersion": "API version",
-    "accessToken": "Access token"
+    "apiVersion": "API version (optional)",
+    "accessToken": "Access token",
+    "description": "Enter your Meta Business account details to message guardians on WhatsApp.",
+    "phoneNumberIdHelp": "Find it in Meta's WhatsApp Manager. It is a long number, not a phone number.",
+    "apiVersionHelp": "Leave empty to use the version the app is set to."
   },
   "messenger": {
     "legend": "Messenger",
-    "pageId": "Page ID",
-    "accessToken": "Access token"
+    "pageId": "Facebook Page ID",
+    "accessToken": "Access token",
+    "description": "Enter your Facebook Page details to message guardians on Messenger.",
+    "pageIdHelp": "Find it under the page's About section."
   },
   "email": {
     "legend": "Email",
-    "host": "SMTP host",
-    "port": "SMTP port",
-    "user": "SMTP username",
-    "from": "From address",
-    "password": "Password"
+    "host": "Email server (SMTP)",
+    "port": "Port",
+    "user": "Server username",
+    "from": "Send emails from",
+    "password": "Server password",
+    "description": "Emails from this school are sent through this server.",
+    "portHelp": "Usually 587. Change it only if your email server says so."
   },
   "sms": {
     "legend": "SMS",
-    "provider": "Provider",
+    "provider": "SMS company",
     "providerGreenweb": "Greenweb",
     "providerMimsms": "MimSMS",
-    "greenwebApiKey": "Greenweb API key",
-    "greenwebApiUrl": "Greenweb API URL (optional)",
-    "mimsmsApiKey": "MimSMS API key",
-    "mimsmsSenderId": "MimSMS sender ID",
-    "mimsmsApiUrl": "MimSMS API URL (optional)"
+    "greenwebApiKey": "API key",
+    "greenwebApiUrl": "API address (optional)",
+    "mimsmsApiKey": "API key",
+    "mimsmsSenderId": "Sender name (Sender ID)",
+    "mimsmsApiUrl": "API address (optional)",
+    "description": "All SMS from this school go through this company.",
+    "apiKeyHelp": "Copy it from your {{company}} account page. After saving, the full key is never shown again.",
+    "apiUrlHelp": "Leave empty to use the company's own address.",
+    "senderIdHelp": "The name people see as the sender. Use the one the company approved."
   },
   "attendance": {
     "legend": "Attendance policy",
@@ -173,33 +187,36 @@
   },
   "smsCredit": {
     "legend": "SMS credit",
-    "loading": "Loading…",
     "loadError": "Couldn't load your SMS credit balance. Try refreshing the page.",
-    "modeOff": "Own provider / unmetered",
-    "modePlatform": "Platform credits",
+    "modeOff": "School's own SMS company — no credit needed",
+    "modePlatform": "Platform credit",
     "available": "Available",
-    "reserved": "Reserved",
+    "reserved": "Held for sending",
     "ledger": {
-      "caption": "SMS credit movements, newest first.",
+      "caption": "SMS credit history, newest first.",
       "empty": "No movements yet.",
       "kindHeader": "Type",
-      "unitsHeader": "Units",
-      "referenceHeader": "Reference",
+      "unitsHeader": "Credit",
+      "referenceHeader": "What for",
       "reasonHeader": "Reason",
       "dateHeader": "Date",
       "kind": {
-        "GRANT": "Grant",
-        "RESERVE": "Reserve",
-        "DEBIT": "Debit",
-        "RELEASE": "Release",
-        "ADJUST": "Adjust"
+        "GRANT": "Added",
+        "RESERVE": "Held",
+        "DEBIT": "Used",
+        "RELEASE": "Returned",
+        "ADJUST": "Adjusted"
       },
       "referenceType": {
         "batch": "Reminder round",
         "log": "Message",
-        "manual": "Manual"
-      }
-    }
+        "manual": "By hand"
+      },
+      "emptyExplanation": "Credit added or used will show here."
+    },
+    "description": "Each SMS uses credit. Credit is added by the platform.",
+    "descriptionOff": "This school sends SMS through its own company, so no credit is counted.",
+    "ledgerTitle": "Credit history"
   },
   "calendar": {
     "legend": "Calendar",
@@ -252,12 +269,12 @@
     "legend": "Evaluations",
     "incidentSmsLabel": "Send an SMS when a new incident report is filed",
     "incidentSmsHint": "The SMS says only that a new report exists, never what it says.",
-    "providerMissingWarning": "Incident SMS will not be sent until an SMS provider is set up in Communication.",
-    "providerNotConfigured": "No SMS provider is set up.",
+    "providerMissingWarning": "Incident SMS will not be sent until an SMS company is added in Communication.",
+    "providerNotConfigured": "No SMS company added.",
     "pushAlwaysOn": "Push notifications are always on.",
     "description": "Who is told, and how, when a new incident report is filed.",
-    "providerReady": "SMS provider is set up",
-    "openSmsSettings": "Communication › set up SMS"
+    "providerReady": "SMS company added",
+    "openSmsSettings": "Communication › add SMS company"
   },
   "organisation": {
     "legend": "Shift, version & group",
@@ -343,5 +360,9 @@
       }
     },
     "archiveTitle": "Archive printer"
+  },
+  "channelStatus": {
+    "ready": "Set up",
+    "notReady": "Not set up"
   }
 }
