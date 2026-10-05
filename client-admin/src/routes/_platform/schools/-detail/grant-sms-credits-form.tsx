@@ -8,12 +8,13 @@
  * caller `{ units, reason }`; `sms-credits-card.tsx` owns the mutation
  * *and* the idempotency key (a submit attempt's key must survive a retry
  * of that same attempt, which is state that outlives any one call to
- * `onSubmit` here).
+ * `onSubmit` here). Fields only: the dialog's footer holds the submit
+ * button and points at this form through `formId`.
  */
 import {
-  Button,
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -22,20 +23,16 @@ import {
   Textarea,
 } from '@biddaloy/ui/components';
 import { useTranslation } from '@biddaloy/ui/i18n';
+import { toLatinDigits } from '@biddaloy/ui/utils';
 import { zodResolver } from '@hookform/resolvers/zod';
+import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
-const grantSchema = z.object({
-  units: z
-    .string()
-    .trim()
-    .refine((value) => /^-?\d+$/.test(value), { message: 'Enter a whole number.' })
-    .refine((value) => Number(value) !== 0, { message: 'Units must not be zero.' }),
-  reason: z.string().trim().min(5).max(500),
-});
-
-type GrantFormValues = z.infer<typeof grantSchema>;
+interface GrantFormValues {
+  units: string;
+  reason: string;
+}
 
 export interface GrantFormOutput {
   units: number;
@@ -43,19 +40,36 @@ export interface GrantFormOutput {
 }
 
 export interface GrantSmsCreditsFormProps {
-  submitting: boolean;
-  submitError?: string;
+  /** `id` of the `<form>` — the dialog footer's submit button targets it. */
+  formId: string;
   onFieldsChange: () => void;
   onSubmit: (values: GrantFormOutput) => void;
 }
 
 export function GrantSmsCreditsForm({
-  submitting,
-  submitError,
+  formId,
   onFieldsChange,
   onSubmit,
 }: GrantSmsCreditsFormProps) {
   const { t } = useTranslation('platform');
+  // Bangla digits are accepted: normalised to Latin before the checks.
+  const grantSchema = React.useMemo(
+    () =>
+      z.object({
+        units: z
+          .string()
+          .trim()
+          .transform(toLatinDigits)
+          .refine((value) => /^-?\d+$/.test(value), {
+            message: t('schoolDetail.smsCredit.errors.wholeNumber'),
+          })
+          .refine((value) => Number(value) !== 0, {
+            message: t('schoolDetail.smsCredit.errors.notZero'),
+          }),
+        reason: z.string().trim().min(5, t('schoolDetail.smsCredit.errors.reasonLength')).max(500),
+      }),
+    [t],
+  );
   const form = useForm<GrantFormValues>({
     resolver: zodResolver(grantSchema),
     defaultValues: { units: '', reason: '' },
@@ -68,12 +82,12 @@ export function GrantSmsCreditsForm({
   return (
     <Form {...form}>
       <form
-        className="flex flex-col gap-3 rounded-lg border p-4"
+        id={formId}
+        noValidate
         onChange={onFieldsChange}
         onSubmit={(event) => void form.handleSubmit(handleSubmit)(event)}
       >
-        <h3 className="text-sm font-semibold">{t('schoolDetail.smsCredit.grantTitle')}</h3>
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-4">
           <FormField
             control={form.control}
             name="units"
@@ -85,6 +99,7 @@ export function GrantSmsCreditsForm({
                 <FormControl>
                   <Input id="grant-sms-units" inputMode="numeric" {...field} />
                 </FormControl>
+                <FormDescription>{t('schoolDetail.smsCredit.unitsHelp')}</FormDescription>
                 <FormMessage />
               </FormItem>
             )}
@@ -105,16 +120,6 @@ export function GrantSmsCreditsForm({
             )}
           />
         </div>
-        <div>
-          <Button type="submit" loading={submitting}>
-            {t('schoolDetail.smsCredit.grantAction')}
-          </Button>
-        </div>
-        {submitError && (
-          <p role="alert" className="text-sm text-destructive">
-            {submitError}
-          </p>
-        )}
       </form>
     </Form>
   );

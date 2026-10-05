@@ -1,23 +1,13 @@
 /**
- * #535's one row in the admins card — resend/revoke a pending invitation,
- * cloned from `staff/-detail/invitation-card.tsx`'s confirm-before-revoke
- * shape (same `Dialog` + destructive-confirm pattern). Each row owns its
- * own `useResendSchoolAdminInvitation`/`useRevokeSchoolAdminInvitation`
- * instance (keyed by `userId`) rather than the parent card holding one
- * shared mutation — a plain per-row `React.useState` for the confirm
- * dialog is enough since only one row's dialog is ever open at a time.
+ * #535's per-admin row actions — resend / revoke a pending invitation as
+ * `RowActions` icons (D19), with revoke behind a `ConfirmDialog` (D29).
+ *
+ * The invitation hooks are keyed by `userId` (`ui/src/hooks` stays as it is),
+ * and hooks cannot be called per table row, so each action runs inside a tiny
+ * component that only exists while that action is active:
+ * `ResendRunner` fires once on mount; `RevokeConfirm` owns the dialog.
  */
-import {
-  Button,
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  StatusBadge,
-} from '@biddaloy/ui/components';
+import { ConfirmDialog, toast, type RowAction } from '@biddaloy/ui/components';
 import {
   useResendSchoolAdminInvitation,
   useRevokeSchoolAdminInvitation,
@@ -26,99 +16,117 @@ import {
 import { useTranslation } from '@biddaloy/ui/i18n';
 import * as React from 'react';
 
-export interface AdminRowProps {
+function ResendRunner({
+  schoolId,
+  admin,
+  onDone,
+}: {
   schoolId: string;
   admin: SchoolAdminListItem;
+  onDone: () => void;
+}) {
+  const { t } = useTranslation('platform');
+  const resend = useResendSchoolAdminInvitation(schoolId, admin.user_id);
+  const started = React.useRef(false);
+
+  React.useEffect(() => {
+    // Strict-mode re-runs effects; one click must send one invitation.
+    if (started.current) return;
+    started.current = true;
+    resend.mutate(undefined, {
+      onSuccess: () => toast.success(t('schoolDetail.admins.resendSuccess')),
+      onError: () => toast.error(t('schoolDetail.admins.resendError')),
+      onSettled: onDone,
+    });
+  }, [resend, onDone, t]);
+
+  return null;
 }
 
-export function AdminRow({ schoolId, admin }: AdminRowProps) {
+function RevokeConfirm({
+  schoolId,
+  admin,
+  onClose,
+}: {
+  schoolId: string;
+  admin: SchoolAdminListItem;
+  onClose: () => void;
+}) {
   const { t } = useTranslation('platform');
-  const [revokeOpen, setRevokeOpen] = React.useState(false);
-
-  const resendInvitation = useResendSchoolAdminInvitation(schoolId, admin.user_id);
-  const revokeInvitation = useRevokeSchoolAdminInvitation(schoolId, admin.user_id);
-
-  // `InvitationService.issueAndSend` rejects a user who already has a
-  // password with 409, so an ACTIVATED invitation must not offer resend —
-  // only the states where a fresh invite can actually be issued.
-  const canResend =
-    admin.invitation?.status === 'PENDING' ||
-    admin.invitation?.status === 'EXPIRED' ||
-    admin.invitation?.status === 'REVOKED';
-  const canRevoke =
-    admin.invitation?.status === 'PENDING' || admin.invitation?.status === 'EXPIRED';
+  const revoke = useRevokeSchoolAdminInvitation(schoolId, admin.user_id);
 
   return (
-    <li className="flex flex-col gap-2 rounded-lg border p-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-col">
-          <span className="text-sm font-medium">{admin.name}</span>
-          <span className="text-xs text-muted-foreground">{admin.email ?? admin.phone ?? ''}</span>
-        </div>
-        {admin.invitation && <StatusBadge domain="invitation" status={admin.invitation.status} />}
-      </div>
-
-      {canResend && (
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            loading={resendInvitation.isPending}
-            onClick={() => resendInvitation.mutate()}
-          >
-            {resendInvitation.isPending
-              ? t('schoolDetail.admins.resending')
-              : t('schoolDetail.admins.resend')}
-          </Button>
-          {canRevoke && (
-            <Button type="button" variant="ghost" size="sm" onClick={() => setRevokeOpen(true)}>
-              {t('schoolDetail.admins.revoke')}
-            </Button>
-          )}
-        </div>
-      )}
-
-      {resendInvitation.isError && (
-        <p role="alert" className="text-sm text-destructive">
-          {t('schoolDetail.admins.resendError')}
-        </p>
-      )}
-      {revokeInvitation.isError && (
-        <p role="alert" className="text-sm text-destructive">
-          {t('schoolDetail.admins.revokeError')}
-        </p>
-      )}
-
-      <Dialog open={revokeOpen} onOpenChange={setRevokeOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t('schoolDetail.admins.revokeConfirmTitle')}</DialogTitle>
-            <DialogDescription>
-              {t('schoolDetail.admins.revokeConfirmDescription', { name: admin.name })}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button type="button" variant="outline">
-                {t('actions.cancel', { ns: 'common' })}
-              </Button>
-            </DialogClose>
-            <Button
-              type="button"
-              variant="destructive"
-              loading={revokeInvitation.isPending}
-              onClick={() =>
-                revokeInvitation.mutate(undefined, { onSuccess: () => setRevokeOpen(false) })
-              }
-            >
-              {revokeInvitation.isPending
-                ? t('schoolDetail.admins.revoking')
-                : t('schoolDetail.admins.revoke')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </li>
+    <ConfirmDialog
+      open
+      // A pending request must not be dismissed from under itself.
+      onOpenChange={(open) => {
+        if (!open && !revoke.isPending) onClose();
+      }}
+      tone="danger"
+      title={t('schoolDetail.admins.revokeConfirmTitle')}
+      description={t('schoolDetail.admins.revokeConfirmDescription', { name: admin.name })}
+      confirmLabel={t('schoolDetail.admins.revoke')}
+      busy={revoke.isPending}
+      onConfirm={() =>
+        revoke.mutate(undefined, {
+          onSuccess: onClose,
+          onError: () => toast.error(t('schoolDetail.admins.revokeError')),
+        })
+      }
+    />
   );
+}
+
+export function useAdminRowActions(schoolId: string) {
+  const { t } = useTranslation('platform');
+  const [resendTarget, setResendTarget] = React.useState<SchoolAdminListItem | null>(null);
+  const [revokeTarget, setRevokeTarget] = React.useState<SchoolAdminListItem | null>(null);
+  const clearResend = React.useCallback(() => setResendTarget(null), []);
+  const clearRevoke = React.useCallback(() => setRevokeTarget(null), []);
+
+  function actionsFor(admin: SchoolAdminListItem): RowAction[] {
+    // `InvitationService.issueAndSend` rejects a user who already has a
+    // password with 409, so an ACTIVATED invitation must not offer resend —
+    // only the states where a fresh invite can actually be issued.
+    const status = admin.invitation?.status;
+    const canResend = status === 'PENDING' || status === 'EXPIRED' || status === 'REVOKED';
+    const canRevoke = status === 'PENDING' || status === 'EXPIRED';
+    return [
+      {
+        intent: 'send',
+        label: t('schoolDetail.admins.resend'),
+        allowed: canResend,
+        onClick: () => setResendTarget(admin),
+      },
+      {
+        intent: 'reject',
+        label: t('schoolDetail.admins.revoke'),
+        allowed: canRevoke,
+        onClick: () => setRevokeTarget(admin),
+      },
+    ];
+  }
+
+  const dialog = (
+    <>
+      {resendTarget && (
+        <ResendRunner
+          key={resendTarget.user_id}
+          schoolId={schoolId}
+          admin={resendTarget}
+          onDone={clearResend}
+        />
+      )}
+      {revokeTarget && (
+        <RevokeConfirm
+          key={revokeTarget.user_id}
+          schoolId={schoolId}
+          admin={revokeTarget}
+          onClose={clearRevoke}
+        />
+      )}
+    </>
+  );
+
+  return { actionsFor, dialog };
 }
