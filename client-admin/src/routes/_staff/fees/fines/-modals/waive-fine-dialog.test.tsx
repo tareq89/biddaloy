@@ -121,6 +121,21 @@ describe('WaiveFineDialog', () => {
 
     const select = await screen.findByRole('combobox', { name: 'Fine' });
     expect(select).toBeTruthy();
+    // A visible <label>, not just an aria-label.
+    expect(screen.getByText('Fine', { selector: 'label' })).toBeTruthy();
+  });
+
+  it('uses a normal primary confirm button, not a red filled one', async () => {
+    const fine = fineFactory({ id: 'fine-1', total_amount: 100, paid_amount: 0 });
+    server.use(
+      http.get('/api/v1/fees/fines', () =>
+        HttpResponse.json({ items: [fine], total: 1, totals: {} }),
+      ),
+    );
+    await renderDialog({ fineId: 'fine-1' });
+
+    const confirm = await screen.findByRole('button', { name: 'Waive fine' });
+    expect(confirm.getAttribute('data-variant')).not.toBe('destructive');
   });
 
   it('clears a previous waive error when the dialog is reopened', async () => {
