@@ -3,9 +3,10 @@ import userEvent from '@testing-library/user-event';
 import * as React from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { ApiError } from '../api';
 import { cleanupTestState, renderWithProviders } from '../test/render-with-providers';
 
-import { PasswordChecklist } from './password-checklist';
+import { PasswordChecklist, weakPasswordRules } from './password-checklist';
 
 afterEach(async () => {
   await cleanupTestState();
@@ -49,6 +50,23 @@ describe('PasswordChecklist', () => {
   it('counts Bangla digits as digits', async () => {
     renderWithProviders(<PasswordChecklist password="১২" audience="family" />, { locale: 'en' });
     expect(await screen.findByText('1 of 2 rules met')).toBeTruthy();
+  });
+
+  it('forces server-rejected rules to not met, even when the client thinks they pass', async () => {
+    renderWithProviders(<PasswordChecklist password="Strong-pass1" failed={['special']} />, {
+      locale: 'en',
+    });
+    expect(await screen.findByText('4 of 5 rules met')).toBeTruthy();
+  });
+
+  it('reads failed rules from a PASSWORD_TOO_WEAK ApiError only', () => {
+    const weak = new ApiError({
+      statusCode: 400,
+      message: 'weak',
+      details: { code: 'PASSWORD_TOO_WEAK', failed: ['upper'] },
+    } as never);
+    expect(weakPasswordRules(weak)).toEqual(['upper']);
+    expect(weakPasswordRules(new Error('x'))).toBeUndefined();
   });
 
   it('has no accessibility violations', async () => {

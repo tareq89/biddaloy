@@ -7,7 +7,12 @@
  * `/forgot-password`'s OTP step exists to do.
  */
 import { ApiError, RateLimitedError } from '@biddaloy/ui/api';
-import { RouteStatusState, SetPasswordForm, type SignInFormError } from '@biddaloy/ui/components';
+import {
+  RouteStatusState,
+  SetPasswordForm,
+  type SignInFormError,
+  weakPasswordRules,
+} from '@biddaloy/ui/components';
 import { resetPassword } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -122,6 +127,10 @@ function ResetPasswordPage() {
         onSubmit={(password) => mutation.mutate(password)}
         loading={mutation.isPending}
         error={buildResetError(mutation.error, t)}
+        // Anonymous here, so the audience is unknown: staff rules are the
+        // stricter set, the server still accepts them (W5 #1632 refines this).
+        audience="staff"
+        failedRules={weakPasswordRules(mutation.error)}
         submitLabel={t('setPassword.submit')}
       />
     </AuthScreen>

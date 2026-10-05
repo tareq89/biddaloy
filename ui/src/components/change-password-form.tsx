@@ -14,7 +14,7 @@
  * offers to save/suggest a strong replacement here, not anything this form
  * renders itself.
  */
-import { checkPassword, type PasswordAudience } from '@biddaloy/shared';
+import { checkPassword, type PasswordAudience, type PasswordRuleId } from '@biddaloy/shared';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
@@ -49,6 +49,8 @@ export interface ChangePasswordFormProps {
   serverError?: ChangePasswordFormServerError | null;
   /** Which rules apply; must match what the server enforces for this user. */
   audience?: PasswordAudience;
+  /** Server-rejected rules for the last submitted password (`weakPasswordRules`). */
+  failedRules?: PasswordRuleId[] | undefined;
 }
 
 export function ChangePasswordForm({
@@ -56,6 +58,7 @@ export function ChangePasswordForm({
   submitting = false,
   serverError = null,
   audience = 'staff',
+  failedRules,
 }: ChangePasswordFormProps) {
   const { t } = useTranslation('portal');
   const { t: tAuth } = useTranslation('auth');
@@ -105,7 +108,10 @@ export function ChangePasswordForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- see profile-form.tsx's identical comment
   }, [serverError]);
 
+  const submitted = React.useRef('');
+
   function handleValidSubmit(values: ChangePasswordFormValues): void {
+    submitted.current = values.new_password;
     onSubmit({ current_password: values.current_password, new_password: values.new_password });
   }
 
@@ -164,7 +170,11 @@ export function ChangePasswordForm({
                     disabled={submitting}
                   />
                 </FormControl>
-                <FormPasswordChecklist password={field.value} audience={audience} />
+                <FormPasswordChecklist
+                  password={field.value}
+                  audience={audience}
+                  failed={field.value === submitted.current ? failedRules : undefined}
+                />
                 <FormMessage />
               </FormItem>
             )}
