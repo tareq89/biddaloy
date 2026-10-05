@@ -66,8 +66,11 @@ import { StaffAttendanceSession } from '../modules/staff-attendance/entities/sta
 import { StaffAttendanceRecord } from '../modules/staff-attendance/entities/staff-attendance-record.entity';
 import { LeavePolicy } from '../modules/leave/entities/leave-policy.entity';
 import { LeaveRecord } from '../modules/leave/entities/leave-record.entity';
+import { localToday } from '../modules/attendance/attendance-policy.util';
+import { resolveTenantSettings } from '../modules/schools/settings/tenant-settings-resolver';
 import {
   DEMO_ACADEMIC_YEAR,
+  ensureAttendanceOpsSeed,
   ensureAttendanceSeed,
   ensureCalendarDemoSeed,
   ensureDemoStudents,
@@ -513,6 +516,42 @@ export async function seedAccounts(
             requestedByUserId: teacherTestUser.id,
           },
         );
+
+        // [41.2.c]: the attendance-ops demo — recent registers for A and B,
+        // today's pending states, a few period registers. After the
+        // routine (its weekly slot drives the period registers) and the
+        // MATH subject `ensureAttendanceSeed` created.
+        const opsMath = await repos.subjectRepository.findOne({
+          where: { tenant_id: school.id, code: 'MATH' },
+        });
+        const studentsB = await repos.studentRepository.find({
+          where: { class_section_id: sectionB.id, tenant_id: school.id },
+          order: { roll_number: 'ASC' },
+        });
+        if (opsMath && studentsB.length > 0) {
+          await ensureAttendanceOpsSeed(
+            {
+              teacherRepository: repos.teacherRepository,
+              teacherClassSectionRepository: repos.teacherClassSectionRepository,
+              routineSlotRepository: repos.routineSlotRepository,
+              periodSlotRepository: repos.periodSlotRepository,
+              attendanceSessionRepository: repos.attendanceSessionRepository,
+              attendanceRecordRepository: repos.attendanceRecordRepository,
+            },
+            {
+              schoolId: school.id,
+              today: localToday(
+                resolveTenantSettings(school.settings ?? null).region?.timezone ?? 'Asia/Dhaka',
+              ),
+              sections: [
+                { id: attendanceSection.id, studentIds: attendanceStudents.map((s) => s.id) },
+                { id: sectionB.id, studentIds: studentsB.map((s) => s.id) },
+              ],
+              teacherUserId: teacherTestUser.id,
+              subjectId: opsMath.id,
+            },
+          );
+        }
       }
     }
 

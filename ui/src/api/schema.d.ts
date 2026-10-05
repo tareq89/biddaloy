@@ -2979,6 +2979,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/attendance/sections/{sectionId}/periods": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A section's scheduled periods for one date, with each period's register state. `[]` when period attendance is off or no routine is published. A substitute teacher sees only the period they cover. */
+        get: operations["AttendanceController_listPeriods_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/attendance/sections/{sectionId}/register-matrix": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One month's whole register for a section, as a date x student matrix — the printable paper-register replacement ([9.10] owns rendering). */
+        get: operations["AttendanceSummaryController_getSectionRegisterMatrix_v1"];
+        /** Saves many days of one section's whole-day register in one transaction. All-or-nothing: a locked date (422), a stale day (409) or a closed day (403) rejects the whole request. */
+        put: operations["AttendanceController_putRegisterMatrix_v1"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/attendance/sections/{sectionId}/register/finalize": {
         parameters: {
             query?: never;
@@ -3081,15 +3116,15 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/attendance/sections/{sectionId}/register-matrix": {
+    "/api/v1/attendance/sections/{sectionId}/subject-summary": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** One month's whole register for a section, as a date x student matrix — the printable paper-register replacement ([9.10] owns rendering). */
-        get: operations["AttendanceSummaryController_getSectionRegisterMatrix_v1"];
+        /** Per student and subject: period classes held and attended over a range. 403 ATTENDANCE_PERIOD_DISABLED when period attendance is off. */
+        get: operations["AttendanceSummaryController_getSectionSubjectSummary_v1"];
         put?: never;
         post?: never;
         delete?: never;
@@ -9262,8 +9297,11 @@ export interface components {
         MySectionDto: {
             section_id: string;
             section_name: string;
+            class_id: string;
             class_name: string;
             student_count: number;
+            class_teacher_name: string | null;
+            is_working_day: boolean;
             today: components["schemas"]["MySectionTodayDto"] | null;
         };
         RegisterSectionDto: {
@@ -9299,6 +9337,8 @@ export interface components {
             /** @enum {string|null} */
             source: "TEACHER" | "DEVICE" | "IMPORT" | "SYSTEM" | null;
             correction_count: number;
+            /** @enum {string|null} */
+            suggested_status: "PRESENT" | "ABSENT" | "LATE" | "LEAVE" | null;
         };
         RegisterResponseDto: {
             section: components["schemas"]["RegisterSectionDto"];
@@ -9308,6 +9348,17 @@ export interface components {
             non_working_day: boolean;
             policy: components["schemas"]["RegisterPolicyDto"];
             students: components["schemas"]["RegisterStudentDto"][];
+        };
+        PeriodDto: {
+            period_no: number;
+            name: string | null;
+            starts_at: string;
+            ends_at: string;
+            subject_id: string;
+            subject_name: string | null;
+            teacher_names: string[];
+            /** @enum {string|null} */
+            state: "DRAFT" | "FINALIZED" | null;
         };
         RegisterEntryDto: {
             /** Format: uuid */
@@ -9327,6 +9378,29 @@ export interface components {
             reason?: string;
             force_non_working_day?: boolean;
             entries: components["schemas"]["RegisterEntryDto"][];
+        };
+        MatrixEntryDto: {
+            /** Format: uuid */
+            student_id: string;
+            /** @enum {string} */
+            status: "PRESENT" | "ABSENT" | "LATE" | "LEAVE";
+        };
+        MatrixDayDto: {
+            date: string;
+            base_version: number | null;
+            entries: components["schemas"]["MatrixEntryDto"][];
+        };
+        PutRegisterMatrixDto: {
+            /** Format: uuid */
+            client_request_id: string;
+            reason?: string;
+            days: components["schemas"]["MatrixDayDto"][];
+        };
+        MatrixSaveResponseDto: {
+            saved_dates: string[];
+            versions: {
+                [key: string]: number;
+            };
         };
         FinalizeRegisterDto: {
             date: string;
@@ -9389,7 +9463,35 @@ export interface components {
         };
         RegisterMatrixDto: {
             dates: components["schemas"]["RegisterMatrixDateDto"][];
+            versions: {
+                [key: string]: number;
+            };
             rows: components["schemas"]["RegisterMatrixRowDto"][];
+        };
+        SubjectSummarySubjectDto: {
+            subject_id: string;
+            name: string;
+            held: number;
+        };
+        SubjectCountsDto: {
+            present: number;
+            late: number;
+            absent: number;
+            leave: number;
+            attended: number;
+            percentage: number | null;
+        };
+        SubjectSummaryRowDto: {
+            student_id: string;
+            roll_number: number;
+            full_name: string;
+            by_subject: {
+                [key: string]: components["schemas"]["SubjectCountsDto"];
+            };
+        };
+        SubjectSummaryDto: {
+            subjects: components["schemas"]["SubjectSummarySubjectDto"][];
+            rows: components["schemas"]["SubjectSummaryRowDto"][];
         };
         AttendanceStreakDto: {
             student_id: string;
@@ -19606,6 +19708,113 @@ export interface operations {
             };
         };
     };
+    AttendanceController_listPeriods_v1: {
+        parameters: {
+            query: {
+                date: string;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                sectionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PeriodDto"][];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AttendanceSummaryController_getSectionRegisterMatrix_v1: {
+        parameters: {
+            query: {
+                month: string;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                sectionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegisterMatrixDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AttendanceController_putRegisterMatrix_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                sectionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PutRegisterMatrixDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MatrixSaveResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     AttendanceController_finalize_v1: {
         parameters: {
             query?: never;
@@ -19828,10 +20037,11 @@ export interface operations {
             };
         };
     };
-    AttendanceSummaryController_getSectionRegisterMatrix_v1: {
+    AttendanceSummaryController_getSectionSubjectSummary_v1: {
         parameters: {
             query: {
-                month: string;
+                from: string;
+                to: string;
             };
             header: {
                 /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
@@ -19851,7 +20061,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["RegisterMatrixDto"];
+                    "application/json": components["schemas"]["SubjectSummaryDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
