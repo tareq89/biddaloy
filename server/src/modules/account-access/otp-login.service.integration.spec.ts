@@ -370,6 +370,49 @@ describe('OtpLoginService (integration)', () => {
       });
     });
 
+    // No account enumeration: wrong codes must get the same answers whether or
+    // not the identifier belongs to an account. Before the fix, a known one
+    // hit 429 on the 5th try while an unknown one stayed at 401 for ever.
+    it('6 wrong codes get the same answers for a known and an unknown identifier', async () => {
+      await createMember({ email: 'known@example.com' });
+      // The known account really holds a code; the unknown one gets nothing.
+      expect((await service.request('known@example.com', context)).debug?.otp).toMatch(/^\d{6}$/);
+      expect((await service.request('nobody@example.com', context)).debug).toBeUndefined();
+
+      const statuses = async (identifier: string) => {
+        const out: number[] = [];
+        for (let i = 0; i < 6; i++) {
+          out.push(
+            await service.verify(identifier, '000000', context).then(
+              () => 200,
+              (e: { getStatus(): number }) => e.getStatus(),
+            ),
+          );
+        }
+        return out;
+      };
+
+      const known = await statuses('known@example.com');
+      expect(known).toEqual([401, 401, 401, 401, 429, 429]);
+      expect(await statuses('nobody@example.com')).toEqual(known);
+    });
+
+    it('a new code does not reset the wrong-code count (same for unknown identifiers)', async () => {
+      await createMember({ email: 'reset@example.com' });
+      for (let i = 0; i < 3; i++) {
+        await expect(service.verify('reset@example.com', '000000', context)).rejects.toBeInstanceOf(
+          UnauthorizedException,
+        );
+      }
+      await service.request('reset@example.com', context);
+      await expect(service.verify('reset@example.com', '000000', context)).rejects.toBeInstanceOf(
+        UnauthorizedException,
+      );
+      await expect(service.verify('reset@example.com', '000000', context)).rejects.toMatchObject({
+        status: 429,
+      });
+    });
+
     it('a phone outside the allowed prefixes gets the code by email; with no email nothing is sent', async () => {
       await createMember({ phone: '+14155550100', email: 'abroad@example.com' });
       await createMember({ phone: '+14155550101' });

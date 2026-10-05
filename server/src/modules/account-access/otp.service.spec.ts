@@ -12,7 +12,7 @@ import { OtpService, TooManyRequestsException } from './otp.service';
  * single `EVAL` rather than separate get/set/del calls, so a fake that
  * only stubbed those individually could no longer exercise the real
  * request()/verify() code path. Dispatches on `numkeys` (2 = the request
- * script, 3 = the verify script) since both are passed as raw strings.
+ * script, 4 = the verify script) since both are passed as raw strings.
  */
 function fakeRedis() {
   const store = new Map<string, string>();
@@ -43,25 +43,25 @@ function fakeRedis() {
         return 1;
       }
 
-      const [otpKey, cooldownKey, lockKey] = keys;
+      const [otpKey, cooldownKey, lockKey, attemptsKey] = keys;
       const [hash, maxAttempts] = args;
       if (store.has(lockKey)) return 'locked';
       const raw = store.get(otpKey);
-      if (!raw) return 'expired';
-      const record = JSON.parse(raw) as { hash: string; attempts: number };
-      if (record.hash === hash) {
+      if (raw && (JSON.parse(raw) as { hash: string }).hash === hash) {
         store.delete(otpKey);
         store.delete(cooldownKey);
+        store.delete(attemptsKey);
         return 'ok';
       }
-      const attempts = record.attempts + 1;
+      const attempts = Number(store.get(attemptsKey) ?? 0) + 1;
+      store.set(attemptsKey, String(attempts));
       if (attempts >= Number(maxAttempts)) {
         store.set(lockKey, '1');
         store.delete(otpKey);
+        store.delete(attemptsKey);
         return 'locked';
       }
-      store.set(otpKey, JSON.stringify({ hash: record.hash, attempts }));
-      return 'invalid';
+      return raw ? 'invalid' : 'expired';
     }),
   };
 }
@@ -116,6 +116,13 @@ describe('OtpService', () => {
     expect(await service.verify('LOGIN', 'user@test.com', wrong)).toBe('locked');
     // Even the correct code is rejected once locked.
     expect(await service.verify('LOGIN', 'user@test.com', code)).toBe('locked');
+  });
+
+  it('locks an identifier that never had a code after the same 5 tries', async () => {
+    for (let i = 0; i < 4; i++) {
+      expect(await service.verify('LOGIN', 'nobody@test.com', '000000')).toBe('expired');
+    }
+    expect(await service.verify('LOGIN', 'nobody@test.com', '000000')).toBe('locked');
   });
 
   it('rejects a second request within the cooldown window with 429', async () => {
