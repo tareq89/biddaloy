@@ -1,6 +1,6 @@
 import type { PublicHolidaySet } from '@biddaloy/ui/hooks';
 import { cleanupTestState, renderWithProviders } from '@biddaloy/ui/test';
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { HolidaySetEditor, type HolidaySetEditorProps } from './-holiday-set-editor';
@@ -35,12 +35,6 @@ function baseProps(overrides: Partial<HolidaySetEditorProps> = {}): HolidaySetEd
     isSaving: false,
     saveError: null,
     saveSucceeded: false,
-    onPublish: vi.fn(),
-    onUnpublish: vi.fn(),
-    isPublishing: false,
-    isUnpublishing: false,
-    publishError: null,
-    unpublishError: null,
     ...overrides,
   };
 }
@@ -56,84 +50,68 @@ describe('HolidaySetEditor', () => {
     const { user } = renderEditor();
 
     await screen.findByDisplayValue('International Mother Language Day');
-    expect(screen.getAllByLabelText('Name')).toHaveLength(1);
+    expect(screen.getAllByLabelText('Name (English)')).toHaveLength(1);
 
     await user.click(screen.getByRole('button', { name: 'Add holiday' }));
 
-    expect(screen.getAllByLabelText('Name')).toHaveLength(2);
+    expect(screen.getAllByLabelText('Name (English)')).toHaveLength(2);
   });
 
-  it('removes a row when its "Remove" button is clicked', async () => {
+  it('removes a row when its named remove button is clicked', async () => {
     const { user } = renderEditor();
 
     await screen.findByDisplayValue('International Mother Language Day');
-    await user.click(screen.getByRole('button', { name: 'Remove' }));
+    await user.click(
+      screen.getByRole('button', { name: 'Remove International Mother Language Day' }),
+    );
 
     expect(screen.queryByDisplayValue('International Mother Language Day')).toBeNull();
   });
 
-  it('shows the empty message once every row is removed', async () => {
+  it('shows the empty state once every row is removed', async () => {
     const { user } = renderEditor();
 
     await screen.findByDisplayValue('International Mother Language Day');
-    await user.click(screen.getByRole('button', { name: 'Remove' }));
+    await user.click(
+      screen.getByRole('button', { name: 'Remove International Mother Language Day' }),
+    );
 
-    expect(await screen.findByText('No entries yet — add one below.')).toBeTruthy();
+    expect(await screen.findByText('This list has no holidays')).toBeTruthy();
   });
 
-  it('shows a save error message', async () => {
+  it('shows a translated save error, never the raw message', async () => {
     renderEditor({ saveError: new Error('boom') });
     expect(await screen.findByText('Could not save these entries.')).toBeTruthy();
+    expect(screen.queryByText('boom')).toBeNull();
   });
 
-  it('shows publish and unpublish error messages', async () => {
-    renderEditor({ publishError: new Error('boom'), unpublishError: new Error('boom') });
-    expect(await screen.findByText('Could not publish this set.')).toBeTruthy();
-    expect(await screen.findByText('Could not unpublish this set.')).toBeTruthy();
-  });
-
-  it('opens the publish dialog, and confirming it calls onPublish', async () => {
-    const { user, props } = renderEditor();
-
-    await user.click(screen.getByRole('button', { name: 'Publish' }));
-
-    const dialog = await screen.findByRole('dialog');
-    await user.click(within(dialog).getByRole('button', { name: 'Publish' }));
-
-    expect(props.onPublish).toHaveBeenCalled();
-    expect(screen.queryByRole('dialog')).toBeNull();
-  });
-
-  it('opens the publish dialog, and cancelling it does not call onPublish', async () => {
-    const { user, props } = renderEditor();
-
-    await user.click(screen.getByRole('button', { name: 'Publish' }));
-    const dialog = await screen.findByRole('dialog');
-    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
-
-    expect(props.onPublish).not.toHaveBeenCalled();
-    expect(screen.queryByRole('dialog')).toBeNull();
-  });
-
-  it('opens the unpublish dialog, and confirming it calls onUnpublish', async () => {
-    const { user, props } = renderEditor({
-      set: { ...BASE_SET, published_at: '2026-01-05T00:00:00.000Z' },
-    });
-
-    await user.click(screen.getByRole('button', { name: 'Unpublish' }));
-    const dialog = await screen.findByRole('dialog');
-    await user.click(within(dialog).getByRole('button', { name: 'Unpublish' }));
-
-    expect(props.onUnpublish).toHaveBeenCalled();
-  });
-
-  it('disables the publish toggle while there are unsaved changes, with a hint', async () => {
+  it('Save is disabled when clean and the unsaved notice appears only when dirty', async () => {
     const { user } = renderEditor();
+
+    await screen.findByDisplayValue('International Mother Language Day');
+    const save = screen.getByRole('button', { name: 'Save' });
+    expect(save.hasAttribute('disabled')).toBe(true);
+    expect(screen.queryByText('You have unsaved changes')).toBeNull();
 
     await user.click(screen.getByRole('button', { name: 'Add holiday' }));
 
-    const toggle = screen.getByRole('button', { name: 'Publish' });
-    expect(toggle.hasAttribute('disabled')).toBe(true);
-    expect(toggle.getAttribute('title')).toBe('Save your changes before publishing.');
+    expect(screen.getByText('You have unsaved changes')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Save' }).hasAttribute('disabled')).toBe(false);
+  });
+
+  it('picking a date through DatePicker saves an ISO string', async () => {
+    const { user, props } = renderEditor();
+
+    await screen.findByDisplayValue('International Mother Language Day');
+    await user.click(screen.getByRole('button', { name: 'Start date' }));
+    await screen.findByRole('grid', { name: 'Calendar' });
+    await user.click(document.querySelector<HTMLElement>('[data-date="2026-02-23"]')!);
+    await waitFor(() => expect(screen.queryByRole('grid', { name: 'Calendar' })).toBeNull());
+
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    expect(props.onSave).toHaveBeenCalledWith([
+      expect.objectContaining({ date: '2026-02-23', end_date: '2026-02-21' }),
+    ]);
   });
 });
