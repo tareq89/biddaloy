@@ -298,4 +298,41 @@ describe('/attendance/reports', () => {
       within(dialog).getByText('This message will be sent to the guardians of 1 selected student.'),
     ).toBeTruthy();
   });
+
+  it('shows the load error, not the empty state, when the flags request fails', async () => {
+    server.use(
+      http.get('/api/v1/attendance/flags/low', () =>
+        HttpResponse.json({ statusCode: 500, message: 'boom' }, { status: 500 }),
+      ),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/attendance/reports?view=flags'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    expect(await screen.findByText('Could not load the attendance report.')).toBeTruthy();
+    expect(screen.queryByText('Nobody is below the minimum this month')).toBeNull();
+  });
+
+  it('shows the bare roll number in the table cell, "Roll N" only for the card', async () => {
+    server.use(
+      http.get('/api/v1/attendance/sections/:sectionId/register-matrix', () =>
+        HttpResponse.json({ dates: [], rows: [registerMatrixRow()] }),
+      ),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/attendance/reports?section_id=section-1'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const row = (await screen.findByText('Karim Rahman')).closest('tr') as HTMLElement;
+    const cells = within(row).getAllByRole('cell');
+    expect(cells.some((c) => c.querySelector('.md\\:inline')?.textContent === '3')).toBe(true);
+  });
 });
