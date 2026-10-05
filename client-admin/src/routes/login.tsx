@@ -1,5 +1,6 @@
 import { ApiError, NoMembershipsError, RateLimitedError } from '@biddaloy/ui/api';
 import {
+  AuthLayout,
   OtpSignInForm,
   SignInForm,
   Tabs,
@@ -16,8 +17,6 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import type { TFunction } from 'i18next';
 import { z } from 'zod';
-
-import { AuthScreen } from './-auth-screen';
 
 /**
  * The protected-route guard (`__root.tsx`'s `beforeLoad`) redirects every
@@ -144,9 +143,9 @@ function LoginPage() {
   });
 
   return (
-    <AuthScreen>
+    <AuthLayout>
       <Tabs defaultValue={search.method ?? 'password'}>
-        <TabsList className="w-full">
+        <TabsList className="mb-5 w-full">
           <TabsTrigger value="password" className="flex-1">
             {t('tabs.password')}
           </TabsTrigger>
@@ -162,7 +161,7 @@ function LoginPage() {
             secondaryAction={
               <Link
                 to="/forgot-password"
-                className="relative inline-block text-primary underline after:absolute after:-inset-3.5 after:content-['']"
+                className="flex h-11 w-full items-center justify-center rounded-md px-3 text-body-lg font-medium text-primary hover:bg-muted"
               >
                 {t('forgot.link')}
               </Link>
@@ -178,6 +177,6 @@ function LoginPage() {
           />
         </TabsContent>
       </Tabs>
-    </AuthScreen>
+    </AuthLayout>
   );
 }

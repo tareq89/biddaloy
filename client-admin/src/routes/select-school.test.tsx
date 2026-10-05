@@ -76,4 +76,19 @@ describe('/select-school', () => {
 
     await waitFor(() => expect(router.state.location.pathname).toBe('/login'));
   });
+
+  it('"Sign in with another account" signs out and lands on /login', async () => {
+    const user = userEvent.setup();
+    server.use(authHandlers.logout);
+    const { router } = renderWithRouter(routeTree, {
+      initialEntries: ['/select-school'],
+      accessToken: fakeJwtWithMemberships(twoSchools),
+      locale: 'en',
+    });
+    await screen.findByRole('heading', { name: 'Choose a school' });
+
+    await user.click(screen.getByRole('button', { name: 'Sign in with another account' }));
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/login'));
+  });
 });
