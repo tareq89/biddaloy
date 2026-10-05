@@ -121,15 +121,11 @@ export function SchoolSettingsPage({ backupJobId }: SchoolSettingsPageProps = {}
             <SchoolProfileSection />
             {loaded && (
               <>
-                <div id="organisation-section">
-                  <OrganisationSection
-                    schoolId={loaded.schoolId}
-                    organisation={loaded.data.organisation}
-                  />
-                </div>
-                <div id="regional-section">
-                  <RegionalSection schoolId={loaded.schoolId} region={loaded.data.region} />
-                </div>
+                <OrganisationSection
+                  schoolId={loaded.schoolId}
+                  organisation={loaded.data.organisation}
+                />
+                <RegionalSection schoolId={loaded.schoolId} region={loaded.data.region} />
                 <CalendarSection schoolId={loaded.schoolId} region={loaded.data.region} />
               </>
             )}
