@@ -108,10 +108,7 @@ export function MilestoneEditor({ programId, milestones, canManage }: MilestoneE
   const pendingRemove = ordered.find((m) => m.id === pendingRemoveId);
 
   const mutationFailed =
-    addMilestone.isError ||
-    updateMilestone.isError ||
-    removeMilestone.isError ||
-    reorderMilestones.isError;
+    addMilestone.isError || updateMilestone.isError || reorderMilestones.isError;
 
   return (
     <div className="overflow-hidden rounded-lg border border-border-subtle bg-surface shadow-e1">
@@ -209,7 +206,10 @@ export function MilestoneEditor({ programId, milestones, canManage }: MilestoneE
                         {
                           intent: 'delete',
                           label: t('milestones.remove'),
-                          onClick: () => setPendingRemoveId(milestone.id),
+                          onClick: () => {
+                            removeMilestone.reset();
+                            setPendingRemoveId(milestone.id);
+                          },
                         },
                       ]}
                     />
@@ -232,10 +232,14 @@ export function MilestoneEditor({ programId, milestones, canManage }: MilestoneE
         onOpenChange={(o) => !o && !removeMilestone.isPending && setPendingRemoveId(null)}
         tone="danger"
         title={t('milestones.removeTitle')}
-        description={t('milestones.removeConfirm', {
-          count: pendingRemove?.achievement_count ?? 0,
-          n: formatNumber(pendingRemove?.achievement_count ?? 0, regionConfig),
-        })}
+        description={
+          removeMilestone.isError
+            ? t('milestones.errorMessage')
+            : t('milestones.removeConfirm', {
+                count: pendingRemove?.achievement_count ?? 0,
+                n: formatNumber(pendingRemove?.achievement_count ?? 0, regionConfig),
+              })
+        }
         confirmLabel={t('milestones.remove')}
         busy={removeMilestone.isPending}
         onConfirm={() => {

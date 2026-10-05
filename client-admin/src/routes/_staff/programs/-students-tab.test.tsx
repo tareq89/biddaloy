@@ -178,6 +178,20 @@ describe('StudentsTab', () => {
     expect(screen.queryByRole('button', { name: 'Mark complete' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Withdraw' })).toBeNull();
     // Record stays available to a PROGRAM_RECORD-only viewer.
-    expect(screen.getByRole('button', { name: 'Record achievement for Anika Rahman' })).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: 'Record achievement for Anika Rahman' }),
+    ).toBeTruthy();
+  });
+
+  it('offers no Record action on a non-active row', async () => {
+    const user = userEvent.setup();
+    await renderTab(vi.fn(), true, { ...ENROLLMENTS[0]!, status: 'WITHDRAWN' });
+    await screen.findByText('Anika Rahman');
+    await user.click(screen.getByLabelText('Status'));
+    await user.click(await screen.findByRole('option', { name: 'Withdrawn' }));
+    expect(await screen.findByRole('button', { name: 'Reactivate' })).toBeTruthy();
+    expect(
+      screen.queryByRole('button', { name: 'Record achievement for Anika Rahman' }),
+    ).toBeNull();
   });
 });
