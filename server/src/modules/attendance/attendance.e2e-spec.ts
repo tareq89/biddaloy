@@ -7,6 +7,8 @@ import { DataSource } from 'typeorm';
 import { AppModule } from '../../app.module';
 import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { buildValidationPipeOptions } from '../../validation-pipe';
+import { configureBodyParser } from '../../body-parser';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { UserRole } from '@biddaloy/shared';
 import {
   SEED_TENANT_ID,
@@ -51,7 +53,8 @@ describe('Attendance E2E', () => {
       imports: [AppModule],
     }).compile();
 
-    app = moduleFixture.createNestApplication();
+    app = moduleFixture.createNestApplication<NestExpressApplication>();
+    configureBodyParser(app as NestExpressApplication);
     configureApiVersioning(app);
     app.useGlobalPipes(new ValidationPipe(buildValidationPipeOptions()));
     await app.init();
@@ -256,6 +259,45 @@ describe('Attendance E2E', () => {
         days: [{ date: todayIso(), base_version: null, entries: [] }],
       }).expect(403);
     });
+
+    it('rejects base_version 0 with 400 (a saved register starts at version 1)', async () => {
+      await putMatrix(MAPPED_SECTION_ID, {
+        client_request_id: randomUUID(),
+        days: [
+          {
+            date: todayIso(),
+            base_version: 0,
+            entries: [{ student_id: studentId, status: 'PRESENT' }],
+          },
+        ],
+      }).expect(400);
+    });
+
+    // Express's default 100 kB JSON limit would 413 this; see body-parser.ts.
+    it('saves a full month for 60 students (well over 100 kB) with 200', async () => {
+      await dataSource.query(
+        `INSERT INTO students (id, full_name, registration_number, roll_number, class_section_id, tenant_id, enrollment_status, created_at, updated_at)
+         SELECT gen_random_uuid(), 'Bulk ' || n, 'E2E-BULK-' || n, n + 1, $1, $2, 'ACTIVE', NOW(), NOW()
+         FROM generate_series(1, 59) AS n`,
+        [MAPPED_SECTION_ID, TENANT_ID],
+      );
+      const rows: Array<{ id: string }> = await dataSource.query(
+        `SELECT id FROM students WHERE class_section_id = $1 AND tenant_id = $2`,
+        [MAPPED_SECTION_ID, TENANT_ID],
+      );
+      expect(rows).toHaveLength(60);
+      // 26 days of a fixed past month, all school days (weeklyOffDays: []).
+      const days = Array.from({ length: 26 }, (_, i) => ({
+        date: `2026-03-${String(i + 1).padStart(2, '0')}`,
+        base_version: null,
+        entries: rows.map((r) => ({ student_id: r.id, status: 'PRESENT' })),
+      }));
+      const body = { client_request_id: randomUUID(), days };
+      expect(JSON.stringify(body).length).toBeGreaterThan(100 * 1024);
+
+      const res = await putMatrix(MAPPED_SECTION_ID, body).expect(200);
+      expect(res.body.saved_dates).toHaveLength(26);
+    }, 120000);
   });
 
   describe('GET /attendance/sections/:sectionId/periods', () => {

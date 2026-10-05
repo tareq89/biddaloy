@@ -12,6 +12,7 @@ import helmet from 'helmet';
 import { buildCorsOptions } from './cors-origins';
 import { buildHelmetOptions } from './security-headers';
 import { buildValidationPipeOptions } from './validation-pipe';
+import { configureBodyParser } from './body-parser';
 import { buildVersioningOptions } from './api-versioning';
 import { buildSwaggerDocumentConfig, shouldMountDocs, DOCS_PATH } from './swagger';
 import { buildDocsBasicAuthMiddleware, buildDocsCspOverrideMiddleware } from './docs-auth';
@@ -33,6 +34,7 @@ async function bootstrap() {
   // this call is lost to the default console logger.
   app.useLogger(app.get(PinoLogger));
   const logger = new Logger('Bootstrap');
+  configureBodyParser(app);
 
   // Trust exactly one hop (the nginx container in front of this app — see
   // docker-compose.yml) so req.ip/req.protocol reflect the real client
