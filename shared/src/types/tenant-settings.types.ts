@@ -108,6 +108,11 @@ export interface AttendancePolicySettings {
    * enforces this). */
   allowFutureDates: boolean;
   autoAbsentNotification: { enabled: boolean; cutoffTime: string };
+  /** Per-shift override of `lateAfter`/`absentAfter` (local 'HH:mm'). A
+   * class whose shift has no entry uses the tenant pair above. */
+  shiftTimes?: Array<{ shiftId: string; lateAfter: string; absentAfter: string }>;
+  /** Period-by-period attendance on top of the daily register. */
+  periodAttendance?: { enabled: boolean };
 }
 
 /**
