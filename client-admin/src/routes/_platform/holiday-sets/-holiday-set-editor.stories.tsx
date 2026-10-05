@@ -53,12 +53,6 @@ export const Populated: Story = {
     isSaving: false,
     saveError: null,
     saveSucceeded: false,
-    onPublish: noop,
-    onUnpublish: noop,
-    isPublishing: false,
-    isUnpublishing: false,
-    publishError: null,
-    unpublishError: null,
   },
 };
 
@@ -66,13 +60,6 @@ export const Empty: Story = {
   args: {
     ...Populated.args,
     set: { ...BASE_SET, entries: [] },
-  },
-};
-
-export const Published: Story = {
-  args: {
-    ...Populated.args,
-    set: { ...BASE_SET, published_at: '2026-01-05T00:00:00.000Z' },
   },
 };
 

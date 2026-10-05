@@ -1,4 +1,3 @@
-import { ApiError } from '@biddaloy/ui/api';
 import {
   Button,
   Dialog,
@@ -9,19 +8,20 @@ import {
   DialogHeader,
   DialogTitle,
   Input,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  StatusBadge,
+  type DataTableColumn,
 } from '@biddaloy/ui/components';
 import { useFetchHolidaySet, useHolidaySets, type PublicHolidaySet } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
-import { createFileRoute, Link } from '@tanstack/react-router';
+import { ListShell } from '@biddaloy/ui/shells';
+import { toLatinDigits } from '@biddaloy/ui/utils';
+import { createFileRoute } from '@tanstack/react-router';
+import { CircleAlertIcon, DownloadIcon } from 'lucide-react';
 import * as React from 'react';
 
 import { loadRouteNamespaces } from '../../../route-loaders';
+
+import { holidaySetName, SOURCE_LABEL_KEY } from './-holiday-set-name';
 
 /**
  * [17.3.5/#715] SUPER_ADMIN's platform holiday-sets list — every
@@ -30,8 +30,9 @@ import { loadRouteNamespaces } from '../../../route-loaders';
  * call `schools/index.tsx` makes for its own list — the platform runs a
  * handful of country/year combinations, not thousands.
  *
- * Row click navigates to `/holiday-sets/$setId`, where entries are
- * edited and the set is published/unpublished.
+ * [31.4.platform-3] Kit list (D16/D19): header action, translated values,
+ * edit row action to `/holiday-sets/$setId`, where entries are edited and
+ * the set is published/unpublished.
  */
 export const Route = createFileRoute('/_platform/holiday-sets/')({
   loader: () => loadRouteNamespaces('platform'),
@@ -39,94 +40,95 @@ export const Route = createFileRoute('/_platform/holiday-sets/')({
 });
 
 function HolidaySetsListPage() {
-  const { t } = useTranslation('platform');
+  const { t, i18n } = useTranslation('platform');
   const setsQuery = useHolidaySets();
   const [fetchDialogOpen, setFetchDialogOpen] = React.useState(false);
 
   const sets = setsQuery.data ?? [];
 
+  const columns: DataTableColumn<PublicHolidaySet>[] = [
+    {
+      id: 'name',
+      header: t('holidaySets.columnName'),
+      accessorFn: (row) => (
+        <span className="font-medium">{holidaySetName(row, i18n.language, t)}</span>
+      ),
+      card: 'title',
+    },
+    {
+      id: 'source',
+      header: t('holidaySets.columnSource'),
+      accessorFn: (row) => t(SOURCE_LABEL_KEY[row.source]),
+      card: 'subtitle',
+    },
+    {
+      id: 'entries',
+      header: t('holidaySets.columnEntries'),
+      // B7: GET /platform/holiday-sets omits `entries` until 31.3.7 — never crash,
+      // and never print a made-up 0.
+      accessorFn: (row) =>
+        row.entries ? t('holidaySets.entryCount', { count: row.entries.length }) : '—',
+      align: 'end',
+      card: 'subtitle',
+    },
+    {
+      id: 'status',
+      header: t('holidaySets.columnPublished'),
+      accessorFn: (row) => (
+        <StatusBadge
+          tone={row.published_at ? 'success' : 'neutral'}
+          label={t(row.published_at ? 'holidaySets.published' : 'holidaySets.draft')}
+        />
+      ),
+      card: 'badge',
+    },
+  ];
+
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-lg font-semibold">{t('holidaySets.title')}</h1>
-          <p className="text-sm text-muted-foreground">{t('holidaySets.caption')}</p>
-        </div>
-        <Button type="button" onClick={() => setFetchDialogOpen(true)}>
-          {t('holidaySets.fetchAction')}
-        </Button>
-      </div>
-
-      {setsQuery.isError && (
-        <p role="alert" className="text-sm text-destructive">
-          {t('holidaySets.errorMessage')}
-        </p>
-      )}
-
-      {!setsQuery.isError && setsQuery.isLoading && (
-        <p className="text-sm text-muted-foreground">{t('holidaySets.title')}…</p>
-      )}
-
-      {!setsQuery.isLoading && !setsQuery.isError && sets.length === 0 && (
-        <p className="text-sm text-muted-foreground">{t('holidaySets.emptyMessage')}</p>
-      )}
-
-      {sets.length > 0 && (
-        <Table aria-label={t('holidaySets.title')}>
-          <TableHeader>
-            <TableRow>
-              <TableHead>{t('holidaySets.columnCountry')}</TableHead>
-              <TableHead>{t('holidaySets.columnYear')}</TableHead>
-              <TableHead>{t('holidaySets.columnSource')}</TableHead>
-              <TableHead>{t('holidaySets.columnEntries')}</TableHead>
-              <TableHead>{t('holidaySets.columnPublished')}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {sets.map((set) => (
-              <TableRow key={set.id}>
-                <TableCell>
-                  <Link
-                    to="/holiday-sets/$setId"
-                    params={{ setId: set.id }}
-                    className="font-medium text-primary underline"
-                  >
-                    {set.country}
-                  </Link>
-                </TableCell>
-                <TableCell>{set.year}</TableCell>
-                <TableCell>{set.source}</TableCell>
-                <TableCell>{set.entries.length}</TableCell>
-                <TableCell>
-                  <PublishedPill set={set} t={t} />
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      )}
+    <>
+      <ListShell
+        title={t('holidaySets.title')}
+        subtitle={t('holidaySets.caption')}
+        actions={[
+          {
+            id: 'fetch',
+            label: t('holidaySets.fetchAction'),
+            icon: <DownloadIcon aria-hidden="true" />,
+            priority: 'primary',
+            onClick: () => setFetchDialogOpen(true),
+          },
+        ]}
+        tableId="platform-holiday-sets"
+        caption={t('holidaySets.title')}
+        columns={columns}
+        data={sets}
+        getRowId={(row) => row.id}
+        sorting={null}
+        onSortingChange={() => undefined}
+        paginated={false}
+        totalCount={sets.length}
+        loading={setsQuery.isLoading}
+        isFetching={setsQuery.isFetching}
+        {...(setsQuery.isError ? { error: t('holidaySets.errorMessage') } : {})}
+        rowActions={(row) => [
+          {
+            intent: 'edit',
+            label: t('holidaySets.editAction', { name: holidaySetName(row, i18n.language, t) }),
+            to: `/holiday-sets/${row.id}`,
+          },
+        ]}
+        emptyState={{
+          title: t('holidaySets.emptyTitle'),
+          explanation: t('holidaySets.emptyMessage'),
+          action: {
+            label: t('holidaySets.fetchAction'),
+            onClick: () => setFetchDialogOpen(true),
+          },
+        }}
+      />
 
       <FetchHolidaySetDialog open={fetchDialogOpen} onOpenChange={setFetchDialogOpen} />
-    </div>
-  );
-}
-
-/** No `StatusBadge` domain fits "published/draft" cleanly without
- * touching that shared component outside this ticket's territory — a
- * small inline pill reusing the same tone tokens/icon-plus-text
- * convention instead. */
-function PublishedPill({ set, t }: { set: PublicHolidaySet; t: (key: string) => string }) {
-  const published = set.published_at !== null;
-  return (
-    <span
-      className={
-        published
-          ? 'inline-flex items-center rounded-full bg-status-paid-bg px-2 py-0.5 text-xs font-medium text-status-paid-fg'
-          : 'inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground'
-      }
-    >
-      {published ? t('holidaySets.published') : t('holidaySets.draft')}
-    </span>
+    </>
   );
 }
 
@@ -140,13 +142,13 @@ function FetchHolidaySetDialog({
   const { t } = useTranslation('platform');
   const fetchSet = useFetchHolidaySet();
   const [country, setCountry] = React.useState('');
-  const [year, setYear] = React.useState(() => new Date().getFullYear());
+  const [year, setYear] = React.useState(() => String(new Date().getFullYear()));
   const [validationError, setValidationError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     if (!open) {
       setCountry('');
-      setYear(new Date().getFullYear());
+      setYear(String(new Date().getFullYear()));
       setValidationError(null);
       fetchSet.reset();
     }
@@ -160,65 +162,82 @@ function FetchHolidaySetDialog({
       setValidationError(t('holidaySets.fetchDialog.countryRequiredError'));
       return;
     }
+    // Bangla digits are accepted: normalised to Latin before the range check.
+    const yearNumber = Number(toLatinDigits(year.trim()));
+    if (!Number.isInteger(yearNumber) || yearNumber < 2000 || yearNumber > 2100) {
+      setValidationError(t('holidaySets.fetchDialog.yearError'));
+      return;
+    }
     setValidationError(null);
-    fetchSet.mutate({ country: normalized, year }, { onSuccess: () => onOpenChange(false) });
+    fetchSet.mutate(
+      { country: normalized, year: yearNumber },
+      { onSuccess: () => onOpenChange(false) },
+    );
   }
 
-  const serverError =
-    fetchSet.isError &&
-    (fetchSet.error instanceof ApiError
-      ? fetchSet.error.message
-      : t('holidaySets.fetchDialog.errorMessage'));
+  // Always the translated sentence — the server's message is never shown (D9).
+  const error =
+    validationError ?? (fetchSet.isError ? t('holidaySets.fetchDialog.errorMessage') : null);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+    <Dialog
+      open={open}
+      // A pending request must not be dismissed from under itself.
+      onOpenChange={(next) => {
+        if (!next && fetchSet.isPending) return;
+        onOpenChange(next);
+      }}
+    >
+      <DialogContent
+        size="sm"
+        showCloseButton={!fetchSet.isPending}
+        onInteractOutside={(event) => event.preventDefault()}
+      >
+        <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
           <DialogHeader>
             <DialogTitle>{t('holidaySets.fetchDialog.title')}</DialogTitle>
             <DialogDescription>{t('holidaySets.caption')}</DialogDescription>
           </DialogHeader>
 
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="fetch-holiday-set-country" className="text-sm font-medium">
+          <div className="grid gap-1.5">
+            <label htmlFor="fetch-holiday-set-country" className="text-label font-medium">
               {t('holidaySets.fetchDialog.countryLabel')}
             </label>
             <Input
               id="fetch-holiday-set-country"
               value={country}
               maxLength={2}
+              autoCapitalize="characters"
+              aria-describedby="fetch-holiday-set-country-help"
               onChange={(event) => setCountry(event.target.value)}
             />
+            <p id="fetch-holiday-set-country-help" className="text-caption text-text-secondary">
+              {t('holidaySets.fetchDialog.countryHelp')}
+            </p>
           </div>
 
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="fetch-holiday-set-year" className="text-sm font-medium">
+          <div className="grid gap-1.5">
+            <label htmlFor="fetch-holiday-set-year" className="text-label font-medium">
               {t('holidaySets.fetchDialog.yearLabel')}
             </label>
             <Input
               id="fetch-holiday-set-year"
-              type="number"
-              min={2000}
-              max={2100}
+              inputMode="numeric"
               value={year}
-              onChange={(event) => setYear(Number(event.target.value))}
+              onChange={(event) => setYear(event.target.value)}
             />
           </div>
 
-          {validationError && (
-            <p role="alert" className="text-sm text-destructive">
-              {validationError}
-            </p>
-          )}
-          {!validationError && serverError && (
-            <p role="alert" className="text-sm text-destructive">
-              {serverError}
+          {error && (
+            <p role="alert" className="flex items-center gap-1 text-caption text-destructive">
+              <CircleAlertIcon className="size-4 shrink-0" aria-hidden="true" />
+              {error}
             </p>
           )}
 
           <DialogFooter>
             <DialogClose asChild>
-              <Button type="button" variant="outline">
+              <Button type="button" variant="outline" disabled={fetchSet.isPending}>
                 {t('actions.cancel', { ns: 'common' })}
               </Button>
             </DialogClose>

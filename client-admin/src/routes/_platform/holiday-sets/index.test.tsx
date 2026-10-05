@@ -26,14 +26,45 @@ describe('/holiday-sets', () => {
     await cleanupTestState();
   });
 
-  it('lists the seeded holiday set with its country, year and published state', async () => {
+  it('lists the seeded set with country name, translated source and status, and an edit link', async () => {
     renderList();
 
     await screen.findByRole('heading', { name: 'Holiday sets' });
-    const link = await screen.findByRole('link', { name: 'BD' });
+    const link = await screen.findByRole('link', { name: /^Edit Bangladesh/ });
+    expect(link.getAttribute('href')).toMatch(/^\/holiday-sets\/.+/);
     const row = link.closest('tr') as HTMLElement;
-    expect(within(row).getByText('2026')).toBeTruthy();
+    expect(within(row).getByText(/^Bangladesh/)).toBeTruthy();
+    expect(within(row).getByText('Nager.Date (online list)')).toBeTruthy();
     expect(within(row).getByText('Published')).toBeTruthy();
+    // No raw ISO code or enum on screen, and a total footer instead of a pager.
+    expect(screen.queryByText('NAGER_DATE')).toBeNull();
+    expect(screen.queryByRole('link', { name: 'BD' })).toBeNull();
+    expect(screen.getByText(/^Total/)).toBeTruthy();
+  });
+
+  it('B7: a set returned without entries renders "—" and does not crash', async () => {
+    server.use(
+      http.get('/api/v1/platform/holiday-sets', () =>
+        HttpResponse.json([
+          {
+            id: 'set-b7',
+            country: 'BD',
+            year: 2026,
+            source: 'NAGER_DATE',
+            published_at: null,
+            fetched_at: '2026-01-01T00:00:00.000Z',
+            created_at: '2026-01-01T00:00:00.000Z',
+            updated_at: '2026-01-01T00:00:00.000Z',
+          },
+        ]),
+      ),
+    );
+    renderList();
+
+    const link = await screen.findByRole('link', { name: /^Edit Bangladesh/ });
+    const row = link.closest('tr') as HTMLElement;
+    expect(within(row).getByText('—')).toBeTruthy();
+    expect(within(row).getByText('Draft')).toBeTruthy();
   });
 
   it('surfaces a clear error when fetching a set fails on both sources', async () => {
@@ -56,10 +87,12 @@ describe('/holiday-sets', () => {
 
     await screen.findByRole('heading', { name: 'Holiday sets' });
     await user.click(screen.getByRole('button', { name: 'Fetch a set' }));
-    await user.type(screen.getByLabelText('Country (ISO alpha-2, e.g. BD)'), 'US');
+    await user.type(screen.getByLabelText('Country code'), 'US');
     await user.click(screen.getByRole('button', { name: 'Fetch' }));
 
-    await screen.findByText('Both holiday sources failed.');
+    // The translated sentence, never the server's own text.
+    await screen.findByText('Could not fetch this set from either source.');
+    expect(screen.queryByText('Both holiday sources failed.')).toBeNull();
   });
 
   it('rejects an invalid country code before calling the API', async () => {

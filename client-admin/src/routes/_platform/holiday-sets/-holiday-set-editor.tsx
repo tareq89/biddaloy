@@ -1,24 +1,16 @@
-import { ApiError } from '@biddaloy/ui/api';
 import {
   Button,
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
+  Card,
+  DatePicker,
+  EmptyState,
   Input,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Label,
+  TableCount,
 } from '@biddaloy/ui/components';
 import type { HolidayEntryInput, PublicHolidaySet } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
-import { Trash2 } from 'lucide-react';
+import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { parseDate, toIsoDate } from '@biddaloy/ui/utils';
+import { CircleAlertIcon, PlusIcon, SaveIcon, Trash2Icon } from 'lucide-react';
 import * as React from 'react';
 
 /**
@@ -31,6 +23,10 @@ import * as React from 'react';
  * added rows without a server `id` yet still have a stable React key —
  * `HolidayEntryInputDto.id` is optional exactly because the server only
  * sees it on entries that already existed (`public-holidays.dto.ts`).
+ *
+ * [31.4.platform-3] Publish / unpublish moved to the page header; this card
+ * is the table (desktop) or stacked entry cards (phone) plus the footer with
+ * the one filled "Save".
  */
 export interface HolidaySetEditorProps {
   set: PublicHolidaySet;
@@ -38,12 +34,6 @@ export interface HolidaySetEditorProps {
   isSaving: boolean;
   saveError: unknown;
   saveSucceeded: boolean;
-  onPublish: () => void;
-  onUnpublish: () => void;
-  isPublishing: boolean;
-  isUnpublishing: boolean;
-  publishError: unknown;
-  unpublishError: unknown;
   onDirtyChange?: (dirty: boolean) => void;
 }
 
@@ -81,25 +71,47 @@ function serialize(rows: EditableEntry[]): string {
   return JSON.stringify(toInput(rows));
 }
 
+/** `parseDate` throws on anything that is not a real `YYYY-MM-DD`; a blank
+ * (new) row or a stale value just shows the picker empty. */
+function safeParseDate(raw: string): Date | undefined {
+  if (!raw) return undefined;
+  try {
+    return parseDate(raw);
+  } catch {
+    return undefined;
+  }
+}
+
+/** Phone layout (stacked entry cards) below `md`. jsdom has no `matchMedia`,
+ * so tests get the desktop table. Only one layout is ever in the DOM. */
+function useIsPhone(): boolean {
+  const query = '(max-width: 767px)';
+  const [phone, setPhone] = React.useState(
+    () => typeof matchMedia === 'function' && matchMedia(query).matches,
+  );
+  React.useEffect(() => {
+    if (typeof matchMedia !== 'function') return;
+    const media = matchMedia(query);
+    const onChange = () => setPhone(media.matches);
+    media.addEventListener('change', onChange);
+    return () => media.removeEventListener('change', onChange);
+  }, []);
+  return phone;
+}
+
 export function HolidaySetEditor({
   set,
   onSave,
   isSaving,
   saveError,
   saveSucceeded,
-  onPublish,
-  onUnpublish,
-  isPublishing,
-  isUnpublishing,
-  publishError,
-  unpublishError,
   onDirtyChange,
 }: HolidaySetEditorProps) {
   const { t } = useTranslation('platform');
+  const config = useRegionConfig();
+  const phone = useIsPhone();
   const [rows, setRows] = React.useState<EditableEntry[]>(() => toEditable(set.entries));
   const savedSerializedRef = React.useRef(serialize(toEditable(set.entries)));
-  const [publishDialogOpen, setPublishDialogOpen] = React.useState(false);
-  const [unpublishDialogOpen, setUnpublishDialogOpen] = React.useState(false);
 
   React.useEffect(() => {
     const editable = toEditable(set.entries);
@@ -108,7 +120,6 @@ export function HolidaySetEditor({
   }, [set.id, set.entries]);
 
   const isDirty = serialize(rows) !== savedSerializedRef.current;
-  const published = set.published_at !== null;
 
   React.useEffect(() => {
     onDirtyChange?.(isDirty);
@@ -142,193 +153,202 @@ export function HolidaySetEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-sync the saved snapshot on success
   }, [saveSucceeded]);
 
+  const rowName = (row: EditableEntry) => row.name || t('holidaySets.detail.unnamed');
+
+  const dateField = (
+    row: EditableEntry,
+    field: 'date' | 'end_date',
+    label: string,
+    id?: string,
+  ) => (
+    <DatePicker
+      {...(id ? { id } : {})}
+      aria-label={label}
+      value={safeParseDate(row[field])}
+      onValueChange={(date) => updateRow(row.rowKey, { [field]: date ? toIsoDate(date) : '' })}
+      config={config}
+      min={field === 'end_date' ? safeParseDate(row.date) : undefined}
+      disabled={isSaving}
+    />
+  );
+
+  const removeButton = (row: EditableEntry, withText: boolean) => (
+    <Button
+      type="button"
+      variant="ghost"
+      className={withText ? 'h-11 text-destructive' : 'size-11 text-destructive'}
+      aria-label={t('holidaySets.detail.removeRowNamed', { name: rowName(row) })}
+      disabled={isSaving}
+      onClick={() => removeRow(row.rowKey)}
+    >
+      <Trash2Icon aria-hidden="true" />
+      {withText && t('holidaySets.detail.removeRow')}
+    </Button>
+  );
+
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="text-sm text-muted-foreground">
-          <span>
-            {t('holidaySets.detail.sourceLabel')}: {set.source}
-          </span>
-          <span className="mx-2">·</span>
-          <span>
-            {t('holidaySets.detail.fetchedAtLabel')}: {new Date(set.fetched_at).toLocaleString()}
-          </span>
-        </div>
-        <div className="flex gap-2">
-          {published ? (
-            <Button
-              type="button"
-              variant="outline"
-              disabled={isDirty || isUnpublishing}
-              title={isDirty ? t('holidaySets.detail.publishDisabledHint') : undefined}
-              onClick={() => setUnpublishDialogOpen(true)}
-            >
-              {t('holidaySets.detail.unpublishAction')}
-            </Button>
-          ) : (
-            <Button
-              type="button"
-              disabled={isDirty || isPublishing}
-              title={isDirty ? t('holidaySets.detail.publishDisabledHint') : undefined}
-              onClick={() => setPublishDialogOpen(true)}
-            >
-              {t('holidaySets.detail.publishAction')}
-            </Button>
-          )}
-        </div>
+    <Card className="overflow-hidden" aria-labelledby="holiday-entries-title">
+      <div className="p-4 md:px-5">
+        <h2 id="holiday-entries-title" className="text-h2">
+          {t('holidaySets.detail.entriesTitle')}
+        </h2>
+        <p className="mt-1 text-text-secondary">{t('holidaySets.detail.entriesHelp')}</p>
       </div>
 
-      {publishError !== undefined && publishError !== null && (
-        <p role="alert" className="text-sm text-destructive">
-          {t('holidaySets.detail.publishError')}
-        </p>
-      )}
-      {unpublishError !== undefined && unpublishError !== null && (
-        <p role="alert" className="text-sm text-destructive">
-          {t('holidaySets.detail.unpublishError')}
-        </p>
-      )}
-
       {rows.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{t('holidaySets.detail.emptyMessage')}</p>
+        <EmptyState
+          title={t('holidaySets.detail.emptyTitle')}
+          explanation={t('holidaySets.detail.emptyMessage')}
+          action={{ label: t('holidaySets.detail.addRow'), onClick: addRow }}
+        />
+      ) : phone ? (
+        <ul className="divide-y divide-border-subtle border-t border-border-subtle">
+          {rows.map((row) => (
+            <li key={row.rowKey} className="space-y-3 p-4">
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="min-w-0 truncate text-h3">{row.name_bn || rowName(row)}</h3>
+                {removeButton(row, true)}
+              </div>
+              <div className="grid gap-3">
+                <div className="grid gap-1.5">
+                  <Label htmlFor={`entry-${row.rowKey}-start`}>
+                    {t('holidaySets.detail.columnDate')}
+                  </Label>
+                  {dateField(
+                    row,
+                    'date',
+                    t('holidaySets.detail.columnDate'),
+                    `entry-${row.rowKey}-start`,
+                  )}
+                </div>
+                <div className="grid gap-1.5">
+                  <Label htmlFor={`entry-${row.rowKey}-end`}>
+                    {t('holidaySets.detail.columnEndDate')}
+                  </Label>
+                  {dateField(
+                    row,
+                    'end_date',
+                    t('holidaySets.detail.columnEndDate'),
+                    `entry-${row.rowKey}-end`,
+                  )}
+                </div>
+                <div className="grid gap-1.5">
+                  <Label htmlFor={`entry-${row.rowKey}-name`}>
+                    {t('holidaySets.detail.columnName')}
+                  </Label>
+                  <Input
+                    id={`entry-${row.rowKey}-name`}
+                    value={row.name}
+                    disabled={isSaving}
+                    onChange={(event) => updateRow(row.rowKey, { name: event.target.value })}
+                  />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label htmlFor={`entry-${row.rowKey}-nameBn`}>
+                    {t('holidaySets.detail.columnNameBn')}
+                  </Label>
+                  <Input
+                    id={`entry-${row.rowKey}-nameBn`}
+                    value={row.name_bn}
+                    placeholder={t('holidaySets.detail.optional')}
+                    disabled={isSaving}
+                    onChange={(event) => updateRow(row.rowKey, { name_bn: event.target.value })}
+                  />
+                </div>
+              </div>
+            </li>
+          ))}
+        </ul>
       ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>{t('holidaySets.detail.columnDate')}</TableHead>
-              <TableHead>{t('holidaySets.detail.columnEndDate')}</TableHead>
-              <TableHead>{t('holidaySets.detail.columnName')}</TableHead>
-              <TableHead>{t('holidaySets.detail.columnNameBn')}</TableHead>
-              <TableHead className="text-right">{t('holidaySets.detail.columnActions')}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
+        <table className="w-full text-left">
+          <thead className="border-y border-border-subtle bg-muted text-label text-text-secondary">
+            <tr>
+              <th className="h-10 px-2 ps-5 font-medium">{t('holidaySets.detail.columnDate')}</th>
+              <th className="h-10 px-2 font-medium">{t('holidaySets.detail.columnEndDate')}</th>
+              <th className="h-10 px-2 font-medium">{t('holidaySets.detail.columnName')}</th>
+              <th className="h-10 px-2 font-medium">{t('holidaySets.detail.columnNameBn')}</th>
+              <th className="h-10 px-2 pe-5 text-end font-medium">
+                {t('holidaySets.detail.columnActions')}
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border-subtle">
             {rows.map((row) => (
-              <TableRow key={row.rowKey}>
-                <TableCell>
-                  <Input
-                    type="date"
-                    aria-label={t('holidaySets.detail.columnDate')}
-                    value={row.date}
-                    disabled={isSaving}
-                    onChange={(event) => updateRow(row.rowKey, { date: event.target.value })}
-                  />
-                </TableCell>
-                <TableCell>
-                  <Input
-                    type="date"
-                    aria-label={t('holidaySets.detail.columnEndDate')}
-                    value={row.end_date}
-                    disabled={isSaving}
-                    onChange={(event) => updateRow(row.rowKey, { end_date: event.target.value })}
-                  />
-                </TableCell>
-                <TableCell>
+              <tr key={row.rowKey}>
+                <td className="h-12 px-2 py-2 ps-5">
+                  {dateField(row, 'date', t('holidaySets.detail.columnDate'))}
+                </td>
+                <td className="h-12 px-2 py-2">
+                  {dateField(row, 'end_date', t('holidaySets.detail.columnEndDate'))}
+                </td>
+                <td className="h-12 px-2 py-2">
                   <Input
                     aria-label={t('holidaySets.detail.columnName')}
                     value={row.name}
                     disabled={isSaving}
                     onChange={(event) => updateRow(row.rowKey, { name: event.target.value })}
                   />
-                </TableCell>
-                <TableCell>
+                </td>
+                <td className="h-12 px-2 py-2">
                   <Input
                     aria-label={t('holidaySets.detail.columnNameBn')}
                     value={row.name_bn}
+                    placeholder={t('holidaySets.detail.optional')}
                     disabled={isSaving}
                     onChange={(event) => updateRow(row.rowKey, { name_bn: event.target.value })}
                   />
-                </TableCell>
-                <TableCell className="text-right">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    aria-label={t('holidaySets.detail.removeRow')}
-                    disabled={isSaving}
-                    onClick={() => removeRow(row.rowKey)}
-                  >
-                    <Trash2 className="size-4" />
-                  </Button>
-                </TableCell>
-              </TableRow>
+                </td>
+                <td className="h-12 px-2 py-2 pe-5 text-end">{removeButton(row, false)}</td>
+              </tr>
             ))}
-          </TableBody>
-        </Table>
+          </tbody>
+        </table>
       )}
 
-      <div className="flex items-center justify-between">
-        <Button type="button" variant="outline" size="sm" disabled={isSaving} onClick={addRow}>
-          {t('holidaySets.detail.addRow')}
-        </Button>
-        <Button type="button" disabled={!isDirty} loading={isSaving} onClick={handleSave}>
-          {isSaving ? t('holidaySets.detail.saving') : t('holidaySets.detail.saveAction')}
-        </Button>
+      <div className="sticky bottom-16 flex flex-col gap-3 border-t border-border-subtle bg-surface p-4 md:static md:flex-row md:items-center md:justify-between md:px-5">
+        <div className="flex items-center gap-3">
+          <Button
+            type="button"
+            variant="outline"
+            className="h-11 flex-1 md:flex-none"
+            disabled={isSaving}
+            onClick={addRow}
+          >
+            <PlusIcon aria-hidden="true" />
+            {t('holidaySets.detail.addRow')}
+          </Button>
+          <TableCount total={rows.length} />
+        </div>
+        <div className="flex flex-col gap-2 md:flex-row md:items-center md:gap-3">
+          {isDirty && (
+            <p className="flex items-center gap-1 text-caption text-status-due-fg">
+              <CircleAlertIcon className="size-4 shrink-0" aria-hidden="true" />
+              {t('holidaySets.detail.unsavedNotice')}
+            </p>
+          )}
+          <Button
+            type="button"
+            className="h-11"
+            disabled={!isDirty}
+            loading={isSaving}
+            onClick={handleSave}
+          >
+            <SaveIcon aria-hidden="true" />
+            {isSaving ? t('holidaySets.detail.saving') : t('holidaySets.detail.saveAction')}
+          </Button>
+        </div>
       </div>
 
       {saveError !== undefined && saveError !== null && (
-        <p role="alert" className="text-sm text-destructive">
-          {saveError instanceof ApiError ? saveError.message : t('holidaySets.detail.saveError')}
+        <p
+          role="alert"
+          className="flex items-center gap-1 px-4 pb-4 text-caption text-destructive md:px-5"
+        >
+          <CircleAlertIcon className="size-4 shrink-0" aria-hidden="true" />
+          {t('holidaySets.detail.saveError')}
         </p>
       )}
-
-      <Dialog open={publishDialogOpen} onOpenChange={setPublishDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t('holidaySets.detail.publishDialog.title')}</DialogTitle>
-            <DialogDescription>
-              {t('holidaySets.detail.publishDialog.description')}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button type="button" variant="outline">
-                {t('actions.cancel', { ns: 'common' })}
-              </Button>
-            </DialogClose>
-            <Button
-              type="button"
-              loading={isPublishing}
-              onClick={() => {
-                onPublish();
-                setPublishDialogOpen(false);
-              }}
-            >
-              {t('holidaySets.detail.publishDialog.confirm')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={unpublishDialogOpen} onOpenChange={setUnpublishDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t('holidaySets.detail.unpublishDialog.title')}</DialogTitle>
-            <DialogDescription>
-              {t('holidaySets.detail.unpublishDialog.description')}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button type="button" variant="outline">
-                {t('actions.cancel', { ns: 'common' })}
-              </Button>
-            </DialogClose>
-            <Button
-              type="button"
-              variant="destructive"
-              loading={isUnpublishing}
-              onClick={() => {
-                onUnpublish();
-                setUnpublishDialogOpen(false);
-              }}
-            >
-              {t('holidaySets.detail.unpublishDialog.confirm')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
+    </Card>
   );
 }
 

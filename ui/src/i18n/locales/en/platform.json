@@ -167,21 +167,23 @@
     "columnCountry": "Country",
     "columnYear": "Year",
     "columnSource": "Source",
-    "columnEntries": "Entries",
-    "columnPublished": "Published",
-    "emptyMessage": "No holiday sets yet. Fetch one to get started.",
+    "columnEntries": "Holidays",
+    "columnPublished": "Status",
+    "emptyMessage": "Fetch a country's public holidays for a year and the list shows here.",
     "errorMessage": "Could not load holiday sets.",
     "published": "Published",
     "draft": "Draft",
     "fetchAction": "Fetch a set",
     "fetchDialog": {
       "title": "Fetch a holiday set",
-      "countryLabel": "Country (ISO alpha-2, e.g. BD)",
+      "countryLabel": "Country code",
       "yearLabel": "Year",
       "submitAction": "Fetch",
       "fetching": "Fetching…",
       "countryRequiredError": "Enter a 2-letter country code.",
-      "errorMessage": "Could not fetch this set from either source."
+      "errorMessage": "Could not fetch this set from either source.",
+      "countryHelp": "Two letters, e.g. Bangladesh = BD",
+      "yearError": "Enter a year between 2000 and 2100."
     },
     "detail": {
       "back": "Back to holiday sets",
@@ -190,12 +192,12 @@
       "fetchedAtLabel": "Fetched",
       "columnDate": "Start date",
       "columnEndDate": "End date",
-      "columnName": "Name",
+      "columnName": "Name (English)",
       "columnNameBn": "Name (Bengali)",
       "columnActions": "Actions",
       "addRow": "Add holiday",
       "removeRow": "Remove",
-      "emptyMessage": "No entries yet — add one below.",
+      "emptyMessage": "Add the first holiday and save.",
       "saveAction": "Save",
       "saving": "Saving…",
       "saveSuccess": "Entries saved.",
@@ -220,7 +222,27 @@
         "description": "Your entry changes haven't been saved yet.",
         "stayAction": "Keep editing",
         "leaveAction": "Leave"
-      }
-    }
+      },
+      "optional": "Optional",
+      "entriesTitle": "Holidays",
+      "entriesHelp": "For a one-day holiday the start and end are the same date. Without a Bangla name, schools see the English one.",
+      "removeRowNamed": "Remove {{name}}",
+      "unnamed": "Unnamed",
+      "emptyTitle": "This list has no holidays",
+      "unsavedNotice": "You have unsaved changes",
+      "publishSuccess": "The list is published.",
+      "unpublishSuccess": "The list is unpublished."
+    },
+    "setName": "{{country}} {{year}}",
+    "source": {
+      "NAGER_DATE": "Nager.Date (online list)",
+      "GOOGLE_ICS": "Google Calendar",
+      "MANUAL": "Entered by hand"
+    },
+    "columnName": "List",
+    "entryCount_one": "{{count}} holiday",
+    "entryCount_other": "{{count}} holidays",
+    "editAction": "Edit {{name}}",
+    "emptyTitle": "No holiday lists yet"
   }
 }
