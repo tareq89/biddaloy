@@ -25,6 +25,12 @@ import {
   BulkUploadPreviewRowDto,
 } from './dto/students.dto';
 import { AuditAction, CommunicationMedium } from '@biddaloy/shared';
+import { assertSeatsAvailable, getSeatUsage } from '../schools/trial/seat-limit.service';
+
+/** [13.2.3] Seat usage shown to the admin before they commit. `limit: null` = unlimited. */
+export type BulkUploadValidateResult = BulkUploadValidateResultDto & {
+  seats: { used: number; limit: number | null; new_rows: number };
+};
 
 /**
  * A row-scoped failure enriched with which spreadsheet column the problem
@@ -111,7 +117,7 @@ export class StudentBulkUploadService {
     file: Express.Multer.File | undefined,
     tenantId: string,
     userId: string | undefined,
-  ): Promise<BulkUploadValidateResultDto> {
+  ): Promise<BulkUploadValidateResult> {
     if (!file) {
       throw new BadRequestException('No file uploaded');
     }
@@ -160,6 +166,19 @@ export class StudentBulkUploadService {
       }
     }
 
+    // [13.2.3] Every row creates an ACTIVE student, so the file as a whole must fit the seats left.
+    // Blocking (counts as a hard error) — commit also re-checks under a lock.
+    const seatUsage = await getSeatUsage(this.classRepo.manager, tenantId);
+    if (seatUsage.limit !== null && seatUsage.used + staged.length > seatUsage.limit) {
+      errors.push({
+        row: 0,
+        tab: undefined,
+        column: null,
+        severity: 'error',
+        message: `Seat limit reached: ${seatUsage.used} of ${seatUsage.limit} seats in use, and this file adds ${staged.length}`,
+      });
+    }
+
     const stagedPayload: StagedBulkUpload = {
       filename: file.originalname,
       rows: staged,
@@ -180,6 +199,7 @@ export class StudentBulkUploadService {
       preview: preview.slice(0, 20),
       errors,
       hard_error_count: errors.length,
+      seats: { ...seatUsage, new_rows: staged.length },
     };
   }
 
@@ -209,6 +229,12 @@ export class StudentBulkUploadService {
         'This staged upload had validation errors and cannot be committed. Re-validate the file first.',
       );
     }
+
+    // [13.2.3] Refuse the whole file up front so a full school never gets a partial import. Each
+    // row's own create re-checks under the lock, which covers a concurrent create racing this one.
+    await this.classRepo.manager.transaction((m) =>
+      assertSeatsAvailable(m, tenantId, staged.rows.length),
+    );
 
     const errors: BulkUploadErrorDto[] = [];
     const createdStudentIds: string[] = [];
