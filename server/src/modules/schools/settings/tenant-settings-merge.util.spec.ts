@@ -27,10 +27,10 @@ describe('mergeTenantSettings', () => {
       },
     };
 
-    const kept = mergeTenantSettings(existing, {
-      version: 1,
-      attendance: { lateAfter: '09:30', absentAfter: '10:30' },
-    });
+    const kept = mergeTenantSettings(
+      existing,
+      toPatch({ version: 1, attendance: { lateAfter: '09:30', absentAfter: '10:30' } }),
+    );
     expect(kept.attendance).toEqual({
       lateAfter: '09:30',
       absentAfter: '10:30',
@@ -38,10 +38,13 @@ describe('mergeTenantSettings', () => {
       periodAttendance: { enabled: true },
     });
 
-    const replaced = mergeTenantSettings(existing, {
-      version: 1,
-      attendance: { shiftTimes: [{ shiftId: DAY, lateAfter: '09:15', absentAfter: '11:00' }] },
-    });
+    const replaced = mergeTenantSettings(
+      existing,
+      toPatch({
+        version: 1,
+        attendance: { shiftTimes: [{ shiftId: DAY, lateAfter: '09:15', absentAfter: '11:00' }] },
+      }),
+    );
     expect((replaced.attendance as Record<string, unknown>).shiftTimes).toEqual([
       { shiftId: DAY, lateAfter: '09:15', absentAfter: '11:00' },
     ]);

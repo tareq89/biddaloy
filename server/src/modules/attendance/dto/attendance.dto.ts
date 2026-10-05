@@ -21,6 +21,7 @@ import {
 import { AttendanceSessionState, AttendanceSource, AttendanceStatus } from '@biddaloy/shared';
 import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
 import { AuditLogListResponseDto } from '../../audit/dto/audit-log-response.dto';
+import { SMALLINT_MAX } from '../../routines/dto/setup.dto';
 
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -47,7 +48,7 @@ export class QueryRegisterDto {
   @Type(() => Number)
   @IsInt()
   @Min(0)
-  @Max(32767) // PeriodSlot.sequence is a smallint
+  @Max(SMALLINT_MAX) // PeriodSlot.sequence is a smallint
   period_no?: number;
 }
 
@@ -91,7 +92,7 @@ export class PutRegisterDto {
   @IsOptional()
   @IsInt()
   @Min(0)
-  @Max(32767) // PeriodSlot.sequence is a smallint
+  @Max(SMALLINT_MAX) // PeriodSlot.sequence is a smallint
   period_no?: number | null;
 
   /** The `session.version` this write was based on — `0` when no session
@@ -163,6 +164,13 @@ export class MatrixDayDto {
  * section's whole-day register, all-or-nothing. All days share one calendar
  * month (checked in the service). */
 export class PutRegisterMatrixDto {
+  @ApiProperty({
+    description:
+      'One replay key for the whole request. On every sent day already = replay (200, nothing ' +
+      'written). On only some = 409 ATTENDANCE_MATRIX_REQUEST_REUSED: the id was already used, ' +
+      'or some of these days changed since. Treat it like ATTENDANCE_MATRIX_CONFLICT and reload ' +
+      'the month.',
+  })
   @IsUUID()
   client_request_id: string;
 
@@ -177,9 +185,9 @@ export class PutRegisterMatrixDto {
     type: MatrixDayDto,
     isArray: true,
     description:
-      'Send only the days you changed. A FINALIZED day in the request is rejected (403 ' +
-      'ATTENDANCE_WINDOW_CLOSED) unless the caller holds ATTENDANCE_CORRECT and gives a reason, ' +
-      'even if its marks are unchanged. A new LATE mark is saved with minutes_late = null, ' +
+      'Every sent day is checked as a correction, even if its marks are unchanged. A FINALIZED ' +
+      'or out-of-window day needs ATTENDANCE_CORRECT (else 403 ATTENDANCE_WINDOW_CLOSED) and a ' +
+      'reason (else 422 ATTENDANCE_REASON_REQUIRED); send only the days you changed. A new LATE mark is saved with minutes_late = null, ' +
       'and a fine rule with a minimum-minutes condition still counts it.',
   })
   @IsArray()
@@ -202,7 +210,7 @@ export class FinalizeRegisterDto {
   @IsOptional()
   @IsInt()
   @Min(0)
-  @Max(32767) // PeriodSlot.sequence is a smallint
+  @Max(SMALLINT_MAX) // PeriodSlot.sequence is a smallint
   period_no?: number | null;
 }
 

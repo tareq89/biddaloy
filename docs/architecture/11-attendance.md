@@ -157,9 +157,11 @@ flowchart TD
     C -- yes --> E409[409 ATTENDANCE_MATRIX_CONFLICT + dates]
     C -- no --> M{A brand-new day<br/>with no marks?}
     M -- yes --> EM[422 ATTENDANCE_MATRIX_EMPTY_DAY + dates]
-    M -- no --> W{A closed day and no<br/>ATTENDANCE_CORRECT?}
+    M -- no --> W{A FINALIZED or out-of-window day<br/>and no ATTENDANCE_CORRECT?}
     W -- yes --> E403[403 ATTENDANCE_WINDOW_CLOSED + dates]
-    W -- no --> OK[Write every day, one transaction<br/>200 saved_dates + versions]
+    W -- no --> RS{A FINALIZED or out-of-window day<br/>and no reason?}
+    RS -- yes --> E422R[422 ATTENDANCE_REASON_REQUIRED + dates]
+    RS -- no --> OK[Write every day, one transaction<br/>200 saved_dates + versions]
 ```
 
 Things worth knowing:
@@ -171,13 +173,16 @@ Things worth knowing:
   least one mark, because a finalized empty day could only be fixed with
   `ATTENDANCE_CORRECT`.
 - **Send only the days you changed.** Every day in the request is checked as
-  a correction, even if its marks are the same. So a `FINALIZED` day in the
-  request is rejected (403 `ATTENDANCE_WINDOW_CLOSED`) unless the caller holds
-  `ATTENDANCE_CORRECT` and gives a `reason`.
+  a correction, even if its marks are the same. A `FINALIZED` or
+  out-of-window day needs `ATTENDANCE_CORRECT` (else 403
+  `ATTENDANCE_WINDOW_CLOSED`) and a `reason` (else 422
+  `ATTENDANCE_REASON_REQUIRED`).
 - `client_request_id` is one key for the whole request. A replay (the id is
   already on every day) returns 200 and writes nothing. If the id is on only
-  some of the days, it was reused for a different save: 409
-  `ATTENDANCE_MATRIX_REQUEST_REUSED`, nothing written.
+  some of the days, either it was already used for a different save or some
+  of these days changed since (someone else saved them after your first
+  try): 409 `ATTENDANCE_MATRIX_REQUEST_REUSED`, nothing written. The grid
+  should treat it like `ATTENDANCE_MATRIX_CONFLICT` and reload the month.
 - The grid sends a status only. A **new** `LATE` mark is saved with
   `minutes_late = NULL` (a mark that was already `LATE` keeps its minutes). A
   fine rule with `min_minutes_late` still counts a `NULL` (see
@@ -276,7 +281,9 @@ for that subject in the range; each student's `by_subject[subject_id]` holds
 ```
 
 `percentage` is `null` (not 0) when the student has no mark for that subject.
-It uses the school's `lateCountsAsPresent`. A range over 400 days is refused
+It uses the school's `lateCountsAsPresent`. Denominator = `held`
+(`WORKING_DAYS`) or the periods the student was marked in (`MARKED_DAYS`),
+minus leave unless `leaveCountsAsWorkingDay`. A range over 400 days is refused
 (`422 SCHOOL_CALENDAR_RANGE_TOO_WIDE`), and a switched-off school gets
 `403 ATTENDANCE_PERIOD_DISABLED`.
 
@@ -505,7 +512,7 @@ these defaults (`tenant-settings-defaults.ts`):
 | `correctionWindowDays`              | `2`            | How many days after a register's date it stays editable without `ATTENDANCE_CORRECT`.                                                                       |
 | `lowAttendanceThresholdPercent`     | `75`           | The cutoff `GET /attendance/flags/low` and the reports page use to flag a student.                                                                          |
 | `lateCountsAsPresent`               | `true`         | Whether a `LATE` day adds to the percentage's numerator.                                                                                                    |
-| `leaveCountsAsWorkingDay`           | `false`        | Whether an approved `LEAVE` day is removed from the percentage's denominator.                                                                               |
+| `leaveCountsAsWorkingDay`           | `false`        | Whether a `LEAVE` day stays in the denominator (`false` = removed).                                                                                         |
 | `percentageDenominator`             | `WORKING_DAYS` | Whether the percentage divides by calendar working days or by days actually marked.                                                                         |
 | `allowFutureDates`                  | `false`        | Whether a future date can be marked at all (and then, only `LEAVE`).                                                                                        |
 | `shiftTimes`                        | `[]`           | Per-shift `lateAfter` / `absentAfter` (`{ shiftId, lateAfter, absentAfter }`). A shift with an entry uses its own cutoffs; others use the two fields above. |

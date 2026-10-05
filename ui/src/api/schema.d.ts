@@ -3005,7 +3005,7 @@ export interface paths {
         };
         /** One month's whole register for a section, as a date x student matrix — the printable paper-register replacement ([9.10] owns rendering). */
         get: operations["AttendanceSummaryController_getSectionRegisterMatrix_v1"];
-        /** Saves many days of one section's whole-day register in one transaction. All-or-nothing: a locked date (422), a stale day (409) or a closed day (403) rejects the whole request. */
+        /** Saves many days of one section's whole-day register in one transaction. All-or-nothing: a locked date (422), a stale day (409), a closed day (403) or a partly-replayed client_request_id (409 ATTENDANCE_MATRIX_REQUEST_REUSED) rejects the whole request. */
         put: operations["AttendanceController_putRegisterMatrix_v1"];
         post?: never;
         delete?: never;
@@ -9391,10 +9391,13 @@ export interface components {
             entries: components["schemas"]["MatrixEntryDto"][];
         };
         PutRegisterMatrixDto: {
-            /** @description Send only the days you changed. A FINALIZED day in the request is rejected (403 ATTENDANCE_WINDOW_CLOSED) unless the caller holds ATTENDANCE_CORRECT and gives a reason, even if its marks are unchanged. A new LATE mark is saved with minutes_late = null, and a fine rule with a minimum-minutes condition still counts it. */
-            days: components["schemas"]["MatrixDayDto"][];
-            /** Format: uuid */
+            /**
+             * Format: uuid
+             * @description One replay key for the whole request. On every sent day already = replay (200, nothing written). On only some = 409 ATTENDANCE_MATRIX_REQUEST_REUSED: the id was already used, or some of these days changed since. Treat it like ATTENDANCE_MATRIX_CONFLICT and reload the month.
+             */
             client_request_id: string;
+            /** @description Every sent day is checked as a correction, even if its marks are unchanged. A FINALIZED or out-of-window day needs ATTENDANCE_CORRECT (else 403 ATTENDANCE_WINDOW_CLOSED) and a reason (else 422 ATTENDANCE_REASON_REQUIRED); send only the days you changed. A new LATE mark is saved with minutes_late = null, and a fine rule with a minimum-minutes condition still counts it. */
+            days: components["schemas"]["MatrixDayDto"][];
             reason?: string;
         };
         MatrixSaveResponseDto: {

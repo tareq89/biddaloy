@@ -23,7 +23,7 @@ const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/;
 
 // `Shift.sequence`/`PeriodSlot.sequence` are `smallint` columns — reject
 // anything Postgres would bounce anyway.
-const SMALLINT_MAX = 32767;
+export const SMALLINT_MAX = 32767;
 
 export class CreateShiftDto {
   @IsNotEmpty()

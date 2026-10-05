@@ -782,8 +782,9 @@ export class AttendanceService {
         const sortedDates = [...dates].sort();
 
         // Replay: every day already carries this request id -> same 200, no writes.
-        // Only some days carrying it means the id was reused for a different
-        // request: reject it rather than skip those days.
+        // Only some days carrying it means either the id was reused for a
+        // different request, or someone else saved some of these days since
+        // (a legit retry): reject it rather than skip those days.
         const replayed = sortedDates.filter(
           (d) => sessionByDate.get(d)?.last_client_request_id === dto.client_request_id,
         );
@@ -797,7 +798,9 @@ export class AttendanceService {
         }
         if (replayed.length > 0) {
           throw new ConflictException({
-            message: 'This client_request_id was already used for a different save',
+            message:
+              'This client_request_id was already used, or some of these days changed since. ' +
+              'Reload the month and try again',
             details: { code: 'ATTENDANCE_MATRIX_REQUEST_REUSED', dates: replayed },
           });
         }
