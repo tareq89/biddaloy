@@ -90,7 +90,7 @@ describe('bulk reminder wizard', () => {
     await cleanupTestState();
   });
 
-  it('opens from the single-reminder page via the Bulk reminders button', async () => {
+  it('opens from the single-reminder page via the Remind many at once button', async () => {
     server.use(duesHandler());
     const user = userEvent.setup();
     renderWithRouter(routeTree, {
@@ -100,7 +100,7 @@ describe('bulk reminder wizard', () => {
       locale: 'en',
     });
 
-    await user.click(await screen.findByRole('button', { name: 'Bulk reminders' }));
+    await user.click(await screen.findByRole('button', { name: 'Remind many at once' }));
     expect(await screen.findByRole('heading', { name: 'Bulk Fee Reminders' })).toBeTruthy();
     // And back again — the wizard's escape hatch to the single form.
     await user.click(screen.getByRole('button', { name: 'Single reminder' }));
