@@ -16,7 +16,13 @@ import { escapeLikePattern } from '../../common/utils/escape-like.util';
 import { normalizeSearchTerm } from '../../common/utils/normalize-search-term.util';
 import { BN_COLLATION } from '../../common/constants/collation';
 import { normalizeEmail } from '../auth/normalize-identifier';
-import { AuditAction, EMPLOYEE_ROLES, UserRole } from '@biddaloy/shared';
+import {
+  AuditAction,
+  EMPLOYEE_ROLES,
+  GUARDIAN_ROLES,
+  UserRole,
+  UserStatus,
+} from '@biddaloy/shared';
 import { AuditService } from '../audit/audit.service';
 import { assertPasswordAllowed } from '../auth/password-policy';
 import { StaffProfilesService } from '../staff-profiles/staff-profiles.service';
@@ -39,6 +45,10 @@ export interface SectionTeacherAssignmentWithClass extends SectionTeacherAssignm
   class_id: string;
   class_name: string;
 }
+
+/** A soft-deleted row from the user's latest end-of-membership batch in `:tenantId`. */
+const LATEST_ENDED_SQL = `ut.deleted_at = (SELECT max(b.deleted_at) FROM user_tenants b
+  WHERE b.user_id = u.id AND b.tenant_id = :tenantId)`;
 
 @Injectable()
 export class UserService {
@@ -162,11 +172,14 @@ export class UserService {
         .where('u.deleted_at IS NULL')
         .andWhere('ut.tenant_id = :tenantId', { tenantId });
       if (former) {
-        // A user who is a current member again (an older soft-deleted row of
-        // another role may remain) is not "former".
-        qb.andWhere('ut.deleted_at IS NOT NULL').andWhere(
+        // Same rule as `restore()`: the rows of the latest end-of-membership
+        // batch, for a user with no active STAFF role here. A TEACHER who left
+        // but is still a PARENT here (D16) is former; one who is staff again is not.
+        qb.andWhere(LATEST_ENDED_SQL).andWhere(
           `NOT EXISTS (SELECT 1 FROM user_tenants a
-             WHERE a.user_id = u.id AND a.tenant_id = :tenantId AND a.deleted_at IS NULL)`,
+             WHERE a.user_id = u.id AND a.tenant_id = :tenantId AND a.deleted_at IS NULL
+               AND a.role NOT IN (:...guardianRoles))`,
+          { guardianRoles: [...GUARDIAN_ROLES] },
         );
       }
 
@@ -274,14 +287,16 @@ export class UserService {
     } else if (query.sort === 'email') {
       idQb.orderBy('u.email', query.order === 'desc' ? 'DESC' : 'ASC');
     } else if (query.sort === 'joined_at') {
-      idQb.orderBy('ut.created_at', query.order === 'desc' ? 'DESC' : 'ASC');
+      idQb.orderBy('MIN(ut.created_at)', query.order === 'desc' ? 'DESC' : 'ASC');
     } else if (query.sort === 'status') {
       idQb.orderBy('u.status', query.order === 'desc' ? 'DESC' : 'ASC');
     } else {
       // Default order kept as-is so existing pages do not reshuffle.
       idQb.orderBy('u.created_at', 'DESC');
     }
-    idQb.addOrderBy('u.id', 'ASC').offset(skip).limit(limit);
+    // One row per user: a user with several role rows here (or a removal that
+    // ended several) must not repeat. `getCount()` already counts distinct ids.
+    idQb.groupBy('u.id').addOrderBy('u.id', 'ASC').offset(skip).limit(limit);
 
     const idRows = await idQb.getRawMany<{ id: string }>();
     const ids = idRows.map((row) => row.id);
@@ -299,7 +314,7 @@ export class UserService {
     const hydrate = (former ? hydrateBase.withDeleted() : hydrateBase)
       .innerJoinAndSelect('u.user_tenants', 'ut', 'ut.tenant_id = :tenantId', { tenantId })
       .where('u.id IN (:...ids)', { ids });
-    if (former) hydrate.andWhere('ut.deleted_at IS NOT NULL');
+    if (former) hydrate.andWhere(LATEST_ENDED_SQL);
     const rows = await hydrate.getMany();
     const byId = new Map(rows.map((row) => [row.id, row]));
     const data = ids.map((id) => byId.get(id)).filter((row): row is User => row != null);
@@ -504,28 +519,41 @@ export class UserService {
     await this.endMembership(userId, tenantId, userId, 'LEAVE', staffRoles);
   }
 
-  /** `POST users/:id/restore`: bring a former member back (same rows, same ids). */
+  /**
+   * `POST users/:id/restore`: bring a former member back (same rows, same ids).
+   * Only the rows ended by the LATEST end-of-membership event come back: one
+   * `softDelete` stamps all its rows with the same transaction timestamp, so
+   * `deleted_at = max(deleted_at)` is exactly that batch. Older soft-deleted
+   * rows (a role a workbook swap replaced, a role the user left earlier) stay
+   * ended. "Former" means no active staff role: a TEACHER who left but is
+   * still a PARENT here (D16) can be restored.
+   */
   async restore(id: string, tenantId: string, actorUserId: string): Promise<void> {
     await this.userTenantRepo.manager.transaction(async (manager) => {
       // A soft-deleted account cannot be brought back through its membership.
       if (!(await manager.getRepository(User).findOne({ where: { id } }))) {
         throw new NotFoundException(`No former member with ID "${id}" found`);
       }
+      const repo = manager.getRepository(UserTenant);
       if (
-        await manager
-          .getRepository(UserTenant)
-          .count({ where: { user_id: id, tenant_id: tenantId } })
+        await repo.count({
+          where: { user_id: id, tenant_id: tenantId, role: Not(In([...GUARDIAN_ROLES])) },
+        })
       ) {
         throw new ConflictException({
           message: 'This user is already a member of this school',
           details: { code: 'ALREADY_MEMBER' },
         });
       }
-      const result = await manager
-        .getRepository(UserTenant)
-        // `Not(IsNull())`: restore() updates every matching row, so without it
-        // an active member would "restore" successfully (no 404).
-        .restore({ user_id: id, tenant_id: tenantId, deleted_at: Not(IsNull()) });
+      const result = await repo
+        .createQueryBuilder()
+        .restore()
+        .where('user_id = :id AND tenant_id = :tenantId', { id, tenantId })
+        .andWhere(
+          `deleted_at = (SELECT max(b.deleted_at) FROM user_tenants b
+                          WHERE b.user_id = :id AND b.tenant_id = :tenantId)`,
+        )
+        .execute();
       if (!result.affected) {
         throw new NotFoundException(`No former member with ID "${id}" found`);
       }
@@ -559,11 +587,21 @@ export class UserService {
   ): Promise<void> {
     await this.userTenantRepo.manager.transaction(async (manager) => {
       const repo = manager.getRepository(UserTenant);
-      const admins = await repo.find({
-        where: { tenant_id: tenantId, role: UserRole.ADMIN },
-        order: { id: 'ASC' }, // deterministic lock order
-        lock: { mode: 'pessimistic_write' },
-      });
+      // Only admins who can actually sign in count: a deactivated or deleted
+      // account keeps its ADMIN row but cannot run the school. The lock stays
+      // on the membership rows (`FOR UPDATE OF ut`).
+      // ponytail: users.status is not locked; an admin deactivated mid-leave can still slip past.
+      const admins = await repo
+        .createQueryBuilder('ut')
+        .innerJoin('ut.user', 'u')
+        .where('ut.tenant_id = :tenantId AND ut.role = :role', {
+          tenantId,
+          role: UserRole.ADMIN,
+        })
+        .andWhere('u.deleted_at IS NULL AND u.status = :active', { active: UserStatus.ACTIVE })
+        .orderBy('ut.id', 'ASC') // deterministic lock order
+        .setLock('pessimistic_write', undefined, ['ut'])
+        .getMany();
       const isAdmin = admins.some((a) => a.user_id.toLowerCase() === userId.toLowerCase());
       const endsAdmin = isAdmin && (!roles || roles.includes(UserRole.ADMIN));
       if (endsAdmin && admins.length === 1) {
@@ -572,9 +610,12 @@ export class UserService {
           details: { code: 'LAST_ADMIN' },
         });
       }
+      // `deleted_at: IsNull()`: softDelete does not skip ended rows, and
+      // re-stamping one would pull it into this batch for `restore()`.
       await repo.softDelete({
         user_id: userId,
         tenant_id: tenantId,
+        deleted_at: IsNull(),
         ...(roles ? { role: In(roles) } : {}),
       });
       await this.audit.record(
