@@ -117,7 +117,6 @@
     "changeHandlingLabel": "ফেরতের টাকা"
   },
   "detail": {
-    "back": "পেমেন্টে ফিরে যান",
     "loadError": "এই পেমেন্ট লোড করা যায়নি।",
     "retry": "আবার চেষ্টা করুন",
     "amount": "পরিমাণ",
@@ -127,15 +126,16 @@
     "invoice": "চালান",
     "noInvoice": "কোনো চালান নেই",
     "unknown": "অজানা",
-    "reversalOf": "#{{id}} এর বিপরীত",
-    "reversedBanner": "এই পেমেন্টটি বাতিল (reverse) করা হয়েছে।",
+    "reversedBanner": "এই পেমেন্টটি বাতিল করা হয়েছে।",
     "reverseAction": "পেমেন্ট বাতিল করুন",
     "allocations": {
-      "title": "বরাদ্দ",
+      "title": "কোন ফিতে কত গেল",
       "columnFee": "ফি",
       "columnPeriod": "সময়কাল",
       "columnAmount": "পরিমাণ",
-      "columnDiscount": "ছাড়"
+      "columnDiscount": "ছাড়",
+      "help": "এই পেমেন্টের টাকা যে বিলগুলোতে বসেছে।",
+      "phoneLine": "{{period}} · ছাড় {{discount}}"
     },
     "reverseDialog": {
       "title": "এই পেমেন্টটি বাতিল করবেন?",
@@ -146,8 +146,20 @@
       "reasonLabel": "কারণ",
       "confirm": "পেমেন্ট বাতিল করুন",
       "errorMessage": "পেমেন্ট বাতিল করা যায়নি।",
-      "errorLaterPayments": "পরবর্তী পেমেন্টগুলো আগে বাতিল করতে হবে:"
-    }
+      "errorLaterPayments": "পরবর্তী পেমেন্টগুলো আগে বাতিল করতে হবে:",
+      "laterPaymentLink": "পরবর্তী পেমেন্ট {{n}}"
+    },
+    "reference": "লেনদেন রেফারেন্স",
+    "approver": "ছাড় অনুমোদনকারী",
+    "printReceipt": "রসিদ প্রিন্ট করুন",
+    "printError": "রসিদ প্রিন্টের জন্য খোলা যায়নি।",
+    "viewInvoice": "চালান দেখুন",
+    "viewStudent": "শিক্ষার্থীর পাতা",
+    "remarks": "মন্তব্য",
+    "reversalEntry": "এটি একটি বাতিলের এন্ট্রি।",
+    "viewOriginal": "মূল পেমেন্ট দেখুন",
+    "reversedStatus": "বাতিল হয়েছে",
+    "viewReversal": "বাতিলের এন্ট্রি দেখুন"
   },
   "printFormat": {
     "label": "কাগজের মাপ",
