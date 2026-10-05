@@ -1,3 +1,4 @@
+import { REGION_BD_EN } from '@biddaloy/ui/i18n';
 import {
   apiErrorBody,
   cleanupTestState,
@@ -7,6 +8,7 @@ import {
   server,
   studentFactory,
 } from '@biddaloy/ui/test';
+import { formatDate } from '@biddaloy/ui/utils';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -476,9 +478,9 @@ describe('/portal', () => {
       await screen.findByRole('heading', { level: 1, name: 'Fatima Rahman' });
       const expected = new Date();
       expected.setDate(expected.getDate() - 30);
-      const pad = (n: number) => String(n).padStart(2, '0');
-      const stamp = `${expected.getFullYear()}-${pad(expected.getMonth() + 1)}-${pad(expected.getDate())}`;
-      expect(await screen.findByText(`Last paid ${stamp}`)).toBeTruthy();
+      expect(
+        await screen.findByText(`Last paid ${formatDate(expected, REGION_BD_EN)}`),
+      ).toBeTruthy();
     });
 
     it('says nothing about a last payment when every attempt failed', async () => {

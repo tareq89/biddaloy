@@ -10,7 +10,9 @@
  *    batch's own stored template, and a "Retry of …" name — then lands
  *    on the new batch.
  */
+import { REGION_BD_BN } from '@biddaloy/ui/i18n';
 import { cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
+import { formatNumber } from '@biddaloy/ui/utils';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -102,7 +104,11 @@ describe('/communications/batches/$batchId', () => {
     expect(await screen.findByText('Guardian Two')).toBeTruthy();
     expect(screen.getByText('Provider rejected the number')).toBeTruthy();
     // Skipped grouped by reason with a count, not a UUID list.
-    expect(screen.getByText(/No guardians on file — 2 students/)).toBeTruthy();
+    expect(
+      screen.getByText(`No guardians on file — ${formatNumber(2, REGION_BD_BN)} students`, {
+        exact: false,
+      }),
+    ).toBeTruthy();
   });
 
   it('polls while PROCESSING and stops once the batch settles', async () => {

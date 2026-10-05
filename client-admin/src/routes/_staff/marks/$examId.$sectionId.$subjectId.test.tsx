@@ -1,4 +1,6 @@
+import { REGION_BD_BN } from '@biddaloy/ui/i18n';
 import { cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
+import { formatNumber } from '@biddaloy/ui/utils';
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -128,7 +130,8 @@ describe('/marks/$examId/$sectionId/$subjectId', () => {
       timeout: 2000,
     });
     // Never discarded — the typed value stays in the cell.
-    expect(cell.value).toBe('90');
+    // The cell re-renders the kept value in the region's numerals.
+    expect(cell.value).toBe(formatNumber(90, REGION_BD_BN));
 
     await within(screen.getByTestId('save-state-line')).findByText(/All changes saved/, undefined, {
       timeout: 5000,
