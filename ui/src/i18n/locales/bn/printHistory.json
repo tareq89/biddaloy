@@ -1,7 +1,7 @@
 {
   "title": "প্রিন্ট ও কাগজপত্র",
-  "caption": "এ পর্যন্ত যা ছাপা হয়েছে, নতুনগুলো আগে",
-  "empty": "এখনও কিছু ছাপা হয়নি। শিক্ষার্থী বা কর্মীর পাতা থেকে পরিচয়পত্র ছাপুন।",
+  "caption": "এ পর্যন্ত যা ছাপা হয়েছে, নতুনগুলো আগে।",
+  "empty": "এখনও কিছু ছাপা হয়নি",
   "loadError": "ছাপার ইতিহাস আনা যায়নি।",
   "announce": "{{total}}টির মধ্যে {{visible}}টি দেখানো হচ্ছে",
   "columns": {
@@ -10,13 +10,10 @@
     "document": "নথি",
     "person": "ব্যক্তি",
     "copy": "কপি",
-    "result": "ফলাফল",
-    "status": "অবস্থা",
-    "actions": "কাজ"
+    "status": "অবস্থা"
   },
   "system": "সিস্টেম",
   "copyValue": "#{{n}}",
-  "documentValue": "{{name}} সংস্করণ {{version}}",
   "kind": {
     "STUDENT_ID_CARD": "শিক্ষার্থীর পরিচয়পত্র",
     "STAFF_ID_CARD": "কর্মীর পরিচয়পত্র",
@@ -24,18 +21,18 @@
   },
   "outcome": {
     "OK": "ছাপা হয়েছে",
-    "FAILED": "ব্যর্থ",
+    "FAILED": "ছাপা হয়নি",
     "PENDING": "অপেক্ষায়"
   },
   "status": {
     "VALID": "বৈধ",
-    "REVOKED": "বাতিল"
+    "REVOKED": "বাতিল করা"
   },
   "filters": {
     "kind": "নথির ধরন",
     "allKinds": "সব নথি",
-    "template": "টেমপ্লেট",
-    "allTemplates": "সব টেমপ্লেট",
+    "template": "নকশা",
+    "allTemplates": "সব নকশা",
     "printedBy": "যিনি ছেপেছেন",
     "allUsers": "সবাই",
     "dates": "তারিখ",
@@ -48,7 +45,7 @@
     "onlyValid": "শুধু বৈধ",
     "onlyRevoked": "শুধু বাতিল",
     "search": "নাম দিয়ে খুঁজুন",
-    "searchPlaceholder": "নাম দিয়ে খুঁজুন"
+    "searchPlaceholder": "ব্যক্তির নাম দিয়ে খুঁজুন"
   },
   "actions": {
     "view": "দেখুন",
@@ -96,5 +93,8 @@
     "title": "ছাপার ইতিহাস",
     "empty": "এখনও ছাপা হয়নি",
     "error": "ছাপার ইতিহাস আনা যায়নি।"
-  }
+  },
+  "printIdCards": "আইডি কার্ড প্রিন্ট করুন",
+  "versionValue": "সংস্করণ {{version}}",
+  "emptyExplanation": "ছাপা কার্ড এখানে দেখা যাবে।"
 }

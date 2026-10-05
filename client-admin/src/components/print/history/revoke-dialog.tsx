@@ -61,7 +61,7 @@ export function RevokeDialog({ open, onOpenChange, itemId, subjectLabel }: Revok
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent>
+      <DialogContent size="sm">
         <DialogHeader>
           <DialogTitle>{t('revoke.title', { name: subjectLabel })}</DialogTitle>
         </DialogHeader>

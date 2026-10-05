@@ -155,7 +155,7 @@ test.describe('ADMIN reviews the history', () => {
     const copy2 = page
       .getByRole('row')
       .filter({ hasText: `Print E2E ${SUFFIX}` })
-      .filter({ has: page.getByRole('cell', { name: /^#[2২]$/ }) });
+      .filter({ has: page.getByRole('cell', { name: /^[2২]$/ }) });
     await expect(copy2).toHaveCount(1);
 
     await copy2.getByRole('button', { name: t('printHistory.actions.revoke') }).click();

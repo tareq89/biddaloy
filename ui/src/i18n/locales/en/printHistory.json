@@ -1,7 +1,7 @@
 {
   "title": "Print & documents",
   "caption": "Everything that has been printed, newest first",
-  "empty": "Nothing printed yet. Print ID cards from a student's or staff member's page.",
+  "empty": "Nothing printed yet",
   "loadError": "Could not load the print history.",
   "announce": "{{visible}} of {{total}} shown",
   "columns": {
@@ -10,13 +10,10 @@
     "document": "Document",
     "person": "Person",
     "copy": "Copy",
-    "result": "Result",
-    "status": "Status",
-    "actions": "Actions"
+    "status": "Status"
   },
   "system": "System",
   "copyValue": "#{{n}}",
-  "documentValue": "{{name}} v{{version}}",
   "kind": {
     "STUDENT_ID_CARD": "Student ID card",
     "STAFF_ID_CARD": "Staff ID card",
@@ -24,7 +21,7 @@
   },
   "outcome": {
     "OK": "Printed",
-    "FAILED": "Failed",
+    "FAILED": "Not printed",
     "PENDING": "Pending"
   },
   "status": {
@@ -34,8 +31,8 @@
   "filters": {
     "kind": "Document type",
     "allKinds": "All documents",
-    "template": "Template",
-    "allTemplates": "All templates",
+    "template": "Design",
+    "allTemplates": "All designs",
     "printedBy": "Printed by",
     "allUsers": "Everyone",
     "dates": "Date",
@@ -48,7 +45,7 @@
     "onlyValid": "Valid only",
     "onlyRevoked": "Revoked only",
     "search": "Search by name",
-    "searchPlaceholder": "Search by name"
+    "searchPlaceholder": "Search by person's name"
   },
   "actions": {
     "view": "View",
@@ -96,5 +93,8 @@
     "title": "Print history",
     "empty": "Not printed yet",
     "error": "Could not load the print history."
-  }
+  },
+  "printIdCards": "Print ID cards",
+  "versionValue": "Version {{version}}",
+  "emptyExplanation": "Printed cards will show up here."
 }

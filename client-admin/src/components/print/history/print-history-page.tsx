@@ -6,17 +6,19 @@
  * component imports no route (D60).
  */
 import { Permission } from '@biddaloy/shared';
-import { Button, type DataTableColumn } from '@biddaloy/ui/components';
+import { StatusBadge, type DataTableColumn, type StatusTone } from '@biddaloy/ui/components';
 import {
+  printTemplatesQueryOptions,
   useHasPermission,
   usePrintHistory,
-  usePrintTemplates,
-  useUsers,
+  usersQueryOptions,
   type PrintHistoryRow,
 } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { ListShell, type FilterFieldDescriptor } from '@biddaloy/ui/shells';
-import { formatDateTime } from '@biddaloy/ui/utils';
+import { formatDateTime, formatNumber } from '@biddaloy/ui/utils';
+import { useQuery } from '@tanstack/react-query';
+import { IdCardIcon, PrinterIcon } from 'lucide-react';
 import * as React from 'react';
 
 import { HistoryItemDialog } from './history-item-dialog';
@@ -28,30 +30,26 @@ export interface PrintHistoryPageProps {
   search: PrintHistorySearch;
   /** Merges a patch into the URL search; `null` removes a key. */
   onSearchChange: (patch: Record<string, string | number | null>) => void;
+  /** Starts an ID-card print; the primary action shows only with `DOCUMENT_PRINT`. */
+  onPrintIdCards?: () => void;
 }
 
-/** A small status pill using the existing status tokens (`StatusBadge` is tied to other domains). */
-export function Pill({
-  tone,
-  children,
-}: {
-  tone: 'good' | 'bad' | 'neutral';
-  children: React.ReactNode;
-}) {
-  const cls =
-    tone === 'good'
-      ? 'bg-status-paid-bg text-status-paid-fg'
-      : tone === 'bad'
-        ? 'bg-status-overdue-bg text-status-overdue-fg'
-        : 'bg-muted text-muted-foreground';
-  return (
-    <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${cls}`}>
-      {children}
-    </span>
-  );
+/** One badge answering "is this card good?": revoked wins, then the print outcome. */
+export function rowStatus(
+  row: Pick<PrintHistoryRow, 'revoked_at' | 'outcome'>,
+  t: (key: string) => string,
+): { tone: StatusTone; label: string } {
+  if (row.revoked_at) return { tone: 'neutral', label: t('status.REVOKED') };
+  if (row.outcome === 'FAILED') return { tone: 'danger', label: t('outcome.FAILED') };
+  if (row.outcome === 'PENDING') return { tone: 'warning', label: t('outcome.PENDING') };
+  return { tone: 'success', label: t('outcome.OK') };
 }
 
-export function PrintHistoryPage({ search, onSearchChange }: PrintHistoryPageProps) {
+export function PrintHistoryPage({
+  search,
+  onSearchChange,
+  onPrintIdCards,
+}: PrintHistoryPageProps) {
   const { t } = useTranslation('printHistory');
   const region = useRegionConfig();
   const canPrint = useHasPermission(Permission.DOCUMENT_PRINT);
@@ -60,8 +58,10 @@ export function PrintHistoryPage({ search, onSearchChange }: PrintHistoryPagePro
   const canReadAcr = useHasPermission(Permission.ACR_READ);
 
   const historyQuery = usePrintHistory(toHistoryFilters(search));
-  const templatesQuery = usePrintTemplates();
-  const usersQuery = useUsers({ limit: 100 });
+  // Option lists are conveniences: roles without the permission would get a 403 toast, so skip the call.
+  const canReadUsers = useHasPermission(Permission.USER_READ);
+  const templatesQuery = useQuery({ ...printTemplatesQueryOptions(), enabled: canPrint });
+  const usersQuery = useQuery({ ...usersQueryOptions({ limit: 100 }), enabled: canReadUsers });
 
   const [viewId, setViewId] = React.useState<string | undefined>(undefined);
   const [reprintRow, setReprintRow] = React.useState<PrintHistoryRow | undefined>(undefined);
@@ -77,71 +77,42 @@ export function PrintHistoryPage({ search, onSearchChange }: PrintHistoryPagePro
       card: 'subtitle',
     },
     {
+      id: 'person',
+      header: t('columns.person'),
+      accessorFn: (row) => <span className="font-medium">{row.subject_label}</span>,
+      card: 'title',
+    },
+    {
+      id: 'document',
+      header: t('columns.document'),
+      accessorFn: (row) => (
+        <>
+          {row.template_name}
+          <span className="block text-caption text-text-secondary">
+            {t('versionValue', { version: formatNumber(row.template_version, region) })}
+          </span>
+        </>
+      ),
+    },
+    {
       id: 'by',
       header: t('columns.by'),
       accessorFn: (row) => row.printed_by_name ?? t('system'),
     },
     {
-      id: 'document',
-      header: t('columns.document'),
-      accessorFn: (row) =>
-        t('documentValue', { name: row.template_name, version: row.template_version }),
-    },
-    {
-      id: 'person',
-      header: t('columns.person'),
-      accessorFn: (row) => row.subject_label,
-      card: 'title',
-    },
-    {
       id: 'copy',
       header: t('columns.copy'),
-      accessorFn: (row) => t('copyValue', { n: row.copy_number }),
-    },
-    {
-      id: 'result',
-      header: t('columns.result'),
-      accessorFn: (row) => (
-        <Pill tone={row.outcome === 'OK' ? 'good' : row.outcome === 'FAILED' ? 'bad' : 'neutral'}>
-          {t(`outcome.${row.outcome}`)}
-        </Pill>
-      ),
+      accessorFn: (row) => formatNumber(row.copy_number, region),
+      align: 'end',
     },
     {
       id: 'status',
       header: t('columns.status'),
-      accessorFn: (row) => (
-        <Pill tone={row.revoked_at ? 'bad' : 'good'}>
-          {row.revoked_at ? t('status.REVOKED') : t('status.VALID')}
-        </Pill>
-      ),
+      accessorFn: (row) => {
+        const { tone, label } = rowStatus(row, t);
+        return <StatusBadge tone={tone} label={label} />;
+      },
       card: 'badge',
-    },
-    {
-      id: 'actions',
-      header: t('columns.actions'),
-      pinned: true,
-      card: 'actions',
-      accessorFn: (row) => (
-        <div className="flex flex-wrap justify-end gap-1">
-          <Button type="button" size="sm" variant="ghost" onClick={() => setViewId(row.item_id)}>
-            {t('actions.view')}
-            <span className="sr-only"> {row.subject_label}</span>
-          </Button>
-          {canPrint && !row.revoked_at ? (
-            <Button type="button" size="sm" variant="ghost" onClick={() => setReprintRow(row)}>
-              {t('actions.reprint')}
-              <span className="sr-only"> {row.subject_label}</span>
-            </Button>
-          ) : null}
-          {canRevoke && !row.revoked_at ? (
-            <Button type="button" size="sm" variant="ghost" onClick={() => setRevokeRow(row)}>
-              {t('actions.revoke')}
-              <span className="sr-only"> {row.subject_label}</span>
-            </Button>
-          ) : null}
-        </div>
-      ),
     },
   ];
 
@@ -166,20 +137,34 @@ export function PrintHistoryPage({ search, onSearchChange }: PrintHistoryPagePro
         label: t(`kind.${k}`),
       })),
     },
-    {
-      kind: 'select',
-      key: 'template_id',
-      label: t('filters.template'),
-      allLabel: t('filters.allTemplates'),
-      options: (templatesQuery.data ?? []).map((tpl) => ({ value: tpl.id, label: tpl.name })),
-    },
-    {
-      kind: 'select',
-      key: 'printed_by',
-      label: t('filters.printedBy'),
-      allLabel: t('filters.allUsers'),
-      options: (usersQuery.data?.data ?? []).map((u) => ({ value: u.id, label: u.full_name })),
-    },
+    ...(canPrint
+      ? ([
+          {
+            kind: 'select',
+            key: 'template_id',
+            label: t('filters.template'),
+            allLabel: t('filters.allTemplates'),
+            options: (templatesQuery.data ?? []).map((tpl) => ({
+              value: tpl.id,
+              label: tpl.name,
+            })),
+          },
+        ] as FilterFieldDescriptor[])
+      : []),
+    ...(canReadUsers
+      ? ([
+          {
+            kind: 'select',
+            key: 'printed_by',
+            label: t('filters.printedBy'),
+            allLabel: t('filters.allUsers'),
+            options: (usersQuery.data?.data ?? []).map((u) => ({
+              value: u.id,
+              label: u.full_name,
+            })),
+          },
+        ] as FilterFieldDescriptor[])
+      : []),
     {
       kind: 'date-range',
       fromKey: 'from',
@@ -214,6 +199,20 @@ export function PrintHistoryPage({ search, onSearchChange }: PrintHistoryPagePro
     <>
       <ListShell
         title={t('title')}
+        subtitle={t('caption')}
+        actions={
+          canPrint && onPrintIdCards
+            ? [
+                {
+                  id: 'print-id-cards',
+                  label: t('printIdCards'),
+                  icon: <IdCardIcon aria-hidden className="size-4" />,
+                  priority: 'primary' as const,
+                  onClick: onPrintIdCards,
+                },
+              ]
+            : []
+        }
         filters={{
           fields: filterFields,
           values: filterValues(search),
@@ -228,7 +227,7 @@ export function PrintHistoryPage({ search, onSearchChange }: PrintHistoryPagePro
         sorting={null}
         onSortingChange={() => undefined}
         page={search.page ?? 1}
-        pageSize={search.limit ?? 10}
+        pageSize={search.limit ?? 25}
         totalCount={historyQuery.data?.total ?? 0}
         onPageChange={(page) => onSearchChange({ page })}
         onPageSizeChange={(limit) => onSearchChange({ limit, page: null })}
@@ -236,7 +235,33 @@ export function PrintHistoryPage({ search, onSearchChange }: PrintHistoryPagePro
         loading={historyQuery.isLoading}
         isFetching={historyQuery.isFetching}
         {...(historyQuery.isError ? { error: t('loadError') } : {})}
-        emptyMessage={t('empty')}
+        rowActions={(row) => [
+          {
+            intent: 'view',
+            label: t('actions.view'),
+            onClick: () => setViewId(row.item_id),
+          },
+          {
+            intent: 'print',
+            label: t('actions.reprint'),
+            onClick: () => setReprintRow(row),
+            allowed: canPrint && !row.revoked_at,
+          },
+          {
+            intent: 'reject',
+            label: t('actions.revoke'),
+            onClick: () => setRevokeRow(row),
+            allowed: canRevoke && !row.revoked_at,
+          },
+        ]}
+        emptyState={{
+          title: t('empty'),
+          explanation: t('emptyExplanation'),
+          icon: <PrinterIcon aria-hidden className="size-5" />,
+          ...(canPrint && onPrintIdCards
+            ? { action: { label: t('printIdCards'), onClick: onPrintIdCards } }
+            : {}),
+        }}
         announceResults={(count, total) => t('announce', { visible: count, total })}
       />
 
