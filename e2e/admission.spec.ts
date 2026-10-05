@@ -102,7 +102,10 @@ test('public submit → staff shortlist/admit → student created → public sta
   const detail = new DetailShellPage(page);
 
   await test.step('staff finds the applicant and shortlists it', async () => {
-    const list = new ListShellPage(page, { titleKey: 'admission-staff-applicants.list.title' });
+    const list = new ListShellPage(page, {
+      titleKey: 'admission-staff-applicants.list.title',
+      openLabelKey: 'admission-staff-applicants.list.view',
+    });
     await page.goto('/admissions/applicants');
     await list.expectLoaded();
     await list.openRowByText(applicantName);
