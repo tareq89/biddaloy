@@ -71,6 +71,7 @@ describe('StudentPicker', () => {
     // above is what a screen reader gets, the border/background tint is the
     // sighted counterpart.
     expect(current[0]?.className).toContain('border-primary');
+    expect(current[0]?.className).toContain('bg-secondary');
   });
 
   it('navigates to the chosen student by writing ?student=', async () => {
