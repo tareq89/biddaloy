@@ -15,6 +15,7 @@ import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { routeTree } from '../../../../routeTree.gen';
+import { pickDate } from '../../../../test/pick-date';
 
 /** [28.4.2] Survey admin screens against the real route tree. */
 function render(entry: string) {
@@ -58,7 +59,7 @@ describe('survey form dialog', () => {
     await userEvent.setup().click(screen.getByRole('button', { name: 'Save as draft' }));
     const alert = await screen.findByText('Enter a title.');
     expect(alert).toBeTruthy();
-    expect(screen.getByText('Add at least one teacher and subject.')).toBeTruthy();
+    expect(screen.getByText('Choose a teacher.')).toBeTruthy();
   });
 });
 
@@ -127,7 +128,7 @@ describe('survey list and results', () => {
   });
 });
 
-describe('survey form dialog validation and rows', () => {
+describe('survey form page validation and rows', () => {
   async function open() {
     render('/staff/evaluations?tab=surveys&publishSurvey=1');
     await screen.findByRole('dialog', { name: 'New teacher survey' });
@@ -138,34 +139,49 @@ describe('survey form dialog validation and rows', () => {
   it('adds and removes target and question rows', async () => {
     const user = await open();
     await user.click(screen.getByRole('button', { name: 'Add another teacher' }));
-    expect(screen.getAllByRole('button', { name: 'Remove teacher' }).length).toBeGreaterThan(1);
-    await user.click(screen.getAllByRole('button', { name: 'Remove teacher' })[0]!);
+    expect(screen.getAllByRole('button', { name: /Remove teacher/ })).toHaveLength(2);
+    await user.click(screen.getByRole('button', { name: 'Remove teacher 1' }));
     await user.click(screen.getByRole('button', { name: 'Add a question' }));
     expect(screen.getByLabelText('Question 4')).toBeTruthy();
-    await user.click(screen.getAllByRole('button', { name: /Remove question/ })[3]!);
+    await user.click(screen.getByRole('button', { name: 'Remove question 4' }));
     expect(screen.queryByLabelText('Question 4')).toBeNull();
   });
 
-  it('flags empty question text, low minimum, and reversed dates', async () => {
+  it('puts each error under its own field, with a screen-reader summary', async () => {
     const user = await open();
     await user.clear(screen.getByLabelText('Question 1'));
     await user.clear(screen.getByDisplayValue('3'));
-    await user.type(screen.getByLabelText(/Opens/), '2026-05-10');
-    await user.type(screen.getByLabelText(/Closes/), '2026-05-01');
     await user.click(screen.getByRole('button', { name: 'Save as draft' }));
-    const alert = await screen.findByRole('alert');
-    expect(alert.querySelectorAll('li').length).toBeGreaterThanOrEqual(4);
+
+    const title = screen.getByLabelText(/^Survey title/);
+    expect(title.getAttribute('aria-invalid')).toBe('true');
+    expect(await screen.findByText('Enter a title.')).toBeTruthy();
+    expect(screen.getByText('Every question needs text.')).toBeTruthy();
+    expect(screen.getByText('Minimum answers must be 3 or more.')).toBeTruthy();
+    // The row error: a teacher is needed first.
+    expect(screen.getByText('Choose a teacher.')).toBeTruthy();
+    const summary = screen.getByRole('alert');
+    expect(summary.className).toContain('sr-only');
+    // The first invalid control takes focus.
+    await waitFor(() => expect(document.activeElement).toBe(title));
   });
 
   it('flags a survey with every question removed', async () => {
     const user = await open();
     for (const b of screen.getAllByRole('button', { name: /Remove question/ })) await user.click(b);
     await user.click(screen.getByRole('button', { name: 'Save as draft' }));
-    expect((await screen.findByRole('alert')).textContent).toMatch(/question/i);
+    expect(await screen.findByText('Add at least one question.')).toBeTruthy();
+  });
+
+  it('uses date pickers, not browser date inputs', async () => {
+    await open();
+    expect(document.querySelector('input[type="date"]')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Opens on' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Closes on' })).toBeTruthy();
   });
 });
 
-describe('survey form dialog submit', () => {
+describe('survey form page submit', () => {
   async function fill() {
     server.use(
       http.get('/api/v1/subjects', ({ request }) =>
@@ -176,17 +192,17 @@ describe('survey form dialog submit', () => {
     await screen.findByRole('dialog', { name: 'New teacher survey' });
     await screen.findByDisplayValue('Explains lessons clearly', undefined, { timeout: 4000 });
     const user = userEvent.setup();
-    await user.type(screen.getByLabelText('Survey title'), 'Term 2');
+    await user.type(screen.getByLabelText(/^Survey title/), 'Term 2');
     for (const label of ['Teacher 1', 'Subject 1']) {
       await user.click(screen.getByRole('combobox', { name: label }));
       await user.click((await screen.findAllByRole('option'))[0]!);
     }
-    await user.type(screen.getByLabelText(/Opens/), '2026-05-01');
-    await user.type(screen.getByLabelText(/Closes/), '2026-05-10');
+    await pickDate(user, 'Opens on', '2026-05-01');
+    await pickDate(user, 'Closes on', '2026-05-10');
     return user;
   }
 
-  it('creates and publishes, then closes the dialog', async () => {
+  it('creates and publishes, then closes the form and drops the URL flag', async () => {
     let published = false;
     server.use(
       http.post('/api/v1/surveys/:id/publish', () => {
@@ -202,13 +218,14 @@ describe('survey form dialog submit', () => {
     );
   });
 
-  it('shows the server message when create fails, via Ctrl+Enter', async () => {
+  it('shows a translated sentence, never the server text or a UUID, when the teacher is not assigned', async () => {
     server.use(
       http.post('/api/v1/surveys', () =>
         HttpResponse.json(
           {
             statusCode: 400,
-            message: 'Teacher not assigned',
+            message:
+              'Teacher 7c43a1de-0000-4000-8000-000000000000 is not assigned to subject 11111111-0000-4000-8000-000000000000',
             timestamp: 't',
             path: '/',
             requestId: 'r',
@@ -218,9 +235,14 @@ describe('survey form dialog submit', () => {
       ),
     );
     const user = await fill();
-    await user.click(screen.getByLabelText('Survey title'));
+    await user.click(screen.getByLabelText(/^Survey title/));
     await user.keyboard('{Control>}{Enter}{/Control}');
-    expect(await screen.findByText('Teacher not assigned')).toBeTruthy();
+    expect(
+      await screen.findByText(
+        'A teacher is not assigned to the chosen subject. Change the teacher or the subject.',
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByText(/7c43a1de/)).toBeNull();
   });
 
   it('retry after a failed publish PATCHes the draft with the edited title, then publishes', async () => {
@@ -248,8 +270,8 @@ describe('survey form dialog submit', () => {
     );
     const user = await fill();
     await user.click(screen.getByRole('button', { name: 'Save and publish' }));
-    expect(await screen.findByText('nope')).toBeTruthy();
-    await user.type(screen.getByLabelText('Survey title'), ' edited');
+    await waitFor(() => expect(publishes).toBe(1));
+    await user.type(screen.getByLabelText(/^Survey title/), ' edited');
     await user.click(screen.getByRole('button', { name: 'Save and publish' }));
     await waitFor(() => expect(publishes).toBe(2));
     expect(creates).toBe(1);
