@@ -1,35 +1,68 @@
 import { expect, loggedIn, test } from '../fixtures/test';
+import type { Page } from '@playwright/test';
 import { t } from '../i18n';
+import { resolvePath } from './routes';
 
 /**
- * [8.14.3] Staff bottom navigation below `md`: a 5-cell bar (4
- * permission-gated destinations + `more`), safe-area-aware padding, and a
- * single consolidated mobile header row — replacing the old two-stacked-
- * bars shape. Model: `e2e/responsive/drawer.spec.ts`'s `t()` usage and
- * fixture shape; roles come from `../seed-contract`.
+ * Phone shell below `md` for the three shells (D12 one 56 px row, D13
+ * drawer, D14 fixed bottom bar with per-role cells, C8 platform/committee
+ * short bars). Cells per role come from `client-admin/src/nav-tree.ts`
+ * `STAFF_BOTTOM_NAV`; every string goes through `t()`.
  */
 
-test.describe('staff bottom nav', () => {
-  test.use({ ...loggedIn('admin'), viewport: { width: 320, height: 900 } });
+const cellLabel = (key: string) => t(`nav.bottomNavCells.${key}` as Parameters<typeof t>[0]);
 
-  test('renders a named 5-cell bar with ≥44×44 cells, and marks the active route', async ({
+function staffBar(page: Page) {
+  return page.getByRole('navigation', { name: t('nav.bottomNavStaffLabel') });
+}
+
+/** Asserts the bar holds exactly these short labels (links, in order) plus More. */
+async function expectCells(page: Page, keys: string[], bar = staffBar(page)) {
+  await expect(bar).toBeVisible();
+  const links = bar.getByRole('link');
+  await expect(links).toHaveCount(keys.length);
+  for (const [i, key] of keys.entries()) {
+    await expect(links.nth(i)).toHaveText(cellLabel(key));
+  }
+  await expect(bar.getByRole('button', { name: t('nav.items.more') })).toBeVisible();
+  await expect(bar.locator('a, button')).toHaveCount(keys.length + 1);
+}
+
+test.describe('staff bottom nav', () => {
+  test.use({ ...loggedIn('admin'), viewport: { width: 390, height: 844 } });
+
+  test('ADMIN: dashboard, students, attendance, dues + More, each at least 44x44', async ({
     page,
   }) => {
     await page.goto('/dashboard');
-    const nav = page.getByRole('navigation', { name: t('nav.bottomNavStaffLabel') });
-    await expect(nav).toBeVisible();
-
-    const cells = nav.locator('a, button');
-    await expect(cells).toHaveCount(5);
-    for (const cell of await cells.all()) {
+    await expectCells(page, ['dashboard', 'students', 'attendance', 'dues']);
+    for (const cell of await staffBar(page).locator('a, button').all()) {
       const box = await cell.boundingBox();
       expect(box?.width ?? 0).toBeGreaterThanOrEqual(44);
       expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
     }
+    await expect(
+      staffBar(page).getByRole('link', { name: cellLabel('dashboard') }),
+    ).toHaveAttribute('aria-current', 'page');
+  });
 
-    await expect(page.getByRole('link', { name: t('nav.items.dashboard') })).toHaveAttribute(
+  test('the students cell is current on /students', async ({ page }) => {
+    await page.goto('/students');
+    await expect(staffBar(page).getByRole('link', { name: cellLabel('students') })).toHaveAttribute(
       'aria-current',
       'page',
+    );
+  });
+
+  test('on a page with no cell, nothing is current and More carries the active marker', async ({
+    page,
+  }) => {
+    await page.goto('/fee-structures');
+    const bar = staffBar(page);
+    await expect(bar.locator('[aria-current]')).toHaveCount(0);
+    await expect(bar.getByRole('button', { name: t('nav.items.more') })).toHaveAttribute(
+      'data-active',
+      'true',
     );
   });
 
@@ -37,80 +70,188 @@ test.describe('staff bottom nav', () => {
     page,
   }) => {
     await page.goto('/dashboard');
-    const more = page.getByRole('button', { name: t('nav.items.more') });
-
-    await more.click();
-    const drawer = page.getByRole('dialog');
-    await expect(drawer).toBeVisible();
+    await staffBar(page)
+      .getByRole('button', { name: t('nav.items.more') })
+      .click();
+    await expect(page.getByRole('dialog')).toBeVisible();
 
     await page.keyboard.press('Escape');
     await expect(page.getByRole('dialog')).toHaveCount(0);
-    // [8.14.3] real-behavior note (pinned by `app-shell.test.tsx`'s own
-    // '8.14.3' describe block): Radix's `DialogTrigger` hardcodes itself as
-    // the focus-restore target regardless of what element actually opened
-    // the dialog. `more` opens the drawer through `useAppShellDrawer`
-    // rather than through `DialogTrigger` itself, so focus lands back on
-    // the mobile header's own hamburger ("Open menu"), not on `more`. Still
-    // a real, on-screen, interactive element — not a lost-focus regression.
+    // Radix hardcodes the DialogTrigger (the phone bar's menu button) as the
+    // focus-restore target, even though `More` opened the drawer.
     await expect(page.getByRole('button', { name: t('nav.openMenuLabel') })).toBeFocused();
   });
 
-  test('exactly one chrome row is visible below md — the tenant/role row is hidden', async ({
+  test('exactly one 56 px sticky chrome row holds menu, school name, search, bell and account', async ({
     page,
   }) => {
     await page.goto('/dashboard');
+    const row = page.locator('[data-app-mobile-header]');
+    await expect(row).toBeVisible();
+    const box = await row.boundingBox();
+    expect(Math.abs((box?.height ?? 0) - 56)).toBeLessThanOrEqual(1);
+    expect(
+      await row.evaluate((el) => getComputedStyle(el.closest('[data-app-header]')!).position),
+    ).toBe('sticky');
+
+    await expect(row.getByRole('button', { name: t('nav.openMenuLabel') })).toBeVisible();
     await expect(
-      page.getByRole('navigation', { name: t('nav.bottomNavStaffLabel') }),
+      row.getByRole('button', { name: t('nav.commandPalette.buttonLabel') }),
     ).toBeVisible();
+    await expect(row.getByRole('button', { name: t('nav.userMenu.label') })).toBeVisible();
+    // menu + search + bell + account, nothing else crowds the row
+    await expect(row.getByRole('button')).toHaveCount(4);
+
+    // language + theme live in the account menu below md
+    await expect(page.getByRole('button', { name: t('nav.theme.label') })).toBeHidden();
+    await expect(
+      page.getByRole('button', { name: new RegExp(t('nav.language.label')) }),
+    ).toBeHidden();
+    // the desktop tenant/role row is hidden
     await expect(page.locator('[data-app-header-row]')).toBeHidden();
   });
 
-  test.describe('at 390px', () => {
-    test.use({ viewport: { width: 390, height: 844 } });
-
-    test('the bar still renders exactly 5 cells', async ({ page }) => {
-      await page.goto('/dashboard');
-      const nav = page.getByRole('navigation', { name: t('nav.bottomNavStaffLabel') });
-      await expect(nav.locator('a, button')).toHaveCount(5);
-    });
-  });
-
-  test.describe('TEACHER', () => {
-    test.use(loggedIn('teacher'));
-
-    test('has no Student Dues / Record Payment cells, and still ≤5 cells total', async ({
-      page,
-    }) => {
-      await page.goto('/dashboard');
-      const nav = page.getByRole('navigation', { name: t('nav.bottomNavStaffLabel') });
-      await expect(nav).toBeVisible();
-      await expect(nav.getByRole('link', { name: t('nav.items.studentDues') })).toHaveCount(0);
-      await expect(nav.getByRole('link', { name: t('nav.items.recordPayment') })).toHaveCount(0);
-      const count = await nav.locator('a, button').count();
-      expect(count).toBeLessThanOrEqual(5);
-    });
+  test('the bar is fixed to the viewport bottom and never hides content', async ({ page }) => {
+    const bar = page.locator('[data-app-bottom-nav]');
+    for (const path of ['/dashboard', '/students']) {
+      await page.goto(path);
+      await expect(bar).toBeVisible();
+      expect(await bar.evaluate((el) => getComputedStyle(el).position)).toBe('fixed');
+      await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+      const viewportHeight = page.viewportSize()!.height;
+      const barBox = (await bar.boundingBox())!;
+      expect(Math.abs(barBox.y + barBox.height - viewportHeight)).toBeLessThanOrEqual(1);
+      const lastBottom = await page.evaluate(() => {
+        const main = document.querySelector('main')!;
+        let bottom = 0;
+        for (const child of Array.from(main.children)) {
+          bottom = Math.max(bottom, child.getBoundingClientRect().bottom);
+        }
+        return bottom;
+      });
+      expect(lastBottom).toBeLessThanOrEqual(barBox.y + 1);
+    }
   });
 
   test.describe('at desktop width (1280px)', () => {
     test.use({ viewport: { width: 1280, height: 900 } });
 
-    test('the bottom nav is not visible, and the tenant row is', async ({ page }) => {
+    test('the bottom nav is hidden, and the tenant row is visible', async ({ page }) => {
       await page.goto('/dashboard');
-      await expect(
-        page.getByRole('navigation', { name: t('nav.bottomNavStaffLabel') }),
-      ).toBeHidden();
+      await expect(staffBar(page)).toBeHidden();
       await expect(page.locator('[data-app-header-row]')).toBeVisible();
     });
   });
 });
 
-test.describe('portal regression', () => {
+// One describe per role, written out on purpose (no generated tests).
+test.describe('TEACHER bottom nav', () => {
+  test.use({ ...loggedIn('teacher'), viewport: { width: 390, height: 844 } });
+
+  test('my class, attendance, routine, homework + More', async ({ page }) => {
+    await page.goto('/attendance');
+    await expectCells(page, ['myClass', 'attendance', 'routine', 'homework']);
+  });
+
+  test('my class cell is current on the teacher own section', async ({ page, request }) => {
+    const path = await resolvePath(request, {
+      path: '/my-class/$sectionId',
+      role: 'teacher',
+      archetype: 'detail',
+    });
+    await page.goto(path);
+    await expect(staffBar(page).getByRole('link', { name: cellLabel('myClass') })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+  });
+});
+
+test.describe('ACCOUNTANT bottom nav', () => {
+  test.use({ ...loggedIn('accountant'), viewport: { width: 390, height: 844 } });
+
+  test('dashboard, dues, payment, invoices + More', async ({ page }) => {
+    await page.goto('/dashboard');
+    await expectCells(page, ['dashboard', 'dues', 'payment', 'invoices']);
+  });
+});
+
+test.describe('EXECUTIVE bottom nav', () => {
+  test.use({ ...loggedIn('executive'), viewport: { width: 390, height: 844 } });
+
+  test('dashboard, students, attendance, reports + More', async ({ page }) => {
+    await page.goto('/dashboard');
+    await expectCells(page, ['dashboard', 'students', 'attendance', 'reports']);
+  });
+});
+
+test.describe('OFFICE_STAFF bottom nav', () => {
+  test.use({ ...loggedIn('office_staff'), viewport: { width: 390, height: 844 } });
+
+  test('dashboard, students, applicants, attendance + More', async ({ page }) => {
+    await page.goto('/dashboard');
+    await expectCells(page, ['dashboard', 'students', 'applicants', 'attendance']);
+  });
+});
+
+test.describe('EXAM_CONTROLLER bottom nav', () => {
+  test.use({ ...loggedIn('exam_controller'), viewport: { width: 390, height: 844 } });
+
+  test('dashboard, exams, analysis, students + More', async ({ page }) => {
+    await page.goto('/dashboard');
+    await expectCells(page, ['dashboard', 'exams', 'analysis', 'students']);
+  });
+});
+
+test.describe('COMMITTEE bottom nav', () => {
+  test.use({ ...loggedIn('committee'), viewport: { width: 390, height: 844 } });
+
+  test('dashboard, calendar + More (C8: two cells, never empty)', async ({ page }) => {
+    await page.goto('/dashboard');
+    await expectCells(page, ['dashboard', 'calendar']);
+  });
+});
+
+test.describe('portal shell (parent)', () => {
   test.use({ ...loggedIn('parent'), viewport: { width: 320, height: 900 } });
 
-  test('parent (guardian portal) at 320px still has no button named openMenuLabel', async ({
+  test('has a menu button now (D12) and overview, fees, attendance, results + More', async ({
     page,
   }) => {
     await page.goto('/portal');
-    await expect(page.getByRole('button', { name: t('nav.openMenuLabel') })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: t('nav.openMenuLabel') })).toBeVisible();
+    await expectCells(
+      page,
+      ['overview', 'fees', 'attendance', 'results'],
+      page.getByRole('navigation', { name: t('nav.bottomNavLabel') }),
+    );
+  });
+
+  test('one 56 px phone row', async ({ page }) => {
+    await page.goto('/portal');
+    const row = page.locator('[data-app-mobile-header]');
+    await expect(row).toHaveCount(1);
+    const box = await row.boundingBox();
+    expect(Math.abs((box?.height ?? 0) - 56)).toBeLessThanOrEqual(1);
+  });
+});
+
+test.describe('platform console (super_admin)', () => {
+  test.use({ ...loggedIn('super_admin'), viewport: { width: 390, height: 844 } });
+
+  test('schools, holidays, dashboard + More at 390 px', async ({ page }) => {
+    await page.goto('/schools');
+    await expectCells(page, ['schools', 'holidays', 'dashboard']);
+    await expect(page.locator('[data-app-mobile-header]')).toHaveCount(1);
+  });
+
+  test.describe('at 1280px', () => {
+    test.use({ viewport: { width: 1280, height: 900 } });
+
+    test('the sidebar holds exactly two links', async ({ page }) => {
+      await page.goto('/schools');
+      const sidebar = page.getByRole('navigation', { name: t('nav.navLabel') });
+      await expect(sidebar.getByRole('link')).toHaveCount(2);
+    });
   });
 });
