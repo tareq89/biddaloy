@@ -31,6 +31,7 @@ import {
   type PrintSubjectType,
 } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
+import { FullPageShell } from '@biddaloy/ui/shells';
 import * as React from 'react';
 
 import { slotLabel } from '../editor/element-label';
@@ -52,6 +53,10 @@ export interface PrintPreviewProps {
   onAddPrinter: () => void;
   /** Every batch is confirmed. */
   onDone: () => void;
+  /** The frame's Close. */
+  onClose: () => void;
+  /** "Back" to the picker; only passed when the preview was reached from it. */
+  onBack?: () => void;
 }
 
 interface PendingJob {
@@ -105,6 +110,8 @@ export function PrintPreview({
   onCreateTemplate,
   onAddPrinter,
   onDone,
+  onClose,
+  onBack,
 }: PrintPreviewProps) {
   const { t, i18n } = useTranslation('printPreview');
   const { t: tEditor } = useTranslation('printEditor');
@@ -302,25 +309,47 @@ export function PrintPreview({
   }, []);
 
   // --- empty states ----------------------------------------------------------
+  // Close is always there: every state renders inside the same full-page frame.
+  const frame = (
+    primary: { label: string; onClick: () => void; busy?: boolean; disabled?: boolean },
+    body: React.ReactNode,
+  ) => (
+    <FullPageShell
+      title={t('title')}
+      size="wide"
+      onClose={onClose}
+      dirty={started && confirmed < batches.length}
+      {...(onBack ? { secondary: { label: t('back'), onClick: onBack } } : {})}
+      primary={primary}
+    >
+      {body}
+    </FullPageShell>
+  );
+
   if (templatesQuery.isPending || printersQuery.isPending) {
-    return <Skeleton role="status" aria-label={t('loading')} className="h-40 w-full" />;
+    return frame(
+      { label: t('print'), onClick: () => undefined, disabled: true },
+      <Skeleton role="status" aria-label={t('loading')} className="h-40 w-full" />,
+    );
   }
   if (!template) {
-    return (
-      <EmptyState
-        title={t('noTemplate.title')}
-        explanation={t('noTemplate.explanation')}
-        action={{ label: t('noTemplate.action'), onClick: onCreateTemplate }}
-      />
+    return frame(
+      { label: t('noTemplate.action'), onClick: onCreateTemplate },
+      <EmptyState title={t('noTemplate.title')} explanation={t('noTemplate.explanation')} />,
     );
   }
 
   const printerTypeLabel = printer ? t(`printerType.${printer.printer_type}`) : '';
 
-  return (
+  return frame(
+    {
+      label: printing ? t('printing') : t('print'),
+      onClick: print,
+      busy: printing,
+      disabled: !canPrint,
+    },
     <div data-print-preview className="flex flex-col gap-4">
       <header className="flex flex-col gap-1">
-        <h1 className="text-lg font-semibold">{t('title')}</h1>
         <p className="text-sm text-muted-foreground">
           {t('header.batch', {
             current: Math.min(confirmed + 1, batches.length),
@@ -461,12 +490,7 @@ export function PrintPreview({
         </ul>
       ) : null}
 
-      <div className="flex items-center gap-3">
-        <Button type="button" disabled={!canPrint} loading={printing} onClick={print}>
-          {printing ? t('printing') : t('print')}
-        </Button>
-        {pending ? <span className="text-sm text-muted-foreground">{t('locked')}</span> : null}
-      </div>
+      {pending ? <p className="text-sm text-muted-foreground">{t('locked')}</p> : null}
 
       {pending ? (
         <DidAllPrintDialog
@@ -489,6 +513,6 @@ export function PrintPreview({
           }}
         />
       ) : null}
-    </div>
+    </div>,
   );
 }

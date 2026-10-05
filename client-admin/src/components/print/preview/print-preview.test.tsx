@@ -99,10 +99,12 @@ function serveLists(templates: PrintTemplateRow[], printers: PrinterRow[]) {
 
 const ids = (n: number) => Array.from({ length: n }, (_, i) => `s-${i + 1}`);
 
-function setup(subjectIds = ids(3)) {
+function setup(subjectIds = ids(3), withBack = false) {
   const onCreateTemplate = vi.fn();
   const onAddPrinter = vi.fn();
   const onDone = vi.fn();
+  const onClose = vi.fn();
+  const onBack = vi.fn();
   const view = renderWithProviders(
     <PrintPreview
       documentKind="STUDENT_ID_CARD"
@@ -111,10 +113,12 @@ function setup(subjectIds = ids(3)) {
       onCreateTemplate={onCreateTemplate}
       onAddPrinter={onAddPrinter}
       onDone={onDone}
+      onClose={onClose}
+      {...(withBack ? { onBack } : {})}
     />,
     { locale: 'en', role: 'ADMIN', tenantId: 'school-1' },
   );
-  return { ...view, onCreateTemplate, onAddPrinter, onDone };
+  return { ...view, onCreateTemplate, onAddPrinter, onDone, onClose, onBack };
 }
 
 const printResult = (n: number) => ({
@@ -190,13 +194,35 @@ describe('PrintPreview', () => {
     );
   });
 
-  it('offers to create a template when there is none', async () => {
+  it('offers to create a template when there is none, as the frame primary, with Close', async () => {
     serveLists([], [printer()]);
-    const { user, onCreateTemplate } = setup();
+    const { user, onCreateTemplate, onClose } = setup();
 
     expect(await screen.findByText('No template for this document yet')).toBeTruthy();
     await user.click(screen.getByRole('button', { name: 'Create one from a suggestion' }));
     expect(onCreateTemplate).toHaveBeenCalledOnce();
+    await user.click(screen.getByRole('button', { name: 'Close' }));
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it('is a full-page frame: "Print preview" heading, Close, and Back only when onBack is passed', async () => {
+    serveLists([template()], [printer()]);
+    servePreview();
+    const { user, onClose } = setup(ids(3), false);
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Print preview' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Back' })).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Close' }));
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it('shows Back and calls onBack when the preview came from the picker', async () => {
+    serveLists([template()], [printer()]);
+    servePreview();
+    const { user, onBack } = setup(ids(3), true);
+
+    await user.click(await screen.findByRole('button', { name: 'Back' }));
+    expect(onBack).toHaveBeenCalledOnce();
   });
 
   it('ignores an unpublished template (no current version)', async () => {

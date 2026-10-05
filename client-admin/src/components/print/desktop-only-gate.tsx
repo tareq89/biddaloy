@@ -6,12 +6,13 @@
 import { Button, toast } from '@biddaloy/ui/components';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { Link } from '@tanstack/react-router';
+import type { TFunction } from 'i18next';
 import * as React from 'react';
 
 const QUERY = '(min-width: 768px)';
 
 /** True on a wide screen. Assumes wide when the browser cannot tell (SSR, old test envs). */
-function useIsWide(): boolean {
+export function useIsWide(): boolean {
   const supported = typeof window !== 'undefined' && typeof window.matchMedia === 'function';
   const [wide, setWide] = React.useState(() =>
     supported ? window.matchMedia(QUERY).matches : true,
@@ -27,6 +28,16 @@ function useIsWide(): boolean {
   return wide;
 }
 
+/** Copy this page's address, with a translated toast either way. */
+export async function copyPageLink(t: TFunction<'printTemplates'>): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(window.location.href);
+    toast.success(t('gate.copied'));
+  } catch {
+    toast.error(t('gate.copyFailed'));
+  }
+}
+
 export interface DesktopOnlyGateProps {
   children: React.ReactNode;
   /** Where the back link goes. */
@@ -38,15 +49,6 @@ export function DesktopOnlyGate({ children, backTo = '/' }: DesktopOnlyGateProps
   const wide = useIsWide();
   if (wide) return <>{children}</>;
 
-  async function copyLink() {
-    try {
-      await navigator.clipboard.writeText(window.location.href);
-      toast.success(t('gate.copied'));
-    } catch {
-      toast.error(t('gate.copyFailed'));
-    }
-  }
-
   return (
     <div
       role="status"
@@ -55,7 +57,7 @@ export function DesktopOnlyGate({ children, backTo = '/' }: DesktopOnlyGateProps
     >
       <h1 className="text-lg font-semibold">{t('gate.title')}</h1>
       <p className="text-sm text-muted-foreground">{t('gate.body')}</p>
-      <Button type="button" onClick={() => void copyLink()}>
+      <Button type="button" onClick={() => void copyPageLink(t)}>
         {t('gate.copy')}
       </Button>
       <Link to={backTo} className="text-sm underline underline-offset-4">
