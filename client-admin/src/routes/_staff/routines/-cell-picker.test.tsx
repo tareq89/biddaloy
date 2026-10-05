@@ -91,7 +91,10 @@ describe('CellPicker', () => {
 
     await waitFor(() => expect(screen.getByText('Math')).toBeTruthy());
     const alert = screen.getByRole('alert');
-    expect(alert.textContent).toContain('Ms Nahar is already booked.');
+    expect(alert.textContent).toContain(
+      'A teacher on this period is already teaching another section at this time.',
+    );
+    expect(alert.textContent).not.toContain('Ms Nahar is already booked.');
     // Still inside the dialog, not the page behind it.
     expect(screen.getByRole('dialog').contains(alert)).toBe(true);
   });
