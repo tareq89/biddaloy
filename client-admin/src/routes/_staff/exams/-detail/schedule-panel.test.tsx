@@ -151,7 +151,7 @@ describe('exams/$examId Schedule tab', () => {
       locale: 'en',
     });
 
-    const venueButton = await screen.findByRole('button', { name: 'Main Hall' });
+    const venueButton = await screen.findByRole('button', { name: /^Main Hall/ });
     venueButton.focus();
     await user.keyboard('{Enter}');
 
@@ -163,7 +163,7 @@ describe('exams/$examId Schedule tab', () => {
     // Commit sends the PATCH and closes the editor back to display mode —
     // the GET handler above isn't stateful, so the redisplayed value is
     // whatever it returns; the PATCH body is what proves the edit worked.
-    await screen.findByRole('button', { name: 'Main Hall' });
+    await screen.findByRole('button', { name: /^Main Hall/ });
     expect(lastPatchBody).toMatchObject({ venue: 'Second Hall' });
   });
 
@@ -261,13 +261,13 @@ describe('exams/$examId Schedule tab', () => {
     const sent = mockScheduleTab({ schedule: [scheduleRow()] });
     renderScheduleTab();
 
-    await user.click(await screen.findByRole('button', { name: 'Main Hall' }));
+    await user.click(await screen.findByRole('button', { name: /^Main Hall/ }));
     await user.type(screen.getByLabelText('Venue'), ' Annex');
     await user.keyboard('{Escape}');
 
     // Back to display mode with the original value, and nothing was sent.
     expect(screen.queryByLabelText('Venue')).toBeNull();
-    expect(screen.getByRole('button', { name: 'Main Hall' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /^Main Hall/ })).toBeTruthy();
     expect(sent.patches).toEqual([]);
   });
 
@@ -276,7 +276,7 @@ describe('exams/$examId Schedule tab', () => {
     const sent = mockScheduleTab({ schedule: [scheduleRow({ venue: null })] });
     renderScheduleTab();
 
-    await user.click(await screen.findByRole('button', { name: '—' }));
+    await user.click(await screen.findByRole('button', { name: /^—, / }));
     const input = screen.getByLabelText<HTMLInputElement>('Venue');
     expect(input.value).toBe('');
 
@@ -344,13 +344,44 @@ describe('exams/$examId Schedule tab', () => {
     mockScheduleTab({ schedule: [scheduleRow()] });
     renderScheduleTab();
 
-    const venueButton = await screen.findByRole('button', { name: 'Main Hall' });
+    const venueButton = await screen.findByRole('button', { name: /^Main Hall/ });
     venueButton.focus();
     await user.keyboard('a');
     expect(screen.queryByRole('textbox')).toBeNull();
 
     await user.keyboard('{Enter}');
     expect(screen.getByLabelText('Venue')).toBeTruthy();
+  });
+
+  it('Remove asks first, and a failed remove shows a translated message', async () => {
+    const user = userEvent.setup();
+    mockScheduleTab({ schedule: [scheduleRow()] });
+    server.use(
+      http.delete('/api/v1/exams/:examId/schedule/:id', () =>
+        HttpResponse.json({ message: 'db exploded' }, { status: 500 }),
+      ),
+    );
+    renderScheduleTab();
+
+    await user.click(await screen.findByRole('button', { name: 'Remove from schedule' }));
+    const confirm = await screen.findByRole('alertdialog');
+    await user.click(within(confirm).getByRole('button', { name: 'Remove' }));
+    expect(await within(confirm).findByText(/Couldn't remove it\./)).toBeTruthy();
+    expect(screen.queryByText(/db exploded/)).toBeNull();
+  });
+
+  it('a failed inline edit shows a translated alert instead of silently reverting', async () => {
+    const user = userEvent.setup();
+    mockScheduleTab({ schedule: [scheduleRow()] });
+    server.use(
+      http.patch('/api/v1/exams/:examId/schedule/:id', () =>
+        HttpResponse.json({ message: 'db exploded' }, { status: 500 }),
+      ),
+    );
+    renderScheduleTab();
+    await user.click(await screen.findByRole('button', { name: /^Main Hall/ }));
+    await user.type(screen.getByLabelText('Venue'), 'X{Enter}');
+    expect(await screen.findByText("Couldn't save the schedule change.")).toBeTruthy();
   });
 
   it('shows an error state when the schedule fails to load', async () => {

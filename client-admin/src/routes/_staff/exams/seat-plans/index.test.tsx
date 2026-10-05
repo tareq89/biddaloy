@@ -50,7 +50,7 @@ describe('/exams/seat-plans', () => {
     expect(screen.getByText('Seat plans for exams at this school', { exact: false })).toBeTruthy();
   });
 
-  it('shows the empty state with an add action', async () => {
+  it('shows the empty state with a single add button (the header one)', async () => {
     server.use(http.get('/api/v1/seat-plans', () => HttpResponse.json([])));
     renderWithRouter(routeTree, {
       initialEntries: ['/exams/seat-plans'],
@@ -59,7 +59,7 @@ describe('/exams/seat-plans', () => {
       locale: 'en',
     });
     expect(await screen.findByText('No seat plans yet')).toBeTruthy();
-    expect(screen.getAllByRole('button', { name: 'Generate seat plan' })).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: 'Generate seat plan' })).toHaveLength(1);
   });
 
   it('pages at 25 by default', async () => {

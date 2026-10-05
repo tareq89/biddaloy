@@ -11,8 +11,8 @@
       "students": "Students",
       "seatOrder": "Seat order"
     },
-    "countItems": "{{count}}",
-    "countPeople": "{{count}}",
+    "countItems": "{{n}}",
+    "countPeople": "{{n}}",
     "seatOrder": {
       "SEQUENTIAL": "In order",
       "RANDOM": "Random"
@@ -37,7 +37,8 @@
     "columnSeat": "Seat",
     "tableCaption": "Students seated in room {{room}}",
     "empty": "Nobody sits in this room for this subject.",
-    "seated": "{{count}} seated · {{capacity}}"
+    "seated": "{{n}} seated · {{capacity}}",
+    "invigilatorError": "Couldn't change the invigilator."
   },
   "reseat": {
     "title": "Change seat",
@@ -57,7 +58,8 @@
   "reshuffle": {
     "title": "Reseat this room?",
     "description": "Every seat in {{room}} will be given again. Manual changes will be lost.",
-    "confirm": "Reseat"
+    "confirm": "Reseat",
+    "errorMessage": "Couldn't reseat the room."
   },
   "errors": {
     "unknown": "Something went wrong. Please try again."

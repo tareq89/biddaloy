@@ -45,7 +45,7 @@ describe('exams/$examId Progress tab', () => {
       outstanding: [row('A', 'Mathematics', 'subject-math'), row('B', 'English', 'subject-eng')],
     });
 
-    await screen.findByText('1 of 2 marks lists submitted');
+    await screen.findByText('১ of ২ marks lists submitted');
     const bar = screen.getByRole('progressbar', { name: 'Marks submission progress' });
     expect(bar.getAttribute('aria-valuenow')).toBe('1');
     expect(bar.getAttribute('aria-valuemax')).toBe('2');
@@ -68,7 +68,7 @@ describe('exams/$examId Progress tab', () => {
       ),
     });
 
-    await screen.findByText('0 of 30 marks lists submitted');
+    await screen.findByText('০ of ৩০ marks lists submitted');
     await screen.findAllByRole('link', { name: 'Enter marks' });
     const table = screen.getByRole('table');
     expect(within(table).getAllByRole('link', { name: 'Enter marks' })).toHaveLength(25);

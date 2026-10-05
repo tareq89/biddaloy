@@ -12,8 +12,9 @@ import {
   useHasPermission,
   type Exam,
 } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { ListShell, useListShellState, type FilterFieldDescriptor } from '@biddaloy/ui/shells';
+import { formatNumber } from '@biddaloy/ui/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { Plus } from 'lucide-react';
 import * as React from 'react';
@@ -61,6 +62,7 @@ function AcademicYearName({ id }: { id: string }) {
 
 function ExamsListPage() {
   const { t } = useTranslation('exams');
+  const config = useRegionConfig();
   const [state, actions] = useListShellState();
   const canManage = useHasPermission(Permission.EXAM_MANAGE);
   const academicYearsQuery = useAcademicYears({ limit: 100 });
@@ -131,9 +133,6 @@ function ExamsListPage() {
   ];
 
   const hasFilters = !!academicYearId || !!classId;
-  const addAction = canManage
-    ? { label: t('list.addExam'), onClick: () => setCreateOpen(true) }
-    : undefined;
   const emptyState: EmptyStateProps = hasFilters
     ? {
         title: t('list.noMatchTitle'),
@@ -146,7 +145,7 @@ function ExamsListPage() {
     : {
         title: t('list.emptyTitle'),
         explanation: t('list.emptyText'),
-        ...(addAction ? { action: addAction } : {}),
+        // The header already holds the one primary add button; no second one here.
       };
 
   return (
@@ -228,7 +227,11 @@ function ExamsListPage() {
         {...(examsQuery.isError ? { error: t('list.errorMessage') } : {})}
         emptyState={emptyState}
         announceResults={(count, total) =>
-          t('list.announceResults', { visible: count, total, count: total })
+          t('list.announceResults', {
+            visible: formatNumber(count, config),
+            total: formatNumber(total, config),
+            count: total,
+          })
         }
       />
 
