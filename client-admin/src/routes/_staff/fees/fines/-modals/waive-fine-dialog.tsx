@@ -133,18 +133,20 @@ export function WaiveFineDialog({ open, onOpenChange, fineId, studentId }: Waive
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+    <Dialog open={open} onOpenChange={(next) => !waiveFine.isPending && onOpenChange(next)}>
+      <DialogContent size="md">
         <DialogHeader>
           <DialogTitle>{t('waiveDialog.title')}</DialogTitle>
-          <DialogDescription>{t('waiveDialog.reasonPlaceholder')}</DialogDescription>
+          <DialogDescription>{t('waiveDialog.description')}</DialogDescription>
         </DialogHeader>
 
         {fineId === undefined && (
           <div className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium">{t('columns.fine')}</span>
+            <label htmlFor="waive-fine-select" className="text-sm font-medium">
+              {t('columns.fine')}
+            </label>
             <Select value={selectedFineId} onValueChange={setSelectedFineId}>
-              <SelectTrigger aria-label={t('columns.fine')}>
+              <SelectTrigger id="waive-fine-select">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -164,11 +166,11 @@ export function WaiveFineDialog({ open, onOpenChange, fineId, studentId }: Waive
           onValueChange={(value) => setMode(value as typeof mode)}
           className="flex flex-col gap-2"
         >
-          <label className="flex items-center gap-2 text-sm">
+          <label className="flex min-h-11 items-center gap-2 text-sm md:min-h-8">
             <RadioGroupItem value="FULL" />
             {t('waiveDialog.fullLabel')}
           </label>
-          <label className="flex items-center gap-2 text-sm">
+          <label className="flex min-h-11 items-center gap-2 text-sm md:min-h-8">
             <RadioGroupItem value="PARTIAL" />
             {t('waiveDialog.partialLabel')}
           </label>
@@ -210,13 +212,12 @@ export function WaiveFineDialog({ open, onOpenChange, fineId, studentId }: Waive
 
         <DialogFooter>
           <DialogClose asChild>
-            <Button type="button" variant="outline">
+            <Button type="button" variant="outline" disabled={waiveFine.isPending}>
               {t('actions.cancel', { ns: 'common' })}
             </Button>
           </DialogClose>
           <Button
             type="button"
-            variant="destructive"
             disabled={!canSubmit}
             loading={waiveFine.isPending}
             onClick={handleConfirm}
