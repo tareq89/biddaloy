@@ -42,6 +42,11 @@ export const FamilyAudience: Story = {
   args: { audience: 'family' },
 };
 
+/** Phone width: controls stay full-width and 44 px tall. */
+export const Phone: Story = {
+  parameters: { viewport: { defaultViewport: 'mobile1' } },
+};
+
 export const WithSkip: Story = {
   args: { onSkip: () => {} },
 };

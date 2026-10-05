@@ -4,8 +4,9 @@
  * AND text (a hidden "done"/"not done" word), never by colour alone. Screen
  * readers hear one polite summary instead of a row per keystroke.
  */
-import { checkPassword, type PasswordAudience } from '@biddaloy/shared';
+import { checkPassword, type PasswordAudience, type PasswordRuleId } from '@biddaloy/shared';
 
+import { ApiError } from '../api';
 import { useTranslation } from '../i18n';
 import { cn } from '../primitives/lib/utils';
 
@@ -14,6 +15,8 @@ import { useFormField } from './form-field';
 export interface PasswordChecklistProps {
   password: string;
   audience?: PasswordAudience;
+  /** Rules the server rejected (`PASSWORD_TOO_WEAK`); shown as not met. */
+  failed?: PasswordRuleId[] | undefined;
   /** Ties the list to its input via `aria-describedby`. */
   id?: string;
 }
@@ -33,9 +36,25 @@ export function RuleIcon({ ok }: { ok: boolean }) {
   );
 }
 
-export function PasswordChecklist({ password, audience = 'staff', id }: PasswordChecklistProps) {
+/** `details.failed` of a 400 `PASSWORD_TOO_WEAK`, else `undefined`. */
+export function weakPasswordRules(error: unknown): PasswordRuleId[] | undefined {
+  if (!(error instanceof ApiError) || error.details?.code !== 'PASSWORD_TOO_WEAK') return undefined;
+  return Array.isArray(error.details.failed)
+    ? (error.details.failed as PasswordRuleId[])
+    : undefined;
+}
+
+export function PasswordChecklist({
+  password,
+  audience = 'staff',
+  failed,
+  id,
+}: PasswordChecklistProps) {
   const { t } = useTranslation('auth');
-  const rules = checkPassword(password, audience);
+  const rules = checkPassword(password, audience).map((rule) => ({
+    ...rule,
+    ok: rule.ok && !failed?.includes(rule.id),
+  }));
   const met = rules.filter((rule) => rule.ok).length;
 
   return (

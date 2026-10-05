@@ -36,8 +36,8 @@ describe('/forgot-password', () => {
     await user.type(screen.getByLabelText('6-digit code'), '123456');
     await user.click(screen.getByRole('button', { name: 'Continue' }));
 
-    await user.type(await screen.findByLabelText('New password'), 'a-strong-password');
-    await user.type(screen.getByLabelText('Confirm password'), 'a-strong-password');
+    await user.type(await screen.findByLabelText('New password'), 'A-strong-pass1!');
+    await user.type(screen.getByLabelText('Confirm password'), 'A-strong-pass1!');
     await user.click(screen.getByRole('button', { name: 'Set password' }));
 
     await waitFor(() => expect(router.state.location.pathname).toBe('/dashboard'));
