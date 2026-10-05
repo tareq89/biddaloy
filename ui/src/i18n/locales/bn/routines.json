@@ -68,22 +68,45 @@
   "builderList": {
     "title": "শ্রেণির রুটিন",
     "classLabel": "শ্রেণি",
-    "selectClass": "একটি শ্রেণি নির্বাচন করুন",
     "emptyTitle": "কোনো শাখা নেই",
     "emptyExplanation": "এই শ্রেণিতে এখনও কোনো শাখা নেই।",
-    "pickAnotherClass": "অন্য শ্রেণি বাছুন",
-    "enrolledCount": "{{count}} জন শিক্ষার্থী",
-    "enrolledCount_other": "{{count}} জন শিক্ষার্থী"
+    "enrolledCount": "{{formattedCount}} জন শিক্ষার্থী",
+    "enrolledCount_other": "{{formattedCount}} জন শিক্ষার্থী",
+    "subtitle": "শ্রেণি বেছে একটি শাখা খুলুন, তারপর সাপ্তাহিক রুটিন সাজান।",
+    "sectionColumn": "শাখা",
+    "sectionName": "শাখা {{name}}",
+    "studentsColumn": "শিক্ষার্থী",
+    "tableCaption": "{{className}}-র শাখা",
+    "openAction": "রুটিন সাজান",
+    "openClassAction": "শ্রেণি খুলুন",
+    "noClassesTitle": "এখনো কোনো শ্রেণি নেই",
+    "noClassesExplanation": "আগে একটি শ্রেণি ও তার শাখা যোগ করুন।",
+    "goToClasses": "শ্রেণিতে যান",
+    "error": "শ্রেণির তালিকা আনা যায়নি। সংযোগ দেখে আবার চেষ্টা করুন।"
   },
   "builder": {
-    "title": "{{className}} {{sectionName}} — রুটিন",
-    "noClassIdExplanation": "রুটিন বিল্ডারের শাখা তালিকা থেকে এই পেজটি খুলুন — সরাসরি লিঙ্কের জন্য শাখাটি কোন শ্রেণির তা জানা প্রয়োজন।",
+    "title": "{{className}} – {{sectionName}}",
+    "noClassIdExplanation": "শ্রেণির রুটিনের তালিকা থেকে শাখাটি খুলুন, তাহলে বোঝা যাবে কোন শাখার রুটিন।",
     "sectionNotFound": "শাখা পাওয়া যায়নি।",
     "noShiftExplanation": "এই শ্রেণিতে এখনও কোনো শিফট নির্ধারিত নেই — রুটিন তৈরির আগে শ্রেণিতে একটি শিফট সেট করুন।",
     "noRoutineExplanation": "এই শিক্ষাবর্ষের জন্য এখনও কোনো রুটিন নেই।",
-    "fillAssistAction": "ফিল অ্যাসিস্ট",
+    "fillAssistAction": "খালি ঘর পূরণ করুন",
     "savedToast": "সংরক্ষিত হয়েছে",
-    "saveErrorToast": "সংরক্ষণ করা যায়নি — আবার চেষ্টা করুন।"
+    "saveErrorToast": "সংরক্ষণ করা যায়নি — আবার চেষ্টা করুন।",
+    "studentsFact": "শিক্ষার্থী",
+    "studentsValue": "{{count}} জন",
+    "filledFact": "পূরণ হয়েছে",
+    "filledValue": "{{total}}টির মধ্যে {{filled}}টি পিরিয়ড",
+    "reviewAction": "পর্যালোচনা ও প্রকাশ",
+    "keyboardHint": "একটি ঘরে ক্লিক করুন, অথবা তীর-চাবি দিয়ে গিয়ে Enter চাপুন। Delete চাপলে ঘরটি খালি হয়।",
+    "backToList": "শ্রেণির রুটিন",
+    "noClassIdTitle": "কোন শাখা, বোঝা যাচ্ছে না",
+    "sectionNotFoundExplanation": "শাখাটি হয়তো মুছে ফেলা হয়েছে। তালিকা থেকে আবার বাছুন।",
+    "noShiftTitle": "শ্রেণির শিফট ঠিক করা নেই",
+    "openClass": "শ্রেণি খুলুন",
+    "noRoutineTitle": "এখনো কোনো রুটিন নেই",
+    "openReview": "রুটিন পর্যালোচনা খুলুন",
+    "loading": "রুটিন লোড হচ্ছে"
   },
   "cellPicker": {
     "title": "একটি পিরিয়ড নির্ধারণ করুন",
@@ -106,16 +129,28 @@
   },
   "conflictList": {
     "violationsTitle": "এটি সংরক্ষণ করা যাবে না",
-    "warningsTitle": "মনে রাখুন"
+    "warningsTitle": "মনে রাখুন",
+    "codes": {
+      "BREAK_SLOT": "বিরতির সময়ে পিরিয়ড বসানো যায় না।",
+      "TEACHER_DOUBLE_BOOKED": "এই সময়ে শিক্ষক অন্য একটি শাখায় পড়াচ্ছেন।",
+      "SECTION_DOUBLE_BOOKED": "এই শাখার এই সময়ে আগে থেকেই একটি পিরিয়ড আছে।",
+      "ROOM_DOUBLE_BOOKED": "এই সময়ে কক্ষটি আগে থেকেই ব্যবহৃত হচ্ছে।",
+      "TEACHER_OVER_DAILY_LIMIT": "এতে শিক্ষকের দিনের সর্বোচ্চ পিরিয়ডের সীমা পার হয়ে যাবে।",
+      "TEACHER_NOT_ASSIGNED": "এই শিক্ষক এই শাখার এই বিষয়ের জন্য নিয়োগ পাননি।",
+      "TEACHER_OVER_CONSECUTIVE_LIMIT": "একজন শিক্ষক সীমার চেয়ে বেশি টানা পিরিয়ড পড়াবেন।",
+      "unknown": "এটি রুটিনের একটি নিয়মের সাথে মেলে না।"
+    }
   },
   "workloadPanel": {
     "legend": "শিক্ষকের কর্মভার",
     "empty": "এখনও কোনো পিরিয়ড নির্ধারিত হয়নি।",
-    "periodsPerWeek": "{{count}} পিরিয়ড/সপ্তাহ",
-    "periodsPerWeek_other": "{{count}} পিরিয়ড/সপ্তাহ",
     "overLimit": "দৈনিক সীমার বেশি",
     "underloaded": "{{count}} জন শিক্ষকের কোনো পিরিয়ড নির্ধারিত নেই",
-    "underloaded_other": "{{count}} জন শিক্ষকের কোনো পিরিয়ড নির্ধারিত নেই"
+    "underloaded_other": "{{count}} জন শিক্ষকের কোনো পিরিয়ড নির্ধারিত নেই",
+    "teacherColumn": "শিক্ষক",
+    "periodsColumn": "পিরিয়ড / সপ্তাহ",
+    "statusColumn": "অবস্থা",
+    "periodsPerWeekShort": "সপ্তাহে {{count}}টি পিরিয়ড"
   },
   "fillAssist": {
     "title": "বাকি পিরিয়ডগুলো পূরণ করুন",

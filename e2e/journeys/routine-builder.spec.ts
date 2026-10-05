@@ -95,7 +95,7 @@ test('admin builds a section routine, resolves a teacher clash, fill-assists, an
     await expect(page.getByRole('table', { name: t('routines.grid.caption') })).toBeVisible();
   });
 
-  const grid = page.locator('table');
+  const grid = page.getByRole('table', { name: t('routines.grid.caption') });
 
   await test.step('fill an empty period with subject + one teacher, keyboard only', async () => {
     await grid.locator('button[tabindex="0"]').focus();
