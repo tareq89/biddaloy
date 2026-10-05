@@ -42,8 +42,9 @@
     "saving": "Saving…",
     "errorMessage": "Failed to save admission round",
     "sectionTitle": "Round details",
-    "applicantCount_one": "{{count}} application received",
-    "applicantCount_other": "{{count}} applications received",
-    "saved": "Saved"
+    "applicantCount_one": "{{formatted}} application received",
+    "applicantCount_other": "{{formatted}} applications received",
+    "saved": "Saved",
+    "loadError": "Failed to load this round"
   }
 }

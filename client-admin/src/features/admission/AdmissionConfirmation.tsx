@@ -18,14 +18,15 @@ export interface AdmissionConfirmationProps {
 export function AdmissionConfirmation({ slug, referenceNumber }: AdmissionConfirmationProps) {
   const { t } = useTranslation('admission-public');
   const [copied, setCopied] = React.useState(false);
+  const [copyFailed, setCopyFailed] = React.useState(false);
 
   async function handleCopy() {
     try {
       await navigator.clipboard.writeText(referenceNumber);
       setCopied(true);
     } catch {
-      // Clipboard access can be denied/unavailable — the number is already
-      // shown large on screen, so this is a nice-to-have, not required.
+      // Clipboard access can be denied/unavailable: tell the parent to copy by hand.
+      setCopyFailed(true);
     }
   }
 
@@ -46,6 +47,11 @@ export function AdmissionConfirmation({ slug, referenceNumber }: AdmissionConfir
         {copied ? <CheckIcon aria-hidden /> : <CopyIcon aria-hidden />}
         {copied ? t('confirmation.copied') : t('confirmation.copy')}
       </Button>
+      {copyFailed && (
+        <p role="status" className="text-caption text-text-secondary">
+          {t('confirmation.clipboardHint')}
+        </p>
+      )}
       <Link
         to="/admission/$slug/status"
         params={{ slug }}

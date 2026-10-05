@@ -245,6 +245,7 @@ export function ApplicantDetail({ applicantId }: { applicantId: string }) {
         open={rejectOpen}
         onOpenChange={(next) => {
           setRejectOpen(next);
+          if (!next) rejectApplicant.reset();
           if (!next) setRejectNotes('');
         }}
       >
