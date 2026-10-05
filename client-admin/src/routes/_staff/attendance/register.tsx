@@ -14,7 +14,19 @@
  * product, not a one-off.
  */
 import { AttendanceStatus } from '@biddaloy/shared';
-import { Button, EmptyState, ErrorState, Skeleton } from '@biddaloy/ui/components';
+import {
+  EmptyState,
+  ErrorState,
+  Label,
+  MonthPicker,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Skeleton,
+  TableCount,
+} from '@biddaloy/ui/components';
 import { useClasses, useClassSections, useRegisterMatrix } from '@biddaloy/ui/hooks';
 import {
   RegionConfigProvider,
@@ -22,9 +34,10 @@ import {
   useTenantRegionConfig,
   useTranslation,
 } from '@biddaloy/ui/i18n';
-import { formatNumber, parseServerDate } from '@biddaloy/ui/utils';
+import { PageContainer, PageHeader } from '@biddaloy/ui/shells';
+import { formatDate, formatMonth, formatNumber, parseServerDate } from '@biddaloy/ui/utils';
 import { createFileRoute } from '@tanstack/react-router';
-import { PrinterIcon } from 'lucide-react';
+import { FileSpreadsheet, PrinterIcon } from 'lucide-react';
 import { z } from 'zod';
 
 import { loadRouteNamespaces } from '../../../route-loaders';
@@ -54,12 +67,29 @@ export const Route = createFileRoute('/_staff/attendance/register')({
   component: RegisterPage,
 });
 
-const STATUS_ABBREV: Record<AttendanceStatus, string> = {
-  [AttendanceStatus.PRESENT]: 'P',
-  [AttendanceStatus.ABSENT]: 'A',
-  [AttendanceStatus.LATE]: 'L',
-  [AttendanceStatus.LEAVE]: 'V',
-};
+/** Letter shown in a day cell. Literal keys (not a computed `t()` key) so
+ * `check-i18n-keys.mjs` can see them. An unknown status shows "?". */
+function abbrev(t: ReturnType<typeof useTranslation>['t'], status: AttendanceStatus): string {
+  switch (status) {
+    case AttendanceStatus.PRESENT:
+      return t('register.abbrev.PRESENT');
+    case AttendanceStatus.ABSENT:
+      return t('register.abbrev.ABSENT');
+    case AttendanceStatus.LATE:
+      return t('register.abbrev.LATE');
+    case AttendanceStatus.LEAVE:
+      return t('register.abbrev.LEAVE');
+    default:
+      return '?';
+  }
+}
+
+function toneClass(status: AttendanceStatus | null | undefined): string {
+  if (status === AttendanceStatus.ABSENT) return 'font-semibold text-status-overdue-fg';
+  if (status === AttendanceStatus.LATE) return 'text-status-due-fg';
+  if (status === AttendanceStatus.LEAVE) return 'text-status-partial-fg';
+  return '';
+}
 
 /** Literal per-status lookup, not `t(\`statusControl.status.${status}\`)` —
  * a computed key is invisible to `check-i18n-keys.mjs` (same reasoning
@@ -79,9 +109,8 @@ function statusLabel(t: ReturnType<typeof useTranslation>['t'], status: Attendan
     default:
       // `row.marks` is cast (not validated) from server JSON — a status
       // member this client doesn't know about yet (e.g. a future
-      // `HALF_DAY`) must not render as an empty cell. Show it raw rather
-      // than silently dropping the mark.
-      return status;
+      // `HALF_DAY`) must not render as an empty cell, nor as a raw enum.
+      return t('register.unknownStatus');
   }
 }
 
@@ -120,74 +149,88 @@ function RegisterPageContent() {
     });
   }
 
+  const rows = matrixQuery.data?.rows ?? [];
+  const monthLabel = formatMonth(month, regionConfig);
+  const names = { className: className ?? '', sectionName: sectionName ?? '' };
+  const caption = t('register.caption', { ...names, month: monthLabel });
+  const cardTitle = t('register.cardTitle', { ...names, month: monthLabel });
+
   return (
-    <div className="flex flex-col gap-4 p-4">
-      <div className="flex flex-wrap items-end justify-between gap-3 print:hidden">
-        <h1 className="text-lg font-semibold">{t('register.title')}</h1>
-        <div className="flex flex-wrap items-end gap-2">
-          <label className="flex flex-col gap-1 text-sm">
-            {t('register.classLabel')}
-            <select
-              className="h-8 rounded-md border border-input bg-card px-2.5 text-sm"
-              value={search.class_id ?? ''}
-              onChange={(event) =>
-                patchSearch({
-                  class_id: event.target.value || undefined,
-                  section_id: undefined,
-                })
-              }
-            >
-              <option value="">{t('reports.allClasses')}</option>
-              {(classesQuery.data?.data ?? []).map((klass) => (
-                <option key={klass.id} value={klass.id}>
-                  {klass.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex flex-col gap-1 text-sm">
-            {t('register.sectionLabel')}
-            <select
-              className="h-8 rounded-md border border-input bg-card px-2.5 text-sm"
-              value={search.section_id ?? ''}
-              onChange={(event) => patchSearch({ section_id: event.target.value || undefined })}
-            >
-              <option value="">{t('reports.allSections')}</option>
-              {(sectionsQuery.data ?? []).map((section) => (
-                <option key={section.id} value={section.id}>
-                  {section.section_name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex flex-col gap-1 text-sm">
-            {t('register.monthLabel')}
-            <input
-              type="month"
-              className="h-8 rounded-md border border-input bg-card px-2.5 text-sm"
-              value={month}
-              onChange={(event) => patchSearch({ month: event.target.value || undefined })}
-            />
-          </label>
-          <Button
-            type="button"
-            disabled={search.section_id === undefined}
-            onClick={() => window.print()}
+    <PageContainer>
+      <PageHeader
+        title={t('register.title')}
+        subtitle={t('register.subtitle')}
+        actions={[
+          {
+            id: 'print',
+            label: t('register.print'),
+            icon: <PrinterIcon aria-hidden="true" />,
+            priority: 'primary',
+            disabled: rows.length === 0,
+            onClick: () => window.print(),
+          },
+        ]}
+      />
+
+      <section aria-label={t('register.pickersLabel')} className="grid gap-4 md:grid-cols-12">
+        <div className="grid gap-1.5 md:col-span-3">
+          <Label htmlFor="register-class">{t('register.classLabel')}</Label>
+          <Select
+            value={search.class_id ?? ''}
+            onValueChange={(value) => patchSearch({ class_id: value, section_id: undefined })}
           >
-            <PrinterIcon className="size-4" aria-hidden="true" />
-            {t('register.print')}
-          </Button>
+            <SelectTrigger id="register-class">
+              <SelectValue placeholder={t('register.pickPlaceholder')} />
+            </SelectTrigger>
+            <SelectContent>
+              {(classesQuery.data?.data ?? []).map((klass) => (
+                <SelectItem key={klass.id} value={klass.id}>
+                  {klass.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
-      </div>
+        <div className="grid gap-1.5 md:col-span-3">
+          <Label htmlFor="register-section">{t('register.sectionLabel')}</Label>
+          <Select
+            value={search.section_id ?? ''}
+            onValueChange={(value) => patchSearch({ section_id: value })}
+            disabled={search.class_id === undefined}
+          >
+            <SelectTrigger id="register-section" disabled={search.class_id === undefined}>
+              <SelectValue placeholder={t('register.pickPlaceholder')} />
+            </SelectTrigger>
+            <SelectContent>
+              {(sectionsQuery.data ?? []).map((section) => (
+                <SelectItem key={section.id} value={section.id}>
+                  {section.section_name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="grid gap-1.5 md:col-span-3">
+          <Label htmlFor="register-month">{t('register.monthLabel')}</Label>
+          <MonthPicker
+            id="register-month"
+            aria-label={t('register.monthLabel')}
+            value={month}
+            onValueChange={(value) => patchSearch({ month: value })}
+          />
+        </div>
+      </section>
 
       {search.section_id === undefined ? (
-        <p role="status" className="text-sm text-muted-foreground">
-          {t('register.selectPrompt')}
-        </p>
+        <EmptyState
+          icon={<FileSpreadsheet />}
+          title={t('register.pickTitle')}
+          explanation={t('register.selectPrompt')}
+        />
       ) : matrixQuery.isPending ? (
-        <div aria-busy="true" aria-live="polite" className="flex flex-col gap-2">
+        <div aria-busy="true" aria-live="polite">
           <span className="sr-only">{t('register.loading')}</span>
-          <Skeleton className="h-64 w-full" />
+          <Skeleton className="h-64 w-full rounded-lg" />
         </div>
       ) : matrixQuery.isError ? (
         <ErrorState
@@ -195,119 +238,145 @@ function RegisterPageContent() {
           retryLabel={t('actions.retry', { ns: 'common' })}
           onRetry={() => void matrixQuery.refetch()}
         />
-      ) : matrixQuery.data.rows.length === 0 ? (
+      ) : rows.length === 0 ? (
         <EmptyState
-          title={t('register.title')}
-          explanation={t('register.emptyMessage')}
-          action={{
-            label: t('actions.retry', { ns: 'common' }),
-            onClick: () => void matrixQuery.refetch(),
-          }}
+          title={t('register.emptyMessage')}
+          explanation={t('register.emptyExplanation')}
         />
       ) : (
-        <div
+        <section
           id="attendance-register-print-area"
-          role="region"
-          aria-label={t('register.caption', {
-            className: className ?? '',
-            sectionName: sectionName ?? '',
-            month,
-          })}
-          // WCAG SCR29: a scrollable `role="region"` needs a tab stop so a
-          // keyboard user can scroll it — same exemption `data-table.tsx`'s
-          // own table-mode wrapper carries, for the identical reason.
-          // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
-          tabIndex={0}
-          className="w-full overflow-x-auto rounded-lg border border-border-subtle"
+          aria-labelledby="r-title"
+          className="overflow-hidden rounded-lg border border-border-subtle bg-surface shadow-e1"
         >
-          <table className="w-full border-collapse text-sm tabular-nums">
-            <caption className="p-2 text-start text-sm font-semibold">
-              {t('register.caption', {
-                className: className ?? '',
-                sectionName: sectionName ?? '',
-                month,
-              })}
-            </caption>
-            <thead>
-              <tr className="border-b border-border-subtle">
-                <th scope="col" className="p-1.5 text-start font-medium">
-                  {t('register.columnRoll')}
-                </th>
-                <th scope="col" className="p-1.5 text-start font-medium">
-                  {t('register.columnStudent')}
-                </th>
-                {matrixQuery.data.dates.map((date) => (
-                  <th key={date.date} scope="col" className="p-1 text-center font-medium">
-                    <span aria-hidden="true">{parseServerDate(date.date).getUTCDate()}</span>
-                    <span className="sr-only">{date.date}</span>
-                  </th>
-                ))}
-                <th scope="col" className="p-1.5 text-end font-medium">
-                  {t('register.totalPresent')}
-                </th>
-                <th scope="col" className="p-1.5 text-end font-medium">
-                  {t('register.totalAbsent')}
-                </th>
-                <th scope="col" className="p-1.5 text-end font-medium">
-                  {t('register.totalLate')}
-                </th>
-                <th scope="col" className="p-1.5 text-end font-medium">
-                  {t('register.totalLeave')}
-                </th>
-                <th scope="col" className="p-1.5 text-end font-medium">
-                  {t('register.totalPercentage')}
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {matrixQuery.data.rows.map((row) => (
-                <tr key={row.student_id} className="border-b border-border-subtle">
-                  <td className="p-1.5">{formatNumber(row.roll_number, regionConfig)}</td>
-                  <td className="p-1.5">{row.full_name}</td>
-                  {matrixQuery.data.dates.map((date) => {
-                    const status = (row.marks as Record<string, AttendanceStatus | null>)[
-                      date.date
-                    ];
-                    const label = !date.is_working_day
-                      ? t('register.notWorkingDay')
-                      : status
-                        ? statusLabel(t, status)
-                        : t('register.notMarked');
-                    const abbrev = !date.is_working_day
-                      ? '—'
-                      : status
-                        ? (STATUS_ABBREV[status] ?? '?')
-                        : '·';
-                    return (
-                      <td key={date.date} className="p-1 text-center">
-                        <span aria-hidden="true">{abbrev}</span>
-                        <span className="sr-only">{label}</span>
-                      </td>
-                    );
-                  })}
-                  <td className="p-1.5 text-end">
-                    {formatNumber(row.summary.present_days, regionConfig)}
-                  </td>
-                  <td className="p-1.5 text-end">
-                    {formatNumber(row.summary.absent_days, regionConfig)}
-                  </td>
-                  <td className="p-1.5 text-end">
-                    {formatNumber(row.summary.late_days, regionConfig)}
-                  </td>
-                  <td className="p-1.5 text-end">
-                    {formatNumber(row.summary.leave_days, regionConfig)}
-                  </td>
-                  <td className="p-1.5 text-end">
-                    {row.summary.attendance_percentage === null
-                      ? '—'
-                      : `${formatNumber(row.summary.attendance_percentage, regionConfig)}%`}
-                  </td>
-                </tr>
+          <div className="flex flex-col gap-2 border-b border-border-subtle p-4 md:flex-row md:items-center md:justify-between md:px-5">
+            <h2 id="r-title" className="text-h3">
+              {cardTitle}
+            </h2>
+            <p className="flex flex-wrap gap-x-3 gap-y-1 text-caption text-text-secondary">
+              {[
+                AttendanceStatus.PRESENT,
+                AttendanceStatus.ABSENT,
+                AttendanceStatus.LATE,
+                AttendanceStatus.LEAVE,
+              ].map((status) => (
+                <span key={status}>
+                  {abbrev(t, status)} = {statusLabel(t, status)}
+                </span>
               ))}
-            </tbody>
-          </table>
-        </div>
+              <span>{t('register.legendClosed')}</span>
+              <span>{t('register.legendUnmarked')}</span>
+            </p>
+          </div>
+          <p className="px-4 py-3 text-caption text-text-secondary md:hidden print:hidden">
+            {t('register.scrollHint')}
+          </p>
+          <div
+            role="region"
+            aria-label={caption}
+            // WCAG SCR29: a scrollable `role="region"` needs a tab stop so a
+            // keyboard user can scroll it — same exemption `data-table.tsx`'s
+            // own table-mode wrapper carries, for the identical reason.
+            // `relative`: the `sr-only` header spans are `position: absolute`
+            // and would otherwise escape the `overflow-x-auto` and widen the page.
+            // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
+            tabIndex={0}
+            className="relative w-full overflow-x-auto"
+          >
+            <table className="w-full border-collapse text-caption tabular-nums">
+              <caption className="sr-only">{caption}</caption>
+              <thead className="border-b border-border-subtle bg-muted text-text-secondary">
+                <tr>
+                  <th scope="col" className="h-9 px-2 text-start font-medium">
+                    {t('register.columnRoll')}
+                  </th>
+                  <th scope="col" className="h-9 px-2 text-start font-medium">
+                    {t('register.columnStudent')}
+                  </th>
+                  {matrixQuery.data?.dates.map((date) => (
+                    <th key={date.date} scope="col" className="h-9 min-w-6 text-center font-medium">
+                      <span aria-hidden="true">
+                        {formatNumber(parseServerDate(date.date).getUTCDate(), regionConfig)}
+                      </span>
+                      <span className="sr-only">{formatDate(date.date, regionConfig)}</span>
+                    </th>
+                  ))}
+                  <th
+                    scope="col"
+                    className="h-9 border-s border-border-subtle px-2 text-end font-medium"
+                  >
+                    {t('register.totalPresent')}
+                  </th>
+                  <th scope="col" className="h-9 px-2 text-end font-medium">
+                    {t('register.totalAbsent')}
+                  </th>
+                  <th scope="col" className="h-9 px-2 text-end font-medium">
+                    {t('register.totalLate')}
+                  </th>
+                  <th scope="col" className="h-9 px-2 text-end font-medium">
+                    {t('register.totalLeave')}
+                  </th>
+                  <th scope="col" className="h-9 px-2 text-end font-medium">
+                    {t('register.totalPercentage')}
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border-subtle">
+                {rows.map((row) => (
+                  <tr key={row.student_id}>
+                    <td className="h-9 px-2">{formatNumber(row.roll_number, regionConfig)}</td>
+                    <td className="h-9 px-2 font-medium whitespace-nowrap">{row.full_name}</td>
+                    {matrixQuery.data?.dates.map((date) => {
+                      const status = (row.marks as Record<string, AttendanceStatus | null>)[
+                        date.date
+                      ];
+                      if (!date.is_working_day) {
+                        return (
+                          <td
+                            key={date.date}
+                            className="h-9 bg-muted text-center text-text-secondary"
+                          >
+                            <span aria-hidden="true">—</span>
+                            <span className="sr-only">{t('register.notWorkingDay')}</span>
+                          </td>
+                        );
+                      }
+                      return (
+                        <td key={date.date} className={`h-9 text-center ${toneClass(status)}`}>
+                          <span aria-hidden="true">{status ? abbrev(t, status) : '·'}</span>
+                          <span className="sr-only">
+                            {status ? statusLabel(t, status) : t('register.notMarked')}
+                          </span>
+                        </td>
+                      );
+                    })}
+                    <td className="h-9 border-s border-border-subtle px-2 text-end">
+                      {formatNumber(row.summary.present_days, regionConfig)}
+                    </td>
+                    <td className="h-9 px-2 text-end">
+                      {formatNumber(row.summary.absent_days, regionConfig)}
+                    </td>
+                    <td className="h-9 px-2 text-end">
+                      {formatNumber(row.summary.late_days, regionConfig)}
+                    </td>
+                    <td className="h-9 px-2 text-end">
+                      {formatNumber(row.summary.leave_days, regionConfig)}
+                    </td>
+                    <td className="h-9 px-2 text-end">
+                      {row.summary.attendance_percentage === null
+                        ? '—'
+                        : `${formatNumber(row.summary.attendance_percentage, regionConfig)}%`}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="border-t border-border-subtle px-4 py-3">
+            <TableCount total={rows.length} />
+          </div>
+        </section>
       )}
-    </div>
+    </PageContainer>
   );
 }
