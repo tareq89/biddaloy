@@ -88,20 +88,24 @@ function StaffDetailPage() {
   const canReadAuditLogs = useHasPermission(Permission.AUDIT_LOG_READ);
   const canReadHrRecord = useHasPermission(Permission.STAFF_HR_READ);
   const canReadAcr = useHasPermission(Permission.ACR_READ);
+  const canReadStaffAttendance = useHasPermission(Permission.STAFF_ATTENDANCE_READ);
+  const search = Route.useSearch();
   // D18: a staff card exposes HR data, so printing needs both permissions.
   const canPrintStaffCard = useHasPermission(Permission.DOCUMENT_PRINT) && canReadHrRecord;
   const currentUserId = useCurrentUserId();
 
   const isTeacher = teacher !== undefined;
+  // A deep link to the teacher tab must survive until `useTeachers` answers.
+  const teacherTabPending = teacherQuery.isPending && search.tab === 'teachingAssignments';
   const hasStaffProfile = userQuery.data?.staff_profile_id != null;
   const tabIds = [
     'profile',
     'permissions',
-    ...(isTeacher ? (['teachingAssignments'] as const) : []),
+    ...(isTeacher || teacherTabPending ? (['teachingAssignments'] as const) : []),
     ...(canReadHrRecord ? (['hrRecord'] as const) : []),
     ...(canReadAcr ? (['acr', 'incidents', 'performance'] as const) : []),
     ...(canPrintStaffCard ? (['documents'] as const) : []),
-    ...(hasStaffProfile ? (['attendanceLeave'] as const) : []),
+    ...(hasStaffProfile && canReadStaffAttendance ? (['attendanceLeave'] as const) : []),
     ...(canReadAuditLogs ? (['loginHistory'] as const) : []),
   ] as const;
   const [activeTab, setActiveTab] = useDetailShellTab(tabIds);
@@ -124,6 +128,15 @@ function StaffDetailPage() {
       label: t('detail.tabs.permissions'),
       content: <PermissionsTab userId={userId} />,
     },
+    ...(teacherTabPending
+      ? [
+          {
+            id: 'teachingAssignments',
+            label: t('detail.tabs.teachingAssignments'),
+            content: <Skeleton className="h-40 w-full" />,
+          },
+        ]
+      : []),
     ...(teacher !== undefined
       ? [
           {
@@ -174,7 +187,7 @@ function StaffDetailPage() {
           },
         ]
       : []),
-    ...(hasStaffProfile && userQuery.data?.staff_profile_id
+    ...(hasStaffProfile && canReadStaffAttendance && userQuery.data?.staff_profile_id
       ? [
           {
             id: 'attendanceLeave',
