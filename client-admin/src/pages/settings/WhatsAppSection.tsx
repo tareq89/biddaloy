@@ -1,6 +1,6 @@
 import {
-  Button,
   Form,
+  FormDescription,
   FormControl,
   FormField,
   FormItem,
@@ -15,21 +15,16 @@ import {
   type TenantSettingsInput,
 } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
-import {
-  FormSection,
-  FormShell,
-  buildFormShellErrors,
-  useFormShellMode,
-  useWarnUnsavedChanges,
-} from '@biddaloy/ui/shells';
+import { useFormShellMode, useWarnUnsavedChanges } from '@biddaloy/ui/shells';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
-import { ConnectionTestResultMessage } from '../../components/ConnectionTestResultMessage';
-import { MutationErrorMessage } from '../../components/MutationErrorMessage';
 import { SecretField } from '../../components/SecretField';
+
+import { ChannelFooter, ChannelStatusBadge } from './connection-test-status';
+import { SettingsSection } from './settings-layout';
 
 const whatsAppSchema = z.object({
   phoneNumberId: z.string().min(1),
@@ -93,73 +88,74 @@ export function WhatsAppSection({ schoolId, whatsapp }: WhatsAppSectionProps) {
     testConnection.mutate({ medium: 'WHATSAPP', config: buildConfig(form.getValues()) });
   }
 
-  const summaryErrors = buildFormShellErrors(form.formState.errors, (field) => `whatsapp-${field}`);
+  // Badge from the saved props, never form state: it must not flip while typing.
+  const ready = Boolean(whatsapp?.phoneNumberId && whatsapp.accessToken?.configured);
 
   return (
     <Form {...form}>
-      <FormShell
-        errors={summaryErrors}
-        submitCount={form.formState.submitCount}
+      <SettingsSection
+        id="whatsapp-section"
+        title={t('whatsapp.legend')}
+        description={t('whatsapp.description')}
+        badge={<ChannelStatusBadge ready={ready} />}
         onSubmit={(event) => void form.handleSubmit(handleSave)(event)}
+        saving={updateSettings.isPending}
+        advancedOpen={!!form.formState.errors.apiVersion}
+        advanced={
+          <div className="mt-2 grid gap-4 md:grid-cols-2">
+            <FormField
+              control={form.control}
+              name="apiVersion"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel htmlFor="whatsapp-apiVersion">{t('whatsapp.apiVersion')}</FormLabel>
+                  <FormControl>
+                    <Input id="whatsapp-apiVersion" className="font-mono" {...field} />
+                  </FormControl>
+                  <FormDescription>{t('whatsapp.apiVersionHelp')}</FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+        }
+        footerStart={
+          <ChannelFooter
+            onTest={handleTestConnection}
+            test={testConnection}
+            update={updateSettings}
+          />
+        }
       >
-        <FormSection legend={t('whatsapp.legend')}>
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
           <FormField
             control={form.control}
             name="phoneNumberId"
             render={({ field }) => (
               <FormItem>
-                <FormLabel htmlFor="whatsapp-phoneNumberId">
+                <FormLabel htmlFor="whatsapp-phoneNumberId" required>
                   {t('whatsapp.phoneNumberId')}
                 </FormLabel>
                 <FormControl>
-                  <Input id="whatsapp-phoneNumberId" {...field} />
+                  <Input id="whatsapp-phoneNumberId" inputMode="numeric" {...field} />
                 </FormControl>
+                <FormDescription>{t('whatsapp.phoneNumberIdHelp')}</FormDescription>
                 <FormMessage />
               </FormItem>
             )}
           />
-          <FormField
-            control={form.control}
-            name="apiVersion"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel htmlFor="whatsapp-apiVersion">{t('whatsapp.apiVersion')}</FormLabel>
-                <FormControl>
-                  <Input id="whatsapp-apiVersion" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <SecretField
-            id="whatsapp-accessToken"
-            label={t('whatsapp.accessToken')}
-            masked={whatsapp?.accessToken}
-            value={accessToken}
-            onChange={setAccessToken}
-          />
-        </FormSection>
-        <div className="flex items-center gap-2">
-          <Button type="submit" loading={updateSettings.isPending}>
-            {t('save.action')}
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            loading={testConnection.isPending}
-            onClick={handleTestConnection}
-          >
-            {t('testConnection.action')}
-          </Button>
+          <div className="md:col-span-2">
+            <SecretField
+              id="whatsapp-accessToken"
+              label={t('whatsapp.accessToken')}
+              masked={whatsapp?.accessToken}
+              value={accessToken}
+              onChange={setAccessToken}
+              description={t('secret.metaTokenHelp')}
+            />
+          </div>
         </div>
-        <ConnectionTestResultMessage
-          data={testConnection.data}
-          isError={testConnection.isError}
-          error={testConnection.error}
-        />
-        {updateSettings.isSuccess && <p role="status">{t('save.success')}</p>}
-        {updateSettings.isError && <MutationErrorMessage error={updateSettings.error} />}
-      </FormShell>
+      </SettingsSection>
     </Form>
   );
 }
