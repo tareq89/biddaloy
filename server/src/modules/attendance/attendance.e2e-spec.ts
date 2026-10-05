@@ -171,14 +171,14 @@ describe('Attendance E2E', () => {
       }
     });
 
-    it('returns 400 ATTENDANCE_FUTURE_DATE for a future date', async () => {
+    it('returns 422 ATTENDANCE_FUTURE_DATE for a future date', async () => {
       const res = await supertest(app.getHttpServer())
         .get('/api/v1/attendance/my-sections')
         .query({ date: '2999-01-01' })
         .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.ADMIN)
-        .expect(400);
+        .expect(422);
       expect(res.body.details.code).toBe('ATTENDANCE_FUTURE_DATE');
     });
 

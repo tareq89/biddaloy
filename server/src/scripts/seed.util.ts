@@ -2302,10 +2302,12 @@ export async function ensureAttendanceOpsSeed(
 
   // Section B needs a teacher mapping, or `my-sections` for
   // teacher@biddaloy.test shows only A.
-  const teacher = await repos.teacherRepository.findOne({ where: { user_id: teacherUserId } });
+  const teacher = await repos.teacherRepository.findOne({
+    where: { user_id: teacherUserId, tenant_id: schoolId },
+  });
   if (teacher) {
     const mapped = await repos.teacherClassSectionRepository.findOne({
-      where: { teacher_id: teacher.id, section_id: sections[1].id },
+      where: { teacher_id: teacher.id, section_id: sections[1].id, tenant_id: schoolId },
     });
     if (!mapped) {
       await repos.teacherClassSectionRepository.save(
@@ -2339,7 +2341,7 @@ export async function ensureAttendanceOpsSeed(
   ) {
     const slot = slots.find((s) => s.weekday === weekdayOf(d) && s.subject_id && s.valid_from <= d);
     const periodNo = slot && sequenceOf.get(slot.period_slot_id);
-    if (!slot || !periodNo || !isUsable(d)) continue;
+    if (!slot || periodNo === undefined || !isUsable(d)) continue;
     const session = await ensureSession(
       sections[0].id,
       d,

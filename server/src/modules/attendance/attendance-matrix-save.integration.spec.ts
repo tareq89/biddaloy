@@ -26,6 +26,7 @@ import { CalendarEventClass } from '../calendar/entities/calendar-event-class.en
 import { CommunicationLog } from '../communications/entities/communication-log.entity';
 import { ReminderBatch } from '../communications/entities/reminder-batch.entity';
 import { AttendanceSessionState, AttendanceStatus, UserRole } from '@biddaloy/shared';
+import { attendanceLateTrigger } from '../fees/fines/triggers/attendance-late.trigger';
 
 /**
  * `AttendanceService.putRegisterMatrix` — many days of one section's
@@ -381,6 +382,59 @@ describe('AttendanceService.putRegisterMatrix (integration)', () => {
     });
     expect(replay).toEqual(first);
     expect(await auditCount()).toBe(auditAfterFirst);
+  });
+
+  it('a client_request_id already used on only SOME of the days is 409; nothing is written', async () => {
+    const requestId = randomUUID();
+    const first = await matrix([{ date: D1, base_version: null }], {
+      client_request_id: requestId,
+    });
+    const before = await auditCount();
+    // Same id, now with a second day: D2 must not be silently skipped.
+    await expect(
+      matrix(
+        [
+          { date: D1, base_version: first.versions[D1] },
+          { date: D2, base_version: null },
+        ],
+        { client_request_id: requestId },
+      ),
+    ).rejects.toMatchObject({
+      status: 409,
+      response: { details: { code: 'ATTENDANCE_MATRIX_REQUEST_REUSED', dates: [D1] } },
+    });
+    expect(await sessionOf(D2)).toBeNull();
+    expect(await auditCount()).toBe(before);
+  });
+
+  it('a new LATE mark is saved with minutes_late null, and a min_minutes_late fine rule still counts it', async () => {
+    // Open product question: the month grid cannot send minutes, so a
+    // minimum-minutes rule fines every grid-entered LATE. Pinned as-is (D23).
+    await matrix([
+      {
+        date: D1,
+        base_version: null,
+        entries: [
+          { student_id: studentId1, status: AttendanceStatus.LATE },
+          { student_id: studentId2, status: P },
+        ],
+      },
+    ]);
+    const record = await dataSource
+      .getRepository(AttendanceRecord)
+      .findOneByOrFail({ date: D1, student_id: studentId1 });
+    expect(record.minutes_late).toBeNull();
+
+    const counts = await attendanceLateTrigger.count(
+      dataSource.manager,
+      TENANT_ID,
+      D1,
+      D1,
+      { min_minutes_late: 30 },
+      { sectionId },
+      [],
+    );
+    expect(counts.get(studentId1)?.count).toBe(1);
   });
 
   it('leaves a period register on the same date untouched', async () => {

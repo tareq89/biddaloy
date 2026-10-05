@@ -676,6 +676,40 @@ describe('AttendanceSummaryService (integration)', () => {
       expect((await ask(sec)).rows[0].by_subject[sub].percentage).toBe(100);
     });
 
+    it('MARKED_DAYS divides by the periods the student was marked in, not periods held', async () => {
+      await dataSource.getRepository(School).update(
+        { id: TENANT_ID },
+        {
+          settings: {
+            version: 1,
+            attendance: {
+              weeklyOffDays: [],
+              periodAttendance: { enabled: true },
+              percentageDenominator: 'MARKED_DAYS',
+            },
+          } as any,
+        },
+      );
+      const sec = await freshSec();
+      const sub = await subject('Sci');
+      const s1 = await stu(sec, 1);
+      const s2 = await stu(sec, 2);
+      // 4 periods held; s1 is in only 2 of them (1 present, 1 absent).
+      await reg(sec, '2026-09-01', 1, sub, [
+        [s1, AttendanceStatus.PRESENT],
+        [s2, AttendanceStatus.PRESENT],
+      ]);
+      await reg(sec, '2026-09-02', 1, sub, [
+        [s1, AttendanceStatus.ABSENT],
+        [s2, AttendanceStatus.PRESENT],
+      ]);
+      await reg(sec, '2026-09-03', 1, sub, [[s2, AttendanceStatus.PRESENT]]);
+      await reg(sec, '2026-09-04', 1, sub, [[s2, AttendanceStatus.PRESENT]]);
+      // 1 / 2 marked = 50% (WORKING_DAYS would give 1 / 4 = 25%).
+      const rows = (await ask(sec)).rows;
+      expect(rows.find((r) => r.student_id === s1)!.by_subject[sub].percentage).toBe(50);
+    });
+
     it('no period registers -> empty subjects; student without records -> zeros + null', async () => {
       await setSettings(true);
       const sec = await freshSec();

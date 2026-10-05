@@ -9391,10 +9391,11 @@ export interface components {
             entries: components["schemas"]["MatrixEntryDto"][];
         };
         PutRegisterMatrixDto: {
+            /** @description Send only the days you changed. A FINALIZED day in the request is rejected (403 ATTENDANCE_WINDOW_CLOSED) unless the caller holds ATTENDANCE_CORRECT and gives a reason, even if its marks are unchanged. A new LATE mark is saved with minutes_late = null, and a fine rule with a minimum-minutes condition still counts it. */
+            days: components["schemas"]["MatrixDayDto"][];
             /** Format: uuid */
             client_request_id: string;
             reason?: string;
-            days: components["schemas"]["MatrixDayDto"][];
         };
         MatrixSaveResponseDto: {
             saved_dates: string[];

@@ -128,12 +128,13 @@ export class AttendanceService {
     // `date` defaults to the tenant's local today (not the server's UTC
     // day) when the caller doesn't supply one — this is the teacher's
     // landing screen, so "today" must mean the school's today.
-    const timezone =
-      (await this.schoolsService.getResolvedSettings(tenantId)).region?.timezone ?? 'UTC';
-    const tenantToday = localToday(timezone);
+    const settings = await this.schoolsService.getResolvedSettings(tenantId);
+    const tenantToday = localToday(settings.region?.timezone ?? 'UTC');
     const date = params.date ?? tenantToday;
-    if (date > tenantToday) {
-      throw new BadRequestException({
+    // Same rule and status as `writeRegisterDay`: a tenant that allows future
+    // dates (leave marked ahead) may also list them.
+    if (date > tenantToday && !resolveAttendancePolicy(settings).allowFutureDates) {
+      throw new UnprocessableEntityException({
         message: 'Cannot list attendance for a future date',
         details: { code: 'ATTENDANCE_FUTURE_DATE' },
       });
@@ -439,7 +440,9 @@ export class AttendanceService {
 
     // 2. Idempotency — checked before the version check, so a replay of an
     // already-accepted write reads as a 200, never as a conflict.
-    if (session && session.last_client_request_id === dto.client_request_id) {
+    // The matrix checks its own replay over all its days (`putRegisterMatrix`),
+    // so a per-day early return here would silently skip a day.
+    if (!ctx.matrix && session && session.last_client_request_id === dto.client_request_id) {
       return this.loadRegister(manager, {
         sectionId,
         date: dto.date,
@@ -779,15 +782,24 @@ export class AttendanceService {
         const sortedDates = [...dates].sort();
 
         // Replay: every day already carries this request id -> same 200, no writes.
-        if (
-          dates.every((d) => sessionByDate.get(d)?.last_client_request_id === dto.client_request_id)
-        ) {
+        // Only some days carrying it means the id was reused for a different
+        // request: reject it rather than skip those days.
+        const replayed = sortedDates.filter(
+          (d) => sessionByDate.get(d)?.last_client_request_id === dto.client_request_id,
+        );
+        if (replayed.length === sortedDates.length) {
           return {
             saved_dates: sortedDates,
             versions: Object.fromEntries(
               sortedDates.map((d) => [d, sessionByDate.get(d)!.version]),
             ),
           };
+        }
+        if (replayed.length > 0) {
+          throw new ConflictException({
+            message: 'This client_request_id was already used for a different save',
+            details: { code: 'ATTENDANCE_MATRIX_REQUEST_REUSED', dates: replayed },
+          });
         }
 
         // 1. Locked dates: the future, or not a school day for this class.
