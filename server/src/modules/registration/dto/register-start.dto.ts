@@ -11,6 +11,7 @@ import {
 } from 'class-validator';
 import { INTERNATIONAL_PHONE_REGEX } from '../../users/dto/users.dto';
 import { latinDigits } from '../../account-access/dto/otp-request.dto';
+import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
 
 const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value);
 
@@ -18,6 +19,7 @@ const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? val
 export class RegisterStartDto {
   @ApiProperty()
   @Transform(trim)
+  @SanitizeText()
   @IsString()
   @IsNotEmpty()
   @MaxLength(100)
@@ -25,6 +27,7 @@ export class RegisterStartDto {
 
   @ApiProperty()
   @Transform(trim)
+  @SanitizeText()
   @IsString()
   @IsNotEmpty()
   @MaxLength(200)
@@ -37,6 +40,7 @@ export class RegisterStartDto {
 
   @ApiProperty()
   @Transform(trim)
+  @SanitizeText()
   @IsString()
   @IsNotEmpty()
   @MaxLength(500)

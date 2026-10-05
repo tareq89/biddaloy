@@ -1,8 +1,8 @@
 import { forwardRef, Module } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import Redis from 'ioredis';
 import { AccountAccessModule } from '../account-access/account-access.module';
+import { OTP_REDIS } from '../account-access/otp.service';
 import { AuditModule } from '../audit/audit.module';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
 import { SocialAuthModule } from '../auth/social/social-auth.module';
@@ -35,17 +35,8 @@ import { TurnstileService } from './turnstile.service';
     // The same class the platform console uses; SchoolsModule does not export it, and its only
     // other dependencies (DataSource, AuditService, delivery, Redis) are reachable from here.
     ProvisioningService,
-    {
-      provide: REGISTRATION_REDIS,
-      inject: [ConfigService],
-      // Fail fast on a Redis outage rather than hang the request (same settings as OtpService's client).
-      useFactory: (config: ConfigService) =>
-        new Redis(config.get<string>('REDIS_URL') ?? 'redis://127.0.0.1:6379', {
-          enableOfflineQueue: false,
-          maxRetriesPerRequest: 1,
-          commandTimeout: 1000,
-        }),
-    },
+    // The OTP client: same fail-fast settings, one connection instead of a third.
+    { provide: REGISTRATION_REDIS, useExisting: OTP_REDIS },
   ],
 })
 export class RegistrationModule {}
