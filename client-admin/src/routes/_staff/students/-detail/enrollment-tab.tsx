@@ -29,14 +29,8 @@ export interface EnrollmentTabProps {
 
 export function EnrollmentTab({ studentId, studentName, enrollmentStatus }: EnrollmentTabProps) {
   const { t } = useTranslation('students');
+  const { t: tPromotions } = useTranslation('promotions');
   const regionConfig = useRegionConfig();
-  // [26.5.2] Separate binding so `promotions` is actually loaded before
-  // the override line renders — same reasoning `teachers-tab.tsx` gives
-  // for its own `staff` binding: `useTranslation(['students',
-  // 'promotions'])` wouldn't work because `check-i18n-keys.mjs` resolves
-  // this file's namespace from the first single-quoted
-  // `useTranslation('...')` call, and an array argument doesn't match.
-  useTranslation('promotions');
   const query = useStudentEnrollments(studentId);
   const overridesQuery = useStudentPromotionOverrides(studentId);
   const canUpdate = useHasPermission(Permission.STUDENT_UPDATE) && enrollmentStatus === 'ACTIVE';
@@ -88,8 +82,7 @@ export function EnrollmentTab({ studentId, studentName, enrollmentStatus }: Enro
                     {override && (
                       <span className="mt-1 flex items-start gap-1 text-caption text-status-due-fg">
                         <InfoIcon className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-                        {t(`badge.${override.final_outcome.toLowerCase()}`, {
-                          ns: 'promotions',
+                        {tPromotions(`badge.${override.final_outcome.toLowerCase()}`, {
                           year: override.target_academic_year_name ?? '',
                           note: override.override_note ?? '',
                           user: override.overridden_by_name ?? '',

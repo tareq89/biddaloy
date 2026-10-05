@@ -38,6 +38,7 @@ import { z } from 'zod';
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 
 import { BulkPhotoDialog } from './-bulk-photo-dialog';
+import { DEFAULT_PAGE_SIZE } from './-constants';
 import { SendReminderDialog } from './-send-reminder-dialog';
 import { GENDER_VALUES } from './-student-form-schema';
 
@@ -122,7 +123,7 @@ export const Route = createFileRoute('/_staff/students/')({
   // a filter change to actually trigger a refetch.
   loaderDeps: ({ search }) => ({
     page: search.page ?? 1,
-    limit: search.limit ?? 25,
+    limit: search.limit ?? DEFAULT_PAGE_SIZE,
     sort: search.sort,
     order: search.order,
     search: search.search,
