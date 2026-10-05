@@ -18,7 +18,9 @@ import {
   DialogTitle,
 } from '@biddaloy/ui/components';
 import { useExamProgress, useProcessResults } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { formatNumber } from '@biddaloy/ui/utils';
+import { CircleAlertIcon, TriangleAlertIcon } from 'lucide-react';
 
 export interface ProcessDialogProps {
   open: boolean;
@@ -27,7 +29,9 @@ export interface ProcessDialogProps {
 }
 
 export function ProcessDialog({ open, onOpenChange, examId }: ProcessDialogProps) {
-  const { t } = useTranslation('exams');
+  const { t, i18n } = useTranslation('exams');
+  const { t: tg } = useTranslation('grading');
+  const config = useRegionConfig();
   const progressQuery = useExamProgress(examId);
   const processResults = useProcessResults(examId);
 
@@ -47,7 +51,7 @@ export function ProcessDialog({ open, onOpenChange, examId }: ProcessDialogProps
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent>
+      <DialogContent size="md" closeLabel={t('actions.close', { ns: 'common' })}>
         <DialogHeader>
           <DialogTitle>{t('processDialog.title')}</DialogTitle>
           <DialogDescription>{t('processDialog.description')}</DialogDescription>
@@ -55,22 +59,36 @@ export function ProcessDialog({ open, onOpenChange, examId }: ProcessDialogProps
 
         {outstanding.length > 0 && (
           <div className="flex flex-col gap-2">
-            <p className="text-sm text-muted-foreground">
-              {t('processDialog.outstandingCount', { count: outstanding.length })}
+            <p className="text-text-secondary">
+              {tg('resultsPage.outstandingCount', { n: formatNumber(outstanding.length, config) })}
             </p>
-            <ul className="max-h-40 list-disc overflow-y-auto pl-5 text-sm">
-              {outstanding.map((row) => (
-                <li key={`${row.section_id}:${row.subject_id}`}>{row.section_name}</li>
-              ))}
+            <ul className="max-h-40 divide-y divide-border-subtle overflow-y-auto rounded-md border border-border-subtle">
+              {outstanding.map((row) => {
+                const subject =
+                  i18n.language === 'bn'
+                    ? (row.subject_name_bn ?? row.subject_name)
+                    : row.subject_name;
+                return (
+                  <li key={`${row.section_id}:${row.subject_id}`} className="px-3 py-2">
+                    {tg('marksEntry.sectionValue', { name: row.section_name })}
+                    {subject ? ` · ${subject}` : ''}
+                  </li>
+                );
+              })}
             </ul>
-            <p role="alert" className="text-sm text-destructive">
+            <p
+              role="alert"
+              className="flex gap-2 rounded-md bg-status-due-bg p-3 text-status-due-fg"
+            >
+              <TriangleAlertIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
               {t('processDialog.forceWarning')}
             </p>
           </div>
         )}
 
         {processResults.isError && (
-          <p role="alert" className="text-sm text-destructive">
+          <p role="alert" className="flex items-center gap-1 text-caption text-destructive">
+            <CircleAlertIcon aria-hidden="true" className="size-3.5" />
             {t('processDialog.errorMessage')}
           </p>
         )}

@@ -112,5 +112,19 @@
     "saveError_other": "{{n}} changes not saved — retrying",
     "blankCount_one": "{{n}} blank cell will be submitted as-is.",
     "blankCount_other": "{{n}} blank cells will be submitted as-is."
+  },
+  "resultsPage": {
+    "subtitle": "Pick an exam, work out its results, then publish them.",
+    "nextStep": {
+      "DRAFT": "Work out the results once every marks list is submitted.",
+      "PROCESSED": "Check the results, then publish. Guardians see them after publishing.",
+      "PUBLISHED": "Guardians can see these results."
+    },
+    "gpaValue": "{{gpa}} · {{grade}}",
+    "outstandingCount": "{{n}} marks list(s) are still not submitted:",
+    "publishDescription": "{{n}} student result(s) become visible to guardians.",
+    "reopenImpact": "{{n}} published result(s) will be unpublished and marks become editable again. This needs extra approval.",
+    "smsDescription": "Up to {{n}} guardian(s) will be sent their child's result by SMS. Each message uses one SMS credit.",
+    "smsQueued": "{{n}} message(s) queued."
   }
 }
