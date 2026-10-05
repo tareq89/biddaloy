@@ -93,6 +93,10 @@ export interface SeatPlanAllocationRow {
   roll_number: number | null;
   section_name: string | null;
   subject_name: string | null;
+  subject_name_bn: string | null;
+  exam_date: string | null;
+  starts_at: string | null;
+  ends_at: string | null;
   room_id: string;
   seat_number: string;
 }
