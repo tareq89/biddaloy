@@ -1,5 +1,5 @@
 import { cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
-import { screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -138,6 +138,25 @@ describe('/payments/$id', () => {
     expect(screen.queryByText('payment-0')).toBeNull();
     await user.click(screen.getByRole('button', { name: 'More actions' }));
     expect(screen.queryByRole('menuitem', { name: 'Reverse payment' })).toBeNull();
+  });
+
+  it('closes the reverse dialog when the page moves to another payment', async () => {
+    server.use(
+      http.get('/api/v1/payments/:id', ({ params }) =>
+        HttpResponse.json(paymentDetail({ id: params.id })),
+      ),
+    );
+    const user = userEvent.setup();
+    const { router } = renderDetail();
+
+    await screen.findByRole('heading', { level: 1, name: 'Abdul Karim' });
+    await user.click(screen.getByRole('button', { name: 'More actions' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Reverse payment' }));
+    await screen.findByText('Reverse this payment?');
+
+    await router.navigate({ to: '/payments/$id', params: { id: 'payment-2' } });
+
+    await waitFor(() => expect(screen.queryByText('Reverse this payment?')).toBeNull());
   });
 
   it('shows remarks and the allocation total', async () => {
