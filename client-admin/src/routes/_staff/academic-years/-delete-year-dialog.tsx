@@ -1,13 +1,4 @@
-import {
-  Button,
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@biddaloy/ui/components';
+import { ConfirmDialog } from '@biddaloy/ui/components';
 import { useDeleteAcademicYear } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import * as React from 'react';
@@ -35,40 +26,23 @@ export function DeleteYearDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only on open/close transitions
   }, [open]);
 
-  function handleConfirm() {
-    deleteYear.mutate(academicYearId, { onSuccess: onDeleted });
-  }
-
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{t('deleteDialog.title')}</DialogTitle>
-          <DialogDescription>
-            {t('deleteDialog.description', { name: academicYearName })}
-          </DialogDescription>
-        </DialogHeader>
-        {deleteYear.isError && (
-          <p role="alert" className="text-sm text-destructive">
-            {t('deleteDialog.errorMessage')}
-          </p>
-        )}
-        <DialogFooter>
-          <DialogClose asChild>
-            <Button type="button" variant="outline">
-              {t('actions.cancel', { ns: 'common' })}
-            </Button>
-          </DialogClose>
-          <Button
-            type="button"
-            variant="destructive"
-            loading={deleteYear.isPending}
-            onClick={handleConfirm}
-          >
-            {deleteYear.isPending ? t('deleteDialog.deleting') : t('deleteDialog.confirm')}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <ConfirmDialog
+      open={open}
+      // A request in flight must not be abandoned by Esc / Cancel / Back.
+      onOpenChange={(next) => {
+        if (!deleteYear.isPending) onOpenChange(next);
+      }}
+      title={t('deleteDialog.title')}
+      description={
+        deleteYear.isError
+          ? `${t('deleteDialog.description', { name: academicYearName })} ${t('deleteDialog.errorMessage')}`
+          : t('deleteDialog.description', { name: academicYearName })
+      }
+      confirmLabel={t('deleteDialog.confirm')}
+      tone="danger"
+      busy={deleteYear.isPending}
+      onConfirm={() => deleteYear.mutate(academicYearId, { onSuccess: onDeleted })}
+    />
   );
 }
