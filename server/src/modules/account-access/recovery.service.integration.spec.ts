@@ -209,21 +209,21 @@ describe('RecoveryService (integration)', () => {
       for (let i = 0; i < 4; i++) {
         await expect(
           service.reset(
-            { new_password: 'a-new-strong-password', phone: user.phone!, otp: '000000' },
+            { new_password: 'A-new-strong-password1', phone: user.phone!, otp: '000000' },
             context,
           ),
         ).rejects.toBeInstanceOf(UnauthorizedException);
       }
       await expect(
         service.reset(
-          { new_password: 'a-new-strong-password', phone: user.phone!, otp: '000000' },
+          { new_password: 'A-new-strong-password1', phone: user.phone!, otp: '000000' },
           context,
         ),
       ).rejects.toMatchObject({ status: 429 });
 
       await expect(
         service.reset(
-          { new_password: 'a-new-strong-password', phone: user.phone!, otp: rightOtp },
+          { new_password: 'A-new-strong-password1', phone: user.phone!, otp: rightOtp },
           context,
         ),
       ).rejects.toMatchObject({ status: 429 });
@@ -234,7 +234,7 @@ describe('RecoveryService (integration)', () => {
       const { debug } = await service.forgot('01722222222', context);
 
       const result = await service.reset(
-        { new_password: 'a-new-strong-password', phone: user.phone!, otp: debug!.otp! },
+        { new_password: 'A-new-strong-password1', phone: user.phone!, otp: debug!.otp! },
         context,
       );
 
@@ -245,7 +245,7 @@ describe('RecoveryService (integration)', () => {
       const updated = await dataSource
         .getRepository(User)
         .findOneOrFail({ where: { id: user.id } });
-      await expect(bcrypt.compare('a-new-strong-password', updated.password_hash!)).resolves.toBe(
+      await expect(bcrypt.compare('A-new-strong-password1', updated.password_hash!)).resolves.toBe(
         true,
       );
 
@@ -285,7 +285,7 @@ describe('RecoveryService (integration)', () => {
       });
 
       await service.reset(
-        { new_password: 'a-new-strong-password', phone: '01766666666', otp: debug!.otp! },
+        { new_password: 'A-new-strong-password1', phone: '01766666666', otp: debug!.otp! },
         context,
       );
 
@@ -331,10 +331,10 @@ describe('RecoveryService (integration)', () => {
       const { debug } = await service.forgot('link@example.com', context);
       const token = debug!.token!;
 
-      await service.reset({ new_password: 'first-strong-password', token }, context);
+      await service.reset({ new_password: 'First-strong-password1', token }, context);
 
       await expect(
-        service.reset({ new_password: 'second-strong-password', token }, context),
+        service.reset({ new_password: 'Second-strong-password1', token }, context),
       ).rejects.toBeInstanceOf(UnauthorizedException);
       void user;
     });
@@ -350,7 +350,7 @@ describe('RecoveryService (integration)', () => {
       });
 
       await expect(
-        service.reset({ new_password: 'a-new-strong-password', token: raw }, context),
+        service.reset({ new_password: 'A-new-strong-password1', token: raw }, context),
       ).rejects.toBeInstanceOf(UnauthorizedException);
     });
 
@@ -370,7 +370,7 @@ describe('RecoveryService (integration)', () => {
         .update({ id: user.id }, { email: 'replacement@example.com' });
 
       await expect(
-        service.reset({ new_password: 'a-new-strong-password', token }, context),
+        service.reset({ new_password: 'A-new-strong-password1', token }, context),
       ).rejects.toBeInstanceOf(UnauthorizedException);
 
       const updated = await dataSource
@@ -381,7 +381,7 @@ describe('RecoveryService (integration)', () => {
       // rejection path here, so a retry with the same link can't succeed
       // either.
       await expect(
-        bcrypt.compare('a-new-strong-password', updated.password_hash ?? ''),
+        bcrypt.compare('A-new-strong-password1', updated.password_hash ?? ''),
       ).resolves.toBe(false);
     });
 
@@ -399,7 +399,7 @@ describe('RecoveryService (integration)', () => {
       });
 
       await expect(
-        service.reset({ new_password: 'a-new-strong-password', token: raw }, context),
+        service.reset({ new_password: 'A-new-strong-password1', token: raw }, context),
       ).rejects.toBeInstanceOf(UnauthorizedException);
     });
   });

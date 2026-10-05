@@ -6,6 +6,7 @@ import Redis from 'ioredis';
 import { AuthToken } from './entities/auth-token.entity';
 import { User } from '../users/entities/user.entity';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
+import { UserIdentity } from '../auth/entities/user-identity.entity';
 import { School } from '../schools/entities/school.entity';
 import { CommunicationLog } from '../communications/entities/communication-log.entity';
 import { Guardian } from '../students/entities/guardian.entity';
@@ -25,6 +26,8 @@ import { GuardianProvisioningService } from './guardian-provisioning.service';
 import { InvitationBatchProcessor } from './invitation-batch.processor';
 import { INVITATION_BATCH_QUEUE } from './invitation-batch.constants';
 import { AccountAccessController } from './account-access.controller';
+import { FirstPasswordController } from './first-password.controller';
+import { FirstPasswordService } from './first-password.service';
 
 @Module({
   imports: [
@@ -32,6 +35,7 @@ import { AccountAccessController } from './account-access.controller';
       AuthToken,
       User,
       UserTenant,
+      UserIdentity,
       School,
       CommunicationLog,
       Guardian,
@@ -52,8 +56,9 @@ import { AccountAccessController } from './account-access.controller';
     ConfigModule,
     BullModule.registerQueue({ name: INVITATION_BATCH_QUEUE }),
   ],
-  controllers: [AccountAccessController],
+  controllers: [AccountAccessController, FirstPasswordController],
   providers: [
+    FirstPasswordService,
     AuthTokenService,
     AccountAccessDeliveryService,
     InvitationService,

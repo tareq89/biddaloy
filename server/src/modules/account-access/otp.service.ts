@@ -11,7 +11,7 @@ import { toLatinDigits } from '../../common/utils/bengali-digits.util';
 
 export const OTP_REDIS = 'OTP_REDIS';
 
-export type OtpPurpose = 'PASSWORD_RESET' | 'LOGIN' | 'PHONE_VERIFY';
+export type OtpPurpose = 'PASSWORD_RESET' | 'LOGIN' | 'PHONE_VERIFY' | 'REGISTER';
 export type OtpVerifyResult = 'ok' | 'invalid' | 'expired' | 'locked';
 
 const CODE_TTL_MS = 5 * 60_000;

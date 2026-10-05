@@ -31,6 +31,9 @@ describe('AccountAccessController (e2e)', () => {
   const PHONE_USER_ID = '00000000-0000-4000-8000-0000000004a2';
   const PHONE_NUMBER = '01799990000';
 
+  const FP_USER_ID = '00000000-0000-4000-8000-0000000004a3';
+  const FP_EMAIL = 'first-password-e2e@testschool.com';
+
   beforeAll(async () => {
     process.env.DATABASE_URL =
       process.env.DATABASE_URL || 'postgres://postgres:***@localhost:5432/biddaloy';
@@ -83,6 +86,20 @@ describe('AccountAccessController (e2e)', () => {
        ON CONFLICT DO NOTHING`,
       [PHONE_USER_ID, SEED_TENANT_ID],
     );
+
+    // [13.2.2] A staff user with no password and an email: first sign-in by emailed code.
+    await dataSource.query(
+      `INSERT INTO users (id, email, password_hash, full_name, status)
+       VALUES ($1, $2, NULL, 'First Password Teacher', 'ACTIVE')
+       ON CONFLICT (id) DO UPDATE
+         SET email = EXCLUDED.email, password_hash = NULL, status = 'ACTIVE'`,
+      [FP_USER_ID, FP_EMAIL],
+    );
+    await dataSource.query(
+      `INSERT INTO user_tenants (user_id, tenant_id, role) VALUES ($1, $2, 'TEACHER')
+       ON CONFLICT DO NOTHING`,
+      [FP_USER_ID, SEED_TENANT_ID],
+    );
   }, 60000);
 
   afterAll(async () => {
@@ -92,6 +109,12 @@ describe('AccountAccessController (e2e)', () => {
     await dataSource.query(
       `UPDATE users SET password_hash = NULL, email = NULL, status = 'INACTIVE' WHERE id = $1`,
       [USER_ID],
+    );
+    await dataSource.query(`DELETE FROM refresh_tokens WHERE user_id = $1`, [FP_USER_ID]);
+    await dataSource.query(`DELETE FROM user_tenants WHERE user_id = $1`, [FP_USER_ID]);
+    await dataSource.query(
+      `UPDATE users SET password_hash = NULL, email = NULL, status = 'INACTIVE' WHERE id = $1`,
+      [FP_USER_ID],
     );
     await dataSource.query(`DELETE FROM refresh_tokens WHERE user_id = $1`, [PHONE_USER_ID]);
     await dataSource.query(`DELETE FROM user_tenants WHERE user_id = $1`, [PHONE_USER_ID]);
@@ -125,13 +148,14 @@ describe('AccountAccessController (e2e)', () => {
       status: 'valid',
       full_name: 'Activation Invitee',
       school_name: expect.any(String),
+      password_audience: 'staff',
     });
     expect(verifyRes.body.email).toBeUndefined();
     expect(verifyRes.body.phone).toBeUndefined();
 
     const activateRes = await supertest(app.getHttpServer())
       .post('/api/v1/auth/activate')
-      .send({ token: raw, password: 'a-strong-new-password' })
+      .send({ token: raw, password: 'A-strong-new-password1' })
       .expect(200);
     expect(activateRes.body.access_token).toBeDefined();
     const refreshCookie = extractRefreshCookie(activateRes);
@@ -152,12 +176,12 @@ describe('AccountAccessController (e2e)', () => {
     });
     await supertest(app.getHttpServer())
       .post('/api/v1/auth/activate')
-      .send({ token: raw, password: 'a-strong-new-password' })
+      .send({ token: raw, password: 'A-strong-new-password1' })
       .expect(200);
 
     const res = await supertest(app.getHttpServer())
       .post('/api/v1/auth/activate')
-      .send({ token: raw, password: 'another-strong-password' })
+      .send({ token: raw, password: 'Another-strong-password1' })
       .expect(400);
     expect(res.body.message).toBe('consumed');
   });
@@ -182,12 +206,12 @@ describe('AccountAccessController (e2e)', () => {
 
       await supertest(app.getHttpServer())
         .post('/api/v1/auth/reset-password')
-        .send({ new_password: 'a-brand-new-password', phone: PHONE_NUMBER, otp })
+        .send({ new_password: 'A-brand-new-password1', phone: PHONE_NUMBER, otp })
         .expect(200);
 
       await supertest(app.getHttpServer())
         .post('/api/v1/auth/login')
-        .send({ phone: PHONE_NUMBER, password: 'a-brand-new-password' })
+        .send({ phone: PHONE_NUMBER, password: 'A-brand-new-password1' })
         .expect(200);
     });
 
@@ -239,7 +263,7 @@ describe('AccountAccessController (e2e)', () => {
     it('password login for the same user still works', async () => {
       await supertest(app.getHttpServer())
         .post('/api/v1/auth/login')
-        .send({ phone: PHONE_NUMBER, password: 'a-brand-new-password' })
+        .send({ phone: PHONE_NUMBER, password: 'A-brand-new-password1' })
         .expect(200);
     });
 
@@ -257,6 +281,70 @@ describe('AccountAccessController (e2e)', () => {
         .post('/api/v1/auth/otp/verify')
         .send({ phone: bengaliPhone, otp })
         .expect(200);
+    });
+  });
+  describe('email code sign-in and first password [13.2.2]', () => {
+    it('emailed code signs in; first password follows the staff rules and can be set once', async () => {
+      const requestRes = await supertest(app.getHttpServer())
+        .post('/api/v1/auth/otp/request')
+        .send({ identifier: FP_EMAIL })
+        .expect(202);
+      const otp = requestRes.body.debug?.otp;
+      expect(otp).toMatch(/^\d{6}$/);
+
+      const verifyRes = await supertest(app.getHttpServer())
+        .post('/api/v1/auth/otp/verify')
+        .send({ identifier: FP_EMAIL, otp })
+        .expect(200);
+      expect(verifyRes.body).toMatchObject({ needs_password: true, password_required: true });
+      const auth = { Authorization: `Bearer ${verifyRes.body.access_token}` };
+
+      // No token -> 401.
+      await supertest(app.getHttpServer())
+        .post('/api/v1/account/first-password')
+        .send({ password: 'Str0ng-pass' })
+        .expect(401);
+
+      // A TEACHER needs all five rules.
+      const weak = await supertest(app.getHttpServer())
+        .post('/api/v1/account/first-password')
+        .set(auth)
+        .send({ password: 'password1234' })
+        .expect(400);
+      expect(weak.body.details).toMatchObject({
+        code: 'PASSWORD_TOO_WEAK',
+        failed: ['upper', 'special'],
+      });
+
+      await supertest(app.getHttpServer())
+        .post('/api/v1/account/first-password')
+        .set(auth)
+        .send({ password: 'Str0ng-pass' })
+        .expect(204);
+
+      const again = await supertest(app.getHttpServer())
+        .post('/api/v1/account/first-password')
+        .set(auth)
+        .send({ password: 'Another-Str0ng-pass' })
+        .expect(409);
+      expect(again.body.details).toMatchObject({ code: 'PASSWORD_ALREADY_SET' });
+
+      await supertest(app.getHttpServer())
+        .post('/api/v1/auth/login')
+        .send({ email: FP_EMAIL, password: 'Str0ng-pass' })
+        .expect(200);
+    });
+
+    it('a request with neither identifier nor phone is a 400', async () => {
+      await supertest(app.getHttpServer()).post('/api/v1/auth/otp/request').send({}).expect(400);
+    });
+
+    it('unknown email gets the same 202 and no debug code', async () => {
+      const res = await supertest(app.getHttpServer())
+        .post('/api/v1/auth/otp/request')
+        .send({ identifier: 'nobody-at-all@testschool.com' })
+        .expect(202);
+      expect(res.body.debug?.otp).toBeUndefined();
     });
   });
 });

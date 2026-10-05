@@ -4,12 +4,14 @@ import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
 import { TestingModule } from '@nestjs/testing';
 import Redis from 'ioredis';
-import { AuditAction, CommunicationMedium, UserStatus } from '@biddaloy/shared';
+import { AuditAction, AuthTokenPurpose, CommunicationMedium, UserStatus } from '@biddaloy/shared';
+import { AuthToken } from './entities/auth-token.entity';
 import { createTestModule } from '@test/helpers/module.helper';
 import { SEED_TENANT_ID } from '@test/constants';
 import { ALL_ENTITIES } from '@test/all-entities';
 import { OtpLoginService } from './otp-login.service';
 import { OtpService, OTP_REDIS } from './otp.service';
+import { AuthTokenService } from './auth-token.service';
 import { AccountAccessDeliveryService } from './account-access-delivery.service';
 import { User } from '../users/entities/user.entity';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
@@ -60,6 +62,7 @@ describe('OtpLoginService (integration)', () => {
     module = await createTestModule(ALL_ENTITIES, [
       OtpLoginService,
       OtpService,
+      AuthTokenService,
       AccountAccessDeliveryService,
       AuditService,
       { provide: OTP_REDIS, useValue: redis },
@@ -221,7 +224,13 @@ describe('OtpLoginService (integration)', () => {
       expect(fakeAuthService.startSession).toHaveBeenCalledTimes(1);
       // Identical session shape to a password login: same top-level keys.
       expect(Object.keys(result).sort()).toEqual(
-        ['access_token', 'memberships', 'refreshToken'].sort(),
+        [
+          'access_token',
+          'memberships',
+          'needs_password',
+          'password_required',
+          'refreshToken',
+        ].sort(),
       );
 
       const auditRows = await dataSource
@@ -322,6 +331,124 @@ describe('OtpLoginService (integration)', () => {
       await expect(service.verify('01744444444', debug!.otp!, context)).rejects.toMatchObject({
         message: 'Invalid credentials',
       });
+    });
+  });
+  describe('email codes and first sign-in [13.2.2]', () => {
+    it('emails the code when the identifier is an email, and verifies it (Bangla digits ok)', async () => {
+      const user = await createMember({ email: 'karim@example.com', phone: '01755550001' });
+
+      const { debug } = await service.request('Karim@Example.com', context);
+
+      const logs = await dataSource.getRepository(CommunicationLog).find();
+      expect(logs).toHaveLength(1);
+      expect(logs[0].medium).toBe(CommunicationMedium.EMAIL);
+      expect(logs[0].recipient_address).toBe('karim@example.com');
+      // The code itself never lands in the logged body.
+      expect(logs[0].message_body).not.toContain(debug!.otp!);
+
+      const bangla = debug!.otp!.replace(/\d/g, (d) => '০১২৩৪৫৬৭৮৯'[Number(d)]);
+      const result = await service.verify('karim@example.com', bangla, context);
+      expect(result.access_token).toBe('fake-access-token');
+      // An email code proves the email, not the phone.
+      const updated = await dataSource
+        .getRepository(User)
+        .findOneOrFail({ where: { id: user.id } });
+      expect(updated.email_verified_at).not.toBeNull();
+      expect(updated.phone_verified_at).toBeNull();
+    });
+
+    it('locks an email identifier after 5 wrong tries', async () => {
+      await createMember({ email: 'lock@example.com' });
+      await service.request('lock@example.com', context);
+      for (let i = 0; i < 4; i++) {
+        await expect(service.verify('lock@example.com', '000000', context)).rejects.toBeInstanceOf(
+          UnauthorizedException,
+        );
+      }
+      await expect(service.verify('lock@example.com', '000000', context)).rejects.toMatchObject({
+        status: 429,
+      });
+    });
+
+    it('a phone outside the allowed prefixes gets the code by email; with no email nothing is sent', async () => {
+      await createMember({ phone: '+14155550100', email: 'abroad@example.com' });
+      await createMember({ phone: '+14155550101' });
+
+      const withEmail = await service.request('+14155550100', context);
+      const noEmail = await service.request('+14155550101', context);
+
+      expect(withEmail.debug?.otp).toMatch(/^\d{6}$/);
+      // Same answer shape either way: the caller cannot tell nothing was sent.
+      expect(noEmail).toEqual({});
+      const logs = await dataSource.getRepository(CommunicationLog).find();
+      expect(logs).toHaveLength(1);
+      expect(logs[0].medium).toBe(CommunicationMedium.EMAIL);
+    });
+
+    it('an unknown identifier looks the same as a known one that sends nothing', async () => {
+      await createMember({ phone: '+14155550102' }); // no email, foreign prefix: sends nothing
+      const known = await service.request('+14155550102', context);
+      const unknownEmail = await service.request('nobody@example.com', context);
+      const unknownPhone = await service.request('+8801700000099', context);
+      expect(unknownEmail).toEqual(known);
+      expect(unknownPhone).toEqual(known);
+    });
+
+    it('signs in an invited, never-activated user: consumes the invite, activates, needs_password', async () => {
+      const user = await createMember({
+        phone: '01755550002',
+        status: UserStatus.INACTIVE,
+        password_hash: null,
+      });
+      const invite = await dataSource.getRepository(AuthToken).save(
+        dataSource.getRepository(AuthToken).create({
+          user_id: user.id,
+          tenant_id: SEED_TENANT_ID,
+          purpose: AuthTokenPurpose.INVITE,
+          token_hash: 'hash-' + user.id,
+          expires_at: new Date(Date.now() + 86_400_000),
+        } as any),
+      );
+      const { debug } = await service.request('01755550002', context);
+
+      const result = await service.verify('01755550002', debug!.otp!, context);
+
+      expect(result.needs_password).toBe(true);
+      // PARENT => family rules => a first password is optional.
+      expect(result.password_required).toBe(false);
+      const row = await dataSource
+        .getRepository(AuthToken)
+        .findOneOrFail({ where: { id: invite.id } });
+      expect(row.consumed_at).not.toBeNull();
+      const updated = await dataSource
+        .getRepository(User)
+        .findOneOrFail({ where: { id: user.id } });
+      expect(updated.status).toBe(UserStatus.ACTIVE);
+    });
+
+    it('password_required is true for a staff user with no password and no social identity', async () => {
+      const user = await createMember({ phone: '01755550003', password_hash: null });
+      await dataSource.query(`UPDATE user_tenants SET role = 'TEACHER' WHERE user_id = $1`, [
+        user.id,
+      ]);
+      const { debug } = await service.request('01755550003', context);
+
+      const result = await service.verify('01755550003', debug!.otp!, context);
+
+      expect(result.password_required).toBe(true);
+    });
+
+    it('a user who already has a password: needs_password false', async () => {
+      await createMember({ phone: '01755550004', password_hash: 'x' });
+      const { debug } = await service.request('01755550004', context);
+      const result = await service.verify('01755550004', debug!.otp!, context);
+      expect(result.needs_password).toBe(false);
+      expect(result.password_required).toBe(false);
+    });
+
+    it('never signs in a SUSPENDED or INACTIVE-with-password user by code', async () => {
+      await createMember({ phone: '01755550005', status: UserStatus.INACTIVE, password_hash: 'x' });
+      expect(await service.request('01755550005', context)).toEqual({});
     });
   });
 });
