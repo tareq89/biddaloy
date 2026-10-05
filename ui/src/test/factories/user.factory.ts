@@ -61,6 +61,8 @@ export function userResponseFactory(
     // Membership date — distinct from the account's created_at so tests
     // catch code rendering the wrong one as "member since".
     member_since: '2025-03-15T00:00:00.000Z',
+    // [13.2.1] set only in the former-members list.
+    left_at: null,
     invitation_status: 'NONE',
     // [36.4.1] staff_profiles.id for this user, null by default (most
     // factory-built users in existing tests aren't staff) — override when
