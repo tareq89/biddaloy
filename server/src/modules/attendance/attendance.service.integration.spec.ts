@@ -26,7 +26,15 @@ import { User } from '../users/entities/user.entity';
 import { AttendanceSession } from './entities/attendance-session.entity';
 import { AttendanceRecord } from './entities/attendance-record.entity';
 import { AuditLog } from '../audit/entities/audit-log.entity';
-import { AttendanceStatus, UserRole } from '@biddaloy/shared';
+import { CalendarEvent } from '../calendar/entities/calendar-event.entity';
+import { CalendarEventClass } from '../calendar/entities/calendar-event-class.entity';
+import { Shift } from '../routines/entities/shift.entity';
+import {
+  AttendanceSessionState,
+  AttendanceStatus,
+  TeacherAssignmentType,
+  UserRole,
+} from '@biddaloy/shared';
 
 /**
  * Integration tests for `AttendanceService` — the write side of attendance.
@@ -54,6 +62,8 @@ describe('AttendanceService (integration)', () => {
   const ADMIN_USER_ID = SEED_ADMIN_USER_ID;
 
   let sectionId: string;
+  let yearId: string;
+  let classId: string;
   let otherTenantSectionId: string;
 
   let studentId1: string;
@@ -117,6 +127,8 @@ describe('AttendanceService (integration)', () => {
       tenant_id: TENANT_ID,
     });
     sectionId = section.id;
+    yearId = year.id;
+    classId = klass.id;
 
     const otherYear = await yearRepo.save({
       name: 'Other Tenant Year',
@@ -661,6 +673,194 @@ describe('AttendanceService (integration)', () => {
       expect(sections[0].today?.present).toBe(1);
       expect(sections[0].today?.absent).toBe(1);
       expect(sections[0].today?.unmarked).toBe(0);
+    });
+
+    // ---- #1587: check-list data -------------------------------------------
+
+    async function mapTeacher(
+      secId: string,
+      fullName: string,
+      type: TeacherAssignmentType,
+    ): Promise<void> {
+      const user = await dataSource.getRepository(User).save({
+        email: `mst-${randomUUID()}@test.com`,
+        full_name: fullName,
+      });
+      const teacher = await dataSource.getRepository(Teacher).save({
+        user_id: user.id,
+        employee_id: `MST-${randomUUID().slice(0, 8)}`,
+        tenant_id: TENANT_ID,
+        designations: [],
+      });
+      await dataSource.getRepository(TeacherClassSection).save({
+        teacher_id: teacher.id,
+        section_id: secId,
+        tenant_id: TENANT_ID,
+        subject_id: null,
+        assignment_type: type,
+      });
+    }
+
+    async function makeOtherClassSection(): Promise<{ classId: string; sectionId: string }> {
+      const klass = await dataSource.getRepository(Class).save({
+        name: `Second Class ${randomUUID().slice(0, 6)}`,
+        academic_year_id: yearId,
+        tenant_id: TENANT_ID,
+      });
+      const sec = await dataSource.getRepository(ClassSection).save({
+        section_name: 'Second Sec',
+        class_id: klass.id,
+        tenant_id: TENANT_ID,
+      });
+      return { classId: klass.id, sectionId: sec.id };
+    }
+
+    async function classScopedHoliday(date: string, classIds: string[]): Promise<void> {
+      const event = await dataSource.getRepository(CalendarEvent).save({
+        tenant_id: TENANT_ID,
+        academic_year_id: yearId,
+        start_date: date,
+        end_date: date,
+        name: 'Class Break',
+        counts_as_working_day: false,
+        published_at: new Date(),
+      });
+      for (const cid of classIds) {
+        await dataSource
+          .getRepository(CalendarEventClass)
+          .save({ event_id: event.id, class_id: cid, tenant_id: TENANT_ID });
+      }
+    }
+
+    // beforeEach maps its teacher with the default (CLASS_TEACHER) type; drop it.
+    const demoteBaseTeacher = () =>
+      dataSource.getRepository(TeacherClassSection).delete({ section_id: sectionId });
+
+    const adminList = (date?: string) =>
+      service.listMySections({
+        role: UserRole.ADMIN,
+        userId: ADMIN_USER_ID,
+        tenantId: TENANT_ID,
+        date,
+      });
+
+    it('returns class_id, and a null class teacher when nobody holds that role', async () => {
+      await demoteBaseTeacher();
+      await mapTeacher(
+        sectionId,
+        'Assistant Person',
+        TeacherAssignmentType.ASSISTANT_CLASS_TEACHER,
+      );
+      const item = (await adminList(TODAY())).find((x) => x.section_id === sectionId)!;
+      expect(item.class_id).toBe(classId);
+      expect(item.class_teacher_name).toBeNull();
+    });
+
+    it('returns the class teacher name, never an assistant', async () => {
+      await demoteBaseTeacher();
+      await mapTeacher(
+        sectionId,
+        'Assistant Person',
+        TeacherAssignmentType.ASSISTANT_CLASS_TEACHER,
+      );
+      await mapTeacher(sectionId, 'Head Teacher', TeacherAssignmentType.CLASS_TEACHER);
+      const item = (await adminList(TODAY())).find((x) => x.section_id === sectionId)!;
+      expect(item.class_teacher_name).toBe('Head Teacher');
+    });
+
+    it('is_working_day is false only for the class a holiday is scoped to', async () => {
+      const other = await makeOtherClassSection();
+      await classScopedHoliday(TODAY(), [classId]);
+      const items = await adminList(TODAY());
+      expect(items.find((x) => x.section_id === sectionId)!.is_working_day).toBe(false);
+      expect(items.find((x) => x.section_id === other.sectionId)!.is_working_day).toBe(true);
+    });
+
+    it('refuses a future date with ATTENDANCE_FUTURE_DATE', async () => {
+      await expect(adminList(FUTURE())).rejects.toMatchObject({
+        response: { details: { code: 'ATTENDANCE_FUTURE_DATE' } },
+      });
+    });
+
+    it('a period register on the same date never replaces the day register', async () => {
+      const sessionRepo = dataSource.getRepository(AttendanceSession);
+      await sessionRepo.save({
+        tenant_id: TENANT_ID,
+        section_id: sectionId,
+        date: TODAY(),
+        period_no: null,
+        state: AttendanceSessionState.FINALIZED,
+      });
+      // Created after the day register so an unfiltered Map would keep this one.
+      await sessionRepo.save({
+        tenant_id: TENANT_ID,
+        section_id: sectionId,
+        date: TODAY(),
+        period_no: 1,
+        state: AttendanceSessionState.DRAFT,
+      });
+      const item = (await adminList(TODAY())).find((x) => x.section_id === sectionId)!;
+      expect(item.today?.state).toBe(AttendanceSessionState.FINALIZED);
+    });
+
+    it('putRegister refuses a day that is a holiday for this section class only', async () => {
+      const other = await makeOtherClassSection();
+      await classScopedHoliday(TODAY(), [classId]);
+      await expect(service.putRegister(putParams({ dto: basePutDto() }))).rejects.toMatchObject({
+        response: { details: { code: 'ATTENDANCE_NON_WORKING_DAY' } },
+      });
+      // The other class can still be marked the same day.
+      await dataSource.getRepository(Student).save({
+        full_name: 'Other Student',
+        registration_number: 'ATT-REG-OTH',
+        roll_number: 1,
+        class_section_id: other.sectionId,
+        tenant_id: TENANT_ID,
+      });
+      const stu = await dataSource
+        .getRepository(Student)
+        .findOneByOrFail({ registration_number: 'ATT-REG-OTH' });
+      await expect(
+        service.putRegister(
+          putParams({
+            sectionId: other.sectionId,
+            dto: basePutDto({
+              entries: [{ student_id: stu.id, status: AttendanceStatus.PRESENT }],
+            }),
+          }),
+        ),
+      ).resolves.toBeDefined();
+    });
+
+    it('the register echoes the late time of the class shift, and the tenant default without one', async () => {
+      const shift = await dataSource.getRepository(Shift).save({
+        tenant_id: TENANT_ID,
+        name: 'Day',
+        day_starts_at: '12:00',
+        day_ends_at: '17:00',
+        sequence: 1,
+      });
+      await setTenantSettings(TENANT_ID, {
+        weeklyOffDays: [],
+        lateAfter: '09:00',
+        shiftTimes: [{ shiftId: shift.id, lateAfter: '12:15', absentAfter: '14:00' }],
+      });
+      const regParams = {
+        sectionId,
+        date: TODAY(),
+        periodNo: null,
+        tenantId: TENANT_ID,
+        role: UserRole.ADMIN,
+        userId: ADMIN_USER_ID,
+      };
+      // No shift on the class: tenant default.
+      expect((await service.getRegister(regParams)).policy.late_after).toBe('09:00');
+      await dataSource.getRepository(Class).update({ id: classId }, { shift_id: shift.id });
+      try {
+        expect((await service.getRegister(regParams)).policy.late_after).toBe('12:15');
+      } finally {
+        await dataSource.getRepository(Class).update({ id: classId }, { shift_id: null });
+      }
     });
   });
 });
