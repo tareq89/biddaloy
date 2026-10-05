@@ -84,7 +84,7 @@ function VerifyEmailPage() {
             className="w-full"
             onClick={() => void verifyQuery.refetch()}
           >
-            {t('common:actions.retry')}
+            {t('actions.retry', { ns: 'common' })}
           </Button>
           <Button
             variant="ghost"
