@@ -1,12 +1,23 @@
 {
-  "title": "স্কুল সেটিংস",
+  "title": "সেটিংস",
   "schoolPicker": {
     "label": "স্কুল",
     "placeholder": "কনফিগার করার জন্য একটি স্কুল নির্বাচন করুন",
     "error": "স্কুলের তালিকা লোড করা যায়নি। পাতাটি রিফ্রেশ করে আবার চেষ্টা করুন।"
   },
   "settingsLoadError": "এই স্কুলের সেটিংস লোড করা যায়নি। পাতাটি রিফ্রেশ করে আবার চেষ্টা করুন।",
-  "configuringBanner": "{{schoolName}} এর সেটিংস কনফিগার করা হচ্ছে",
+  "configuringBanner": "{{schoolName}}-এর সেটিংস",
+  "categories": {
+    "label": "সেটিংসের বিভাগ",
+    "school": "স্কুল",
+    "academics": "একাডেমিক",
+    "finance": "অর্থ",
+    "communication": "যোগাযোগ",
+    "printing": "প্রিন্টিং",
+    "security": "সাইন-ইন ও নিরাপত্তা",
+    "backup": "ব্যাকআপ"
+  },
+  "advanced": "উন্নত সেটিং",
   "unnamedSchool": "এই স্কুল",
   "profile": {
     "legend": "স্কুল প্রোফাইল",
