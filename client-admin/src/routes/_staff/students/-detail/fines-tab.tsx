@@ -31,16 +31,22 @@ import { TabQueryState } from './tab-query-state';
 
 export interface FinesTabProps {
   studentId: string;
+  /** [31.5.0] Log-fine full page lives in the URL (`?logFine=1`); the route owns the key. */
+  logOpen?: boolean;
+  onLogOpenChange?: (open: boolean) => void;
 }
 
-export function FinesTab({ studentId }: FinesTabProps) {
+export function FinesTab({
+  studentId,
+  logOpen = false,
+  onLogOpenChange = () => {},
+}: FinesTabProps) {
   const { t } = useTranslation('fines');
   const { t: tStudents } = useTranslation('students');
   const regionConfig = useRegionConfig();
   const canLog = useHasPermission(Permission.FEE_GENERATE);
   const canWaive = useHasPermission(Permission.FEE_APPROVE);
   const finesQuery = useFines({ student_id: studentId });
-  const [logOpen, setLogOpen] = React.useState(false);
   const [waiveFineId, setWaiveFineId] = React.useState<string | null>(null);
 
   return (
@@ -51,7 +57,7 @@ export function FinesTab({ studentId }: FinesTabProps) {
             type="button"
             variant="outline"
             className="w-full md:w-auto"
-            onClick={() => setLogOpen(true)}
+            onClick={() => onLogOpenChange(true)}
           >
             <PlusIcon className="size-4" aria-hidden />
             {t('logForm.title')}
@@ -159,7 +165,11 @@ export function FinesTab({ studentId }: FinesTabProps) {
       </TabQueryState>
 
       {canLog && (
-        <LogFineModal open={logOpen} onOpenChange={setLogOpen} prefillStudentIds={[studentId]} />
+        <LogFineModal
+          open={logOpen}
+          onOpenChange={onLogOpenChange}
+          prefillStudentIds={[studentId]}
+        />
       )}
       {canWaive && waiveFineId !== null && (
         <WaiveFineDialog
