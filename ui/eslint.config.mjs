@@ -9,6 +9,7 @@ import {
   noWindowAlertConfig,
   typeCheckedRules,
   typeCheckedTestOverrides,
+  uxControlsGuardConfig,
   waitForTextContentConfig,
 } from './eslint-config.mjs';
 import logicalPropertiesPlugin from './eslint-rules/logical-properties.mjs';
@@ -62,6 +63,22 @@ export default tseslint.config(
   {
     files: ['src/**/*.{ts,tsx}'],
     ...noWindowAlertConfig,
+  },
+  {
+    files: ['src/**/*.{ts,tsx}'],
+    ignores: [
+      'src/utils/**', // the formatters themselves
+      'src/test/**', // fixture builders
+      'src/**/*.test.{ts,tsx}',
+      'src/**/*.stories.tsx',
+      // Follow-up: these slice a UTC `toISOString()`; `toIsoDate` is local-time, so
+      // swapping needs a per-site UTC-vs-local decision, not a mechanical edit.
+      'src/components/attendance-month-grid.tsx',
+      'src/components/calendar/agenda-list.tsx',
+      'src/components/calendar/month-grid.tsx',
+      'src/hooks/programs.ts',
+    ],
+    ...uxControlsGuardConfig,
   },
   {
     files: ['src/**/*.test.{ts,tsx}'],
