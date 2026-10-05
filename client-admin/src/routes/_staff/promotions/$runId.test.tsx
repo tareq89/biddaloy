@@ -190,25 +190,25 @@ describe('/promotions/$runId', () => {
     statefulRun();
     renderRun();
 
-    const outcomeCell = await screen.findByLabelText('Final');
+    const outcomeCell = await screen.findByLabelText('Final decision');
     outcomeCell.focus();
     await user.keyboard('r');
 
-    await screen.findByText('Override');
-    const note = await screen.findByLabelText('Override note');
+    await screen.findByText('Changed by hand');
+    const note = await screen.findByLabelText('Why changed');
     await waitFor(() => expect(document.activeElement).toBe(note));
 
     await user.click(note);
     await user.keyboard('{Backspace}');
     note.blur();
-    await screen.findByText('A note is required for an override.');
+    await screen.findByText('Write why you changed it.');
   });
 
   async function overrideWithNote(user: ReturnType<typeof userEvent.setup>) {
-    const outcomeCell = await screen.findByLabelText('Final');
+    const outcomeCell = await screen.findByLabelText('Final decision');
     outcomeCell.focus();
     await user.keyboard('r');
-    const note = await screen.findByLabelText('Override note');
+    const note = await screen.findByLabelText('Why changed');
     await waitFor(() => expect(document.activeElement).toBe(note));
     await user.keyboard('Weak in maths');
     return outcomeCell;
@@ -276,7 +276,7 @@ describe('/promotions/$runId', () => {
     );
     renderRun();
 
-    const outcomeCell = await screen.findByLabelText('Final');
+    const outcomeCell = await screen.findByLabelText('Final decision');
     outcomeCell.focus();
     await user.keyboard('g');
 
@@ -360,7 +360,7 @@ describe('/promotions/$runId', () => {
       locale: 'en',
     });
 
-    const outcomeCell = await screen.findByLabelText('Final');
+    const outcomeCell = await screen.findByLabelText('Final decision');
     outcomeCell.focus();
     await user.keyboard('{Control>}{Enter}{/Control}');
     const dialog = await screen.findByRole('dialog');
@@ -383,9 +383,10 @@ describe('/promotions/$runId', () => {
       }),
     );
 
-    const banner = (await screen.findByText('Results changed since this preview — refresh'))
-      .parentElement as HTMLElement;
-    await userEvent.click(within(banner).getByRole('button', { name: 'Refresh' }));
+    const banner = (
+      await screen.findByText('Results changed since this preview — refresh')
+    ).closest('section') as HTMLElement;
+    await userEvent.click(within(banner).getByRole('button', { name: 'Update from results' }));
 
     await waitFor(() => expect(refreshed).toBe(true));
     await waitFor(() =>
@@ -428,11 +429,145 @@ describe('/promotions/$runId', () => {
       locale: 'en',
     });
 
-    await within(await screen.findByRole('status')).findByText(/Promoted: 1/);
-    expect(screen.queryByRole('button', { name: /Commit/ })).toBeNull();
-    const outcomeCell = await screen.findByLabelText('Final');
-    expect(outcomeCell.getAttribute('tabindex')).toBe('-1');
-    await screen.findByText(/Finalised .* by Admin One, approved by Admin Two/);
+    await within(await screen.findByRole('status')).findByText(/^Promoted [1১]$/);
+    expect(screen.queryByRole('button', { name: /Finalise/ })).toBeNull();
+    // No decision control on a finalised list: plain text, no combobox.
+    expect(screen.queryByRole('combobox', { name: 'Final decision' })).toBeNull();
+    expect(screen.getByRole('table')).toBeTruthy();
+    await screen.findByText('Admin One');
+    await screen.findByText('Admin Two');
+    expect(screen.getByText('Finalised by')).toBeTruthy();
+    expect(screen.getByText('Approved by')).toBeTruthy();
+  });
+
+  it('the final decision is a combobox a mouse user can change', async () => {
+    const user = userEvent.setup();
+    stubCommon();
+    const record = statefulRun();
+    renderRun();
+
+    const trigger = await screen.findByRole('combobox', { name: 'Final decision' });
+    await user.click(trigger);
+    await user.click(await screen.findByRole('option', { name: 'Retain' }));
+
+    const row = trigger.closest('tr') as HTMLElement;
+    await within(row).findByText('Changed by hand');
+    const note = within(row).getByRole('textbox', { name: 'Why changed' });
+    expect(note.getAttribute('placeholder')).toBe('Why did you change it?');
+    await user.type(note, 'Absent a lot');
+    await waitFor(
+      () =>
+        expect(record.patches.at(-1)).toEqual([
+          { student_id: 's1', final_outcome: 'RETAIN', override_note: 'Absent a lot' },
+        ]),
+      { timeout: 2000 },
+    );
+  });
+
+  it('shows a placement problem in words, in the row and in one alert card, never the code', async () => {
+    stubCommon();
+    server.use(
+      http.get(RUN_URL, () =>
+        HttpResponse.json(
+          baseRun({
+            entries: [entry({ placement_error: 'OVER_CAPACITY', target_section_id: null })],
+          }),
+        ),
+      ),
+    );
+    renderRun();
+
+    const alert = await screen.findByRole('alert');
+    expect(
+      within(alert).getByRole('heading', { name: /Fix .* problem\(s\) before finalising/ }),
+    ).toBeTruthy();
+    expect(screen.getByText('No room in any section')).toBeTruthy();
+    expect(screen.queryByText(/OVER_CAPACITY/)).toBeNull();
+  });
+
+  it('the Finalise button carries no shortcut text and Delete asks before deleting', async () => {
+    const user = userEvent.setup();
+    stubCommon();
+    statefulRun();
+    let deleted = false;
+    server.use(
+      http.delete(RUN_URL, () => {
+        deleted = true;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    renderRun();
+
+    const finalise = await screen.findByRole('button', { name: 'Finalise' });
+    expect(finalise.textContent).not.toContain('Ctrl');
+
+    await user.click(screen.getByRole('button', { name: 'More actions' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Delete list' }));
+    const dialog = await screen.findByRole('alertdialog');
+    expect(deleted).toBe(false);
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+    expect(deleted).toBe(false);
+
+    await user.click(screen.getByRole('button', { name: 'More actions' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Delete list' }));
+    await user.click(
+      within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Delete' }),
+    );
+    await waitFor(() => expect(deleted).toBe(true));
+  });
+
+  it('shows a dash, never the id, for a class that is not in the lookups', async () => {
+    stubCommon();
+    server.use(
+      http.get(RUN_URL, () => HttpResponse.json(baseRun({ source_class_id: 'class-ghost' }))),
+    );
+    renderRun();
+
+    await screen.findByRole('heading', { level: 1, name: '— → Class 7' });
+    expect(screen.queryByText(/class-ghost/)).toBeNull();
+  });
+
+  it('has no Group column when the school has no groups', async () => {
+    stubCommon();
+    server.use(
+      http.get('/api/v1/classes/vocabulary', () => HttpResponse.json({ groups: [] })),
+      http.get(RUN_URL, () => HttpResponse.json(baseRun())),
+    );
+    renderRun();
+
+    await screen.findByRole('combobox', { name: 'Final decision' });
+    expect(screen.queryByRole('columnheader', { name: 'Group' })).toBeNull();
+    expect(screen.getByRole('columnheader', { name: 'Final decision' })).toBeTruthy();
+  });
+
+  it('on a phone the decision is a radio group and the stepper buttons are named', async () => {
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: true,
+      media: query,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      addListener: () => {},
+      removeListener: () => {},
+      dispatchEvent: () => false,
+      onchange: null,
+    }));
+    try {
+      stubCommon();
+      server.use(
+        http.get(RUN_URL, () =>
+          HttpResponse.json(baseRun({ entries: [entry(), entry({ student_id: 's2', id: 'e2' })] })),
+        ),
+      );
+      renderRun();
+
+      const group = await screen.findByRole('radiogroup', { name: 'Final decision' });
+      expect(within(group).getAllByRole('radio')).toHaveLength(3);
+      expect(screen.getByRole('button', { name: 'Previous student' })).toBeTruthy();
+      expect(screen.getByRole('button', { name: 'Next student' })).toBeTruthy();
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it('Ctrl+Enter does not open the commit dialog on a committed run', async () => {
@@ -447,7 +582,7 @@ describe('/promotions/$runId', () => {
     );
     renderRun();
 
-    (await screen.findByLabelText('Final')).focus();
+    await screen.findByRole('heading', { level: 1, name: /→/ });
     await user.keyboard('{Control>}{Enter}{/Control}');
     await sleep(50);
     expect(screen.queryByRole('dialog')).toBeNull();
