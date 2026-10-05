@@ -2097,6 +2097,265 @@ export async function ensureRoutineSeed(
   return result;
 }
 
+/** [41.2.c] Settings the attendance-ops demo needs: the period switch on.
+ * Only flips the default (absent) — a hand-set value survives a re-run,
+ * like `ensureDemoOrganisation`. Returns whether it changed anything so
+ * the caller only `save()`s when needed. No `shiftTimes` entry: the demo
+ * has one `Shift` row ("Morning"); the second shift in `DEMO_ORGANISATION`
+ * is vocabulary only, so there is no later shift to give its own times. */
+export function ensureAttendancePeriodSetting(school: School): boolean {
+  const attendance = school.settings?.attendance;
+  if (attendance?.periodAttendance !== undefined) return false;
+  school.settings = {
+    ...(school.settings ?? {}),
+    attendance: { ...attendance, periodAttendance: { enabled: true } },
+  } as School['settings'];
+  return true;
+}
+
+export interface AttendanceOpsSeedRepositories {
+  teacherRepository: Repository<Teacher>;
+  teacherClassSectionRepository: Repository<TeacherClassSection>;
+  routineSlotRepository: Repository<RoutineSlot>;
+  periodSlotRepository: Repository<PeriodSlot>;
+  attendanceSessionRepository: Repository<AttendanceSession>;
+  attendanceRecordRepository: Repository<AttendanceRecord>;
+}
+
+export interface AttendanceOpsSeedParams {
+  schoolId: string;
+  /** The school's local today, `'YYYY-MM-DD'`. A parameter so tests pin it. */
+  today: string;
+  /** "Class 6" A and B, with each section's students in roll order. */
+  sections: readonly [
+    { id: string; studentIds: readonly string[] },
+    { id: string; studentIds: readonly string[] },
+  ];
+  teacherUserId: string;
+  subjectId: string;
+}
+
+export interface AttendanceOpsSeedResult {
+  daySessions: number;
+  periodSessions: number;
+  records: number;
+}
+
+const OPS_DAYS = 5;
+const OPS_PERIOD_DAYS = 2;
+
+function addDays(dateIso: string, delta: number): string {
+  return new Date((epochDay(dateIso) + delta) * 86_400_000).toISOString().slice(0, 10);
+}
+
+const { PRESENT: P, ABSENT: A, LATE: L, LEAVE: V } = AttendanceStatus;
+/** One row per student (section A's three, then B's three), one column per
+ * day, oldest first. A is streak-friendly — the "My class" streak cards
+ * read the newest registers: roll 1 stays PRESENT, roll 2 ends on LATE,
+ * roll 3 on ABSENT. B is mostly PRESENT with one of each. */
+const OPS_STATUSES: readonly (readonly AttendanceStatus[])[] = [
+  [P, P, P, P, P],
+  [V, P, L, L, L],
+  [P, P, A, A, A],
+  [P, P, P, P, P],
+  [P, A, P, P, P],
+  [P, P, L, P, V],
+];
+
+/**
+ * [41.2.c] Attendance-ops demo data, relative to the school's `today`:
+ *
+ * - sections A and B: whole-day FINALIZED registers on the last
+ *   {@link OPS_DAYS} working days before today;
+ * - today: A has no register ("not started"), B a DRAFT — so `my-sections`
+ *   shows both pending states;
+ * - section A: period registers (with `subject_id`) on the two most recent
+ *   working days its weekly routine slot falls on.
+ *
+ * ABSENT/LATE only land in today's month: the attendance-fine seed sweeps
+ * *last* month and must not meet extra marks there. Idempotent: every
+ * session/record is found-or-created by its natural key.
+ */
+export async function ensureAttendanceOpsSeed(
+  repos: AttendanceOpsSeedRepositories,
+  params: AttendanceOpsSeedParams,
+): Promise<AttendanceOpsSeedResult> {
+  const { schoolId, today, sections, teacherUserId, subjectId } = params;
+  const result: AttendanceOpsSeedResult = { daySessions: 0, periodSessions: 0, records: 0 };
+  const isWorkingDay = (d: string) =>
+    weekdayOf(d) !== WEEKLY_OFF_WEEKDAY && !isHoliday(d, ATTENDANCE_SEED_HOLIDAYS);
+  // The e2e "teacher marks the register" journey writes `markableDateIso()`
+  // (today, or Thursday on a Friday) into section A — keep that day free.
+  const reserved = weekdayOf(today) === WEEKLY_OFF_WEEKDAY ? addDays(today, -1) : today;
+  const isUsable = (d: string) => isWorkingDay(d) && d !== reserved;
+
+  const days: string[] = []; // oldest first, once reversed below
+  for (
+    let d = addDays(today, -1), n = 0;
+    days.length < OPS_DAYS && n < 60;
+    d = addDays(d, -1), n++
+  ) {
+    if (isUsable(d)) days.push(d);
+  }
+  days.reverse();
+
+  async function ensureSession(
+    sectionId: string,
+    date: string,
+    periodNo: number | null,
+    state: AttendanceSessionState,
+    subject: string | null,
+  ): Promise<AttendanceSession> {
+    let session = await repos.attendanceSessionRepository.findOne({
+      where: {
+        tenant_id: schoolId,
+        section_id: sectionId,
+        date,
+        period_no: periodNo === null ? IsNull() : periodNo,
+      },
+    });
+    if (!session) {
+      const at = new Date(`${date}T12:00:00Z`);
+      session = await repos.attendanceSessionRepository.save(
+        repos.attendanceSessionRepository.create({
+          tenant_id: schoolId,
+          section_id: sectionId,
+          date,
+          period_no: periodNo,
+          subject_id: subject,
+          source: AttendanceSource.TEACHER,
+          state,
+          marked_by_user_id: teacherUserId,
+          marked_at: at,
+          finalized_at: state === AttendanceSessionState.FINALIZED ? at : null,
+        }),
+      );
+      if (periodNo === null) result.daySessions += 1;
+      else result.periodSessions += 1;
+    }
+    return session;
+  }
+
+  async function ensureRecord(
+    session: AttendanceSession,
+    studentId: string,
+    date: string,
+    status: AttendanceStatus,
+  ): Promise<void> {
+    const existing = await repos.attendanceRecordRepository.findOne({
+      where: { session_id: session.id, student_id: studentId },
+    });
+    if (existing) return;
+    await repos.attendanceRecordRepository.save(
+      repos.attendanceRecordRepository.create({
+        tenant_id: schoolId,
+        session_id: session.id,
+        student_id: studentId,
+        date,
+        status,
+        minutes_late: status === AttendanceStatus.LATE ? 10 : null,
+        source: AttendanceSource.TEACHER,
+        recorded_by_user_id: teacherUserId,
+      }),
+    );
+    result.records += 1;
+  }
+
+  const month = today.slice(0, 7);
+  const statusFor = (row: number, dayIdx: number, date: string): AttendanceStatus => {
+    const status = OPS_STATUSES[row]![dayIdx]!;
+    const fineBearing = status === AttendanceStatus.ABSENT || status === AttendanceStatus.LATE;
+    return fineBearing && !date.startsWith(month) ? AttendanceStatus.PRESENT : status;
+  };
+
+  for (const [sectionIdx, section] of sections.entries()) {
+    for (const [dayIdx, date] of days.entries()) {
+      const session = await ensureSession(
+        section.id,
+        date,
+        null,
+        AttendanceSessionState.FINALIZED,
+        null,
+      );
+      for (const [studentIdx, studentId] of section.studentIds.entries()) {
+        await ensureRecord(
+          session,
+          studentId,
+          date,
+          statusFor(sectionIdx * 3 + studentIdx, dayIdx, date),
+        );
+      }
+    }
+  }
+
+  // Today: A untouched (not started), B a DRAFT with every student marked.
+  const draft = await ensureSession(
+    sections[1].id,
+    today,
+    null,
+    AttendanceSessionState.DRAFT,
+    null,
+  );
+  for (const [studentIdx, studentId] of sections[1].studentIds.entries()) {
+    await ensureRecord(draft, studentId, today, studentIdx === 1 ? A : P);
+  }
+
+  // Section B needs a teacher mapping, or `my-sections` for
+  // teacher@biddaloy.test shows only A.
+  const teacher = await repos.teacherRepository.findOne({ where: { user_id: teacherUserId } });
+  if (teacher) {
+    const mapped = await repos.teacherClassSectionRepository.findOne({
+      where: { teacher_id: teacher.id, section_id: sections[1].id },
+    });
+    if (!mapped) {
+      await repos.teacherClassSectionRepository.save(
+        repos.teacherClassSectionRepository.create({
+          teacher_id: teacher.id,
+          section_id: sections[1].id,
+          tenant_id: schoolId,
+          subject_id: subjectId,
+          assignment_type: TeacherAssignmentType.SUBJECT_TEACHER,
+        }),
+      );
+    }
+  }
+
+  // Period registers: A's weekly routine slots, on the two newest usable
+  // days (looking up to 60 back, so a weekly slot always yields two).
+  const slots = await repos.routineSlotRepository.find({
+    where: { tenant_id: schoolId, section_id: sections[0].id, recurrence: SlotRecurrence.WEEKLY },
+  });
+  const sequenceOf = new Map(
+    (await repos.periodSlotRepository.find({ where: { tenant_id: schoolId } })).map((p) => [
+      p.id,
+      p.sequence,
+    ]),
+  );
+  let periodDays = 0;
+  for (
+    let d = addDays(today, -1), n = 0;
+    periodDays < OPS_PERIOD_DAYS && n < 60;
+    d = addDays(d, -1), n++
+  ) {
+    const slot = slots.find((s) => s.weekday === weekdayOf(d) && s.subject_id && s.valid_from <= d);
+    const periodNo = slot && sequenceOf.get(slot.period_slot_id);
+    if (!slot || !periodNo || !isUsable(d)) continue;
+    const session = await ensureSession(
+      sections[0].id,
+      d,
+      periodNo,
+      AttendanceSessionState.FINALIZED,
+      slot.subject_id,
+    );
+    for (const [studentIdx, studentId] of sections[0].studentIds.entries()) {
+      const absent = studentIdx === 2 && periodDays === 0 && d.startsWith(month);
+      await ensureRecord(session, studentId, d, absent ? A : P);
+    }
+    periodDays += 1;
+  }
+  return result;
+}
+
 /** [19.10.1] Demo exams/marks/results data so the marks-entry grid, the
  * progress screen and the guardian portal all have something real to
  * render — see the ticket's step 3:

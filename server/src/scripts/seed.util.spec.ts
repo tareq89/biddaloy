@@ -57,6 +57,8 @@ import {
   DEMO_CLASSES,
   DEMO_ORGANISATION,
   DEMO_STUDENTS_PER_SECTION,
+  ensureAttendanceOpsSeed,
+  ensureAttendancePeriodSetting,
   ensureAttendanceSeed,
   ensureCalendarDemoSeed,
   ensurePrintProfileDemoSeed,
@@ -2166,5 +2168,159 @@ describe('ensureStaffHrSeed', () => {
     expect(repos.leaveRecordRepository.save).not.toHaveBeenCalled();
     expect(warn).toHaveBeenCalledTimes(1);
     warn.mockRestore();
+  });
+});
+
+describe('[41.2.c] ensureAttendanceOpsSeed', () => {
+  // 2026-10-05 is a Monday; Friday is the weekly off. The five working days
+  // before it: Sun Oct 4, Sat Oct 3, Thu Oct 1, Wed Sep 30, Tue Sep 29.
+  const TODAY = '2026-10-05';
+  const WEEKLY_MONDAY_P1 = {
+    weekday: 1,
+    subject_id: 'math',
+    valid_from: '2026-01-01',
+    period_slot_id: 'p1',
+  } as unknown as RoutineSlot;
+  const PARAMS = {
+    schoolId: 'school-1',
+    today: TODAY,
+    sections: [
+      { id: 'section-a', studentIds: ['a1', 'a2', 'a3'] },
+      { id: 'section-b', studentIds: ['b1', 'b2', 'b3'] },
+    ],
+    teacherUserId: 'teacher-user-1',
+    subjectId: 'math',
+  } as const;
+
+  function opsRepos() {
+    const repos = {
+      teacherRepository: mockRepo<Teacher>(),
+      teacherClassSectionRepository: mockRepo<TeacherClassSection>(),
+      routineSlotRepository: mockRepo<RoutineSlot>(),
+      periodSlotRepository: mockRepo<PeriodSlot>(),
+      attendanceSessionRepository: mockRepo<AttendanceSession>(),
+      attendanceRecordRepository: mockRepo<AttendanceRecord>(),
+    };
+    for (const repo of Object.values(repos)) vi.mocked(repo.findOne).mockResolvedValue(null);
+    vi.mocked(repos.teacherRepository.findOne).mockResolvedValue({ id: 'teacher-1' } as Teacher);
+    vi.mocked(repos.routineSlotRepository.find).mockResolvedValue([WEEKLY_MONDAY_P1]);
+    vi.mocked(repos.periodSlotRepository.find).mockResolvedValue([
+      { id: 'p1', sequence: 1 } as PeriodSlot,
+    ]);
+    return repos;
+  }
+
+  const created = <T>(repo: { create: unknown }) =>
+    vi.mocked(repo.create as ReturnType<typeof vi.fn>).mock.calls.map(([p]) => p as T);
+
+  it('writes 5 finalized days x 2 sections, a draft, 2 period sessions and their records', async () => {
+    const repos = opsRepos();
+
+    const result = await ensureAttendanceOpsSeed(repos, PARAMS);
+
+    // 10 day sessions + B's draft; A's two Monday period-1 registers.
+    // 10 x 3 + 3 (draft) + 2 x 3 (periods) records.
+    expect(result).toEqual({ daySessions: 11, periodSessions: 2, records: 39 });
+  });
+
+  it('leaves section A with no register today and gives B a DRAFT', async () => {
+    const repos = opsRepos();
+    await ensureAttendanceOpsSeed(repos, PARAMS);
+
+    const today = created<AttendanceSession>(repos.attendanceSessionRepository).filter(
+      (s) => s.date === TODAY,
+    );
+    expect(today).toHaveLength(1);
+    expect(today[0]).toMatchObject({ section_id: 'section-b', state: 'DRAFT', period_no: null });
+  });
+
+  it('gives every period session a subject_id and keeps period registers on routine weekdays', async () => {
+    const repos = opsRepos();
+    await ensureAttendanceOpsSeed(repos, PARAMS);
+
+    const periods = created<AttendanceSession>(repos.attendanceSessionRepository).filter(
+      (s) => s.period_no !== null,
+    );
+    expect(periods.map((s) => [s.date, s.period_no, s.subject_id])).toEqual([
+      ['2026-09-28', 1, 'math'],
+      ['2026-09-21', 1, 'math'],
+    ]);
+  });
+
+  it('puts ABSENT/LATE only in the current month (the fine sweep owns last month)', async () => {
+    const repos = opsRepos();
+    await ensureAttendanceOpsSeed(repos, PARAMS);
+
+    const bad = created<AttendanceRecord>(repos.attendanceRecordRepository).filter(
+      (r) =>
+        (r.status === AttendanceStatus.ABSENT || r.status === AttendanceStatus.LATE) &&
+        !r.date!.startsWith('2026-10'),
+    );
+    expect(bad).toEqual([]);
+  });
+
+  it('shows every status across the seeded days when they fall in one month', async () => {
+    const repos = opsRepos();
+    // Tue 2026-10-13: the five working days before it are all in October.
+    await ensureAttendanceOpsSeed(repos, { ...PARAMS, today: '2026-10-13' });
+
+    const statuses = new Set(
+      created<AttendanceRecord>(repos.attendanceRecordRepository).map((r) => r.status),
+    );
+    expect(statuses).toEqual(
+      new Set([
+        AttendanceStatus.PRESENT,
+        AttendanceStatus.ABSENT,
+        AttendanceStatus.LATE,
+        AttendanceStatus.LEAVE,
+      ]),
+    );
+  });
+
+  it('never fills the day the e2e register journey marks (Thursday when today is Friday)', async () => {
+    const repos = opsRepos();
+    await ensureAttendanceOpsSeed(repos, { ...PARAMS, today: '2026-10-09' }); // a Friday
+
+    const dates = created<AttendanceSession>(repos.attendanceSessionRepository).map((s) => s.date);
+    expect(dates).not.toContain('2026-10-08');
+  });
+
+  it('maps the teacher to section B and is a no-op on a second run', async () => {
+    const repos = opsRepos();
+    await ensureAttendanceOpsSeed(repos, PARAMS);
+    expect(created(repos.teacherClassSectionRepository)).toEqual([
+      expect.objectContaining({ section_id: 'section-b', teacher_id: 'teacher-1' }),
+    ]);
+
+    vi.mocked(repos.attendanceSessionRepository.findOne).mockResolvedValue({
+      id: 's',
+    } as AttendanceSession);
+    vi.mocked(repos.attendanceRecordRepository.findOne).mockResolvedValue({} as AttendanceRecord);
+    vi.mocked(repos.teacherClassSectionRepository.findOne).mockResolvedValue(
+      {} as TeacherClassSection,
+    );
+    expect(await ensureAttendanceOpsSeed(repos, PARAMS)).toEqual({
+      daySessions: 0,
+      periodSessions: 0,
+      records: 0,
+    });
+  });
+});
+
+describe('[41.2.c] ensureAttendancePeriodSetting', () => {
+  it('turns the period switch on, keeping other attendance settings', () => {
+    const school = { settings: { attendance: { lateAfter: '09:00' } } } as unknown as School;
+    expect(ensureAttendancePeriodSetting(school)).toBe(true);
+    expect(school.settings).toMatchObject({
+      attendance: { lateAfter: '09:00', periodAttendance: { enabled: true } },
+    });
+  });
+
+  it('leaves a hand-set value alone', () => {
+    const school = {
+      settings: { attendance: { periodAttendance: { enabled: false } } },
+    } as unknown as School;
+    expect(ensureAttendancePeriodSetting(school)).toBe(false);
+    expect(school.settings).toEqual({ attendance: { periodAttendance: { enabled: false } } });
   });
 });

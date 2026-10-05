@@ -41,16 +41,18 @@ erDiagram
   `SchoolHoliday` in [17.1.2]. A `calendar` concern, not an attendance one;
   attendance only ever reads it, and only published (non-draft) events —
   a draft never counts toward working-day math or attendance.
-- **`Subject`** (`modules/academics`) — only meaningful for period-level
-  attendance (`AttendanceSession.subject_id`), unused until a later epic.
+- **`Subject`** (`modules/academics`) — only set on period registers
+  (`AttendanceSession.subject_id`, copied from the routine when the register
+  is first saved — see [§4a](#4a-period-attendance)).
 
 See [01-domain-model.md](01-domain-model.md) for the full-schema diagram and
 each entity's own docstring for column-level detail.
 
 ## 3. How a mark gets recorded
 
-Three paths write the same tables, but not the same contract: teacher
-writes (online or replayed from the offline queue) share the
+Four paths write the same tables, but not the same contract: teacher
+writes (one day, or a whole month at once; online or replayed from the
+offline queue) share the
 `base_version`/`client_request_id` conflict contract; device ingest has
 no `base_version` — it uses `device_event_id` idempotency, a per-event
 outcome, and teacher precedence instead (see [§7](#7-integrating-a-device)).
@@ -74,6 +76,15 @@ sequenceDiagram
         A-->>T: 200 + updated register
     end
 
+    T->>A: PUT /attendance/sections/:id/register-matrix<br/>{client_request_id, days: [{date, base_version, entries}]}
+    A->>DB: Lock the month's sessions, check EVERY day first
+    alt any day stale
+        A-->>T: 409 ATTENDANCE_MATRIX_CONFLICT + dates[]
+    else every day passes
+        A->>DB: Write all days in one transaction
+        A-->>T: 200 {saved_dates, versions}
+    end
+
     TO->>Q: enqueueMutation('attendance', ...)
     Note over Q: queued while offline, replayed on reconnect
     Q->>A: PUT .../register (same idempotency contract)
@@ -91,6 +102,76 @@ time — the fix for the duplicate-write hole `ui/src/api/mutation-queue.ts`
 used to document as unresolved (see
 [06-frontend-architecture.md](06-frontend-architecture.md)).
 
+### The teacher's check-list: `GET /attendance/my-sections`
+
+The landing screen asks one question per section: "has today's register been
+started?" Each item carries what the screen needs, with no second call:
+
+| Field                | Meaning                                                                             |
+| -------------------- | ----------------------------------------------------------------------------------- |
+| `class_id`           | The class (a holiday can be class-scoped, so the working-day check uses it).        |
+| `class_teacher_name` | The section's `CLASS_TEACHER` only (not assistants or subject teachers), or `null`. |
+| `is_working_day`     | `false` on a weekly-off day or a holiday for that class.                            |
+| `today`              | `null` = **not started**; otherwise `state` (`DRAFT`/`FINALIZED`) and the counts.   |
+
+Example, a Monday in the demo school (`yarn seed` creates exactly this):
+
+```jsonc
+[
+  {
+    "section_name": "A",
+    "class_teacher_name": "Demo Teacher",
+    "is_working_day": true,
+    "today": null,
+  },
+  {
+    "section_name": "B",
+    "class_teacher_name": null,
+    "is_working_day": true,
+    "today": { "state": "DRAFT", "present": 2, "absent": 1, "late": 0, "leave": 0, "unmarked": 0 },
+  },
+]
+```
+
+Only the whole-day register counts here; a period register on the same date
+never shows up in `today`.
+
+### Saving a whole month: `PUT /attendance/sections/:id/register-matrix`
+
+The monthly grid sends many days of one section in one request. It is
+**all-or-nothing**: every day is checked first, and one bad day rejects the
+whole save, so the grid never half-saves.
+
+```mermaid
+flowchart TD
+    S[PUT register-matrix] --> V{Valid shape?<br/>one month, no duplicate days,<br/>body under 1 MB}
+    V -- no --> E400[400 / 413]
+    V -- yes --> L{Any day in the future<br/>or not a school day?}
+    L -- yes --> E422[422 ATTENDANCE_MATRIX_LOCKED_DATE + dates]
+    L -- no --> C{Any day's base_version<br/>differs from the stored one?}
+    C -- yes --> E409[409 ATTENDANCE_MATRIX_CONFLICT + dates]
+    C -- no --> M{A brand-new day<br/>with no marks?}
+    M -- yes --> EM[422 ATTENDANCE_MATRIX_EMPTY_DAY + dates]
+    M -- no --> W{A closed day and no<br/>ATTENDANCE_CORRECT?}
+    W -- yes --> E403[403 ATTENDANCE_WINDOW_CLOSED + dates]
+    W -- no --> OK[Write every day, one transaction<br/>200 saved_dates + versions]
+```
+
+Things worth knowing:
+
+- `base_version` is `null` for "I saw no register for this day" and a number
+  (minimum 1) for an existing one. A mismatch is the 409.
+- A **past day that has no register yet is born `FINALIZED`**; **today's stays
+  `DRAFT`**. An existing register keeps its state. A new day must carry at
+  least one mark, because a finalized empty day could only be fixed with
+  `ATTENDANCE_CORRECT`.
+- It never touches period registers and never queues a guardian notification.
+- JSON bodies are capped at 1 MB (`JSON_BODY_LIMIT`, `server/src/body-parser.ts`),
+  which is far above a 31-day section grid.
+- The reply's `versions` map (`{ "2026-09-04": 3, ... }`) is what the grid
+  sends back as each day's next `base_version`. `GET .../register-matrix`
+  returns the same `versions` map.
+
 ## 4. The correction rules
 
 | Situation                                                                 | Who                                                            | Requires                              |
@@ -101,12 +182,85 @@ used to document as unresolved (see
 | Editing a **finalized** register                                          | A caller holding `ATTENDANCE_CORRECT`                          | A reason                              |
 | Marking a **future** date                                                 | A caller with section access, only if `allowFutureDates` is on | Status must be `LEAVE` — nothing else |
 | Marking a non-working day (holiday/weekly-off)                            | A caller holding `ATTENDANCE_CORRECT`                          | `force_non_working_day: true`         |
+| Saving several days from the monthly grid                                 | Same rules, per day                                            | One reason for the whole save         |
 
 Every correction that touches an existing mark writes an `audit_logs` row
 (`entity_type: 'AttendanceRecord'`, `old_values`, `new_values`, the reason)
 — `GET /attendance/records/:id/history` renders it. No soft-delete column
 exists on either attendance table; there is nothing to delete, only marks to
 correct.
+
+## 4a. Period attendance
+
+Off by default. A school turns it on with `settings.attendance.periodAttendance.enabled`
+([§8](#8-tenant-policy-settings)). While it is off, every period route refuses
+with `403 ATTENDANCE_PERIOD_DISABLED`, and `GET .../periods` returns `[]`.
+
+A **period register** is an ordinary register with two extra columns:
+
+- `period_no` — the **period slot's sequence** in the shift (period 1, period 2 ...).
+- `subject_id` — a **snapshot** of the routine's subject, copied when the
+  register is first saved. Later routine edits never rewrite an old register.
+
+```mermaid
+sequenceDiagram
+    participant T as Teacher
+    participant A as API
+    T->>A: GET /attendance/sections/:id/periods?date=2026-09-28
+    A-->>T: [{period_no: 1, subject_name: "Mathematics", state: null}, ...]
+    T->>A: GET .../register?date=2026-09-28&period_no=1
+    A-->>T: students, each with suggested_status (ABSENT / LEAVE / null)
+    T->>A: PUT .../register {date, period_no: 1, base_version: 0, entries}
+    Note over A: first save: period must be on that day's routine,<br/>subject copied onto the session
+    A-->>T: 200 register (state DRAFT, version 1)
+```
+
+Rules:
+
+- **Who may mark.** Anyone with section access. Beyond that, a teacher who is
+  that date's **substitute** for a period may open and mark that one period of
+  that one date: not the day register, another period, or another date.
+  Everyone else gets the same 403 as a section they cannot see.
+- **Which periods are listed.** The routine's slots for that date, cancelled
+  ones removed. With section access you see all of them; as a substitute only
+  your own.
+- **Prefill.** An unsaved period register suggests `ABSENT` or `LEAVE` from
+  that day's whole-day register (`suggested_status`). It is read-only: nothing
+  is stored until the teacher saves.
+- **First save only is checked against the routine.** A new period register for
+  a period the routine does not schedule is `400 ATTENDANCE_PERIOD_NOT_SCHEDULED`.
+  An existing one is never re-checked, so a routine edit cannot lock a teacher
+  out of their own draft.
+- **What period marks never feed.** The monthly percentage, flags, fines and
+  guardian SMS all read **whole-day registers only**. Period marks reach exactly
+  one place: the subject-wise summary below.
+
+### Subject-wise summary
+
+`GET /attendance/sections/:id/subject-summary?from=&to=` answers "how often was
+each student in Mathematics?". `held` is the number of period registers saved
+for that subject in the range; each student's `by_subject[subject_id]` holds
+`present` / `late` / `absent` / `leave` / `attended` / `percentage`.
+
+```jsonc
+{
+  "subjects": [{ "subject_id": "…", "name": "Mathematics", "held": 2 }],
+  "rows": [
+    {
+      "roll_number": 3,
+      "full_name": "…",
+      "by_subject": {
+        "…": { "present": 1, "absent": 1, "late": 0, "leave": 0, "attended": 1, "percentage": 50 },
+      },
+    },
+  ],
+}
+```
+
+`percentage` is `null` (not 0) when the student has no mark for that subject.
+It uses the school's `lateCountsAsPresent`. A range over 400 days is refused
+(`422 SCHOOL_CALENDAR_RANGE_TOO_WIDE`), and a switched-off school gets
+`403 ATTENDANCE_PERIOD_DISABLED`.
 
 ## 5. Working days and the percentage
 
@@ -295,6 +449,18 @@ not atomic (one bad scan must not fail the other 199):
 | `out_of_window`          | `occurred_at` is more than 2 days from today — a scanner with a badly-set clock cannot rewrite attendance history.                                                                |
 | `rejected`               | Everything else: an `OUT` scan with no matching `IN` (`reason: "no_check_in"`), or a section-bound device scanning a student from another section (`reason: "section_mismatch"`). |
 
+### Late or on time? The student's own shift decides
+
+A scan is judged against the late/absent times of the **student's own class
+shift**, not the device's section. If `settings.attendance.shiftTimes` has an
+entry for that shift, its `lateAfter` / `absentAfter` are used; a class with
+no shift, or a shift with no entry, uses the school-wide pair
+(`policyForShift`, `attendance-policy.util.ts`).
+
+Example: the school pair is `08:15` / `10:00`, and the Day shift has
+`{ lateAfter: "12:15", absentAfter: "14:00" }`. A Day-shift student scanning in
+at 12:00 is `PRESENT`; a Morning-shift student at 12:00 is `ABSENT`.
+
 ### Teacher authority wins
 
 A record with `source: "TEACHER"` is never overwritten by a device event —
@@ -339,6 +505,15 @@ level deep: fields you omit (for example `shiftTimes` or
 value. Fields you send replace the stored value whole. So sending
 `shiftTimes: []` clears every shift, and sending one entry removes the
 others.
+
+```jsonc
+// stored:  { "lateAfter": "08:15", "shiftTimes": [{ "shiftId": "day", ... }], "periodAttendance": { "enabled": true } }
+// PATCH:   { "attendance": { "lateAfter": "08:30" } }
+// result:  { "lateAfter": "08:30", "shiftTimes": [{ "shiftId": "day", ... }], "periodAttendance": { "enabled": true } }
+```
+
+`yarn seed` turns `periodAttendance.enabled` on for the demo school, but only
+when it was never set: a hand-set value (even `false`) survives a re-run.
 
 ## 9. Attendance fines
 
@@ -427,8 +602,9 @@ The service loads at most the 15 newest sessions (the longest threshold).
 
 ## 11. What this epic deliberately did not build
 
-- **Period-level attendance UI** — the columns (`AttendanceSession.period_no`,
-  `Subject`) exist end to end, nothing in the UI uses them yet.
+- **Period-level attendance UI** — API only for now. The routes, the rules in
+  [§4a](#4a-period-attendance) and the subject summary all work; no screen
+  uses them yet.
 - **Half-day and "excused" statuses** — only `PRESENT` / `ABSENT` / `LATE` /
   `LEAVE` exist. `LEAVE` is the only "not a plain absence" state.
 - **Approval workflows for corrections** — a correction with a reason is

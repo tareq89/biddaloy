@@ -1,5 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiExtraModels, ApiProperty, getSchemaPath } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsInt, IsOptional, IsString, IsUUID, Matches, Max, Min } from 'class-validator';
 import { AttendanceStatus } from '@biddaloy/shared';
@@ -258,11 +258,17 @@ export class SubjectSummarySubjectDto {
   @ApiProperty() held: number;
 }
 
+@ApiExtraModels(SubjectCountsDto)
 export class SubjectSummaryRowDto {
   @ApiProperty() student_id: string;
   @ApiProperty() roll_number: number;
   @ApiProperty() full_name: string;
-  @ApiProperty({ type: Object }) by_subject: Record<string, SubjectCountsDto>;
+  /** Keyed by `subject_id`. */
+  @ApiProperty({
+    type: 'object',
+    additionalProperties: { $ref: getSchemaPath(SubjectCountsDto) },
+  })
+  by_subject: Record<string, SubjectCountsDto>;
 }
 
 export class SubjectSummaryDto {

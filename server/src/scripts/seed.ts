@@ -65,6 +65,7 @@ import { RoutineSlotTeacher } from '../modules/routines/entities/routine-slot-te
 import { RoutineSubstitution } from '../modules/routines/entities/routine-substitution.entity';
 import { RoutineChangeRequest } from '../modules/routines/entities/routine-change-request.entity';
 import {
+  ensureAttendancePeriodSetting,
   ensureDemoOrganisation,
   ensurePresetDemoSeed,
   type PrintDemoSeedPorts,
@@ -183,6 +184,13 @@ export async function seed() {
   if (ensureDemoOrganisation(school)) {
     await schoolRepository.save(school);
     console.log(`Set organisation vocabulary on ${school.name}.`);
+  }
+
+  // [41.2.c] Period attendance on for the demo school (the switch is off by
+  // default); a hand-set value survives a re-run.
+  if (ensureAttendancePeriodSetting(school)) {
+    await schoolRepository.save(school);
+    console.log(`Turned period attendance on for ${school.name}.`);
   }
 
   await seedAccounts(
