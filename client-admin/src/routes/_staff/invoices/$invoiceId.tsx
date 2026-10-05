@@ -201,6 +201,10 @@ function InvoiceDetailPage() {
   const settled = invoice.status === 'PAID' || invoice.status === 'CANCELLED';
   const lastStudentIndex = snapshot.students.length - 1;
 
+  // Computed first: a `}` inside a template literal nested in the `t()` call below
+  // cuts `check:i18n`'s key regex short.
+  const methodLabel = t(`record.method.methods.${snapshot.payment.method}`, { ns: 'payments' });
+
   const facts = [
     {
       label: t('invoiceDetail.student', { ns: 'payments' }),
@@ -229,7 +233,7 @@ function InvoiceDetailPage() {
             value: (
               <Link to="/payments/$id" params={{ id: invoice.payment_id }} className={LINK_CLASS}>
                 {t('invoiceDetail.paymentValue', {
-                  method: t(`record.method.methods.${snapshot.payment.method}`, { ns: 'payments' }),
+                  method: methodLabel,
                   date: formatDate(parseServerDate(snapshot.payment.payment_date), regionConfig),
                   ns: 'payments',
                 })}
@@ -238,9 +242,7 @@ function InvoiceDetailPage() {
           },
         ]
       : []),
-    ...(invoice.kind === 'CREDIT_NOTE' &&
-    invoice.related_invoice_id !== null &&
-    invoice.related_invoice !== null
+    ...(invoice.kind === 'CREDIT_NOTE' && invoice.related_invoice_id != null
       ? [
           {
             label: t('invoiceDetail.originalInvoice', { ns: 'payments' }),
@@ -250,7 +252,9 @@ function InvoiceDetailPage() {
                 params={{ invoiceId: invoice.related_invoice_id }}
                 className={LINK_CLASS}
               >
-                {invoice.related_invoice.invoice_number}
+                {/* The server's findOne does not load the relation, so it can be absent. */}
+                {invoice.related_invoice?.invoice_number ??
+                  t('invoiceDetail.originalInvoice', { ns: 'payments' })}
               </Link>
             ),
           },

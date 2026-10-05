@@ -113,6 +113,11 @@ export function CartTable({
                 };
                 const balanceMinorUnits = serverAmountToMinorUnits(bill.balance, config);
                 const valid = lineValidity.get(bill.student_fee_id) ?? true;
+                const periodText =
+                  bill.period_type === (PeriodType.MONTH as string)
+                    ? formatMonth(parseServerDate(bill.period_start), config)
+                    : formatDate(parseServerDate(bill.period_start), config);
+                const rowName = `${bill.fee_name} ${periodText}`;
                 return (
                   <li
                     key={bill.student_fee_id}
@@ -155,7 +160,7 @@ export function CartTable({
                     <div className="flex flex-col gap-1">
                       <CellLabel>{t('record.cart.columnPay')}</CellLabel>
                       <MoneyInput
-                        aria-label={t('record.cart.columnPay')}
+                        aria-label={`${t('record.cart.columnPay')} — ${rowName}`}
                         config={config}
                         value={line.payMinorUnits}
                         aria-invalid={!valid}
@@ -181,6 +186,7 @@ export function CartTable({
                           onLineChange(bill.student_fee_id, { discountMinorUnits: next })
                         }
                         isValid={valid}
+                        rowName={rowName}
                       />
                     </div>
                   </li>
