@@ -333,7 +333,7 @@ function PortalPage({ subtitle, children }: { subtitle?: string; children: React
   return (
     <PageContainer>
       <PageHeader title={tNav('items.portalOverview')} subtitle={subtitle} />
-      <div className="grid gap-6 md:grid-cols-3 md:items-start">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-3 md:items-start">
         <div className="min-w-0 space-y-6 md:col-span-2">
           <PortalSurveysCard />
           {children}
@@ -453,7 +453,7 @@ function MultiChildView({
 
       <section className="space-y-3">
         <h2 className="text-h2">{t('children.title')}</h2>
-        <div className="grid gap-4 md:grid-cols-2 md:items-start">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:items-start">
           {items.map((child) => (
             <ChildCard key={child.id} child={child} config={config} now={now} />
           ))}

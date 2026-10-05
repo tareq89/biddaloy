@@ -137,7 +137,7 @@ function AttendanceListPage() {
         </h2>
         <ul className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {sorted.map((section) => (
-            <li key={section.section_id}>
+            <li key={section.section_id} className="min-w-0">
               <Link
                 to="/attendance/$sectionId"
                 params={{ sectionId: section.section_id }}
