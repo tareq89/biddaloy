@@ -26,8 +26,8 @@ import {
   FormLabel,
   FormMessage,
   Input,
+  AuthLayout,
   OtpInput,
-  RouteStatusState,
   SetPasswordForm,
   type SignInFormError,
 } from '@biddaloy/ui/components';
@@ -38,11 +38,12 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import type { TFunction } from 'i18next';
+import { ArrowLeft, MailCheck } from 'lucide-react';
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
-import { AuthScreen } from './-auth-screen';
+import { GuestStatus } from './-guest-status';
 
 export const Route = createFileRoute('/forgot-password')({
   component: ForgotPasswordPage,
@@ -55,23 +56,6 @@ type Step =
   | { kind: 'code'; phone: string }
   | { kind: 'password'; phone: string; otp: string }
   | { kind: 'linkSent' };
-
-/** Decorative, `aria-hidden` — matches `activate.tsx`'s `LinkIcon` convention
- * for `RouteStatusState`'s icon slot. */
-function MailIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="size-8">
-      <rect x="3" y="5" width="14" height="10" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
-      <path
-        d="M3.5 5.5l6.5 5 6.5-5"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
 
 /** Mirrors `login.tsx`'s `buildLoginError`/`activate.tsx`'s `buildActivateError`
  * — never the raw `ApiError` message, only translated copy. A 401 here means
@@ -163,17 +147,13 @@ function IdentifierStep({
       <form
         onSubmit={(event) => void form.handleSubmit(handleValidSubmit)(event)}
         noValidate
-        className="flex flex-col gap-6 rounded-lg border border-border-subtle bg-card p-8"
+        className="flex flex-col gap-4"
       >
-        <div className="flex flex-col gap-1 text-center">
-          <h1
-            ref={headingRef}
-            tabIndex={-1}
-            className="text-xl font-semibold text-balance outline-none"
-          >
+        <div>
+          <h1 ref={headingRef} tabIndex={-1} className="text-h1 text-balance outline-none">
             {t('forgot.heading')}
           </h1>
-          <p className="text-sm text-muted-foreground">{t('forgot.subtext')}</p>
+          <p className="mt-0.5 text-text-secondary">{t('forgot.subtext')}</p>
         </div>
 
         {mutation.isError && (
@@ -210,14 +190,15 @@ function IdentifierStep({
           )}
         />
 
-        <Button type="submit" loading={mutation.isPending} className="w-full">
-          {t('forgot.continue')}
+        <Button type="submit" loading={mutation.isPending} className="mt-1 w-full">
+          {t('forgot.send')}
         </Button>
 
         <Link
           to="/login"
-          className="relative text-center text-sm text-primary underline after:absolute after:-inset-2 after:content-['']"
+          className="flex h-11 w-full items-center justify-center gap-2 rounded-md px-3 font-medium text-primary hover:bg-muted"
         >
+          <ArrowLeft className="size-4 rtl:rotate-180" aria-hidden="true" />
           {t('forgot.backToLogin')}
         </Link>
       </form>
@@ -251,20 +232,16 @@ function CodeStep({ phone, onContinue }: { phone: string; onContinue: (otp: stri
   });
 
   return (
-    <div className="flex flex-col gap-6 rounded-lg border border-border-subtle bg-card p-8">
-      <div className="flex flex-col gap-1 text-center">
-        <h1
-          ref={headingRef}
-          tabIndex={-1}
-          className="text-xl font-semibold text-balance outline-none"
-        >
+    <div className="flex flex-col gap-4">
+      <div>
+        <h1 ref={headingRef} tabIndex={-1} className="text-h1 text-balance outline-none">
           {t('forgot.codeHeading')}
         </h1>
-        <p className="text-sm text-muted-foreground">{t('forgot.codeSubtext')}</p>
+        <p className="mt-0.5 text-text-secondary">{t('forgot.codeSubtext')}</p>
       </div>
 
       <div className="flex flex-col gap-1">
-        <label htmlFor="forgot-code" className="text-sm font-medium">
+        <label htmlFor="forgot-code" className="text-label">
           {t('forgot.codeLabel')}
         </label>
         <OtpInput
@@ -278,6 +255,7 @@ function CodeStep({ phone, onContinue }: { phone: string; onContinue: (otp: stri
       <Button
         type="button"
         variant="ghost"
+        className="w-full"
         disabled={secondsLeft > 0 || resendMutation.isPending}
         onClick={() => resendMutation.mutate()}
       >
@@ -299,7 +277,12 @@ function CodeStep({ phone, onContinue }: { phone: string; onContinue: (otp: stri
         </div>
       )}
 
-      <Button type="button" disabled={otp.length !== 6} onClick={() => onContinue(otp)}>
+      <Button
+        type="button"
+        className="w-full"
+        disabled={otp.length !== 6}
+        onClick={() => onContinue(otp)}
+      >
         {t('forgot.continue')}
       </Button>
     </div>
@@ -333,7 +316,7 @@ function ForgotPasswordPage() {
 
   if (step.kind === 'identifier') {
     return (
-      <AuthScreen>
+      <AuthLayout>
         <IdentifierStep
           onResult={(identifier, response) => {
             if (identifier.kind === 'phone') {
@@ -347,39 +330,47 @@ function ForgotPasswordPage() {
             void response;
           }}
         />
-      </AuthScreen>
+      </AuthLayout>
     );
   }
 
   if (step.kind === 'linkSent') {
     return (
-      <AuthScreen>
-        <RouteStatusState
+      <AuthLayout>
+        <GuestStatus
+          icon={MailCheck}
+          tone="info"
           title={t('forgot.sent')}
-          explanation={t('forgot.linkExplanation')}
-          icon={<MailIcon />}
-          onRetry={() => void navigate({ to: '/login' })}
-          retryLabel={t('forgot.backToLogin')}
-        />
-      </AuthScreen>
+          explanation={t('forgot.sentExplanation')}
+        >
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={() => void navigate({ to: '/login' })}
+          >
+            {t('forgot.backToLogin')}
+          </Button>
+        </GuestStatus>
+      </AuthLayout>
     );
   }
 
   if (step.kind === 'code') {
     return (
-      <AuthScreen>
+      <AuthLayout>
         <CodeStep
           phone={step.phone}
           onContinue={(otp) => setStep({ kind: 'password', phone: step.phone, otp })}
         />
-      </AuthScreen>
+      </AuthLayout>
     );
   }
 
   return (
-    <AuthScreen>
+    <AuthLayout>
       <SetPasswordForm
-        heading={t('forgot.heading')}
+        heading={t('reset.heading')}
+        subtext={t('reset.subtext')}
         onSubmit={(password) =>
           resetMutation.mutate({ phone: step.phone, otp: step.otp, new_password: password })
         }
@@ -387,6 +378,6 @@ function ForgotPasswordPage() {
         error={buildResetError(resetMutation.error, t)}
         submitLabel={t('setPassword.submit')}
       />
-    </AuthScreen>
+    </AuthLayout>
   );
 }
