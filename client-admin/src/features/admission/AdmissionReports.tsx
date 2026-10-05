@@ -4,25 +4,51 @@
  * `DataTable`). No export (Epic 8.15 owns that). The route + permission gate
  * (`STUDENT_LIFECYCLE_MANAGE`) is #1200's job.
  *
- * Filter state is local (`useState`) so the screen needs no router; the
- * route ticket may lift it into the URL.
+ * Filter state is local (`useState`) so the screen needs no router, and paging
+ * happens on the client over the (at most 500) rows the server returns.
  *
  * Data caveat: ADMITTED rows carry no student (applicants aren't linked to
  * one), so their reg. no. is null and renders as a dash.
  */
-import { DataTable, type DataTableColumn } from '@biddaloy/ui/components';
-import { useAcademicYears, useAdmissionLifecycleReport, useClasses } from '@biddaloy/ui/hooks';
+import { Permission } from '@biddaloy/shared';
+import { DataTable, StatusBadge, type DataTableColumn } from '@biddaloy/ui/components';
+import {
+  useAcademicYears,
+  useAdmissionLifecycleReport,
+  useClasses,
+  useHasPermission,
+} from '@biddaloy/ui/hooks';
 import type { LifecycleReportRow } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
-import { FilterBar, type FilterFieldDescriptor } from '@biddaloy/ui/shells';
+import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import {
+  FilterBar,
+  PageContainer,
+  PageHeader,
+  type FilterFieldDescriptor,
+} from '@biddaloy/ui/shells';
+import { formatDate, formatNumber } from '@biddaloy/ui/utils';
+import { InfoIcon } from 'lucide-react';
 import { useState } from 'react';
 
 /** Server cuts the list at this many rows (`truncated`). */
 const ROW_LIMIT = 500;
 
+/** Joined = success, finished = info, left = neutral (leaving is not a failure). */
+const EVENT_TONE = {
+  ADMITTED: 'success',
+  READMITTED: 'success',
+  GRADUATED: 'info',
+  WITHDRAWN: 'neutral',
+  TRANSFERRED_OUT: 'neutral',
+} as const;
+
 export function AdmissionReports() {
   const { t } = useTranslation('admission-reports');
+  const regionConfig = useRegionConfig();
+  const canReadStudents = useHasPermission(Permission.STUDENT_READ);
   const [filters, setFilters] = useState<Record<string, string>>({});
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
 
   const yearsQuery = useAcademicYears({ limit: 100 });
   const years = yearsQuery.data?.data ?? [];
@@ -40,13 +66,17 @@ export function AdmissionReports() {
   });
   const report = reportQuery.data;
   const rows = report?.rows ?? [];
+  const year = years.find((y) => y.id === academicYearId);
+  const className = (classesQuery.data?.data ?? []).find((c) => c.id === classId)?.name;
 
   const filterFields: readonly FilterFieldDescriptor[] = [
     {
       kind: 'select',
       key: 'academicYearId',
       label: t('filterYear'),
-      allLabel: t('filterCurrentYear'),
+      allLabel: t('filterCurrentYear', {
+        name: (years.find((y) => y.is_current) ?? years[0])?.name ?? '',
+      }),
       options: years.map((y) => ({ value: y.id, label: y.name })),
     },
     {
@@ -71,10 +101,16 @@ export function AdmissionReports() {
     {
       id: 'event',
       header: t('columnEvent'),
-      accessorFn: (r) => t(`event${r.event_type}`),
+      accessorFn: (r) => (
+        <StatusBadge tone={EVENT_TONE[r.event_type]} label={t(`event${r.event_type}`)} />
+      ),
       card: 'badge',
     },
-    { id: 'date', header: t('columnDate'), accessorFn: (r) => r.occurred_on },
+    {
+      id: 'date',
+      header: t('columnDate'),
+      accessorFn: (r) => formatDate(r.occurred_on, regionConfig),
+    },
     { id: 'reason', header: t('columnReason'), accessorFn: (r) => r.reason ?? dash },
     {
       id: 'destination',
@@ -84,20 +120,38 @@ export function AdmissionReports() {
   ];
 
   const counts = report?.counts;
+  const fmt = (n: number | undefined) => (n === undefined ? '' : formatNumber(n, regionConfig));
   const tiles = [
     { label: t('countAdmitted'), value: counts?.admitted },
-    { label: t('countLeft'), value: counts && counts.withdrawn + counts.transferred_out },
+    {
+      label: t('countLeft'),
+      value: counts && counts.withdrawn + counts.transferred_out,
+      detail:
+        counts &&
+        t('countLeftDetail', {
+          withdrawn: fmt(counts.withdrawn),
+          transferred: fmt(counts.transferred_out),
+        }),
+    },
     { label: t('countGraduated'), value: counts?.graduated },
     { label: t('countReadmitted'), value: counts?.readmitted },
   ];
 
   return (
-    <div className="flex flex-col gap-4">
-      <h1 className="text-lg font-semibold">{t('title')}</h1>
+    <PageContainer>
+      <PageHeader
+        title={t('title')}
+        subtitle={
+          year
+            ? t('subtitle', { year: year.name, class: className ?? t('filterAllClasses') })
+            : undefined
+        }
+      />
       <FilterBar
         fields={filterFields}
         values={filters}
-        onChange={(patch) =>
+        onChange={(patch) => {
+          setPage(1);
           setFilters((prev) => {
             const next = { ...prev };
             for (const [k, v] of Object.entries(patch)) {
@@ -107,19 +161,28 @@ export function AdmissionReports() {
             // A class belongs to one year: changing year clears it.
             if ('academicYearId' in patch) delete next.classId;
             return next;
-          })
-        }
+          });
+        }}
       />
-      {counts && (
+      {(counts || reportQuery.isLoading) && (
         <dl
           aria-label={t('countsLabel')}
-          className="grid grid-cols-2 gap-3 sm:grid-cols-4"
+          aria-busy={reportQuery.isLoading}
+          className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4"
           data-testid="lifecycle-counts"
         >
-          {tiles.map(({ label, value }) => (
-            <div key={label} className="rounded-lg border border-border p-3">
-              <dt className="text-sm text-muted-foreground">{label}</dt>
-              <dd className="text-2xl font-semibold tabular-nums">{value}</dd>
+          {tiles.map(({ label, value, detail }) => (
+            <div
+              key={label}
+              className="rounded-lg border border-border-subtle bg-surface p-4 shadow-e1 md:p-5"
+            >
+              <dt className="text-label text-text-secondary">{label}</dt>
+              {value === undefined ? (
+                <dd className="mt-2 block h-7 w-12 rounded-sm bg-muted" />
+              ) : (
+                <dd className="mt-1 text-h1 tabular-nums">{fmt(value)}</dd>
+              )}
+              {detail && <dd className="mt-0.5 text-caption text-text-secondary">{detail}</dd>}
             </div>
           ))}
         </dl>
@@ -128,7 +191,7 @@ export function AdmissionReports() {
         tableId="admission-reports"
         caption={t('caption')}
         columns={columns}
-        data={rows}
+        data={rows.slice((page - 1) * pageSize, page * pageSize)}
         getRowId={(r) =>
           [
             r.event_type,
@@ -141,20 +204,34 @@ export function AdmissionReports() {
         }
         sorting={null}
         onSortingChange={() => {}}
-        page={1}
-        pageSize={ROW_LIMIT}
+        page={page}
+        pageSize={pageSize}
         totalCount={rows.length}
-        onPageChange={() => {}}
+        onPageChange={setPage}
+        onPageSizeChange={(size) => {
+          setPageSize(size);
+          setPage(1);
+        }}
+        pageSizeLabel={t('pagination.rowsPerPage', { ns: 'common' })}
+        rowActions={(r) => [
+          {
+            intent: 'view',
+            label: t('viewStudent'),
+            to: `/students/${r.student_id}`,
+            allowed: Boolean(r.student_id) && canReadStudents,
+          },
+        ]}
         loading={reportQuery.isLoading}
         isFetching={reportQuery.isFetching}
         {...(reportQuery.isError ? { error: t('errorMessage') } : {})}
-        emptyMessage={t('emptyMessage')}
+        emptyState={{ title: t('emptyMessage'), explanation: t('emptyExplanation') }}
       />
       {report?.truncated && (
-        <p role="status" className="text-sm text-muted-foreground">
-          {t('truncated', { count: ROW_LIMIT })}
+        <p role="status" className="flex items-center gap-1.5 text-caption text-text-secondary">
+          <InfoIcon className="size-4 shrink-0" aria-hidden />
+          {t('truncated', { count: formatNumber(ROW_LIMIT, regionConfig) })}
         </p>
       )}
-    </div>
+    </PageContainer>
   );
 }

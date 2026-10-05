@@ -78,3 +78,15 @@ export const Empty: Story = {
 export const Truncated: Story = {
   parameters: { msw: { handlers: [years, classes, report({ counts, rows, truncated: true })] } },
 };
+/** The report never answers: tiles show skeletons and the table its loading state. */
+export const Loading: Story = {
+  parameters: {
+    msw: {
+      handlers: [
+        years,
+        classes,
+        http.get('/api/v1/admission/reports/lifecycle', () => new Promise(() => {})),
+      ],
+    },
+  },
+};
