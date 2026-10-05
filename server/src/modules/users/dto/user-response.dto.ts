@@ -59,6 +59,11 @@ export class UserResponseDto {
   @ApiProperty({ nullable: true, type: Date })
   member_since: Date | null;
 
+  /** When the member left or was removed (`user_tenants.deleted_at`). Null for a
+   * current member; set only in the `membership=former` list. */
+  @ApiProperty({ nullable: true, type: Date })
+  left_at: Date | null;
+
   @ApiProperty({ nullable: true, type: String })
   profile_picture_url: string | null;
 
@@ -101,6 +106,7 @@ export class UserResponseDto {
       : undefined;
     dto.role = membership?.role ?? null;
     dto.member_since = membership?.created_at ?? null;
+    dto.left_at = membership?.deleted_at ?? null;
     dto.full_name = user.full_name;
     dto.profile_picture_url = user.profile_picture_url;
     dto.preferences = user.preferences;
