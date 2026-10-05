@@ -11,6 +11,7 @@ import { AttendanceDevice } from '../entities/attendance-device.entity';
 import { AttendanceDeviceEvent } from '../entities/attendance-device-event.entity';
 import { AttendanceSession } from '../entities/attendance-session.entity';
 import { AttendanceRecord } from '../entities/attendance-record.entity';
+import { ClassSection } from '../../academics/entities/class-section.entity';
 import { Student } from '../../students/entities/student.entity';
 import { StaffAttendanceSession } from '../../staff-attendance/entities/staff-attendance-session.entity';
 import { StaffAttendanceRecord } from '../../staff-attendance/entities/staff-attendance-record.entity';
@@ -19,6 +20,7 @@ import { SchoolsService } from '../../schools/schools.service';
 import { AuditService } from '../../audit/audit.service';
 import {
   classifyCheckIn,
+  policyForShift,
   daysBetween,
   localDate,
   localToday,
@@ -341,7 +343,14 @@ export class DeviceEventsService {
   ): Promise<DeviceEventResultDto> {
     const recordRepo = manager.getRepository(AttendanceRecord);
     const record = await recordRepo.findOne({
-      where: { tenant_id: device.tenant_id, student_id: student.id, date: dateIso },
+      // Day register only (period_no IS NULL): a period-register record for
+      // the same day must never receive the day's check-out.
+      where: {
+        tenant_id: device.tenant_id,
+        student_id: student.id,
+        date: dateIso,
+        session: { period_no: IsNull() },
+      },
     });
 
     if (!record) {
@@ -387,6 +396,14 @@ export class DeviceEventsService {
     const recordRepo = manager.getRepository(AttendanceRecord);
     const sectionId = device.section_id ?? student.class_section_id;
 
+    // [41.0] Judge lateness against the student's own shift, not the
+    // school-wide pair. A class with no shift keeps the tenant pair.
+    const studentSection = await manager.getRepository(ClassSection).findOne({
+      where: { id: student.class_section_id, tenant_id: device.tenant_id },
+      relations: { class: true },
+    });
+    const shiftPolicy = policyForShift(policy, studentSection?.class?.shift_id);
+
     let session = await sessionRepo.findOne({
       where: {
         tenant_id: device.tenant_id,
@@ -428,7 +445,7 @@ export class DeviceEventsService {
     let versionBumped = false;
 
     if (!record) {
-      const classification = classifyCheckIn(occurredAt, dateIso, policy, timezone);
+      const classification = classifyCheckIn(occurredAt, dateIso, shiftPolicy, timezone);
       record = await recordRepo.save(
         recordRepo.create({
           tenant_id: device.tenant_id,
@@ -455,7 +472,7 @@ export class DeviceEventsService {
       }
     } else if (occurredAt.getTime() < (record.check_in_at?.getTime() ?? Infinity)) {
       // Keep the earliest check-in among repeated device scans.
-      const classification = classifyCheckIn(occurredAt, dateIso, policy, timezone);
+      const classification = classifyCheckIn(occurredAt, dateIso, shiftPolicy, timezone);
       record.check_in_at = occurredAt;
       record.status = classification.status;
       record.minutes_late = classification.minutesLate;
