@@ -210,20 +210,23 @@ function PortalLayout() {
       <AppShell
         navItems={navItems}
         brand={t('brand')}
+        // Desktop only: below md the one 56 px phone row (mobileTitle/mobileActions) replaces it (D12).
         topBar={
-          <AppHeader
-            start={<TenantBar />}
-            end={
-              <>
-                <SyncStatusIndicator />
-                <CommandPaletteLauncher pages={portalPages} />
-                <NotificationBell />
-                <LocaleSwitcher />
-                <ThemeToggle />
-                <StaffUserMenu securityTo="/portal/account" />
-              </>
-            }
-          />
+          <div className="hidden md:flex">
+            <AppHeader
+              start={<TenantBar />}
+              end={
+                <>
+                  <SyncStatusIndicator />
+                  <CommandPaletteLauncher pages={portalPages} />
+                  <NotificationBell />
+                  <LocaleSwitcher />
+                  <ThemeToggle />
+                  <StaffUserMenu securityTo="/portal/account" />
+                </>
+              }
+            />
+          </div>
         }
         openMenuLabel={t('openMenuLabel')}
         closeMenuLabel={t('closeMenuLabel')}
