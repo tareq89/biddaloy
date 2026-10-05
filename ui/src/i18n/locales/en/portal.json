@@ -13,7 +13,8 @@
   "children": {
     "title": "Your children",
     "meta": "{{className}} {{section}} · Roll {{roll}}",
-    "metaNoClass": "Roll {{roll}}"
+    "metaNoClass": "Roll {{roll}}",
+    "viewFeesFor": "View {{name}}'s fees"
   },
   "actions": {
     "viewFeeBreakdown": "View fee breakdown"
