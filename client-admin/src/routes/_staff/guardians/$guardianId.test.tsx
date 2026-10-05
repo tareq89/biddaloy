@@ -273,11 +273,9 @@ describe('/guardians/$guardianId', () => {
 
     const user = userEvent.setup();
     await user.click(record);
-    await waitFor(() => expect(router.state.location.pathname).toBe('/payments'));
-    expect(router.state.location.search).toMatchObject({
-      record: '1',
-      guardian_id: 'guardian-1',
-    });
+    // [31.4] `/payments?record=1` redirects to the full-page `/payments/record`, keeping guardian_id.
+    await waitFor(() => expect(router.state.location.pathname).toBe('/payments/record'));
+    expect(router.state.location.search).toMatchObject({ guardian_id: 'guardian-1' });
   });
 
   it('without PAYMENT_RECORD the header has no Record payment button', async () => {
