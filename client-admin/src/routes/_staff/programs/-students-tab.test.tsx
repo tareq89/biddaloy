@@ -37,7 +37,12 @@ const STUDENT_PROGRAMS = [
   },
 ];
 
-async function renderTab(onOpenEnrol = vi.fn(), canManage = true, row = ENROLLMENTS[0]!) {
+async function renderTab(
+  onOpenEnrol = vi.fn(),
+  canManage = true,
+  row = ENROLLMENTS[0]!,
+  onRecordFor = vi.fn(),
+) {
   await i18n.changeLanguage('en');
   setActiveTenant('tenant-1');
   setActiveRole('ADMIN');
@@ -56,12 +61,13 @@ async function renderTab(onOpenEnrol = vi.fn(), canManage = true, row = ENROLLME
           milestoneTotal={1}
           canManage={canManage}
           onOpenEnrol={onOpenEnrol}
+          onRecordFor={onRecordFor}
         />
       </I18nProvider>
     </QueryClientProvider>,
   );
 
-  return { ...view, onOpenEnrol };
+  return { ...view, onOpenEnrol, onRecordFor };
 }
 
 describe('StudentsTab', () => {
@@ -132,6 +138,14 @@ describe('StudentsTab', () => {
     await waitFor(() => expect(patchBody).toMatchObject({ status: 'WITHDRAWN' }));
   });
 
+  it('opens the Record modal for a row by enrolment id', async () => {
+    const user = userEvent.setup();
+    const { onRecordFor } = await renderTab();
+    await screen.findByText('Anika Rahman');
+    await user.click(screen.getByRole('button', { name: 'Record achievement for Anika Rahman' }));
+    expect(onRecordFor).toHaveBeenCalledWith('enr-1');
+  });
+
   it('shows the empty state when there are no enrollments', async () => {
     await i18n.changeLanguage('en');
     setActiveTenant('tenant-1');
@@ -142,7 +156,13 @@ describe('StudentsTab', () => {
     render(
       <QueryClientProvider client={queryClient}>
         <I18nProvider>
-          <StudentsTab programId="p-1" milestoneTotal={1} canManage onOpenEnrol={vi.fn()} />
+          <StudentsTab
+            programId="p-1"
+            milestoneTotal={1}
+            canManage
+            onOpenEnrol={vi.fn()}
+            onRecordFor={vi.fn()}
+          />
         </I18nProvider>
       </QueryClientProvider>,
     );
