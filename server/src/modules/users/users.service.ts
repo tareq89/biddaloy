@@ -16,14 +16,9 @@ import { escapeLikePattern } from '../../common/utils/escape-like.util';
 import { normalizeSearchTerm } from '../../common/utils/normalize-search-term.util';
 import { BN_COLLATION } from '../../common/constants/collation';
 import { normalizeEmail } from '../auth/normalize-identifier';
-import {
-  AuditAction,
-  EMPLOYEE_ROLES,
-  UserRole,
-  audienceForRoles,
-  checkPassword,
-} from '@biddaloy/shared';
+import { AuditAction, EMPLOYEE_ROLES, UserRole } from '@biddaloy/shared';
 import { AuditService } from '../audit/audit.service';
+import { assertPasswordAllowed } from '../auth/password-policy';
 import { StaffProfilesService } from '../staff-profiles/staff-profiles.service';
 import {
   CreateUserDto,
@@ -86,17 +81,8 @@ export class UserService {
 
     let password_hash: string | null = null;
     if (dto.password) {
-      // D10: same strength rules as every other password path. Local
-      // equivalent of auth's assertPasswordAllowed (not on this base yet).
-      const failed = checkPassword(dto.password, audienceForRoles([dto.role]))
-        .filter((r) => !r.ok)
-        .map((r) => r.id);
-      if (failed.length > 0) {
-        throw new BadRequestException({
-          message: 'Password is too weak',
-          details: { code: 'PASSWORD_TOO_WEAK', failed },
-        });
-      }
+      // D10: same strength rules as every other password path.
+      assertPasswordAllowed(dto.password, [dto.role]);
       password_hash = await bcrypt.hash(dto.password, 10);
     }
 
