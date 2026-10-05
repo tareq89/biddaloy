@@ -82,7 +82,7 @@ export const NOT_IN_NAV: Record<string, string> = {
     'detail route reached from the My class section picker (or its single-section redirect)',
   '/_staff/routines/$sectionId': 'detail route reached from the routine builder section list',
   '/_staff/invoices/$invoiceId': 'detail route reached from the invoices list',
-  '/_staff/fees/': '[31.0] D40 — redirects to /fees/dues (Student dues), which has its own item',
+  '/_staff/fees/': '[31.0] D40 — a placeholder today; will redirect to /fees/dues (Student dues, own item), pending fees-1',
   '/_staff/payments/$id': 'detail route reached from the payments list',
   '/_staff/staff/$userId': 'detail route reached from the staff list',
   '/_staff/staff/$userId_/acr/$assessmentId':
