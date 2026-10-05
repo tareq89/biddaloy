@@ -104,6 +104,33 @@ describe('fees/fines/-rules/rule-form-dialog', () => {
     ).toBeTruthy();
   });
 
+  it('shows a translated sentence, not the server text, on a generic failure', async () => {
+    server.use(...referenceHandlers());
+    server.use(
+      http.post('/api/v1/fees/fine-rules', () =>
+        HttpResponse.json({ statusCode: 500, message: 'SQL exploded' }, { status: 500 }),
+      ),
+    );
+    renderWithProviders(
+      <RuleFormDialog
+        open
+        onOpenChange={vi.fn()}
+        mode="create"
+        academicYearId={YEAR.id}
+        onSaved={vi.fn()}
+      />,
+      { locale: 'en', role: 'ADMIN', tenantId: 'tenant-1' },
+    );
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('combobox', { name: 'Fine type' }));
+    await user.click(await screen.findByRole('option', { name: 'Fine Fee' }));
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    expect(await screen.findByText('Failed to save fine rule')).toBeTruthy();
+    expect(screen.queryByText('SQL exploded')).toBeNull();
+  });
+
   it('submits the create payload shape', async () => {
     server.use(...referenceHandlers());
     let submittedBody: Record<string, unknown> | undefined;
