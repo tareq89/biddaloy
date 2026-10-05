@@ -45,7 +45,9 @@ function mockLists() {
     http.get('/api/v1/academic-years', () =>
       HttpResponse.json({ data: [{ id: 'year-2026', name: '2026-2027' }] }),
     ),
-    http.get('/api/v1/classes', () => HttpResponse.json({ data: [] })),
+    http.get('/api/v1/classes', () =>
+      HttpResponse.json({ data: [{ id: 'class-6', name: 'Class Six' }] }),
+    ),
   );
 }
 
@@ -76,7 +78,19 @@ async function renderDialog(overrides: Partial<CopyScaleDialogProps> = {}, scale
   return { ...view, onOpenChange, onCopied };
 }
 
+/** The default target is the source itself (not a valid copy); pick another class. */
+async function pickOtherClass(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(await screen.findByLabelText('To class'));
+  await user.click(await screen.findByRole('option', { name: 'Class Six' }));
+}
+
 describe('CopyScaleDialog', () => {
+  it("treats the source's own year and class as an invalid target", async () => {
+    await renderDialog();
+    await screen.findByText(/grade will be copied/);
+    expect(screen.getByRole('button', { name: 'Copy' }).hasAttribute('disabled')).toBe(true);
+  });
+
   it('shows how many bands will be created and no error initially', async () => {
     await renderDialog();
 
@@ -91,9 +105,15 @@ describe('CopyScaleDialog', () => {
 
   it('refuses an occupied target — an existing scale for that year/class already has bands', async () => {
     await renderDialog({}, [
-      { id: 'scale-target', academic_year_id: 'year-2026', class_id: null, bands: [{ id: 'b' }] },
+      {
+        id: 'scale-target',
+        academic_year_id: 'year-2026',
+        class_id: 'class-6',
+        bands: [{ id: 'b' }],
+      },
     ]);
 
+    await pickOtherClass(userEvent.setup());
     // The warning shows as soon as the occupied target is picked — no click needed.
     expect((await screen.findByRole('alert')).textContent).toMatch(/already has grades/i);
     expect(screen.getByRole('button', { name: 'Copy' }).hasAttribute('disabled')).toBe(true);
@@ -118,10 +138,11 @@ describe('CopyScaleDialog', () => {
     const user = userEvent.setup();
     const { onCopied } = await renderDialog();
 
+    await pickOtherClass(user);
     await user.click(screen.getByRole('button', { name: 'Copy' }));
 
     await waitFor(() => expect(onCopied).toHaveBeenCalled());
-    expect(createBody).toMatchObject({ academic_year_id: 'year-2026', class_id: null });
+    expect(createBody).toMatchObject({ academic_year_id: 'year-2026', class_id: 'class-6' });
     expect(copyTargetId).toBe('scale-created');
     expect(copyBody).toEqual({ source_scale_id: 'scale-source' });
   });
@@ -142,9 +163,10 @@ describe('CopyScaleDialog', () => {
 
     const user = userEvent.setup();
     const { onCopied } = await renderDialog({}, [
-      { id: 'scale-existing-empty', academic_year_id: 'year-2026', class_id: null, bands: [] },
+      { id: 'scale-existing-empty', academic_year_id: 'year-2026', class_id: 'class-6', bands: [] },
     ]);
 
+    await pickOtherClass(user);
     await user.click(screen.getByRole('button', { name: 'Copy' }));
 
     await waitFor(() => expect(onCopied).toHaveBeenCalled());
@@ -161,6 +183,7 @@ describe('CopyScaleDialog', () => {
     const user = userEvent.setup();
     await renderDialog();
 
+    await pickOtherClass(user);
     await user.click(screen.getByRole('button', { name: 'Copy' }));
 
     expect((await screen.findByRole('alert')).textContent).toMatch(/couldn't copy/i);

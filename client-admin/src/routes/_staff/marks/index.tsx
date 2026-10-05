@@ -43,7 +43,7 @@ import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loader
 export const Route = createFileRoute('/_staff/marks/')({
   loader: ({ context: { queryClient } }) =>
     Promise.all([
-      queryClient.ensureQueryData(examsQueryOptions({})).catch(swallowUnlessOffline),
+      queryClient.ensureQueryData(examsQueryOptions({ limit: 50 })).catch(swallowUnlessOffline),
       loadRouteNamespaces('exams', 'grading', 'common', 'nav'),
     ]),
   pendingComponent: MarksListPending,

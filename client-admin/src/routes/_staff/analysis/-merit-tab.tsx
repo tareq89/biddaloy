@@ -123,7 +123,9 @@ export function MeritTab({
         emptyState={{
           icon: <ListXIcon />,
           title: tg('analysisPage.noRowsTitle'),
-          explanation: tg('analysisPage.noRowsText'),
+          explanation: sectionId
+            ? tg('analysisPage.noRowsSectionText')
+            : tg('analysisPage.noRowsText'),
         }}
       />
     </div>
