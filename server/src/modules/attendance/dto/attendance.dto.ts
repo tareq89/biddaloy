@@ -144,10 +144,10 @@ export class MatrixDayDto {
   date: string;
 
   /** The `session.version` the client saw for this day; `null` = "I saw no
-   * register for this day". */
+   * register for this day". A saved register's version starts at 1. */
   @ValidateIf((_, v) => v !== null)
   @IsInt()
-  @Min(0)
+  @Min(1)
   base_version: number | null;
 
   @IsArray()

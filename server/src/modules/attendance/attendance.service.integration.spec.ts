@@ -479,6 +479,40 @@ describe('AttendanceService (integration)', () => {
       expect(updateAudits).toHaveLength(1);
     });
 
+    // The daily register sends the whole mark; only the matrix keeps stored
+    // minutes/remarks (writeRegisterDay's `ctx.matrix`).
+    it('a resubmission without remarks/minutes_late clears both to null', async () => {
+      const first = await service.putRegister(
+        putParams({
+          dto: basePutDto({
+            entries: [
+              {
+                student_id: studentId1,
+                status: AttendanceStatus.LATE,
+                minutes_late: 12,
+                remarks: 'bus',
+              },
+              { student_id: studentId2, status: AttendanceStatus.ABSENT, remarks: 'sick' },
+            ],
+          }),
+        }),
+      );
+      const second = await service.putRegister(
+        putParams({
+          dto: basePutDto({
+            base_version: first.session.version,
+            entries: [
+              { student_id: studentId1, status: AttendanceStatus.LATE },
+              { student_id: studentId2, status: AttendanceStatus.ABSENT },
+            ],
+          }),
+        }),
+      );
+      const by = Object.fromEntries(second.students.map((s) => [s.student_id, s]));
+      expect([by[studentId1].minutes_late, by[studentId1].remarks]).toEqual([null, null]);
+      expect(by[studentId2].remarks).toBeNull();
+    });
+
     it('403s a TEACHER of tenant A attempting to mark a section that belongs to tenant B', async () => {
       const dto = basePutDto();
       await expect(

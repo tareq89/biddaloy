@@ -480,4 +480,46 @@ describe('AttendanceService.putRegisterMatrix (integration)', () => {
       ]),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
+
+  it('a day with no register and no entries is 422 (it would be born FINALIZED and empty); nothing is written', async () => {
+    const d1 = await seedDay(D1);
+    await expect(
+      matrix([
+        { date: D1, base_version: d1.session.version, entries: [] }, // existing: allowed
+        { date: D2, base_version: null, entries: [] }, // new + empty: refused
+        { date: D3, base_version: null }, // new with marks: fine on its own
+      ]),
+    ).rejects.toMatchObject({
+      status: 422,
+      response: { details: { code: 'ATTENDANCE_MATRIX_EMPTY_DAY', dates: [D2] } },
+    });
+    expect(await sessionOf(D2)).toBeNull();
+    expect(await sessionOf(D3)).toBeNull();
+  });
+
+  it('a FINALIZED day inside the window is 403 ATTENDANCE_WINDOW_CLOSED without ATTENDANCE_CORRECT', async () => {
+    const t = today();
+    await seedDay(t);
+    const finalized = await service.finalize({
+      sectionId,
+      tenantId: TENANT_ID,
+      role: UserRole.ADMIN,
+      userId: ADMIN_USER_ID,
+      date: t,
+      periodNo: null,
+      ip: null,
+      userAgent: null,
+    });
+    await expect(
+      matrix(
+        [{ date: t, base_version: finalized.session.version }],
+        {},
+        { role: UserRole.TEACHER, userId: teacherUserId },
+      ),
+    ).rejects.toMatchObject({
+      status: 403,
+      response: { details: { code: 'ATTENDANCE_WINDOW_CLOSED', dates: [t] } },
+    });
+    expect(await statusOf(t, studentId1)).toBe(P);
+  });
 });

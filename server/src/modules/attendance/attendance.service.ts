@@ -717,8 +717,10 @@ export class AttendanceService {
    * day is checked before any is written, and any failure rejects them all.
    * Each day is then written by the same `writeRegisterDay` as `putRegister`.
    * Never touches period registers, never queues a guardian notification.
-   * `ponytail:` one `loadRegister` per day (~8 queries x up to 31 days); batch
-   * the reads if a month save is ever measurably slow.
+   * `ponytail:` per-day writes, all in one transaction: one save + one audit
+   * insert per changed record, plus `loadRegister` (~8 queries) per day — a
+   * 26-day month for 60 students is ~3.5k queries. Batch the inserts and
+   * reads if a month save is ever measurably slow.
    */
   async putRegisterMatrix(params: {
     sectionId: string;
@@ -808,6 +810,20 @@ export class AttendanceService {
           throw new ConflictException({
             message: 'Some days changed since you opened the month',
             details: { code: 'ATTENDANCE_MATRIX_CONFLICT', dates: stale },
+          });
+        }
+
+        // 2a. A new register needs at least one mark: a back-filled past day is
+        // born FINALIZED (D22), so an empty one could only be fixed with
+        // ATTENDANCE_CORRECT.
+        const empty = dto.days
+          .filter((d) => !sessionByDate.has(d.date) && d.entries.length === 0)
+          .map((d) => d.date)
+          .sort();
+        if (empty.length > 0) {
+          throw new UnprocessableEntityException({
+            message: 'A day with no register yet needs at least one mark',
+            details: { code: 'ATTENDANCE_MATRIX_EMPTY_DAY', dates: empty },
           });
         }
 
