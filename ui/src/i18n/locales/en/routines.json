@@ -100,7 +100,9 @@
     "description": "These limits are checked while you build a routine.",
     "defaultChangeoverHelp": "A new period starts this many minutes after the one before it.",
     "noCapHelp": "Leave empty for no limit.",
-    "saveError": "Couldn't save the rules. Check the numbers and try again."
+    "saveError": "Couldn't save the rules. Check the numbers and try again.",
+    "capInvalid": "Enter a whole number of at least 1, or leave it empty for no limit.",
+    "changeoverInvalid": "Enter a whole number from 0 to 120."
   },
   "grid": {
     "tooNarrow": "This routine table needs a wider screen — try landscape or a bigger window.",
@@ -204,12 +206,14 @@
     "legend": "Teacher workload",
     "empty": "No periods assigned yet.",
     "overLimit": "over daily limit",
-    "underloaded": "{{count}} teacher has no periods assigned",
-    "underloaded_other": "{{count}} teachers have no periods assigned",
+    "underloaded": "{{formattedCount}} teacher has no periods assigned",
+    "underloaded_other": "{{formattedCount}} teachers have no periods assigned",
     "teacherColumn": "Teacher",
     "periodsColumn": "Periods / week",
     "statusColumn": "Status",
-    "periodsPerWeekShort": "{{count}} periods a week"
+    "periodsPerWeekShort": "{{count}} periods a week",
+    "total": "Total {{formattedCount}} period",
+    "total_other": "Total {{formattedCount}} periods"
   },
   "fillAssist": {
     "title": "Fill remaining periods",
@@ -219,7 +223,8 @@
     "confirm": "Fill {{formattedCount}} period",
     "confirm_other": "Fill {{formattedCount}} periods",
     "rowWhen": "{{day}} · {{period}}",
-    "rowWhat": "{{subject}} · {{teachers}}"
+    "rowWhat": "{{subject}} · {{teachers}}",
+    "loadError": "Couldn't work out the periods to fill. Close this and try again."
   },
   "review": {
     "title": "Routine review",

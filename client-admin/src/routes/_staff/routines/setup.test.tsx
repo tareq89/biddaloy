@@ -62,7 +62,8 @@ describe('/routines/setup', () => {
     await user.click(await screen.findByRole('tab', { name: 'Rooms' }));
 
     expect(await screen.findByRole('heading', { name: 'No rooms yet' })).toBeTruthy();
-    expect(screen.queryByText('Morning')).toBeNull();
+    // The inactive panel is hidden, not unmounted (so typed rows survive).
+    expect(screen.queryByRole('heading', { name: 'Shifts' })).toBeNull();
     await waitFor(() => expect(router.state.location.search).toEqual({ tab: 'rooms' }));
   });
 
@@ -116,5 +117,26 @@ describe('/routines/setup', () => {
     await user.click(await screen.findByRole('option', { name: 'Afternoon' }));
 
     await within(screen.getByRole('combobox', { name: 'Shift' })).findByText('Afternoon');
+  });
+
+  it('keeps what you typed in the rules tab when you switch tab and back', async () => {
+    mockCommonRoutes();
+    renderWithRouter(routeTree, {
+      initialEntries: ['/routines/setup?tab=rules'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+    const user = userEvent.setup();
+
+    const input = await screen.findByLabelText('Gap between periods (minutes)');
+    await user.clear(input);
+    await user.type(input, '17');
+    await user.click(screen.getByRole('tab', { name: 'Rooms' }));
+    await user.click(screen.getByRole('tab', { name: 'Routine rules' }));
+
+    expect(screen.getByLabelText<HTMLInputElement>('Gap between periods (minutes)').value).toBe(
+      '17',
+    );
   });
 });
