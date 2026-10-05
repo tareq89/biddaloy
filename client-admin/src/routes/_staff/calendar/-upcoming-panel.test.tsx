@@ -100,4 +100,56 @@ describe('UpcomingPanel', () => {
 
     await user.click(await screen.findByText('No handler'));
   });
+
+  it('colours the dot by event type', async () => {
+    renderWithProviders(
+      <UpcomingPanel
+        events={[
+          event({
+            id: 'h',
+            name: 'Holiday',
+            type: CalendarEventType.HOLIDAY,
+            start_date: '2026-09-02',
+            end_date: '2026-09-02',
+          }),
+          event({
+            id: 'x',
+            name: 'Exam',
+            type: CalendarEventType.EXAM,
+            start_date: '2026-09-03',
+            end_date: '2026-09-03',
+          }),
+        ]}
+        today="2026-09-01"
+      />,
+      { locale: 'en' },
+    );
+
+    await screen.findByText('Holiday');
+    const dots = screen.getAllByTestId('upcoming-dot');
+    expect(dots[0]!.className).toContain('bg-status-overdue-fg');
+    expect(dots[1]!.className).toContain('bg-status-partial-fg');
+  });
+
+  it('shows a date range for a multi-day event and the next-holiday line', async () => {
+    renderWithProviders(
+      <UpcomingPanel
+        events={[
+          event({
+            id: 'h',
+            name: 'Eid break',
+            type: CalendarEventType.HOLIDAY,
+            start_date: '2026-09-08',
+            end_date: '2026-09-10',
+          }),
+        ]}
+        today="2026-09-01"
+      />,
+      { locale: 'en' },
+    );
+
+    const row = (await screen.findByText('Eid break')).closest('button')!;
+    expect(row.textContent).toContain('–');
+    expect(screen.getByText(/Next holiday: Eid break/)).not.toBeNull();
+  });
 });

@@ -1,15 +1,9 @@
 {
   "page": {
     "title": "Calendar",
-    "viewGrid": "Month",
-    "viewAgenda": "Agenda",
-    "today": "Today",
-    "previousMonth": "Previous month",
-    "nextMonth": "Next month",
     "addEvent": "Add event",
     "governmentHolidays": "Government holidays",
     "moreEvents": "+{{count}} more",
-    "agendaEmpty": "No events in this range.",
     "errorMessage": "Couldn't load the calendar. Try again."
   },
   "weekdays": {
@@ -52,18 +46,24 @@
       "CALENDAR_EVENT_LOCKED": "This event is in the past and can no longer be changed.",
       "CALENDAR_OUTSIDE_ACADEMIC_YEAR": "These dates fall outside the current academic year.",
       "CALENDAR_DAY_HAS_ATTENDANCE": "Attendance has already been recorded for one of these days.",
-      "CALENDAR_INVALID_CLASS": "One of the selected classes is invalid.",
+      "CALENDAR_INVALID_CLASS": "One of the selected classes is not valid.",
       "CALENDAR_INVALID_RANGE": "The end date must be on or after the start date.",
       "nameRequired": "Name is required.",
       "generic": "Couldn't save this event. Try again."
-    }
+    },
+    "sectionDetails": "Event details",
+    "sectionOptions": "Publishing and notifications",
+    "typePlaceholder": "Select"
   },
   "eventDetails": {
     "edit": "Edit",
     "delete": "Delete",
     "publish": "Publish",
     "draft": "Draft",
-    "locked": "This event is in the past and can no longer be edited."
+    "locked": "This event is in the past and can no longer be edited.",
+    "deleteConfirmTitle": "Delete this event?",
+    "deleteConfirmDescription": "\"{{name}}\" will be removed from the calendar. This can't be undone.",
+    "actionFailed": "Couldn't complete that. Try again."
   },
   "governmentHolidaysDialog": {
     "title": "Government holidays",
@@ -74,7 +74,7 @@
   },
   "upcomingPanel": {
     "title": "Upcoming",
-    "nextHoliday": "Next holiday: {{name}} · in {{count}} days",
+    "nextHoliday": "Next holiday: {{name}} · in {{n}} days",
     "empty": "Nothing scheduled in the next 60 days."
   }
 }

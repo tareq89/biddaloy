@@ -1,15 +1,9 @@
 {
   "page": {
     "title": "ক্যালেন্ডার",
-    "viewGrid": "মাস",
-    "viewAgenda": "এজেন্ডা",
-    "today": "আজ",
-    "previousMonth": "পূর্ববর্তী মাস",
-    "nextMonth": "পরবর্তী মাস",
     "addEvent": "ইভেন্ট যোগ করুন",
     "governmentHolidays": "সরকারি ছুটি",
     "moreEvents": "+{{count}} আরও",
-    "agendaEmpty": "এই সময়ে কোনো ইভেন্ট নেই।",
     "errorMessage": "ক্যালেন্ডার লোড করা যায়নি। আবার চেষ্টা করুন।"
   },
   "weekdays": {
@@ -47,23 +41,29 @@
     "notify": "প্রভাবিত পরিবার/কর্মীদের জানান",
     "notifySms": "এসএমএস দিয়েও জানান",
     "save": "সংরক্ষণ করুন",
-    "cancel": "বাতিল",
+    "cancel": "বাতিল করুন",
     "errors": {
       "CALENDAR_EVENT_LOCKED": "এই ইভেন্টটি অতীতের, এটি আর পরিবর্তন করা যাবে না।",
       "CALENDAR_OUTSIDE_ACADEMIC_YEAR": "এই তারিখগুলো চলতি শিক্ষাবর্ষের বাইরে।",
       "CALENDAR_DAY_HAS_ATTENDANCE": "এই দিনগুলোর একটির জন্য ইতিমধ্যে উপস্থিতি রেকর্ড করা হয়েছে।",
-      "CALENDAR_INVALID_CLASS": "নির্বাচিত শ্রেণিগুলোর একটি অবৈধ।",
+      "CALENDAR_INVALID_CLASS": "নির্বাচিত শ্রেণিগুলোর একটি সঠিক নয়।",
       "CALENDAR_INVALID_RANGE": "শেষের তারিখ শুরুর তারিখের সমান বা পরে হতে হবে।",
       "nameRequired": "নাম আবশ্যক।",
       "generic": "এই ইভেন্টটি সংরক্ষণ করা যায়নি। আবার চেষ্টা করুন।"
-    }
+    },
+    "sectionDetails": "ইভেন্টের তথ্য",
+    "sectionOptions": "প্রকাশ ও জানানো",
+    "typePlaceholder": "বাছুন"
   },
   "eventDetails": {
     "edit": "সম্পাদনা",
     "delete": "মুছুন",
     "publish": "প্রকাশ করুন",
     "draft": "খসড়া",
-    "locked": "এই ইভেন্টটি অতীতের, এটি আর সম্পাদনা করা যাবে না।"
+    "locked": "এই ইভেন্টটি অতীতের, এটি আর সম্পাদনা করা যাবে না।",
+    "deleteConfirmTitle": "ইভেন্ট মুছে ফেলবেন?",
+    "deleteConfirmDescription": "\"{{name}}\" ক্যালেন্ডার থেকে মুছে যাবে। এটি আর ফেরানো যাবে না।",
+    "actionFailed": "কাজটি সম্পন্ন করা যায়নি। আবার চেষ্টা করুন।"
   },
   "governmentHolidaysDialog": {
     "title": "সরকারি ছুটি",
@@ -74,7 +74,7 @@
   },
   "upcomingPanel": {
     "title": "আসন্ন",
-    "nextHoliday": "পরবর্তী ছুটি: {{name}} · {{count}} দিনে",
+    "nextHoliday": "পরবর্তী ছুটি: {{name}} · {{n}} দিনে",
     "empty": "আগামী ৬০ দিনে কিছু নির্ধারিত নেই।"
   }
 }

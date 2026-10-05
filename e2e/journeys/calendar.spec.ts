@@ -43,6 +43,9 @@ test.describe.serial('calendar: create -> grid, past-lock, teacher read-only, fe
       await expect(page.getByRole('heading', { name: t('calendar.page.title') })).toBeVisible();
 
       await page.getByRole('button', { name: t('calendar.page.addEvent') }).click();
+      await expect(
+        page.getByRole('heading', { name: t('calendar.eventForm.createTitle') }),
+      ).toBeVisible();
 
       await page.locator('#event-form-name').fill(eventName);
       for (const label of [t('calendar.eventForm.startDate'), t('calendar.eventForm.endDate')]) {
@@ -62,6 +65,7 @@ test.describe.serial('calendar: create -> grid, past-lock, teacher read-only, fe
       // event is visible on the grid without an extra publish step.
       await page.getByRole('button', { name: t('calendar.eventForm.save') }).click();
 
+      // The full-page form closes on save, back to the month grid.
       const dayCell = page.getByTestId(`day-cell-${CREATE_DATE}`);
       await expect(dayCell.getByText(eventName)).toBeVisible();
     });
