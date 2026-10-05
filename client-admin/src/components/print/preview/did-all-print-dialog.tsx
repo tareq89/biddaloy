@@ -70,6 +70,7 @@ export function DidAllPrintDialog({
     // The answer is required: it isn't dismissable by clicking outside or pressing Escape.
     <Dialog open={open} onOpenChange={() => undefined}>
       <DialogContent
+        size="sm"
         onEscapeKeyDown={(e) => e.preventDefault()}
         onPointerDownOutside={(e) => e.preventDefault()}
       >
