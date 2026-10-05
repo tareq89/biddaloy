@@ -71,7 +71,6 @@
   },
   "students": {
     "enrol": "Enrol",
-    "record": "Record achievement",
     "markComplete": "Mark complete",
     "withdraw": "Withdraw",
     "reactivate": "Reactivate",
@@ -89,9 +88,10 @@
       "section": "Section",
       "students": "Students",
       "startedOn": "Started on",
-      "skipped_one": "{{count}} student already enrolled, skipped.",
-      "skipped_other": "{{count}} students already enrolled, skipped.",
-      "errorMessage": "Couldn't enrol these students"
+      "skipped_one": "{{n}} student already enrolled, skipped.",
+      "skipped_other": "{{n}} students already enrolled, skipped.",
+      "errorMessage": "Couldn't enrol these students",
+      "pickClassFirst": "Choose a class to see its students."
     },
     "record": {
       "title": "Record achievement",
@@ -102,8 +102,15 @@
       "grade": "Grade",
       "remark": "Remark",
       "save": "Save",
-      "errorMessage": "Couldn't record this achievement"
-    }
+      "errorMessage": "Couldn't record this achievement",
+      "noStudents": "No active students in this program.",
+      "scoreInvalid": "Enter the score as a number."
+    },
+    "program": "Program",
+    "selectPlaceholder": "Select",
+    "selectedCount": "{{selected}} of {{total}} selected",
+    "selectAll": "Select all",
+    "clearAll": "Clear all"
   },
   "status": {
     "ACTIVE": "Active",

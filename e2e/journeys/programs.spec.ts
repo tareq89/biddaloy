@@ -105,7 +105,7 @@ test.describe.serial('programs: admin enrols -> teacher records -> guardian sees
 
       // No `programId` in context from the student page — the dialog shows
       // a Program select; the student itself is already prefilled/checked.
-      await page.getByRole('combobox', { name: t('programs.list.title') }).click();
+      await page.getByRole('combobox', { name: t('programs.dialogs.program') }).click();
       await page.getByRole('option', { name: SEED_PROGRAM_NAME }).click();
 
       // Scoped to the dialog: its submit button has the same accessible
