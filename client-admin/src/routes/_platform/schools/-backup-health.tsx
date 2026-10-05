@@ -1,14 +1,15 @@
-import { DataTable, type DataTableColumn } from '@biddaloy/ui/components';
+import { DataTable, StatusBadge, type DataTableColumn } from '@biddaloy/ui/components';
 import type { PlatformSchoolBackupHealth } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useRegionConfig, useTranslation, type RegionConfig } from '@biddaloy/ui/i18n';
+import { formatDateTime, formatNumber } from '@biddaloy/ui/utils';
 
 /** Formats a byte count as a short human-readable size ("1.2 MB"). Same
  * shape as `backup-section.tsx`'s own `formatFileSize` — not shared,
  * since no common `ui/src/utils` helper exists yet (see that file's
  * comment for the fuller reasoning). */
-function formatFileSize(bytes: string): string {
+function formatFileSize(bytes: string, config: RegionConfig): string {
   const numeric = Number(bytes);
-  if (numeric < 1024) return `${numeric} B`;
+  if (numeric < 1024) return `${formatNumber(numeric, config)} B`;
   const units = ['KB', 'MB', 'GB', 'TB'];
   let value = numeric / 1024;
   let unitIndex = 0;
@@ -16,7 +17,7 @@ function formatFileSize(bytes: string): string {
     value /= 1024;
     unitIndex += 1;
   }
-  return `${value.toFixed(1)} ${units[unitIndex]}`;
+  return `${formatNumber(value, config, { decimals: 1 })} ${units[unitIndex]}`;
 }
 
 /**
@@ -32,6 +33,14 @@ function formatFileSize(bytes: string): string {
  * this, since the table itself already has one row per school regardless
  * of backup history.
  */
+const STATUS_TONE = {
+  DONE: 'success',
+  FAILED: 'danger',
+  QUEUED: 'info',
+  RUNNING: 'info',
+  DELETED: 'neutral',
+} as const;
+
 export interface BackupHealthTableProps {
   rows: PlatformSchoolBackupHealth[];
   loading: boolean;
@@ -42,6 +51,7 @@ export interface BackupHealthTableProps {
 export function BackupHealthTable({ rows, loading, isFetching, error }: BackupHealthTableProps) {
   const { t } = useTranslation('platform');
   const { t: tBackup } = useTranslation('backup');
+  const config = useRegionConfig();
 
   const scheduleLabel: Record<PlatformSchoolBackupHealth['schedule'], string> = {
     OFF: t('backupHealth.scheduleOff'),
@@ -60,25 +70,34 @@ export function BackupHealthTable({ rows, loading, isFetching, error }: BackupHe
       id: 'schedule',
       header: t('backupHealth.columnSchedule'),
       accessorFn: (row) => scheduleLabel[row.schedule],
+      card: 'subtitle',
     },
     {
       id: 'lastStatus',
       header: t('backupHealth.columnLastStatus'),
       accessorFn: (row) =>
-        row.last_status ? tBackup(`status.${row.last_status}`) : t('backupHealth.never'),
+        row.last_status ? (
+          <StatusBadge
+            tone={STATUS_TONE[row.last_status]}
+            label={tBackup(`status.${row.last_status}`)}
+          />
+        ) : (
+          <StatusBadge tone="neutral" label={t('backupHealth.never')} />
+        ),
+      card: 'badge',
     },
     {
       id: 'lastSuccess',
       header: t('backupHealth.columnLastSuccess'),
       accessorFn: (row) =>
-        row.last_success_at
-          ? new Date(row.last_success_at).toLocaleString()
-          : t('backupHealth.never'),
+        row.last_success_at ? formatDateTime(row.last_success_at, config) : t('backupHealth.never'),
+      card: 'subtitle',
     },
     {
       id: 'storage',
       header: t('backupHealth.columnStorage'),
-      accessorFn: (row) => formatFileSize(row.storage_total_bytes),
+      accessorFn: (row) => formatFileSize(row.storage_total_bytes, config),
+      card: 'subtitle',
       align: 'end',
     },
   ];
@@ -92,13 +111,11 @@ export function BackupHealthTable({ rows, loading, isFetching, error }: BackupHe
       getRowId={(row) => row.school_id}
       sorting={null}
       onSortingChange={() => undefined}
-      page={1}
-      pageSize={rows.length || 1}
+      paginated={false}
       totalCount={rows.length}
-      onPageChange={() => undefined}
       loading={loading}
       isFetching={isFetching}
-      emptyMessage={t('backupHealth.emptyMessage')}
+      emptyState={{ title: t('backupHealth.emptyMessage'), explanation: '' }}
       {...(error !== undefined ? { error } : {})}
     />
   );
