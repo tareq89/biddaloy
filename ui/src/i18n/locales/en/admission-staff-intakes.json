@@ -6,13 +6,16 @@
     "columnTitle": "Title",
     "columnClassSection": "Class / Section",
     "columnSeatCount": "Seats",
-    "columnOpenDate": "Opens",
-    "columnCloseDate": "Closes",
     "columnStatus": "Status",
     "statusOpen": "Open",
     "statusClosed": "Closed",
-    "emptyMessage": "No admission rounds found",
-    "errorMessage": "Failed to load admission rounds"
+    "errorMessage": "Failed to load admission rounds",
+    "subtitle": "Which class, how many seats, and when guardians can apply online.",
+    "columnWindow": "Application window",
+    "viewApplicants": "View applicants",
+    "edit": "Edit",
+    "emptyTitle": "No admission rounds yet",
+    "emptyText": "Add a round so guardians can apply online."
   },
   "createDialog": {
     "title": "Add admission round",
@@ -23,7 +26,6 @@
   "form": {
     "titleLabel": "Title",
     "classSectionLabel": "Class / Section",
-    "classSectionPlaceholder": "Select a class and section",
     "seatCountLabel": "Seat count",
     "openDateLabel": "Open date",
     "closeDateLabel": "Close date",
@@ -31,11 +33,17 @@
     "documentPhoto": "Photo",
     "documentBirthCertificate": "Birth certificate",
     "documentTranscript": "Transcript",
-    "dateRangeError": "Close date must not be before open date."
+    "dateRangeError": "Close date must not be before open date.",
+    "datesHelp": "Guardians can apply online between these two dates.",
+    "documentsHelp": "Guardians must upload these when applying."
   },
   "detail": {
     "save": "Save",
     "saving": "Saving…",
-    "errorMessage": "Failed to save admission round"
+    "errorMessage": "Failed to save admission round",
+    "sectionTitle": "Round details",
+    "applicantCount_one": "{{count}} application received",
+    "applicantCount_other": "{{count}} applications received",
+    "saved": "Saved"
   }
 }
