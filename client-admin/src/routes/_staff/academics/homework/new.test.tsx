@@ -14,6 +14,7 @@ import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { routeTree } from '../../../../routeTree.gen';
+import { pickDate } from '../../../../test/pick-date';
 
 describe('/academics/homework/new', () => {
   afterEach(async () => {
@@ -275,8 +276,7 @@ describe('/academics/homework/new', () => {
     await user.click(screen.getByLabelText('Section'));
     await user.click(await screen.findByRole('option', { name: section.section_name }));
 
-    await user.clear(screen.getByLabelText('Due date'));
-    await user.type(screen.getByLabelText('Due date'), '2020-01-01');
+    await pickDate(user, 'Due date', '2020-01-01');
     await user.click(screen.getByRole('button', { name: 'Save' }));
 
     expect(await screen.findByText(/Due date must be on or after/i)).toBeTruthy();
