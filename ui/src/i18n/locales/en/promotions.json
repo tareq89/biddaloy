@@ -51,22 +51,19 @@
     "retainClassMissing": "No class is set up to retain students who didn't pass — add one first."
   },
   "grid": {
-    "columnStudent": "Roll · Name",
+    "columnStudent": "Student",
     "columnMeritRank": "Rank",
     "columnMeanGpa": "Mean GPA",
     "columnSuggested": "Suggested",
-    "columnFinal": "Final",
+    "columnFinal": "Final decision",
     "columnGroup": "Group",
-    "columnTargetSection": "Target section",
-    "columnNewRoll": "New roll",
-    "columnOverrideNote": "Override note",
-    "columnPlacementError": "Placement error",
+    "columnOverrideNote": "Why changed",
     "groupNone": "No group",
     "groupClearUnsupported": "Clearing a group is not yet supported",
-    "noteRequired": "A note is required for an override.",
-    "overrideChip": "Override",
-    "refresh": "Refresh",
-    "refreshing": "Refreshing…",
+    "noteRequired": "Write why you changed it.",
+    "overrideChip": "Changed by hand",
+    "refresh": "Update from results",
+    "refreshing": "Updating…",
     "delete": "Delete list",
     "deleteConfirm": {
       "title": "Delete this promotion draft?",
@@ -75,18 +72,15 @@
       "cancel": "Cancel"
     },
     "commit": "Finalise",
-    "commitShortcutHint": "Ctrl+Enter",
     "overflowWarning": "This section is over capacity by {{count}}.",
     "staleResultsPrompt": "Results changed since this preview — refresh",
-    "readOnlyBanner": "Finalised {{date}} by {{committedBy}}, approved by {{approvedBy}}",
     "counts": {
       "promoted": "Promoted",
       "retained": "Retained",
       "graduated": "Graduated",
-      "overrides": "Overrides",
-      "errors": "Errors"
+      "overrides": "Changed by hand",
+      "errors": "Problems"
     },
-    "runSummary": "{{source}} → {{target}} · {{exams}} exams · {{algorithm}}",
     "commitConfirm": {
       "title": "Finalise this promotion list?",
       "body": "{{promoted}} promoted, {{retained}} retained, {{graduated}} graduated. This cannot be undone.",
@@ -98,11 +92,40 @@
     "cohortChangedPrompt": "Some students in this list have left the class or changed status since it was created. Delete this draft and create a new list.",
     "commitFailed": "Could not finalise this list. Please try again.",
     "saveFailed": "Could not save this change. Please try again.",
-    "refreshFailed": "Could not refresh this list. Please try again."
+    "refreshFailed": "Could not refresh this list. Please try again.",
+    "columnPlacement": "New section and roll",
+    "columnRoll": "Roll",
+    "notePlaceholder": "Why did you change it?",
+    "studentRoll": "Roll {{roll}}",
+    "placementError": {
+      "OVER_CAPACITY": "No room in any section",
+      "NO_ELIGIBLE_SECTION": "No matching section",
+      "unknown": "Could not place in a section"
+    },
+    "errorsTitle": "Fix {{n}} problem(s) before finalising",
+    "errorsBody": "Students marked in red could not be placed in any section of the next class. Raise the section capacity and update from results, or change their decision.",
+    "countsLabel": "Summary",
+    "countBadge": "{{label}} {{n}}",
+    "footerHint": "{{n}} students · Keyboard: press P, R or G on a decision, ↑ ↓ to move between rows, Ctrl+Enter to finalise.",
+    "footerTotal": "{{n}} students",
+    "tableCaption": "Promotion decision for each student",
+    "deleteFailed": "Couldn't delete this list. Please try again.",
+    "facts": {
+      "targetYear": "Next academic year",
+      "exams": "Exams averaged",
+      "examCount": "{{n}}",
+      "algorithm": "Placement",
+      "students": "Students",
+      "studentCount": "{{n}}",
+      "committedAt": "Finalised on",
+      "committedBy": "Finalised by",
+      "approvedBy": "Approved by"
+    },
+    "loadError": "Couldn't load this promotion list."
   },
   "stepper": {
-    "previous": "Previous",
-    "next": "Next",
+    "previous": "Previous student",
+    "next": "Next student",
     "progress": "{{current}} of {{total}}"
   },
   "outcome": {
