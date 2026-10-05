@@ -12,6 +12,7 @@ import {
   BUNDLED_PRINT_FONTS,
   Button,
   Card,
+  ConfirmDialog,
   EmptyState,
   ErrorState,
   Input,
@@ -93,18 +94,23 @@ function text(value: unknown): string {
   return value == null ? '' : JSON.stringify(value);
 }
 
-/** A readable name for an element in a pre-flight message: its field, else its text, else its id. */
+/** A readable name for an element in a pre-flight message: its field, else its text, else its kind. */
 function elementName(
   definition: TemplateDefinition,
   elementId: string,
   label: (field: string) => string | undefined,
+  kindLabel: (type: string) => string,
 ): string {
   const all = [...definition.front.elements, ...(definition.back?.elements ?? [])] as Array<
     Record<string, unknown>
   >;
   const el = all.find((e) => e.id === elementId);
   const field = typeof el?.field === 'string' ? el.field : undefined;
-  return (field && label(field)) || text(el?.field ?? el?.text ?? elementId);
+  return (
+    (field && label(field)) ||
+    (typeof el?.text === 'string' && el.text) ||
+    kindLabel(typeof el?.type === 'string' ? el.type : 'TEXT')
+  );
 }
 
 export function PrintPreview({
@@ -119,6 +125,7 @@ export function PrintPreview({
 }: PrintPreviewProps) {
   const { t, i18n } = useTranslation('printPreview');
   const { t: tEditor } = useTranslation('printEditor');
+  const { t: tc } = useTranslation('common');
   const region = useRegionConfig();
   const tenantId = getActiveTenant() ?? '';
   const prefix = subjectType === 'STUDENT' ? 'student' : 'staff';
@@ -162,6 +169,7 @@ export function PrintPreview({
   const batchKey = batchIds.join(',');
   const [pending, setPending] = React.useState<PendingJob | null>(null);
   const [printing, setPrinting] = React.useState(false);
+  const [leaving, setLeaving] = React.useState(false);
   const started = confirmed > 0 || pending !== null;
 
   // --- the preview -----------------------------------------------------------
@@ -226,7 +234,7 @@ export function PrintPreview({
     ? items.flatMap((item) => {
         const reasons: string[] = [];
         const fields = (overflow[item.subject_id] ?? []).map((id) =>
-          elementName(definition, id, fieldLabel),
+          elementName(definition, id, fieldLabel, (type) => tEditor(`layers.type.${type}`)),
         );
         if (fields.length > 0) reasons.push(t('preflight.overflow', { fields: fields.join(', ') }));
         if (usesPhoto && !item.photo_url) reasons.push(t('preflight.noPhoto'));
@@ -248,8 +256,10 @@ export function PrintPreview({
   }
 
   // --- printing (D9, D53) ----------------------------------------------------
+  const running = React.useRef(false);
   async function startRun(request: PrintRequest, isReprint: boolean) {
-    if (!printer) return;
+    if (!printer || running.current) return;
+    running.current = true;
     setPrinting(true);
     remember(printer.id);
     const result = await runPrint({
@@ -263,6 +273,7 @@ export function PrintPreview({
       onError: (error) =>
         toast.error(error.message === 'POPUP_BLOCKED' ? t('popupBlocked') : t('printFailed')),
     });
+    running.current = false;
     setPrinting(false);
     if (result) {
       setPending({
@@ -297,19 +308,22 @@ export function PrintPreview({
     );
   };
 
-  // Enter prints when focus is on the page itself (not inside a control).
+  // Enter prints when focus is on the page itself (the shell), not inside a control.
   const printRef = React.useRef(print);
   printRef.current = print;
   React.useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       if (event.key !== 'Enter') return;
       const target = event.target as HTMLElement | null;
-      if (target && target !== document.body && !target.closest('[data-print-preview]')) return;
-      if (
-        target &&
-        target.closest('button, a, input, select, textarea, [role="combobox"], [role="dialog"]')
-      )
-        return;
+      // The preview lives inside the full-page shell (a Radix dialog), so focus rests on the
+      // shell itself or somewhere in it; any OTHER dialog (the "did all print?" one) is not ours.
+      if (target && target !== document.body) {
+        const shell = target.closest('[data-slot="full-page-shell"]');
+        if (!shell) return;
+        const dialog = target.closest('[role="dialog"], [role="alertdialog"]');
+        if (dialog && dialog !== shell) return;
+        if (target.closest('button, a, input, select, textarea, [role="combobox"]')) return;
+      }
       printRef.current();
     }
     window.addEventListener('keydown', onKeyDown);
@@ -327,7 +341,15 @@ export function PrintPreview({
       size="wide"
       onClose={onClose}
       dirty={started && confirmed < batches.length}
-      {...(onBack ? { secondary: { label: t('back'), onClick: onBack } } : {})}
+      {...(onBack
+        ? {
+            secondary: {
+              label: t('back'),
+              // Going back drops the chosen people, and with them the run's progress.
+              onClick: () => (started && confirmed < batches.length ? setLeaving(true) : onBack()),
+            },
+          }
+        : {})}
       primary={primary}
     >
       {body}
@@ -360,9 +382,9 @@ export function PrintPreview({
           <div>
             <h2 className="text-h2">
               {t('header.batch', {
-                current: Math.min(confirmed + 1, batches.length),
-                total: batches.length,
-                count: batchIds.length,
+                current: formatNumber(Math.min(confirmed + 1, batches.length), region),
+                total: formatNumber(batches.length, region),
+                count: formatNumber(batchIds.length, region),
               })}
             </h2>
             <p className="mt-1 text-text-secondary">{t('round.help')}</p>
@@ -526,6 +548,20 @@ export function PrintPreview({
           </ul>
         </section>
       ) : null}
+
+      <ConfirmDialog
+        open={leaving}
+        onOpenChange={setLeaving}
+        tone="danger"
+        title={tc('fullPage.discardTitle')}
+        description={tc('fullPage.discardDescription')}
+        confirmLabel={tc('fullPage.discardConfirm')}
+        cancelLabel={tc('fullPage.keepEditing')}
+        onConfirm={() => {
+          setLeaving(false);
+          onBack?.();
+        }}
+      />
 
       {pending ? (
         <DidAllPrintDialog

@@ -1,9 +1,11 @@
 import '@biddaloy/ui/test';
 
 import type { PrinterRow, PrintTemplateRow } from '@biddaloy/ui/hooks';
+import { REGION_BD_EN, RegionConfigProvider } from '@biddaloy/ui/i18n';
 import { cleanupTestState, renderWithProviders, server } from '@biddaloy/ui/test';
 import { screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
+import type * as React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { PrintPreview } from './print-preview';
@@ -106,16 +108,18 @@ function setup(subjectIds = ids(3), withBack = false) {
   const onClose = vi.fn();
   const onBack = vi.fn();
   const view = renderWithProviders(
-    <PrintPreview
-      documentKind="STUDENT_ID_CARD"
-      subjectType="STUDENT"
-      subjectIds={subjectIds}
-      onCreateTemplate={onCreateTemplate}
-      onAddPrinter={onAddPrinter}
-      onDone={onDone}
-      onClose={onClose}
-      {...(withBack ? { onBack } : {})}
-    />,
+    en(
+      <PrintPreview
+        documentKind="STUDENT_ID_CARD"
+        subjectType="STUDENT"
+        subjectIds={subjectIds}
+        onCreateTemplate={onCreateTemplate}
+        onAddPrinter={onAddPrinter}
+        onDone={onDone}
+        onClose={onClose}
+        {...(withBack ? { onBack } : {})}
+      />,
+    ),
     { locale: 'en', role: 'ADMIN', tenantId: 'school-1' },
   );
   return { ...view, onCreateTemplate, onAddPrinter, onDone, onClose, onBack };
@@ -125,6 +129,11 @@ const printResult = (n: number) => ({
   jobId: 'job-1',
   items: ids(n).map((id) => ({ itemId: `i-${id}`, subjectId: id, label: `Student ${id}` })),
 });
+
+/** Digits follow the region, and the default region is Bangla: pin Latin for English assertions. */
+const en = (ui: React.ReactElement) => (
+  <RegionConfigProvider value={REGION_BD_EN}>{ui}</RegionConfigProvider>
+);
 
 describe('PrintPreview', () => {
   beforeEach(() => {
@@ -399,5 +408,117 @@ describe('PrintPreview', () => {
       ).toBe(true),
     );
     expect(screen.getByText("The design can't change once printing starts.")).toBeTruthy();
+  });
+
+  async function printAndConfirmFirstRound(user: ReturnType<typeof setup>['user']) {
+    await waitFor(() =>
+      expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Print' }).disabled).toBe(false),
+    );
+    await user.click(screen.getByRole('button', { name: 'Print' }));
+    await user.click(await screen.findByRole('button', { name: 'Yes, all printed' }));
+    await user.click(await screen.findByRole('button', { name: 'Continue' }));
+  }
+
+  function serveRun() {
+    serveLists([template()], [printer()]);
+    servePreview();
+    server.use(
+      http.patch('/api/v1/print-jobs/:id/confirm', () =>
+        HttpResponse.json({ job_id: 'job-1', status: 'CONFIRMED', failed_item_ids: [] }),
+      ),
+    );
+    vi.mocked(runPrint).mockResolvedValue(printResult(50));
+  }
+
+  it('Enter with focus on the shell prints once; Enter on a button does not print by itself', async () => {
+    serveLists([template()], [printer()]);
+    servePreview();
+    vi.mocked(runPrint).mockResolvedValue(printResult(3));
+    const { user } = setup(ids(3));
+    await waitFor(() =>
+      expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Print' }).disabled).toBe(false),
+    );
+
+    screen.getByRole('button', { name: 'Close' }).focus();
+    await user.keyboard('{Enter}'); // Close has no onClose effect on print
+    expect(runPrint).not.toHaveBeenCalled();
+
+    screen.getByRole('dialog').focus();
+    await user.keyboard('{Enter}');
+    await waitFor(() => expect(runPrint).toHaveBeenCalledOnce());
+  });
+
+  it('a double click on Print starts one request', async () => {
+    serveLists([template()], [printer()]);
+    servePreview();
+    vi.mocked(runPrint).mockImplementation(
+      () => new Promise((resolve) => setTimeout(() => resolve(printResult(3)), 50)),
+    );
+    const { user } = setup(ids(3));
+    await waitFor(() =>
+      expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Print' }).disabled).toBe(false),
+    );
+    await user.dblClick(screen.getByRole('button', { name: 'Print' }));
+    await waitFor(() => expect(runPrint).toHaveBeenCalledOnce());
+  });
+
+  it('Back between rounds asks before dropping the run', async () => {
+    serveRun();
+    const { user, onBack } = setup(ids(120), true);
+    await printAndConfirmFirstRound(user);
+
+    await user.click(screen.getByRole('button', { name: 'Back' }));
+    const dialog = await screen.findByRole('alertdialog');
+    expect(onBack).not.toHaveBeenCalled();
+    await user.click(within(dialog).getByRole('button', { name: /discard/i }));
+    expect(onBack).toHaveBeenCalledOnce();
+  });
+
+  it('Close between rounds asks before leaving', async () => {
+    serveRun();
+    const { user, onClose } = setup(ids(120));
+    await printAndConfirmFirstRound(user);
+
+    await user.click(screen.getByRole('button', { name: 'Close' }));
+    expect(await screen.findByRole('alertdialog')).toBeTruthy();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('names the missing staff name by its label too', async () => {
+    serveLists([template()], [printer()]);
+    server.use(
+      http.post('/api/v1/print-jobs/preview', () =>
+        HttpResponse.json({
+          template: {
+            id: 't-1',
+            batch_size: 50,
+            version: {
+              id: 'v-1',
+              version: 1,
+              definition: definition([element({ field: 'staff.name' })]),
+            },
+          },
+          items: [
+            { subject_id: 's-1', label: 'Staff 1', values: { 'staff.name': '' }, photo_url: null },
+          ],
+        }),
+      ),
+    );
+    renderWithProviders(
+      en(
+        <PrintPreview
+          documentKind="STAFF_ID_CARD"
+          subjectType="STAFF"
+          subjectIds={['s-1']}
+          onCreateTemplate={vi.fn()}
+          onAddPrinter={vi.fn()}
+          onDone={vi.fn()}
+          onClose={vi.fn()}
+        />,
+      ),
+      { locale: 'en', role: 'ADMIN', tenantId: 'school-1' },
+    );
+    expect((await screen.findAllByText(/Missing: Name/)).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/staff\.name/)).toBeNull();
   });
 });
