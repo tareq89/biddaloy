@@ -117,7 +117,6 @@
     "changeHandlingLabel": "Change"
   },
   "detail": {
-    "back": "Back to payments",
     "loadError": "Couldn't load this payment.",
     "retry": "Retry",
     "amount": "Amount",
@@ -127,15 +126,16 @@
     "invoice": "Invoice",
     "noInvoice": "No invoice",
     "unknown": "Unknown",
-    "reversalOf": "Reversal of #{{id}}",
     "reversedBanner": "This payment has been reversed.",
     "reverseAction": "Reverse payment",
     "allocations": {
-      "title": "Allocations",
+      "title": "Where the money went",
       "columnFee": "Fee",
       "columnPeriod": "Period",
       "columnAmount": "Amount",
-      "columnDiscount": "Discount"
+      "columnDiscount": "Discount",
+      "help": "The bills this payment was put against.",
+      "phoneLine": "{{period}} · Discount {{discount}}"
     },
     "reverseDialog": {
       "title": "Reverse this payment?",
@@ -146,8 +146,20 @@
       "reasonLabel": "Reason",
       "confirm": "Reverse payment",
       "errorMessage": "Reversing this payment failed.",
-      "errorLaterPayments": "Later payments must be reversed first:"
-    }
+      "errorLaterPayments": "Later payments must be reversed first:",
+      "laterPaymentLink": "Later payment {{n}}"
+    },
+    "reference": "Transaction reference",
+    "approver": "Discount approved by",
+    "printReceipt": "Print receipt",
+    "printError": "The receipt could not be opened for printing.",
+    "viewInvoice": "View invoice",
+    "viewStudent": "Student page",
+    "remarks": "Remarks",
+    "reversalEntry": "This is a reversal entry.",
+    "viewOriginal": "View original payment",
+    "reversedStatus": "Reversed",
+    "viewReversal": "View reversal entry"
   },
   "printFormat": {
     "label": "Paper size",
