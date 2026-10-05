@@ -1,6 +1,11 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { ReactElement } from 'react';
 import { describe, expect, it, vi } from 'vitest';
+
+import { REGION_BD_BN, REGION_BD_EN, RegionConfigProvider } from '../i18n';
+import type { Locale } from '../i18n/locale-storage';
+import { renderWithProviders } from '../test/render-with-providers';
 
 import { FileUpload, type FileUploadItem } from './file-upload';
 
@@ -8,9 +13,22 @@ function makeFile(name: string, content = 'content', lastModified?: number): Fil
   return new File([content], name, { type: 'text/csv', ...(lastModified && { lastModified }) });
 }
 
+// DEFAULT_LOCALE is 'bn'; English assertions force 'en', the bn cases say so.
+async function renderFile(ui: ReactElement, locale: Locale = 'en') {
+  const region = locale === 'bn' ? REGION_BD_BN : REGION_BD_EN;
+  const result = renderWithProviders(
+    <RegionConfigProvider value={region}>{ui}</RegionConfigProvider>,
+    {
+      locale,
+    },
+  );
+  await result.localeReady;
+  return result;
+}
+
 describe('FileUpload', () => {
   it('is axe clean with no files selected', async () => {
-    const { container } = render(
+    const { container } = await renderFile(
       <FileUpload aria-label="Attachments" items={[]} onFilesSelected={vi.fn()} />,
     );
     await expect(container).toHaveNoViolations();
@@ -19,7 +37,9 @@ describe('FileUpload', () => {
   it('selecting a file calls onFilesSelected and announces the selection count', async () => {
     const user = userEvent.setup();
     const onFilesSelected = vi.fn();
-    render(<FileUpload aria-label="Attachments" items={[]} onFilesSelected={onFilesSelected} />);
+    await renderFile(
+      <FileUpload aria-label="Attachments" items={[]} onFilesSelected={onFilesSelected} />,
+    );
 
     const input = screen.getByLabelText('Attachments');
     const file = makeFile('roster.csv');
@@ -31,28 +51,36 @@ describe('FileUpload', () => {
 
   it('selecting multiple files announces the plural form', async () => {
     const user = userEvent.setup();
-    render(<FileUpload aria-label="Attachments" items={[]} onFilesSelected={vi.fn()} multiple />);
+    await renderFile(
+      <FileUpload aria-label="Attachments" items={[]} onFilesSelected={vi.fn()} multiple />,
+    );
     await user.upload(screen.getByLabelText('Attachments'), [makeFile('a.csv'), makeFile('b.csv')]);
     await waitFor(() => expect(screen.getByText('2 files selected')).toBeTruthy());
   });
 
-  it('shows per-file progress', () => {
+  it('shows per-file progress', async () => {
     const items: FileUploadItem[] = [{ id: '1', file: makeFile('roster.csv'), progress: 42 }];
-    render(<FileUpload aria-label="Attachments" items={items} onFilesSelected={vi.fn()} />);
+    await renderFile(
+      <FileUpload aria-label="Attachments" items={items} onFilesSelected={vi.fn()} />,
+    );
     expect(screen.getByText('42%')).toBeTruthy();
   });
 
-  it('shows a per-file error via role=alert rather than a silent failure', () => {
+  it('shows a per-file error via role=alert rather than a silent failure', async () => {
     const items: FileUploadItem[] = [
       { id: '1', file: makeFile('roster.csv'), error: 'File too large' },
     ];
-    render(<FileUpload aria-label="Attachments" items={items} onFilesSelected={vi.fn()} />);
+    await renderFile(
+      <FileUpload aria-label="Attachments" items={items} onFilesSelected={vi.fn()} />,
+    );
     expect(screen.getByRole('alert').textContent).toBe('File too large');
   });
 
-  it('shows "Done" once a file reaches 100%', () => {
+  it('shows "Done" once a file reaches 100%', async () => {
     const items: FileUploadItem[] = [{ id: '1', file: makeFile('roster.csv'), progress: 100 }];
-    render(<FileUpload aria-label="Attachments" items={items} onFilesSelected={vi.fn()} />);
+    await renderFile(
+      <FileUpload aria-label="Attachments" items={items} onFilesSelected={vi.fn()} />,
+    );
     expect(screen.getByText('Done')).toBeTruthy();
   });
 
@@ -60,7 +88,7 @@ describe('FileUpload', () => {
     const user = userEvent.setup();
     const onRemove = vi.fn();
     const file = makeFile('roster.csv');
-    render(
+    await renderFile(
       <FileUpload
         aria-label="Attachments"
         items={[{ id: '1', file }]}
@@ -72,9 +100,11 @@ describe('FileUpload', () => {
     expect(onRemove).toHaveBeenCalledWith(file);
   });
 
-  it('clearing the selection without picking a file does not call onFilesSelected or announce anything', () => {
+  it('clearing the selection without picking a file does not call onFilesSelected or announce anything', async () => {
     const onFilesSelected = vi.fn();
-    render(<FileUpload aria-label="Attachments" items={[]} onFilesSelected={onFilesSelected} />);
+    await renderFile(
+      <FileUpload aria-label="Attachments" items={[]} onFilesSelected={onFilesSelected} />,
+    );
     const input = screen.getByLabelText('Attachments');
     // Firing a plain change event with no files, as a browser does when a
     // native file picker is dismissed without choosing anything.
@@ -99,7 +129,7 @@ describe('FileUpload', () => {
     expect(fileA.size).toBe(fileB.size);
     expect(fileA.lastModified).toBe(fileB.lastModified);
     const onRemove = vi.fn();
-    render(
+    await renderFile(
       <FileUpload
         aria-label="Attachments"
         items={[
@@ -127,8 +157,8 @@ describe('FileUpload', () => {
     consoleError.mockRestore();
   });
 
-  it('the button label is singular for a single-file uploader, and a custom chooseLabel overrides both', () => {
-    const { rerender } = render(
+  it('the button label is singular for a single-file uploader, and a custom chooseLabel overrides both', async () => {
+    const { rerender } = await renderFile(
       <FileUpload aria-label="Attachments" items={[]} onFilesSelected={vi.fn()} multiple={false} />,
     );
     expect(screen.getByRole('button', { name: 'Choose file' })).toBeTruthy();
@@ -150,7 +180,7 @@ describe('FileUpload', () => {
     // wire — a replacement pick cannot cancel the first request.
     const onFilesSelected = vi.fn();
     const onRemove = vi.fn();
-    render(
+    await renderFile(
       <FileUpload
         aria-label="Attachments"
         disabled
@@ -169,5 +199,29 @@ describe('FileUpload', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Remove roster.csv' }));
     expect(onRemove).not.toHaveBeenCalled();
+  });
+
+  it('speaks Bengali: label, selection count, progress digits and remove name', async () => {
+    const user = userEvent.setup();
+    const file = makeFile('roster.csv');
+    const { rerender } = await renderFile(
+      <FileUpload aria-label="Attachments" items={[]} onFilesSelected={vi.fn()} />,
+      'bn',
+    );
+    expect(screen.getByRole('button', { name: 'ফাইল বাছুন' })).toBeTruthy();
+
+    await user.upload(screen.getByLabelText('Attachments'), [makeFile('a.csv'), makeFile('b.csv')]);
+    await waitFor(() => expect(screen.getByText('২টি ফাইল বাছাই হয়েছে')).toBeTruthy());
+
+    rerender(
+      <FileUpload
+        aria-label="Attachments"
+        items={[{ id: '1', file, progress: 50 }]}
+        onFilesSelected={vi.fn()}
+        onRemove={vi.fn()}
+      />,
+    );
+    expect(screen.getByText('৫০%')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'roster.csv সরান' })).toBeTruthy();
   });
 });

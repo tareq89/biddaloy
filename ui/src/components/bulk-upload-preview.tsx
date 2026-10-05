@@ -6,10 +6,12 @@
  * gating for free. Zero student- or backup-specific copy lives here —
  * every string routes through the `bulkImport` i18n namespace.
  */
+import { ClockIcon, FileSpreadsheetIcon, RotateCcwIcon } from 'lucide-react';
 import * as React from 'react';
 
 import { useBulkUploadPreview, type PreviewResult } from '../hooks/use-bulk-upload-preview';
-import { useTranslation } from '../i18n';
+import { useRegionConfig, useTranslation } from '../i18n';
+import { renderDigits } from '../utils/digits';
 
 import { BulkImportErrorTable } from './bulk-import-error-table';
 import { Button } from './button';
@@ -51,9 +53,14 @@ export interface BulkUploadPreviewProps<S, C> {
    * in flight. Defaults to the existing `t('confirming')` button label. */
   renderCommitting?: (result: PreviewResult<S>) => React.ReactNode;
   renderDone: (commitResult: C, reset: () => void) => React.ReactNode;
-  /** Accepted, unused until 31.2.14c. */
+  /** Host-owned Confirm: the host stores the controller in state and renders
+   * its own footer (e.g. a `FullPageShell` footer) from it. `confirm` and
+   * `reset` are stable; the callback fires only when the controller's data
+   * (status, result, commitResult, confirmDisabled) changes. */
   onControllerChange?: (controller: BulkUploadPreviewController<S, C>) => void;
-  /** Accepted, unused until 31.2.14c. */
+  /** The host renders Confirm. Drops the in-card Confirm / Upload-another
+   * buttons and the preview's own `Card` frame (the host card frames it),
+   * showing a file row with an "upload another" button instead. */
   hideConfirm?: boolean;
 }
 
@@ -80,6 +87,18 @@ function hasAcceptedExtension(name: string, accept: string | undefined): boolean
   return extensions.some((ext) => lower.endsWith(ext));
 }
 
+/** The preview's `Card` frame — dropped when the host card already frames it
+ * (no nested cards). */
+function PreviewFrame({ framed, children }: { framed: boolean; children: React.ReactNode }) {
+  return framed ? (
+    <Card padded className="flex flex-col gap-4">
+      {children}
+    </Card>
+  ) : (
+    <div className="flex flex-col gap-4">{children}</div>
+  );
+}
+
 export function BulkUploadPreview<S, C>({
   accept,
   maxFileSize,
@@ -90,8 +109,11 @@ export function BulkUploadPreview<S, C>({
   confirmSlot,
   renderCommitting,
   renderDone,
+  onControllerChange,
+  hideConfirm = false,
 }: BulkUploadPreviewProps<S, C>) {
   const { t } = useTranslation('bulkImport');
+  const config = useRegionConfig();
   const { state, selectFile, confirm, reset } = useBulkUploadPreview<S, C>({ validate, commit });
 
   const [localError, setLocalError] = React.useState<string | undefined>(undefined);
@@ -204,6 +226,30 @@ export function BulkUploadPreview<S, C>({
     slotBlocked ||
     isExpired;
 
+  // Latest-ref pattern: the host gets stable `confirm`/`reset` and the effect
+  // below re-fires only when the controller's data changes, so a host that
+  // stores the controller in state cannot loop.
+  const confirmRef = React.useRef(confirm);
+  const resetRef = React.useRef(handleReset);
+  const onControllerChangeRef = React.useRef(onControllerChange);
+  confirmRef.current = confirm;
+  resetRef.current = handleReset;
+  onControllerChangeRef.current = onControllerChange;
+  const stableConfirm = React.useCallback(() => confirmRef.current(), []);
+  const stableReset = React.useCallback(() => resetRef.current(), []);
+  const result = 'result' in state ? state.result : undefined;
+  const commitResult = state.status === 'done' ? state.commitResult : undefined;
+  React.useEffect(() => {
+    onControllerChangeRef.current?.({
+      status: state.status,
+      result,
+      commitResult,
+      confirmDisabled,
+      confirm: stableConfirm,
+      reset: stableReset,
+    });
+  }, [state.status, result, commitResult, confirmDisabled, stableConfirm, stableReset]);
+
   return (
     <div className="flex flex-col gap-4">
       <div aria-live="polite" className="sr-only">
@@ -229,13 +275,41 @@ export function BulkUploadPreview<S, C>({
       )}
 
       {(state.status === 'preview' || state.status === 'committing') && (
-        <Card className="flex flex-col gap-4 p-4">
+        <PreviewFrame framed={!hideConfirm}>
+          {hideConfirm && (
+            <div className="flex flex-wrap items-center gap-3 rounded-md border border-border-subtle p-3 md:flex-nowrap">
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted text-text-secondary">
+                <FileSpreadsheetIcon aria-hidden="true" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-medium">{selectedFile?.name}</p>
+                {state.status === 'committing' && (
+                  <p className="text-caption text-text-secondary">{t('confirming')}</p>
+                )}
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                className="w-full md:w-auto"
+                onClick={handleReset}
+              >
+                <RotateCcwIcon aria-hidden="true" />
+                {t('uploadAnother')}
+              </Button>
+            </div>
+          )}
+
           <div>{renderSummary(state.result)}</div>
 
           {state.result.errors.length > 0 && <BulkImportErrorTable errors={state.result.errors} />}
 
-          <p className="text-sm text-muted-foreground">
-            {isExpired ? t('expired') : t('expiresIn', { time: formatCountdown(remainingMs) })}
+          <p className="flex items-center gap-1 text-caption text-text-secondary">
+            <ClockIcon className="size-3.5" aria-hidden="true" />
+            {isExpired
+              ? t('expired')
+              : t('expiresIn', {
+                  time: renderDigits(formatCountdown(remainingMs), config.numerals),
+                })}
           </p>
 
           {state.status === 'committing' && renderCommitting ? (
@@ -244,24 +318,28 @@ export function BulkUploadPreview<S, C>({
             <>
               {confirmSlot?.({ setBlocked: setSlotBlocked })}
 
-              <div className="flex items-center gap-2">
-                <Button type="button" onClick={confirm} disabled={confirmDisabled}>
-                  {state.status === 'committing' ? t('confirming') : t('confirm')}
-                </Button>
-                <Button type="button" variant="outline" onClick={handleReset}>
-                  {t('uploadAnother')}
-                </Button>
-              </div>
+              {!hideConfirm && (
+                <div className="flex items-center gap-2">
+                  <Button type="button" onClick={confirm} disabled={confirmDisabled}>
+                    {state.status === 'committing' ? t('confirming') : t('confirm')}
+                  </Button>
+                  <Button type="button" variant="outline" onClick={handleReset}>
+                    {t('uploadAnother')}
+                  </Button>
+                </div>
+              )}
             </>
           )}
-        </Card>
+        </PreviewFrame>
       )}
 
       {state.status === 'done' && renderDone(state.commitResult, handleReset)}
 
       {state.status === 'failed' && (
-        <Card className="flex flex-col gap-3 p-4">
-          <p role="alert">{state.reason === 'expired' ? t('expiredRetry') : state.message}</p>
+        <Card padded className="flex flex-col gap-3">
+          <p role="alert" className="text-destructive">
+            {state.reason === 'expired' ? t('expiredRetry') : state.message}
+          </p>
           <div>
             <Button type="button" variant="outline" onClick={handleReset}>
               {t('uploadAnother')}
