@@ -1,10 +1,11 @@
 /**
- * [35.4.5] Create-template dialog (name + kind). Cloned from
- * `-exam-form-dialog.tsx`, minus the year/class fields a template does not
- * have. Owns its own mutation; surfaces server messages (e.g. the 409
- * duplicate-name text) inline.
+ * [35.4.5] Create / edit exam-structure dialog (name + type). Cloned from
+ * `-exam-form-dialog.tsx`, minus the year/class fields a structure does not
+ * have. Owns its own mutation; a 409 shows a translated duplicate-name line,
+ * any other failure the generic one — never the server text.
  */
 import { ExamKind } from '@biddaloy/shared';
+import { ApiError } from '@biddaloy/ui/api';
 import {
   Button,
   Dialog,
@@ -15,6 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
   Input,
+  Label,
   Select,
   SelectContent,
   SelectItem,
@@ -22,9 +24,14 @@ import {
   SelectValue,
 } from '@biddaloy/ui/components';
 import { useTranslation } from '@biddaloy/ui/i18n';
+import { CircleAlert } from 'lucide-react';
 import * as React from 'react';
 
-import { type ExamTemplateDetail, useCreateExamTemplate } from './use-exam-templates';
+import {
+  type ExamTemplateDetail,
+  useCreateExamTemplate,
+  useUpdateExamTemplate,
+} from './use-exam-templates';
 
 export const TEMPLATE_NAME_MAX = 200;
 const EXAM_KINDS = Object.values(ExamKind);
@@ -33,19 +40,33 @@ export interface TemplateFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSaved: (template: ExamTemplateDetail) => void;
+  /** Default `'create'`. Edit mode changes name + type only (`PATCH`). */
+  mode?: 'create' | 'edit';
+  initial?: { id: string; name: string; kind: ExamKind };
 }
 
-export function TemplateFormDialog({ open, onOpenChange, onSaved }: TemplateFormDialogProps) {
+// Asterisk drawn by CSS, so the label text stays exactly the field name.
+const REQUIRED = "after:ms-0.5 after:text-destructive after:content-['*']";
+
+export function TemplateFormDialog({
+  open,
+  onOpenChange,
+  onSaved,
+  mode = 'create',
+  initial,
+}: TemplateFormDialogProps) {
   const { t } = useTranslation('examTemplates');
-  const create = useCreateExamTemplate();
-  const [name, setName] = React.useState('');
-  const [kind, setKind] = React.useState<ExamKind>(ExamKind.TERM);
+  const createMutation = useCreateExamTemplate();
+  const updateMutation = useUpdateExamTemplate(initial?.id ?? '');
+  const create = mode === 'edit' ? updateMutation : createMutation;
+  const [name, setName] = React.useState(initial?.name ?? '');
+  const [kind, setKind] = React.useState<ExamKind>(initial?.kind ?? ExamKind.TERM);
   const [validationError, setValidationError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     if (!open) return;
-    setName('');
-    setKind(ExamKind.TERM);
+    setName(initial?.name ?? '');
+    setKind(initial?.kind ?? ExamKind.TERM);
     setValidationError(null);
     create.reset();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only on open/close transitions
@@ -68,29 +89,42 @@ export function TemplateFormDialog({ open, onOpenChange, onSaved }: TemplateForm
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent size="sm">
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <DialogHeader>
-            <DialogTitle>{t('form.title')}</DialogTitle>
-            <DialogDescription>{t('form.description')}</DialogDescription>
+            <DialogTitle>{mode === 'edit' ? t('form.editTitle') : t('form.title')}</DialogTitle>
+            {mode === 'create' && <DialogDescription>{t('form.description')}</DialogDescription>}
           </DialogHeader>
 
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="template-form-name" className="text-sm font-medium">
+            <Label htmlFor="template-form-name" className={REQUIRED}>
               {t('form.nameLabel')}
-            </label>
+            </Label>
             <Input
               id="template-form-name"
               value={name}
               onChange={(event) => setName(event.target.value)}
               placeholder={t('form.namePlaceholder')}
+              aria-invalid={validationError !== null}
+              aria-describedby={validationError ? 'template-form-error' : undefined}
+              className={validationError ? 'border-destructive' : undefined}
             />
+            {validationError && (
+              <p
+                id="template-form-error"
+                role="alert"
+                className="flex items-center gap-1.5 text-sm text-destructive"
+              >
+                <CircleAlert aria-hidden className="size-4 shrink-0" />
+                {validationError}
+              </p>
+            )}
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium">{t('form.kindLabel')}</span>
+            <Label htmlFor="template-form-kind">{t('form.kindLabel')}</Label>
             <Select value={kind} onValueChange={(value) => setKind(value as ExamKind)}>
-              <SelectTrigger aria-label={t('form.kindLabel')}>
+              <SelectTrigger id="template-form-kind" className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -103,14 +137,11 @@ export function TemplateFormDialog({ open, onOpenChange, onSaved }: TemplateForm
             </Select>
           </div>
 
-          {validationError && (
-            <p role="alert" className="text-sm text-destructive">
-              {validationError}
-            </p>
-          )}
           {create.isError && (
             <p role="alert" className="text-sm text-destructive">
-              {create.error instanceof Error ? create.error.message : t('form.errorMessage')}
+              {create.error instanceof ApiError && create.error.statusCode === 409
+                ? t('form.errorDuplicate')
+                : t('form.errorMessage')}
             </p>
           )}
 
@@ -121,7 +152,11 @@ export function TemplateFormDialog({ open, onOpenChange, onSaved }: TemplateForm
               </Button>
             </DialogClose>
             <Button type="submit" loading={create.isPending}>
-              {create.isPending ? t('form.saving') : t('form.save')}
+              {mode === 'edit'
+                ? t('form.saveEdit')
+                : create.isPending
+                  ? t('form.saving')
+                  : t('form.save')}
             </Button>
           </DialogFooter>
         </form>

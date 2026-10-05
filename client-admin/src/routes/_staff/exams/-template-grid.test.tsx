@@ -40,16 +40,16 @@ describe('TemplateGrid', () => {
 
   it('has no axe violations', async () => {
     const { container } = setup();
-    await cell('Component');
+    await cell('Part');
     await expect(container).toHaveNoViolations();
   });
 
   it('adds and removes component rows', async () => {
     const { user } = setup();
-    await user.click(await screen.findByRole('button', { name: 'Add component' }));
-    expect(await cell('Component', 2)).toBeTruthy();
+    await user.click(await screen.findByRole('button', { name: 'Add part' }));
+    expect(await cell('Part', 2)).toBeTruthy();
     await user.click(screen.getByRole('button', { name: 'Remove row 2 of BAN — Bangla, class 5' }));
-    expect(screen.queryByLabelText(/Component — BAN — Bangla, class 5, row 2/)).toBeNull();
+    expect(screen.queryByLabelText(/Part — BAN — Bangla, class 5, row 2/)).toBeNull();
   });
 
   it('blocks save and shows an error when pass > full', async () => {
@@ -57,21 +57,21 @@ describe('TemplateGrid', () => {
     const pass = await cell('Pass marks');
     await user.clear(pass);
     await user.type(pass, '90');
-    await user.click(screen.getByRole('button', { name: 'Save template' }));
+    await user.click(screen.getByRole('button', { name: 'Save exam structure' }));
     expect(onSave).not.toHaveBeenCalled();
     expect(await screen.findByText(/Pass marks must be between 0 and full marks/)).toBeTruthy();
   });
 
   it('blocks save on duplicate component names within a subject', async () => {
     const { user, onSave } = setup();
-    await user.click(await screen.findByRole('button', { name: 'Add component' }));
+    await user.click(await screen.findByRole('button', { name: 'Add part' }));
     await user.keyboard('Written');
     await user.tab();
     await user.tab();
     await user.keyboard('50{Tab}20');
-    await user.click(screen.getByRole('button', { name: 'Save template' }));
+    await user.click(screen.getByRole('button', { name: 'Save exam structure' }));
     expect(onSave).not.toHaveBeenCalled();
-    expect(await screen.findByText('Two components of this subject share a name.')).toBeTruthy();
+    expect(await screen.findByText('Two parts of this subject share a name.')).toBeTruthy();
   });
 
   it('keyboard only: Enter adds a row and focuses its name, then save posts the full row set', async () => {
@@ -79,7 +79,7 @@ describe('TemplateGrid', () => {
     const pass = await cell('Pass marks');
     pass.focus();
     await user.keyboard('{Enter}');
-    expect(document.activeElement).toBe(await cell('Component', 2));
+    expect(document.activeElement).toBe(await cell('Part', 2));
     await user.keyboard('Viva');
     await user.tab(); // kind select trigger
     await user.tab(); // full
@@ -87,7 +87,7 @@ describe('TemplateGrid', () => {
     await user.tab();
     await user.keyboard('7');
 
-    await user.click(screen.getByRole('button', { name: 'Save template' }));
+    await user.click(screen.getByRole('button', { name: 'Save exam structure' }));
     expect(onSave).toHaveBeenCalledWith([
       {
         classGrade: 5,
@@ -102,11 +102,11 @@ describe('TemplateGrid', () => {
 
   it('Esc in a field discards unsaved edits', async () => {
     const { user } = setup();
-    const name = await cell('Component');
+    const name = await cell('Part');
     await user.type(name, 'X');
     expect(name.value).toBe('WrittenX');
     await user.keyboard('{Escape}');
-    expect((await cell('Component')).value).toBe('Written');
+    expect((await cell('Part')).value).toBe('Written');
   });
 
   it('adds a class grade and a subject to it', async () => {
