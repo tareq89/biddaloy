@@ -200,10 +200,13 @@ describe('SchoolsController', () => {
       expect(trial.extend).toHaveBeenCalledWith(SCHOOL_A, dto, { userId: 'user-1' });
     });
 
-    it('is platform-only: SUPER_ADMIN role plus PlatformSuperAdminGuard', () => {
-      const handler = SchoolsController.prototype.extendTrial;
-      expect(Reflect.getMetadata('roles', handler)).toEqual(['SUPER_ADMIN']);
-      expect(Reflect.getMetadata('__guards__', handler)).toContain(PlatformSuperAdminGuard);
-    });
+    it.each(['findAll', 'getStats', 'updateStatus', 'extendTrial'] as const)(
+      '%s is platform-only: SUPER_ADMIN role plus PlatformSuperAdminGuard',
+      (name) => {
+        const handler = SchoolsController.prototype[name];
+        expect(Reflect.getMetadata('roles', handler)).toEqual(['SUPER_ADMIN']);
+        expect(Reflect.getMetadata('__guards__', handler)).toContain(PlatformSuperAdminGuard);
+      },
+    );
   });
 });

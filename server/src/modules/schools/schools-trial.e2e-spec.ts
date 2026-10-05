@@ -211,6 +211,25 @@ describe('Platform trials E2E (13.3.4)', () => {
     await patchTrial('localSuper', id, { days: 7, reason: REASON }).expect(403);
   });
 
+  it('the other platform school routes refuse a tenant-local SUPER_ADMIN with 403', async () => {
+    const id = await newSchool({ trialEnds: new Date(Date.now() + DAY) });
+    const asLocalSuper = (req: supertest.Test) =>
+      req
+        .set('Authorization', `Bearer ${localSuperToken}`)
+        .set('X-Tenant-ID', id)
+        .set('X-Role', UserRole.SUPER_ADMIN);
+    const http = supertest(app.getHttpServer());
+
+    await asLocalSuper(http.get(`${API}/schools`)).expect(403);
+    await asLocalSuper(http.get(`${API}/schools/${id}/stats`)).expect(403);
+    await asLocalSuper(http.patch(`${API}/schools/${id}/status`))
+      .send({ status: 'SUSPENDED', reason: 'Tenant-local attempt' })
+      .expect(403);
+    expect((await ds.query(`SELECT status FROM schools WHERE id = $1`, [id]))[0].status).toBe(
+      'ACTIVE',
+    );
+  });
+
   it('validates the body and refuses NOT_IN_TRIAL', async () => {
     const id = await newSchool({ trialEnds: new Date(Date.now() + DAY) });
     await patchTrial('super', id, { days: 0, reason: REASON }).expect(400);
