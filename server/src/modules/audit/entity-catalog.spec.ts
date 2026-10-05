@@ -24,6 +24,12 @@ const ENTITY_TYPE_LITERAL = /entity_type:\s*'([A-Za-z_]+)'/g;
  */
 const DEPRECATED_READ_ONLY_ENTRIES = new Set(['SchoolHoliday']);
 
+/** Catalog entries added ahead of the code that writes them (Epic 13.0:
+ * 13.1.1 adds the types, 13.2.x / 13.3.x write them). Remove each one when
+ * its writer lands — the last test below fails as soon as one is written.
+ */
+const NOT_YET_WRITTEN_ENTRIES = new Set(['Membership', 'Registration', 'Trial', 'UserIdentity']);
+
 function collectServerSourceFiles(dir: string): string[] {
   const files: string[] = [];
   for (const name of readdirSync(dir)) {
@@ -65,8 +71,17 @@ describe('audit entity-type catalog contract', () => {
     const written = collectWrittenEntityTypes(serverSrcDir);
 
     const deadEntries = AUDIT_ENTITY_TYPES.filter(
-      (type) => !written.has(type) && !DEPRECATED_READ_ONLY_ENTRIES.has(type),
+      (type) =>
+        !written.has(type) &&
+        !DEPRECATED_READ_ONLY_ENTRIES.has(type) &&
+        !NOT_YET_WRITTEN_ENTRIES.has(type),
     );
     expect(deadEntries).toEqual([]);
+  });
+
+  it('lists no entry as not-yet-written once server code writes it', () => {
+    const written = collectWrittenEntityTypes(serverSrcDir);
+
+    expect([...NOT_YET_WRITTEN_ENTRIES].filter((type) => written.has(type))).toEqual([]);
   });
 });
