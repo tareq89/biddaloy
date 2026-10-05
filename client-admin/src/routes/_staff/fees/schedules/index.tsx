@@ -18,6 +18,7 @@ import {
   ConfirmDialog,
   RoutePending,
   StatusBadge,
+  toast,
   type DataTableColumn,
 } from '@biddaloy/ui/components';
 import {
@@ -89,7 +90,17 @@ function ToggleScheduleConfirm({
       confirmLabel={schedule.is_active ? t('schedules.deactivate') : t('schedules.activate')}
       busy={toggleActive.isPending}
       onConfirm={() =>
-        toggleActive.mutate({ is_active: !schedule.is_active }, { onSuccess: onDone })
+        toggleActive.mutate(
+          { is_active: !schedule.is_active },
+          {
+            onSuccess: onDone,
+            // Close the confirm and say so — nothing else reports a failed switch.
+            onError: () => {
+              onDone();
+              toast.error(t('schedules.toggleErrorMessage'));
+            },
+          },
+        )
       }
     />
   );
@@ -123,6 +134,15 @@ function SchedulesListPage() {
   const editing = search.edit
     ? allSchedules.find((schedule) => schedule.id === search.edit)
     : undefined;
+  // `?edit=<unknown id>` (stale link, deleted rule): say so and clear the param instead of
+  // leaving the URL stuck on a form that never opens.
+  const unknownEdit = Boolean(search.edit) && schedulesQuery.isSuccess && !editing;
+  React.useEffect(() => {
+    if (!unknownEdit) return;
+    toast.error(t('schedules.editNotFound'));
+    void navigate({ search: (prev) => ({ ...prev, edit: undefined }), replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per unknown id
+  }, [unknownEdit]);
 
   const columns: DataTableColumn<RecurringSchedule>[] = [
     {

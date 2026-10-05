@@ -135,7 +135,7 @@ function ScheduleDetailPage() {
   const schedule = scheduleQuery.data;
   const yearsQuery = useAcademicYears();
   const feesQuery = useFeeStructures(
-    schedule ? { academic_year_id: schedule.academic_year_id } : {},
+    schedule ? { academic_year_id: schedule.academic_year_id, limit: 100 } : {},
   );
 
   const openEdit = () => void navigate({ search: (prev) => ({ ...prev, edit: 1 }) });

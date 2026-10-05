@@ -346,4 +346,27 @@ describe('/fees/generate', () => {
     await screen.findByText("You don't have access to this page.");
     expect(screen.queryByText('Create fee bills')).toBeNull();
   });
+
+  it('drops a deep-linked generated_by_user_id when the role cannot read users', async () => {
+    let lastQuery = '';
+    server.use(
+      http.get('/api/v1/fees/generations', ({ request }) => {
+        lastQuery = new URL(request.url).search;
+        return HttpResponse.json({
+          data: [batchFactory()],
+          total: 1,
+          page: 1,
+          limit: 25,
+          totalPages: 1,
+        });
+      }),
+    );
+
+    render('ACCOUNTANT', ['/fees/generate?generated_by_user_id=user-1']);
+
+    await screen.findByText('Karim Rahman');
+    await waitFor(() =>
+      expect(new URLSearchParams(lastQuery).has('generated_by_user_id')).toBe(false),
+    );
+  });
 });
