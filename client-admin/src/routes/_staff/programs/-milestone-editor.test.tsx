@@ -65,7 +65,7 @@ describe('MilestoneEditor', () => {
     );
     await renderEditor();
 
-    const input = (await screen.findAllByLabelText('Add milestone'))[0]!;
+    const input = await screen.findByLabelText('New milestone name');
     await user.type(input, 'Third');
     await user.click(screen.getByRole('button', { name: 'Add milestone' }));
 
@@ -83,8 +83,8 @@ describe('MilestoneEditor', () => {
     );
     await renderEditor();
 
-    await user.click((await screen.findAllByText('Edit milestone'))[0]!);
-    const editInput = screen.getAllByLabelText('Add milestone')[0]!;
+    await user.click((await screen.findAllByRole('button', { name: 'Edit milestone' }))[0]!);
+    const editInput = screen.getByLabelText(/^Name/);
     await user.clear(editInput);
     await user.type(editInput, 'First (renamed)');
     await user.click(screen.getByRole('button', { name: 'Save' }));
@@ -103,11 +103,11 @@ describe('MilestoneEditor', () => {
     );
     await renderEditor();
 
-    const removeButtons = await screen.findAllByText('Remove milestone');
+    const removeButtons = await screen.findAllByRole('button', { name: 'Remove milestone' });
     await user.click(removeButtons[1]!); // m-2 has achievement_count: 3
     const confirm = await screen.findByRole('alertdialog');
-    await screen.findByText(
-      'This milestone has 3 recorded achievements. Removing them will delete those records too.',
+    await within(confirm).findByText(
+      /This milestone has (3|৩) recorded achievements. Removing them will delete those records too./,
     );
     await user.click(within(confirm).getByRole('button', { name: 'Remove milestone' }));
 
@@ -135,9 +135,9 @@ describe('MilestoneEditor', () => {
     await renderEditor({ canManage: false });
     await screen.findByText('First');
 
-    expect(screen.queryByLabelText('Add milestone')).toBeNull();
-    expect(screen.queryByText('Edit milestone')).toBeNull();
-    expect(screen.queryByText('Remove milestone')).toBeNull();
+    expect(screen.queryByLabelText('New milestone name')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Edit milestone' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Remove milestone' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Move milestone up' })).toBeNull();
   });
 });
