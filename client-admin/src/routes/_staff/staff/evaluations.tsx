@@ -9,7 +9,7 @@ import { Permission } from '@biddaloy/shared';
 import { RoutePending, Tabs, TabsContent, TabsList, TabsTrigger } from '@biddaloy/ui/components';
 import { useHasPermission } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
-import { PageContainer, PageHeader, type PageAction } from '@biddaloy/ui/shells';
+import { PageContainer, PageHeader, useCloseFullPage, type PageAction } from '@biddaloy/ui/shells';
 import { createFileRoute } from '@tanstack/react-router';
 import { PlusIcon } from 'lucide-react';
 import * as React from 'react';
@@ -21,7 +21,7 @@ import { ReportIncidentDialog } from './-detail/report-incident-dialog';
 import { StartAcrDialog } from './-detail/start-acr-dialog';
 import { AcrRegister } from './-evaluations/acr-register';
 import { IncidentsList } from './-evaluations/incidents-list';
-import { SurveyFormDialog } from './-evaluations/survey-form-dialog';
+import { SurveyFormPage } from './-evaluations/survey-form-dialog';
 import { SurveysList } from './-evaluations/surveys-list';
 
 const TABS = ['acr', 'surveys', 'incidents'] as const;
@@ -59,28 +59,34 @@ function EvaluationsPage() {
   const canWrite = useHasPermission(Permission.ACR_WRITE);
   const [reportOpen, setReportOpen] = React.useState(false);
   const [startOpen, setStartOpen] = React.useState(false);
-  const [surveyOpen, setSurveyOpen] = React.useState(false);
 
   // Consume the palette's one-shot flags, same pattern as fees/fines.
+  // `publishSurvey` is not consumed: it stays in the URL while the full-page
+  // survey form is open (Back and refresh then work); a viewer without
+  // ACR_WRITE just has it stripped.
   React.useEffect(() => {
-    if (!search.reportIncident && !search.startAcr && !search.publishSurvey) return;
+    const strayPublish = search.publishSurvey !== undefined && !canWrite;
+    if (!search.reportIncident && !search.startAcr && !strayPublish) return;
     if (canWrite) {
       if (search.reportIncident) setReportOpen(true);
       if (search.startAcr) setStartOpen(true);
-      if (search.publishSurvey) setSurveyOpen(true);
     }
     void navigate({
       search: (prev) => ({
         ...prev,
         reportIncident: undefined,
         startAcr: undefined,
-        publishSurvey: undefined,
-        ...(search.publishSurvey && canWrite ? { tab: 'surveys' as const } : {}),
+        ...(strayPublish ? { publishSurvey: undefined } : {}),
       }),
       replace: true,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- consume once per flag
   }, [search.reportIncident, search.startAcr, search.publishSurvey]);
+
+  const closeSurvey = useCloseFullPage(
+    () =>
+      void navigate({ search: (prev) => ({ ...prev, publishSurvey: undefined }), replace: true }),
+  );
 
   // One filled primary that follows the tab.
   const primaryFor: Record<(typeof TABS)[number], PageAction> = {
@@ -96,7 +102,8 @@ function EvaluationsPage() {
       label: t('surveys.new'),
       icon: <PlusIcon />,
       priority: 'primary',
-      onClick: () => setSurveyOpen(true),
+      onClick: () =>
+        void navigate({ search: (prev) => ({ ...prev, tab: 'surveys', publishSurvey: 1 }) }),
     },
     incidents: {
       id: 'reportIncident',
@@ -141,10 +148,10 @@ function EvaluationsPage() {
           <>
             <ReportIncidentDialog open={reportOpen} onOpenChange={setReportOpen} />
             <StartAcrDialog open={startOpen} onOpenChange={setStartOpen} />
-            <SurveyFormDialog open={surveyOpen} onOpenChange={setSurveyOpen} />
           </>
         )}
       </Tabs>
+      {canWrite && search.publishSurvey !== undefined && <SurveyFormPage onDone={closeSurvey} />}
     </PageContainer>
   );
 }
