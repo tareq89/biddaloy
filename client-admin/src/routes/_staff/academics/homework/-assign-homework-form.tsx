@@ -149,6 +149,11 @@ export function AssignHomeworkForm({
     subjectId !== (initial?.subjectId ?? '') ||
     sectionId !== (initial?.sectionId ?? '') ||
     studentId !== '' ||
+    gradingMode !== HomeworkGradingMode.TICK ||
+    target !== 'section' ||
+    (assignedDate !== undefined && toLocalDateString(assignedDate) !== toLocalDateString(today)) ||
+    (dueDate !== undefined &&
+      toLocalDateString(dueDate) !== toLocalDateString(addDays(today, 7))) ||
     title.trim() !== '' ||
     description.trim() !== '';
   React.useEffect(() => {
@@ -181,6 +186,7 @@ export function AssignHomeworkForm({
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
+    if (isPending) return;
 
     const errors: typeof fieldErrors = {};
     if (mode === 'create') {
@@ -447,25 +453,18 @@ export function AssignHomeworkForm({
         </p>
       )}
 
-      {!hideFooter &&
-        (mode === 'assign' ? (
-          <div className="flex flex-col-reverse gap-2 md:flex-row md:justify-end">
-            <DialogClose asChild>
-              <Button type="button" variant="outline" disabled={isPending}>
-                {tCommon('actions.cancel')}
-              </Button>
-            </DialogClose>
-            <Button type="submit" loading={isPending}>
-              {t('form.assignSubmit')}
+      {mode === 'assign' && !hideFooter && (
+        <div className="flex flex-col-reverse gap-2 md:flex-row md:justify-end">
+          <DialogClose asChild>
+            <Button type="button" variant="outline" disabled={isPending}>
+              {tCommon('actions.cancel')}
             </Button>
-          </div>
-        ) : (
-          <div className="flex justify-end">
-            <Button type="submit" loading={isPending}>
-              {isPending ? t('form.submitting') : t('form.submit')}
-            </Button>
-          </div>
-        ))}
+          </DialogClose>
+          <Button type="submit" loading={isPending}>
+            {t('form.assignSubmit')}
+          </Button>
+        </div>
+      )}
     </form>
   );
 }
