@@ -85,24 +85,26 @@ describe('CommitDialog', () => {
 
   it('disables Commit while a row has a placement error', async () => {
     await renderWithProviders(<Harness hasPlacementErrors />);
-    const commitButton = await screen.findByRole('button', { name: 'Commit' });
+    const commitButton = await screen.findByRole('button', { name: 'Finalise' });
     expect(commitButton.hasAttribute('disabled')).toBe(true);
-    screen.getByText('Fix every placement error before committing.');
+    screen.getByText('Fix every placement error before finalising.');
   });
 
   it('disables Commit while an override has no note', async () => {
     await renderWithProviders(<Harness hasUnnotedOverrides />);
-    const commitButton = await screen.findByRole('button', { name: 'Commit' });
+    const commitButton = await screen.findByRole('button', { name: 'Finalise' });
     expect(commitButton.hasAttribute('disabled')).toBe(true);
-    screen.getByText('Every override needs a note before committing.');
+    screen.getByText('Every override needs a note before finalising.');
   });
 
   it('commits directly, no approval prompt, when there are no overrides', async () => {
-    server.use(http.post('/api/v1/promotions/run-1/commit', () => HttpResponse.json({ id: 'run-1' })));
+    server.use(
+      http.post('/api/v1/promotions/run-1/commit', () => HttpResponse.json({ id: 'run-1' })),
+    );
     const user = userEvent.setup();
     await renderWithProviders(<Harness />);
 
-    await user.click(await screen.findByRole('button', { name: 'Commit' }));
+    await user.click(await screen.findByRole('button', { name: 'Finalise' }));
 
     expect(screen.queryByLabelText('Email or phone')).toBeNull();
   });
@@ -131,7 +133,7 @@ describe('CommitDialog', () => {
     const user = userEvent.setup();
     await renderWithProviders(<Harness />);
 
-    await user.click(await screen.findByRole('button', { name: 'Commit' }));
+    await user.click(await screen.findByRole('button', { name: 'Finalise' }));
 
     await screen.findByLabelText('Email or phone');
     await user.type(screen.getByLabelText('Email or phone'), 'admin@example.com');

@@ -35,7 +35,7 @@
       "loading": "Loading open bills…",
       "error": "Couldn't load open bills.",
       "subtotal": "Subtotal",
-      "walletCredit": "Use wallet credit ({{amount}} available)",
+      "walletCredit": "Use credit balance ({{amount}} available)",
       "walletAvailable": "{{amount}} available",
       "amountDue": "Amount due"
     },
@@ -64,8 +64,8 @@
       "tenderedLabel": "Tendered",
       "changeLabel": "Change",
       "changeReturn": "Return change",
-      "changeToWallet": "Credit change to wallet",
-      "tenderTooLow": "Tendered amount plus wallet credit doesn't cover the amount due."
+      "changeToWallet": "Keep the change as credit",
+      "tenderTooLow": "Tendered amount plus credit balance doesn't cover the amount due."
     },
     "notifications": {
       "recorded": "{{amount}} recorded.",
@@ -106,7 +106,7 @@
     "reverseDialog": {
       "title": "Reverse this payment?",
       "description": "This reverses the full payment. Give a reason before confirming.",
-      "consequenceWallet": "Any wallet credit this payment created will be unwound.",
+      "consequenceWallet": "Any credit balance this payment created will be unwound.",
       "consequenceCreditNote": "A credit note is issued against the linked invoice.",
       "consequenceIrreversible": "This cannot be undone once confirmed.",
       "reasonLabel": "Reason",

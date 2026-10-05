@@ -209,7 +209,7 @@ describe('/marks/$examId/$sectionId/$subjectId', () => {
     await user.type(await screen.findByLabelText('Rafi Ahmed — Written'), '90');
     // Well inside the 600ms debounce — nothing has been saved yet.
     await user.click(screen.getByRole('button', { name: /Submit/ }));
-    await screen.findByRole('heading', { name: 'Submit this grid?' });
+    await screen.findByRole('heading', { name: 'Submit this marks list?' });
     expect(screen.queryByText(/blank cells will be submitted/)).toBeNull();
 
     await user.click(screen.getByRole('button', { name: 'Submit' }));
@@ -239,12 +239,12 @@ describe('/marks/$examId/$sectionId/$subjectId', () => {
 
     await user.type(await screen.findByLabelText('Rafi Ahmed — Written'), '90');
     await user.click(screen.getByRole('button', { name: /Submit/ }));
-    await screen.findByRole('heading', { name: 'Submit this grid?' });
+    await screen.findByRole('heading', { name: 'Submit this marks list?' });
     await user.click(screen.getByRole('button', { name: 'Submit' }));
 
     // The dialog closes so the header's "not saved" line is visible.
     await within(screen.getByTestId('save-state-line')).findByText(/not saved/);
-    expect(screen.queryByRole('heading', { name: 'Submit this grid?' })).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Submit this marks list?' })).toBeNull();
     expect(submitted).toBe(false);
   });
 
@@ -289,7 +289,7 @@ describe('/marks/$examId/$sectionId/$subjectId', () => {
     expect(screen.queryByRole('button', { name: /submit/i })).toBeNull();
     // The Ctrl+Enter shortcut is gated the same way as the button.
     await user.keyboard('{Control>}{Enter}{/Control}');
-    expect(screen.queryByRole('heading', { name: 'Submit this grid?' })).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Submit this marks list?' })).toBeNull();
   });
 
   it('a teacher can edit an unsubmitted grid and Ctrl+Enter opens submit', async () => {
@@ -306,7 +306,7 @@ describe('/marks/$examId/$sectionId/$subjectId', () => {
     const cell = await screen.findByLabelText<HTMLInputElement>('Rafi Ahmed — Written');
     expect(cell.disabled).toBe(false);
     await user.keyboard('{Control>}{Enter}{/Control}');
-    await screen.findByRole('heading', { name: 'Submit this grid?' });
+    await screen.findByRole('heading', { name: 'Submit this marks list?' });
   });
 
   it('an admin sees a Reopen action on a submitted grid', async () => {

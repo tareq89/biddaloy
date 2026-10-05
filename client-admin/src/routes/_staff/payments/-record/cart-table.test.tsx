@@ -102,7 +102,7 @@ describe('CartTable', () => {
       subtotalMinorUnits: 5000,
     });
 
-    await user.click(await screen.findByLabelText(/Use wallet credit/));
+    await user.click(await screen.findByLabelText(/Use credit balance/));
     expect(onWalletUseChange).toHaveBeenCalledWith(5000);
   });
 

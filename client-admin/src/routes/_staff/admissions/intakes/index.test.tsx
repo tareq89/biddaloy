@@ -72,10 +72,10 @@ describe('/admissions/intakes', () => {
       locale: 'en',
     });
 
-    await screen.findByRole('heading', { name: 'Admission intakes' });
+    await screen.findByRole('heading', { name: 'Admission rounds' });
 
     const user = userEvent.setup();
-    await user.click(await screen.findByRole('button', { name: 'Add intake' }));
+    await user.click(await screen.findByRole('button', { name: 'Add admission round' }));
 
     const dialog = within(await screen.findByRole('dialog'));
     await user.type(dialog.getByLabelText('Title'), 'Class 5 intake 2026');
@@ -147,10 +147,10 @@ describe('/admissions/intakes', () => {
       locale: 'en',
     });
 
-    await screen.findByRole('heading', { name: 'Admission intakes' });
+    await screen.findByRole('heading', { name: 'Admission rounds' });
 
     const user = userEvent.setup();
-    await user.click(await screen.findByRole('button', { name: 'Add intake' }));
+    await user.click(await screen.findByRole('button', { name: 'Add admission round' }));
 
     const dialog = within(await screen.findByRole('dialog'));
     await user.type(dialog.getByLabelText('Title'), 'Class 5 intake 2026');
@@ -179,7 +179,7 @@ describe('/admissions/intakes', () => {
       locale: 'en',
     });
 
-    expect(await screen.findByText('Failed to save admission intake')).toBeTruthy();
+    expect(await screen.findByText('Failed to save admission round')).toBeTruthy();
   });
 
   it('refuses the whole route for TEACHER, who lacks ADMISSION_REVIEW', async () => {
@@ -194,6 +194,6 @@ describe('/admissions/intakes', () => {
     });
 
     expect(await screen.findByText("You don't have access to this page.")).toBeTruthy();
-    expect(screen.queryByRole('heading', { name: 'Admission intakes' })).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Admission rounds' })).toBeNull();
   });
 });

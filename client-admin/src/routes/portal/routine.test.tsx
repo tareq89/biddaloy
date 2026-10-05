@@ -139,6 +139,6 @@ describe('/portal/routine', () => {
     await waitFor(() => expect(screen.getByText(/English/)).toBeTruthy());
 
     await userEvent.click(screen.getByRole('link', { name: /rafi/i }));
-    await waitFor(() => expect(screen.getByText('No classes.')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('No periods.')).toBeTruthy());
   });
 });

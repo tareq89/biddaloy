@@ -43,7 +43,7 @@ function render(overrides: Partial<BatchActionsGeneration> = {}) {
 }
 
 async function openMenu(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(await screen.findByRole('button', { name: 'Batch actions' }));
+  await user.click(await screen.findByRole('button', { name: 'Billing round actions' }));
 }
 
 describe('BatchActions', () => {
@@ -96,13 +96,13 @@ describe('BatchActions', () => {
     await localeReady;
 
     await openMenu(user);
-    await user.click(screen.getByRole('menuitem', { name: 'Delete batch' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Delete billing round' }));
     expect(
       screen.getByText(
-        '3 of 30 bills already have payments — admin approval will be required to delete this batch.',
+        '3 of 30 bills already have payments — admin approval will be required to delete this billing round.',
       ),
     ).toBeTruthy();
-    await user.click(screen.getByRole('button', { name: 'Delete batch' }));
+    await user.click(screen.getByRole('button', { name: 'Delete billing round' }));
 
     await screen.findByLabelText('Email or phone');
     await user.type(screen.getByLabelText('Email or phone'), 'admin@example.com');
@@ -120,7 +120,7 @@ describe('BatchActions', () => {
     await localeReady;
 
     await openMenu(user);
-    await user.click(screen.getByRole('menuitem', { name: 'Delete batch' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Delete billing round' }));
 
     expect(
       screen.queryByText(/bills already have payments — admin approval will be required/),
@@ -141,11 +141,13 @@ describe('BatchActions', () => {
     await localeReady;
 
     await openMenu(user);
-    await user.click(screen.getByRole('menuitem', { name: 'Delete batch' }));
-    await user.click(screen.getByRole('button', { name: 'Delete batch' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Delete billing round' }));
+    await user.click(screen.getByRole('button', { name: 'Delete billing round' }));
 
     const alert = await screen.findByRole('alert');
-    expect(alert.textContent).toBe('This batch could not be deleted — refresh and try again.');
+    expect(alert.textContent).toBe(
+      'This billing round could not be deleted — refresh and try again.',
+    );
   });
 
   it('shows generic error copy on a non-409 delete error', async () => {
@@ -162,11 +164,11 @@ describe('BatchActions', () => {
     await localeReady;
 
     await openMenu(user);
-    await user.click(screen.getByRole('menuitem', { name: 'Delete batch' }));
-    await user.click(screen.getByRole('button', { name: 'Delete batch' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Delete billing round' }));
+    await user.click(screen.getByRole('button', { name: 'Delete billing round' }));
 
     const alert = await screen.findByRole('alert');
-    expect(alert.textContent).toBe('Could not delete this batch. Try again.');
+    expect(alert.textContent).toBe('Could not delete this billing round. Try again.');
   });
 
   it('opens the edit-period dialog from the kebab menu', async () => {
@@ -250,7 +252,7 @@ describe('BatchActions', () => {
     await localeReady;
 
     await openMenu(user);
-    await user.click(screen.getByRole('menuitem', { name: 'Delete batch' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Delete billing round' }));
     await user.click(screen.getByRole('button', { name: 'Cancel' }));
 
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
