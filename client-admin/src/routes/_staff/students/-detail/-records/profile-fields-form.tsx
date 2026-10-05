@@ -1,7 +1,7 @@
 /** [39.3.3] Religion / birth reg no / parents / health notes. Photo, blood group, Bangla name are out (D6). */
 import { Permission } from '@biddaloy/shared';
 import { captureNotificationTenant, notifyOutcome } from '@biddaloy/ui/api';
-import { Button, Input, Textarea } from '@biddaloy/ui/components';
+import { Button, Card, Input, Textarea } from '@biddaloy/ui/components';
 import { useHasPermission, useUpdateStudentRecords, type Student } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import * as React from 'react';
@@ -91,57 +91,81 @@ export function ProfileFieldsForm({ student }: { student: Student }) {
     );
   }
 
-  const field = (id: string, key: Key, label: string) => (
-    <div className="flex flex-col gap-1.5">
-      <label htmlFor={id} className="text-sm font-medium">
-        {label}
-      </label>
-      <Input
-        id={id}
-        value={values[key]}
-        readOnly={!canWrite}
-        onChange={(e) => set(key, e.target.value)}
-      />
-    </div>
-  );
+  const field = (id: string, key: Key, label: string) =>
+    canWrite ? (
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor={id} className="font-medium">
+          {label}
+        </label>
+        <Input id={id} value={values[key]} onChange={(e) => set(key, e.target.value)} />
+      </div>
+    ) : (
+      <div className="flex flex-col gap-0.5">
+        <dt className="text-caption text-text-secondary">{label}</dt>
+        <dd>{values[key] === '' ? '—' : values[key]}</dd>
+      </div>
+    );
+
+  const grid = (children: React.ReactNode) =>
+    canWrite ? (
+      <div className="mt-4 grid gap-4 md:grid-cols-2">{children}</div>
+    ) : (
+      <dl className="mt-4 grid gap-4 md:grid-cols-2">{children}</dl>
+    );
 
   return (
-    <form className="flex flex-col gap-4" onSubmit={handleSubmit} aria-labelledby="profile-title">
-      <h3 id="profile-title" className="text-base font-semibold">
-        {t('profile.title')}
-      </h3>
-      <div className="grid gap-4 sm:grid-cols-2">
-        {field('sr-religion', 'religion', t('profile.religion'))}
-        {field('sr-birth-reg', 'birth_reg_no', t('profile.birthRegNo'))}
-        {field('sr-father', 'father_name', t('profile.fatherName'))}
-        {field('sr-mother', 'mother_name', t('profile.motherName'))}
-      </div>
-      {canSeeHealth && (
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="sr-health" className="text-sm font-medium">
-            {t('profile.healthNotes')}
-          </label>
-          <Textarea
-            id="sr-health"
-            rows={3}
-            value={values.health_notes}
-            readOnly={!canWrite}
-            onChange={(e) => set('health_notes', e.target.value)}
-          />
-        </div>
-      )}
-      {update.isError && (
-        <p role="alert" className="text-sm text-destructive">
-          {t('profile.saveError')}
-        </p>
-      )}
-      {canWrite && (
-        <div className="flex justify-end">
-          <Button type="submit" loading={update.isPending}>
-            {update.isPending ? t('profile.saving') : t('profile.save')}
-          </Button>
-        </div>
-      )}
-    </form>
+    <Card padded asChild>
+      <form onSubmit={handleSubmit} aria-labelledby="profile-title">
+        <h2 id="profile-title" className="text-h2">
+          {t('profile.title')}
+        </h2>
+        {grid(
+          <>
+            {field('sr-religion', 'religion', t('profile.religion'))}
+            {field('sr-birth-reg', 'birth_reg_no', t('profile.birthRegNo'))}
+            {field('sr-father', 'father_name', t('profile.fatherName'))}
+            {field('sr-mother', 'mother_name', t('profile.motherName'))}
+            {canSeeHealth &&
+              (canWrite ? (
+                <div className="flex flex-col gap-1.5 md:col-span-2">
+                  <label htmlFor="sr-health" className="font-medium">
+                    {t('profile.healthNotes')}
+                  </label>
+                  <Textarea
+                    id="sr-health"
+                    rows={3}
+                    value={values.health_notes}
+                    onChange={(e) => set('health_notes', e.target.value)}
+                  />
+                </div>
+              ) : (
+                <div className="flex flex-col gap-0.5 md:col-span-2">
+                  <dt className="text-caption text-text-secondary">{t('profile.healthNotes')}</dt>
+                  <dd className="whitespace-pre-wrap">
+                    {values.health_notes === '' ? '—' : values.health_notes}
+                  </dd>
+                </div>
+              ))}
+          </>,
+        )}
+        {update.isError && (
+          <p role="alert" className="mt-4 text-destructive">
+            {t('profile.saveError')}
+          </p>
+        )}
+        {canWrite && (
+          <div className="mt-4 flex justify-end border-t border-border-subtle pt-4">
+            <Button
+              type="submit"
+              variant="outline"
+              className="w-full md:w-auto"
+              loading={update.isPending}
+            >
+              {update.isPending ? t('profile.saving') : t('profile.save')}
+            </Button>
+          </div>
+        )}
+      </form>
+    </Card>
   );
 }
