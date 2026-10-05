@@ -2,10 +2,10 @@ import { FeeStatus, FeeType, PeriodType } from '@biddaloy/shared';
 import type { FeeDueEntry } from '@biddaloy/ui/hooks';
 import { REGION_BD_EN } from '@biddaloy/ui/i18n';
 import { cleanupTestState, renderWithProviders } from '@biddaloy/ui/test';
-import { screen } from '@testing-library/react';
+import { screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { DueThisMonthCard } from './-due-this-month-card';
+import { DueThisMonthCard, DueThisMonthSection } from './-due-this-month-card';
 
 /**
  * [38.4.5] `DueThisMonthCard` is a pure component — no query of its own —
@@ -119,5 +119,53 @@ describe('DueThisMonthCard', () => {
     });
 
     expect(await screen.findByText('Nothing due this month')).toBeTruthy();
+  });
+
+  describe('DueThisMonthSection', () => {
+    it('renders nothing for an empty list', async () => {
+      const { container } = renderWithProviders(
+        <DueThisMonthSection dues={[]} now={now} config={REGION_BD_EN} />,
+        { locale: 'en' },
+      );
+      // Let the lazily-loaded namespace settle, then assert emptiness.
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(container.querySelector('h4')).toBeNull();
+      expect(screen.queryByText('Due this month')).toBeNull();
+      expect(screen.queryByText('Nothing due this month')).toBeNull();
+    });
+
+    it('renders nothing when the only line is fully paid', async () => {
+      renderWithProviders(
+        <DueThisMonthSection dues={[due({ balance: 0 })]} now={now} config={REGION_BD_EN} />,
+        { locale: 'en' },
+      );
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(screen.queryByText('Due this month')).toBeNull();
+    });
+
+    it('adds carried-over to this month in the total', async () => {
+      renderWithProviders(
+        <DueThisMonthSection
+          dues={[
+            due({ student_fee_id: 'a', balance: 500 }),
+            due({
+              student_fee_id: 'b',
+              fee_name: 'February tuition',
+              balance: 300,
+              due_date: '2026-02-05T00:00:00.000Z',
+            }),
+          ]}
+          now={now}
+          config={REGION_BD_EN}
+        />,
+        { locale: 'en' },
+      );
+
+      const heading = await screen.findByRole('heading', { level: 4, name: 'Due this month' });
+      const section = heading.parentElement as HTMLElement;
+      expect(within(section).getByText('Carried over')).toBeTruthy();
+      const totalRow = within(section).getByText('Total to pay this month').parentElement;
+      expect(totalRow?.textContent).toContain('৳800.00');
+    });
   });
 });
