@@ -1,6 +1,7 @@
 import '@biddaloy/ui/test';
 
 import type { PrinterRow } from '@biddaloy/ui/hooks';
+import { REGION_BD_EN, RegionConfigProvider } from '@biddaloy/ui/i18n';
 import { cleanupTestState, renderWithProviders, server } from '@biddaloy/ui/test';
 import { screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
@@ -48,7 +49,12 @@ const listPrinters = (rows: PrinterRow[]) =>
   server.use(http.get('/api/v1/printers', () => HttpResponse.json(rows)));
 
 const render = (role = 'ADMIN') =>
-  renderWithProviders(<PrintersSection />, { locale: 'en', role, tenantId: 'school-1' });
+  renderWithProviders(
+    <RegionConfigProvider value={REGION_BD_EN}>
+      <PrintersSection />
+    </RegionConfigProvider>,
+    { locale: 'en', role, tenantId: 'school-1' },
+  );
 
 describe('PrintersSection', () => {
   afterEach(async () => {
@@ -64,7 +70,7 @@ describe('PrintersSection', () => {
     await waitFor(() => expect(screen.getByText('Add your first printer')).toBeTruthy());
     expect(screen.getByText("You'll choose it each time you print.")).toBeTruthy();
     // The plain-language explainer is always there (D21).
-    expect(screen.getByText(/can't tell which printer you pick/)).toBeTruthy();
+    expect(screen.getByText(/Pick the printer here when you print/)).toBeTruthy();
   });
 
   it('lists a printer with its offset and duplex choice', async () => {
@@ -72,7 +78,7 @@ describe('PrintersSection', () => {
     render();
 
     await waitFor(() => expect(screen.getByText('Front office')).toBeTruthy());
-    expect(screen.getByText(/Offset X 1.5 mm, Y -0.5 mm/)).toBeTruthy();
+    expect(screen.getByText('Left–right 1.5 · up–down -0.5')).toBeTruthy();
     expect(screen.getByText(/Automatic both sides/)).toBeTruthy();
   });
 
@@ -81,15 +87,15 @@ describe('PrintersSection', () => {
     const { user } = render();
     await waitFor(() => expect(screen.getByText('Add your first printer')).toBeTruthy());
 
-    await user.click(screen.getAllByRole('button', { name: 'Add printer' })[0]!);
+    await user.click(screen.getByRole('button', { name: 'Add printer' }));
     const top = () => screen.getByLabelText<HTMLInputElement>('Top');
     expect(top().value).toBe('0'); // a card printer prints edge to edge
-    expect(screen.queryByLabelText('Cutting gap (mm)')).toBeNull();
+    expect(screen.queryByLabelText('Cutting gap between cards (mm)')).toBeNull();
 
     await user.click(screen.getByRole('radio', { name: /Office printer/ }));
     expect(top().value).toBe('5'); // an office printer has a no-print band
     expect(screen.getByLabelText<HTMLInputElement>('Left').value).toBe('5');
-    expect(screen.getByLabelText('Cutting gap (mm)')).toBeTruthy(); // A4 sheets only
+    expect(screen.getByLabelText('Cutting gap between cards (mm)')).toBeTruthy(); // A4 sheets only
   });
 
   it('blocks an offset outside -10..10 mm and sends nothing', async () => {
@@ -104,17 +110,19 @@ describe('PrintersSection', () => {
     const { user } = render();
     await waitFor(() => expect(screen.getByText('Add your first printer')).toBeTruthy());
 
-    await user.click(screen.getAllByRole('button', { name: 'Add printer' })[0]!);
-    await user.type(screen.getByLabelText('Name'), 'Back office');
-    const x = screen.getByLabelText('Offset X (mm)');
+    await user.click(screen.getByRole('button', { name: 'Add printer' }));
+    await user.type(screen.getByLabelText(/^Name/), 'Back office');
+    const x = screen.getByLabelText('Shift left–right (mm)');
     await user.clear(x);
     await user.type(x, '11');
     await user.click(screen.getByRole('button', { name: 'Save' }));
 
     await waitFor(() =>
-      expect(screen.getByText('Offset must be between −10 and 10 mm.')).toBeTruthy(),
+      expect(screen.getByText('The shift must be between −10 and 10 mm.')).toBeTruthy(),
     );
     expect(posted).toBe(0);
+    // The error is inside "Measurements (advanced)": that opens by itself.
+    expect(screen.getByText('Measurements (advanced)').closest('details')!.open).toBe(true);
   });
 
   it('saves a valid printer', async () => {
@@ -129,8 +137,8 @@ describe('PrintersSection', () => {
     const { user } = render();
     await waitFor(() => expect(screen.getByText('Add your first printer')).toBeTruthy());
 
-    await user.click(screen.getAllByRole('button', { name: 'Add printer' })[0]!);
-    await user.type(screen.getByLabelText('Name'), 'Back office');
+    await user.click(screen.getByRole('button', { name: 'Add printer' }));
+    await user.type(screen.getByLabelText(/^Name/), 'Back office');
     await user.click(screen.getByRole('button', { name: 'Save' }));
 
     await waitFor(() => expect(body).toBeDefined());
@@ -148,14 +156,14 @@ describe('PrintersSection', () => {
     const { user } = render();
     await waitFor(() => expect(screen.getByText('Front office')).toBeTruthy());
 
-    await user.click(screen.getByRole('button', { name: 'Print calibration page' }));
+    await user.click(screen.getByRole('button', { name: 'Print measuring page' }));
 
     expect(openPrintWindow).toHaveBeenCalledOnce();
     const prepare = openPrintWindow.mock.calls[0]![0] as () => Promise<string>;
     const html = await prepare();
     expect(html).toContain('translate(1.5mm,-0.5mm)'); // the current correction, so a reprint shows if it worked
     // The 3-step guide appears after the tab opens.
-    expect(screen.getByText(/Measure how far the first cross/)).toBeTruthy();
+    expect(screen.getByText(/measure from the top-left corner/)).toBeTruthy();
   });
 
   it('archives a printer only after a confirmation dialog', async () => {
@@ -173,7 +181,7 @@ describe('PrintersSection', () => {
     await user.click(screen.getByRole('button', { name: 'Archive' }));
     expect(archived).toBe(0); // asking first, nothing sent yet
     // The dialog has its own Archive button; scope to it so we don't hit the list row's.
-    const dialog = await screen.findByRole('dialog');
+    const dialog = await screen.findByRole('alertdialog');
     await user.click(within(dialog).getByRole('button', { name: 'Archive' }));
 
     await waitFor(() => expect(archived).toBe(1));
@@ -190,12 +198,41 @@ describe('PrintersSection', () => {
     await waitFor(() => expect(screen.getByText('Front office')).toBeTruthy());
 
     await user.click(screen.getByRole('button', { name: 'Archive' }));
-    const dialog = await screen.findByRole('dialog');
+    const dialog = await screen.findByRole('alertdialog');
     await user.click(within(dialog).getByRole('button', { name: 'Archive' }));
 
     await waitFor(() =>
       expect(toastError).toHaveBeenCalledWith('Could not archive the printer. Try again.'),
     );
+  });
+
+  it('keeps the measurements closed on Add, and "Change the shift" opens them', async () => {
+    listPrinters([printer()]);
+    const { user } = render();
+    await waitFor(() => expect(screen.getByText('Front office')).toBeTruthy());
+
+    await user.click(screen.getByRole('button', { name: 'Add printer' }));
+    const details = () =>
+      screen.getByText('Measurements (advanced)').closest('details') as HTMLDetailsElement;
+    expect(details().open).toBe(false);
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    await user.click(screen.getByRole('button', { name: 'Print measuring page' }));
+    await user.click(screen.getByRole('button', { name: 'Change the shift' }));
+    expect(details().open).toBe(true);
+  });
+
+  it('has one filled Add button when printers exist, and none beside the empty state', async () => {
+    listPrinters([printer()]);
+    const { unmount } = render();
+    await waitFor(() => expect(screen.getByText('Front office')).toBeTruthy());
+    expect(screen.getAllByRole('button', { name: 'Add printer' })).toHaveLength(1);
+    unmount();
+
+    listPrinters([]);
+    render();
+    await waitFor(() => expect(screen.getByText('Add your first printer')).toBeTruthy());
+    expect(screen.getAllByRole('button', { name: 'Add printer' })).toHaveLength(1);
   });
 
   it('is hidden without PRINT_TEMPLATE_MANAGE', () => {

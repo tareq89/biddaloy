@@ -21,7 +21,7 @@ describe('SignInSection', () => {
     });
 
     const checkbox = await screen.findByLabelText<HTMLInputElement>(
-      'Allow sign-in with mobile number + code',
+      'Allow sign-in with a code sent to the phone',
     );
     expect(checkbox.getAttribute('aria-checked') ?? checkbox.checked).toBeTruthy();
   });
@@ -34,7 +34,7 @@ describe('SignInSection', () => {
     });
 
     const checkbox = await screen.findByLabelText<HTMLInputElement>(
-      'Allow sign-in with mobile number + code',
+      'Allow sign-in with a code sent to the phone',
     );
     expect(checkbox.getAttribute('aria-checked') ?? checkbox.checked).toBeTruthy();
   });
@@ -45,12 +45,24 @@ describe('SignInSection', () => {
       { locale: 'en', role: 'ADMIN', tenantId: SCHOOL_ID },
     );
 
-    const checkbox = await screen.findByLabelText('Allow sign-in with mobile number + code');
+    const checkbox = await screen.findByLabelText('Allow sign-in with a code sent to the phone');
     await user.click(checkbox);
     await user.click(screen.getByRole('button', { name: 'Save' }));
 
     await waitFor(() => {
       expect(screen.getByText('Saved')).toBeTruthy();
     });
+  });
+
+  it('links the help text to the checkbox', async () => {
+    renderWithProviders(<SignInSection schoolId={SCHOOL_ID} auth={{ otpLoginEnabled: true }} />, {
+      locale: 'en',
+      role: 'ADMIN',
+      tenantId: SCHOOL_ID,
+    });
+
+    const checkbox = await screen.findByLabelText('Allow sign-in with a code sent to the phone');
+    const help = document.getElementById(checkbox.getAttribute('aria-describedby')!);
+    expect(help?.textContent).toMatch(/sign in without a password/);
   });
 });
