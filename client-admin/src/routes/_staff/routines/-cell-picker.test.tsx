@@ -98,4 +98,56 @@ describe('CellPicker', () => {
     // Still inside the dialog, not the page behind it.
     expect(screen.getByRole('dialog').contains(alert)).toBe(true);
   });
+
+  it('shows the Bangla subject name on a Bangla screen when it is set', async () => {
+    server.use(
+      http.get('/api/v1/subjects', () =>
+        HttpResponse.json({
+          data: [{ id: 'subject-math', name_en: 'Math', name_bn: 'গণিত', code: 'MATH' }],
+          total: 1,
+          page: 1,
+          limit: 100,
+          totalPages: 1,
+        }),
+      ),
+      http.get('/api/v1/teachers', () =>
+        HttpResponse.json({ data: [], total: 0, page: 1, limit: 100, totalPages: 1 }),
+      ),
+    );
+    renderWithProviders(<CellPicker open onOpenChange={vi.fn()} onSave={vi.fn()} />, {
+      tenantId: 'tenant-1',
+      locale: 'bn',
+    });
+
+    await waitFor(() => expect(screen.getByText('গণিত')).toBeTruthy());
+    expect(screen.queryByText('Math')).toBeNull();
+  });
+
+  it('names the cell, uses an outline Cancel, and shows a labelled Select for a biweekly offset', async () => {
+    mockLookups();
+    const user = userEvent.setup();
+    renderWithProviders(
+      <CellPicker
+        open
+        onOpenChange={vi.fn()}
+        onSave={vi.fn()}
+        dayLabel="Mon"
+        periodLabel="Period 3"
+        timeLabel="9:20 AM"
+      />,
+      { tenantId: 'tenant-1', locale: 'en' },
+    );
+
+    await waitFor(() => expect(screen.getByText('Math')).toBeTruthy());
+    expect(screen.getByText('Mon · Period 3 · 9:20 AM')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Cancel' }).getAttribute('data-variant')).toBe(
+      'outline',
+    );
+    expect(screen.queryByRole('combobox')).toBeNull();
+
+    await user.click(screen.getByRole('radio', { name: 'Biweekly' }));
+    expect(screen.getByRole('combobox', { name: 'Which week' })).toBeTruthy();
+    expect(document.querySelector('select')).toBeNull();
+    expect(document.querySelector('input[type="radio"]')).toBeNull();
+  });
 });

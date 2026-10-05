@@ -120,12 +120,13 @@
     "recurrenceWeekly": "সাপ্তাহিক",
     "recurrenceBiweekly": "দ্বি-সাপ্তাহিক",
     "recurrenceMonthly": "মাসিক",
-    "recurrenceOffsetLabel": "কোন সংস্করণ",
-    "recurrenceWeekA": "সপ্তাহ A",
-    "recurrenceWeekB": "সপ্তাহ B",
+    "recurrenceOffsetLabel": "কোন সপ্তাহে",
+    "recurrenceWeekA": "প্রথম সপ্তাহ",
+    "recurrenceWeekB": "দ্বিতীয় সপ্তাহ",
     "recurrenceOccurrence": "সংস্করণ {{n}}",
     "cancel": "বাতিল",
-    "save": "সংরক্ষণ করুন"
+    "save": "সংরক্ষণ করুন",
+    "cellLabel": "{{day}} · {{period}} · {{time}}"
   },
   "conflictList": {
     "violationsTitle": "এটি সংরক্ষণ করা যাবে না",
@@ -157,8 +158,10 @@
     "description": "শুধু প্রিভিউ — নিশ্চিত না করা পর্যন্ত কিছু সংরক্ষণ হবে না। ইতিমধ্যে পূর্ণ থাকা ঘরগুলো কখনও পরিবর্তন হবে না।",
     "empty": "পূরণ করার কিছু নেই।",
     "cancel": "বাতিল",
-    "confirm": "{{count}} পিরিয়ড পূরণ করুন",
-    "confirm_other": "{{count}} পিরিয়ড পূরণ করুন"
+    "confirm": "{{formattedCount}} পিরিয়ড পূরণ করুন",
+    "confirm_other": "{{formattedCount}} পিরিয়ড পূরণ করুন",
+    "rowWhen": "{{day}} · {{period}}",
+    "rowWhat": "{{subject}} · {{teachers}}"
   },
   "review": {
     "title": "রুটিন পর্যালোচনা",
