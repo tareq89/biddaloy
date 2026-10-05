@@ -133,4 +133,32 @@ describe('CalendarFeedCard', () => {
 
     await screen.findByLabelText('Your personal subscribe link');
   });
+
+  it('does not re-show an earlier regenerate failure after cancelling a later confirm', async () => {
+    server.use(
+      http.get('/api/v1/calendar/feed', () => HttpResponse.json({ url: FEED_URL })),
+      http.post('/api/v1/calendar/feed/regenerate', () =>
+        HttpResponse.json({ message: 'x' }, { status: 500 }),
+      ),
+    );
+    const { user } = renderWithProviders(<CalendarFeedCard />, {
+      locale: 'en',
+      role: 'TEACHER',
+      tenantId: 'tenant-1',
+    });
+
+    await screen.findByLabelText('Your personal subscribe link');
+    await user.click(screen.getByRole('button', { name: 'Regenerate link' }));
+    await user.click(
+      within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Regenerate' }),
+    );
+    await screen.findByRole('alert');
+
+    await user.click(screen.getByRole('button', { name: 'Regenerate link' }));
+    await user.click(
+      within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Cancel' }),
+    );
+
+    await waitFor(() => expect(screen.queryByRole('alert')).toBeNull());
+  });
 });

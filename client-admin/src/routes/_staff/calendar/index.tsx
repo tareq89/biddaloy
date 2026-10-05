@@ -111,7 +111,9 @@ function CalendarPage() {
   const month = search.month ?? currentMonth();
   // Local calendar day (B20): `toISOString()` would read the UTC day.
   const today = toIsoDate(new Date());
-  const [selectedDate, setSelectedDate] = React.useState(today);
+  const [selectedDate, setSelectedDate] = React.useState(() =>
+    month === currentMonth() ? today : `${month}-01`,
+  );
   const types = React.useMemo(
     () => (search.types ? (search.types.split(',') as CalendarEventType[]) : []),
     [search.types],
@@ -147,6 +149,17 @@ function CalendarPage() {
   const editingId = search.panel === 'edit-event' ? search.event_id : undefined;
   const detailsEvent = useCalendarEvent(detailsId);
   const editingEvent = useCalendarEvent(editingId);
+
+  // A deep link to edit with no id, or to a locked (past) event, falls back to the calendar.
+  const badEdit =
+    search.panel === 'edit-event' && (!search.event_id || editingEvent.data?.is_locked === true);
+  React.useEffect(() => {
+    if (badEdit)
+      void navigate({
+        search: (prev) => ({ ...prev, panel: undefined, event_id: undefined }),
+        replace: true,
+      });
+  }, [badEdit, navigate]);
 
   const createEvent = useCreateCalendarEvent();
   const updateEvent = useUpdateCalendarEvent(editingId ?? '');
@@ -343,7 +356,7 @@ function CalendarPage() {
         </FullPageShell>
       )}
 
-      {canManage && editingId && editingEvent.data && (
+      {canManage && editingId && editingEvent.data && !badEdit && (
         <EventFormPage
           mode="edit"
           initialValues={editingEvent.data}
