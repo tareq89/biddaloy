@@ -11,7 +11,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { plainToInstance } from 'class-transformer';
 import { isEmail, validate } from 'class-validator';
-import { AuditAction, TeacherDesignation, UserRole } from '@biddaloy/shared';
+import { AuditAction, isStaffRole, TeacherDesignation, UserRole } from '@biddaloy/shared';
 import { User } from './entities/user.entity';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
 import { AuditService } from '../audit/audit.service';
@@ -177,7 +177,7 @@ export class StaffBulkUploadService {
         } else if (role && roles.active.has(role)) {
           action = 'skip';
           notes.push('Already a member — skipped');
-        } else if (role && roles.former.has(role)) {
+        } else if (role && roles.former.has(role) && ![...roles.active].some(isStaffRole)) {
           action = 'restore';
           userId = user.id;
           notes.push(`Former ${role} — this role will be restored`);

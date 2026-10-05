@@ -144,7 +144,10 @@ export class RegistrationService {
       );
     }
     const result = await this.sendCode(dto.registration_id, staged);
-    await this.staging.save(dto.registration_id, { ...staged, resends: (staged.resends ?? 0) + 1 });
+    const resends = (staged.resends ?? 0) + 1;
+    if (!(await this.staging.save(dto.registration_id, { ...staged, resends }))) {
+      throw new GoneException('This registration has expired — start again');
+    }
     return result;
   }
 
@@ -289,9 +292,6 @@ export class RegistrationService {
       }
     }
 
-    // A missing/expired ticket just means no Google link: the code already proved the registrant.
-    const ticket = socialTicketId ? await this.socialTickets.consume(socialTicketId) : null;
-
     const adminContacts = owner
       ? { [verifiedField]: staged[verifiedField] }
       : { email: staged.email, phone: staged.phone };
@@ -316,6 +316,10 @@ export class RegistrationService {
             if (owner ? result.admin.user_id !== owner.id : result.admin.existed) {
               throw contactInUse();
             }
+            // Spent only once the registration is past its refusals, so a CONTACT_IN_USE or a
+            // slug clash leaves the Google link usable. A missing/expired ticket just means no
+            // link: the code already proved the registrant.
+            const ticket = socialTicketId ? await this.socialTickets.consume(socialTicketId) : null;
             await this.trial.startTrial(result.school.id, manager);
             const userId = result.admin.user_id;
             // Compare-and-set on the contact the code went to, same as OTP login: the stamp

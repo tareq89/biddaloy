@@ -138,6 +138,24 @@ describe('onboarding E2E', () => {
     expect(status.counts.classes).toBe(1);
   });
 
+  it('`staff` counts employees once each: a COMMITTEE member and a second role add nothing', async () => {
+    const [committee, twoRoles] = await dataSource.query(
+      `INSERT INTO users (email, full_name, status, created_at, updated_at)
+       VALUES ('c@onboarding-e2e.example', 'Committee', 'ACTIVE', NOW(), NOW()),
+              ('two@onboarding-e2e.example', 'Two Roles', 'ACTIVE', NOW(), NOW()) RETURNING id`,
+    );
+    await dataSource.query(
+      `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
+       VALUES ($1, $3, 'COMMITTEE', NOW(), NOW()),
+              ($2, $3, 'TEACHER', NOW(), NOW()), ($2, $3, 'OFFICE_STAFF', NOW(), NOW())`,
+      [committee.id, twoRoles.id, TENANT_ID],
+    );
+
+    const status = (await get(tokens.admin1).expect(200)).body as OnboardingStatus;
+    // Admin + teacher + the two-role member once; committee is not staff (D16).
+    expect(status.counts.staff).toBe(3);
+  });
+
   it('PATCH writes flags; `seen` is per user; only schools.onboarding changes', async () => {
     const before = await dataSource.query(
       `SELECT name, settings, seat_limit FROM schools WHERE id = $1`,

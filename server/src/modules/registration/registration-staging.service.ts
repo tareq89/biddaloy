@@ -41,9 +41,13 @@ export class RegistrationStagingService {
     return id;
   }
 
-  /** Rewrites a stage without touching its remaining lifetime. */
-  async save(id: string, payload: StagedRegistration): Promise<void> {
-    await this.redis.set(this.key(id), JSON.stringify(payload), 'KEEPTTL');
+  /**
+   * Rewrites a stage without touching its remaining lifetime. `XX`: a stage consumed meanwhile
+   * (verify won the race) is never recreated — without it the key would come back with no TTL.
+   * Returns false when there was nothing to rewrite.
+   */
+  async save(id: string, payload: StagedRegistration): Promise<boolean> {
+    return (await this.redis.set(this.key(id), JSON.stringify(payload), 'KEEPTTL', 'XX')) === 'OK';
   }
 
   async peek(id: string): Promise<StagedRegistration | null> {

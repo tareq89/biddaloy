@@ -303,6 +303,24 @@ describe('Staff bulk import E2E', () => {
       expect(n).toBe(0);
     });
 
+    it('active ACCOUNTANT + former TEACHER, file says Teacher: row error, no second staff role', async () => {
+      const id = await member('acctteacher1332@x.com', [
+        ['ACCOUNTANT', false],
+        ['TEACHER', true],
+      ]);
+      const v = await validate(
+        await sheet([['Acct', '', 'acctteacher1332@x.com', 'Teacher', '']]),
+      ).expect(201);
+      expect(v.body.summary.restore).toBe(0);
+      expect(v.body.hard_error_count).toBe(1);
+      expect(v.body.errors[0].message).toMatch(/does not change roles/);
+      const active = await ds.query(
+        `SELECT role FROM user_tenants WHERE user_id = $1 AND deleted_at IS NULL`,
+        [id],
+      );
+      expect(active).toEqual([{ role: 'ACCOUNTANT' }]);
+    });
+
     it('active PARENT only, file says Teacher: row error (no silent skip)', async () => {
       await member('parentonly1332@x.com', [['PARENT', false]]);
       const v = await validate(

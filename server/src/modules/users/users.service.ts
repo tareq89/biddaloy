@@ -553,11 +553,8 @@ export class UserService {
       const repo = manager.getRepository(UserTenant);
       if (
         await repo.count({
-          where: {
-            user_id: id,
-            tenant_id: tenantId,
-            role: role ?? Not(In([...GUARDIAN_ROLES])),
-          },
+          // With or without `role`: no restore for someone who still holds a staff role here.
+          where: { user_id: id, tenant_id: tenantId, role: Not(In([...GUARDIAN_ROLES])) },
         })
       ) {
         throw new ConflictException({
@@ -565,9 +562,11 @@ export class UserService {
           details: { code: 'ALREADY_MEMBER' },
         });
       }
+      // An update rather than `.restore()`, so a row a workbook swap tagged loses the tag.
       const qb = repo
         .createQueryBuilder()
-        .restore()
+        .update()
+        .set({ deleted_at: null, metadata: () => `metadata - 'ended_by'` })
         .where('user_id = :id AND tenant_id = :tenantId', { id, tenantId });
       const result = await (
         role

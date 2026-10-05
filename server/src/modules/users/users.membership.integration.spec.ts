@@ -421,6 +421,23 @@ describe('UserService membership leave / remove / restore (integration)', () => 
     expect(former.data[0].user_tenants.map((ut) => ut.role)).toEqual([UserRole.TEACHER]);
   });
 
+  it('[1658 m6] restore of one role refuses a user who already holds another staff role (409)', async () => {
+    const tenant = await newSchool();
+    await addMember(tenant, UserRole.ADMIN);
+    const id = await addMember(tenant, UserRole.ACCOUNTANT);
+    await userTenantRepo.save(
+      userTenantRepo.create({ user_id: id, tenant_id: tenant, role: UserRole.TEACHER }),
+    );
+    await dataSource.query(
+      `UPDATE user_tenants SET deleted_at = NOW() WHERE user_id = $1 AND tenant_id = $2 AND role = 'TEACHER'`,
+      [id, tenant],
+    );
+
+    const err = await service.restore(id, tenant, ADMIN_ACTOR, UserRole.TEACHER).catch((e) => e);
+    expect(err).toBeInstanceOf(ConflictException);
+    expect(err.getResponse().details.code).toBe('ALREADY_MEMBER');
+  });
+
   it('[r2-n1] a concurrent double remove ends the membership once: one 404, one audit row', async () => {
     const tenant = await newSchool();
     await addMember(tenant, UserRole.ADMIN);

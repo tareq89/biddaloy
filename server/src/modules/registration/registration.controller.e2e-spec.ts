@@ -182,6 +182,20 @@ describe('RegistrationController (e2e)', () => {
       await verify({ registration_id: b.body.registration_id, otp: b.body.debug.otp }).expect(200);
     });
 
+    it('strips markup from the free-text fields before staging them', async () => {
+      const s = await start(
+        details({
+          admin_name: '<b>Rahim</b> Uddin',
+          school_name: `<i>Tagged</i> School ${randomUUID().slice(0, 8)}`,
+          address: '<img src=x onerror=alert(1)>1 Road',
+        }),
+      ).expect(202);
+      const staged = (await app.get(RegistrationStagingService).peek(s.body.registration_id))!;
+      expect(staged.admin_name).toBe('Rahim Uddin');
+      expect(staged.school_name).not.toMatch(/[<>]/);
+      expect(staged.address).toBe('1 Road');
+    });
+
     it('attaches the school to an existing user instead of creating a second user row', async () => {
       const d = details();
       const [{ id: userId }] = await ds.query(
@@ -276,6 +290,34 @@ describe('RegistrationController (e2e)', () => {
       }
       expect(await ds.query(`SELECT 1 FROM schools WHERE name = $1`, [d.school_name])).toEqual([]);
     });
+
+    it('keeps the Google ticket when the registration is refused inside the transaction', async () => {
+      const victimEmail = `race-ticket-${Date.now()}@example.com`;
+      await ds.query(
+        `INSERT INTO users (email, full_name, status) VALUES ($1, 'Victim', 'ACTIVE')`,
+        [victimEmail],
+      );
+      const tickets = app.get(SocialTicketService);
+      const ticketId = await tickets.issue({
+        provider: 'google',
+        subject: `sub-${randomUUID()}`,
+        email: 'g@example.com',
+        name: 'G',
+      });
+      const s = await start(details({ email: victimEmail })).expect(202);
+      const repo = app.get(RegistrationService)['users'];
+      const spy = vi.spyOn(repo, 'findOne').mockResolvedValue(null);
+      try {
+        await verify(
+          { registration_id: s.body.registration_id, otp: s.body.debug.otp },
+          `social_ticket=${ticketId}`,
+        ).expect(409);
+      } finally {
+        spy.mockRestore();
+      }
+      // Nothing was provisioned, so the Google link is still there to use.
+      expect(await tickets.consume(ticketId)).not.toBeNull();
+    });
   });
 
   describe('captcha', () => {
@@ -310,6 +352,28 @@ describe('RegistrationController (e2e)', () => {
   });
 
   describe('resend cap', () => {
+    it('a resend racing a completed verify does not bring the stage back', async () => {
+      const s = await start(details()).expect(202);
+      const id = s.body.registration_id as string;
+      const staging = app.get(RegistrationStagingService);
+      const payload = (await staging.peek(id))!;
+      await staging.consume(id); // verify won the race after resend's peek
+      const spy = vi.spyOn(staging, 'peek').mockResolvedValueOnce(payload);
+      await app
+        .get(OTP_REDIS, { strict: false })
+        .del(`otp-cooldown:REGISTER:${payload.identifier}`);
+      try {
+        await supertest(app.getHttpServer())
+          .post(`${BASE}/resend`)
+          .send({ registration_id: id })
+          .expect(410);
+      } finally {
+        spy.mockRestore();
+      }
+      // Without XX the save would recreate the key with no expiry.
+      expect(await staging.peek(id)).toBeNull();
+    });
+
     it('stops sending codes after three resends of one registration', async () => {
       const s = await start(details()).expect(202);
       const staging = app.get(RegistrationStagingService);

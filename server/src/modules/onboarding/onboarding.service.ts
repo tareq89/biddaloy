@@ -1,9 +1,10 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource, In, Not } from 'typeorm';
+import { DataSource } from 'typeorm';
 import {
   AuditAction,
+  EMPLOYEE_ROLES,
   UserRole,
   type OnboardingItemId,
   type OnboardingStatus,
@@ -19,9 +20,6 @@ import { getSeatUsage } from '../schools/trial/seat-limit.service';
 import { DAY_MS } from '../schools/trial/trial.constants';
 import { AuditService } from '../audit/audit.service';
 import { UpdateOnboardingDto } from './dto/onboarding.dto';
-
-/** Members who are not staff: guardians and students log in but don't run the school. */
-const NON_STAFF_ROLES = [UserRole.PARENT, UserRole.STUDENT];
 
 /**
  * [13.3.3] "How far is this school's setup?" Every checklist item is derived from real rows on
@@ -47,7 +45,16 @@ export class OnboardingService {
       m.count(ClassSection, { where: { tenant_id: tenantId } }),
       m.count(Student, { where: { tenant_id: tenantId } }),
       m.count(FeeStructure, { where: { tenant_id: tenantId } }),
-      m.count(UserTenant, { where: { tenant_id: tenantId, role: Not(In(NON_STAFF_ROLES)) } }),
+      // Employees, each person once: COMMITTEE is not staff (D16), and ADMIN + TEACHER is one person.
+      m
+        .createQueryBuilder(UserTenant, 'ut')
+        .select('COUNT(DISTINCT ut.user_id)', 'n')
+        .where('ut.tenant_id = :tenantId AND ut.role IN (:...roles)', {
+          tenantId,
+          roles: EMPLOYEE_ROLES,
+        })
+        .getRawOne<{ n: string }>()
+        .then((r) => Number(r?.n ?? 0)),
       m.count(UserTenant, { where: { tenant_id: tenantId, role: UserRole.PARENT } }),
     ]);
 
