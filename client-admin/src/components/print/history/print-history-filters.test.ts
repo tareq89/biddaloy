@@ -55,7 +55,7 @@ describe('filterValues', () => {
 
 describe('toHistoryFilters', () => {
   it('defaults paging and sends nothing else for an empty search', () => {
-    expect(toHistoryFilters({})).toEqual({ page: 1, limit: 10 });
+    expect(toHistoryFilters({})).toEqual({ page: 1, limit: 25 });
   });
 
   it('passes every filter through, turning revoked into a boolean', () => {
