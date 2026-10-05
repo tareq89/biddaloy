@@ -5,17 +5,25 @@
  * Gated on `ACR_READ` (`route-permissions.ts`); publish/close need `ACR_WRITE`.
  */
 import { Permission } from '@biddaloy/shared';
-import { ErrorState, RoutePending, Skeleton, toast } from '@biddaloy/ui/components';
+import {
+  ConfirmDialog,
+  ErrorState,
+  RoutePending,
+  Skeleton,
+  StatusBadge,
+  toast,
+} from '@biddaloy/ui/components';
 import { useCloseSurvey, useHasPermission, usePublishSurvey, useSurvey } from '@biddaloy/ui/hooks';
 import { useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { DetailShell } from '@biddaloy/ui/shells';
-import { formatDate } from '@biddaloy/ui/utils';
+import { formatDate, formatNumber } from '@biddaloy/ui/utils';
 import { createFileRoute } from '@tanstack/react-router';
 import * as React from 'react';
 
 import { loadRouteNamespaces } from '../../../route-loaders';
 
 import { SurveyResults } from './-evaluations/survey-results';
+import { SURVEY_STATUS_TONE } from './-evaluations/surveys-list';
 
 export const Route = createFileRoute('/_staff/staff/evaluations_/surveys/$surveyId')({
   loader: () => loadRouteNamespaces('evaluations', 'staff', 'common'),
@@ -32,6 +40,7 @@ function SurveyPage() {
   const publish = usePublishSurvey();
   const close = useCloseSurvey();
   const survey = query.data;
+  const [closeOpen, setCloseOpen] = React.useState(false);
 
   const title = survey ? t('surveys.detail.documentTitle', { title: survey.title }) : '';
   React.useEffect(() => {
@@ -54,21 +63,35 @@ function SurveyPage() {
     iso ? formatDate(new Date(iso), regionConfig) : t('surveys.detail.noDate');
 
   return (
-    <div className="flex flex-col gap-3">
+    <>
       <DetailShell
         name={survey.title}
         statusBadge={
-          <span className="rounded-full border px-2 py-0.5 text-xs">
-            {t(`surveys.status.${survey.status}`)}
-          </span>
+          <StatusBadge
+            tone={SURVEY_STATUS_TONE[survey.status] ?? 'neutral'}
+            label={t(`surveys.status.${survey.status}`)}
+          />
         }
-        identifiers={
-          <p className="text-sm text-muted-foreground">
-            {t(survey.anonymous ? 'surveys.detail.anonymousOn' : 'surveys.detail.anonymousOff')} ·{' '}
-            {t('surveys.detail.opensAt')} {date(survey.opens_at)} · {t('surveys.detail.closesAt')}{' '}
-            {date(survey.closes_at)}
-          </p>
-        }
+        facts={[
+          {
+            label: t('surveys.columnRespondents'),
+            value: t(`surveys.respondents.${survey.respondent}`),
+          },
+          {
+            label: t('surveys.detail.identityLabel'),
+            value: t(
+              survey.anonymous ? 'surveys.detail.identityHidden' : 'surveys.detail.identityShown',
+            ),
+          },
+          { label: t('surveys.detail.opensAt'), value: date(survey.opens_at) },
+          { label: t('surveys.detail.closesAt'), value: date(survey.closes_at) },
+          {
+            label: t('surveys.detail.minResponsesLabel'),
+            value: t('surveys.detail.minResponsesValue', {
+              count: formatNumber(survey.min_responses, regionConfig),
+            }),
+          },
+        ]}
         actions={[
           {
             id: 'publish',
@@ -78,37 +101,39 @@ function SurveyPage() {
             onClick: () =>
               publish.mutate(survey.id, {
                 onSuccess: () => toast.success(t('surveys.form.published')),
+                onError: () => toast.error(t('surveys.detail.publishError')),
               }),
           },
           {
             id: 'close',
             label: close.isPending ? t('surveys.detail.closing') : t('surveys.detail.close'),
-            priority: 'secondary',
+            priority: 'primary',
             allowed: canWrite && survey.status === 'OPEN' && !close.isPending,
-            onClick: () => close.mutate(survey.id),
+            onClick: () => setCloseOpen(true),
           },
         ]}
-        tabs={[
-          {
-            id: 'results',
-            label: t('surveys.detail.resultsTitle'),
-            content: <SurveyResults surveyId={survey.id} status={survey.status} />,
-          },
-        ]}
-        activeTab="results"
-        onTabChange={() => undefined}
+      >
+        <SurveyResults surveyId={survey.id} status={survey.status} />
+      </DetailShell>
+      <ConfirmDialog
+        open={closeOpen}
+        onOpenChange={setCloseOpen}
+        tone="default"
+        title={t('surveys.detail.closeConfirm.title')}
+        description={t('surveys.detail.closeConfirm.description', { title: survey.title })}
+        confirmLabel={t('surveys.detail.close')}
+        busy={close.isPending}
+        onConfirm={() =>
+          close.mutate(survey.id, {
+            onSuccess: () => setCloseOpen(false),
+            onError: () => {
+              setCloseOpen(false);
+              toast.error(t('surveys.detail.closeError'));
+            },
+          })
+        }
       />
-      {publish.isError && (
-        <p role="alert" className="text-sm text-destructive">
-          {t('surveys.detail.publishError')}
-        </p>
-      )}
-      {close.isError && (
-        <p role="alert" className="text-sm text-destructive">
-          {t('surveys.detail.closeError')}
-        </p>
-      )}
-    </div>
+    </>
   );
 }
 

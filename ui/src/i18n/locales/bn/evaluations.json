@@ -75,19 +75,21 @@
     },
     "register": {
       "title": "এসিআর তালিকা",
-      "yearFilter": "বছর",
-      "allYears": "সব বছর",
+      "yearFilter": "শিক্ষাবর্ষ",
+      "allYears": "সব শিক্ষাবর্ষ",
       "statusFilter": "অবস্থা",
-      "allStatuses": "সব",
+      "allStatuses": "সব অবস্থা",
       "columnStaff": "কর্মী",
-      "columnYear": "বছর",
+      "columnYear": "শিক্ষাবর্ষ",
       "columnStatus": "অবস্থা",
-      "columnTotal": "মোট",
+      "columnTotal": "মোট নম্বর",
       "columnCompletedAt": "সম্পন্নের তারিখ",
       "open": "খুলুন",
       "loading": "এসিআর লোড হচ্ছে…",
       "empty": "এই ফিল্টারে এখনো কোনো এসিআর নেই।",
-      "errorMessage": "এসিআর তালিকা লোড করা যায়নি।"
+      "errorMessage": "এসিআর তালিকা লোড করা যায়নি।",
+      "cardSubtitle": "শিক্ষাবর্ষ {{year}}",
+      "emptyTitle": "কোনো এসিআর নেই"
     },
     "status": {
       "INCOMPLETE": "চলমান",
@@ -180,7 +182,8 @@
       "MEDIUM": "মাঝারি",
       "HIGH": "বেশি"
     },
-    "staffSearch": "নাম দিয়ে কর্মী খুঁজুন"
+    "staffSearch": "নাম দিয়ে কর্মী খুঁজুন",
+    "emptyTitle": "কোনো ঘটনা নেই"
   },
   "surveys": {
     "placeholderTitle": "জরিপ",
@@ -256,18 +259,30 @@
       "opensAt": "শুরু",
       "closesAt": "শেষ",
       "noDate": "নির্ধারিত নেই",
-      "anonymousOn": "পরিচয় গোপন — ব্যবস্থাপনা দেখতে পাবে না",
-      "anonymousOff": "ব্যবস্থাপনা নাম দেখতে পাবে",
       "resultsTitle": "ফলাফল",
       "resultsLoadError": "ফলাফল লোড করা যায়নি।",
       "sealedOpen": "জরিপ বন্ধ হলে ফলাফল দেখা যাবে।",
-      "waiting": "আরও উত্তরের অপেক্ষায় ({{min}}টির মধ্যে {{count}}টি)",
+      "waiting": "আরও উত্তরের অপেক্ষায় ({{min}}টির মধ্যে {{count}}টি)।",
       "responses": "{{count}}টি উত্তর",
       "averageStars": "গড় ৫-এর মধ্যে {{value}}",
       "noStars": "গড় দেখানোর জন্য যথেষ্ট তারকা রেটিং নেই।",
       "noComments": "কোনো মন্তব্য নেই।",
-      "comments": "মন্তব্য"
-    }
+      "comments": "মন্তব্য",
+      "identityLabel": "পরিচয়",
+      "identityHidden": "গোপন",
+      "identityShown": "নাম দেখা যাবে",
+      "minResponsesLabel": "ফল দেখানোর ন্যূনতম উত্তর",
+      "minResponsesValue": "{{count}}টি",
+      "resultsSubtitle": "শিক্ষক ও বিষয় অনুযায়ী · মোট {{count}}টি",
+      "waitingBadge": "অপেক্ষায়",
+      "waitingWhy": "কারো পরিচয় যাতে বোঝা না যায়, তাই এর কম উত্তরে ফল দেখানো হয় না।",
+      "noStarsShort": "যথেষ্ট রেটিং নেই",
+      "closeConfirm": {
+        "title": "জরিপ বন্ধ করবেন?",
+        "description": "“{{title}}” বন্ধ হলে আর কেউ উত্তর দিতে পারবে না। এটি আবার চালু করা যাবে না।"
+      }
+    },
+    "open": "খুলুন"
   },
   "portalSurveys": {
     "title": "জরিপ",
@@ -301,5 +316,6 @@
   "nav": {
     "evaluations": "মূল্যায়ন"
   },
-  "forbidden": "মূল্যায়ন দেখার অনুমতি আপনার নেই।"
+  "forbidden": "মূল্যায়ন দেখার অনুমতি আপনার নেই।",
+  "subtitle": "এসিআর, শিক্ষক জরিপ ও ঘটনা এক জায়গায়।"
 }

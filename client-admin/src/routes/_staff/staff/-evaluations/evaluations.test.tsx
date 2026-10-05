@@ -39,8 +39,13 @@ describe('/staff/evaluations', () => {
       }),
     );
     render('ADMIN');
-    await screen.findByRole('heading', { name: 'ACR register' });
-    await screen.findByRole('link', { name: 'Open' });
+    // The page header is the one h1; the tab title is only the table caption.
+    expect(await screen.findByRole('heading', { level: 1, name: 'Evaluations' })).toBeTruthy();
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+    const open = await screen.findByRole('link', { name: 'Open' });
+    expect(open.getAttribute('href')).toMatch(/^\/staff\/.+\/acr\/a1$/);
+    // Status is a badge, not bare text.
+    expect(screen.getAllByText('Completed').length).toBeGreaterThan(0);
 
     const user = userEvent.setup();
     await user.click(screen.getByRole('combobox', { name: 'Status' }));
@@ -91,5 +96,32 @@ describe('/staff/evaluations', () => {
     await screen.findByRole('heading', { name: /don't have access to this page/i });
     expect(screen.queryByRole('heading', { name: 'ACR register' })).toBeNull();
     expect(screen.queryByRole('tab', { name: 'Incidents' })).toBeNull();
+  });
+
+  it('header primary follows the tab and needs ACR_WRITE', async () => {
+    server.use(
+      http.get('/api/v1/acr/assessments', () => HttpResponse.json([])),
+      http.get('/api/v1/surveys', () => HttpResponse.json([])),
+      http.get('/api/v1/incidents', () => HttpResponse.json([])),
+    );
+    const view = render('ADMIN');
+    expect(await screen.findByRole('button', { name: 'Start ACR' })).toBeTruthy();
+    await view.router.navigate({ to: '/staff/evaluations', search: { tab: 'surveys' } });
+    expect(await screen.findByRole('button', { name: 'New survey' })).toBeTruthy();
+    await view.router.navigate({ to: '/staff/evaluations', search: { tab: 'incidents' } });
+    expect(await screen.findByRole('button', { name: 'Report an incident' })).toBeTruthy();
+  });
+
+  it('pages a long register client-side: 25 rows and the total', async () => {
+    server.use(
+      http.get('/api/v1/acr/assessments', () =>
+        HttpResponse.json(
+          Array.from({ length: 30 }, (_, i) => acrAssessmentFactory({ id: `a${i}` })),
+        ),
+      ),
+    );
+    render('ADMIN');
+    await screen.findByRole('heading', { level: 1, name: 'Evaluations' });
+    await waitFor(() => expect(screen.getAllByRole('row')).toHaveLength(26));
   });
 });
