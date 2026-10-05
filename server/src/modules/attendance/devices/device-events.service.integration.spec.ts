@@ -264,10 +264,12 @@ describe('DeviceEventsService (integration)', () => {
 
   describe('shift-aware lateness [41.0]', () => {
     // Tenant pair 08:15 / 10:00; the day shift overrides it to 12:15 / 14:00.
-    async function setup() {
+    async function setup(withShiftTimes = true) {
+      // Unique names per call: shifts/classes/sections are not truncated between tests.
+      const uniq = `${Date.now()}-${Math.floor(Math.random() * 100000)}`;
       const dayShift = await dataSource.getRepository(Shift).save({
         tenant_id: TENANT_ID,
-        name: 'Day shift',
+        name: `Day shift ${uniq}`,
         day_starts_at: '12:00',
         day_ends_at: '17:00',
         sequence: 2,
@@ -278,24 +280,26 @@ describe('DeviceEventsService (integration)', () => {
         absentAfter: '10:00',
         correctionWindowDays: 2,
         allowFutureDates: false,
-        shiftTimes: [{ shiftId: dayShift.id, lateAfter: '12:15', absentAfter: '14:00' }],
+        shiftTimes: withShiftTimes
+          ? [{ shiftId: dayShift.id, lateAfter: '12:15', absentAfter: '14:00' }]
+          : [],
       });
       const classRepo = dataSource.getRepository(Class);
       const base = await classRepo.findOneOrFail({ where: { name: 'Device Events Test Class' } });
       const dayClass = await classRepo.save({
-        name: 'Day Class',
+        name: `Day Class ${uniq}`,
         academic_year_id: base.academic_year_id,
         tenant_id: TENANT_ID,
         shift_id: dayShift.id,
       });
       const daySection = await dataSource.getRepository(ClassSection).save({
-        section_name: 'Day Sec',
+        section_name: `Day ${uniq}`.slice(0, 20),
         class_id: dayClass.id,
         tenant_id: TENANT_ID,
       });
       const dayStudent = await dataSource.getRepository(Student).save({
         full_name: 'Day Student',
-        registration_number: `DAY-${Date.now()}`,
+        registration_number: `DAY-${uniq}`,
         roll_number: 1,
         class_section_id: daySection.id,
         tenant_id: TENANT_ID,
@@ -322,6 +326,17 @@ describe('DeviceEventsService (integration)', () => {
         inEvent({ student_id: dayStudentId, occurred_at: `${TODAY()}T12:00:00Z` }),
       ]);
       expect(r.results[0].status).toBe(AttendanceStatus.PRESENT);
+    });
+
+    it('keeps the tenant pair for a class with a shift_id but no shiftTimes entry', async () => {
+      const dayStudentId = await setup(false);
+      const device = await createActiveDevice();
+
+      const r = await service.ingest(device, [
+        inEvent({ student_id: dayStudentId, occurred_at: `${TODAY()}T08:30:00Z` }),
+      ]);
+      expect(r.results[0].status).toBe(AttendanceStatus.LATE);
+      expect(r.results[0].minutes_late).toBe(15);
     });
 
     it('keeps the tenant pair for a class with no shift_id', async () => {
