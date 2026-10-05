@@ -86,12 +86,10 @@ describe('AccountAccessDeliveryService', () => {
     // secret-bearing link/OTP — back in its error text, so the stored
     // reason must be a fixed string, never `result.error` verbatim.
     const provider = {
-      send: vi
-        .fn()
-        .mockResolvedValue({
-          success: false,
-          error: 'boom: link was https://x/activate?token=SECRET',
-        }),
+      send: vi.fn().mockResolvedValue({
+        success: false,
+        error: 'boom: link was https://x/activate?token=SECRET',
+      }),
     };
     registry.resolve.mockReturnValue(provider);
 

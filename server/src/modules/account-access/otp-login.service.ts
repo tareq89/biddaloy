@@ -1,10 +1,17 @@
 import { HttpException, HttpStatus, Injectable, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
-import { IsNull, Repository } from 'typeorm';
-import { AuditAction, CommunicationMedium, UserStatus } from '@biddaloy/shared';
+import { FindOptionsWhere, IsNull, Repository } from 'typeorm';
+import {
+  AuditAction,
+  AuthTokenPurpose,
+  CommunicationMedium,
+  UserStatus,
+  audienceForRoles,
+} from '@biddaloy/shared';
 import { User } from '../users/entities/user.entity';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
+import { UserIdentity } from '../auth/entities/user-identity.entity';
 import { AuditService } from '../audit/audit.service';
 import { AuthService, AuthResult } from '../auth/auth.service';
 import { LoginAttemptService } from '../auth/login-attempt.service';
@@ -12,10 +19,19 @@ import { RequestContext } from '../auth/refresh-token.service';
 import { normalizeLoginIdentifier } from '../auth/normalize-identifier';
 import { SchoolsService } from '../schools/schools.service';
 import { OtpService } from './otp.service';
+import { AuthTokenService } from './auth-token.service';
 import { AccountAccessDeliveryService } from './account-access-delivery.service';
 import { isSecretEchoEnabled } from './account-access-echo';
 
 const OTP_PURPOSE = 'LOGIN';
+
+/** D31: SMS codes only go to numbers with an allowed prefix (default Bangladesh); others get the code by email. */
+const DEFAULT_SMS_PREFIXES = '+880';
+
+export interface OtpLoginVerifyResult extends AuthResult {
+  needs_password: boolean;
+  password_required: boolean;
+}
 
 export interface OtpLoginRequestResult {
   debug?: { otp?: string };
@@ -39,6 +55,9 @@ export class OtpLoginService {
     private readonly userRepo: Repository<User>,
     @InjectRepository(UserTenant)
     private readonly userTenantRepo: Repository<UserTenant>,
+    @InjectRepository(UserIdentity)
+    private readonly identityRepo: Repository<UserIdentity>,
+    private readonly authTokens: AuthTokenService,
     private readonly otpService: OtpService,
     private readonly delivery: AccountAccessDeliveryService,
     private readonly authService: AuthService,
@@ -54,13 +73,20 @@ export class OtpLoginService {
    * login switched off. D6's echo flag is the only way a test can observe
    * the OTP this issues.
    */
-  async request(phone: string, context: RequestContext): Promise<OtpLoginRequestResult> {
-    const identifier = normalizeLoginIdentifier(phone);
-    const user = await this.userRepo.findOne({ where: { phone: identifier } });
+  async request(rawIdentifier: string, context: RequestContext): Promise<OtpLoginRequestResult> {
+    const identifier = normalizeLoginIdentifier(rawIdentifier);
+    const user = await this.findUser(identifier);
 
-    if (!user || user.status !== UserStatus.ACTIVE || !(await this.allowed(user.id))) {
+    if (!user || !this.canSignInByCode(user) || !(await this.allowed(user.id))) {
       return {};
     }
+
+    // Email identifier -> email. Phone -> SMS, unless its prefix is not allowed
+    // (then the user's email, if any). Nothing deliverable -> nothing sent;
+    // the caller still sees the same 202.
+    const byEmail = isEmail(identifier) || !this.smsAllowed(identifier);
+    const to = byEmail ? user.email : user.phone;
+    if (!to) return {};
 
     const tenantId = await this.authService.primaryTenantId(user.id);
     if (!tenantId) return {};
@@ -77,8 +103,8 @@ export class OtpLoginService {
 
     await this.delivery.deliver({
       tenantId,
-      medium: CommunicationMedium.SMS,
-      to: user.phone as string,
+      medium: byEmail ? CommunicationMedium.EMAIL : CommunicationMedium.SMS,
+      to,
       recipientName: user.full_name,
       kind: 'OTP',
       vars: { code },
@@ -94,8 +120,12 @@ export class OtpLoginService {
    * `UnauthorizedException('Invalid credentials')` password login uses, so
    * neither response body nor message distinguishes the failure reason.
    */
-  async verify(phone: string, otp: string, context: RequestContext): Promise<AuthResult> {
-    const identifier = normalizeLoginIdentifier(phone);
+  async verify(
+    rawIdentifier: string,
+    otp: string,
+    context: RequestContext,
+  ): Promise<OtpLoginVerifyResult> {
+    const identifier = normalizeLoginIdentifier(rawIdentifier);
     const result = await this.otpService.verify(OTP_PURPOSE, identifier, otp);
 
     if (result === 'locked') {
@@ -106,12 +136,9 @@ export class OtpLoginService {
       );
     }
 
-    const user = await this.userRepo.findOne({ where: { phone: identifier } });
+    const user = await this.findUser(identifier);
     const success =
-      result === 'ok' &&
-      !!user &&
-      user.status === UserStatus.ACTIVE &&
-      (await this.allowed(user.id));
+      result === 'ok' && !!user && this.canSignInByCode(user) && (await this.allowed(user.id));
 
     if (!success) {
       await this.auditService.record({
@@ -129,7 +156,16 @@ export class OtpLoginService {
 
     await this.loginAttempts.reset(identifier);
 
-    await this.userRepo.update({ id: user.id }, { last_login_at: new Date() });
+    // An invited user who never activated signs in here: flip them ACTIVE (as
+    // activation does) and mark their invite accepted.
+    await this.userRepo.update(
+      { id: user.id },
+      {
+        last_login_at: new Date(),
+        ...(user.status === UserStatus.INACTIVE ? { status: UserStatus.ACTIVE } : {}),
+      },
+    );
+    await this.authTokens.consumeLive(user.id, AuthTokenPurpose.INVITE);
 
     // [12.7] A successful OTP verify proves the caller controls this phone
     // — stamp it, but only the first time (never overwrite an existing
@@ -141,12 +177,19 @@ export class OtpLoginService {
     // verified — one this caller never proved. Matching `phone` (and
     // `IS NULL` on the timestamp, so a concurrent double-stamp is a no-op)
     // keeps the stamp bound to the number the code was actually sent to.
-    const alreadyVerified = user.phone_verified_at !== null;
+    // An email code proves the email, an SMS code the phone.
+    const field = isEmail(identifier) && user.email === identifier ? 'email' : 'phone';
+    const alreadyVerified =
+      field === 'email' ? user.email_verified_at !== null : user.phone_verified_at !== null;
     let stamped = false;
     if (!alreadyVerified) {
+      const where: FindOptionsWhere<User> =
+        field === 'email'
+          ? { id: user.id, email: identifier, email_verified_at: IsNull() }
+          : { id: user.id, phone: identifier, phone_verified_at: IsNull() };
       const stamp = await this.userRepo.update(
-        { id: user.id, phone: identifier, phone_verified_at: IsNull() },
-        { phone_verified_at: new Date() },
+        where,
+        field === 'email' ? { email_verified_at: new Date() } : { phone_verified_at: new Date() },
       );
       stamped = stamp.affected === 1;
     }
@@ -174,11 +217,49 @@ export class OtpLoginService {
         performed_by_user_id: user.id,
         ip_address: context.ip,
         user_agent: context.userAgent,
-        new_values: { field: 'phone', via: 'otp_login' },
+        new_values: { field, via: 'otp_login' },
       });
     }
 
-    return this.authService.startSession(user, context);
+    const needsPassword = user.password_hash === null;
+    const roles = (await this.userTenantRepo.find({ where: { user_id: user.id } })).map(
+      (m) => m.role,
+    );
+    const hasSocial =
+      needsPassword && (await this.identityRepo.count({ where: { user_id: user.id } })) > 0;
+    const session = await this.authService.startSession(user, context);
+    return {
+      ...session,
+      needs_password: needsPassword,
+      password_required: needsPassword && audienceForRoles(roles) === 'staff' && !hasSocial,
+    };
+  }
+
+  private async findUser(identifier: string): Promise<User | null> {
+    return this.userRepo.findOne({
+      where: [
+        { email: identifier, deleted_at: IsNull() },
+        { phone: identifier, deleted_at: IsNull() },
+      ],
+    });
+  }
+
+  /** ACTIVE, or an invited INACTIVE account that never set a password. SUSPENDED never. */
+  private canSignInByCode(user: User): boolean {
+    return (
+      user.status === UserStatus.ACTIVE ||
+      (user.status === UserStatus.INACTIVE && user.password_hash === null)
+    );
+  }
+
+  /** A number without a leading `+` is local-format (the school's own country), so SMS is fine. */
+  private smsAllowed(phone: string): boolean {
+    if (!phone.startsWith('+')) return true;
+    const prefixes = (this.config.get<string>('OTP_SMS_ALLOWED_PREFIXES') || DEFAULT_SMS_PREFIXES)
+      .split(',')
+      .map((p) => p.trim())
+      .filter(Boolean);
+    return prefixes.some((p) => phone.startsWith(p));
   }
 
   /** Deny wins: OTP login is allowed only if every tenant this user belongs to has it enabled. */
@@ -195,4 +276,8 @@ export class OtpLoginService {
   private echo(debug: { otp?: string }): OtpLoginRequestResult {
     return isSecretEchoEnabled(this.config) ? { debug } : {};
   }
+}
+
+function isEmail(identifier: string): boolean {
+  return identifier.includes('@');
 }

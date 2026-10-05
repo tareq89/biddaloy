@@ -10,6 +10,7 @@ import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, FindOptionsOrder, Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
+import { assertPasswordAllowedForUser } from './password-policy';
 import { randomUUID } from 'crypto';
 import { User } from '../users/entities/user.entity';
 import { UserTenant } from './entities/user-tenant.entity';
@@ -430,6 +431,7 @@ export class AuthService {
     // the path that produces the token and the refresh cookie. A targeted
     // update also avoids `save()` writing back every column that was read at
     // the top of this method.
+    await assertPasswordAllowedForUser(this.userTenantRepository, userId, dto.new_password);
     const password_hash = await bcrypt.hash(dto.new_password, BCRYPT_COST);
     // Re-read under a row lock inside the same transaction that revokes
     // refresh tokens: without this, a password change racing a concurrent
