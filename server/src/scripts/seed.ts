@@ -55,7 +55,7 @@ import { StaffAttendanceRecord } from '../modules/staff-attendance/entities/staf
 import { LeavePolicy } from '../modules/leave/entities/leave-policy.entity';
 import { LeaveRecord } from '../modules/leave/entities/leave-record.entity';
 import { DEV_SEED_PLATFORM_TENANT_ID } from '../config/env.validation';
-import { seedAccounts } from './seed.accounts';
+import { seedAccounts, ensureTrialDemoSeed, TRIAL_DEMO } from './seed.accounts';
 import { Shift } from '../modules/routines/entities/shift.entity';
 import { PeriodSlot } from '../modules/routines/entities/period-slot.entity';
 import { Room } from '../modules/routines/entities/room.entity';
@@ -316,6 +316,24 @@ export async function seed() {
 
   // [35.5.5] Unapplied tenant for walking the preset flow (after the demo seeds).
   await ensurePresetDemoSeed(dataSource.manager, passwordHash);
+
+  // [13.1.4] A school mid-trial with its admin and an invited teacher.
+  await ensureTrialDemoSeed(dataSource.manager, passwordHash);
+
+  // [13.1.4] Every other demo school is an established, onboarded one in BD;
+  // only fills NULLs, so a hand-set value survives a re-run.
+  await schoolRepository
+    .createQueryBuilder()
+    .update(School)
+    .set({ country_code: 'BD' })
+    .where('country_code IS NULL AND slug <> :slug', { slug: TRIAL_DEMO.slug })
+    .execute();
+  await schoolRepository
+    .createQueryBuilder()
+    .update(School)
+    .set({ onboarding: () => `jsonb_build_object('finished_at', now())` })
+    .where('onboarding IS NULL AND slug <> :slug', { slug: TRIAL_DEMO.slug })
+    .execute();
 
   await app.close();
 }
