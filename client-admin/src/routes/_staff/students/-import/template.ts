@@ -24,6 +24,15 @@ export const TEMPLATE_HEADERS = [
 
 export type TemplateHeader = (typeof TEMPLATE_HEADERS)[number];
 
+/** Which columns the server requires per row, mirrored from `BulkUploadRowDto`. */
+export const REQUIRED_COLUMNS: ReadonlySet<TemplateHeader> = new Set([
+  'student_name',
+  'class',
+  'section',
+  'guardian1_name',
+  'guardian1_phone',
+]);
+
 /** One realistic example row — a Bangla name and a BD phone in the exact
  * format the server's `BD_PHONE_REGEX` accepts — so the person filling
  * the sheet copies a working shape rather than guessing. */
