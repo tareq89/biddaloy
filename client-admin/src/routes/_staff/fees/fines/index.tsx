@@ -10,14 +10,8 @@
  *
  * The command palette (`fines.log`/`fines.generate`/`fines.waive` in
  * `action-registry.ts`) can only `navigate({ to })` — no entity id crosses
- * that boundary (`ActionRunContext`'s own documented limitation, see
- * `grading.copyScale`/`programs.enrol` for precedent). Its `run()` lands
- * here with a `?logFine=1`/`?generateFines=1` query flag, which this route
- * reads to open the modal unprefilled — the palette's "prefilled on a
- * student page" acceptance line does not hold for these three actions
- * (flagged in the PR body, not fixed here — would need `ActionRunContext`
- * itself to carry an entity id, which is `command-palette-launcher.tsx`'s
- * territory, not this ticket's file list).
+ * that boundary, so its `run()` lands here with `?logFine=1`/`?generateFines=1`,
+ * which open the modals unprefilled.
  */
 import { FeeStatus, Permission } from '@biddaloy/shared';
 import { DataTable, ErrorState, RoutePending } from '@biddaloy/ui/components';
@@ -35,6 +29,7 @@ import {
   FilterBar,
   PageContainer,
   PageHeader,
+  useCloseFullPage,
   useListShellState,
   type PageAction,
 } from '@biddaloy/ui/shells';
@@ -159,22 +154,21 @@ function FinesListPage() {
   const sectionsQuery = useClassSections(state.filters.class_id);
   const fineStructuresQuery = useFeeStructures({ fee_type: FINE_FEE_TYPE, limit: 100 });
 
-  const [logFineOpen, setLogFineOpen] = React.useState(false);
-  const [generateFinesOpen, setGenerateFinesOpen] = React.useState(false);
   const [waiving, setWaiving] = React.useState<Fine | null>(null);
 
-  // Palette entry points — see this file's own header comment.
-  React.useEffect(() => {
-    if (search.logFine && canGenerate) {
-      setLogFineOpen(true);
-      void navigate({ search: (prev) => ({ ...prev, logFine: undefined }), replace: true });
-    }
-    if (search.generateFines) {
-      if (canGenerate) setGenerateFinesOpen(true);
-      void navigate({ search: (prev) => ({ ...prev, generateFines: undefined }), replace: true });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once per mount to consume the one-shot query flag
-  }, [search.logFine, search.generateFines]);
+  // The search params ARE the open state (D22): opening sets one, closing goes
+  // back, a refresh reopens. The command palette links to the same params.
+  const logOpen = search.logFine === '1' && canGenerate;
+  const generateOpen = search.generateFines === '1' && canGenerate;
+  const openLog = () => void navigate({ search: (prev) => ({ ...prev, logFine: 1 }) });
+  const openGenerate = () => void navigate({ search: (prev) => ({ ...prev, generateFines: 1 }) });
+  const closeLog = useCloseFullPage(
+    () => void navigate({ search: (prev) => ({ ...prev, logFine: undefined }), replace: true }),
+  );
+  const closeGenerate = useCloseFullPage(
+    () =>
+      void navigate({ search: (prev) => ({ ...prev, generateFines: undefined }), replace: true }),
+  );
 
   React.useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -182,15 +176,15 @@ function FinesListPage() {
       if (isEditableTarget(event.target)) return;
       if (event.key === 'l' && canGenerate) {
         event.preventDefault();
-        setLogFineOpen(true);
+        void navigate({ search: (prev) => ({ ...prev, logFine: 1 }) });
       } else if (event.key === 'g' && canGenerate) {
         event.preventDefault();
-        setGenerateFinesOpen(true);
+        void navigate({ search: (prev) => ({ ...prev, generateFines: 1 }) });
       }
     }
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [canGenerate]);
+  }, [canGenerate, navigate]);
 
   function handleFilterChange(patch: Record<string, string | null>) {
     const next = { ...patch };
@@ -208,8 +202,6 @@ function FinesListPage() {
   const columns = buildFinesColumns(t, regionConfig);
   const rowActions = buildFineRowActions(t, { onWaive: setWaiving, canWaive });
 
-  const openLog = () => setLogFineOpen(true);
-  const openGenerate = () => setGenerateFinesOpen(true);
   const headerActions: PageAction[] = [
     {
       id: 'rules',
@@ -290,9 +282,9 @@ function FinesListPage() {
         />
       )}
 
-      {canGenerate && <LogFineModal open={logFineOpen} onOpenChange={setLogFineOpen} />}
+      {canGenerate && <LogFineModal open={logOpen} onOpenChange={(open) => !open && closeLog()} />}
       {canGenerate && (
-        <GenerateFinesModal open={generateFinesOpen} onOpenChange={setGenerateFinesOpen} />
+        <GenerateFinesModal open={generateOpen} onOpenChange={(open) => !open && closeGenerate()} />
       )}
       <WaiveFineDialog
         open={waiving !== null}

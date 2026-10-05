@@ -69,11 +69,13 @@
     "result_other": "{{count}} fines logged",
     "save": "Log fine",
     "saving": "Logging…",
-    "errorMessage": "Failed to log fine"
+    "errorMessage": "Failed to log fine",
+    "detailsHeading": "Fine",
+    "removeStudent": "Remove {{name}}"
   },
   "generate": {
     "title": "Make fines from rules",
-    "description": "Sweep attendance for one month and create fines from every active rule.",
+    "description": "Fines are made from every active rule, using one month's attendance.",
     "monthLabel": "Month",
     "classLabel": "Class",
     "allClasses": "All classes",
@@ -99,7 +101,17 @@
       "skipped_one": "{{count}} skipped",
       "skipped_other": "{{count}} skipped"
     },
-    "errorMessage": "Failed to generate fines"
+    "errorMessage": "Failed to generate fines",
+    "scopeHeading": "Which month, for whom",
+    "previewAction": "See what will be made",
+    "previewHeading": "What will be made",
+    "previewZeroHint": "Pick another month or class.",
+    "countTimes_one": "{{n}} time",
+    "countTimes_other": "{{n}} times",
+    "columnStudent": "Student",
+    "columnFine": "Fine",
+    "columnCount": "Times",
+    "columnAmount": "Amount"
   },
   "waiveDialog": {
     "title": "Waive fine",
@@ -112,7 +124,8 @@
     "alreadyPaid": "This fine has already been paid — reverse the payment first.",
     "confirm": "Waive fine",
     "waiving": "Waiving…",
-    "errorMessage": "Failed to waive fine"
+    "errorMessage": "Failed to waive fine",
+    "description": "The amount you waive comes off the student's balance."
   },
   "ruleForm": {
     "createTitle": "Add fine rule",

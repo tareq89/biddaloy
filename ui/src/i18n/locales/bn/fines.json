@@ -69,11 +69,13 @@
     "result_other": "{{count}}টি জরিমানা যোগ করা হয়েছে",
     "save": "জরিমানা যোগ করুন",
     "saving": "যোগ করা হচ্ছে…",
-    "errorMessage": "জরিমানা যোগ করা যায়নি"
+    "errorMessage": "জরিমানা যোগ করা যায়নি",
+    "detailsHeading": "জরিমানা",
+    "removeStudent": "{{name}} সরান"
   },
   "generate": {
     "title": "নিয়ম থেকে জরিমানা তৈরি",
-    "description": "এক মাসের উপস্থিতি দেখে সক্রিয় প্রতিটি নিয়ম থেকে জরিমানা তৈরি করুন।",
+    "description": "এক মাসের উপস্থিতি দেখে সক্রিয় প্রতিটি নিয়ম থেকে জরিমানা তৈরি হবে।",
     "monthLabel": "মাস",
     "classLabel": "শ্রেণি",
     "allClasses": "সব শ্রেণি",
@@ -99,20 +101,31 @@
       "skipped_one": "{{count}}টি বাদ দেওয়া হয়েছে",
       "skipped_other": "{{count}}টি বাদ দেওয়া হয়েছে"
     },
-    "errorMessage": "জরিমানা তৈরি করা যায়নি"
+    "errorMessage": "জরিমানা তৈরি করা যায়নি",
+    "scopeHeading": "কোন মাস, কাদের জন্য",
+    "previewAction": "হিসাব দেখুন",
+    "previewHeading": "যা তৈরি হবে",
+    "previewZeroHint": "অন্য মাস বা শ্রেণি বাছুন।",
+    "countTimes_one": "{{n}} বার",
+    "countTimes_other": "{{n}} বার",
+    "columnStudent": "শিক্ষার্থী",
+    "columnFine": "জরিমানা",
+    "columnCount": "কতবার",
+    "columnAmount": "পরিমাণ"
   },
   "waiveDialog": {
-    "title": "জরিমানা মাফ করুন",
-    "fullLabel": "পুরোটা মাফ করুন",
-    "partialLabel": "কিছু অংশ মাফ করুন",
-    "amountLabel": "কত টাকা মাফ করবেন",
+    "title": "জরিমানা মওকুফ করুন",
+    "fullLabel": "পুরোটা মওকুফ করুন",
+    "partialLabel": "কিছু অংশ মওকুফ করুন",
+    "amountLabel": "কত টাকা মওকুফ করবেন",
     "reasonLabel": "কারণ",
-    "reasonPlaceholder": "কেন এই জরিমানা মাফ করা হচ্ছে",
+    "reasonPlaceholder": "কেন এই জরিমানা মওকুফ করা হচ্ছে",
     "errorReasonRequired": "কারণ লেখা আবশ্যক",
     "alreadyPaid": "এই জরিমানা ইতিমধ্যে পরিশোধ হয়ে গেছে — আগে পেমেন্টটা ফেরত দিন।",
-    "confirm": "মাফ করুন",
-    "waiving": "মাফ করা হচ্ছে…",
-    "errorMessage": "জরিমানা মাফ করা যায়নি"
+    "confirm": "মওকুফ করুন",
+    "waiving": "মওকুফ করা হচ্ছে…",
+    "errorMessage": "জরিমানা মওকুফ করা যায়নি",
+    "description": "যতটা মওকুফ করবেন, শিক্ষার্থীর বকেয়া থেকে ততটা কমে যাবে।"
   },
   "ruleForm": {
     "createTitle": "জরিমানার নিয়ম যোগ করুন",
