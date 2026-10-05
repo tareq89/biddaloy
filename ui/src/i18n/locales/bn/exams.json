@@ -358,7 +358,8 @@
       "columnAbsent": "অনুপস্থিত",
       "columnPassPct": "পাসের হার %",
       "columnHighest": "সর্বোচ্চ",
-      "columnAverage": "গড়"
+      "columnAverage": "গড়",
+      "overallRow": "সামগ্রিক"
     },
     "passFailComponent": {
       "columnSubject": "বিষয়",

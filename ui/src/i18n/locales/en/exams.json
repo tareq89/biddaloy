@@ -358,7 +358,8 @@
       "columnAbsent": "Absent",
       "columnPassPct": "Pass %",
       "columnHighest": "Highest",
-      "columnAverage": "Average"
+      "columnAverage": "Average",
+      "overallRow": "Overall"
     },
     "passFailComponent": {
       "columnSubject": "Subject",
