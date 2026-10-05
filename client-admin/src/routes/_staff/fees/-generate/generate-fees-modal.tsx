@@ -23,6 +23,7 @@ import {
 import {
   Card,
   Checkbox,
+  ConfirmDialog,
   DatePicker,
   Label,
   MonthPicker,
@@ -145,6 +146,9 @@ function GenerateFeesFullPage({
   const [dueDate, setDueDate] = React.useState<Date | undefined>(undefined);
   const [dueDateTouched, setDueDateTouched] = React.useState(false);
   const [notifyFamilies, setNotifyFamilies] = React.useState(true);
+  // Set by the user's own year / month picks (not by the auto-defaults).
+  const [periodTouched, setPeriodTouched] = React.useState(false);
+  const [confirmingCancel, setConfirmingCancel] = React.useState(false);
 
   const [selectedStudents, setSelectedStudents] = React.useState<Map<string, string>>(() =>
     preselectedStudent
@@ -232,6 +236,10 @@ function GenerateFeesFullPage({
     selectedFees.size > 0 ||
     programId !== undefined ||
     dueDateTouched ||
+    periodTouched ||
+    periodType !== 'MONTH' ||
+    weekStart !== undefined ||
+    !notifyFamilies ||
     selectedStudents.size > (preselectedStudent ? 1 : 0);
 
   const feeCount = selectedFees.size;
@@ -323,9 +331,9 @@ function GenerateFeesFullPage({
             tenantId: notifyTenantId,
             variant: 'success',
             message: t('notifications.generated', {
-              generated: result.generated_count,
-              skipped: result.skipped_count,
-              students: result.student_count,
+              generated: formatNumber(result.generated_count, regionConfig),
+              skipped: formatNumber(result.skipped_count, regionConfig),
+              students: formatNumber(result.student_count, regionConfig),
             }),
           });
           onClose();
@@ -392,7 +400,11 @@ function GenerateFeesFullPage({
         busy: previewMutation.isPending || generate.isPending,
         disabled: !canGenerate,
       }}
-      secondary={{ label: t('modal.cancel'), onClick: onClose }}
+      // Cancel asks first when something changed, same as Close / Esc.
+      secondary={{
+        label: t('modal.cancel'),
+        onClick: () => (dirty ? setConfirmingCancel(true) : onClose()),
+      }}
     >
       {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- Cmd/Ctrl+Enter submit shortcut */}
       <form
@@ -417,7 +429,13 @@ function GenerateFeesFullPage({
                 {t('year.label')}
                 {requiredMark}
               </Label>
-              <Select value={academicYearId} onValueChange={setAcademicYearId}>
+              <Select
+                value={academicYearId}
+                onValueChange={(value) => {
+                  setAcademicYearId(value);
+                  setPeriodTouched(true);
+                }}
+              >
                 <SelectTrigger id="generate-year">
                   <SelectValue />
                 </SelectTrigger>
@@ -463,6 +481,7 @@ function GenerateFeesFullPage({
                   }
                   onValueChange={(value) => {
                     const [year = '', picked = ''] = value.split('-');
+                    setPeriodTouched(true);
                     setCalendarYear(year);
                     setMonth(String(Number(picked)));
                   }}
@@ -568,6 +587,19 @@ function GenerateFeesFullPage({
           )}
         </Card>
       </form>
+      <ConfirmDialog
+        open={confirmingCancel}
+        onOpenChange={setConfirmingCancel}
+        tone="danger"
+        title={t('fullPage.discardTitle', { ns: 'common' })}
+        description={t('fullPage.discardDescription', { ns: 'common' })}
+        confirmLabel={t('fullPage.discardConfirm', { ns: 'common' })}
+        cancelLabel={t('fullPage.keepEditing', { ns: 'common' })}
+        onConfirm={() => {
+          setConfirmingCancel(false);
+          onClose();
+        }}
+      />
     </FullPageShell>
   );
 }

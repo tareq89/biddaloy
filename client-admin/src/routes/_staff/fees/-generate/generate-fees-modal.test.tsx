@@ -448,4 +448,96 @@ describe('GenerateFeesModal', () => {
 
     await screen.findByText('January 2027');
   });
+
+  it('sends due_date and the chosen fee ids in the real generate request', async () => {
+    let generateBody: Record<string, unknown> | undefined;
+    server.use(
+      yearHandler(),
+      http.get('/api/v1/fee-structures', () =>
+        HttpResponse.json({
+          data: [{ id: 'fee-1', name: 'Tuition', amount: 500, class_id: null }],
+          total: 1,
+          page: 1,
+          limit: 100,
+          totalPages: 1,
+        }),
+      ),
+      http.get('/api/v1/students/ids', () => HttpResponse.json({ ids: ['student-1'], total: 1 })),
+      http.post('/api/v1/fees/generate/preview', () =>
+        HttpResponse.json({ students_total: 1, would_generate: 1, duplicates: [], inactive: [] }),
+      ),
+      http.post('/api/v1/fees/generate', async ({ request }) => {
+        generateBody = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json(
+          {
+            fee_generation_id: 'gen-1',
+            student_count: 1,
+            generated_count: 1,
+            skipped_count: 0,
+            removed_count: 0,
+            inactive_skipped: [],
+          },
+          { status: 201 },
+        );
+      }),
+    );
+
+    const user = userEvent.setup();
+    await renderModal();
+    await user.click(await screen.findByRole('button', { name: /Select all/ }));
+    await user.click(await screen.findByRole('checkbox', { name: /Tuition/ }));
+    await user.click(screen.getByRole('button', { name: 'Create bills' }));
+
+    await waitFor(() => expect(generateBody).toBeTruthy());
+    expect(generateBody).toMatchObject({
+      due_date: '2026-01-10',
+      period_start: '2026-01-01',
+      fee_structure_ids: ['fee-1'],
+      student_ids: ['student-1'],
+    });
+  });
+
+  it('footer Cancel asks before discarding a changed form, and closes at once when untouched', async () => {
+    const user = userEvent.setup();
+    const { onOpenChange } = await renderModal();
+
+    await user.click(await screen.findByRole('button', { name: 'Cancel' }));
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+  });
+
+  it('footer Cancel after a change shows the discard dialog and Keep editing keeps the form', async () => {
+    const user = userEvent.setup();
+    const { onOpenChange } = await renderModal();
+
+    const feeCheckboxes = await within(await screen.findByTestId('fee-picker')).findAllByRole(
+      'checkbox',
+    );
+    await user.click(feeCheckboxes[0]!);
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    const confirm = within(await screen.findByRole('alertdialog'));
+    expect(confirm.getByText('Discard your changes?')).toBeTruthy();
+    await user.click(confirm.getByRole('button', { name: 'Keep editing' }));
+    expect(onOpenChange).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    await user.click(
+      within(await screen.findByRole('alertdialog')).getByRole('button', {
+        name: 'Discard changes',
+      }),
+    );
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it('counts a period edit as a change', async () => {
+    const user = userEvent.setup();
+    await renderModal();
+
+    await user.click(await screen.findByRole('combobox', { name: 'Period type' }));
+    await user.click(await screen.findByRole('option', { name: 'Week' }));
+    await user.click(screen.getByRole('button', { name: 'Close' }));
+
+    expect(await screen.findByRole('alertdialog')).toBeTruthy();
+  });
 });
