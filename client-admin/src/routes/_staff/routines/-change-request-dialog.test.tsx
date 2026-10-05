@@ -37,7 +37,10 @@ describe('ChangeRequestDialog', () => {
       expect(screen.getByRole('button', { name: /send/i })).toHaveProperty('disabled', true),
     );
 
-    await user.type(screen.getByLabelText(/note/i), 'This clashes with my other class.');
+    await user.type(
+      screen.getByLabelText('What needs to change'),
+      'This clashes with my other class.',
+    );
     await user.click(screen.getByRole('button', { name: /send/i }));
 
     await waitFor(() => expect(posted).toEqual({ note: 'This clashes with my other class.' }));
@@ -85,7 +88,7 @@ describe('ChangeRequestDialog', () => {
     );
     await localeReady;
 
-    const textarea = screen.getByLabelText(/note/i);
+    const textarea = screen.getByLabelText('What needs to change');
     await user.type(textarea, 'Some note text.');
     await user.click(screen.getByRole('button', { name: /send/i }));
 
@@ -108,7 +111,27 @@ describe('ChangeRequestDialog', () => {
     );
     await localeReady;
 
-    await user.type(screen.getByLabelText(/note/i), '   ');
+    await user.type(screen.getByLabelText('What needs to change'), '   ');
     expect(screen.getByRole('button', { name: /send/i })).toHaveProperty('disabled', true);
+  });
+
+  it('names the period in the description and has an outline Cancel', async () => {
+    const { localeReady } = renderWithProviders(
+      <ChangeRequestDialog
+        open
+        onOpenChange={vi.fn()}
+        routineId="routine-1"
+        slotId="slot-1"
+        slotLabel="Mon · Period 1 · Math"
+        onDone={vi.fn()}
+      />,
+      { tenantId: 'tenant-1', locale: 'en' },
+    );
+    await localeReady;
+
+    expect(await screen.findByText(/Mon · Period 1 · Math — tell the routine/)).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Cancel' }).getAttribute('data-variant')).toBe(
+      'outline',
+    );
   });
 });
