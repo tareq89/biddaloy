@@ -6,13 +6,14 @@
  * Covers the add/remove exclusion flow that #679's Tests section promised
  * but this component never got its own suite for.
  */
+import { toast } from '@biddaloy/ui/components';
 import { REGION_BD_EN, RegionConfigProvider } from '@biddaloy/ui/i18n';
 import { cleanupTestState, renderWithProviders, server, studentFactory } from '@biddaloy/ui/test';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import * as React from 'react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { ExclusionsTable } from './-exclusions-table';
 
@@ -83,7 +84,7 @@ describe('fees/schedules/-exclusions-table', () => {
     expect(screen.getByText('REG-2026-0002')).toBeTruthy();
 
     // One reason field serves every result; "Exclude" stays disabled until it has text.
-    const exclude = screen.getByRole<HTMLButtonElement>('button', { name: 'Exclude' });
+    const exclude = screen.getByRole<HTMLButtonElement>('button', { name: 'Exclude Karim Sheikh' });
     expect(exclude.disabled).toBe(true);
     await user.type(screen.getByLabelText('Reason * (required)'), 'Sibling discount');
     expect(exclude.disabled).toBe(false);
@@ -136,6 +137,11 @@ describe('fees/schedules/-exclusions-table', () => {
     });
 
     await user.click(await screen.findByRole('button', { name: 'Include again' }));
+    // Re-billing a student is one click away, so it asks first.
+    const confirm = within(await screen.findByRole('alertdialog'));
+    expect(confirm.getByText('Rahim Uddin will be billed by this rule again.')).toBeTruthy();
+    expect(removedPath).toBeUndefined();
+    await user.click(confirm.getByRole('button', { name: 'Include again' }));
 
     await waitFor(() =>
       expect(removedPath).toBe('/api/v1/fees/schedules/schedule-1/exclusions/student-1'),
@@ -159,5 +165,60 @@ describe('fees/schedules/-exclusions-table', () => {
     expect(screen.queryByRole('button', { name: 'Include again' })).toBeNull();
     expect(screen.queryByLabelText('Search students')).toBeNull();
     expect(screen.queryByLabelText('Reason * (required)')).toBeNull();
+  });
+
+  it('shows a translated error toast when excluding a student fails', async () => {
+    const toastSpy = vi.spyOn(toast, 'error').mockImplementation(() => '');
+    const student = studentFactory({ id: 'student-2', full_name: 'Karim Sheikh' });
+    server.use(
+      http.get('/api/v1/students', () =>
+        HttpResponse.json({ data: [student], total: 1, page: 1, limit: 10, totalPages: 1 }),
+      ),
+      http.post('/api/v1/fees/schedules/schedule-1/exclusions', () =>
+        HttpResponse.json({ message: 'boom' }, { status: 400 }),
+      ),
+    );
+
+    const user = userEvent.setup();
+    await renderTable();
+    await user.type(screen.getByLabelText('Search students'), 'Karim');
+    await screen.findByText('Karim Sheikh');
+    await user.type(screen.getByLabelText('Reason * (required)'), 'Sibling');
+    await user.click(screen.getByRole('button', { name: 'Exclude Karim Sheikh' }));
+
+    await waitFor(() =>
+      expect(toastSpy).toHaveBeenCalledWith("Couldn't exclude this student. Try again."),
+    );
+    toastSpy.mockRestore();
+  });
+
+  it('shows a translated error toast when including a student again fails', async () => {
+    const toastSpy = vi.spyOn(toast, 'error').mockImplementation(() => '');
+    server.use(
+      http.delete('/api/v1/fees/schedules/schedule-1/exclusions/student-1', () =>
+        HttpResponse.json({ message: 'boom' }, { status: 400 }),
+      ),
+    );
+
+    const user = userEvent.setup();
+    await renderTable({
+      exclusions: [
+        {
+          student_id: 'student-1',
+          student_name: 'Rahim Uddin',
+          reason: 'Sibling',
+          created_at: '2026-01-01T00:00:00.000Z',
+        },
+      ],
+    });
+    await user.click(await screen.findByRole('button', { name: 'Include again' }));
+    await user.click(
+      within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Include again' }),
+    );
+
+    await waitFor(() =>
+      expect(toastSpy).toHaveBeenCalledWith("Couldn't include this student again. Try again."),
+    );
+    toastSpy.mockRestore();
   });
 });

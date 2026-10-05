@@ -160,7 +160,7 @@ describe('/fees/dues', () => {
     );
 
     const { router } = renderEn({
-      initialEntries: ['/fees/dues?class_id=class-9'],
+      initialEntries: ['/fees/dues?class_id=class-9&month=3&search=Karim'],
       tenantId: 'tenant-1',
       role: 'ACCOUNTANT',
       locale: 'en',
@@ -174,7 +174,10 @@ describe('/fees/dues', () => {
     await waitFor(() => expect(flaggedRequested).toBe(true));
     expect(flaggedClassId).toBe('class-9');
     expect(router.state.location.search).toMatchObject({ class_id: 'class-9', flagged: 'true' });
-    // Flagged mode renders only search, class and section.
+    // Flagged mode renders only class and section; month and the typed search are cleared.
+    expect(router.state.location.search).not.toHaveProperty('month');
+    expect(router.state.location.search).not.toHaveProperty('search');
+    expect(screen.queryByRole('textbox', { name: 'Search' })).toBeNull();
     for (const name of ['Month', 'Year', 'Status', 'Fee type']) {
       expect(screen.queryByRole('combobox', { name })).toBeNull();
     }
