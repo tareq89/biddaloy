@@ -2,7 +2,6 @@ import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { i18n } from '../i18n';
 import { cleanupTestState, renderWithProviders } from '../test/render-with-providers';
 
 import { AdminVerificationModal } from './admin-verification-modal';
@@ -153,7 +152,7 @@ describe('AdminVerificationModal', () => {
     expect(onCancel).toHaveBeenCalled();
   });
 
-  it('uses the new scope label once its approval.json entry exists, the fallback until then', async () => {
+  it('uses the scope label when its approval.json entry exists, the fallback for an unknown scope', async () => {
     const props = {
       open: true,
       scope: 'fees.discount',
@@ -162,15 +161,17 @@ describe('AdminVerificationModal', () => {
       onSuccess: vi.fn(),
       onCancel: vi.fn(),
     };
+    // [31.4] The payments lane shipped the fees.discount / payments.reverse entries, so the
+    // "entry missing yet" half of this test now uses a scope the modal does not know.
     const { unmount } = renderWithProviders(<AdminVerificationModal {...props} />, {
       locale: 'en',
     });
-    await screen.findByText('Approve: fees.discount');
-    expect(screen.queryByText('scopes.fees.discount')).toBeNull();
+    await screen.findByText('Approve: discount on a payment');
     unmount();
 
-    i18n.addResource('en', 'approval', 'scopes.fees.discount', 'Approve: discount on a payment');
-    renderWithProviders(<AdminVerificationModal {...props} />, { locale: 'en' });
-    await screen.findByText('Approve: discount on a payment');
+    renderWithProviders(<AdminVerificationModal {...props} scope="not.a_known_scope" />, {
+      locale: 'en',
+    });
+    await screen.findByText('Approve: not.a_known_scope');
   });
 });
