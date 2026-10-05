@@ -5,14 +5,23 @@
  * only ever creates the first one — this section create()s or update()s
  * depending on whether `useStaffHrRecord` resolved a row.
  */
-import { Button, EmptyState, Input, SkeletonFieldList } from '@biddaloy/ui/components';
+import {
+  Button,
+  DatePicker,
+  EmptyState,
+  Input,
+  Label,
+  SkeletonFieldList,
+} from '@biddaloy/ui/components';
 import {
   useCreateStaffHrRecord,
   useStaffHrRecord,
   useUpdateStaffHrRecord,
   type StaffHrRecord,
 } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { formatDate, parseServerDate, toIsoDate } from '@biddaloy/ui/utils';
+import { PencilIcon } from 'lucide-react';
 import * as React from 'react';
 
 export interface HrRecordJobSectionProps {
@@ -55,8 +64,20 @@ function toFormState(record: StaffHrRecord | null): FormState {
   };
 }
 
+const JOB_FIELDS = [
+  ['index_no', 'indexNoLabel'],
+  ['salary_code', 'salaryCodeLabel'],
+  ['mpo_date', 'mpoDateLabel'],
+  ['salary_scale', 'salaryScaleLabel'],
+  ['department', 'departmentLabel'],
+  ['blood_group', 'bloodGroupLabel'],
+  ['name_bn', 'nameBnLabel'],
+  ['religion', 'religionLabel'],
+] as const;
+
 export function HrRecordJobSection({ userId }: HrRecordJobSectionProps) {
   const { t } = useTranslation('staff');
+  const regionConfig = useRegionConfig();
   const recordQuery = useStaffHrRecord(userId);
   const createRecord = useCreateStaffHrRecord();
   const record = recordQuery.data ?? null;
@@ -123,75 +144,72 @@ export function HrRecordJobSection({ userId }: HrRecordJobSectionProps) {
 
   if (!editing) {
     return (
-      <div className="flex flex-col gap-3">
-        <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3">
-          {(
-            [
-              ['index_no', 'indexNoLabel'],
-              ['salary_code', 'salaryCodeLabel'],
-              ['mpo_date', 'mpoDateLabel'],
-              ['salary_scale', 'salaryScaleLabel'],
-              ['department', 'departmentLabel'],
-              ['blood_group', 'bloodGroupLabel'],
-              ['name_bn', 'nameBnLabel'],
-              ['religion', 'religionLabel'],
-            ] as const
-          ).map(([field, labelKey]) => (
+      <div>
+        <dl className="grid grid-cols-2 gap-4 md:grid-cols-4">
+          {JOB_FIELDS.map(([field, labelKey]) => (
             <div key={field}>
-              <dt className="text-sm text-muted-foreground">{t(`hrRecord.job.${labelKey}`)}</dt>
-              <dd>{record?.[field] ?? t('detail.profile.emptyValue')}</dd>
+              <dt className="text-caption text-text-secondary">{t(`hrRecord.job.${labelKey}`)}</dt>
+              <dd>
+                {field === 'mpo_date'
+                  ? record?.mpo_date
+                    ? formatDate(parseServerDate(record.mpo_date), regionConfig)
+                    : t('detail.profile.emptyValue')
+                  : (record?.[field] ?? t('detail.profile.emptyValue'))}
+              </dd>
             </div>
           ))}
         </dl>
-        <Button type="button" variant="outline" className="self-start" onClick={startEditing}>
-          {t('hrRecord.job.editAction')}
-        </Button>
+        <div className="mt-4 flex justify-end">
+          <Button type="button" variant="outline" onClick={startEditing}>
+            <PencilIcon aria-hidden="true" />
+            {t('hrRecord.job.editActionShort')}
+          </Button>
+        </div>
       </div>
     );
   }
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        {(
-          [
-            ['index_no', 'indexNoLabel'],
-            ['salary_code', 'salaryCodeLabel'],
-            ['mpo_date', 'mpoDateLabel'],
-            ['salary_scale', 'salaryScaleLabel'],
-            ['department', 'departmentLabel'],
-            ['blood_group', 'bloodGroupLabel'],
-            ['name_bn', 'nameBnLabel'],
-            ['religion', 'religionLabel'],
-          ] as const
-        ).map(([field, labelKey]) => (
-          <div key={field} className="flex flex-col gap-1.5">
-            <label htmlFor={`hr-job-${field}`} className="text-sm font-medium">
-              {t(`hrRecord.job.${labelKey}`)}
-            </label>
-            <Input
-              id={`hr-job-${field}`}
-              value={form[field]}
-              onChange={(event) =>
-                setForm((current) => ({ ...current, [field]: event.target.value }))
-              }
-            />
+      <div className="grid gap-4 md:grid-cols-2">
+        {JOB_FIELDS.map(([field, labelKey]) => (
+          <div key={field} className="grid min-w-0 gap-1.5">
+            <Label htmlFor={`hr-job-${field}`}>{t(`hrRecord.job.${labelKey}`)}</Label>
+            {field === 'mpo_date' ? (
+              <DatePicker
+                id="hr-job-mpo_date"
+                config={regionConfig}
+                aria-label={t(`hrRecord.job.${labelKey}`)}
+                value={form.mpo_date ? parseServerDate(form.mpo_date) : undefined}
+                onValueChange={(date) =>
+                  setForm((current) => ({ ...current, mpo_date: date ? toIsoDate(date) : '' }))
+                }
+              />
+            ) : (
+              <Input
+                id={`hr-job-${field}`}
+                value={form[field]}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, [field]: event.target.value }))
+                }
+              />
+            )}
           </div>
         ))}
       </div>
 
       {saveError && (
-        <p role="alert" className="text-sm text-destructive">
+        <p role="alert" className="text-caption text-destructive">
           {t('hrRecord.job.errorMessage')}
         </p>
       )}
 
-      <div className="flex gap-2">
-        <Button type="submit" loading={saving}>
-          {saving ? t('hrRecord.job.saving') : t('hrRecord.job.save')}
-        </Button>
+      <div className="flex flex-col-reverse gap-2 md:flex-row md:justify-end">
         <Button type="button" variant="outline" onClick={() => setEditing(false)}>
           {t('actions.cancel', { ns: 'common' })}
+        </Button>
+        <Button type="submit" loading={saving}>
+          {saving ? t('hrRecord.job.saving') : t('hrRecord.job.save')}
         </Button>
       </div>
     </form>
