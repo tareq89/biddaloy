@@ -1,6 +1,7 @@
 import { ApiError } from '@biddaloy/ui/api';
 import {
   Button,
+  Card,
   Checkbox,
   Label,
   RoutePending,
@@ -28,21 +29,27 @@ import {
   useTenantRegionConfig,
   useTranslation,
 } from '@biddaloy/ui/i18n';
-import { formatDate, formatServerAmount } from '@biddaloy/ui/utils';
+import { PageContainer, PageHeader, useWarnUnsavedChanges } from '@biddaloy/ui/shells';
+import { formatDate, formatNumber, formatPhone, formatServerAmount } from '@biddaloy/ui/utils';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import { CircleAlertIcon, RefreshCwIcon, SendIcon, UsersIcon } from 'lucide-react';
 import * as React from 'react';
 import { z } from 'zod';
 
 import { loadRouteNamespaces } from '../../../route-loaders';
 
 import { BulkReminderWizard } from './-bulk/bulk-reminder-wizard';
+import { PlaceholderButtons } from './-shared/placeholder-buttons';
 import { RecipientList } from './-shared/recipient-list';
+import { SelectedStudentRow } from './-shared/selected-student-row';
 import { skipReasonKey } from './-shared/skip-reason';
 import { SmsSegmentCounter } from './-shared/sms-segment-counter';
 import { StudentSearch } from './-shared/student-search';
 import {
+  findUnknownLabels,
   findUnsupportedPlaceholders,
-  SUPPORTED_PLACEHOLDERS,
+  toServerTemplate,
+  usePlaceholderLabels,
 } from './-shared/template-placeholders';
 import { splitTemplateParams, WhatsappTemplateFields } from './-shared/whatsapp-template-fields';
 
@@ -53,9 +60,9 @@ import { splitTemplateParams, WhatsappTemplateFields } from './-shared/whatsapp-
  * The story's teeth live in the staleness guard here: Send is enabled
  * only while the inputs (student, selected guardians, template, channel
  * override, WhatsApp fields) exactly match what the last successful
- * preview was run against — any edit re-disables Send until the preview
- * is re-run. A sent SMS cannot be recalled, so "preview ran once, then
- * the template was edited" must not count as previewed.
+ * preview was run against — any edit hides the preview (and so Send) until
+ * the preview is re-run. A sent SMS cannot be recalled, so "preview ran
+ * once, then the template was edited" must not count as previewed.
  *
  * Gated on COMMUNICATION_BULK_SEND, not COMMUNICATION_SEND: the server's
  * reminder routes are `@Roles(ADMIN, ACCOUNTANT, EXECUTIVE)` — a TEACHER
@@ -109,9 +116,11 @@ function SingleReminderForm() {
   const { t } = useTranslation('communications');
   const config = useRegionConfig();
   const navigate = useNavigate();
+  const labels = usePlaceholderLabels();
 
   const [studentId, setStudentId] = React.useState<string | null>(null);
   const [guardianIds, setGuardianIds] = React.useState<string[]>([]);
+  /** Display form (`{Student name}`); `serverTemplate` is what goes on the wire. */
   const [template, setTemplate] = React.useState('');
   const [mediumOverride, setMediumOverride] = React.useState<string>(PREFERRED);
   const [templateName, setTemplateName] = React.useState('');
@@ -154,14 +163,21 @@ function SingleReminderForm() {
     }
   }, [student]);
 
-  const unsupportedTokens = findUnsupportedPlaceholders(template);
+  const serverTemplate = toServerTemplate(template, labels);
+  const unknownTokens = [
+    ...findUnknownLabels(template, labels).map((word) => `{${word}}`),
+    ...findUnsupportedPlaceholders(serverTemplate),
+  ];
+
+  // Typed-but-unsent content is lost on leave — ask first.
+  useWarnUnsavedChanges(!send.isSuccess && (studentId !== null || template !== ''));
 
   /** The staleness guard's identity: every input the server preview
    * depends on, in a canonical order. */
   const fingerprint = JSON.stringify({
     studentId,
     guardianIds: [...guardianIds].sort(),
-    template,
+    template: serverTemplate,
     mediumOverride,
     templateName,
     templateLanguage,
@@ -174,7 +190,7 @@ function SingleReminderForm() {
   const canPreview =
     studentId !== null &&
     template.trim() !== '' &&
-    unsupportedTokens.length === 0 &&
+    unknownTokens.length === 0 &&
     guardianIds.length > 0 &&
     !preview.isPending;
 
@@ -200,7 +216,7 @@ function SingleReminderForm() {
   function buildInput(): SendSingleReminderInput {
     const params = splitTemplateParams(templateParams);
     return {
-      message_template: template,
+      message_template: serverTemplate,
       guardian_ids: guardianIds,
       // `exactOptionalPropertyTypes` — omit rather than set `undefined`.
       ...(mediumOverride !== PREFERRED ? { medium: mediumOverride as OverrideMedium } : {}),
@@ -288,305 +304,355 @@ function SingleReminderForm() {
 
   const lastReminder = studentId === null ? undefined : lastReminders.data?.get(studentId);
 
+  const header = (
+    <PageHeader
+      title={t('reminders.title')}
+      subtitle={t('reminders.description')}
+      actions={[
+        {
+          id: 'bulk',
+          label: t('bulk.entryAction'),
+          icon: <UsersIcon aria-hidden />,
+          priority: 'secondary',
+          onClick: () => void navigate({ to: '/communications/reminders', search: { mode: 'bulk' } }),
+        },
+      ]}
+    />
+  );
+
   if (send.isSuccess) {
     const result = send.data;
     return (
-      <div className="mx-auto flex max-w-3xl flex-col gap-4 p-4">
-        <h1 className="text-2xl font-semibold">{t('reminders.title')}</h1>
-        <section
-          aria-label={t('reminders.resultTitle')}
-          className="flex flex-col gap-4 rounded-md border border-border-subtle p-4"
-        >
-          <h2 className="text-lg font-medium">{t('reminders.resultTitle')}</h2>
-          <div>
-            <h3 className="text-sm font-semibold">
-              {t('reminders.resultSentTitle', { count: result.sent.length })}
-            </h3>
-            <ul className="mt-2 flex flex-col gap-1.5">
-              {result.sent.map((entry) => (
+      <PageContainer size="narrow">
+        {header}
+        <Card padded aria-labelledby="reminder-result-title">
+          <h2 id="reminder-result-title" className="text-h2">
+            {t('reminders.resultTitle')}
+          </h2>
+          <h3 className="mt-4 text-h3">
+            {t('reminders.resultSentTitle', { count: result.sent.length })}
+          </h3>
+          <ul className="divide-y divide-border-subtle">
+            {result.sent.map((entry) => (
+              <li
+                key={entry.communication_log_id}
+                className="flex min-h-11 items-center justify-between gap-2"
+              >
+                <span>
+                  {entry.guardian_name} · {t(`mediums.${entry.medium}`)}
+                </span>
+                <StatusBadge domain="communication" status={entry.status} />
+              </li>
+            ))}
+          </ul>
+          <h3 className="mt-4 text-h3">
+            {t('reminders.resultSkippedTitle', { count: result.skipped.length })}
+          </h3>
+          {result.skipped.length === 0 ? (
+            <p className="mt-2 text-text-secondary">{t('recipientList.noneSkipped')}</p>
+          ) : (
+            <ul className="divide-y divide-border-subtle">
+              {result.skipped.map((entry) => (
                 <li
-                  key={entry.communication_log_id}
-                  className="flex items-center justify-between gap-2 text-sm"
+                  key={entry.guardian_id}
+                  className="flex flex-col gap-0.5 py-3 md:flex-row md:justify-between md:gap-4"
                 >
-                  <span>
-                    {entry.guardian_name} · {t(`mediums.${entry.medium}`)}
-                  </span>
-                  <StatusBadge domain="communication" status={entry.status} />
+                  <span className="font-medium">{entry.guardian_name}</span>
+                  <span className="text-text-secondary">{t(skipReasonKey(entry.reason))}</span>
                 </li>
               ))}
             </ul>
-          </div>
-          <div>
-            <h3 className="text-sm font-semibold">
-              {t('reminders.resultSkippedTitle', { count: result.skipped.length })}
-            </h3>
-            {result.skipped.length === 0 ? (
-              <p className="mt-2 text-sm text-muted-foreground">{t('recipientList.noneSkipped')}</p>
-            ) : (
-              <ul className="mt-2 flex flex-col gap-1.5">
-                {result.skipped.map((entry) => {
-                  const reasonKey = skipReasonKey(entry.reason);
-                  return (
-                    <li key={entry.guardian_id} className="text-sm">
-                      {entry.guardian_name} —{' '}
-                      {reasonKey !== undefined ? t(reasonKey) : entry.reason}
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </div>
-          <div>
+          )}
+          <div className="mt-5 flex justify-end border-t border-border-subtle pt-4">
             <Button type="button" onClick={handleStartAnother}>
-              {t('reminders.changeStudent')}
+              {t('reminders.startAnother')}
             </Button>
           </div>
-        </section>
-      </div>
+        </Card>
+      </PageContainer>
     );
   }
 
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-6 p-4">
-      <header className="flex flex-col gap-1">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h1 className="text-2xl font-semibold">{t('reminders.title')}</h1>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() =>
-              void navigate({ to: '/communications/reminders', search: { mode: 'bulk' } })
-            }
-          >
-            {t('bulk.entryAction')}
-          </Button>
-        </div>
-        <p className="text-sm text-muted-foreground">{t('reminders.description')}</p>
-      </header>
+    <PageContainer size="narrow">
+      {header}
 
-      <section
-        aria-label={t('reminders.studentSectionTitle')}
-        className="flex flex-col gap-2 rounded-md border border-border-subtle p-3"
-      >
-        <h2 className="text-sm font-medium">{t('reminders.studentSectionTitle')}</h2>
-        {studentId === null ? (
-          <StudentSearch
-            inputId="reminder-student-search"
-            searchLabel={t('reminders.studentSearchLabel')}
-            searchPlaceholder={t('reminders.studentSearchPlaceholder')}
-            noResultsLabel={t('reminders.studentNoResults')}
-            onSelect={handleSelectStudent}
-          />
-        ) : (
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-sm">
-                {student !== undefined
-                  ? `${student.full_name} · ${student.registration_number}`
-                  : '…'}
-              </span>
-              <Button type="button" variant="ghost" size="sm" onClick={handleChangeStudent}>
-                {t('reminders.changeStudent')}
-              </Button>
-            </div>
-            <dl className="grid gap-1 text-sm text-muted-foreground">
-              {feeSummary.data !== undefined && (
-                <div className="flex gap-2">
-                  <dt>{t('reminders.balanceLabel')}:</dt>
-                  {/* tabular-nums per design contract §2 — this balance is
-                      re-rendered as the selected student changes, and
-                      proportional figures make it jitter. Effective for Latin
-                      digits (`en`); a no-op on Bengali numerals, whose face
-                      ships no `tnum` — see §2's note. */}
-                  <dd className="tabular-nums">
-                    {formatServerAmount(feeSummary.data.summary.balance, config)}
+      <Card padded aria-labelledby="reminder-student-title">
+        <h2 id="reminder-student-title" className="text-h2">
+          {t('reminders.studentSectionTitle')}
+        </h2>
+        <div className="mt-4">
+          {studentId === null ? (
+            <StudentSearch
+              inputId="reminder-student-search"
+              searchLabel={t('reminders.studentSearchLabel')}
+              searchPlaceholder={t('reminders.studentSearchPlaceholder')}
+              noResultsLabel={t('reminders.studentNoResults')}
+              onSelect={handleSelectStudent}
+            />
+          ) : (
+            <>
+              <SelectedStudentRow
+                name={student?.full_name ?? '…'}
+                registrationNumber={student?.registration_number ?? ''}
+                changeLabel={t('send.clearStudent')}
+                onChange={handleChangeStudent}
+              />
+              <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-2">
+                {feeSummary.data !== undefined && (
+                  <div>
+                    <dt className="text-caption text-text-secondary">
+                      {t('reminders.balanceLabel')}
+                    </dt>
+                    {/* tabular-nums per design contract §2 — this balance is
+                        re-rendered as the selected student changes, and
+                        proportional figures make it jitter. Effective for Latin
+                        digits (`en`); a no-op on Bengali numerals, whose face
+                        ships no `tnum` — see §2's note. */}
+                    <dd className="font-medium tabular-nums">
+                      {formatServerAmount(feeSummary.data.summary.balance, config)}
+                    </dd>
+                  </div>
+                )}
+                <div>
+                  <dt className="text-caption text-text-secondary">
+                    {t('reminders.lastReminderLabel')}
+                  </dt>
+                  <dd className="font-medium">
+                    {lastReminder === undefined
+                      ? t('reminders.lastReminderNever')
+                      : t('reminders.lastReminderValue', {
+                          date: formatDate(new Date(lastReminder.sent_at), config),
+                          medium: t(`mediums.${lastReminder.medium}`),
+                        })}
                   </dd>
                 </div>
-              )}
-              <div className="flex gap-2">
-                <dt>{t('reminders.lastReminderLabel')}:</dt>
-                <dd>
-                  {lastReminder === undefined
-                    ? t('reminders.lastReminderNever')
-                    : t('reminders.lastReminderValue', {
-                        date: formatDate(new Date(lastReminder.sent_at), config),
-                        medium: t(`mediums.${lastReminder.medium}`),
-                      })}
-                </dd>
-              </div>
-            </dl>
-          </div>
-        )}
-      </section>
+              </dl>
+            </>
+          )}
+        </div>
+      </Card>
 
       {student !== undefined && studentId !== null && (
         <>
-          <fieldset className="flex flex-col gap-2 rounded-md border border-border-subtle p-3">
-            <legend className="px-1 text-sm font-medium">{t('reminders.guardiansLabel')}</legend>
+          <Card padded aria-labelledby="reminder-guardians-title">
+            <h2 id="reminder-guardians-title" className="text-h2">
+              {t('reminders.guardiansLabel')}
+            </h2>
             {student.guardians.length === 0 ? (
-              <p role="alert" className="text-sm text-destructive">
+              <p
+                role="alert"
+                className="mt-4 flex items-center gap-1 text-caption text-destructive"
+              >
+                <CircleAlertIcon className="size-4 shrink-0" aria-hidden />
                 {t('reminders.noGuardians')}
               </p>
             ) : (
-              student.guardians.map((guardian) => {
-                const optionLabel = t('reminders.guardianOptionLabel', {
-                  name: guardian.full_name,
-                  relationship: guardian.relationship,
-                });
-                return (
-                  <span key={guardian.id} className="flex items-center gap-2 text-sm">
-                    <Checkbox
-                      id={`reminder-guardian-${guardian.id}`}
-                      checked={guardianIds.includes(guardian.id)}
-                      onCheckedChange={() => toggleGuardian(guardian.id)}
-                    />
-                    <label htmlFor={`reminder-guardian-${guardian.id}`}>
-                      {optionLabel}{' '}
-                      <span className="text-muted-foreground">
-                        (
-                        {t('reminders.guardianPrefers', {
-                          medium: t(`mediums.${guardian.preferred_communication}`),
-                        })}
-                        )
+              <div className="mt-4 divide-y divide-border-subtle overflow-hidden rounded-md border border-border-subtle">
+                {student.guardians.map((guardian) => {
+                  const address =
+                    guardian.preferred_communication === 'EMAIL'
+                      ? guardian.email
+                      : guardian.phone !== null && guardian.phone !== ''
+                        ? formatPhone(guardian.phone, config)
+                        : null;
+                  return (
+                    <label
+                      key={guardian.id}
+                      htmlFor={`reminder-guardian-${guardian.id}`}
+                      className="flex min-h-11 cursor-pointer items-center gap-3 px-3 py-2 hover:bg-muted"
+                    >
+                      <Checkbox
+                        id={`reminder-guardian-${guardian.id}`}
+                        checked={guardianIds.includes(guardian.id)}
+                        onCheckedChange={() => toggleGuardian(guardian.id)}
+                      />
+                      <span className="flex min-w-0 flex-col">
+                        <span>
+                          {t('reminders.guardianOptionLabel', {
+                            name: guardian.full_name,
+                            relationship: guardian.relationship,
+                          })}
+                        </span>
+                        <span className="text-caption text-text-secondary">
+                          {t('reminders.guardianContact', {
+                            medium: t(`mediums.${guardian.preferred_communication}`),
+                            address:
+                              address === null || address === ''
+                                ? t('reminders.guardianNoAddress')
+                                : address,
+                          })}
+                        </span>
                       </span>
                     </label>
-                  </span>
-                );
-              })
-            )}
-          </fieldset>
-
-          <div className="grid gap-1.5">
-            <Label htmlFor="reminder-template">{t('reminders.messageLabel')}</Label>
-            <Textarea
-              id="reminder-template"
-              value={template}
-              onChange={(event) => setTemplate(event.target.value)}
-              rows={5}
-            />
-            {smsInPlay && (
-              <>
-                <SmsSegmentCounter text={template} />
-                {/* The template is not what gets sent — placeholders
-                    expand per student/guardian. The preview table shows
-                    the real per-recipient counts; this one is only a
-                    composing aid. */}
-                <p className="text-xs text-muted-foreground">{t('reminders.smsEstimateNote')}</p>
-              </>
-            )}
-            <div
-              role="group"
-              aria-label={t('reminders.placeholdersLabel')}
-              className="flex flex-wrap gap-1.5"
-            >
-              {SUPPORTED_PLACEHOLDERS.map((token) => (
-                <Button
-                  key={token}
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  aria-label={t('reminders.insertPlaceholder', { token })}
-                  onClick={() => insertPlaceholder(token)}
-                >
-                  {token}
-                </Button>
-              ))}
-            </div>
-            {unsupportedTokens.length > 0 && (
-              <p role="alert" className="text-sm text-destructive">
-                {t('reminders.unknownPlaceholder', {
-                  token: unsupportedTokens.join(', '),
-                  supported: SUPPORTED_PLACEHOLDERS.join(', '),
+                  );
                 })}
+              </div>
+            )}
+          </Card>
+
+          <Card padded aria-labelledby="reminder-message-title">
+            <h2 id="reminder-message-title" className="text-h2">
+              {t('reminders.messageSectionTitle')}
+            </h2>
+            <div className="mt-4 grid gap-4">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="reminder-template">{t('reminders.messageLabel')}</Label>
+                <Textarea
+                  id="reminder-template"
+                  value={template}
+                  onChange={(event) => setTemplate(event.target.value)}
+                  rows={4}
+                />
+                {smsInPlay && (
+                  <>
+                    <SmsSegmentCounter text={template} />
+                    {/* The template is not what gets sent — placeholders
+                        expand per student/guardian. The preview shows the
+                        real per-recipient counts; this one is only a
+                        composing aid. */}
+                    <p className="text-caption text-text-secondary">
+                      {t('reminders.smsEstimateNote')}
+                    </p>
+                  </>
+                )}
+                {unknownTokens.length > 0 && (
+                  <p
+                    role="alert"
+                    className="flex items-center gap-1 text-caption text-destructive"
+                  >
+                    <CircleAlertIcon className="size-4 shrink-0" aria-hidden />
+                    {t('reminders.unknownPlaceholder', { token: unknownTokens.join(', ') })}
+                  </p>
+                )}
+              </div>
+
+              <PlaceholderButtons labels={labels} onInsert={insertPlaceholder} />
+
+              <div className="flex flex-col gap-1.5 md:w-1/2">
+                <Label htmlFor="reminder-medium-override">
+                  {t('reminders.mediumOverrideLabel')}
+                </Label>
+                <Select value={mediumOverride} onValueChange={setMediumOverride}>
+                  <SelectTrigger
+                    id="reminder-medium-override"
+                    aria-label={t('reminders.mediumOverrideLabel')}
+                    className="w-full"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={PREFERRED}>
+                      {t('reminders.mediumOverrideDefault')}
+                    </SelectItem>
+                    {OVERRIDE_MEDIUMS.map((value) => (
+                      <SelectItem key={value} value={value}>
+                        {t(`mediums.${value}`)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {mediumOverride === 'WHATSAPP' && (
+                <WhatsappTemplateFields
+                  idPrefix="reminder"
+                  helperText={t('reminders.whatsappHelper')}
+                  templateName={templateName}
+                  onTemplateNameChange={setTemplateName}
+                  templateLanguage={templateLanguage}
+                  onTemplateLanguageChange={setTemplateLanguage}
+                  templateParams={templateParams}
+                  onTemplateParamsChange={setTemplateParams}
+                />
+              )}
+            </div>
+
+            <div className="mt-5 flex flex-col-reverse gap-2 border-t border-border-subtle pt-4 md:flex-row md:items-center md:justify-end">
+              {/* Why there is no Send yet, in words: never previewed → the
+                  standing rule; previewed-then-edited → the staleness
+                  warning. */}
+              {!previewMatchesInputs &&
+                (acceptedPreview !== null ? (
+                  <p className="text-status-due-fg md:me-auto">{t('reminders.previewStale')}</p>
+                ) : (
+                  <p className="text-text-secondary md:me-auto">{t('reminders.sendHint')}</p>
+                ))}
+              <Button
+                type="button"
+                variant={previewMatchesInputs ? 'outline' : 'default'}
+                disabled={!canPreview}
+                loading={preview.isPending}
+                onClick={handlePreview}
+              >
+                {previewMatchesInputs && <RefreshCwIcon aria-hidden />}
+                {preview.isPending
+                  ? t('reminders.previewing')
+                  : previewMatchesInputs
+                    ? t('reminders.previewAgain')
+                    : t('reminders.previewAction')}
+              </Button>
+            </div>
+            {preview.isError && (
+              <p
+                role="alert"
+                className="mt-3 flex items-center gap-1 text-caption text-destructive"
+              >
+                <CircleAlertIcon className="size-4 shrink-0" aria-hidden />
+                {preview.error instanceof ApiError && preview.error.statusCode === 400
+                  ? t('reminders.previewInvalid')
+                  : t('reminders.previewErrorMessage')}
               </p>
             )}
-          </div>
-
-          <div className="grid gap-1.5">
-            <Label htmlFor="reminder-medium-override">{t('reminders.mediumOverrideLabel')}</Label>
-            <Select value={mediumOverride} onValueChange={setMediumOverride}>
-              <SelectTrigger
-                id="reminder-medium-override"
-                aria-label={t('reminders.mediumOverrideLabel')}
-              >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={PREFERRED}>{t('reminders.mediumOverrideDefault')}</SelectItem>
-                {OVERRIDE_MEDIUMS.map((value) => (
-                  <SelectItem key={value} value={value}>
-                    {t(`mediums.${value}`)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {mediumOverride === 'WHATSAPP' && (
-            <WhatsappTemplateFields
-              idPrefix="reminder"
-              helperText={t('reminders.whatsappHelper')}
-              templateName={templateName}
-              onTemplateNameChange={setTemplateName}
-              templateLanguage={templateLanguage}
-              onTemplateLanguageChange={setTemplateLanguage}
-              templateParams={templateParams}
-              onTemplateParamsChange={setTemplateParams}
-            />
-          )}
-
-          <div className="flex flex-wrap items-center gap-3">
-            <Button
-              type="button"
-              variant="outline"
-              disabled={!canPreview}
-              loading={preview.isPending}
-              onClick={handlePreview}
-            >
-              {preview.isPending ? t('reminders.previewing') : t('reminders.previewAction')}
-            </Button>
-            <Button type="button" disabled={!canSend} loading={send.isPending} onClick={handleSend}>
-              {send.isPending ? t('reminders.sending') : t('reminders.sendAction')}
-            </Button>
-            {/* Why Send is disabled, in words: never previewed → the
-                standing rule; previewed-then-edited → the staleness
-                warning. */}
-            {acceptedPreview !== null && !previewMatchesInputs ? (
-              <p className="text-sm text-status-due-fg">{t('reminders.previewStale')}</p>
-            ) : (
-              !canSend && <p className="text-sm text-muted-foreground">{t('reminders.sendHint')}</p>
-            )}
-          </div>
-
-          {preview.isError && (
-            <p role="alert" className="text-sm text-destructive">
-              {/* The server's 400s are specific and actionable ("No
-                  deliverable guardian … every candidate skipped: …") —
-                  surface them verbatim. */}
-              {preview.error instanceof ApiError && preview.error.statusCode === 400
-                ? preview.error.message
-                : t('reminders.previewErrorMessage')}
-            </p>
-          )}
-          {send.isError && (
-            <p role="alert" className="text-sm text-destructive">
-              {send.error instanceof ApiError && send.error.statusCode === 400
-                ? send.error.message
-                : t('reminders.errorMessage')}
-            </p>
-          )}
+          </Card>
 
           {acceptedPreview !== null && previewMatchesInputs && (
-            <section className="rounded-md border border-border-subtle p-3">
+            <Card padded aria-labelledby="reminder-preview-title">
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                <h2 id="reminder-preview-title" className="text-h2">
+                  {t('reminders.previewTitle')}
+                </h2>
+                <StatusBadge tone="success" label={t('reminders.previewFresh')} />
+              </div>
               <RecipientList
                 recipients={acceptedPreview.result.recipients}
                 skipped={acceptedPreview.result.skipped}
               />
-            </section>
+              <div className="mt-5 flex flex-col-reverse gap-2 border-t border-border-subtle pt-4 md:flex-row md:items-center md:justify-between">
+                <p className="text-text-secondary">{t('reminders.irreversibleNote')}</p>
+                {acceptedPreview.result.recipients.length > 0 && (
+                  <Button
+                    type="button"
+                    disabled={!canSend}
+                    loading={send.isPending}
+                    onClick={handleSend}
+                  >
+                    <SendIcon aria-hidden />
+                    {send.isPending
+                      ? t('reminders.sending')
+                      : t('reminders.sendToCount', {
+                          count: acceptedPreview.result.recipients.length,
+                          n: formatNumber(acceptedPreview.result.recipients.length, config),
+                        })}
+                  </Button>
+                )}
+              </div>
+              {send.isError && (
+                <p
+                  role="alert"
+                  className="mt-3 flex items-center gap-1 text-caption text-destructive"
+                >
+                  <CircleAlertIcon className="size-4 shrink-0" aria-hidden />
+                  {send.error instanceof ApiError && send.error.statusCode === 400
+                    ? t('reminders.sendInvalid')
+                    : t('reminders.errorMessage')}
+                </p>
+              )}
+            </Card>
           )}
         </>
       )}
-    </div>
+    </PageContainer>
   );
 }
 
