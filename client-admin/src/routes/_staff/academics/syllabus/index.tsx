@@ -320,7 +320,7 @@ function SyllabusListPage() {
                     type="button"
                     className={`${phoneButton} text-text-secondary`}
                     disabled={index === 0 || reorderTopics.isPending}
-                    aria-label={t('list.moveUp', { name: topic.name })}
+                    aria-label={`${t('list.moveUpShort')} ${topic.name}`}
                     onClick={() => move(index, -1)}
                   >
                     <ArrowUp className="size-4" aria-hidden="true" />
@@ -330,7 +330,7 @@ function SyllabusListPage() {
                     type="button"
                     className={`${phoneButton} text-text-secondary`}
                     disabled={index === sortedTopics.length - 1 || reorderTopics.isPending}
-                    aria-label={t('list.moveDown', { name: topic.name })}
+                    aria-label={`${t('list.moveDownShort')} ${topic.name}`}
                     onClick={() => move(index, 1)}
                   >
                     <ArrowDown className="size-4" aria-hidden="true" />
@@ -339,7 +339,7 @@ function SyllabusListPage() {
                   <button
                     type="button"
                     className={`${phoneButton} text-primary`}
-                    aria-label={t('list.edit', { name: topic.name })}
+                    aria-label={`${t('list.editShort')} ${topic.name}`}
                     onClick={() => setEditing(topic)}
                   >
                     <Pencil className="size-4" aria-hidden="true" />
@@ -348,7 +348,7 @@ function SyllabusListPage() {
                   <button
                     type="button"
                     className={`${phoneButton} text-destructive`}
-                    aria-label={t('list.delete', { name: topic.name })}
+                    aria-label={`${t('list.deleteShort')} ${topic.name}`}
                     onClick={() => setDeleting(topic)}
                   >
                     <Trash2 className="size-4" aria-hidden="true" />

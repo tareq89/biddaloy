@@ -206,4 +206,12 @@ describe('/academics/homework/import', () => {
         .join(','),
     );
   });
+
+  it('a failed validate keeps the footer import button disabled', async () => {
+    server.use(validateHandler({ message: 'boom' }, 500));
+    renderImportPage();
+    await uploadFile(makeFile('homework.csv'));
+    await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy());
+    expect(screen.getByRole('button', { name: 'Import' }).hasAttribute('disabled')).toBe(true);
+  });
 });

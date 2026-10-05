@@ -142,6 +142,9 @@ function ImportHomeworkContent() {
 
   const status = controller?.status ?? 'idle';
   const dirty = status === 'preview' || status === 'committing';
+  const guardedClose = () => {
+    if (status !== 'committing') close();
+  };
   const backToList = () => void navigate({ to: '/academics/homework' });
 
   const primary =
@@ -165,14 +168,14 @@ function ImportHomeworkContent() {
         title={t('import.title')}
         size="wide"
         dirty={dirty}
-        onClose={close}
+        onClose={guardedClose}
         secondary={{
           label: status === 'done' ? tCommon('actions.close') : tCommon('actions.cancel'),
           // The footer's secondary bypasses the shell's dirty check.
           onClick: () => {
             if (status === 'committing') return;
             if (dirty) setDiscardOpen(true);
-            else close();
+            else guardedClose();
           },
         }}
         primary={primary}
@@ -270,7 +273,8 @@ function ImportHomeworkContent() {
         description={tCommon('fullPage.discardDescription')}
         confirmLabel={tCommon('fullPage.discardConfirm')}
         cancelLabel={tCommon('fullPage.keepEditing')}
-        onConfirm={close}
+        tone="danger"
+        onConfirm={guardedClose}
       />
     </>
   );
@@ -342,7 +346,7 @@ function ImportPreviewSummary({ result }: { result: PreviewResult<HomeworkUpload
       <p className="border-t border-border-subtle px-4 py-3 text-text-secondary md:px-5">
         {t('import.preview.shown', {
           shown: formatNumber(previewRows.length, regionConfig),
-          total: formatNumber(toCreate, regionConfig),
+          total: formatNumber(result.summary.preview.length, regionConfig),
         })}
       </p>
     </Card>
