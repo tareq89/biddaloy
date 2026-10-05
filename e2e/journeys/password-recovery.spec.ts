@@ -1,4 +1,4 @@
-import { adminApiSession, createInvitedParentUser, createStaffUser } from '../api';
+import { adminApiSession, createInvitedParentUser, createStaffUser, E2E_PASSWORD } from '../api';
 import { guest, loggedIn, test, expect } from '../fixtures/test';
 import { ActivatePage } from '../pages/activate-page';
 import { ForgotPasswordPage } from '../pages/forgot-password-page';
@@ -35,7 +35,7 @@ test.describe('guardian phone recovery', () => {
     await test.step('give the account a real password to recover later', async () => {
       await activate.goto(guardian.token);
       await activate.expectWelcome('Guardian Recovery E2E');
-      await activate.setPassword('an-original-password');
+      await activate.setPassword(E2E_PASSWORD);
       await expect(page).toHaveURL(/\/portal/);
     });
 
@@ -64,7 +64,7 @@ test.describe('guardian phone recovery', () => {
     });
 
     await test.step('set a new password and land back in the portal, signed in', async () => {
-      await forgotPassword.setNewPassword('a-recovered-password');
+      await forgotPassword.setNewPassword(`${E2E_PASSWORD}-recovered`);
       await expect(page).toHaveURL(/\/portal/);
     });
   });

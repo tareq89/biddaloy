@@ -1,5 +1,6 @@
 import {
   addSchoolAdmin,
+  E2E_PASSWORD,
   findSchoolIdBySlug,
   resendSchoolAdminInvitation,
   superAdminApiSession,
@@ -107,7 +108,7 @@ test('provision a school, activate its admin, suspend it, and reactivate it', as
     const activate = new ActivatePage(adminPage);
     await activate.goto(token);
     await activate.expectWelcome(adminName);
-    await activate.setPassword('a-strong-new-password-1');
+    await activate.setPassword(E2E_PASSWORD);
 
     // Two tenant memberships now (the new school + Rose Valley) — lands
     // on the picker rather than auto-continuing, same branch

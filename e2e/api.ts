@@ -928,6 +928,10 @@ export async function provisionSchool(
   return { schoolId: created.school.id, adminUserId: created.admin.user_id };
 }
 
+/** A password every D10 rule set accepts (staff: 8+ chars, upper, lower, digit,
+ * symbol; family: 8+ chars and a digit). Use it wherever a spec sets one. */
+export const E2E_PASSWORD = 'Strong-Pass-1';
+
 /** `POST /auth/activate` — consumes an invite token, sets a password, and
  * signs the caller in, all in one call. Used instead of driving
  * `/activate?token=…` through a browser (`ActivatePage`,

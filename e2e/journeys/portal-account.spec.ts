@@ -3,6 +3,7 @@ import {
   apiSession,
   createInvitedParentUser,
   createStudentWithDues,
+  E2E_PASSWORD,
 } from '../api';
 import { expect, guest, loggedIn, test } from '../fixtures/test';
 import { ActivatePage } from '../pages/activate-page';
@@ -267,7 +268,7 @@ test.describe('contact change', () => {
     // password-change journey above runs as `student`. The contact-change
     // card itself is role-agnostic.
     const account = await createInvitedParentUser(request, admin, 'Contact Change E2E', 'STUDENT');
-    const password = 'an-original-password';
+    const password = E2E_PASSWORD;
     const newPhone = `017${Math.floor(10_000_000 + Math.random() * 89_999_999)}`;
     const changeLabel = t('portal.account.contact.change');
 
