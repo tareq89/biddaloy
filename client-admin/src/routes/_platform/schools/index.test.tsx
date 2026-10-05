@@ -1,5 +1,7 @@
 import { UserRole } from '@biddaloy/shared';
+import { REGION_BD_BN } from '@biddaloy/ui/i18n';
 import { cleanupTestState, renderWithRouter } from '@biddaloy/ui/test';
+import { formatDate } from '@biddaloy/ui/utils';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -36,6 +38,31 @@ describe('/schools', () => {
     expect(within(rows[1] as HTMLElement).getByText('Active')).toBeTruthy();
     expect(within(rows[2] as HTMLElement).getByText('Zenith School')).toBeTruthy();
     expect(within(rows[2] as HTMLElement).getByText('Suspended')).toBeTruthy();
+    // Long-form date, never the bare locale string ("1/15/2026").
+    expect(
+      within(rows[1] as HTMLElement).getByText(formatDate('2026-01-15', REGION_BD_BN)),
+    ).toBeTruthy();
+  });
+
+  it('has a primary "New school" button, a view link per row and no pager', async () => {
+    const user = userEvent.setup();
+    renderWithRouter(routeTree, {
+      initialEntries: ['/schools'],
+      tenantId: 'tenant-1',
+      role: UserRole.SUPER_ADMIN,
+      locale: 'en',
+    });
+
+    await screen.findByText('Ananta School');
+    // `View Ananta School` is a row action; no previous/next pager exists.
+    expect(screen.getAllByRole('link', { name: /^View .* School$/ }).length).toBeGreaterThan(0);
+    expect(screen.queryByRole('button', { name: /previous/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /next/i })).toBeNull();
+    // The search field has a visible label.
+    expect(screen.getByLabelText('Search schools')).toBeTruthy();
+
+    await user.click(screen.getByRole('button', { name: 'New school' }));
+    expect(await screen.findByRole('heading', { name: 'New school', level: 1 })).toBeTruthy();
   });
 
   it('filters by name/slug client-side', async () => {
@@ -77,12 +104,14 @@ describe('/schools', () => {
       locale: 'en',
     });
 
-    await screen.findByRole('heading', { name: 'Backup health' });
+    await screen.findByRole('heading', { name: 'Backup status' });
     const healthRegion = await screen.findByRole('region', {
-      name: "Every school's backup schedule, most recent result and storage usage.",
+      name: 'How often each school is backed up, how the last attempt went and how much space it uses.',
     });
     expect(within(healthRegion).getByText('Backup Health Fixture School A')).toBeTruthy();
     expect(within(healthRegion).getByText('Daily')).toBeTruthy();
+    // The backup table sits under its own titled section.
+    expect(screen.getByRole('heading', { name: 'Backup status', level: 2 })).toBeTruthy();
     const neverRow = within(healthRegion)
       .getByText('Backup Health Fixture School B')
       .closest('tr') as HTMLElement;
@@ -106,13 +135,12 @@ describe('/schools', () => {
     });
 
     await screen.findByRole('heading', { name: 'Schools' });
-    // Scoped to the schools table's own region — [14.12.3] added a second
-    // table (backup health) to this page, so an unscoped `getByRole`
-    // would throw on finding more than one region.
+    // The empty list swaps the table for an EmptyState, so the busy region
+    // disappears once the response lands.
     const schoolsRegion = screen.getByRole('region', {
       name: 'Every school on the platform, with lifecycle status and creation date.',
     });
     expect(schoolsRegion.getAttribute('aria-busy')).toBe('true');
-    await waitFor(() => expect(schoolsRegion.getAttribute('aria-busy')).toBe('false'));
+    expect(await screen.findByText('No schools match your search.')).toBeTruthy();
   });
 });
