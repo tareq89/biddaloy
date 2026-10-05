@@ -12,7 +12,8 @@ import {
   useMarkStaffAttendance,
   useStaffAttendanceSummary,
 } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { formatNumber } from '@biddaloy/ui/utils';
 import * as React from 'react';
 
 import { LeaveRequestDialog } from '../../attendance/staff/-leave-request-dialog';
@@ -35,6 +36,8 @@ function monthStartIso(): string {
 export function AttendanceLeaveTab({ staffProfileId, staffName }: AttendanceLeaveTabProps) {
   const { t } = useTranslation('staffAttendance');
   const { t: tLeave } = useTranslation('leave');
+  const { t: ts } = useTranslation('staff');
+  const regionConfig = useRegionConfig();
   const canMark = useHasPermission(Permission.STAFF_ATTENDANCE_MARK);
   const [todayStatus, setTodayStatus] = React.useState<AttendanceStatus | null>(null);
   const [requestOpen, setRequestOpen] = React.useState(false);
@@ -50,91 +53,97 @@ export function AttendanceLeaveTab({ staffProfileId, staffName }: AttendanceLeav
     });
   }
 
+  const num = (n: number) => formatNumber(n, regionConfig);
+  const figures = summaryQuery.data
+    ? [
+        ['summary.present', num(summaryQuery.data.present_days)],
+        ['summary.absent', num(summaryQuery.data.absent_days)],
+        ['summary.late', num(summaryQuery.data.late_days)],
+        ['summary.leave', num(summaryQuery.data.leave_days)],
+        [
+          'summary.percentage',
+          summaryQuery.data.attendance_percentage === null
+            ? '—'
+            : `${num(summaryQuery.data.attendance_percentage)}%`,
+        ],
+      ]
+    : [];
+
   return (
-    <div className="flex flex-col gap-6">
-      <section className="flex flex-col gap-2">
-        <h2 className="text-sm font-semibold">{t('grid.title')}</h2>
+    <div className="space-y-6">
+      <section className="rounded-lg border border-border-subtle bg-surface p-4 shadow-e1 md:p-5">
+        <h2 className="text-h2">{ts('detail.attendanceLeave.todayTitle')}</h2>
         {canMark && (
-          <AttendanceStatusControl
-            value={todayStatus}
-            onChange={handleStatusChange}
-            disabled={markAttendance.isPending}
-            studentName={staffName}
-            variant="expanded"
-          />
+          <div className="mt-4">
+            <AttendanceStatusControl
+              value={todayStatus}
+              onChange={handleStatusChange}
+              disabled={markAttendance.isPending}
+              studentName={staffName}
+              variant="expanded"
+            />
+          </div>
         )}
         {markAttendance.isError && (
-          <p role="alert" className="text-sm text-destructive">
+          <p role="alert" className="mt-2 text-caption text-destructive">
             {t('grid.errorMessage')}
           </p>
         )}
-
-        <h3 className="text-sm font-medium text-muted-foreground">{t('summary.title')}</h3>
-        {summaryQuery.isPending ? (
-          <Skeleton className="h-16 w-full" />
-        ) : summaryQuery.isError ? (
-          <ErrorState
-            message={t('summary.errorMessage')}
-            retryLabel={t('actions.retry', { ns: 'common' })}
-            onRetry={() => void summaryQuery.refetch()}
-          />
-        ) : (
-          <dl className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-5">
-            <div>
-              <dt className="text-muted-foreground">{t('summary.present')}</dt>
-              <dd className="font-medium">{summaryQuery.data.present_days}</dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">{t('summary.absent')}</dt>
-              <dd className="font-medium">{summaryQuery.data.absent_days}</dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">{t('summary.late')}</dt>
-              <dd className="font-medium">{summaryQuery.data.late_days}</dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">{t('summary.leave')}</dt>
-              <dd className="font-medium">{summaryQuery.data.leave_days}</dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">{t('summary.percentage')}</dt>
-              <dd className="font-medium">
-                {summaryQuery.data.attendance_percentage === null
-                  ? '—'
-                  : `${summaryQuery.data.attendance_percentage}%`}
-              </dd>
-            </div>
-          </dl>
-        )}
       </section>
 
-      <section className="flex flex-col gap-2">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold">{tLeave('myLeave.title')}</h2>
+      <section className="rounded-lg border border-border-subtle bg-surface p-4 shadow-e1 md:p-5">
+        <h2 className="text-h2">{ts('detail.attendanceLeave.monthTitle')}</h2>
+        <div className="mt-4">
+          {summaryQuery.isPending ? (
+            <Skeleton className="h-16 w-full" />
+          ) : summaryQuery.isError ? (
+            <ErrorState
+              message={t('summary.errorMessage')}
+              retryLabel={t('actions.retry', { ns: 'common' })}
+              onRetry={() => void summaryQuery.refetch()}
+            />
+          ) : (
+            <dl className="grid grid-cols-2 gap-4 md:grid-cols-5">
+              {figures.map(([key, value]) => (
+                <div key={key}>
+                  <dt className="text-caption text-text-secondary">{t(key as string)}</dt>
+                  <dd className="text-h3">{value}</dd>
+                </div>
+              ))}
+            </dl>
+          )}
+        </div>
+      </section>
+
+      <section className="rounded-lg border border-border-subtle bg-surface p-4 shadow-e1 md:p-5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-h2">{ts('detail.attendanceLeave.leaveTitle')}</h2>
           <Button type="button" variant="outline" onClick={() => setRequestOpen(true)}>
             {tLeave('myLeave.requestButton')}
           </Button>
         </div>
-        {balanceQuery.isPending ? (
-          <Skeleton className="h-16 w-full" />
-        ) : balanceQuery.isError ? (
-          <ErrorState
-            message={tLeave('myLeave.errorMessage')}
-            retryLabel={t('actions.retry', { ns: 'common' })}
-            onRetry={() => void balanceQuery.refetch()}
-          />
-        ) : balanceQuery.data.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{tLeave('myLeave.empty')}</p>
-        ) : (
-          <ul className="flex flex-col gap-1 text-sm">
-            {balanceQuery.data.map((row) => (
-              <li key={row.leave_type} className="flex justify-between">
-                <span>{tLeave(`type.${row.leave_type}`)}</span>
-                <span>{row.balance}</span>
-              </li>
-            ))}
-          </ul>
-        )}
+        <div className="mt-4">
+          {balanceQuery.isPending ? (
+            <Skeleton className="h-16 w-full" />
+          ) : balanceQuery.isError ? (
+            <ErrorState
+              message={tLeave('myLeave.errorMessage')}
+              retryLabel={t('actions.retry', { ns: 'common' })}
+              onRetry={() => void balanceQuery.refetch()}
+            />
+          ) : balanceQuery.data.length === 0 ? (
+            <p className="text-text-secondary">{tLeave('myLeave.empty')}</p>
+          ) : (
+            <ul className="divide-y divide-border-subtle">
+              {balanceQuery.data.map((row) => (
+                <li key={row.leave_type} className="flex min-h-11 items-center justify-between">
+                  <span>{tLeave(`type.${row.leave_type}`)}</span>
+                  <span>{num(row.balance)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </section>
 
       <LeaveRequestDialog

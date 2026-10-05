@@ -152,17 +152,19 @@
     },
     "teachingAssignments": {
       "caption": "Classes and sections this teacher is assigned to",
-      "columnClass": "Class",
+      "columnClass": "Class & section",
       "columnSection": "Section",
-      "columnRole": "Role",
+      "columnRole": "Duty",
       "columnSubject": "Subject",
       "columnActions": "Actions",
       "assign": "Assign",
-      "remove": "Remove",
-      "removeError": "Could not remove this assignment. Please try again.",
+      "remove": "Remove assignment",
+      "removeError": "Couldn't remove the assignment. Try again.",
       "emptyMessage": "No assignments yet",
       "errorMessage": "Could not load teaching assignments. Please try again.",
-      "announceResults": "Showing {{count}} of {{total}} assignments"
+      "announceResults": "Showing {{count}} of {{total}} assignments",
+      "title": "Teacher assignments",
+      "emptyExplanation": "Classes and subjects given to this teacher show up here."
     },
     "profile": {
       "columnEmail": "Email",
@@ -225,6 +227,11 @@
       "memberSince": "Joined this school",
       "lastSignIn": "Last sign-in",
       "neverSignedIn": "Not yet"
+    },
+    "attendanceLeave": {
+      "todayTitle": "Today's attendance",
+      "monthTitle": "This month",
+      "leaveTitle": "Leave balance"
     }
   },
   "hrRecord": {
@@ -233,7 +240,7 @@
     "saveError": "Could not save this section. Please try again.",
     "sections": {
       "job": "Job info",
-      "promotion": "Promotion / employment history",
+      "promotion": "Promotions & posts",
       "family": "Family members",
       "address": "Addresses",
       "experience": "Work experience",
@@ -258,7 +265,8 @@
       "errorMessage": "Could not save job details. Please try again.",
       "save": "Save",
       "saving": "Saving…",
-      "nameBnLabel": "Name (Bangla)"
+      "nameBnLabel": "Name (Bangla)",
+      "editActionShort": "Edit"
     },
     "promotion": {
       "promoteAction": "Promote",

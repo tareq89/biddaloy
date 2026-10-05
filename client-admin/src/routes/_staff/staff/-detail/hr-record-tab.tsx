@@ -14,6 +14,7 @@
  * `Accordion` in the design system if a second caller ever wants one.
  */
 import { useTranslation } from '@biddaloy/ui/i18n';
+import { ChevronDownIcon } from 'lucide-react';
 import * as React from 'react';
 
 import { HrRecordAchievementSection } from './hr-record-achievement-section';
@@ -90,17 +91,21 @@ export function HrRecordTab({ userId }: HrRecordTabProps) {
   const { t } = useTranslation('staff');
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="space-y-3">
       {SECTIONS.map((section) => (
         <details
           key={section.id}
           open={section.id === 'job' || section.id === 'promotion'}
-          className="rounded-lg border border-border-subtle p-3"
+          className="group/hr rounded-lg border border-border-subtle bg-surface shadow-e1"
         >
-          <summary className="cursor-pointer text-sm font-semibold">
-            {t(`hrRecord.sections.${section.labelKey}`)}
+          <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 px-4 md:min-h-12 md:px-5">
+            <h2 className="text-h3">{t(`hrRecord.sections.${section.labelKey}`)}</h2>
+            <ChevronDownIcon
+              className="size-4 shrink-0 text-text-secondary group-open/hr:rotate-180"
+              aria-hidden
+            />
           </summary>
-          <div className="mt-3">{section.render(userId)}</div>
+          <div className="border-t border-border-subtle p-4 md:p-5">{section.render(userId)}</div>
         </details>
       ))}
     </div>
