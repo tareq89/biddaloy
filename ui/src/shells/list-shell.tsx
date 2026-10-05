@@ -20,6 +20,8 @@
  * spread below forwards it straight through to `DataTable`. Pages just pass
  * `isFetching={xQuery.isFetching}` alongside their existing `loading` prop.
  *
+ * [31.2.5c] `emptyState` / `paginated` (31.2.4b) reach DataTable through the same spread.
+ *
  * [8.14.7] Card mode is the same story: `layout`, a column's `card` role,
  * and a column's `align` are all just more `DataTableProps` fields, so
  * they reach `DataTable` through the same `...dataTableProps` spread with
@@ -80,6 +82,11 @@ export function ListShell<TData extends RowData>({
     console.warn('[ListShell] `primaryAction` (deprecated) wins; `actions` are not rendered.');
   }
 
+  // The phone filter sheet's "Show N results"; a page's own `resultCount` wins,
+  // and while loading it stays unknown so the sheet never shows a stale number.
+  const resultCount =
+    filters?.resultCount ?? (dataTableProps.loading ? undefined : dataTableProps.totalCount);
+
   return (
     <PageContainer size="wide">
       {primaryAction ? (
@@ -95,7 +102,9 @@ export function ListShell<TData extends RowData>({
       ) : (
         <PageHeader title={title} subtitle={subtitle} actions={actions} />
       )}
-      {filters && <FilterBar {...filters} />}
+      {filters && (
+        <FilterBar {...filters} {...(resultCount !== undefined ? { resultCount } : {})} />
+      )}
       {filterBar && <div className="flex flex-wrap items-center gap-2">{filterBar}</div>}
       <DataTable {...dataTableProps} />
     </PageContainer>
