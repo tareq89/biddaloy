@@ -52,7 +52,7 @@ describe('PromotionOverrideBadge', () => {
 
     const badge = await screen.findByText(/2025-2026.*Repeated failure in Math.*Jane Admin/);
     expect(badge).not.toBeNull();
-    expect(badge.textContent).toMatch(/^Retained by override/);
+    expect(badge.textContent).toMatch(/^Kept in the same class by special decision/);
   });
 
   it('uses outcome-specific text for GRADUATE, not always "Promoted"', async () => {
@@ -74,7 +74,7 @@ describe('PromotionOverrideBadge', () => {
     renderBadge();
 
     const badge = await screen.findByText(/Graduated early/);
-    expect(badge.textContent).toMatch(/^Graduated by override/);
+    expect(badge.textContent).toMatch(/^Completed by special decision/);
   });
 
   it('uses outcome-specific text for PROMOTE', async () => {
@@ -96,7 +96,7 @@ describe('PromotionOverrideBadge', () => {
     renderBadge();
 
     const badge = await screen.findByText(/Manual review, promoted/);
-    expect(badge.textContent).toMatch(/^Promoted by override/);
+    expect(badge.textContent).toMatch(/^Promoted by special decision/);
   });
 
   it('shows the most recently committed override when there are several', async () => {
