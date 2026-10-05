@@ -1,13 +1,8 @@
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@biddaloy/ui/components';
+import { DataTable, StatusBadge, type DataTableColumn } from '@biddaloy/ui/components';
 import { useStudentCommunicationLogs } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { formatDateTime } from '@biddaloy/ui/utils';
+import { MessageSquareIcon } from 'lucide-react';
 
 import { TabQueryState } from './tab-query-state';
 
@@ -17,6 +12,7 @@ export interface CommunicationTabProps {
 
 export function CommunicationTab({ studentId }: CommunicationTabProps) {
   const { t } = useTranslation('students');
+  const config = useRegionConfig();
   const query = useStudentCommunicationLogs(studentId);
 
   return (
@@ -25,32 +21,55 @@ export function CommunicationTab({ studentId }: CommunicationTabProps) {
       forbiddenMessage={t('detail.forbidden')}
       errorMessage={t('detail.communication.errorMessage')}
     >
-      {(logs) =>
-        logs.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{t('detail.communication.emptyMessage')}</p>
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{t('detail.communication.columnDate')}</TableHead>
-                <TableHead>{t('detail.communication.columnMedium')}</TableHead>
-                <TableHead>{t('detail.communication.columnRecipient')}</TableHead>
-                <TableHead>{t('detail.communication.columnStatus')}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {logs.map((log) => (
-                <TableRow key={log.id}>
-                  <TableCell>{log.created_at}</TableCell>
-                  <TableCell>{log.medium}</TableCell>
-                  <TableCell>{log.recipient_name}</TableCell>
-                  <TableCell>{log.status}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        )
-      }
+      {(logs) => {
+        type Row = (typeof logs)[number];
+        const sorted = [...logs].sort((a, b) => b.created_at.localeCompare(a.created_at));
+        const columns: DataTableColumn<Row>[] = [
+          {
+            id: 'date',
+            header: t('detail.communication.columnDate'),
+            accessorFn: (log) => formatDateTime(log.created_at, config),
+          },
+          {
+            id: 'medium',
+            header: t('detail.communication.columnMedium'),
+            accessorFn: (log) =>
+              t(`form.preferredCommunicationOptions.${log.medium}`, { defaultValue: log.medium }),
+          },
+          {
+            id: 'recipient',
+            header: t('detail.communication.columnRecipient'),
+            accessorFn: (log) => log.recipient_name,
+            card: 'title',
+          },
+          {
+            id: 'status',
+            header: t('detail.communication.columnStatus'),
+            accessorFn: (log) => (
+              <StatusBadge domain="communication" status={log.status} />
+            ),
+            card: 'badge',
+          },
+        ];
+        return (
+          <DataTable
+            tableId="student-messages"
+            caption={t('detail.tabs.communication')}
+            paginated={false}
+            sorting={null}
+            onSortingChange={() => {}}
+            columns={columns}
+            data={sorted}
+            getRowId={(log) => log.id}
+            totalCount={sorted.length}
+            emptyState={{
+              title: t('detail.communication.emptyMessage'),
+              explanation: t('detail.communication.emptyExplanation'),
+              icon: <MessageSquareIcon aria-hidden="true" />,
+            }}
+          />
+        );
+      }}
     </TabQueryState>
   );
 }
