@@ -19,5 +19,6 @@
   "deleteError": "নোট মোছা যায়নি। আবার চেষ্টা করুন।",
   "ratingLabel": "রেটিং (ঐচ্ছিক)",
   "ratingStar": "৫ এর মধ্যে {{count}}",
-  "ratingShown": "৫ এর মধ্যে {{count}} রেটিং"
+  "ratingShown": "৫ এর মধ্যে {{count}} রেটিং",
+  "deleteNote": "নোট মুছুন"
 }
