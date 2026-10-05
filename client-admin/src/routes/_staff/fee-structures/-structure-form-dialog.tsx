@@ -20,6 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
   Input,
+  Label,
   MoneyInput,
   Select,
   SelectContent,
@@ -37,6 +38,7 @@ import {
 } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { minorUnitsToDecimalString, serverAmountToMinorUnits } from '@biddaloy/ui/utils';
+import { CircleAlertIcon } from 'lucide-react';
 import * as React from 'react';
 
 /** Radix `Select.Item` rejects an empty-string `value`, so "no section"
@@ -46,6 +48,60 @@ const NO_SECTION = '__none__';
  * null `class_id`, which Radix's `Select.Item` also can't represent
  * directly. */
 const NO_CLASS = '__none__';
+
+interface FormErrors {
+  name?: string;
+  amount?: string;
+  academicYear?: string;
+}
+
+/** `aria-invalid` + `aria-describedby` for a control whose error sits under it. */
+function invalidProps(id: string, error: string | undefined) {
+  return error ? { 'aria-invalid': true as const, 'aria-describedby': `${id}-error` } : {};
+}
+
+/** Visible label tied to its control, optional required mark, and the field's own error. */
+function Field({
+  id,
+  label,
+  required,
+  requiredLabel,
+  error,
+  className,
+  children,
+}: {
+  id: string;
+  label: string;
+  required?: boolean;
+  requiredLabel?: string;
+  error?: string | undefined;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className={`flex flex-col gap-1.5 ${className ?? ''}`}>
+      <Label htmlFor={id}>
+        {label}
+        {required && (
+          <>
+            <span className="text-destructive" aria-hidden="true">
+              {' '}
+              *
+            </span>
+            <span className="sr-only"> {requiredLabel}</span>
+          </>
+        )}
+      </Label>
+      {children}
+      {error && (
+        <p id={`${id}-error`} className="flex items-center gap-1 text-caption text-destructive">
+          <CircleAlertIcon className="size-3.5" aria-hidden="true" />
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
 
 export interface StructureFormDialogProps {
   open: boolean;
@@ -65,6 +121,7 @@ export function StructureFormDialog({
 }: StructureFormDialogProps) {
   const { t } = useTranslation('feeStructures');
   const regionConfig = useRegionConfig();
+  const requiredLabel = t('form.required', { ns: 'common' });
 
   const createStructure = useCreateFeeStructure();
   const updateStructure = useUpdateFeeStructure(structure?.id ?? '');
@@ -84,7 +141,7 @@ export function StructureFormDialog({
   );
   const [amountMinorUnits, setAmountMinorUnits] = React.useState<number | undefined>(undefined);
   const [sectionId, setSectionId] = React.useState(structure?.section_id ?? '');
-  const [validationError, setValidationError] = React.useState<string | null>(null);
+  const [errors, setErrors] = React.useState<FormErrors>({});
 
   // Reset only on open/close transitions, so typing isn't clobbered by a
   // background refetch of the list the `structure` prop came from.
@@ -99,26 +156,31 @@ export function StructureFormDialog({
     setAcademicYearId(structure?.academic_year_id ?? '');
     setClassId(structure?.class_id ?? '');
     setSectionId(structure?.section_id ?? '');
-    setValidationError(null);
+    setErrors({});
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only on open/close transitions
   }, [open]);
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
 
-    if (name.trim() === '') {
-      setValidationError(t('form.errorNameRequired'));
-      return;
-    }
+    const next: FormErrors = {};
+    if (name.trim() === '') next.name = t('form.errorNameRequired');
     if (amountMinorUnits === undefined || amountMinorUnits <= 0) {
-      setValidationError(t('form.errorAmountRequired'));
-      return;
+      next.amount = t('form.errorAmountRequired');
     }
     if (mode === 'create' && academicYearId === '') {
-      setValidationError(t('form.errorAcademicYearRequired'));
+      next.academicYear = t('form.errorAcademicYearRequired');
+    }
+    setErrors(next);
+    if (next.name || next.amount || next.academicYear || amountMinorUnits === undefined) {
+      const firstInvalid = next.name
+        ? 'structure-form-name'
+        : next.amount
+          ? 'structure-form-amount'
+          : 'structure-form-year';
+      document.getElementById(firstInvalid)?.focus();
       return;
     }
-    setValidationError(null);
 
     // `MoneyInput` speaks integer minor units; the DTO's `amount` is
     // decimal taka. `minorUnitsToDecimalString` is the only supported
@@ -151,119 +213,141 @@ export function StructureFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent size="md">
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <DialogHeader>
             <DialogTitle>{title}</DialogTitle>
             <DialogDescription>{t('form.description')}</DialogDescription>
           </DialogHeader>
 
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="structure-form-name" className="text-sm font-medium">
-              {t('form.nameLabel')}
-            </label>
-            <Input
+          <div className="grid gap-4 md:grid-cols-2">
+            <Field
               id="structure-form-name"
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              placeholder={t('form.namePlaceholder')}
-            />
-          </div>
+              label={t('form.nameLabel')}
+              required
+              requiredLabel={requiredLabel}
+              error={errors.name}
+              className="md:col-span-2"
+            >
+              <Input
+                id="structure-form-name"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                placeholder={t('form.namePlaceholder')}
+                {...invalidProps('structure-form-name', errors.name)}
+              />
+            </Field>
 
-          <div className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium">{t('form.feeTypeLabel')}</span>
-            <Select value={feeType} onValueChange={(value) => setFeeType(value as FeeType)}>
-              <SelectTrigger aria-label={t('form.feeTypeLabel')}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.values(FeeType).map((type) => (
-                  <SelectItem key={type} value={type}>
-                    {t(`feeTypes.${type}`)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+            <Field
+              id="structure-form-type"
+              label={t('form.feeTypeLabel')}
+              required
+              requiredLabel={requiredLabel}
+            >
+              <Select value={feeType} onValueChange={(value) => setFeeType(value as FeeType)}>
+                <SelectTrigger id="structure-form-type">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.values(FeeType).map((type) => (
+                    <SelectItem key={type} value={type}>
+                      {t(`feeTypes.${type}`)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
 
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="structure-form-amount" className="text-sm font-medium">
-              {t('form.amountLabel')}
-            </label>
-            <MoneyInput
+            <Field
               id="structure-form-amount"
-              config={regionConfig}
-              value={amountMinorUnits}
-              onValueChange={setAmountMinorUnits}
-            />
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium">{t('form.academicYearLabel')}</span>
-            <Select value={academicYearId} onValueChange={setAcademicYearId} disabled={isEdit}>
-              <SelectTrigger aria-label={t('form.academicYearLabel')} disabled={isEdit}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {yearsQuery.data?.data.map((year) => (
-                  <SelectItem key={year.id} value={year.id}>
-                    {year.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium">{t('form.classLabel')}</span>
-            <Select
-              value={classId === '' ? NO_CLASS : classId}
-              onValueChange={(value) => {
-                setClassId(value === NO_CLASS ? '' : value);
-                setSectionId('');
-              }}
+              label={t('form.amountLabel')}
+              required
+              requiredLabel={requiredLabel}
+              error={errors.amount}
             >
-              <SelectTrigger aria-label={t('form.classLabel')}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={NO_CLASS}>{t('list.wholeSchool')}</SelectItem>
-                {classesQuery.data?.data.map((klass) => (
-                  <SelectItem key={klass.id} value={klass.id}>
-                    {klass.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+              <MoneyInput
+                id="structure-form-amount"
+                config={regionConfig}
+                value={amountMinorUnits}
+                onValueChange={setAmountMinorUnits}
+                {...invalidProps('structure-form-amount', errors.amount)}
+              />
+            </Field>
 
-          <div className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium">{t('form.sectionLabel')}</span>
-            <Select
-              value={sectionId === '' ? NO_SECTION : sectionId}
-              onValueChange={(value) => setSectionId(value === NO_SECTION ? '' : value)}
+            <Field
+              id="structure-form-year"
+              label={t('form.academicYearLabel')}
+              required={!isEdit}
+              requiredLabel={requiredLabel}
+              error={errors.academicYear}
+              className="md:col-span-2"
             >
-              <SelectTrigger aria-label={t('form.sectionLabel')}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={NO_SECTION}>{t('form.allSections')}</SelectItem>
-                {sectionsQuery.data?.map((section) => (
-                  <SelectItem key={section.id} value={section.id}>
-                    {section.section_name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              <Select value={academicYearId} onValueChange={setAcademicYearId} disabled={isEdit}>
+                <SelectTrigger
+                  id="structure-form-year"
+                  disabled={isEdit}
+                  {...invalidProps('structure-form-year', errors.academicYear)}
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {yearsQuery.data?.data.map((year) => (
+                    <SelectItem key={year.id} value={year.id}>
+                      {year.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {isEdit && (
+                <p className="text-caption text-text-secondary">{t('form.academicYearLocked')}</p>
+              )}
+            </Field>
+
+            <Field id="structure-form-class" label={t('form.classLabel')}>
+              <Select
+                value={classId === '' ? NO_CLASS : classId}
+                onValueChange={(value) => {
+                  setClassId(value === NO_CLASS ? '' : value);
+                  setSectionId('');
+                }}
+              >
+                <SelectTrigger id="structure-form-class">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NO_CLASS}>{t('list.wholeSchool')}</SelectItem>
+                  {classesQuery.data?.data.map((klass) => (
+                    <SelectItem key={klass.id} value={klass.id}>
+                      {klass.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+
+            <Field id="structure-form-section" label={t('form.sectionLabel')}>
+              <Select
+                value={sectionId === '' ? NO_SECTION : sectionId}
+                onValueChange={(value) => setSectionId(value === NO_SECTION ? '' : value)}
+                disabled={classId === ''}
+              >
+                <SelectTrigger id="structure-form-section" disabled={classId === ''}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NO_SECTION}>{t('form.allSections')}</SelectItem>
+                  {sectionsQuery.data?.map((section) => (
+                    <SelectItem key={section.id} value={section.id}>
+                      {section.section_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
           </div>
 
-          {validationError && (
-            <p role="alert" className="text-sm text-destructive">
-              {validationError}
-            </p>
-          )}
           {mutation.isError && (
-            <p role="alert" className="text-sm text-destructive">
+            <p role="alert" className="text-caption text-destructive">
               {t('form.errorMessage')}
             </p>
           )}
