@@ -637,8 +637,31 @@ describe('GovernmentHolidaysDialog', () => {
 
     const notAddedCheckbox = screen.getByRole('checkbox', { name: /Independence Day/ });
     await user.click(notAddedCheckbox);
-    await user.click(screen.getByRole('button', { name: 'Add selected' }));
+    expect(screen.getByText('Already added')).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: /^Add [1১] holiday$/ }));
 
     expect(onAdd).toHaveBeenCalledWith(['h-2']);
+  });
+
+  it('asks before discarding ticked rows when Cancel is pressed', async () => {
+    const onOpenChange = vi.fn();
+    const { user } = renderWithProviders(
+      <GovernmentHolidaysDialog
+        open
+        onOpenChange={onOpenChange}
+        suggestions={[suggestion({ id: 'h-2', name: 'Independence Day', date: '2026-03-26' })]}
+        existingEvents={[]}
+        isPending={false}
+        onAdd={() => {}}
+      />,
+      { locale: 'en' },
+    );
+
+    await user.click(screen.getByRole('checkbox', { name: /Independence Day/ }));
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(onOpenChange).not.toHaveBeenCalled();
+
+    await user.click(await screen.findByRole('button', { name: /Discard/ }));
+    expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 });
