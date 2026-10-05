@@ -82,7 +82,7 @@ export interface BottomNavProps {
   label: string;
   /** [8.14.3] Trailing cell opening the `AppShell` drawer via
    * `useAppShellDrawer` — requires an `AppShell` ancestor that also
-   * received `mobileHeaderActions` or `mobileTitle` / `mobileActions` (see
+   * received `mobileTitle` / `mobileActions` (see
    * `app-shell.tsx`'s own comment); without one the drawer never renders
    * and this button does nothing. `active`: the current page is in none of
    * the cells — the caller computes it. Marks the button with
