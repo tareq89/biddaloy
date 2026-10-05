@@ -152,11 +152,56 @@ export class AttendanceSummaryService {
     workingDaysCount: number;
   }> {
     const policy = await this.getPolicy(tenantId);
-    const workingDays = await this.schoolCalendarService.getWorkingDays({ tenantId, from, to });
-
     const summaries = new Map<string, AttendanceSummary>();
+
+    // D25: working days depend on the student's class. One lookup, then one
+    // working-day call and two record queries per class, never per student.
+    const classByStudent = new Map<string, string | undefined>();
+    if (studentIds.length > 0) {
+      const rows = await this.studentRepo
+        .createQueryBuilder('st')
+        .innerJoin('st.class_section', 'cs')
+        .select('st.id', 'id')
+        .addSelect('cs.class_id', 'class_id')
+        .where('st.tenant_id = :tenantId', { tenantId })
+        .andWhere('st.id IN (:...studentIds)', { studentIds })
+        .getRawMany<{ id: string; class_id: string }>();
+      for (const r of rows) classByStudent.set(r.id, r.class_id);
+    }
+    const groups = new Map<string | undefined, string[]>();
+    for (const id of studentIds) {
+      const key = classByStudent.get(id);
+      groups.set(key, [...(groups.get(key) ?? []), id]);
+    }
+    // A section (or an empty roster) has one class, or none: that group's
+    // days are what the section-level callers report.
+    if (groups.size === 0) groups.set(undefined, []);
+
+    let first: { dates: string[]; count: number } | undefined;
+    for (const [classId, ids] of groups) {
+      const workingDays = await this.schoolCalendarService.getWorkingDays({
+        tenantId,
+        from,
+        to,
+        classId,
+      });
+      first ??= workingDays;
+      await this.summariseGroup(summaries, policy, tenantId, ids, from, to, workingDays);
+    }
+    return { summaries, workingDays: first!.dates, workingDaysCount: first!.count };
+  }
+
+  private async summariseGroup(
+    summaries: Map<string, AttendanceSummary>,
+    policy: AttendancePolicySettings,
+    tenantId: string,
+    studentIds: string[],
+    from: string,
+    to: string,
+    workingDays: { dates: string[]; count: number },
+  ): Promise<void> {
     if (studentIds.length === 0) {
-      return { summaries, workingDays: workingDays.dates, workingDaysCount: workingDays.count };
+      return;
     }
 
     // Query 1: per-status counts, restricted to working days. This is the
@@ -257,8 +302,6 @@ export class AttendanceSummaryService {
         },
       });
     }
-
-    return { summaries, workingDays: workingDays.dates, workingDaysCount: workingDays.count };
   }
 
   private async assertStudentExists(tenantId: string, studentId: string): Promise<void> {
@@ -298,7 +341,16 @@ export class AttendanceSummaryService {
     const { tenantId, studentId, from, to } = input;
     await this.assertStudentExists(tenantId, studentId);
 
-    const workingDays = await this.schoolCalendarService.getWorkingDays({ tenantId, from, to });
+    const student = await this.studentRepo.findOne({
+      where: { id: studentId, tenant_id: tenantId },
+      relations: { class_section: true },
+    });
+    const workingDays = await this.schoolCalendarService.getWorkingDays({
+      tenantId,
+      from,
+      to,
+      classId: student?.class_section?.class_id,
+    });
     const workingDaySet = new Set(workingDays.dates);
 
     const records = await this.recordRepo.find({

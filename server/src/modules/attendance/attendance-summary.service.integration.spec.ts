@@ -15,6 +15,8 @@ import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { Class } from '../academics/entities/class.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { Student } from '../students/entities/student.entity';
+import { CalendarEvent } from '../calendar/entities/calendar-event.entity';
+import { CalendarEventClass } from '../calendar/entities/calendar-event-class.entity';
 import { AttendanceSessionState, AttendanceStatus } from '@biddaloy/shared';
 
 /**
@@ -30,6 +32,7 @@ describe('AttendanceSummaryService (integration)', () => {
 
   const TENANT_ID = SEED_TENANT_ID;
   let sectionId: string;
+  let classIdOf: string;
 
   beforeAll(async () => {
     const module = await createTestModule(
@@ -61,6 +64,7 @@ describe('AttendanceSummaryService (integration)', () => {
       tenant_id: TENANT_ID,
     });
     sectionId = section.id;
+    classIdOf = klass.id;
   }, 60000);
 
   afterAll(async () => {
@@ -324,6 +328,62 @@ describe('AttendanceSummaryService (integration)', () => {
         thresholdPercent: 90,
       });
       expect(result.data.map((f) => f.student_id)).not.toContain(studentId);
+    });
+  });
+
+  describe('class-scoped holidays (D25)', () => {
+    it('two students in different classes get different working_days', async () => {
+      const yearId = (await dataSource.getRepository(Class).findOneByOrFail({ id: classIdOf }))
+        .academic_year_id;
+      const otherClass = await dataSource
+        .getRepository(Class)
+        .save({ name: 'Scoped Class B', academic_year_id: yearId, tenant_id: TENANT_ID });
+      const otherSection = await dataSource.getRepository(ClassSection).save({
+        section_name: 'Scoped Section B',
+        class_id: otherClass.id,
+        tenant_id: TENANT_ID,
+      });
+      const inScoped = await makeStudent(500);
+      const inOther = (
+        await dataSource.getRepository(Student).save({
+          full_name: 'Scoped Student B',
+          registration_number: `SCOPED-B-${Date.now()}`,
+          roll_number: 501,
+          class_section_id: otherSection.id,
+          tenant_id: TENANT_ID,
+        })
+      ).id;
+
+      const event = await dataSource.getRepository(CalendarEvent).save({
+        tenant_id: TENANT_ID,
+        academic_year_id: yearId,
+        start_date: '2026-09-10',
+        end_date: '2026-09-10',
+        name: 'Class A Only Break',
+        counts_as_working_day: false,
+        published_at: new Date(),
+      });
+      await dataSource
+        .getRepository(CalendarEventClass)
+        .save({ event_id: event.id, class_id: classIdOf, tenant_id: TENANT_ID });
+
+      try {
+        const range = { tenantId: TENANT_ID, from: '2026-09-08', to: '2026-09-12' };
+        const a = await service.getStudentSummary({ ...range, studentId: inScoped });
+        const b = await service.getStudentSummary({ ...range, studentId: inOther });
+        expect(a.working_days).toBe(4);
+        expect(b.working_days).toBe(5);
+
+        const flags = await service.getLowAttendanceFlags({ ...range, thresholdPercent: 101 });
+        const byId = new Map(flags.data.map((f) => [f.student_id, f.working_days]));
+        expect(byId.get(inScoped)).toBe(4);
+        expect(byId.get(inOther)).toBe(5);
+
+        const days = await service.getStudentDays({ ...range, studentId: inScoped });
+        expect(days.find((d) => d.date === '2026-09-10')?.is_working_day).toBe(false);
+      } finally {
+        await dataSource.getRepository(CalendarEvent).delete({ id: event.id });
+      }
     });
   });
 
