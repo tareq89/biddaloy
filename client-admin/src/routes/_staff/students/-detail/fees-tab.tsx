@@ -24,6 +24,8 @@ import {
 import { ChevronLeftIcon, ChevronRightIcon, ReceiptIcon } from 'lucide-react';
 import * as React from 'react';
 
+import { DEFAULT_PAGE_SIZE } from '../-constants';
+
 import { DiscountsSection } from './discounts-section';
 import { TabQueryState } from './tab-query-state';
 
@@ -32,7 +34,7 @@ export interface FeesTabProps {
 }
 
 const OPEN_STATUSES: string[] = [FeeStatus.PENDING, FeeStatus.PARTIALLY_PAID, FeeStatus.OVERDUE];
-const HISTORY_PAGE_SIZE = 25;
+const HISTORY_PAGE_SIZE = DEFAULT_PAGE_SIZE;
 
 /** `StudentFee`'s money columns are Postgres `decimal` — the pg driver
  * (and this ticket's mocked fixtures) send those as **strings**, even

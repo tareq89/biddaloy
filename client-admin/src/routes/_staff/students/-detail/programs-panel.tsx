@@ -39,8 +39,8 @@ export interface ProgramsPanelProps {
 
 export function ProgramsPanel({ studentId }: ProgramsPanelProps) {
   const { t } = useTranslation('programs');
-  // Loads `students` so the `detail.programs.*` copy below resolves.
-  useTranslation('students');
+  // Explicit second binding: also makes sure `students` is loaded for the copy below.
+  const { t: tStudents } = useTranslation('students');
   const regionConfig = useRegionConfig();
   const programsQuery = useStudentPrograms(studentId);
   const canManage = useHasPermission(Permission.PROGRAM_MANAGE);
@@ -86,7 +86,7 @@ export function ProgramsPanel({ studentId }: ProgramsPanelProps) {
       <>
         <EmptyState
           title={t('studentProgramsPanel.empty')}
-          explanation={t('detail.programs.emptyExplanation', { ns: 'students' })}
+          explanation={tStudents('detail.programs.emptyExplanation')}
           {...(canManage
             ? { action: { label: t('students.enrol'), onClick: () => setEnrolOpen(true) } }
             : {})}
@@ -140,8 +140,7 @@ export function ProgramsPanel({ studentId }: ProgramsPanelProps) {
                           entry.enrollment.ended_on,
                           regionConfig,
                         )
-                      : t('detail.programs.since', {
-                          ns: 'students',
+                      : tStudents('detail.programs.since', {
                           date: formatDate(
                             parseServerDate(entry.enrollment.started_on),
                             regionConfig,

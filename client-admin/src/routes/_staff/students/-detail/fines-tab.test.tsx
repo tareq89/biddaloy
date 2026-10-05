@@ -140,6 +140,6 @@ describe('students/-detail/fines-tab', () => {
       locale: 'en',
     });
 
-    expect(await screen.findByText("Couldn't load fines.", {}, { timeout: 5000 })).toBeTruthy();
+    expect(await screen.findByText("Couldn't load fines.")).toBeTruthy();
   });
 });

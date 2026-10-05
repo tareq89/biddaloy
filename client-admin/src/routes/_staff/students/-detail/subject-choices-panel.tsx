@@ -28,8 +28,7 @@ export interface SubjectChoicesPanelProps {
 
 export function SubjectChoicesPanel({ studentId }: SubjectChoicesPanelProps) {
   const { t, i18n } = useTranslation('exams');
-  // Loads `students` so the `list.emptyValue` / empty-explanation copy below resolves.
-  useTranslation('students');
+  const { t: tStudents } = useTranslation('students');
   const academicYearsQuery = useAcademicYears();
   const currentYearId = academicYearsQuery.data?.data.find((y) => y.is_current)?.id;
 
@@ -82,7 +81,7 @@ export function SubjectChoicesPanel({ studentId }: SubjectChoicesPanelProps) {
   // Reader's language with an English fallback; an unknown id shows a dash, never the id.
   const nameOf = (id: string) => {
     const subject = subjectById.get(id);
-    if (!subject) return t('list.emptyValue', { ns: 'students' });
+    if (!subject) return tStudents('list.emptyValue');
     return i18n.language === 'bn' && subject.name_bn ? subject.name_bn : subject.name_en;
   };
 
@@ -90,7 +89,7 @@ export function SubjectChoicesPanel({ studentId }: SubjectChoicesPanelProps) {
     return (
       <EmptyState
         title={t('subjectChoicesPanel.empty')}
-        explanation={t('detail.subjects.emptyExplanation', { ns: 'students' })}
+        explanation={tStudents('detail.subjects.emptyExplanation')}
       />
     );
   }
