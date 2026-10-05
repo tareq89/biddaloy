@@ -1,6 +1,11 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { randomUUID } from 'crypto';
-import { ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { DataSource, Repository } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { UserRole } from '@biddaloy/shared';
@@ -154,7 +159,7 @@ describe('UserService membership leave / remove / restore (integration)', () => 
     expect(remaining.map((m) => m.tenant_id)).toEqual([tenantB]);
   });
 
-  it('restore brings back the same row id; a second restore is 404', async () => {
+  it('restore brings back the same row id; a second restore is 409 ALREADY_MEMBER', async () => {
     const tenant = await newSchool();
     await addMember(tenant, UserRole.ADMIN);
     const teacherId = await addMember(tenant, UserRole.TEACHER);
@@ -169,9 +174,9 @@ describe('UserService membership leave / remove / restore (integration)', () => 
       where: { user_id: teacherId, tenant_id: tenant },
     });
     expect(after.id).toBe(before.id);
-    // Nothing is soft-deleted any more, so restoring again finds nothing.
+    // The member is active again, so restoring again is refused.
     await expect(service.restore(teacherId, tenant, ADMIN_ACTOR)).rejects.toThrow(
-      NotFoundException,
+      ConflictException,
     );
   });
 
@@ -205,5 +210,93 @@ describe('UserService membership leave / remove / restore (integration)', () => 
     ]);
     expect(rows[0].performed_by_user_id).toBe(teacherId);
     expect(rows[1].performed_by_user_id).toBe(ADMIN_ACTOR);
+  });
+
+  it('two admins leaving at once: exactly one succeeds, one 409 LAST_ADMIN, one admin remains', async () => {
+    const tenant = await newSchool();
+    const a1 = await addMember(tenant, UserRole.ADMIN);
+    const a2 = await addMember(tenant, UserRole.ADMIN);
+
+    // Hold each transaction open after the check (the audit write comes after the
+    // soft delete) so the two overlap. Without the row lock both count 2 admins
+    // and both leave.
+    const audit = (service as unknown as { audit: AuditService }).audit;
+    const realRecord = audit.record.bind(audit);
+    const spy = vi.spyOn(audit, 'record').mockImplementation(async (...args) => {
+      await new Promise((r) => setTimeout(r, 300));
+      return realRecord(...args);
+    });
+    const results = await Promise.allSettled([
+      service.leave(a1, tenant),
+      service.leave(a2, tenant),
+    ]);
+
+    expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+    const rejected = results.filter((r) => r.status === 'rejected') as PromiseRejectedResult[];
+    expect(rejected).toHaveLength(1);
+    expect(rejected[0].reason).toBeInstanceOf(ConflictException);
+    expect(rejected[0].reason.getResponse().details.code).toBe('LAST_ADMIN');
+    expect(await userTenantRepo.count({ where: { tenant_id: tenant, role: UserRole.ADMIN } })).toBe(
+      1,
+    );
+  });
+
+  it('leave ends only staff roles: a TEACHER who is also a PARENT keeps the PARENT row', async () => {
+    const tenant = await newSchool();
+    const id = await addMember(tenant, UserRole.TEACHER);
+    await userTenantRepo.save(
+      userTenantRepo.create({ user_id: id, tenant_id: tenant, role: UserRole.PARENT }),
+    );
+
+    await service.leave(id, tenant);
+
+    const left = await userTenantRepo.find({ where: { user_id: id, tenant_id: tenant } });
+    expect(left.map((r) => r.role)).toEqual([UserRole.PARENT]);
+  });
+
+  it('a user with an active row and an older soft-deleted row is not "former", and cannot be restored (409 ALREADY_MEMBER)', async () => {
+    const tenant = await newSchool();
+    await addMember(tenant, UserRole.ADMIN);
+    const id = await addMember(tenant, UserRole.TEACHER);
+    await service.leave(id, tenant);
+    await userTenantRepo.save(
+      userTenantRepo.create({ user_id: id, tenant_id: tenant, role: UserRole.OFFICE_STAFF }),
+    );
+
+    const former = await service.findAll(
+      { page: 1, limit: 50, membership: 'former' } as never,
+      tenant,
+    );
+    expect(former.data.map((u) => u.id)).not.toContain(id);
+    const err = await service.restore(id, tenant, ADMIN_ACTOR).catch((e) => e);
+    expect(err).toBeInstanceOf(ConflictException);
+    expect(err.getResponse().details.code).toBe('ALREADY_MEMBER');
+  });
+
+  it('restore of a user whose account is soft-deleted is 404', async () => {
+    const tenant = await newSchool();
+    await addMember(tenant, UserRole.ADMIN);
+    const id = await addMember(tenant, UserRole.TEACHER);
+    await service.leave(id, tenant);
+    await dataSource.query('UPDATE users SET deleted_at = NOW() WHERE id = $1', [id]);
+
+    await expect(service.restore(id, tenant, ADMIN_ACTOR)).rejects.toThrow(NotFoundException);
+  });
+
+  it('creating a user with a weak password is 400 PASSWORD_TOO_WEAK', async () => {
+    const tenant = await newSchool();
+    const err = await service
+      .create(
+        {
+          full_name: 'Weak',
+          email: `${randomUUID()}@example.com`,
+          password: 'pw',
+          role: UserRole.TEACHER,
+        },
+        tenant,
+      )
+      .catch((e) => e);
+    expect(err).toBeInstanceOf(BadRequestException);
+    expect(err.getResponse().details.code).toBe('PASSWORD_TOO_WEAK');
   });
 });

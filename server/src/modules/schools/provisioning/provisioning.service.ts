@@ -1,7 +1,7 @@
 import { ConflictException, Inject, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
-import { DataSource, EntityManager, QueryFailedError, Repository } from 'typeorm';
+import { DataSource, EntityManager, IsNull, Not, QueryFailedError, Repository } from 'typeorm';
 import Redis from 'ioredis';
 import { randomUUID } from 'crypto';
 import { AuditAction, AuthTokenPurpose, SchoolStatus, UserRole } from '@biddaloy/shared';
@@ -318,7 +318,13 @@ export class ProvisioningService {
       if (existingMembership) {
         // Only a soft-deleted (former) admin reaches here: the unique index
         // ignores soft-deletion, so bring that row back instead of inserting.
-        await userTenantRepo.restore(existingMembership.id);
+        const restored = await userTenantRepo.restore({
+          id: existingMembership.id,
+          deleted_at: Not(IsNull()),
+        });
+        if (!restored.affected) {
+          throw new ConflictException(`User "${user.id}" is already an ADMIN of this school`);
+        }
       } else {
         await userTenantRepo.save(
           userTenantRepo.create({

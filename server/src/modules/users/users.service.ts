@@ -6,7 +6,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull, Not, QueryFailedError } from 'typeorm';
+import { Repository, IsNull, Not, In, QueryFailedError } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { User } from './entities/user.entity';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
@@ -16,7 +16,13 @@ import { escapeLikePattern } from '../../common/utils/escape-like.util';
 import { normalizeSearchTerm } from '../../common/utils/normalize-search-term.util';
 import { BN_COLLATION } from '../../common/constants/collation';
 import { normalizeEmail } from '../auth/normalize-identifier';
-import { AuditAction, EMPLOYEE_ROLES, UserRole } from '@biddaloy/shared';
+import {
+  AuditAction,
+  EMPLOYEE_ROLES,
+  UserRole,
+  audienceForRoles,
+  checkPassword,
+} from '@biddaloy/shared';
 import { AuditService } from '../audit/audit.service';
 import { StaffProfilesService } from '../staff-profiles/staff-profiles.service';
 import {
@@ -80,6 +86,17 @@ export class UserService {
 
     let password_hash: string | null = null;
     if (dto.password) {
+      // D10: same strength rules as every other password path. Local
+      // equivalent of auth's assertPasswordAllowed (not on this base yet).
+      const failed = checkPassword(dto.password, audienceForRoles([dto.role]))
+        .filter((r) => !r.ok)
+        .map((r) => r.id);
+      if (failed.length > 0) {
+        throw new BadRequestException({
+          message: 'Password is too weak',
+          details: { code: 'PASSWORD_TOO_WEAK', failed },
+        });
+      }
       password_hash = await bcrypt.hash(dto.password, 10);
     }
 
@@ -158,7 +175,14 @@ export class UserService {
         .innerJoin('u.user_tenants', 'ut')
         .where('u.deleted_at IS NULL')
         .andWhere('ut.tenant_id = :tenantId', { tenantId });
-      if (former) qb.andWhere('ut.deleted_at IS NOT NULL');
+      if (former) {
+        // A user who is a current member again (an older soft-deleted row of
+        // another role may remain) is not "former".
+        qb.andWhere('ut.deleted_at IS NOT NULL').andWhere(
+          `NOT EXISTS (SELECT 1 FROM user_tenants a
+             WHERE a.user_id = u.id AND a.tenant_id = :tenantId AND a.deleted_at IS NULL)`,
+        );
+      }
 
       if (query.role) {
         qb.andWhere('ut.role = :role', { role: query.role });
@@ -483,18 +507,34 @@ export class UserService {
       throw new NotFoundException('You are not a member of this school');
     }
     const cannotLeave = [UserRole.PARENT, UserRole.STUDENT, UserRole.SUPER_ADMIN];
-    if (rows.every((r) => cannotLeave.includes(r.role))) {
+    // D16: only staff-role memberships end; a TEACHER who is also a PARENT keeps that row.
+    const staffRoles = rows.map((r) => r.role).filter((r) => !cannotLeave.includes(r));
+    if (staffRoles.length === 0) {
       throw new ForbiddenException({
         message: 'Your role cannot leave this school',
         details: { code: 'LEAVE_NOT_ALLOWED' },
       });
     }
-    await this.endMembership(userId, tenantId, userId, 'LEAVE');
+    await this.endMembership(userId, tenantId, userId, 'LEAVE', staffRoles);
   }
 
   /** `POST users/:id/restore`: bring a former member back (same rows, same ids). */
   async restore(id: string, tenantId: string, actorUserId: string): Promise<void> {
     await this.userTenantRepo.manager.transaction(async (manager) => {
+      // A soft-deleted account cannot be brought back through its membership.
+      if (!(await manager.getRepository(User).findOne({ where: { id } }))) {
+        throw new NotFoundException(`No former member with ID "${id}" found`);
+      }
+      if (
+        await manager
+          .getRepository(UserTenant)
+          .count({ where: { user_id: id, tenant_id: tenantId } })
+      ) {
+        throw new ConflictException({
+          message: 'This user is already a member of this school',
+          details: { code: 'ALREADY_MEMBER' },
+        });
+      }
       const result = await manager
         .getRepository(UserTenant)
         // `Not(IsNull())`: restore() updates every matching row, so without it
@@ -529,21 +569,28 @@ export class UserService {
     tenantId: string,
     actorUserId: string,
     operation: 'LEAVE' | 'REMOVE',
+    roles?: UserRole[],
   ): Promise<void> {
     await this.userTenantRepo.manager.transaction(async (manager) => {
       const repo = manager.getRepository(UserTenant);
       const admins = await repo.find({
         where: { tenant_id: tenantId, role: UserRole.ADMIN },
+        order: { id: 'ASC' }, // deterministic lock order
         lock: { mode: 'pessimistic_write' },
       });
       const isAdmin = admins.some((a) => a.user_id.toLowerCase() === userId.toLowerCase());
-      if (isAdmin && admins.length === 1) {
+      const endsAdmin = isAdmin && (!roles || roles.includes(UserRole.ADMIN));
+      if (endsAdmin && admins.length === 1) {
         throw new ConflictException({
           message: 'A school must keep at least one admin. Add another admin first.',
           details: { code: 'LAST_ADMIN' },
         });
       }
-      await repo.softDelete({ user_id: userId, tenant_id: tenantId });
+      await repo.softDelete({
+        user_id: userId,
+        tenant_id: tenantId,
+        ...(roles ? { role: In(roles) } : {}),
+      });
       await this.audit.record(
         {
           action: AuditAction.DELETE,
