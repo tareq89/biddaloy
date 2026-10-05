@@ -42,7 +42,8 @@ describe('AcrTab', () => {
       role: 'ADMIN',
     });
     expect(await screen.findByRole('button', { name: 'Start ACR' })).toBeTruthy();
-    // Totals use the tenant's numerals; status is a badge, the start action is outline.
+    // `AcrTab` reads the context region (a fixed default under test, not the tenant fetch).
+    // Totals use its numerals; status is a badge, the start action is outline.
     expect(await screen.findByText(formatNumber(30, REGION_BD_BN))).toBeTruthy();
     expect(screen.getByText('Completed')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Start ACR' }).className).not.toContain('bg-primary');

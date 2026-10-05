@@ -7,7 +7,7 @@ import {
   server,
 } from '@biddaloy/ui/test';
 import { formatNumber } from '@biddaloy/ui/utils';
-import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import * as React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -65,7 +65,13 @@ async function renderForm(
   onStepChange?: (s: AcrStep) => void,
 ) {
   const onServerUpdate = vi.fn();
-  server.use(http.get('/api/v1/schools/:id/settings', () => HttpResponse.json({ version: 1 })));
+  let settingsServed = false;
+  server.use(
+    http.get('/api/v1/schools/:id/settings', () => {
+      settingsServed = true;
+      return HttpResponse.json({ version: 1 });
+    }),
+  );
   renderWithProviders(
     <Harness
       assessment={assessment}
@@ -77,6 +83,11 @@ async function renderForm(
   );
   // The `evaluations` namespace suspends on first render.
   await screen.findByRole('heading', { level: 1, name: TITLE });
+  // Numerals follow the tenant settings: wait until they are served AND applied.
+  await waitFor(() => expect(settingsServed).toBe(true));
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
   return onServerUpdate;
 }
 

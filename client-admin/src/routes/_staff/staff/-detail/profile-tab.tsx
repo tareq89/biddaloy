@@ -2,7 +2,7 @@ import { Permission } from '@biddaloy/shared';
 import { Button, StatusBadge } from '@biddaloy/ui/components';
 import { useHasPermission, useTeachers, useUser } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
-import { formatDate } from '@biddaloy/ui/utils';
+import { formatDate, parseServerDate } from '@biddaloy/ui/utils';
 import { PencilIcon } from 'lucide-react';
 
 import { formatStaffPhone } from '../-format-staff-phone';
@@ -118,7 +118,7 @@ export function ProfileTab({ userId, onEditTeacher }: ProfileTabProps) {
                   <dt className={DT}>{t('detail.profile.joiningDate')}</dt>
                   <dd>
                     {teacher.joining_date !== null
-                      ? formatDate(new Date(teacher.joining_date), regionConfig)
+                      ? formatDate(parseServerDate(teacher.joining_date), regionConfig)
                       : t('detail.profile.emptyValue')}
                   </dd>
                 </div>
