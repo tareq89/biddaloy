@@ -83,10 +83,7 @@ export function Breadcrumbs({ items, 'aria-label': ariaLabel, className }: Bread
               )}
               {item.loading ? (
                 <span aria-current={isLast ? 'page' : undefined}>
-                  <span
-                    aria-hidden="true"
-                    className="inline-block h-3 w-24 rounded-sm bg-muted"
-                  />
+                  <span aria-hidden="true" className="inline-block h-3 w-24 rounded-sm bg-muted" />
                   <span className="sr-only">{item.label}</span>
                 </span>
               ) : isLast ? (
@@ -96,7 +93,7 @@ export function Breadcrumbs({ items, 'aria-label': ariaLabel, className }: Bread
               ) : item.to !== undefined ? (
                 <Link
                   to={item.to}
-                  className="inline-flex min-h-11 items-center hover:text-text-primary md:min-h-6 md:min-w-6"
+                  className="inline-flex min-h-11 min-w-11 items-center hover:text-text-primary md:min-h-6 md:min-w-6"
                 >
                   {item.label}
                 </Link>

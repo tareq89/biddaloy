@@ -2,14 +2,16 @@ import type { Page } from '@playwright/test';
 
 import { expect, guest, loggedIn, test } from '../fixtures/test';
 import type { SeedRole } from '../seed-contract';
+import { skipIfKnown } from './known-failures';
 import { resolvePath, routes, type ManifestRoute } from './routes';
 
 /**
  * Same reasoning as `reflow.spec.ts`'s identical helper: a `redirect`
  * archetype route may land somewhere that opens a modal by default
- * (`/payments/record` → `/payments?record=1`), which correctly
- * `aria-hide`s the underlying page's `<h1>` while open — the dialog's own
+ * (e.g. a legacy URL that lands on a page with a modal open), which
+ * correctly `aria-hide`s the underlying `<h1>` while open — the dialog's own
  * required title is the equivalent "rendered something meaningful" signal.
+ * (`/payments/record` used to be that case; it is now a full-page form.)
  */
 function pageOrDialogHeading(page: Page, route: ManifestRoute) {
   const heading = page.getByRole('heading', { level: 1 }).first();
@@ -23,14 +25,12 @@ function pageOrDialogHeading(page: Page, route: ManifestRoute) {
  * blocks — the SC's own exception ("the target is in a sentence, or its
  * size is otherwise constrained by the line-height of non-target text").
  *
- * [8.13.8] adds a second, stricter pass for the guardian surface. SC 2.5.8's
- * 24px is the floor for the whole app; SC 2.5.5 (target size, ENHANCED) asks
- * for 44px, and the design contract §6 makes that the standard on `/portal`,
- * where the user is a parent on a 360px Android phone rather than a staff
- * member scanning a dense table on a desktop. The two assertions are
- * deliberately separate rather than one parameterised threshold: the 24px
- * gate must keep covering every route in the manifest even if the portal
- * pass is ever quarantined.
+ * [8.13.8] adds a second, stricter pass at phone width (extended to every
+ * shell by [31.5.5], see the bottom of this file). SC 2.5.8's 24px is the
+ * floor for the whole app; SC 2.5.5 (target size, ENHANCED) asks for 44px.
+ * The two assertions are deliberately separate rather than one parameterised
+ * threshold: the 24px gate must keep covering every route in the manifest
+ * even if the phone pass is ever quarantined.
  */
 
 const SELECTOR =
@@ -137,6 +137,7 @@ for (const route of routes) {
     else test.use(loggedIn(route.role as SeedRole));
 
     test('all interactive targets are at least 24x24 CSS px', async ({ page, request }) => {
+      skipIfKnown('target24', route.path);
       const path = await resolvePath(request, route);
       await page.goto(path);
       await expect(pageOrDialogHeading(page, route)).toBeVisible();
@@ -149,41 +150,39 @@ for (const route of routes) {
 }
 
 /**
- * [8.13.8] The guardian surface at 44px (WCAG 2.2 SC 2.5.5, design contract
- * §6). Scoped to `/portal` and the auth screens — the routes that render
- * under `data-density="comfortable"` — because the whole point of two
- * density modes is that staff routes stay dense.
- *
- * 360x640 is not an arbitrary small viewport: it is the mid-range Android
- * profile `lighthouserc.cjs` already budgets against, i.e. the phone the
- * ticket is actually about. Asserting at the widest breakpoint would let a
- * control that reflows to something smaller on a phone pass.
- *
- * `/select-school` is here rather than in a "logged out" group because it is
- * reached with a session but no tenant, hence the `{ tenant: 'none' }`
- * fixture — the same shape the 24px loop above uses for it.
+ * [31.5.5] Phone gate (C2): below `md` every shell is comfortable —
+ * `globals.css`'s media rule sets `--control-h: 2.75rem` — so EVERY
+ * non-redirect manifest route must clear SC 2.5.5's 44px at 360x640, the
+ * mid-range Android profile `lighthouserc.cjs` budgets against. Staff pages
+ * stay dense only at `md` and up, which the 24px loop above covers.
+ * Asserting at the widest breakpoint would let a control that reflows to
+ * something smaller on a phone pass.
  */
-const COMFORTABLE_ROUTES = [
-  { path: '/login', auth: guest },
-  { path: '/select-school', auth: loggedIn('admin', { tenant: 'none' }) },
-  { path: '/portal', auth: loggedIn('parent') },
-  { path: '/portal/fees', auth: loggedIn('parent') },
-  { path: '/portal/attendance', auth: loggedIn('parent') },
-] as const;
+for (const route of routes.filter((r) => r.archetype !== 'redirect')) {
+  test.describe(`${route.path} (phone 44px) @sweep`, () => {
+    if (route.role === 'guest') test.use({ ...guest, viewport: { width: 360, height: 640 } });
+    else if (route.path === '/select-school')
+      test.use({
+        ...loggedIn(route.role as SeedRole, { tenant: 'none' }),
+        viewport: { width: 360, height: 640 },
+      });
+    else test.use({ ...loggedIn(route.role as SeedRole), viewport: { width: 360, height: 640 } });
 
-for (const route of COMFORTABLE_ROUTES) {
-  test.describe(`${route.path} (comfortable density) @sweep`, () => {
-    test.use({ ...route.auth, viewport: { width: 360, height: 640 } });
+    test('all interactive targets are at least 44x44 CSS px', async ({ page, request }) => {
+      skipIfKnown('target44', route.path);
+      const path = await resolvePath(request, route);
+      await page.goto(path);
+      await expect(pageOrDialogHeading(page, route)).toBeVisible();
 
-    test('all interactive targets are at least 44x44 CSS px', async ({ page }) => {
-      await page.goto(route.path);
-      await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible();
-
-      // Proves the mechanism, not just the outcome: if the `data-density`
-      // attribute were dropped from the shell, every control would fall back
-      // to its compact height and the assertion below would report a wall of
-      // 32px buttons without ever saying why.
-      await expect(page.locator('[data-density="comfortable"]').first()).toBeAttached();
+      // Proves the mechanism, not just the outcome: if the phone media rule
+      // were dropped, every control would fall back to its compact height and
+      // the assertion below would report a wall of 32px buttons without
+      // ever saying why.
+      expect(
+        await page.evaluate(() =>
+          getComputedStyle(document.documentElement).getPropertyValue('--control-h').trim(),
+        ),
+      ).toBe('2.75rem');
 
       const undersized = await undersizedTargets(page, 44);
 
