@@ -29,14 +29,15 @@ import {
   useTranslation,
 } from '@biddaloy/ui/i18n';
 import { ListShell, useListShellState, type FilterFieldDescriptor } from '@biddaloy/ui/shells';
-import { formatDateTime, parseDate } from '@biddaloy/ui/utils';
+import { formatDateTime, formatNumber, parseDate } from '@biddaloy/ui/utils';
 import { createFileRoute } from '@tanstack/react-router';
+import { ScrollText } from 'lucide-react';
 import { z } from 'zod';
 
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 
 import { DiffPanel } from './-diff-panel';
-import { changedFieldCount, shortEntityId } from './-humanize';
+import { changedFieldCount } from './-humanize';
 
 /**
  * The `entity_type` strings the server actually writes, sourced from the
@@ -125,7 +126,7 @@ export const Route = createFileRoute('/_staff/audit-logs/')({
   validateSearch: auditLogsSearchSchema,
   loaderDeps: ({ search }) => ({
     page: search.page ?? 1,
-    limit: search.limit ?? 10,
+    limit: search.limit ?? 25,
     action: search.action,
     entityType: search.entity_type,
     performedByUserId: search.performed_by_user_id,
@@ -193,7 +194,7 @@ function AuditLogsPage() {
 function AuditLogsList() {
   const { t } = useTranslation('auditLogs');
   const regionConfig = useRegionConfig();
-  const [state, actions] = useListShellState({ limit: 10 });
+  const [state, actions] = useListShellState();
   const filters = state.filters as AuditLogFilters;
 
   const auditLogsQuery = useAuditLogs({
@@ -227,10 +228,8 @@ function AuditLogsList() {
     // lint error (`no-unsafe-enum-comparison`) precisely because they are
     // different types that happen to share values.
     if (row.action === 'UPDATE') {
-      return t('summaries.UPDATE', {
-        count: changedFieldCount(row.old_values, row.new_values),
-        entity,
-      });
+      const count = changedFieldCount(row.old_values, row.new_values);
+      return t('summaries.UPDATE', { count, n: formatNumber(count, regionConfig), entity });
     }
     return t(`summaries.${row.action}`, { entity, defaultValue: actionLabel(row.action) });
   }
@@ -243,7 +242,7 @@ function AuditLogsList() {
     {
       id: 'when',
       header: t('list.columnWhen'),
-      accessorFn: (row) => whenLabel(row),
+      accessorFn: (row) => <span className="whitespace-nowrap">{whenLabel(row)}</span>,
       card: 'subtitle',
     },
     {
@@ -269,12 +268,15 @@ function AuditLogsList() {
     {
       id: 'what',
       header: t('list.columnWhat'),
-      accessorFn: (row) => {
-        const id = shortEntityId(row.entity_id);
-        return id === null
-          ? entityLabel(row.entity_type)
-          : t('list.whatWithId', { entity: entityLabel(row.entity_type), id });
-      },
+      // The record's real name (`entity_label`, server-resolved); the type
+      // alone when it has none — never an id fragment.
+      accessorFn: (row) =>
+        row.entity_label
+          ? t('list.whatWithLabel', {
+              entity: entityLabel(row.entity_type),
+              label: row.entity_label,
+            })
+          : entityLabel(row.entity_type),
     },
     {
       id: 'summary',
@@ -333,13 +335,21 @@ function AuditLogsList() {
     },
   ];
 
+  const hasActiveFilter = Object.values(filters).some((v) => v !== undefined);
+  const clearFilters = () =>
+    actions.setFilters({
+      action: null,
+      entity_type: null,
+      performed_by_user_id: null,
+      from_date: null,
+      to_date: null,
+    });
+
   return (
     <ListShell
       title={t('list.title')}
-      // The header slot every other list page fills with "Add…"/"Import…"
-      // — this one has nothing to put there by design, so it carries the
-      // explanation instead: the page is a record, not a workspace.
-      primaryAction={<p className="text-sm text-muted-foreground">{t('list.readOnlyNote')}</p>}
+      // No action slot by design: the page is a record, not a workspace.
+      subtitle={t('list.readOnlyNote')}
       filters={{ fields: filterFields, values: state.filters, onChange: actions.setFilters }}
       tableId="audit-logs-list"
       caption={t('list.caption')}
@@ -359,7 +369,14 @@ function AuditLogsList() {
       loading={auditLogsQuery.isLoading}
       isFetching={auditLogsQuery.isFetching}
       {...(auditLogsQuery.isError ? { error: t('list.errorMessage') } : {})}
-      emptyMessage={t('list.emptyMessage')}
+      emptyState={{
+        icon: <ScrollText />,
+        title: t('list.emptyTitle'),
+        explanation: t('list.emptyMessage'),
+        ...(hasActiveFilter
+          ? { action: { label: t('list.clearFilters'), onClick: clearFilters } }
+          : {}),
+      }}
       announceResults={(count, total) =>
         t('list.announceResults', { visible: count, total, count: total })
       }
