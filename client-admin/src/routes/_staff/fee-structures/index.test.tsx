@@ -5,6 +5,7 @@
  * `_staff`.
  */
 import { FeeType } from '@biddaloy/shared';
+import { toast } from '@biddaloy/ui/components';
 import {
   academicYearFactory,
   classFactory,
@@ -18,7 +19,7 @@ import {
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { routeTree } from '../../../routeTree.gen';
 
@@ -107,6 +108,30 @@ describe('/fee-structures', () => {
     expect(dataRow.getByText('Monthly tuition')).toBeTruthy();
     expect(dataRow.getByText('৳1,500.50')).toBeTruthy();
     expect(dataRow.getByText('Class 9')).toBeTruthy();
+    // The academic year the list already returns now has its own column.
+    expect(dataRow.getByText('2026-2027')).toBeTruthy();
+    expect(screen.getByRole('columnheader', { name: 'Academic year' })).toBeTruthy();
+    expect(screen.getByRole('columnheader', { name: 'Class · Section' })).toBeTruthy();
+    expect(screen.getByRole('columnheader', { name: 'Actions' })).toBeTruthy();
+  });
+
+  it('requests 25 rows per page by default and has exactly one primary header action', async () => {
+    let limit: string | null = null;
+    server.use(
+      http.get('/api/v1/fee-structures', ({ request }) => {
+        limit = new URL(request.url).searchParams.get('limit');
+        return HttpResponse.json({ data: [], total: 0, page: 1, limit: 25, totalPages: 0 });
+      }),
+      ...referenceHandlers(),
+    );
+
+    render();
+
+    await screen.findByRole('heading', { name: 'Fee Structures' });
+    expect(limit).toBe('25');
+    expect(screen.getByText('What each class pays for each fee.')).toBeTruthy();
+    // The header button and the empty state's outline button share the label.
+    expect(screen.getAllByRole('button', { name: 'Add fee structure' })).toHaveLength(2);
   });
 
   // [16.1.2] dropped per-student targeting: a structure with no class is
@@ -211,7 +236,7 @@ describe('/fee-structures', () => {
     expect(screen.queryAllByRole('option')).toHaveLength(1);
     await user.keyboard('{Escape}');
 
-    await user.type(screen.getByRole('textbox', { name: 'Search fee structures' }), 'tuition');
+    await user.type(screen.getByRole('textbox', { name: 'Search' }), 'tuition');
     await user.click(screen.getByRole('combobox', { name: 'Fee type' }));
     await user.click(await screen.findByRole('option', { name: 'Monthly tuition' }));
 
@@ -230,7 +255,10 @@ describe('/fee-structures', () => {
   });
 
   it('refuses to submit the create form without a name', async () => {
-    server.use(listHandler([]), ...referenceHandlers());
+    server.use(
+      listHandler([feeStructureFactory({ id: 'structure-1', class: KLASS })]),
+      ...referenceHandlers(),
+    );
 
     render();
     const user = userEvent.setup();
@@ -239,7 +267,15 @@ describe('/fee-structures', () => {
     const dialog = within(await screen.findByRole('dialog'));
     await user.click(dialog.getByRole('button', { name: 'Save' }));
 
-    expect(await dialog.findByText('Name is required')).toBeTruthy();
+    const nameError = await dialog.findByText('Name is required');
+    expect(nameError).toBeTruthy();
+    // The error sits under its own field, and an empty amount reports itself at the same time.
+    const nameInput = dialog.getByLabelText('Name * (required)');
+    expect(nameInput.getAttribute('aria-invalid')).toBe('true');
+    expect(nameInput.getAttribute('aria-describedby')).toBe('structure-form-name-error');
+    expect(document.activeElement).toBe(nameInput);
+    expect(dialog.getByText('Amount must be greater than zero')).toBeTruthy();
+    expect(dialog.getByText('Academic year is required')).toBeTruthy();
   });
 
   // The captured POST body is the point: `MoneyInput` works in integer
@@ -248,7 +284,7 @@ describe('/fee-structures', () => {
   it('converts the typed amount to decimal taka in the create request', async () => {
     let body: Record<string, unknown> | null = null;
     server.use(
-      listHandler([]),
+      listHandler([feeStructureFactory({ id: 'structure-1', class: KLASS })]),
       http.post('/api/v1/fee-structures', async ({ request }) => {
         body = (await request.json()) as Record<string, unknown>;
         return HttpResponse.json(feeStructureFactory({ id: 'new-structure' }), { status: 201 });
@@ -261,9 +297,9 @@ describe('/fee-structures', () => {
     await user.click(await screen.findByRole('button', { name: 'Add fee structure' }));
 
     const dialog = within(await screen.findByRole('dialog'));
-    await user.type(dialog.getByLabelText('Name'), 'Monthly tuition');
-    await user.type(dialog.getByLabelText('Amount'), '1500.50');
-    await user.click(dialog.getByRole('combobox', { name: 'Academic year' }));
+    await user.type(dialog.getByLabelText('Name * (required)'), 'Monthly tuition');
+    await user.type(dialog.getByLabelText('Amount * (required)'), '1500.50');
+    await user.click(dialog.getByRole('combobox', { name: /^Academic year/ }));
     await user.click(await screen.findByRole('option', { name: '2026-2027' }));
     await user.click(dialog.getByRole('combobox', { name: 'Class' }));
     await user.click(await screen.findByRole('option', { name: 'Class 9' }));
@@ -280,7 +316,7 @@ describe('/fee-structures', () => {
 
   it('surfaces a server failure on create instead of closing the dialog', async () => {
     server.use(
-      listHandler([]),
+      listHandler([feeStructureFactory({ id: 'structure-1', class: KLASS })]),
       errorHandler('post', '/api/v1/fee-structures', 404),
       ...referenceHandlers(),
     );
@@ -290,9 +326,9 @@ describe('/fee-structures', () => {
     await user.click(await screen.findByRole('button', { name: 'Add fee structure' }));
 
     const dialog = within(await screen.findByRole('dialog'));
-    await user.type(dialog.getByLabelText('Name'), 'Monthly tuition');
-    await user.type(dialog.getByLabelText('Amount'), '500');
-    await user.click(dialog.getByRole('combobox', { name: 'Academic year' }));
+    await user.type(dialog.getByLabelText('Name * (required)'), 'Monthly tuition');
+    await user.type(dialog.getByLabelText('Amount * (required)'), '500');
+    await user.click(dialog.getByRole('combobox', { name: /^Academic year/ }));
     await user.click(await screen.findByRole('option', { name: '2026-2027' }));
     await user.click(dialog.getByRole('combobox', { name: 'Class' }));
     await user.click(await screen.findByRole('option', { name: 'Class 9' }));
@@ -333,6 +369,7 @@ describe('/fee-structures', () => {
       true,
     );
     expect(dialog.getByRole('combobox', { name: 'Class' })).toHaveProperty('disabled', false);
+    expect(dialog.getByText("The academic year can't be changed later.")).toBeTruthy();
 
     await user.click(dialog.getByRole('button', { name: 'Save' }));
 
@@ -359,7 +396,7 @@ describe('/fee-structures', () => {
     const user = userEvent.setup();
     await user.click(await screen.findByRole('button', { name: 'Delete' }));
 
-    const dialog = within(await screen.findByRole('dialog'));
+    const dialog = within(await screen.findByRole('alertdialog'));
     // The copy must describe what actually happens: generated fees survive.
     expect(dialog.getByText(/stay exactly as they are/i)).toBeTruthy();
 
@@ -369,6 +406,8 @@ describe('/fee-structures', () => {
   });
 
   it('explains a 409 on delete and leaves the row in place', async () => {
+    // No `<Toaster />` is mounted in the test harness, so assert the `toast.error` call.
+    const toastSpy = vi.spyOn(toast, 'error').mockImplementation(() => '');
     server.use(
       listHandler([feeStructureFactory({ id: 'structure-1', name: 'Protected', class: KLASS })]),
       errorHandler('delete', '/api/v1/fee-structures/:id', 409),
@@ -379,11 +418,18 @@ describe('/fee-structures', () => {
     const user = userEvent.setup();
     await user.click(await screen.findByRole('button', { name: 'Delete' }));
 
-    const dialog = within(await screen.findByRole('dialog'));
+    const dialog = within(await screen.findByRole('alertdialog'));
     await user.click(dialog.getByRole('button', { name: 'Delete' }));
 
-    expect(await dialog.findByText(/payments have already been recorded/i)).toBeTruthy();
+    // The dialog closes (ConfirmDialog has no error slot) and the message shows as a toast.
+    await waitFor(() =>
+      expect(toastSpy).toHaveBeenCalledWith(
+        expect.stringMatching(/payments have already been recorded/i),
+      ),
+    );
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
     expect(screen.getByText('Protected')).toBeTruthy();
+    toastSpy.mockRestore();
   });
 
   // [8.14.17]: `_staff.tsx`'s `RequirePermission` now refuses the whole
@@ -476,7 +522,13 @@ describe('/fee-structures', () => {
   it('clicking the Name column header writes sort/order to the URL', async () => {
     server.use(
       http.get('/api/v1/fee-structures', () =>
-        HttpResponse.json({ data: [], total: 0, page: 1, limit: 10, totalPages: 1 }),
+        HttpResponse.json({
+          data: [feeStructureFactory({ id: 'structure-1', class: KLASS })],
+          total: 1,
+          page: 1,
+          limit: 25,
+          totalPages: 1,
+        }),
       ),
       ...referenceHandlers(),
     );
@@ -487,7 +539,7 @@ describe('/fee-structures', () => {
     await user.click(screen.getByRole('button', { name: 'Name' }));
 
     await waitFor(() =>
-      expect(router.state.location.search).toMatchObject({ sort: 'name', order: 'desc' }),
+      expect(router.state.location.search).toMatchObject({ sort: 'name', order: 'asc' }),
     );
   });
 });

@@ -6,11 +6,10 @@
     "columnName": "Name",
     "columnType": "Type",
     "columnAmount": "Amount",
-    "columnClass": "Class / Section",
-    "columnActions": "Actions",
+    "columnClass": "Class · Section",
     "edit": "Edit",
     "delete": "Delete",
-    "searchLabel": "Search fee structures",
+    "searchLabel": "Search",
     "searchPlaceholder": "Fee structure name",
     "academicYearLabel": "Academic year",
     "allAcademicYears": "All academic years",
@@ -19,13 +18,16 @@
     "sectionLabel": "Section",
     "allSections": "All sections",
     "feeTypeLabel": "Fee type",
-    "allFeeTypes": "All fee types",
+    "allFeeTypes": "All types",
     "wholeSchool": "Whole school",
     "emptyValue": "—",
     "emptyMessage": "No fee structures found",
     "errorMessage": "Failed to load fee structures",
     "announceResults_one": "{{visible}} of {{total}} fee structure",
-    "announceResults_other": "{{visible}} of {{total}} fee structures"
+    "announceResults_other": "{{visible}} of {{total}} fee structures",
+    "subtitle": "What each class pays for each fee.",
+    "columnAcademicYear": "Academic year",
+    "emptyExplanation": "Add your first fee structure and it will show up here."
   },
   "form": {
     "createTitle": "Add fee structure",
@@ -44,14 +46,14 @@
     "errorAcademicYearRequired": "Academic year is required",
     "errorMessage": "Failed to save fee structure",
     "save": "Save",
-    "saving": "Saving…"
+    "saving": "Saving…",
+    "academicYearLocked": "The academic year can't be changed later."
   },
   "deleteDialog": {
     "title": "Delete fee structure",
     "description": "Delete \"{{name}}\"?",
     "sideEffect": "Fees already generated from this structure stay exactly as they are — nothing is removed or refunded. The structure just stops applying to future fee generation.",
     "confirm": "Delete",
-    "deleting": "Deleting…",
     "errorMessage": "Failed to delete fee structure",
     "conflictMessage": "This fee structure can't be deleted because payments have already been recorded against the fees generated from it."
   },
