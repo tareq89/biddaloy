@@ -7,6 +7,10 @@ import { UpdateIntakeDto } from './dto/update-intake.dto';
 
 export type IntakeStatus = 'OPEN' | 'CLOSED';
 export type IntakeWithStatus = AdmissionIntake & { status: IntakeStatus };
+export type IntakeListRow = IntakeWithStatus & {
+  class_name: string | null;
+  section_name: string | null;
+};
 
 function assertDateRange(openDate: string, closeDate: string): void {
   if (openDate > closeDate) {
@@ -36,12 +40,25 @@ export class IntakeService {
     return withStatus(await this.repo.save(intake));
   }
 
-  async findAll(tenantId: string): Promise<IntakeWithStatus[]> {
+  async findAll(tenantId: string): Promise<IntakeListRow[]> {
     const intakes = await this.repo.find({
-      where: { tenant_id: tenantId, deleted_at: IsNull() },
+      where: {
+        tenant_id: tenantId,
+        deleted_at: IsNull(),
+        // joined rows scoped too (multi-tenancy rule)
+        class_section: { tenant_id: tenantId, class: { tenant_id: tenantId } },
+      },
+      relations: { class_section: { class: true } },
+      // a soft-deleted section/class must still name the intake; the intake's
+      // own deleted_at stays filtered above
+      withDeleted: true,
       order: { created_at: 'DESC' },
     });
-    return intakes.map(withStatus);
+    return intakes.map(({ class_section, ...intake }) => ({
+      ...withStatus(intake as AdmissionIntake),
+      class_name: class_section?.class?.name ?? null,
+      section_name: class_section?.section_name ?? null,
+    }));
   }
 
   async findOne(id: string, tenantId: string): Promise<IntakeWithStatus> {
