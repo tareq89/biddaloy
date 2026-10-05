@@ -33,6 +33,12 @@
 //   - `noWindowAlertConfig`: [8.9.8]'s executable guard — no
 //     `window.alert`/`alert`/`confirm`/`prompt`. Applied everywhere, same
 //     reasoning as `financialMutationGuardConfig` above.
+//   - `uxControlsGuardConfig`: [31.5.3] D37 — no native `<select>`/date-time
+//     `<input>` (D25), no hand-rolled date display or ISO slicing (D5, D7).
+//     Scoped by each consumer to `src/**`, with an `ignores` allow-list.
+//   - `uxPageGuardConfig`: [31.5.3] D37 — no page-level `max-w-*` (D15, D21),
+//     `id: 'actions'` columns must render `<RowActions>` (D19). Scoped to
+//     route/page files by client-admin.
 //   - `waitForTextContentConfig`: [#437]'s executable guard — no
 //     `.textContent` read inside a `waitFor(...)` callback. Scoped to
 //     `src/**/*.test.{ts,tsx}` only, unlike the guards above — this is a
@@ -52,6 +58,7 @@ import dataFetchingPlugin from './eslint-rules/data-fetching.mjs';
 import financialMutationPlugin from './eslint-rules/financial-mutation.mjs';
 import noWaitForTextContentPlugin from './eslint-rules/no-wait-for-text-content.mjs';
 import noWindowAlertPlugin from './eslint-rules/no-window-alert.mjs';
+import uxGuardsPlugin from './eslint-rules/ux-guards.mjs';
 
 // Type-checked rules need `parserOptions.projectService` (typescript-eslint's
 // current recommendation over the older `project: './tsconfig.json'` — it's
@@ -133,6 +140,23 @@ export const noWindowAlertConfig = Object.freeze({
   plugins: Object.freeze({ 'no-window-alert': noWindowAlertPlugin }),
   rules: Object.freeze({
     'no-window-alert/no-window-alert': 'error',
+  }),
+});
+
+// [31.5.3] D37's four mechanical UX rules, split by scope (see header).
+export const uxControlsGuardConfig = Object.freeze({
+  plugins: Object.freeze({ 'ux-guards': uxGuardsPlugin }),
+  rules: Object.freeze({
+    'ux-guards/no-native-picker': 'error',
+    'ux-guards/no-raw-date-display': 'error',
+  }),
+});
+
+export const uxPageGuardConfig = Object.freeze({
+  plugins: Object.freeze({ 'ux-guards': uxGuardsPlugin }),
+  rules: Object.freeze({
+    'ux-guards/no-page-max-width': 'error',
+    'ux-guards/row-actions-column': 'error',
   }),
 });
 
