@@ -273,6 +273,83 @@ describe('UserService membership leave / remove / restore (integration)', () => 
     expect(err.getResponse().details.code).toBe('ALREADY_MEMBER');
   });
 
+  it('restore brings back only the latest removal: a role ended earlier (workbook role swap) stays ended', async () => {
+    const tenant = await newSchool();
+    await addMember(tenant, UserRole.ADMIN);
+    const id = await addMember(tenant, UserRole.TEACHER);
+    // An earlier workbook role swap (ADMIN -> TEACHER) left the ADMIN row soft-deleted.
+    await userTenantRepo.save(
+      userTenantRepo.create({ user_id: id, tenant_id: tenant, role: UserRole.ADMIN }),
+    );
+    await dataSource.query(
+      `UPDATE user_tenants SET deleted_at = NOW() - interval '1 day'
+        WHERE user_id = $1 AND tenant_id = $2 AND role = 'ADMIN'`,
+      [id, tenant],
+    );
+
+    await service.remove(id, tenant, ADMIN_ACTOR);
+    await service.restore(id, tenant, ADMIN_ACTOR);
+
+    const active = await userTenantRepo.find({ where: { user_id: id, tenant_id: tenant } });
+    expect(active.map((r) => r.role)).toEqual([UserRole.TEACHER]);
+  });
+
+  it('a teacher-parent who left is listed as former and can be restored; the PARENT row is untouched', async () => {
+    const tenant = await newSchool();
+    await addMember(tenant, UserRole.ADMIN);
+    const id = await addMember(tenant, UserRole.TEACHER);
+    const parentRow = await userTenantRepo.save(
+      userTenantRepo.create({ user_id: id, tenant_id: tenant, role: UserRole.PARENT }),
+    );
+
+    await service.leave(id, tenant);
+
+    const former = await service.findAll(
+      { page: 1, limit: 50, membership: 'former' } as never,
+      tenant,
+    );
+    expect(former.data.map((u) => u.id)).toEqual([id]);
+    expect(former.data[0].user_tenants.map((ut) => ut.role)).toEqual([UserRole.TEACHER]);
+
+    await service.restore(id, tenant, ADMIN_ACTOR);
+
+    const rows = await userTenantRepo.find({ where: { user_id: id, tenant_id: tenant } });
+    expect(rows.map((r) => r.role).sort()).toEqual([UserRole.PARENT, UserRole.TEACHER].sort());
+    const parentAfter = rows.find((r) => r.role === UserRole.PARENT)!;
+    expect(parentAfter.id).toBe(parentRow.id);
+    expect(parentAfter.updated_at).toEqual(parentRow.updated_at);
+  });
+
+  it('only usable admins count: with the other admins deactivated or deleted, the last one cannot leave', async () => {
+    const tenant = await newSchool();
+    const a1 = await addMember(tenant, UserRole.ADMIN);
+    const inactive = await addMember(tenant, UserRole.ADMIN);
+    const deleted = await addMember(tenant, UserRole.ADMIN);
+    await dataSource.query(`UPDATE users SET status = 'INACTIVE' WHERE id = $1`, [inactive]);
+    await dataSource.query('UPDATE users SET deleted_at = NOW() WHERE id = $1', [deleted]);
+
+    const err = await service.leave(a1, tenant).catch((e) => e);
+    expect(err).toBeInstanceOf(ConflictException);
+    expect(err.getResponse().details.code).toBe('LAST_ADMIN');
+  });
+
+  it('a removed user with two roles appears once in the former list', async () => {
+    const tenant = await newSchool();
+    await addMember(tenant, UserRole.ADMIN);
+    const id = await addMember(tenant, UserRole.TEACHER);
+    await userTenantRepo.save(
+      userTenantRepo.create({ user_id: id, tenant_id: tenant, role: UserRole.OFFICE_STAFF }),
+    );
+    await service.remove(id, tenant, ADMIN_ACTOR);
+
+    const former = await service.findAll(
+      { page: 1, limit: 50, membership: 'former' } as never,
+      tenant,
+    );
+    expect(former.data.map((u) => u.id)).toEqual([id]);
+    expect(former.total).toBe(1);
+  });
+
   it('restore of a user whose account is soft-deleted is 404', async () => {
     const tenant = await newSchool();
     await addMember(tenant, UserRole.ADMIN);
