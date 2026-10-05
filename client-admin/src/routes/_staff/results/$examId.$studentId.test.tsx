@@ -111,7 +111,7 @@ describe('/results/$examId/$studentId', () => {
     renderReportCard();
 
     expect(await screen.findByText('Half-Yearly 2026')).toBeTruthy();
-    expect(screen.getByText('Rafi Ahmed')).toBeTruthy();
+    expect(screen.getAllByText('Rafi Ahmed')).not.toHaveLength(0);
     expect(screen.getByText('Green Valley School')).toBeTruthy();
     expect(screen.getByText('Mathematics')).toBeTruthy();
     // The school has a logo, so the header shows it.
@@ -176,7 +176,7 @@ describe('/results/$examId/$studentId', () => {
 
     await user.click(screen.getByRole('button', { name: 'Retry' }));
 
-    expect(await screen.findByText('Rafi Ahmed')).toBeTruthy();
+    expect(await screen.findAllByText('Rafi Ahmed')).not.toHaveLength(0);
     expect(detailCalls).toBe(2);
   });
 
@@ -186,7 +186,7 @@ describe('/results/$examId/$studentId', () => {
     renderReportCard();
 
     expect(await screen.findByText("Couldn't load this report card.")).toBeTruthy();
-    expect(screen.queryByText('Rafi Ahmed')).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Rafi Ahmed' })).toBeNull();
   });
 
   it('shows an error when the school profile fails to load', async () => {

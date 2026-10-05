@@ -96,3 +96,13 @@ export const RightToLeft: Story = {
   },
   decorators: [rtlDecorator],
 };
+
+/** The last crumb's name is still loading (C5): a skeleton bar, not the id. */
+export const LoadingLastCrumb: Story = {
+  args: {
+    items: [
+      { label: 'Students', to: '/students' },
+      { label: 'Student', loading: true },
+    ],
+  },
+};
