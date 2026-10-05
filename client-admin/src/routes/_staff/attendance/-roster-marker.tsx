@@ -172,49 +172,48 @@ export function RosterMarker({
           this container-level handler only routes arrow/shortcut keys to
           whichever row button currently holds focus, the same pattern
           `data-table.tsx`'s own roving-tabIndex header row uses. */}
-      <ul className="flex flex-col gap-1.5" onKeyDown={handleListKeyDown}>
+      <ul className="divide-y divide-border-subtle" onKeyDown={handleListKeyDown}>
         {students.map((student, index) => {
           const entry = draft[student.student_id];
           const status = entry?.status ?? null;
           return (
-            <li key={student.student_id}>
-              <div className="flex min-h-14 items-center gap-2 rounded-lg border border-border-subtle bg-card px-3 py-2">
-                <button
-                  ref={(node) => {
-                    rowRefs.current[index] = node;
-                  }}
-                  type="button"
-                  disabled={disabled}
-                  tabIndex={index === focusedIndex ? 0 : -1}
-                  onFocus={() => setFocusedIndex(index)}
-                  onClick={() =>
-                    setStatus(
-                      student.student_id,
-                      status === AttendanceStatus.PRESENT
-                        ? AttendanceStatus.ABSENT
-                        : AttendanceStatus.PRESENT,
-                    )
-                  }
-                  className="flex flex-1 items-center gap-3 rounded-md text-left outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                >
-                  <span className="w-10 shrink-0 text-sm text-muted-foreground">
-                    {t('mark.rollNumber', { roll: student.roll_number })}
-                  </span>
-                  <span className="font-medium">{student.full_name}</span>
-                </button>
-                <AttendanceStatusControl
-                  value={status}
-                  onChange={(next) => setStatus(student.student_id, next)}
-                  disabled={disabled}
-                  minutesLate={entry?.minutes_late ?? null}
-                  onMinutesLateChange={(minutes) =>
-                    onMinutesLateChange(student.student_id, minutes)
-                  }
-                  studentName={student.full_name}
-                  allowedStatuses={allowedStatuses}
-                />
-                {renderRowActions?.(student)}
-              </div>
+            <li
+              key={student.student_id}
+              className="flex min-h-14 items-center gap-3 px-4 py-1.5 md:px-5"
+            >
+              <button
+                ref={(node) => {
+                  rowRefs.current[index] = node;
+                }}
+                type="button"
+                disabled={disabled}
+                tabIndex={index === focusedIndex ? 0 : -1}
+                onFocus={() => setFocusedIndex(index)}
+                onClick={() =>
+                  setStatus(
+                    student.student_id,
+                    status === AttendanceStatus.PRESENT
+                      ? AttendanceStatus.ABSENT
+                      : AttendanceStatus.PRESENT,
+                  )
+                }
+                className="flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-md text-start outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              >
+                <span className="w-14 shrink-0 text-text-secondary">
+                  {t('mark.rollNumber', { roll: student.roll_number })}
+                </span>
+                <span className="truncate font-medium">{student.full_name}</span>
+              </button>
+              <AttendanceStatusControl
+                value={status}
+                onChange={(next) => setStatus(student.student_id, next)}
+                disabled={disabled}
+                minutesLate={entry?.minutes_late ?? null}
+                onMinutesLateChange={(minutes) => onMinutesLateChange(student.student_id, minutes)}
+                studentName={student.full_name}
+                allowedStatuses={allowedStatuses}
+              />
+              {renderRowActions?.(student)}
             </li>
           );
         })}

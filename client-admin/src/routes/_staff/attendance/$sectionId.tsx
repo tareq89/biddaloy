@@ -15,10 +15,14 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  ErrorState,
+  Label,
   Menu,
   MenuContent,
   MenuItem,
   MenuTrigger,
+  Skeleton,
+  StatusBadge,
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -37,9 +41,10 @@ import {
   type RegisterStudent,
 } from '@biddaloy/ui/hooks';
 import { useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { PageContainer } from '@biddaloy/ui/shells';
 import { parseDate, toIsoDate } from '@biddaloy/ui/utils';
 import { createFileRoute } from '@tanstack/react-router';
-import { History, MoreVertical } from 'lucide-react';
+import { CalendarClock, CheckCheck, Info, MoreVertical, RotateCcw, Send } from 'lucide-react';
 import * as React from 'react';
 import { z } from 'zod';
 
@@ -275,7 +280,7 @@ function SectionRegisterPage() {
           });
           return;
         }
-        toast.error(error instanceof Error ? error.message : t('mark.errorToast'));
+        toast.error(t('mark.errorToast'));
       },
     });
   }
@@ -308,7 +313,7 @@ function SectionRegisterPage() {
             });
             return;
           }
-          toast.error(error instanceof Error ? error.message : t('mark.errorToast'));
+          toast.error(t('mark.errorToast'));
         },
       },
     );
@@ -326,9 +331,30 @@ function SectionRegisterPage() {
     });
   }
 
-  if (registerQuery.isPending) return null;
+  if (registerQuery.isPending) {
+    return (
+      <PageContainer>
+        <div aria-busy="true" className="space-y-6">
+          <Skeleton className="h-8 w-48" />
+          <div className="overflow-hidden rounded-lg border border-border-subtle bg-surface shadow-e1">
+            {Array.from({ length: 6 }, (_, i) => (
+              <Skeleton key={i} className="h-14 rounded-none border-b border-border-subtle" />
+            ))}
+          </div>
+        </div>
+      </PageContainer>
+    );
+  }
   if (registerQuery.isError) {
-    return <p className="p-4 text-sm text-destructive">{t('mark.errorToast')}</p>;
+    return (
+      <PageContainer>
+        <ErrorState
+          message={t('mark.loadError')}
+          retryLabel={t('list.retry')}
+          onRetry={() => void registerQuery.refetch()}
+        />
+      </PageContainer>
+    );
   }
 
   const register = registerQuery.data;
@@ -358,9 +384,8 @@ function SectionRegisterPage() {
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-                  <History aria-hidden="true" className="size-3" />
-                  {t('mark.editedBadge')}
+                <span className="inline-flex">
+                  <StatusBadge tone="neutral" label={t('mark.editedBadge')} />
                 </span>
               </TooltipTrigger>
               <TooltipContent>
@@ -396,18 +421,38 @@ function SectionRegisterPage() {
     );
   }
 
+  const stateBadge =
+    register.session.state === 'FINALIZED' ? (
+      <StatusBadge tone="success" label={t('mark.stateFinalized')} />
+    ) : register.session.id ? (
+      <StatusBadge tone="info" label={t('list.draft')} />
+    ) : (
+      <StatusBadge tone="warning" label={t('list.notMarked')} />
+    );
+
   return (
-    <div className="flex flex-col gap-3 pb-24">
-      <div className="sticky top-0 z-10 flex flex-col gap-2 border-b border-border-subtle bg-background p-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h1 className="text-lg font-semibold">
-            {t('mark.title', {
-              className: register.section.class_name,
-              sectionName: register.section.section_name,
-            })}
-          </h1>
+    <PageContainer>
+      <header className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between md:gap-6">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <h1 className="text-h1">
+              {t('mark.title', {
+                className: register.section.class_name,
+                sectionName: register.section.section_name,
+              })}
+            </h1>
+            {stateBadge}
+          </div>
+          <p className="mt-0.5 text-text-secondary">
+            {t('list.studentCount', { count: students.length })}
+          </p>
+        </div>
+        <div className="grid gap-1.5 md:w-64">
+          <Label htmlFor="attendance-date">{t('mark.dateLabel')}</Label>
           <DatePicker
-            aria-label={t('list.title')}
+            id="attendance-date"
+            aria-label={t('mark.dateLabel')}
+            className="w-full"
             config={regionConfig}
             value={parseDate(date)}
             onValueChange={(next) =>
@@ -417,49 +462,61 @@ function SectionRegisterPage() {
             }
           />
         </div>
-        <p className="text-sm text-muted-foreground">
-          {t('mark.presentCount', { n: counts.present })} ·{' '}
-          {t('mark.absentCount', { n: counts.absent })} · {t('mark.lateCount', { n: counts.late })}{' '}
-          · {t('mark.unmarkedCount', { n: counts.unmarked })}
-        </p>
-        {editable && (
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={handleAllPresent}
-              disabled={Boolean(
-                allowedStatuses && !allowedStatuses.includes(AttendanceStatus.PRESENT),
-              )}
-            >
-              {t('mark.allPresent')}
-            </Button>
-            <Button type="button" variant="ghost" size="sm" onClick={handleReset}>
-              {t('mark.reset')}
-            </Button>
-            <span className="hidden text-xs text-muted-foreground md:inline">
-              {t('mark.shortcutHint')}
-            </span>
-          </div>
-        )}
-        {!register.editable && (
-          <p className="rounded-md border border-border-subtle bg-muted p-2 text-sm text-muted-foreground">
-            {canCorrectOutsideWindow
-              ? t('mark.readOnlyExplanation')
-              : t('mark.readOnlyNoPermission', {
-                  days: register.policy.correction_window_days,
-                })}
-          </p>
-        )}
-        {futureDateLeaveOnly && (
-          <p className="rounded-md border border-border-subtle bg-muted p-2 text-sm text-muted-foreground">
-            {t('mark.futureDateBanner')}
-          </p>
-        )}
-      </div>
+      </header>
 
-      <div className="px-4">
+      {!register.editable && (
+        <p className="flex items-start gap-2 rounded-lg border border-border-subtle bg-muted p-4 text-text-secondary">
+          <Info aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+          {canCorrectOutsideWindow
+            ? t('mark.readOnlyExplanation')
+            : t('mark.readOnlyNoPermission', {
+                days: register.policy.correction_window_days,
+              })}
+        </p>
+      )}
+      {futureDateLeaveOnly && (
+        <p className="flex items-start gap-2 rounded-lg border border-border-subtle bg-muted p-4 text-text-secondary">
+          <CalendarClock aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+          {t('mark.futureDateBanner')}
+        </p>
+      )}
+
+      <section
+        aria-labelledby="m-roster"
+        className="overflow-hidden rounded-lg border border-border-subtle bg-surface shadow-e1"
+      >
+        <h2 id="m-roster" className="sr-only">
+          {t('mark.rosterHeading')}
+        </h2>
+        <div className="flex flex-col gap-3 border-b border-border-subtle p-4 md:flex-row md:items-center md:justify-between md:px-5">
+          <p className="flex flex-wrap gap-2">
+            <StatusBadge tone="success" label={t('mark.presentCount', { n: counts.present })} />
+            <StatusBadge tone="danger" label={t('mark.absentCount', { n: counts.absent })} />
+            <StatusBadge tone="warning" label={t('mark.lateCount', { n: counts.late })} />
+            <StatusBadge tone="info" label={t('mark.leaveCount', { n: counts.leave })} />
+            <StatusBadge tone="neutral" label={t('mark.unmarkedCount', { n: counts.unmarked })} />
+          </p>
+          {editable && (
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="flex-1 md:flex-none"
+                onClick={handleAllPresent}
+                disabled={Boolean(
+                  allowedStatuses && !allowedStatuses.includes(AttendanceStatus.PRESENT),
+                )}
+              >
+                <CheckCheck aria-hidden="true" />
+                {t('mark.allPresent')}
+              </Button>
+              <Button type="button" variant="ghost" onClick={handleReset}>
+                <RotateCcw aria-hidden="true" />
+                {t('mark.reset')}
+              </Button>
+            </div>
+          )}
+        </div>
         <RosterMarker
           students={students}
           draft={draft}
@@ -471,19 +528,25 @@ function SectionRegisterPage() {
           allowedStatuses={allowedStatuses}
           renderRowActions={renderRowActions}
         />
-      </div>
+        {editable && (
+          <p className="hidden border-t border-border-subtle px-5 py-3 text-caption text-text-secondary md:block">
+            {t('mark.shortcutHint')}
+          </p>
+        )}
+      </section>
 
       {editable && (
-        <div className="fixed inset-x-0 bottom-0 z-10 flex items-center justify-between gap-3 border-t border-border-subtle bg-background p-4">
-          <span className="text-sm text-muted-foreground">
+        <div className="sticky bottom-16 z-20 flex items-center gap-3 rounded-lg border border-border-subtle bg-surface p-3 shadow-e2 md:bottom-0 md:px-5">
+          <span className="shrink-0 text-text-secondary">
             {t('mark.unmarkedRemaining', { n: counts.unmarked })}
           </span>
           <Button
             type="button"
-            className="min-h-12 flex-1"
+            className="flex-1 md:ms-auto md:flex-none"
             loading={submitRegister.isPending}
             onClick={handleSubmit}
           >
+            <Send aria-hidden="true" />
             {submitRegister.isPending
               ? t('mark.submitting')
               : online
@@ -494,13 +557,13 @@ function SectionRegisterPage() {
       )}
 
       <Dialog open={confirmUnmarkedOpen} onOpenChange={setConfirmUnmarkedOpen}>
-        <DialogContent>
+        <DialogContent size="sm">
           <DialogHeader>
             <DialogTitle>{t('mark.confirmUnmarkedTitle', { n: counts.unmarked })}</DialogTitle>
             <DialogDescription>{t('mark.confirmUnmarkedBody')}</DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button type="button" variant="ghost" onClick={() => setConfirmUnmarkedOpen(false)}>
+            <Button type="button" variant="outline" onClick={() => setConfirmUnmarkedOpen(false)}>
               {t('mark.confirmUnmarkedCancel')}
             </Button>
             <Button
@@ -552,7 +615,7 @@ function SectionRegisterPage() {
         open={historyStudentId !== null}
         onOpenChange={(open) => !open && setHistoryStudentId(null)}
       >
-        <DialogContent>
+        <DialogContent size="md" closeLabel={t('history.close')}>
           <DialogHeader>
             <DialogTitle>
               {historyStudent
@@ -568,6 +631,6 @@ function SectionRegisterPage() {
           )}
         </DialogContent>
       </Dialog>
-    </div>
+    </PageContainer>
   );
 }
