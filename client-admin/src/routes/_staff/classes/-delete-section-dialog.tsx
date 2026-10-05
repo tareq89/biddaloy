@@ -1,7 +1,8 @@
 import { ApiError } from '@biddaloy/ui/api';
-import { ConfirmDialog } from '@biddaloy/ui/components';
 import { useDeleteSection } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
+
+import { DangerConfirmDialog } from './-dialog-kit';
 
 export interface DeleteSectionDialogProps {
   open: boolean;
@@ -25,20 +26,20 @@ export function DeleteSectionDialog({
   const deleteSection = useDeleteSection(classId);
 
   // The server sentence is English and carries ids — never shown; a 409 and
-  // any other failure each get one translated sentence in place of the prompt.
-  const description = !deleteSection.isError
-    ? t('deleteSectionDialog.description', { name: sectionName })
+  // any other failure each get one translated sentence beside the prompt.
+  const error = !deleteSection.isError
+    ? undefined
     : deleteSection.error instanceof ApiError && deleteSection.error.statusCode === 409
       ? t('deleteSectionDialog.blockedMessage')
       : t('deleteSectionDialog.errorMessage');
 
   return (
-    <ConfirmDialog
+    <DangerConfirmDialog
       open={open}
       onOpenChange={onOpenChange}
-      tone="danger"
       title={t('deleteSectionDialog.title')}
-      description={description}
+      description={t('deleteSectionDialog.description', { name: sectionName })}
+      error={error}
       confirmLabel={
         deleteSection.isPending
           ? t('deleteSectionDialog.deleting')
