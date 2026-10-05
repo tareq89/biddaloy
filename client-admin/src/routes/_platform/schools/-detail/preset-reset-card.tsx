@@ -4,6 +4,7 @@
  */
 import { Button, Card } from '@biddaloy/ui/components';
 import { useTranslation } from '@biddaloy/ui/i18n';
+import { Undo2Icon } from 'lucide-react';
 import * as React from 'react';
 
 import { PresetResetDialog } from './preset-reset-dialog';
@@ -18,14 +19,13 @@ export function ResetPresetCard({ schoolId, schoolName }: ResetPresetCardProps) 
   const [open, setOpen] = React.useState(false);
 
   return (
-    <Card className="flex flex-col gap-3 p-4">
-      <h2 className="text-sm font-semibold">{t('card.title')}</h2>
-      <p className="text-sm text-muted-foreground">{t('card.description')}</p>
-      <div>
-        <Button type="button" variant="destructive" onClick={() => setOpen(true)}>
-          {t('card.button')}
-        </Button>
-      </div>
+    <Card padded>
+      <h2 className="text-h2">{t('card.title')}</h2>
+      <p className="mt-1 text-text-secondary">{t('card.description')}</p>
+      <Button type="button" variant="destructive" className="mt-4" onClick={() => setOpen(true)}>
+        <Undo2Icon aria-hidden="true" />
+        {t('card.button')}
+      </Button>
       <PresetResetDialog
         open={open}
         onOpenChange={setOpen}

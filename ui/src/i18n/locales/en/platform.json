@@ -33,12 +33,12 @@
       "overview": "Overview"
     },
     "actions": {
-      "suspend": "Suspend",
+      "suspend": "Suspend school",
       "reactivate": "Reactivate",
-      "restoreFromWorkbook": "Restore from workbook"
+      "restoreFromWorkbook": "Restore data from a backup file"
     },
     "restoreWorkbookDialog": {
-      "title": "Restore {{name}} from a workbook"
+      "title": "{{name}} — restore data from a backup file"
     },
     "statusDialog": {
       "reasonLabel": "Reason",
@@ -58,9 +58,9 @@
       "title": "Stats",
       "activeUsers": "Active users",
       "students": "Students",
-      "communicationsQueued": "Communications queued",
-      "communicationsFailed7d": "Communications failed (7d)",
-      "lastActivity": "Last activity",
+      "communicationsQueued": "Messages waiting to send",
+      "communicationsFailed7d": "Failed messages (last 7 days)",
+      "lastActivity": "Last used",
       "never": "Never",
       "loadError": "Could not load stats."
     },
@@ -74,14 +74,23 @@
       "nameLabel": "Name",
       "emailLabel": "Email",
       "phoneLabel": "Phone",
-      "resend": "Resend invitation",
+      "resend": "Send invitation again",
       "resending": "Resending…",
       "resendError": "Could not resend the invitation.",
-      "revoke": "Revoke invitation",
+      "revoke": "Cancel invitation",
       "revoking": "Revoking…",
       "revokeError": "Could not revoke the invitation.",
-      "revokeConfirmTitle": "Revoke invitation",
-      "revokeConfirmDescription": "This revokes the pending invitation for {{name}}. They will need a new one to sign in."
+      "revokeConfirmTitle": "Cancel this invitation?",
+      "revokeConfirmDescription": "This revokes the pending invitation for {{name}}. They will need a new one to sign in.",
+      "help": "People who can see and manage everything in this school.",
+      "emptyExplanation": "Invite the first admin so they can set the school up.",
+      "addDescription": "A sign-in invitation goes to this address.",
+      "contactHelp": "Give an email or a phone — at least one.",
+      "addSuccess": "Invitation sent.",
+      "resendSuccess": "Invitation sent again.",
+      "contactColumn": "Email or phone",
+      "invitationColumn": "Invitation",
+      "nameColumn": "Name"
     },
     "smsCredit": {
       "title": "SMS credits",
@@ -89,13 +98,21 @@
       "loadError": "Couldn't load this school's SMS credit balance.",
       "unmetered": "This school isn't on platform SMS credits.",
       "available": "Available",
-      "reserved": "Reserved",
-      "grantTitle": "Grant or adjust credit",
-      "unitsLabel": "Units (positive to grant, negative to adjust down)",
+      "reserved": "Held for sending",
+      "grantTitle": "Add or remove SMS credits",
+      "unitsLabel": "Number of SMS",
       "reasonLabel": "Reason",
-      "grantAction": "Grant / adjust",
+      "grantAction": "Add or remove credits",
       "grantSuccess": "Balance updated.",
-      "grantError": "Could not update the SMS credit balance."
+      "grantError": "Could not update the SMS credit balance.",
+      "help": "SMS the platform has given this school.",
+      "grantSubmit": "Save",
+      "unitsHelp": "A positive number adds (e.g. 500); a minus number removes (e.g. -100).",
+      "errors": {
+        "wholeNumber": "Enter a whole number.",
+        "notZero": "Enter a number other than zero.",
+        "reasonLength": "Write the reason in at least 5 characters."
+      }
     }
   },
   "backupHealth": {

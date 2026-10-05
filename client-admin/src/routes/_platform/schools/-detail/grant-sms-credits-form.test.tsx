@@ -6,92 +6,81 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { GrantSmsCreditsForm } from './grant-sms-credits-form';
 
+/** The dialog footer owns the submit button; tests stand one in via `form=`. */
+function renderForm(
+  onSubmit: () => void = () => undefined,
+  onFieldsChange: () => void = () => undefined,
+) {
+  return renderWithProviders(
+    <>
+      <GrantSmsCreditsForm
+        formId="grant-form"
+        onFieldsChange={onFieldsChange}
+        onSubmit={onSubmit}
+      />
+      <button type="submit" form="grant-form" data-testid="save" />
+    </>,
+    { locale: 'en' },
+  );
+}
+
 describe('GrantSmsCreditsForm', () => {
   afterEach(async () => {
     await cleanupTestState();
   });
 
-  it('rejects a zero units value and a too-short reason without submitting', async () => {
+  it('rejects zero units with the translated message and a short reason without submitting', async () => {
     const onSubmit = vi.fn();
-    const { user } = renderWithProviders(
-      <GrantSmsCreditsForm
-        submitting={false}
-        onFieldsChange={() => undefined}
-        onSubmit={onSubmit}
-      />,
-      { locale: 'en' },
-    );
+    const { user } = renderForm(onSubmit);
 
-    await user.type(await screen.findByLabelText(/Units/), '0');
+    await user.type(await screen.findByLabelText('Number of SMS'), '0');
     await user.type(screen.getByLabelText('Reason'), 'no');
-    await user.click(screen.getByRole('button', { name: 'Grant / adjust' }));
+    await user.click(screen.getByTestId('save'));
 
     expect(onSubmit).not.toHaveBeenCalled();
-    expect(await screen.findAllByRole('alert')).not.toHaveLength(0);
+    expect(await screen.findByText('Enter a number other than zero.')).toBeTruthy();
+    expect(screen.getByText('Write the reason in at least 5 characters.')).toBeTruthy();
+  });
+
+  it('rejects a decimal with the whole-number message', async () => {
+    const onSubmit = vi.fn();
+    const { user } = renderForm(onSubmit);
+
+    await user.type(await screen.findByLabelText('Number of SMS'), '1.5');
+    await user.type(screen.getByLabelText('Reason'), 'Initial top-up');
+    await user.click(screen.getByTestId('save'));
+
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(await screen.findByText('Enter a whole number.')).toBeTruthy();
   });
 
   it('submits parsed units and reason once both are valid', async () => {
     const onSubmit = vi.fn();
-    const { user } = renderWithProviders(
-      <GrantSmsCreditsForm
-        submitting={false}
-        onFieldsChange={() => undefined}
-        onSubmit={onSubmit}
-      />,
-      { locale: 'en' },
-    );
+    const { user } = renderForm(onSubmit);
 
-    await user.type(await screen.findByLabelText(/Units/), '500');
+    await user.type(await screen.findByLabelText('Number of SMS'), '500');
     await user.type(screen.getByLabelText('Reason'), 'Initial top-up');
-    await user.click(screen.getByRole('button', { name: 'Grant / adjust' }));
+    await user.click(screen.getByTestId('save'));
 
     expect(onSubmit).toHaveBeenCalledWith({ units: 500, reason: 'Initial top-up' });
   });
 
-  it('accepts a negative value to adjust the balance down', async () => {
+  it('accepts Bangla digits and a negative value', async () => {
     const onSubmit = vi.fn();
-    const { user } = renderWithProviders(
-      <GrantSmsCreditsForm
-        submitting={false}
-        onFieldsChange={() => undefined}
-        onSubmit={onSubmit}
-      />,
-      { locale: 'en' },
-    );
+    const { user } = renderForm(onSubmit);
 
-    await user.type(await screen.findByLabelText(/Units/), '-50');
+    await user.type(await screen.findByLabelText('Number of SMS'), '-৫০');
     await user.type(screen.getByLabelText('Reason'), 'Correcting an over-grant');
-    await user.click(screen.getByRole('button', { name: 'Grant / adjust' }));
+    await user.click(screen.getByTestId('save'));
 
     expect(onSubmit).toHaveBeenCalledWith({ units: -50, reason: 'Correcting an over-grant' });
   });
 
   it('calls onFieldsChange as the user edits', async () => {
     const onFieldsChange = vi.fn();
-    const { user } = renderWithProviders(
-      <GrantSmsCreditsForm
-        submitting={false}
-        onFieldsChange={onFieldsChange}
-        onSubmit={() => undefined}
-      />,
-      { locale: 'en' },
-    );
+    const { user } = renderForm(() => undefined, onFieldsChange);
 
-    await user.type(await screen.findByLabelText(/Units/), '1');
+    await user.type(await screen.findByLabelText('Number of SMS'), '1');
     expect(onFieldsChange).toHaveBeenCalled();
-  });
-
-  it('shows a server-side submit error', () => {
-    renderWithProviders(
-      <GrantSmsCreditsForm
-        submitting={false}
-        submitError="units must be a non-zero integer"
-        onFieldsChange={() => undefined}
-        onSubmit={() => undefined}
-      />,
-      { locale: 'en' },
-    );
-
-    expect(screen.getByRole('alert').textContent).toBe('units must be a non-zero integer');
   });
 });

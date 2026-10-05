@@ -11,21 +11,22 @@
  * /schools/:id/admins`, #531) are fetched separately since neither is on
  * the list response.
  *
- * Header actions follow 8.14.16's `DetailShell` tier contract — the
- * Suspend/Reactivate action is `primary` (the one thing a SUPER_ADMIN
- * does most often from here), same `actions[]` shape `staff/$userId.tsx`
- * uses for its own edit/reset/remove actions.
+ * [31.4.platform-2] `DetailShell` without tabs (D16/D20): crumbs are the
+ * way back, "Add admin" is the one filled button (D29), suspend lives in
+ * the More menu, and the add-admin / SMS-credit forms are dialogs.
  */
 import { StatusBadge, Skeleton, ErrorState } from '@biddaloy/ui/components';
 import { useSchools, useSchoolStats, useSchoolAdmins } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
-import { DetailShell, useDetailShellTab } from '@biddaloy/ui/shells';
-import { createFileRoute, Link } from '@tanstack/react-router';
+import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { DetailShell } from '@biddaloy/ui/shells';
+import { formatDate } from '@biddaloy/ui/utils';
+import { createFileRoute } from '@tanstack/react-router';
+import { ArchiveRestoreIcon, RotateCcwIcon, UserPlusIcon } from 'lucide-react';
 import * as React from 'react';
-import { z } from 'zod';
 
 import { loadRouteNamespaces } from '../../../route-loaders';
 
+import { AddAdminDialog } from './-detail/add-admin-form';
 import { AdminsCard } from './-detail/admins-card';
 import { ResetPresetCard } from './-detail/preset-reset-card';
 import { RestoreWorkbookDialog } from './-detail/restore-workbook-dialog';
@@ -33,20 +34,14 @@ import { SmsCreditsCard } from './-detail/sms-credits-card';
 import { StatsCard } from './-detail/stats-card';
 import { StatusActionDialog } from './-detail/status-action-dialog';
 
-const schoolDetailSearchSchema = z.object({
-  // Same shape `staff/$userId.tsx` uses for `useDetailShellTab` — invalid
-  // values fall back to the first tab there too.
-  tab: z.string().optional(),
-});
-
 export const Route = createFileRoute('/_platform/schools/$schoolId')({
-  validateSearch: schoolDetailSearchSchema,
   loader: () => loadRouteNamespaces('platform', 'backup', 'bulkImport', 'presetReset'),
   component: SchoolDetailPage,
 });
 
 function SchoolDetailPage() {
   const { t } = useTranslation('platform');
+  const config = useRegionConfig();
   const { schoolId } = Route.useParams();
 
   const schoolsQuery = useSchools();
@@ -57,11 +52,16 @@ function SchoolDetailPage() {
 
   const [statusDialogOpen, setStatusDialogOpen] = React.useState(false);
   const [restoreDialogOpen, setRestoreDialogOpen] = React.useState(false);
-
-  const [activeTab, setActiveTab] = useDetailShellTab(['overview'] as const);
+  const [addAdminOpen, setAddAdminOpen] = React.useState(false);
 
   if (schoolsQuery.isLoading) {
-    return <Skeleton className="h-40 w-full" />;
+    return (
+      <div className="space-y-6">
+        <Skeleton className="h-8 w-64" />
+        <Skeleton className="h-32 w-full" />
+        <Skeleton className="h-48 w-full" />
+      </div>
+    );
   }
 
   if (schoolsQuery.isError || !school) {
@@ -77,68 +77,78 @@ function SchoolDetailPage() {
   const targetStatus = school.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE';
 
   return (
-    <div className="flex flex-col gap-4">
-      <Link
-        to="/schools"
-        className="inline-flex min-h-6 items-center self-start text-sm text-primary underline"
-      >
-        {t('schoolDetail.back')}
-      </Link>
-
+    <>
       <DetailShell
         name={school.name}
-        identifiers={school.slug}
-        statusBadge={<StatusBadge domain="school" status={school.status} />}
+        statusBadge={
+          <StatusBadge
+            tone={school.status === 'ACTIVE' ? 'success' : 'warning'}
+            label={t(`schools.status.${school.status}`)}
+          />
+        }
+        facts={[
+          { label: t('schools.columnSlug'), value: school.slug },
+          { label: t('schools.columnCreated'), value: formatDate(school.created_at, config) },
+        ]}
         actions={[
           {
-            id: 'statusAction',
-            label:
-              school.status === 'ACTIVE'
-                ? t('schoolDetail.actions.suspend')
-                : t('schoolDetail.actions.reactivate'),
-            priority: school.status === 'ACTIVE' ? 'destructive' : 'primary',
-            onClick: () => setStatusDialogOpen(true),
+            id: 'addAdmin',
+            label: t('schoolDetail.admins.addAction'),
+            icon: <UserPlusIcon aria-hidden="true" />,
+            priority: 'primary',
+            onClick: () => setAddAdminOpen(true),
           },
+          ...(school.status === 'SUSPENDED'
+            ? [
+                {
+                  id: 'statusAction',
+                  label: t('schoolDetail.actions.reactivate'),
+                  icon: <RotateCcwIcon aria-hidden="true" />,
+                  priority: 'secondary' as const,
+                  onClick: () => setStatusDialogOpen(true),
+                },
+              ]
+            : []),
           {
             id: 'restoreFromWorkbookAction',
             label: t('schoolDetail.actions.restoreFromWorkbook'),
+            icon: <ArchiveRestoreIcon aria-hidden="true" />,
+            priority: 'tertiary',
             onClick: () => setRestoreDialogOpen(true),
           },
+          ...(school.status === 'ACTIVE'
+            ? [
+                {
+                  id: 'statusAction',
+                  label: t('schoolDetail.actions.suspend'),
+                  priority: 'destructive' as const,
+                  onClick: () => setStatusDialogOpen(true),
+                },
+              ]
+            : []),
         ]}
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-        tabs={[
-          {
-            id: 'overview',
-            label: t('schoolDetail.tabs.overview'),
-            content: (
-              <div className="flex flex-col gap-4">
-                <StatsCard
-                  {...(statsQuery.data !== undefined ? { stats: statsQuery.data } : {})}
-                  loading={statsQuery.isLoading}
-                  {...(statsQuery.isError ? { error: t('schoolDetail.stats.loadError') } : {})}
-                  onRetry={() => void statsQuery.refetch()}
-                />
-                <AdminsCard
-                  schoolId={schoolId}
-                  {...(adminsQuery.data !== undefined ? { admins: adminsQuery.data } : {})}
-                  loading={adminsQuery.isLoading}
-                  {...(adminsQuery.isError ? { error: t('schoolDetail.admins.loadError') } : {})}
-                  onRetry={() => void adminsQuery.refetch()}
-                />
-                <SmsCreditsCard schoolId={schoolId} />
-                <ResetPresetCard schoolId={schoolId} schoolName={school.name} />
-                <Link
-                  to="/settings"
-                  className="inline-flex min-h-6 items-center self-start text-sm text-primary underline"
-                >
-                  {t('schoolDetail.settingsLink')}
-                </Link>
-              </div>
-            ),
-          },
-        ]}
-      />
+      >
+        <StatsCard
+          {...(statsQuery.data !== undefined ? { stats: statsQuery.data } : {})}
+          loading={statsQuery.isLoading}
+          {...(statsQuery.isError ? { error: t('schoolDetail.stats.loadError') } : {})}
+          onRetry={() => void statsQuery.refetch()}
+        />
+        <AdminsCard
+          schoolId={schoolId}
+          {...(adminsQuery.data !== undefined ? { admins: adminsQuery.data } : {})}
+          loading={adminsQuery.isLoading}
+          {...(adminsQuery.isError ? { error: t('schoolDetail.admins.loadError') } : {})}
+          onRetry={() => void adminsQuery.refetch()}
+          onAdd={() => setAddAdminOpen(true)}
+        />
+        <div className="grid gap-6 md:grid-cols-2 md:items-start">
+          <SmsCreditsCard schoolId={schoolId} />
+          <ResetPresetCard schoolId={schoolId} schoolName={school.name} />
+        </div>
+      </DetailShell>
+
+      <AddAdminDialog schoolId={schoolId} open={addAdminOpen} onOpenChange={setAddAdminOpen} />
 
       <StatusActionDialog
         open={statusDialogOpen}
@@ -154,6 +164,6 @@ function SchoolDetailPage() {
         schoolId={schoolId}
         schoolName={school.name}
       />
-    </div>
+    </>
   );
 }

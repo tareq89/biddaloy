@@ -1,24 +1,22 @@
 /**
  * #535's admins card: the school's ADMIN memberships (`GET
- * /schools/:id/admins`, #531) plus the inline "Add admin" form (`POST
- * /schools/:id/admins`). Wires its own mutations directly — same shape
- * `InvitationCard` (`staff/-detail/invitation-card.tsx`) uses — rather
- * than splitting a separate presentational component, since this card
- * has no Storybook-relevant "loading school" state beyond what
- * `admins`/`loading`/`error` already cover.
+ * /schools/:id/admins`, #531) as a quiet kit table with icon row actions
+ * (resend / revoke). Adding an admin is the header's primary action and the
+ * empty state's button — both open `AddAdminDialog`, owned by the route.
  */
-import { ApiError } from '@biddaloy/ui/api';
-import { Card, ErrorState, Skeleton } from '@biddaloy/ui/components';
 import {
-  useAddSchoolAdmin,
-  type AddSchoolAdminInput,
-  type SchoolAdminListItem,
-} from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
-import * as React from 'react';
+  Card,
+  DataTable,
+  ErrorState,
+  Skeleton,
+  StatusBadge,
+  type DataTableColumn,
+} from '@biddaloy/ui/components';
+import type { SchoolAdminListItem } from '@biddaloy/ui/hooks';
+import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { formatPhone } from '@biddaloy/ui/utils';
 
-import { AddAdminForm } from './add-admin-form';
-import { AdminRow } from './admin-row';
+import { useAdminRowActions } from './admin-row';
 
 export interface AdminsCardProps {
   schoolId: string;
@@ -26,55 +24,73 @@ export interface AdminsCardProps {
   loading: boolean;
   error?: string;
   onRetry?: () => void;
+  onAdd: () => void;
 }
 
-export function AdminsCard({ schoolId, admins, loading, error, onRetry }: AdminsCardProps) {
+export function AdminsCard({ schoolId, admins, loading, error, onRetry, onAdd }: AdminsCardProps) {
   const { t } = useTranslation('platform');
-  const addAdmin = useAddSchoolAdmin(schoolId);
-  const [addError, setAddError] = React.useState<string | undefined>(undefined);
+  const config = useRegionConfig();
+  const { actionsFor, dialog } = useAdminRowActions(schoolId);
 
-  async function handleAdd(values: AddSchoolAdminInput): Promise<boolean> {
-    setAddError(undefined);
-    try {
-      await addAdmin.mutateAsync(values);
-      return true;
-    } catch (mutationError: unknown) {
-      setAddError(
-        mutationError instanceof ApiError
-          ? mutationError.message
-          : t('schoolDetail.admins.addError'),
-      );
-      return false;
-    }
-  }
+  const columns: DataTableColumn<SchoolAdminListItem>[] = [
+    {
+      id: 'name',
+      header: t('schoolDetail.admins.nameColumn'),
+      accessorFn: (row) => <span className="font-medium">{row.name}</span>,
+      card: 'title',
+    },
+    {
+      id: 'contact',
+      header: t('schoolDetail.admins.contactColumn'),
+      accessorFn: (row) => row.email ?? (row.phone ? formatPhone(row.phone, config) : '—'),
+      card: 'subtitle',
+    },
+    {
+      id: 'invitation',
+      header: t('schoolDetail.admins.invitationColumn'),
+      accessorFn: (row) =>
+        row.invitation ? <StatusBadge domain="invitation" status={row.invitation.status} /> : '—',
+      card: 'badge',
+    },
+  ];
 
   return (
-    <Card className="flex flex-col gap-4 p-4">
-      <h2 className="text-sm font-semibold">{t('schoolDetail.admins.title')}</h2>
+    <Card className="overflow-hidden">
+      <div className="p-4 md:px-5">
+        <h2 className="text-h2">{t('schoolDetail.admins.title')}</h2>
+        <p className="mt-1 text-text-secondary">{t('schoolDetail.admins.help')}</p>
+      </div>
 
       {loading ? (
-        <Skeleton className="h-24 w-full" />
+        <Skeleton className="mx-4 mb-4 h-24 w-[calc(100%-2rem)]" />
       ) : error || !admins ? (
-        <ErrorState
-          message={error ?? t('schoolDetail.admins.loadError')}
-          retryLabel={t('actions.retry', { ns: 'common' })}
-          onRetry={onRetry ?? (() => {})}
-        />
-      ) : admins.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{t('schoolDetail.admins.empty')}</p>
+        <div className="p-4 pt-0 md:px-5">
+          <ErrorState
+            message={error ?? t('schoolDetail.admins.loadError')}
+            retryLabel={t('actions.retry', { ns: 'common' })}
+            onRetry={onRetry ?? (() => {})}
+          />
+        </div>
       ) : (
-        <ul className="flex flex-col gap-2">
-          {admins.map((admin) => (
-            <AdminRow key={admin.user_id} schoolId={schoolId} admin={admin} />
-          ))}
-        </ul>
+        <DataTable
+          tableId="platform-school-admins"
+          caption={t('schoolDetail.admins.title')}
+          columns={columns}
+          data={admins}
+          getRowId={(row) => row.user_id}
+          sorting={null}
+          onSortingChange={() => undefined}
+          paginated={false}
+          totalCount={admins.length}
+          rowActions={actionsFor}
+          emptyState={{
+            title: t('schoolDetail.admins.empty'),
+            explanation: t('schoolDetail.admins.emptyExplanation'),
+            action: { label: t('schoolDetail.admins.addAction'), onClick: onAdd },
+          }}
+        />
       )}
-
-      <AddAdminForm
-        submitting={addAdmin.isPending}
-        {...(addError !== undefined ? { submitError: addError } : {})}
-        onSubmit={handleAdd}
-      />
+      {dialog}
     </Card>
   );
 }
