@@ -120,12 +120,13 @@
     "recurrenceWeekly": "Weekly",
     "recurrenceBiweekly": "Biweekly",
     "recurrenceMonthly": "Monthly",
-    "recurrenceOffsetLabel": "Which occurrence",
-    "recurrenceWeekA": "Week A",
-    "recurrenceWeekB": "Week B",
+    "recurrenceOffsetLabel": "Which week",
+    "recurrenceWeekA": "Week 1",
+    "recurrenceWeekB": "Week 2",
     "recurrenceOccurrence": "Occurrence {{n}}",
     "cancel": "Cancel",
-    "save": "Save"
+    "save": "Save",
+    "cellLabel": "{{day}} · {{period}} · {{time}}"
   },
   "conflictList": {
     "violationsTitle": "This can't be saved",
@@ -157,8 +158,10 @@
     "description": "Preview only — nothing is saved until you confirm. Already-filled cells are never touched.",
     "empty": "Nothing left to fill.",
     "cancel": "Cancel",
-    "confirm": "Fill {{count}} period",
-    "confirm_other": "Fill {{count}} periods"
+    "confirm": "Fill {{formattedCount}} period",
+    "confirm_other": "Fill {{formattedCount}} periods",
+    "rowWhen": "{{day}} · {{period}}",
+    "rowWhat": "{{subject}} · {{teachers}}"
   },
   "review": {
     "title": "Routine review",
