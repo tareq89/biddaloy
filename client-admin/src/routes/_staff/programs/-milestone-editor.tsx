@@ -6,7 +6,7 @@
  * (D23) — the count comes back on `GET /programs/:id`'s
  * `achievement_count` field.
  */
-import { Button, Input, Textarea } from '@biddaloy/ui/components';
+import { Button, ConfirmDialog, Input, RowActions, Textarea } from '@biddaloy/ui/components';
 import {
   useAddMilestone,
   useRemoveMilestone,
@@ -14,8 +14,14 @@ import {
   useUpdateMilestone,
   type ProgramMilestone,
 } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { formatNumber } from '@biddaloy/ui/utils';
+import { ArrowDownIcon, ArrowUpIcon, PlusIcon } from 'lucide-react';
 import * as React from 'react';
+
+import { LabelledField } from './-labelled-field';
+
+const ICON_BUTTON = 'size-11 text-text-secondary md:size-8';
 
 export interface MilestoneEditorProps {
   programId: string;
@@ -28,6 +34,7 @@ export interface MilestoneEditorProps {
 export function MilestoneEditor({ programId, milestones, canManage }: MilestoneEditorProps) {
   const { t } = useTranslation('programs');
   const { t: tCommon } = useTranslation('common');
+  const regionConfig = useTenantRegionConfig();
   const addMilestone = useAddMilestone(programId);
   const updateMilestone = useUpdateMilestone(programId);
   const removeMilestone = useRemoveMilestone(programId);
@@ -100,137 +107,172 @@ export function MilestoneEditor({ programId, milestones, canManage }: MilestoneE
 
   const pendingRemove = ordered.find((m) => m.id === pendingRemoveId);
 
+  const mutationFailed =
+    addMilestone.isError ||
+    updateMilestone.isError ||
+    removeMilestone.isError ||
+    reorderMilestones.isError;
+
   return (
-    <div className="flex flex-col gap-3">
+    <div className="overflow-hidden rounded-lg border border-border-subtle bg-surface shadow-e1">
       {ordered.length === 0 && (
-        <p className="text-sm text-muted-foreground">{t('milestones.emptyHint')}</p>
+        <p className="px-4 py-6 text-center text-text-secondary">{t('milestones.emptyHint')}</p>
       )}
 
-      <ul className="flex flex-col gap-2" aria-label={t('detail.tabs.milestones')}>
+      <ol className="divide-y divide-border-subtle" aria-label={t('detail.tabs.milestones')}>
         {ordered.map((milestone, index) => (
           <li
             key={milestone.id}
-            className="flex items-start gap-2 rounded-md border border-border p-3"
+            className="flex flex-col gap-1 px-4 py-3 md:flex-row md:items-center md:gap-3"
           >
-            {canManage && (
-              <div className="flex flex-col">
-                <button
-                  type="button"
-                  aria-label={t('milestones.moveUp')}
-                  disabled={index === 0}
-                  onClick={() => move(index, -1)}
-                  onKeyDown={(event) => handleKeyDown(event, index)}
-                  className="disabled:opacity-30"
-                >
-                  ↑
-                </button>
-                <button
-                  type="button"
-                  aria-label={t('milestones.moveDown')}
-                  disabled={index === ordered.length - 1}
-                  onClick={() => move(index, 1)}
-                  onKeyDown={(event) => handleKeyDown(event, index)}
-                  className="disabled:opacity-30"
-                >
-                  ↓
-                </button>
-              </div>
-            )}
-
             {canManage && editingId === milestone.id ? (
-              <form onSubmit={handleEditSave} className="flex flex-1 flex-col gap-2">
-                <Input
-                  aria-label={t('milestones.add')}
-                  value={editName}
-                  onChange={(e) => setEditName(e.target.value)}
-                />
-                <Textarea
-                  value={editDescription}
-                  onChange={(e) => setEditDescription(e.target.value)}
-                />
-                <div className="flex gap-2">
+              <form onSubmit={handleEditSave} className="flex min-w-0 flex-1 flex-col gap-3">
+                <LabelledField
+                  id={`milestone-name-${milestone.id}`}
+                  label={t('formDialog.nameLabel')}
+                  required
+                >
+                  <Input
+                    id={`milestone-name-${milestone.id}`}
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                  />
+                </LabelledField>
+                <LabelledField
+                  id={`milestone-desc-${milestone.id}`}
+                  label={t('formDialog.descriptionLabel')}
+                >
+                  <Textarea
+                    id={`milestone-desc-${milestone.id}`}
+                    value={editDescription}
+                    onChange={(e) => setEditDescription(e.target.value)}
+                  />
+                </LabelledField>
+                <div className="flex justify-end gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={updateMilestone.isPending}
+                    onClick={() => setEditingId(null)}
+                  >
+                    {tCommon('actions.cancel')}
+                  </Button>
                   <Button type="submit" loading={updateMilestone.isPending}>
                     {tCommon('actions.save')}
-                  </Button>
-                  <Button type="button" variant="outline" onClick={() => setEditingId(null)}>
-                    {tCommon('actions.cancel')}
                   </Button>
                 </div>
               </form>
             ) : (
-              <div className="flex flex-1 flex-col gap-1">
-                <p className="font-medium">{milestone.name}</p>
-                {milestone.description && (
-                  <p className="text-sm text-muted-foreground">{milestone.description}</p>
-                )}
+              <>
+                <span className="w-6 shrink-0 text-text-secondary tabular-nums">
+                  {formatNumber(index + 1, regionConfig)}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium">{milestone.name}</p>
+                  {milestone.description && (
+                    <p className="text-text-secondary">{milestone.description}</p>
+                  )}
+                </div>
                 {canManage && (
-                  <div className="flex gap-2">
-                    <button
+                  <div className="flex items-center justify-end">
+                    <Button
                       type="button"
-                      className="text-sm font-medium text-primary underline"
-                      onClick={() => startEdit(milestone)}
+                      variant="ghost"
+                      iconOnly
+                      aria-label={t('milestones.moveUp')}
+                      className={ICON_BUTTON}
+                      disabled={index === 0}
+                      onClick={() => move(index, -1)}
+                      onKeyDown={(event) => handleKeyDown(event, index)}
                     >
-                      {t('milestones.edit')}
-                    </button>
-                    <button
+                      <ArrowUpIcon aria-hidden />
+                    </Button>
+                    <Button
                       type="button"
-                      className="text-sm font-medium text-destructive underline"
-                      onClick={() => setPendingRemoveId(milestone.id)}
+                      variant="ghost"
+                      iconOnly
+                      aria-label={t('milestones.moveDown')}
+                      className={ICON_BUTTON}
+                      disabled={index === ordered.length - 1}
+                      onClick={() => move(index, 1)}
+                      onKeyDown={(event) => handleKeyDown(event, index)}
                     >
-                      {t('milestones.remove')}
-                    </button>
+                      <ArrowDownIcon aria-hidden />
+                    </Button>
+                    <RowActions
+                      actions={[
+                        {
+                          intent: 'edit',
+                          label: t('milestones.edit'),
+                          onClick: () => startEdit(milestone),
+                        },
+                        {
+                          intent: 'delete',
+                          label: t('milestones.remove'),
+                          onClick: () => setPendingRemoveId(milestone.id),
+                        },
+                      ]}
+                    />
                   </div>
                 )}
-              </div>
+              </>
             )}
           </li>
         ))}
-      </ul>
+      </ol>
 
-      {canManage && pendingRemove && (
-        <div
-          role="alertdialog"
-          className="flex flex-col gap-2 rounded-md border border-destructive/40 p-3"
-        >
-          <p className="text-sm">
-            {t('milestones.removeConfirm', { count: pendingRemove.achievement_count ?? 0 })}
-          </p>
-          <div className="flex gap-2">
-            <Button
-              type="button"
-              variant="destructive"
-              loading={removeMilestone.isPending}
-              onClick={() =>
-                removeMilestone.mutate(pendingRemove.id, {
-                  onSuccess: () => setPendingRemoveId(null),
-                })
-              }
-            >
-              {t('milestones.remove')}
-            </Button>
-            <Button type="button" variant="outline" onClick={() => setPendingRemoveId(null)}>
-              {tCommon('actions.cancel')}
-            </Button>
-          </div>
-        </div>
+      {mutationFailed && (
+        <p role="alert" className="border-t border-border-subtle px-4 py-3 text-destructive">
+          {t('milestones.errorMessage')}
+        </p>
       )}
 
+      <ConfirmDialog
+        open={canManage && !!pendingRemove}
+        onOpenChange={(o) => !o && !removeMilestone.isPending && setPendingRemoveId(null)}
+        tone="danger"
+        title={t('milestones.removeTitle')}
+        description={t('milestones.removeConfirm', {
+          count: pendingRemove?.achievement_count ?? 0,
+          n: formatNumber(pendingRemove?.achievement_count ?? 0, regionConfig),
+        })}
+        confirmLabel={t('milestones.remove')}
+        busy={removeMilestone.isPending}
+        onConfirm={() => {
+          if (!pendingRemove) return;
+          removeMilestone.mutate(pendingRemove.id, {
+            onSuccess: () => setPendingRemoveId(null),
+          });
+        }}
+      />
+
       {canManage && (
-        <form onSubmit={handleAdd} className="flex flex-col gap-2 border-t border-border pt-3">
-          <Input
-            aria-label={t('milestones.add')}
-            placeholder={t('milestones.add')}
-            value={addName}
-            onChange={(e) => setAddName(e.target.value)}
-          />
-          <Textarea
-            placeholder={t('formDialog.descriptionLabel')}
-            value={addDescription}
-            onChange={(e) => setAddDescription(e.target.value)}
-          />
-          <Button type="submit" loading={addMilestone.isPending}>
-            {t('milestones.add')}
-          </Button>
+        <form
+          onSubmit={handleAdd}
+          className="flex flex-col gap-4 border-t border-border-subtle p-4 md:p-5"
+        >
+          <div className="grid gap-4 md:grid-cols-2">
+            <LabelledField id="milestone-add-name" label={t('milestones.nameLabel')}>
+              <Input
+                id="milestone-add-name"
+                value={addName}
+                onChange={(e) => setAddName(e.target.value)}
+              />
+            </LabelledField>
+            <LabelledField id="milestone-add-desc" label={t('formDialog.descriptionLabel')}>
+              <Textarea
+                id="milestone-add-desc"
+                value={addDescription}
+                onChange={(e) => setAddDescription(e.target.value)}
+              />
+            </LabelledField>
+          </div>
+          <div className="flex justify-end">
+            <Button type="submit" variant="outline" loading={addMilestone.isPending}>
+              <PlusIcon aria-hidden />
+              {t('milestones.add')}
+            </Button>
+          </div>
         </form>
       )}
     </div>
