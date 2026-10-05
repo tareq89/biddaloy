@@ -72,4 +72,15 @@ describe('Breadcrumbs', () => {
 
     expect(screen.queryByRole('navigation', { name: 'Breadcrumb' })).toBeNull();
   });
+
+  it('renders a loading item as a skeleton with an sr-only label, never a link', async () => {
+    renderWithRouter(
+      buildRouteTree([{ label: 'Students', to: '/students' }, { label: 'Student', loading: true }]),
+      { initialEntries: ['/'] },
+    );
+    const nav = await screen.findByRole('navigation', { name: 'Breadcrumb' });
+    expect(within(nav).getAllByRole('link')).toHaveLength(1);
+    expect(within(nav).getByText('Student').className).toContain('sr-only');
+    expect(nav.querySelector('[aria-hidden="true"].bg-muted')).not.toBeNull();
+  });
 });

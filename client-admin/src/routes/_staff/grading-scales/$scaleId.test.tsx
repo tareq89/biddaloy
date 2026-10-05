@@ -129,7 +129,7 @@ describe('/grading-scales/$scaleId', () => {
 
     it('is absent with AVAILABLE', async () => {
       const calls = mount('ADMIN', 'AVAILABLE');
-      await screen.findByText('Class 6 Scale');
+      await screen.findAllByText('Class 6 Scale');
       await waitFor(() => expect(calls()).toBe(1));
       expect(screen.queryByText(/This comes from your curriculum preset/)).toBeNull();
     });
