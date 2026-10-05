@@ -180,9 +180,7 @@ export function AddUserDialog({ open, onOpenChange }: AddUserDialogProps) {
                   <Select value={field.value} onValueChange={field.onChange}>
                     <FormControl>
                       <SelectTrigger id="add-user-role">
-                        <SelectValue
-                          placeholder={t('form.selectPlaceholder', { ns: 'common' })}
-                        >
+                        <SelectValue placeholder={t('form.selectPlaceholder', { ns: 'common' })}>
                           {field.value ? t(`roles.${field.value}`) : undefined}
                         </SelectValue>
                       </SelectTrigger>

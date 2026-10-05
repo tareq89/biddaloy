@@ -344,7 +344,9 @@ describe('/staff', () => {
   });
 
   it('add-user dialog shows a description under each role, including EXAM_CONTROLLER', async () => {
-    server.use(http.get('/api/v1/users', () => HttpResponse.json(paginated([userResponseFactory()]))));
+    server.use(
+      http.get('/api/v1/users', () => HttpResponse.json(paginated([userResponseFactory()]))),
+    );
 
     renderWithRouter(routeTree, {
       initialEntries: ['/staff'],
@@ -467,7 +469,9 @@ describe('/staff', () => {
   // the sortable "Name" column header writes it, replacing the old no-op
   // `onSortingChange`.
   it('clicking the Name column header writes sort/order to the URL', async () => {
-    server.use(http.get('/api/v1/users', () => HttpResponse.json(paginated([userResponseFactory()]))));
+    server.use(
+      http.get('/api/v1/users', () => HttpResponse.json(paginated([userResponseFactory()]))),
+    );
 
     const { router } = renderWithRouter(routeTree, {
       initialEntries: ['/staff'],
@@ -609,7 +613,9 @@ describe('/staff', () => {
   });
 
   it('add-user dialog puts the name and role errors under their own fields', async () => {
-    server.use(http.get('/api/v1/users', () => HttpResponse.json(paginated([userResponseFactory()]))));
+    server.use(
+      http.get('/api/v1/users', () => HttpResponse.json(paginated([userResponseFactory()]))),
+    );
 
     renderWithRouter(routeTree, {
       initialEntries: ['/staff'],
@@ -625,9 +631,9 @@ describe('/staff', () => {
 
     const nameField = within(dialog).getByLabelText(/^Full name/);
     expect(nameField.getAttribute('aria-invalid')).toBe('true');
-    expect(within(dialog).getByRole('combobox', { name: /^Role/ }).getAttribute('aria-invalid')).toBe(
-      'true',
-    );
+    expect(
+      within(dialog).getByRole('combobox', { name: /^Role/ }).getAttribute('aria-invalid'),
+    ).toBe('true');
     expect(within(dialog).getAllByRole('alert')).toHaveLength(2);
   });
 });

@@ -59,9 +59,7 @@ describe('staff/$userId Teaching assignments tab', () => {
     });
 
     await waitFor(() =>
-      expect(
-        screen.getByRole('tab', { name: 'Teaching assignments', selected: true }),
-      ).toBeTruthy(),
+      expect(screen.getByRole('tab', { name: 'Teacher assignments', selected: true })).toBeTruthy(),
     );
     await screen.findByText('Class 6');
     expect(screen.getByText('A')).toBeTruthy();
