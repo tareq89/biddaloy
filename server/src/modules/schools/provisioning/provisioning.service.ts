@@ -66,6 +66,8 @@ export interface ProvisionResult {
 
 /** Extra hooks for a caller that provisions on its own behalf (public registration). */
 export interface ProvisionOptions {
+  /** Default true. Public registration passes false: the admin already proved their contact. Internal only — never part of the HTTP DTO. */
+  sendInvitation?: boolean;
   /** Runs inside the provisioning transaction, after school + admin exist; a throw rolls everything back. */
   inTransaction?: (manager: EntityManager, result: ProvisionResult) => Promise<void>;
 }
@@ -158,7 +160,7 @@ export class ProvisioningService {
           actorUserId,
           manager,
           true,
-          dto.send_invitation !== false,
+          options.sendInvitation !== false,
         );
 
         await this.audit.record(
