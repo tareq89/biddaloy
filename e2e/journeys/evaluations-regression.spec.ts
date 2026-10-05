@@ -229,6 +229,6 @@ test.describe('admin closes', () => {
     expect(perf.survey.averageStars).toBeNull();
 
     await page.goto(`/staff/evaluations/surveys/${state.surveyId}`);
-    await expect(page.getByRole('status').filter({ hasText: '1' }).first()).toBeVisible();
+    await expect(page.getByRole('status').filter({ hasText: /[1১]/ }).first()).toBeVisible();
   });
 });

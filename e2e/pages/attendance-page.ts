@@ -111,13 +111,17 @@ export class AttendancePage {
   }
 
   /** The month grid's day cell for one ISO date (`'2026-03-19'`) — matched
-   * on the visible day-of-month number (plain ASCII digits, always —
-   * `AttendanceMonthGrid` never runs it through `renderDigits`), not the
+   * on the visible day-of-month number (ASCII or Bangla digits), not the
    * button's `aria-label`, which is a fully-formatted, numeral-localized
    * date and so can't be predicted from the ISO string alone. `(?!\d)`
    * stops "1" from matching "11"/"12"/etc. */
   dayCell(dateIso: string): Locator {
     const dayOfMonth = String(Number(dateIso.slice(-2)));
-    return this.page.getByRole('button').filter({ hasText: new RegExp(`^${dayOfMonth}(?!\\d)`) });
+    // Bangla digits too: the grid renders the day number through the region's
+    // digit setting (default Bangla), not always ASCII.
+    const bangla = dayOfMonth.replace(/\d/g, (d) => '০১২৩৪৫৬৭৮৯'[Number(d)]!);
+    return this.page
+      .getByRole('button')
+      .filter({ hasText: new RegExp(`^(?:${dayOfMonth}|${bangla})(?![\\d০-৯])`) });
   }
 }
