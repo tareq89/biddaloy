@@ -367,7 +367,13 @@ describe('MarkGridService.progress', () => {
   it('counts grids by state and lists outstanding section-subjects', async () => {
     const { service } = await buildService({
       section: { id: SECTION_ID, tenant_id: TENANT_ID, section_name: 'A' },
-      components: [{ id: 'comp-1', subject_id: SUBJECT_ID }],
+      components: [
+        {
+          id: 'comp-1',
+          subject_id: SUBJECT_ID,
+          subject: { tenant_id: TENANT_ID, name_en: 'Mathematics', name_bn: 'গণিত' },
+        },
+      ],
       grid: null,
     });
 
@@ -380,9 +386,30 @@ describe('MarkGridService.progress', () => {
         section_id: SECTION_ID,
         section_name: 'A',
         subject_id: SUBJECT_ID,
+        subject_name: 'Mathematics',
+        subject_name_bn: 'গণিত',
         state: MarkGridState.DRAFT,
       },
     ]);
+  });
+
+  it('never names a subject from another tenant', async () => {
+    const { service } = await buildService({
+      section: { id: SECTION_ID, tenant_id: TENANT_ID, section_name: 'A' },
+      components: [
+        {
+          id: 'comp-1',
+          subject_id: SUBJECT_ID,
+          subject: { tenant_id: 'tenant-b', name_en: 'Secret', name_bn: 'গোপন' },
+        },
+      ],
+      grid: null,
+    });
+
+    const result = await service.progress(EXAM_ID, TENANT_ID);
+
+    expect(result.outstanding[0]).toMatchObject({ subject_name: null, subject_name_bn: null });
+    expect(result.counts[MarkGridState.DRAFT]).toBe(1);
   });
 
   it('a SUBMITTED grid is counted and excluded from outstanding', async () => {

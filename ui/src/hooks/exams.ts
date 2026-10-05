@@ -228,6 +228,8 @@ export interface ExamProgress {
     section_id: string;
     section_name: string;
     subject_id: string;
+    subject_name: string | null;
+    subject_name_bn: string | null;
     state: 'DRAFT' | 'SUBMITTED';
   }>;
 }
