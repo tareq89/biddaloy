@@ -45,6 +45,9 @@ describe('InviteGuardiansDialog', () => {
 
     expect(await screen.findByText('2 guardian(s) will be invited — 1 skipped.')).toBeTruthy();
     expect(screen.getByText('Rahim Uddin — SMS')).toBeTruthy();
+    // The channel is its translated label, not the raw `EMAIL` enum.
+    expect(screen.getByText('Karim Mia — Email')).toBeTruthy();
+    expect(screen.queryByText(/EMAIL/)).toBeNull();
     expect(screen.getByRole('button', { name: 'Send invitations' }).hasAttribute('disabled')).toBe(
       false,
     );

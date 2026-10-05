@@ -5,7 +5,7 @@
  * has no equivalent filter dropdowns — search is the only filter.
  */
 import { CommunicationMedium, Permission } from '@biddaloy/shared';
-import { Button, RoutePending, StatusBadge, type DataTableColumn } from '@biddaloy/ui/components';
+import { RoutePending, StatusBadge, type DataTableColumn } from '@biddaloy/ui/components';
 import {
   guardiansQueryOptions,
   useGuardians,
@@ -14,14 +14,16 @@ import {
 } from '@biddaloy/ui/hooks';
 import { RegionConfigProvider, useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { ListShell, useListShellState, type FilterFieldDescriptor } from '@biddaloy/ui/shells';
-import { createFileRoute, Link } from '@tanstack/react-router';
+import { formatNumber, formatPhone } from '@biddaloy/ui/utils';
+import { createFileRoute } from '@tanstack/react-router';
+import { SendIcon } from 'lucide-react';
 import * as React from 'react';
 import { z } from 'zod';
 
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 
-import { formatGuardianPhone } from './-format-guardian-phone';
 import { InviteGuardiansDialog } from './-invite-guardians-dialog';
+import { RELATIONSHIP_VALUES, relationshipLabel } from './-relationship-label';
 
 interface GuardianFilters {
   search?: string | undefined;
@@ -54,7 +56,7 @@ export const Route = createFileRoute('/_staff/guardians/')({
   validateSearch: guardiansSearchSchema,
   loaderDeps: ({ search }) => ({
     page: search.page ?? 1,
-    limit: search.limit ?? 10,
+    limit: search.limit ?? 25,
     sort: search.sort,
     order: search.order,
     search: search.search,
@@ -95,7 +97,7 @@ export const Route = createFileRoute('/_staff/guardians/')({
 function GuardiansListPage() {
   const { t } = useTranslation('guardians');
   const regionConfig = useTenantRegionConfig();
-  const [state, actions] = useListShellState({ limit: 10 });
+  const [state, actions] = useListShellState();
   const filters = state.filters as GuardianFilters;
   const canInvite = useHasPermission(Permission.USER_CREATE);
   const [inviteOpen, setInviteOpen] = React.useState(false);
@@ -123,14 +125,18 @@ function GuardiansListPage() {
       kind: 'text',
       key: 'search',
       label: t('list.searchLabel'),
-      placeholder: t('list.searchLabel'),
+      placeholder: t('list.searchPlaceholder'),
       primary: true,
     },
     {
-      kind: 'text',
+      kind: 'select',
       key: 'relationship',
       label: t('list.columnRelationship'),
-      placeholder: t('list.columnRelationship'),
+      allLabel: t('list.allRelationships'),
+      options: RELATIONSHIP_VALUES.map((value) => ({
+        value,
+        label: relationshipLabel(value, t),
+      })),
     },
     {
       kind: 'select',
@@ -145,7 +151,7 @@ function GuardiansListPage() {
     {
       kind: 'checkbox',
       key: 'is_primary_contact',
-      label: t('list.columnPrimaryContact'),
+      label: t('list.primaryOnlyFilter'),
     },
   ];
 
@@ -161,13 +167,14 @@ function GuardiansListPage() {
     {
       id: 'relationship',
       header: t('list.columnRelationship'),
-      accessorFn: (row) => row.relationship,
+      accessorFn: (row) => relationshipLabel(row.relationship, t),
       card: 'subtitle',
     },
     {
       id: 'phone',
       header: t('list.columnPhone'),
-      accessorFn: (row) => formatGuardianPhone(row.phone, regionConfig) ?? t('list.emptyValue'),
+      accessorFn: (row) =>
+        row.phone ? formatPhone(row.phone, regionConfig) : t('list.emptyValue'),
     },
     {
       id: 'preferredCommunication',
@@ -178,9 +185,24 @@ function GuardiansListPage() {
       id: 'linkedStudents',
       header: t('list.columnLinkedStudents'),
       accessorFn: (row) =>
-        row.students.length > 0
-          ? row.students.map((student) => student.full_name).join(', ')
-          : t('list.emptyValue'),
+        row.students.length === 0 ? (
+          t('list.emptyValue')
+        ) : (
+          <>
+            {row.students
+              .slice(0, 2)
+              .map((student) => student.full_name)
+              .join(', ')}
+            {row.students.length > 2 && (
+              <span className="text-text-secondary">
+                {' '}
+                {t('list.moreStudents', {
+                  n: formatNumber(row.students.length - 2, regionConfig),
+                })}
+              </span>
+            )}
+          </>
+        ),
     },
     {
       id: 'primaryContact',
@@ -190,39 +212,34 @@ function GuardiansListPage() {
       ),
       card: 'badge',
     },
-    {
-      id: 'actions',
-      header: t('list.columnActions'),
-      pinned: true,
-      card: 'actions',
-      accessorFn: (row) => (
-        <Link
-          to="/guardians/$guardianId"
-          params={{ guardianId: row.id }}
-          data-focus-anchor={row.id}
-          className="text-sm text-muted-foreground underline"
-        >
-          {t('list.view')}
-        </Link>
-      ),
-    },
   ];
 
   return (
     <RegionConfigProvider value={regionConfig}>
       <ListShell
         title={t('list.title')}
-        primaryAction={
-          canInvite ? (
-            <Button variant="outline" onClick={() => setInviteOpen(true)}>
-              {t('invite.trigger')}
-            </Button>
-          ) : undefined
-        }
+        actions={[
+          {
+            id: 'invite',
+            label: t('invite.trigger'),
+            icon: <SendIcon aria-hidden="true" />,
+            priority: 'primary',
+            allowed: canInvite,
+            onClick: () => setInviteOpen(true),
+          },
+        ]}
         filters={{ fields: filterFields, values: state.filters, onChange: actions.setFilters }}
         tableId="guardians-list"
         caption={t('list.caption')}
         columns={columns}
+        rowActions={(row) => [
+          {
+            intent: 'view',
+            label: t('list.view'),
+            to: `/guardians/${row.id}`,
+            'data-focus-anchor': row.id,
+          },
+        ]}
         data={guardiansQuery.data?.data ?? []}
         getRowId={(row) => row.id}
         sorting={state.sorting}
@@ -236,7 +253,13 @@ function GuardiansListPage() {
         loading={guardiansQuery.isLoading}
         isFetching={guardiansQuery.isFetching}
         {...(guardiansQuery.isError ? { error: t('list.errorMessage') } : {})}
-        emptyMessage={t('list.emptyMessage')}
+        emptyState={{
+          title: t('list.emptyMessage'),
+          explanation: t('list.emptyExplanation'),
+          ...(canInvite
+            ? { action: { label: t('invite.trigger'), onClick: () => setInviteOpen(true) } }
+            : {}),
+        }}
         announceResults={(count, total) => t('list.announceResults', { count, total })}
       />
       <InviteGuardiansDialog open={inviteOpen} onOpenChange={setInviteOpen} />
