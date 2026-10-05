@@ -11,14 +11,16 @@ afterEach(async () => {
 });
 
 describe('PublishDialog', () => {
-  it('states publication is one way, with no unpublish control anywhere in the dialog', async () => {
+  it('is a confirm dialog that states publication is one way, with no unpublish control', async () => {
     const { localeReady } = renderWithProviders(
       <PublishDialog open onOpenChange={vi.fn()} routineId="routine-1" />,
       { tenantId: 'tenant-1', locale: 'en' },
     );
     await localeReady;
 
-    await waitFor(() => expect(screen.getByText(/one-way/i)).toBeTruthy());
+    await waitFor(() => expect(screen.getByRole('alertdialog')).toBeTruthy());
+    expect(screen.getByText(/can't go back to draft/i)).toBeTruthy();
+    expect(screen.getByText(/edit it in the class routine from a new date/i)).toBeTruthy();
     expect(screen.queryByRole('button', { name: /unpublish/i })).toBeNull();
   });
 
