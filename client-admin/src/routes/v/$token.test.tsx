@@ -53,6 +53,8 @@ describe('/v/$token verify page', () => {
     expect(screen.getByText('Ananta High School')).toBeTruthy(); // English name in English
     expect(screen.getByText('2')).toBeTruthy();
     expect(screen.getByText('Verified by SchoolManager')).toBeTruthy();
+    expect(screen.getByRole('heading', { level: 1, name: 'Verify document' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Go to SchoolManager home' })).toBeTruthy();
     expect(tenantHeader).toBeNull();
   });
 
