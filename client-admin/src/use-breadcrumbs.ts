@@ -168,8 +168,13 @@ export const ENTITY_RESOLVERS: Record<string, EntityResolver> = {
       const country = field(data, 'country');
       const year = (data as { year?: unknown } | undefined)?.year;
       if (!country || typeof year !== 'number') return undefined;
-      const place =
-        new Intl.DisplayNames([ctx.language], { type: 'region' }).of(country) ?? country;
+      let place: string;
+      try {
+        place = new Intl.DisplayNames([ctx.language], { type: 'region' }).of(country) ?? country;
+      } catch {
+        // Malformed region code: Intl throws RangeError. Fall back to the generic noun.
+        return undefined;
+      }
       return `${place} ${renderDigits(String(year), ctx.region.numerals)}`;
     },
   },
