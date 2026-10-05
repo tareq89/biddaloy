@@ -23,12 +23,40 @@
       "guardianPhone": "Parent/guardian's phone number",
       "guardianEmail": "Parent/guardian's email (optional)",
       "homeAddress": "Home address (optional)",
-      "honeypot": "Middle name"
+      "honeypot": "Middle name",
+      "dateOfBirthPlaceholder": "Pick a date",
+      "guardianPhoneHelp": "You will use this number later to check your status."
     },
     "documents": {
       "PHOTO": "Student's photo",
       "BIRTH_CERTIFICATE": "Birth certificate",
-      "TRANSCRIPT": "Last school's report card"
+      "TRANSCRIPT": "Last school's report card",
+      "choose": "Choose file",
+      "remove": "Remove {{name}}"
+    },
+    "subtitle": "Fill in the boxes below and submit the form. Boxes marked * must be filled.",
+    "required": "(required)",
+    "noOpenIntakesHelp": "Please check back later or contact the school.",
+    "statusLink": "Applied before? Check your status",
+    "intakeFacts": {
+      "round": "Admission round",
+      "closeDate": "Last day to apply",
+      "seats": "Seats",
+      "seatsValue": "{{count}} seats",
+      "documents": "Papers you need",
+      "noDocuments": "No papers needed"
+    },
+    "sections": {
+      "student": "Student's details",
+      "guardian": "Parent/guardian's details",
+      "documents": "Papers",
+      "documentsHelp": "Upload a photo (JPG, PNG) or a PDF, one file for each."
+    },
+    "errors": {
+      "required": "Please fill this in.",
+      "choose": "Please choose one.",
+      "phone": "Enter a correct mobile number, like 01711-000004.",
+      "document": "Please add this file."
     }
   },
   "confirmation": {
@@ -42,7 +70,8 @@
     "title": "Check your application status",
     "fields": {
       "referenceNumber": "Your reference number",
-      "guardianPhone": "Parent/guardian's phone number (the one you gave on the form)"
+      "guardianPhone": "Parent/guardian's phone number (the one you gave on the form)",
+      "referenceNumberHelp": "It looks like this: ADM-2026-000123"
     },
     "submit": "Check status",
     "loading": "Checking…",
@@ -53,6 +82,24 @@
       "SHORTLISTED": "Your child has been shortlisted",
       "ADMITTED": "Your child has been admitted",
       "REJECTED": "Your application was not successful this time"
+    },
+    "subtitle": "Enter the reference number you got after submitting, and the parent/guardian's mobile number.",
+    "unknown": "We could not read this application's status. Please contact the school.",
+    "studentLabel": "Student",
+    "roundLabel": "Admission round",
+    "newApplication": "Start a new application",
+    "badges": {
+      "PENDING": "Being reviewed",
+      "SHORTLISTED": "Shortlisted",
+      "ADMITTED": "Admitted",
+      "REJECTED": "Not accepted",
+      "unknown": "Unknown"
+    },
+    "next": {
+      "PENDING": "The school is still looking at your application. Check again in a few days.",
+      "SHORTLISTED": "The school will contact you soon. Keep your phone close.",
+      "ADMITTED": "Please contact the school to finish the admission.",
+      "REJECTED": "If you have any questions, please contact the school."
     }
   }
 }
