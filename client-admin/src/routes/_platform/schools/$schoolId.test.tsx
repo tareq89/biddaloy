@@ -137,9 +137,11 @@ describe('/schools/$schoolId', () => {
   it('resends a pending invitation from its row', async () => {
     const user = userEvent.setup();
     let resendUrl: string | null = null;
+    let resendCount = 0;
     server.use(
       http.post('/api/v1/schools/:id/admins/:userId/resend-invitation', ({ request }) => {
         resendUrl = new URL(request.url).pathname;
+        resendCount += 1;
         return new HttpResponse(null, { status: 204 });
       }),
     );
@@ -153,6 +155,8 @@ describe('/schools/$schoolId', () => {
         `/api/v1/schools/${ACTIVE_SCHOOL_ID}/admins/00000000-0000-4000-8000-000000000011/resend-invitation`,
       ),
     );
+    // One click sends exactly one invitation.
+    expect(resendCount).toBe(1);
   });
 
   it('shows a translated error toast when resend fails', async () => {
@@ -229,6 +233,27 @@ describe('/schools/$schoolId', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Add admin' }));
 
     await waitFor(() => expect(posted).toEqual({ name: 'New Admin', email: 'new@example.com' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
+
+  it('asks before discarding typed values when the add-admin dialog is cancelled', async () => {
+    const user = userEvent.setup();
+    renderDetail();
+
+    await screen.findByText('Fatima Rahman');
+    await user.click(screen.getByRole('button', { name: 'Add admin' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.type(within(dialog).getByLabelText(/^Name/), 'Typed Admin');
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+
+    const confirm = await screen.findByRole('alertdialog');
+    await user.click(within(confirm).getByRole('button', { name: 'Keep editing' }));
+    expect(within(dialog).getByLabelText(/^Name/)).toHaveProperty('value', 'Typed Admin');
+
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    await user.click(
+      within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Discard' }),
+    );
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   });
 
