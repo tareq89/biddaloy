@@ -1,6 +1,6 @@
 import { getNotifications } from '@biddaloy/ui/api';
-import { cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
-import { screen, waitFor } from '@testing-library/react';
+import { apiErrorBody, cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -35,46 +35,77 @@ function mockBaseline() {
 }
 
 async function openModalAndPickBasics(user: ReturnType<typeof userEvent.setup>) {
-  renderWithRouter(routeTree, {
+  const view = renderWithRouter(routeTree, {
     initialEntries: ['/exams/seat-plans'],
     tenantId: 'tenant-1',
     role: 'ADMIN',
     locale: 'en',
   });
 
-  await user.click(await screen.findByRole('button', { name: 'Generate seat plan' }));
+  // The empty list also offers the button; the header's comes first.
+  const buttons = await screen.findAllByRole('button', { name: 'Generate seat plan' });
+  await user.click(buttons[0]!);
   await user.type(await screen.findByLabelText('Plan name'), 'Term 1 Seating');
   await user.click(screen.getByRole('combobox', { name: 'Exam' }));
-  await user.click(await screen.findByRole('option', { name: EXAM.name }));
+  await user.click(await screen.findByRole('option', { name: new RegExp(EXAM.name) }));
   await user.click(await screen.findByRole('checkbox', { name: /Mathematics/ }));
+  return view;
 }
 
-describe('GenerateSeatPlanModal', () => {
+const GENERATED = {
+  plan: { id: 'plan-1', name: 'Term 1 Seating', status: 'DRAFT' },
+  conflicts: [],
+};
+
+describe('GenerateSeatPlanModal (full page)', () => {
   afterEach(async () => {
     await cleanupTestState();
   });
 
-  it('generates a plan successfully', async () => {
+  it('generates a plan and opens it', async () => {
     const user = userEvent.setup();
     mockBaseline();
-    server.use(
-      http.post('/api/v1/seat-plans/generate', () =>
-        HttpResponse.json({
-          plan: { id: 'plan-1', name: 'Term 1 Seating', status: 'DRAFT' },
-          conflicts: [],
-        }),
-      ),
-    );
+    server.use(http.post('/api/v1/seat-plans/generate', () => HttpResponse.json(GENERATED)));
 
-    await openModalAndPickBasics(user);
+    const view = await openModalAndPickBasics(user);
     await user.click(await screen.findByRole('checkbox', { name: /101/ }));
     await user.click(screen.getByRole('button', { name: 'Generate' }));
 
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    await waitFor(() =>
+      expect(view.router.state.location.pathname).toBe('/exams/seat-plans/plan-1'),
+    );
     expect(getNotifications()[0]?.message).toBe('Seat plan generated.');
   });
 
-  it('shows the shortfall and suggested rooms, and retry with the added room succeeds', async () => {
+  it('shows a sitting with a long date and 12-hour time, never ISO or seconds', async () => {
+    const user = userEvent.setup();
+    mockBaseline();
+    await openModalAndPickBasics(user);
+
+    const picker = screen.getByTestId('schedule-picker');
+    expect(picker.textContent).not.toMatch(/2026-02-01/);
+    expect(picker.textContent).not.toMatch(/:00:00/);
+    expect(within(picker).getByText(/–/)).toBeTruthy();
+  });
+
+  it('Generate stays disabled until a name, a sitting and a room are chosen; rooms show a seat total', async () => {
+    const user = userEvent.setup();
+    mockBaseline();
+    await openModalAndPickBasics(user);
+
+    const submit = screen.getByRole<HTMLButtonElement>('button', { name: 'Generate' });
+    expect(submit.disabled).toBe(true);
+
+    const rooms = screen.getByTestId('room-picker');
+    await user.click(await within(rooms).findByRole('checkbox', { name: /101/ }));
+    expect(submit.disabled).toBe(false);
+    // Bangla numerals are the default tenant region: 30 seats.
+    expect(rooms.textContent).toContain('৩০ seats in total');
+    await user.click(within(rooms).getByRole('checkbox', { name: /102/ }));
+    expect(rooms.textContent).toContain('৫০ seats in total');
+  });
+
+  it('shows the shortfall and suggested rooms by label, and retry with the added room succeeds', async () => {
     const user = userEvent.setup();
     mockBaseline();
     let attempt = 0;
@@ -94,29 +125,105 @@ describe('GenerateSeatPlanModal', () => {
                 seats_needed: 40,
                 seats_available: 30,
                 shortfall: 10,
-                suggested_rooms: [{ room_id: ROOM_B.id, capacity: ROOM_B.capacity }],
+                suggested_rooms: [
+                  { room_id: ROOM_B.id, capacity: ROOM_B.capacity },
+                  { room_id: 'room-unknown', capacity: 99 },
+                ],
               },
             },
             { status: 400 },
           );
         }
-        return HttpResponse.json({
-          plan: { id: 'plan-1', name: 'Term 1 Seating', status: 'DRAFT' },
-          conflicts: [],
-        });
+        return HttpResponse.json(GENERATED);
       }),
+    );
+
+    const view = await openModalAndPickBasics(user);
+    await user.click(await screen.findByRole('checkbox', { name: /101/ }));
+    await user.click(screen.getByRole('button', { name: 'Generate' }));
+
+    const alert = await screen.findByText(/Not enough seats/);
+    const box = alert.closest('[role=alert]') as HTMLElement;
+    expect(within(box).getByText(/Main — 102/)).toBeTruthy();
+    // A suggestion whose room is unknown is skipped, never shown as an id.
+    expect(within(box).queryByText(/room-unknown/)).toBeNull();
+    expect(within(box).getAllByRole('button', { name: 'Add' })).toHaveLength(1);
+
+    await user.click(within(box).getByRole('button', { name: 'Add' }));
+    await user.click(screen.getByRole('button', { name: 'Generate' }));
+
+    await waitFor(() =>
+      expect(view.router.state.location.pathname).toBe('/exams/seat-plans/plan-1'),
+    );
+    expect(attempt).toBe(2);
+  });
+
+  it('a generic failure shows one translated line, not the server text', async () => {
+    const user = userEvent.setup();
+    mockBaseline();
+    server.use(
+      http.post('/api/v1/seat-plans/generate', () =>
+        HttpResponse.json(apiErrorBody(500, 'db exploded', '/api/v1/seat-plans/generate'), {
+          status: 500,
+        }),
+      ),
     );
 
     await openModalAndPickBasics(user);
     await user.click(await screen.findByRole('checkbox', { name: /101/ }));
     await user.click(screen.getByRole('button', { name: 'Generate' }));
 
-    await screen.findByText(/Not enough seats/);
-    await user.click(await screen.findByRole('button', { name: 'Add' }));
+    expect(await screen.findByText('Something went wrong. Please try again.')).toBeTruthy();
+    expect(screen.queryByText(/db exploded/)).toBeNull();
+  });
+
+  it('lists conflicts by room label and plan name, then opens the plan', async () => {
+    const user = userEvent.setup();
+    mockBaseline();
+    server.use(
+      http.get('/api/v1/seat-plans', () =>
+        HttpResponse.json([
+          {
+            id: 'plan-0',
+            name: 'First Term Seating',
+            status: 'PUBLISHED',
+            seat_order_mode: 'SEQUENTIAL',
+            schedule_count: 1,
+            room_count: 1,
+            student_count: 10,
+          },
+        ]),
+      ),
+      http.post('/api/v1/seat-plans/generate', () =>
+        HttpResponse.json({
+          ...GENERATED,
+          conflicts: [{ room_id: ROOM_A.id, conflicting_seat_plan_id: 'plan-0' }],
+        }),
+      ),
+    );
+
+    const view = await openModalAndPickBasics(user);
+    await user.click(await screen.findByRole('checkbox', { name: /101/ }));
     await user.click(screen.getByRole('button', { name: 'Generate' }));
 
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-    expect(getNotifications()[0]?.message).toBe('Seat plan generated.');
-    expect(attempt).toBe(2);
+    await screen.findByText('Time clash');
+    expect(
+      screen.getByText(/Main — 101 · also in “First Term Seating” at the same time/),
+    ).toBeTruthy();
+    expect(screen.queryByText(/room-a|plan-0/)).toBeNull();
+
+    await user.click(screen.getByRole('button', { name: 'Open the plan' }));
+    await waitFor(() =>
+      expect(view.router.state.location.pathname).toBe('/exams/seat-plans/plan-1'),
+    );
+  });
+
+  it('Close after typing a name asks before discarding', async () => {
+    const user = userEvent.setup();
+    mockBaseline();
+    await openModalAndPickBasics(user);
+
+    await user.click(screen.getByRole('button', { name: 'Close' }));
+    expect(await screen.findByRole('alertdialog')).toBeTruthy();
   });
 });
