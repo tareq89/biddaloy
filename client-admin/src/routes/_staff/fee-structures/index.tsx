@@ -27,6 +27,7 @@ import { PlusIcon } from 'lucide-react';
 import * as React from 'react';
 import { z } from 'zod';
 
+import { useLandingFlag } from '../-use-landing-flag';
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 
 import { DeleteStructureDialog } from './-delete-structure-dialog';
@@ -42,6 +43,7 @@ interface FeeStructureFilters {
 
 const feeStructuresSearchSchema = z.object({
   page: z.number().int().positive().optional().catch(undefined),
+  new: z.coerce.string().optional().catch(undefined),
   limit: z.number().int().positive().optional().catch(undefined),
   sort: z.string().optional().catch(undefined),
   order: z.enum(['asc', 'desc']).optional().catch(undefined),
@@ -150,7 +152,7 @@ function FeeStructuresListPage() {
   );
   const sectionsQuery = useClassSections(filters.class_id);
 
-  const [createOpen, setCreateOpen] = React.useState(false);
+  const [createOpen, setCreateOpen] = useLandingFlag('new', canCreate);
   const [editing, setEditing] = React.useState<FeeStructure | null>(null);
   const [deleting, setDeleting] = React.useState<FeeStructure | null>(null);
 

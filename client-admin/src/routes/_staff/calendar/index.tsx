@@ -60,7 +60,7 @@ export const calendarSearchSchema = z.object({
     .catch(undefined),
   types: z.string().optional().catch(undefined),
   class_id: z.string().optional().catch(undefined),
-  panel: z.enum(['new-event', 'edit-event', 'holidays']).optional().catch(undefined),
+  panel: z.enum(['new-event', 'edit-event', 'holidays', 'clone']).optional().catch(undefined),
   event_id: z.string().optional().catch(undefined),
 });
 
@@ -142,7 +142,8 @@ function CalendarPage() {
   const events = eventsQuery.data?.data ?? [];
 
   const [detailsId, setDetailsId] = React.useState<string | undefined>(undefined);
-  const [cloneOpen, setCloneOpen] = React.useState(false);
+  const cloneOpen = canManage && search.panel === 'clone';
+  const setCloneOpen = (open: boolean) => setSearch({ panel: open ? 'clone' : undefined });
   const academicYearsQuery = useAcademicYears();
   const cloneMutation = useCloneCalendar();
 
