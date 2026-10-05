@@ -140,9 +140,7 @@ test.describe.serial('exams: admin publishes -> guardian sees it in the portal',
 
       await page.goto(`/exams/${exam.id}`);
       await expect(page.getByRole('heading', { name: examName })).toBeVisible();
-      // The detail page opens on Progress; Process/Publish live on Results.
-      await new DetailShellPage(page).openTab('exams.detail.tabs.results', 'results');
-
+      // Process / publish / reopen are header actions, reachable from the default tab.
       await test.step('process', async () => {
         await page.getByRole('button', { name: t('exams.resultsPanel.process') }).click();
         await expect(
@@ -155,6 +153,7 @@ test.describe.serial('exams: admin publishes -> guardian sees it in the portal',
       });
 
       await test.step('review the computed result', async () => {
+        await new DetailShellPage(page).openTab('exams.detail.tabs.results', 'results');
         await expect(page.getByText(student.full_name)).toBeVisible();
       });
 
@@ -164,8 +163,10 @@ test.describe.serial('exams: admin publishes -> guardian sees it in the portal',
           page.getByRole('heading', { name: t('exams.publishDialog.title') }),
         ).toBeVisible();
         await page.getByRole('button', { name: t('exams.publishDialog.confirm') }).click();
+        // Reopen is the last item of the header's More menu, never a button.
+        await page.getByRole('button', { name: t('common.actions.moreActions') }).click();
         await expect(
-          page.getByRole('button', { name: t('exams.resultsPanel.reopen') }),
+          page.getByRole('menuitem', { name: t('exams.resultsPanel.reopen') }),
         ).toBeVisible();
       });
     });

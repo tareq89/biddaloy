@@ -1,40 +1,40 @@
 /**
- * Progress tab — [19.6.1], the exam detail's DEFAULT tab. The submission
- * bar ("87 of 360 grids submitted") sits above a filterable outstanding
- * list; each row is the daily landing point for the exam controller, so
- * it links straight into that section-subject's grid rather than
- * requiring a second click through a summary.
- *
- * [19.7.1] The marks-entry grid page landed at `/marks/$examId/$sectionId
- * /$subjectId` (not `/exams/:examId/marks` as originally sketched here) —
- * a typed router `Link` now, matching that route's real path segments.
+ * Progress tab — [19.6.1], the exam detail's DEFAULT tab. A summary card
+ * ("87 of 360 marks lists submitted") above the lists still outstanding; each
+ * row's pencil opens that section-subject's marks grid
+ * (`/marks/$examId/$sectionId/$subjectId`). The server returns only the
+ * not-submitted lists, so there is no state filter.
  */
-import {
-  ErrorState,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  Skeleton,
-} from '@biddaloy/ui/components';
+import { DataTable, EmptyState, ErrorState, Skeleton } from '@biddaloy/ui/components';
 import { useExamProgress } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
-import { Link } from '@tanstack/react-router';
+import { CircleCheck } from 'lucide-react';
 import * as React from 'react';
+
+import { subjectLabel } from './subject-label';
 
 export interface ProgressPanelProps {
   examId: string;
+  /** Switches the detail page to the Marks breakdown tab. */
+  onGoToSetup?: () => void;
 }
 
-const STATE_FILTER_ALL = 'ALL';
+const PAGE_SIZE = 25;
+const CARD = 'rounded-lg border border-border-subtle bg-surface shadow-e1';
 
-export function ProgressPanel({ examId }: ProgressPanelProps) {
-  const { t } = useTranslation('exams');
+export function ProgressPanel({ examId, onGoToSetup }: ProgressPanelProps) {
+  const { t, i18n } = useTranslation('exams');
   const progressQuery = useExamProgress(examId);
-  const [stateFilter, setStateFilter] = React.useState<string>(STATE_FILTER_ALL);
+  const [page, setPage] = React.useState(1);
 
-  if (progressQuery.isLoading) return <Skeleton className="h-32 w-full" />;
+  if (progressQuery.isLoading) {
+    return (
+      <div className="flex flex-col gap-4" aria-busy="true">
+        <Skeleton className="h-28 w-full" />
+        <Skeleton className="h-48 w-full" />
+      </div>
+    );
+  }
   if (progressQuery.isError)
     return (
       <ErrorState
@@ -47,69 +47,93 @@ export function ProgressPanel({ examId }: ProgressPanelProps) {
   const total = counts.DRAFT + counts.SUBMITTED;
   const submitted = counts.SUBMITTED;
 
-  const outstanding = (progressQuery.data?.outstanding ?? []).filter(
-    (row) => stateFilter === STATE_FILTER_ALL || row.state === stateFilter,
-  );
+  const rows = (progressQuery.data?.outstanding ?? [])
+    .map((row) => ({
+      ...row,
+      subjectName: subjectLabel(
+        { name_en: row.subject_name, name_bn: row.subject_name_bn },
+        i18n.language,
+      ),
+    }))
+    .sort(
+      (a, b) =>
+        a.section_name.localeCompare(b.section_name) || a.subjectName.localeCompare(b.subjectName),
+    );
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="rounded-md border p-4">
-        <p className="text-lg font-semibold">
-          {t('progressPanel.submittedOf', { submitted, total })}
-        </p>
-        <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-muted">
+      <section className={`${CARD} p-4 md:p-5`}>
+        <h2 className="text-h2">{t('progressPanel.title')}</h2>
+        <p className="mt-1 text-h3">{t('progressPanel.submittedOf', { submitted, total })}</p>
+        <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-muted">
           <div
-            className="h-full bg-primary"
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={total}
+            aria-valuenow={submitted}
+            aria-label={t('progressPanel.title')}
+            className="h-full rounded-full bg-primary"
             style={{ width: total > 0 ? `${(submitted / total) * 100}%` : '0%' }}
           />
         </div>
-      </div>
+        <p className="mt-2 text-text-secondary">{t('progressPanel.hint')}</p>
+      </section>
 
-      <div className="flex items-center gap-2">
-        <Select value={stateFilter} onValueChange={setStateFilter}>
-          <SelectTrigger aria-label={t('progressPanel.stateFilterLabel')}>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={STATE_FILTER_ALL}>{t('progressPanel.stateAll')}</SelectItem>
-            <SelectItem value="DRAFT">{t('progressPanel.stateDraft')}</SelectItem>
-            <SelectItem value="SUBMITTED">{t('progressPanel.stateSubmitted')}</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      <table className="w-full text-sm">
-        <caption className="sr-only">{t('progressPanel.tableCaption')}</caption>
-        <thead>
-          <tr className="border-b text-left text-muted-foreground">
-            <th className="py-2">{t('progressPanel.columnSection')}</th>
-            <th className="py-2">{t('progressPanel.columnState')}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {outstanding.map((row) => (
-            <tr key={`${row.section_id}:${row.subject_id}`} className="border-b">
-              <td className="py-2">
-                <Link
-                  to="/marks/$examId/$sectionId/$subjectId"
-                  params={{ examId, sectionId: row.section_id, subjectId: row.subject_id }}
-                  className="font-medium text-primary underline"
-                >
-                  {row.section_name}
-                </Link>
-              </td>
-              <td className="py-2">{t(`progressPanel.state${row.state}`)}</td>
-            </tr>
-          ))}
-          {outstanding.length === 0 && (
-            <tr>
-              <td colSpan={2} className="py-4 text-center text-muted-foreground">
-                {t('progressPanel.empty')}
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
+      {total === 0 ? (
+        <EmptyState
+          title={t('progressPanel.noListsTitle')}
+          explanation={t('progressPanel.noListsText')}
+          {...(onGoToSetup
+            ? { action: { label: t('progressPanel.goToSetup'), onClick: onGoToSetup } }
+            : {})}
+        />
+      ) : rows.length === 0 ? (
+        <EmptyState
+          icon={<CircleCheck aria-hidden className="size-6" />}
+          title={t('progressPanel.allSubmittedTitle')}
+          explanation={t('progressPanel.allSubmittedText')}
+        />
+      ) : (
+        <section className={`${CARD} overflow-hidden`}>
+          <div className="p-4 md:p-5">
+            <h2 className="text-h2">{t('progressPanel.outstandingTitle')}</h2>
+            <p className="mt-1 text-text-secondary">{t('progressPanel.outstandingHelp')}</p>
+          </div>
+          <DataTable
+            tableId="exam-progress"
+            caption={t('progressPanel.tableCaption')}
+            columns={[
+              {
+                id: 'subject',
+                header: t('progressPanel.columnSubject'),
+                accessorFn: (row) => row.subjectName,
+                card: 'title',
+              },
+              {
+                id: 'section',
+                header: t('progressPanel.columnSection'),
+                accessorFn: (row) => t('progressPanel.sectionValue', { name: row.section_name }),
+                card: 'subtitle',
+              },
+            ]}
+            rowActions={(row) => [
+              {
+                intent: 'edit',
+                label: t('progressPanel.enterMarks'),
+                to: `/marks/${examId}/${row.section_id}/${row.subject_id}`,
+              },
+            ]}
+            data={rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)}
+            getRowId={(row) => `${row.section_id}:${row.subject_id}`}
+            sorting={null}
+            onSortingChange={() => {}}
+            page={page}
+            pageSize={PAGE_SIZE}
+            totalCount={rows.length}
+            onPageChange={setPage}
+          />
+        </section>
+      )}
     </div>
   );
 }

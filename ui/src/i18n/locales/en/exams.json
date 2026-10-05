@@ -54,16 +54,20 @@
     "classNeedsYear": "Pick an academic year first"
   },
   "detail": {
-    "back": "Back to exams",
     "loadError": "Couldn't load this exam.",
-    "identifiers": "{{kind}} · {{status}}",
-    "resultsPlaceholder": "Results will be available once this exam is processed. Coming in a later ticket.",
     "tabs": {
       "progress": "Progress",
-      "setup": "Setup",
+      "setup": "Marks breakdown",
       "schedule": "Schedule",
       "results": "Results",
       "fourthSubject": "Subject choices"
+    },
+    "edit": "Edit",
+    "facts": {
+      "class": "Class",
+      "academicYear": "Academic year",
+      "kind": "Type",
+      "publishedAt": "Results published"
     }
   },
   "schedulePanel": {
@@ -84,16 +88,20 @@
   "progressPanel": {
     "loadError": "Couldn't load submission progress.",
     "submittedOf": "{{submitted}} of {{total}} marks lists submitted",
-    "stateFilterLabel": "Filter by state",
-    "stateAll": "All",
-    "stateDraft": "Draft",
-    "stateSubmitted": "Submitted",
-    "stateDRAFT": "Draft",
-    "stateSUBMITTED": "Submitted",
     "tableCaption": "Outstanding section-subject marks lists",
-    "columnSection": "Section · Subject",
-    "columnState": "State",
-    "empty": "Nothing outstanding for this filter."
+    "columnSection": "Section",
+    "title": "Marks submission progress",
+    "hint": "Process the results once every list is submitted.",
+    "outstandingTitle": "Lists not submitted yet",
+    "outstandingHelp": "The pencil opens marks entry for that section and subject.",
+    "columnSubject": "Subject",
+    "sectionValue": "Section {{name}}",
+    "enterMarks": "Enter marks",
+    "allSubmittedTitle": "Every marks list is submitted",
+    "allSubmittedText": "You can process the results now.",
+    "noListsTitle": "No marks lists yet",
+    "noListsText": "Lists appear once subjects have parts in the Marks breakdown tab.",
+    "goToSetup": "Go to Marks breakdown"
   },
   "componentsPanel": {
     "subjectLabel": "Subject",
@@ -232,7 +240,11 @@
     "columnStatus": "Status",
     "fail": "Fail",
     "pass": "Pass",
-    "empty": "No results yet — process this exam first."
+    "empty": "Once the marks lists are submitted, press \"Process results\" at the top.",
+    "emptyTitle": "No results yet",
+    "analysis": "Result analysis",
+    "reprocess": "Process again",
+    "rollName": "{{roll}} · {{name}}"
   },
   "processDialog": {
     "title": "Process this exam's results?",

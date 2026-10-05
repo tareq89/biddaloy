@@ -66,9 +66,7 @@ describe('/exams', () => {
     await user.click(within(row).getByRole('button', { name: 'Edit' }));
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).getByText('Edit exam')).toBeTruthy();
-    expect((within(dialog).getByLabelText('Name')).value).toBe(
-      'Half Yearly 2026',
-    );
+    expect(within(dialog).getByLabelText('Name')).toHaveProperty('value', 'Half Yearly 2026');
   });
 
   it('class filter waits for a year, then sends class_id', async () => {
