@@ -72,8 +72,8 @@
     "acrHelp": "A4 page, front only, up to 30 criteria."
   },
   "gate": {
-    "title": "Open this on a computer to design or print",
-    "body": "Designing and printing need a bigger screen. Copy the link and open it on a computer.",
+    "title": "Open this on a computer",
+    "body": "Designing and printing need a big screen. Copy the link and open it on a computer.",
     "copy": "Copy link",
     "copied": "Link copied",
     "copyFailed": "Could not copy the link",
