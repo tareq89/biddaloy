@@ -278,7 +278,7 @@ function ActivatePage() {
             className="w-full"
             onClick={() => void verifyQuery.refetch()}
           >
-            {t('common:actions.retry')}
+            {t('actions.retry', { ns: 'common' })}
           </Button>
         </GuestStatus>
       </AuthLayout>
