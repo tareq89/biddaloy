@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { DataSource, Repository } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { AuditAction, UserRole } from '@biddaloy/shared';
+import { AuditAction, ExamKind, FeeType, UserRole } from '@biddaloy/shared';
 
 import { AuditService } from './audit.service';
 import { AuditLog } from './entities/audit-log.entity';
@@ -12,6 +12,9 @@ import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { Class } from '../academics/entities/class.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { Student } from '../students/entities/student.entity';
+import { Guardian } from '../students/entities/guardian.entity';
+import { Exam } from '../exams/entities/exam.entity';
+import { FeeStructure } from '../fees/entities/fee-structure.entity';
 import { Invoice } from '../invoices/entities/invoice.entity';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
 import { QueryAuditLogDto } from './dto/audit-log.dto';
@@ -396,6 +399,58 @@ describe('AuditService (integration)', () => {
 
     it('labels a ClassSection as "Class – Section"', async () => {
       expect(await labelsFor('ClassSection', sectionLabel.id)).toBe(sectionLabel.label);
+    });
+
+    it('gives no label to an invoice of a tenant-B student', async () => {
+      const invRepo = dataSource.getRepository(Invoice);
+      const other = await invRepo.save(
+        invRepo.create({
+          invoice_number: `INV-OTHER-${Math.random().toString(36).slice(2, 8)}`,
+          student_id: otherTenantStudentId,
+          total_amount: 100,
+          issued_date: new Date('2030-01-01'),
+          due_date: new Date('2030-01-31'),
+          snapshot: {} as never,
+        }),
+      );
+      expect(await labelsFor('Invoice', other.id)).toBeUndefined();
+    });
+
+    it('labels a Guardian, Class, Exam and FeeStructure by name', async () => {
+      const [sec] = await dataSource.query(
+        `SELECT cs.class_id, c.name AS class_name, c.academic_year_id
+           FROM class_sections cs JOIN classes c ON c.id = cs.class_id WHERE cs.id = $1`,
+        [sectionLabel.id],
+      );
+      const guardian = await dataSource
+        .getRepository(Guardian)
+        .save(
+          dataSource
+            .getRepository(Guardian)
+            .create({ full_name: 'Karim Guardian', relationship: 'FATHER', tenant_id: TENANT_ID }),
+        );
+      const exam = await dataSource.getRepository(Exam).save(
+        dataSource.getRepository(Exam).create({
+          tenant_id: TENANT_ID,
+          academic_year_id: sec.academic_year_id,
+          class_id: sec.class_id,
+          name: 'Half Yearly',
+          kind: ExamKind.TERM,
+        }),
+      );
+      const fee = await dataSource.getRepository(FeeStructure).save(
+        dataSource.getRepository(FeeStructure).create({
+          tenant_id: TENANT_ID,
+          academic_year_id: sec.academic_year_id,
+          fee_type: FeeType.MONTHLY_TUITION,
+          name: 'Tuition Fee',
+          amount: 500,
+        }),
+      );
+      expect(await labelsFor('Guardian', guardian.id)).toBe('Karim Guardian');
+      expect(await labelsFor('Class', sec.class_id)).toBe(sec.class_name);
+      expect(await labelsFor('Exam', exam.id)).toBe('Half Yearly');
+      expect(await labelsFor('FeeStructure', fee.id)).toBe('Tuition Fee');
     });
 
     it('gives no label to an unknown entity type', async () => {
