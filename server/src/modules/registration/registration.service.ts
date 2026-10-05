@@ -158,7 +158,13 @@ export class RegistrationService {
     if (!peeked) throw new GoneException('This registration has expired — start again');
 
     // The code is checked against what the stage says it was sent to — the caller cannot pick it.
-    const verdict = await this.otp.verify(OTP_PURPOSE, peeked.identifier, dto.otp);
+    // Bound to this registration: a code sent for another stage on the same contact fails here.
+    const verdict = await this.otp.verify(
+      OTP_PURPOSE,
+      peeked.identifier,
+      dto.otp,
+      dto.registration_id,
+    );
     if (verdict === 'locked') {
       throw new HttpException(
         { statusCode: HttpStatus.TOO_MANY_REQUESTS, message: 'Too many attempts' },
@@ -181,7 +187,7 @@ export class RegistrationService {
     registrationId: string,
     staged: StagedRegistration,
   ): Promise<RegisterStartResult> {
-    const { code } = await this.otp.request(OTP_PURPOSE, staged.identifier);
+    const { code } = await this.otp.request(OTP_PURPOSE, staged.identifier, registrationId);
     await this.deliver(staged, code);
     return {
       registration_id: registrationId,
