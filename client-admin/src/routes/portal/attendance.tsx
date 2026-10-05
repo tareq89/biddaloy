@@ -385,7 +385,7 @@ function AttendanceDayPanel({ day, month }: { day: AttendanceDayCell | null; mon
           )}
           {!day.isWorkingDay && day.holidayName && (
             <div className="py-3">
-              <dt className="text-text-secondary">{t('attendance.dialog.statusLabel')}</dt>
+              <dt className="text-text-secondary">{t('attendance.dialog.holidayLabel')}</dt>
               <dd className="mt-0.5">{day.holidayName}</dd>
             </div>
           )}

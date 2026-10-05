@@ -31,6 +31,7 @@ import {
   Skeleton,
   StatusBadge,
   StudentPicker,
+  toast,
   type DataTableColumn,
   type ReportCardData,
 } from '@biddaloy/ui/components';
@@ -189,6 +190,7 @@ function PortalResults() {
                   row={row}
                   studentId={selected.id}
                   defaultOpen={index === 0}
+                  printing={printingExamId === row.exam_id}
                   onPrint={() => setPrintingExamId(row.exam_id)}
                 />
               ))}
@@ -212,11 +214,13 @@ function ResultCard({
   row,
   studentId,
   defaultOpen,
+  printing,
   onPrint,
 }: {
   row: StudentResultRow;
   studentId: string;
   defaultOpen: boolean;
+  printing: boolean;
   onPrint: () => void;
 }) {
   const { t } = useTranslation('portal');
@@ -290,6 +294,7 @@ function ResultCard({
             variant="outline"
             className="h-11 md:ms-auto md:h-8"
             aria-label={t('results.printLabel', { name: row.exam_name })}
+            loading={printing}
             onClick={onPrint}
           >
             <PrinterIcon aria-hidden="true" />
@@ -408,6 +413,15 @@ function PrintTarget({
   // "portal" and every 'reportCard.*' key reads as missing.
   const { t, i18n } = useTranslation();
   const cardQuery = useStudentResultCard(studentId, examId);
+
+  // A failed load must not leave the target mounted: the guardian would see
+  // nothing and a second click would do nothing.
+  React.useEffect(() => {
+    if (!cardQuery.isError) return;
+    toast.error(t('results.printError', { ns: 'portal' }));
+    onDone();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cardQuery.isError]);
 
   React.useEffect(() => {
     if (!cardQuery.data) return;

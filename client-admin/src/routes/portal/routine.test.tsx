@@ -296,4 +296,48 @@ describe('/portal/routine', () => {
     await screen.findByText('English');
     await expect(container).toHaveNoViolations();
   });
+
+  it('shows a retryable error with no h1 when the student list fails to load', async () => {
+    mockCommonLookups();
+    server.use(
+      http.get('/api/v1/students/mine', () =>
+        HttpResponse.json({ message: 'boom' }, { status: 500 }),
+      ),
+    );
+
+    renderRoutine();
+
+    expect(
+      await screen.findByText(/Could not load this student's routine/, {}, { timeout: 15000 }),
+    ).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy();
+    expect(screen.queryAllByRole('heading', { level: 1 })).toHaveLength(0);
+  });
+
+  it('shows the error frame when the resolved routine fails to load', async () => {
+    mockPublished([slot()]);
+    server.use(
+      http.get('/api/v1/routines/resolve', () =>
+        HttpResponse.json({ message: 'boom' }, { status: 500 }),
+      ),
+    );
+
+    renderRoutine();
+
+    expect(
+      await screen.findByText(/Could not load this student's routine/, {}, { timeout: 15000 }),
+    ).toBeTruthy();
+    expect(screen.queryAllByRole('heading', { level: 1 })).toHaveLength(0);
+  });
+
+  it('titles a slot with no subject name and no period lookup "Period", never blank', async () => {
+    mockPublished([
+      slot({ subject_name_en: null, subject_name_bn: null, period_slot_id: 'unknown' }),
+    ]);
+
+    renderRoutine();
+
+    const row = (await screen.findByText('Period')).closest('li') as HTMLElement;
+    expect(within(row).getByText('—')).toBeTruthy();
+  });
 });

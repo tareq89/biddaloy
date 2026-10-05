@@ -309,7 +309,14 @@ function ExamTableCard({
   const first = group.rows[0]!;
   const last = group.rows[group.rows.length - 1]!;
   // Past sittings read muted; the badge carries the state as text too.
-  const muted = (row: StudentExamScheduleRow) => (row.date < todayIso ? 'text-text-secondary' : '');
+  // No row-class hook on `DataTable`, so the state shows inside the cells:
+  // past rows muted, today's row tinted.
+  const muted = (row: StudentExamScheduleRow) =>
+    row.date < todayIso
+      ? 'text-text-secondary'
+      : row.date === todayIso
+        ? 'rounded bg-secondary px-1'
+        : '';
 
   const columns: DataTableColumn<StudentExamScheduleRow>[] = [
     {

@@ -14,7 +14,7 @@
     "title": "আপনার সন্তানেরা",
     "meta": "{{className}} {{section}} · রোল {{roll}}",
     "metaNoClass": "রোল {{roll}}",
-    "viewFeesFor": "{{name}}-এর ফি দেখুন"
+    "viewFeesFor": "ফি-এর বিস্তারিত দেখুন - {{name}}"
   },
   "actions": {
     "viewFeeBreakdown": "ফি-এর বিস্তারিত দেখুন"
@@ -46,7 +46,6 @@
     "walletBalance": "ব্যালেন্স",
     "walletEmpty": "এখনও জমা টাকার কোনো লেনদেন নেই।",
     "recurringTitle": "পুনরাবৃত্ত ফি",
-    "recurringEmpty": "কোনো পুনরাবৃত্ত ফি নির্ধারণ করা হয়নি।",
     "recurringNextOn": "পরবর্তী {{date}} তারিখে",
     "error": {
       "message": "এই ফি-গুলো লোড করা যায়নি। স্কুলের রেকর্ডে পৌঁছাতে সমস্যা হয়েছে — আপনার সংযোগ দেখে আবার চেষ্টা করুন।",
@@ -57,7 +56,9 @@
     "invoiceNumber": "চালান নম্বর",
     "issuedOn": "ইস্যুর তারিখ",
     "amount": "পরিমাণ",
-    "print": "প্রিন্ট করুন"
+    "print": "প্রিন্ট করুন",
+    "breakdownEmptyTitle": "এখনও কোনো মাস নেই",
+    "invoicesEmptyTitle": "এখনও কোনো চালান নেই"
   },
   "results": {
     "title": "ফলাফল",
@@ -74,7 +75,8 @@
     "hideSubjects": "বিষয়ভিত্তিক নম্বর লুকান",
     "subjectsCaption": "{{name}} — বিষয়ভিত্তিক নম্বর",
     "emptyTitle": "এখনও কোনো ফলাফল প্রকাশিত হয়নি",
-    "emptyExplanation": "স্কুল ফলাফল প্রকাশ করলে এখানে দেখা যাবে।"
+    "emptyExplanation": "স্কুল ফলাফল প্রকাশ করলে এখানে দেখা যাবে।",
+    "printError": "প্রিন্টের জন্য ফলাফল কার্ড লোড করা যায়নি। আবার চেষ্টা করুন।"
   },
   "programs": {
     "title": "প্রোগ্রাম",
@@ -115,26 +117,21 @@
     "emptyExplanation": "স্কুল পুরো সময়সূচি প্রকাশ করলে এখানে দেখা যাবে।"
   },
   "attendance": {
-    "title": "উপস্থিতি",
     "loading": "উপস্থিতি লোড হচ্ছে",
     "pickerLabel": "একজন শিক্ষার্থী বাছুন",
-    "monthStepper": {
-      "previousLabel": "পূর্ববর্তী মাস, {{month}}",
-      "nextLabel": "পরবর্তী মাস, {{month}}"
-    },
     "summary": {
       "present": "উপস্থিত",
       "absent": "অনুপস্থিত",
       "late": "বিলম্বিত",
       "leave": "ছুটি",
-      "percentage": "উপস্থিতির হার",
       "notEnoughData": "এই মাসে পর্যাপ্ত রেকর্ড চিহ্নিত হয়নি",
       "rateFor": "উপস্থিতির হার · {{month}}"
     },
     "dialog": {
       "statusLabel": "অবস্থা",
       "minutesLateLabel": "বিলম্বের মিনিট",
-      "remarksLabel": "মন্তব্য"
+      "remarksLabel": "মন্তব্য",
+      "holidayLabel": "ছুটি"
     },
     "noRecordsThisMonth": "এই মাসের কোনো উপস্থিতি রেকর্ড এখনও নেই।",
     "error": {
@@ -208,7 +205,8 @@
     "periodCount_one": "{{count}}টি পিরিয়ড",
     "periodCount_other": "{{count}}টি পিরিয়ড",
     "until": "{{time}} পর্যন্ত",
-    "substitute": "বদলি শিক্ষক"
+    "substitute": "বদলি শিক্ষক",
+    "periodFallback": "পিরিয়ড"
   },
   "payments": {
     "title": "সাম্প্রতিক পরিশোধ",
@@ -269,7 +267,8 @@
     "loading": "আপনার অ্যাকাউন্ট লোড হচ্ছে",
     "error": {
       "message": "আপনার অ্যাকাউন্ট লোড করা যায়নি। স্কুলের রেকর্ডে পৌঁছাতে সমস্যা হয়েছে — আপনার সংযোগ পরীক্ষা করে আবার চেষ্টা করুন।",
-      "retry": "আবার চেষ্টা করুন"
+      "retry": "আবার চেষ্টা করুন",
+      "saveFailed": "আপনার পরিবর্তন সংরক্ষণ করা যায়নি। সংযোগ দেখে আবার চেষ্টা করুন।"
     },
     "profile": {
       "title": "প্রোফাইল",
@@ -390,7 +389,8 @@
       "title": "ডিভাইসসমূহ",
       "showAll_one": "সব {{count}}টি ডিভাইস দেখুন",
       "showAll_other": "সব {{count}}টি ডিভাইস দেখুন",
-      "showFewer": "কম দেখান"
+      "showFewer": "কম দেখান",
+      "revokeError": "ডিভাইসটি সাইন আউট করা যায়নি। আবার চেষ্টা করুন।"
     },
     "subtitle": "আপনার নাম, যোগাযোগ, পাসওয়ার্ড আর সাইন-ইন করা ডিভাইস।"
   },
