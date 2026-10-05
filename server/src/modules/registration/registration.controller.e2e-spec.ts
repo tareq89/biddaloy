@@ -168,6 +168,20 @@ describe('RegistrationController (e2e)', () => {
       await verify({ registration_id: randomUUID(), otp: '123456' }).expect(410);
     });
 
+    it('a code sent for one registration does not complete another on the same contact', async () => {
+      const d = details();
+      const a = await start(d).expect(202);
+      const identifier = (await app.get(RegistrationStagingService).peek(a.body.registration_id))!
+        .identifier;
+      await app.get(OTP_REDIS, { strict: false }).del(`otp-cooldown:REGISTER:${identifier}`);
+      const b = await start({ ...d, school_name: `${d.school_name} B` }).expect(202);
+
+      // B's code is bound to B: it must not complete A (A's details may be someone else's).
+      await verify({ registration_id: a.body.registration_id, otp: b.body.debug.otp }).expect(400);
+      expect(await ds.query(`SELECT 1 FROM schools WHERE name = $1`, [d.school_name])).toEqual([]);
+      await verify({ registration_id: b.body.registration_id, otp: b.body.debug.otp }).expect(200);
+    });
+
     it('attaches the school to an existing user instead of creating a second user row', async () => {
       const d = details();
       const [{ id: userId }] = await ds.query(
