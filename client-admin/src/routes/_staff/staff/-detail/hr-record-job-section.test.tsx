@@ -1,4 +1,6 @@
+import { REGION_BD_BN } from '@biddaloy/ui/i18n';
 import { cleanupTestState, renderWithProviders, server } from '@biddaloy/ui/test';
+import { formatDate, parseServerDate } from '@biddaloy/ui/utils';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { delay, http, HttpResponse } from 'msw';
@@ -77,7 +79,7 @@ describe('HrRecordJobSection', () => {
 
     renderSection();
     const user = userEvent.setup();
-    await user.click(await screen.findByRole('button', { name: 'Edit job details' }));
+    await user.click(await screen.findByRole('button', { name: 'Edit' }));
     await user.type(screen.getByLabelText('Department'), 'Science');
     await user.click(screen.getByRole('button', { name: 'Save' }));
 
@@ -130,7 +132,7 @@ describe('HrRecordJobSection', () => {
 
     renderSection();
     const user = userEvent.setup();
-    await user.click(await screen.findByRole('button', { name: 'Edit job details' }));
+    await user.click(await screen.findByRole('button', { name: 'Edit' }));
     expect(screen.getByLabelText<HTMLInputElement>('Name (Bangla)').value).toBe('রহিম উদ্দিন');
     await user.clear(screen.getByLabelText('Name (Bangla)'));
     await user.click(screen.getByRole('button', { name: 'Save' }));
@@ -149,7 +151,7 @@ describe('HrRecordJobSection', () => {
 
     renderSection();
     const user = userEvent.setup();
-    await user.click(await screen.findByRole('button', { name: 'Edit job details' }));
+    await user.click(await screen.findByRole('button', { name: 'Edit' }));
     await user.type(screen.getByLabelText('Department'), 'Science');
     await user.click(screen.getByRole('button', { name: 'Save' }));
 
@@ -173,11 +175,26 @@ describe('HrRecordJobSection', () => {
 
     renderSection();
     const user = userEvent.setup();
-    await user.click(await screen.findByRole('button', { name: 'Edit job details' }));
+    await user.click(await screen.findByRole('button', { name: 'Edit' }));
     await user.click(screen.getByRole('button', { name: 'Save' }));
 
     // Substring: `Button loading` appends an sr-only " Loading" to the
     // accessible name (ui/src/components/button.tsx:57-62).
     expect(await screen.findByRole('button', { name: /Saving/ })).toBeTruthy();
+  });
+
+  it('shows the MPO date as a long-form date, never the ISO string', async () => {
+    server.use(
+      http.get('/api/v1/staff-hr-records', () =>
+        HttpResponse.json([{ ...RECORD, mpo_date: '2020-01-01' }]),
+      ),
+    );
+
+    renderSection();
+
+    expect(
+      await screen.findByText(formatDate(parseServerDate('2020-01-01'), REGION_BD_BN)),
+    ).toBeTruthy();
+    expect(screen.queryByText('2020-01-01')).toBeNull();
   });
 });

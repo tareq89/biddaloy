@@ -25,6 +25,7 @@ import {
   useUnassignTeacherAssignment,
 } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
+import { UserPlusIcon } from 'lucide-react';
 import * as React from 'react';
 
 import { AssignTeacherDialog, sortByAssignmentType } from '../../classes/-assign-teacher-dialog';
@@ -48,12 +49,7 @@ export function TeachingAssignmentsTab({ teacherId }: TeachingAssignmentsTabProp
     {
       id: 'class',
       header: t('detail.teachingAssignments.columnClass'),
-      accessorFn: (row) => row.class_name,
-    },
-    {
-      id: 'section',
-      header: t('detail.teachingAssignments.columnSection'),
-      accessorFn: (row) => row.section_name,
+      accessorFn: (row) => `${row.class_name} · ${row.section_name}`,
     },
     {
       id: 'role',
@@ -65,43 +61,22 @@ export function TeachingAssignmentsTab({ teacherId }: TeachingAssignmentsTabProp
       header: t('detail.teachingAssignments.columnSubject'),
       accessorFn: (row) => row.subject_name ?? '—',
     },
-    ...(canManage
-      ? [
-          {
-            id: 'actions',
-            header: t('detail.teachingAssignments.columnActions'),
-            pinned: true,
-            accessorFn: (row) => (
-              <button
-                type="button"
-                className="min-h-6 min-w-6 text-sm font-medium text-destructive underline disabled:opacity-50"
-                disabled={unassign.isPending && unassign.variables?.assignmentId === row.id}
-                onClick={() =>
-                  unassign.mutate({
-                    classId: row.class_id,
-                    sectionId: row.section_id,
-                    assignmentId: row.id,
-                  })
-                }
-              >
-                {t('detail.teachingAssignments.remove')}
-              </button>
-            ),
-          } satisfies DataTableColumn<NonNullable<typeof query.data>[number]>,
-        ]
-      : []),
   ];
 
   return (
-    <div className="flex flex-col gap-4">
-      {canManage && (
-        <Button type="button" onClick={() => setAssignOpen(true)} className="self-start">
-          {t('detail.teachingAssignments.assign')}
-        </Button>
-      )}
+    <section className="overflow-hidden rounded-lg border border-border-subtle bg-surface shadow-e1">
+      <div className="flex flex-wrap items-center justify-between gap-2 p-4 md:px-5">
+        <h2 className="text-h2">{t('detail.teachingAssignments.title')}</h2>
+        {canManage && (
+          <Button type="button" variant="outline" onClick={() => setAssignOpen(true)}>
+            <UserPlusIcon aria-hidden="true" />
+            {t('detail.teachingAssignments.assign')}
+          </Button>
+        )}
+      </div>
 
       {unassign.isError && (
-        <p role="alert" className="text-sm text-destructive">
+        <p role="alert" className="px-4 pb-3 text-caption text-destructive md:px-5">
           {t('detail.teachingAssignments.removeError')}
         </p>
       )}
@@ -120,11 +95,28 @@ export function TeachingAssignmentsTab({ teacherId }: TeachingAssignmentsTabProp
             getRowId={(row) => row.id}
             sorting={sorting}
             onSortingChange={setSorting}
-            page={1}
-            pageSize={Math.max(rows.length, 1)}
             totalCount={rows.length}
-            onPageChange={() => {}}
-            emptyMessage={t('detail.teachingAssignments.emptyMessage')}
+            paginated={false}
+            rowActions={(row) =>
+              canManage
+                ? [
+                    {
+                      intent: 'remove',
+                      label: t('detail.teachingAssignments.remove'),
+                      onClick: () =>
+                        unassign.mutate({
+                          classId: row.class_id,
+                          sectionId: row.section_id,
+                          assignmentId: row.id,
+                        }),
+                    },
+                  ]
+                : []
+            }
+            emptyState={{
+              title: t('detail.teachingAssignments.emptyMessage'),
+              explanation: t('detail.teachingAssignments.emptyExplanation'),
+            }}
             announceResults={(count, total) =>
               t('detail.teachingAssignments.announceResults', { count, total })
             }
@@ -140,6 +132,6 @@ export function TeachingAssignmentsTab({ teacherId }: TeachingAssignmentsTabProp
           onAssigned={() => setAssignOpen(false)}
         />
       )}
-    </div>
+    </section>
   );
 }
