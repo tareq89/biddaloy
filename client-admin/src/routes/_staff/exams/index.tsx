@@ -1,37 +1,39 @@
 /**
- * Exams list — [19.6.1]. Same list-shell shape as `classes/index.tsx`:
- * a filter bar (academic year), a create dialog, an edit dialog, each
- * row's name linking into the exam's detail page.
+ * Exams list — [19.6.1], redesigned in [31.4.exams-1]: year + class filters,
+ * class / year / status columns, view + edit row actions, create + edit dialogs.
  */
 import { Permission } from '@biddaloy/shared';
-import {
-  Button,
-  RoutePending,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@biddaloy/ui/components';
+import { RoutePending, Skeleton, type EmptyStateProps } from '@biddaloy/ui/components';
 import {
   examsQueryOptions,
   useAcademicYears,
+  useClasses,
   useExams,
   useHasPermission,
+  type Exam,
 } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
-import { ListShell, useListShellState } from '@biddaloy/ui/shells';
+import { ListShell, useListShellState, type FilterFieldDescriptor } from '@biddaloy/ui/shells';
 import { createFileRoute, Link } from '@tanstack/react-router';
+import { Plus } from 'lucide-react';
 import * as React from 'react';
 import { z } from 'zod';
 
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 
 import { ExamFormDialog } from './-exam-form-dialog';
+import { ExamStatusBadge } from './-exam-status-badge';
 
 // `?create=1` opens the create dialog (palette "Create exam from template",
 // same pattern as seat-plans' `?generate=1`); `?template=<id>` pre-selects it.
 const examsSearchSchema = z.object({
+  // List state; declared so `validateSearch` does not strip it from the URL.
+  page: z.number().int().positive().optional().catch(undefined),
+  limit: z.number().int().positive().optional().catch(undefined),
+  sort: z.string().optional().catch(undefined),
+  order: z.enum(['asc', 'desc']).optional().catch(undefined),
+  academic_year_id: z.string().optional().catch(undefined),
+  class_id: z.string().optional().catch(undefined),
   create: z.coerce.string().optional().catch(undefined),
   template: z.string().optional().catch(undefined),
 });
@@ -40,36 +42,49 @@ export const Route = createFileRoute('/_staff/exams/')({
   validateSearch: examsSearchSchema,
   loader: ({ context: { queryClient } }) =>
     Promise.all([
-      queryClient.ensureQueryData(examsQueryOptions({})).catch(swallowUnlessOffline),
+      queryClient.ensureQueryData(examsQueryOptions({ page: 1, limit: 25 })).catch(swallowUnlessOffline),
       loadRouteNamespaces('exams', 'common', 'examsTemplateField'),
     ]),
   pendingComponent: ExamsListPending,
   component: ExamsListPage,
 });
 
-/** Same "Select rejects an empty string" sentinel `classes/index.tsx` uses
- * for its academic-year filter — a real academic year id is a UUID, so no
- * collision risk with a plain sentinel here. */
-const ALL_VALUE = '__all__';
+/** A component, not an `accessorFn` string: table cell values are cached per row,
+ * so a name read in `accessorFn` would stay blank if the year list loads later. */
+function AcademicYearName({ id }: { id: string }) {
+  const query = useAcademicYears({ limit: 100 });
+  const name = query.data?.data.find((year) => year.id === id)?.name;
+  if (name) return <>{name}</>;
+  // Never the id: a skeleton while the year list loads, a dash if still missing.
+  return query.isLoading ? <Skeleton className="h-3 w-12" /> : <>—</>;
+}
 
 function ExamsListPage() {
   const { t } = useTranslation('exams');
-  const [state, actions] = useListShellState({ limit: 10 });
+  const [state, actions] = useListShellState();
   const canManage = useHasPermission(Permission.EXAM_MANAGE);
-  const academicYearsQuery = useAcademicYears();
+  const academicYearsQuery = useAcademicYears({ limit: 100 });
 
   const academicYearId = state.filters.academic_year_id;
+  const classId = state.filters.class_id;
+  const classesQuery = useClasses(
+    { academic_year_id: academicYearId ?? '' },
+    { enabled: !!academicYearId },
+  );
 
-  const filters = {
-    ...(academicYearId && academicYearId !== ALL_VALUE ? { academic_year_id: academicYearId } : {}),
+  const examsQuery = useExams({
+    ...(academicYearId ? { academic_year_id: academicYearId } : {}),
+    ...(academicYearId && classId ? { class_id: classId } : {}),
     page: state.page,
     limit: state.limit,
-  };
-  const examsQuery = useExams(filters);
+  });
+
+  const years = academicYearsQuery.data?.data ?? [];
 
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
   const [createOpen, setCreateOpen] = React.useState(search.create === '1');
+  const [editing, setEditing] = React.useState<Exam | null>(null);
 
   // The page can already be mounted when the palette navigates to `?create=1`,
   // so the flag must open the dialog on every change, not only on first render.
@@ -89,37 +104,67 @@ function ExamsListPage() {
     }
   };
 
+  // Class names repeat every year, so changing the year drops the class.
+  function handleFilterChange(patch: Record<string, string | null>) {
+    actions.setFilters('academic_year_id' in patch ? { ...patch, class_id: null } : patch);
+  }
+
+  // ponytail: `FilterBar` select fields have no `disabled`; until a year is
+  // picked the class select has no options and its "all" row reads as the hint.
+  const filterFields: FilterFieldDescriptor[] = [
+    {
+      kind: 'select',
+      key: 'academic_year_id',
+      label: t('list.academicYearLabel'),
+      allLabel: t('list.allAcademicYears'),
+      options: years.map((year) => ({ value: year.id, label: year.name })),
+    },
+    {
+      kind: 'select',
+      key: 'class_id',
+      label: t('list.classLabel'),
+      allLabel: academicYearId ? t('list.allClasses') : t('list.classNeedsYear'),
+      options: academicYearId
+        ? (classesQuery.data?.data ?? []).map((cls) => ({ value: cls.id, label: cls.name }))
+        : [],
+    },
+  ];
+
+  const hasFilters = !!academicYearId || !!classId;
+  const addAction = canManage
+    ? { label: t('list.addExam'), onClick: () => setCreateOpen(true) }
+    : undefined;
+  const emptyState: EmptyStateProps = hasFilters
+    ? {
+        title: t('list.noMatchTitle'),
+        explanation: t('list.noMatchText'),
+        action: {
+          label: t('list.clearFilters'),
+          onClick: () => actions.setFilters({ academic_year_id: null, class_id: null }),
+        },
+      }
+    : {
+        title: t('list.emptyTitle'),
+        explanation: t('list.emptyText'),
+        ...(addAction ? { action: addAction } : {}),
+      };
+
   return (
     <>
       <ListShell
         title={t('list.title')}
-        primaryAction={
-          canManage && (
-            <Button type="button" onClick={() => setCreateOpen(true)}>
-              {t('list.addExam')}
-            </Button>
-          )
-        }
-        filterBar={
-          <Select
-            value={academicYearId ?? ALL_VALUE}
-            onValueChange={(value) =>
-              actions.setFilters({ ...state.filters, academic_year_id: value })
-            }
-          >
-            <SelectTrigger aria-label={t('list.academicYearLabel')}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL_VALUE}>{t('list.allAcademicYears')}</SelectItem>
-              {academicYearsQuery.data?.data.map((year) => (
-                <SelectItem key={year.id} value={year.id}>
-                  {year.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        }
+        subtitle={t('list.subtitle')}
+        actions={[
+          {
+            id: 'add',
+            label: t('list.addExam'),
+            icon: <Plus aria-hidden className="size-4" />,
+            priority: 'primary',
+            allowed: canManage,
+            onClick: () => setCreateOpen(true),
+          },
+        ]}
+        filters={{ fields: filterFields, values: state.filters, onChange: handleFilterChange }}
         tableId="exams-list"
         caption={t('list.caption')}
         columns={[
@@ -130,11 +175,23 @@ function ExamsListPage() {
               <Link
                 to="/exams/$examId"
                 params={{ examId: row.id }}
-                className="font-medium text-primary underline"
+                className="font-medium hover:text-primary"
               >
                 {row.name}
               </Link>
             ),
+            card: 'title',
+          },
+          {
+            id: 'class',
+            header: t('list.columnClass'),
+            accessorFn: (row) => row.class?.name ?? '—',
+            card: 'subtitle',
+          },
+          {
+            id: 'academicYear',
+            header: t('list.columnAcademicYear'),
+            accessorFn: (row) => <AcademicYearName id={row.academic_year_id} />,
           },
           {
             id: 'kind',
@@ -144,7 +201,17 @@ function ExamsListPage() {
           {
             id: 'status',
             header: t('list.columnStatus'),
-            accessorFn: (row) => t(`status.${row.status}`),
+            accessorFn: (row) => <ExamStatusBadge status={row.status} />,
+            card: 'badge',
+          },
+        ]}
+        rowActions={(row) => [
+          { intent: 'view', label: t('list.view'), to: `/exams/${row.id}` },
+          {
+            intent: 'edit',
+            label: t('list.edit'),
+            allowed: canManage,
+            onClick: () => setEditing(row),
           },
         ]}
         data={examsQuery.data?.data ?? []}
@@ -156,11 +223,10 @@ function ExamsListPage() {
         totalCount={examsQuery.data?.total ?? 0}
         onPageChange={actions.setPage}
         onPageSizeChange={actions.setLimit}
-        pageSizeLabel={t('pagination.rowsPerPage', { ns: 'common' })}
         loading={examsQuery.isLoading}
         isFetching={examsQuery.isFetching}
         {...(examsQuery.isError ? { error: t('list.errorMessage') } : {})}
-        emptyMessage={t('list.emptyMessage')}
+        emptyState={emptyState}
         announceResults={(count, total) =>
           t('list.announceResults', { visible: count, total, count: total })
         }
@@ -172,10 +238,18 @@ function ExamsListPage() {
           onOpenChange={handleCreateOpenChange}
           mode="create"
           {...(search.template ? { defaultTemplateId: search.template } : {})}
-          {...(academicYearId && academicYearId !== ALL_VALUE
-            ? { defaultAcademicYearId: academicYearId }
-            : {})}
+          {...(academicYearId ? { defaultAcademicYearId: academicYearId } : {})}
           onSaved={() => handleCreateOpenChange(false)}
+        />
+      )}
+      {canManage && editing && (
+        <ExamFormDialog
+          open
+          onOpenChange={(open) => !open && setEditing(null)}
+          mode="edit"
+          examId={editing.id}
+          initialValues={{ name: editing.name, kind: editing.kind }}
+          onSaved={() => setEditing(null)}
         />
       )}
     </>

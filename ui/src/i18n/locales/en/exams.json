@@ -9,8 +9,20 @@
     "columnKind": "Kind",
     "columnStatus": "Status",
     "errorMessage": "Couldn't load exams.",
-    "emptyMessage": "No exams yet.",
-    "announceResults": "Showing {{visible}} of {{total}} exams"
+    "announceResults": "Showing {{visible}} of {{total}} exams",
+    "subtitle": "Every exam belongs to one class and one academic year.",
+    "columnClass": "Class",
+    "columnAcademicYear": "Academic year",
+    "classLabel": "Class",
+    "allClasses": "All classes",
+    "classNeedsYear": "Pick an academic year first",
+    "view": "View",
+    "edit": "Edit",
+    "emptyTitle": "No exams yet",
+    "emptyText": "Add the first exam to start entering marks.",
+    "noMatchTitle": "No exams match these filters",
+    "noMatchText": "Change the filters and look again.",
+    "clearFilters": "Clear all"
   },
   "kind": {
     "TERM": "Term",
@@ -31,14 +43,15 @@
     "namePlaceholder": "e.g. Half Yearly 2026",
     "kindLabel": "Kind",
     "academicYearLabel": "Academic year",
-    "academicYearPlaceholder": "Select an academic year",
+    "academicYearPlaceholder": "Select",
     "classLabel": "Class",
-    "classPlaceholder": "Select a class",
+    "classPlaceholder": "Select",
     "errorNameRequired": "Name is required.",
     "errorAcademicYearClassRequired": "Academic year and class are required.",
     "errorMessage": "Couldn't save the exam.",
     "saving": "Saving…",
-    "save": "Save"
+    "save": "Save",
+    "classNeedsYear": "Pick an academic year first"
   },
   "detail": {
     "back": "Back to exams",

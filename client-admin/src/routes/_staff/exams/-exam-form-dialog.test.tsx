@@ -153,7 +153,15 @@ describe('ExamFormDialog template field', () => {
     expect(toastInfo).not.toHaveBeenCalled();
   });
 
-  it('shows server errors inline', async () => {
+  it('disables the class select until an academic year is picked', async () => {
+    mockApi();
+    renderDialog();
+    const classSelect = await screen.findByRole('combobox', { name: 'Class' });
+    expect((classSelect as HTMLButtonElement).disabled).toBe(true);
+    expect(classSelect.textContent).toContain('Pick an academic year first');
+  });
+
+  it('shows the translated error, never the server text', async () => {
     mockApi({
       post: () => HttpResponse.json({ message: 'Exam template x not found' }, { status: 404 }),
     });
@@ -161,7 +169,8 @@ describe('ExamFormDialog template field', () => {
     renderDialog();
     await screen.findByRole('combobox', { name: 'Start from template (optional)' });
     await fillAndSubmit(user, 'Half-yearly');
-    // The dialog shows the request error's own message (existing behaviour).
-    expect((await screen.findByRole('alert')).textContent).toMatch(/404/);
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toBe("Couldn't save the exam.");
+    expect(alert.textContent).not.toMatch(/404|not found/);
   });
 });
