@@ -22,7 +22,8 @@
       "ACTIVE": "Active",
       "SUSPENDED": "Suspended"
     },
-    "emptyExplanation": "Try another name or link name."
+    "emptyExplanation": "Try another name or link name.",
+    "tableCaption": "Table of all schools on the platform"
   },
   "schoolDetail": {
     "title": "School details",
@@ -90,7 +91,12 @@
       "resendSuccess": "Invitation sent again.",
       "contactColumn": "Email or phone",
       "invitationColumn": "Invitation",
-      "nameColumn": "Name"
+      "nameColumn": "Name",
+      "tableCaption": "Table of this school's admins",
+      "discardTitle": "Discard your changes?",
+      "discardDescription": "What you typed will not be saved.",
+      "discardConfirm": "Discard",
+      "discardKeep": "Keep editing"
     },
     "smsCredit": {
       "title": "SMS credits",
@@ -128,7 +134,8 @@
     "scheduleWeekly": "Weekly",
     "scheduleDaily": "Daily",
     "emptyMessage": "No schools to show.",
-    "errorMessage": "Could not load backup health."
+    "errorMessage": "Could not load backup health.",
+    "tableCaption": "Table of backup status per school"
   },
   "createWizard": {
     "schoolStepTitle": "School details",
@@ -183,7 +190,8 @@
       "countryRequiredError": "Enter a 2-letter country code.",
       "errorMessage": "Could not fetch this set from either source.",
       "countryHelp": "Two letters, e.g. Bangladesh = BD",
-      "yearError": "Enter a year between 2000 and 2100."
+      "yearError": "Enter a year between 2000 and 2100.",
+      "description": "Choose the country and year to fetch public holidays for."
     },
     "detail": {
       "back": "Back to holiday sets",
@@ -243,6 +251,7 @@
     "entryCount_one": "{{count}} holiday",
     "entryCount_other": "{{count}} holidays",
     "editAction": "Edit {{name}}",
-    "emptyTitle": "No holiday lists yet"
+    "emptyTitle": "No holiday lists yet",
+    "tableCaption": "Table of holiday lists"
   }
 }
