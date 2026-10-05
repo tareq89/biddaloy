@@ -1,5 +1,8 @@
 import {
+  ArrayMaxSize,
+  ArrayUnique,
   IsIn,
+  IsUUID,
   IsInt,
   IsString,
   IsArray,
@@ -312,6 +315,24 @@ export class AutoAbsentNotificationDto {
   cutoffTime: string;
 }
 
+export class ShiftTimeDto {
+  @IsUUID()
+  shiftId: string;
+
+  @IsString()
+  @Matches(HH_MM_PATTERN)
+  lateAfter: string;
+
+  @IsString()
+  @Matches(HH_MM_PATTERN)
+  absentAfter: string;
+}
+
+export class PeriodAttendanceDto {
+  @IsBoolean()
+  enabled: boolean;
+}
+
 export class AttendancePolicyDto {
   @IsArray()
   @IsInt({ each: true })
@@ -351,6 +372,18 @@ export class AttendancePolicyDto {
 
   @NestedSettings(() => AutoAbsentNotificationDto)
   autoAbsentNotification: AutoAbsentNotificationDto;
+
+  @OptionalSetting()
+  @IsArray()
+  @ArrayMaxSize(20)
+  @ArrayUnique((s: ShiftTimeDto) => s.shiftId)
+  @ValidateNested({ each: true })
+  @Type(() => ShiftTimeDto)
+  shiftTimes?: ShiftTimeDto[];
+
+  @OptionalSetting()
+  @NestedSettings(() => PeriodAttendanceDto)
+  periodAttendance?: PeriodAttendanceDto;
 }
 
 /**
