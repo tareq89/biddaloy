@@ -6,6 +6,7 @@
  * Covers the add/remove exclusion flow that #679's Tests section promised
  * but this component never got its own suite for.
  */
+import { REGION_BD_EN, RegionConfigProvider } from '@biddaloy/ui/i18n';
 import { cleanupTestState, renderWithProviders, server, studentFactory } from '@biddaloy/ui/test';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -17,7 +18,9 @@ import { ExclusionsTable } from './-exclusions-table';
 
 async function renderTable(props: Partial<React.ComponentProps<typeof ExclusionsTable>> = {}) {
   const view = renderWithProviders(
-    <ExclusionsTable scheduleId="schedule-1" exclusions={[]} canManage {...props} />,
+    <RegionConfigProvider value={REGION_BD_EN}>
+      <ExclusionsTable scheduleId="schedule-1" exclusions={[]} canManage {...props} />
+    </RegionConfigProvider>,
     { tenantId: 'tenant-1', role: 'ADMIN', locale: 'en' },
   );
   await view.localeReady;
@@ -43,10 +46,17 @@ describe('fees/schedules/-exclusions-table', () => {
 
     expect(await screen.findByText('Rahim Uddin')).toBeTruthy();
     expect(screen.getByText('Sibling discount')).toBeTruthy();
+    // When it was excluded, as a long date — never the ISO string.
+    expect(screen.getByText('1st January, 2026')).toBeTruthy();
+    expect(screen.queryByText(/2026-01-01/)).toBeNull();
   });
 
   it('searches students and adds one as an exclusion with a reason', async () => {
-    const student = studentFactory({ id: 'student-2', full_name: 'Karim Sheikh' });
+    const student = studentFactory({
+      id: 'student-2',
+      full_name: 'Karim Sheikh',
+      registration_number: 'REG-2026-0002',
+    });
     server.use(
       http.get('/api/v1/students', () =>
         HttpResponse.json({ data: [student], total: 1, page: 1, limit: 10, totalPages: 1 }),
@@ -70,12 +80,23 @@ describe('fees/schedules/-exclusions-table', () => {
 
     await user.type(screen.getByLabelText('Search students'), 'Karim');
     await screen.findByText('Karim Sheikh');
-    await user.type(screen.getByLabelText('Reason'), 'Sibling discount');
-    await user.click(screen.getByRole('button', { name: 'Exclude a student' }));
+    expect(screen.getByText('REG-2026-0002')).toBeTruthy();
+
+    // One reason field serves every result; "Exclude" stays disabled until it has text.
+    const exclude = screen.getByRole<HTMLButtonElement>('button', { name: 'Exclude' });
+    expect(exclude.disabled).toBe(true);
+    await user.type(screen.getByLabelText('Reason * (required)'), 'Sibling discount');
+    expect(exclude.disabled).toBe(false);
+    await user.click(exclude);
 
     await waitFor(() =>
       expect(addedBody).toEqual({ student_id: 'student-2', reason: 'Sibling discount' }),
     );
+    // Both fields are cleared after a successful add.
+    await waitFor(() =>
+      expect(screen.getByLabelText<HTMLInputElement>('Search students').value).toBe(''),
+    );
+    expect(screen.getByLabelText<HTMLInputElement>('Reason * (required)').value).toBe('');
   });
 
   it('shows a no-results message when the student search returns nothing', async () => {
@@ -136,5 +157,7 @@ describe('fees/schedules/-exclusions-table', () => {
 
     await screen.findByText('Rahim Uddin');
     expect(screen.queryByRole('button', { name: 'Include again' })).toBeNull();
+    expect(screen.queryByLabelText('Search students')).toBeNull();
+    expect(screen.queryByLabelText('Reason * (required)')).toBeNull();
   });
 });
