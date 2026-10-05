@@ -38,6 +38,11 @@ describe('password rules', () => {
     expect(failed('Abcdefg1ক', 'staff')).toEqual(['special']);
   });
 
+  it('Bangla vowel signs and the virama are part of a word, not symbols', () => {
+    expect(failed('Abcdefg1কি', 'staff')).toEqual(['special']);
+    expect(failed('Abcdefg1ক্ষ', 'staff')).toEqual(['special']);
+  });
+
   it('audienceForRoles: strictest wins', () => {
     expect(audienceForRoles([UserRole.PARENT, UserRole.STUDENT])).toBe('family');
     expect(audienceForRoles([UserRole.PARENT, UserRole.TEACHER])).toBe('staff');
