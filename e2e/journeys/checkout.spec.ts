@@ -83,7 +83,7 @@ test('a partial checkout across two bills leaves a balance, then a CASH top-up c
   await detail.expectLoaded(name);
   await detail.openTab('students.detail.tabs.fees', 'fees');
   await page
-    .getByRole('button', { name: t('students.detail.fees.recordPayment') })
+    .getByRole('button', { name: t('students.detail.actions.collectFees') })
     .first()
     .click();
 
@@ -204,7 +204,7 @@ test('a discounted bKash checkout needs step-up approval, then settles', async (
   await detail.expectLoaded(name);
   await detail.openTab('students.detail.tabs.fees', 'fees');
   await page
-    .getByRole('button', { name: t('students.detail.fees.recordPayment') })
+    .getByRole('button', { name: t('students.detail.actions.collectFees') })
     .first()
     .click();
   await expect(

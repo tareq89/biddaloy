@@ -147,7 +147,7 @@ test.describe.serial('fines: rule -> sweep -> dues -> payment -> portal', () => 
 
       await test.step('Record Payment pays it in full', async () => {
         await page
-          .getByRole('button', { name: t('students.detail.fees.recordPayment') })
+          .getByRole('button', { name: t('students.detail.actions.collectFees') })
           .first()
           .click();
         // [31.4] Record Payment is a full page now, not a dialog.
@@ -170,7 +170,9 @@ test.describe.serial('fines: rule -> sweep -> dues -> payment -> portal', () => 
 
     test('the paid fine has dropped off the "Due this month" card', async ({ page }) => {
       await page.goto('/portal');
-      await expect(page.getByText(t('portal.fees.dueThisMonth')).first()).toBeVisible();
+      // [31.4] The child's card hides its "Due this month" section when nothing is
+      // due, so wait on the child's own card instead of that heading.
+      await expect(page.getByText(studentFullName).first()).toBeVisible();
       await expect(page.getByText(fineFeeName)).toHaveCount(0);
     });
   });

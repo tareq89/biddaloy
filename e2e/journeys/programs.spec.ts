@@ -108,6 +108,11 @@ test.describe.serial('programs: admin enrols -> teacher records -> guardian sees
       await page.getByRole('combobox', { name: t('programs.dialogs.program') }).click();
       await page.getByRole('option', { name: SEED_PROGRAM_NAME }).click();
 
+      // [31.4] The enrol page lists students only once a class is chosen; the
+      // prefilled student stays ticked once their class's list loads.
+      await page.getByRole('combobox', { name: t('programs.dialogs.enrol.class') }).click();
+      await page.getByRole('option', { name: SEEDED_CLASS_NAME }).first().click();
+
       // Scoped to the dialog: its submit button has the same accessible
       // name ("Enrol") as the page's own trigger button, which stays in the
       // DOM (behind the overlay) while the dialog is open.
