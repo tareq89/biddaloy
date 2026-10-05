@@ -15,7 +15,8 @@
     "subtitle": "One year is current at a time.",
     "columnPeriod": "Period",
     "view": "View",
-    "emptyExplanation": "Classes, fee structures and admissions belong to a year — add one first."
+    "emptyExplanation": "Classes, fee structures and admissions belong to a year — add one first.",
+    "emptyAction": "Add the first academic year"
   },
   "form": {
     "createTitle": "Add academic year",
@@ -125,6 +126,7 @@
     "studentCount_one": "{{count}} student",
     "studentCount_other": "{{count}} students",
     "feeStructureCount_one": "{{count}} fee structure",
-    "feeStructureCount_other": "{{count}} fee structures"
+    "feeStructureCount_other": "{{count}} fee structures",
+    "statsUnavailable": "Couldn't load"
   }
 }
