@@ -1,9 +1,11 @@
+import { REGION_BD_BN } from '@biddaloy/ui/i18n';
 import {
   acrAssessmentFactory,
   cleanupTestState,
   renderWithProviders,
   server,
 } from '@biddaloy/ui/test';
+import { formatNumber } from '@biddaloy/ui/utils';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -29,7 +31,9 @@ describe('AcrTab', () => {
   it('lists the history and offers Start ACR to ACR_WRITE', async () => {
     server.use(
       http.get('/api/v1/acr/staff/user-1', () =>
-        HttpResponse.json([acrAssessmentFactory({ id: 'a1', user_id: 'user-1', total: 30 })]),
+        HttpResponse.json([
+          acrAssessmentFactory({ id: 'a1', user_id: 'user-1', total: 30, status: 'COMPLETED' }),
+        ]),
       ),
     );
     renderWithProviders(<AcrTab userId="user-1" />, {
@@ -38,7 +42,10 @@ describe('AcrTab', () => {
       role: 'ADMIN',
     });
     expect(await screen.findByRole('button', { name: 'Start ACR' })).toBeTruthy();
-    expect(await screen.findByText('30')).toBeTruthy();
+    // Totals use the tenant's numerals; status is a badge, the start action is outline.
+    expect(await screen.findByText(formatNumber(30, REGION_BD_BN))).toBeTruthy();
+    expect(screen.getByText('Completed')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Start ACR' }).className).not.toContain('bg-primary');
   });
 
   it('hides Start ACR without ACR_WRITE', async () => {
