@@ -9,12 +9,14 @@
     "columnSummary": "What happened",
     "system": "System",
     "emptyValue": "—",
-    "emptyMessage": "No audit entries match these filters",
+    "emptyMessage": "Nothing matches these filters. Change them and look again.",
     "errorMessage": "Couldn't load the audit trail.",
     "announceResults": "{{visible}} of {{total}} entries shown",
     "expandLabel": "Show changes: {{summary}}, {{when}}",
-    "whatWithId": "{{entity}} {{id}}",
-    "readOnlyNote": "This page is a record of what happened. Nothing here can be edited or deleted."
+    "readOnlyNote": "Who did what, and when — view only, nothing here can be changed.",
+    "whatWithLabel": "{{entity}}: {{label}}",
+    "emptyTitle": "No activity found",
+    "clearFilters": "Clear all filters"
   },
   "filters": {
     "actionLabel": "Action",
@@ -72,8 +74,8 @@
   },
   "summaries": {
     "CREATE": "A new {{entity}} was added.",
-    "UPDATE_one": "{{count}} field was changed on this {{entity}}.",
-    "UPDATE_other": "{{count}} fields were changed on this {{entity}}.",
+    "UPDATE_one": "{{n}} detail changed.",
+    "UPDATE_other": "{{n}} details changed.",
     "DELETE": "This {{entity}} was deleted.",
     "LOGIN": "Signed in to the school.",
     "LOGIN_FAILED": "A sign-in attempt was refused.",
@@ -97,13 +99,15 @@
     "unchanged": "Unchanged",
     "noChanges": "This entry records an event, not an edit, so no field values changed.",
     "noFieldsChanged": "None of this record’s fields changed — only the unchanged values below were recorded.",
-    "showUnchanged_one": "Show {{count}} unchanged field",
-    "showUnchanged_other": "Show {{count}} unchanged fields",
-    "hideUnchanged_one": "Hide {{count}} unchanged field",
-    "hideUnchanged_other": "Hide {{count}} unchanged fields",
+    "showUnchanged_one": "Show {{n}} unchanged field",
+    "showUnchanged_other": "Show {{n}} unchanged fields",
+    "hideUnchanged_one": "Hide {{n}} unchanged field",
+    "hideUnchanged_other": "Hide {{n}} unchanged fields",
     "yes": "Yes",
     "no": "No",
-    "emptyValue": "—"
+    "emptyValue": "—",
+    "beforeInline": "Before: {{value}}",
+    "afterInline": "After: {{value}}"
   },
   "fields": {
     "full_name": "Full name",
