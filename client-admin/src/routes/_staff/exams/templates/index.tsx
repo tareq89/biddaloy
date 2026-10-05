@@ -21,7 +21,7 @@ function TemplatesPage() {
         <Link
           to="/exams/templates/$templateId"
           params={{ templateId: template.id }}
-          className="font-medium text-primary underline"
+          className="inline-flex min-h-11 items-center font-medium hover:text-primary md:min-h-0"
         >
           {template.name}
         </Link>
