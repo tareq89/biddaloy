@@ -1,9 +1,9 @@
 import type { CheckoutResult } from '@biddaloy/ui/hooks';
 import { cleanupTestState, renderWithProviders, server } from '@biddaloy/ui/test';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { CheckoutSuccess } from './checkout-success';
 
@@ -33,8 +33,6 @@ describe('CheckoutSuccess', () => {
       <CheckoutSuccess
         result={RESULT}
         studentIds={['student-1']}
-        onRecordAnother={vi.fn()}
-        onViewInvoice={vi.fn()}
       />,
       { locale: 'en' },
     );
@@ -47,8 +45,6 @@ describe('CheckoutSuccess', () => {
       <CheckoutSuccess
         result={{ ...RESULT, change_amount: 500 }}
         studentIds={['student-1']}
-        onRecordAnother={vi.fn()}
-        onViewInvoice={vi.fn()}
       />,
       { locale: 'en' },
     );
@@ -61,8 +57,6 @@ describe('CheckoutSuccess', () => {
       <CheckoutSuccess
         result={RESULT}
         studentIds={['student-1']}
-        onRecordAnother={vi.fn()}
-        onViewInvoice={vi.fn()}
       />,
       { locale: 'en' },
     );
@@ -71,22 +65,27 @@ describe('CheckoutSuccess', () => {
     expect(screen.queryByText('Change due')).toBeNull();
   });
 
-  it('calls onRecordAnother when the button is clicked', async () => {
-    const user = userEvent.setup();
-    const onRecordAnother = vi.fn();
+  it('has no inline action row (record another / view invoice live in the page footer)', async () => {
     const { localeReady } = renderWithProviders(
-      <CheckoutSuccess
-        result={RESULT}
-        studentIds={['student-1']}
-        onRecordAnother={onRecordAnother}
-        onViewInvoice={vi.fn()}
-      />,
+      <CheckoutSuccess result={RESULT} studentIds={['student-1']} />,
       { locale: 'en' },
     );
     await localeReady;
+    await screen.findByText('INV-2026-000123');
+    expect(screen.queryByRole('button', { name: 'Record another' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'View invoice' })).toBeNull();
+  });
 
-    await user.click(await screen.findByRole('button', { name: 'Record another' }));
-    expect(onRecordAnother).toHaveBeenCalledOnce();
+  it('labels the paper-size choice from the payments namespace', async () => {
+    const { localeReady } = renderWithProviders(
+      <CheckoutSuccess result={RESULT} studentIds={['student-1']} />,
+      { locale: 'en', role: 'ACCOUNTANT', tenantId: 'tenant-1' },
+    );
+    await localeReady;
+    const group = await screen.findByRole('radiogroup', { name: 'Paper size' });
+    expect(within(group).getByRole('radio', { name: 'A4 page' })).toBeTruthy();
+    expect(within(group).getByRole('radio', { name: 'Receipt printer — 80 mm' })).toBeTruthy();
+    expect(within(group).getByRole('radio', { name: 'Receipt printer — 58 mm' })).toBeTruthy();
   });
 
   it('sends immediately when there is exactly one send candidate', async () => {
@@ -111,8 +110,6 @@ describe('CheckoutSuccess', () => {
       <CheckoutSuccess
         result={RESULT}
         studentIds={['student-with-one-guardian']}
-        onRecordAnother={vi.fn()}
-        onViewInvoice={vi.fn()}
       />,
       { locale: 'en', role: 'ACCOUNTANT', tenantId: 'tenant-1' },
     );
@@ -154,8 +151,6 @@ describe('CheckoutSuccess', () => {
       <CheckoutSuccess
         result={RESULT}
         studentIds={['student-with-two-guardians']}
-        onRecordAnother={vi.fn()}
-        onViewInvoice={vi.fn()}
       />,
       { locale: 'en', role: 'ACCOUNTANT', tenantId: 'tenant-1' },
     );
