@@ -25,6 +25,7 @@ import { AcrCriteriaSection } from './settings/AcrCriteriaSection';
 import { AttendanceSection } from './settings/AttendanceSection';
 import { BackupSection } from './settings/backup-section';
 import { CalendarSection } from './settings/CalendarSection';
+import { isSmsReady } from './settings/connection-test-status';
 import { EmailSection } from './settings/EmailSection';
 import { EvaluationsSection } from './settings/EvaluationsSection';
 import { FeesSection } from './settings/FeesSection';
@@ -105,8 +106,20 @@ export function SchoolSettingsPage({ backupJobId }: SchoolSettingsPageProps = {}
   const allowed = new Set<SettingsCategoryId>(categories.map((c) => c.id));
   const active = resolveSettingsCategory({ section, backup: backupJobId, hash }, allowed);
 
+  // Scroll once per hash (a section may only mount once its data loads), never
+  // again on a later category switch or refetch.
+  const scrolledHash = React.useRef<string | undefined>(undefined);
   React.useEffect(() => {
-    if (hash) document.getElementById(hash)?.scrollIntoView({ block: 'start' });
+    if (!hash) {
+      scrolledHash.current = undefined;
+      return;
+    }
+    if (scrolledHash.current === hash) return;
+    const target = document.getElementById(hash);
+    if (target) {
+      target.scrollIntoView({ block: 'start' });
+      scrolledHash.current = hash;
+    }
   }, [hash, active, settingsQuery.data]);
 
   /** Today's sections, unchanged inside, one `case` per category. */
@@ -141,7 +154,7 @@ export function SchoolSettingsPage({ backupJobId }: SchoolSettingsPageProps = {}
                   key={loaded.schoolId}
                   schoolId={loaded.schoolId}
                   evaluations={loaded.data.evaluations}
-                  smsConfigured={Boolean(loaded.data.communications?.sms?.provider)}
+                  smsConfigured={isSmsReady(loaded.data.communications?.sms)}
                 />
               </>
             )}
@@ -264,9 +277,18 @@ export function SchoolSettingsPage({ backupJobId }: SchoolSettingsPageProps = {}
         }))}
         active={active}
         fallback="school"
-      >
-        {renderCategory(active ?? 'school')}
-      </SettingsLayout>
+        renderPanel={(id) => (
+          <>
+            {/* A SUPER_ADMIN must pick a school before the school-bound cards appear. */}
+            {isSuperAdmin && !schoolId && id !== 'backup' && (
+              <p className="rounded-md bg-muted px-3 py-2 text-text-secondary">
+                {t('schoolPicker.hint')}
+              </p>
+            )}
+            {renderCategory(id)}
+          </>
+        )}
+      />
     </PageContainer>
   );
 }

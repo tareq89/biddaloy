@@ -8,6 +8,21 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { EvaluationsSection } from './EvaluationsSection';
 import { WithTestRouter } from './with-test-router';
 
+const SERVER_TEXT = 'SERVER_SECRET_TEXT';
+const failing = (path: string, method: 'patch' | 'put' | 'post' = 'patch') =>
+  http[method](path, () =>
+    HttpResponse.json(
+      {
+        statusCode: 400,
+        message: SERVER_TEXT,
+        timestamp: new Date().toISOString(),
+        path,
+        requestId: 'r',
+      },
+      { status: 400 },
+    ),
+  );
+
 const SCHOOL_ID = 'school-1';
 const LABEL = 'Send an SMS when a new incident report is filed';
 const opts = { locale: 'en' as const, role: 'ADMIN' as const, tenantId: SCHOOL_ID };
@@ -111,5 +126,21 @@ describe('EvaluationsSection', () => {
       version: 1,
       evaluations: { incidentSmsEnabled: false },
     });
+  });
+
+  it('shows a translated error, never the server text, when the save fails', async () => {
+    server.use(failing('/api/v1/schools/:id/settings'));
+    const { user } = renderWithProviders(
+      <WithTestRouter>
+        <EvaluationsSection schoolId={SCHOOL_ID} evaluations={undefined} smsConfigured />
+      </WithTestRouter>,
+      opts,
+    );
+
+    await user.click(await screen.findByLabelText(LABEL));
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    expect((await screen.findByRole('alert')).textContent).toBe("Couldn't save. Try again.");
+    expect(screen.queryByText(SERVER_TEXT)).toBeNull();
   });
 });

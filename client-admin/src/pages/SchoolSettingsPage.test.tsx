@@ -28,8 +28,13 @@ function PageWithRouter({ url = '/settings' }: { url?: string }) {
       path: 'settings',
       validateSearch: (s: Record<string, unknown>) => ({
         section: SETTINGS_CATEGORY_IDS.find((id) => id === s.section),
+        backup: typeof s.backup === 'string' ? s.backup : undefined,
       }),
-      component: SchoolSettingsPage,
+      // As the real route does: `?backup=` is handed down as `backupJobId`.
+      component: function Page() {
+        const { backup } = settings.useSearch();
+        return <SchoolSettingsPage {...(backup !== undefined ? { backupJobId: backup } : {})} />;
+      },
     });
     return createRouter({
       routeTree: root.addChildren([staff.addChildren([settings])]),
@@ -121,6 +126,113 @@ describe('SchoolSettingsPage', () => {
     expect(
       screen.queryByRole('heading', { level: 2, name: 'Language, numbers and dates' }),
     ).toBeNull();
+  });
+
+  it('keeps unsaved edits when switching category and back', async () => {
+    const { user } = renderWithProviders(<PageWithRouter />, {
+      locale: 'en',
+      role: 'ADMIN',
+      tenantId: 'tenant-1',
+      accessToken: fakeJwtWithMemberships(adminOwnSchool),
+    });
+
+    const symbol = await screen.findByLabelText(/^Currency symbol/);
+    await user.clear(symbol);
+    await user.type(symbol, 'TK');
+    await user.click(screen.getByRole('link', { name: 'Printing' }));
+    await waitFor(() =>
+      expect(screen.getByRole('link', { name: 'Printing' }).getAttribute('aria-current')).toBe(
+        'page',
+      ),
+    );
+    // The hidden School panel is out of the a11y tree.
+    expect(screen.queryByRole('textbox', { name: /^Currency symbol/ })).toBeNull();
+
+    await user.click(screen.getByRole('link', { name: 'School' }));
+    expect((await screen.findByLabelText<HTMLInputElement>(/^Currency symbol/)).value).toBe('TK');
+  });
+
+  it('on a phone path: the list first, then a category with a back link to the list', async () => {
+    const { user } = renderWithProviders(<PageWithRouter />, {
+      locale: 'en',
+      role: 'ADMIN',
+      tenantId: 'tenant-1',
+      accessToken: fakeJwtWithMemberships(adminOwnSchool),
+    });
+
+    // No category chosen: the list is not desktop-only, the panel is.
+    const nav = await screen.findByRole('navigation', { name: 'Settings categories' });
+    expect(nav.className).not.toContain('hidden md:block');
+    expect(screen.queryByRole('link', { name: 'Settings' })).toBeNull();
+
+    await user.click(screen.getByRole('link', { name: 'Academics' }));
+    const back = await screen.findByRole('link', { name: 'Settings' });
+    expect(back.getAttribute('href')).toBe('/settings');
+    expect(screen.getByRole('navigation', { name: 'Settings categories' }).className).toContain(
+      'hidden',
+    );
+  });
+
+  it('a ?backup=<id> link opens Backup', async () => {
+    server.use(
+      http.get('/api/v1/backup/jobs/:id', () =>
+        HttpResponse.json({
+          id: 'job-9',
+          kind: 'EXPORT',
+          status: 'FAILED',
+          source: 'MANUAL',
+          requested_by: null,
+          size_bytes: null,
+          row_counts: null,
+          progress: null,
+          failed_tab: null,
+          snapshot_job_id: null,
+          error: null,
+          pinned: false,
+          expires_at: null,
+          created_at: new Date().toISOString(),
+          finished_at: null,
+        }),
+      ),
+    );
+    renderWithProviders(<PageWithRouter url="/settings?backup=job-9" />, {
+      locale: 'en',
+      role: 'ADMIN',
+      tenantId: 'tenant-1',
+      accessToken: fakeJwtWithMemberships(adminOwnSchool),
+    });
+
+    const link = await screen.findByRole('link', { name: 'Backup' });
+    expect(link.getAttribute('aria-current')).toBe('page');
+    expect(await screen.findByRole('heading', { level: 2, name: 'Backup' })).toBeTruthy();
+  });
+
+  it('a #printers-section link opens Printing and scrolls to the card once', async () => {
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+    renderWithProviders(<PageWithRouter url="/settings#printers-section" />, {
+      locale: 'en',
+      role: 'ADMIN',
+      tenantId: 'tenant-1',
+      accessToken: fakeJwtWithMemberships(adminOwnSchool),
+    });
+
+    await waitFor(() => expect(scrollIntoView).toHaveBeenCalledTimes(1));
+    const target = scrollIntoView.mock.contexts[0] as HTMLElement;
+    expect(target.id).toBe('printers-section');
+    // A later render (data refetch, category state) does not scroll again.
+    await new Promise((r) => setTimeout(r, 50));
+    expect(scrollIntoView).toHaveBeenCalledTimes(1);
+  });
+
+  it('a SUPER_ADMIN with no school picked is told to pick one', async () => {
+    renderWithProviders(<PageWithRouter url="/settings?section=finance" />, {
+      locale: 'en',
+      role: 'SUPER_ADMIN',
+      tenantId: 'tenant-1',
+    });
+
+    expect(await screen.findByText('Pick a school above to see its settings.')).toBeTruthy();
   });
 
   it('an old #printers-section link opens the Printing category', async () => {

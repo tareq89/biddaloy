@@ -28,7 +28,7 @@ import { z } from 'zod';
 
 import { SecretField } from '../../components/SecretField';
 
-import { ChannelFooter, ChannelStatusBadge } from './connection-test-status';
+import { ChannelFooter, ChannelStatusBadge, isSmsReady } from './connection-test-status';
 import { SettingsSection } from './settings-layout';
 
 const smsSchema = z
@@ -134,10 +134,7 @@ export function SmsSection({ schoolId, sms }: SmsSectionProps) {
   }
 
   // Badge from the saved props, never form state: it must not flip while typing.
-  const ready =
-    sms?.provider === 'mimsms'
-      ? Boolean(sms.mimsms?.apiKey?.configured && sms.mimsms.senderId)
-      : Boolean(sms?.greenweb?.apiKey?.configured);
+  const ready = isSmsReady(sms);
   const errors = form.formState.errors;
   const company = provider === 'mimsms' ? t('sms.providerMimsms') : t('sms.providerGreenweb');
 

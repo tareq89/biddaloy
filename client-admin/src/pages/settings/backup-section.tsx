@@ -4,6 +4,7 @@ import {
   Button,
   DataTable,
   EmptyState,
+  ErrorState,
   Label,
   Select,
   SelectContent,
@@ -397,7 +398,9 @@ export function BackupSection({ backupJobId }: BackupSectionProps) {
         <p className="mt-0.5 text-text-secondary">{t('retentionHelp')}</p>
 
         <div className="mt-3">
-          {jobs.length === 0 && !jobsQuery.isLoading && !jobsQuery.isError ? (
+          {jobsQuery.isError ? (
+            <ErrorState message={t('listLoadError')} onRetry={() => void jobsQuery.refetch()} />
+          ) : jobs.length === 0 && !jobsQuery.isLoading ? (
             <EmptyState
               title={t('emptyTenant')}
               explanation={t('emptyTenantDescription')}
@@ -418,7 +421,6 @@ export function BackupSection({ backupJobId }: BackupSectionProps) {
               onPageChange={setPage}
               loading={jobsQuery.isLoading}
               isFetching={jobsQuery.isFetching}
-              {...(jobsQuery.isError ? { error: t('requestExportFailed') } : {})}
               rowActions={(row) =>
                 row.status !== 'DONE'
                   ? []

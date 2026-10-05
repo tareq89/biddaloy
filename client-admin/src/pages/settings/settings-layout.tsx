@@ -3,7 +3,7 @@ import { useTranslation } from '@biddaloy/ui/i18n';
 import { Link } from '@tanstack/react-router';
 import type { LucideIcon } from 'lucide-react';
 import { ChevronRightIcon, CircleCheckIcon } from 'lucide-react';
-import type * as React from 'react';
+import * as React from 'react';
 
 import type { SettingsCategoryId } from './settings-categories';
 
@@ -13,14 +13,22 @@ export interface SettingsLayoutProps {
   active: SettingsCategoryId | undefined;
   /** What desktop shows when `active` is undefined. */
   fallback: SettingsCategoryId;
-  /** The sections of `active ?? fallback`. */
-  children: React.ReactNode;
+  /**
+   * The sections of one category. Every category visited so far stays mounted
+   * (hidden, not removed), so unsaved form state survives switching category.
+   */
+  renderPanel: (id: SettingsCategoryId) => React.ReactNode;
 }
 
 /** D30: side list of categories on desktop; drill-down list + back link on phone. */
-export function SettingsLayout({ categories, active, fallback, children }: SettingsLayoutProps) {
+export function SettingsLayout({ categories, active, fallback, renderPanel }: SettingsLayoutProps) {
   const { t } = useTranslation('settings');
   const current = active ?? fallback;
+  const [visited, setVisited] = React.useState<readonly SettingsCategoryId[]>([]);
+  React.useEffect(() => {
+    setVisited((prev) => (prev.includes(current) ? prev : [...prev, current]));
+  }, [current]);
+  const mounted = visited.includes(current) ? visited : [...visited, current];
   return (
     <div className="flex flex-col gap-6 md:flex-row md:items-start">
       <nav
@@ -48,10 +56,18 @@ export function SettingsLayout({ categories, active, fallback, children }: Setti
           ))}
         </ul>
       </nav>
-      <div
-        className={active ? 'min-w-0 flex-1 space-y-6' : 'hidden min-w-0 flex-1 space-y-6 md:block'}
-      >
-        {children}
+      <div className="min-w-0 flex-1">
+        {mounted.map((id) => (
+          // `hidden` keeps an inactive panel out of the a11y tree; on phone with no
+          // category chosen the current panel is hidden too (the list shows instead).
+          <div
+            key={id}
+            hidden={id !== current}
+            className={id === current && !active ? 'hidden space-y-6 md:block' : 'space-y-6'}
+          >
+            {renderPanel(id)}
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -107,6 +123,11 @@ export function SettingsSection({
       {description && <p className="mt-0.5 text-text-secondary">{description}</p>}
     </>
   );
+  // Controlled: an error opens it, and it then stays open until the user closes it.
+  const [advancedIsOpen, setAdvancedIsOpen] = React.useState(false);
+  React.useEffect(() => {
+    if (advancedOpen) setAdvancedIsOpen(true);
+  }, [advancedOpen]);
   const className = 'rounded-lg border border-border-subtle bg-surface p-4 shadow-e1 md:p-5';
   const body = (
     <>
@@ -122,7 +143,8 @@ export function SettingsSection({
       {advanced && (
         <details
           className="group/adv mt-4 border-t border-border-subtle pt-2"
-          open={advancedOpen || undefined}
+          open={advancedIsOpen}
+          onToggle={(e) => setAdvancedIsOpen(e.currentTarget.open)}
         >
           <summary className="flex h-11 cursor-pointer list-none items-center gap-1 font-medium text-text-secondary md:h-8">
             <ChevronRightIcon aria-hidden="true" className="size-4 group-open/adv:rotate-90" />

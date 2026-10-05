@@ -15,6 +15,21 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { SchoolProfileSection } from './school-profile-section';
 
+const SERVER_TEXT = 'SERVER_SECRET_TEXT';
+const failing = (path: string, method: 'patch' | 'put' | 'post' = 'patch') =>
+  http[method](path, () =>
+    HttpResponse.json(
+      {
+        statusCode: 400,
+        message: SERVER_TEXT,
+        timestamp: new Date().toISOString(),
+        path,
+        requestId: 'r',
+      },
+      { status: 400 },
+    ),
+  );
+
 describe('SchoolProfileSection', () => {
   afterEach(async () => {
     await cleanupTestState();
@@ -260,5 +275,21 @@ describe('SchoolProfileSection', () => {
     await waitFor(() => {
       expect(chooseButton.hasAttribute('disabled')).toBe(false);
     });
+  });
+
+  it('shows a translated error, never the server text, when the save fails', async () => {
+    server.use(failing('/api/v1/schools/me/profile'));
+    const { user } = renderWithProviders(<SchoolProfileSection />, {
+      locale: 'en',
+      role: 'ADMIN',
+      tenantId: 'school-1',
+    });
+
+    const name = await screen.findByLabelText('Name');
+    await user.type(name, ' 2');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    expect((await screen.findByRole('alert')).textContent).toBe("Couldn't save. Try again.");
+    expect(screen.queryByText(SERVER_TEXT)).toBeNull();
   });
 });

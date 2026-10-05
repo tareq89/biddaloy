@@ -18,6 +18,21 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { AcrCriteriaSection } from './AcrCriteriaSection';
 
+const SERVER_TEXT = 'SERVER_SECRET_TEXT';
+const failing = (path: string, method: 'patch' | 'put' | 'post' = 'patch') =>
+  http[method](path, () =>
+    HttpResponse.json(
+      {
+        statusCode: 400,
+        message: SERVER_TEXT,
+        timestamp: new Date().toISOString(),
+        path,
+        requestId: 'r',
+      },
+      { status: 400 },
+    ),
+  );
+
 afterEach(async () => {
   await cleanupTestState();
 });
@@ -121,6 +136,56 @@ describe('AcrCriteriaSection', () => {
       expect(screen.queryByRole('table')).toBeNull();
       // One set of actions only: the table layout is not mounted as well.
       expect(screen.getAllByRole('button', { name: 'Remove: PUNCTUALITY' })).toHaveLength(1);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('shows a translated error, never the server text, when the save fails', async () => {
+    server.use(
+      http.get('/api/v1/acr/criteria', () =>
+        HttpResponse.json({
+          id: 'v1',
+          version: 1,
+          criteria: [acrCriterionFactory({ id: 'c1', code: 'PUNCTUALITY', sort_order: 1 })],
+        }),
+      ),
+      failing('/api/v1/acr/criteria', 'put'),
+    );
+    renderWithProviders(withRouter(), { locale: 'en', tenantId: 'tenant-1', role: 'ADMIN' });
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Save criteria' }));
+
+    expect((await screen.findByRole('alert')).textContent).toBe("Couldn't save. Try again.");
+    expect(screen.queryByText(SERVER_TEXT)).toBeNull();
+  });
+
+  it('names every phone-row control with the row identity', async () => {
+    vi.stubGlobal('matchMedia', () => ({
+      matches: true,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+    }));
+    try {
+      server.use(
+        http.get('/api/v1/acr/criteria', () =>
+          HttpResponse.json({
+            id: 'v1',
+            version: 1,
+            criteria: [
+              acrCriterionFactory({ id: 'c1', code: 'PUNCTUALITY', sort_order: 1 }),
+              acrCriterionFactory({ id: 'c2', code: 'TEAMWORK', sort_order: 2 }),
+            ],
+          }),
+        ),
+      );
+      renderWithProviders(withRouter(), { locale: 'en', tenantId: 'tenant-1', role: 'ADMIN' });
+
+      expect(await screen.findByLabelText('Code: PUNCTUALITY')).toBeTruthy();
+      expect(screen.getByLabelText('Code: TEAMWORK')).toBeTruthy();
+      expect(screen.getByLabelText('Name (English): TEAMWORK')).toBeTruthy();
+      expect(screen.getByLabelText('Block: PUNCTUALITY')).toBeTruthy();
     } finally {
       vi.unstubAllGlobals();
     }
