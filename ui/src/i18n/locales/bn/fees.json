@@ -143,7 +143,7 @@
     }
   },
   "generations": {
-    "title": "উৎপাদিত ফি",
+    "title": "ফির বিল তৈরি",
     "generateButton": "ফি তৈরি করুন",
     "modalPlaceholder": "ফি তৈরির প্রবাহ এখনো যুক্ত করা হয়নি।",
     "modalPlaceholderClose": "বন্ধ করুন",

@@ -67,7 +67,7 @@
     "memberLabel": "সদস্য",
     "memberEmpty": "শিক্ষক প্রোফাইল নেই এমন কোনো সদস্য মেলেনি",
     "memberAnnounce": "{{count}} জন সদস্য পাওয়া গেছে",
-    "employeeIdLabel": "কর্মচারী আইডি",
+    "employeeIdLabel": "কর্মী আইডি",
     "designationsLabel": "পদবি",
     "subjectLabel": "বিষয়ের বিশেষত্ব",
     "joiningDateLabel": "যোগদানের তারিখ",
@@ -81,8 +81,8 @@
       "COORDINATOR": "সমন্বয়ক"
     },
     "errorMemberRequired": "যাঁকে উন্নীত করবেন সেই সদস্যকে বেছে নিন।",
-    "errorEmployeeIdRequired": "একটি কর্মচারী আইডি লিখুন।",
-    "errorDuplicateEmployeeId": "এই কর্মচারী আইডি ইতিমধ্যে ব্যবহৃত হচ্ছে। কর্মচারী আইডি সব স্কুল জুড়ে অনন্য।",
+    "errorEmployeeIdRequired": "একটি কর্মী আইডি লিখুন।",
+    "errorDuplicateEmployeeId": "এই কর্মী আইডি ইতিমধ্যে ব্যবহৃত হচ্ছে। কর্মী আইডি সব স্কুল জুড়ে অনন্য।",
     "errorAlreadyTeacher": "এই ব্যক্তির ইতিমধ্যে একটি শিক্ষক প্রোফাইল রয়েছে।",
     "errorNotMember": "এই ব্যক্তি এই স্কুলের সদস্য নন।",
     "errorMessage": "শিক্ষক প্রোফাইল সংরক্ষণ করা যায়নি। আবার চেষ্টা করুন।",
@@ -169,7 +169,7 @@
       "columnLastLogin": "সর্বশেষ লগইন",
       "emptyValue": "—",
       "teacherHeading": "শিক্ষক প্রোফাইল",
-      "employeeId": "কর্মচারী আইডি",
+      "employeeId": "কর্মী আইডি",
       "designations": "পদবি",
       "subject": "বিষয়ের বিশেষত্ব",
       "joiningDate": "যোগদানের তারিখ"
