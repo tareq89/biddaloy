@@ -177,4 +177,21 @@ describe('/calendar', () => {
     await screen.findByTestId('day-cell-2026-10-05');
     expect(screen.queryByRole('button', { name: /^(Add event|ইভেন্ট যোগ করুন)$/ })).toBeNull();
   });
+
+  it('starts the day panel inside the visible month when ?month is not the current one', async () => {
+    renderCalendar('/calendar?month=2026-12');
+
+    await screen.findByTestId('day-cell-2026-12-01');
+    expect(within(dayPanel()).getByRole('heading', { level: 3 }).textContent).toMatch(/1|১/);
+    expect(within(dayPanel()).getByRole('heading', { level: 3 }).textContent).toMatch(
+      /Dec|ডিসেম্বর/,
+    );
+  });
+
+  it('drops ?panel=edit-event when it has no event id', async () => {
+    renderCalendar('/calendar?month=2026-10&panel=edit-event');
+
+    await screen.findByTestId('day-cell-2026-10-05');
+    await waitFor(() => expect(window.location.search).not.toContain('edit-event'));
+  });
 });
