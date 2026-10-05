@@ -1,7 +1,7 @@
 import '@biddaloy/ui/test';
 
 import { cleanupTestState, renderWithProviders, server } from '@biddaloy/ui/test';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -56,5 +56,39 @@ describe('SmsCreditsCard', () => {
     });
 
     expect(await screen.findByText("This school isn't on platform SMS credits.")).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Add or remove credits' })).toBeNull();
+  });
+
+  it('opens the grant dialog from the outline button and closes it after a successful grant', async () => {
+    let granted: unknown = null;
+    server.use(
+      http.get(`/api/v1/schools/${SCHOOL_ID}/sms-credits`, () =>
+        HttpResponse.json({
+          metering: 'PLATFORM',
+          available: 250,
+          reserved: 5,
+          ledger: { data: [], total: 0, page: 1, limit: 1, totalPages: 1 },
+        }),
+      ),
+      http.post(`/api/v1/schools/${SCHOOL_ID}/sms-credits`, async ({ request }) => {
+        granted = await request.json();
+        return HttpResponse.json({ available: 750, reserved: 5 }, { status: 201 });
+      }),
+    );
+
+    const { user } = renderWithProviders(<SmsCreditsCard schoolId={SCHOOL_ID} />, {
+      locale: 'en',
+      role: 'SUPER_ADMIN',
+      tenantId: 'super-admin-own-tenant',
+    });
+
+    await user.click(await screen.findByRole('button', { name: 'Add or remove credits' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.type(within(dialog).getByLabelText('Number of SMS'), '500');
+    await user.type(within(dialog).getByLabelText('Reason'), 'Initial top-up');
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(granted).toMatchObject({ units: 500, reason: 'Initial top-up' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   });
 });
