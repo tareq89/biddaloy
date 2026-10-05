@@ -1,6 +1,7 @@
 import type { CartStudent } from '@biddaloy/ui/hooks';
 import { REGION_BD_EN } from '@biddaloy/ui/i18n';
 import { cleanupTestState, renderWithProviders } from '@biddaloy/ui/test';
+import { formatDate } from '@biddaloy/ui/utils';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -81,7 +82,9 @@ describe('CartTable', () => {
       ],
     });
 
-    expect((await screen.findByText('2026-03-10')).className).toContain('text-destructive');
+    expect((await screen.findByText(formatDate('2026-03-10', REGION_BD_EN))).className).toContain(
+      'text-destructive',
+    );
     expect(await screen.findByText('Late fee')).toBeTruthy();
     expect(await screen.findByText('Overdue')).toBeTruthy();
   });
