@@ -4,7 +4,7 @@
  * to `/invoices/$invoiceId` that [16.4.4] shipped as a placeholder (see
  * that ticket's own comment at the old call site, now removed).
  *
- * Presentational: takes the `CheckoutResult` and two callbacks, renders
+ * Presentational: takes the `CheckoutResult`, renders
  * amount paid / change due / invoice number plus the same format-radio +
  * Print + Send actions as the invoice detail page
  * (`_staff/invoices/$invoiceId.tsx`), so a counter clerk can print or
@@ -39,6 +39,8 @@ import {
 } from '@biddaloy/ui/utils';
 import * as React from 'react';
 
+import { optionRowClass } from './option-row';
+
 export interface CheckoutSuccessProps {
   result: CheckoutResult;
   /** Every student this checkout paid for — `CheckoutResult` only carries
@@ -46,23 +48,12 @@ export interface CheckoutSuccessProps {
    * column), so a multi-student (sibling) checkout's other students'
    * guardians would otherwise be missed when resolving who can receive
    * the receipt. The caller (`record-payment-modal.tsx`) already has this
-   * as `selectedStudentIds` at checkout time. */
+   * as `selectedStudentIds` at checkout time. The "record another" / "view
+   * invoice" actions live in the page shell's footer, not here. */
   studentIds: string[];
-  onRecordAnother: () => void;
-  /** Router-agnostic on purpose — this component has no route/link
-   * dependency of its own, so it stays trivially testable/storyable.
-   * The caller (`record-payment-modal.tsx`) wires this to
-   * `navigate({ to: '/invoices/$invoiceId', ... })` plus closing the
-   * dialog. */
-  onViewInvoice: () => void;
 }
 
-export function CheckoutSuccess({
-  result,
-  studentIds,
-  onRecordAnother,
-  onViewInvoice,
-}: CheckoutSuccessProps) {
+export function CheckoutSuccess({ result, studentIds }: CheckoutSuccessProps) {
   const { t } = useTranslation('payments');
   const { t: tFees } = useTranslation('fees');
   const regionConfig = useRegionConfig();
@@ -70,6 +61,7 @@ export function CheckoutSuccess({
   const [format, setFormat] = React.useState<InvoicePrintFormat>(
     () => getPersistedPrintFormat() ?? 'a4',
   );
+  const formatLegendId = React.useId();
   const printInvoice = usePrintInvoice();
   const canPrint = useHasPermission(Permission.INVOICE_PRINT);
   const canSend = useHasPermission(Permission.INVOICE_READ);
@@ -114,18 +106,17 @@ export function CheckoutSuccess({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-col items-center gap-1 rounded-lg border border-border-subtle bg-card p-4 text-center">
-        <h2 className="text-lg font-semibold">{t('record.success.title')}</h2>
-        <p className="text-sm text-muted-foreground">{t('record.success.invoiceNumber')}</p>
-        <p className="text-sm font-medium">{result.invoice_number}</p>
-        <p className="text-sm text-muted-foreground">{t('record.success.amountPaid')}</p>
-        <p className="text-lg font-semibold">
+      <div className="flex flex-col items-center gap-1 rounded-lg border border-border-subtle bg-surface p-4 text-center shadow-e1 md:p-5">
+        <p className="text-text-secondary">{t('record.success.invoiceNumber')}</p>
+        <p className="font-medium">{result.invoice_number}</p>
+        <p className="mt-2 text-text-secondary">{t('record.success.amountPaid')}</p>
+        <p className="text-h1 tabular-nums">
           {formatServerAmount(result.payment.total_amount, regionConfig)}
         </p>
         {result.change_amount > 0 && (
-          <div className="mt-2 rounded-md border border-primary bg-accent px-3 py-2">
-            <p className="text-sm text-muted-foreground">{t('record.success.changeDue')}</p>
-            <p className="text-xl font-bold">
+          <div className="mt-2 rounded-md bg-status-due-bg px-3 py-2 text-status-due-fg">
+            <p>{t('record.success.changeDue')}</p>
+            <p className="text-h3 tabular-nums">
               {formatServerAmount(result.change_amount, regionConfig)}
             </p>
           </div>
@@ -134,26 +125,32 @@ export function CheckoutSuccess({
 
       {canPrint && (
         <div className="flex flex-col gap-2">
-          <span className="text-sm font-medium">{tFees('invoiceDetail.printFormat.label')}</span>
+          <span id={formatLegendId} className="text-sm font-medium">
+            {t('printFormat.label')}
+          </span>
           <RadioGroup
             value={format}
             onValueChange={(value) => handleFormatChange(value as InvoicePrintFormat)}
-            className="flex flex-wrap gap-2"
+            aria-labelledby={formatLegendId}
+            className="grid gap-2 md:grid-cols-3"
           >
-            {(['a4', 'pos80', 'pos58'] as const).map((option) => (
-              <label
-                key={option}
-                className="flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-xs has-[[data-state=checked]]:border-primary"
-              >
-                <RadioGroupItem value={option} />
-                {tFees(`invoiceDetail.printFormat.${option}`)}
-              </label>
-            ))}
+            <label className={optionRowClass}>
+              <RadioGroupItem value="a4" />
+              {t('printFormat.a4')}
+            </label>
+            <label className={optionRowClass}>
+              <RadioGroupItem value="pos80" />
+              {t('printFormat.pos80')}
+            </label>
+            <label className={optionRowClass}>
+              <RadioGroupItem value="pos58" />
+              {t('printFormat.pos58')}
+            </label>
           </RadioGroup>
           <Button
             type="button"
             variant="outline"
-            className="self-start"
+            className="h-11 self-start"
             onClick={() => printInvoice(result.invoice_id, format)}
           >
             {tFees('invoiceDetail.print')}
@@ -166,6 +163,7 @@ export function CheckoutSuccess({
           <Button
             type="button"
             variant="outline"
+            className="h-11"
             disabled={sendCandidates.length === 0}
             loading={sendInvoice.isPending}
             onClick={() => startSend('WHATSAPP')}
@@ -175,6 +173,7 @@ export function CheckoutSuccess({
           <Button
             type="button"
             variant="outline"
+            className="h-11"
             disabled={sendCandidates.length === 0}
             loading={sendInvoice.isPending}
             onClick={() => startSend('SMS')}
@@ -183,15 +182,6 @@ export function CheckoutSuccess({
           </Button>
         </div>
       )}
-
-      <div className="flex justify-between gap-2">
-        <Button type="button" onClick={onRecordAnother}>
-          {t('record.success.recordAnother')}
-        </Button>
-        <Button type="button" variant="ghost" onClick={onViewInvoice}>
-          {t('record.success.viewInvoice')}
-        </Button>
-      </div>
 
       <Dialog
         open={pendingMedium !== null}

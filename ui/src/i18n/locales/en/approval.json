@@ -20,7 +20,8 @@
     "fees.duplicate_create": "Approve: create a duplicate fee",
     "fees.waiver_apply": "Approve: apply a fee waiver",
     "payments.refund_issue": "Approve: issue a refund",
-    "invoices.void": "Approve: void an invoice"
+    "invoices.void": "Approve: void an invoice",
+    "fees.discount": "Approve: discount on a payment"
   },
   "errors": {
     "passwordNotAllowed": "Password verification isn't allowed for this action — use a one-time code instead.",

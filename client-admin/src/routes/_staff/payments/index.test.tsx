@@ -1,8 +1,8 @@
 /**
- * [16.4.4]'s placeholder payments page (C1) — real route tree, per
- * `bulk-reminder-wizard.test.tsx`'s own convention. The two things that
- * matter: `?record=1` opens the modal on load (so a refresh or a shared
- * link survives), and the Record payment button sets it.
+ * `/payments` — the payment list ([31.4]) over the real route tree, per
+ * `bulk-reminder-wizard.test.tsx`'s own convention. Record payment is its
+ * own page now: the header button and the old `?record=1` link both land
+ * on `/payments/record`.
  */
 import { cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
 import { screen, waitFor, within } from '@testing-library/react';
@@ -84,7 +84,7 @@ describe('/payments', () => {
     expect(within(header.closest('table')!).getByText('Reversed')).toBeTruthy();
   });
 
-  it('opens the modal when ?record=1 is present on load', async () => {
+  it('redirects the old ?record=1 link to /payments/record, keeping student_id', async () => {
     server.use(
       http.get('/api/v1/payments/cart', () =>
         HttpResponse.json({
@@ -95,20 +95,21 @@ describe('/payments', () => {
       ),
     );
 
-    const { localeReady } = render(['/payments?record=1&student_id=student-1']);
+    const { localeReady, router } = render(['/payments?record=1&student_id=student-1']);
     await localeReady;
 
-    await screen.findByRole('dialog');
+    await waitFor(() => expect(router.state.location.pathname).toBe('/payments/record'));
+    expect(router.state.location.search).toEqual({ student_id: 'student-1' });
   });
 
-  it('the Record payment button sets ?record=1', async () => {
+  it('the header button navigates to /payments/record', async () => {
     const user = userEvent.setup();
+    mockList();
     const { localeReady, router } = render(['/payments']);
     await localeReady;
 
-    mockList();
     await user.click(await screen.findByRole('button', { name: 'Record payment' }));
 
-    expect(router.state.location.search.record).toBe('1');
+    await waitFor(() => expect(router.state.location.pathname).toBe('/payments/record'));
   });
 });
