@@ -254,18 +254,21 @@ export function SetPasswordForm({
             control={form.control}
             loading={loading}
           />
-          {confirm !== '' && (
-            <p
-              aria-live="polite"
-              className={cn(
-                'flex items-center gap-2 text-xs',
-                matches ? 'text-status-paid-fg' : 'text-status-overdue-fg',
-              )}
-            >
-              {matches ? <RuleIcon ok /> : <AlertIcon />}
-              <span>{matches ? t('setPassword.match') : t('setPassword.mismatch')}</span>
-            </p>
-          )}
+          {/* Always mounted: a live region inserted already holding text is often not announced. */}
+          <p
+            aria-live="polite"
+            className={cn(
+              'flex items-center gap-2 text-xs empty:hidden',
+              matches ? 'text-status-paid-fg' : 'text-status-overdue-fg',
+            )}
+          >
+            {confirm !== '' && (
+              <>
+                {matches ? <RuleIcon ok /> : <AlertIcon />}
+                <span>{matches ? t('setPassword.match') : t('setPassword.mismatch')}</span>
+              </>
+            )}
+          </p>
         </div>
 
         <div className="flex flex-col gap-2">

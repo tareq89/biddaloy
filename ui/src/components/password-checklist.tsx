@@ -4,7 +4,12 @@
  * AND text (a hidden "done"/"not done" word), never by colour alone. Screen
  * readers hear one polite summary instead of a row per keystroke.
  */
-import { checkPassword, type PasswordAudience, type PasswordRuleId } from '@biddaloy/shared';
+import {
+  checkPassword,
+  passwordRulesFor,
+  type PasswordAudience,
+  type PasswordRuleId,
+} from '@biddaloy/shared';
 
 import { ApiError } from '../api';
 import { useTranslation } from '../i18n';
@@ -51,7 +56,11 @@ export function PasswordChecklist({
   id,
 }: PasswordChecklistProps) {
   const { t } = useTranslation('auth');
-  const rules = checkPassword(password, audience).map((rule) => ({
+  // Safety net: the server judged by a stricter audience than ours (e.g. a role the
+  // page didn't know about). Show the staff rules so every failed rule is visible.
+  const allowed = passwordRulesFor(audience);
+  const shown = failed?.some((id) => !allowed.includes(id)) ? 'staff' : audience;
+  const rules = checkPassword(password, shown).map((rule) => ({
     ...rule,
     ok: rule.ok && !failed?.includes(rule.id),
   }));
@@ -62,7 +71,9 @@ export function PasswordChecklist({
       <span className="sr-only" aria-live="polite">
         {t('passwordRules.summary', { met, total: rules.length })}
       </span>
-      <ul className="flex flex-col gap-1">
+      {/* Not redundant: Safari/VoiceOver drops list semantics from a `list-style: none` ul. */}
+      {/* eslint-disable-next-line jsx-a11y/no-redundant-roles */}
+      <ul role="list" className="flex flex-col gap-1">
         {rules.map(({ id: ruleId, ok }) => (
           <li
             key={ruleId}
