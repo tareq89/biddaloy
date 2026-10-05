@@ -1,15 +1,22 @@
 {
   "list": {
     "title": "Programs",
-    "empty": "No programs found",
-    "showArchived": "Show archived",
+    "empty": "No programs yet",
+    "showArchived": "Also show archived programs",
     "errorMessage": "Couldn't load programs",
     "columns": {
       "name": "Name",
       "milestones": "Milestones",
       "activeStudents": "Active students",
-      "reportCard": "On report card"
-    }
+      "reportCard": "On report card",
+      "status": "Status"
+    },
+    "subtitle": "Track students' progress milestone by milestone.",
+    "yes": "Yes",
+    "no": "No",
+    "view": "View",
+    "mobileSummary": "{{milestones}} milestones · {{students}} active",
+    "emptyExplanation": "Add a program for Hifz, a club or a course, then set its milestones."
   },
   "detail": {
     "forbidden": "You don't have permission to view this program",
