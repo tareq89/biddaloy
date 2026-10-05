@@ -5,7 +5,7 @@
  */
 import { setActiveRole, setActiveTenant } from '@biddaloy/ui/api';
 import { ApprovalModalHostProvider } from '@biddaloy/ui/hooks';
-import { I18nProvider, i18n } from '@biddaloy/ui/i18n';
+import { I18nProvider, REGION_BD_EN, RegionConfigProvider, i18n } from '@biddaloy/ui/i18n';
 import { apiErrorBody, cleanupTestState, createTestQueryClient, server } from '@biddaloy/ui/test';
 import { QueryClientProvider } from '@tanstack/react-query';
 import {
@@ -37,7 +37,14 @@ async function renderDialog(overrides: Partial<ReversePaymentDialogProps> = {}) 
   const onOpenChange = vi.fn();
   function Root() {
     return (
-      <ReversePaymentDialog open onOpenChange={onOpenChange} paymentId="payment-1" {...overrides} />
+      <RegionConfigProvider value={REGION_BD_EN}>
+        <ReversePaymentDialog
+          open
+          onOpenChange={onOpenChange}
+          paymentId="payment-1"
+          {...overrides}
+        />
+      </RegionConfigProvider>
     );
   }
   const rootRoute = createRootRoute({ component: Root });
@@ -111,7 +118,10 @@ describe('ReversePaymentDialog', () => {
     await user.type(await screen.findByLabelText('Reason'), 'Duplicate payment');
     await user.click(await screen.findByRole('button', { name: 'Reverse payment' }));
 
-    expect(await screen.findByRole('link', { name: 'payment-2' })).toBeTruthy();
+    const link = await screen.findByRole('link', { name: 'Later payment 1' });
+    expect(link.getAttribute('href')).toBe('/payments/payment-2');
+    // The id is the link target, never the visible text (D9).
+    expect(screen.queryByText('payment-2')).toBeNull();
   });
 
   it('shows generic error copy on a non-409 error', async () => {
