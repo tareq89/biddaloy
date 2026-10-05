@@ -898,10 +898,12 @@ export async function ensureTrialDemoSeed(
         }),
       );
     }
-    const where = { user_id: user.id, tenant_id };
-    if (!(await memberships.findOne({ where }))) {
-      await memberships.save(memberships.create({ ...where, role }));
-    }
+    // withDeleted: a soft-deleted row still holds the (user, tenant, role)
+    // unique key, so inserting a second one would abort the seed.
+    const where = { user_id: user.id, tenant_id, role };
+    const membership = await memberships.findOne({ where, withDeleted: true });
+    if (membership?.deleted_at) await memberships.restore(membership.id);
+    else if (!membership) await memberships.save(memberships.create(where));
     return user;
   };
   const admin = await ensureUser(
@@ -919,7 +921,18 @@ export async function ensureTrialDemoSeed(
 
   const tokens = manager.getRepository(AuthToken);
   const token_hash = hashSecret(TRIAL_DEMO.inviteToken);
-  if (!(await tokens.findOne({ where: { token_hash } }))) {
+  const invite = await tokens.findOne({ where: { token_hash } });
+  // A re-run renews an expired, still-unused invite; a used or revoked one
+  // is left as it is.
+  if (
+    invite &&
+    !invite.consumed_at &&
+    !invite.revoked_at &&
+    invite.expires_at.getTime() <= Date.now()
+  ) {
+    await tokens.update(invite.id, { expires_at: new Date(Date.now() + 365 * 86_400_000) });
+  }
+  if (!invite) {
     await tokens.save(
       tokens.create({
         user_id: teacher.id,

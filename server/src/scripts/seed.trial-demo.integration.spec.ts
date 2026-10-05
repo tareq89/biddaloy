@@ -71,4 +71,22 @@ describe('ensureTrialDemoSeed (integration)', () => {
     const daysLeft = Math.round((again.trial_ends_at!.getTime() - Date.now()) / 86_400_000);
     expect(daysLeft).toBe(23);
   });
+
+  it('a re-run restores a soft-deleted membership and renews an expired invite', async () => {
+    const school = await ensureTrialDemoSeed(ds.manager, 'x');
+    const memberships = ds.getRepository(UserTenant);
+    const tokens = ds.getRepository(AuthToken);
+    const token_hash = hashSecret(TRIAL_DEMO.inviteToken);
+    const teacher = await ds
+      .getRepository(User)
+      .findOneByOrFail({ email: TRIAL_DEMO.teacherEmail });
+    await memberships.softDelete({ user_id: teacher.id, tenant_id: school.id });
+    await tokens.update({ token_hash }, { expires_at: new Date(Date.now() - 1) });
+
+    await ensureTrialDemoSeed(ds.manager, 'x');
+
+    expect(await memberships.countBy({ user_id: teacher.id, tenant_id: school.id })).toBe(1);
+    const invite = await tokens.findOneByOrFail({ token_hash });
+    expect(invite.expires_at.getTime()).toBeGreaterThan(Date.now());
+  });
 });
