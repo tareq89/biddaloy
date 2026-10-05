@@ -233,6 +233,9 @@ test.describe('portal shell (parent)', () => {
     await expect(row).toHaveCount(1);
     const box = await row.boundingBox();
     expect(Math.abs((box?.height ?? 0) - 56)).toBeLessThanOrEqual(1);
+    // the whole sticky header (not just the phone row) is that one row: no second desktop row below md
+    const header = await page.locator('[data-app-header]').boundingBox();
+    expect(Math.abs((header?.height ?? 0) - 56)).toBeLessThanOrEqual(1);
   });
 });
 
