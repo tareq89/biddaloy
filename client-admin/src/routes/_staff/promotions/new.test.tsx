@@ -343,4 +343,34 @@ describe('/promotions/new', () => {
     await screen.findByText("Couldn't create the list. Please try again.");
     expect(screen.queryByText('raw server text')).toBeNull();
   });
+
+  it('Close is ignored while the create request is pending', async () => {
+    const user = userEvent.setup();
+    stubBase();
+    server.use(
+      http.post('/api/v1/promotions', async () => {
+        await new Promise((resolve) => setTimeout(resolve, 400));
+        return HttpResponse.json({ id: 'run-new' }, { status: 201 });
+      }),
+    );
+    renderWithRouter(routeTree, {
+      initialEntries: ['/promotions/new?classId=00000000-0000-4000-8000-000000000006'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const targetClass = await screen.findByRole('combobox', { name: 'Next class' });
+    await within(targetClass).findByText('Class 7');
+    const submit = await waitFor(() => {
+      const button = screen.getByRole('button', { name: 'Create list' });
+      expect(button.hasAttribute('disabled')).toBe(false);
+      return button;
+    });
+    await user.click(submit);
+    await user.click(screen.getByRole('button', { name: 'Close' }));
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(screen.getByRole('heading', { level: 1, name: 'New promotion list' })).toBeTruthy();
+  });
 });

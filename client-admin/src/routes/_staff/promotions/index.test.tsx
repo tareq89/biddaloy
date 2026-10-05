@@ -96,7 +96,7 @@ describe('/promotions', () => {
 
     const rows = screen.getAllByRole('row');
     const draftRow = rows[1] as HTMLElement;
-    expect(within(draftRow).getByText('Next academic year 2027-2028')).toBeTruthy();
+    expect(within(draftRow).getByText('2027-2028')).toBeTruthy();
     // The row's only link is the eye action (no underlined name link).
     expect(within(draftRow).getByText('Draft')).toBeTruthy();
     expect(within(draftRow).getByText('Block')).toBeTruthy();

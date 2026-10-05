@@ -87,11 +87,18 @@ function PromotionsListPage() {
           id: 'targetYear',
           header: t('list.columnTargetYear'),
           card: 'subtitle',
+          // Desktop: just the year (the header says what it is). The phone card subtitle has no
+          // header, so it carries the prefixed text.
           accessorFn: (row) => {
             const year = yearNames.get(row.target_academic_year_id);
-            return year === undefined
-              ? nameOr(yearNames, row.target_academic_year_id, yearsQuery.isLoading)
-              : t('list.cardSubtitle', { year });
+            return year === undefined ? (
+              nameOr(yearNames, row.target_academic_year_id, yearsQuery.isLoading)
+            ) : (
+              <>
+                <span className="max-md:hidden">{year}</span>
+                <span className="md:hidden">{t('list.cardSubtitle', { year })}</span>
+              </>
+            );
           },
         },
         {

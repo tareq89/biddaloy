@@ -312,7 +312,11 @@ function NewPromotionRunPage() {
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="promotion-target-class">{t('newRunForm.targetClassLabel')}</Label>
+              {showGraduateReadOnly ? (
+                <span className="text-sm font-medium">{t('newRunForm.targetClassLabel')}</span>
+              ) : (
+                <Label htmlFor="promotion-target-class">{t('newRunForm.targetClassLabel')}</Label>
+              )}
               {showGraduateReadOnly ? (
                 <p className="text-text-secondary">{t('newRunForm.graduateOption')}</p>
               ) : (
@@ -337,7 +341,9 @@ function NewPromotionRunPage() {
                   </SelectContent>
                 </Select>
               )}
-              <p className="text-caption text-text-secondary">{t('newRunForm.suggestedHelp')}</p>
+              {!showGraduateReadOnly && (
+                <p className="text-caption text-text-secondary">{t('newRunForm.suggestedHelp')}</p>
+              )}
             </div>
           </div>
 
@@ -439,7 +445,7 @@ function NewPromotionRunPage() {
         cancelLabel={t('fullPage.keepEditing', { ns: 'common' })}
         onConfirm={() => {
           setDiscardOpen(false);
-          closePage();
+          close();
         }}
       />
     </FullPageShell>
