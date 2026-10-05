@@ -1,6 +1,7 @@
 import { FeeStatus, InvoiceStatus, PaymentStatus } from '@biddaloy/shared';
 import {
   Card,
+  DataTable,
   EmptyState,
   ErrorState,
   PushOptInCard,
@@ -9,6 +10,7 @@ import {
   StatusBadge,
   StudentPicker,
   toast,
+  type DataTableColumn,
 } from '@biddaloy/ui/components';
 import {
   invoicesQueryOptions,
@@ -35,16 +37,17 @@ import {
   type RegionConfig,
 } from '@biddaloy/ui/i18n';
 import { dismissPushOptIn, isPushOptInDismissed, usePushSubscription } from '@biddaloy/ui/pwa';
+import { PageContainer, PageHeader } from '@biddaloy/ui/shells';
 import {
   formatDate,
+  formatMonth,
+  formatNumber,
   formatServerAmount,
   isPastDueDate,
   parseServerDate,
-  renderDigits,
 } from '@biddaloy/ui/utils';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
-import { PrinterIcon } from 'lucide-react';
 import * as React from 'react';
 import { z } from 'zod';
 
@@ -173,36 +176,12 @@ function toneFor(status: FeeStatus): string {
   return 'text-status-due-fg';
 }
 
-/**
- * Month names through twelve **literal** `t()` calls rather than a
- * computed `t(\`months.${n}\`)`: a computed key is invisible to
- * `check-i18n-keys.mjs`, so a month whose translation was never added
- * would ship as a raw key to a parent instead of failing the build. Same
- * reasoning `portal/index.tsx`'s `usePaymentMethodLabel` documents.
- */
-function useMonthNames(): string[] {
-  const { t } = useTranslation('portal');
-  return [
-    t('fees.months.1'),
-    t('fees.months.2'),
-    t('fees.months.3'),
-    t('fees.months.4'),
-    t('fees.months.5'),
-    t('fees.months.6'),
-    t('fees.months.7'),
-    t('fees.months.8'),
-    t('fees.months.9'),
-    t('fees.months.10'),
-    t('fees.months.11'),
-    t('fees.months.12'),
-  ];
-}
-
 /** The server's own `@Max` on `QueryInvoiceDto.limit`. */
 const INVOICE_HISTORY_LIMIT = 100;
 
 function PortalFees() {
   const { t } = useTranslation('portal');
+  const { t: tNav } = useTranslation('nav');
   const config = useRegionConfig();
   const search = Route.useSearch();
   const studentMeta = useStudentMeta();
@@ -294,11 +273,14 @@ function PortalFees() {
     // Not an error: an unlinked account is a real state only the school
     // office can resolve, so the copy names that fix.
     return (
-      <EmptyState
-        title={t('empty.title')}
-        explanation={t('empty.explanation')}
-        action={{ label: t('empty.action'), onClick: () => void studentsQuery.refetch() }}
-      />
+      <PageContainer>
+        <PageHeader title={tNav('items.portalFees')} />
+        <EmptyState
+          title={t('empty.title')}
+          explanation={t('empty.explanation')}
+          action={{ label: t('empty.action'), onClick: () => void studentsQuery.refetch() }}
+        />
+      </PageContainer>
     );
   }
 
@@ -338,9 +320,16 @@ function PortalFees() {
     );
   }
 
+  const wallet = walletQuery.data;
+  const showWallet = Number(wallet.balance) !== 0 || wallet.transactions.length > 0;
+  const showRecurring = schedulesQuery.data.length > 0;
+
   return (
-    <div className="flex max-w-2xl flex-col gap-3">
-      <FeesHeader student={selected} />
+    <PageContainer>
+      <PageHeader
+        title={tNav('items.portalFees')}
+        subtitle={`${selected.full_name} · ${studentMeta(selected)}`}
+      />
       {/* Only when there is a real choice to make. `StudentPicker` holds
           the same rule itself (it renders nothing below two items), so a
           guardian of one child sees no switching UI either way. */}
@@ -356,26 +345,33 @@ function PortalFees() {
           to="/portal/fees"
         />
       )}
-      <FeesSummary summary={summaryQuery.data} config={config} />
-      <BreakdownCard fees={summaryQuery.data.fee_breakdown} config={config} />
-      {finesQuery.data.items.length > 0 && (
-        <FinesCard fines={finesQuery.data.items} config={config} />
-      )}
-      <WalletCard wallet={walletQuery.data} config={config} />
-      <RecurringFeesCard schedules={schedulesQuery.data} config={config} />
-      <InvoicesCard
-        invoices={invoicesQuery.data.data}
-        total={invoicesQuery.data.total}
-        config={config}
-      />
-      {showPushOptIn && invoicesQuery.data.data.length > 0 && (
-        <PushOptInCard
-          onEnable={handlePushOptInEnable}
-          onDismiss={handlePushOptInDismiss}
-          enabling={push.loading}
-        />
-      )}
-    </div>
+      <div className="grid gap-6 md:grid-cols-3 md:items-start">
+        <div className="min-w-0 space-y-6 md:col-span-2">
+          <FeesSummary summary={summaryQuery.data} config={config} />
+          <BreakdownCard fees={summaryQuery.data.fee_breakdown} config={config} />
+          {finesQuery.data.items.length > 0 && (
+            <FinesCard fines={finesQuery.data.items} config={config} />
+          )}
+          <InvoicesCard
+            invoices={invoicesQuery.data.data}
+            total={invoicesQuery.data.total}
+            config={config}
+          />
+          {showPushOptIn && invoicesQuery.data.data.length > 0 && (
+            <PushOptInCard
+              onEnable={handlePushOptInEnable}
+              onDismiss={handlePushOptInDismiss}
+              enabling={push.loading}
+            />
+          )}
+        </div>
+        {/* A div, not an aside: the app shell already has one aside landmark. */}
+        <div className="space-y-6">
+          {showWallet && <WalletCard wallet={wallet} config={config} />}
+          {showRecurring && <RecurringFeesCard schedules={schedulesQuery.data} config={config} />}
+        </div>
+      </div>
+    </PageContainer>
   );
 }
 
@@ -383,23 +379,15 @@ function FeesSkeleton({ label, showPicker = false }: { label: string; showPicker
   return (
     // No `<h1>` while pending — see this file's header table. The
     // `aria-busy` region carries the state for a screen reader instead.
-    <div className="flex max-w-2xl flex-col gap-3" aria-busy="true" aria-live="polite">
+    <div className="flex flex-col gap-3" aria-busy="true" aria-live="polite">
       <span className="sr-only">{label}</span>
-      {/* `FeesHeader` is two stacked lines, not one: a `text-lg` title and
-          a `text-xs` student/meta line, `gap-0.5` apart. Standing in for
-          only the title left a ~1rem gap that the real header would then
-          close, pushing the three cards below down by that amount when it
-          lands ([8.13.11]). */}
       <div className="flex flex-col gap-0.5">
-        {/* `h-7` — `text-lg`'s line-height is 1.75rem exactly. */}
-        <Skeleton className="h-7 w-2/5" />
+        <Skeleton className="h-8 w-2/5" />
         <Skeleton className="h-4 w-3/5" />
       </div>
-      {/* `showPicker` is only true from the second FeesSkeleton call site
-          (student count already known, summary/invoices still pending) —
+      {/* `showPicker` is only true once the student count is known —
           `StudentPicker`'s chips are `min-h-11` plus the nav's `pb-1`, so
-          h-12 reserves its real footprint instead of letting it insert
-          below the header once summary/invoices resolve. */}
+          h-12 reserves its real footprint ([8.13.11]). */}
       {showPicker && <Skeleton className="h-12 w-full rounded-lg" />}
       <Skeleton className="h-32 w-full rounded-lg" />
       <Skeleton className="h-44 w-full rounded-lg" />
@@ -412,32 +400,18 @@ function FeesSkeleton({ label, showPicker = false }: { label: string; showPicker
  * the same two keys — a second wording for the same fact would drift. */
 function useStudentMeta(): (student: Student) => string {
   const { t } = useTranslation('portal');
+  const config = useRegionConfig();
   return (student: Student) => {
     const className = student.class_section?.class?.name ?? null;
+    const roll = formatNumber(student.roll_number, config);
     return className === null
-      ? t('children.metaNoClass', { roll: student.roll_number })
+      ? t('children.metaNoClass', { roll })
       : t('children.meta', {
           className,
           section: student.class_section?.section_name ?? '',
-          roll: student.roll_number,
+          roll,
         });
   };
-}
-
-function FeesHeader({ student }: { student: Student }) {
-  const { t } = useTranslation('portal');
-  const studentMeta = useStudentMeta();
-  return (
-    <div className="flex flex-col gap-0.5">
-      {/* This route's one `<h1>`. The student's name is the subtitle, not
-          the heading, because the picker can change it without the page
-          changing what it is. */}
-      <h1 className="text-lg font-semibold tracking-tight">{t('fees.title')}</h1>
-      <p className="text-xs text-muted-foreground">
-        {`${student.full_name} · ${studentMeta(student)}`}
-      </p>
-    </div>
-  );
 }
 
 /** `schema.d.ts` types `payment_status` as a string-literal union rather
@@ -483,19 +457,17 @@ function FeesSummary({
   );
 
   return (
-    <Card className="flex flex-col gap-3 p-4">
-      <div className="flex flex-col gap-0.5">
-        {/* An `<h2>`; the page title above is this frame's `<h1>`. */}
-        <h2 className="text-sm font-normal text-muted-foreground">{t('fees.outstanding')}</h2>
-        <div className={`text-3xl leading-tight font-bold tabular-nums ${tone}`}>
-          {totals.balance > 0 ? formatServerAmount(totals.balance, config) : t('hero.nothingDue')}
-        </div>
-        {metaParts.length > 0 && (
-          <div className="text-xs text-muted-foreground">{metaParts.join(' · ')}</div>
-        )}
-      </div>
+    <Card className="p-4 md:p-5">
+      {/* An `<h2>`; the page title above is this frame's `<h1>`. */}
+      <h2 className="text-label text-text-secondary">{t('fees.outstanding')}</h2>
+      <p className={`mt-1 text-display tabular-nums ${tone}`}>
+        {totals.balance > 0 ? formatServerAmount(totals.balance, config) : t('hero.nothingDue')}
+      </p>
+      {metaParts.length > 0 && (
+        <p className="mt-0.5 text-text-secondary">{metaParts.join(' · ')}</p>
+      )}
       {/* The arithmetic behind the headline, in reading order. */}
-      <dl className="grid grid-cols-3 gap-2 border-t border-border-subtle pt-3">
+      <dl className="mt-4 grid grid-cols-3 gap-4 border-t border-border-subtle pt-4">
         <Figure label={t('fees.charged')} value={formatServerAmount(totals.total_due, config)} />
         <Figure
           label={t('fees.discount')}
@@ -511,34 +483,19 @@ function FeesSummary({
 
 /** `value === null` means "no discount", rendered as an em dash rather
  * than ৳0.00 so a real zero is never mistaken for a missing figure. */
-function Figure({ label, value, small }: { label: string; value: string | null; small?: boolean }) {
+function Figure({ label, value }: { label: string; value: string | null }) {
   return (
     <div className="flex min-w-0 flex-col gap-0.5">
-      <dt
-        className={
-          small
-            ? 'text-[10.5px] tracking-wide text-muted-foreground uppercase'
-            : 'text-[11px] text-muted-foreground'
-        }
-      >
-        {label}
-      </dt>
-      <dd className={`tabular-nums ${small ? 'text-xs' : 'text-sm font-semibold'}`}>
-        {value ?? '—'}
-      </dd>
+      <dt className="text-caption text-text-secondary">{label}</dt>
+      <dd className="font-semibold tabular-nums">{value ?? '—'}</dd>
     </div>
   );
 }
 
-function BreakdownCard({
-  fees,
-  config,
-}: {
-  fees: (StudentFee & { is_late_fee?: boolean })[];
-  config: RegionConfig;
-}) {
+type BreakdownFee = StudentFee & { is_late_fee?: boolean };
+
+function BreakdownCard({ fees, config }: { fees: BreakdownFee[]; config: RegionConfig }) {
   const { t } = useTranslation('portal');
-  const monthNames = useMonthNames();
   const now = new Date();
 
   // The server sends year/month ascending; the newest month is the one a
@@ -546,88 +503,93 @@ function BreakdownCard({
   // array belongs to the query cache.
   const rows = [...fees].sort((a, b) => b.year - a.year || b.month - a.month);
 
+  const money = (value: number | string) => formatServerAmount(value, config);
+  const columns: DataTableColumn<BreakdownFee>[] = [
+    {
+      id: 'month',
+      header: t('fees.month'),
+      card: 'title',
+      accessorFn: (fee) => (
+        <span className="flex flex-col">
+          <span className="font-medium">
+            {formatMonth(`${fee.year}-${String(fee.month).padStart(2, '0')}`, config)}
+            {/* [16.8.4] `is_late_fee` is only set true on bills the school
+                raised *because* an earlier bill went unpaid
+                (`late_fee_for_student_fee_id IS NOT NULL` server-side) —
+                labelled so a parent doesn't mistake it for another
+                ordinary month's fee. */}
+            {fee.is_late_fee === true && (
+              <span className="ml-1.5 text-caption font-normal text-status-overdue-fg">
+                {t('fees.lateFeeTag')}
+              </span>
+            )}
+          </span>
+          {fee.due_date !== null && (
+            <span className="text-caption text-text-secondary">
+              {t('hero.dueOn', { date: formatDate(parseServerDate(fee.due_date), config) })}
+            </span>
+          )}
+        </span>
+      ),
+    },
+    {
+      id: 'charged',
+      header: t('fees.charged'),
+      align: 'end',
+      accessorFn: (fee) => money(fee.total_amount),
+    },
+    {
+      id: 'discount',
+      header: t('fees.discount'),
+      align: 'end',
+      accessorFn: (fee) => (Number(fee.discount_amount) > 0 ? money(fee.discount_amount) : '—'),
+    },
+    {
+      id: 'paid',
+      header: t('fees.paid'),
+      align: 'end',
+      accessorFn: (fee) => money(fee.paid_amount),
+    },
+    {
+      id: 'outstanding',
+      header: t('fees.outstanding'),
+      align: 'end',
+      accessorFn: (fee) => (
+        <span className={`font-semibold ${toneFor(deriveMonthStatus(fee, now))}`}>
+          {money(Math.max(balanceOf(fee), 0))}
+        </span>
+      ),
+    },
+    {
+      id: 'status',
+      header: t('fees.status'),
+      card: 'badge',
+      // The badge is why the amount's colour is never the only carrier of
+      // status — it repeats it as text.
+      accessorFn: (fee) => <StatusBadge domain="fee" status={deriveMonthStatus(fee, now)} />,
+    },
+  ];
+
   return (
-    <Card className="flex flex-col">
-      <h2 className="border-b border-border-subtle px-3.5 py-3 text-sm font-semibold">
-        {t('fees.breakdownTitle')}
-      </h2>
-      {rows.length === 0 ? (
-        // Deliberately not `EmptyState`: its title renders an `<h1>`, and
-        // this frame's `<h1>` is the page title.
-        <p className="p-3.5 text-sm text-muted-foreground">{t('fees.breakdownEmpty')}</p>
-      ) : (
-        rows.map((fee, index) => {
-          const status = deriveMonthStatus(fee, now);
-          const balance = balanceOf(fee);
-          return (
-            <div
-              key={fee.id}
-              className={`flex flex-col gap-1.5 px-3.5 py-3 ${
-                index > 0 ? 'border-t border-border-subtle' : ''
-              }`}
-            >
-              <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <span className="text-sm font-semibold">
-                  {t('fees.monthLabel', {
-                    month: monthNames[fee.month - 1] ?? String(fee.month),
-                    // Bengali numerals when the region asks for them —
-                    // the same treatment every other figure on the page
-                    // gets, so a year isn't the one Latin number left.
-                    year: renderDigits(String(fee.year), config.numerals),
-                  })}
-                  {/* [16.8.4] `is_late_fee` is only set true on bills the
-                      school raised *because* an earlier bill went unpaid
-                      (`late_fee_for_student_fee_id IS NOT NULL`
-                      server-side) — labelled so a parent doesn't mistake
-                      it for another ordinary month's fee. */}
-                  {fee.is_late_fee === true && (
-                    <span className="ml-1.5 text-[11px] font-normal text-status-overdue-fg">
-                      {t('fees.lateFeeTag')}
-                    </span>
-                  )}
-                </span>
-                <span className={`text-base font-bold tabular-nums ${toneFor(status)}`}>
-                  {formatServerAmount(Math.max(balance, 0), config)}
-                </span>
-              </div>
-              <dl className="grid grid-cols-3 gap-1.5">
-                <Figure
-                  small
-                  label={t('fees.charged')}
-                  value={formatServerAmount(fee.total_amount, config)}
-                />
-                <Figure
-                  small
-                  label={t('fees.discount')}
-                  value={
-                    Number(fee.discount_amount) > 0
-                      ? formatServerAmount(fee.discount_amount, config)
-                      : null
-                  }
-                />
-                <Figure
-                  small
-                  label={t('fees.paid')}
-                  value={formatServerAmount(fee.paid_amount, config)}
-                />
-              </dl>
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                {/* The badge is why the amount's colour is never the only
-                    carrier of status — it repeats it as text. */}
-                <StatusBadge domain="fee" status={status} />
-                {fee.due_date !== null && (
-                  <span className="text-[11px] text-muted-foreground">
-                    {t('hero.dueOn', { date: formatDate(parseServerDate(fee.due_date), config) })}
-                  </span>
-                )}
-              </div>
-            </div>
-          );
-        })
-      )}
+    <Card className="overflow-hidden p-0">
+      <h2 className="px-4 py-3 text-h2 md:px-5">{t('fees.breakdownTitle')}</h2>
+      <DataTable
+        tableId="portal-fee-months"
+        caption={t('fees.breakdownTitle')}
+        columns={columns}
+        data={rows}
+        getRowId={(fee) => fee.id}
+        sorting={null}
+        onSortingChange={noop}
+        paginated={false}
+        totalCount={rows.length}
+        emptyState={{ title: t('fees.breakdownTitle'), explanation: t('fees.breakdownEmpty') }}
+      />
     </Card>
   );
 }
+
+function noop(): void {}
 
 /**
  * [38.4.5] "Fines" section — `GET /fees/fines` filtered to this student,
@@ -645,38 +607,43 @@ function FinesCard({ fines, config }: { fines: Fine[]; config: RegionConfig }) {
   const { t } = useTranslation('portal');
 
   return (
-    <Card className="flex flex-col">
-      <h2 className="border-b border-border-subtle px-3.5 py-3 text-sm font-semibold">
-        {t('fees.fines')}
-      </h2>
-      {fines.map((fine, index) => (
-        <div
-          key={fine.id}
-          className={`flex flex-col gap-1 px-3.5 py-2.5 ${
-            index > 0 ? 'border-t border-border-subtle' : ''
-          }`}
-        >
-          <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <span className="text-sm font-semibold">{fine.fee_name}</span>
-            <span className="text-sm font-semibold tabular-nums">
-              {formatServerAmount(fine.total_amount, config)}
-            </span>
-          </div>
-          {fine.note !== null && fine.note !== '' && (
-            <span className="text-[11px] text-muted-foreground">
-              {t('fees.reason')}: {fine.note}
-            </span>
-          )}
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <StatusBadge domain="fee" status={fine.status as FeeStatus} />
-            {fine.incident_date !== null && (
-              <span className="text-[11px] text-muted-foreground">
-                {formatDate(parseServerDate(fine.incident_date), config)}
-              </span>
-            )}
-          </div>
-        </div>
-      ))}
+    <Card className="p-4 md:p-5">
+      <h2 className="text-h2">{t('fees.fines')}</h2>
+      <ul className="mt-2 divide-y divide-border-subtle">
+        {fines.map((fine) => {
+          const hasNote = fine.note !== null && fine.note !== '';
+          const incident =
+            fine.incident_date !== null
+              ? formatDate(parseServerDate(fine.incident_date), config)
+              : null;
+          return (
+            <li key={fine.id} className="flex items-start justify-between gap-3 py-3">
+              <div className="min-w-0">
+                <p className="font-medium">{fine.fee_name}</p>
+                {(hasNote || incident !== null) && (
+                  <p className="text-caption text-text-secondary">
+                    {/* Reason stays its own text nodes so an exact match on
+                        the reason still finds it. */}
+                    {hasNote && (
+                      <>
+                        {t('fees.reason')}: <span>{fine.note}</span>
+                      </>
+                    )}
+                    {hasNote && incident !== null && ' · '}
+                    {incident}
+                  </p>
+                )}
+              </div>
+              <div className="flex flex-col items-end gap-1">
+                <span className="font-semibold tabular-nums">
+                  {formatServerAmount(fine.total_amount, config)}
+                </span>
+                <StatusBadge domain="fee" status={fine.status as FeeStatus} />
+              </div>
+            </li>
+          );
+        })}
+      </ul>
     </Card>
   );
 }
@@ -705,62 +672,74 @@ function InvoicesCard({
   // month would otherwise conclude the school never issued it.
   const truncated = total > invoices.length;
 
+  const columns: DataTableColumn<Invoice>[] = [
+    {
+      id: 'invoice_number',
+      header: t('fees.invoiceNumber'),
+      card: 'title',
+      // An identifier, so Latin digits regardless of tenant numerals (D6).
+      accessorFn: (invoice) => <span className="font-medium">{invoice.invoice_number}</span>,
+    },
+    {
+      id: 'issued_date',
+      header: t('fees.issuedOn'),
+      accessorFn: (invoice) => formatDate(parseServerDate(invoice.issued_date), config),
+    },
+    {
+      id: 'total_amount',
+      header: t('fees.amount'),
+      align: 'end',
+      accessorFn: (invoice) => formatServerAmount(invoice.total_amount, config),
+    },
+    {
+      id: 'status',
+      header: t('fees.status'),
+      card: 'badge',
+      // `schema.d.ts` types this as a string-literal union rather than
+      // the shared enum object — the same widening cast
+      // `portal/index.tsx` uses for `payment_status`.
+      accessorFn: (invoice) => (
+        <StatusBadge domain="invoice" status={invoice.status as InvoiceStatus} />
+      ),
+    },
+  ];
+
   return (
-    <Card className="flex flex-col">
-      <div className="flex items-center justify-between gap-2 border-b border-border-subtle px-3.5 py-3">
-        <h2 className="text-sm font-semibold">{t('fees.invoicesTitle')}</h2>
-        <span className="text-[11px] text-muted-foreground">{t('fees.newestFirst')}</span>
+    <Card className="overflow-hidden p-0">
+      <div className="px-4 py-3 md:px-5">
+        <h2 className="text-h2">{t('fees.invoicesTitle')}</h2>
+        <p className="text-text-secondary">{t('fees.newestFirst')}</p>
       </div>
       {truncated && (
-        <p className="border-b border-border-subtle px-3.5 py-2 text-[11px] text-muted-foreground">
+        <p className="border-t border-border-subtle px-4 py-2 text-caption text-text-secondary">
           {t('fees.invoicesTruncated', {
-            shown: renderDigits(String(invoices.length), config.numerals),
-            total: renderDigits(String(total), config.numerals),
+            shown: formatNumber(invoices.length, config),
+            total: formatNumber(total, config),
           })}
         </p>
       )}
-      {invoices.length === 0 ? (
-        <p className="p-3.5 text-sm text-muted-foreground">{t('fees.invoicesEmpty')}</p>
-      ) : (
-        invoices.map((invoice, index) => (
-          <div
-            key={invoice.id}
-            className={`flex items-center gap-2.5 px-3.5 py-2.5 ${
-              index > 0 ? 'border-t border-border-subtle' : ''
-            }`}
-          >
-            <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-              <span className="text-sm font-semibold tabular-nums">{invoice.invoice_number}</span>
-              <span className="text-[11px] text-muted-foreground">
-                {formatDate(parseServerDate(invoice.issued_date), config)}
-              </span>
-            </div>
-            <div className="flex flex-shrink-0 flex-col items-end gap-1">
-              <span className="text-sm font-semibold tabular-nums">
-                {formatServerAmount(invoice.total_amount, config)}
-              </span>
-              {/* `schema.d.ts` types this as a string-literal union rather than
-                  the shared enum object — the same widening cast
-                  `portal/index.tsx` uses for `payment_status`. */}
-              <StatusBadge domain="invoice" status={invoice.status as InvoiceStatus} />
-            </div>
-            {/* The row itself does not navigate — there is no invoice
-                detail page in this ticket. Printing is the only
-                affordance, so it is an explicit button with a >=44px
-                target and a label naming which invoice it prints. */}
-            <button
-              type="button"
-              aria-label={t('fees.printLabel', { number: invoice.invoice_number })}
-              onClick={() =>
-                void openPrintableInvoice(invoice.id, () => toast.error(t('fees.printError')))
-              }
-              className="flex size-11 flex-shrink-0 items-center justify-center rounded-md text-muted-foreground"
-            >
-              <PrinterIcon className="size-4.5" aria-hidden="true" />
-            </button>
-          </div>
-        ))
-      )}
+      <DataTable
+        tableId="portal-invoices"
+        caption={t('fees.invoicesTitle')}
+        columns={columns}
+        data={invoices}
+        getRowId={(invoice) => invoice.id}
+        sorting={null}
+        onSortingChange={noop}
+        paginated={false}
+        totalCount={invoices.length}
+        emptyState={{ title: t('fees.invoicesTitle'), explanation: t('fees.invoicesEmpty') }}
+        // The row itself does not navigate — there is no invoice detail
+        // page. Printing is the only affordance.
+        rowActions={(invoice) => [
+          {
+            intent: 'print',
+            label: t('fees.print'),
+            onClick: () =>
+              void openPrintableInvoice(invoice.id, () => toast.error(t('fees.printError'))),
+          },
+        ]}
+      />
     </Card>
   );
 }
@@ -773,6 +752,8 @@ function InvoicesCard({
  * elsewhere on this page). Kind labels reuse `common.walletTransactionKind.*`
  * — the same keys the staff wallet tab (`fees-tab.tsx`) already renders, so
  * this doesn't duplicate that translation set for a second surface.
+ *
+ * Only mounted when there is something to show (balance or transactions).
  */
 function WalletCard({
   wallet,
@@ -789,45 +770,37 @@ function WalletCard({
 }) {
   const { t } = useTranslation('portal');
   const { t: tCommon } = useTranslation('common');
-  // Newest few only — this is a glance-at card, not a ledger. The wallet
-  // controller itself already caps the page at 50; this narrows further,
-  // same reasoning `fees-tab.tsx`'s `WalletSection` slices to 10.
+  // Newest few only — this is a glance-at card, not a ledger.
   const recent = wallet.transactions.slice(0, 5);
 
   return (
-    <Card className="flex flex-col">
-      <h2 className="border-b border-border-subtle px-3.5 py-3 text-sm font-semibold">
-        {t('fees.walletTitle')}
-      </h2>
-      <div className="flex flex-col gap-1.5 border-b border-border-subtle px-3.5 py-3">
-        <span className="text-sm text-muted-foreground">{t('fees.walletBalance')}</span>
-        <span className="text-lg font-semibold tabular-nums">
-          {formatServerAmount(wallet.balance, config)}
-        </span>
-      </div>
+    <Card className="p-4 md:p-5">
+      <h2 className="text-h2">{t('fees.walletTitle')}</h2>
+      <p className="mt-2 text-caption text-text-secondary">{t('fees.walletBalance')}</p>
+      <p className="text-h2 tabular-nums">{formatServerAmount(wallet.balance, config)}</p>
       {recent.length === 0 ? (
-        <p className="p-3.5 text-sm text-muted-foreground">{t('fees.walletEmpty')}</p>
+        <p className="mt-3 text-text-secondary">{t('fees.walletEmpty')}</p>
       ) : (
-        recent.map((tx, index) => (
-          <div
-            key={`${tx.created_at}-${index}`}
-            className={`flex items-center justify-between gap-2 px-3.5 py-2.5 ${
-              index > 0 ? 'border-t border-border-subtle' : ''
-            }`}
-          >
-            <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-              <span className="text-sm">
-                {tCommon(`walletTransactionKind.${tx.kind}`, { defaultValue: tx.kind })}
+        <ul className="mt-3 divide-y divide-border-subtle border-t border-border-subtle">
+          {recent.map((tx, index) => (
+            <li
+              key={`${tx.created_at}-${index}`}
+              className="flex items-center justify-between gap-3 py-3"
+            >
+              <div className="flex min-w-0 flex-col">
+                <span>
+                  {tCommon(`walletTransactionKind.${tx.kind}`, { defaultValue: tx.kind })}
+                </span>
+                <span className="text-caption text-text-secondary">
+                  {formatDate(tx.created_at, config)}
+                </span>
+              </div>
+              <span className="font-semibold tabular-nums">
+                {formatServerAmount(tx.amount, config)}
               </span>
-              <span className="text-[11px] text-muted-foreground">
-                {formatDate(new Date(tx.created_at), config)}
-              </span>
-            </div>
-            <span className="flex-shrink-0 text-sm font-semibold tabular-nums">
-              {formatServerAmount(tx.amount, config)}
-            </span>
-          </div>
-        ))
+            </li>
+          ))}
+        </ul>
       )}
     </Card>
   );
@@ -838,7 +811,8 @@ function WalletCard({
  * shape (`FamilyStudentScheduleDto[]`, `family.dto.ts`): human labels
  * only (`name`, `fees`, `rule_label`, `next_period`). No schedule `id`,
  * `audience`, `excluded` or `is_active` — none of that is family's
- * business, and `useFamilyStudentSchedules` never requests it.
+ * business, and `useFamilyStudentSchedules` never requests it. Only
+ * mounted when the child has at least one schedule.
  */
 function RecurringFeesCard({
   schedules,
@@ -850,40 +824,31 @@ function RecurringFeesCard({
   const { t } = useTranslation('portal');
 
   return (
-    <Card className="flex flex-col">
-      <h2 className="border-b border-border-subtle px-3.5 py-3 text-sm font-semibold">
-        {t('fees.recurringTitle')}
-      </h2>
-      {schedules.length === 0 ? (
-        <p className="p-3.5 text-sm text-muted-foreground">{t('fees.recurringEmpty')}</p>
-      ) : (
-        schedules.map((schedule, index) => (
-          <div
-            key={`${schedule.name}-${index}`}
-            className={`flex flex-col gap-1 px-3.5 py-2.5 ${
-              index > 0 ? 'border-t border-border-subtle' : ''
-            }`}
-          >
-            <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <span className="text-sm font-semibold">{schedule.name}</span>
-              <span className="text-sm font-semibold tabular-nums">
+    <Card className="p-4 md:p-5">
+      <h2 className="text-h2">{t('fees.recurringTitle')}</h2>
+      <ul className="mt-2 divide-y divide-border-subtle">
+        {schedules.map((schedule, index) => (
+          <li key={`${schedule.name}-${index}`} className="space-y-0.5 py-3">
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="font-medium">{schedule.name}</span>
+              <span className="font-semibold tabular-nums">
                 {formatServerAmount(
                   schedule.fees.reduce((sum, fee) => sum + fee.amount, 0),
                   config,
                 )}
               </span>
             </div>
-            <span className="text-[11px] text-muted-foreground">{schedule.rule_label}</span>
+            <p className="text-caption text-text-secondary">{schedule.rule_label}</p>
             {schedule.next_period !== null && (
-              <span className="text-[11px] text-muted-foreground">
+              <p className="text-caption text-text-secondary">
                 {t('fees.recurringNextOn', {
                   date: formatDate(parseServerDate(schedule.next_period), config),
                 })}
-              </span>
+              </p>
             )}
-          </div>
-        ))
-      )}
+          </li>
+        ))}
+      </ul>
     </Card>
   );
 }

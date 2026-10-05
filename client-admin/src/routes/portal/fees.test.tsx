@@ -255,7 +255,7 @@ describe('/portal/fees', () => {
    * level up. Used instead of a test id so the assertions run against the
    * markup a parent actually gets. */
   function monthRow(label: HTMLElement): HTMLElement {
-    return (label.closest('div') as HTMLElement).parentElement as HTMLElement;
+    return label.closest('tr') as HTMLElement;
   }
 
   /** A row's `StatusBadge` text — queried by slot rather than by string,
@@ -356,7 +356,7 @@ describe('/portal/fees', () => {
 
       // charged 9,000 · discount 500 · paid 3,500 · outstanding 5,000
       expect(await screen.findByText('৳5,000.00')).toBeTruthy();
-      expect(screen.getByText('Outstanding')).toBeTruthy();
+      expect(screen.getByRole('heading', { level: 2, name: 'Outstanding' })).toBeTruthy();
       expect(screen.getByText('৳9,000.00')).toBeTruthy();
       expect(screen.getByText('৳3,500.00')).toBeTruthy();
       expect(screen.getAllByText('Charged').length).toBeGreaterThan(0);
@@ -411,13 +411,13 @@ describe('/portal/fees', () => {
 
       await screen.findByText('September 2025');
       // Two dashes: the summary's and the one month row's. Asserted
-      // against the `<dd>` beside each "Discount" `<dt>`, so this can't
-      // pass on a dash that happens to be somewhere else on the page —
-      // ৳0.00 is a legitimate rendering elsewhere (nothing paid yet).
-      const discounts = screen
-        .getAllByText('Discount')
-        .map((dt) => dt.nextElementSibling?.textContent);
-      expect(discounts).toEqual(['—', '—']);
+      // against the `<dd>` beside the "Discount" `<dt>` and the month row's
+      // own cell, so this can't pass on a dash that happens to be somewhere
+      // else on the page — ৳0.00 is a legitimate rendering elsewhere
+      // (nothing paid yet).
+      const dt = screen.getAllByText('Discount').find((node) => node.tagName === 'DT');
+      expect(dt?.nextElementSibling?.textContent).toBe('—');
+      expect(within(monthRow(screen.getByText('September 2025'))).getByText('—')).toBeTruthy();
       expect(screen.getAllByText('—')).toHaveLength(2);
     });
   });
@@ -430,7 +430,8 @@ describe('/portal/fees', () => {
       const july = monthRow(await screen.findByText('July 2025'));
       // The regression this pins: `useFeeDues` drops PAID months entirely,
       // so a page sourced from it would silently hide July.
-      expect(within(july).getByText('৳0.00')).toBeTruthy();
+      // Columns: month, charged, discount, paid, outstanding, status.
+      expect(within(july).getAllByRole('cell')[4]?.textContent).toBe('৳0.00');
       expect(badgeText(july)).toEqual(['Paid']);
     });
 
@@ -563,7 +564,8 @@ describe('/portal/fees', () => {
       try {
         renderFees();
 
-        const button = await screen.findByRole('button', { name: 'Print invoice INV-2025-0912' });
+        // Newest invoice first, so the first Print button is INV-2025-0912's.
+        const button = (await screen.findAllByRole('button', { name: 'Print' }))[0] as HTMLElement;
         await userEvent.click(button);
 
         // The tab is opened *before* the request, inside the click's
@@ -589,7 +591,8 @@ describe('/portal/fees', () => {
       try {
         renderFees();
 
-        const button = await screen.findByRole('button', { name: 'Print invoice INV-2025-0912' });
+        // Newest invoice first, so the first Print button is INV-2025-0912's.
+        const button = (await screen.findAllByRole('button', { name: 'Print' }))[0] as HTMLElement;
         await userEvent.click(button);
 
         await waitFor(() =>
@@ -771,12 +774,13 @@ describe('/portal/fees', () => {
       // rendered by this card may depend on one being present.
     });
 
-    it('says so plainly when there is no wallet activity', async () => {
+    it('is absent when the balance is zero and there is no activity', async () => {
       standardMocks();
       renderFees();
 
       await screen.findByText('September 2025');
-      expect(screen.getByText('No credit balance activity yet.')).toBeTruthy();
+      expect(screen.queryByText('Credit balance')).toBeNull();
+      expect(screen.queryByText('No credit balance activity yet.')).toBeNull();
     });
   });
 
@@ -809,7 +813,8 @@ describe('/portal/fees', () => {
       expect(screen.getByText('Fines')).toBeTruthy();
       expect(screen.getByText('Late arrival fine')).toBeTruthy();
       expect(screen.getByText('Waived')).toBeTruthy();
-      expect(screen.getByText('Reason: Late 3 times')).toBeTruthy();
+      expect(screen.getByText('Late 3 times')).toBeTruthy();
+      expect(screen.getByText(/^Reason:/)).toBeTruthy();
     });
 
     it('is absent when the child has no fines', async () => {
@@ -845,12 +850,13 @@ describe('/portal/fees', () => {
       // reaches this card — `FamilyStudentSchedule` doesn't carry them.
     });
 
-    it('says so plainly when nothing is scheduled', async () => {
+    it('is absent when nothing is scheduled', async () => {
       standardMocks();
       renderFees();
 
       await screen.findByText('September 2025');
-      expect(screen.getByText('No recurring fees set up.')).toBeTruthy();
+      expect(screen.queryByText('Recurring fees')).toBeNull();
+      expect(screen.queryByText('No recurring fees set up.')).toBeNull();
     });
   });
 
@@ -889,7 +895,7 @@ describe('/portal/fees', () => {
 
       await screen.findByText('September 2025');
       expect(screen.getAllByRole('heading', { level: 1 }).map((h) => h.textContent)).toEqual([
-        'Fees',
+        'Fees and invoices',
       ]);
       expect(screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)).toContain(
         'Month by month',
@@ -969,8 +975,8 @@ describe('/portal/fees', () => {
       // The year is rendered in Bengali numerals too — a month label must
       // not be the one Latin number left on the page.
       expect(await screen.findByText('সেপ্টেম্বর ২০২৫')).toBeTruthy();
-      expect(screen.getByText('মাসভিত্তিক হিসাব')).toBeTruthy();
-      expect(screen.getByText('চালান')).toBeTruthy();
+      expect(screen.getByRole('heading', { level: 2, name: 'মাসভিত্তিক হিসাব' })).toBeTruthy();
+      expect(screen.getByRole('heading', { level: 2, name: 'চালান' })).toBeTruthy();
       expect(document.body.textContent).not.toContain('fees.');
     });
   });
