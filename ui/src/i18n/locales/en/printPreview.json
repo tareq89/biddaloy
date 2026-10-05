@@ -62,16 +62,27 @@
     },
     "search": "Search by name",
     "results": "Matches",
-    "selected_one": "{{count}} person chosen",
-    "selected_other": "{{count}} people chosen",
-    "wholeSection": "Or print a whole section",
     "class": "Class",
     "classPlaceholder": "Choose a class",
     "section": "Section",
     "sectionPlaceholder": "Choose a section",
     "cancel": "Cancel",
-    "printSection": "Print the whole section",
     "continue_one": "Continue with {{count}}",
-    "continue_other": "Continue with {{count}}"
-  }
+    "continue_other": "Continue with {{count}}",
+    "modeLabel": "How do you want to choose?",
+    "modeNames": "Choose by name",
+    "modeNamesHelp": "A few cards — search and tick",
+    "modeSection": "Whole section",
+    "modeSectionHelp": "Every student in one section",
+    "namesTitle": "Choose by name",
+    "namesHelp": "Search by name or roll, then tick whose card you need.",
+    "pickedLabel_one": "{{count}} chosen:",
+    "pickedLabel_other": "{{count}} chosen:",
+    "removePicked": "Remove {{name}}",
+    "clearPicked": "Clear all",
+    "limitHelp": "Showing the first 20. Type more of the name if you can't find someone.",
+    "sectionTitle": "Whole section",
+    "continueSection": "Continue with the whole section"
+  },
+  "back": "Back"
 }

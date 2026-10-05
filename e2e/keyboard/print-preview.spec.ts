@@ -47,7 +47,6 @@ test('keyboard-only: palette -> pick a student -> preview -> print -> all printe
     await expect(page.getByRole('option').first()).toBeVisible();
     await page.keyboard.press('ArrowDown');
     await page.keyboard.press('Enter');
-    await expect(page.getByRole('dialog')).toBeVisible();
     await expect(
       page.getByRole('heading', { level: 1, name: t('printPreview.picker.title') }),
     ).toBeVisible();
