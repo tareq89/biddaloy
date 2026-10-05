@@ -107,7 +107,15 @@ function AcademicYearDetailPage() {
   /** A count fact: skeleton while the stats load, an em dash if they failed. */
   function count(n: number | undefined, key: string) {
     if (stats.isPending) return <Skeleton className="h-4 w-10" />;
-    return n === undefined ? '—' : t(key, { count: n });
+    if (n === undefined) {
+      return (
+        <>
+          <span aria-hidden="true">—</span>
+          <span className="sr-only">{t('detail.statsUnavailable')}</span>
+        </>
+      );
+    }
+    return t(key, { count: n });
   }
 
   return (
