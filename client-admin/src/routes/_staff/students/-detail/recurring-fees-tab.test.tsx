@@ -102,7 +102,7 @@ describe('students/-detail/recurring-fees-tab', () => {
       ],
     });
 
-    await screen.findByRole('tab', { name: 'Recurring fees', selected: true });
+    await screen.findByRole('tab', { name: 'Automatic billing', selected: true });
 
     expect(await screen.findByText('Included schedule')).toBeTruthy();
     expect(await screen.findByText('Excluded schedule')).toBeTruthy();
