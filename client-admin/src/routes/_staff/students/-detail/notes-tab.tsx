@@ -9,6 +9,8 @@
 import { ApiError } from '@biddaloy/ui/api';
 import {
   Button,
+  Card,
+  ConfirmDialog,
   Dialog,
   DialogClose,
   DialogContent,
@@ -16,8 +18,10 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  EmptyState,
   SkeletonTable,
   Textarea,
+  toast,
 } from '@biddaloy/ui/components';
 import {
   useActiveRole,
@@ -29,6 +33,7 @@ import {
 } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { formatDate } from '@biddaloy/ui/utils';
+import { PlusIcon, StickyNoteIcon, Trash2Icon } from 'lucide-react';
 import * as React from 'react';
 
 import { TabQueryState } from './tab-query-state';
@@ -51,7 +56,13 @@ export function NotesTab({ studentId }: NotesTabProps) {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex justify-end">
-        <Button type="button" onClick={() => setAddOpen(true)}>
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full md:w-auto"
+          onClick={() => setAddOpen(true)}
+        >
+          <PlusIcon className="size-4" aria-hidden />
           {t('add')}
         </Button>
       </div>
@@ -64,12 +75,13 @@ export function NotesTab({ studentId }: NotesTabProps) {
       >
         {(notes) =>
           notes.length === 0 ? (
-            <div className="flex flex-col items-center gap-1 rounded-lg border border-dashed border-border-subtle p-8 text-center">
-              <p className="text-sm font-medium">{t('empty')}</p>
-              <p className="text-sm text-muted-foreground">{t('emptyDescription')}</p>
-            </div>
+            <EmptyState
+              icon={<StickyNoteIcon aria-hidden="true" />}
+              title={t('empty')}
+              explanation={t('emptyDescription')}
+            />
           ) : (
-            <ul className="flex flex-col gap-2">
+            <ul className="space-y-3">
               {notes.map((note) => (
                 <NoteCard
                   key={note.id}
@@ -111,31 +123,40 @@ function NoteCard({
   const { t } = useTranslation('student-notes');
   const regionConfig = useRegionConfig();
   return (
-    <li className="flex flex-col gap-2 rounded-lg border border-border-subtle p-3">
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-sm text-muted-foreground">
-          <span className="font-medium text-foreground">
-            {note.author.name || t('unknownAuthor')}
-          </span>{' '}
-          · {formatDate(new Date(note.created_at), regionConfig)}
-        </p>
-        {canDelete && (
-          <Button type="button" size="sm" variant="outline" onClick={onDelete}>
-            {t('delete')}
-          </Button>
+    <li>
+      <Card padded className="flex flex-col gap-2">
+        <div className="flex items-start justify-between gap-2">
+          <p className="text-text-secondary">
+            <span className="font-medium text-text-primary">
+              {note.author.name || t('unknownAuthor')}
+            </span>{' '}
+            · {formatDate(new Date(note.created_at), regionConfig)}
+          </p>
+          {canDelete && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="text-destructive"
+              aria-label={t('deleteNote')}
+              onClick={onDelete}
+            >
+              <Trash2Icon className="size-4" aria-hidden />
+            </Button>
+          )}
+        </div>
+        {typeof note.rating === 'number' && (
+          <p
+            className="text-primary"
+            role="img"
+            aria-label={t('ratingShown', { count: note.rating })}
+          >
+            {'★'.repeat(note.rating)}
+            <span className="text-muted-foreground">{'★'.repeat(5 - note.rating)}</span>
+          </p>
         )}
-      </div>
-      {typeof note.rating === 'number' && (
-        <p
-          className="text-sm text-primary"
-          role="img"
-          aria-label={t('ratingShown', { count: note.rating })}
-        >
-          {'★'.repeat(note.rating)}
-          <span className="text-muted-foreground">{'★'.repeat(5 - note.rating)}</span>
-        </p>
-      )}
-      <p className="text-sm break-words whitespace-pre-wrap">{note.body}</p>
+        <p className="break-words whitespace-pre-wrap">{note.body}</p>
+      </Card>
     </li>
   );
 }
@@ -175,14 +196,14 @@ function AddNoteDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent size="md" closeLabel={t('actions.close', { ns: 'common' })}>
         <DialogHeader>
           <DialogTitle>{t('addTitle')}</DialogTitle>
           <DialogDescription>{t('addDescription')}</DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="student-note-body" className="text-sm font-medium">
+          <label htmlFor="student-note-body" className="font-medium">
             {t('bodyLabel')}
           </label>
           <Textarea
@@ -199,13 +220,13 @@ function AddNoteDialog({
             rows={5}
             aria-describedby="student-note-hint"
           />
-          <p id="student-note-hint" className="text-xs text-muted-foreground">
+          <p id="student-note-hint" className="text-caption text-text-secondary">
             {t('hint')}
           </p>
         </div>
 
         <div role="group" aria-label={t('ratingLabel')} className="flex flex-col gap-1.5">
-          <span className="text-sm font-medium">{t('ratingLabel')}</span>
+          <span className="font-medium">{t('ratingLabel')}</span>
           <div className="flex gap-1">
             {[1, 2, 3, 4, 5].map((value) => (
               <button
@@ -225,7 +246,7 @@ function AddNoteDialog({
         </div>
 
         {addNote.isError && (
-          <p role="alert" className="text-sm text-destructive">
+          <p role="alert" className="text-destructive">
             {t('saveError')}
           </p>
         )}
@@ -258,43 +279,24 @@ function DeleteNoteDialog({
   const deleteNote = useDeleteStudentNote(studentId);
 
   return (
-    <Dialog open onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{t('deleteTitle')}</DialogTitle>
-          <DialogDescription>{t('deleteDescription')}</DialogDescription>
-        </DialogHeader>
-
-        {deleteNote.isError && (
-          <p role="alert" className="text-sm text-destructive">
-            {t('deleteError')}
-          </p>
-        )}
-
-        <DialogFooter>
-          <DialogClose asChild>
-            <Button type="button" variant="outline">
-              {t('actions.cancel', { ns: 'common' })}
-            </Button>
-          </DialogClose>
-          <Button
-            type="button"
-            variant="destructive"
-            loading={deleteNote.isPending}
-            onClick={() =>
-              deleteNote.mutate(noteId, {
-                onSuccess: () => onOpenChange(false),
-                // 404 = already deleted elsewhere; nothing left to do.
-                onError: (error) => {
-                  if (error instanceof ApiError && error.statusCode === 404) onOpenChange(false);
-                },
-              })
-            }
-          >
-            {deleteNote.isPending ? t('deleting') : t('delete')}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <ConfirmDialog
+      open
+      onOpenChange={onOpenChange}
+      tone="danger"
+      title={t('deleteTitle')}
+      description={t('deleteDescription')}
+      confirmLabel={t('delete')}
+      busy={deleteNote.isPending}
+      onConfirm={() =>
+        deleteNote.mutate(noteId, {
+          onSuccess: () => onOpenChange(false),
+          onError: (error) => {
+            // 404 = already deleted elsewhere; nothing left to do.
+            if (error instanceof ApiError && error.statusCode === 404) onOpenChange(false);
+            else toast.error(t('deleteError'));
+          },
+        })
+      }
+    />
   );
 }

@@ -45,9 +45,7 @@ export function CommunicationTab({ studentId }: CommunicationTabProps) {
           {
             id: 'status',
             header: t('detail.communication.columnStatus'),
-            accessorFn: (log) => (
-              <StatusBadge domain="communication" status={log.status} />
-            ),
+            accessorFn: (log) => <StatusBadge domain="communication" status={log.status} />,
             card: 'badge',
           },
         ];
