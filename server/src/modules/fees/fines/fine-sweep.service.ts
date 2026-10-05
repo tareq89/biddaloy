@@ -9,7 +9,17 @@ import { StudentFee } from '../entities/student-fee.entity';
 import { FeeGenerationService } from '../fee-generation.service';
 import { SchoolCalendarService } from '../../calendar/school-calendar.service';
 import { resolveTenantSettings } from '../../schools/settings/tenant-settings-resolver';
-import { DuplicateStrategy, FeeGenerationSource, FineTrigger, PeriodType } from '@biddaloy/shared';
+import {
+  DuplicateStrategy,
+  FeeGenerationSource,
+  FineTrigger,
+  PeriodType,
+  type TenantSettings,
+} from '@biddaloy/shared';
+import {
+  resolveFeeNotificationLocale,
+  toBengaliDigits,
+} from '../../communications/fee-notification-template.util';
 import { FINE_TRIGGERS } from './triggers/fine-trigger';
 import {
   FineSweepDuplicateDto,
@@ -45,13 +55,27 @@ function lastDayOfMonth(month: string): string {
   return d.toISOString().slice(0, 10);
 }
 
-function buildNote(trigger: FineTrigger, count: number, freePerPeriod: number): string {
-  // i18n: server-side note, family sees it verbatim
-  const free = freePerPeriod > 0 ? ` (${freePerPeriod} free)` : '';
-  if (trigger === FineTrigger.ATTENDANCE_ABSENT) {
-    return `${count} absent day${count === 1 ? '' : 's'}${free}`;
+/** Written in the school's language and numerals (D6/D9). Existing notes
+ * stay as written; this only changes newly made fines. */
+function buildNote(
+  trigger: FineTrigger,
+  count: number,
+  freePerPeriod: number,
+  locale: 'bn' | 'en',
+  bengaliDigits: boolean,
+): string {
+  const n = (value: number) => (bengaliDigits ? toBengaliDigits(String(value)) : String(value));
+  if (locale === 'bn') {
+    const free = freePerPeriod > 0 ? ` (${n(freePerPeriod)} দিন মওকুফ)` : '';
+    return trigger === FineTrigger.ATTENDANCE_ABSENT
+      ? `${n(count)} দিন অনুপস্থিত${free}`
+      : `${n(count)} দিন দেরি${free}`;
   }
-  return `${count} late arrival${count === 1 ? '' : 's'}${free}`;
+  const free = freePerPeriod > 0 ? ` (${n(freePerPeriod)} free)` : '';
+  if (trigger === FineTrigger.ATTENDANCE_ABSENT) {
+    return `${n(count)} absent day${count === 1 ? '' : 's'}${free}`;
+  }
+  return `${n(count)} late arrival${count === 1 ? '' : 's'}${free}`;
 }
 
 interface Scope {
@@ -94,10 +118,20 @@ export class FineSweepService {
     private readonly schoolCalendarService: SchoolCalendarService,
   ) {}
 
+  private async loadSettings(tenantId: string): Promise<TenantSettings> {
+    const school = await this.schoolRepo.findOne({ where: { id: tenantId } });
+    return resolveTenantSettings((school?.settings as Record<string, unknown> | null) ?? null);
+  }
+
   /** Resolves the academic year containing `month`, loads active rules for
    * it, evaluates each trigger's occurrences, and turns each matched
    * (student, rule) pair into a fine row. Never writes anything. */
-  async compute(tenantId: string, month: string, scope: Scope): Promise<FineSweepRowDto[]> {
+  async compute(
+    tenantId: string,
+    month: string,
+    scope: Scope,
+    settings?: TenantSettings,
+  ): Promise<FineSweepRowDto[]> {
     const periodStart = `${month}-01`;
     const periodEnd = lastDayOfMonth(month);
 
@@ -240,6 +274,11 @@ export class FineSweepService {
     });
     const structureById = new Map(structures.map((s) => [s.id, s]));
 
+    // Loaded once per sweep: `generate` passes the settings it already read.
+    const tenantSettings = settings ?? (await this.loadSettings(tenantId));
+    const locale = resolveFeeNotificationLocale(tenantSettings.region?.locale);
+    const bengaliDigits = tenantSettings.region?.numerals === 'bengali';
+
     const rows: FineSweepRowDto[] = [];
     for (const match of matches) {
       const { rule, count, studentId } = match;
@@ -258,7 +297,7 @@ export class FineSweepService {
         fee_structure_id: rule.fee_structure_id,
         count,
         amount,
-        note: buildNote(rule.trigger, count, rule.free_per_period),
+        note: buildNote(rule.trigger, count, rule.free_per_period, locale, bengaliDigits),
       });
     }
     return rows;
@@ -318,7 +357,8 @@ export class FineSweepService {
     request: RequestLike = { headers: {} },
     today: string = new Date().toISOString().slice(0, 10),
   ): Promise<FineSweepGenerateResultDto> {
-    const rows = await this.compute(tenantId, month, scope);
+    const settings = await this.loadSettings(tenantId);
+    const rows = await this.compute(tenantId, month, scope, settings);
     const result: FineSweepGenerateResultDto = {
       fee_generation_ids: [],
       generated_count: 0,
@@ -337,10 +377,6 @@ export class FineSweepService {
       throw new NotFoundException(`No academic year covers "${month}" for this tenant`);
     }
 
-    const school = await this.schoolRepo.findOne({ where: { id: tenantId } });
-    const settings = resolveTenantSettings(
-      (school?.settings as Record<string, unknown> | null) ?? null,
-    );
     const fineDueDays = settings.fees?.fineDueDays ?? 7;
     const dueDate = addDaysIso(today, fineDueDays);
 
