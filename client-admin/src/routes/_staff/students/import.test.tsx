@@ -1,6 +1,8 @@
 import { File as NodeFile } from 'node:buffer';
 
+import { REGION_BD_BN } from '@biddaloy/ui/i18n';
 import { apiErrorBody, cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
+import { formatNumber } from '@biddaloy/ui/utils';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -182,8 +184,8 @@ describe('/students/import', () => {
     renderImportPage();
     await uploadFile(makeFile('students.csv'));
 
-    await screen.findByText('1 student will be created.');
-    const previewTable = await screen.findByRole('table', { name: /First \d+ rows?/ });
+    await screen.findByText(`${formatNumber(1, REGION_BD_BN)} student will be created.`);
+    const previewTable = await screen.findByRole('table', { name: /First [\d০-৯]+ rows?/ });
     expect(within(previewTable).getByText('Karim Rahman')).toBeTruthy();
 
     // The row error surfaces through the shared BulkImportErrorTable.
@@ -214,14 +216,14 @@ describe('/students/import', () => {
     renderImportPage();
     await uploadFile(makeFile('students.csv'));
 
-    await screen.findByText('3 students will be created.');
+    await screen.findByText(`${formatNumber(3, REGION_BD_BN)} students will be created.`);
     // Preview shown, nothing committed yet.
     expect(commitCalled).toBe(false);
 
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: 'Confirm' }));
 
-    await screen.findByText('All 3 students were imported.');
+    await screen.findByText(`All ${formatNumber(3, REGION_BD_BN)} students were imported.`);
     expect(commitCalled).toBe(true);
     // The invite-guardians checkbox only appears once students exist.
     expect(screen.getByLabelText("Invite the imported students' guardians now")).toBeTruthy();
@@ -308,7 +310,7 @@ describe('/students/import', () => {
     );
     const { container } = renderImportPage();
     await uploadFile(makeFile('students.csv'));
-    await screen.findByText('1 student will be created.');
+    await screen.findByText(`${formatNumber(1, REGION_BD_BN)} student will be created.`);
     await expect(container).toHaveNoViolations();
   });
 });

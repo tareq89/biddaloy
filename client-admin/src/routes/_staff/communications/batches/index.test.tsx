@@ -153,9 +153,26 @@ describe('/communications/batches', () => {
   // [8.14.10]: FilterBar migration — the rows-per-page control changes
   // `limit` and resets `page` in one URL update.
   it('changing rows per page writes limit and resets page', async () => {
+    // The page-size select lives in the footer, which only shows while there are rows.
     server.use(
       http.get('/api/v1/communications/reminder/bulk', () =>
-        HttpResponse.json({ data: [], total: 0, page: 2, limit: 20, totalPages: 1 }),
+        HttpResponse.json({
+          data: [
+            {
+              id: 'batch-1',
+              batch_name: 'August dues reminder',
+              status: 'COMPLETED',
+              total_recipients: 5,
+              successful_count: 5,
+              failed_count: 0,
+              created_at: '2026-08-20T09:00:00.000Z',
+            },
+          ],
+          total: 1,
+          page: 2,
+          limit: 20,
+          totalPages: 1,
+        }),
       ),
     );
 
@@ -168,7 +185,7 @@ describe('/communications/batches', () => {
 
     const user = userEvent.setup();
     await screen.findByRole('region', { name: 'Reminder batches' });
-    await user.click(screen.getByRole('combobox', { name: 'Rows per page' }));
+    await user.click(await screen.findByRole('combobox', { name: 'Rows per page' }));
     // Option labels render in the tenant's own region digits (Bengali
     // numerals here), independent of the `en` UI locale — same reasoning
     // `invoices/index.test.tsx` documents for its own page-size test.

@@ -1,6 +1,8 @@
 import { File as NodeFile } from 'node:buffer';
 
+import { REGION_BD_BN } from '@biddaloy/ui/i18n';
 import { cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
+import { formatNumber } from '@biddaloy/ui/utils';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -112,14 +114,14 @@ describe('/academics/homework/import', () => {
     renderImportPage();
     await uploadFile(makeFile('homework.csv'));
 
-    await screen.findByText('2 homework will be created.');
+    await screen.findByText(`${formatNumber(2, REGION_BD_BN)} homework will be created.`);
     expect(await screen.findByText('Mathematics')).toBeTruthy();
     expect(commitCalled).toBe(false);
 
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: 'Confirm' }));
 
-    await screen.findByText('2 homework created.');
+    await screen.findByText(`${formatNumber(2, REGION_BD_BN)} homework created.`);
     expect(commitCalled).toBe(true);
     expect(commitBody).toEqual({ staging_id: 'stage-clean' });
   });
@@ -159,7 +161,7 @@ describe('/academics/homework/import', () => {
     renderImportPage();
     await uploadFile(makeFile('homework.csv'));
 
-    await screen.findByText('1 homework will be created.');
+    await screen.findByText(`${formatNumber(1, REGION_BD_BN)} homework will be created.`);
     expect(await screen.findByText('due_date must be a valid date (YYYY-MM-DD)')).toBeTruthy();
 
     const confirmButton = screen.getByRole('button', { name: 'Confirm' });

@@ -10,7 +10,9 @@
  *    current inputs — editing any earlier step re-disables it until the
  *    preview is re-run (a queued bulk SMS cannot be recalled).
  */
+import { REGION_BD_BN } from '@biddaloy/ui/i18n';
 import { apiErrorBody, cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
+import { formatNumber } from '@biddaloy/ui/utils';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -51,6 +53,9 @@ function duesHandler() {
   );
 }
 
+/** Counts and row indices render in the region's numerals. */
+const n = (value: number) => formatNumber(value, REGION_BD_BN);
+
 function render() {
   return renderWithRouter(routeTree, {
     initialEntries: ['/communications/reminders?mode=bulk'],
@@ -69,8 +74,8 @@ function wizardNext(): HTMLButtonElement {
 }
 
 async function selectBothStudents(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(await screen.findByRole('checkbox', { name: 'Select row 1' }));
-  await user.click(screen.getByRole('checkbox', { name: 'Select row 2' }));
+  await user.click(await screen.findByRole('checkbox', { name: `Select row ${n(1)}` }));
+  await user.click(screen.getByRole('checkbox', { name: `Select row ${n(2)}` }));
 }
 
 async function fillMessageStep(user: ReturnType<typeof userEvent.setup>) {
@@ -107,14 +112,14 @@ describe('bulk reminder wizard', () => {
     const user = userEvent.setup();
     render();
 
-    await screen.findByRole('checkbox', { name: 'Select row 1' });
+    await screen.findByRole('checkbox', { name: `Select row ${n(1)}` });
     // Filters populated a table, but nothing is selected — the filters
     // alone never define the recipient set.
-    expect(screen.getByText('0 of 500 students selected')).toBeTruthy();
+    expect(screen.getByText(`${n(0)} of ${n(500)} students selected`)).toBeTruthy();
     expect(wizardNext().disabled).toBe(true);
 
     await selectBothStudents(user);
-    expect(screen.getByText('2 of 500 students selected')).toBeTruthy();
+    expect(screen.getByText(`${n(2)} of ${n(500)} students selected`)).toBeTruthy();
     expect(wizardNext().disabled).toBe(false);
   });
 
@@ -123,7 +128,7 @@ describe('bulk reminder wizard', () => {
     const user = userEvent.setup();
     render();
 
-    await screen.findByRole('checkbox', { name: 'Select row 1' });
+    await screen.findByRole('checkbox', { name: `Select row ${n(1)}` });
     await selectBothStudents(user);
     await fillMessageStep(user);
     await user.click(wizardNext());
@@ -135,7 +140,7 @@ describe('bulk reminder wizard', () => {
 
     await user.click(screen.getByRole('button', { name: 'Preview recipients' }));
     // MSW's default bulk preview echoes both students back as recipients.
-    await screen.findByText('2 guardian(s) will receive this reminder · 1 skipped');
+    await screen.findByText(`${n(2)} guardian(s) will receive this reminder · ${n(1)} skipped`);
     expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Send reminders' }).disabled).toBe(
       false,
     );
@@ -162,7 +167,7 @@ describe('bulk reminder wizard', () => {
     const user = userEvent.setup();
     render();
 
-    await screen.findByRole('checkbox', { name: 'Select row 1' });
+    await screen.findByRole('checkbox', { name: `Select row ${n(1)}` });
     await selectBothStudents(user);
     await user.click(wizardNext());
     await user.type(screen.getByRole('textbox', { name: 'Batch name' }), 'August dues');
@@ -199,12 +204,12 @@ describe('bulk reminder wizard', () => {
     const user = userEvent.setup();
     render();
 
-    await screen.findByRole('checkbox', { name: 'Select row 1' });
+    await screen.findByRole('checkbox', { name: `Select row ${n(1)}` });
     await selectBothStudents(user);
     await fillMessageStep(user);
     await user.click(wizardNext());
     await user.click(screen.getByRole('button', { name: 'Preview recipients' }));
-    await screen.findByText('2 guardian(s) will receive this reminder · 1 skipped');
+    await screen.findByText(`${n(2)} guardian(s) will receive this reminder · ${n(1)} skipped`);
     await user.click(screen.getByRole('button', { name: 'Send reminders' }));
 
     await screen.findByText('“August dues” is being sent in the background.');
@@ -224,7 +229,7 @@ describe('bulk reminder wizard', () => {
     const user = userEvent.setup();
     render();
 
-    await screen.findByRole('checkbox', { name: 'Select row 1' });
+    await screen.findByRole('checkbox', { name: `Select row ${n(1)}` });
     await selectBothStudents(user);
     await fillMessageStep(user);
     await user.click(wizardNext());
@@ -234,7 +239,7 @@ describe('bulk reminder wizard', () => {
     // keyboard-operable" AC.
     screen.getByRole('button', { name: 'Preview recipients' }).focus();
     await user.keyboard('{Enter}');
-    await screen.findByText('2 guardian(s) will receive this reminder · 1 skipped');
+    await screen.findByText(`${n(2)} guardian(s) will receive this reminder · ${n(1)} skipped`);
     const submit = screen.getByRole<HTMLButtonElement>('button', { name: 'Send reminders' });
     expect(submit.disabled).toBe(false);
     submit.focus();
@@ -259,12 +264,12 @@ describe('bulk reminder wizard', () => {
     const user = userEvent.setup();
     render();
 
-    await screen.findByRole('checkbox', { name: 'Select row 1' });
+    await screen.findByRole('checkbox', { name: `Select row ${n(1)}` });
     await selectBothStudents(user);
     await fillMessageStep(user);
     await user.click(wizardNext());
     await user.click(screen.getByRole('button', { name: 'Preview recipients' }));
-    await screen.findByText('2 guardian(s) will receive this reminder · 1 skipped');
+    await screen.findByText(`${n(2)} guardian(s) will receive this reminder · ${n(1)} skipped`);
     await user.click(screen.getByRole('button', { name: 'Send reminders' }));
 
     await waitFor(() => {
@@ -297,13 +302,13 @@ describe('bulk reminder wizard', () => {
     const user = userEvent.setup();
     render();
 
-    await screen.findByRole('checkbox', { name: 'Select row 1' });
+    await screen.findByRole('checkbox', { name: `Select row ${n(1)}` });
     await selectBothStudents(user);
     await fillMessageStep(user);
     await user.click(wizardNext());
     await user.click(screen.getByRole('button', { name: 'Preview recipients' }));
 
-    await screen.findByText(/\(1 short\)/);
+    await screen.findByText(`(${n(1)} short)`, { exact: false });
     expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Send reminders' }).disabled).toBe(
       true,
     );
@@ -329,17 +334,19 @@ describe('bulk reminder wizard', () => {
     const user = userEvent.setup();
     render();
 
-    await screen.findByRole('checkbox', { name: 'Select row 1' });
+    await screen.findByRole('checkbox', { name: `Select row ${n(1)}` });
     await selectBothStudents(user);
     await fillMessageStep(user);
     await user.click(wizardNext());
     await user.click(screen.getByRole('button', { name: 'Preview recipients' }));
-    await screen.findByText('2 guardian(s) will receive this reminder · 1 skipped');
+    await screen.findByText(`${n(2)} guardian(s) will receive this reminder · ${n(1)} skipped`);
     await user.click(screen.getByRole('button', { name: 'Send reminders' }));
 
     await waitFor(() => {
       expect(
-        screen.getByText('Not enough SMS credit to send: 2 unit(s) needed, only 1 available.'),
+        screen.getByText(
+          `Not enough SMS credit to send: ${n(2)} unit(s) needed, only ${n(1)} available.`,
+        ),
       ).toBeTruthy();
     });
   });
@@ -349,12 +356,12 @@ describe('bulk reminder wizard', () => {
     const user = userEvent.setup();
     const { container } = render();
 
-    await screen.findByRole('checkbox', { name: 'Select row 1' });
+    await screen.findByRole('checkbox', { name: `Select row ${n(1)}` });
     await selectBothStudents(user);
     await fillMessageStep(user);
     await user.click(wizardNext());
     await user.click(screen.getByRole('button', { name: 'Preview recipients' }));
-    await screen.findByText('2 guardian(s) will receive this reminder · 1 skipped');
+    await screen.findByText(`${n(2)} guardian(s) will receive this reminder · ${n(1)} skipped`);
 
     await expect(container).toHaveNoViolations();
   });
