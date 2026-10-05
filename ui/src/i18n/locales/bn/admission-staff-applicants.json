@@ -23,7 +23,6 @@
     "emptyText": "অভিভাবকেরা অনলাইনে আবেদন করলে এখানে দেখা যাবে।"
   },
   "detail": {
-    "tabOverview": "সারসংক্ষেপ",
     "sectionApplicant": "আবেদনকারী",
     "sectionDocuments": "নথিপত্র",
     "sectionHistory": "মূল্যায়নের ইতিহাস",
@@ -36,18 +35,40 @@
     "notProvided": "প্রদান করা হয়নি",
     "noDocuments": "কোনো নথি আপলোড করা হয়নি",
     "noEvaluations": "এখনো কোনো মূল্যায়ন রেকর্ড করা হয়নি",
-    "noteOnly": "নোট",
-    "actionShortlist": "শর্টলিস্ট করুন",
+    "actionShortlist": "বাছাই তালিকায় রাখুন",
     "actionAdmit": "ভর্তি করুন",
     "actionReject": "প্রত্যাখ্যান করুন",
     "rejectTitle": "আবেদনকারী প্রত্যাখ্যান করুন",
     "rejectErrorMessage": "আবেদনকারী প্রত্যাখ্যান করা যায়নি",
     "rejecting": "প্রত্যাখ্যান করা হচ্ছে…",
-    "errorMessage": "আবেদনকারী লোড করা যায়নি"
+    "errorMessage": "আবেদনকারী লোড করা যায়নি",
+    "factIntake": "ভর্তি পর্ব",
+    "factReference": "রেফারেন্স নম্বর",
+    "factApplied": "আবেদনের তারিখ",
+    "actionAddNote": "নোট যোগ করুন",
+    "historySubtitle": "নতুনগুলো আগে",
+    "uploaded": "আপলোড হয়েছে",
+    "genderOptions": {
+      "MALE": "ছেলে",
+      "FEMALE": "মেয়ে",
+      "OTHER": "অন্যান্য"
+    },
+    "documentTypes": {
+      "PHOTO": "ছবি",
+      "BIRTH_CERTIFICATE": "জন্ম সনদ",
+      "TRANSCRIPT": "একাডেমিক ট্রান্সক্রিপ্ট"
+    },
+    "decision": {
+      "NOTE": "নোট",
+      "SHORTLIST": "বাছাই তালিকায় রাখা হয়েছে",
+      "ADMIT": "ভর্তি করা হয়েছে",
+      "REJECT": "প্রত্যাখ্যান করা হয়েছে"
+    },
+    "rejectNotesLabel": "কারণ (না দিলেও চলবে)",
+    "rejectDescription": "{{name}}-এর আবেদন গ্রহণ করা হয়নি বলে জানানো হবে। এটি আর ফেরানো যাবে না।"
   },
   "evaluate": {
-    "noteTitle": "মূল্যায়ন নোট রেকর্ড করুন",
-    "shortlistTitle": "আবেদনকারীকে শর্টলিস্ট করুন",
+    "shortlistTitle": "বাছাই তালিকায় রাখুন",
     "notesLabel": "নোট",
     "errorMessage": "মূল্যায়ন রেকর্ড করা যায়নি",
     "save": "সংরক্ষণ করুন",

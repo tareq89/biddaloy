@@ -18,7 +18,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@biddaloy/ui/components';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { formatPhone } from '@biddaloy/ui/utils';
 import * as React from 'react';
 
 import { useAdmitApplicant } from './hooks/useAdmitApplicant';
@@ -33,6 +34,7 @@ export function AdmitApplicantModal({
   onOpenChange: (open: boolean) => void;
 }) {
   const { t } = useTranslation('admission-staff-applicants');
+  const regionConfig = useRegionConfig();
   const admit = useAdmitApplicant(applicant.id);
   const [admitted, setAdmitted] = React.useState(false);
 
@@ -50,7 +52,7 @@ export function AdmitApplicantModal({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent>
+      <DialogContent size="sm">
         <DialogHeader>
           <DialogTitle>{t('admitModal.title')}</DialogTitle>
         </DialogHeader>
@@ -69,7 +71,7 @@ export function AdmitApplicantModal({
               </div>
               <div className="flex justify-between gap-2">
                 <dt className="text-muted-foreground">{t('admitModal.guardianPhone')}</dt>
-                <dd>{applicant.guardian_phone}</dd>
+                <dd>{formatPhone(applicant.guardian_phone, regionConfig)}</dd>
               </div>
             </dl>
             <p className="text-muted-foreground">{t('admitModal.resolutionNote')}</p>
