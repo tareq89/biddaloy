@@ -27,6 +27,7 @@ function makeSchool(overrides: Partial<School> = {}): School {
     email: 'office@dhaka-model.test',
     name_bn: 'ঢাকা মডেল উচ্চ বিদ্যালয়',
     registration_id: 'EIIN-108234',
+    country_code: 'BD',
     logo_key: 'schools/dhaka-model/logo.png',
     settings: null,
     status: 'ACTIVE',
@@ -88,6 +89,7 @@ describe('round trip', () => {
         phone: '01712345678',
         email: 'office@dhaka-model.test',
         registration_id: 'EIIN-108234',
+        country_code: 'BD',
         settings: { region: { timezone: 'Asia/Dhaka' } },
       } satisfies SchoolRow,
     });
@@ -100,6 +102,7 @@ describe('round trip', () => {
       phone: null,
       email: null,
       registration_id: null,
+      country_code: null,
       settings: null,
     });
 
@@ -114,9 +117,24 @@ describe('round trip', () => {
         phone: null,
         email: null,
         registration_id: null,
+        country_code: null,
         settings: null,
       } satisfies SchoolRow,
     });
+  });
+
+  it('rejects a country_code that is not two capital letters', () => {
+    const cells = { ...toCells(makeSchool()), country_code: 'bangladesh' };
+    const result = schoolTab.fromRow(cells, 2, importCtx);
+    expect(result).toHaveProperty('errors');
+  });
+
+  // A school must not be able to raise its own limits or reopen setup by editing a file.
+  it('exposes no seat_limit, trial_ends_at or onboarding column', () => {
+    const keys = schoolTab.columns.map((c) => c.key);
+    for (const forbidden of ['seat_limit', 'trial_ends_at', 'onboarding']) {
+      expect(keys).not.toContain(forbidden);
+    }
   });
 
   // Business-critical for a Bangla-first product: a school name containing
@@ -307,6 +325,7 @@ describe('diffFields', () => {
       phone: existing.phone,
       email: existing.email,
       registration_id: existing.registration_id,
+      country_code: existing.country_code,
       settings: { communications: { sms: { mimsms: { apiKey: 'attacker-supplied' } } } },
     };
 

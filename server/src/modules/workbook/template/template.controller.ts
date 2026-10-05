@@ -52,10 +52,13 @@ export class TemplateController {
     @CurrentTenant() tenant: { id: string; role: string },
     @Res({ passthrough: true }) res: Response,
   ): Promise<StreamableFile> {
-    const { buffer, lang } = await this.templates.build(tenant.id, query.lang);
+    const { buffer, lang } = await this.templates.build(tenant.id, query.lang, query.variant);
 
     res.setHeader('Content-Type', XLSX_MIME);
-    res.setHeader('Content-Disposition', `attachment; filename="biddaloy-template-${lang}.xlsx"`);
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="biddaloy-template${query.variant === 'starter' ? '-starter' : ''}-${lang}.xlsx"`,
+    );
     res.setHeader('Content-Length', buffer.byteLength);
     return new StreamableFile(buffer);
   }
