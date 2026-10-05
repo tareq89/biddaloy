@@ -16,17 +16,13 @@
     "preferred_medium_not_in_requested_mediums": "পছন্দের মাধ্যম অনুরোধ করা মাধ্যমগুলোর মধ্যে নেই",
     "preferred_medium_has_no_automated_provider": "পছন্দের মাধ্যমে স্বয়ংক্রিয়ভাবে পাঠানো যায় না",
     "guardian_has_no_address_for_preferred_medium": "পছন্দের মাধ্যমের জন্য ফোন বা ইমেইল নথিভুক্ত নেই",
-    "guardian_notifications_disabled": "অভিভাবক নোটিফিকেশন বন্ধ করে রেখেছেন"
+    "guardian_notifications_disabled": "অভিভাবক নোটিফিকেশন বন্ধ করে রেখেছেন",
+    "unknown": "অন্য কারণে বাদ পড়েছে"
   },
   "recipientList": {
     "recipientsTitle": "যারা পাবেন ({{count}})",
     "skippedTitle": "বাদ পড়েছেন ({{count}})",
-    "guardianHeader": "অভিভাবক",
-    "channelHeader": "মাধ্যম",
-    "addressHeader": "ঠিকানা",
     "subjectHeader": "বিষয়",
-    "messageHeader": "যেভাবে বার্তা পাঠানো হবে",
-    "reasonHeader": "বাদ পড়ার কারণ",
     "emptyRecipients": "কেউ এই রিমাইন্ডার পাবেন না — প্রত্যেক অভিভাবক বাদ পড়েছেন।",
     "noneSkipped": "কোনো অভিভাবক বাদ পড়েননি।"
   },
@@ -70,31 +66,28 @@
   },
   "reminders": {
     "title": "ফি রিমাইন্ডার",
-    "description": "একজন শিক্ষার্থীর অভিভাবকদের বকেয়া ফির কথা স্মরণ করিয়ে দিন। কে কে পাবেন তা প্রিভিউ না করা পর্যন্ত কিছুই পাঠানো হয় না।",
+    "description": "একজন শিক্ষার্থীর অভিভাবকদের বকেয়ার কথা মনে করিয়ে দিন।",
     "studentSectionTitle": "শিক্ষার্থী",
     "studentSearchLabel": "শিক্ষার্থী খুঁজুন",
     "studentSearchPlaceholder": "নাম বা রোল নম্বর",
     "studentNoResults": "কোনো শিক্ষার্থী মেলেনি।",
-    "changeStudent": "শিক্ষার্থী পরিবর্তন করুন",
     "balanceLabel": "বকেয়া পরিমাণ",
     "lastReminderLabel": "শেষ রিমাইন্ডার",
     "lastReminderNever": "এখনো কোনো রিমাইন্ডার পাঠানো হয়নি",
-    "lastReminderValue": "{{date}}, {{medium}}-এর মাধ্যমে",
-    "guardiansLabel": "যেসব অভিভাবককে স্মরণ করানো হবে",
+    "lastReminderValue": "{{date}} · {{medium}}",
+    "guardiansLabel": "যাদের মনে করানো হবে",
     "guardianOptionLabel": "{{name}} ({{relationship}})",
-    "guardianPrefers": "পছন্দ {{medium}}",
     "noGuardians": "এই শিক্ষার্থীর কোনো অভিভাবক নথিভুক্ত নেই।",
-    "messageLabel": "বার্তার টেমপ্লেট",
-    "placeholdersLabel": "প্লেসহোল্ডার যোগ করুন",
-    "insertPlaceholder": "{{token}} যোগ করুন",
-    "unknownPlaceholder": "অসমর্থিত প্লেসহোল্ডার {{token}}। শুধু এগুলো সমর্থিত: {{supported}}।",
-    "mediumOverrideLabel": "মাধ্যম পরিবর্তন",
+    "messageLabel": "বার্তা",
+    "placeholdersLabel": "বার্তায় বসান",
+    "insertPlaceholder": "{{token}} বসান",
+    "unknownPlaceholder": "{{token}} চেনা যায়নি। নিচের বোতাম দিয়ে নাম বা টাকা বসান।",
+    "mediumOverrideLabel": "কীভাবে পাঠাবেন",
     "mediumOverrideDefault": "প্রত্যেক অভিভাবকের পছন্দের মাধ্যম ব্যবহার করুন",
     "whatsappHelper": "২৪ ঘণ্টার উত্তর-সীমার বাইরে হোয়াটসঅ্যাপ রিমাইন্ডারে অনুমোদিত টেমপ্লেট লাগবে।",
     "previewAction": "প্রাপকদের প্রিভিউ করুন",
     "previewing": "প্রিভিউ হচ্ছে…",
     "previewStale": "শেষ প্রিভিউয়ের পর ইনপুট বদলেছে — পাঠানোর আগে আবার প্রিভিউ করুন।",
-    "sendAction": "রিমাইন্ডার পাঠান",
     "sending": "পাঠানো হচ্ছে…",
     "sendHint": "বর্তমান ইনপুটের প্রিভিউয়ের পরেই কেবল পাঠানো যায়।",
     "resultTitle": "রিমাইন্ডার পাঠানো হয়েছে",
@@ -102,7 +95,20 @@
     "resultSkippedTitle": "বাদ পড়েছেন ({{count}})",
     "errorMessage": "রিমাইন্ডারটি পাঠানো যায়নি।",
     "previewErrorMessage": "প্রিভিউ আনা যায়নি।",
-    "smsEstimateNote": "টেমপ্লেট থেকে আনুমানিক — পাঠানোর সময় প্লেসহোল্ডার প্রসারিত হয়; সঠিক হিসাবের জন্য প্রিভিউ দেখুন।"
+    "smsEstimateNote": "আনুমানিক — নাম ও টাকা বসার পর সঠিক হিসাব প্রিভিউতে দেখা যাবে।",
+    "guardianContact": "পছন্দ: {{medium}} · {{address}}",
+    "guardianNoAddress": "নম্বর নেই",
+    "messageSectionTitle": "বার্তা",
+    "placeholderHelp": "বাঁকা বন্ধনীর ভেতরের অংশ প্রত্যেক অভিভাবকের জন্য আসল নাম ও টাকায় বদলে যাবে।",
+    "previewAgain": "আবার প্রিভিউ করুন",
+    "previewTitle": "প্রিভিউ",
+    "previewFresh": "হালনাগাদ",
+    "irreversibleNote": "পাঠানো বার্তা আর ফেরত আনা যায় না।",
+    "sendToCount_one": "{{n}} জনকে রিমাইন্ডার পাঠান",
+    "sendToCount_other": "{{n}} জনকে রিমাইন্ডার পাঠান",
+    "previewInvalid": "প্রিভিউ দেখানো যায়নি — শিক্ষার্থী, অভিভাবক ও বার্তা আবার দেখুন।",
+    "sendInvalid": "রিমাইন্ডার পাঠানো যায়নি — অভিভাবক ও বার্তা দেখে আবার প্রিভিউ করুন।",
+    "startAnother": "আরেকজনকে রিমাইন্ডার পাঠান"
   },
   "whatsapp": {
     "templateNameLabel": "টেমপ্লেটের নাম",
@@ -110,7 +116,7 @@
     "templateParamsLabel": "টেমপ্লেট প্যারামিটার (কমা দিয়ে আলাদা)"
   },
   "bulk": {
-    "entryAction": "একসাথে রিমাইন্ডার",
+    "entryAction": "একসাথে অনেককে রিমাইন্ডার",
     "backToSingle": "একক রিমাইন্ডার",
     "title": "একসাথে ফি রিমাইন্ডার",
     "steps": {
@@ -234,5 +240,11 @@
     "batchQueueFailed": "রিমাইন্ডারের দফা সারিবদ্ধ করা ব্যর্থ হয়েছে।",
     "batchCompleted": "রিমাইন্ডারের দফা সম্পন্ন হয়েছে: {{sent}}টি পাঠানো হয়েছে।",
     "batchFailed": "রিমাইন্ডারের দফা ব্যর্থতাসহ সম্পন্ন হয়েছে: {{failed}}টি ব্যর্থ হয়েছে।"
+  },
+  "placeholders": {
+    "student_name": "শিক্ষার্থীর নাম",
+    "guardian_name": "অভিভাবকের নাম",
+    "due_amount": "বকেয়ার পরিমাণ",
+    "due_month": "বকেয়ার মাস"
   }
 }

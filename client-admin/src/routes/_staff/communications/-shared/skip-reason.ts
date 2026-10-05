@@ -2,8 +2,8 @@
  * `SkipReason` (server `reminders.service.ts`) → `communications`
  * namespace i18n key. The snake_case strings are the server's own
  * wire values; anything unrecognised (a future reason this UI predates)
- * falls back to the raw string rather than a broken key — a skipped
- * guardian must never be silently unexplained, per the issue's "skipped
+ * falls back to a plain "skipped for another reason" line — never the raw
+ * wire string, and never silently unexplained, per the issue's "skipped
  * list is as important as recipients" framing.
  */
 const SKIP_REASON_KEYS: Record<string, string> = {
@@ -18,6 +18,6 @@ const SKIP_REASON_KEYS: Record<string, string> = {
   guardian_notifications_disabled: 'skipReasons.guardian_notifications_disabled',
 };
 
-export function skipReasonKey(reason: string): string | undefined {
-  return SKIP_REASON_KEYS[reason];
+export function skipReasonKey(reason: string): string {
+  return SKIP_REASON_KEYS[reason] ?? 'skipReasons.unknown';
 }
