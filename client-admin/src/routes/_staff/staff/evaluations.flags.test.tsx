@@ -34,7 +34,6 @@ describe('evaluations palette flags', () => {
   it.each([
     ['reportIncident=1', 'Report an incident'],
     ['startAcr=1', 'Start an ACR'],
-    ['publishSurvey=1', 'New teacher survey'],
   ])('?%s opens its dialog for ACR_WRITE and clears the flag', async (search, title) => {
     const { router } = mount(search);
     expect(await screen.findByRole('dialog', { name: title }, { timeout: 4000 })).toBeTruthy();
@@ -44,7 +43,7 @@ describe('evaluations palette flags', () => {
   });
 
   it.each(['reportIncident=1', 'startAcr=1', 'publishSurvey=1'])(
-    '?%s opens nothing without ACR_WRITE',
+    '?%s opens nothing without ACR_WRITE and is stripped',
     async (search) => {
       denyWrite.value = true;
       const { router } = mount(search);
@@ -55,4 +54,12 @@ describe('evaluations palette flags', () => {
       expect(screen.queryByRole('dialog')).toBeNull();
     },
   );
+
+  it('?publishSurvey=1 keeps the param and shows the full-page survey form for ACR_WRITE', async () => {
+    const { router } = mount('publishSurvey=1');
+    expect(
+      await screen.findByRole('dialog', { name: 'New teacher survey' }, { timeout: 4000 }),
+    ).toBeTruthy();
+    expect(router.state.location.search).toHaveProperty('publishSurvey');
+  });
 });
