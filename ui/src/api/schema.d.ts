@@ -2894,6 +2894,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/users/me/leave": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Leave this school (staff only). Soft-deletes the caller's membership; the last admin cannot leave. */
+        post: operations["UserController_leaveSchool_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/users/{id}": {
         parameters: {
             query?: never;
@@ -2904,11 +2921,28 @@ export interface paths {
         get: operations["UserController_findOneUser_v1"];
         put?: never;
         post?: never;
-        /** Remove a member's access to this school (deletes the membership, not the account). */
+        /** Remove a member's access to this school (soft-deletes the membership, not the account; the last admin cannot be removed). */
         delete: operations["UserController_removeUser_v1"];
         options?: never;
         head?: never;
         patch: operations["UserController_updateUser_v1"];
+        trace?: never;
+    };
+    "/api/v1/users/{id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Bring a former member (left or removed) back into this school. */
+        post: operations["UserController_restoreUser_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/teachers": {
@@ -7337,6 +7371,11 @@ export interface components {
             tab?: string;
         };
         BulkUploadValidateResultDto: {
+            seats?: {
+                used: number;
+                limit: number | null;
+                new_rows: number;
+            };
             staging_id: string;
             expires_at: string;
             rows_to_create: number;
@@ -8496,6 +8535,8 @@ export interface components {
             role: "SUPER_ADMIN" | "ADMIN" | "ACCOUNTANT" | "TEACHER" | "PARENT" | "STUDENT" | "EXECUTIVE" | "OFFICE_STAFF" | "EXAM_CONTROLLER" | "COMMITTEE" | null;
             /** Format: date-time */
             member_since: string | null;
+            /** Format: date-time */
+            left_at: string | null;
             profile_picture_url: string | null;
             preferences: {
                 [key: string]: unknown;
@@ -19140,6 +19181,7 @@ export interface operations {
                 role?: "SUPER_ADMIN" | "ADMIN" | "ACCOUNTANT" | "TEACHER" | "PARENT" | "STUDENT" | "EXECUTIVE" | "OFFICE_STAFF" | "EXAM_CONTROLLER" | "COMMITTEE";
                 search?: string;
                 status?: "ACTIVE" | "INACTIVE" | "SUSPENDED";
+                membership?: "current" | "former";
                 invitation_status?: "NONE" | "PENDING" | "EXPIRED" | "REVOKED" | "ACTIVATED";
                 designation_id?: string;
                 joined_from?: string;
@@ -19542,6 +19584,35 @@ export interface operations {
             };
         };
     };
+    UserController_leaveSchool_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     UserController_findOneUser_v1: {
         parameters: {
             query?: never;
@@ -19633,6 +19704,37 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["UserResponseDto"];
                 };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    UserController_restoreUser_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
             401: {
