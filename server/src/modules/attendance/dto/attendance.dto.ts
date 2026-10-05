@@ -44,7 +44,15 @@ export class QueryRegisterDto {
   @IsOptional()
   @Type(() => Number)
   @IsInt()
+  @Max(30)
   period_no?: number;
+}
+
+/** Query params for `GET /attendance/sections/:sectionId/periods`. */
+export class QueryPeriodsDto {
+  @IsString()
+  @Matches(DATE_ONLY, { message: 'date must be YYYY-MM-DD' })
+  date: string;
 }
 
 /** One student's mark within a `PUT .../register` payload. */
@@ -79,6 +87,7 @@ export class PutRegisterDto {
 
   @IsOptional()
   @IsInt()
+  @Max(30)
   period_no?: number | null;
 
   /** The `session.version` this write was based on — `0` when no session
@@ -128,6 +137,7 @@ export class FinalizeRegisterDto {
 
   @IsOptional()
   @IsInt()
+  @Max(30)
   period_no?: number | null;
 }
 
@@ -199,6 +209,10 @@ export class RegisterStudentDto {
   @ApiProperty({ type: String, nullable: true }) remarks: string | null;
   @ApiProperty({ enum: AttendanceSource, nullable: true }) source: AttendanceSource | null;
   @ApiProperty() correction_count: number;
+  /** Period registers only, before the first save: `ABSENT` or `LEAVE` when
+   * the day register says so, otherwise `null` (D8). Never persisted. */
+  @ApiProperty({ enum: AttendanceStatus, nullable: true })
+  suggested_status: AttendanceStatus | null;
 }
 
 /** The shape returned by `GET .../register`, `PUT .../register` (200, both
@@ -234,6 +248,20 @@ export class MySectionDto {
   @ApiProperty({ type: String, nullable: true }) class_teacher_name: string | null;
   @ApiProperty() is_working_day: boolean;
   @ApiProperty({ type: MySectionTodayDto, nullable: true }) today: MySectionTodayDto | null;
+}
+
+/** One period of a section's day, `GET /attendance/sections/:sectionId/periods`.
+ * `state: null` means no register exists yet for that period. */
+export class PeriodDto {
+  @ApiProperty() period_no: number;
+  @ApiProperty({ type: String, nullable: true }) name: string | null;
+  @ApiProperty() starts_at: string;
+  @ApiProperty() ends_at: string;
+  @ApiProperty() subject_id: string;
+  @ApiProperty({ type: String, nullable: true }) subject_name: string | null;
+  @ApiProperty({ type: String, isArray: true }) teacher_names: string[];
+  @ApiProperty({ enum: AttendanceSessionState, nullable: true })
+  state: AttendanceSessionState | null;
 }
 
 /** `GET /attendance/records/:recordId/history` — same list shape as

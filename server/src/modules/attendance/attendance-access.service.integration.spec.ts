@@ -4,7 +4,7 @@ import { DataSource } from 'typeorm';
 import { getDataSourceToken } from '@nestjs/typeorm';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
-import { SEED_TENANT_ID } from '@test/constants';
+import { SEED_ACADEMIC_YEAR_ID, SEED_TENANT_ID } from '@test/constants';
 import { AttendanceAccessService } from './attendance-access.service';
 import { School } from '../schools/entities/school.entity';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
@@ -14,6 +14,10 @@ import { Teacher } from '../academics/entities/teacher.entity';
 import { TeacherClassSection } from '../academics/entities/teacher-class-section.entity';
 import { User } from '../users/entities/user.entity';
 import { UserRole } from '@biddaloy/shared';
+import { ConfigModule } from '@nestjs/config';
+import { AttendanceModule } from './attendance.module';
+import { AuthModule } from '../auth/auth.module';
+import { seedPeriodRoutine } from './attendance-periods.fixture';
 
 /**
  * Integration tests for `AttendanceAccessService` — the object-level "may
@@ -46,7 +50,13 @@ describe('AttendanceAccessService (integration)', () => {
   let teacherBId: string;
 
   beforeAll(async () => {
-    const module = await createTestModule(ALL_ENTITIES, [AttendanceAccessService]);
+    // The whole module, not just this provider: the period gate needs the
+    // routine resolver, which AttendanceModule imports from RoutinesModule.
+    const module = await createTestModule(
+      ALL_ENTITIES,
+      [],
+      [ConfigModule.forRoot({ isGlobal: true }), AttendanceModule, AuthModule],
+    );
     service = module.get<AttendanceAccessService>(AttendanceAccessService);
     dataSource = module.get<DataSource>(getDataSourceToken());
 
@@ -261,6 +271,98 @@ describe('AttendanceAccessService (integration)', () => {
       ).map((s) => s.id);
       expect(listed).toContain(sectionA1Id);
       expect(listed).not.toContain(sectionA2Id);
+    });
+  });
+
+  // ---- #1588: period gate (D7, D23) ------------------------------------
+
+  describe('assertCanAccessPeriod', () => {
+    // A fixed past Wednesday inside the fixture year; the same weekday a week
+    // later has the routine slot but no substitution.
+    const DATE = '2026-03-04';
+    const OTHER_DATE = '2026-03-11';
+    let subTeacherUserId: string;
+    let subTeacherId: string;
+
+    async function setup() {
+      const user = await dataSource.getRepository(User).save({
+        email: `sub-${Date.now()}-${Math.random()}@test.com`,
+        full_name: 'Substitute Teacher',
+      });
+      const teacher = await dataSource.getRepository(Teacher).save({
+        user_id: user.id,
+        employee_id: `SUB-${Date.now()}-${Math.floor(Math.random() * 100000)}`,
+        tenant_id: TENANT_A,
+        designations: [],
+      });
+      subTeacherUserId = user.id;
+      subTeacherId = teacher.id;
+      const routine = await seedPeriodRoutine(dataSource, {
+        tenantId: TENANT_A,
+        // The seeded year is the only one covering DATE; a second overlapping year
+        // would make the resolver's year lookup ambiguous.
+        academicYearId: SEED_ACADEMIC_YEAR_ID,
+        sectionId: sectionA1Id,
+        date: DATE,
+        periods: 2,
+        teacherId: teacherAId,
+        createdBy: teacherAUserId,
+      });
+      await routine.substitute(0, subTeacherId); // covers period 1 on DATE only
+    }
+
+    const check = (userId: string, date: string, periodNo: number | null) =>
+      service.assertCanAccessPeriod(
+        UserRole.TEACHER,
+        userId,
+        sectionA1Id,
+        TENANT_A,
+        date,
+        periodNo,
+      );
+
+    it('lets a teacher of the section into any period and the day register', async () => {
+      await setup();
+      await expect(check(teacherAUserId, DATE, 2)).resolves.toBeUndefined();
+      await expect(check(teacherAUserId, DATE, null)).resolves.toBeUndefined();
+    });
+
+    it('403s an unrelated teacher who is not a substitute', async () => {
+      await setup();
+      await expect(check(teacherBUserId, DATE, 1)).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it("lets that date's substitute into the covered period only", async () => {
+      await setup();
+      await expect(check(subTeacherUserId, DATE, 1)).resolves.toBeUndefined();
+      // Another period of the same date.
+      await expect(check(subTeacherUserId, DATE, 2)).rejects.toBeInstanceOf(ForbiddenException);
+      // Another date.
+      await expect(check(subTeacherUserId, OTHER_DATE, 1)).rejects.toBeInstanceOf(
+        ForbiddenException,
+      );
+      // The whole-day register is never reachable by substitution.
+      await expect(check(subTeacherUserId, DATE, null)).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('listAccessiblePeriods shows a substitute only the period they cover', async () => {
+      await setup();
+      const mine = await service.listAccessiblePeriods(
+        UserRole.TEACHER,
+        subTeacherUserId,
+        sectionA1Id,
+        TENANT_A,
+        DATE,
+      );
+      expect(mine.map((p) => p.period_no)).toEqual([1]);
+      const all = await service.listAccessiblePeriods(
+        UserRole.TEACHER,
+        teacherAUserId,
+        sectionA1Id,
+        TENANT_A,
+        DATE,
+      );
+      expect(all.map((p) => p.period_no)).toEqual([1, 2]);
     });
   });
 });

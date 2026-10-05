@@ -1,8 +1,12 @@
 import { Injectable, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, SelectQueryBuilder } from 'typeorm';
+import { In, Repository, SelectQueryBuilder } from 'typeorm';
 import { Permission, UserRole, hasTenantDataScope, roleHasPermission } from '@biddaloy/shared';
 import { ClassSection } from '../academics/entities/class-section.entity';
+import { Teacher } from '../academics/entities/teacher.entity';
+import { PeriodSlot } from '../routines/entities/period-slot.entity';
+import { ResolveRoutineService } from '../routines/resolve-routine.service';
+import { ResolvedPeriod, toPeriods } from './attendance-periods.util';
 
 /** Tenant data scope + ATTENDANCE_READ reaches every section. This service gates
  * both reads and writes (marking, finalizing); the routes add ATTENDANCE_MARK on
@@ -27,6 +31,11 @@ export class AttendanceAccessService {
   constructor(
     @InjectRepository(ClassSection)
     private readonly sectionRepo: Repository<ClassSection>,
+    @InjectRepository(Teacher)
+    private readonly teacherRepo: Repository<Teacher>,
+    @InjectRepository(PeriodSlot)
+    private readonly periodSlotRepo: Repository<PeriodSlot>,
+    private readonly resolveRoutineService: ResolveRoutineService,
   ) {}
 
   /**
@@ -124,5 +133,92 @@ export class AttendanceAccessService {
     }
 
     throw new ForbiddenException('This role cannot access attendance registers');
+  }
+
+  /**
+   * The periods attendance can be taken for in a section on a date — the
+   * routine resolver's slots for that date, cancelled ones dropped, each
+   * numbered by its period slot's sequence (D21). No published routine → [].
+   *
+   * Passing a caller that is neither a routine manager nor a teacher makes the
+   * resolver return PUBLISHED routines only (a DRAFT or REVIEW routine is
+   * never something to take attendance against). Does no access check.
+   */
+  async resolvePeriods(
+    tenantId: string,
+    sectionId: string,
+    date: string,
+  ): Promise<ResolvedPeriod[]> {
+    const slots = await this.resolveRoutineService.resolveRoutine(
+      { section_id: sectionId, from: date, to: date },
+      tenantId,
+      { role: UserRole.STUDENT, userId: '' },
+    );
+    if (slots.length === 0) return [];
+    const periodSlots = await this.periodSlotRepo.find({
+      where: { id: In([...new Set(slots.map((s) => s.period_slot_id))]), tenant_id: tenantId },
+    });
+    return toPeriods(slots, periodSlots);
+  }
+
+  /** The periods of that date's routine this teacher is covering as the
+   * substitute. Empty for any other role. */
+  private async substitutePeriods(
+    role: string,
+    userId: string,
+    sectionId: string,
+    tenantId: string,
+    date: string,
+  ): Promise<ResolvedPeriod[]> {
+    if (role !== UserRole.TEACHER) return [];
+    const teacher = await this.teacherRepo.findOne({
+      where: { user_id: userId, tenant_id: tenantId },
+    });
+    if (!teacher) return [];
+    const periods = await this.resolvePeriods(tenantId, sectionId, date);
+    return periods.filter((p) => p.substitute_teacher_id === teacher.id);
+  }
+
+  /**
+   * Like `assertCanAccessSection`, plus: a teacher who is that date's
+   * substitute for `periodNo` may touch that one period of that one date (D7,
+   * D23). Never the day register (`periodNo` null), another period or another
+   * date. Same 403 message as the section gate — no hint whether it exists.
+   */
+  async assertCanAccessPeriod(
+    role: string,
+    userId: string,
+    sectionId: string,
+    tenantId: string,
+    date: string,
+    periodNo: number | null,
+  ): Promise<void> {
+    try {
+      await this.assertCanAccessSection(role, userId, sectionId, tenantId);
+    } catch (err) {
+      if (!(err instanceof ForbiddenException) || periodNo === null) throw err;
+      const mine = await this.substitutePeriods(role, userId, sectionId, tenantId, date);
+      if (!mine.some((p) => p.period_no === periodNo)) throw err;
+    }
+  }
+
+  /** The periods this caller may see for the section on that date: all of them
+   * with section access, only their own substituted ones otherwise (403 if none). */
+  async listAccessiblePeriods(
+    role: string,
+    userId: string,
+    sectionId: string,
+    tenantId: string,
+    date: string,
+  ): Promise<ResolvedPeriod[]> {
+    try {
+      await this.assertCanAccessSection(role, userId, sectionId, tenantId);
+    } catch (err) {
+      if (!(err instanceof ForbiddenException)) throw err;
+      const mine = await this.substitutePeriods(role, userId, sectionId, tenantId, date);
+      if (mine.length === 0) throw err;
+      return mine;
+    }
+    return this.resolvePeriods(tenantId, sectionId, date);
   }
 }

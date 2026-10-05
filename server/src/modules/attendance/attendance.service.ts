@@ -36,7 +36,14 @@ import {
   policyForShift,
   resolveAttendancePolicy,
 } from './attendance-policy.util';
-import { CorrectRecordDto, PutRegisterDto, RegisterResponseDto } from './dto/attendance.dto';
+import {
+  CorrectRecordDto,
+  PeriodDto,
+  PutRegisterDto,
+  RegisterResponseDto,
+} from './dto/attendance.dto';
+import { Subject } from '../academics/entities/subject.entity';
+import { Teacher } from '../academics/entities/teacher.entity';
 import { AbsenceNoticeService } from './absence-notice.service';
 
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
@@ -96,6 +103,10 @@ export class AttendanceService {
     private readonly sectionRepo: Repository<ClassSection>,
     @InjectRepository(Student)
     private readonly studentRepo: Repository<Student>,
+    @InjectRepository(Subject)
+    private readonly subjectRepo: Repository<Subject>,
+    @InjectRepository(Teacher)
+    private readonly teacherRepo: Repository<Teacher>,
     @InjectDataSource()
     private readonly dataSource: DataSource,
     private readonly attendanceAccessService: AttendanceAccessService,
@@ -257,7 +268,7 @@ export class AttendanceService {
     userId: string;
   }): Promise<RegisterResponseDto> {
     const { sectionId, date, periodNo, tenantId, role, userId } = params;
-    await this.attendanceAccessService.assertCanAccessSection(role, userId, sectionId, tenantId);
+    await this.assertRegisterAccess(role, userId, sectionId, tenantId, date, periodNo);
     return this.loadRegister(this.dataSource.manager, {
       sectionId,
       date,
@@ -282,15 +293,31 @@ export class AttendanceService {
   }): Promise<RegisterResponseDto> {
     const { sectionId, tenantId, role, userId, dto, ip, userAgent } = params;
 
-    // 1. Object-level access.
-    await this.attendanceAccessService.assertCanAccessSection(role, userId, sectionId, tenantId);
+    const periodNo = dto.period_no ?? null;
+
+    // 1. Object-level access (and the period switch, for a period register).
+    await this.assertRegisterAccess(role, userId, sectionId, tenantId, dto.date, periodNo);
 
     // 3. Date sanity.
     if (!DATE_ONLY.test(dto.date)) {
       throw new BadRequestException('date must be YYYY-MM-DD');
     }
 
-    const periodNo = dto.period_no ?? null;
+    // A period register must be one the routine schedules that day; its
+    // subject is snapshotted onto the session when it is first created (D21).
+    let periodSubjectId: string | null = null;
+    if (periodNo !== null) {
+      const period = (
+        await this.attendanceAccessService.resolvePeriods(tenantId, sectionId, dto.date)
+      ).find((p) => p.period_no === periodNo);
+      if (!period) {
+        throw new BadRequestException({
+          message: 'That period is not scheduled for this section on this date',
+          details: { code: 'ATTENDANCE_PERIOD_NOT_SCHEDULED' },
+        });
+      }
+      periodSubjectId = period.subject_id;
+    }
 
     // 8 (part). Duplicate student_id is a 400 (malformed request), checked
     // before anything transactional.
@@ -468,6 +495,8 @@ export class AttendanceService {
             section_id: sectionId,
             date: dto.date,
             period_no: periodNo,
+            // Snapshot, never updated afterwards (D21).
+            subject_id: periodSubjectId,
             source: AttendanceSource.TEACHER,
             state: AttendanceSessionState.DRAFT,
           });
@@ -653,7 +682,7 @@ export class AttendanceService {
     userAgent: string | null;
   }): Promise<RegisterResponseDto> {
     const { sectionId, tenantId, role, userId, date, periodNo, ip, userAgent } = params;
-    await this.attendanceAccessService.assertCanAccessSection(role, userId, sectionId, tenantId);
+    await this.assertRegisterAccess(role, userId, sectionId, tenantId, date, periodNo);
 
     return this.dataSource.transaction(async (manager) => {
       const sessionRepo = manager.getRepository(AttendanceSession);
@@ -738,11 +767,13 @@ export class AttendanceService {
         throw new NotFoundException('Attendance session not found');
       }
 
-      await this.attendanceAccessService.assertCanAccessSection(
+      await this.assertRegisterAccess(
         role,
         userId,
         session.section_id,
         tenantId,
+        session.date,
+        session.period_no,
       );
 
       const settings = await this.schoolsService.getResolvedSettings(tenantId);
@@ -853,8 +884,105 @@ export class AttendanceService {
   }
 
   // ---------------------------------------------------------------------
+  // GET /attendance/sections/:sectionId/periods
+  // ---------------------------------------------------------------------
+
+  async listPeriods(params: {
+    sectionId: string;
+    date: string;
+    tenantId: string;
+    role: string;
+    userId: string;
+  }): Promise<PeriodDto[]> {
+    const { sectionId, date, tenantId, role, userId } = params;
+    if (!(await this.periodAttendanceEnabled(tenantId))) return [];
+    const periods = await this.attendanceAccessService.listAccessiblePeriods(
+      role,
+      userId,
+      sectionId,
+      tenantId,
+      date,
+    );
+    if (periods.length === 0) return [];
+
+    // One query each for subjects, teachers and sessions — not per period.
+    const subjectIds = [...new Set(periods.map((p) => p.subject_id))];
+    const teacherIds = [...new Set(periods.flatMap((p) => p.teacher_ids))];
+    const [subjects, teachers, sessions] = await Promise.all([
+      this.subjectRepo.find({ where: { id: In(subjectIds), tenant_id: tenantId } }),
+      teacherIds.length
+        ? this.teacherRepo.find({
+            where: { id: In(teacherIds), tenant_id: tenantId },
+            relations: ['user'],
+          })
+        : Promise.resolve([] as Teacher[]),
+      this.sessionRepo.find({
+        where: {
+          tenant_id: tenantId,
+          section_id: sectionId,
+          date,
+          period_no: In(periods.map((p) => p.period_no)),
+        },
+      }),
+    ]);
+    const subjectName = new Map(subjects.map((s) => [s.id, s.name_en]));
+    const teacherName = new Map(teachers.map((t) => [t.id, t.user?.full_name ?? '']));
+    const stateByPeriod = new Map(sessions.map((s) => [s.period_no, s.state]));
+
+    return periods.map((p) => ({
+      period_no: p.period_no,
+      name: p.name,
+      starts_at: p.starts_at,
+      ends_at: p.ends_at,
+      subject_id: p.subject_id,
+      subject_name: subjectName.get(p.subject_id) ?? null,
+      teacher_names: p.teacher_ids.map((id) => teacherName.get(id)).filter((n): n is string => !!n),
+      state: stateByPeriod.get(p.period_no) ?? null,
+    }));
+  }
+
+  // ---------------------------------------------------------------------
   // Internals
   // ---------------------------------------------------------------------
+
+  private async periodAttendanceEnabled(tenantId: string): Promise<boolean> {
+    const settings = await this.schoolsService.getResolvedSettings(tenantId);
+    return resolveAttendancePolicy(settings).periodAttendance?.enabled === true;
+  }
+
+  /**
+   * The one access gate for a register route. A period register is refused
+   * outright when the tenant's period switch is off (D18), then checked with
+   * the period gate (section access, or that date's substitute for that
+   * period); the day register keeps the plain section gate.
+   */
+  private async assertRegisterAccess(
+    role: string,
+    userId: string,
+    sectionId: string,
+    tenantId: string,
+    date: string,
+    periodNo: number | null,
+  ): Promise<void> {
+    if (periodNo === null) {
+      await this.attendanceAccessService.assertCanAccessSection(role, userId, sectionId, tenantId);
+      return;
+    }
+    if (!(await this.periodAttendanceEnabled(tenantId))) {
+      throw new ForbiddenException({
+        message: 'Period attendance is not enabled for this school',
+        details: { code: 'ATTENDANCE_PERIOD_DISABLED' },
+      });
+    }
+    await this.attendanceAccessService.assertCanAccessPeriod(
+      role,
+      userId,
+      sectionId,
+      tenantId,
+      date,
+      periodNo,
+    );
+  }
 
   /** See the class docstring for why this is derived rather than a column. */
   private async getCorrectionCounts(
@@ -941,6 +1069,25 @@ export class AttendanceService {
       records.map((r) => r.id),
     );
 
+    // D8: a period register not yet saved suggests ABSENT/LEAVE from that day's
+    // whole-day register. Read-only — nothing is written until the PUT.
+    const suggestedByStudentId = new Map<string, AttendanceStatus>();
+    if (periodNo !== null && !session) {
+      const daySession = await manager.getRepository(AttendanceSession).findOne({
+        where: { tenant_id: tenantId, section_id: sectionId, date, period_no: IsNull() },
+      });
+      if (daySession) {
+        const dayRecords = await manager.getRepository(AttendanceRecord).find({
+          where: { session_id: daySession.id, tenant_id: tenantId },
+        });
+        for (const r of dayRecords) {
+          if (r.status === AttendanceStatus.ABSENT || r.status === AttendanceStatus.LEAVE) {
+            suggestedByStudentId.set(r.student_id, r.status);
+          }
+        }
+      }
+    }
+
     const hasCorrect = roleHasPermission(role, Permission.ATTENDANCE_CORRECT);
     const nonWorkingDay = await this.schoolCalendarService.isNonWorkingDay({
       tenantId,
@@ -1002,6 +1149,7 @@ export class AttendanceService {
           remarks: record?.remarks ?? null,
           source: record?.source ?? null,
           correction_count: record ? (correctionCounts.get(record.id) ?? 0) : 0,
+          suggested_status: suggestedByStudentId.get(s.id) ?? null,
         };
       }),
     };

@@ -29,8 +29,10 @@ import {
   CorrectRecordDto,
   FinalizeRegisterDto,
   MySectionDto,
+  PeriodDto,
   PutRegisterDto,
   QueryMySectionsDto,
+  QueryPeriodsDto,
   QueryRegisterDto,
   RecordHistoryResponseDto,
   RegisterResponseDto,
@@ -101,6 +103,33 @@ export class AttendanceController {
       sectionId,
       date: query.date,
       periodNo: query.period_no ?? null,
+      tenantId: tenant.id,
+      role: tenant.role,
+      userId: user.sub,
+    });
+  }
+
+  // No `@Roles`: the permission matrix would then need a ROLE_NARROWINGS entry
+  // (a file outside this module). The access service fails closed for roles
+  // that may not see sections (PARENT, STUDENT, ...), so nothing leaks.
+  @Get('sections/:sectionId/periods')
+  @RequirePermissions(Permission.ATTENDANCE_READ)
+  @ApiOperation({
+    summary:
+      "A section's scheduled periods for one date, with each period's register state. " +
+      '`[]` when period attendance is off or no routine is published. A substitute teacher ' +
+      'sees only the period they cover.',
+  })
+  @ApiOkResponse({ type: PeriodDto, isArray: true })
+  async listPeriods(
+    @Param('sectionId') sectionId: string,
+    @Query() query: QueryPeriodsDto,
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: { sub: string },
+  ) {
+    return this.attendanceService.listPeriods({
+      sectionId,
+      date: query.date,
       tenantId: tenant.id,
       role: tenant.role,
       userId: user.sub,

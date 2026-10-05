@@ -11,7 +11,8 @@ import { DataSource } from 'typeorm';
 import { getDataSourceToken } from '@nestjs/typeorm';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
-import { SEED_TENANT_ID, SEED_ADMIN_USER_ID } from '@test/constants';
+import { SEED_ACADEMIC_YEAR_ID, SEED_TENANT_ID, SEED_ADMIN_USER_ID } from '@test/constants';
+import { seedPeriodRoutine } from './attendance-periods.fixture';
 import { AttendanceService } from './attendance.service';
 import { AttendanceModule } from './attendance.module';
 import { AuthModule } from '../auth/auth.module';
@@ -29,6 +30,7 @@ import { AuditLog } from '../audit/entities/audit-log.entity';
 import { CalendarEvent } from '../calendar/entities/calendar-event.entity';
 import { CalendarEventClass } from '../calendar/entities/calendar-event-class.entity';
 import { Shift } from '../routines/entities/shift.entity';
+import { RoutineSlot } from '../routines/entities/routine-slot.entity';
 import {
   AttendanceSessionState,
   AttendanceStatus,
@@ -861,6 +863,188 @@ describe('AttendanceService (integration)', () => {
       } finally {
         await dataSource.getRepository(Class).update({ id: classId }, { shift_id: null });
       }
+    });
+  });
+
+  // ---- #1588: period registers ------------------------------------------
+
+  describe('period registers', () => {
+    // A fixed past Wednesday; the routine fixture puts periods 1 and 2 on it.
+    const PDATE = '2026-03-04';
+
+    async function enablePeriods(enabled = true) {
+      await setTenantSettings(TENANT_ID, {
+        weeklyOffDays: [],
+        correctionWindowDays: 2,
+        allowFutureDates: false,
+        periodAttendance: { enabled },
+      });
+    }
+
+    function routine() {
+      return seedPeriodRoutine(dataSource, {
+        tenantId: TENANT_ID,
+        academicYearId: SEED_ACADEMIC_YEAR_ID,
+        sectionId,
+        date: PDATE,
+        periods: 2,
+        createdBy: ADMIN_USER_ID,
+      });
+    }
+
+    const periodGet = (periodNo: number | null, date = PDATE) =>
+      service.getRegister({
+        sectionId,
+        date,
+        periodNo,
+        tenantId: TENANT_ID,
+        role: UserRole.ADMIN,
+        userId: ADMIN_USER_ID,
+      });
+
+    const periodPut = (periodNo: number, over: Record<string, unknown> = {}) =>
+      service.putRegister(
+        putParams({ dto: basePutDto({ date: PDATE, period_no: periodNo, ...over }) }),
+      );
+
+    const disabledCode = { response: { details: { code: 'ATTENDANCE_PERIOD_DISABLED' } } };
+
+    it('switch off: get, put and finalize with a period_no are 403; the day register is unaffected', async () => {
+      await routine();
+      // The switch is off by default (beforeEach settings have no periodAttendance).
+      await expect(periodGet(1)).rejects.toMatchObject(disabledCode);
+      await expect(periodPut(1)).rejects.toMatchObject(disabledCode);
+      await expect(
+        service.finalize({
+          sectionId,
+          tenantId: TENANT_ID,
+          role: UserRole.ADMIN,
+          userId: ADMIN_USER_ID,
+          date: PDATE,
+          periodNo: 1,
+          ip: null,
+          userAgent: null,
+        }),
+      ).rejects.toMatchObject(disabledCode);
+      // No period session was created, and the day register still works.
+      expect(await dataSource.getRepository(AttendanceSession).count()).toBe(0);
+      await expect(
+        service.putRegister(putParams({ dto: basePutDto({ date: PDATE }) })),
+      ).resolves.toBeDefined();
+    });
+
+    it('switch off: correcting a period record is 403, correcting a day record is not', async () => {
+      await routine();
+      await enablePeriods(true);
+      const put = await periodPut(1);
+      const periodRecordId = put.students[0].record_id!;
+      await enablePeriods(false);
+      await expect(
+        service.correctRecord({
+          recordId: periodRecordId,
+          tenantId: TENANT_ID,
+          role: UserRole.ADMIN,
+          userId: ADMIN_USER_ID,
+          dto: { status: AttendanceStatus.LATE, reason: 'fixing it' } as any,
+          ip: null,
+          userAgent: null,
+        }),
+      ).rejects.toMatchObject(disabledCode);
+    });
+
+    it('rejects a period the routine does not schedule that day with 400', async () => {
+      await routine();
+      await enablePeriods();
+      await expect(periodPut(5)).rejects.toMatchObject({
+        response: { details: { code: 'ATTENDANCE_PERIOD_NOT_SCHEDULED' } },
+      });
+      // A date the routine has no slot on.
+      await expect(periodPut(1, { date: '2026-03-05' })).rejects.toMatchObject({
+        response: { details: { code: 'ATTENDANCE_PERIOD_NOT_SCHEDULED' } },
+      });
+    });
+
+    it('snapshots the slot subject onto the session and keeps it when the routine changes', async () => {
+      const r = await routine();
+      await enablePeriods();
+      const first = await periodPut(1);
+      const session = await dataSource
+        .getRepository(AttendanceSession)
+        .findOneByOrFail({ id: first.session.id! });
+      expect(session.subject_id).toBe(r.slots[0].subject.id);
+
+      // The routine slot's subject changes; a later save must not touch the snapshot.
+      const other = r.slots[1].subject;
+      await dataSource
+        .getRepository(RoutineSlot)
+        .update({ id: r.slots[0].routineSlot.id }, { subject_id: other.id });
+      await periodPut(1, { base_version: first.session.version, reason: 'routine change' });
+      const after = await dataSource
+        .getRepository(AttendanceSession)
+        .findOneByOrFail({ id: first.session.id! });
+      expect(after.subject_id).toBe(r.slots[0].subject.id);
+    });
+
+    it('prefills suggested_status from the day register: ABSENT and LEAVE only', async () => {
+      await routine();
+      await enablePeriods();
+      await service.putRegister(
+        putParams({
+          dto: basePutDto({
+            date: PDATE,
+            entries: [
+              { student_id: studentId1, status: AttendanceStatus.ABSENT },
+              { student_id: studentId2, status: AttendanceStatus.LEAVE },
+            ],
+          }),
+        }),
+      );
+      const reg = await periodGet(1);
+      const by = Object.fromEntries(reg.students.map((s) => [s.student_id, s.suggested_status]));
+      expect(by[studentId1]).toBe(AttendanceStatus.ABSENT);
+      expect(by[studentId2]).toBe(AttendanceStatus.LEAVE);
+      // Read-only: reading the period register wrote nothing.
+      expect(reg.session.id).toBeNull();
+      // The day register itself never carries a suggestion.
+      expect((await periodGet(null)).students.every((s) => s.suggested_status === null)).toBe(true);
+    });
+
+    it('a PRESENT or LATE day mark suggests nothing, and no day register means all null', async () => {
+      await routine();
+      await enablePeriods();
+      expect((await periodGet(1)).students.every((s) => s.suggested_status === null)).toBe(true);
+      await service.putRegister(
+        putParams({
+          dto: basePutDto({
+            date: PDATE,
+            entries: [
+              { student_id: studentId1, status: AttendanceStatus.PRESENT },
+              { student_id: studentId2, status: AttendanceStatus.LATE },
+            ],
+          }),
+        }),
+      );
+      expect((await periodGet(1)).students.every((s) => s.suggested_status === null)).toBe(true);
+    });
+
+    it('listPeriods: periods with state, [] when the switch is off', async () => {
+      await routine();
+      const params = {
+        sectionId,
+        date: PDATE,
+        tenantId: TENANT_ID,
+        role: UserRole.ADMIN,
+        userId: ADMIN_USER_ID,
+      };
+      expect(await service.listPeriods(params)).toEqual([]);
+      await enablePeriods();
+      await periodPut(2);
+      const list = await service.listPeriods(params);
+      expect(list.map((p) => [p.period_no, p.state])).toEqual([
+        [1, null],
+        [2, AttendanceSessionState.DRAFT],
+      ]);
+      expect(list[0].subject_name).toMatch(/^Subject /);
     });
   });
 });
