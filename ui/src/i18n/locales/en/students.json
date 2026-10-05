@@ -182,23 +182,35 @@
     "guardians": {
       "columnName": "Name",
       "columnRelationship": "Relationship",
-      "columnContact": "Contact",
-      "primary": "Primary",
-      "emptyMessage": "No guardians on file."
+      "primary": "Primary contact",
+      "emptyMessage": "No guardians on file.",
+      "caption": "Guardians of {{name}}",
+      "columnPhone": "Phone",
+      "columnEmail": "Email",
+      "columnPreferred": "Preferred contact",
+      "cardSubtitle": "{{relationship}} · {{phone}}",
+      "view": "View {{name}}",
+      "emptyExplanation": "Add a guardian by editing the student.",
+      "editHintBefore": "To add or change guardians,",
+      "editHintLink": "edit the student",
+      "editHintAfter": "."
     },
     "communication": {
-      "columnDate": "Date",
+      "columnDate": "Date and time",
       "columnMedium": "Medium",
       "columnRecipient": "Recipient",
       "columnStatus": "Status",
       "emptyMessage": "No messages sent yet.",
-      "errorMessage": "Couldn't load message history."
+      "errorMessage": "Couldn't load message history.",
+      "emptyExplanation": "Reminders and messages you send show up here."
     },
     "activity": {
-      "columnDate": "Date",
+      "columnDate": "Date and time",
       "columnAction": "Action",
       "emptyMessage": "No activity recorded yet.",
-      "errorMessage": "Couldn't load activity."
+      "errorMessage": "Couldn't load activity.",
+      "columnBy": "Done by",
+      "emptyExplanation": "Changes to this student are recorded here."
     },
     "attendanceTab": {
       "monthStepper": {
