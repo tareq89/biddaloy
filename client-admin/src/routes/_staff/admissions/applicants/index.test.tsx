@@ -39,6 +39,9 @@ describe('/admissions/applicants', () => {
       http.get('/api/v1/admission-intakes', () =>
         HttpResponse.json([{ id: 'intake-1', title: 'Class 1 Admission 2026' }]),
       ),
+      http.get('/api/v1/admission-intakes/:id', () =>
+        HttpResponse.json({ id: 'intake-1', title: 'Class 1 Admission 2026' }),
+      ),
     );
   }
 
@@ -124,10 +127,10 @@ describe('/admissions/applicants', () => {
     await screen.findByRole('heading', { name: 'Jane Doe' });
 
     const user = userEvent.setup();
-    await user.click(screen.getByRole('button', { name: 'Shortlist' }));
+    await user.click(screen.getByRole('button', { name: 'Add to shortlist' }));
 
     const dialog = within(await screen.findByRole('dialog'));
-    await user.type(dialog.getByLabelText('Notes'), 'Looks good');
+    await user.type(dialog.getByLabelText('Note'), 'Looks good');
     await user.click(dialog.getByRole('button', { name: 'Save' }));
 
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
@@ -165,9 +168,69 @@ describe('/admissions/applicants', () => {
 
     await screen.findByRole('heading', { name: 'Jane Doe' });
 
-    expect(screen.getByText('PHOTO')).toBeTruthy();
+    expect(screen.getByText('Photo')).toBeTruthy();
+    expect(screen.queryByText('PHOTO')).toBeNull();
     expect(screen.getByText('Looks good on paper.')).toBeTruthy();
-    expect(screen.getByText('SHORTLIST')).toBeTruthy();
+    expect(screen.getByText('Added to shortlist')).toBeTruthy();
+    expect(screen.queryByText('SHORTLIST')).toBeNull();
+    // long date-time, never the ISO date
+    expect(screen.queryByText(/2026-01-02/)).toBeNull();
+    // no one-tab row; facts show the intake title
+    expect(screen.queryByRole('tablist')).toBeNull();
+    expect(await screen.findByText('Class 1 Admission 2026')).toBeTruthy();
+  });
+
+  it('translates gender and formats the guardian phone', async () => {
+    mockIntakes();
+    server.use(
+      http.get('/api/v1/admission/applicants/:id', () =>
+        HttpResponse.json({ applicant: { ...applicant, gender: 'MALE' }, evaluations: [] }),
+      ),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/admissions/applicants/applicant-1'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    await screen.findByRole('heading', { name: 'Jane Doe' });
+    expect(screen.getByText('Boy')).toBeTruthy();
+    expect(screen.queryByText('MALE')).toBeNull();
+    expect(screen.getByText('01700-000000')).toBeTruthy();
+  });
+
+  it('records a note-only evaluation from the More menu (no decision sent)', async () => {
+    mockIntakes();
+    let body: { notes: string; decision?: string } | undefined;
+    server.use(
+      http.get('/api/v1/admission/applicants/:id', () =>
+        HttpResponse.json({ applicant, evaluations: [] }),
+      ),
+      http.post('/api/v1/admission/applicants/:id/evaluate', async ({ request }) => {
+        body = (await request.json()) as { notes: string; decision?: string };
+        return HttpResponse.json(applicant);
+      }),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/admissions/applicants/applicant-1'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    await screen.findByRole('heading', { name: 'Jane Doe' });
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'More actions' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Add note' }));
+
+    const dialog = within(await screen.findByRole('dialog'));
+    await user.type(dialog.getByLabelText('Note'), 'Call the guardian');
+    await user.click(dialog.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(body).toEqual({ notes: 'Call the guardian' }));
   });
 
   it('hides Shortlist but still shows Admit for an already-SHORTLISTED applicant', async () => {
@@ -188,7 +251,7 @@ describe('/admissions/applicants', () => {
 
     await screen.findByRole('heading', { name: 'Jane Doe' });
 
-    expect(screen.queryByRole('button', { name: 'Shortlist' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Add to shortlist' })).toBeNull();
     expect(screen.getByRole('button', { name: 'Admit' })).toBeTruthy();
   });
 
@@ -223,7 +286,7 @@ describe('/admissions/applicants', () => {
     // Guardian details shown pre-commit — the agreed substitute for a true
     // existing/new preview, since no server endpoint answers that ahead of time.
     expect(dialog.getByText('John Doe')).toBeTruthy();
-    expect(dialog.getByText('01700000000')).toBeTruthy();
+    expect(dialog.getByText('01700-000000')).toBeTruthy();
     await user.click(dialog.getByRole('button', { name: 'Admit' }));
 
     await waitFor(() => expect(admitCalls).toBe(1));
@@ -261,10 +324,14 @@ describe('/admissions/applicants', () => {
     await screen.findByRole('heading', { name: 'Jane Doe' });
 
     const user = userEvent.setup();
-    await user.click(screen.getByRole('button', { name: 'Reject' }));
+    await user.click(screen.getByRole('button', { name: 'More actions' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Reject' }));
 
     const dialog = within(await screen.findByRole('dialog'));
-    await user.type(dialog.getByLabelText('Notes'), 'No seats');
+    await user.type(dialog.getByLabelText('Reason (optional)'), 'No seats');
+    expect(dialog.getByRole('button', { name: 'Reject' }).getAttribute('data-variant')).toBe(
+      'danger',
+    );
     await user.click(dialog.getByRole('button', { name: 'Reject' }));
 
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
