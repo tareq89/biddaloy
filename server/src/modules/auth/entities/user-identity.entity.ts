@@ -7,12 +7,13 @@ import {
   JoinColumn,
   Unique,
 } from 'typeorm';
+import { SocialProvider } from '@biddaloy/shared';
 import { User } from '../../users/entities/user.entity';
 
 /**
  * A social sign-in (Google / Facebook) linked to a user [13.1.2].
- * Platform-level like `User`: no `tenant_id`. `provider` is a plain string
- * until the shared provider enum lands (#1612).
+ * Platform-level like `User`: no `tenant_id`. The column stays varchar;
+ * `SocialProvider` (shared) types it.
  */
 @Entity('user_identities')
 @Unique(['provider', 'subject'])
@@ -29,7 +30,7 @@ export class UserIdentity {
   user_id: string;
 
   @Column({ type: 'varchar', length: 20 })
-  provider: string;
+  provider: SocialProvider;
 
   @Column({ type: 'varchar', length: 255 })
   subject: string;
