@@ -294,7 +294,7 @@ describe('/staff/$userId', () => {
       accessToken: fakeToken('me'),
     });
 
-    await screen.findAllByText('Own Account');
+    expect(await screen.findAllByText('Own Account')).toHaveLength(2);
     expect(screen.queryByRole('button', { name: 'Reset password' })).toBeNull();
   });
 
@@ -389,7 +389,7 @@ describe('/staff/$userId', () => {
       locale: 'en',
     });
 
-    await screen.findAllByText('Abdul Karim');
+    expect(await screen.findAllByText('Abdul Karim')).toHaveLength(2);
     await expect(container).toHaveNoViolations();
   });
 });

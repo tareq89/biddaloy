@@ -36,7 +36,7 @@ describe('/invoices/$invoiceId', () => {
       locale: 'en',
     });
 
-    expect(await screen.findAllByText('INV-00000002')).not.toHaveLength(0);
+    expect(await screen.findAllByText('INV-00000002')).toHaveLength(2);
     expect(screen.getByText(invoice.student.full_name)).toBeTruthy();
     expect(screen.getByText('Paid')).toBeTruthy();
   });
@@ -131,7 +131,7 @@ describe('/invoices/$invoiceId', () => {
       locale: 'en',
     });
 
-    await screen.findAllByText(invoice.invoice_number);
+    expect(await screen.findAllByText(invoice.invoice_number)).toHaveLength(2);
     await expect(container).toHaveNoViolations();
   });
 
@@ -164,7 +164,7 @@ describe('/invoices/$invoiceId', () => {
     });
 
     const user = userEvent.setup();
-    await screen.findAllByText(invoice.invoice_number);
+    expect(await screen.findAllByText(invoice.invoice_number)).toHaveLength(2);
     await user.click(screen.getByRole('radio', { name: 'POS 58mm' }));
     first.unmount();
 
