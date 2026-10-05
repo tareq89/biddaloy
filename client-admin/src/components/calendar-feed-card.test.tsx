@@ -1,7 +1,7 @@
 import '@biddaloy/ui/test';
 
 import { cleanupTestState, renderWithProviders, server } from '@biddaloy/ui/test';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -78,7 +78,12 @@ describe('CalendarFeedCard', () => {
 
     await screen.findByLabelText('Your personal subscribe link');
     await user.click(screen.getByRole('button', { name: 'Regenerate link' }));
-    await user.click(await screen.findByRole('button', { name: 'Regenerate' }));
+    // Asks first: the link only changes once confirmed.
+    const confirm = await screen.findByRole('alertdialog');
+    expect(screen.getByLabelText<HTMLInputElement>('Your personal subscribe link').value).toBe(
+      FEED_URL,
+    );
+    await user.click(within(confirm).getByRole('button', { name: 'Regenerate' }));
 
     await waitFor(async () => {
       const input = await screen.findByLabelText<HTMLInputElement>('Your personal subscribe link');
@@ -86,7 +91,7 @@ describe('CalendarFeedCard', () => {
     });
   });
 
-  it('shows a MutationErrorMessage when regenerate fails', async () => {
+  it('shows a translated alert when regenerate fails', async () => {
     server.use(
       http.get('/api/v1/calendar/feed', () => HttpResponse.json({ url: FEED_URL })),
       http.post('/api/v1/calendar/feed/regenerate', () =>
@@ -104,7 +109,8 @@ describe('CalendarFeedCard', () => {
     await user.click(screen.getByRole('button', { name: 'Regenerate link' }));
     await user.click(await screen.findByRole('button', { name: 'Regenerate' }));
 
-    expect(await screen.findByRole('alert')).toBeTruthy();
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toBe("Couldn't regenerate the link. Try again.");
   });
 
   it('shows an error state and lets the user retry when the feed fails to load', async () => {

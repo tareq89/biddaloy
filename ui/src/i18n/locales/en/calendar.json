@@ -68,9 +68,12 @@
   "governmentHolidaysDialog": {
     "title": "Government holidays",
     "description": "Suggested holidays for this year, from the published national calendar.",
-    "add": "Add selected",
     "alreadyAdded": "Already added",
-    "empty": "No suggested holidays for this year yet."
+    "empty": "No suggested holidays for this year yet.",
+    "addCount_one": "Add {{n}} holiday",
+    "addCount_other": "Add {{n}} holidays",
+    "emptyTitle": "No suggested holidays",
+    "addFailed": "Couldn't add the holidays. Try again."
   },
   "upcomingPanel": {
     "title": "Upcoming",

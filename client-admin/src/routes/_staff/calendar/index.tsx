@@ -383,11 +383,15 @@ function CalendarPage() {
         <GovernmentHolidaysDialog
           open={search.panel === 'holidays'}
           onOpenChange={(open) => {
-            if (!open) setSearch({ panel: undefined });
+            if (!open) {
+              addPublicHolidays.reset();
+              setSearch({ panel: undefined });
+            }
           }}
           suggestions={suggestionsQuery.data ?? []}
           existingEvents={yearHolidaysQuery.data?.data ?? []}
           isPending={addPublicHolidays.isPending}
+          error={addPublicHolidays.error}
           onAdd={(entryIds) =>
             addPublicHolidays.mutate(entryIds, {
               onSuccess: () => setSearch({ panel: undefined }),
@@ -399,7 +403,10 @@ function CalendarPage() {
       {canManage && (
         <CloneDialog
           open={cloneOpen}
-          onOpenChange={setCloneOpen}
+          onOpenChange={(next) => {
+            if (!next) cloneMutation.reset();
+            setCloneOpen(next);
+          }}
           academicYears={academicYearsQuery.data?.data ?? []}
           isPending={cloneMutation.isPending}
           error={cloneMutation.error}
