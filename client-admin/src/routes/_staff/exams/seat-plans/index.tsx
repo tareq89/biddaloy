@@ -152,12 +152,13 @@ function SeatPlansListPage() {
           icon: <Armchair aria-hidden className="size-6" />,
           title: t('list.emptyTitle'),
           explanation: t('list.emptyText'),
-          ...(canManage
-            ? { action: { label: t('list.generateButton'), onClick: () => setGenerateOpen(true) } }
-            : {}),
         }}
         announceResults={(count, total) =>
-          t('list.announceResults', { visible: count, total, count: total })
+          t('list.announceResults', {
+            visible: formatNumber(count, config),
+            total: formatNumber(total, config),
+            count: total,
+          })
         }
       />
 

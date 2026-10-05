@@ -2,8 +2,8 @@
   "label": "Start from an exam structure (optional)",
   "none": "No exam structure",
   "toast": {
-    "created_one": "Exam created with {{count}} part",
-    "created_other": "Exam created with {{count}} parts",
+    "created_one": "Exam created with {{n}} part",
+    "created_other": "Exam created with {{n}} parts",
     "noRows": "Exam created — the structure had nothing for this class's subjects. Add the parts yourself."
   }
 }

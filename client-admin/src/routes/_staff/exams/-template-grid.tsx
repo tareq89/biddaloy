@@ -4,7 +4,7 @@
  * part `name · type · full · pass`. Editing model cloned from
  * `grading-scales/-band-editor.tsx`: Tab walks cells in DOM order, Enter in a
  * block's last cell appends a row (focus lands on its name), and Esc inside a
- * text field discards unsaved edits. The draft lives here and spans every
+ * text field just leaves it (Discard is a header control). The draft lives here and spans every
  * class; the page header owns Save / Discard through the `ref` handle, and
  * Save sends the WHOLE row set (the server replaces all rows).
  *
@@ -40,7 +40,7 @@ import { formatNumber, renderDigits, toLatinDigits } from '@biddaloy/ui/utils';
 import { CircleAlert, CircleMinus, FileStack, Plus } from 'lucide-react';
 import * as React from 'react';
 
-import type { ExamTemplateDetail, ExamTemplateRowInput } from './use-exam-templates';
+import type { ExamTemplateDetail, ExamTemplateRowInput } from './-use-exam-templates';
 
 type ComponentKind = ExamTemplateRowInput['components'][number]['kind'];
 
@@ -294,14 +294,14 @@ export function TemplateGrid({
   function onKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
     // Only plain text fields in the grid itself (not the add-class dialog,
     // which is portalled): an open Select handles its own Esc.
+    // Esc never throws the whole draft away silently: Discard (header) does that, with a
+    // visible control. Esc just leaves the field.
     if (
       event.key === 'Escape' &&
-      dirty &&
       event.target instanceof HTMLInputElement &&
       rootRef.current?.contains(event.target)
     ) {
-      event.preventDefault();
-      discard();
+      event.target.blur();
     }
   }
 
@@ -390,7 +390,7 @@ export function TemplateGrid({
         <TabsContent value={String(active)} className="mt-4 flex flex-col gap-6">
           <p className="text-text-secondary">
             {t('grid.intro', {
-              count: formatNumber(gradeBlocks.length, config),
+              n: formatNumber(gradeBlocks.length, config),
               grade: formatNumber(active, config),
             })}
           </p>
@@ -418,7 +418,7 @@ export function TemplateGrid({
                     <p className="text-caption text-text-secondary">
                       {t('grid.subjectCaption', {
                         code: block.subjectCode,
-                        count: formatNumber(block.components.length, config),
+                        n: formatNumber(block.components.length, config),
                         marks: formatNumber(total, config),
                       })}
                     </p>
@@ -479,7 +479,7 @@ export function TemplateGrid({
                           />
                           {code && code.startsWith('name') && (
                             <p role="alert" className="text-sm text-destructive">
-                              {t(`grid.error.${code}`, { max: NAME_MAX })}
+                              {t(`grid.error.${code}`, { max: formatNumber(NAME_MAX, config) })}
                             </p>
                           )}
                         </div>

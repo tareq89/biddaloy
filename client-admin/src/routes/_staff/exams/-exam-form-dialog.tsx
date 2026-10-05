@@ -29,11 +29,12 @@ import {
   toast,
 } from '@biddaloy/ui/components';
 import { useAcademicYears, useClasses, useCreateExam, useUpdateExam } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { formatNumber } from '@biddaloy/ui/utils';
 import { useQuery } from '@tanstack/react-query';
 import * as React from 'react';
 
-import { examTemplatesQueryOptions } from './use-exam-templates';
+import { examTemplatesQueryOptions } from './-use-exam-templates';
 
 export interface ExamFormInitialValues {
   name: string;
@@ -83,6 +84,7 @@ export function ExamFormDialog({
   onSaved,
 }: ExamFormDialogProps) {
   const { t } = useTranslation('exams');
+  const config = useRegionConfig();
   const { t: tt } = useTranslation('examsTemplateField');
   const academicYearsQuery = useAcademicYears({ limit: 100 });
   const createExam = useCreateExam();
@@ -149,7 +151,7 @@ export function ExamFormDialog({
             if (fromTemplate) {
               // `POST /exams` returns the Exam plus `components_created`.
               const count = (exam as { components_created?: number }).components_created ?? 0;
-              if (count > 0) toast.success(tt('toast.created', { count }));
+              if (count > 0) toast.success(tt('toast.created', { count, n: formatNumber(count, config) }));
               else toast.info(tt('toast.noRows'));
             }
             onSaved();

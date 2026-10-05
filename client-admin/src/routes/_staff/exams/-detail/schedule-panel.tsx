@@ -10,6 +10,7 @@
 import { Permission } from '@biddaloy/shared';
 import {
   Button,
+  ConfirmDialog,
   DataTable,
   DatePicker,
   Input,
@@ -62,10 +63,12 @@ function Cell({ children }: { children: React.ReactNode }) {
 /** Venue is the one free-text cell; it keeps its own edit state. */
 function VenueCell({
   row,
+  label,
   canManage,
   onSave,
 }: {
   row: ExamScheduleRow;
+  label: string;
   canManage: boolean;
   onSave: (venue: string | null) => void;
 }) {
@@ -112,6 +115,7 @@ function VenueCell({
         setEditing(true);
       }}
       disabled={!canManage}
+      aria-label={`${row.venue ?? '—'}, ${label}`}
     >
       {row.venue ?? '—'}
     </button>
@@ -128,6 +132,7 @@ export function SchedulePanel({ examId, classId, academicYearId }: SchedulePanel
   const updateSchedule = useUpdateExamSchedule(examId);
   const deleteSchedule = useDeleteExamSchedule(examId);
 
+  const [pendingRemove, setPendingRemove] = React.useState<ExamScheduleRow | null>(null);
   const [addSubjectId, setAddSubjectId] = React.useState<string | undefined>(undefined);
   const [addDate, setAddDate] = React.useState<Date | undefined>(() => new Date());
   const [addStart, setAddStart] = React.useState('09:00');
@@ -197,6 +202,12 @@ export function SchedulePanel({ examId, classId, academicYearId }: SchedulePanel
         />
       )}
 
+      {(updateSchedule.isError || createSchedule.isError) && (
+        <p role="alert" className="text-sm text-destructive">
+          {t('schedulePanel.saveError')}
+        </p>
+      )}
+
       {!scheduleQuery.isLoading && !scheduleQuery.isError && (
         // ponytail: DataTable's "Total n" footer stays; add a footer slot only if it ever clutters.
         <DataTable
@@ -230,13 +241,13 @@ export function SchedulePanel({ examId, classId, academicYearId }: SchedulePanel
               header: t('schedulePanel.columnDate'),
               accessorFn: (item: Item) => (
                 <Cell>
-                <DatePicker
-                  config={config}
-                  value={parseDate(item.row.date.slice(0, 10))}
-                  onValueChange={(date) => date && save(item.row.id, { date: toIsoDate(date) })}
-                  disabled={!canManage}
-                  aria-label={cellLabel(item, t('schedulePanel.columnDate'))}
-                />
+                  <DatePicker
+                    config={config}
+                    value={parseDate(item.row.date.slice(0, 10))}
+                    onValueChange={(date) => date && save(item.row.id, { date: toIsoDate(date) })}
+                    disabled={!canManage}
+                    aria-label={cellLabel(item, t('schedulePanel.columnDate'))}
+                  />
                 </Cell>
               ),
             },
@@ -245,13 +256,13 @@ export function SchedulePanel({ examId, classId, academicYearId }: SchedulePanel
               header: t('schedulePanel.columnStartsAt'),
               accessorFn: (item: Item) => (
                 <Cell>
-                <TimeInput
-                  value={hhmm(item.row.starts_at)}
-                  onValueChange={(value) => save(item.row.id, { starts_at: value })}
-                  stepMinutes={15}
-                  disabled={!canManage}
-                  aria-label={cellLabel(item, t('schedulePanel.columnStartsAt'))}
-                />
+                  <TimeInput
+                    value={hhmm(item.row.starts_at)}
+                    onValueChange={(value) => save(item.row.id, { starts_at: value })}
+                    stepMinutes={15}
+                    disabled={!canManage}
+                    aria-label={cellLabel(item, t('schedulePanel.columnStartsAt'))}
+                  />
                 </Cell>
               ),
             },
@@ -260,13 +271,13 @@ export function SchedulePanel({ examId, classId, academicYearId }: SchedulePanel
               header: t('schedulePanel.columnEndsAt'),
               accessorFn: (item: Item) => (
                 <Cell>
-                <TimeInput
-                  value={hhmm(item.row.ends_at)}
-                  onValueChange={(value) => save(item.row.id, { ends_at: value })}
-                  stepMinutes={15}
-                  disabled={!canManage}
-                  aria-label={cellLabel(item, t('schedulePanel.columnEndsAt'))}
-                />
+                  <TimeInput
+                    value={hhmm(item.row.ends_at)}
+                    onValueChange={(value) => save(item.row.id, { ends_at: value })}
+                    stepMinutes={15}
+                    disabled={!canManage}
+                    aria-label={cellLabel(item, t('schedulePanel.columnEndsAt'))}
+                  />
                 </Cell>
               ),
             },
@@ -277,6 +288,7 @@ export function SchedulePanel({ examId, classId, academicYearId }: SchedulePanel
                 <Cell>
                   <VenueCell
                     row={item.row}
+                    label={cellLabel(item, t('schedulePanel.columnVenue'))}
                     canManage={canManage}
                     onSave={(venue) => save(item.row.id, { venue })}
                   />
@@ -289,7 +301,7 @@ export function SchedulePanel({ examId, classId, academicYearId }: SchedulePanel
               intent: 'remove',
               label: t('schedulePanel.remove'),
               allowed: canManage,
-              onClick: () => deleteSchedule.mutate(item.row.id),
+              onClick: () => setPendingRemove(item.row),
             },
           ]}
           data={rows}
@@ -365,6 +377,26 @@ export function SchedulePanel({ examId, classId, academicYearId }: SchedulePanel
           </div>
         </form>
       )}
+
+      <ConfirmDialog
+        open={pendingRemove !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingRemove(null);
+            deleteSchedule.reset();
+          }
+        }}
+        title={t('schedulePanel.removeTitle')}
+        description={`${t('schedulePanel.removeDescription', {
+          subject: pendingRemove ? subjectName(pendingRemove) : '',
+        })}${deleteSchedule.isError ? ` ${t('schedulePanel.removeError')}` : ''}`}
+        confirmLabel={t('schedulePanel.removeConfirm')}
+        busy={deleteSchedule.isPending}
+        onConfirm={() =>
+          pendingRemove &&
+          deleteSchedule.mutate(pendingRemove.id, { onSuccess: () => setPendingRemove(null) })
+        }
+      />
     </div>
   );
 }

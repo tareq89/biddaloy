@@ -18,7 +18,7 @@ import {
   type ExamTemplateSummary,
   useDeleteExamTemplate,
   useExamTemplates,
-} from './use-exam-templates';
+} from './-use-exam-templates';
 
 export interface TemplatesListProps {
   /** Renders a template's name cell — the route passes a `<Link>` to the detail. */
@@ -113,7 +113,6 @@ export function TemplatesList({ renderName, onCreated }: TemplatesListProps) {
           icon: <FileStack aria-hidden className="size-6" />,
           title: t('list.emptyTitle'),
           explanation: t('list.emptyText'),
-          action: { label: t('list.add'), onClick: () => setCreateOpen(true) },
         }}
         announceResults={(count, total) =>
           t('list.announceResults', { visible: count, total, count: total })
