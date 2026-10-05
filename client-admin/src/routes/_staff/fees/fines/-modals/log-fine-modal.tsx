@@ -7,21 +7,12 @@
  * file's path in the ticket body was wrong.
  */
 import { FeeType } from '@biddaloy/shared';
-import {
-  ApiError,
-  captureNotificationTenant,
-  notifyOutcome,
-  RateLimitedError,
-} from '@biddaloy/ui/api';
+import { captureNotificationTenant, notifyOutcome } from '@biddaloy/ui/api';
 import {
   Button,
   Checkbox,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
+  ConfirmDialog,
+  DatePicker,
   Input,
   MoneyInput,
   Select,
@@ -41,10 +32,16 @@ import {
   type AcademicYear,
 } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
-import { minorUnitsToDecimalString, serverAmountToMinorUnits } from '@biddaloy/ui/utils';
+import { FullPageShell } from '@biddaloy/ui/shells';
+import {
+  minorUnitsToDecimalString,
+  parseDate,
+  serverAmountToMinorUnits,
+  toIsoDate,
+} from '@biddaloy/ui/utils';
 import { useQueries } from '@tanstack/react-query';
 import type { TFunction } from 'i18next';
-import { X } from 'lucide-react';
+import { CircleAlert, X } from 'lucide-react';
 import * as React from 'react';
 
 const REASON_MIN_LENGTH = 3;
@@ -70,9 +67,8 @@ function todayDateInputValue(): string {
   ).padStart(2, '0')}`;
 }
 
-function describeSubmitError(error: unknown, t: TFunction<'fines'>): string {
-  if (error instanceof RateLimitedError) return t('logForm.errorMessage');
-  if (error instanceof ApiError) return error.message;
+/** Never the server's text (D9) — always the translated sentence. */
+function describeSubmitError(t: TFunction<'fines'>): string {
   return t('logForm.errorMessage');
 }
 
@@ -89,6 +85,7 @@ export function LogFineModal({ open, onOpenChange, prefillStudentIds }: LogFineM
   const [note, setNote] = React.useState('');
   const [incidentDate, setIncidentDate] = React.useState(todayDateInputValue());
   const [notifyFamilies, setNotifyFamilies] = React.useState(true);
+  const [confirmDiscard, setConfirmDiscard] = React.useState(false);
 
   const yearsQuery = useAcademicYears();
   const academicYears = yearsQuery.data?.data ?? [];
@@ -190,8 +187,7 @@ export function LogFineModal({ open, onOpenChange, prefillStudentIds }: LogFineM
     incidentDate !== '' &&
     !logFine.isPending;
 
-  function handleSubmit(event: React.FormEvent) {
-    event.preventDefault();
+  function submit() {
     if (!canSubmit) return;
 
     const notifyTenantId = captureNotificationTenant();
@@ -219,65 +215,104 @@ export function LogFineModal({ open, onOpenChange, prefillStudentIds }: LogFineM
     );
   }
 
+  // A request in flight must not be abandoned by Esc / X / Cancel.
+  function requestClose() {
+    if (logFine.isPending) return;
+    resetAndClose();
+  }
+
+  function requestCancel() {
+    if (logFine.isPending) return;
+    if (selected.length > 0 || note !== '') setConfirmDiscard(true);
+    else resetAndClose();
+  }
+
+  if (!open) return null;
+
+  const cardClass = 'rounded-lg border border-border-subtle bg-surface p-4 shadow-e1 md:p-5';
+
   return (
-    <Dialog open={open} onOpenChange={(next) => (next ? onOpenChange(true) : resetAndClose())}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle>{t('logForm.title')}</DialogTitle>
-          <DialogDescription>{t('logForm.notePlaceholder')}</DialogDescription>
-        </DialogHeader>
-
-        <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
-          <div className="flex flex-col gap-2">
-            <span className="text-sm font-medium">{t('logForm.studentsLabel')}</span>
-            <div className="flex flex-wrap gap-2">
-              {selected.map((student) => (
-                <span
-                  key={student.id}
-                  className="flex items-center gap-1 rounded-full border border-border bg-accent px-3 py-1 text-sm"
+    <FullPageShell
+      title={t('logForm.title')}
+      onClose={requestClose}
+      dirty={selected.length > 0 || note !== ''}
+      primary={{
+        label: logFine.isPending ? t('logForm.saving') : t('logForm.save'),
+        onClick: submit,
+        busy: logFine.isPending,
+        disabled: !canSubmit,
+      }}
+      secondary={{ label: t('actions.cancel', { ns: 'common' }), onClick: requestCancel }}
+    >
+      <section aria-labelledby="log-fine-students" className={cardClass}>
+        <h2 id="log-fine-students" className="text-h3">
+          {t('logForm.studentsLabel')}
+        </h2>
+        {selected.length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {selected.map((student) => (
+              <span
+                key={student.id}
+                className="inline-flex h-7 items-center gap-1 rounded-full bg-secondary ps-3 pe-1 text-label text-secondary-foreground"
+              >
+                {student.full_name || '—'}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  iconOnly
+                  aria-label={t('logForm.removeStudent', { name: student.full_name || '—' })}
+                  onClick={() => removeStudent(student.id)}
                 >
-                  {student.full_name || student.id}
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    iconOnly
-                    aria-label={`Remove ${student.full_name || student.id}`}
-                    onClick={() => removeStudent(student.id)}
-                  >
-                    <X aria-hidden="true" />
-                  </Button>
-                </span>
-              ))}
-            </div>
-
-            <Input
-              aria-label={t('logForm.studentsLabel')}
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              disabled={selected.length >= MAX_STUDENTS}
-            />
-            {debouncedSearch.trim() !== '' && (
-              <ul className="flex max-h-40 flex-col gap-1 overflow-y-auto" aria-live="polite">
-                {searchQuery.data?.data.map((result) => (
-                  <li key={result.id}>
-                    <button
-                      type="button"
-                      className="flex w-full items-center justify-between gap-2 rounded-md border border-border px-3 py-2 text-start text-sm hover:bg-accent"
-                      onClick={() => addStudent({ id: result.id, full_name: result.full_name })}
-                    >
-                      {result.full_name}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
+                  <X aria-hidden="true" />
+                </Button>
+              </span>
+            ))}
           </div>
+        )}
 
+        <div className="mt-3 flex flex-col gap-1.5">
+          <label htmlFor="log-fine-search" className="text-label">
+            {t('logForm.studentsLabel')}
+          </label>
+          <Input
+            id="log-fine-search"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            disabled={selected.length >= MAX_STUDENTS}
+          />
+        </div>
+        {debouncedSearch.trim() !== '' && (searchQuery.data?.data.length ?? 0) > 0 && (
+          <ul
+            className="mt-3 divide-y divide-border-subtle rounded-lg border border-border-subtle"
+            aria-live="polite"
+          >
+            {searchQuery.data?.data.map((result) => (
+              <li key={result.id}>
+                <button
+                  type="button"
+                  className="flex min-h-11 w-full items-center px-3 text-start hover:bg-muted"
+                  onClick={() => addStudent({ id: result.id, full_name: result.full_name })}
+                >
+                  {result.full_name}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section aria-labelledby="log-fine-details" className={cardClass}>
+        <h2 id="log-fine-details" className="text-h3">
+          {t('logForm.detailsHeading')}
+        </h2>
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
           <div className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium">{t('logForm.feeLabel')}</span>
+            <label htmlFor="log-fine-type" className="text-label">
+              {t('logForm.feeLabel')}
+            </label>
             <Select value={feeStructureId} onValueChange={setFeeStructureId}>
-              <SelectTrigger aria-label={t('logForm.feeLabel')}>
+              <SelectTrigger id="log-fine-type">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -291,9 +326,11 @@ export function LogFineModal({ open, onOpenChange, prefillStudentIds }: LogFineM
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium">{t('logForm.amountLabel')}</span>
+            <label htmlFor="log-fine-amount" className="text-label">
+              {t('logForm.amountLabel')}
+            </label>
             <MoneyInput
-              aria-label={t('logForm.amountLabel')}
+              id="log-fine-amount"
               config={config}
               value={amountMinorUnits}
               onValueChange={(value) => {
@@ -301,10 +338,25 @@ export function LogFineModal({ open, onOpenChange, prefillStudentIds }: LogFineM
                 setAmountMinorUnits(value);
               }}
             />
+            <p className="text-caption text-text-secondary">{t('logForm.amountHint')}</p>
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="log-fine-note" className="text-sm font-medium">
+            <label htmlFor="log-fine-incident-date" className="text-label">
+              {t('logForm.incidentDateLabel')}
+            </label>
+            <DatePicker
+              id="log-fine-incident-date"
+              aria-label={t('logForm.incidentDateLabel')}
+              config={config}
+              value={incidentDate === '' ? undefined : parseDate(incidentDate)}
+              max={parseDate(todayDateInputValue())}
+              onValueChange={(date) => setIncidentDate(date ? toIsoDate(date) : '')}
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5 md:col-span-2">
+            <label htmlFor="log-fine-note" className="text-label">
               {t('logForm.noteLabel')}
             </label>
             <Textarea
@@ -317,44 +369,36 @@ export function LogFineModal({ open, onOpenChange, prefillStudentIds }: LogFineM
             />
           </div>
 
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="log-fine-incident-date" className="text-sm font-medium">
-              {t('logForm.incidentDateLabel')}
-            </label>
-            <Input
-              id="log-fine-incident-date"
-              type="date"
-              value={incidentDate}
-              max={todayDateInputValue()}
-              onChange={(event) => setIncidentDate(event.target.value)}
-            />
-          </div>
-
-          <label className="flex items-center gap-2 text-sm">
+          <label className="flex min-h-11 items-center gap-3 md:col-span-2 md:min-h-8">
             <Checkbox
               checked={notifyFamilies}
               onCheckedChange={(checked) => setNotifyFamilies(checked === true)}
-              aria-label={t('logForm.notifyLabel')}
             />
             {t('logForm.notifyLabel')}
           </label>
+        </div>
+      </section>
 
-          {logFine.error !== null && logFine.error !== undefined && (
-            <p role="alert" className="text-sm text-destructive">
-              {describeSubmitError(logFine.error, t)}
-            </p>
-          )}
+      {logFine.error !== null && logFine.error !== undefined && (
+        <p role="alert" className="flex items-center gap-1 text-caption text-destructive">
+          <CircleAlert className="size-4" aria-hidden="true" />
+          {describeSubmitError(t)}
+        </p>
+      )}
 
-          <DialogFooter>
-            <Button type="button" variant="ghost" onClick={resetAndClose}>
-              {t('actions.cancel', { ns: 'common' })}
-            </Button>
-            <Button type="submit" disabled={!canSubmit} loading={logFine.isPending}>
-              {logFine.isPending ? t('logForm.saving') : t('logForm.save')}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+      <ConfirmDialog
+        open={confirmDiscard}
+        onOpenChange={setConfirmDiscard}
+        tone="danger"
+        title={t('fullPage.discardTitle', { ns: 'common' })}
+        description={t('fullPage.discardDescription', { ns: 'common' })}
+        confirmLabel={t('fullPage.discardConfirm', { ns: 'common' })}
+        cancelLabel={t('fullPage.keepEditing', { ns: 'common' })}
+        onConfirm={() => {
+          setConfirmDiscard(false);
+          resetAndClose();
+        }}
+      />
+    </FullPageShell>
   );
 }

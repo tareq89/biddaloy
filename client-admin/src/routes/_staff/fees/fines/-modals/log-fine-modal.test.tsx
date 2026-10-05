@@ -132,11 +132,57 @@ describe('LogFineModal', () => {
     );
   });
 
-  it('preselects prefillStudentIds', async () => {
+  it('renders as a full-page frame with a labelled date picker', async () => {
     server.use(withFineStructures());
+    await renderModal();
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Log fine' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Close' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Incident date' })).toBeTruthy();
+  });
+
+  it('names the chip remove button "Remove <name>"', async () => {
+    server.use(withFineStructures(), withStudentSearch());
+    const user = userEvent.setup();
+    await renderModal();
+
+    await user.type(screen.getByRole('textbox', { name: 'Students' }), 'Karim');
+    await user.click(await screen.findByRole('button', { name: /Karim Rahman/ }));
+    expect(screen.getByRole('button', { name: 'Remove Karim Rahman' })).toBeTruthy();
+  });
+
+  it('shows the translated sentence, never the server text, when saving fails', async () => {
+    server.use(
+      withFineStructures(),
+      withStudentSearch(),
+      http.post('/api/v1/fees/fines', () =>
+        HttpResponse.json({ statusCode: 400, message: 'Raw server text' }, { status: 400 }),
+      ),
+    );
+    const user = userEvent.setup();
+    await renderModal();
+
+    await user.type(screen.getByRole('textbox', { name: 'Students' }), 'Karim');
+    await user.click(await screen.findByRole('button', { name: /Karim Rahman/ }));
+    await user.click(await screen.findByRole('combobox', { name: 'Fine type' }));
+    await user.click(await screen.findByRole('option', { name: 'Late fine' }));
+    await user.type(screen.getByRole('textbox', { name: 'Reason' }), 'Late twice this week');
+    await user.click(screen.getByRole('button', { name: 'Log fine' }));
+
+    expect(await screen.findByText('Failed to log fine')).toBeTruthy();
+    expect(screen.queryByText('Raw server text')).toBeNull();
+  });
+
+  it('preselects prefillStudentIds and shows their names', async () => {
+    server.use(
+      withFineStructures(),
+      http.get('/api/v1/students/:id', ({ params }) =>
+        HttpResponse.json(params.id === student1.id ? student1 : student2),
+      ),
+    );
     await renderModal({ prefillStudentIds: [student1.id, student2.id] });
 
-    expect(await screen.findByText(student1.id)).toBeTruthy();
-    expect(await screen.findByText(student2.id)).toBeTruthy();
+    expect(await screen.findByText('Karim Rahman')).toBeTruthy();
+    expect(await screen.findByText('Fatima Begum')).toBeTruthy();
   });
 });
