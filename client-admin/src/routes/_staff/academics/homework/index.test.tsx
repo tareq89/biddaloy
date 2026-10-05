@@ -6,7 +6,7 @@ import {
   server,
   subjectFactory,
 } from '@biddaloy/ui/test';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -20,7 +20,7 @@ describe('/academics/homework', () => {
 
   it('renders rows with subject/class names resolved from /classes and /subjects', async () => {
     const klass = classFactory({ id: 'class-1', name: 'Class 6' });
-    const subject = subjectFactory({ id: 'subject-1', name_en: 'Mathematics' });
+    const subject = subjectFactory({ id: 'subject-1', name_en: 'Mathematics', name_bn: 'গণিত' });
 
     server.use(
       http.get('/api/v1/homework', () =>
@@ -55,6 +55,11 @@ describe('/academics/homework', () => {
     await screen.findByText('Algebra worksheet');
     expect(await screen.findByText('Mathematics')).toBeTruthy();
     expect(screen.getByText('Class 6')).toBeTruthy();
+    // Title is plain text; the only way in is the row's "View" action.
+    expect(screen.queryByRole('link', { name: 'Algebra worksheet' })).toBeNull();
+    const row = screen.getByText('Algebra worksheet').closest('tr') as HTMLElement;
+    const view = within(row).getByRole('link', { name: 'View' });
+    expect(view.getAttribute('href')).toBe('/academics/homework/hw-1');
   });
 
   it('picking a class filter sends class_id on the next /homework request', async () => {
@@ -81,7 +86,7 @@ describe('/academics/homework', () => {
       locale: 'en',
     });
 
-    await screen.findByText('No homework found.');
+    await screen.findByText('No homework yet');
     const user = userEvent.setup();
     await user.click(screen.getByLabelText('Class'));
     await user.click(await screen.findByRole('option', { name: 'Class 6' }));
@@ -109,7 +114,9 @@ describe('/academics/homework', () => {
       locale: 'en',
     });
 
-    expect(await screen.findByText('No homework found.')).toBeTruthy();
+    const title = await screen.findByText('No homework yet');
+    expect(title.tagName).toBe('H2');
+    expect(screen.queryByRole('heading', { level: 1, name: 'No homework yet' })).toBeNull();
   });
 
   it('shows "Assign homework" for TEACHER, who holds HOMEWORK_ASSIGN', async () => {
@@ -130,7 +137,9 @@ describe('/academics/homework', () => {
       locale: 'en',
     });
 
-    expect(await screen.findByRole('link', { name: 'Assign homework' })).toBeTruthy();
+    expect(
+      (await screen.findAllByRole('button', { name: 'Assign homework' })).length,
+    ).toBeGreaterThan(0);
   });
 
   it('refuses the whole route for ACCOUNTANT, who lacks HOMEWORK_READ', async () => {
