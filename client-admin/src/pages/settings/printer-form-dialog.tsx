@@ -12,6 +12,7 @@ import {
   DialogTitle,
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -28,6 +29,7 @@ import {
 } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { ChevronRightIcon, CircleAlertIcon } from 'lucide-react';
 import * as React from 'react';
 import { useForm, type Control, type FieldPath } from 'react-hook-form';
 import { z } from 'zod';
@@ -113,6 +115,7 @@ function NumberField({
   step,
   min,
   max,
+  help,
 }: {
   control: Control<PrinterFormValues>;
   name: FieldPath<PrinterFormValues>;
@@ -120,6 +123,7 @@ function NumberField({
   step: number;
   min: number;
   max: number;
+  help?: string;
 }) {
   return (
     <FormField
@@ -147,6 +151,7 @@ function NumberField({
               }
             />
           </FormControl>
+          {help && <FormDescription>{help}</FormDescription>}
           <FormMessage />
         </FormItem>
       )}
@@ -154,14 +159,35 @@ function NumberField({
   );
 }
 
+/** Radio option as a selectable card (patterns §6). */
+const OPTION_CARD =
+  'flex min-h-11 cursor-pointer items-start gap-3 rounded-md border border-border-subtle p-3 has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-secondary';
+
+const ADVANCED_FIELDS = [
+  'margin_top_mm',
+  'margin_right_mm',
+  'margin_bottom_mm',
+  'margin_left_mm',
+  'offset_x_mm',
+  'offset_y_mm',
+  'scale',
+] as const;
+
 export interface PrinterFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** Present = edit this printer; absent = add a new one. */
   printer?: PrinterRow | undefined;
+  /** Open the "Measurements" disclosure (the calibration guide's shortcut). */
+  openAdvanced?: boolean;
 }
 
-export function PrinterFormDialog({ open, onOpenChange, printer }: PrinterFormDialogProps) {
+export function PrinterFormDialog({
+  open,
+  onOpenChange,
+  printer,
+  openAdvanced,
+}: PrinterFormDialogProps) {
   const { t } = useTranslation('settings');
   const create = useCreatePrinter();
   const update = useUpdatePrinter(printer?.id ?? '');
@@ -177,11 +203,17 @@ export function PrinterFormDialog({ open, onOpenChange, printer }: PrinterFormDi
   });
 
   // Re-seed whenever the dialog opens for a different printer (or for "add").
+  // `mutation.reset()` too: an earlier save error must not greet the next open.
   React.useEffect(() => {
-    if (open) form.reset(defaultsFor(printer));
+    if (open) {
+      form.reset(defaultsFor(printer));
+      mutation.reset();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, printer, form]);
 
   const type = form.watch('printer_type');
+  const hasAdvancedError = ADVANCED_FIELDS.some((f) => form.formState.errors[f] !== undefined);
 
   /** Adding: switching type re-applies that type's default margins. Editing keeps the saved ones. */
   function handleTypeChange(next: 'CARD' | 'OFFICE') {
@@ -211,7 +243,7 @@ export function PrinterFormDialog({ open, onOpenChange, printer }: PrinterFormDi
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent size="md">
         <DialogHeader>
           <DialogTitle>
             {printer ? t('printers.form.editTitle') : t('printers.form.addTitle')}
@@ -229,7 +261,7 @@ export function PrinterFormDialog({ open, onOpenChange, printer }: PrinterFormDi
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t('printers.form.name')}</FormLabel>
+                  <FormLabel required>{t('printers.form.name')}</FormLabel>
                   <FormControl>
                     <Input {...field} maxLength={80} />
                   </FormControl>
@@ -238,73 +270,31 @@ export function PrinterFormDialog({ open, onOpenChange, printer }: PrinterFormDi
               )}
             />
 
-            <fieldset className="flex flex-col gap-2">
-              <legend className="text-sm font-medium">{t('printers.form.type')}</legend>
+            <fieldset>
+              <legend className="text-label text-text-primary">{t('printers.form.type')}</legend>
               <RadioGroup
+                className="mt-1.5 grid gap-2 md:grid-cols-2"
                 value={type}
                 onValueChange={(v) => handleTypeChange(v as 'CARD' | 'OFFICE')}
               >
                 {(['CARD', 'OFFICE'] as const).map((value) => (
-                  <div key={value} className="flex items-start gap-2 text-sm">
+                  <label key={value} htmlFor={`printer-type-${value}`} className={OPTION_CARD}>
                     <RadioGroupItem id={`printer-type-${value}`} value={value} className="mt-0.5" />
-                    <label htmlFor={`printer-type-${value}`}>
+                    <span>
                       <span className="font-medium">{t(`printers.type.${value}`)}</span>
-                      <span className="block text-muted-foreground">
+                      <span className="block text-text-secondary">
                         {t(`printers.typeHelp.${value}`)}
                       </span>
-                    </label>
-                  </div>
+                    </span>
+                  </label>
                 ))}
               </RadioGroup>
             </fieldset>
 
-            <fieldset className="flex flex-col gap-2">
-              <legend className="text-sm font-medium">{t('printers.form.margins')}</legend>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                {MARGIN_FIELDS.map(([name, labelKey]) => (
-                  <NumberField
-                    key={name}
-                    control={form.control}
-                    name={name}
-                    label={t(`printers.form.${labelKey}`)}
-                    step={0.5}
-                    min={0}
-                    max={20}
-                  />
-                ))}
-              </div>
-            </fieldset>
-
-            <div className="grid grid-cols-3 gap-3">
-              <NumberField
-                control={form.control}
-                name="offset_x_mm"
-                label={t('printers.form.offsetX')}
-                step={0.1}
-                min={-10}
-                max={10}
-              />
-              <NumberField
-                control={form.control}
-                name="offset_y_mm"
-                label={t('printers.form.offsetY')}
-                step={0.1}
-                min={-10}
-                max={10}
-              />
-              <NumberField
-                control={form.control}
-                name="scale"
-                label={t('printers.form.scale')}
-                step={0.01}
-                min={0.9}
-                max={1.1}
-              />
-            </div>
-
-            <fieldset className="flex flex-col gap-2">
-              <legend className="text-sm font-medium">{t('printers.form.duplex')}</legend>
+            <fieldset>
+              <legend className="text-label text-text-primary">{t('printers.form.duplex')}</legend>
               <RadioGroup
+                className="mt-1.5 grid gap-2 md:grid-cols-2"
                 value={form.watch('duplex_order')}
                 onValueChange={(v) =>
                   form.setValue('duplex_order', v as 'INTERLEAVED' | 'GROUPED', {
@@ -313,29 +303,95 @@ export function PrinterFormDialog({ open, onOpenChange, printer }: PrinterFormDi
                 }
               >
                 {(['INTERLEAVED', 'GROUPED'] as const).map((value) => (
-                  <div key={value} className="flex items-center gap-2 text-sm">
-                    <RadioGroupItem id={`printer-duplex-${value}`} value={value} />
-                    <label htmlFor={`printer-duplex-${value}`}>
-                      {t(`printers.duplex.${value}`)}
-                    </label>
-                  </div>
+                  <label key={value} htmlFor={`printer-duplex-${value}`} className={OPTION_CARD}>
+                    <RadioGroupItem
+                      id={`printer-duplex-${value}`}
+                      value={value}
+                      className="mt-0.5"
+                    />
+                    <span className="font-medium">{t(`printers.duplex.${value}`)}</span>
+                  </label>
                 ))}
               </RadioGroup>
             </fieldset>
 
             {type === 'OFFICE' ? (
-              <NumberField
-                control={form.control}
-                name="sheet_gap_mm"
-                label={t('printers.form.gap')}
-                step={0.5}
-                min={0}
-                max={20}
-              />
+              <div className="grid gap-4 md:grid-cols-2">
+                <NumberField
+                  control={form.control}
+                  name="sheet_gap_mm"
+                  label={t('printers.form.gap')}
+                  help={t('printers.form.gapHelp')}
+                  step={0.5}
+                  min={0}
+                  max={20}
+                />
+              </div>
             ) : null}
 
+            <details
+              className="group/adv border-t border-border-subtle pt-2"
+              open={openAdvanced || hasAdvancedError || undefined}
+            >
+              <summary className="flex h-11 cursor-pointer list-none items-center gap-1 font-medium text-text-secondary md:h-8">
+                <ChevronRightIcon aria-hidden="true" className="size-4 group-open/adv:rotate-90" />
+                {t('printers.form.advanced')}
+              </summary>
+              <p className="mt-2 text-caption text-text-secondary">
+                {t('printers.form.advancedHelp')}
+              </p>
+              <fieldset className="mt-4">
+                <legend className="text-label text-text-primary">
+                  {t('printers.form.margins')}
+                </legend>
+                <div className="mt-1.5 grid grid-cols-2 gap-4 md:grid-cols-4">
+                  {MARGIN_FIELDS.map(([name, labelKey]) => (
+                    <NumberField
+                      key={name}
+                      control={form.control}
+                      name={name}
+                      label={t(`printers.form.${labelKey}`)}
+                      step={0.5}
+                      min={0}
+                      max={20}
+                    />
+                  ))}
+                </div>
+              </fieldset>
+              <div className="mt-4 grid gap-4 md:grid-cols-3">
+                <NumberField
+                  control={form.control}
+                  name="offset_x_mm"
+                  label={t('printers.form.offsetX')}
+                  help={t('printers.form.offsetHelp')}
+                  step={0.1}
+                  min={-10}
+                  max={10}
+                />
+                <NumberField
+                  control={form.control}
+                  name="offset_y_mm"
+                  label={t('printers.form.offsetY')}
+                  help={t('printers.form.offsetHelp')}
+                  step={0.1}
+                  min={-10}
+                  max={10}
+                />
+                <NumberField
+                  control={form.control}
+                  name="scale"
+                  label={t('printers.form.scale')}
+                  help={t('printers.form.scaleHelp')}
+                  step={0.01}
+                  min={0.9}
+                  max={1.1}
+                />
+              </div>
+            </details>
+
             {mutation.isError ? (
-              <p role="alert" className="text-sm text-destructive">
+              <p role="alert" className="flex items-center gap-1 text-caption text-destructive">
+                <CircleAlertIcon aria-hidden="true" className="size-3.5 shrink-0" />
                 {t('printers.form.saveError')}
               </p>
             ) : null}

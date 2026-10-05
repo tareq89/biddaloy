@@ -182,8 +182,10 @@
     "confirmEnableNotificationTitle": "Turn on automatic absence messages?"
   },
   "signIn": {
-    "legend": "Sign-in options",
-    "otpLoginEnabled": "Allow sign-in with mobile number + code"
+    "legend": "Ways to sign in",
+    "otpLoginEnabled": "Allow sign-in with a code sent to the phone",
+    "description": "How teachers, staff and guardians of this school sign in.",
+    "otpLoginHelp": "When on, people can sign in without a password using a code sent to their phone. When off, only the password works."
   },
   "smsCredit": {
     "legend": "SMS credit",
@@ -296,7 +298,7 @@
   },
   "printers": {
     "title": "Printers",
-    "explainer": "Your browser can't tell which printer you pick in its print dialog, so choose the same printer here when you print. Each printer can be off by a millimetre or two — the calibration page fixes that.",
+    "explainer": "Pick the printer here when you print. Each printer prints a millimetre or two off — fix that with the measuring page.",
     "add": "Add printer",
     "edit": "Edit",
     "archive": "Archive",
@@ -320,16 +322,16 @@
       "INTERLEAVED": "Automatic both sides",
       "GROUPED": "I turn the stack over by hand"
     },
-    "offsetValue": "Offset X {{x}} mm, Y {{y}} mm",
-    "calibrate": "Print calibration page",
+    "offsetValue": "Left–right {{x}} · up–down {{y}}",
+    "calibrate": "Print measuring page",
     "calibrateError": "Could not open the print window.",
     "popupBlocked": "Your browser blocked the print window. Allow pop-ups for this site and try again.",
     "guide": {
-      "title": "Calibrate {{name}}",
-      "step1": "Measure how far the first cross is from the top-left corner of the paper. It should be exactly 20 mm.",
-      "step2": "Enter the difference as the offset X and Y in this printer's settings (a printed cross that is 1 mm too far right needs X −1).",
+      "title": "{{name}}: fix the measurements",
+      "step1": "On the printed page, measure from the top-left corner of the paper to the first cross. It should be exactly 20 mm.",
+      "step2": "Enter the difference in the printer's shift. A cross printed 1 mm too far right needs left–right −1.",
       "step3": "Print the page again and check that the cross is now at 20 mm.",
-      "editOffset": "Edit offset",
+      "editOffset": "Change the shift",
       "close": "Done"
     },
     "form": {
@@ -337,16 +339,16 @@
       "editTitle": "Edit printer",
       "name": "Name",
       "type": "Printer type",
-      "margins": "Margins (mm)",
+      "margins": "Blank edge of the paper (mm)",
       "marginTop": "Top",
       "marginRight": "Right",
       "marginBottom": "Bottom",
       "marginLeft": "Left",
-      "offsetX": "Offset X (mm)",
-      "offsetY": "Offset Y (mm)",
-      "scale": "Scale",
+      "offsetX": "Shift left–right (mm)",
+      "offsetY": "Shift up–down (mm)",
+      "scale": "Size",
       "duplex": "Printing on both sides",
-      "gap": "Cutting gap (mm)",
+      "gap": "Cutting gap between cards (mm)",
       "save": "Save",
       "saving": "Saving…",
       "cancel": "Cancel",
@@ -354,12 +356,24 @@
       "errors": {
         "name": "Enter a name.",
         "margin": "Margins must be between 0 and 20 mm.",
-        "offset": "Offset must be between −10 and 10 mm.",
-        "scale": "Scale must be between 0.90 and 1.10.",
+        "offset": "The shift must be between −10 and 10 mm.",
+        "scale": "Size must be between 0.90 and 1.10.",
         "gap": "The gap must be between 0 and 20 mm."
-      }
+      },
+      "advanced": "Measurements (advanced)",
+      "advancedHelp": "Usually left alone. Enter what the measuring page shows.",
+      "offsetHelp": "−10 to 10",
+      "scaleHelp": "1 = actual size (0.90 to 1.10)",
+      "gapHelp": "Office printers only."
     },
-    "archiveTitle": "Archive printer"
+    "archiveTitle": "Archive printer",
+    "listCaption": "Printers",
+    "columns": {
+      "name": "Name",
+      "type": "Type",
+      "duplex": "Both sides",
+      "offset": "Shift (mm)"
+    }
   },
   "channelStatus": {
     "ready": "Set up",

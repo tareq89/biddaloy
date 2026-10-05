@@ -1,18 +1,14 @@
-import { Button, Checkbox, Form, FormField, FormItem, Label } from '@biddaloy/ui/components';
+import { Checkbox, Form, FormField, FormItem, Label } from '@biddaloy/ui/components';
 import { useUpdateSchoolSettings, type AuthSettings } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
-import {
-  FormSection,
-  FormShell,
-  buildFormShellErrors,
-  useFormShellMode,
-  useWarnUnsavedChanges,
-} from '@biddaloy/ui/shells';
+import { useFormShellMode, useWarnUnsavedChanges } from '@biddaloy/ui/shells';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
 import { MutationErrorMessage } from '../../components/MutationErrorMessage';
+
+import { SettingsSaved, SettingsSection } from './settings-layout';
 
 const signInSchema = z.object({
   otpLoginEnabled: z.boolean(),
@@ -26,7 +22,7 @@ interface SignInSectionProps {
 }
 
 /** [12.5] The smallest settings section — one boolean toggle, same shape as
- * `MessengerSection.tsx`'s RHF/`FormShell` wiring but with no secret field
+ * `MessengerSection.tsx`'s RHF wiring, in a `SettingsSection` card, but with no secret field
  * to manage. `auth.otpLoginEnabled` defaults to `true` server-side
  * (`DEFAULT_AUTH_SETTINGS`), so an unset value here still renders checked. */
 export function SignInSection({ schoolId, auth }: SignInSectionProps) {
@@ -52,39 +48,44 @@ export function SignInSection({ schoolId, auth }: SignInSectionProps) {
     );
   }
 
-  const summaryErrors = buildFormShellErrors(form.formState.errors, (field) => `signin-${field}`);
-
   return (
     <Form {...form}>
-      <FormShell
-        errors={summaryErrors}
-        submitCount={form.formState.submitCount}
+      <SettingsSection
+        id="signin-section"
+        title={t('signIn.legend')}
+        description={t('signIn.description')}
         onSubmit={(event) => void form.handleSubmit(handleSave)(event)}
+        saving={updateSettings.isPending}
+        footerStart={
+          <>
+            {updateSettings.isSuccess && <SettingsSaved />}
+            {updateSettings.isError && <MutationErrorMessage error={updateSettings.error} />}
+          </>
+        }
       >
-        <FormSection legend={t('signIn.legend')}>
-          <FormField
-            control={form.control}
-            name="otpLoginEnabled"
-            render={({ field }) => (
-              <FormItem>
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id="signin-otpLoginEnabled"
-                    checked={field.value}
-                    onCheckedChange={(checked) => field.onChange(checked === true)}
-                  />
-                  <Label htmlFor="signin-otpLoginEnabled">{t('signIn.otpLoginEnabled')}</Label>
-                </div>
-              </FormItem>
-            )}
-          />
-        </FormSection>
-        <Button type="submit" loading={updateSettings.isPending}>
-          {t('save.action')}
-        </Button>
-        {updateSettings.isSuccess && <p role="status">{t('save.success')}</p>}
-        {updateSettings.isError && <MutationErrorMessage error={updateSettings.error} />}
-      </FormShell>
+        <FormField
+          control={form.control}
+          name="otpLoginEnabled"
+          render={({ field }) => (
+            <FormItem className="mt-4 gap-1">
+              <div className="flex min-h-11 items-center gap-3 md:min-h-8">
+                <Checkbox
+                  id="signin-otpLoginEnabled"
+                  checked={field.value}
+                  aria-describedby="signin-otpLoginEnabled-help"
+                  onCheckedChange={(checked) => field.onChange(checked === true)}
+                />
+                <Label htmlFor="signin-otpLoginEnabled" className="flex-1 self-stretch">
+                  {t('signIn.otpLoginEnabled')}
+                </Label>
+              </div>
+              <p id="signin-otpLoginEnabled-help" className="text-caption text-text-secondary">
+                {t('signIn.otpLoginHelp')}
+              </p>
+            </FormItem>
+          )}
+        />
+      </SettingsSection>
     </Form>
   );
 }
