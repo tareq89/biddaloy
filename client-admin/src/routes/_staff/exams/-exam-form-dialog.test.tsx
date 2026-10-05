@@ -70,7 +70,7 @@ async function fillAndSubmit(user: ReturnType<typeof userEvent.setup>, template?
   await user.click(screen.getByRole('combobox', { name: 'Class' }));
   await user.click(await screen.findByRole('option', { name: 'Class 6' }));
   if (template) {
-    await user.click(screen.getByRole('combobox', { name: 'Start from template (optional)' }));
+    await user.click(screen.getByRole('combobox', { name: 'Start from an exam structure (optional)' }));
     await user.click(await screen.findByRole('option', { name: template }));
   }
   await user.click(screen.getByRole('button', { name: 'Save' }));
@@ -93,14 +93,14 @@ describe('ExamFormDialog template field', () => {
     const api = mockApi({ templates: [] });
     renderDialog();
     await waitFor(() => expect(api.templateCalls()).toBe(1));
-    expect(screen.queryByRole('combobox', { name: 'Start from template (optional)' })).toBeNull();
+    expect(screen.queryByRole('combobox', { name: 'Start from an exam structure (optional)' })).toBeNull();
   });
 
   it('is hidden in edit mode and does not fetch templates', async () => {
     const api = mockApi();
     renderDialog({ mode: 'edit', examId: 'exam-1' });
     await screen.findByLabelText('Name');
-    expect(screen.queryByRole('combobox', { name: 'Start from template (optional)' })).toBeNull();
+    expect(screen.queryByRole('combobox', { name: 'Start from an exam structure (optional)' })).toBeNull();
     expect(api.templateCalls()).toBe(0);
   });
 
@@ -108,10 +108,10 @@ describe('ExamFormDialog template field', () => {
     const api = mockApi();
     const user = userEvent.setup();
     renderDialog();
-    await screen.findByRole('combobox', { name: 'Start from template (optional)' });
+    await screen.findByRole('combobox', { name: 'Start from an exam structure (optional)' });
     await fillAndSubmit(user, 'Half-yearly');
     await waitFor(() =>
-      expect(toastSuccess).toHaveBeenCalledWith('Exam created with 3 components'),
+      expect(toastSuccess).toHaveBeenCalledWith('Exam created with 3 parts'),
     );
     expect(api.bodies[0]).toMatchObject({ template_id: 'tpl-1' });
   });
@@ -120,7 +120,7 @@ describe('ExamFormDialog template field', () => {
     const api = mockApi();
     const user = userEvent.setup();
     renderDialog({ defaultTemplateId: 'tpl-1' });
-    await screen.findByRole('combobox', { name: 'Start from template (optional)' });
+    await screen.findByRole('combobox', { name: 'Start from an exam structure (optional)' });
     await fillAndSubmit(user);
     await waitFor(() => expect(api.bodies[0]).toMatchObject({ template_id: 'tpl-1' }));
   });
@@ -135,7 +135,7 @@ describe('ExamFormDialog template field', () => {
     });
     const user = userEvent.setup();
     renderDialog();
-    await screen.findByRole('combobox', { name: 'Start from template (optional)' });
+    await screen.findByRole('combobox', { name: 'Start from an exam structure (optional)' });
     await fillAndSubmit(user, 'Half-yearly');
     await waitFor(() => expect(toastInfo).toHaveBeenCalled());
     expect(toastSuccess).not.toHaveBeenCalled();
@@ -145,7 +145,7 @@ describe('ExamFormDialog template field', () => {
     const api = mockApi();
     const user = userEvent.setup();
     renderDialog();
-    await screen.findByRole('combobox', { name: 'Start from template (optional)' });
+    await screen.findByRole('combobox', { name: 'Start from an exam structure (optional)' });
     await fillAndSubmit(user);
     await waitFor(() => expect(api.bodies).toHaveLength(1));
     expect(api.bodies[0]).not.toHaveProperty('template_id');
@@ -167,7 +167,7 @@ describe('ExamFormDialog template field', () => {
     });
     const user = userEvent.setup();
     renderDialog();
-    await screen.findByRole('combobox', { name: 'Start from template (optional)' });
+    await screen.findByRole('combobox', { name: 'Start from an exam structure (optional)' });
     await fillAndSubmit(user, 'Half-yearly');
     const alert = await screen.findByRole('alert');
     expect(alert.textContent).toBe("Couldn't save the exam.");
