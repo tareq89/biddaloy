@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import supertest = require('supertest');
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
@@ -6,6 +6,7 @@ import { DataSource } from 'typeorm';
 import ExcelJS from 'exceljs';
 import { UserRole } from '@biddaloy/shared';
 import { AppModule } from '../../app.module';
+import { TeacherService } from './users.service';
 import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { buildValidationPipeOptions } from '../../validation-pipe';
 import {
@@ -154,7 +155,10 @@ describe('Staff bulk import E2E', () => {
       await sheet([['Invited Person', '', 'invited1332@x.com', 'Executive', '']]),
     ).expect(201);
     const res = await commit(v.body.staging_id, true).expect(201);
-    expect(res.body).toMatchObject({ created: 1, invited: 1, failed: [] });
+    // Test env has no SMS/email provider, so delivery may report FAILED: that must land in
+    // invite_failed and never in invited. Either way each member is accounted for exactly once.
+    expect(res.body).toMatchObject({ created: 1, failed: [] });
+    expect(res.body.invited + res.body.invite_failed.length).toBe(1);
     const n = await ds.query(
       `SELECT COUNT(*)::int AS n FROM auth_tokens a JOIN users u ON u.id = a.user_id
         WHERE u.email = 'invited1332@x.com'`,
@@ -190,17 +194,152 @@ describe('Staff bulk import E2E', () => {
     expect(m[0].deleted_at).toBeNull();
   });
 
-  it('an email used by an account in another school is a row error, not a created duplicate', async () => {
-    // A user that exists but holds no membership here stands in for "another school".
-    await ds.query(
-      `INSERT INTO users (id, email, full_name, status, created_at, updated_at)
-       VALUES (gen_random_uuid(), 'elsewhere1332@x.com', 'Elsewhere', 'ACTIVE', NOW(), NOW())`,
-    );
-    const res = await validate(
-      await sheet([['Someone', '', 'elsewhere1332@x.com', 'Teacher', '']]),
+  describe('identifiers that belong to accounts outside this school', () => {
+    const OTHER_SCHOOL = '00000000-0000-4000-8000-000000001333';
+    const OTHER_SCHOOL_NAME = 'Hidden Other School 1332';
+
+    /** A user whose memberships are all in `OTHER_SCHOOL` (or nowhere). */
+    async function otherSchoolUser(
+      email: string | null,
+      phone: string | null,
+      opts: { member?: 'active' | 'former'; deletedAccount?: boolean } = {},
+    ) {
+      const [{ id }] = await ds.query(
+        `INSERT INTO users (id, email, phone, full_name, status, deleted_at, created_at, updated_at)
+         VALUES (gen_random_uuid(), $1, $2, 'Elsewhere', 'ACTIVE', $3, NOW(), NOW()) RETURNING id`,
+        [email, phone, opts.deletedAccount ? new Date() : null],
+      );
+      if (opts.member) {
+        await ds.query(
+          `INSERT INTO user_tenants (user_id, tenant_id, role, deleted_at, created_at, updated_at)
+           VALUES ($1, $2, 'TEACHER', $3, NOW(), NOW())`,
+          [id, OTHER_SCHOOL, opts.member === 'former' ? new Date() : null],
+        );
+      }
+      return id as string;
+    }
+
+    it('are row errors, never a skip, restore or duplicate (tenant filter on the membership lookup)', async () => {
+      await ds.query(
+        `INSERT INTO schools (id, name, slug, created_at, updated_at)
+         VALUES ($1, $2, 'hidden-other-1332', NOW(), NOW()) ON CONFLICT (id) DO NOTHING`,
+        [OTHER_SCHOOL, OTHER_SCHOOL_NAME],
+      );
+      await otherSchoolUser('o-active1332@x.com', null, { member: 'active' }); // by email
+      await otherSchoolUser(null, '01811000002', { member: 'former' }); // by phone
+      await otherSchoolUser('o-nomember1332@x.com', null); // no membership anywhere
+      await otherSchoolUser('o-deleted1332@x.com', null, { deletedAccount: true });
+      await otherSchoolUser('o-two1332@x.com', null);
+      await otherSchoolUser(null, '01811000005', {});
+
+      const res = await validate(
+        await sheet([
+          ['A', '', 'o-active1332@x.com', 'Teacher', ''],
+          ['B', '01811000002', '', 'Teacher', ''],
+          ['C', '', 'o-nomember1332@x.com', 'Teacher', ''],
+          ['D', '', 'o-deleted1332@x.com', 'Teacher', ''],
+          ['E', '01811000005', 'o-two1332@x.com', 'Teacher', ''],
+        ]),
+      ).expect(201);
+
+      // Removing `tenant_id` from the membership lookup turns rows 2 and 3 into skip/restore.
+      expect(res.body.summary).toEqual({ create: 0, restore: 0, skip: 0 });
+      expect(res.body.errors.map((e: { row: number }) => e.row)).toEqual([2, 3, 4, 5, 6]);
+      const text = JSON.stringify(res.body.errors);
+      expect(text).toMatch(/already used by another account/);
+      expect(text).toMatch(/two different accounts/);
+      expect(text).not.toContain(OTHER_SCHOOL_NAME);
+      expect(text).not.toContain(OTHER_SCHOOL);
+    });
+  });
+
+  describe('restore is per role', () => {
+    async function member(email: string, rows: [string, boolean][]) {
+      const [{ id }] = await ds.query(
+        `INSERT INTO users (id, email, full_name, status, created_at, updated_at)
+         VALUES (gen_random_uuid(), $1, 'Multi', 'ACTIVE', NOW(), NOW()) RETURNING id`,
+        [email],
+      );
+      for (const [role, former] of rows) {
+        await ds.query(
+          `INSERT INTO user_tenants (user_id, tenant_id, role, deleted_at, created_at, updated_at)
+           VALUES ($1, $2, $3, $4, NOW(), NOW())`,
+          [id, SEED_TENANT_ID, role, former ? new Date() : null],
+        );
+      }
+      return id as string;
+    }
+
+    it('active PARENT + former TEACHER, file says Teacher: restores TEACHER only', async () => {
+      const id = await member('multi1332@x.com', [
+        ['PARENT', false],
+        ['TEACHER', true],
+      ]);
+      const v = await validate(
+        await sheet([['Multi', '', 'multi1332@x.com', 'Teacher', '']]),
+      ).expect(201);
+      expect(v.body.summary).toEqual({ create: 0, restore: 1, skip: 0 });
+      const res = await commit(v.body.staging_id).expect(201);
+      expect(res.body).toMatchObject({ restored: 1, failed: [] });
+      const rows = await ds.query(
+        `SELECT role, deleted_at FROM user_tenants WHERE user_id = $1 ORDER BY role`,
+        [id],
+      );
+      expect(rows.map((r: { role: string }) => r.role).sort()).toEqual(['PARENT', 'TEACHER']);
+      expect(rows.every((r: { deleted_at: unknown }) => r.deleted_at === null)).toBe(true);
+    });
+
+    it('former ADMIN, file says Teacher: row error, ADMIN is not brought back', async () => {
+      const id = await member('formeradmin1332@x.com', [['ADMIN', true]]);
+      const v = await validate(
+        await sheet([['Ex Admin', '', 'formeradmin1332@x.com', 'Teacher', '']]),
+      ).expect(201);
+      expect(v.body.hard_error_count).toBe(1);
+      expect(v.body.errors[0].message).toMatch(/already in this school as ADMIN/);
+      const [{ n }] = await ds.query(
+        `SELECT COUNT(*)::int AS n FROM user_tenants WHERE user_id = $1 AND deleted_at IS NULL`,
+        [id],
+      );
+      expect(n).toBe(0);
+    });
+
+    it('active PARENT only, file says Teacher: row error (no silent skip)', async () => {
+      await member('parentonly1332@x.com', [['PARENT', false]]);
+      const v = await validate(
+        await sheet([['P', '', 'parentonly1332@x.com', 'Teacher', '']]),
+      ).expect(201);
+      expect(v.body.summary.skip).toBe(0);
+      expect(v.body.hard_error_count).toBe(1);
+    });
+  });
+
+  it('runs the real DTO rules per row: sanitised name, max lengths, numeric mobile', async () => {
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Staff');
+    ws.addRow(HEADERS);
+    ws.addRow(['<img src=x onerror=alert(1)>Clean Name', '', 'dto1332@x.com', 'Accountant', '']);
+    ws.addRow(['x'.repeat(101), '', 'long1332@x.com', 'Accountant', '']);
+    ws.addRow(['Long Phone', '+' + '1'.repeat(21), '', 'Accountant', '']);
+    ws.addRow(['Numeric', 1711000199, '', 'Accountant', '']); // Excel number cell: leading 0 is gone
+    const v = await validate(Buffer.from(await wb.xlsx.writeBuffer())).expect(201);
+    expect(v.body.errors.map((e: { row: number }) => e.row)).toEqual([3, 4, 5]);
+    expect(v.body.errors[2].message).toMatch(/typed as a number/);
+    // The staged name is the sanitised one, not the raw cell.
+    expect(v.body.rows[0].name).not.toContain('<');
+  });
+
+  it('a failed teacher step rolls the whole row back (no half-made member)', async () => {
+    const teachers = app.get(TeacherService);
+    const spy = vi.spyOn(teachers, 'create').mockRejectedValueOnce(new Error('boom: db detail'));
+    const v = await validate(
+      await sheet([['Half Made', '', 'halfmade1332@x.com', 'Teacher', '']]),
     ).expect(201);
-    expect(res.body.errors).toHaveLength(1);
-    expect(res.body.errors[0].message).toMatch(/already used by another account/);
+    const res = await commit(v.body.staging_id).expect(201);
+    spy.mockRestore();
+    expect(res.body.created).toBe(0);
+    expect(res.body.failed).toEqual([{ row: 2, reason: 'Could not save this row' }]); // no DB text leaked
+    const n = await ds.query(`SELECT 1 FROM users WHERE email = 'halfmade1332@x.com'`);
+    expect(n).toHaveLength(0);
   });
 
   it('a stage cannot be committed twice or by another user', async () => {
