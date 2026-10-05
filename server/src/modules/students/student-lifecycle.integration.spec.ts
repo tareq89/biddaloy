@@ -248,6 +248,23 @@ describe('StudentLifecycleService (integration)', () => {
         service.readmit(left.studentId, readmitDto(SEED_SECTION_1_ID), SEED_TENANT_ID, USER, CTX),
       ).resolves.toMatchObject({ event_type: 'READMITTED' });
     });
+
+    it('readmitting an already-active student at a full school says "already active", not SEAT_LIMIT_REACHED', async () => {
+      const { studentId } = await seedStudent();
+      // Full: the limit equals the seats in use, this student's included.
+      await q(
+        `UPDATE schools SET seat_limit = (SELECT count(*) FROM students
+            WHERE tenant_id = $1 AND deleted_at IS NULL AND enrollment_status = 'ACTIVE')
+          WHERE id = $1`,
+        [SEED_TENANT_ID],
+      );
+
+      const err = await service
+        .readmit(studentId, readmitDto(SEED_SECTION_1_ID), SEED_TENANT_ID, USER, CTX)
+        .catch((e) => e);
+      expect(err).toBeInstanceOf(ConflictException);
+      expect(err.message).toBe('Student is already active');
+    });
   });
 
   it('readmit in the same year into another section moves class, section and roll', async () => {
