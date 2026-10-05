@@ -45,9 +45,18 @@ describe('/academic-years', () => {
     const rows = screen.getAllByRole('row');
     expect(within(rows[1] as HTMLElement).getByText('Current')).toBeTruthy();
     expect(within(rows[2] as HTMLElement).getByText('Not current')).toBeTruthy();
+    // Year column is the stored name (not a number derived from the start date).
+    expect(within(rows[1] as HTMLElement).getByRole('link', { name: '2026-2027' })).toBeTruthy();
+    // One long-form period, never the ISO date.
+    expect(within(rows[1] as HTMLElement).getByText(/January.*December.*20\d\d/)).toBeTruthy();
+    expect(screen.queryByText(/\d{4}-\d{2}-\d{2}/)).toBeNull();
+    // Unpaginated: a total instead of a pager.
+    // (default region renders Bangla digits even in the en locale; accept either)
+    expect(screen.getByText(/^Total (2|২)$/)).toBeTruthy();
+    expect(screen.queryByText(/Page \d+ of/)).toBeNull();
   });
 
-  it('renders Add/Edit/Delete/Set current for ADMIN, who holds ACADEMIC_YEAR_MANAGE', async () => {
+  it('renders Add/View/Edit/Delete for ADMIN, who holds ACADEMIC_YEAR_MANAGE, and no Set as current', async () => {
     const year = academicYearFactory({ id: 'year-1', is_current: false });
     server.use(
       http.get('/api/v1/academic-years', () =>
@@ -63,9 +72,10 @@ describe('/academic-years', () => {
     });
 
     await screen.findByRole('button', { name: 'Edit' });
-    expect(screen.getByRole('button', { name: 'Add year' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Set as current' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Add academic year' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'View' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Delete' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Set as current' })).toBeNull();
   });
 
   // [8.14.17]: `_staff.tsx`'s `RequirePermission` now refuses the whole
@@ -94,12 +104,14 @@ describe('/academic-years', () => {
 
   it('creating a year shows up in the list once the dialog is submitted', async () => {
     let years: AcademicYear[] = [];
+    let posted: unknown;
     server.use(
       http.get('/api/v1/academic-years', () =>
         HttpResponse.json({ data: years, total: years.length, page: 1, limit: 10, totalPages: 1 }),
       ),
       http.post('/api/v1/academic-years', async ({ request }) => {
         const body = (await request.json()) as { name: string };
+        posted = body;
         const created = academicYearFactory({ id: 'new-year', name: body.name });
         years = [...years, created];
         return HttpResponse.json(created, { status: 201 });
@@ -114,16 +126,22 @@ describe('/academic-years', () => {
     });
 
     const user = userEvent.setup();
-    await user.click(await screen.findByRole('button', { name: 'Add year' }));
+    await user.click((await screen.findAllByRole('button', { name: 'Add academic year' }))[0]!);
 
     const dialog = within(await screen.findByRole('dialog'));
-    await user.type(dialog.getByLabelText('Name'), '2027-2028');
+    await user.type(dialog.getByLabelText(/^Name/), '2027-2028');
     await pickDate(user, 'Start date', '2027-01-01');
     await pickDate(user, 'End date', '2027-12-31');
     await user.click(dialog.getByRole('button', { name: 'Save' }));
 
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     await waitFor(() => expect(screen.getAllByRole('row')).toHaveLength(2));
+    expect(posted).toEqual({
+      name: '2027-2028',
+      start_date: '2027-01-01',
+      end_date: '2027-12-31',
+      is_current: false,
+    });
   });
 
   it('the date-range validation error names both dates, per the issue AC', async () => {
@@ -141,43 +159,15 @@ describe('/academic-years', () => {
     });
 
     const user = userEvent.setup();
-    await user.click(await screen.findByRole('button', { name: 'Add year' }));
+    await user.click((await screen.findAllByRole('button', { name: 'Add academic year' }))[0]!);
 
     const dialog = within(await screen.findByRole('dialog'));
-    await user.type(dialog.getByLabelText('Name'), 'Bad Year');
+    await user.type(dialog.getByLabelText(/^Name/), 'Bad Year');
     await pickDate(user, 'Start date', '2027-12-31');
     await pickDate(user, 'End date', '2027-01-01');
     await user.click(dialog.getByRole('button', { name: 'Save' }));
 
     expect(await dialog.findByText('End date must be after the start date')).toBeTruthy();
-  });
-
-  it("Set as current explicitly warns it unsets every other year — this issue's own AC", async () => {
-    const year = academicYearFactory({ id: 'year-1', name: '2025-2026', is_current: false });
-    server.use(
-      http.get('/api/v1/academic-years', () =>
-        HttpResponse.json({ data: [year], total: 1, page: 1, limit: 10, totalPages: 1 }),
-      ),
-      http.post('/api/v1/academic-years/:id/set-current', ({ params }) =>
-        HttpResponse.json(academicYearFactory({ id: params.id as string, is_current: true })),
-      ),
-    );
-
-    renderWithRouter(routeTree, {
-      initialEntries: ['/academic-years'],
-      tenantId: 'tenant-1',
-      role: 'ADMIN',
-      locale: 'en',
-    });
-
-    const user = userEvent.setup();
-    await user.click(await screen.findByRole('button', { name: 'Set as current' }));
-
-    const dialog = within(await screen.findByRole('dialog'));
-    expect(dialog.getByText(/unsets every other academic year/i)).toBeTruthy();
-
-    await user.click(dialog.getByRole('button', { name: 'Set as current' }));
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   });
 
   it('deleting a year removes it from the list', async () => {
@@ -201,10 +191,14 @@ describe('/academic-years', () => {
 
     const user = userEvent.setup();
     await user.click(await screen.findByRole('button', { name: 'Delete' }));
-    const dialog = within(await screen.findByRole('dialog'));
+    const dialog = within(await screen.findByRole('alertdialog'));
+    expect(dialog.getByText(/Delete "Delete Me"\?/)).toBeTruthy();
     await user.click(dialog.getByRole('button', { name: 'Delete' }));
 
-    await waitFor(() => expect(screen.getByText('No academic years found')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('No academic years yet')).toBeTruthy());
+    expect(
+      screen.getByText('Classes, fee structures and admissions belong to a year — add one first.'),
+    ).toBeTruthy();
   });
 
   // [14.13.2]: an empty list is where a newcomer migrating a whole school
@@ -224,7 +218,7 @@ describe('/academic-years', () => {
       locale: 'en',
     });
 
-    await screen.findByText('No academic years found');
+    await screen.findByText('No academic years yet');
     expect(await screen.findByText('Migrating a whole school?')).toBeTruthy();
     const link = screen.getByRole('link', { name: 'Use the full workbook template' });
     expect(link.getAttribute('href')).toBe('/settings');
@@ -237,6 +231,33 @@ describe('/academic-years', () => {
   // `canManageBackup` check stays for defense-in-depth (same UX-only
   // reasoning as `students/import.tsx`), just with no test able to
   // exercise its "hidden" branch on this particular route.
+
+  it('Cancel on an edited year form asks before discarding, and Keep editing keeps the form', async () => {
+    server.use(
+      http.get('/api/v1/academic-years', () =>
+        HttpResponse.json({ data: [], total: 0, page: 1, limit: 100, totalPages: 1 }),
+      ),
+    );
+    renderWithRouter(routeTree, {
+      initialEntries: ['/academic-years'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await user.click((await screen.findAllByRole('button', { name: 'Add academic year' }))[0]!);
+    const form = within(await screen.findByRole('dialog'));
+    await user.type(form.getByLabelText(/^Name/), 'Draft');
+    await user.click(form.getByRole('button', { name: 'Cancel' }));
+
+    const confirm = within(await screen.findByRole('alertdialog'));
+    expect(confirm.getByText('Discard your changes?')).toBeTruthy();
+    await user.click(confirm.getByRole('button', { name: 'Keep editing' }));
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+    expect(screen.getByRole('dialog')).toBeTruthy();
+    expect((screen.getByLabelText(/^Name/)).value).toBe('Draft');
+  });
 
   it('is axe clean', async () => {
     server.use(
