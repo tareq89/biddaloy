@@ -85,6 +85,7 @@ describe('PrintHistoryPage', () => {
     serve([
       row({ item_id: 'i-1', subject_label: 'Ok Person' }),
       row({ item_id: 'i-2', subject_label: 'Failed Person', outcome: 'FAILED' }),
+      row({ item_id: 'i-4', subject_label: 'Pending Person', outcome: 'PENDING' }),
       row({
         item_id: 'i-3',
         subject_label: 'Revoked Person',
@@ -99,6 +100,7 @@ describe('PrintHistoryPage', () => {
       screen.getAllByRole('row').find((r) => within(r).queryByText(name))!;
     expect(within(rowOf('Ok Person')).getByText('Printed')).toBeTruthy();
     expect(within(rowOf('Failed Person')).getByText('Not printed')).toBeTruthy();
+    expect(within(rowOf('Pending Person')).getByText('Pending')).toBeTruthy();
     // Revoked wins over the failed print outcome, and only one badge is shown.
     expect(within(rowOf('Revoked Person')).getByText('Revoked')).toBeTruthy();
     expect(within(rowOf('Revoked Person')).queryByText('Not printed')).toBeNull();
@@ -166,6 +168,40 @@ describe('PrintHistoryPage', () => {
     expect(called).toEqual([]);
     expect(screen.queryByText('Design')).toBeNull();
     expect(screen.queryByRole('button', { name: 'Print ID cards' })).toBeNull();
+  });
+
+  it('shows the Design filter and the Print ID cards button, and loads both option lists, for ADMIN', async () => {
+    const called: string[] = [];
+    server.use(
+      http.get('/api/v1/print-history', () => HttpResponse.json(page([row()]))),
+      http.get('/api/v1/print-templates', () => {
+        called.push('templates');
+        return HttpResponse.json([]);
+      }),
+      http.get('/api/v1/users', () => {
+        called.push('users');
+        return HttpResponse.json({ data: [], total: 0, page: 1, limit: 100, totalPages: 0 });
+      }),
+    );
+    render('ADMIN');
+    await screen.findAllByText('Rahim Ahmed');
+    expect(screen.getAllByText('Design').length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('button', { name: 'Print ID cards' }).length).toBeGreaterThan(0);
+    await waitFor(() => expect([...called].sort()).toEqual(['templates', 'users']));
+  });
+
+  it('drops template_id / printed_by from the request when those filters are hidden', async () => {
+    let query: URLSearchParams | undefined;
+    server.use(
+      http.get('/api/v1/print-history', ({ request }) => {
+        query = new URL(request.url).searchParams;
+        return HttpResponse.json(page([row()]));
+      }),
+    );
+    render('EXECUTIVE', { template_id: 't-1', printed_by: 'u-1' });
+    await screen.findAllByText('Rahim Ahmed');
+    expect(query?.has('template_id')).toBe(false);
+    expect(query?.has('printed_by')).toBe(false);
   });
 
   it('shows the empty state when nothing has been printed', async () => {
