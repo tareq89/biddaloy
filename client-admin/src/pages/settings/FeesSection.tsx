@@ -6,7 +6,7 @@
  * that default, per-batch still overrides it), and late-fee config per
  * `FeeType`. Same partial-save shape every other section on this page
  * uses (`AttendanceSection.tsx`'s own comment explains it): its own
- * `FormShell` PATCHes `{ version: 1, fees: {...} }` only.
+ * `SettingsSection` PATCHes `{ version: 1, fees: {...} }` only.
  *
  * Late-fee `grace_days`/`kind`/`value` are keyed by `FeeType` — `LATE_FEE`
  * itself is excluded from the row list since it's the line late fees
@@ -14,15 +14,20 @@
  */
 import { FeeType } from '@biddaloy/shared';
 import {
-  Button,
   Checkbox,
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
   Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from '@biddaloy/ui/components';
 import {
   useUpdateSchoolSettings,
@@ -30,19 +35,17 @@ import {
   type LateFeeSetting,
 } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
-import {
-  FormSection,
-  FormShell,
-  buildFormShellErrors,
-  useFormShellMode,
-  useWarnUnsavedChanges,
-} from '@biddaloy/ui/shells';
+import { useFormShellMode, useWarnUnsavedChanges } from '@biddaloy/ui/shells';
 import { boundedNumericString } from '@biddaloy/ui/utils';
 import { zodResolver } from '@hookform/resolvers/zod';
+import type * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
 import { MutationErrorMessage } from '../../components/MutationErrorMessage';
+
+import { SettingsSaved, SettingsSection } from './settings-layout';
+import { useIsPhone } from './use-is-phone';
 
 const LATE_FEE_TYPES = Object.values(FeeType).filter((type) => type !== FeeType.LATE_FEE);
 
@@ -107,6 +110,9 @@ function toFormValues(fees: FeesSettings | undefined): FeesFormValues {
 
 export function FeesSection({ schoolId, fees }: FeesSectionProps) {
   const { t } = useTranslation('settings');
+  // Second binding so the fee-name namespace is loaded (and awaited) even where the route loader did not.
+  const { t: tFeeTypes } = useTranslation('feeStructures');
+  const isPhone = useIsPhone();
   const form = useForm<FeesFormValues>({
     resolver: zodResolver(feesSchema),
     defaultValues: toFormValues(fees),
@@ -142,182 +148,267 @@ export function FeesSection({ schoolId, fees }: FeesSectionProps) {
     );
   }
 
-  const summaryErrors = buildFormShellErrors(
-    form.formState.errors,
-    (field) => `fees-${field.replace(/\./g, '-')}`,
+  const feeName = (type: string) => tFeeTypes(`feeTypes.${type}`, { ns: 'feeStructures' });
+
+  const checkboxField = (
+    name: 'notifyOnScheduleDefault' | 'notifyOnManualGenerationDefault',
+    label: string,
+  ) => (
+    <FormField
+      control={form.control}
+      name={name}
+      render={({ field }) => (
+        <FormItem className="flex min-h-11 flex-row items-center gap-3 md:min-h-8">
+          <FormControl>
+            <Checkbox
+              id={`fees-${name}`}
+              checked={field.value}
+              onCheckedChange={(checked) => field.onChange(checked === true)}
+            />
+          </FormControl>
+          <FormLabel htmlFor={`fees-${name}`} className="flex-1 self-stretch">
+            {label}
+          </FormLabel>
+        </FormItem>
+      )}
+    />
   );
+
+  /** The three inputs of one late-fee row, each labelled for its fee. `visibleLabels` = phone layout. */
+  function lateFeeFields(type: string, visibleLabels: boolean) {
+    const srOnly = (text: string) => (visibleLabels ? undefined : `${feeName(type)}: ${text}`);
+    const kindField = (
+      <FormField
+        control={form.control}
+        name={`lateFees.${type}.kind`}
+        render={({ field }) => (
+          <FormItem className={visibleLabels ? 'col-span-2' : undefined}>
+            {visibleLabels && (
+              <FormLabel htmlFor={`fees-lateFee-${type}-kind`}>{t('fees.lateFeeKind')}</FormLabel>
+            )}
+            <Select value={field.value} onValueChange={field.onChange}>
+              <FormControl>
+                <SelectTrigger
+                  id={`fees-lateFee-${type}-kind`}
+                  aria-label={srOnly(t('fees.lateFeeKind'))}
+                >
+                  <SelectValue />
+                </SelectTrigger>
+              </FormControl>
+              <SelectContent>
+                <SelectItem value="PERCENT">{t('fees.lateFeeKindPercent')}</SelectItem>
+                <SelectItem value="FLAT">{t('fees.lateFeeKindFlat')}</SelectItem>
+              </SelectContent>
+            </Select>
+          </FormItem>
+        )}
+      />
+    );
+    const graceField = (
+      <FormField
+        control={form.control}
+        name={`lateFees.${type}.graceDays`}
+        render={({ field }) => (
+          <FormItem>
+            {visibleLabels && (
+              <FormLabel htmlFor={`fees-lateFee-${type}-graceDays`}>
+                {t('fees.lateFeeGraceDays')}
+              </FormLabel>
+            )}
+            <FormControl>
+              <Input
+                id={`fees-lateFee-${type}-graceDays`}
+                inputMode="numeric"
+                aria-label={srOnly(t('fees.lateFeeGraceDays'))}
+                {...field}
+              />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+    );
+    const valueField = (
+      <FormField
+        control={form.control}
+        name={`lateFees.${type}.value`}
+        render={({ field }) => (
+          <FormItem>
+            {visibleLabels && (
+              <FormLabel htmlFor={`fees-lateFee-${type}-value`}>{t('fees.lateFeeValue')}</FormLabel>
+            )}
+            <FormControl>
+              <Input
+                id={`fees-lateFee-${type}-value`}
+                inputMode="decimal"
+                aria-label={srOnly(t('fees.lateFeeValue'))}
+                {...field}
+              />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+    );
+    return { kindField, graceField, valueField };
+  }
+
+  const feeCheckbox = (type: string) => (
+    <FormField
+      control={form.control}
+      name={`lateFees.${type}.enabled`}
+      render={({ field }) => (
+        <FormItem className="flex min-h-11 flex-row items-center gap-3 md:min-h-8">
+          <FormControl>
+            <Checkbox
+              id={`fees-lateFee-${type}-enabled`}
+              checked={field.value}
+              onCheckedChange={(checked) => field.onChange(checked === true)}
+            />
+          </FormControl>
+          <FormLabel htmlFor={`fees-lateFee-${type}-enabled`} className="flex-1 self-stretch">
+            {feeName(type)}
+          </FormLabel>
+        </FormItem>
+      )}
+    />
+  );
+
+  // A row's inputs show when it is ticked, or when it still carries an error
+  // (ticked, mistyped, then unticked) so a blocked save is never invisible.
+  const showControls = (type: string) =>
+    form.watch(`lateFees.${type}.enabled`) || form.formState.errors.lateFees?.[type] !== undefined;
 
   return (
     <Form {...form}>
-      <FormShell
-        errors={summaryErrors}
-        submitCount={form.formState.submitCount}
+      <SettingsSection
+        id="fees-section"
+        title={t('fees.title')}
+        description={t('fees.description')}
         onSubmit={(event) => void form.handleSubmit(handleSave)(event)}
+        saving={updateSettings.isPending}
+        footerStart={
+          <>
+            {updateSettings.isSuccess && <SettingsSaved />}
+            {updateSettings.isError && <MutationErrorMessage error={updateSettings.error} />}
+          </>
+        }
       >
-        <FormSection legend={t('fees.approvalLegend')}>
+        <h3 className="mt-4 text-h3">{t('fees.approvalLegend')}</h3>
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
           <FormField
             control={form.control}
             name="approvalMode"
             render={({ field }) => (
               <FormItem>
                 <FormLabel htmlFor="fees-approvalMode">{t('fees.approvalModeLabel')}</FormLabel>
-                <FormControl>
-                  <select
-                    id="fees-approvalMode"
-                    className="h-8 rounded-md border border-input bg-card px-2.5 text-sm"
-                    {...field}
-                  >
-                    <option value="OTP">{t('fees.approvalModeOtp')}</option>
-                    <option value="OTP_OR_PASSWORD">{t('fees.approvalModeOtpOrPassword')}</option>
-                  </select>
-                </FormControl>
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <FormControl>
+                    <SelectTrigger id="fees-approvalMode">
+                      <SelectValue />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="OTP">{t('fees.approvalModeOtp')}</SelectItem>
+                    <SelectItem value="OTP_OR_PASSWORD">
+                      {t('fees.approvalModeOtpOrPassword')}
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormDescription>{t('fees.approvalModeHelp')}</FormDescription>
                 <FormMessage />
               </FormItem>
             )}
           />
-        </FormSection>
+        </div>
 
-        <FormSection legend={t('fees.notifyLegend')}>
-          <FormField
-            control={form.control}
-            name="notifyOnScheduleDefault"
-            render={({ field }) => (
-              <FormItem className="flex items-center gap-2">
-                <FormControl>
-                  <Checkbox
-                    id="fees-notifyOnScheduleDefault"
-                    checked={field.value}
-                    onCheckedChange={(checked) => field.onChange(checked === true)}
-                  />
-                </FormControl>
-                <FormLabel htmlFor="fees-notifyOnScheduleDefault">
-                  {t('fees.notifyOnScheduleDefault')}
-                </FormLabel>
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="notifyOnManualGenerationDefault"
-            render={({ field }) => (
-              <FormItem className="flex items-center gap-2">
-                <FormControl>
-                  <Checkbox
-                    id="fees-notifyOnManualGenerationDefault"
-                    checked={field.value}
-                    onCheckedChange={(checked) => field.onChange(checked === true)}
-                  />
-                </FormControl>
-                <FormLabel htmlFor="fees-notifyOnManualGenerationDefault">
-                  {t('fees.notifyOnManualGenerationDefault')}
-                </FormLabel>
-              </FormItem>
-            )}
-          />
-        </FormSection>
+        <h3 className="mt-6 border-t border-border-subtle pt-4 text-h3">
+          {t('fees.notifyLegend')}
+        </h3>
+        <div className="mt-2 flex flex-col">
+          {checkboxField('notifyOnScheduleDefault', t('fees.notifyOnScheduleDefault'))}
+          {checkboxField(
+            'notifyOnManualGenerationDefault',
+            t('fees.notifyOnManualGenerationDefault'),
+          )}
+        </div>
 
-        <FormSection legend={t('fees.lateFeeLegend')}>
-          <p className="text-sm text-muted-foreground">{t('fees.lateFeeAppliesFromTomorrow')}</p>
-          <div className="flex flex-col gap-4">
-            {LATE_FEE_TYPES.map((type) => {
-              const kind = form.watch(`lateFees.${type}.kind`);
-              return (
-                <div key={type} className="grid grid-cols-[1fr_auto_auto_auto] items-end gap-3">
-                  <FormField
-                    control={form.control}
-                    name={`lateFees.${type}.enabled`}
-                    render={({ field }) => (
-                      <FormItem className="flex items-center gap-2">
-                        <FormControl>
-                          <Checkbox
-                            id={`fees-lateFee-${type}-enabled`}
-                            checked={field.value}
-                            onCheckedChange={(checked) => field.onChange(checked === true)}
-                          />
-                        </FormControl>
-                        <FormLabel htmlFor={`fees-lateFee-${type}-enabled`}>
-                          {t(`feeType.${type}`, { ns: 'common', defaultValue: type })}
-                        </FormLabel>
-                      </FormItem>
+        <h3 className="mt-6 border-t border-border-subtle pt-4 text-h3">
+          {t('fees.lateFeeLegend')}
+        </h3>
+        <p className="mt-1 text-text-secondary">
+          {t('fees.lateFeeIntro')} {t('fees.lateFeeAppliesFromTomorrow')}
+        </p>
+        {isPhone ? (
+          <ul className="mt-2 divide-y divide-border-subtle">
+            {LATE_FEE_TYPES.map((type) => (
+              <li key={type} className="flex flex-col">
+                {feeCheckbox(type)}
+                {showControls(type) && <PhoneLateFee fields={lateFeeFields(type, true)} />}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <div className="mt-3 overflow-hidden rounded-lg border border-border-subtle">
+            <table className="w-full text-start">
+              <thead className="border-b border-border-subtle bg-muted text-label text-text-secondary">
+                <tr>
+                  <th className="h-10 px-4 text-start font-medium">{t('fees.lateFeeType')}</th>
+                  <th className="h-10 w-32 px-4 text-start font-medium">
+                    {t('fees.lateFeeGraceDays')}
+                  </th>
+                  <th className="h-10 w-56 px-4 text-start font-medium">{t('fees.lateFeeKind')}</th>
+                  <th className="h-10 w-36 px-4 text-start font-medium">
+                    {t('fees.lateFeeValue')}
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border-subtle">
+                {LATE_FEE_TYPES.map((type) => (
+                  <tr key={type}>
+                    <td className="px-4 py-1.5">{feeCheckbox(type)}</td>
+                    {showControls(type) ? (
+                      <DesktopLateFee fields={lateFeeFields(type, false)} />
+                    ) : (
+                      <>
+                        <td className="px-4 text-text-secondary">—</td>
+                        <td className="px-4 text-text-secondary">—</td>
+                        <td className="px-4 text-text-secondary">—</td>
+                      </>
                     )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name={`lateFees.${type}.graceDays`}
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel htmlFor={`fees-lateFee-${type}-graceDays`}>
-                          {t('fees.lateFeeGraceDays')}
-                        </FormLabel>
-                        <FormControl>
-                          <Input
-                            id={`fees-lateFee-${type}-graceDays`}
-                            type="number"
-                            min={0}
-                            max={60}
-                            className="w-20"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name={`lateFees.${type}.kind`}
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel htmlFor={`fees-lateFee-${type}-kind`}>
-                          {t('fees.lateFeeKind')}
-                        </FormLabel>
-                        <FormControl>
-                          <select
-                            id={`fees-lateFee-${type}-kind`}
-                            className="h-8 rounded-md border border-input bg-card px-2.5 text-sm"
-                            {...field}
-                          >
-                            <option value="PERCENT">{t('fees.lateFeeKindPercent')}</option>
-                            <option value="FLAT">{t('fees.lateFeeKindFlat')}</option>
-                          </select>
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name={`lateFees.${type}.value`}
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel htmlFor={`fees-lateFee-${type}-value`}>
-                          {t('fees.lateFeeValue')}
-                        </FormLabel>
-                        <FormControl>
-                          <Input
-                            id={`fees-lateFee-${type}-value`}
-                            type="number"
-                            min={0}
-                            max={kind === 'PERCENT' ? 100 : undefined}
-                            className="w-24"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-              );
-            })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        </FormSection>
-
-        <Button type="submit" loading={updateSettings.isPending}>
-          {t('save.action')}
-        </Button>
-        {updateSettings.isSuccess && <p role="status">{t('save.success')}</p>}
-        {updateSettings.isError && <MutationErrorMessage error={updateSettings.error} />}
-      </FormShell>
+        )}
+      </SettingsSection>
     </Form>
+  );
+}
+
+type LateFeeFields = {
+  kindField: React.ReactNode;
+  graceField: React.ReactNode;
+  valueField: React.ReactNode;
+};
+
+function DesktopLateFee({ fields }: { fields: LateFeeFields }) {
+  return (
+    <>
+      <td className="px-4 py-1.5">{fields.graceField}</td>
+      <td className="px-4 py-1.5">{fields.kindField}</td>
+      <td className="px-4 py-1.5">{fields.valueField}</td>
+    </>
+  );
+}
+
+function PhoneLateFee({ fields }: { fields: LateFeeFields }) {
+  return (
+    <div className="grid grid-cols-2 gap-3 pb-3">
+      {fields.kindField}
+      {fields.graceField}
+      {fields.valueField}
+    </div>
   );
 }

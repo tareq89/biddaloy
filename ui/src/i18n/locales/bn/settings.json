@@ -156,12 +156,16 @@
     "lateCountsAsPresent": "দেরিকে উপস্থিত হিসেবে গণনা করুন",
     "leaveCountsAsWorkingDay": "ছুটিকে কর্মদিবস হিসেবে গণনা করুন",
     "allowFutureDates": "ভবিষ্যতের তারিখ চিহ্নিত করার অনুমতি দিন",
-    "autoAbsentLegend": "স্বয়ংক্রিয়-অনুপস্থিতি অভিভাবক বিজ্ঞপ্তি",
+    "autoAbsentLegend": "অনুপস্থিতির স্বয়ংক্রিয় বার্তা",
     "autoAbsentEnabled": "কোনো শিক্ষার্থীকে অনুপস্থিত চিহ্নিত করা হলে স্বয়ংক্রিয়ভাবে অভিভাবককে জানান",
     "autoAbsentCutoffTime": "পাঠানোর সময়সীমা",
     "confirmEnableNotificationDescription": "এটি চালু করলে প্রতিদিন প্রতিটি অনুপস্থিত শিক্ষার্থীর অভিভাবককে স্বয়ংক্রিয়ভাবে একটি বিজ্ঞপ্তি পাঠানো হবে। আপনি কি নিশ্চিত?",
     "confirmEnableNotificationConfirm": "হ্যাঁ, চালু করুন",
-    "confirmEnableNotificationCancel": "বাতিল"
+    "confirmEnableNotificationCancel": "বাতিল",
+    "description": "কখন দেরি বা অনুপস্থিত ধরা হবে, আর উপস্থিতির হার কীভাবে গোনা হবে।",
+    "correctionWindowHelp": "এত দিন পর্যন্ত আগের উপস্থিতি ঠিক করা যায়।",
+    "lowAttendanceHelp": "এর নিচে নামলে শিক্ষার্থীকে কম উপস্থিতি হিসেবে দেখানো হয়।",
+    "confirmEnableNotificationTitle": "অনুপস্থিতির স্বয়ংক্রিয় বার্তা চালু করবেন?"
   },
   "signIn": {
     "legend": "লগ ইন অপশন",
@@ -232,21 +236,28 @@
     "notifyOnScheduleDefault": "নির্ধারিত ফি তৈরিতে ডিফল্টভাবে জানানো হবে",
     "notifyOnManualGenerationDefault": "ম্যানুয়াল ফি তৈরিতে ডিফল্টভাবে জানানো হবে",
     "lateFeeLegend": "বিলম্ব ফি",
-    "lateFeeAppliesFromTomorrow": "পরিবর্তন আগামীকালের ফি-তৈরির প্রক্রিয়া থেকে কার্যকর হবে।",
+    "lateFeeAppliesFromTomorrow": "পরিবর্তন আগামীকালের ফি বিল থেকে কার্যকর হবে।",
     "lateFeeGraceDays": "রেয়াত দিন",
     "lateFeeKind": "ধরন",
     "lateFeeKindPercent": "শতাংশ",
     "lateFeeKindFlat": "নির্দিষ্ট পরিমাণ",
-    "lateFeeValue": "মান"
+    "lateFeeValue": "মান",
+    "title": "ফির নিয়ম",
+    "description": "অনুমোদন, পরিবারকে জানানো আর বিলম্ব ফি — সব ফি বিলে প্রযোজ্য।",
+    "approvalModeHelp": "স্পর্শকাতর কাজের আগে (যেমন বিলম্ব ফি বদলানো) আরেকবার নিশ্চিত করার পদ্ধতি।",
+    "lateFeeIntro": "যে ফিতে বিলম্ব ফি লাগবে সেটি বেছে নিন।",
+    "lateFeeType": "ফির ধরন"
   },
   "evaluations": {
     "legend": "মূল্যায়ন",
     "incidentSmsLabel": "নতুন ঘটনার প্রতিবেদন জমা হলে এসএমএস পাঠান",
-    "incidentSmsHint": "এসএমএসে শুধু জানানো হয় যে একটি নতুন প্রতিবেদন আছে, প্রতিবেদনে কী লেখা আছে তা কখনও নয়। উপরের এসএমএস সেটিংসে এসএমএস প্রোভাইডার ঠিক করা না থাকলে এসএমএস যাবে না।",
-    "providerConfigured": "এসএমএস প্রোভাইডার ঠিক করা আছে, তাই ঘটনার এসএমএস যেতে পারবে।",
-    "providerMissingWarning": "এসএমএস প্রোভাইডার এখনও ঠিক করা হয়নি। উপরের এসএমএস সেটিংসে ঠিক না করা পর্যন্ত ঘটনার এসএমএস যাবে না।",
+    "incidentSmsHint": "এসএমএসে শুধু জানানো হয় যে একটি নতুন প্রতিবেদন আছে, প্রতিবেদনে কী লেখা আছে তা কখনও নয়।",
+    "providerMissingWarning": "যোগাযোগ বিভাগে এসএমএস প্রোভাইডার ঠিক না করা পর্যন্ত ঘটনার এসএমএস যাবে না।",
     "providerNotConfigured": "এসএমএস প্রোভাইডার ঠিক করা নেই।",
-    "pushAlwaysOn": "পুশ নোটিফিকেশন সবসময় চালু থাকে।"
+    "pushAlwaysOn": "পুশ নোটিফিকেশন সবসময় চালু থাকে।",
+    "description": "নতুন ঘটনার প্রতিবেদন জমা হলে কাকে কীভাবে জানানো হবে।",
+    "providerReady": "এসএমএস প্রোভাইডার ঠিক করা আছে",
+    "openSmsSettings": "যোগাযোগ › এসএমএস ঠিক করুন"
   },
   "organisation": {
     "legend": "শিফট, ভার্সন ও গ্রুপ",
