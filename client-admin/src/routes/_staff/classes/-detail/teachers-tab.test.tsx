@@ -190,9 +190,19 @@ describe('classes/$classId Teachers tab', () => {
       locale: 'en',
     });
 
-    await screen.findByText(new RegExp(teacher.user.full_name));
+    const item = (await screen.findByText(teacher.user.full_name)).closest('li') as HTMLElement;
+    await user.click(within(item).getByRole('button', { name: 'Remove' }));
+
+    // Cancelling the confirmation removes nothing.
+    const confirm = await screen.findByRole('alertdialog', { name: 'Remove this teacher?' });
+    await user.click(within(confirm).getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+    expect(removed).toBe(false);
+    expect(screen.getByText(teacher.user.full_name)).toBeTruthy();
+
+    await user.click(within(item).getByRole('button', { name: 'Remove' }));
     await user.click(
-      screen.getByRole('button', { name: `Remove ${teacher.user.full_name} (Class teacher)` }),
+      within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Remove' }),
     );
 
     await waitFor(() => expect(screen.queryByText(new RegExp(teacher.user.full_name))).toBeNull());
@@ -234,17 +244,18 @@ describe('classes/$classId Teachers tab', () => {
       locale: 'en',
     });
 
-    await screen.findByText(/Cy Class/);
+    await screen.findByText('Cy Class');
+    // Class teacher first, then assistant, then subject teacher; each row
+    // carries the role on its own second line.
     const items = screen
       .getAllByRole('listitem')
-      .filter(
-        (li) =>
-          /Class|Assistant|Subject/.test(li.textContent ?? '') && li.textContent?.includes(' — '),
-      );
-    expect(items.map((li) => li.textContent)).toEqual([
-      expect.stringContaining('Cy Class — Class teacher'),
-      expect.stringContaining('Ann Assistant — Assistant class teacher'),
-      expect.stringContaining('Sam Subject — Subject teacher'),
-    ]);
+      .filter((li) => /Cy Class|Ann Assistant|Sam Subject/.test(li.textContent ?? ''));
+    expect(items).toHaveLength(3);
+    expect(within(items[0] as HTMLElement).getByText('Cy Class')).toBeTruthy();
+    expect(within(items[0] as HTMLElement).getByText('Class teacher')).toBeTruthy();
+    expect(within(items[1] as HTMLElement).getByText('Ann Assistant')).toBeTruthy();
+    expect(within(items[1] as HTMLElement).getByText('Assistant class teacher')).toBeTruthy();
+    expect(within(items[2] as HTMLElement).getByText('Sam Subject')).toBeTruthy();
+    expect(within(items[2] as HTMLElement).getByText('Subject teacher')).toBeTruthy();
   });
 });

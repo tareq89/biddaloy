@@ -66,7 +66,40 @@ describe('classes/$classId Subjects tab', () => {
 
     await screen.findByText('Mathematics');
     expect(screen.getByText('MATH')).toBeTruthy();
-    expect(screen.getByText('No')).toBeTruthy();
+    // Not optional: no "Optional" badge in the row (the column header is the only match).
+    expect(
+      within(screen.getByText('MATH').closest('tr') as HTMLElement).queryByText('Optional'),
+    ).toBeNull();
+    expect(screen.getAllByText('Optional')).toHaveLength(1);
+  });
+
+  it('shows an Optional badge for an optional subject and the Bangla name in Bangla', async () => {
+    const klass = classFactory({ id: 'class-1' });
+    const subject = subjectFactory({ name_en: 'Mathematics', name_bn: 'গণিত', code: 'MATH' });
+    const classSubject = classSubjectFactory({
+      class: klass,
+      class_id: klass.id,
+      subject,
+      subject_id: subject.id,
+      academic_year: klass.academic_year,
+      academic_year_id: klass.academic_year.id,
+      is_optional: true,
+    });
+    server.use(
+      http.get('/api/v1/classes/:id', () => HttpResponse.json(klass)),
+      http.get('/api/v1/classes/:classId/subjects', () => HttpResponse.json([classSubject])),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/classes/class-1?tab=subjects'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'bn',
+    });
+
+    const row = (await screen.findByText('গণিত')).closest('tr') as HTMLElement;
+    expect(within(row).getByText('ঐচ্ছিক')).toBeTruthy();
+    expect(screen.queryByText('Mathematics')).toBeNull();
   });
 
   it('attaches a subject through the Add subject dialog', async () => {
@@ -120,7 +153,7 @@ describe('classes/$classId Subjects tab', () => {
     });
 
     await screen.findByText('No subjects offered yet');
-    await user.click(screen.getByRole('button', { name: '+ Subject' }));
+    await user.click(screen.getByRole('button', { name: 'Add subject' }));
 
     const dialog = await screen.findByRole('dialog', { name: 'Add subject' });
     const picker = within(dialog).getByRole('combobox', { name: 'Subject' });
@@ -173,10 +206,10 @@ describe('classes/$classId Subjects tab', () => {
     await screen.findByText('Mathematics');
     await user.click(screen.getByRole('button', { name: 'Remove' }));
 
-    const dialog = await screen.findByRole('dialog', { name: 'Remove subject' });
+    const dialog = await screen.findByRole('alertdialog', { name: 'Remove subject' });
     await user.click(within(dialog).getByRole('button', { name: 'Remove' }));
 
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
     await screen.findByText('No subjects offered yet');
   });
 

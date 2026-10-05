@@ -12,10 +12,12 @@ import {
   DataTable,
   ErrorState,
   Skeleton,
+  StatusBadge,
   type DataTableColumn,
 } from '@biddaloy/ui/components';
 import { useClassSubjects, useHasPermission, type ClassSubject } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
+import { PlusIcon } from 'lucide-react';
 import * as React from 'react';
 
 import { AttachSubjectDialog } from '../-attach-subject-dialog';
@@ -28,7 +30,7 @@ export interface SubjectsTabProps {
 }
 
 export function SubjectsTab({ classId, academicYearId }: SubjectsTabProps) {
-  const { t } = useTranslation('classes');
+  const { t, i18n } = useTranslation('classes');
   const { t: tCommon } = useTranslation('common');
   const canManage = useHasPermission(Permission.CLASS_MANAGE);
   // The banner's status call is ADMIN-only; skip it for other viewers.
@@ -37,12 +39,10 @@ export function SubjectsTab({ classId, academicYearId }: SubjectsTabProps) {
   const query = useClassSubjects(classId, academicYearId);
   const [attachOpen, setAttachOpen] = React.useState(false);
   const [removing, setRemoving] = React.useState<ClassSubject | null>(null);
-  const [page, setPage] = React.useState(1);
-  const PAGE_SIZE = 20;
 
   if (query.isPending) {
     return (
-      <div className="flex flex-col gap-2 p-4" aria-hidden="true">
+      <div className="flex flex-col gap-2" aria-hidden="true">
         <Skeleton className="h-6 w-full" />
         <Skeleton className="h-6 w-full" />
       </div>
@@ -52,23 +52,25 @@ export function SubjectsTab({ classId, academicYearId }: SubjectsTabProps) {
   if (query.isError) {
     const forbidden = query.error instanceof ApiError && query.error.statusCode === 403;
     return (
-      <div className="p-4">
-        <ErrorState
-          message={forbidden ? t('detail.forbidden') : t('subjects.errorMessage')}
-          retryLabel={tCommon('actions.retry')}
-          onRetry={() => void query.refetch()}
-        />
-      </div>
+      <ErrorState
+        message={forbidden ? t('detail.forbidden') : t('subjects.errorMessage')}
+        retryLabel={tCommon('actions.retry')}
+        onRetry={() => void query.refetch()}
+      />
     );
   }
 
   const classSubjects = query.data ?? [];
 
+  // Bangla name when the viewer reads Bangla and one is set.
+  const subjectName = (row: ClassSubject) =>
+    i18n.language === 'bn' && row.subject.name_bn ? row.subject.name_bn : row.subject.name_en;
+
   const columns: DataTableColumn<ClassSubject>[] = [
     {
       id: 'name',
       header: t('subjects.columnName'),
-      accessorFn: (row) => row.subject.name_en,
+      accessorFn: (row) => <span className="font-medium">{subjectName(row)}</span>,
     },
     {
       id: 'code',
@@ -78,35 +80,19 @@ export function SubjectsTab({ classId, academicYearId }: SubjectsTabProps) {
     {
       id: 'optional',
       header: t('subjects.columnOptional'),
-      accessorFn: (row) => (row.is_optional ? t('subjects.yes') : t('subjects.no')),
+      accessorFn: (row) =>
+        row.is_optional ? <StatusBadge tone="neutral" label={t('subjects.optional')} /> : null,
     },
-    ...(canManage
-      ? [
-          {
-            id: 'actions',
-            header: t('subjects.columnActions'),
-            pinned: true,
-            accessorFn: (row: ClassSubject) => (
-              <button
-                type="button"
-                className="inline-flex min-h-6 min-w-6 items-center justify-center text-sm font-medium text-destructive underline"
-                onClick={() => setRemoving(row)}
-              >
-                {t('subjects.remove')}
-              </button>
-            ),
-          } as DataTableColumn<ClassSubject>,
-        ]
-      : []),
   ];
 
   return (
-    <div className="flex flex-col gap-3 p-4">
+    <div className="flex flex-col gap-4">
       {canSeePresetBanner && <PresetWarningBanner />}
-      <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold">{t('subjects.heading')}</h2>
+      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+        <h2 className="text-h2">{t('subjects.heading')}</h2>
         {canManage && (
-          <Button type="button" variant="outline" size="sm" onClick={() => setAttachOpen(true)}>
+          <Button type="button" className="w-full md:w-auto" onClick={() => setAttachOpen(true)}>
+            <PlusIcon aria-hidden="true" />
             {t('subjects.addSubject')}
           </Button>
         )}
@@ -114,22 +100,28 @@ export function SubjectsTab({ classId, academicYearId }: SubjectsTabProps) {
 
       <DataTable
         tableId="class-detail-subjects"
-        caption={t('subjects.columnName')}
+        caption={t('subjects.caption')}
         columns={columns}
-        data={classSubjects.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)}
+        data={classSubjects}
         getRowId={(row) => row.id}
         sorting={null}
         onSortingChange={() => {}}
-        page={page}
-        pageSize={PAGE_SIZE}
+        paginated={false}
         totalCount={classSubjects.length}
-        onPageChange={setPage}
+        rowActions={(row) => [
+          {
+            intent: 'remove',
+            label: t('subjects.remove'),
+            onClick: () => setRemoving(row),
+            allowed: canManage,
+          },
+        ]}
         emptyMessage={t('subjects.emptyMessage')}
       />
 
-      {canManage && (
+      {canManage && attachOpen && (
         <AttachSubjectDialog
-          open={attachOpen}
+          open
           onOpenChange={setAttachOpen}
           classId={classId}
           academicYearId={academicYearId}
@@ -140,12 +132,12 @@ export function SubjectsTab({ classId, academicYearId }: SubjectsTabProps) {
 
       {canManage && removing && (
         <RemoveSubjectDialog
-          open={removing !== null}
+          open
           onOpenChange={(open) => !open && setRemoving(null)}
           classId={classId}
           academicYearId={academicYearId}
           subjectId={removing.subject_id}
-          subjectName={removing.subject.name_en}
+          subjectName={subjectName(removing)}
           onRemoved={() => setRemoving(null)}
         />
       )}

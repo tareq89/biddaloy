@@ -1,5 +1,12 @@
 import { Permission } from '@biddaloy/shared';
-import { Button, ErrorState, Skeleton } from '@biddaloy/ui/components';
+import {
+  Button,
+  ConfirmDialog,
+  EmptyState,
+  ErrorState,
+  RowActions,
+  Skeleton,
+} from '@biddaloy/ui/components';
 import {
   useClassSections,
   useHasPermission,
@@ -9,6 +16,7 @@ import {
   type SectionTeacherAssignment,
 } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
+import { UserPlusIcon, UsersIcon } from 'lucide-react';
 import * as React from 'react';
 
 import { AssignTeacherDialog, sortByAssignmentType } from '../-assign-teacher-dialog';
@@ -36,7 +44,7 @@ export function TeachersTab({ classId }: TeachersTabProps) {
   );
 
   return (
-    <div className="flex flex-col gap-4 p-4">
+    <div className="flex flex-col gap-4">
       <TabQueryState
         query={sectionsQuery}
         forbiddenMessage={t('detail.forbidden')}
@@ -44,7 +52,11 @@ export function TeachersTab({ classId }: TeachersTabProps) {
       >
         {(sections) =>
           sections.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{t('detail.teachers.emptyMessage')}</p>
+            <EmptyState
+              icon={<UsersIcon aria-hidden="true" />}
+              title={t('detail.teachers.emptyMessage')}
+              explanation={t('detail.teachers.emptyExplanation')}
+            />
           ) : (
             sections.map((section) => (
               <SectionTeachersPanel
@@ -111,6 +123,7 @@ function SectionTeachersPanel({
   const { t } = useTranslation('classes');
   const query = useSectionTeachers(classId, section.id);
   const unassignTeacher = useUnassignTeacher(classId, section.id);
+  const [removing, setRemoving] = React.useState<SectionTeacherAssignment | null>(null);
   // [47.4.1] Label comes from assignment_type, never subject nullness.
   const roleLabel = (a: SectionTeacherAssignment) =>
     a.assignment_type === 'SUBJECT_TEACHER' && a.subject_name
@@ -118,76 +131,87 @@ function SectionTeachersPanel({
       : t(`assignmentType.${a.assignment_type}`);
 
   return (
-    <div className="flex flex-col gap-2 rounded-md border p-3">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold">{section.section_name}</h3>
+    <div className="rounded-lg border border-border-subtle bg-surface p-4 shadow-e1 md:p-5">
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="text-h3">{section.section_name}</h3>
         {canManage && (
           <Button
             type="button"
             variant="outline"
-            size="sm"
             onClick={onAssign}
             aria-label={t('detail.teachers.assignAria', { section: section.section_name })}
           >
+            <UserPlusIcon aria-hidden="true" />
             {t('detail.teachers.assign')}
           </Button>
         )}
       </div>
 
       {query.isPending && (
-        <div className="flex flex-col gap-2" aria-hidden="true">
+        <div className="mt-3 flex flex-col gap-2" aria-hidden="true">
           <Skeleton className="h-6 w-full" />
         </div>
       )}
 
       {query.isError && (
-        <ErrorState
-          message={t('detail.teachers.errorMessage')}
-          retryLabel={t('actions.retry', { ns: 'common' })}
-          onRetry={() => void query.refetch()}
-        />
+        <div className="mt-3">
+          <ErrorState
+            message={t('detail.teachers.errorMessage')}
+            retryLabel={t('actions.retry', { ns: 'common' })}
+            onRetry={() => void query.refetch()}
+          />
+        </div>
       )}
 
       {unassignTeacher.isError && (
-        <p role="alert" className="text-sm text-destructive">
+        <p role="alert" className="mt-3 text-caption text-destructive">
           {t('detail.teachers.removeError')}
         </p>
       )}
 
       {query.data &&
         (query.data.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            {t('detail.teachers.emptySectionMessage')}
-          </p>
+          <p className="mt-3 text-text-secondary">{t('detail.teachers.emptySectionMessage')}</p>
         ) : (
-          <ul className="flex flex-col gap-1">
+          <ul className="mt-3 divide-y divide-border-subtle">
             {sortByAssignmentType(query.data).map((assignment) => (
-              <li key={assignment.id} className="flex items-center justify-between gap-2 text-sm">
-                <span>
-                  {assignment.full_name}
-                  {' — '}
-                  {roleLabel(assignment)}
-                </span>
-                {canManage && (
-                  <button
-                    type="button"
-                    className="min-h-6 min-w-6 text-sm font-medium text-destructive underline disabled:opacity-50"
-                    disabled={
-                      unassignTeacher.isPending && unassignTeacher.variables === assignment.id
-                    }
-                    onClick={() => unassignTeacher.mutate(assignment.id)}
-                    aria-label={t('detail.teachers.removeAria', {
-                      name: assignment.full_name,
-                      role: roleLabel(assignment),
-                    })}
-                  >
-                    {t('detail.teachers.remove')}
-                  </button>
-                )}
+              <li key={assignment.id} className="flex items-center justify-between gap-3 py-2">
+                <div className="min-w-0">
+                  <p className="font-medium">{assignment.full_name}</p>
+                  <p className="text-caption text-text-secondary">{roleLabel(assignment)}</p>
+                </div>
+                <RowActions
+                  actions={[
+                    {
+                      intent: 'remove',
+                      label: t('detail.teachers.remove'),
+                      onClick: () => setRemoving(assignment),
+                      allowed: canManage,
+                    },
+                  ]}
+                />
               </li>
             ))}
           </ul>
         ))}
+
+      {removing && (
+        <ConfirmDialog
+          open
+          onOpenChange={(open) => !open && setRemoving(null)}
+          tone="danger"
+          title={t('detail.teachers.removeConfirmTitle')}
+          description={t('detail.teachers.removeConfirmDescription', {
+            name: removing.full_name,
+            section: section.section_name,
+          })}
+          confirmLabel={t('detail.teachers.remove')}
+          busy={unassignTeacher.isPending}
+          onConfirm={() =>
+            unassignTeacher.mutate(removing.id, { onSettled: () => setRemoving(null) })
+          }
+        />
+      )}
     </div>
   );
 }
