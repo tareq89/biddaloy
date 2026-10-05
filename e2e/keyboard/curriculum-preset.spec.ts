@@ -35,7 +35,7 @@ const NCTB_VERSION_BANGLA_BN = 'বাংলা';
 // Pack's PRIMARY stage = classes 1-5.
 const PRIMARY_CLASS_COUNT = 5;
 // `action-registry.ts` `presets.apply` — the palette has no i18n catalog.
-const PALETTE_APPLY_LABEL_BN = 'কারিকুলাম প্রিসেট প্রয়োগ করুন';
+const PALETTE_APPLY_LABEL_BN = 'তৈরি শিক্ষাক্রম ব্যবহার করুন';
 
 interface FreshSchool {
   schoolId: string;
@@ -108,7 +108,7 @@ test.describe('apply a curriculum preset', () => {
     try {
       expect(await presetState(api, admin)).toBe('AVAILABLE');
 
-      await test.step('Ctrl+K, Action tab, "Apply curriculum preset"', async () => {
+      await test.step('Ctrl+K, Action tab, "Use a ready-made curriculum"', async () => {
         await page.goto('/dashboard');
         await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible();
         await page.keyboard.press('ControlOrMeta+k');

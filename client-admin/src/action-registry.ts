@@ -79,14 +79,14 @@ export const ACTIONS: readonly PaletteAction[] = [
   // summary once a preset is applied.
   {
     id: 'presets.apply',
-    label: { en: 'Apply curriculum preset', bn: 'কারিকুলাম প্রিসেট প্রয়োগ করুন' },
+    label: { en: 'Use a ready-made curriculum', bn: 'তৈরি শিক্ষাক্রম ব্যবহার করুন' },
     permission: Permission.CURRICULUM_PRESET_APPLY,
     kind: 'navigate',
     run: (ctx) => ctx.navigate({ to: '/curriculum-preset' }),
   },
   {
     id: 'roles.view',
-    label: { en: 'Roles & access', bn: 'রোল ও অনুমতি' },
+    label: { en: 'Roles & access', bn: 'ভূমিকা ও অনুমতি' },
     permission: Permission.USER_READ,
     kind: 'navigate',
     run: (ctx) => ctx.navigate({ to: '/roles' }),
@@ -132,7 +132,7 @@ export const ACTIONS: readonly PaletteAction[] = [
   },
   {
     id: 'attendance.take',
-    label: { en: 'Take attendance', bn: 'হাজিরা নিন' },
+    label: { en: 'Take attendance', bn: 'উপস্থিতি নিন' },
     permission: Permission.ATTENDANCE_READ,
     kind: 'navigate',
     run: (ctx) => ctx.navigate({ to: '/attendance' }),
@@ -141,7 +141,7 @@ export const ACTIONS: readonly PaletteAction[] = [
   // from `route-permissions.ts`'s `/_staff/attendance/staff/` entry.
   {
     id: 'attendance.markStaff',
-    label: { en: 'Mark staff attendance', bn: 'কর্মী হাজিরা নিন' },
+    label: { en: 'Mark staff attendance', bn: 'কর্মীর উপস্থিতি নিন' },
     permission: Permission.STAFF_ATTENDANCE_READ,
     kind: 'navigate',
     run: (ctx) => ctx.navigate({ to: '/attendance/staff' }),
@@ -155,7 +155,7 @@ export const ACTIONS: readonly PaletteAction[] = [
   },
   {
     id: 'fees.generate',
-    label: { en: 'Generate fees', bn: 'ফি তৈরি করুন' },
+    label: { en: 'Create fee bills', bn: 'ফির বিল তৈরি করুন' },
     permission: Permission.FEE_GENERATE,
     kind: 'modal',
     run: (ctx) => ctx.navigate({ to: '/fees/generate' }),
@@ -325,7 +325,7 @@ export const ACTIONS: readonly PaletteAction[] = [
   },
   {
     id: 'routines.addSubstitution',
-    label: { en: 'Add substitution', bn: 'প্রতিনিধিত্ব যোগ করুন' },
+    label: { en: 'Add substitute teacher', bn: 'বদলি শিক্ষক যোগ করুন' },
     permission: Permission.ROUTINE_MANAGE,
     kind: 'modal',
     run: (ctx) => ctx.navigate({ to: '/routines/substitutions' }),
