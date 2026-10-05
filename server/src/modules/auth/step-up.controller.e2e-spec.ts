@@ -3,9 +3,11 @@ import supertest = require('supertest');
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+import type Redis from 'ioredis';
 import { AppModule } from '../../app.module';
 import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { buildValidationPipeOptions } from '../../validation-pipe';
+import { STEP_UP_REDIS } from './step-up.service';
 import {
   SEED_TENANT_ID,
   SEED_ADMIN_EMAIL,
@@ -233,6 +235,16 @@ describe('StepUpController (e2e)', () => {
        ON CONFLICT DO NOTHING`,
       [APPROVER_B_ID, TENANT_B],
     );
+
+    // Earlier tests in this file already spent part of ACTOR's step-up
+    // budget (5 per 15 minutes by default). Start from a clean count so the
+    // 5 guesses below all reach the OTP check instead of the rate limit.
+    await app
+      .get<Redis>(STEP_UP_REDIS)
+      .del(
+        `step-up-attempts:actor:${ACTOR_ID}`,
+        `step-up-attempts:approver:${SEED_TENANT_ID}:${APPROVER_B_EMAIL}`,
+      );
 
     try {
       for (let i = 0; i < 5; i++) {
