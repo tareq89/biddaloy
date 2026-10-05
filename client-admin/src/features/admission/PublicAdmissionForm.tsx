@@ -10,14 +10,7 @@
  * multipart field names match what `PublicAdmissionController.submit`
  * expects (`photo`/`birth_certificate`/`transcript`).
  */
-import {
-  Button,
-  Card,
-  FileUpload,
-  Input,
-  Label,
-  PhoneInput,
-} from '@biddaloy/ui/components';
+import { Button, Card, FileUpload, Input, Label, PhoneInput } from '@biddaloy/ui/components';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import * as React from 'react';
 
@@ -245,9 +238,7 @@ export function PublicAdmissionForm({ slug, onSubmitted }: PublicAdmissionFormPr
               aria-label={t(`form.documents.${type}`)}
               multiple={false}
               accept="image/png,image/jpeg,image/webp,application/pdf"
-              items={
-                file ? [{ id: field, file }] : []
-              }
+              items={file ? [{ id: field, file }] : []}
               onFilesSelected={([selected]) => {
                 if (!selected) return;
                 setDocuments((current) => ({ ...current, [field]: selected }));
