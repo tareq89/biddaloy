@@ -379,6 +379,8 @@ export class MarkGridService {
       section_id: string;
       section_name: string;
       subject_id: string;
+      subject_name: string | null;
+      subject_name_bn: string | null;
       state: MarkGridState;
     }>;
   }> {
@@ -391,11 +393,23 @@ export class MarkGridService {
       }),
       this.componentRepo.find({
         where: { exam_id: examId, tenant_id: tenantId, deleted_at: IsNull() },
+        relations: { subject: true },
+        // a soft-deleted subject still names its outstanding grid; the
+        // component's own deleted_at stays filtered above
+        withDeleted: true,
       }),
       this.gridRepo.find({ where: { exam_id: examId, tenant_id: tenantId } }),
     ]);
 
     const subjectIds = [...new Set(components.map((c) => c.subject_id))];
+    // Names only from this tenant's own subjects (multi-tenancy rule) — a
+    // foreign-tenant subject is filtered here rather than in the query's
+    // `where`, which would drop the component and silently shrink the counts.
+    const subjectById = new Map(
+      components
+        .filter((c) => c.subject?.tenant_id === tenantId)
+        .map((c) => [c.subject_id, c.subject]),
+    );
     const gridByKey = new Map(grids.map((g) => [`${g.section_id}:${g.subject_id}`, g]));
 
     const counts: Record<MarkGridState, number> = {
@@ -406,6 +420,8 @@ export class MarkGridService {
       section_id: string;
       section_name: string;
       subject_id: string;
+      subject_name: string | null;
+      subject_name_bn: string | null;
       state: MarkGridState;
     }> = [];
 
@@ -420,6 +436,8 @@ export class MarkGridService {
             section_id: section.id,
             section_name: section.section_name,
             subject_id: subjectId,
+            subject_name: subjectById.get(subjectId)?.name_en ?? null,
+            subject_name_bn: subjectById.get(subjectId)?.name_bn ?? null,
             state,
           });
         }
