@@ -1,9 +1,8 @@
 /**
- * [16.7.5] Create/Edit recurring-schedule dialog. Tier B form (plain
- * `useState`, no `FormShell`/react-hook-form), same call as `fee-
- * structures/-structure-form-dialog.tsx` — this modal's field count
- * doesn't earn react-hook-form's autosave/unsaved-changes machinery
- * either.
+ * [16.7.5] Create/Edit recurring-schedule form — a full-page modal (`FullPageShell`, D21/D23: 12
+ * fields) opened through the URL (`?new=1` / `?edit=<id>`, D22). Mounted only while `open`, so it
+ * never fires its programs request for a user who is not looking at it (B10), and starts from a
+ * fresh state every time. Tier B form (plain `useState`, no `FormShell`/react-hook-form).
  *
  * Audience/rule follow issue #679's Step 2: monthly day-of-month (1-28 or
  * "Last"), weekly weekday chips (ISO numbers, 1 = Monday .. 7 = Sunday),
@@ -16,23 +15,19 @@
  *   has a required `enrollment_status` whose only accepted value is
  *   `'ACTIVE'`, so every schedule is active-students-only and the toggle
  *   offered a choice that did not exist. The form now always sends
- *   `enrollment_status: 'ACTIVE'` and the audience summary states it.
+ *   `enrollment_status: 'ACTIVE'` and states the rule in a notice.
  * - The live "preview matching students" button in create mode. The only
  *   preview endpoint is `GET /fees/schedules/:id/preview`, which needs a
  *   saved schedule, so preview is edit-mode only.
  */
+import { Permission } from '@biddaloy/shared';
 import {
   Button,
+  Card,
   Checkbox,
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
   DatePicker,
   Input,
+  Label,
   Select,
   SelectContent,
   SelectItem,
@@ -40,12 +35,13 @@ import {
   SelectValue,
 } from '@biddaloy/ui/components';
 import {
+  programsQueryOptions,
   useAcademicYears,
   useClasses,
   useClassSections,
   useCreateRecurringSchedule,
   useFeeStructures,
-  usePrograms,
+  useHasPermission,
   useSchedulePreview,
   useUpdateRecurringSchedule,
   ISO_WEEKDAYS,
@@ -55,7 +51,10 @@ import {
   type Weekday,
 } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
-import { formatDate, parseServerDate } from '@biddaloy/ui/utils';
+import { FullPageShell } from '@biddaloy/ui/shells';
+import { formatDate, formatNumber, formatServerAmount, parseServerDate } from '@biddaloy/ui/utils';
+import { useQuery } from '@tanstack/react-query';
+import { CircleAlertIcon } from 'lucide-react';
 import * as React from 'react';
 
 const NO_CLASS = '__none__';
@@ -75,6 +74,13 @@ export interface ScheduleFormDialogProps {
   onSaved: () => void;
 }
 
+interface FormErrors {
+  name?: string;
+  academicYear?: string;
+  fees?: string;
+  weekdays?: string;
+}
+
 function toDateInput(date: Date): string {
   // `DatePicker` builds this `Date` from local calendar fields (year/month/
   // day the user actually picked). `toISOString()` converts through UTC
@@ -90,6 +96,62 @@ function toDateInput(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
+/** `aria-invalid` + `aria-describedby` for a control whose error sits under it. */
+function invalidProps(id: string, error: string | undefined) {
+  return error ? { 'aria-invalid': true as const, 'aria-describedby': `${id}-error` } : {};
+}
+
+/** Visible label tied to its control, optional required mark, optional help, and the field's own
+ * error. */
+function Field({
+  id,
+  label,
+  required,
+  requiredLabel,
+  help,
+  error,
+  className,
+  children,
+}: {
+  id: string;
+  label: string;
+  required?: boolean;
+  requiredLabel?: string;
+  help?: string;
+  error?: string | undefined;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className={`flex flex-col gap-1.5 ${className ?? ''}`}>
+      <Label htmlFor={id}>
+        {label}
+        {required && (
+          <>
+            <span className="text-destructive" aria-hidden="true">
+              {' '}
+              *
+            </span>
+            <span className="sr-only"> {requiredLabel}</span>
+          </>
+        )}
+      </Label>
+      {children}
+      {help && <p className="text-caption text-text-secondary">{help}</p>}
+      {error && <FieldError id={`${id}-error`}>{error}</FieldError>}
+    </div>
+  );
+}
+
+function FieldError({ id, children }: { id: string; children: React.ReactNode }) {
+  return (
+    <p id={id} className="flex items-center gap-1 text-caption text-destructive">
+      <CircleAlertIcon className="size-3.5" aria-hidden="true" />
+      {children}
+    </p>
+  );
+}
+
 export function ScheduleFormDialog({
   open,
   onOpenChange,
@@ -97,8 +159,31 @@ export function ScheduleFormDialog({
   schedule,
   onSaved,
 }: ScheduleFormDialogProps) {
+  if (!open) return null;
+  return (
+    <ScheduleFormPage
+      mode={mode}
+      schedule={schedule}
+      onClose={() => onOpenChange(false)}
+      onSaved={onSaved}
+    />
+  );
+}
+
+function ScheduleFormPage({
+  mode,
+  schedule,
+  onClose,
+  onSaved,
+}: {
+  mode: 'create' | 'edit';
+  schedule: RecurringSchedule | undefined;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
   const { t } = useTranslation('fees');
   const regionConfig = useRegionConfig();
+  const requiredLabel = t('form.required', { ns: 'common' });
 
   const createSchedule = useCreateRecurringSchedule();
   const updateSchedule = useUpdateRecurringSchedule(schedule?.id ?? '');
@@ -108,7 +193,7 @@ export function ScheduleFormDialog({
   // not as it is being edited. Fetched lazily, on the button press.
   const [previewRequested, setPreviewRequested] = React.useState(false);
   const previewQuery = useSchedulePreview(schedule?.id, {
-    enabled: open && mode === 'edit' && previewRequested,
+    enabled: mode === 'edit' && previewRequested,
   });
 
   const yearsQuery = useAcademicYears();
@@ -134,7 +219,28 @@ export function ScheduleFormDialog({
     schedule?.ends_on ? parseServerDate(schedule.ends_on) : undefined,
   );
   const [notifyFamilies, setNotifyFamilies] = React.useState(schedule?.notify_families ?? false);
-  const [validationError, setValidationError] = React.useState<string | null>(null);
+  const [errors, setErrors] = React.useState<FormErrors>({});
+
+  // Dirty = any field differs from where it started; Close / Esc then ask before discarding.
+  const snapshot = () =>
+    JSON.stringify([
+      name,
+      academicYearId,
+      feeIds,
+      classId,
+      sectionId,
+      programId,
+      ruleKind,
+      dayOfMonth,
+      weekdays,
+      dueDays,
+      startsOn?.getTime(),
+      endsOn?.getTime(),
+      notifyFamilies,
+    ]);
+  const initialSnapshot = React.useRef<string | null>(null);
+  initialSnapshot.current ??= snapshot();
+  const dirty = snapshot() !== initialSnapshot.current;
 
   const feesQuery = useFeeStructures(
     academicYearId !== '' ? { academic_year_id: academicYearId } : {},
@@ -143,40 +249,20 @@ export function ScheduleFormDialog({
     academicYearId !== '' ? { academic_year_id: academicYearId } : {},
   );
   const sectionsQuery = useClassSections(classId !== '' ? classId : undefined);
+  // A role without `PROGRAM_READ` cannot call `GET /programs` — no request, no program field (B10).
   // Only include archived programs when editing a schedule that already
   // references one — its saved `program_id` must stay visible/selectable
   // in the audience picker. New schedules only ever offer active programs.
-  const programsQuery = usePrograms({
-    includeArchived: mode === 'edit' && (schedule?.audience.program_id ?? '') !== '',
+  const canReadPrograms = useHasPermission(Permission.PROGRAM_READ);
+  const programsQuery = useQuery({
+    ...programsQueryOptions({
+      includeArchived: mode === 'edit' && (schedule?.audience.program_id ?? '') !== '',
+    }),
+    enabled: canReadPrograms,
   });
 
   const selectedYear = yearsQuery.data?.data.find((year) => year.id === academicYearId);
   const yearEndDate = selectedYear ? parseServerDate(selectedYear.end_date) : undefined;
-
-  // Reset only on open/close transitions — matches
-  // `-structure-form-dialog.tsx`'s identical reasoning: a background
-  // refetch of the list this dialog was opened from must not clobber
-  // what the user is mid-typing.
-  React.useEffect(() => {
-    if (!open) return;
-    mutation.reset();
-    setPreviewRequested(false);
-    setName(schedule?.name ?? '');
-    setAcademicYearId(schedule?.academic_year_id ?? '');
-    setFeeIds(schedule?.fee_structure_ids ?? []);
-    setClassId(schedule?.audience.class_id ?? '');
-    setSectionId(schedule?.audience.section_id ?? '');
-    setProgramId(schedule?.audience.program_id ?? '');
-    setRuleKind(schedule?.rule.kind ?? 'MONTHLY');
-    setDayOfMonth(schedule?.rule.day_of_month ?? 1);
-    setWeekdays(schedule?.rule.weekdays ?? []);
-    setDueDays(schedule?.due_days_after_period_start ?? 7);
-    setStartsOn(schedule ? parseServerDate(schedule.starts_on) : new Date());
-    setEndsOn(schedule?.ends_on ? parseServerDate(schedule.ends_on) : undefined);
-    setNotifyFamilies(schedule?.notify_families ?? false);
-    setValidationError(null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only on open/close transitions
-  }, [open]);
 
   // Ends-on capped to the selected academic year's end date — issue
   // #679's own acceptance criterion. Clamping here (rather than just
@@ -192,19 +278,25 @@ export function ScheduleFormDialog({
   }
 
   function buildInput(): CreateRecurringScheduleInput | null {
-    if (name.trim() === '') {
-      setValidationError(t('schedules.form.nameRequired'));
+    // Every unmet requirement is reported at once, each under its own field.
+    const next: FormErrors = {};
+    if (name.trim() === '') next.name = t('schedules.form.nameRequired');
+    if (academicYearId === '') next.academicYear = t('schedules.form.academicYearRequired');
+    if (feeIds.length === 0) next.fees = t('schedules.form.feesRequired');
+    if (ruleKind === 'WEEKLY' && weekdays.length === 0)
+      next.weekdays = t('schedules.form.weekdaysRequired');
+    setErrors(next);
+    if (next.name || next.academicYear || next.fees || next.weekdays) {
+      const firstInvalid = next.name
+        ? 'schedule-form-name'
+        : next.academicYear
+          ? 'schedule-form-year'
+          : next.fees
+            ? 'schedule-form-fees'
+            : 'schedule-form-weekdays';
+      document.getElementById(firstInvalid)?.focus();
       return null;
     }
-    if (feeIds.length === 0) {
-      setValidationError(t('schedules.form.feesRequired'));
-      return null;
-    }
-    if (ruleKind === 'WEEKLY' && weekdays.length === 0) {
-      setValidationError(t('schedules.form.weekdaysRequired'));
-      return null;
-    }
-    setValidationError(null);
     return {
       name: name.trim(),
       academic_year_id: academicYearId,
@@ -227,14 +319,14 @@ export function ScheduleFormDialog({
       starts_on: toDateInput(startsOn ?? new Date()),
       ...(endsOn ? { ends_on: toDateInput(endsOn) } : {}),
       notify_families: notifyFamilies,
-      // No control for this in the dialog — activate/deactivate is a row
+      // No control for this in the form — activate/deactivate is a row
       // action on the list. Preserve it on edit, default on to create.
       is_active: schedule?.is_active ?? true,
     };
   }
 
-  function handleSubmit(event: React.FormEvent) {
-    event.preventDefault();
+  function handleSubmit(event?: { preventDefault: () => void }) {
+    event?.preventDefault();
     const input = buildInput();
     if (!input) return;
     if (mode === 'create') {
@@ -244,54 +336,91 @@ export function ScheduleFormDialog({
     updateSchedule.mutate(input, { onSuccess: onSaved });
   }
 
-  function handlePreview() {
-    setPreviewRequested(true);
-  }
-
   const isEdit = mode === 'edit';
   const title = isEdit ? t('schedules.form.editTitle') : t('schedules.form.createTitle');
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[85vh] overflow-y-auto">
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <DialogHeader>
-            <DialogTitle>{title}</DialogTitle>
-            <DialogDescription>{t('schedules.form.description')}</DialogDescription>
-          </DialogHeader>
-
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="schedule-form-name" className="text-sm font-medium">
-              {t('schedules.form.nameLabel')}
-            </label>
-            <Input
+    <FullPageShell
+      title={title}
+      onClose={onClose}
+      dirty={dirty}
+      size="form"
+      primary={{
+        label: t('schedules.form.save'),
+        onClick: () => handleSubmit(),
+        busy: mutation.isPending,
+      }}
+      secondary={{ label: t('schedules.form.cancel'), onClick: onClose }}
+    >
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <Card padded>
+          <h2 className="text-h2">{t('schedules.form.sectionName')}</h2>
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <Field
               id="schedule-form-name"
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-            />
-          </div>
+              label={t('schedules.form.nameLabel')}
+              required
+              requiredLabel={requiredLabel}
+              error={errors.name}
+              className="md:col-span-2"
+            >
+              <Input
+                id="schedule-form-name"
+                value={name}
+                placeholder={t('schedules.form.namePlaceholder')}
+                onChange={(event) => setName(event.target.value)}
+                {...invalidProps('schedule-form-name', errors.name)}
+              />
+            </Field>
 
-          <div className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium">{t('schedules.form.academicYearLabel')}</span>
-            <Select value={academicYearId} onValueChange={setAcademicYearId} disabled={isEdit}>
-              <SelectTrigger aria-label={t('schedules.form.academicYearLabel')} disabled={isEdit}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {yearsQuery.data?.data.map((year) => (
-                  <SelectItem key={year.id} value={year.id}>
-                    {year.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Field
+              id="schedule-form-year"
+              label={t('schedules.form.academicYearLabel')}
+              required
+              requiredLabel={requiredLabel}
+              error={errors.academicYear}
+              {...(isEdit ? { help: t('schedules.form.academicYearLocked') } : {})}
+              className="md:col-span-2"
+            >
+              <Select value={academicYearId} onValueChange={setAcademicYearId} disabled={isEdit}>
+                <SelectTrigger
+                  id="schedule-form-year"
+                  disabled={isEdit}
+                  {...invalidProps('schedule-form-year', errors.academicYear)}
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {yearsQuery.data?.data.map((year) => (
+                    <SelectItem key={year.id} value={year.id}>
+                      {year.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
           </div>
+        </Card>
 
-          <fieldset className="flex flex-col gap-2 rounded-lg border border-border-subtle p-3">
-            <legend className="px-1 text-sm font-medium">{t('schedules.form.feesLabel')}</legend>
-            <ul className="flex max-h-40 flex-col gap-1 overflow-y-auto">
-              {(feesQuery.data?.data ?? []).map((fee) => (
-                <li key={fee.id} className="flex items-center gap-2">
+        <Card padded>
+          <h2 className="text-h2" id="schedule-form-fees-title">
+            {t('schedules.form.feesLabel')}
+            <span className="text-destructive" aria-hidden="true">
+              {' '}
+              *
+            </span>
+            <span className="sr-only"> {requiredLabel}</span>
+          </h2>
+          <ul
+            id="schedule-form-fees"
+            tabIndex={-1}
+            aria-labelledby="schedule-form-fees-title"
+            className="mt-4 divide-y divide-border-subtle rounded-md border border-border-subtle"
+            aria-describedby={errors.fees ? 'schedule-form-fees-error' : undefined}
+          >
+            {(feesQuery.data?.data ?? []).map((fee) => (
+              <li key={fee.id} className="px-3">
+                <label className="flex min-h-11 items-center gap-3 md:min-h-9">
                   <Checkbox
                     checked={feeIds.includes(fee.id)}
                     onCheckedChange={(checked) =>
@@ -299,19 +428,29 @@ export function ScheduleFormDialog({
                         checked === true ? [...prev, fee.id] : prev.filter((id) => id !== fee.id),
                       )
                     }
-                    aria-label={fee.name}
                   />
-                  <span className="text-sm">{fee.name}</span>
-                </li>
-              ))}
-            </ul>
-          </fieldset>
+                  <span className="min-w-0 flex-1">{fee.name}</span>
+                  <span className="ms-auto shrink-0 text-text-secondary tabular-nums">
+                    {formatServerAmount(fee.amount, regionConfig)}
+                  </span>
+                </label>
+              </li>
+            ))}
+          </ul>
+          {errors.fees && (
+            <div className="mt-2">
+              <FieldError id="schedule-form-fees-error">{errors.fees}</FieldError>
+            </div>
+          )}
+        </Card>
 
-          <fieldset className="flex flex-col gap-3 rounded-lg border border-border-subtle p-3">
-            <legend className="px-1 text-sm font-medium">
-              {t('schedules.form.audienceLegend')}
-            </legend>
-            <div className="flex flex-wrap gap-2">
+        <Card padded>
+          <h2 className="text-h2">{t('schedules.form.audienceLegend')}</h2>
+          {/* Not a control: `enrollment_status` accepts only `'ACTIVE'`, so this states the fixed
+              rule instead of offering a choice the server would reject. */}
+          <p className="mt-0.5 text-text-secondary">{t('schedules.form.activeOnlyNotice')}</p>
+          <div className="mt-4 grid gap-4 md:grid-cols-3">
+            <Field id="schedule-form-class" label={t('schedules.form.classLabel')}>
               <Select
                 value={classId === '' ? NO_CLASS : classId}
                 onValueChange={(value) => {
@@ -319,7 +458,7 @@ export function ScheduleFormDialog({
                   setSectionId('');
                 }}
               >
-                <SelectTrigger aria-label={t('schedules.form.classLabel')}>
+                <SelectTrigger id="schedule-form-class">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -331,200 +470,229 @@ export function ScheduleFormDialog({
                   ))}
                 </SelectContent>
               </Select>
+            </Field>
 
-              {classId !== '' && (
+            <Field id="schedule-form-section" label={t('schedules.form.sectionLabel')}>
+              <Select
+                value={sectionId === '' ? NO_SECTION : sectionId}
+                onValueChange={(value) => setSectionId(value === NO_SECTION ? '' : value)}
+                disabled={classId === ''}
+              >
+                <SelectTrigger id="schedule-form-section" disabled={classId === ''}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NO_SECTION}>{t('schedules.form.allSections')}</SelectItem>
+                  {sectionsQuery.data?.map((section) => (
+                    <SelectItem key={section.id} value={section.id}>
+                      {section.section_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+
+            {canReadPrograms && (
+              <Field id="schedule-form-program" label={t('schedules.form.programLabel')}>
                 <Select
-                  value={sectionId === '' ? NO_SECTION : sectionId}
-                  onValueChange={(value) => setSectionId(value === NO_SECTION ? '' : value)}
+                  value={programId === '' ? NO_PROGRAM : programId}
+                  onValueChange={(value) => setProgramId(value === NO_PROGRAM ? '' : value)}
                 >
-                  <SelectTrigger aria-label={t('schedules.form.sectionLabel')}>
+                  <SelectTrigger id="schedule-form-program">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value={NO_SECTION}>{t('schedules.form.allSections')}</SelectItem>
-                    {sectionsQuery.data?.map((section) => (
-                      <SelectItem key={section.id} value={section.id}>
-                        {section.section_name}
+                    <SelectItem value={NO_PROGRAM}>{t('schedules.form.allPrograms')}</SelectItem>
+                    {programsQuery.data?.map((program) => (
+                      <SelectItem key={program.id} value={program.id}>
+                        {program.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-              )}
+              </Field>
+            )}
+          </div>
+        </Card>
 
+        <Card padded>
+          <h2 className="text-h2">{t('schedules.form.ruleLegend')}</h2>
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <Field id="schedule-form-kind" label={t('schedules.form.ruleKindLabel')}>
               <Select
-                value={programId === '' ? NO_PROGRAM : programId}
-                onValueChange={(value) => setProgramId(value === NO_PROGRAM ? '' : value)}
+                value={ruleKind}
+                onValueChange={(value) => setRuleKind(value as 'MONTHLY' | 'WEEKLY')}
               >
-                <SelectTrigger aria-label={t('schedules.form.programLabel')}>
+                <SelectTrigger id="schedule-form-kind">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={NO_PROGRAM}>{t('schedules.form.allPrograms')}</SelectItem>
-                  {programsQuery.data?.map((program) => (
-                    <SelectItem key={program.id} value={program.id}>
-                      {program.name}
-                    </SelectItem>
-                  ))}
+                  <SelectItem value="MONTHLY">{t('schedules.form.ruleModeMonthly')}</SelectItem>
+                  <SelectItem value="WEEKLY">{t('schedules.form.ruleModeWeekly')}</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-            {/* Not a control: `enrollment_status` accepts only `'ACTIVE'`,
-                so this states the fixed rule instead of offering a choice
-                the server would reject. */}
-            <p className="text-xs text-muted-foreground">{t('schedules.form.activeOnlyNotice')}</p>
-          </fieldset>
-
-          <fieldset className="flex flex-col gap-3 rounded-lg border border-border-subtle p-3">
-            <legend className="px-1 text-sm font-medium">{t('schedules.form.ruleLegend')}</legend>
-            <Select
-              value={ruleKind}
-              onValueChange={(value) => setRuleKind(value as 'MONTHLY' | 'WEEKLY')}
-            >
-              <SelectTrigger aria-label={t('schedules.form.ruleLegend')}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="MONTHLY">{t('schedules.form.ruleModeMonthly')}</SelectItem>
-                <SelectItem value="WEEKLY">{t('schedules.form.ruleModeWeekly')}</SelectItem>
-              </SelectContent>
-            </Select>
+            </Field>
 
             {ruleKind === 'MONTHLY' ? (
-              <Select
-                value={String(dayOfMonth)}
-                onValueChange={(value) => setDayOfMonth(value === 'LAST' ? 'LAST' : Number(value))}
-              >
-                <SelectTrigger aria-label={t('schedules.form.dayOfMonthLabel')}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {DAY_OF_MONTH_OPTIONS.map((day) => (
-                    <SelectItem key={day} value={String(day)}>
-                      {day === 'LAST' ? t('schedules.form.dayOfMonthLast') : day}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Field id="schedule-form-day" label={t('schedules.form.dayOfMonthLabel')}>
+                <Select
+                  value={String(dayOfMonth)}
+                  onValueChange={(value) =>
+                    setDayOfMonth(value === 'LAST' ? 'LAST' : Number(value))
+                  }
+                >
+                  <SelectTrigger id="schedule-form-day">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {DAY_OF_MONTH_OPTIONS.map((day) => (
+                      <SelectItem key={day} value={String(day)}>
+                        {day === 'LAST'
+                          ? t('schedules.form.dayOfMonthLast')
+                          : t('schedules.form.dayOfMonthOption', {
+                              day: formatNumber(day, regionConfig),
+                            })}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
             ) : (
-              <div
-                className="flex flex-wrap gap-2"
-                role="group"
-                aria-label={t('schedules.form.weekdaysLabel')}
-              >
-                {WEEKDAYS.map((day) => {
-                  const selected = weekdays.includes(day);
-                  return (
-                    <button
-                      key={day}
-                      type="button"
-                      aria-pressed={selected}
-                      onClick={() => toggleWeekday(day)}
-                      className={`rounded-full border px-3 py-1 text-sm ${
-                        selected
-                          ? 'border-primary bg-primary text-primary-foreground'
-                          : 'border-border-subtle'
-                      }`}
-                    >
-                      {t(`weekdays.${day}`, { ns: 'common', defaultValue: String(day) })}
-                    </button>
-                  );
-                })}
+              <div className="flex flex-col gap-1.5">
+                <span id="schedule-form-weekdays-label" className="text-label text-text-primary">
+                  {t('schedules.form.weekdaysLabel')}
+                  <span className="text-destructive" aria-hidden="true">
+                    {' '}
+                    *
+                  </span>
+                  <span className="sr-only"> {requiredLabel}</span>
+                </span>
+                <div
+                  id="schedule-form-weekdays"
+                  tabIndex={-1}
+                  className="flex flex-wrap gap-2"
+                  role="group"
+                  aria-labelledby="schedule-form-weekdays-label"
+                  aria-describedby={errors.weekdays ? 'schedule-form-weekdays-error' : undefined}
+                >
+                  {WEEKDAYS.map((day) => {
+                    const selected = weekdays.includes(day);
+                    return (
+                      <button
+                        key={day}
+                        type="button"
+                        aria-pressed={selected}
+                        onClick={() => toggleWeekday(day)}
+                        className={`inline-flex h-11 items-center rounded-full border px-4 md:h-8 md:px-3 ${
+                          selected
+                            ? 'border-primary bg-primary text-primary-foreground'
+                            : 'border-border-functional bg-surface text-text-primary hover:bg-muted'
+                        }`}
+                      >
+                        {t(`weekdays.${day}`, { ns: 'common', defaultValue: String(day) })}
+                      </button>
+                    );
+                  })}
+                </div>
+                {errors.weekdays && (
+                  <FieldError id="schedule-form-weekdays-error">{errors.weekdays}</FieldError>
+                )}
               </div>
             )}
 
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="schedule-form-due-days" className="text-sm font-medium">
-                {t('schedules.form.dueDaysLabel')}
-              </label>
+            <Field
+              id="schedule-form-due-days"
+              label={t('schedules.form.dueDaysLabel')}
+              help={t('schedules.form.dueDaysHelp')}
+            >
               <Input
                 id="schedule-form-due-days"
-                type="number"
-                min={0}
-                value={dueDays}
-                onChange={(event) => setDueDays(Number(event.target.value))}
+                inputMode="numeric"
+                value={String(dueDays)}
+                onChange={(event) => setDueDays(Number(event.target.value.replace(/\D/g, '')))}
               />
-            </div>
-          </fieldset>
+            </Field>
+            <div className="hidden md:block" />
 
-          <div className="flex flex-wrap gap-3">
-            <div className="flex flex-col gap-1.5">
-              <span className="text-sm font-medium">{t('schedules.form.startsOnLabel')}</span>
+            <Field
+              id="schedule-form-starts-on"
+              label={t('schedules.form.startsOnLabel')}
+              required
+              requiredLabel={requiredLabel}
+            >
               <DatePicker
+                id="schedule-form-starts-on"
                 value={startsOn}
                 onValueChange={setStartsOn}
                 config={regionConfig}
                 aria-label={t('schedules.form.startsOnLabel')}
               />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <span className="text-sm font-medium">{t('schedules.form.endsOnLabel')}</span>
+            </Field>
+            <Field
+              id="schedule-form-ends-on"
+              label={t('schedules.form.endsOnLabel')}
+              {...(yearEndDate
+                ? {
+                    help: t('schedules.form.endsOnHelp', {
+                      date: formatDate(yearEndDate, regionConfig),
+                    }),
+                  }
+                : {})}
+            >
               <DatePicker
+                id="schedule-form-ends-on"
                 value={endsOn}
                 onValueChange={(date) =>
                   setEndsOn(date && yearEndDate && date > yearEndDate ? yearEndDate : date)
                 }
+                max={yearEndDate}
                 config={regionConfig}
                 aria-label={t('schedules.form.endsOnLabel')}
               />
-              {yearEndDate && (
-                <p className="text-xs text-muted-foreground">
-                  {t('schedules.form.endsOnCappedNotice')} ({formatDate(yearEndDate, regionConfig)})
-                </p>
-              )}
-            </div>
+            </Field>
           </div>
 
-          <label className="flex items-center gap-2 text-sm">
-            <Checkbox
-              checked={notifyFamilies}
-              onCheckedChange={(checked) => setNotifyFamilies(checked === true)}
-              aria-label={t('schedules.form.notifyFamiliesLabel')}
-            />
-            {t('schedules.form.notifyFamiliesLabel')}
-          </label>
+          <div className="mt-4 border-t border-border-subtle pt-3">
+            <label className="flex min-h-11 items-center gap-3 md:min-h-8">
+              <Checkbox
+                checked={notifyFamilies}
+                onCheckedChange={(checked) => setNotifyFamilies(checked === true)}
+              />
+              {t('schedules.form.notifyFamiliesLabel')}
+            </label>
+          </div>
+        </Card>
 
-          {isEdit && (
-            <div className="flex items-center justify-between rounded-lg border border-border-subtle p-3">
-              <span className="text-sm">
+        {isEdit && (
+          <Card padded>
+            <h2 className="text-h2">{t('schedules.form.previewTitle')}</h2>
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
+              <p className="text-text-secondary">
                 {previewQuery.isFetching
-                  ? t('schedules.form.saving')
+                  ? t('schedules.form.previewLoading')
                   : previewQuery.data
                     ? t('schedules.form.previewLabel', {
                         count: previewQuery.data.total_count,
+                        n: formatNumber(previewQuery.data.total_count, regionConfig),
                       })
                     : previewQuery.isError
                       ? t('schedules.form.previewError')
                       : t('schedules.form.previewSavedOnlyNotice')}
-              </span>
-              <Button type="button" variant="outline" size="sm" onClick={handlePreview}>
+              </p>
+              <Button type="button" variant="outline" onClick={() => setPreviewRequested(true)}>
                 {t('schedules.form.previewButton')}
               </Button>
             </div>
-          )}
+          </Card>
+        )}
 
-          {validationError && (
-            <p role="alert" className="text-sm text-destructive">
-              {validationError}
-            </p>
-          )}
-          {mutation.isError && (
-            <p role="alert" className="text-sm text-destructive">
-              {t('schedules.form.errorMessage')}
-            </p>
-          )}
-
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button type="button" variant="outline">
-                {t('schedules.form.cancel')}
-              </Button>
-            </DialogClose>
-            <Button type="submit" loading={mutation.isPending}>
-              {mutation.isPending ? t('schedules.form.saving') : t('schedules.form.save')}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+        {mutation.isError && (
+          <p role="alert" className="flex items-center gap-1 text-caption text-destructive">
+            <CircleAlertIcon className="size-3.5" aria-hidden="true" />
+            {t('schedules.form.errorMessage')}
+          </p>
+        )}
+      </form>
+    </FullPageShell>
   );
 }
