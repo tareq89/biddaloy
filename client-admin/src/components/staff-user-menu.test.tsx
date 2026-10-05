@@ -19,12 +19,12 @@ vi.mock('@biddaloy/ui/pwa', async (importActual) => ({
   useInstallPrompt: useInstallPromptMock,
 }));
 
-function buildRouteTree() {
+function buildRouteTree(securityTo?: string) {
   const rootRoute = createRootRoute();
   const indexRoute = createRoute({
     getParentRoute: () => rootRoute,
     path: '/',
-    component: StaffUserMenu,
+    component: () => <StaffUserMenu {...(securityTo !== undefined && { securityTo })} />,
   });
   const loginRoute = createRoute({
     getParentRoute: () => rootRoute,
@@ -36,7 +36,12 @@ function buildRouteTree() {
     path: '/security',
     component: () => <p data-testid="security-page" />,
   });
-  return rootRoute.addChildren([indexRoute, loginRoute, securityRoute]);
+  const accountRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: '/portal/account',
+    component: () => <p data-testid="account-page" />,
+  });
+  return rootRoute.addChildren([indexRoute, loginRoute, securityRoute, accountRoute]);
 }
 
 afterEach(async () => {
@@ -57,7 +62,7 @@ beforeEach(() => {
 });
 
 describe('StaffUserMenu', () => {
-  it('renders the fetched name and role, with an inert profile placeholder', async () => {
+  it('renders the fetched name and role', async () => {
     server.use(
       http.get('/api/v1/users/me', () =>
         HttpResponse.json(userResponseFactory({ full_name: 'Rahim Uddin' })),
@@ -71,15 +76,10 @@ describe('StaffUserMenu', () => {
 
     expect(await screen.findByText('Rahim Uddin')).toBeTruthy();
     expect(screen.getByText('Admin')).toBeTruthy();
-    // `aria-disabled`, not `disabled`: the placeholder has to stay in the
-    // menu's roving focus order, otherwise a screen-reader user never
-    // reaches the row that tells them the feature is coming.
-    const profileItem = screen.getByRole('menuitem', { name: /Profile/ });
-    expect(profileItem.getAttribute('aria-disabled')).toBe('true');
-    expect(profileItem.getAttribute('data-disabled')).toBeNull();
+    expect(screen.queryByRole('menuitem', { name: /Profile/ })).toBeNull();
   });
 
-  it('does not navigate or close when the profile placeholder is activated', async () => {
+  it('navigates to securityTo when given', async () => {
     server.use(
       http.get('/api/v1/users/me', () =>
         HttpResponse.json(userResponseFactory({ full_name: 'Rahim Uddin' })),
@@ -87,14 +87,38 @@ describe('StaffUserMenu', () => {
     );
 
     const user = userEvent.setup();
-    renderWithRouter(buildRouteTree(), { tenantId: 'tenant-1', role: 'ADMIN', locale: 'en' });
+    const { router } = renderWithRouter(buildRouteTree('/portal/account'), {
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
 
     await user.click(await screen.findByRole('button', { name: /Account menu/ }));
-    await user.click(await screen.findByRole('menuitem', { name: /Profile/ }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Security' }));
 
-    // Still open, and Sign out still reachable — the placeholder swallowed
-    // the activation rather than acting on it.
-    expect(screen.getByRole('menuitem', { name: /Sign out/ })).toBeTruthy();
+    await waitFor(() => expect(router.state.location.pathname).toBe('/portal/account'));
+  });
+
+  it('sign out leaves no notifications:v1: key in localStorage', async () => {
+    server.use(
+      http.get('/api/v1/users/me', () =>
+        HttpResponse.json(userResponseFactory({ full_name: 'Rahim Uddin' })),
+      ),
+    );
+    localStorage.setItem('notifications:v1:u1:tenant-1', '[]');
+
+    const user = userEvent.setup();
+    const { router } = renderWithRouter(buildRouteTree(), {
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    await user.click(await screen.findByRole('button', { name: /Account menu/ }));
+    await user.click(await screen.findByRole('menuitem', { name: /Sign out/ }));
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/login'));
+    expect(Object.keys(localStorage).filter((k) => k.startsWith('notifications:v1:'))).toEqual([]);
   });
 
   it('renders a graceful fallback while /users/me is loading', async () => {
