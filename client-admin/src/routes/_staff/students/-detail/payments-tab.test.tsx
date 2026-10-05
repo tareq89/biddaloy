@@ -55,7 +55,7 @@ describe('students/-detail/payments-tab', () => {
     const user = userEvent.setup();
     await user.click(button);
 
-    await waitFor(() => expect(router.state.location.pathname).toBe('/payments'));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/payments/record'));
     expect(router.state.location.search).toMatchObject({ student_id: 'student-1' });
   });
 
