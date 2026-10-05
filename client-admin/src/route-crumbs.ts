@@ -14,8 +14,8 @@ import type { StaffNavLabel } from './nav-tree';
  *
  * `dynamic: 'entity'` marks a segment whose real label the *consumer*
  * fills in once the page's own entity has loaded (e.g. a student's
- * name). Until then the segment's `label` is shown as a loading
- * fallback — that's why it's a plain `StaffNavLabel`, not omitted.
+ * name). Until then (or when there is no name to read) the segment's
+ * `label` is the generic noun — never the id.
  *
  * A route with no sensible trail — an auth screen, the root redirect —
  * gets an explicit `null` plus a one-line reason, mirroring
@@ -31,6 +31,8 @@ import type { StaffNavLabel } from './nav-tree';
 export interface CrumbSegment {
   readonly label: StaffNavLabel;
   readonly dynamic?: 'entity';
+  /** Explicit link for a non-last segment whose list page needs a search param. */
+  readonly to?: string;
 }
 
 export type RouteCrumbs = readonly CrumbSegment[];
@@ -92,10 +94,11 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
     { label: { key: 'teachingAssignments' } },
   ],
   '/_staff/staff/evaluations': [{ label: { entity: 'staff' } }, { label: { key: 'evaluations' } }],
-  // [28.4.2] The survey's own title is the page heading, so the trail stops at Evaluations.
+  // [28.4.2] Staff › Evaluations (back to the Surveys tab) › the survey's title.
   '/_staff/staff/evaluations_/surveys/$surveyId': [
     { label: { entity: 'staff' } },
-    { label: { key: 'evaluations' }, dynamic: 'entity' },
+    { label: { key: 'evaluations' }, to: '/staff/evaluations?tab=surveys' },
+    { label: { key: 'surveyDetail' }, dynamic: 'entity' },
   ],
   '/_staff/programs/': [{ label: { key: 'programs' } }],
   '/_staff/programs/$programId': [
@@ -120,17 +123,11 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
   // "Exams & Results" segment; that's the nav group label, not part of
   // any sibling route's own crumb trail either.
   '/_staff/exams/templates/': [{ label: { key: 'examTemplates' } }],
-  // No entity resolver for templates (see seat plans below): falls back to the id.
-  '/_staff/exams/templates/$templateId': [
+    '/_staff/exams/templates/$templateId': [
     { label: { key: 'examTemplates' } },
     { label: { key: 'examTemplateDetail' }, dynamic: 'entity' },
   ],
   '/_staff/exams/seat-plans/': [{ label: { key: 'seatPlans' } }],
-  // [25.7] No entity resolver registered for seat plans (`use-breadcrumbs.ts`'s
-  // `ENTITY_RESOLVERS` is a deliberate short list — student/guardian/class/
-  // academic year only) — same scope line `results/$examId/$studentId` and
-  // `marks/$examId/.../$subjectId` already accept, so this segment's dynamic
-  // label falls back to the raw plan id, not the plan's name.
   '/_staff/exams/seat-plans/$planId': [
     { label: { key: 'seatPlans' } },
     { label: { key: 'seatPlanDetail' }, dynamic: 'entity' },
@@ -147,13 +144,11 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
     { label: { key: 'promotion' } },
     { label: { key: 'promotionNewRun' } },
   ],
-  // [26.7.1] A dynamic segment's `label` is only ever the loading
-  // fallback — `use-breadcrumbs.ts` shows the resolved entity name (or,
-  // absent an `ENTITY_RESOLVERS` entry, the raw run id) once the route's
-  // params are known, same precedent as `/exams/$examId` below (`exam`
-  // isn't registered there either). No `EntityLabel` member exists for a
-  // promotion run and `shared/src/enums/entity-label.ts` is outside this
-  // route's territory, so this uses a plain `key` rather than `entity`.
+  // [26.7.1] A dynamic segment's `label` is the generic noun shown when
+  // there is no name to read — `use-breadcrumbs.ts` never shows the id. No
+  // `ENTITY_RESOLVERS` entry exists for a promotion run, so it always shows
+  // the noun. No `EntityLabel` member exists for a promotion run, so this
+  // uses a plain `key` rather than `entity`.
   '/_staff/promotions/$runId': [
     { label: { key: 'promotion' } },
     { label: { key: 'promotionRunDetail' }, dynamic: 'entity' },
@@ -252,7 +247,8 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
   ],
   '/_staff/marks/$examId/$sectionId/$subjectId': [
     { label: { key: 'marksEntry' } },
-    { label: { key: 'marksEntryGrid' }, dynamic: 'entity' },
+    // Static: three ids cannot feed one resolver; the page h1 names section and subject.
+    { label: { key: 'marksEntryGrid' } },
   ],
   '/_staff/results/$examId/$studentId': [
     { label: { key: 'results' } },
@@ -282,9 +278,9 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
     { label: { entity: 'invoice' } },
     { label: { entity: 'invoice' }, dynamic: 'entity' },
   ],
-  '/_staff/payments/': [{ label: { key: 'recordPayment' } }],
+  '/_staff/payments/': [{ label: { key: 'payments' } }],
   '/_staff/payments/$id': [
-    { label: { key: 'recordPayment' } },
+    { label: { key: 'payments' } },
     { label: { key: 'paymentDetail' }, dynamic: 'entity' },
   ],
   '/_staff/communications/batches/$batchId': [
