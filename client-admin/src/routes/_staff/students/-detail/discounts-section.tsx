@@ -14,6 +14,9 @@ import { FeeType, Permission } from '@biddaloy/shared';
 import {
   Button,
   Checkbox,
+  ConfirmDialog,
+  DataTable,
+  DatePicker,
   Dialog,
   DialogClose,
   DialogContent,
@@ -21,16 +24,14 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  EmptyState,
+  ErrorState,
   Input,
   RadioGroup,
   RadioGroupItem,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  SkeletonTable,
   Textarea,
+  type DataTableColumn,
 } from '@biddaloy/ui/components';
 import {
   useCreateDiscountRule,
@@ -41,7 +42,16 @@ import {
   type DiscountKind,
   type DiscountRule,
 } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import {
+  formatDate,
+  formatDateRange,
+  formatNumber,
+  formatServerAmount,
+  parseServerDate,
+  toIsoDate,
+} from '@biddaloy/ui/utils';
+import { PercentIcon, PlusIcon } from 'lucide-react';
 import * as React from 'react';
 
 import { MutationErrorMessage } from '../../../../components/MutationErrorMessage';
@@ -90,17 +100,42 @@ function formFromRule(rule: DiscountRule): RuleFormState {
 /** Mirrors the server DTO's validation so bad input never reaches the
  * approval step: PERCENT is bounded 0-100 (D8), FLAT just needs to be
  * positive; the reason has the same non-trivial min length the reverse-
- * payment dialog enforces for the same "explain yourself" reason. */
-function validate(form: RuleFormState, t: (key: string) => string): string | undefined {
+ * payment dialog enforces for the same "explain yourself" reason. Each
+ * error names the field it belongs to so it renders under that field. */
+type RuleField = 'value' | 'feeTypes' | 'dates' | 'reason';
+
+function validate(
+  form: RuleFormState,
+  t: (key: string) => string,
+): { field: RuleField; message: string } | undefined {
   const value = Number(form.value);
-  if (!Number.isFinite(value) || value <= 0) return t('discounts.form.errorValue');
-  if (form.kind === 'PERCENT' && value > 100) return t('discounts.form.errorPercentRange');
-  if (!form.allFeeTypes && form.feeTypes.length === 0) return t('discounts.form.errorFeeTypes');
-  if (form.reason.trim().length < REASON_MIN_LENGTH) return t('discounts.form.errorReason');
+  if (!Number.isFinite(value) || value <= 0) {
+    return { field: 'value', message: t('discounts.form.errorValue') };
+  }
+  if (form.kind === 'PERCENT' && value > 100) {
+    return { field: 'value', message: t('discounts.form.errorPercentRange') };
+  }
+  if (!form.allFeeTypes && form.feeTypes.length === 0) {
+    return { field: 'feeTypes', message: t('discounts.form.errorFeeTypes') };
+  }
+  if (form.reason.trim().length < REASON_MIN_LENGTH) {
+    return { field: 'reason', message: t('discounts.form.errorReason') };
+  }
   if (form.startsOn && form.endsOn && form.endsOn < form.startsOn) {
-    return t('discounts.form.errorDateRange');
+    return { field: 'dates', message: t('discounts.form.errorDateRange') };
   }
   return undefined;
+}
+
+function fieldError(
+  error: { field: RuleField; message: string } | undefined,
+  field: RuleField,
+): React.ReactNode {
+  return error?.field === field ? (
+    <p role="alert" className="text-destructive">
+      {error.message}
+    </p>
+  ) : null;
 }
 
 /**
@@ -126,6 +161,7 @@ function RuleFormDialog({
   editingRule: DiscountRule | null;
 }) {
   const { t } = useTranslation('students');
+  const regionConfig = useRegionConfig();
   const [form, setForm] = React.useState<RuleFormState>(() =>
     editingRule ? formFromRule(editingRule) : emptyForm(),
   );
@@ -171,7 +207,7 @@ function RuleFormDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent>
+        <DialogContent size="md" closeLabel={t('actions.close', { ns: 'common' })}>
           <DialogHeader>
             <DialogTitle>
               {editingRule ? t('discounts.form.editTitle') : t('discounts.form.addTitle')}
@@ -189,11 +225,11 @@ function RuleFormDialog({
                 }
                 className="flex gap-4"
               >
-                <label className="flex items-center gap-1.5 text-sm">
+                <label className="flex min-h-11 items-center gap-3 md:min-h-8">
                   <RadioGroupItem value="PERCENT" id="discount-kind-percent" />
                   {t('discounts.form.kindPercent')}
                 </label>
-                <label className="flex items-center gap-1.5 text-sm">
+                <label className="flex min-h-11 items-center gap-3 md:min-h-8">
                   <RadioGroupItem value="FLAT" id="discount-kind-flat" />
                   {t('discounts.form.kindFlat')}
                 </label>
@@ -210,12 +246,14 @@ function RuleFormDialog({
                 min={0}
                 max={form.kind === 'PERCENT' ? 100 : undefined}
                 value={form.value}
+                inputMode="decimal"
                 onChange={(event) => setForm((prev) => ({ ...prev, value: event.target.value }))}
               />
+              {fieldError(error, 'value')}
             </div>
 
             <div className="grid gap-1.5">
-              <label className="flex items-center gap-2 text-sm font-medium">
+              <label className="flex min-h-11 items-center gap-3 font-medium md:min-h-8">
                 <Checkbox
                   id="discount-all-fee-types"
                   checked={form.allFeeTypes}
@@ -228,7 +266,7 @@ function RuleFormDialog({
               {!form.allFeeTypes && (
                 <div className="flex flex-wrap gap-3 pl-6">
                   {ALL_FEE_TYPES.map((feeType) => (
-                    <label key={feeType} className="flex items-center gap-1.5 text-sm">
+                    <label key={feeType} className="flex min-h-11 items-center gap-3 md:min-h-8">
                       <Checkbox
                         id={`discount-fee-type-${feeType}`}
                         checked={form.feeTypes.includes(feeType)}
@@ -239,19 +277,20 @@ function RuleFormDialog({
                   ))}
                 </div>
               )}
+              {fieldError(error, 'feeTypes')}
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-3 md:grid-cols-2">
               <div className="grid gap-1.5">
                 <label htmlFor="discount-starts-on" className="text-sm font-medium">
                   {t('discounts.form.startsOnLabel')}
                 </label>
-                <Input
-                  id="discount-starts-on"
-                  type="date"
-                  value={form.startsOn}
-                  onChange={(event) =>
-                    setForm((prev) => ({ ...prev, startsOn: event.target.value }))
+                <DatePicker
+                  aria-label={t('discounts.form.startsOnLabel')}
+                  config={regionConfig}
+                  value={form.startsOn ? parseServerDate(form.startsOn) : undefined}
+                  onValueChange={(value) =>
+                    setForm((prev) => ({ ...prev, startsOn: value ? toIsoDate(value) : '' }))
                   }
                 />
               </div>
@@ -259,14 +298,17 @@ function RuleFormDialog({
                 <label htmlFor="discount-ends-on" className="text-sm font-medium">
                   {t('discounts.form.endsOnLabel')}
                 </label>
-                <Input
-                  id="discount-ends-on"
-                  type="date"
-                  value={form.endsOn}
-                  onChange={(event) => setForm((prev) => ({ ...prev, endsOn: event.target.value }))}
+                <DatePicker
+                  aria-label={t('discounts.form.endsOnLabel')}
+                  config={regionConfig}
+                  value={form.endsOn ? parseServerDate(form.endsOn) : undefined}
+                  onValueChange={(value) =>
+                    setForm((prev) => ({ ...prev, endsOn: value ? toIsoDate(value) : '' }))
+                  }
                 />
               </div>
             </div>
+            {fieldError(error, 'dates')}
 
             <div className="grid gap-1.5">
               <label htmlFor="discount-reason" className="text-sm font-medium">
@@ -278,6 +320,7 @@ function RuleFormDialog({
                 onChange={(event) => setForm((prev) => ({ ...prev, reason: event.target.value }))}
                 rows={3}
               />
+              {fieldError(error, 'reason')}
             </div>
 
             {mutation.isError && (
@@ -352,7 +395,7 @@ function DeleteRuleAction({
     return (
       <div className="flex items-center gap-2">
         <MutationErrorMessage error={deleteRule.error} />
-        <Button type="button" size="sm" variant="outline" onClick={onDismissError}>
+        <Button type="button" variant="ghost" onClick={onDismissError}>
           {t('discounts.dismissDeleteError')}
         </Button>
       </div>
@@ -365,6 +408,7 @@ function DeleteRuleAction({
 export function DiscountsSection({ studentId }: DiscountsSectionProps) {
   const { t } = useTranslation('students');
   const canManage = useHasPermission(Permission.DISCOUNT_RULE_MANAGE);
+  const regionConfig = useRegionConfig();
   const rulesQuery = useDiscountRules(studentId);
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [editingRule, setEditingRule] = React.useState<DiscountRule | null>(null);
@@ -375,6 +419,13 @@ export function DiscountsSection({ studentId }: DiscountsSectionProps) {
   // nothing once a step-up token is already cached.
   const [confirmingRule, setConfirmingRule] = React.useState<DiscountRule | null>(null);
   const [deletingRule, setDeletingRule] = React.useState<DiscountRule | null>(null);
+
+  const valueOf = (rule: DiscountRule) =>
+    rule.kind === 'PERCENT'
+      ? `${formatNumber(rule.value, regionConfig)}%`
+      : formatServerAmount(rule.value, regionConfig);
+  const ruleSummary = (rule: DiscountRule) =>
+    `${t(`discounts.form.kind${rule.kind === 'PERCENT' ? 'Percent' : 'Flat'}`)} ${valueOf(rule)} — ${rule.reason}`;
 
   function openAddDialog() {
     setEditingRule(null);
@@ -397,83 +448,93 @@ export function DiscountsSection({ studentId }: DiscountsSectionProps) {
 
   const rules = rulesQuery.data ?? [];
 
+  const columns: DataTableColumn<DiscountRule>[] = [
+    {
+      id: 'kind',
+      header: t('discounts.columnKind'),
+      accessorFn: (rule) => t(`discounts.form.kind${rule.kind === 'PERCENT' ? 'Percent' : 'Flat'}`),
+      card: 'title',
+    },
+    {
+      id: 'value',
+      header: t('discounts.columnValue'),
+      align: 'end',
+      accessorFn: (rule) => valueOf(rule),
+    },
+    {
+      id: 'feeTypes',
+      header: t('discounts.columnFeeTypes'),
+      accessorFn: (rule) =>
+        rule.fee_types === null
+          ? t('discounts.form.allFeeTypes')
+          : rule.fee_types
+              .map((type) => t(`feeType.${type}`, { ns: 'common', defaultValue: type }))
+              .join(', '),
+    },
+    {
+      id: 'range',
+      header: t('discounts.columnRange'),
+      accessorFn: (rule) =>
+        rule.starts_on && rule.ends_on
+          ? formatDateRange(rule.starts_on, rule.ends_on, regionConfig)
+          : rule.starts_on
+            ? t('discounts.fromDate', { date: formatDate(rule.starts_on, regionConfig) })
+            : '—',
+    },
+    { id: 'reason', header: t('discounts.columnReason'), accessorFn: (rule) => rule.reason },
+  ];
+
   return (
     <div className="flex flex-col gap-3">
       {canManage && (
-        <div className="flex justify-end">
-          <Button type="button" size="sm" onClick={openAddDialog}>
+        <div className="flex items-center justify-end">
+          <Button type="button" variant="outline" onClick={openAddDialog}>
+            <PlusIcon className="size-4" aria-hidden />
             {t('discounts.addRule')}
           </Button>
         </div>
       )}
 
       {rulesQuery.isPending ? (
-        <p className="text-sm text-muted-foreground">{t('discounts.loading')}</p>
+        <SkeletonTable rows={3} columns={5} />
       ) : rulesQuery.isError ? (
-        <p role="alert" className="text-sm text-destructive">
-          {t('discounts.errorMessage')}
-        </p>
+        <ErrorState
+          message={t('discounts.errorMessage')}
+          retryLabel={t('actions.retry', { ns: 'common' })}
+          onRetry={() => void rulesQuery.refetch()}
+        />
       ) : rules.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{t('discounts.emptyMessage')}</p>
+        <EmptyState
+          icon={<PercentIcon aria-hidden="true" />}
+          title={t('discounts.emptyMessage')}
+          explanation={t('discounts.emptyExplanation')}
+        />
       ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>{t('discounts.columnKind')}</TableHead>
-              <TableHead>{t('discounts.columnValue')}</TableHead>
-              <TableHead>{t('discounts.columnFeeTypes')}</TableHead>
-              <TableHead>{t('discounts.columnRange')}</TableHead>
-              <TableHead>{t('discounts.columnReason')}</TableHead>
-              {canManage && <TableHead>{t('discounts.columnActions')}</TableHead>}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {rules.map((rule) => (
-              <TableRow key={rule.id}>
-                <TableCell>
-                  {t(`discounts.form.kind${rule.kind === 'PERCENT' ? 'Percent' : 'Flat'}`)}
-                </TableCell>
-                <TableCell className="tabular-nums">
-                  {rule.kind === 'PERCENT' ? `${rule.value}%` : rule.value}
-                </TableCell>
-                <TableCell>
-                  {rule.fee_types === null
-                    ? t('discounts.form.allFeeTypes')
-                    : rule.fee_types
-                        .map((type) => t(`feeType.${type}`, { ns: 'common', defaultValue: type }))
-                        .join(', ')}
-                </TableCell>
-                <TableCell>
-                  {rule.starts_on ?? '—'} – {rule.ends_on ?? '—'}
-                </TableCell>
-                <TableCell>{rule.reason}</TableCell>
-                {canManage && (
-                  <TableCell>
-                    <div className="flex gap-2">
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={() => openEditDialog(rule)}
-                      >
-                        {t('discounts.edit')}
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="destructive"
-                        loading={deletingRule?.id === rule.id}
-                        onClick={() => handleDelete(rule)}
-                      >
-                        {t('discounts.delete')}
-                      </Button>
-                    </div>
-                  </TableCell>
-                )}
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        <DataTable
+          tableId="student-discount-rules"
+          caption={t('detail.fees.discountsTab')}
+          paginated={false}
+          sorting={null}
+          onSortingChange={() => {}}
+          columns={columns}
+          data={rules}
+          getRowId={(rule) => rule.id}
+          totalCount={rules.length}
+          rowActions={(rule) => [
+            {
+              intent: 'edit',
+              label: t('discounts.edit'),
+              onClick: () => openEditDialog(rule),
+              allowed: canManage,
+            },
+            {
+              intent: 'delete',
+              label: t('discounts.delete'),
+              onClick: () => handleDelete(rule),
+              allowed: canManage,
+            },
+          ]}
+        />
       )}
 
       {canManage && dialogOpen && (
@@ -486,24 +547,17 @@ export function DiscountsSection({ studentId }: DiscountsSectionProps) {
         />
       )}
       {canManage && confirmingRule && (
-        <Dialog open onOpenChange={(next) => !next && setConfirmingRule(null)}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{t('discounts.deleteConfirmTitle')}</DialogTitle>
-              <DialogDescription>{t('discounts.deleteConfirmDescription')}</DialogDescription>
-            </DialogHeader>
-            <DialogFooter>
-              <DialogClose asChild>
-                <Button type="button" variant="outline">
-                  {t('actions.cancel', { ns: 'common' })}
-                </Button>
-              </DialogClose>
-              <Button type="button" variant="destructive" onClick={confirmDelete}>
-                {t('discounts.delete')}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <ConfirmDialog
+          open
+          onOpenChange={(next) => !next && setConfirmingRule(null)}
+          tone="danger"
+          title={t('discounts.deleteConfirmTitle')}
+          description={t('discounts.deleteConfirmDescriptionNamed', {
+            rule: ruleSummary(confirmingRule),
+          })}
+          confirmLabel={t('discounts.delete')}
+          onConfirm={confirmDelete}
+        />
       )}
       {canManage && deletingRule && (
         <DeleteRuleAction
