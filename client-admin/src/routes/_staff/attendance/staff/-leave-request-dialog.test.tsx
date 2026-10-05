@@ -124,4 +124,43 @@ describe('LeaveRequestDialog', () => {
 
     expect(await screen.findByText('End date must be on or after the start date.')).toBeTruthy();
   });
+
+  it('asks before discarding typed input on Cancel, and keeps the form if you keep editing', async () => {
+    const user = userEvent.setup();
+    const onOpenChange = vi.fn();
+    const { localeReady } = renderWithProviders(
+      <LeaveRequestDialog open onOpenChange={onOpenChange} staffProfileId="profile-1" />,
+      { locale: 'en', tenantId: 'tenant-1' },
+    );
+    await localeReady;
+
+    await user.type(await screen.findByLabelText('Reason'), 'Family matter');
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(await screen.findByText('Discard this request?')).toBeTruthy();
+    expect(onOpenChange).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole('button', { name: 'Keep editing' }));
+    expect(screen.getByLabelText<HTMLTextAreaElement>('Reason').value).toBe('Family matter');
+    expect(onOpenChange).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    await user.click(await screen.findByRole('button', { name: 'Discard' }));
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it('closes straight away on Cancel when nothing was typed', async () => {
+    const user = userEvent.setup();
+    const onOpenChange = vi.fn();
+    const { localeReady } = renderWithProviders(
+      <LeaveRequestDialog open onOpenChange={onOpenChange} staffProfileId="profile-1" />,
+      { locale: 'en', tenantId: 'tenant-1' },
+    );
+    await localeReady;
+
+    await user.click(await screen.findByRole('button', { name: 'Cancel' }));
+
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+    expect(screen.queryByText('Discard this request?')).toBeNull();
+  });
 });
