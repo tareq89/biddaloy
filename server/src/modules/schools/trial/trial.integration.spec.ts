@@ -158,6 +158,33 @@ describe('TrialService (integration)', () => {
     expect(notices.notifyAdmins).not.toHaveBeenCalledWith(id, 'trial_ended');
   });
 
+  it('a warning decided from a stale snapshot after an extend sends nothing and records nothing', async () => {
+    const id = await newSchool(6);
+    const stale = await load(id); // what runDaily loaded: 6 days left, nothing sent
+    await trial.extend(id, { days: 30, reason: 'sales' }, { userId: null }, now);
+
+    await (trial as unknown as { warn: (s: School, n: Date) => Promise<void> }).warn(stale, now);
+
+    expect(notices.notifyAdmins.mock.calls.some((c) => c[0] === id)).toBe(false);
+    expect((await load(id)).onboarding?.trial_warnings).toEqual([]);
+  });
+
+  it('a failing trial-ended notice still leaves the suspension audited', async () => {
+    const id = await newSchool(-1);
+    notices.notifyAdmins.mockRejectedValueOnce(new Error('sms down'));
+
+    await trial.runDaily(now);
+
+    expect((await load(id)).status).toBe(SchoolStatus.SUSPENDED);
+    const rows = await ds.query(
+      `SELECT new_values FROM audit_logs WHERE entity_type = 'Trial' AND entity_id = $1`,
+      [id],
+    );
+    expect(rows.map((r: { new_values: { event: string } }) => r.new_values.event)).toEqual([
+      'TRIAL_EXPIRED',
+    ]);
+  });
+
   it('warning date is the school-local day: a 20:00Z end is the next day in Dhaka', async () => {
     const id = await newSchool(null);
     await ds.getRepository(School).update(id, { trial_ends_at: new Date('2026-10-06T20:00:00Z') });
