@@ -10,7 +10,7 @@ export const EMAIL_OR_PHONE_REGEX = new RegExp(
   `${EMAIL_REGEX.source}|${INTERNATIONAL_PHONE_REGEX.source}`,
 );
 
-const latinDigits = ({ value }: { value: unknown }) =>
+export const latinDigits = ({ value }: { value: unknown }) =>
   typeof value === 'string' ? toLatinDigits(value) : value;
 
 /**

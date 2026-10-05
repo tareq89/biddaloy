@@ -172,5 +172,5 @@ export class AccountAccessController {
 function identifierOf(dto: { identifier?: string; phone?: string }): string {
   const value = dto.identifier ?? dto.phone;
   if (!value) throw new BadRequestException('identifier is required');
-  return toLatinDigits(value);
+  return value;
 }
