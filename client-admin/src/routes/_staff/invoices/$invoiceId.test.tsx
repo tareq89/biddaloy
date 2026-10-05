@@ -13,6 +13,15 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { routeTree } from '../../../routeTree.gen';
 
+function renderDetail() {
+  return renderWithRouter(routeTree, {
+    initialEntries: ['/invoices/invoice-1'],
+    tenantId: 'tenant-1',
+    role: 'ACCOUNTANT',
+    locale: 'en',
+  });
+}
+
 describe('/invoices/$invoiceId', () => {
   afterEach(async () => {
     await cleanupTestState();
@@ -36,9 +45,11 @@ describe('/invoices/$invoiceId', () => {
       locale: 'en',
     });
 
-    expect(await screen.findAllByText('INV-00000002')).toHaveLength(2);
+    expect(
+      (await screen.findByRole('heading', { level: 1, name: 'INV-00000002' })).textContent,
+    ).toBe('INV-00000002');
     expect(screen.getByText(invoice.student.full_name)).toBeTruthy();
-    expect(screen.getByText('Paid')).toBeTruthy();
+    expect(screen.getAllByText('Paid').length).toBeGreaterThan(0);
   });
 
   it('Print opens the server-rendered printable route', async () => {
@@ -131,22 +142,147 @@ describe('/invoices/$invoiceId', () => {
       locale: 'en',
     });
 
-    expect(await screen.findAllByText(invoice.invoice_number)).toHaveLength(2);
+    await screen.findByRole('heading', { level: 1, name: invoice.invoice_number });
     await expect(container).toHaveNoViolations();
   });
 
-  it('shows a credit-note badge for a credit-note invoice', async () => {
-    const invoice = { ...invoiceFactory({ id: 'invoice-1' }), kind: 'CREDIT_NOTE' };
+  it('a credit note shows the tag and links to its original invoice', async () => {
+    const original = invoiceFactory({ id: 'invoice-0', invoice_number: 'INV-ORIG' });
+    const invoice = {
+      ...invoiceFactory({ id: 'invoice-1' }),
+      kind: 'CREDIT_NOTE',
+      related_invoice_id: 'invoice-0',
+      related_invoice: original,
+    };
     server.use(http.get('/api/v1/invoices/:id', () => HttpResponse.json(invoice)));
 
-    renderWithRouter(routeTree, {
-      initialEntries: ['/invoices/invoice-1'],
-      tenantId: 'tenant-1',
-      role: 'ACCOUNTANT',
-      locale: 'en',
-    });
+    renderDetail();
 
     expect(await screen.findByText('Credit note')).toBeTruthy();
+    const link = screen.getByRole('link', { name: 'INV-ORIG' });
+    expect(link.getAttribute('href')).toBe('/invoices/invoice-0');
+  });
+
+  it('links an invoice to its payment, never showing an id', async () => {
+    const invoice = invoiceFactory({ id: 'invoice-1', payment_id: 'payment-uuid-1' });
+    server.use(http.get('/api/v1/invoices/:id', () => HttpResponse.json(invoice)));
+
+    renderDetail();
+
+    await screen.findByRole('heading', { level: 1, name: invoice.invoice_number });
+    const link = screen
+      .getAllByRole('link')
+      .find((candidate) => candidate.getAttribute('href') === '/payments/payment-uuid-1');
+    expect(link).toBeTruthy();
+    expect(screen.queryByText(/invoice-1|payment-uuid-1/)).toBeNull();
+  });
+
+  it('has no back link, one filled button, and lists each student with a totals band', async () => {
+    const base = invoiceFactory({ id: 'invoice-1' });
+    const line = (fee: string, amount: number) => ({
+      fee_name: fee,
+      period_label: 'March 2026',
+      period_start: '2026-03',
+      amount,
+      discount: 0,
+      paid_this_time: amount,
+      balance_after: 0,
+    });
+    const invoice = {
+      ...base,
+      snapshot: {
+        ...base.snapshot,
+        students: [
+          {
+            id: 's1',
+            full_name: 'Rahim Uddin',
+            registration_number: 'REG-1',
+            class_name: 'Six',
+            lines: [line('Tuition', 500)],
+          },
+          {
+            id: 's2',
+            full_name: 'Karima Begum',
+            registration_number: 'REG-2',
+            class_name: null,
+            lines: [line('Exam fee', 300)],
+          },
+        ],
+        totals: { ...base.snapshot.totals, billed: 800, paid: 800 },
+      },
+    };
+    server.use(http.get('/api/v1/invoices/:id', () => HttpResponse.json(invoice)));
+
+    const { container } = renderDetail();
+
+    expect(await screen.findByRole('table', { name: 'Bills for Rahim Uddin' })).toBeTruthy();
+    expect(screen.getByRole('table', { name: 'Bills for Karima Begum' })).toBeTruthy();
+    expect(screen.getByText('Total billed')).toBeTruthy();
+    expect(screen.queryByText('Back to invoices')).toBeNull();
+    expect(container.querySelectorAll('[data-slot="button"][data-variant="default"]')).toHaveLength(
+      1,
+    );
+    expect(screen.getByRole('button', { name: 'Print' })).toBeTruthy();
+  });
+
+  it('printing after choosing the 80 mm paper size requests format=pos80', async () => {
+    const invoice = invoiceFactory({ id: 'invoice-1' });
+    let requestedFormat: string | null = null;
+    server.use(
+      http.get('/api/v1/invoices/:id', () => HttpResponse.json(invoice)),
+      http.get('/api/v1/invoices/:id/print', ({ request }) => {
+        requestedFormat = new URL(request.url).searchParams.get('format');
+        return HttpResponse.text('<html></html>');
+      }),
+    );
+    const fakeWindow = { opener: null, location: { href: '' }, close: vi.fn() };
+    const openSpy = vi.spyOn(window, 'open').mockReturnValue(fakeWindow as unknown as Window);
+    URL.createObjectURL = vi.fn(() => 'blob:mock');
+    URL.revokeObjectURL = vi.fn();
+
+    try {
+      renderDetail();
+      const user = userEvent.setup();
+      await user.click(await screen.findByRole('radio', { name: 'Receipt printer — 80 mm' }));
+      await user.click(screen.getByRole('button', { name: 'Print' }));
+
+      await waitFor(() => expect(requestedFormat).toBe('pos80'));
+    } finally {
+      openSpy.mockRestore();
+      delete (URL as { createObjectURL?: typeof URL.createObjectURL }).createObjectURL;
+      delete (URL as { revokeObjectURL?: typeof URL.revokeObjectURL }).revokeObjectURL;
+    }
+  });
+
+  it('turning the link off asks first, and a failure shows a translated line', async () => {
+    const invoice = invoiceFactory({ id: 'invoice-1' });
+    server.use(
+      http.get('/api/v1/invoices/:id', () => HttpResponse.json(invoice)),
+      http.get('/api/v1/invoices/:id/share', () =>
+        HttpResponse.json([{ id: 'share-1', revoked_at: null }]),
+      ),
+      http.delete('/api/v1/invoices/:id/share/:tokenId', () =>
+        HttpResponse.json(
+          {
+            statusCode: 500,
+            message: 'SECRET backend detail',
+            timestamp: new Date().toISOString(),
+            path: '/invoices/invoice-1/share/share-1',
+            requestId: 'req-9',
+          },
+          { status: 500 },
+        ),
+      ),
+    );
+    renderDetail();
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Turn off link' }));
+    const dialog = await screen.findByRole('alertdialog', { name: 'Turn off this link?' });
+    await user.click(within(dialog).getByRole('button', { name: 'Turn off link' }));
+
+    expect((await screen.findByRole('alert')).textContent).toBe("The link couldn't be turned off.");
+    expect(screen.queryByText(/SECRET/)).toBeNull();
   });
 
   it('remembers the last chosen print format across a remount', async () => {
@@ -164,8 +300,8 @@ describe('/invoices/$invoiceId', () => {
     });
 
     const user = userEvent.setup();
-    expect(await screen.findAllByText(invoice.invoice_number)).toHaveLength(2);
-    await user.click(screen.getByRole('radio', { name: 'POS 58mm' }));
+    await screen.findByRole('heading', { level: 1, name: invoice.invoice_number });
+    await user.click(screen.getByRole('radio', { name: 'Receipt printer — 58 mm' }));
     first.unmount();
 
     renderWithRouter(routeTree, {
@@ -175,7 +311,7 @@ describe('/invoices/$invoiceId', () => {
       locale: 'en',
     });
 
-    const radio = await screen.findByRole('radio', { name: 'POS 58mm' });
+    const radio = await screen.findByRole('radio', { name: 'Receipt printer — 58 mm' });
     expect(radio.getAttribute('data-state')).toBe('checked');
   });
 
@@ -201,7 +337,7 @@ describe('/invoices/$invoiceId', () => {
     });
 
     const user = userEvent.setup();
-    await user.click(await screen.findByRole('button', { name: 'Send via WhatsApp' }));
+    await user.click(await screen.findByRole('button', { name: 'WhatsApp' }));
 
     await waitFor(() => expect(sentBody).toEqual({ medium: 'WHATSAPP' }));
     expect(screen.queryByText('Pick a guardian')).toBeNull();
@@ -240,7 +376,7 @@ describe('/invoices/$invoiceId', () => {
     });
 
     const user = userEvent.setup();
-    await user.click(await screen.findByRole('button', { name: 'Send via SMS' }));
+    await user.click(await screen.findByRole('button', { name: 'SMS' }));
 
     const dialog = await screen.findByRole('dialog', { name: 'Choose a guardian' });
     await user.click(within(dialog).getByRole('button', { name: 'Guardian B' }));
@@ -267,7 +403,7 @@ describe('/invoices/$invoiceId', () => {
       locale: 'en',
     });
 
-    const button = await screen.findByRole('button', { name: 'Send via WhatsApp' });
+    const button = await screen.findByRole('button', { name: 'WhatsApp' });
     expect((button as HTMLButtonElement).disabled).toBe(true);
   });
 
@@ -294,23 +430,23 @@ describe('/invoices/$invoiceId', () => {
     });
 
     const user = userEvent.setup();
-    await user.click(await screen.findByRole('button', { name: 'Create share link' }));
+    await user.click(await screen.findByRole('button', { name: 'Create link' }));
 
     // "Copy link" appearing (rather than "Create share link") confirms the
     // live share token round-tripped through the query cache after create.
     const copyButton = await screen.findByRole('button', { name: 'Copy link' });
     expect(copyButton).toBeTruthy();
 
-    await user.click(screen.getByRole('button', { name: 'Revoke' }));
+    await user.click(screen.getByRole('button', { name: 'Turn off link' }));
     await user.click(
-      within(await screen.findByRole('dialog', { name: 'Revoke this share link?' })).getByRole(
+      within(await screen.findByRole('alertdialog', { name: 'Turn off this link?' })).getByRole(
         'button',
-        { name: 'Revoke' },
+        { name: 'Turn off link' },
       ),
     );
 
     await waitFor(() => expect(screen.queryByRole('button', { name: 'Copy link' })).toBeNull());
-    expect(await screen.findByRole('button', { name: 'Create share link' })).toBeTruthy();
+    expect(await screen.findByRole('button', { name: 'Create link' })).toBeTruthy();
   });
 
   it('shows the created share URL in a labelled input right after creation', async () => {
@@ -332,7 +468,7 @@ describe('/invoices/$invoiceId', () => {
     });
 
     const user = userEvent.setup();
-    await user.click(await screen.findByRole('button', { name: 'Create share link' }));
+    await user.click(await screen.findByRole('button', { name: 'Create link' }));
 
     const input = await screen.findByLabelText('Shareable receipt link');
     expect((input as HTMLInputElement).value).toBe('https://example.test/i/tok');
@@ -359,7 +495,7 @@ describe('/invoices/$invoiceId', () => {
       locale: 'en',
     });
 
-    await screen.findByRole('button', { name: 'Revoke' });
+    await screen.findByRole('button', { name: 'Turn off link' });
     expect(screen.queryByLabelText('Shareable receipt link')).toBeNull();
     expect(
       await screen.findByText(/Link created\. It's only shown right after creation/),
