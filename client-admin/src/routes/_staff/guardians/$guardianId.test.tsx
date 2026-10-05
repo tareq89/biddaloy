@@ -55,13 +55,16 @@ describe('/guardians/$guardianId', () => {
       expect(screen.getByRole('heading', { level: 1, name: 'Abdul Karim' })).toBeTruthy(),
     );
     expect(screen.getByRole('tab', { name: 'Information', selected: true })).toBeTruthy();
-    await screen.findByText('01712-345678');
+    // Phone shows in the header facts and in the Information card.
+    await waitFor(() => expect(screen.getAllByText('01712-345678')).toHaveLength(2));
     expect(screen.getByText('karim@example.com')).toBeTruthy();
+    // Header facts: relationship is a translated label, not the stored value.
+    expect(screen.getByText('Father')).toBeTruthy();
+    // No underlined back link any more (the layout's crumbs do that job).
+    expect(screen.queryByRole('link', { name: 'Back to guardians' })).toBeNull();
     // The greyscale guarantee (`StatusBadge`'s own spec) is what proves
-    // "not colour alone" — this just proves the label renders, twice:
-    // once in the header's own `statusBadge`, once in the Information
-    // tab's own primary-contact field.
-    expect(screen.getAllByText('Primary')).toHaveLength(2);
+    // "not colour alone" — this just proves the label renders in the header.
+    expect(screen.getAllByText('Primary')).toHaveLength(1);
   });
 
   it('deep-links via ?tab= — opening straight at ?tab=payments shows the Payment History tab', async () => {
@@ -98,8 +101,10 @@ describe('/guardians/$guardianId', () => {
     const user = userEvent.setup();
     await user.click(await screen.findByRole('tab', { name: 'Linked Students' }));
 
-    const link = await screen.findByRole('link', { name: 'Karim Rahman' });
-    expect(link.getAttribute('href')).toBe('/students/student-1');
+    const row = (await screen.findByText('Karim Rahman')).closest('tr') as HTMLElement;
+    expect(within(row).getByRole('link', { name: 'View' }).getAttribute('href')).toBe(
+      '/students/student-1',
+    );
   });
 
   it('Linked Students tab shows a placeholder when nothing is linked yet', async () => {
@@ -117,6 +122,7 @@ describe('/guardians/$guardianId', () => {
     await user.click(await screen.findByRole('tab', { name: 'Linked Students' }));
 
     expect(await screen.findByText('No students linked yet.')).toBeTruthy();
+    expect(screen.getByText('Linked students will show up here.')).toBeTruthy();
   });
 
   it('Linked Students tab edit mode replaces student_ids via useUpdateGuardian', async () => {
@@ -147,17 +153,20 @@ describe('/guardians/$guardianId', () => {
     await user.click(await screen.findByRole('tab', { name: 'Linked Students' }));
     await user.click(await screen.findByRole('button', { name: 'Edit linked students' }));
 
-    // The existing link is pre-seeded into edit mode...
-    const selected = await screen.findByRole('list', { name: 'Linked students' });
+    // The edit opens in a dialog, pre-seeded with the existing link...
+    const dialog = await screen.findByRole('dialog', { name: 'Edit linked students' });
+    expect(within(dialog).getByRole('button', { name: 'Save' })).toBeTruthy();
+    const selected = await within(dialog).findByRole('list', { name: 'Linked students' });
     expect(within(selected).getByText('Karim Rahman')).toBeTruthy();
 
     // ...and the new one is added via search.
     await user.type(screen.getByRole('textbox', { name: 'Search students' }), 'Fatima');
     await user.click(await screen.findByRole('checkbox', { name: /Fatima Begum/ }));
-    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
 
     await waitFor(() => expect(patchedBody?.student_ids).toEqual(['student-1', 'student-2']));
     await screen.findByText('Fatima Begum');
+    expect(screen.queryByRole('dialog', { name: 'Edit linked students' })).toBeNull();
   });
 
   it('Communication History tab shows the message log', async () => {
@@ -165,7 +174,9 @@ describe('/guardians/$guardianId', () => {
     server.use(
       http.get('/api/v1/guardians/:id', () => HttpResponse.json(guardian)),
       http.get('/api/v1/communications/guardian/:guardianId', () =>
-        HttpResponse.json([communicationFactory({ recipient_name: 'Abdul Karim' })]),
+        HttpResponse.json([
+          communicationFactory({ recipient_name: 'Abdul Karim', medium: 'EMAIL' }),
+        ]),
       ),
     );
 
@@ -179,7 +190,16 @@ describe('/guardians/$guardianId', () => {
     const user = userEvent.setup();
     await user.click(await screen.findByRole('tab', { name: 'Communication History' }));
 
-    await waitFor(() => expect(screen.getByText('Abdul Karim')).toBeTruthy());
+    await waitFor(() => expect(screen.getAllByText('Abdul Karim').length).toBeGreaterThan(0));
+    const row = screen
+      .getAllByText('Abdul Karim')
+      .map((el) => el.closest('tr'))
+      .find(Boolean);
+    // Translated medium and status, not the raw `EMAIL` / `SENT` enums.
+    expect(within(row as HTMLElement).getByText('Email')).toBeTruthy();
+    expect(within(row as HTMLElement).getByText('Sent')).toBeTruthy();
+    expect(screen.queryByText('EMAIL')).toBeNull();
+    expect(screen.queryByText('SENT')).toBeNull();
   });
 
   it('Payment History tab shows a payment linking to the paying student', async () => {
@@ -201,8 +221,142 @@ describe('/guardians/$guardianId', () => {
     const user = userEvent.setup();
     await user.click(await screen.findByRole('tab', { name: 'Payment History' }));
 
-    const link = await screen.findByRole('link', { name: 'Karim Rahman' });
-    expect(link.getAttribute('href')).toBe('/students/student-1');
+    const row = (await screen.findByText('Karim Rahman')).closest('tr') as HTMLElement;
+    expect(within(row).getByRole('link', { name: 'View payment' }).getAttribute('href')).toBe(
+      '/payments/payment-1',
+    );
+    // Method is its translated label, not the raw `CASH` enum.
+    expect(within(row).getByText('Cash')).toBeTruthy();
+    expect(screen.queryByText('CASH')).toBeNull();
+    // Recording moved to the page header: no record button inside the tab.
+    expect(screen.getAllByRole('button', { name: 'Record payment' })).toHaveLength(1);
+  });
+
+  it('Payment History tab shows the empty state with an explanation', async () => {
+    server.use(
+      http.get('/api/v1/guardians/:id', () =>
+        HttpResponse.json(guardianFactory({ id: 'guardian-1' })),
+      ),
+      http.get('/api/v1/payments/guardian/:guardianId', () => HttpResponse.json([])),
+    );
+    renderWithRouter(routeTree, {
+      initialEntries: ['/guardians/guardian-1?tab=payments'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+    expect(
+      await screen.findByText("Payments for this guardian's children will show up here."),
+    ).toBeTruthy();
+  });
+
+  it('header has one filled Record payment button that opens payments with the guardian preselected', async () => {
+    server.use(
+      http.get('/api/v1/guardians/:id', () =>
+        HttpResponse.json(guardianFactory({ id: 'guardian-1' })),
+      ),
+      http.get('/api/v1/payments/guardian/:guardianId', () => HttpResponse.json([])),
+    );
+    const { router } = renderWithRouter(routeTree, {
+      initialEntries: ['/guardians/guardian-1'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const record = await screen.findByRole('button', { name: 'Record payment' });
+    expect(record.getAttribute('data-variant')).toBe('default');
+    // The Edit action next to it is not filled.
+    expect(screen.getByRole('button', { name: 'Edit' }).getAttribute('data-variant')).not.toBe(
+      'default',
+    );
+
+    const user = userEvent.setup();
+    await user.click(record);
+    await waitFor(() => expect(router.state.location.pathname).toBe('/payments'));
+    expect(router.state.location.search).toMatchObject({
+      record: '1',
+      guardian_id: 'guardian-1',
+    });
+  });
+
+  it('without PAYMENT_RECORD the header has no Record payment button', async () => {
+    server.use(
+      http.get('/api/v1/guardians/:id', () =>
+        HttpResponse.json(guardianFactory({ id: 'guardian-1', full_name: 'Abdul Karim' })),
+      ),
+    );
+    renderWithRouter(routeTree, {
+      initialEntries: ['/guardians/guardian-1'],
+      tenantId: 'tenant-1',
+      role: 'TEACHER',
+      locale: 'en',
+    });
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Abdul Karim' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Record payment' })).toBeNull();
+  });
+
+  it('Edit opens a full-page form at ?edit=1 with labelled fields, and saving removes edit from the URL', async () => {
+    const guardian = guardianFactory({ id: 'guardian-1', full_name: 'Abdul Karim' });
+    server.use(
+      http.get('/api/v1/guardians/:id', () => HttpResponse.json(guardian)),
+      http.patch('/api/v1/guardians/:id', async ({ request }) =>
+        HttpResponse.json({ ...guardian, ...((await request.json()) as object) }),
+      ),
+    );
+    const { router } = renderWithRouter(routeTree, {
+      initialEntries: ['/guardians/guardian-1'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Edit' }));
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Edit guardian' })).toBeTruthy();
+    expect(router.state.location.search).toMatchObject({ edit: 1 });
+    // Every field has a visible label (not just a placeholder).
+    for (const label of [
+      /^Full name/,
+      'Relationship',
+      'Phone',
+      'Alternate phone',
+      'Email',
+      'Occupation',
+      'Address',
+    ]) {
+      expect(screen.getByLabelText(label)).toBeTruthy();
+    }
+
+    await user.type(screen.getByLabelText('Occupation'), 'Farmer');
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    await waitFor(() => expect(router.state.location.search).not.toHaveProperty('edit'));
+    expect(screen.queryByRole('heading', { level: 1, name: 'Edit guardian' })).toBeNull();
+  });
+
+  it('Edit: Cancel with unsaved changes asks before discarding, and keeps the form on Keep editing', async () => {
+    server.use(
+      http.get('/api/v1/guardians/:id', () =>
+        HttpResponse.json(guardianFactory({ id: 'guardian-1' })),
+      ),
+    );
+    const { router } = renderWithRouter(routeTree, {
+      initialEntries: ['/guardians/guardian-1?edit=1'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await user.type(await screen.findByLabelText('Occupation'), 'Farmer');
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(await screen.findByText('Discard your changes?')).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Keep editing' }));
+    expect(screen.getByRole('heading', { level: 1, name: 'Edit guardian' })).toBeTruthy();
+    expect(router.state.location.search).toMatchObject({ edit: 1 });
   });
 
   it('Edit saves changes through useUpdateGuardian and reflects them in the header', async () => {
