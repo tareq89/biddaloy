@@ -34,8 +34,8 @@ export function useResultActions(
   const navigate = useNavigate();
   const canProcess = useHasPermission(Permission.RESULT_PROCESS);
   const canPublish = useHasPermission(Permission.RESULT_PUBLISH);
-  // Same cached query the Results tab uses.
-  const resultsQuery = useResults(examStatus ? examId : undefined);
+  // Same cached query the Results tab uses; only the publish / reopen / SMS dialogs need the count.
+  const resultsQuery = useResults(examStatus && examStatus !== 'DRAFT' ? examId : undefined);
   const resultCount = resultsQuery.data?.length ?? 0;
   const [processOpen, setProcessOpen] = React.useState(false);
   const [publishOpen, setPublishOpen] = React.useState(false);

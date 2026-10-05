@@ -19,6 +19,7 @@ import { formatDate } from '@biddaloy/ui/utils';
 import { createFileRoute } from '@tanstack/react-router';
 import { Pencil } from 'lucide-react';
 import * as React from 'react';
+import { z } from 'zod';
 
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 
@@ -30,7 +31,14 @@ import { useResultActions } from './-detail/use-result-actions';
 import { ExamFormDialog } from './-exam-form-dialog';
 import { ExamStatusBadge } from './-exam-status-badge';
 
+// `tab` must be declared or `validateSearch` strips it; `copy=1` opens the copy-parts tool.
+const examDetailSearchSchema = z.object({
+  tab: z.string().optional().catch(undefined),
+  copy: z.coerce.string().optional().catch(undefined),
+});
+
 export const Route = createFileRoute('/_staff/exams/$examId')({
+  validateSearch: examDetailSearchSchema,
   loader: ({ context: { queryClient }, params }) =>
     Promise.all([
       queryClient.ensureQueryData(examQueryOptions(params.examId)).catch(swallowUnlessOffline),
