@@ -7,8 +7,8 @@
     "MESSENGER": "Messenger"
   },
   "smsCounter": {
-    "count_one": "{{chars}} characters · {{count}} SMS segment",
-    "count_other": "{{chars}} characters · {{count}} SMS segments"
+    "count_one": "{{chars}} characters · {{n}} SMS",
+    "count_other": "{{chars}} characters · {{n}} SMS"
   },
   "skipReasons": {
     "no_open_dues": "No open dues to remind about",
@@ -32,21 +32,20 @@
   },
   "send": {
     "title": "Send Message",
-    "description": "One message to one recipient. Nothing is sent until you confirm exactly what will go out.",
-    "mediumLabel": "Channel",
+    "description": "You'll see the recipient and message once more before it goes out.",
+    "mediumLabel": "Send by",
     "recipientNameLabel": "Recipient name",
-    "recipientAddressLabel": "Recipient address",
+    "recipientAddressLabel": "Mobile number",
     "subjectLabel": "Subject",
     "messageLabel": "Message",
     "whatsappHelper": "WhatsApp only delivers freeform text within 24 hours of the recipient's last reply. Outside that window, use an approved template below.",
-    "linkStudentTitle": "Fill in from a student's guardian (optional)",
-    "studentSearchLabel": "Search students",
+    "linkStudentTitle": "Student (optional)",
     "studentSearchPlaceholder": "Name or roll number",
     "studentNoResults": "No students match.",
     "guardianListLabel": "Guardians of {{name}}",
     "guardianOptionLabel": "{{name}} ({{relationship}})",
     "guardianNoAddress": "no address for this channel",
-    "clearStudent": "Clear student",
+    "clearStudent": "Change",
     "submit": "Review and send",
     "confirmTitle": "Send this message?",
     "confirmDescription": "A sent message cannot be recalled. Check the recipient and the full message before confirming.",
@@ -56,11 +55,18 @@
     "confirmMessageLabel": "Message",
     "confirmSend": "Send message",
     "confirmSending": "Sending…",
-    "resultTitle": "Message queued",
-    "resultDescription": "The message to {{name}} has been queued for delivery.",
+    "resultTitle": "Message on its way",
+    "resultDescription": "The message to {{name}} is being sent.",
     "resultStatusLabel": "Delivery status",
     "sendAnother": "Send another message",
-    "errorMessage": "The message could not be sent."
+    "errorMessage": "The message could not be sent.",
+    "recipientSectionTitle": "Recipient",
+    "recipientSectionHelp": "Find a student and pick a guardian, or type the name and number yourself.",
+    "messageSectionTitle": "Message",
+    "guardianPickLabel": "Which guardian to send to",
+    "recipientEmailLabel": "Email address",
+    "phoneHelp": "e.g. 01711-000004",
+    "errorInvalid": "Something in the number, email or message isn't right. Check it and try again."
   },
   "reminders": {
     "title": "Fee Reminders",
