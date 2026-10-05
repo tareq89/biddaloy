@@ -32,7 +32,7 @@ export function SuggestionCard({ suggestion, selected, onSelect }: SuggestionCar
       aria-pressed={selected}
       onClick={() => onSelect(suggestion.key)}
       className={`flex flex-col gap-2 rounded-lg border p-2 text-start ${
-        selected ? 'border-primary bg-primary/5' : 'border-border-subtle hover:border-primary/50'
+        selected ? 'border-primary bg-secondary' : 'border-border-subtle hover:bg-muted'
       }`}
     >
       {thumbnail ? (
@@ -44,8 +44,8 @@ export function SuggestionCard({ suggestion, selected, onSelect }: SuggestionCar
       ) : (
         <Skeleton role="status" aria-label={t('suggestion.loading')} className="h-24 w-full" />
       )}
-      <span className="text-sm font-medium">{label}</span>
-      {isAcr && <span className="text-xs text-muted-foreground">{t('suggestion.acrHelp')}</span>}
+      <span className="text-label font-medium">{label}</span>
+      {isAcr && <span className="text-caption text-text-secondary">{t('suggestion.acrHelp')}</span>}
     </button>
   );
 }
