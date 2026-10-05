@@ -198,10 +198,6 @@
     "title": "ক্যালেন্ডার",
     "loading": "স্কুলের ক্যালেন্ডার লোড হচ্ছে",
     "pickerLabel": "একজন শিক্ষার্থী বেছে নিন",
-    "previousMonth": "পূর্ববর্তী মাস",
-    "nextMonth": "পরবর্তী মাস",
-    "today": "আজ",
-    "agendaEmpty": "এই মাসে কোনো অনুষ্ঠান নেই।",
     "moreEvents_one": "+{{count}} আরও",
     "moreEvents_other": "+{{count}} আরও",
     "error": {
