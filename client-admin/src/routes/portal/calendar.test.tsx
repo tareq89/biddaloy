@@ -1,3 +1,4 @@
+import { REGION_BD_EN } from '@biddaloy/ui/i18n';
 import {
   cleanupTestState,
   classFactory,
@@ -6,6 +7,7 @@ import {
   server,
   studentFactory,
 } from '@biddaloy/ui/test';
+import { formatDate } from '@biddaloy/ui/utils';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -121,7 +123,7 @@ describe('/portal/calendar', () => {
     });
     renderCalendar();
 
-    await screen.findAllByText('Class 8 mid-terms');
+    await screen.findByText('Class 8 mid-terms');
     expect(eventsRequests.at(-1)?.classId).toBe(CLASS_8_ID);
   });
 
@@ -151,14 +153,14 @@ describe('/portal/calendar', () => {
     });
     renderCalendar();
 
-    await screen.findAllByText('Class 8 mid-terms');
+    await screen.findByText('Class 8 mid-terms');
     expect(eventsRequests.map((r) => r.classId)).toContain(CLASS_8_ID);
 
     const picker = await screen.findByRole('navigation', { name: 'Choose a student' });
     await userEvent.click(within(picker).getByRole('link', { name: /Imran Rahman/ }));
 
     await waitFor(() => expect(eventsRequests.map((r) => r.classId)).toContain(CLASS_3_ID));
-    await screen.findAllByText('Class 3 sports day');
+    await screen.findByText('Class 3 sports day');
   });
 
   it('renders no picker when the caller can see exactly one student', async () => {
@@ -167,6 +169,65 @@ describe('/portal/calendar', () => {
 
     await screen.findByRole('heading', { level: 1, name: 'Calendar' });
     expect(screen.queryByRole('navigation', { name: 'Choose a student' })).toBeNull();
+  });
+
+  it('shows one month grid (no agenda list) and a day panel for today by default', async () => {
+    mockCalendar({ students: [fatima], eventsByClass: { [CLASS_8_ID]: [] } });
+    renderCalendar();
+
+    expect(await screen.findAllByRole('grid')).toHaveLength(1);
+    expect(screen.getAllByRole('heading', { level: 1 }).map((h) => h.textContent)).toEqual([
+      'Calendar',
+    ]);
+    const panel = await screen.findByRole('complementary', {
+      name: formatDate('2026-09-15', REGION_BD_EN),
+    });
+    expect(within(panel).getByText('No events on this day.')).toBeTruthy();
+  });
+
+  it('defaults the panel to the 1st of a month that is not the current one', async () => {
+    mockCalendar({ students: [fatima], eventsByClass: { [CLASS_8_ID]: [] } });
+    renderCalendar('/portal/calendar?month=2026-08');
+
+    expect(
+      await screen.findByRole('complementary', { name: formatDate('2026-08-01', REGION_BD_EN) }),
+    ).toBeTruthy();
+  });
+
+  it('lists the clicked day\u2019s event name and type in the panel', async () => {
+    mockCalendar({
+      students: [fatima],
+      eventsByClass: {
+        [CLASS_8_ID]: [
+          event({
+            id: 'e1',
+            type: 'EXAM',
+            name: 'Class 8 mid-terms',
+            start_date: '2026-09-10',
+            end_date: '2026-09-10',
+          }),
+        ],
+      },
+    });
+    renderCalendar();
+
+    await userEvent.click(await screen.findByTestId('day-cell-2026-09-10'));
+
+    const panel = await screen.findByRole('complementary', {
+      name: formatDate('2026-09-10', REGION_BD_EN),
+    });
+    expect(within(panel).getByText('Class 8 mid-terms')).toBeTruthy();
+    expect(within(panel).getByText('Exam')).toBeTruthy();
+  });
+
+  it('changes ?month= from the grid header and keeps the student', async () => {
+    mockCalendar({ students: [fatima, imran], eventsByClass: { [CLASS_8_ID]: [] } });
+    const { router } = renderCalendar(`/portal/calendar?student=${FATIMA_ID}`);
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Previous month' }));
+
+    await waitFor(() => expect(router.state.location.search).toMatchObject({ month: '2026-08' }));
+    expect(router.state.location.search).toMatchObject({ student: FATIMA_ID });
   });
 
   it('renders no mutation controls anywhere on the route', async () => {
@@ -186,7 +247,7 @@ describe('/portal/calendar', () => {
     });
     renderCalendar();
 
-    await screen.findAllByText('National Day');
+    await screen.findByText('National Day');
     expect(screen.queryByRole('button', { name: /add|create|edit|delete|publish/i })).toBeNull();
     expect(screen.queryByRole('dialog')).toBeNull();
   });

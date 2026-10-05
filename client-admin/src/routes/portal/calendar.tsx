@@ -1,7 +1,5 @@
 import {
-  AgendaList,
-  type AgendaEvent,
-  Card,
+  DayPanel,
   EmptyState,
   ErrorState,
   MonthGrid,
@@ -19,10 +17,11 @@ import {
   type Student,
 } from '@biddaloy/ui/hooks';
 import { RegionConfigProvider, useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
-import { formatDate, parseServerDate } from '@biddaloy/ui/utils';
+import { PageContainer, PageHeader } from '@biddaloy/ui/shells';
+import { formatNumber, toIsoDate } from '@biddaloy/ui/utils';
 import { useQuery } from '@tanstack/react-query';
-import { createFileRoute, Link } from '@tanstack/react-router';
-import { ChevronLeftIcon, ChevronRightIcon } from 'lucide-react';
+import { createFileRoute } from '@tanstack/react-router';
+import * as React from 'react';
 import { z } from 'zod';
 
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../route-loaders';
@@ -33,11 +32,10 @@ import { loadRouteNamespaces, swallowUnlessOffline } from '../../route-loaders';
  * selected. Same URL-param structure as `attendance.tsx`
  * (`?student=`, `?month=`, both real `Link`s so Back walks both), and
  * reuses `MonthGrid`/`AgendaList`/`EventTypeBadge` as-is from the staff
- * `/calendar` route ([17.4.2]) rather than forking them — grid on
- * desktop, agenda on narrow viewports, both always mounted with a
- * `hidden md:block` / `md:hidden` split (no JS viewport detection, no
- * view toggle: the portal case is read-only and never needs to see both
- * at once).
+ * `/calendar` route ([17.4.2]) rather than forking them — the month grid
+ * on every width (chips on desktop, dots on phone) with the selected
+ * day's events in a `DayPanel` beside / under it (D26). The grid's own
+ * header drives `?month=`.
  *
  * No create/edit/delete/publish controls anywhere on this route — those
  * live only on the staff `/calendar` route, gated by `CALENDAR_MANAGE`.
@@ -56,14 +54,6 @@ function currentMonthIso(): string {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 }
 
-function shiftMonth(month: string, delta: number): string {
-  const [yearStr, monthStr] = month.split('-');
-  const year = Number(yearStr);
-  const monthNum = Number(monthStr);
-  const shifted = new Date(Date.UTC(year, monthNum - 1 + delta, 1));
-  return `${shifted.getUTCFullYear()}-${String(shifted.getUTCMonth() + 1).padStart(2, '0')}`;
-}
-
 /** Inclusive `from`/`to` range for `GET /calendar/events`, padded ±1 week
  * so leading/trailing days from neighbouring months (rendered by
  * `MonthGrid`'s 6x7 grid) still carry their events. Same shape as the
@@ -77,12 +67,6 @@ function monthRange(month: string): { from: string; to: string } {
   const to = new Date(Date.UTC(year, monthNum, 0));
   to.setUTCDate(to.getUTCDate() + 7);
   return { from: from.toISOString().slice(0, 10), to: to.toISOString().slice(0, 10) };
-}
-
-function monthCaption(month: string, monthNames: string[]): string {
-  const [yearStr, monthStr] = month.split('-');
-  const monthNum = Number(monthStr);
-  return `${monthNames[monthNum - 1] ?? monthStr} ${yearStr}`;
 }
 
 const WEEKDAY_KEYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -135,52 +119,33 @@ function PortalCalendarRoute() {
   );
 }
 
-/** Twelve literal `t()` calls, not computed `t(\`attendanceGrid.months.${n}\`)`
- * — a computed key is invisible to `check-i18n-keys.mjs`, the same
- * reasoning `attendance.tsx`'s own `useMonthNames` documents. Reuses
- * `attendanceGrid.months.*` rather than a second copy, since this
- * route's month caption names the exact same month `attendance.tsx`'s
- * own month stepper does. */
-function useMonthNames(): string[] {
-  const { t } = useTranslation('portal');
-  return [
-    t('attendanceGrid.months.1'),
-    t('attendanceGrid.months.2'),
-    t('attendanceGrid.months.3'),
-    t('attendanceGrid.months.4'),
-    t('attendanceGrid.months.5'),
-    t('attendanceGrid.months.6'),
-    t('attendanceGrid.months.7'),
-    t('attendanceGrid.months.8'),
-    t('attendanceGrid.months.9'),
-    t('attendanceGrid.months.10'),
-    t('attendanceGrid.months.11'),
-    t('attendanceGrid.months.12'),
-  ];
-}
-
 /** The same "class section · roll" line `attendance.tsx`, `portal/index.tsx`
  * and `fees.tsx` render, from the same two keys. */
 function useStudentMeta(): (student: Student) => string {
   const { t } = useTranslation('portal');
+  const config = useRegionConfig();
   return (student: Student) => {
     const className = student.class_section?.class?.name ?? null;
+    const roll = formatNumber(student.roll_number, config);
     return className === null
-      ? t('children.metaNoClass', { roll: student.roll_number })
+      ? t('children.metaNoClass', { roll })
       : t('children.meta', {
           className,
           section: student.class_section?.section_name,
-          roll: student.roll_number,
+          roll,
         });
   };
 }
 
 function PortalCalendar() {
   const { t } = useTranslation('portal');
-  const config = useRegionConfig();
+  const { t: tNav } = useTranslation('nav');
   const search = Route.useSearch();
-  const monthNames = useMonthNames();
+  const navigate = Route.useNavigate();
   const studentMeta = useStudentMeta();
+  // A day is a passing look, not a place: component state, keyed to the
+  // student and month it was clicked in so changing either resets it.
+  const [picked, setPicked] = React.useState<{ key: string; date: string } | null>(null);
 
   const studentsQuery = useMyStudents();
   const students: Student[] = studentsQuery.data ?? [];
@@ -215,11 +180,14 @@ function PortalCalendar() {
 
   if (students.length === 0 || selected === undefined) {
     return (
-      <EmptyState
-        title={t('empty.title')}
-        explanation={t('empty.explanation')}
-        action={{ label: t('empty.action'), onClick: () => void studentsQuery.refetch() }}
-      />
+      <PageContainer>
+        <PageHeader title={tNav('items.portalCalendar')} />
+        <EmptyState
+          title={t('empty.title')}
+          explanation={t('empty.explanation')}
+          action={{ label: t('empty.action'), onClick: () => void studentsQuery.refetch() }}
+        />
+      </PageContainer>
     );
   }
 
@@ -249,14 +217,24 @@ function PortalCalendar() {
     startDate: event.start_date,
     endDate: event.end_date,
   }));
-  const agendaEvents: AgendaEvent[] = monthGridEvents;
 
-  const previousMonth = shiftMonth(month, -1);
-  const nextMonth = shiftMonth(month, 1);
+  const pickedKey = `${selected.id}:${month}`;
+  const selectedDate =
+    picked?.key === pickedKey
+      ? picked.date
+      : month === currentMonthIso()
+        ? toIsoDate(new Date())
+        : `${month}-01`;
+  // ISO strings compare correctly as text.
+  const eventsOn = (date: string) =>
+    monthGridEvents.filter((e) => e.startDate <= date && (e.endDate ?? e.startDate) >= date);
 
   return (
-    <div className="flex max-w-3xl flex-col gap-3">
-      <h1 className="text-lg font-semibold tracking-tight">{t('calendar.title')}</h1>
+    <PageContainer>
+      <PageHeader
+        title={tNav('items.portalCalendar')}
+        subtitle={`${selected.full_name} · ${studentMeta(selected)}`}
+      />
       {students.length > 1 && (
         <StudentPicker
           label={t('calendar.pickerLabel')}
@@ -269,31 +247,18 @@ function PortalCalendar() {
           to="/portal/calendar"
         />
       )}
-      <div className="flex items-center justify-between gap-2">
-        <Link
-          to="/portal/calendar"
-          search={{ student: selected.id, month: previousMonth }}
-          aria-label={t('calendar.previousMonth')}
-          className="flex size-11 items-center justify-center rounded-md text-muted-foreground"
-        >
-          <ChevronLeftIcon className="size-5" aria-hidden="true" />
-        </Link>
-        <span className="text-sm font-semibold" aria-hidden="true">
-          {monthCaption(month, monthNames)}
-        </span>
-        <Link
-          to="/portal/calendar"
-          search={{ student: selected.id, month: nextMonth }}
-          aria-label={t('calendar.nextMonth')}
-          className="flex size-11 items-center justify-center rounded-md text-muted-foreground"
-        >
-          <ChevronRightIcon className="size-5" aria-hidden="true" />
-        </Link>
-      </div>
-      <Card className="p-3.5">
-        <div className="hidden md:block">
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:gap-6">
+        <div className="min-w-0 flex-1">
           <MonthGrid
             month={month}
+            today={toIsoDate(new Date())}
+            selectedDate={selectedDate}
+            // `?month=` is rewritten (not client state) so Back still walks
+            // month changes.
+            onMonthChange={(next) =>
+              void navigate({ search: { student: selected.id, month: next } })
+            }
+            onDayClick={(date) => setPicked({ key: pickedKey, date })}
             firstDayOfWeek={settingsQuery.data.firstDayOfWeek}
             weeklyOffDays={settingsQuery.data.weeklyOffDays}
             events={monthGridEvents}
@@ -303,25 +268,18 @@ function PortalCalendar() {
             moreLabel={(count) => t('calendar.moreEvents', { count: count })}
           />
         </div>
-        <div className="md:hidden">
-          <AgendaList
-            events={agendaEvents}
-            formatDayHeading={(day) => formatDate(parseServerDate(day), config)}
-            emptyLabel={t('calendar.agendaEmpty')}
-          />
-        </div>
-      </Card>
-    </div>
+        <DayPanel date={selectedDate} events={eventsOn(selectedDate)} />
+      </div>
+    </PageContainer>
   );
 }
 
 function CalendarSkeleton({ label, showPicker = false }: { label: string; showPicker?: boolean }) {
   return (
-    <div className="flex max-w-3xl flex-col gap-3" aria-busy="true" aria-live="polite">
+    <div className="flex flex-col gap-3" aria-busy="true" aria-live="polite">
       <span className="sr-only">{label}</span>
-      <Skeleton className="h-7 w-2/5" />
+      <Skeleton className="h-8 w-2/5" />
       {showPicker && <Skeleton className="h-12 w-full rounded-lg" />}
-      <Skeleton className="h-9 w-full rounded-lg" />
       <Skeleton className="h-96 w-full rounded-lg" />
     </div>
   );

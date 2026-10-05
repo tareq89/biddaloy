@@ -199,10 +199,6 @@
     "title": "Calendar",
     "loading": "Loading the school calendar",
     "pickerLabel": "Choose a student",
-    "previousMonth": "Previous month",
-    "nextMonth": "Next month",
-    "today": "Today",
-    "agendaEmpty": "No events this month.",
     "moreEvents_one": "+{{count}} more",
     "moreEvents_other": "+{{count}} more",
     "error": {
