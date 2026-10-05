@@ -447,9 +447,16 @@ describe('/fee-structures', () => {
   // [8.14.10]: FilterBar migration — the rows-per-page control changes
   // `limit` and resets `page` in one URL update.
   it('changing rows per page writes limit and resets page', async () => {
+    // The page-size select lives in the footer, which only shows while there are rows.
     server.use(
       http.get('/api/v1/fee-structures', () =>
-        HttpResponse.json({ data: [], total: 0, page: 2, limit: 10, totalPages: 1 }),
+        HttpResponse.json({
+          data: [feeStructureFactory()],
+          total: 1,
+          page: 2,
+          limit: 10,
+          totalPages: 1,
+        }),
       ),
       ...referenceHandlers(),
     );
@@ -457,10 +464,10 @@ describe('/fee-structures', () => {
     const { router } = render('ADMIN', '/fee-structures?page=2');
     const user = userEvent.setup();
     await screen.findByRole('heading', { name: 'Fee Structures' });
-    await user.click(screen.getByRole('combobox', { name: 'Rows per page' }));
-    await user.click(await screen.findByRole('option', { name: '20' }));
+    await user.click(await screen.findByRole('combobox', { name: 'Rows per page' }));
+    await user.click(await screen.findByRole('option', { name: /^(50|৫০)$/ }));
 
-    await waitFor(() => expect(router.state.location.search).toMatchObject({ limit: 20, page: 1 }));
+    await waitFor(() => expect(router.state.location.search).toMatchObject({ limit: 50, page: 1 }));
   });
 
   // [8.14.10]: `sorting={null}`/no-op `onSortingChange` used to be a
