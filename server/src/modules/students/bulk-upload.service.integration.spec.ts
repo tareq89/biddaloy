@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, afterEach, beforeEach } from 'vitest';
 import { Repository, DataSource, In } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import ExcelJS from 'exceljs';
@@ -265,6 +265,46 @@ describe('StudentBulkUploadService (integration)', () => {
       await dataSource.query('DELETE FROM guardians');
       await dataSource.query('DELETE FROM students');
     }
+  });
+
+  describe('seat limit [13.2.3]', () => {
+    afterEach(async () => {
+      await dataSource.getRepository(School).update(TENANT_ID, { seat_limit: null });
+    });
+
+    it('validate reports seats and a blocking error when the file would pass the limit', async () => {
+      await dataSource.getRepository(School).update(TENANT_ID, { seat_limit: 1 });
+      const file = await buildXlsxFile([
+        rowValues(headers, { student_name: 'One', guardian1_phone: '+8801711111111' }),
+        rowValues(headers, { student_name: 'Two', guardian1_phone: '+8801722222222' }),
+      ]);
+
+      const validated = await service.validate(file, TENANT_ID, SEED_ADMIN_USER_ID);
+
+      expect(validated.seats).toEqual({ used: 0, limit: 1, new_rows: 2 });
+      expect(validated.hard_error_count).toBeGreaterThan(0);
+      // The staged upload carries the error, so commit refuses it.
+      await expect(
+        service.commit(validated.staging_id, TENANT_ID, SEED_ADMIN_USER_ID),
+      ).rejects.toThrow(/validation errors/);
+    });
+
+    it('commit re-checks under the lock and writes nothing when the school filled up meanwhile', async () => {
+      const file = await buildXlsxFile([
+        rowValues(headers, { student_name: 'One', guardian1_phone: '+8801733333333' }),
+        rowValues(headers, { student_name: 'Two', guardian1_phone: '+8801744444444' }),
+      ]);
+      const validated = await service.validate(file, TENANT_ID, SEED_ADMIN_USER_ID);
+      expect(validated.hard_error_count).toBe(0); // unlimited at validate time
+      const before = await studentRepo.count({ where: { tenant_id: TENANT_ID } });
+
+      await dataSource.getRepository(School).update(TENANT_ID, { seat_limit: before + 1 });
+
+      await expect(
+        service.commit(validated.staging_id, TENANT_ID, SEED_ADMIN_USER_ID),
+      ).rejects.toMatchObject({ response: { details: { code: 'SEAT_LIMIT_REACHED' } } });
+      expect(await studentRepo.count({ where: { tenant_id: TENANT_ID } })).toBe(before);
+    });
   });
 
   it('creates students and guardians from a valid file', async () => {

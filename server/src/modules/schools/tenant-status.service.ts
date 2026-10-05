@@ -115,6 +115,18 @@ export class TenantStatusService {
     return school?.id ?? null;
   }
 
+  /**
+   * Why a school is suspended. Read straight from the DB, not cached: it is only asked for on a
+   * request that is already being refused, so it costs nothing on the hot path.
+   */
+  async getStatusReason(tenantId: string): Promise<string | null> {
+    const school = await this.schoolRepo.findOne({
+      where: { id: tenantId },
+      select: { id: true, status_reason: true },
+    });
+    return school?.status_reason ?? null;
+  }
+
   async invalidate(tenantId: string): Promise<void> {
     try {
       await this.redis.del(this.key(tenantId));

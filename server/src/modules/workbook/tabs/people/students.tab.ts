@@ -6,6 +6,7 @@ import { Student } from '../../../students/entities/student.entity';
 import { Guardian } from '../../../students/entities/guardian.entity';
 import { Enrollment } from '../../../students/entities/enrollment.entity';
 import { ClassSection } from '../../../academics/entities/class-section.entity';
+import { assertSeatsAvailable } from '../../../schools/trial/seat-limit.service';
 import { fromCell, formatDateOnly } from '../../codec/cell-format';
 import { rehomeStorageKey } from '../../codec/storage-key-scope';
 import type {
@@ -560,6 +561,20 @@ export const studentsTab: TabSpec<Student, StudentRow> = {
           `"${student.tenant_id}" and cannot be restored into tenant "${tenantId}".`,
       );
     }
+
+    // [13.2.3] A row takes a NEW seat when it ends up ACTIVE and the student was not already an
+    // active, live one (brand new, revived from soft delete, or re-activated). Checked on the
+    // restore transaction `m` — which sees this restore's earlier rows — so the running total is
+    // the post-restore total and a throw rolls the whole tab back (no partial write).
+    // ponytail: counts before `deleteByAbsence` removals run, so a restore that swaps students at
+    // a full school can be refused conservatively; exact net count needs the processor (outside
+    // this lane).
+    const takesNewSeat =
+      row.enrollment_status === EnrollmentStatus.ACTIVE &&
+      (!student ||
+        student.deleted_at !== null ||
+        student.enrollment_status !== EnrollmentStatus.ACTIVE);
+    if (takesNewSeat) await assertSeatsAvailable(m, tenantId, 1);
 
     if (student) {
       student.deleted_at = null;

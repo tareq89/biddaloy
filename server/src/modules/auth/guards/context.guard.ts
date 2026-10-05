@@ -8,7 +8,13 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Reflector } from '@nestjs/core';
-import { JwtPayload, JwtMembership, UserRole, SchoolStatus } from '@biddaloy/shared';
+import {
+  JwtPayload,
+  JwtMembership,
+  UserRole,
+  SchoolStatus,
+  TRIAL_EXPIRED_REASON,
+} from '@biddaloy/shared';
 import { ROLES_KEY } from '../decorators/roles.decorator';
 import { TenantStatusService } from '../../schools/tenant-status.service';
 
@@ -242,9 +248,13 @@ export class ContextGuard implements CanActivate {
         throw new UnauthorizedException(`Tenant ${tenantId} does not exist`);
       }
       if (status !== SchoolStatus.ACTIVE) {
+        const reason = await this.tenantStatus.getStatusReason(tenantId);
         throw new ForbiddenException({
           message: 'This school has been suspended',
-          details: { code: 'TENANT_SUSPENDED' },
+          details: {
+            code: 'TENANT_SUSPENDED',
+            ...(reason === TRIAL_EXPIRED_REASON ? { reason } : {}),
+          },
         });
       }
     }
