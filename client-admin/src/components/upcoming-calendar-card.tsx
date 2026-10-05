@@ -18,7 +18,7 @@ import { Card, EventTypeBadge, Skeleton } from '@biddaloy/ui/components';
 import { calendarEventsQueryOptions, useHasPermission } from '@biddaloy/ui/hooks';
 import type { CalendarEvent } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
-import { formatDate, parseServerDate } from '@biddaloy/ui/utils';
+import { formatDate, formatNumber, parseServerDate } from '@biddaloy/ui/utils';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 
@@ -114,7 +114,7 @@ export function UpcomingCalendarCard({
         <p className="text-sm text-muted-foreground">
           {t('upcomingPanel.nextHoliday', {
             name: nextHoliday.name,
-            count: daysUntil(nextHoliday),
+            n: formatNumber(daysUntil(nextHoliday), regionConfig),
           })}
         </p>
       )}
