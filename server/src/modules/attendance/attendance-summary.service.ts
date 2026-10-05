@@ -79,7 +79,7 @@ interface StatusCounts {
   leave_days: number;
 }
 
-interface SubjectCounts {
+export interface SubjectCounts {
   present: number;
   late: number;
   absent: number;
