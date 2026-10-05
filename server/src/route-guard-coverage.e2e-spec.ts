@@ -256,6 +256,55 @@ const ALLOWLIST: AllowlistEntry[] = [
     reason:
       '[27.7] Reference number + guardian phone is the credential; tenant resolved from `:slug`. Wrong or unknown either one 404s identically. Throttled via ADMISSION_STATUS_RATE_LIMIT.',
   },
+  {
+    controller: 'FirstPasswordController',
+    method: 'POST',
+    path: '/account/first-password',
+    reason:
+      "[13.2.2] Bearer-authenticated but tenant-agnostic — sets only the caller's own first password, identified solely by user.sub (AuthGuard(jwt) only, same rationale as /auth/change-password).",
+  },
+  {
+    controller: 'SocialAuthController',
+    method: 'GET',
+    path: '/auth/social/providers',
+    reason:
+      '[13.2.4] Public, read-only list of configured sign-in providers — no user or tenant data (D41).',
+  },
+  {
+    controller: 'SocialAuthController',
+    method: 'GET',
+    path: '/auth/social/:provider/start',
+    reason:
+      '[13.2.4] Public start of the OAuth authorization-code flow — nothing to authenticate yet; state + PKCE stored server-side and bound to an httpOnly cookie. Throttled via STRICT_RATE_LIMIT.',
+  },
+  {
+    controller: 'SocialAuthController',
+    method: 'GET',
+    path: '/auth/social/:provider/callback',
+    reason:
+      '[13.2.4] Public OAuth redirect target — the single-use state (Redis GETDEL + cookie + provider) is the credential, same rationale as /auth/login. Throttled via STRICT_RATE_LIMIT.',
+  },
+  {
+    controller: 'SocialAuthController',
+    method: 'GET',
+    path: '/auth/social/identities',
+    reason:
+      "[13.2.4] Bearer-authenticated but tenant-agnostic — lists the caller's own sign-in identities, identified solely by user.sub (AuthGuard(jwt) only, same rationale as /auth/sessions).",
+  },
+  {
+    controller: 'SocialAuthController',
+    method: 'DELETE',
+    path: '/auth/social/identities/:provider',
+    reason:
+      "[13.2.4] Bearer-authenticated but tenant-agnostic — disconnects one of the caller's own identities, identified solely by user.sub; the last sign-in method is refused with 409 (AuthGuard(jwt) only).",
+  },
+  {
+    controller: 'SocialAuthController',
+    method: 'POST',
+    path: '/auth/social/:provider/link-start',
+    reason:
+      "[13.2.4] Bearer-authenticated but tenant-agnostic — starts connecting a provider to the caller's own account, identified solely by user.sub (AuthGuard(jwt) only).",
+  },
 ];
 
 function findAllowlistEntry(

@@ -109,7 +109,7 @@ export const SEED_ASSISTANT_TEACHER_EMAIL = 'assistant-teacher@biddaloy.test';
 /** [13.1.4] A school mid-trial (23 days left, 4 of 10 seats used) that has not
  * finished onboarding, with its ADMIN and a TEACHER who was invited but never
  * set a password (no `password_hash`; log in via the invite token). Duplicated
- * from `TRIAL_DEMO` in `seed.accounts.ts`; `seed.util.spec.ts` asserts they match. */
+ * from `TRIAL_DEMO` in `seed.accounts.ts`; `seed.trial-demo.integration.spec.ts` asserts they match. */
 export const SEED_TRIAL_SCHOOL = {
   slug: 'trial-demo-school',
   name: 'Trial Demo School',
