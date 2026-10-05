@@ -57,7 +57,7 @@ describe('/settings', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText('School settings')).toBeTruthy();
+      expect(screen.getByRole('heading', { level: 1, name: /^Settings/ })).toBeTruthy();
     });
     // ADMIN has no school picker — they only ever configure their own tenant.
     expect(screen.queryByLabelText('School')).toBeNull();

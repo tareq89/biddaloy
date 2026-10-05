@@ -4,6 +4,7 @@ import { createFileRoute } from '@tanstack/react-router';
 import { z } from 'zod';
 
 import { SchoolSettingsPage } from '../../pages/SchoolSettingsPage';
+import { SETTINGS_CATEGORY_IDS } from '../../pages/settings/settings-categories';
 import { loadRouteNamespaces } from '../../route-loaders';
 
 /** [14.11.2] `?backup=<jobId>` — a deep link into `BackupSection` (e.g.
@@ -12,6 +13,8 @@ import { loadRouteNamespaces } from '../../route-loaders';
  * silently drops rather than 500ing the route. */
 const settingsSearchSchema = z.object({
   backup: z.string().optional().catch(undefined),
+  /** D30: the selected settings category. */
+  section: z.enum(SETTINGS_CATEGORY_IDS).optional().catch(undefined),
 });
 
 /**
