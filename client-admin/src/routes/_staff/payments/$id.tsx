@@ -60,6 +60,8 @@ function PaymentDetailPage() {
   const canReverse = useHasPermission(Permission.PAYMENT_REVERSE);
   const canPrint = useHasPermission(Permission.INVOICE_PRINT);
   const [reverseOpen, setReverseOpen] = React.useState(false);
+  // The dialog's "Later payment n" links change `id`; close it so it never re-aims at that payment.
+  React.useEffect(() => setReverseOpen(false), [id]);
 
   if (paymentQuery.isPending) {
     return (

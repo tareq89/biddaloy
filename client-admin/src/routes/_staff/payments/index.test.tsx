@@ -4,7 +4,9 @@
  * own page now: the header button and the old `?record=1` link both land
  * on `/payments/record`.
  */
+import { REGION_BD_EN } from '@biddaloy/ui/i18n';
 import { cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
+import { formatDate, parseServerDate } from '@biddaloy/ui/utils';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -67,6 +69,20 @@ describe('/payments', () => {
     expect(screen.getByText('Showing 1–2 of 2')).toBeTruthy();
     expect(screen.getAllByRole('button', { name: 'Record payment' })).toHaveLength(1);
     expect(screen.queryByRole('columnheader', { name: 'Status' })).toBeNull();
+  });
+
+  it('shows a payment made between 00:00 and 06:00 Dhaka time on the same day as the detail page', async () => {
+    // 20:00 UTC on the 4th is 02:00 on the 5th in Dhaka.
+    const stamp = '2026-03-04T20:00:00.000Z';
+    server.use(
+      http.get('/api/v1/payments', () =>
+        HttpResponse.json({ data: [row({ payment_date: stamp })], total: 1, page: 1, limit: 25 }),
+      ),
+    );
+    const { localeReady } = render(['/payments']);
+    await localeReady;
+
+    expect(await screen.findByText(formatDate(parseServerDate(stamp), REGION_BD_EN))).toBeTruthy();
   });
 
   it('"Show reversed too" sends include_reversed=true and reveals the status column', async () => {

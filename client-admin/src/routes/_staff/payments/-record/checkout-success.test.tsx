@@ -30,10 +30,7 @@ describe('CheckoutSuccess', () => {
 
   it('shows amount paid and invoice number', async () => {
     const { localeReady } = renderWithProviders(
-      <CheckoutSuccess
-        result={RESULT}
-        studentIds={['student-1']}
-      />,
+      <CheckoutSuccess result={RESULT} studentIds={['student-1']} />,
       { locale: 'en' },
     );
     await localeReady;
@@ -42,10 +39,7 @@ describe('CheckoutSuccess', () => {
 
   it('shows change due prominently when change_amount > 0', async () => {
     const { localeReady } = renderWithProviders(
-      <CheckoutSuccess
-        result={{ ...RESULT, change_amount: 500 }}
-        studentIds={['student-1']}
-      />,
+      <CheckoutSuccess result={{ ...RESULT, change_amount: 500 }} studentIds={['student-1']} />,
       { locale: 'en' },
     );
     await localeReady;
@@ -54,10 +48,7 @@ describe('CheckoutSuccess', () => {
 
   it('does not show change due when change_amount is 0', async () => {
     const { localeReady } = renderWithProviders(
-      <CheckoutSuccess
-        result={RESULT}
-        studentIds={['student-1']}
-      />,
+      <CheckoutSuccess result={RESULT} studentIds={['student-1']} />,
       { locale: 'en' },
     );
     await localeReady;
@@ -107,10 +98,7 @@ describe('CheckoutSuccess', () => {
 
     const user = userEvent.setup();
     const { localeReady } = renderWithProviders(
-      <CheckoutSuccess
-        result={RESULT}
-        studentIds={['student-with-one-guardian']}
-      />,
+      <CheckoutSuccess result={RESULT} studentIds={['student-with-one-guardian']} />,
       { locale: 'en', role: 'ACCOUNTANT', tenantId: 'tenant-1' },
     );
     await localeReady;
@@ -148,10 +136,7 @@ describe('CheckoutSuccess', () => {
 
     const user = userEvent.setup();
     const { localeReady } = renderWithProviders(
-      <CheckoutSuccess
-        result={RESULT}
-        studentIds={['student-with-two-guardians']}
-      />,
+      <CheckoutSuccess result={RESULT} studentIds={['student-with-two-guardians']} />,
       { locale: 'en', role: 'ACCOUNTANT', tenantId: 'tenant-1' },
     );
     await localeReady;
