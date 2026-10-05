@@ -227,6 +227,8 @@ describe('CommandPaletteLauncher', () => {
     await user.click(await screen.findByRole('option', { name: /Results page/ }));
 
     await waitFor(() => expect(router.state.location.pathname).toBe('/portal/results'));
+    // Wait past the 300 ms search debounce, or a late /search call would be missed.
+    await new Promise((resolve) => setTimeout(resolve, 400));
     expect(searchCalls).toBe(0);
   });
 });
