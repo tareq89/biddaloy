@@ -59,6 +59,10 @@ import { LeavePolicy } from './modules/leave/entities/leave-policy.entity';
 import { AcrModule } from './modules/acr/acr.module';
 import { IncidentsModule } from './modules/incidents/incidents.module';
 import { SurveysModule } from './modules/surveys/surveys.module';
+import { RegistrationModule } from './modules/registration/registration.module';
+import { OnboardingModule } from './modules/onboarding/onboarding.module';
+import { SocialAuthModule } from './modules/auth/social/social-auth.module';
+import { TrialModule } from './modules/schools/trial/trial.module';
 import { PerformanceModule } from './modules/performance/performance.module';
 import { AcrFormVersion } from './modules/acr/entities/acr-form-version.entity';
 import { AcrCriterion } from './modules/acr/entities/acr-criterion.entity';
@@ -156,6 +160,7 @@ import { RoutineSlot } from './modules/routines/entities/routine-slot.entity';
 import { RoutineSlotTeacher } from './modules/routines/entities/routine-slot-teacher.entity';
 import { RoutineSubstitution } from './modules/routines/entities/routine-substitution.entity';
 import { RoutineChangeRequest } from './modules/routines/entities/routine-change-request.entity';
+import { UserIdentity } from './modules/auth/entities/user-identity.entity';
 import { AuthToken } from './modules/account-access/entities/auth-token.entity';
 import { WorkbookJob } from './modules/workbook/jobs/workbook-job.entity';
 import { GradingScale } from './modules/grading/entities/grading-scale.entity';
@@ -253,6 +258,7 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
             AttendanceDevice,
             AttendanceDeviceEvent,
             AuthToken,
+            UserIdentity,
             WorkbookJob,
             GradingScale,
             GradingBand,
@@ -430,6 +436,10 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
     IncidentsModule,
     SurveysModule,
     PerformanceModule,
+    RegistrationModule,
+    OnboardingModule,
+    SocialAuthModule,
+    TrialModule,
   ],
   controllers: [AppController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
