@@ -8,6 +8,7 @@
 import { ApiError } from '@biddaloy/ui/api';
 import {
   BarWidget,
+  EmptyState,
   Button,
   ErrorState,
   SummaryCard,
@@ -35,7 +36,7 @@ export function PerformanceTab({ studentId, subjectName }: PerformanceTabProps) 
 
   const current = years.data.data.find((y) => y.is_current) ?? years.data.data[0];
   if (!current) {
-    return <p className="text-sm text-muted-foreground">{t('noYear')}</p>;
+    return <EmptyState title={t('noYear')} explanation="" />;
   }
   return (
     <StudentPerformance
