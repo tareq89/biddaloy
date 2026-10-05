@@ -1,6 +1,7 @@
 import '@biddaloy/ui/test';
 
 import type { PrintHistoryRow } from '@biddaloy/ui/hooks';
+import { REGION_BD_BN, REGION_BD_EN, RegionConfigProvider } from '@biddaloy/ui/i18n';
 import { cleanupTestState, renderWithProviders, server } from '@biddaloy/ui/test';
 import { screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
@@ -44,17 +45,24 @@ function serve(rows: PrintHistoryRow[]) {
   );
 }
 
-const render = (role = 'ADMIN', search = {}) => {
+const render = (role = 'ADMIN', search = {}, locale: 'en' | 'bn' = 'en') => {
   const onSearchChange = vi.fn();
+  const onPrintIdCards = vi.fn();
   const view = renderWithProviders(
-    <PrintHistoryPage search={search} onSearchChange={onSearchChange} />,
+    <RegionConfigProvider value={locale === 'bn' ? REGION_BD_BN : REGION_BD_EN}>
+      <PrintHistoryPage
+        search={search}
+        onSearchChange={onSearchChange}
+        onPrintIdCards={onPrintIdCards}
+      />
+    </RegionConfigProvider>,
     {
-      locale: 'en',
+      locale,
       role,
       tenantId: 'school-1',
     },
   );
-  return { ...view, onSearchChange };
+  return { ...view, onSearchChange, onPrintIdCards };
 };
 
 describe('PrintHistoryPage', () => {
@@ -67,16 +75,103 @@ describe('PrintHistoryPage', () => {
     render();
 
     expect(await screen.findAllByText('Rahim Ahmed')).toBeTruthy();
-    expect(screen.getAllByText('Classic v2').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('#1').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Classic').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Version 2').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Nadia Front Desk').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Valid').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Printed').length).toBeGreaterThan(0);
+  });
+
+  it('shows one status badge per row, merging the outcome and the revoked state', async () => {
+    serve([
+      row({ item_id: 'i-1', subject_label: 'Ok Person' }),
+      row({ item_id: 'i-2', subject_label: 'Failed Person', outcome: 'FAILED' }),
+      row({
+        item_id: 'i-3',
+        subject_label: 'Revoked Person',
+        outcome: 'FAILED',
+        revoked_at: '2027-03-02T00:00:00.000Z',
+      }),
+    ]);
+    render();
+    await screen.findAllByText('Ok Person');
+
+    const rowOf = (name: string) =>
+      screen.getAllByRole('row').find((r) => within(r).queryByText(name))!;
+    expect(within(rowOf('Ok Person')).getByText('Printed')).toBeTruthy();
+    expect(within(rowOf('Failed Person')).getByText('Not printed')).toBeTruthy();
+    // Revoked wins over the failed print outcome, and only one badge is shown.
+    expect(within(rowOf('Revoked Person')).getByText('Revoked')).toBeTruthy();
+    expect(within(rowOf('Revoked Person')).queryByText('Not printed')).toBeNull();
+    expect(screen.queryByRole('columnheader', { name: 'Result' })).toBeNull();
+    // A revoked row keeps only the view action.
+    const revokedRow = rowOf('Revoked Person');
+    expect(within(revokedRow).getAllByRole('button', { name: 'View' })).toHaveLength(1);
+    expect(within(revokedRow).queryByRole('button', { name: /^Reprint/ })).toBeNull();
+    expect(within(revokedRow).queryByRole('button', { name: /^Revoke/ })).toBeNull();
+  });
+
+  it('shows the copy number in the region numerals', async () => {
+    serve([row({ copy_number: 2 })]);
+    const en = render();
+    await screen.findAllByText('Rahim Ahmed');
+    expect(screen.getAllByRole('cell', { name: '2' }).length).toBeGreaterThan(0);
+    en.unmount();
+
+    serve([row({ copy_number: 2 })]);
+    render('ADMIN', {}, 'bn');
+    await screen.findAllByText('Rahim Ahmed');
+    expect(screen.getAllByRole('cell', { name: '২' }).length).toBeGreaterThan(0);
+  });
+
+  it('asks the server for 25 rows by default', async () => {
+    let limit: string | null = null;
+    server.use(
+      http.get('/api/v1/print-history', ({ request }) => {
+        limit = new URL(request.url).searchParams.get('limit');
+        return HttpResponse.json(page([row()]));
+      }),
+      http.get('/api/v1/print-templates', () => HttpResponse.json([])),
+      http.get('/api/v1/users', () =>
+        HttpResponse.json({ data: [], total: 0, page: 1, limit: 100, totalPages: 0 }),
+      ),
+    );
+    render();
+    await screen.findAllByText('Rahim Ahmed');
+    expect(limit).toBe('25');
+  });
+
+  it('starts an ID-card print from the header for a role with DOCUMENT_PRINT', async () => {
+    serve([row()]);
+    const { user, onPrintIdCards } = render();
+    await screen.findAllByText('Rahim Ahmed');
+    await user.click(screen.getAllByRole('button', { name: 'Print ID cards' })[0]!);
+    expect(onPrintIdCards).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not fetch users or templates, nor show their filters, for a role without the permissions', async () => {
+    const called: string[] = [];
+    server.use(
+      http.get('/api/v1/print-history', () => HttpResponse.json(page([row()]))),
+      http.get('/api/v1/print-templates', () => {
+        called.push('templates');
+        return HttpResponse.json([]);
+      }),
+      http.get('/api/v1/users', () => {
+        called.push('users');
+        return HttpResponse.json({ data: [], total: 0, page: 1, limit: 100, totalPages: 0 });
+      }),
+    );
+    render('EXECUTIVE');
+    await screen.findAllByText('Rahim Ahmed');
+    expect(called).toEqual([]);
+    expect(screen.queryByText('Design')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Print ID cards' })).toBeNull();
   });
 
   it('shows the empty state when nothing has been printed', async () => {
     serve([]);
     render();
-    expect(await screen.findByText(/Nothing printed yet/)).toBeTruthy();
+    expect(await screen.findByText('Nothing printed yet')).toBeTruthy();
   });
 
   it('sends a typed search to onSearchChange and goes back to page 1', async () => {
@@ -132,7 +227,7 @@ describe('PrintHistoryPage', () => {
     );
     const { user } = render();
     await screen.findAllByText('Rahim Ahmed');
-    expect(screen.getAllByText('Valid').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Printed').length).toBeGreaterThan(0);
 
     await user.click(screen.getAllByRole('button', { name: /^Revoke/ })[0]!);
     const dialog = await screen.findByRole('dialog');
