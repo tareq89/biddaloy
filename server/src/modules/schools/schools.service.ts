@@ -16,7 +16,6 @@ import {
   TRIAL_EXPIRED_REASON,
   UserStatus,
 } from '@biddaloy/shared';
-import { getSeatUsage } from './trial/seat-limit.service';
 import { School } from './entities/school.entity';
 import { TenantSettingsDto, OrganisationRenameDto } from './dto/tenant-settings.dto';
 import { resolveTenantSettings } from './settings/tenant-settings-resolver';
@@ -135,30 +134,6 @@ export class SchoolsService {
             : undefined,
       order: { name: 'ASC' },
     });
-  }
-
-  /**
-   * [13.3.4] Pre-checks for `PATCH :id/trial` that `TrialService.extend` doesn't do: the school
-   * must have had a trial, and `seat_limit` can't drop below today's ACTIVE students.
-   * ponytail: unlocked read, so a student added between this check and the update can slip
-   * past by one; lock in TrialService.extend if that ever matters.
-   */
-  async assertTrialExtendable(schoolId: string, seatLimit?: number): Promise<void> {
-    const school = await this.findById(schoolId);
-    if (school.trial_ends_at === null) {
-      throw new ConflictException({
-        message: 'This school never had a trial',
-        details: { code: 'NOT_IN_TRIAL' },
-      });
-    }
-    if (seatLimit === undefined) return;
-    const { used } = await getSeatUsage(this.repo.manager, schoolId);
-    if (seatLimit < used) {
-      throw new ConflictException({
-        message: `Seat limit ${seatLimit} is below the ${used} active students`,
-        details: { code: 'SEAT_LIMIT_BELOW_USAGE', used, requested: seatLimit },
-      });
-    }
   }
 
   /**

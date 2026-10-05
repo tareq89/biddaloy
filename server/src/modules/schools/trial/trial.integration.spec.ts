@@ -1,17 +1,20 @@
 import { randomUUID } from 'crypto';
-import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest';
+import { ConflictException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { getDataSourceToken } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
 import { SchoolStatus } from '@biddaloy/shared';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
+import { SEED_SECTION_1_ID, SEED_TENANT_ID } from '@test/constants';
 import { AuditService } from '../../audit/audit.service';
 import { School } from '../entities/school.entity';
 import { TenantStatusService } from '../tenant-status.service';
 import { AdminNoticeService } from './admin-notice.service';
 import { TrialService } from './trial.service';
 import { DAY_MS } from './trial.constants';
+import { assertSeatsAvailable, getSeatUsage } from './seat-limit.service';
 
 describe('TrialService (integration)', () => {
   let ds: DataSource;
@@ -208,5 +211,97 @@ describe('TrialService (integration)', () => {
     );
     expect(row.new_values.seat_limit).toBeNull();
     expect((await load(id)).onboarding).toEqual({ step: 'profile', trial_warnings: [] });
+  });
+  describe('extend pre-checks run on the locked row [13.3.4]', () => {
+    let original: Pick<School, 'trial_ends_at' | 'seat_limit'>;
+    let roll = 9000; // clear of seeded roll numbers; (class_section_id, roll_number) is unique
+    const addStudent = (m = ds.manager) =>
+      m.query(
+        `INSERT INTO students (id, full_name, registration_number, roll_number, class_section_id, tenant_id, enrollment_status, created_at, updated_at)
+         VALUES ($1, 'Seat holder', $2, $3, $4, $5, 'ACTIVE', NOW(), NOW())`,
+        [
+          randomUUID(),
+          `SEAT-${randomUUID().slice(0, 8)}`,
+          ++roll,
+          SEED_SECTION_1_ID,
+          SEED_TENANT_ID,
+        ],
+      );
+    const used = async () => (await getSeatUsage(ds.manager, SEED_TENANT_ID)).used;
+    const extendSeed = (seat_limit?: number) =>
+      trial.extend(SEED_TENANT_ID, { days: 1, seat_limit, reason: 'x' }, { userId: null }, now);
+    const refusal = (p: Promise<unknown>) =>
+      p.then(
+        () => null,
+        (e: unknown) => (e instanceof ConflictException ? e.getResponse() : e),
+      );
+
+    beforeEach(async () => {
+      original = await ds.getRepository(School).findOneOrFail({
+        where: { id: SEED_TENANT_ID },
+        select: ['id', 'trial_ends_at', 'seat_limit'],
+      });
+      await ds.getRepository(School).update(SEED_TENANT_ID, {
+        trial_ends_at: new Date(now.getTime() + 5 * DAY_MS),
+        seat_limit: 100,
+      });
+    });
+
+    afterEach(async () => {
+      await ds.query(
+        `DELETE FROM students WHERE tenant_id = $1 AND registration_number LIKE 'SEAT-%'`,
+        [SEED_TENANT_ID],
+      );
+      await ds.getRepository(School).update(SEED_TENANT_ID, {
+        trial_ends_at: original.trial_ends_at,
+        seat_limit: original.seat_limit,
+      });
+    });
+
+    it('409 NOT_IN_TRIAL for a school that never had a trial, and nothing is written', async () => {
+      const id = await newSchool(null);
+      expect(
+        await refusal(trial.extend(id, { days: 5, reason: 'x' }, { userId: null }, now)),
+      ).toMatchObject({ details: { code: 'NOT_IN_TRIAL' } });
+      expect((await load(id)).trial_ends_at).toBeNull();
+      const rows = await ds.query(`SELECT 1 FROM audit_logs WHERE entity_id = $1`, [id]);
+      expect(rows).toHaveLength(0);
+    });
+
+    it('seat_limit below the ACTIVE students is refused; equal and omitted are accepted', async () => {
+      await addStudent();
+      const n = await used();
+
+      expect(await refusal(extendSeed(n - 1))).toMatchObject({
+        details: { code: 'SEAT_LIMIT_BELOW_USAGE', used: n, requested: n - 1 },
+      });
+      expect((await load(SEED_TENANT_ID)).seat_limit).toBe(100);
+
+      expect((await extendSeed(n)).seat_limit).toBe(n);
+      expect((await extendSeed()).seat_limit).toBe(n);
+    });
+
+    it('counts seats after taking the row lock: an add committed while extend waits is seen', async () => {
+      await addStudent();
+      const before = await used();
+      // Warm the pool so extend really runs concurrently and queues on the lock.
+      await Promise.all(Array.from({ length: 4 }, () => ds.query('SELECT 1')));
+
+      let pending!: Promise<unknown>;
+      await ds.transaction(async (m) => {
+        // Exactly what every student add does: lock the School row, then insert.
+        await assertSeatsAvailable(m, SEED_TENANT_ID, 1);
+        await addStudent(m);
+        // Extend to the count it would see before this add commits. A count read before the
+        // lock would allow it and leave the school over its limit.
+        pending = refusal(extendSeed(before));
+        await new Promise((r) => setTimeout(r, 300));
+      });
+
+      expect(await pending).toMatchObject({
+        details: { code: 'SEAT_LIMIT_BELOW_USAGE', used: before + 1, requested: before },
+      });
+      expect((await load(SEED_TENANT_ID)).seat_limit).toBe(100);
+    });
   });
 });
