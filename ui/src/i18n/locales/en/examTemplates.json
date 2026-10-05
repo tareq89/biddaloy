@@ -48,7 +48,7 @@
       "grades": "Classes",
       "subjects": "Subjects",
       "parts": "Parts",
-      "count": "{{count}}"
+      "count": "{{n}}"
     },
     "noGradesTitle": "No classes yet",
     "noGradesText": "Add a class, then its subjects and parts."
@@ -85,8 +85,8 @@
     "gradeHelp": "1 to 99, e.g. 9",
     "addGradeTitle": "Add a class",
     "gradesLabel": "Classes",
-    "intro": "{{count}} subjects in class {{grade}} · enter full and pass marks for each part. Press “Save” at the top when done.",
-    "subjectCaption": "Code {{code}} · {{count}} parts · full marks {{marks}}",
+    "intro": "{{n}} subjects in class {{grade}} · enter full and pass marks for each part. Press “Save” at the top when done.",
+    "subjectCaption": "Code {{code}} · {{n}} parts · full marks {{marks}}",
     "addSubjectTitle": "Add a subject to class {{grade}}",
     "subjectLabel": "Subject",
     "gradeHasErrors": "Class {{grade}} has errors"

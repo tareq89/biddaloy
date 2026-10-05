@@ -93,9 +93,7 @@ function SeatPlanDetailPage() {
   const [publishOpen, setPublishOpen] = React.useState(false);
   const [reshuffleTarget, setReshuffleTarget] = React.useState<SeatPlanRoomDetail | null>(null);
 
-  React.useEffect(() => {
-    document.title = planQuery.data ? `${planQuery.data.name} · SchoolManager` : 'SchoolManager';
-  }, [planQuery.data]);
+  // `document.title` is owned by the `_staff` layout (breadcrumb trail).
 
   if (planQuery.isPending) {
     return (
@@ -120,26 +118,29 @@ function SeatPlanDetailPage() {
   const editable = canManage && isDraft;
 
   // One entry per subject sitting of the plan (the same student is seated once per sitting).
-  const sittings = new Map<string, { id: string; label: string }>();
+  const sittings = new Map<string, { id: string; label: string; order: string }>();
   for (const room of plan.rooms) {
     for (const a of room.allocations) {
       if (sittings.has(a.exam_schedule_id)) continue;
       const subject = subjectLabel({ name_en: a.subject_name, name_bn: a.subject_name_bn }, i18n.language);
       sittings.set(a.exam_schedule_id, {
         id: a.exam_schedule_id,
+        order: `${a.exam_date ?? ''} ${a.starts_at ?? ''}`,
         label: a.exam_date
           ? `${subject} · ${formatDate(parseDate(a.exam_date.slice(0, 10)), config)}`
           : subject,
       });
     }
   }
-  const sittingList = [...sittings.values()].sort((a, b) => a.label.localeCompare(b.label));
+  const sittingList = [...sittings.values()].sort(
+    (a, b) => a.order.localeCompare(b.order) || a.label.localeCompare(b.label),
+  );
   const sittingId = sittingList.some((s) => s.id === search.sitting)
     ? search.sitting
     : sittingList[0]?.id;
 
   const count = (n: number, key: 'detail.countItems' | 'detail.countPeople') =>
-    t(key, { count: formatNumber(n, config) });
+    t(key, { n: formatNumber(n, config) });
 
   return (
     <>
@@ -212,7 +213,7 @@ function SeatPlanDetailPage() {
                   <h2 className="text-h2">{roomName(room)}</h2>
                   <p className="mt-1 text-text-secondary">
                     {t('room.seated', {
-                      count: formatNumber(rows.length, config),
+                      n: formatNumber(rows.length, config),
                       capacity:
                         room.capacity === null
                           ? '—'
@@ -334,12 +335,17 @@ function SeatPlanDetailPage() {
       <PublishSeatPlanDialog open={publishOpen} onOpenChange={setPublishOpen} planId={planId} />
       <ConfirmDialog
         open={reshuffleTarget !== null}
-        onOpenChange={(open) => !open && setReshuffleTarget(null)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setReshuffleTarget(null);
+            reshuffleRoom.reset();
+          }
+        }}
         tone="default"
         title={t('reshuffle.title')}
-        description={t('reshuffle.description', {
+        description={`${t('reshuffle.description', {
           room: reshuffleTarget ? roomName(reshuffleTarget) : '',
-        })}
+        })}${reshuffleRoom.isError ? ` ${t('reshuffle.errorMessage')}` : ''}`}
         confirmLabel={t('reshuffle.confirm')}
         busy={reshuffleRoom.isPending}
         onConfirm={() =>

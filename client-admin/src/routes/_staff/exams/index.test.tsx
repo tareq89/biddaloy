@@ -155,7 +155,7 @@ describe('/exams', () => {
       locale: 'en',
     });
 
-    await user.click((await screen.findAllByRole('button', { name: 'Add exam' }))[0] as HTMLElement);
+    await user.click(await screen.findByRole('button', { name: 'Add exam' }));
     await user.type(await screen.findByLabelText('Name'), 'Model Test');
     await user.click(screen.getByRole('button', { name: 'Save' }));
 

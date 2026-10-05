@@ -111,7 +111,7 @@ describe('ExamFormDialog template field', () => {
     await screen.findByRole('combobox', { name: 'Start from an exam structure (optional)' });
     await fillAndSubmit(user, 'Half-yearly');
     await waitFor(() =>
-      expect(toastSuccess).toHaveBeenCalledWith('Exam created with 3 parts'),
+      expect(toastSuccess).toHaveBeenCalledWith('Exam created with ৩ parts'),
     );
     expect(api.bodies[0]).toMatchObject({ template_id: 'tpl-1' });
   });

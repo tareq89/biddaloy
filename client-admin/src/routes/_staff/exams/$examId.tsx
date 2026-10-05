@@ -42,7 +42,7 @@ export const Route = createFileRoute('/_staff/exams/$examId')({
   loader: ({ context: { queryClient }, params }) =>
     Promise.all([
       queryClient.ensureQueryData(examQueryOptions(params.examId)).catch(swallowUnlessOffline),
-      loadRouteNamespaces('exams', 'common', 'examsTemplateField'),
+      loadRouteNamespaces('exams', 'common', 'examsTemplateField', 'grading'),
     ]),
   pendingComponent: ExamDetailPending,
   component: ExamDetailPage,
@@ -99,7 +99,11 @@ function ExamDetailPage() {
             : []),
         ]}
         actions={[
-          ...resultActions.actions,
+          // A lone destructive action stays inline in PageHeader; without the edit item (no
+          // EXAM_MANAGE) Reopen would be a red inline button, so it goes to More as a plain item.
+          ...resultActions.actions.map((a) =>
+            !canManage && a.priority === 'destructive' ? { ...a, priority: 'tertiary' as const } : a,
+          ),
           {
             id: 'edit',
             label: t('detail.edit'),

@@ -230,7 +230,7 @@ export function ComponentsPanel({ examId, classId, academicYearId }: ComponentsP
           {rows.length > 0 && (
             <p className="text-text-secondary">
               {t('componentsPanel.totals', {
-                count: rows.length,
+                n: formatNumber(rows.length, config),
                 marks: formatNumber(fullMarksTotal, config),
               })}
             </p>
@@ -325,12 +325,17 @@ export function ComponentsPanel({ examId, classId, academicYearId }: ComponentsP
 
       <ConfirmDialog
         open={pendingDelete !== null}
-        onOpenChange={(open) => !open && setPendingDelete(null)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingDelete(null);
+            deleteComponent.reset();
+          }
+        }}
         title={t('componentsPanel.deleteTitle')}
-        description={t('componentsPanel.deleteDescription', {
+        description={`${t('componentsPanel.deleteDescription', {
           name: pendingDelete?.name ?? '',
           subject: activeSubjectName,
-        })}
+        })}${deleteComponent.isError ? ` ${t('componentsPanel.deleteError')}` : ''}`}
         confirmLabel={t('componentsPanel.delete')}
         busy={deleteComponent.isPending}
         onConfirm={() =>

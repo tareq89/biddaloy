@@ -9,7 +9,7 @@ import { Permission } from '@biddaloy/shared';
 import { ErrorState, Skeleton, StatusBadge } from '@biddaloy/ui/components';
 import { useAllSubjects, useHasPermission } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
-import { DetailShell } from '@biddaloy/ui/shells';
+import { DetailShell, useWarnUnsavedChanges } from '@biddaloy/ui/shells';
 import { formatNumber } from '@biddaloy/ui/utils';
 import { RotateCcw, Save } from 'lucide-react';
 import * as React from 'react';
@@ -19,7 +19,7 @@ import { PresetWarningBanner } from '../../../components/PresetWarningBanner';
 import { subjectLabel } from './-detail/subject-label';
 import { TemplateFormDialog } from './-template-form-dialog';
 import { TemplateGrid, type TemplateGridHandle } from './-template-grid';
-import { useExamTemplate, useUpdateExamTemplate } from './use-exam-templates';
+import { useExamTemplate, useUpdateExamTemplate } from './-use-exam-templates';
 
 export interface TemplateDetailProps {
   templateId: string;
@@ -39,6 +39,8 @@ export function TemplateDetail({ templateId, selectedGrade, onGradeChange }: Tem
   const gridRef = React.useRef<TemplateGridHandle>(null);
   const [dirty, setDirty] = React.useState(false);
   const [editOpen, setEditOpen] = React.useState(false);
+  // Leaving with an unsaved draft asks first (same guard FullPageShell uses).
+  useWarnUnsavedChanges(dirty);
 
   const subjects = React.useMemo(
     () =>
@@ -69,6 +71,8 @@ export function TemplateDetail({ templateId, selectedGrade, onGradeChange }: Tem
   const template = query.data;
   const saving = update.isPending && update.variables?.rows !== undefined;
   const grades = [...new Set(template.rows.map((r) => r.classGrade))].sort((a, b) => a - b);
+  // Distinct subjects (rows are subject x class).
+  const subjectCount = new Set(template.rows.map((r) => r.subjectCode)).size;
   const parts = template.rows.reduce((sum, r) => sum + r.components.length, 0);
 
   return (
@@ -84,11 +88,11 @@ export function TemplateDetail({ templateId, selectedGrade, onGradeChange }: Tem
           },
           {
             label: t('detail.facts.subjects'),
-            value: t('detail.facts.count', { count: formatNumber(template.rows.length, config) }),
+            value: t('detail.facts.count', { n: formatNumber(subjectCount, config) }),
           },
           {
             label: t('detail.facts.parts'),
-            value: t('detail.facts.count', { count: formatNumber(parts, config) }),
+            value: t('detail.facts.count', { n: formatNumber(parts, config) }),
           },
         ]}
         actions={[
