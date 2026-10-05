@@ -4,6 +4,7 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  DeleteDateColumn,
   ManyToOne,
   JoinColumn,
   Index,
@@ -57,4 +58,8 @@ export class UserTenant {
 
   @UpdateDateColumn({ type: 'timestamptz' })
   updated_at: Date;
+
+  /** Soft delete: a former member is restored, never re-inserted (unique stays as is). */
+  @DeleteDateColumn({ type: 'timestamptz', nullable: true })
+  deleted_at: Date | null;
 }
