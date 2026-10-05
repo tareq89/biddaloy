@@ -17,8 +17,8 @@ import { normalizeSearchTerm } from '../../common/utils/normalize-search-term.ut
 import { BN_COLLATION } from '../../common/constants/collation';
 import { normalizeEmail } from '../auth/normalize-identifier';
 import { AuditAction, EMPLOYEE_ROLES, UserRole } from '@biddaloy/shared';
-import { assertPasswordAllowed } from '../auth/password-policy';
 import { AuditService } from '../audit/audit.service';
+import { assertPasswordAllowed } from '../auth/password-policy';
 import { StaffProfilesService } from '../staff-profiles/staff-profiles.service';
 import {
   CreateUserDto,
