@@ -71,7 +71,7 @@ export function StudentPicker({ label, items, selectedId, to, className }: Stude
             aria-current={active ? 'page' : undefined}
             // `min-h-11` is 44px — the portal's minimum touch target.
             className={cn(
-              'flex min-h-11 shrink-0 flex-col justify-center gap-0.5 rounded-lg border px-3 py-1.5 no-underline',
+              'flex min-h-11 min-w-0 flex-col justify-center gap-0.5 rounded-lg border px-3 py-1.5 no-underline',
               active
                 ? 'border-primary bg-secondary'
                 : 'border-border-subtle bg-surface hover:bg-muted',

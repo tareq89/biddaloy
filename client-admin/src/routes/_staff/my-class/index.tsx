@@ -102,7 +102,7 @@ function MyClassPickerPage() {
         </h2>
         <ul className={GRID}>
           {sections.map((section) => (
-            <li key={section.section_id}>
+            <li key={section.section_id} className="min-w-0">
               <Link
                 to="/my-class/$sectionId"
                 params={{ sectionId: section.section_id }}
