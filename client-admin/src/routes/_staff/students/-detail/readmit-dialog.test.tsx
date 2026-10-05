@@ -15,6 +15,23 @@ async function renderDialog(onOpenChange = vi.fn()) {
   return { user: userEvent.setup(), onOpenChange };
 }
 
+function isoOffset(days: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/** The date picker is capped at today: tomorrow is disabled, today is pickable. The
+ * `errors.dateFuture` branch in the dialog is therefore a defensive backstop. */
+async function expectFutureDaysDisabled(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole('button', { name: 'Date' }));
+  const cell = (iso: string) => document.querySelector<HTMLElement>(`[data-date="${iso}"]`);
+  await waitFor(() => expect(cell(isoOffset(0))).not.toBeNull());
+  expect(cell(isoOffset(0))?.getAttribute('aria-disabled')).toBeNull();
+  const tomorrow = cell(isoOffset(1));
+  if (tomorrow) expect(tomorrow.getAttribute('aria-disabled')).toBe('true');
+}
+
 describe('ReadmitDialog', () => {
   afterEach(async () => {
     await cleanupTestState();
@@ -26,11 +43,11 @@ describe('ReadmitDialog', () => {
     expect(await screen.findByText('Choose a class and section.')).toBeTruthy();
   });
 
-  it('uses a date picker, not a native date input', async () => {
-    await renderDialog();
+  it('caps the date picker at today (no native date input, future days disabled)', async () => {
+    const { user } = await renderDialog();
     const dialog = await screen.findByRole('dialog');
     expect(dialog.querySelector('input[type="date"]')).toBeNull();
-    expect(screen.getByRole('button', { name: 'Date' }).tagName).toBe('BUTTON');
+    await expectFutureDaysDisabled(user);
   });
 
   it('is axe clean', async () => {
@@ -76,6 +93,8 @@ describe('ReadmitDialog', () => {
     await user.click(await screen.findByRole('option', { name: 'A' }));
     await user.keyboard('{Control>}{Enter}{/Control}');
     await waitFor(() => expect(screen.getAllByRole('alert').length).toBeGreaterThan(0));
+    // Translated line only, never the server message; the dialog stays open.
+    expect(screen.queryByText('Student is already active')).toBeNull();
     expect(screen.getByRole('dialog')).toBeTruthy();
   });
 });
