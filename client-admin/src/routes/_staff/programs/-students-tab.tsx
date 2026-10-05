@@ -33,7 +33,6 @@ import { AwardIcon, ChevronDownIcon, ChevronRightIcon, UsersRoundIcon } from 'lu
 import * as React from 'react';
 
 import { LabelledField } from './-labelled-field';
-import { RecordDialog } from './-record-dialog';
 
 export interface StudentsTabProps {
   programId: string;
@@ -43,6 +42,8 @@ export interface StudentsTabProps {
    * alone (e.g. a teacher). */
   canManage: boolean;
   onOpenEnrol: () => void;
+  /** Opens the Record modal (in the URL) prefilled with this enrolment. */
+  onRecordFor: (enrollmentId: string) => void;
 }
 
 export function StudentsTab({
@@ -50,11 +51,11 @@ export function StudentsTab({
   milestoneTotal,
   canManage,
   onOpenEnrol,
+  onRecordFor,
 }: StudentsTabProps) {
   const { t } = useTranslation('programs');
   const [status, setStatus] = React.useState<ProgramEnrollmentStatus>('ACTIVE');
   const [expandedId, setExpandedId] = React.useState<string | null>(null);
-  const [recordFor, setRecordFor] = React.useState<ProgramEnrollmentRow | null>(null);
 
   const enrollmentsQuery = useProgramEnrollments(programId, { status });
   const updateEnrollment = useUpdateProgramEnrollment();
@@ -112,7 +113,7 @@ export function StudentsTab({
                 canManage={canManage}
                 expanded={expandedId === row.id}
                 onToggle={() => setExpandedId(expandedId === row.id ? null : row.id)}
-                onRecord={() => setRecordFor(row)}
+                onRecord={() => onRecordFor(row.id)}
                 onStatusChange={(next) =>
                   updateEnrollment.mutate({
                     enrollmentId: row.id,
@@ -127,17 +128,6 @@ export function StudentsTab({
             <TableCount total={enrollments.length} />
           </div>
         </div>
-      )}
-
-      {recordFor && (
-        <RecordDialog
-          open
-          onOpenChange={() => setRecordFor(null)}
-          programId={programId}
-          enrollmentIdPrefill={recordFor.id}
-          studentId={recordFor.student.id}
-          onRecorded={() => setRecordFor(null)}
-        />
       )}
     </div>
   );

@@ -9,7 +9,7 @@ import { setActiveRole, setActiveTenant } from '@biddaloy/ui/api';
 import { I18nProvider, i18n } from '@biddaloy/ui/i18n';
 import { cleanupTestState, createTestQueryClient, server } from '@biddaloy/ui/test';
 import { QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -76,8 +76,10 @@ describe('EnrolDialog', () => {
   it('opens with the students list empty until a class is picked', async () => {
     await renderDialog();
 
-    await screen.findByText('Class 5');
+    await screen.findByRole('heading', { level: 1, name: 'Enrol students' });
     expect(screen.queryByText('Anika Rahman')).toBeNull();
+    expect(screen.getByText('Choose a class to see its students.')).toBeTruthy();
+    expect(document.querySelector('input[type="date"]')).toBeNull();
   });
 
   it('filters students by class + section, selects all, and submits', async () => {
@@ -99,7 +101,8 @@ describe('EnrolDialog', () => {
     await user.click(await screen.findByRole('option', { name: 'A' }));
 
     await screen.findByText('Anika Rahman');
-    await user.click(screen.getByText('Select all rows on page'));
+    await user.click(screen.getByRole('button', { name: 'Select all' }));
+    expect(screen.getByRole('button', { name: 'Clear all' })).toBeTruthy();
 
     await user.click(screen.getByRole('button', { name: 'Enrol' }));
 
@@ -125,7 +128,39 @@ describe('EnrolDialog', () => {
 
     await user.click(screen.getByRole('button', { name: 'Enrol' }));
 
-    await screen.findByText(/already enrolled|skipped/i);
+    await screen.findByText(/already enrolled, skipped/i);
     expect(onEnrolled).not.toHaveBeenCalled();
+  });
+
+  it('sends today as the started-on date, in local calendar terms', async () => {
+    const user = userEvent.setup();
+    let requestBody: { started_on?: string } = {};
+    server.use(
+      http.post('/api/v1/programs/:id/enrollments', async ({ request }) => {
+        requestBody = (await request.json()) as { started_on?: string };
+        return HttpResponse.json({ enrolled: 1, skipped: 0 });
+      }),
+    );
+    // Local 01:00 on 4 Oct — the UTC day (3 Oct) must not leak into the payload.
+    vi.useFakeTimers({ toFake: ['Date'], now: new Date(2026, 9, 4, 1, 0, 0) });
+    try {
+      await renderDialog({ studentIdPrefill: 'student-1' });
+      await user.click(screen.getByRole('button', { name: 'Enrol' }));
+      await waitFor(() => expect(requestBody.started_on).toBe('2026-10-04'));
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('asks before discarding when students are ticked and Cancel is pressed', async () => {
+    const user = userEvent.setup();
+    const { onOpenChange } = await renderDialog({ studentIdPrefill: 'student-1' });
+    await user.click(screen.getByRole('combobox', { name: /Class/ }));
+    await user.click(await screen.findByRole('option', { name: 'Class 5' }));
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    const confirm = await screen.findByRole('alertdialog');
+    expect(onOpenChange).not.toHaveBeenCalled();
+    await user.click(within(confirm).getByRole('button', { name: 'Discard changes' }));
+    expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 });

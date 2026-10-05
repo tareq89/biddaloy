@@ -48,6 +48,8 @@ const TAB_IDS = ['milestones', 'students'] as const;
 const programDetailSearchSchema = z.object({
   enrol: z.coerce.string().optional().catch(undefined),
   record: z.coerce.string().optional().catch(undefined),
+  // Sent to the server as an enrolment id when recording — only a real uuid gets through.
+  enrollment: z.string().uuid().optional().catch(undefined),
   student: z.coerce.string().optional().catch(undefined),
 });
 
@@ -83,7 +85,9 @@ function ProgramDetailPage() {
   const [deleteOpen, setDeleteOpen] = React.useState(false);
 
   function closeDialogSearch() {
-    void navigate({ search: { enrol: undefined, record: undefined, student: undefined } });
+    void navigate({
+      search: { enrol: undefined, record: undefined, student: undefined, enrollment: undefined },
+    });
   }
 
   if (programQuery.isPending) {
@@ -216,6 +220,9 @@ function ProgramDetailPage() {
                 milestoneTotal={milestoneTotal}
                 canManage={canManage}
                 onOpenEnrol={() => void navigate({ search: { ...search, enrol: '1' } })}
+                onRecordFor={(id) =>
+                  void navigate({ search: { ...search, record: '1', enrollment: id } })
+                }
               />
             ),
           },
@@ -268,6 +275,7 @@ function ProgramDetailPage() {
           open
           onOpenChange={closeDialogSearch}
           programId={program.id}
+          enrollmentIdPrefill={search.enrollment}
           onRecorded={closeDialogSearch}
         />
       )}
