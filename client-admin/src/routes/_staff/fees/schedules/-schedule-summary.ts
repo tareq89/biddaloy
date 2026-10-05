@@ -24,9 +24,11 @@ export function ruleSummary(
       ? t('schedules.ruleMonthlyLast', { ns: 'fees' })
       : t('schedules.ruleMonthly', { day: formatNumber(day, config), ns: 'fees' });
   }
-  const names = (schedule.rule.weekdays ?? []).map((day) =>
-    t(`weekdays.${day}`, { ns: 'common', defaultValue: String(day) }),
-  );
+  // Week order (Sunday first, as the tenant's calendar default), not click order.
+  const sunday = (day: Weekday) => day % 7;
+  const names = [...(schedule.rule.weekdays ?? [])]
+    .sort((a, b) => sunday(a) - sunday(b))
+    .map((day) => t(`weekdays.${day}`, { ns: 'common', defaultValue: String(day) }));
   const days = new Intl.ListFormat(language, { type: 'conjunction' }).format(names);
   return t('schedules.ruleWeekly', { days, ns: 'fees' });
 }

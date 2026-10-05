@@ -120,8 +120,8 @@
     "columnWallet": "জমা টাকা",
     "feeTypeLabel": "ফির ধরন",
     "allFeeTypes": "সকল ধরন",
-    "expandLabel_one": "{{name}}-এর {{count}}টি ফি",
-    "expandLabel_other": "{{name}}-এর {{count}}টি ফি",
+    "expandLabel_one": "{{name}}-এর {{n}}টি ফি",
+    "expandLabel_other": "{{name}}-এর {{n}}টি ফি",
     "expanded": {
       "lateFeeBadge": "বিলম্ব ফি",
       "periodAndDue": "{{period}} · শেষ তারিখ {{date}}",
@@ -300,7 +300,9 @@
       "dueDaysHelp": "মেয়াদ শুরুর কত দিনের মধ্যে টাকা দিতে হবে।",
       "endsOnHelp": "সর্বোচ্চ {{date}} (শিক্ষাবর্ষের শেষ দিন)।",
       "previewTitle": "এখন কতজন পাবে",
-      "previewLoading": "দেখা হচ্ছে…"
+      "previewLoading": "দেখা হচ্ছে…",
+      "dueDaysRequired": "পরিশোধের সময় (দিন) লিখুন",
+      "dueDaysRange": "পরিশোধের সময় ০ থেকে ৬০ দিনের মধ্যে হতে হবে"
     },
     "cloneDialog": {
       "title": "নিয়মটি অন্য শিক্ষাবর্ষে কপি করুন",
@@ -332,7 +334,11 @@
       "excludeButton": "বাদ দিন",
       "columnExcludedOn": "বাদ দেওয়ার তারিখ",
       "exclusionsEmptyExplanation": "নিয়মের আওতার সবার জন্যই বিল তৈরি হচ্ছে।",
-      "runHistoryEmptyExplanation": "এই নিয়মে বিল তৈরি হলে এখানে দেখা যাবে।"
+      "runHistoryEmptyExplanation": "এই নিয়মে বিল তৈরি হলে এখানে দেখা যাবে।",
+      "excludeErrorMessage": "শিক্ষার্থীকে বাদ দেওয়া যায়নি। আবার চেষ্টা করুন।",
+      "includeErrorMessage": "শিক্ষার্থীকে আবার যুক্ত করা যায়নি। আবার চেষ্টা করুন।",
+      "includeConfirmTitle": "শিক্ষার্থীকে আবার যুক্ত করবেন?",
+      "includeConfirmDescription": "{{name}} আবার এই নিয়মে বিল পাবে।"
     },
     "subtitle": "নিয়ম অনুযায়ী শুধু সক্রিয় শিক্ষার্থীদের বিল নিজে থেকে তৈরি হয়।",
     "view": "দেখুন",
@@ -340,7 +346,9 @@
     "neverBilled": "এখনো হয়নি",
     "emptyExplanation": "একটি নিয়ম যোগ করলে প্রতি মাসে বা সপ্তাহে নিজে থেকে বিল তৈরি হবে।",
     "activateConfirmTitle": "এই নিয়মটি আবার সক্রিয় করবেন?",
-    "activateConfirmDescription": "পরের নির্ধারিত দিন থেকে আবার বিল তৈরি হবে।"
+    "activateConfirmDescription": "পরের নির্ধারিত দিন থেকে আবার বিল তৈরি হবে।",
+    "toggleErrorMessage": "নিয়মটির অবস্থা বদলানো যায়নি। আবার চেষ্টা করুন।",
+    "editNotFound": "এই নিয়মটি আর পাওয়া যায়নি।"
   },
   "recurringFeesTab": {
     "title": "স্বয়ংক্রিয় বিল",

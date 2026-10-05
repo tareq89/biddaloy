@@ -2,6 +2,7 @@
  * [16.7.5] `/fees/schedules` — the rules list, the URL-driven rule form (`?new=1` / `?edit=<id>`),
  * the switch-on/off confirm, and B10 (no programs request without `PROGRAM_READ`).
  */
+import { toast } from '@biddaloy/ui/components';
 import { cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -176,5 +177,40 @@ describe('/fees/schedules', () => {
     expect(
       screen.getByText('Add a rule and bills are created every month or week on their own.'),
     ).toBeTruthy();
+  });
+
+  it('closes the confirm and shows a translated error when switching a rule off fails', async () => {
+    const toastSpy = vi.spyOn(toast, 'error').mockImplementation(() => '');
+    server.use(
+      listHandler([rule()]),
+      http.patch('/api/v1/fees/schedules/:id', () =>
+        HttpResponse.json({ message: 'boom' }, { status: 400 }),
+      ),
+    );
+
+    render();
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'More actions' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Deactivate' }));
+    await user.click(
+      within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Deactivate' }),
+    );
+
+    await waitFor(() =>
+      expect(toastSpy).toHaveBeenCalledWith("Couldn't change this rule's status. Try again."),
+    );
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+    toastSpy.mockRestore();
+  });
+
+  it('clears ?edit=<unknown id> and says the rule is gone', async () => {
+    const toastSpy = vi.spyOn(toast, 'error').mockImplementation(() => '');
+    server.use(listHandler([rule()]));
+
+    const { router } = render('ADMIN', '/fees/schedules?edit=missing');
+
+    await waitFor(() => expect(router.state.location.search).not.toHaveProperty('edit'));
+    expect(toastSpy).toHaveBeenCalledWith('That rule no longer exists.');
+    toastSpy.mockRestore();
   });
 });

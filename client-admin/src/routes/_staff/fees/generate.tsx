@@ -60,7 +60,8 @@ const generateFeesSearchSchema = z.object({
   selected: z.string().optional().catch(undefined),
 });
 
-function toFeeGenerationsFilters(filters: GeneratedFeesFilters) {
+// `canReadUsers` false: the "created by" control is hidden, so a deep-linked id must not filter.
+function toFeeGenerationsFilters(filters: GeneratedFeesFilters, canReadUsers = true) {
   return {
     ...(filters.period_from !== undefined ? { period_from: filters.period_from } : {}),
     ...(filters.period_to !== undefined ? { period_to: filters.period_to } : {}),
@@ -68,7 +69,7 @@ function toFeeGenerationsFilters(filters: GeneratedFeesFilters) {
     ...(filters.source !== undefined
       ? { source: filters.source as 'MANUAL' | 'SCHEDULE' | 'FINE_RULE' }
       : {}),
-    ...(filters.generated_by_user_id !== undefined
+    ...(canReadUsers && filters.generated_by_user_id !== undefined
       ? { generated_by_user_id: filters.generated_by_user_id }
       : {}),
     ...(filters.collection_status !== undefined
@@ -117,11 +118,12 @@ function GeneratedFeesPage() {
   const navigate = Route.useNavigate();
   const [state, actions] = useListShellState();
   const filters = state.filters as GeneratedFeesFilters;
+  const canReadUsers = useHasPermission(Permission.USER_READ);
 
   const generationsQuery = useFeeGenerations({
     page: state.page,
     limit: state.limit,
-    ...toFeeGenerationsFilters(filters),
+    ...toFeeGenerationsFilters(filters, canReadUsers),
   });
   const rows = React.useMemo(() => generationsQuery.data?.data ?? [], [generationsQuery.data]);
 

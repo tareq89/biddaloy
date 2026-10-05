@@ -358,4 +358,84 @@ describe('ScheduleFormDialog', () => {
       program_id: 'program-hifz',
     });
   });
+
+  async function fillValid(user: ReturnType<typeof userEvent.setup>) {
+    await user.type(await screen.findByLabelText('Rule name * (required)'), 'Monthly tuition');
+    await user.click(await screen.findByRole('combobox', { name: /^Academic year/ }));
+    await user.click(await screen.findByRole('option', { name: '2026-2027' }));
+    await waitFor(() =>
+      expect(screen.getByRole('checkbox', { name: /Monthly Tuition/ })).toBeTruthy(),
+    );
+    await user.click(screen.getByRole('checkbox', { name: /Monthly Tuition/ }));
+  }
+
+  it('sends Bangla-typed due days as the number they mean', async () => {
+    server.use(...referenceHandlers());
+    let body: Record<string, unknown> | undefined;
+    server.use(
+      http.post('/api/v1/fees/schedules', async ({ request }) => {
+        body = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json(schedule());
+      }),
+    );
+    const { onSaved } = await renderDialog();
+    const user = userEvent.setup();
+    await fillValid(user);
+    const due = screen.getByLabelText('Days to pay');
+    await user.clear(due);
+    await user.type(due, '১০');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(onSaved).toHaveBeenCalled());
+    expect(body?.due_days_after_period_start).toBe(10);
+  });
+
+  it('shows a field error and sends nothing for a blank or out-of-range due days', async () => {
+    server.use(...referenceHandlers());
+    let posted = false;
+    server.use(
+      http.post('/api/v1/fees/schedules', () => {
+        posted = true;
+        return HttpResponse.json(schedule());
+      }),
+    );
+    await renderDialog();
+    const user = userEvent.setup();
+    await fillValid(user);
+    const due = screen.getByLabelText('Days to pay');
+
+    await user.clear(due);
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    expect(await screen.findByText('Enter the days to pay')).toBeTruthy();
+
+    await user.type(due, '61');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    expect(await screen.findByText('Days to pay must be between 0 and 60')).toBeTruthy();
+    expect(posted).toBe(false);
+  });
+
+  it('footer Cancel asks before discarding a changed form and closes at once when untouched', async () => {
+    server.use(...referenceHandlers());
+    const { onOpenChange } = await renderDialog();
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('button', { name: 'Cancel' }));
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+    onOpenChange.mockClear();
+  });
+
+  it('footer Cancel after an edit shows the discard dialog', async () => {
+    server.use(...referenceHandlers());
+    const { onOpenChange } = await renderDialog();
+    const user = userEvent.setup();
+
+    await user.type(await screen.findByLabelText('Rule name * (required)'), 'Monthly');
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    const confirm = within(await screen.findByRole('alertdialog'));
+    expect(confirm.getByText('Discard your changes?')).toBeTruthy();
+    expect(onOpenChange).not.toHaveBeenCalled();
+    await user.click(confirm.getByRole('button', { name: 'Discard changes' }));
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
 });
