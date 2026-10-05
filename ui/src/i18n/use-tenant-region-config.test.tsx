@@ -55,6 +55,7 @@ describe('useTenantRegionConfig', () => {
 
     const { result } = renderHookWithProviders(() => useTenantRegionConfig(), {
       tenantId: 'tenant-1',
+      role: 'ADMIN',
     });
 
     await waitFor(() => {
@@ -73,6 +74,7 @@ describe('useTenantRegionConfig', () => {
 
     const { result } = renderHookWithProviders(() => useTenantRegionConfig(), {
       tenantId: 'tenant-1',
+      role: 'ADMIN',
     });
 
     // Some real, complete RegionConfig — never `undefined`/partial —
@@ -93,6 +95,7 @@ describe('useTenantRegionConfig', () => {
 
     const { result, rerender } = renderHookWithProviders(() => useTenantRegionConfig(), {
       tenantId: 'tenant-a',
+      role: 'ADMIN',
     });
 
     await waitFor(() => {
@@ -136,6 +139,7 @@ describe('useTenantRegionConfig', () => {
 
     const { result } = renderHookWithProviders(() => useTenantRegionConfig(), {
       tenantId: 'tenant-1',
+      role: 'ADMIN',
       queryClient,
     });
 
@@ -159,6 +163,7 @@ describe('useTenantRegionConfig', () => {
 
     const { result } = renderHookWithProviders(() => useTenantRegionConfig(), {
       tenantId: 'tenant-1',
+      role: 'ADMIN',
     });
 
     await waitFor(() => {
@@ -167,5 +172,25 @@ describe('useTenantRegionConfig', () => {
     expect(result.current.currency.code).toBeTruthy();
     expect(result.current.address.fields.length).toBeGreaterThan(0);
     expect(result.current).toEqual(expect.objectContaining({ locale: expect.any(String) }));
+  });
+
+  it('makes no settings request for a role without SETTINGS_MANAGE and returns the locale default', async () => {
+    let called = 0;
+    server.use(
+      http.get('/api/v1/schools/:id/settings', () => {
+        called += 1;
+        return HttpResponse.json(settingsResponse('CAD'));
+      }),
+    );
+
+    const { result } = renderHookWithProviders(() => useTenantRegionConfig(), {
+      tenantId: 'tenant-1',
+      role: 'ACCOUNTANT',
+    });
+
+    await new Promise((r) => setTimeout(r, 50));
+    expect(called).toBe(0);
+    expect(result.current.currency.code).not.toBe('CAD');
+    expect(result.current.currency.code).toBeTruthy();
   });
 });
