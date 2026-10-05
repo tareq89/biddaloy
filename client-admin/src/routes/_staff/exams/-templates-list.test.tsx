@@ -29,7 +29,9 @@ describe('TemplatesList', () => {
   it('shows the empty state', async () => {
     setup([]);
     expect(
-      await screen.findByText('No templates yet — apply a curriculum preset or create one.'),
+      await screen.findByText(
+        'No exam structures yet — use a ready-made curriculum or create one.',
+      ),
     ).toBeTruthy();
   });
 

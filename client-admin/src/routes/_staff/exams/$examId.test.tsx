@@ -30,6 +30,6 @@ describe('/exams/$examId', () => {
     await screen.findByRole('heading', { name: 'Half Yearly 2026' });
     const progressTab = screen.getByRole('tab', { name: 'Progress' });
     expect(progressTab.getAttribute('aria-selected')).toBe('true');
-    await screen.findByText('8 of 10 grids submitted');
+    await screen.findByText('8 of 10 marks lists submitted');
   });
 });

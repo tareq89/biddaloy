@@ -89,7 +89,7 @@ describe('/promotions', () => {
       locale: 'en',
     });
 
-    await screen.findByRole('heading', { name: 'Promotions' });
+    await screen.findByRole('heading', { name: 'Class promotion' });
     await screen.findByText('Class 6 → Class 7');
     await screen.findByText('Class 6 → Graduate');
 
@@ -101,7 +101,7 @@ describe('/promotions', () => {
     expect(within(draftRow).getByText('৩')).toBeTruthy();
 
     const committedRow = rows[2] as HTMLElement;
-    expect(within(committedRow).getByText('Committed')).toBeTruthy();
+    expect(within(committedRow).getByText('Finalised')).toBeTruthy();
     expect(within(committedRow).getByText('Snake (balance across sections)')).toBeTruthy();
   });
 
@@ -123,8 +123,8 @@ describe('/promotions', () => {
       locale: 'en',
     });
 
-    await screen.findByText('No promotion runs yet.');
-    const link = screen.getByRole('link', { name: 'New promotion run' });
+    await screen.findByText('No promotion lists yet.');
+    const link = screen.getByRole('link', { name: 'New promotion list' });
     expect(link.getAttribute('href')).toBe('/promotions/new');
   });
 });

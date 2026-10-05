@@ -288,7 +288,7 @@ describe('/fees/dues', () => {
     });
 
     const user = userEvent.setup();
-    await screen.findByRole('region', { name: 'Dues queue' });
+    await screen.findByRole('region', { name: 'Student dues' });
     await user.click(await screen.findByRole('combobox', { name: 'Rows per page' }));
     // Option labels render in the tenant's own region digits (Bengali
     // numerals here), independent of the `en` UI locale.
@@ -320,7 +320,7 @@ describe('/fees/dues', () => {
     });
 
     const user = userEvent.setup();
-    await screen.findByRole('region', { name: 'Dues queue' });
+    await screen.findByRole('region', { name: 'Student dues' });
     await user.click(screen.getByRole('combobox', { name: 'Section' }));
     // Only the built-in "All sections" option — no real section to pick.
     expect(screen.queryAllByRole('option')).toHaveLength(1);
@@ -346,7 +346,7 @@ describe('/fees/dues', () => {
     });
 
     const user = userEvent.setup();
-    await screen.findByRole('region', { name: 'Dues queue' });
+    await screen.findByRole('region', { name: 'Student dues' });
     await user.type(screen.getByRole('textbox', { name: 'Search dues' }), 'Karim');
 
     await waitFor(() => expect(router.state.location.search).toMatchObject({ search: 'Karim' }));
@@ -418,7 +418,7 @@ describe('/fees/dues', () => {
     });
 
     const user = userEvent.setup();
-    await screen.findByRole('region', { name: 'Dues queue' });
+    await screen.findByRole('region', { name: 'Student dues' });
     await user.click(screen.getByRole('combobox', { name: 'Fee type' }));
     await user.click(await screen.findByRole('option', { name: 'Exam fee' }));
 
@@ -449,6 +449,6 @@ describe('/fees/dues', () => {
     // Default region fixture (`handlers/schools.ts`'s `DEFAULT_REGION`) is
     // Bengali numerals — same digit rendering `dues.test.tsx`'s
     // rows-per-page test asserts ('২০' for 20).
-    expect(await screen.findByText('Wallet: ৳২৫০.০০')).toBeTruthy();
+    expect(await screen.findByText('Credit: ৳২৫০.০০')).toBeTruthy();
   });
 });
