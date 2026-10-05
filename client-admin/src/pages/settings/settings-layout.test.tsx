@@ -131,4 +131,17 @@ describe('SettingsSection', () => {
     );
     expect(container.querySelector('details')?.open).toBe(true);
   });
+
+  it('puts a header action next to the title when given', () => {
+    renderWithProviders(
+      <SettingsSection title={TITLE} actions={<button type="button">{BODY}</button>}>
+        {BODY}
+      </SettingsSection>,
+      { locale: 'en' },
+    );
+    const heading = screen.getByRole('heading', { level: 2, name: TITLE });
+    const action = screen.getByRole('button', { name: BODY });
+    // Same header row: one wrapper contains both.
+    expect(heading.closest('div[class*="md:justify-between"]')?.contains(action)).toBe(true);
+  });
 });
