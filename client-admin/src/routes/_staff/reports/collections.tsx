@@ -120,6 +120,7 @@ function CollectionsReportPending() {
   return <RoutePending variant="list" label={t('routePending.label', { ns: 'nav' })} />;
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const PAYMENT_METHODS: readonly string[] = Object.values(PaymentMethod);
 
 function CollectionsReportPage() {
@@ -142,7 +143,7 @@ function CollectionsReportPage() {
           >,
         }
       : {}),
-    ...(filters.received_by_user_id !== undefined
+    ...(filters.received_by_user_id !== undefined && UUID_RE.test(filters.received_by_user_id)
       ? { received_by_user_id: filters.received_by_user_id }
       : {}),
   };
@@ -229,7 +230,7 @@ function CollectionsReportPage() {
       : t('subtitleAllMethods'),
     reportFilters.received_by_user_id
       ? (data?.by_collector.find((c) => c.user_id === reportFilters.received_by_user_id)
-          ?.full_name ?? t('tables.unknownCollector'))
+          ?.full_name ?? t('subtitleAllCollectors'))
       : t('subtitleAllCollectors'),
   ].join(' · ');
 
@@ -249,12 +250,16 @@ function CollectionsReportPage() {
       accessorFn: (row) =>
         nameCell(
           methodLabel(row.payment_method),
-          t('tables.rowCaption', { count: row.count, amount: money(row.reversed) }),
+          t('tables.rowCaption', {
+            count: row.count,
+            n: count(row.count),
+            amount: money(row.reversed),
+          }),
         ),
     },
     {
       id: 'count',
-      header: t('tables.payments'),
+      header: t('tables.entries'),
       accessorFn: (row) => count(row.count),
       align: 'end',
       card: 'hidden',
@@ -289,12 +294,16 @@ function CollectionsReportPage() {
       accessorFn: (row) =>
         nameCell(
           row.full_name ?? t('tables.unknownCollector'),
-          t('tables.rowCaption', { count: row.count, amount: money(row.reversed) }),
+          t('tables.rowCaption', {
+            count: row.count,
+            n: count(row.count),
+            amount: money(row.reversed),
+          }),
         ),
     },
     {
       id: 'count',
-      header: t('tables.payments'),
+      header: t('tables.entries'),
       accessorFn: (row) => count(row.count),
       align: 'end',
       card: 'hidden',
@@ -410,8 +419,6 @@ function CollectionsReportPage() {
       <p className={className}>{money(amount)}</p>
     );
 
-  const paymentCount = (data?.by_method ?? []).reduce((n, r) => n + r.count, 0);
-
   return (
     <PageContainer>
       {/* PageHeader has no print hook yet: hide its buttons here so title + subtitle still print. */}
@@ -455,9 +462,6 @@ function CollectionsReportPage() {
             <Card padded>
               <h2 className="text-label text-text-secondary">{t('totals.collected')}</h2>
               {value(totals?.collected, 'mt-1 text-h2 md:text-h1 tabular-nums')}
-              <p className="mt-0.5 text-caption text-text-secondary">
-                {t('totals.paymentCount', { count: paymentCount })}
-              </p>
             </Card>
             <Card padded>
               <h2 className="text-label text-text-secondary">{t('totals.reversed')}</h2>
