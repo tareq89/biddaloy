@@ -9,7 +9,8 @@
     "validating": "Checking your file…",
     "fileTooLarge": "This file is too large — choose a file under 2 MB",
     "fileWrongType": "This file type isn't supported — choose a .xlsx or .csv file",
-    "uploadFailed": "Upload failed"
+    "uploadFailed": "Upload failed",
+    "check": "Check file"
   },
   "step2": {
     "title": "Review before importing",
@@ -31,10 +32,15 @@
     "allowPartial": "Import the valid rows anyway",
     "allowPartialHint": "Some rows have errors. Turn this on to import everything else and skip those rows.",
     "back": "Choose a different file",
-    "continue": "Continue"
+    "continue": "Continue",
+    "fileName": "File: {{name}}",
+    "caption": "Every row of the file — errors first",
+    "rowLabel": "Row {{row}}",
+    "problem": "Column: {{column}} — this cell is not valid. Fix it in the file and upload again.",
+    "wholeRow": "Whole row",
+    "rulesTitle": "Import options"
   },
   "step3": {
-    "title": "Confirm import",
     "publishImmediately": "Publish immediately",
     "publishImmediatelyHint": "Off imports these as drafts — publish them later from the calendar.",
     "commit": "Confirm import",
@@ -70,5 +76,18 @@
     "clone": "Clone from another year",
     "exportXlsx": "Export as Excel (.xlsx)",
     "exportCsv": "Export as CSV"
+  },
+  "stepOf": "Step {{current}} of {{total}}",
+  "columns": {
+    "type": "Type",
+    "name": "Name",
+    "start_date": "Start date",
+    "end_date": "End date",
+    "start_time": "Start time",
+    "end_time": "End time",
+    "counts_as_working_day": "Working day",
+    "audience": "Audience",
+    "classes": "Classes",
+    "description": "Description"
   }
 }
