@@ -4,15 +4,16 @@
  * behind ACR_READ by `$userId.tsx`.
  */
 import { Permission } from '@biddaloy/shared';
-import { Button, EmptyState } from '@biddaloy/ui/components';
+import { Button, DataTable, StatusBadge, type DataTableColumn } from '@biddaloy/ui/components';
 import {
   useAcademicYears,
   useAcrStaffHistory,
   useHasPermission,
   type AcrAssessment,
 } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
-import { Link } from '@tanstack/react-router';
+import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { formatNumber } from '@biddaloy/ui/utils';
+import { PlusIcon } from 'lucide-react';
 import * as React from 'react';
 
 import { StartAcrDialog } from './start-acr-dialog';
@@ -30,30 +31,31 @@ function TrendBars({
   yearName: (id: string) => string;
 }) {
   const { t } = useTranslation('evaluations');
+  const regionConfig = useRegionConfig();
   const scored = rows.filter((r) => r.total !== null);
   // ponytail: bars scale to this staff member's best year, not the form's
   // theoretical maximum; switch when the max score is exposed by the API.
   const max = Math.max(...scored.map((r) => r.total ?? 0), 1);
   if (scored.length < 2) return null;
   return (
-    <section aria-labelledby="acr-trend-title" className="flex flex-col gap-2">
-      <h3 id="acr-trend-title" className="text-sm font-semibold">
+    <section aria-labelledby="acr-trend-title" className="flex flex-col gap-2 p-4 md:px-5">
+      <h3 id="acr-trend-title" className="text-h3">
         {t('acr.history.trendTitle')}
       </h3>
       <ul className="flex flex-col gap-1">
         {scored.map((r) => (
-          <li key={r.id} className="flex items-center gap-2 text-sm">
+          <li key={r.id} className="flex items-center gap-2">
             <span className="w-24 shrink-0">{yearName(r.academic_year_id)}</span>
             <span
               role="img"
               aria-label={t('acr.history.trendLabel', {
                 year: yearName(r.academic_year_id),
-                total: r.total,
+                total: formatNumber(r.total ?? 0, regionConfig),
               })}
-              className="h-3 rounded bg-primary"
+              className="h-3 rounded-sm bg-primary"
               style={{ width: `${((r.total ?? 0) / max) * 100}%` }}
             />
-            <span aria-hidden="true">{r.total}</span>
+            <span aria-hidden="true">{formatNumber(r.total ?? 0, regionConfig)}</span>
           </li>
         ))}
       </ul>
@@ -63,18 +65,46 @@ function TrendBars({
 
 export function AcrTab({ userId }: AcrTabProps) {
   const { t } = useTranslation('evaluations');
+  const regionConfig = useRegionConfig();
   const query = useAcrStaffHistory(userId);
   const years = useAcademicYears({}).data?.data ?? [];
   const canWrite = useHasPermission(Permission.ACR_WRITE);
   const [startOpen, setStartOpen] = React.useState(false);
   const yearName = (id: string) => years.find((y) => y.id === id)?.name ?? '—';
 
+  const columns: DataTableColumn<AcrAssessment>[] = [
+    {
+      id: 'year',
+      header: t('acr.history.columnYear'),
+      accessorFn: (r) => yearName(r.academic_year_id),
+      card: 'title',
+    },
+    {
+      id: 'status',
+      header: t('acr.history.columnStatus'),
+      accessorFn: (r) => (
+        <StatusBadge
+          tone={r.status === 'COMPLETED' ? 'success' : 'warning'}
+          label={t(`acr.status.${r.status}`)}
+        />
+      ),
+      card: 'badge',
+    },
+    {
+      id: 'total',
+      header: t('acr.history.columnTotal'),
+      align: 'end',
+      accessorFn: (r) => (r.total === null ? '—' : formatNumber(r.total, regionConfig)),
+    },
+  ];
+
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-2">
-        <h2 className="text-base font-semibold">{t('acr.history.title')}</h2>
+    <section className="overflow-hidden rounded-lg border border-border-subtle bg-surface shadow-e1">
+      <div className="flex flex-wrap items-center justify-between gap-2 p-4 md:px-5">
+        <h2 className="text-h2">{t('acr.history.title')}</h2>
         {canWrite && (
-          <Button type="button" onClick={() => setStartOpen(true)}>
+          <Button type="button" variant="outline" onClick={() => setStartOpen(true)}>
+            <PlusIcon aria-hidden="true" />
             {t('acr.start')}
           </Button>
         )}
@@ -84,35 +114,34 @@ export function AcrTab({ userId }: AcrTabProps) {
         forbiddenMessage={t('forbidden')}
         errorMessage={t('acr.history.errorMessage')}
       >
-        {(rows) =>
-          rows.length === 0 ? (
-            <EmptyState title={t('acr.history.title')} explanation={t('acr.history.empty')} />
-          ) : (
-            <>
-              <ul className="flex flex-col divide-y divide-border-subtle rounded-lg border border-border-subtle">
-                {rows.map((r) => (
-                  <li key={r.id} className="flex items-center justify-between gap-2 p-3 text-sm">
-                    <span className="font-medium">{yearName(r.academic_year_id)}</span>
-                    <span>{t(`acr.status.${r.status}`)}</span>
-                    <span>{r.total ?? '—'}</span>
-                    <Link
-                      to="/staff/$userId/acr/$assessmentId"
-                      params={{ userId, assessmentId: r.id }}
-                      className="inline-flex min-h-6 items-center text-primary underline"
-                    >
-                      {t('acr.register.open')}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-              <TrendBars rows={rows} yearName={yearName} />
-            </>
-          )
-        }
+        {(rows) => (
+          <>
+            <DataTable
+              tableId="staff-acr-history"
+              caption={t('acr.history.title')}
+              columns={columns}
+              data={rows}
+              getRowId={(r) => r.id}
+              sorting={null}
+              onSortingChange={() => undefined}
+              totalCount={rows.length}
+              paginated={false}
+              rowActions={(r) => [
+                {
+                  intent: 'view',
+                  label: t('acr.register.open'),
+                  to: `/staff/${userId}/acr/${r.id}`,
+                },
+              ]}
+              emptyState={{ title: t('acr.history.title'), explanation: t('acr.history.empty') }}
+            />
+            <TrendBars rows={rows} yearName={yearName} />
+          </>
+        )}
       </TabQueryState>
       {canWrite && (
         <StartAcrDialog open={startOpen} onOpenChange={setStartOpen} staffUserId={userId} />
       )}
-    </div>
+    </section>
   );
 }
