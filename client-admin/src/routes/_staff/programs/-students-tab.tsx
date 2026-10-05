@@ -221,12 +221,16 @@ function StudentRow({
           )}
           <RowActions
             actions={[
-              {
-                intent: 'edit',
-                icon: <AwardIcon />,
-                label: t('students.recordFor', { name }),
-                onClick: onRecord,
-              },
+              ...(status === 'ACTIVE'
+                ? [
+                    {
+                      intent: 'edit' as const,
+                      icon: <AwardIcon />,
+                      label: t('students.recordFor', { name }),
+                      onClick: onRecord,
+                    },
+                  ]
+                : []),
               ...(canManage
                 ? status === 'ACTIVE'
                   ? [

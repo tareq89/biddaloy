@@ -136,8 +136,11 @@ test.describe.serial('programs: admin enrols -> teacher records -> guardian sees
       await page.getByRole('tab', { name: t('programs.detail.tabs.students') }).click();
 
       const row = page.getByRole('listitem').filter({ hasText: studentName });
-      await row.locator('button[aria-expanded]').click();
-      await expect(row.locator('button[aria-expanded]')).toHaveAttribute('aria-expanded', 'true');
+      await row.locator('button[aria-expanded]').first().click();
+      await expect(row.locator('button[aria-expanded]').first()).toHaveAttribute(
+        'aria-expanded',
+        'true',
+      );
 
       const firstUnticked = row.locator('[role="checkbox"][aria-checked="false"]').first();
       const milestoneId = await firstUnticked.getAttribute('data-milestone-id');
