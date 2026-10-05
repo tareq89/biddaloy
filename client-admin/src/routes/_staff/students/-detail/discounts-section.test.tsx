@@ -124,18 +124,18 @@ describe('students/-detail/discounts-section', () => {
     await screen.findByText('Sibling discount');
 
     await user.click(screen.getByRole('button', { name: 'Delete' }));
-    const confirmDialog = await screen.findByRole('dialog');
+    const confirmDialog = await screen.findByRole('alertdialog');
     expect(within(confirmDialog).getByText('Delete this discount rule?')).toBeTruthy();
     expect(deleteCalls).toBe(0);
 
     // Cancel: dialog closes, nothing fired.
     await user.click(within(confirmDialog).getByRole('button', { name: 'Cancel' }));
-    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.queryByRole('alertdialog')).toBeNull();
     expect(deleteCalls).toBe(0);
 
     // Re-open and confirm: only now does the mutation fire.
     await user.click(screen.getByRole('button', { name: 'Delete' }));
-    const reopenedDialog = await screen.findByRole('dialog');
+    const reopenedDialog = await screen.findByRole('alertdialog');
     await user.click(within(reopenedDialog).getByRole('button', { name: 'Delete' }));
 
     await waitFor(() => expect(deleteCalls).toBe(1));
@@ -159,7 +159,7 @@ describe('students/-detail/discounts-section', () => {
     await screen.findByText('Sibling discount');
 
     await user.click(screen.getByRole('button', { name: 'Delete' }));
-    const confirmDialog = await screen.findByRole('dialog');
+    const confirmDialog = await screen.findByRole('alertdialog');
     await user.click(within(confirmDialog).getByRole('button', { name: 'Delete' }));
 
     expect((await screen.findByRole('alert')).textContent).toBeTruthy();
