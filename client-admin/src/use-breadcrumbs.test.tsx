@@ -19,6 +19,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { ROUTE_CRUMBS, type RouteCrumbs } from './route-crumbs';
 import { routeTree } from './routeTree.gen';
 import { ENTITY_RESOLVERS } from './use-breadcrumbs';
 
@@ -172,6 +173,15 @@ describe('useBreadcrumbs (wired into _staff.tsx)', () => {
       );
     });
 
+    it('holiday set: a malformed country code falls back (undefined) instead of throwing', () => {
+      const queryClient = createTestQueryClient();
+      queryClient.setQueryData(publicHolidaySetQueryOptions('hs2').queryKey, {
+        country: 'not a region!',
+        year: 2026,
+      } as never);
+      expect(nameFor(queryClient, 'holidaySetDetail', { setId: 'hs2' })).toBeUndefined();
+    });
+
     it('school: picks the row whose id matches from the schools list cache', async () => {
       const queryClient = createTestQueryClient();
       queryClient.setQueryData([...schoolsKeys.lists(), {}], [
@@ -300,4 +310,46 @@ describe('useBreadcrumbs (wired into _staff.tsx)', () => {
 
     await waitFor(() => expect(document.title).toBe('Rahim Uddin · Students · SchoolManager'));
   });
+});
+
+describe('entity crumbs never show an id (D9)', () => {
+  const entityRoutes = Object.entries(ROUTE_CRUMBS).filter(
+    ([, trail]) => Array.isArray(trail) && trail.some((s) => s.dynamic === 'entity'),
+  );
+
+  it('finds the dynamic entity routes', () => {
+    expect(entityRoutes.length).toBeGreaterThan(20);
+  });
+
+  it('a resolver for a multi-param route declares which param is the id', () => {
+    for (const [routeId, trail] of entityRoutes) {
+      if ((routeId.match(/\$/g) ?? []).length < 2) continue;
+      const seg = (trail as RouteCrumbs).find((s) => s.dynamic === 'entity')!;
+      const key = 'entity' in seg.label ? seg.label.entity : seg.label.key;
+      const resolver = ENTITY_RESOLVERS[key];
+      if (resolver) expect(resolver.param, `${routeId} resolver "${key}"`).toBeDefined();
+    }
+  });
+
+  // Rendering ~40 whole pages just to read one crumb is slow and flaky, so this
+  // checks the only two places a label can come from: the static noun (no id
+  // possible) and the resolver, fed cache shapes that hold no usable name.
+  it.each(entityRoutes.map(([routeId]) => routeId))(
+    '%s: a resolver never returns the id as the label',
+    (routeId) => {
+      const seg = (ROUTE_CRUMBS[routeId] as RouteCrumbs).find((s) => s.dynamic === 'entity')!;
+      const key = 'entity' in seg.label ? seg.label.entity : seg.label.key;
+      const resolver = ENTITY_RESOLVERS[key];
+      if (!resolver) return; // no resolver: the label is the static noun
+      const params = Object.fromEntries(
+        [...routeId.matchAll(/\$([A-Za-z]+)/g)].map(([, name]) => [name!, crypto.randomUUID()]),
+      );
+      const id = resolver.param ? params[resolver.param]! : Object.values(params)[0]!;
+      const ctx = { language: 'en', region: REGION_BD_EN };
+      for (const data of [{}, [], { student: {}, section: {}, applicant: {} }]) {
+        const name = resolver.getName(data, id, ctx);
+        expect(name ?? '', `${routeId} (${key})`).not.toContain(id);
+      }
+    },
+  );
 });
