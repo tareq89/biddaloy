@@ -28,7 +28,7 @@ const DEPRECATED_READ_ONLY_ENTRIES = new Set(['SchoolHoliday']);
  * 13.1.1 adds the types, 13.2.x / 13.3.x write them). Remove each one when
  * its writer lands — the last test below fails as soon as one is written.
  */
-const NOT_YET_WRITTEN_ENTRIES = new Set(['Membership', 'Registration', 'Trial']);
+const NOT_YET_WRITTEN_ENTRIES = new Set(['Membership', 'Registration']);
 
 function collectServerSourceFiles(dir: string): string[] {
   const files: string[] = [];
