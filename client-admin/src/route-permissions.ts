@@ -77,11 +77,8 @@ export const STAFF_ROUTE_PERMISSIONS: Record<string, Permission> = {
   '/_staff/fee-structures/': Permission.FEE_STRUCTURE_READ,
   '/_staff/invoices/': Permission.INVOICE_READ,
   '/_staff/invoices/$invoiceId': Permission.INVOICE_READ,
-  // [16.4.4] the placeholder payments list — today its only capability is
-  // opening the Record Payment modal, so it takes the same permission the
-  // modal itself needs, matching this file's own "blanket refusal matching
-  // nav visibility" rule. Revisit once the real list lands over #660.
-  '/_staff/payments/': Permission.PAYMENT_RECORD,
+  // The payments list is a read view (Epic 31.0 payments-1a): same gate as `/payments/$id`.
+  '/_staff/payments/': Permission.PAYMENT_READ,
   '/_staff/payments/record': Permission.PAYMENT_RECORD,
   // [16.6.2] the payment detail page — gated on the read permission, not
   // `PAYMENT_RECORD`, since viewing a past payment's allocations/reversal

@@ -69,12 +69,8 @@ export const NOT_IN_NAV: Record<string, string> = {
   '/_staff/print/preview': "[32.4.1] full-screen print preview, reached from a list's Print action",
   '/_staff/exams/templates/$templateId': 'detail route reached from the exam templates list',
   '/_staff/exams/seat-plans/$planId': 'detail route reached from the seat plans list',
-  '/_staff/marks/':
-    '[19.7.1] reached from the exam Progress tab’s outstanding-grid links, not its own sidebar item yet',
   '/_staff/marks/$examId/$sectionId/$subjectId':
     'detail route reached from /marks or the exam Progress tab',
-  '/_staff/results/':
-    '[19.8.1] reached from the palette (Process/Publish/Send result SMS actions) or the exam Results tab, not its own sidebar item yet',
   '/_staff/results/$examId/$studentId':
     'report card, reached from the exam Results tab or /results, not its own sidebar item',
   '/_staff/grading-scales/$scaleId': 'detail route reached from the grading scales list',
@@ -85,13 +81,8 @@ export const NOT_IN_NAV: Record<string, string> = {
   '/_staff/my-class/$sectionId':
     'detail route reached from the My class section picker (or its single-section redirect)',
   '/_staff/routines/$sectionId': 'detail route reached from the routine builder section list',
-  '/_staff/routines/review':
-    '[21.9.1] reached via the "Copy last year\'s routine" palette action and from the routine builder, not its own sidebar item',
-  '/_staff/routines/substitutions':
-    '[21.9.1] reached via the "Add substitution" palette action, not its own sidebar item',
   '/_staff/invoices/$invoiceId': 'detail route reached from the invoices list',
-  '/_staff/payments/':
-    '[16.4.4] placeholder page for the Record Payment modal, reached via /payments/record, not its own nav item',
+  '/_staff/fees/': '[31.0] D40 — redirects to /fees/dues (Student dues), which has its own item',
   '/_staff/payments/$id': 'detail route reached from the payments list',
   '/_staff/staff/$userId': 'detail route reached from the staff list',
   '/_staff/staff/$userId_/acr/$assessmentId':
