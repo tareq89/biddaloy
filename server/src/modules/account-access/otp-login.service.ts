@@ -19,6 +19,7 @@ import { RequestContext } from '../auth/refresh-token.service';
 import { normalizeLoginIdentifier } from '../auth/normalize-identifier';
 import { SchoolsService } from '../schools/schools.service';
 import { OtpService } from './otp.service';
+import { isSmsAllowed } from './phone-delivery.util';
 import { AuthTokenService } from './auth-token.service';
 import { AccountAccessDeliveryService } from './account-access-delivery.service';
 import { isSecretEchoEnabled } from './account-access-echo';
@@ -84,7 +85,7 @@ export class OtpLoginService {
     // Email identifier -> email. Phone -> SMS, unless its prefix is not allowed
     // (then the user's email, if any). Nothing deliverable -> nothing sent;
     // the caller still sees the same 202.
-    const byEmail = isEmail(identifier) || !this.smsAllowed(identifier);
+    const byEmail = this.sentByEmail(identifier);
     const to = byEmail ? user.email : user.phone;
     if (!to) return {};
 
@@ -156,15 +157,8 @@ export class OtpLoginService {
 
     await this.loginAttempts.reset(identifier);
 
-    // An invited user who never activated signs in here: flip them ACTIVE (as
-    // activation does) and mark their invite accepted.
-    await this.userRepo.update(
-      { id: user.id },
-      {
-        last_login_at: new Date(),
-        ...(user.status === UserStatus.INACTIVE ? { status: UserStatus.ACTIVE } : {}),
-      },
-    );
+    await this.userRepo.update({ id: user.id }, { last_login_at: new Date() });
+    // Signing in by code accepts the invitation.
     await this.authTokens.consumeLive(user.id, AuthTokenPurpose.INVITE);
 
     // [12.7] A successful OTP verify proves the caller controls this phone
@@ -178,14 +172,15 @@ export class OtpLoginService {
     // `IS NULL` on the timestamp, so a concurrent double-stamp is a no-op)
     // keeps the stamp bound to the number the code was actually sent to.
     // An email code proves the email, an SMS code the phone.
-    const field = isEmail(identifier) && user.email === identifier ? 'email' : 'phone';
+    // "Went by email" is decided exactly as in `request`.
+    const field = this.sentByEmail(identifier) ? 'email' : 'phone';
     const alreadyVerified =
       field === 'email' ? user.email_verified_at !== null : user.phone_verified_at !== null;
     let stamped = false;
-    if (!alreadyVerified) {
+    if (!alreadyVerified && (field === 'phone' || user.email)) {
       const where: FindOptionsWhere<User> =
         field === 'email'
-          ? { id: user.id, email: identifier, email_verified_at: IsNull() }
+          ? { id: user.id, email: user.email as string, email_verified_at: IsNull() }
           : { id: user.id, phone: identifier, phone_verified_at: IsNull() };
       const stamp = await this.userRepo.update(
         where,
@@ -244,22 +239,20 @@ export class OtpLoginService {
     });
   }
 
-  /** ACTIVE, or an invited INACTIVE account that never set a password. SUSPENDED never. */
+  /** Only ACTIVE accounts sign in by code. */
   private canSignInByCode(user: User): boolean {
-    return (
-      user.status === UserStatus.ACTIVE ||
-      (user.status === UserStatus.INACTIVE && user.password_hash === null)
-    );
+    return user.status === UserStatus.ACTIVE;
   }
 
-  /** A number without a leading `+` is local-format (the school's own country), so SMS is fine. */
-  private smsAllowed(phone: string): boolean {
-    if (!phone.startsWith('+')) return true;
-    const prefixes = (this.config.get<string>('OTP_SMS_ALLOWED_PREFIXES') || DEFAULT_SMS_PREFIXES)
-      .split(',')
-      .map((p) => p.trim())
-      .filter(Boolean);
-    return prefixes.some((p) => phone.startsWith(p));
+  /** The code goes by email for an email identifier, or a phone D31 does not allow SMS to. */
+  private sentByEmail(identifier: string): boolean {
+    return (
+      isEmail(identifier) ||
+      !isSmsAllowed(
+        identifier,
+        this.config.get<string>('OTP_SMS_ALLOWED_PREFIXES') || DEFAULT_SMS_PREFIXES,
+      )
+    );
   }
 
   /** Deny wins: OTP login is allowed only if every tenant this user belongs to has it enabled. */

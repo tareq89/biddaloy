@@ -1,13 +1,9 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import { IsOptional, IsString, Matches, MaxLength } from 'class-validator';
-import { toLatinDigits } from '../../../common/utils/bengali-digits.util';
 import { INTERNATIONAL_PHONE_REGEX } from '../../users/dto/users.dto';
 import { LoginResponseDto } from '../../auth/dto/auth-response.dto';
-import { EMAIL_OR_PHONE_REGEX } from './otp-request.dto';
-
-const latinDigits = ({ value }: { value: unknown }) =>
-  typeof value === 'string' ? toLatinDigits(value) : value;
+import { EMAIL_OR_PHONE_REGEX, latinDigits } from './otp-request.dto';
 
 /** Body of `POST /auth/otp/verify` — same identifier the code was sent to, plus the 6-digit code. */
 export class OtpVerifyDto {

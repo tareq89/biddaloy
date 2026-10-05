@@ -394,12 +394,8 @@ describe('OtpLoginService (integration)', () => {
       expect(unknownPhone).toEqual(known);
     });
 
-    it('signs in an invited, never-activated user: consumes the invite, activates, needs_password', async () => {
-      const user = await createMember({
-        phone: '01755550002',
-        status: UserStatus.INACTIVE,
-        password_hash: null,
-      });
+    it('signs in an invited, never-activated user: consumes the invite, needs_password', async () => {
+      const user = await createMember({ phone: '01755550002', password_hash: null });
       const invite = await dataSource.getRepository(AuthToken).save(
         dataSource.getRepository(AuthToken).create({
           user_id: user.id,
@@ -420,10 +416,6 @@ describe('OtpLoginService (integration)', () => {
         .getRepository(AuthToken)
         .findOneOrFail({ where: { id: invite.id } });
       expect(row.consumed_at).not.toBeNull();
-      const updated = await dataSource
-        .getRepository(User)
-        .findOneOrFail({ where: { id: user.id } });
-      expect(updated.status).toBe(UserStatus.ACTIVE);
     });
 
     it('password_required is true for a staff user with no password and no social identity', async () => {
@@ -446,9 +438,34 @@ describe('OtpLoginService (integration)', () => {
       expect(result.password_required).toBe(false);
     });
 
-    it('never signs in a SUSPENDED or INACTIVE-with-password user by code', async () => {
-      await createMember({ phone: '01755550005', status: UserStatus.INACTIVE, password_hash: 'x' });
+    it('refuses an INACTIVE user, even with no password: no code is sent', async () => {
+      await createMember({
+        phone: '01755550005',
+        status: UserStatus.INACTIVE,
+        password_hash: null,
+      });
       expect(await service.request('01755550005', context)).toEqual({});
+      expect(await dataSource.getRepository(CommunicationLog).count()).toBe(0);
+    });
+
+    it('a code that went by email (foreign phone) verifies the email, not the phone', async () => {
+      const user = await createMember({ phone: '+14155550111', email: 'abroad2@example.com' });
+      const { debug } = await service.request('+14155550111', context);
+
+      await service.verify('+14155550111', debug!.otp!, context);
+
+      const updated = await dataSource
+        .getRepository(User)
+        .findOneOrFail({ where: { id: user.id } });
+      expect(updated.email_verified_at).not.toBeNull();
+      expect(updated.phone_verified_at).toBeNull();
+    });
+
+    it('a BD number typed in any shape gets SMS', async () => {
+      await createMember({ phone: '008801755550006' });
+      await service.request('008801755550006', context);
+      const logs = await dataSource.getRepository(CommunicationLog).find();
+      expect(logs[0].medium).toBe(CommunicationMedium.SMS);
     });
   });
 });
