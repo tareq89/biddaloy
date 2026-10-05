@@ -247,6 +247,23 @@ describe('studentsTab (integration)', () => {
         ).rejects.toMatchObject({ response: { details: { code: 'SEAT_LIMIT_REACHED' } } });
       });
 
+      it('inside one restore transaction the running total refuses the row past the limit and rolls back', async () => {
+        const chain = await ctx(2);
+        await expect(
+          dataSource.transaction(async (m) => {
+            for (const n of [1, 2, 3]) {
+              await studentsTab.upsert(
+                rowFor(chain, { registration_number: `STU-00${n}`, roll_number: n }),
+                null,
+                TENANT_A,
+                m,
+              );
+            }
+          }),
+        ).rejects.toMatchObject({ response: { details: { code: 'SEAT_LIMIT_REACHED' } } });
+        expect(await studentRepo.count({ where: { tenant_id: TENANT_A } })).toBe(0);
+      });
+
       it('null limit is unlimited', async () => {
         const chain = await ctx(null);
         await studentsTab.upsert(rowFor(chain), null, TENANT_A, dataSource.manager);

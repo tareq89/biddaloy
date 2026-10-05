@@ -598,6 +598,18 @@ export class BulkUploadValidateResultDto {
   preview: BulkUploadPreviewRowDto[];
   errors: BulkImportErrorDto[];
   hard_error_count: number;
+
+  /** [13.2.3] Seats in use vs the school's limit (`null` = unlimited) and what this file adds. */
+  @ApiProperty({
+    type: 'object',
+    properties: {
+      used: { type: 'number' },
+      limit: { type: 'number', nullable: true },
+      new_rows: { type: 'number' },
+    },
+    required: ['used', 'limit', 'new_rows'],
+  })
+  seats: { used: number; limit: number | null; new_rows: number };
 }
 
 /** Body of `POST /students/bulk-upload/commit`. */

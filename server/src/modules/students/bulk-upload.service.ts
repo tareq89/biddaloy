@@ -27,10 +27,10 @@ import {
 import { AuditAction, CommunicationMedium } from '@biddaloy/shared';
 import { assertSeatsAvailable, getSeatUsage } from '../schools/trial/seat-limit.service';
 
-/** [13.2.3] Seat usage shown to the admin before they commit. `limit: null` = unlimited. */
-export type BulkUploadValidateResult = BulkUploadValidateResultDto & {
-  seats: { used: number; limit: number | null; new_rows: number };
-};
+function isSeatLimitError(err: ConflictException): boolean {
+  const body = err.getResponse() as { details?: { code?: string } };
+  return body.details?.code === 'SEAT_LIMIT_REACHED';
+}
 
 /**
  * A row-scoped failure enriched with which spreadsheet column the problem
@@ -117,7 +117,7 @@ export class StudentBulkUploadService {
     file: Express.Multer.File | undefined,
     tenantId: string,
     userId: string | undefined,
-  ): Promise<BulkUploadValidateResult> {
+  ): Promise<BulkUploadValidateResultDto> {
     if (!file) {
       throw new BadRequestException('No file uploaded');
     }
@@ -245,7 +245,12 @@ export class StudentBulkUploadService {
         const studentId = await this.createRow(row, tenantId, guardianCache, userId);
         createdStudentIds.push(studentId);
       } catch (err) {
-        if (err instanceof BadRequestException) {
+        // [13.2.3] A concurrent create can fill the school mid-commit. Report that row (and every
+        // later one, which will hit the same wall) as an error, so the audit row and the response
+        // match what was actually written instead of the whole request failing after a partial write.
+        if (err instanceof ConflictException && isSeatLimitError(err)) {
+          errors.push({ row: row.rowNumber, field: 'seat_limit', reason: err.message });
+        } else if (err instanceof BadRequestException) {
           errors.push({
             row: row.rowNumber,
             ...(err instanceof BulkRowError && err.field !== undefined ? { field: err.field } : {}),

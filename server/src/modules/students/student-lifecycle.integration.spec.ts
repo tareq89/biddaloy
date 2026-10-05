@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest';
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { TestingModule } from '@nestjs/testing';
@@ -218,6 +218,36 @@ describe('StudentLifecycleService (integration)', () => {
       roll_number: student.roll_number,
     });
     expect(event).toMatchObject({ event_type: 'READMITTED', enrollment_id: enrollmentId });
+  });
+
+  describe('seat limit [13.2.3]', () => {
+    afterEach(async () => {
+      await q('UPDATE schools SET seat_limit = NULL WHERE id = $1', [SEED_TENANT_ID]);
+    });
+
+    it('readmit is refused with 409 SEAT_LIMIT_REACHED when the school is full, ok with a seat free', async () => {
+      const left = await seedStudent();
+      await seedStudent(); // second active student holds the only other seat
+      await service.leave(left.studentId, leaveDto(), SEED_TENANT_ID, USER, CTX);
+
+      // 1 active student, limit 1: full.
+      await q('UPDATE schools SET seat_limit = 1 WHERE id = $1', [SEED_TENANT_ID]);
+      const err = await service
+        .readmit(left.studentId, readmitDto(SEED_SECTION_1_ID), SEED_TENANT_ID, USER, CTX)
+        .catch((e) => e);
+      expect(err).toBeInstanceOf(ConflictException);
+      expect(err.getResponse().details).toMatchObject({ code: 'SEAT_LIMIT_REACHED', used: 1 });
+      const [still] = await q(`SELECT enrollment_status FROM students WHERE id = $1`, [
+        left.studentId,
+      ]);
+      expect(still.enrollment_status).not.toBe('ACTIVE');
+
+      // limit 2: one seat free.
+      await q('UPDATE schools SET seat_limit = 2 WHERE id = $1', [SEED_TENANT_ID]);
+      await expect(
+        service.readmit(left.studentId, readmitDto(SEED_SECTION_1_ID), SEED_TENANT_ID, USER, CTX),
+      ).resolves.toMatchObject({ event_type: 'READMITTED' });
+    });
   });
 
   it('readmit in the same year into another section moves class, section and roll', async () => {

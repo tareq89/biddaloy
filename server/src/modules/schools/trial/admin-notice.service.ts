@@ -6,6 +6,7 @@ import {
   CommunicationStatus,
   CommunicationTrigger,
   UserRole,
+  UserStatus,
 } from '@biddaloy/shared';
 import { School } from '../entities/school.entity';
 import { UserTenant } from '../../auth/entities/user-tenant.entity';
@@ -45,6 +46,8 @@ export class AdminNoticeService {
     });
 
     for (const admin of admins) {
+      // Only live accounts: a deactivated admin must not get school notices.
+      if (admin.user?.status !== UserStatus.ACTIVE) continue;
       const targets: { medium: CommunicationMedium; to: string | null | undefined }[] = [
         { medium: CommunicationMedium.EMAIL, to: admin.user?.email },
         { medium: CommunicationMedium.SMS, to: admin.user?.phone },

@@ -143,4 +143,43 @@ describe('TrialService (integration)', () => {
     expect(s.status).toBe(SchoolStatus.SUSPENDED);
     expect(s.status_reason).toBe('unpaid');
   });
+
+  it('an extend that lands between load and expire keeps the school active', async () => {
+    const id = await newSchool(-1);
+    const stale = await load(id); // what runDaily loaded: the trial looks over
+    await trial.extend(id, { days: 10, reason: 'sales' }, { userId: null }, now);
+
+    await (trial as unknown as { expire: (s: School, n: Date) => Promise<void> }).expire(
+      stale,
+      now,
+    );
+
+    expect((await load(id)).status).toBe(SchoolStatus.ACTIVE);
+    expect(notices.notifyAdmins).not.toHaveBeenCalledWith(id, 'trial_ended');
+  });
+
+  it('warning date is the school-local day: a 20:00Z end is the next day in Dhaka', async () => {
+    const id = await newSchool(null);
+    await ds.getRepository(School).update(id, { trial_ends_at: new Date('2026-10-06T20:00:00Z') });
+    await trial.runDaily(now); // ~5.8 days out: d7 window
+    expect(notices.notifyAdmins).toHaveBeenCalledWith(id, 'trial_warning_d7', {
+      date: '2026-10-07',
+    });
+  });
+
+  it('warn keeps other onboarding keys; extend to unlimited is audited as null', async () => {
+    const id = await newSchool(6);
+    await ds.getRepository(School).update(id, { onboarding: { step: 'profile' }, seat_limit: 10 });
+    await trial.runDaily(now);
+    expect((await load(id)).onboarding).toEqual({ step: 'profile', trial_warnings: ['d7'] });
+
+    await trial.extend(id, { days: 1, seat_limit: null, reason: 'x' }, { userId: null }, now);
+    const [row] = await ds.query(
+      `SELECT new_values FROM audit_logs WHERE entity_type = 'Trial' AND entity_id = $1
+        ORDER BY created_at DESC LIMIT 1`,
+      [id],
+    );
+    expect(row.new_values.seat_limit).toBeNull();
+    expect((await load(id)).onboarding).toEqual({ step: 'profile', trial_warnings: [] });
+  });
 });
