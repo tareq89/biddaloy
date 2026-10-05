@@ -15,7 +15,8 @@
     "subtitle": "একবারে একটি বর্ষ চলমান থাকে।",
     "columnPeriod": "সময়কাল",
     "view": "দেখুন",
-    "emptyExplanation": "শ্রেণি, ফি কাঠামো ও ভর্তি একটি শিক্ষাবর্ষের অধীনে থাকে — আগে একটি যোগ করুন।"
+    "emptyExplanation": "শ্রেণি, ফি কাঠামো ও ভর্তি একটি শিক্ষাবর্ষের অধীনে থাকে — আগে একটি যোগ করুন।",
+    "emptyAction": "প্রথম শিক্ষাবর্ষ যোগ করুন"
   },
   "form": {
     "createTitle": "শিক্ষাবর্ষ যোগ করুন",
@@ -125,6 +126,7 @@
     "studentCount_one": "{{count}} জন",
     "studentCount_other": "{{count}} জন",
     "feeStructureCount_one": "{{count}}টি",
-    "feeStructureCount_other": "{{count}}টি"
+    "feeStructureCount_other": "{{count}}টি",
+    "statsUnavailable": "লোড করা যায়নি"
   }
 }

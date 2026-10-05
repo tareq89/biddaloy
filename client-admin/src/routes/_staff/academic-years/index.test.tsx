@@ -259,6 +259,63 @@ describe('/academic-years', () => {
     expect(screen.getByLabelText<HTMLInputElement>(/^Name/).value).toBe('Draft');
   });
 
+  it("shows an em dash (not 0) and an unavailable label when a year's stats fail to load", async () => {
+    server.use(
+      http.get('/api/v1/academic-years', () =>
+        HttpResponse.json({
+          data: [academicYearFactory({ id: 'year-1' })],
+          total: 1,
+          page: 1,
+          limit: 100,
+          totalPages: 1,
+        }),
+      ),
+      http.get('/api/v1/academic-years/:id/stats', () =>
+        HttpResponse.json({ statusCode: 400, message: 'bad' }, { status: 400 }),
+      ),
+    );
+    renderWithRouter(routeTree, {
+      initialEntries: ['/academic-years'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+    await waitFor(() => expect(screen.getAllByRole('row')).toHaveLength(2));
+    const row = screen.getAllByRole('row')[1] as HTMLElement;
+    await waitFor(() => expect(within(row).getAllByText("Couldn't load")).toHaveLength(2));
+    expect(within(row).getAllByText('—')).toHaveLength(2);
+  });
+
+  it('opening edit on another year clears the previous edit error', async () => {
+    const a = academicYearFactory({ id: 'year-a', name: 'Year A' });
+    const b = academicYearFactory({ id: 'year-b', name: 'Year B' });
+    server.use(
+      http.get('/api/v1/academic-years', () =>
+        HttpResponse.json({ data: [a, b], total: 2, page: 1, limit: 100, totalPages: 1 }),
+      ),
+      http.patch('/api/v1/academic-years/:id', () =>
+        HttpResponse.json({ statusCode: 500, message: 'x' }, { status: 500 }),
+      ),
+    );
+    renderWithRouter(routeTree, {
+      initialEntries: ['/academic-years'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+    const user = userEvent.setup();
+    await user.click((await screen.findAllByRole('button', { name: 'Edit' }))[0]!);
+    const first = within(await screen.findByRole('dialog'));
+    await user.click(first.getByRole('button', { name: 'Save' }));
+    expect(await first.findByText('Failed to save academic year')).toBeTruthy();
+    await user.click(first.getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    await user.click(screen.getAllByRole('button', { name: 'Edit' })[1]!);
+    const second = within(await screen.findByRole('dialog'));
+    expect(second.getByRole('button', { name: 'Save' })).toBeTruthy();
+    expect(second.queryByText('Failed to save academic year')).toBeNull();
+  });
+
   it('is axe clean', async () => {
     server.use(
       http.get('/api/v1/academic-years', () =>
