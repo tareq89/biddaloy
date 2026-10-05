@@ -2,6 +2,7 @@ import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { i18n } from '../i18n';
 import { cleanupTestState, renderWithProviders } from '../test/render-with-providers';
 
 import { AdminVerificationModal } from './admin-verification-modal';
@@ -30,7 +31,7 @@ describe('AdminVerificationModal', () => {
     expect(screen.queryByLabelText('Password')).toBeNull();
   });
 
-  it('falls back to a generic label for a scope it doesn\'t know', async () => {
+  it("falls back to a generic label for a scope it doesn't know", async () => {
     renderWithProviders(
       <AdminVerificationModal
         open
@@ -150,5 +151,26 @@ describe('AdminVerificationModal', () => {
 
     await user.click(await screen.findByRole('button', { name: 'Cancel' }));
     expect(onCancel).toHaveBeenCalled();
+  });
+
+  it('uses the new scope label once its approval.json entry exists, the fallback until then', async () => {
+    const props = {
+      open: true,
+      scope: 'fees.discount',
+      onRequestOtp: vi.fn(),
+      onVerify: vi.fn(),
+      onSuccess: vi.fn(),
+      onCancel: vi.fn(),
+    };
+    const { unmount } = renderWithProviders(<AdminVerificationModal {...props} />, {
+      locale: 'en',
+    });
+    await screen.findByText('Approve: fees.discount');
+    expect(screen.queryByText('scopes.fees.discount')).toBeNull();
+    unmount();
+
+    i18n.addResource('en', 'approval', 'scopes.fees.discount', 'Approve: discount on a payment');
+    renderWithProviders(<AdminVerificationModal {...props} />, { locale: 'en' });
+    await screen.findByText('Approve: discount on a payment');
   });
 });
