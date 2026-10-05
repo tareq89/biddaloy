@@ -70,8 +70,8 @@ export class OnboardingService {
       trial = {
         ends_at: school.trial_ends_at.toISOString(),
         days_left: Math.max(0, Math.ceil((school.trial_ends_at.getTime() - Date.now()) / DAY_MS)),
-        // ponytail: shared type has no "unlimited"; a trial without a limit reports used as limit.
-        seats: { used: seats.used, limit: seats.limit ?? seats.used },
+        // null = no student limit on this trial.
+        seats: { used: seats.used, limit: seats.limit },
       };
     }
 
