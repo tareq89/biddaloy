@@ -2,6 +2,7 @@ import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
+  ArrayMinSize,
   IsArray,
   IsBoolean,
   IsEnum,
@@ -14,6 +15,7 @@ import {
   MaxLength,
   Min,
   MinLength,
+  ValidateIf,
   ValidateNested,
 } from 'class-validator';
 import { AttendanceSessionState, AttendanceSource, AttendanceStatus } from '@biddaloy/shared';
@@ -124,6 +126,57 @@ export class PutRegisterDto {
   @ValidateNested({ each: true })
   @Type(() => RegisterEntryDto)
   entries: RegisterEntryDto[];
+}
+
+/** One student's mark for one day in `PUT .../register-matrix`. Deliberately
+ * only a status: no minutes late, remarks, period or force flag. */
+export class MatrixEntryDto {
+  @IsUUID()
+  student_id: string;
+
+  @IsEnum(AttendanceStatus)
+  status: AttendanceStatus;
+}
+
+export class MatrixDayDto {
+  @IsString()
+  @Matches(DATE_ONLY, { message: 'date must be YYYY-MM-DD' })
+  date: string;
+
+  /** The `session.version` the client saw for this day; `null` = "I saw no
+   * register for this day". */
+  @ValidateIf((_, v) => v !== null)
+  @IsInt()
+  @Min(0)
+  base_version: number | null;
+
+  @IsArray()
+  @ArrayMaxSize(300)
+  @ValidateNested({ each: true })
+  @Type(() => MatrixEntryDto)
+  entries: MatrixEntryDto[];
+}
+
+/** `PUT /attendance/sections/:sectionId/register-matrix` — many days of one
+ * section's whole-day register, all-or-nothing. All days share one calendar
+ * month (checked in the service). */
+export class PutRegisterMatrixDto {
+  @IsUUID()
+  client_request_id: string;
+
+  /** Written to every audit row; required when any day needs a correction. */
+  @IsOptional()
+  @IsString()
+  @MinLength(3)
+  @SanitizeText()
+  reason?: string;
+
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(31)
+  @ValidateNested({ each: true })
+  @Type(() => MatrixDayDto)
+  days: MatrixDayDto[];
 }
 
 /** `POST /attendance/sections/:sectionId/register/finalize` — finalizes an
@@ -248,6 +301,13 @@ export class MySectionDto {
   @ApiProperty({ type: String, nullable: true }) class_teacher_name: string | null;
   @ApiProperty() is_working_day: boolean;
   @ApiProperty({ type: MySectionTodayDto, nullable: true }) today: MySectionTodayDto | null;
+}
+
+/** Response of `PUT .../register-matrix`; the client refetches the matrix. */
+export class MatrixSaveResponseDto {
+  @ApiProperty({ type: String, isArray: true }) saved_dates: string[];
+  @ApiProperty({ type: 'object', additionalProperties: { type: 'number' } })
+  versions: Record<string, number>;
 }
 
 /** One period of a section's day, `GET /attendance/sections/:sectionId/periods`.

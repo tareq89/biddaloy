@@ -28,9 +28,11 @@ import { QueryAuditLogDto } from '../audit/dto/audit-log.dto';
 import {
   CorrectRecordDto,
   FinalizeRegisterDto,
+  MatrixSaveResponseDto,
   MySectionDto,
   PeriodDto,
   PutRegisterDto,
+  PutRegisterMatrixDto,
   QueryMySectionsDto,
   QueryPeriodsDto,
   QueryRegisterDto,
@@ -174,6 +176,32 @@ export class AttendanceController {
     @Req() req: Request,
   ) {
     return this.attendanceService.putRegister({
+      sectionId,
+      dto,
+      tenantId: tenant.id,
+      role: tenant.role,
+      userId: user.sub,
+      ip: req.ip ?? null,
+      userAgent: req.headers['user-agent'] ?? null,
+    });
+  }
+
+  @Put('sections/:sectionId/register-matrix')
+  @RequirePermissions(Permission.ATTENDANCE_MARK)
+  @ApiOperation({
+    summary:
+      "Saves many days of one section's whole-day register in one transaction. All-or-nothing: " +
+      'a locked date (422), a stale day (409) or a closed day (403) rejects the whole request.',
+  })
+  @ApiOkResponse({ type: MatrixSaveResponseDto })
+  async putRegisterMatrix(
+    @Param('sectionId') sectionId: string,
+    @Body() dto: PutRegisterMatrixDto,
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: { sub: string },
+    @Req() req: Request,
+  ) {
+    return this.attendanceService.putRegisterMatrix({
       sectionId,
       dto,
       tenantId: tenant.id,
