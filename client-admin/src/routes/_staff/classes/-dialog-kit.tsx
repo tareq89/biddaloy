@@ -3,9 +3,19 @@
  * react-hook-form only, and these dialogs use plain state): a labelled
  * field with the kit's required mark, and the kit error text.
  */
-import { ConfirmDialog } from '@biddaloy/ui/components';
+import {
+  Button,
+  ConfirmDialog,
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@biddaloy/ui/components';
 import { useTranslation } from '@biddaloy/ui/i18n';
-import { CircleAlertIcon } from 'lucide-react';
+import { CircleAlertIcon, Trash2Icon } from 'lucide-react';
 import * as React from 'react';
 
 /** Close handling for a form dialog: ignored while a request is in flight,
@@ -77,5 +87,67 @@ export function ErrorText({ children }: { children: React.ReactNode }) {
       <CircleAlertIcon className="size-4 shrink-0" aria-hidden="true" />
       {children}
     </p>
+  );
+}
+
+/**
+ * `ConfirmDialog` with a failure line that screen readers are told about:
+ * its description is a plain string, so an error swapped into it is silent.
+ * Same alertdialog shape as `-delete-class-dialog.tsx`.
+ */
+export function DangerConfirmDialog({
+  open,
+  onOpenChange,
+  title,
+  description,
+  error,
+  confirmLabel,
+  busy,
+  onConfirm,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  title: string;
+  description: string;
+  /** Translated failure sentence; the prompt stays so retry is obvious. */
+  error?: string | undefined;
+  confirmLabel: string;
+  busy: boolean;
+  onConfirm: () => void;
+}) {
+  const { t } = useTranslation('common');
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent
+        size="sm"
+        role="alertdialog"
+        showCloseButton={false}
+        onInteractOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => {
+          if (busy) e.preventDefault();
+        }}
+      >
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
+        </DialogHeader>
+        {error && (
+          <p role="alert" className="text-sm text-destructive">
+            {error}
+          </p>
+        )}
+        <DialogFooter>
+          <DialogClose asChild>
+            <Button type="button" variant="outline" disabled={busy}>
+              {t('actions.cancel')}
+            </Button>
+          </DialogClose>
+          <Button type="button" variant="danger" loading={busy} onClick={onConfirm}>
+            <Trash2Icon aria-hidden="true" />
+            {confirmLabel}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
