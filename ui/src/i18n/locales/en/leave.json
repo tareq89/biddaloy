@@ -27,7 +27,11 @@
     "errorDateRange": "End date must be on or after the start date.",
     "errorMessage": "Couldn't submit the leave request.",
     "reasonPlaceholder": "e.g. family matter",
-    "errorBalance": "Not enough days of this leave type left. Pick fewer days or another type."
+    "errorBalance": "Not enough days of this leave type left. Pick fewer days or another type.",
+    "discardTitle": "Discard this request?",
+    "discardBody": "What you entered will be lost.",
+    "discardConfirm": "Discard",
+    "discardKeep": "Keep editing"
   },
   "type": {
     "CASUAL": "Casual",
