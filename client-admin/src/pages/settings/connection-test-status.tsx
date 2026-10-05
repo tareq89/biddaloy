@@ -8,12 +8,19 @@
  * card, which another lane owns, so this is a separate file.)
  */
 import { Button, StatusBadge } from '@biddaloy/ui/components';
+import type { MaskedSmsSettings } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { PlugZapIcon } from 'lucide-react';
 
-import { MutationErrorMessage } from '../../components/MutationErrorMessage';
-
 import { SettingsSaved } from './settings-layout';
+import { SettingsMutationError } from './settings-mutation-error';
+
+/** One rule for "SMS is set up", shared by the SMS badge and the Evaluations card. */
+export function isSmsReady(sms: MaskedSmsSettings | undefined): boolean {
+  return sms?.provider === 'mimsms'
+    ? Boolean(sms.mimsms?.apiKey?.configured && sms.mimsms.senderId)
+    : Boolean(sms?.greenweb?.apiKey?.configured);
+}
 
 export function ChannelStatusBadge({ ready }: { ready: boolean }) {
   const { t } = useTranslation('settings');
@@ -45,7 +52,7 @@ export function ConnectionTestStatus({
           />
         </p>
       )}
-      {isError && <MutationErrorMessage error={error} />}
+      {isError && <SettingsMutationError error={error} />}
     </>
   );
 }
@@ -82,7 +89,7 @@ export function ChannelFooter({
       </Button>
       <ConnectionTestStatus data={test.data} isError={test.isError} error={test.error} />
       {update.isSuccess && <SettingsSaved />}
-      {update.isError && <MutationErrorMessage error={update.error} />}
+      {update.isError && <SettingsMutationError error={update.error} />}
     </>
   );
 }

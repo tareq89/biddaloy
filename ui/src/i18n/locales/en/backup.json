@@ -134,5 +134,6 @@
   "storageLabel": "Space",
   "requestedByAutomatic": "Automatic",
   "pinnedLabel": "Kept forever",
-  "templatePrompt": "Moving a whole school from another system? Fill in the blank template and upload it here."
+  "templatePrompt": "Moving a whole school from another system? Fill in the blank template and upload it here.",
+  "listLoadError": "Couldn't load your backups. Try again."
 }

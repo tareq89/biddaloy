@@ -45,9 +45,8 @@ import { ArrowRightIcon, ArrowUpIcon } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
-import { MutationErrorMessage } from '../../components/MutationErrorMessage';
-
 import { SettingsSaved, SettingsSection } from './settings-layout';
+import { SettingsMutationError } from './settings-mutation-error';
 
 /** A short, curated list rather than the full ISO 3166-1 set — every
  * tenant this app has today is either Bangladeshi or a near neighbour;
@@ -99,7 +98,9 @@ export function CalendarSection({ schoolId, region }: CalendarSectionProps) {
     ...useFormShellMode(),
   });
 
-  useWarnUnsavedChanges(form.formState.isDirty && !form.formState.isSubmitSuccessful);
+  // `isDirty` alone: `.mutate()` is not awaited, so `isSubmitSuccessful` would silence the
+  // warning after a failed save. `onSuccess` resets the form, which clears `isDirty`.
+  useWarnUnsavedChanges(form.formState.isDirty);
 
   const updateSettings = useUpdateSchoolSettings(schoolId);
 
@@ -138,7 +139,7 @@ export function CalendarSection({ schoolId, region }: CalendarSectionProps) {
         footerStart={
           <>
             {updateSettings.isSuccess && <SettingsSaved />}
-            {updateSettings.isError && <MutationErrorMessage error={updateSettings.error} />}
+            {updateSettings.isError && <SettingsMutationError error={updateSettings.error} />}
           </>
         }
       >

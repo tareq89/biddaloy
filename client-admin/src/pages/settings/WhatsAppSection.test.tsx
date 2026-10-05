@@ -7,6 +7,21 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { WhatsAppSection } from './WhatsAppSection';
 
+const SERVER_TEXT = 'SERVER_SECRET_TEXT';
+const failing = (path: string, method: 'patch' | 'put' | 'post' = 'patch') =>
+  http[method](path, () =>
+    HttpResponse.json(
+      {
+        statusCode: 400,
+        message: SERVER_TEXT,
+        timestamp: new Date().toISOString(),
+        path,
+        requestId: 'r',
+      },
+      { status: 400 },
+    ),
+  );
+
 const SCHOOL_ID = 'school-1';
 
 describe('WhatsAppSection', () => {
@@ -135,5 +150,25 @@ describe('WhatsAppSection', () => {
 
     rerender(<WhatsAppSection schoolId={SCHOOL_ID} whatsapp={{ phoneNumberId: '123456' }} />);
     expect(await screen.findByText('Not set up')).toBeTruthy();
+  });
+
+  it('shows a translated error, never the server text, when save or test fails', async () => {
+    server.use(
+      failing('/api/v1/schools/:id/settings'),
+      failing('/api/v1/schools/:id/settings/test', 'post'),
+    );
+    const { user } = renderWithProviders(
+      <WhatsAppSection
+        schoolId={SCHOOL_ID}
+        whatsapp={{ phoneNumberId: '123456', apiVersion: 'v21.0' }}
+      />,
+      { locale: 'en', role: 'ADMIN', tenantId: SCHOOL_ID },
+    );
+
+    await user.click(await screen.findByRole('button', { name: 'Test connection' }));
+    expect((await screen.findByRole('alert')).textContent).toBe("Couldn't save. Try again.");
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(screen.getAllByRole('alert')).toHaveLength(2));
+    expect(screen.queryByText(SERVER_TEXT)).toBeNull();
   });
 });

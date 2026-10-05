@@ -213,7 +213,15 @@ export function PrinterFormDialog({
   }, [open, printer, form]);
 
   const type = form.watch('printer_type');
+  // Controlled: opens from the guide or on an error, then stays until the user closes it.
+  const [advancedIsOpen, setAdvancedIsOpen] = React.useState(false);
+  React.useEffect(() => {
+    if (open) setAdvancedIsOpen(Boolean(openAdvanced));
+  }, [open, openAdvanced]);
   const hasAdvancedError = ADVANCED_FIELDS.some((f) => form.formState.errors[f] !== undefined);
+  React.useEffect(() => {
+    if (hasAdvancedError) setAdvancedIsOpen(true);
+  }, [hasAdvancedError]);
 
   /** Adding: switching type re-applies that type's default margins. Editing keeps the saved ones. */
   function handleTypeChange(next: 'CARD' | 'OFFICE') {
@@ -331,7 +339,8 @@ export function PrinterFormDialog({
 
             <details
               className="group/adv border-t border-border-subtle pt-2"
-              open={openAdvanced || hasAdvancedError || undefined}
+              open={advancedIsOpen}
+              onToggle={(e) => setAdvancedIsOpen(e.currentTarget.open)}
             >
               <summary className="flex h-11 cursor-pointer list-none items-center gap-1 font-medium text-text-secondary md:h-8">
                 <ChevronRightIcon aria-hidden="true" className="size-4 group-open/adv:rotate-90" />

@@ -101,7 +101,8 @@ describe('FeesSection', () => {
 
     await user.click(await screen.findByRole('button', { name: 'Save' }));
 
-    await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy());
+    expect((await screen.findByRole('alert')).textContent).toBe("Couldn't save. Try again.");
+    expect(screen.queryByText('Approval required')).toBeNull();
   });
 
   it('shows late-fee inputs only for ticked fee types', async () => {
@@ -114,5 +115,31 @@ describe('FeesSection', () => {
     expect(container.querySelector('#fees-lateFee-EXAM_FEE-graceDays')).toBeNull();
     await user.click(screen.getByLabelText('Exam fee'));
     expect(screen.getByLabelText('Exam fee: Grace days')).toBeTruthy();
+  });
+
+  it('on a phone shows visible-labelled late-fee fields only for a ticked fee', async () => {
+    vi.stubGlobal('matchMedia', () => ({
+      matches: true,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+    }));
+    try {
+      const { user } = renderWithProviders(<FeesSection schoolId={SCHOOL_ID} fees={FEES} />, {
+        locale: 'en',
+        role: 'ADMIN',
+        tenantId: SCHOOL_ID,
+      });
+
+      await screen.findByLabelText('Monthly tuition');
+      expect(screen.queryByRole('table')).toBeNull();
+      // Ticked row: the three fields carry their own visible labels.
+      expect(screen.getByLabelText('Grace days')).toBeTruthy();
+      expect(screen.getByLabelText('Kind')).toBeTruthy();
+      expect(screen.getByLabelText('Value')).toBeTruthy();
+      await user.click(screen.getByLabelText('Exam fee'));
+      expect(screen.getAllByLabelText('Grace days')).toHaveLength(2);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });
