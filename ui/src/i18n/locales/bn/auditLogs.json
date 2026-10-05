@@ -9,12 +9,14 @@
     "columnSummary": "কী ঘটেছে",
     "system": "সিস্টেম",
     "emptyValue": "—",
-    "emptyMessage": "এই ফিল্টারে কোনো নিরীক্ষা এন্ট্রি নেই",
+    "emptyMessage": "এই ফিল্টারে কোনো কার্যক্রম নেই। ফিল্টার বদলে আবার দেখুন।",
     "errorMessage": "নিরীক্ষার ইতিহাস লোড করা যায়নি।",
     "announceResults": "{{total}}টির মধ্যে {{visible}}টি এন্ট্রি দেখানো হচ্ছে",
     "expandLabel": "পরিবর্তন দেখুন: {{summary}}, {{when}}",
-    "whatWithId": "{{entity}} {{id}}",
-    "readOnlyNote": "এই পৃষ্ঠাটি কী ঘটেছে তার রেকর্ড। এখানে কিছু সম্পাদনা বা মুছে ফেলা যায় না।"
+    "readOnlyNote": "কে, কখন, কী করেছেন — শুধু দেখা যায়, বদলানো যায় না।",
+    "whatWithLabel": "{{entity}}: {{label}}",
+    "emptyTitle": "কোনো রেকর্ড পাওয়া যায়নি",
+    "clearFilters": "সব ফিল্টার মুছুন"
   },
   "filters": {
     "actionLabel": "কাজ",
@@ -72,8 +74,8 @@
   },
   "summaries": {
     "CREATE": "একটি নতুন {{entity}} যোগ করা হয়েছে।",
-    "UPDATE_one": "এই {{entity}}-এর {{count}}টি তথ্য পরিবর্তন হয়েছে।",
-    "UPDATE_other": "এই {{entity}}-এর {{count}}টি তথ্য পরিবর্তন হয়েছে।",
+    "UPDATE_one": "{{n}}টি তথ্য পরিবর্তন হয়েছে।",
+    "UPDATE_other": "{{n}}টি তথ্য পরিবর্তন হয়েছে।",
     "DELETE": "এই {{entity}} মুছে ফেলা হয়েছে।",
     "LOGIN": "স্কুলে সাইন ইন করা হয়েছে।",
     "LOGIN_FAILED": "একটি সাইন ইন চেষ্টা প্রত্যাখ্যান করা হয়েছে।",
@@ -97,13 +99,15 @@
     "unchanged": "অপরিবর্তিত",
     "noChanges": "এই এন্ট্রিটি একটি ঘটনার রেকর্ড, সম্পাদনার নয়, তাই কোনো তথ্য পরিবর্তন হয়নি।",
     "noFieldsChanged": "এই রেকর্ডের কোনো তথ্য পরিবর্তন হয়নি — নিচের অপরিবর্তিত মানগুলোই রেকর্ড করা হয়েছে।",
-    "showUnchanged_one": "{{count}}টি অপরিবর্তিত তথ্য দেখুন",
-    "showUnchanged_other": "{{count}}টি অপরিবর্তিত তথ্য দেখুন",
-    "hideUnchanged_one": "{{count}}টি অপরিবর্তিত তথ্য লুকান",
-    "hideUnchanged_other": "{{count}}টি অপরিবর্তিত তথ্য লুকান",
+    "showUnchanged_one": "{{n}}টি অপরিবর্তিত তথ্য দেখুন",
+    "showUnchanged_other": "{{n}}টি অপরিবর্তিত তথ্য দেখুন",
+    "hideUnchanged_one": "{{n}}টি অপরিবর্তিত তথ্য লুকান",
+    "hideUnchanged_other": "{{n}}টি অপরিবর্তিত তথ্য লুকান",
     "yes": "হ্যাঁ",
     "no": "না",
-    "emptyValue": "—"
+    "emptyValue": "—",
+    "beforeInline": "আগে: {{value}}",
+    "afterInline": "পরে: {{value}}"
   },
   "fields": {
     "full_name": "পুরো নাম",

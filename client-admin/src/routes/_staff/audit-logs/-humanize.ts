@@ -236,11 +236,3 @@ export function humanizeValue(value: unknown, options: HumanizeOptions): string[
 
   return [humanizeScalar(value, options)];
 }
-
-/** The "What" column's entity reference: an audit row's `entity_id` is a
- * UUID, and all 36 characters of it in a table cell is noise. The first
- * segment is enough to tell two rows apart and to match against a URL. */
-export function shortEntityId(entityId: string | null): string | null {
-  if (!entityId) return null;
-  return entityId.split('-')[0] ?? entityId;
-}
