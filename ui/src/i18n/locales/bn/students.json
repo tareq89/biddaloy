@@ -182,23 +182,35 @@
     "guardians": {
       "columnName": "নাম",
       "columnRelationship": "সম্পর্ক",
-      "columnContact": "যোগাযোগ",
-      "primary": "প্রধান",
-      "emptyMessage": "কোনো অভিভাবকের তথ্য নেই।"
+      "primary": "প্রধান যোগাযোগ",
+      "emptyMessage": "কোনো অভিভাবকের তথ্য নেই।",
+      "caption": "{{name}}-এর অভিভাবক",
+      "columnPhone": "ফোন",
+      "columnEmail": "ইমেইল",
+      "columnPreferred": "পছন্দের মাধ্যম",
+      "cardSubtitle": "{{relationship}} · {{phone}}",
+      "view": "{{name}}-এর বিবরণ দেখুন",
+      "emptyExplanation": "শিক্ষার্থীর তথ্য সম্পাদনা করে অভিভাবক যোগ করুন।",
+      "editHintBefore": "অভিভাবক যোগ বা বদল করতে",
+      "editHintLink": "শিক্ষার্থীর তথ্য সম্পাদনা করুন",
+      "editHintAfter": "।"
     },
     "communication": {
-      "columnDate": "তারিখ",
+      "columnDate": "তারিখ ও সময়",
       "columnMedium": "মাধ্যম",
       "columnRecipient": "প্রাপক",
       "columnStatus": "অবস্থা",
       "emptyMessage": "এখনো কোনো বার্তা পাঠানো হয়নি।",
-      "errorMessage": "বার্তার ইতিহাস লোড করা যায়নি।"
+      "errorMessage": "বার্তার ইতিহাস লোড করা যায়নি।",
+      "emptyExplanation": "রিমাইন্ডার বা বার্তা পাঠালে এখানে দেখা যাবে।"
     },
     "activity": {
-      "columnDate": "তারিখ",
-      "columnAction": "কার্যক্রম",
+      "columnDate": "তারিখ ও সময়",
+      "columnAction": "কাজ",
       "emptyMessage": "এখনো কোনো কার্যক্রম নথিভুক্ত নেই।",
-      "errorMessage": "কার্যক্রম লোড করা যায়নি।"
+      "errorMessage": "কার্যক্রম লোড করা যায়নি।",
+      "columnBy": "করেছেন",
+      "emptyExplanation": "এই শিক্ষার্থীর তথ্য বদলালে এখানে লেখা থাকবে।"
     },
     "attendanceTab": {
       "monthStepper": {
