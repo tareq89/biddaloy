@@ -1,7 +1,8 @@
-import type { RegionSettings } from '@biddaloy/shared';
+import { Permission, type RegionSettings } from '@biddaloy/shared';
 import { useQuery } from '@tanstack/react-query';
 
 import { getActiveTenant } from '../api/auth-state';
+import { useHasPermission } from '../hooks/permissions';
 import { schoolSettingsQueryOptions } from '../hooks/school-settings';
 
 import { LOCALE_REGION_DEFAULTS, type RegionConfig } from './region-config';
@@ -32,6 +33,10 @@ import { useLocale } from './use-locale';
  * read, and once #158's masked-settings GET resolves, this re-renders
  * with the resolved value. `useSchoolSettings`'s own masked-secrets
  * shape is irrelevant here; `region` never carries a secret field.
+ *
+ * Roles without `SETTINGS_MANAGE` cannot read the settings endpoint, so the
+ * query is not even sent for them: they get the locale default, with no 403
+ * and no toast.
  */
 export function useTenantRegionConfig(): RegionConfig {
   const { locale } = useLocale();
@@ -43,7 +48,14 @@ export function useTenantRegionConfig(): RegionConfig {
   // suspended tenant's 403 must resolve to that fallback too rather than
   // rethrow into the route boundary the way a page-level query does
   // [15.4.2]; the provider wrapping a screen is chrome, not content.
-  const { data } = useQuery({ ...schoolSettingsQueryOptions(tenantId ?? ''), throwOnError: false });
+  // ponytail: roles without SETTINGS_MANAGE never see the school's own region
+  // settings; upgrade is a read-only GET any member may call (follow-up).
+  const canReadSettings = useHasPermission(Permission.SETTINGS_MANAGE);
+  const { data } = useQuery({
+    ...schoolSettingsQueryOptions(tenantId ?? ''),
+    enabled: tenantId !== null && canReadSettings,
+    throwOnError: false,
+  });
 
   // [17.1.3] `data.region` is the OpenAPI-generated DTO shape, whose
   // `calendar.termLabel` is a plain string-literal union
