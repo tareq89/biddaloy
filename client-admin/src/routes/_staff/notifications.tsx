@@ -15,10 +15,12 @@
 import { markAllNotificationsRead, markNotificationRead } from '@biddaloy/ui/api';
 import { Card, EmptyState, NotificationList, RoutePending } from '@biddaloy/ui/components';
 import { useNotifications, useUnreadNotificationCount } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { PageContainer, PageHeader } from '@biddaloy/ui/shells';
+import { formatNumber } from '@biddaloy/ui/utils';
 import { createFileRoute } from '@tanstack/react-router';
 import { Bell, CheckCheck } from 'lucide-react';
+import * as React from 'react';
 
 import { loadRouteNamespaces } from '../../route-loaders';
 
@@ -37,11 +39,20 @@ function NotificationsPage() {
   const { t } = useTranslation('nav');
   const notifications = useNotifications();
   const unreadCount = useUnreadNotificationCount();
+  const config = useTenantRegionConfig();
+  const feedRef = React.useRef<HTMLDivElement>(null);
 
   const description = t('notifications.pageDescription');
   const subtitle =
     unreadCount > 0
-      ? [description, t('notifications.unreadCount', { count: unreadCount })].join(' · ')
+      ? [
+          description,
+          // `count` only picks the plural form; `n` is the tenant-formatted number.
+          t('notifications.unreadCount', {
+            count: unreadCount,
+            n: formatNumber(unreadCount, config),
+          }),
+        ].join(' · ')
       : description;
 
   return (
@@ -57,25 +68,31 @@ function NotificationsPage() {
             icon: <CheckCheck />,
             // Hidden, not disabled, when there is nothing unread.
             allowed: unreadCount > 0,
-            onClick: () => markAllNotificationsRead(),
+            onClick: () => {
+              markAllNotificationsRead();
+              // The button unmounts now; keep keyboard focus on the page.
+              feedRef.current?.focus();
+            },
           },
         ]}
       />
-      {notifications.length === 0 ? (
-        <EmptyState
-          icon={<Bell />}
-          title={t('notifications.emptyTitle')}
-          explanation={t('notifications.emptyDescription')}
-        />
-      ) : (
-        <Card className="p-2">
-          <NotificationList
-            notifications={notifications}
-            onMarkRead={markNotificationRead}
-            emptyLabel={t('notifications.empty')}
+      <div ref={feedRef} tabIndex={-1} className="space-y-6 outline-none">
+        {notifications.length === 0 ? (
+          <EmptyState
+            icon={<Bell />}
+            title={t('notifications.emptyTitle')}
+            explanation={t('notifications.emptyDescription')}
           />
-        </Card>
-      )}
+        ) : (
+          <Card className="p-2">
+            <NotificationList
+              notifications={notifications}
+              onMarkRead={markNotificationRead}
+              emptyLabel={t('notifications.empty')}
+            />
+          </Card>
+        )}
+      </div>
     </PageContainer>
   );
 }
