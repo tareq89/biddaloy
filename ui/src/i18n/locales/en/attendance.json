@@ -16,9 +16,6 @@
   "list": {
     "title": "Attendance",
     "caption": "Sections you mark attendance for",
-    "columnSection": "Section",
-    "columnStudents": "Students",
-    "columnToday": "Today",
     "notMarked": "Not marked",
     "draft": "Draft",
     "marked": "Marked {{present}}/{{total}}",
@@ -28,10 +25,15 @@
     "loadingLabel": "Loading your sections",
     "forbidden": "You do not have permission to view attendance.",
     "errorMessage": "Could not load your sections.",
-    "retry": "Retry"
+    "retry": "Retry",
+    "subtitle_one": "Today, {{date}} · {{count}} section left",
+    "subtitle_other": "Today, {{date}} · {{count}} sections left",
+    "subtitleDone": "Today, {{date}} · every section is submitted",
+    "studentCount_one": "{{count}} student",
+    "studentCount_other": "{{count}} students"
   },
   "mark": {
-    "title": "{{className}} {{sectionName}}",
+    "title": "{{className}} – {{sectionName}}",
     "presentCount": "Present {{n}}",
     "absentCount": "Absent {{n}}",
     "lateCount": "Late {{n}}",
@@ -41,7 +43,7 @@
     "undo": "Undo",
     "undoToast": "Attendance reset",
     "shortcutHint": "Shortcuts: P present · A absent · L late · V leave · Space toggle · Shift+P all present · Ctrl/Cmd+Enter submit",
-    "submitOnline": "Submit register",
+    "submitOnline": "Submit attendance",
     "submitOffline": "Save on device",
     "submitting": "Submitting…",
     "unmarkedRemaining": "{{n}} unmarked",
@@ -65,7 +67,12 @@
     "historyAction": "History",
     "editedBadge": "Edited",
     "editedBadgeTooltip_one": "Corrected {{count}} time",
-    "editedBadgeTooltip_other": "Corrected {{count}} times"
+    "editedBadgeTooltip_other": "Corrected {{count}} times",
+    "dateLabel": "Date",
+    "leaveCount": "Leave {{n}}",
+    "stateFinalized": "Submitted",
+    "rosterHeading": "Students",
+    "loadError": "Could not load this section's attendance."
   },
   "conflict": {
     "title": "This register changed since you loaded it",
@@ -103,7 +110,7 @@
     "retry": "Retry",
     "entryChange": "{{from}} → {{to}}",
     "entryActor": "Corrected by {{actor}}",
-    "entryActorUnknownName": "Corrected by user {{actorId}}",
+    "entryActorUnknownName": "Corrected by a user",
     "close": "Close"
   },
   "reports": {
