@@ -298,7 +298,7 @@
     },
     "contact": {
       "title": "Email & phone",
-      "none": "Not set",
+      "none": "Not added",
       "verified": "Verified {{date}}",
       "unverified": "Unverified",
       "change": "Change",
@@ -331,7 +331,10 @@
         "noPassword": "Your account has no password set — ask an admin to update this for you",
         "invalidCode": "That code is incorrect or has expired",
         "generic": "Something went wrong. Please try again."
-      }
+      },
+      "explanation": "You sign in with these, and need them if you forget your password.",
+      "verifiedShort": "Verified",
+      "add": "Add"
     },
     "guardian": {
       "title": "Contact numbers",
@@ -379,18 +382,17 @@
         "wrongPassword": "That password is not correct"
       }
     },
-    "preferences": {
-      "title": "Preferences",
-      "language": "Language",
-      "theme": "Theme"
-    },
     "signOut": {
       "action": "Sign out",
       "signingOut": "Signing out…"
     },
     "devices": {
-      "title": "Devices"
-    }
+      "title": "Devices",
+      "showAll_one": "Show all {{count}} device",
+      "showAll_other": "Show all {{count}} devices",
+      "showFewer": "Show fewer"
+    },
+    "subtitle": "Your name, contact details, password and signed-in devices."
   },
   "surveys": {
     "subtitle": "Tell the school what you think of your teachers.",

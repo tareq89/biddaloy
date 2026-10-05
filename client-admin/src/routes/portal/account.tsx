@@ -6,12 +6,11 @@ import {
   ContactChangeDialog,
   ErrorState,
   GuardianContactForm,
-  LocaleSwitcher,
   ProfileForm,
   PushNotificationSettings,
   SessionList,
   Skeleton,
-  ThemeToggle,
+  StatusBadge,
   toast,
   type ChangePasswordFormServerError,
   type ContactChangeField,
@@ -41,10 +40,18 @@ import {
   useTranslation,
 } from '@biddaloy/ui/i18n';
 import { usePushSubscription } from '@biddaloy/ui/pwa';
-import { formatDate, parseValidationFieldErrors } from '@biddaloy/ui/utils';
+import { PageContainer, PageHeader } from '@biddaloy/ui/shells';
+import { formatDate, formatPhone, parseValidationFieldErrors } from '@biddaloy/ui/utils';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
-import { LogOutIcon } from 'lucide-react';
+import {
+  ChevronDownIcon,
+  ChevronUpIcon,
+  LogOutIcon,
+  MailIcon,
+  PlusIcon,
+  SmartphoneIcon,
+} from 'lucide-react';
 import * as React from 'react';
 
 import { CalendarFeedCard } from '../../components/calendar-feed-card';
@@ -54,7 +61,7 @@ import { loadRouteNamespaces } from '../../route-loaders';
  * [8.14.4] `/portal/account` — the first screen anywhere to consume the
  * three self-service endpoints phase 5 shipped: `PATCH /users/me`,
  * `GET`/`PATCH /guardians/mine`, and `POST /auth/change-password`. Plus
- * language, theme, and **sign-out inside the portal** (today the only way
+ * **sign-out inside the portal** (today the only way
  * to end a session is on `/select-school`, which a guardian on a shared
  * family phone has no reason to visit).
  *
@@ -154,6 +161,7 @@ function PortalAccount() {
   );
   const [changingPassword, setChangingPassword] = React.useState(false);
   const [signingOut, setSigningOut] = React.useState(false);
+  const [showAllDevices, setShowAllDevices] = React.useState(false);
 
   const pending = currentUserQuery.isPending || (guardianEnabled && guardianQuery.isPending);
   const errored = currentUserQuery.isError || (guardianEnabled && guardianQuery.isError);
@@ -331,9 +339,15 @@ function PortalAccount() {
     }
   }
 
+  // Current device first, then the most recently used. Only five rows show
+  // until expanded — twenty rows made this page 4,400 px tall.
+  const sortedSessions = [...(sessionsQuery.data ?? [])].sort(
+    (a, b) => Number(b.current) - Number(a.current) || b.last_used_at.localeCompare(a.last_used_at),
+  );
+
   return (
-    <div className="flex max-w-2xl flex-col gap-3">
-      <h1 className="text-lg font-semibold tracking-tight">{t('account.title')}</h1>
+    <PageContainer size="narrow">
+      <PageHeader title={t('account.title')} subtitle={t('account.subtitle')} />
 
       <ProfileForm
         defaultValues={{ full_name: currentUser.full_name }}
@@ -342,52 +356,29 @@ function PortalAccount() {
         serverError={profileError}
       />
 
-      <Card className="flex flex-col gap-3 p-4">
-        <h2 className="text-sm font-semibold">{t('account.contact.title')}</h2>
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex flex-col">
-            <span className="text-sm">{currentUser.email ?? t('account.contact.none')}</span>
-            <span className="text-xs text-muted-foreground">
-              {currentUser.email
-                ? currentUser.email_verified_at
-                  ? t('account.contact.verified', {
-                      date: formatDate(new Date(currentUser.email_verified_at), config),
-                    })
-                  : t('account.contact.unverified')
-                : null}
-            </span>
+      <Card asChild padded>
+        <section aria-labelledby="account-contact-title">
+          <h2 id="account-contact-title" className="text-h2">
+            {t('account.contact.title')}
+          </h2>
+          <p className="mt-1 text-text-secondary">{t('account.contact.explanation')}</p>
+          <div className="mt-3 divide-y divide-border-subtle border-t border-border-subtle">
+            <ContactRow
+              icon={<MailIcon className="size-5" aria-hidden="true" />}
+              label={t('account.profile.fields.email')}
+              value={currentUser.email}
+              verifiedAt={currentUser.email_verified_at}
+              onChange={() => setContactDialogField('email')}
+            />
+            <ContactRow
+              icon={<SmartphoneIcon className="size-5" aria-hidden="true" />}
+              label={t('account.profile.fields.phone')}
+              value={currentUser.phone ? formatPhone(currentUser.phone, config) : null}
+              verifiedAt={currentUser.phone_verified_at}
+              onChange={() => setContactDialogField('phone')}
+            />
           </div>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => setContactDialogField('email')}
-          >
-            {t('account.contact.change')}
-          </Button>
-        </div>
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex flex-col">
-            <span className="text-sm">{currentUser.phone ?? t('account.contact.none')}</span>
-            <span className="text-xs text-muted-foreground">
-              {currentUser.phone
-                ? currentUser.phone_verified_at
-                  ? t('account.contact.verified', {
-                      date: formatDate(new Date(currentUser.phone_verified_at), config),
-                    })
-                  : t('account.contact.unverified')
-                : null}
-            </span>
-          </div>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => setContactDialogField('phone')}
-          >
-            {t('account.contact.change')}
-          </Button>
-        </div>
+        </section>
       </Card>
 
       {contactDialogField && (
@@ -430,57 +421,67 @@ function PortalAccount() {
         serverError={passwordError}
       />
 
-      <Card className="flex flex-col gap-3 p-4">
-        <h2 className="text-sm font-semibold">{t('account.preferences.title')}</h2>
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-sm text-muted-foreground">{t('account.preferences.language')}</span>
-          <LocaleSwitcher />
-        </div>
-        {/* [8.14.4] plan correction 9 — the header already carries a
-            `ThemeToggle` ([8.14.2]'s `portal.tsx:96`). This is a second,
-            discoverable instance inside the account surface itself; both
-            read/write the same `theme-provider` state, so they never
-            diverge. Do not remove the header instance here — that is
-            [8.14.2]'s territory. */}
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-sm text-muted-foreground">{t('account.preferences.theme')}</span>
-          <ThemeToggle />
-        </div>
-      </Card>
-
       <PushNotificationSettings
         permission={push.permission}
         isSubscribedOnThisDevice={push.isSubscribedOnThisDevice}
         thisDeviceSubscriptionId={push.thisDeviceSubscriptionId}
         subscriptions={push.subscriptions}
         loading={push.loading}
-        error={push.error ? tPush(push.error) : null}
+        // The hook returns the key with its namespace prefix
+        // (`push.errors.listFailed`); `tPush` is already the `push` namespace.
+        error={push.error ? tPush(push.error.replace(/^push\./, '')) : null}
         removingId={removingPushId}
         onToggle={handlePushToggle}
         onRemove={handlePushRemove}
         locale={locale}
       />
 
-      <Card className="flex flex-col gap-3 p-4">
-        <h2 className="text-sm font-semibold">{t('account.devices.title')}</h2>
-        <SessionList
-          sessions={sessionsQuery.data ?? []}
-          loading={sessionsQuery.isPending}
-          error={sessionsQuery.isError ? tAuth('sessions.error') : null}
-          onRevoke={(id) => {
-            const target = sessionsQuery.data?.find((session) => session.id === id);
-            const current = target?.current ?? false;
-            revokeSession.mutate(
-              { id, current },
-              { onSuccess: () => !current && toast.success(tAuth('sessions.revokedToast')) },
-            );
-          }}
-          onRevokeAll={() => void handleSignOutAllDevices()}
-          revokingId={revokeSession.isPending ? (revokeSession.variables?.id ?? null) : null}
-          onRetry={() => void sessionsQuery.refetch()}
-          config={config}
-          locale={locale}
-        />
+      <Card asChild padded>
+        <section aria-labelledby="account-devices-title">
+          <h2 id="account-devices-title" className="text-h2">
+            {t('account.devices.title')}
+          </h2>
+          <p className="mt-1 text-text-secondary">{tAuth('sessions.description')}</p>
+          <div className="mt-3">
+            <SessionList
+              variant="compact"
+              sessions={showAllDevices ? sortedSessions : sortedSessions.slice(0, 5)}
+              loading={sessionsQuery.isPending}
+              error={sessionsQuery.isError ? tAuth('sessions.error') : null}
+              onRevoke={(id) => {
+                const target = sessionsQuery.data?.find((session) => session.id === id);
+                const current = target?.current ?? false;
+                revokeSession.mutate(
+                  { id, current },
+                  { onSuccess: () => !current && toast.success(tAuth('sessions.revokedToast')) },
+                );
+              }}
+              onRevokeAll={() => void handleSignOutAllDevices()}
+              revokingId={revokeSession.isPending ? (revokeSession.variables?.id ?? null) : null}
+              onRetry={() => void sessionsQuery.refetch()}
+              config={config}
+              locale={locale}
+            />
+          </div>
+          {sortedSessions.length > 5 && (
+            <Button
+              type="button"
+              variant="ghost"
+              className="mt-1 w-full md:w-auto"
+              aria-expanded={showAllDevices}
+              onClick={() => setShowAllDevices((value) => !value)}
+            >
+              {showAllDevices ? (
+                <ChevronUpIcon className="size-4" aria-hidden="true" />
+              ) : (
+                <ChevronDownIcon className="size-4" aria-hidden="true" />
+              )}
+              {showAllDevices
+                ? t('account.devices.showFewer')
+                : t('account.devices.showAll', { count: sortedSessions.length })}
+            </Button>
+          )}
+        </section>
       </Card>
 
       <CalendarFeedCard />
@@ -490,10 +491,61 @@ function PortalAccount() {
         variant="outline"
         loading={signingOut}
         onClick={() => void handleSignOut()}
-        className="self-start"
+        className="w-full md:w-auto md:self-start"
       >
         <LogOutIcon className="size-4" aria-hidden="true" />
         {signingOut ? t('account.signOut.signingOut') : t('account.signOut.action')}
+      </Button>
+    </PageContainer>
+  );
+}
+
+/** One email / phone line: field name, value, a verified / unverified badge
+ * and a Change (or Add, when empty) button. Kept a single `div` holding both
+ * the value and the button — the e2e `rowFor` relies on that. */
+function ContactRow({
+  icon,
+  label,
+  value,
+  verifiedAt,
+  onChange,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string | null;
+  verifiedAt: string | null;
+  onChange: () => void;
+}) {
+  const { t } = useTranslation('portal');
+  const config = useRegionConfig();
+
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 py-3">
+      <span className="shrink-0 text-text-secondary">{icon}</span>
+      <div className="min-w-0 flex-1">
+        <p className="text-caption text-text-secondary">{label}</p>
+        {value ? (
+          <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="font-medium break-all">{value}</span>
+            {verifiedAt ? (
+              <span
+                title={t('account.contact.verified', {
+                  date: formatDate(new Date(verifiedAt), config),
+                })}
+              >
+                <StatusBadge tone="success" label={t('account.contact.verifiedShort')} />
+              </span>
+            ) : (
+              <StatusBadge tone="warning" label={t('account.contact.unverified')} />
+            )}
+          </p>
+        ) : (
+          <p className="text-text-secondary">{t('account.contact.none')}</p>
+        )}
+      </div>
+      <Button type="button" variant="outline" onClick={onChange}>
+        {!value && <PlusIcon className="size-4" aria-hidden="true" />}
+        {value ? t('account.contact.change') : t('account.contact.add')}
       </Button>
     </div>
   );
@@ -502,9 +554,12 @@ function PortalAccount() {
 function AccountSkeleton({ label, showGuardian }: { label: string; showGuardian: boolean }) {
   return (
     // No `<h1>` while pending — see this file's own header table.
-    <div className="flex max-w-2xl flex-col gap-3" aria-busy="true" aria-live="polite">
+    <div className="space-y-6" aria-busy="true" aria-live="polite">
       <span className="sr-only">{label}</span>
-      <Skeleton className="h-7 w-2/5" />
+      <div className="flex flex-col gap-0.5">
+        <Skeleton className="h-9 w-2/5" />
+        <Skeleton className="h-5 w-3/5" />
+      </div>
       <Skeleton className="h-48 w-full rounded-lg" />
       {showGuardian && <Skeleton className="h-56 w-full rounded-lg" />}
       <Skeleton className="h-44 w-full rounded-lg" />
