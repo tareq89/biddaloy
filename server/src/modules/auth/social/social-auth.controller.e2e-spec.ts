@@ -177,29 +177,82 @@ describe('SocialAuthController (e2e)', () => {
     );
   });
 
-  it('register intent with an unknown subject issues a ticket', async () => {
+  it('register intent sets the ticket cookie and keeps the ticket id out of the URL', async () => {
     google.nextSubject = `${SUB_PREFIX}new`;
     const res = await callback(await startLogin('google', 'register'));
-    const ticketId = new URL(res.headers.location).searchParams.get('social_ticket') as string;
+    expect(res.headers.location).toContain('/register?social=google');
+    expect(res.headers.location).not.toContain('ticket');
+    const cookie = (res.headers['set-cookie'] as unknown as string[]).find((c) =>
+      c.startsWith('social_ticket='),
+    ) as string;
+    expect(cookie).toContain('HttpOnly');
+    expect(cookie).toContain('SameSite=Lax');
+    expect(cookie).toContain('Path=/api/v1/auth');
+    const ticketId = cookie.split(';')[0].split('=')[1];
     const ticket = await app.get(SocialTicketService).consume(ticketId);
     expect(ticket?.subject).toBe(`${SUB_PREFIX}new`);
     expect(await app.get(SocialTicketService).consume(ticketId)).toBeNull(); // read-once
   });
 
-  it('a replayed state is rejected with 400', async () => {
+  it('a replayed state is refused: back to login, no session', async () => {
     const state = await startLogin();
     await callback(state).expect(302);
-    await callback(state).expect(400);
+    const res = await callback(state);
+    expect(res.status).toBe(302);
+    expect(res.headers.location).toContain('/login?social=failed');
+    expect(res.headers['set-cookie']?.join(';') ?? '').not.toContain('refresh_token');
   });
 
-  it('a state started for another provider is rejected with 400', async () => {
+  it('a state started for another provider is refused', async () => {
     const state = await startLogin('facebook');
-    await callback(state, 'google').expect(400);
+    const res = await callback(state, 'google');
+    expect(res.headers.location).toContain('social=failed');
   });
 
-  it('a state without the matching browser cookie is rejected with 400', async () => {
+  it('a state without the matching browser cookie is refused', async () => {
     const state = await startLogin();
-    await callback(state, 'google', null).expect(400);
+    const res = await callback(state, 'google', null);
+    expect(res.headers.location).toContain('social=failed');
+  });
+
+  it('a provider error redirects with social=cancelled', async () => {
+    const state = await startLogin();
+    const res = await http()
+      .get(`${API}/auth/social/google/callback?error=access_denied&state=${state}`)
+      .set('Cookie', [`social_state=${state}`]);
+    expect(res.headers.location).toContain('/login?social=cancelled');
+  });
+
+  it('start with intent=link is a 400; link-start without a bearer is a 401', async () => {
+    await http().get(`${API}/auth/social/google/start?intent=link`).expect(400);
+    await http().post(`${API}/auth/social/google/link-start`).expect(401);
+  });
+
+  it('an inactive user with a connected identity gets not_linked and no session', async () => {
+    await dataSource.query(
+      `INSERT INTO users (id, full_name, status) VALUES ($1, 'No Login', 'INACTIVE')
+       ON CONFLICT (id) DO UPDATE SET status = 'INACTIVE'`,
+      [NOLOGIN_ID],
+    );
+    await dataSource.query(
+      `INSERT INTO user_identities (user_id, provider, subject) VALUES ($1, 'google', $2)`,
+      [NOLOGIN_ID, `${SUB_PREFIX}inactive`],
+    );
+    google.nextSubject = `${SUB_PREFIX}inactive`;
+    const res = await callback(await startLogin());
+    expect(res.headers.location).toContain('/login?social=not_linked');
+    expect(res.headers['set-cookie']?.join(';') ?? '').not.toContain('refresh_token');
+    await dataSource.query(`UPDATE users SET status = 'ACTIVE' WHERE id = $1`, [NOLOGIN_ID]);
+  });
+
+  it('can still disconnect after the provider is no longer configured', async () => {
+    const token = await adminToken();
+    await connect(`${SUB_PREFIX}gone`, token);
+    google.configured = false;
+    await http()
+      .delete(`${API}/auth/social/identities/google`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(204);
   });
 
   it('refuses to remove the last sign-in method, allows it when a password remains', async () => {
