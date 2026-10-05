@@ -37,34 +37,40 @@
     "errorMessage": "কাঠামো মোছা যায়নি।"
   },
   "detail": {
-    "loading": "কাঠামো লোড হচ্ছে…",
     "loadError": "এই কাঠামো লোড করা যায়নি।",
-    "tabComponents": "অংশ",
-    "nameLabel": "কাঠামোতের নাম",
-    "rename": "নাম পরিবর্তন",
-    "saveError": "পরিবর্তন সংরক্ষণ করা যায়নি।"
+    "saveError": "পরিবর্তন সংরক্ষণ করা যায়নি।",
+    "unsaved": "সংরক্ষণ হয়নি",
+    "save": "সংরক্ষণ করুন",
+    "discard": "পরিবর্তন বাতিল",
+    "editName": "নাম ও ধরন বদলান",
+    "facts": {
+      "kind": "ধরন",
+      "grades": "শ্রেণি",
+      "subjects": "মোট বিষয়",
+      "parts": "মোট অংশ",
+      "count": "{{count}}টি"
+    },
+    "noGradesTitle": "এখনো কোনো শ্রেণি নেই",
+    "noGradesText": "শ্রেণি যোগ করে বিষয় ও অংশ দিন।"
   },
   "grid": {
-    "empty": "এখনো কোনো শ্রেণি নেই। শুরু করতে একটি শ্রেণি যোগ করুন।",
     "gradeHeading": "শ্রেণি {{grade}}",
-    "gradeLabel": "শ্রেণি (১–৯৯)",
+    "gradeLabel": "শ্রেণির নম্বর",
     "addGrade": "শ্রেণি যোগ করুন",
     "subjectPicker": "শ্রেণি {{grade}}-এ যোগ করার বিষয়",
-    "subjectPlaceholder": "একটি বিষয় বেছে নিন",
+    "subjectPlaceholder": "বাছুন",
     "addSubject": "বিষয় যোগ করুন",
     "removeSubject": "শ্রেণি {{grade}} থেকে {{subject}} সরান",
     "removeSubjectShort": "বিষয় সরান",
-    "columnName": "অংশ",
+    "columnName": "অংশের নাম",
     "columnKind": "ধরন",
     "columnFull": "পূর্ণমান",
     "columnPass": "পাস নম্বর",
-    "columnActions": "কার্যক্রম",
+    "columnActions": "কাজ",
     "cellLabel": "{{column}} — {{subject}}, শ্রেণি {{grade}}, সারি {{row}}",
     "addComponent": "অংশ যোগ করুন",
-    "removeRow": "{{subject}}, শ্রেণি {{grade}}-এর সারি {{row}} সরান",
-    "removeRowShort": "সরান",
-    "discard": "পরিবর্তন বাতিল",
-    "save": "কাঠামো সংরক্ষণ",
+    "removeRow": "অংশ সরান — {{subject}}, শ্রেণি {{grade}}, সারি {{row}}",
+    "removeRowShort": "অংশ সরান",
     "error": {
       "nameRequired": "অংশের নাম লিখুন।",
       "nameTooLong": "নাম সর্বোচ্চ {{max}} অক্ষরের হতে পারে।",
@@ -75,6 +81,14 @@
       "noComponents": "অন্তত একটি অংশ যোগ করুন, অথবা এই বিষয়টি সরিয়ে দিন।",
       "gradeInvalid": "১ থেকে ৯৯-এর মধ্যে একটি পূর্ণসংখ্যা লিখুন।",
       "fixErrors": "সংরক্ষণের আগে চিহ্নিত ঘরগুলো ঠিক করুন।"
-    }
+    },
+    "gradeHelp": "১ থেকে ৯৯, যেমন ৯",
+    "addGradeTitle": "শ্রেণি যোগ করুন",
+    "gradesLabel": "শ্রেণি",
+    "intro": "শ্রেণি {{grade}}-এর {{count}}টি বিষয় · প্রতিটি বিষয়ের অংশের পূর্ণমান আর পাস নম্বর দিন। শেষে উপরের “সংরক্ষণ করুন” চাপুন।",
+    "subjectCaption": "কোড {{code}} · {{count}}টি অংশ · মোট পূর্ণমান {{marks}}",
+    "addSubjectTitle": "শ্রেণি {{grade}}-এ বিষয় যোগ করুন",
+    "subjectLabel": "বিষয়",
+    "gradeHasErrors": "শ্রেণি {{grade}}-এ ভুল আছে"
   }
 }

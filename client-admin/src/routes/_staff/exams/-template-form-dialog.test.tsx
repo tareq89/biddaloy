@@ -63,7 +63,7 @@ describe('TemplateFormDialog', () => {
     });
 
     expect(screen.getByText('Change name and type')).toBeTruthy();
-    const input = screen.getByLabelText('Name');
+    const input = screen.getByLabelText<HTMLInputElement>('Name');
     expect(input.value).toBe('Half-yearly');
     await user.clear(input);
     await user.type(input, 'Renamed');
