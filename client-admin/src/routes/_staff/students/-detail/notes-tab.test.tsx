@@ -50,6 +50,12 @@ describe('students/-detail/notes-tab', () => {
     await expect(baseElement).toHaveNoViolations();
   });
 
+  it('the add button is outline (one filled primary per view lives in the page header)', async () => {
+    renderTab();
+    const add = await screen.findByRole('button', { name: 'Add note' });
+    expect(add.getAttribute('data-variant')).toBe('outline');
+  });
+
   it('shows the empty state with the add button', async () => {
     renderTab({ notes: [] });
     expect(await screen.findByText('No notes yet')).toBeTruthy();
@@ -134,17 +140,17 @@ describe('students/-detail/notes-tab', () => {
   it('hides Delete from a non-author non-admin', async () => {
     renderTab({ notes: [note()], role: 'TEACHER' });
     await screen.findByText('Needs extra reading support');
-    expect(screen.queryByRole('button', { name: 'Delete' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Delete note' })).toBeNull();
   });
 
   it('shows Delete to the author and to an ADMIN', async () => {
     const own = renderTab({ notes: [note({ author: { id: ME, name: 'Me' } })] });
-    expect(await screen.findByRole('button', { name: 'Delete' })).toBeTruthy();
+    expect(await screen.findByRole('button', { name: 'Delete note' })).toBeTruthy();
     own.unmount();
     await cleanupTestState();
 
     renderTab({ notes: [note()], role: 'ADMIN' });
-    expect(await screen.findByRole('button', { name: 'Delete' })).toBeTruthy();
+    expect(await screen.findByRole('button', { name: 'Delete note' })).toBeTruthy();
   });
 
   it('deletes behind a confirm dialog', async () => {
@@ -156,8 +162,8 @@ describe('students/-detail/notes-tab', () => {
       }),
     );
     const { user } = renderTab({ role: 'ADMIN' });
-    await user.click(await screen.findByRole('button', { name: 'Delete' }));
-    const dialog = await screen.findByRole('dialog');
+    await user.click(await screen.findByRole('button', { name: 'Delete note' }));
+    const dialog = await screen.findByRole('alertdialog');
     expect(deleted).toBeUndefined();
     await user.click(within(dialog).getByRole('button', { name: 'Delete' }));
     await waitFor(() => expect(deleted).toBe('note-1'));

@@ -90,6 +90,14 @@ describe('students/-detail/records-tab', () => {
     expect(await screen.findByText(/do not have access/i)).toBeTruthy();
   });
 
+  it('titles the profile form "Family and health details", with an outline Save', async () => {
+    renderTab({ role: 'ADMIN' });
+    expect(await screen.findByRole('heading', { name: 'Family and health details' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Save' }).getAttribute('data-variant')).toBe(
+      'outline',
+    );
+  });
+
   it('is editable with write permission', async () => {
     renderTab({ role: 'ADMIN' });
     const religion = await screen.findByLabelText('Religion');
@@ -100,18 +108,19 @@ describe('students/-detail/records-tab', () => {
 
   it('is read-only with read but no write permission (health notes visible)', async () => {
     renderTab({ role: 'TEACHER', exams: [exam()] });
-    const religion = await screen.findByLabelText('Religion');
-    expect(religion.hasAttribute('readonly')).toBe(true);
+    // Read-only mode renders text (a label/value list), never disabled inputs.
+    await screen.findByText('Religion');
+    expect(screen.queryByLabelText('Religion')).toBeNull();
     expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
-    expect(screen.getByLabelText('Health notes')).toBeTruthy();
+    expect(screen.getByText('Health notes')).toBeTruthy();
     await screen.findByText('Dhaka');
     expect(screen.queryByRole('button', { name: 'Add exam' })).toBeNull();
   });
 
   it('hides health notes without STUDENT_RECORDS_READ', async () => {
     renderTab({ role: 'ACCOUNTANT' });
-    await screen.findByLabelText('Religion');
-    expect(screen.queryByLabelText('Health notes')).toBeNull();
+    await screen.findByText('Religion');
+    expect(screen.queryByText('Health notes')).toBeNull();
   });
 
   it('adds an exam', async () => {
@@ -162,7 +171,7 @@ describe('students/-detail/records-tab', () => {
   it('deletes an exam', async () => {
     const { user } = renderTab({ exams: [exam()] });
     await user.click(await screen.findByRole('button', { name: 'Delete' }));
-    const dialog = await screen.findByRole('dialog');
+    const dialog = await screen.findByRole('alertdialog');
     await user.click(within(dialog).getByRole('button', { name: 'Delete' }));
     await waitFor(() => expect(screen.queryByText('Dhaka')).toBeNull());
   });

@@ -4,7 +4,7 @@
     "error": "Could not load records."
   },
   "profile": {
-    "title": "Profile details",
+    "title": "Family and health details",
     "religion": "Religion",
     "birthRegNo": "Birth registration no.",
     "fatherName": "Father's name",
@@ -55,7 +55,8 @@
       "body": "This removes the exam record.",
       "confirm": "Delete",
       "error": "Could not delete this exam."
-    }
+    },
+    "cardSubtitle": "{{board}} · GPA {{gpa}}"
   },
   "timeline": {
     "title": "Lifecycle history",
