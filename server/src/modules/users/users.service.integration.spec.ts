@@ -197,7 +197,7 @@ describe('UserService (integration)', () => {
         {
           full_name: 'John Doe',
           email: 'john@example.com',
-          password: 'secret123',
+          password: 'Str0ng!Passw0rd',
           role: UserRole.TEACHER,
         },
         TENANT_ID,
@@ -206,7 +206,7 @@ describe('UserService (integration)', () => {
       expect(result.user).toBeDefined();
       expect(result.user.full_name).toBe('John Doe');
       expect(result.user.email).toBe('john@example.com');
-      expect(result.user.password_hash).not.toBe('secret123'); // bcrypt hash, not plaintext
+      expect(result.user.password_hash).not.toBe('Str0ng!Passw0rd'); // bcrypt hash, not plaintext
       expect(result.user.password_hash).toMatch(/^\$2b\$/); // bcrypt prefix
 
       expect(result.membership).toBeDefined();
@@ -236,7 +236,7 @@ describe('UserService (integration)', () => {
         {
           full_name: 'Admin User',
           email: 'admin@example.com',
-          password: 'pw',
+          password: 'Str0ng!Passw0rd',
           role: UserRole.ADMIN,
         },
         TENANT_ID,
@@ -254,7 +254,7 @@ describe('UserService (integration)', () => {
         {
           full_name: 'Teacher User',
           email: 'teacher-role@example.com',
-          password: 'pw',
+          password: 'Str0ng!Passw0rd',
           role: UserRole.TEACHER,
         },
         TENANT_ID,
@@ -274,7 +274,7 @@ describe('UserService (integration)', () => {
         {
           full_name: `New ${role}`,
           email: `${role.toLowerCase()}@example.com`,
-          password: 'pw',
+          password: 'Str0ng!Passw0rd',
           role,
         },
         TENANT_ID,
@@ -287,15 +287,43 @@ describe('UserService (integration)', () => {
       expect(profile !== null).toBe(hasProfile);
     });
 
+    it('refuses a password that fails the role rules (D10), creating nothing', async () => {
+      await expect(
+        service.create(
+          {
+            full_name: 'Weak',
+            email: 'weak@example.com',
+            password: 'password123',
+            role: UserRole.TEACHER,
+          },
+          TENANT_ID,
+        ),
+      ).rejects.toMatchObject({
+        status: 400,
+        response: { details: { code: 'PASSWORD_TOO_WEAK' } },
+      });
+      expect(await userRepo.count({ where: { email: 'weak@example.com' } })).toBe(0);
+    });
+
     it('should throw ConflictException when email already exists', async () => {
       await service.create(
-        { full_name: 'First', email: 'dup@example.com', password: 'pw', role: UserRole.TEACHER },
+        {
+          full_name: 'First',
+          email: 'dup@example.com',
+          password: 'Str0ng!Passw0rd',
+          role: UserRole.TEACHER,
+        },
         TENANT_ID,
       );
 
       await expect(
         service.create(
-          { full_name: 'Second', email: 'dup@example.com', password: 'pw', role: UserRole.ADMIN },
+          {
+            full_name: 'Second',
+            email: 'dup@example.com',
+            password: 'Str0ng!Passw0rd',
+            role: UserRole.ADMIN,
+          },
           TENANT_ID,
         ),
       ).rejects.toThrow(ConflictException);
@@ -306,7 +334,7 @@ describe('UserService (integration)', () => {
         {
           full_name: 'User A',
           email: 'shared@example.com',
-          password: 'pw',
+          password: 'Str0ng!Passw0rd',
           role: UserRole.TEACHER,
         },
         TENANT_ID,
@@ -318,7 +346,7 @@ describe('UserService (integration)', () => {
           {
             full_name: 'User B',
             email: 'shared@example.com',
-            password: 'pw',
+            password: 'Str0ng!Passw0rd',
             role: UserRole.ADMIN,
           },
           OTHER_TENANT,
@@ -1262,7 +1290,7 @@ describe('TeacherService (integration)', () => {
       {
         full_name: 'Teacher User',
         email: 'teacher@example.com',
-        password: 'pw',
+        password: 'Str0ng!Passw0rd',
         role: UserRole.TEACHER,
         ...overrides,
       },
