@@ -14,6 +14,37 @@ function toPatch(plain: Record<string, unknown>): Record<string, unknown> {
 }
 
 describe('mergeTenantSettings', () => {
+  it('shallow-merges attendance: omitted keys survive, sent keys replace', () => {
+    const existing = {
+      version: 1,
+      attendance: {
+        lateAfter: '09:00',
+        absentAfter: '10:00',
+        shiftTimes: { Morning: { start: '08:00' } },
+        periodAttendance: { enabled: true },
+      },
+    };
+
+    const kept = mergeTenantSettings(existing, {
+      version: 1,
+      attendance: { lateAfter: '09:30', absentAfter: '10:30' },
+    });
+    expect(kept.attendance).toEqual({
+      lateAfter: '09:30',
+      absentAfter: '10:30',
+      shiftTimes: { Morning: { start: '08:00' } },
+      periodAttendance: { enabled: true },
+    });
+
+    const replaced = mergeTenantSettings(existing, {
+      version: 1,
+      attendance: { shiftTimes: { Day: { start: '09:00' } } },
+    });
+    expect((replaced.attendance as Record<string, unknown>).shiftTimes).toEqual({
+      Day: { start: '09:00' },
+    });
+  });
+
   it('starts from an empty object when nothing was stored yet', () => {
     const patch = toPatch({ version: 1, region: DEFAULT_REGION_SETTINGS });
 
