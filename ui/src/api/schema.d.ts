@@ -7500,7 +7500,7 @@ export interface components {
         InvoiceSnapshotLine: {
             fee_name: string;
             period_label: string;
-            /** @description Billing month as 'YYYY-MM' — format it on the client. Older invoices are back-filled on read. */
+            /** @description Billing month as 'YYYY-MM' — format it on the client. Older invoices are back-filled when one invoice is fetched (GET /invoices/:id); list responses leave it unset. */
             period_start?: string;
             amount: number;
             discount: number;
