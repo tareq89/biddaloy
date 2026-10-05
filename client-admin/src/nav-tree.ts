@@ -1,5 +1,5 @@
 import type { EntityLabel } from '@biddaloy/shared';
-import { Permission } from '@biddaloy/shared';
+import { Permission, type STAFF_ROLES } from '@biddaloy/shared';
 
 /**
  * [30.1.3]'s staff nav as plain, serialisable data — no JSX, no hooks, so
@@ -280,12 +280,6 @@ export const STAFF_NAV_ITEMS = {
     permission: Permission.PAYMENT_RECORD,
     label: { key: 'recordPayment' },
   },
-  'finance.fees': {
-    id: 'finance.fees',
-    to: '/fees',
-    permission: Permission.FEE_STRUCTURE_READ,
-    label: { key: 'fees' },
-  },
   'finance.feeStructures': {
     id: 'finance.feeStructures',
     to: '/fee-structures',
@@ -312,11 +306,44 @@ export const STAFF_NAV_ITEMS = {
     permission: Permission.FEE_READ,
     label: { key: 'fines' },
   },
+  // [31.3.1] The payments list — same gate as its route (`PAYMENT_READ`).
+  'finance.payments': {
+    id: 'finance.payments',
+    to: '/payments',
+    permission: Permission.PAYMENT_READ,
+    label: { key: 'payments' },
+  },
   'finance.invoices': {
     id: 'finance.invoices',
     to: '/invoices',
     permission: Permission.INVOICE_READ,
     label: { entity: 'invoice' },
+  },
+  // [31.3.1] Pages that existed but had no sidebar item; each permission
+  // equals its route's `STAFF_ROUTE_PERMISSIONS` entry.
+  'examsResults.marksEntry': {
+    id: 'examsResults.marksEntry',
+    to: '/marks',
+    permission: Permission.MARK_VIEW,
+    label: { key: 'marksEntry' },
+  },
+  'examsResults.results': {
+    id: 'examsResults.results',
+    to: '/results',
+    permission: Permission.RESULT_PROCESS,
+    label: { key: 'results' },
+  },
+  'academics.routineReview': {
+    id: 'academics.routineReview',
+    to: '/routines/review',
+    permission: Permission.ROUTINE_READ,
+    label: { key: 'routineReview' },
+  },
+  'academics.routineSubstitutions': {
+    id: 'academics.routineSubstitutions',
+    to: '/routines/substitutions',
+    permission: Permission.ROUTINE_MANAGE,
+    label: { key: 'routineSubstitutions' },
   },
   'reports.collectionsReport': {
     id: 'reports.collectionsReport',
@@ -439,6 +466,8 @@ export const STAFF_NAV_GROUPS: readonly StaffNavGroupDef[] = [
       STAFF_NAV_ITEMS['academics.classes'],
       STAFF_NAV_ITEMS['academics.routineSetup'],
       STAFF_NAV_ITEMS['academics.routineBuilder'],
+      STAFF_NAV_ITEMS['academics.routineReview'],
+      STAFF_NAV_ITEMS['academics.routineSubstitutions'],
       STAFF_NAV_ITEMS['academics.myRoutine'],
       STAFF_NAV_ITEMS['academics.myClass'],
       STAFF_NAV_ITEMS['academics.homework'],
@@ -461,8 +490,10 @@ export const STAFF_NAV_GROUPS: readonly StaffNavGroupDef[] = [
     items: [
       STAFF_NAV_ITEMS['examsResults.exams'],
       STAFF_NAV_ITEMS['examsResults.examTemplates'],
+      STAFF_NAV_ITEMS['examsResults.marksEntry'],
       STAFF_NAV_ITEMS['examsResults.seatPlans'],
       STAFF_NAV_ITEMS['examsResults.gradingScales'],
+      STAFF_NAV_ITEMS['examsResults.results'],
       STAFF_NAV_ITEMS['examsResults.analysis'],
       STAFF_NAV_ITEMS['examsResults.promotion'],
     ],
@@ -473,11 +504,11 @@ export const STAFF_NAV_GROUPS: readonly StaffNavGroupDef[] = [
     pinnedLabel: { key: 'quickActions' },
     pinnedItems: [STAFF_NAV_ITEMS['finance.dues'], STAFF_NAV_ITEMS['finance.recordPayment']],
     items: [
-      STAFF_NAV_ITEMS['finance.fees'],
       STAFF_NAV_ITEMS['finance.feeStructures'],
       STAFF_NAV_ITEMS['finance.generateFees'],
       STAFF_NAV_ITEMS['finance.recurringSchedules'],
       STAFF_NAV_ITEMS['finance.fines'],
+      STAFF_NAV_ITEMS['finance.payments'],
       STAFF_NAV_ITEMS['finance.invoices'],
     ],
   },
@@ -507,3 +538,71 @@ export const STAFF_NAV_GROUPS: readonly StaffNavGroupDef[] = [
     ],
   },
 ];
+
+export type StaffNavItemId = keyof typeof STAFF_NAV_ITEMS;
+export type StaffRole = (typeof STAFF_ROLES)[number];
+
+/** One phone bottom-bar cell: a nav item plus the `nav:bottomNavCells.*` short label key. */
+export interface BottomNavCellDef {
+  readonly id: StaffNavItemId;
+  readonly shortLabelKey: string;
+}
+
+const cell = (id: StaffNavItemId, shortLabelKey: string): BottomNavCellDef => ({
+  id,
+  shortLabelKey,
+});
+
+/** [31.3.1] Each role's own bottom-bar cells (nav-icons.md "Bottom-bar cells per role"). */
+export const STAFF_BOTTOM_NAV: Record<StaffRole, readonly BottomNavCellDef[]> = {
+  SUPER_ADMIN: [
+    cell('dashboard', 'dashboard'),
+    cell('people.students', 'students'),
+    cell('attendance.attendance', 'attendance'),
+    cell('finance.dues', 'dues'),
+  ],
+  ADMIN: [
+    cell('dashboard', 'dashboard'),
+    cell('people.students', 'students'),
+    cell('attendance.attendance', 'attendance'),
+    cell('finance.dues', 'dues'),
+  ],
+  ACCOUNTANT: [
+    cell('dashboard', 'dashboard'),
+    cell('finance.dues', 'dues'),
+    cell('finance.recordPayment', 'payment'),
+    cell('finance.invoices', 'invoices'),
+  ],
+  EXECUTIVE: [
+    cell('dashboard', 'dashboard'),
+    cell('people.students', 'students'),
+    cell('attendance.attendance', 'attendance'),
+    cell('reports.collectionsReport', 'reports'),
+  ],
+  // My class replaces the dashboard placeholder as the teacher's home.
+  TEACHER: [
+    cell('academics.myClass', 'myClass'),
+    cell('attendance.attendance', 'attendance'),
+    cell('academics.myRoutine', 'routine'),
+    cell('academics.homework', 'homework'),
+  ],
+  OFFICE_STAFF: [
+    cell('dashboard', 'dashboard'),
+    cell('people.students', 'students'),
+    cell('people.admissionApplicants', 'applicants'),
+    cell('attendance.attendance', 'attendance'),
+  ],
+  EXAM_CONTROLLER: [
+    cell('dashboard', 'dashboard'),
+    cell('examsResults.exams', 'exams'),
+    cell('examsResults.analysis', 'analysis'),
+    cell('people.students', 'students'),
+  ],
+  // Two cells: "up to 4, never empty or duplicate" (C8).
+  COMMITTEE: [cell('dashboard', 'dashboard'), cell('people.calendar', 'calendar')],
+};
+
+/** true when `pathname` is `to` or under it on whole segments ("/fees" does not own "/feesx"). */
+export function isPathUnder(pathname: string, to: string): boolean {
+  return pathname === to || pathname.startsWith(`${to}/`);
+}

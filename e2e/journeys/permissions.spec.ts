@@ -19,7 +19,7 @@ const CASES = [
       'nav.items.guardians',
       'nav.items.studentDues',
       'nav.items.recordPayment',
-      'nav.items.fees',
+      'nav.items.payments',
       'nav.items.feeStructures',
       'nav.items.invoices',
     ],

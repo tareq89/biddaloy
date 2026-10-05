@@ -5,17 +5,10 @@
  * component supplies: the fetched name (`useCurrentUser`), the active
  * role's translated label, and the sign-out handler.
  *
- * **Profile placeholder — user-approved deviation from the published
- * plan.** The plan's own "Needs decision" section picked option (a): ship
- * name/role/Sign out and leave `profileItem` unset, since no staff
- * profile route exists yet (`#368` only builds the guardian-facing
- * `/portal/account`). The user overrode that for this ticket: a disabled
- * `MenuItem` renders here instead, communicating "not built yet" rather
- * than omitting the row outright — the epic's own header mockup shows a
- * profile entry, so a silent absence would read as a missing feature
- * rather than a deliberate one. This placeholder is deliberately **not**
- * baked into `@biddaloy/ui`'s `UserMenu` API — it stays a plain
- * `profileItem` slot value, owned entirely by this app.
+ * The account menu (D12) holds language, theme, security, switch school or
+ * role and sign out. There is deliberately no "profile — coming soon" row:
+ * "My account" is the security page (`securityTo`, `/portal/account` for the
+ * portal).
  *
  * A `/users/me` failure must never take Sign out down with it — `name` is
  * simply `undefined` on `isError`, same as while `isLoading`, so
@@ -25,8 +18,7 @@
  * **[15.8.3] Install app.** `useInstallPrompt()` (`@biddaloy/ui/pwa`) is
  * the only source of truth for whether an install action exists —
  * `mode === 'none'` (already installed, or nothing to offer) renders no
- * `installItem` at all, same "omit the slot value" convention
- * `profileItem` already uses. `mode === 'prompt'` (Chrome/Android/desktop)
+ * `installItem` at all, same "omit the slot value" convention. `mode === 'prompt'` (Chrome/Android/desktop)
  * calls `install()` directly from the menu item's `onSelect`; `mode ===
  * 'ios-instructions'` opens `IosInstallSheet` instead, since iOS has no
  * native prompt to trigger (see that component's own header comment).
@@ -40,7 +32,7 @@ import { useNavigate } from '@tanstack/react-router';
 import { DownloadIcon } from 'lucide-react';
 import * as React from 'react';
 
-export function StaffUserMenu() {
+export function StaffUserMenu({ securityTo = '/security' }: { securityTo?: string } = {}) {
   // Loaded first — `check-i18n-keys.mjs` resolves a file's bare `t()`
   // calls off its *first* `useTranslation` call, so `nav` (this
   // component's own namespace) must be established before `auth` is
@@ -102,31 +94,13 @@ export function StaffUserMenu() {
             </MenuItem>
           )
         }
+        showAccountControls
         profileItem={
-          <>
-            {/* `aria-disabled` + a swallowed `onSelect`, not `disabled`: a
-                `disabled` menu item is skipped by the menu's roving focus, so a
-                screen-reader user would never reach the one row that explains
-                the feature is coming — the placeholder would be invisible to
-                exactly the users it is meant to inform. This keeps it
-                focusable and announced while still doing nothing on activation. */}
-            <MenuItem
-              aria-disabled="true"
-              onSelect={(event) => {
-                event.preventDefault();
-              }}
-              className="text-muted-foreground data-highlighted:text-muted-foreground"
-            >
-              {t('userMenu.profile')}{' '}
-              <span className="text-muted-foreground">({t('userMenu.profileComingSoon')})</span>
-            </MenuItem>
-            {/* [12.8] — a live item, unlike Profile above: `/security` exists
-                today, gated only by `DASHBOARD_VIEW` (see
-                `route-permissions.ts`'s own comment on that route). */}
-            <MenuItem onSelect={() => void navigate({ to: '/security' })}>
-              {t('userMenu.security')}
-            </MenuItem>
-          </>
+          // [12.8] — `/security` is gated only by `DASHBOARD_VIEW` (see
+          // `route-permissions.ts`'s own comment on that route).
+          <MenuItem onSelect={() => void navigate({ to: securityTo })}>
+            {t('userMenu.security')}
+          </MenuItem>
         }
       />
       {mode === 'ios-instructions' && (
