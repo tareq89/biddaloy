@@ -58,23 +58,12 @@ describe('LeaveDialog', () => {
     expect(await screen.findByText('Write a reason.')).toBeTruthy();
   });
 
-  it('blocks a future date', async () => {
+  it('uses a date picker, not a native date input, and cannot reach a future date', async () => {
     server.use(withBalance(0));
-    const post = vi.fn();
-    server.use(
-      http.post('/api/v1/students/s1/leave', () => {
-        post();
-        return HttpResponse.json({});
-      }),
-    );
-    const user = await openDialog();
-    await user.type(screen.getByLabelText('Reason'), 'Moved away');
-    const date = screen.getByLabelText('Date');
-    await user.clear(date);
-    await user.type(date, '2999-01-01');
-    await user.click(screen.getByRole('button', { name: 'Record leaving' }));
-    expect(await screen.findByText('The date cannot be in the future.')).toBeTruthy();
-    expect(post).not.toHaveBeenCalled();
+    await openDialog();
+    const dialog = screen.getByRole('dialog');
+    expect(dialog.querySelector('input[type="date"]')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Date' }).tagName).toBe('BUTTON');
   });
 
   it('shows the dues warning and still submits', async () => {

@@ -26,13 +26,11 @@ describe('ReadmitDialog', () => {
     expect(await screen.findByText('Choose a class and section.')).toBeTruthy();
   });
 
-  it('blocks a future date', async () => {
-    const { user } = await renderDialog();
-    const date = await screen.findByLabelText('Date');
-    await user.clear(date);
-    await user.type(date, '2999-01-01');
-    await user.click(screen.getByRole('button', { name: 'Readmit' }));
-    expect(await screen.findByText('The date cannot be in the future.')).toBeTruthy();
+  it('uses a date picker, not a native date input', async () => {
+    await renderDialog();
+    const dialog = await screen.findByRole('dialog');
+    expect(dialog.querySelector('input[type="date"]')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Date' }).tagName).toBe('BUTTON');
   });
 
   it('is axe clean', async () => {
