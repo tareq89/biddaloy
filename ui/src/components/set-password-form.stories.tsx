@@ -21,15 +21,29 @@ type Story = StoryObj<typeof SetPasswordForm>;
 
 export const Default: Story = {};
 
-/** Submitting a too-short/mismatched pair triggers Zod's own validation,
- * the same `sign-in-form.stories.tsx`'s `ValidationError` pattern. */
-export const ValidationError: Story = {
+/** Weak password + mismatching confirm: rules partly grey, submit disabled. */
+export const PartlyMetAndMismatch: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await userEvent.type(canvas.getByLabelText('New password'), 'short');
+    await userEvent.type(canvas.getByLabelText('New password'), 'abcdefgh');
     await userEvent.type(canvas.getByLabelText('Confirm password'), 'different');
-    await userEvent.click(canvas.getByRole('button', { name: 'Set password' }));
   },
+};
+
+export const AllMetAndMatch: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.type(canvas.getByLabelText('New password'), 'Strong-pass1');
+    await userEvent.type(canvas.getByLabelText('Confirm password'), 'Strong-pass1');
+  },
+};
+
+export const FamilyAudience: Story = {
+  args: { audience: 'family' },
+};
+
+export const WithSkip: Story = {
+  args: { onSkip: () => {} },
 };
 
 export const Submitting: Story = {

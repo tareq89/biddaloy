@@ -25,36 +25,64 @@ describe('SetPasswordForm', () => {
     expect(confirm.getAttribute('autocomplete')).toBe('new-password');
   });
 
-  it('shows a too-short error on submit rather than calling onSubmit', async () => {
+  it('keeps submit disabled until every rule is met and both fields match', async () => {
     const onSubmit = vi.fn();
     const user = userEvent.setup();
     renderWithProviders(<SetPasswordForm heading="Welcome" onSubmit={onSubmit} />, {
       locale: 'en',
     });
+    const submit = screen.getByRole('button', { name: 'Set password' });
 
     await user.type(await screen.findByLabelText('New password'), 'short');
     await user.type(screen.getByLabelText('Confirm password'), 'short');
-    await user.click(screen.getByRole('button', { name: 'Set password' }));
+    expect(submit.disabled).toBe(true);
 
-    await waitFor(() =>
-      expect(screen.getByText('Password must be at least 8 characters.')).toBeTruthy(),
-    );
-    expect(onSubmit).not.toHaveBeenCalled();
+    await user.clear(screen.getByLabelText('New password'));
+    await user.type(screen.getByLabelText('New password'), 'Strong-pass1');
+    expect(submit.disabled).toBe(true); // confirm still 'short'
+    expect(screen.getByText('Passwords do not match.')).toBeTruthy();
+
+    await user.clear(screen.getByLabelText('Confirm password'));
+    await user.type(screen.getByLabelText('Confirm password'), 'Strong-pass1');
+    expect(screen.getByText('Passwords match')).toBeTruthy();
+    expect(submit.disabled).toBe(false);
   });
 
-  it('shows a mismatch error when the two fields disagree', async () => {
-    const onSubmit = vi.fn();
+  it('shows five rules for staff and two for family', async () => {
+    const { unmount } = renderWithProviders(
+      <SetPasswordForm heading="Welcome" onSubmit={vi.fn()} />,
+      { locale: 'en' },
+    );
+    await screen.findByLabelText('New password');
+    expect(screen.getAllByRole('listitem')).toHaveLength(5);
+    unmount();
+
+    renderWithProviders(
+      <SetPasswordForm heading="Welcome" onSubmit={vi.fn()} audience="family" />,
+      {
+        locale: 'en',
+      },
+    );
+    await screen.findByLabelText('New password');
+    expect(screen.getAllByRole('listitem')).toHaveLength(2);
+  });
+
+  it('renders the skip button only when onSkip is given, and calls it', async () => {
+    const onSkip = vi.fn();
     const user = userEvent.setup();
-    renderWithProviders(<SetPasswordForm heading="Welcome" onSubmit={onSubmit} />, {
+    const { unmount } = renderWithProviders(
+      <SetPasswordForm heading="Welcome" onSubmit={vi.fn()} />,
+      { locale: 'en' },
+    );
+    await screen.findByLabelText('New password');
+    expect(screen.queryByRole('button', { name: 'Skip for now' })).toBeNull();
+    unmount();
+
+    renderWithProviders(<SetPasswordForm heading="Welcome" onSubmit={vi.fn()} onSkip={onSkip} />, {
       locale: 'en',
     });
-
-    await user.type(await screen.findByLabelText('New password'), 'a-strong-password');
-    await user.type(screen.getByLabelText('Confirm password'), 'a-different-password');
-    await user.click(screen.getByRole('button', { name: 'Set password' }));
-
-    await waitFor(() => expect(screen.getByText('Passwords do not match.')).toBeTruthy());
-    expect(onSubmit).not.toHaveBeenCalled();
+    await user.click(await screen.findByRole('button', { name: 'Skip for now' }));
+    expect(onSkip).toHaveBeenCalledTimes(1);
   });
 
   it('submits the password only, on a matching pair', async () => {
@@ -64,11 +92,11 @@ describe('SetPasswordForm', () => {
       locale: 'en',
     });
 
-    await user.type(await screen.findByLabelText('New password'), 'a-strong-password');
-    await user.type(screen.getByLabelText('Confirm password'), 'a-strong-password');
+    await user.type(await screen.findByLabelText('New password'), 'Strong-pass1');
+    await user.type(screen.getByLabelText('Confirm password'), 'Strong-pass1');
     await user.click(screen.getByRole('button', { name: 'Set password' }));
 
-    await waitFor(() => expect(onSubmit).toHaveBeenCalledWith('a-strong-password'));
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledWith('Strong-pass1'));
   });
 
   it('toggles each field visibility independently', async () => {
