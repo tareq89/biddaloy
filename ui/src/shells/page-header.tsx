@@ -37,8 +37,8 @@ export interface PageHeaderProps {
 
 export function PageHeader({ title, subtitle, actions }: PageHeaderProps) {
   return (
-    <header className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between md:gap-6">
-      <div className="min-w-0">
+    <header className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-end md:justify-between md:gap-x-6 md:gap-y-3">
+      <div className="min-w-0 md:min-w-48">
         <h1 className="text-h1">{title}</h1>
         {subtitle && <p className="mt-0.5 truncate text-text-secondary">{subtitle}</p>}
       </div>
