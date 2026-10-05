@@ -1,9 +1,29 @@
 import { UserRole } from '@biddaloy/shared';
+import {
+  AppHeader,
+  AppShell,
+  BottomNav,
+  Breadcrumbs,
+  LocaleSwitcher,
+  NotificationBell,
+  ThemeToggle,
+} from '@biddaloy/ui/components';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { RequireRole } from '@biddaloy/ui/routes';
-import { createFileRoute, Link, Outlet } from '@tanstack/react-router';
+import {
+  createFileRoute,
+  Outlet,
+  useMatches,
+  useRouterState,
+} from '@tanstack/react-router';
+import * as React from 'react';
 
+import { CommandPaletteLauncher } from '../../components/command-palette-launcher';
+import { StaffUserMenu } from '../../components/staff-user-menu';
+import { MORE_ICON, PLATFORM_NAV_ICONS, STAFF_NAV_ICONS } from '../../nav-icons';
+import { isPathUnder } from '../../nav-tree';
 import { loadRouteNamespaces } from '../../route-loaders';
+import { useBreadcrumbs } from '../../use-breadcrumbs';
 
 /**
  * #533's SUPER_ADMIN platform console — a pathless layout, same
@@ -25,26 +45,127 @@ import { loadRouteNamespaces } from '../../route-loaders';
  * `RequireRole` here is the same **UX-only** gate `_staff.tsx` uses —
  * the server's own `@Roles(UserRole.SUPER_ADMIN)` on every `/schools`
  * route (`schools.controller.ts`) is the actual security boundary.
+ *
+ * [31.3.3] Renders inside the same `AppShell` as the staff and portal
+ * shells (D33): sidebar, top bar, phone row and a bottom bar of Schools ·
+ * Holidays · Dashboard (back to the school app) plus More (C8).
  */
 export const Route = createFileRoute('/_platform')({
-  loader: () => loadRouteNamespaces('platform'),
+  loader: () => loadRouteNamespaces('nav', 'platform'),
   component: PlatformLayout,
 });
 
 function PlatformLayout() {
-  const { t } = useTranslation('platform');
+  // `nav` first: `check-i18n-keys.mjs` resolves bare keys off the first call.
+  const { t } = useTranslation('nav');
+  const { t: tPlatform } = useTranslation('platform');
+  const { t: tAuth } = useTranslation('auth');
+  const SchoolsIcon = PLATFORM_NAV_ICONS['/schools'];
+  const HolidaySetsIcon = PLATFORM_NAV_ICONS['/holiday-sets'];
+  const DashboardIcon = STAFF_NAV_ICONS.dashboard;
+
+  const matches = useMatches();
+  const chromeless = matches[matches.length - 1]?.staticData.chromeless === true;
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+
+  const { items: breadcrumbItems, title: breadcrumbTitle } = useBreadcrumbs(t('brand'));
+  React.useEffect(() => {
+    if (breadcrumbTitle !== undefined) {
+      document.title = breadcrumbTitle;
+    }
+  }, [breadcrumbTitle]);
+
+  const navItems = [
+    {
+      to: '/schools',
+      label: t('items.schools'),
+      icon: <SchoolsIcon aria-hidden="true" />,
+    },
+    {
+      to: '/holiday-sets',
+      label: t('items.holidaySets'),
+      icon: <HolidaySetsIcon aria-hidden="true" />,
+    },
+  ];
+  const platformPages = navItems.map((i) => ({ id: i.to, label: i.label, to: i.to }));
+  // The console has two pages; the third cell goes back to the school app (C8).
+  const cells = [
+    { ...navItems[0]!, label: t('bottomNavCells.schools') },
+    { ...navItems[1]!, label: t('bottomNavCells.holidays') },
+    {
+      to: '/dashboard',
+      label: t('bottomNavCells.dashboard'),
+      icon: <DashboardIcon aria-hidden="true" />,
+    },
+  ];
+  const consoleTitle = tPlatform('breadcrumb.platformAdmin');
+  const notificationBell = <NotificationBell viewAllTo="/notifications" />;
+
   return (
     <RequireRole allow={[UserRole.SUPER_ADMIN]} redirectTo="/dashboard">
-      <div className="mx-auto flex max-w-6xl flex-col gap-4 p-4">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Link to="/dashboard" className="inline-flex min-h-6 items-center underline">
-            {t('breadcrumb.dashboard')}
-          </Link>
-          <span aria-hidden="true">/</span>
-          <span>{t('breadcrumb.platformAdmin')}</span>
-        </div>
+      {chromeless ? (
         <Outlet />
-      </div>
+      ) : (
+        <AppShell
+          navItems={navItems}
+          brand={t('brand')}
+          topBar={
+            <div className="hidden md:flex">
+              <AppHeader
+                start={
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold">{consoleTitle}</span>
+                    <span className="rounded-full bg-muted px-2 py-0.5 text-caption text-text-secondary">
+                      {tAuth('schoolPicker.roles.SUPER_ADMIN')}
+                    </span>
+                  </div>
+                }
+                end={
+                  <>
+                    <CommandPaletteLauncher pages={platformPages} />
+                    {notificationBell}
+                    <LocaleSwitcher />
+                    <ThemeToggle />
+                    <StaffUserMenu />
+                  </>
+                }
+              />
+            </div>
+          }
+          mobileTitle={consoleTitle}
+          mobileActions={
+            <>
+              <CommandPaletteLauncher pages={platformPages} />
+              {notificationBell}
+              <StaffUserMenu />
+            </>
+          }
+          bottomNav={
+            <BottomNav
+              items={cells}
+              label={t('bottomNavStaffLabel')}
+              more={{
+                label: t('items.more'),
+                icon: <MORE_ICON className="size-5" aria-hidden="true" />,
+                active: !cells.some((c) => isPathUnder(pathname, c.to)),
+              }}
+            />
+          }
+          openMenuLabel={t('openMenuLabel')}
+          closeMenuLabel={t('closeMenuLabel')}
+          navLabel={t('navLabel')}
+          skipLinkLabel={t('skipToContent')}
+        >
+          {breadcrumbItems.length > 0 && (
+            <Breadcrumbs
+              items={breadcrumbItems}
+              aria-label={t('breadcrumb.navLabel')}
+              className="mb-4"
+            />
+          )}
+          <Outlet />
+        </AppShell>
+      )}
     </RequireRole>
   );
 }
