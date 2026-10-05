@@ -1,6 +1,6 @@
 {
   "list": {
-    "title": "Audit Logs",
+    "title": "Activity log",
     "caption": "Audit trail, newest first",
     "columnWhen": "When",
     "columnWho": "Who",
@@ -37,7 +37,7 @@
     "LOGIN": "Signed in",
     "LOGIN_FAILED": "Sign-in failed",
     "LOGOUT": "Signed out",
-    "TOKEN_REUSE_DETECTED": "Session token replayed",
+    "TOKEN_REUSE_DETECTED": "Old sign-in reused",
     "PAYMENT_RECEIVED": "Payment recorded",
     "INVOICE_GENERATED": "Invoice generated",
     "BULK_UPLOAD": "Bulk import",
@@ -54,7 +54,7 @@
     "Invoice": "Invoice",
     "User": "User",
     "School": "School",
-    "ReminderBatch": "Reminder batch",
+    "ReminderBatch": "Reminder round",
     "ReminderBatchPreview": "Reminder preview",
     "AbsenceNoticePreview": "Absence notice preview",
     "AcademicYear": "Academic year",
@@ -65,7 +65,7 @@
     "ClassSection": "Class section",
     "Enrollment": "Enrollment",
     "Guardian": "Guardian",
-    "InvitationBatch": "Invitation batch",
+    "InvitationBatch": "Invitation round",
     "RefreshToken": "Session",
     "SchoolHoliday": "School holiday",
     "unknown": "Record"
@@ -78,7 +78,7 @@
     "LOGIN": "Signed in to the school.",
     "LOGIN_FAILED": "A sign-in attempt was refused.",
     "LOGOUT": "Signed out of the school.",
-    "TOKEN_REUSE_DETECTED": "An already-used sign-in token was replayed, so the session was ended.",
+    "TOKEN_REUSE_DETECTED": "An already-used sign-in was replayed, so the session was ended.",
     "PAYMENT_RECEIVED": "A payment was recorded against a student's fees.",
     "INVOICE_GENERATED": "An invoice was generated.",
     "BULK_UPLOAD": "Records were imported from a file.",

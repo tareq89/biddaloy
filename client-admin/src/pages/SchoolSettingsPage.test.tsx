@@ -221,7 +221,7 @@ describe('SchoolSettingsPage', () => {
     it('is hidden without CURRICULUM_PRESET_APPLY', async () => {
       mount('TEACHER', 'AVAILABLE');
       await screen.findByText('Configuring settings for Greenview School');
-      expect(screen.queryByText('Curriculum preset')).toBeNull();
+      expect(screen.queryByText('Ready-made curriculum')).toBeNull();
     });
   });
 });

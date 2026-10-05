@@ -95,7 +95,7 @@ describe('PageSetupPanel', () => {
     await user.tab();
     expect(onPage).toHaveBeenCalledWith({ heightMm: 60 });
 
-    const batch = screen.getByLabelText('Cards per batch');
+    const batch = screen.getByLabelText('Cards per round');
     await user.clear(batch);
     await user.type(batch, '30');
     await user.tab();

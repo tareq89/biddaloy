@@ -14,7 +14,9 @@ describe('/verify-email', () => {
 
     renderWithRouter(routeTree, { initialEntries: ['/verify-email'], locale: 'en' });
 
-    await waitFor(() => expect(screen.getByText('This link is missing its token.')).toBeTruthy());
+    await waitFor(() =>
+      expect(screen.getByText('This link is incomplete — ask for a new one.')).toBeTruthy(),
+    );
   });
 
   it('shows the success card for a valid token', async () => {
