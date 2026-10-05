@@ -98,7 +98,7 @@ function previewHandler(onBody?: (body: Record<string, unknown>) => void) {
   );
 }
 
-function render(role = 'ACCOUNTANT') {
+function render(role = 'ADMIN') {
   return renderWithRouter(routeTree, {
     initialEntries: ['/communications/reminders'],
     tenantId: 'tenant-1',
