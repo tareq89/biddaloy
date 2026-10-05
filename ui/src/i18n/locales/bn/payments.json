@@ -175,5 +175,43 @@
     "amountRangeLabel": "পরিমাণ (৳)",
     "minAmount": "সর্বনিম্ন",
     "maxAmount": "সর্বোচ্চ"
+  },
+  "invoiceDetail": {
+    "student": "শিক্ষার্থী",
+    "payment": "পেমেন্ট",
+    "paymentValue": "{{method}} · {{date}}",
+    "originalInvoice": "মূল চালান",
+    "creditNote": "ক্রেডিট নোট",
+    "lines": {
+      "caption": "{{name}}-এর বিল",
+      "fee": "ফি",
+      "period": "মেয়াদ",
+      "billed": "বিল",
+      "discount": "ছাড়",
+      "paidNow": "এবার পরিশোধ",
+      "balance": "বাকি",
+      "phoneLine": "{{period}} · বিল {{billed}}"
+    },
+    "totals": {
+      "billed": "মোট বিল",
+      "discount": "ছাড়",
+      "tax": "কর",
+      "wallet": "ওয়ালেট থেকে",
+      "paid": "পরিশোধিত",
+      "change": "ফেরত"
+    },
+    "notes": "নোট",
+    "printTitle": "প্রিন্ট",
+    "printAction": "প্রিন্ট করুন",
+    "sendTitle": "অভিভাবককে পাঠান",
+    "sendWhatsapp": "হোয়াটসঅ্যাপ",
+    "sendSms": "এসএমএস",
+    "shareTitle": "শেয়ার লিংক",
+    "shareHelp": "লিংক থাকলে যে কেউ লগইন ছাড়া রসিদটি দেখতে পারবে।",
+    "shareCreate": "লিংক তৈরি করুন",
+    "shareRevoke": "লিংক বন্ধ করুন",
+    "shareRevokeTitle": "এই লিংক বন্ধ করবেন?",
+    "shareFailed": "শেয়ার লিংক তৈরি করা যায়নি।",
+    "revokeFailed": "লিংক বন্ধ করা যায়নি।"
   }
 }

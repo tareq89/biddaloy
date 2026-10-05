@@ -35,10 +35,10 @@ test('print, copy the share link, open it unauthenticated, then revoke it', asyn
   await expect(page.getByText(t('fees.invoiceDetail.totalAmount')).first()).toBeVisible();
 
   await test.step('Print opens the POS-80 printable route', async () => {
-    await page.getByRole('radio', { name: t('fees.invoiceDetail.printFormat.pos80') }).click();
+    await page.getByRole('radio', { name: t('payments.printFormat.pos80') }).click();
     const [printPage] = await Promise.all([
       context.waitForEvent('page'),
-      page.getByRole('button', { name: t('fees.invoiceDetail.print') }).click(),
+      page.getByRole('button', { name: t('payments.invoiceDetail.printAction') }).click(),
     ]);
     // `openPrintableInvoice` (`ui/src/hooks/invoices.ts`) opens the tab on
     // `about:blank` first, then fetches the printable HTML and only sets
@@ -60,7 +60,7 @@ test('print, copy the share link, open it unauthenticated, then revoke it', asyn
 
   let shareUrl = '';
   await test.step('Copy link creates a share and copies its URL', async () => {
-    await page.getByRole('button', { name: t('fees.invoiceDetail.share.create') }).click();
+    await page.getByRole('button', { name: t('payments.invoiceDetail.shareCreate') }).click();
     const copyButton = page.getByRole('button', { name: t('fees.invoiceDetail.share.copyLink') });
     await expect(copyButton).toBeVisible();
     // `input[value*="/i/"]` is a CSS *attribute* selector — React sets the
@@ -88,10 +88,10 @@ test('print, copy the share link, open it unauthenticated, then revoke it', asyn
   });
 
   await test.step('Revoke, then the same link 404s', async () => {
-    await page.getByRole('button', { name: t('fees.invoiceDetail.share.revoke') }).click();
+    await page.getByRole('button', { name: t('payments.invoiceDetail.shareRevoke') }).click();
     await page
-      .getByRole('dialog', { name: t('fees.invoiceDetail.share.revokeConfirmTitle') })
-      .getByRole('button', { name: t('fees.invoiceDetail.share.revoke') })
+      .getByRole('alertdialog', { name: t('payments.invoiceDetail.shareRevokeTitle') })
+      .getByRole('button', { name: t('payments.invoiceDetail.shareRevoke') })
       .click();
     await expect(page.getByText(t('fees.invoiceDetail.share.revoked'))).toBeVisible();
 
