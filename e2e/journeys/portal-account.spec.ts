@@ -325,9 +325,7 @@ test.describe('contact change', () => {
       await page.goto('/portal/account');
       // The page shows the phone formatted (a hyphen after the fifth digit), so
       // match the last six digits, which stay contiguous.
-      await rowFor(account.phone.slice(-6))
-        .getByRole('button', { name: changeLabel })
-        .click();
+      await rowFor(account.phone.slice(-6)).getByRole('button', { name: changeLabel }).click();
       await expect(dialog).toBeVisible();
     });
 
@@ -366,7 +364,9 @@ test.describe('contact change', () => {
 
       // The row shows a "Verified" badge; the full dated sentence is its title.
       await expect(
-        rowFor(newPhone.slice(-6)).getByText(t('portal.account.contact.verifiedShort')),
+        rowFor(newPhone.slice(-6)).getByText(t('portal.account.contact.verifiedShort'), {
+          exact: true,
+        }),
       ).toBeVisible();
       await expect(page.getByText(account.phone.slice(-6))).not.toBeVisible();
     });

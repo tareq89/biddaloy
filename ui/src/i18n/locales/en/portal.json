@@ -14,7 +14,7 @@
     "title": "Your children",
     "meta": "{{className}} {{section}} · Roll {{roll}}",
     "metaNoClass": "Roll {{roll}}",
-    "viewFeesFor": "View {{name}}'s fees"
+    "viewFeesFor": "View fee breakdown - {{name}}"
   },
   "actions": {
     "viewFeeBreakdown": "View fee breakdown"
@@ -46,7 +46,6 @@
     "walletBalance": "Balance",
     "walletEmpty": "No credit balance activity yet.",
     "recurringTitle": "Recurring fees",
-    "recurringEmpty": "No recurring fees set up.",
     "recurringNextOn": "Next on {{date}}",
     "error": {
       "message": "Could not load these fees. Something went wrong reaching the school's records — check your connection and try again.",
@@ -57,7 +56,9 @@
     "invoiceNumber": "Invoice no.",
     "issuedOn": "Issued on",
     "amount": "Amount",
-    "print": "Print"
+    "print": "Print",
+    "breakdownEmptyTitle": "No months yet",
+    "invoicesEmptyTitle": "No invoices"
   },
   "results": {
     "title": "Results",
@@ -74,7 +75,8 @@
     "hideSubjects": "Hide subject marks",
     "subjectsCaption": "{{name}} — marks by subject",
     "emptyTitle": "No results yet",
-    "emptyExplanation": "Results appear here once the school publishes them."
+    "emptyExplanation": "Results appear here once the school publishes them.",
+    "printError": "Could not load this report card to print. Try again."
   },
   "programs": {
     "title": "Programs",
@@ -115,19 +117,13 @@
     "emptyExplanation": "It appears here once the school publishes a complete schedule."
   },
   "attendance": {
-    "title": "Attendance",
     "loading": "Loading attendance",
     "pickerLabel": "Choose a student",
-    "monthStepper": {
-      "previousLabel": "Previous month, {{month}}",
-      "nextLabel": "Next month, {{month}}"
-    },
     "summary": {
       "present": "Present",
       "absent": "Absent",
       "late": "Late",
       "leave": "Leave",
-      "percentage": "Attendance",
       "notEnoughData": "Not enough marked days this month",
       "rateFor": "Attendance rate · {{month}}"
     },
@@ -210,7 +206,8 @@
     "periodCount_one": "{{count}} period",
     "periodCount_other": "{{count}} periods",
     "until": "until {{time}}",
-    "substitute": "Substitute teacher"
+    "substitute": "Substitute teacher",
+    "periodFallback": "Period"
   },
   "payments": {
     "title": "Recent payments",
@@ -271,7 +268,8 @@
     "loading": "Loading your account",
     "error": {
       "message": "Could not load your account. Something went wrong reaching the school's records — check your connection and try again.",
-      "retry": "Try again"
+      "retry": "Try again",
+      "saveFailed": "Could not save your changes. Check your connection and try again."
     },
     "profile": {
       "title": "Profile",
@@ -392,7 +390,8 @@
       "title": "Devices",
       "showAll_one": "Show all {{count}} device",
       "showAll_other": "Show all {{count}} devices",
-      "showFewer": "Show fewer"
+      "showFewer": "Show fewer",
+      "revokeError": "Could not sign that device out. Try again."
     },
     "subtitle": "Your name, contact details, password and signed-in devices."
   },
