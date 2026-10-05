@@ -1,9 +1,11 @@
+import { REGION_BD_BN } from '@biddaloy/ui/i18n';
 import {
   cleanupTestState,
   renderWithProviders,
   server,
   userResponseFactory,
 } from '@biddaloy/ui/test';
+import { formatDate } from '@biddaloy/ui/utils';
 import { screen } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -58,7 +60,9 @@ describe('ProfileTab contact verification labels', () => {
     // The digits are Bengali (`২০২৬-০১-১৫`) even under `locale: 'en'`:
     // `formatDate` renders them through the REGION config's numeral system,
     // which is independent of the message locale. Hence both digit classes.
-    expect(await screen.findByText(/^Verified [\d০-৯]{4}-[\d০-৯]{2}-[\d০-৯]{2}$/)).toBeTruthy();
+    expect(
+      await screen.findByText(`Verified ${formatDate('2026-01-15', REGION_BD_BN)}`),
+    ).toBeTruthy();
   });
 
   it('shows an unverified label for an unverified phone', async () => {

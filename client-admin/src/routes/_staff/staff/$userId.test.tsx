@@ -1,5 +1,6 @@
 import { ROLE_PERMISSIONS, UserRole } from '@biddaloy/shared';
 import { toast } from '@biddaloy/ui/components';
+import { REGION_BD_EN } from '@biddaloy/ui/i18n';
 import {
   auditEntryFactory,
   cleanupTestState,
@@ -8,6 +9,7 @@ import {
   renderWithRouter,
   server,
 } from '@biddaloy/ui/test';
+import { formatDate } from '@biddaloy/ui/utils';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -160,7 +162,7 @@ describe('/staff/$userId', () => {
     expect(await screen.findByText('Member since')).toBeTruthy();
     // The membership's own date — not the account's created_at, which
     // predates it here exactly to catch that mix-up.
-    expect(await screen.findByText('2025-06-10')).toBeTruthy();
+    expect(await screen.findByText(formatDate('2025-06-10', REGION_BD_EN))).toBeTruthy();
     expect(screen.queryByText('2025-02-01')).toBeNull();
     expect((await screen.findAllByText('Accountant')).length).toBeGreaterThan(0);
     expect(
