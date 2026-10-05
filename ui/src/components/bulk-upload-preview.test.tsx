@@ -45,7 +45,7 @@ function baseResult(overrides: Partial<PreviewResult<Summary>> = {}): PreviewRes
 async function renderPreview(
   props: Partial<React.ComponentProps<typeof BulkUploadPreview<Summary, CommitResult>>> = {},
 ) {
-  const { canCommit, confirmSlot, ...rest } = props;
+  const { canCommit, confirmSlot, onControllerChange, hideConfirm, ...rest } = props;
   const result = renderWithProviders(
     <BulkUploadPreview<Summary, CommitResult>
       validate={rest.validate ?? vi.fn().mockResolvedValue(baseResult())}
@@ -54,6 +54,8 @@ async function renderPreview(
       renderDone={rest.renderDone ?? renderDone}
       {...(canCommit ? { canCommit } : {})}
       {...(confirmSlot ? { confirmSlot } : {})}
+      {...(onControllerChange ? { onControllerChange } : {})}
+      {...(hideConfirm ? { hideConfirm } : {})}
       {...(rest.accept ? { accept: rest.accept } : {})}
     />,
     { locale: 'en' },
@@ -302,5 +304,65 @@ describe('BulkUploadPreview', () => {
     await user.click(await screen.findByRole('button', { name: 'Confirm' }));
 
     expect(await screen.findByRole('button', { name: 'Confirming…' })).toBeTruthy();
+  });
+
+  describe('host-owned Confirm', () => {
+    it('reports the controller through idle, uploading and preview, and confirm() commits', async () => {
+      const onControllerChange = vi.fn();
+      const validate = vi.fn().mockResolvedValue(baseResult());
+      const commit = vi.fn().mockResolvedValue({ processedCount: 5 });
+      await renderPreview({ validate, commit, onControllerChange });
+
+      expect(onControllerChange.mock.calls[0]?.[0]).toMatchObject({ status: 'idle' });
+      await selectFile();
+      await screen.findByText('5 rows');
+
+      // Confirm is disabled until the expiry countdown's first tick lands.
+      await waitFor(() =>
+        expect(onControllerChange.mock.calls.at(-1)?.[0]).toMatchObject({
+          status: 'preview',
+          confirmDisabled: false,
+        }),
+      );
+      const statuses = [...new Set(onControllerChange.mock.calls.map(([c]) => c.status))];
+      expect(statuses).toEqual(['idle', 'uploading', 'preview']);
+      const last = onControllerChange.mock.calls.at(-1)?.[0];
+
+      await React.act(() => Promise.resolve(last.confirm()));
+      await waitFor(() => expect(commit).toHaveBeenCalledWith('staging-1'));
+      await screen.findByText('done: 5');
+    });
+
+    it('does not report again on a re-render with unchanged state', async () => {
+      const onControllerChange = vi.fn();
+      const { rerender } = await renderPreview({ onControllerChange });
+      const calls = onControllerChange.mock.calls.length;
+      rerender(
+        <BulkUploadPreview<Summary, CommitResult>
+          validate={vi.fn()}
+          commit={vi.fn()}
+          renderSummary={renderSummary}
+          renderDone={renderDone}
+          onControllerChange={onControllerChange}
+        />,
+      );
+      expect(onControllerChange.mock.calls.length).toBe(calls);
+    });
+
+    it('hideConfirm drops the Confirm button and Card, shows the file row, and upload-another resets', async () => {
+      const user = userEvent.setup();
+      const onControllerChange = vi.fn();
+      const { container } = await renderPreview({ hideConfirm: true, onControllerChange });
+
+      await selectFile();
+      await screen.findByText('5 rows');
+      expect(screen.queryByRole('button', { name: 'Confirm' })).toBeNull();
+      expect(container.querySelector('[data-slot="card"]')).toBeNull();
+      expect(screen.getByText('upload.csv')).toBeTruthy();
+
+      await user.click(screen.getByRole('button', { name: 'Upload another' }));
+      await screen.findByLabelText('Choose file');
+      expect(onControllerChange.mock.calls.at(-1)?.[0]).toMatchObject({ status: 'idle' });
+    });
   });
 });
