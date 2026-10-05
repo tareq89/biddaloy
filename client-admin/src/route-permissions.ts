@@ -77,7 +77,8 @@ export const STAFF_ROUTE_PERMISSIONS: Record<string, Permission> = {
   '/_staff/fee-structures/': Permission.FEE_STRUCTURE_READ,
   '/_staff/invoices/': Permission.INVOICE_READ,
   '/_staff/invoices/$invoiceId': Permission.INVOICE_READ,
-  // The payments list is a read view (Epic 31.0 payments-1a): same gate as `/payments/$id`.
+  // The payments page is still a placeholder (pending payments-1a, which makes it a
+  // read-only list); it is gated like that list will be, the same as `/payments/$id`.
   '/_staff/payments/': Permission.PAYMENT_READ,
   '/_staff/payments/record': Permission.PAYMENT_RECORD,
   // [16.6.2] the payment detail page — gated on the read permission, not
