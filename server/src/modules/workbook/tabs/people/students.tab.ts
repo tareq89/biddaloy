@@ -6,7 +6,12 @@ import { Student } from '../../../students/entities/student.entity';
 import { Guardian } from '../../../students/entities/guardian.entity';
 import { Enrollment } from '../../../students/entities/enrollment.entity';
 import { ClassSection } from '../../../academics/entities/class-section.entity';
-import { assertSeatsAvailable } from '../../../schools/trial/seat-limit.service';
+import {
+  lockSeatUsage,
+  seatLimitError,
+  assertSeatsAvailable,
+  type SeatUsage,
+} from '../../../schools/trial/seat-limit.service';
 import { fromCell, formatDateOnly } from '../../codec/cell-format';
 import { rehomeStorageKey } from '../../codec/storage-key-scope';
 import type {
@@ -574,7 +579,7 @@ export const studentsTab: TabSpec<Student, StudentRow> = {
       (!student ||
         student.deleted_at !== null ||
         student.enrollment_status !== EnrollmentStatus.ACTIVE);
-    if (takesNewSeat) await assertSeatsAvailable(m, tenantId, 1);
+    if (takesNewSeat) await takeSeat(m, tenantId);
 
     if (student) {
       student.deleted_at = null;
@@ -691,7 +696,27 @@ export const studentsTab: TabSpec<Student, StudentRow> = {
   },
 };
 
-/** `date_of_birth` is nullable; `formatDateOnly` itself rejects null. */
+/**
+ * Running seat total per restore transaction: lock + count once on the first new seat, then count
+ * up in memory (the School lock is held until commit, so nobody else can add). Outside a real
+ * transaction there is no such lock, so every call re-checks.
+ */
+const seatTotals = new WeakMap<EntityManager, SeatUsage>();
+
+async function takeSeat(m: EntityManager, tenantId: string): Promise<void> {
+  if (!m.queryRunner?.isTransactionActive) return assertSeatsAvailable(m, tenantId, 1);
+  let total = seatTotals.get(m);
+  if (!total) {
+    total = await lockSeatUsage(m, tenantId);
+    seatTotals.set(m, total);
+  }
+  if (total.limit !== null && total.used + 1 > total.limit) {
+    throw seatLimitError(total.used, total.limit, 1);
+  }
+  total.used += 1;
+}
+
+/** `date_of_birth` is nullable;`formatDateOnly` itself rejects null. */
 function formatNullableDateOnly(value: Date | string | null): string | null {
   return value === null || value === undefined ? null : formatDateOnly(value);
 }
