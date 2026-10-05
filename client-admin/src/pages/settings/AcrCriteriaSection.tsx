@@ -54,9 +54,8 @@ import {
 } from 'lucide-react';
 import * as React from 'react';
 
-import { MutationErrorMessage } from '../../components/MutationErrorMessage';
-
 import { SettingsSection } from './settings-layout';
+import { SettingsMutationError } from './settings-mutation-error';
 import { useIsPhone } from './use-is-phone';
 
 type Row = Pick<AcrCriterion, 'block' | 'code' | 'label_en' | 'label_bn'> & { key: string };
@@ -240,7 +239,7 @@ function CriteriaEditor({
                 })}
               </p>
             )}
-            {save.isError && <MutationErrorMessage error={save.error} />}
+            {save.isError && <SettingsMutationError error={save.error} />}
           </>
         }
       >
@@ -457,6 +456,7 @@ function PhoneRow({ row, index, last, onPatch, onMove, onRemove }: RowProps) {
           </Label>
           <Input
             id={`acr-criteria-code-${index}`}
+            aria-label={`${t('acr.criteriaSettings.codeLabel')}: ${name}`}
             value={row.code}
             onChange={(e) => onPatch({ code: e.target.value })}
           />
@@ -467,7 +467,7 @@ function PhoneRow({ row, index, last, onPatch, onMove, onRemove }: RowProps) {
           </Label>
           <BlockSelect
             id={`acr-criteria-block-${index}`}
-            label={t('acr.criteriaSettings.blockLabel')}
+            label={`${t('acr.criteriaSettings.blockLabel')}: ${name}`}
             value={row.block}
             onChange={(block) => onPatch({ block })}
           />
@@ -476,6 +476,7 @@ function PhoneRow({ row, index, last, onPatch, onMove, onRemove }: RowProps) {
           <Label htmlFor={`acr-criteria-bn-${index}`}>{t('acr.criteriaSettings.labelBn')}</Label>
           <Input
             id={`acr-criteria-bn-${index}`}
+            aria-label={`${t('acr.criteriaSettings.labelBn')}: ${name}`}
             value={row.label_bn}
             onChange={(e) => onPatch({ label_bn: e.target.value })}
           />
@@ -484,6 +485,7 @@ function PhoneRow({ row, index, last, onPatch, onMove, onRemove }: RowProps) {
           <Label htmlFor={`acr-criteria-en-${index}`}>{t('acr.criteriaSettings.labelEn')}</Label>
           <Input
             id={`acr-criteria-en-${index}`}
+            aria-label={`${t('acr.criteriaSettings.labelEn')}: ${name}`}
             value={row.label_en}
             onChange={(e) => onPatch({ label_en: e.target.value })}
           />

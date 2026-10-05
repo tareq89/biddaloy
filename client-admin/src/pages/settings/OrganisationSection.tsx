@@ -35,9 +35,8 @@ import { useWarnUnsavedChanges } from '@biddaloy/ui/shells';
 import { CircleMinusIcon, PencilIcon, PlusIcon, Undo2Icon } from 'lucide-react';
 import * as React from 'react';
 
-import { MutationErrorMessage } from '../../components/MutationErrorMessage';
-
 import { SettingsSaved, SettingsSection } from './settings-layout';
+import { SettingsMutationError } from './settings-mutation-error';
 
 type ListName = 'shifts' | 'versions' | 'groups';
 const LIST_NAMES: ListName[] = ['shifts', 'versions', 'groups'];
@@ -247,7 +246,7 @@ export function OrganisationSection({ schoolId, organisation }: OrganisationSect
         <>
           {updateSettings.isSuccess && <SettingsSaved />}
           {updateSettings.isError && !refused && (
-            <MutationErrorMessage error={updateSettings.error} />
+            <SettingsMutationError error={updateSettings.error} />
           )}
         </>
       }
