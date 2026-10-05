@@ -7,16 +7,27 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { routeTree } from '../../routeTree.gen';
 
-const { CREATE_TEMPLATE, ADD_PRINTER, DONE, CANCEL, PICK_STAFF, PICK_SECTION, SECTION_ID } =
-  vi.hoisted(() => ({
-    CREATE_TEMPLATE: 'create-template',
-    ADD_PRINTER: 'add-printer',
-    DONE: 'done',
-    CANCEL: 'cancel-picker',
-    PICK_STAFF: 'pick-staff',
-    PICK_SECTION: 'pick-section',
-    SECTION_ID: '11111111-1111-4111-8111-111111111111',
-  }));
+const {
+  CREATE_TEMPLATE,
+  ADD_PRINTER,
+  DONE,
+  CLOSE,
+  BACK,
+  CANCEL,
+  PICK_STAFF,
+  PICK_SECTION,
+  SECTION_ID,
+} = vi.hoisted(() => ({
+  CREATE_TEMPLATE: 'create-template',
+  ADD_PRINTER: 'add-printer',
+  DONE: 'done',
+  CLOSE: 'close-preview',
+  BACK: 'back-to-picker',
+  CANCEL: 'cancel-picker',
+  PICK_STAFF: 'pick-staff',
+  PICK_SECTION: 'pick-section',
+  SECTION_ID: '11111111-1111-4111-8111-111111111111',
+}));
 
 // The big screens have their own tests. Here only the ROUTES are under test, so each page
 // component is a stub that shows what the route handed it.
@@ -33,6 +44,8 @@ vi.mock('../../components/print/preview/print-preview', () => ({
     onCreateTemplate: () => void;
     onAddPrinter: () => void;
     onDone: () => void;
+    onClose: () => void;
+    onBack?: () => void;
   }) => (
     <div>
       <div data-testid="preview">{props.subjectIds.join(',')}</div>
@@ -46,13 +59,21 @@ vi.mock('../../components/print/preview/print-preview', () => ({
       <button type="button" onClick={props.onDone}>
         {DONE}
       </button>
+      <button type="button" onClick={props.onClose}>
+        {CLOSE}
+      </button>
+      {props.onBack ? (
+        <button type="button" onClick={props.onBack}>
+          {BACK}
+        </button>
+      ) : null}
     </div>
   ),
 }));
 vi.mock('../../components/print/print-id-card-modal', () => ({
   PrintIdCardModal: (props: {
     initialType: string;
-    onCancel: () => void;
+    onClose: () => void;
     onConfirm: (
       c:
         | { subjectType: 'STUDENT' | 'STAFF'; ids: string }
@@ -61,7 +82,7 @@ vi.mock('../../components/print/print-id-card-modal', () => ({
   }) => (
     <div>
       <output data-testid="picker-type">{props.initialType}</output>
-      <button type="button" onClick={props.onCancel}>
+      <button type="button" onClick={props.onClose}>
         {CANCEL}
       </button>
       <button type="button" onClick={() => props.onConfirm({ subjectType: 'STAFF', ids: 'u1,u2' })}>
@@ -156,9 +177,19 @@ describe('print routes [32.4.1]', () => {
   it('under 768 px shows the "open on a computer" gate instead of the editor', async () => {
     setWidth(false);
     render('/print-templates/t-1/edit');
-    expect(await screen.findByText('Open this on a computer to design or print')).toBeTruthy();
+    expect(await screen.findByText('Open this on a computer')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Copy link' })).toBeTruthy();
     expect(screen.queryByTestId('editor')).toBeNull();
+  });
+
+  it('under 768 px the preview route shows the gate frame with Close, and mounts neither step', async () => {
+    setWidth(false);
+    render('/print/preview?kind=STUDENT_ID_CARD&subject_type=STUDENT&ids=a');
+    expect(await screen.findByText('Open this on a computer')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Copy link' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Close' })).toBeTruthy();
+    expect(screen.queryByTestId('preview')).toBeNull();
+    expect(screen.queryByTestId('picker-type')).toBeNull();
   });
 
   it('a class_section_id is resolved to every student id in that section', async () => {
@@ -219,6 +250,28 @@ describe('print routes [32.4.1]', () => {
       expect(router.state.location.search).toMatchObject({ class_section_id: SECTION_ID }),
     );
     expect((await screen.findByTestId('preview')).textContent).toBe('x1,x2');
+  });
+
+  it("the picker's choice replaces history and marks pick=1, so the preview offers Back to the picker", async () => {
+    const { router } = render('/print/preview?kind=STUDENT_ID_CARD&subject_type=STUDENT');
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: PICK_STAFF }));
+    await waitFor(() => expect(router.state.location.search).toMatchObject({ pick: '1' }));
+    await user.click(await screen.findByRole('button', { name: BACK }));
+    await waitFor(() => expect(router.state.location.search).not.toHaveProperty('ids'));
+    expect(router.state.location.search).not.toHaveProperty('pick');
+    expect(await screen.findByTestId('picker-type')).toBeTruthy();
+  });
+
+  it('a preview opened with ids directly has no Back, and Close goes to from', async () => {
+    const { router } = render(
+      '/print/preview?kind=STUDENT_ID_CARD&subject_type=STUDENT&ids=a&from=%2Fstudents',
+    );
+    const user = userEvent.setup();
+    await screen.findByTestId('preview');
+    expect(screen.queryByRole('button', { name: BACK })).toBeNull();
+    await user.click(screen.getByRole('button', { name: CLOSE }));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/students'));
   });
 
   it('cancelling the picker goes back to where the user came from', async () => {
