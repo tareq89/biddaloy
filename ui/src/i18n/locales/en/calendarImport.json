@@ -59,10 +59,10 @@
     "description": "Copy events from a previous academic year into a new one. Holidays are skipped by default.",
     "sourceYear": "Copy from",
     "targetYear": "Copy into",
-    "includeHolidays": "Include holidays",
     "submit": "Preview clone",
     "cancel": "Cancel",
-    "cloneFailed": "Clone failed"
+    "cloneFailed": "Clone failed",
+    "placeholder": "Select"
   },
   "toolbar": {
     "import": "Import",

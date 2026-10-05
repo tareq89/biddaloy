@@ -17,24 +17,10 @@
  * itself uses (`route-permissions.ts`).
  */
 import { Permission } from '@biddaloy/shared';
-import {
-  Button,
-  Card,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  Skeleton,
-  toast,
-} from '@biddaloy/ui/components';
+import { Button, Card, ConfirmDialog, Input, Skeleton, toast } from '@biddaloy/ui/components';
 import { useCalendarFeed, useHasPermission, useRegenerateCalendarFeed } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import * as React from 'react';
-
-import { MutationErrorMessage } from './MutationErrorMessage';
 
 export function CalendarFeedCard() {
   const { t } = useTranslation('calendarFeed');
@@ -66,36 +52,31 @@ export function CalendarFeedCard() {
       setConfirmOpen(false);
       setRevealed(false);
     } catch {
-      // Swallowed: `regenerate.isError`/`regenerate.error` already drive
-      // the inline `MutationErrorMessage` below — the dialog stays open
-      // so the user can retry without re-confirming.
+      // `regenerate.isError` drives the translated alert below; the confirm
+      // closes so the alert is visible, and the user can try again.
+      setConfirmOpen(false);
     }
   }
 
   const url = feedQuery.data?.url;
 
   return (
-    <Card className="flex flex-col gap-3 p-4">
+    <Card className="flex flex-col gap-3 p-4 md:p-5">
       <div>
-        <h2 className="text-sm font-semibold">{t('card.title')}</h2>
-        <p className="text-sm text-muted-foreground">{t('card.description')}</p>
+        <h2 className="text-h2">{t('card.title')}</h2>
+        <p className="mt-1 text-text-secondary">{t('card.description')}</p>
       </div>
 
       {feedQuery.isPending && (
         <div className="flex flex-col gap-2" aria-busy="true">
-          <Skeleton className="h-8 w-full" />
+          <Skeleton className="h-11 w-full md:h-8" />
         </div>
       )}
 
       {feedQuery.isError && (
         <div className="flex items-center justify-between gap-2">
-          <span className="text-sm text-destructive">{t('error.load')}</span>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => void feedQuery.refetch()}
-          >
+          <span className="text-destructive">{t('error.load')}</span>
+          <Button type="button" variant="outline" onClick={() => void feedQuery.refetch()}>
             {t('error.retry')}
           </Button>
         </div>
@@ -104,64 +85,57 @@ export function CalendarFeedCard() {
       {url && (
         <>
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="calendar-feed-url" className="text-sm font-medium">
+            <label htmlFor="calendar-feed-url" className="text-label">
               {t('field.label')}
             </label>
             <div className="flex items-center gap-2">
-              <input
+              <Input
                 id="calendar-feed-url"
                 type={revealed ? 'text' : 'password'}
                 readOnly
                 value={url}
-                className="h-8 flex-1 rounded-md border border-input bg-card px-2.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                className="flex-1"
               />
               <Button
                 type="button"
-                variant="ghost"
-                size="sm"
+                variant="outline"
                 onClick={() => setRevealed((current) => !current)}
               >
                 {revealed ? t('field.hide') : t('field.show')}
               </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => void handleCopy(url)}
-              >
+              <Button type="button" variant="outline" onClick={() => void handleCopy(url)}>
                 {t('field.copy')}
               </Button>
             </div>
           </div>
 
-          <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-            <DialogTrigger asChild>
-              <Button type="button" variant="ghost" size="sm" className="self-start">
-                {t('regenerate.action')}
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>{t('regenerate.confirmTitle')}</DialogTitle>
-                <DialogDescription>{t('regenerate.confirmDescription')}</DialogDescription>
-              </DialogHeader>
-              {regenerate.isError && <MutationErrorMessage error={regenerate.error} />}
-              <DialogFooter>
-                <Button type="button" variant="ghost" onClick={() => setConfirmOpen(false)}>
-                  {t('regenerate.cancel')}
-                </Button>
-                <Button
-                  type="button"
-                  onClick={() => void handleRegenerate()}
-                  disabled={regenerate.isPending}
-                >
-                  {regenerate.isPending ? t('regenerate.loading') : t('regenerate.confirmAction')}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+          {regenerate.isError && !confirmOpen && (
+            <p role="alert" className="text-destructive">
+              {t('regenerate.failed')}
+            </p>
+          )}
 
-          <div className="flex flex-col gap-0.5 text-xs text-muted-foreground">
+          <Button
+            type="button"
+            variant="ghost"
+            className="self-start"
+            onClick={() => setConfirmOpen(true)}
+          >
+            {t('regenerate.action')}
+          </Button>
+          <ConfirmDialog
+            open={confirmOpen}
+            onOpenChange={setConfirmOpen}
+            tone="default"
+            title={t('regenerate.confirmTitle')}
+            description={t('regenerate.confirmDescription')}
+            confirmLabel={t('regenerate.confirmAction')}
+            cancelLabel={t('regenerate.cancel')}
+            busy={regenerate.isPending}
+            onConfirm={() => void handleRegenerate()}
+          />
+
+          <div className="flex flex-col gap-0.5 text-caption text-text-secondary">
             <p className="font-medium">{t('howTo.title')}</p>
             <p>{t('howTo.google')}</p>
             <p>{t('howTo.apple')}</p>
