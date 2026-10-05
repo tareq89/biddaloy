@@ -20,7 +20,7 @@ import {
 import { formatNumber, formatPhone } from '@biddaloy/ui/utils';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { http, HttpResponse } from 'msw';
+import { delay, http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { routeTree } from '../../../routeTree.gen';
@@ -355,6 +355,53 @@ describe('/communications/send', () => {
     await user.paste('School closed tomorrow.');
     const counter = await screen.findByText(/অক্ষর/);
     expect(counter.textContent).toBe('২৩ অক্ষর · ১টি এসএমএস');
+  });
+
+  it('cannot be closed while the send is in flight, so it cannot be sent twice', async () => {
+    let posts = 0;
+    server.use(
+      http.post('/api/v1/communications/send', async () => {
+        posts += 1;
+        await delay(400);
+        return HttpResponse.json(communicationFactory({ status: 'QUEUED' }), { status: 201 });
+      }),
+    );
+    const user = userEvent.setup();
+    render();
+    await screen.findByRole('heading', { name: 'Send Message' });
+    await fillBasicSmsMessage(user);
+    await user.click(screen.getByRole('button', { name: 'Review and send' }));
+    await user.click(await screen.findByRole('button', { name: 'Send message' }));
+
+    await waitFor(() => expect(posts).toBe(1));
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Cancel' }).disabled).toBe(true);
+    await user.keyboard('{Escape}');
+    expect(screen.getByRole('dialog')).toBeTruthy();
+
+    await screen.findByText('Message on its way');
+    expect(posts).toBe(1);
+  });
+
+  it('sends a phone typed in Bangla digits as Latin digits', async () => {
+    let body: Record<string, unknown> | undefined;
+    server.use(
+      http.post('/api/v1/communications/send', async ({ request }) => {
+        body = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json(communicationFactory({ status: 'QUEUED' }), { status: 201 });
+      }),
+    );
+    const user = userEvent.setup();
+    render();
+    await screen.findByRole('heading', { name: 'Send Message' });
+    await user.type(screen.getByRole('textbox', { name: 'Recipient name' }), 'Rahima Begum');
+    await user.type(addressInput(), '০১৭০০০০০০০০১');
+    await user.click(screen.getByRole('textbox', { name: 'Message' }));
+    await user.paste('Hi');
+    await user.click(screen.getByRole('button', { name: 'Review and send' }));
+    await user.click(await screen.findByRole('button', { name: 'Send message' }));
+
+    await waitFor(() => expect(body).toBeDefined());
+    expect(body?.['recipient_address']).toBe('017000000001');
   });
 
   // [8.14.17]: `_staff.tsx`'s `RequirePermission` now refuses the whole
