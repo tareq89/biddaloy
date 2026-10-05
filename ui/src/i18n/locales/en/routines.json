@@ -68,22 +68,45 @@
   "builderList": {
     "title": "Class routine",
     "classLabel": "Class",
-    "selectClass": "Select a class",
     "emptyTitle": "No sections",
     "emptyExplanation": "This class has no sections yet.",
-    "pickAnotherClass": "Pick another class",
-    "enrolledCount": "{{count}} student",
-    "enrolledCount_other": "{{count}} students"
+    "enrolledCount": "{{formattedCount}} student",
+    "enrolledCount_other": "{{formattedCount}} students",
+    "subtitle": "Pick a class, open a section, then arrange its weekly routine.",
+    "sectionColumn": "Section",
+    "sectionName": "Section {{name}}",
+    "studentsColumn": "Students",
+    "tableCaption": "Sections of {{className}}",
+    "openAction": "Arrange routine",
+    "openClassAction": "Open class",
+    "noClassesTitle": "No classes yet",
+    "noClassesExplanation": "Add a class and its sections first.",
+    "goToClasses": "Go to classes",
+    "error": "Couldn't load the classes. Check your connection and try again."
   },
   "builder": {
-    "title": "{{className}} {{sectionName}} — routine",
-    "noClassIdExplanation": "Open this page from Routine builder's section list — a direct link needs to know which class the section belongs to.",
+    "title": "{{className}} – {{sectionName}}",
+    "noClassIdExplanation": "Open this page from the class routine list so we know which section it is.",
     "sectionNotFound": "Section not found.",
     "noShiftExplanation": "This class has no shift assigned yet — set one on the class before building its routine.",
     "noRoutineExplanation": "No routine exists yet for this academic year.",
-    "fillAssistAction": "Fill assist",
+    "fillAssistAction": "Fill empty periods",
     "savedToast": "Saved",
-    "saveErrorToast": "Could not save — try again."
+    "saveErrorToast": "Could not save — try again.",
+    "studentsFact": "Students",
+    "studentsValue": "{{count}} students",
+    "filledFact": "Filled",
+    "filledValue": "{{filled}} of {{total}} periods",
+    "reviewAction": "Review and publish",
+    "keyboardHint": "Click a cell, or move with the arrow keys and press Enter. Delete clears a cell.",
+    "backToList": "Class routine",
+    "noClassIdTitle": "Which section?",
+    "sectionNotFoundExplanation": "It may have been removed. Pick it again from the list.",
+    "noShiftTitle": "This class has no shift",
+    "openClass": "Open class",
+    "noRoutineTitle": "No routine yet",
+    "openReview": "Open routine review",
+    "loading": "Loading the routine"
   },
   "cellPicker": {
     "title": "Assign a period",
@@ -106,16 +129,28 @@
   },
   "conflictList": {
     "violationsTitle": "This can't be saved",
-    "warningsTitle": "Heads up"
+    "warningsTitle": "Heads up",
+    "codes": {
+      "BREAK_SLOT": "A period can't go into a break.",
+      "TEACHER_DOUBLE_BOOKED": "A teacher on this period is already teaching another section at this time.",
+      "SECTION_DOUBLE_BOOKED": "This section already has a period at this time.",
+      "ROOM_DOUBLE_BOOKED": "This room is already in use at this time.",
+      "TEACHER_OVER_DAILY_LIMIT": "This would put a teacher over their daily period limit.",
+      "TEACHER_NOT_ASSIGNED": "This teacher isn't assigned to this subject for this section.",
+      "TEACHER_OVER_CONSECUTIVE_LIMIT": "A teacher would teach more periods in a row than the limit.",
+      "unknown": "This breaks one of the routine rules."
+    }
   },
   "workloadPanel": {
     "legend": "Teacher workload",
     "empty": "No periods assigned yet.",
-    "periodsPerWeek": "{{count}} period/week",
-    "periodsPerWeek_other": "{{count}} periods/week",
     "overLimit": "over daily limit",
     "underloaded": "{{count}} teacher has no periods assigned",
-    "underloaded_other": "{{count}} teachers have no periods assigned"
+    "underloaded_other": "{{count}} teachers have no periods assigned",
+    "teacherColumn": "Teacher",
+    "periodsColumn": "Periods / week",
+    "statusColumn": "Status",
+    "periodsPerWeekShort": "{{count}} periods a week"
   },
   "fillAssist": {
     "title": "Fill remaining periods",

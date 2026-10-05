@@ -33,15 +33,15 @@ function mockWorkload() {
 }
 
 describe('WorkloadPanel', () => {
-  it('highlights a teacher whose daily periods exceed the cap, and reports underloaded teachers', async () => {
+  it('flags a teacher over the daily cap with a badge, and reports underloaded teachers', async () => {
     mockWorkload();
-    renderWithProviders(
-      <WorkloadPanel routineId="routine-1" maxPeriodsPerTeacherPerDay={6} />,
-      { tenantId: 'tenant-1', locale: 'en' },
-    );
+    renderWithProviders(<WorkloadPanel routineId="routine-1" maxPeriodsPerTeacherPerDay={6} />, {
+      tenantId: 'tenant-1',
+      locale: 'en',
+    });
 
     await waitFor(() => expect(screen.getByText('Ms Nahar')).toBeTruthy());
-    expect(screen.getByText(/over daily limit/)).toBeTruthy();
+    expect(screen.getByText('over daily limit')).toBeTruthy();
     expect(screen.getByText('Mr Karim')).toBeTruthy();
     expect(screen.getByText(/1 teacher has no periods assigned/)).toBeTruthy();
   });
@@ -55,5 +55,27 @@ describe('WorkloadPanel', () => {
 
     await waitFor(() => expect(screen.getByText('Ms Nahar')).toBeTruthy());
     expect(screen.queryByText(/over daily limit/)).toBeNull();
+  });
+});
+
+describe('WorkloadPanel unknown teacher', () => {
+  it('shows a dash, never the teacher id', async () => {
+    server.use(
+      http.get('/api/v1/routines/routine-1/workload', () =>
+        HttpResponse.json([
+          { teacher_id: 'teacher-gone', periods_per_week: 3, periods_per_day: {} },
+        ]),
+      ),
+      http.get('/api/v1/teachers', () =>
+        HttpResponse.json({ data: [], total: 0, page: 1, limit: 100, totalPages: 1 }),
+      ),
+    );
+    renderWithProviders(<WorkloadPanel routineId="routine-1" />, {
+      tenantId: 'tenant-1',
+      locale: 'en',
+    });
+
+    await waitFor(() => expect(screen.getByRole('table')).toBeTruthy());
+    expect(screen.queryByText('teacher-gone')).toBeNull();
   });
 });
