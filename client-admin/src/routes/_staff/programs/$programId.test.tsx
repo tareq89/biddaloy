@@ -103,7 +103,7 @@ describe('/programs/$programId', () => {
     });
 
     await screen.findByText('Read 5 books');
-    await user.type(screen.getByPlaceholderText('Add milestone'), 'Read 10 books');
+    await user.type(screen.getByLabelText('New milestone name'), 'Read 10 books');
     await user.click(screen.getByRole('button', { name: 'Add milestone' }));
 
     await waitFor(() => expect(addCalled).toBe(true));
@@ -175,7 +175,8 @@ describe('/programs/$programId', () => {
     await screen.findByText('Read 5 books');
     await user.click(screen.getByRole('button', { name: 'Remove milestone' }));
 
-    await screen.findByText(/3 recorded achievements/);
+    const confirm = await screen.findByRole('alertdialog');
+    expect(within(confirm).getByText(/(3|৩) recorded achievements/)).toBeTruthy();
   });
 
   it('hides the progress column when the program has no milestones', async () => {
@@ -222,10 +223,9 @@ describe('/programs/$programId', () => {
     await screen.findByText('Anika Rahman');
 
     const row = screen.getByText('Anika Rahman').closest('li')!;
-    await user.click(within(row).getByRole('button', { name: 'Mark complete' }));
-    await screen.findByRole('menuitem', {
-      name: 'All milestones achieved — mark complete?',
-    });
+    expect(
+      within(row).getByRole('button', { name: 'All milestones achieved — mark complete?' }),
+    ).toBeTruthy();
   });
 
   it('shows the forbidden message on a 403', async () => {
@@ -260,7 +260,86 @@ describe('/programs/$programId', () => {
     });
 
     await screen.findByText('Archived');
-    await user.click(screen.getByRole('button', { name: 'Edit program' }));
+    await user.click(screen.getByRole('button', { name: 'More actions' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Edit program' }));
     await screen.findByRole('heading', { name: 'Edit program' });
+  });
+
+  it('shows the facts, with Record as the only primary and archive/delete in More', async () => {
+    const user = userEvent.setup();
+    server.use(
+      http.get('/api/v1/programs/:id', () =>
+        HttpResponse.json(program({ active_enrollment_count: 0 })),
+      ),
+      http.get('/api/v1/programs/:id/enrollments', () => HttpResponse.json([])),
+    );
+
+    renderWithRouter(buildRouteTree(), {
+      initialEntries: ['/p-1'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    await screen.findByText(/^(1|১) milestone$/);
+    expect(screen.getByText(/^(0|০) students$/)).toBeTruthy();
+    expect(screen.getByText('Not shown')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Record achievement' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Enrol students' })).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'More actions' }));
+    expect(await screen.findByRole('menuitem', { name: 'Archive' })).toBeTruthy();
+    expect(screen.getByRole('menuitem', { name: 'Delete' })).toBeTruthy();
+  });
+
+  it('hides Delete when the program has active enrolments', async () => {
+    const user = userEvent.setup();
+    server.use(
+      http.get('/api/v1/programs/:id', () => HttpResponse.json(program())),
+      http.get('/api/v1/programs/:id/enrollments', () => HttpResponse.json([])),
+    );
+
+    renderWithRouter(buildRouteTree(), {
+      initialEntries: ['/p-1'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    await screen.findByText(/^(1|১) student$/);
+    await user.click(screen.getByRole('button', { name: 'More actions' }));
+    expect(await screen.findByRole('menuitem', { name: 'Archive' })).toBeTruthy();
+    expect(screen.queryByRole('menuitem', { name: 'Delete' })).toBeNull();
+  });
+
+  it('confirms before deleting and shows the conflict sentence on a 409', async () => {
+    const user = userEvent.setup();
+    server.use(
+      http.get('/api/v1/programs/:id', () =>
+        HttpResponse.json(program({ active_enrollment_count: 0 })),
+      ),
+      http.get('/api/v1/programs/:id/enrollments', () => HttpResponse.json([])),
+      http.delete('/api/v1/programs/:id', () =>
+        HttpResponse.json(apiErrorBody(409, 'Has enrolments', '/programs/p-1'), { status: 409 }),
+      ),
+    );
+
+    renderWithRouter(buildRouteTree(), {
+      initialEntries: ['/p-1'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    await screen.findByText(/^(1|১) milestone$/);
+    await user.click(screen.getByRole('button', { name: 'More actions' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Delete' }));
+    const dialog = await screen.findByRole('alertdialog');
+    expect(within(dialog).getByText("Delete this program? This can't be undone.")).toBeTruthy();
+    await user.click(within(dialog).getByRole('button', { name: 'Delete' }));
+    expect(
+      await within(dialog).findByText(
+        'This program has enrolled students — archive it instead of deleting.',
+      ),
+    ).toBeTruthy();
   });
 });

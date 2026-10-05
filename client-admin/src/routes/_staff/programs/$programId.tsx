@@ -6,11 +6,32 @@
  */
 import { Permission } from '@biddaloy/shared';
 import { ApiError } from '@biddaloy/ui/api';
-import { ErrorState, RoutePending, Skeleton } from '@biddaloy/ui/components';
-import { programQueryOptions, useHasPermission, useProgram } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import {
+  ConfirmDialog,
+  ErrorState,
+  RoutePending,
+  Skeleton,
+  StatusBadge,
+} from '@biddaloy/ui/components';
+import {
+  programQueryOptions,
+  useDeleteProgram,
+  useHasPermission,
+  useProgram,
+  useUpdateProgram,
+} from '@biddaloy/ui/hooks';
+import { useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { DetailShell, useDetailShellTab } from '@biddaloy/ui/shells';
+import { formatNumber } from '@biddaloy/ui/utils';
 import { createFileRoute } from '@tanstack/react-router';
+import {
+  ArchiveIcon,
+  ArchiveRestoreIcon,
+  AwardIcon,
+  PencilIcon,
+  Trash2Icon,
+  UserPlusIcon,
+} from 'lucide-react';
 import * as React from 'react';
 import { z } from 'zod';
 
@@ -53,8 +74,13 @@ function ProgramDetailPage() {
   const programQuery = useProgram(programId);
   const [activeTab, setActiveTab] = useDetailShellTab(TAB_IDS);
   const canManage = useHasPermission(Permission.PROGRAM_MANAGE);
+  const canRecord = useHasPermission(Permission.PROGRAM_RECORD) || canManage;
+  const regionConfig = useTenantRegionConfig();
+  const updateProgram = useUpdateProgram(programId);
+  const deleteProgram = useDeleteProgram();
 
   const [editOpen, setEditOpen] = React.useState(false);
+  const [deleteOpen, setDeleteOpen] = React.useState(false);
 
   function closeDialogSearch() {
     void navigate({ search: { enrol: undefined, record: undefined, student: undefined } });
@@ -84,32 +110,89 @@ function ProgramDetailPage() {
   const program = programQuery.data;
   const milestoneTotal = program.milestone_count ?? program.milestones?.length ?? 0;
 
+  const deleteConflict =
+    deleteProgram.error instanceof ApiError && deleteProgram.error.statusCode === 409;
+  const milestoneN = formatNumber(milestoneTotal, regionConfig);
+  const studentCount = program.active_enrollment_count ?? 0;
+
   return (
-    <div className="flex flex-col gap-4">
+    <>
+      {updateProgram.isError && (
+        <p role="alert" className="text-destructive">
+          {t('detail.archiveError')}
+        </p>
+      )}
       <DetailShell
         name={program.name}
-        identifiers={
-          <>
-            {t('list.columns.activeStudents')}: {program.active_enrollment_count ?? 0}
-            {' · '}
-            {t('list.columns.milestones')}: {milestoneTotal}
-            {!program.is_active && (
-              <>
-                {' · '}
-                <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium">
-                  {t('detail.archivedBadge')}
-                </span>
-              </>
-            )}
-          </>
+        statusBadge={
+          <StatusBadge
+            tone={program.is_active ? 'success' : 'neutral'}
+            label={program.is_active ? t('status.ACTIVE') : t('detail.archivedBadge')}
+          />
         }
+        facts={[
+          {
+            label: t('detail.factMilestones'),
+            value: t('detail.milestoneCount', { count: milestoneTotal, n: milestoneN }),
+          },
+          {
+            label: t('detail.factActiveStudents'),
+            value: t('detail.studentCount', {
+              count: studentCount,
+              n: formatNumber(studentCount, regionConfig),
+            }),
+          },
+          {
+            label: t('detail.factReportCard'),
+            value: program.show_on_report_card
+              ? t('detail.reportCardShown')
+              : t('detail.reportCardHidden'),
+          },
+        ]}
         actions={[
+          {
+            id: 'enrol',
+            label: t('actions.enrol'),
+            icon: <UserPlusIcon />,
+            priority: 'secondary',
+            allowed: canManage,
+            onClick: () => void navigate({ search: { ...search, enrol: '1' } }),
+          },
+          {
+            id: 'record',
+            label: t('actions.record'),
+            icon: <AwardIcon />,
+            priority: 'primary',
+            allowed: canRecord,
+            onClick: () => void navigate({ search: { ...search, record: '1' } }),
+          },
           {
             id: 'edit',
             label: t('formDialog.editTitle'),
-            onClick: () => setEditOpen(true),
+            icon: <PencilIcon />,
+            priority: 'tertiary',
             allowed: canManage,
-            priority: 'primary',
+            onClick: () => setEditOpen(true),
+          },
+          {
+            id: 'archive',
+            label: program.is_active ? t('formDialog.archive') : t('formDialog.unarchive'),
+            icon: program.is_active ? <ArchiveIcon /> : <ArchiveRestoreIcon />,
+            priority: 'tertiary',
+            allowed: canManage,
+            busy: updateProgram.isPending,
+            onClick: () => updateProgram.mutate({ is_active: !program.is_active }),
+          },
+          {
+            id: 'delete',
+            label: t('formDialog.delete'),
+            icon: <Trash2Icon />,
+            priority: 'destructive',
+            allowed: canManage && studentCount === 0,
+            onClick: () => {
+              deleteProgram.reset();
+              setDeleteOpen(true);
+            },
           },
         ]}
         tabs={[
@@ -141,6 +224,25 @@ function ProgramDetailPage() {
         onTabChange={setActiveTab}
       />
 
+      <ConfirmDialog
+        open={deleteOpen}
+        onOpenChange={(o) => !deleteProgram.isPending && setDeleteOpen(o)}
+        tone="danger"
+        title={t('detail.deleteTitle')}
+        description={
+          deleteConflict
+            ? t('formDialog.deleteConflict')
+            : deleteProgram.isError
+              ? t('detail.deleteError')
+              : t('formDialog.deleteConfirm')
+        }
+        confirmLabel={t('formDialog.deleteConfirmButton')}
+        busy={deleteProgram.isPending}
+        onConfirm={() =>
+          deleteProgram.mutate(program.id, { onSuccess: () => void navigate({ to: '/programs' }) })
+        }
+      />
+
       {canManage && editOpen && (
         <ProgramFormDialog
           open={editOpen}
@@ -169,7 +271,7 @@ function ProgramDetailPage() {
           onRecorded={closeDialogSearch}
         />
       )}
-    </div>
+    </>
   );
 }
 
