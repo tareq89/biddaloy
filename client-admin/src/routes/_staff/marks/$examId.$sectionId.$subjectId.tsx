@@ -12,20 +12,19 @@ import { Permission, UserRole } from '@biddaloy/shared';
 import {
   Button,
   cellKey,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
+  ConfirmDialog,
   ErrorState,
   MarksGrid,
   MarksStepper,
   RoutePending,
   Skeleton,
+  StatusBadge,
+  TableCount,
 } from '@biddaloy/ui/components';
 import {
   useActiveRole,
+  useExamProgress,
+  useExams,
   useHasPermission,
   useMarkGrid,
   useAutosave,
@@ -34,8 +33,17 @@ import {
   saveMarkBatch,
   type MarkGridCell,
 } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { PageContainer } from '@biddaloy/ui/shells';
+import { formatDateTime, formatNumber, formatTime } from '@biddaloy/ui/utils';
 import { createFileRoute, useBlocker } from '@tanstack/react-router';
+import {
+  CircleAlertIcon,
+  CircleCheckIcon,
+  CircleDashedIcon,
+  LoaderCircleIcon,
+  SendIcon,
+} from 'lucide-react';
 import * as React from 'react';
 
 import { loadRouteNamespaces } from '../../../route-loaders';
@@ -50,7 +58,7 @@ export const Route = createFileRoute('/_staff/marks/$examId/$sectionId/$subjectI
   // depends on `examId`+`sectionId`+`subjectId` together, and this loader
   // has nothing cheaper to prefetch than that same request, so it only
   // needs to warm the i18n namespace before the component renders.
-  loader: () => loadRouteNamespaces('exams', 'common'),
+  loader: () => loadRouteNamespaces('exams', 'grading', 'common'),
   pendingComponent: MarksGridPending,
   component: MarksEntryPage,
 });
@@ -74,7 +82,17 @@ function useIsMobile(): boolean {
 function MarksEntryPage() {
   const { examId, sectionId, subjectId } = Route.useParams();
   const { t } = useTranslation('exams');
+  const { t: tg, i18n } = useTranslation('grading');
+  const config = useRegionConfig();
   const isMobile = useIsMobile();
+  // Context for the subtitle. Both reads are allowed for a teacher (the exam
+  // list and the progress list `/marks` already loads); `GET /exams/:id`
+  // would 403 without EXAM_MANAGE.
+  const exam = useExams({ limit: 50 }).data?.data.find((e) => e.id === examId);
+  const progressRows = useExamProgress(examId).data?.outstanding;
+  const row =
+    progressRows?.find((r) => r.section_id === sectionId && r.subject_id === subjectId) ??
+    progressRows?.find((r) => r.section_id === sectionId);
   const role = useActiveRole();
   // Entering and submitting marks both need MARK_ENTER (the controller's own
   // gate for PATCH and POST submit), not EXAM_MANAGE — a TEACHER holds
@@ -148,9 +166,28 @@ function MarksEntryPage() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [canSubmit]);
 
-  if (gridQuery.isPending) return <Skeleton className="h-64 w-full" />;
+  if (gridQuery.isPending) {
+    return (
+      <PageContainer>
+        <div aria-busy="true" className="space-y-3">
+          <Skeleton className="h-7 w-64" />
+          <Skeleton className="h-4 w-80" />
+          <div className="space-y-2 rounded-lg border border-border-subtle bg-surface p-4">
+            <Skeleton className="h-10 w-full" />
+            {Array.from({ length: 8 }, (_, i) => (
+              <Skeleton key={i} className="h-10 w-full" />
+            ))}
+          </div>
+        </div>
+      </PageContainer>
+    );
+  }
   if (gridQuery.isError) {
-    return <ErrorState message={t('marksGrid.caption')} onRetry={() => void gridQuery.refetch()} />;
+    return (
+      <PageContainer>
+        <ErrorState message={t('marksList.loadError')} onRetry={() => void gridQuery.refetch()} />
+      </PageContainer>
+    );
   }
 
   const grid = gridQuery.data;
@@ -169,63 +206,112 @@ function MarksEntryPage() {
     return missing ? count + 1 : count;
   }, 0);
 
-  const saveStateLine =
+  const saveState =
     autosave.state === 'saving'
-      ? t('saveState.saving')
+      ? 'saving'
       : autosave.state === 'error'
-        ? t('saveState.error', { count: autosave.pendingCount })
+        ? 'error'
         : autosave.lastSavedAt
-          ? t('saveState.saved', {
-              time: autosave.lastSavedAt.toLocaleTimeString(),
-            })
+          ? 'saved'
+          : 'idle';
+  const saveStateLine =
+    saveState === 'saving'
+      ? t('saveState.saving')
+      : saveState === 'error'
+        ? tg('marksSheet.saveError', {
+            count: autosave.pendingCount,
+            n: formatNumber(autosave.pendingCount, config),
+          })
+        : saveState === 'saved'
+          ? t('saveState.saved', { time: formatTime(autosave.lastSavedAt, config) })
           : t('saveState.idle');
+  const SaveIcon =
+    saveState === 'saving'
+      ? LoaderCircleIcon
+      : saveState === 'error'
+        ? CircleAlertIcon
+        : saveState === 'saved'
+          ? CircleCheckIcon
+          : CircleDashedIcon;
+
+  const bn = i18n.language === 'bn';
+  const subject = bn ? (row?.subject_name_bn ?? row?.subject_name) : row?.subject_name;
+  const studentCount = grid.students.length;
+  const subtitle = [
+    subject,
+    row ? tg('marksEntry.sectionValue', { name: row.section_name }) : undefined,
+    exam?.name,
+    tg('marksSheet.studentCount', { count: studentCount, n: formatNumber(studentCount, config) }),
+  ]
+    .filter(Boolean)
+    .join(' · ');
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="sticky top-0 z-20 flex flex-col gap-2 border-b border-border-subtle bg-background p-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h1 className="text-lg font-semibold">{t('marksGrid.caption')}</h1>
+    <PageContainer>
+      <header className="flex flex-col gap-3 md:sticky md:top-14 md:z-20 md:flex-row md:items-start md:justify-between md:gap-6 md:bg-bg md:py-2">
+        <div className="min-w-0">
+          <h1 className="text-h1">{t('marksGrid.caption')}</h1>
+          <p className="mt-0.5 text-text-secondary">{subtitle}</p>
           <p
-            className="text-sm text-muted-foreground"
+            className={`mt-2 flex items-center gap-1.5 ${
+              saveState === 'error' ? 'text-destructive' : 'text-text-secondary'
+            }`}
             role="status"
             aria-live="polite"
             data-testid="save-state-line"
           >
+            <SaveIcon
+              aria-hidden="true"
+              className={`size-4 shrink-0 ${
+                saveState === 'saving'
+                  ? 'animate-spin'
+                  : saveState === 'saved'
+                    ? 'text-status-paid-fg'
+                    : ''
+              }`}
+            />
             {saveStateLine}
           </p>
         </div>
-        {submitted && (
-          <p className="rounded-md border border-border-subtle bg-muted p-2 text-sm text-muted-foreground">
-            {t('marksGrid.readOnlyBanner', {
-              name: grid.submitted_by ?? '',
-              time: grid.submitted_at ? new Date(grid.submitted_at).toLocaleString() : '',
-            })}
+        {canSubmit && (
+          <div className="flex w-full shrink-0 items-center gap-2 md:w-auto">
+            <Button
+              type="button"
+              className="flex-1 md:flex-none"
+              aria-keyshortcuts="Control+Enter"
+              onClick={() => setSubmitOpen(true)}
+            >
+              <SendIcon aria-hidden="true" />
+              {t('submitDialog.confirm')}
+            </Button>
+          </div>
+        )}
+      </header>
+
+      {submitted && (
+        <div className="rounded-lg border border-border-subtle bg-surface p-4 shadow-e1 md:p-5">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="flex flex-col gap-2 md:flex-row md:items-center md:gap-3">
+              <StatusBadge tone="success" label={tg('marksEntry.statusSubmitted')} />
+              <p className="text-text-secondary">
+                {tg('marksSheet.submittedAt', {
+                  time: formatDateTime(grid.submitted_at, config),
+                })}
+              </p>
+            </div>
             {canReopen && (
               <Button
                 type="button"
                 variant="outline"
-                size="sm"
-                className="ml-2"
                 loading={reopenGrid.isPending}
                 onClick={() => reopenGrid.mutate()}
               >
-                {t('marksGrid.reopenAction')}
+                {tg('marksSheet.reopen')}
               </Button>
             )}
-          </p>
-        )}
-        {canSubmit && (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="self-start"
-            onClick={() => setSubmitOpen(true)}
-          >
-            {t('submitDialog.confirm')} ({t('submitDialog.shortcutHint')})
-          </Button>
-        )}
-      </div>
+          </div>
+        </div>
+      )}
 
       {isMobile ? (
         <MarksStepper
@@ -239,16 +325,28 @@ function MarksEntryPage() {
           failedKeys={autosave.failedKeys}
         />
       ) : (
-        <MarksGrid
-          students={grid.students}
-          components={grid.components}
-          cells={grid.cells}
-          derived={grid.derived}
-          readOnly={readOnly}
-          onStage={stage}
-          pendingKeys={autosave.pendingKeys}
-          failedKeys={autosave.failedKeys}
-        />
+        <div className="space-y-3">
+          {!readOnly && (
+            <p className="text-caption text-text-secondary">
+              <KeyboardHelp text={tg('marksSheet.keyboardHelp')} />
+            </p>
+          )}
+          <div className="overflow-hidden rounded-lg border border-border-subtle bg-surface shadow-e1">
+            <MarksGrid
+              students={grid.students}
+              components={grid.components}
+              cells={grid.cells}
+              derived={grid.derived}
+              readOnly={readOnly}
+              onStage={stage}
+              pendingKeys={autosave.pendingKeys}
+              failedKeys={autosave.failedKeys}
+            />
+            <div className="border-t border-border-subtle px-4 py-3">
+              <TableCount total={studentCount} />
+            </div>
+          </div>
+        </div>
       )}
 
       <SubmitDialog
@@ -259,30 +357,39 @@ function MarksEntryPage() {
         onConfirm={() => void confirmSubmit()}
       />
 
-      <Dialog
+      <ConfirmDialog
         open={blocker.status === 'blocked'}
+        tone="danger"
+        title={tg('marksSheet.leaveTitle')}
+        description={tg('marksSheet.leaveText', {
+          count: autosave.pendingCount,
+          n: formatNumber(autosave.pendingCount, config),
+        })}
+        cancelLabel={tg('marksSheet.stay')}
+        confirmLabel={t('saveState.leaveAnyway')}
+        onConfirm={() => blocker.proceed?.()}
         onOpenChange={(open) => {
           if (!open) blocker.reset?.();
         }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t('saveState.navigationBlocked')}</DialogTitle>
-            <DialogDescription>
-              {t('saveState.error', { count: autosave.pendingCount })}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button type="button" variant="ghost" onClick={() => blocker.reset?.()}>
-              {t('submitDialog.cancel')}
-            </Button>
-            <Button type="button" variant="outline" onClick={() => blocker.proceed?.()}>
-              {t('saveState.leaveAnyway')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
+      />
+    </PageContainer>
+  );
+}
+
+/** Renders `<k>…</k>` markers of a translated string as `<kbd>`. */
+function KeyboardHelp({ text }: { text: string }) {
+  return (
+    <>
+      {text.split(/(<k>.*?<\/k>)/).map((part, i) =>
+        part.startsWith('<k>') ? (
+          <kbd key={i} className="rounded-sm border border-border-subtle bg-muted px-1 font-sans">
+            {part.slice(3, -4)}
+          </kbd>
+        ) : (
+          part
+        ),
+      )}
+    </>
   );
 }
 
