@@ -1,5 +1,10 @@
 import { Permission } from '@biddaloy/shared';
-import { decodeAccessTokenMemberships, getActiveRole, getActiveTenant } from '@biddaloy/ui/api';
+import {
+  ApiError,
+  decodeAccessTokenMemberships,
+  getActiveRole,
+  getActiveTenant,
+} from '@biddaloy/ui/api';
 import {
   ErrorState,
   Label,
@@ -64,11 +69,17 @@ export interface SchoolSettingsPageProps {
 
 export function SchoolSettingsPage({ backupJobId }: SchoolSettingsPageProps = {}) {
   const { t } = useTranslation('settings');
-  const isSuperAdmin = getActiveRole() === 'SUPER_ADMIN';
+  const superAdminRole = getActiveRole() === 'SUPER_ADMIN';
   const ownSchoolId = getActiveTenant();
 
-  const schoolsQuery = useSchools({ enabled: isSuperAdmin });
+  const schoolsQuery = useSchools({ enabled: superAdminRole });
   const schools = schoolsQuery.data;
+  // GET /schools is platform-only: a tenant-local SUPER_ADMIN gets 403 (or an
+  // empty list) and configures their own school like an ADMIN, with no picker.
+  const isSuperAdmin =
+    superAdminRole &&
+    !(schoolsQuery.error instanceof ApiError && schoolsQuery.error.statusCode === 403) &&
+    schools?.length !== 0;
   const [pickedSchoolId, setPickedSchoolId] = React.useState<string | undefined>(undefined);
 
   const schoolId = isSuperAdmin ? pickedSchoolId : (ownSchoolId ?? undefined);
