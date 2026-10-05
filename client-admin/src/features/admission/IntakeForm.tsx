@@ -5,14 +5,19 @@
 import { AdmissionDocumentType } from '@biddaloy/shared';
 import {
   Checkbox,
+  DatePicker,
   Input,
+  Label,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from '@biddaloy/ui/components';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { parseServerDate, toIsoDate } from '@biddaloy/ui/utils';
+import { CircleAlertIcon } from 'lucide-react';
+import type * as React from 'react';
 
 import { ALL_DOCUMENT_TYPES, useClassSectionOptions, type IntakeInput } from './hooks/useIntakes';
 
@@ -62,6 +67,20 @@ const DOCUMENT_TYPE_LABEL_KEY: Record<AdmissionDocumentType, string> = {
   [AdmissionDocumentType.TRANSCRIPT]: 'form.documentTranscript',
 };
 
+/** Label + a visible required mark (the star is decorative, the word is for screen readers). */
+function RequiredLabel({ htmlFor, children }: { htmlFor?: string; children: React.ReactNode }) {
+  const { t } = useTranslation('admission-staff-intakes');
+  return (
+    <Label htmlFor={htmlFor}>
+      {children}
+      <span className="text-destructive" aria-hidden="true">
+        {' *'}
+      </span>
+      <span className="sr-only">{t('form.required', { ns: 'common' })}</span>
+    </Label>
+  );
+}
+
 export function IntakeForm({
   value,
   onChange,
@@ -70,7 +89,10 @@ export function IntakeForm({
   onChange: (value: IntakeFormValue) => void;
 }) {
   const { t } = useTranslation('admission-staff-intakes');
+  const regionConfig = useRegionConfig();
   const { options: sectionOptions } = useClassSectionOptions();
+  const rangeInvalid =
+    value.open_date.length > 0 && value.close_date.length > 0 && value.open_date > value.close_date;
 
   function toggleDocumentType(type: AdmissionDocumentType, checked: boolean) {
     onChange({
@@ -82,11 +104,9 @@ export function IntakeForm({
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor="intake-title" className="text-sm font-medium">
-          {t('form.titleLabel')}
-        </label>
+    <div className="grid gap-4 md:grid-cols-2">
+      <div className="flex flex-col gap-1.5 md:col-span-2">
+        <RequiredLabel htmlFor="intake-title">{t('form.titleLabel')}</RequiredLabel>
         <Input
           id="intake-title"
           value={value.title}
@@ -95,13 +115,13 @@ export function IntakeForm({
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <span className="text-sm font-medium">{t('form.classSectionLabel')}</span>
+        <RequiredLabel htmlFor="intake-class-section">{t('form.classSectionLabel')}</RequiredLabel>
         <Select
           value={value.class_section_id}
           onValueChange={(next) => onChange({ ...value, class_section_id: next })}
         >
-          <SelectTrigger aria-label={t('form.classSectionLabel')}>
-            <SelectValue placeholder={t('form.classSectionPlaceholder')} />
+          <SelectTrigger id="intake-class-section">
+            <SelectValue placeholder={t('form.selectPlaceholder', { ns: 'common' })} />
           </SelectTrigger>
           <SelectContent>
             {sectionOptions.map((option) => (
@@ -114,63 +134,59 @@ export function IntakeForm({
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <label htmlFor="intake-seat-count" className="text-sm font-medium">
-          {t('form.seatCountLabel')}
-        </label>
+        <RequiredLabel htmlFor="intake-seat-count">{t('form.seatCountLabel')}</RequiredLabel>
         <Input
           id="intake-seat-count"
           type="number"
+          inputMode="numeric"
           min={1}
           value={value.seat_count}
           onChange={(event) => onChange({ ...value, seat_count: event.target.value })}
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="intake-open-date" className="text-sm font-medium">
-            {t('form.openDateLabel')}
-          </label>
-          <Input
-            id="intake-open-date"
-            type="date"
-            value={value.open_date}
-            onChange={(event) => onChange({ ...value, open_date: event.target.value })}
-          />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="intake-close-date" className="text-sm font-medium">
-            {t('form.closeDateLabel')}
-          </label>
-          <Input
-            id="intake-close-date"
-            type="date"
-            value={value.close_date}
-            onChange={(event) => onChange({ ...value, close_date: event.target.value })}
-          />
-        </div>
-      </div>
-
-      {value.open_date.length > 0 &&
-        value.close_date.length > 0 &&
-        value.open_date > value.close_date && (
-          <p className="text-sm text-destructive">{t('form.dateRangeError')}</p>
-        )}
-
       <div className="flex flex-col gap-1.5">
-        <span className="text-sm font-medium">{t('form.requiredDocumentsLabel')}</span>
-        <div className="flex flex-col gap-2">
-          {ALL_DOCUMENT_TYPES.map((type) => (
-            <label key={type} className="flex items-center gap-2 text-sm">
-              <Checkbox
-                checked={value.required_document_types.includes(type)}
-                onCheckedChange={(checked) => toggleDocumentType(type, checked === true)}
-              />
-              {t(DOCUMENT_TYPE_LABEL_KEY[type])}
-            </label>
-          ))}
-        </div>
+        <RequiredLabel htmlFor="intake-open-date">{t('form.openDateLabel')}</RequiredLabel>
+        <DatePicker
+          id="intake-open-date"
+          aria-label={t('form.openDateLabel')}
+          config={regionConfig}
+          value={value.open_date ? parseServerDate(value.open_date) : undefined}
+          onValueChange={(d) => onChange({ ...value, open_date: d ? toIsoDate(d) : '' })}
+        />
       </div>
+      <div className="flex flex-col gap-1.5">
+        <RequiredLabel htmlFor="intake-close-date">{t('form.closeDateLabel')}</RequiredLabel>
+        <DatePicker
+          id="intake-close-date"
+          aria-label={t('form.closeDateLabel')}
+          aria-invalid={rangeInvalid}
+          config={regionConfig}
+          value={value.close_date ? parseServerDate(value.close_date) : undefined}
+          onValueChange={(d) => onChange({ ...value, close_date: d ? toIsoDate(d) : '' })}
+        />
+        {rangeInvalid && (
+          <p role="alert" className="flex items-center gap-1 text-caption text-destructive">
+            <CircleAlertIcon className="size-3.5 shrink-0" aria-hidden />
+            {t('form.dateRangeError')}
+          </p>
+        )}
+      </div>
+      <p className="text-caption text-text-secondary md:col-span-2">{t('form.datesHelp')}</p>
+
+      <fieldset className="flex flex-col gap-1.5 md:col-span-2">
+        <legend className="text-label">{t('form.requiredDocumentsLabel')}</legend>
+        <p className="text-caption text-text-secondary">{t('form.documentsHelp')}</p>
+        {ALL_DOCUMENT_TYPES.map((type) => (
+          <label key={type} className="flex min-h-11 items-center gap-3 md:min-h-8">
+            <Checkbox
+              checked={value.required_document_types.includes(type)}
+              onCheckedChange={(checked) => toggleDocumentType(type, checked === true)}
+            />
+            {t(DOCUMENT_TYPE_LABEL_KEY[type])}
+          </label>
+        ))}
+      </fieldset>
     </div>
   );
 }
