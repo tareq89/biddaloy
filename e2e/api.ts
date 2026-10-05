@@ -432,13 +432,17 @@ export async function createInvitedParentUser(
  * `tenant-settings-defaults.ts`) — `PUT …/register` 422s and the UI
  * renders the roster read-only — so any spec that marks "today" goes red
  * every Friday. Falls back to Thursday (inside the default 2-day
- * correction window) rather than touching shared tenant settings. */
+ * correction window) rather than touching shared tenant settings.
+ *
+ * "Today" is the school's date (the default region timezone, Asia/Dhaka in
+ * `tenant-settings-defaults.ts`), as the server decides it — not the
+ * runner's clock. In UTC CI, 18:00–24:00 is already tomorrow in Dhaka, and
+ * the seed's FINALIZED past registers would sit on the runner's "today". */
 export function markableDateIso(): string {
-  const now = new Date();
-  if (now.getDay() === 5) now.setDate(now.getDate() - 1);
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(
-    now.getDate(),
-  ).padStart(2, '0')}`;
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Dhaka' }).format(new Date());
+  const d = new Date(`${today}T00:00:00Z`);
+  if (d.getUTCDay() === 5) d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString().slice(0, 10);
 }
 
 /** N students in one shared, freshly-created section — for pagination
