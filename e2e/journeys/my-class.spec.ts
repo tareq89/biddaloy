@@ -98,9 +98,7 @@ test.describe('class teacher', () => {
     await expect(
       page.getByRole('heading', {
         level: 1,
-        name: t('myClass.pageTitle', {
-          section: `${section.class_name}-${section.section_name}`,
-        }),
+        name: `${section.class_name} – ${section.section_name}`,
       }),
     ).toBeVisible();
 
@@ -159,9 +157,7 @@ test('assistant class teacher sees the same section', async ({ browser }) => {
     await expect(
       page.getByRole('heading', {
         level: 1,
-        name: t('myClass.pageTitle', {
-          section: `${section.class_name}-${section.section_name}`,
-        }),
+        name: `${section.class_name} – ${section.section_name}`,
       }),
     ).toBeVisible();
   } finally {
