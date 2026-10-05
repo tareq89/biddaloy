@@ -46,7 +46,7 @@ import {
 } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { DetailShell, PageContainer, PageHeader } from '@biddaloy/ui/shells';
-import { formatNumber, toIsoDate } from '@biddaloy/ui/utils';
+import { formatNumber, formatTime, toIsoDate } from '@biddaloy/ui/utils';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { SendIcon, TableIcon, WandSparklesIcon } from 'lucide-react';
 import * as React from 'react';
@@ -313,6 +313,9 @@ function RoutineBuilderPage() {
     });
   }
 
+  const activePeriod = activeCell
+    ? periods.find((period) => period.id === activeCell.periodSlotId)
+    : undefined;
   const filled = Object.keys(cells).length;
   const total = weekdays.length * periods.filter((period) => period.kind !== 'BREAK').length;
   const stateTone = { DRAFT: 'neutral', REVIEW: 'warning', PUBLISHED: 'success' } as const;
@@ -408,6 +411,13 @@ function RoutineBuilderPage() {
               }
             }}
             initialFilter={activeCell.initialFilter}
+            {...(activePeriod
+              ? {
+                  dayLabel: weekdayLabels[activeCell.weekday],
+                  periodLabel: t('agenda.periodLabel', { sequence: activePeriod.sequence }),
+                  timeLabel: formatTime(activePeriod.starts_at, config),
+                }
+              : {})}
             initialValue={
               activeCellSlot()
                 ? {
