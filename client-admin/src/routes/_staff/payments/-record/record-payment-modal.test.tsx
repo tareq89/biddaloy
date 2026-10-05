@@ -109,6 +109,15 @@ describe('RecordPaymentModal', () => {
     expect(screen.queryByPlaceholderText('Search by name or roll number')).toBeNull();
   });
 
+  it('names a seeded student by name and class, never by id', async () => {
+    server.use(http.get('/api/v1/payments/cart', () => HttpResponse.json(cartResponse())));
+
+    await renderModal({ studentId: 'student-1' });
+
+    expect(await screen.findByText('Rahim Uddin · Six A')).toBeTruthy();
+    expect(screen.queryByText('student-1')).toBeNull();
+  });
+
   it('[16.4.4] pre-selects every linked child for a guardian entry point', async () => {
     server.use(
       http.get('/api/v1/guardians/:id', () =>
@@ -229,12 +238,12 @@ describe('RecordPaymentModal', () => {
     // Amount, then the discount straight away — inside the amount's 300 ms
     // debounce and the cart request after it.
     fireEvent.change(screen.getByLabelText('Amount received'), { target: { value: '1000' } });
-    await user.click(screen.getByRole('button', { name: 'Unlock to edit discount' }));
+    await user.click(screen.getByRole('button', { name: 'Give discount' }));
     fireEvent.change(screen.getByLabelText('Discount'), { target: { value: '500' } });
 
     const payInput = screen.getByLabelText<HTMLInputElement>('Pay');
     await waitFor(() => expect(payInput.value).toMatch(/[1-9১-৯]/), { timeout: 2000 });
-    const submitButton = screen.getByRole<HTMLButtonElement>('button', { name: 'Record payment' });
+    const submitButton = screen.getByRole<HTMLButtonElement>('button', { name: /^Record/  });
     await waitFor(() => expect(submitButton.disabled).toBe(false));
     await user.click(submitButton);
 
@@ -285,7 +294,7 @@ describe('RecordPaymentModal', () => {
     await renderModal({ studentId: 'student-1' });
     await screen.findByText('Tuition — March');
 
-    await userEvent.click(screen.getByRole('button', { name: 'Unlock to edit discount' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Give discount' }));
     fireEvent.change(screen.getByLabelText('Discount'), { target: { value: '500' } });
     fireEvent.change(screen.getByLabelText('Amount received'), { target: { value: '1000' } });
 
@@ -295,7 +304,7 @@ describe('RecordPaymentModal', () => {
     // 1,000 suggestion — "৫০০" (Bengali 500) as a substring rules out ১,০০০.
     await waitFor(() => expect(payInput.value).toMatch(/৫০০|500/));
     expect(payInput.value).not.toMatch(/১,?০০০|1,?000/);
-    const submitButton = screen.getByRole<HTMLButtonElement>('button', { name: 'Record payment' });
+    const submitButton = screen.getByRole<HTMLButtonElement>('button', { name: /^Record/  });
     await waitFor(() => expect(submitButton.disabled).toBe(false));
   });
 
@@ -341,20 +350,20 @@ describe('RecordPaymentModal', () => {
     await waitFor(() =>
       expect(screen.getAllByLabelText<HTMLInputElement>('Pay')[1]?.value).toMatch(/[1-9১-৯]/),
     );
-    await user.click(screen.getAllByRole('button', { name: 'Unlock to edit discount' })[1]!);
+    await user.click(screen.getAllByRole('button', { name: 'Give discount' })[1]!);
     fireEvent.change(screen.getByLabelText('Discount'), { target: { value: '200' } });
 
     await user.click(screen.getByRole('button', { name: 'Remove Fatema Begum' }));
     await waitFor(() => expect(screen.queryByText('Tuition — 2')).toBeNull());
 
-    await user.type(screen.getByLabelText('Search for a student'), 'Fat');
+    await user.type(screen.getByLabelText('Add another student'), 'Fat');
     await user.click(await screen.findByRole('button', { name: /Fatema Begum/ }));
 
     await screen.findByText('Tuition — 2');
     await waitFor(() =>
       expect(screen.getAllByLabelText<HTMLInputElement>('Pay')[1]?.value).toMatch(/[1-9১-৯]/),
     );
-    expect(screen.getAllByRole('button', { name: 'Unlock to edit discount' })).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: 'Give discount' })).toHaveLength(2);
     expect(screen.queryByLabelText('Discount')).toBeNull();
   });
 
@@ -404,7 +413,7 @@ describe('RecordPaymentModal', () => {
     await screen.findByText('Tuition — March');
 
     const submitButton = await screen.findByRole<HTMLButtonElement>('button', {
-      name: 'Record payment',
+      name: /^Record/ ,
     });
     await waitFor(() => expect(submitButton.disabled).toBe(false));
     await user.click(submitButton);
@@ -417,6 +426,51 @@ describe('RecordPaymentModal', () => {
     await waitFor(() => expect(secondKey).toBeDefined());
     expect(secondKey).toBe(firstKey);
     expect(approvalTokenSeen).toBe('token-1');
+  });
+
+  it('writes the amount being recorded on the primary button', async () => {
+    server.use(http.get('/api/v1/payments/cart', () => HttpResponse.json(cartResponse())));
+
+    await renderModal({ studentId: 'student-1' });
+    await screen.findByText('Tuition — March');
+    fireEvent.change(screen.getByLabelText('Amount received'), { target: { value: '5000' } });
+
+    expect(
+      await screen.findByRole('button', { name: /^Record .*[5৫],[0০]{3}/ }, { timeout: 3000 }),
+    ).toBeTruthy();
+  });
+
+  it('a failed checkout shows the translated sentence, never the server text', async () => {
+    server.use(
+      http.get('/api/v1/payments/cart', () => HttpResponse.json(cartResponse())),
+      http.post('/api/v1/payments/checkout', () =>
+        HttpResponse.json(
+          {
+            statusCode: 500,
+            message: 'SECRET backend detail',
+            timestamp: new Date().toISOString(),
+            path: '/payments/checkout',
+            requestId: 'req-2',
+          },
+          { status: 500 },
+        ),
+      ),
+    );
+
+    const user = userEvent.setup();
+    await renderModal({ studentId: 'student-1' });
+    await screen.findByText('Tuition — March');
+    fireEvent.change(screen.getByLabelText('Amount received'), { target: { value: '5000' } });
+    const submitButton = await screen.findByRole<HTMLButtonElement>(
+      'button',
+      { name: /^Record/ },
+      { timeout: 3000 },
+    );
+    await waitFor(() => expect(submitButton.disabled).toBe(false));
+    await user.click(submitButton);
+
+    expect((await screen.findByRole('alert')).textContent).toBe('Recording payment failed.');
+    expect(screen.queryByText(/SECRET/)).toBeNull();
   });
 
   it('[16.4.4] Enter inside the reference field does not submit the form', async () => {
@@ -469,7 +523,7 @@ describe('RecordPaymentModal', () => {
     await screen.findByText('Tuition — March');
 
     const submitButton = await screen.findByRole<HTMLButtonElement>('button', {
-      name: 'Record payment',
+      name: /^Record/ ,
     });
     await waitFor(() => expect(submitButton.disabled).toBe(false));
     await user.click(submitButton);
@@ -510,7 +564,7 @@ describe('RecordPaymentModal', () => {
     await screen.findByText('Tuition — March');
 
     const submitButton = await screen.findByRole<HTMLButtonElement>('button', {
-      name: 'Record payment',
+      name: /^Record/ ,
     });
     await waitFor(() => expect(submitButton.disabled).toBe(false));
     await user.click(submitButton);
