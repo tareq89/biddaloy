@@ -17,10 +17,12 @@
  * breakpoint toggles which one is visible. Native platform feature over
  * a JS media-query hook.
  */
+import { PlusIcon, TriangleAlertIcon } from 'lucide-react';
 import * as React from 'react';
 
-import { useTranslation } from '../i18n';
+import { useRegionConfig, useTranslation } from '../i18n';
 import { cn } from '../primitives/lib/utils';
+import { formatTime } from '../utils/date';
 
 export interface RoutineGridPeriodRow {
   id: string;
@@ -76,6 +78,9 @@ export function RoutineGrid({
   disabled = false,
 }: RoutineGridProps) {
   const { t } = useTranslation('routines');
+  const config = useRegionConfig();
+  const timeRange = (p: RoutineGridPeriodRow) =>
+    `${formatTime(p.starts_at, config)} – ${formatTime(p.ends_at, config)}`;
   const classRows = periods.filter((p) => p.kind === 'CLASS');
   // [row, col] into classRows/weekdays — a BREAK row is never a focus
   // target, it has no cells of its own.
@@ -146,7 +151,7 @@ export function RoutineGrid({
     <>
       {/* D18: below `md`, the grid is too cramped to be usable — a
           message replaces it rather than rendering a broken layout. */}
-      <p className="text-sm text-muted-foreground md:hidden">{t('grid.tooNarrow')}</p>
+      <p className="text-text-secondary md:hidden">{t('grid.tooNarrow')}</p>
       <div className="hidden overflow-x-auto md:block">
         {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions --
             Standard WAI-ARIA "composite widget" keydown delegation: the
@@ -155,21 +160,21 @@ export function RoutineGrid({
             container-level handler only routes arrow/Enter/Delete/type-ahead
             keys to whichever cell button currently holds focus, the same
             pattern `-roster-marker.tsx`'s roving-tabIndex row uses. */}
-        <table
-          className="w-full min-w-[640px] border-separate border-spacing-0"
-          onKeyDown={handleKeyDown}
-        >
+        <table className="w-full border-separate border-spacing-0" onKeyDown={handleKeyDown}>
           <caption className="sr-only">{t('grid.caption')}</caption>
-          <thead>
+          <thead className="bg-muted text-label text-text-secondary">
             <tr>
-              <th scope="col" className="w-24 border-b border-border-subtle p-2 text-start text-sm">
+              <th
+                scope="col"
+                className="h-10 w-52 border-b border-border-subtle px-4 text-start font-medium"
+              >
                 {t('grid.periodColumn')}
               </th>
               {weekdays.map((weekday) => (
                 <th
                   key={weekday}
                   scope="col"
-                  className="border-b border-border-subtle p-2 text-start text-sm font-medium"
+                  className="h-10 border-b border-border-subtle px-2 text-start font-medium"
                 >
                   {weekdayLabels[weekday]}
                 </th>
@@ -183,9 +188,9 @@ export function RoutineGrid({
                   <tr key={period.id}>
                     <td
                       colSpan={weekdays.length + 1}
-                      className="border-b border-border-subtle bg-muted px-2 py-1 text-center text-xs text-muted-foreground"
+                      className="h-8 border-b border-border-subtle bg-muted px-4 text-caption text-text-secondary"
                     >
-                      {period.name ?? t('grid.breakUnnamed')}
+                      {period.name ?? t('grid.breakUnnamed')} · {timeRange(period)}
                     </td>
                   </tr>
                 );
@@ -195,13 +200,20 @@ export function RoutineGrid({
                 <tr key={period.id}>
                   <th
                     scope="row"
-                    className="border-b border-border-subtle p-2 text-start text-xs font-normal text-muted-foreground"
+                    className="w-52 border-b border-border-subtle px-4 py-2 text-start align-top font-normal"
                   >
-                    {period.starts_at}–{period.ends_at}
+                    <span className="block font-medium">
+                      {t('agenda.periodLabel', { sequence: period.sequence })}
+                    </span>
+                    <span className="block text-caption whitespace-nowrap text-text-secondary">
+                      {timeRange(period)}
+                    </span>
                   </th>
                   {weekdays.map((weekday, colIndex) => {
                     const key = routineCellKey(weekday, period.id);
                     const cell = cells[key];
+                    const periodLabel = t('agenda.periodLabel', { sequence: period.sequence });
+                    const weekdayLabel = weekdayLabels[weekday] ?? '';
                     const isFocusTarget = rowIndex === focused[0] && colIndex === focused[1];
                     return (
                       <td key={key} className="border-b border-border-subtle p-1 align-top">
@@ -212,6 +224,21 @@ export function RoutineGrid({
                             else cellRefs.current.delete(key);
                           }}
                           disabled={disabled}
+                          aria-label={
+                            cell
+                              ? t('routine.cellLabel', {
+                                  ns: 'common',
+                                  weekday: weekdayLabel,
+                                  period: periodLabel,
+                                  subject: cell.subjectLabel,
+                                  teachers: cell.teacherLabels.join(', '),
+                                })
+                              : t('routine.cellLabelEmpty', {
+                                  ns: 'common',
+                                  weekday: weekdayLabel,
+                                  period: periodLabel,
+                                })
+                          }
                           tabIndex={isFocusTarget ? 0 : -1}
                           onFocus={() => setFocused([rowIndex, colIndex])}
                           onClick={() => onActivateCell(weekday, period.id)}
@@ -219,10 +246,10 @@ export function RoutineGrid({
                             cell?.hasViolation ? 'violation' : cell?.hasWarning ? 'warning' : 'ok'
                           }
                           className={cn(
-                            'flex min-h-14 w-full flex-col items-start gap-0.5 rounded-md border px-2 py-1.5 text-start text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+                            'flex min-h-14 w-full flex-col items-start gap-0.5 rounded-md border px-2 py-1.5 text-start outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
                             cell
-                              ? 'border-border-subtle bg-card'
-                              : 'border-dashed border-border-subtle bg-transparent text-muted-foreground',
+                              ? 'border-border-subtle bg-surface'
+                              : 'border-dashed border-border-subtle bg-transparent text-text-secondary',
                             cell?.hasViolation &&
                               'border-status-overdue-fg bg-status-overdue-bg text-status-overdue-fg',
                             !cell?.hasViolation &&
@@ -232,16 +259,26 @@ export function RoutineGrid({
                         >
                           {cell ? (
                             <>
-                              <span className="font-medium">{cell.subjectLabel}</span>
-                              <span>{cell.teacherLabels.join(', ')}</span>
+                              <span className="flex items-center gap-1 font-medium">
+                                {cell.hasWarning && !cell.hasViolation && (
+                                  <TriangleAlertIcon className="size-3.5" aria-hidden="true" />
+                                )}
+                                {cell.subjectLabel}
+                              </span>
+                              <span className="text-caption text-text-secondary">
+                                {cell.teacherLabels.join(', ')}
+                              </span>
                               {cell.recurrence !== 'WEEKLY' && (
-                                <span className="text-[10px] uppercase">
+                                <span className="text-caption">
                                   {t(`grid.recurrence.${cell.recurrence}`)}
                                 </span>
                               )}
                             </>
                           ) : (
-                            <span>{t('grid.emptyCell')}</span>
+                            <span className="flex items-center gap-1">
+                              <PlusIcon className="size-3.5" aria-hidden="true" />
+                              {t('grid.emptyCell')}
+                            </span>
                           )}
                         </button>
                       </td>

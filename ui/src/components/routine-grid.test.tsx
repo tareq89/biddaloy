@@ -1,16 +1,19 @@
 import { act, fireEvent, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-import { i18n } from '../i18n';
+import { i18n, REGION_BD_EN, RegionConfigProvider } from '../i18n';
 import { renderWithProviders } from '../test';
 
 import { RoutineGrid, routineCellKey, type RoutineGridPeriodRow } from './routine-grid';
 
 async function renderInEnglish(ui: React.ReactElement) {
-  const view = renderWithProviders(ui, { locale: 'en' });
+  const view = renderWithProviders(
+    <RegionConfigProvider value={REGION_BD_EN}>{ui}</RegionConfigProvider>,
+    { locale: 'en' },
+  );
   await act(async () => {
     await view.localeReady;
-    await i18n.loadNamespaces('routines');
+    await i18n.loadNamespaces(['routines', 'common']);
   });
   return view;
 }
@@ -47,7 +50,8 @@ describe('RoutineGrid', () => {
     expect(screen.getByText('Mon')).toBeTruthy();
     expect(screen.getByText('Tue')).toBeTruthy();
     expect(screen.queryByText('Wed')).toBeNull();
-    expect(screen.getByText('Tiffin')).toBeTruthy();
+    // Break row: name plus the formatted time range.
+    expect(screen.getByText('Tiffin · 8:40 AM – 9:00 AM')).toBeTruthy();
   });
 
   it('renders a filled cell with subject, teachers and non-weekly recurrence badge', async () => {
@@ -73,6 +77,47 @@ describe('RoutineGrid', () => {
     expect(screen.getByText('Math')).toBeTruthy();
     expect(screen.getByText('Ms Nahar, Mr Karim')).toBeTruthy();
     expect(screen.getByText('Biweekly')).toBeTruthy();
+  });
+
+  it('shows period times as formatted 12-hour text, never raw HH:mm', async () => {
+    await renderInEnglish(
+      <RoutineGrid
+        weekdays={WEEKDAYS}
+        weekdayLabels={WEEKDAY_LABELS}
+        periods={PERIODS}
+        cells={{}}
+        onActivateCell={vi.fn()}
+        onClearCell={vi.fn()}
+      />,
+    );
+    expect(screen.getByText('8:00 AM – 8:40 AM')).toBeTruthy();
+    expect(screen.queryByText(/08:00/)).toBeNull();
+  });
+
+  it('gives every cell a full spoken label', async () => {
+    await renderInEnglish(
+      <RoutineGrid
+        weekdays={WEEKDAYS}
+        weekdayLabels={WEEKDAY_LABELS}
+        periods={PERIODS}
+        cells={{
+          [routineCellKey(1, 'p1')]: {
+            slotId: 's1',
+            subjectLabel: 'Math',
+            teacherLabels: ['Ms Nahar', 'Mr Karim'],
+            recurrence: 'WEEKLY',
+            hasViolation: false,
+            hasWarning: false,
+          },
+        }}
+        onActivateCell={vi.fn()}
+        onClearCell={vi.fn()}
+      />,
+    );
+    expect(
+      screen.getByRole('button', { name: 'Mon, Period 1: Math, Ms Nahar, Mr Karim' }),
+    ).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Sun, Period 1: empty' })).toBeTruthy();
   });
 
   it('Enter on the focused empty cell calls onActivateCell', async () => {
