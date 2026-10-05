@@ -2,6 +2,7 @@ import { DataTable, type DataTableColumn } from '@biddaloy/ui/components';
 import { useFeeStructures, type FeeStructure } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { formatServerAmount } from '@biddaloy/ui/utils';
+import { ListChecksIcon } from 'lucide-react';
 import * as React from 'react';
 
 import { TabQueryState } from './tab-query-state';
@@ -10,7 +11,7 @@ export interface FeeStructuresTabProps {
   classId: string;
 }
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 25;
 
 /** Reuses `useFeeStructures({ class_id })` — same `academic-years/
  * -detail/fee-structures-tab.tsx` reasoning, scoped by class instead of
@@ -73,7 +74,11 @@ export function FeeStructuresTab({ classId }: FeeStructuresTabProps) {
           pageSize={PAGE_SIZE}
           totalCount={feeStructures.total}
           onPageChange={setPage}
-          emptyMessage={t('detail.feeStructures.emptyMessage')}
+          emptyState={{
+            icon: <ListChecksIcon aria-hidden="true" />,
+            title: t('detail.feeStructures.emptyMessage'),
+            explanation: t('detail.feeStructures.emptyExplanation'),
+          }}
         />
       )}
     </TabQueryState>

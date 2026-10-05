@@ -10,7 +10,6 @@
  */
 import {
   Button,
-  ConfirmDialog,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -34,7 +33,7 @@ import { useTranslation } from '@biddaloy/ui/i18n';
 import { toLatinDigits } from '@biddaloy/ui/utils';
 import * as React from 'react';
 
-import { ErrorText, Field } from './-dialog-kit';
+import { ErrorText, Field, useCloseGuard } from './-dialog-kit';
 
 export interface ClassFormInitialValues {
   name: string;
@@ -108,7 +107,6 @@ export function ClassFormDialog({
   const [shift, setShift] = React.useState(initialShift);
   const [version, setVersion] = React.useState(initialVersion);
   const [validationError, setValidationError] = React.useState<string | null>(null);
-  const [discardOpen, setDiscardOpen] = React.useState(false);
 
   const isDirty =
     name !== initial.name ||
@@ -117,12 +115,7 @@ export function ClassFormDialog({
     shift !== initialShift ||
     version !== initialVersion;
 
-  // A request in flight must not be abandoned (Esc / X / outside / Cancel).
-  function requestClose() {
-    if (mutation.isPending) return;
-    if (isDirty) setDiscardOpen(true);
-    else onOpenChange(false);
-  }
+  const { requestClose, discardDialog } = useCloseGuard(isDirty, mutation.isPending, onOpenChange);
 
   // [D5] Each select only renders once its vocabulary has 2+ entries — a
   // single-shift school sees nothing new, same rule the list filters use.
@@ -299,19 +292,7 @@ export function ClassFormDialog({
           </form>
         </DialogContent>
       </Dialog>
-      <ConfirmDialog
-        open={discardOpen}
-        onOpenChange={setDiscardOpen}
-        title={t('fullPage.discardTitle', { ns: 'common' })}
-        description={t('fullPage.discardDescription', { ns: 'common' })}
-        confirmLabel={t('fullPage.discardConfirm', { ns: 'common' })}
-        cancelLabel={t('fullPage.keepEditing', { ns: 'common' })}
-        tone="default"
-        onConfirm={() => {
-          setDiscardOpen(false);
-          onOpenChange(false);
-        }}
-      />
+      {discardDialog}
     </>
   );
 }

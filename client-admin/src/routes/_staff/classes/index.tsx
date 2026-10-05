@@ -286,7 +286,11 @@ function ClassesListPage() {
             : {}),
         }}
         announceResults={(count, total) =>
-          t('list.announceResults', { visible: count, total, count: total })
+          t('list.announceResults', {
+            visible: formatNumber(count, regionConfig),
+            total: formatNumber(total, regionConfig),
+            count: total,
+          })
         }
       />
 

@@ -59,7 +59,7 @@
     "save": "সংরক্ষণ করুন",
     "saving": "সংরক্ষণ করা হচ্ছে…",
     "groupLabel": "গ্রুপ",
-    "groupPlaceholder": "একটি গ্রুপ নির্বাচন করুন"
+    "groupPlaceholder": "বাছুন"
   },
   "deleteClassDialog": {
     "title": "শ্রেণি মুছুন",
@@ -76,20 +76,22 @@
     "description": "\"{{name}}\" মুছে ফেলবেন? এটি ফিরিয়ে আনা যাবে না।",
     "confirm": "মুছুন",
     "deleting": "মুছে ফেলা হচ্ছে…",
-    "errorMessage": "শাখা মুছতে ব্যর্থ হয়েছে"
+    "errorMessage": "শাখা মুছতে ব্যর্থ হয়েছে",
+    "blockedMessage": "এই শাখায় এখনও শিক্ষার্থী ভর্তি আছে, তাই এটি মোছা যাবে না। আগে শিক্ষার্থীদের অন্য শাখায় সরান।"
   },
   "sections": {
-    "heading": "শাখা — {{className}}",
-    "addSection": "+ শাখা",
+    "heading": "শাখা",
+    "addSection": "শাখা যোগ করুন",
     "columnName": "শাখা",
     "columnCapacity": "ধারণক্ষমতা",
     "columnEnrolled": "ভর্তিকৃত",
-    "columnActions": "কার্যক্রম",
     "noCapacity": "—",
     "edit": "সম্পাদনা",
     "delete": "মুছুন",
     "emptyMessage": "এখনও কোনো শাখা নেই",
-    "errorMessage": "শাখা লোড করতে ব্যর্থ হয়েছে"
+    "errorMessage": "শাখা লোড করতে ব্যর্থ হয়েছে",
+    "emptyExplanation": "শাখা যোগ করলে শিক্ষার্থীরা সেখানে ভর্তি হতে পারবে।",
+    "caption": "এই শ্রেণির শাখার তালিকা"
   },
   "detail": {
     "tabSections": "শাখা",
@@ -97,14 +99,15 @@
     "tabFeeStructures": "ফি কাঠামো",
     "tabTeachers": "শিক্ষক",
     "forbidden": "এটি দেখার অনুমতি আপনার নেই।",
-    "grade": "গ্রেড {{grade}}",
     "students": {
       "columnName": "নাম",
       "columnRoll": "রোল",
       "columnSection": "শাখা",
       "columnStatus": "অবস্থা",
       "emptyMessage": "এই শ্রেণিতে কোনো শিক্ষার্থী নেই",
-      "errorMessage": "শিক্ষার্থী লোড করতে ব্যর্থ হয়েছে"
+      "errorMessage": "শিক্ষার্থী লোড করতে ব্যর্থ হয়েছে",
+      "view": "দেখুন",
+      "emptyExplanation": "শিক্ষার্থী এই শ্রেণিতে ভর্তি হলে এখানে দেখা যাবে।"
     },
     "homework": {
       "loading": "বাড়ির কাজ লোড হচ্ছে",
@@ -122,7 +125,8 @@
       "columnType": "ধরন",
       "columnAmount": "পরিমাণ",
       "emptyMessage": "এই শ্রেণির জন্য কোনো ফি কাঠামো নেই",
-      "errorMessage": "ফি কাঠামো লোড করতে ব্যর্থ হয়েছে"
+      "errorMessage": "ফি কাঠামো লোড করতে ব্যর্থ হয়েছে",
+      "emptyExplanation": "এই শ্রেণির জন্য ফি কাঠামো যোগ করলে এখানে দেখা যাবে।"
     },
     "teachers": {
       "columnName": "নাম",
@@ -135,30 +139,36 @@
       "assign": "নিয়োগ",
       "assignAria": "{{section}} শাখায় শিক্ষক নিয়োগ করুন",
       "remove": "অপসারণ",
-      "removeAria": "{{name}} ({{role}}) অপসারণ করুন",
-      "removeError": "শিক্ষক অপসারণ করতে ব্যর্থ হয়েছে"
+      "removeError": "শিক্ষক অপসারণ করতে ব্যর্থ হয়েছে",
+      "removeConfirmTitle": "শিক্ষকের নিয়োগ বাতিল করবেন?",
+      "removeConfirmDescription": "{{name}}-কে {{section}} শাখা থেকে সরানো হবে। পরে আবার নিয়োগ দেওয়া যাবে।",
+      "emptyExplanation": "শাখা যোগ করার পর এখানে শিক্ষক নিয়োগ দেওয়া যাবে।"
     },
     "tabSubjects": "বিষয়",
-    "tabHomework": "বাড়ির কাজ"
+    "tabHomework": "বাড়ির কাজ",
+    "factGrade": "গ্রেড",
+    "factAcademicYear": "শিক্ষাবর্ষ",
+    "factSections": "শাখা",
+    "sectionCount_one": "{{n}}টি",
+    "sectionCount_other": "{{n}}টি"
   },
   "subjects": {
     "heading": "বিষয়সমূহ",
-    "addSubject": "+ বিষয়",
+    "addSubject": "বিষয় যোগ করুন",
     "columnName": "বিষয়",
     "columnCode": "কোড",
     "columnOptional": "ঐচ্ছিক",
-    "columnActions": "কার্যক্রম",
-    "yes": "হ্যাঁ",
-    "no": "না",
     "remove": "অপসারণ",
     "emptyMessage": "এখনও কোনো বিষয় যুক্ত করা হয়নি",
-    "errorMessage": "বিষয় লোড করতে ব্যর্থ হয়েছে"
+    "errorMessage": "বিষয় লোড করতে ব্যর্থ হয়েছে",
+    "optional": "ঐচ্ছিক",
+    "caption": "এই শ্রেণির বিষয়ের তালিকা"
   },
   "subjectAttachForm": {
     "title": "বিষয় যোগ করুন",
     "description": "এই শ্রেণি তার শিক্ষাবর্ষে যে বিষয় অফার করে তা যুক্ত করুন।",
     "subjectLabel": "বিষয়",
-    "subjectPlaceholder": "একটি বিষয় নির্বাচন করুন",
+    "subjectPlaceholder": "বাছুন",
     "optionalLabel": "ঐচ্ছিক বিষয়",
     "errorSubjectRequired": "বিষয় আবশ্যক",
     "errorMessage": "বিষয় যুক্ত করতে ব্যর্থ হয়েছে",
@@ -174,12 +184,10 @@
   },
   "assignTeacherForm": {
     "title": "শিক্ষক নিয়োগ করুন",
-    "description": "শ্রেণি-শিক্ষক অথবা বিষয়-শিক্ষক হিসেবে এই শাখায় একজন শিক্ষক নিয়োগ করুন।",
+    "description": "এই শাখায় একজন শিক্ষককে শ্রেণি শিক্ষক, সহকারী শ্রেণি শিক্ষক বা বিষয় শিক্ষক হিসেবে দিন।",
     "teacherLabel": "শিক্ষক",
     "teacherPlaceholder": "একজন শিক্ষক নির্বাচন করুন",
     "modeLabel": "নিয়োগের ধরন",
-    "classTeacherOption": "শ্রেণি-শিক্ষক",
-    "subjectTeacherOption": "বিষয়-শিক্ষক",
     "subjectLabel": "বিষয়",
     "subjectPlaceholder": "একটি বিষয় নির্বাচন করুন",
     "errorTeacherRequired": "শিক্ষক আবশ্যক",
