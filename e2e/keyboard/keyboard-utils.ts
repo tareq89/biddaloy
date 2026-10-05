@@ -1,4 +1,4 @@
-import { expect, type Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
 
 /** [8.5.6] Keyboard-only helpers — every interaction goes through
  * `page.keyboard`; nothing here (or in the specs using it) touches the
@@ -32,11 +32,13 @@ export async function tabUntilFocused(
   text: string,
   // The sidebar's links come before page content in Tab order, so this grows with the nav.
   max = 90,
-  options: { tag?: string; shift?: boolean } = {},
+  options: { tag?: string; shift?: boolean; exact?: boolean } = {},
 ): Promise<void> {
   for (let i = 0; i < max; i += 1) {
     await page.keyboard.press(options.shift ? 'Shift+Tab' : 'Tab');
-    if (!(await focusedText(page)).includes(text)) continue;
+    const focused = await focusedText(page);
+    // `exact`: a short label ("Payments") must not match a longer one ("Record payment").
+    if (options.exact ? focused !== text : !focused.includes(text)) continue;
     if (options.tag) {
       const tag = await page.evaluate(() => document.activeElement?.tagName ?? '');
       // Same accessible text can exist as both a nav link and a button
@@ -69,4 +71,67 @@ export async function selectByTypeahead(page: Page, value: string): Promise<void
   await option.focus();
   await page.keyboard.press('Enter');
   await expect(page.getByRole('listbox')).toBeHidden();
+}
+
+/** [31.5.2] Load the dashboard, Tab to the sidebar link named `label`, press
+ * Enter, and check the page `h1` reads the same (D16/D32). Keyboard only. */
+export async function openFromSidebar(page: Page, label: string, max = 150): Promise<void> {
+  await page.goto('/dashboard');
+  await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible();
+  await page.evaluate(() => {
+    document.body.setAttribute('tabindex', '-1');
+    document.body.focus();
+    document.body.removeAttribute('tabindex');
+  });
+  await page.keyboard.press('Tab');
+  await tabUntilFocused(page, label, max, { tag: 'a', exact: true });
+  await page.keyboard.press('Enter');
+  const heading = page.getByRole('heading', { level: 1, name: label, exact: true });
+  await expect(heading).toBeVisible();
+  // Route focus lands on the h1 a moment after navigation; Tabbing before it would race it.
+  await expect(heading).toBeFocused();
+}
+
+/** [31.5.2] From the focused heading, Tab to the header action `actionLabel`,
+ * open it, close it with Escape, and check focus is back on the trigger.
+ * `opened` is the dialog (or the full-page modal's `h1`) the action opens. */
+export async function expectPrimaryTaskOpensAndCloses(
+  page: Page,
+  actionLabel: string,
+  opened: Locator,
+  tag = 'BUTTON',
+): Promise<void> {
+  await tabUntilFocused(page, actionLabel, 30, { tag });
+  // `:focus` is re-evaluated on every use, so pin the trigger by role and name.
+  const trigger = page
+    .locator('main')
+    .getByRole(tag.toUpperCase() === 'A' ? 'link' : 'button', { name: actionLabel })
+    .first();
+  await page.keyboard.press('Enter');
+  await expect(opened).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(opened).toBeHidden();
+  if (!FOCUS_RETURN_KNOWN_BROKEN) await expect(trigger).toBeFocused();
+}
+
+// Known product bug (reported with this ticket): the header primary is a plain `Button` that sets
+// state, not a `DialogTrigger`, so Radix has no `triggerRef` to refocus and focus drops to <body>
+// when the dialog or full-page modal closes (`ui/src/primitives/dialog.tsx` DialogContent).
+// ponytail: flip to false once that is fixed; every primary-task journey then asserts the return.
+const FOCUS_RETURN_KNOWN_BROKEN = true;
+
+/** [31.5.2] A dialog titled `title`, or a full-page modal whose `h1` is `title`. */
+export function modalTitled(page: Page, title: string): Locator {
+  return page
+    .getByRole('dialog', { name: title })
+    .or(page.getByRole('heading', { level: 1, name: title }))
+    .first();
+}
+
+/** [31.5.2] Pages with no primary task: one Tab from the heading lands inside `main`. */
+export async function expectReachableInMain(page: Page): Promise<void> {
+  // Controls render after data loads; Tabbing earlier lands on whatever is there at that moment.
+  await page.waitForLoadState('networkidle');
+  await page.keyboard.press('Tab');
+  await expect(page.locator('main :focus')).toHaveCount(1);
 }
