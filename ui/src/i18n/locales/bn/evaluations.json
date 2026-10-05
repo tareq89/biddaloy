@@ -26,8 +26,6 @@
     "submitHint": "সম্পন্ন করতে Ctrl+Enter চাপুন",
     "submitBlocked": "সম্পন্ন করার আগে সব মানদণ্ডে নম্বর দিন।",
     "completeError": "এসিআর সম্পন্ন করা যায়নি।",
-    "next": "পরবর্তী",
-    "back": "পেছনে",
     "stepOf": "ধাপ {{current}} / {{total}}",
     "criterionOf": "মানদণ্ড {{current}} / {{total}}",
     "keyboardHint": "নম্বর দিয়ে এগিয়ে যেতে ৪, ৩, ২ বা ১ চাপুন",
@@ -136,7 +134,12 @@
         "leave": "সংরক্ষণ ছাড়া ছেড়ে যান"
       }
     },
-    "print": "এসিআর প্রিন্ট করুন"
+    "print": "এসিআর প্রিন্ট করুন",
+    "pageTitle": "এসিআর — {{name}}",
+    "stepsLabel": "এসিআরের ধাপ",
+    "scoredOf": "{{total}}টির মধ্যে {{scored}}টিতে নম্বর দেওয়া হয়েছে",
+    "prevCriterion": "আগের মানদণ্ড",
+    "nextCriterion": "পরের মানদণ্ড"
   },
   "incident": {
     "title": "ঘটনা",

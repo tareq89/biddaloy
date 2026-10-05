@@ -58,7 +58,7 @@ test('opens the dashboard and reads an ACR without being able to change it', asy
 
   // Open the ACR itself (by URL: the register can be long) and check it is read-only.
   await page.goto(`/staff/${subjectId}/acr/${acrId}`);
-  await expect(page.getByRole('heading', { name: t('evaluations.acr.title') })).toBeVisible();
+  await expect(page.getByRole('dialog').getByRole('heading', { level: 1 })).toBeVisible();
   // The ACR is INCOMPLETE, so step 1 is editable for ACR_WRITE (ADMIN) and disabled
   // only because COMMITTEE lacks it (`readOnly = completed || !canWrite`, acr-form.tsx).
   await expect(
