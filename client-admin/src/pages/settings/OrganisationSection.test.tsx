@@ -66,7 +66,7 @@ describe('OrganisationSection', () => {
     expect(patchBody.mock.calls[0]![0].organisation.groups).toEqual(['Science']);
   });
 
-  it('surfaces a server refusal to remove a value inline on that row', async () => {
+  it('shows a translated refusal inline on the row when a value is still in use', async () => {
     server.use(
       http.patch('/api/v1/schools/:id/settings', () =>
         HttpResponse.json(
@@ -90,11 +90,17 @@ describe('OrganisationSection', () => {
 
     const shifts = within(await screen.findByTestId('organisation-shifts'));
     const dayRow = shifts.getByText('Day').closest('li')!;
-    await user.click(within(dayRow).getByRole('button', { name: 'Remove' }));
+    await user.click(within(dayRow).getByRole('button', { name: 'Remove: Day' }));
 
     await user.click(screen.getByRole('button', { name: 'Save' }));
 
-    await waitFor(() => expect(within(dayRow).getByText(/2 row\(s\) still use it/)).toBeDefined());
+    // The row shows a translated line, never the server's own text.
+    expect(
+      await within(dayRow).findByText(
+        '"Day" is still used by classes or sections, so it can\'t be removed. Rename it instead.',
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByText(/row\(s\) still use it/)).toBeNull();
   });
 
   it('a rename sends an explicit { list, from, to } instruction', async () => {
@@ -117,7 +123,7 @@ describe('OrganisationSection', () => {
 
     const shifts = within(await screen.findByTestId('organisation-shifts'));
     const morningRow = shifts.getByText('Morning').closest('li')!;
-    await user.click(within(morningRow).getByRole('button', { name: 'Rename' }));
+    await user.click(within(morningRow).getByRole('button', { name: 'Rename: Morning' }));
 
     const renameInput = within(morningRow).getByPlaceholderText('New name');
     await user.clear(renameInput);
@@ -142,7 +148,7 @@ describe('OrganisationSection', () => {
 
     const shifts = within(await screen.findByTestId('organisation-shifts'));
     const morningRow = shifts.getByText('Morning').closest('li')!;
-    await user.click(within(morningRow).getByRole('button', { name: 'Rename' }));
+    await user.click(within(morningRow).getByRole('button', { name: 'Rename: Morning' }));
     const renameInput = within(morningRow).getByPlaceholderText('New name');
     await user.type(renameInput, 'Prabhati');
     await user.click(within(morningRow).getByRole('button', { name: 'Save' }));
@@ -153,7 +159,7 @@ describe('OrganisationSection', () => {
     // `AttendanceSection.test.tsx`'s own comment documents) — a plain
     // `.disabled` read instead of `toBeDisabled()`.
     const dayRow = shifts.getByText('Day').closest('li')!;
-    const dayRenameButton = within(dayRow).getByRole('button', { name: 'Rename' });
+    const dayRenameButton = within(dayRow).getByRole('button', { name: 'Rename: Day' });
     expect((dayRenameButton as HTMLButtonElement).disabled).toBe(true);
   });
 
@@ -177,7 +183,7 @@ describe('OrganisationSection', () => {
 
     const shifts = within(await screen.findByTestId('organisation-shifts'));
     let row = shifts.getByText('Morning').closest('li')!;
-    await user.click(within(row).getByRole('button', { name: 'Rename' }));
+    await user.click(within(row).getByRole('button', { name: 'Rename: Morning' }));
     let renameInput = within(row).getByPlaceholderText('New name');
     await user.clear(renameInput);
     await user.type(renameInput, 'Prabhati');
@@ -185,7 +191,7 @@ describe('OrganisationSection', () => {
 
     // Re-rename the same entry, now reading "Prabhati".
     row = shifts.getByText('Prabhati').closest('li')!;
-    await user.click(within(row).getByRole('button', { name: 'Rename' }));
+    await user.click(within(row).getByRole('button', { name: 'Rename: Prabhati' }));
     renameInput = within(row).getByPlaceholderText('New name');
     await user.clear(renameInput);
     await user.type(renameInput, 'Shokal');
@@ -197,5 +203,50 @@ describe('OrganisationSection', () => {
     const body = patchBody.mock.calls[0]![0];
     expect(body.organisation.shifts).toEqual(['Shokal', 'Day']);
     expect(body.organisationRenames).toEqual([{ list: 'shifts', from: 'Morning', to: 'Shokal' }]);
+  });
+
+  it('shows an alert when the save fails for another reason, and clears it on the next edit', async () => {
+    server.use(
+      http.patch('/api/v1/schools/:id/settings', () =>
+        HttpResponse.json(
+          {
+            statusCode: 400,
+            message: 'Something else went wrong.',
+            timestamp: new Date().toISOString(),
+            path: '/api/v1/schools/school-1/settings',
+            requestId: 'req-2',
+          },
+          { status: 400 },
+        ),
+      ),
+    );
+    const { user } = renderWithProviders(
+      <OrganisationSection schoolId={SCHOOL_ID} organisation={ORGANISATION} />,
+      { locale: 'en', role: 'ADMIN', tenantId: SCHOOL_ID },
+    );
+
+    const groups = within(await screen.findByTestId('organisation-groups'));
+    await user.type(groups.getByPlaceholderText('Add a value'), 'Science');
+    await user.click(groups.getByRole('button', { name: 'Add' }));
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    expect((await screen.findByRole('alert')).textContent).toBe('Something else went wrong.');
+
+    // A new edit makes the earlier error stale.
+    await user.type(groups.getByPlaceholderText('Add a value'), 'Arts');
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('a removed value can be restored before saving', async () => {
+    const { user } = renderWithProviders(
+      <OrganisationSection schoolId={SCHOOL_ID} organisation={ORGANISATION} />,
+      { locale: 'en', role: 'ADMIN', tenantId: SCHOOL_ID },
+    );
+
+    const versions = within(await screen.findByTestId('organisation-versions'));
+    await user.click(versions.getByRole('button', { name: 'Remove: Bangla' }));
+    await user.click(versions.getByRole('button', { name: 'Undo remove: Bangla' }));
+
+    expect(versions.getByRole('button', { name: 'Remove: Bangla' })).toBeTruthy();
   });
 });
