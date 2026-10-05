@@ -6591,6 +6591,8 @@ export interface components {
             entity_id: string | null;
             performed_by_user_id: string | null;
             performed_by_name: string | null;
+            /** @description Display name of the record (student name, invoice number…), when it can be resolved; null otherwise. */
+            entity_label: string | null;
             old_values: {
                 [key: string]: unknown;
             } | null;
@@ -7463,6 +7465,8 @@ export interface components {
         InvoiceSnapshotLine: {
             fee_name: string;
             period_label: string;
+            /** @description Billing month as 'YYYY-MM' — format it on the client. Older invoices are back-filled on read. */
+            period_start?: string;
             amount: number;
             discount: number;
             paid_this_time: number;
@@ -10365,6 +10369,8 @@ export interface components {
             id: string;
             class_id: string;
             subject_id: string;
+            subject_name_en: string | null;
+            subject_name_bn: string | null;
             name: string;
             description: string | null;
             sequence: number;

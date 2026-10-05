@@ -8,6 +8,7 @@ import { School } from '../schools/entities/school.entity';
 import { InvoiceStatus, InvoiceKind } from '@biddaloy/shared';
 import { QueryInvoiceDto } from './dto/invoices.dto';
 import { generateInvoiceNumber, generateCreditNoteNumber } from './invoice-numbering.util';
+import { MONTH_NAMES, periodStartFromLabel } from './invoice-period.util';
 import { renderInvoiceHtml } from './invoice-print.template';
 import { renderInvoicePosHtml, PosPrintWidth } from './invoice-print-pos.template';
 import { StorageService } from '../storage/storage.service';
@@ -20,24 +21,29 @@ import {
   IssuerSnapshot,
 } from '../schools/profile/issuer-snapshot';
 
+/** Older invoices were snapshotted before `period_start` existed. Fill it in
+ * on a copy for the response — the stored snapshot is immutable and never
+ * written back. */
+function withPeriodStart(invoice: Invoice): Invoice {
+  if (!Array.isArray(invoice.snapshot?.students)) return invoice;
+  return {
+    ...invoice,
+    snapshot: {
+      ...invoice.snapshot,
+      students: invoice.snapshot.students.map((student) => ({
+        ...student,
+        lines: student.lines.map((line) => ({
+          ...line,
+          period_start: line.period_start ?? periodStartFromLabel(line.period_label),
+        })),
+      })),
+    },
+  };
+}
+
 /** [16.5.2] `GET /invoices/:id/print?format=` values — `a4` is the
  * default when the query param is absent. */
 export type InvoicePrintFormat = 'a4' | PosPrintWidth;
-
-const MONTH_NAMES = [
-  'January',
-  'February',
-  'March',
-  'April',
-  'May',
-  'June',
-  'July',
-  'August',
-  'September',
-  'October',
-  'November',
-  'December',
-];
 
 @Injectable()
 export class InvoicesService {
@@ -100,6 +106,7 @@ export class InvoicesService {
       entry.lines.push({
         fee_name: fee.fee_structure?.name ?? 'Fee',
         period_label: `${MONTH_NAMES[fee.month - 1]} ${fee.year}`,
+        period_start: `${fee.year}-${String(fee.month).padStart(2, '0')}`,
         amount: Number(fee.total_amount),
         discount: Number(fee.discount_amount),
         paid_this_time: Number(allocation.allocated_amount),
@@ -304,7 +311,7 @@ export class InvoicesService {
     // [15.5.5] `resolveIssuer` falls back to the live school profile for
     // any invoice created before this feature (null `issuer_snapshot`).
     const school = await this.schoolRepo.findOneOrFail({ where: { id: tenantId } });
-    return { ...invoice, issuer: resolveIssuer(invoice, school) };
+    return { ...withPeriodStart(invoice), issuer: resolveIssuer(invoice, school) };
   }
 
   /**
