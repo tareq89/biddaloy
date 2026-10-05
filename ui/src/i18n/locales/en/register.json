@@ -1,0 +1,46 @@
+{
+  "title": "Create your school",
+  "steps": {
+    "details": "Your details",
+    "verify": "Verify phone",
+    "password": "Password"
+  },
+  "social": {
+    "google": "Continue with Google",
+    "facebook": "Continue with Facebook",
+    "or": "or"
+  },
+  "fields": {
+    "adminName": "Your name",
+    "schoolName": "School name",
+    "country": "Country",
+    "address": "School address",
+    "phone": "Mobile number",
+    "email": "Email"
+  },
+  "terms": "I agree to the terms and privacy policy",
+  "continue": "Continue",
+  "haveAccount": "Already have an account? Sign in",
+  "otp": {
+    "title": "Enter the code we sent",
+    "sentToPhone": "We sent a 6-digit code to {{phone}}",
+    "sentToEmail": "We sent a 6-digit code to {{email}}",
+    "resendIn": "Send again in {{seconds}} s",
+    "resend": "Send the code again",
+    "changeNumber": "Change number"
+  },
+  "password": {
+    "title": "Set your password",
+    "skip": "Not now",
+    "save": "Save and continue"
+  },
+  "errors": {
+    "captcha": "Please complete the check to show you are not a robot.",
+    "otpInvalid": "That code is not right. Check it and try again.",
+    "otpExpired": "That code has expired. Ask for a new one.",
+    "otpLocked": "Too many wrong tries. Please wait a while and try again.",
+    "trialAlreadyOpen": "A trial school already exists for this number or email. Sign in instead.",
+    "unavailable": "Sign-up is not available right now. Please try again later.",
+    "generic": "Something went wrong. Please try again."
+  }
+}

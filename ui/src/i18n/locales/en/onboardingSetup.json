@@ -1,0 +1,66 @@
+{
+  "title": "Set up your school",
+  "steps": {
+    "setup": "Set up",
+    "people": "Add people",
+    "done": "Done"
+  },
+  "doors": {
+    "heading": "How do you want to set up your school?",
+    "guided": {
+      "title": "Step by step",
+      "body": "We ask a few questions and set up classes and sections for you.",
+      "badge": "Easiest"
+    },
+    "excel": {
+      "title": "From an Excel file",
+      "body": "Fill in one file with your classes, sections and more, then upload it."
+    },
+    "later": {
+      "title": "I will do it later",
+      "body": "Go straight to your dashboard and set up whenever you like."
+    }
+  },
+  "support": "Want us to set it up for you? Talk to us",
+  "footer": {
+    "back": "Back",
+    "next": "Next",
+    "later": "Do this later"
+  },
+  "guided": {
+    "profile": {
+      "title": "Your school",
+      "nameEn": "School name (English)",
+      "nameBn": "School name (Bangla)",
+      "logo": "School logo",
+      "hint": "You can change these later in Settings."
+    },
+    "curriculum": {
+      "title": "Classes and subjects",
+      "hint": "Pick a ready-made list of classes and subjects. You can change it later.",
+      "blocked": "Your school already has classes or students, so a ready-made curriculum cannot be applied.",
+      "byHand": "Set up by hand"
+    },
+    "sections": {
+      "title": "Sections",
+      "hint": "Add the sections each class has, for example A and B.",
+      "perClass": "Sections in {{className}}",
+      "addSection": "Add a section",
+      "created": "{{count}} sections created"
+    }
+  },
+  "excel": {
+    "title": "Set up from Excel",
+    "step1": "Download the sample file",
+    "step2": "Fill it in — each sheet has an example row",
+    "step3": "Upload it here",
+    "download": "Download sample file",
+    "upload": "Upload file",
+    "checking": "Checking your file…",
+    "errorsFound": "{{count}} problems found — fix them in the file and upload again",
+    "downloadErrors": "Download the list of problems",
+    "preview": "This is what will be created",
+    "confirm": "Create these",
+    "done": "Your school has been set up."
+  }
+}
