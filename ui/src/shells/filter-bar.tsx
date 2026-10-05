@@ -404,7 +404,7 @@ export function FilterBar({ fields, values, onChange, debounceMs, resultCount }:
           <Button
             type="button"
             variant="outline"
-            className="shrink-0 md:hidden"
+            className="h-11 shrink-0 md:hidden md:h-auto"
             aria-haspopup="dialog"
             onClick={() => setSheetOpen(true)}
           >
