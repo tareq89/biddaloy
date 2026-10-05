@@ -81,4 +81,15 @@ describe('CoverageBar', () => {
     renderBar([band(0, 100, 1)]);
     expect(await screen.findByText('X')).toBeTruthy();
   });
+
+  it('splits adjacent bands into their own segments, colours and letters', async () => {
+    const fail: BandInput = { ...band(0, 32, 2), grade: 'F', is_fail: true };
+    renderBar([{ ...band(33, 100, 1), grade: 'A' }, fail]);
+    const segments = await screen.findAllByTestId('coverage-band');
+    expect(segments).toHaveLength(2);
+    expect(segments[0]!.className).toContain('bg-text-secondary');
+    expect(segments[1]!.className).not.toContain('bg-text-secondary');
+    expect(screen.getByText('A')).toBeTruthy();
+    expect(screen.getByText('F')).toBeTruthy();
+  });
 });

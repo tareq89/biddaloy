@@ -110,7 +110,8 @@ describe('/results/$examId/$studentId', () => {
     mockReportCard();
     renderReportCard();
 
-    expect((await screen.findAllByText('Half-Yearly 2026')).length).toBeGreaterThan(0);
+    // Header fact and the card itself.
+    expect(await screen.findAllByText('Half-Yearly 2026')).toHaveLength(2);
     // Breadcrumb, header and the card itself.
     expect(screen.getAllByText('Rafi Ahmed')).toHaveLength(3);
     expect(screen.getByText('Green Valley School')).toBeTruthy();
@@ -190,7 +191,7 @@ describe('/results/$examId/$studentId', () => {
     server.use(http.get(SCALE_URL, () => notFound('/grading/scales/scale-1')));
     renderReportCard();
 
-    expect((await screen.findAllByText('Half-Yearly 2026')).length).toBeGreaterThan(0);
+    expect(await screen.findAllByText('Half-Yearly 2026')).toHaveLength(2);
     expect(screen.getByText('Grade legend')).toBeTruthy();
     expect(screen.queryByText(/Outstanding/)).toBeNull();
   });
