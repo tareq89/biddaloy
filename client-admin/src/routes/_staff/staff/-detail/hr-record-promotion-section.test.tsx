@@ -37,4 +37,33 @@ describe('HrRecordPromotionSection', () => {
 
     expect(await screen.findByText('No promotions recorded yet')).toBeTruthy();
   });
+
+  it('marks the open row with a Current badge and puts the outline Promote button after the list', async () => {
+    server.use(
+      http.get('/api/v1/staff-hr-records/user-1/designation-history', () =>
+        HttpResponse.json([
+          {
+            id: 'h-1',
+            designation_id: 'des-1',
+            effective_date: '2024-01-01',
+            end_date: null,
+          },
+        ]),
+      ),
+      http.get('/api/v1/designations', () => HttpResponse.json([])),
+    );
+
+    const { localeReady } = renderWithProviders(<HrRecordPromotionSection userId="user-1" />, {
+      locale: 'en',
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+    });
+    await localeReady;
+
+    expect(await screen.findByText('Current')).toBeTruthy();
+    const list = screen.getByRole('list');
+    const promote = screen.getByRole('button', { name: 'Promote' });
+    expect(list.compareDocumentPosition(promote) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(promote.className).not.toContain('bg-primary');
+  });
 });

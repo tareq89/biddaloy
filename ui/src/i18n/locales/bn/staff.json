@@ -152,17 +152,19 @@
     },
     "teachingAssignments": {
       "caption": "এই শিক্ষককে যেসব শ্রেণি ও শাখায় নিয়োগ দেওয়া হয়েছে",
-      "columnClass": "শ্রেণি",
+      "columnClass": "শ্রেণি ও শাখা",
       "columnSection": "শাখা",
-      "columnRole": "ভূমিকা",
+      "columnRole": "দায়িত্ব",
       "columnSubject": "বিষয়",
       "columnActions": "কার্যক্রম",
-      "assign": "নিয়োগ দিন",
-      "remove": "সরান",
-      "removeError": "এই নিয়োগ সরানো যায়নি। আবার চেষ্টা করুন।",
-      "emptyMessage": "এখনো কোনো নিয়োগ নেই",
+      "assign": "শিক্ষক দায়িত্ব দিন",
+      "remove": "দায়িত্ব থেকে সরান",
+      "removeError": "দায়িত্বটি সরানো যায়নি। আবার চেষ্টা করুন।",
+      "emptyMessage": "এখনও কোনো দায়িত্ব নেই",
       "errorMessage": "শিক্ষকতার নিয়োগ লোড করা যায়নি। আবার চেষ্টা করুন।",
-      "announceResults": "{{total}} টির মধ্যে {{count}} টি নিয়োগ দেখানো হচ্ছে"
+      "announceResults": "{{total}} টির মধ্যে {{count}} টি নিয়োগ দেখানো হচ্ছে",
+      "title": "শিক্ষকের দায়িত্ব",
+      "emptyExplanation": "এই শিক্ষককে কোনো শ্রেণি বা বিষয়ের দায়িত্ব দেওয়া হলে এখানে দেখা যাবে।"
     },
     "profile": {
       "columnEmail": "ইমেইল",
@@ -225,6 +227,11 @@
       "memberSince": "এই স্কুলে যোগদান",
       "lastSignIn": "সর্বশেষ সাইন ইন",
       "neverSignedIn": "এখনও করেননি"
+    },
+    "attendanceLeave": {
+      "todayTitle": "আজকের উপস্থিতি",
+      "monthTitle": "এই মাসের সারসংক্ষেপ",
+      "leaveTitle": "ছুটির ব্যালেন্স"
     }
   },
   "hrRecord": {
@@ -233,7 +240,7 @@
     "saveError": "এই অংশটি সংরক্ষণ করা যায়নি। আবার চেষ্টা করুন।",
     "sections": {
       "job": "চাকরির তথ্য",
-      "promotion": "পদোন্নতি / কর্মসংস্থানের ইতিহাস",
+      "promotion": "পদোন্নতি ও পদের ইতিহাস",
       "family": "পরিবারের সদস্য",
       "address": "ঠিকানা",
       "experience": "কর্ম অভিজ্ঞতা",
@@ -258,10 +265,11 @@
       "errorMessage": "চাকরির তথ্য সংরক্ষণ করা যায়নি। আবার চেষ্টা করুন।",
       "save": "সংরক্ষণ করুন",
       "saving": "সংরক্ষণ করা হচ্ছে…",
-      "nameBnLabel": "নাম (বাংলা)"
+      "nameBnLabel": "নাম (বাংলা)",
+      "editActionShort": "সম্পাদনা"
     },
     "promotion": {
-      "promoteAction": "পদোন্নতি",
+      "promoteAction": "পদোন্নতি দিন",
       "emptyTitle": "এখনো কোনো পদোন্নতি রেকর্ড নেই",
       "emptyExplanation": "এই কর্মীকে এখনো পদোন্নতি বা পদবি দেওয়া হয়নি।",
       "current": "বর্তমান",
