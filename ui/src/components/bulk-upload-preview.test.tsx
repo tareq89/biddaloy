@@ -333,6 +333,56 @@ describe('BulkUploadPreview', () => {
       await screen.findByText('done: 5');
     });
 
+    describe('confirm() is a no-op while Confirm is disabled', () => {
+      async function lastController(onControllerChange: ReturnType<typeof vi.fn>) {
+        await selectFile();
+        await screen.findByText('5 rows');
+        return () => onControllerChange.mock.calls.at(-1)?.[0];
+      }
+
+      it('hard errors', async () => {
+        const onControllerChange = vi.fn();
+        const commit = vi.fn();
+        const validate = vi.fn().mockResolvedValue(baseResult({ hard_error_count: 1 }));
+        await renderPreview({ validate, commit, onControllerChange });
+        const get = await lastController(onControllerChange);
+        expect(get().confirmDisabled).toBe(true);
+        await React.act(() => Promise.resolve(get().confirm()));
+        expect(commit).not.toHaveBeenCalled();
+      });
+
+      it('a held confirmSlot', async () => {
+        const onControllerChange = vi.fn();
+        const commit = vi.fn();
+        await renderPreview({
+          commit,
+          onControllerChange,
+          // Held by default whenever a slot is present.
+          confirmSlot: () => null,
+        });
+        const get = await lastController(onControllerChange);
+        expect(get().confirmDisabled).toBe(true);
+        await React.act(() => Promise.resolve(get().confirm()));
+        expect(commit).not.toHaveBeenCalled();
+      });
+
+      it('an expired preview', async () => {
+        const onControllerChange = vi.fn();
+        const commit = vi.fn();
+        const validate = vi
+          .fn()
+          .mockResolvedValue(baseResult({ expires_at: new Date(Date.now() + 3000).toISOString() }));
+        await renderPreview({ validate, commit, onControllerChange });
+        const get = await lastController(onControllerChange);
+        vi.useFakeTimers({ shouldAdvanceTime: true });
+        await vi.advanceTimersByTimeAsync(4000);
+        vi.useRealTimers();
+        await waitFor(() => expect(get().confirmDisabled).toBe(true));
+        await React.act(() => Promise.resolve(get().confirm()));
+        expect(commit).not.toHaveBeenCalled();
+      });
+    });
+
     it('does not report again on a re-render with unchanged state', async () => {
       const onControllerChange = vi.fn();
       const { rerender } = await renderPreview({ onControllerChange });
