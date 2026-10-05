@@ -7,8 +7,8 @@
     "MESSENGER": "মেসেঞ্জার"
   },
   "smsCounter": {
-    "count_one": "{{chars}} অক্ষর · {{count}}টি এসএমএস সেগমেন্ট",
-    "count_other": "{{chars}} অক্ষর · {{count}}টি এসএমএস সেগমেন্ট"
+    "count_one": "{{chars}} অক্ষর · {{n}}টি এসএমএস",
+    "count_other": "{{chars}} অক্ষর · {{n}}টি এসএমএস"
   },
   "skipReasons": {
     "no_open_dues": "স্মরণ করানোর মতো কোনো বকেয়া নেই",
@@ -32,21 +32,20 @@
   },
   "send": {
     "title": "বার্তা পাঠান",
-    "description": "একজন প্রাপকের কাছে একটি বার্তা। আপনি ঠিক কী পাঠানো হবে তা নিশ্চিত না করা পর্যন্ত কিছুই পাঠানো হয় না।",
-    "mediumLabel": "মাধ্যম",
+    "description": "পাঠানোর আগে প্রাপক ও বার্তা আরেকবার দেখানো হবে।",
+    "mediumLabel": "কীভাবে পাঠাবেন",
     "recipientNameLabel": "প্রাপকের নাম",
-    "recipientAddressLabel": "প্রাপকের ঠিকানা",
+    "recipientAddressLabel": "মোবাইল নম্বর",
     "subjectLabel": "বিষয়",
     "messageLabel": "বার্তা",
     "whatsappHelper": "প্রাপকের শেষ উত্তরের ২৪ ঘণ্টার মধ্যেই হোয়াটসঅ্যাপ সাধারণ বার্তা পৌঁছে দেয়। এর বাইরে নিচের অনুমোদিত টেমপ্লেট ব্যবহার করুন।",
-    "linkStudentTitle": "কোনো শিক্ষার্থীর অভিভাবক থেকে পূরণ করুন (ঐচ্ছিক)",
-    "studentSearchLabel": "শিক্ষার্থী খুঁজুন",
+    "linkStudentTitle": "শিক্ষার্থী (ঐচ্ছিক)",
     "studentSearchPlaceholder": "নাম বা রোল নম্বর",
     "studentNoResults": "কোনো শিক্ষার্থী মেলেনি।",
     "guardianListLabel": "{{name}}-এর অভিভাবকগণ",
     "guardianOptionLabel": "{{name}} ({{relationship}})",
     "guardianNoAddress": "এই মাধ্যমের জন্য কোনো ঠিকানা নেই",
-    "clearStudent": "শিক্ষার্থী মুছুন",
+    "clearStudent": "বদলান",
     "submit": "যাচাই করে পাঠান",
     "confirmTitle": "এই বার্তা পাঠাবেন?",
     "confirmDescription": "পাঠানো বার্তা ফেরত আনা যায় না। নিশ্চিত করার আগে প্রাপক ও সম্পূর্ণ বার্তা যাচাই করুন।",
@@ -56,11 +55,18 @@
     "confirmMessageLabel": "বার্তা",
     "confirmSend": "বার্তা পাঠান",
     "confirmSending": "পাঠানো হচ্ছে…",
-    "resultTitle": "বার্তা সারিবদ্ধ হয়েছে",
-    "resultDescription": "{{name}}-এর কাছে বার্তাটি পাঠানোর জন্য সারিবদ্ধ হয়েছে।",
+    "resultTitle": "বার্তা পাঠানো শুরু হয়েছে",
+    "resultDescription": "{{name}}-এর কাছে বার্তাটি পাঠানো হচ্ছে।",
     "resultStatusLabel": "ডেলিভারির অবস্থা",
     "sendAnother": "আরেকটি বার্তা পাঠান",
-    "errorMessage": "বার্তাটি পাঠানো যায়নি।"
+    "errorMessage": "বার্তাটি পাঠানো যায়নি।",
+    "recipientSectionTitle": "প্রাপক",
+    "recipientSectionHelp": "শিক্ষার্থী খুঁজে অভিভাবক বাছুন, অথবা নিচে নাম ও নম্বর নিজে লিখুন।",
+    "messageSectionTitle": "বার্তা",
+    "guardianPickLabel": "কোন অভিভাবককে পাঠাবেন",
+    "recipientEmailLabel": "ইমেইল ঠিকানা",
+    "phoneHelp": "যেমন 01711-000004",
+    "errorInvalid": "নম্বর, ইমেইল বা বার্তায় কিছু ঠিক নেই। যাচাই করে আবার চেষ্টা করুন।"
   },
   "reminders": {
     "title": "ফি রিমাইন্ডার",

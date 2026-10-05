@@ -1,6 +1,7 @@
 import { ApiError } from '@biddaloy/ui/api';
 import {
   Button,
+  Card,
   Dialog,
   DialogClose,
   DialogContent,
@@ -28,12 +29,21 @@ import {
   type SendCommunicationInput,
   type Student,
 } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import {
+  RegionConfigProvider,
+  useRegionConfig,
+  useTenantRegionConfig,
+  useTranslation,
+} from '@biddaloy/ui/i18n';
+import { PageContainer, PageHeader, useWarnUnsavedChanges } from '@biddaloy/ui/shells';
+import { formatPhone } from '@biddaloy/ui/utils';
 import { createFileRoute } from '@tanstack/react-router';
+import { CircleAlertIcon, SendIcon } from 'lucide-react';
 import * as React from 'react';
 
 import { loadRouteNamespaces } from '../../../route-loaders';
 
+import { SelectedStudentRow } from './-shared/selected-student-row';
 import { SmsSegmentCounter } from './-shared/sms-segment-counter';
 import { StudentSearch } from './-shared/student-search';
 import { splitTemplateParams, WhatsappTemplateFields } from './-shared/whatsapp-template-fields';
@@ -76,7 +86,18 @@ function guardianAddressFor(guardian: Guardian, medium: SendableMedium): string 
 }
 
 function SendMessageForm() {
+  // Phone numbers and counters render in the tenant's own region settings.
+  const regionConfig = useTenantRegionConfig();
+  return (
+    <RegionConfigProvider value={regionConfig}>
+      <SendMessageBody />
+    </RegionConfigProvider>
+  );
+}
+
+function SendMessageBody() {
   const { t } = useTranslation('communications');
+  const config = useRegionConfig();
   const sendMessage = useSendCommunication();
 
   const [medium, setMedium] = React.useState<SendableMedium>('SMS');
@@ -95,6 +116,17 @@ function SendMessageForm() {
   // 201 body always says QUEUED (dispatch is async via BullMQ), so the
   // result panel reads the log entry for where the message actually is.
   const sentLog = useCommunicationLog(sendMessage.data?.id);
+
+  // Typed-but-unsent content is lost on leave — ask first.
+  useWarnUnsavedChanges(
+    !sendMessage.isSuccess &&
+      (recipientName !== '' ||
+        recipientAddress !== '' ||
+        subject !== '' ||
+        messageBody !== '' ||
+        templateName !== '' ||
+        student !== null),
+  );
 
   function buildPayload(): SendCommunicationInput {
     const params = splitTemplateParams(templateParams);
@@ -123,6 +155,12 @@ function SendMessageForm() {
     event.preventDefault();
     sendMessage.reset();
     setConfirmOpen(true);
+  }
+
+  // A stale send error must not greet the next open of the dialog.
+  function handleConfirmOpenChange(open: boolean) {
+    if (!open) sendMessage.reset();
+    setConfirmOpen(open);
   }
 
   function handleConfirm() {
@@ -180,203 +218,241 @@ function SendMessageForm() {
   if (sendMessage.isSuccess) {
     const status = sentLog.data?.status ?? sendMessage.data.status;
     return (
-      <div className="mx-auto flex max-w-2xl flex-col gap-4 p-4">
-        <h1 className="text-2xl font-semibold">{t('send.title')}</h1>
-        <section
-          aria-label={t('send.resultTitle')}
-          className="flex flex-col gap-3 rounded-md border border-border-subtle p-4"
-        >
-          <h2 className="text-lg font-medium">{t('send.resultTitle')}</h2>
-          <p className="text-sm text-muted-foreground">
+      <PageContainer size="narrow">
+        <PageHeader title={t('send.title')} subtitle={t('send.description')} />
+        <Card padded aria-labelledby="send-result-title">
+          <h2 id="send-result-title" className="text-h2">
+            {t('send.resultTitle')}
+          </h2>
+          <p className="mt-1 text-text-secondary">
             {t('send.resultDescription', { name: sendMessage.data.recipient_name })}
           </p>
-          <p className="flex items-center gap-2 text-sm">
-            <span>{t('send.resultStatusLabel')}:</span>
-            <StatusBadge domain="communication" status={status} />
-          </p>
-          <div>
+          <dl className="mt-4 flex items-center gap-2">
+            <dt className="text-text-secondary">{t('send.resultStatusLabel')}</dt>
+            <dd>
+              <StatusBadge domain="communication" status={status} />
+            </dd>
+          </dl>
+          <div className="mt-5 flex justify-end border-t border-border-subtle pt-4">
             <Button type="button" onClick={handleReset}>
               {t('send.sendAnother')}
             </Button>
           </div>
-        </section>
-      </div>
+        </Card>
+      </PageContainer>
     );
   }
 
   const selectedGuardian =
     student?.guardians.find((guardian) => guardian.id === guardianId) ?? null;
+  const isEmail = medium === 'EMAIL';
+  const formatAddress = (address: string) => (isEmail ? address : formatPhone(address, config));
 
   return (
-    <div className="mx-auto flex max-w-2xl flex-col gap-6 p-4">
-      <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold">{t('send.title')}</h1>
-        <p className="text-sm text-muted-foreground">{t('send.description')}</p>
-      </header>
+    <PageContainer size="narrow">
+      <PageHeader title={t('send.title')} subtitle={t('send.description')} />
 
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        <div className="grid gap-1.5">
-          <Label htmlFor="send-medium">{t('send.mediumLabel')}</Label>
-          <Select
-            value={medium}
-            onValueChange={(value) => handleMediumChange(value as SendableMedium)}
-          >
-            <SelectTrigger id="send-medium" aria-label={t('send.mediumLabel')}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {SENDABLE_MEDIUMS.map((value) => (
-                <SelectItem key={value} value={value}>
-                  {t(`mediums.${value}`)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <section
-          aria-label={t('send.linkStudentTitle')}
-          className="flex flex-col gap-2 rounded-md border border-border-subtle p-3"
-        >
-          <h2 className="text-sm font-medium">{t('send.linkStudentTitle')}</h2>
-          {student === null ? (
-            <StudentSearch
-              inputId="send-student-search"
-              searchLabel={t('send.studentSearchLabel')}
-              searchPlaceholder={t('send.studentSearchPlaceholder')}
-              noResultsLabel={t('send.studentNoResults')}
-              onSelect={handleSelectStudent}
-            />
-          ) : (
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-sm">
-                  {student.full_name} · {student.registration_number}
-                </span>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <Card padded aria-labelledby="send-recipient-title">
+          <h2 id="send-recipient-title" className="text-h2">
+            {t('send.recipientSectionTitle')}
+          </h2>
+          <p className="mt-1 text-text-secondary">{t('send.recipientSectionHelp')}</p>
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <div className="flex flex-col gap-1.5 md:col-span-2">
+              <Label htmlFor="send-student-search">{t('send.linkStudentTitle')}</Label>
+              {student === null ? (
+                <StudentSearch
+                  inputId="send-student-search"
+                  searchLabel={t('send.linkStudentTitle')}
+                  searchPlaceholder={t('send.studentSearchPlaceholder')}
+                  noResultsLabel={t('send.studentNoResults')}
+                  onSelect={handleSelectStudent}
+                />
+              ) : (
+                <SelectedStudentRow
+                  name={student.full_name}
+                  registrationNumber={student.registration_number}
+                  changeLabel={t('send.clearStudent')}
+                  onChange={() => {
                     setStudent(null);
                     setGuardianId(null);
                   }}
-                >
-                  {t('send.clearStudent')}
-                </Button>
-              </div>
-              <RadioGroup
-                aria-label={t('send.guardianListLabel', { name: student.full_name })}
-                value={guardianId ?? ''}
-                onValueChange={(value) => {
-                  const guardian = student.guardians.find((candidate) => candidate.id === value);
-                  if (guardian !== undefined) handlePickGuardian(guardian);
-                }}
-                className="flex flex-col gap-1.5"
-              >
-                {student.guardians.map((guardian) => {
-                  const address = guardianAddressFor(guardian, medium);
-                  const optionLabel = t('send.guardianOptionLabel', {
-                    name: guardian.full_name,
-                    relationship: guardian.relationship,
-                  });
-                  return (
-                    <span key={guardian.id} className="flex items-center gap-2 text-sm">
-                      <RadioGroupItem value={guardian.id} aria-label={optionLabel} />
-                      <span>
-                        {optionLabel}{' '}
-                        <span className="text-muted-foreground">
-                          — {address ?? t('send.guardianNoAddress')}
-                        </span>
-                      </span>
-                    </span>
-                  );
-                })}
-              </RadioGroup>
+                />
+              )}
             </div>
-          )}
-        </section>
 
-        <div className="grid gap-1.5">
-          <Label htmlFor="send-recipient-name">{t('send.recipientNameLabel')}</Label>
-          <Input
-            id="send-recipient-name"
-            value={recipientName}
-            onChange={(event) => setRecipientName(event.target.value)}
-            required
-          />
-        </div>
+            {student !== null && (
+              <fieldset className="md:col-span-2">
+                <legend className="mb-1.5 text-label text-text-primary">
+                  {t('send.guardianPickLabel')}
+                </legend>
+                <RadioGroup
+                  aria-label={t('send.guardianListLabel', { name: student.full_name })}
+                  value={guardianId ?? ''}
+                  onValueChange={(value) => {
+                    const guardian = student.guardians.find((candidate) => candidate.id === value);
+                    if (guardian !== undefined) handlePickGuardian(guardian);
+                  }}
+                  className="gap-0 divide-y divide-border-subtle overflow-hidden rounded-md border border-border-subtle"
+                >
+                  {student.guardians.map((guardian) => {
+                    const address = guardianAddressFor(guardian, medium);
+                    const optionLabel = t('send.guardianOptionLabel', {
+                      name: guardian.full_name,
+                      relationship: guardian.relationship,
+                    });
+                    return (
+                      <label
+                        key={guardian.id}
+                        htmlFor={`send-guardian-${guardian.id}`}
+                        className="flex min-h-11 w-full cursor-pointer items-center gap-3 px-3 py-2 hover:bg-muted"
+                      >
+                        <RadioGroupItem
+                          id={`send-guardian-${guardian.id}`}
+                          value={guardian.id}
+                          aria-label={optionLabel}
+                        />
+                        <span className="flex min-w-0 flex-col">
+                          <span>{optionLabel}</span>
+                          <span className="text-caption text-text-secondary">
+                            {address === null || address === ''
+                              ? t('send.guardianNoAddress')
+                              : formatAddress(address)}
+                          </span>
+                        </span>
+                      </label>
+                    );
+                  })}
+                </RadioGroup>
+              </fieldset>
+            )}
 
-        <div className="grid gap-1.5">
-          <Label htmlFor="send-recipient-address">{t('send.recipientAddressLabel')}</Label>
-          <Input
-            id="send-recipient-address"
-            type={medium === 'EMAIL' ? 'email' : 'tel'}
-            value={recipientAddress}
-            onChange={(event) => setRecipientAddress(event.target.value)}
-            required
-          />
-        </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="send-recipient-name">{t('send.recipientNameLabel')}</Label>
+              <Input
+                id="send-recipient-name"
+                value={recipientName}
+                onChange={(event) => setRecipientName(event.target.value)}
+                required
+              />
+            </div>
 
-        {medium === 'EMAIL' && (
-          <div className="grid gap-1.5">
-            <Label htmlFor="send-subject">{t('send.subjectLabel')}</Label>
-            <Input
-              id="send-subject"
-              value={subject}
-              onChange={(event) => setSubject(event.target.value)}
-            />
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="send-recipient-address">
+                {isEmail ? t('send.recipientEmailLabel') : t('send.recipientAddressLabel')}
+              </Label>
+              <Input
+                id="send-recipient-address"
+                type={isEmail ? 'email' : 'tel'}
+                value={recipientAddress}
+                onChange={(event) => setRecipientAddress(event.target.value)}
+                aria-describedby={isEmail ? undefined : 'send-phone-help'}
+                required
+              />
+              {!isEmail && (
+                <p id="send-phone-help" className="text-caption text-text-secondary">
+                  {t('send.phoneHelp')}
+                </p>
+              )}
+            </div>
           </div>
-        )}
+        </Card>
 
-        <div className="grid gap-1.5">
-          <Label htmlFor="send-message">{t('send.messageLabel')}</Label>
-          <Textarea
-            id="send-message"
-            value={messageBody}
-            onChange={(event) => setMessageBody(event.target.value)}
-            required
-            rows={5}
-          />
-          {medium === 'SMS' && <SmsSegmentCounter text={messageBody} />}
-        </div>
+        <Card padded aria-labelledby="send-message-title">
+          <h2 id="send-message-title" className="text-h2">
+            {t('send.messageSectionTitle')}
+          </h2>
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="send-medium">{t('send.mediumLabel')}</Label>
+              <Select
+                value={medium}
+                onValueChange={(value) => handleMediumChange(value as SendableMedium)}
+              >
+                <SelectTrigger
+                  id="send-medium"
+                  aria-label={t('send.mediumLabel')}
+                  className="w-full"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {SENDABLE_MEDIUMS.map((value) => (
+                    <SelectItem key={value} value={value}>
+                      {t(`mediums.${value}`)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-        {medium === 'WHATSAPP' && (
-          <WhatsappTemplateFields
-            idPrefix="send"
-            helperText={t('send.whatsappHelper')}
-            templateName={templateName}
-            onTemplateNameChange={setTemplateName}
-            templateLanguage={templateLanguage}
-            onTemplateLanguageChange={setTemplateLanguage}
-            templateParams={templateParams}
-            onTemplateParamsChange={setTemplateParams}
-          />
-        )}
+            {isEmail && (
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="send-subject">{t('send.subjectLabel')}</Label>
+                <Input
+                  id="send-subject"
+                  value={subject}
+                  onChange={(event) => setSubject(event.target.value)}
+                />
+              </div>
+            )}
 
-        <div>
-          <Button type="submit">{t('send.submit')}</Button>
-        </div>
+            <div className="flex flex-col gap-1.5 md:col-span-2">
+              <Label htmlFor="send-message">{t('send.messageLabel')}</Label>
+              <Textarea
+                id="send-message"
+                value={messageBody}
+                onChange={(event) => setMessageBody(event.target.value)}
+                required
+                rows={5}
+              />
+              {medium === 'SMS' && <SmsSegmentCounter text={messageBody} />}
+            </div>
+
+            {medium === 'WHATSAPP' && (
+              <div className="md:col-span-2">
+                <WhatsappTemplateFields
+                  idPrefix="send"
+                  helperText={t('send.whatsappHelper')}
+                  templateName={templateName}
+                  onTemplateNameChange={setTemplateName}
+                  templateLanguage={templateLanguage}
+                  onTemplateLanguageChange={setTemplateLanguage}
+                  templateParams={templateParams}
+                  onTemplateParamsChange={setTemplateParams}
+                />
+              </div>
+            )}
+          </div>
+
+          <div className="mt-5 flex flex-col-reverse gap-2 border-t border-border-subtle pt-4 md:flex-row md:justify-end">
+            <Button type="submit">
+              <SendIcon aria-hidden />
+              {t('send.submit')}
+            </Button>
+          </div>
+        </Card>
       </form>
 
-      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <DialogContent>
+      <Dialog open={confirmOpen} onOpenChange={handleConfirmOpenChange}>
+        <DialogContent size="md" closeLabel={t('actions.close', { ns: 'common' })}>
           <DialogHeader>
             <DialogTitle>{t('send.confirmTitle')}</DialogTitle>
             <DialogDescription>{t('send.confirmDescription')}</DialogDescription>
           </DialogHeader>
-          <dl className="grid gap-2 text-sm">
+          <dl className="grid gap-2">
             <div className="grid gap-0.5">
               <dt className="font-medium">{t('send.confirmRecipientLabel')}</dt>
               <dd>
-                {recipientName.trim()} — {recipientAddress.trim()}
+                {recipientName.trim()} · {formatAddress(recipientAddress.trim())}
               </dd>
             </div>
             <div className="grid gap-0.5">
               <dt className="font-medium">{t('send.confirmChannelLabel')}</dt>
               <dd>{t(`mediums.${medium}`)}</dd>
             </div>
-            {medium === 'EMAIL' && subject.trim() !== '' && (
+            {isEmail && subject.trim() !== '' && (
               <div className="grid gap-0.5">
                 <dt className="font-medium">{t('send.confirmSubjectLabel')}</dt>
                 <dd>{subject.trim()}</dd>
@@ -388,7 +464,7 @@ function SendMessageForm() {
             </div>
           </dl>
           {selectedGuardian !== null && (
-            <p className="text-xs text-muted-foreground">
+            <p className="text-caption text-text-secondary">
               {t('send.guardianOptionLabel', {
                 name: selectedGuardian.full_name,
                 relationship: selectedGuardian.relationship,
@@ -396,12 +472,10 @@ function SendMessageForm() {
             </p>
           )}
           {sendMessage.isError && (
-            <p role="alert" className="text-sm text-destructive">
-              {/* 400s carry the server's own explanation (a WhatsApp
-                  template rule, a malformed address) — surface it
-                  verbatim rather than a generic failure line. */}
+            <p role="alert" className="flex items-center gap-1 text-caption text-destructive">
+              <CircleAlertIcon className="size-4 shrink-0" aria-hidden />
               {sendMessage.error instanceof ApiError && sendMessage.error.statusCode === 400
-                ? sendMessage.error.message
+                ? t('send.errorInvalid')
                 : t('send.errorMessage')}
             </p>
           )}
@@ -417,7 +491,7 @@ function SendMessageForm() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </PageContainer>
   );
 }
 
