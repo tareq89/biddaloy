@@ -139,6 +139,27 @@ export const IDENTITY_SCOPED: IdentityScopedEntry[] = [
       '15.4.5 — platform route (SUPER_ADMIN suspend/reactivate), same rationale as GET /schools.',
   },
   {
+    controller: 'SchoolsController',
+    method: 'PATCH',
+    path: '/schools/:id/trial',
+    reason:
+      '[13.3.4] platform route (SUPER_ADMIN extends a trial, PlatformSuperAdminGuard), same rationale as GET /schools.',
+  },
+  {
+    controller: 'OnboardingController',
+    method: 'GET',
+    path: '/onboarding/status',
+    reason:
+      "[13.3.3] self-service: the setup checklist of the caller's own active tenant (ADMIN only), never a path id.",
+  },
+  {
+    controller: 'OnboardingController',
+    method: 'PATCH',
+    path: '/onboarding',
+    reason:
+      "[13.3.3] self-service: writes only schools.onboarding of the caller's own active tenant (ADMIN only), never a path id.",
+  },
+  {
     controller: 'SchoolProfileController',
     method: 'GET',
     path: '/schools/me/profile',

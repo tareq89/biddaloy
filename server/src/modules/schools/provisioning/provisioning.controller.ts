@@ -1,7 +1,17 @@
-import { Body, Controller, HttpCode, HttpStatus, Post, Res, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  ConflictException,
+  Controller,
+  HttpCode,
+  HttpStatus,
+  Post,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOperation, ApiOkResponse, ApiCreatedResponse, ApiTags } from '@nestjs/swagger';
 import { Response } from 'express';
+import { QueryFailedError } from 'typeorm';
 import { JwtPayload, UserRole } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../../auth/guards/context.guard';
 import { PermissionsGuard } from '../../auth/guards/permissions.guard';
@@ -43,7 +53,14 @@ export class ProvisioningController {
     @CurrentUser() user: JwtPayload,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const { result, replayed } = await this.provisioning.provision(dto, user.sub);
+    // provision() rethrows non-slug unique violations raw (registration maps them to
+    // CONTACT_IN_USE); here they are the console's 409, never a 500.
+    const { result, replayed } = await this.provisioning.provision(dto, user.sub).catch((err) => {
+      if (err instanceof QueryFailedError && (err as { code?: string }).code === '23505') {
+        throw new ConflictException('A user with this email or phone already exists');
+      }
+      throw err;
+    });
     if (replayed) {
       res.status(HttpStatus.OK);
     }
