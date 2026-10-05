@@ -3,8 +3,10 @@ import { ApiError } from '@biddaloy/ui/api';
 import { ErrorState, RoutePending, Skeleton, StatusBadge } from '@biddaloy/ui/components';
 import { guardianQueryOptions, useGuardian, useHasPermission } from '@biddaloy/ui/hooks';
 import { RegionConfigProvider, useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
-import { DetailShell, useDetailShellTab } from '@biddaloy/ui/shells';
-import { createFileRoute, Link } from '@tanstack/react-router';
+import { DetailShell, useCloseFullPage, useDetailShellTab } from '@biddaloy/ui/shells';
+import { formatNumber, formatPhone } from '@biddaloy/ui/utils';
+import { createFileRoute } from '@tanstack/react-router';
+import { HandCoinsIcon, PencilIcon } from 'lucide-react';
 import * as React from 'react';
 import { z } from 'zod';
 
@@ -15,12 +17,15 @@ import { InformationTab } from './-detail/information-tab';
 import { LinkedStudentsTab } from './-detail/linked-students-tab';
 import { PaymentsTab } from './-detail/payments-tab';
 import { EditGuardianDialog } from './-edit-guardian-dialog';
+import { relationshipLabel } from './-relationship-label';
 
 const guardianDetailSearchSchema = z.object({
   // `useDetailShellTab` falls back to the first tab for anything not in
   // its own `tabIds` list, so an invalid value here isn't validated away
   // by the schema — it's handled once, there, not duplicated here.
   tab: z.string().optional(),
+  // `?edit=1` opens the full-page edit form (there is no edit route, D1).
+  edit: z.number().optional().catch(undefined),
 });
 
 const TAB_IDS = ['information', 'linkedStudents', 'communication', 'payments'] as const;
@@ -53,9 +58,17 @@ function GuardianDetailPage() {
   const guardianQuery = useGuardian(guardianId);
   const [activeTab, setActiveTab] = useDetailShellTab(TAB_IDS);
 
-  const [editDialogOpen, setEditDialogOpen] = React.useState(false);
+  const search = Route.useSearch();
+  const navigate = Route.useNavigate();
+  const closeEdit = useCloseFullPage(
+    React.useCallback(
+      () => void navigate({ search: (prev) => ({ ...prev, edit: undefined }), replace: true }),
+      [navigate],
+    ),
+  );
 
   const canUpdate = useHasPermission(Permission.GUARDIAN_UPDATE);
+  const canRecord = useHasPermission(Permission.PAYMENT_RECORD);
   // Payment/Communication tabs format currency and dates against the
   // active tenant's own region — same reasoning as `students/$studentId
   // .tsx`'s own `RegionConfigProvider` wrap: without it, every phone
@@ -67,13 +80,6 @@ function GuardianDetailPage() {
   return (
     <RegionConfigProvider value={regionConfig}>
       <div className="flex flex-col gap-4">
-        <Link
-          to="/guardians"
-          className="inline-flex min-h-6 items-center self-start text-sm text-primary underline"
-        >
-          {t('detail.back')}
-        </Link>
-
         {guardianQuery.isPending ? (
           <Skeleton className="h-7 w-64" />
         ) : guardianQuery.isError ? (
@@ -90,9 +96,31 @@ function GuardianDetailPage() {
           <>
             <DetailShell
               name={guardianQuery.data.full_name}
-              identifiers={t('detail.identifiers', {
-                relationship: guardianQuery.data.relationship,
-              })}
+              facts={[
+                {
+                  label: t('detail.information.columnRelationship'),
+                  value: relationshipLabel(guardianQuery.data.relationship, t),
+                },
+                {
+                  label: t('detail.information.columnPhone'),
+                  value: guardianQuery.data.phone
+                    ? formatPhone(guardianQuery.data.phone, regionConfig)
+                    : t('detail.information.emptyValue'),
+                },
+                {
+                  label: t('detail.information.columnPreferredCommunication'),
+                  value: t(
+                    `preferredCommunicationOptions.${guardianQuery.data.preferred_communication}`,
+                  ),
+                },
+                {
+                  label: t('list.columnLinkedStudents'),
+                  value: t('detail.facts.studentCount', {
+                    count: guardianQuery.data.students.length,
+                    n: formatNumber(guardianQuery.data.students.length, regionConfig),
+                  }),
+                },
+              ]}
               statusBadge={
                 <StatusBadge
                   domain="guardian"
@@ -103,9 +131,22 @@ function GuardianDetailPage() {
                 {
                   id: 'edit',
                   label: t('detail.actions.edit'),
+                  icon: <PencilIcon aria-hidden="true" />,
                   allowed: canUpdate,
+                  priority: 'secondary',
+                  onClick: () => void navigate({ search: (prev) => ({ ...prev, edit: 1 }) }),
+                },
+                {
+                  id: 'record-payment',
+                  label: t('recordAction', { ns: 'payments' }),
+                  icon: <HandCoinsIcon aria-hidden="true" />,
+                  allowed: canRecord,
                   priority: 'primary',
-                  onClick: () => setEditDialogOpen(true),
+                  onClick: () =>
+                    void navigate({
+                      to: '/payments',
+                      search: { record: '1', guardian_id: guardianId },
+                    }),
                 },
               ]}
               activeTab={activeTab}
@@ -134,12 +175,13 @@ function GuardianDetailPage() {
               ]}
             />
 
-            <EditGuardianDialog
-              open={editDialogOpen}
-              onOpenChange={setEditDialogOpen}
-              guardian={guardianQuery.data}
-              config={regionConfig}
-            />
+            {search.edit === 1 && canUpdate && (
+              <EditGuardianDialog
+                guardian={guardianQuery.data}
+                config={regionConfig}
+                onClose={closeEdit}
+              />
+            )}
           </>
         )}
       </div>
