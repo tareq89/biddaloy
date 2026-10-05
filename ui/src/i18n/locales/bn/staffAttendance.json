@@ -9,7 +9,17 @@
     "loading": "কর্মী তালিকা লোড হচ্ছে…",
     "emptyTitle": "এখনও কোনো কর্মী নেই",
     "emptyMessage": "উপস্থিতি নেওয়ার আগে একজন কর্মী যোগ করুন।",
-    "emptyAction": "কর্মী যোগ করুন"
+    "emptyAction": "কর্মী যোগ করুন",
+    "staffCount_one": "{{count}} জন কর্মী",
+    "staffCount_other": "{{count}} জন কর্মী",
+    "rosterHeading": "কর্মীর তালিকা",
+    "countPresent": "উপস্থিত {{n}}",
+    "countAbsent": "অনুপস্থিত {{n}}",
+    "countLate": "বিলম্বে {{n}}",
+    "countLeave": "ছুটি {{n}}",
+    "countUnmarked": "অচিহ্নিত {{n}}",
+    "unmarkedRemaining": "{{n}} জন অচিহ্নিত",
+    "shortcutHint": "শর্টকাট: নামের ওপর Enter চাপলে উপস্থিত · L চাপলে ছুটি · নামে ক্লিক করলে উপস্থিত ও অনুপস্থিত বদলায়"
   },
   "summary": {
     "title": "উপস্থিতি সারসংক্ষেপ",

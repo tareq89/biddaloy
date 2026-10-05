@@ -2,14 +2,18 @@
   "myLeave": {
     "title": "My leave",
     "requestButton": "Request leave",
-    "balanceTitle": "Balance",
     "columnType": "Type",
-    "columnQuota": "Annual quota",
-    "columnUsed": "Used",
-    "columnBalance": "Remaining",
+    "columnQuota": "Annual quota (days)",
+    "columnUsed": "Used (days)",
+    "columnBalance": "Remaining (days)",
     "loading": "Loading balance…",
     "errorMessage": "Couldn't load leave balance.",
-    "empty": "No leave policy configured yet."
+    "empty": "No leave policy configured yet.",
+    "daysLeft_one": "{{n}} day left",
+    "daysLeft_other": "{{n}} days left",
+    "emptyTitle": "No leave rules yet",
+    "noProfileTitle": "You have no staff profile",
+    "noProfileMessage": "Leave is tracked for staff only. Ask an admin to create your staff profile if you need one."
   },
   "request": {
     "title": "Request leave",
@@ -21,7 +25,9 @@
     "submit": "Submit request",
     "submitting": "Submitting…",
     "errorDateRange": "End date must be on or after the start date.",
-    "errorMessage": "Couldn't submit the leave request."
+    "errorMessage": "Couldn't submit the leave request.",
+    "reasonPlaceholder": "e.g. family matter",
+    "errorBalance": "Not enough days of this leave type left. Pick fewer days or another type."
   },
   "type": {
     "CASUAL": "Casual",
@@ -32,6 +38,9 @@
   },
   "approve": {
     "title": "Pending requests",
-    "notAvailableMessage": "The server doesn't expose a list of pending leave requests yet, so this panel can't show anything to approve or reject. Ask engineering to add that endpoint."
+    "notAvailableMessage": "Approving staff leave requests here is not available yet."
+  },
+  "page": {
+    "subtitle": "How many days of each kind of leave you have left this year"
   }
 }

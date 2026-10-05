@@ -8,6 +8,7 @@ import { LeaveType } from '@biddaloy/shared';
 import { ApiError } from '@biddaloy/ui/api';
 import {
   Button,
+  DatePicker,
   Dialog,
   DialogClose,
   DialogContent,
@@ -15,10 +16,17 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  Input,
+  Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Textarea,
 } from '@biddaloy/ui/components';
 import { useCreateLeaveRequest } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { parseDate, toIsoDate } from '@biddaloy/ui/utils';
 import * as React from 'react';
 
 export interface LeaveRequestDialogProps {
@@ -35,9 +43,11 @@ export function LeaveRequestDialog({
   staffProfileId,
 }: LeaveRequestDialogProps) {
   const { t } = useTranslation('leave');
+  const regionConfig = useTenantRegionConfig();
   const createRequest = useCreateLeaveRequest();
 
   const [leaveType, setLeaveType] = React.useState<LeaveType>(LeaveType.CASUAL);
+  // ISO `YYYY-MM-DD` strings (the API shape); the pickers show formatted dates.
   const [startDate, setStartDate] = React.useState('');
   const [endDate, setEndDate] = React.useState('');
   const [reason, setReason] = React.useState('');
@@ -77,14 +87,17 @@ export function LeaveRequestDialog({
     );
   }
 
+  // Never the server's own text: a translated sentence, with the balance case spelled out.
   const serverErrorMessage =
-    createRequest.error instanceof ApiError
-      ? createRequest.error.message
+    createRequest.error instanceof ApiError &&
+    (createRequest.error.details as { code?: string } | undefined)?.code ===
+      'LEAVE_BALANCE_EXCEEDED'
+      ? t('request.errorBalance')
       : t('request.errorMessage');
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+    <Dialog open={open} onOpenChange={(next) => !createRequest.isPending && onOpenChange(next)}>
+      <DialogContent size="md" closeLabel={t('actions.close', { ns: 'common' })}>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <DialogHeader>
             <DialogTitle>{t('request.title')}</DialogTitle>
@@ -92,53 +105,50 @@ export function LeaveRequestDialog({
           </DialogHeader>
 
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="leave-request-type" className="text-sm font-medium">
-              {t('request.typeLabel')}
-            </label>
-            <select
-              id="leave-request-type"
-              className="h-8 rounded-md border border-input bg-card px-2.5 text-sm"
-              value={leaveType}
-              onChange={(event) => setLeaveType(event.target.value as LeaveType)}
-            >
-              {LEAVE_TYPES.map((type) => (
-                <option key={type} value={type}>
-                  {t(`type.${type}`)}
-                </option>
-              ))}
-            </select>
+            <Label htmlFor="leave-request-type">{t('request.typeLabel')}</Label>
+            <Select value={leaveType} onValueChange={(value) => setLeaveType(value as LeaveType)}>
+              <SelectTrigger id="leave-request-type">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {LEAVE_TYPES.map((type) => (
+                  <SelectItem key={type} value={type}>
+                    {t(`type.${type}`)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="leave-request-start" className="text-sm font-medium">
-              {t('request.startDateLabel')}
-            </label>
-            <Input
+            <Label htmlFor="leave-request-start">{t('request.startDateLabel')}</Label>
+            <DatePicker
               id="leave-request-start"
-              type="date"
-              value={startDate}
-              onChange={(event) => setStartDate(event.target.value)}
+              aria-label={t('request.startDateLabel')}
+              config={regionConfig}
+              value={startDate === '' ? undefined : parseDate(startDate)}
+              onValueChange={(next) => setStartDate(next ? toIsoDate(next) : '')}
             />
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="leave-request-end" className="text-sm font-medium">
-              {t('request.endDateLabel')}
-            </label>
-            <Input
+            <Label htmlFor="leave-request-end">{t('request.endDateLabel')}</Label>
+            <DatePicker
               id="leave-request-end"
-              type="date"
-              value={endDate}
-              onChange={(event) => setEndDate(event.target.value)}
+              aria-label={t('request.endDateLabel')}
+              config={regionConfig}
+              value={endDate === '' ? undefined : parseDate(endDate)}
+              min={startDate === '' ? undefined : parseDate(startDate)}
+              onValueChange={(next) => setEndDate(next ? toIsoDate(next) : '')}
             />
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="leave-request-reason" className="text-sm font-medium">
-              {t('request.reasonLabel')}
-            </label>
-            <Input
+            <Label htmlFor="leave-request-reason">{t('request.reasonLabel')}</Label>
+            <Textarea
               id="leave-request-reason"
+              rows={3}
+              placeholder={t('request.reasonPlaceholder')}
               value={reason}
               onChange={(event) => setReason(event.target.value)}
             />
@@ -157,7 +167,7 @@ export function LeaveRequestDialog({
 
           <DialogFooter>
             <DialogClose asChild>
-              <Button type="button" variant="outline">
+              <Button type="button" variant="outline" disabled={createRequest.isPending}>
                 {t('actions.cancel', { ns: 'common' })}
               </Button>
             </DialogClose>

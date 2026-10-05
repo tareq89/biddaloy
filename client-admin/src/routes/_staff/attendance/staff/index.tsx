@@ -5,16 +5,30 @@
  * than per-section-per-month.
  */
 import { AttendanceStatus, Permission } from '@biddaloy/shared';
-import { Button, EmptyState, ErrorState, Skeleton } from '@biddaloy/ui/components';
+import {
+  Button,
+  DatePicker,
+  EmptyState,
+  ErrorState,
+  Label,
+  Skeleton,
+} from '@biddaloy/ui/components';
 import { useHasPermission, useMarkStaffAttendance, useUsers } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { PageContainer } from '@biddaloy/ui/shells';
+import { parseDate, toIsoDate } from '@biddaloy/ui/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
+import { CalendarMinus, Save, UserCheck } from 'lucide-react';
 import * as React from 'react';
 import { z } from 'zod';
 
 import { loadRouteNamespaces } from '../../../../route-loaders';
 
-import { StaffAttendanceGrid, type StaffAttendanceDraft } from './-staff-attendance-grid';
+import {
+  countStaffDraft,
+  StaffAttendanceGrid,
+  type StaffAttendanceDraft,
+} from './-staff-attendance-grid';
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -39,6 +53,7 @@ export const Route = createFileRoute('/_staff/attendance/staff/')({
 
 function StaffAttendancePage() {
   const { t } = useTranslation('staffAttendance');
+  const regionConfig = useTenantRegionConfig();
   const navigate = Route.useNavigate();
   const search = Route.useSearch();
   const date = search.date ?? todayIso();
@@ -90,27 +105,50 @@ function StaffAttendancePage() {
     );
   }
 
+  const unmarked = countStaffDraft(staff, draft).unmarked;
+
   return (
-    <div className="flex flex-col gap-4 p-4">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <h1 className="text-lg font-semibold">{t('grid.title')}</h1>
-        <label className="flex flex-col gap-1 text-sm">
-          {t('grid.dateLabel')}
-          <input
-            type="date"
-            className="h-8 rounded-md border border-input bg-card px-2.5 text-sm"
-            value={date}
-            onChange={(event) =>
-              void navigate({ search: (prev) => ({ ...prev, date: event.target.value }) })
-            }
-          />
-        </label>
-      </div>
+    <PageContainer>
+      <header className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between md:gap-6">
+        <div className="min-w-0">
+          <h1 className="text-h1">{t('grid.title')}</h1>
+          {!usersQuery.isPending && !usersQuery.isError && (
+            <p className="mt-0.5 text-text-secondary">
+              {t('grid.staffCount', { count: staff.length })}
+            </p>
+          )}
+        </div>
+        <div className="flex items-end gap-2">
+          <div className="grid min-w-0 flex-1 gap-1.5 md:w-64 md:flex-none">
+            <Label htmlFor="staff-attendance-date">{t('grid.dateLabel')}</Label>
+            <DatePicker
+              id="staff-attendance-date"
+              aria-label={t('grid.dateLabel')}
+              config={regionConfig}
+              value={parseDate(date)}
+              onValueChange={(next) =>
+                next && void navigate({ search: (prev) => ({ ...prev, date: toIsoDate(next) }) })
+              }
+            />
+          </div>
+          <Button asChild variant="outline" className="shrink-0">
+            <Link to="/attendance/staff/leave">
+              <CalendarMinus aria-hidden="true" />
+              {t('items.leave', { ns: 'nav' })}
+            </Link>
+          </Button>
+        </div>
+      </header>
 
       {usersQuery.isPending ? (
-        <div aria-busy="true" aria-live="polite" className="flex flex-col gap-2">
+        <div aria-busy="true" aria-live="polite" className="space-y-6">
           <span className="sr-only">{t('grid.loading')}</span>
-          <Skeleton className="h-64 w-full" />
+          <div className="overflow-hidden rounded-lg border border-border-subtle bg-surface shadow-e1">
+            <Skeleton className="h-12 rounded-none border-b border-border-subtle" />
+            {Array.from({ length: 6 }, (_, i) => (
+              <Skeleton key={i} className="h-14 rounded-none border-b border-border-subtle" />
+            ))}
+          </div>
         </div>
       ) : usersQuery.isError ? (
         <ErrorState
@@ -120,6 +158,7 @@ function StaffAttendancePage() {
         />
       ) : staff.length === 0 ? (
         <EmptyState
+          icon={<UserCheck />}
           title={t('grid.emptyTitle')}
           explanation={t('grid.emptyMessage')}
           action={{ label: t('grid.emptyAction'), onClick: () => void navigate({ to: '/staff' }) }}
@@ -133,32 +172,34 @@ function StaffAttendancePage() {
             disabled={!canMark || markAttendance.isPending}
           />
           {canMark && (
-            <div className="flex flex-col items-end gap-2">
-              {markAttendance.isError && (
-                <p role="alert" className="text-sm text-destructive">
+            <div className="sticky bottom-16 z-20 flex items-center gap-3 rounded-lg border border-border-subtle bg-surface p-3 shadow-e2 md:bottom-0 md:px-5">
+              {markAttendance.isError ? (
+                <span role="alert" className="shrink-0 text-destructive">
                   {t('grid.errorMessage')}
-                </p>
-              )}
-              {markAttendance.isSuccess && (
-                <p role="status" className="text-sm text-muted-foreground">
+                </span>
+              ) : markAttendance.isSuccess ? (
+                <span role="status" className="shrink-0 text-text-secondary">
                   {t('grid.saved')}
-                </p>
+                </span>
+              ) : (
+                <span className="shrink-0 text-text-secondary">
+                  {t('grid.unmarkedRemaining', { n: unmarked })}
+                </span>
               )}
               <Button
                 type="button"
+                className="flex-1 md:ms-auto md:flex-none"
                 loading={markAttendance.isPending}
                 disabled={Object.keys(draft).length === 0}
                 onClick={handleSubmit}
               >
+                <Save aria-hidden="true" />
                 {markAttendance.isPending ? t('grid.saving') : t('grid.submit')}
               </Button>
             </div>
           )}
         </>
       )}
-      <Link to="/attendance/staff/leave" className="self-start text-sm text-primary underline">
-        {t('items.leave', { ns: 'nav' })}
-      </Link>
-    </div>
+    </PageContainer>
   );
 }
