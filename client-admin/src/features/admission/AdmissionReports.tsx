@@ -1,8 +1,8 @@
 /**
  * [39.4.1] Admission reports — the lifecycle report body (D5, D27): year +
  * class filters, four count tiles, an event table (cards on phone via
- * `DataTable`). No export (Epic 8.15 owns that). The route + permission gate
- * (`STUDENT_LIFECYCLE_MANAGE`) is #1200's job.
+ * `DataTable`). No export (Epic 8.15 owns that). The route's permission gate lives in
+ * `route-permissions.ts`; the student link is gated on `STUDENT_READ` here.
  *
  * Filter state is local (`useState`) so the screen needs no router, and paging
  * happens on the client over the (at most 500) rows the server returns.
@@ -142,8 +142,8 @@ export function AdmissionReports() {
       <PageHeader
         title={t('title')}
         subtitle={
-          year
-            ? t('subtitle', { year: year.name, class: className ?? t('filterAllClasses') })
+          year && (!classId || className)
+            ? t('subtitle', { year: year.name, class: classId ? className : t('filterAllClasses') })
             : undefined
         }
       />

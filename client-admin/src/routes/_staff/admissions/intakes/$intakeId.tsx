@@ -10,8 +10,9 @@ import {
   StatusBadge,
   toast,
 } from '@biddaloy/ui/components';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { PageContainer } from '@biddaloy/ui/shells';
+import { formatNumber } from '@biddaloy/ui/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { UsersIcon } from 'lucide-react';
 import * as React from 'react';
@@ -48,6 +49,7 @@ function IntakeDetailPending() {
 function IntakeDetailPage() {
   const { intakeId } = Route.useParams();
   const { t } = useTranslation('admission-staff-intakes');
+  const regionConfig = useRegionConfig();
   const navigate = Route.useNavigate();
   const intakeQuery = useIntake(intakeId);
   const applicantsQuery = useApplicants({ intakeId });
@@ -70,10 +72,7 @@ function IntakeDetailPage() {
 
   if (intakeQuery.isError) {
     return (
-      <ErrorState
-        message={t('detail.errorMessage', { ns: 'admission-staff-intakes' })}
-        onRetry={() => void intakeQuery.refetch()}
-      />
+      <ErrorState message={t('detail.loadError')} onRetry={() => void intakeQuery.refetch()} />
     );
   }
 
@@ -106,7 +105,9 @@ function IntakeDetailPage() {
             />
           </div>
           {count !== undefined && (
-            <p className="mt-0.5 text-text-secondary">{t('detail.applicantCount', { count })}</p>
+            <p className="mt-0.5 text-text-secondary">
+              {t('detail.applicantCount', { count, formatted: formatNumber(count, regionConfig) })}
+            </p>
           )}
         </div>
         <Button asChild variant="outline" className="w-full md:w-auto">
