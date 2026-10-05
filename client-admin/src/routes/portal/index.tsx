@@ -21,14 +21,22 @@ import {
   useTranslation,
   type RegionConfig,
 } from '@biddaloy/ui/i18n';
-import { formatDate, formatServerAmount, isPastDueDate, parseServerDate } from '@biddaloy/ui/utils';
+import { PageContainer, PageHeader } from '@biddaloy/ui/shells';
+import {
+  formatDate,
+  formatNumber,
+  formatServerAmount,
+  isPastDueDate,
+  parseServerDate,
+} from '@biddaloy/ui/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { ChevronRightIcon } from 'lucide-react';
+import type { ReactNode } from 'react';
 
 import { UpcomingCalendarCard } from '../../components/upcoming-calendar-card';
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../route-loaders';
 
-import { DueThisMonthCard } from './-due-this-month-card';
+import { DueThisMonthCard, DueThisMonthSection } from './-due-this-month-card';
 import { PortalSurveysCard } from './-surveys-card';
 
 /**
@@ -67,9 +75,8 @@ import { PortalSurveysCard } from './-surveys-card';
  *
  * | Frame            | `<h1>`                                   |
  * | ---------------- | ---------------------------------------- |
- * | Several children | the hero's "Total outstanding" label      |
- * | One student      | the student's `full_name`                 |
- * | No students      | `EmptyState`'s own `title` (nothing else) |
+ * | Loaded frames    | `PageHeader`'s title (nav "Overview")     |
+ * | No students      | `PageHeader`'s title; `EmptyState` is h2  |
  * | Loading          | none — focus falls back to `<main>`       |
  * | Error            | none — focus falls back to `<main>`       |
  *
@@ -109,11 +116,6 @@ export const Route = createFileRoute('/portal/')({
 function PortalOverviewRoute() {
   return (
     <RegionConfigProvider>
-      {/* [17.5.4]: mounted unconditionally — no permission prop on the
-          portal variant, same "role-gated server-side" pattern the
-          portal calendar/attendance routes already use. */}
-      <UpcomingCalendarCard calendarPath="/portal/calendar" />
-      <PortalSurveysCard />
       <PortalOverview />
     </RegionConfigProvider>
   );
@@ -270,8 +272,8 @@ function PortalOverview() {
   // "undefined" next to a child's name if that ever changes.
   const formatMeta = (className: string | null, section: string, roll: number) =>
     className === null
-      ? t('children.metaNoClass', { roll })
-      : t('children.meta', { className, section, roll });
+      ? t('children.metaNoClass', { roll: formatNumber(roll, config) })
+      : t('children.meta', { className, section, roll: formatNumber(roll, config) });
 
   if (studentsQuery.isPending || duesQuery.isPending) {
     return <PortalSkeleton label={t('loading.label')} studentCount={studentsQuery.data?.length} />;
@@ -297,18 +299,19 @@ function PortalOverview() {
     // that only the school office can resolve, so the copy names that fix
     // rather than offering a retry as if the request had failed.
     return (
-      <EmptyState
-        headingLevel={1}
-        title={t('empty.title')}
-        explanation={t('empty.explanation')}
-        action={{
-          label: t('empty.action'),
-          onClick: () => {
-            void studentsQuery.refetch();
-            void duesQuery.refetch();
-          },
-        }}
-      />
+      <PortalPage>
+        <EmptyState
+          title={t('empty.title')}
+          explanation={t('empty.explanation')}
+          action={{
+            label: t('empty.action'),
+            onClick: () => {
+              void studentsQuery.refetch();
+              void duesQuery.refetch();
+            },
+          }}
+        />
+      </PortalPage>
     );
   }
 
@@ -321,6 +324,29 @@ function PortalOverview() {
   }
 
   return <MultiChildView items={children} config={config} now={now} />;
+}
+
+/** The loaded frames' shared page: header, main column (surveys card, then
+ * the frame), and the upcoming-events side column (last on phone). */
+function PortalPage({ subtitle, children }: { subtitle?: string; children: ReactNode }) {
+  const { t: tNav } = useTranslation('nav');
+  return (
+    <PageContainer>
+      <PageHeader title={tNav('items.portalOverview')} subtitle={subtitle} />
+      <div className="grid gap-6 md:grid-cols-3 md:items-start">
+        <div className="min-w-0 space-y-6 md:col-span-2">
+          <PortalSurveysCard />
+          {children}
+        </div>
+        <div className="space-y-6">
+          {/* [17.5.4]: mounted unconditionally — no permission prop on the
+              portal variant, same "role-gated server-side" pattern the
+              portal calendar/attendance routes already use. */}
+          <UpcomingCalendarCard calendarPath="/portal/calendar" />
+        </div>
+      </div>
+    </PageContainer>
+  );
 }
 
 function PortalSkeleton({
@@ -344,7 +370,7 @@ function PortalSkeleton({
       // a `Card`), the hero `Card`, then `RecentPayments`' card shell —
       // that query has its own pending skeleton, so only its shell height
       // is approximated here.
-      <div className="flex max-w-2xl flex-col gap-3" aria-busy="true" aria-live="polite">
+      <div className="flex flex-col gap-3" aria-busy="true" aria-live="polite">
         <span className="sr-only">{label}</span>
         <div className="flex flex-col gap-0.5">
           <Skeleton className="h-7 w-40" />
@@ -360,8 +386,7 @@ function PortalSkeleton({
     // No `<h1>` while pending — see this file's header comment. The
     // `aria-busy` region carries the state for a screen reader instead, so
     // the frame is never silently blank.
-    // `max-w-2xl` and `gap-3` are `MultiChildView`'s own container classes,
-    // and the three heights below are the boxes it actually renders: the
+    // The three heights below are the boxes it actually renders: the
     // hero `Card` (p-4 around a label, a `text-3xl` figure and a meta
     // line), the uppercase section label, and a `ChildCard` (p-3.5 around
     // a name row, a meta line and an amount/badge row). ([8.13.11])
@@ -370,7 +395,7 @@ function PortalSkeleton({
     // query has resolved) — see this file's header comment on why a
     // single student is the less common case, so a shape that's wrong for
     // neither branch is wrong for both.
-    <div className="flex max-w-2xl flex-col gap-3" aria-busy="true" aria-live="polite">
+    <div className="flex flex-col gap-3" aria-busy="true" aria-live="polite">
       <span className="sr-only">{label}</span>
       <Skeleton className="h-[7.25rem] w-full rounded-lg" />
       <Skeleton className="mt-1 h-4 w-32" />
@@ -397,51 +422,56 @@ function MultiChildView({
   // child who happens to be flagged overdue.
   const overdueTotal = items.reduce((sum, child) => sum + child.overdueDue, 0);
 
-  const metaParts = [t('hero.acrossChildren', { withDue: withDue.length, total: items.length })];
+  const metaParts = [
+    t('hero.acrossChildren', {
+      withDue: formatNumber(withDue.length, config),
+      total: formatNumber(items.length, config),
+    }),
+  ];
   if (overdueTotal > 0) {
     metaParts.push(t('hero.overdueAmount', { amount: formatServerAmount(overdueTotal, config) }));
   }
 
+  const totalTone =
+    total === 0
+      ? 'text-status-paid-fg'
+      : overdueTotal > 0
+        ? 'text-status-overdue-fg'
+        : 'text-status-due-fg';
+
   return (
-    <div className="flex max-w-2xl flex-col gap-3">
-      <Card className="flex flex-col gap-1 p-4">
-        {/* The page's one `<h1>` in this frame. Element choice only — the
-            visual weight stays the mockup's small muted label, the same
-            way the unlinked-account `EmptyState` title is an `<h1>`
-            that doesn't look like one. */}
-        <h1 className="text-sm font-normal text-muted-foreground">{t('hero.label')}</h1>
-        <div
-          className={`text-3xl leading-tight font-bold tabular-nums ${toneFor(
-            overdueTotal > 0 ? FeeStatus.OVERDUE : FeeStatus.PENDING,
-          )}`}
-        >
+    <PortalPage>
+      <Card className="p-4 md:p-5">
+        <h2 className="text-label text-text-secondary">{t('hero.label')}</h2>
+        <p className={`mt-1 text-display tabular-nums ${totalTone}`}>
           {total > 0 ? formatServerAmount(total, config) : t('hero.nothingDue')}
-        </div>
-        <div className="text-xs text-muted-foreground">
+        </p>
+        <p className="mt-0.5 text-text-secondary">
           {total > 0 ? metaParts.join(' · ') : t('hero.allSettled')}
-        </div>
+        </p>
       </Card>
 
-      <h2 className="mt-1 px-0.5 text-xs font-semibold tracking-wider text-muted-foreground uppercase">
-        {t('children.title')}
-      </h2>
-
-      {items.map((child) => (
-        // [38.4.5] The due-this-month card is a sibling below each
-        // `ChildCard`, not nested inside its `Link` — the card is a plain
-        // information block, not another interactive target, and nesting
-        // it inside the link would make the whole card one giant tap
-        // target that also has to scroll internally.
-        <div key={child.id} className="flex flex-col gap-1.5">
-          <ChildCard child={child} config={config} />
-          <DueThisMonthCard dues={child.dues} now={now} config={config} />
+      <section className="space-y-3">
+        <h2 className="text-h2">{t('children.title')}</h2>
+        <div className="grid gap-4 md:grid-cols-2 md:items-start">
+          {items.map((child) => (
+            <ChildCard key={child.id} child={child} config={config} now={now} />
+          ))}
         </div>
-      ))}
-    </div>
+      </section>
+    </PortalPage>
   );
 }
 
-function ChildCard({ child, config }: { child: ChildSummary; config: RegionConfig }) {
+function ChildCard({
+  child,
+  config,
+  now,
+}: {
+  child: ChildSummary;
+  config: RegionConfig;
+  now: Date;
+}) {
   const { t } = useTranslation('portal');
 
   const dueParts: string[] = [];
@@ -453,40 +483,42 @@ function ChildCard({ child, config }: { child: ChildSummary; config: RegionConfi
   }
 
   return (
-    // The whole card is the link — one target rather than a "view" link
-    // inside a card, which is both a smaller tap area and a nested
-    // interactive element for a screen reader to step through. The
-    // accessible name is the card's own text (name, class, amount,
-    // status), so no `aria-label` is needed or wanted: an override would
-    // hide the very figures the parent is scanning for.
+    // Not a link itself: the card holds a list (this-month lines), which a
+    // screen reader must not read as one giant link name. The footer row is
+    // the one tap target, named after the child.
     <Card asChild>
-      <Link
-        to="/portal/fees"
-        search={{ student: child.id }}
-        // [8.14.14]: focus ring aligned to the shared two-tone offset
-        // treatment used across @biddaloy/ui, replacing the old
-        // `outline`/`outline-2`/`outline-ring` combo.
-        className="flex flex-col gap-1.5 p-3.5 no-underline outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-      >
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-sm font-semibold">{child.fullName}</span>
-          <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+      <article className="flex flex-col p-0">
+        <div className="space-y-3 p-4 md:p-5">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h3 className="truncate text-h3">{child.fullName}</h3>
+              <p className="text-text-secondary">{child.meta}</p>
+            </div>
+            {/* The badge repeats the amount colour's meaning as text. */}
+            <StatusBadge domain="fee" status={child.status} />
+          </div>
+          <div>
+            <p className={`text-h2 tabular-nums ${toneFor(child.status)}`}>
+              {child.totalDue > 0
+                ? formatServerAmount(child.totalDue, config)
+                : t('hero.nothingDue')}
+            </p>
+            {dueParts.length > 0 && (
+              <p className="text-caption text-text-secondary">{dueParts.join(' · ')}</p>
+            )}
+          </div>
+          <DueThisMonthSection dues={child.dues} now={now} config={config} />
         </div>
-        <div className="text-xs text-muted-foreground">{child.meta}</div>
-        {/* `flex-wrap` is what keeps this row honest at 320px: the amount
-            and the badge stack instead of the badge being pushed off. */}
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <span className={`text-base font-bold tabular-nums ${toneFor(child.status)}`}>
-            {child.totalDue > 0 ? formatServerAmount(child.totalDue, config) : t('hero.nothingDue')}
-          </span>
-          {/* The badge is why the amount's colour is never the only carrier
-              of status — it repeats the same meaning as text. */}
-          <StatusBadge domain="fee" status={child.status} />
-        </div>
-        {dueParts.length > 0 && (
-          <div className="text-xs text-muted-foreground">{dueParts.join(' · ')}</div>
-        )}
-      </Link>
+        <Link
+          to="/portal/fees"
+          search={{ student: child.id }}
+          aria-label={t('children.viewFeesFor', { name: child.fullName })}
+          className="flex h-11 items-center justify-between gap-2 rounded-b-lg border-t border-border-subtle px-4 font-medium text-primary hover:bg-muted md:px-5"
+        >
+          {t('actions.viewFeeBreakdown')}
+          <ChevronRightIcon className="size-4" aria-hidden="true" />
+        </Link>
+      </article>
     </Card>
   );
 }
@@ -521,26 +553,17 @@ function SingleStudentView({
   }
 
   return (
-    <div className="flex max-w-2xl flex-col gap-3">
-      <div className="flex flex-col gap-0.5">
-        {/* This frame's `<h1>`: the student is the subject of the page,
-            mirroring `DetailShell`'s name-as-heading on the staff side. */}
-        <h1 className="text-lg font-semibold tracking-tight">{child.fullName}</h1>
-        <p className="text-xs text-muted-foreground">{child.meta}</p>
-      </div>
-
-      <Card className="flex flex-col gap-1 p-4">
-        {/* A `<div>`, not an `<h1>` — the student's name above already is
-            this frame's page heading. */}
-        <div className="text-sm text-muted-foreground">{t('hero.label')}</div>
-        <div className={`text-3xl leading-tight font-bold tabular-nums ${toneFor(child.status)}`}>
+    <PortalPage subtitle={`${child.fullName} · ${child.meta}`}>
+      <Card className="p-4 md:p-5">
+        <h2 className="text-label text-text-secondary">{t('hero.label')}</h2>
+        <p className={`mt-1 text-display tabular-nums ${toneFor(child.status)}`}>
           {child.totalDue > 0 ? formatServerAmount(child.totalDue, config) : t('hero.nothingDue')}
-        </div>
+        </p>
         {metaParts.length > 0 && (
-          <div className="text-xs text-muted-foreground">{metaParts.join(' · ')}</div>
+          <p className="mt-0.5 text-text-secondary">{metaParts.join(' · ')}</p>
         )}
-        <div className="mt-2 flex flex-wrap gap-2">
-          <Button variant="outline" size="sm" asChild>
+        <div className="mt-3">
+          <Button asChild className="w-full md:w-auto">
             <Link to="/portal/fees">{t('actions.viewFeeBreakdown')}</Link>
           </Button>
         </div>
@@ -549,7 +572,7 @@ function SingleStudentView({
       <DueThisMonthCard dues={child.dues} now={now} config={config} />
 
       <RecentPayments query={paymentsQuery} config={config} />
-    </div>
+    </PortalPage>
   );
 }
 
@@ -609,17 +632,15 @@ function RecentPayments({
 
   return (
     <Card className="flex flex-col">
-      <h2 className="border-b border-border-subtle px-3.5 py-3 text-sm font-semibold">
-        {t('payments.title')}
-      </h2>
+      <h2 className="border-b border-border-subtle p-4 text-h2 md:px-5">{t('payments.title')}</h2>
 
       {query.isPending ? (
-        <div className="flex flex-col gap-2 p-3.5" aria-busy="true">
+        <div className="flex flex-col gap-2 p-4 md:px-5" aria-busy="true">
           <Skeleton className="h-4 w-full" />
           <Skeleton className="h-4 w-2/3" />
         </div>
       ) : query.isError ? (
-        <div className="p-3.5">
+        <div className="p-4 md:px-5">
           <ErrorState
             message={t('payments.loadError')}
             retryLabel={t('payments.retry')}
@@ -629,57 +650,56 @@ function RecentPayments({
       ) : query.data.length === 0 ? (
         // Deliberately not `EmptyState`: this frame's `<h1>` is already
         // the student's name, and a nested empty block adds a heading.
-        <p className="p-3.5 text-sm text-muted-foreground">{t('payments.none')}</p>
+        <p className="p-4 text-text-secondary md:px-5">{t('payments.none')}</p>
       ) : (
         <>
-          {query.data.slice(0, 3).map((payment, index) => {
-            // Only fields both `Payment` and `FamilyPaymentDto` carry —
-            // a family caller's rows have no `student`/`received_by`, and
-            // there is no receipt number on either shape (the mockup's
-            // "receipt RCP-4471" had no backing field), so the secondary
-            // line is the method plus the transaction reference when the
-            // school recorded one.
-            const detail = [methodLabel(payment.payment_method)];
-            if (payment.transaction_reference) detail.push(payment.transaction_reference);
-            const received = isReceived(payment);
+          <div className="divide-y divide-border-subtle">
+            {query.data.slice(0, 3).map((payment) => {
+              // Only fields both `Payment` and `FamilyPaymentDto` carry —
+              // a family caller's rows have no `student`/`received_by`, and
+              // there is no receipt number on either shape (the mockup's
+              // "receipt RCP-4471" had no backing field), so the secondary
+              // line is the method plus the transaction reference when the
+              // school recorded one.
+              const detail = [methodLabel(payment.payment_method)];
+              if (payment.transaction_reference) detail.push(payment.transaction_reference);
+              const received = isReceived(payment);
 
-            return (
-              <div
-                key={payment.id}
-                className={`flex flex-wrap items-center justify-between gap-2 px-3.5 py-2.5 ${
-                  index > 0 ? 'border-t border-border-subtle' : ''
-                }`}
-              >
-                <div className="flex min-w-0 flex-col">
-                  <span className="text-sm">
-                    {formatDate(parseServerDate(payment.payment_date), config)}
-                  </span>
-                  <span className="text-xs text-muted-foreground">{detail.join(' · ')}</span>
-                </div>
-                <span className="flex items-center gap-2">
-                  {/* A non-successful payment is shown, not dropped —
+              return (
+                <div
+                  key={payment.id}
+                  className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 md:px-5"
+                >
+                  <div className="flex min-w-0 flex-col">
+                    <span>{formatDate(parseServerDate(payment.payment_date), config)}</span>
+                    <span className="text-caption text-text-secondary">{detail.join(' · ')}</span>
+                  </div>
+                  <span className="flex items-center gap-2">
+                    {/* A non-successful payment is shown, not dropped —
                       but never as a bare amount that reads as received.
                       The badge is the carrier; the muted amount is only a
                       second, redundant signal. */}
-                  {!received && (
-                    <StatusBadge
-                      domain="payment"
-                      status={payment.payment_status as PaymentStatus}
-                    />
-                  )}
-                  <span
-                    className={`text-sm font-semibold tabular-nums ${
-                      received ? '' : 'text-muted-foreground'
-                    }`}
-                  >
-                    {formatServerAmount(payment.total_amount, config)}
+                    {!received && (
+                      <StatusBadge
+                        domain="payment"
+                        status={payment.payment_status as PaymentStatus}
+                      />
+                    )}
+                    <span
+                      className={`font-semibold tabular-nums ${received ? '' : 'text-text-secondary'}`}
+                    >
+                      {formatServerAmount(payment.total_amount, config)}
+                    </span>
                   </span>
-                </span>
-              </div>
-            );
-          })}
-          <div className="border-t border-border-subtle px-3.5 py-2.5">
-            <Link to="/portal/fees" className="text-sm text-primary underline">
+                </div>
+              );
+            })}
+          </div>
+          <div className="border-t border-border-subtle p-2 md:px-3">
+            <Link
+              to="/portal/fees"
+              className="inline-flex h-11 items-center rounded-md px-3 font-medium text-primary hover:bg-muted"
+            >
               {t('payments.seeAll')}
             </Link>
           </div>
