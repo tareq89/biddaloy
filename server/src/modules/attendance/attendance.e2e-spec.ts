@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto';
-import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterAll, afterEach } from 'vitest';
 import supertest = require('supertest');
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
@@ -15,7 +15,9 @@ import {
   SEED_ADMIN_PASSWORD,
   SEED_SECTION_1_ID,
   SEED_SECTION_2_ID,
+  SEED_ACADEMIC_YEAR_ID,
 } from '@test/constants';
+import { seedPeriodRoutine } from './attendance-periods.fixture';
 
 /**
  * E2E tests for the `attendance` routes — allowed/denied per role, missing/
@@ -213,6 +215,77 @@ describe('Attendance E2E', () => {
         .set('Authorization', `Bearer ${loginRes.body.access_token}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.STUDENT)
+        .expect(403);
+    });
+  });
+
+  describe('GET /attendance/sections/:sectionId/periods', () => {
+    const PDATE = '2026-03-04'; // a Wednesday; the fixture routine puts 2 periods on it
+
+    async function setPeriodSwitch(enabled: boolean) {
+      await dataSource.query(`UPDATE schools SET settings = $1 WHERE id = $2`, [
+        JSON.stringify({
+          version: 1,
+          attendance: { weeklyOffDays: [], periodAttendance: { enabled } },
+        }),
+        TENANT_ID,
+      ]);
+    }
+
+    const getPeriods = (token: string, role: UserRole) =>
+      supertest(app.getHttpServer())
+        .get(`/api/v1/attendance/sections/${MAPPED_SECTION_ID}/periods`)
+        .query({ date: PDATE })
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', role);
+
+    afterEach(async () => {
+      // `schools` persists for the whole file — put the baseline back.
+      await dataSource.query(`UPDATE schools SET settings = $1 WHERE id = $2`, [
+        JSON.stringify({ version: 1, attendance: { weeklyOffDays: [] } }),
+        TENANT_ID,
+      ]);
+    });
+
+    it('lists the periods of a published routine for a TEACHER mapped to the section', async () => {
+      await seedPeriodRoutine(dataSource, {
+        tenantId: TENANT_ID,
+        academicYearId: SEED_ACADEMIC_YEAR_ID,
+        sectionId: MAPPED_SECTION_ID,
+        date: PDATE,
+        periods: 2,
+        createdBy: SEED_ADMIN_USER_ID,
+      });
+      await setPeriodSwitch(true);
+      const res = await getPeriods(teacherToken, UserRole.TEACHER).expect(200);
+      expect(res.body.map((p: { period_no: number }) => p.period_no)).toEqual([1, 2]);
+      expect(res.body[0]).toMatchObject({ state: null });
+      expect(typeof res.body[0].subject_name).toBe('string');
+    });
+
+    it('returns [] while the period switch is off', async () => {
+      await seedPeriodRoutine(dataSource, {
+        tenantId: TENANT_ID,
+        academicYearId: SEED_ACADEMIC_YEAR_ID,
+        sectionId: MAPPED_SECTION_ID,
+        date: PDATE,
+        periods: 2,
+        createdBy: SEED_ADMIN_USER_ID,
+      });
+      await setPeriodSwitch(false);
+      const res = await getPeriods(adminToken, UserRole.ADMIN).expect(200);
+      expect(res.body).toEqual([]);
+    });
+
+    it('403s a TEACHER who is neither mapped to the section nor its substitute', async () => {
+      await setPeriodSwitch(true);
+      await supertest(app.getHttpServer())
+        .get(`/api/v1/attendance/sections/${UNMAPPED_SECTION_ID}/periods`)
+        .query({ date: PDATE })
+        .set('Authorization', `Bearer ${teacherToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.TEACHER)
         .expect(403);
     });
   });
