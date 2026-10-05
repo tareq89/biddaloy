@@ -34,13 +34,15 @@ import {
 } from '@biddaloy/ui/i18n';
 import { ListShell, useListShellState, type FilterFieldDescriptor } from '@biddaloy/ui/shells';
 import { formatDate } from '@biddaloy/ui/utils';
-import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
+import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import { IdCardIcon, PlusIcon, UserRoundCheckIcon, XIcon } from 'lucide-react';
 import * as React from 'react';
 import { z } from 'zod';
 
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 
 import { AddUserDialog } from './-add-user-dialog';
+import { EditUserDialog } from './-edit-user-dialog';
 import { formatStaffPhone } from './-format-staff-phone';
 import { PromoteTeacherDialog } from './-promote-teacher-dialog';
 import { RemoveMemberDialog } from './-remove-member-dialog';
@@ -116,7 +118,7 @@ export const Route = createFileRoute('/_staff/staff/')({
   validateSearch: staffSearchSchema,
   loaderDeps: ({ search }) => ({
     page: search.page ?? 1,
-    limit: search.limit ?? 10,
+    limit: search.limit ?? 25,
     sort: search.sort,
     order: search.order,
     search: search.search,
@@ -163,11 +165,12 @@ function StaffListPage() {
   const { t } = useTranslation('staff');
   const { locale } = useLocale();
   const regionConfig = useTenantRegionConfig();
-  const [state, actions] = useListShellState({ limit: 10 });
+  const [state, actions] = useListShellState();
   const filters = state.filters as StaffFilters;
   const currentUserId = useCurrentUserId();
 
   const canCreate = useHasPermission(Permission.USER_CREATE);
+  const canUpdate = useHasPermission(Permission.USER_UPDATE);
   const canRemove = useHasPermission(Permission.MEMBER_REMOVE);
   // D18: a staff card exposes HR data, so printing needs both permissions.
   const canPrintDocuments = useHasPermission(Permission.DOCUMENT_PRINT);
@@ -177,6 +180,7 @@ function StaffListPage() {
 
   const [addUserOpen, setAddUserOpen] = React.useState(false);
   const [promoteOpen, setPromoteOpen] = React.useState(false);
+  const [editTarget, setEditTarget] = React.useState<StaffUser | null>(null);
   const [removeTarget, setRemoveTarget] = React.useState<StaffUser | null>(null);
 
   const roleParam = toRoleParam(filters.role);
@@ -203,7 +207,7 @@ function StaffListPage() {
       kind: 'text',
       key: 'search',
       label: t('list.searchLabel'),
-      placeholder: t('list.searchLabel'),
+      placeholder: t('list.searchPlaceholder'),
       primary: true,
     },
     {
@@ -257,17 +261,15 @@ function StaffListPage() {
     {
       id: 'name',
       header: t('list.columnName'),
-      accessorFn: (row) => row.full_name,
+      accessorFn: (row) => (
+        <>
+          <span className="font-medium">{row.full_name}</span>
+          {row.email && <span className="block text-caption text-text-secondary">{row.email}</span>}
+        </>
+      ),
       sortable: true,
-      // [8.14.10] Row's own name is the natural card title.
+      // [8.14.10] Row's own name (with its email underneath) is the card title.
       card: 'title',
-    },
-    {
-      id: 'email',
-      header: t('list.columnEmail'),
-      accessorFn: (row) => row.email || t('list.emptyValue'),
-      sortable: true,
-      card: 'subtitle',
     },
     {
       id: 'phone',
@@ -282,14 +284,15 @@ function StaffListPage() {
     {
       id: 'status',
       header: t('list.columnStatus'),
-      accessorFn: (row) => <StatusBadge domain="user" status={row.status} />,
+      accessorFn: (row) => (
+        <div className="flex flex-wrap gap-1">
+          <StatusBadge domain="user" status={row.status} />
+          {row.invitation_status !== 'ACTIVATED' && (
+            <StatusBadge domain="invitation" status={row.invitation_status} />
+          )}
+        </div>
+      ),
       sortable: true,
-      card: 'badge',
-    },
-    {
-      id: 'invitation_status',
-      header: t('list.columnInvitation'),
-      accessorFn: (row) => <StatusBadge domain="invitation" status={row.invitation_status} />,
       card: 'badge',
     },
     {
@@ -298,49 +301,55 @@ function StaffListPage() {
       accessorFn: (row) => formatDate(new Date(row.created_at), regionConfig),
       sortable: true,
     },
-    {
-      id: 'actions',
-      header: t('list.columnActions'),
-      pinned: true,
-      card: 'actions',
-      accessorFn: (row) => (
-        <div className="flex items-center gap-2">
-          <Link
-            to="/staff/$userId"
-            params={{ userId: row.id }}
-            data-focus-anchor={row.id}
-            className="text-sm text-muted-foreground underline"
-          >
-            {t('list.view')}
-          </Link>
-          {canRemove && (
-            <Button variant="ghost" size="sm" onClick={() => setRemoveTarget(row)}>
-              {t('detail.actions.remove')}
-            </Button>
-          )}
-        </div>
-      ),
-    },
   ];
 
   return (
     <RegionConfigProvider value={regionConfig}>
       <ListShell
         title={t('list.title')}
-        primaryAction={
-          canCreate ? (
-            <div className="flex flex-wrap gap-2">
-              <Button variant="outline" onClick={() => setPromoteOpen(true)}>
-                {t('list.promoteTeacher')}
-              </Button>
-              <Button onClick={() => setAddUserOpen(true)}>{t('list.addUser')}</Button>
-            </div>
-          ) : undefined
-        }
+        subtitle={t('list.subtitle')}
+        actions={[
+          {
+            id: 'promote',
+            label: t('list.promoteTeacher'),
+            icon: <UserRoundCheckIcon />,
+            priority: 'secondary',
+            allowed: canCreate,
+            onClick: () => setPromoteOpen(true),
+          },
+          {
+            id: 'add',
+            label: t('list.addUser'),
+            icon: <PlusIcon />,
+            priority: 'primary',
+            allowed: canCreate,
+            onClick: () => setAddUserOpen(true),
+          },
+        ]}
         filters={{ fields: filterFields, values: state.filters, onChange: actions.setFilters }}
         tableId="staff-list"
         caption={t('list.caption')}
         columns={columns}
+        rowActions={(row) => [
+          {
+            intent: 'view',
+            label: t('list.view'),
+            to: `/staff/${row.id}`,
+            'data-focus-anchor': row.id,
+          },
+          {
+            intent: 'edit',
+            label: t('list.edit'),
+            allowed: canUpdate,
+            onClick: () => setEditTarget(row),
+          },
+          {
+            intent: 'remove',
+            label: t('detail.actions.remove'),
+            allowed: canRemove,
+            onClick: () => setRemoveTarget(row),
+          },
+        ]}
         data={usersQuery.data?.data ?? []}
         getRowId={(row) => row.id}
         sorting={state.sorting}
@@ -359,7 +368,7 @@ function StaffListPage() {
                 <>
                   <Button
                     type="button"
-                    size="sm"
+                    variant="outline"
                     onClick={() =>
                       void navigate({
                         to: '/print/preview',
@@ -372,14 +381,15 @@ function StaffListPage() {
                       })
                     }
                   >
+                    <IdCardIcon aria-hidden="true" />
                     {t('list.printIdCards', { count: state.selectedIds.size })}
                   </Button>
                   <Button
                     type="button"
-                    size="sm"
                     variant="ghost"
                     onClick={() => actions.setSelectedIds(new Set())}
                   >
+                    <XIcon aria-hidden="true" />
                     {t('list.clearSelection')}
                   </Button>
                 </>
@@ -389,12 +399,27 @@ function StaffListPage() {
         loading={usersQuery.isLoading}
         isFetching={usersQuery.isFetching}
         {...(usersQuery.isError ? { error: t('list.errorMessage') } : {})}
-        emptyMessage={t('list.emptyMessage')}
+        emptyState={{
+          title: t('list.emptyMessage'),
+          explanation: t('list.emptyExplanation'),
+          ...(canCreate
+            ? { action: { label: t('list.addUser'), onClick: () => setAddUserOpen(true) } }
+            : {}),
+        }}
         announceResults={(count, total) => t('list.announceResults', { count, total })}
       />
 
       <AddUserDialog open={addUserOpen} onOpenChange={setAddUserOpen} />
       <PromoteTeacherDialog open={promoteOpen} onOpenChange={setPromoteOpen} />
+      {editTarget !== null && (
+        <EditUserDialog
+          open
+          onOpenChange={(open) => {
+            if (!open) setEditTarget(null);
+          }}
+          user={editTarget}
+        />
+      )}
       {removeTarget !== null && (
         <RemoveMemberDialog
           open

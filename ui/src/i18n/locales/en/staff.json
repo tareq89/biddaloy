@@ -2,8 +2,8 @@
   "list": {
     "title": "Staff",
     "caption": "Users with access to this school",
-    "searchLabel": "Search by name or email",
-    "roleFilterLabel": "Filter by role",
+    "searchLabel": "Search",
+    "roleFilterLabel": "Role",
     "roleFilterAll": "All roles",
     "statusFilterLabel": "Status",
     "statusFilterAll": "All statuses",
@@ -27,10 +27,14 @@
     "emptyMessage": "No users found",
     "errorMessage": "Could not load users. Please try again.",
     "announceResults": "Showing {{count}} of {{total}} users",
-    "addUser": "Add user",
-    "promoteTeacher": "Promote to teacher",
+    "addUser": "Add staff member",
+    "promoteTeacher": "Give teacher profile",
     "printIdCards": "Print ID cards ({{count}})",
-    "clearSelection": "Clear selection"
+    "clearSelection": "Clear selection",
+    "searchPlaceholder": "Name or email",
+    "subtitle": "Everyone who can sign in to this school",
+    "edit": "Edit",
+    "emptyExplanation": "Add someone and they will show up here."
   },
   "roles": {
     "SUPER_ADMIN": "Super admin",
@@ -45,7 +49,7 @@
     "COMMITTEE": "Committee member"
   },
   "addUser": {
-    "title": "Add user",
+    "title": "Add staff member",
     "description": "Create an account and give it access to this school.",
     "nameLabel": "Full name",
     "emailLabel": "Email",
@@ -56,11 +60,11 @@
     "errorRoleRequired": "Choose a role.",
     "errorDuplicateEmail": "A user with this email already exists.",
     "errorMessage": "Could not add the user. Please try again.",
-    "save": "Add user",
+    "save": "Add staff member",
     "saving": "Adding…"
   },
   "teacherForm": {
-    "promoteTitle": "Promote a member to teacher",
+    "promoteTitle": "Give a teacher profile",
     "promoteDescription": "Pick an existing member of this school and give them a teacher profile. This does not create a new person.",
     "editTitle": "Edit teacher profile",
     "editDescription": "Update this teacher's profile details.",
@@ -86,7 +90,7 @@
     "errorAlreadyTeacher": "This person already has a teacher profile.",
     "errorNotMember": "That person is not a member of this school.",
     "errorMessage": "Could not save the teacher profile. Please try again.",
-    "promoteSave": "Promote to teacher",
+    "promoteSave": "Give teacher profile",
     "editSave": "Save changes",
     "saving": "Saving…"
   },
