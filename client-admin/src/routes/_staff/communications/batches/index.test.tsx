@@ -12,7 +12,7 @@ import {
   renderWithRouter,
   server,
 } from '@biddaloy/ui/test';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -33,7 +33,7 @@ describe('/communications/batches', () => {
     await cleanupTestState();
   });
 
-  it('lists batches with status badges and links each name to its detail page', async () => {
+  it('lists batches with status badges and a View action per row', async () => {
     server.use(
       http.get('/api/v1/communications/reminder/bulk', () =>
         HttpResponse.json({
@@ -66,10 +66,14 @@ describe('/communications/batches', () => {
     );
     render();
 
-    const link = await screen.findByRole<HTMLAnchorElement>('link', {
-      name: 'August dues reminder',
+    // The name is plain text; the row's own "View" action links to the detail page.
+    const row = (await screen.findByText('August dues reminder')).closest('tr');
+    expect(row).toBeTruthy();
+    const link = within(row as HTMLElement).getByRole<HTMLAnchorElement>('link', {
+      name: 'View',
     });
     expect(link.getAttribute('href')).toBe('/communications/batches/batch-1');
+    expect(screen.queryByRole('link', { name: 'August dues reminder' })).toBeNull();
     // Status text comes from `StatusBadge domain="reminderBatch"`.
     expect(screen.getByText('Partially failed')).toBeTruthy();
     expect(screen.getByText('Processing')).toBeTruthy();
@@ -77,11 +81,38 @@ describe('/communications/batches', () => {
     expect(screen.getByText('48')).toBeTruthy();
   });
 
-  it('shows the empty state when no batches exist yet', async () => {
+  it('shows the empty state when no batches exist yet, with no second copy of the header action', async () => {
     server.use(communicationHandlers.listBulkRemindersEmpty);
     render();
 
     expect(await screen.findByText('No reminder rounds yet.')).toBeTruthy();
+    expect(
+      screen.getByText('Rounds appear here after you send reminders to many students at once.'),
+    ).toBeTruthy();
+    // The header's primary is the only "Remind many at once" on the page.
+    expect(screen.getAllByRole('button', { name: 'Remind many at once' })).toHaveLength(1);
+  });
+
+  it('has one h1, asks for 25 rows and opens the bulk wizard from the header action', async () => {
+    let limit: string | null = null;
+    server.use(
+      http.get('/api/v1/communications/reminder/bulk', ({ request }) => {
+        limit = new URL(request.url).searchParams.get('limit');
+        return HttpResponse.json({ data: [], total: 0, page: 1, limit: 25, totalPages: 0 });
+      }),
+    );
+    render();
+    const user = userEvent.setup();
+
+    expect(
+      await screen.findAllByRole('heading', { level: 1, name: 'Reminder History' }),
+    ).toHaveLength(1);
+    await waitFor(() => expect(limit).toBe('25'));
+
+    await user.click(screen.getByRole('button', { name: 'Remind many at once' }));
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Bulk Fee Reminders' }),
+    ).toBeTruthy();
   });
 
   it('shows the error state when the list cannot load', async () => {
@@ -106,7 +137,7 @@ describe('/communications/batches', () => {
   it('is axe clean with rows on screen', async () => {
     const { container } = render();
 
-    await screen.findByRole('link', { name: 'August dues reminder' });
+    await screen.findByText('August dues reminder');
     await expect(container).toHaveNoViolations();
   });
 
@@ -123,8 +154,7 @@ describe('/communications/batches', () => {
 
     const { router } = render();
     const user = userEvent.setup();
-    await screen.findByRole('region', { name: 'Reminder rounds' });
-    await user.type(screen.getByRole('textbox', { name: 'Search' }), 'August');
+    await user.type(await screen.findByRole('textbox', { name: 'Search' }), 'August');
 
     await waitFor(() => expect(lastSearch).toBe('August'), { timeout: 1000 });
     expect(router.state.location.search).toMatchObject({ search: 'August' });
@@ -143,8 +173,7 @@ describe('/communications/batches', () => {
 
     render();
     const user = userEvent.setup();
-    await screen.findByRole('region', { name: 'Reminder rounds' });
-    await user.click(screen.getByRole('combobox', { name: 'Status' }));
+    await user.click(await screen.findByRole('combobox', { name: 'Status' }));
     await user.click(await screen.findByRole('option', { name: 'Completed' }));
 
     await waitFor(() => expect(lastStatus).toBe('COMPLETED'));
@@ -200,13 +229,29 @@ describe('/communications/batches', () => {
   it('clicking the Name column header writes sort/order to the URL', async () => {
     server.use(
       http.get('/api/v1/communications/reminder/bulk', () =>
-        HttpResponse.json({ data: [], total: 0, page: 1, limit: 20, totalPages: 1 }),
+        HttpResponse.json({
+          data: [
+            {
+              id: 'batch-1',
+              batch_name: 'August dues reminder',
+              status: 'COMPLETED',
+              total_recipients: 5,
+              successful_count: 5,
+              failed_count: 0,
+              created_at: '2026-08-20T09:00:00.000Z',
+            },
+          ],
+          total: 1,
+          page: 1,
+          limit: 25,
+          totalPages: 1,
+        }),
       ),
     );
 
     const { router } = render();
     const user = userEvent.setup();
-    await screen.findByRole('region', { name: 'Reminder rounds' });
+    await screen.findByText('August dues reminder');
     await user.click(screen.getByRole('button', { name: 'Name' }));
 
     await waitFor(() =>
