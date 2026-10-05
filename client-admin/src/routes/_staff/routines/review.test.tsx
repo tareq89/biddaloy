@@ -335,4 +335,31 @@ describe('/routines/review', () => {
       successSpy.mockRestore();
     }
   });
+
+  it('shows the loading skeleton, not the not-a-teacher state, while the own-teacher lookup is pending', async () => {
+    mockLookups();
+    mockRoutine('PUBLISHED');
+    let release = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    server.use(
+      http.get('/api/v1/teachers', async () => {
+        await gate;
+        return HttpResponse.json({
+          data: [{ id: 'teacher-1', user: { id: 'current-user', full_name: 'Ms Nahar' } }],
+          total: 1,
+          page: 1,
+          limit: 100,
+          totalPages: 1,
+        });
+      }),
+    );
+    const { container } = renderReview('TEACHER');
+
+    await waitFor(() => expect(container.querySelector('[aria-busy="true"]')).not.toBeNull());
+    expect(screen.queryByRole('heading', { name: 'No periods for you' })).toBeNull();
+    release();
+    expect(await screen.findByRole('heading', { name: 'My periods' })).toBeTruthy();
+  });
 });
