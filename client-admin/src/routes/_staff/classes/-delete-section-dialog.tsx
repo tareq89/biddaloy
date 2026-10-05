@@ -1,16 +1,7 @@
-import {
-  Button,
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@biddaloy/ui/components';
+import { ApiError } from '@biddaloy/ui/api';
+import { ConfirmDialog } from '@biddaloy/ui/components';
 import { useDeleteSection } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
-import * as React from 'react';
 
 export interface DeleteSectionDialogProps {
   open: boolean;
@@ -21,6 +12,7 @@ export interface DeleteSectionDialogProps {
   onDeleted: () => void;
 }
 
+/** Callers mount this only while open, so mutation state is fresh each time. */
 export function DeleteSectionDialog({
   open,
   onOpenChange,
@@ -32,53 +24,28 @@ export function DeleteSectionDialog({
   const { t } = useTranslation('classes');
   const deleteSection = useDeleteSection(classId);
 
-  React.useEffect(() => {
-    if (open) deleteSection.reset();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only on open/close transitions
-  }, [open]);
-
-  function handleConfirm() {
-    deleteSection.mutate(sectionId, { onSuccess: onDeleted });
-  }
+  // The server sentence is English and carries ids — never shown; a 409 and
+  // any other failure each get one translated sentence in place of the prompt.
+  const description = !deleteSection.isError
+    ? t('deleteSectionDialog.description', { name: sectionName })
+    : deleteSection.error instanceof ApiError && deleteSection.error.statusCode === 409
+      ? t('deleteSectionDialog.blockedMessage')
+      : t('deleteSectionDialog.errorMessage');
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{t('deleteSectionDialog.title')}</DialogTitle>
-          <DialogDescription>
-            {t('deleteSectionDialog.description', { name: sectionName })}
-          </DialogDescription>
-        </DialogHeader>
-        {deleteSection.isError && (
-          // The server's `ConflictException` names the active-student
-          // count (`SectionService.remove`) — shown verbatim, same as
-          // `-delete-class-dialog.tsx`, rather than a generic failure
-          // toast (the issue's own "explanation why" AC).
-          <p role="alert" className="text-sm text-destructive">
-            {deleteSection.error instanceof Error
-              ? deleteSection.error.message
-              : t('deleteSectionDialog.errorMessage')}
-          </p>
-        )}
-        <DialogFooter>
-          <DialogClose asChild>
-            <Button type="button" variant="outline">
-              {t('actions.cancel', { ns: 'common' })}
-            </Button>
-          </DialogClose>
-          <Button
-            type="button"
-            variant="destructive"
-            loading={deleteSection.isPending}
-            onClick={handleConfirm}
-          >
-            {deleteSection.isPending
-              ? t('deleteSectionDialog.deleting')
-              : t('deleteSectionDialog.confirm')}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <ConfirmDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      tone="danger"
+      title={t('deleteSectionDialog.title')}
+      description={description}
+      confirmLabel={
+        deleteSection.isPending
+          ? t('deleteSectionDialog.deleting')
+          : t('deleteSectionDialog.confirm')
+      }
+      busy={deleteSection.isPending}
+      onConfirm={() => deleteSection.mutate(sectionId, { onSuccess: onDeleted })}
+    />
   );
 }

@@ -28,7 +28,6 @@ import {
   Button,
   Combobox,
   Dialog,
-  DialogClose,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -46,7 +45,10 @@ import {
   useClassSections,
 } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
+import { TriangleAlertIcon } from 'lucide-react';
 import * as React from 'react';
+
+import { ErrorText, Field, useCloseGuard } from './-dialog-kit';
 
 export interface AssignTeacherDialogProps {
   open: boolean;
@@ -88,7 +90,7 @@ export function AssignTeacherDialog({
   currentClassTeacher,
   onAssigned,
 }: AssignTeacherDialogProps) {
-  const { t } = useTranslation('classes');
+  const { t, i18n } = useTranslation('classes');
   // [pr-fix #1035] `useAllTeachers`/`useAllSubjects` fetch every page, not
   // just the first 100 — the server caps `limit` at 100, so a tenant with
   // more teachers/subjects than that would otherwise have options missing
@@ -111,6 +113,7 @@ export function AssignTeacherDialog({
 
   const boundAssignTeacher = useAssignTeacher(fixedClassId ?? '', fixedSectionId ?? '');
   const unboundAssignTeacher = useAssignTeacherAssignment();
+  const assignTeacher = pickerMode ? unboundAssignTeacher : boundAssignTeacher;
 
   const [mode, setMode] = React.useState<TeacherAssignmentType>('CLASS_TEACHER');
   const [teacherId, setTeacherId] = React.useState<string | null>(fixedTeacherId ?? null);
@@ -130,13 +133,25 @@ export function AssignTeacherDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only on open/close transitions
   }, [open]);
 
+  const isDirty =
+    mode !== 'CLASS_TEACHER' ||
+    teacherId !== (fixedTeacherId ?? null) ||
+    subjectId !== null ||
+    pickedClassId !== null ||
+    pickedSectionId !== null;
+  const { requestClose, discardDialog } = useCloseGuard(
+    isDirty,
+    assignTeacher.isPending,
+    onOpenChange,
+  );
+
   const teacherOptions = (teachersQuery.data ?? []).map((teacher) => ({
     value: teacher.id,
     label: `${teacher.user.full_name} (${teacher.employee_id})`,
   }));
   const subjectOptions = (subjectsQuery.data ?? []).map((subject) => ({
     value: subject.id,
-    label: `${subject.name_en} (${subject.code})`,
+    label: `${i18n.language === 'bn' && subject.name_bn ? subject.name_bn : subject.name_en} (${subject.code})`,
   }));
   const classOptions = (classesQuery.data?.data ?? []).map((klass) => ({
     value: klass.id,
@@ -149,6 +164,7 @@ export function AssignTeacherDialog({
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
+    if (assignTeacher.isPending) return;
 
     if (pickerMode && !classId) {
       setValidationError(t('assignTeacherForm.errorClassRequired'));
@@ -192,7 +208,6 @@ export function AssignTeacherDialog({
     );
   }
 
-  const assignTeacher = pickerMode ? unboundAssignTeacher : boundAssignTeacher;
   const apiError = assignTeacher.error instanceof ApiError ? assignTeacher.error : null;
   const conflict = assignTeacher.isError && apiError?.statusCode === 409;
   // [47.4.1] Keyed on `details.code`, never the server's English message.
@@ -203,132 +218,148 @@ export function AssignTeacherDialog({
       : null;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <DialogHeader>
-            <DialogTitle>{t('assignTeacherForm.title')}</DialogTitle>
-            <DialogDescription>{t('assignTeacherForm.description')}</DialogDescription>
-          </DialogHeader>
+    <>
+      <Dialog open={open} onOpenChange={(next) => (next ? onOpenChange(true) : requestClose())}>
+        <DialogContent size="md" onInteractOutside={(e) => e.preventDefault()}>
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            <DialogHeader>
+              <DialogTitle>{t('assignTeacherForm.title')}</DialogTitle>
+              <DialogDescription>{t('assignTeacherForm.description')}</DialogDescription>
+            </DialogHeader>
 
-          {pickerMode && (
-            <>
-              <div className="flex flex-col gap-1.5">
-                <span className="text-sm font-medium">{t('assignTeacherForm.classLabel')}</span>
-                <Combobox
-                  aria-label={t('assignTeacherForm.classLabel')}
-                  options={classOptions}
-                  value={pickedClassId}
-                  onValueChange={(value) => {
-                    setPickedClassId(value);
-                    setPickedSectionId(null);
-                  }}
-                  placeholder={t('assignTeacherForm.classPlaceholder')}
-                />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <span className="text-sm font-medium">{t('assignTeacherForm.sectionLabel')}</span>
-                <Combobox
-                  aria-label={t('assignTeacherForm.sectionLabel')}
-                  options={sectionOptions}
-                  value={pickedSectionId}
-                  onValueChange={setPickedSectionId}
-                  placeholder={t('assignTeacherForm.sectionPlaceholder')}
-                  disabled={!pickedClassId}
-                />
-              </div>
-            </>
-          )}
-
-          {fixedTeacherId === undefined && (
-            <div className="flex flex-col gap-1.5">
-              <span className="text-sm font-medium">{t('assignTeacherForm.teacherLabel')}</span>
-              <Combobox
-                aria-label={t('assignTeacherForm.teacherLabel')}
-                options={teacherOptions}
-                value={teacherId}
-                onValueChange={setTeacherId}
-                placeholder={t('assignTeacherForm.teacherPlaceholder')}
-              />
-            </div>
-          )}
-
-          <RadioGroup
-            aria-label={t('assignTeacherForm.modeLabel')}
-            value={mode}
-            onValueChange={(value) => setMode(value as TeacherAssignmentType)}
-            className="flex flex-col gap-2"
-          >
-            <div className="flex items-center gap-2">
-              <RadioGroupItem value="CLASS_TEACHER" id="assign-teacher-mode-class" />
-              <label htmlFor="assign-teacher-mode-class" className="text-sm">
-                {t('assignTeacherForm.classTeacherOption')}
-              </label>
-            </div>
-            <div className="flex items-center gap-2">
-              <RadioGroupItem value="ASSISTANT_CLASS_TEACHER" id="assign-teacher-mode-assistant" />
-              <label htmlFor="assign-teacher-mode-assistant" className="text-sm">
-                {t('assignmentType.ASSISTANT_CLASS_TEACHER')}
-              </label>
-            </div>
-            <div className="flex items-center gap-2">
-              <RadioGroupItem value="SUBJECT_TEACHER" id="assign-teacher-mode-subject" />
-              <label htmlFor="assign-teacher-mode-subject" className="text-sm">
-                {t('assignTeacherForm.subjectTeacherOption')}
-              </label>
-            </div>
-          </RadioGroup>
-
-          {mode === 'SUBJECT_TEACHER' && (
-            <div className="flex flex-col gap-1.5">
-              <span className="text-sm font-medium">{t('assignTeacherForm.subjectLabel')}</span>
-              <Combobox
-                aria-label={t('assignTeacherForm.subjectLabel')}
-                options={subjectOptions}
-                value={subjectId}
-                onValueChange={setSubjectId}
-                placeholder={t('assignTeacherForm.subjectPlaceholder')}
-              />
-            </div>
-          )}
-
-          <div aria-live="polite">
-            {replaced && (
-              <p className="rounded-md bg-status-due-bg p-2 text-sm text-status-due-fg">
-                {t('assignDialog.replaceWarning', { name: replaced.name })}
-              </p>
+            {pickerMode && (
+              <>
+                <Field id="assign-teacher-class" label={t('assignTeacherForm.classLabel')} required>
+                  <Combobox
+                    id="assign-teacher-class"
+                    aria-label={t('assignTeacherForm.classLabel')}
+                    options={classOptions}
+                    value={pickedClassId}
+                    onValueChange={(value) => {
+                      setPickedClassId(value);
+                      setPickedSectionId(null);
+                    }}
+                    placeholder={t('assignTeacherForm.classPlaceholder')}
+                  />
+                </Field>
+                <Field
+                  id="assign-teacher-section"
+                  label={t('assignTeacherForm.sectionLabel')}
+                  required
+                >
+                  <Combobox
+                    id="assign-teacher-section"
+                    aria-label={t('assignTeacherForm.sectionLabel')}
+                    options={sectionOptions}
+                    value={pickedSectionId}
+                    onValueChange={setPickedSectionId}
+                    placeholder={t('assignTeacherForm.sectionPlaceholder')}
+                    disabled={!pickedClassId}
+                  />
+                </Field>
+              </>
             )}
-          </div>
 
-          {validationError && (
-            <p role="alert" className="text-sm text-destructive">
-              {validationError}
-            </p>
-          )}
-          {assignTeacher.isError && (
-            <p role="alert" className="text-sm text-destructive">
-              {homeroomConflict
-                ? t('assignTeacherForm.errorAlreadyHomeroom')
-                : conflict
-                  ? t('assignTeacherForm.errorDuplicateAssignment')
-                  : t('assignTeacherForm.errorMessage')}
-            </p>
-          )}
+            {fixedTeacherId === undefined && (
+              <Field
+                id="assign-teacher-teacher"
+                label={t('assignTeacherForm.teacherLabel')}
+                required
+              >
+                <Combobox
+                  id="assign-teacher-teacher"
+                  aria-label={t('assignTeacherForm.teacherLabel')}
+                  options={teacherOptions}
+                  value={teacherId}
+                  onValueChange={setTeacherId}
+                  placeholder={t('assignTeacherForm.teacherPlaceholder')}
+                />
+              </Field>
+            )}
 
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button type="button" variant="outline">
+            <fieldset className="flex flex-col gap-1.5">
+              <legend className="text-label text-text-primary">
+                {t('assignTeacherForm.modeLabel')}
+              </legend>
+              <RadioGroup
+                aria-label={t('assignTeacherForm.modeLabel')}
+                value={mode}
+                onValueChange={(value) => setMode(value as TeacherAssignmentType)}
+                className="flex flex-col gap-1"
+              >
+                {(
+                  [
+                    ['CLASS_TEACHER', 'assign-teacher-mode-class'],
+                    ['ASSISTANT_CLASS_TEACHER', 'assign-teacher-mode-assistant'],
+                    ['SUBJECT_TEACHER', 'assign-teacher-mode-subject'],
+                  ] as const
+                ).map(([value, id]) => (
+                  <div key={value} className="flex min-h-11 items-center gap-3 md:min-h-8">
+                    <RadioGroupItem value={value} id={id} />
+                    <label htmlFor={id} className="flex-1 cursor-pointer">
+                      {t(`assignmentType.${value}`)}
+                    </label>
+                  </div>
+                ))}
+              </RadioGroup>
+            </fieldset>
+
+            {mode === 'SUBJECT_TEACHER' && (
+              <Field
+                id="assign-teacher-subject"
+                label={t('assignTeacherForm.subjectLabel')}
+                required
+              >
+                <Combobox
+                  id="assign-teacher-subject"
+                  aria-label={t('assignTeacherForm.subjectLabel')}
+                  options={subjectOptions}
+                  value={subjectId}
+                  onValueChange={setSubjectId}
+                  placeholder={t('assignTeacherForm.subjectPlaceholder')}
+                />
+              </Field>
+            )}
+
+            <div aria-live="polite">
+              {replaced && (
+                <p className="flex items-start gap-2 rounded-md bg-status-due-bg p-3 text-status-due-fg">
+                  <TriangleAlertIcon className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                  {t('assignDialog.replaceWarning', { name: replaced.name })}
+                </p>
+              )}
+            </div>
+
+            {validationError && <ErrorText>{validationError}</ErrorText>}
+            {assignTeacher.isError && (
+              <ErrorText>
+                {homeroomConflict
+                  ? t('assignTeacherForm.errorAlreadyHomeroom')
+                  : conflict
+                    ? t('assignTeacherForm.errorDuplicateAssignment')
+                    : t('assignTeacherForm.errorMessage')}
+              </ErrorText>
+            )}
+
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={assignTeacher.isPending}
+                onClick={requestClose}
+              >
                 {t('actions.cancel', { ns: 'common' })}
               </Button>
-            </DialogClose>
-            <Button type="submit" loading={assignTeacher.isPending}>
-              {assignTeacher.isPending
-                ? t('assignTeacherForm.saving')
-                : t('assignTeacherForm.save')}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+              <Button type="submit" loading={assignTeacher.isPending}>
+                {assignTeacher.isPending
+                  ? t('assignTeacherForm.saving')
+                  : t('assignTeacherForm.save')}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+      {discardDialog}
+    </>
   );
 }
