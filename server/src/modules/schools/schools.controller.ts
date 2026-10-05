@@ -92,7 +92,6 @@ export class SchoolsController {
     @Body() dto: ExtendTrialDto,
     @CurrentUser() user: JwtPayload,
   ) {
-    await this.schools.assertTrialExtendable(id, dto.seat_limit);
     // Looked up lazily: TrialModule -> CommunicationsModule -> SchoolsModule is a file-level import
     // cycle, so SchoolsModule can't import TrialModule. TrialModule is registered in AppModule.
     const trial = this.moduleRef.get(TrialService, { strict: false });

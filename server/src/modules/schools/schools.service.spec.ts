@@ -1425,42 +1425,6 @@ describe('SchoolsService', () => {
       expect(res.status).toBe('ACTIVE');
     });
 
-    describe('assertTrialExtendable [13.3.4]', () => {
-      const withUsage = (school: object, used: number) => {
-        const { service, repo } = buildService(school as any);
-        (repo as any).manager.query = vi.fn(async (sql: string) =>
-          sql.includes('count(*)') ? [{ n: String(used) }] : [{ seat_limit: null }],
-        );
-        return service;
-      };
-
-      it('409 NOT_IN_TRIAL for a school that never had a trial', async () => {
-        const service = withUsage({ id: 's1', status: 'ACTIVE', trial_ends_at: null }, 0);
-        await expect(service.assertTrialExtendable('s1')).rejects.toMatchObject({
-          response: { details: { code: 'NOT_IN_TRIAL' } },
-        });
-      });
-
-      it('409 when seat_limit is below the current ACTIVE students', async () => {
-        const service = withUsage(
-          { id: 's1', status: 'ACTIVE', trial_ends_at: new Date(Date.now() + 1000) },
-          5,
-        );
-        await expect(service.assertTrialExtendable('s1', 4)).rejects.toMatchObject({
-          response: { details: { code: 'SEAT_LIMIT_BELOW_USAGE', used: 5, requested: 4 } },
-        });
-      });
-
-      it('accepts seat_limit equal to usage, and an omitted seat_limit', async () => {
-        const service = withUsage(
-          { id: 's1', status: 'ACTIVE', trial_ends_at: new Date(Date.now() + 1000) },
-          5,
-        );
-        await expect(service.assertTrialExtendable('s1', 5)).resolves.toBeUndefined();
-        await expect(service.assertTrialExtendable('s1')).resolves.toBeUndefined();
-      });
-    });
-
     it('findAll filters: active = trial_ends_at in the future, expired = TRIAL_EXPIRED reason', async () => {
       const { service, repo } = buildService({ id: 's1', status: 'ACTIVE' });
       await service.findAll('expired');

@@ -211,7 +211,7 @@ describe('Platform trials E2E (13.3.4)', () => {
     await patchTrial('localSuper', id, { days: 7, reason: REASON }).expect(403);
   });
 
-  it('validates the body and refuses NOT_IN_TRIAL', async () => {
+  it('validates the body and refuses NO_TRIAL', async () => {
     const id = await newSchool({ trialEnds: new Date(Date.now() + DAY) });
     await patchTrial('super', id, { days: 0, reason: REASON }).expect(400);
     await patchTrial('super', id, { days: 366, reason: REASON }).expect(400);
@@ -221,7 +221,7 @@ describe('Platform trials E2E (13.3.4)', () => {
 
     const noTrial = await newSchool({ trialEnds: null });
     const res = await patchTrial('super', noTrial, { days: 5, reason: REASON }).expect(409);
-    expect(res.body.details.code).toBe('NOT_IN_TRIAL');
+    expect(res.body.details.code).toBe('NO_TRIAL');
   });
 
   it('seat_limit can never be set below the current ACTIVE students', async () => {

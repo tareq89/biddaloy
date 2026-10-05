@@ -22,7 +22,6 @@ function fakeService() {
     updateSettings: vi.fn(),
     getStats: vi.fn(),
     updateStatus: vi.fn(),
-    assertTrialExtendable: vi.fn(),
   };
 }
 
@@ -193,23 +192,12 @@ describe('SchoolsController', () => {
   });
 
   describe('extendTrial', () => {
-    it('checks the seat floor first, then extends as the calling user', async () => {
+    it('extends as the calling user (the checks run inside TrialService.extend)', async () => {
       trial.extend.mockResolvedValue({ id: SCHOOL_A });
       const dto = { days: 7, seat_limit: 20, reason: 'Customer asked for a week' };
 
-      await controller.extendTrial(SCHOOL_A, dto, USER);
-
-      expect(service.assertTrialExtendable).toHaveBeenCalledWith(SCHOOL_A, 20);
+      await expect(controller.extendTrial(SCHOOL_A, dto, USER)).resolves.toEqual({ id: SCHOOL_A });
       expect(trial.extend).toHaveBeenCalledWith(SCHOOL_A, dto, { userId: 'user-1' });
-    });
-
-    it('does not extend when the pre-check refuses', async () => {
-      service.assertTrialExtendable.mockRejectedValue(new Error('NOT_IN_TRIAL'));
-
-      await expect(
-        controller.extendTrial(SCHOOL_A, { days: 7, reason: 'Customer asked for a week' }, USER),
-      ).rejects.toThrow('NOT_IN_TRIAL');
-      expect(trial.extend).not.toHaveBeenCalled();
     });
 
     it('is platform-only: SUPER_ADMIN role plus PlatformSuperAdminGuard', () => {
