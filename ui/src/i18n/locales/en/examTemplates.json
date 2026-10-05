@@ -37,34 +37,40 @@
     "errorMessage": "Couldn't delete the exam structure."
   },
   "detail": {
-    "loading": "Loading exam structure…",
     "loadError": "Couldn't load this exam structure.",
-    "tabComponents": "Parts",
-    "nameLabel": "Exam structure name",
-    "rename": "Rename",
-    "saveError": "Couldn't save the changes."
+    "saveError": "Couldn't save the changes.",
+    "unsaved": "Not saved",
+    "save": "Save",
+    "discard": "Discard changes",
+    "editName": "Change name and type",
+    "facts": {
+      "kind": "Type",
+      "grades": "Classes",
+      "subjects": "Subjects",
+      "parts": "Parts",
+      "count": "{{count}}"
+    },
+    "noGradesTitle": "No classes yet",
+    "noGradesText": "Add a class, then its subjects and parts."
   },
   "grid": {
-    "empty": "No class grades yet. Add a class grade to start.",
     "gradeHeading": "Class {{grade}}",
-    "gradeLabel": "Class grade (1–99)",
-    "addGrade": "Add class grade",
+    "gradeLabel": "Class number",
+    "addGrade": "Add class",
     "subjectPicker": "Subject to add to class {{grade}}",
-    "subjectPlaceholder": "Choose a subject",
+    "subjectPlaceholder": "Select",
     "addSubject": "Add subject",
     "removeSubject": "Remove {{subject}} from class {{grade}}",
     "removeSubjectShort": "Remove subject",
-    "columnName": "Part",
-    "columnKind": "Kind",
+    "columnName": "Part name",
+    "columnKind": "Type",
     "columnFull": "Full marks",
     "columnPass": "Pass marks",
     "columnActions": "Actions",
     "cellLabel": "{{column}} — {{subject}}, class {{grade}}, row {{row}}",
     "addComponent": "Add part",
-    "removeRow": "Remove row {{row}} of {{subject}}, class {{grade}}",
-    "removeRowShort": "Remove",
-    "discard": "Discard changes",
-    "save": "Save exam structure",
+    "removeRow": "Remove part {{row}} of {{subject}}, class {{grade}}",
+    "removeRowShort": "Remove part",
     "error": {
       "nameRequired": "Enter a part name.",
       "nameTooLong": "Name can be at most {{max}} characters.",
@@ -75,6 +81,14 @@
       "noComponents": "Add at least one part, or remove this subject.",
       "gradeInvalid": "Enter a whole number from 1 to 99.",
       "fixErrors": "Fix the highlighted fields before saving."
-    }
+    },
+    "gradeHelp": "1 to 99, e.g. 9",
+    "addGradeTitle": "Add a class",
+    "gradesLabel": "Classes",
+    "intro": "{{count}} subjects in class {{grade}} · enter full and pass marks for each part. Press “Save” at the top when done.",
+    "subjectCaption": "Code {{code}} · {{count}} parts · full marks {{marks}}",
+    "addSubjectTitle": "Add a subject to class {{grade}}",
+    "subjectLabel": "Subject",
+    "gradeHasErrors": "Class {{grade}} has errors"
   }
 }
