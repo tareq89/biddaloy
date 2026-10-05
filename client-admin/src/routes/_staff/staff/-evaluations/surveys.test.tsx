@@ -19,6 +19,8 @@ import { pickDate } from '../../../../test/pick-date';
 
 /** [28.4.2] Survey admin screens against the real route tree. */
 function render(entry: string) {
+  // Latin numerals, so count assertions do not depend on tenant settings timing.
+  server.use(http.get('/api/v1/schools/:id/settings', () => HttpResponse.json({ version: 1 })));
   return renderWithRouter(routeTree, {
     initialEntries: [entry],
     tenantId: 'tenant-1',
@@ -95,9 +97,8 @@ describe('survey list and results', () => {
       ),
     );
     render('/staff/evaluations/surveys/s1');
-    expect(
-      await screen.findByText(/Waiting for more responses/, undefined, { timeout: 4000 }),
-    ).toBeTruthy();
+    const status = await screen.findByRole('status', undefined, { timeout: 4000 });
+    expect(status.textContent).toContain('Waiting for more responses (2 of 5).');
     expect(screen.getByText('Waiting')).toBeTruthy();
     await waitFor(() => expect(screen.queryByText(/Average/)).toBeNull());
   });
