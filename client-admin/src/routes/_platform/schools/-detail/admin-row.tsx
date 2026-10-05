@@ -33,11 +33,12 @@ function ResendRunner({
     // Strict-mode re-runs effects; one click must send one invitation.
     if (started.current) return;
     started.current = true;
-    resend.mutate(undefined, {
-      onSuccess: () => toast.success(t('schoolDetail.admins.resendSuccess')),
-      onError: () => toast.error(t('schoolDetail.admins.resendError')),
-      onSettled: onDone,
-    });
+    // mutateAsync: the toast still fires if the page is left mid-request.
+    resend
+      .mutateAsync()
+      .then(() => toast.success(t('schoolDetail.admins.resendSuccess')))
+      .catch(() => toast.error(t('schoolDetail.admins.resendError')))
+      .finally(onDone);
   }, [resend, onDone, t]);
 
   return null;
@@ -79,9 +80,14 @@ function RevokeConfirm({
 
 export function useAdminRowActions(schoolId: string) {
   const { t } = useTranslation('platform');
-  const [resendTarget, setResendTarget] = React.useState<SchoolAdminListItem | null>(null);
+  // Every in-flight resend keeps its own runner, so switching rows never unmounts
+  // an earlier request (its toast must still fire).
+  const [resending, setResending] = React.useState<SchoolAdminListItem[]>([]);
   const [revokeTarget, setRevokeTarget] = React.useState<SchoolAdminListItem | null>(null);
-  const clearResend = React.useCallback(() => setResendTarget(null), []);
+  const clearResend = React.useCallback(
+    (userId: string) => setResending((prev) => prev.filter((a) => a.user_id !== userId)),
+    [],
+  );
   const clearRevoke = React.useCallback(() => setRevokeTarget(null), []);
 
   function actionsFor(admin: SchoolAdminListItem): RowAction[] {
@@ -95,8 +101,9 @@ export function useAdminRowActions(schoolId: string) {
       {
         intent: 'send',
         label: t('schoolDetail.admins.resend'),
-        allowed: canResend,
-        onClick: () => setResendTarget(admin),
+        // Hidden while this admin's resend is in flight: no double-send.
+        allowed: canResend && !resending.some((a) => a.user_id === admin.user_id),
+        onClick: () => setResending((prev) => [...prev, admin]),
       },
       {
         intent: 'reject',
@@ -109,14 +116,14 @@ export function useAdminRowActions(schoolId: string) {
 
   const dialog = (
     <>
-      {resendTarget && (
+      {resending.map((admin) => (
         <ResendRunner
-          key={resendTarget.user_id}
+          key={admin.user_id}
           schoolId={schoolId}
-          admin={resendTarget}
-          onDone={clearResend}
+          admin={admin}
+          onDone={() => clearResend(admin.user_id)}
         />
-      )}
+      ))}
       {revokeTarget && (
         <RevokeConfirm
           key={revokeTarget.user_id}

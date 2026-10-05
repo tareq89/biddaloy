@@ -30,7 +30,7 @@ describe('/schools', () => {
     // table (backup health) to this page, so an unscoped `getAllByRole`
     // would also pick up its rows.
     const schoolsRegion = await screen.findByRole('region', {
-      name: 'Every school on the platform, with lifecycle status and creation date.',
+      name: 'Table of all schools on the platform',
     });
     await waitFor(() => expect(within(schoolsRegion).getAllByRole('row')).toHaveLength(3)); // header + 2 fixture rows
     const rows = within(schoolsRegion).getAllByRole('row');
@@ -106,7 +106,7 @@ describe('/schools', () => {
 
     await screen.findByRole('heading', { name: 'Backup status' });
     const healthRegion = await screen.findByRole('region', {
-      name: 'How often each school is backed up, how the last attempt went and how much space it uses.',
+      name: 'Table of backup status per school',
     });
     expect(within(healthRegion).getByText('Backup Health Fixture School A')).toBeTruthy();
     expect(within(healthRegion).getByText('Daily')).toBeTruthy();
@@ -138,7 +138,7 @@ describe('/schools', () => {
     // The empty list swaps the table for an EmptyState, so the busy region
     // disappears once the response lands.
     const schoolsRegion = screen.getByRole('region', {
-      name: 'Every school on the platform, with lifecycle status and creation date.',
+      name: 'Table of all schools on the platform',
     });
     expect(schoolsRegion.getAttribute('aria-busy')).toBe('true');
     expect(await screen.findByText('No schools match your search.')).toBeTruthy();

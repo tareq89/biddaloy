@@ -19,7 +19,11 @@ export function holidaySetName(
   language: string,
   t: TFunction<'platform'>,
 ): string {
-  return t('holidaySets.setName', { country: countryName(set.country, language), year: set.year });
+  return t('holidaySets.setName', {
+    ns: 'platform',
+    country: countryName(set.country, language),
+    year: set.year,
+  });
 }
 
 export const SOURCE_LABEL_KEY: Record<PublicHolidaySet['source'], string> = {

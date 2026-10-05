@@ -69,7 +69,7 @@ export function SchoolsListView({
       title={t('schools.title')}
       subtitle={t('schools.caption')}
       tableId="platform-schools-list"
-      caption={t('schools.caption')}
+      caption={t('schools.tableCaption')}
       columns={columns}
       data={schools}
       getRowId={(row) => row.id}
