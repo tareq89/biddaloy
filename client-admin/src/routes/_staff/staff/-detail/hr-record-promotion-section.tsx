@@ -5,10 +5,17 @@
  * open row (`end_date === null`) is the current designation and is
  * visually distinguished from history (acceptance criterion).
  */
-import { Button, EmptyState, ErrorState, SkeletonFieldList } from '@biddaloy/ui/components';
+import {
+  Button,
+  EmptyState,
+  ErrorState,
+  SkeletonFieldList,
+  StatusBadge,
+} from '@biddaloy/ui/components';
 import { designationTitle, useDesignations, useStaffDesignationHistory } from '@biddaloy/ui/hooks';
 import { useLocale, useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { formatDate, parseServerDate } from '@biddaloy/ui/utils';
+import { ArrowUpRightIcon } from 'lucide-react';
 import * as React from 'react';
 
 import { PromoteStaffDialog } from './-promote-staff-dialog';
@@ -47,11 +54,7 @@ export function HrRecordPromotionSection({ userId }: HrRecordPromotionSectionPro
   const history = historyQuery.data;
 
   return (
-    <div className="flex flex-col gap-3">
-      <Button type="button" className="self-start" onClick={() => setPromoteOpen(true)}>
-        {t('hrRecord.promotion.promoteAction')}
-      </Button>
-
+    <div>
       {history.length === 0 ? (
         <EmptyState
           title={t('hrRecord.promotion.emptyTitle')}
@@ -62,41 +65,43 @@ export function HrRecordPromotionSection({ userId }: HrRecordPromotionSectionPro
           }}
         />
       ) : (
-        <ol className="flex flex-col gap-2">
-          {history.map((row) => {
-            const current = row.end_date === null;
-            return (
-              <li
-                key={row.id}
-                aria-current={current ? 'true' : undefined}
-                className={
-                  current
-                    ? 'rounded-lg border border-primary bg-primary/5 p-3'
-                    : 'rounded-lg border border-border-subtle p-3'
-                }
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-medium">{designationLabel(row.designation_id)}</span>
+        <>
+          <ol className="divide-y divide-border-subtle">
+            {history.map((row) => {
+              const current = row.end_date === null;
+              return (
+                <li
+                  key={row.id}
+                  aria-current={current ? 'true' : undefined}
+                  className="flex flex-col items-start gap-1 py-3 first:pt-0 last:pb-0 md:flex-row md:items-center md:justify-between"
+                >
+                  <div>
+                    <span className="font-medium">{designationLabel(row.designation_id)}</span>
+                    <p className="text-text-secondary">
+                      {current
+                        ? t('hrRecord.promotion.effectiveSince', {
+                            date: formatDate(parseServerDate(row.effective_date), regionConfig),
+                          })
+                        : t('hrRecord.promotion.effectiveRange', {
+                            from: formatDate(parseServerDate(row.effective_date), regionConfig),
+                            to: formatDate(parseServerDate(row.end_date!), regionConfig),
+                          })}
+                    </p>
+                  </div>
                   {current && (
-                    <span className="rounded-full bg-primary px-2 py-0.5 text-xs text-primary-foreground">
-                      {t('hrRecord.promotion.current')}
-                    </span>
+                    <StatusBadge tone="success" label={t('hrRecord.promotion.current')} />
                   )}
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  {current
-                    ? t('hrRecord.promotion.effectiveSince', {
-                        date: formatDate(parseServerDate(row.effective_date), regionConfig),
-                      })
-                    : t('hrRecord.promotion.effectiveRange', {
-                        from: formatDate(parseServerDate(row.effective_date), regionConfig),
-                        to: formatDate(parseServerDate(row.end_date!), regionConfig),
-                      })}
-                </p>
-              </li>
-            );
-          })}
-        </ol>
+                </li>
+              );
+            })}
+          </ol>
+          <div className="mt-4 flex justify-end">
+            <Button type="button" variant="outline" onClick={() => setPromoteOpen(true)}>
+              <ArrowUpRightIcon aria-hidden="true" />
+              {t('hrRecord.promotion.promoteAction')}
+            </Button>
+          </div>
+        </>
       )}
 
       <PromoteStaffDialog open={promoteOpen} onOpenChange={setPromoteOpen} userId={userId} />
