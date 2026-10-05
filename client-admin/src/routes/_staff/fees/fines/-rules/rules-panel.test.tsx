@@ -10,7 +10,8 @@ import {
   renderWithProviders,
   server,
 } from '@biddaloy/ui/test';
-import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -129,6 +130,46 @@ describe('fees/fines/-rules/rules-panel', () => {
       'Add a rule to automatically fine students for absences or late arrivals.',
     );
     expect(screen.queryByRole('button', { name: 'Add rule' })).toBeNull();
+  });
+
+  it('shows the title, a status badge, a labelled year select, icon actions and a total', async () => {
+    server.use(
+      ...referenceHandlers([
+        fineRule({ id: 'rule-1' }),
+        fineRule({ id: 'rule-2', is_active: false, class_id: 'c', class_name: 'Class 6' }),
+      ]),
+    );
+    renderWithProviders(<RulesPanel />, { locale: 'en', role: 'ADMIN', tenantId: 'tenant-1' });
+
+    expect(await screen.findByRole('heading', { name: 'Fine rules' })).toBeTruthy();
+    expect(await screen.findByText('Active')).toBeTruthy();
+    expect(await screen.findByText('Inactive')).toBeTruthy();
+    expect(screen.getByLabelText('Academic year')).toBeTruthy();
+    expect(screen.getAllByRole('button', { name: 'Edit' }).length).toBe(2);
+    expect(screen.getByRole('button', { name: 'Deactivate' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Activate' })).toBeTruthy();
+    expect(screen.getByText(/Total\s+2/)).toBeTruthy();
+  });
+
+  it('asks before deleting, and only the confirm calls DELETE', async () => {
+    let deleted = 0;
+    server.use(
+      ...referenceHandlers([fineRule()]),
+      http.delete('/api/v1/fees/fine-rules/rule-1', () => {
+        deleted += 1;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    renderWithProviders(<RulesPanel />, { locale: 'en', role: 'ADMIN', tenantId: 'tenant-1' });
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('button', { name: 'Delete' }));
+    const dialog = await screen.findByRole('alertdialog');
+    expect(within(dialog).getByText(/Absent days — Whole school/)).toBeTruthy();
+    expect(deleted).toBe(0);
+
+    await user.click(within(dialog).getByRole('button', { name: 'Delete' }));
+    await waitFor(() => expect(deleted).toBe(1));
   });
 
   it('renders the cap in major units (a 500 cap reads as 500, not 5)', async () => {
