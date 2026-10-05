@@ -228,13 +228,13 @@ describe('/fees/dues', () => {
     expect(collect.getAttribute('href')).toBe('/payments/record?student_id=student-1');
     await user.click(collect);
 
-    // [16.4.4]: `/payments/record` now redirects to `/payments?record=1`,
-    // preserving `student_id` so the modal opens with that student pre-selected.
-    await waitFor(() => expect(router.state.location.pathname).toBe('/payments'));
-    expect(router.state.location.search).toEqual({ record: '1', student_id: 'student-1' });
+    // [31.4]: `/payments/record` is the Record Payment full page again (no redirect),
+    // keeping `student_id` so the form opens with that student pre-selected.
+    await waitFor(() => expect(router.state.location.pathname).toBe('/payments/record'));
+    expect(router.state.location.search).toEqual({ student_id: 'student-1' });
   });
 
-  it('the header Record payment is the one primary action and opens Record Payment through the URL', async () => {
+  it('the header Record payment is the one primary action and opens the Record Payment page', async () => {
     server.use(
       http.get('/api/v1/fees/dues', () =>
         HttpResponse.json({ data: [duesRow()], total: 1, page: 1, limit: 25, totalPages: 1 }),
@@ -251,8 +251,8 @@ describe('/fees/dues', () => {
     const user = userEvent.setup();
     await user.click(await screen.findByRole('button', { name: 'Record payment' }));
 
-    await waitFor(() => expect(router.state.location.pathname).toBe('/payments'));
-    expect(router.state.location.search).toEqual({ record: '1' });
+    await waitFor(() => expect(router.state.location.pathname).toBe('/payments/record'));
+    expect(router.state.location.search).toEqual({});
   });
 
   it('the row Remind action opens the send-reminder dialog without selecting rows', async () => {
