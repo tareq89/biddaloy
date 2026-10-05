@@ -81,6 +81,22 @@ export class School {
   @Column({ type: 'timestamptz', nullable: true })
   status_changed_at: Date | null;
 
+  /** ISO 3166-1 alpha-2 country the school registered from [13.1.2]. */
+  @Column({ type: 'varchar', length: 2, nullable: true })
+  country_code: string | null;
+
+  /** Trial end; NULL = no trial. */
+  @Column({ type: 'timestamptz', nullable: true })
+  trial_ends_at: Date | null;
+
+  /** Max active seats; NULL = unlimited. DB CHECK >= 0. */
+  @Column({ type: 'integer', nullable: true })
+  seat_limit: number | null;
+
+  /** Onboarding state; `finished_at` set once done (existing schools backfilled). */
+  @Column({ type: 'jsonb', nullable: true })
+  onboarding: Record<string, any> | null;
+
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;
 

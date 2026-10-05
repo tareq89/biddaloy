@@ -70,6 +70,10 @@ const excluded: readonly string[] = [
   'status', // lifecycle state of the destination tenant, not profile data
   'status_reason', // see `status`
   'status_changed_at', // see `status`
+  'country_code', // registration metadata of the destination tenant, not backed-up school data
+  'trial_ends_at', // commercial state of the destination tenant; a file must not extend a trial
+  'seat_limit', // commercial state of the destination tenant; a file must not raise its seats
+  'onboarding', // setup progress of the destination tenant
 ];
 
 /**
