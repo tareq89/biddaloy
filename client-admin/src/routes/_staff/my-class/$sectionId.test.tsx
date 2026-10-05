@@ -152,7 +152,7 @@ describe('/my-class/$sectionId', () => {
   it('names the section, not its id, in the breadcrumb and tab title', async () => {
     mockAll();
     render();
-    const nav = await screen.findByRole('navigation', { name: 'Breadcrumb' });
+    const nav = await screen.findByRole('navigation', { name: 'You are here' });
     await waitFor(() => expect(within(nav).getByText('Class 7-A')).toBeTruthy());
     expect(within(nav).queryByText('section-1')).toBeNull();
     await waitFor(() => expect(document.title).toContain('Class 7-A'));

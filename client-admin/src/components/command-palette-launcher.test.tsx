@@ -39,7 +39,7 @@ describe('CommandPaletteLauncher', () => {
 
     const user = userEvent.setup();
     await user.click((await screen.findAllByRole('button', { name: 'Search (Ctrl+K)' }))[0]!);
-    await user.type(screen.getByRole('combobox', { name: 'Command palette' }), 'Karim');
+    await user.type(screen.getByRole('combobox', { name: 'Search' }), 'Karim');
 
     const option = await screen.findByRole('option', { name: /Karim Rahman/ });
     await user.click(option);
@@ -75,7 +75,7 @@ describe('CommandPaletteLauncher', () => {
 
     const user = userEvent.setup();
     await user.click((await screen.findAllByRole('button', { name: 'Search (Ctrl+K)' }))[0]!);
-    await user.type(screen.getByRole('combobox', { name: 'Command palette' }), 'Rahim');
+    await user.type(screen.getByRole('combobox', { name: 'Search' }), 'Rahim');
 
     const option = await screen.findByRole('option', { name: /Rahim Uddin/ });
     await user.click(option);
@@ -101,7 +101,7 @@ describe('CommandPaletteLauncher', () => {
 
     const user = userEvent.setup();
     await user.click((await screen.findAllByRole('button', { name: 'Search (Ctrl+K)' }))[0]!);
-    await user.type(screen.getByRole('combobox', { name: 'Command palette' }), 'Nasrin');
+    await user.type(screen.getByRole('combobox', { name: 'Search' }), 'Nasrin');
 
     const option = await screen.findByRole('option', { name: /Nasrin Akter/ });
     await user.click(option);
@@ -120,7 +120,7 @@ describe('CommandPaletteLauncher', () => {
 
     const user = userEvent.setup();
     await user.click((await screen.findAllByRole('button', { name: 'Search (Ctrl+K)' }))[0]!);
-    const input = screen.getByRole('combobox', { name: 'Command palette' });
+    const input = screen.getByRole('combobox', { name: 'Search' });
     await user.type(input, '/');
 
     await waitFor(() =>
@@ -140,7 +140,7 @@ describe('CommandPaletteLauncher', () => {
 
     const user = userEvent.setup();
     await user.click((await screen.findAllByRole('button', { name: 'Search (Ctrl+K)' }))[0]!);
-    const input = screen.getByRole('combobox', { name: 'Command palette' });
+    const input = screen.getByRole('combobox', { name: 'Search' });
     await user.type(input, '>student');
 
     await waitFor(() => expect(screen.queryByRole('option', { name: 'Add student' })).toBeNull());
@@ -156,7 +156,7 @@ describe('CommandPaletteLauncher', () => {
 
     const user = userEvent.setup();
     await user.click((await screen.findAllByRole('button', { name: 'Search (Ctrl+K)' }))[0]!);
-    const input = screen.getByRole('combobox', { name: 'Command palette' });
+    const input = screen.getByRole('combobox', { name: 'Search' });
     await user.type(input, '>start acr');
 
     expect(await screen.findByRole('option', { name: 'Start ACR' })).toBeTruthy();
@@ -179,7 +179,7 @@ describe('CommandPaletteLauncher', () => {
 
     const user = userEvent.setup();
     await user.click((await screen.findAllByRole('button', { name: 'Search (Ctrl+K)' }))[0]!);
-    const input = screen.getByRole('combobox', { name: 'Command palette' });
+    const input = screen.getByRole('combobox', { name: 'Search' });
     // No People tab, so the placeholder must not promise a people search.
     expect(input.getAttribute('placeholder')).toBe('Search pages and actions…');
     await user.type(input, 'ab');

@@ -481,26 +481,26 @@ describe('/audit-logs', () => {
   );
 
   it.each(['ACCOUNTANT', 'EXECUTIVE', 'TEACHER'])(
-    'hides the Audit Logs nav item from a %s',
+    'hides the Activity log nav item from a %s',
     async (role) => {
       renderAuditLogs({ role });
 
       await screen.findByRole('navigation', { name: 'Main' });
       expect(
         within(screen.getByRole('navigation', { name: 'Main' })).queryByRole('link', {
-          name: 'Audit Logs',
+          name: 'Activity log',
         }),
       ).toBeNull();
     },
   );
 
-  it('shows the Audit Logs nav item to an ADMIN', async () => {
+  it('shows the Activity log nav item to an ADMIN', async () => {
     server.use(auditLogHandlers.listMixedActions);
 
     renderAuditLogs();
 
     const nav = await screen.findByRole('navigation', { name: 'Main' });
-    expect(within(nav).getByRole('link', { name: 'Audit Logs' })).toBeTruthy();
+    expect(within(nav).getByRole('link', { name: 'Activity log' })).toBeTruthy();
   });
 
   it('is axe clean', async () => {

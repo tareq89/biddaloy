@@ -260,7 +260,9 @@
     "programMilestone_one": "মাইলস্টোন",
     "programMilestone_other": "মাইলস্টোন",
     "programEnrollment_one": "তালিকাভুক্তি",
-    "programEnrollment_other": "তালিকাভুক্তি"
+    "programEnrollment_other": "তালিকাভুক্তি",
+    "exam_one": "পরীক্ষা",
+    "exam_other": "পরীক্ষা"
   },
   "form": {
     "required": "(আবশ্যক)",
@@ -326,5 +328,27 @@
     "until": "{{time}} পর্যন্ত",
     "cellLabel": "{{weekday}}, {{period}}: {{subject}}, {{teachers}}",
     "cellLabelEmpty": "{{weekday}}, {{period}}: খালি"
+  },
+  "enums": {
+    "paymentMethod": {
+      "CASH": "নগদ টাকা",
+      "CHEQUE": "চেক",
+      "BANK_TRANSFER": "ব্যাংক ট্রান্সফার",
+      "CARD": "কার্ড",
+      "BKASH": "বিকাশ",
+      "NAGAD": "নগদ (মোবাইল ব্যাংকিং)",
+      "ROCKET": "রকেট"
+    },
+    "relationship": {
+      "father": "বাবা",
+      "mother": "মা",
+      "brother": "ভাই",
+      "sister": "বোন",
+      "grandfather": "দাদা / নানা",
+      "grandmother": "দাদি / নানি",
+      "uncle": "চাচা / মামা",
+      "aunt": "চাচি / খালা",
+      "other": "অন্যান্য"
+    }
   }
 }
