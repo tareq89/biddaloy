@@ -86,6 +86,8 @@ import { FirstPasswordService } from './first-password.service';
     OtpService,
   ],
   exports: [
+    // Shared with SocialAuthModule's state/ticket stores: one client, not two.
+    OTP_REDIS,
     AuthTokenService,
     OtpService,
     AccountAccessDeliveryService,

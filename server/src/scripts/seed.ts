@@ -55,7 +55,7 @@ import { StaffAttendanceRecord } from '../modules/staff-attendance/entities/staf
 import { LeavePolicy } from '../modules/leave/entities/leave-policy.entity';
 import { LeaveRecord } from '../modules/leave/entities/leave-record.entity';
 import { DEV_SEED_PLATFORM_TENANT_ID } from '../config/env.validation';
-import { seedAccounts, ensureTrialDemoSeed, TRIAL_DEMO } from './seed.accounts';
+import { seedAccounts, ensureTrialDemoSeed } from './seed.accounts';
 import { Shift } from '../modules/routines/entities/shift.entity';
 import { PeriodSlot } from '../modules/routines/entities/period-slot.entity';
 import { Room } from '../modules/routines/entities/room.entity';
@@ -68,6 +68,7 @@ import {
   ensureAttendancePeriodSetting,
   ensureDemoOrganisation,
   ensurePresetDemoSeed,
+  FRESH_DEMO_SCHOOL,
   type PrintDemoSeedPorts,
   type PrintHistoryDemoSeedPorts,
 } from './seed.util';
@@ -320,19 +321,25 @@ export async function seed() {
   // [13.1.4] A school mid-trial with its admin and an invited teacher.
   await ensureTrialDemoSeed(dataSource.manager, passwordHash);
 
-  // [13.1.4] Every other demo school is an established, onboarded one in BD;
-  // only fills NULLs, so a hand-set value survives a re-run.
+  // [13.1.4] The other demo schools this script creates are established,
+  // onboarded ones in BD. Only those (never a school someone registered
+  // since), and only NULLs, so a hand-set value survives a re-run.
+  const demoSchools = '(slug IN (:...slugs) OR id = :platformId)';
+  const demo = {
+    slugs: ['default-school', 'rose-valley-school', FRESH_DEMO_SCHOOL.slug],
+    platformId: DEV_SEED_PLATFORM_TENANT_ID,
+  };
   await schoolRepository
     .createQueryBuilder()
     .update(School)
     .set({ country_code: 'BD' })
-    .where('country_code IS NULL AND slug <> :slug', { slug: TRIAL_DEMO.slug })
+    .where(`country_code IS NULL AND ${demoSchools}`, demo)
     .execute();
   await schoolRepository
     .createQueryBuilder()
     .update(School)
     .set({ onboarding: () => `jsonb_build_object('finished_at', now())` })
-    .where('onboarding IS NULL AND slug <> :slug', { slug: TRIAL_DEMO.slug })
+    .where(`onboarding IS NULL AND ${demoSchools}`, demo)
     .execute();
 
   await app.close();

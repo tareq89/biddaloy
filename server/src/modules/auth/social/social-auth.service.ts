@@ -99,14 +99,29 @@ export class SocialAuthService {
 
   async callback(
     providerName: string,
-    query: { code?: string; state: string; error?: string },
+    query: { code?: string; state?: string; error?: string },
     boundState: string | undefined,
     context: RequestContext,
   ): Promise<CallbackOutcome> {
     const provider = this.provider(providerName);
+    try {
+      return await this.complete(provider, query, boundState, context);
+    } catch (error) {
+      // A full-page navigation: a Redis or DB fault must not show raw JSON.
+      // Class name only, as for the exchange below.
+      this.logger.warn(`${provider.name} callback failed: ${(error as Error).name}`);
+      return { location: this.appUrl('/login?social=failed') };
+    }
+  }
 
+  private async complete(
+    provider: SocialProviderClient,
+    query: { code?: string; state?: string; error?: string },
+    boundState: string | undefined,
+    context: RequestContext,
+  ): Promise<CallbackOutcome> {
     // Consumed first so a replay (or a stolen URL) can never be used twice.
-    const saved = await this.state.consume(query.state);
+    const saved = query.state ? await this.state.consume(query.state) : null;
     // The state must also be the one this browser started (login-CSRF guard).
     if (!saved || saved.provider !== provider.name || boundState !== query.state) {
       // Full-page navigation: send the person back with a message, no session.
@@ -131,6 +146,11 @@ export class SocialAuthService {
     }
 
     if (saved.intent === 'link') {
+      // Re-checked here: the user may have been suspended since link-start.
+      const linker = await this.users.findOne({ where: { id: saved.userId as string } });
+      if (linker?.status !== UserStatus.ACTIVE) {
+        return { location: this.appUrl('/security?social=failed') };
+      }
       const ok = await this.identities.link(
         saved.userId as string,
         { provider: provider.name, ...profile },

@@ -14,7 +14,7 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
-import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import type { CookieOptions, Request, Response } from 'express';
 import { JwtPayload, SocialProvider } from '@biddaloy/shared';
 import { STRICT_RATE_LIMIT } from '../../../rate-limit';
@@ -94,6 +94,7 @@ export class SocialAuthController {
   @Get(':provider/start')
   @Throttle({ default: STRICT_RATE_LIMIT })
   @ApiOperation({ summary: 'Redirect the browser to the provider to sign in or register.' })
+  @ApiResponse({ status: HttpStatus.FOUND, description: 'Redirect to the provider.' })
   async start(
     @Param('provider') provider: string,
     @Query() query: SocialStartQueryDto,
@@ -136,6 +137,7 @@ export class SocialAuthController {
   @ApiOperation({
     summary: 'Provider redirect target; completes sign-in, registration or connect.',
   })
+  @ApiResponse({ status: HttpStatus.FOUND, description: 'Redirect back into the app.' })
   async callback(
     @Param('provider') provider: string,
     @Query() query: SocialCallbackQueryDto,

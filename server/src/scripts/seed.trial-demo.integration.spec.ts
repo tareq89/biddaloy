@@ -58,4 +58,17 @@ describe('ensureTrialDemoSeed (integration)', () => {
         .countBy({ user_id: teacher.id, token_hash: hashSecret(TRIAL_DEMO.inviteToken) }),
     ).toBe(1);
   });
+
+  it('a re-run restores a soft-deleted fixture and puts an ended trial back mid-trial', async () => {
+    const school = await ensureTrialDemoSeed(ds.manager, 'x');
+    await ds.getRepository(School).update(school.id, { trial_ends_at: new Date(Date.now() - 1) });
+    await ds.getRepository(School).softDelete(school.id);
+
+    const again = await ensureTrialDemoSeed(ds.manager, 'x');
+
+    expect(again.id).toBe(school.id);
+    expect(again.deleted_at).toBeNull();
+    const daysLeft = Math.round((again.trial_ends_at!.getTime() - Date.now()) / 86_400_000);
+    expect(daysLeft).toBe(23);
+  });
 });

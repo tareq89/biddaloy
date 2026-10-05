@@ -125,6 +125,12 @@ describe('OtpService', () => {
     expect(await service.verify('LOGIN', 'nobody@test.com', '000000')).toBe('locked');
   });
 
+  it('a code bound to one address fails when verified for another', async () => {
+    const { code } = await service.request('LOGIN', 'user@test.com', 'old@test.com');
+    expect(await service.verify('LOGIN', 'user@test.com', code, 'new@test.com')).toBe('invalid');
+    expect(await service.verify('LOGIN', 'user@test.com', code, 'old@test.com')).toBe('ok');
+  });
+
   it('rejects a second request within the cooldown window with 429', async () => {
     await service.request('LOGIN', 'user@test.com');
     await expect(service.request('LOGIN', 'user@test.com')).rejects.toBeInstanceOf(

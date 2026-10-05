@@ -6,6 +6,7 @@ import { User } from '../../users/entities/user.entity';
 import { UserIdentity } from '../entities/user-identity.entity';
 import { AuditService } from '../../audit/audit.service';
 import { AuthService } from '../auth.service';
+import { OtpLoginService } from '../../account-access/otp-login.service';
 import type { RequestContext } from '../../../common/request-context.util';
 import type { SocialTicket } from './social-ticket.service';
 
@@ -19,6 +20,7 @@ export class SocialIdentityService {
     @InjectRepository(User) private readonly users: Repository<User>,
     private readonly audit: AuditService,
     private readonly authService: AuthService,
+    private readonly otpLogin: OtpLoginService,
   ) {}
 
   findBySubject(provider: SocialProvider, subject: string): Promise<UserIdentity | null> {
@@ -84,8 +86,10 @@ export class SocialIdentityService {
 
     const user = await this.users.findOne({ where: { id: userId } });
     if (!user) throw new NotFoundException('Identity not connected');
-    // A password, or a phone/email that can receive a one-time code, remains.
-    if (!user.password_hash && !user.phone && !user.email) {
+    // Another way in must remain: a password, another connected account, or
+    // an address code sign-in would really send to.
+    const otherIdentity = (await this.identities.count({ where: { user_id: userId } })) > 1;
+    if (!user.password_hash && !otherIdentity && !(await this.otpLogin.canReceiveCode(user))) {
       throw new ConflictException({
         message: 'This is the last way to sign in to this account.',
         details: { code: 'LAST_SIGN_IN_METHOD' },

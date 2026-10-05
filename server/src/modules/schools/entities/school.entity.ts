@@ -6,6 +6,7 @@ import {
   UpdateDateColumn,
   DeleteDateColumn,
   Index,
+  Check,
 } from 'typeorm';
 import { SchoolStatus } from '@biddaloy/shared';
 
@@ -26,6 +27,7 @@ import { SchoolStatus } from '@biddaloy/shared';
 @Entity('schools')
 @Index(['slug'], { unique: true })
 @Index(['domain'], { unique: true, where: 'domain IS NOT NULL' })
+@Check('CHK_schools_seat_limit', '"seat_limit" >= 0')
 export class School {
   @PrimaryGeneratedColumn('uuid')
   id: string;

@@ -29377,7 +29377,8 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            200: {
+            /** @description Redirect to the provider. */
+            302: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -29408,9 +29409,9 @@ export interface operations {
     };
     SocialAuthController_callback_v1: {
         parameters: {
-            query: {
+            query?: {
                 code?: string;
-                state: string;
+                state?: string;
                 error?: string;
             };
             header?: never;
@@ -29421,7 +29422,8 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            200: {
+            /** @description Redirect back into the app. */
+            302: {
                 headers: {
                     [name: string]: unknown;
                 };

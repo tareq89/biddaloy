@@ -504,6 +504,21 @@ describe('OtpLoginService (integration)', () => {
       expect(updated.phone_verified_at).toBeNull();
     });
 
+    it('a code emailed for a foreign phone stops working if the email changes before verify', async () => {
+      const user = await createMember({ phone: '+14155550112', email: 'old@example.com' });
+      const { debug } = await service.request('+14155550112', context);
+      await dataSource.getRepository(User).update({ id: user.id }, { email: 'new@example.com' });
+
+      // The code went to old@, so it must not sign in or verify new@.
+      await expect(service.verify('+14155550112', debug!.otp!, context)).rejects.toBeInstanceOf(
+        UnauthorizedException,
+      );
+      const updated = await dataSource
+        .getRepository(User)
+        .findOneOrFail({ where: { id: user.id } });
+      expect(updated.email_verified_at).toBeNull();
+    });
+
     it('a BD number typed in any shape gets SMS', async () => {
       await createMember({ phone: '008801755550006' });
       await service.request('008801755550006', context);

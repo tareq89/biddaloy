@@ -851,7 +851,19 @@ export async function ensureTrialDemoSeed(
   passwordHash: string,
 ): Promise<School> {
   const schools = manager.getRepository(School);
-  let school = await schools.findOne({ where: { slug: TRIAL_DEMO.slug } });
+  // `withDeleted`: the slug is unique even for a soft-deleted row, so a
+  // deleted fixture is restored rather than re-inserted (which would fail).
+  let school = await schools.findOne({ where: { slug: TRIAL_DEMO.slug }, withDeleted: true });
+  if (school?.deleted_at) {
+    await schools.restore(school.id);
+    school.deleted_at = null;
+  }
+  // A re-run after the trial ran out puts the fixture back mid-trial; a date
+  // still in the future (maybe set by hand) is left alone.
+  if (school?.trial_ends_at && school.trial_ends_at.getTime() <= Date.now()) {
+    school.trial_ends_at = new Date(Date.now() + TRIAL_DEMO.trialDays * 86_400_000);
+    await schools.update(school.id, { trial_ends_at: school.trial_ends_at });
+  }
   if (!school) {
     school = await schools.save(
       schools.create({

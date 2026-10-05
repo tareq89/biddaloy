@@ -5,12 +5,11 @@ import type { UserRole } from '@biddaloy/shared';
 import type { UserTenant } from './entities/user-tenant.entity';
 
 /**
- * D7 (epic #409): the one password-strength rule shared by every endpoint
- * that ever sets a password — `ChangePasswordDto.new_password` and
- * `account-access`'s `ActivateDto.password` both import this rather than
- * each spelling out their own minimum, so the two can never disagree.
+ * D7 (epic #409): the one minimum length shared by every endpoint that sets a
+ * password — the DTOs import it from here, and it is the same constant the
+ * `minLength` rule in `@biddaloy/shared` checks, so they can never disagree.
  */
-export const PASSWORD_MIN_LENGTH = 8;
+export { PASSWORD_MIN_LENGTH } from '@biddaloy/shared';
 
 /**
  * D10: role-based strength rules, enforced wherever a password is SET or

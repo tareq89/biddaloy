@@ -85,8 +85,11 @@ function lockKey(purpose: OtpPurpose, identifier: string): string {
 function attemptsKey(purpose: OtpPurpose, identifier: string): string {
   return `otp-attempts:${purpose}:${identifier}`;
 }
-function hashCode(code: string): string {
-  return createHash('sha256').update(code, 'utf8').digest('hex');
+/** `bind` ties the code to where it was sent: verifying with any other value fails. */
+function hashCode(code: string, bind: string): string {
+  return createHash('sha256')
+    .update(bind ? `${bind}\n${code}` : code, 'utf8')
+    .digest('hex');
 }
 
 /**
@@ -116,10 +119,14 @@ export class TooManyRequestsException extends HttpException {
 export class OtpService {
   constructor(@Inject(OTP_REDIS) private readonly redis: Redis) {}
 
-  async request(purpose: OtpPurpose, identifier: string): Promise<{ code: string }> {
+  /**
+   * `bind` (optional) is the address the code goes to; `verify` must pass the
+   * same value, so a code stops working if that address changes meanwhile.
+   */
+  async request(purpose: OtpPurpose, identifier: string, bind = ''): Promise<{ code: string }> {
     try {
       const code = randomInt(0, 1_000_000).toString().padStart(6, '0');
-      const record: OtpRecord = { hash: hashCode(code) };
+      const record: OtpRecord = { hash: hashCode(code, bind) };
 
       const claimed = await this.redis.eval(
         REQUEST_SCRIPT,
@@ -140,7 +147,12 @@ export class OtpService {
     }
   }
 
-  async verify(purpose: OtpPurpose, identifier: string, rawCode: string): Promise<OtpVerifyResult> {
+  async verify(
+    purpose: OtpPurpose,
+    identifier: string,
+    rawCode: string,
+    bind = '',
+  ): Promise<OtpVerifyResult> {
     const code = toLatinDigits(rawCode);
     try {
       const result = await this.redis.eval(
@@ -150,7 +162,7 @@ export class OtpService {
         cooldownKey(purpose, identifier),
         lockKey(purpose, identifier),
         attemptsKey(purpose, identifier),
-        hashCode(code),
+        hashCode(code, bind),
         MAX_ATTEMPTS,
         LOCK_TTL_MS,
         CODE_TTL_MS,

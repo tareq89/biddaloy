@@ -44,6 +44,10 @@ describe('SocialAuthController (e2e)', () => {
   const facebook = stubProvider(SocialProvider.FACEBOOK);
 
   const NOLOGIN_ID = '00000000-0000-4000-8000-0000000013a1';
+  const ABROAD_ID = '00000000-0000-4000-8000-0000000013a2';
+  // Not deleted in afterAll: its disconnect writes an audit row, and audit_logs
+  // is append-only (the test reset truncates it between runs).
+  const TWO_WAYS_ID = '00000000-0000-4000-8000-0000000013a3';
   const SUB_PREFIX = 'e2e-social-';
 
   beforeAll(async () => {
@@ -69,7 +73,7 @@ describe('SocialAuthController (e2e)', () => {
 
   afterAll(async () => {
     await dataSource.query(`DELETE FROM user_identities WHERE subject LIKE $1`, [`${SUB_PREFIX}%`]);
-    await dataSource.query(`DELETE FROM users WHERE id = $1`, [NOLOGIN_ID]);
+    await dataSource.query(`DELETE FROM users WHERE id = ANY($1)`, [[NOLOGIN_ID, ABROAD_ID]]);
     await app.close();
   });
 
@@ -95,6 +99,14 @@ describe('SocialAuthController (e2e)', () => {
     http()
       .get(`${API}/auth/social/${provider}/callback?code=abc&state=${state}`)
       .set('Cookie', cookie ? [`social_state=${cookie}`] : []);
+
+  async function sessionFor(userId: string): Promise<string> {
+    const user = await dataSource.getRepository('User').findOneByOrFail({ id: userId });
+    const session = await app
+      .get(AuthService)
+      .startSession(user as never, { ip: null, userAgent: null });
+    return session.access_token;
+  }
 
   async function connect(subject: string, token: string): Promise<string> {
     google.nextSubject = subject;
@@ -283,6 +295,69 @@ describe('SocialAuthController (e2e)', () => {
     await http()
       .delete(`${API}/auth/social/identities/google`)
       .set('Authorization', `Bearer ${token}`)
+      .expect(204);
+  });
+  it('a callback with no state lands on the failure page, not raw JSON', async () => {
+    const res = await http().get(`${API}/auth/social/google/callback?code=abc`);
+    expect(res.status).toBe(302);
+    expect(res.headers.location).toContain('/login?social=failed');
+  });
+
+  it('does not connect for a user suspended between link-start and the callback', async () => {
+    await dataSource.query(
+      `INSERT INTO users (id, full_name, status) VALUES ($1, 'No Login', 'ACTIVE')
+       ON CONFLICT (id) DO UPDATE SET status = 'ACTIVE'`,
+      [NOLOGIN_ID],
+    );
+    google.nextSubject = `${SUB_PREFIX}suspended`;
+    const started = await http()
+      .post(`${API}/auth/social/google/link-start`)
+      .set('Authorization', `Bearer ${await sessionFor(NOLOGIN_ID)}`)
+      .expect(200);
+    await dataSource.query(`UPDATE users SET status = 'INACTIVE' WHERE id = $1`, [NOLOGIN_ID]);
+
+    const res = await callback(stateOf(started.body.url));
+    expect(res.headers.location).toContain('/security?social=failed');
+    const rows = await dataSource.query(`SELECT 1 FROM user_identities WHERE subject = $1`, [
+      `${SUB_PREFIX}suspended`,
+    ]);
+    expect(rows).toHaveLength(0);
+    await dataSource.query(`UPDATE users SET status = 'ACTIVE' WHERE id = $1`, [NOLOGIN_ID]);
+  });
+
+  it('a phone that code sign-in cannot reach does not count as a way in', async () => {
+    // Foreign number, no email: no code can be sent (D31), so Google is the last way in.
+    await dataSource.query(
+      `INSERT INTO users (id, full_name, status, phone) VALUES ($1, 'Abroad', 'ACTIVE', '+14155550199')
+       ON CONFLICT (id) DO NOTHING`,
+      [ABROAD_ID],
+    );
+    await dataSource.query(
+      `INSERT INTO user_identities (user_id, provider, subject) VALUES ($1, 'google', $2)`,
+      [ABROAD_ID, `${SUB_PREFIX}abroad`],
+    );
+    const refused = await http()
+      .delete(`${API}/auth/social/identities/google`)
+      .set('Authorization', `Bearer ${await sessionFor(ABROAD_ID)}`)
+      .expect(409);
+    expect(refused.body.details.code).toBe('LAST_SIGN_IN_METHOD');
+  });
+
+  it('another connected account counts as a way in', async () => {
+    // No password, email or phone: only the second (Facebook) account remains.
+    await dataSource.query(
+      `INSERT INTO users (id, full_name, status) VALUES ($1, 'Two Ways', 'ACTIVE')
+       ON CONFLICT (id) DO NOTHING`,
+      [TWO_WAYS_ID],
+    );
+    await dataSource.query(
+      `INSERT INTO user_identities (user_id, provider, subject)
+       VALUES ($1, 'google', $2), ($1, 'facebook', $3)`,
+      [TWO_WAYS_ID, `${SUB_PREFIX}two-g`, `${SUB_PREFIX}two-f`],
+    );
+    await http()
+      .delete(`${API}/auth/social/identities/google`)
+      .set('Authorization', `Bearer ${await sessionFor(TWO_WAYS_ID)}`)
       .expect(204);
   });
 });

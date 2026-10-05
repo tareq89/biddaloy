@@ -34,6 +34,10 @@ describe('password rules', () => {
     expect(failed('Abcdefg১', 'staff')).toEqual(['special']);
   });
 
+  it('a Bangla letter is a letter, not a symbol', () => {
+    expect(failed('Abcdefg1ক', 'staff')).toEqual(['special']);
+  });
+
   it('audienceForRoles: strictest wins', () => {
     expect(audienceForRoles([UserRole.PARENT, UserRole.STUDENT])).toBe('family');
     expect(audienceForRoles([UserRole.PARENT, UserRole.TEACHER])).toBe('staff');

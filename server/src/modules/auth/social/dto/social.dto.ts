@@ -40,9 +40,11 @@ export class SocialCallbackQueryDto {
   @MaxLength(2000)
   code?: string;
 
+  /** Optional so a callback without one lands on the failure page, not raw JSON. */
+  @IsOptional()
   @IsString()
   @MaxLength(200)
-  state: string;
+  state?: string;
 
   @IsOptional()
   @IsString()

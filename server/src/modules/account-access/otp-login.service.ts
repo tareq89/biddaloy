@@ -94,7 +94,8 @@ export class OtpLoginService {
 
     let code: string;
     try {
-      ({ code } = await this.otpService.request(OTP_PURPOSE, identifier));
+      // Bound to `to`: if that address changes before verify, the code stops working.
+      ({ code } = await this.otpService.request(OTP_PURPOSE, identifier, to));
     } catch {
       // A 429 from the cooldown must not leak beyond the same 202 every
       // other branch returns — see RecoveryService.sendOtp for the same
@@ -127,7 +128,13 @@ export class OtpLoginService {
     context: RequestContext,
   ): Promise<OtpLoginVerifyResult> {
     const identifier = normalizeLoginIdentifier(rawIdentifier);
-    const result = await this.otpService.verify(OTP_PURPOSE, identifier, otp);
+    const user = await this.findUser(identifier);
+    // The address the code went to, decided exactly as in `request`. The code
+    // is bound to it, so a code sent to an old address (an admin edited it, or
+    // the SMS prefixes changed) no longer verifies.
+    const byEmail = this.sentByEmail(identifier);
+    const sentTo = (byEmail ? user?.email : user?.phone) ?? '';
+    const result = await this.otpService.verify(OTP_PURPOSE, identifier, otp, sentTo);
 
     if (result === 'locked') {
       throw new HttpException(
@@ -137,7 +144,6 @@ export class OtpLoginService {
       );
     }
 
-    const user = await this.findUser(identifier);
     const success =
       result === 'ok' && !!user && this.canSignInByCode(user) && (await this.allowed(user.id));
 
@@ -161,27 +167,21 @@ export class OtpLoginService {
     // Signing in by code accepts the invitation.
     await this.authTokens.consumeLive(user.id, AuthTokenPurpose.INVITE);
 
-    // [12.7] A successful OTP verify proves the caller controls this phone
-    // — stamp it, but only the first time (never overwrite an existing
-    // verification timestamp with a later one).
-    //
-    // Compare-and-set on `phone`, not a bare update by id: the OTP proves
-    // control of `identifier`, and an admin edit landing between the read
-    // above and this write would otherwise let it mark a REPLACEMENT phone
-    // verified — one this caller never proved. Matching `phone` (and
-    // `IS NULL` on the timestamp, so a concurrent double-stamp is a no-op)
-    // keeps the stamp bound to the number the code was actually sent to.
-    // An email code proves the email, an SMS code the phone.
-    // "Went by email" is decided exactly as in `request`.
-    const field = this.sentByEmail(identifier) ? 'email' : 'phone';
+    // [12.7] A successful verify proves the caller controls `sentTo` (an
+    // email code proves the email, an SMS code the phone) — stamp it, but
+    // only the first time. Compare-and-set on the address read above, and
+    // `IS NULL` on the timestamp: an admin edit landing between the read and
+    // this write must not mark a REPLACEMENT address verified, and a
+    // concurrent double-stamp is a no-op.
+    const field = byEmail ? 'email' : 'phone';
     const alreadyVerified =
       field === 'email' ? user.email_verified_at !== null : user.phone_verified_at !== null;
     let stamped = false;
-    if (!alreadyVerified && (field === 'phone' || user.email)) {
+    if (!alreadyVerified) {
       const where: FindOptionsWhere<User> =
         field === 'email'
-          ? { id: user.id, email: user.email as string, email_verified_at: IsNull() }
-          : { id: user.id, phone: identifier, phone_verified_at: IsNull() };
+          ? { id: user.id, email: sentTo, email_verified_at: IsNull() }
+          : { id: user.id, phone: sentTo, phone_verified_at: IsNull() };
       const stamp = await this.userRepo.update(
         where,
         field === 'email' ? { email_verified_at: new Date() } : { phone_verified_at: new Date() },
@@ -239,6 +239,16 @@ export class OtpLoginService {
     });
   }
 
+  /**
+   * Would code sign-in work for this user at all: ACTIVE, every school allows
+   * it, and there is an address a code can go to (an email, or a phone SMS is
+   * allowed to). Same rules as `request`.
+   */
+  async canReceiveCode(user: User): Promise<boolean> {
+    const smsOk = !!user.phone && isSmsAllowed(user.phone, this.smsPrefixes());
+    return this.canSignInByCode(user) && (!!user.email || smsOk) && (await this.allowed(user.id));
+  }
+
   /** Only ACTIVE accounts sign in by code. */
   private canSignInByCode(user: User): boolean {
     return user.status === UserStatus.ACTIVE;
@@ -246,13 +256,11 @@ export class OtpLoginService {
 
   /** The code goes by email for an email identifier, or a phone D31 does not allow SMS to. */
   private sentByEmail(identifier: string): boolean {
-    return (
-      isEmail(identifier) ||
-      !isSmsAllowed(
-        identifier,
-        this.config.get<string>('OTP_SMS_ALLOWED_PREFIXES') || DEFAULT_SMS_PREFIXES,
-      )
-    );
+    return isEmail(identifier) || !isSmsAllowed(identifier, this.smsPrefixes());
+  }
+
+  private smsPrefixes(): string {
+    return this.config.get<string>('OTP_SMS_ALLOWED_PREFIXES') || DEFAULT_SMS_PREFIXES;
   }
 
   /** Deny wins: OTP login is allowed only if every tenant this user belongs to has it enabled. */

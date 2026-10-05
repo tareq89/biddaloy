@@ -42,6 +42,9 @@ export class FirstPasswordService {
       { password_hash },
     );
     if (result.affected !== 1) throw this.alreadySet();
+    // Failed password tries against the password-less account may have locked
+    // the login; the new password must work at once (same as activate/change).
+    await this.authService.resetLoginLockouts(user);
 
     await this.auditService.record({
       action: AuditAction.UPDATE,

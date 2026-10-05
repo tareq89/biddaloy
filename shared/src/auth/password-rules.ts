@@ -6,12 +6,18 @@ export type PasswordRuleId = 'minLength' | 'upper' | 'lower' | 'digit' | 'specia
 const STAFF_RULES: PasswordRuleId[] = ['minLength', 'upper', 'lower', 'digit', 'special'];
 const FAMILY_RULES: PasswordRuleId[] = ['minLength', 'digit'];
 
+/** D7: one minimum for every password path (the server's DTOs import it too). */
+export const PASSWORD_MIN_LENGTH = 8;
+
 const TESTS: Record<PasswordRuleId, (p: string) => boolean> = {
-  minLength: (p) => p.length >= 8,
+  minLength: (p) => p.length >= PASSWORD_MIN_LENGTH,
   upper: (p) => /[A-Z]/.test(p),
   lower: (p) => /[a-z]/.test(p),
   digit: (p) => /[0-9০-৯]/.test(p),
-  special: (p) => /[^A-Za-z0-9০-৯\s]/.test(p),
+  // A symbol: anything that is not a letter (any script), a digit or a space.
+  // Bangla letters are letters, not symbols. Upper/lower stay ASCII on purpose:
+  // Bangla has no case, so a staff password needs some Latin letters.
+  special: (p) => /[^\p{L}\p{N}\s]/u.test(p),
 };
 
 export function passwordRulesFor(audience: PasswordAudience): PasswordRuleId[] {
