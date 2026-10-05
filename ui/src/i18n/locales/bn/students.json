@@ -129,10 +129,7 @@
       "columnDiscount": "ছাড়",
       "columnBalance": "বকেয়া",
       "columnStatus": "অবস্থা",
-      "columnActions": "কার্যক্রম",
       "lateFeeBadge": "বিলম্ব ফি",
-      "recordPayment": "পেমেন্ট রেকর্ড করুন",
-      "recordPaymentSeamToast": "পেমেন্ট রেকর্ড — শীঘ্রই আসছে ({{feeCount}}টি ফি নির্বাচিত)",
       "emptyMessage": "কোনো খোলা বিল নেই।",
       "errorMessage": "ফি-এর তথ্য লোড করা যায়নি।",
       "openBillsTab": "খোলা বিল",
@@ -149,7 +146,12 @@
       "previousPage": "পূর্ববর্তী",
       "nextPage": "পরবর্তী",
       "pageOf": "মোট {{totalPages}} পৃষ্ঠার মধ্যে {{page}} নম্বর পৃষ্ঠা",
-      "discountsTab": "ডিসকাউন্ট"
+      "discountsTab": "ডিসকাউন্ট",
+      "summaryLabel": "ফির সারসংক্ষেপ",
+      "cardSubtitle": "শেষ তারিখ {{due}} · বকেয়া {{balance}}",
+      "emptyExplanation": "এই শিক্ষার্থীর সব বিল পরিশোধ হয়ে গেছে।",
+      "historyEmptyExplanation": "কোনো বিল পরিশোধ হলে এখানে দেখা যাবে।",
+      "walletEmptyExplanation": "বেশি টাকা দিলে তা জমা টাকা হিসেবে এখানে থাকবে।"
     },
     "payments": {
       "columnDate": "তারিখ",
@@ -347,7 +349,7 @@
     "columnFeeTypes": "ফি ধরন",
     "columnRange": "কার্যকর সময়",
     "columnReason": "কারণ",
-    "columnActions": "কার্যক্রম",
+    "columnActions": "কাজ",
     "form": {
       "addTitle": "ডিসকাউন্ট নিয়ম যোগ করুন",
       "editTitle": "ডিসকাউন্ট নিয়ম সম্পাদনা করুন",
@@ -367,7 +369,10 @@
       "errorReason": "কারণ কমপক্ষে ৩ অক্ষরের হতে হবে।",
       "errorDateRange": "শেষের তারিখ অবশ্যই শুরুর তারিখের পরে বা সমান হতে হবে।",
       "errorSave": "ডিসকাউন্ট নিয়ম সংরক্ষণ করা যায়নি।"
-    }
+    },
+    "emptyExplanation": "নিয়ম যোগ করলে প্রতিটি মিলে যাওয়া বিলে ছাড় নিজে থেকে বসবে।",
+    "fromDate": "{{date}} থেকে",
+    "deleteConfirmDescriptionNamed": "{{rule}} নিয়মটি মুছে যাবে। এটি ফিরিয়ে আনা যাবে না; ভবিষ্যতের বিলে আর ছাড় বসবে না।"
   },
   "photo": {
     "title": "ছবি",
