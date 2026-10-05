@@ -1,5 +1,5 @@
 import { Permission } from '@biddaloy/shared';
-import { Button, RoutePending } from '@biddaloy/ui/components';
+import { RoutePending } from '@biddaloy/ui/components';
 import {
   feeGenerationsKeys,
   feeGenerationsQueryOptions,
@@ -8,9 +8,10 @@ import {
   type FeeGeneration,
 } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
-import { useListShellState } from '@biddaloy/ui/shells';
+import { useCloseFullPage, useListShellState } from '@biddaloy/ui/shells';
 import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
+import { FilePlusIcon } from 'lucide-react';
 import * as React from 'react';
 import { z } from 'zod';
 
@@ -51,6 +52,8 @@ const generateFeesSearchSchema = z.object({
   source: z.string().optional().catch(undefined),
   generated_by_user_id: z.string().optional().catch(undefined),
   collection_status: z.string().optional().catch(undefined),
+  // D22: the create flow is in the URL, so Back closes it.
+  generate: z.literal(1).optional().catch(undefined),
   // Reserved key `use-list-shell-state.ts` stores row selection under —
   // this page has no bulk actions, but the schema still has to declare
   // it or `validateSearch` strips it, same reasoning `dues.tsx` gives.
@@ -62,7 +65,9 @@ function toFeeGenerationsFilters(filters: GeneratedFeesFilters) {
     ...(filters.period_from !== undefined ? { period_from: filters.period_from } : {}),
     ...(filters.period_to !== undefined ? { period_to: filters.period_to } : {}),
     ...(filters.fee_type !== undefined ? { fee_type: filters.fee_type } : {}),
-    ...(filters.source !== undefined ? { source: filters.source as 'MANUAL' | 'SCHEDULE' } : {}),
+    ...(filters.source !== undefined
+      ? { source: filters.source as 'MANUAL' | 'SCHEDULE' | 'FINE_RULE' }
+      : {}),
     ...(filters.generated_by_user_id !== undefined
       ? { generated_by_user_id: filters.generated_by_user_id }
       : {}),
@@ -76,7 +81,7 @@ export const Route = createFileRoute('/_staff/fees/generate')({
   validateSearch: generateFeesSearchSchema,
   loaderDeps: ({ search }) => ({
     page: search.page ?? 1,
-    limit: search.limit ?? 20,
+    limit: search.limit ?? 25,
     period_from: search.period_from,
     period_to: search.period_to,
     fee_type: search.fee_type,
@@ -108,7 +113,9 @@ export const Route = createFileRoute('/_staff/fees/generate')({
 function GeneratedFeesPage() {
   const { t } = useTranslation('fees');
   const queryClient = useQueryClient();
-  const [state, actions] = useListShellState({ limit: 20 });
+  const search = Route.useSearch();
+  const navigate = Route.useNavigate();
+  const [state, actions] = useListShellState();
   const filters = state.filters as GeneratedFeesFilters;
 
   const generationsQuery = useFeeGenerations({
@@ -121,7 +128,10 @@ function GeneratedFeesPage() {
   const filterFields = useBatchFilterFields();
 
   const canGenerateFees = useHasPermission(Permission.FEE_GENERATE);
-  const [modalOpen, setModalOpen] = React.useState(false);
+  const openGenerate = () => void navigate({ search: (prev) => ({ ...prev, generate: 1 }) });
+  const closeGenerate = useCloseFullPage(
+    () => void navigate({ search: (prev) => ({ ...prev, generate: undefined }), replace: true }),
+  );
   const [selectedBatch, setSelectedBatch] = React.useState<FeeGeneration | null>(null);
 
   function handleFilterChange(patch: Record<string, string | null>) {
@@ -130,17 +140,27 @@ function GeneratedFeesPage() {
 
   const batchTableProps: BatchTableProps = {
     title: t('generations.title'),
-    primaryAction: canGenerateFees && (
-      <Button type="button" onClick={() => setModalOpen(true)}>
-        {t('generations.generateButton')}
-      </Button>
-    ),
+    subtitle: t('generations.subtitle'),
+    actions: [
+      {
+        id: 'generate',
+        label: t('generations.generateButton'),
+        icon: <FilePlusIcon />,
+        priority: 'primary',
+        allowed: canGenerateFees,
+        onClick: openGenerate,
+      },
+    ],
     filters: { fields: filterFields, values: state.filters, onChange: handleFilterChange },
     data: rows,
     loading: generationsQuery.isLoading,
     isFetching: generationsQuery.isFetching,
     ...(generationsQuery.isError ? { error: t('generations.errorMessage') } : {}),
     emptyMessage: t('generations.emptyMessage'),
+    emptyExplanation: t('generations.emptyExplanation'),
+    ...(canGenerateFees
+      ? { emptyAction: { label: t('generations.generateButton'), onClick: openGenerate } }
+      : {}),
     page: state.page,
     pageSize: state.limit,
     totalCount: generationsQuery.data?.total ?? 0,
@@ -148,28 +168,22 @@ function GeneratedFeesPage() {
     onPageSizeChange: actions.setLimit,
     pageSizeLabel: t('pagination.rowsPerPage', { ns: 'common' }),
     onRowClick: setSelectedBatch,
-    // No `renderActions` yet — 16.3.7/#656's job, see `batch-table.tsx`'s
-    // own doc comment on `BatchTableProps.renderActions`.
   };
 
   return (
     <>
       <BatchTable {...batchTableProps} />
-      <GenerateFeesModal
-        open={modalOpen}
-        onOpenChange={(open) => {
-          setModalOpen(open);
-          // [16.3.6]'s modal has no onSuccess/onGenerated callback of its
-          // own (it doesn't invalidate any query itself) — refetching the
-          // log whenever the dialog closes is a harmless no-op on cancel
-          // and picks up a just-created batch without needing a second
-          // wiring path. A dedicated onGenerated callback would be a
-          // cleaner contract if 16.3.6 grows one later.
-          if (!open) {
+      {canGenerateFees && (
+        <GenerateFeesModal
+          open={search.generate === 1}
+          onOpenChange={(open) => {
+            if (open) return;
+            closeGenerate();
+            // The modal has no onGenerated callback, so refetch the log whenever it closes.
             void queryClient.invalidateQueries({ queryKey: feeGenerationsKeys.lists() });
-          }
-        }}
-      />
+          }}
+        />
+      )}
       <BatchBillsDrawer
         batch={selectedBatch}
         onOpenChange={(open) => !open && setSelectedBatch(null)}
