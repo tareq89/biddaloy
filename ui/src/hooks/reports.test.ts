@@ -54,9 +54,15 @@ describe('collections report hooks', () => {
       }),
     );
     setActiveTenant('tenant-1');
+    const { createObjectURL, revokeObjectURL } = URL;
     URL.createObjectURL = () => 'blob:x';
     URL.revokeObjectURL = () => undefined;
-    await downloadCollectionsReportCsv(FILTERS);
+    try {
+      await downloadCollectionsReportCsv(FILTERS);
+    } finally {
+      URL.createObjectURL = createObjectURL;
+      URL.revokeObjectURL = revokeObjectURL;
+    }
     expectServerParams(query);
   });
 });

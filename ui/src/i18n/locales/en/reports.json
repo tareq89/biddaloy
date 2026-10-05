@@ -39,7 +39,6 @@
     "walletUsed": "Credit used",
     "walletAdded": "Credit added",
     "changeReturned": "Change returned",
-    "paymentCount": "{{count}} payments",
     "reversedHelp": "Taken off the total",
     "netHelp": "Total collected minus reversed",
     "otherTitle": "Discounts and credit"
@@ -49,7 +48,6 @@
     "collector": "Collector",
     "feeType": "Fee type",
     "emptyMessage": "No rows for this range.",
-    "payments": "Payments",
     "collected": "Collected",
     "reversed": "Reversed",
     "net": "Net",
@@ -57,15 +55,16 @@
     "date": "Date",
     "unknownCollector": "Unknown",
     "byMethodTitle": "By payment method",
-    "byMethodHelp": "How the money came in.",
+    "byMethodHelp": "How the money came in. Entries include reversals.",
     "byCollectorTitle": "By collector",
-    "byCollectorHelp": "Who took how much — to match the cash in hand.",
+    "byCollectorHelp": "Who took how much — to match the cash in hand. Entries include reversals.",
     "byFeeTypeTitle": "By fee type",
     "byFeeTypeHelp": "What the money was for, and the discount given.",
     "byDayTitle": "By day",
     "byDayHelp": "Each day's collection, oldest first.",
-    "rowCaption": "{{count}} payments · reversed {{amount}}",
-    "emptyExplanation": "Try another date range or filter."
+    "rowCaption": "{{n}} entries · reversed {{amount}}",
+    "emptyExplanation": "Try another date range or filter.",
+    "entries": "Entries"
   },
   "subtitleAllMethods": "All methods",
   "subtitleAllCollectors": "All collectors"

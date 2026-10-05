@@ -39,7 +39,6 @@
     "walletUsed": "জমা টাকা ব্যবহার",
     "walletAdded": "জমা টাকা যোগ",
     "changeReturned": "ফেরত দেওয়া ভাংতি",
-    "paymentCount": "{{count}}টি পেমেন্ট",
     "reversedHelp": "মোট থেকে বাদ যায়",
     "netHelp": "মোট আদায় থেকে বাতিল বাদে",
     "otherTitle": "ছাড় ও জমা টাকা"
@@ -49,7 +48,6 @@
     "collector": "আদায়কারী",
     "feeType": "ফি এর ধরন",
     "emptyMessage": "এই পরিসরে কোনো সারি নেই।",
-    "payments": "পেমেন্ট",
     "collected": "আদায়",
     "reversed": "বাতিল",
     "net": "নিট",
@@ -57,15 +55,16 @@
     "date": "তারিখ",
     "unknownCollector": "অজানা",
     "byMethodTitle": "পদ্ধতি অনুযায়ী আদায়",
-    "byMethodHelp": "কোন পথে কত টাকা এসেছে।",
+    "byMethodHelp": "কোন পথে কত টাকা এসেছে। এন্ট্রির মধ্যে বাতিলও ধরা আছে।",
     "byCollectorTitle": "আদায়কারী অনুযায়ী",
-    "byCollectorHelp": "কে কত টাকা নিয়েছেন — দিনশেষে হাতের টাকা মেলাতে।",
+    "byCollectorHelp": "কে কত টাকা নিয়েছেন — দিনশেষে হাতের টাকা মেলাতে। এন্ট্রির মধ্যে বাতিলও ধরা আছে।",
     "byFeeTypeTitle": "ফির ধরন অনুযায়ী",
     "byFeeTypeHelp": "কোন ফি বাবদ কত টাকা এসেছে, আর কত ছাড় গেছে।",
     "byDayTitle": "দিন অনুযায়ী",
     "byDayHelp": "প্রতিদিনের আদায়, পুরোনো দিন আগে।",
-    "rowCaption": "{{count}}টি পেমেন্ট · বাতিল {{amount}}",
-    "emptyExplanation": "অন্য তারিখের পরিসর বা ফিল্টার বেছে দেখুন।"
+    "rowCaption": "{{n}}টি এন্ট্রি · বাতিল {{amount}}",
+    "emptyExplanation": "অন্য তারিখের পরিসর বা ফিল্টার বেছে দেখুন।",
+    "entries": "এন্ট্রি"
   },
   "subtitleAllMethods": "সব পদ্ধতি",
   "subtitleAllCollectors": "সব আদায়কারী"
