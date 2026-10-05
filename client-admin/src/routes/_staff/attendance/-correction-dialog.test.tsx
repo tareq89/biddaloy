@@ -1,4 +1,5 @@
 import { AttendanceStatus } from '@biddaloy/shared';
+import { toast } from '@biddaloy/ui/components';
 import type { RegisterStudent } from '@biddaloy/ui/hooks';
 import { cleanupTestState, renderWithProviders, server } from '@biddaloy/ui/test';
 import { screen, waitFor } from '@testing-library/react';
@@ -42,6 +43,7 @@ function renderDialog(props: Partial<CorrectionDialogProps> = {}) {
 
 describe('CorrectionDialog', () => {
   afterEach(async () => {
+    vi.restoreAllMocks();
     await cleanupTestState();
   });
 
@@ -120,6 +122,35 @@ describe('CorrectionDialog', () => {
 
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
     expect(received).toEqual({ status: 'PRESENT', reason: 'Slip submitted late' });
+  });
+
+  it('shows the translated error toast, never the server message, on a 500', async () => {
+    const toastSpy = vi.spyOn(toast, 'error').mockImplementation(() => '');
+    server.use(
+      http.patch('/api/v1/attendance/records/record-1', () =>
+        HttpResponse.json(
+          {
+            statusCode: 500,
+            message: 'duplicate key value violates constraint',
+            timestamp: new Date().toISOString(),
+            path: '/attendance/records/record-1',
+            requestId: 'req-1',
+          },
+          { status: 500 },
+        ),
+      ),
+    );
+
+    const { onOpenChange } = renderDialog();
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole('button', { name: /Mark Rahim Uddin Present/ }));
+    await user.type(screen.getByLabelText('Why did this change?'), 'Slip submitted late');
+    await user.click(screen.getByRole('button', { name: 'Save correction' }));
+
+    await waitFor(() => expect(toastSpy).toHaveBeenCalledWith('Could not save correction'));
+    expect(toastSpy).toHaveBeenCalledTimes(1);
+    expect(onOpenChange).not.toHaveBeenCalledWith(false);
   });
 
   it('renders a 422 error inline on the reason field, not as a toast', async () => {

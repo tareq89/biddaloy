@@ -16,9 +16,6 @@
   "list": {
     "title": "উপস্থিতি",
     "caption": "আপনি যে শাখাগুলোর উপস্থিতি নেন",
-    "columnSection": "শাখা",
-    "columnStudents": "শিক্ষার্থী",
-    "columnToday": "আজ",
     "notMarked": "চিহ্নিত হয়নি",
     "draft": "খসড়া",
     "marked": "চিহ্নিত {{present}}/{{total}}",
@@ -28,10 +25,15 @@
     "loadingLabel": "আপনার শাখাগুলো লোড হচ্ছে",
     "forbidden": "উপস্থিতি দেখার অনুমতি আপনার নেই।",
     "errorMessage": "আপনার শাখাগুলো লোড করা যায়নি।",
-    "retry": "আবার চেষ্টা করুন"
+    "retry": "আবার চেষ্টা করুন",
+    "subtitle_one": "আজ {{date}} · {{count}}টি শাখা বাকি",
+    "subtitle_other": "আজ {{date}} · {{count}}টি শাখা বাকি",
+    "subtitleDone": "আজ {{date}} · সব শাখার উপস্থিতি জমা হয়েছে",
+    "studentCount_one": "{{count}} জন শিক্ষার্থী",
+    "studentCount_other": "{{count}} জন শিক্ষার্থী"
   },
   "mark": {
-    "title": "{{className}} {{sectionName}}",
+    "title": "{{className}} – {{sectionName}}",
     "presentCount": "উপস্থিত {{n}}",
     "absentCount": "অনুপস্থিত {{n}}",
     "lateCount": "বিলম্বে {{n}}",
@@ -41,7 +43,7 @@
     "undo": "পূর্বাবস্থায় ফেরান",
     "undoToast": "উপস্থিতি রিসেট হয়েছে",
     "shortcutHint": "শর্টকাট: P উপস্থিত · A অনুপস্থিত · L বিলম্বে · V ছুটি · Space টগল · Shift+P সবাই উপস্থিত · Ctrl/Cmd+Enter জমা দিন",
-    "submitOnline": "রেজিস্টার জমা দিন",
+    "submitOnline": "উপস্থিতি জমা দিন",
     "submitOffline": "ডিভাইসে সংরক্ষণ করুন",
     "submitting": "জমা হচ্ছে…",
     "unmarkedRemaining": "{{n}} জন অচিহ্নিত",
@@ -65,7 +67,12 @@
     "historyAction": "ইতিহাস",
     "editedBadge": "সম্পাদিত",
     "editedBadgeTooltip_one": "{{count}} বার সংশোধিত",
-    "editedBadgeTooltip_other": "{{count}} বার সংশোধিত"
+    "editedBadgeTooltip_other": "{{count}} বার সংশোধিত",
+    "dateLabel": "তারিখ",
+    "leaveCount": "ছুটি {{n}}",
+    "stateFinalized": "জমা হয়েছে",
+    "rosterHeading": "শিক্ষার্থীর তালিকা",
+    "loadError": "এই শাখার উপস্থিতি আনা যায়নি।"
   },
   "conflict": {
     "title": "আপনি লোড করার পর থেকে এই রেজিস্টার পরিবর্তিত হয়েছে",
@@ -103,7 +110,7 @@
     "retry": "আবার চেষ্টা করুন",
     "entryChange": "{{from}} → {{to}}",
     "entryActor": "সংশোধন করেছেন {{actor}}",
-    "entryActorUnknownName": "ব্যবহারকারী {{actorId}} সংশোধন করেছেন",
+    "entryActorUnknownName": "একজন ব্যবহারকারী সংশোধন করেছেন",
     "close": "বন্ধ করুন"
   },
   "reports": {

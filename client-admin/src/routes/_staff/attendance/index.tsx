@@ -4,18 +4,23 @@
  * see the plan's "Plan corrections" on why this is not a client-side
  * filter over the tenant's whole class/section list).
  *
- * Whole row links to `/attendance/$sectionId`; today's mark state renders
- * as a small pill built from the same `status-*` design tokens
- * `StatusBadge` uses elsewhere (not routed through `StatusBadge` itself —
- * its `domain`/`status` API renders a static, translated label per
- * status, and "Marked 39/42" needs a live count baked into the label,
- * which that API does not express).
+ * Each section is a link card to `/attendance/$sectionId`; unfinished
+ * sections (not marked, then draft) sort before submitted ones.
  */
 import { ApiError } from '@biddaloy/ui/api';
-import { EmptyState, ErrorState, RoutePending, Skeleton } from '@biddaloy/ui/components';
+import {
+  EmptyState,
+  ErrorState,
+  RoutePending,
+  Skeleton,
+  StatusBadge,
+} from '@biddaloy/ui/components';
 import { mySectionsQueryOptions, useMySections, type MySection } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { PageContainer, PageHeader } from '@biddaloy/ui/shells';
+import { formatDate } from '@biddaloy/ui/utils';
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
+import { CalendarCheck2, ChevronRight } from 'lucide-react';
 
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 
@@ -39,63 +44,56 @@ export const Route = createFileRoute('/_staff/attendance/')({
   component: AttendanceListPage,
 });
 
-function todayTone(section: MySection): 'success' | 'warning' | 'neutral' {
-  if (!section.today) return 'neutral';
-  return section.today.state === 'FINALIZED' ? 'success' : 'warning';
+function rank(section: MySection): number {
+  if (!section.today) return 0;
+  return section.today.state === 'FINALIZED' ? 2 : 1;
 }
 
-const TONE_CLASSES: Record<'success' | 'warning' | 'neutral', string> = {
-  success: 'text-status-paid-fg bg-status-paid-bg',
-  warning: 'text-status-due-fg bg-status-due-bg',
-  neutral: 'text-muted-foreground bg-muted',
-};
-
-function TodayPill({ section }: { section: MySection }) {
+function TodayBadge({ section }: { section: MySection }) {
   const { t } = useTranslation('attendance');
-  const tone = todayTone(section);
-  const label = !section.today
-    ? t('list.notMarked')
-    : section.today.state === 'FINALIZED'
-      ? t('list.marked', {
-          present: section.today.present + section.today.late,
-          total:
-            section.today.present + section.today.absent + section.today.late + section.today.leave,
-        })
-      : t('list.draft');
+  const today = section.today;
+  if (!today) return <StatusBadge tone="warning" label={t('list.notMarked')} />;
+  if (today.state !== 'FINALIZED') return <StatusBadge tone="info" label={t('list.draft')} />;
   return (
-    <span
-      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${TONE_CLASSES[tone]}`}
-    >
-      {label}
-    </span>
+    <StatusBadge
+      tone="success"
+      label={t('list.marked', {
+        present: today.present + today.late,
+        total: today.present + today.absent + today.late + today.leave,
+      })}
+    />
   );
 }
 
 function AttendanceListPage() {
   const { t } = useTranslation('attendance');
+  const regionConfig = useTenantRegionConfig();
   const query = useMySections();
   const navigate = useNavigate();
 
   if (query.isPending) {
     return (
-      <div className="flex flex-col gap-2 p-4" aria-hidden="true">
-        <Skeleton className="h-14 w-full" />
-        <Skeleton className="h-14 w-full" />
-        <Skeleton className="h-14 w-full" />
-      </div>
+      <PageContainer>
+        <div aria-busy="true" className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          <span className="sr-only">{t('list.loadingLabel')}</span>
+          <Skeleton className="h-20 rounded-lg" />
+          <Skeleton className="h-20 rounded-lg" />
+          <Skeleton className="h-20 rounded-lg" />
+        </div>
+      </PageContainer>
     );
   }
 
   if (query.isError) {
     const forbidden = query.error instanceof ApiError && query.error.statusCode === 403;
     return (
-      <div className="p-4">
+      <PageContainer>
         <ErrorState
           message={forbidden ? t('list.forbidden') : t('list.errorMessage')}
           retryLabel={t('list.retry')}
           onRetry={() => void query.refetch()}
         />
-      </div>
+      </PageContainer>
     );
   }
 
@@ -103,8 +101,9 @@ function AttendanceListPage() {
 
   if (sections.length === 0) {
     return (
-      <div className="p-4">
+      <PageContainer>
         <EmptyState
+          icon={<CalendarCheck2 />}
           title={t('list.emptyTitle')}
           explanation={t('list.emptyExplanation')}
           action={{
@@ -112,39 +111,62 @@ function AttendanceListPage() {
             onClick: () => void navigate({ to: '/dashboard' }),
           }}
         />
-      </div>
+      </PageContainer>
     );
   }
 
+  const today = todayIso();
+  const pending = sections.filter((s) => s.today?.state !== 'FINALIZED').length;
+  const date = formatDate(today, regionConfig);
+  // Array.prototype.sort is stable: server order is kept within a group.
+  const sorted = [...sections].sort((a, b) => rank(a) - rank(b));
+
   return (
-    <div className="flex flex-col gap-3 p-4">
-      <h1 className="text-lg font-semibold">{t('list.title')}</h1>
-      <ul className="flex flex-col gap-2">
-        {sections.map((section) => (
-          <li key={section.section_id}>
-            <Link
-              to="/attendance/$sectionId"
-              params={{ sectionId: section.section_id }}
-              search={{ date: todayIso() }}
-              className="flex min-h-14 items-center justify-between gap-3 rounded-lg border border-border-subtle bg-card px-4 py-2 no-underline hover:bg-muted"
-            >
-              <span className="flex flex-col">
-                <span className="font-medium">
-                  {section.class_name} {section.section_name}
+    <PageContainer>
+      <PageHeader
+        title={t('list.title')}
+        subtitle={
+          pending > 0
+            ? t('list.subtitle', { date, count: pending })
+            : t('list.subtitleDone', { date })
+        }
+      />
+      <section aria-labelledby="att-sections">
+        <h2 id="att-sections" className="sr-only">
+          {t('list.caption')}
+        </h2>
+        <ul className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {sorted.map((section) => (
+            <li key={section.section_id}>
+              <Link
+                to="/attendance/$sectionId"
+                params={{ sectionId: section.section_id }}
+                search={{ date: today }}
+                className="flex min-h-16 items-center gap-3 rounded-lg border border-border-subtle bg-surface p-4 no-underline shadow-e1 hover:bg-muted md:p-5"
+              >
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-h3">
+                    {t('mark.title', {
+                      className: section.class_name,
+                      sectionName: section.section_name,
+                    })}
+                  </span>
+                  <span className="mt-0.5 block text-text-secondary">
+                    {t('list.studentCount', { count: section.student_count })}
+                  </span>
                 </span>
-                <span className="text-sm text-muted-foreground">
-                  {t('list.columnStudents')}: {section.student_count}
-                </span>
-              </span>
-              <TodayPill section={section} />
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </div>
+                <TodayBadge section={section} />
+                <ChevronRight aria-hidden className="size-4 shrink-0 text-text-secondary" />
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </section>
+    </PageContainer>
   );
 }
 
 function AttendanceListPending() {
-  return <RoutePending variant="list" label="Loading" />;
+  const { t } = useTranslation('attendance');
+  return <RoutePending variant="list" label={t('list.loadingLabel')} />;
 }
