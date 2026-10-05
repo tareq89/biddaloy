@@ -1,21 +1,26 @@
 /**
  * [28.4.2] Surveys tab: every survey with its status, table on desktop and
  * cards on phone (`DataTable`'s own `card` roles, D23). The server returns
- * them all (no paging), so rows are shown in one page.
+ * them all (no paging), so the table is unpaginated. The page header owns the
+ * "New survey" button.
  */
-import { Button, type DataTableColumn } from '@biddaloy/ui/components';
+import {
+  DataTable,
+  StatusBadge,
+  type DataTableColumn,
+  type StatusTone,
+} from '@biddaloy/ui/components';
 import { useSurveys, type Survey } from '@biddaloy/ui/hooks';
 import { useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
-import { ListShell } from '@biddaloy/ui/shells';
 import { formatDate } from '@biddaloy/ui/utils';
-import { Link } from '@tanstack/react-router';
 
-export interface SurveysListProps {
-  /** Opens the create dialog; omitted for a caller who cannot write. */
-  onNew?: () => void;
-}
+export const SURVEY_STATUS_TONE: Record<string, StatusTone> = {
+  DRAFT: 'neutral',
+  OPEN: 'success',
+  CLOSED: 'info',
+};
 
-export function SurveysList({ onNew }: SurveysListProps) {
+export function SurveysList() {
   const { t } = useTranslation('evaluations');
   const regionConfig = useTenantRegionConfig();
   const query = useSurveys();
@@ -25,16 +30,7 @@ export function SurveysList({ onNew }: SurveysListProps) {
     {
       id: 'title',
       header: t('surveys.columnTitle'),
-      accessorFn: (row) => (
-        <Link
-          to="/staff/evaluations/surveys/$surveyId"
-          params={{ surveyId: row.id }}
-          data-focus-anchor={row.id}
-          className="font-medium underline"
-        >
-          {row.title}
-        </Link>
-      ),
+      accessorFn: (row) => <span className="font-medium">{row.title}</span>,
       card: 'title',
     },
     {
@@ -46,7 +42,12 @@ export function SurveysList({ onNew }: SurveysListProps) {
     {
       id: 'status',
       header: t('surveys.columnStatus'),
-      accessorFn: (row) => t(`surveys.status.${row.status}`),
+      accessorFn: (row) => (
+        <StatusBadge
+          tone={SURVEY_STATUS_TONE[row.status] ?? 'neutral'}
+          label={t(`surveys.status.${row.status}`)}
+        />
+      ),
       card: 'badge',
     },
     {
@@ -58,17 +59,7 @@ export function SurveysList({ onNew }: SurveysListProps) {
   ];
 
   return (
-    <ListShell
-      title={t('surveys.title')}
-      {...(onNew
-        ? {
-            primaryAction: (
-              <Button type="button" onClick={onNew}>
-                {t('surveys.new')}
-              </Button>
-            ),
-          }
-        : {})}
+    <DataTable
       tableId="surveys-list"
       caption={t('surveys.title')}
       columns={columns}
@@ -76,15 +67,21 @@ export function SurveysList({ onNew }: SurveysListProps) {
       getRowId={(row) => row.id}
       sorting={null}
       onSortingChange={() => undefined}
-      page={1}
-      pageSize={Math.max(rows.length, 1)}
       totalCount={rows.length}
-      onPageChange={() => undefined}
+      paginated={false}
+      rowActions={(row) => [
+        {
+          intent: 'view',
+          label: t('surveys.open'),
+          to: `/staff/evaluations/surveys/${row.id}`,
+          'data-focus-anchor': row.id,
+        },
+      ]}
       loading={query.isLoading}
       loadingMessage={t('surveys.loading')}
       isFetching={query.isFetching}
       {...(query.isError ? { error: t('surveys.loadError') } : {})}
-      emptyMessage={t('surveys.empty')}
+      emptyState={{ title: t('surveys.empty'), explanation: t('surveys.emptyBody') }}
     />
   );
 }

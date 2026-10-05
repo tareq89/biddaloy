@@ -104,6 +104,11 @@ test.describe('admin closes', () => {
       await more.click();
       await page.getByRole('menuitem', { name: closeName, exact: true }).click();
     }
+    // Closing is irreversible, so it confirms first.
+    await page
+      .getByRole('alertdialog')
+      .getByRole('button', { name: closeName, exact: true })
+      .click();
     await expect(page.getByRole('status').filter({ hasText: /[1১]/ }).first()).toBeVisible();
     // No average is shown while sealed.
     await expect(page.getByText(/Average|গড়/)).toHaveCount(0);
