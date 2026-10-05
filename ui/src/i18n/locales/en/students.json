@@ -109,13 +109,16 @@
     },
     "enrollment": {
       "columnClass": "Class",
-      "columnSection": "Section",
       "columnAcademicYear": "Academic year",
       "columnStatus": "Status",
       "columnEnrolledAt": "Enrolled on",
       "emptyMessage": "No enrolment history yet.",
       "errorMessage": "Couldn't load enrolment history.",
-      "moveClassAction": "Move class"
+      "moveClassAction": "Move class",
+      "title": "Enrolment history",
+      "classValue": "{{class}} · Section {{section}}",
+      "cardSubtitle": "{{class}} · Enrolled {{date}}",
+      "emptyExplanation": "Class moves and new-year enrolments show up here."
     },
     "fees": {
       "totalBilled": "Total billed",
@@ -234,9 +237,9 @@
       "title": "Move class",
       "description": "Move {{name}} to a different class or section.",
       "classLabel": "Class",
-      "classPlaceholder": "Select a class",
+      "classPlaceholder": "Select",
       "sectionLabel": "Section",
-      "sectionPlaceholder": "Select a section",
+      "sectionPlaceholder": "Select",
       "capacityWarning": "This section is at capacity ({{enrolled}}/{{capacity}}). You can still proceed.",
       "confirm": "Move",
       "moving": "Moving…",
@@ -257,6 +260,13 @@
     },
     "fines": {
       "errorMessage": "Couldn't load fines."
+    },
+    "subjects": {
+      "emptyExplanation": "This class has no optional subjects to choose."
+    },
+    "programs": {
+      "emptyExplanation": "Enrol the student in a program to track progress here.",
+      "since": "Since {{date}}"
     }
   },
   "new": {
