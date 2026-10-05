@@ -138,9 +138,9 @@ describe('/portal/results', () => {
     mockResults({ students: [fatima], results: { 'student-1': [] } });
     renderResults();
 
-    expect(
-      await screen.findByText(/Results appear here once the school publishes them/),
-    ).toBeTruthy();
+    expect(await screen.findByRole('heading', { level: 2, name: 'No results yet' })).toBeTruthy();
+    expect(screen.getByText('Results appear here once the school publishes them.')).toBeTruthy();
+    expect(screen.getByRole('heading', { level: 1, name: 'Results' })).toBeTruthy();
   });
 
   it('lets a multi-child guardian switch students, re-querying for the chosen child', async () => {
@@ -192,21 +192,51 @@ describe('/portal/results', () => {
     expect(printTargetHiddenInPrint).toBe(false);
   });
 
-  it('expanding a row shows the subject breakdown', async () => {
+  it('opens the newest card on load and the others only when asked', async () => {
+    const requested: string[] = [];
     mockResults({
       students: [fatima],
-      results: { 'student-1': [resultRow('exam-1', 'First Term Exam', true)] },
-      cards: { 'student-1:exam-1': card('First Term Exam') },
+      results: {
+        'student-1': [
+          resultRow('exam-2', 'Half Yearly Exam', true),
+          resultRow('exam-1', 'First Term Exam', true),
+        ],
+      },
+      cards: {
+        'student-1:exam-2': card('Half Yearly Exam'),
+        'student-1:exam-1': {
+          ...card('First Term Exam'),
+          subjects: [{ ...card('x').subjects[0], subject_id: 'subj-2', subject_name: 'Physics' }],
+        },
+      },
+    });
+    server.events.on('request:start', ({ request }) => {
+      requested.push(new URL(request.url).pathname);
     });
     renderResults();
 
-    const summary = await screen.findByText('First Term Exam');
-    await userEvent.click(summary);
-
+    // The newest (first) card's table is there without a click.
     expect(await screen.findByText('Mathematics')).toBeTruthy();
+    expect(screen.queryByText('Physics')).toBeNull();
+    expect(requested.filter((path) => path.includes('/results/'))).toEqual([
+      '/api/v1/students/student-1/results/exam-2',
+    ]);
+
+    const buttons = screen.getAllByRole('button', { name: 'Show subject marks' });
+    expect(buttons).toHaveLength(1);
+    expect(
+      screen.getByRole('button', { name: 'Hide subject marks' }).getAttribute('aria-expanded'),
+    ).toBe('true');
+    expect(buttons[0]?.getAttribute('aria-expanded')).toBe('false');
+
+    await userEvent.click(buttons[0]!);
+
+    expect(await screen.findByText('Physics')).toBeTruthy();
+    expect(buttons[0]?.getAttribute('aria-expanded')).toBe('true');
+    server.events.removeAllListeners();
   });
 
-  it('shows an inline message when an expanded row cannot load its breakdown', async () => {
+  it('shows an inline message when an open card cannot load its breakdown', async () => {
     // No `cards` entry, so the breakdown request 404s.
     mockResults({
       students: [fatima],
@@ -214,14 +244,12 @@ describe('/portal/results', () => {
     });
     renderResults();
 
-    await userEvent.click(await screen.findByText('First Term Exam'));
-
     expect(await screen.findByText("Could not load this exam's breakdown.")).toBeTruthy();
-    // The rest of the page is untouched — only this row's breakdown failed.
-    expect(screen.getByRole('heading', { name: 'Results' })).toBeTruthy();
+    // The rest of the page is untouched — only this card's breakdown failed.
+    expect(screen.getByRole('heading', { level: 1, name: 'Results' })).toBeTruthy();
   });
 
-  it('tags only the failed exam with "Fail" when several exams are listed', async () => {
+  it('badges every exam Pass or Fail', async () => {
     mockResults({
       students: [fatima],
       results: {
@@ -233,10 +261,67 @@ describe('/portal/results', () => {
     });
     renderResults();
 
-    const failedSummary = (await screen.findByText('Half Yearly Exam')).closest('summary')!;
-    const passedSummary = screen.getByText('First Term Exam').closest('summary')!;
-    expect(within(failedSummary).getByText('Fail')).toBeTruthy();
-    expect(within(passedSummary).queryByText('Fail')).toBeNull();
+    const failed = (
+      await screen.findByRole('heading', { level: 2, name: 'Half Yearly Exam' })
+    ).closest('article') as HTMLElement;
+    const passed = screen
+      .getByRole('heading', { level: 2, name: 'First Term Exam' })
+      .closest('article') as HTMLElement;
+    expect(within(failed).getByText('Fail')).toBeTruthy();
+    expect(within(failed).queryByText('Pass')).toBeNull();
+    expect(within(passed).getByText('Pass')).toBeTruthy();
+    expect(within(passed).queryByText('Fail')).toBeNull();
+  });
+
+  it('shows GPA with two decimals, the kind label, and a dash for no position', async () => {
+    mockResults({
+      students: [fatima],
+      results: {
+        'student-1': [resultRow('exam-1', 'First Term Exam', true, { gpa: 4.5, position: null })],
+      },
+    });
+    renderResults();
+
+    const article = (
+      await screen.findByRole('heading', { level: 2, name: 'First Term Exam' })
+    ).closest('article') as HTMLElement;
+    const fact = (label: string) =>
+      within(article).getByText(label).nextElementSibling?.textContent;
+    expect(fact('GPA')).toBe('4.50');
+    expect(fact('Grade')).toBe('A+');
+    expect(fact('Total marks')).toBe('450');
+    expect(fact('Position')).toBe('—');
+    expect(within(article).getByText('Term')).toBeTruthy();
+  });
+
+  it('tags the fourth subject in the breakdown table', async () => {
+    const withFourth = card('First Term Exam');
+    withFourth.subjects = [{ ...withFourth.subjects[0]!, is_fourth_subject: true }];
+    mockResults({
+      students: [fatima],
+      results: { 'student-1': [resultRow('exam-1', 'First Term Exam', true)] },
+      cards: { 'student-1:exam-1': withFourth },
+    });
+    renderResults();
+
+    const table = await screen.findByRole('table');
+    expect(within(table).getByText('4th subject')).toBeTruthy();
+  });
+
+  it('renders numbers in Bangla digits when the locale is bn', async () => {
+    mockResults({
+      students: [fatima],
+      results: { 'student-1': [resultRow('exam-1', 'First Term Exam', true)] },
+    });
+    const { localeReady } = renderResults('/portal/results', 'bn');
+    await localeReady;
+
+    const article = (
+      await screen.findByRole('heading', { level: 2, name: 'First Term Exam' })
+    ).closest('article') as HTMLElement;
+    expect(within(article).getByText('৪৫০')).toBeTruthy();
+    expect(within(article).getByText('৫.০০')).toBeTruthy();
+    expect(within(article).getByText('উত্তীর্ণ')).toBeTruthy();
   });
 
   it('shows only the roll number for a student with no class', async () => {
@@ -294,5 +379,17 @@ describe('/portal/results', () => {
     expect(resultsRequests).toBe(1);
     await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
     await waitFor(() => expect(resultsRequests).toBe(2));
+  });
+
+  it('is axe clean', async () => {
+    mockResults({
+      students: [fatima],
+      results: { 'student-1': [resultRow('exam-1', 'First Term Exam', true)] },
+      cards: { 'student-1:exam-1': card('First Term Exam') },
+    });
+    const { container } = renderResults();
+
+    await screen.findByRole('table');
+    await expect(container).toHaveNoViolations();
   });
 });
