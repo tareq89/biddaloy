@@ -53,11 +53,17 @@ const intakeKeys = {
   detail: (id: string) => [...intakeKeys.all, 'detail', id] as const,
 };
 
+/** List rows also carry the names (server `intake.service.ts`), so the list never shows an id. */
+export type IntakeListRow = AdmissionIntake & {
+  class_name: string | null;
+  section_name: string | null;
+};
+
 export function intakesQueryOptions() {
   return queryOptions({
     queryKey: intakeKeys.lists(),
     queryFn: async () => {
-      const res = await apiClient.get<AdmissionIntake[]>('/admission-intakes');
+      const res = await apiClient.get<IntakeListRow[]>('/admission-intakes');
       return res.data;
     },
   });
