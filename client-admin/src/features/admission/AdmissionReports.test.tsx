@@ -98,7 +98,9 @@ describe('AdmissionReports', () => {
     expect(await screen.findByText('Nadia Akter')).toBeTruthy();
     expect(screen.getByText('R-102')).toBeTruthy();
     expect(screen.getByText('Transferred out')).toBeTruthy();
-    expect(screen.getAllByText('—').length).toBeGreaterThan(0);
+    // Nadia's row has no reg. no. and no reason: dashes in the table (cards repeat them)
+    const nadia = within(screen.getByRole('table')).getByText('Nadia Akter').closest('tr')!;
+    expect(within(nadia).getAllByText('—')).toHaveLength(3);
     // defaults to the current year
     expect(requests[0]?.get('academic_year_id')).toBe('y-now');
   });

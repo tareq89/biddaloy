@@ -46,6 +46,9 @@ export interface PublicAdmissionFormProps {
 
 const GENDER_OPTIONS = ['MALE', 'FEMALE', 'OTHER'] as const;
 
+// Same loose shape the browser's type=email check accepts; the server stays the real gate.
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 const SECTION = 'space-y-4 border-t border-border-subtle pt-5';
 
 export function PublicAdmissionForm({ slug, onSubmitted }: PublicAdmissionFormProps) {
@@ -99,6 +102,8 @@ export function PublicAdmissionForm({ slug, onSubmitted }: PublicAdmissionFormPr
     if (guardianName.trim() === '') found['guardian-name'] = t('form.errors.required');
     if (guardianPhone.trim() === '') found['guardian-phone'] = t('form.errors.required');
     else if (!guardianPhoneValid) found['guardian-phone'] = t('form.errors.phone');
+    if (guardianEmail.trim() !== '' && !EMAIL_RE.test(guardianEmail.trim()))
+      found['guardian-email'] = t('form.errors.email');
     for (const type of selectedIntake?.required_document_types ?? []) {
       const field = documentFieldName(type);
       if (!documents[field]) found[`doc-${field}`] = t('form.errors.document');
@@ -403,8 +408,13 @@ export function PublicAdmissionForm({ slug, onSubmitted }: PublicAdmissionFormPr
                 id="guardian-email"
                 type="email"
                 value={guardianEmail}
-                onChange={(event) => setGuardianEmail(event.target.value)}
+                onChange={(event) => {
+                  setGuardianEmail(event.target.value);
+                  clearError('guardian-email');
+                }}
+                {...invalid('guardian-email')}
               />
+              {fieldError('guardian-email')}
             </div>
 
             <div className="grid gap-1.5">
@@ -432,12 +442,19 @@ export function PublicAdmissionForm({ slug, onSubmitted }: PublicAdmissionFormPr
                 const Icon = type === 'PHOTO' ? FileImageIcon : FileTextIcon;
                 return (
                   <div key={field} className="grid content-start gap-1.5">
-                    <span className="text-label">
+                    <span id={`${errorId}-label`} className="text-label">
                       {t(`form.documents.${type}`)}
                       {requiredMark}
                     </span>
                     {/* Focus target for the first-error jump (the real control is a button). */}
-                    <div id={errorId} tabIndex={-1} className="outline-none">
+                    <div
+                      id={errorId}
+                      tabIndex={-1}
+                      role="group"
+                      aria-labelledby={`${errorId}-label`}
+                      {...invalid(errorId)}
+                      className="outline-none"
+                    >
                       {file ? (
                         <div className="flex items-center gap-2 rounded-md border border-border-subtle p-1 ps-3">
                           <Icon className="size-4 shrink-0 text-text-secondary" aria-hidden />
@@ -448,13 +465,15 @@ export function PublicAdmissionForm({ slug, onSubmitted }: PublicAdmissionFormPr
                             size="icon"
                             className="size-11 text-destructive"
                             aria-label={t('form.documents.remove', { name: file.name })}
-                            onClick={() =>
+                            onClick={() => {
                               setDocuments((current) => {
                                 const next = { ...current };
                                 delete next[field];
                                 return next;
-                              })
-                            }
+                              });
+                              // The focused button unmounts: keep focus in this field.
+                              document.getElementById(errorId)?.focus();
+                            }}
                           >
                             <XIcon aria-hidden />
                           </Button>

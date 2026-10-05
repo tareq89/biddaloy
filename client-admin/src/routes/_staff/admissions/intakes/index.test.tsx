@@ -147,14 +147,15 @@ describe('/admissions/intakes', () => {
       locale: 'en',
     });
 
-    expect((await screen.findAllByText('Class 5 · A')).length).toBeGreaterThan(0);
+    const row = within(await screen.findByRole('table'));
+    expect(row.getByText('Class 5 · A')).toBeTruthy();
+    expect(row.getByText('Open')).toBeTruthy();
     expect(screen.queryByText('section-1')).toBeNull();
     expect(screen.queryByText(/2026-01-10/)).toBeNull();
-    expect(screen.getAllByText('Open').length).toBeGreaterThan(0);
-    expect(
-      screen.getAllByRole('link', { name: 'View applicants' })[0]?.getAttribute('href'),
-    ).toContain('/admissions/applicants?intakeId=intake-1');
-    expect(screen.getAllByRole('link', { name: 'Edit' })[0]?.getAttribute('href')).toBe(
+    expect(row.getByRole('link', { name: 'View applicants' }).getAttribute('href')).toContain(
+      '/admissions/applicants?intakeId=intake-1',
+    );
+    expect(row.getByRole('link', { name: 'Edit' }).getAttribute('href')).toBe(
       '/admissions/intakes/intake-1',
     );
   });
@@ -211,7 +212,7 @@ describe('/admissions/intakes', () => {
     await waitFor(() => expect((titleInput as HTMLInputElement).value).toBe('Original title'));
     // crumbless shell check: header has the title, a status badge and the applicants link
     expect(screen.getByRole('heading', { level: 1, name: 'Original title' })).toBeTruthy();
-    expect(screen.getByText('3 applications received')).toBeTruthy();
+    expect(screen.getByText('৩ applications received')).toBeTruthy();
     expect(screen.getByRole('link', { name: 'View applicants' }).getAttribute('href')).toContain(
       '/admissions/applicants?intakeId=intake-1',
     );
@@ -225,6 +226,36 @@ describe('/admissions/intakes', () => {
 
     await waitFor(() => expect(intake.title).toBe('Updated title'));
     await waitFor(() => expect(toastSuccess).toHaveBeenCalledWith('Saved'));
+  });
+
+  it('prints the applicant count in the tenant numerals (Bangla digits in bn)', async () => {
+    mockClassAndSection();
+    server.use(
+      http.get('/api/v1/admission/applicants', () =>
+        HttpResponse.json([{ id: 'a1' }, { id: 'a2' }, { id: 'a3' }]),
+      ),
+      http.get('/api/v1/admission-intakes/:id', () =>
+        HttpResponse.json({
+          id: 'intake-1',
+          title: 'Original title',
+          class_section_id: section.id,
+          seat_count: 20,
+          open_date: '2026-01-01',
+          close_date: '2026-02-01',
+          required_document_types: [],
+          status: 'OPEN',
+          created_at: '2026-01-01T00:00:00.000Z',
+          updated_at: '2026-01-01T00:00:00.000Z',
+        }),
+      ),
+    );
+    renderWithRouter(routeTree, {
+      initialEntries: ['/admissions/intakes/intake-1'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'bn',
+    });
+    expect(await screen.findByText('৩টি আবেদন জমা পড়েছে')).toBeTruthy();
   });
 
   it('Cancel on the round page returns to the list', async () => {
@@ -303,7 +334,8 @@ describe('/admissions/intakes', () => {
       locale: 'en',
     });
 
-    expect(await screen.findByText('Failed to save admission round')).toBeTruthy();
+    expect(await screen.findByText('Failed to load this round')).toBeTruthy();
+    expect(screen.queryByText('Failed to save admission round')).toBeNull();
   });
 
   it('refuses the whole route for TEACHER, who lacks ADMISSION_REVIEW', async () => {

@@ -79,6 +79,21 @@ describe('/admission/$slug/status public status check', () => {
     expect(screen.queryByText(/WAITLIST/)).toBeNull();
   });
 
+  it('treats an inherited property name as an unknown status', async () => {
+    server.use(
+      http.post('/api/v1/public/admission/:slug/status', () =>
+        HttpResponse.json({ status: 'toString', applicant_name: 'Rahim', intake_title: 'C1' }),
+      ),
+    );
+    const user = userEvent.setup();
+    renderWithRouter(routeTree, { initialEntries: ['/admission/a-school/status'], locale: 'en' });
+    await user.type(await screen.findByLabelText(/Your reference number/), 'ADM-1');
+    await user.type(screen.getByLabelText(/Parent\/guardian's phone number/), '01700000000');
+    await user.click(screen.getByRole('button', { name: 'Check status' }));
+    expect(await screen.findByText('Unknown')).toBeTruthy();
+    expect(screen.queryByText('toString')).toBeNull();
+  });
+
   it('asks for both fields with a translated message instead of sending an empty check', async () => {
     let posts = 0;
     server.use(
