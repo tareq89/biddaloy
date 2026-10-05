@@ -167,21 +167,23 @@
     "columnCountry": "দেশ",
     "columnYear": "বছর",
     "columnSource": "উৎস",
-    "columnEntries": "এন্ট্রি",
-    "columnPublished": "প্রকাশিত",
-    "emptyMessage": "এখনো কোনো ছুটির তালিকা নেই। শুরু করতে একটি আনুন।",
+    "columnEntries": "ছুটি",
+    "columnPublished": "অবস্থা",
+    "emptyMessage": "কোনো দেশের এক বছরের সরকারি ছুটি আনলে তালিকা এখানে দেখা যাবে।",
     "errorMessage": "ছুটির তালিকা লোড করা যায়নি।",
     "published": "প্রকাশিত",
     "draft": "খসড়া",
     "fetchAction": "তালিকা আনুন",
     "fetchDialog": {
       "title": "একটি ছুটির তালিকা আনুন",
-      "countryLabel": "দেশ (ISO alpha-2, যেমন BD)",
+      "countryLabel": "দেশের কোড",
       "yearLabel": "বছর",
       "submitAction": "আনুন",
       "fetching": "আনা হচ্ছে…",
       "countryRequiredError": "একটি ২-অক্ষরের দেশ কোড লিখুন।",
-      "errorMessage": "কোনো উৎস থেকেই এই তালিকা আনা যায়নি।"
+      "errorMessage": "কোনো উৎস থেকেই এই তালিকা আনা যায়নি।",
+      "countryHelp": "দুই অক্ষরে, যেমন বাংলাদেশ = BD",
+      "yearError": "২০০০ থেকে ২১০০-এর মধ্যে একটি বছর দিন।"
     },
     "detail": {
       "back": "ছুটির তালিকায় ফিরে যান",
@@ -190,12 +192,12 @@
       "fetchedAtLabel": "আনা হয়েছে",
       "columnDate": "শুরুর তারিখ",
       "columnEndDate": "শেষ তারিখ",
-      "columnName": "নাম",
+      "columnName": "নাম (ইংরেজি)",
       "columnNameBn": "নাম (বাংলা)",
-      "columnActions": "কার্যক্রম",
+      "columnActions": "কাজ",
       "addRow": "ছুটি যোগ করুন",
       "removeRow": "সরান",
-      "emptyMessage": "এখনো কোনো এন্ট্রি নেই — নিচে একটি যোগ করুন।",
+      "emptyMessage": "প্রথম ছুটি যোগ করে সংরক্ষণ করুন।",
       "saveAction": "সংরক্ষণ করুন",
       "saving": "সংরক্ষণ হচ্ছে…",
       "saveSuccess": "এন্ট্রি সংরক্ষিত হয়েছে।",
@@ -220,7 +222,27 @@
         "description": "আপনার এন্ট্রি পরিবর্তনগুলো এখনো সংরক্ষিত হয়নি।",
         "stayAction": "সম্পাদনা চালিয়ে যান",
         "leaveAction": "চলে যান"
-      }
-    }
+      },
+      "optional": "ঐচ্ছিক",
+      "entriesTitle": "ছুটির দিন",
+      "entriesHelp": "একদিনের ছুটিতে শুরু আর শেষ একই তারিখ। বাংলা নাম না দিলে স্কুলে ইংরেজি নাম দেখাবে।",
+      "removeRowNamed": "{{name}} সরান",
+      "unnamed": "নাম নেই",
+      "emptyTitle": "এই তালিকায় কোনো ছুটি নেই",
+      "unsavedNotice": "সংরক্ষণ হয়নি এমন পরিবর্তন আছে",
+      "publishSuccess": "তালিকা প্রকাশিত হয়েছে।",
+      "unpublishSuccess": "তালিকা অপ্রকাশিত হয়েছে।"
+    },
+    "setName": "{{country}} {{year}}",
+    "source": {
+      "NAGER_DATE": "Nager.Date (অনলাইন তালিকা)",
+      "GOOGLE_ICS": "গুগল ক্যালেন্ডার",
+      "MANUAL": "নিজে লেখা"
+    },
+    "columnName": "তালিকা",
+    "entryCount_one": "{{count}}টি",
+    "entryCount_other": "{{count}}টি",
+    "editAction": "{{name}} সম্পাদনা করুন",
+    "emptyTitle": "এখনো কোনো ছুটির তালিকা নেই"
   }
 }
