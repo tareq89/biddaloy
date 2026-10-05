@@ -297,6 +297,18 @@ describe('usersTab (integration)', () => {
       expect(gone?.deleted_at).not.toBeNull();
     });
 
+    it('[13.2.1] a stale extra role is soft-deleted, never hard-deleted', async () => {
+      const user = await makeUser({ email: 'stale@tenant-a.test', full_name: 'Stale User' });
+      await makeMembership(user.id, TENANT_A, UserRole.TEACHER);
+      const extra = await makeMembership(user.id, TENANT_A, UserRole.OFFICE_STAFF);
+
+      const row = rowFor({ email: 'stale@tenant-a.test', role: UserRole.TEACHER });
+      await usersTab.upsert(row, null, TENANT_A, dataSource.manager);
+
+      const kept = await userTenantRepo.findOne({ where: { id: extra.id }, withDeleted: true });
+      expect(kept?.deleted_at).not.toBeNull();
+    });
+
     it('updates the membership role in place rather than adding a second row', async () => {
       const user = await makeUser({ email: 'rerole@tenant-a.test', full_name: 'Rerole User' });
       await makeMembership(user.id, TENANT_A, UserRole.TEACHER);

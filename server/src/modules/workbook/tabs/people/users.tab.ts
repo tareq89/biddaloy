@@ -335,7 +335,7 @@ export const usersTab: TabSpec<User, UserRow> = {
 
     if (provisioned) {
       const stale = memberships.filter((ut) => ut.id !== provisioned.id).map((ut) => ut.id);
-      if (stale.length > 0) await m.delete(UserTenant, { id: In(stale) });
+      if (stale.length > 0) await m.softDelete(UserTenant, { id: In(stale) });
     } else {
       const alreadyCorrect = memberships.find((ut) => ut.role === row.role);
 
@@ -362,7 +362,7 @@ export const usersTab: TabSpec<User, UserRow> = {
           // stale membership rows for this tenant would otherwise survive the
           // restore as an extra, no-longer-intended role.
           const stale = memberships.slice(1).map((ut) => ut.id);
-          if (stale.length > 0) await m.delete(UserTenant, { id: In(stale) });
+          if (stale.length > 0) await m.softDelete(UserTenant, { id: In(stale) });
         } else {
           // The unique index ignores soft-deletion: a former member (left or
           // removed) is restored, not re-inserted (23505).
@@ -388,7 +388,7 @@ export const usersTab: TabSpec<User, UserRow> = {
         // Right role already present — drop any OTHER role rows so D2's
         // one-role-per-tenant-per-user contract still holds.
         const stale = memberships.filter((ut) => ut.id !== alreadyCorrect.id).map((ut) => ut.id);
-        if (stale.length > 0) await m.delete(UserTenant, { id: In(stale) });
+        if (stale.length > 0) await m.softDelete(UserTenant, { id: In(stale) });
       }
     }
 
