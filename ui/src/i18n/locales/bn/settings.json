@@ -27,7 +27,7 @@
     "address": "ঠিকানা",
     "phone": "ফোন",
     "email": "ইমেইল",
-    "registrationId": "EIIN / নিবন্ধন আইডি",
+    "registrationId": "EIIN / নিবন্ধন নম্বর",
     "logo": {
       "legend": "লোগো",
       "alt": "স্কুলের লোগো",
@@ -39,8 +39,12 @@
       "remove": "লোগো সরান",
       "removeConfirm": "স্কুলের লোগো সরাতে চান?",
       "removeConfirmYes": "সরান",
-      "removeCancel": "বাতিল করুন"
-    }
+      "removeCancel": "বাতিল করুন",
+      "help": "PNG, JPEG বা WebP, ৫১২ KB পর্যন্ত। ছবি বাছাই করলেই সংরক্ষিত হয়।",
+      "removeConfirmDescription": "রসিদ ও প্রিন্টে আর লোগো দেখাবে না। পরে আবার আপলোড করা যাবে।",
+      "removeError": "লোগো সরানো যায়নি। আবার চেষ্টা করুন।"
+    },
+    "description": "রসিদ, চালান ও প্রিন্টে এই তথ্য দেখা যায়।"
   },
   "secret": {
     "configured": "কনফিগার করা আছে — শেষ {{hint}}",
@@ -59,7 +63,7 @@
     "success": "সংরক্ষিত হয়েছে"
   },
   "regional": {
-    "legend": "আঞ্চলিক",
+    "legend": "ভাষা, সংখ্যা ও তারিখ",
     "locale": "ভাষা ও সংখ্যার ধরন",
     "numerals": "সংখ্যা পদ্ধতি",
     "numeralsLatin": "ল্যাটিন (0-9)",
@@ -75,23 +79,30 @@
     "currencyGrouping": "সংখ্যা গ্রুপিং",
     "currencyGroupingLakhCrore": "লাখ/কোটি",
     "currencyGroupingThousand": "হাজার",
-    "dateLegend": "তারিখের ফরম্যাট",
-    "dateFormat": "তারিখের ফরম্যাট",
     "dateFirstDayOfWeek": "সপ্তাহের প্রথম দিন",
-    "dateCalendar": "ক্যালেন্ডার",
-    "phoneLegend": "ফোন ফরম্যাট",
-    "phoneCountry": "ফোন দেশের কোড",
-    "phonePattern": "ফোন নম্বরের প্যাটার্ন",
-    "phoneExample": "উদাহরণ ফোন নম্বর",
-    "phoneDisplayFormat": "ফোন প্রদর্শন ফরম্যাট",
-    "addressLegend": "ঠিকানা",
-    "addressFields": "ঠিকানার ক্ষেত্র (কমা দিয়ে আলাদা করুন)",
-    "addressOrder": "ঠিকানার ক্ষেত্রের ক্রম (কমা দিয়ে আলাদা করুন)",
-    "academicYearLegend": "শিক্ষাবর্ষ",
+    "phoneLegend": "ফোন নম্বর",
+    "phoneCountry": "ফোনের দেশ",
+    "phonePattern": "ফোন নম্বর যাচাইয়ের নিয়ম",
+    "phoneExample": "নমুনা ফোন নম্বর",
+    "phoneDisplayFormat": "ফোন নম্বর দেখানোর ধরন",
+    "addressFields": "ঠিকানার ঘর",
+    "addressOrder": "ঠিকানার ঘরের ক্রম",
     "academicYearStartMonth": "শিক্ষাবর্ষ শুরুর মাস",
-    "identifiersLegend": "পরিচয়পত্র",
-    "identifiersNational": "জাতীয় পরিচয়পত্রের ফরম্যাট",
-    "identifiersStudent": "শিক্ষার্থী আইডির ফরম্যাট"
+    "identifiersLegend": "ঠিকানা ও পরিচয় নম্বর",
+    "identifiersNational": "জাতীয় পরিচয়পত্র নম্বর যাচাইয়ের নিয়ম",
+    "identifiersStudent": "শিক্ষার্থী আইডি যাচাইয়ের নিয়ম",
+    "description": "সব পাতায় সংখ্যা, টাকা ও তারিখ যেভাবে দেখাবে।",
+    "localeBnBd": "বাংলা (বাংলাদেশ)",
+    "localeEnBd": "ইংরেজি (বাংলাদেশ)",
+    "keepCurrent": "এখনকার মান রাখুন",
+    "currencyPreview": "নমুনা: {{amount}}",
+    "advancedHelp": "সময় অঞ্চল, ফোন, ঠিকানা ও পরিচয় নম্বরের নিয়ম। সাধারণত বদলানোর দরকার হয় না; ভুল মান দিলে ফোন বা পরিচয় নম্বর যাচাই কাজ নাও করতে পারে।",
+    "timezoneHelp": "বাংলাদেশের স্কুলে বদলানোর দরকার নেই।",
+    "currencyCodeHelp": "তিন অক্ষরের আন্তর্জাতিক কোড।",
+    "phoneDisplayFormatHelp": "X-এর জায়গায় নম্বরের অঙ্ক বসে।",
+    "phonePatternHelp": "রেগুলার এক্সপ্রেশন। এর সাথে না মিললে ফোন নম্বর নেওয়া হয় না।",
+    "commaHelp": "কমা দিয়ে আলাদা করুন।",
+    "studentIdPlaceholder": "ফাঁকা রাখলে যেকোনো আইডি চলবে"
   },
   "whatsapp": {
     "legend": "হোয়াটসঅ্যাপ",
@@ -196,10 +207,10 @@
     "weekShapeLabel": "সপ্তাহের শুরু / সাপ্তাহিক ছুটি",
     "weekShapeLoading": "লোড হচ্ছে…",
     "weekShapeError": "সপ্তাহের কাঠামো লোড করা যায়নি।",
-    "weekShapeValue": "সপ্তাহ শুরু হয় {{weekStart}}, সাপ্তাহিক ছুটি {{weekend}}, টাইমজোন {{timezone}}",
+    "weekShapeValue": "সপ্তাহ শুরু হয় {{weekStart}}, সাপ্তাহিক ছুটি {{weekend}}।",
     "weekendSeparator": " এবং ",
-    "changeInRegional": "রিজিওনাল-এ পরিবর্তন করুন",
-    "changeInAttendance": "অ্যাটেনডেন্স-এ পরিবর্তন করুন",
+    "changeInRegional": "সপ্তাহের প্রথম দিন বদলান",
+    "changeInAttendance": "সাপ্তাহিক ছুটি বদলান (একাডেমিক)",
     "weekday": {
       "sunday": "রবিবার",
       "monday": "সোমবার",
@@ -208,7 +219,9 @@
       "thursday": "বৃহস্পতিবার",
       "friday": "শুক্রবার",
       "saturday": "শনিবার"
-    }
+    },
+    "description": "পরীক্ষা, ছুটি ও টার্ম এই তথ্য দিয়ে সাজানো হয়।",
+    "countryHelp": "সরকারি ছুটির তালিকা এই দেশ থেকে আসে।"
   },
   "fees": {
     "approvalLegend": "অতিরিক্ত অনুমোদন",
@@ -247,7 +260,11 @@
     "renamePlaceholder": "নতুন নাম",
     "renameConfirm": "সংরক্ষণ করুন",
     "renameCancel": "বাতিল",
-    "emptyList": "এখনও কোনো মান নেই।"
+    "emptyList": "এখনও কোনো মান নেই।",
+    "description": "শ্রেণি ও শাখা সাজাতে এই নামগুলো ব্যবহার হয়। মুছলে বা নাম বদলালে সংরক্ষণ করুন চাপুন।",
+    "undoRemoveAction": "সরানো ফেরান",
+    "removeInUse": "\"{{value}}\" এখনও শ্রেণি বা শাখায় ব্যবহার হচ্ছে, তাই মোছা যাবে না। বরং নাম বদলান।",
+    "removeInUseSummary": "কিছুই সংরক্ষণ হয়নি। উপরে চিহ্নিত মানটি ঠিক করে আবার চেষ্টা করুন।"
   },
   "printers": {
     "title": "প্রিন্টার",

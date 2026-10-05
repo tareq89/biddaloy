@@ -27,7 +27,7 @@
     "address": "Address",
     "phone": "Phone",
     "email": "Email",
-    "registrationId": "EIIN / registration ID",
+    "registrationId": "EIIN / registration number",
     "logo": {
       "legend": "Logo",
       "alt": "School logo",
@@ -39,8 +39,12 @@
       "remove": "Remove logo",
       "removeConfirm": "Remove the school logo?",
       "removeConfirmYes": "Remove",
-      "removeCancel": "Cancel"
-    }
+      "removeCancel": "Cancel",
+      "help": "PNG, JPEG or WebP, up to 512 KB. It saves as soon as you pick it.",
+      "removeConfirmDescription": "Receipts and printouts will show no logo. You can upload one again later.",
+      "removeError": "Couldn't remove the logo. Try again."
+    },
+    "description": "Shown on receipts, invoices and printouts."
   },
   "secret": {
     "configured": "Configured — ends {{hint}}",
@@ -59,7 +63,7 @@
     "success": "Saved"
   },
   "regional": {
-    "legend": "Regional",
+    "legend": "Language, numbers and dates",
     "locale": "Language and number format",
     "numerals": "Numeral system",
     "numeralsLatin": "Latin (0-9)",
@@ -75,23 +79,30 @@
     "currencyGrouping": "Number grouping",
     "currencyGroupingLakhCrore": "Lakh/crore",
     "currencyGroupingThousand": "Thousand",
-    "dateLegend": "Date format",
-    "dateFormat": "Date format",
     "dateFirstDayOfWeek": "First day of week",
-    "dateCalendar": "Calendar",
-    "phoneLegend": "Phone format",
-    "phoneCountry": "Phone country code",
-    "phonePattern": "Phone number pattern",
+    "phoneLegend": "Phone numbers",
+    "phoneCountry": "Phone country",
+    "phonePattern": "Phone number check rule",
     "phoneExample": "Example phone number",
-    "phoneDisplayFormat": "Phone display format",
-    "addressLegend": "Address",
-    "addressFields": "Address fields (comma-separated)",
-    "addressOrder": "Address field order (comma-separated)",
-    "academicYearLegend": "Academic year",
+    "phoneDisplayFormat": "How phone numbers are shown",
+    "addressFields": "Address parts",
+    "addressOrder": "Order of address parts",
     "academicYearStartMonth": "Academic year start month",
-    "identifiersLegend": "Identifiers",
-    "identifiersNational": "National ID format",
-    "identifiersStudent": "Student ID format"
+    "identifiersLegend": "Address and ID numbers",
+    "identifiersNational": "National ID check rule",
+    "identifiersStudent": "Student ID check rule",
+    "description": "How numbers, money and dates appear on every page.",
+    "localeBnBd": "Bangla (Bangladesh)",
+    "localeEnBd": "English (Bangladesh)",
+    "keepCurrent": "Keep the current value",
+    "currencyPreview": "Example: {{amount}}",
+    "advancedHelp": "Time zone, phone, address and ID rules. You rarely need to change these; a wrong value can stop phone or ID checks from working.",
+    "timezoneHelp": "No need to change this for a school in Bangladesh.",
+    "currencyCodeHelp": "Three-letter international code.",
+    "phoneDisplayFormatHelp": "Each X is replaced by a digit of the number.",
+    "phonePatternHelp": "A regular expression. A phone number that does not match is not accepted.",
+    "commaHelp": "Separate with commas.",
+    "studentIdPlaceholder": "Leave empty to accept any ID"
   },
   "whatsapp": {
     "legend": "WhatsApp",
@@ -196,10 +207,10 @@
     "weekShapeLabel": "Week start / weekend",
     "weekShapeLoading": "Loading…",
     "weekShapeError": "Couldn't load week shape.",
-    "weekShapeValue": "Week starts {{weekStart}}, weekend is {{weekend}}, timezone {{timezone}}",
+    "weekShapeValue": "Week starts {{weekStart}}, weekend is {{weekend}}.",
     "weekendSeparator": " and ",
-    "changeInRegional": "Change in Regional",
-    "changeInAttendance": "Change in Attendance",
+    "changeInRegional": "Change the first day of the week",
+    "changeInAttendance": "Change weekly off days (Academics)",
     "weekday": {
       "sunday": "Sunday",
       "monday": "Monday",
@@ -208,7 +219,9 @@
       "thursday": "Thursday",
       "friday": "Friday",
       "saturday": "Saturday"
-    }
+    },
+    "description": "Exams, holidays and terms are arranged with this.",
+    "countryHelp": "Public holidays come from this country."
   },
   "fees": {
     "approvalLegend": "Extra approval",
@@ -247,7 +260,11 @@
     "renamePlaceholder": "New name",
     "renameConfirm": "Save",
     "renameCancel": "Cancel",
-    "emptyList": "No values yet."
+    "emptyList": "No values yet.",
+    "description": "Classes and sections use these names. Press Save after renaming or removing.",
+    "undoRemoveAction": "Undo remove",
+    "removeInUse": "\"{{value}}\" is still used by classes or sections, so it can't be removed. Rename it instead.",
+    "removeInUseSummary": "Nothing was saved. Fix the value marked above and try again."
   },
   "printers": {
     "title": "Printers",

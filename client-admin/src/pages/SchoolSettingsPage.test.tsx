@@ -96,11 +96,15 @@ describe('SchoolSettingsPage', () => {
     await user.click(await screen.findByRole('option', { name: 'Ananta School' }));
 
     expect(await screen.findByText('Settings for Ananta School')).toBeTruthy();
-    // The School category: profile, organisation, regional and calendar.
-    expect(await screen.findByText('School profile', { selector: 'legend' })).toBeTruthy();
-    expect(await screen.findByText('Shift, version & group', { selector: 'legend' })).toBeTruthy();
-    expect(await screen.findByText('Regional', { selector: 'legend' })).toBeTruthy();
-    expect(await screen.findByText('Calendar', { selector: 'legend' })).toBeTruthy();
+    // The School category: profile, organisation, regional and calendar cards.
+    for (const name of [
+      'School profile',
+      'Shift, version & group',
+      'Language, numbers and dates',
+      'Calendar',
+    ]) {
+      expect(await screen.findByRole('heading', { level: 2, name })).toBeTruthy();
+    }
     // Other categories' sections are not rendered.
     expect(screen.queryByText('SMS')).toBeNull();
   });
@@ -114,7 +118,9 @@ describe('SchoolSettingsPage', () => {
     });
 
     expect(await screen.findByText('SMS')).toBeTruthy();
-    expect(screen.queryByText('Regional')).toBeNull();
+    expect(
+      screen.queryByRole('heading', { level: 2, name: 'Language, numbers and dates' }),
+    ).toBeNull();
   });
 
   it('an old #printers-section link opens the Printing category', async () => {
@@ -211,7 +217,7 @@ describe('SchoolSettingsPage', () => {
       accessToken: fakeJwtWithMemberships(adminOwnSchool),
     });
 
-    await screen.findByText('School profile');
+    await screen.findByRole('heading', { level: 2, name: 'School profile' });
     await expect(container).toHaveNoViolations();
   });
 
