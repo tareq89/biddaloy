@@ -12,13 +12,16 @@
  * i18n is prop-driven — every string here is passed in already translated,
  * same convention as `StatusBadge`/`EmptyState`.
  */
+import { CheckIcon, RotateCcwIcon } from 'lucide-react';
 import * as React from 'react';
 
+import { Button } from '../button';
 import { Popover, PopoverContent, PopoverTrigger } from '../popover';
 
 export interface MilestoneChecklistItem {
   id: string;
   name: string;
+  /** Already formatted by the caller (`formatDate`) — shown as-is. */
   achievedOn: string | null;
   scoreGrade: string | null;
   remark: string | null;
@@ -40,7 +43,7 @@ export function MilestoneChecklist({
   emptyMessage,
 }: MilestoneChecklistProps) {
   if (items.length === 0) {
-    return emptyMessage ? <p className="text-sm text-muted-foreground">{emptyMessage}</p> : null;
+    return emptyMessage ? <p className="text-body text-text-secondary">{emptyMessage}</p> : null;
   }
 
   function handleKeyDown(event: React.KeyboardEvent, item: MilestoneChecklistItem) {
@@ -51,11 +54,11 @@ export function MilestoneChecklist({
   }
 
   return (
-    <ul className="flex flex-col gap-1">
+    <ul className="flex flex-col">
       {items.map((item) => {
         const achieved = item.achievedOn !== null;
         return (
-          <li key={item.id} data-milestone-id={item.id} className="flex items-center gap-2">
+          <li key={item.id} data-milestone-id={item.id} className="flex items-center">
             {achieved ? (
               <Popover>
                 <PopoverTrigger asChild>
@@ -64,25 +67,27 @@ export function MilestoneChecklist({
                     role="checkbox"
                     aria-checked="true"
                     data-milestone-id={item.id}
-                    className="flex flex-1 items-center gap-2 rounded-md p-1 text-start"
+                    className="flex min-h-11 w-full items-center gap-3 rounded-md px-2 text-start hover:bg-muted md:min-h-8"
                   >
-                    <span aria-hidden="true">☑</span>
+                    <span
+                      aria-hidden="true"
+                      className="flex size-5 shrink-0 items-center justify-center rounded-sm bg-primary text-primary-foreground"
+                    >
+                      <CheckIcon className="size-3.5" />
+                    </span>
                     <span className="flex-1">{item.name}</span>
-                    <span className="text-xs text-muted-foreground">
+                    <span className="text-caption text-text-secondary">
                       {item.achievedOn}
                       {item.scoreGrade ? ` · ${item.scoreGrade}` : ''}
                     </span>
                   </button>
                 </PopoverTrigger>
                 <PopoverContent>
-                  {item.remark && <p className="text-sm">{item.remark}</p>}
-                  <button
-                    type="button"
-                    className="text-sm font-medium text-destructive underline"
-                    onClick={() => onUndo(item.id)}
-                  >
+                  {item.remark && <p className="text-body text-text-primary">{item.remark}</p>}
+                  <Button type="button" variant="ghost" onClick={() => onUndo(item.id)}>
+                    <RotateCcwIcon aria-hidden="true" />
                     {undoLabel}
-                  </button>
+                  </Button>
                 </PopoverContent>
               </Popover>
             ) : (
@@ -93,9 +98,12 @@ export function MilestoneChecklist({
                 data-milestone-id={item.id}
                 onClick={() => onRecord(item.id)}
                 onKeyDown={(event) => handleKeyDown(event, item)}
-                className="flex flex-1 items-center gap-2 rounded-md p-1 text-start"
+                className="flex min-h-11 w-full items-center gap-3 rounded-md px-2 text-start hover:bg-muted md:min-h-8"
               >
-                <span aria-hidden="true">☐</span>
+                <span
+                  aria-hidden="true"
+                  className="flex size-5 shrink-0 items-center justify-center rounded-sm border border-border-functional bg-surface"
+                />
                 <span className="flex-1">{item.name}</span>
               </button>
             )}

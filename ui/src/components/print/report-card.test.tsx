@@ -1,5 +1,9 @@
-import { render, screen } from '@testing-library/react';
+import { render as rtlRender, screen } from '@testing-library/react';
+import type * as React from 'react';
 import { describe, expect, it } from 'vitest';
+
+import { REGION_BD_BN, REGION_BD_EN } from '../../i18n/region-config';
+import { RegionConfigProvider } from '../../i18n/region-config-provider';
 
 import type { IssuerSnapshot } from './issuer-header';
 import { ReportCard, type ReportCardData } from './report-card';
@@ -56,6 +60,10 @@ const BASE: ReportCardData = {
     { grade: 'F', gpa: 0, comment: 'Fail' },
   ],
 };
+
+// The default region is Bangla digits; pin Latin unless a test overrides it.
+const render = (ui: React.ReactElement) =>
+  rtlRender(<RegionConfigProvider value={REGION_BD_EN}>{ui}</RegionConfigProvider>);
 
 const MATH_SUBJECT = BASE.subjects[0]!;
 
@@ -156,5 +164,18 @@ describe('ReportCard', () => {
     expect(screen.getByText('7 / 30')).toBeTruthy();
     expect(screen.getByText(/Juz 5/)).toBeTruthy();
     expect(screen.getByText(/92\.5/)).toBeTruthy();
+  });
+
+  it('renders GPA with two decimals in tenant numerals', () => {
+    const { unmount } = rtlRender(
+      <RegionConfigProvider value={REGION_BD_BN}>
+        <ReportCard data={BASE} issuer={ISSUER} labels={LABELS} />
+      </RegionConfigProvider>,
+    );
+    expect(screen.getByText('৪.৫০')).toBeTruthy();
+    expect(screen.getAllByText('৮৫ / ১০০').length).toBe(2);
+    unmount();
+    render(<ReportCard data={BASE} issuer={ISSUER} labels={LABELS} />);
+    expect(screen.getByText('4.50')).toBeTruthy();
   });
 });
