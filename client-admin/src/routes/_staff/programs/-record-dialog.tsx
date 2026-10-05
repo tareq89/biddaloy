@@ -28,8 +28,12 @@ import { toIsoDate, toLatinDigits } from '@biddaloy/ui/utils';
 import { CircleAlertIcon } from 'lucide-react';
 import * as React from 'react';
 
+import { DiscardConfirm } from './-discard-confirm';
 import { LabelledField } from './-labelled-field';
-import { DiscardConfirm, StudentPickCard } from './-student-pick-card';
+import { StudentPickCard } from './-student-pick-card';
+
+const sameSet = (a: ReadonlySet<string>, b: readonly string[]) =>
+  a.size === b.length && b.every((x) => a.has(x));
 
 export interface RecordDialogProps {
   open: boolean;
@@ -89,10 +93,12 @@ export function RecordDialog({
   const milestones: ProgramMilestone[] = programQuery.data?.milestones ?? [];
   const enrollments = enrollmentsQuery.data ?? [];
   const busy = recordAchievements.isPending;
+  // Only ids the user can see are submitted: a prefilled id outside the loaded list is ignored.
+  const visibleIds = enrollments.filter((e) => enrollmentIds.has(e.id)).map((e) => e.id);
   const dirty =
     selectedProgramId !== programId ||
     selectedMilestoneId !== (milestoneId ?? '') ||
-    enrollmentIds.size !== (enrollmentIdPrefill ? 1 : 0) ||
+    !sameSet(enrollmentIds, enrollmentIdPrefill ? [enrollmentIdPrefill] : []) ||
     toIsoDate(achievedOn) !== toIsoDate(new Date()) ||
     score !== '' ||
     grade !== '' ||
@@ -117,24 +123,30 @@ export function RecordDialog({
   }
 
   function submit() {
-    if (!selectedProgramId || !selectedMilestoneId || enrollmentIds.size === 0) return;
+    if (!selectedProgramId || !selectedMilestoneId || visibleIds.length === 0) return;
     // Bangla digits are accepted: normalise before parsing instead of rejecting them.
-    const scoreText = toLatinDigits(score).trim();
+    const scoreText = toLatinDigits(score).trim().replace(',', '.');
     const parsedScore = scoreText ? Number(scoreText) : undefined;
-    if (parsedScore !== undefined && Number.isNaN(parsedScore)) {
+    // Server DTO: >= 0, <= 9999.99, at most 2 decimals.
+    if (
+      parsedScore !== undefined &&
+      (!/^\d+(\.\d{1,2})?$/.test(scoreText) || parsedScore > 9999.99)
+    ) {
       setScoreInvalid(true);
       return;
     }
     setScoreInvalid(false);
     // Row-record opened from the URL has no `studentId` prop: take it from the prefilled enrolment.
-    const optimisticStudentId =
-      studentId ?? enrollments.find((e) => e.id === enrollmentIdPrefill)?.student.id;
+    const onlyPrefilled = visibleIds.length === 1 && visibleIds[0] === enrollmentIdPrefill;
+    const optimisticStudentId = onlyPrefilled
+      ? (studentId ?? enrollments.find((e) => e.id === enrollmentIdPrefill)?.student.id)
+      : undefined;
     recordAchievements.mutate(
       {
         programId: selectedProgramId,
         ...(optimisticStudentId ? { studentId: optimisticStudentId } : {}),
         input: {
-          enrollment_ids: Array.from(enrollmentIds),
+          enrollment_ids: visibleIds,
           milestone_id: selectedMilestoneId,
           achieved_on: toIsoDate(achievedOn),
           ...(parsedScore !== undefined ? { score: parsedScore } : {}),
@@ -157,7 +169,7 @@ export function RecordDialog({
         label: t('dialogs.record.save'),
         onClick: submit,
         busy,
-        disabled: !selectedProgramId || !selectedMilestoneId || enrollmentIds.size === 0,
+        disabled: !selectedProgramId || !selectedMilestoneId || visibleIds.length === 0,
       }}
       secondary={{
         label: tCommon('actions.cancel'),

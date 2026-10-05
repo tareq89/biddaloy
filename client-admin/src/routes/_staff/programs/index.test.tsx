@@ -174,4 +174,35 @@ describe('/programs', () => {
     await screen.findByText('No programs yet');
     expect(screen.getAllByRole('button', { name: 'Add program' }).length).toBeGreaterThan(1);
   });
+
+  it('hides the edit action without PROGRAM_MANAGE and keeps view', async () => {
+    server.use(
+      http.get('/api/v1/programs', () => HttpResponse.json([program({ id: 'p-1', name: 'Hifz' })])),
+    );
+    renderWithRouter(buildRouteTree(), {
+      initialEntries: ['/'],
+      tenantId: 'tenant-1',
+      role: 'TEACHER',
+      locale: 'en',
+    });
+    await screen.findByText('Hifz');
+    expect(screen.getByRole('link', { name: 'View' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Edit program' })).toBeNull();
+  });
+
+  it('renders counts in Bangla digits under bn', async () => {
+    server.use(
+      http.get('/api/v1/programs', () =>
+        HttpResponse.json([program({ name: 'Hifz', milestone_count: 30 })]),
+      ),
+    );
+    renderWithRouter(buildRouteTree(), {
+      initialEntries: ['/'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'bn',
+    });
+    await screen.findByText('Hifz');
+    expect((await screen.findAllByText(/৩০/)).length).toBeGreaterThan(0);
+  });
 });
