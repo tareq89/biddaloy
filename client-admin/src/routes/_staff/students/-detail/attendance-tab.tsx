@@ -11,11 +11,18 @@
  * attendance.tsx`'s job (a full page, no competing tab state), not this
  * one's.
  */
-import { AttendanceMonthGrid, Card, ErrorState, Skeleton } from '@biddaloy/ui/components';
+import {
+  AttendanceMonthGrid,
+  Button,
+  Card,
+  EmptyState,
+  ErrorState,
+  Skeleton,
+} from '@biddaloy/ui/components';
 import { useStudentAttendanceDays, useStudentAttendanceSummary } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
-import { renderDigits } from '@biddaloy/ui/utils';
-import { ChevronLeftIcon, ChevronRightIcon } from 'lucide-react';
+import { formatMonth, formatNumber } from '@biddaloy/ui/utils';
+import { CalendarXIcon, ChevronLeftIcon, ChevronRightIcon } from 'lucide-react';
 import * as React from 'react';
 
 export interface AttendanceTabProps {
@@ -82,40 +89,52 @@ export function AttendanceTab({ studentId }: AttendanceTabProps) {
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-2">
-        <button
-          type="button"
-          onClick={() => setMonth((current) => shiftMonth(current, -1))}
-          aria-label={t('detail.attendanceTab.monthStepper.previousLabel')}
-          className="inline-flex size-9 items-center justify-center rounded-md text-muted-foreground hover:bg-muted"
-        >
-          <ChevronLeftIcon className="size-5" aria-hidden="true" />
-        </button>
-        <span className="text-sm font-semibold">{month}</span>
-        <button
-          type="button"
-          onClick={() => setMonth((current) => shiftMonth(current, 1))}
-          aria-label={t('detail.attendanceTab.monthStepper.nextLabel')}
-          className="inline-flex size-9 items-center justify-center rounded-md text-muted-foreground hover:bg-muted"
-        >
-          <ChevronRightIcon className="size-5" aria-hidden="true" />
-        </button>
+        <h2 className="min-w-0 truncate text-h3">{formatMonth(month, config)}</h2>
+        <div className="flex shrink-0 items-center gap-1">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={month === currentMonthIso()}
+            onClick={() => setMonth(currentMonthIso())}
+          >
+            {t('detail.attendanceTab.monthStepper.thisMonth')}
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label={t('detail.attendanceTab.monthStepper.previousLabel')}
+            onClick={() => setMonth((current) => shiftMonth(current, -1))}
+          >
+            <ChevronLeftIcon className="size-5" aria-hidden="true" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label={t('detail.attendanceTab.monthStepper.nextLabel')}
+            onClick={() => setMonth((current) => shiftMonth(current, 1))}
+          >
+            <ChevronRightIcon className="size-5" aria-hidden="true" />
+          </Button>
+        </div>
       </div>
 
-      <Card className="flex flex-col gap-3 p-4">
+      <Card padded className="flex flex-col gap-3">
         <div className="flex flex-col gap-0.5">
-          <h2 className="text-sm font-normal text-muted-foreground">
+          <h2 className="text-caption font-normal text-text-secondary">
             {t('detail.attendanceTab.summary.percentage')}
           </h2>
           {summaryQuery.data.attendance_percentage === null ? (
             <>
-              <div className="text-3xl leading-tight font-bold tabular-nums">{'—'}</div>
-              <div className="text-xs text-muted-foreground">
+              <div className="text-h1 tabular-nums">{'—'}</div>
+              <div className="text-caption text-text-secondary">
                 {t('detail.attendanceTab.summary.notEnoughData')}
               </div>
             </>
           ) : (
-            <div className="text-3xl leading-tight font-bold tabular-nums">
-              {renderDigits(`${summaryQuery.data.attendance_percentage}%`, config.numerals)}
+            <div className="text-h1 tabular-nums">
+              {`${formatNumber(summaryQuery.data.attendance_percentage, config)}%`}
             </div>
           )}
         </div>
@@ -140,13 +159,13 @@ export function AttendanceTab({ studentId }: AttendanceTabProps) {
       </Card>
 
       {days.length === 0 ? (
-        <Card className="p-3.5">
-          <p className="text-sm text-muted-foreground">
-            {t('detail.attendanceTab.noRecordsThisMonth')}
-          </p>
-        </Card>
+        <EmptyState
+          icon={<CalendarXIcon aria-hidden="true" />}
+          title={t('detail.attendanceTab.noRecordsThisMonth')}
+          explanation={t('detail.attendanceTab.noRecordsExplanation')}
+        />
       ) : (
-        <Card className="p-3.5">
+        <Card padded>
           <AttendanceMonthGrid
             month={month}
             days={days}
@@ -162,10 +181,8 @@ function SummaryFigure({ label, value }: { label: string; value: number }) {
   const config = useRegionConfig();
   return (
     <div className="flex min-w-0 flex-col gap-0.5">
-      <dt className="text-[11px] text-muted-foreground">{label}</dt>
-      <dd className="text-sm font-semibold tabular-nums">
-        {renderDigits(String(value), config.numerals)}
-      </dd>
+      <dt className="text-caption text-text-secondary">{label}</dt>
+      <dd className="font-semibold tabular-nums">{formatNumber(value, config)}</dd>
     </div>
   );
 }

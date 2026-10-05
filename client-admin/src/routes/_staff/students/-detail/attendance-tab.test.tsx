@@ -87,7 +87,7 @@ describe('AttendanceTab', () => {
     renderTab(STUDENT_ID);
 
     await waitFor(() => expect(screen.getByText('90%')).toBeTruthy());
-    expect(screen.getByText('2026-09')).toBeTruthy();
+    expect(screen.getByRole('heading', { name: /September 2026/ })).toBeTruthy();
   });
 
   it('steps the month back and forward, re-fetching for the new month', async () => {
@@ -96,20 +96,44 @@ describe('AttendanceTab', () => {
 
     const { user } = renderTab(STUDENT_ID);
 
-    await waitFor(() => expect(screen.getByText('2026-09')).toBeTruthy());
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { name: /September 2026/ })).toBeTruthy(),
+    );
 
     await user.click(screen.getByRole('button', { name: 'Previous month' }));
-    await waitFor(() => expect(screen.getByText('2026-08')).toBeTruthy());
+    await waitFor(() => expect(screen.getByRole('heading', { name: /August 2026/ })).toBeTruthy());
 
     await user.click(screen.getByRole('button', { name: 'Next month' }));
     await user.click(screen.getByRole('button', { name: 'Next month' }));
-    await waitFor(() => expect(screen.getByText('2026-10')).toBeTruthy());
+    await waitFor(() => expect(screen.getByRole('heading', { name: /October 2026/ })).toBeTruthy());
 
     await waitFor(() =>
       expect(monthsRequested).toEqual(
         expect.arrayContaining(['2026-09', '2026-08', '2026-09', '2026-10']),
       ),
     );
+  });
+
+  it('disables "This month" on the current month and resets to it after stepping back', async () => {
+    mockAttendance({ days: [] });
+
+    const { user } = renderTab(STUDENT_ID);
+
+    const thisMonth = await screen.findByRole('button', { name: 'This month' });
+    expect(thisMonth.hasAttribute('disabled')).toBe(true);
+
+    await user.click(screen.getByRole('button', { name: 'Previous month' }));
+    await screen.findByRole('heading', { name: /August 2026/ });
+    await user.click(screen.getByRole('button', { name: 'This month' }));
+    await screen.findByRole('heading', { name: /September 2026/ });
+  });
+
+  it('shows an EmptyState for a month with no records', async () => {
+    mockAttendance({ days: [] });
+
+    renderTab(STUDENT_ID);
+
+    expect(await screen.findByText('Attendance taken this month will show up here.')).toBeTruthy();
   });
 
   it('shows "not enough data" instead of a bare dash when the percentage is null', async () => {
