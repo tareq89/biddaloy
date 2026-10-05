@@ -166,5 +166,14 @@
     "a4": "A4 page",
     "pos80": "Receipt printer — 80 mm",
     "pos58": "Receipt printer — 58 mm"
+  },
+  "invoices": {
+    "subtitle": "Every payment's receipt and credit note, newest first.",
+    "view": "View",
+    "creditNote": "Credit note",
+    "emptyText": "When you record a payment its invoice appears here.",
+    "amountRangeLabel": "Amount (৳)",
+    "minAmount": "Minimum",
+    "maxAmount": "Maximum"
   }
 }
