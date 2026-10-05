@@ -5,7 +5,7 @@
  * instead of adding server pagination up front.
  */
 import { HomeworkAssignmentStatus, Permission } from '@biddaloy/shared';
-import { Button, RoutePending, type DataTableColumn } from '@biddaloy/ui/components';
+import { RoutePending, type DataTableColumn } from '@biddaloy/ui/components';
 import {
   homeworkListQueryOptions,
   useClasses,
@@ -19,10 +19,13 @@ import {
 import { useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { ListShell, useListShellState, type FilterFieldDescriptor } from '@biddaloy/ui/shells';
 import { formatDate, parseServerDate } from '@biddaloy/ui/utils';
-import { createFileRoute, Link } from '@tanstack/react-router';
+import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import { NotebookPen, Plus, Upload } from 'lucide-react';
 import { z } from 'zod';
 
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../../route-loaders';
+
+import { subjectName } from './-subject-name';
 
 const homeworkSearchSchema = z.object({
   page: z.number().int().positive().optional().catch(undefined),
@@ -82,9 +85,10 @@ export const Route = createFileRoute('/_staff/academics/homework/')({
 });
 
 function HomeworkListPage() {
-  const { t } = useTranslation('homework');
+  const { t, i18n } = useTranslation('homework');
+  const navigate = useNavigate();
   const regionConfig = useTenantRegionConfig();
-  const [state, actions] = useListShellState({ limit: 10 });
+  const [state, actions] = useListShellState();
   const filters = state.filters as HomeworkSearchFilters;
 
   const canAssign = useHasPermission(Permission.HOMEWORK_ASSIGN);
@@ -134,7 +138,7 @@ function HomeworkListPage() {
       allLabel: t('list.allSubjects'),
       options: (subjectsQuery.data?.data ?? []).map((subject) => ({
         value: subject.id,
-        label: subject.name_en,
+        label: subjectName(subject, i18n.language),
       })),
     },
     {
@@ -161,21 +165,14 @@ function HomeworkListPage() {
     {
       id: 'title',
       header: t('list.columnTitle'),
-      accessorFn: (row) => (
-        <Link
-          to="/academics/homework/$homeworkId"
-          params={{ homeworkId: row.id }}
-          className="font-medium text-primary underline"
-        >
-          {row.title}
-        </Link>
-      ),
+      accessorFn: (row) => <span className="font-medium">{row.title}</span>,
       card: 'title',
     },
     {
       id: 'subject',
       header: t('list.columnSubject'),
-      accessorFn: (row) => subjectById.get(row.subject_id)?.name_en ?? '—',
+      accessorFn: (row) => subjectName(subjectById.get(row.subject_id), i18n.language),
+      card: 'subtitle',
     },
     {
       id: 'class',
@@ -197,25 +194,31 @@ function HomeworkListPage() {
   return (
     <ListShell
       title={t('list.title')}
-      primaryAction={
-        canImport || canAssign ? (
-          <div className="flex items-center gap-2">
-            {canImport && (
-              <Button asChild variant="outline">
-                <Link to="/academics/homework/import">{t('list.importHomework')}</Link>
-              </Button>
-            )}
-            {canAssign && (
-              <Button asChild>
-                <Link to="/academics/homework/new">{t('list.assignHomework')}</Link>
-              </Button>
-            )}
-          </div>
-        ) : undefined
-      }
+      subtitle={t('list.caption')}
+      actions={[
+        {
+          id: 'import',
+          label: t('list.importHomework'),
+          icon: <Upload />,
+          priority: 'secondary',
+          allowed: canImport,
+          onClick: () => void navigate({ to: '/academics/homework/import' }),
+        },
+        {
+          id: 'assign',
+          label: t('list.assignHomework'),
+          icon: <Plus />,
+          priority: 'primary',
+          allowed: canAssign,
+          onClick: () => void navigate({ to: '/academics/homework/new' }),
+        },
+      ]}
       filters={{ fields: filterFields, values: state.filters, onChange: handleFilterChange }}
       tableId="homework-list"
       caption={t('list.caption')}
+      rowActions={(row) => [
+        { intent: 'view', label: t('list.view'), to: `/academics/homework/${row.id}` },
+      ]}
       columns={columns}
       data={pageRows}
       getRowId={(row) => row.id}
@@ -230,7 +233,19 @@ function HomeworkListPage() {
       loading={homeworkQuery.isLoading}
       isFetching={homeworkQuery.isFetching}
       {...(homeworkQuery.isError ? { error: t('list.errorMessage') } : {})}
-      emptyMessage={t('list.emptyMessage')}
+      emptyState={{
+        icon: <NotebookPen />,
+        title: t('list.emptyTitle'),
+        explanation: t('list.emptyExplanation'),
+        ...(canAssign
+          ? {
+              action: {
+                label: t('list.assignHomework'),
+                onClick: () => void navigate({ to: '/academics/homework/new' }),
+              },
+            }
+          : {}),
+      }}
       announceResults={(count, total) =>
         t('list.announceResults', { visible: count, total, count: total })
       }

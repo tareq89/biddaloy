@@ -84,7 +84,9 @@ test('Ctrl+K -> Assign homework action -> create+assign form -> save, mouse-free
     // aria-label "<targetLabel>: <sectionLabel>" (a valid a11y pattern —
     // it describes what picking this radio does), which contains
     // sectionLabel as a substring and would otherwise also match here.
-    const sectionPicker = page.getByLabel(t('homework.form.sectionLabel'), { exact: true });
+    const sectionPicker = page.getByRole('combobox', {
+      name: new RegExp(`^${t('homework.form.sectionLabel')}`),
+    });
     await sectionPicker.focus();
     // `createClassSection` always names its one section "A".
     await selectByTypeahead(page, 'A');

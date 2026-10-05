@@ -17,12 +17,13 @@
     "columnCreated": "Created",
     "assignHomework": "Assign homework",
     "importHomework": "Import homework",
-    "emptyMessage": "No homework found.",
     "errorMessage": "Couldn't load homework.",
-    "announceResults": "Showing {{visible}} of {{total}} homework, {{count}} total"
+    "announceResults": "Showing {{visible}} of {{total}} homework, {{count}} total",
+    "view": "View",
+    "emptyTitle": "No homework yet",
+    "emptyExplanation": "Homework you give to a section or a student shows up here."
   },
   "detail": {
-    "tabSummary": "Summary",
     "subjectLabel": "Subject",
     "classLabel": "Class",
     "gradingModeLabel": "Grading mode",
@@ -31,7 +32,9 @@
     "assignAgain": "Assign to section or student",
     "assigned": "Assigned. Due {{date}}.",
     "notFound": "Homework not found.",
-    "forbidden": "You don't have permission to view this homework."
+    "forbidden": "You don't have permission to view this homework.",
+    "noDescription": "No description.",
+    "assignDescription": "{{title}} · {{className}}"
   },
   "form": {
     "createTitle": "Create homework",
@@ -65,7 +68,12 @@
     "dueBeforeAssigned": "Due date must be on or after the assigned date.",
     "assignFailedAfterCreate": "Homework was created, but assigning it failed. Try again from its detail page:",
     "viewCreatedHomework": "Go to homework",
-    "genericError": "Something went wrong. Please try again."
+    "genericError": "Something went wrong. Please try again.",
+    "assignSubmit": "Assign",
+    "required": "(required)",
+    "errorSection": "Pick a section.",
+    "errorStudent": "Pick a student.",
+    "errorDate": "Pick a date."
   },
   "upload": {
     "dropHint": "Drag and drop files here, or choose files below. PDF, JPG, PNG or WEBP, up to 5MB each, {{maxFiles}} files max.",

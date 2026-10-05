@@ -17,12 +17,13 @@
     "columnCreated": "তৈরি হয়েছে",
     "assignHomework": "বাড়ির কাজ দিন",
     "importHomework": "বাড়ির কাজ আমদানি করুন",
-    "emptyMessage": "কোনো বাড়ির কাজ পাওয়া যায়নি।",
     "errorMessage": "বাড়ির কাজ লোড করা যায়নি।",
-    "announceResults": "{{total}}টির মধ্যে {{visible}}টি বাড়ির কাজ দেখানো হচ্ছে, মোট {{count}}টি"
+    "announceResults": "{{total}}টির মধ্যে {{visible}}টি বাড়ির কাজ দেখানো হচ্ছে, মোট {{count}}টি",
+    "view": "দেখুন",
+    "emptyTitle": "এখনো কোনো বাড়ির কাজ নেই",
+    "emptyExplanation": "কোনো শাখা বা শিক্ষার্থীকে বাড়ির কাজ দিলে তা এখানে দেখা যাবে।"
   },
   "detail": {
-    "tabSummary": "সারসংক্ষেপ",
     "subjectLabel": "বিষয়",
     "classLabel": "শ্রেণি",
     "gradingModeLabel": "মূল্যায়ন পদ্ধতি",
@@ -31,7 +32,9 @@
     "assignAgain": "শাখা বা শিক্ষার্থীকে দিন",
     "assigned": "দেওয়া হয়েছে। শেষ তারিখ {{date}}।",
     "notFound": "বাড়ির কাজ পাওয়া যায়নি।",
-    "forbidden": "এই বাড়ির কাজ দেখার অনুমতি আপনার নেই।"
+    "forbidden": "এই বাড়ির কাজ দেখার অনুমতি আপনার নেই।",
+    "noDescription": "কোনো বিবরণ নেই।",
+    "assignDescription": "{{title}} · {{className}}"
   },
   "form": {
     "createTitle": "বাড়ির কাজ তৈরি করুন",
@@ -65,7 +68,12 @@
     "dueBeforeAssigned": "শেষ তারিখ অবশ্যই দেওয়ার তারিখের সমান বা তার পরে হতে হবে।",
     "assignFailedAfterCreate": "বাড়ির কাজ তৈরি হয়েছে, কিন্তু দেওয়া যায়নি। এর বিস্তারিত পাতা থেকে আবার চেষ্টা করুন:",
     "viewCreatedHomework": "বাড়ির কাজে যান",
-    "genericError": "কিছু একটা ভুল হয়েছে। আবার চেষ্টা করুন।"
+    "genericError": "কিছু একটা ভুল হয়েছে। আবার চেষ্টা করুন।",
+    "assignSubmit": "দিন",
+    "required": "(আবশ্যক)",
+    "errorSection": "একটি শাখা বাছুন।",
+    "errorStudent": "একজন শিক্ষার্থী বাছুন।",
+    "errorDate": "একটি তারিখ বাছুন।"
   },
   "upload": {
     "dropHint": "ফাইল টেনে এনে ছাড়ুন, অথবা নিচে থেকে ফাইল বেছে নিন। PDF, JPG, PNG বা WEBP, প্রতিটি সর্বোচ্চ 5MB, সর্বোচ্চ {{maxFiles}}টি ফাইল।",

@@ -9,6 +9,7 @@ import { HomeworkGradingMode } from '@biddaloy/shared';
 import {
   Button,
   DatePicker,
+  DialogClose,
   Input,
   RadioGroup,
   RadioGroupItem,
@@ -28,7 +29,10 @@ import {
   type CreateHomeworkInput,
 } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { CircleAlert } from 'lucide-react';
 import * as React from 'react';
+
+import { subjectName } from './-subject-name';
 
 export type AssignHomeworkFormMode = 'create' | 'assign';
 
@@ -73,6 +77,28 @@ function addDays(date: Date, days: number): Date {
   return next;
 }
 
+function Required() {
+  const { t } = useTranslation('homework');
+  return (
+    <>
+      <span className="text-destructive" aria-hidden="true">
+        *
+      </span>
+      <span className="sr-only">{t('form.required')}</span>
+    </>
+  );
+}
+
+function FieldError({ id, message }: { id: string; message: string | undefined }) {
+  if (!message) return null;
+  return (
+    <p id={id} className="flex items-center gap-1 text-caption text-destructive">
+      <CircleAlert className="size-3.5" aria-hidden="true" />
+      {message}
+    </p>
+  );
+}
+
 export function AssignHomeworkForm({
   mode,
   initial,
@@ -80,7 +106,8 @@ export function AssignHomeworkForm({
   error,
   onSubmit,
 }: AssignHomeworkFormProps) {
-  const { t } = useTranslation('homework');
+  const { t, i18n } = useTranslation('homework');
+  const { t: tCommon } = useTranslation('common');
   const regionConfig = useRegionConfig();
 
   const [classId, setClassId] = React.useState(initial?.classId ?? '');
@@ -98,6 +125,9 @@ export function AssignHomeworkForm({
   const [dueDate, setDueDate] = React.useState<Date | undefined>(() => addDays(today, 7));
 
   const [validationError, setValidationError] = React.useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = React.useState<
+    Partial<Record<'section' | 'student' | 'assignedDate' | 'dueDate', string>>
+  >({});
 
   const classesQuery = useClasses();
   const selectedClass = classesQuery.data?.data.find((klass) => klass.id === classId);
@@ -130,22 +160,16 @@ export function AssignHomeworkForm({
       setValidationError(t('form.errorRequired'));
       return;
     }
-    if (sectionId === '') {
-      setValidationError(t('form.errorRequired'));
-      return;
+    const errors: typeof fieldErrors = {};
+    if (sectionId === '') errors.section = t('form.errorSection');
+    if (target === 'student' && studentId === '') errors.student = t('form.errorStudent');
+    if (!assignedDate) errors.assignedDate = t('form.errorDate');
+    if (!dueDate) errors.dueDate = t('form.errorDate');
+    else if (assignedDate && toLocalDateString(dueDate) < toLocalDateString(assignedDate)) {
+      errors.dueDate = t('form.dueBeforeAssigned');
     }
-    if (target === 'student' && studentId === '') {
-      setValidationError(t('form.errorRequired'));
-      return;
-    }
-    if (!assignedDate || !dueDate) {
-      setValidationError(t('form.errorRequired'));
-      return;
-    }
-    if (toLocalDateString(dueDate) < toLocalDateString(assignedDate)) {
-      setValidationError(t('form.dueBeforeAssigned'));
-      return;
-    }
+    setFieldErrors(errors);
+    if (Object.keys(errors).length > 0 || !assignedDate || !dueDate) return;
 
     setValidationError(null);
 
@@ -177,12 +201,12 @@ export function AssignHomeworkForm({
       {mode === 'create' && (
         <>
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="homework-form-class" className="text-sm font-medium">
+            <label htmlFor="homework-form-class" className="text-label text-text-primary">
               {t('form.classLabel')}
             </label>
             <Select value={classId} onValueChange={handleClassChange}>
               <SelectTrigger id="homework-form-class" aria-label={t('form.classLabel')}>
-                <SelectValue />
+                <SelectValue placeholder={tCommon('form.selectPlaceholder')} />
               </SelectTrigger>
               <SelectContent>
                 {(classesQuery.data?.data ?? []).map((klass) => (
@@ -195,17 +219,17 @@ export function AssignHomeworkForm({
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="homework-form-subject" className="text-sm font-medium">
+            <label htmlFor="homework-form-subject" className="text-label text-text-primary">
               {t('form.subjectLabel')}
             </label>
             <Select value={subjectId} onValueChange={setSubjectId} disabled={classId === ''}>
               <SelectTrigger id="homework-form-subject" aria-label={t('form.subjectLabel')}>
-                <SelectValue />
+                <SelectValue placeholder={tCommon('form.selectPlaceholder')} />
               </SelectTrigger>
               <SelectContent>
                 {(classSubjectsQuery.data ?? []).map((cs) => (
                   <SelectItem key={cs.subject_id} value={cs.subject_id}>
-                    {cs.subject.name_en}
+                    {subjectName(cs.subject, i18n.language)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -213,7 +237,7 @@ export function AssignHomeworkForm({
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="homework-form-title" className="text-sm font-medium">
+            <label htmlFor="homework-form-title" className="text-label text-text-primary">
               {t('form.titleLabel')}
             </label>
             <Input
@@ -225,7 +249,7 @@ export function AssignHomeworkForm({
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="homework-form-description" className="text-sm font-medium">
+            <label htmlFor="homework-form-description" className="text-label text-text-primary">
               {t('form.descriptionLabel')}
             </label>
             <Textarea
@@ -236,7 +260,7 @@ export function AssignHomeworkForm({
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="homework-form-grading-mode" className="text-sm font-medium">
+            <label htmlFor="homework-form-grading-mode" className="text-label text-text-primary">
               {t('form.gradingModeLabel')}
             </label>
             <Select value={gradingMode} onValueChange={setGradingMode}>
@@ -244,7 +268,7 @@ export function AssignHomeworkForm({
                 id="homework-form-grading-mode"
                 aria-label={t('form.gradingModeLabel')}
               >
-                <SelectValue />
+                <SelectValue placeholder={tCommon('form.selectPlaceholder')} />
               </SelectTrigger>
               <SelectContent>
                 {Object.values(HomeworkGradingMode).map((mode_) => (
@@ -259,37 +283,37 @@ export function AssignHomeworkForm({
       )}
 
       <div className="flex flex-col gap-1.5">
-        <span className="text-sm font-medium">{t('form.targetLabel')}</span>
+        <span id="homework-form-target" className="text-label text-text-primary">
+          {t('form.targetLabel')}
+        </span>
         <RadioGroup
-          aria-label={t('form.targetLabel')}
+          aria-labelledby="homework-form-target"
           value={target}
           onValueChange={(value) => setTarget(value as Target)}
-          className="flex gap-4"
+          className="grid grid-cols-2 gap-2"
         >
-          <span className="flex items-center gap-2 text-sm">
-            <RadioGroupItem
-              value="section"
-              aria-label={`${t('form.targetLabel')}: ${t('form.target.section')}`}
-            />
+          <label className="flex h-11 cursor-pointer items-center gap-3 rounded-md border border-border-functional bg-surface px-3 has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-secondary has-[[data-state=checked]]:font-medium has-[[data-state=checked]]:text-secondary-foreground md:h-8">
+            <RadioGroupItem value="section" />
             {t('form.target.section')}
-          </span>
-          <span className="flex items-center gap-2 text-sm">
-            <RadioGroupItem
-              value="student"
-              aria-label={`${t('form.targetLabel')}: ${t('form.target.student')}`}
-            />
+          </label>
+          <label className="flex h-11 cursor-pointer items-center gap-3 rounded-md border border-border-functional bg-surface px-3 has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-secondary has-[[data-state=checked]]:font-medium has-[[data-state=checked]]:text-secondary-foreground md:h-8">
+            <RadioGroupItem value="student" />
             {t('form.target.student')}
-          </span>
+          </label>
         </RadioGroup>
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <label htmlFor="homework-form-section" className="text-sm font-medium">
-          {t('form.sectionLabel')}
+        <label htmlFor="homework-form-section" className="text-label text-text-primary">
+          {t('form.sectionLabel')} <Required />
         </label>
         <Select value={sectionId} onValueChange={handleSectionChange} disabled={classId === ''}>
-          <SelectTrigger id="homework-form-section" aria-label={t('form.sectionLabel')}>
-            <SelectValue />
+          <SelectTrigger
+            id="homework-form-section"
+            aria-invalid={fieldErrors.section ? true : undefined}
+            aria-describedby={fieldErrors.section ? 'homework-form-section-error' : undefined}
+          >
+            <SelectValue placeholder={tCommon('form.selectPlaceholder')} />
           </SelectTrigger>
           <SelectContent>
             {(sectionsQuery.data ?? []).map((section) => (
@@ -299,16 +323,21 @@ export function AssignHomeworkForm({
             ))}
           </SelectContent>
         </Select>
+        <FieldError id="homework-form-section-error" message={fieldErrors.section} />
       </div>
 
       {target === 'student' && (
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="homework-form-student" className="text-sm font-medium">
-            {t('form.studentLabel')}
+          <label htmlFor="homework-form-student" className="text-label text-text-primary">
+            {t('form.studentLabel')} <Required />
           </label>
           <Select value={studentId} onValueChange={setStudentId} disabled={sectionId === ''}>
-            <SelectTrigger id="homework-form-student" aria-label={t('form.studentLabel')}>
-              <SelectValue />
+            <SelectTrigger
+              id="homework-form-student"
+              aria-invalid={fieldErrors.student ? true : undefined}
+              aria-describedby={fieldErrors.student ? 'homework-form-student-error' : undefined}
+            >
+              <SelectValue placeholder={tCommon('form.selectPlaceholder')} />
             </SelectTrigger>
             <SelectContent>
               {(studentsQuery.data?.data ?? []).map((student) => (
@@ -318,27 +347,40 @@ export function AssignHomeworkForm({
               ))}
             </SelectContent>
           </Select>
+          <FieldError id="homework-form-student-error" message={fieldErrors.student} />
         </div>
       )}
 
-      <div className="flex gap-3">
-        <div className="flex flex-1 flex-col gap-1.5">
-          <span className="text-sm font-medium">{t('form.assignedDateLabel')}</span>
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="homework-form-assigned" className="text-label text-text-primary">
+            {t('form.assignedDateLabel')} <Required />
+          </label>
           <DatePicker
+            id="homework-form-assigned"
             aria-label={t('form.assignedDateLabel')}
             config={regionConfig}
             value={assignedDate}
             onValueChange={setAssignedDate}
+            aria-invalid={fieldErrors.assignedDate ? true : undefined}
+            aria-describedby={fieldErrors.assignedDate ? 'homework-form-assigned-error' : undefined}
           />
+          <FieldError id="homework-form-assigned-error" message={fieldErrors.assignedDate} />
         </div>
-        <div className="flex flex-1 flex-col gap-1.5">
-          <span className="text-sm font-medium">{t('form.dueDateLabel')}</span>
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="homework-form-due" className="text-label text-text-primary">
+            {t('form.dueDateLabel')} <Required />
+          </label>
           <DatePicker
+            id="homework-form-due"
             aria-label={t('form.dueDateLabel')}
             config={regionConfig}
             value={dueDate}
             onValueChange={setDueDate}
+            aria-invalid={fieldErrors.dueDate ? true : undefined}
+            aria-describedby={fieldErrors.dueDate ? 'homework-form-due-error' : undefined}
           />
+          <FieldError id="homework-form-due-error" message={fieldErrors.dueDate} />
         </div>
       </div>
 
@@ -353,11 +395,24 @@ export function AssignHomeworkForm({
         </p>
       )}
 
-      <div className="flex justify-end">
-        <Button type="submit" loading={isPending}>
-          {isPending ? t('form.submitting') : t('form.submit')}
-        </Button>
-      </div>
+      {mode === 'assign' ? (
+        <div className="flex flex-col-reverse gap-2 md:flex-row md:justify-end">
+          <DialogClose asChild>
+            <Button type="button" variant="outline" disabled={isPending}>
+              {tCommon('actions.cancel')}
+            </Button>
+          </DialogClose>
+          <Button type="submit" loading={isPending}>
+            {t('form.assignSubmit')}
+          </Button>
+        </div>
+      ) : (
+        <div className="flex justify-end">
+          <Button type="submit" loading={isPending}>
+            {isPending ? t('form.submitting') : t('form.submit')}
+          </Button>
+        </div>
+      )}
     </form>
   );
 }
