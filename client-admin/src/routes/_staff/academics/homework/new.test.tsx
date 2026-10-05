@@ -109,7 +109,7 @@ describe('/academics/homework/new', () => {
     const user = userEvent.setup();
     await screen.findByRole('heading', { name: 'Create homework' });
     await fillCreateBasics(user, klass.name);
-    await user.click(screen.getByLabelText('Section'));
+    await user.click(screen.getByRole('combobox', { name: /^Section/ }));
     await user.click(await screen.findByRole('option', { name: section.section_name }));
     await user.click(screen.getByRole('button', { name: 'Save' }));
 
@@ -176,10 +176,10 @@ describe('/academics/homework/new', () => {
     const user = userEvent.setup();
     await screen.findByRole('heading', { name: 'Create homework' });
     await fillCreateBasics(user, klass.name);
-    await user.click(screen.getByLabelText('Section'));
+    await user.click(screen.getByRole('combobox', { name: /^Section/ }));
     await user.click(await screen.findByRole('option', { name: section.section_name }));
-    await user.click(screen.getByLabelText('Assign to: Student'));
-    await user.click(screen.getByLabelText('Student'));
+    await user.click(screen.getByRole('radio', { name: 'Student' }));
+    await user.click(screen.getByRole('combobox', { name: /^Student/ }));
     await user.click(await screen.findByRole('option', { name: /Karim Ahmed/ }));
     await user.click(screen.getByRole('button', { name: 'Save' }));
 
@@ -226,7 +226,7 @@ describe('/academics/homework/new', () => {
     const user = userEvent.setup();
     await screen.findByRole('heading', { name: 'Create homework' });
     await fillCreateBasics(user, klass.name);
-    await user.click(screen.getByLabelText('Section'));
+    await user.click(screen.getByRole('combobox', { name: /^Section/ }));
     await user.click(await screen.findByRole('option', { name: section.section_name }));
     await user.click(screen.getByRole('button', { name: 'Save' }));
 
@@ -250,7 +250,9 @@ describe('/academics/homework/new', () => {
 
     await screen.findByRole('heading', { name: 'Create homework' });
     await waitFor(() => within(screen.getByLabelText('Class')).getByText(klass.name));
-    await waitFor(() => within(screen.getByLabelText('Section')).getByText(section.section_name));
+    await waitFor(() =>
+      within(screen.getByRole('combobox', { name: /^Section/ })).getByText(section.section_name),
+    );
   });
 
   it('due date before assigned date shows an inline error and sends no request', async () => {
@@ -273,7 +275,7 @@ describe('/academics/homework/new', () => {
     const user = userEvent.setup();
     await screen.findByRole('heading', { name: 'Create homework' });
     await fillCreateBasics(user, klass.name);
-    await user.click(screen.getByLabelText('Section'));
+    await user.click(screen.getByRole('combobox', { name: /^Section/ }));
     await user.click(await screen.findByRole('option', { name: section.section_name }));
 
     await pickDate(user, 'Due date', '2020-01-01');
