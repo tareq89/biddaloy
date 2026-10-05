@@ -1,6 +1,7 @@
 /**
  * [29.0] Teaching assignments — bulk view across a class's sections. A
- * class picklist filters a `DataTable` of section-teacher rows, composed
+ * class picklist shows one card per section, each with an unpaginated
+ * `DataTable` of that section's teachers, composed
  * client-side over that class's sections (`useClassSections`) with one
  * `useSectionTeachers` per section via `useQueries` — same composition
  * pattern `ui/src/hooks/invoices.ts`'s `useInvoiceSendCandidates` already
@@ -23,20 +24,18 @@
 import { Permission } from '@biddaloy/shared';
 import {
   Button,
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
+  ConfirmDialog,
+  DataTable,
+  EmptyState,
   ErrorState,
+  Label,
   RoutePending,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
+  Skeleton,
   type DataTableColumn,
 } from '@biddaloy/ui/components';
 import {
@@ -49,15 +48,19 @@ import {
   type SectionTeacherAssignment,
 } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
-import { ListShell, useListShellState } from '@biddaloy/ui/shells';
+import { PageContainer, PageHeader } from '@biddaloy/ui/shells';
 import { useQueries } from '@tanstack/react-query';
-import { createFileRoute } from '@tanstack/react-router';
+import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import { CircleAlertIcon, UserPlusIcon } from 'lucide-react';
 import * as React from 'react';
+import { z } from 'zod';
 
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 import { AssignTeacherDialog, sortByAssignmentType } from '../classes/-assign-teacher-dialog';
 
 export const Route = createFileRoute('/_staff/staff/teaching-assignments')({
+  // Same param name as the old list filter key, so old links keep working.
+  validateSearch: z.object({ classId: z.string().uuid().optional().catch(undefined) }),
   loader: ({ context: { queryClient } }) =>
     Promise.all([
       queryClient.ensureQueryData(allClassesQueryOptions()).catch(swallowUnlessOffline),
@@ -67,10 +70,6 @@ export const Route = createFileRoute('/_staff/staff/teaching-assignments')({
   component: TeachingAssignmentsPage,
 });
 
-// Radix `Select.Item` rejects an empty-string value — same sentinel
-// convention `classes/index.tsx` uses for "All classes".
-const NO_CLASS = ' __none__';
-
 interface Row extends SectionTeacherAssignment {
   classId: string;
 }
@@ -79,43 +78,25 @@ function TeachingAssignmentsPage() {
   const { t } = useTranslation('teacherAssignments');
   const { t: tClasses } = useTranslation('classes');
   const canManage = useHasPermission(Permission.CLASS_MANAGE);
-  const [state, actions] = useListShellState({ limit: 50 });
+  const search = Route.useSearch();
+  const navigate = useNavigate();
 
   const classesQuery = useAllClasses();
-  const selectedClassId = state.filters['classId'];
-  const effectiveClassId =
-    selectedClassId && selectedClassId !== NO_CLASS ? selectedClassId : undefined;
+  const classes = classesQuery.data ?? [];
+  // No `classId` in the URL: show the first class without writing it.
+  const effectiveClassId = search.classId ?? classes[0]?.id;
 
   const sectionsQuery = useClassSections(effectiveClassId);
   const sections = sectionsQuery.data ?? [];
 
-  // One `useSectionTeachers`-equivalent query per section of the
-  // *selected* class only (`useQueries`, not one hook call per section —
-  // rules of hooks forbids a hook count that varies with data) — bounded,
-  // not global N+1. Same composition `useInvoiceSendCandidates` uses in
-  // `ui/src/hooks/invoices.ts`.
+  // One query per section of the *selected* class only (`useQueries`, not one
+  // hook call per section — rules of hooks) — bounded, not global N+1. Same
+  // composition `useInvoiceSendCandidates` uses in `ui/src/hooks/invoices.ts`.
   const sectionTeacherQueries = useQueries({
     queries: sections.map((section) =>
       sectionTeachersQueryOptions(effectiveClassId ?? '', section.id),
     ),
   });
-
-  const rows: Row[] = effectiveClassId
-    ? sectionTeacherQueries.flatMap((query) =>
-        (query.data ?? []).map((assignment) => ({ ...assignment, classId: effectiveClassId })),
-      )
-    : [];
-
-  const isLoading =
-    effectiveClassId !== undefined &&
-    (sectionsQuery.isLoading || sectionTeacherQueries.some((query) => query.isLoading));
-  const isFetching =
-    effectiveClassId !== undefined &&
-    (sectionsQuery.isFetching || sectionTeacherQueries.some((query) => query.isFetching));
-  const isError =
-    classesQuery.isError ||
-    sectionsQuery.isError ||
-    sectionTeacherQueries.some((query) => query.isError);
 
   const [assignOpen, setAssignOpen] = React.useState(false);
   const [assignSectionId, setAssignSectionId] = React.useState<string | null>(null);
@@ -132,16 +113,17 @@ function TeachingAssignmentsPage() {
     {
       id: 'teacher',
       header: t('list.columnTeacher'),
-      accessorFn: (row) => row.full_name,
-    },
-    {
-      id: 'section',
-      header: t('list.columnSection'),
-      accessorFn: (row) => row.section_name,
+      accessorFn: (row) => (
+        <>
+          <span className="font-medium">{row.full_name}</span>
+          <span className="block text-caption text-text-secondary">{row.employee_id}</span>
+        </>
+      ),
+      card: 'title',
     },
     {
       id: 'role',
-      header: t('list.columnRole'),
+      header: t('list.columnDuty'),
       accessorFn: (row) => tClasses(`assignmentType.${row.assignment_type}`),
     },
     {
@@ -149,121 +131,146 @@ function TeachingAssignmentsPage() {
       header: t('list.columnSubject'),
       accessorFn: (row) => row.subject_name ?? '—',
     },
-    ...(canManage
-      ? [
-          {
-            id: 'actions',
-            header: t('list.columnActions'),
-            pinned: true,
-            accessorFn: (row: Row) => (
-              <button
-                type="button"
-                onClick={() => setUnassigning(row)}
-                className="text-sm font-medium text-destructive underline"
-              >
-                {t('list.unassign')}
-              </button>
-            ),
-          } satisfies DataTableColumn<Row>,
-        ]
-      : []),
   ];
 
+  const assignIndex = sections.findIndex((section) => section.id === assignSectionId);
+  const classTeacher = sectionTeacherQueries[assignIndex]?.data?.find(
+    (assignment) => assignment.assignment_type === 'CLASS_TEACHER',
+  );
+  const currentClassTeacher = classTeacher
+    ? { teacherId: classTeacher.teacher_id, name: classTeacher.full_name }
+    : undefined;
+
   return (
-    <>
-      <ListShell
-        title={t('list.title')}
-        primaryAction={
-          canManage &&
-          effectiveClassId && (
-            <Button
-              type="button"
-              onClick={() => {
-                setAssignSectionId((current) => current ?? sections[0]?.id ?? null);
-                setAssignOpen(true);
-              }}
-              disabled={sections.length === 0}
-            >
-              {t('list.assign')}
-            </Button>
-          )
-        }
-        filterBar={
-          <div className="flex flex-wrap items-center gap-2">
-            {classesQuery.isError && (
-              <ErrorState
-                message={t('list.classListErrorMessage')}
-                retryLabel={t('actions.retry', { ns: 'common' })}
-                onRetry={() => void classesQuery.refetch()}
-              />
-            )}
+    <PageContainer size="wide">
+      <PageHeader title={t('list.title')} subtitle={t('list.subtitle')} />
+
+      {classesQuery.isError ? (
+        <ErrorState
+          message={t('list.classListErrorMessage')}
+          retryLabel={t('actions.retry', { ns: 'common' })}
+          onRetry={() => void classesQuery.refetch()}
+        />
+      ) : classesQuery.isLoading ? (
+        <Skeleton className="h-40 w-full rounded-lg" />
+      ) : classes.length === 0 ? (
+        <EmptyState
+          title={t('list.noClassesTitle')}
+          explanation={t('list.noClassesExplanation')}
+          action={{ label: t('list.addClass'), onClick: () => void navigate({ to: '/classes' }) }}
+        />
+      ) : (
+        <>
+          <div className="grid gap-1.5 md:w-72">
+            <Label htmlFor="ta-class">{t('list.classLabel')}</Label>
             <Select
-              value={selectedClassId ?? NO_CLASS}
+              {...(effectiveClassId ? { value: effectiveClassId } : {})}
               onValueChange={(value) => {
-                actions.setFilters({ ...state.filters, classId: value });
+                void navigate({ to: '/staff/teaching-assignments', search: { classId: value } });
                 setAssignSectionId(null);
                 // Class switch closes any open unassign confirm — its row
-                // belongs to the old class filter, even though the mutation
-                // itself now carries its own classId/sectionId and would
-                // still target the right row if left open.
+                // belongs to the old class.
                 setUnassigning(null);
               }}
             >
-              <SelectTrigger aria-label={t('list.classLabel')}>
-                <SelectValue placeholder={t('list.classPlaceholder')} />
+              <SelectTrigger id="ta-class">
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={NO_CLASS}>{t('list.classPlaceholder')}</SelectItem>
-                {classesQuery.data?.map((klass) => (
+                {classes.map((klass) => (
                   <SelectItem key={klass.id} value={klass.id}>
                     {klass.name}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-
-            {/* Only shown once a class with 2+ sections is selected — a
-                single-section class has nothing to choose, same "no chip
-                for a single value" convention `classes/index.tsx` uses for
-                its shift/version filters. Picks which section "Assign
-                teacher" targets, since `AssignTeacherDialog` takes one
-                fixed `sectionId`, not a picker of its own. */}
-            {effectiveClassId && sections.length > 1 && (
-              <Select
-                value={assignSectionId ?? sections[0]!.id}
-                onValueChange={(value) => setAssignSectionId(value)}
-              >
-                <SelectTrigger aria-label={t('list.sectionLabel')}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {sections.map((section) => (
-                    <SelectItem key={section.id} value={section.id}>
-                      {section.section_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
           </div>
-        }
-        tableId="teaching-assignments-list"
-        caption={t('list.caption')}
-        columns={columns}
-        data={sortByAssignmentType(rows)}
-        getRowId={(row) => row.id}
-        sorting={state.sorting}
-        onSortingChange={actions.setSorting}
-        page={1}
-        pageSize={Math.max(rows.length, 1)}
-        totalCount={rows.length}
-        onPageChange={() => {}}
-        loading={isLoading}
-        isFetching={isFetching}
-        {...(isError ? { error: t('list.errorMessage') } : {})}
-        emptyMessage={effectiveClassId ? t('list.emptyMessage') : t('list.selectClassPrompt')}
-        announceResults={(count, total) => t('list.announceResults', { count, total })}
-      />
+
+          {unassignTeacher.isError && (
+            <p role="alert" className="flex items-center gap-1 text-caption text-destructive">
+              <CircleAlertIcon className="size-4" aria-hidden="true" />
+              {t('unassignDialog.errorMessage')}
+            </p>
+          )}
+
+          {sectionsQuery.isError && (
+            <ErrorState
+              message={t('list.errorMessage')}
+              retryLabel={t('actions.retry', { ns: 'common' })}
+              onRetry={() => void sectionsQuery.refetch()}
+            />
+          )}
+
+          <div className="space-y-6">
+            {sections.map((section, index) => {
+              const q = sectionTeacherQueries[index];
+              return (
+                <section
+                  key={section.id}
+                  className="overflow-hidden rounded-lg border border-border-subtle bg-surface shadow-e1"
+                >
+                  <div className="flex items-center justify-between gap-4 p-4 md:px-5 md:py-4">
+                    <h2 className="text-h2">
+                      {t('list.sectionTitle', { name: section.section_name })}
+                    </h2>
+                    {canManage && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                          setAssignSectionId(section.id);
+                          setAssignOpen(true);
+                        }}
+                      >
+                        <UserPlusIcon aria-hidden="true" />
+                        {t('list.assign')}
+                      </Button>
+                    )}
+                  </div>
+                  {q?.isError ? (
+                    <ErrorState
+                      message={t('list.errorMessage')}
+                      retryLabel={t('actions.retry', { ns: 'common' })}
+                      onRetry={() => void q.refetch()}
+                    />
+                  ) : (
+                    <DataTable
+                      tableId={`teacher-assignments-${section.id}`}
+                      caption={t('list.sectionCaption', { name: section.section_name })}
+                      columns={columns}
+                      data={sortByAssignmentType(
+                        (q?.data ?? []).map((a) => ({ ...a, classId: effectiveClassId! })),
+                      )}
+                      getRowId={(row) => row.id}
+                      sorting={null}
+                      onSortingChange={() => undefined}
+                      totalCount={q?.data?.length ?? 0}
+                      paginated={false}
+                      loading={q?.isLoading ?? true}
+                      isFetching={q?.isFetching ?? false}
+                      rowActions={(row) => [
+                        {
+                          intent: 'remove',
+                          label: t('list.unassign'),
+                          allowed: canManage,
+                          onClick: () => setUnassigning(row),
+                        },
+                      ]}
+                      emptyState={{
+                        title: t('list.emptyTitle'),
+                        explanation: t('list.emptyMessage'),
+                      }}
+                      announceResults={(count, total) =>
+                        t('list.announceResults', { count, total })
+                      }
+                    />
+                  )}
+                </section>
+              );
+            })}
+          </div>
+        </>
+      )}
 
       {canManage && effectiveClassId && assignSectionId && (
         <AssignTeacherDialog
@@ -271,57 +278,39 @@ function TeachingAssignmentsPage() {
           onOpenChange={setAssignOpen}
           classId={effectiveClassId}
           sectionId={assignSectionId}
+          currentClassTeacher={currentClassTeacher}
           onAssigned={() => setAssignOpen(false)}
         />
       )}
 
-      {canManage && unassigning && effectiveClassId && (
-        <Dialog open={unassigning !== null} onOpenChange={(open) => !open && setUnassigning(null)}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{t('unassignDialog.title')}</DialogTitle>
-              <DialogDescription>
-                {t('unassignDialog.description', {
-                  teacherName: unassigning.full_name,
-                  sectionName: unassigning.section_name,
-                })}
-              </DialogDescription>
-            </DialogHeader>
-            {unassignTeacher.isError && (
-              <p role="alert" className="text-sm text-destructive">
-                {t('unassignDialog.errorMessage')}
-              </p>
-            )}
-            <DialogFooter>
-              <DialogClose asChild>
-                <Button type="button" variant="outline">
-                  {t('unassignDialog.cancel')}
-                </Button>
-              </DialogClose>
-              <Button
-                type="button"
-                variant="destructive"
-                loading={unassignTeacher.isPending}
-                onClick={() =>
-                  unassignTeacher.mutate(
-                    {
-                      classId: unassigning.classId,
-                      sectionId: unassigning.section_id,
-                      assignmentId: unassigning.id,
-                    },
-                    { onSuccess: () => setUnassigning(null) },
-                  )
-                }
-              >
-                {unassignTeacher.isPending
-                  ? t('unassignDialog.unassigning')
-                  : t('unassignDialog.confirm')}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+      {canManage && unassigning && (
+        <ConfirmDialog
+          open
+          onOpenChange={(open) => {
+            if (!open) setUnassigning(null);
+          }}
+          tone="danger"
+          title={t('unassignDialog.title')}
+          description={t('unassignDialog.description', {
+            teacherName: unassigning.full_name,
+            sectionName: unassigning.section_name,
+          })}
+          confirmLabel={t('unassignDialog.confirm')}
+          cancelLabel={t('unassignDialog.cancel')}
+          busy={unassignTeacher.isPending}
+          onConfirm={() =>
+            unassignTeacher.mutate(
+              {
+                classId: unassigning.classId,
+                sectionId: unassigning.section_id,
+                assignmentId: unassigning.id,
+              },
+              { onSuccess: () => setUnassigning(null) },
+            )
+          }
+        />
       )}
-    </>
+    </PageContainer>
   );
 }
 
