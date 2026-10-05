@@ -14,7 +14,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@biddaloy/ui/components';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useTranslation, type RegionConfig } from '@biddaloy/ui/i18n';
+import { formatNumber } from '@biddaloy/ui/utils';
 
 export interface PromotionRunCounts {
   promoted: number;
@@ -26,6 +27,7 @@ export interface CommitDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   counts: PromotionRunCounts;
+  config: RegionConfig;
   hasPlacementErrors: boolean;
   hasUnnotedOverrides: boolean;
   confirming: boolean;
@@ -36,6 +38,7 @@ export function CommitDialog({
   open,
   onOpenChange,
   counts,
+  config,
   hasPlacementErrors,
   hasUnnotedOverrides,
   confirming,
@@ -45,15 +48,16 @@ export function CommitDialog({
   const blocked = hasPlacementErrors || hasUnnotedOverrides;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+    // A pending commit must not be dismissed (Esc / X / outside / Cancel).
+    <Dialog open={open} onOpenChange={(next) => !confirming && onOpenChange(next)}>
+      <DialogContent size="sm">
         <DialogHeader>
           <DialogTitle>{t('grid.commitConfirm.title')}</DialogTitle>
           <DialogDescription>
             {t('grid.commitConfirm.body', {
-              promoted: counts.promoted,
-              retained: counts.retained,
-              graduated: counts.graduated,
+              promoted: formatNumber(counts.promoted, config),
+              retained: formatNumber(counts.retained, config),
+              graduated: formatNumber(counts.graduated, config),
             })}
           </DialogDescription>
         </DialogHeader>
@@ -68,7 +72,12 @@ export function CommitDialog({
           </p>
         )}
         <DialogFooter>
-          <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={confirming}
+            onClick={() => onOpenChange(false)}
+          >
             {t('grid.commitConfirm.cancel')}
           </Button>
           <Button type="button" disabled={blocked} loading={confirming} onClick={onConfirm}>
