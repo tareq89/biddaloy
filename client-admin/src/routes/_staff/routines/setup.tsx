@@ -84,8 +84,13 @@ function RoutineSetupPage() {
 
         <TabsContent value="periods">
           <div className="space-y-6">
-            <ShiftsPanel selectedShiftId={selectedShift?.id} onSelectShift={setSelectedShiftId} />
-            <PeriodSlotsPanel shift={selectedShift} changeoverGapMinutes={changeoverGapMinutes} />
+            <ShiftsPanel />
+            <PeriodSlotsPanel
+              shifts={shifts}
+              shift={selectedShift}
+              onSelectShift={setSelectedShiftId}
+              changeoverGapMinutes={changeoverGapMinutes}
+            />
           </div>
         </TabsContent>
         <TabsContent value="rooms">
