@@ -36,7 +36,7 @@ export function PerformanceTab({ userId, subjectName }: PerformanceTabProps) {
 
   const current = years.data.data.find((y) => y.is_current) ?? years.data.data[0];
   if (!current) {
-    return <p className="text-sm text-muted-foreground">{t('noYear')}</p>;
+    return <p className="text-text-secondary">{t('noYear')}</p>;
   }
   return (
     <StaffPerformance
@@ -94,11 +94,11 @@ function StaffPerformance({
   });
 
   return (
-    <div id="performance-print-area" className="flex flex-col gap-3">
+    <div id="performance-print-area" className="space-y-6">
       <h2 className="performance-print-title">{t('printTitle', { name: subjectName })}</h2>
       <div className="flex justify-end print:hidden">
         <Button type="button" variant="outline" onClick={() => window.print()}>
-          <Printer className="size-4" />
+          <Printer aria-hidden="true" />
           {t('print')}
         </Button>
       </div>
