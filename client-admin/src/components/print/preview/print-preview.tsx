@@ -11,7 +11,9 @@ import { getActiveTenant } from '@biddaloy/ui/api';
 import {
   BUNDLED_PRINT_FONTS,
   Button,
+  Card,
   EmptyState,
+  ErrorState,
   Input,
   Select,
   SelectContent,
@@ -19,6 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
   Skeleton,
+  StatusBadge,
   TemplateRenderer,
   toast,
 } from '@biddaloy/ui/components';
@@ -30,8 +33,9 @@ import {
   usePrintTemplates,
   type PrintSubjectType,
 } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { FullPageShell } from '@biddaloy/ui/shells';
+import { formatNumber } from '@biddaloy/ui/utils';
 import * as React from 'react';
 
 import { slotLabel } from '../editor/element-label';
@@ -115,6 +119,7 @@ export function PrintPreview({
 }: PrintPreviewProps) {
   const { t, i18n } = useTranslation('printPreview');
   const { t: tEditor } = useTranslation('printEditor');
+  const region = useRegionConfig();
   const tenantId = getActiveTenant() ?? '';
   const prefix = subjectType === 'STUDENT' ? 'student' : 'staff';
 
@@ -213,18 +218,21 @@ export function PrintPreview({
       };
     });
 
+  // The field's own label ("Name"), never its key ("student.name").
+  const fieldLabel = (field: string) =>
+    slotLabel(tEditor, field) ?? tEditor(`fields.${field}`, { defaultValue: field });
   const usesPhoto = definition ? JSON.stringify(definition).includes(`${prefix}.photo`) : false;
   const issues: PreflightIssue[] = definition
     ? items.flatMap((item) => {
         const reasons: string[] = [];
         const fields = (overflow[item.subject_id] ?? []).map((id) =>
-          elementName(definition, id, (f) => slotLabel(tEditor, f)),
+          elementName(definition, id, fieldLabel),
         );
         if (fields.length > 0) reasons.push(t('preflight.overflow', { fields: fields.join(', ') }));
         if (usesPhoto && !item.photo_url) reasons.push(t('preflight.noPhoto'));
         const nameKey = `${prefix}.name`;
         if (!text(item.values[nameKey]).trim()) {
-          reasons.push(t('preflight.empty', { fields: nameKey }));
+          reasons.push(t('preflight.empty', { fields: fieldLabel(nameKey) }));
         }
         return reasons.length > 0
           ? [{ subjectId: item.subject_id, label: item.label, reasons }]
@@ -339,8 +347,6 @@ export function PrintPreview({
     );
   }
 
-  const printerTypeLabel = printer ? t(`printerType.${printer.printer_type}`) : '';
-
   return frame(
     {
       label: printing ? t('printing') : t('print'),
@@ -348,92 +354,99 @@ export function PrintPreview({
       busy: printing,
       disabled: !canPrint,
     },
-    <div data-print-preview className="flex flex-col gap-4">
-      <header className="flex flex-col gap-1">
-        <p className="text-sm text-muted-foreground">
-          {t('header.batch', {
-            current: Math.min(confirmed + 1, batches.length),
-            total: batches.length,
-            count: batchIds.length,
-          })}
-          {printer
-            ? ` · ${t('header.printer', { name: printer.name, type: printerTypeLabel })}`
-            : ''}
-        </p>
-      </header>
-
-      <div className="grid gap-3 sm:grid-cols-3">
-        {published.length > 1 ? (
-          <div className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium">{t('controls.template')}</span>
-            <Select value={template.id} onValueChange={setPickedTemplateId} disabled={started}>
-              <SelectTrigger aria-label={t('controls.template')}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {published.map((x) => (
-                  <SelectItem key={x.id} value={x.id}>
-                    {x.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+    <div data-print-preview className="flex flex-col gap-6">
+      <Card padded>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-h2">
+              {t('header.batch', {
+                current: Math.min(confirmed + 1, batches.length),
+                total: batches.length,
+                count: batchIds.length,
+              })}
+            </h2>
+            <p className="mt-1 text-text-secondary">{t('round.help')}</p>
           </div>
-        ) : null}
-
-        {printers.length > 0 ? (
-          <div className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium">{t('controls.printer')}</span>
-            <Select
-              value={printer?.id ?? ''}
-              onValueChange={(id) => {
-                setPickedPrinterId(id);
-                remember(id);
-              }}
-            >
-              <SelectTrigger aria-label={t('controls.printer')}>
-                <SelectValue placeholder={t('controls.choosePrinter')} />
-              </SelectTrigger>
-              <SelectContent>
-                {printers.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
-                    {p.name} · {t(`printerType.${p.printer_type}`)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        ) : null}
-
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="print-batch-size" className="text-sm font-medium">
-            {t('controls.batchSize', { max: maxBatch })}
-          </label>
-          <Input
-            id="print-batch-size"
-            type="number"
-            min={1}
-            max={maxBatch}
-            value={batchSize}
-            disabled={started}
-            onChange={(e) => setBatchSizeInput(e.target.valueAsNumber)}
-          />
+          <BatchBar batchSizes={batches.map((b) => b.length)} current={confirmed} />
         </div>
-      </div>
+
+        <div className="mt-4 grid gap-4 md:grid-cols-3">
+          {published.length > 1 ? (
+            <div className="flex flex-col gap-1.5">
+              <span className="text-label">{t('controls.template')}</span>
+              <Select value={template.id} onValueChange={setPickedTemplateId} disabled={started}>
+                <SelectTrigger aria-label={t('controls.template')} className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {published.map((x) => (
+                    <SelectItem key={x.id} value={x.id}>
+                      {x.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {started ? (
+                <p className="text-caption text-text-secondary">{t('controls.templateLocked')}</p>
+              ) : null}
+            </div>
+          ) : null}
+
+          {printers.length > 0 ? (
+            <div className="flex flex-col gap-1.5">
+              <span className="text-label">{t('controls.printer')}</span>
+              <Select
+                value={printer?.id ?? ''}
+                onValueChange={(id) => {
+                  setPickedPrinterId(id);
+                  remember(id);
+                }}
+              >
+                <SelectTrigger aria-label={t('controls.printer')} className="w-full">
+                  <SelectValue placeholder={t('controls.choosePrinter')} />
+                </SelectTrigger>
+                <SelectContent>
+                  {printers.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name} · {t(`printerType.${p.printer_type}`)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ) : null}
+
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="print-batch-size" className="text-label">
+              {t('controls.batchSize')}
+            </label>
+            <Input
+              id="print-batch-size"
+              type="number"
+              min={1}
+              max={maxBatch}
+              value={batchSize}
+              disabled={started}
+              onChange={(e) => setBatchSizeInput(e.target.valueAsNumber)}
+            />
+            <p className="text-caption text-text-secondary">
+              {t('controls.batchMax', { max: formatNumber(maxBatch, region) })}
+            </p>
+          </div>
+        </div>
+      </Card>
 
       {printers.length === 0 ? (
-        <div
-          role="status"
-          className="flex items-center justify-between gap-3 rounded-lg border border-dashed border-border-subtle p-3 text-sm"
-        >
-          <span>{t('noPrinter.notice')}</span>
-          <Button type="button" size="sm" variant="outline" onClick={onAddPrinter}>
-            {t('noPrinter.action')}
-          </Button>
-        </div>
+        <Card padded role="status">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p>{t('noPrinter.notice')}</p>
+            <Button type="button" variant="outline" onClick={onAddPrinter}>
+              {t('noPrinter.action')}
+            </Button>
+          </div>
+        </Card>
       ) : null}
 
-      <BatchBar batchSizes={batches.map((b) => b.length)} current={confirmed} />
       <PreflightPanel
         issues={issues}
         total={items.length}
@@ -441,56 +454,78 @@ export function PrintPreview({
         onAcknowledgedChange={setPrintAnyway}
       />
 
+      {pending ? <p className="text-text-secondary">{t('locked')}</p> : null}
+
       {preview.isPending && !data ? (
         <Skeleton role="status" aria-label={t('loading')} className="h-56 w-full" />
       ) : preview.isError ? (
-        <p role="alert" className="text-sm text-destructive">
-          {t('previewError')}
-        </p>
+        <ErrorState
+          message={t('previewError')}
+          onRetry={() =>
+            loadPreview({
+              template_id: template.id,
+              subject_type: subjectType,
+              subject_ids: batchIds,
+            })
+          }
+        />
       ) : definition ? (
-        <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {items.map((item) => {
-            const values = {
-              ...(Object.fromEntries(
-                Object.entries(item.values).map(([k, v]) => [k, text(v)]),
-              ) as Record<string, string>),
-              [`${prefix}.photo`]: item.photo_url ? (dataUrls[item.photo_url] ?? '') : '',
-              'school.logo': wantsLogo ? (dataUrls[logoUrl] ?? '') : '',
-            };
-            return (
-              <li key={item.subject_id} className="flex flex-col gap-2">
-                <p className="text-sm font-medium">{item.label}</p>
-                <div className="flex flex-wrap gap-2 overflow-x-auto">
-                  {definition.page.sides.map((side) => (
-                    <figure
-                      key={side}
-                      className="flex flex-col gap-1"
-                      aria-label={`${item.label} · ${t(`sides.${side}`)}`}
-                    >
-                      <TemplateRenderer
-                        definition={definition}
-                        side={side}
-                        values={values}
-                        assetUrl={assetUrl}
-                        fonts={BUNDLED_PRINT_FONTS}
-                        mode="preview"
-                        {...(side === 'front'
-                          ? { onOverflow: reportOverflow(item.subject_id) }
-                          : {})}
+        <section aria-label={t('previewLabel')}>
+          <ul className="grid gap-6 md:grid-cols-2">
+            {items.map((item) => {
+              const values = {
+                ...(Object.fromEntries(
+                  Object.entries(item.values).map(([k, v]) => [k, text(v)]),
+                ) as Record<string, string>),
+                [`${prefix}.photo`]: item.photo_url ? (dataUrls[item.photo_url] ?? '') : '',
+                'school.logo': wantsLogo ? (dataUrls[logoUrl] ?? '') : '',
+              };
+              const issue = issues.find((i) => i.subjectId === item.subject_id);
+              return (
+                <li key={item.subject_id} className="flex flex-col gap-2">
+                  <p className="flex items-center gap-2 font-medium">
+                    {item.label}
+                    {issue ? (
+                      <StatusBadge
+                        tone="warning"
+                        label={
+                          issue.reasons.length === 1
+                            ? (issue.reasons[0] ?? '')
+                            : t('preflight.badge')
+                        }
                       />
-                      <figcaption className="text-xs text-muted-foreground">
-                        {t(`sides.${side}`)}
-                      </figcaption>
-                    </figure>
-                  ))}
-                </div>
-              </li>
-            );
-          })}
-        </ul>
+                    ) : null}
+                  </p>
+                  <div className="flex flex-wrap gap-2 overflow-x-auto">
+                    {definition.page.sides.map((side) => (
+                      <figure
+                        key={side}
+                        className="flex flex-col gap-1"
+                        aria-label={`${item.label} · ${t(`sides.${side}`)}`}
+                      >
+                        <TemplateRenderer
+                          definition={definition}
+                          side={side}
+                          values={values}
+                          assetUrl={assetUrl}
+                          fonts={BUNDLED_PRINT_FONTS}
+                          mode="preview"
+                          {...(side === 'front'
+                            ? { onOverflow: reportOverflow(item.subject_id) }
+                            : {})}
+                        />
+                        <figcaption className="text-caption text-text-secondary">
+                          {t(`sides.${side}`)}
+                        </figcaption>
+                      </figure>
+                    ))}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
       ) : null}
-
-      {pending ? <p className="text-sm text-muted-foreground">{t('locked')}</p> : null}
 
       {pending ? (
         <DidAllPrintDialog
