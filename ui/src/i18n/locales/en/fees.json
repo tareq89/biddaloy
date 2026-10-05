@@ -409,7 +409,8 @@
         "save": "Save",
         "saving": "Saving…",
         "cancel": "Cancel",
-        "errorMessage": "Failed to save fine rule"
+        "errorMessage": "Failed to save fine rule",
+        "duplicateMessage": "An active fine rule already exists for this year, trigger and class"
       },
       "copyDialog": {
         "title": "Copy from last year",

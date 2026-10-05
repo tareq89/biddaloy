@@ -180,8 +180,15 @@ export function LogFineModal({ open, onOpenChange, prefillStudentIds }: LogFineM
 
   const trimmedNote = note.trim();
   const noteInvalid = trimmedNote.length < REASON_MIN_LENGTH || note.length > REASON_MAX_LENGTH;
+  const dirty =
+    selected.length > 0 ||
+    note !== '' ||
+    feeStructureId !== '' ||
+    amountTouched ||
+    incidentDate !== todayDateInputValue();
   const canSubmit =
     selected.length > 0 &&
+    selected.every((student) => student.full_name !== '') &&
     feeStructureId !== '' &&
     !noteInvalid &&
     incidentDate !== '' &&
@@ -223,7 +230,7 @@ export function LogFineModal({ open, onOpenChange, prefillStudentIds }: LogFineM
 
   function requestCancel() {
     if (logFine.isPending) return;
-    if (selected.length > 0 || note !== '') setConfirmDiscard(true);
+    if (dirty) setConfirmDiscard(true);
     else resetAndClose();
   }
 
@@ -235,7 +242,7 @@ export function LogFineModal({ open, onOpenChange, prefillStudentIds }: LogFineM
     <FullPageShell
       title={t('logForm.title')}
       onClose={requestClose}
-      dirty={selected.length > 0 || note !== ''}
+      dirty={dirty && !logFine.isPending}
       primary={{
         label: logFine.isPending ? t('logForm.saving') : t('logForm.save'),
         onClick: submit,
@@ -244,7 +251,7 @@ export function LogFineModal({ open, onOpenChange, prefillStudentIds }: LogFineM
       }}
       secondary={{ label: t('actions.cancel', { ns: 'common' }), onClick: requestCancel }}
     >
-      <section aria-labelledby="log-fine-students" className={cardClass}>
+      <section className={cardClass}>
         <h2 id="log-fine-students" className="text-h3">
           {t('logForm.studentsLabel')}
         </h2>
