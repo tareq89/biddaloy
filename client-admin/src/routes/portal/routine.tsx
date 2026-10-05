@@ -9,16 +9,24 @@
  * Multi-child switching reuses `fees.tsx`'s exact pattern: `?student=` in
  * the URL, `StudentPicker` for the switching UI, and `useMyStudents()` for
  * the linked list — not a second selector.
+ *
+ * One day at a time: seven kit tabs from today, the selected day's periods
+ * in a list under them. The subject name comes from the resolved slot
+ * itself (`subject_name_en` / `subject_name_bn`) — `/subjects` and
+ * `/teachers` both 403 for a family, so this page never asks for them.
  */
 import {
+  Card,
   EmptyState,
   ErrorState,
   RoutePending,
-  RoutineAgenda,
   Skeleton,
+  StatusBadge,
   StudentPicker,
-  type RoutineAgendaDay,
-  type RoutineAgendaItem,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
 } from '@biddaloy/ui/components';
 import {
   myStudentsQueryOptions,
@@ -28,16 +36,28 @@ import {
   useResolveRoutine,
   useRoutines,
   useRooms,
-  useSubjects,
-  useTeachers,
   usePeriodSlotLookup,
   type ResolvedSlot,
   type Routine,
   type Student,
 } from '@biddaloy/ui/hooks';
-import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
-import { formatNumber } from '@biddaloy/ui/utils';
+import {
+  RegionConfigProvider,
+  useRegionConfig,
+  useTranslation,
+  type RegionConfig,
+} from '@biddaloy/ui/i18n';
+import { PageContainer, PageHeader } from '@biddaloy/ui/shells';
+import {
+  formatDate,
+  formatNumber,
+  formatTime,
+  formatWeekday,
+  parseServerDate,
+  toIsoDate,
+} from '@biddaloy/ui/utils';
 import { createFileRoute } from '@tanstack/react-router';
+import { CalendarClockIcon } from 'lucide-react';
 import * as React from 'react';
 import { z } from 'zod';
 
@@ -45,16 +65,6 @@ import { loadRouteNamespaces, swallowUnlessOffline } from '../../route-loaders';
 
 const WEEKDAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
 const AGENDA_WINDOW_DAYS = 7;
-
-function isoOf(date: Date): string {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(
-    date.getDate(),
-  ).padStart(2, '0')}`;
-}
-
-function todayIso(): string {
-  return isoOf(new Date());
-}
 
 /** Same "rolling window from today" choice `my.tsx` makes, for the same
  * reason: "today first" (D18) needs no week-start convention to reorder. */
@@ -64,7 +74,7 @@ function agendaDates(): string[] {
   return Array.from({ length: AGENDA_WINDOW_DAYS }, (_, i) => {
     const d = new Date(start);
     d.setDate(d.getDate() + i);
-    return isoOf(d);
+    return toIsoDate(d);
   });
 }
 
@@ -96,23 +106,51 @@ export const Route = createFileRoute('/portal/routine')({
       loadRouteNamespaces('portal', 'routines', 'common'),
     ]),
   pendingComponent: PortalRoutinePending,
-  component: PortalRoutine,
+  component: PortalRoutineRoute,
 });
+
+function PortalRoutineRoute() {
+  return (
+    <RegionConfigProvider>
+      <PortalRoutine />
+    </RegionConfigProvider>
+  );
+}
 
 /** The same "class section · roll" meta line `fees.tsx`/`attendance.tsx`
  * render, from the same two keys. */
 function useStudentMeta(): (student: Student) => string {
   const { t } = useTranslation('portal');
+  const config = useRegionConfig();
   return (student: Student) => {
     const className = student.class_section?.class?.name ?? null;
+    const roll = formatNumber(student.roll_number, config);
     return className === null
-      ? t('children.metaNoClass', { roll: student.roll_number })
+      ? t('children.metaNoClass', { roll })
       : t('children.meta', {
           className,
           section: student.class_section?.section_name ?? '',
-          roll: student.roll_number,
+          roll,
         });
   };
+}
+
+interface RoutineItem {
+  slotId: string;
+  title: string;
+  meta: string;
+  startsAt: string;
+  endsAt: string;
+  cancelled: boolean;
+  substituted: boolean;
+}
+
+interface RoutineDay {
+  date: string;
+  weekdayLabel: string;
+  isToday: boolean;
+  offReason: string | undefined;
+  items: RoutineItem[];
 }
 
 function PortalRoutine() {
@@ -134,9 +172,9 @@ function PortalRoutine() {
   const resolveQuery = useResolveRoutine(
     selected ? { student_id: selected.id, from, to } : undefined,
   );
-  const subjectsQuery = useSubjects({});
+  // No `useSubjects` / `useTeachers`: both 403 for PARENT/STUDENT and the
+  // failure fires the global "no permission" toast on every load.
   const roomsQuery = useRooms();
-  const teachersQuery = useTeachers({});
   const periodLookupQuery = usePeriodSlotLookup();
   const calendarSettingsQuery = useCalendarSettings();
   const calendarEventsQuery = useCalendarEvents({ from, to });
@@ -155,19 +193,17 @@ function PortalRoutine() {
 
   if (students.length === 0 || selected === undefined) {
     return (
-      <EmptyState
-        title={t('empty.title')}
-        explanation={t('empty.explanation')}
-        action={{ label: t('empty.action'), onClick: () => void studentsQuery.refetch() }}
-      />
+      <PageContainer size="narrow">
+        <PageHeader title={t('routine.title')} />
+        <EmptyState
+          title={t('empty.title')}
+          explanation={t('empty.explanation')}
+          action={{ label: t('empty.action'), onClick: () => void studentsQuery.refetch() }}
+        />
+      </PageContainer>
     );
   }
 
-  // subjectsQuery and teachersQuery are excluded: PARENT/STUDENT get 403 on
-  // both `/subjects` and `/teachers` server-side, so waiting on them would
-  // permanently break this page for every family. Their `?? id` fallbacks
-  // below cover the gap, though subject/teacher names still render as raw
-  // ids for families until the server exposes them or the permission opens.
   const pending = [
     routinesQuery,
     resolveQuery,
@@ -191,42 +227,58 @@ function PortalRoutine() {
     );
   }
 
+  const header = (
+    <>
+      <PageHeader
+        title={t('routine.title')}
+        subtitle={`${selected.full_name} · ${studentMeta(selected)}`}
+      />
+      {students.length > 1 && (
+        <StudentPicker
+          label={t('routine.pickerLabel')}
+          items={students.map((student) => ({
+            id: student.id,
+            name: student.full_name,
+            meta: studentMeta(student),
+          }))}
+          selectedId={selected.id}
+          to="/portal/routine"
+        />
+      )}
+    </>
+  );
+
   if (!hasPublishableRoutine(routinesQuery.data, selected.class_section?.class?.academic_year_id)) {
     return (
-      <div className="flex max-w-2xl flex-col gap-3">
-        <h1 className="text-lg font-semibold">{t('routine.title')}</h1>
-        {students.length > 1 && (
-          <StudentPicker
-            label={t('routine.pickerLabel')}
-            items={students.map((student) => ({
-              id: student.id,
-              name: student.full_name,
-              meta: studentMeta(student),
-            }))}
-            selectedId={selected.id}
-            to="/portal/routine"
-          />
-        )}
-        <p className="text-sm text-muted-foreground">{t('routine.noRoutineExplanation')}</p>
-      </div>
+      <PageContainer size="narrow">
+        {header}
+        <EmptyState
+          icon={<CalendarClockIcon />}
+          title={t('routine.noRoutineTitle')}
+          explanation={t('routine.noRoutineExplanation')}
+        />
+      </PageContainer>
     );
   }
 
-  const subjectName = (id: string) =>
-    subjectsQuery.data?.data.find((subject) => subject.id === id)?.name_en ?? id;
+  const isBangla = config.locale.startsWith('bn');
+  // The server's own subject name, bn/en with the other as fallback. Never
+  // an id: no name means the period label stands in as the title.
+  const subjectLabel = (slot: ResolvedSlot): string | null =>
+    (isBangla
+      ? slot.subject_name_bn || slot.subject_name_en
+      : slot.subject_name_en || slot.subject_name_bn) || null;
   const roomLabel = (id: string | null) => {
     if (!id) return null;
     const room = roomsQuery.data?.data.find((r) => r.id === id);
     if (!room) return null;
     return room.building ? `${room.building} ${room.room_no}` : room.room_no;
   };
-  const teacherName = (id: string) =>
-    teachersQuery.data?.data.find((teacher) => teacher.id === id)?.user.full_name ?? id;
   const periodLabel = (id: string) => {
     const entry = periodLookupQuery.data?.[id];
     return entry
       ? tRoutines('agenda.periodLabel', { sequence: formatNumber(entry.sequence, config) })
-      : id;
+      : '';
   };
   const weeklyOffDays = new Set(calendarSettingsQuery.data?.weeklyOffDays ?? []);
   const holidayFor = (date: string) =>
@@ -242,7 +294,8 @@ function PortalRoutine() {
     slotsByDate.set(slot.date, list);
   }
 
-  const days: RoutineAgendaDay[] = dates.map((date) => {
+  const todayIso = toIsoDate(new Date());
+  const days: RoutineDay[] = dates.map((date) => {
     const weekday = new Date(`${date}T00:00:00`).getDay();
     const holiday = holidayFor(date);
     const offReason = holiday
@@ -251,66 +304,108 @@ function PortalRoutine() {
         ? tRoutines('agenda.weeklyOffReason')
         : undefined;
 
-    const items: RoutineAgendaItem[] = (slotsByDate.get(date) ?? []).map((slot) => {
+    const items: RoutineItem[] = (slotsByDate.get(date) ?? []).map((slot) => {
       const period = periodLookupQuery.data?.[slot.period_slot_id];
+      const subject = subjectLabel(slot);
+      const periodText = periodLabel(slot.period_slot_id);
       return {
         slotId: slot.routine_slot_id,
-        periodLabel: periodLabel(slot.period_slot_id),
+        title: subject ?? periodText,
+        meta: [subject ? periodText : null, roomLabel(slot.room_id)].filter(Boolean).join(' · '),
         startsAt: period?.starts_at ?? '',
         endsAt: period?.ends_at ?? '',
-        subjectLabel: subjectName(slot.subject_id),
-        roomLabel: roomLabel(slot.room_id),
         cancelled: slot.cancelled,
-        coveringForLabel: slot.substituted
-          ? tRoutines('agenda.coveringForLabel', {
-              name: (slot.covering_for_teacher_ids ?? []).map(teacherName).join(', '),
-            })
-          : undefined,
+        substituted: slot.substituted,
       };
     });
 
     return {
       date,
       weekdayLabel: tRoutines(`grid.weekday.${WEEKDAY_KEYS[weekday]}`),
-      isToday: date === todayIso(),
+      isToday: date === todayIso,
       offReason,
       items,
     };
   });
 
   return (
-    <div className="flex max-w-2xl flex-col gap-3">
-      <h1 className="text-lg font-semibold">{t('routine.title')}</h1>
-      {students.length > 1 && (
-        <StudentPicker
-          label={t('routine.pickerLabel')}
-          items={students.map((student) => ({
-            id: student.id,
-            name: student.full_name,
-            meta: studentMeta(student),
-          }))}
-          selectedId={selected.id}
-          to="/portal/routine"
-        />
-      )}
-      <PortalRoutineAgenda days={days} />
-    </div>
+    <PageContainer size="narrow">
+      {header}
+      <PortalRoutineDays key={selected.id} days={days} config={config} />
+    </PageContainer>
   );
 }
 
-/** Isolated so the day/week-view selection state doesn't force the whole
- * route (loading/error/empty decisions above) to re-render on toggle. */
-function PortalRoutineAgenda({ days }: { days: RoutineAgendaDay[] }) {
+/** Isolated so the selected-day state resets with the student (`key`) and
+ * does not re-render the loading / error decisions above. */
+function PortalRoutineDays({ days, config }: { days: RoutineDay[]; config: RegionConfig }) {
+  const { t } = useTranslation('portal');
+  const { t: tRoutines } = useTranslation('routines');
+  const { t: tCommon } = useTranslation('common');
   const [selectedDate, setSelectedDate] = React.useState(days[0]?.date ?? '');
-  const [weekView, setWeekView] = React.useState(false);
+
   return (
-    <RoutineAgenda
-      days={days}
-      selectedDate={selectedDate}
-      onSelectDate={setSelectedDate}
-      weekView={weekView}
-      onToggleWeekView={setWeekView}
-    />
+    <Card className="overflow-hidden p-0">
+      <Tabs value={selectedDate} onValueChange={setSelectedDate} className="gap-0">
+        <TabsList variant="line" aria-label={tRoutines('agenda.daySwitcherLabel')}>
+          {days.map((day) => (
+            <TabsTrigger key={day.date} value={day.date} className="h-11 flex-none px-3 md:h-10">
+              {day.isToday
+                ? tCommon('date.today')
+                : `${day.weekdayLabel} ${formatNumber(parseServerDate(day.date).getDate(), config)}`}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+        {days.map((day) => (
+          <TabsContent key={day.date} value={day.date} className="p-4 md:p-5">
+            <h2 className="text-h2">
+              {formatWeekday(day.date, config)}, {formatDate(day.date, config)}
+            </h2>
+            {!day.offReason && (
+              <p className="text-text-secondary">
+                {t('routine.periodCount', { count: day.items.length })}
+              </p>
+            )}
+            {day.offReason ? (
+              <p className="mt-3 border-t border-border-subtle pt-3 text-text-secondary">
+                {day.offReason}
+              </p>
+            ) : day.items.length === 0 ? (
+              <p className="mt-3 border-t border-border-subtle pt-3 text-text-secondary">
+                {tRoutines('agenda.emptyDay')}
+              </p>
+            ) : (
+              <ul className="mt-3 divide-y divide-border-subtle border-t border-border-subtle">
+                {day.items.map((item) => (
+                  <li
+                    key={item.slotId}
+                    className={`flex items-start gap-3 py-3 ${item.cancelled ? 'text-text-secondary' : ''}`}
+                  >
+                    <div className="w-24 shrink-0 tabular-nums md:w-32">
+                      <p className="font-medium">{formatTime(item.startsAt, config)}</p>
+                      <p className="text-caption text-text-secondary">
+                        {t('routine.until', { time: formatTime(item.endsAt, config) })}
+                      </p>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className={`font-medium ${item.cancelled ? 'line-through' : ''}`}>
+                        {item.title}
+                      </p>
+                      {item.meta && <p className="text-caption text-text-secondary">{item.meta}</p>}
+                    </div>
+                    {item.cancelled ? (
+                      <StatusBadge tone="danger" label={tRoutines('agenda.cancelledLabel')} />
+                    ) : item.substituted ? (
+                      <StatusBadge tone="warning" label={t('routine.substitute')} />
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </TabsContent>
+        ))}
+      </Tabs>
+    </Card>
   );
 }
 
@@ -322,13 +417,14 @@ function PortalRoutineSkeleton({
   showPicker?: boolean;
 }) {
   return (
-    <div className="flex max-w-2xl flex-col gap-3" aria-busy="true" aria-live="polite">
+    <div className="flex flex-col gap-3" aria-busy="true" aria-live="polite">
       <span className="sr-only">{label}</span>
-      <Skeleton className="h-7 w-2/5" />
+      <Skeleton className="h-8 w-2/5" />
       {showPicker && <Skeleton className="h-12 w-full rounded-lg" />}
-      <Skeleton className="h-9 w-full rounded-lg" />
-      <Skeleton className="h-16 w-full rounded-lg" />
-      <Skeleton className="h-16 w-full rounded-lg" />
+      <Skeleton className="h-11 w-full rounded-lg" />
+      <Skeleton className="h-14 w-full rounded-lg" />
+      <Skeleton className="h-14 w-full rounded-lg" />
+      <Skeleton className="h-14 w-full rounded-lg" />
     </div>
   );
 }

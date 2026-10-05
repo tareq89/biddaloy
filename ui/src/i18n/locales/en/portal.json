@@ -83,11 +83,23 @@
   "examSchedule": {
     "title": "Exam schedule",
     "loading": "Loading exam schedule",
-    "empty": "No exam schedule yet. It appears here once the school publishes a complete schedule.",
     "error": {
       "message": "Could not load the exam schedule. Something went wrong reaching the school's records — check your connection and try again.",
       "retry": "Try again"
-    }
+    },
+    "next": {
+      "title": "Next exam"
+    },
+    "columns": {
+      "date": "Date",
+      "time": "Time",
+      "subject": "Subject",
+      "venue": "Venue"
+    },
+    "done": "Finished",
+    "unknownSubject": "Subject not set",
+    "emptyTitle": "No exam schedule yet",
+    "emptyExplanation": "It appears here once the school publishes a complete schedule."
   },
   "attendance": {
     "title": "Attendance",
@@ -177,7 +189,12 @@
     "error": {
       "message": "Could not load this student's routine. Check your connection and try again.",
       "retry": "Try again"
-    }
+    },
+    "noRoutineTitle": "No routine yet",
+    "periodCount_one": "{{count}} period",
+    "periodCount_other": "{{count}} periods",
+    "until": "until {{time}}",
+    "substitute": "Substitute teacher"
   },
   "payments": {
     "title": "Recent payments",

@@ -1,3 +1,4 @@
+import { REGION_BD_EN } from '@biddaloy/ui/i18n';
 import {
   apiErrorBody,
   classFactory,
@@ -6,12 +7,21 @@ import {
   server,
   studentFactory,
 } from '@biddaloy/ui/test';
+import { formatDate, formatWeekday } from '@biddaloy/ui/utils';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, describe, expect, it, vi } from 'vitest';
 
 import { routeTree } from '../../routeTree.gen';
+
+// Frozen so "today" and "finished" mean the same thing at any hour. Only
+// `Date` is faked, so MSW and `waitFor` keep their real timers.
+vi.useFakeTimers({ toFake: ['Date'] });
+afterAll(() => {
+  vi.useRealTimers();
+});
+vi.setSystemTime(new Date('2026-02-05T10:00:00.000Z'));
 
 /**
  * [19.11.1] Portal exam schedule — visibility is entirely server side
@@ -63,16 +73,26 @@ describe('/portal/exam-schedule', () => {
     );
   }
 
-  function renderSchedule(path = '/portal/exam-schedule') {
+  function renderSchedule(path = '/portal/exam-schedule', locale = 'en') {
     return renderWithRouter(routeTree, {
       initialEntries: [path],
       tenantId: 'tenant-1',
       role: 'PARENT',
-      locale: 'en',
+      locale,
     });
   }
 
-  it('shows the schedule sorted upcoming-first', async () => {
+  /** The body rows of the exam's table, header row dropped. */
+  function bodyRows(tableName: string): HTMLElement[] {
+    return within(screen.getByRole('table', { name: tableName }))
+      .getAllByRole('row')
+      .slice(1);
+  }
+
+  const longDate = (iso: string) =>
+    `${formatWeekday(iso, REGION_BD_EN)}, ${formatDate(iso, REGION_BD_EN)}`;
+
+  it('shows the schedule sorted upcoming-first, with long dates and times without seconds', async () => {
     mockSchedule({
       students: [fatima],
       schedule: {
@@ -85,10 +105,107 @@ describe('/portal/exam-schedule', () => {
 
     renderSchedule();
 
-    await screen.findByRole('heading', { name: 'Exam schedule' });
-    const rows = await screen.findAllByText(/2026-02-0[56]/);
-    expect(rows[0]).toHaveProperty('textContent', expect.stringContaining('2026-02-05'));
-    expect(rows[1]).toHaveProperty('textContent', expect.stringContaining('2026-02-06'));
+    await screen.findByRole('heading', { level: 1, name: 'Exam schedule' });
+    const rows = bodyRows('First Term Exam');
+    expect(rows).toHaveLength(2);
+    expect(within(rows[0]!).getByText('Mathematics')).toBeTruthy();
+    expect(within(rows[0]!).getByText(longDate('2026-02-05'))).toBeTruthy();
+    expect(within(rows[1]!).getByText('English')).toBeTruthy();
+    expect(within(rows[1]!).getByText(longDate('2026-02-06'))).toBeTruthy();
+    // Times read as 9:00 AM – 11:00 AM, never the raw 09:00:00 / ISO date.
+    expect(screen.queryByText(/09:00:00/)).toBeNull();
+    expect(screen.queryByText(/2026-02-0[56]/)).toBeNull();
+    expect(within(rows[0]!).getByText(/9:00 AM – 11:00 AM/)).toBeTruthy();
+  });
+
+  it('renders one table per exam, ordered by the exam\u2019s first sitting', async () => {
+    const later = { ...row('exam-2', 'Science', '2026-03-01', '10:00:00') };
+    later.exam = { id: 'exam-2', name: 'Final Exam', kind: 'TERM' };
+    mockSchedule({
+      students: [fatima],
+      schedule: { 'student-1': [later, row('exam-1', 'Mathematics', '2026-02-05', '09:00:00')] },
+    });
+
+    renderSchedule();
+
+    await screen.findByRole('heading', { level: 2, name: 'First Term Exam' });
+    const titles = screen
+      .getAllByRole('heading', { level: 2 })
+      .map((h) => h.textContent)
+      .filter((name) => name === 'First Term Exam' || name === 'Final Exam');
+    expect(titles).toEqual(['First Term Exam', 'Final Exam']);
+    expect(screen.getAllByRole('table')).toHaveLength(2);
+  });
+
+  it('badges a past sitting "Finished" and today\u2019s sitting "Today"', async () => {
+    mockSchedule({
+      students: [fatima],
+      schedule: {
+        'student-1': [
+          row('exam-1', 'English', '2026-02-04', '09:00:00'),
+          row('exam-1', 'Mathematics', '2026-02-05', '09:00:00'),
+          row('exam-1', 'Science', '2026-02-06', '09:00:00'),
+        ],
+      },
+    });
+
+    renderSchedule();
+
+    await screen.findByRole('table', { name: 'First Term Exam' });
+    const [past, today, future] = bodyRows('First Term Exam') as [
+      HTMLElement,
+      HTMLElement,
+      HTMLElement,
+    ];
+    expect(within(past).getByText('Finished')).toBeTruthy();
+    expect(within(today).getByText('Today')).toBeTruthy();
+    expect(within(future).queryByText('Finished')).toBeNull();
+    expect(within(future).queryByText('Today')).toBeNull();
+  });
+
+  it('names the first sitting dated today or later in the next-exam card', async () => {
+    mockSchedule({
+      students: [fatima],
+      schedule: {
+        'student-1': [
+          row('exam-1', 'English', '2026-02-04', '09:00:00'),
+          row('exam-1', 'Science', '2026-02-06', '10:00:00'),
+          row('exam-1', 'Mathematics', '2026-02-07', '09:00:00'),
+        ],
+      },
+    });
+
+    renderSchedule();
+
+    const card = await screen.findByRole('complementary', { name: 'Next exam' });
+    expect(within(card).getByText('Science')).toBeTruthy();
+    expect(within(card).getByText('First Term Exam')).toBeTruthy();
+    expect(within(card).getByText(longDate('2026-02-06'))).toBeTruthy();
+    expect(within(card).getByText('Main Hall')).toBeTruthy();
+  });
+
+  it('has no next-exam card when every sitting is in the past', async () => {
+    mockSchedule({
+      students: [fatima],
+      schedule: { 'student-1': [row('exam-1', 'English', '2026-02-01', '09:00:00')] },
+    });
+
+    renderSchedule();
+
+    await screen.findByRole('table', { name: 'First Term Exam' });
+    expect(screen.queryByRole('complementary', { name: 'Next exam' })).toBeNull();
+  });
+
+  it('shows the Bangla subject name in Bangla', async () => {
+    const bn = row('exam-1', 'Mathematics', '2026-02-06', '09:00:00');
+    bn.subject = { id: 'm', name_en: 'Mathematics', name_bn: 'গণিত' };
+    mockSchedule({ students: [fatima], schedule: { 'student-1': [bn] } });
+
+    const { localeReady } = renderSchedule('/portal/exam-schedule', 'bn');
+    await localeReady;
+
+    expect(await within(await screen.findByRole('table')).findByText('গণিত')).toBeTruthy();
+    expect(screen.queryByText('Mathematics')).toBeNull();
   });
 
   it('switches between children with the multi-child picker', async () => {
@@ -103,11 +220,13 @@ describe('/portal/exam-schedule', () => {
 
     renderSchedule();
 
-    await screen.findByText('Mathematics');
+    await within(await screen.findByRole('table')).findByText('Mathematics');
     const picker = await screen.findByRole('navigation', { name: 'Choose a student' });
     await user.click(within(picker).getByRole('link', { name: /Imran Rahman/ }));
 
-    await screen.findByText('Science');
+    await within(await screen.findByRole('table', { name: 'First Term Exam' })).findByText(
+      'Science',
+    );
     expect(screen.queryByText('Mathematics')).toBeNull();
   });
 
@@ -124,18 +243,19 @@ describe('/portal/exam-schedule', () => {
 
     renderSchedule();
 
-    const times = await screen.findAllByText(/2026-02-05 ·/);
-    expect(times[0]?.textContent).toContain('09:00:00');
-    expect(times[1]?.textContent).toContain('13:00:00');
+    await screen.findByRole('table', { name: 'First Term Exam' });
+    const rows = bodyRows('First Term Exam');
+    expect(within(rows[0]!).getByText('Mathematics')).toBeTruthy();
+    expect(within(rows[1]!).getByText('English')).toBeTruthy();
   });
 
-  it('falls back to the subject id and hides the venue line when the row has neither', async () => {
+  it('says the subject is not set, never shows its id, and shows a dash for a missing venue', async () => {
     mockSchedule({
       students: [fatima],
       schedule: {
         'student-1': [
           {
-            ...row('exam-1', 'subject-42', '2026-02-05', '09:00:00'),
+            ...row('exam-1', 'subject-42', '2026-02-06', '09:00:00'),
             subject: null,
             venue: null,
           },
@@ -145,7 +265,10 @@ describe('/portal/exam-schedule', () => {
 
     renderSchedule();
 
-    expect(await screen.findByText('subject-42')).toBeTruthy();
+    const table = await screen.findByRole('table', { name: 'First Term Exam' });
+    expect(within(table).getByText('Subject not set')).toBeTruthy();
+    expect(within(table).getByText('—')).toBeTruthy();
+    expect(screen.queryByText('subject-42')).toBeNull();
     expect(screen.queryByText('Main Hall')).toBeNull();
   });
 
@@ -165,9 +288,11 @@ describe('/portal/exam-schedule', () => {
 
     renderSchedule();
 
-    expect(await screen.findByText(/No exam schedule yet/)).toBeTruthy();
+    expect(
+      await screen.findByRole('heading', { level: 2, name: 'No exam schedule yet' }),
+    ).toBeTruthy();
     // The page frame is still there — this is not an error.
-    expect(screen.getByRole('heading', { name: 'Exam schedule' })).toBeTruthy();
+    expect(screen.getByRole('heading', { level: 1, name: 'Exam schedule' })).toBeTruthy();
   });
 
   it('shows the "no students linked" state when the guardian has no children', async () => {
@@ -218,5 +343,22 @@ describe('/portal/exam-schedule', () => {
     expect(scheduleRequests).toBe(1);
     await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
     await waitFor(() => expect(scheduleRequests).toBe(2));
+  });
+
+  it('is axe clean', async () => {
+    mockSchedule({
+      students: [fatima],
+      schedule: {
+        'student-1': [
+          row('exam-1', 'English', '2026-02-04', '09:00:00'),
+          row('exam-1', 'Mathematics', '2026-02-06', '09:00:00'),
+        ],
+      },
+    });
+
+    const { container } = renderSchedule();
+
+    await screen.findByRole('table', { name: 'First Term Exam' });
+    await expect(container).toHaveNoViolations();
   });
 });
