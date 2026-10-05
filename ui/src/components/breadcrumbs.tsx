@@ -96,7 +96,7 @@ export function Breadcrumbs({ items, 'aria-label': ariaLabel, className }: Bread
               ) : item.to !== undefined ? (
                 <Link
                   to={item.to}
-                  className="inline-flex min-h-11 items-center hover:text-text-primary md:min-h-0"
+                  className="inline-flex min-h-11 items-center hover:text-text-primary md:min-h-6 md:min-w-6"
                 >
                   {item.label}
                 </Link>
