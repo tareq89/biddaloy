@@ -550,8 +550,8 @@ describe('AppShell', () => {
             navItems={navItems}
             navGroups={navGroups}
             brand="SchoolManager"
-            mobileHeaderActions={<button type="button">Search</button>}
-            drawerHeader={<div data-testid="drawer-header">Tenant switcher</div>}
+            mobileTitle="SchoolManager"
+            mobileActions={<button type="button">Search</button>}
             bottomNav={
               <BottomNav items={navItems} label="Quick navigation" more={{ label: 'More' }} />
             }
@@ -563,14 +563,16 @@ describe('AppShell', () => {
       return rootRoute.addChildren([indexRoute]);
     }
 
-    it('keeps the mobile header row (brand, actions, menu trigger) when mobileHeaderActions is passed alongside bottomNav', async () => {
+    it('keeps the mobile header row (brand, actions, menu trigger) when mobileTitle/mobileActions are passed alongside bottomNav', async () => {
       renderWithRouter(buildStaffMobileTree(), { initialEntries: ['/'], role: 'SUPER_ADMIN' });
 
       await screen.findByText('Dashboard content');
       // 'SchoolManager' also appears in the always-present desktop `<aside>`
       // sidebar (`hidden md:flex`) below; jsdom does no layout, so both
       // are 'visible' to a query — scope to the mobile header row itself.
-      const header = screen.getByRole('button', { name: 'Open menu' }).closest('div')!;
+      const header = screen
+        .getByRole('button', { name: 'Open menu' })
+        .closest('[data-app-mobile-header]') as HTMLElement;
       expect(within(header).getByText('SchoolManager')).toBeTruthy();
       expect(within(header).getByRole('button', { name: 'Search' })).toBeTruthy();
       expect(within(header).getByRole('button', { name: 'Open menu' })).toBeTruthy();
@@ -603,56 +605,13 @@ describe('AppShell', () => {
       expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Open menu' }));
     });
 
-    it('renders drawerHeader content inside the dialog, above the nav landmark', async () => {
-      const user = userEvent.setup();
-      renderWithRouter(buildStaffMobileTree(), { initialEntries: ['/'], role: 'SUPER_ADMIN' });
-
-      await screen.findByText('Dashboard content');
-      await user.click(await screen.findByRole('button', { name: 'Open menu' }));
-      const dialog = await screen.findByRole('dialog');
-
-      const header = within(dialog).getByTestId('drawer-header');
-      const nav = within(dialog).getByRole('navigation', { name: 'Main' });
-      // `compareDocumentPosition` is the DOM-native way to assert relative
-      // order without depending on either node's own class names.
-      expect(header.compareDocumentPosition(nav) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    });
-
-    it('reserves the safe-area-aware bar height on the root when bottomNav is set alongside mobileHeaderActions', async () => {
+    it('reserves the safe-area-aware bar height on the root when bottomNav is set alongside the phone top bar', async () => {
       renderWithRouter(buildStaffMobileTree(), { initialEntries: ['/'], role: 'SUPER_ADMIN' });
 
       await screen.findByText('Dashboard content');
       const root = document.querySelector('[data-app-bottom-nav]')?.parentElement;
       expect(root?.className).toContain('pb-[calc(4rem+var(--safe-area-bottom))]');
       expect(root?.className).toContain('md:pb-0');
-    });
-
-    // The `[5.2] optional bottomNav slot` block above already
-    // regression-locks the portal shape (bottomNav-only, drawer dropped
-    // entirely); this pins the other half — mobileHeaderActions content
-    // itself must not render anywhere when the caller never passes it.
-    it('does not render mobileHeaderActions content when the prop is omitted', async () => {
-      const rootRoute = createRootRoute();
-      const indexRoute = createRoute({
-        getParentRoute: () => rootRoute,
-        path: '/',
-        component: () => (
-          <AppShell
-            navItems={navItems}
-            brand="SchoolManager"
-            bottomNav={<nav aria-label="Portal">Bottom bar</nav>}
-          >
-            <p>Portal content</p>
-          </AppShell>
-        ),
-      });
-      renderWithRouter(rootRoute.addChildren([indexRoute]), {
-        initialEntries: ['/'],
-        role: 'PARENT',
-      });
-
-      await screen.findByText('Portal content');
-      expect(screen.queryByRole('button', { name: 'Search' })).toBeNull();
     });
   });
 
@@ -784,7 +743,6 @@ describe('AppShell', () => {
         layoutTree(navItems, [], {
           mobileTitle: 'Sample School',
           mobileActions: <button type="button">Bell</button>,
-          mobileHeaderActions: <button type="button">Legacy</button>,
         }),
         { initialEntries: ['/'], role: 'SUPER_ADMIN' },
       );
@@ -793,7 +751,6 @@ describe('AppShell', () => {
       expect(wrapper).not.toBeNull();
       expect(within(wrapper).getByRole('button', { name: 'Bell' })).toBeTruthy();
       expect(within(wrapper).getByRole('button', { name: 'Open menu' })).toBeTruthy();
-      expect(screen.queryByRole('button', { name: 'Legacy' })).toBeNull();
       expect(document.documentElement.style.getPropertyValue(APP_HEADER_HEIGHT_VAR)).not.toBe('');
     });
 
