@@ -1,40 +1,53 @@
 /**
  * [19.8.1] The exam detail's Results tab — per-student rows (total, GPA,
- * grade, position, fail flag), sortable, filterable by fail, with the
- * process/publish/reopen/SMS actions that move an exam through
- * DRAFT -> PROCESSED -> PUBLISHED. Sorting and the fail filter are local
- * (`useResults` already returns the whole class in one call, position-
- * ordered — no pagination to preserve across a sort change, unlike
- * `DataTable`'s server-side model).
+ * grade, position, fail flag), sortable, filterable by fail. Sorting and the
+ * fail filter are local (`useResults` already returns the whole class in one
+ * call, position-ordered — no pagination to preserve across a sort change).
+ *
+ * The status actions (process / publish / SMS / reopen) live in the exam
+ * header. `/results` has no exam header, so it passes `examStatus` and the
+ * panel draws the same actions as a toolbar from `useResultActions`.
  */
-import { Button, Checkbox, ErrorState, Skeleton } from '@biddaloy/ui/components';
+import {
+  Button,
+  Checkbox,
+  DataTable,
+  ErrorState,
+  Menu,
+  MenuContent,
+  MenuItem,
+  MenuSeparator,
+  MenuTrigger,
+  Skeleton,
+  StatusBadge,
+} from '@biddaloy/ui/components';
 import { useResults } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { formatNumber } from '@biddaloy/ui/utils';
 import { Link } from '@tanstack/react-router';
+import { Ellipsis } from 'lucide-react';
 import * as React from 'react';
 
-import { ProcessDialog } from '../../results/-process-dialog';
-import { PublishDialog, ReopenPreviewDialog } from '../../results/-publish-dialog';
-import { SendResultSmsDialog } from '../../results/-send-result-sms-dialog';
+import { useResultActions } from './use-result-actions';
 
 export interface ResultsPanelProps {
   examId: string;
-  examStatus: string;
+  /** Present on `/results` only: draws the status toolbar. Omitted on the exam detail. */
+  examStatus?: string | undefined;
 }
 
 type SortColumn = 'position' | 'total_marks' | 'gpa' | 'grade' | 'full_name';
+const SORT_COLUMNS: readonly string[] = ['position', 'total_marks', 'gpa', 'grade', 'full_name'];
 
 export function ResultsPanel({ examId, examStatus }: ResultsPanelProps) {
   const { t } = useTranslation('exams');
-  const { t: tNav } = useTranslation('nav');
+  const { t: tCommon } = useTranslation('common');
+  const config = useRegionConfig();
   const resultsQuery = useResults(examId);
+  const { actions, dialogs } = useResultActions(examId, examStatus);
   const [sortColumn, setSortColumn] = React.useState<SortColumn>('position');
   const [sortDesc, setSortDesc] = React.useState(false);
   const [failOnly, setFailOnly] = React.useState(false);
-  const [processOpen, setProcessOpen] = React.useState(false);
-  const [publishOpen, setPublishOpen] = React.useState(false);
-  const [reopenOpen, setReopenOpen] = React.useState(false);
-  const [smsOpen, setSmsOpen] = React.useState(false);
 
   const rows = resultsQuery.data ?? [];
   const filtered = failOnly ? rows.filter((r) => r.is_fail) : rows;
@@ -52,32 +65,6 @@ export function ResultsPanel({ examId, examStatus }: ResultsPanelProps) {
     return sortDesc ? -cmp : cmp;
   });
 
-  function toggleSort(column: SortColumn) {
-    if (sortColumn === column) {
-      setSortDesc((desc) => !desc);
-    } else {
-      setSortColumn(column);
-      setSortDesc(false);
-    }
-  }
-
-  function headerButton(column: SortColumn, label: string) {
-    return (
-      <button
-        type="button"
-        onClick={() => toggleSort(column)}
-        className="flex items-center gap-1 font-medium"
-      >
-        {label}
-      </button>
-    );
-  }
-
-  function sortAria(column: SortColumn): 'ascending' | 'descending' | 'none' {
-    if (sortColumn !== column) return 'none';
-    return sortDesc ? 'descending' : 'ascending';
-  }
-
   if (resultsQuery.isLoading) return <Skeleton className="h-32 w-full" />;
   if (resultsQuery.isError)
     return (
@@ -87,114 +74,166 @@ export function ResultsPanel({ examId, examStatus }: ResultsPanelProps) {
       />
     );
 
+  const allowed = actions.filter((a) => a.allowed !== false);
+  const secondary = allowed.filter((a) => (a.priority ?? 'secondary') === 'secondary');
+  const primary = allowed.find((a) => a.priority === 'primary');
+  const destructive = allowed.filter((a) => a.priority === 'destructive');
+
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <Button type="button" variant="outline" onClick={() => setProcessOpen(true)}>
-          {t('resultsPanel.process')}
-        </Button>
-        {examStatus === 'PROCESSED' && (
-          <Button type="button" onClick={() => setPublishOpen(true)}>
-            {t('resultsPanel.publish')}
-          </Button>
-        )}
-        {examStatus === 'PUBLISHED' && (
-          <Button type="button" variant="destructive" onClick={() => setReopenOpen(true)}>
-            {t('resultsPanel.reopen')}
-          </Button>
-        )}
-        <Button type="button" variant="outline" onClick={() => setSmsOpen(true)}>
-          {t('resultsPanel.sendSms')}
-        </Button>
-        <Button type="button" variant="outline" asChild>
-          <Link to="/analysis" search={{ examId, tab: 'merit' as const }}>
-            {tNav('items.analysis', { ns: 'nav' })}
-          </Link>
-        </Button>
-
-        <label className="ms-auto flex items-center gap-2 text-sm">
+      <div className="flex flex-col-reverse gap-3 md:flex-row md:items-center md:justify-between">
+        <label className="flex min-h-11 items-center gap-3 md:min-h-8">
           <Checkbox checked={failOnly} onCheckedChange={(v) => setFailOnly(v === true)} />
           {t('resultsPanel.failFilter')}
         </label>
+
+        {allowed.length > 0 && (
+          <div className="flex items-center gap-2">
+            {secondary.map((a) => (
+              <Button
+                key={a.id}
+                type="button"
+                variant="outline"
+                className="hidden md:inline-flex"
+                onClick={a.onClick}
+              >
+                {a.icon}
+                {a.label}
+              </Button>
+            ))}
+            {primary && (
+              <Button type="button" className="flex-1 md:flex-none" onClick={primary.onClick}>
+                {primary.icon}
+                {primary.label}
+              </Button>
+            )}
+            {(secondary.length > 0 || destructive.length > 0) && (
+              <Menu>
+                <MenuTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    iconOnly
+                    aria-label={tCommon('actions.moreActions')}
+                    className={destructive.length === 0 ? 'md:hidden' : ''}
+                  >
+                    <Ellipsis />
+                  </Button>
+                </MenuTrigger>
+                <MenuContent align="end">
+                  {secondary.map((a) => (
+                    <MenuItem key={a.id} className="md:hidden" onSelect={a.onClick}>
+                      {a.icon}
+                      {a.label}
+                    </MenuItem>
+                  ))}
+                  {destructive.length > 0 && secondary.length > 0 && <MenuSeparator />}
+                  {destructive.map((a) => (
+                    <MenuItem
+                      key={a.id}
+                      variant="destructive"
+                      className="text-destructive"
+                      onSelect={a.onClick}
+                    >
+                      {a.icon}
+                      {a.label}
+                    </MenuItem>
+                  ))}
+                </MenuContent>
+              </Menu>
+            )}
+          </div>
+        )}
       </div>
 
-      <table className="w-full text-sm">
-        <caption className="sr-only">{t('resultsPanel.tableCaption')}</caption>
-        <thead>
-          <tr className="border-b text-start text-muted-foreground">
-            <th className="py-2" aria-sort={sortAria('position')}>
-              {headerButton('position', t('resultsPanel.columnPosition'))}
-            </th>
-            <th className="py-2" aria-sort={sortAria('full_name')}>
-              {headerButton('full_name', t('resultsPanel.columnStudent'))}
-            </th>
-            <th className="py-2" aria-sort={sortAria('total_marks')}>
-              {headerButton('total_marks', t('resultsPanel.columnTotal'))}
-            </th>
-            <th className="py-2" aria-sort={sortAria('gpa')}>
-              {headerButton('gpa', t('resultsPanel.columnGpa'))}
-            </th>
-            <th className="py-2" aria-sort={sortAria('grade')}>
-              {headerButton('grade', t('resultsPanel.columnGrade'))}
-            </th>
-            <th className="py-2">{t('resultsPanel.columnStatus')}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {sorted.map((row) => (
-            <tr key={row.student_id} className="border-b">
-              <td className="py-2">{row.position ?? '—'}</td>
-              <td className="py-2">
-                <Link
-                  to="/results/$examId/$studentId"
-                  params={{ examId, studentId: row.student_id }}
-                  className="font-medium text-primary underline"
-                >
-                  {row.roll_number} · {row.full_name}
-                </Link>
-              </td>
-              <td className="py-2">{row.total_marks}</td>
-              <td className="py-2">{row.gpa.toFixed(2)}</td>
-              <td className="py-2">{row.grade}</td>
-              <td className="py-2">
-                {row.is_fail ? (
-                  <span className="text-destructive">{t('resultsPanel.fail')}</span>
-                ) : (
-                  t('resultsPanel.pass')
-                )}
-              </td>
-            </tr>
-          ))}
-          {sorted.length === 0 && (
-            <tr>
-              <td colSpan={6} className="py-4 text-center text-muted-foreground">
-                {t('resultsPanel.empty')}
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
+      <DataTable
+        tableId="exam-results"
+        caption={t('resultsPanel.tableCaption')}
+        paginated={false}
+        columns={[
+          {
+            id: 'position',
+            header: t('resultsPanel.columnPosition'),
+            accessorFn: (row) => formatNumber(row.position, config),
+            sortable: true,
+            align: 'end',
+          },
+          {
+            id: 'full_name',
+            header: t('resultsPanel.columnStudent'),
+            accessorFn: (row) => (
+              <Link
+                to="/results/$examId/$studentId"
+                params={{ examId, studentId: row.student_id }}
+                className="font-medium hover:text-primary"
+              >
+                {t('resultsPanel.rollName', {
+                  roll: formatNumber(row.roll_number, config),
+                  name: row.full_name,
+                })}
+              </Link>
+            ),
+            sortable: true,
+            card: 'title',
+          },
+          {
+            id: 'total_marks',
+            header: t('resultsPanel.columnTotal'),
+            accessorFn: (row) => formatNumber(row.total_marks, config),
+            sortable: true,
+            align: 'end',
+          },
+          {
+            id: 'gpa',
+            header: t('resultsPanel.columnGpa'),
+            accessorFn: (row) => formatNumber(row.gpa, config, { decimals: 2 }),
+            sortable: true,
+            align: 'end',
+          },
+          {
+            id: 'grade',
+            header: t('resultsPanel.columnGrade'),
+            accessorFn: (row) => row.grade,
+            sortable: true,
+          },
+          {
+            id: 'status',
+            header: t('resultsPanel.columnStatus'),
+            accessorFn: (row) => (
+              <StatusBadge
+                tone={row.is_fail ? 'danger' : 'success'}
+                label={row.is_fail ? t('resultsPanel.fail') : t('resultsPanel.pass')}
+              />
+            ),
+            card: 'badge',
+          },
+        ]}
+        data={sorted}
+        getRowId={(row) => row.student_id}
+        sorting={{ id: sortColumn, desc: sortDesc }}
+        onSortingChange={(next) => {
+          if (next && SORT_COLUMNS.includes(next.id)) {
+            // A newly picked column always starts ascending (the table would
+            // start non-text columns descending); a second click flips it.
+            setSortDesc(next.id === sortColumn ? next.desc : false);
+            setSortColumn(next.id as SortColumn);
+          } else {
+            setSortColumn('position');
+            setSortDesc(false);
+          }
+        }}
+        page={1}
+        pageSize={Math.max(sorted.length, 1)}
+        totalCount={sorted.length}
+        onPageChange={() => {}}
+        emptyState={{
+          title: t('resultsPanel.emptyTitle'),
+          explanation: t('resultsPanel.empty'),
+        }}
+      />
 
-      <ProcessDialog open={processOpen} onOpenChange={setProcessOpen} examId={examId} />
-      <PublishDialog
-        open={publishOpen}
-        onOpenChange={setPublishOpen}
-        examId={examId}
-        resultCount={rows.length}
-      />
-      <ReopenPreviewDialog
-        open={reopenOpen}
-        onOpenChange={setReopenOpen}
-        examId={examId}
-        resultCount={rows.length}
-      />
-      <SendResultSmsDialog
-        open={smsOpen}
-        onOpenChange={setSmsOpen}
-        examId={examId}
-        examStatus={examStatus}
-        resultCount={rows.length}
-      />
+      {dialogs}
     </div>
   );
 }

@@ -54,16 +54,20 @@
     "classNeedsYear": "আগে শিক্ষাবর্ষ বাছুন"
   },
   "detail": {
-    "back": "পরীক্ষার তালিকায় ফিরে যান",
     "loadError": "এই পরীক্ষা লোড করা যায়নি।",
-    "identifiers": "{{kind}} · {{status}}",
-    "resultsPlaceholder": "পরীক্ষা প্রক্রিয়াকরণের পর ফলাফল পাওয়া যাবে। পরবর্তী একটি টিকিটে আসছে।",
     "tabs": {
       "progress": "অগ্রগতি",
-      "setup": "সেটআপ",
+      "setup": "নম্বর বিভাজন",
       "schedule": "সময়সূচি",
       "results": "ফলাফল",
       "fourthSubject": "বিষয় নির্বাচন"
+    },
+    "edit": "সম্পাদনা",
+    "facts": {
+      "class": "শ্রেণি",
+      "academicYear": "শিক্ষাবর্ষ",
+      "kind": "ধরন",
+      "publishedAt": "ফলাফল প্রকাশ"
     }
   },
   "schedulePanel": {
@@ -84,16 +88,20 @@
   "progressPanel": {
     "loadError": "জমাদানের অগ্রগতি লোড করা যায়নি।",
     "submittedOf": "{{total}} টির মধ্যে {{submitted}} টি নম্বর তালিকা জমা হয়েছে",
-    "stateFilterLabel": "অবস্থা অনুযায়ী ফিল্টার করুন",
-    "stateAll": "সব",
-    "stateDraft": "খসড়া",
-    "stateSubmitted": "জমাকৃত",
-    "stateDRAFT": "খসড়া",
-    "stateSUBMITTED": "জমাকৃত",
     "tableCaption": "বাকি থাকা শাখা-বিষয় নম্বর তালিকাসমূহ",
-    "columnSection": "শাখা · বিষয়",
-    "columnState": "অবস্থা",
-    "empty": "এই ফিল্টারে কিছু বাকি নেই।"
+    "columnSection": "শাখা",
+    "title": "নম্বর জমার অগ্রগতি",
+    "hint": "সব তালিকা জমা হলে ফলাফল প্রক্রিয়া করুন।",
+    "outstandingTitle": "যে তালিকা এখনো জমা হয়নি",
+    "outstandingHelp": "কলম চাপলে ওই শাখা ও বিষয়ের নম্বর দেওয়ার পাতা খুলবে।",
+    "columnSubject": "বিষয়",
+    "sectionValue": "শাখা {{name}}",
+    "enterMarks": "নম্বর দিন",
+    "allSubmittedTitle": "সব নম্বর তালিকা জমা হয়েছে",
+    "allSubmittedText": "এখন ফলাফল প্রক্রিয়া করা যায়।",
+    "noListsTitle": "এখনো কোনো নম্বর তালিকা নেই",
+    "noListsText": "নম্বর বিভাজন ট্যাবে বিষয়ের অংশ যোগ করলে তালিকা তৈরি হবে।",
+    "goToSetup": "নম্বর বিভাজনে যান"
   },
   "componentsPanel": {
     "subjectLabel": "বিষয়",
@@ -232,7 +240,11 @@
     "columnStatus": "অবস্থা",
     "fail": "অকৃতকার্য",
     "pass": "কৃতকার্য",
-    "empty": "এখনো কোনো ফলাফল নেই — প্রথমে এই পরীক্ষা প্রক্রিয়া করুন।"
+    "empty": "নম্বর তালিকা জমা হলে উপরের \"ফলাফল প্রক্রিয়া করুন\" চাপুন।",
+    "emptyTitle": "এখনো কোনো ফলাফল নেই",
+    "analysis": "ফলাফল বিশ্লেষণ",
+    "reprocess": "আবার প্রক্রিয়া করুন",
+    "rollName": "{{roll}} · {{name}}"
   },
   "processDialog": {
     "title": "এই পরীক্ষার ফলাফল প্রক্রিয়া করবেন?",
