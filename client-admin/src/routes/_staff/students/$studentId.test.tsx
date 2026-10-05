@@ -3,6 +3,7 @@ import {
   cleanupTestState,
   classFactory,
   classSectionFactory,
+  guardianFactory,
   renderWithRouter,
   server,
   studentFactory,
@@ -156,6 +157,48 @@ describe('/students/$studentId', () => {
     expect(screen.getByText('৳2,000.00')).toBeTruthy();
   });
 
+  it('shows facts (registration, class, roll, primary guardian), no back link, and the people-study-money tab order', async () => {
+    const guardian = guardianFactory({
+      id: 'g-1',
+      full_name: 'Karim Uddin',
+      phone: '+8801711000004',
+      is_primary_contact: true,
+    });
+    const student = studentFactory({
+      id: 'student-1',
+      full_name: 'Rahim Uddin',
+      roll_number: 7,
+      guardians: [guardian],
+      gender: 'MALE',
+      preferred_communication: 'SMS',
+    });
+    server.use(http.get('/api/v1/students/:id', () => HttpResponse.json(student)));
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/students/student-1'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    await screen.findByRole('heading', { name: 'Rahim Uddin' });
+    expect(screen.queryByRole('link', { name: 'Back to students' })).toBeNull();
+    expect(screen.getByText(student.registration_number)).toBeTruthy();
+    expect(screen.getByText('Primary guardian')).toBeTruthy();
+    expect(screen.getByText(/Karim Uddin · /)).toBeTruthy();
+    expect(screen.queryByText('+8801711000004')).toBeNull();
+
+    const tabNames = screen.getAllByRole('tab').map((tab) => tab.textContent);
+    expect(tabNames.slice(0, 3)).toEqual(['Overview', 'Guardians', 'Enrollment']);
+    expect(tabNames).toContain('Automatic billing');
+    expect(tabNames).toContain('Documents');
+    expect(tabNames).not.toContain('Recurring fees');
+
+    // Overview shows translated labels, never the raw enum.
+    expect(screen.getByText('Male')).toBeTruthy();
+    expect(screen.queryByText('MALE')).toBeNull();
+  });
+
   it('gates page actions by permission — ADMIN sees all five, ACCOUNTANT sees Collect fees, Edit and Send reminder', async () => {
     const student = studentFactory({ id: 'student-1' });
     server.use(http.get('/api/v1/students/:id', () => HttpResponse.json(student)));
@@ -262,7 +305,8 @@ describe('/students/$studentId', () => {
     const user = userEvent.setup();
     await user.click(await screen.findByRole('button', { name: 'More actions' }));
     await user.click(await screen.findByRole('menuitem', { name: 'Delete' }));
-    const dialog = within(await screen.findByRole('dialog'));
+    // ConfirmDialog is an alertdialog.
+    const dialog = within(await screen.findByRole('alertdialog'));
     await user.click(dialog.getByRole('button', { name: 'Delete' }));
 
     await waitFor(() => expect(router.state.location.pathname).toBe('/students'));
