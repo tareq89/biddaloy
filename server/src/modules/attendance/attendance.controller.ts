@@ -196,7 +196,8 @@ export class AttendanceController {
   @ApiOperation({
     summary:
       "Saves many days of one section's whole-day register in one transaction. All-or-nothing: " +
-      'a locked date (422), a stale day (409) or a closed day (403) rejects the whole request.',
+      'a locked date (422), a stale day (409), a closed day (403) or a partly-replayed ' +
+      'client_request_id (409 ATTENDANCE_MATRIX_REQUEST_REUSED) rejects the whole request.',
   })
   @ApiOkResponse({ type: MatrixSaveResponseDto })
   async putRegisterMatrix(
