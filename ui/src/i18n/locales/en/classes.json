@@ -9,19 +9,19 @@
     "columnGrade": "Grade",
     "columnSections": "Sections",
     "columnStudents": "Students",
-    "columnActions": "Actions",
     "edit": "Edit",
     "delete": "Delete",
-    "emptyMessage": "No classes found",
+    "emptyMessage": "No classes yet",
     "errorMessage": "Failed to load classes",
     "announceResults_one": "{{visible}} of {{total}} class",
     "announceResults_other": "{{visible}} of {{total}} classes",
-    "expandLabel": "Sections for {{name}}",
     "noGrade": "—",
     "shiftLabel": "Shift",
     "allShifts": "All shifts",
     "versionLabel": "Version",
-    "allVersions": "All versions"
+    "allVersions": "All versions",
+    "view": "View",
+    "emptyExplanation": "Classes you add will appear here."
   },
   "classForm": {
     "createTitle": "Add class",
@@ -32,7 +32,7 @@
     "gradeLabel": "Grade",
     "gradePlaceholder": "e.g. 6",
     "academicYearLabel": "Academic year",
-    "academicYearPlaceholder": "Select an academic year",
+    "academicYearPlaceholder": "Select",
     "errorNameRequired": "Name is required",
     "errorAcademicYearRequired": "Academic year is required",
     "errorGradeInvalid": "Grade must be a positive whole number",
@@ -40,9 +40,10 @@
     "save": "Save",
     "saving": "Saving…",
     "shiftLabel": "Shift",
-    "shiftPlaceholder": "Select a shift",
+    "shiftPlaceholder": "Select",
     "versionLabel": "Version",
-    "versionPlaceholder": "Select a version"
+    "versionPlaceholder": "Select",
+    "noneOption": "Not set"
   },
   "sectionForm": {
     "createTitle": "Add section",
@@ -67,7 +68,8 @@
     "deleting": "Deleting…",
     "errorMessage": "Failed to delete class",
     "moveStudents": "Move students",
-    "close": "Close"
+    "close": "Close",
+    "blockedMessage": "This class still has students or sections, so it can't be deleted. Move the students and delete the sections first."
   },
   "deleteSectionDialog": {
     "title": "Delete section",
