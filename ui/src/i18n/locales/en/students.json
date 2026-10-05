@@ -160,7 +160,9 @@
       "columnReference": "Reference",
       "columnReceivedBy": "Received by",
       "emptyMessage": "No payments recorded yet.",
-      "errorMessage": "Couldn't load payment history."
+      "errorMessage": "Couldn't load payment history.",
+      "view": "View payment",
+      "emptyExplanation": "Payments you record will show up here."
     },
     "invoices": {
       "columnNumber": "Invoice",
@@ -170,7 +172,9 @@
       "print": "Print",
       "emptyMessage": "No invoices issued yet.",
       "errorMessage": "Couldn't load invoices.",
-      "printError": "Couldn't open the printable invoice."
+      "printError": "Couldn't open the printable invoice.",
+      "view": "View invoice",
+      "emptyExplanation": "Invoices appear here once bills are created."
     },
     "guardians": {
       "columnName": "Name",
@@ -250,6 +254,9 @@
       "promote": "Promoted by exception",
       "retain": "Kept back by exception",
       "graduate": "Graduated by exception"
+    },
+    "fines": {
+      "errorMessage": "Couldn't load fines."
     }
   },
   "new": {

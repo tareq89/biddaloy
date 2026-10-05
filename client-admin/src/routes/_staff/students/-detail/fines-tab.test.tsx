@@ -117,4 +117,29 @@ describe('students/-detail/fines-tab', () => {
 
     expect(screen.queryByRole('button', { name: 'Waive fine' })).toBeNull();
   });
+
+  it('log button is outline, and totals render in a card', async () => {
+    renderFinesTab();
+
+    const log = await screen.findByRole('button', { name: 'Log fine' });
+    expect(log.getAttribute('data-variant')).toBe('outline');
+    expect(await screen.findByText('৳100.00', { selector: 'dd' })).toBeTruthy();
+  });
+
+  it('a failed query shows a real error sentence, not the empty-state title', async () => {
+    const student = studentFactory({ id: 'student-1', full_name: 'Rahim Uddin' });
+    server.use(
+      http.get('/api/v1/students/:id', () => HttpResponse.json(student)),
+      http.get('/api/v1/students/:studentId/promotion-overrides', () => HttpResponse.json([])),
+      http.get('/api/v1/fees/fines', () => new HttpResponse(null, { status: 400 })),
+    );
+    renderWithRouter(routeTree, {
+      initialEntries: ['/students/student-1?tab=fines'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    expect(await screen.findByText("Couldn't load fines.")).toBeTruthy();
+  });
 });
