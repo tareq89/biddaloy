@@ -15,7 +15,14 @@
     "emptyMessage": "No schools match your search.",
     "errorMessage": "Could not load schools.",
     "announceResults_one": "Showing {{count}} of {{total}} school",
-    "announceResults_other": "Showing {{count}} of {{total}} schools"
+    "announceResults_other": "Showing {{count}} of {{total}} schools",
+    "newAction": "New school",
+    "viewAction": "View {{name}}",
+    "status": {
+      "ACTIVE": "Active",
+      "SUSPENDED": "Suspended"
+    },
+    "emptyExplanation": "Try another name or link name."
   },
   "schoolDetail": {
     "title": "School details",
@@ -92,13 +99,13 @@
     }
   },
   "backupHealth": {
-    "title": "Backup health",
-    "caption": "Every school's backup schedule, most recent result and storage usage.",
+    "title": "Backup status",
+    "caption": "How often each school is backed up, how the last attempt went and how much space it uses.",
     "columnSchool": "School",
-    "columnSchedule": "Schedule",
+    "columnSchedule": "How often",
     "columnLastStatus": "Last attempt",
-    "columnLastSuccess": "Last success",
-    "columnStorage": "Storage used",
+    "columnLastSuccess": "Last successful backup",
+    "columnStorage": "Space used",
     "never": "Never",
     "scheduleOff": "Off",
     "scheduleWeekly": "Weekly",
@@ -107,7 +114,7 @@
     "errorMessage": "Could not load backup health."
   },
   "createWizard": {
-    "schoolStepTitle": "New school",
+    "schoolStepTitle": "School details",
     "nameLabel": "School name",
     "slugLabel": "Link name",
     "nextAction": "Next",
@@ -122,7 +129,20 @@
     "successInvitation": "Admin invitation status: {{status}}.",
     "viewSchool": "View school",
     "importWorkbookToggle": "Import data from a workbook (optional)",
-    "importWorkbookWarning": "This replaces this school's data with the workbook's — the admin you just invited stays, but everything else follows the file."
+    "importWorkbookWarning": "This replaces this school's data with the workbook's — the admin you just invited stays, but everything else follows the file.",
+    "title": "New school",
+    "stepsLabel": "Steps",
+    "schoolStepHelp": "Give the school's name and the short name used in its web address.",
+    "slugHelp": "Only lowercase English letters, numbers and hyphens (-). It fills in by itself when the name is typed in English.",
+    "adminStepHelp": "Give an email or a phone — at least one. The invitation goes there.",
+    "errors": {
+      "required": "Fill this in.",
+      "slugPattern": "Use only lowercase English letters, numbers and single hyphens.",
+      "contactRequired": "Give an email or a phone number.",
+      "emailInvalid": "Enter a valid email address."
+    },
+    "submitError": "The school could not be created. Try again.",
+    "successInvitationLabel": "Admin invitation:"
   },
   "holidaySets": {
     "title": "Holiday sets",
