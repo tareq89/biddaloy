@@ -282,9 +282,9 @@ function FinesListPage() {
         />
       )}
 
-      {canGenerate && <LogFineModal open={logOpen} onOpenChange={(open) => !open && closeLog()} />}
-      {canGenerate && (
-        <GenerateFinesModal open={generateOpen} onOpenChange={(open) => !open && closeGenerate()} />
+      {logOpen && <LogFineModal open onOpenChange={(open) => !open && closeLog()} />}
+      {generateOpen && (
+        <GenerateFinesModal open onOpenChange={(open) => !open && closeGenerate()} />
       )}
       <WaiveFineDialog
         open={waiving !== null}

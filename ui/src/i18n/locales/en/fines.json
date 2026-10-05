@@ -81,7 +81,7 @@
     "allClasses": "All classes",
     "sectionLabel": "Section",
     "allSections": "All sections",
-    "previewLine": "{{count}} students, {{total}}",
+    "previewLine": "{{n}} students, {{total}}",
     "previewZero": "No fines would be generated for this month.",
     "duplicates": {
       "heading": "Some fines already exist for this month",
