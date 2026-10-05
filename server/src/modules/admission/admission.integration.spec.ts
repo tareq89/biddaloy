@@ -9,6 +9,7 @@ import { ApplicantReviewService } from './applicant-review.service';
 import { AdmissionIntake } from './entities/admission-intake.entity';
 import { AdmissionApplicant } from './entities/admission-applicant.entity';
 import { AdmissionEvaluation } from './entities/admission-evaluation.entity';
+import { IntakeService } from './intake.service';
 import { StudentService, GuardianService } from '../students/students.service';
 
 const SEED_SLUG = 'test-school';
@@ -26,6 +27,7 @@ describe('Admission flow (integration)', () => {
   let dataSource: DataSource;
   let applicantService: AdmissionApplicantService;
   let reviewService: ApplicantReviewService;
+  let intakeService: IntakeService;
 
   async function createIntake(overrides: Partial<Record<string, unknown>> = {}): Promise<string> {
     const res = await dataSource.query(
@@ -57,6 +59,7 @@ describe('Admission flow (integration)', () => {
     dataSource = app.get(DataSource);
     applicantService = app.get(AdmissionApplicantService);
     reviewService = app.get(ApplicantReviewService);
+    intakeService = app.get(IntakeService);
   }, 60000);
 
   afterAll(async () => {
@@ -71,6 +74,42 @@ describe('Admission flow (integration)', () => {
       SEED_TENANT_ID,
     ]);
     await dataSource.query(`DELETE FROM admission_intakes WHERE tenant_id = $1`, [SEED_TENANT_ID]);
+  });
+
+  it('findAll returns class and section names', async () => {
+    const intakeId = await createIntake();
+    const [expected] = await dataSource.query(
+      `SELECT c.name AS class_name, cs.section_name FROM class_sections cs
+         JOIN classes c ON c.id = cs.class_id WHERE cs.id = $1`,
+      [SEED_SECTION_1_ID],
+    );
+    const rows = await intakeService.findAll(SEED_TENANT_ID);
+    const row = rows.find((r) => r.id === intakeId);
+    expect(row?.class_name).toBe(expected.class_name);
+    expect(row?.section_name).toBe(expected.section_name);
+  });
+
+  it('an intake still shows names after its section is soft-deleted', async () => {
+    const intakeId = await createIntake();
+    await dataSource.query(`UPDATE class_sections SET deleted_at = NOW() WHERE id = $1`, [
+      SEED_SECTION_1_ID,
+    ]);
+    try {
+      const rows = await intakeService.findAll(SEED_TENANT_ID);
+      const row = rows.find((r) => r.id === intakeId);
+      expect(row?.section_name).toBeTruthy();
+      expect(row?.class_name).toBeTruthy();
+    } finally {
+      await dataSource.query(`UPDATE class_sections SET deleted_at = NULL WHERE id = $1`, [
+        SEED_SECTION_1_ID,
+      ]);
+    }
+  });
+
+  it("tenant B's intakes are not returned to tenant A", async () => {
+    await createIntake();
+    const rows = await intakeService.findAll('00000000-0000-4000-8000-00000000dead');
+    expect(rows).toHaveLength(0);
   });
 
   it('submit -> shortlist -> admit produces a Student + Guardian, tenant-scoped throughout', async () => {
