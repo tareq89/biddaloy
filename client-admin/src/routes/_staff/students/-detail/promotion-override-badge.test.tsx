@@ -50,9 +50,10 @@ describe('PromotionOverrideBadge', () => {
 
     renderBadge();
 
-    const badge = await screen.findByText(/2025-2026.*Repeated failure in Math.*Jane Admin/);
+    // Short label only; the note and approver live in the Enrollment tab.
+    const badge = await screen.findByText('Kept back by exception');
     expect(badge).not.toBeNull();
-    expect(badge.textContent).toMatch(/^Kept in the same class by special decision/);
+    expect(screen.queryByText(/Repeated failure in Math/)).toBeNull();
   });
 
   it('uses outcome-specific text for GRADUATE, not always "Promoted"', async () => {
@@ -73,8 +74,7 @@ describe('PromotionOverrideBadge', () => {
 
     renderBadge();
 
-    const badge = await screen.findByText(/Graduated early/);
-    expect(badge.textContent).toMatch(/^Completed by special decision/);
+    expect(await screen.findByText('Graduated by exception')).not.toBeNull();
   });
 
   it('uses outcome-specific text for PROMOTE', async () => {
@@ -95,8 +95,7 @@ describe('PromotionOverrideBadge', () => {
 
     renderBadge();
 
-    const badge = await screen.findByText(/Manual review, promoted/);
-    expect(badge.textContent).toMatch(/^Promoted by special decision/);
+    expect(await screen.findByText('Promoted by exception')).not.toBeNull();
   });
 
   it('shows the most recently committed override when there are several', async () => {
@@ -125,7 +124,7 @@ describe('PromotionOverrideBadge', () => {
 
     renderBadge();
 
-    await waitFor(() => expect(screen.getByText(/Newer note/)).not.toBeNull());
-    expect(screen.queryByText(/Older note/)).toBeNull();
+    await waitFor(() => expect(screen.getByText('Promoted by exception')).not.toBeNull());
+    expect(screen.queryByText('Kept back by exception')).toBeNull();
   });
 });
