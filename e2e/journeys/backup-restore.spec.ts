@@ -118,7 +118,7 @@ test.describe.serial('backup and restore', () => {
     const student = await createStudent(request, adminSession, studentName);
     studentId = student.id;
 
-    await adminPage.goto('/settings');
+    await adminPage.goto('/settings?section=backup');
     await adminPage.getByRole('button', { name: t('backup.requestExport') }).click();
 
     // `DataTable` renders a real `<table>` above 768px of *container* width
