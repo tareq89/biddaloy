@@ -219,6 +219,45 @@ describe('Attendance E2E', () => {
     });
   });
 
+  describe('PUT /attendance/sections/:sectionId/register-matrix', () => {
+    const putMatrix = (sectionId: string, body: Record<string, unknown>) =>
+      supertest(app.getHttpServer())
+        .put(`/api/v1/attendance/sections/${sectionId}/register-matrix`)
+        .set('Authorization', `Bearer ${teacherToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.TEACHER)
+        .send(body);
+
+    it('saves today for a TEACHER mapped to the section (inside the window)', async () => {
+      const res = await putMatrix(MAPPED_SECTION_ID, {
+        client_request_id: randomUUID(),
+        days: [
+          {
+            date: todayIso(),
+            base_version: null,
+            entries: [{ student_id: studentId, status: 'PRESENT' }],
+          },
+        ],
+      }).expect(200);
+      expect(res.body.saved_dates).toEqual([todayIso()]);
+      expect(typeof res.body.versions[todayIso()]).toBe('number');
+    });
+
+    it('rejects fields the matrix does not take (period_no) with 400', async () => {
+      await putMatrix(MAPPED_SECTION_ID, {
+        client_request_id: randomUUID(),
+        days: [{ date: todayIso(), base_version: null, period_no: 1, entries: [] }],
+      }).expect(400);
+    });
+
+    it('403s a TEACHER not mapped to the section', async () => {
+      await putMatrix(UNMAPPED_SECTION_ID, {
+        client_request_id: randomUUID(),
+        days: [{ date: todayIso(), base_version: null, entries: [] }],
+      }).expect(403);
+    });
+  });
+
   describe('GET /attendance/sections/:sectionId/periods', () => {
     const PDATE = '2026-03-04'; // a Wednesday; the fixture routine puts 2 periods on it
 
