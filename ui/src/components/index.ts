@@ -289,6 +289,11 @@ export {
   type SignInFormError,
   type SignInFormProps,
 } from './sign-in-form';
+export {
+  FormPasswordChecklist,
+  PasswordChecklist,
+  type PasswordChecklistProps,
+} from './password-checklist';
 export { SetPasswordForm, type SetPasswordFormProps } from './set-password-form';
 export { OtpInput, type OtpInputProps } from './otp-input';
 export {

@@ -8,6 +8,7 @@
  * `useMutation` calling `ui/src/hooks/auth.ts`'s `activate()`; this
  * component is presentational + validation only, no network.
  */
+import { checkPassword, type PasswordAudience } from '@biddaloy/shared';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
@@ -20,6 +21,7 @@ import { useInsideAuthLayout } from './auth-layout';
 import { Button } from './button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from './form-field';
 import { Input } from './input';
+import { FormPasswordChecklist, RuleIcon } from './password-checklist';
 import type { SignInFormError } from './sign-in-form';
 
 export interface SetPasswordFormProps {
@@ -29,6 +31,11 @@ export interface SetPasswordFormProps {
   loading?: boolean;
   error?: SignInFormError | null;
   submitLabel?: string;
+  /** Which rules apply; must match what the server enforces for this user. */
+  audience?: PasswordAudience;
+  /** Renders a ghost button under submit when given. */
+  onSkip?: () => void;
+  skipLabel?: string;
 }
 
 interface SetPasswordFormValues {
@@ -81,12 +88,15 @@ function PasswordField({
   fieldName,
   control,
   loading,
+  audience,
 }: {
   id: string;
   label: string;
   fieldName: 'password' | 'confirm';
   control: ReturnType<typeof useForm<SetPasswordFormValues>>['control'];
   loading: boolean;
+  /** Set on the new-password field to show the live checklist under it. */
+  audience?: PasswordAudience;
 }) {
   const { t } = useTranslation('auth');
   const [visible, setVisible] = React.useState(false);
@@ -124,6 +134,7 @@ function PasswordField({
               {visible ? t('password.hide') : t('password.show')}
             </Button>
           </div>
+          {audience && <FormPasswordChecklist password={field.value} audience={audience} />}
           <FormMessage />
         </FormItem>
       )}
@@ -138,6 +149,9 @@ export function SetPasswordForm({
   loading = false,
   error = null,
   submitLabel,
+  audience = 'staff',
+  onSkip,
+  skipLabel,
 }: SetPasswordFormProps) {
   const { t } = useTranslation('auth');
   // Inside <AuthLayout> the layout owns the card.
@@ -147,14 +161,25 @@ export function SetPasswordForm({
     () =>
       z
         .object({
-          password: z.string().min(8, t('setPassword.tooShort')),
+          password: z.string(),
           confirm: z.string(),
         })
-        .refine((values) => values.password === values.confirm, {
-          path: ['confirm'],
-          message: t('setPassword.mismatch'),
+        // The submit button is disabled until these hold; this is the
+        // belt for the braces (e.g. a programmatic submit).
+        .superRefine((values, ctx) => {
+          const failed = checkPassword(values.password, audience).find((rule) => !rule.ok);
+          if (failed) {
+            ctx.addIssue({
+              code: 'custom',
+              path: ['password'],
+              message: t(`passwordRules.${failed.id}`),
+            });
+          }
+          if (values.password !== values.confirm) {
+            ctx.addIssue({ code: 'custom', path: ['confirm'], message: t('setPassword.mismatch') });
+          }
         }),
-    [t],
+    [t, audience],
   );
 
   const form = useForm<SetPasswordFormValues>({
@@ -163,6 +188,10 @@ export function SetPasswordForm({
     mode: 'onBlur',
     reValidateMode: 'onBlur',
   });
+
+  const [password, confirm] = form.watch(['password', 'confirm']);
+  const matches = password === confirm;
+  const canSubmit = checkPassword(password, audience).every((rule) => rule.ok) && matches;
 
   function handleValidSubmit(values: SetPasswordFormValues): void {
     onSubmit(values.password);
@@ -205,8 +234,8 @@ export function SetPasswordForm({
             fieldName="password"
             control={form.control}
             loading={loading}
+            audience={audience}
           />
-          <p className="text-xs text-muted-foreground">{t('setPassword.hint')}</p>
           <PasswordField
             id="set-password-confirm"
             label={t('setPassword.confirmLabel')}
@@ -214,11 +243,36 @@ export function SetPasswordForm({
             control={form.control}
             loading={loading}
           />
+          {confirm !== '' && (
+            <p
+              aria-live="polite"
+              className={cn(
+                'flex items-center gap-2 text-xs',
+                matches ? 'text-status-paid-fg' : 'text-status-overdue-fg',
+              )}
+            >
+              {matches ? <RuleIcon ok /> : <AlertIcon />}
+              <span>{matches ? t('setPassword.match') : t('setPassword.mismatch')}</span>
+            </p>
+          )}
         </div>
 
-        <Button type="submit" loading={loading} className="w-full">
-          {loading ? t('setPassword.submitting') : (submitLabel ?? t('setPassword.submit'))}
-        </Button>
+        <div className="flex flex-col gap-2">
+          <Button type="submit" loading={loading} disabled={!canSubmit} className="w-full">
+            {loading ? t('setPassword.submitting') : (submitLabel ?? t('setPassword.submit'))}
+          </Button>
+          {onSkip && (
+            <Button
+              type="button"
+              variant="ghost"
+              disabled={loading}
+              onClick={onSkip}
+              className="w-full"
+            >
+              {skipLabel ?? t('setPassword.skip')}
+            </Button>
+          )}
+        </div>
       </form>
     </Form>
   );
