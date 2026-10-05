@@ -46,9 +46,16 @@ export interface SectionTeacherAssignmentWithClass extends SectionTeacherAssignm
   class_name: string;
 }
 
+/**
+ * Marks a row a workbook role swap ended (`users.tab`): not a departure, so it
+ * never makes anyone "former" and `restore()` never revives it (r2-m1).
+ */
+export const ROLE_SWAP_ENDED = 'ROLE_SWAP';
+const NOT_SWAPPED_SQL = `(b.metadata->>'ended_by') IS DISTINCT FROM '${ROLE_SWAP_ENDED}'`;
+
 /** A soft-deleted row from the user's latest end-of-membership batch in `:tenantId`. */
 const LATEST_ENDED_SQL = `ut.deleted_at = (SELECT max(b.deleted_at) FROM user_tenants b
-  WHERE b.user_id = u.id AND b.tenant_id = :tenantId)`;
+  WHERE b.user_id = u.id AND b.tenant_id = :tenantId AND ${NOT_SWAPPED_SQL})`;
 
 @Injectable()
 export class UserService {
@@ -551,7 +558,7 @@ export class UserService {
         .where('user_id = :id AND tenant_id = :tenantId', { id, tenantId })
         .andWhere(
           `deleted_at = (SELECT max(b.deleted_at) FROM user_tenants b
-                          WHERE b.user_id = :id AND b.tenant_id = :tenantId)`,
+                          WHERE b.user_id = :id AND b.tenant_id = :tenantId AND ${NOT_SWAPPED_SQL})`,
         )
         .execute();
       if (!result.affected) {
@@ -612,12 +619,16 @@ export class UserService {
       }
       // `deleted_at: IsNull()`: softDelete does not skip ended rows, and
       // re-stamping one would pull it into this batch for `restore()`.
-      await repo.softDelete({
+      const ended = await repo.softDelete({
         user_id: userId,
         tenant_id: tenantId,
         deleted_at: IsNull(),
         ...(roles ? { role: In(roles) } : {}),
       });
+      // A concurrent leave/remove already ended it: no second 204, no second audit row.
+      if (!ended.affected) {
+        throw new NotFoundException(`No current member with ID "${userId}" found`);
+      }
       await this.audit.record(
         {
           action: AuditAction.DELETE,

@@ -3,6 +3,7 @@ import { In, Not } from 'typeorm';
 import { UserRole } from '@biddaloy/shared';
 import { User } from '../../../users/entities/user.entity';
 import { UserTenant } from '../../../auth/entities/user-tenant.entity';
+import { ROLE_SWAP_ENDED } from '../../../users/users.service';
 import { fromCell } from '../../codec/cell-format';
 import type {
   ColumnSpec,
@@ -104,6 +105,34 @@ const MAX_LENGTHS: Record<string, number> = {
   phone: 20,
   full_name: 100,
 };
+
+/**
+ * Soft-deletes the rows a role swap replaces, tagged `ended_by: ROLE_SWAP`: the
+ * user never left, so `UserService` must not list them as former or restore
+ * these rows (r2-m1). `revive` drops the tag, so a later real removal counts.
+ */
+async function endSwapped(m: EntityManager, ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
+  await m
+    .createQueryBuilder()
+    .update(UserTenant)
+    .set({
+      deleted_at: () => 'CURRENT_TIMESTAMP',
+      metadata: () =>
+        `COALESCE(metadata, '{}'::jsonb) || '{"ended_by":"${ROLE_SWAP_ENDED}"}'::jsonb`,
+    })
+    .where('id IN (:...ids)', { ids })
+    .execute();
+}
+
+async function revive(m: EntityManager, id: string): Promise<void> {
+  await m
+    .createQueryBuilder()
+    .update(UserTenant)
+    .set({ deleted_at: null, metadata: () => `metadata - 'ended_by'` })
+    .where('id = :id', { id })
+    .execute();
+}
 
 export const usersTab: TabSpec<User, UserRow> = {
   name: 'users',
@@ -335,7 +364,7 @@ export const usersTab: TabSpec<User, UserRow> = {
 
     if (provisioned) {
       const stale = memberships.filter((ut) => ut.id !== provisioned.id).map((ut) => ut.id);
-      if (stale.length > 0) await m.softDelete(UserTenant, { id: In(stale) });
+      await endSwapped(m, stale);
     } else {
       const alreadyCorrect = memberships.find((ut) => ut.role === row.role);
 
@@ -352,8 +381,8 @@ export const usersTab: TabSpec<User, UserRow> = {
             withDeleted: true,
           });
           if (formerTarget) {
-            await m.restore(UserTenant, { id: formerTarget.id });
-            await m.softDelete(UserTenant, { id: memberships[0].id });
+            await revive(m, formerTarget.id);
+            await endSwapped(m, [memberships[0].id]);
           } else {
             memberships[0].role = row.role;
             await m.save(UserTenant, memberships[0]);
@@ -361,8 +390,10 @@ export const usersTab: TabSpec<User, UserRow> = {
           // This tab represents one role per tenant per user (D2); any other
           // stale membership rows for this tenant would otherwise survive the
           // restore as an extra, no-longer-intended role.
-          const stale = memberships.slice(1).map((ut) => ut.id);
-          if (stale.length > 0) await m.softDelete(UserTenant, { id: In(stale) });
+          await endSwapped(
+            m,
+            memberships.slice(1).map((ut) => ut.id),
+          );
         } else {
           // The unique index ignores soft-deletion: a former member (left or
           // removed) is restored, not re-inserted (23505).
@@ -371,7 +402,7 @@ export const usersTab: TabSpec<User, UserRow> = {
             withDeleted: true,
           });
           if (former) {
-            await m.restore(UserTenant, { id: former.id });
+            await revive(m, former.id);
           } else {
             await m.save(
               UserTenant,
@@ -387,8 +418,10 @@ export const usersTab: TabSpec<User, UserRow> = {
       } else {
         // Right role already present — drop any OTHER role rows so D2's
         // one-role-per-tenant-per-user contract still holds.
-        const stale = memberships.filter((ut) => ut.id !== alreadyCorrect.id).map((ut) => ut.id);
-        if (stale.length > 0) await m.softDelete(UserTenant, { id: In(stale) });
+        await endSwapped(
+          m,
+          memberships.filter((ut) => ut.id !== alreadyCorrect.id).map((ut) => ut.id),
+        );
       }
     }
 

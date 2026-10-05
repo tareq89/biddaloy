@@ -17,6 +17,7 @@ import { AuditService } from '../audit/audit.service';
 import { AuditLog } from '../audit/entities/audit-log.entity';
 import { School } from '../schools/entities/school.entity';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
+import { usersTab } from '../workbook/tabs/people/users.tab';
 
 /**
  * [13.2.1] Leave / remove / restore of a school membership (D16): the
@@ -359,6 +360,93 @@ describe('UserService membership leave / remove / restore (integration)', () => 
 
     await expect(service.restore(id, tenant, ADMIN_ACTOR)).rejects.toThrow(NotFoundException);
   });
+
+  it('[r2-m1] a workbook role swap that revives an old row is not a departure: not former, not restorable', async () => {
+    const tenant = await newSchool();
+    await addMember(tenant, UserRole.ADMIN);
+    const email = `${randomUUID()}@example.com`;
+    const { user } = await service.create(
+      { full_name: 'Swap', email, role: UserRole.ADMIN },
+      tenant,
+    );
+    // An old PARENT row, ended long ago.
+    await userTenantRepo.save(
+      userTenantRepo.create({ user_id: user.id, tenant_id: tenant, role: UserRole.PARENT }),
+    );
+    await dataSource.query(
+      `UPDATE user_tenants SET deleted_at = NOW() - interval '1 day'
+        WHERE user_id = $1 AND tenant_id = $2 AND role = 'PARENT'`,
+      [user.id, tenant],
+    );
+
+    // The workbook says PARENT: PARENT is revived, ADMIN is swapped out.
+    const row = { id: user.id, email, phone: null, full_name: 'Swap', role: UserRole.PARENT };
+    await usersTab.upsert(row, null, tenant, dataSource.manager);
+
+    const former = await service.findAll(
+      { page: 1, limit: 50, membership: 'former' } as never,
+      tenant,
+    );
+    expect(former.data.map((u) => u.id)).not.toContain(user.id);
+    await expect(service.restore(user.id, tenant, ADMIN_ACTOR)).rejects.toThrow(NotFoundException);
+    const active = await userTenantRepo.find({ where: { user_id: user.id, tenant_id: tenant } });
+    expect(active.map((r) => r.role)).toEqual([UserRole.PARENT]);
+  });
+
+  it('[r2-m1] a row revived by a workbook swap counts again when it is later really removed', async () => {
+    const tenant = await newSchool();
+    await addMember(tenant, UserRole.ADMIN);
+    const email = `${randomUUID()}@example.com`;
+    const { user } = await service.create(
+      { full_name: 'Back', email, role: UserRole.TEACHER },
+      tenant,
+    );
+    const base = { id: user.id, email, phone: null, full_name: 'Back' };
+    // TEACHER -> OFFICE_STAFF -> TEACHER: the second swap revives the swapped-out TEACHER row.
+    await usersTab.upsert(
+      { ...base, role: UserRole.OFFICE_STAFF },
+      null,
+      tenant,
+      dataSource.manager,
+    );
+    await usersTab.upsert({ ...base, role: UserRole.TEACHER }, null, tenant, dataSource.manager);
+
+    await service.remove(user.id, tenant, ADMIN_ACTOR);
+
+    const former = await service.findAll(
+      { page: 1, limit: 50, membership: 'former' } as never,
+      tenant,
+    );
+    expect(former.data.map((u) => u.id)).toEqual([user.id]);
+    expect(former.data[0].user_tenants.map((ut) => ut.role)).toEqual([UserRole.TEACHER]);
+  });
+
+  it('[r2-n1] a concurrent double remove ends the membership once: one 404, one audit row', async () => {
+    const tenant = await newSchool();
+    await addMember(tenant, UserRole.ADMIN);
+    const teacherId = await addMember(tenant, UserRole.TEACHER);
+
+    const audit = (service as unknown as { audit: AuditService }).audit;
+    // Prototype, not `audit.record`: the earlier test leaves its spy in place.
+    const realRecord = AuditService.prototype.record.bind(audit);
+    const spy = vi.spyOn(audit, 'record').mockImplementation(async (...args) => {
+      await new Promise((r) => setTimeout(r, 300));
+      return realRecord(...args);
+    });
+    const results = await Promise.allSettled([
+      service.remove(teacherId, tenant, ADMIN_ACTOR),
+      service.remove(teacherId, tenant, ADMIN_ACTOR),
+    ]);
+    spy.mockRestore();
+
+    expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+    const rejected = results.filter((r) => r.status === 'rejected') as PromiseRejectedResult[];
+    expect(rejected[0]?.reason).toBeInstanceOf(NotFoundException);
+    const audits = await dataSource.getRepository(AuditLog).count({
+      where: { tenant_id: tenant, entity_type: 'Membership' },
+    });
+    expect(audits).toBe(1);
+  }, 20000);
 
   it('creating a user with a weak password is 400 PASSWORD_TOO_WEAK', async () => {
     const tenant = await newSchool();
