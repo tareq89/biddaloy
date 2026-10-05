@@ -1,6 +1,8 @@
-import { UserRole, UserStatus } from '@biddaloy/shared';
+import { AuthTokenPurpose, EnrollmentStatus, UserRole, UserStatus } from '@biddaloy/shared';
 import * as bcrypt from 'bcrypt';
-import { IsNull, Repository } from 'typeorm';
+import { EntityManager, IsNull, Repository } from 'typeorm';
+import { AuthToken } from '../modules/account-access/entities/auth-token.entity';
+import { hashSecret } from '../modules/auth/token-hash.util';
 import { User } from '../modules/users/entities/user.entity';
 import { School } from '../modules/schools/entities/school.entity';
 import { UserTenant } from '../modules/auth/entities/user-tenant.entity';
@@ -826,4 +828,140 @@ export async function seedAccounts(
       { schoolId: school.id },
     );
   }
+}
+
+/** [13.1.4] Fixed so e2e can open the teacher's invite link; mirrored in `e2e/seed-contract.ts`. */
+export const TRIAL_DEMO = {
+  slug: 'trial-demo-school',
+  name: 'Trial Demo School',
+  adminEmail: 'trial-admin@biddaloy.test',
+  teacherEmail: 'trial-teacher@biddaloy.test',
+  inviteToken: 'seed-trial-teacher-invite-token-0000000000',
+  trialDays: 23,
+  seatLimit: 10,
+  studentCount: 4,
+} as const;
+
+/** [13.1.4] One school mid-trial ("4 of 10" students, 23 days left) that has not
+ * finished onboarding, its ADMIN, and a TEACHER invited but not yet activated
+ * (`password_hash = null` + a live INVITE token). Idempotent on slug / email /
+ * registration number; existing schools are untouched. */
+export async function ensureTrialDemoSeed(
+  manager: EntityManager,
+  passwordHash: string,
+): Promise<School> {
+  const schools = manager.getRepository(School);
+  let school = await schools.findOne({ where: { slug: TRIAL_DEMO.slug } });
+  if (!school) {
+    school = await schools.save(
+      schools.create({
+        name: TRIAL_DEMO.name,
+        slug: TRIAL_DEMO.slug,
+        country_code: 'BD',
+        trial_ends_at: new Date(Date.now() + TRIAL_DEMO.trialDays * 86_400_000),
+        seat_limit: TRIAL_DEMO.seatLimit,
+        onboarding: null,
+      }),
+    );
+    console.log(`  School: ${school.name} (${school.id}) — trial`);
+  }
+  const tenant_id = school.id;
+
+  const users = manager.getRepository(User);
+  const memberships = manager.getRepository(UserTenant);
+  const ensureUser = async (
+    email: string,
+    role: UserRole,
+    fullName: string,
+    hash: string | null,
+  ) => {
+    let user = await users.findOne({ where: { email } });
+    if (!user) {
+      user = await users.save(
+        users.create({
+          email,
+          password_hash: hash,
+          status: UserStatus.ACTIVE,
+          full_name: fullName,
+        }),
+      );
+    }
+    const where = { user_id: user.id, tenant_id };
+    if (!(await memberships.findOne({ where }))) {
+      await memberships.save(memberships.create({ ...where, role }));
+    }
+    return user;
+  };
+  const admin = await ensureUser(
+    TRIAL_DEMO.adminEmail,
+    UserRole.ADMIN,
+    'Trial School Admin',
+    passwordHash,
+  );
+  const teacher = await ensureUser(
+    TRIAL_DEMO.teacherEmail,
+    UserRole.TEACHER,
+    'Invited Teacher',
+    null,
+  );
+
+  const tokens = manager.getRepository(AuthToken);
+  const token_hash = hashSecret(TRIAL_DEMO.inviteToken);
+  if (!(await tokens.findOne({ where: { token_hash } }))) {
+    await tokens.save(
+      tokens.create({
+        user_id: teacher.id,
+        tenant_id,
+        purpose: AuthTokenPurpose.INVITE,
+        token_hash,
+        expires_at: new Date(Date.now() + 365 * 86_400_000),
+        created_by_user_id: admin.id,
+      }),
+    );
+  }
+
+  // One academic year, two classes (one section each), four ACTIVE students.
+  const years = manager.getRepository(AcademicYear);
+  let year = await years.findOne({ where: { tenant_id, name: DEMO_ACADEMIC_YEAR.name } });
+  year ??= await years.save(
+    years.create({
+      tenant_id,
+      name: DEMO_ACADEMIC_YEAR.name,
+      start_date: new Date(DEMO_ACADEMIC_YEAR.start_date),
+      end_date: new Date(DEMO_ACADEMIC_YEAR.end_date),
+      is_current: true,
+    }),
+  );
+  const classes = manager.getRepository(Class);
+  const sections = manager.getRepository(ClassSection);
+  const studentsRepo = manager.getRepository(Student);
+  const sectionIds: string[] = [];
+  for (const [i, name] of ['Class 1', 'Class 2'].entries()) {
+    let cls = await classes.findOne({ where: { tenant_id, academic_year_id: year.id, name } });
+    cls ??= await classes.save(
+      classes.create({ tenant_id, academic_year_id: year.id, name, numeric_grade: i + 1 }),
+    );
+    let section = await sections.findOne({
+      where: { tenant_id, class_id: cls.id, section_name: 'A' },
+    });
+    section ??= await sections.save(
+      sections.create({ tenant_id, class_id: cls.id, section_name: 'A' }),
+    );
+    sectionIds.push(section.id);
+  }
+  for (let n = 1; n <= TRIAL_DEMO.studentCount; n++) {
+    const registration_number = `TRIAL-${String(n).padStart(4, '0')}`;
+    if (await studentsRepo.findOne({ where: { tenant_id, registration_number } })) continue;
+    await studentsRepo.save(
+      studentsRepo.create({
+        tenant_id,
+        registration_number,
+        full_name: `Trial Student ${n}`,
+        class_section_id: sectionIds[n % 2]!,
+        roll_number: Math.ceil(n / 2),
+        enrollment_status: EnrollmentStatus.ACTIVE,
+      }),
+    );
+  }
+  return school;
 }
