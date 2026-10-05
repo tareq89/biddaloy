@@ -1,7 +1,9 @@
 import '@biddaloy/ui/test';
 
+import { REGION_BD_EN, RegionConfigProvider } from '@biddaloy/ui/i18n';
 import { cleanupTestState, renderWithProviders } from '@biddaloy/ui/test';
 import { screen, waitFor } from '@testing-library/react';
+import type * as React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { DidAllPrintDialog } from './did-all-print-dialog';
@@ -16,17 +18,24 @@ function setup(onConfirm = vi.fn().mockResolvedValue(undefined)) {
   const onReprintFailed = vi.fn();
   const onContinue = vi.fn();
   const view = renderWithProviders(
-    <DidAllPrintDialog
-      open
-      items={items}
-      onConfirm={onConfirm}
-      onReprintFailed={onReprintFailed}
-      onContinue={onContinue}
-    />,
+    en(
+      <DidAllPrintDialog
+        open
+        items={items}
+        onConfirm={onConfirm}
+        onReprintFailed={onReprintFailed}
+        onContinue={onContinue}
+      />,
+    ),
     { locale: 'en', role: 'ADMIN', tenantId: 'school-1' },
   );
   return { ...view, onConfirm, onReprintFailed, onContinue };
 }
+
+/** Digits follow the region, and the default region is Bangla: pin Latin for English assertions. */
+const en = (ui: React.ReactElement) => (
+  <RegionConfigProvider value={REGION_BD_EN}>{ui}</RegionConfigProvider>
+);
 
 describe('DidAllPrintDialog', () => {
   afterEach(async () => {

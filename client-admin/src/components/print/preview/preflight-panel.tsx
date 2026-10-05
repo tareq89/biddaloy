@@ -4,7 +4,8 @@
  * with any issue the person must tick "Print anyway" before Print unlocks.
  */
 import { Checkbox } from '@biddaloy/ui/components';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { formatNumber } from '@biddaloy/ui/utils';
 import { TriangleAlertIcon } from 'lucide-react';
 
 export interface PreflightIssue {
@@ -29,16 +30,23 @@ export function PreflightPanel({
   onAcknowledgedChange,
 }: PreflightPanelProps) {
   const { t } = useTranslation('printPreview');
+  const region = useRegionConfig();
   if (issues.length === 0) return null;
 
   return (
     <section
-      aria-label={t('preflight.title', { bad: issues.length, total })}
+      aria-label={t('preflight.title', {
+        bad: formatNumber(issues.length, region),
+        total: formatNumber(total, region),
+      })}
       className="rounded-lg border border-border-subtle bg-status-due-bg p-4 text-status-due-fg md:p-5"
     >
       <h2 className="flex items-center gap-2 text-h3">
         <TriangleAlertIcon className="size-5" aria-hidden />
-        {t('preflight.title', { bad: issues.length, total })}
+        {t('preflight.title', {
+          bad: formatNumber(issues.length, region),
+          total: formatNumber(total, region),
+        })}
       </h2>
       <ul className="mt-2 list-disc space-y-1 ps-5">
         {issues.map((issue) => (
