@@ -305,6 +305,26 @@ describe('SchoolSettingsPage', () => {
     expect((await screen.findByRole('alert')).textContent).toMatch(/couldn't load settings/i);
   });
 
+  it('a tenant-local SUPER_ADMIN (school list 403) configures their own school, no picker', async () => {
+    // GET /schools is platform-only; a SUPER_ADMIN on an ordinary school gets 403.
+    server.use(
+      http.get('/api/v1/schools', () => HttpResponse.json(apiErrorBody(403), { status: 403 })),
+    );
+    renderWithProviders(<PageWithRouter />, {
+      locale: 'en',
+      role: 'SUPER_ADMIN',
+      tenantId: 'tenant-1',
+      accessToken: fakeJwtWithMemberships([
+        { tenantId: 'tenant-1', role: 'SUPER_ADMIN', name: 'Greenview School' },
+      ]),
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Configuring settings for Greenview School')).toBeTruthy();
+    });
+    expect(screen.queryByLabelText('School')).toBeNull();
+  });
+
   it('an ADMIN sees no picker at all — their own school loads directly', async () => {
     renderWithProviders(<PageWithRouter />, {
       locale: 'en',
