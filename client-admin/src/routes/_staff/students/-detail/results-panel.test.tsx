@@ -62,9 +62,11 @@ describe('ResultsPanel', () => {
     expect(screen.getByText('Monthly Test')).toBeTruthy();
     expect(screen.getByText('Not yet published')).toBeTruthy();
     expect(screen.getByText('Published')).toBeTruthy();
-    expect(screen.getAllByRole('link', { name: 'View result' })[0]?.getAttribute('href')).toBe(
+    const links = screen.getAllByRole('link', { name: 'View result' });
+    expect(links.map((link) => link.getAttribute('href'))).toEqual([
       '/results/exam-published/student-1',
-    );
+      '/results/exam-unpublished/student-1',
+    ]);
   });
 
   it('marks a failed exam with a badge', async () => {

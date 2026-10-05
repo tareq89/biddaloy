@@ -46,6 +46,23 @@ async function openDialog() {
   return user;
 }
 
+function isoOffset(days: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/** The date picker is capped at today: tomorrow is disabled, today is pickable. The
+ * `errors.dateFuture` branch in the dialog is therefore a defensive backstop. */
+async function expectFutureDaysDisabled(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole('button', { name: 'Date' }));
+  const cell = (iso: string) => document.querySelector<HTMLElement>(`[data-date="${iso}"]`);
+  await waitFor(() => expect(cell(isoOffset(0))).not.toBeNull());
+  expect(cell(isoOffset(0))?.getAttribute('aria-disabled')).toBeNull();
+  const tomorrow = cell(isoOffset(1));
+  if (tomorrow) expect(tomorrow.getAttribute('aria-disabled')).toBe('true');
+}
+
 describe('LeaveDialog', () => {
   afterEach(async () => {
     await cleanupTestState();
@@ -58,12 +75,29 @@ describe('LeaveDialog', () => {
     expect(await screen.findByText('Write a reason.')).toBeTruthy();
   });
 
-  it('uses a date picker, not a native date input, and cannot reach a future date', async () => {
+  it('caps the date picker at today (no native date input, future days disabled)', async () => {
     server.use(withBalance(0));
-    await openDialog();
-    const dialog = screen.getByRole('dialog');
-    expect(dialog.querySelector('input[type="date"]')).toBeNull();
-    expect(screen.getByRole('button', { name: 'Date' }).tagName).toBe('BUTTON');
+    const user = await openDialog();
+    expect(screen.getByRole('dialog').querySelector('input[type="date"]')).toBeNull();
+    await expectFutureDaysDisabled(user);
+  });
+
+  it('shows a translated line, not the server text, and stays open on 409 and 422', async () => {
+    for (const status of [409, 422]) {
+      server.use(
+        withBalance(0),
+        http.post('/api/v1/students/s1/leave', () =>
+          HttpResponse.json({ message: 'raw server text' }, { status }),
+        ),
+      );
+      const user = await openDialog();
+      await user.type(screen.getByLabelText('Reason'), 'Moved away');
+      await user.click(screen.getByRole('button', { name: 'Record leaving' }));
+      const alert = await screen.findByRole('alert');
+      expect(alert.textContent).not.toContain('raw server text');
+      expect(screen.getByRole('dialog')).toBeTruthy();
+      await cleanupTestState();
+    }
   });
 
   it('shows the dues warning and still submits', async () => {
