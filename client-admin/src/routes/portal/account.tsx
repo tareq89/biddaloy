@@ -196,7 +196,7 @@ function PortalAccount() {
             });
             return;
           }
-          setProfileError({ message: t('account.error.message') });
+          setProfileError({ message: t('account.error.saveFailed') });
         },
       },
     );
@@ -267,7 +267,7 @@ function PortalAccount() {
             });
             return;
           }
-          setGuardianError({ message: t('account.error.message') });
+          setGuardianError({ message: t('account.error.saveFailed') });
         },
       },
     );
@@ -288,7 +288,7 @@ function PortalAccount() {
           fieldErrors: { current_password: t('account.password.errors.wrongPassword') },
         });
       } else {
-        setPasswordError({ message: t('account.error.message') });
+        setPasswordError({ message: t('account.error.saveFailed') });
       }
     } finally {
       setChangingPassword(false);
@@ -453,7 +453,10 @@ function PortalAccount() {
                 const current = target?.current ?? false;
                 revokeSession.mutate(
                   { id, current },
-                  { onSuccess: () => !current && toast.success(tAuth('sessions.revokedToast')) },
+                  {
+                    onSuccess: () => !current && toast.success(tAuth('sessions.revokedToast')),
+                    onError: () => toast.error(t('account.devices.revokeError')),
+                  },
                 );
               }}
               onRevokeAll={() => void handleSignOutAllDevices()}
@@ -543,7 +546,12 @@ function ContactRow({
           <p className="text-text-secondary">{t('account.contact.none')}</p>
         )}
       </div>
-      <Button type="button" variant="outline" onClick={onChange}>
+      <Button
+        type="button"
+        variant="outline"
+        aria-label={`${value ? t('account.contact.change') : t('account.contact.add')} ${label}`}
+        onClick={onChange}
+      >
         {!value && <PlusIcon className="size-4" aria-hidden="true" />}
         {value ? t('account.contact.change') : t('account.contact.add')}
       </Button>

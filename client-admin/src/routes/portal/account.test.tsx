@@ -1,3 +1,4 @@
+import { toast } from '@biddaloy/ui/components';
 import {
   cleanupTestState,
   errorHandler,
@@ -183,10 +184,10 @@ describe('/portal/account', () => {
       'section',
     ) as HTMLElement;
     expect(within(card).getByText('Not added')).toBeTruthy();
-    expect(within(card).getByRole('button', { name: 'Add' })).toBeTruthy();
+    expect(within(card).getByRole('button', { name: 'Add Phone' })).toBeTruthy();
     const email = within(card).getByText('karim@example.com').closest('p') as HTMLElement;
     expect(within(email).getByText('Verified')).toBeTruthy();
-    expect(within(card).getByRole('button', { name: 'Change' })).toBeTruthy();
+    expect(within(card).getByRole('button', { name: 'Change Email' })).toBeTruthy();
   });
 
   it('flags an unverified phone and shows it formatted', async () => {
@@ -260,5 +261,68 @@ describe('/portal/account', () => {
       ) as HTMLElement,
     ).findAllByRole('listitem');
     await expect(container).toHaveNoViolations();
+  });
+
+  it('shows an error toast when revoking a device fails', async () => {
+    server.use(
+      http.get('/api/v1/users/me', () => HttpResponse.json(userResponseFactory())),
+      http.get('/api/v1/guardians/mine', () => HttpResponse.json(guardianFactory())),
+      http.get('/api/v1/auth/sessions', () =>
+        HttpResponse.json({ data: [session('s-1', 0, true), session('s-2', 2)] }),
+      ),
+      http.delete('/api/v1/auth/sessions/:id', () =>
+        HttpResponse.json({ message: 'boom' }, { status: 500 }),
+      ),
+    );
+    const toastSpy = vi.spyOn(toast, 'error').mockImplementation(() => '');
+    try {
+      renderAccount('PARENT');
+
+      const card = (await screen.findByRole('heading', { level: 2, name: 'Devices' })).closest(
+        'section',
+      ) as HTMLElement;
+      const rows = await within(card).findAllByRole('listitem');
+      await userEvent.click(within(rows[1]!).getByRole('button', { name: /^Sign out/ }));
+
+      await waitFor(() =>
+        expect(toastSpy).toHaveBeenCalledWith('Could not sign that device out. Try again.'),
+      );
+    } finally {
+      toastSpy.mockRestore();
+    }
+  });
+
+  it('says the save failed, not that the page failed to load, when the profile save fails', async () => {
+    server.use(
+      http.get('/api/v1/users/me', () => HttpResponse.json(userResponseFactory())),
+      http.get('/api/v1/guardians/mine', () => HttpResponse.json(guardianFactory())),
+      http.patch('/api/v1/users/me', () => HttpResponse.json({ message: 'boom' }, { status: 500 })),
+    );
+    renderAccount('PARENT');
+
+    const input = (await screen.findAllByRole('textbox'))[0] as HTMLElement;
+    const form = input.closest('form') as HTMLElement;
+    const card = input.closest('[data-slot="card"]') as HTMLElement;
+    await userEvent.type(input, ' Jr');
+    await userEvent.click(within(form).getByRole('button', { name: /save/i }));
+
+    expect(
+      await within(card).findByText(
+        'Could not save your changes. Check your connection and try again.',
+        {},
+        { timeout: 15000 },
+      ),
+    ).toBeTruthy();
+  });
+
+  it('gives the email and phone buttons names that say which one', async () => {
+    server.use(
+      http.get('/api/v1/users/me', () => HttpResponse.json(userResponseFactory())),
+      http.get('/api/v1/guardians/mine', () => HttpResponse.json(guardianFactory())),
+    );
+    renderAccount('PARENT');
+
+    expect(await screen.findByRole('button', { name: /^Change Email/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /^(Change|Add) Phone/ })).toBeTruthy();
   });
 });
