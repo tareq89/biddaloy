@@ -9,9 +9,11 @@
 import {
   Button,
   Card,
+  ConfirmDialog,
   DataTable,
   Input,
   Label,
+  toast,
   type DataTableColumn,
 } from '@biddaloy/ui/components';
 import {
@@ -46,6 +48,7 @@ export function ExclusionsTable({ scheduleId, exclusions, canManage }: Exclusion
   const addExclusion = useAddScheduleExclusion(scheduleId);
   const removeExclusion = useRemoveScheduleExclusion(scheduleId);
 
+  const [removing, setRemoving] = React.useState<RecurringScheduleExclusion | null>(null);
   const excludedIds = new Set(exclusions.map((exclusion) => exclusion.student_id));
   const reasonMissing = reason.trim() === '';
 
@@ -60,6 +63,7 @@ export function ExclusionsTable({ scheduleId, exclusions, canManage }: Exclusion
           setSearch('');
           setReason('');
         },
+        onError: () => toast.error(t('schedules.detail.excludeErrorMessage')),
       },
     );
   }
@@ -153,6 +157,7 @@ export function ExclusionsTable({ scheduleId, exclusions, canManage }: Exclusion
                       variant="outline"
                       className="shrink-0"
                       disabled={addExclusion.isPending || reasonMissing}
+                      aria-label={`${t('schedules.detail.excludeButton')} ${student.full_name}`}
                       onClick={() => handleAdd(student.id)}
                     >
                       <UserMinusIcon aria-hidden="true" />
@@ -177,7 +182,8 @@ export function ExclusionsTable({ scheduleId, exclusions, canManage }: Exclusion
               intent: 'restore',
               label: t('schedules.detail.removeExclusion'),
               allowed: canManage,
-              onClick: () => removeExclusion.mutate(row.student_id),
+              disabled: removeExclusion.isPending,
+              onClick: () => setRemoving(row),
             },
           ]}
           sorting={null}
@@ -191,6 +197,30 @@ export function ExclusionsTable({ scheduleId, exclusions, canManage }: Exclusion
           }}
         />
       </div>
+      {removing && (
+        <ConfirmDialog
+          open
+          tone="default"
+          onOpenChange={(open) => {
+            if (!open) setRemoving(null);
+          }}
+          title={t('schedules.detail.includeConfirmTitle')}
+          description={t('schedules.detail.includeConfirmDescription', {
+            name: removing.student_name,
+          })}
+          confirmLabel={t('schedules.detail.removeExclusion')}
+          busy={removeExclusion.isPending}
+          onConfirm={() =>
+            removeExclusion.mutate(removing.student_id, {
+              onSuccess: () => setRemoving(null),
+              onError: () => {
+                setRemoving(null);
+                toast.error(t('schedules.detail.includeErrorMessage'));
+              },
+            })
+          }
+        />
+      )}
     </Card>
   );
 }

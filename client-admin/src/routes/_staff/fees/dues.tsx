@@ -194,7 +194,11 @@ function DuesFeeLines({ name, dues }: { name: string; dues: FeeDueEntry[] }) {
   return (
     <div className="px-4 pb-2">
       <ul
-        aria-label={t('dues.expandLabel', { name, count: dues.length })}
+        aria-label={t('dues.expandLabel', {
+          name,
+          count: dues.length,
+          n: formatNumber(dues.length, regionConfig),
+        })}
         className="divide-y divide-border-subtle"
       >
         {dues.map((due) => {
@@ -298,7 +302,10 @@ function DuesQueuePage() {
   const lastRemindersQuery = useLastReminders(visibleStudentIds);
   const lastReminders = lastRemindersQuery.data;
 
-  const canCollectFees = useHasPermission(Permission.FEE_COLLECT);
+  // `/payments/record` needs PAYMENT_RECORD as well, so both gate the record-payment buttons.
+  const hasFeeCollect = useHasPermission(Permission.FEE_COLLECT);
+  const hasPaymentRecord = useHasPermission(Permission.PAYMENT_RECORD);
+  const canCollectFees = hasFeeCollect && hasPaymentRecord;
   const canSendReminder = useHasPermission(Permission.COMMUNICATION_BULK_SEND);
   const navigate = useNavigate();
 
@@ -328,6 +335,8 @@ function DuesQueuePage() {
       next.year = null;
       next.status = null;
       next.fee_type = null;
+      // The overdue endpoint ignores `search`, so the field is hidden and a typed name is dropped.
+      next.search = null;
     }
     actions.setFilters(next);
   }
@@ -444,7 +453,7 @@ function DuesQueuePage() {
 
   // Flagged mode: `QueryFlaggedDuesDto` accepts none of month/year/status/fee_type,
   // so those controls are not rendered at all.
-  const FLAGGED_HIDDEN = new Set(['month', 'year', 'status', 'fee_type']);
+  const FLAGGED_HIDDEN = new Set(['search', 'month', 'year', 'status', 'fee_type']);
   const allFilterFields: FilterFieldDescriptor[] = [
     {
       kind: 'text',
@@ -555,7 +564,11 @@ function DuesQueuePage() {
         data={rows}
         getRowId={(row) => row.student_id}
         expandRowLabel={(row) =>
-          t('dues.expandLabel', { name: row.full_name, count: row.dues.length })
+          t('dues.expandLabel', {
+            name: row.full_name,
+            count: row.dues.length,
+            n: formatNumber(row.dues.length, regionConfig),
+          })
         }
         renderExpandedRow={(row) => <DuesFeeLines name={row.full_name} dues={row.dues} />}
         rowActions={(row) => [
@@ -591,7 +604,11 @@ function DuesQueuePage() {
         {...(duesQuery.isError ? { error: t('dues.errorMessage') } : {})}
         emptyState={{ title: t('dues.emptyMessage'), explanation: t('dues.emptyExplanation') }}
         announceResults={(count, total) =>
-          t('dues.announceResults', { visible: count, total, count: total })
+          t('dues.announceResults', {
+            count: total,
+            visible: formatNumber(count, regionConfig),
+            total: formatNumber(total, regionConfig),
+          })
         }
         bulkActions={
           <>

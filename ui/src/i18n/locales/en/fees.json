@@ -120,8 +120,8 @@
     "columnWallet": "Credit balance",
     "feeTypeLabel": "Fee type",
     "allFeeTypes": "All types",
-    "expandLabel_one": "{{count}} fee for {{name}}",
-    "expandLabel_other": "{{count}} fees for {{name}}",
+    "expandLabel_one": "{{n}} fee for {{name}}",
+    "expandLabel_other": "{{n}} fees for {{name}}",
     "expanded": {
       "lateFeeBadge": "Late fee",
       "periodAndDue": "{{period}} · due {{date}}",
@@ -300,7 +300,9 @@
       "dueDaysHelp": "How many days after the period starts the bill is due.",
       "endsOnHelp": "At most {{date}} (the last day of the year).",
       "previewTitle": "Who gets billed now",
-      "previewLoading": "Checking…"
+      "previewLoading": "Checking…",
+      "dueDaysRequired": "Enter the days to pay",
+      "dueDaysRange": "Days to pay must be between 0 and 60"
     },
     "cloneDialog": {
       "title": "Copy this rule to another year",
@@ -332,7 +334,11 @@
       "excludeButton": "Exclude",
       "columnExcludedOn": "Excluded on",
       "exclusionsEmptyExplanation": "Everyone this rule covers is being billed.",
-      "runHistoryEmptyExplanation": "Bills created by this rule will show up here."
+      "runHistoryEmptyExplanation": "Bills created by this rule will show up here.",
+      "excludeErrorMessage": "Couldn't exclude this student. Try again.",
+      "includeErrorMessage": "Couldn't include this student again. Try again.",
+      "includeConfirmTitle": "Include this student again?",
+      "includeConfirmDescription": "{{name}} will be billed by this rule again."
     },
     "subtitle": "Bills for active students are created on their own, on the rule you set.",
     "view": "View",
@@ -340,7 +346,9 @@
     "neverBilled": "Not yet",
     "emptyExplanation": "Add a rule and bills are created every month or week on their own.",
     "activateConfirmTitle": "Turn this rule back on?",
-    "activateConfirmDescription": "Bills will be created again from the next scheduled day."
+    "activateConfirmDescription": "Bills will be created again from the next scheduled day.",
+    "toggleErrorMessage": "Couldn't change this rule's status. Try again.",
+    "editNotFound": "That rule no longer exists."
   },
   "recurringFeesTab": {
     "title": "Automatic billing",
