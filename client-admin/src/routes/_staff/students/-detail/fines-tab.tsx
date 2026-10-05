@@ -12,17 +12,16 @@
 import { FeeStatus, Permission } from '@biddaloy/shared';
 import {
   Button,
+  Card,
+  DataTable,
+  EmptyState,
   StatusBadge,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  type DataTableColumn,
 } from '@biddaloy/ui/components';
 import { useFines, useHasPermission, type Fine } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { formatDate, formatServerAmount, parseServerDate } from '@biddaloy/ui/utils';
+import { BadgeCheckIcon, PlusIcon } from 'lucide-react';
 import * as React from 'react';
 
 import { LogFineModal } from '../../fees/fines/-modals/log-fine-modal';
@@ -36,6 +35,7 @@ export interface FinesTabProps {
 
 export function FinesTab({ studentId }: FinesTabProps) {
   const { t } = useTranslation('fines');
+  const { t: tStudents } = useTranslation('students');
   const regionConfig = useRegionConfig();
   const canLog = useHasPermission(Permission.FEE_GENERATE);
   const canWaive = useHasPermission(Permission.FEE_APPROVE);
@@ -47,7 +47,13 @@ export function FinesTab({ studentId }: FinesTabProps) {
     <div className="flex flex-col gap-4">
       {canLog && (
         <div className="flex justify-end">
-          <Button type="button" onClick={() => setLogOpen(true)}>
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full md:w-auto"
+            onClick={() => setLogOpen(true)}
+          >
+            <PlusIcon className="size-4" aria-hidden />
             {t('logForm.title')}
           </Button>
         </div>
@@ -56,86 +62,97 @@ export function FinesTab({ studentId }: FinesTabProps) {
       <TabQueryState
         query={finesQuery}
         forbiddenMessage={t('detail.forbidden', { ns: 'students' })}
-        errorMessage={t('empty.title')}
+        errorMessage={tStudents('detail.fines.errorMessage')}
       >
         {(data) => {
           const fines = data.items;
-          if (fines.length === 0) {
-            return (
-              <div className="flex flex-col items-center gap-1 rounded-lg border border-dashed border-border-subtle p-8 text-center">
-                <p className="text-sm font-medium">{t('empty.title')}</p>
-                <p className="text-sm text-muted-foreground">{t('empty.description')}</p>
-              </div>
-            );
-          }
+          const dateOf = (fine: Fine) =>
+            fine.incident_date
+              ? formatDate(parseServerDate(fine.incident_date), regionConfig)
+              : '—';
+          const columns: DataTableColumn<Fine>[] = [
+            {
+              id: 'fine',
+              header: t('columns.fine'),
+              accessorFn: (fine) => fine.fee_name,
+              card: 'title',
+            },
+            { id: 'reason', header: t('columns.reason'), accessorFn: (fine) => fine.note ?? '' },
+            { id: 'incidentDate', header: t('columns.incidentDate'), accessorFn: dateOf },
+            {
+              id: 'amount',
+              header: t('columns.amount'),
+              align: 'end',
+              accessorFn: (fine) => formatServerAmount(fine.total_amount, regionConfig),
+            },
+            {
+              id: 'paid',
+              header: t('columns.paid'),
+              align: 'end',
+              accessorFn: (fine) => formatServerAmount(fine.paid_amount, regionConfig),
+            },
+            {
+              id: 'status',
+              header: t('columns.status'),
+              accessorFn: (fine) => <StatusBadge domain="fee" status={fine.status as FeeStatus} />,
+              card: 'badge',
+            },
+            {
+              id: 'origin',
+              header: t('columns.origin'),
+              accessorFn: (fine) => t(`origin.${fine.origin ?? 'MANUAL'}`),
+            },
+          ];
 
           return (
             <div className="flex flex-col gap-4">
-              <p className="text-sm text-muted-foreground">
-                {t('totals.outstanding')}:{' '}
-                {formatServerAmount(data.totals.outstanding, regionConfig)} · {t('totals.waived')}:{' '}
-                {formatServerAmount(data.totals.waived, regionConfig)}
-              </p>
-
-              {/* Phone: cards, one per fine. */}
-              <ul className="flex flex-col gap-2 sm:hidden">
-                {fines.map((fine) => (
-                  <FineCard
-                    key={fine.id}
-                    fine={fine}
-                    canWaive={canWaive}
-                    onWaive={() => setWaiveFineId(fine.id)}
-                  />
-                ))}
-              </ul>
-
-              <Table className="hidden sm:table">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t('columns.fine')}</TableHead>
-                    <TableHead>{t('columns.reason')}</TableHead>
-                    <TableHead>{t('columns.incidentDate')}</TableHead>
-                    <TableHead>{t('columns.amount')}</TableHead>
-                    <TableHead>{t('columns.paid')}</TableHead>
-                    <TableHead>{t('columns.status')}</TableHead>
-                    <TableHead>{t('columns.origin')}</TableHead>
-                    {canWaive && <TableHead />}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {fines.map((fine) => (
-                    <TableRow key={fine.id}>
-                      <TableCell>{fine.fee_name}</TableCell>
-                      <TableCell>{fine.note ?? ''}</TableCell>
-                      <TableCell>
-                        {fine.incident_date
-                          ? formatDate(parseServerDate(fine.incident_date), regionConfig)
-                          : '—'}
-                      </TableCell>
-                      <TableCell>{formatServerAmount(fine.total_amount, regionConfig)}</TableCell>
-                      <TableCell>{formatServerAmount(fine.paid_amount, regionConfig)}</TableCell>
-                      <TableCell>
-                        <StatusBadge domain="fee" status={fine.status as FeeStatus} />
-                      </TableCell>
-                      <TableCell>{t(`origin.${fine.origin ?? 'MANUAL'}`)}</TableCell>
-                      {canWaive && (
-                        <TableCell>
-                          {fine.status !== 'WAIVED' && fine.status !== 'PAID' && (
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              onClick={() => setWaiveFineId(fine.id)}
-                            >
-                              {t('waiveDialog.title')}
-                            </Button>
-                          )}
-                        </TableCell>
-                      )}
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              {fines.length > 0 && (
+                <Card>
+                  <dl className="grid grid-cols-2 divide-x divide-border-subtle">
+                    <div className="p-4 md:p-5">
+                      <dt className="text-caption text-text-secondary">
+                        {t('totals.outstanding')}
+                      </dt>
+                      <dd className="mt-1 text-h3 tabular-nums md:text-h2">
+                        {formatServerAmount(data.totals.outstanding, regionConfig)}
+                      </dd>
+                    </div>
+                    <div className="p-4 md:p-5">
+                      <dt className="text-caption text-text-secondary">{t('totals.waived')}</dt>
+                      <dd className="mt-1 text-h3 tabular-nums md:text-h2">
+                        {formatServerAmount(data.totals.waived, regionConfig)}
+                      </dd>
+                    </div>
+                  </dl>
+                </Card>
+              )}
+              {fines.length === 0 ? (
+                <EmptyState
+                  icon={<BadgeCheckIcon aria-hidden="true" />}
+                  title={t('empty.title')}
+                  explanation={t('empty.description')}
+                />
+              ) : (
+                <DataTable
+                  tableId="student-fines"
+                  caption={tStudents('detail.tabs.fines')}
+                  paginated={false}
+                  sorting={null}
+                  onSortingChange={() => {}}
+                  columns={columns}
+                  data={fines}
+                  getRowId={(fine) => fine.id}
+                  totalCount={fines.length}
+                  rowActions={(fine) => [
+                    {
+                      intent: 'remove',
+                      label: t('waiveDialog.title'),
+                      onClick: () => setWaiveFineId(fine.id),
+                      allowed: canWaive && fine.status !== 'WAIVED' && fine.status !== 'PAID',
+                    },
+                  ]}
+                />
+              )}
             </div>
           );
         }}
@@ -155,36 +172,5 @@ export function FinesTab({ studentId }: FinesTabProps) {
         />
       )}
     </div>
-  );
-}
-
-function FineCard({
-  fine,
-  canWaive,
-  onWaive,
-}: {
-  fine: Fine;
-  canWaive: boolean;
-  onWaive: () => void;
-}) {
-  const { t } = useTranslation('fines');
-  const regionConfig = useRegionConfig();
-  return (
-    <li className="flex flex-col gap-2 rounded-lg border border-border-subtle p-3">
-      <div className="flex items-center justify-between">
-        <span className="text-sm font-medium">{fine.fee_name}</span>
-        <StatusBadge domain="fee" status={fine.status as FeeStatus} />
-      </div>
-      {fine.note && <p className="text-sm text-muted-foreground">{fine.note}</p>}
-      <p className="text-sm text-muted-foreground">
-        {fine.incident_date ? formatDate(parseServerDate(fine.incident_date), regionConfig) : '—'} ·{' '}
-        {formatServerAmount(fine.total_amount, regionConfig)}
-      </p>
-      {canWaive && fine.status !== 'WAIVED' && fine.status !== 'PAID' && (
-        <Button type="button" size="sm" variant="outline" onClick={onWaive}>
-          {t('waiveDialog.title')}
-        </Button>
-      )}
-    </li>
   );
 }
