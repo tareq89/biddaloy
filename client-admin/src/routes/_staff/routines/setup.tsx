@@ -7,7 +7,10 @@
  * `/settings`.
  *
  * [31.4] Three line tabs (shifts and periods / rooms / rules) so each view
- * has one job and one primary; the selected tab lives in `?tab=`.
+ * has one job and one primary; the selected tab lives in `?tab=`. Panels
+ * stay mounted (hidden when inactive) so switching tab never drops typed
+ * rows or an open form — `useWarnUnsavedChanges` does not see a same-route
+ * search change.
  */
 import { getActiveTenant } from '@biddaloy/ui/api';
 import { RoutePending, Tabs, TabsContent, TabsList, TabsTrigger } from '@biddaloy/ui/components';
@@ -82,7 +85,7 @@ function RoutineSetupPage() {
           ))}
         </TabsList>
 
-        <TabsContent value="periods">
+        <TabsContent value="periods" forceMount hidden={tab !== 'periods'}>
           <div className="space-y-6">
             <ShiftsPanel />
             <PeriodSlotsPanel
@@ -93,10 +96,10 @@ function RoutineSetupPage() {
             />
           </div>
         </TabsContent>
-        <TabsContent value="rooms">
+        <TabsContent value="rooms" forceMount hidden={tab !== 'rooms'}>
           <RoomsPanel />
         </TabsContent>
-        <TabsContent value="rules">
+        <TabsContent value="rules" forceMount hidden={tab !== 'rules'}>
           <RoutineSettingsPanel schoolId={schoolId} />
         </TabsContent>
       </Tabs>

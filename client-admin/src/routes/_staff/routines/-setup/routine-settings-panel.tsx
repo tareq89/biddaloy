@@ -34,8 +34,8 @@ import {
 } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { useWarnUnsavedChanges } from '@biddaloy/ui/shells';
-import { boundedNumericString } from '@biddaloy/ui/utils';
 import { zodResolver } from '@hookform/resolvers/zod';
+import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
@@ -43,19 +43,25 @@ import { z } from 'zod';
 // bare `z.string()` let 0/negative/decimal values through client-side, so
 // the server rejected the PATCH with a generic 400 instead of an inline
 // field error.
-const optionalCap = z
-  .string()
-  .refine((value) => value === '' || (/^\d+$/.test(value) && Number(value) >= 1), {
-    message: 'Must be a whole number of at least 1, or empty for no cap',
+// Messages come from `t()` (built per render), never English literals.
+function buildSchema(t: (key: string) => string) {
+  const optionalCap = z
+    .string()
+    .refine((value) => value === '' || (/^\d+$/.test(value) && Number(value) >= 1), {
+      message: t('settingsPanel.capInvalid'),
+    });
+  return z.object({
+    defaultChangeoverMinutes: z
+      .string()
+      .refine((value) => /^\d+$/.test(value) && Number(value) <= 120, {
+        message: t('settingsPanel.changeoverInvalid'),
+      }),
+    maxPeriodsPerTeacherPerDay: optionalCap,
+    maxConsecutivePeriods: optionalCap,
   });
+}
 
-const routineSettingsSchema = z.object({
-  defaultChangeoverMinutes: boundedNumericString(0, 120),
-  maxPeriodsPerTeacherPerDay: optionalCap,
-  maxConsecutivePeriods: optionalCap,
-});
-
-type RoutineSettingsFormValues = z.infer<typeof routineSettingsSchema>;
+type RoutineSettingsFormValues = z.infer<ReturnType<typeof buildSchema>>;
 
 function toFormValues(routine: RoutineSettingsInput | undefined): RoutineSettingsFormValues {
   return {
@@ -75,9 +81,10 @@ export function RoutineSettingsPanel({ schoolId }: RoutineSettingsPanelProps) {
   const { t } = useTranslation('routines');
   const settingsQuery = useSchoolSettings(schoolId);
   const routine = settingsQuery.data?.routine;
+  const schema = React.useMemo(() => buildSchema((key) => t(key)), [t]);
 
   const form = useForm<RoutineSettingsFormValues>({
-    resolver: zodResolver(routineSettingsSchema),
+    resolver: zodResolver(schema),
     values: toFormValues(routine),
   });
   useWarnUnsavedChanges(form.formState.isDirty);

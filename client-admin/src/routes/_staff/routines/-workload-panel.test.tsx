@@ -1,4 +1,6 @@
+import { REGION_BD_BN } from '@biddaloy/ui/i18n';
 import { cleanupTestState, renderWithProviders, server } from '@biddaloy/ui/test';
+import { formatNumber } from '@biddaloy/ui/utils';
 import { screen, waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -43,7 +45,11 @@ describe('WorkloadPanel', () => {
     await waitFor(() => expect(screen.getByText('Ms Nahar')).toBeTruthy());
     expect(screen.getByText('over daily limit')).toBeTruthy();
     expect(screen.getByText('Mr Karim')).toBeTruthy();
-    expect(screen.getByText(/1 teacher has no periods assigned/)).toBeTruthy();
+    // Counts use the tenant's digits (D6).
+    expect(
+      screen.getByText(`${formatNumber(1, REGION_BD_BN)} teacher has no periods assigned`),
+    ).toBeTruthy();
+    expect(screen.getByText(`Total ${formatNumber(30, REGION_BD_BN)} periods`)).toBeTruthy();
   });
 
   it('does not flag anyone over-limit with no cap configured', async () => {

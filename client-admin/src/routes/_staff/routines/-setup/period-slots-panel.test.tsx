@@ -239,4 +239,33 @@ describe('PeriodSlotsPanel', () => {
       errorSpy.mockRestore();
     }
   });
+
+  it('numbers rows 1..n: a loaded 0-based set is shifted and a new row continues the count', async () => {
+    mockSlots([
+      { ...MATH, sequence: 0 },
+      { ...MATH, id: 's2', sequence: 1, starts_at: '08:45', ends_at: '09:25' },
+    ]);
+    let body: { slots: { sequence: number }[] } | null = null;
+    server.use(
+      http.put('*/routines/shifts/shift-1/period-slots', async ({ request }) => {
+        body = (await request.json()) as typeof body;
+        return HttpResponse.json([]);
+      }),
+    );
+    renderPanel();
+    const user = userEvent.setup();
+
+    await screen.findAllByRole('combobox', { name: `Starts, row ${ROW2}` });
+    await user.click(screen.getByRole('button', { name: 'Add period' }));
+    // Phone heading for the new row names Period 3, never Period 0.
+    expect(
+      await screen.findByText(
+        `Period ${formatNumber(3, REGION_BD_BN)} · row ${formatNumber(3, REGION_BD_BN)}`,
+      ),
+    ).toBeTruthy();
+    await user.click(saveButton());
+
+    await waitFor(() => expect(body).not.toBeNull());
+    expect(body!.slots.map((slot) => slot.sequence)).toEqual([1, 2, 3]);
+  });
 });

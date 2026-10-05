@@ -117,7 +117,8 @@ describe('RoutineSettingsPanel', () => {
 
     await waitFor(() =>
       expect(
-        screen.getAllByText('Must be a whole number of at least 1, or empty for no cap').length,
+        screen.getAllByText('Enter a whole number of at least 1, or leave it empty for no limit.')
+          .length,
       ).toBeGreaterThan(0),
     );
     expect(patchBody).not.toHaveBeenCalled();
@@ -157,5 +158,34 @@ describe('RoutineSettingsPanel', () => {
     } finally {
       errorSpy.mockRestore();
     }
+  });
+
+  it('shows the cap validation message in Bangla on a Bangla screen', async () => {
+    server.use(
+      http.get('/api/v1/schools/:id/settings', () =>
+        HttpResponse.json({
+          version: 1,
+          region: { locale: 'bn', numerals: 'BENGALI', timezone: 'Asia/Dhaka' },
+          routine: { defaultChangeoverMinutes: 5 },
+        }),
+      ),
+    );
+    const { user } = renderWithProviders(<RoutineSettingsPanel schoolId={SCHOOL_ID} />, {
+      locale: 'bn',
+      role: 'ADMIN',
+      tenantId: SCHOOL_ID,
+    });
+
+    const input = await screen.findByLabelText('একজন শিক্ষক দিনে সর্বোচ্চ কয়টি পিরিয়ড নেবেন');
+    await user.clear(input);
+    await user.type(input, '0');
+    await user.click(screen.getByRole('button', { name: 'সংরক্ষণ করুন' }));
+
+    await waitFor(() =>
+      expect(
+        screen.getAllByText('১ বা তার বেশি একটি পূর্ণ সংখ্যা দিন, অথবা সীমা না চাইলে খালি রাখুন।')
+          .length,
+      ).toBeGreaterThan(0),
+    );
   });
 });
