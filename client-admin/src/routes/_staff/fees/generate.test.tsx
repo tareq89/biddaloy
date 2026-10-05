@@ -5,6 +5,7 @@
  * (stubbed here as a local placeholder — see `generate.tsx`'s own
  * `GenerateFeesModal` comment).
  */
+import { REGION_BD_BN } from '@biddaloy/ui/i18n';
 import {
   apiErrorBody,
   cleanupTestState,
@@ -12,6 +13,7 @@ import {
   server,
   userResponseFactory,
 } from '@biddaloy/ui/test';
+import { formatDate } from '@biddaloy/ui/utils';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -168,11 +170,10 @@ describe('/fees/generate', () => {
 
     render();
     // Region config (independent of the `en` UI locale) defaults to
-    // Bengali numerals — same digit set `formatServerAmount` renders
-    // elsewhere in this app — so the period button's date reads
-    // "২০২৬-০৯-০১", not "2026-09-01".
+    // Bengali numerals, so the period button's date reads in Bangla.
     const periodButton = await screen.findByRole('button', {
-      name: (accessibleName) => accessibleName.includes('২০২৬-০৯-০১'),
+      name: (accessibleName) =>
+        accessibleName.includes(formatDate(new Date('2026-09-01T00:00:00.000Z'), REGION_BD_BN)),
     });
 
     const user = userEvent.setup();
@@ -294,7 +295,8 @@ describe('/fees/generate', () => {
 
     render();
     const periodButton = await screen.findByRole('button', {
-      name: (accessibleName) => accessibleName.includes('২০২৬-০৯-০১'),
+      name: (accessibleName) =>
+        accessibleName.includes(formatDate(new Date('2026-09-01T00:00:00.000Z'), REGION_BD_BN)),
     });
 
     const user = userEvent.setup();

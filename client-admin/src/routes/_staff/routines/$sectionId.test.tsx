@@ -1,3 +1,4 @@
+import { REGION_BD_BN } from '@biddaloy/ui/i18n';
 import {
   classFactory,
   classSectionFactory,
@@ -7,12 +8,15 @@ import {
   subjectFactory,
   teacherFactory,
 } from '@biddaloy/ui/test';
+import { formatTime } from '@biddaloy/ui/utils';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { routeTree } from '../../../routeTree.gen';
+
+const PERIOD_TEXT = `${formatTime('08:00', REGION_BD_BN)} – ${formatTime('08:40', REGION_BD_BN)}`;
 
 const SECTION = classSectionFactory({
   id: 'section-1',
@@ -115,7 +119,7 @@ describe('/routines/$sectionId', () => {
     });
 
     const table = await screen.findByRole('table');
-    await waitFor(() => expect(screen.getByText('08:00–08:40')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(PERIOD_TEXT)).toBeTruthy());
     fireEvent.keyDown(table, { key: 'Enter' });
 
     const user = userEvent.setup();
@@ -161,7 +165,7 @@ describe('/routines/$sectionId', () => {
     });
 
     const table = await screen.findByRole('table');
-    await waitFor(() => expect(screen.getByText('08:00–08:40')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(PERIOD_TEXT)).toBeTruthy());
     fireEvent.keyDown(table, { key: 'Enter' });
 
     const user = userEvent.setup();
@@ -224,7 +228,7 @@ describe('/routines/$sectionId', () => {
     });
 
     const table = await screen.findByRole('table');
-    await waitFor(() => expect(screen.getByText('08:00–08:40')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(PERIOD_TEXT)).toBeTruthy());
     fireEvent.keyDown(table, { key: 'Enter' });
 
     const user = userEvent.setup();
