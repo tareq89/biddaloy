@@ -8,7 +8,7 @@ import {
   studentFactory,
   subjectFactory,
 } from '@biddaloy/ui/test';
-import { screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -333,5 +333,35 @@ describe('/academics/homework/new', () => {
 
     expect(await screen.findByText('Discard your changes?')).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Create homework', hidden: true })).toBeTruthy();
+  });
+
+  it('submitting the form twice in a row creates one homework', async () => {
+    const { klass, section } = setUpPickers();
+    let createCount = 0;
+    server.use(
+      http.post('/api/v1/homework', async () => {
+        createCount += 1;
+        await new Promise((resolve) => setTimeout(resolve, 200));
+        return HttpResponse.json({ id: 'hw-1' }, { status: 201 });
+      }),
+      http.post('/api/v1/homework/:id/assign', () => HttpResponse.json({}, { status: 400 })),
+    );
+    renderWithRouter(routeTree, {
+      initialEntries: ['/academics/homework/new'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+    const user = userEvent.setup();
+    await screen.findByRole('heading', { name: 'Create homework' });
+    await fillCreateBasics(user, klass.name);
+    await user.click(screen.getByRole('combobox', { name: /^Section/ }));
+    await user.click(await screen.findByRole('option', { name: section.section_name }));
+    const form = document.getElementById('homework-create-form') as HTMLFormElement;
+    fireEvent.submit(form);
+    fireEvent.submit(form);
+    await waitFor(() => expect(createCount).toBe(1));
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    expect(createCount).toBe(1);
   });
 });

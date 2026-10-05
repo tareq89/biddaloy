@@ -322,4 +322,57 @@ describe('/academics/syllabus', () => {
 
     expect(await screen.findByText("You don't have access to this page.")).toBeTruthy();
   });
+
+  it('a failed delete raises an error notification', async () => {
+    server.use(
+      ...classesAndSubjectsHandlers(),
+      http.get('/api/v1/syllabus-topics', () => HttpResponse.json([topic()])),
+      http.delete('/api/v1/syllabus-topics/topic-1', () =>
+        HttpResponse.json({ message: 'boom' }, { status: 500 }),
+      ),
+    );
+    renderWithRouter(routeTree, {
+      initialEntries: ['/academics/syllabus'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+    const user = userEvent.setup();
+    await pickClassAndSubject(user);
+    await screen.findByText('Algebra basics');
+    await user.click(screen.getByRole('button', { name: 'Delete Algebra basics' }));
+    const dialog = await screen.findByRole('alertdialog');
+    await user.click(within(dialog).getByRole('button', { name: 'Delete' }));
+    await waitFor(() =>
+      expect(notifyOutcome).toHaveBeenCalledWith(expect.objectContaining({ variant: 'error' })),
+    );
+  });
+
+  it('phone layout renders labelled buttons and no table', async () => {
+    // eslint-disable-next-line @typescript-eslint/unbound-method -- restored as-is below
+    const original = window.matchMedia;
+    window.matchMedia = ((query: string) => ({
+      matches: query.includes('max-width'),
+      media: query,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    })) as unknown as typeof window.matchMedia;
+    try {
+      server.use(
+        ...classesAndSubjectsHandlers(),
+        http.get('/api/v1/syllabus-topics', () => HttpResponse.json([topic()])),
+      );
+      renderWithRouter(routeTree, {
+        initialEntries: ['/academics/syllabus?class_id=class-1&subject_id=subject-1'],
+        tenantId: 'tenant-1',
+        role: 'ADMIN',
+        locale: 'en',
+      });
+      await screen.findByText('Algebra basics');
+      expect(screen.getByRole('button', { name: 'Edit Algebra basics' })).toBeTruthy();
+      expect(screen.queryByRole('table')).toBeNull();
+    } finally {
+      window.matchMedia = original;
+    }
+  });
 });
