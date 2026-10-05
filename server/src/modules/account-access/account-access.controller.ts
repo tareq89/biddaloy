@@ -1,4 +1,13 @@
-import { Body, Controller, HttpCode, HttpStatus, Post, Req, Res } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  HttpCode,
+  HttpStatus,
+  Post,
+  Req,
+  Res,
+} from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request, Response } from 'express';
@@ -18,7 +27,7 @@ import { ActivateResendDto } from './dto/activate-resend.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { OtpRequestDto } from './dto/otp-request.dto';
-import { OtpVerifyDto } from './dto/otp-verify.dto';
+import { OtpVerifyDto, OtpLoginResponseDto } from './dto/otp-verify.dto';
 import { VerifyEmailDto, VerifyEmailResponseDto } from '../users/dto/contact-change.dto';
 
 /**
@@ -110,33 +119,37 @@ export class AccountAccessController {
   @HttpCode(HttpStatus.ACCEPTED)
   @Throttle({ default: STRICT_RATE_LIMIT })
   @ApiOperation({
-    summary: 'Requests a passwordless-login OTP by phone. Always 202 — enumeration-safe.',
+    summary: 'Requests a passwordless-login code by phone or email. Always 202 — enumeration-safe.',
   })
   async otpRequest(
     @Body() dto: OtpRequestDto,
     @Req() request: Request,
   ): Promise<OtpLoginRequestResult> {
-    const phone = toLatinDigits(dto.phone);
-    return this.otpLogin.request(phone, requestContext(request));
+    return this.otpLogin.request(identifierOf(dto), requestContext(request));
   }
 
   @Post('otp/verify')
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: STRICT_RATE_LIMIT })
   @ApiOperation({
-    summary: 'Verifies a passwordless-login OTP and signs the caller in.',
+    summary:
+      'Verifies a passwordless-login code and signs the caller in. Also says whether a first password is needed.',
   })
-  @ApiOkResponse({ type: LoginResponseDto })
+  @ApiOkResponse({ type: OtpLoginResponseDto })
   async otpVerify(
     @Body() dto: OtpVerifyDto,
     @Req() request: Request,
     @Res({ passthrough: true }) response: Response,
-  ): Promise<LoginResponse> {
-    const phone = toLatinDigits(dto.phone);
+  ): Promise<LoginResponse & { needs_password: boolean; password_required: boolean }> {
     const otp = toLatinDigits(dto.otp);
-    const result = await this.otpLogin.verify(phone, otp, requestContext(request));
+    const result = await this.otpLogin.verify(identifierOf(dto), otp, requestContext(request));
     setRefreshCookie(response, result.refreshToken);
-    return { access_token: result.access_token, memberships: result.memberships };
+    return {
+      access_token: result.access_token,
+      memberships: result.memberships,
+      needs_password: result.needs_password,
+      password_required: result.password_required,
+    };
   }
 
   @Post('verify-email')
@@ -153,4 +166,11 @@ export class AccountAccessController {
   ): Promise<{ status: string }> {
     return this.contactChange.confirmEmail(dto.token, requestContext(request));
   }
+}
+
+/** `identifier` wins; `phone` is the alias older clients still send. */
+function identifierOf(dto: { identifier?: string; phone?: string }): string {
+  const value = dto.identifier ?? dto.phone;
+  if (!value) throw new BadRequestException('identifier is required');
+  return toLatinDigits(value);
 }

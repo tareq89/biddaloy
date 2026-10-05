@@ -20,6 +20,7 @@ import { toLatinDigits } from '../../common/utils/bengali-digits.util';
 import { OtpService } from './otp.service';
 import { AuthTokenService, PASSWORD_RESET_TTL_MS } from './auth-token.service';
 import { AccountAccessDeliveryService, pickChannel } from './account-access-delivery.service';
+import { assertPasswordAllowedForUser } from '../auth/password-policy';
 import { isSecretEchoEnabled } from './account-access-echo';
 import { resolveAppBaseUrl } from './app-base-url.util';
 import { ResetPasswordDto } from './dto/reset-password.dto';
@@ -128,6 +129,8 @@ export class RecoveryService {
       if (!found) {
         throw new UnauthorizedException('Invalid or expired link');
       }
+      // Rules first: a too-weak password must not burn the link.
+      await assertPasswordAllowedForUser(this.userTenantRepo, found.id, dto.new_password);
       await this.authTokens.consume(result.row.id);
 
       // [12.7] The token proves control of the email it was SENT to, not
@@ -165,6 +168,7 @@ export class RecoveryService {
       if (!found) {
         throw new UnauthorizedException('Invalid or expired code');
       }
+      await assertPasswordAllowedForUser(this.userTenantRepo, found.id, dto.new_password);
       user = found;
       method = 'otp';
     }
