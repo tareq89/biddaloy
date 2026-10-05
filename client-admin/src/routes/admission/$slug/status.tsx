@@ -42,7 +42,10 @@ function AdmissionStatusRoute() {
   const [referenceNumber, setReferenceNumber] = React.useState(search.referenceNumber ?? '');
   const [guardianPhone, setGuardianPhone] = React.useState('');
 
-  const [errors, setErrors] = React.useState<{ reference?: string; phone?: string }>({});
+  const [errors, setErrors] = React.useState<{
+    reference?: string | undefined;
+    phone?: string | undefined;
+  }>({});
 
   const statusMutation = useAdmissionStatus(slug);
 
@@ -84,7 +87,7 @@ function AdmissionStatusRoute() {
     ) : null;
 
   const result = statusMutation.isSuccess ? statusMutation.data : null;
-  const known = result !== null && result.status in APPLICANT_STATUS;
+  const known = result !== null && Object.hasOwn(APPLICANT_STATUS, result.status);
 
   return (
     <AuthLayout>
@@ -100,7 +103,10 @@ function AdmissionStatusRoute() {
             id="reference-number"
             autoComplete="off"
             value={referenceNumber}
-            onChange={(event) => setReferenceNumber(event.target.value)}
+            onChange={(event) => {
+              setReferenceNumber(event.target.value);
+              setErrors((e) => ({ ...e, reference: undefined }));
+            }}
             aria-invalid={Boolean(errors.reference)}
             aria-describedby={errors.reference ? 'reference-number-error' : 'reference-number-help'}
           />
@@ -120,7 +126,10 @@ function AdmissionStatusRoute() {
             inputMode="tel"
             autoComplete="tel"
             value={guardianPhone}
-            onChange={(event) => setGuardianPhone(event.target.value)}
+            onChange={(event) => {
+              setGuardianPhone(event.target.value);
+              setErrors((e) => ({ ...e, phone: undefined }));
+            }}
             aria-invalid={Boolean(errors.phone)}
             aria-describedby={errors.phone ? 'guardian-phone-error' : undefined}
           />

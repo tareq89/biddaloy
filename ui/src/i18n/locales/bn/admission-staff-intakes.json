@@ -42,8 +42,9 @@
     "saving": "সংরক্ষণ হচ্ছে…",
     "errorMessage": "ভর্তি পর্ব সংরক্ষণ করা যায়নি",
     "sectionTitle": "পর্বের তথ্য",
-    "applicantCount_one": "{{count}}টি আবেদন জমা পড়েছে",
-    "applicantCount_other": "{{count}}টি আবেদন জমা পড়েছে",
-    "saved": "সংরক্ষণ হয়েছে"
+    "applicantCount_one": "{{formatted}}টি আবেদন জমা পড়েছে",
+    "applicantCount_other": "{{formatted}}টি আবেদন জমা পড়েছে",
+    "saved": "সংরক্ষণ হয়েছে",
+    "loadError": "এই পর্বটি লোড করা যায়নি"
   }
 }
