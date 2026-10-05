@@ -125,7 +125,11 @@ export function CalendarFeedCard() {
           </Button>
           <ConfirmDialog
             open={confirmOpen}
-            onOpenChange={setConfirmOpen}
+            onOpenChange={(next) => {
+              // Cancelling must not leave an earlier failure to resurface.
+              if (!next) regenerate.reset();
+              setConfirmOpen(next);
+            }}
             tone="default"
             title={t('regenerate.confirmTitle')}
             description={t('regenerate.confirmDescription')}
