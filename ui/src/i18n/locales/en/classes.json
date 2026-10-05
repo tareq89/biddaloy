@@ -21,7 +21,9 @@
     "versionLabel": "Version",
     "allVersions": "All versions",
     "view": "View",
-    "emptyExplanation": "Classes you add will appear here."
+    "emptyExplanation": "Classes you add will appear here.",
+    "noMatchMessage": "No classes match these filters",
+    "noMatchExplanation": "Try a different shift or version, or clear the filters."
   },
   "classForm": {
     "createTitle": "Add class",
@@ -101,6 +103,7 @@
     "columnOptional": "Optional",
     "remove": "Remove",
     "emptyMessage": "No subjects offered yet",
+    "emptyExplanation": "Subjects you add for this class will appear here.",
     "errorMessage": "Failed to load subjects",
     "optional": "Optional",
     "caption": "Subjects offered by this class"
@@ -201,8 +204,8 @@
     "factGrade": "Grade",
     "factAcademicYear": "Academic year",
     "factSections": "Sections",
-    "sectionCount_one": "{{n}} section",
-    "sectionCount_other": "{{n}} sections"
+    "sectionCount_one": "{{count}} section",
+    "sectionCount_other": "{{count}} sections"
   },
   "assignmentType": {
     "CLASS_TEACHER": "Class teacher",

@@ -21,7 +21,9 @@
     "versionLabel": "ভার্সন",
     "allVersions": "সকল ভার্সন",
     "view": "দেখুন",
-    "emptyExplanation": "প্রথম শ্রেণি যোগ করলে তালিকা এখানে দেখা যাবে।"
+    "emptyExplanation": "প্রথম শ্রেণি যোগ করলে তালিকা এখানে দেখা যাবে।",
+    "noMatchMessage": "এই ফিল্টারে কোনো শ্রেণি মেলেনি",
+    "noMatchExplanation": "অন্য শিফট বা ভার্সন বেছে নিন, অথবা ফিল্টার মুছে দিন।"
   },
   "classForm": {
     "createTitle": "শ্রেণি যোগ করুন",
@@ -149,8 +151,8 @@
     "factGrade": "গ্রেড",
     "factAcademicYear": "শিক্ষাবর্ষ",
     "factSections": "শাখা",
-    "sectionCount_one": "{{n}}টি",
-    "sectionCount_other": "{{n}}টি"
+    "sectionCount_one": "{{count}}টি",
+    "sectionCount_other": "{{count}}টি"
   },
   "subjects": {
     "heading": "বিষয়সমূহ",
@@ -160,6 +162,7 @@
     "columnOptional": "ঐচ্ছিক",
     "remove": "অপসারণ",
     "emptyMessage": "এখনও কোনো বিষয় যুক্ত করা হয়নি",
+    "emptyExplanation": "এই শ্রেণির জন্য বিষয় যোগ করলে এখানে দেখা যাবে।",
     "errorMessage": "বিষয় লোড করতে ব্যর্থ হয়েছে",
     "optional": "ঐচ্ছিক",
     "caption": "এই শ্রেণির বিষয়ের তালিকা"
