@@ -60,7 +60,7 @@ function render() {
   return renderWithRouter(routeTree, {
     initialEntries: ['/communications/reminders?mode=bulk'],
     tenantId: 'tenant-1',
-    role: 'ACCOUNTANT',
+    role: 'ADMIN',
     locale: 'en',
   });
 }
@@ -96,7 +96,7 @@ describe('bulk reminder wizard', () => {
     renderWithRouter(routeTree, {
       initialEntries: ['/communications/reminders'],
       tenantId: 'tenant-1',
-      role: 'ACCOUNTANT',
+      role: 'ADMIN',
       locale: 'en',
     });
 
