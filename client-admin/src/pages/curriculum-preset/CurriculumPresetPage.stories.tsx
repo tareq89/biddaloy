@@ -105,6 +105,7 @@ export const ConfirmError: Story = {
 export const Applied: Story = {
   render: () => (
     <AppliedSummary
+      presetName={NCTB.name.bn}
       preset={{
         id: 'bd/nctb',
         version: '2026.1',
@@ -139,8 +140,11 @@ export const CustomBlocked: Story = {
     <WithRouter>
       <BlockedState
         blockers={[
+          { entity: 'academic years', count: 2 },
           { entity: 'classes', count: 12 },
+          { entity: 'subjects', count: 30 },
           { entity: 'students', count: 340 },
+          { entity: 'exam templates', count: 3 },
         ]}
       />
     </WithRouter>
