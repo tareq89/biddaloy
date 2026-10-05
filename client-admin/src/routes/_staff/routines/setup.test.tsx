@@ -43,7 +43,49 @@ describe('/routines/setup', () => {
     });
 
     expect(await screen.findByText('Morning')).toBeTruthy();
-    expect(screen.getAllByRole('button', { name: 'Delete' }).length).toBeGreaterThanOrEqual(0);
+    expect(screen.getByRole('heading', { level: 1, name: 'Routine setup' })).toBeTruthy();
+    expect(screen.getByRole('tab', { name: 'Shifts and periods', selected: true })).toBeTruthy();
+    expect(screen.getByRole('tab', { name: 'Rooms' })).toBeTruthy();
+    expect(screen.getByRole('tab', { name: 'Routine rules' })).toBeTruthy();
+  });
+
+  it('puts the selected tab in the URL and shows only that panel', async () => {
+    mockCommonRoutes();
+    const { router } = renderWithRouter(routeTree, {
+      initialEntries: ['/routines/setup'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('tab', { name: 'Rooms' }));
+
+    expect(await screen.findByRole('heading', { name: 'No rooms yet' })).toBeTruthy();
+    expect(screen.queryByText('Morning')).toBeNull();
+    await waitFor(() => expect(router.state.location.search).toEqual({ tab: 'rooms' }));
+  });
+
+  it('opens the rules tab from ?tab=rules, and falls back to the first tab for a bad value', async () => {
+    mockCommonRoutes();
+    renderWithRouter(routeTree, {
+      initialEntries: ['/routines/setup?tab=rules'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+    expect(await screen.findByRole('heading', { name: 'Routine rules' })).toBeTruthy();
+  });
+
+  it('an invalid tab shows the shifts and periods tab', async () => {
+    mockCommonRoutes();
+    renderWithRouter(routeTree, {
+      initialEntries: ['/routines/setup?tab=nonsense'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+    expect(await screen.findByText('Morning')).toBeTruthy();
   });
 
   it('switches the selected shift when a different one is clicked', async () => {
