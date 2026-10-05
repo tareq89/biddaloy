@@ -170,7 +170,7 @@ describe('/communications/reminders', () => {
     // The rendered body is what the network charges for — its count sits
     // with the SMS recipient row ('Dear Rahima Begum, Arif Hossain has
     // dues.' = 41 GSM-7 septets).
-    expect(screen.getByText(`${n(41)} characters · ${n(1)} SMS segment`)).toBeTruthy();
+    expect(screen.getByText(`${n(41)} characters · ${n(1)} SMS`)).toBeTruthy();
 
     // Skipped row: the snake_case wire reason mapped to plain language —
     // a silently dropped guardian is the failure mode the issue names.
@@ -416,19 +416,19 @@ describe('/communications/reminders', () => {
 
     // Default (guardian preference) with the mother preferring SMS —
     // counter visible, labelled as a template-based estimate.
-    expect(screen.getByText(`${n(14)} characters · ${n(1)} SMS segment`)).toBeTruthy();
+    expect(screen.getByText(`${n(14)} characters · ${n(1)} SMS`)).toBeTruthy();
     expect(screen.getByText(/Estimated from the template/)).toBeTruthy();
 
     // Explicit Email override: no SMS will go out — quoting SMS segment
     // limits would be noise.
     await user.click(screen.getByRole('combobox', { name: 'Channel override' }));
     await user.click(await screen.findByRole('option', { name: 'Email' }));
-    expect(screen.queryByText(`${n(14)} characters · ${n(1)} SMS segment`)).toBeNull();
+    expect(screen.queryByText(`${n(14)} characters · ${n(1)} SMS`)).toBeNull();
 
     // Explicit SMS override: back.
     await user.click(screen.getByRole('combobox', { name: 'Channel override' }));
     await user.click(await screen.findByRole('option', { name: 'SMS' }));
-    expect(screen.getByText(`${n(14)} characters · ${n(1)} SMS segment`)).toBeTruthy();
+    expect(screen.getByText(`${n(14)} characters · ${n(1)} SMS`)).toBeTruthy();
   });
 
   it('surfaces the server 400 verbatim when every candidate is skipped', async () => {
@@ -476,14 +476,12 @@ describe('/communications/reminders', () => {
 
     // 44 UTF-16 code units ≤ 70 → one UCS-2 segment. A GSM-7 counter
     // would have claimed 160 per segment — the AC this pins.
-    const counter = screen.getByText(`${n(bangla.length)} characters · ${n(1)} SMS segment`);
+    const counter = screen.getByText(`${n(bangla.length)} characters · ${n(1)} SMS`);
     expect(counter.getAttribute('aria-live')).toBe('polite');
 
     // Push past 70 code units → concatenated at 67 per segment.
     await user.paste(bangla);
-    expect(
-      screen.getByText(`${n(bangla.length * 2)} characters · ${n(2)} SMS segments`),
-    ).toBeTruthy();
+    expect(screen.getByText(`${n(bangla.length * 2)} characters · ${n(2)} SMS`)).toBeTruthy();
   });
 
   // [8.14.17]: `_staff.tsx`'s `RequirePermission` now refuses the whole
