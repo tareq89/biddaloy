@@ -63,4 +63,22 @@ describe('CoverageBar', () => {
     renderBar([band(0, 60, 1), band(50, 100, 2)]);
     expect(await screen.findAllByTestId('coverage-overlap')).toHaveLength(1);
   });
+
+  it('says every mark has a grade when coverage is complete', async () => {
+    renderBar([band(0, 100, 1)]);
+    expect(await screen.findByText('Every mark from 0 to 100 has exactly one grade.')).toBeTruthy();
+  });
+
+  it('paints a fail band grey and never uses the gap red for a pass band', async () => {
+    const fail: BandInput = { ...band(0, 32, 2), is_fail: true };
+    renderBar([band(33, 100, 1), fail]);
+    const segments = await screen.findAllByTestId('coverage-band');
+    expect(segments.some((el) => el.className.includes('bg-text-secondary'))).toBe(true);
+    expect(segments.every((el) => !el.className.includes('bg-chart-4'))).toBe(true);
+  });
+
+  it('shows the grade letters under their ranges', async () => {
+    renderBar([band(0, 100, 1)]);
+    expect(await screen.findByText('X')).toBeTruthy();
+  });
 });
