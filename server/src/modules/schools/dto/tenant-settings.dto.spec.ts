@@ -390,6 +390,41 @@ describe('TenantSettingsDto', () => {
       expect(errors.find((e) => e.property === 'attendance')).toBeUndefined();
     });
 
+    describe('shiftTimes / periodAttendance', () => {
+      const SHIFT = '6b1f3c1e-5d2a-4c8e-9a47-1f2e3d4c5b6a';
+      const entry = { shiftId: SHIFT, lateAfter: '12:15', absentAfter: '14:00' };
+      const run = async (patch: Record<string, unknown>) => {
+        const dto = toDto({
+          version: TENANT_SETTINGS_SCHEMA_VERSION,
+          attendance: { ...DEFAULT_ATTENDANCE_SETTINGS, ...patch },
+        });
+        const errors = await validate(dto, VALIDATION_OPTIONS);
+        return errors.find((e) => e.property === 'attendance');
+      };
+
+      it('accepts a valid entry and the period switch', async () => {
+        expect(
+          await run({ shiftTimes: [entry], periodAttendance: { enabled: true } }),
+        ).toBeUndefined();
+      });
+      it('rejects a bad time', async () => {
+        expect(await run({ shiftTimes: [{ ...entry, lateAfter: '25:00' }] })).toBeDefined();
+      });
+      it('rejects a non-uuid shiftId', async () => {
+        expect(await run({ shiftTimes: [{ ...entry, shiftId: 'nope' }] })).toBeDefined();
+      });
+      it('rejects a duplicate shiftId', async () => {
+        expect(await run({ shiftTimes: [entry, entry] })).toBeDefined();
+      });
+      it('rejects 21 entries', async () => {
+        const many = Array.from({ length: 21 }, (_, i) => ({
+          ...entry,
+          shiftId: `6b1f3c1e-5d2a-4c8e-9a47-1f2e3d4c5b${String(i).padStart(2, '0')}`,
+        }));
+        expect(await run({ shiftTimes: many })).toBeDefined();
+      });
+    });
+
     it('rejects a weeklyOffDays entry outside 0-6', async () => {
       const dto = toDto({
         version: TENANT_SETTINGS_SCHEMA_VERSION,

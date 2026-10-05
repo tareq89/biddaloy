@@ -230,6 +230,13 @@ describe('resolveTenantSettings', () => {
     );
   });
 
+  it('resolves an old attendance blob with the new shift/period defaults', () => {
+    const resolved = resolveTenantSettings({ attendance: { lateAfter: '09:00' } });
+
+    expect(resolved.attendance?.shiftTimes).toEqual([]);
+    expect(resolved.attendance?.periodAttendance).toEqual({ enabled: false });
+  });
+
   it('merges a partial attendance patch over defaults, keeping the rest', () => {
     const resolved = resolveTenantSettings({ attendance: { lateAfter: '09:00' } });
 

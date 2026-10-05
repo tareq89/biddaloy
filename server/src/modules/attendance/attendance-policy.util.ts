@@ -33,6 +33,18 @@ export function resolveAttendancePolicy(settings: TenantSettings): AttendancePol
   return settings.attendance;
 }
 
+/**
+ * The policy with `shiftId`'s late/absent times applied. Returns `policy`
+ * unchanged when there is no shift id or no entry for it. Pure.
+ */
+export function policyForShift(
+  policy: AttendancePolicySettings,
+  shiftId: string | null | undefined,
+): AttendancePolicySettings {
+  const entry = shiftId ? policy.shiftTimes?.find((s) => s.shiftId === shiftId) : undefined;
+  return entry ? { ...policy, lateAfter: entry.lateAfter, absentAfter: entry.absentAfter } : policy;
+}
+
 /** Days since the Unix epoch for a plain `'YYYY-MM-DD'` calendar date, computed
  * at UTC midnight. Calendar dates carry no timezone of their own — `date`
  * columns and `dateIso` strings throughout this module are already "the 4th

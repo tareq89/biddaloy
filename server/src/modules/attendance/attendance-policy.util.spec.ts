@@ -3,6 +3,7 @@ import { AttendanceStatus } from '@biddaloy/shared';
 import type { AttendancePolicySettings, TenantSettings } from '@biddaloy/shared';
 import {
   classifyCheckIn,
+  policyForShift,
   daysBetween,
   isWeeklyOff,
   localDate,
@@ -131,5 +132,37 @@ describe('classifyCheckIn', () => {
       timezone,
     );
     expect(result).toEqual({ status: AttendanceStatus.ABSENT, minutesLate: null });
+  });
+});
+
+describe('policyForShift', () => {
+  const SHIFT = '6b1f3c1e-5d2a-4c8e-9a47-1f2e3d4c5b6a';
+  const withShift: AttendancePolicySettings = {
+    ...POLICY,
+    shiftTimes: [{ shiftId: SHIFT, lateAfter: '12:15', absentAfter: '14:00' }],
+  };
+
+  it('returns the policy unchanged for no shift id or an unknown one', () => {
+    expect(policyForShift(withShift, null)).toBe(withShift);
+    expect(policyForShift(withShift, undefined)).toBe(withShift);
+    expect(policyForShift(withShift, 'other')).toBe(withShift);
+    expect(policyForShift(POLICY, SHIFT)).toBe(POLICY);
+  });
+
+  it('applies the matching entry without mutating the input', () => {
+    const result = policyForShift(withShift, SHIFT);
+    expect(result).toMatchObject({ lateAfter: '12:15', absentAfter: '14:00', weeklyOffDays: [5] });
+    expect(withShift.lateAfter).toBe('08:15');
+  });
+
+  it('classifyCheckIn with a day-shift policy: 12:20 LATE, 08:30 PRESENT', () => {
+    const p = policyForShift(withShift, SHIFT);
+    const tz = 'Asia/Dhaka';
+    expect(classifyCheckIn(new Date('2026-09-04T06:20:00Z'), '2026-09-04', p, tz).status).toBe(
+      AttendanceStatus.LATE,
+    );
+    expect(classifyCheckIn(new Date('2026-09-04T02:30:00Z'), '2026-09-04', p, tz).status).toBe(
+      AttendanceStatus.PRESENT,
+    );
   });
 });
