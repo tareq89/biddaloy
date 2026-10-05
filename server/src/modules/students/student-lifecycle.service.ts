@@ -23,6 +23,7 @@ import { Student } from './entities/student.entity';
 import { StudentLifecycleEvent } from './entities/student-lifecycle-event.entity';
 import { LeaveStudentDto, ReadmitStudentDto } from './dto/student-lifecycle.dto';
 import { nextRollNumber } from './roll-number.util';
+import { assertSeatsAvailable } from '../schools/trial/seat-limit.service';
 
 export interface RecordLifecycleEventInput {
   tenant_id: string;
@@ -160,6 +161,9 @@ export class StudentLifecycleService {
     context: RequestContext,
   ): Promise<StudentLifecycleEvent> {
     return this.eventRepo.manager.transaction(async (manager) => {
+      // [13.2.3] Re-activating takes a seat. School lock first, then the student row: the same
+      // order StudentService.create uses, so the two can never deadlock.
+      await assertSeatsAvailable(manager, tenantId, 1);
       const student = await this.lockStudent(manager, studentId, tenantId);
       if (student.enrollment_status === EnrollmentStatus.ACTIVE) {
         throw new ConflictException('Student is already active');

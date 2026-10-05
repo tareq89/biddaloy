@@ -1,6 +1,5 @@
-import { ConflictException, Injectable } from '@nestjs/common';
-import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource, EntityManager } from 'typeorm';
+import { ConflictException } from '@nestjs/common';
+import { EntityManager } from 'typeorm';
 import { EnrollmentStatus } from '@biddaloy/shared';
 
 export interface SeatUsage {
@@ -20,39 +19,45 @@ async function countSeats(manager: EntityManager, tenantId: string): Promise<num
 }
 
 /**
- * Throws 409 SEAT_LIMIT_REACHED when adding `count` more ACTIVE students would pass the school's
- * `seat_limit`. Must run inside the caller's transaction: it locks the School row
- * (`SELECT … FOR UPDATE`) until commit, so two concurrent adds cannot both pass the check.
- * `seat_limit = NULL` is unlimited and takes no lock.
+ * Locks the School row and reads usage; an unlimited school (`limit: null`) takes no lock. Must
+ * run inside the caller's transaction: the lock lasts until commit, so concurrent adds queue
+ * behind it. `FOR NO KEY UPDATE`, not `FOR UPDATE`: every insert into a table with an FK to
+ * `schools` takes `FOR KEY SHARE` on the school row, and `FOR UPDATE` conflicts with that and
+ * deadlocks (40P01).
  */
+export async function lockSeatUsage(manager: EntityManager, tenantId: string): Promise<SeatUsage> {
+  // Unlocked peek first: an unlimited school (the common case) never pays for the lock.
+  const [peek]: { seat_limit: number | null }[] = await manager.query(
+    'SELECT seat_limit FROM schools WHERE id = $1',
+    [tenantId],
+  );
+  if (!peek || peek.seat_limit === null) return { used: 0, limit: null };
+
+  // Re-read from the locked row so a limit changed in between is honoured.
+  const [locked]: { seat_limit: number | null }[] = await manager.query(
+    'SELECT seat_limit FROM schools WHERE id = $1 FOR NO KEY UPDATE',
+    [tenantId],
+  );
+  if (!locked || locked.seat_limit === null) return { used: 0, limit: null };
+  return { used: await countSeats(manager, tenantId), limit: locked.seat_limit };
+}
+
+export function seatLimitError(used: number, limit: number, requested: number): ConflictException {
+  return new ConflictException({
+    message: `Seat limit reached: ${used} of ${limit} seats in use`,
+    details: { code: 'SEAT_LIMIT_REACHED', used, limit, requested },
+  });
+}
+
+/** 409 SEAT_LIMIT_REACHED when adding `count` ACTIVE students would pass `seat_limit`. */
 export async function assertSeatsAvailable(
   manager: EntityManager,
   tenantId: string,
   count: number,
 ): Promise<void> {
   if (count <= 0) return;
-  // Unlocked peek first: an unlimited school (the common case) never pays for the lock. The limit
-  // is re-read from the locked row below, so a limit that changes in between is still honoured.
-  const [peek]: { seat_limit: number | null }[] = await manager.query(
-    'SELECT seat_limit FROM schools WHERE id = $1',
-    [tenantId],
-  );
-  if (!peek || peek.seat_limit === null) return;
-
-  const [locked]: { seat_limit: number | null }[] = await manager.query(
-    'SELECT seat_limit FROM schools WHERE id = $1 FOR UPDATE',
-    [tenantId],
-  );
-  if (!locked || locked.seat_limit === null) return;
-
-  const limit = locked.seat_limit;
-  const used = await countSeats(manager, tenantId);
-  if (used + count > limit) {
-    throw new ConflictException({
-      message: `Seat limit reached: ${used} of ${limit} seats in use`,
-      details: { code: 'SEAT_LIMIT_REACHED', used, limit, requested: count },
-    });
-  }
+  const { used, limit } = await lockSeatUsage(manager, tenantId);
+  if (limit !== null && used + count > limit) throw seatLimitError(used, limit, count);
 }
 
 /** Read-only usage for previews; takes no lock. */
@@ -62,20 +67,4 @@ export async function getSeatUsage(manager: EntityManager, tenantId: string): Pr
     [tenantId],
   );
   return { used: await countSeats(manager, tenantId), limit: school?.seat_limit ?? null };
-}
-
-@Injectable()
-export class SeatLimitService {
-  constructor(@InjectDataSource() private readonly dataSource: DataSource) {}
-
-  async usage(
-    tenantId: string,
-    manager: EntityManager = this.dataSource.manager,
-  ): Promise<SeatUsage> {
-    return getSeatUsage(manager, tenantId);
-  }
-
-  assertCanAdd(tenantId: string, count: number, manager: EntityManager): Promise<void> {
-    return assertSeatsAvailable(manager, tenantId, count);
-  }
 }

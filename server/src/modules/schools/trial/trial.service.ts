@@ -1,7 +1,9 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { EntityManager, IsNull, Not, Repository } from 'typeorm';
+import { EntityManager, IsNull, LessThanOrEqual, Not, Repository } from 'typeorm';
+import { SCHOOL_TZ } from '../../../common/time';
+import { localDate } from '../../attendance/attendance-policy.util';
 import { AuditAction, SchoolStatus, TRIAL_EXPIRED_REASON } from '@biddaloy/shared';
 import { School } from '../entities/school.entity';
 import { TenantStatusService } from '../tenant-status.service';
@@ -67,7 +69,6 @@ export class TrialService {
       school.status === SchoolStatus.SUSPENDED && school.status_reason === TRIAL_EXPIRED_REASON;
     const patch: Partial<School> = {
       trial_ends_at: new Date(base + input.days * DAY_MS),
-      onboarding: { ...(school.onboarding ?? {}), trial_warnings: [] },
     };
     if (input.seat_limit !== undefined) patch.seat_limit = input.seat_limit;
     if (wasExpired) {
@@ -76,6 +77,7 @@ export class TrialService {
       patch.status_changed_at = now;
     }
     await this.schools.update(schoolId, patch);
+    await this.setTrialWarnings(schoolId, []);
     await this.tenantStatus.invalidate(schoolId);
 
     await this.audit.record({
@@ -88,7 +90,7 @@ export class TrialService {
       new_values: {
         event: 'TRIAL_EXTENDED',
         trial_ends_at: patch.trial_ends_at,
-        seat_limit: patch.seat_limit ?? school.seat_limit,
+        seat_limit: 'seat_limit' in patch ? patch.seat_limit : school.seat_limit,
         reactivated: wasExpired,
         reason: input.reason,
       },
@@ -124,21 +126,30 @@ export class TrialService {
     if (!next) return;
     const skipped = TRIAL_WARNINGS.filter((w) => w.days > next.days).map((w) => w.key);
     // Remember before sending: a crash mid-send must never re-send on the next run.
-    await this.schools.update(school.id, {
-      onboarding: {
-        ...(school.onboarding ?? {}),
-        trial_warnings: [...new Set([...sent, next.key, ...skipped])],
-      },
-    });
+    await this.setTrialWarnings(school.id, [...new Set([...sent, next.key, ...skipped])]);
     await this.notices.notifyAdmins(school.id, next.template, {
-      date: school.trial_ends_at!.toISOString().slice(0, 10),
+      // The school's local calendar day, not the UTC one (a 20:00Z end is already tomorrow in Dhaka).
+      date: localDate(school.trial_ends_at!, SCHOOL_TZ),
     });
   }
 
+  /** Atomic jsonb merge: touches only `trial_warnings`, never overwrites other onboarding keys. */
+  private async setTrialWarnings(schoolId: string, keys: string[]): Promise<void> {
+    await this.schools.query(
+      `UPDATE schools
+          SET onboarding = COALESCE(onboarding, '{}'::jsonb)
+                           || jsonb_build_object('trial_warnings', $2::jsonb)
+        WHERE id = $1`,
+      [schoolId, JSON.stringify(keys)],
+    );
+  }
+
   private async expire(school: School, now: Date): Promise<void> {
-    // The status guard makes a concurrent run / extend win cleanly instead of being overwritten.
+    // The WHERE re-checks status AND the end date against the DB, not the snapshot loaded at the
+    // start of the run: an extend that landed in between moved `trial_ends_at` past `now`, so
+    // this matches nothing and the extended school stays active.
     const res = await this.schools.update(
-      { id: school.id, status: SchoolStatus.ACTIVE },
+      { id: school.id, status: SchoolStatus.ACTIVE, trial_ends_at: LessThanOrEqual(now) },
       {
         status: SchoolStatus.SUSPENDED,
         status_reason: TRIAL_EXPIRED_REASON,

@@ -10,7 +10,7 @@ import { StudentService, GuardianService } from '../../students/students.service
 import { AuditService } from '../../audit/audit.service';
 import { Student } from '../../students/entities/student.entity';
 import { School } from '../entities/school.entity';
-import { SeatLimitService, assertSeatsAvailable } from './seat-limit.service';
+import { assertSeatsAvailable, getSeatUsage } from './seat-limit.service';
 
 const dto = (name: string) => ({
   full_name: name,
@@ -21,18 +21,15 @@ const dto = (name: string) => ({
 describe('seat limit (integration)', () => {
   let ds: DataSource;
   let students: StudentService;
-  let seats: SeatLimitService;
 
   beforeAll(async () => {
     const module = await createTestModule(ALL_ENTITIES, [
       StudentService,
       GuardianService,
       AuditService,
-      SeatLimitService,
     ]);
     ds = module.get<DataSource>(getDataSourceToken());
     students = module.get(StudentService);
-    seats = module.get(SeatLimitService);
   }, 60000);
 
   afterEach(async () => {
@@ -58,7 +55,7 @@ describe('seat limit (integration)', () => {
     await ds.getRepository(Student).update(b.id, { enrollment_status: EnrollmentStatus.INACTIVE });
     await ds.getRepository(Student).softDelete(c.id);
 
-    expect(await seats.usage(SEED_TENANT_ID)).toEqual({ used: 1, limit: 5 });
+    expect(await getSeatUsage(ds.manager, SEED_TENANT_ID)).toEqual({ used: 1, limit: 5 });
     expect(a.id).toBeDefined();
   });
 
@@ -76,7 +73,7 @@ describe('seat limit (integration)', () => {
       requested: 1,
     });
     // Nothing partial: the refused create left no student behind.
-    expect((await seats.usage(SEED_TENANT_ID)).used).toBe(2);
+    expect((await getSeatUsage(ds.manager, SEED_TENANT_ID)).used).toBe(2);
   });
 
   it('a freed seat can be reused (INACTIVE does not count)', async () => {
@@ -91,15 +88,15 @@ describe('seat limit (integration)', () => {
     await students.create(dto('A'), SEED_TENANT_ID);
     await students.create(dto('B'), SEED_TENANT_ID);
     await ds.transaction((m) => assertSeatsAvailable(m, SEED_TENANT_ID, 1000));
-    expect(await seats.usage(SEED_TENANT_ID)).toEqual({ used: 2, limit: null });
+    expect(await getSeatUsage(ds.manager, SEED_TENANT_ID)).toEqual({ used: 2, limit: null });
   });
 
   it('assertCanAdd counts the whole batch: exactly at the limit passes, one over fails', async () => {
     await setLimit(3);
     await students.create(dto('A'), SEED_TENANT_ID);
-    await ds.transaction((m) => seats.assertCanAdd(SEED_TENANT_ID, 2, m));
+    await ds.transaction((m) => assertSeatsAvailable(m, SEED_TENANT_ID, 2));
     await expect(
-      ds.transaction((m) => seats.assertCanAdd(SEED_TENANT_ID, 3, m)),
+      ds.transaction((m) => assertSeatsAvailable(m, SEED_TENANT_ID, 3)),
     ).rejects.toBeInstanceOf(ConflictException);
   });
 
@@ -119,6 +116,25 @@ describe('seat limit (integration)', () => {
     for (const r of results.filter((x) => x.status === 'rejected')) {
       expect((r as PromiseRejectedResult).reason).toBeInstanceOf(ConflictException);
     }
-    expect((await seats.usage(SEED_TENANT_ID)).used).toBe(2);
+    expect((await getSeatUsage(ds.manager, SEED_TENANT_ID)).used).toBe(2);
+  });
+
+  it('does not deadlock with FK-child inserts in concurrent transactions (no 40P01)', async () => {
+    await setLimit(10);
+    await Promise.all(Array.from({ length: 8 }, () => ds.query('SELECT pg_sleep(0.2)')));
+    // Inserting a row with an FK to schools takes FOR KEY SHARE on the school row. A FOR UPDATE
+    // lock would deadlock two of these; FOR NO KEY UPDATE must not.
+    const run = (name: string) =>
+      ds.transaction(async (m) => {
+        await m.query(
+          `INSERT INTO guardians (full_name, relationship, tenant_id) VALUES ($1, 'Father', $2)`,
+          [name, SEED_TENANT_ID],
+        );
+        await new Promise((r) => setTimeout(r, 100)); // let both hold their key-share lock
+        await assertSeatsAvailable(m, SEED_TENANT_ID, 1);
+      });
+    const results = await Promise.allSettled([run('G1'), run('G2')]);
+    await ds.query('DELETE FROM guardians WHERE tenant_id = $1', [SEED_TENANT_ID]);
+    expect(results.map((r) => r.status)).toEqual(['fulfilled', 'fulfilled']);
   });
 });

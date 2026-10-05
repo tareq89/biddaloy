@@ -73,7 +73,9 @@ describe('SubjectChoicesService choice groups (integration)', () => {
       SubjectService,
       {
         provide: SchoolSettingsReader,
-        useValue: { organisationVocabulary: async () => ({ shifts: [], versions: [], groups: [] }) },
+        useValue: {
+          organisationVocabulary: async () => ({ shifts: [], versions: [], groups: [] }),
+        },
       },
       { provide: AuditService, useValue: { record: async () => undefined } },
     ]);
@@ -167,7 +169,12 @@ describe('SubjectChoicesService choice groups (integration)', () => {
     await choices.setChoice(studentId, { class_subject_id: art }, A);
     await choices.setChoice(studentId, { class_subject_id: islam }, A);
     await expect(
-      subjects.updateClassSubject(classId, s3, { academic_year_id: yearId, choice_group: 'Religion' }, A),
+      subjects.updateClassSubject(
+        classId,
+        s3,
+        { academic_year_id: yearId, choice_group: 'Religion' },
+        A,
+      ),
     ).rejects.toThrow(ConflictException);
   });
 });
