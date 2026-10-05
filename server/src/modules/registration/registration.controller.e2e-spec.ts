@@ -3,12 +3,16 @@ import supertest = require('supertest');
 import cookieParser = require('cookie-parser');
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
 import { AppModule } from '../../app.module';
 import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { buildValidationPipeOptions } from '../../validation-pipe';
 import { SocialTicketService } from '../auth/social/social-ticket.service';
 import { RegistrationService } from './registration.service';
+import { RegistrationStagingService } from './registration-staging.service';
+import { AuditService } from '../audit/audit.service';
+import { OTP_REDIS } from '../account-access/otp.service';
 import { ProvisioningService } from '../schools/provisioning/provisioning.service';
 import { randomUUID } from 'node:crypto';
 
@@ -260,8 +264,125 @@ describe('RegistrationController (e2e)', () => {
     });
   });
 
+  describe('captcha', () => {
+    it('answers 400 for a token Cloudflare rejects', async () => {
+      process.env.TURNSTILE_SECRET_KEY = 'secret';
+      const fetchSpy = vi
+        .spyOn(globalThis, 'fetch')
+        .mockResolvedValue({ json: async () => ({ success: false }) } as Response);
+      try {
+        await start(details()).expect(400);
+      } finally {
+        fetchSpy.mockRestore();
+        delete process.env.TURNSTILE_SECRET_KEY;
+      }
+    });
+
+    it('answers 503 REGISTRATION_UNAVAILABLE in production with no secret', async () => {
+      // ConfigService caches its values at boot, so flip NODE_ENV on the service itself.
+      const config = app.get(ConfigService);
+      const realGet = config.get.bind(config);
+      const spy = vi
+        .spyOn(config, 'get')
+        .mockImplementation(((key: string, ...rest: unknown[]) =>
+          key === 'NODE_ENV' ? 'production' : (realGet as any)(key, ...rest)) as any);
+      try {
+        const res = await start(details()).expect(503);
+        expect(res.body.details.code).toBe('REGISTRATION_UNAVAILABLE');
+      } finally {
+        spy.mockRestore();
+      }
+    });
+  });
+
+  describe('resend cap', () => {
+    it('stops sending codes after three resends of one registration', async () => {
+      const s = await start(details()).expect(202);
+      const staging = app.get(RegistrationStagingService);
+      const otpRedis = app.get(OTP_REDIS, { strict: false });
+      const identifier = (await staging.peek(s.body.registration_id))!.identifier;
+      for (let i = 0; i < 3; i += 1) {
+        // Clear the 60s cooldown so only the cap can refuse.
+        await otpRedis.del(`otp-cooldown:REGISTER:${identifier}`);
+        await supertest(app.getHttpServer())
+          .post(`${BASE}/resend`)
+          .send({ registration_id: s.body.registration_id })
+          .expect(202);
+      }
+      await otpRedis.del(`otp-cooldown:REGISTER:${identifier}`);
+      await supertest(app.getHttpServer())
+        .post(`${BASE}/resend`)
+        .send({ registration_id: s.body.registration_id })
+        .expect(429);
+    });
+  });
+
+  describe('existing user whose school turns code sign-in off', () => {
+    it('is told to sign in with a password and gets no school or session', async () => {
+      const d = details();
+      const [{ id: userId }] = await ds.query(
+        `INSERT INTO users (phone, email, full_name, status) VALUES ($1, $2, 'Strict Head', 'ACTIVE') RETURNING id`,
+        [d.phone, d.email],
+      );
+      const [{ id: schoolId }] = await ds.query(
+        `INSERT INTO schools (name, slug, status, settings)
+           VALUES ($1, $2, 'ACTIVE', '{"auth":{"otpLoginEnabled":false}}') RETURNING id`,
+        [`Strict ${d.school_name}`, `strict-${randomUUID().slice(0, 8)}`],
+      );
+      await ds.query(
+        `INSERT INTO user_tenants (user_id, tenant_id, role) VALUES ($1, $2, 'TEACHER')`,
+        [userId, schoolId],
+      );
+      const s = await start(d).expect(202);
+      const res = await verify({
+        registration_id: s.body.registration_id,
+        otp: s.body.debug.otp,
+      }).expect(409);
+      expect(res.body.details.code).toBe('SIGN_IN_REQUIRED');
+      expect(await ds.query(`SELECT 1 FROM schools WHERE name = $1`, [d.school_name])).toEqual([]);
+    });
+  });
+
   describe('atomicity', () => {
-    it('leaves no school, user or membership behind when a step after provisioning fails', async () => {
+    it('leaves no school, user, membership, identity or audit row when the last step fails', async () => {
+      const subject = `sub-${randomUUID()}`;
+      const ticketId = await app
+        .get(SocialTicketService)
+        .issue({ provider: 'google', subject, email: 'a@example.com', name: 'A' });
+      const d = details();
+      const s = await start(d).expect(202);
+      const [{ count: auditBefore }] = await ds.query(
+        `SELECT count(*)::int AS count FROM audit_logs WHERE entity_type IN ('Registration', 'UserIdentity')`,
+      );
+      // The Registration audit row is the last step of the in-transaction hook; trial, verify
+      // stamp and identity link have all run by then.
+      const audit = app.get(AuditService);
+      const original = audit.record.bind(audit);
+      const spy = vi.spyOn(audit, 'record').mockImplementation((entry, manager) => {
+        if (entry.entity_type === 'Registration') throw new Error('forced');
+        return original(entry, manager);
+      });
+      try {
+        await verify(
+          { registration_id: s.body.registration_id, otp: s.body.debug.otp },
+          `social_ticket=${ticketId}`,
+        ).expect(500);
+      } finally {
+        spy.mockRestore();
+      }
+      expect(await ds.query(`SELECT 1 FROM schools WHERE name = $1`, [d.school_name])).toEqual([]);
+      expect(await ds.query(`SELECT 1 FROM users WHERE phone = $1`, [d.phone])).toEqual([]);
+      expect(await ds.query(`SELECT 1 FROM user_identities WHERE subject = $1`, [subject])).toEqual(
+        [],
+      );
+      const [{ count: auditAfter }] = await ds.query(
+        `SELECT count(*)::int AS count FROM audit_logs WHERE entity_type IN ('Registration', 'UserIdentity')`,
+      );
+      // No audit row survives either (the identity's own row was written in the same transaction).
+      expect(auditAfter).toBe(auditBefore);
+    });
+
+    it('rolls back a provisioning run whose hook throws', async () => {
       const key = randomUUID();
       const email = `atomic-${Date.now()}@example.com`;
       await expect(
@@ -271,10 +392,10 @@ describe('RegistrationController (e2e)', () => {
             slug: `atomic-${key.slice(0, 8)}`,
             admin: { name: 'Nobody', email },
             idempotency_key: key,
-            send_invitation: false,
           },
           null,
           {
+            sendInvitation: false,
             inTransaction: async () => {
               throw new Error('forced');
             },
