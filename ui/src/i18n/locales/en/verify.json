@@ -22,5 +22,6 @@
   "tooMany": "Too many checks — try again in a minute.",
   "errorTitle": "Could not check this document",
   "errorExplanation": "There was a problem with the connection or the server.",
-  "errorRetry": "Try again"
+  "errorRetry": "Try again",
+  "home": "Go to SchoolManager home"
 }

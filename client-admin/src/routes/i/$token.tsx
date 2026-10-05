@@ -21,32 +21,21 @@
  * `NoActiveTenantError` and blanks this page for every visitor.
  */
 import { ApiError } from '@biddaloy/ui/api';
-import { InvoiceReceipt, Skeleton } from '@biddaloy/ui/components';
+import { AuthLayout, Button, InvoiceReceipt, Skeleton } from '@biddaloy/ui/components';
 import { usePublicInvoice } from '@biddaloy/ui/hooks';
-import { REGION_BD_EN, useTranslation } from '@biddaloy/ui/i18n';
-import { createFileRoute } from '@tanstack/react-router';
+import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { createFileRoute, Link } from '@tanstack/react-router';
+import { Download, FileQuestion, RotateCcw, TriangleAlert } from 'lucide-react';
 
+import { GuestStatus } from '../-guest-status';
 import { loadRouteNamespaces } from '../../route-loaders';
 
+import { toDisplayReceipt } from './-receipt-display';
+
 export const Route = createFileRoute('/i/$token')({
-  loader: () => loadRouteNamespaces('fees', 'common'),
+  loader: () => loadRouteNamespaces('fees', 'payments', 'verify', 'common'),
   component: PublicReceiptPage,
 });
-
-/** Decorative, `aria-hidden` — a plain document glyph. */
-function ReceiptIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="size-8">
-      <path
-        d="M5 3h10v14l-2.5-1.5L10 17l-2.5-1.5L5 17V3Z"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinejoin="round"
-      />
-      <path d="M7.5 7h5M7.5 10h5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-    </svg>
-  );
-}
 
 /** A 404 (unknown token) or 410 (revoked token) is the server's explicit
  * "this link will never work" answer — anything else (a dropped
@@ -57,17 +46,28 @@ function isUnknownOrRevokedToken(error: unknown): boolean {
 }
 
 function PublicReceiptPage() {
+  return (
+    <AuthLayout>
+      <ReceiptBody />
+    </AuthLayout>
+  );
+}
+
+/** Inside `AuthLayout` so `useRegionConfig` sees the visitor's language defaults. */
+function ReceiptBody() {
   const { t } = useTranslation('fees');
   const { token } = Route.useParams();
   const receiptQuery = usePublicInvoice(token);
+  const region = useRegionConfig();
 
   return (
-    <div className="flex min-h-screen flex-col items-center gap-4 bg-background p-4 sm:p-6">
-      <h1 className="sr-only">{t('invoiceDetail.publicReceipt.pageTitle')}</h1>
-      <div className="w-full max-w-[420px] sm:max-w-[640px]">
+    <>
+      <h1 className="text-h1">{t('invoiceDetail.publicReceipt.pageTitle')}</h1>
+      <div className="mt-4">
         {receiptQuery.isPending ? (
           <div
             role="status"
+            aria-busy="true"
             aria-label={t('invoiceDetail.publicReceipt.loading')}
             className="flex flex-col gap-3"
           >
@@ -75,48 +75,38 @@ function PublicReceiptPage() {
             <Skeleton className="h-40 w-full" />
           </div>
         ) : receiptQuery.isError && isUnknownOrRevokedToken(receiptQuery.error) ? (
-          <div
-            role="status"
-            data-slot="route-status-state"
-            className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-border-subtle bg-card p-8 text-center"
-          >
-            <div aria-hidden="true" className="text-muted-foreground">
-              <ReceiptIcon />
-            </div>
-            <h2 className="text-lg font-semibold">
-              {t('invoiceDetail.publicReceipt.notFoundTitle')}
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              {t('invoiceDetail.publicReceipt.notFoundExplanation')}
-            </p>
-          </div>
+          <GuestStatus
+            headingLevel="h2"
+            icon={FileQuestion}
+            tone="warning"
+            title={t('invoiceDetail.publicReceipt.notFoundTitle')}
+            explanation={t('invoiceDetail.publicReceipt.notFoundExplanation')}
+          />
         ) : receiptQuery.isError ? (
-          <div
-            role="status"
-            data-slot="route-status-state"
-            className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-border-subtle bg-card p-8 text-center"
+          <GuestStatus
+            headingLevel="h2"
+            icon={TriangleAlert}
+            tone="danger"
+            title={t('invoiceDetail.publicReceipt.errorTitle')}
+            explanation={t('invoiceDetail.publicReceipt.errorExplanation')}
           >
-            <div aria-hidden="true" className="text-muted-foreground">
-              <ReceiptIcon />
-            </div>
-            <h2 className="text-lg font-semibold">{t('invoiceDetail.publicReceipt.errorTitle')}</h2>
-            <p className="text-sm text-muted-foreground">
-              {t('invoiceDetail.publicReceipt.errorExplanation')}
-            </p>
-            <button
-              type="button"
+            <Button
+              variant="outline"
+              className="w-full"
               onClick={() => void receiptQuery.refetch()}
-              className="mt-2 text-sm font-medium text-primary underline underline-offset-4"
             >
+              <RotateCcw aria-hidden="true" />
               {t('invoiceDetail.publicReceipt.errorRetry')}
-            </button>
-          </div>
+            </Button>
+          </GuestStatus>
         ) : (
           <>
             <InvoiceReceipt
-              receipt={receiptQuery.data}
+              receipt={toDisplayReceipt(receiptQuery.data, region, (method) =>
+                t(`record.method.methods.${method}`, { ns: 'payments', defaultValue: '—' }),
+              )}
               width="a4"
-              config={REGION_BD_EN}
+              config={region}
               labels={{
                 creditNote: t('invoiceDetail.publicReceipt.creditNote'),
                 issuedDate: t('invoiceDetail.issuedDate'),
@@ -128,16 +118,19 @@ function PublicReceiptPage() {
                 paymentDate: t('invoiceDetail.publicReceipt.paymentDate'),
               }}
             />
-            <button
-              type="button"
-              className="mt-4 w-full rounded-md border border-border bg-card px-4 py-2 text-sm font-medium print:hidden"
-              onClick={() => window.print()}
-            >
+            <Button className="mt-5 w-full print:hidden" onClick={() => window.print()}>
+              <Download aria-hidden="true" />
               {t('invoiceDetail.publicReceipt.saveAsPdf')}
-            </button>
+            </Button>
           </>
         )}
       </div>
-    </div>
+      <Link
+        to="/"
+        className="mt-2 flex h-11 w-full items-center justify-center rounded-md px-3 font-medium text-primary hover:bg-muted print:hidden"
+      >
+        {t('home', { ns: 'verify' })}
+      </Link>
+    </>
   );
 }
