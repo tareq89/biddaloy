@@ -2,21 +2,20 @@
   "list": {
     "title": "শিক্ষাবর্ষ",
     "caption": "শিক্ষাবর্ষ",
-    "addYear": "বর্ষ যোগ করুন",
-    "columnYear": "বর্ষ",
-    "columnStartDate": "শুরুর তারিখ",
-    "columnEndDate": "শেষের তারিখ",
-    "columnCurrent": "চলমান",
+    "addYear": "শিক্ষাবর্ষ যোগ করুন",
+    "columnYear": "শিক্ষাবর্ষ",
+    "columnCurrent": "অবস্থা",
     "columnClasses": "শ্রেণি",
     "columnStudents": "শিক্ষার্থী",
-    "columnActions": "কার্যক্রম",
     "edit": "সম্পাদনা",
     "delete": "মুছুন",
     "setCurrent": "চলমান হিসেবে নির্ধারণ করুন",
-    "emptyMessage": "কোনো শিক্ষাবর্ষ পাওয়া যায়নি",
+    "emptyMessage": "এখনও কোনো শিক্ষাবর্ষ নেই",
     "errorMessage": "শিক্ষাবর্ষ লোড করতে ব্যর্থ হয়েছে",
-    "announceResults_one": "{{total}} টির মধ্যে {{visible}} টি শিক্ষাবর্ষ",
-    "announceResults_other": "{{total}} টির মধ্যে {{visible}} টি শিক্ষাবর্ষ"
+    "subtitle": "একবারে একটি বর্ষ চলমান থাকে।",
+    "columnPeriod": "সময়কাল",
+    "view": "দেখুন",
+    "emptyExplanation": "শ্রেণি, ফি কাঠামো ও ভর্তি একটি শিক্ষাবর্ষের অধীনে থাকে — আগে একটি যোগ করুন।"
   },
   "form": {
     "createTitle": "শিক্ষাবর্ষ যোগ করুন",
@@ -41,7 +40,6 @@
     "title": "শিক্ষাবর্ষ মুছুন",
     "description": "\"{{name}}\" মুছে ফেলবেন? এটি ফিরিয়ে আনা যাবে না।",
     "confirm": "মুছুন",
-    "deleting": "মুছে ফেলা হচ্ছে…",
     "errorMessage": "শিক্ষাবর্ষ মুছতে ব্যর্থ হয়েছে"
   },
   "setCurrentDialog": {
