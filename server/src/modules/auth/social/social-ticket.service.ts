@@ -12,6 +12,12 @@ export interface SocialTicket {
 
 const TTL_SECONDS = 15 * 60;
 
+/** The ticket id travels in this cookie, never in a URL (a link someone else
+ * authenticated must not carry their Google account into a victim's signup). */
+export const SOCIAL_TICKET_COOKIE = 'social_ticket';
+export const SOCIAL_TICKET_COOKIE_PATH = '/api/v1/auth';
+export const SOCIAL_TICKET_COOKIE_MAX_AGE_MS = TTL_SECONDS * 1000;
+
 /** Proof that a social account was authenticated, carried into registration. */
 @Injectable()
 export class SocialTicketService {

@@ -1,6 +1,7 @@
 import {
   Controller,
   Delete,
+  NotFoundException,
   Get,
   HttpCode,
   HttpStatus,
@@ -29,6 +30,11 @@ import {
 } from './dto/social.dto';
 import { SocialAuthService } from './social-auth.service';
 import { SocialIdentityService } from './social-identity.service';
+import {
+  SOCIAL_TICKET_COOKIE,
+  SOCIAL_TICKET_COOKIE_MAX_AGE_MS,
+  SOCIAL_TICKET_COOKIE_PATH,
+} from './social-ticket.service';
 
 /** Binds the OAuth `state` to the browser that started the flow. */
 const STATE_COOKIE = 'social_state';
@@ -48,7 +54,6 @@ export class SocialAuthController {
   ) {}
 
   @Get('providers')
-  @Throttle({ default: STRICT_RATE_LIMIT })
   @ApiOperation({ summary: 'Names of the sign-in providers configured on this server.' })
   @ApiOkResponse({ type: SocialProvidersDto })
   providers(): SocialProvidersDto {
@@ -78,7 +83,11 @@ export class SocialAuthController {
     @Param('provider') provider: SocialProvider,
     @Req() request: Request,
   ): Promise<void> {
-    this.social.provider(provider);
+    // Validate against the enum, not the configured list: users must be able
+    // to disconnect after the provider's env values are removed.
+    if (!Object.values(SocialProvider).includes(provider)) {
+      throw new NotFoundException('Unknown sign-in provider');
+    }
     await this.identities.unlink(user.sub, provider, requestContext(request));
   }
 
@@ -141,6 +150,13 @@ export class SocialAuthController {
     );
     response.clearCookie(STATE_COOKIE, stateCookieOptions());
     if (outcome.session) setRefreshCookie(response, outcome.session.refreshToken);
+    if (outcome.ticket) {
+      response.cookie(SOCIAL_TICKET_COOKIE, outcome.ticket, {
+        ...stateCookieOptions(),
+        path: SOCIAL_TICKET_COOKIE_PATH,
+        maxAge: SOCIAL_TICKET_COOKIE_MAX_AGE_MS,
+      });
+    }
     response.redirect(HttpStatus.FOUND, outcome.location);
   }
 }

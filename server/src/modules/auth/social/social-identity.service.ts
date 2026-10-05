@@ -5,6 +5,7 @@ import { AuditAction, SocialProvider } from '@biddaloy/shared';
 import { User } from '../../users/entities/user.entity';
 import { UserIdentity } from '../entities/user-identity.entity';
 import { AuditService } from '../../audit/audit.service';
+import { AuthService } from '../auth.service';
 import type { RequestContext } from '../../../common/request-context.util';
 import type { SocialTicket } from './social-ticket.service';
 
@@ -17,6 +18,7 @@ export class SocialIdentityService {
     @InjectRepository(UserIdentity) private readonly identities: Repository<UserIdentity>,
     @InjectRepository(User) private readonly users: Repository<User>,
     private readonly audit: AuditService,
+    private readonly authService: AuthService,
   ) {}
 
   findBySubject(provider: SocialProvider, subject: string): Promise<UserIdentity | null> {
@@ -37,6 +39,8 @@ export class SocialIdentityService {
     ticket: SocialTicket,
     manager?: EntityManager,
     context?: RequestContext,
+    /** Registration passes the new school's id; otherwise the user's primary tenant is used. */
+    tenantId?: string | null,
   ): Promise<boolean> {
     const repo = manager ? manager.getRepository(UserIdentity) : this.identities;
     const provider = ticket.provider as SocialProvider;
@@ -54,7 +58,8 @@ export class SocialIdentityService {
           action: AuditAction.CREATE,
           entity_type: 'UserIdentity',
           entity_id: row.id,
-          tenant_id: null,
+          tenant_id:
+            tenantId !== undefined ? tenantId : await this.authService.primaryTenantId(userId),
           performed_by_user_id: userId,
           ip_address: context?.ip ?? null,
           user_agent: context?.userAgent ?? null,
@@ -65,7 +70,9 @@ export class SocialIdentityService {
       return true;
     } catch (error) {
       // A concurrent connect won the unique index; same outcome as the pre-check.
-      if ((error as { code?: string }).code === UNIQUE_VIOLATION) return false;
+      // Inside a caller's transaction Postgres has already aborted it, so the
+      // caller must see the error and roll back rather than carry on.
+      if (!manager && (error as { code?: string }).code === UNIQUE_VIOLATION) return false;
       throw error;
     }
   }
@@ -90,7 +97,7 @@ export class SocialIdentityService {
       action: AuditAction.DELETE,
       entity_type: 'UserIdentity',
       entity_id: identity.id,
-      tenant_id: null,
+      tenant_id: await this.authService.primaryTenantId(userId),
       performed_by_user_id: userId,
       ip_address: context.ip,
       user_agent: context.userAgent,
