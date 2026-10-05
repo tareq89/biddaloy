@@ -43,7 +43,7 @@ const LATIN_TO_BENGALI_DIGITS: Record<string, string> = {
   '9': '৯',
 };
 
-function toBengaliDigits(input: string): string {
+export function toBengaliDigits(input: string): string {
   return input.replace(/[0-9]/g, (digit) => LATIN_TO_BENGALI_DIGITS[digit]);
 }
 
