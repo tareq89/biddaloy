@@ -7,6 +7,7 @@
  * rule lives in the confirm dialog here — the first test pins that
  * nothing posts before the dialog's own confirm.
  */
+import { REGION_BD_BN, REGION_BD_EN } from '@biddaloy/ui/i18n';
 import {
   apiErrorBody,
   cleanupTestState,
@@ -16,12 +17,16 @@ import {
   server,
   studentFactory,
 } from '@biddaloy/ui/test';
+import { formatNumber, formatPhone } from '@biddaloy/ui/utils';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { routeTree } from '../../../routeTree.gen';
+
+/** Counts render in the tenant region's numerals (Bangla by default). */
+const n = (value: number) => formatNumber(value, REGION_BD_BN);
 
 const GUARDIAN = guardianFactory({
   id: 'guardian-1',
@@ -53,8 +58,9 @@ const studentSearchHandler = () =>
     HttpResponse.json({ data: [STUDENT], total: 1, page: 1, limit: 10, totalPages: 1 }),
   );
 
+/** The address field's label follows the channel: phone for SMS/WhatsApp, email otherwise. */
 function addressInput() {
-  return screen.getByRole<HTMLInputElement>('textbox', { name: 'Recipient address' });
+  return screen.getByRole<HTMLInputElement>('textbox', { name: /^(Mobile number|Email address)$/ });
 }
 
 function render(role = 'ADMIN') {
@@ -68,7 +74,7 @@ function render(role = 'ADMIN') {
 
 async function fillBasicSmsMessage(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByRole('textbox', { name: 'Recipient name' }), 'Rahima Begum');
-  await user.type(screen.getByRole('textbox', { name: 'Recipient address' }), '+8801700000001');
+  await user.type(screen.getByRole('textbox', { name: 'Mobile number' }), '+8801700000001');
   await user.click(screen.getByRole('textbox', { name: 'Message' }));
   await user.paste('School closed tomorrow.');
 }
@@ -106,7 +112,9 @@ describe('/communications/send', () => {
     // The dialog is the review step: recipient, channel and the full
     // message, restated before anything can go out.
     const dialog = await screen.findByRole('dialog');
-    expect(dialog.textContent).toContain('Rahima Begum — +8801700000001');
+    expect(dialog.textContent).toContain(
+      `Rahima Begum · ${formatPhone('+8801700000001', REGION_BD_EN)}`,
+    );
     expect(dialog.textContent).toContain('SMS');
     expect(dialog.textContent).toContain('School closed tomorrow.');
     // Nothing has been posted yet — confirm is what sends.
@@ -114,7 +122,7 @@ describe('/communications/send', () => {
 
     await user.click(screen.getByRole('button', { name: 'Send message' }));
 
-    await screen.findByText('Message queued');
+    await screen.findByText('Message on its way');
     expect(body).toEqual({
       medium: 'SMS',
       recipient_address: '+8801700000001',
@@ -138,7 +146,7 @@ describe('/communications/send', () => {
     render();
     await screen.findByRole('heading', { name: 'Send Message' });
 
-    await user.type(screen.getByRole('textbox', { name: 'Search students' }), 'Arif');
+    await user.type(screen.getByRole('textbox', { name: 'Student (optional)' }), 'Arif');
     await user.click(await screen.findByRole('button', { name: /Arif Hossain · 12345678/ }));
     await user.click(await screen.findByRole('radio', { name: 'Rahima Begum (Mother)' }));
 
@@ -146,7 +154,7 @@ describe('/communications/send', () => {
     expect(screen.getByRole<HTMLInputElement>('textbox', { name: 'Recipient name' }).value).toBe(
       'Rahima Begum',
     );
-    expect(screen.getByRole<HTMLInputElement>('textbox', { name: 'Recipient address' }).value).toBe(
+    expect(screen.getByRole<HTMLInputElement>('textbox', { name: 'Mobile number' }).value).toBe(
       '+8801700000001',
     );
 
@@ -168,7 +176,7 @@ describe('/communications/send', () => {
     render();
     await screen.findByRole('heading', { name: 'Send Message' });
 
-    await user.type(screen.getByRole('textbox', { name: 'Search students' }), 'Arif');
+    await user.type(screen.getByRole('textbox', { name: 'Student (optional)' }), 'Arif');
     await user.click(await screen.findByRole('button', { name: /Arif Hossain · 12345678/ }));
     await user.click(await screen.findByRole('radio', { name: 'Rahima Begum (Mother)' }));
     expect(addressInput().value).toBe('+8801700000001');
@@ -190,7 +198,7 @@ describe('/communications/send', () => {
     render();
     await screen.findByRole('heading', { name: 'Send Message' });
 
-    await user.type(screen.getByRole('textbox', { name: 'Search students' }), 'Arif');
+    await user.type(screen.getByRole('textbox', { name: 'Student (optional)' }), 'Arif');
     await user.click(await screen.findByRole('button', { name: /Arif Hossain · 12345678/ }));
     await user.click(await screen.findByRole('radio', { name: 'Rahima Begum (Mother)' }));
     expect(addressInput().value).toBe('+8801700000001');
@@ -198,12 +206,12 @@ describe('/communications/send', () => {
     // SMS → Email: her phone would be a nonsense email address
     // (`type=email`'s native check only fires at submit; `type=tel` never
     // does) — the field must follow the channel to her email.
-    await user.click(screen.getByRole('combobox', { name: 'Channel' }));
+    await user.click(screen.getByRole('combobox', { name: 'Send by' }));
     await user.click(await screen.findByRole('option', { name: 'Email' }));
     expect(addressInput().value).toBe('rahima@example.com');
 
     // Email → SMS: back to the phone.
-    await user.click(screen.getByRole('combobox', { name: 'Channel' }));
+    await user.click(screen.getByRole('combobox', { name: 'Send by' }));
     await user.click(await screen.findByRole('option', { name: 'SMS' }));
     expect(addressInput().value).toBe('+8801700000001');
   });
@@ -216,13 +224,13 @@ describe('/communications/send', () => {
     await user.type(addressInput(), '+8801700000009');
 
     // Phone-kind → email-kind: the typed phone can't be right.
-    await user.click(screen.getByRole('combobox', { name: 'Channel' }));
+    await user.click(screen.getByRole('combobox', { name: 'Send by' }));
     await user.click(await screen.findByRole('option', { name: 'Email' }));
     expect(addressInput().value).toBe('');
 
     // Email-kind → phone-kind: same in reverse.
-    await user.type(addressInput(), 'someone@example.com');
-    await user.click(screen.getByRole('combobox', { name: 'Channel' }));
+    await user.type(screen.getByRole('textbox', { name: 'Email address' }), 'someone@example.com');
+    await user.click(screen.getByRole('combobox', { name: 'Send by' }));
     await user.click(await screen.findByRole('option', { name: 'WhatsApp' }));
     expect(addressInput().value).toBe('');
   });
@@ -233,7 +241,7 @@ describe('/communications/send', () => {
     await screen.findByRole('heading', { name: 'Send Message' });
 
     await user.type(addressInput(), '+8801700000009');
-    await user.click(screen.getByRole('combobox', { name: 'Channel' }));
+    await user.click(screen.getByRole('combobox', { name: 'Send by' }));
     await user.click(await screen.findByRole('option', { name: 'WhatsApp' }));
     expect(addressInput().value).toBe('+8801700000009');
   });
@@ -247,11 +255,11 @@ describe('/communications/send', () => {
     expect(screen.queryByRole('textbox', { name: 'Subject' })).toBeNull();
     expect(screen.queryByRole('textbox', { name: 'Template name' })).toBeNull();
 
-    await user.click(screen.getByRole('combobox', { name: 'Channel' }));
+    await user.click(screen.getByRole('combobox', { name: 'Send by' }));
     await user.click(await screen.findByRole('option', { name: 'Email' }));
     expect(screen.getByRole('textbox', { name: 'Subject' })).toBeTruthy();
 
-    await user.click(screen.getByRole('combobox', { name: 'Channel' }));
+    await user.click(screen.getByRole('combobox', { name: 'Send by' }));
     await user.click(await screen.findByRole('option', { name: 'WhatsApp' }));
     expect(screen.queryByRole('textbox', { name: 'Subject' })).toBeNull();
     expect(screen.getByRole('textbox', { name: 'Template name' })).toBeTruthy();
@@ -266,11 +274,11 @@ describe('/communications/send', () => {
     await user.click(screen.getByRole('textbox', { name: 'Message' }));
     await user.paste('School closed tomorrow.');
 
-    const counter = screen.getByText('23 characters · 1 SMS segment');
+    const counter = screen.getByText(`${n(23)} characters · ${n(1)} SMS`);
     expect(counter.getAttribute('aria-live')).toBe('polite');
   });
 
-  it('surfaces a server 400 verbatim inside the dialog and keeps it open', async () => {
+  it('shows one translated sentence for a server 400, never the server text, and keeps the dialog open', async () => {
     const serverMessage = 'recipient_address must be a valid phone number';
     server.use(
       http.post('/api/v1/communications/send', () =>
@@ -288,9 +296,65 @@ describe('/communications/send', () => {
     await user.click(await screen.findByRole('button', { name: 'Send message' }));
 
     const alert = await screen.findByRole('alert');
-    expect(alert.textContent).toBe(serverMessage);
+    expect(alert.textContent).toBe(
+      "Something in the number, email or message isn't right. Check it and try again.",
+    );
+    expect(screen.queryByText(serverMessage)).toBeNull();
     // Still on the dialog — the user can fix and re-confirm.
     expect(screen.getByRole('dialog')).toBeTruthy();
+
+    // Closing the dialog drops the stale error.
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    await user.click(screen.getByRole('button', { name: 'Review and send' }));
+    await screen.findByRole('dialog');
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('labels the address field by channel: Mobile number, then Email address', async () => {
+    const user = userEvent.setup();
+    render();
+    await screen.findByRole('heading', { name: 'Send Message' });
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+    expect(addressInput()).toBeTruthy();
+    expect(screen.getByText('e.g. 01711-000004')).toBeTruthy();
+
+    await user.click(screen.getByRole('combobox', { name: 'Send by' }));
+    await user.click(await screen.findByRole('option', { name: 'Email' }));
+    expect(screen.getByRole('textbox', { name: 'Email address' })).toBeTruthy();
+    expect(screen.queryByRole('textbox', { name: 'Mobile number' })).toBeNull();
+  });
+
+  it('shows the guardian phone formatted in the radio row and lets "Change" clear the student', async () => {
+    server.use(studentSearchHandler());
+    const user = userEvent.setup();
+    render();
+    await screen.findByRole('heading', { name: 'Send Message' });
+
+    await user.type(screen.getByRole('textbox', { name: 'Student (optional)' }), 'Arif');
+    await user.click(await screen.findByRole('button', { name: /Arif Hossain · 12345678/ }));
+    const row = (await screen.findByRole('radio', { name: 'Rahima Begum (Mother)' })).closest(
+      'label',
+    );
+    expect(row?.textContent).toContain(formatPhone('+8801700000001', REGION_BD_EN));
+
+    await user.click(screen.getByRole('button', { name: 'Change' }));
+    expect(screen.queryByRole('radio')).toBeNull();
+    expect(screen.getByRole('textbox', { name: 'Student (optional)' })).toBeTruthy();
+  });
+
+  it('renders the SMS counter in Bangla digits under a bn tenant', async () => {
+    const user = userEvent.setup();
+    renderWithRouter(routeTree, {
+      initialEntries: ['/communications/send'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'bn',
+    });
+    const message = await screen.findByRole('textbox', { name: 'বার্তা' });
+    await user.click(message);
+    await user.paste('School closed tomorrow.');
+    const counter = await screen.findByText(/অক্ষর/);
+    expect(counter.textContent).toBe('২৩ অক্ষর · ১টি এসএমএস');
   });
 
   // [8.14.17]: `_staff.tsx`'s `RequirePermission` now refuses the whole
