@@ -1,5 +1,5 @@
 /**
- * [16.7.5] "Clone next year" dialog — rendered directly, not through a
+ * [16.7.5] "Copy to another year" dialog — rendered directly, not through a
  * route of its own, matching `-schedule-form-dialog.test.tsx`'s
  * precedent for a modal with no route to mount through.
  */
@@ -89,11 +89,11 @@ describe('fees/schedules/-clone-dialog', () => {
 
     const user = userEvent.setup();
     // Submit stays disabled until a target year is picked.
-    expect(screen.getByRole('button', { name: 'Clone' }).hasAttribute('disabled')).toBe(true);
+    expect(screen.getByRole('button', { name: 'Copy' }).hasAttribute('disabled')).toBe(true);
 
     await user.click(await screen.findByRole('combobox', { name: 'Academic year' }));
     await user.click(await screen.findByRole('option', { name: '2027-2028' }));
-    await user.click(screen.getByRole('button', { name: 'Clone' }));
+    await user.click(screen.getByRole('button', { name: 'Copy' }));
 
     await waitFor(() => expect(onCloned).toHaveBeenCalled());
     expect(submittedBody).toEqual({ academic_year_id: 'year-2' });
@@ -114,7 +114,7 @@ describe('fees/schedules/-clone-dialog', () => {
     const user = userEvent.setup();
     await user.click(await screen.findByRole('combobox', { name: 'Academic year' }));
     await user.click(await screen.findByRole('option', { name: '2027-2028' }));
-    await user.click(screen.getByRole('button', { name: 'Clone' }));
+    await user.click(screen.getByRole('button', { name: 'Copy' }));
 
     expect(await screen.findByRole('alert')).toBeTruthy();
   });
