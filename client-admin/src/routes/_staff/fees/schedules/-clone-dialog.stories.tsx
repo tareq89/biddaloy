@@ -3,7 +3,7 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import { CloneScheduleDialog } from './-clone-dialog';
 
 /**
- * #679's "Clone for next year" dialog — the row action that copies a
+ * #679's "Copy to another year" dialog — the row action that copies a
  * schedule's fees/audience/rule into a new schedule under a different
  * academic year.
  */
