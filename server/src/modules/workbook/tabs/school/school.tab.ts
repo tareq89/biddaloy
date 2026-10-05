@@ -29,6 +29,7 @@ export interface SchoolRow {
   phone: string | null;
   email: string | null;
   registration_id: string | null;
+  country_code: string | null;
   settings: Record<string, unknown> | null;
 }
 
@@ -54,6 +55,7 @@ const columns: readonly ColumnSpec[] = [
   { key: 'phone', type: 'string', label: { en: 'Phone', bn: 'ফোন' } },
   { key: 'email', type: 'string', label: { en: 'Email', bn: 'ইমেইল' } },
   { key: 'registration_id', type: 'string', label: { en: 'Registration ID', bn: 'নিবন্ধন নম্বর' } },
+  { key: 'country_code', type: 'string', label: { en: 'Country code', bn: 'দেশের কোড' } },
   { key: 'settings', type: 'json', label: { en: 'Settings', bn: 'সেটিংস' } },
 ];
 
@@ -70,7 +72,6 @@ const excluded: readonly string[] = [
   'status', // lifecycle state of the destination tenant, not profile data
   'status_reason', // see `status`
   'status_changed_at', // see `status`
-  'country_code', // excluded until 13.3.3 (#1624) adds it as an optional column
   'trial_ends_at', // commercial state of the destination tenant; a file must not extend a trial
   'seat_limit', // commercial state of the destination tenant; a file must not raise its seats
   'onboarding', // setup progress of the destination tenant
@@ -86,6 +87,7 @@ const MAX_LENGTHS: Record<string, number> = {
   phone: 20,
   email: 100,
   registration_id: 100,
+  country_code: 2,
 };
 
 /**
@@ -177,6 +179,7 @@ export const schoolTab: TabSpec<School, SchoolRow> = {
       phone: entity.phone,
       email: entity.email,
       registration_id: entity.registration_id,
+      country_code: entity.country_code,
       // Credentials never leave the system in a backup file.
       settings: entity.settings ? stripSecretPaths(entity.settings) : null,
     };
@@ -237,6 +240,18 @@ export const schoolTab: TabSpec<School, SchoolRow> = {
       });
     }
 
+    // An ISO 3166-1 alpha-2 code; anything else would store junk the region logic can't read.
+    if (typeof values.country_code === 'string' && !/^[A-Z]{2}$/.test(values.country_code)) {
+      errors.push({
+        tab: 'school',
+        row: rowNo,
+        column: 'country_code',
+        message: 'Column "country_code": must be two capital letters, for example BD.',
+        severity: 'error',
+        value: cells.country_code ?? '',
+      });
+    }
+
     if (errors.length > 0) return { errors };
 
     return {
@@ -248,6 +263,7 @@ export const schoolTab: TabSpec<School, SchoolRow> = {
         phone: values.phone as string | null,
         email: values.email as string | null,
         registration_id: values.registration_id as string | null,
+        country_code: values.country_code as string | null,
         settings: values.settings as Record<string, unknown> | null,
       },
     };
@@ -262,7 +278,14 @@ export const schoolTab: TabSpec<School, SchoolRow> = {
     // `name` is deliberately not compared: `upsert` never applies it (see
     // there), so reporting it as a pending change would show the admin a
     // diff that a restore would not actually make.
-    for (const key of ['name_bn', 'address', 'phone', 'email', 'registration_id'] as const) {
+    for (const key of [
+      'name_bn',
+      'address',
+      'phone',
+      'email',
+      'registration_id',
+      'country_code',
+    ] as const) {
       if (row[key] !== existing[key]) changed.push(key);
     }
 
@@ -299,6 +322,7 @@ export const schoolTab: TabSpec<School, SchoolRow> = {
     school.phone = row.phone;
     school.email = row.email;
     school.registration_id = row.registration_id;
+    school.country_code = row.country_code;
     // A hand-edited workbook can carry a secret path (e.g.
     // communications.sms.mimsms.apiKey) the exporter never wrote — strip it
     // before merging so an import can never overwrite a stored credential.

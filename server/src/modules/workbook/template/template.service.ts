@@ -7,7 +7,7 @@ import { ALL_TABS, assertRegistryValid, EXPECTED_TABS } from '../codec/registry'
 import { buildSampleRow, writeWorkbook, type SheetDecorator } from '../codec/workbook-codec';
 import { SCHEMA_VERSION, type WorkbookMeta } from '../codec/meta';
 import type { TabSpec } from '../codec/tab-spec';
-import type { TemplateLang } from './template.constants';
+import { STARTER_TABS, type TemplateLang, type TemplateVariant } from './template.constants';
 
 const LABELS = {
   requiredNote: { en: 'required', bn: 'আবশ্যক' },
@@ -29,6 +29,10 @@ const LABELS = {
   sheetLabel: { en: 'Sheet', bn: 'শিট' },
   naturalKeyLabel: { en: '  Identified by', bn: '  যেভাবে শনাক্ত হয়' },
   requiredColumnsLabel: { en: '  Required columns', bn: '  আবশ্যক কলাম' },
+  starterNote: {
+    en: 'Row 2 is an example (it says SAMPLE) and is ignored on import. Add your own rows below it.',
+    bn: '২য় সারিটি একটি উদাহরণ (SAMPLE লেখা) এবং ইমপোর্টের সময় উপেক্ষা করা হয়। এর নিচে আপনার নিজের সারি যোগ করুন।',
+  },
   none: { en: '(none)', bn: '(নেই)' },
 } as const;
 
@@ -36,11 +40,21 @@ const LABELS = {
  * Adds a dropdown for every enum/bool column and a "what is this column"
  * comment for every header cell, via `writeWorkbook`'s `decorate` hook.
  */
-function decorateSheet(sheet: SheetDecorator, tab: TabSpec<any, any>, lang: TemplateLang): void {
+function decorateSheet(
+  sheet: SheetDecorator,
+  tab: TabSpec<any, any>,
+  lang: TemplateLang,
+  starter = false,
+): void {
   tab.columns.forEach((col, index) => {
     const colNo = index + 1;
     const requirementNote = col.required ? LABELS.requiredNote[lang] : LABELS.optionalNote[lang];
-    sheet.setHeaderNote(colNo, `${col.label[lang]} — ${requirementNote}`);
+    const colNote = `${col.label[lang]} — ${requirementNote}`;
+    // Starter: the first header cell also carries a plain-words note for the whole sheet.
+    sheet.setHeaderNote(
+      colNo,
+      starter && index === 0 ? `${LABELS.starterNote[lang]}\n${colNote}` : colNote,
+    );
 
     if (col.type === 'enum' && col.enumValues && col.enumValues.length > 0) {
       sheet.addListValidation(colNo, col.enumValues, !col.required);
@@ -53,7 +67,10 @@ function decorateSheet(sheet: SheetDecorator, tab: TabSpec<any, any>, lang: Temp
 /** Plain-language fill instructions, in registry order, from the same
  * `ColumnSpec.label`s the sheets themselves use — see the repo's
  * "dead simple to understand" documentation rule. */
-function buildReadmeRows(lang: TemplateLang): (string | number)[][] {
+function buildReadmeRows(
+  lang: TemplateLang,
+  tabs: readonly TabSpec<any, any>[] = ALL_TABS,
+): (string | number)[][] {
   const rows: (string | number)[][] = [
     [LABELS.readmeTitle[lang]],
     [LABELS.fillOrder[lang]],
@@ -62,7 +79,7 @@ function buildReadmeRows(lang: TemplateLang): (string | number)[][] {
     [''],
   ];
 
-  for (const tab of ALL_TABS) {
+  for (const tab of tabs) {
     const naturalKeyLabels = tab.naturalKey
       .map((key) => tab.columns.find((c) => c.key === key)?.label[lang] ?? key)
       .join(', ');
@@ -112,11 +129,17 @@ export class TemplateService {
   async build(
     tenantId: string,
     lang?: TemplateLang,
+    variant: TemplateVariant = 'full',
   ): Promise<{ buffer: Buffer; lang: TemplateLang }> {
     const school = await this.findSchoolOrThrow(tenantId);
     const resolvedLang = lang ?? this.langFromSchool(school);
 
-    assertRegistryValid(ALL_TABS, { partial: ALL_TABS.length < EXPECTED_TABS.length });
+    const starter = variant === 'starter';
+    // ALL_TABS order is EXPECTED_TABS order, so the filtered subset stays a valid subsequence.
+    const tabs = starter
+      ? ALL_TABS.filter((t) => (STARTER_TABS as readonly string[]).includes(t.name))
+      : ALL_TABS;
+    assertRegistryValid(tabs, { partial: tabs.length < EXPECTED_TABS.length });
 
     const meta: WorkbookMeta = {
       schema_version: SCHEMA_VERSION,
@@ -128,13 +151,13 @@ export class TemplateService {
     };
 
     const buffer = await writeWorkbook({
-      tabs: ALL_TABS,
+      tabs,
       meta,
-      readme: buildReadmeRows(resolvedLang),
+      readme: buildReadmeRows(resolvedLang, tabs),
       rowsFor: async function* (tab) {
         yield buildSampleRow(tab);
       },
-      decorate: (sheet, tab) => decorateSheet(sheet, tab, resolvedLang),
+      decorate: (sheet, tab) => decorateSheet(sheet, tab, resolvedLang, starter),
     });
 
     return { buffer, lang: resolvedLang };
