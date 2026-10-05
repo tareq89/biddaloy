@@ -23,6 +23,7 @@ import {
   QueryStudentSummaryDto,
   RegisterMatrixDto,
   SectionSummaryDto,
+  SubjectSummaryDto,
   resolveDateRange,
 } from './dto/attendance-summary.dto';
 
@@ -149,6 +150,42 @@ export class AttendanceSummaryController {
       sectionId,
       from,
       to,
+    });
+  }
+
+  @Get('sections/:sectionId/subject-summary')
+  @Roles(
+    UserRole.ADMIN,
+    UserRole.EXECUTIVE,
+    UserRole.ACCOUNTANT,
+    UserRole.TEACHER,
+    UserRole.OFFICE_STAFF,
+    UserRole.EXAM_CONTROLLER,
+  )
+  @RequirePermissions(Permission.ATTENDANCE_READ)
+  @ApiOperation({
+    summary:
+      'Per student and subject: period classes held and attended over a range. ' +
+      '403 ATTENDANCE_PERIOD_DISABLED when period attendance is off.',
+  })
+  @ApiOkResponse({ type: SubjectSummaryDto })
+  async getSectionSubjectSummary(
+    @Param('sectionId') sectionId: string,
+    @Query() query: QuerySectionSummaryDto,
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: { sub: string },
+  ) {
+    await this.attendanceAccessService.assertCanAccessSection(
+      tenant.role,
+      user.sub,
+      sectionId,
+      tenant.id,
+    );
+    return this.summaryService.getSectionSubjectSummary({
+      tenantId: tenant.id,
+      sectionId,
+      from: query.from,
+      to: query.to,
     });
   }
 
