@@ -1,6 +1,11 @@
 {
   "title": "My class",
   "empty": "You are not a class teacher of any section yet — ask an admin.",
+  "pickerSubtitle": "Pick a section to open.",
+  "sectionsHeading": "Your sections",
+  "emptyTitle": "No section yet",
+  "loadError": "Could not load your sections.",
+  "loading": "Loading…",
   "retry": "Try again",
   "seeAll": "See all",
   "roles": {

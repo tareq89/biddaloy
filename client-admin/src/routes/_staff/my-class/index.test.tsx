@@ -41,8 +41,10 @@ describe('/my-class', () => {
   it('shows the empty state when the teacher has no homeroom section', async () => {
     mockSections([]);
     render('/my-class');
+    expect(await screen.findByText('No section yet')).toBeTruthy();
+    expect(screen.getByRole('heading', { level: 1, name: 'My class' })).toBeTruthy();
     expect(
-      await screen.findByText('You are not a class teacher of any section yet — ask an admin.'),
+      screen.getByText('You are not a class teacher of any section yet — ask an admin.'),
     ).toBeTruthy();
   });
 
@@ -58,13 +60,17 @@ describe('/my-class', () => {
     await waitFor(() => expect(router.state.location.pathname).toBe('/attendance/section-1'));
   });
 
-  it('lists two sections as cards with a role badge', async () => {
+  it('lists two sections as link cards with the role as plain text', async () => {
     mockSections([S1, S2]);
     render('/my-class');
-    expect(await screen.findByText('Class 7 A')).toBeTruthy();
-    expect(screen.getByText('Class 6 B')).toBeTruthy();
-    expect(screen.getByText('Class teacher')).toBeTruthy();
-    expect(screen.getByText('Assistant class teacher')).toBeTruthy();
+    const first = await screen.findByRole('link', { name: /^Class 7 – A\s*Class teacher$/ });
+    const second = screen.getByRole('link', {
+      name: /^Class 6 – B\s*Assistant class teacher$/,
+    });
+    expect(first.getAttribute('href')).toBe('/my-class/section-1');
+    expect(second.getAttribute('href')).toBe('/my-class/section-2');
+    expect(screen.getByRole('heading', { level: 1, name: 'My class' })).toBeTruthy();
+    expect(screen.getByText('Pick a section to open.')).toBeTruthy();
   });
 
   it('offers a retry when the sections request fails', async () => {
@@ -74,5 +80,7 @@ describe('/my-class', () => {
     expect(
       await screen.findByRole('button', { name: 'Try again' }, { timeout: 8000 }),
     ).toBeTruthy();
+    expect(screen.getByRole('heading', { level: 1, name: 'My class' })).toBeTruthy();
+    expect(screen.getByText('Could not load your sections.')).toBeTruthy();
   }, 15_000);
 });
