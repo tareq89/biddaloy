@@ -123,7 +123,7 @@ describe('/login', () => {
     expect(router.state.location.search).toEqual({});
   });
 
-  describe('12.5: "Sign in with code" tab', () => {
+  describe('12.5: "With a phone code" tab', () => {
     it('defaults to the password tab, and switches to the OTP tab on click', async () => {
       server.use(authHandlers.refreshFailure);
       const user = userEvent.setup();
