@@ -103,6 +103,7 @@ const meta: Meta<typeof PrintPreview> = {
     onCreateTemplate: () => undefined,
     onAddPrinter: () => undefined,
     onDone: () => undefined,
+    onClose: () => undefined,
   },
   loaders: [
     () => {
@@ -117,6 +118,22 @@ type Story = StoryObj<typeof PrintPreview>;
 
 /** 120 people in three batches of 50; the second batch is locked until the first is confirmed. */
 export const NormalBatch: Story = {
+  parameters: {
+    msw: { handlers: handlers({ photo: 'data:image/gif;base64,R0lGODlhAQABAAAAACw=' }) },
+  },
+};
+
+/** Everyone fits in one round: no round stepper. */
+export const OneRound: Story = {
+  args: { subjectIds: ids(3) },
+  parameters: {
+    msw: { handlers: handlers({ photo: 'data:image/gif;base64,R0lGODlhAQABAAAAACw=' }) },
+  },
+};
+
+/** Reached from the picker, so "Back" is offered next to Print. */
+export const FromPicker: Story = {
+  args: { subjectIds: ids(3), onBack: () => undefined },
   parameters: {
     msw: { handlers: handlers({ photo: 'data:image/gif;base64,R0lGODlhAQABAAAAACw=' }) },
   },
