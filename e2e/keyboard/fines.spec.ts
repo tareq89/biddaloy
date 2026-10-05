@@ -148,7 +148,10 @@ test.describe('(a) Fines list: nav -> l -> log a fine -> Enter -> Waive -> step-
       // precedent for it exists yet (see those files' own header comments).
       await new ApprovalModalPage(page).complete('admin@biddaloy.test');
 
-      await expect(page.getByText(t('common.status.fee.WAIVED'))).toBeVisible();
+      // exact: other rows' free text ("1 day waived") contains the word too
+      await expect(
+        page.getByText(t('common.status.fee.WAIVED'), { exact: true }).first(),
+      ).toBeVisible();
     });
   });
 });

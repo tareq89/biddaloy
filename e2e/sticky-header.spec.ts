@@ -58,7 +58,8 @@ test.describe('sticky header scroll contract', () => {
     await expect
       .poll(async () => {
         const [headerBox, mainBox] = await Promise.all([header.boundingBox(), main.boundingBox()]);
-        return mainBox!.y - (headerBox!.y + headerBox!.height - 1);
+        // 2px tolerance: the anchor jump lands on a device-pixel scroll offset.
+        return mainBox!.y - (headerBox!.y + headerBox!.height - 2);
       })
       .toBeGreaterThanOrEqual(0);
   });
