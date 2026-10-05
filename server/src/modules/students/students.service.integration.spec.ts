@@ -1399,6 +1399,30 @@ describe('GuardianService (integration)', () => {
       expect(result.total).toBe(2);
     });
 
+    // [31.3.7d] The column holds mixed case (`Father` from forms, `OTHER` default).
+    it('filters by relationship in any letter case, tenant-scoped', async () => {
+      const make = (full_name: string, relationship: string, tenant_id: string) =>
+        guardianRepo.save(
+          guardianRepo.create({ full_name, relationship, phone: '+880****0009', tenant_id }),
+        );
+      await make('Mixed Father', 'Father', TENANT_ID);
+      await make('Lower Father', 'father', TENANT_ID);
+      await make('Other Guardian', 'OTHER', TENANT_ID);
+      await make('Foreign Father', 'Father', OTHER_TENANT);
+
+      const fathers = await service.findAll(
+        { relationship: 'Father', page: 1, limit: 10 } as never,
+        TENANT_ID,
+      );
+      expect(fathers.data.map((g) => g.full_name).sort()).toEqual(['Lower Father', 'Mixed Father']);
+
+      const others = await service.findAll(
+        { relationship: 'other', page: 1, limit: 10 } as never,
+        TENANT_ID,
+      );
+      expect(others.data.map((g) => g.full_name)).toEqual(['Other Guardian']);
+    });
+
     it('should search guardians by name, phone, or email', async () => {
       await guardianRepo.save(
         guardianRepo.create({
