@@ -65,6 +65,7 @@ describe('/reports/collections', () => {
     expect(screen.queryByText(/Something went wrong/)).toBeNull();
     expect(screen.getByText('Cash')).toBeTruthy();
     expect(screen.getByText('Monthly tuition')).toBeTruthy();
+    // The app's default region is Bangla even with the `en` UI text, so amounts and dates use it.
     expect(screen.getByText(formatServerAmount(4900, REGION_BD_BN))).toBeTruthy();
     expect(screen.getByText(formatDate('2026-09-15', REGION_BD_BN))).toBeTruthy();
     expect(screen.getAllByText(/^Total [0-9০-৯]+$/)).toHaveLength(4);
@@ -82,6 +83,19 @@ describe('/reports/collections', () => {
     expect(screen.getByRole('button', { name: 'Retry' })).toBeTruthy();
   });
 
+  it('drops an invalid collector id from the URL instead of sending it', async () => {
+    let params: URLSearchParams | undefined;
+    server.use(
+      http.get('/api/v1/reports/collections', ({ request }) => {
+        params = new URL(request.url).searchParams;
+        return HttpResponse.json(reportResponse());
+      }),
+    );
+    renderReport('/reports/collections?received_by_user_id=not-a-uuid');
+    await waitFor(() => expect(params).toBeDefined());
+    expect(params?.has('received_by_user_id')).toBe(false);
+  });
+
   it('sends the server filter names to the report', async () => {
     let params: URLSearchParams | undefined;
     server.use(
@@ -90,11 +104,13 @@ describe('/reports/collections', () => {
         return HttpResponse.json(reportResponse());
       }),
     );
-    renderReport('/reports/collections?payment_method=CASH&received_by_user_id=user-1');
+    renderReport(
+      '/reports/collections?payment_method=CASH&received_by_user_id=11111111-1111-4111-8111-111111111111',
+    );
 
     await waitFor(() => expect(params).toBeDefined());
     expect(params?.get('payment_method')).toBe('CASH');
-    expect(params?.get('received_by_user_id')).toBe('user-1');
+    expect(params?.get('received_by_user_id')).toBe('11111111-1111-4111-8111-111111111111');
     expect(params?.has('method')).toBe(false);
     expect(params?.has('collector_id')).toBe(false);
   });
@@ -113,7 +129,7 @@ describe('/reports/collections', () => {
     try {
       renderWithRouter(routeTree, {
         initialEntries: [
-          '/reports/collections?payment_method=CASH&received_by_user_id=user-1&preset=custom&from=2026-09-01&to=2026-09-16',
+          '/reports/collections?payment_method=CASH&received_by_user_id=11111111-1111-4111-8111-111111111111&preset=custom&from=2026-09-01&to=2026-09-16',
         ],
         tenantId: 'tenant-1',
         role: 'ADMIN',
@@ -127,7 +143,7 @@ describe('/reports/collections', () => {
         expect(toastSpy).toHaveBeenCalledWith('Could not download the CSV. Please try again.'),
       );
       expect(csvParams?.get('payment_method')).toBe('CASH');
-      expect(csvParams?.get('received_by_user_id')).toBe('user-1');
+      expect(csvParams?.get('received_by_user_id')).toBe('11111111-1111-4111-8111-111111111111');
     } finally {
       toastSpy.mockRestore();
     }

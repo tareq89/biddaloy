@@ -57,9 +57,16 @@ export function PrintHistoryPage({
   // ACR rows are confidential: the server hides them without ACR_READ, so don't offer the filter.
   const canReadAcr = useHasPermission(Permission.ACR_READ);
 
-  const historyQuery = usePrintHistory(toHistoryFilters(search));
   // Option lists are conveniences: roles without the permission would get a 403 toast, so skip the call.
   const canReadUsers = useHasPermission(Permission.USER_READ);
+  // A hidden filter must not keep applying from a pasted URL.
+  const { template_id, printed_by, ...rest } = search;
+  const effectiveSearch: PrintHistorySearch = {
+    ...rest,
+    ...(canPrint && template_id !== undefined ? { template_id } : {}),
+    ...(canReadUsers && printed_by !== undefined ? { printed_by } : {}),
+  };
+  const historyQuery = usePrintHistory(toHistoryFilters(effectiveSearch));
   const templatesQuery = useQuery({ ...printTemplatesQueryOptions(), enabled: canPrint });
   const usersQuery = useQuery({ ...usersQueryOptions({ limit: 100 }), enabled: canReadUsers });
 
@@ -215,7 +222,7 @@ export function PrintHistoryPage({
         }
         filters={{
           fields: filterFields,
-          values: filterValues(search),
+          values: filterValues(effectiveSearch),
           // A changed filter starts again from page 1.
           onChange: (patch) => onSearchChange({ ...patch, page: null }),
         }}

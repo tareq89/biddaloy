@@ -129,7 +129,7 @@ export function ReprintDialog({ open, onOpenChange, row }: ReprintDialogProps) {
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(next) => !(printing && !next) && onOpenChange(next)}>
       <DialogContent size="sm">
         <DialogHeader>
           <DialogTitle>{t('reprint.title', { name: row.subject_label })}</DialogTitle>
@@ -160,7 +160,12 @@ export function ReprintDialog({ open, onOpenChange, row }: ReprintDialogProps) {
         )}
 
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={printing}
+            onClick={() => onOpenChange(false)}
+          >
             {t('reprint.cancel')}
           </Button>
           <Button
