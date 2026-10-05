@@ -1,7 +1,9 @@
-import { useLoginAuditLogs } from '@biddaloy/ui/hooks';
+import { DataTable, type DataTableColumn } from '@biddaloy/ui/components';
+import { useLoginAuditLogs, type AuditLog } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { formatDateTime } from '@biddaloy/ui/utils';
 
+import { describeUserAgent } from './describe-user-agent';
 import { TabQueryState } from './tab-query-state';
 
 export interface LoginHistoryTabProps {
@@ -19,48 +21,53 @@ export function LoginHistoryTab({ userId }: LoginHistoryTabProps) {
   const regionConfig = useRegionConfig();
   const query = useLoginAuditLogs(userId);
 
+  const columns: DataTableColumn<AuditLog>[] = [
+    {
+      id: 'when',
+      header: t('detail.loginHistory.columnWhen'),
+      accessorFn: (entry) => formatDateTime(new Date(entry.created_at), regionConfig),
+      card: 'title',
+    },
+    {
+      id: 'device',
+      header: t('detail.loginHistory.columnDevice'),
+      // The raw string stays in `title` for support staff.
+      accessorFn: (entry) => (
+        <span title={entry.user_agent ?? ''}>
+          {describeUserAgent(entry.user_agent, t('detail.loginHistory.unknownBrowser'))}
+        </span>
+      ),
+    },
+    {
+      id: 'ip',
+      header: t('detail.loginHistory.columnIp'),
+      accessorFn: (entry) => entry.ip_address ?? '—',
+    },
+  ];
+
   return (
     <TabQueryState
       query={query}
       forbiddenMessage={t('detail.forbidden')}
       errorMessage={t('detail.loginHistory.errorMessage')}
     >
-      {(page) =>
-        page.data.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{t('detail.loginHistory.empty')}</p>
-        ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-muted-foreground">
-                <th scope="col" className="py-1 pr-4 font-medium">
-                  {t('detail.loginHistory.columnWhen')}
-                </th>
-                <th scope="col" className="py-1 pr-4 font-medium">
-                  {t('detail.loginHistory.columnIp')}
-                </th>
-                <th scope="col" className="py-1 font-medium">
-                  {t('detail.loginHistory.columnDevice')}
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {page.data.map((entry) => (
-                <tr key={entry.id}>
-                  <td className="py-1 pr-4">
-                    {formatDateTime(new Date(entry.created_at), regionConfig)}
-                  </td>
-                  <td className="py-1 pr-4">
-                    {entry.ip_address ?? t('detail.loginHistory.emptyValue')}
-                  </td>
-                  <td className="py-1">
-                    {entry.user_agent ?? t('detail.loginHistory.emptyValue')}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )
-      }
+      {(page) => (
+        <DataTable
+          tableId="staff-login-history"
+          caption={t('detail.loginHistory.caption')}
+          columns={columns}
+          data={page.data}
+          getRowId={(entry) => entry.id}
+          sorting={null}
+          onSortingChange={() => undefined}
+          totalCount={page.data.length}
+          paginated={false}
+          emptyState={{
+            title: t('detail.loginHistory.empty'),
+            explanation: t('detail.loginHistory.emptyExplanation'),
+          }}
+        />
+      )}
     </TabQueryState>
   );
 }

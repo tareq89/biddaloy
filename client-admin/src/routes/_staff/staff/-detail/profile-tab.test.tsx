@@ -2,13 +2,15 @@ import { REGION_BD_BN } from '@biddaloy/ui/i18n';
 import {
   cleanupTestState,
   renderWithProviders,
+  teacherFactory,
   server,
   userResponseFactory,
 } from '@biddaloy/ui/test';
 import { formatDate } from '@biddaloy/ui/utils';
 import { screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { ProfileTab } from './profile-tab';
 
@@ -60,9 +62,8 @@ describe('ProfileTab contact verification labels', () => {
     // The digits are Bengali (`২০২৬-০১-১৫`) even under `locale: 'en'`:
     // `formatDate` renders them through the REGION config's numeral system,
     // which is independent of the message locale. Hence both digit classes.
-    expect(
-      await screen.findByText(`Verified ${formatDate('2026-01-15', REGION_BD_BN)}`),
-    ).toBeTruthy();
+    expect(await screen.findByText('Verified')).toBeTruthy();
+    expect(screen.getByTitle(`Verified ${formatDate('2026-01-15', REGION_BD_BN)}`)).toBeTruthy();
   });
 
   it('shows an unverified label for an unverified phone', async () => {
@@ -96,6 +97,49 @@ describe('ProfileTab contact verification labels', () => {
       role: 'ADMIN',
     });
 
-    expect(await screen.findByText('Unverified')).toBeTruthy();
+    expect(await screen.findByText('Not verified')).toBeTruthy();
+  });
+
+  it("the teacher card's Edit button calls onEditTeacher and needs USER_UPDATE", async () => {
+    const teacher = { ...teacherFactory(), designations: [] };
+    server.use(
+      http.get('/api/v1/users/:id', () =>
+        HttpResponse.json(userResponseFactory({ id: 'user-3', email: 'a@example.com' })),
+      ),
+      http.get('/api/v1/teachers', () =>
+        HttpResponse.json({ data: [teacher], total: 1, page: 1, limit: 1, totalPages: 1 }),
+      ),
+    );
+    const onEditTeacher = vi.fn();
+
+    renderWithProviders(<ProfileTab userId="user-3" onEditTeacher={onEditTeacher} />, {
+      locale: 'en',
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+    });
+
+    await userEvent.setup().click(await screen.findByRole('button', { name: 'Edit' }));
+    expect(onEditTeacher).toHaveBeenCalledTimes(1);
+  });
+
+  it('hides the teacher Edit button without USER_UPDATE', async () => {
+    const teacher = { ...teacherFactory(), designations: [] };
+    server.use(
+      http.get('/api/v1/users/:id', () =>
+        HttpResponse.json(userResponseFactory({ id: 'user-3', email: 'a@example.com' })),
+      ),
+      http.get('/api/v1/teachers', () =>
+        HttpResponse.json({ data: [teacher], total: 1, page: 1, limit: 1, totalPages: 1 }),
+      ),
+    );
+
+    renderWithProviders(<ProfileTab userId="user-3" onEditTeacher={() => undefined} />, {
+      locale: 'en',
+      tenantId: 'tenant-1',
+      role: 'COMMITTEE',
+    });
+
+    await screen.findByText('a@example.com');
+    expect(screen.queryByRole('button', { name: 'Edit' })).toBeNull();
   });
 });

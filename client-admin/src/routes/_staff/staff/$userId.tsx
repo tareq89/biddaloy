@@ -1,6 +1,6 @@
 /**
  * [8.11.8] — one staff member's page: Profile · Permissions (read-only
- * from `ROLE_PERMISSIONS`) · Memberships · Login History, mirroring
+ * from `ROLE_PERMISSIONS`) · Login History, mirroring
  * `guardians/$guardianId.tsx`'s `DetailShell`/`useDetailShellTab` shape.
  *
  * The Login History tab is mounted only behind
@@ -24,8 +24,10 @@ import {
   userQueryOptions,
 } from '@biddaloy/ui/hooks';
 import { RegionConfigProvider, useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
-import { DetailShell, useDetailShellTab } from '@biddaloy/ui/shells';
-import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
+import { DetailShell, PageContainer, useDetailShellTab } from '@biddaloy/ui/shells';
+import { formatDate, formatDateTime } from '@biddaloy/ui/utils';
+import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import { CircleMinusIcon, KeyRoundIcon, PencilIcon } from 'lucide-react';
 import * as React from 'react';
 import { z } from 'zod';
 
@@ -37,7 +39,6 @@ import { StaffDocumentsTab } from './-detail/documents-tab';
 import { HrRecordTab } from './-detail/hr-record-tab';
 import { IncidentsTab } from './-detail/incidents-tab';
 import { LoginHistoryTab } from './-detail/login-history-tab';
-import { MembershipsTab } from './-detail/memberships-tab';
 import { PerformanceTab } from './-detail/performance-tab';
 import { PermissionsTab } from './-detail/permissions-tab';
 import { ProfileTab } from './-detail/profile-tab';
@@ -96,7 +97,6 @@ function StaffDetailPage() {
   const tabIds = [
     'profile',
     'permissions',
-    'memberships',
     ...(isTeacher ? (['teachingAssignments'] as const) : []),
     ...(canReadHrRecord ? (['hrRecord'] as const) : []),
     ...(canReadAcr ? (['acr', 'incidents', 'performance'] as const) : []),
@@ -117,17 +117,12 @@ function StaffDetailPage() {
     {
       id: 'profile',
       label: t('detail.tabs.profile'),
-      content: <ProfileTab userId={userId} />,
+      content: <ProfileTab userId={userId} onEditTeacher={() => setEditTeacherOpen(true)} />,
     },
     {
       id: 'permissions',
       label: t('detail.tabs.permissions'),
       content: <PermissionsTab userId={userId} />,
-    },
-    {
-      id: 'memberships',
-      label: t('detail.tabs.memberships'),
-      content: <MembershipsTab userId={userId} />,
     },
     ...(teacher !== undefined
       ? [
@@ -204,19 +199,16 @@ function StaffDetailPage() {
       : []),
   ];
 
+  const user = userQuery.data;
+
   return (
     <RegionConfigProvider value={regionConfig}>
-      <div className="flex flex-col gap-4">
-        <Link
-          to="/staff"
-          className="inline-flex min-h-6 items-center self-start text-sm text-primary underline"
-        >
-          {t('detail.back')}
-        </Link>
-
-        {userQuery.isPending ? (
+      {userQuery.isPending ? (
+        <PageContainer size="wide">
           <Skeleton className="h-7 w-64" />
-        ) : userQuery.isError ? (
+        </PageContainer>
+      ) : userQuery.isError || user === undefined ? (
+        <PageContainer size="wide">
           <ErrorState
             message={
               userQuery.error instanceof ApiError && userQuery.error.statusCode === 403
@@ -226,88 +218,97 @@ function StaffDetailPage() {
             retryLabel={t('actions.retry', { ns: 'common' })}
             onRetry={() => void userQuery.refetch()}
           />
-        ) : (
-          <>
-            <DetailShell
-              name={userQuery.data.full_name}
-              identifiers={
-                userQuery.data.role !== null
-                  ? t(`roles.${userQuery.data.role}`)
-                  : (userQuery.data.email ?? '')
-              }
-              statusBadge={<StatusBadge domain="user" status={userQuery.data.status} />}
-              actions={[
-                {
-                  id: 'editUser',
-                  label: t('detail.actions.editUser'),
-                  allowed: canUpdate,
-                  priority: 'primary',
-                  onClick: () => setEditUserOpen(true),
-                },
-                ...(teacher !== undefined
-                  ? [
-                      {
-                        id: 'editTeacher',
-                        label: t('detail.actions.editTeacher'),
-                        allowed: canUpdate,
-                        priority: 'secondary' as const,
-                        onClick: () => setEditTeacherOpen(true),
-                      },
-                    ]
-                  : []),
-                ...(userQuery.data.id !== currentUserId
-                  ? [
-                      {
-                        id: 'resetPassword',
-                        label: t('detail.actions.resetPassword'),
-                        allowed: canUpdate,
-                        priority: 'secondary' as const,
-                        onClick: () => setResetPasswordOpen(true),
-                      },
-                    ]
-                  : []),
-                {
-                  id: 'remove',
-                  label: t('detail.actions.remove'),
-                  allowed: canRemove,
-                  priority: 'destructive',
-                  onClick: () => setRemoveOpen(true),
-                },
-              ]}
-              activeTab={activeTab}
-              onTabChange={setActiveTab}
-              tabs={tabs}
-            />
+        </PageContainer>
+      ) : (
+        <>
+          <DetailShell
+            name={user.full_name}
+            statusBadge={
+              <>
+                <StatusBadge domain="user" status={user.status} />
+                {user.invitation_status !== 'ACTIVATED' && (
+                  <StatusBadge domain="invitation" status={user.invitation_status} />
+                )}
+              </>
+            }
+            facts={[
+              {
+                label: t('detail.facts.role'),
+                value: user.role !== null ? t(`roles.${user.role}`) : '—',
+              },
+              ...(teacher !== undefined
+                ? [{ label: t('detail.profile.employeeId'), value: teacher.employee_id }]
+                : []),
+              {
+                label: t('detail.facts.memberSince'),
+                value: formatDate(new Date(user.member_since ?? user.created_at), regionConfig),
+              },
+              {
+                label: t('detail.facts.lastSignIn'),
+                value: user.last_login_at
+                  ? formatDateTime(new Date(user.last_login_at), regionConfig)
+                  : t('detail.facts.neverSignedIn'),
+              },
+            ]}
+            actions={[
+              {
+                id: 'resetPassword',
+                label: t('detail.actions.resetPassword'),
+                icon: <KeyRoundIcon />,
+                allowed: canUpdate && user.id !== currentUserId,
+                priority: 'secondary',
+                onClick: () => setResetPasswordOpen(true),
+              },
+              {
+                id: 'editUser',
+                label: t('detail.actions.editUser'),
+                icon: <PencilIcon />,
+                allowed: canUpdate,
+                priority: 'primary',
+                onClick: () => setEditUserOpen(true),
+              },
+              {
+                id: 'remove',
+                label: t('detail.actions.remove'),
+                icon: <CircleMinusIcon />,
+                allowed: canRemove,
+                priority: 'tertiary',
+                onClick: () => setRemoveOpen(true),
+              },
+            ]}
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+            tabs={tabs}
+          />
 
-            <EditUserDialog
-              open={editUserOpen}
-              onOpenChange={setEditUserOpen}
+          <EditUserDialog
+            open={editUserOpen}
+            onOpenChange={setEditUserOpen}
+            user={userQuery.data}
+          />
+          {teacher !== undefined && (
+            <EditTeacherDialog
+              open={editTeacherOpen}
+              onOpenChange={setEditTeacherOpen}
+              teacher={teacher}
+            />
+          )}
+          <RemoveMemberDialog
+            open={removeOpen}
+            onOpenChange={setRemoveOpen}
+            user={userQuery.data}
+            isSelf={userQuery.data.id === currentUserId}
+            onRemoved={() => void navigate({ to: '/staff' })}
+          />
+          {userQuery.data.id !== currentUserId && (
+            <ResetPasswordDialog
+              open={resetPasswordOpen}
+              onOpenChange={setResetPasswordOpen}
               user={userQuery.data}
             />
-            {teacher !== undefined && (
-              <EditTeacherDialog
-                open={editTeacherOpen}
-                onOpenChange={setEditTeacherOpen}
-                teacher={teacher}
-              />
-            )}
-            <RemoveMemberDialog
-              open={removeOpen}
-              onOpenChange={setRemoveOpen}
-              user={userQuery.data}
-              isSelf={userQuery.data.id === currentUserId}
-              onRemoved={() => void navigate({ to: '/staff' })}
-            />
-            {userQuery.data.id !== currentUserId && (
-              <ResetPasswordDialog
-                open={resetPasswordOpen}
-                onOpenChange={setResetPasswordOpen}
-                user={userQuery.data}
-              />
-            )}
-          </>
-        )}
-      </div>
+          )}
+        </>
+      )}
     </RegionConfigProvider>
   );
 }
