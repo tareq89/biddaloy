@@ -49,7 +49,10 @@ describe('/invoices/$invoiceId', () => {
       (await screen.findByRole('heading', { level: 1, name: 'INV-00000002' })).textContent,
     ).toBe('INV-00000002');
     expect(screen.getByText(invoice.student.full_name)).toBeTruthy();
-    expect(screen.getAllByText('Paid').length).toBeGreaterThan(0);
+    const header = screen
+      .getByRole('heading', { level: 1, name: 'INV-00000002' })
+      .closest('header');
+    expect(within(header as HTMLElement).getByText('Paid')).toBeTruthy();
   });
 
   it('Print opens the server-rendered printable route', async () => {
@@ -160,6 +163,23 @@ describe('/invoices/$invoiceId', () => {
 
     expect(await screen.findByText('Credit note')).toBeTruthy();
     const link = screen.getByRole('link', { name: 'INV-ORIG' });
+    expect(link.getAttribute('href')).toBe('/invoices/invoice-0');
+  });
+
+  it('a credit note whose related_invoice is not loaded still renders, with a fallback link text', async () => {
+    // The server's findOne returns `related_invoice_id` but not the relation.
+    // `undefined` is dropped by JSON.stringify, so the response has no `related_invoice` key.
+    const invoice = {
+      ...invoiceFactory({ id: 'invoice-1' }),
+      kind: 'CREDIT_NOTE',
+      related_invoice_id: 'invoice-0',
+      related_invoice: undefined,
+    };
+    server.use(http.get('/api/v1/invoices/:id', () => HttpResponse.json(invoice)));
+
+    renderDetail();
+
+    const link = await screen.findByRole('link', { name: 'Original invoice' });
     expect(link.getAttribute('href')).toBe('/invoices/invoice-0');
   });
 

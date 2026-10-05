@@ -26,6 +26,8 @@ export interface DiscountCellProps {
    * flips this to `false` even though `commit`'s own clamp only runs when
    * the discount field itself changes. */
   isValid: boolean;
+  /** Row identity (fee + period) appended to the accessible names so every row is unique. */
+  rowName?: string;
 }
 
 export function DiscountCell({
@@ -35,8 +37,10 @@ export function DiscountCell({
   config,
   onDiscountChange,
   isValid,
+  rowName,
 }: DiscountCellProps) {
   const { t } = useTranslation('payments');
+  const suffix = rowName ? ` — ${rowName}` : '';
   const [unlocked, setUnlocked] = React.useState(value > 0);
 
   function commit(discount: number | undefined) {
@@ -51,6 +55,7 @@ export function DiscountCell({
         type="button"
         variant="ghost"
         className="h-11 justify-start gap-1.5 px-2 text-label font-medium text-text-secondary md:h-8"
+        aria-label={`${value > 0 ? formatCurrency(value, config) : t('record.discount.give')}${suffix}`}
         onClick={() => setUnlocked(true)}
       >
         <Lock className="size-4" aria-hidden="true" />
@@ -62,7 +67,7 @@ export function DiscountCell({
   return (
     <div className="flex flex-col gap-1">
       <MoneyInput
-        aria-label={t('record.discount.label')}
+        aria-label={`${t('record.discount.label')}${suffix}`}
         config={config}
         value={value}
         onValueChange={commit}
