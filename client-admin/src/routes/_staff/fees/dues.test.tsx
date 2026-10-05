@@ -6,6 +6,17 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { routeTree } from '../../../routeTree.gen';
 
+// The default test RegionConfig is Bangla; pin REGION_BD_EN for this page so assertions read
+// in Latin digits.
+vi.mock('@biddaloy/ui/i18n', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@biddaloy/ui/i18n')>();
+  return { ...actual, useRegionConfig: () => actual.REGION_BD_EN };
+});
+
+function renderEn(options: Parameters<typeof renderWithRouter>[1]) {
+  return renderWithRouter(routeTree, options);
+}
+
 /** [8.10.4]'s dues queue — real route tree, not a hand-built double, so
  * `ListShell`/`DataTable` and the Flagged toggle actually wire up. Same
  * reasoning `students/index.test.tsx` documents for itself. `handlers.ts`'s
@@ -65,7 +76,7 @@ describe('/fees/dues', () => {
       ),
     );
 
-    renderWithRouter(routeTree, {
+    renderEn({
       initialEntries: ['/fees/dues'],
       tenantId: 'tenant-1',
       role: 'ACCOUNTANT',
@@ -74,6 +85,36 @@ describe('/fees/dues', () => {
 
     await screen.findByText(/Karim Rahman/);
     expect(screen.getByText('Pending')).toBeTruthy();
+    // Caption under the name: registration number and roll.
+    expect(screen.getByText('REG-1 · Roll 1')).toBeTruthy();
+    // Section is merged into the class cell.
+    expect(screen.getByText('Class 5 · A')).toBeTruthy();
+  });
+
+  it('requests 25 rows per page by default', async () => {
+    let limit: string | null = null;
+    server.use(
+      http.get('/api/v1/fees/dues', ({ request }) => {
+        limit = new URL(request.url).searchParams.get('limit');
+        return HttpResponse.json({
+          data: [duesRow()],
+          total: 1,
+          page: 1,
+          limit: 25,
+          totalPages: 1,
+        });
+      }),
+    );
+
+    renderEn({
+      initialEntries: ['/fees/dues'],
+      tenantId: 'tenant-1',
+      role: 'ACCOUNTANT',
+      locale: 'en',
+    });
+
+    await screen.findByText(/Karim Rahman/);
+    expect(limit).toBe('25');
   });
 
   it('shows Overdue status when months_overdue is greater than zero', async () => {
@@ -89,7 +130,7 @@ describe('/fees/dues', () => {
       ),
     );
 
-    renderWithRouter(routeTree, {
+    renderEn({
       initialEntries: ['/fees/dues'],
       tenantId: 'tenant-1',
       role: 'ACCOUNTANT',
@@ -118,7 +159,7 @@ describe('/fees/dues', () => {
       }),
     );
 
-    const { router } = renderWithRouter(routeTree, {
+    const { router } = renderEn({
       initialEntries: ['/fees/dues?class_id=class-9'],
       tenantId: 'tenant-1',
       role: 'ACCOUNTANT',
@@ -128,11 +169,17 @@ describe('/fees/dues', () => {
     await within(await screen.findByRole('combobox', { name: 'Class' })).findByText('Class 9');
 
     const user = userEvent.setup();
-    await user.click(screen.getByRole('checkbox', { name: 'Show flagged/overdue accounts only' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Overdue only' }));
 
     await waitFor(() => expect(flaggedRequested).toBe(true));
     expect(flaggedClassId).toBe('class-9');
     expect(router.state.location.search).toMatchObject({ class_id: 'class-9', flagged: 'true' });
+    // Flagged mode renders only search, class and section.
+    for (const name of ['Month', 'Year', 'Status', 'Fee type']) {
+      expect(screen.queryByRole('combobox', { name })).toBeNull();
+    }
+    expect(screen.getByRole('combobox', { name: 'Class' })).toBeTruthy();
+    expect(screen.getByRole('combobox', { name: 'Section' })).toBeTruthy();
   });
 
   // [8.14.17]: `_staff.tsx`'s `RequirePermission` now refuses the whole
@@ -148,7 +195,7 @@ describe('/fees/dues', () => {
       ),
     );
 
-    renderWithRouter(routeTree, {
+    renderEn({
       initialEntries: ['/fees/dues'],
       tenantId: 'tenant-1',
       role: 'TEACHER',
@@ -166,7 +213,7 @@ describe('/fees/dues', () => {
       ),
     );
 
-    const { router } = renderWithRouter(routeTree, {
+    const { router } = renderEn({
       initialEntries: ['/fees/dues'],
       tenantId: 'tenant-1',
       role: 'ACCOUNTANT',
@@ -174,12 +221,56 @@ describe('/fees/dues', () => {
     });
 
     const user = userEvent.setup();
-    await user.click(await screen.findByRole('link', { name: 'Collect' }));
+    const collect = await screen.findByRole('link', { name: 'Collect fee' });
+    expect(collect.getAttribute('href')).toBe('/payments/record?student_id=student-1');
+    await user.click(collect);
 
     // [16.4.4]: `/payments/record` now redirects to `/payments?record=1`,
     // preserving `student_id` so the modal opens with that student pre-selected.
     await waitFor(() => expect(router.state.location.pathname).toBe('/payments'));
     expect(router.state.location.search).toEqual({ record: '1', student_id: 'student-1' });
+  });
+
+  it('the header Record payment is the one primary action and opens Record Payment through the URL', async () => {
+    server.use(
+      http.get('/api/v1/fees/dues', () =>
+        HttpResponse.json({ data: [duesRow()], total: 1, page: 1, limit: 25, totalPages: 1 }),
+      ),
+    );
+
+    const { router } = renderEn({
+      initialEntries: ['/fees/dues'],
+      tenantId: 'tenant-1',
+      role: 'ACCOUNTANT',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Record payment' }));
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/payments'));
+    expect(router.state.location.search).toEqual({ record: '1' });
+  });
+
+  it('the row Remind action opens the send-reminder dialog without selecting rows', async () => {
+    server.use(
+      http.get('/api/v1/fees/dues', () =>
+        HttpResponse.json({ data: [duesRow()], total: 1, page: 1, limit: 25, totalPages: 1 }),
+      ),
+    );
+
+    renderEn({
+      initialEntries: ['/fees/dues'],
+      tenantId: 'tenant-1',
+      role: 'ACCOUNTANT',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Remind' }));
+
+    expect(await screen.findByRole('dialog')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Clear selection' })).toBeNull();
   });
 
   it('bulk-selecting a row reveals Send reminder and Export CSV', async () => {
@@ -189,7 +280,7 @@ describe('/fees/dues', () => {
       ),
     );
 
-    renderWithRouter(routeTree, {
+    renderEn({
       initialEntries: ['/fees/dues'],
       tenantId: 'tenant-1',
       role: 'ACCOUNTANT',
@@ -201,6 +292,7 @@ describe('/fees/dues', () => {
 
     expect(await screen.findByRole('button', { name: 'Send reminder' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Export CSV' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Clear selection' })).toBeTruthy();
     // [16.5.1] Bulk "Generate invoice" was removed — invoices can only be
     // created from a real payment now, there's no more arbitrary
     // line-item invoice for outstanding dues.
@@ -220,6 +312,12 @@ describe('/fees/dues', () => {
       ),
     );
 
+    server.use(
+      http.get('/api/v1/communications/last-reminders', () =>
+        HttpResponse.json([{ student_id: 'student-1', sent_at: '2026-03-05T10:00:00.000Z' }]),
+      ),
+    );
+
     let capturedBlob: Blob | undefined;
     // jsdom doesn't implement `URL.createObjectURL`/`revokeObjectURL` at
     // all — same stub-and-restore pattern `students/index.test.tsx` uses.
@@ -231,7 +329,7 @@ describe('/fees/dues', () => {
     const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
 
     try {
-      renderWithRouter(routeTree, {
+      renderEn({
         initialEntries: ['/fees/dues'],
         tenantId: 'tenant-1',
         role: 'ACCOUNTANT',
@@ -245,6 +343,8 @@ describe('/fees/dues', () => {
       const csv = await capturedBlob!.text();
       expect(csv).toContain("'=cmd|/c calc");
       expect(csv).not.toContain('\n=cmd');
+      // Last-reminder cell is an ISO date, not the display date.
+      expect(csv).toContain('2026-03-05');
     } finally {
       delete (URL as { createObjectURL?: unknown }).createObjectURL;
       delete (URL as { revokeObjectURL?: unknown }).revokeObjectURL;
@@ -259,7 +359,7 @@ describe('/fees/dues', () => {
       ),
     );
 
-    const { container } = renderWithRouter(routeTree, {
+    const { container } = renderEn({
       initialEntries: ['/fees/dues'],
       tenantId: 'tenant-1',
       role: 'ACCOUNTANT',
@@ -280,7 +380,7 @@ describe('/fees/dues', () => {
       ),
     );
 
-    const { router } = renderWithRouter(routeTree, {
+    const { router } = renderEn({
       initialEntries: ['/fees/dues?page=2'],
       tenantId: 'tenant-1',
       role: 'ACCOUNTANT',
@@ -288,7 +388,7 @@ describe('/fees/dues', () => {
     });
 
     const user = userEvent.setup();
-    await screen.findByRole('region', { name: 'Student dues' });
+    await screen.findByRole('textbox', { name: 'Search' });
     await user.click(await screen.findByRole('combobox', { name: 'Rows per page' }));
     // Option labels render in the tenant's own region digits (Bengali
     // numerals here), independent of the `en` UI locale.
@@ -312,7 +412,7 @@ describe('/fees/dues', () => {
       ),
     );
 
-    renderWithRouter(routeTree, {
+    renderEn({
       initialEntries: ['/fees/dues'],
       tenantId: 'tenant-1',
       role: 'ACCOUNTANT',
@@ -320,7 +420,7 @@ describe('/fees/dues', () => {
     });
 
     const user = userEvent.setup();
-    await screen.findByRole('region', { name: 'Student dues' });
+    await screen.findByRole('textbox', { name: 'Search' });
     await user.click(screen.getByRole('combobox', { name: 'Section' }));
     // Only the built-in "All sections" option — no real section to pick.
     expect(screen.queryAllByRole('option')).toHaveLength(1);
@@ -338,7 +438,7 @@ describe('/fees/dues', () => {
       }),
     );
 
-    const { router } = renderWithRouter(routeTree, {
+    const { router } = renderEn({
       initialEntries: ['/fees/dues'],
       tenantId: 'tenant-1',
       role: 'ACCOUNTANT',
@@ -346,8 +446,8 @@ describe('/fees/dues', () => {
     });
 
     const user = userEvent.setup();
-    await screen.findByRole('region', { name: 'Student dues' });
-    await user.type(screen.getByRole('textbox', { name: 'Search dues' }), 'Karim');
+    await screen.findByRole('textbox', { name: 'Search' });
+    await user.type(screen.getByRole('textbox', { name: 'Search' }), 'Karim');
 
     await waitFor(() => expect(router.state.location.search).toMatchObject({ search: 'Karim' }));
     await waitFor(() => expect(lastSearch).toBe('Karim'));
@@ -382,7 +482,7 @@ describe('/fees/dues', () => {
       ),
     );
 
-    renderWithRouter(routeTree, {
+    renderEn({
       initialEntries: ['/fees/dues'],
       tenantId: 'tenant-1',
       role: 'ACCOUNTANT',
@@ -396,9 +496,37 @@ describe('/fees/dues', () => {
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: /2 fees for Karim Rahman/ }));
 
-    expect(await screen.findByText('Tuition')).toBeTruthy();
-    expect(screen.getByText('Exam fee')).toBeTruthy();
-    expect(screen.getByText('Late fee')).toBeTruthy();
+    const list = await screen.findByRole('list', { name: /2 fees for Karim Rahman/ });
+    const items = within(list).getAllByRole('listitem');
+    expect(items).toHaveLength(2);
+    expect(within(items[0]!).getByText('Tuition')).toBeTruthy();
+    expect(within(items[0]!).getByText('৳500.00')).toBeTruthy();
+    expect(within(items[0]!).getByText(/^March 2026 · due —$/)).toBeTruthy();
+    expect(within(items[1]!).getByText('Exam fee (2)')).toBeTruthy();
+    expect(within(items[1]!).getByText('Late fee')).toBeTruthy();
+    // The per-line pay buttons are gone.
+    expect(within(list).queryByRole('button')).toBeNull();
+  });
+
+  it('month filter options are month names, not 01–12', async () => {
+    server.use(
+      http.get('/api/v1/fees/dues', () =>
+        HttpResponse.json({ data: [], total: 0, page: 1, limit: 25, totalPages: 0 }),
+      ),
+    );
+
+    renderEn({
+      initialEntries: ['/fees/dues'],
+      tenantId: 'tenant-1',
+      role: 'ACCOUNTANT',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await screen.findByRole('textbox', { name: 'Search' });
+    await user.click(screen.getByRole('combobox', { name: 'Month' }));
+    expect(await screen.findByRole('option', { name: 'October' })).toBeTruthy();
+    expect(screen.queryByRole('option', { name: '10' })).toBeNull();
   });
 
   it('filters by fee type', async () => {
@@ -410,7 +538,7 @@ describe('/fees/dues', () => {
       }),
     );
 
-    const { router } = renderWithRouter(routeTree, {
+    const { router } = renderEn({
       initialEntries: ['/fees/dues'],
       tenantId: 'tenant-1',
       role: 'ACCOUNTANT',
@@ -418,7 +546,7 @@ describe('/fees/dues', () => {
     });
 
     const user = userEvent.setup();
-    await screen.findByRole('region', { name: 'Student dues' });
+    await screen.findByRole('textbox', { name: 'Search' });
     await user.click(screen.getByRole('combobox', { name: 'Fee type' }));
     await user.click(await screen.findByRole('option', { name: 'Exam fee' }));
 
@@ -428,7 +556,7 @@ describe('/fees/dues', () => {
     await waitFor(() => expect(lastFeeType).toBe('EXAM_FEE'));
   });
 
-  it('shows a wallet balance chip on the row', async () => {
+  it('shows the credit balance as an amount', async () => {
     server.use(
       http.get('/api/v1/fees/dues', () =>
         HttpResponse.json({ data: [duesRow()], total: 1, page: 1, limit: 10, totalPages: 1 }),
@@ -438,7 +566,7 @@ describe('/fees/dues', () => {
       ),
     );
 
-    renderWithRouter(routeTree, {
+    renderEn({
       initialEntries: ['/fees/dues'],
       tenantId: 'tenant-1',
       role: 'ACCOUNTANT',
@@ -446,9 +574,7 @@ describe('/fees/dues', () => {
     });
 
     await screen.findByText(/Karim Rahman/);
-    // Default region fixture (`handlers/schools.ts`'s `DEFAULT_REGION`) is
-    // Bengali numerals — same digit rendering `dues.test.tsx`'s
-    // rows-per-page test asserts ('২০' for 20).
-    expect(await screen.findByText('Credit: ৳২৫০.০০')).toBeTruthy();
+    expect(await screen.findByText('৳250.00')).toBeTruthy();
+    expect(screen.getByRole('columnheader', { name: 'Credit balance' })).toBeTruthy();
   });
 });
