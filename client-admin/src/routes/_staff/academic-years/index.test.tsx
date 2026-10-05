@@ -256,7 +256,7 @@ describe('/academic-years', () => {
     await user.click(confirm.getByRole('button', { name: 'Keep editing' }));
     await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
     expect(screen.getByRole('dialog')).toBeTruthy();
-    expect((screen.getByLabelText(/^Name/)).value).toBe('Draft');
+    expect(screen.getByLabelText<HTMLInputElement>(/^Name/).value).toBe('Draft');
   });
 
   it('is axe clean', async () => {

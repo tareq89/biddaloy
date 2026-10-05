@@ -58,6 +58,10 @@ describe('TermsTab', () => {
     // (2026-01-01..2026-04-30 is 120 days, ceil(120/7) = 18;
     // 2026-05-01..2026-08-31 is 123 days, ceil(123/7) = 18).
     expect(screen.getAllByText('18 weeks')).toHaveLength(2);
+    // One long-form period per term, never the ISO start/end, plus a total.
+    expect(screen.getAllByText(/(January.*April|জানুয়ারি.*এপ্রিল)/).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/\d{4}-\d{2}-\d{2}/)).toBeNull();
+    expect(screen.getByText(/^Total (2|২)$/)).toBeTruthy();
   });
 
   it('shows the empty message when the year has no terms yet', async () => {
@@ -70,6 +74,7 @@ describe('TermsTab', () => {
     });
 
     expect(await screen.findByText('No terms defined for this academic year')).toBeTruthy();
+    expect(screen.getByText('Add a term to group exams and results by period.')).toBeTruthy();
   });
 
   it('uses the termLabel from calendar settings for the heading and Add button', async () => {
@@ -99,9 +104,54 @@ describe('TermsTab', () => {
     });
 
     await screen.findByText('First Term');
-    expect(screen.getByRole('button', { name: 'Add term' })).toBeTruthy();
+    // Add is an outline button (the page's one filled primary is Edit in the header).
+    expect(screen.getByRole('button', { name: 'Add term' }).getAttribute('data-variant')).toBe(
+      'outline',
+    );
     expect(screen.getAllByRole('button', { name: 'Edit' }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole('button', { name: 'Delete' }).length).toBeGreaterThan(0);
+  });
+
+  it('disables Move up on the first row and Move down on the last', async () => {
+    mockTerms();
+
+    renderWithProviders(<TermsTab academicYearId="year-1" />, {
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    await screen.findByText('First Term');
+    const up = screen.getAllByRole('button', { name: 'Move up' });
+    const down = screen.getAllByRole('button', { name: 'Move down' });
+    expect((up[0] as HTMLButtonElement).disabled).toBe(true);
+    expect((up[1] as HTMLButtonElement).disabled).toBe(false);
+    expect((down[0] as HTMLButtonElement).disabled).toBe(false);
+    expect((down[1] as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('Delete opens a confirm dialog naming the term and deletes it on confirm', async () => {
+    mockTerms();
+    let deleted: string | undefined;
+    server.use(
+      http.delete('/api/v1/calendar/terms/:id', ({ params }) => {
+        deleted = params.id as string;
+        return new HttpResponse(null, { status: 200 });
+      }),
+    );
+
+    const { user } = renderWithProviders(<TermsTab academicYearId="year-1" />, {
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    await screen.findByText('First Term');
+    await user.click(screen.getAllByRole('button', { name: 'Delete' })[0]!);
+    const dialog = within(await screen.findByRole('alertdialog'));
+    expect(dialog.getByText(/Delete "First Term"\?/)).toBeTruthy();
+    await user.click(dialog.getByRole('button', { name: 'Delete' }));
+    await waitFor(() => expect(deleted).toBe('term-1'));
   });
 
   it('reorder moves the term down and posts the new id order', async () => {
@@ -202,8 +252,12 @@ describe('TermsTab', () => {
 
     await waitFor(() =>
       expect(
-        screen.getByText('Term dates must fall within the academic year (2026-01-01 – 2026-12-31)'),
+        screen.getByText(
+          /Term dates must fall within the academic year \(.*(January.*December|জানুয়ারি.*ডিসেম্বর)/,
+        ),
       ).toBeTruthy(),
     );
+    // Never the raw ISO bounds from the server.
+    expect(screen.queryByText(/2026-01-01/)).toBeNull();
   });
 });

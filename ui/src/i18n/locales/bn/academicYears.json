@@ -46,19 +46,19 @@
     "title": "চলমান শিক্ষাবর্ষ নির্ধারণ করুন",
     "description": "\"{{name}}\" কে চলমান শিক্ষাবর্ষ হিসেবে নির্ধারণ করবেন? এতে বর্তমানে চলমান হিসেবে চিহ্নিত অন্য সকল শিক্ষাবর্ষ চলমান থাকবে না — একবারে শুধু একটি বর্ষই চলমান থাকতে পারে।",
     "confirm": "চলমান হিসেবে নির্ধারণ করুন",
-    "confirming": "নির্ধারণ করা হচ্ছে…",
     "errorMessage": "চলমান শিক্ষাবর্ষ নির্ধারণ করতে ব্যর্থ হয়েছে"
   },
   "detail": {
     "tabClasses": "শ্রেণি",
     "tabFeeStructures": "ফি কাঠামো",
-    "tabStatistics": "পরিসংখ্যান",
     "forbidden": "এটি দেখার অনুমতি আপনার নেই।",
     "classes": {
       "columnName": "নাম",
       "columnGrade": "গ্রেড",
       "emptyMessage": "এই শিক্ষাবর্ষে কোনো শ্রেণি নেই",
-      "errorMessage": "শ্রেণি লোড করতে ব্যর্থ হয়েছে"
+      "errorMessage": "শ্রেণি লোড করতে ব্যর্থ হয়েছে",
+      "view": "দেখুন",
+      "emptyExplanation": "এই শিক্ষাবর্ষে খোলা শ্রেণিগুলো এখানে দেখা যাবে।"
     },
     "feeStructures": {
       "columnName": "নাম",
@@ -67,13 +67,13 @@
       "columnAmount": "পরিমাণ",
       "wholeSchool": "পুরো বিদ্যালয়",
       "emptyMessage": "এই শিক্ষাবর্ষে কোনো ফি কাঠামো নেই",
-      "errorMessage": "ফি কাঠামো লোড করতে ব্যর্থ হয়েছে"
+      "errorMessage": "ফি কাঠামো লোড করতে ব্যর্থ হয়েছে",
+      "emptyExplanation": "এই শিক্ষাবর্ষের ফি কাঠামোগুলো এখানে দেখা যাবে।"
     },
     "statistics": {
       "classes": "শ্রেণি",
       "students": "শিক্ষার্থী",
-      "feeStructures": "ফি কাঠামো",
-      "errorMessage": "পরিসংখ্যান লোড করতে ব্যর্থ হয়েছে"
+      "feeStructures": "ফি কাঠামো"
     },
     "tabTerms": "টার্ম",
     "terms": {
@@ -81,10 +81,8 @@
       "labelSemester": "সেমিস্টার",
       "labelTrimester": "ট্রাইমেস্টার",
       "addTerm": "টার্ম যোগ করুন",
-      "columnSeq": "#",
+      "columnSeq": "ক্রম",
       "columnName": "নাম",
-      "columnStartDate": "শুরুর তারিখ",
-      "columnEndDate": "শেষের তারিখ",
       "columnLength": "দৈর্ঘ্য",
       "columnActions": "কার্যক্রম",
       "weekCount_one": "{{count}} সপ্তাহ",
@@ -114,9 +112,19 @@
         "title": "টার্ম মুছুন",
         "description": "\"{{name}}\" মুছে ফেলবেন? এটি ফিরিয়ে আনা যাবে না।",
         "confirm": "মুছুন",
-        "deleting": "মুছে ফেলা হচ্ছে…",
         "errorMessage": "টার্ম মুছতে ব্যর্থ হয়েছে"
-      }
-    }
+      },
+      "subtitle": "পরীক্ষা ও ফলাফল এই পর্বগুলো ধরে ভাগ হয়।",
+      "columnPeriod": "সময়কাল",
+      "emptyExplanation": "পরীক্ষা ও ফলাফল ভাগ করতে একটি টার্ম যোগ করুন।",
+      "reorderError": "ক্রম বদলানো যায়নি"
+    },
+    "factPeriod": "সময়কাল",
+    "classCount_one": "{{count}}টি",
+    "classCount_other": "{{count}}টি",
+    "studentCount_one": "{{count}} জন",
+    "studentCount_other": "{{count}} জন",
+    "feeStructureCount_one": "{{count}}টি",
+    "feeStructureCount_other": "{{count}}টি"
   }
 }
