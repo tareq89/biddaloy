@@ -378,7 +378,11 @@ function AuditLogsList() {
           : {}),
       }}
       announceResults={(count, total) =>
-        t('list.announceResults', { visible: count, total, count: total })
+        t('list.announceResults', {
+          visible: formatNumber(count, regionConfig),
+          total: formatNumber(total, regionConfig),
+          count: total,
+        })
       }
       // A distinct accessible name per toggle — "Expand row" alone would
       // give every row in the table the same name.
