@@ -11,6 +11,7 @@ import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { routeTree } from '../../../routeTree.gen';
+import { pickDate } from '../../../test/pick-date';
 
 /**
  * [8.11.1]'s list page — real `ListShell`/`DataTable` against the real
@@ -117,8 +118,8 @@ describe('/academic-years', () => {
 
     const dialog = within(await screen.findByRole('dialog'));
     await user.type(dialog.getByLabelText('Name'), '2027-2028');
-    await user.type(dialog.getByLabelText('Start date'), '2027-01-01');
-    await user.type(dialog.getByLabelText('End date'), '2027-12-31');
+    await pickDate(user, 'Start date', '2027-01-01');
+    await pickDate(user, 'End date', '2027-12-31');
     await user.click(dialog.getByRole('button', { name: 'Save' }));
 
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
@@ -144,8 +145,8 @@ describe('/academic-years', () => {
 
     const dialog = within(await screen.findByRole('dialog'));
     await user.type(dialog.getByLabelText('Name'), 'Bad Year');
-    await user.type(dialog.getByLabelText('Start date'), '2027-12-31');
-    await user.type(dialog.getByLabelText('End date'), '2027-01-01');
+    await pickDate(user, 'Start date', '2027-12-31');
+    await pickDate(user, 'End date', '2027-01-01');
     await user.click(dialog.getByRole('button', { name: 'Save' }));
 
     expect(await dialog.findByText('End date must be after the start date')).toBeTruthy();

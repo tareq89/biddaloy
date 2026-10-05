@@ -4,6 +4,8 @@ import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { pickDate } from '../../../../test/pick-date';
+
 import { PromoteStaffDialog } from './-promote-staff-dialog';
 
 afterEach(async () => {
@@ -72,7 +74,7 @@ describe('PromoteStaffDialog', () => {
 
     await user.click(screen.getByRole('combobox', { name: 'New designation' }));
     await user.click(await screen.findByRole('option', { name: 'Accountant' }));
-    await user.type(screen.getByRole('textbox', { name: 'Effective date' }), '2026-06-01');
+    await pickDate(user, 'Effective date', '2026-06-01');
     await user.click(screen.getByRole('button', { name: 'Promote' }));
 
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
@@ -98,7 +100,7 @@ describe('PromoteStaffDialog', () => {
 
     await user.click(screen.getByRole('combobox', { name: 'New designation' }));
     await user.click(await screen.findByRole('option', { name: 'Accountant' }));
-    await user.type(screen.getByRole('textbox', { name: 'Effective date' }), '2026-06-01');
+    await pickDate(user, 'Effective date', '2026-06-01');
     await user.click(screen.getByRole('button', { name: 'Promote' }));
 
     expect((await screen.findByRole('alert')).textContent).toBe(
