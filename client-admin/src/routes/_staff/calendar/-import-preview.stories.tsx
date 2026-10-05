@@ -23,17 +23,20 @@ function summary(overrides: Partial<CalendarImportSummary> = {}): CalendarImport
 
 function Wrapper(props: { rows: CalendarImportRow[]; summary: CalendarImportSummary }) {
   const [allowPartial, setAllowPartial] = React.useState(false);
+  const [publish, setPublish] = React.useState(false);
   return (
     <ImportPreviewTable
       summary={props.summary}
       rows={props.rows}
       allowPartial={allowPartial}
       onAllowPartialChange={setAllowPartial}
+      publishImmediately={publish}
+      onPublishImmediatelyChange={setPublish}
     />
   );
 }
 
-export const Mixed: Story = {
+export const WithErrors: Story = {
   render: () => (
     <Wrapper
       summary={summary({ new: 1, updated: 1, unchanged: 1, error: 1 })}
@@ -44,7 +47,9 @@ export const Mixed: Story = {
         {
           row: 5,
           status: 'ERROR',
-          errors: [{ row: 5, column: null, message: 'End date is before start date', severity: 'error' }],
+          errors: [
+            { row: 5, column: null, message: 'End date is before start date', severity: 'error' },
+          ],
         },
       ]}
     />
@@ -72,12 +77,16 @@ export const AllError: Story = {
         {
           row: 2,
           status: 'ERROR',
-          errors: [{ row: 2, column: 'type', message: 'Unrecognized event type', severity: 'error' }],
+          errors: [
+            { row: 2, column: 'type', message: 'Unrecognized event type', severity: 'error' },
+          ],
         },
         {
           row: 3,
           status: 'ERROR',
-          errors: [{ row: 3, column: null, message: 'Missing required column: name', severity: 'error' }],
+          errors: [
+            { row: 3, column: null, message: 'Missing required column: name', severity: 'error' },
+          ],
         },
       ]}
     />
