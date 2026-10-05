@@ -13,7 +13,7 @@ import { ClassSection } from '../academics/entities/class-section.entity';
 import { Teacher } from '../academics/entities/teacher.entity';
 import { TeacherClassSection } from '../academics/entities/teacher-class-section.entity';
 import { User } from '../users/entities/user.entity';
-import { UserRole } from '@biddaloy/shared';
+import { RoutineState, UserRole } from '@biddaloy/shared';
 import { ConfigModule } from '@nestjs/config';
 import { AttendanceModule } from './attendance.module';
 import { AuthModule } from '../auth/auth.module';
@@ -363,6 +363,33 @@ describe('AttendanceAccessService (integration)', () => {
         DATE,
       );
       expect(all.map((p) => p.period_no)).toEqual([1, 2]);
+    });
+  });
+
+  // Pins the fake STUDENT caller resolvePeriods hands the routine resolver: it
+  // must only ever see PUBLISHED routines, never a DRAFT or REVIEW one.
+  describe('resolvePeriods', () => {
+    const DATE = '2026-03-04';
+    const seed = (state: RoutineState) =>
+      seedPeriodRoutine(dataSource, {
+        tenantId: TENANT_A,
+        academicYearId: SEED_ACADEMIC_YEAR_ID,
+        sectionId: sectionA1Id,
+        date: DATE,
+        periods: 2,
+        createdBy: teacherAUserId,
+        state,
+      });
+
+    it.each([RoutineState.DRAFT, RoutineState.REVIEW])('a %s routine resolves to []', async (s) => {
+      await seed(s);
+      expect(await service.resolvePeriods(TENANT_A, sectionA1Id, DATE)).toEqual([]);
+    });
+
+    it('a PUBLISHED routine resolves to its slots', async () => {
+      await seed(RoutineState.PUBLISHED);
+      const periods = await service.resolvePeriods(TENANT_A, sectionA1Id, DATE);
+      expect(periods.map((p) => p.period_no)).toEqual([1, 2]);
     });
   });
 });

@@ -111,10 +111,15 @@ export class AttendanceController {
     });
   }
 
-  // No `@Roles`: the permission matrix would then need a ROLE_NARROWINGS entry
-  // (a file outside this module). The access service fails closed for roles
-  // that may not see sections (PARENT, STUDENT, ...), so nothing leaks.
   @Get('sections/:sectionId/periods')
+  @Roles(
+    UserRole.ADMIN,
+    UserRole.EXECUTIVE,
+    UserRole.ACCOUNTANT,
+    UserRole.TEACHER,
+    UserRole.OFFICE_STAFF,
+    UserRole.EXAM_CONTROLLER,
+  )
   @RequirePermissions(Permission.ATTENDANCE_READ)
   @ApiOperation({
     summary:
