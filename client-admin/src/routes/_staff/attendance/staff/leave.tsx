@@ -5,10 +5,13 @@
  * that panel can't be wired up end to end yet).
  */
 import { Permission } from '@biddaloy/shared';
-import { Button, ErrorState, Skeleton } from '@biddaloy/ui/components';
+import { DataTable, EmptyState, ErrorState, type DataTableColumn } from '@biddaloy/ui/components';
 import { useCurrentUser, useHasPermission, useLeaveBalance } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { PageContainer, PageHeader } from '@biddaloy/ui/shells';
+import { formatNumber } from '@biddaloy/ui/utils';
 import { createFileRoute } from '@tanstack/react-router';
+import { CalendarX2, Plus, UserX } from 'lucide-react';
 import * as React from 'react';
 
 import { loadRouteNamespaces } from '../../../../route-loaders';
@@ -21,38 +24,96 @@ export const Route = createFileRoute('/_staff/attendance/staff/leave')({
   component: LeavePage,
 });
 
+type BalanceRow = NonNullable<ReturnType<typeof useLeaveBalance>['data']>[number];
+
 function LeavePage() {
   const { t } = useTranslation('leave');
+  const regionConfig = useTenantRegionConfig();
   const canApprove = useHasPermission(Permission.LEAVE_APPROVE);
   const currentUserQuery = useCurrentUser();
   const staffProfileId = currentUserQuery.data?.staff_profile_id ?? null;
   const balanceQuery = useLeaveBalance(staffProfileId ?? '');
   const [requestOpen, setRequestOpen] = React.useState(false);
 
-  return (
-    <div className="flex flex-col gap-6 p-4">
-      <section className="flex flex-col gap-3">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-lg font-semibold">{t('myLeave.title')}</h1>
-          {staffProfileId !== null && (
-            <Button type="button" onClick={() => setRequestOpen(true)}>
-              {t('myLeave.requestButton')}
-            </Button>
-          )}
-        </div>
+  const columns: DataTableColumn<BalanceRow>[] = [
+    {
+      id: 'type',
+      header: t('myLeave.columnType'),
+      accessorFn: (row) => t(`type.${row.leave_type}`),
+      card: 'title',
+    },
+    {
+      id: 'quota',
+      header: t('myLeave.columnQuota'),
+      accessorFn: (row) => formatNumber(row.annual_quota_days, regionConfig),
+      align: 'end',
+    },
+    {
+      id: 'used',
+      header: t('myLeave.columnUsed'),
+      accessorFn: (row) => formatNumber(row.used_days, regionConfig),
+      align: 'end',
+    },
+    {
+      id: 'balance',
+      header: t('myLeave.columnBalance'),
+      accessorFn: (row) => (
+        <>
+          <span className="hidden md:inline">{formatNumber(row.balance, regionConfig)}</span>
+          <span className="md:hidden">
+            {t('myLeave.daysLeft', { count: row.balance, n: row.balance })}
+          </span>
+        </>
+      ),
+      align: 'end',
+      card: 'badge',
+    },
+  ];
 
+  const tableProps = {
+    tableId: 'leave-balance',
+    caption: t('myLeave.title'),
+    columns,
+    getRowId: (row: BalanceRow) => row.leave_type,
+    sorting: null,
+    onSortingChange: () => undefined,
+    paginated: false,
+  } as const;
+
+  return (
+    <PageContainer>
+      <PageHeader
+        title={t('items.leave', { ns: 'nav' })}
+        subtitle={t('page.subtitle')}
+        actions={
+          staffProfileId !== null
+            ? [
+                {
+                  id: 'request',
+                  label: t('myLeave.requestButton'),
+                  priority: 'primary',
+                  icon: <Plus aria-hidden="true" />,
+                  onClick: () => setRequestOpen(true),
+                },
+              ]
+            : []
+        }
+      />
+
+      <section aria-labelledby="leave-balance" className="space-y-3">
+        <h2 id="leave-balance" className="text-h2">
+          {t('myLeave.title')}
+        </h2>
         {currentUserQuery.isPending ? (
-          <div aria-busy="true" aria-live="polite">
-            <span className="sr-only">{t('myLeave.loading')}</span>
-            <Skeleton className="h-32 w-full" />
-          </div>
+          <DataTable {...tableProps} data={[]} totalCount={0} loading />
         ) : staffProfileId === null ? (
-          <p className="text-sm text-muted-foreground">{t('myLeave.empty')}</p>
+          <EmptyState
+            icon={<UserX />}
+            title={t('myLeave.noProfileTitle')}
+            explanation={t('myLeave.noProfileMessage')}
+          />
         ) : balanceQuery.isPending ? (
-          <div aria-busy="true" aria-live="polite">
-            <span className="sr-only">{t('myLeave.loading')}</span>
-            <Skeleton className="h-32 w-full" />
-          </div>
+          <DataTable {...tableProps} data={[]} totalCount={0} loading />
         ) : balanceQuery.isError ? (
           <ErrorState
             message={t('myLeave.errorMessage')}
@@ -60,37 +121,17 @@ function LeavePage() {
             onRetry={() => void balanceQuery.refetch()}
           />
         ) : balanceQuery.data.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{t('myLeave.empty')}</p>
+          <EmptyState
+            icon={<CalendarX2 />}
+            title={t('myLeave.emptyTitle')}
+            explanation={t('myLeave.empty')}
+          />
         ) : (
-          <table className="w-full border-collapse text-sm">
-            <caption className="sr-only">{t('myLeave.balanceTitle')}</caption>
-            <thead>
-              <tr className="border-b border-border-subtle">
-                <th scope="col" className="p-1.5 text-start font-medium">
-                  {t('myLeave.columnType')}
-                </th>
-                <th scope="col" className="p-1.5 text-end font-medium">
-                  {t('myLeave.columnQuota')}
-                </th>
-                <th scope="col" className="p-1.5 text-end font-medium">
-                  {t('myLeave.columnUsed')}
-                </th>
-                <th scope="col" className="p-1.5 text-end font-medium">
-                  {t('myLeave.columnBalance')}
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {balanceQuery.data.map((row) => (
-                <tr key={row.leave_type} className="border-b border-border-subtle">
-                  <td className="p-1.5">{t(`type.${row.leave_type}`)}</td>
-                  <td className="p-1.5 text-end">{row.annual_quota_days}</td>
-                  <td className="p-1.5 text-end">{row.used_days}</td>
-                  <td className="p-1.5 text-end">{row.balance}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <DataTable
+            {...tableProps}
+            data={balanceQuery.data}
+            totalCount={balanceQuery.data.length}
+          />
         )}
       </section>
 
@@ -103,6 +144,6 @@ function LeavePage() {
           staffProfileId={staffProfileId}
         />
       )}
-    </div>
+    </PageContainer>
   );
 }
