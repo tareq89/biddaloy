@@ -49,8 +49,16 @@ function NewHomeworkPage() {
   const [dirty, setDirty] = React.useState(false);
   const [discardOpen, setDiscardOpen] = React.useState(false);
   const pending = createHomework.isPending || assignHomework.isPending;
+  const guardedClose = () => {
+    if (!pending) close();
+  };
+
+  // Blocks a second submit fired before `pending` has re-rendered.
+  const inFlight = React.useRef(false);
 
   async function handleSubmit(payload: AssignHomeworkFormSubmitPayload) {
+    if (inFlight.current) return;
+    inFlight.current = true;
     setErrorMessage(undefined);
     try {
       let homeworkId = createdId;
@@ -64,6 +72,8 @@ function NewHomeworkPage() {
     } catch {
       // Never print the server's message: it is not translated (D9).
       setErrorMessage(t('form.genericError'));
+    } finally {
+      inFlight.current = false;
     }
   }
 
@@ -73,11 +83,15 @@ function NewHomeworkPage() {
         title={t('form.createTitle')}
         size="form"
         dirty={dirty}
-        onClose={close}
+        onClose={guardedClose}
         secondary={{
           label: tCommon('actions.cancel'),
           // The footer's secondary bypasses the shell's dirty check.
-          onClick: () => (dirty ? setDiscardOpen(true) : close()),
+          onClick: () => {
+            if (pending) return;
+            if (dirty) setDiscardOpen(true);
+            else close();
+          },
         }}
         primary={{
           label: t('form.submitCreate'),
@@ -126,7 +140,8 @@ function NewHomeworkPage() {
         description={tCommon('fullPage.discardDescription')}
         confirmLabel={tCommon('fullPage.discardConfirm')}
         cancelLabel={tCommon('fullPage.keepEditing')}
-        onConfirm={close}
+        tone="danger"
+        onConfirm={guardedClose}
       />
     </RegionConfigProvider>
   );

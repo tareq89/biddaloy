@@ -62,8 +62,6 @@
       "DEACTIVATED": "Deactivated",
       "SUPERSEDED": "Superseded"
     },
-    "submit": "Save",
-    "submitting": "Saving…",
     "dueBeforeAssigned": "Due date must be on or after the assigned date.",
     "assignFailedAfterCreate": "Homework was created, but assigning it failed. Try again from its detail page:",
     "viewCreatedHomework": "Go to homework",
