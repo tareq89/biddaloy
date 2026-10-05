@@ -1,3 +1,4 @@
+import { REGION_BD_EN } from '@biddaloy/ui/i18n';
 import {
   apiErrorBody,
   cleanupTestState,
@@ -6,12 +7,14 @@ import {
   renderWithRouter,
   server,
 } from '@biddaloy/ui/test';
+import { formatDate, formatPhone } from '@biddaloy/ui/utils';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { routeTree } from '../../../routeTree.gen';
+import { pickDate } from '../../../test/pick-date';
 
 /** A structurally valid (unsigned) JWT whose `sub` is the given user id —
  * what `useCurrentUserId` decodes for the self-removal guard. */
@@ -67,11 +70,13 @@ describe('/staff', () => {
 
     await waitFor(() => expect(screen.getByText('Abdul Karim')).toBeTruthy());
     expect(screen.getByText('karim@example.com')).toBeTruthy();
-    expect(screen.getByText('+880 1712-345678')).toBeTruthy();
+    expect(screen.getByText(formatPhone('+8801712345678', REGION_BD_EN))).toBeTruthy();
     expect(screen.getByText('Accountant')).toBeTruthy();
     // Status is conveyed by label text, not colour alone (StatusBadge).
     expect(screen.getByText('Active')).toBeTruthy();
-    expect(screen.getByText('2025-04-10')).toBeTruthy();
+    expect(
+      screen.getByText(formatDate(new Date('2025-04-10T00:00:00.000Z'), REGION_BD_EN)),
+    ).toBeTruthy();
   });
 
   it('filters by role using the shared UserRole enum as a query param', async () => {
@@ -436,7 +441,10 @@ describe('/staff', () => {
   // [8.14.10]: FilterBar migration — the rows-per-page control changes
   // `limit` and resets `page` in one URL update.
   it('changing rows per page writes limit and resets page', async () => {
-    server.use(http.get('/api/v1/users', () => HttpResponse.json(paginated([]))));
+    // The footer (and its page-size select) only exists while there are rows.
+    server.use(
+      http.get('/api/v1/users', () => HttpResponse.json(paginated([userResponseFactory()]))),
+    );
 
     const { router } = renderWithRouter(routeTree, {
       initialEntries: ['/staff?page=2'],
@@ -450,9 +458,9 @@ describe('/staff', () => {
     await user.click(screen.getByRole('combobox', { name: 'Rows per page' }));
     // Option labels render in the tenant's own region digits (Bengali
     // numerals here), independent of the `en` UI locale.
-    await user.click(await screen.findByRole('option', { name: '২০' }));
+    await user.click(await screen.findByRole('option', { name: '৫০' }));
 
-    await waitFor(() => expect(router.state.location.search).toMatchObject({ limit: 20, page: 1 }));
+    await waitFor(() => expect(router.state.location.search).toMatchObject({ limit: 50, page: 1 }));
   });
 
   // [8.14.10]: `GET /users` now accepts a `sort`/`order` param — clicking
@@ -529,7 +537,7 @@ describe('/staff', () => {
     await screen.findByRole('region', { name: 'Users with access to this school' });
     await user.click(screen.getByRole('combobox', { name: 'Status' }));
     await user.click(await screen.findByRole('option', { name: 'Active' }));
-    await user.type(screen.getByRole('textbox', { name: 'Joined from' }), '2026-01-01');
+    await pickDate(user, 'Joined from', '2026-01-01');
 
     await waitFor(() =>
       expect(router.state.location.search).toMatchObject({

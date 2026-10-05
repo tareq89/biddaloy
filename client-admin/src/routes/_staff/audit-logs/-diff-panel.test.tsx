@@ -1,5 +1,6 @@
 import { RegionConfigProvider, REGION_BD_BN, REGION_BD_EN } from '@biddaloy/ui/i18n';
 import { cleanupTestState, renderWithProviders } from '@biddaloy/ui/test';
+import { formatDate } from '@biddaloy/ui/utils';
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactElement } from 'react';
@@ -124,8 +125,8 @@ describe('DiffPanel', () => {
     await screen.findByRole('cell', { name: /^Active/ });
     expect(screen.getByRole('cell', { name: 'Yes' })).toBeTruthy();
     expect(screen.getByRole('cell', { name: 'No' })).toBeTruthy();
-    expect(screen.getByRole('cell', { name: '2026-01-05' })).toBeTruthy();
-    expect(screen.getByRole('cell', { name: '2026-02-06' })).toBeTruthy();
+    expect(screen.getByRole('cell', { name: formatDate('2026-01-05', REGION_BD_EN) })).toBeTruthy();
+    expect(screen.getByRole('cell', { name: formatDate('2026-02-06', REGION_BD_EN) })).toBeTruthy();
   });
 
   it('flattens a one-level nested object into labelled lines instead of JSON', async () => {
