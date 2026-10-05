@@ -1,3 +1,4 @@
+import { REGION_BD_EN } from '@biddaloy/ui/i18n';
 import { cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
 import { screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
@@ -47,6 +48,12 @@ function registerRow(overrides: Record<string, unknown> = {}) {
   };
 }
 
+// The default test tenant settings say Bangla digits and month names; the tests that read
+// formatted numbers/months pin the English region so locale and region agree.
+const pinEnglishRegion = http.get('/api/v1/schools/:schoolId/settings', () =>
+  HttpResponse.json({ version: 1, region: REGION_BD_EN }),
+);
+
 describe('/attendance/register', () => {
   afterEach(async () => {
     await cleanupTestState();
@@ -65,16 +72,25 @@ describe('/attendance/register', () => {
         screen.getByText('Pick a class, section and month to generate the register.'),
       ).toBeTruthy(),
     );
+    expect(screen.getByRole('heading', { name: 'No section picked yet' })).toBeTruthy();
+    // Kit selects and month picker, each with a visible label — no native controls.
+    expect(screen.getByLabelText('Class')).toBeTruthy();
+    expect(screen.getByLabelText('Section')).toBeTruthy();
+    expect(screen.getByLabelText('Month')).toBeTruthy();
+    expect(document.querySelector('select, input[type="month"]')).toBeNull();
+    // Nothing to print yet.
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Print' }).disabled).toBe(true);
   });
 
   it('renders 31 day columns plus totals, each cell carrying an sr-only status word, for a 31-day month', async () => {
     server.use(
+      pinEnglishRegion,
       http.get('/api/v1/attendance/sections/:sectionId/register-matrix', () =>
         HttpResponse.json({ dates: dates31('2026-01'), rows: [registerRow()] }),
       ),
     );
 
-    renderWithRouter(routeTree, {
+    const { localeReady } = renderWithRouter(routeTree, {
       initialEntries: [
         `/attendance/register?class_id=${CLASS_ID}&section_id=${SECTION_ID}&month=2026-01`,
       ],
@@ -82,6 +98,7 @@ describe('/attendance/register', () => {
       role: 'ADMIN',
       locale: 'en',
     });
+    await localeReady;
 
     const table = await screen.findByRole('table');
     // 31 day columns + Roll + Student + 5 total columns = 38 header cells.
@@ -93,9 +110,16 @@ describe('/attendance/register', () => {
     // "Present"/"Absent" total-column headers.
     expect(within(table).getAllByText('Present').length).toBeGreaterThan(1);
     expect(within(table).getAllByText('Absent').length).toBeGreaterThan(1);
+    // Letters come from i18n and are explained by a legend; Print is on once rows load.
+    expect(within(table).getAllByText('P').length).toBeGreaterThan(0);
+    expect(within(table).getAllByText('A').length).toBeGreaterThan(0);
+    expect(screen.getByText('P = Present')).toBeTruthy();
+    expect(screen.getByText('— = school closed')).toBeTruthy();
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Print' }).disabled).toBe(false);
+    expect(await screen.findByText('Total 1')).toBeTruthy();
   });
 
-  it('shows an unrecognized status raw instead of a blank cell', async () => {
+  it('shows an unrecognized status as "?" / "Unknown", never the raw enum', async () => {
     server.use(
       http.get('/api/v1/attendance/sections/:sectionId/register-matrix', () =>
         HttpResponse.json({
@@ -119,11 +143,13 @@ describe('/attendance/register', () => {
 
     await screen.findByRole('table');
     expect(screen.getByText('?')).toBeTruthy();
-    expect(screen.getByText('HALF_DAY')).toBeTruthy();
+    expect(screen.getByText('Unknown')).toBeTruthy();
+    expect(screen.queryByText('HALF_DAY')).toBeNull();
   });
 
   it('names class, section and month in the table caption', async () => {
     server.use(
+      pinEnglishRegion,
       http.get('/api/v1/classes', () =>
         HttpResponse.json({
           data: [{ id: CLASS_ID, name: 'Class 5', section_count: 1, student_count: 30 }],
@@ -141,7 +167,7 @@ describe('/attendance/register', () => {
       ),
     );
 
-    renderWithRouter(routeTree, {
+    const { localeReady } = renderWithRouter(routeTree, {
       initialEntries: [
         `/attendance/register?class_id=${CLASS_ID}&section_id=${SECTION_ID}&month=2026-01`,
       ],
@@ -149,10 +175,12 @@ describe('/attendance/register', () => {
       role: 'ADMIN',
       locale: 'en',
     });
+    await localeReady;
 
     await waitFor(() =>
-      expect(screen.getByText('Attendance register — Class 5 A, 2026-01')).toBeTruthy(),
+      expect(screen.getByText('Attendance register — Class 5 – A, January 2026')).toBeTruthy(),
     );
+    expect(await screen.findByRole('heading', { name: 'Class 5 – A · January 2026' })).toBeTruthy();
   });
 
   it('shows an empty state when the section has no students', async () => {
@@ -172,6 +200,9 @@ describe('/attendance/register', () => {
     });
 
     await waitFor(() => expect(screen.getByText('No students in this section.')).toBeTruthy());
+    expect(screen.getByText('The register appears once students are enrolled.')).toBeTruthy();
+    // A retry cannot change an empty section — no fake action.
+    expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull();
   });
 
   it('shows an error state when the register-matrix request fails', async () => {
@@ -191,5 +222,6 @@ describe('/attendance/register', () => {
     });
 
     await waitFor(() => expect(screen.getByText('Could not load the register.')).toBeTruthy());
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeTruthy();
   });
 });
