@@ -40,12 +40,16 @@ import { formatNumber } from '@biddaloy/ui/utils';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { CircleAlertIcon, PlusIcon, RulerIcon } from 'lucide-react';
 import * as React from 'react';
+import { z } from 'zod';
 
+import { useLandingFlag } from '../-use-landing-flag';
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 
 const ALL_VALUE = '__all__';
 
+// `z.looseObject`, not `z.object`: a plain object would strip the list-state params.
 export const Route = createFileRoute('/_staff/grading-scales/')({
+  validateSearch: z.looseObject({ new: z.coerce.string().optional().catch(undefined) }),
   loader: ({ context: { queryClient } }) =>
     Promise.all([
       queryClient.ensureQueryData(gradingScalesQueryOptions({})).catch(swallowUnlessOffline),
@@ -69,7 +73,7 @@ function GradingScalesListPage() {
   const scalesQuery = useGradingScales(filterYearId ? { academic_year_id: filterYearId } : {});
   const years = academicYearsQuery.data?.data ?? [];
 
-  const [createOpen, setCreateOpen] = React.useState(false);
+  const [createOpen, setCreateOpen] = useLandingFlag('new', canManage);
   const createScale = useCreateGradingScale();
   const [name, setName] = React.useState('');
   const [academicYearId, setAcademicYearId] = React.useState('');

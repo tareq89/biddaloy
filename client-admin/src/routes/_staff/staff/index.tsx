@@ -39,6 +39,7 @@ import { IdCardIcon, PlusIcon, UserRoundCheckIcon, XIcon } from 'lucide-react';
 import * as React from 'react';
 import { z } from 'zod';
 
+import { useLandingFlag } from '../-use-landing-flag';
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 
 import { AddUserDialog } from './-add-user-dialog';
@@ -70,6 +71,8 @@ interface StaffFilters {
 
 const staffSearchSchema = z.object({
   page: z.number().int().positive().optional().catch(undefined),
+  promote: z.coerce.string().optional().catch(undefined),
+  new: z.coerce.string().optional().catch(undefined),
   limit: z.number().int().positive().optional().catch(undefined),
   sort: z.string().optional().catch(undefined),
   order: z.enum(['asc', 'desc']).optional().catch(undefined),
@@ -178,8 +181,8 @@ function StaffListPage() {
   const canPrint = canPrintDocuments && canReadHr;
   const navigate = useNavigate();
 
-  const [addUserOpen, setAddUserOpen] = React.useState(false);
-  const [promoteOpen, setPromoteOpen] = React.useState(false);
+  const [addUserOpen, setAddUserOpen] = useLandingFlag('new', canCreate);
+  const [promoteOpen, setPromoteOpen] = useLandingFlag('promote', canCreate);
   const [editTarget, setEditTarget] = React.useState<StaffUser | null>(null);
   const [removeTarget, setRemoveTarget] = React.useState<StaffUser | null>(null);
 
