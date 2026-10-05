@@ -193,6 +193,7 @@ test('cannot reach fees or settings', async ({ page }) => {
   await shell.expectNavItem('nav.items.seatPlans', true);
   for (const key of [
     'nav.items.fees',
+    'nav.items.payments',
     'nav.items.feeStructures',
     'nav.items.recordPayment',
     'nav.items.settings',
