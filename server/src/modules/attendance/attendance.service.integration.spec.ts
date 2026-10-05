@@ -1,9 +1,10 @@
 import { randomUUID } from 'crypto';
-import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterAll, vi } from 'vitest';
 import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
@@ -513,6 +514,20 @@ describe('AttendanceService (integration)', () => {
       expect(by[studentId2].remarks).toBeNull();
     });
 
+    // The access gate normally refuses a missing section first; this pins the
+    // write path's own fallback (a section gone between gate and write).
+    it('a missing class section row is a 404, never a tenant-wide holiday check', async () => {
+      const access = (service as any).attendanceAccessService;
+      const spy = vi.spyOn(access, 'assertCanAccessSection').mockResolvedValue({} as any);
+      try {
+        await expect(
+          service.putRegister(putParams({ sectionId: randomUUID(), dto: basePutDto() })),
+        ).rejects.toBeInstanceOf(NotFoundException);
+      } finally {
+        spy.mockRestore();
+      }
+    });
+
     it('403s a TEACHER of tenant A attempting to mark a section that belongs to tenant B', async () => {
       const dto = basePutDto();
       await expect(
@@ -818,6 +833,18 @@ describe('AttendanceService (integration)', () => {
       await expect(adminList(FUTURE())).rejects.toMatchObject({
         response: { details: { code: 'ATTENDANCE_FUTURE_DATE' } },
       });
+    });
+
+    it('refuses a future date even for a caller with no sections', async () => {
+      await demoteBaseTeacher(); // the TEACHER now has no sections at all
+      await expect(
+        service.listMySections({
+          role: UserRole.TEACHER,
+          userId: teacherUserId,
+          tenantId: TENANT_ID,
+          date: FUTURE(),
+        }),
+      ).rejects.toMatchObject({ response: { details: { code: 'ATTENDANCE_FUTURE_DATE' } } });
     });
 
     it('a period register on the same date never replaces the day register', async () => {

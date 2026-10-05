@@ -124,12 +124,6 @@ export class AttendanceService {
 
   async listMySections(params: { role: string; userId: string; tenantId: string; date?: string }) {
     const { role, userId, tenantId } = params;
-    const sections = await this.attendanceAccessService.listMarkableSections(
-      role,
-      userId,
-      tenantId,
-    );
-    if (sections.length === 0) return [];
 
     // `date` defaults to the tenant's local today (not the server's UTC
     // day) when the caller doesn't supply one — this is the teacher's
@@ -144,6 +138,13 @@ export class AttendanceService {
         details: { code: 'ATTENDANCE_FUTURE_DATE' },
       });
     }
+
+    const sections = await this.attendanceAccessService.listMarkableSections(
+      role,
+      userId,
+      tenantId,
+    );
+    if (sections.length === 0) return [];
 
     const sectionIds = sections.map((s) => s.id);
 
@@ -468,14 +469,18 @@ export class AttendanceService {
     // 5. Non-working day, per the shared calendar service.
     const hasCorrect = roleHasPermission(role, Permission.ATTENDANCE_CORRECT);
     // Class-scoped holidays block only that class (#1585), so look up the
-    // section's class — tenant-filtered, the access gate already passed.
+    // section's class — tenant-filtered, the access gate already passed. Fails
+    // closed: no row must never fall back to the tenant-wide check.
     const sectionRow = await manager
       .getRepository(ClassSection)
       .findOne({ where: { id: sectionId, tenant_id: tenantId } });
+    if (!sectionRow) {
+      throw new NotFoundException('Class section not found');
+    }
     const nonWorkingDay = await this.schoolCalendarService.isNonWorkingDay({
       tenantId,
       date: dto.date,
-      classId: sectionRow?.class_id,
+      classId: sectionRow.class_id,
     });
     if (nonWorkingDay && !(dto.force_non_working_day === true && hasCorrect)) {
       throw new UnprocessableEntityException({
