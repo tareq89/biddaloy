@@ -14,19 +14,16 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  StatusBadge,
   type DataTableColumn,
 } from '@biddaloy/ui/components';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { ListShell, useListShellState } from '@biddaloy/ui/shells';
-import { Link } from '@tanstack/react-router';
+import { formatDateRange, formatNumber } from '@biddaloy/ui/utils';
+import { DoorOpenIcon, PlusIcon } from 'lucide-react';
 import * as React from 'react';
 
-import {
-  useClassSectionOptions,
-  useCreateIntake,
-  useIntakes,
-  type AdmissionIntake,
-} from './hooks/useIntakes';
+import { useCreateIntake, useIntakes, type IntakeListRow } from './hooks/useIntakes';
 import {
   EMPTY_INTAKE_FORM,
   IntakeForm,
@@ -37,18 +34,13 @@ import {
 
 export function IntakeList() {
   const { t } = useTranslation('admission-staff-intakes');
-  const [state, actions] = useListShellState({ limit: 25 });
+  const [state, actions] = useListShellState();
   const intakesQuery = useIntakes();
-  const { options: sectionOptions } = useClassSectionOptions();
+  const regionConfig = useRegionConfig();
 
   const [createOpen, setCreateOpen] = React.useState(false);
   const [form, setForm] = React.useState<IntakeFormValue>(EMPTY_INTAKE_FORM);
   const createIntake = useCreateIntake();
-
-  function sectionLabel(intake: AdmissionIntake): string {
-    const option = sectionOptions.find((candidate) => candidate.id === intake.class_section_id);
-    return option ? `${option.className} · ${option.sectionName}` : intake.class_section_id;
-  }
 
   function handleCreateSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -61,55 +53,41 @@ export function IntakeList() {
     });
   }
 
-  const columns: DataTableColumn<AdmissionIntake>[] = [
+  const columns: DataTableColumn<IntakeListRow>[] = [
     {
       id: 'title',
       header: t('list.columnTitle'),
-      accessorFn: (row) => (
-        <Link
-          to="/admissions/intakes/$intakeId"
-          params={{ intakeId: row.id }}
-          className="font-medium text-primary underline"
-        >
-          {row.title}
-        </Link>
-      ),
+      accessorFn: (row) => <span className="font-medium">{row.title}</span>,
+      card: 'title',
     },
     {
       id: 'classSection',
       header: t('list.columnClassSection'),
-      accessorFn: (row) => sectionLabel(row),
+      accessorFn: (row) =>
+        row.class_name && row.section_name ? `${row.class_name} · ${row.section_name}` : '—',
+      card: 'subtitle',
     },
     {
       id: 'seatCount',
       header: t('list.columnSeatCount'),
-      accessorFn: (row) => row.seat_count,
+      accessorFn: (row) => formatNumber(row.seat_count, regionConfig),
       align: 'end',
     },
     {
-      id: 'openDate',
-      header: t('list.columnOpenDate'),
-      accessorFn: (row) => row.open_date,
-    },
-    {
-      id: 'closeDate',
-      header: t('list.columnCloseDate'),
-      accessorFn: (row) => row.close_date,
+      id: 'window',
+      header: t('list.columnWindow'),
+      accessorFn: (row) => formatDateRange(row.open_date, row.close_date, regionConfig),
     },
     {
       id: 'status',
       header: t('list.columnStatus'),
       accessorFn: (row) => (
-        <span
-          className={
-            row.status === 'OPEN'
-              ? 'inline-flex items-center rounded-full bg-status-paid-bg px-2 py-0.5 text-xs font-medium text-status-paid-fg'
-              : 'inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground'
-          }
-        >
-          {row.status === 'OPEN' ? t('list.statusOpen') : t('list.statusClosed')}
-        </span>
+        <StatusBadge
+          tone={row.status === 'OPEN' ? 'success' : 'neutral'}
+          label={row.status === 'OPEN' ? t('list.statusOpen') : t('list.statusClosed')}
+        />
       ),
+      card: 'badge',
     },
   ];
 
@@ -117,11 +95,16 @@ export function IntakeList() {
     <>
       <ListShell
         title={t('list.title')}
-        primaryAction={
-          <Button type="button" onClick={() => setCreateOpen(true)}>
-            {t('list.addIntake')}
-          </Button>
-        }
+        subtitle={t('list.subtitle')}
+        actions={[
+          {
+            id: 'add',
+            label: t('list.addIntake'),
+            icon: <PlusIcon aria-hidden />,
+            priority: 'primary',
+            onClick: () => setCreateOpen(true),
+          },
+        ]}
         tableId="admission-intakes-list"
         caption={t('list.caption')}
         columns={columns}
@@ -138,11 +121,29 @@ export function IntakeList() {
         loading={intakesQuery.isLoading}
         isFetching={intakesQuery.isFetching}
         {...(intakesQuery.isError ? { error: t('list.errorMessage') } : {})}
-        emptyMessage={t('list.emptyMessage')}
+        rowActions={(row) => [
+          {
+            intent: 'view',
+            label: t('list.viewApplicants'),
+            to: `/admissions/applicants?intakeId=${row.id}`,
+          },
+          {
+            intent: 'edit',
+            label: t('list.edit'),
+            to: `/admissions/intakes/${row.id}`,
+            'data-focus-anchor': row.id,
+          },
+        ]}
+        emptyState={{
+          icon: <DoorOpenIcon aria-hidden />,
+          title: t('list.emptyTitle'),
+          explanation: t('list.emptyText'),
+          action: { label: t('list.addIntake'), onClick: () => setCreateOpen(true) },
+        }}
       />
 
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent>
+        <DialogContent size="md">
           <form onSubmit={handleCreateSubmit} className="flex flex-col gap-4">
             <DialogHeader>
               <DialogTitle>{t('createDialog.title')}</DialogTitle>
