@@ -35,21 +35,30 @@ const PROGRAM_TONE: Record<string, StatusTone> = {
 
 export interface ProgramsPanelProps {
   studentId: string;
+  /** [31.5.0] Enrol / record full pages live in the URL (`?enrolProgram=1`,
+   * `?recordMilestone=<enrollmentId>`); the route owns the keys. */
+  enrolOpen?: boolean;
+  onEnrolOpenChange?: (open: boolean) => void;
+  recordEnrollmentId?: string | undefined;
+  onRecordChange?: (enrollmentId: string | undefined) => void;
 }
 
-export function ProgramsPanel({ studentId }: ProgramsPanelProps) {
+export function ProgramsPanel({
+  studentId,
+  enrolOpen = false,
+  onEnrolOpenChange = () => {},
+  recordEnrollmentId,
+  onRecordChange = () => {},
+}: ProgramsPanelProps) {
   const { t } = useTranslation('programs');
   // Explicit second binding: also makes sure `students` is loaded for the copy below.
   const { t: tStudents } = useTranslation('students');
   const regionConfig = useRegionConfig();
   const programsQuery = useStudentPrograms(studentId);
   const canManage = useHasPermission(Permission.PROGRAM_MANAGE);
-  const [enrolOpen, setEnrolOpen] = React.useState(false);
-  const [recordFor, setRecordFor] = React.useState<{
-    programId: string;
-    enrollmentId: string;
-    milestoneId?: string;
-  } | null>(null);
+  // The milestone the user clicked is not URL-reflected (a refresh reopens
+  // the record page for the enrolment without a milestone prefilled).
+  const [recordMilestoneId, setRecordMilestoneId] = React.useState<string | undefined>();
 
   const removeAchievement = useRemoveAchievement();
 
@@ -81,6 +90,8 @@ export function ProgramsPanel({ studentId }: ProgramsPanelProps) {
     b.enrollment.started_on.localeCompare(a.enrollment.started_on),
   );
 
+  const recordFor = entries.find((e) => e.enrollment.id === recordEnrollmentId);
+
   if (entries.length === 0) {
     return (
       <>
@@ -88,16 +99,16 @@ export function ProgramsPanel({ studentId }: ProgramsPanelProps) {
           title={t('studentProgramsPanel.empty')}
           explanation={tStudents('detail.programs.emptyExplanation')}
           {...(canManage
-            ? { action: { label: t('students.enrol'), onClick: () => setEnrolOpen(true) } }
+            ? { action: { label: t('students.enrol'), onClick: () => onEnrolOpenChange(true) } }
             : {})}
         />
         {enrolOpen && (
           <EnrolDialog
             open
-            onOpenChange={setEnrolOpen}
+            onOpenChange={onEnrolOpenChange}
             programId=""
             studentIdPrefill={studentId}
-            onEnrolled={() => setEnrolOpen(false)}
+            onEnrolled={() => onEnrolOpenChange(false)}
           />
         )}
       </>
@@ -112,7 +123,7 @@ export function ProgramsPanel({ studentId }: ProgramsPanelProps) {
             type="button"
             variant="outline"
             className="w-full md:w-auto"
-            onClick={() => setEnrolOpen(true)}
+            onClick={() => onEnrolOpenChange(true)}
           >
             <PlusIcon className="size-4" aria-hidden />
             {t('students.enrol')}
@@ -179,13 +190,10 @@ export function ProgramsPanel({ studentId }: ProgramsPanelProps) {
                     remark: m.achievement?.remark ?? null,
                   }))}
                   undoLabel={t('milestones.remove')}
-                  onRecord={(milestoneId) =>
-                    setRecordFor({
-                      programId: entry.program.id,
-                      enrollmentId: entry.enrollment.id,
-                      milestoneId,
-                    })
-                  }
+                  onRecord={(milestoneId) => {
+                    setRecordMilestoneId(milestoneId);
+                    onRecordChange(entry.enrollment.id);
+                  }}
                   onUndo={(milestoneId) => {
                     const achievementId = entry.milestones.find((m) => m.id === milestoneId)
                       ?.achievement?.id;
@@ -213,26 +221,24 @@ export function ProgramsPanel({ studentId }: ProgramsPanelProps) {
       {enrolOpen && (
         <EnrolDialog
           open
-          onOpenChange={setEnrolOpen}
+          onOpenChange={onEnrolOpenChange}
           programId=""
           studentIdPrefill={studentId}
-          onEnrolled={() => setEnrolOpen(false)}
+          onEnrolled={() => onEnrolOpenChange(false)}
         />
       )}
 
       {recordFor && (
         <RecordDialog
           open
-          onOpenChange={() => setRecordFor(null)}
-          programId={recordFor.programId}
-          milestoneId={recordFor.milestoneId}
-          enrollmentIdPrefill={recordFor.enrollmentId}
+          onOpenChange={() => onRecordChange(undefined)}
+          programId={recordFor.program.id}
+          milestoneId={recordMilestoneId}
+          enrollmentIdPrefill={recordFor.enrollment.id}
           studentId={studentId}
           onRecorded={() => {
-            if (recordFor.milestoneId) {
-              refocusMilestone(recordFor.enrollmentId, recordFor.milestoneId);
-            }
-            setRecordFor(null);
+            if (recordMilestoneId) refocusMilestone(recordFor.enrollment.id, recordMilestoneId);
+            onRecordChange(undefined);
           }}
         />
       )}

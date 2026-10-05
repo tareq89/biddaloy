@@ -1,7 +1,16 @@
-import { cleanupTestState, renderWithProviders, server } from '@biddaloy/ui/test';
+import {
+  cleanupTestState,
+  renderWithProviders,
+  renderWithRouter,
+  server,
+  studentFactory,
+} from '@biddaloy/ui/test';
 import { screen, waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
+import * as React from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
+
+import { routeTree } from '../../../../routeTree.gen';
 
 import { ProgramsPanel } from './programs-panel';
 
@@ -153,7 +162,17 @@ describe('ProgramsPanel', () => {
       ),
     );
 
-    const { user } = renderWithProviders(<ProgramsPanel studentId="student-1" />, {
+    function Harness() {
+      const [recordId, setRecordId] = React.useState<string | undefined>();
+      return (
+        <ProgramsPanel
+          studentId="student-1"
+          recordEnrollmentId={recordId}
+          onRecordChange={setRecordId}
+        />
+      );
+    }
+    const { user } = renderWithProviders(<Harness />, {
       locale: 'en',
       role: 'ADMIN',
       tenantId: 'tenant-1',
@@ -164,5 +183,55 @@ describe('ProgramsPanel', () => {
     await user.keyboard(' ');
 
     await waitFor(() => expect(screen.getByRole('dialog')).toBeTruthy());
+  });
+  describe('URL-reflected full pages [31.5.0]', () => {
+    const ENROLLMENT_ID = '3f6c1a52-7a1e-4c43-9a43-6f0a3c1d2b11';
+
+    function renderRoute(search: string) {
+      const entry = {
+        ...entryWithMilestones,
+        enrollment: { ...entryWithMilestones.enrollment, id: ENROLLMENT_ID },
+      };
+      server.use(
+        http.get('/api/v1/students/:id', () =>
+          HttpResponse.json(studentFactory({ id: 'student-1', full_name: 'Rahim Uddin' })),
+        ),
+        http.get('/api/v1/students/:studentId/promotion-overrides', () => HttpResponse.json([])),
+        http.get('/api/v1/students/:studentId/programs', () => HttpResponse.json([entry])),
+        http.get('/api/v1/programs/:programId', () =>
+          HttpResponse.json({
+            id: 'program-1',
+            name: 'Reading Club',
+            is_active: true,
+            show_on_report_card: true,
+            milestones: [{ id: 'milestone-1', name: 'Read 5 books', sequence: 1 }],
+          }),
+        ),
+        http.get('/api/v1/programs', () => HttpResponse.json({ items: [], total: 0 })),
+        http.get('/api/v1/programs/:programId/enrollments', () => HttpResponse.json([])),
+      );
+      return renderWithRouter(routeTree, {
+        initialEntries: [`/students/student-1?tab=programs${search}`],
+        tenantId: 'tenant-1',
+        role: 'ADMIN',
+        locale: 'en',
+      });
+    }
+
+    it('?enrolProgram=1 opens enrol; closing clears only that key', async () => {
+      const { router } = renderRoute('&enrolProgram=1');
+      await waitFor(() => expect(screen.getByRole('dialog')).toBeTruthy());
+      await router.navigate({
+        to: '.',
+        search: (p: object) => ({ ...p, enrolProgram: undefined }),
+      } as never);
+      await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+      expect(router.state.location.search).toMatchObject({ tab: 'programs' });
+    });
+
+    it('?recordMilestone=<enrollmentId> opens record for that row', async () => {
+      renderRoute(`&recordMilestone=${ENROLLMENT_ID}`);
+      await waitFor(() => expect(screen.getByRole('dialog')).toBeTruthy());
+    });
   });
 });
