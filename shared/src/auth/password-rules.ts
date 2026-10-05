@@ -15,10 +15,12 @@ const TESTS: Record<PasswordRuleId, (p: string) => boolean> = {
   lower: (p) => /[a-z]/.test(p),
   digit: (p) => /[0-9০-৯]/.test(p),
   // A symbol: anything that is not a letter (any script), a combining mark, a
-  // digit or a space. Bangla letters, vowel signs (ি) and the virama (্) are
-  // not symbols. Upper/lower stay ASCII on purpose:
-  // Bangla has no case, so a staff password needs some Latin letters.
-  special: (p) => /[^\p{L}\p{M}\p{N}\s]/u.test(p),
+  // digit, a space or an invisible format character. Bangla letters, vowel
+  // signs (ি), the virama (্) and the zero-width joiner/non-joiner some Bangla
+  // keyboards insert (U+200D/U+200C, \p{Cf}) are not symbols. Upper/lower
+  // stay ASCII on purpose: Bangla has no case, so a staff password needs
+  // some Latin letters.
+  special: (p) => /[^\p{L}\p{M}\p{N}\p{Cf}\s]/u.test(p),
 };
 
 export function passwordRulesFor(audience: PasswordAudience): PasswordRuleId[] {

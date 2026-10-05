@@ -43,6 +43,11 @@ describe('password rules', () => {
     expect(failed('Abcdefg1ক্ষ', 'staff')).toEqual(['special']);
   });
 
+  it('zero-width joiner and non-joiner are invisible, not symbols', () => {
+    expect(failed('Abcdefg1র\u200D্যাব', 'staff')).toEqual(['special']);
+    expect(failed('Abcdefg1ক্\u200Cষ', 'staff')).toEqual(['special']);
+  });
+
   it('audienceForRoles: strictest wins', () => {
     expect(audienceForRoles([UserRole.PARENT, UserRole.STUDENT])).toBe('family');
     expect(audienceForRoles([UserRole.PARENT, UserRole.TEACHER])).toBe('staff');
