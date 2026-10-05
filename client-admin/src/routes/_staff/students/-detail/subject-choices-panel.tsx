@@ -6,7 +6,14 @@
  * (#899/#900), so re-selecting just overwrites the prior row rather than
  * requiring the panel to clear anything first.
  */
-import { ErrorState, RadioGroup, RadioGroupItem, Skeleton } from '@biddaloy/ui/components';
+import {
+  Card,
+  EmptyState,
+  ErrorState,
+  RadioGroup,
+  RadioGroupItem,
+  Skeleton,
+} from '@biddaloy/ui/components';
 import {
   useAcademicYears,
   useSetSubjectChoice,
@@ -20,7 +27,9 @@ export interface SubjectChoicesPanelProps {
 }
 
 export function SubjectChoicesPanel({ studentId }: SubjectChoicesPanelProps) {
-  const { t } = useTranslation('exams');
+  const { t, i18n } = useTranslation('exams');
+  // Loads `students` so the `list.emptyValue` / empty-explanation copy below resolves.
+  useTranslation('students');
   const academicYearsQuery = useAcademicYears();
   const currentYearId = academicYearsQuery.data?.data.find((y) => y.is_current)?.id;
 
@@ -33,7 +42,12 @@ export function SubjectChoicesPanel({ studentId }: SubjectChoicesPanelProps) {
   // that one explicitly, or the panel would flash "no options" instead of
   // staying in the loading state.
   if (academicYearsQuery.isLoading || optionsQuery.isLoading || subjectsQuery.isLoading)
-    return <Skeleton className="h-24 w-full" />;
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-32 w-full rounded-lg" />
+        <Skeleton className="h-32 w-full rounded-lg" />
+      </div>
+    );
   if (academicYearsQuery.isError || optionsQuery.isError)
     return (
       <ErrorState
@@ -56,7 +70,7 @@ export function SubjectChoicesPanel({ studentId }: SubjectChoicesPanelProps) {
       />
     );
 
-  const subjectNameById = new Map((subjectsQuery.data?.data ?? []).map((s) => [s.id, s.name_en]));
+  const subjectById = new Map((subjectsQuery.data?.data ?? []).map((s) => [s.id, s]));
   const options = optionsQuery.data ?? [];
   const fourthOptions = options.filter((o) => o.choice_group === null);
   const groups = new Map<string, typeof options>();
@@ -65,63 +79,79 @@ export function SubjectChoicesPanel({ studentId }: SubjectChoicesPanelProps) {
       groups.set(o.choice_group, [...(groups.get(o.choice_group) ?? []), o]);
   }
   const currentFourth = fourthOptions.find((o) => o.is_fourth);
-  const nameOf = (id: string) => subjectNameById.get(id) ?? id;
+  // Reader's language with an English fallback; an unknown id shows a dash, never the id.
+  const nameOf = (id: string) => {
+    const subject = subjectById.get(id);
+    if (!subject) return t('list.emptyValue', { ns: 'students' });
+    return i18n.language === 'bn' && subject.name_bn ? subject.name_bn : subject.name_en;
+  };
 
   if (options.length === 0) {
-    return <p className="text-sm text-muted-foreground">{t('subjectChoicesPanel.empty')}</p>;
+    return (
+      <EmptyState
+        title={t('subjectChoicesPanel.empty')}
+        explanation={t('detail.subjects.emptyExplanation', { ns: 'students' })}
+      />
+    );
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="space-y-4">
       {[...groups].map(([group, members]) => {
         const picked = members.find((o) => o.chosen);
         return (
-          <fieldset key={group} className="flex flex-col gap-2">
-            <legend className="text-sm font-medium">{group}</legend>
+          <Card padded key={group}>
+            <fieldset className="flex flex-col gap-2">
+              <legend className="text-h3">{group}</legend>
+              <RadioGroup
+                value={picked?.class_subject_id ?? ''}
+                onValueChange={(classSubjectId) =>
+                  setChoice.mutate({ class_subject_id: classSubjectId, is_fourth: false })
+                }
+              >
+                {members.map((option) => (
+                  <label
+                    key={option.class_subject_id}
+                    className="flex min-h-11 items-center gap-3 md:min-h-8"
+                  >
+                    <RadioGroupItem value={option.class_subject_id} />
+                    {nameOf(option.subject_id)}
+                  </label>
+                ))}
+              </RadioGroup>
+              {!picked && (
+                <p className="text-text-secondary">{t('subjectChoicesPanel.groupUnpicked')}</p>
+              )}
+            </fieldset>
+          </Card>
+        );
+      })}
+      {fourthOptions.length > 0 && (
+        <Card padded>
+          <fieldset className="flex flex-col gap-2">
+            <legend className="text-h3">{t('subjectChoicesPanel.label')}</legend>
             <RadioGroup
-              value={picked?.class_subject_id ?? ''}
+              value={currentFourth?.class_subject_id ?? ''}
               onValueChange={(classSubjectId) =>
-                setChoice.mutate({ class_subject_id: classSubjectId, is_fourth: false })
+                setChoice.mutate({ class_subject_id: classSubjectId, is_fourth: true })
               }
             >
-              {members.map((option) => (
-                <label key={option.class_subject_id} className="flex items-center gap-2 text-sm">
-                  <RadioGroupItem value={option.class_subject_id} />
+              {fourthOptions.map((option) => (
+                <label
+                  key={option.class_subject_id}
+                  className="flex min-h-11 items-center gap-3 md:min-h-8"
+                >
+                  <RadioGroupItem value={option.class_subject_id} disabled={setChoice.isPending} />
                   {nameOf(option.subject_id)}
                 </label>
               ))}
             </RadioGroup>
-            {!picked && (
-              <p className="text-sm text-muted-foreground">
-                {t('subjectChoicesPanel.groupUnpicked')}
-              </p>
-            )}
           </fieldset>
-        );
-      })}
-      {fourthOptions.length > 0 && (
-        <fieldset className="flex flex-col gap-2">
-          <legend className="text-sm font-medium">{t('subjectChoicesPanel.label')}</legend>
-          <RadioGroup
-            value={currentFourth?.class_subject_id ?? ''}
-            onValueChange={(classSubjectId) =>
-              setChoice.mutate({ class_subject_id: classSubjectId, is_fourth: true })
-            }
-          >
-            {fourthOptions.map((option) => (
-              <label key={option.class_subject_id} className="flex items-center gap-2 text-sm">
-                <RadioGroupItem value={option.class_subject_id} disabled={setChoice.isPending} />
-                {nameOf(option.subject_id)}
-              </label>
-            ))}
-          </RadioGroup>
-        </fieldset>
+        </Card>
       )}
       {setChoice.isError && (
-        <p role="alert" className="text-sm text-destructive">
-          {setChoice.error instanceof Error
-            ? setChoice.error.message
-            : t('subjectChoicesPanel.errorMessage')}
+        <p role="alert" className="text-destructive">
+          {t('subjectChoicesPanel.errorMessage')}
         </p>
       )}
     </div>
