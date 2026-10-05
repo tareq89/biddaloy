@@ -1,13 +1,19 @@
 import '@biddaloy/ui/test';
 
+import { toast } from '@biddaloy/ui/components';
+import { REGION_BD_BN } from '@biddaloy/ui/i18n';
 import { cleanupTestState, renderWithProviders, server } from '@biddaloy/ui/test';
 import { schoolFactory } from '@biddaloy/ui/test';
-import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { formatNumber, formatTime } from '@biddaloy/ui/utils';
+import { screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { PeriodSlotsPanel } from './period-slots-panel';
 
+const ROW1 = formatNumber(1, REGION_BD_BN);
+const ROW2 = formatNumber(2, REGION_BD_BN);
 const SCHOOL_ID = 'school-1';
 
 const TENANT = schoolFactory({ id: SCHOOL_ID });
@@ -25,83 +31,84 @@ const SHIFT = {
   deleted_at: null,
 };
 
-function inputValue(element: HTMLElement): string {
-  return (element as HTMLInputElement).value;
+const MATH = {
+  id: 's1',
+  shift_id: 'shift-1',
+  sequence: 0,
+  kind: 'CLASS',
+  name: 'Math',
+  starts_at: '08:00',
+  ends_at: '08:40',
+};
+
+function mockSlots(slots: unknown[]) {
+  server.use(http.get('*/routines/shifts/shift-1/period-slots', () => HttpResponse.json(slots)));
 }
+
+function renderPanel(props: Partial<React.ComponentProps<typeof PeriodSlotsPanel>> = {}) {
+  return renderWithProviders(
+    <PeriodSlotsPanel
+      shifts={[SHIFT]}
+      shift={SHIFT}
+      onSelectShift={vi.fn()}
+      changeoverGapMinutes={5}
+      {...props}
+    />,
+    { locale: 'en', role: 'ADMIN', tenantId: SCHOOL_ID },
+  );
+}
+
+const saveButton = () => screen.getByRole<HTMLButtonElement>('button', { name: 'Save' });
 
 describe('PeriodSlotsPanel', () => {
   afterEach(async () => {
     await cleanupTestState();
   });
 
-  it('prompts to pick a shift when none is selected', async () => {
-    renderWithProviders(<PeriodSlotsPanel shift={undefined} changeoverGapMinutes={5} />, {
-      locale: 'en',
-      role: 'ADMIN',
-      tenantId: SCHOOL_ID,
-    });
+  it('shows an empty state when there is no shift', async () => {
+    renderPanel({ shifts: [], shift: undefined });
 
-    expect(
-      await screen.findByText('Add a shift above, then pick it to edit its period slots.'),
-    ).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Add a shift first' })).toBeTruthy();
   });
 
-  it('Enter in the last row appends a slot pre-filled with the changeover gap, still editable', async () => {
-    server.use(
-      http.get('*/routines/shifts/shift-1/period-slots', () =>
-        HttpResponse.json([
-          {
-            id: 's1',
-            shift_id: 'shift-1',
-            sequence: 0,
-            kind: 'CLASS',
-            name: 'Math',
-            starts_at: '08:00',
-            ends_at: '08:40',
-          },
-        ]),
-      ),
+  it('has a labelled shift Select that calls onSelectShift, and no native select or time input', async () => {
+    mockSlots([MATH]);
+    const onSelectShift = vi.fn();
+    const other = { ...SHIFT, id: 'shift-2', name: 'Evening' };
+    const { container } = renderPanel({ shifts: [SHIFT, other], onSelectShift });
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('combobox', { name: 'Shift' }));
+    await user.click(await screen.findByRole('option', { name: 'Evening' }));
+
+    expect(onSelectShift).toHaveBeenCalledWith('shift-2');
+    expect(container.querySelector('select')).toBeNull();
+    expect(container.querySelector('input[type="time"]')).toBeNull();
+  });
+
+  it('"Add period" appends a row starting at the previous end plus the changeover gap (D7)', async () => {
+    mockSlots([MATH]);
+    renderPanel();
+    const user = userEvent.setup();
+
+    await screen.findAllByRole('combobox', { name: `Starts, row ${ROW1}` });
+    await user.click(screen.getByRole('button', { name: 'Add period' }));
+
+    // 08:40 end + 5 minute gap = 08:45 (shown in the tenant's time format).
+    await waitFor(() =>
+      expect(
+        screen.getAllByRole('combobox', { name: `Starts, row ${ROW2}` }).length,
+      ).toBeGreaterThan(0),
     );
-
-    renderWithProviders(<PeriodSlotsPanel shift={SHIFT} changeoverGapMinutes={5} />, {
-      locale: 'en',
-      role: 'ADMIN',
-      tenantId: SCHOOL_ID,
-    });
-
-    const endsAtInputs = await screen.findAllByLabelText('Ends at');
-    expect(endsAtInputs).toHaveLength(1);
-    fireEvent.keyDown(endsAtInputs[0]!, { key: 'Enter' });
-
-    await waitFor(() => {
-      expect(screen.getAllByLabelText('Ends at')).toHaveLength(2);
-    });
-    // 08:40 ends_at + 5 minute changeover gap = 08:45 starts_at (D7).
-    const startsAtInputs = screen.getAllByLabelText('Starts at');
-    expect(inputValue(startsAtInputs[1]!)).toBe('08:45');
-
-    // Still editable — a manual edit is never overridden.
-    fireEvent.change(startsAtInputs[1]!, { target: { value: '09:00' } });
-    expect(inputValue(startsAtInputs[1]!)).toBe('09:00');
+    const start = screen.getAllByRole<HTMLInputElement>('combobox', {
+      name: `Starts, row ${ROW2}`,
+    })[0]!;
+    expect(start.value).toBe(formatTime('08:45', REGION_BD_BN));
   });
 
   it('clears stale rows and disables Save while a newly selected shift is still loading', async () => {
     const SHIFT_B = { ...SHIFT, id: 'shift-2', name: 'Evening' };
-    server.use(
-      http.get('*/routines/shifts/shift-1/period-slots', () =>
-        HttpResponse.json([
-          {
-            id: 's1',
-            shift_id: 'shift-1',
-            sequence: 0,
-            kind: 'CLASS',
-            name: 'Math',
-            starts_at: '08:00',
-            ends_at: '08:40',
-          },
-        ]),
-      ),
-    );
+    mockSlots([MATH]);
     let resolveShiftB: (() => void) | undefined;
     server.use(
       http.get(
@@ -113,52 +120,123 @@ describe('PeriodSlotsPanel', () => {
       ),
     );
 
-    const { rerender } = renderWithProviders(
-      <PeriodSlotsPanel shift={SHIFT} changeoverGapMinutes={5} />,
-      { locale: 'en', role: 'ADMIN', tenantId: SCHOOL_ID },
+    const { rerender } = renderPanel({ shifts: [SHIFT, SHIFT_B] });
+
+    await screen.findAllByRole('combobox', { name: `Starts, row ${ROW1}` });
+    expect(saveButton().disabled).toBe(false);
+
+    rerender(
+      <PeriodSlotsPanel
+        shifts={[SHIFT, SHIFT_B]}
+        shift={SHIFT_B}
+        onSelectShift={vi.fn()}
+        changeoverGapMinutes={5}
+      />,
     );
-
-    await screen.findAllByLabelText('Starts at');
-    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Save' }).disabled).toBe(false);
-
-    rerender(<PeriodSlotsPanel shift={SHIFT_B} changeoverGapMinutes={5} />);
 
     // Shift B's fetch hasn't resolved yet — shift A's row must not still be
     // on screen, and Save must be disabled so a click can't PUT shift A's
     // rows onto shift B's period-slots endpoint.
-    await waitFor(() => expect(screen.queryByLabelText('Starts at')).toBeNull());
-    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Save' }).disabled).toBe(true);
+    await waitFor(() =>
+      expect(screen.queryByRole('combobox', { name: `Starts, row ${ROW1}` })).toBeNull(),
+    );
+    expect(saveButton().disabled).toBe(true);
 
     resolveShiftB?.();
-    await waitFor(() =>
-      expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Save' }).disabled).toBe(false),
-    );
+    await waitFor(() => expect(saveButton().disabled).toBe(false));
   });
 
-  it('BREAK rows hide the name field', async () => {
+  it('a break keeps its name and the saved payload carries it', async () => {
+    mockSlots([
+      MATH,
+      {
+        ...MATH,
+        id: 's2',
+        sequence: 1,
+        kind: 'BREAK',
+        name: 'Tiffin',
+        starts_at: '08:45',
+        ends_at: '09:00',
+      },
+    ]);
+    let body: { slots: { kind: string; name: string | null }[] } | null = null;
     server.use(
-      http.get('*/routines/shifts/shift-1/period-slots', () =>
-        HttpResponse.json([
+      http.put('*/routines/shifts/shift-1/period-slots', async ({ request }) => {
+        body = (await request.json()) as typeof body;
+        return HttpResponse.json([]);
+      }),
+    );
+    renderPanel();
+    const user = userEvent.setup();
+
+    const names = await screen.findAllByLabelText(`Name, row ${ROW2}`);
+    expect((names[0] as HTMLInputElement).value).toBe('Tiffin');
+
+    // Turn row 1 into a break: its name stays.
+    await user.click(screen.getAllByRole('combobox', { name: `Kind, row ${ROW1}` })[0]!);
+    await user.click(await screen.findByRole('option', { name: 'Break' }));
+    await user.click(saveButton());
+
+    await waitFor(() => expect(body).not.toBeNull());
+    expect(body!.slots[0]).toMatchObject({ kind: 'BREAK', name: 'Math' });
+    expect(body!.slots[1]).toMatchObject({ kind: 'BREAK', name: 'Tiffin' });
+  });
+
+  it.each([
+    ['ends before it starts', { starts_at: '09:00', ends_at: '08:50' }, 'Ends before it starts.'],
+    [
+      'sits outside the shift',
+      { starts_at: '06:00', ends_at: '06:40' },
+      /Keep it inside the shift/,
+    ],
+  ])('a row that %s shows its problem and disables Save', async (_label, times, message) => {
+    mockSlots([{ ...MATH, ...times }]);
+    renderPanel();
+
+    expect((await screen.findAllByText(message)).length).toBeGreaterThan(0);
+    expect(saveButton().disabled).toBe(true);
+  });
+
+  it('a row that starts before the row above ends shows the overlap message', async () => {
+    mockSlots([MATH, { ...MATH, id: 's2', sequence: 1, starts_at: '08:30', ends_at: '09:10' }]);
+    renderPanel();
+
+    expect(
+      (await screen.findAllByText('Starts before the row above ends.')).length,
+    ).toBeGreaterThan(0);
+    expect(saveButton().disabled).toBe(true);
+  });
+
+  it('a 409 on save shows the translated sentence, never the server text', async () => {
+    mockSlots([MATH]);
+    server.use(
+      http.put('*/routines/shifts/shift-1/period-slots', () =>
+        HttpResponse.json(
           {
-            id: 's1',
-            shift_id: 'shift-1',
-            sequence: 0,
-            kind: 'BREAK',
-            name: null,
-            starts_at: '10:00',
-            ends_at: '10:15',
+            statusCode: 409,
+            message: 'Cannot replace period slots: 4 routine slot(s) use them',
+            timestamp: new Date().toISOString(),
+            path: '/routines/shifts/shift-1/period-slots',
+            requestId: 'req-1',
           },
-        ]),
+          { status: 409 },
+        ),
       ),
     );
+    const errorSpy = vi.spyOn(toast, 'error').mockImplementation(() => '');
+    try {
+      renderPanel();
+      const user = userEvent.setup();
+      await screen.findAllByRole('combobox', { name: `Starts, row ${ROW1}` });
+      await user.click(saveButton());
 
-    renderWithProviders(<PeriodSlotsPanel shift={SHIFT} changeoverGapMinutes={5} />, {
-      locale: 'en',
-      role: 'ADMIN',
-      tenantId: SCHOOL_ID,
-    });
-
-    await screen.findAllByLabelText('Starts at');
-    expect(screen.queryByLabelText('Name')).toBeNull();
+      await waitFor(() =>
+        expect(errorSpy).toHaveBeenCalledWith(
+          "Periods of this shift are already placed in a routine, so their times can't be replaced. Remove those periods from the class routine first.",
+        ),
+      );
+    } finally {
+      errorSpy.mockRestore();
+    }
   });
 });
