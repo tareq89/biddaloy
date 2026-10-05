@@ -17,14 +17,14 @@ describe('ChangePasswordForm', () => {
     renderWithProviders(<ChangePasswordForm onSubmit={onSubmit} />, { locale: 'en' });
 
     await user.type(await screen.findByLabelText('Current password'), 'old-pass');
-    await user.type(screen.getByLabelText('New password'), 'new-pass');
-    await user.type(screen.getByLabelText('Confirm new password'), 'new-pass');
+    await user.type(screen.getByLabelText('New password'), 'New-pass1!');
+    await user.type(screen.getByLabelText('Confirm new password'), 'New-pass1!');
     await user.click(screen.getByRole('button', { name: 'Change password' }));
 
     await waitFor(() =>
       expect(onSubmit).toHaveBeenCalledWith({
         current_password: 'old-pass',
-        new_password: 'new-pass',
+        new_password: 'New-pass1!',
       }),
     );
   });
@@ -35,7 +35,7 @@ describe('ChangePasswordForm', () => {
     renderWithProviders(<ChangePasswordForm onSubmit={onSubmit} />, { locale: 'en' });
 
     await user.type(await screen.findByLabelText('Current password'), 'old-pass');
-    await user.type(screen.getByLabelText('New password'), 'new-pass');
+    await user.type(screen.getByLabelText('New password'), 'New-pass1!');
     await user.type(screen.getByLabelText('Confirm new password'), 'different');
     await user.click(screen.getByRole('button', { name: 'Change password' }));
 
@@ -54,6 +54,22 @@ describe('ChangePasswordForm', () => {
       expect(screen.getByText('Enter your current password')).toBeTruthy();
       expect(screen.getByText('Enter a new password')).toBeTruthy();
     });
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it('shows the live rules under the new password and blocks a weak one', async () => {
+    const onSubmit = vi.fn();
+    const user = userEvent.setup();
+    renderWithProviders(<ChangePasswordForm onSubmit={onSubmit} />, { locale: 'en' });
+
+    await user.type(await screen.findByLabelText('Current password'), 'old-pass');
+    await user.type(screen.getByLabelText('New password'), 'weak');
+    expect(screen.getByText('At least 8 characters')).toBeTruthy();
+    expect(screen.getAllByRole('listitem')).toHaveLength(5);
+    await user.type(screen.getByLabelText('Confirm new password'), 'weak');
+    await user.click(screen.getByRole('button', { name: 'Change password' }));
+
+    await waitFor(() => expect(screen.getAllByText('At least 8 characters').length).toBe(2));
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
