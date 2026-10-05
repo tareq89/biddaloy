@@ -1,11 +1,12 @@
 import '@biddaloy/ui/test';
 
 import { cleanupTestState, renderWithProviders, server } from '@biddaloy/ui/test';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { AttendanceSection } from './AttendanceSection';
+import { WithTestRouter } from './with-test-router';
 
 const SCHOOL_ID = 'school-1';
 
@@ -40,14 +41,19 @@ describe('AttendanceSection', () => {
   });
 
   it('renders the current values', async () => {
-    renderWithProviders(<AttendanceSection schoolId={SCHOOL_ID} attendance={ATTENDANCE} />, {
-      locale: 'en',
-      role: 'ADMIN',
-      tenantId: SCHOOL_ID,
-    });
+    renderWithProviders(
+      <WithTestRouter>
+        <AttendanceSection schoolId={SCHOOL_ID} attendance={ATTENDANCE} />
+      </WithTestRouter>,
+      {
+        locale: 'en',
+        role: 'ADMIN',
+        tenantId: SCHOOL_ID,
+      },
+    );
 
-    expect(inputValue(await screen.findByLabelText('Late after'))).toBe('09:00');
-    expect(inputValue(screen.getByLabelText('Absent after'))).toBe('09:30');
+    expect(inputValue(await screen.findByLabelText('Late after'))).toBe('9:00 AM');
+    expect(inputValue(screen.getByLabelText('Absent after'))).toBe('9:30 AM');
     expect(inputValue(screen.getByLabelText('Correction window (days)'))).toBe('3');
     expect(inputValue(screen.getByLabelText('Low attendance threshold (%)'))).toBe('75');
     expect(isChecked(screen.getByLabelText('Sun'))).toBe(true);
@@ -65,7 +71,9 @@ describe('AttendanceSection', () => {
     );
 
     const { user } = renderWithProviders(
-      <AttendanceSection schoolId={SCHOOL_ID} attendance={ATTENDANCE} />,
+      <WithTestRouter>
+        <AttendanceSection schoolId={SCHOOL_ID} attendance={ATTENDANCE} />
+      </WithTestRouter>,
       { locale: 'en', role: 'ADMIN', tenantId: SCHOOL_ID },
     );
 
@@ -80,7 +88,9 @@ describe('AttendanceSection', () => {
 
   it('rejects an out-of-range threshold', async () => {
     const { user } = renderWithProviders(
-      <AttendanceSection schoolId={SCHOOL_ID} attendance={ATTENDANCE} />,
+      <WithTestRouter>
+        <AttendanceSection schoolId={SCHOOL_ID} attendance={ATTENDANCE} />
+      </WithTestRouter>,
       { locale: 'en', role: 'ADMIN', tenantId: SCHOOL_ID },
     );
 
@@ -104,7 +114,9 @@ describe('AttendanceSection', () => {
     );
 
     const { user } = renderWithProviders(
-      <AttendanceSection schoolId={SCHOOL_ID} attendance={ATTENDANCE} />,
+      <WithTestRouter>
+        <AttendanceSection schoolId={SCHOOL_ID} attendance={ATTENDANCE} />
+      </WithTestRouter>,
       { locale: 'en', role: 'ADMIN', tenantId: SCHOOL_ID },
     );
 
@@ -115,14 +127,26 @@ describe('AttendanceSection', () => {
 
     await user.click(notifyCheckbox);
 
-    // Checking it does not flip the checkbox straight away — a confirm
-    // panel appears first, same as `-year-form-dialog.tsx`'s `is_current`.
+    // Checking it does not flip the checkbox straight away: a confirm dialog opens first (D29).
     expect(isChecked(notifyCheckbox)).toBe(false);
-    await screen.findByText(
-      "Enabling this sends every absent student's guardian a notification automatically, every school day. Are you sure?",
-    );
+    const dialog = await screen.findByRole('alertdialog');
+    expect(within(dialog).getByText('Turn on automatic absence messages?')).toBeTruthy();
+    expect(
+      within(dialog).getByText(
+        "Enabling this sends every absent student's guardian a notification automatically, every school day. Are you sure?",
+      ),
+    ).toBeTruthy();
 
-    await user.click(screen.getByRole('button', { name: 'Yes, enable it' }));
+    // Cancelling leaves it unchecked.
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    expect(isChecked(notifyCheckbox)).toBe(false);
+
+    await user.click(notifyCheckbox);
+    await user.click(
+      within(await screen.findByRole('alertdialog')).getByRole('button', {
+        name: 'Yes, enable it',
+      }),
+    );
     expect(isChecked(notifyCheckbox)).toBe(true);
 
     await user.click(screen.getByRole('button', { name: 'Save' }));

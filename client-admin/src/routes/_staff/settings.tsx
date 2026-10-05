@@ -33,10 +33,12 @@ export const Route = createFileRoute('/_staff/settings')({
   // picker), not a route param, so there's nothing this `loader` can
   // `ensureQueryData` ahead of time. `backup` is added here for
   // `BackupSection`'s own header copy and job-status labels.
+  // `feeStructures`: the late-fee table names fees from its `feeTypes.*` labels.
   // [613]: `bulkImport` too — `RestoreWizard` mounts the shared
   // `BulkUploadPreview`, whose own copy (file picker, expiry countdown,
   // confirm/upload-another buttons) lives in that namespace.
-  loader: () => loadRouteNamespaces('settings', 'backup', 'bulkImport', 'evaluations'),
+  loader: () =>
+    loadRouteNamespaces('settings', 'backup', 'bulkImport', 'evaluations', 'feeStructures'),
   pendingComponent: SettingsPending,
   component: SettingsRoute,
 });
