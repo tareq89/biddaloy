@@ -69,6 +69,8 @@ export interface SettingsSectionProps {
   saving?: boolean;
   /** Default `save.action`. */
   saveLabel?: string;
+  /** A header action for a card with no Save (e.g. "Add printer"); it is then the card's one primary. */
+  actions?: React.ReactNode;
   /** Saved/error message, extra outline buttons (left of Save). */
   footerStart?: React.ReactNode;
   /** Content of the "Advanced" disclosure. */
@@ -88,6 +90,7 @@ export function SettingsSection({
   onSubmit,
   saving,
   saveLabel,
+  actions,
   footerStart,
   advanced,
   advancedSummary,
@@ -95,14 +98,26 @@ export function SettingsSection({
   children,
 }: SettingsSectionProps) {
   const { t } = useTranslation('settings');
-  const className = 'rounded-lg border border-border-subtle bg-surface p-4 shadow-e1 md:p-5';
-  const body = (
+  const heading = (
     <>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <h2 className="text-h2">{title}</h2>
         {badge}
       </div>
       {description && <p className="mt-0.5 text-text-secondary">{description}</p>}
+    </>
+  );
+  const className = 'rounded-lg border border-border-subtle bg-surface p-4 shadow-e1 md:p-5';
+  const body = (
+    <>
+      {actions ? (
+        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between md:gap-6">
+          <div className="min-w-0">{heading}</div>
+          <div className="flex shrink-0 flex-col gap-2 md:flex-row">{actions}</div>
+        </div>
+      ) : (
+        heading
+      )}
       {children}
       {advanced && (
         <details
