@@ -145,7 +145,10 @@ describe('StepUpService (integration)', () => {
     // requestOtp() does internally (same OtpService, same purpose +
     // identifier) so verify() below can consume it.
     const otpService = module.get(OtpService);
-    const { code } = await otpService.request('STEP_UP' as any, 'approver@example.com');
+    const { code } = await otpService.request(
+      'STEP_UP' as any,
+      `${SEED_TENANT_ID}:approver@example.com`,
+    );
 
     const result = await service.verify(
       verifyDto({ otp: code }),
@@ -169,7 +172,10 @@ describe('StepUpService (integration)', () => {
   it('audits success with CREATE / entity_type ApprovalToken and the scope/approver/actor', async () => {
     const approver = await createApprover();
     const otpService = module.get(OtpService);
-    const { code } = await otpService.request('STEP_UP' as any, 'approver@example.com');
+    const { code } = await otpService.request(
+      'STEP_UP' as any,
+      `${SEED_TENANT_ID}:approver@example.com`,
+    );
 
     await service.verify(verifyDto({ otp: code }), ACTOR_ID, SEED_TENANT_ID, context);
 
