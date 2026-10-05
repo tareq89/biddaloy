@@ -82,6 +82,22 @@ range into a working-day count: weekly off-day, minus every **published**
 percentage formula (see [11-attendance.md §5](11-attendance.md#5-working-days-and-the-percentage))
 consumes that number — it never computes holidays itself.
 
+**Scope contract.** `getWorkingDays` takes an optional `classId`:
+
+| `classId` | An event removes the day when it is...         |
+| --------- | ---------------------------------------------- |
+| given     | school-wide, or scoped to that class           |
+| omitted   | school-wide only (class-scoped events ignored) |
+
+Callers that pass `classId`: the attendance summary service (one call per
+class group, and per student class in the day view). `isNonWorkingDay`
+accepts a `classId` too, but the attendance write path does not pass one
+yet (that lands in #1587).
+Callers that stay school-wide (no `classId`): `fine-sweep.service`,
+`resolve-routine.service`, `staff-attendance-summary.service`,
+`absence-notice.scheduler` (via `isNonWorkingDay`) and the working-days
+controller. For them, a class-scoped holiday no longer removes a day.
+
 **Draft events never count.** `published_at = null` means the event is
 invisible to working-day math and to attendance, no matter what its
 `counts_as_working_day` flag says (D9). Publishing is a separate, explicit
