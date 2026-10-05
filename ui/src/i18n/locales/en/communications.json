@@ -207,31 +207,30 @@
     "createdHeader": "Created",
     "statusHeader": "Status",
     "recipientsHeader": "Recipients",
-    "successfulHeader": "Successful",
+    "successfulHeader": "Delivered",
     "failedHeader": "Failed",
     "empty": "No reminder rounds yet.",
     "error": "Could not load reminder rounds.",
     "detail": {
-      "backToList": "All rounds",
       "loadError": "Could not load this round.",
       "createdLabel": "Created",
       "totalLabel": "Recipients",
-      "successLabel": "Successful",
+      "successLabel": "Delivered",
       "failedLabel": "Failed",
-      "templateLabel": "Message template",
-      "logsTitle": "Delivery status",
+      "templateLabel": "Message that was sent",
+      "logsTitle": "Who received it",
       "logsCaption": "Per-recipient delivery status",
       "recipientHeader": "Recipient",
       "channelHeader": "Channel",
-      "addressHeader": "Address",
+      "addressHeader": "Mobile or email",
       "statusHeader": "Status",
-      "errorHeader": "Error",
+      "errorHeader": "Why it failed",
       "logsError": "Could not load delivery logs.",
       "logsEmpty": "No deliveries recorded for this round.",
-      "skippedTitle": "Skipped before sending ({{count}})",
+      "skippedTitle": "Skipped before sending ({{n}})",
       "noneSkipped": "No recipients were skipped.",
-      "skippedStudents_one": "{{count}} student",
-      "skippedStudents_other": "{{count}} students",
+      "skippedStudents_one": "{{n}} student",
+      "skippedStudents_other": "{{n}} students",
       "retryAction": "Retry failed",
       "retryTitle": "Retry failed deliveries?",
       "retryDescription": "Sends this round's message again, only to the students whose delivery failed, as a new round named “{{name}}”.",
@@ -242,8 +241,13 @@
       "retryNothingFailed": "No failed deliveries with a student on file to retry.",
       "retryNoTemplate": "This round has no stored message template, so it cannot be retried automatically.",
       "retryNamePrefix": "Retry of {{name}}",
-      "retryResendWarning": "Every guardian of these {{count}} students is messaged again, including any whose earlier message was delivered — the send targets students, not individual guardians."
-    }
+      "retryResendWarning": "Every guardian of these {{n}} students is messaged again, including any whose earlier message was delivered — the send targets students, not individual guardians.",
+      "templateHelp": "The highlighted parts were replaced with each guardian's real name and amount.",
+      "logsEmptyHelp": "Deliveries appear here once sending starts."
+    },
+    "subtitle": "Every round of reminders sent together, newest first.",
+    "viewAction": "View",
+    "emptyHelp": "Rounds appear here after you send reminders to many students at once."
   },
   "notifications": {
     "batchQueued": "Reminder round queued.",
@@ -256,5 +260,10 @@
     "guardian_name": "Guardian name",
     "due_amount": "Amount due",
     "due_month": "Due month"
+  },
+  "deliveryErrors": {
+    "notConfigured": "Sending by {{medium}} is not set up for this school. Turn it on in Settings › Communication.",
+    "noProvider": "{{medium}} cannot be sent automatically.",
+    "generic": "Could not be sent."
   }
 }
