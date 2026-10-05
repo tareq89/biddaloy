@@ -9,7 +9,9 @@ import {
   type MonthGridEvent,
 } from '@biddaloy/ui/components';
 import type { CalendarEvent, PublicHolidayEntry } from '@biddaloy/ui/hooks';
+import { REGION_BD_BN } from '@biddaloy/ui/i18n';
 import { cleanupTestState, renderWithProviders } from '@biddaloy/ui/test';
+import { formatDate } from '@biddaloy/ui/utils';
 import { fireEvent, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -205,7 +207,7 @@ describe('MonthGrid', () => {
     expect(screen.getByTestId('term-bands')).toBeTruthy();
     expect(screen.getByText('Term 1')).toBeTruthy();
     expect(screen.getByTestId('day-cell-2026-09-10').getAttribute('aria-label')).toBe(
-      '2026-09-10 (Term 1)',
+      `${formatDate('2026-09-10', REGION_BD_BN)} (Term 1)`,
     );
   });
 });

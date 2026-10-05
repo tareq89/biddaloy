@@ -1,4 +1,5 @@
 import { REGION_BD_BN, REGION_BD_EN, type RegionConfig } from '@biddaloy/ui/i18n';
+import { formatDate, formatDateTime } from '@biddaloy/ui/utils';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -150,7 +151,9 @@ describe('humanizeValue', () => {
   });
 
   it('formats a date-only string as a date', () => {
-    expect(humanizeValue('2026-01-05', options())).toEqual(['2026-01-05']);
+    expect(humanizeValue('2026-01-05', options())).toEqual([
+      formatDate('2026-01-05', REGION_BD_EN),
+    ]);
   });
 
   // Keeps the time. Rendering a full timestamp as a bare date would make
@@ -159,14 +162,16 @@ describe('humanizeValue', () => {
   // about the one change it exists to show. `Asia/Dhaka` is UTC+6, so
   // 10:30Z is 16:30 on the school's clock.
   it('formats an ISO datetime string with its time of day', () => {
-    expect(humanizeValue('2026-01-05T10:30:00.000Z', options())).toEqual(['2026-01-05 16:30']);
+    expect(humanizeValue('2026-01-05T10:30:00.000Z', options())).toEqual([
+      formatDateTime('2026-01-05T10:30:00.000Z', REGION_BD_EN),
+    ]);
   });
 
   it('keeps two same-day timestamps distinguishable', () => {
     const before = humanizeValue('2026-01-05T04:30:00.000Z', options());
     const after = humanizeValue('2026-01-05T12:00:00.000Z', options());
-    expect(before).toEqual(['2026-01-05 10:30']);
-    expect(after).toEqual(['2026-01-05 18:00']);
+    expect(before).toEqual([formatDateTime('2026-01-05T04:30:00.000Z', REGION_BD_EN)]);
+    expect(after).toEqual([formatDateTime('2026-01-05T12:00:00.000Z', REGION_BD_EN)]);
     expect(before).not.toEqual(after);
   });
 

@@ -1,3 +1,4 @@
+import { REGION_BD_EN } from '@biddaloy/ui/i18n';
 import {
   cleanupTestState,
   classFactory,
@@ -6,6 +7,7 @@ import {
   server,
   studentFactory,
 } from '@biddaloy/ui/test';
+import { formatDate } from '@biddaloy/ui/utils';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -145,7 +147,11 @@ describe('/portal/attendance', () => {
     );
     expect(daysRequests).toContainEqual({ studentId: FATIMA_ID, month: '2026-09' });
     expect(await screen.findByText('90%')).toBeTruthy();
-    expect(screen.getByRole('button', { name: /2026-09-01/ })).toBeTruthy();
+    expect(
+      screen.getByRole('button', {
+        name: (n) => n.startsWith(formatDate('2026-09-01', REGION_BD_EN)),
+      }),
+    ).toBeTruthy();
   });
 
   it('renders a picker for more than one linked student and re-queries on switch', async () => {
@@ -226,7 +232,9 @@ describe('/portal/attendance', () => {
     });
     renderAttendance();
 
-    const cell = await screen.findByRole('button', { name: /2026-09-03/ });
+    const cell = await screen.findByRole('button', {
+      name: (n) => n.startsWith(formatDate('2026-09-03', REGION_BD_EN)),
+    });
     await userEvent.click(cell);
 
     const dialog = await screen.findByRole('dialog');
