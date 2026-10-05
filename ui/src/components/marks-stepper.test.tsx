@@ -4,16 +4,24 @@ import type * as React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { i18n } from '../i18n';
+import { REGION_BD_BN, REGION_BD_EN } from '../i18n/region-config';
+import { RegionConfigProvider } from '../i18n/region-config-provider';
 import { renderWithProviders } from '../test';
 
 import { cellKey, type MarksGridCell } from './marks-grid';
 import { MarksStepper } from './marks-stepper';
 
 async function renderInEnglish(ui: React.ReactElement) {
-  const view = renderWithProviders(ui, { locale: 'en' });
+  // Region config is decoupled from locale; the default is Bangla digits, so pin Latin here.
+  const en = (node: React.ReactNode) => (
+    <RegionConfigProvider value={REGION_BD_EN}>{node}</RegionConfigProvider>
+  );
+  const view = renderWithProviders(en(ui), { locale: 'en' });
+  const rerender = view.rerender;
+  view.rerender = (node) => rerender(en(node));
   await act(async () => {
     await view.localeReady;
-    await i18n.loadNamespaces('exams');
+    await i18n.loadNamespaces(['exams', 'common']);
   });
   return view;
 }
@@ -60,14 +68,14 @@ describe('MarksStepper', () => {
       <MarksStepper students={students} components={components} cells={cells} onStage={onStage} />,
     );
 
-    await user.click(screen.getByRole('button', { name: 'Abs' }));
+    await user.click(screen.getByRole('button', { name: 'Absent' }));
     expect(onStage).toHaveBeenCalledWith(
       cellKey('s1', 'c1'),
       expect.objectContaining({ status: 'ABSENT', value: null }),
     );
 
     onStage.mockClear();
-    await user.click(screen.getByRole('button', { name: 'Exm' }));
+    await user.click(screen.getByRole('button', { name: 'Exempt' }));
     expect(onStage).toHaveBeenCalledWith(
       cellKey('s1', 'c1'),
       expect.objectContaining({ status: 'EXEMPT', value: null }),
@@ -331,8 +339,8 @@ describe('MarksStepper — edge cases', () => {
     );
 
     expect(writtenInput().disabled).toBe(true);
-    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Abs' }).disabled).toBe(true);
-    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Exm' }).disabled).toBe(true);
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Absent' }).disabled).toBe(true);
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Exempt' }).disabled).toBe(true);
   });
 
   it('shows the saved tick only when no cell of the student is pending or failed', async () => {
@@ -406,5 +414,38 @@ describe('MarksStepper — edge cases', () => {
     );
 
     expect(screen.getByText('—')).toBeTruthy();
+  });
+});
+
+describe('MarksStepper kit look and numerals', () => {
+  it('labels the absent/exempt buttons with full words', async () => {
+    await renderInEnglish(
+      <MarksStepper students={students} components={components} cells={cells} onStage={vi.fn()} />,
+    );
+    expect(screen.getByRole('button', { name: 'Absent' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Exempt' })).toBeTruthy();
+  });
+
+  it('shows Bangla digits and stages typed Bangla digits as Latin', async () => {
+    const onStage = vi.fn();
+    const user = userEvent.setup();
+    await renderInEnglish(
+      <RegionConfigProvider value={REGION_BD_BN}>
+        <MarksStepper
+          students={students}
+          components={components}
+          cells={[{ student_id: 's1', component_id: 'c1', value: '52', status: 'PRESENT' }]}
+          onStage={onStage}
+        />
+      </RegionConfigProvider>,
+    );
+    const input = screen.getByLabelText<HTMLInputElement>(/Written/);
+    expect(input.value).toBe('৫২');
+    await user.clear(input);
+    await user.type(input, '৬১');
+    expect(onStage).toHaveBeenLastCalledWith(
+      cellKey('s1', 'c1'),
+      expect.objectContaining({ value: '61' }),
+    );
   });
 });
