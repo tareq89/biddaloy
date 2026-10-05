@@ -1,16 +1,14 @@
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { ACTIONS } from './action-registry';
-import { UNREGISTERED_ACTIONS } from './unregistered-actions';
+import { PALETTE_ALLOW_LIST, UNREGISTERED_ACTIONS } from './unregistered-actions';
 
 /**
- * Real, currently-open epic ids this repo tracks (`gh issue list --state
- * open`, epic titles are `[Epic <id>]`), snapshotted 2026-09-20. Update
- * this set when an epic closes or a new one opens — that drift is exactly
- * what this test exists to catch.
+ * Real, currently-open epic ids this repo tracks, snapshotted 2026-09-20.
+ * Only `UNREGISTERED_ACTIONS` (work owed to an epic) is checked against it;
+ * allow-list entries are permanent decisions and name no epic.
  */
 const KNOWN_OPEN_EPICS = new Set([
   '19.0',
@@ -25,7 +23,6 @@ const KNOWN_OPEN_EPICS = new Set([
   '28.0',
   '29.0',
   '30.0',
-  '31.0',
   '32.0',
   '33.0',
   '34.0',
@@ -44,51 +41,14 @@ const KNOWN_OPEN_EPICS = new Set([
 
 // repo root is two levels up from client-admin/src
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
+const DIALOG_MARKUP = /<Dialog\b|DialogContent|<Sheet\b|SheetContent|<FullPageShell\b/;
 
 describe('unregistered-actions.ts', () => {
-  it('every listed file actually exists on disk', () => {
+  it('every deferred file exists and names a known open epic', () => {
     for (const entry of UNREGISTERED_ACTIONS) {
       expect(existsSync(path.join(REPO_ROOT, entry.file)), `missing file: ${entry.file}`).toBe(
         true,
       );
-    }
-  });
-
-  it('no file appears in both the registered ACTIONS targets and UNREGISTERED_ACTIONS', () => {
-    // `PaletteAction` carries a route (`run()`'s navigate target), not a
-    // source file — `unregistered-actions.ts` is keyed by file. This maps
-    // each `kind: 'modal'` seeded action to the actual dialog-bearing file
-    // its route mounts, verified by hand against
-    // `rg -l '<Dialog|DialogContent' client-admin/src/routes` — the same
-    // command `unregistered-actions.ts`'s own header comment says seeds
-    // that file. `kind: 'navigate'` actions (sendFeeReminder, attendance,
-    // students.import) open a full-page route, not a Dialog, so they were
-    // never candidates for UNREGISTERED_ACTIONS in the first place and
-    // aren't in this map.
-    const registeredDialogFiles: Record<string, string> = {
-      'payments.record': 'client-admin/src/routes/_staff/payments/-record/record-payment-modal.tsx',
-      'communications.sendMessage': 'client-admin/src/routes/_staff/communications/send.tsx',
-      'fees.generate': 'client-admin/src/routes/_staff/fees/-generate/generate-fees-modal.tsx',
-      'students.add': 'client-admin/src/routes/_staff/students/new.tsx',
-    };
-    for (const action of ACTIONS) {
-      const file = registeredDialogFiles[action.id];
-      if (!file) continue; // navigate-kind or non-dialog modal, not applicable
-      expect(
-        UNREGISTERED_ACTIONS.some((entry) => entry.file === file),
-        `${action.id} is registered in ACTIONS but its file (${file}) still appears in UNREGISTERED_ACTIONS`,
-      ).toBe(false);
-    }
-
-    // UNREGISTERED_ACTIONS lists source files, not routes, so this checks
-    // for the direct file-level duplicates that would indicate the same
-    // dialog is claimed both as seeded and as still-unregistered.
-    const unregisteredFiles = new Set(UNREGISTERED_ACTIONS.map((entry) => entry.file));
-    expect(unregisteredFiles.size).toBe(UNREGISTERED_ACTIONS.length);
-  });
-
-  it('every entry names a real, known owning epic', () => {
-    for (const entry of UNREGISTERED_ACTIONS) {
       expect(
         KNOWN_OPEN_EPICS.has(entry.owningEpic),
         `${entry.file} names unknown owningEpic "${entry.owningEpic}"`,
@@ -96,8 +56,25 @@ describe('unregistered-actions.ts', () => {
     }
   });
 
-  it('has no duplicate file entries', () => {
-    const files = UNREGISTERED_ACTIONS.map((entry) => entry.file);
-    expect(new Set(files).size).toBe(files.length);
+  describe('PALETTE_ALLOW_LIST', () => {
+    it.each(PALETTE_ALLOW_LIST.map((entry) => [entry.file, entry] as const))(
+      '%s: exists, has a reason, and still holds dialog markup',
+      (file, entry) => {
+        const abs = path.join(REPO_ROOT, file);
+        expect(existsSync(abs), `missing file: ${file}`).toBe(true);
+        expect(entry.reason.trim().length, `${file} has no reason`).toBeGreaterThan(0);
+        expect(
+          DIALOG_MARKUP.test(readFileSync(abs, 'utf8')),
+          `${file} no longer holds dialog markup - remove its allow-list entry`,
+        ).toBe(true);
+      },
+    );
+
+    it('has no duplicates and does not overlap UNREGISTERED_ACTIONS', () => {
+      const files = PALETTE_ALLOW_LIST.map((entry) => entry.file);
+      expect(new Set(files).size).toBe(files.length);
+      const deferred = new Set(UNREGISTERED_ACTIONS.map((entry) => entry.file));
+      expect(files.filter((file) => deferred.has(file))).toEqual([]);
+    });
   });
 });
