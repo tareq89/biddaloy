@@ -146,9 +146,7 @@ describe('/programs', () => {
   it('shows the edit action for ADMIN and opens the edit dialog', async () => {
     const user = userEvent.setup();
     server.use(
-      http.get('/api/v1/programs', () =>
-        HttpResponse.json([program({ id: 'p-1', name: 'Hifz' })]),
-      ),
+      http.get('/api/v1/programs', () => HttpResponse.json([program({ id: 'p-1', name: 'Hifz' })])),
     );
 
     renderWithRouter(buildRouteTree(), {

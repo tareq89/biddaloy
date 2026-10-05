@@ -25,7 +25,19 @@
       "milestones": "Milestones",
       "students": "Students",
       "programs": "Programs"
-    }
+    },
+    "factMilestones": "Milestones",
+    "factActiveStudents": "Active students",
+    "factReportCard": "On report card",
+    "milestoneCount_one": "{{n}} milestone",
+    "milestoneCount_other": "{{n}} milestones",
+    "studentCount_one": "{{n}} student",
+    "studentCount_other": "{{n}} students",
+    "reportCardShown": "Shown",
+    "reportCardHidden": "Not shown",
+    "deleteTitle": "Delete this program?",
+    "deleteError": "Couldn't delete this program. Try again.",
+    "archiveError": "Couldn't change this program's status. Try again."
   },
   "formDialog": {
     "createTitle": "Add program",
@@ -40,7 +52,6 @@
     "archive": "Archive",
     "unarchive": "Unarchive",
     "delete": "Delete",
-    "deleteDisabledHint": "This program has enrolled students — archive it instead of deleting.",
     "deleteConfirm": "Delete this program? This can't be undone.",
     "deleteConflict": "This program has enrolled students — archive it instead of deleting.",
     "deleteConfirmButton": "Delete"
@@ -49,12 +60,14 @@
     "add": "Add milestone",
     "edit": "Edit milestone",
     "remove": "Remove milestone",
-    "removeConfirm_one": "This milestone has {{count}} recorded achievement. Removing it will delete that record too.",
-    "removeConfirm_other": "This milestone has {{count}} recorded achievements. Removing them will delete those records too.",
-    "reorderHint": "Drag to reorder milestones.",
+    "removeConfirm_one": "This milestone has {{n}} recorded achievement. Removing it will delete that record too.",
+    "removeConfirm_other": "This milestone has {{n}} recorded achievements. Removing them will delete those records too.",
     "emptyHint": "Add milestones to track progress",
     "moveUp": "Move milestone up",
-    "moveDown": "Move milestone down"
+    "moveDown": "Move milestone down",
+    "nameLabel": "New milestone name",
+    "removeTitle": "Remove this milestone?",
+    "errorMessage": "Couldn't save the milestone. Try again."
   },
   "students": {
     "enrol": "Enrol",
@@ -63,7 +76,11 @@
     "withdraw": "Withdraw",
     "reactivate": "Reactivate",
     "progress": "{{done}} / {{total}}",
-    "completePrompt": "All milestones achieved — mark complete?"
+    "completePrompt": "All milestones achieved — mark complete?",
+    "statusLabel": "Status",
+    "roll": "Roll {{roll}}",
+    "recordFor": "Record achievement for {{name}}",
+    "statusError": "Couldn't change the student's status. Try again."
   },
   "dialogs": {
     "enrol": {
@@ -98,7 +115,9 @@
     "loadError": "Couldn't load this student's programs"
   },
   "studentTab": {
-    "empty": "No students enrolled in this program yet"
+    "empty": "No students enrolled in this program yet",
+    "listLabel": "Enrolled students",
+    "emptyExplanation": "Enrol students to see their progress here."
   },
   "portal": {
     "title": "Programs",

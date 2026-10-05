@@ -6,7 +6,7 @@
  */
 import { setActiveRole, setActiveTenant } from '@biddaloy/ui/api';
 import { I18nProvider, i18n } from '@biddaloy/ui/i18n';
-import { apiErrorBody, cleanupTestState, createTestQueryClient, server } from '@biddaloy/ui/test';
+import { cleanupTestState, createTestQueryClient, server } from '@biddaloy/ui/test';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -66,7 +66,7 @@ describe('ProgramFormDialog', () => {
     );
 
     const { onSaved } = await renderDialog();
-    await user.type(await screen.findByLabelText('Name'), 'Reading Club');
+    await user.type(await screen.findByLabelText(/^Name/), 'Reading Club');
     await user.click(screen.getByRole('button', { name: 'Save' }));
 
     await waitFor(() => expect(onSaved).toHaveBeenCalled());
@@ -80,66 +80,18 @@ describe('ProgramFormDialog', () => {
     );
 
     await renderDialog();
-    await user.type(await screen.findByLabelText('Name'), 'Reading Club');
+    await user.type(await screen.findByLabelText(/^Name/), 'Reading Club');
     await user.click(screen.getByRole('button', { name: 'Save' }));
 
     await screen.findByText("Couldn't save this program");
   });
 
-  it('archives an active program in edit mode', async () => {
-    const user = userEvent.setup();
-    let requestBody: unknown;
-    server.use(
-      http.patch('/api/v1/programs/:id', async ({ request }) => {
-        requestBody = await request.json();
-        return HttpResponse.json({ ...PROGRAM, is_active: false });
-      }),
-    );
-
-    const { onSaved } = await renderDialog({ mode: 'edit', program: PROGRAM });
-    await user.click(await screen.findByRole('button', { name: 'Archive' }));
-
-    await waitFor(() => expect(onSaved).toHaveBeenCalled());
-    expect(requestBody).toMatchObject({ is_active: false });
-  });
-
-  it('disables delete and shows a hint when the program has enrolments', async () => {
-    await renderDialog({
-      mode: 'edit',
-      program: { ...PROGRAM, active_enrollment_count: 3 },
-    });
-
-    expect((await screen.findByRole('button', { name: 'Delete' })).hasAttribute('disabled')).toBe(
-      true,
-    );
-    await screen.findByText('This program has enrolled students — archive it instead of deleting.');
-  });
-
-  it('confirms and deletes, showing the 409 conflict message on failure', async () => {
-    const user = userEvent.setup();
-    server.use(
-      http.delete('/api/v1/programs/:id', () =>
-        HttpResponse.json(apiErrorBody(409, 'Has enrolments', '/programs/p-1'), { status: 409 }),
-      ),
-    );
-
-    await renderDialog({ mode: 'edit', program: PROGRAM });
-    await user.click(await screen.findByRole('button', { name: 'Delete' }));
-    await user.click(screen.getByRole('button', { name: 'Delete' }));
-
-    await screen.findByText('This program has enrolled students — archive it instead of deleting.');
-  });
-
-  it('cancels the delete confirmation', async () => {
-    const user = userEvent.setup();
+  it('edit mode no longer renders archive or delete, and labels are visible', async () => {
     await renderDialog({ mode: 'edit', program: PROGRAM });
 
-    await user.click(await screen.findByRole('button', { name: 'Delete' }));
-    await screen.findByText("Delete this program? This can't be undone.");
-    // Two "Cancel" buttons exist once the confirm block is open (its own,
-    // plus the dialog footer's) — the confirm block's is first in the DOM.
-    await user.click(screen.getAllByRole('button', { name: 'Cancel' })[0]!);
-
-    expect(screen.queryByText("Delete this program? This can't be undone.")).toBeNull();
+    expect(await screen.findByLabelText(/^Name/)).toBeTruthy();
+    expect(screen.getByLabelText('Description')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Archive' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Delete' })).toBeNull();
   });
 });
