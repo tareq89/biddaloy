@@ -25,8 +25,10 @@ import {
   Textarea,
 } from '@biddaloy/ui/components';
 import { type ReverseLaterPaymentsFirstDetails, useReversePayment } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { formatNumber } from '@biddaloy/ui/utils';
 import { Link } from '@tanstack/react-router';
+import { Undo2 } from 'lucide-react';
 import * as React from 'react';
 
 const REASON_MIN_LENGTH = 3;
@@ -40,6 +42,7 @@ export interface ReversePaymentDialogProps {
 
 export function ReversePaymentDialog({ open, onOpenChange, paymentId }: ReversePaymentDialogProps) {
   const { t } = useTranslation('payments');
+  const regionConfig = useRegionConfig();
   const reversePayment = useReversePayment();
   const [reason, setReason] = React.useState('');
 
@@ -81,21 +84,25 @@ export function ReversePaymentDialog({ open, onOpenChange, paymentId }: ReverseP
             <DialogDescription>{t('detail.reverseDialog.description')}</DialogDescription>
           </DialogHeader>
 
-          <ul className="list-disc pl-5 text-sm text-muted-foreground">
+          <ul className="list-disc space-y-1 pl-5 text-text-secondary">
             <li>{t('detail.reverseDialog.consequenceWallet')}</li>
             <li>{t('detail.reverseDialog.consequenceCreditNote')}</li>
             <li>{t('detail.reverseDialog.consequenceIrreversible')}</li>
           </ul>
 
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="reverse-payment-reason" className="text-sm font-medium">
-              {t('detail.reverseDialog.reasonLabel')}
-            </label>
+            <div className="flex items-center gap-0.5 text-sm font-medium">
+              <label htmlFor="reverse-payment-reason">{t('detail.reverseDialog.reasonLabel')}</label>
+              <span aria-hidden="true" className="text-destructive">
+                *
+              </span>
+            </div>
             <Textarea
               id="reverse-payment-reason"
               value={reason}
               onChange={(event) => setReason(event.target.value)}
               maxLength={REASON_MAX_LENGTH}
+              required
               rows={3}
             />
           </div>
@@ -105,10 +112,17 @@ export function ReversePaymentDialog({ open, onOpenChange, paymentId }: ReverseP
               <div role="alert" className="flex flex-col gap-1 text-sm text-destructive">
                 <span>{t('detail.reverseDialog.errorLaterPayments')}</span>
                 <ul className="list-disc pl-5">
-                  {blockingPaymentIds.map((id) => (
+                  {/* Numbered, never the id (D9). */}
+                  {blockingPaymentIds.map((id, index) => (
                     <li key={id}>
-                      <Link to="/payments/$id" params={{ id }} className="underline">
-                        {id}
+                      <Link
+                        to="/payments/$id"
+                        params={{ id }}
+                        className="inline-flex min-h-11 items-center font-medium underline underline-offset-2 md:min-h-0"
+                      >
+                        {t('detail.reverseDialog.laterPaymentLink', {
+                          n: formatNumber(index + 1, regionConfig),
+                        })}
                       </Link>
                     </li>
                   ))}
@@ -133,6 +147,7 @@ export function ReversePaymentDialog({ open, onOpenChange, paymentId }: ReverseP
               loading={reversePayment.isPending}
               onClick={handleConfirm}
             >
+              <Undo2 aria-hidden="true" />
               {t('detail.reverseDialog.confirm')}
             </Button>
           </DialogFooter>

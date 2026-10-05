@@ -48,7 +48,9 @@ test('reversing a payment restores dues, cancels the invoice, and nets out of co
 
   await page.goto(`/payments/${payment.id}`);
   await expect(page.getByText(t('payments.detail.amount')).first()).toBeVisible();
-  await page.getByRole('button', { name: t('payments.detail.reverseAction') }).click();
+  // [31.4] Reverse is the last item of the header's More menu.
+  await page.getByRole('button', { name: t('common.actions.moreActions') }).click();
+  await page.getByRole('menuitem', { name: t('payments.detail.reverseAction') }).click();
 
   await page
     .getByLabel(t('payments.detail.reverseDialog.reasonLabel'))
