@@ -39,4 +39,6 @@ export class StaffImportResultDto {
   skipped: number;
   invited: number;
   failed: { row: number; reason: string }[];
+  /** Members created whose invitation did not go out. */
+  invite_failed: { row: number; reason: string }[];
 }
