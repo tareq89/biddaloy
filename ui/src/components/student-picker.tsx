@@ -2,8 +2,8 @@
  * [5.5] — the row of chips a guardian of more than one child uses to
  * switch between their per-child fee views. Shipped route-local in
  * `client-admin/src/routes/portal/fees.tsx` for [5.3]; promoted here
- * unchanged once the portal landing became a second caller. The markup is
- * the reviewed 5.3 markup — nothing restyled.
+ * once the portal landing became a second caller. [31.2.14a] restyled to the
+ * kit chip look (border-subtle, secondary fill when active).
  *
  * Renders `null` below two items: a guardian of exactly one child must see
  * no switching affordance at all, and that belongs to the control rather
@@ -70,12 +70,15 @@ export function StudentPicker({ label, items, selectedId, to, className }: Stude
             search={{ student: item.id }}
             aria-current={active ? 'page' : undefined}
             // `min-h-11` is 44px — the portal's minimum touch target.
-            className={`flex min-h-11 flex-shrink-0 flex-col justify-center gap-0.5 rounded-lg border px-3 py-1.5 no-underline ${
-              active ? 'border-primary bg-primary/10' : 'border-border bg-card'
-            }`}
+            className={cn(
+              'flex min-h-11 shrink-0 flex-col justify-center gap-0.5 rounded-lg border px-3 py-1.5 no-underline',
+              active
+                ? 'border-primary bg-secondary'
+                : 'border-border-subtle bg-surface hover:bg-muted',
+            )}
           >
-            <span className="text-sm font-semibold">{item.name}</span>
-            <span className="text-[11px] text-muted-foreground">{item.meta}</span>
+            <span className="font-semibold">{item.name}</span>
+            <span className="text-caption text-text-secondary">{item.meta}</span>
           </Link>
         );
       })}

@@ -16,6 +16,7 @@
  * renders itself.
  */
 import { zodResolver } from '@hookform/resolvers/zod';
+import { CircleAlertIcon, InfoIcon } from 'lucide-react';
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -94,111 +95,110 @@ export function ChangePasswordForm({
   const passwordType = showPasswords ? 'text' : 'password';
 
   return (
-    <Card className="flex flex-col gap-4 p-4">
-      <h2 className="text-sm font-semibold">{t('account.password.title')}</h2>
+    <Card padded>
+      <h2 className="text-h2">{t('account.password.title')}</h2>
       {serverError?.message && (
-        <p role="alert" className="text-sm text-destructive">
+        <p role="alert" className="mt-3 flex items-center gap-1 text-caption text-destructive">
+          <CircleAlertIcon className="size-4" aria-hidden="true" />
           {serverError.message}
         </p>
       )}
       <Form {...form}>
-        <form
-          onSubmit={(event) => void form.handleSubmit(handleValidSubmit)(event)}
-          noValidate
-          className="flex flex-col gap-4"
-        >
-          <FormField
-            control={form.control}
-            name="current_password"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel htmlFor="account-change-current-password">
-                  {t('account.password.fields.current')}
-                </FormLabel>
-                <FormControl>
-                  <Input
-                    {...field}
-                    id="account-change-current-password"
-                    type={passwordType}
-                    autoComplete="current-password"
-                    disabled={submitting}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="new_password"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel htmlFor="account-change-new-password">
-                  {t('account.password.fields.new')}
-                </FormLabel>
-                <FormControl>
-                  <Input
-                    {...field}
-                    id="account-change-new-password"
-                    type={passwordType}
-                    autoComplete="new-password"
-                    disabled={submitting}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="confirm_password"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel htmlFor="account-change-confirm-password">
-                  {t('account.password.fields.confirm')}
-                </FormLabel>
-                <FormControl>
-                  <Input
-                    {...field}
-                    id="account-change-confirm-password"
-                    type={passwordType}
-                    autoComplete="new-password"
-                    disabled={submitting}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <div className="flex items-center gap-2">
-            <Checkbox
-              id="account-change-show-passwords"
-              checked={showPasswords}
-              onCheckedChange={(checked) => setShowPasswords(checked === true)}
-              disabled={submitting}
+        <form onSubmit={(event) => void form.handleSubmit(handleValidSubmit)(event)} noValidate>
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <FormField
+              control={form.control}
+              name="current_password"
+              render={({ field }) => (
+                <FormItem className="md:col-span-2">
+                  <FormLabel htmlFor="account-change-current-password">
+                    {t('account.password.fields.current')}
+                  </FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      id="account-change-current-password"
+                      type={passwordType}
+                      autoComplete="current-password"
+                      disabled={submitting}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-            <label
-              htmlFor="account-change-show-passwords"
-              className="text-xs text-muted-foreground"
-            >
-              {showPasswords ? t('account.password.hide') : t('account.password.show')}
-            </label>
-          </div>
 
-          {/* [8.14.4] plan's "persistent, non-dismissible consequence
+            <FormField
+              control={form.control}
+              name="new_password"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel htmlFor="account-change-new-password">
+                    {t('account.password.fields.new')}
+                  </FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      id="account-change-new-password"
+                      type={passwordType}
+                      autoComplete="new-password"
+                      disabled={submitting}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="confirm_password"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel htmlFor="account-change-confirm-password">
+                    {t('account.password.fields.confirm')}
+                  </FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      id="account-change-confirm-password"
+                      type={passwordType}
+                      autoComplete="new-password"
+                      disabled={submitting}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <div className="flex min-h-11 items-center gap-3 md:col-span-2">
+              <Checkbox
+                id="account-change-show-passwords"
+                checked={showPasswords}
+                onCheckedChange={(checked) => setShowPasswords(checked === true)}
+                disabled={submitting}
+              />
+              <label htmlFor="account-change-show-passwords" className="text-text-primary">
+                {showPasswords ? t('account.password.hide') : t('account.password.show')}
+              </label>
+            </div>
+
+            {/* [8.14.4] plan's "persistent, non-dismissible consequence
               notice" — every other device is signed out the moment this
               succeeds, so it says so before the button is even pressed,
               not only after. */}
-          <p className="rounded-md bg-status-due-bg p-3 text-xs text-status-due-fg">
-            {t('account.password.consequenceNotice')}
-          </p>
+            <p className="flex items-start gap-2 rounded-md bg-status-due-bg px-3 py-2 text-status-due-fg md:col-span-2">
+              <InfoIcon className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+              {t('account.password.consequenceNotice')}
+            </p>
+          </div>
 
-          <Button type="submit" loading={submitting} className="self-start">
-            {submitting ? t('account.password.saving') : t('account.password.save')}
-          </Button>
+          <div className="mt-4 flex justify-end border-t border-border-subtle pt-4">
+            <Button type="submit" loading={submitting} className="w-full md:w-auto">
+              {submitting ? t('account.password.saving') : t('account.password.save')}
+            </Button>
+          </div>
         </form>
       </Form>
     </Card>
