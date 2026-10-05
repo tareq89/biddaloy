@@ -1,4 +1,5 @@
 import { SyllabusTopicStatus } from '@biddaloy/shared';
+import { REGION_BD_BN } from '@biddaloy/ui/i18n';
 import {
   classFactory,
   cleanupTestState,
@@ -6,15 +7,22 @@ import {
   server,
   subjectFactory,
 } from '@biddaloy/ui/test';
+import { formatNumber } from '@biddaloy/ui/utils';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { routeTree } from '../../../../routeTree.gen';
 
+const notifyOutcome = vi.hoisted(() => vi.fn());
+vi.mock('@biddaloy/ui/api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@biddaloy/ui/api')>()),
+  notifyOutcome,
+}));
+
 const klass = classFactory({ id: 'class-1', name: 'Class 6' });
-const subject = subjectFactory({ id: 'subject-1', name_en: 'Mathematics' });
+const subject = subjectFactory({ id: 'subject-1', name_en: 'Mathematics', name_bn: 'গণিত' });
 
 function classesAndSubjectsHandlers() {
   return [
@@ -28,9 +36,9 @@ function classesAndSubjectsHandlers() {
 }
 
 async function pickClassAndSubject(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(await screen.findByLabelText('Class'));
+  await user.click(await screen.findByRole('combobox', { name: 'Class' }));
   await user.click(await screen.findByRole('option', { name: 'Class 6' }));
-  await user.click(screen.getByLabelText('Subject'));
+  await user.click(screen.getByRole('combobox', { name: 'Subject' }));
   await user.click(await screen.findByRole('option', { name: 'Mathematics' }));
 }
 
@@ -70,7 +78,9 @@ describe('/academics/syllabus', () => {
       locale: 'en',
     });
 
-    expect(await screen.findByText('Pick a class and subject to see its syllabus.')).toBeTruthy();
+    const pickTitle = await screen.findByText('Pick a class and a subject');
+    expect(pickTitle.tagName).toBe('H2');
+    expect(screen.getByText('Pick a class and subject to see its syllabus.')).toBeTruthy();
 
     const user = userEvent.setup();
     await pickClassAndSubject(user);
@@ -79,6 +89,9 @@ describe('/academics/syllabus', () => {
     const rows = screen.getAllByRole('row').slice(1); // drop header row
     expect(within(rows[0]!).getByText('Algebra basics')).toBeTruthy();
     expect(within(rows[1]!).getByText('Geometry')).toBeTruthy();
+    // Numbered in teaching order (region digits).
+    expect(within(rows[0]!).getByText(formatNumber(1, REGION_BD_BN))).toBeTruthy();
+    expect(within(rows[1]!).getByText(formatNumber(2, REGION_BD_BN))).toBeTruthy();
   });
 
   it('empty list renders the empty message', async () => {
@@ -97,7 +110,8 @@ describe('/academics/syllabus', () => {
     const user = userEvent.setup();
     await pickClassAndSubject(user);
 
-    expect(await screen.findByText('No syllabus topics yet.')).toBeTruthy();
+    const title = await screen.findByText('No topics yet');
+    expect(title.tagName).toBe('H2');
   });
 
   it("moving a topic down sends both rows' swapped sequence to the reorder endpoint", async () => {
@@ -161,8 +175,8 @@ describe('/academics/syllabus', () => {
     await pickClassAndSubject(user);
     await screen.findByText('Algebra basics');
 
-    await user.click(screen.getByText('Edit Algebra basics'));
-    await user.click(screen.getByLabelText('Status'));
+    await user.click(screen.getByRole('button', { name: 'Edit Algebra basics' }));
+    await user.click(screen.getByRole('combobox', { name: 'Status' }));
     await user.click(await screen.findByRole('option', { name: 'Done' }));
     await user.click(screen.getByRole('button', { name: 'Save' }));
 
@@ -197,10 +211,105 @@ describe('/academics/syllabus', () => {
     await pickClassAndSubject(user);
     await screen.findByText('Algebra basics');
 
-    await user.click(screen.getByText('Delete Algebra basics'));
-    await user.click(await screen.findByRole('button', { name: 'Delete' }));
+    await user.click(screen.getByRole('button', { name: 'Delete Algebra basics' }));
+    const dialog = await screen.findByRole('alertdialog');
+    await user.click(within(dialog).getByRole('button', { name: 'Delete' }));
 
     await waitFor(() => expect(deleted).toBe(true));
+  });
+
+  it('counts DONE topics in the progress line', async () => {
+    server.use(
+      ...classesAndSubjectsHandlers(),
+      http.get('/api/v1/syllabus-topics', () =>
+        HttpResponse.json([
+          topic({ id: 'topic-1', name: 'Algebra basics', sequence: 0, status: 'DONE' }),
+          topic({ id: 'topic-2', name: 'Geometry', sequence: 1 }),
+        ]),
+      ),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/academics/syllabus'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await pickClassAndSubject(user);
+
+    const done = formatNumber(1, REGION_BD_BN);
+    const total = formatNumber(2, REGION_BD_BN);
+    expect(await screen.findByText(`${done} of ${total} topics done`)).toBeTruthy();
+  });
+
+  it('a failed reorder raises an error notification', async () => {
+    server.use(
+      ...classesAndSubjectsHandlers(),
+      http.get('/api/v1/syllabus-topics', () =>
+        HttpResponse.json([
+          topic({ id: 'topic-1', name: 'Algebra basics', sequence: 0 }),
+          topic({ id: 'topic-2', name: 'Geometry', sequence: 1 }),
+        ]),
+      ),
+      http.patch('/api/v1/syllabus-topics/reorder', () =>
+        HttpResponse.json({ message: 'boom' }, { status: 500 }),
+      ),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/academics/syllabus'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await pickClassAndSubject(user);
+    await screen.findByText('Algebra basics');
+    await user.click(screen.getByLabelText('Move Algebra basics down'));
+
+    await waitFor(() =>
+      expect(notifyOutcome).toHaveBeenCalledWith(expect.objectContaining({ variant: 'error' })),
+    );
+  });
+
+  it('restores the pick from the URL on load', async () => {
+    server.use(
+      ...classesAndSubjectsHandlers(),
+      http.get('/api/v1/syllabus-topics', () => HttpResponse.json([topic()])),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/academics/syllabus?class_id=class-1&subject_id=subject-1'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    expect(await screen.findByText('Algebra basics')).toBeTruthy();
+  });
+
+  it('ignores a class_id in the URL that is not a known class', async () => {
+    let listed = false;
+    server.use(
+      ...classesAndSubjectsHandlers(),
+      http.get('/api/v1/syllabus-topics', () => {
+        listed = true;
+        return HttpResponse.json([]);
+      }),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/academics/syllabus?class_id=nope&subject_id=subject-1'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    expect(await screen.findByText('Pick a class and a subject')).toBeTruthy();
+    expect(listed).toBe(false);
   });
 
   it('refuses the whole route for a role lacking SYLLABUS_READ', async () => {
