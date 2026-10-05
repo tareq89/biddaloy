@@ -15,6 +15,9 @@
  */
 import * as React from 'react';
 
+import { useRegionConfig } from '../../i18n/region-config-provider';
+import { formatNumber } from '../../utils/number';
+
 import { IssuerHeader, type IssuerSnapshot } from './issuer-header';
 
 export interface ReportCardComponent {
@@ -99,6 +102,9 @@ function subjectFullMarks(components: ReportCardComponent[]): number {
 }
 
 export function ReportCard({ data, issuer, logoUrl, activeLanguage, labels }: ReportCardProps) {
+  const config = useRegionConfig();
+  const num = (v: number | null) => formatNumber(v, config);
+  const gpa = (v: number) => formatNumber(v, config, { decimals: 2 });
   return (
     <div
       data-slot="report-card"
@@ -121,15 +127,15 @@ export function ReportCard({ data, issuer, logoUrl, activeLanguage, labels }: Re
 
       <div className="flex justify-between gap-2">
         <span className="font-medium">{data.student.full_name}</span>
-        <span className="text-muted-foreground">
-          {labels.rollLabel}: {data.student.roll_number}
+        <span className="text-text-secondary">
+          {labels.rollLabel}: {num(data.student.roll_number)}
         </span>
       </div>
 
       <table className="w-full border-collapse text-sm">
         <caption className="sr-only">{labels.subject}</caption>
         <thead>
-          <tr className="border-b text-start text-muted-foreground">
+          <tr className="border-b text-start text-text-secondary">
             <th className="py-1">{labels.subject}</th>
             <th className="py-1 text-end">{labels.obtained}</th>
             <th className="py-1">{labels.grade}</th>
@@ -143,23 +149,23 @@ export function ReportCard({ data, issuer, logoUrl, activeLanguage, labels }: Re
                 <td className="py-1 font-medium">
                   {subject.subject_name}
                   {subject.is_fourth_subject && (
-                    <span className="ms-1 text-xs text-muted-foreground">
+                    <span className="ms-1 text-xs text-text-secondary">
                       ({labels.fourthSubject})
                     </span>
                   )}
                 </td>
                 <td className="py-1 text-end">
-                  {subject.obtained} / {subjectFullMarks(subject.components)}
+                  {num(subject.obtained)} / {num(subjectFullMarks(subject.components))}
                 </td>
                 <td className="py-1">{subject.grade}</td>
-                <td className="py-1">{subject.gpa.toFixed(2)}</td>
+                <td className="py-1">{gpa(subject.gpa)}</td>
               </tr>
               {subject.components.map((component) => (
-                <tr key={component.name} className="text-xs text-muted-foreground">
+                <tr key={component.name} className="text-xs text-text-secondary">
                   <td className="py-0.5 ps-4">{component.name}</td>
                   <td className="py-0.5 text-end">
-                    {component.obtained === null ? labels.absent : component.obtained} /{' '}
-                    {component.full_marks}
+                    {component.obtained === null ? labels.absent : num(component.obtained)} /{' '}
+                    {num(component.full_marks)}
                   </td>
                   <td />
                   <td />
@@ -173,11 +179,11 @@ export function ReportCard({ data, issuer, logoUrl, activeLanguage, labels }: Re
       <div className="flex flex-col gap-1 border-t border-border-subtle pt-2 font-semibold">
         <div className="flex justify-between gap-2">
           <span>{labels.totalMarks}</span>
-          <span>{data.result.total_marks}</span>
+          <span>{num(data.result.total_marks)}</span>
         </div>
         <div className="flex justify-between gap-2">
           <span>{labels.totalGpa}</span>
-          <span>{data.result.gpa.toFixed(2)}</span>
+          <span>{gpa(data.result.gpa)}</span>
         </div>
         <div className="flex justify-between gap-2">
           <span>{labels.overallGrade}</span>
@@ -186,7 +192,7 @@ export function ReportCard({ data, issuer, logoUrl, activeLanguage, labels }: Re
         {data.result.position !== null && (
           <div className="flex justify-between gap-2">
             <span>{labels.position}</span>
-            <span>{data.result.position}</span>
+            <span>{num(data.result.position)}</span>
           </div>
         )}
       </div>
@@ -195,7 +201,7 @@ export function ReportCard({ data, issuer, logoUrl, activeLanguage, labels }: Re
         <table className="w-full border-collapse text-sm">
           <caption className="sr-only">{labels.programs}</caption>
           <thead>
-            <tr className="border-b text-start text-muted-foreground">
+            <tr className="border-b text-start text-text-secondary">
               <th className="py-1">{labels.programs}</th>
               <th className="py-1">{labels.progress}</th>
               <th className="py-1">{labels.latestMilestone}</th>
@@ -207,7 +213,7 @@ export function ReportCard({ data, issuer, logoUrl, activeLanguage, labels }: Re
               <tr key={`${program.program_name}-${index}`}>
                 <td className="py-1 font-medium">{program.program_name}</td>
                 <td className="py-1">
-                  {program.achieved_count} / {program.milestone_total}
+                  {num(program.achieved_count)} / {num(program.milestone_total)}
                 </td>
                 <td className="py-1">
                   {program.latest
@@ -227,13 +233,13 @@ export function ReportCard({ data, issuer, logoUrl, activeLanguage, labels }: Re
         </table>
       )}
 
-      <div className="flex flex-col gap-1 border-t border-border-subtle pt-2 text-xs text-muted-foreground">
+      <div className="flex flex-col gap-1 border-t border-border-subtle pt-2 text-xs text-text-secondary">
         <div className="font-medium">{labels.legendTitle}</div>
         <div className="flex flex-wrap gap-x-4 gap-y-1">
           {data.legend.map((band) => (
             <span key={band.grade}>
               {band.grade}
-              {band.gpa !== null ? ` (${band.gpa.toFixed(2)})` : ''}
+              {band.gpa !== null ? ` (${gpa(band.gpa)})` : ''}
               {band.comment ? ` — ${band.comment}` : ''}
             </span>
           ))}
