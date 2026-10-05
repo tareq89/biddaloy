@@ -157,11 +157,39 @@ describe('TenantStatusService', () => {
     });
   });
 
+  describe('getStatusReason', () => {
+    it('reads the DB once, then serves the cached reason', async () => {
+      redis.get.mockResolvedValueOnce(null);
+      schoolRepo.findOne.mockResolvedValue({ id: 'tenant-1', status_reason: 'TRIAL_EXPIRED' });
+
+      expect(await service.getStatusReason('tenant-1')).toBe('TRIAL_EXPIRED');
+      expect(redis.set).toHaveBeenCalledWith(
+        'tenant:tenant-1:status_reason',
+        'TRIAL_EXPIRED',
+        'EX',
+        300,
+      );
+
+      redis.get.mockResolvedValueOnce('TRIAL_EXPIRED');
+      expect(await service.getStatusReason('tenant-1')).toBe('TRIAL_EXPIRED');
+      expect(schoolRepo.findOne).toHaveBeenCalledTimes(1);
+    });
+
+    it('caches "no reason" as an empty string and returns null for it', async () => {
+      redis.get.mockResolvedValueOnce('');
+      expect(await service.getStatusReason('tenant-1')).toBeNull();
+      expect(schoolRepo.findOne).not.toHaveBeenCalled();
+    });
+  });
+
   describe('invalidate', () => {
     it('deletes the cache key so the next isActive call reloads from the DB', async () => {
       await service.invalidate('tenant-1');
 
-      expect(redis.del).toHaveBeenCalledWith('tenant:tenant-1:status');
+      expect(redis.del).toHaveBeenCalledWith(
+        'tenant:tenant-1:status',
+        'tenant:tenant-1:status_reason',
+      );
 
       redis.get.mockResolvedValue(null);
       schoolRepo.findOne.mockResolvedValue({ id: 'tenant-1', status: SchoolStatus.SUSPENDED });

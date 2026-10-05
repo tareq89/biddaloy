@@ -116,20 +116,38 @@ export class TenantStatusService {
   }
 
   /**
-   * Why a school is suspended. Read straight from the DB, not cached: it is only asked for on a
-   * request that is already being refused, so it costs nothing on the hot path.
+   * Why a school is suspended. Cached like the status (same TTL, cleared by `invalidate`): a
+   * suspended school's open tabs keep polling, so every refused request would otherwise hit the
+   * DB. `''` caches "no reason".
    */
   async getStatusReason(tenantId: string): Promise<string | null> {
+    const key = `${this.key(tenantId)}_reason`;
+    try {
+      const cached = await this.redis.get(key);
+      if (cached !== null) return cached || null;
+    } catch (error) {
+      this.logger.error(
+        `Tenant status reason cache read failed for ${tenantId}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
     const school = await this.schoolRepo.findOne({
       where: { id: tenantId },
       select: { id: true, status_reason: true },
     });
-    return school?.status_reason ?? null;
+    if (!school) return null;
+    try {
+      await this.redis.set(key, school.status_reason ?? '', 'EX', TENANT_STATUS_CACHE_TTL_SECONDS);
+    } catch (error) {
+      this.logger.error(
+        `Tenant status reason cache write failed for ${tenantId}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+    return school.status_reason;
   }
 
   async invalidate(tenantId: string): Promise<void> {
     try {
-      await this.redis.del(this.key(tenantId));
+      await this.redis.del(this.key(tenantId), `${this.key(tenantId)}_reason`);
     } catch (error) {
       this.logger.error(
         `Tenant status cache invalidation failed for ${tenantId}: ${error instanceof Error ? error.message : String(error)}`,
