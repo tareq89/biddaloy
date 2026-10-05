@@ -15,6 +15,8 @@ describe('StaffProfilesService', () => {
       create: vi.fn((v: any) => v),
       save: vi.fn(async (v: any) => ({ id: 'profile-1', ...v })),
     };
+    // Real repos expose `manager`; the insert runs in a nested transaction (savepoint).
+    repo.manager = { transaction: (fn: any) => fn({ getRepository: () => repo }) };
     service = new StaffProfilesService(repo);
   });
 
@@ -55,6 +57,7 @@ describe('StaffProfilesService', () => {
         create: vi.fn((v: any) => v),
         save: vi.fn(async (v: any) => ({ id: 'profile-2', ...v })),
       };
+      (txRepo as any).manager = { transaction: (fn: any) => fn({ getRepository: () => txRepo }) };
       const manager = { getRepository: vi.fn(() => txRepo) } as any;
 
       await service.createFor('user-2', TENANT, undefined, manager);

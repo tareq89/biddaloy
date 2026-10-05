@@ -79,13 +79,18 @@ export class StaffProfilesService {
     for (let attempt = 0; attempt < MAX_EMPLOYEE_ID_ATTEMPTS; attempt++) {
       const employeeId = await this.nextEmployeeId(tenantId, repo);
       try {
-        return await repo.save(
-          repo.create({
-            user_id: userId,
-            tenant_id: tenantId,
-            employee_id: employeeId,
-            joining_date: opts?.joiningDate ?? null,
-          }),
+        // Nested transaction = SAVEPOINT when the caller is already in one: a unique
+        // violation then rolls back only this insert, so the retry is not run inside an
+        // aborted Postgres transaction. [13.3.2]
+        return await repo.manager.transaction((m) =>
+          m.getRepository(StaffProfile).save(
+            m.getRepository(StaffProfile).create({
+              user_id: userId,
+              tenant_id: tenantId,
+              employee_id: employeeId,
+              joining_date: opts?.joiningDate ?? null,
+            }),
+          ),
         );
       } catch (error) {
         if (!isUniqueViolationOn(error, 'UQ_staff_profiles_tenant_employee_id')) throw error;

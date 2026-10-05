@@ -1,13 +1,16 @@
 import {
   BadRequestException,
   ConflictException,
+  HttpException,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
-import { isEmail } from 'class-validator';
+import { plainToInstance } from 'class-transformer';
+import { isEmail, validate } from 'class-validator';
 import { AuditAction, TeacherDesignation, UserRole } from '@biddaloy/shared';
 import { User } from './entities/user.entity';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
@@ -17,7 +20,7 @@ import type { BulkImportErrorDto } from '../bulk-import/dto/bulk-import.dto';
 import { InvitationService } from '../account-access/invitation.service';
 import { normalizeEmail } from '../auth/normalize-identifier';
 import { UserService, TeacherService } from './users.service';
-import { INTERNATIONAL_PHONE_REGEX, CreateUserDto } from './dto/users.dto';
+import { CreateUserDto } from './dto/users.dto';
 import {
   StaffImportCommitDto,
   StaffImportPreviewRowDto,
@@ -52,6 +55,8 @@ interface StagedImport {
 
 @Injectable()
 export class StaffBulkUploadService {
+  private readonly logger = new Logger(StaffBulkUploadService.name);
+
   constructor(
     @InjectRepository(User) private readonly userRepo: Repository<User>,
     @InjectRepository(UserTenant) private readonly userTenantRepo: Repository<UserTenant>,
@@ -98,30 +103,56 @@ export class StaffBulkUploadService {
       : [];
     const byEmail = new Map(users.filter((u) => u.email).map((u) => [u.email as string, u]));
     const byPhone = new Map(users.filter((u) => u.phone).map((u) => [u.phone as string, u]));
-    const membershipByUser = new Map(memberships.map((m) => [m.user_id, m]));
+    // One user can hold several roles here (e.g. PARENT + a former TEACHER): decide per role.
+    const rolesByUser = new Map<string, { active: Set<UserRole>; former: Set<UserRole> }>();
+    for (const m of memberships) {
+      const e = rolesByUser.get(m.user_id) ?? { active: new Set(), former: new Set() };
+      (m.deleted_at ? e.former : e.active).add(m.role);
+      rolesByUser.set(m.user_id, e);
+    }
 
     const errors: BulkImportErrorDto[] = [];
     const staged: StagedRow[] = [];
     const preview: StaffImportPreviewRowDto[] = [];
     const seen = new Set<string>();
 
-    for (const { rowNumber, values: v } of parsed) {
+    for (const { rowNumber, values: v, numericMobile } of parsed) {
       const rowErrors: { column: string | null; value?: string; message: string }[] = [];
       const err = (column: string | null, message: string, value?: string) =>
         rowErrors.push({ column, message, value: value || undefined });
       const notes: string[] = [];
 
-      if (!v.name) err('name', 'Name is required');
-      if (!v.mobile && !v.email) err(null, 'Give a mobile number or an email');
-      if (v.mobile && !INTERNATIONAL_PHONE_REGEX.test(v.mobile)) {
-        err('mobile', 'Invalid mobile number', v.mobile);
-      }
-      if (v.email && !isEmail(v.email)) err('email', 'Invalid email address', v.email);
       const role = parseRole(v.role);
       if (!role) err('role', 'Unknown role, or a role that cannot be imported', v.role);
+      if (!v.name) err('name', 'Name is required');
+      if (!v.mobile && !v.email) err(null, 'Give a mobile number or an email');
+      if (numericMobile) {
+        err(
+          'mobile',
+          "Mobile was typed as a number, so a leading 0 may be lost. Format the column as Text and re-type it, e.g. '01711000101'",
+          v.mobile,
+        );
+      }
 
-      const email = v.email && isEmail(v.email) ? normalizeEmail(v.email) : undefined;
-      const phone = v.mobile && INTERNATIONAL_PHONE_REGEX.test(v.mobile) ? v.mobile : undefined;
+      // The real DTO rules (sanitising, max lengths, formats): the same ones POST /users enforces.
+      const dto = plainToInstance(CreateUserDto, {
+        full_name: v.name,
+        email: v.email || undefined,
+        phone: v.mobile || undefined,
+        role: role ?? UserRole.TEACHER,
+        tenantId,
+      });
+      const COLUMN: Record<string, string> = { full_name: 'name', phone: 'mobile', email: 'email' };
+      const raw: Record<string, string> = { full_name: v.name, phone: v.mobile, email: v.email };
+      const invalid = new Set<string>();
+      for (const e of await validate(dto)) {
+        if (!COLUMN[e.property]) continue;
+        invalid.add(e.property);
+        err(COLUMN[e.property], Object.values(e.constraints ?? {}).join('; '), raw[e.property]);
+      }
+
+      const email = dto.email && !invalid.has('email') ? normalizeEmail(dto.email) : undefined;
+      const phone = dto.phone && !invalid.has('phone') && !numericMobile ? dto.phone : undefined;
       for (const [column, id] of [
         ['email', email],
         ['mobile', phone],
@@ -139,17 +170,24 @@ export class StaffBulkUploadService {
         err(null, 'The email and the mobile number belong to two different accounts');
       } else if (hitA || hitB) {
         const user = (hitA ?? hitB) as User;
-        const membership = membershipByUser.get(user.id);
-        if (user.deleted_at || !membership) {
+        const roles = rolesByUser.get(user.id);
+        if (user.deleted_at || !roles) {
           // Deliberately vague: do not reveal which other school holds this identifier.
           err(null, 'This email or mobile number is already used by another account');
-        } else if (membership.deleted_at) {
-          action = 'restore';
-          userId = user.id;
-          notes.push('Former member — will be restored');
-        } else {
+        } else if (role && roles.active.has(role)) {
           action = 'skip';
           notes.push('Already a member — skipped');
+        } else if (role && roles.former.has(role)) {
+          action = 'restore';
+          userId = user.id;
+          notes.push(`Former ${role} — this role will be restored`);
+        } else {
+          const have = [...roles.active, ...roles.former].join(', ');
+          err(
+            'role',
+            `This person is already in this school as ${have}; the import does not change roles`,
+            v.role,
+          );
         }
       }
 
@@ -157,6 +195,8 @@ export class StaffBulkUploadService {
       if (v.designation && role === UserRole.TEACHER) {
         designation = parseDesignation(v.designation);
         if (!designation) notes.push(`Unknown designation "${v.designation}" — left empty`);
+      } else if (v.designation) {
+        notes.push('Designation is only used for teachers — ignored');
       }
 
       for (const e of rowErrors) {
@@ -166,7 +206,7 @@ export class StaffBulkUploadService {
 
       staged.push({
         rowNumber,
-        name: v.name,
+        name: dto.full_name,
         email,
         phone,
         role,
@@ -176,7 +216,7 @@ export class StaffBulkUploadService {
       });
       preview.push({
         row: rowNumber,
-        name: v.name,
+        name: dto.full_name,
         mobile: phone,
         email,
         role,
@@ -226,22 +266,24 @@ export class StaffBulkUploadService {
       skipped: 0,
       invited: 0,
       failed: [],
+      invite_failed: [],
     };
+    const createdUserIds: string[] = [];
     for (const row of stage.rows) {
       try {
         if (row.action === 'skip') {
           result.skipped++;
         } else if (row.action === 'restore') {
-          await this.userService.restore(row.userId as string, tenantId, actorId);
+          await this.userService.restore(row.userId as string, tenantId, actorId, row.role);
           result.restored++;
         } else {
-          await this.createRow(row, tenantId, actorId, dto.send_invitations, result);
+          const userId = await this.createRow(row, tenantId);
+          result.created++; // counted only after the row's transaction committed
+          createdUserIds.push(userId);
+          if (dto.send_invitations) await this.invite(row, userId, tenantId, actorId, result);
         }
       } catch (err) {
-        result.failed.push({
-          row: row.rowNumber,
-          reason: err instanceof Error ? err.message : String(err),
-        });
+        result.failed.push({ row: row.rowNumber, reason: this.reason(err) });
       }
     }
 
@@ -257,34 +299,67 @@ export class StaffBulkUploadService {
         restored: result.restored,
         skipped: result.skipped,
         failed: result.failed.length,
+        created_user_ids: createdUserIds,
+        failed_rows: result.failed.map((f) => f.row),
       },
     });
     return result;
   }
 
-  private async createRow(
+  /** User + membership (+ teacher profile) in ONE transaction: a failed step leaves nothing behind. */
+  private createRow(row: StagedRow, tenantId: string): Promise<string> {
+    return this.userRepo.manager.transaction(async (manager) => {
+      // No password: members arrive through an invitation or code sign-in.
+      const { user } = await this.userService.create(
+        {
+          email: row.email,
+          phone: row.phone,
+          full_name: row.name,
+          role: row.role,
+        } as CreateUserDto,
+        tenantId,
+        manager,
+      );
+      if (row.role === UserRole.TEACHER) {
+        // Same path as `POST /teachers`; the employee id is generated.
+        await this.teacherService.create(
+          { user_id: user.id, designations: row.designation ? [row.designation] : [] },
+          tenantId,
+          manager,
+        );
+      }
+      return user.id;
+    });
+  }
+
+  /** The member already exists, so a failed send is reported separately, not as a failed row. */
+  private async invite(
     row: StagedRow,
+    userId: string,
     tenantId: string,
     actorId: string,
-    invite: boolean,
     result: StaffImportResultDto,
   ): Promise<void> {
-    // No password: members arrive through an invitation or code sign-in.
-    const { user } = await this.userService.create(
-      { email: row.email, phone: row.phone, full_name: row.name, role: row.role } as CreateUserDto,
-      tenantId,
-    );
-    result.created++;
-    if (row.role === UserRole.TEACHER) {
-      // Same path as `POST /teachers`; the employee id is generated.
-      await this.teacherService.create(
-        { user_id: user.id, designations: row.designation ? [row.designation] : [] },
-        tenantId,
-      );
+    try {
+      // `issueAndSend` reports delivery trouble as a FAILED status instead of throwing.
+      const sent = await this.invitations.issueAndSend({ userId, tenantId, actorUserId: actorId });
+      if (sent.status === 'FAILED') {
+        result.invite_failed.push({
+          row: row.rowNumber,
+          reason: 'The invitation could not be delivered',
+        });
+      } else {
+        result.invited++;
+      }
+    } catch (err) {
+      result.invite_failed.push({ row: row.rowNumber, reason: this.reason(err) });
     }
-    if (invite) {
-      await this.invitations.issueAndSend({ userId: user.id, tenantId, actorUserId: actorId });
-      result.invited++;
-    }
+  }
+
+  /** Only deliberate HTTP errors carry text meant for the admin; anything else may name DB internals. */
+  private reason(err: unknown): string {
+    if (err instanceof HttpException) return err.message;
+    this.logger.error(`Staff import row failed: ${err instanceof Error ? err.message : err}`);
+    return 'Could not save this row';
   }
 }

@@ -6,7 +6,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull, Not, In, QueryFailedError } from 'typeorm';
+import { Repository, IsNull, Not, In, QueryFailedError, EntityManager } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { User } from './entities/user.entity';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
@@ -54,6 +54,8 @@ export class UserService {
   async create(
     dto: CreateUserDto,
     tenantId: string,
+    // [13.3.2] The staff import passes its own per-row transaction.
+    manager?: EntityManager,
   ): Promise<{ user: User; membership: UserTenant }> {
     // #731: SUPER_ADMIN is a platform role (seeded on the platform tenant),
     // never grantable through a tenant-scoped endpoint. Checked here, the one
@@ -73,7 +75,10 @@ export class UserService {
     // it, an email still owned by a soft-deleted row passes this check and
     // then fails at `save()` as an unmapped 500. Same reasoning as `update()`.
     if (email) {
-      const existing = await this.userRepo.findOne({ where: { email }, withDeleted: true });
+      const existing = await (manager?.getRepository(User) ?? this.userRepo).findOne({
+        where: { email },
+        withDeleted: true,
+      });
       if (existing) {
         throw new ConflictException(`User with email "${email}" already exists`);
       }
@@ -87,7 +92,8 @@ export class UserService {
     }
 
     try {
-      return await this.userRepo.manager.transaction(async (manager) => {
+      const work = async (m: EntityManager) => {
+        const manager = m;
         const userRepo = manager.getRepository(User);
         const userTenantRepo = manager.getRepository(UserTenant);
 
@@ -120,7 +126,8 @@ export class UserService {
         }
 
         return { user: savedUser, membership: savedMembership };
-      });
+      };
+      return await (manager ? work(manager) : this.userRepo.manager.transaction(work));
     } catch (err) {
       // The pre-check above is not atomic: two concurrent creates claiming the
       // same address both pass it and the loser hits the index. Map that to a
@@ -505,7 +512,13 @@ export class UserService {
   }
 
   /** `POST users/:id/restore`: bring a former member back (same rows, same ids). */
-  async restore(id: string, tenantId: string, actorUserId: string): Promise<void> {
+  async restore(
+    id: string,
+    tenantId: string,
+    actorUserId: string,
+    // [13.3.2] Restore only this role's former row (the staff import names one).
+    role?: UserRole,
+  ): Promise<void> {
     await this.userTenantRepo.manager.transaction(async (manager) => {
       // A soft-deleted account cannot be brought back through its membership.
       if (!(await manager.getRepository(User).findOne({ where: { id } }))) {
@@ -514,7 +527,7 @@ export class UserService {
       if (
         await manager
           .getRepository(UserTenant)
-          .count({ where: { user_id: id, tenant_id: tenantId } })
+          .count({ where: { user_id: id, tenant_id: tenantId, ...(role ? { role } : {}) } })
       ) {
         throw new ConflictException({
           message: 'This user is already a member of this school',
@@ -525,7 +538,12 @@ export class UserService {
         .getRepository(UserTenant)
         // `Not(IsNull())`: restore() updates every matching row, so without it
         // an active member would "restore" successfully (no 404).
-        .restore({ user_id: id, tenant_id: tenantId, deleted_at: Not(IsNull()) });
+        .restore({
+          user_id: id,
+          tenant_id: tenantId,
+          deleted_at: Not(IsNull()),
+          ...(role ? { role } : {}),
+        });
       if (!result.affected) {
         throw new NotFoundException(`No former member with ID "${id}" found`);
       }
@@ -611,8 +629,14 @@ export class TeacherService {
     // generates one and the Teacher row reuses it.
     dto: Omit<CreateTeacherDto, 'employee_id'> & { employee_id?: string },
     tenantId: string,
+    // [13.3.2] The staff import runs user + teacher in one per-row transaction.
+    outer?: EntityManager,
   ): Promise<Teacher> {
-    const user = await this.userRepo.findOne({
+    const m = outer ?? this.userRepo.manager;
+    const userRepo = m.getRepository(User);
+    const userTenantRepo = m.getRepository(UserTenant);
+    const teacherRepo = m.getRepository(Teacher);
+    const user = await userRepo.findOne({
       where: { id: dto.user_id, deleted_at: IsNull() },
     });
     if (!user) {
@@ -620,7 +644,7 @@ export class TeacherService {
     }
 
     // Verify user is a member of this tenant
-    const membership = await this.userTenantRepo.findOne({
+    const membership = await userTenantRepo.findOne({
       where: { user_id: dto.user_id, tenant_id: tenantId },
     });
     if (!membership) {
@@ -631,7 +655,7 @@ export class TeacherService {
     // teachers.user_id) — guard here so the client sees a mapped 409
     // instead of a raw DB constraint error. The promote dialog's
     // client-side exclusion only sees the first 100 teachers.
-    const existingProfile = await this.teacherRepo.findOne({
+    const existingProfile = await teacherRepo.findOne({
       where: { user_id: dto.user_id },
     });
     if (existingProfile) {
@@ -640,7 +664,7 @@ export class TeacherService {
 
     // Check for duplicate employee_id
     const existing = dto.employee_id
-      ? await this.teacherRepo.findOne({ where: { employee_id: dto.employee_id } })
+      ? await teacherRepo.findOne({ where: { employee_id: dto.employee_id } })
       : null;
     if (existing) {
       throw new ConflictException(`Teacher with employee ID "${dto.employee_id}" already exists`);
@@ -655,7 +679,7 @@ export class TeacherService {
     // or Teacher row that then blocks retry via createFor's "already has a
     // staff profile" / "already has a teacher profile" guards.
     const joiningDate = dto.joining_date ? new Date(dto.joining_date) : null;
-    const savedTeacher = await this.userRepo.manager.transaction(async (manager) => {
+    const work = async (manager: EntityManager) => {
       const staffProfile = await this.staffProfilesService.createFor(
         dto.user_id,
         tenantId,
@@ -675,9 +699,10 @@ export class TeacherService {
       const teacherSaved = await manager.save(teacher);
 
       return teacherSaved;
-    });
+    };
+    const savedTeacher = await (outer ? work(outer) : this.userRepo.manager.transaction(work));
 
-    return this.teacherRepo.findOne({
+    return teacherRepo.findOne({
       where: { id: savedTeacher.id },
       relations: ['user'],
     }) as Promise<Teacher>;
