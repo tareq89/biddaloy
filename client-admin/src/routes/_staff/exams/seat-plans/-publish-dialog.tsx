@@ -1,18 +1,9 @@
 /**
  * [25.7] step 5: publish a DRAFT plan. Mirrors `results/-publish-dialog.tsx`'s
  * confirm shape — a plain write, no approval gate (unlike results' reopen).
+ * A failure shows one translated line, never the server text.
  */
-import { ApiError } from '@biddaloy/ui/api';
-import {
-  Button,
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@biddaloy/ui/components';
+import { ConfirmDialog } from '@biddaloy/ui/components';
 import { usePublishSeatPlan } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 
@@ -32,37 +23,20 @@ export function PublishSeatPlanDialog({ open, onOpenChange, planId }: PublishSea
     onOpenChange(next);
   }
 
-  const errorMessage = publish.error instanceof ApiError ? publish.error.message : undefined;
-
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{t('publish.title')}</DialogTitle>
-          <DialogDescription>{t('publish.description')}</DialogDescription>
-        </DialogHeader>
-
-        {errorMessage !== undefined && (
-          <p role="alert" className="text-sm text-destructive">
-            {errorMessage}
-          </p>
-        )}
-
-        <DialogFooter>
-          <DialogClose asChild>
-            <Button type="button" variant="outline">
-              {t('actions.cancel', { ns: 'common' })}
-            </Button>
-          </DialogClose>
-          <Button
-            type="button"
-            loading={publish.isPending}
-            onClick={() => publish.mutate(undefined, { onSuccess: () => onOpenChange(false) })}
-          >
-            {t('publish.confirm')}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <ConfirmDialog
+      open={open}
+      onOpenChange={handleOpenChange}
+      tone="default"
+      title={t('publish.title')}
+      description={
+        publish.isError
+          ? `${t('publish.description')} ${t('publish.errorMessage')}`
+          : t('publish.description')
+      }
+      confirmLabel={t('publish.confirm')}
+      busy={publish.isPending}
+      onConfirm={() => publish.mutate(undefined, { onSuccess: () => onOpenChange(false) })}
+    />
   );
 }
