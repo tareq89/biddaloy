@@ -16,8 +16,8 @@
 import { PlacementAlgorithm } from '@biddaloy/shared';
 import { ApiError } from '@biddaloy/ui/api';
 import {
-  Button,
   Checkbox,
+  ConfirmDialog,
   Label,
   RadioGroup,
   RadioGroupItem,
@@ -31,24 +31,27 @@ import {
 import {
   examsQueryOptions,
   useAcademicYears,
+  useAllClasses,
   useClasses,
   useCreatePromotionRun,
   useSuggestPromotionTarget,
   type BlockingReason,
 } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
+import { FullPageShell, useCloseFullPage } from '@biddaloy/ui/shells';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
+import { TriangleAlertIcon } from 'lucide-react';
 import * as React from 'react';
 import { z } from 'zod';
 
-import { MutationErrorMessage } from '../../../components/MutationErrorMessage';
 import { loadRouteNamespaces } from '../../../route-loaders';
 
-const searchSchema = z.object({ classId: z.string().optional().catch(undefined) });
+const searchSchema = z.object({ classId: z.string().uuid().optional().catch(undefined) });
 
 export const Route = createFileRoute('/_staff/promotions/new')({
   validateSearch: searchSchema,
+  staticData: { chromeless: true },
   loader: () => loadRouteNamespaces('promotions', 'common'),
   pendingComponent: NewPromotionRunPending,
   component: NewPromotionRunPage,
@@ -77,7 +80,15 @@ function NewPromotionRunPage() {
   const [deselectedExamIds, setDeselectedExamIds] = React.useState<ReadonlySet<string>>(new Set());
   const [algorithm, setAlgorithm] = React.useState<PlacementAlgorithm>(PlacementAlgorithm.BLOCK);
 
+  const [discardOpen, setDiscardOpen] = React.useState(false);
+  const formRef = React.useRef<HTMLFormElement>(null);
+
   const mutation = useCreatePromotionRun();
+  const closePage = useCloseFullPage(() => void navigate({ to: '/promotions' }));
+  // A pending create must not be abandoned by Close / Cancel / Esc.
+  const close = () => {
+    if (!mutation.isPending) closePage();
+  };
 
   function changeSource(id: string) {
     if (!id) return;
@@ -104,9 +115,9 @@ function NewPromotionRunPage() {
     setTargetClassOverride(id);
   }
 
-  const classesQuery = useClasses({});
-  const yearsQuery = useAcademicYears();
-  const classes = classesQuery.data?.data ?? [];
+  const classesQuery = useAllClasses();
+  const yearsQuery = useAcademicYears({ limit: 100 });
+  const classes = classesQuery.data ?? [];
   const years = yearsQuery.data?.data ?? [];
 
   const sourceClass = classes.find((cls) => cls.id === sourceClassId);
@@ -122,7 +133,9 @@ function NewPromotionRunPage() {
 
   const suggestion = useSuggestPromotionTarget(sourceClassId, targetYearId);
 
-  const targetClassesQuery = useClasses(targetYearId ? { academic_year_id: targetYearId } : {});
+  const targetClassesQuery = useClasses(
+    targetYearId ? { academic_year_id: targetYearId, limit: 100 } : {},
+  );
   const targetClasses = targetYearId ? (targetClassesQuery.data?.data ?? []) : [];
   const targetClassId = targetClassOverride ?? suggestion.data?.target_class?.id;
 
@@ -173,12 +186,20 @@ function NewPromotionRunPage() {
     suggestion.data.blocking_reason === undefined &&
     targetClassOverride === undefined;
 
-  const otherError =
-    mutation.error !== undefined && mutation.error !== null && mutationErrorCode === undefined
-      ? mutation.error
+  // Translated, never the raw `error.message`.
+  const otherErrorKey =
+    mutation.error != null && mutationErrorCode === undefined
+      ? 'newRunForm.createFailed'
       : suggestion.isError
-        ? suggestion.error
+        ? 'newRunForm.suggestFailed'
         : undefined;
+
+  const dirty =
+    sourceClassId !== classId ||
+    targetYearOverride !== undefined ||
+    targetClassOverride !== undefined ||
+    deselectedExamIds.size > 0 ||
+    algorithm !== PlacementAlgorithm.BLOCK;
 
   const submitDisabled =
     !sourceClassId ||
@@ -190,7 +211,7 @@ function NewPromotionRunPage() {
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!sourceClassId || !targetYearId) return;
+    if (!sourceClassId || !targetYearId || submitDisabled) return;
     mutation.mutate(
       {
         source_class_id: sourceClassId,
@@ -207,142 +228,221 @@ function NewPromotionRunPage() {
     );
   }
 
+  const optionClass =
+    'flex min-h-11 items-start gap-3 rounded-md border border-border-subtle p-3 has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-secondary';
+  const cardClass = 'rounded-lg border border-border-subtle bg-surface p-4 shadow-e1 md:p-5';
+  const placeholder = t('newRunForm.placeholder');
+  const required = (
+    <span aria-hidden="true" className="text-status-overdue-fg">
+      {' '}
+      *
+    </span>
+  );
+
   return (
-    <div className="mx-auto max-w-xl p-6">
-      <h1 className="mb-6 text-lg font-semibold">{t('newRunForm.title')}</h1>
-      <form onSubmit={handleSubmit} className="flex flex-col gap-6">
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="promotion-source-class">{t('newRunForm.sourceClassLabel')}</Label>
-          <Select value={sourceClassId ?? ''} onValueChange={changeSource}>
-            <SelectTrigger
-              id="promotion-source-class"
-              aria-label={t('newRunForm.sourceClassLabel')}
+    <FullPageShell
+      title={t('newRunForm.title')}
+      onClose={close}
+      size="form"
+      dirty={dirty}
+      secondary={{
+        label: t('newRunForm.cancel'),
+        onClick: () => (dirty ? setDiscardOpen(true) : close()),
+      }}
+      primary={{
+        label: t('newRunForm.create'),
+        onClick: () => formRef.current?.requestSubmit(),
+        disabled: submitDisabled,
+        busy: mutation.isPending,
+      }}
+    >
+      <form ref={formRef} onSubmit={handleSubmit} className="space-y-6">
+        <section className={cardClass}>
+          <h2 className="text-h2">{t('newRunForm.classesTitle')}</h2>
+          <p className="mt-0.5 text-text-secondary">{t('newRunForm.classesHelp')}</p>
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="promotion-source-class">
+                {t('newRunForm.sourceClassLabel')}
+                {required}
+              </Label>
+              <Select value={sourceClassId ?? ''} onValueChange={changeSource}>
+                <SelectTrigger
+                  id="promotion-source-class"
+                  aria-label={t('newRunForm.sourceClassLabel')}
+                  className="w-full"
+                >
+                  <SelectValue placeholder={placeholder} />
+                </SelectTrigger>
+                <SelectContent>
+                  {classes.map((cls) => {
+                    const yearName = years.find((year) => year.id === cls.academic_year_id)?.name;
+                    return (
+                      <SelectItem key={cls.id} value={cls.id}>
+                        {yearName ? `${cls.name} (${yearName})` : cls.name}
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="promotion-target-year">
+                {t('newRunForm.targetYearLabel')}
+                {required}
+              </Label>
+              <Select value={targetYearId ?? ''} onValueChange={changeTargetYear}>
+                <SelectTrigger
+                  id="promotion-target-year"
+                  aria-label={t('newRunForm.targetYearLabel')}
+                  className="w-full"
+                >
+                  <SelectValue placeholder={placeholder} />
+                </SelectTrigger>
+                <SelectContent>
+                  {years.map((year) => (
+                    <SelectItem key={year.id} value={year.id}>
+                      {year.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-caption text-text-secondary">{t('newRunForm.suggestedHelp')}</p>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="promotion-target-class">{t('newRunForm.targetClassLabel')}</Label>
+              {showGraduateReadOnly ? (
+                <p className="text-text-secondary">{t('newRunForm.graduateOption')}</p>
+              ) : (
+                <Select
+                  value={targetClassId ?? ''}
+                  onValueChange={changeTargetClass}
+                  disabled={!targetYearId}
+                >
+                  <SelectTrigger
+                    id="promotion-target-class"
+                    aria-label={t('newRunForm.targetClassLabel')}
+                    className="w-full"
+                  >
+                    <SelectValue placeholder={placeholder} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {targetClasses.map((cls) => (
+                      <SelectItem key={cls.id} value={cls.id}>
+                        {cls.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              <p className="text-caption text-text-secondary">{t('newRunForm.suggestedHelp')}</p>
+            </div>
+          </div>
+
+          {reason !== undefined && (
+            <div
+              role="alert"
+              className="mt-4 flex items-start gap-2 rounded-md bg-status-overdue-bg p-3 text-status-overdue-fg"
             >
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {classes.map((cls) => {
-                const yearName = years.find((year) => year.id === cls.academic_year_id)?.name;
-                return (
-                  <SelectItem key={cls.id} value={cls.id}>
-                    {yearName ? `${cls.name} (${yearName})` : cls.name}
-                  </SelectItem>
-                );
-              })}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="promotion-target-year">{t('newRunForm.targetYearLabel')}</Label>
-          <Select value={targetYearId ?? ''} onValueChange={changeTargetYear}>
-            <SelectTrigger id="promotion-target-year" aria-label={t('newRunForm.targetYearLabel')}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {years.map((year) => (
-                <SelectItem key={year.id} value={year.id}>
-                  {year.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="flex flex-col gap-1.5">
-          <span className="text-sm font-medium">{t('newRunForm.targetClassLabel')}</span>
-          {showGraduateReadOnly ? (
-            <p className="text-sm">{t('newRunForm.graduateOption')}</p>
-          ) : (
-            <Select
-              value={targetClassId ?? ''}
-              onValueChange={changeTargetClass}
-              disabled={!targetYearId}
-            >
-              <SelectTrigger aria-label={t('newRunForm.targetClassLabel')}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {targetClasses.map((cls) => (
-                  <SelectItem key={cls.id} value={cls.id}>
-                    {cls.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              <TriangleAlertIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+              <div>
+                <p>{t(BLOCKING_KEY[reason])}</p>
+                {targetYearId && (
+                  <Link
+                    to="/classes"
+                    search={{ academic_year_id: targetYearId }}
+                    className="font-medium underline underline-offset-2"
+                  >
+                    {t('newRunForm.openClasses', { year: targetYearName ?? '' })}
+                  </Link>
+                )}
+              </div>
+            </div>
           )}
-        </div>
-
-        <fieldset className="flex flex-col gap-1.5">
-          <legend className="text-sm font-medium">{t('newRunForm.examsLabel')}</legend>
-          {published.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{t('newRunForm.noPublishedExams')}</p>
-          ) : (
-            published.map((exam) => (
-              <label key={exam.id} className="flex items-center gap-2 text-sm">
-                <Checkbox
-                  checked={!deselectedExamIds.has(exam.id)}
-                  onCheckedChange={(checked) => toggleExam(exam.id, checked === true)}
-                />
-                {exam.name}
-              </label>
-            ))
-          )}
-          {published.length > 0 && selectedExamIds.length === 0 && (
-            <p role="alert" className="text-sm text-destructive">
-              {t('newRunForm.examsRequired')}
+          {otherErrorKey !== undefined && (
+            <p role="alert" className="mt-4 text-status-overdue-fg">
+              {t(otherErrorKey)}
             </p>
           )}
-        </fieldset>
+        </section>
 
-        {reason !== undefined && (
-          <div role="alert" className="text-sm text-destructive">
-            <p>{t(BLOCKING_KEY[reason])}</p>
-            {targetYearId && (
-              <Link to="/classes" search={{ academic_year_id: targetYearId }} className="underline">
-                {t('newRunForm.openClasses', { year: targetYearName ?? '' })}
-              </Link>
+        <section className={cardClass}>
+          <fieldset>
+            <legend className="text-h2">{t('newRunForm.examsLabel')}</legend>
+            <p className="mt-0.5 text-text-secondary">{t('newRunForm.examsHelp')}</p>
+            {published.length === 0 ? (
+              <p className="mt-3 text-text-secondary">{t('newRunForm.noPublishedExams')}</p>
+            ) : (
+              <div className="mt-3 divide-y divide-border-subtle">
+                {published.map((exam) => (
+                  <label key={exam.id} className="flex min-h-11 items-center gap-3">
+                    <Checkbox
+                      checked={!deselectedExamIds.has(exam.id)}
+                      onCheckedChange={(checked) => toggleExam(exam.id, checked === true)}
+                    />
+                    {exam.name}
+                  </label>
+                ))}
+              </div>
             )}
-          </div>
-        )}
+            {published.length > 0 && selectedExamIds.length === 0 && (
+              <p role="alert" className="mt-2 text-status-overdue-fg">
+                {t('newRunForm.examsRequired')}
+              </p>
+            )}
+          </fieldset>
+        </section>
 
-        {otherError !== undefined && <MutationErrorMessage error={otherError} />}
-
-        <fieldset className="flex flex-col gap-1.5">
-          <legend className="text-sm font-medium">{t('newRunForm.algorithmLabel')}</legend>
-          <RadioGroup
-            aria-label={t('newRunForm.algorithmLabel')}
-            value={algorithm}
-            onValueChange={(value) => setAlgorithm(value as PlacementAlgorithm)}
-            className="flex flex-col gap-1.5"
-          >
-            <span className="flex items-center gap-2 text-sm">
-              <RadioGroupItem
-                value={PlacementAlgorithm.BLOCK}
-                aria-label={t('newRunForm.algorithmBlock')}
-              />
-              {t('newRunForm.algorithmBlock')}
-            </span>
-            <span className="flex items-center gap-2 text-sm">
-              <RadioGroupItem
-                value={PlacementAlgorithm.SNAKE}
-                aria-label={t('newRunForm.algorithmSnake')}
-              />
-              {t('newRunForm.algorithmSnake')}
-            </span>
-          </RadioGroup>
-        </fieldset>
-
-        <div className="flex gap-2">
-          <Button type="submit" disabled={submitDisabled}>
-            {t('newRunForm.create')}
-          </Button>
-          <Button type="button" variant="outline" asChild>
-            <Link to="/promotions">{t('newRunForm.cancel')}</Link>
-          </Button>
-        </div>
+        <section className={cardClass}>
+          <fieldset>
+            <legend className="text-h2">{t('newRunForm.algorithmLabel')}</legend>
+            <p className="mt-0.5 text-text-secondary">{t('newRunForm.algorithmHelp')}</p>
+            <RadioGroup
+              aria-label={t('newRunForm.algorithmLabel')}
+              value={algorithm}
+              onValueChange={(value) => setAlgorithm(value as PlacementAlgorithm)}
+              className="mt-4 grid gap-3 md:grid-cols-2"
+            >
+              {/* eslint-disable-next-line jsx-a11y/label-has-associated-control -- the Radix radio is a button inside the label */}
+              <label className={optionClass}>
+                <RadioGroupItem value={PlacementAlgorithm.BLOCK} className="mt-1" />
+                <span>
+                  <span className="block font-medium">{t('newRunForm.algorithmBlock')}</span>
+                  <span className="block text-text-secondary">
+                    {t('newRunForm.algorithmBlockHelp')}
+                  </span>
+                </span>
+              </label>
+              {/* eslint-disable-next-line jsx-a11y/label-has-associated-control -- the Radix radio is a button inside the label */}
+              <label className={optionClass}>
+                <RadioGroupItem value={PlacementAlgorithm.SNAKE} className="mt-1" />
+                <span>
+                  <span className="block font-medium">{t('newRunForm.algorithmSnake')}</span>
+                  <span className="block text-text-secondary">
+                    {t('newRunForm.algorithmSnakeHelp')}
+                  </span>
+                </span>
+              </label>
+            </RadioGroup>
+          </fieldset>
+        </section>
       </form>
-    </div>
+      <ConfirmDialog
+        open={discardOpen}
+        onOpenChange={setDiscardOpen}
+        tone="danger"
+        title={t('fullPage.discardTitle', { ns: 'common' })}
+        description={t('fullPage.discardDescription', { ns: 'common' })}
+        confirmLabel={t('fullPage.discardConfirm', { ns: 'common' })}
+        cancelLabel={t('fullPage.keepEditing', { ns: 'common' })}
+        onConfirm={() => {
+          setDiscardOpen(false);
+          closePage();
+        }}
+      />
+    </FullPageShell>
   );
 }
 
