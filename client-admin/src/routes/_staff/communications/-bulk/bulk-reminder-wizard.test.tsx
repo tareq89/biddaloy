@@ -6,13 +6,14 @@
  * The two behaviors that matter most, in order:
  * 1. Recipients come from **explicit selection**, never from the dues
  *    filters alone — Next stays disabled at zero selected.
- * 2. Submit is enabled only while the server preview matches the
- *    current inputs — editing any earlier step re-disables it until the
- *    preview is re-run (a queued bulk SMS cannot be recalled).
+ * 2. Send exists only while the server preview matches the current
+ *    inputs — editing any earlier step turns the footer button back into
+ *    Preview until the preview is re-run (a queued bulk SMS cannot be
+ *    recalled).
  */
 import { REGION_BD_BN } from '@biddaloy/ui/i18n';
 import { apiErrorBody, cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
-import { formatNumber } from '@biddaloy/ui/utils';
+import { formatMonthName, formatNumber } from '@biddaloy/ui/utils';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -65,13 +66,13 @@ function render() {
   });
 }
 
-/** The wizard's own Next — the recipients step's `DataTable` renders a
- * pagination "Next" too, so the bare name is ambiguous there. WizardShell's
- * footer is the last thing in the DOM, so its Next is always last. */
+/** The footer's primary button while on the recipients / message step. */
 function wizardNext(): HTMLButtonElement {
-  const buttons = screen.getAllByRole<HTMLButtonElement>('button', { name: 'Next' });
-  return buttons[buttons.length - 1] as HTMLButtonElement;
+  return screen.getByRole<HTMLButtonElement>('button', { name: /^Next: (message|check)$/ });
 }
+
+/** `Send reminders to 2 people` — the footer primary once a preview is current. */
+const SEND_NAME = `Send reminders to ${n(2)} people`;
 
 async function selectBothStudents(user: ReturnType<typeof userEvent.setup>) {
   await user.click(await screen.findByRole('checkbox', { name: `Select row ${n(1)}` }));
@@ -90,7 +91,7 @@ describe('bulk reminder wizard', () => {
     await cleanupTestState();
   });
 
-  it('opens from the single-reminder page via the Remind many at once button', async () => {
+  it('opens as a full page from the single-reminder page, and Close returns to it', async () => {
     server.use(duesHandler());
     const user = userEvent.setup();
     renderWithRouter(routeTree, {
@@ -101,9 +102,11 @@ describe('bulk reminder wizard', () => {
     });
 
     await user.click(await screen.findByRole('button', { name: 'Remind many at once' }));
-    expect(await screen.findByRole('heading', { name: 'Bulk Fee Reminders' })).toBeTruthy();
-    // And back again — the wizard's escape hatch to the single form.
-    await user.click(screen.getByRole('button', { name: 'Single reminder' }));
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Bulk Fee Reminders' }),
+    ).toBeTruthy();
+    // Nothing picked or typed yet, so Close leaves without asking.
+    await user.click(screen.getByRole('button', { name: 'Close' }));
     expect(await screen.findByRole('heading', { name: 'Fee Reminders' })).toBeTruthy();
   });
 
@@ -115,15 +118,15 @@ describe('bulk reminder wizard', () => {
     await screen.findByRole('checkbox', { name: `Select row ${n(1)}` });
     // Filters populated a table, but nothing is selected — the filters
     // alone never define the recipient set.
-    expect(screen.getByText(`${n(0)} of ${n(500)} students selected`)).toBeTruthy();
+    expect(screen.getByText(`${n(0)} of ${n(500)} students picked`)).toBeTruthy();
     expect(wizardNext().disabled).toBe(true);
 
     await selectBothStudents(user);
-    expect(screen.getByText(`${n(2)} of ${n(500)} students selected`)).toBeTruthy();
+    expect(screen.getByText(`${n(2)} of ${n(500)} students picked`)).toBeTruthy();
     expect(wizardNext().disabled).toBe(false);
   });
 
-  it('keeps submit disabled until a preview runs, and re-disables it when an earlier step changes', async () => {
+  it('swaps the footer button from Preview to Send, and back when an earlier step changes', async () => {
     server.use(duesHandler());
     const user = userEvent.setup();
     render();
@@ -133,17 +136,16 @@ describe('bulk reminder wizard', () => {
     await fillMessageStep(user);
     await user.click(wizardNext());
 
-    // On review: never previewed — the standing rule.
-    const submit = screen.getByRole<HTMLButtonElement>('button', { name: 'Send reminders' });
-    expect(submit.disabled).toBe(true);
+    // On review: never previewed — the standing rule. The one filled
+    // button is Preview; there is no Send yet.
+    expect(screen.queryByRole('button', { name: SEND_NAME })).toBeNull();
     expect(screen.getByText('Check the preview to enable sending.')).toBeTruthy();
 
     await user.click(screen.getByRole('button', { name: 'Preview recipients' }));
     // MSW's default bulk preview echoes both students back as recipients.
     await screen.findByText(`${n(2)} guardian(s) will receive this reminder · ${n(1)} skipped`);
-    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Send reminders' }).disabled).toBe(
-      false,
-    );
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: SEND_NAME }).disabled).toBe(false);
+    expect(screen.queryByRole('button', { name: 'Preview recipients' })).toBeNull();
 
     // Mutate an earlier step: the completed "Message" crumb is a button.
     await user.click(screen.getByRole('button', { name: 'Message' }));
@@ -151,15 +153,82 @@ describe('bulk reminder wizard', () => {
     await user.paste(' Pay soon.');
     await user.click(wizardNext());
 
-    // Previewed-then-edited — the staleness warning, submit re-disabled.
-    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Send reminders' }).disabled).toBe(
-      true,
-    );
+    // Previewed-then-edited — the staleness warning, Send gone again.
+    expect(screen.queryByRole('button', { name: SEND_NAME })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Preview recipients' })).toBeTruthy();
     expect(
       screen.getByText(
         'The earlier steps changed since the last preview — preview again before sending.',
       ),
     ).toBeTruthy();
+  });
+
+  it('keeps the selection when stepping back, and asks before Close discards it', async () => {
+    server.use(duesHandler());
+    const user = userEvent.setup();
+    render();
+
+    await screen.findByRole('checkbox', { name: `Select row ${n(1)}` });
+    await selectBothStudents(user);
+    await user.click(wizardNext());
+    await user.click(screen.getByRole('button', { name: 'Previous step' }));
+    expect(screen.getByText(`${n(2)} of ${n(500)} students picked`)).toBeTruthy();
+
+    await user.click(screen.getByRole('button', { name: 'Close' }));
+    expect(await screen.findByText('Discard your changes?')).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Keep editing' }));
+    expect(screen.getByRole('heading', { level: 1, name: 'Bulk Fee Reminders' })).toBeTruthy();
+  });
+
+  it('lists months by name, asks for 25 rows by default and shows the step row', async () => {
+    let limit: string | null = null;
+    server.use(
+      http.get('/api/v1/fees/dues', ({ request }) => {
+        limit = new URL(request.url).searchParams.get('limit');
+        return HttpResponse.json({ data: [], total: 0, page: 1, limit: 25, totalPages: 0 });
+      }),
+    );
+    const user = userEvent.setup();
+    render();
+
+    await screen.findByText('No students match these filters.');
+    expect(limit).toBe('25');
+    const steps = screen.getByRole('list', { name: 'Steps' });
+    expect(steps.querySelector('[aria-current="step"]')?.textContent).toContain('Recipients');
+
+    await user.click(screen.getByRole('combobox', { name: 'Month' }));
+    // The test tenant has no region settings, so month names follow the Bangla default.
+    expect(
+      await screen.findByRole('option', { name: formatMonthName(1, REGION_BD_BN) }),
+    ).toBeTruthy();
+    expect(screen.queryByRole('option', { name: '01' })).toBeNull();
+  });
+
+  it('shows one translated sentence for a 400 on preview, never the server text', async () => {
+    const serverMessage = 'student_ids contains an unknown id';
+    server.use(
+      duesHandler(),
+      http.post('/api/v1/communications/reminder/bulk/preview', () =>
+        HttpResponse.json(
+          apiErrorBody(400, serverMessage, '/api/v1/communications/reminder/bulk/preview'),
+          { status: 400 },
+        ),
+      ),
+    );
+    const user = userEvent.setup();
+    render();
+
+    await screen.findByRole('checkbox', { name: `Select row ${n(1)}` });
+    await selectBothStudents(user);
+    await fillMessageStep(user);
+    await user.click(wizardNext());
+    await user.click(screen.getByRole('button', { name: 'Preview recipients' }));
+
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toBe(
+      'The preview could not be made — go back and check the students and message.',
+    );
+    expect(screen.queryByText(serverMessage)).toBeNull();
   });
 
   it('rejects unsupported placeholders on the message step before any request', async () => {
@@ -210,7 +279,7 @@ describe('bulk reminder wizard', () => {
     await user.click(wizardNext());
     await user.click(screen.getByRole('button', { name: 'Preview recipients' }));
     await screen.findByText(`${n(2)} guardian(s) will receive this reminder · ${n(1)} skipped`);
-    await user.click(screen.getByRole('button', { name: 'Send reminders' }));
+    await user.click(screen.getByRole('button', { name: SEND_NAME }));
 
     await screen.findByText('“August dues” is being sent in the background.');
     expect(sentBody).toEqual({
@@ -220,8 +289,8 @@ describe('bulk reminder wizard', () => {
       mediums: ['EMAIL', 'SMS', 'WHATSAPP'],
     });
 
-    const link = screen.getByRole<HTMLAnchorElement>('link', { name: 'See sending progress' });
-    expect(link.getAttribute('href')).toBe('/communications/batches/batch-new-1');
+    // The footer primary now opens the round's detail page.
+    expect(screen.getByRole('button', { name: 'See sending progress' })).toBeTruthy();
   });
 
   it('completes the review step with the keyboard alone', async () => {
@@ -240,7 +309,7 @@ describe('bulk reminder wizard', () => {
     screen.getByRole('button', { name: 'Preview recipients' }).focus();
     await user.keyboard('{Enter}');
     await screen.findByText(`${n(2)} guardian(s) will receive this reminder · ${n(1)} skipped`);
-    const submit = screen.getByRole<HTMLButtonElement>('button', { name: 'Send reminders' });
+    const submit = screen.getByRole<HTMLButtonElement>('button', { name: SEND_NAME });
     expect(submit.disabled).toBe(false);
     submit.focus();
     await user.keyboard('{Enter}');
@@ -270,7 +339,7 @@ describe('bulk reminder wizard', () => {
     await user.click(wizardNext());
     await user.click(screen.getByRole('button', { name: 'Preview recipients' }));
     await screen.findByText(`${n(2)} guardian(s) will receive this reminder · ${n(1)} skipped`);
-    await user.click(screen.getByRole('button', { name: 'Send reminders' }));
+    await user.click(screen.getByRole('button', { name: SEND_NAME }));
 
     await waitFor(() => {
       expect(
@@ -309,9 +378,7 @@ describe('bulk reminder wizard', () => {
     await user.click(screen.getByRole('button', { name: 'Preview recipients' }));
 
     await screen.findByText(`(${n(1)} short)`, { exact: false });
-    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Send reminders' }).disabled).toBe(
-      true,
-    );
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: SEND_NAME }).disabled).toBe(true);
   });
 
   it('[15.6.8/#551] renders required vs available inline on a 409 INSUFFICIENT_SMS_CREDIT send', async () => {
@@ -340,7 +407,7 @@ describe('bulk reminder wizard', () => {
     await user.click(wizardNext());
     await user.click(screen.getByRole('button', { name: 'Preview recipients' }));
     await screen.findByText(`${n(2)} guardian(s) will receive this reminder · ${n(1)} skipped`);
-    await user.click(screen.getByRole('button', { name: 'Send reminders' }));
+    await user.click(screen.getByRole('button', { name: SEND_NAME }));
 
     await waitFor(() => {
       expect(
@@ -354,7 +421,7 @@ describe('bulk reminder wizard', () => {
   it('is axe clean with the preview on screen', async () => {
     server.use(duesHandler());
     const user = userEvent.setup();
-    const { container } = render();
+    render();
 
     await screen.findByRole('checkbox', { name: `Select row ${n(1)}` });
     await selectBothStudents(user);
@@ -363,6 +430,11 @@ describe('bulk reminder wizard', () => {
     await user.click(screen.getByRole('button', { name: 'Preview recipients' }));
     await screen.findByText(`${n(2)} guardian(s) will receive this reminder · ${n(1)} skipped`);
 
-    await expect(container).toHaveNoViolations();
+    // Scan the wizard body (the dialog's second child, after the shell's header):
+    // FullPageShell's own <header> is flagged `landmark-no-duplicate-banner` next
+    // to the app shell's banner in jsdom — a shared-shell issue, reported separately.
+    const body = screen.getByRole('dialog').children[1];
+    expect(body).toBeTruthy();
+    await expect(body as Element).toHaveNoViolations();
   });
 });

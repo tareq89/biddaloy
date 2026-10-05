@@ -314,7 +314,8 @@ function SingleReminderForm() {
           label: t('bulk.entryAction'),
           icon: <UsersIcon aria-hidden />,
           priority: 'secondary',
-          onClick: () => void navigate({ to: '/communications/reminders', search: { mode: 'bulk' } }),
+          onClick: () =>
+            void navigate({ to: '/communications/reminders', search: { mode: 'bulk' } }),
         },
       ]}
     />
@@ -517,10 +518,7 @@ function SingleReminderForm() {
                   </>
                 )}
                 {unknownTokens.length > 0 && (
-                  <p
-                    role="alert"
-                    className="flex items-center gap-1 text-caption text-destructive"
-                  >
+                  <p role="alert" className="flex items-center gap-1 text-caption text-destructive">
                     <CircleAlertIcon className="size-4 shrink-0" aria-hidden />
                     {t('reminders.unknownPlaceholder', { token: unknownTokens.join(', ') })}
                   </p>
