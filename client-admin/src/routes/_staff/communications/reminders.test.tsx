@@ -16,7 +16,7 @@ import {
   studentFactory,
 } from '@biddaloy/ui/test';
 import { apiErrorBody } from '@biddaloy/ui/test';
-import { formatNumber } from '@biddaloy/ui/utils';
+import { formatNumber, formatPhone } from '@biddaloy/ui/utils';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { delay, http, HttpResponse } from 'msw';
@@ -127,29 +127,36 @@ describe('/communications/reminders', () => {
     await pickStudent(user);
 
     const templateInput = screen.getByRole<HTMLTextAreaElement>('textbox', {
-      name: 'Message template',
+      name: 'Message',
     });
     await user.click(templateInput);
     await user.paste('Dear {{guardian_name}}, dues are open.');
 
-    // The blocking rule: composed but never previewed → Send disabled.
-    const sendButton = screen.getByRole<HTMLButtonElement>('button', { name: 'Send reminder' });
-    expect(sendButton.disabled).toBe(true);
+    // The blocking rule: composed but never previewed → no Send on screen,
+    // and the one filled button is Preview.
+    const sendName = `Send reminder to ${n(1)} person`;
+    expect(screen.queryByRole('button', { name: sendName })).toBeNull();
 
     await user.click(screen.getByRole('button', { name: 'Preview recipients' }));
     await screen.findByText('Dear Rahima Begum, Arif Hossain has dues.');
-    expect(sendButton.disabled).toBe(false);
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: sendName }).disabled).toBe(false);
+    // After a preview, "Preview again" is the outline button.
+    expect(screen.getByRole('button', { name: 'Preview again' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Preview recipients' })).toBeNull();
 
     // The staleness guard's teeth: any edit after a successful preview
-    // re-disables Send until the preview is re-run for the new inputs.
+    // hides the preview (and Send) until it is re-run for the new inputs.
     await user.type(templateInput, ' Pay soon.');
-    expect(sendButton.disabled).toBe(true);
+    expect(screen.queryByRole('button', { name: sendName })).toBeNull();
+    expect(screen.queryByText('Preview')).toBeNull();
     expect(
       screen.getByText('Inputs changed since the last preview — preview again before sending.'),
     ).toBeTruthy();
 
     await user.click(screen.getByRole('button', { name: 'Preview recipients' }));
-    await waitFor(() => expect(sendButton.disabled).toBe(false));
+    expect(
+      (await screen.findByRole<HTMLButtonElement>('button', { name: sendName })).disabled,
+    ).toBe(false);
   });
 
   it('shows resolved recipients and the skipped list with a plain-language reason', async () => {
@@ -158,14 +165,16 @@ describe('/communications/reminders', () => {
     const user = userEvent.setup();
     render();
     await pickStudent(user);
-    await user.click(screen.getByRole('textbox', { name: 'Message template' }));
+    await user.click(screen.getByRole('textbox', { name: 'Message' }));
     await user.paste('Dues reminder for your child.');
     await user.click(screen.getByRole('button', { name: 'Preview recipients' }));
 
     // Recipient row: name, channel, address, fully rendered message.
     await screen.findByText('Dear Rahima Begum, Arif Hossain has dues.');
     expect(screen.getByText(`Will receive (${n(1)})`)).toBeTruthy();
-    expect(screen.getByText(GUARDIAN_MOTHER.phone as string)).toBeTruthy();
+    expect(
+      screen.getByText(`SMS · ${formatPhone(GUARDIAN_MOTHER.phone as string, REGION_BD_BN)}`),
+    ).toBeTruthy();
 
     // The rendered body is what the network charges for — its count sits
     // with the SMS recipient row ('Dear Rahima Begum, Arif Hossain has
@@ -179,7 +188,7 @@ describe('/communications/reminders', () => {
     expect(screen.getByText('No phone or email on file for the preferred channel')).toBeTruthy();
   });
 
-  it('blocks unknown placeholders client-side, naming the four supported tokens', async () => {
+  it('blocks unknown placeholders client-side with a translated line', async () => {
     let posted = false;
     server.use(
       ...referenceHandlers(),
@@ -192,13 +201,12 @@ describe('/communications/reminders', () => {
     const user = userEvent.setup();
     render();
     await pickStudent(user);
-    await user.click(screen.getByRole('textbox', { name: 'Message template' }));
+    await user.click(screen.getByRole('textbox', { name: 'Message' }));
     await user.paste('Hello {{class_name}}');
 
     const alert = await screen.findByRole('alert');
-    expect(alert.textContent).toContain('Unsupported placeholder {{class_name}}');
-    expect(alert.textContent).toContain(
-      '{{student_name}}, {{guardian_name}}, {{due_amount}}, {{due_month}}',
+    expect(alert.textContent).toBe(
+      "{{class_name}} isn't recognised. Use the buttons below to insert a name or amount.",
     );
     expect(
       screen.getByRole<HTMLButtonElement>('button', { name: 'Preview recipients' }).disabled,
@@ -212,7 +220,7 @@ describe('/communications/reminders', () => {
     const user = userEvent.setup();
     render();
     await pickStudent(user);
-    await user.click(screen.getByRole('textbox', { name: 'Message template' }));
+    await user.click(screen.getByRole('textbox', { name: 'Message' }));
     await user.paste('Dear {{ guardian_name }}, dues: {{  due_amount  }}.');
 
     // The server trims inner padding before checking the name
@@ -224,17 +232,42 @@ describe('/communications/reminders', () => {
     ).toBe(false);
   });
 
-  it('inserts a placeholder token from its chip button', async () => {
-    server.use(...referenceHandlers());
+  it('shows placeholders as words, never raw tokens, and sends server tokens', async () => {
+    let previewBody: Record<string, unknown> | undefined;
+    server.use(
+      ...referenceHandlers(),
+      previewHandler((body) => {
+        previewBody = body;
+      }),
+    );
 
     const user = userEvent.setup();
     render();
     await pickStudent(user);
-    await user.click(screen.getByRole('button', { name: 'Insert {{guardian_name}}' }));
+    expect(screen.queryByText(/\{\{/)).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Guardian name' }));
 
+    const textarea = screen.getByRole<HTMLTextAreaElement>('textbox', { name: 'Message' });
+    expect(textarea.value).toBe('{Guardian name}');
+    expect(screen.queryByRole('alert')).toBeNull();
+
+    await user.click(screen.getByRole('button', { name: 'Preview recipients' }));
+    await screen.findByText('Dear Rahima Begum, Arif Hossain has dues.');
+    expect(previewBody?.['message_template']).toBe('{{guardian_name}}');
+  });
+
+  it('flags a single-brace word it does not know', async () => {
+    server.use(...referenceHandlers());
+    const user = userEvent.setup();
+    render();
+    await pickStudent(user);
+    await user.click(screen.getByRole('textbox', { name: 'Message' }));
+    await user.paste('Hello {Nope}');
+
+    expect((await screen.findByRole('alert')).textContent).toContain('{Nope} isn');
     expect(
-      screen.getByRole<HTMLTextAreaElement>('textbox', { name: 'Message template' }).value,
-    ).toBe('{{guardian_name}}');
+      screen.getByRole<HTMLButtonElement>('button', { name: 'Preview recipients' }).disabled,
+    ).toBe(true);
   });
 
   it('sends exactly the previewed inputs and shows the sent/skipped result panel', async () => {
@@ -280,12 +313,12 @@ describe('/communications/reminders', () => {
     // not "all guardians".
     await user.click(screen.getByLabelText(/Karim Uddin \(Father\)/));
 
-    await user.click(screen.getByRole('textbox', { name: 'Message template' }));
+    await user.click(screen.getByRole('textbox', { name: 'Message' }));
     await user.paste('Dues reminder for your child.');
     await user.click(screen.getByRole('button', { name: 'Preview recipients' }));
     await screen.findByText('Dear Rahima Begum, Arif Hossain has dues.');
 
-    await user.click(screen.getByRole('button', { name: 'Send reminder' }));
+    await user.click(screen.getByRole('button', { name: `Send reminder to ${n(1)} person` }));
 
     await screen.findByText('Reminder sent');
     expect(sendBody?.['message_template']).toBe('Dues reminder for your child.');
@@ -325,12 +358,12 @@ describe('/communications/reminders', () => {
     const user = userEvent.setup();
     render();
     await pickStudent(user);
-    await user.click(screen.getByRole('textbox', { name: 'Message template' }));
+    await user.click(screen.getByRole('textbox', { name: 'Message' }));
     await user.paste('Dues reminder.');
     await user.click(screen.getByRole('button', { name: 'Preview recipients' }));
 
     // Abandon the request's context while it is still in flight.
-    await user.click(screen.getByRole('button', { name: 'Change student' }));
+    await user.click(screen.getByRole('button', { name: 'Change' }));
     await pickStudent(user);
 
     // Give the slow response time to land, then prove it was discarded:
@@ -340,9 +373,7 @@ describe('/communications/reminders', () => {
     await new Promise((resolve) => setTimeout(resolve, 400));
     expect(screen.queryByText('STALE preview body')).toBeNull();
     expect(screen.queryByText(/Will receive/)).toBeNull();
-    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Send reminder' }).disabled).toBe(
-      true,
-    );
+    expect(screen.queryByRole('button', { name: /Send reminder/ })).toBeNull();
   });
 
   // Re-picking the *same* student after "Change student" must re-apply the
@@ -361,7 +392,7 @@ describe('/communications/reminders', () => {
         .getAttribute('aria-checked'),
     ).toBe('true');
 
-    await user.click(screen.getByRole('button', { name: 'Change student' }));
+    await user.click(screen.getByRole('button', { name: 'Change' }));
     await pickStudent(user);
 
     expect(
@@ -369,7 +400,7 @@ describe('/communications/reminders', () => {
         .getByRole('checkbox', { name: /Rahima Begum \(Mother\)/ })
         .getAttribute('aria-checked'),
     ).toBe('true');
-    await user.click(screen.getByRole('textbox', { name: 'Message template' }));
+    await user.click(screen.getByRole('textbox', { name: 'Message' }));
     await user.paste('Dues reminder.');
     expect(
       screen.getByRole<HTMLButtonElement>('button', { name: 'Preview recipients' }).disabled,
@@ -411,27 +442,27 @@ describe('/communications/reminders', () => {
     const user = userEvent.setup();
     render();
     await pickStudent(user);
-    await user.click(screen.getByRole('textbox', { name: 'Message template' }));
+    await user.click(screen.getByRole('textbox', { name: 'Message' }));
     await user.paste('Dues reminder.');
 
     // Default (guardian preference) with the mother preferring SMS —
     // counter visible, labelled as a template-based estimate.
     expect(screen.getByText(`${n(14)} characters · ${n(1)} SMS`)).toBeTruthy();
-    expect(screen.getByText(/Estimated from the template/)).toBeTruthy();
+    expect(screen.getByText(/Estimate — the exact count/)).toBeTruthy();
 
     // Explicit Email override: no SMS will go out — quoting SMS segment
     // limits would be noise.
-    await user.click(screen.getByRole('combobox', { name: 'Channel override' }));
+    await user.click(screen.getByRole('combobox', { name: 'Send by' }));
     await user.click(await screen.findByRole('option', { name: 'Email' }));
     expect(screen.queryByText(`${n(14)} characters · ${n(1)} SMS`)).toBeNull();
 
     // Explicit SMS override: back.
-    await user.click(screen.getByRole('combobox', { name: 'Channel override' }));
+    await user.click(screen.getByRole('combobox', { name: 'Send by' }));
     await user.click(await screen.findByRole('option', { name: 'SMS' }));
     expect(screen.getByText(`${n(14)} characters · ${n(1)} SMS`)).toBeTruthy();
   });
 
-  it('surfaces the server 400 verbatim when every candidate is skipped', async () => {
+  it('shows one translated sentence for a server 400, never the server text', async () => {
     const serverMessage =
       'No deliverable guardian for student "Arif Hossain" — every candidate skipped: Rahima Begum (no_open_dues)';
     server.use(
@@ -451,15 +482,44 @@ describe('/communications/reminders', () => {
     const user = userEvent.setup();
     render();
     await pickStudent(user);
-    await user.click(screen.getByRole('textbox', { name: 'Message template' }));
+    await user.click(screen.getByRole('textbox', { name: 'Message' }));
     await user.paste('Dues reminder.');
     await user.click(screen.getByRole('button', { name: 'Preview recipients' }));
 
     const alert = await screen.findByRole('alert');
-    expect(alert.textContent).toBe(serverMessage);
-    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Send reminder' }).disabled).toBe(
-      true,
+    expect(alert.textContent).toBe(
+      'The preview could not be made — check the student, guardians and message.',
     );
+    expect(screen.queryByText(serverMessage)).toBeNull();
+    expect(screen.queryByRole('button', { name: /Send reminder/ })).toBeNull();
+  });
+
+  it('shows the guardian phone formatted and an unknown skip reason in plain words', async () => {
+    server.use(
+      ...referenceHandlers(),
+      http.post('/api/v1/communications/reminder/single/:studentId/preview', () =>
+        HttpResponse.json({
+          student_id: 'student-1',
+          recipients: [],
+          skipped: [
+            { guardian_id: 'g-x', guardian_name: 'Karim Uddin', reason: 'some_future_reason' },
+          ],
+        }),
+      ),
+    );
+    const user = userEvent.setup();
+    render();
+    await pickStudent(user);
+    const row = screen.getByRole('checkbox', { name: /Rahima Begum \(Mother\)/ }).closest('label');
+    expect(row?.textContent).toContain(
+      `Prefers SMS · ${formatPhone(GUARDIAN_MOTHER.phone as string, REGION_BD_BN)}`,
+    );
+
+    await user.click(screen.getByRole('textbox', { name: 'Message' }));
+    await user.paste('Dues reminder.');
+    await user.click(screen.getByRole('button', { name: 'Preview recipients' }));
+    await screen.findByText('Skipped for another reason');
+    expect(screen.queryByText('some_future_reason')).toBeNull();
   });
 
   it('counts Bangla text as UCS-2 segments in a live region', async () => {
@@ -470,7 +530,7 @@ describe('/communications/reminders', () => {
     await pickStudent(user);
 
     const bangla = 'প্রিয় অভিভাবক, আপনার সন্তানের ফি বকেয়া আছে।';
-    const templateInput = screen.getByRole('textbox', { name: 'Message template' });
+    const templateInput = screen.getByRole('textbox', { name: 'Message' });
     await user.click(templateInput);
     await user.paste(bangla);
 
@@ -500,7 +560,7 @@ describe('/communications/reminders', () => {
     const user = userEvent.setup();
     const { container } = render();
     await pickStudent(user);
-    await user.click(screen.getByRole('textbox', { name: 'Message template' }));
+    await user.click(screen.getByRole('textbox', { name: 'Message' }));
     await user.paste('Dues reminder for your child.');
     await user.click(screen.getByRole('button', { name: 'Preview recipients' }));
     await screen.findByText('Dear Rahima Begum, Arif Hossain has dues.');

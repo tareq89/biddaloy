@@ -2,17 +2,28 @@
  * Client-side mirror of `reminder-template.util.ts`'s placeholder
  * allowlist. The server answers 400 `Unsupported template placeholder(s)`
  * for anything else; validating here means the composer learns about a
- * typo (`{{studnet_name}}`) while typing, not after a round trip — and
- * the four supported tokens can be named in the error.
+ * typo (`{{studnet_name}}`) while typing, not after a round trip.
+ *
+ * Staff never see the server tokens: the composer holds a display form
+ * (`{শিক্ষার্থীর নাম}`) that `toServerTemplate` converts to `{{student_name}}`
+ * right before preview / send.
  */
-export const SUPPORTED_PLACEHOLDERS = [
-  '{{student_name}}',
-  '{{guardian_name}}',
-  '{{due_amount}}',
-  '{{due_month}}',
-] as const;
+import { useTranslation } from '@biddaloy/ui/i18n';
+import * as React from 'react';
 
-const SUPPORTED_NAMES = new Set(['student_name', 'guardian_name', 'due_amount', 'due_month']);
+export const PLACEHOLDER_NAMES = [
+  'student_name',
+  'guardian_name',
+  'due_amount',
+  'due_month',
+] as const;
+export type PlaceholderName = (typeof PLACEHOLDER_NAMES)[number];
+export type PlaceholderLabels = Record<PlaceholderName, string>;
+
+/** The server-token form of each supported placeholder, used by the bulk wizard's own buttons. */
+export const SUPPORTED_PLACEHOLDERS = PLACEHOLDER_NAMES.map((name) => `{{${name}}}`);
+
+const SUPPORTED_NAMES = new Set<string>(PLACEHOLDER_NAMES);
 
 // Same semantics as the server's PLACEHOLDER_PATTERN
 // (`/\{\{([^{}]*)\}\}/` in reminder-template.util.ts): one unambiguous
@@ -35,4 +46,43 @@ export function findUnsupportedPlaceholders(template: string): string[] {
     }
   }
   return unsupported;
+}
+
+/** Translated placeholder words, memoised per language. */
+export function usePlaceholderLabels(): PlaceholderLabels {
+  const { t } = useTranslation('communications');
+  return React.useMemo(
+    () =>
+      Object.fromEntries(
+        PLACEHOLDER_NAMES.map((name) => [name, t(`placeholders.${name}`)]),
+      ) as PlaceholderLabels,
+    [t],
+  );
+}
+
+/** `{শিক্ষার্থীর নাম}` → `{{student_name}}`; existing `{{…}}` tokens pass through. */
+export function toServerTemplate(display: string, labels: PlaceholderLabels): string {
+  let result = display;
+  for (const name of PLACEHOLDER_NAMES) {
+    const word = labels[name].replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    result = result.replace(new RegExp(`(?<!\\{)\\{${word}\\}(?!\\})`, 'g'), `{{${name}}}`);
+  }
+  return result;
+}
+
+/** `{{ student_name }}` → `{শিক্ষার্থীর নাম}` for the four supported names; anything else unchanged. */
+export function toDisplayTemplate(server: string, labels: PlaceholderLabels): string {
+  return server.replace(PLACEHOLDER_PATTERN, (whole, inner: string) =>
+    SUPPORTED_NAMES.has(inner.trim()) ? `{${labels[inner.trim() as PlaceholderName]}}` : whole,
+  );
+}
+
+/** Single-brace `{…}` left after conversion = a word we do not know. */
+export function findUnknownLabels(display: string, labels: PlaceholderLabels): string[] {
+  const unknown: string[] = [];
+  for (const match of toServerTemplate(display, labels).matchAll(/(?<!\{)\{([^{}]+)\}(?!\})/g)) {
+    const word = match[1] ?? '';
+    if (!unknown.includes(word)) unknown.push(word);
+  }
+  return unknown;
 }

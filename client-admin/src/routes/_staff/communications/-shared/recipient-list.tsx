@@ -1,5 +1,6 @@
 import type { ReminderPreviewRecipient } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { formatPhone } from '@biddaloy/ui/utils';
 
 import { skipReasonKey } from './skip-reason';
 import { SmsSegmentCounter } from './sms-segment-counter';
@@ -24,105 +25,76 @@ export interface RecipientListProps {
  * with the *fully rendered* message each guardian will receive, and the
  * skipped list with a plain-language reason. The skipped half is not an
  * afterthought: a guardian silently dropped ("no phone on file") is the
- * failure mode the issue names, so it gets the same table treatment as
- * the recipients.
+ * failure mode the issue names, so it gets the same list treatment as
+ * the recipients. A plain list (not a table) because each row carries a
+ * long message body and must read the same on a phone.
  */
 export function RecipientList({ recipients, skipped }: RecipientListProps) {
   const { t } = useTranslation('communications');
+  const config = useRegionConfig();
 
   return (
     <div className="flex flex-col gap-6">
       <section aria-label={t('recipientList.recipientsTitle', { count: recipients.length })}>
-        <h3 className="text-sm font-semibold">
+        <h3 className="text-h3">
           {t('recipientList.recipientsTitle', { count: recipients.length })}
         </h3>
         {recipients.length === 0 ? (
-          <p role="alert" className="mt-2 text-sm text-destructive">
+          <p role="alert" className="mt-2 flex items-center gap-1 text-caption text-destructive">
             {t('recipientList.emptyRecipients')}
           </p>
         ) : (
-          <table className="mt-2 w-full border-collapse text-sm">
-            <thead>
-              <tr className="border-b border-border-subtle text-left text-muted-foreground">
-                <th scope="col" className="py-2 pr-3 font-medium">
-                  {t('recipientList.guardianHeader')}
-                </th>
-                <th scope="col" className="py-2 pr-3 font-medium">
-                  {t('recipientList.channelHeader')}
-                </th>
-                <th scope="col" className="py-2 pr-3 font-medium">
-                  {t('recipientList.addressHeader')}
-                </th>
-                <th scope="col" className="py-2 font-medium">
-                  {t('recipientList.messageHeader')}
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {recipients.map((recipient) => (
-                <tr
-                  key={`${recipient.guardian_id}-${recipient.medium}`}
-                  className="border-b border-border-subtle align-top"
-                >
-                  <td className="py-2 pr-3">{recipient.guardian_name}</td>
-                  <td className="py-2 pr-3">{t(`mediums.${recipient.medium}`)}</td>
-                  <td className="py-2 pr-3">{recipient.address}</td>
-                  <td className="py-2">
-                    {recipient.subject !== null && (
-                      <p className="font-medium">
-                        {t('recipientList.subjectHeader')}: {recipient.subject}
-                      </p>
-                    )}
-                    <p className="whitespace-pre-wrap">{recipient.message_body}</p>
-                    {/* The rendered body is what the network actually
-                        charges for — count it here (not the raw
-                        template, whose placeholders expand on send).
-                        Static row, so no live region. */}
-                    {recipient.medium === 'SMS' && (
-                      <SmsSegmentCounter text={recipient.message_body} live={false} />
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <ul className="divide-y divide-border-subtle">
+            {recipients.map((recipient) => (
+              <li key={`${recipient.guardian_id}-${recipient.medium}`} className="py-3">
+                <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+                  <p className="font-medium">{recipient.guardian_name}</p>
+                  <p className="text-text-secondary">
+                    {t(`mediums.${recipient.medium}`)} ·{' '}
+                    {recipient.medium === 'EMAIL'
+                      ? recipient.address
+                      : formatPhone(recipient.address, config)}
+                  </p>
+                </div>
+                {recipient.subject !== null && (
+                  <p className="mt-2 font-medium">
+                    {t('recipientList.subjectHeader')}: {recipient.subject}
+                  </p>
+                )}
+                <p className="mt-2 whitespace-pre-wrap rounded-md bg-muted p-3">
+                  {recipient.message_body}
+                </p>
+                {/* The rendered body is what the network actually
+                    charges for — count it here (not the raw template,
+                    whose placeholders expand on send). Static row, so no
+                    live region. */}
+                {recipient.medium === 'SMS' && (
+                  <div className="mt-1">
+                    <SmsSegmentCounter text={recipient.message_body} live={false} />
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
         )}
       </section>
 
       <section aria-label={t('recipientList.skippedTitle', { count: skipped.length })}>
-        <h3 className="text-sm font-semibold">
-          {t('recipientList.skippedTitle', { count: skipped.length })}
-        </h3>
+        <h3 className="text-h3">{t('recipientList.skippedTitle', { count: skipped.length })}</h3>
         {skipped.length === 0 ? (
-          <p className="mt-2 text-sm text-muted-foreground">{t('recipientList.noneSkipped')}</p>
+          <p className="mt-2 text-text-secondary">{t('recipientList.noneSkipped')}</p>
         ) : (
-          <table className="mt-2 w-full border-collapse text-sm">
-            <thead>
-              <tr className="border-b border-border-subtle text-left text-muted-foreground">
-                <th scope="col" className="py-2 pr-3 font-medium">
-                  {t('recipientList.guardianHeader')}
-                </th>
-                <th scope="col" className="py-2 font-medium">
-                  {t('recipientList.reasonHeader')}
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {skipped.map((entry, index) => {
-                const reasonKey = skipReasonKey(entry.reason);
-                return (
-                  <tr key={entry.guardian_id ?? index} className="border-b border-border-subtle">
-                    <td className="py-2 pr-3">{entry.guardian_name ?? '—'}</td>
-                    {/* Unknown reason: show the raw wire string rather than
-                        nothing — never leave a skip unexplained. */}
-                    <td className="py-2">
-                      {reasonKey !== undefined ? t(reasonKey) : entry.reason}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+          <ul className="divide-y divide-border-subtle">
+            {skipped.map((entry, index) => (
+              <li
+                key={entry.guardian_id ?? index}
+                className="flex flex-col gap-0.5 py-3 md:flex-row md:justify-between md:gap-4"
+              >
+                <p className="font-medium">{entry.guardian_name ?? '—'}</p>
+                <p className="text-text-secondary">{t(skipReasonKey(entry.reason))}</p>
+              </li>
+            ))}
+          </ul>
         )}
       </section>
     </div>

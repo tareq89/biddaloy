@@ -383,10 +383,9 @@ function BatchDetail() {
             ) : (
               <ul className="flex flex-col gap-1 text-sm">
                 {Array.from(skippedByReason.entries()).map(([reason, count]) => {
-                  const reasonKey = skipReasonKey(reason);
                   return (
                     <li key={reason}>
-                      {reasonKey !== undefined ? t(reasonKey) : reason} —{' '}
+                      {t(skipReasonKey(reason))} —{' '}
                       {t('batches.detail.skippedStudents', { count: count })}
                     </li>
                   );

@@ -16,17 +16,13 @@
     "preferred_medium_not_in_requested_mediums": "Preferred channel is not among the requested channels",
     "preferred_medium_has_no_automated_provider": "Preferred channel cannot be sent automatically",
     "guardian_has_no_address_for_preferred_medium": "No phone or email on file for the preferred channel",
-    "guardian_notifications_disabled": "Guardian has turned off notifications"
+    "guardian_notifications_disabled": "Guardian has turned off notifications",
+    "unknown": "Skipped for another reason"
   },
   "recipientList": {
     "recipientsTitle": "Will receive ({{count}})",
     "skippedTitle": "Skipped ({{count}})",
-    "guardianHeader": "Guardian",
-    "channelHeader": "Channel",
-    "addressHeader": "Address",
     "subjectHeader": "Subject",
-    "messageHeader": "Message as it will be sent",
-    "reasonHeader": "Why skipped",
     "emptyRecipients": "No one will receive this reminder — every guardian was skipped.",
     "noneSkipped": "No guardians were skipped."
   },
@@ -70,31 +66,28 @@
   },
   "reminders": {
     "title": "Fee Reminders",
-    "description": "Remind one student's guardians about open dues. Nothing is sent until you preview exactly who will receive it.",
+    "description": "Remind one student's guardians about unpaid fees.",
     "studentSectionTitle": "Student",
     "studentSearchLabel": "Search students",
     "studentSearchPlaceholder": "Name or roll number",
     "studentNoResults": "No students match.",
-    "changeStudent": "Change student",
     "balanceLabel": "Outstanding balance",
     "lastReminderLabel": "Last reminder",
     "lastReminderNever": "No reminder sent yet",
-    "lastReminderValue": "{{date}} via {{medium}}",
-    "guardiansLabel": "Guardians to remind",
+    "lastReminderValue": "{{date}} · {{medium}}",
+    "guardiansLabel": "Who will be reminded",
     "guardianOptionLabel": "{{name}} ({{relationship}})",
-    "guardianPrefers": "prefers {{medium}}",
     "noGuardians": "This student has no guardians on file.",
-    "messageLabel": "Message template",
-    "placeholdersLabel": "Insert placeholder",
+    "messageLabel": "Message",
+    "placeholdersLabel": "Insert into message",
     "insertPlaceholder": "Insert {{token}}",
-    "unknownPlaceholder": "Unsupported placeholder {{token}}. Only these are supported: {{supported}}.",
-    "mediumOverrideLabel": "Channel override",
+    "unknownPlaceholder": "{{token}} isn't recognised. Use the buttons below to insert a name or amount.",
+    "mediumOverrideLabel": "Send by",
     "mediumOverrideDefault": "Use each guardian's preferred channel",
     "whatsappHelper": "WhatsApp reminders outside the 24-hour reply window need an approved template.",
     "previewAction": "Preview recipients",
     "previewing": "Previewing…",
     "previewStale": "Inputs changed since the last preview — preview again before sending.",
-    "sendAction": "Send reminder",
     "sending": "Sending…",
     "sendHint": "Sending is enabled only after a preview of the current inputs.",
     "resultTitle": "Reminder sent",
@@ -102,7 +95,20 @@
     "resultSkippedTitle": "Skipped ({{count}})",
     "errorMessage": "The reminder could not be sent.",
     "previewErrorMessage": "The preview could not be loaded.",
-    "smsEstimateNote": "Estimated from the template — placeholders expand when sent; see the preview for exact counts."
+    "smsEstimateNote": "Estimate — the exact count shows in the preview once names and amounts are filled in.",
+    "guardianContact": "Prefers {{medium}} · {{address}}",
+    "guardianNoAddress": "no number",
+    "messageSectionTitle": "Message",
+    "placeholderHelp": "Words in {curly brackets} are replaced with each guardian's real name and amount.",
+    "previewAgain": "Preview again",
+    "previewTitle": "Preview",
+    "previewFresh": "Up to date",
+    "irreversibleNote": "A sent message cannot be recalled.",
+    "sendToCount_one": "Send reminder to {{n}} person",
+    "sendToCount_other": "Send reminder to {{n}} people",
+    "previewInvalid": "The preview could not be made — check the student, guardians and message.",
+    "sendInvalid": "The reminder was not sent — check the guardians and message, then preview again.",
+    "startAnother": "Remind another student"
   },
   "whatsapp": {
     "templateNameLabel": "Template name",
@@ -110,7 +116,7 @@
     "templateParamsLabel": "Template parameters (comma separated)"
   },
   "bulk": {
-    "entryAction": "Bulk reminders",
+    "entryAction": "Remind many at once",
     "backToSingle": "Single reminder",
     "title": "Bulk Fee Reminders",
     "steps": {
@@ -234,5 +240,11 @@
     "batchQueueFailed": "Queuing the reminder round failed.",
     "batchCompleted": "Reminder round finished: {{sent}} sent.",
     "batchFailed": "Reminder round finished with failures: {{failed}} failed."
+  },
+  "placeholders": {
+    "student_name": "Student name",
+    "guardian_name": "Guardian name",
+    "due_amount": "Amount due",
+    "due_month": "Due month"
   }
 }
