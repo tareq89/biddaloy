@@ -1,11 +1,11 @@
-import { act, fireEvent, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type * as React from 'react';
 import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { renderWithProviders } from '../test';
-import { expectKeyboardOperable, expectTabOrder } from '../test/a11y/keyboard';
+import { expectTabOrder } from '../test/a11y/keyboard';
 
 import type { FilterFieldDescriptor } from './filter-bar';
 import { FilterBar } from './filter-bar';
@@ -98,7 +98,7 @@ describe('FilterBar', () => {
     await expect(container).toHaveNoViolations();
   });
 
-  it('is axe clean with the mobile panel expanded and chips showing', async () => {
+  it('is axe clean with the phone sheet open and chips showing', async () => {
     const user = userEvent.setup();
     const { container } = await renderInEnglish(
       <FilterBarDemo initialValues={{ status: 'active' }} />,
@@ -211,37 +211,73 @@ describe('FilterBar', () => {
     await waitFor(() => expect(onChangeSpy).toHaveBeenLastCalledWith({ max_amount: '500' }));
   });
 
-  it('shows the mobile disclosure trigger with an accurate active-filter count', async () => {
+  it('finds every select and text field by its visible label', async () => {
+    await renderInEnglish(<FilterBarDemo />);
+    expect(screen.getByLabelText('Search')).toBeTruthy();
+    expect(screen.getByLabelText('Status')).toBeTruthy();
+    expect(screen.getByLabelText('Flagged')).toBeTruthy();
+    expect(screen.getByLabelText('Date range')).toBeTruthy();
+  });
+
+  it('the phone button counts the active collapsible filters and opens a dialog with the same fields', async () => {
+    const user = userEvent.setup();
     await renderInEnglish(<FilterBarDemo initialValues={{ status: 'active', flagged: 'true' }} />);
     const trigger = screen.getByRole('button', { name: 'Filters (2)' });
-    expect(trigger.getAttribute('aria-expanded')).toBe('false');
-    expect(trigger.getAttribute('aria-controls')).toBeTruthy();
-  });
-
-  it('shows "Filters" with no count when nothing is active, and flips to "Hide filters" when expanded', async () => {
-    const user = userEvent.setup();
-    await renderInEnglish(<FilterBarDemo />);
-    const trigger = screen.getByRole('button', { name: 'Filters' });
+    expect(trigger.getAttribute('aria-haspopup')).toBe('dialog');
 
     await user.click(trigger);
-    expect(screen.getByRole('button', { name: 'Hide filters' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Hide filters' }).getAttribute('aria-expanded')).toBe(
-      'true',
+    const dialog = await screen.findByRole('dialog', { name: 'Filters' });
+    expect(within(dialog).getByLabelText('Status')).toBeTruthy();
+    expect(within(dialog).getByLabelText('From date')).toBeTruthy();
+    expect(within(dialog).getByLabelText('Min amount')).toBeTruthy();
+    expect(within(dialog).getByRole('checkbox', { name: 'Flagged' })).toBeTruthy();
+  });
+
+  it('shows "Filters" with no count when nothing is active, and the button is keyboard-operable', async () => {
+    await renderInEnglish(<FilterBarDemo />);
+    const user = userEvent.setup();
+    screen.getByRole('button', { name: 'Filters' }).focus();
+    await user.keyboard('{Enter}');
+    expect(await screen.findByRole('dialog', { name: 'Filters' })).toBeTruthy();
+  });
+
+  it('the sheet footer shows the result count and closes the sheet', async () => {
+    const user = userEvent.setup();
+    await renderInEnglish(
+      <FilterBar fields={FIELDS} values={{}} onChange={vi.fn()} resultCount={48} />,
     );
+    await user.click(screen.getByRole('button', { name: 'Filters' }));
+    await user.click(await screen.findByRole('button', { name: 'Show 48 results' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
   });
 
-  it('the disclosure trigger aria-controls points at the collapsible panel id', async () => {
+  it('has no duplicate ids with the sheet open', async () => {
+    const user = userEvent.setup();
     await renderInEnglish(<FilterBarDemo />);
-    const trigger = screen.getByRole('button', { name: 'Filters' });
-    const panelId = trigger.getAttribute('aria-controls');
-    expect(panelId).toBeTruthy();
-    expect(document.getElementById(panelId!)).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Filters' }));
+    await screen.findByRole('dialog');
+    const ids = [...document.querySelectorAll('[id]')].map((el) => el.id);
+    expect(ids.filter((id, i) => ids.indexOf(id) !== i)).toEqual([]);
   });
 
-  it('the mobile disclosure trigger is keyboard-operable (Tab-reachable, Enter/Space activate it)', async () => {
-    await renderInEnglish(<FilterBarDemo />);
-    const trigger = screen.getByRole('button', { name: 'Filters' });
-    await expectKeyboardOperable(trigger);
+  it('a date-range chip shows the formatted date while onChange gets the ISO date', async () => {
+    const onChangeSpy = vi.fn();
+    await renderInEnglish(
+      <FilterBarDemo initialValues={{ from_date: '2026-10-01' }} onChangeSpy={onChangeSpy} />,
+    );
+    // Default region is bn: the long form, never the raw ISO value.
+    expect(screen.getByText('From date: ১লা অক্টোবর, ২০২৬')).toBeTruthy();
+    expect(screen.queryByText(/2026-10-01/)).toBeNull();
+  });
+
+  it('removing a chip by its button name clears that key', async () => {
+    const user = userEvent.setup();
+    const onChangeSpy = vi.fn();
+    await renderInEnglish(
+      <FilterBarDemo initialValues={{ status: 'active' }} onChangeSpy={onChangeSpy} />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Remove filter: Status: Active' }));
+    expect(onChangeSpy).toHaveBeenCalledWith({ status: null });
   });
 
   it('Tab visits every control in descriptor order — primary field, disclosure trigger, then each collapsible control', async () => {
