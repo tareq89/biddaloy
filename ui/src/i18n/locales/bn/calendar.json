@@ -23,8 +23,8 @@
   },
   "filters": {
     "typesLabel": "ইভেন্টের ধরন",
-    "classLabel": "ক্লাস",
-    "allClasses": "সব ক্লাস",
+    "classLabel": "শ্রেণি",
+    "allClasses": "সব শ্রেণি",
     "allTypes": "সব ধরন"
   },
   "types": {
@@ -52,7 +52,7 @@
       "CALENDAR_EVENT_LOCKED": "এই ইভেন্টটি অতীতের, এটি আর পরিবর্তন করা যাবে না।",
       "CALENDAR_OUTSIDE_ACADEMIC_YEAR": "এই তারিখগুলো চলতি শিক্ষাবর্ষের বাইরে।",
       "CALENDAR_DAY_HAS_ATTENDANCE": "এই দিনগুলোর একটির জন্য ইতিমধ্যে উপস্থিতি রেকর্ড করা হয়েছে।",
-      "CALENDAR_INVALID_CLASS": "নির্বাচিত ক্লাসগুলোর একটি অবৈধ।",
+      "CALENDAR_INVALID_CLASS": "নির্বাচিত শ্রেণিগুলোর একটি অবৈধ।",
       "CALENDAR_INVALID_RANGE": "শেষের তারিখ শুরুর তারিখের সমান বা পরে হতে হবে।",
       "nameRequired": "নাম আবশ্যক।",
       "generic": "এই ইভেন্টটি সংরক্ষণ করা যায়নি। আবার চেষ্টা করুন।"

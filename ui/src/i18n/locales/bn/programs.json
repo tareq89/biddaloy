@@ -8,7 +8,7 @@
       "name": "নাম",
       "milestones": "মাইলস্টোন",
       "activeStudents": "সক্রিয় শিক্ষার্থী",
-      "reportCard": "রিপোর্ট কার্ডে দেখান"
+      "reportCard": "ফলাফলপত্রে দেখান"
     }
   },
   "detail": {
@@ -26,7 +26,7 @@
     "description": "প্রোগ্রামের মাইলস্টোনগুলো একজন শিক্ষার্থীর অগ্রগতি ট্র্যাক করে।",
     "nameLabel": "নাম",
     "descriptionLabel": "বিবরণ",
-    "showOnReportCard": "রিপোর্ট কার্ডে দেখান",
+    "showOnReportCard": "ফলাফলপত্রে দেখান",
     "errorMessage": "প্রোগ্রাম সংরক্ষণ করা যায়নি",
     "saving": "সংরক্ষণ হচ্ছে…",
     "save": "সংরক্ষণ করুন",
