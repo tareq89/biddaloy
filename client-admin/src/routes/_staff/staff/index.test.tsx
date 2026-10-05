@@ -192,7 +192,7 @@ describe('/staff', () => {
     });
 
     const user = userEvent.setup();
-    const searchBox = await screen.findByRole('textbox', { name: 'Search by name or email' });
+    const searchBox = await screen.findByRole('textbox', { name: 'Search' });
     await user.type(searchBox, 'Karim');
 
     expect(requestedSearch).toBeNull();
@@ -249,13 +249,13 @@ describe('/staff', () => {
     });
 
     const user = userEvent.setup();
-    const openButton = await screen.findByRole('button', { name: 'Promote to teacher' });
+    const openButton = await screen.findByRole('button', { name: 'Give teacher profile' });
     openButton.focus();
     await user.keyboard('{Enter}');
 
     // The member Combobox's own popover also carries role="dialog" (and the
     // dialog's autofocus can open it) — select the outer dialog by name.
-    const dialog = await screen.findByRole('dialog', { name: 'Promote a member to teacher' });
+    const dialog = await screen.findByRole('dialog', { name: 'Give a teacher profile' });
 
     // Keyboard-only: type into the combobox, pick the first option.
     const picker = within(dialog).getByRole('combobox', { name: 'Member' });
@@ -271,7 +271,7 @@ describe('/staff', () => {
     await user.click(within(dialog).getByLabelText('Class teacher'));
     await user.type(within(dialog).getByLabelText('Subject specialization'), 'Mathematics');
 
-    await user.click(within(dialog).getByRole('button', { name: 'Promote to teacher' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Give teacher profile' }));
 
     await waitFor(() =>
       expect(postBody).toEqual({
@@ -301,14 +301,14 @@ describe('/staff', () => {
     });
 
     const user = userEvent.setup();
-    await user.click(await screen.findByRole('button', { name: 'Promote to teacher' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Promote a member to teacher' });
+    await user.click(await screen.findByRole('button', { name: 'Give teacher profile' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Give a teacher profile' });
     const picker = within(dialog).getByRole('combobox', { name: 'Member' });
     await user.click(picker);
     await user.type(picker, 'Abdul');
     await user.keyboard('{ArrowDown}{Enter}');
     await user.type(within(dialog).getByLabelText('Employee ID'), 'EMP-42');
-    await user.click(within(dialog).getByRole('button', { name: 'Promote to teacher' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Give teacher profile' }));
 
     // employee_id is globally unique — the copy must not say "in this school".
     const alert = await within(dialog).findByText(
@@ -319,7 +319,7 @@ describe('/staff', () => {
 
   it('add-user dialog surfaces a 409 duplicate email inline', async () => {
     server.use(
-      http.get('/api/v1/users', () => HttpResponse.json(paginated([]))),
+      http.get('/api/v1/users', () => HttpResponse.json(paginated([userResponseFactory()]))),
       http.post('/api/v1/users', () =>
         HttpResponse.json(apiErrorBody(409, 'duplicate', '/api/v1/users'), { status: 409 }),
       ),
@@ -333,18 +333,18 @@ describe('/staff', () => {
     });
 
     const user = userEvent.setup();
-    await user.click(await screen.findByRole('button', { name: 'Add user' }));
+    await user.click(await screen.findByRole('button', { name: 'Add staff member' }));
     const dialog = await screen.findByRole('dialog');
-    await user.type(within(dialog).getByLabelText('Full name'), 'New Person');
-    await user.click(within(dialog).getByRole('combobox', { name: 'Role' }));
+    await user.type(within(dialog).getByLabelText(/^Full name/), 'New Person');
+    await user.click(within(dialog).getByRole('combobox', { name: /^Role/ }));
     await user.click(await screen.findByRole('option', { name: /^Accountant/ }));
-    await user.click(within(dialog).getByRole('button', { name: 'Add user' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Add staff member' }));
 
     expect(await within(dialog).findByText('A user with this email already exists.')).toBeTruthy();
   });
 
   it('add-user dialog shows a description under each role, including EXAM_CONTROLLER', async () => {
-    server.use(http.get('/api/v1/users', () => HttpResponse.json(paginated([]))));
+    server.use(http.get('/api/v1/users', () => HttpResponse.json(paginated([userResponseFactory()]))));
 
     renderWithRouter(routeTree, {
       initialEntries: ['/staff'],
@@ -354,9 +354,9 @@ describe('/staff', () => {
     });
 
     const user = userEvent.setup();
-    await user.click(await screen.findByRole('button', { name: 'Add user' }));
+    await user.click(await screen.findByRole('button', { name: 'Add staff member' }));
     const dialog = await screen.findByRole('dialog');
-    await user.click(within(dialog).getByRole('combobox', { name: 'Role' }));
+    await user.click(within(dialog).getByRole('combobox', { name: /^Role/ }));
     const option = await screen.findByRole('option', { name: /^Exam controller/ });
     // SUPER_ADMIN is platform-only and POST /users always refuses it (#731).
     expect(screen.queryByRole('option', { name: /^Super admin/ })).toBeNull();
@@ -365,7 +365,7 @@ describe('/staff', () => {
     ).toBeTruthy();
     await user.click(option);
     // The trigger shows the label only, not the description.
-    expect(within(dialog).getByRole('combobox', { name: 'Role' }).textContent).toBe(
+    expect(within(dialog).getByRole('combobox', { name: /^Role/ }).textContent).toBe(
       'Exam controller',
     );
   });
@@ -467,7 +467,7 @@ describe('/staff', () => {
   // the sortable "Name" column header writes it, replacing the old no-op
   // `onSortingChange`.
   it('clicking the Name column header writes sort/order to the URL', async () => {
-    server.use(http.get('/api/v1/users', () => HttpResponse.json(paginated([]))));
+    server.use(http.get('/api/v1/users', () => HttpResponse.json(paginated([userResponseFactory()]))));
 
     const { router } = renderWithRouter(routeTree, {
       initialEntries: ['/staff'],
@@ -494,7 +494,7 @@ describe('/staff', () => {
     server.use(
       http.get('/api/v1/users', ({ request }) => {
         requestedRole = new URL(request.url).searchParams.get('role');
-        return HttpResponse.json(paginated([]));
+        return HttpResponse.json(paginated([userResponseFactory()]));
       }),
     );
 
@@ -507,7 +507,7 @@ describe('/staff', () => {
 
     const user = userEvent.setup();
     await screen.findByRole('region', { name: 'Users with access to this school' });
-    await user.click(screen.getByRole('combobox', { name: 'Filter by role' }));
+    await user.click(screen.getByRole('combobox', { name: 'Role' }));
     await user.click(await screen.findByRole('option', { name: 'Teacher' }));
 
     await waitFor(() => expect(router.state.location.search).toMatchObject({ role: 'TEACHER' }));
@@ -522,7 +522,7 @@ describe('/staff', () => {
     server.use(
       http.get('/api/v1/users', ({ request }) => {
         lastQuery = Object.fromEntries(new URL(request.url).searchParams);
-        return HttpResponse.json(paginated([]));
+        return HttpResponse.json(paginated([userResponseFactory()]));
       }),
     );
 
@@ -548,5 +548,86 @@ describe('/staff', () => {
     await waitFor(() =>
       expect(lastQuery).toMatchObject({ status: 'ACTIVE', joined_from: '2026-01-01' }),
     );
+  });
+
+  // [31.4.staff-1] One status column, three icon actions, one primary button, 25 rows.
+  it('merges invitation into the status cell, shows row actions and requests 25 rows', async () => {
+    let requestedLimit: string | null = null;
+    const open = userResponseFactory({
+      id: 'user-1',
+      full_name: 'Open Invite',
+      invitation_status: 'PENDING',
+    });
+    const done = userResponseFactory({
+      id: 'user-2',
+      full_name: 'Done Person',
+      invitation_status: 'ACTIVATED',
+    });
+    server.use(
+      http.get('/api/v1/users', ({ request }) => {
+        requestedLimit ??= new URL(request.url).searchParams.get('limit');
+        return HttpResponse.json(paginated([open, done]));
+      }),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/staff'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    await screen.findByText('Open Invite');
+    expect(requestedLimit).toBe('25');
+    expect(screen.queryByRole('columnheader', { name: 'Email' })).toBeNull();
+    expect(screen.queryByRole('columnheader', { name: 'Invitation' })).toBeNull();
+    const openRow = screen.getByText('Open Invite').closest('tr') as HTMLElement;
+    const doneRow = screen.getByText('Done Person').closest('tr') as HTMLElement;
+    expect(within(openRow).getByText('Invitation pending')).toBeTruthy();
+    expect(within(doneRow).queryByText('Invitation pending')).toBeNull();
+    for (const name of ['View', 'Edit', 'Remove from school']) {
+      expect(within(openRow).getByLabelText(name)).toBeTruthy();
+    }
+    expect(screen.getAllByRole('button', { name: 'Add staff member' })).toHaveLength(1);
+  });
+
+  it('the Edit row action opens the edit dialog for that row', async () => {
+    const person = userResponseFactory({ id: 'user-1', full_name: 'Abdul Karim' });
+    server.use(http.get('/api/v1/users', () => HttpResponse.json(paginated([person]))));
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/staff'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByLabelText('Edit'));
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByDisplayValue('Abdul Karim')).toBeTruthy();
+  });
+
+  it('add-user dialog puts the name and role errors under their own fields', async () => {
+    server.use(http.get('/api/v1/users', () => HttpResponse.json(paginated([userResponseFactory()]))));
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/staff'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Add staff member' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: 'Add staff member' }));
+
+    const nameField = within(dialog).getByLabelText(/^Full name/);
+    expect(nameField.getAttribute('aria-invalid')).toBe('true');
+    expect(within(dialog).getByRole('combobox', { name: /^Role/ }).getAttribute('aria-invalid')).toBe(
+      'true',
+    );
+    expect(within(dialog).getAllByRole('alert')).toHaveLength(2);
   });
 });
