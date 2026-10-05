@@ -3,7 +3,8 @@
   "trialCap": "Trial: you can add up to {{limit}} students.",
   "students": {
     "title": "Students",
-    "added": "{{count}} students added"
+    "added_one": "{{count}} student added",
+    "added_other": "{{count}} students added"
   },
   "staff": {
     "title": "Teachers and staff",
@@ -19,9 +20,12 @@
   "summary": {
     "title": "Your school is ready",
     "created": {
-      "classes": "{{count}} classes",
-      "sections": "{{count}} sections",
-      "students": "{{count}} students",
+      "classes_one": "{{count}} class",
+      "classes_other": "{{count}} classes",
+      "sections_one": "{{count}} section",
+      "sections_other": "{{count}} sections",
+      "students_one": "{{count}} student",
+      "students_other": "{{count}} students",
       "staff": "{{count}} staff"
     },
     "next": {

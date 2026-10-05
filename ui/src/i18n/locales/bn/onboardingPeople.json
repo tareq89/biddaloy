@@ -3,7 +3,8 @@
   "trialCap": "ট্রায়ালে আপনি সর্বোচ্চ {{limit}} জন শিক্ষার্থী যোগ করতে পারবেন।",
   "students": {
     "title": "শিক্ষার্থী",
-    "added": "{{count}} জন শিক্ষার্থী যোগ হয়েছে"
+    "added_one": "{{count}} জন শিক্ষার্থী যোগ হয়েছে",
+    "added_other": "{{count}} জন শিক্ষার্থী যোগ হয়েছে"
   },
   "staff": {
     "title": "শিক্ষক ও কর্মী",
@@ -19,9 +20,12 @@
   "summary": {
     "title": "আপনার স্কুল তৈরি",
     "created": {
-      "classes": "{{count}}টি ক্লাস",
-      "sections": "{{count}}টি সেকশন",
-      "students": "{{count}} জন শিক্ষার্থী",
+      "classes_one": "{{count}}টি ক্লাস",
+      "classes_other": "{{count}}টি ক্লাস",
+      "sections_one": "{{count}}টি সেকশন",
+      "sections_other": "{{count}}টি সেকশন",
+      "students_one": "{{count}} জন শিক্ষার্থী",
+      "students_other": "{{count}} জন শিক্ষার্থী",
       "staff": "{{count}} জন কর্মী"
     },
     "next": {
