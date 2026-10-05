@@ -27,6 +27,8 @@ import { CommunicationLog } from '../communications/entities/communication-log.e
 import { ReminderBatch } from '../communications/entities/reminder-batch.entity';
 import { AttendanceSessionState, AttendanceStatus, UserRole } from '@biddaloy/shared';
 import { attendanceLateTrigger } from '../fees/fines/triggers/attendance-late.trigger';
+import { localToday } from './attendance-policy.util';
+import { DEFAULT_REGION_SETTINGS } from '../schools/settings/tenant-settings-defaults';
 
 /**
  * `AttendanceService.putRegisterMatrix` — many days of one section's
@@ -52,8 +54,10 @@ describe('AttendanceService.putRegisterMatrix (integration)', () => {
   let studentId2: string;
   let teacherUserId: string;
 
+  // The service decides "today" in the school's timezone (default Asia/Dhaka),
+  // not UTC — after 18:00 UTC the two dates differ by a day.
   function today(): string {
-    return new Date().toISOString().slice(0, 10);
+    return localToday(DEFAULT_REGION_SETTINGS.timezone);
   }
 
   async function setSettings(extra: Record<string, unknown> = {}) {
@@ -340,7 +344,7 @@ describe('AttendanceService.putRegisterMatrix (integration)', () => {
   });
 
   it('a future date is a locked date', async () => {
-    const future = new Date();
+    const future = new Date(`${today()}T00:00:00Z`);
     future.setUTCDate(future.getUTCDate() + 1);
     const f = future.toISOString().slice(0, 10);
     await expect(matrix([{ date: f, base_version: null }])).rejects.toMatchObject({
