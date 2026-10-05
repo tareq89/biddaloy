@@ -124,7 +124,7 @@
     },
     "teachers": {
       "columnName": "নাম",
-      "columnEmployeeId": "কর্মচারী আইডি",
+      "columnEmployeeId": "কর্মী আইডি",
       "columnDesignations": "পদবি",
       "columnSections": "শাখা",
       "emptyMessage": "এই শ্রেণিতে এখনও কোনো শাখা নেই",
