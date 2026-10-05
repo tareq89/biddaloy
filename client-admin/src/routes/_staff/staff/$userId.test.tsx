@@ -1,4 +1,4 @@
-import { ROLE_PERMISSIONS, UserRole } from '@biddaloy/shared';
+import { Permission, ROLE_PERMISSIONS, UserRole } from '@biddaloy/shared';
 import { toast } from '@biddaloy/ui/components';
 import { REGION_BD_EN } from '@biddaloy/ui/i18n';
 import {
@@ -12,11 +12,21 @@ import {
 import { formatDate } from '@biddaloy/ui/utils';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { http, HttpResponse } from 'msw';
+import { delay, http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import en from '../../../../../ui/src/i18n/locales/en/staff.json';
 import { routeTree } from '../../../routeTree.gen';
+
+// Denial is simulated per test: no built-in role holds ADMIN's other permissions but not one.
+const denied = vi.hoisted(() => ({ value: new Set<string>() }));
+vi.mock('@biddaloy/ui/hooks', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@biddaloy/ui/hooks')>();
+  return {
+    ...actual,
+    useHasPermission: (p: string) => !denied.value.has(p) && actual.useHasPermission(p as never),
+  };
+});
 
 function fakeToken(sub: string): string {
   const payload = btoa(JSON.stringify({ sub })).replace(/=+$/, '');
@@ -34,6 +44,7 @@ function paginated<T>(data: T[]) {
  */
 describe('/staff/$userId', () => {
   afterEach(async () => {
+    denied.value = new Set();
     await cleanupTestState();
   });
 
@@ -169,7 +180,8 @@ describe('/staff/$userId', () => {
     expect(screen.queryByRole('link', { name: /back/i })).toBeNull();
     expect(screen.queryByRole('tab', { name: 'Memberships' })).toBeNull();
     // The open invitation shows in the header badge area too.
-    expect(screen.getAllByText('Invitation pending').length).toBeGreaterThan(0);
+    const header = screen.getByRole('heading', { level: 1 }).closest('header') as HTMLElement;
+    expect(within(header).getByText('Invitation pending')).toBeTruthy();
   });
 
   it('Login History tab renders LOGIN audit rows for an ADMIN', async () => {
@@ -393,5 +405,87 @@ describe('/staff/$userId', () => {
 
     expect(await screen.findAllByText('Abdul Karim')).toHaveLength(2);
     await expect(container).toHaveNoViolations();
+  });
+
+  describe('tab gates and state', () => {
+    const staffUser = userResponseFactory({ id: 'user-1', staff_profile_id: 'sp-1' });
+    function base() {
+      server.use(
+        http.get('/api/v1/users/:id', () => HttpResponse.json(staffUser)),
+        http.get('/api/v1/teachers', () => HttpResponse.json(paginated([]))),
+      );
+    }
+    const mount = (entry = '/staff/user-1') =>
+      renderWithRouter(routeTree, {
+        initialEntries: [entry],
+        tenantId: 'tenant-1',
+        role: 'ADMIN',
+        locale: 'en',
+      });
+
+    it('shows Attendance & Leave with STAFF_ATTENDANCE_READ and a staff profile', async () => {
+      base();
+      mount();
+      expect(await screen.findByRole('tab', { name: 'Attendance & Leave' })).toBeTruthy();
+    });
+
+    it('hides Attendance & Leave without STAFF_ATTENDANCE_READ', async () => {
+      base();
+      denied.value = new Set([Permission.STAFF_ATTENDANCE_READ]);
+      mount();
+      await screen.findByRole('tab', { name: 'Profile' });
+      expect(screen.queryByRole('tab', { name: 'Attendance & Leave' })).toBeNull();
+    });
+
+    it('keeps a ?tab=teachingAssignments deep link while the teacher lookup is pending', async () => {
+      const teacher = teacherFactory({ id: 'teacher-1', employee_id: 'EMP-1' });
+      server.use(
+        http.get('/api/v1/users/:id', () => HttpResponse.json(teacher.user)),
+        http.get('/api/v1/teachers', async () => {
+          await delay(150);
+          return HttpResponse.json(paginated([teacher]));
+        }),
+        http.get('/api/v1/teachers/:id/assignments', () => HttpResponse.json([])),
+      );
+      mount(`/staff/${teacher.user.id}?tab=teachingAssignments`);
+      expect(
+        await screen.findByRole('tab', { name: 'Teacher assignments', selected: true }),
+      ).toBeTruthy();
+      expect(screen.getByRole('tab', { name: 'Profile', selected: false })).toBeTruthy();
+    });
+
+    it('keeps unsaved HR edits when switching tabs and back (visited panels stay mounted)', async () => {
+      base();
+      server.use(
+        http.get('/api/v1/staff-hr-records', () =>
+          HttpResponse.json([
+            {
+              id: 'hr-1',
+              user_id: 'user-1',
+              index_no: null,
+              salary_code: null,
+              mpo_date: null,
+              salary_scale: null,
+              department: null,
+              blood_group: null,
+              name_bn: null,
+              religion: null,
+              created_at: '2026-01-01T00:00:00.000Z',
+              updated_at: '2026-01-01T00:00:00.000Z',
+            },
+          ]),
+        ),
+      );
+      mount('/staff/user-1?tab=hrRecord');
+      const user = userEvent.setup();
+      const panel = within(await screen.findByRole('tabpanel', { name: 'HR record' }));
+      await user.click(await panel.findByRole('button', { name: 'Edit' }));
+      await user.type(panel.getByLabelText('Department'), 'Science');
+
+      await user.click(screen.getByRole('tab', { name: 'Profile' }));
+      await user.click(screen.getByRole('tab', { name: 'HR record' }));
+
+      expect(screen.getByDisplayValue('Science')).toBeTruthy();
+    });
   });
 });

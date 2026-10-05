@@ -5,7 +5,7 @@ import {
   renderWithRouter,
   server,
 } from '@biddaloy/ui/test';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -17,6 +17,7 @@ import { routeTree } from '../../../../routeTree.gen';
  * `ACR_READ` gate in `_staff.tsx` is the one under test).
  */
 function render(role: 'ADMIN' | 'TEACHER', entry = '/staff/evaluations') {
+  server.use(http.get('/api/v1/schools/:id/settings', () => HttpResponse.json({ version: 1 })));
   return renderWithRouter(routeTree, {
     initialEntries: [entry],
     tenantId: 'tenant-1',
@@ -45,7 +46,9 @@ describe('/staff/evaluations', () => {
     const open = await screen.findByRole('link', { name: 'Open' });
     expect(open.getAttribute('href')).toMatch(/^\/staff\/.+\/acr\/a1$/);
     // Status is a badge, not bare text.
-    expect(screen.getAllByText('Completed').length).toBeGreaterThan(0);
+    expect(
+      within(screen.getAllByRole('row')[1] as HTMLElement).getByText('Completed'),
+    ).toBeTruthy();
 
     const user = userEvent.setup();
     await user.click(screen.getByRole('combobox', { name: 'Status' }));
