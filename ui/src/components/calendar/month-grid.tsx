@@ -1,7 +1,13 @@
 import type { CalendarEventType } from '@biddaloy/shared';
 import * as React from 'react';
 
-import { EventTypeBadge } from './event-type-badge';
+import { useRegionConfig } from '../../i18n';
+import { cn } from '../../primitives/lib/utils';
+import { formatDate, formatMonth, toIsoDate } from '../../utils/date';
+import { renderDigits } from '../../utils/digits';
+import { MonthHeader } from '../month-header';
+
+import { EVENT_DOT_CLASSES, EventTypeBadge } from './event-type-badge';
 
 export interface MonthGridEvent {
   id: string;
@@ -12,6 +18,9 @@ export interface MonthGridEvent {
    * event spans, so a multi-day event shows across every cell it covers. */
   startDate: string;
   endDate: string;
+  /** Rendered after the name in `DayPanel` only (no room in a grid cell) — e.g.
+   * a neutral "draft" StatusBadge for an unpublished event. */
+  badge?: React.ReactNode;
 }
 
 export interface MonthGridTermBand {
@@ -35,6 +44,12 @@ export interface MonthGridProps {
   moreLabel: (count: number) => string;
   onDayClick?: (date: string) => void;
   onEventClick?: (eventId: string) => void;
+  /** `YYYY-MM-DD`; default = today. */
+  selectedDate?: string;
+  /** `YYYY-MM-DD`; default = `toIsoDate(new Date())`. */
+  today?: string;
+  /** When set, the grid renders its own `MonthHeader` (prev / next / Today). */
+  onMonthChange?: (month: string) => void;
 }
 
 function toDateOnly(iso: string): Date {
@@ -47,6 +62,11 @@ function toDateOnly(iso: string): Date {
 
 function toIso(date: Date): string {
   return date.toISOString().slice(0, 10);
+}
+
+function shiftMonth(month: string, delta: number): string {
+  const [y = 0, m = 1] = month.split('-').map(Number);
+  return toIso(new Date(Date.UTC(y, m - 1 + delta, 1))).slice(0, 7);
 }
 
 /** Builds the 6x7 (or 5x7) cell matrix for `month`, honouring `firstDayOfWeek`. */
@@ -98,9 +118,17 @@ export function MonthGrid({
   moreLabel,
   onDayClick,
   onEventClick,
+  selectedDate,
+  today: todayProp,
+  onMonthChange,
 }: MonthGridProps) {
+  const config = useRegionConfig();
+  const today = todayProp ?? toIsoDate(new Date());
+  const selected = selectedDate ?? today;
   const days = React.useMemo(() => buildDays(month, firstDayOfWeek), [month, firstDayOfWeek]);
-  const [focusedDay, setFocusedDay] = React.useState<string>(days[0] ?? month);
+  const [focusedDay, setFocusedDay] = React.useState<string>(
+    days.includes(selected) ? selected : days.includes(today) ? today : (days[0] ?? month),
+  );
 
   const orderedWeekdayLabels = React.useMemo(() => {
     const rotated: string[] = [];
@@ -149,32 +177,55 @@ export function MonthGrid({
     terms.find((term) => term.startDate <= day && term.endDate >= day);
 
   return (
-    <div data-testid="month-grid" role="grid" aria-label={month} className="w-full">
+    <div
+      data-testid="month-grid"
+      role="grid"
+      aria-label={formatMonth(month, config)}
+      className="w-full overflow-hidden rounded-lg border border-border-subtle bg-surface shadow-e1"
+    >
+      {onMonthChange && (
+        <div className="p-3 md:px-4">
+          <MonthHeader
+            label={formatMonth(month, config)}
+            onPrevious={() => onMonthChange(shiftMonth(month, -1))}
+            onNext={() => onMonthChange(shiftMonth(month, 1))}
+            onToday={() => {
+              onMonthChange(today.slice(0, 7));
+              onDayClick?.(today);
+            }}
+          />
+        </div>
+      )}
       {terms.length > 0 && (
-        <div className="mb-1 flex gap-1 text-xs text-muted-foreground" data-testid="term-bands">
+        <div className="flex flex-wrap gap-1 px-3 pb-2 md:px-4" data-testid="term-bands">
           {terms.map((term) => (
-            <span key={term.id} className="rounded bg-muted px-2 py-0.5">
+            <span
+              key={term.id}
+              className="rounded-sm bg-muted px-2 py-0.5 text-caption text-text-secondary"
+            >
               {term.name}
             </span>
           ))}
         </div>
       )}
-      <div className="grid grid-cols-7 border-b text-xs font-medium text-muted-foreground">
+      <div className="grid grid-cols-7 border-t border-border-subtle bg-muted text-center text-label text-text-secondary">
         {orderedWeekdayLabels.map((label, i) => (
           <div
             key={label}
-            className="px-2 py-1 text-center"
+            className="flex h-8 items-center justify-center"
             data-weekly-off={weeklyOffDays.includes((firstDayOfWeek + i) % 7) || undefined}
           >
             {label}
           </div>
         ))}
       </div>
-      <div className="grid grid-cols-7">
+      <div className="grid grid-cols-7 gap-px border-t border-border-subtle bg-border-subtle">
         {days.map((day) => {
           const dayOfWeek = toDateOnly(day).getUTCDay();
           const isWeekend = weeklyOffDays.includes(dayOfWeek);
           const isCurrentMonth = day.slice(0, 7) === month;
+          const isToday = day === today;
+          const isSelected = day === selected;
           const dayEvents = events.filter((e) => eventCoversDay(e, day));
           const visibleEvents = dayEvents.slice(0, maxEventsPerCell);
           const overflowCount = dayEvents.length - visibleEvents.length;
@@ -192,22 +243,39 @@ export function MonthGrid({
               role="gridcell"
               tabIndex={day === focusedDay ? 0 : -1}
               data-testid={`day-cell-${day}`}
-              aria-current={day === focusedDay ? 'date' : undefined}
-              aria-label={term ? `${day} (${term.name})` : day}
+              aria-current={isToday ? 'date' : undefined}
+              aria-selected={isSelected || undefined}
+              aria-label={
+                term ? `${formatDate(day, config)} (${term.name})` : formatDate(day, config)
+              }
               onFocus={() => setFocusedDay(day)}
               onKeyDown={(event) => handleKeyDown(event, day)}
               onClick={() => {
                 setFocusedDay(day);
                 onDayClick?.(day);
               }}
-              className={[
-                'min-h-24 border-r border-b p-1 text-start align-top',
-                isWeekend ? 'bg-muted/40' : 'bg-background',
-                isCurrentMonth ? '' : 'text-muted-foreground/50',
-              ].join(' ')}
+              className={cn(
+                'flex min-h-12 min-w-0 flex-col items-center gap-1 p-1 text-start md:min-h-24 md:items-stretch md:p-1.5',
+                isSelected
+                  ? 'bg-secondary'
+                  : isWeekend
+                    ? 'bg-muted'
+                    : isCurrentMonth
+                      ? 'bg-surface'
+                      : 'bg-bg',
+              )}
             >
-              <span className="text-xs font-medium">{Number(day.slice(8, 10))}</span>
-              <div className="mt-1 flex flex-col gap-0.5">
+              <span
+                className={cn(
+                  'flex size-7 items-center justify-center self-center rounded-full text-label md:self-start',
+                  isToday && 'font-semibold text-primary ring-2 ring-primary ring-inset',
+                  isSelected && 'bg-primary font-semibold text-primary-foreground ring-0',
+                  !isCurrentMonth && 'text-text-secondary opacity-60',
+                )}
+              >
+                {renderDigits(String(Number(day.slice(8, 10))), config.numerals)}
+              </span>
+              <div className="mt-1 hidden min-w-0 flex-col gap-0.5 md:flex">
                 {visibleEvents.map((event) => (
                   <button
                     type="button"
@@ -220,15 +288,23 @@ export function MonthGrid({
                     <EventTypeBadge
                       type={event.type}
                       label={event.name}
-                      className="w-full truncate"
+                      className="w-full truncate rounded-sm px-1.5 py-0.5 text-caption"
                     />
                   </button>
                 ))}
                 {overflowCount > 0 && (
-                  <span className="text-[11px] text-muted-foreground">
+                  <span className="text-caption text-text-secondary">
                     {moreLabel(overflowCount)}
                   </span>
                 )}
+              </div>
+              <div aria-hidden="true" className="flex gap-0.5 md:hidden">
+                {dayEvents.slice(0, 3).map((event) => (
+                  <span
+                    key={event.id}
+                    className={cn('size-1.5 rounded-full', EVENT_DOT_CLASSES[event.type])}
+                  />
+                ))}
               </div>
             </div>
           );
