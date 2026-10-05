@@ -12,87 +12,41 @@ import {
   ThemeToggle,
   type AppShellNavGroup,
 } from '@biddaloy/ui/components';
-import { ApprovalModalHostProvider, useActiveRole, useEntityLabel } from '@biddaloy/ui/hooks';
+import {
+  ApprovalModalHostProvider,
+  hasPermission,
+  useActiveRole,
+  useEntityLabel,
+} from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { RequirePermission, RequireRole } from '@biddaloy/ui/routes';
-import { createFileRoute, Outlet, useMatches, useNavigate } from '@tanstack/react-router';
 import {
-  BanknoteIcon,
-  BarChart3Icon,
-  BellRingIcon,
-  BriefcaseIcon,
-  CalendarCheck2Icon,
-  CalendarDaysIcon,
-  ClipboardListIcon,
-  FilePlus2Icon,
-  RepeatIcon,
-  GraduationCapIcon,
-  HandCoinsIcon,
-  HistoryIcon,
-  LayoutDashboardIcon,
-  ListChecksIcon,
-  MoreHorizontalIcon,
-  IdCardIcon,
-  PrinterIcon,
-  ReceiptIcon,
-  ScrollTextIcon,
-  SchoolIcon,
-  SendIcon,
-  SettingsIcon,
-  UserCheckIcon,
-  UsersRoundIcon,
-  WalletIcon,
-} from 'lucide-react';
+  createFileRoute,
+  Outlet,
+  useMatches,
+  useNavigate,
+  useRouterState,
+} from '@tanstack/react-router';
 import * as React from 'react';
-import type { ReactNode } from 'react';
 
 import { CommandPaletteLauncher } from '../components/command-palette-launcher';
 import { StaffUserMenu } from '../components/staff-user-menu';
+import { MORE_ICON, PLATFORM_NAV_ICONS, STAFF_NAV_ICONS } from '../nav-icons';
 import {
+  isPathUnder,
+  STAFF_BOTTOM_NAV,
   STAFF_NAV_GROUPS,
   STAFF_NAV_ITEMS,
   type StaffNavGroupDef,
   type StaffNavItemDef,
+  type StaffNavItemId,
+  type StaffRole,
   type StaffNavLabel,
 } from '../nav-tree';
 import { loadRouteNamespaces } from '../route-loaders';
 import { STAFF_ROUTE_PERMISSIONS } from '../route-permissions';
+import { useActiveSchoolName } from '../use-active-school-name';
 import { useBreadcrumbs } from '../use-breadcrumbs';
-
-/** [30.1.3] One icon per `STAFF_NAV_ITEMS` id — `nav-tree.ts` stays
- * JSX-free (importable from a plain `.test.ts`), so the `ReactNode` side of
- * every item lives here instead. A missing entry renders no icon rather
- * than throwing — `AppShellNavItem.icon` is optional. */
-const STAFF_NAV_ICONS: Record<string, ReactNode> = {
-  dashboard: <LayoutDashboardIcon aria-hidden="true" />,
-  'people.students': <GraduationCapIcon aria-hidden="true" />,
-  'people.guardians': <UsersRoundIcon aria-hidden="true" />,
-  'people.calendar': <CalendarDaysIcon aria-hidden="true" />,
-  'people.staff': <BriefcaseIcon aria-hidden="true" />,
-  'academics.academicYears': <CalendarDaysIcon aria-hidden="true" />,
-  'academics.classes': <SchoolIcon aria-hidden="true" />,
-  'academics.myClass': <UserCheckIcon aria-hidden="true" />,
-  'academics.homework': <ListChecksIcon aria-hidden="true" />,
-  'examsResults.gradingScales': <ClipboardListIcon aria-hidden="true" />,
-  'attendance.attendance': <CalendarCheck2Icon aria-hidden="true" />,
-  'attendance.attendanceReports': <ClipboardListIcon aria-hidden="true" />,
-  'attendance.attendanceRegister': <PrinterIcon aria-hidden="true" />,
-  'administration.printTemplates': <IdCardIcon aria-hidden="true" />,
-  'reports.printables': <PrinterIcon aria-hidden="true" />,
-  'finance.dues': <HandCoinsIcon aria-hidden="true" />,
-  'finance.recordPayment': <BanknoteIcon aria-hidden="true" />,
-  'finance.fees': <WalletIcon aria-hidden="true" />,
-  'finance.feeStructures': <ListChecksIcon aria-hidden="true" />,
-  'finance.generateFees': <FilePlus2Icon aria-hidden="true" />,
-  'finance.recurringSchedules': <RepeatIcon aria-hidden="true" />,
-  'finance.invoices': <ReceiptIcon aria-hidden="true" />,
-  'reports.collectionsReport': <BarChart3Icon aria-hidden="true" />,
-  'communications.sendMessage': <SendIcon aria-hidden="true" />,
-  'communications.feeReminders': <BellRingIcon aria-hidden="true" />,
-  'communications.reminderHistory': <HistoryIcon aria-hidden="true" />,
-  'administration.auditLogs': <ScrollTextIcon aria-hidden="true" />,
-  'administration.settings': <SettingsIcon aria-hidden="true" />,
-};
 
 /**
  * [8.9.10]'s staff half of one SPA. A **pathless** layout (`_staff`), so
@@ -170,6 +124,9 @@ function StaffLayout() {
   const matches = useMatches();
   const leafRouteId = matches[matches.length - 1]?.routeId;
   // [32.4.1] The editor and print preview take the whole screen: no sidebar, no header (D54).
+  // A route that renders `FullPageShell` as its whole page sets `staticData: { chromeless: true }`
+  // (declared in `main.tsx`); a `FullPageShell` opened by a search param on a host route covers
+  // the chrome itself (31.2.6). The bottom bar is not rendered on chromeless routes (D14, D22).
   const chromeless = matches[matches.length - 1]?.staticData.chromeless === true;
   const requiredPermission = leafRouteId ? STAFF_ROUTE_PERMISSIONS[leafRouteId] : undefined;
   const onDenied = () => void navigate({ to: '/' });
@@ -209,11 +166,12 @@ function StaffLayout() {
   }
 
   function toNavItem(def: StaffNavItemDef) {
+    const Icon = STAFF_NAV_ICONS[def.id as StaffNavItemId];
     return {
       to: def.to,
       label: resolveLabel(def.label, 'items'),
       ...(def.permission !== undefined && { permission: def.permission }),
-      icon: STAFF_NAV_ICONS[def.id],
+      icon: <Icon aria-hidden="true" />,
     };
   }
 
@@ -229,16 +187,25 @@ function StaffLayout() {
     };
   }
 
-  // [8.14.3]: these four are the sidebar's own item objects, hoisted so
-  // `bottomNavItems` below can reference the exact same objects instead of
-  // a second, independently maintained list — one permission per item,
-  // checked once by `BottomNav`'s own `hasPermission` filter (the same
-  // gate the sidebar uses), so the two surfaces cannot drift out of sync
-  // with each other.
+  const SchoolsIcon = PLATFORM_NAV_ICONS['/schools'];
+  const HolidaySetsIcon = PLATFORM_NAV_ICONS['/holiday-sets'];
   const dashboardItem = toNavItem(STAFF_NAV_ITEMS.dashboard);
-  const studentsItem = toNavItem(STAFF_NAV_ITEMS['people.students']);
-  const duesItem = toNavItem(STAFF_NAV_ITEMS['finance.dues']);
-  const recordPaymentItem = toNavItem(STAFF_NAV_ITEMS['finance.recordPayment']);
+
+  // [31.3.1]: each role's own bottom-bar cells. They are built from the
+  // sidebar's own item defs, and `BottomNav` applies the same permission
+  // filter the sidebar uses, so the two surfaces cannot drift apart.
+  const cells =
+    (activeRole ? STAFF_BOTTOM_NAV[activeRole as StaffRole] : undefined) ?? STAFF_BOTTOM_NAV.ADMIN;
+  const bottomItems = cells.map((c) => ({
+    ...toNavItem(STAFF_NAV_ITEMS[c.id]),
+    label: t(`bottomNavCells.${c.shortLabelKey}`),
+  }));
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const visibleCells = bottomItems.filter(
+    (i) => i.permission === undefined || hasPermission(activeRole, i.permission),
+  );
+  const moreActive = !visibleCells.some((i) => isPathUnder(pathname, i.to));
+  const schoolName = useActiveSchoolName();
 
   const navItems = [dashboardItem];
 
@@ -263,12 +230,12 @@ function StaffLayout() {
                   {
                     to: '/schools',
                     label: t('items.platformSchools'),
-                    icon: <SchoolIcon aria-hidden="true" />,
+                    icon: <SchoolsIcon aria-hidden="true" />,
                   },
                   {
                     to: '/holiday-sets',
                     label: t('items.platformHolidaySets'),
-                    icon: <CalendarDaysIcon aria-hidden="true" />,
+                    icon: <HolidaySetsIcon aria-hidden="true" />,
                   },
                 ]
               : []),
@@ -278,7 +245,7 @@ function StaffLayout() {
   );
 
   // [8.14.3]: hoisted so the desktop `topBar` and the mobile
-  // `mobileHeaderActions` row share one definition instead of two
+  // `mobileActions` row share one definition instead of two
   // independently maintained copies of the same five props.
   // [8.14.11]: collapses further now that `NotificationBell` resolves its
   // own strings — see that component's header comment.
@@ -321,9 +288,8 @@ function StaffLayout() {
             navGroups={navGroups}
             brand={t('brand')}
             // [8.14.3]: desktop-only now — below `md` the consolidated mobile
-            // header row (`mobileHeaderActions`) carries search and the bell,
-            // and `TenantBar` moves into the drawer (`drawerHeader`) instead of
-            // stacking a second chrome row under this one. `topBar` itself
+            // header row (`mobileTitle` / `mobileActions`) carries search, the bell and the account menu,
+            // and language, theme and switch-school live in the account menu (D12). `topBar` itself
             // stays wired (not deleted): `AppShell` still measures it into
             // `--app-header-h` for the desktop sticky-chrome contract [8.14.2]
             // established.
@@ -344,20 +310,13 @@ function StaffLayout() {
                 />
               </div>
             }
-            mobileHeaderActions={
+            mobileTitle={schoolName}
+            mobileActions={
               <>
                 <CommandPaletteLauncher />
                 {notificationBell}
+                <StaffUserMenu />
               </>
-            }
-            drawerHeader={
-              <div className="mb-4 flex flex-col gap-2">
-                <TenantBar />
-                <div className="flex items-center gap-2">
-                  <SyncStatusIndicator />
-                  <ThemeToggle />
-                </div>
-              </div>
             }
             bottomNav={
               <BottomNav
@@ -368,11 +327,12 @@ function StaffLayout() {
                 // `attendanceItem` stays reachable through the drawer nav group
                 // below instead, same as `attendanceReportsItem`/
                 // `attendanceRegisterItem` already are.
-                items={[dashboardItem, studentsItem, duesItem, recordPaymentItem]}
+                items={bottomItems}
                 label={t('bottomNavStaffLabel')}
                 more={{
                   label: t('items.more'),
-                  icon: <MoreHorizontalIcon className="size-5" aria-hidden="true" />,
+                  icon: <MORE_ICON className="size-5" aria-hidden="true" />,
+                  active: moreActive,
                 }}
               />
             }
