@@ -42,6 +42,8 @@ import { useIsMobile } from './-use-is-mobile';
 export interface BandEditorProps {
   bands: BandInput[];
   onChange: (bands: BandInput[]) => void;
+  /** Viewer may not manage scales: everything disabled, no add row. */
+  readOnly?: boolean;
 }
 
 function nextSequence(bands: BandInput[]): number {
@@ -77,7 +79,7 @@ function NumberCell({
   id?: string;
   value: number | null | undefined;
   onValue: (value: number | null) => void;
-  label: string;
+  label?: string;
   disabled?: boolean;
   placeholder?: string;
   className?: string;
@@ -91,7 +93,7 @@ function NumberCell({
       {...(id ? { id } : {})}
       type="text"
       inputMode="decimal"
-      aria-label={label}
+      {...(label ? { 'aria-label': label } : {})}
       disabled={disabled ?? false}
       placeholder={placeholder}
       className={`text-end tabular-nums ${className ?? 'w-20'}`}
@@ -131,7 +133,7 @@ function KeyboardHint({ text }: { text: string }) {
   );
 }
 
-export function BandEditor({ bands, onChange }: BandEditorProps) {
+export function BandEditor({ bands, onChange, readOnly = false }: BandEditorProps) {
   const { t } = useTranslation('grading');
   const config = useRegionConfig();
   const isMobile = useIsMobile();
@@ -172,169 +174,80 @@ export function BandEditor({ bands, onChange }: BandEditorProps) {
   if (isMobile) {
     return (
       <div className="flex flex-col gap-3">
-        <ul className="flex flex-col gap-3">
-          {bands.map((band, index) => (
-            <li
-              key={band.sequence}
-              className="flex flex-col gap-3 rounded-lg border border-border-subtle bg-surface p-4 shadow-e1"
-            >
-              <div className="flex items-center justify-between gap-2">
-                <h3 className="text-h3">
-                  {t('bandEditor.cardTitle', {
-                    grade: band.grade,
-                    from: formatNumber(band.percent_from, config),
-                    to: formatNumber(band.percent_to, config),
-                  })}
-                </h3>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="size-11 text-destructive"
-                  aria-label={cellLabel(index, t('bandEditor.delete'))}
-                  onClick={() => removeBand(index)}
-                >
-                  <Trash2Icon aria-hidden="true" />
-                </Button>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor={`band-${band.sequence}-from`}>{t('bandEditor.columnFrom')}</Label>
-                  <NumberCell
-                    id={`band-${band.sequence}-from`}
-                    label={cellLabel(index, t('bandEditor.columnFrom'))}
-                    value={band.percent_from}
-                    onValue={setRange(index, 'percent_from')}
-                    className="h-11 w-full"
-                  />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor={`band-${band.sequence}-to`}>{t('bandEditor.columnTo')}</Label>
-                  <NumberCell
-                    id={`band-${band.sequence}-to`}
-                    label={cellLabel(index, t('bandEditor.columnTo'))}
-                    value={band.percent_to}
-                    onValue={setRange(index, 'percent_to')}
-                    className="h-11 w-full"
-                  />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor={`band-${band.sequence}-grade`}>
-                    {t('bandEditor.columnGrade')}
-                  </Label>
-                  <Input
-                    id={`band-${band.sequence}-grade`}
-                    className="h-11"
-                    aria-label={cellLabel(index, t('bandEditor.columnGrade'))}
-                    value={band.grade}
-                    onChange={(event) => updateBand(index, { grade: event.target.value })}
-                    onKeyDown={(event) => handleKeyDown(event, index)}
-                  />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor={`band-${band.sequence}-gpa`}>{t('bandEditor.columnGpa')}</Label>
-                  <NumberCell
-                    id={`band-${band.sequence}-gpa`}
-                    label={cellLabel(index, t('bandEditor.columnGpa'))}
-                    value={band.gpa}
-                    onValue={(gpa) => updateBand(index, { gpa })}
-                    disabled={band.is_fail ?? false}
-                    placeholder="—"
-                    className="h-11 w-full"
-                  />
-                </div>
-              </div>
-              <label className="flex min-h-11 items-center gap-3">
-                <Checkbox
-                  aria-label={cellLabel(index, t('bandEditor.columnFail'))}
-                  checked={band.is_fail ?? false}
-                  onCheckedChange={(checked) =>
-                    updateBand(
-                      index,
-                      checked === true ? { is_fail: true, gpa: null } : { is_fail: false },
-                    )
-                  }
-                />
-                {t('bandEditor.columnFail')}
-              </label>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor={`band-${band.sequence}-comment`}>
-                  {t('bandEditor.columnComment')}
-                </Label>
-                <Input
-                  id={`band-${band.sequence}-comment`}
-                  className="h-11"
-                  aria-label={cellLabel(index, t('bandEditor.columnComment'))}
-                  value={band.comment ?? ''}
-                  onChange={(event) => updateBand(index, { comment: event.target.value || null })}
-                />
-              </div>
-            </li>
-          ))}
-        </ul>
-        <Button type="button" variant="outline" className="h-11 w-full" onClick={addBand}>
-          <PlusIcon aria-hidden="true" />
-          {t('bandEditor.addBand')}
-        </Button>
-      </div>
-    );
-  }
-
-  return (
-    <TooltipProvider>
-      <div className="overflow-hidden rounded-lg border border-border-subtle bg-surface shadow-e1">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>{t('bandEditor.columnRow')}</TableHead>
-              <TableHead className="text-end">{t('bandEditor.columnFrom')}</TableHead>
-              <TableHead className="text-end">{t('bandEditor.columnTo')}</TableHead>
-              <TableHead>{t('bandEditor.columnGrade')}</TableHead>
-              <TableHead className="text-end">{t('bandEditor.columnGpa')}</TableHead>
-              <TableHead>{t('bandEditor.columnFail')}</TableHead>
-              <TableHead>{t('bandEditor.columnComment')}</TableHead>
-              <TableHead>{t('bandEditor.columnActions')}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
+        <fieldset disabled={readOnly} className="contents">
+          <ul className="flex flex-col gap-3">
             {bands.map((band, index) => (
-              <TableRow key={band.sequence}>
-                <TableCell className="tabular-nums">{rowNumber(index)}</TableCell>
-                <TableCell className="text-end">
-                  <NumberCell
-                    label={cellLabel(index, t('bandEditor.columnFrom'))}
-                    value={band.percent_from}
-                    onValue={setRange(index, 'percent_from')}
-                  />
-                </TableCell>
-                <TableCell className="text-end">
-                  <NumberCell
-                    label={cellLabel(index, t('bandEditor.columnTo'))}
-                    value={band.percent_to}
-                    onValue={setRange(index, 'percent_to')}
-                  />
-                </TableCell>
-                <TableCell>
-                  <Input
-                    className="w-24"
-                    aria-label={cellLabel(index, t('bandEditor.columnGrade'))}
-                    value={band.grade}
-                    onChange={(event) => updateBand(index, { grade: event.target.value })}
-                    onKeyDown={(event) => handleKeyDown(event, index)}
-                  />
-                </TableCell>
-                <TableCell className="text-end">
-                  <NumberCell
-                    label={cellLabel(index, t('bandEditor.columnGpa'))}
-                    value={band.gpa}
-                    onValue={(gpa) => updateBand(index, { gpa })}
-                    disabled={band.is_fail ?? false}
-                    placeholder="—"
-                  />
-                </TableCell>
-                <TableCell>
+              <li
+                key={band.sequence}
+                className="flex flex-col gap-3 rounded-lg border border-border-subtle bg-surface p-4 shadow-e1"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="text-h3">
+                    {t(band.grade.trim() ? 'bandEditor.cardTitle' : 'bandEditor.cardTitleNoGrade', {
+                      grade: band.grade,
+                      from: formatNumber(band.percent_from, config),
+                      to: formatNumber(band.percent_to, config),
+                    })}
+                  </h3>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="size-11 text-destructive"
+                    aria-label={cellLabel(index, t('bandEditor.delete'))}
+                    onClick={() => removeBand(index)}
+                  >
+                    <Trash2Icon aria-hidden="true" />
+                  </Button>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor={`band-${band.sequence}-from`}>
+                      {t('bandEditor.columnFrom')}
+                    </Label>
+                    <NumberCell
+                      id={`band-${band.sequence}-from`}
+                      value={band.percent_from}
+                      onValue={setRange(index, 'percent_from')}
+                      className="h-11 w-full"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor={`band-${band.sequence}-to`}>{t('bandEditor.columnTo')}</Label>
+                    <NumberCell
+                      id={`band-${band.sequence}-to`}
+                      value={band.percent_to}
+                      onValue={setRange(index, 'percent_to')}
+                      className="h-11 w-full"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor={`band-${band.sequence}-grade`}>
+                      {t('bandEditor.columnGrade')}
+                    </Label>
+                    <Input
+                      id={`band-${band.sequence}-grade`}
+                      className="h-11"
+                      value={band.grade}
+                      onChange={(event) => updateBand(index, { grade: event.target.value })}
+                      onKeyDown={(event) => handleKeyDown(event, index)}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor={`band-${band.sequence}-gpa`}>{t('bandEditor.columnGpa')}</Label>
+                    <NumberCell
+                      id={`band-${band.sequence}-gpa`}
+                      value={band.gpa}
+                      onValue={(gpa) => updateBand(index, { gpa })}
+                      disabled={band.is_fail ?? false}
+                      placeholder="—"
+                      className="h-11 w-full"
+                    />
+                  </div>
+                </div>
+                <div className="flex min-h-11 items-center gap-3">
                   <Checkbox
-                    aria-label={cellLabel(index, t('bandEditor.columnFail'))}
+                    id={`band-${band.sequence}-fail`}
                     checked={band.is_fail ?? false}
                     onCheckedChange={(checked) =>
                       updateBand(
@@ -343,45 +256,141 @@ export function BandEditor({ bands, onChange }: BandEditorProps) {
                       )
                     }
                   />
-                </TableCell>
-                <TableCell>
+                  <Label htmlFor={`band-${band.sequence}-fail`}>{t('bandEditor.columnFail')}</Label>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor={`band-${band.sequence}-comment`}>
+                    {t('bandEditor.columnComment')}
+                  </Label>
                   <Input
-                    className="w-full"
-                    aria-label={cellLabel(index, t('bandEditor.columnComment'))}
+                    id={`band-${band.sequence}-comment`}
+                    className="h-11"
                     value={band.comment ?? ''}
                     onChange={(event) => updateBand(index, { comment: event.target.value || null })}
                   />
-                </TableCell>
-                <TableCell>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="text-destructive"
-                        aria-label={cellLabel(index, t('bandEditor.delete'))}
-                        onClick={() => removeBand(index)}
-                      >
-                        <Trash2Icon aria-hidden="true" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>{t('bandEditor.delete')}</TooltipContent>
-                  </Tooltip>
-                </TableCell>
-              </TableRow>
+                </div>
+              </li>
             ))}
-          </TableBody>
-        </Table>
-        <div className="flex items-center justify-between gap-4 border-t border-border-subtle px-4 py-3">
-          <Button type="button" variant="outline" onClick={addBand}>
+          </ul>
+        </fieldset>
+        {!readOnly && (
+          <Button type="button" variant="outline" className="h-11 w-full" onClick={addBand}>
             <PlusIcon aria-hidden="true" />
             {t('bandEditor.addBand')}
           </Button>
-          <p className="text-caption text-text-secondary">
-            <KeyboardHint text={t('bandEditor.enterHint')} />
-          </p>
-        </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <TooltipProvider>
+      <div className="overflow-hidden rounded-lg border border-border-subtle bg-surface shadow-e1">
+        <fieldset disabled={readOnly} className="contents">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{t('bandEditor.columnRow')}</TableHead>
+                <TableHead className="text-end">{t('bandEditor.columnFrom')}</TableHead>
+                <TableHead className="text-end">{t('bandEditor.columnTo')}</TableHead>
+                <TableHead>{t('bandEditor.columnGrade')}</TableHead>
+                <TableHead className="text-end">{t('bandEditor.columnGpa')}</TableHead>
+                <TableHead>{t('bandEditor.columnFail')}</TableHead>
+                <TableHead>{t('bandEditor.columnComment')}</TableHead>
+                <TableHead>{t('bandEditor.columnActions')}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {bands.map((band, index) => (
+                <TableRow key={band.sequence}>
+                  <TableCell className="tabular-nums">{rowNumber(index)}</TableCell>
+                  <TableCell className="text-end">
+                    <NumberCell
+                      label={cellLabel(index, t('bandEditor.columnFrom'))}
+                      value={band.percent_from}
+                      onValue={setRange(index, 'percent_from')}
+                    />
+                  </TableCell>
+                  <TableCell className="text-end">
+                    <NumberCell
+                      label={cellLabel(index, t('bandEditor.columnTo'))}
+                      value={band.percent_to}
+                      onValue={setRange(index, 'percent_to')}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Input
+                      className="w-24"
+                      aria-label={cellLabel(index, t('bandEditor.columnGrade'))}
+                      value={band.grade}
+                      onChange={(event) => updateBand(index, { grade: event.target.value })}
+                      onKeyDown={(event) => handleKeyDown(event, index)}
+                    />
+                  </TableCell>
+                  <TableCell className="text-end">
+                    <NumberCell
+                      label={cellLabel(index, t('bandEditor.columnGpa'))}
+                      value={band.gpa}
+                      onValue={(gpa) => updateBand(index, { gpa })}
+                      disabled={band.is_fail ?? false}
+                      placeholder="—"
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Checkbox
+                      aria-label={cellLabel(index, t('bandEditor.columnFail'))}
+                      checked={band.is_fail ?? false}
+                      onCheckedChange={(checked) =>
+                        updateBand(
+                          index,
+                          checked === true ? { is_fail: true, gpa: null } : { is_fail: false },
+                        )
+                      }
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Input
+                      className="w-full"
+                      aria-label={cellLabel(index, t('bandEditor.columnComment'))}
+                      value={band.comment ?? ''}
+                      onChange={(event) =>
+                        updateBand(index, { comment: event.target.value || null })
+                      }
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="text-destructive"
+                          aria-label={cellLabel(index, t('bandEditor.delete'))}
+                          onClick={() => removeBand(index)}
+                        >
+                          <Trash2Icon aria-hidden="true" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>{t('bandEditor.delete')}</TooltipContent>
+                    </Tooltip>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </fieldset>
+        {!readOnly && (
+          <div className="flex items-center justify-between gap-4 border-t border-border-subtle px-4 py-3">
+            <Button type="button" variant="outline" onClick={addBand}>
+              <PlusIcon aria-hidden="true" />
+              {t('bandEditor.addBand')}
+            </Button>
+            <p className="text-caption text-text-secondary">
+              <KeyboardHint text={t('bandEditor.enterHint')} />
+            </p>
+          </div>
+        )}
       </div>
     </TooltipProvider>
   );

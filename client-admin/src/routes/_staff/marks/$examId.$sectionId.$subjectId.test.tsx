@@ -449,7 +449,9 @@ describe('/marks/$examId/$sectionId/$subjectId', () => {
     });
 
     await user.type(await screen.findByLabelText('Rafi Ahmed — Written'), '90');
-    await user.click(screen.getAllByRole('link', { name: 'Enter marks' })[0]!);
+    const navLinks = screen.getAllByRole('link', { name: 'Enter marks' });
+    expect(navLinks.every((a) => a.getAttribute('href') === '/marks')).toBe(true);
+    await user.click(navLinks.find((a) => a.closest('aside, nav'))!);
     await screen.findByRole('heading', { name: 'Leave without saving?' });
     await user.click(screen.getByRole('button', { name: 'Stay' }));
     expect(screen.queryByRole('heading', { name: 'Leave without saving?' })).toBeNull();

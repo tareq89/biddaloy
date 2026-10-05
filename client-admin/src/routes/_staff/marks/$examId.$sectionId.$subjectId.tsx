@@ -299,6 +299,12 @@ function MarksEntryPage() {
                 })}
               </p>
             </div>
+            {reopenGrid.isError && (
+              <p role="alert" className="flex items-center gap-1 text-caption text-destructive">
+                <CircleAlertIcon aria-hidden="true" className="size-3.5" />
+                {tg('marksSheet.reopenError')}
+              </p>
+            )}
             {canReopen && (
               <Button
                 type="button"
@@ -354,6 +360,7 @@ function MarksEntryPage() {
         onOpenChange={setSubmitOpen}
         blankCount={blankCount}
         confirming={flushing || submitGrid.isPending}
+        error={submitGrid.isError ? tg('marksSheet.submitError') : undefined}
         onConfirm={() => void confirmSubmit()}
       />
 

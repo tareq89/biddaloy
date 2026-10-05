@@ -54,26 +54,51 @@ export function computeSegments(bands: BandInput[]): Segment[] {
   return segments;
 }
 
-/** The band that owns a covered segment: the first one whose range contains its start. */
-function ownerOf(
-  bands: BandInput[],
-  segment: Segment,
-): { band: BandInput; passIndex: number } | undefined {
+type Owner = { band: BandInput; passIndex: number };
+
+/** The band that owns point `p`: the first one whose range contains it. */
+function ownerAt(bands: BandInput[], p: number): Owner | undefined {
   let passIndex = -1;
   for (const band of bands) {
     if (!band.is_fail) passIndex += 1;
     const lo = Math.min(band.percent_from, band.percent_to);
     const hi = Math.max(band.percent_from, band.percent_to);
-    if (segment.from >= lo && segment.from <= hi) return { band, passIndex };
+    if (p >= lo && p <= hi) return { band, passIndex };
   }
   return undefined;
 }
 
+type OwnedSegment = Segment & { owner?: Owner | undefined };
+
+/** Splits covered segments wherever the owning band changes, so two adjacent
+ * bands are two segments (own colour and grade letter), not one merged run. */
+function splitByOwner(bands: BandInput[], segments: Segment[]): OwnedSegment[] {
+  const out: OwnedSegment[] = [];
+  for (const seg of segments) {
+    if (seg.kind !== 'covered') {
+      out.push(seg);
+      continue;
+    }
+    let current: OwnedSegment | undefined;
+    for (let p = seg.from; p <= seg.to; p += 1) {
+      const owner = ownerAt(bands, p);
+      if (current && current.owner?.band === owner?.band) {
+        current.to = p;
+      } else {
+        current = { from: p, to: p, kind: 'covered', owner };
+        out.push(current);
+      }
+    }
+  }
+  return out;
+}
+
 export function CoverageBar({ bands }: CoverageBarProps) {
   const { t } = useTranslation('grading');
-  const segments = computeSegments(bands);
-  const hasGaps = segments.some((s) => s.kind === 'gap');
-  const hasOverlaps = segments.some((s) => s.kind === 'overlap');
+  const base = computeSegments(bands);
+  const segments = splitByOwner(bands, base);
+  const hasGaps = base.some((s) => s.kind === 'gap');
+  const hasOverlaps = base.some((s) => s.kind === 'overlap');
   const complete = !hasGaps && !hasOverlaps;
 
   return (
@@ -115,7 +140,7 @@ export function CoverageBar({ bands }: CoverageBarProps) {
               />
             );
           }
-          const owner = ownerOf(bands, segment);
+          const owner = segment.owner;
           const color = owner?.band.is_fail
             ? FAIL_COLOR
             : PASS_COLORS[(owner?.passIndex ?? 0) % PASS_COLORS.length];
@@ -139,7 +164,7 @@ export function CoverageBar({ bands }: CoverageBarProps) {
             className="min-w-0 truncate text-center"
             style={{ width: `${segment.to - segment.from + 1}%` }}
           >
-            {segment.kind === 'covered' ? ownerOf(bands, segment)?.band.grade : ''}
+            {segment.kind === 'covered' ? segment.owner?.band.grade : ''}
           </span>
         ))}
       </div>
