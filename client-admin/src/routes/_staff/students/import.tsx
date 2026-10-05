@@ -1,6 +1,14 @@
 import { Permission } from '@biddaloy/shared';
 import { captureNotificationTenant, notifyOutcome } from '@biddaloy/ui/api';
-import { Button, Checkbox, BulkUploadPreview, RoutePending } from '@biddaloy/ui/components';
+import {
+  BulkUploadPreview,
+  Button,
+  Card,
+  Checkbox,
+  RoutePending,
+  StatusBadge,
+  type BulkUploadPreviewController,
+} from '@biddaloy/ui/components';
 import {
   useHasPermission,
   useValidateStudentUpload,
@@ -9,14 +17,22 @@ import {
   type StudentUploadSummary,
 } from '@biddaloy/ui/hooks';
 import type { PreviewResult } from '@biddaloy/ui/hooks';
-import { RegionConfigProvider, useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
-import { createFileRoute, Link } from '@tanstack/react-router';
+import {
+  RegionConfigProvider,
+  useRegionConfig,
+  useTenantRegionConfig,
+  useTranslation,
+} from '@biddaloy/ui/i18n';
+import { FullPageShell } from '@biddaloy/ui/shells';
+import { formatPhone } from '@biddaloy/ui/utils';
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
+import { ChevronDownIcon, DownloadIcon } from 'lucide-react';
 import * as React from 'react';
 
 import { loadRouteNamespaces } from '../../../route-loaders';
 import { InviteGuardiansDialog } from '../guardians/-invite-guardians-dialog';
 
-import { downloadTemplate, TEMPLATE_HEADERS, type TemplateHeader } from './-import/template';
+import { downloadTemplate, REQUIRED_COLUMNS, TEMPLATE_HEADERS } from './-import/template';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // mirrors the server's multer limit
 const PREVIEW_ROW_LIMIT = 20;
@@ -34,20 +50,11 @@ const PREVIEW_ROW_LIMIT = 20;
  * roles server-side, same reasoning `fees/generate.tsx` spells out.
  */
 export const Route = createFileRoute('/_staff/students/import')({
+  staticData: { chromeless: true },
   loader: () => loadRouteNamespaces('studentImport', 'guardians', 'bulkImport', 'backup'),
   pendingComponent: ImportStudentsPending,
   component: ImportStudentsPage,
 });
-
-/** Which columns the server requires per row, mirrored from
- * `BulkUploadRowDto` for the on-page column reference. */
-const REQUIRED_COLUMNS: ReadonlySet<TemplateHeader> = new Set([
-  'student_name',
-  'class',
-  'section',
-  'guardian1_name',
-  'guardian1_phone',
-]);
 
 // [8.14.17]: the permission check that used to live at the top of
 // `ImportStudentsPage` (an `EmptyState` shown when the viewer lacked
@@ -106,148 +113,232 @@ function ImportStudentsContent() {
     [commitAsync, t],
   );
 
+  const navigate = useNavigate();
+  const [upload, setUpload] = React.useState<
+    BulkUploadPreviewController<StudentUploadSummary, BulkUploadResult> | undefined
+  >(undefined);
+  const close = () => void navigate({ to: '/students' });
+  const status = upload?.status;
+
+  // The footer follows the upload's state; the confirm button lives here, not
+  // inside the upload card, so the view keeps exactly one primary button.
+  const primary =
+    status === 'done'
+      ? { label: t('result.goToList'), onClick: close }
+      : (status === 'preview' || status === 'committing') && upload?.result
+        ? {
+            label: t('confirmAction', { count: upload.result.summary.rows_to_create }),
+            onClick: upload.confirm,
+            disabled: upload.confirmDisabled,
+            busy: status === 'committing',
+          }
+        : { label: t('confirmActionIdle'), onClick: () => {}, disabled: true };
+  const secondary =
+    status === 'done'
+      ? { label: t('actions.close', { ns: 'common' }), onClick: close }
+      : { label: t('cancelAction'), onClick: close };
+
   return (
-    <div className="mx-auto flex max-w-4xl flex-col gap-6">
-      <h1 className="text-lg font-semibold">{t('title')}</h1>
+    <FullPageShell
+      title={t('title')}
+      size="wide"
+      onClose={close}
+      primary={primary}
+      secondary={secondary}
+    >
+      <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 p-4 md:p-6">
+        <Card padded asChild>
+          <section aria-labelledby="import-template-heading">
+            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between md:gap-6">
+              <div>
+                <h2 id="import-template-heading" className="text-h3">
+                  {t('template.title')}
+                </h2>
+                <p className="mt-1 text-text-secondary">{t('template.explanation')}</p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full md:w-auto"
+                onClick={downloadTemplate}
+              >
+                <DownloadIcon className="size-4" aria-hidden />
+                {t('template.download')}
+              </Button>
+            </div>
+            <details className="group mt-4 border-t border-border-subtle pt-2">
+              <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 rounded-md font-medium md:min-h-8">
+                <span>{t('reference.toggle')}</span>
+                <span className="flex items-center gap-2 text-text-secondary">
+                  {t('reference.count', { count: TEMPLATE_HEADERS.length })}
+                  <ChevronDownIcon
+                    className="size-4 transition-transform group-open:rotate-180"
+                    aria-hidden
+                  />
+                </span>
+              </summary>
+              <ul className="divide-y divide-border-subtle">
+                {TEMPLATE_HEADERS.map((header) => (
+                  <li
+                    key={header}
+                    className="flex flex-col gap-1 py-3 md:grid md:grid-cols-12 md:gap-4"
+                  >
+                    <span className="flex items-center gap-2 font-medium md:col-span-4">
+                      {t(`reference.labels.${header}`)}
+                      {REQUIRED_COLUMNS.has(header) ? (
+                        <StatusBadge tone="warning" label={t('reference.requiredYes')} />
+                      ) : (
+                        <StatusBadge tone="neutral" label={t('reference.requiredNo')} />
+                      )}
+                    </span>
+                    <span className="md:col-span-8">
+                      {t(`reference.columns.${header}`)}
+                      <span className="block text-caption text-text-secondary">
+                        {t('reference.headerName')}{' '}
+                        <code className="rounded-sm bg-muted px-1 font-mono">{header}</code>
+                      </span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </details>
+            {/* [14.13.2]: entry point toward the whole-school migration flow —
+                only rendered for a viewer who could actually act on it
+                (`BACKUP_MANAGE` gates `/settings`'s restore wizard server-side
+                too, so this is UX-only). */}
+            {canManageBackup && (
+              <p className="mt-2 text-text-secondary">
+                {tBackup('migrateWholeSchool')}{' '}
+                <Link
+                  to="/settings"
+                  className="font-medium text-primary underline underline-offset-2"
+                >
+                  {tBackup('migrateWholeSchoolLink')}
+                </Link>
+              </p>
+            )}
+          </section>
+        </Card>
 
-      <section aria-labelledby="import-template-heading" className="flex flex-col gap-2">
-        <h2 id="import-template-heading" className="text-base font-semibold">
-          {t('template.title')}
-        </h2>
-        <p className="text-sm text-muted-foreground">{t('template.explanation')}</p>
-        <div>
-          <Button type="button" variant="outline" onClick={downloadTemplate}>
-            {t('template.download')}
-          </Button>
-        </div>
-        {/* [14.13.2]: entry point toward the whole-school migration flow —
-            only rendered for a viewer who could actually act on it
-            (`BACKUP_MANAGE` gates `/settings`'s restore wizard server-side
-            too, so this is UX-only, same reasoning as the permission note
-            at the top of this file). */}
-        {canManageBackup && (
-          <p className="text-sm text-muted-foreground">
-            {tBackup('migrateWholeSchool')}{' '}
-            <Link to="/settings" className="text-primary underline">
-              {tBackup('migrateWholeSchoolLink')}
-            </Link>
-          </p>
+        <Card padded asChild>
+          <section aria-labelledby="import-upload-heading" className="flex flex-col gap-3">
+            <div>
+              <h2 id="import-upload-heading" className="text-h3">
+                {t('upload.title')}
+              </h2>
+              <p className="mt-1 text-text-secondary">{t('upload.explanation')}</p>
+            </div>
+
+            <BulkUploadPreview<StudentUploadSummary, BulkUploadResult>
+              hideConfirm
+              onControllerChange={setUpload}
+              accept=".csv,.xlsx"
+              maxFileSize={MAX_FILE_SIZE}
+              validate={validate}
+              commit={commit}
+              renderSummary={(result) => <ImportPreviewSummary result={result} />}
+              renderDone={(result, reset) => (
+                <ImportDoneSummary result={result} onImportAnother={reset} />
+              )}
+            />
+          </section>
+        </Card>
+
+        {(status === 'preview' || status === 'committing') && upload?.result && (
+          <ImportPreviewCard result={upload.result} />
         )}
-        {/* [8.14.7]: `break-all` on the header-name cells (below) keeps this
-            table's min-content width under 320px on its own — the longest
-            identifier, `preferred_communication`, was the one unbreakable
-            token wide enough to force this box into scroll. `overflow-x-
-            auto` stays as a defensive fallback, not the fix: no element
-            should need its own inner scroll region per the reflow contract
-            DataTable's card mode established. */}
-        <div className="mt-2 w-full overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <caption className="mb-1 text-left text-sm font-medium">
-              {t('reference.caption')}
-            </caption>
-            <thead>
-              <tr className="border-b border-border-subtle">
-                <th scope="col" className="py-1 pr-4 font-medium">
-                  {t('reference.column')}
-                </th>
-                <th scope="col" className="py-1 pr-4 font-medium">
-                  {t('reference.required')}
-                </th>
-                <th scope="col" className="py-1 font-medium">
-                  {t('reference.format')}
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {TEMPLATE_HEADERS.map((header) => (
-                <tr key={header} className="border-b border-border-subtle">
-                  <td className="py-1 pr-4 font-mono text-xs break-all">{header}</td>
-                  <td className="py-1 pr-4">
-                    {REQUIRED_COLUMNS.has(header)
-                      ? t('reference.requiredYes')
-                      : t('reference.requiredNo')}
-                  </td>
-                  <td className="py-1">{t(`reference.columns.${header}`)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section aria-labelledby="import-upload-heading" className="flex flex-col gap-2">
-        <h2 id="import-upload-heading" className="text-base font-semibold">
-          {t('upload.title')}
-        </h2>
-        <p className="text-sm text-muted-foreground">{t('upload.explanation')}</p>
-
-        <BulkUploadPreview<StudentUploadSummary, BulkUploadResult>
-          accept=".csv,.xlsx"
-          maxFileSize={MAX_FILE_SIZE}
-          validate={validate}
-          commit={commit}
-          renderSummary={(result) => <ImportPreviewSummary result={result} />}
-          renderDone={(result, reset) => (
-            <ImportDoneSummary result={result} onImportAnother={reset} />
-          )}
-        />
-      </section>
-    </div>
+      </div>
+    </FullPageShell>
   );
 }
 
 /**
- * `renderSummary` slot content — "N students will be created" plus the
- * first `PREVIEW_ROW_LIMIT` accepted rows. Extracted to its own named
- * component (rather than an inline closure) so it has a Storybook story
- * covering the ticket's required "preview-with-errors" state — the error
- * table itself is `BulkUploadPreview`'s own concern, rendered alongside
- * this, not inside it.
+ * `renderSummary` slot content: the "N students will be created" line. The
+ * preview table is its own card, `ImportPreviewCard`, rendered by the page
+ * next to the upload card (no nested cards).
  */
 export function ImportPreviewSummary({ result }: { result: PreviewResult<StudentUploadSummary> }) {
   const { t } = useTranslation('studentImport');
-  const previewRows = result.summary.preview.slice(0, PREVIEW_ROW_LIMIT);
+  const clean = result.hard_error_count === 0 && result.errors.length === 0;
   return (
-    <div className="flex flex-col gap-2">
-      <p className="text-sm font-medium">
-        {t('preview.willCreate', { count: result.summary.rows_to_create })}
-      </p>
-      {previewRows.length > 0 && (
-        <div className="w-full overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <caption className="mb-1 text-left text-sm font-medium">
-              {t('preview.previewCaption', { count: previewRows.length })}
-            </caption>
-            <thead>
-              <tr className="border-b border-border-subtle">
-                <th scope="col" className="py-1 pr-4 font-medium">
-                  {t('preview.columns.name')}
-                </th>
-                <th scope="col" className="py-1 pr-4 font-medium">
-                  {t('preview.columns.class')}
-                </th>
-                <th scope="col" className="py-1 pr-4 font-medium">
-                  {t('preview.columns.section')}
-                </th>
-                <th scope="col" className="py-1 font-medium">
-                  {t('preview.columns.guardianPhone')}
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {previewRows.map((row) => (
-                <tr key={row.row} className="border-b border-border-subtle">
-                  <td className="py-1 pr-4">{row.student_name}</td>
-                  <td className="py-1 pr-4">{row.class}</td>
-                  <td className="py-1 pr-4">{row.section}</td>
-                  <td className="py-1">{row.guardian1_phone}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+    <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+      <div className="flex flex-wrap items-center gap-2">
+        {clean && <StatusBadge tone="success" label={t('preview.noProblems')} />}
+        <span className="font-medium">
+          {t('preview.willCreate', { count: result.summary.rows_to_create })}
+        </span>
+      </div>
     </div>
+  );
+}
+
+/** The first `PREVIEW_ROW_LIMIT` accepted rows. Below `md` each row is two
+ * lines (name, then class · section · phone) instead of a four-column table. */
+export function ImportPreviewCard({ result }: { result: PreviewResult<StudentUploadSummary> }) {
+  const { t } = useTranslation('studentImport');
+  const config = useRegionConfig();
+  const previewRows = result.summary.preview.slice(0, PREVIEW_ROW_LIMIT);
+  if (previewRows.length === 0) return null;
+  // Falls back to the typed text when it is not a phone number formatPhone knows.
+  const phoneOf = (raw: string | undefined) => (raw ? formatPhone(raw, config) || raw : '');
+  return (
+    <Card padded asChild>
+      <section aria-labelledby="import-preview-heading" className="flex flex-col gap-3">
+        <div>
+          <h2 id="import-preview-heading" className="text-h3">
+            {t('preview.title')}
+          </h2>
+          <p className="mt-1 text-text-secondary">
+            {t('preview.subtitle', { count: previewRows.length })}
+          </p>
+        </div>
+        <table className="w-full text-start">
+          <caption className="sr-only">
+            {t('preview.previewCaption', { count: previewRows.length })}
+          </caption>
+          <thead className="max-md:sr-only">
+            <tr className="border-b border-border-subtle">
+              <th scope="col" className="py-1 pe-4 font-medium">
+                {t('preview.columns.name')}
+              </th>
+              <th scope="col" className="py-1 pe-4 font-medium">
+                {t('preview.columns.class')}
+              </th>
+              <th scope="col" className="py-1 pe-4 font-medium">
+                {t('preview.columns.section')}
+              </th>
+              <th scope="col" className="py-1 font-medium">
+                {t('preview.columns.guardianPhone')}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {previewRows.map((row) => (
+              <tr
+                key={row.row}
+                className="border-b border-border-subtle max-md:flex max-md:flex-col max-md:py-2"
+              >
+                <td className="py-1 pe-4 font-medium md:font-normal">{row.student_name}</td>
+                <td className="py-1 pe-4 max-md:hidden">{row.class}</td>
+                <td className="py-1 pe-4 max-md:hidden">{row.section}</td>
+                <td className="py-1 max-md:hidden">{phoneOf(row.guardian1_phone)}</td>
+                <td className="text-caption text-text-secondary md:hidden">
+                  {[row.class, row.section, phoneOf(row.guardian1_phone)]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <p className="text-text-secondary">
+          {t('preview.shownOf', {
+            shown: previewRows.length,
+            total: result.summary.rows_to_create,
+          })}
+        </p>
+      </section>
+    </Card>
   );
 }
 
@@ -289,28 +380,26 @@ export function ImportDoneSummary({
 
   return (
     <section aria-labelledby="import-result-heading" className="flex flex-col gap-3">
-      <h2 id="import-result-heading" className="text-base font-semibold">
+      <h2 id="import-result-heading" className="text-h3">
         {t('result.title')}
       </h2>
-      {result.error_count === 0 ? (
-        <p className="rounded-md border border-border-subtle bg-muted p-3 text-sm">
-          {t('result.allImported', { count: result.success_count })}
+      <div className="flex flex-wrap items-center gap-2">
+        {result.error_count === 0 && <StatusBadge tone="success" label={t('preview.noProblems')} />}
+        <p>
+          {result.error_count === 0
+            ? t('result.allImported', { count: result.success_count })
+            : t('result.partialSummary', {
+                success: result.success_count,
+                total: result.total_rows,
+                errors: result.error_count,
+              })}
         </p>
-      ) : (
-        // Deliberately neutral styling: partial success is the normal
-        // case — neither a green tick nor a red failure. In practice the
-        // all-or-nothing commit rule (#605) means this branch should never
-        // be reached from this page, but the DTO still carries the field.
-        <p className="rounded-md border border-border-subtle bg-muted p-3 text-sm">
-          {t('result.partialSummary', {
-            success: result.success_count,
-            total: result.total_rows,
-            errors: result.error_count,
-          })}
-        </p>
-      )}
+      </div>
       {result.created_student_ids.length > 0 && (
-        <span className="flex items-center gap-2 text-sm">
+        <label
+          htmlFor="invite-imported-guardians"
+          className="flex min-h-11 items-center gap-3 md:min-h-8"
+        >
           <Checkbox
             id="invite-imported-guardians"
             checked={inviteGuardians}
@@ -320,11 +409,11 @@ export function ImportDoneSummary({
               if (next) setInviteDialogOpen(true);
             }}
           />
-          <label htmlFor="invite-imported-guardians">{t('inviteGuardians.checkboxLabel')}</label>
-        </span>
+          {t('inviteGuardians.checkboxLabel')}
+        </label>
       )}
       <div>
-        <Button type="button" variant="outline" onClick={onImportAnother}>
+        <Button type="button" variant="ghost" onClick={onImportAnother}>
           {t('result.importAnother')}
         </Button>
       </div>
