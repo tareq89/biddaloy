@@ -1,4 +1,4 @@
-import { TooltipProvider } from '@biddaloy/ui/components';
+import { REGION_BD_EN, RegionConfigProvider } from '@biddaloy/ui/i18n';
 import { cleanupTestState, renderWithProviders, server } from '@biddaloy/ui/test';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -11,14 +11,14 @@ import { AudiencePicker } from './audience-picker';
 function renderPicker() {
   const onSelectedChange = vi.fn();
   const view = renderWithProviders(
-    <TooltipProvider>
+    <RegionConfigProvider value={REGION_BD_EN}>
       <AudiencePicker
         academicYearId="year-1"
         selected={new Map()}
         onSelectedChange={onSelectedChange}
       />
-    </TooltipProvider>,
-    { tenantId: 'tenant-1', locale: 'en' },
+    </RegionConfigProvider>,
+    { tenantId: 'tenant-1', locale: 'en', role: 'ADMIN' },
   );
   return { ...view, onSelectedChange };
 }
@@ -151,7 +151,7 @@ describe('AudiencePicker', () => {
     const user = userEvent.setup();
     const { onSelectedChange } = renderPicker();
 
-    const checkbox = await screen.findByRole('checkbox', { name: 'Direct Toggle Student' });
+    const checkbox = await screen.findByRole('checkbox', { name: /Direct Toggle Student/ });
     await user.click(checkbox);
 
     expect(onSelectedChange).toHaveBeenCalledWith(
@@ -206,18 +206,18 @@ describe('AudiencePicker', () => {
 
     const onSelectedChange = vi.fn();
     renderWithProviders(
-      <TooltipProvider>
+      <RegionConfigProvider value={REGION_BD_EN}>
         <AudiencePicker
           academicYearId="year-1"
           selected={new Map([['student-1', 'Selected Student']])}
           onSelectedChange={onSelectedChange}
         />
-      </TooltipProvider>,
-      { tenantId: 'tenant-1', locale: 'en' },
+      </RegionConfigProvider>,
+      { tenantId: 'tenant-1', locale: 'en', role: 'ADMIN' },
     );
 
     const user = userEvent.setup();
-    const checkbox = await screen.findByRole('checkbox', { name: 'Selected Student' });
+    const checkbox = await screen.findByRole('checkbox', { name: /Selected Student/ });
     await user.click(checkbox);
 
     expect(onSelectedChange).toHaveBeenCalledWith(new Map());
@@ -238,13 +238,13 @@ describe('AudiencePicker', () => {
 
     const onSelectedChange = vi.fn();
     renderWithProviders(
-      <TooltipProvider>
+      <RegionConfigProvider value={REGION_BD_EN}>
         <AudiencePicker
           academicYearId="year-1"
           selected={new Map([['student-1', 'Selected student (name loading…)']])}
           onSelectedChange={onSelectedChange}
         />
-      </TooltipProvider>,
+      </RegionConfigProvider>,
       { tenantId: 'tenant-1', locale: 'en' },
     );
 
@@ -253,7 +253,7 @@ describe('AudiencePicker', () => {
     );
   });
 
-  it('shows the inactive tooltip on a non-ACTIVE student row and excludes them by default', async () => {
+  it('shows an Inactive badge on a non-ACTIVE student row and excludes them by default', async () => {
     server.use(
       http.get('/api/v1/students', ({ request }) => {
         const url = new URL(request.url);
@@ -288,13 +288,98 @@ describe('AudiencePicker', () => {
     await user.click(screen.getByRole('checkbox', { name: 'Include inactive students' }));
 
     await screen.findByText('Inactive Student');
-    expect(screen.getByRole('checkbox', { name: 'Inactive Student' })).toBeTruthy();
+    // The badge replaces the old tooltip: visible text, no hover needed.
+    expect(
+      screen.getByRole('checkbox', { name: /Inactive Student/ }).closest('li')?.textContent,
+    ).toBe('Inactive StudentInactive');
+    expect(screen.getByText('Inactive', { selector: '[data-tone]' })).toBeTruthy();
+  });
+
+  it('lists each student with their registration number', async () => {
+    server.use(
+      http.get('/api/v1/students', () =>
+        HttpResponse.json({
+          data: [
+            {
+              id: 'student-1',
+              full_name: 'Rahim Uddin',
+              registration_number: 'REG-2026-0001',
+              enrollment_status: 'ACTIVE',
+            },
+          ],
+          total: 1,
+          page: 1,
+          limit: 50,
+          totalPages: 1,
+        }),
+      ),
+    );
+
+    renderPicker();
+
+    expect(await screen.findByText('REG-2026-0001')).toBeTruthy();
+    expect(screen.getByText('1 match')).toBeTruthy();
+  });
+
+  it('disables the section select while "All classes" is chosen', async () => {
+    renderPicker();
+
+    const section = await screen.findByRole('combobox', { name: 'Section' });
+    expect(section).toHaveProperty('disabled', true);
+  });
+
+  it('never shows the server message when "select all" fails for another reason', async () => {
+    server.use(
+      http.get('/api/v1/students/ids', () =>
+        HttpResponse.json(
+          {
+            statusCode: 400,
+            message: 'Internal thing',
+            requestId: 'req-1',
+            path: '/students/ids',
+            timestamp: new Date().toISOString(),
+          },
+          { status: 400 },
+        ),
+      ),
+    );
+
+    const user = userEvent.setup();
+    renderPicker();
+    await user.click(await screen.findByRole('button', { name: /Select all/ }));
+
+    expect((await screen.findByRole('alert')).textContent).toContain("Couldn't select everyone.");
+    expect(screen.queryByText(/Internal thing/)).toBeNull();
   });
 
   it('renders no Program select when onProgramIdChange is not passed', async () => {
     renderPicker();
     await screen.findByRole('combobox', { name: 'Class' });
     expect(screen.queryByRole('combobox', { name: 'Program' })).toBeNull();
+  });
+
+  it('without PROGRAM_READ there is no Program field and no GET /programs', async () => {
+    let programsRequested = false;
+    server.use(
+      http.get('/api/v1/programs', () => {
+        programsRequested = true;
+        return HttpResponse.json([]);
+      }),
+    );
+
+    renderWithProviders(
+      <AudiencePicker
+        academicYearId="year-1"
+        selected={new Map()}
+        onSelectedChange={vi.fn()}
+        onProgramIdChange={vi.fn()}
+      />,
+      { tenantId: 'tenant-1', locale: 'en', role: 'ACCOUNTANT' },
+    );
+
+    await screen.findByRole('combobox', { name: 'Class' });
+    expect(screen.queryByRole('combobox', { name: 'Program' })).toBeNull();
+    expect(programsRequested).toBe(false);
   });
 
   it('selecting a program emits program_id via onProgramIdChange; clearing removes it', async () => {
@@ -310,7 +395,7 @@ describe('AudiencePicker', () => {
     function Wrapper() {
       const [programId, setProgramId] = React.useState<string | undefined>(undefined);
       return (
-        <TooltipProvider>
+        <RegionConfigProvider value={REGION_BD_EN}>
           <AudiencePicker
             academicYearId="year-1"
             selected={new Map()}
@@ -321,11 +406,11 @@ describe('AudiencePicker', () => {
               setProgramId(value);
             }}
           />
-        </TooltipProvider>
+        </RegionConfigProvider>
       );
     }
 
-    renderWithProviders(<Wrapper />, { tenantId: 'tenant-1', locale: 'en' });
+    renderWithProviders(<Wrapper />, { tenantId: 'tenant-1', locale: 'en', role: 'ADMIN' });
 
     await user.click(await screen.findByRole('combobox', { name: 'Program' }));
     await user.click(await screen.findByRole('option', { name: 'Hifz' }));
