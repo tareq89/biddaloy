@@ -1,20 +1,14 @@
 /**
- * Classes list — [8.11.2]. Rows expand inline (via `DataTable`'s
- * `renderExpandedRow`, [8.11.2]'s own addition to that component) to
- * reveal a class's sections, with create/edit/delete happening in place
- * rather than a separate page — the issue's own acceptance criteria.
+ * Classes list — [8.11.2], restyled [31.4 classes-1]: kit `FilterBar`,
+ * `DataTable` with icon `rowActions`, 25 per page. Sections are managed on
+ * the class detail page (the view action), not inline.
  */
 import { Permission } from '@biddaloy/shared';
 import {
-  Button,
   CachedDataNotice,
   RoutePending,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
   type DataTableColumn,
+  type RowAction,
 } from '@biddaloy/ui/components';
 import {
   classesQueryOptions,
@@ -27,14 +21,14 @@ import {
 import { RegionConfigProvider, useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { ListShell, useListShellState } from '@biddaloy/ui/shells';
 import { formatNumber } from '@biddaloy/ui/utils';
-import { createFileRoute, Link } from '@tanstack/react-router';
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
+import { PlusIcon, SchoolIcon } from 'lucide-react';
 import * as React from 'react';
 
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 
 import { ClassFormDialog } from './-class-form-dialog';
 import { DeleteClassDialog } from './-delete-class-dialog';
-import { SectionsPanel } from './-sections-panel';
 
 export const Route = createFileRoute('/_staff/classes/')({
   loader: ({ context: { queryClient } }) =>
@@ -74,7 +68,8 @@ function ClassesListPage() {
   const { t } = useTranslation('classes');
   const { t: tBackup } = useTranslation('backup');
   const regionConfig = useTenantRegionConfig();
-  const [state, actions] = useListShellState({ limit: 10 });
+  const navigate = useNavigate();
+  const [state, actions] = useListShellState();
   const filters = state.filters as ClassFilters;
   const canManage = useHasPermission(Permission.CLASS_MANAGE);
   const canManageBackup = useHasPermission(Permission.BACKUP_MANAGE);
@@ -124,6 +119,28 @@ function ClassesListPage() {
   const [editing, setEditing] = React.useState<ClassWithCounts | null>(null);
   const [deleting, setDeleting] = React.useState<ClassWithCounts | null>(null);
 
+  const currentYear = academicYearsQuery.data?.data.find((year) => year.is_current);
+  // What the FilterBar shows: the default (current) year is "absent" so it
+  // gets no chip; hidden shift/version filters are dropped like in the request.
+  const filterValues: Record<string, string> = {
+    ...(filters.academic_year_id !== undefined && filters.academic_year_id !== currentYearId
+      ? { academic_year_id: filters.academic_year_id }
+      : {}),
+    ...(showShiftFilter && filters.shift ? { shift: filters.shift } : {}),
+    ...(showVersionFilter && filters.version ? { version: filters.version } : {}),
+  };
+
+  const rowActions = (row: ClassWithCounts): RowAction[] => [
+    { intent: 'view', label: t('list.view'), to: `/classes/${row.id}` },
+    { intent: 'edit', label: t('list.edit'), onClick: () => setEditing(row), allowed: canManage },
+    {
+      intent: 'delete',
+      label: t('list.delete'),
+      onClick: () => setDeleting(row),
+      allowed: canManage,
+    },
+  ];
+
   const columns: DataTableColumn<ClassWithCounts>[] = [
     {
       id: 'name',
@@ -132,16 +149,25 @@ function ClassesListPage() {
         <Link
           to="/classes/$classId"
           params={{ classId: row.id }}
-          className="font-medium text-primary underline"
+          className="font-medium text-text-primary hover:text-primary"
         >
           {row.name}
+          {(row.shift || row.version) && (
+            <span className="block text-caption font-normal text-text-secondary">
+              {[row.shift, row.version].filter(Boolean).join(' · ')}
+            </span>
+          )}
         </Link>
       ),
     },
     {
       id: 'grade',
       header: t('list.columnGrade'),
-      accessorFn: (row) => row.numeric_grade ?? t('list.noGrade'),
+      accessorFn: (row) =>
+        row.numeric_grade == null
+          ? t('list.noGrade')
+          : formatNumber(row.numeric_grade, regionConfig),
+      align: 'end',
     },
     {
       id: 'sections',
@@ -162,33 +188,6 @@ function ClassesListPage() {
       accessorFn: (row) => formatNumber(row.student_count, regionConfig),
       align: 'end',
     },
-    ...(canManage
-      ? [
-          {
-            id: 'actions',
-            header: t('list.columnActions'),
-            pinned: true,
-            accessorFn: (row: ClassWithCounts) => (
-              <div className="flex justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => setEditing(row)}
-                  className="text-sm font-medium text-primary underline"
-                >
-                  {t('list.edit')}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDeleting(row)}
-                  className="text-sm font-medium text-destructive underline"
-                >
-                  {t('list.delete')}
-                </button>
-              </div>
-            ),
-          } satisfies DataTableColumn<ClassWithCounts>,
-        ]
-      : []),
   ];
 
   return (
@@ -196,87 +195,64 @@ function ClassesListPage() {
       <CachedDataNotice queryKey={classesQueryOptions(classListFilters).queryKey} />
       <ListShell
         title={t('list.title')}
-        primaryAction={
-          canManage && (
-            <Button type="button" onClick={() => setCreateOpen(true)}>
-              {t('list.addClass')}
-            </Button>
-          )
-        }
-        filterBar={
-          <div className="flex flex-wrap items-center gap-2">
-            <Select
-              value={effectiveAcademicYearId ?? ALL_VALUE}
-              onValueChange={(value) =>
-                // Writes `ALL_VALUE` itself when chosen, not an absent key —
-                // see the `effectiveAcademicYearId` comment above on why
-                // "explicitly All" has to be a distinct, sticky URL state
-                // from "not chosen yet".
-                actions.setFilters({ ...state.filters, academic_year_id: value })
-              }
-            >
-              <SelectTrigger aria-label={t('list.academicYearLabel')}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL_VALUE}>{t('list.allAcademicYears')}</SelectItem>
-                {academicYearsQuery.data?.data.map((year) => (
-                  <SelectItem key={year.id} value={year.id}>
-                    {year.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            {showShiftFilter && (
-              <Select
-                value={filters.shift ?? ALL_VALUE}
-                onValueChange={(value) =>
-                  actions.setFilters({
-                    ...state.filters,
-                    shift: value === ALL_VALUE ? null : value,
-                  })
-                }
-              >
-                <SelectTrigger aria-label={t('list.shiftLabel')}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={ALL_VALUE}>{t('list.allShifts')}</SelectItem>
-                  {shifts.map((value) => (
-                    <SelectItem key={value} value={value}>
-                      {value}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-
-            {showVersionFilter && (
-              <Select
-                value={filters.version ?? ALL_VALUE}
-                onValueChange={(value) =>
-                  actions.setFilters({
-                    ...state.filters,
-                    version: value === ALL_VALUE ? null : value,
-                  })
-                }
-              >
-                <SelectTrigger aria-label={t('list.versionLabel')}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={ALL_VALUE}>{t('list.allVersions')}</SelectItem>
-                  {versions.map((value) => (
-                    <SelectItem key={value} value={value}>
-                      {value}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          </div>
-        }
+        actions={[
+          {
+            id: 'add',
+            label: t('list.addClass'),
+            icon: <PlusIcon aria-hidden="true" />,
+            priority: 'primary',
+            allowed: canManage,
+            onClick: () => setCreateOpen(true),
+          },
+        ]}
+        filters={{
+          fields: [
+            {
+              kind: 'select',
+              key: 'academic_year_id',
+              label: t('list.academicYearLabel'),
+              // The built-in "no filter" item means "the default (current)
+              // year"; without a current year it means all years.
+              allLabel: currentYear?.name ?? t('list.allAcademicYears'),
+              options: [
+                ...(currentYear ? [{ value: ALL_VALUE, label: t('list.allAcademicYears') }] : []),
+                ...(academicYearsQuery.data?.data ?? [])
+                  .filter((year) => year.id !== currentYearId)
+                  .map((year) => ({ value: year.id, label: year.name })),
+              ],
+            },
+            ...(showShiftFilter
+              ? [
+                  {
+                    kind: 'select' as const,
+                    key: 'shift',
+                    label: t('list.shiftLabel'),
+                    allLabel: t('list.allShifts'),
+                    options: shifts.map((value) => ({ value, label: value })),
+                  },
+                ]
+              : []),
+            ...(showVersionFilter
+              ? [
+                  {
+                    kind: 'select' as const,
+                    key: 'version',
+                    label: t('list.versionLabel'),
+                    allLabel: t('list.allVersions'),
+                    options: versions.map((value) => ({ value, label: value })),
+                  },
+                ]
+              : []),
+          ],
+          values: filterValues,
+          onChange: (patch) => {
+            const next = { ...patch };
+            // Picking the current year is the same as the default (absent).
+            if (next.academic_year_id === currentYearId) next.academic_year_id = null;
+            actions.setFilters({ ...state.filters, ...next });
+          },
+          ...(classesQuery.data ? { resultCount: classesQuery.data.total } : {}),
+        }}
         tableId="classes-list"
         caption={t('list.caption')}
         columns={columns}
@@ -289,33 +265,34 @@ function ClassesListPage() {
         totalCount={classesQuery.data?.total ?? 0}
         onPageChange={actions.setPage}
         onPageSizeChange={actions.setLimit}
-        pageSizeLabel={t('pagination.rowsPerPage', { ns: 'common' })}
         loading={classesQuery.isLoading}
         isFetching={classesQuery.isFetching}
         {...(classesQuery.isError ? { error: t('list.errorMessage') } : {})}
-        emptyMessage={t('list.emptyMessage')}
+        rowActions={rowActions}
+        emptyState={{
+          icon: <SchoolIcon aria-hidden="true" />,
+          title: t('list.emptyMessage'),
+          explanation: t('list.emptyExplanation'),
+          ...(canManage
+            ? { action: { label: t('list.addClass'), onClick: () => setCreateOpen(true) } }
+            : {}),
+          ...(isEmpty && canManageBackup
+            ? {
+                secondaryAction: {
+                  label: tBackup('migrateWholeSchoolLink'),
+                  onClick: () => void navigate({ to: '/settings' }),
+                },
+              }
+            : {}),
+        }}
         announceResults={(count, total) =>
           t('list.announceResults', { visible: count, total, count: total })
         }
-        expandRowLabel={(row) => t('list.expandLabel', { name: row.name })}
-        renderExpandedRow={(row) => <SectionsPanel classId={row.id} className={row.name} />}
       />
 
-      {/* [14.13.2]: same migrate-a-whole-school entry point as the
-          students list, offered where a newcomer with an empty class list
-          is already looking. */}
-      {isEmpty && canManageBackup && (
-        <p className="mt-2 text-sm text-muted-foreground">
-          {tBackup('migrateWholeSchool')}{' '}
-          <Link to="/settings" className="text-primary underline">
-            {tBackup('migrateWholeSchoolLink')}
-          </Link>
-        </p>
-      )}
-
-      {canManage && (
+      {canManage && createOpen && (
         <ClassFormDialog
-          open={createOpen}
+          open
           onOpenChange={setCreateOpen}
           mode="create"
           {...(effectiveAcademicYearId !== undefined
@@ -327,7 +304,7 @@ function ClassesListPage() {
 
       {canManage && editing && (
         <ClassFormDialog
-          open={editing !== null}
+          open
           onOpenChange={(open) => !open && setEditing(null)}
           mode="edit"
           classId={editing.id}
@@ -343,7 +320,7 @@ function ClassesListPage() {
 
       {canManage && deleting && (
         <DeleteClassDialog
-          open={deleting !== null}
+          open
           onOpenChange={(open) => !open && setDeleting(null)}
           classId={deleting.id}
           className={deleting.name}

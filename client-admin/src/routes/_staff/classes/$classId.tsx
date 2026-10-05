@@ -170,9 +170,9 @@ function ClassDetailPage() {
           onTabChange={setActiveTab}
         />
 
-        {canManage && (
+        {canManage && editOpen && (
           <ClassFormDialog
-            open={editOpen}
+            open
             onOpenChange={setEditOpen}
             mode="edit"
             classId={klass.id}
@@ -181,9 +181,9 @@ function ClassDetailPage() {
           />
         )}
 
-        {canManage && (
+        {canManage && deleteOpen && (
           <DeleteClassDialog
-            open={deleteOpen}
+            open
             onOpenChange={setDeleteOpen}
             classId={klass.id}
             className={klass.name}
