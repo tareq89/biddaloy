@@ -73,4 +73,21 @@ describe('MilestoneChecklist', () => {
       screen.getByRole('checkbox', { name: /Write a book report/ }).getAttribute('aria-checked'),
     ).toBe('true');
   });
+
+  it('draws the achieved row with the filled kit checkbox', () => {
+    render(
+      <MilestoneChecklist items={ITEMS} onRecord={vi.fn()} onUndo={vi.fn()} undoLabel="Undo" />,
+    );
+    const box = screen.getByRole('checkbox', { name: /Write a book report/ }).querySelector('span');
+    expect(box?.className).toContain('bg-primary');
+  });
+
+  it('offers Undo as a plain button, not an underlined link', async () => {
+    const user = userEvent.setup();
+    render(
+      <MilestoneChecklist items={ITEMS} onRecord={vi.fn()} onUndo={vi.fn()} undoLabel="Undo" />,
+    );
+    await user.click(screen.getByRole('checkbox', { name: /Write a book report/ }));
+    expect(screen.getByRole('button', { name: 'Undo' }).className).not.toContain('underline');
+  });
 });

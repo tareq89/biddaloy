@@ -5,14 +5,20 @@
  * so both layouts can share one `autosave.ts` instance — this component
  * never talks to the network either.
  */
+import { ChevronLeftIcon, ChevronRightIcon, CircleCheckIcon } from 'lucide-react';
 import * as React from 'react';
 
 import { useTranslation } from '../i18n';
+import { useRegionConfig } from '../i18n/region-config-provider';
 import { cn } from '../primitives/lib/utils';
+import { renderDigits, toLatinDigits } from '../utils/digits';
 
 import { Button } from './button';
+import { EmptyState } from './empty-state';
 import {
   cellKey,
+  formatDerived,
+  formatMax,
   toStagedMark,
   type MarksGridCell,
   type MarksGridCellValue,
@@ -53,6 +59,7 @@ export function MarksStepper({
   failedKeys = new Set(),
 }: MarksStepperProps) {
   const { t } = useTranslation('exams');
+  const config = useRegionConfig();
   const editableComponents = components.filter((c) => c.source !== 'DERIVED');
   const derivedComponents = components.filter((c) => c.source === 'DERIVED');
 
@@ -68,7 +75,12 @@ export function MarksStepper({
   }
 
   if (students.length === 0) {
-    return <p className="p-4 text-sm text-muted-foreground">{t('marksGrid.empty')}</p>;
+    return (
+      <EmptyState
+        title={t('marksEntry.emptyTitle', { ns: 'common' })}
+        explanation={t('marksGrid.empty')}
+      />
+    );
   }
 
   const boundedIndex = Math.min(index, students.length - 1);
@@ -100,7 +112,7 @@ export function MarksStepper({
     const numeric = Number(raw);
     if (!Number.isNaN(numeric) && numeric > Number(component.full_marks)) {
       setCellErrors((prev) =>
-        new Map(prev).set(key, t('marksGrid.cellMax', { max: component.full_marks })),
+        new Map(prev).set(key, t('marksGrid.cellMax', { max: formatMax(component, config) })),
       );
       return;
     }
@@ -128,33 +140,37 @@ export function MarksStepper({
         <Button
           type="button"
           variant="outline"
-          size="sm"
           disabled={boundedIndex === 0}
           onClick={() => setIndex((i) => Math.max(0, i - 1))}
         >
+          <ChevronLeftIcon className="rtl:rotate-180" aria-hidden="true" />
           {t('marksStepper.previous')}
         </Button>
-        <span className="text-sm text-muted-foreground">
+        <span className="text-body text-text-secondary">
           {t('marksStepper.progress', { current: boundedIndex + 1, total: students.length })}
         </span>
         <Button
           type="button"
           variant="outline"
-          size="sm"
           disabled={boundedIndex === students.length - 1}
           onClick={() => setIndex((i) => Math.min(students.length - 1, i + 1))}
         >
           {t('marksStepper.next')}
+          <ChevronRightIcon className="rtl:rotate-180" aria-hidden="true" />
         </Button>
       </div>
 
-      <div className="rounded-md border p-4">
-        <h2 className="text-base font-semibold">
-          <span className="text-muted-foreground">{student.roll_number}</span> {student.full_name}
+      <div className="rounded-lg border border-border-subtle bg-surface p-4">
+        <h2 className="flex items-center gap-2 text-h3">
+          <span className="text-text-secondary">
+            {renderDigits(String(student.roll_number), config.numerals)}
+          </span>
+          {student.full_name}
           {rowSaved && (
-            <span aria-label={t('marksGrid.rowSaved')} className="ms-1 text-status-paid-fg">
-              ✓
-            </span>
+            <CircleCheckIcon
+              className="size-4 text-status-paid-fg"
+              aria-label={t('marksGrid.rowSaved')}
+            />
           )}
         </h2>
 
@@ -170,13 +186,13 @@ export function MarksStepper({
                 ? t('marksGrid.absentShort')
                 : cellValue.status === 'EXEMPT'
                   ? t('marksGrid.exemptShort')
-                  : (cellValue.value ?? '');
+                  : renderDigits(cellValue.value ?? '', config.numerals);
             return (
               <div key={component.id} className="flex flex-col gap-1">
-                <label htmlFor={`stepper-${key}`} className="text-sm font-medium">
+                <label htmlFor={`stepper-${key}`} className="text-label text-text-primary">
                   {component.name}{' '}
-                  <span className="font-normal text-muted-foreground">
-                    {t('marksGrid.fullMarks', { max: component.full_marks })}
+                  <span className="text-text-secondary">
+                    {t('marksGrid.fullMarks', { max: formatMax(component, config) })}
                   </span>
                 </label>
                 <div className="flex items-center gap-2">
@@ -187,11 +203,13 @@ export function MarksStepper({
                     disabled={readOnly}
                     value={displayValue}
                     className={cn(
-                      'h-11 w-24 rounded-md border border-input bg-background px-2 text-end',
+                      'h-11 w-24 rounded-md border border-border-functional bg-surface px-2 text-end text-body text-text-primary tabular-nums md:h-8',
                       isFailed && 'border-destructive',
                       isPending && 'border-status-due-fg',
                     )}
-                    onChange={(event) => handleValueInput(component, event.target.value)}
+                    onChange={(event) =>
+                      handleValueInput(component, toLatinDigits(event.target.value))
+                    }
                     onKeyDown={(event) => {
                       if (event.key === 'a' || event.key === 'A') {
                         event.preventDefault();
@@ -205,31 +223,31 @@ export function MarksStepper({
                   <Button
                     type="button"
                     variant="outline"
-                    size="sm"
                     disabled={readOnly}
                     onClick={() => commit(component.id, { value: null, status: 'ABSENT' })}
                   >
-                    {t('marksGrid.absentShort')}
+                    {t('marksEntry.absent', { ns: 'common' })}
                   </Button>
                   <Button
                     type="button"
                     variant="outline"
-                    size="sm"
                     disabled={readOnly}
                     onClick={() => commit(component.id, { value: null, status: 'EXEMPT' })}
                   >
-                    {t('marksGrid.exemptShort')}
+                    {t('marksEntry.exempt', { ns: 'common' })}
                   </Button>
                 </div>
-                {error && <p className="text-xs text-destructive">{error}</p>}
+                {error && <p className="text-caption text-destructive">{error}</p>}
               </div>
             );
           })}
 
           {derivedComponents.map((component) => (
             <div key={component.id} className="flex flex-col gap-1 rounded-md bg-muted p-2">
-              <span className="text-sm font-medium text-muted-foreground">{component.name}</span>
-              <span className="text-sm">{derived[component.id]?.values[student.id] ?? '—'}</span>
+              <span className="text-label text-text-secondary">{component.name}</span>
+              <span className="text-body">
+                {formatDerived(derived[component.id]?.values[student.id], config)}
+              </span>
             </div>
           ))}
         </div>

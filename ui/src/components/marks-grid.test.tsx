@@ -4,15 +4,23 @@ import type * as React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { i18n } from '../i18n';
+import { REGION_BD_BN, REGION_BD_EN } from '../i18n/region-config';
+import { RegionConfigProvider } from '../i18n/region-config-provider';
 import { renderWithProviders } from '../test';
 
 import { MarksGrid, cellKey, type MarksGridCell } from './marks-grid';
 
 async function renderInEnglish(ui: React.ReactElement) {
-  const view = renderWithProviders(ui, { locale: 'en' });
+  // Region config is decoupled from locale; the default is Bangla digits, so pin Latin here.
+  const en = (node: React.ReactNode) => (
+    <RegionConfigProvider value={REGION_BD_EN}>{node}</RegionConfigProvider>
+  );
+  const view = renderWithProviders(en(ui), { locale: 'en' });
+  const rerender = view.rerender;
+  view.rerender = (node) => rerender(en(node));
   await act(async () => {
     await view.localeReady;
-    await i18n.loadNamespaces('exams');
+    await i18n.loadNamespaces(['exams', 'common']);
   });
   return view;
 }
@@ -164,5 +172,59 @@ describe('MarksGrid — derived column', () => {
     expect(screen.getByText('10')).toBeTruthy();
     // No editable <input> renders for the derived column.
     expect(screen.queryByLabelText('Rafi Ahmed — Attendance')).toBeNull();
+  });
+});
+
+describe('MarksGrid kit look and numerals', () => {
+  const bn = (ui: React.ReactElement) => (
+    <RegionConfigProvider value={REGION_BD_BN}>{ui}</RegionConfigProvider>
+  );
+
+  it('shows a stored Latin value in Bangla digits and stages typed Bangla digits as Latin', async () => {
+    const onStage = vi.fn();
+    const user = userEvent.setup();
+    await renderInEnglish(
+      bn(
+        <MarksGrid
+          students={students}
+          components={components}
+          cells={[{ student_id: 's1', component_id: 'c1', value: '52', status: 'PRESENT' }]}
+          onStage={onStage}
+        />,
+      ),
+    );
+    const input = screen.getByLabelText<HTMLInputElement>('Rafi Ahmed — Written');
+    expect(input.value).toBe('৫২');
+    await user.clear(input);
+    await user.type(input, '৬১');
+    expect(onStage).toHaveBeenLastCalledWith(
+      cellKey('s1', 'c1'),
+      expect.objectContaining({ value: '61', status: 'PRESENT' }),
+    );
+  });
+
+  it('shows the over-max error with Bangla digits', async () => {
+    const user = userEvent.setup();
+    await renderInEnglish(
+      bn(<MarksGrid students={students} components={components} cells={cells} onStage={vi.fn()} />),
+    );
+    await user.type(screen.getByLabelText('Rafi Ahmed — MCQ'), '30');
+    expect(screen.getByText('max ২৫')).toBeTruthy();
+  });
+
+  it('renders the saved row as an icon with the rowSaved name', async () => {
+    await renderInEnglish(
+      <MarksGrid students={students} components={components} cells={cells} onStage={vi.fn()} />,
+    );
+    const icon = screen.getByTestId('row-saved-s1');
+    expect(icon.tagName.toLowerCase()).toBe('svg');
+    expect(icon.getAttribute('aria-label')).toBeTruthy();
+  });
+
+  it('renders an h2 empty state with no students', async () => {
+    await renderInEnglish(
+      <MarksGrid students={[]} components={components} cells={cells} onStage={vi.fn()} />,
+    );
+    expect(screen.getByRole('heading', { level: 2, name: 'No students' })).toBeTruthy();
   });
 });
