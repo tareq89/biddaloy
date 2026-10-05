@@ -54,6 +54,8 @@ describe('collections report hooks', () => {
       }),
     );
     setActiveTenant('tenant-1');
+    // Saved only to restore them below; never called unbound.
+    // eslint-disable-next-line @typescript-eslint/unbound-method
     const { createObjectURL, revokeObjectURL } = URL;
     URL.createObjectURL = () => 'blob:x';
     URL.revokeObjectURL = () => undefined;
