@@ -250,7 +250,8 @@
       "identity": "পরিচিতি",
       "placement": "শ্রেণি বিন্যাস",
       "guardians": "অভিভাবক",
-      "preferences": "পছন্দসমূহ"
+      "preferences": "পছন্দসমূহ",
+      "guardiansHelp": "যিনি আগে থেকে আছেন তাঁকে খুঁজে যুক্ত করুন, না পেলে নতুন যোগ করুন।"
     },
     "fields": {
       "fullName": "পূর্ণ নাম",
@@ -269,7 +270,9 @@
         "MALE": "পুরুষ",
         "FEMALE": "নারী",
         "OTHER": "অন্যান্য"
-      }
+      },
+      "rollNumberPlaceholder": "যেমন ১২",
+      "rollNumberHelp": "ফাঁকা রাখলে শাখার পরের রোল নম্বর নিজে থেকে বসবে।"
     },
     "preferredCommunicationOptions": {
       "SMS": "এসএমএস",
@@ -287,7 +290,7 @@
     },
     "draftAvailable": "এই ফর্মের একটি অসংরক্ষিত খসড়া রয়েছে।",
     "restoreDraftAction": "খসড়া পুনরুদ্ধার করুন",
-    "discardDraftAction": "বাতিল করুন",
+    "discardDraftAction": "খসড়া ফেলে দিন",
     "unsavedChangesDialog": {
       "title": "সংরক্ষণ না করে ছেড়ে যাবেন?",
       "description": "আপনার অসংরক্ষিত পরিবর্তন রয়েছে। এখন ছেড়ে গেলে তা হারিয়ে যাবে।",
@@ -297,7 +300,6 @@
     "guardians": {
       "selectedLabel": "যুক্ত অভিভাবক",
       "removeAction": "{{name}}-কে সরান",
-      "removeAction_short": "সরান",
       "searchLabel": "অভিভাবক খুঁজুন",
       "searchPlaceholder": "নাম বা ফোন নম্বর দিয়ে খুঁজুন",
       "noResults": "কোনো অভিভাবক পাওয়া যায়নি।",
@@ -309,10 +311,13 @@
         "emailLabel": "অভিভাবকের ইমেইল",
         "nameRequired": "অভিভাবকের নাম আবশ্যক।",
         "saveAction": "অভিভাবক যোগ করুন",
-        "cancelAction": "বাতিল"
-      }
+        "cancelAction": "বাতিল",
+        "createError": "অভিভাবক যোগ করা যায়নি। তথ্য দেখে আবার চেষ্টা করুন।"
+      },
+      "unknownName": "অভিভাবক"
     },
-    "bloodGroupNotSet": "দেওয়া নেই"
+    "bloodGroupNotSet": "দেওয়া নেই",
+    "cancelAction": "বাতিল করুন"
   },
   "discounts": {
     "addRule": "ডিসকাউন্ট নিয়ম যোগ করুন",

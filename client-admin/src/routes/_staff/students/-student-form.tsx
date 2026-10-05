@@ -17,15 +17,10 @@ import { ApiError } from '@biddaloy/ui/api';
 import {
   Button,
   DatePicker,
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
+  ConfirmDialog,
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -43,6 +38,7 @@ import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import {
   FormSection,
   FormShell,
+  FullPageShell,
   applyServerFieldErrors,
   buildFormShellErrors,
   useFormAutosave,
@@ -63,18 +59,22 @@ import {
   PREFERRED_COMMUNICATION_VALUES,
   STUDENT_FORM_SERVER_FIELDS,
   BLOOD_GROUP_VALUES,
+  GENDER_VALUES,
   buildStudentFormSchema,
   type StudentFormValues,
 } from './-student-form-schema';
 
 /** Radix `Select` can't hold an empty-string item, so "Not set" travels as this sentinel. */
 const BLOOD_GROUP_NOT_SET = '__not_set__';
+const GENDER_NOT_SET = '__not_set__';
 
 export interface StudentFormProps<TInput> {
   initialValues: StudentFormValues;
   initialGuardians?: Guardian[];
   autosaveKey: string;
   submitLabel: string;
+  title: string;
+  onClose: () => void;
   // `TError` is `unknown`, not `Error` — every mutation hook here passes
   // `shouldRetryQuery` (`(failureCount, error: unknown) => boolean`) as
   // its `retry` option, which widens the inferred `TError` generic to
@@ -95,6 +95,8 @@ export function StudentForm<TInput>({
   initialGuardians = [],
   autosaveKey,
   submitLabel,
+  title,
+  onClose,
   mutation,
   buildPayload,
   onSuccess,
@@ -176,326 +178,364 @@ export function StudentForm<TInput>({
 
   return (
     <Form {...form}>
-      <Dialog
-        open={blocker.status === 'blocked'}
-        onOpenChange={(open) => !open && blocker.reset?.()}
+      <FullPageShell
+        title={title}
+        onClose={onClose}
+        size="form"
+        primary={{
+          label: submitLabel,
+          onClick: () => void form.handleSubmit(handleSubmit)(),
+          busy: mutation.isPending,
+        }}
+        secondary={{ label: t('form.cancelAction'), onClick: onClose }}
       >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t('form.unsavedChangesDialog.title')}</DialogTitle>
-            <DialogDescription>{t('form.unsavedChangesDialog.description')}</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button type="button" variant="outline">
-                {t('form.unsavedChangesDialog.stayAction')}
+        <ConfirmDialog
+          open={blocker.status === 'blocked'}
+          onOpenChange={(open) => !open && blocker.reset?.()}
+          title={t('form.unsavedChangesDialog.title')}
+          description={t('form.unsavedChangesDialog.description')}
+          cancelLabel={t('form.unsavedChangesDialog.stayAction')}
+          confirmLabel={t('form.unsavedChangesDialog.leaveAction')}
+          tone="danger"
+          onConfirm={() => blocker.proceed?.()}
+        />
+
+        {draftBannerVisible && (
+          <div
+            role="status"
+            className="mx-auto mt-4 flex w-full max-w-3xl flex-col gap-3 rounded-lg border border-border-subtle bg-secondary p-3 md:flex-row md:items-center md:justify-between"
+          >
+            <span>{t('form.draftAvailable')}</span>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  const draft = autosave.restoreDraft();
+                  // Drafts saved before a field existed omit it; fill from the defaults.
+                  if (draft) form.reset({ ...initialValues, ...draft });
+                  setDraftBannerVisible(false);
+                }}
+              >
+                {t('form.restoreDraftAction')}
               </Button>
-            </DialogClose>
-            <Button type="button" variant="destructive" onClick={() => blocker.proceed?.()}>
-              {t('form.unsavedChangesDialog.leaveAction')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {draftBannerVisible && (
-        <div
-          role="status"
-          className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-border-subtle bg-muted/50 p-3 text-sm"
-        >
-          <span>{t('form.draftAvailable')}</span>
-          <div className="flex gap-2">
-            <Button
-              type="button"
-              size="sm"
-              onClick={() => {
-                const draft = autosave.restoreDraft();
-                // Drafts saved before a field existed omit it; fill from the defaults.
-                if (draft) form.reset({ ...initialValues, ...draft });
-                setDraftBannerVisible(false);
-              }}
-            >
-              {t('form.restoreDraftAction')}
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                autosave.discardDraft();
-                setDraftBannerVisible(false);
-              }}
-            >
-              {t('form.discardDraftAction')}
-            </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => {
+                  autosave.discardDraft();
+                  setDraftBannerVisible(false);
+                }}
+              >
+                {t('form.discardDraftAction')}
+              </Button>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      <FormShell
-        errors={summaryErrors}
-        submitCount={form.formState.submitCount}
-        onSubmit={(event) => void form.handleSubmit(handleSubmit)(event)}
-      >
-        <FormSection legend={t('form.sections.identity')}>
-          <FormField
-            control={form.control}
-            name="full_name"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel htmlFor={fieldId('full_name')}>{t('form.fields.fullName')}</FormLabel>
-                <FormControl>
-                  <Input id={fieldId('full_name')} {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="full_name_bn"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel htmlFor={fieldId('full_name_bn')}>
-                  {t('form.fields.fullNameBn')}
-                </FormLabel>
-                <FormControl>
-                  <Input id={fieldId('full_name_bn')} lang="bn" maxLength={200} {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="blood_group"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel htmlFor={fieldId('blood_group')}>
-                  {t('form.fields.bloodGroup')}
-                </FormLabel>
-                <FormControl>
-                  <Select
-                    value={field.value === '' ? BLOOD_GROUP_NOT_SET : field.value}
-                    onValueChange={(value) =>
-                      field.onChange(value === BLOOD_GROUP_NOT_SET ? '' : value)
-                    }
-                  >
-                    <SelectTrigger
-                      id={fieldId('blood_group')}
-                      aria-label={t('form.fields.bloodGroup')}
-                      className="w-full"
+        <FormShell
+          errors={summaryErrors}
+          submitCount={form.formState.submitCount}
+          onSubmit={(event) => void form.handleSubmit(handleSubmit)(event)}
+        >
+          <FormSection legend={t('form.sections.identity')}>
+            <FormField
+              control={form.control}
+              name="full_name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel htmlFor={fieldId('full_name')} required>
+                    {t('form.fields.fullName')}
+                  </FormLabel>
+                  <FormControl>
+                    <Input id={fieldId('full_name')} {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="full_name_bn"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel htmlFor={fieldId('full_name_bn')}>
+                    {t('form.fields.fullNameBn')}
+                  </FormLabel>
+                  <FormControl>
+                    <Input id={fieldId('full_name_bn')} lang="bn" maxLength={200} {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="blood_group"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel htmlFor={fieldId('blood_group')}>
+                    {t('form.fields.bloodGroup')}
+                  </FormLabel>
+                  <FormControl>
+                    <Select
+                      value={field.value}
+                      onValueChange={(value) =>
+                        field.onChange(value === BLOOD_GROUP_NOT_SET ? '' : value)
+                      }
                     >
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={BLOOD_GROUP_NOT_SET}>
-                        {t('form.bloodGroupNotSet')}
-                      </SelectItem>
-                      {BLOOD_GROUP_VALUES.map((value) => (
-                        <SelectItem key={value} value={value}>
-                          {value}
+                      <SelectTrigger
+                        id={fieldId('blood_group')}
+                        aria-label={t('form.fields.bloodGroup')}
+                        className="w-full"
+                      >
+                        <SelectValue placeholder={t('form.selectPlaceholder', { ns: 'common' })} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={BLOOD_GROUP_NOT_SET}>
+                          {t('form.bloodGroupNotSet')}
                         </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="date_of_birth"
-            render={({ field }) => (
-              // No explicit `htmlFor`/`id` here — `DatePicker` doesn't accept
-              // a caller `id` (see `form-shell.tsx`'s own note that a
-              // composite widget's focusable element isn't a single
-              // `id`-bearing input), so both fall back to the auto
-              // `formItemId` `FormLabel`/`FormControl` already share.
-              <FormItem>
-                <FormLabel>{t('form.fields.dateOfBirth')}</FormLabel>
-                <FormControl>
-                  <DatePicker
-                    aria-label={t('form.fields.dateOfBirth')}
-                    value={field.value}
+                        {BLOOD_GROUP_VALUES.map((value) => (
+                          <SelectItem key={value} value={value}>
+                            {value}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="date_of_birth"
+              render={({ field }) => (
+                // No explicit `htmlFor`/`id` here — `DatePicker` doesn't accept
+                // a caller `id` (see `form-shell.tsx`'s own note that a
+                // composite widget's focusable element isn't a single
+                // `id`-bearing input), so both fall back to the auto
+                // `formItemId` `FormLabel`/`FormControl` already share.
+                <FormItem>
+                  <FormLabel>{t('form.fields.dateOfBirth')}</FormLabel>
+                  <FormControl>
+                    <DatePicker
+                      aria-label={t('form.fields.dateOfBirth')}
+                      value={field.value}
+                      config={config}
+                      onValueChange={field.onChange}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="gender"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel htmlFor={fieldId('gender')}>{t('form.fields.gender')}</FormLabel>
+                  <FormControl>
+                    <Select
+                      value={field.value}
+                      onValueChange={(value) =>
+                        field.onChange(value === GENDER_NOT_SET ? '' : value)
+                      }
+                    >
+                      <SelectTrigger
+                        id={fieldId('gender')}
+                        aria-label={t('form.fields.gender')}
+                        className="w-full"
+                      >
+                        <SelectValue placeholder={t('form.selectPlaceholder', { ns: 'common' })} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={GENDER_NOT_SET}>{t('form.bloodGroupNotSet')}</SelectItem>
+                        {GENDER_VALUES.map((value) => (
+                          <SelectItem key={value} value={value}>
+                            {t(`form.fields.genderOptions.${value}`)}
+                          </SelectItem>
+                        ))}
+                        {/* Old free text stays selectable so editing never loses it. */}
+                        {field.value !== '' &&
+                          !(GENDER_VALUES as readonly string[]).includes(field.value) && (
+                            <SelectItem value={field.value}>{field.value}</SelectItem>
+                          )}
+                      </SelectContent>
+                    </Select>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </FormSection>
+
+          <FormSection legend={t('form.sections.placement')}>
+            <FormField
+              control={form.control}
+              name="classId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel htmlFor={fieldId('classId')} required>
+                    {t('form.fields.class')}
+                  </FormLabel>
+                  <FormControl>
+                    <Select
+                      value={field.value}
+                      onValueChange={(value) => {
+                        field.onChange(value);
+                        form.setValue('class_section_id', '', { shouldDirty: true });
+                      }}
+                    >
+                      <SelectTrigger
+                        id={fieldId('classId')}
+                        aria-label={t('form.fields.class')}
+                        className="w-full"
+                      >
+                        <SelectValue placeholder={t('form.fields.classPlaceholder')} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {classesQuery.data?.data.map((klass) => (
+                          <SelectItem key={klass.id} value={klass.id}>
+                            {klass.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="class_section_id"
+              render={({ field, fieldState }) => (
+                <FormItem>
+                  <FormLabel htmlFor={fieldId('class_section_id')} required>
+                    {t('form.fields.section')}
+                  </FormLabel>
+                  <FormControl>
+                    <Select value={field.value} onValueChange={field.onChange} disabled={!classId}>
+                      <SelectTrigger
+                        id={fieldId('class_section_id')}
+                        aria-label={t('form.fields.section')}
+                        aria-invalid={fieldState.invalid}
+                        className="w-full"
+                      >
+                        <SelectValue placeholder={t('form.fields.sectionPlaceholder')} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {sectionsQuery.data?.map((section) => (
+                          <SelectItem key={section.id} value={section.id}>
+                            {section.section_name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="roll_number"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel htmlFor={fieldId('roll_number')}>
+                    {t('form.fields.rollNumber')}
+                  </FormLabel>
+                  <FormControl>
+                    <Input
+                      id={fieldId('roll_number')}
+                      type="text"
+                      inputMode="numeric"
+                      placeholder={t('form.fields.rollNumberPlaceholder')}
+                      aria-describedby={`${fieldId('roll_number')}-help`}
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormDescription id={`${fieldId('roll_number')}-help`}>
+                    {t('form.fields.rollNumberHelp')}
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </FormSection>
+
+          <FormSection legend={t('form.sections.guardians')}>
+            <p className="text-text-secondary">{t('form.sections.guardiansHelp')}</p>
+            <FormField
+              control={form.control}
+              name="guardian_ids"
+              render={({ field }) => (
+                <FormItem>
+                  <GuardianPicker
+                    selectedIds={field.value}
+                    onSelectedIdsChange={field.onChange}
+                    initialGuardians={initialGuardians}
                     config={config}
-                    onValueChange={field.onChange}
                   />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="gender"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel htmlFor={fieldId('gender')}>{t('form.fields.gender')}</FormLabel>
-                <FormControl>
-                  <Input id={fieldId('gender')} {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </FormSection>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </FormSection>
 
-        <FormSection legend={t('form.sections.placement')}>
-          <FormField
-            control={form.control}
-            name="classId"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel htmlFor={fieldId('classId')}>{t('form.fields.class')}</FormLabel>
-                <FormControl>
-                  <Select
-                    value={field.value}
-                    onValueChange={(value) => {
-                      field.onChange(value);
-                      form.setValue('class_section_id', '', { shouldDirty: true });
-                    }}
-                  >
-                    <SelectTrigger
-                      id={fieldId('classId')}
-                      aria-label={t('form.fields.class')}
-                      className="w-full"
-                    >
-                      <SelectValue placeholder={t('form.fields.classPlaceholder')} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {classesQuery.data?.data.map((klass) => (
-                        <SelectItem key={klass.id} value={klass.id}>
-                          {klass.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="class_section_id"
-            render={({ field, fieldState }) => (
-              <FormItem>
-                <FormLabel htmlFor={fieldId('class_section_id')}>
-                  {t('form.fields.section')}
-                </FormLabel>
-                <FormControl>
-                  <Select value={field.value} onValueChange={field.onChange} disabled={!classId}>
-                    <SelectTrigger
-                      id={fieldId('class_section_id')}
-                      aria-label={t('form.fields.section')}
-                      aria-invalid={fieldState.invalid}
-                      className="w-full"
-                    >
-                      <SelectValue placeholder={t('form.fields.sectionPlaceholder')} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {sectionsQuery.data?.map((section) => (
-                        <SelectItem key={section.id} value={section.id}>
-                          {section.section_name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="roll_number"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel htmlFor={fieldId('roll_number')}>
-                  {t('form.fields.rollNumber')}
-                </FormLabel>
-                <FormControl>
-                  <Input id={fieldId('roll_number')} type="number" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </FormSection>
+          <FormSection legend={t('form.sections.preferences')}>
+            <FormField
+              control={form.control}
+              name="preferred_communication"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel htmlFor={fieldId('preferred_communication')}>
+                    {t('form.fields.preferredCommunication')}
+                  </FormLabel>
+                  <FormControl>
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <SelectTrigger
+                        id={fieldId('preferred_communication')}
+                        aria-label={t('form.fields.preferredCommunication')}
+                        className="w-full"
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {PREFERRED_COMMUNICATION_VALUES.map((value) => (
+                          <SelectItem key={value} value={value}>
+                            {t(`form.preferredCommunicationOptions.${value}`)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="home_address"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel htmlFor={fieldId('home_address')}>
+                    {t('form.fields.address')}
+                  </FormLabel>
+                  <FormControl>
+                    <Textarea id={fieldId('home_address')} {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </FormSection>
 
-        <FormSection legend={t('form.sections.guardians')}>
-          <FormField
-            control={form.control}
-            name="guardian_ids"
-            render={({ field }) => (
-              <FormItem>
-                <GuardianPicker
-                  selectedIds={field.value}
-                  onSelectedIdsChange={field.onChange}
-                  initialGuardians={initialGuardians}
-                  config={config}
-                />
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </FormSection>
-
-        <FormSection legend={t('form.sections.preferences')}>
-          <FormField
-            control={form.control}
-            name="preferred_communication"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel htmlFor={fieldId('preferred_communication')}>
-                  {t('form.fields.preferredCommunication')}
-                </FormLabel>
-                <FormControl>
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger
-                      id={fieldId('preferred_communication')}
-                      aria-label={t('form.fields.preferredCommunication')}
-                      className="w-full"
-                    >
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {PREFERRED_COMMUNICATION_VALUES.map((value) => (
-                        <SelectItem key={value} value={value}>
-                          {t(`form.preferredCommunicationOptions.${value}`)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="home_address"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel htmlFor={fieldId('home_address')}>{t('form.fields.address')}</FormLabel>
-                <FormControl>
-                  <Textarea id={fieldId('home_address')} {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </FormSection>
-
-        <div className="flex items-center gap-2">
-          <Button type="submit" loading={mutation.isPending}>
-            {submitLabel}
-          </Button>
-        </div>
-        {mutation.isError && <MutationErrorMessage error={mutation.error} />}
-      </FormShell>
+          {mutation.isError && <MutationErrorMessage error={mutation.error} />}
+        </FormShell>
+      </FullPageShell>
     </Form>
   );
 }

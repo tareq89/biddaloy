@@ -125,7 +125,11 @@ export function LeaveDialog({ open, onOpenChange, studentId, studentName }: Leav
               className="flex items-start gap-2.5 rounded-md bg-status-due-bg p-3 text-sm text-status-due-fg"
             >
               <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-              <span>{t('leave.duesWarning', { amount: formatCurrency(serverAmountToMinorUnits(balance, config), config) })}</span>
+              <span>
+                {t('leave.duesWarning', {
+                  amount: formatCurrency(serverAmountToMinorUnits(balance, config), config),
+                })}
+              </span>
             </div>
           )}
 

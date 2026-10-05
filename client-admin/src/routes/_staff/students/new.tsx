@@ -16,6 +16,7 @@ import { buildCreatePayload, defaultStudentFormValues } from './-student-form-sc
  * with "view student `new`".
  */
 export const Route = createFileRoute('/_staff/students/new')({
+  staticData: { chromeless: true },
   loader: () => loadRouteNamespaces('students'),
   pendingComponent: NewStudentPending,
   component: NewStudentPage,
@@ -29,19 +30,18 @@ function NewStudentPage() {
 
   return (
     <RegionConfigProvider value={config}>
-      <div className="mx-auto max-w-xl p-6">
-        <h1 className="mb-6 text-lg font-semibold">{t('new.title')}</h1>
-        <StudentForm
-          initialValues={defaultStudentFormValues()}
-          autosaveKey="new"
-          submitLabel={t('new.submitAction')}
-          mutation={mutation}
-          buildPayload={buildCreatePayload}
-          onSuccess={(student) =>
-            void navigate({ to: '/students/$studentId', params: { studentId: student.id } })
-          }
-        />
-      </div>
+      <StudentForm
+        title={t('new.title')}
+        onClose={() => void navigate({ to: '/students' })}
+        initialValues={defaultStudentFormValues()}
+        autosaveKey="new"
+        submitLabel={t('new.submitAction')}
+        mutation={mutation}
+        buildPayload={buildCreatePayload}
+        onSuccess={(student) =>
+          void navigate({ to: '/students/$studentId', params: { studentId: student.id } })
+        }
+      />
     </RegionConfigProvider>
   );
 }

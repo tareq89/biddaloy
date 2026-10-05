@@ -117,9 +117,26 @@ describe('GuardianPicker', () => {
     await user.type(screen.getByRole('textbox', { name: "Guardian's full name" }), 'Karim Rahman');
     await user.click(screen.getByRole('button', { name: 'Add guardian' }));
 
+    // Translated sentence, never the raw server message.
     expect(
-      await screen.findByText('A guardian with this phone number already exists'),
+      await screen.findByText('The guardian could not be added. Check the details and try again.'),
     ).toBeTruthy();
+    expect(screen.queryByText('A guardian with this phone number already exists')).toBeNull();
+  });
+
+  it('finds the search box by its visible label and never shows the id of an unloaded guardian', () => {
+    renderWithProviders(
+      <GuardianPicker
+        selectedIds={['guardian-unloaded-id']}
+        onSelectedIdsChange={vi.fn()}
+        config={REGION_BD_EN}
+      />,
+      { tenantId: 'tenant-1', locale: 'en' },
+    );
+
+    expect(screen.getByLabelText('Search guardians')).toBeTruthy();
+    expect(screen.queryByText(/guardian-unloaded-id/)).toBeNull();
+    expect(screen.getByRole('button', { name: 'Remove Guardian' })).toBeTruthy();
   });
 
   it('appends the newly created guardian to whatever is selected when the response arrives, not a stale snapshot', async () => {
