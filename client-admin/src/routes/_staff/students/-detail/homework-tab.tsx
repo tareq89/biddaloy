@@ -6,10 +6,11 @@
  * grid/list underneath since a rollup has no rows to page through.
  */
 import { ApiError } from '@biddaloy/ui/api';
-import { Card, ErrorState, Skeleton } from '@biddaloy/ui/components';
+import { Card, EmptyState, ErrorState, Skeleton } from '@biddaloy/ui/components';
 import { useStudentHomeworkRollup } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
-import { renderDigits } from '@biddaloy/ui/utils';
+import { formatNumber } from '@biddaloy/ui/utils';
+import { NotebookPenIcon } from 'lucide-react';
 
 export interface HomeworkTabProps {
   studentId: string;
@@ -44,20 +45,22 @@ export function HomeworkTab({ studentId }: HomeworkTabProps) {
 
   if (rollup.totalAssignments === 0) {
     return (
-      <Card className="p-3.5">
-        <p className="text-sm text-muted-foreground">{t('detail.homeworkTab.emptyMessage')}</p>
-      </Card>
+      <EmptyState
+        icon={<NotebookPenIcon aria-hidden="true" />}
+        title={t('detail.homeworkTab.emptyMessage')}
+        explanation={t('detail.homeworkTab.emptyExplanation')}
+      />
     );
   }
 
   return (
-    <Card className="flex flex-col gap-3 p-4">
+    <Card padded className="flex flex-col gap-3">
       <div className="flex flex-col gap-0.5">
-        <h2 className="text-sm font-normal text-muted-foreground">
+        <h2 className="text-caption font-normal text-text-secondary">
           {t('detail.homeworkTab.completionPercent')}
         </h2>
-        <div className="text-3xl leading-tight font-bold tabular-nums">
-          {renderDigits(`${rollup.completionPercent}%`, config.numerals)}
+        <div className="text-h1 tabular-nums">
+          {`${formatNumber(rollup.completionPercent, config)}%`}
         </div>
       </div>
       <dl className="grid grid-cols-3 gap-2 border-t border-border-subtle pt-3">
@@ -76,10 +79,8 @@ function SummaryFigure({ label, value }: { label: string; value: number }) {
   const config = useRegionConfig();
   return (
     <div className="flex min-w-0 flex-col gap-0.5">
-      <dt className="text-[11px] text-muted-foreground">{label}</dt>
-      <dd className="text-sm font-semibold tabular-nums">
-        {renderDigits(String(value), config.numerals)}
-      </dd>
+      <dt className="text-caption text-text-secondary">{label}</dt>
+      <dd className="font-semibold tabular-nums">{formatNumber(value, config)}</dd>
     </div>
   );
 }
