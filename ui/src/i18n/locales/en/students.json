@@ -70,8 +70,6 @@
     "errorMessage": "Couldn't send the reminder. Nothing was sent — try again."
   },
   "detail": {
-    "back": "Back to students",
-    "identifiers": "{{registrationNumber}} · Class {{className}} · Roll {{roll}}",
     "forbidden": "You don't have permission to view this.",
     "loadError": "Couldn't load this student.",
     "actions": {
@@ -88,7 +86,7 @@
       "enrollment": "Enrollment",
       "fees": "Fees",
       "fines": "Fines",
-      "recurringFees": "Recurring fees",
+      "recurringFees": "Automatic billing",
       "payments": "Payments",
       "invoices": "Invoices",
       "guardians": "Guardians",
@@ -103,8 +101,11 @@
     "overview": {
       "dateOfBirth": "Date of birth",
       "gender": "Gender",
-      "address": "Address",
-      "preferredCommunication": "Preferred contact"
+      "address": "Home address",
+      "preferredCommunication": "Preferred contact",
+      "title": "Personal details",
+      "fullNameBn": "Name in Bangla",
+      "bloodGroup": "Blood group"
     },
     "enrollment": {
       "columnClass": "Class",
@@ -235,6 +236,18 @@
       "moving": "Moving…",
       "errorMessage": "Couldn't move the student. Try again.",
       "loadError": "Couldn't load the student's current enrollment. Try again."
+    },
+    "facts": {
+      "registrationNumber": "Registration no.",
+      "class": "Class",
+      "classValue": "{{class}} · Section {{section}}",
+      "roll": "Roll",
+      "primaryGuardian": "Primary guardian"
+    },
+    "overrideBadge": {
+      "promote": "Promoted by exception",
+      "retain": "Kept back by exception",
+      "graduate": "Graduated by exception"
     }
   },
   "new": {
