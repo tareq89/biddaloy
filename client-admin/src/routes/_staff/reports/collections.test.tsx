@@ -1,12 +1,13 @@
 import { toast } from '@biddaloy/ui/components';
+import { REGION_BD_BN } from '@biddaloy/ui/i18n';
 import { cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
+import { formatDate, formatServerAmount } from '@biddaloy/ui/utils';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { routeTree } from '../../../routeTree.gen';
-
 
 import { resolvePresetRange } from './collections';
 
@@ -21,71 +22,81 @@ describe('/reports/collections', () => {
     return {
       range: { from: '2026-09-01', to: '2026-09-16' },
       totals: {
-        collected: 500000,
-        reversed: 10000,
-        net: 490000,
-        standing_discount: 20000,
-        one_off_discount: 5000,
-        wallet_used: 3000,
-        wallet_added: 1000,
-        change_returned: 500,
+        collected: 5000,
+        reversed: 100,
+        net: 4900,
+        standing_discount: 1666.67,
+        one_off_discount: 50,
+        wallet_used: 30,
+        wallet_added: 10,
+        change_returned: 5,
       },
-      by_method: [{ method: 'CASH', amount: 300000, count: 12 }],
-      by_collector: [{ collector_id: 'user-1', collector_name: 'Karim Rahman', amount: 300000, count: 12 }],
-      by_fee_type: [{ fee_type: 'Tuition', amount: 400000, count: 10 }],
-      by_day: [{ date: '2026-09-15', amount: 100000 }],
+      by_method: [{ payment_method: 'CASH', count: 12, collected: 3000, reversed: 0, net: 3000 }],
+      by_collector: [
+        {
+          user_id: 'user-1',
+          full_name: 'Karim Rahman',
+          count: 12,
+          collected: 3000,
+          reversed: 0,
+          net: 3000,
+        },
+      ],
+      by_fee_type: [{ fee_type: 'MONTHLY_TUITION', collected: 4000, discount: 166.67 }],
+      by_day: [{ date: '2026-09-15', collected: 1000, reversed: 0, net: 1000 }],
       ...overrides,
     };
   }
 
-  it('renders totals tiles and the breakdown tables from the report response', async () => {
-    server.use(
-      http.get('/api/v1/reports/collections', () => HttpResponse.json(reportResponse())),
-    );
-
+  function renderReport(entry = '/reports/collections') {
     renderWithRouter(routeTree, {
-      initialEntries: ['/reports/collections'],
+      initialEntries: [entry],
       tenantId: 'tenant-1',
       role: 'ADMIN',
       locale: 'en',
     });
+  }
 
-    await screen.findByText('Karim Rahman');
-    expect(screen.getByText('Tuition')).toBeTruthy();
+  it('renders with a payment present', async () => {
+    server.use(http.get('/api/v1/reports/collections', () => HttpResponse.json(reportResponse())));
+    renderReport();
+
+    await screen.findAllByText('Karim Rahman');
+    expect(screen.queryByText(/Something went wrong/)).toBeNull();
+    expect(screen.getByText('Cash')).toBeTruthy();
+    expect(screen.getByText('Monthly tuition')).toBeTruthy();
+    expect(screen.getByText(formatServerAmount(4900, REGION_BD_BN))).toBeTruthy();
+    expect(screen.getByText(formatDate('2026-09-15', REGION_BD_BN))).toBeTruthy();
+    expect(screen.getAllByText(/^Total [0-9০-৯]+$/)).toHaveLength(4);
   });
 
-  it('shows the error message when the report fails to load', async () => {
+  it('shows the error state with a retry when the report fails to load', async () => {
     server.use(
       http.get('/api/v1/reports/collections', () => HttpResponse.json({}, { status: 500 })),
     );
-
-    renderWithRouter(routeTree, {
-      initialEntries: ['/reports/collections'],
-      tenantId: 'tenant-1',
-      role: 'ADMIN',
-      locale: 'en',
-    });
+    renderReport();
 
     await waitFor(() =>
       expect(screen.getByText('Could not load the collections report.')).toBeTruthy(),
     );
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeTruthy();
   });
 
-  it('renders an empty by-day chart message when there is no data', async () => {
+  it('sends the server filter names to the report', async () => {
+    let params: URLSearchParams | undefined;
     server.use(
-      http.get('/api/v1/reports/collections', () =>
-        HttpResponse.json(reportResponse({ by_day: [] })),
-      ),
+      http.get('/api/v1/reports/collections', ({ request }) => {
+        params = new URL(request.url).searchParams;
+        return HttpResponse.json(reportResponse());
+      }),
     );
+    renderReport('/reports/collections?payment_method=CASH&received_by_user_id=user-1');
 
-    renderWithRouter(routeTree, {
-      initialEntries: ['/reports/collections'],
-      tenantId: 'tenant-1',
-      role: 'ADMIN',
-      locale: 'en',
-    });
-
-    await screen.findByText('No collections in this range.');
+    await waitFor(() => expect(params).toBeDefined());
+    expect(params?.get('payment_method')).toBe('CASH');
+    expect(params?.get('received_by_user_id')).toBe('user-1');
+    expect(params?.has('method')).toBe(false);
+    expect(params?.has('collector_id')).toBe(false);
   });
 
   it('sends the current method/collector filters on CSV download and shows an error toast when it fails', async () => {
@@ -102,7 +113,7 @@ describe('/reports/collections', () => {
     try {
       renderWithRouter(routeTree, {
         initialEntries: [
-          '/reports/collections?method=CASH&collector_id=user-1&preset=custom&from=2026-09-01&to=2026-09-16',
+          '/reports/collections?payment_method=CASH&received_by_user_id=user-1&preset=custom&from=2026-09-01&to=2026-09-16',
         ],
         tenantId: 'tenant-1',
         role: 'ADMIN',
@@ -113,12 +124,10 @@ describe('/reports/collections', () => {
       await user.click(await screen.findByRole('button', { name: 'Download CSV' }));
 
       await waitFor(() =>
-        expect(toastSpy).toHaveBeenCalledWith(
-          'Could not download the CSV. Please try again.',
-        ),
+        expect(toastSpy).toHaveBeenCalledWith('Could not download the CSV. Please try again.'),
       );
-      expect(csvParams?.get('method')).toBe('CASH');
-      expect(csvParams?.get('collector_id')).toBe('user-1');
+      expect(csvParams?.get('payment_method')).toBe('CASH');
+      expect(csvParams?.get('received_by_user_id')).toBe('user-1');
     } finally {
       toastSpy.mockRestore();
     }

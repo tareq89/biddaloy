@@ -1,31 +1,27 @@
 /**
  * [16.6.4] `/reports/collections` — the cash-close sheet. Tenant-wide
- * fees/payments collections over a date range: totals tiles, three
- * breakdown tables (method / collector / fee type), a by-day bar chart,
- * and a CSV export — all over `GET /reports/collections` (JSON) and
- * `GET /reports/collections.csv` (`ui/src/hooks/reports.ts`).
- *
- * HAND-TYPED CONTRACT: `ui/src/hooks/reports.ts`'s `CollectionsReportResponse`
- * is typed by hand against #671 (w6-g2)'s not-yet-merged endpoints — same
- * pattern wave 5's w5-g2 used against w5-g1's invoice endpoints. Diff
- * against `schema.d.ts` once #671 merges and regenerates it.
+ * fees/payments collections over a date range: three totals cards (net is
+ * the headline), a discounts/credit card and four small total-bearing
+ * breakdown tables (method / collector / fee type / day), printable, plus a
+ * CSV export — over `GET /reports/collections` and `.csv`
+ * (`ui/src/hooks/reports.ts`, typed from `schema.d.ts`).
  *
  * Date-range presets are computed in Asia/Dhaka using fixed UTC+6
  * arithmetic (Bangladesh has no DST) — the same "plain UTC arithmetic,
  * never a raw `Intl` timezone" convention `attendance/reports.tsx`'s
  * `monthToRange` documents.
  *
- * Not a `ListShell` page: this report is three independent tables plus
- * tiles and a chart, not one paginated list, so it composes `FilterBar` +
- * `useListShellState` (for URL-synced filters only) with plain `DataTable`
- * instances instead.
+ * Not a `ListShell` page: it is four independent tables plus cards, not one
+ * paginated list, so it composes `FilterBar` + `useListShellState` (for
+ * URL-synced filters only) with plain unpaginated `DataTable`s.
  */
 import { PaymentMethod } from '@biddaloy/shared';
 import {
-  Button,
   Card,
   DataTable,
+  ErrorState,
   RoutePending,
+  Skeleton,
   toast,
   type DataTableColumn,
 } from '@biddaloy/ui/components';
@@ -33,13 +29,22 @@ import {
   useCollectionsReport,
   downloadCollectionsReportCsv,
   type CollectionsByCollector,
+  type CollectionsByDay,
   type CollectionsByFeeType,
   type CollectionsByMethod,
+  type CollectionsReportFilters,
 } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
-import { FilterBar, useListShellState, type FilterFieldDescriptor } from '@biddaloy/ui/shells';
-import { formatCurrency, formatNumber } from '@biddaloy/ui/utils';
+import {
+  FilterBar,
+  PageContainer,
+  PageHeader,
+  useListShellState,
+  type FilterFieldDescriptor,
+} from '@biddaloy/ui/shells';
+import { formatDate, formatDateRange, formatNumber, formatServerAmount } from '@biddaloy/ui/utils';
 import { createFileRoute } from '@tanstack/react-router';
+import { DownloadIcon, PrinterIcon } from 'lucide-react';
 import * as React from 'react';
 
 import { loadRouteNamespaces } from '../../../route-loaders';
@@ -100,12 +105,12 @@ interface CollectionsFilters {
   preset?: string;
   from?: string;
   to?: string;
-  method?: string;
-  collector_id?: string;
+  payment_method?: string;
+  received_by_user_id?: string;
 }
 
 export const Route = createFileRoute('/_staff/reports/collections')({
-  loader: () => loadRouteNamespaces('reports', 'common'),
+  loader: () => loadRouteNamespaces('reports', 'feeStructures', 'common'),
   pendingComponent: CollectionsReportPending,
   component: CollectionsReportPage,
 });
@@ -114,6 +119,8 @@ function CollectionsReportPending() {
   const { t } = useTranslation('reports');
   return <RoutePending variant="list" label={t('routePending.label', { ns: 'nav' })} />;
 }
+
+const PAYMENT_METHODS: readonly string[] = Object.values(PaymentMethod);
 
 function CollectionsReportPage() {
   const { t } = useTranslation('reports');
@@ -125,29 +132,39 @@ function CollectionsReportPage() {
   const from = resolved?.from ?? filters.from ?? toIsoDate(dhakaNow());
   const to = resolved?.to ?? filters.to ?? toIsoDate(dhakaNow());
 
-  const reportQuery = useCollectionsReport({
+  const reportFilters: CollectionsReportFilters = {
     from,
     to,
-    ...(filters.method !== undefined ? { method: filters.method } : {}),
-    ...(filters.collector_id !== undefined ? { collector_id: filters.collector_id } : {}),
-  });
+    ...(filters.payment_method !== undefined && PAYMENT_METHODS.includes(filters.payment_method)
+      ? {
+          payment_method: filters.payment_method as NonNullable<
+            CollectionsReportFilters['payment_method']
+          >,
+        }
+      : {}),
+    ...(filters.received_by_user_id !== undefined
+      ? { received_by_user_id: filters.received_by_user_id }
+      : {}),
+  };
+  const reportQuery = useCollectionsReport(reportFilters);
 
   const [csvBusy, setCsvBusy] = React.useState(false);
   async function handleDownloadCsv() {
     setCsvBusy(true);
     try {
-      await downloadCollectionsReportCsv({
-        from,
-        to,
-        ...(filters.method !== undefined ? { method: filters.method } : {}),
-        ...(filters.collector_id !== undefined ? { collector_id: filters.collector_id } : {}),
-      });
+      await downloadCollectionsReportCsv(reportFilters);
     } catch {
       toast.error(t('actions.csvDownloadError'));
     } finally {
       setCsvBusy(false);
     }
   }
+
+  const data = reportQuery.data;
+  const totals = data?.totals;
+  const loading = reportQuery.isLoading;
+  const money = (amount: number) => formatServerAmount(amount, regionConfig);
+  const count = (n: number) => formatNumber(n, regionConfig);
 
   const filterFields: FilterFieldDescriptor[] = [
     {
@@ -179,7 +196,7 @@ function CollectionsReportPage() {
       : []),
     {
       kind: 'select',
-      key: 'method',
+      key: 'payment_method',
       label: t('filters.methodLabel'),
       allLabel: t('filters.allMethods'),
       options: Object.values(PaymentMethod).map((method) => ({
@@ -189,120 +206,239 @@ function CollectionsReportPage() {
     },
     {
       kind: 'select',
-      key: 'collector_id',
+      key: 'received_by_user_id',
       label: t('filters.collectorLabel'),
       allLabel: t('filters.allCollectors'),
       // [16.6.4 review] Built from the report's own `by_collector` breakdown
       // instead of `GET /users` — that endpoint is ADMIN-only server-side,
       // but this page is also open to ACCOUNTANT/EXECUTIVE, who got a
       // silent 403 and an empty collector filter.
-      options: (reportQuery.data?.by_collector ?? []).map((collector) => ({
-        value: collector.collector_id,
-        label: collector.collector_name,
-      })),
+      options: (data?.by_collector ?? []).flatMap((c) =>
+        c.user_id === null
+          ? []
+          : [{ value: c.user_id, label: c.full_name ?? t('tables.unknownCollector') }],
+      ),
     },
   ];
 
-  const data = reportQuery.data;
-  const totals = data?.totals;
+  const methodLabel = (method: string) => t(`filters.method.${method}`, { defaultValue: method });
+  const subtitle = [
+    formatDateRange(from, to, regionConfig),
+    reportFilters.payment_method
+      ? methodLabel(reportFilters.payment_method)
+      : t('subtitleAllMethods'),
+    reportFilters.received_by_user_id
+      ? (data?.by_collector.find((c) => c.user_id === reportFilters.received_by_user_id)
+          ?.full_name ?? t('tables.unknownCollector'))
+      : t('subtitleAllCollectors'),
+  ].join(' · ');
 
-  // [16.6.4 review] Printed sheet needs to be self-describing — show which
-  // method/collector filters (if any) narrowed the totals it's printing.
-  const printFilterParts: string[] = [];
-  if (filters.method !== undefined) {
-    printFilterParts.push(
-      `${t('filters.methodLabel')}: ${t(`filters.method.${filters.method}`, {
-        defaultValue: filters.method,
-      })}`,
-    );
-  }
-  if (filters.collector_id !== undefined) {
-    const collectorName =
-      data?.by_collector.find((c) => c.collector_id === filters.collector_id)?.collector_name ??
-      filters.collector_id;
-    printFilterParts.push(`${t('filters.collectorLabel')}: ${collectorName}`);
-  }
-  const printFilterLabel = printFilterParts.join(', ');
+  // First column: name, plus (phone only) the two-line caption; other
+  // columns are hidden in card mode except the right-hand figure.
+  const nameCell = (name: string, caption: string) => (
+    <span className="flex flex-col">
+      <span>{name}</span>
+      <span className="text-caption text-text-secondary md:hidden">{caption}</span>
+    </span>
+  );
 
   const methodColumns: DataTableColumn<CollectionsByMethod>[] = [
-    { id: 'method', header: t('tables.method'), accessorFn: (row) => row.method },
     {
-      id: 'amount',
-      header: t('tables.amount'),
-      accessorFn: (row) => formatCurrency(row.amount, regionConfig),
-      align: 'end',
+      id: 'method',
+      header: t('tables.method'),
+      accessorFn: (row) =>
+        nameCell(
+          methodLabel(row.payment_method),
+          t('tables.rowCaption', { count: row.count, amount: money(row.reversed) }),
+        ),
     },
     {
       id: 'count',
-      header: t('tables.count'),
-      accessorFn: (row) => formatNumber(row.count, regionConfig),
+      header: t('tables.payments'),
+      accessorFn: (row) => count(row.count),
       align: 'end',
+      card: 'hidden',
+    },
+    {
+      id: 'collected',
+      header: t('tables.collected'),
+      accessorFn: (row) => money(row.collected),
+      align: 'end',
+      card: 'hidden',
+    },
+    {
+      id: 'reversed',
+      header: t('tables.reversed'),
+      accessorFn: (row) => money(row.reversed),
+      align: 'end',
+      card: 'hidden',
+    },
+    {
+      id: 'net',
+      header: t('tables.net'),
+      accessorFn: (row) => money(row.net),
+      align: 'end',
+      card: 'badge',
     },
   ];
 
   const collectorColumns: DataTableColumn<CollectionsByCollector>[] = [
     {
-      id: 'collector_name',
+      id: 'collector',
       header: t('tables.collector'),
-      accessorFn: (row) => row.collector_name,
-    },
-    {
-      id: 'amount',
-      header: t('tables.amount'),
-      accessorFn: (row) => formatCurrency(row.amount, regionConfig),
-      align: 'end',
+      accessorFn: (row) =>
+        nameCell(
+          row.full_name ?? t('tables.unknownCollector'),
+          t('tables.rowCaption', { count: row.count, amount: money(row.reversed) }),
+        ),
     },
     {
       id: 'count',
-      header: t('tables.count'),
-      accessorFn: (row) => formatNumber(row.count, regionConfig),
+      header: t('tables.payments'),
+      accessorFn: (row) => count(row.count),
       align: 'end',
+      card: 'hidden',
+    },
+    {
+      id: 'collected',
+      header: t('tables.collected'),
+      accessorFn: (row) => money(row.collected),
+      align: 'end',
+      card: 'hidden',
+    },
+    {
+      id: 'reversed',
+      header: t('tables.reversed'),
+      accessorFn: (row) => money(row.reversed),
+      align: 'end',
+      card: 'hidden',
+    },
+    {
+      id: 'net',
+      header: t('tables.net'),
+      accessorFn: (row) => money(row.net),
+      align: 'end',
+      card: 'badge',
     },
   ];
 
   const feeTypeColumns: DataTableColumn<CollectionsByFeeType>[] = [
-    { id: 'fee_type', header: t('tables.feeType'), accessorFn: (row) => row.fee_type },
     {
-      id: 'amount',
-      header: t('tables.amount'),
-      accessorFn: (row) => formatCurrency(row.amount, regionConfig),
-      align: 'end',
+      id: 'fee_type',
+      header: t('tables.feeType'),
+      accessorFn: (row) =>
+        nameCell(
+          t(`feeTypes.${row.fee_type}`, { ns: 'feeStructures', defaultValue: row.fee_type }),
+          `${t('tables.discount')} ${money(row.discount)}`,
+        ),
     },
     {
-      id: 'count',
-      header: t('tables.count'),
-      accessorFn: (row) => formatNumber(row.count, regionConfig),
+      id: 'discount',
+      header: t('tables.discount'),
+      accessorFn: (row) => money(row.discount),
       align: 'end',
+      card: 'hidden',
+    },
+    {
+      id: 'collected',
+      header: t('tables.collected'),
+      accessorFn: (row) => money(row.collected),
+      align: 'end',
+      card: 'badge',
     },
   ];
 
-  const byDay = data?.by_day ?? [];
-  const maxByDay = Math.max(1, ...byDay.map((d) => d.amount));
+  const dayColumns: DataTableColumn<CollectionsByDay>[] = [
+    {
+      id: 'date',
+      header: t('tables.date'),
+      accessorFn: (row) =>
+        nameCell(
+          formatDate(row.date, regionConfig),
+          `${t('tables.collected')} ${money(row.collected)} · ${t('tables.reversed')} ${money(row.reversed)}`,
+        ),
+    },
+    {
+      id: 'collected',
+      header: t('tables.collected'),
+      accessorFn: (row) => money(row.collected),
+      align: 'end',
+      card: 'hidden',
+    },
+    {
+      id: 'reversed',
+      header: t('tables.reversed'),
+      accessorFn: (row) => money(row.reversed),
+      align: 'end',
+      card: 'hidden',
+    },
+    {
+      id: 'net',
+      header: t('tables.net'),
+      accessorFn: (row) => money(row.net),
+      align: 'end',
+      card: 'badge',
+    },
+  ];
+
+  const tableProps = {
+    sorting: null,
+    onSortingChange: () => undefined,
+    paginated: false,
+    loading,
+    isFetching: reportQuery.isFetching,
+    emptyState: {
+      title: t('tables.emptyMessage'),
+      explanation: t('tables.emptyExplanation'),
+    },
+  } as const;
+
+  const section = (title: string, help: string, table: React.ReactNode): React.ReactElement => (
+    <Card className="overflow-hidden print:break-inside-avoid">
+      <div className="p-4 md:p-5">
+        <h2 className="text-h2">{title}</h2>
+        <p className="mt-1 text-text-secondary">{help}</p>
+      </div>
+      {table}
+    </Card>
+  );
+
+  const value = (amount: number | undefined, className: string) =>
+    loading || amount === undefined ? (
+      <Skeleton className="mt-1 h-7 w-32" />
+    ) : (
+      <p className={className}>{money(amount)}</p>
+    );
+
+  const paymentCount = (data?.by_method ?? []).reduce((n, r) => n + r.count, 0);
 
   return (
-    <div className="flex flex-col gap-6 print:gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold text-text-primary">{t('title')}</h1>
-          {data ? (
-            <p className="text-sm text-text-secondary">
-              {t('print.range', { from: data.range.from, to: data.range.to })}
-              {printFilterLabel ? ` — ${printFilterLabel}` : ''}
-            </p>
-          ) : null}
-        </div>
-        <Button
-          type="button"
-          variant="secondary"
-          onClick={() => void handleDownloadCsv()}
-          disabled={csvBusy || reportQuery.isLoading}
-          loading={csvBusy}
-          className="print:hidden"
-        >
-          {t('actions.downloadCsv')}
-        </Button>
+    <PageContainer>
+      {/* PageHeader has no print hook yet: hide its buttons here so title + subtitle still print. */}
+      <div className="print:[&_button]:hidden">
+        <PageHeader
+          title={t('title')}
+          subtitle={subtitle}
+          actions={[
+            {
+              id: 'csv',
+              label: t('actions.downloadCsv'),
+              icon: <DownloadIcon aria-hidden className="size-4" />,
+              priority: 'secondary',
+              onClick: () => void handleDownloadCsv(),
+              disabled: loading,
+              busy: csvBusy,
+            },
+            {
+              id: 'print',
+              label: t('actions.print'),
+              icon: <PrinterIcon aria-hidden className="size-4" />,
+              priority: 'primary',
+              onClick: () => window.print(),
+            },
+          ]}
+        />
       </div>
-
       <div className="print:hidden">
         <FilterBar
           fields={filterFields}
@@ -312,115 +448,105 @@ function CollectionsReportPage() {
       </div>
 
       {reportQuery.isError ? (
-        <p className="text-status-critical text-sm" role="alert">
-          {t('errorMessage')}
-        </p>
-      ) : null}
+        <ErrorState message={t('errorMessage')} onRetry={() => void reportQuery.refetch()} />
+      ) : (
+        <>
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-3 md:gap-6">
+            <Card padded>
+              <h2 className="text-label text-text-secondary">{t('totals.collected')}</h2>
+              {value(totals?.collected, 'mt-1 text-h2 md:text-h1 tabular-nums')}
+              <p className="mt-0.5 text-caption text-text-secondary">
+                {t('totals.paymentCount', { count: paymentCount })}
+              </p>
+            </Card>
+            <Card padded>
+              <h2 className="text-label text-text-secondary">{t('totals.reversed')}</h2>
+              {value(totals?.reversed, 'mt-1 text-h2 md:text-h1 tabular-nums')}
+              <p className="mt-0.5 text-caption text-text-secondary">{t('totals.reversedHelp')}</p>
+            </Card>
+            <Card padded className="order-first col-span-2 md:order-last md:col-span-1">
+              <h2 className="text-label text-text-secondary">{t('totals.net')}</h2>
+              {value(totals?.net, 'mt-1 text-h1 text-primary tabular-nums')}
+              <p className="mt-0.5 text-caption text-text-secondary">{t('totals.netHelp')}</p>
+            </Card>
+          </div>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        {(
-          [
-            ['collected', t('totals.collected')],
-            ['reversed', t('totals.reversed')],
-            ['net', t('totals.net')],
-            ['standing_discount', t('totals.standingDiscount')],
-            ['one_off_discount', t('totals.oneOffDiscount')],
-            ['wallet_used', t('totals.walletUsed')],
-            ['wallet_added', t('totals.walletAdded')],
-            ['change_returned', t('totals.changeReturned')],
-          ] as const
-        ).map(([key, label]) => (
-          <Card key={key} className="flex flex-col gap-1 p-4">
-            <span className="text-xs font-medium text-text-secondary">{label}</span>
-            <span className="text-lg font-semibold text-text-primary">
-              {totals ? formatCurrency(totals[key], regionConfig) : '—'}
-            </span>
+          <Card padded>
+            <h2 className="text-h3">{t('totals.otherTitle')}</h2>
+            <dl className="mt-3 grid grid-cols-2 gap-x-6 gap-y-3 md:grid-cols-5">
+              {(
+                [
+                  ['standing_discount', t('totals.standingDiscount')],
+                  ['one_off_discount', t('totals.oneOffDiscount')],
+                  ['wallet_used', t('totals.walletUsed')],
+                  ['wallet_added', t('totals.walletAdded')],
+                  ['change_returned', t('totals.changeReturned')],
+                ] as const
+              ).map(([key, label]) => (
+                <div key={key}>
+                  <dt className="text-caption text-text-secondary">{label}</dt>
+                  <dd className="font-medium tabular-nums">{totals ? money(totals[key]) : '—'}</dd>
+                </div>
+              ))}
+            </dl>
           </Card>
-        ))}
-      </div>
 
-      <Card className="p-4 print:break-inside-avoid">
-        <h2 className="mb-3 text-sm font-medium text-text-primary">{t('chart.title')}</h2>
-        {byDay.length === 0 ? (
-          <p className="text-sm text-text-secondary">{t('chart.empty')}</p>
-        ) : (
-          <svg
-            role="img"
-            aria-label={t('chart.title')}
-            viewBox={`0 0 ${byDay.length * 32} 120`}
-            className="h-32 w-full"
-          >
-            {byDay.map((d, i) => {
-              const barHeight = Math.max(2, (d.amount / maxByDay) * 100);
-              return (
-                <rect
-                  key={d.date}
-                  x={i * 32 + 4}
-                  y={110 - barHeight}
-                  width={24}
-                  height={barHeight}
-                  className="fill-brand"
-                >
-                  <title>
-                    {d.date}: {formatCurrency(d.amount, regionConfig)}
-                  </title>
-                </rect>
-              );
-            })}
-          </svg>
-        )}
-      </Card>
-
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 print:grid-cols-1">
-        <DataTable
-          tableId="collections-report-by-method"
-          caption={t('tables.byMethodCaption')}
-          columns={methodColumns}
-          data={data?.by_method ?? []}
-          getRowId={(row) => row.method}
-          sorting={null}
-          onSortingChange={() => undefined}
-          page={1}
-          pageSize={Math.max(1, data?.by_method.length ?? 1)}
-          totalCount={data?.by_method.length ?? 0}
-          onPageChange={() => undefined}
-          loading={reportQuery.isLoading}
-          isFetching={reportQuery.isFetching}
-          emptyMessage={t('tables.emptyMessage')}
-        />
-        <DataTable
-          tableId="collections-report-by-collector"
-          caption={t('tables.byCollectorCaption')}
-          columns={collectorColumns}
-          data={data?.by_collector ?? []}
-          getRowId={(row) => row.collector_id}
-          sorting={null}
-          onSortingChange={() => undefined}
-          page={1}
-          pageSize={Math.max(1, data?.by_collector.length ?? 1)}
-          totalCount={data?.by_collector.length ?? 0}
-          onPageChange={() => undefined}
-          loading={reportQuery.isLoading}
-          isFetching={reportQuery.isFetching}
-          emptyMessage={t('tables.emptyMessage')}
-        />
-        <DataTable
-          tableId="collections-report-by-fee-type"
-          caption={t('tables.byFeeTypeCaption')}
-          columns={feeTypeColumns}
-          data={data?.by_fee_type ?? []}
-          getRowId={(row) => row.fee_type}
-          sorting={null}
-          onSortingChange={() => undefined}
-          page={1}
-          pageSize={Math.max(1, data?.by_fee_type.length ?? 1)}
-          totalCount={data?.by_fee_type.length ?? 0}
-          onPageChange={() => undefined}
-          loading={reportQuery.isLoading}
-          isFetching={reportQuery.isFetching}
-          emptyMessage={t('tables.emptyMessage')}
-        />
-      </div>
-    </div>
+          <div className="grid items-start gap-6 md:grid-cols-2 print:grid-cols-1">
+            {section(
+              t('tables.byMethodTitle'),
+              t('tables.byMethodHelp'),
+              <DataTable
+                {...tableProps}
+                tableId="collections-report-by-method"
+                caption={t('tables.byMethodTitle')}
+                columns={methodColumns}
+                data={data?.by_method ?? []}
+                getRowId={(row) => row.payment_method}
+                totalCount={data?.by_method.length ?? 0}
+              />,
+            )}
+            {section(
+              t('tables.byCollectorTitle'),
+              t('tables.byCollectorHelp'),
+              <DataTable
+                {...tableProps}
+                tableId="collections-report-by-collector"
+                caption={t('tables.byCollectorTitle')}
+                columns={collectorColumns}
+                data={data?.by_collector ?? []}
+                getRowId={(row) => row.user_id ?? 'unknown'}
+                totalCount={data?.by_collector.length ?? 0}
+              />,
+            )}
+            {section(
+              t('tables.byFeeTypeTitle'),
+              t('tables.byFeeTypeHelp'),
+              <DataTable
+                {...tableProps}
+                tableId="collections-report-by-fee-type"
+                caption={t('tables.byFeeTypeTitle')}
+                columns={feeTypeColumns}
+                data={data?.by_fee_type ?? []}
+                getRowId={(row) => row.fee_type}
+                totalCount={data?.by_fee_type.length ?? 0}
+              />,
+            )}
+            {section(
+              t('tables.byDayTitle'),
+              t('tables.byDayHelp'),
+              <DataTable
+                {...tableProps}
+                tableId="collections-report-by-day"
+                caption={t('tables.byDayTitle')}
+                columns={dayColumns}
+                data={data?.by_day ?? []}
+                getRowId={(row) => row.date}
+                totalCount={data?.by_day.length ?? 0}
+              />,
+            )}
+          </div>
+        </>
+      )}
+    </PageContainer>
   );
 }
