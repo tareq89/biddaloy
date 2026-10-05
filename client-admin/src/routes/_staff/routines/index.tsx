@@ -1,88 +1,173 @@
 /**
- * [21.8.1] `/routines` — pick a class then a section, then jump into that
- * section's grid builder at `/routines/$sectionId`. Cloned two-level
- * class→section picker from `attendance/register.tsx` (same `useClasses`
- * + `useClassSections(classId)` shape) rather than a new "all sections"
- * endpoint — no server ticket in this wave adds one.
+ * [21.8.1] `/routines` — pick a class, then a section, then jump into that
+ * section's grid builder at `/routines/$sectionId`. Same `useClasses` +
+ * `useClassSections(classId)` shape as `attendance/register.tsx` — no
+ * "all sections" endpoint exists. [31.4] The class lives in `?classId=` so
+ * coming back from a builder keeps it; with no param the first class is used.
  */
-import { EmptyState, Skeleton } from '@biddaloy/ui/components';
+import {
+  DataTable,
+  EmptyState,
+  ErrorState,
+  Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  type DataTableColumn,
+} from '@biddaloy/ui/components';
 import { useClasses, useClassSections } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
-import { createFileRoute, Link } from '@tanstack/react-router';
-import * as React from 'react';
+import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { PageContainer, PageHeader } from '@biddaloy/ui/shells';
+import { formatNumber } from '@biddaloy/ui/utils';
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
+import { z } from 'zod';
 
 import { loadRouteNamespaces } from '../../../route-loaders';
 
+type SectionRow = NonNullable<ReturnType<typeof useClassSections>['data']>[number];
+
+const searchSchema = z.object({
+  classId: z.string().uuid().optional().catch(undefined),
+});
+
 export const Route = createFileRoute('/_staff/routines/')({
+  validateSearch: searchSchema,
   loader: () => loadRouteNamespaces('routines', 'common'),
   component: RoutinesListPage,
 });
 
 function RoutinesListPage() {
   const { t } = useTranslation('routines');
-  const [classId, setClassId] = React.useState<string | undefined>(undefined);
+  const config = useRegionConfig();
+  const navigate = useNavigate();
+  const search = Route.useSearch();
 
   const classesQuery = useClasses();
-  const sectionsQuery = useClassSections(classId);
-
   const classes = classesQuery.data?.data ?? [];
+  const classId = search.classId ?? classes[0]?.id;
+  const className = classes.find((klass) => klass.id === classId)?.name ?? '';
+  const sectionsQuery = useClassSections(classId);
   const sections = sectionsQuery.data ?? [];
 
-  return (
-    <div className="flex flex-col gap-4 p-4">
-      <h1 className="text-lg font-semibold">{t('builderList.title')}</h1>
-      <label className="flex flex-col gap-1 text-sm">
-        {t('builderList.classLabel')}
-        <select
-          className="h-8 w-full max-w-xs rounded-md border border-input bg-card px-2.5 text-sm"
-          value={classId ?? ''}
-          onChange={(event) => setClassId(event.target.value || undefined)}
-        >
-          <option value="">{t('builderList.selectClass')}</option>
-          {classes.map((klass) => (
-            <option key={klass.id} value={klass.id}>
-              {klass.name}
-            </option>
-          ))}
-        </select>
-      </label>
+  const header = <PageHeader title={t('builderList.title')} subtitle={t('builderList.subtitle')} />;
 
-      {classesQuery.isPending && <Skeleton className="h-8 w-64" />}
-
-      {classId && sectionsQuery.isPending && (
-        <div className="flex flex-col gap-2" aria-hidden="true">
-          <Skeleton className="h-12 w-full" />
-          <Skeleton className="h-12 w-full" />
-        </div>
-      )}
-
-      {classId && !sectionsQuery.isPending && sections.length === 0 && (
-        <EmptyState
-          title={t('builderList.emptyTitle')}
-          explanation={t('builderList.emptyExplanation')}
-          action={{ label: t('builderList.pickAnotherClass'), onClick: () => setClassId(undefined) }}
+  if (classesQuery.isError || sectionsQuery.isError) {
+    return (
+      <PageContainer>
+        {header}
+        <ErrorState
+          message={t('builderList.error')}
+          onRetry={() => {
+            void classesQuery.refetch();
+            void sectionsQuery.refetch();
+          }}
         />
-      )}
+      </PageContainer>
+    );
+  }
 
-      {classId && sections.length > 0 && (
-        <ul className="flex flex-col gap-2">
-          {sections.map((section) => (
-            <li key={section.id}>
-              <Link
-                to="/routines/$sectionId"
-                params={{ sectionId: section.id }}
-                search={{ classId }}
-                className="flex min-h-12 items-center justify-between gap-3 rounded-lg border border-border-subtle bg-card px-4 py-2 no-underline hover:bg-muted"
-              >
-                <span className="font-medium">{section.section_name}</span>
-                <span className="text-sm text-muted-foreground">
-                  {t('builderList.enrolledCount', { count: section.enrolled_count })}
-                </span>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
+  if (!classesQuery.isPending && classes.length === 0) {
+    return (
+      <PageContainer>
+        {header}
+        <EmptyState
+          title={t('builderList.noClassesTitle')}
+          explanation={t('builderList.noClassesExplanation')}
+          action={{
+            label: t('builderList.goToClasses'),
+            onClick: () => void navigate({ to: '/classes' }),
+          }}
+        />
+      </PageContainer>
+    );
+  }
+
+  const columns: DataTableColumn<SectionRow>[] = [
+    {
+      id: 'section',
+      header: t('builderList.sectionColumn'),
+      accessorFn: (section) => (
+        <Link
+          to="/routines/$sectionId"
+          params={{ sectionId: section.id }}
+          search={{ classId }}
+          className="flex min-h-11 flex-col justify-center hover:text-primary md:min-h-0"
+        >
+          <span className="font-medium">
+            {t('builderList.sectionName', { name: section.section_name })}
+          </span>
+          <span className="text-caption text-text-secondary md:hidden">
+            {t('builderList.enrolledCount', {
+              count: section.enrolled_count,
+              formattedCount: formatNumber(section.enrolled_count, config),
+            })}
+          </span>
+        </Link>
+      ),
+    },
+    {
+      id: 'students',
+      header: t('builderList.studentsColumn'),
+      align: 'end',
+      card: 'hidden',
+      accessorFn: (section) => formatNumber(section.enrolled_count, config),
+    },
+  ];
+
+  return (
+    <PageContainer>
+      {header}
+      <div className="md:w-72">
+        <Label htmlFor="routines-class" className="mb-1 block">
+          {t('builderList.classLabel')}
+        </Label>
+        <Select
+          value={classId ?? ''}
+          onValueChange={(id) => void navigate({ to: '.', search: { classId: id }, replace: true })}
+        >
+          <SelectTrigger id="routines-class" className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {classes.map((klass) => (
+              <SelectItem key={klass.id} value={klass.id}>
+                {klass.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <DataTable
+        tableId="routines-sections"
+        caption={t('builderList.tableCaption', { className })}
+        columns={columns}
+        data={sections}
+        getRowId={(section) => section.id}
+        sorting={null}
+        onSortingChange={() => {}}
+        paginated={false}
+        totalCount={sections.length}
+        loading={classesQuery.isPending || (!!classId && sectionsQuery.isPending)}
+        rowActions={(section) => [
+          {
+            intent: 'edit',
+            label: t('builderList.openAction'),
+            to: `/routines/${section.id}?classId=${classId}`,
+          },
+        ]}
+        emptyState={{
+          title: t('builderList.emptyTitle'),
+          explanation: t('builderList.emptyExplanation'),
+          action: {
+            label: t('builderList.openClassAction'),
+            onClick: () =>
+              void navigate({ to: '/classes/$classId', params: { classId: classId ?? '' } }),
+          },
+        }}
+      />
+    </PageContainer>
   );
 }
