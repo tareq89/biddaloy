@@ -111,7 +111,8 @@ describe('/security', () => {
 
     expect(await screen.findByText("Couldn't load your sessions. Please try again.")).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy();
-    // The title never disappears behind the error.
+    // Both the page title and the section heading stay behind the error.
+    expect(screen.getByRole('heading', { level: 2, name: 'Active sessions' })).toBeTruthy();
     expect(screen.getByRole('heading', { level: 1, name: 'Security' })).toBeTruthy();
   });
 });

@@ -85,6 +85,17 @@ describe('/notifications', () => {
     });
   });
 
+  it('keeps keyboard focus on the page after "mark all read" removes its button', async () => {
+    const user = userEvent.setup();
+    seed('First finished');
+    renderNotificationsPage();
+
+    await user.click(await screen.findByRole('button', { name: 'Mark all read' }));
+
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Mark all read' })).toBeNull());
+    expect(document.activeElement).not.toBe(document.body);
+  });
+
   it('"mark all read" marks every row read, then disappears', async () => {
     const user = userEvent.setup();
     seed('First finished');

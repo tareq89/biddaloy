@@ -157,8 +157,8 @@
       "error": "Failed",
       "info": "Info"
     },
-    "unreadCount_one": "{{count}} unread",
-    "unreadCount_other": "{{count}} unread",
+    "unreadCount_one": "{{n}} unread",
+    "unreadCount_other": "{{n}} unread",
     "emptyTitle": "No notifications",
     "emptyDescription": "When an import, payment or message finishes or fails, it shows up here."
   },
