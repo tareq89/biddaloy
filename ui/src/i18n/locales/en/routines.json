@@ -266,12 +266,16 @@
   "myRoutine": {
     "title": "My routine",
     "loading": "Loading your routine",
-    "notATeacherExplanation": "No teacher record found for your account — nothing to show here.",
+    "notATeacherExplanation": "Your account isn't linked to a teacher, so there are no periods to show.",
     "noRoutineExplanation": "The school hasn't published a routine yet.",
     "error": {
       "message": "Could not load your routine. Check your connection and try again.",
       "retry": "Try again"
-    }
+    },
+    "subtitle": "Your periods today and over the next 6 days.",
+    "notATeacherTitle": "No routine for you",
+    "noRoutineTitle": "No routine published yet",
+    "openClassRoutine": "See class routines"
   },
   "substitutionDialog": {
     "title": "Record a substitute teacher",
