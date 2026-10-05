@@ -41,6 +41,7 @@ import {
   useWarnUnsavedChanges,
 } from '@biddaloy/ui/shells';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { Link } from '@tanstack/react-router';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
@@ -199,13 +200,23 @@ export function CalendarSection({ schoolId, region }: CalendarSectionProps) {
               </p>
             )}
             <p className="text-sm text-muted-foreground">
-              <a href="#regional-section" className="underline underline-offset-2">
+              <Link
+                to="/settings"
+                hash="regional-section"
+                search={{ section: 'school' }}
+                className="underline underline-offset-2"
+              >
                 {t('calendar.changeInRegional')}
-              </a>
+              </Link>
               {' / '}
-              <a href="#attendance-section" className="underline underline-offset-2">
+              <Link
+                to="/settings"
+                hash="attendance-section"
+                search={{ section: 'academics' }}
+                className="underline underline-offset-2"
+              >
                 {t('calendar.changeInAttendance')}
-              </a>
+              </Link>
             </p>
           </div>
         </FormSection>
