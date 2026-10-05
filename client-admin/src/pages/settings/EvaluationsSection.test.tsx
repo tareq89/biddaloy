@@ -6,6 +6,7 @@ import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { EvaluationsSection } from './EvaluationsSection';
+import { WithTestRouter } from './with-test-router';
 
 const SCHOOL_ID = 'school-1';
 const LABEL = 'Send an SMS when a new incident report is filed';
@@ -17,32 +18,50 @@ describe('EvaluationsSection', () => {
   });
 
   it('defaults off and shows the privacy copy', async () => {
-    renderWithProviders(<EvaluationsSection schoolId={SCHOOL_ID} evaluations={undefined} />, opts);
+    renderWithProviders(
+      <WithTestRouter>
+        <EvaluationsSection schoolId={SCHOOL_ID} evaluations={undefined} />
+      </WithTestRouter>,
+      opts,
+    );
     const box = await screen.findByLabelText(LABEL);
     expect(box.getAttribute('aria-checked')).toBe('false');
     expect(
       screen.getByText(
-        'The SMS says only that a new report exists, never what it says. SMS is sent only if an SMS provider is set up in the SMS settings above.',
+        'The SMS says only that a new report exists, never what it says. Push notifications are always on.',
       ),
     ).toBeTruthy();
   });
 
-  it('shows provider status and warns when the toggle is on without a provider', async () => {
-    const { rerender } = renderWithProviders(
-      <EvaluationsSection schoolId={SCHOOL_ID} evaluations={{ incidentSmsEnabled: true }} />,
+  it('with no provider: a warning badge, a link to Communication, and an alert when the toggle is on', async () => {
+    renderWithProviders(
+      <WithTestRouter>
+        <EvaluationsSection schoolId={SCHOOL_ID} evaluations={{ incidentSmsEnabled: true }} />
+      </WithTestRouter>,
       opts,
     );
+    expect(await screen.findByText('No SMS provider is set up.')).toBeTruthy();
+    expect(
+      screen.getByRole('link', { name: 'Communication › set up SMS' }).getAttribute('href'),
+    ).toBe('/settings?section=communication');
     expect((await screen.findByRole('alert')).textContent).toContain(
-      'No SMS provider is set up yet',
+      'Incident SMS will not be sent until an SMS provider is set up in Communication.',
     );
-    rerender(
-      <EvaluationsSection
-        schoolId={SCHOOL_ID}
-        evaluations={{ incidentSmsEnabled: true }}
-        smsConfigured
-      />,
+  });
+
+  it('with a provider: a success badge, no link and no alert', async () => {
+    renderWithProviders(
+      <WithTestRouter>
+        <EvaluationsSection
+          schoolId={SCHOOL_ID}
+          evaluations={{ incidentSmsEnabled: true }}
+          smsConfigured
+        />
+      </WithTestRouter>,
+      opts,
     );
-    expect(await screen.findByText(/SMS provider is set up, so incident SMS/)).toBeTruthy();
+    expect(await screen.findByText('SMS provider is set up')).toBeTruthy();
+    expect(screen.queryByRole('link', { name: 'Communication › set up SMS' })).toBeNull();
     expect(screen.queryByRole('alert')).toBeNull();
   });
 
@@ -55,7 +74,9 @@ describe('EvaluationsSection', () => {
       }),
     );
     const { user } = renderWithProviders(
-      <EvaluationsSection schoolId={SCHOOL_ID} evaluations={undefined} />,
+      <WithTestRouter>
+        <EvaluationsSection schoolId={SCHOOL_ID} evaluations={undefined} />
+      </WithTestRouter>,
       opts,
     );
     await user.click(await screen.findByLabelText(LABEL));
@@ -76,7 +97,9 @@ describe('EvaluationsSection', () => {
       }),
     );
     const { user } = renderWithProviders(
-      <EvaluationsSection schoolId={SCHOOL_ID} evaluations={{ incidentSmsEnabled: true }} />,
+      <WithTestRouter>
+        <EvaluationsSection schoolId={SCHOOL_ID} evaluations={{ incidentSmsEnabled: true }} />
+      </WithTestRouter>,
       opts,
     );
     const box = await screen.findByLabelText(LABEL);

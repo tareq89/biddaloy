@@ -136,12 +136,7 @@ export function SchoolSettingsPage({ backupJobId }: SchoolSettingsPageProps = {}
           <>
             {loaded && (
               <>
-                <div id="attendance-section">
-                  <AttendanceSection
-                    schoolId={loaded.schoolId}
-                    attendance={loaded.data.attendance}
-                  />
-                </div>
+                <AttendanceSection schoolId={loaded.schoolId} attendance={loaded.data.attendance} />
                 <EvaluationsSection
                   key={loaded.schoolId}
                   schoolId={loaded.schoolId}

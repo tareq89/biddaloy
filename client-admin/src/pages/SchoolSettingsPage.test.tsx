@@ -250,9 +250,17 @@ describe('SchoolSettingsPage', () => {
       expect(link.getAttribute('href')).toBe('/curriculum-preset');
     });
 
-    it('shows the preset id and version when APPLIED', async () => {
+    it('shows the preset name (never its id) and version when APPLIED', async () => {
+      server.use(
+        http.get('/api/v1/presets', () =>
+          HttpResponse.json([
+            { id: 'nctb', version: '2025.1', name: { en: 'NCTB Bangla Medium', bn: 'এনসিটিবি' } },
+          ]),
+        ),
+      );
       mount('ADMIN', 'APPLIED');
-      expect(await screen.findByText('Applied: nctb · 2025.1')).toBeTruthy();
+      expect(await screen.findByText('Applied: NCTB Bangla Medium · 2025.1')).toBeTruthy();
+      expect(screen.queryByText(/nctb ·/)).toBeNull();
     });
 
     it('is hidden without CURRICULUM_PRESET_APPLY', async () => {
