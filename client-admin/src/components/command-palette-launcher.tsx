@@ -68,7 +68,15 @@ export interface PaletteLauncherPage {
   synonyms?: readonly string[];
 }
 
-export function CommandPaletteLauncher({ pages }: { pages?: readonly PaletteLauncherPage[] } = {}) {
+export function CommandPaletteLauncher({
+  pages,
+}: {
+  /**
+   * Page-only mode (portal / platform shells). The caller must pre-filter this
+   * list by the user's role: it is shown as-is, with no permission check here.
+   */
+  pages?: readonly PaletteLauncherPage[];
+} = {}) {
   const { t, i18n } = useTranslation('nav');
   const navigate = useNavigate();
   const activeRole = useActiveRole();
