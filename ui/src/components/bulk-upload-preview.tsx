@@ -232,10 +232,18 @@ export function BulkUploadPreview<S, C>({
   const confirmRef = React.useRef(confirm);
   const resetRef = React.useRef(handleReset);
   const onControllerChangeRef = React.useRef(onControllerChange);
+  const confirmDisabledRef = React.useRef(confirmDisabled);
   confirmRef.current = confirm;
+  confirmDisabledRef.current = confirmDisabled;
   resetRef.current = handleReset;
   onControllerChangeRef.current = onControllerChange;
-  const stableConfirm = React.useCallback(() => confirmRef.current(), []);
+  // The hook's own `confirm` only checks `status === 'preview'`; the gates
+  // (hard errors, canCommit, slot hold, expiry) live here, so a host-owned
+  // Confirm must be refused here too.
+  const stableConfirm = React.useCallback(() => {
+    if (confirmDisabledRef.current) return;
+    confirmRef.current();
+  }, []);
   const stableReset = React.useCallback(() => resetRef.current(), []);
   const result = 'result' in state ? state.result : undefined;
   const commitResult = state.status === 'done' ? state.commitResult : undefined;
