@@ -28,7 +28,7 @@ import { ApprovalModalPage } from '../pages';
  * `promotions` namespace for it to live in). The bn string below is that
  * literal, not a translated lookup.
  */
-const PROMOTE_STUDENTS_ACTION_BN = 'শিক্ষার্থী উত্তরণ করুন';
+const PROMOTE_STUDENTS_ACTION_BN = 'শিক্ষার্থী প্রমোশন দিন';
 
 test.use(loggedIn('admin'));
 
