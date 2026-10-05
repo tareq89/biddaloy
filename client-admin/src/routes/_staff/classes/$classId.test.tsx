@@ -1,5 +1,7 @@
 import {
+  academicYearFactory,
   classFactory,
+  classHandlers,
   classSectionFactory,
   cleanupTestState,
   renderWithRouter,
@@ -71,9 +73,205 @@ describe('/classes/$classId', () => {
     });
 
     await screen.findByRole('heading', { name: 'Class 6' });
-    await screen.findByText('A');
-    expect(screen.getByText('40')).toBeTruthy();
-    expect(screen.getByText('30')).toBeTruthy();
+    const row = (await screen.findByText('A')).closest('tr') as HTMLElement;
+    // Numbers go through `formatNumber` (tenant numerals; default region is Bangla).
+    expect(within(row).getByText(/^(40|৪০)$/)).toBeTruthy();
+    expect(within(row).getByText(/^(30|৩০)$/)).toBeTruthy();
+    // Icon row actions, not underlined text links; one primary add button.
+    expect(within(row).getByRole('button', { name: 'Edit' })).toBeTruthy();
+    expect(within(row).getByRole('button', { name: 'Delete' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Add section' })).toBeTruthy();
+  });
+
+  it('shows facts instead of a back link, and a section count', async () => {
+    const klass = {
+      ...classFactory({ id: 'class-1', name: 'Class 6', numeric_grade: 6 }),
+      shift: 'Morning',
+      version: 'Bangla',
+    };
+    server.use(
+      http.get('/api/v1/classes/:id', () => HttpResponse.json(klass)),
+      http.get('/api/v1/classes/:classId/sections', () => HttpResponse.json([])),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/classes/class-1'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    await screen.findByRole('heading', { name: 'Class 6' });
+    // Only the breadcrumb remains (it used to be a second, underlined link).
+    expect(within(screen.getByRole('main')).getAllByRole('link', { name: 'Classes' })).toHaveLength(
+      1,
+    );
+    expect(screen.getByText('Morning')).toBeTruthy();
+    expect(screen.getByText('Bangla')).toBeTruthy();
+    expect(screen.getByText(/^(6|৬)$/)).toBeTruthy();
+    expect(screen.getByText(/^(0|০)\s*sections?$|^(0|০)টি$/)).toBeTruthy();
+  });
+
+  it('saving the Edit dialog without touching shift/version keeps them (not null)', async () => {
+    const year = academicYearFactory({ id: 'year-1', name: '2026-2027', is_current: true });
+    const klass = {
+      ...classFactory({ id: 'class-1', name: 'Class 6', academic_year: year }),
+      shift: 'Morning',
+      version: 'Bangla',
+    };
+    let patchBody: Record<string, unknown> | undefined;
+    server.use(
+      classHandlers.vocabularyPopulated,
+      http.get('/api/v1/classes/:id', () => HttpResponse.json(klass)),
+      http.get('/api/v1/classes/:classId/sections', () => HttpResponse.json([])),
+      http.patch('/api/v1/classes/:id', async ({ request }) => {
+        patchBody = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json(klass);
+      }),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/classes/class-1'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Edit' }));
+    const dialog = within(await screen.findByRole('dialog'));
+    // The vocabulary arrives async; wait for the shift select to render.
+    await dialog.findByRole('combobox', { name: 'Shift' });
+    await user.click(dialog.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(patchBody).toBeDefined());
+    expect(patchBody?.shift).toBe('Morning');
+    expect(patchBody?.version).toBe('Bangla');
+  });
+
+  it("clearing a section's Capacity and saving sends an explicit null, not an omitted key", async () => {
+    const klass = classFactory({ id: 'class-1', name: 'Class 6' });
+    let patchBody: unknown;
+    server.use(
+      http.get('/api/v1/classes/:id', () => HttpResponse.json(klass)),
+      http.get('/api/v1/classes/:classId/sections', () =>
+        HttpResponse.json([
+          {
+            ...classSectionFactory({ id: 'section-1', section_name: 'A', class_id: 'class-1' }),
+            capacity: 40,
+            enrolled_count: 0,
+          },
+        ]),
+      ),
+      http.patch('/api/v1/classes/:classId/sections/:sectionId', async ({ request, params }) => {
+        patchBody = await request.json();
+        return HttpResponse.json({
+          ...classSectionFactory({
+            id: params.sectionId as string,
+            class_id: params.classId as string,
+          }),
+          section_name: 'A',
+          capacity: null,
+          enrolled_count: 0,
+        });
+      }),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/classes/class-1'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    const row = (await screen.findByText('A')).closest('tr') as HTMLElement;
+    await user.click(within(row).getByRole('button', { name: 'Edit' }));
+
+    const dialog = within(await screen.findByRole('dialog'));
+    await user.clear(dialog.getByLabelText('Capacity'));
+    await user.click(dialog.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(patchBody).toEqual({ section_name: 'A', capacity: null });
+  });
+
+  it('a group literally named "__none__" reaches the section create payload', async () => {
+    const klass = classFactory({ id: 'class-1', name: 'Class 6' });
+    let postedBody: Record<string, unknown> | undefined;
+    server.use(
+      http.get('/api/v1/classes/vocabulary', () =>
+        HttpResponse.json({ shifts: [], versions: [], groups: ['__none__', 'Commerce'] }),
+      ),
+      http.get('/api/v1/classes/:id', () => HttpResponse.json(klass)),
+      http.get('/api/v1/classes/:classId/sections', () => HttpResponse.json([])),
+      http.post('/api/v1/classes/:classId/sections', async ({ request }) => {
+        postedBody = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json(classSectionFactory({ id: 'new-section' }), { status: 201 });
+      }),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/classes/class-1'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Add section' }));
+    const dialog = within(await screen.findByRole('dialog'));
+    await user.type(dialog.getByLabelText(/^Section name/), 'A');
+    await user.click(await dialog.findByRole('combobox', { name: 'Group' }));
+    await user.click(await screen.findByRole('option', { name: '__none__' }));
+    await user.click(dialog.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(postedBody).toBeDefined());
+    expect(postedBody?.group_name).toBe('__none__');
+  });
+
+  it('deleting a section that still has students shows the translated sentence, not the server text', async () => {
+    const klass = classFactory({ id: 'class-1', name: 'Class 6' });
+    server.use(
+      http.get('/api/v1/classes/:id', () => HttpResponse.json(klass)),
+      http.get('/api/v1/classes/:classId/sections', () =>
+        HttpResponse.json([
+          {
+            ...classSectionFactory({ id: 'section-1', section_name: 'A', class_id: 'class-1' }),
+            capacity: 40,
+            enrolled_count: 3,
+          },
+        ]),
+      ),
+      http.delete('/api/v1/classes/:classId/sections/:sectionId', () =>
+        HttpResponse.json(
+          {
+            statusCode: 409,
+            message: 'Cannot delete section "section-1": 3 student(s) enrolled',
+            timestamp: new Date().toISOString(),
+            path: '/api/v1/classes/class-1/sections/section-1',
+            requestId: 'req-1',
+          },
+          { status: 409 },
+        ),
+      ),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/classes/class-1'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    const row = (await screen.findByText('A')).closest('tr') as HTMLElement;
+    await user.click(within(row).getByRole('button', { name: 'Delete' }));
+    const dialog = within(await screen.findByRole('alertdialog'));
+    await user.click(dialog.getByRole('button', { name: 'Delete' }));
+
+    await dialog.findByText(/still has students, so it can't be deleted/);
+    expect(dialog.queryByText(/section-1/)).toBeNull();
   });
 
   it('the Teachers tab lists section assignments with an assign action [29.0]', async () => {

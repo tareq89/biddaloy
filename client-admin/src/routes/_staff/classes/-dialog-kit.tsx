@@ -3,9 +3,43 @@
  * react-hook-form only, and these dialogs use plain state): a labelled
  * field with the kit's required mark, and the kit error text.
  */
+import { ConfirmDialog } from '@biddaloy/ui/components';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { CircleAlertIcon } from 'lucide-react';
-import type * as React from 'react';
+import * as React from 'react';
+
+/** Close handling for a form dialog: ignored while a request is in flight,
+ * asks before discarding unsaved edits. Render `discardDialog` beside the
+ * dialog and call `requestClose` from Esc / X / Cancel. */
+export function useCloseGuard(
+  isDirty: boolean,
+  isPending: boolean,
+  onOpenChange: (open: boolean) => void,
+) {
+  const { t } = useTranslation('common');
+  const [discardOpen, setDiscardOpen] = React.useState(false);
+  const requestClose = () => {
+    if (isPending) return;
+    if (isDirty) setDiscardOpen(true);
+    else onOpenChange(false);
+  };
+  const discardDialog = (
+    <ConfirmDialog
+      open={discardOpen}
+      onOpenChange={setDiscardOpen}
+      title={t('fullPage.discardTitle')}
+      description={t('fullPage.discardDescription')}
+      confirmLabel={t('fullPage.discardConfirm')}
+      cancelLabel={t('fullPage.keepEditing')}
+      tone="default"
+      onConfirm={() => {
+        setDiscardOpen(false);
+        onOpenChange(false);
+      }}
+    />
+  );
+  return { requestClose, discardDialog };
+}
 
 export function Field({
   id,
