@@ -218,11 +218,10 @@ export const WithBottomNav: Story = {
 
 /** [8.14.3] — the staff shape, in one story: `topBar` marked `hidden
  * md:flex` (desktop-only now — this canvas is mobile-width, so it renders
- * nothing), `mobileHeaderActions` (search + bell stand-ins) in the
- * consolidated header row, `drawerHeader` (a `TenantBar` stand-in) inside
- * the hamburger drawer, and a 4-item + `more` `bottomNav` at once — the
- * combination `WithBottomNav` above deliberately does not show, since the
- * portal drops the header row entirely once `bottomNav` is set. */
+ * nothing), `mobileTitle` + `mobileActions` (search + bell stand-ins) in the
+ * one-row phone top bar, and a 4-item + `more` `bottomNav` at once — the
+ * combination `WithBottomNav` above deliberately does not show, since a
+ * `bottomNav`-only caller drops the header row entirely. */
 export const StaffMobile: Story = {
   args: {
     navItems,
@@ -232,7 +231,8 @@ export const StaffMobile: Story = {
         Greenview School <span className="text-muted-foreground">Admin</span>
       </div>
     ),
-    mobileHeaderActions: (
+    mobileTitle: 'Greenview School',
+    mobileActions: (
       <>
         <button type="button" aria-label="Search (Ctrl+K)">
           <CreditCardIcon className="size-4" aria-hidden="true" />
@@ -241,13 +241,6 @@ export const StaffMobile: Story = {
           <HomeIcon className="size-4" aria-hidden="true" />
         </button>
       </>
-    ),
-    drawerHeader: (
-      <div className="mb-4 flex flex-col gap-2">
-        <div className="text-sm">
-          Greenview School <span className="text-muted-foreground">Admin</span>
-        </div>
-      </div>
     ),
     bottomNav: (
       <BottomNav

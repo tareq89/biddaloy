@@ -1,3 +1,4 @@
+import bnAuth from '../ui/src/i18n/locales/bn/auth.json';
 // One entry per shell `playwright.config.ts` boots via `webServer`. Page
 // objects and fixtures ([8.5.2], [8.5.3]) key off this list instead of
 // hardcoding ports, so a new shell only has to be added here.
@@ -20,5 +21,5 @@ export const shells = {
   // `fixtures/test.ts`'s `loggedIn()` unchanged instead of forking it.
   // Unset — every existing run — this is the dev server on :5174 exactly
   // as before.
-  app: { baseURL: process.env.E2E_BASE_URL ?? 'http://localhost:5174/', heading: 'লগ ইন' },
+  app: { baseURL: process.env.E2E_BASE_URL ?? 'http://localhost:5174/', heading: bnAuth.heading },
 } as const;

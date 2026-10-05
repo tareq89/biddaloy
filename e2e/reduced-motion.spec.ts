@@ -105,7 +105,7 @@ async function transitionEndFires(page: import('@playwright/test').Page): Promis
 }
 
 async function timings(page: import('@playwright/test').Page) {
-  const button = page.getByRole('button', { name: 'লগ ইন' });
+  const button = page.getByRole('button', { name: makeT()('auth.submit.action') });
   await expect(button).toBeVisible();
   await mountPulseProbe(page);
 
