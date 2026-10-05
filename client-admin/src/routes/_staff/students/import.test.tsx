@@ -126,12 +126,27 @@ describe('/students/import', () => {
     expect(TEMPLATE_HEADERS).toHaveLength(13);
   });
 
-  it('shows a plain-language column reference before upload', async () => {
+  it('shows the page in a full-page frame with Close, and a disabled primary before upload', async () => {
+    const { router } = renderImportPage();
+    expect(await screen.findByRole('heading', { name: 'Import students' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Import' }).hasAttribute('disabled')).toBe(true);
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Close' }));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/students'));
+  });
+
+  it('keeps the column guide collapsed, with 13 labelled rows and the exact header names', async () => {
     renderImportPage();
-    const table = await screen.findByRole('table', { name: 'Column reference' });
-    expect(within(table).getByText('student_name')).toBeTruthy();
-    expect(within(table).getByText(/Bangladeshi mobile number/)).toBeTruthy();
-    expect(within(table).getAllByText('Required')).toHaveLength(5);
+    const toggle = await screen.findByText('What goes in each column');
+    const details = toggle.closest('details')!;
+    expect(details.open).toBe(false);
+    const rows = within(details).getAllByRole('listitem');
+    expect(rows).toHaveLength(13);
+    expect(within(details).getByText('Student name')).toBeTruthy();
+    expect(within(details).getByText('student_name')).toBeTruthy();
+    expect(within(details).getByText(/Bangladeshi mobile number/)).toBeTruthy();
+    expect(within(details).getAllByText('Required')).toHaveLength(5);
   });
 
   it('rejects a file over 5 MB client-side and fires no validate request', async () => {
@@ -187,12 +202,16 @@ describe('/students/import', () => {
     await screen.findByText(`${formatNumber(1, REGION_BD_BN)} student will be created.`);
     const previewTable = await screen.findByRole('table', { name: /First [\d০-৯]+ rows?/ });
     expect(within(previewTable).getByText('Karim Rahman')).toBeTruthy();
+    // Phones go through formatPhone, never the raw international form.
+    expect(within(previewTable).queryByText('+8801711111111')).toBeNull();
 
     // The row error surfaces through the shared BulkImportErrorTable.
     expect(await screen.findByText('০১৭১২৩৪৫৬৭')).toBeTruthy();
 
-    const confirmButton = screen.getByRole('button', { name: 'Confirm' });
+    // The primary lives in the footer, disabled while a hard error stands.
+    const confirmButton = screen.getByRole('button', { name: /^Import .+ student/ });
     expect(confirmButton.hasAttribute('disabled')).toBe(true);
+    expect(screen.queryByRole('button', { name: 'Confirm' })).toBeNull();
   });
 
   it('does not create any student until Confirm is clicked, then shows the done summary', async () => {
@@ -221,12 +240,16 @@ describe('/students/import', () => {
     expect(commitCalled).toBe(false);
 
     const user = userEvent.setup();
-    await user.click(screen.getByRole('button', { name: 'Confirm' }));
+    const importButton = screen.getByRole('button', { name: /^Import .+ students$/ });
+    expect(importButton.hasAttribute('disabled')).toBe(false);
+    await user.click(importButton);
 
     await screen.findByText(`All ${formatNumber(3, REGION_BD_BN)} students were imported.`);
     expect(commitCalled).toBe(true);
     // The invite-guardians checkbox only appears once students exist.
     expect(screen.getByLabelText("Invite the imported students' guardians now")).toBeTruthy();
+    // The footer primary turns into the way back to the list.
+    expect(screen.getByRole('button', { name: 'Go to the student list' })).toBeTruthy();
   });
 
   it('surfaces a whole-request 400 from validate as a failed state', async () => {

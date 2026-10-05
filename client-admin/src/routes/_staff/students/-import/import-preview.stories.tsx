@@ -2,7 +2,7 @@ import type { PreviewResult } from '@biddaloy/ui/hooks';
 import type { BulkUploadResult, StudentUploadSummary } from '@biddaloy/ui/hooks';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
-import { ImportDoneSummary, ImportPreviewSummary } from '../import';
+import { ImportDoneSummary, ImportPreviewCard, ImportPreviewSummary } from '../import';
 
 /**
  * [14.9.2]'s two page-level states for `/students/import`: the preview an
@@ -91,6 +91,12 @@ export const PreviewWithErrors: PreviewStory = {
 };
 
 export const PreviewClean: PreviewStory = {
+  args: { result: previewResult() },
+};
+
+/** The sibling preview card the page renders under the upload card. */
+export const PreviewTable: StoryObj<typeof ImportPreviewCard> = {
+  render: (args) => <ImportPreviewCard {...args} />,
   args: { result: previewResult() },
 };
 
