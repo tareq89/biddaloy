@@ -115,11 +115,17 @@ describe('/academics/homework/import', () => {
     await uploadFile(makeFile('homework.csv'));
 
     await screen.findByText(`${formatNumber(2, REGION_BD_BN)} homework will be created.`);
-    expect(await screen.findByText('Mathematics')).toBeTruthy();
+    expect(await screen.findByText('Class 5 · A · Mathematics')).toBeTruthy();
     expect(commitCalled).toBe(false);
 
+    // Long dates, never the raw ISO string.
+    expect(screen.queryByText('2026-10-01')).toBeNull();
+    expect(screen.getAllByText(/2026/).length).toBeGreaterThan(0);
+
     const user = userEvent.setup();
-    await user.click(screen.getByRole('button', { name: 'Confirm' }));
+    await user.click(
+      screen.getByRole('button', { name: `Import ${formatNumber(2, REGION_BD_BN)} homework` }),
+    );
 
     await screen.findByText(`${formatNumber(2, REGION_BD_BN)} homework created.`);
     expect(commitCalled).toBe(true);
@@ -164,9 +170,22 @@ describe('/academics/homework/import', () => {
     await screen.findByText(`${formatNumber(1, REGION_BD_BN)} homework will be created.`);
     expect(await screen.findByText('due_date must be a valid date (YYYY-MM-DD)')).toBeTruthy();
 
-    const confirmButton = screen.getByRole('button', { name: 'Confirm' });
+    const confirmButton = screen.getByRole('button', {
+      name: `Import ${formatNumber(1, REGION_BD_BN)} homework`,
+    });
     expect(confirmButton.hasAttribute('disabled')).toBe(true);
     expect(commitCalled).toBe(false);
+  });
+
+  it('keeps the column guide closed until its summary is clicked', async () => {
+    renderImportPage();
+    const summary = await screen.findByText('Column reference');
+    const details = summary.closest('details') as HTMLDetailsElement;
+    expect(details.open).toBe(false);
+
+    const user = userEvent.setup();
+    await user.click(summary);
+    expect(details.open).toBe(true);
   });
 
   it('offers a downloadable template with the expected header row', async () => {

@@ -1,5 +1,13 @@
 import { captureNotificationTenant, notifyOutcome } from '@biddaloy/ui/api';
-import { Button, BulkUploadPreview, RoutePending } from '@biddaloy/ui/components';
+import {
+  Button,
+  BulkUploadPreview,
+  Card,
+  ConfirmDialog,
+  RoutePending,
+  StatusBadge,
+  type BulkUploadPreviewController,
+} from '@biddaloy/ui/components';
 import {
   useCommitHomeworkUpload,
   useValidateHomeworkUpload,
@@ -7,9 +15,16 @@ import {
   type HomeworkUploadSummary,
 } from '@biddaloy/ui/hooks';
 import type { PreviewResult } from '@biddaloy/ui/hooks';
-import { RegionConfigProvider, useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
-import { downloadCsv } from '@biddaloy/ui/utils';
-import { createFileRoute, Link } from '@tanstack/react-router';
+import {
+  RegionConfigProvider,
+  useRegionConfig,
+  useTenantRegionConfig,
+  useTranslation,
+} from '@biddaloy/ui/i18n';
+import { FullPageShell, useCloseFullPage } from '@biddaloy/ui/shells';
+import { downloadCsv, formatDate, formatDateRange, formatNumber } from '@biddaloy/ui/utils';
+import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import { ChevronDown, Download, RotateCcw } from 'lucide-react';
 import * as React from 'react';
 
 import { loadRouteNamespaces } from '../../../../route-loaders';
@@ -116,105 +131,187 @@ function ImportHomeworkContent() {
     [commitAsync, t],
   );
 
+  const { t: tCommon } = useTranslation('common');
+  const regionConfig = useRegionConfig();
+  const navigate = useNavigate();
+  const close = useCloseFullPage(() => void navigate({ to: '/academics/homework' }));
+  const [controller, setController] = React.useState<
+    BulkUploadPreviewController<HomeworkUploadSummary, HomeworkUploadResult> | undefined
+  >(undefined);
+  const [discardOpen, setDiscardOpen] = React.useState(false);
+
+  const status = controller?.status ?? 'idle';
+  const dirty = status === 'preview' || status === 'committing';
+  const backToList = () => void navigate({ to: '/academics/homework' });
+
+  const primary =
+    status === 'done'
+      ? { label: t('import.result.backToList'), onClick: backToList }
+      : status === 'preview' || status === 'committing'
+        ? {
+            label: t('import.confirm', {
+              count: controller?.result?.summary.rows_to_create ?? 0,
+              n: formatNumber(controller?.result?.summary.rows_to_create ?? 0, regionConfig),
+            }),
+            onClick: () => controller?.confirm(),
+            busy: status === 'committing',
+            disabled: controller?.confirmDisabled ?? true,
+          }
+        : { label: t('import.confirmIdle'), onClick: () => undefined, disabled: true };
+
   return (
-    <div className="mx-auto flex max-w-4xl flex-col gap-6">
-      <h1 className="text-lg font-semibold">{t('import.title')}</h1>
+    <>
+      <FullPageShell
+        title={t('import.title')}
+        size="wide"
+        dirty={dirty}
+        onClose={close}
+        secondary={{
+          label: status === 'done' ? tCommon('actions.close') : tCommon('actions.cancel'),
+          // The footer's secondary bypasses the shell's dirty check.
+          onClick: () => {
+            if (status === 'committing') return;
+            if (dirty) setDiscardOpen(true);
+            else close();
+          },
+        }}
+        primary={primary}
+      >
+        <div className="flex flex-col gap-6">
+          <Card padded aria-labelledby="import-template-heading">
+            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between md:gap-6">
+              <div>
+                <h2 id="import-template-heading" className="text-h2">
+                  {t('import.template.title')}
+                </h2>
+                <p className="mt-1 text-text-secondary">{t('import.template.explanation')}</p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full md:w-auto"
+                onClick={downloadTemplate}
+              >
+                <Download aria-hidden="true" />
+                {t('import.template.download')}
+              </Button>
+            </div>
+            <details className="group mt-4 border-t border-border-subtle pt-2">
+              <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 rounded-md font-medium md:min-h-8">
+                {t('import.reference.caption')}
+                <span className="flex items-center gap-2 text-text-secondary">
+                  {t('import.reference.count', {
+                    count: TEMPLATE_HEADERS.length,
+                    n: formatNumber(TEMPLATE_HEADERS.length, regionConfig),
+                  })}
+                  <ChevronDown className="size-4 group-open:rotate-180" aria-hidden="true" />
+                </span>
+              </summary>
+              <ul className="divide-y divide-border-subtle">
+                {TEMPLATE_HEADERS.map((header) => (
+                  <li
+                    key={header}
+                    className="flex flex-col gap-1 py-3 md:grid md:grid-cols-12 md:items-start md:gap-4"
+                  >
+                    <div className="flex items-center gap-2 md:col-span-4">
+                      <span className="font-medium">{t(`import.reference.labels.${header}`)}</span>
+                      {REQUIRED_COLUMNS.has(header) ? (
+                        <StatusBadge tone="warning" label={t('import.reference.requiredYes')} />
+                      ) : (
+                        <StatusBadge tone="neutral" label={t('import.reference.requiredNo')} />
+                      )}
+                    </div>
+                    <div className="flex flex-col gap-0.5 md:col-span-8">
+                      <span>{t(`import.reference.columns.${header}`)}</span>
+                      <span className="text-caption text-text-secondary">
+                        {t('import.reference.headerName')}{' '}
+                        <code className="rounded-sm bg-muted px-1 font-mono">{header}</code>
+                      </span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          </Card>
 
-      <section aria-labelledby="import-template-heading" className="flex flex-col gap-2">
-        <h2 id="import-template-heading" className="text-base font-semibold">
-          {t('import.template.title')}
-        </h2>
-        <p className="text-sm text-muted-foreground">{t('import.template.explanation')}</p>
-        <div>
-          <Button type="button" variant="outline" onClick={downloadTemplate}>
-            {t('import.template.download')}
-          </Button>
-        </div>
-        <div className="mt-2 w-full overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <caption className="mb-1 text-left text-sm font-medium">
-              {t('import.reference.caption')}
-            </caption>
-            <thead>
-              <tr className="border-b border-border-subtle">
-                <th scope="col" className="py-1 pr-4 font-medium">
-                  {t('import.reference.column')}
-                </th>
-                <th scope="col" className="py-1 pr-4 font-medium">
-                  {t('import.reference.required')}
-                </th>
-                <th scope="col" className="py-1 font-medium">
-                  {t('import.reference.format')}
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {TEMPLATE_HEADERS.map((header) => (
-                <tr key={header} className="border-b border-border-subtle">
-                  <td className="py-1 pr-4 font-mono text-xs break-all">{header}</td>
-                  <td className="py-1 pr-4">
-                    {REQUIRED_COLUMNS.has(header)
-                      ? t('import.reference.requiredYes')
-                      : t('import.reference.requiredNo')}
-                  </td>
-                  <td className="py-1">{t(`import.reference.columns.${header}`)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
+          <Card padded aria-labelledby="import-upload-heading">
+            <h2 id="import-upload-heading" className="text-h2">
+              {t('import.upload.title')}
+            </h2>
+            <p className="mt-1 mb-4 text-text-secondary">{t('import.upload.explanation')}</p>
 
-      <section aria-labelledby="import-upload-heading" className="flex flex-col gap-2">
-        <h2 id="import-upload-heading" className="text-base font-semibold">
-          {t('import.upload.title')}
-        </h2>
-        <p className="text-sm text-muted-foreground">{t('import.upload.explanation')}</p>
+            <BulkUploadPreview<HomeworkUploadSummary, HomeworkUploadResult>
+              accept=".csv,.xlsx"
+              maxFileSize={MAX_FILE_SIZE}
+              validate={validate}
+              commit={commit}
+              hideConfirm
+              onControllerChange={setController}
+              renderSummary={() => null}
+              renderDone={() => null}
+            />
+          </Card>
 
-        <BulkUploadPreview<HomeworkUploadSummary, HomeworkUploadResult>
-          accept=".csv,.xlsx"
-          maxFileSize={MAX_FILE_SIZE}
-          validate={validate}
-          commit={commit}
-          renderSummary={(result) => <ImportPreviewSummary result={result} />}
-          renderDone={(result, reset) => (
-            <ImportDoneSummary result={result} onImportAnother={reset} />
+          {controller?.status === 'preview' || controller?.status === 'committing'
+            ? controller.result && <ImportPreviewSummary result={controller.result} />
+            : null}
+          {controller?.status === 'done' && controller.commitResult && (
+            <ImportDoneSummary
+              result={controller.commitResult}
+              onImportAnother={controller.reset}
+            />
           )}
-        />
-      </section>
-    </div>
+        </div>
+      </FullPageShell>
+      <ConfirmDialog
+        open={discardOpen}
+        onOpenChange={setDiscardOpen}
+        title={tCommon('fullPage.discardTitle')}
+        description={tCommon('fullPage.discardDescription')}
+        confirmLabel={tCommon('fullPage.discardConfirm')}
+        cancelLabel={tCommon('fullPage.keepEditing')}
+        onConfirm={close}
+      />
+    </>
   );
 }
 
 function ImportPreviewSummary({ result }: { result: PreviewResult<HomeworkUploadSummary> }) {
   const { t } = useTranslation('homework');
+  const regionConfig = useRegionConfig();
   const previewRows = result.summary.preview.slice(0, PREVIEW_ROW_LIMIT);
+  const toCreate = result.summary.rows_to_create;
   return (
-    <div className="flex flex-col gap-2">
-      <p className="text-sm font-medium">
-        {t('import.preview.willCreate', { count: result.summary.rows_to_create })}
-      </p>
+    <Card aria-labelledby="import-preview-heading" className="overflow-hidden">
+      <div className="flex flex-col gap-2 px-4 pt-4 md:px-5">
+        <h2 id="import-preview-heading" className="text-h2">
+          {t('import.preview.title')}
+        </h2>
+        <p className="text-text-secondary">
+          {t('import.preview.subtitle', {
+            count: previewRows.length,
+            n: formatNumber(previewRows.length, regionConfig),
+          })}
+        </p>
+        <p className="flex flex-wrap items-center gap-2 font-medium">
+          {result.hard_error_count === 0 && (
+            <StatusBadge tone="success" label={t('import.preview.noProblems')} />
+          )}
+          {t('import.preview.willCreate', { count: toCreate })}
+        </p>
+      </div>
       {previewRows.length > 0 && (
-        <div className="w-full overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <caption className="mb-1 text-left text-sm font-medium">
-              {t('import.preview.previewCaption', { count: previewRows.length })}
-            </caption>
+        <div className="mt-3 w-full overflow-x-auto">
+          <table className="w-full text-left">
             <thead>
-              <tr className="border-b border-border-subtle">
-                <th scope="col" className="py-1 pr-4 font-medium">
-                  {t('import.preview.columns.class')}
+              <tr className="border-y border-border-subtle text-text-secondary">
+                <th scope="col" className="px-4 py-2 font-medium md:px-5">
+                  {t('import.preview.columns.where')}
                 </th>
-                <th scope="col" className="py-1 pr-4 font-medium">
-                  {t('import.preview.columns.section')}
-                </th>
-                <th scope="col" className="py-1 pr-4 font-medium">
-                  {t('import.preview.columns.subject')}
-                </th>
-                <th scope="col" className="py-1 pr-4 font-medium">
+                <th scope="col" className="hidden px-4 py-2 font-medium md:table-cell">
                   {t('import.preview.columns.assignedDate')}
                 </th>
-                <th scope="col" className="py-1 font-medium">
+                <th scope="col" className="hidden px-4 py-2 font-medium md:table-cell">
                   {t('import.preview.columns.dueDate')}
                 </th>
               </tr>
@@ -222,18 +319,33 @@ function ImportPreviewSummary({ result }: { result: PreviewResult<HomeworkUpload
             <tbody>
               {previewRows.map((row) => (
                 <tr key={row.row} className="border-b border-border-subtle">
-                  <td className="py-1 pr-4">{row.class}</td>
-                  <td className="py-1 pr-4">{row.section}</td>
-                  <td className="py-1 pr-4">{row.subject}</td>
-                  <td className="py-1 pr-4">{row.assigned_date}</td>
-                  <td className="py-1">{row.due_date}</td>
+                  <td className="px-4 py-2 md:px-5">
+                    <span className="font-medium">
+                      {row.class} · {row.section} · {row.subject}
+                    </span>
+                    <span className="block text-caption text-text-secondary md:hidden">
+                      {formatDateRange(row.assigned_date, row.due_date, regionConfig)}
+                    </span>
+                  </td>
+                  <td className="hidden px-4 py-2 md:table-cell">
+                    {formatDate(row.assigned_date, regionConfig)}
+                  </td>
+                  <td className="hidden px-4 py-2 md:table-cell">
+                    {formatDate(row.due_date, regionConfig)}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       )}
-    </div>
+      <p className="border-t border-border-subtle px-4 py-3 text-text-secondary md:px-5">
+        {t('import.preview.shown', {
+          shown: formatNumber(previewRows.length, regionConfig),
+          total: formatNumber(toCreate, regionConfig),
+        })}
+      </p>
+    </Card>
   );
 }
 
@@ -269,32 +381,32 @@ function ImportDoneSummary({
   }, []);
 
   return (
-    <section aria-labelledby="import-result-heading" className="flex flex-col gap-3">
-      <h2 id="import-result-heading" className="text-base font-semibold">
+    <Card padded aria-labelledby="import-result-heading" className="flex flex-col gap-3">
+      <h2 id="import-result-heading" className="text-h2">
         {t('import.result.title')}
       </h2>
-      {result.error_count === 0 ? (
-        <p className="rounded-md border border-border-subtle bg-muted p-3 text-sm">
-          {t('import.result.created', { count: result.success_count })}
-        </p>
-      ) : (
-        <p className="rounded-md border border-border-subtle bg-muted p-3 text-sm">
-          {t('import.result.partialSummary', {
-            success: result.success_count,
-            total: result.total_rows,
-            errors: result.error_count,
-          })}
-        </p>
-      )}
-      <div className="flex items-center gap-2">
-        <Button type="button" variant="outline" onClick={onImportAnother}>
+      <p className="flex flex-wrap items-center gap-2">
+        <StatusBadge
+          tone={result.error_count > 0 ? 'warning' : 'success'}
+          label={t(
+            result.error_count > 0 ? 'import.result.badgePartial' : 'import.result.badgeDone',
+          )}
+        />
+        {result.error_count === 0
+          ? t('import.result.created', { count: result.success_count })
+          : t('import.result.partialSummary', {
+              success: result.success_count,
+              total: result.total_rows,
+              errors: result.error_count,
+            })}
+      </p>
+      <div>
+        <Button type="button" variant="ghost" onClick={onImportAnother}>
+          <RotateCcw aria-hidden="true" />
           {t('import.result.importAnother')}
         </Button>
-        <Link to="/academics/homework" className="text-sm text-primary underline">
-          {t('import.result.backToList')}
-        </Link>
       </div>
-    </section>
+    </Card>
   );
 }
 
