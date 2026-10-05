@@ -12,6 +12,7 @@
  */
 import {
   Button,
+  ConfirmDialog,
   Dialog,
   DialogClose,
   DialogContent,
@@ -54,6 +55,7 @@ export function AddAdminDialog({ schoolId, open, onOpenChange }: AddAdminDialogP
   const { t } = useTranslation('platform');
   const addAdmin = useAddSchoolAdmin(schoolId);
   const [failed, setFailed] = React.useState(false);
+  const [discarding, setDiscarding] = React.useState(false);
 
   const schema = React.useMemo(
     () =>
@@ -85,10 +87,17 @@ export function AddAdminDialog({ schoolId, open, onOpenChange }: AddAdminDialogP
   });
 
   const pending = addAdmin.isPending;
+  // Read during render so react-hook-form subscribes to dirty state.
+  const dirty = form.formState.isDirty;
 
   function handleOpenChange(next: boolean) {
     // A pending request must not be dismissed from under itself.
     if (!next && pending) return;
+    // Typed values are not dropped silently on Esc / Cancel / X.
+    if (!next && dirty) {
+      setDiscarding(true);
+      return;
+    }
     if (!next) {
       form.reset(EMPTY);
       setFailed(false);
@@ -197,6 +206,21 @@ export function AddAdminDialog({ schoolId, open, onOpenChange }: AddAdminDialogP
           </Button>
         </DialogFooter>
       </DialogContent>
+      <ConfirmDialog
+        open={discarding}
+        onOpenChange={setDiscarding}
+        tone="danger"
+        title={t('schoolDetail.admins.discardTitle')}
+        description={t('schoolDetail.admins.discardDescription')}
+        confirmLabel={t('schoolDetail.admins.discardConfirm')}
+        cancelLabel={t('schoolDetail.admins.discardKeep')}
+        onConfirm={() => {
+          setDiscarding(false);
+          form.reset(EMPTY);
+          setFailed(false);
+          onOpenChange(false);
+        }}
+      />
     </Dialog>
   );
 }

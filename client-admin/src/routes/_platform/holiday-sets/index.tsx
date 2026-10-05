@@ -99,7 +99,7 @@ function HolidaySetsListPage() {
           },
         ]}
         tableId="platform-holiday-sets"
-        caption={t('holidaySets.title')}
+        caption={t('holidaySets.tableCaption')}
         columns={columns}
         data={sets}
         getRowId={(row) => row.id}
@@ -196,7 +196,7 @@ function FetchHolidaySetDialog({
         <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
           <DialogHeader>
             <DialogTitle>{t('holidaySets.fetchDialog.title')}</DialogTitle>
-            <DialogDescription>{t('holidaySets.caption')}</DialogDescription>
+            <DialogDescription>{t('holidaySets.fetchDialog.description')}</DialogDescription>
           </DialogHeader>
 
           <div className="grid gap-1.5">

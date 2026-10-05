@@ -74,7 +74,7 @@ export function AdminsCard({ schoolId, admins, loading, error, onRetry, onAdd }:
       ) : (
         <DataTable
           tableId="platform-school-admins"
-          caption={t('schoolDetail.admins.title')}
+          caption={t('schoolDetail.admins.tableCaption')}
           columns={columns}
           data={admins}
           getRowId={(row) => row.user_id}

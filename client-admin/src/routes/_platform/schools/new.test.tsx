@@ -1,9 +1,10 @@
 import { UserRole } from '@biddaloy/shared';
+import { toast } from '@biddaloy/ui/components';
 import { cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { routeTree } from '../../../routeTree.gen';
 
@@ -130,6 +131,7 @@ describe('/schools/new', () => {
 
     expect(await screen.findByRole('heading', { name: 'School created' })).toBeTruthy();
     // The badge carries a translated label, never the raw enum.
+    expect(screen.getByText('Invitation pending')).toBeTruthy();
     expect(screen.queryByText('PENDING')).toBeNull();
     expect(screen.getByRole('button', { name: 'View school' })).toBeTruthy();
   });
@@ -145,5 +147,97 @@ describe('/schools/new', () => {
     await user.click(within(dialog).getByRole('button', { name: /keep editing/i }));
     await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
     expect(screen.getByRole('heading', { name: 'New school', level: 1 })).toBeTruthy();
+  });
+
+  const CREATED = {
+    school: { id: 'school-new', slug: 'ananta-school', status: 'ACTIVE' },
+    admin: { user_id: 'user-1', existed: false },
+    invitation: { id: 'inv-1', status: 'PENDING' },
+  };
+
+  async function fillAdmin(user: ReturnType<typeof userEvent.setup>) {
+    await user.type(screen.getByLabelText(/Admin name/), 'Rahim');
+    await user.type(screen.getByLabelText('Email'), 'rahim@example.com');
+  }
+
+  it('posts name, slug and only the filled contact field, and reuses the idempotency key on retry', async () => {
+    const bodies: Record<string, unknown>[] = [];
+    server.use(
+      http.post('/api/v1/schools', async ({ request }) => {
+        bodies.push((await request.json()) as Record<string, unknown>);
+        return bodies.length === 1
+          ? HttpResponse.json({}, { status: 500 })
+          : HttpResponse.json(CREATED, { status: 201 });
+      }),
+    );
+    const toastSpy = vi.spyOn(toast, 'error').mockImplementation(() => '');
+    const user = userEvent.setup();
+    renderNew();
+    await goToAdminStep(user);
+    await fillAdmin(user);
+    await user.click(screen.getByRole('button', { name: 'Create school' }));
+
+    await waitFor(() =>
+      expect(toastSpy).toHaveBeenCalledWith('The school could not be created. Try again.'),
+    );
+    await user.click(screen.getByRole('button', { name: 'Create school' }));
+    await screen.findByRole('heading', { name: 'School created' });
+
+    expect(bodies).toHaveLength(2);
+    expect(bodies[0]).toMatchObject({
+      name: 'Ananta School',
+      slug: 'ananta-school',
+      admin: { name: 'Rahim', email: 'rahim@example.com' },
+    });
+    expect(bodies[0]?.admin).not.toHaveProperty('phone');
+    expect(typeof bodies[0]?.idempotency_key).toBe('string');
+    expect(bodies[1]?.idempotency_key).toBe(bodies[0]?.idempotency_key);
+  });
+
+  it('Back from the admin step keeps what was typed on both steps', async () => {
+    const user = userEvent.setup();
+    renderNew();
+    await goToAdminStep(user);
+    await user.type(screen.getByLabelText(/Admin name/), 'Rahim');
+
+    await user.click(screen.getByRole('button', { name: 'Back' }));
+    expect(await screen.findByLabelText(/School name/)).toHaveProperty('value', 'Ananta School');
+    await user.click(screen.getByRole('button', { name: 'Next' }));
+    expect(await screen.findByLabelText(/Admin name/)).toHaveProperty('value', 'Rahim');
+  });
+
+  it('Back and Close do nothing while the request is pending', async () => {
+    server.use(
+      http.post('/api/v1/schools', async () => {
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        return HttpResponse.json(CREATED, { status: 201 });
+      }),
+    );
+    const user = userEvent.setup();
+    renderNew();
+    await goToAdminStep(user);
+    await fillAdmin(user);
+    await user.click(screen.getByRole('button', { name: 'Create school' }));
+
+    await user.click(screen.getByRole('button', { name: 'Back' }));
+    expect(screen.getByLabelText(/Admin name/)).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Close' }));
+    const dialog = await screen.findByRole('alertdialog');
+    await user.click(within(dialog).getByRole('button', { name: /discard/i }));
+    expect(screen.getByRole('heading', { name: 'New school', level: 1 })).toBeTruthy();
+
+    await screen.findByRole('heading', { name: 'School created' });
+  });
+
+  it('Cancel then Discard leaves for the schools list', async () => {
+    const user = userEvent.setup();
+    renderNew();
+    await fillSchool(user);
+
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    const dialog = await screen.findByRole('alertdialog');
+    await user.click(within(dialog).getByRole('button', { name: /discard/i }));
+
+    expect(await screen.findByRole('heading', { name: 'Schools', level: 1 })).toBeTruthy();
   });
 });

@@ -22,7 +22,8 @@
       "ACTIVE": "সক্রিয়",
       "SUSPENDED": "স্থগিত"
     },
-    "emptyExplanation": "অন্য নাম বা লিংকের নাম দিয়ে খুঁজে দেখুন।"
+    "emptyExplanation": "অন্য নাম বা লিংকের নাম দিয়ে খুঁজে দেখুন।",
+    "tableCaption": "প্ল্যাটফর্মের সব স্কুলের তালিকা"
   },
   "schoolDetail": {
     "title": "স্কুলের বিবরণ",
@@ -90,7 +91,12 @@
       "resendSuccess": "আমন্ত্রণ আবার পাঠানো হয়েছে।",
       "contactColumn": "ইমেইল বা ফোন",
       "invitationColumn": "আমন্ত্রণ",
-      "nameColumn": "নাম"
+      "nameColumn": "নাম",
+      "tableCaption": "এই স্কুলের অ্যাডমিনদের তালিকা",
+      "discardTitle": "পরিবর্তন বাদ দেবেন?",
+      "discardDescription": "যা লিখেছেন তা সংরক্ষণ হবে না।",
+      "discardConfirm": "বাদ দিন",
+      "discardKeep": "লিখতে থাকুন"
     },
     "smsCredit": {
       "title": "এসএমএস ক্রেডিট",
@@ -128,7 +134,8 @@
     "scheduleWeekly": "সাপ্তাহিক",
     "scheduleDaily": "দৈনিক",
     "emptyMessage": "দেখানোর মতো কোনো স্কুল নেই।",
-    "errorMessage": "ব্যাকআপ স্বাস্থ্য লোড করা যায়নি।"
+    "errorMessage": "ব্যাকআপ স্বাস্থ্য লোড করা যায়নি।",
+    "tableCaption": "স্কুলভিত্তিক ব্যাকআপের অবস্থার তালিকা"
   },
   "createWizard": {
     "schoolStepTitle": "স্কুলের তথ্য",
@@ -183,7 +190,8 @@
       "countryRequiredError": "একটি ২-অক্ষরের দেশ কোড লিখুন।",
       "errorMessage": "কোনো উৎস থেকেই এই তালিকা আনা যায়নি।",
       "countryHelp": "দুই অক্ষরে, যেমন বাংলাদেশ = BD",
-      "yearError": "২০০০ থেকে ২১০০-এর মধ্যে একটি বছর দিন।"
+      "yearError": "২০০০ থেকে ২১০০-এর মধ্যে একটি বছর দিন।",
+      "description": "কোন দেশের কোন বছরের সরকারি ছুটি আনতে চান তা দিন।"
     },
     "detail": {
       "back": "ছুটির তালিকায় ফিরে যান",
@@ -243,6 +251,7 @@
     "entryCount_one": "{{count}}টি",
     "entryCount_other": "{{count}}টি",
     "editAction": "{{name}} সম্পাদনা করুন",
-    "emptyTitle": "এখনো কোনো ছুটির তালিকা নেই"
+    "emptyTitle": "এখনো কোনো ছুটির তালিকা নেই",
+    "tableCaption": "ছুটির তালিকার সারণি"
   }
 }

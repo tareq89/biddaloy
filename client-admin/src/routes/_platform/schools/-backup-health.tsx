@@ -105,7 +105,7 @@ export function BackupHealthTable({ rows, loading, isFetching, error }: BackupHe
   return (
     <DataTable
       tableId="platform-backup-health"
-      caption={t('backupHealth.caption')}
+      caption={t('backupHealth.tableCaption')}
       columns={columns}
       data={rows}
       getRowId={(row) => row.school_id}
