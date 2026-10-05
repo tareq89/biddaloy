@@ -20,13 +20,7 @@ const meta: Meta<typeof CreateSchoolWizard> = {
     adminDefaults: { name: '', email: '', phone: '' },
     submitting: false,
     onSchoolNext: () => {},
-    onAdminBack: () => {},
     onAdminSubmit: () => {},
-    renderDetailLink: (schoolId: string) => (
-      <a className="font-medium text-primary underline" href={`/schools/${schoolId}`}>
-        {schoolId}
-      </a>
-    ),
   },
 };
 export default meta;
