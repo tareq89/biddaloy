@@ -129,7 +129,10 @@ function HomeworkDetailPage() {
               id: 'assign',
               label: t('detail.assignAgain'),
               icon: <Send />,
-              onClick: () => setAssignOpen(true),
+              onClick: () => {
+                assignHomework.reset();
+                setAssignOpen(true);
+              },
               allowed: canAssign,
               priority: 'primary',
             },
@@ -153,7 +156,9 @@ function HomeworkDetailPage() {
           <Dialog
             open={assignOpen}
             onOpenChange={(open) => {
-              if (!assignHomework.isPending) setAssignOpen(open);
+              if (assignHomework.isPending) return;
+              assignHomework.reset();
+              setAssignOpen(open);
             }}
           >
             <DialogContent size="md" closeLabel={tCommon('actions.close')}>
