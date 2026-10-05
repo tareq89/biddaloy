@@ -89,4 +89,26 @@ describe('EmailSection', () => {
 
     await waitFor(() => expect(details.open).toBe(true));
   });
+
+  it('accepts a port typed in Bangla digits', async () => {
+    const testBody = vi.fn();
+    server.use(
+      http.post('/api/v1/schools/:id/settings/test', async ({ request }) => {
+        testBody(await request.json());
+        return HttpResponse.json({ success: true, message: 'ok' });
+      }),
+    );
+    const { user } = renderWithProviders(
+      <EmailSection schoolId={SCHOOL_ID} email={CONFIGURED_EMAIL} />,
+      { locale: 'en', role: 'ADMIN', tenantId: SCHOOL_ID },
+    );
+
+    const port = await screen.findByLabelText('Port');
+    await user.clear(port);
+    await user.type(port, '৪৬৫');
+    await user.click(screen.getByRole('button', { name: 'Test connection' }));
+
+    await waitFor(() => expect(testBody).toHaveBeenCalled());
+    expect(testBody.mock.calls[0]![0].config.port).toBe(465);
+  });
 });

@@ -28,9 +28,8 @@ import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
-import { MutationErrorMessage } from '../../components/MutationErrorMessage';
-
 import { SettingsSaved, SettingsSection } from './settings-layout';
+import { SettingsMutationError } from './settings-mutation-error';
 
 const LOGO_MAX_BYTES = 512 * 1024;
 const LOGO_ACCEPT = 'image/png,image/jpeg,image/webp';
@@ -132,7 +131,9 @@ export function SchoolProfileSection() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profileQuery.data]);
 
-  useWarnUnsavedChanges(form.formState.isDirty && !form.formState.isSubmitSuccessful);
+  // `isDirty` alone: `.mutate()` is not awaited, so `isSubmitSuccessful` would silence the
+  // warning after a failed save. `onSuccess` resets the form, which clears `isDirty`.
+  useWarnUnsavedChanges(form.formState.isDirty);
 
   function handleSave(values: ProfileFormValues) {
     updateProfile.mutate(
@@ -257,7 +258,7 @@ export function SchoolProfileSection() {
         footerStart={
           <>
             {updateProfile.isSuccess && <SettingsSaved />}
-            {updateProfile.isError && <MutationErrorMessage error={updateProfile.error} />}
+            {updateProfile.isError && <SettingsMutationError error={updateProfile.error} />}
           </>
         }
       >

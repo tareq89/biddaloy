@@ -235,6 +235,26 @@ describe('PrintersSection', () => {
     expect(screen.getAllByRole('button', { name: 'Add printer' })).toHaveLength(1);
   });
 
+  it('keeps the measurements open after the error that opened them is fixed', async () => {
+    listPrinters([]);
+    const { user } = render();
+    await waitFor(() => expect(screen.getByText('Add your first printer')).toBeTruthy());
+
+    await user.click(screen.getByRole('button', { name: 'Add printer' }));
+    await user.type(screen.getByLabelText(/^Name/), 'Back office');
+    const x = screen.getByLabelText('Shift left–right (mm)');
+    await user.clear(x);
+    await user.type(x, '11');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    const details = screen.getByText('Measurements (advanced)').closest('details')!;
+    await waitFor(() => expect(details.open).toBe(true));
+
+    await user.clear(x);
+    await user.type(x, '1');
+    await user.tab();
+    expect(details.open).toBe(true);
+  });
+
   it('is hidden without PRINT_TEMPLATE_MANAGE', () => {
     listPrinters([printer()]);
     const { container } = render('ACCOUNTANT');
