@@ -72,7 +72,7 @@ describe('/routines/substitutions', () => {
     expect(screen.getByText(/Covered by Ms Nahar/)).toBeTruthy();
 
     const user = userEvent.setup();
-    const coveringTeacherSelect = screen.getByLabelText(/covering teacher/i);
+    const coveringTeacherSelect = screen.getByLabelText('Substitute teacher');
     await within(coveringTeacherSelect).findByRole('option', { name: 'Ms Nahar' });
     await user.selectOptions(coveringTeacherSelect, TEACHER_1_ID);
 
@@ -96,10 +96,10 @@ describe('/routines/substitutions', () => {
     });
 
     const user = userEvent.setup();
-    await waitFor(() => expect(screen.getByText(/no substitutions/i)).toBeTruthy());
-    const addButtons = screen.getAllByRole('button', { name: /add substitution/i });
+    await waitFor(() => expect(screen.getByText(/no substitute teachers/i)).toBeTruthy());
+    const addButtons = screen.getAllByRole('button', { name: /add substitute teacher/i });
     await user.click(addButtons[0]!);
 
-    expect(screen.getByRole('dialog', { name: /record a substitution/i })).toBeTruthy();
+    expect(screen.getByRole('dialog', { name: /record a substitute teacher/i })).toBeTruthy();
   });
 });

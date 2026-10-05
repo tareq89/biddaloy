@@ -56,6 +56,8 @@ describe('/marks', () => {
       locale: 'en',
     });
 
-    await screen.findByText('No grids for this exam yet — check back once components are set up.');
+    await screen.findByText(
+      'No marks lists for this exam yet — check back once components are set up.',
+    );
   });
 });

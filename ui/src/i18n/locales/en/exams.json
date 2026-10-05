@@ -4,7 +4,7 @@
     "addExam": "Add exam",
     "academicYearLabel": "Academic year",
     "allAcademicYears": "All academic years",
-    "caption": "Exams for the current tenant",
+    "caption": "All exams",
     "columnName": "Name",
     "columnKind": "Kind",
     "columnStatus": "Status",
@@ -70,14 +70,14 @@
   },
   "progressPanel": {
     "loadError": "Couldn't load submission progress.",
-    "submittedOf": "{{submitted}} of {{total}} grids submitted",
+    "submittedOf": "{{submitted}} of {{total}} marks lists submitted",
     "stateFilterLabel": "Filter by state",
     "stateAll": "All",
     "stateDraft": "Draft",
     "stateSubmitted": "Submitted",
     "stateDRAFT": "Draft",
     "stateSUBMITTED": "Submitted",
-    "tableCaption": "Outstanding section-subject grids",
+    "tableCaption": "Outstanding section-subject marks lists",
     "columnSection": "Section · Subject",
     "columnState": "State",
     "empty": "Nothing outstanding for this filter."
@@ -161,15 +161,15 @@
     "stateAll": "All",
     "stateDraft": "Draft",
     "stateSubmitted": "Submitted",
-    "tableCaption": "Grids you may enter",
+    "tableCaption": "Marks lists you may enter",
     "columnSection": "Section · Subject",
     "columnState": "State",
-    "loadError": "Couldn't load grids.",
-    "empty": "No grids for this exam yet — check back once components are set up.",
-    "selectExamHint": "Select an exam to see its grids."
+    "loadError": "Couldn't load marks lists.",
+    "empty": "No marks lists for this exam yet — check back once components are set up.",
+    "selectExamHint": "Select an exam to see its marks lists."
   },
   "marksGrid": {
-    "caption": "Marks entry grid",
+    "caption": "Marks list",
     "columnStudent": "Roll · Name",
     "fullMarks": "/ {{max}}",
     "cellMax": "max {{max}}",
@@ -196,8 +196,8 @@
     "leaveAnyway": "Leave anyway"
   },
   "submitDialog": {
-    "title": "Submit this grid?",
-    "description": "Once submitted, this grid becomes read-only until an admin reopens it.",
+    "title": "Submit this marks list?",
+    "description": "Once submitted, this marks list becomes read-only until an admin reopens it.",
     "blankCount": "{{count}} blank cells will be submitted as-is.",
     "cancel": "Cancel",
     "confirm": "Submit",
@@ -224,8 +224,8 @@
   "processDialog": {
     "title": "Process this exam's results?",
     "description": "Every enrolled student's result is computed from the currently submitted marks.",
-    "outstandingCount": "{{count}} grid(s) are still Draft and haven't been submitted:",
-    "forceWarning": "Processing anyway includes unsubmitted grids as-is. This override is recorded in the audit log.",
+    "outstandingCount": "{{count}} marks list(s) are still Draft and haven't been submitted:",
+    "forceWarning": "Processing anyway includes unsubmitted marks lists as-is. This override is recorded in the audit log.",
     "processAnyway": "Process anyway",
     "confirm": "Process",
     "errorMessage": "Couldn't process this exam."
@@ -238,7 +238,7 @@
   },
   "reopenDialog": {
     "title": "Reopen this exam's results?",
-    "impact": "{{count}} published result(s) will be unpublished and marks become editable again. This needs step-up approval.",
+    "impact": "{{count}} published result(s) will be unpublished and marks become editable again. This needs extra approval.",
     "confirm": "Reopen",
     "errorMessage": "Couldn't reopen this exam."
   },

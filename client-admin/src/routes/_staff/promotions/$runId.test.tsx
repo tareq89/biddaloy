@@ -257,7 +257,7 @@ describe('/promotions/$runId', () => {
     await overrideWithNote(user);
     await user.keyboard('{Control>}{Enter}{/Control}');
     const dialog = await screen.findByRole('dialog');
-    await user.click(within(dialog).getByRole('button', { name: 'Commit' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Finalise' }));
 
     await waitFor(() => expect(record.committed).not.toBeNull());
     expect(record.committed?.[0]).toMatchObject({
@@ -304,7 +304,7 @@ describe('/promotions/$runId', () => {
     await overrideWithNote(user);
     await user.keyboard('{Control>}{Enter}{/Control}');
     const dialog = await screen.findByRole('dialog');
-    await user.click(within(dialog).getByRole('button', { name: 'Commit' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Finalise' }));
 
     await waitFor(() =>
       expect(toastError).toHaveBeenCalledWith('Could not save this change. Please try again.'),
@@ -364,7 +364,7 @@ describe('/promotions/$runId', () => {
     outcomeCell.focus();
     await user.keyboard('{Control>}{Enter}{/Control}');
     const dialog = await screen.findByRole('dialog');
-    await user.click(within(dialog).getByRole('button', { name: 'Commit' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Finalise' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   }
 
@@ -395,7 +395,7 @@ describe('/promotions/$runId', () => {
 
   it('tells the user to start over when commit returns COHORT_CHANGED', async () => {
     await commitAndGetConflict('COHORT_CHANGED');
-    await screen.findByText(/Delete this draft and create a new run/);
+    await screen.findByText(/Delete this draft and create a new list/);
     expect(screen.queryByText('Results changed since this preview — refresh')).toBeNull();
   });
 
@@ -432,7 +432,7 @@ describe('/promotions/$runId', () => {
     expect(screen.queryByRole('button', { name: /Commit/ })).toBeNull();
     const outcomeCell = await screen.findByLabelText('Final');
     expect(outcomeCell.getAttribute('tabindex')).toBe('-1');
-    await screen.findByText(/Committed .* by Admin One, approved by Admin Two/);
+    await screen.findByText(/Finalised .* by Admin One, approved by Admin Two/);
   });
 
   it('Ctrl+Enter does not open the commit dialog on a committed run', async () => {

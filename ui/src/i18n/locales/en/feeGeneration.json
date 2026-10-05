@@ -1,5 +1,5 @@
 {
-  "title": "Generate fees",
+  "title": "Create fee bills",
   "modal": {
     "description": "Pick a period, the students to bill, and the fees to apply.",
     "cancel": "Cancel"
