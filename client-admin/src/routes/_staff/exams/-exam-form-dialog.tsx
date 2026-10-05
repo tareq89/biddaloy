@@ -20,6 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
   Input,
+  Label,
   Select,
   SelectContent,
   SelectItem,
@@ -51,6 +52,22 @@ export interface ExamFormDialogProps {
   onSaved: () => void;
 }
 
+function FieldLabel({
+  required,
+  children,
+  ...props
+}: React.ComponentProps<typeof Label> & { required?: boolean }) {
+  // Asterisk via CSS content: visual only, so the label text stays exactly the field name.
+  return (
+    <Label
+      {...props}
+      className={required ? "after:ms-0.5 after:text-destructive after:content-['*']" : undefined}
+    >
+      {children}
+    </Label>
+  );
+}
+
 const EMPTY_VALUES: ExamFormInitialValues = { name: '', kind: ExamKind.TERM };
 const NO_TEMPLATE = '__none__';
 const EXAM_KINDS = Object.values(ExamKind);
@@ -67,7 +84,7 @@ export function ExamFormDialog({
 }: ExamFormDialogProps) {
   const { t } = useTranslation('exams');
   const { t: tt } = useTranslation('examsTemplateField');
-  const academicYearsQuery = useAcademicYears();
+  const academicYearsQuery = useAcademicYears({ limit: 100 });
   const createExam = useCreateExam();
   const updateExam = useUpdateExam(examId ?? '');
   const mutation = mode === 'create' ? createExam : updateExam;
@@ -86,7 +103,10 @@ export function ExamFormDialog({
   });
   const templates = templatesQuery.data ?? [];
 
-  const classesQuery = useClasses(academicYearId ? { academic_year_id: academicYearId } : {});
+  const classesQuery = useClasses(
+    { academic_year_id: academicYearId },
+    { enabled: !!academicYearId },
+  );
 
   React.useEffect(() => {
     if (!open) return;
@@ -145,7 +165,7 @@ export function ExamFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent size="md">
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <DialogHeader>
             <DialogTitle>{title}</DialogTitle>
@@ -153,11 +173,12 @@ export function ExamFormDialog({
           </DialogHeader>
 
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="exam-form-name" className="text-sm font-medium">
+            <FieldLabel htmlFor="exam-form-name" required>
               {t('examForm.nameLabel')}
-            </label>
+            </FieldLabel>
             <Input
               id="exam-form-name"
+              aria-required
               value={name}
               onChange={(event) => setName(event.target.value)}
               placeholder={t('examForm.namePlaceholder')}
@@ -165,9 +186,9 @@ export function ExamFormDialog({
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium">{t('examForm.kindLabel')}</span>
+            <FieldLabel htmlFor="exam-form-kind">{t('examForm.kindLabel')}</FieldLabel>
             <Select value={kind} onValueChange={(value) => setKind(value as ExamKind)}>
-              <SelectTrigger aria-label={t('examForm.kindLabel')}>
+              <SelectTrigger id="exam-form-kind" className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -183,7 +204,9 @@ export function ExamFormDialog({
           {mode === 'create' && (
             <>
               <div className="flex flex-col gap-1.5">
-                <span className="text-sm font-medium">{t('examForm.academicYearLabel')}</span>
+                <FieldLabel htmlFor="exam-form-year" required>
+                  {t('examForm.academicYearLabel')}
+                </FieldLabel>
                 <Select
                   value={academicYearId}
                   onValueChange={(value) => {
@@ -191,7 +214,7 @@ export function ExamFormDialog({
                     setClassId('');
                   }}
                 >
-                  <SelectTrigger aria-label={t('examForm.academicYearLabel')}>
+                  <SelectTrigger id="exam-form-year" className="w-full">
                     <SelectValue placeholder={t('examForm.academicYearPlaceholder')} />
                   </SelectTrigger>
                   <SelectContent>
@@ -205,10 +228,18 @@ export function ExamFormDialog({
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <span className="text-sm font-medium">{t('examForm.classLabel')}</span>
-                <Select value={classId} onValueChange={setClassId}>
-                  <SelectTrigger aria-label={t('examForm.classLabel')}>
-                    <SelectValue placeholder={t('examForm.classPlaceholder')} />
+                <FieldLabel htmlFor="exam-form-class" required>
+                  {t('examForm.classLabel')}
+                </FieldLabel>
+                <Select value={classId} onValueChange={setClassId} disabled={!academicYearId}>
+                  <SelectTrigger id="exam-form-class" className="w-full">
+                    <SelectValue
+                      placeholder={
+                        academicYearId
+                          ? t('examForm.classPlaceholder')
+                          : t('examForm.classNeedsYear')
+                      }
+                    />
                   </SelectTrigger>
                   <SelectContent>
                     {classesQuery.data?.data.map((cls) => (
@@ -222,9 +253,9 @@ export function ExamFormDialog({
 
               {templates.length > 0 && (
                 <div className="flex flex-col gap-1.5">
-                  <span className="text-sm font-medium">{tt('label')}</span>
+                  <FieldLabel htmlFor="exam-form-template">{tt('label')}</FieldLabel>
                   <Select value={templateId} onValueChange={setTemplateId}>
-                    <SelectTrigger aria-label={tt('label')}>
+                    <SelectTrigger id="exam-form-template" className="w-full">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -248,9 +279,7 @@ export function ExamFormDialog({
           )}
           {mutation.isError && (
             <p role="alert" className="text-sm text-destructive">
-              {mutation.error instanceof Error
-                ? mutation.error.message
-                : t('examForm.errorMessage')}
+              {t('examForm.errorMessage')}
             </p>
           )}
 
