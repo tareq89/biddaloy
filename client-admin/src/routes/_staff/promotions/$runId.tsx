@@ -5,16 +5,12 @@
  * split (same `MOBILE_BREAKPOINT`, same `useIsMobile`) and its
  * `Ctrl+Enter` submit shortcut, adapted to promotions' own columns.
  *
- * Keyboard model: the "final" outcome cell in each row is the one
- * arrow-key-navigable column (`P`/`R`/`G` set the outcome, `ArrowUp`/
- * `ArrowDown` move to the same cell on the next/previous row, `ArrowRight`
- * jumps to that row's group `Select`). The group `Select` and note
- * `<input>` are reached by native `Tab` order instead of custom arrow
- * handling — hijacking arrows inside a text input or an open `Select`
- * would break cursor movement / Radix's own `ArrowDown`-opens-the-list
- * behavior, so only the read-only-ish outcome cell gets the marks-grid
- * treatment. Tab order already visits final → group → note → next row's
- * final, so `P/R/G → note → Ctrl+Enter` is fully mouse-free regardless.
+ * Keyboard model: the "final decision" in each row is a kit `Select`. Its closed trigger
+ * handles `P`/`R`/`G` (set the outcome), `ArrowUp`/`ArrowDown` (same trigger on the
+ * previous/next row) and `ArrowRight` (that row's group `Select`); every other printable key
+ * is swallowed so Radix type-to-search cannot change a decision, while Space/Enter still open
+ * the list. The group `Select` and reason `Input` are reached by `Tab`. Ctrl/Cmd+Enter opens
+ * Finalise from anywhere (not while the delete confirm is open).
  *
  * Each change calls `useUpdatePromotionEntries` — immediately for
  * outcome/group, debounced for the note text (a note is typically
@@ -152,6 +148,9 @@ function PromotionRunPage() {
 
   const noteTimers = React.useRef(new Map<string, ReturnType<typeof setTimeout>>());
   const focusRefs = React.useRef(new Map<string, HTMLElement>());
+  // Radix returns focus to the Select trigger after our effect; this lets the close handler
+  // send it to the reason box instead.
+  const noteFocusPending = React.useRef<string | null>(null);
 
   React.useEffect(
     () => () => {
@@ -178,7 +177,7 @@ function PromotionRunPage() {
   // commit.
   const canCommit = run?.status === 'DRAFT' && canManage;
   React.useEffect(() => {
-    if (typeof window === 'undefined' || !canCommit) return;
+    if (typeof window === 'undefined' || !canCommit || deleteOpen) return;
     function handleKeyDown(event: KeyboardEvent) {
       if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
         event.preventDefault();
@@ -187,7 +186,7 @@ function PromotionRunPage() {
     }
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [canCommit]);
+  }, [canCommit, deleteOpen]);
 
   if (runQuery.isPending) return <Skeleton className="h-64 w-full" />;
   if (runQuery.isError || !run) {
@@ -314,6 +313,7 @@ function PromotionRunPage() {
     if (outcome !== entry.suggested_outcome) {
       // Override: jump focus to this row's note input (D-required note).
       setFocusNoteFor(entry.student_id);
+      noteFocusPending.current = entry.student_id;
     }
   }
 
@@ -406,7 +406,10 @@ function PromotionRunPage() {
     if (key === 'ArrowRight') {
       event.preventDefault();
       focusRefs.current.get(`group:${entry.student_id}`)?.focus();
+      return;
     }
+    // Radix type-to-search would pick the option whose label starts with this letter.
+    if (key.length === 1 && key !== ' ') event.preventDefault();
   }
 
   // Only commit can fail with these codes — the entries PATCH never checks
@@ -460,7 +463,13 @@ function PromotionRunPage() {
       onSuccess: () => void navigate({ to: '/promotions' }),
       onError: (error: unknown) => {
         setDeleteOpen(false);
-        if (!(error instanceof ApiError && error.statusCode === 403)) {
+        if (error instanceof ApiError && error.statusCode === 409) {
+          // Finalised (or otherwise changed) elsewhere: show the current state.
+          toast.error(t('grid.deleteConflict'));
+          void queryClient.invalidateQueries({
+            queryKey: promotionRunQueryOptions(runId).queryKey,
+          });
+        } else if (!(error instanceof ApiError && error.statusCode === 403)) {
           toast.error(t('grid.deleteFailed'));
         }
       },
@@ -707,7 +716,17 @@ function PromotionRunPage() {
                                 >
                                   <SelectValue />
                                 </SelectTrigger>
-                                <SelectContent>
+                                <SelectContent
+                                  onCloseAutoFocus={(event) => {
+                                    if (noteFocusPending.current !== entry.student_id) return;
+                                    noteFocusPending.current = null;
+                                    const note = focusRefs.current.get(`note:${entry.student_id}`);
+                                    if (note) {
+                                      event.preventDefault();
+                                      note.focus();
+                                    }
+                                  }}
+                                >
                                   {(Object.keys(OUTCOME_KEY) as PromotionOutcome[]).map(
                                     (outcome) => (
                                       <SelectItem key={outcome} value={outcome}>

@@ -40,7 +40,9 @@ function Harness({
   hasPlacementErrors = false,
   hasUnnotedOverrides = false,
   config = REGION_BD_EN,
+  onOpenChange = () => {},
 }: {
+  onOpenChange?: (open: boolean) => void;
   hasPlacementErrors?: boolean;
   hasUnnotedOverrides?: boolean;
   config?: RegionConfig;
@@ -49,7 +51,7 @@ function Harness({
   return (
     <CommitDialog
       open
-      onOpenChange={() => {}}
+      onOpenChange={onOpenChange}
       counts={COUNTS}
       config={config}
       hasPlacementErrors={hasPlacementErrors}
@@ -98,10 +100,31 @@ describe('CommitDialog', () => {
   });
 
   it('has an outline Cancel that closes and a Finalise that stays blocked', async () => {
-    await renderWithProviders(<Harness />);
+    const closed: boolean[] = [];
+    await renderWithProviders(<Harness onOpenChange={(open) => closed.push(open)} />);
+    await userEvent.setup().click(await screen.findByRole('button', { name: 'Cancel' }));
+    expect(closed).toEqual([false]);
+  });
+
+  it('cannot be dismissed while the commit is pending', async () => {
+    const closed: boolean[] = [];
+    await renderWithProviders(
+      <CommitDialog
+        open
+        onOpenChange={(open) => closed.push(open)}
+        counts={COUNTS}
+        config={REGION_BD_EN}
+        hasPlacementErrors={false}
+        hasUnnotedOverrides={false}
+        confirming
+        onConfirm={() => {}}
+      />,
+    );
     const cancel = await screen.findByRole('button', { name: 'Cancel' });
-    expect(cancel.className).toContain('border');
-    expect(screen.getByRole('button', { name: 'Finalise' })).toBeTruthy();
+    expect(cancel.hasAttribute('disabled')).toBe(true);
+    await userEvent.setup().keyboard('{Escape}');
+    expect(closed).toEqual([]);
+    expect(screen.getByRole('dialog')).toBeTruthy();
   });
 
   it('disables Commit while a row has a placement error', async () => {
