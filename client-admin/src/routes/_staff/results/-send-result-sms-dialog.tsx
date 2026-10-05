@@ -23,7 +23,9 @@ import {
   DialogFooter,
 } from '@biddaloy/ui/components';
 import { useSendResultSms } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { formatNumber } from '@biddaloy/ui/utils';
+import { CircleAlertIcon, CircleCheckIcon } from 'lucide-react';
 
 export interface SendResultSmsDialogProps {
   open: boolean;
@@ -41,6 +43,8 @@ export function SendResultSmsDialog({
   resultCount,
 }: SendResultSmsDialogProps) {
   const { t } = useTranslation('exams');
+  const { t: tg } = useTranslation('grading');
+  const config = useRegionConfig();
   const sendSms = useSendResultSms(examId);
   const isPublished = examStatus === 'PUBLISHED';
 
@@ -52,23 +56,25 @@ export function SendResultSmsDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent>
+      <DialogContent size="sm" closeLabel={t('actions.close', { ns: 'common' })}>
         <DialogHeader>
           <DialogTitle>{t('smsDialog.title')}</DialogTitle>
           <DialogDescription>
             {isPublished
-              ? t('smsDialog.description', { count: resultCount })
+              ? tg('resultsPage.smsDescription', { n: formatNumber(resultCount, config) })
               : t('smsDialog.disabledUnpublished')}
           </DialogDescription>
         </DialogHeader>
 
         {isPublished && sendSms.isSuccess && (
-          <p className="text-sm text-muted-foreground">
-            {t('smsDialog.queued', { count: sendSms.data.queued })}
+          <p className="flex items-center gap-1.5 text-text-secondary">
+            <CircleCheckIcon aria-hidden="true" className="size-4 text-status-paid-fg" />
+            {tg('resultsPage.smsQueued', { n: formatNumber(sendSms.data.queued, config) })}
           </p>
         )}
         {sendSms.isError && (
-          <p role="alert" className="text-sm text-destructive">
+          <p role="alert" className="flex items-center gap-1 text-caption text-destructive">
+            <CircleAlertIcon aria-hidden="true" className="size-3.5" />
             {t('smsDialog.errorMessage')}
           </p>
         )}

@@ -7,8 +7,9 @@
  */
 import { setActiveRole, setActiveTenant } from '@biddaloy/ui/api';
 import { ApprovalModalHostProvider } from '@biddaloy/ui/hooks';
-import { I18nProvider, i18n } from '@biddaloy/ui/i18n';
+import { I18nProvider, REGION_BD_BN, i18n } from '@biddaloy/ui/i18n';
 import { apiErrorBody, cleanupTestState, createTestQueryClient, server } from '@biddaloy/ui/test';
+import { formatNumber } from '@biddaloy/ui/utils';
 import { QueryClientProvider } from '@tanstack/react-query';
 import {
   createMemoryHistory,
@@ -62,7 +63,9 @@ describe('PublishDialog', () => {
     );
 
     expect(
-      await screen.findByText('42 student result(s) become visible to guardians.'),
+      await screen.findByText(
+        `${formatNumber(42, REGION_BD_BN)} student result(s) become visible to guardians.`,
+      ),
     ).toBeTruthy();
   });
 
@@ -169,7 +172,7 @@ describe('ReopenPreviewDialog', () => {
 
     expect(
       await screen.findByText(
-        '12 published result(s) will be unpublished and marks become editable again. This needs extra approval.',
+        `${formatNumber(12, REGION_BD_BN)} published result(s) will be unpublished and marks become editable again. This needs extra approval.`,
       ),
     ).toBeTruthy();
     // The approval modal's own field must NOT be on screen yet — it only
@@ -207,7 +210,7 @@ describe('ReopenPreviewDialog', () => {
 
     // Preview visible before the first click.
     await screen.findByText(
-      '12 published result(s) will be unpublished and marks become editable again. This needs extra approval.',
+      `${formatNumber(12, REGION_BD_BN)} published result(s) will be unpublished and marks become editable again. This needs extra approval.`,
     );
     expect(screen.queryByLabelText('Email or phone')).toBeNull();
 

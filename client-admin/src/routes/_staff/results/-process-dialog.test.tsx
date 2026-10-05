@@ -54,7 +54,8 @@ describe('ProcessDialog', () => {
 
     await renderDialog();
 
-    expect(await screen.findByText('Section A')).toBeTruthy();
+    expect(await screen.findByText(/Section A/)).toBeTruthy();
+    expect(screen.getByRole('alert').textContent).toContain('recorded in the audit log');
     expect(
       screen.getByText(
         'Processing anyway includes unsubmitted marks lists as-is. This override is recorded in the audit log.',
