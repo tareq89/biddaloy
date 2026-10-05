@@ -243,6 +243,90 @@ describe('AttendanceSummaryService (integration)', () => {
     });
   });
 
+  describe('period registers are ignored (D1)', () => {
+    const DATE = '2026-10-06';
+    /** Day register `dayStatus` plus three period registers, all ABSENT. */
+    async function seed(roll: number, dayStatus: AttendanceStatus): Promise<string> {
+      const studentId = await makeStudent(roll);
+      await markDay(studentId, DATE, dayStatus);
+      for (const periodNo of [1, 2, 3]) {
+        const sessionRepo = dataSource.getRepository(AttendanceSession);
+        const where = {
+          tenant_id: TENANT_ID,
+          section_id: sectionId,
+          date: DATE,
+          period_no: periodNo,
+        };
+        const session =
+          (await sessionRepo.findOne({ where })) ??
+          (await sessionRepo.save({
+            tenant_id: TENANT_ID,
+            section_id: sectionId,
+            date: DATE,
+            period_no: periodNo,
+            state: AttendanceSessionState.FINALIZED,
+          }));
+        await dataSource.getRepository(AttendanceRecord).save({
+          tenant_id: TENANT_ID,
+          session_id: session.id,
+          student_id: studentId,
+          date: DATE,
+          status: AttendanceStatus.ABSENT,
+        });
+      }
+      return studentId;
+    }
+
+    it('getStudentSummary counts one day, percentage <= 100', async () => {
+      const studentId = await seed(400, AttendanceStatus.PRESENT);
+      const summary = await service.getStudentSummary({
+        tenantId: TENANT_ID,
+        studentId,
+        from: DATE,
+        to: DATE,
+      });
+      expect(summary.present_days).toBe(1);
+      expect(summary.absent_days).toBe(0);
+      expect(summary.marked_days).toBe(1);
+      expect(summary.attendance_percentage).toBeLessThanOrEqual(100);
+    });
+
+    it('getStudentDays returns the day register status', async () => {
+      const studentId = await seed(401, AttendanceStatus.PRESENT);
+      const days = await service.getStudentDays({
+        tenantId: TENANT_ID,
+        studentId,
+        from: DATE,
+        to: DATE,
+      });
+      expect(days).toHaveLength(1);
+      expect(days[0].status).toBe(AttendanceStatus.PRESENT);
+    });
+
+    it('getSectionRegisterMatrix shows the day register status in the cell', async () => {
+      const studentId = await seed(402, AttendanceStatus.PRESENT);
+      const matrix = await service.getSectionRegisterMatrix({
+        tenantId: TENANT_ID,
+        sectionId,
+        from: DATE,
+        to: DATE,
+      });
+      const row = matrix.rows.find((r) => r.student_id === studentId)!;
+      expect(row.marks[DATE]).toBe(AttendanceStatus.PRESENT);
+    });
+
+    it('getLowAttendanceFlags does not flag a day-PRESENT student absent in 3 periods', async () => {
+      const studentId = await seed(403, AttendanceStatus.PRESENT);
+      const result = await service.getLowAttendanceFlags({
+        tenantId: TENANT_ID,
+        from: DATE,
+        to: DATE,
+        thresholdPercent: 90,
+      });
+      expect(result.data.map((f) => f.student_id)).not.toContain(studentId);
+    });
+  });
+
   describe('getSectionStreaks', () => {
     async function freshSection(tenantId = TENANT_ID): Promise<string> {
       const year = await dataSource.getRepository(AcademicYear).save({
