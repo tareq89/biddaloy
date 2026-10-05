@@ -31,6 +31,7 @@ function DashboardPage() {
       {/* [17.5.4]: hides itself without CALENDAR_READ. */}
       <UpcomingCalendarCard calendarPath="/calendar" requirePermission />
       <EmptyState
+        headingLevel={1}
         title={t('dashboard.title')}
         explanation={t('dashboard.explanation')}
         action={{ label: t('dashboard.action'), onClick: () => void navigate({ to: '/settings' }) }}
