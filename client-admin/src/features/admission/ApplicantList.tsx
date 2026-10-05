@@ -6,24 +6,27 @@
  * is shown unconditionally.
  */
 import { AdmissionApplicantStatus, type AdmissionApplicantDto } from '@biddaloy/shared';
-import { type DataTableColumn } from '@biddaloy/ui/components';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { StatusBadge, type DataTableColumn } from '@biddaloy/ui/components';
+import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { ListShell, useListShellState, type FilterFieldDescriptor } from '@biddaloy/ui/shells';
-import { Link } from '@tanstack/react-router';
+import { formatDate, formatPhone } from '@biddaloy/ui/utils';
+import { UserPlusIcon } from 'lucide-react';
 
+import { APPLICANT_STATUS } from './applicantStatus';
 import { useApplicants, type ApplicantFilters } from './hooks/useApplicants';
 import { useIntakes } from './hooks/useIntakes';
 
-const STATUS_BADGE_CLASS: Record<AdmissionApplicantStatus, string> = {
-  [AdmissionApplicantStatus.PENDING]: 'bg-muted text-muted-foreground',
-  [AdmissionApplicantStatus.SHORTLISTED]: 'bg-status-pending-bg text-status-pending-fg',
-  [AdmissionApplicantStatus.ADMITTED]: 'bg-status-paid-bg text-status-paid-fg',
-  [AdmissionApplicantStatus.REJECTED]: 'bg-status-overdue-bg text-status-overdue-fg',
-};
+/** A component (not a plain string) because DataTable caches each row's cell values, so a string
+ * computed before the intakes finish loading would stay "—" for good. The query is shared. */
+function IntakeTitle({ intakeId }: { intakeId: string }) {
+  const { data } = useIntakes();
+  return <>{data?.find((i) => i.id === intakeId)?.title ?? '—'}</>;
+}
 
 export function ApplicantList() {
   const { t } = useTranslation('admission-staff-applicants');
-  const [state, actions] = useListShellState({ limit: 25 });
+  const [state, actions] = useListShellState();
+  const regionConfig = useRegionConfig();
   const intakesQuery = useIntakes();
 
   const filters: ApplicantFilters = {
@@ -31,13 +34,6 @@ export function ApplicantList() {
     ...(state.filters.status ? { status: state.filters.status as AdmissionApplicantStatus } : {}),
   };
   const applicantsQuery = useApplicants(filters);
-
-  const statusLabel: Record<AdmissionApplicantStatus, string> = {
-    [AdmissionApplicantStatus.PENDING]: t('list.statusPending'),
-    [AdmissionApplicantStatus.SHORTLISTED]: t('list.statusShortlisted'),
-    [AdmissionApplicantStatus.ADMITTED]: t('list.statusAdmitted'),
-    [AdmissionApplicantStatus.REJECTED]: t('list.statusRejected'),
-  };
 
   const filterFields: readonly FilterFieldDescriptor[] = [
     {
@@ -57,7 +53,7 @@ export function ApplicantList() {
       allLabel: t('list.filterAllStatuses'),
       options: Object.values(AdmissionApplicantStatus).map((status) => ({
         value: status,
-        label: statusLabel[status],
+        label: t(APPLICANT_STATUS[status].labelKey),
       })),
     },
   ];
@@ -66,47 +62,48 @@ export function ApplicantList() {
     {
       id: 'referenceNumber',
       header: t('list.columnReferenceNumber'),
-      accessorFn: (row) => (
-        <Link
-          to="/admissions/applicants/$applicantId"
-          params={{ applicantId: row.id }}
-          className="font-medium text-primary underline"
-        >
-          {row.reference_number}
-        </Link>
-      ),
+      accessorFn: (row) => row.reference_number,
+      card: 'field',
     },
     {
       id: 'applicantName',
       header: t('list.columnApplicantName'),
-      accessorFn: (row) => row.applicant_name,
+      accessorFn: (row) => <span className="font-medium">{row.applicant_name}</span>,
+      card: 'title',
+    },
+    {
+      id: 'intake',
+      header: t('list.columnIntake'),
+      accessorFn: (row) => <IntakeTitle intakeId={row.intake_id} />,
+      card: 'subtitle',
     },
     {
       id: 'guardianPhone',
       header: t('list.columnGuardianPhone'),
-      accessorFn: (row) => row.guardian_phone,
+      accessorFn: (row) => formatPhone(row.guardian_phone, regionConfig),
+    },
+    {
+      id: 'submittedDate',
+      header: t('list.columnSubmittedDate'),
+      accessorFn: (row) => formatDate(row.created_at, regionConfig),
     },
     {
       id: 'status',
       header: t('list.columnStatus'),
       accessorFn: (row) => (
-        <span
-          className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_BADGE_CLASS[row.status]}`}
-        >
-          {statusLabel[row.status]}
-        </span>
+        <StatusBadge
+          tone={APPLICANT_STATUS[row.status].tone}
+          label={t(APPLICANT_STATUS[row.status].labelKey)}
+        />
       ),
-    },
-    {
-      id: 'submittedDate',
-      header: t('list.columnSubmittedDate'),
-      accessorFn: (row) => row.created_at.slice(0, 10),
+      card: 'badge',
     },
   ];
 
   return (
     <ListShell
       title={t('list.title')}
+      subtitle={t('list.subtitle')}
       tableId="admission-applicants-list"
       caption={t('list.caption')}
       filters={{ fields: filterFields, values: state.filters, onChange: actions.setFilters }}
@@ -124,7 +121,19 @@ export function ApplicantList() {
       loading={applicantsQuery.isLoading}
       isFetching={applicantsQuery.isFetching}
       {...(applicantsQuery.isError ? { error: t('list.errorMessage') } : {})}
-      emptyMessage={t('list.emptyMessage')}
+      rowActions={(row) => [
+        {
+          intent: 'view',
+          label: t('list.view'),
+          to: `/admissions/applicants/${row.id}`,
+          'data-focus-anchor': row.id,
+        },
+      ]}
+      emptyState={{
+        icon: <UserPlusIcon aria-hidden />,
+        title: t('list.emptyTitle'),
+        explanation: t('list.emptyText'),
+      }}
     />
   );
 }
