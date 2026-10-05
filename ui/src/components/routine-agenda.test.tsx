@@ -1,16 +1,20 @@
 import { act, fireEvent, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-import { i18n } from '../i18n';
+import { i18n, REGION_BD_EN, RegionConfigProvider } from '../i18n';
 import { renderWithProviders } from '../test';
+import { formatDate, formatWeekday } from '../utils/date';
 
 import { RoutineAgenda, type RoutineAgendaDay } from './routine-agenda';
 
 async function renderInEnglish(ui: React.ReactElement) {
-  const view = renderWithProviders(ui, { locale: 'en' });
+  const view = renderWithProviders(
+    <RegionConfigProvider value={REGION_BD_EN}>{ui}</RegionConfigProvider>,
+    { locale: 'en' },
+  );
   await act(async () => {
     await view.localeReady;
-    await i18n.loadNamespaces('routines');
+    await i18n.loadNamespaces(['routines', 'common']);
   });
   return view;
 }
@@ -76,7 +80,7 @@ const EMPTY_DAY: RoutineAgendaDay = {
 };
 
 describe('RoutineAgenda', () => {
-  it('renders a normal day\'s period line as "Period · time · class · subject · room"', async () => {
+  it("renders a normal day's row: time column, subject, then section · period · room", async () => {
     await renderInEnglish(
       <RoutineAgenda
         days={[NORMAL_DAY]}
@@ -86,10 +90,55 @@ describe('RoutineAgenda', () => {
         onToggleWeekView={vi.fn()}
       />,
     );
-    expect(screen.getByText('Period 1')).toBeTruthy();
-    expect(screen.getByText(/Class 6A/)).toBeTruthy();
-    expect(screen.getByText(/English/)).toBeTruthy();
-    expect(screen.getByText(/Room 12/)).toBeTruthy();
+    expect(screen.getByText('English')).toBeTruthy();
+    expect(screen.getByText('Class 6A · Period 1 · Room 12')).toBeTruthy();
+    expect(screen.getByText('10:00 AM')).toBeTruthy();
+    expect(screen.getByText('until 10:40 AM')).toBeTruthy();
+  });
+
+  it('titles the card with weekday and date and counts the periods', async () => {
+    await renderInEnglish(
+      <RoutineAgenda
+        days={[COVERING_DAY]}
+        selectedDate={COVERING_DAY.date}
+        onSelectDate={vi.fn()}
+        weekView={false}
+        onToggleWeekView={vi.fn()}
+      />,
+    );
+    const title = `${formatWeekday(COVERING_DAY.date, REGION_BD_EN)}, ${formatDate(COVERING_DAY.date, REGION_BD_EN)}`;
+    expect(screen.getByRole('heading', { name: title })).toBeTruthy();
+    expect(screen.getByText('2 periods')).toBeTruthy();
+  });
+
+  it('marks today and the selected tab', async () => {
+    await renderInEnglish(
+      <RoutineAgenda
+        days={[NORMAL_DAY, COVERING_DAY]}
+        selectedDate={NORMAL_DAY.date}
+        onSelectDate={vi.fn()}
+        weekView={false}
+        onToggleWeekView={vi.fn()}
+      />,
+    );
+    const [todayTab, otherTab] = screen.getAllByRole('tab');
+    expect(todayTab?.getAttribute('aria-selected')).toBe('true');
+    expect(otherTab?.getAttribute('aria-selected')).toBe('false');
+    expect(todayTab?.textContent).toBe('Today');
+    expect(otherTab?.textContent).toBe('Thu 24');
+  });
+
+  it('keeps aria-pressed on the week toggle', async () => {
+    await renderInEnglish(
+      <RoutineAgenda
+        days={[NORMAL_DAY]}
+        selectedDate={NORMAL_DAY.date}
+        onSelectDate={vi.fn()}
+        weekView
+        onToggleWeekView={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole('button', { pressed: true })).toBeTruthy();
   });
 
   it('marks a covering period and shows a cancelled one as cancelled, not hidden', async () => {
@@ -104,7 +153,7 @@ describe('RoutineAgenda', () => {
     );
     expect(screen.getByText('Covering for Ms Nahar')).toBeTruthy();
     // The cancelled slot's subject still renders (never hidden)…
-    expect(screen.getByText(/Science/)).toBeTruthy();
+    expect(screen.getByText('Science')).toBeTruthy();
     // …and is explicitly labelled cancelled.
     expect(screen.getByText('Cancelled')).toBeTruthy();
   });
@@ -147,7 +196,7 @@ describe('RoutineAgenda', () => {
         onToggleWeekView={vi.fn()}
       />,
     );
-    fireEvent.click(screen.getByText('Thu'));
+    fireEvent.click(screen.getByRole('tab', { name: 'Thu 24' }));
     expect(onSelectDate).toHaveBeenCalledWith(COVERING_DAY.date);
   });
 
@@ -161,7 +210,7 @@ describe('RoutineAgenda', () => {
         onToggleWeekView={vi.fn()}
       />,
     );
-    expect(screen.getByText('Period 1')).toBeTruthy();
+    expect(screen.getByText('Class 6A · Period 1 · Room 12')).toBeTruthy();
     expect(screen.getByText('Holiday — Eid ul-Fitr')).toBeTruthy();
   });
 

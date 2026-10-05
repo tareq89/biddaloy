@@ -39,8 +39,9 @@ import { Ban, Calendar, Check, Clock, Minus, X, type LucideIcon } from 'lucide-r
 
 import { useRegionConfig, useTranslation } from '../i18n';
 import { cn } from '../primitives/lib/utils';
-import { formatDate, parseServerDate } from '../utils';
+import { formatDate, formatMonth, parseServerDate, renderDigits, toIsoDate } from '../utils';
 
+import { MonthHeader } from './month-header';
 import { Skeleton } from './skeleton';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './tooltip';
 
@@ -69,6 +70,12 @@ export interface AttendanceMonthGridProps {
   firstDayOfWeek?: number;
   isLoading?: boolean;
   onSelectDay?: (day: AttendanceDayCell) => void;
+  /** `YYYY-MM-DD`; default = today. */
+  today?: string;
+  /** `YYYY-MM-DD`. */
+  selectedDate?: string;
+  /** When set, the grid renders a `MonthHeader` (prev / next / Today). */
+  onMonthChange?: (month: string) => void;
   className?: string;
 }
 
@@ -133,21 +140,6 @@ function stateLabel(t: ReturnType<typeof useTranslation>['t'], state: CellState)
   }
 }
 
-const MONTH_KEYS = [
-  'attendanceGrid.months.1',
-  'attendanceGrid.months.2',
-  'attendanceGrid.months.3',
-  'attendanceGrid.months.4',
-  'attendanceGrid.months.5',
-  'attendanceGrid.months.6',
-  'attendanceGrid.months.7',
-  'attendanceGrid.months.8',
-  'attendanceGrid.months.9',
-  'attendanceGrid.months.10',
-  'attendanceGrid.months.11',
-  'attendanceGrid.months.12',
-] as const;
-
 const WEEKDAY_KEYS = [
   'attendanceGrid.weekdays.0',
   'attendanceGrid.weekdays.1',
@@ -190,6 +182,11 @@ function buildGridDays(month: string, days: readonly AttendanceDayCell[]): GridD
   return result;
 }
 
+function shiftMonth(month: string, delta: number): string {
+  const [y = 0, m = 1] = month.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1 + delta, 1)).toISOString().slice(0, 7);
+}
+
 function firstWeekdayOfMonth(month: string): number {
   const [yearStr, monthStr] = month.split('-');
   return new Date(Date.UTC(Number(yearStr), Number(monthStr) - 1, 1)).getUTCDay();
@@ -201,17 +198,16 @@ export function AttendanceMonthGrid({
   firstDayOfWeek = 0,
   isLoading = false,
   onSelectDay,
+  today: todayProp,
+  selectedDate,
+  onMonthChange,
   className,
 }: AttendanceMonthGridProps) {
   const { t } = useTranslation('portal');
   const config = useRegionConfig();
 
-  const [yearStr, monthStr] = month.split('-');
-  const monthIndex = Number(monthStr) - 1;
-  const caption = t('attendanceGrid.caption', {
-    month: t(MONTH_KEYS[monthIndex] ?? MONTH_KEYS[0]),
-    year: yearStr,
-  });
+  const today = todayProp ?? toIsoDate(new Date());
+  const caption = formatMonth(month, config);
 
   const weekdayLabels = Array.from({ length: 7 }, (_, i) =>
     t(WEEKDAY_KEYS[(firstDayOfWeek + i) % 7] ?? WEEKDAY_KEYS[0]),
@@ -267,17 +263,40 @@ export function AttendanceMonthGrid({
   const rows: (GridDay | null)[][] = [];
   for (let i = 0; i < cells.length; i += 7) rows.push(cells.slice(i, i + 7));
 
+  const header = onMonthChange && (
+    <div className="p-3 md:px-4">
+      <MonthHeader
+        label={caption}
+        onPrevious={() => onMonthChange(shiftMonth(month, -1))}
+        onNext={() => onMonthChange(shiftMonth(month, 1))}
+        onToday={() => {
+          onMonthChange(today.slice(0, 7));
+          const todayCell = gridDays.find((d) => d.date === today);
+          if (todayCell) onSelectDay?.(todayCell.cell);
+        }}
+      />
+    </div>
+  );
+
   return (
     <TooltipProvider>
-      <div className={cn('flex flex-col gap-3', className)}>
+      <div
+        className={cn(
+          'overflow-hidden rounded-lg border border-border-subtle bg-surface shadow-e1',
+          className,
+        )}
+      >
+        {header}
         {/* `table-fixed` — see the loading table's comment above; same
          * reflow constraint applies here. */}
         <table className="w-full table-fixed border-collapse">
-          <caption className="pb-2 text-start text-sm font-semibold">{caption}</caption>
+          <caption className={onMonthChange ? 'sr-only' : 'p-3 text-start text-h3 md:px-4'}>
+            {caption}
+          </caption>
           <thead>
-            <tr>
+            <tr className="bg-muted text-label text-text-secondary">
               {weekdayLabels.map((label, i) => (
-                <th key={i} scope="col" className="p-1 text-center text-xs text-muted-foreground">
+                <th key={i} scope="col" className="h-8 text-center font-normal">
                   {label}
                 </th>
               ))}
@@ -288,7 +307,13 @@ export function AttendanceMonthGrid({
               <tr key={rowIndex}>
                 {row.map((gridDay, colIndex) => {
                   if (gridDay === null) {
-                    return <td key={colIndex} aria-hidden="true" className="p-1" />;
+                    return (
+                      <td
+                        key={colIndex}
+                        aria-hidden="true"
+                        className="border-s border-t border-border-subtle bg-bg p-1 first:border-s-0"
+                      />
+                    );
                   }
 
                   const state = stateOf(gridDay.cell);
@@ -301,18 +326,32 @@ export function AttendanceMonthGrid({
                       : label;
                   const accessibleDate = formatDate(parseServerDate(gridDay.date), config);
                   const accessibleLabel = `${accessibleDate} — ${lateLabel}`;
+                  const isToday = gridDay.date === today;
+                  const isSelected = gridDay.date === selectedDate;
 
                   const content = (
-                    <div
-                      className={cn(
-                        'mx-auto flex aspect-square w-full max-w-10 flex-col items-center justify-center gap-0.5 rounded-md text-xs',
-                        toneClasses,
-                      )}
-                    >
-                      <span aria-hidden="true" className="font-semibold">
-                        {gridDay.dayOfMonth}
+                    <div className="mx-auto flex min-h-14 w-full flex-col items-center gap-1 py-1">
+                      <span
+                        aria-hidden="true"
+                        className={cn(
+                          'flex size-7 items-center justify-center rounded-full text-label',
+                          isToday && 'font-semibold text-primary ring-2 ring-primary ring-inset',
+                          isSelected && 'bg-primary font-semibold text-primary-foreground ring-0',
+                        )}
+                      >
+                        {renderDigits(String(gridDay.dayOfMonth), config.numerals)}
                       </span>
-                      <Icon aria-hidden="true" className="size-3" />
+                      {state !== 'notMarked' && (
+                        <span
+                          aria-hidden="true"
+                          className={cn(
+                            'flex size-5 items-center justify-center rounded-full',
+                            toneClasses,
+                          )}
+                        >
+                          <Icon className="size-3.5" />
+                        </span>
+                      )}
                       <span className="sr-only">{lateLabel}</span>
                     </div>
                   );
@@ -366,7 +405,19 @@ export function AttendanceMonthGrid({
                     );
 
                   return (
-                    <td key={colIndex} className="p-1 text-center">
+                    <td
+                      key={colIndex}
+                      aria-current={isToday ? 'date' : undefined}
+                      data-selected={isSelected || undefined}
+                      className={cn(
+                        'border-s border-t border-border-subtle p-1 text-center first:border-s-0',
+                        isSelected
+                          ? 'bg-secondary'
+                          : state === 'notSchoolDay'
+                            ? 'bg-muted'
+                            : 'bg-surface',
+                      )}
+                    >
                       {wrapped}
                     </td>
                   );
@@ -392,28 +443,26 @@ const LEGEND_STATES: CellState[] = [
 
 function Legend({ t }: { t: ReturnType<typeof useTranslation>['t'] }) {
   return (
-    <div className="flex flex-col gap-1.5">
-      <h3 className="text-xs font-semibold text-muted-foreground">
-        {t('attendanceGrid.legendTitle')}
-      </h3>
-      <ul className="flex flex-wrap gap-x-4 gap-y-1.5">
-        {LEGEND_STATES.map((state) => {
-          const Icon = STATE_ICON[state];
-          return (
-            <li key={state} className="flex items-center gap-1.5 text-xs">
-              <span
-                className={cn(
-                  'flex size-5 items-center justify-center rounded-md',
-                  STATE_TONE_CLASSES[state],
-                )}
-              >
-                <Icon aria-hidden="true" className="size-3" />
-              </span>
-              <span>{stateLabel(t, state)}</span>
-            </li>
-          );
-        })}
-      </ul>
-    </div>
+    <ul
+      aria-label={t('attendanceGrid.legendTitle')}
+      className="flex flex-wrap gap-x-4 gap-y-2 border-t border-border-subtle p-3 text-caption text-text-secondary md:px-4"
+    >
+      {LEGEND_STATES.map((state) => {
+        const Icon = STATE_ICON[state];
+        return (
+          <li key={state} className="flex items-center gap-1.5">
+            <span
+              className={cn(
+                'flex size-5 items-center justify-center rounded-full',
+                STATE_TONE_CLASSES[state],
+              )}
+            >
+              <Icon aria-hidden="true" className="size-3.5" />
+            </span>
+            <span>{stateLabel(t, state)}</span>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
