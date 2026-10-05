@@ -228,8 +228,11 @@ export class MySectionTodayDto {
 export class MySectionDto {
   @ApiProperty() section_id: string;
   @ApiProperty() section_name: string;
+  @ApiProperty() class_id: string;
   @ApiProperty() class_name: string;
   @ApiProperty() student_count: number;
+  @ApiProperty({ type: String, nullable: true }) class_teacher_name: string | null;
+  @ApiProperty() is_working_day: boolean;
   @ApiProperty({ type: MySectionTodayDto, nullable: true }) today: MySectionTodayDto | null;
 }
 

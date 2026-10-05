@@ -146,6 +146,37 @@ describe('Attendance E2E', () => {
       );
     });
 
+    it('returns the check-list fields for a TEACHER and for an ADMIN', async () => {
+      for (const [token, role] of [
+        [teacherToken, UserRole.TEACHER],
+        [adminToken, UserRole.ADMIN],
+      ] as const) {
+        const res = await supertest(app.getHttpServer())
+          .get('/api/v1/attendance/my-sections')
+          .set('Authorization', `Bearer ${token}`)
+          .set('X-Tenant-ID', TENANT_ID)
+          .set('X-Role', role)
+          .expect(200);
+        const item = res.body.find(
+          (x: { section_id: string }) => x.section_id === MAPPED_SECTION_ID,
+        );
+        expect(typeof item.class_id).toBe('string');
+        expect(typeof item.is_working_day).toBe('boolean');
+        expect(item).toHaveProperty('class_teacher_name');
+      }
+    });
+
+    it('returns 400 ATTENDANCE_FUTURE_DATE for a future date', async () => {
+      const res = await supertest(app.getHttpServer())
+        .get('/api/v1/attendance/my-sections')
+        .query({ date: '2999-01-01' })
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.ADMIN)
+        .expect(400);
+      expect(res.body.details.code).toBe('ATTENDANCE_FUTURE_DATE');
+    });
+
     it('returns 401 when X-Tenant-ID is missing', async () => {
       const res = await supertest(app.getHttpServer())
         .get('/api/v1/attendance/my-sections')

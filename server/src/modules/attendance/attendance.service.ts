@@ -15,12 +15,14 @@ import {
   AttendanceStatus,
   AuditAction,
   Permission,
+  TeacherAssignmentType,
   roleHasPermission,
 } from '@biddaloy/shared';
 import { AttendanceSession } from './entities/attendance-session.entity';
 import { AttendanceRecord } from './entities/attendance-record.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { Student } from '../students/entities/student.entity';
+import { TeacherClassSection } from '../academics/entities/teacher-class-section.entity';
 import { SchoolCalendarService } from '../calendar/school-calendar.service';
 import { AttendanceAccessService } from './attendance-access.service';
 import { AuditService, RecordAuditEntryInput } from '../audit/audit.service';
@@ -31,6 +33,7 @@ import {
   daysBetween,
   isWeeklyOff,
   localToday,
+  policyForShift,
   resolveAttendancePolicy,
 } from './attendance-policy.util';
 import { CorrectRecordDto, PutRegisterDto, RegisterResponseDto } from './dto/attendance.dto';
@@ -118,11 +121,16 @@ export class AttendanceService {
     // `date` defaults to the tenant's local today (not the server's UTC
     // day) when the caller doesn't supply one — this is the teacher's
     // landing screen, so "today" must mean the school's today.
-    const date =
-      params.date ??
-      localToday(
-        (await this.schoolsService.getResolvedSettings(tenantId)).region?.timezone ?? 'UTC',
-      );
+    const timezone =
+      (await this.schoolsService.getResolvedSettings(tenantId)).region?.timezone ?? 'UTC';
+    const tenantToday = localToday(timezone);
+    const date = params.date ?? tenantToday;
+    if (date > tenantToday) {
+      throw new BadRequestException({
+        message: 'Cannot list attendance for a future date',
+        details: { code: 'ATTENDANCE_FUTURE_DATE' },
+      });
+    }
 
     const sectionIds = sections.map((s) => s.id);
 
@@ -139,8 +147,10 @@ export class AttendanceService {
     const studentCounts = new Map(studentCountRows.map((r) => [r.section_id, Number(r.count)]));
 
     // One query for every section's session on this date, not one per section.
+    // Whole-day registers only: a period register on the same date must not
+    // overwrite the day register in the per-section map below.
     const sessions = await this.sessionRepo.find({
-      where: { tenant_id: tenantId, section_id: In(sectionIds), date },
+      where: { tenant_id: tenantId, section_id: In(sectionIds), date, period_no: IsNull() },
     });
     const sessionBySectionId = new Map(sessions.map((s) => [s.section_id, s]));
     const sessionIds = sessions.map((s) => s.id);
@@ -169,6 +179,38 @@ export class AttendanceService {
       }
     }
 
+    // One grouped query for every section's class teacher (never per section).
+    // Only CLASS_TEACHER rows count: assistants and subject teachers are not
+    // the class teacher. If a section somehow has two, the first by name wins.
+    const classTeacherRows = await this.dataSource
+      .getRepository(TeacherClassSection)
+      .createQueryBuilder('tcs')
+      .innerJoin('tcs.teacher', 'teacher')
+      .innerJoin('teacher.user', 'user')
+      .select('tcs.section_id', 'section_id')
+      .addSelect('user.full_name', 'full_name')
+      .where('tcs.tenant_id = :tenantId', { tenantId })
+      .andWhere('tcs.section_id IN (:...sectionIds)', { sectionIds })
+      .andWhere('tcs.assignment_type = :type', { type: TeacherAssignmentType.CLASS_TEACHER })
+      .orderBy('user.full_name', 'ASC')
+      .getRawMany<{ section_id: string; full_name: string }>();
+    const classTeacherBySectionId = new Map<string, string>();
+    for (const row of classTeacherRows) {
+      if (!classTeacherBySectionId.has(row.section_id)) {
+        classTeacherBySectionId.set(row.section_id, row.full_name);
+      }
+    }
+
+    // Working-day check once per distinct class (a holiday can be class-scoped).
+    const classIds = [...new Set(sections.map((s) => s.class_id))];
+    const workingByClassId = new Map<string, boolean>();
+    for (const classId of classIds) {
+      workingByClassId.set(
+        classId,
+        !(await this.schoolCalendarService.isNonWorkingDay({ tenantId, date, classId })),
+      );
+    }
+
     return sections.map((section) => {
       const session = sessionBySectionId.get(section.id);
       const studentCount = studentCounts.get(section.id) ?? 0;
@@ -192,8 +234,11 @@ export class AttendanceService {
       return {
         section_id: section.id,
         section_name: section.section_name,
+        class_id: section.class_id,
         class_name: className,
         student_count: studentCount,
+        class_teacher_name: classTeacherBySectionId.get(section.id) ?? null,
+        is_working_day: workingByClassId.get(section.class_id) ?? true,
         today,
       };
     });
@@ -314,9 +359,15 @@ export class AttendanceService {
 
         // 5. Non-working day, per the shared calendar service.
         const hasCorrect = roleHasPermission(role, Permission.ATTENDANCE_CORRECT);
+        // Class-scoped holidays block only that class (#1585), so look up the
+        // section's class — tenant-filtered, the access gate already passed.
+        const sectionRow = await manager
+          .getRepository(ClassSection)
+          .findOne({ where: { id: sectionId, tenant_id: tenantId } });
         const nonWorkingDay = await this.schoolCalendarService.isNonWorkingDay({
           tenantId,
           date: dto.date,
+          classId: sectionRow?.class_id,
         });
         if (nonWorkingDay && !(dto.force_non_working_day === true && hasCorrect)) {
           throw new UnprocessableEntityException({
@@ -891,7 +942,11 @@ export class AttendanceService {
     );
 
     const hasCorrect = roleHasPermission(role, Permission.ATTENDANCE_CORRECT);
-    const nonWorkingDay = await this.schoolCalendarService.isNonWorkingDay({ tenantId, date });
+    const nonWorkingDay = await this.schoolCalendarService.isNonWorkingDay({
+      tenantId,
+      date,
+      classId: section.class_id,
+    });
     const today = localToday(timezone);
     const reasonRequired = !!session && daysBetween(date, today) > policy.correctionWindowDays;
     const finalized = session?.state === AttendanceSessionState.FINALIZED;
@@ -931,7 +986,7 @@ export class AttendanceService {
       reason_required: reasonRequired,
       non_working_day: nonWorkingDay,
       policy: {
-        late_after: policy.lateAfter,
+        late_after: policyForShift(policy, section.class?.shift_id).lateAfter,
         correction_window_days: policy.correctionWindowDays,
         allow_future_dates: policy.allowFutureDates,
       },
