@@ -79,7 +79,7 @@ export const Route = createFileRoute('/_staff/invoices/')({
   validateSearch: invoicesSearchSchema,
   loaderDeps: ({ search }) => ({
     page: search.page ?? 1,
-    // Same default `useListShellState()` applies, so the prefetch hits the page's own query.
+    // Must equal `useListShellState()`'s default (25, `use-list-url-state.ts`; not exported), so the prefetch hits the page's own query.
     limit: search.limit ?? 25,
     sort: search.sort,
     order: search.order,
