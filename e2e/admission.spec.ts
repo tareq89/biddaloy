@@ -132,8 +132,10 @@ test('public submit → staff shortlist/admit → student created → public sta
         t('admission-staff-applicants.admitModal.successMessage', { name: applicantName }),
       ),
     ).toBeVisible();
+    // The dialog has a footer Close and the corner X, both named "close".
     await dialog
       .getByRole('button', { name: t('admission-staff-applicants.admitModal.close') })
+      .first()
       .click();
   });
 
