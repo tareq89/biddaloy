@@ -180,7 +180,8 @@ test.describe.serial('exams: admin publishes -> guardian sees it in the portal',
       // and the portal otherwise shows the first one.
       await page.goto(`/portal/results?student=${studentId}`);
       await expect(page.getByRole('heading', { name: t('portal.results.title') })).toBeVisible();
-      await expect(page.getByText(examName)).toBeVisible();
+      // [31.4] The exam name is the result card's heading now; the name also appears in its print label.
+      await expect(page.getByRole('heading', { name: examName })).toBeVisible();
     });
   });
 });
