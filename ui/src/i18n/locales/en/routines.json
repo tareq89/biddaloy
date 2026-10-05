@@ -7,7 +7,14 @@
     "action": "Delete"
   },
   "setupPage": {
-    "title": "Routine setup"
+    "title": "Routine setup",
+    "subtitle": "Set shifts, period times, rooms and rules before building a routine.",
+    "tabsLabel": "Routine setup sections",
+    "tabs": {
+      "periods": "Shifts and periods",
+      "rooms": "Rooms",
+      "rules": "Routine rules"
+    }
   },
   "shiftsPanel": {
     "legend": "Shifts",
@@ -21,7 +28,22 @@
     "building": "Building",
     "roomNo": "Room no.",
     "capacity": "Capacity",
-    "addAction": "Add room"
+    "addAction": "Add room",
+    "subtitle": "Rooms you can put a period in.",
+    "caption": "Rooms",
+    "capacityValue": "{{count}} seats",
+    "roomName": "Room {{roomNo}}",
+    "dialogTitle": "Add room",
+    "dialogConfirm": "Add",
+    "cancel": "Cancel",
+    "deleteTitle": "Delete room {{roomNo}}?",
+    "deleteDescription": "The room is removed from the list. This can't be undone.",
+    "deleteConfirm": "Delete",
+    "inUseError": "Periods in the routine use this room, so it can't be deleted. Move those periods to another room first.",
+    "deleteError": "Couldn't delete the room. Try again.",
+    "saveError": "Couldn't add the room. Try again.",
+    "emptyTitle": "No rooms yet",
+    "emptyExplanation": "Add the rooms periods can be held in."
   },
   "periodSlotsPanel": {
     "legend": "Period slots — {{shiftName}}",
@@ -38,11 +60,15 @@
     "timelineLabel": "Day timeline for this shift"
   },
   "settingsPanel": {
-    "legend": "Routine settings",
-    "defaultChangeoverMinutes": "Changeover gap (minutes)",
-    "maxPeriodsPerTeacherPerDay": "Max periods per teacher per day",
-    "maxConsecutivePeriods": "Max consecutive periods",
-    "noCap": "No cap"
+    "legend": "Routine rules",
+    "defaultChangeoverMinutes": "Gap between periods (minutes)",
+    "maxPeriodsPerTeacherPerDay": "Most periods a teacher takes in a day",
+    "maxConsecutivePeriods": "Most periods in a row",
+    "noCap": "No cap",
+    "description": "These limits are checked while you build a routine.",
+    "defaultChangeoverHelp": "A new period starts this many minutes after the one before it.",
+    "noCapHelp": "Leave empty for no limit.",
+    "saveError": "Couldn't save the rules. Check the numbers and try again."
   },
   "grid": {
     "tooNarrow": "This routine table needs a wider screen — try landscape or a bigger window.",

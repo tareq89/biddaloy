@@ -1,112 +1,224 @@
 /**
- * [21.7.1] "Rooms" panel — building/room_no/capacity, same small-list
- * pattern as `ShiftsPanel`. Deleting a room still referenced by a routine
- * slot surfaces the server's 409 refusal (`RoomsService.remove`) and its
- * slot count verbatim.
+ * [21.7.1] "Rooms" panel — building/room_no/capacity. Deleting a room still
+ * referenced by a routine slot is refused by the server's 409
+ * (`RoomsService.remove`); [31.4] that is translated (`inUseError`), never
+ * shown verbatim.
  */
-import { Button, Input, Label } from '@biddaloy/ui/components';
+import { ApiError } from '@biddaloy/ui/api';
+import {
+  Button,
+  Card,
+  ConfirmDialog,
+  DataTable,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  Input,
+  Label,
+  toast,
+  type DataTableColumn,
+} from '@biddaloy/ui/components';
 import { useCreateRoom, useDeleteRoom, useRooms, type Room } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { formatNumber } from '@biddaloy/ui/utils';
+import { DoorOpenIcon, PlusIcon } from 'lucide-react';
 import * as React from 'react';
-
-import { MutationErrorMessage } from '../../../../components/MutationErrorMessage';
 
 export function RoomsPanel() {
   const { t } = useTranslation('routines');
+  const config = useRegionConfig();
   const roomsQuery = useRooms();
   const createRoom = useCreateRoom();
   const deleteRoom = useDeleteRoom();
 
+  const [addOpen, setAddOpen] = React.useState(false);
+  const [deleting, setDeleting] = React.useState<Room | null>(null);
   const [building, setBuilding] = React.useState('');
   const [roomNo, setRoomNo] = React.useState('');
   const [capacity, setCapacity] = React.useState('');
+  const [saveFailed, setSaveFailed] = React.useState(false);
 
   const rooms = roomsQuery.data?.data ?? [];
 
+  function closeAdd() {
+    setAddOpen(false);
+    setBuilding('');
+    setRoomNo('');
+    setCapacity('');
+    setSaveFailed(false);
+  }
+
   function handleAdd(event: React.FormEvent) {
     event.preventDefault();
+    setSaveFailed(false);
     createRoom.mutate(
       {
         building: building === '' ? null : building,
         room_no: roomNo,
         capacity: capacity === '' ? null : Number(capacity),
       },
-      { onSuccess: () => setRoomNo('') },
+      { onSuccess: closeAdd, onError: () => setSaveFailed(true) },
     );
   }
 
-  function handleDelete(room: Room) {
-    deleteRoom.mutate(room.id);
+  function handleDelete() {
+    if (!deleting) return;
+    deleteRoom.mutate(deleting.id, {
+      onSuccess: () => setDeleting(null),
+      onError: (error) => {
+        setDeleting(null);
+        toast.error(
+          t(
+            error instanceof ApiError && error.statusCode === 409
+              ? 'roomsPanel.inUseError'
+              : 'roomsPanel.deleteError',
+          ),
+        );
+      },
+    });
   }
 
+  const columns: DataTableColumn<Room>[] = [
+    {
+      id: 'room',
+      header: t('roomsPanel.roomNo'),
+      card: 'title',
+      accessorFn: (room) => (
+        <>
+          <span className="font-medium">{t('roomsPanel.roomName', { roomNo: room.room_no })}</span>
+          <span className="block text-caption text-text-secondary md:hidden">
+            {[
+              room.building,
+              room.capacity != null
+                ? t('roomsPanel.capacityValue', { count: formatNumber(room.capacity, config) })
+                : null,
+            ]
+              .filter(Boolean)
+              .join(' · ')}
+          </span>
+        </>
+      ),
+    },
+    {
+      id: 'building',
+      header: t('roomsPanel.building'),
+      card: 'hidden',
+      accessorFn: (room) => room.building || '—',
+    },
+    {
+      id: 'capacity',
+      header: t('roomsPanel.capacity'),
+      align: 'end',
+      card: 'hidden',
+      accessorFn: (room) =>
+        room.capacity != null
+          ? t('roomsPanel.capacityValue', { count: formatNumber(room.capacity, config) })
+          : '—',
+    },
+  ];
+
   return (
-    <section className="flex flex-col gap-4">
-      <h2 className="text-base font-medium">{t('roomsPanel.legend')}</h2>
+    <Card padded={false} className="overflow-hidden">
+      <section aria-label={t('roomsPanel.legend')}>
+        <div className="flex flex-col gap-3 p-4 md:flex-row md:items-start md:justify-between md:p-5">
+          <div>
+            <h2 className="text-h2">{t('roomsPanel.legend')}</h2>
+            <p className="mt-1 text-text-secondary">{t('roomsPanel.subtitle')}</p>
+          </div>
+          <Button type="button" onClick={() => setAddOpen(true)}>
+            <PlusIcon aria-hidden="true" />
+            {t('roomsPanel.addAction')}
+          </Button>
+        </div>
 
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b text-left text-muted-foreground">
-            <th className="py-1.5 font-normal">{t('roomsPanel.building')}</th>
-            <th className="py-1.5 font-normal">{t('roomsPanel.roomNo')}</th>
-            <th className="py-1.5 font-normal">{t('roomsPanel.capacity')}</th>
-            <th className="py-1.5" />
-          </tr>
-        </thead>
-        <tbody>
-          {rooms.map((room) => (
-            <tr key={room.id} className="border-b">
-              <td className="py-1.5">{room.building ?? '—'}</td>
-              <td className="py-1.5">{room.room_no}</td>
-              <td className="py-1.5">{room.capacity ?? '—'}</td>
-              <td className="py-1.5 text-right">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleDelete(room)}
-                >
-                  {t('delete.action')}
-                </Button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+        <DataTable
+          tableId="routine-rooms"
+          caption={t('roomsPanel.caption')}
+          columns={columns}
+          data={rooms}
+          getRowId={(room) => room.id}
+          sorting={null}
+          onSortingChange={() => {}}
+          paginated={false}
+          totalCount={rooms.length}
+          loading={roomsQuery.isPending}
+          rowActions={(room) => [
+            { intent: 'delete', label: t('delete.action'), onClick: () => setDeleting(room) },
+          ]}
+          emptyState={{
+            icon: <DoorOpenIcon aria-hidden="true" />,
+            title: t('roomsPanel.emptyTitle'),
+            explanation: t('roomsPanel.emptyExplanation'),
+          }}
+        />
+      </section>
 
-      <form className="flex flex-wrap items-end gap-3" onSubmit={handleAdd}>
-        <div className="flex flex-col gap-1">
-          <Label htmlFor="room-building">{t('roomsPanel.building')}</Label>
-          <Input
-            id="room-building"
-            value={building}
-            onChange={(event) => setBuilding(event.target.value)}
-          />
-        </div>
-        <div className="flex flex-col gap-1">
-          <Label htmlFor="room-no">{t('roomsPanel.roomNo')}</Label>
-          <Input
-            id="room-no"
-            value={roomNo}
-            onChange={(event) => setRoomNo(event.target.value)}
-            required
-          />
-        </div>
-        <div className="flex flex-col gap-1">
-          <Label htmlFor="room-capacity">{t('roomsPanel.capacity')}</Label>
-          <Input
-            id="room-capacity"
-            type="number"
-            min={1}
-            value={capacity}
-            onChange={(event) => setCapacity(event.target.value)}
-          />
-        </div>
-        <Button type="submit" loading={createRoom.isPending}>
-          {t('roomsPanel.addAction')}
-        </Button>
-      </form>
-      {createRoom.isError && <MutationErrorMessage error={createRoom.error} />}
-      {deleteRoom.isError && <MutationErrorMessage error={deleteRoom.error} />}
-    </section>
+      <Dialog open={addOpen} onOpenChange={(open) => (open ? setAddOpen(true) : closeAdd())}>
+        <DialogContent size="sm">
+          <form className="flex flex-col gap-4" onSubmit={handleAdd}>
+            <DialogHeader>
+              <DialogTitle>{t('roomsPanel.dialogTitle')}</DialogTitle>
+              <DialogDescription>{t('roomsPanel.subtitle')}</DialogDescription>
+            </DialogHeader>
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="room-no">{t('roomsPanel.roomNo')}</Label>
+              <Input
+                id="room-no"
+                value={roomNo}
+                onChange={(event) => setRoomNo(event.target.value)}
+                required
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="room-building">{t('roomsPanel.building')}</Label>
+              <Input
+                id="room-building"
+                value={building}
+                onChange={(event) => setBuilding(event.target.value)}
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="room-capacity">{t('roomsPanel.capacity')}</Label>
+              <Input
+                id="room-capacity"
+                type="number"
+                min={1}
+                inputMode="numeric"
+                value={capacity}
+                onChange={(event) => setCapacity(event.target.value)}
+              />
+            </div>
+            {saveFailed && (
+              <p role="alert" className="text-caption text-destructive">
+                {t('roomsPanel.saveError')}
+              </p>
+            )}
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={closeAdd}>
+                {t('roomsPanel.cancel')}
+              </Button>
+              <Button type="submit" loading={createRoom.isPending}>
+                {t('roomsPanel.dialogConfirm')}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <ConfirmDialog
+        open={deleting !== null}
+        onOpenChange={(open) => !open && setDeleting(null)}
+        tone="danger"
+        title={t('roomsPanel.deleteTitle', { roomNo: deleting?.room_no ?? '' })}
+        description={t('roomsPanel.deleteDescription')}
+        confirmLabel={t('roomsPanel.deleteConfirm')}
+        cancelLabel={t('roomsPanel.cancel')}
+        busy={deleteRoom.isPending}
+        onConfirm={handleDelete}
+      />
+    </Card>
   );
 }

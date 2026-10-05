@@ -7,7 +7,14 @@
     "action": "মুছুন"
   },
   "setupPage": {
-    "title": "রুটিন সেটআপ"
+    "title": "রুটিন সেটআপ",
+    "subtitle": "রুটিন সাজানোর আগে শিফট, পিরিয়ডের সময়, কক্ষ আর নিয়ম ঠিক করুন।",
+    "tabsLabel": "রুটিন সেটআপের অংশ",
+    "tabs": {
+      "periods": "শিফট ও পিরিয়ড",
+      "rooms": "কক্ষ",
+      "rules": "রুটিনের নিয়ম"
+    }
   },
   "shiftsPanel": {
     "legend": "শিফট",
@@ -17,11 +24,26 @@
     "addAction": "শিফট যোগ করুন"
   },
   "roomsPanel": {
-    "legend": "রুম",
+    "legend": "কক্ষ",
     "building": "ভবন",
-    "roomNo": "রুম নং",
+    "roomNo": "কক্ষ নং",
     "capacity": "ধারণক্ষমতা",
-    "addAction": "রুম যোগ করুন"
+    "addAction": "কক্ষ যোগ করুন",
+    "subtitle": "যে কক্ষগুলোতে পিরিয়ড বসানো যায়।",
+    "caption": "কক্ষের তালিকা",
+    "capacityValue": "{{count}} জন",
+    "roomName": "কক্ষ {{roomNo}}",
+    "dialogTitle": "কক্ষ যোগ করুন",
+    "dialogConfirm": "যোগ করুন",
+    "cancel": "বাতিল করুন",
+    "deleteTitle": "কক্ষ {{roomNo}} মুছবেন?",
+    "deleteDescription": "কক্ষটি তালিকা থেকে মুছে যাবে। এটি আর ফেরানো যাবে না।",
+    "deleteConfirm": "মুছে ফেলুন",
+    "inUseError": "রুটিনের কিছু পিরিয়ড এই কক্ষে বসানো আছে, তাই মোছা যাবে না। আগে সেই পিরিয়ডগুলো অন্য কক্ষে সরান।",
+    "deleteError": "কক্ষটি মোছা যায়নি। আবার চেষ্টা করুন।",
+    "saveError": "কক্ষটি যোগ করা যায়নি। আবার চেষ্টা করুন।",
+    "emptyTitle": "এখনো কোনো কক্ষ নেই",
+    "emptyExplanation": "যে কক্ষগুলোতে পিরিয়ড হয়, সেগুলো যোগ করুন।"
   },
   "periodSlotsPanel": {
     "legend": "পিরিয়ড স্লট — {{shiftName}}",
@@ -38,11 +60,15 @@
     "timelineLabel": "এই শিফটের দিনের সময়রেখা"
   },
   "settingsPanel": {
-    "legend": "রুটিন সেটিংস",
-    "defaultChangeoverMinutes": "পরিবর্তন বিরতি (মিনিট)",
-    "maxPeriodsPerTeacherPerDay": "প্রতি শিক্ষকের প্রতিদিন সর্বোচ্চ পিরিয়ড",
-    "maxConsecutivePeriods": "সর্বোচ্চ ধারাবাহিক পিরিয়ড",
-    "noCap": "কোনো সীমা নেই"
+    "legend": "রুটিনের নিয়ম",
+    "defaultChangeoverMinutes": "দুই পিরিয়ডের মাঝে ফাঁক (মিনিট)",
+    "maxPeriodsPerTeacherPerDay": "একজন শিক্ষক দিনে সর্বোচ্চ কয়টি পিরিয়ড নেবেন",
+    "maxConsecutivePeriods": "টানা সর্বোচ্চ কয়টি পিরিয়ড",
+    "noCap": "কোনো সীমা নেই",
+    "description": "রুটিন সাজানোর সময় এই নিয়মগুলো মিলিয়ে দেখা হয়।",
+    "defaultChangeoverHelp": "নতুন পিরিয়ড আগেরটি শেষ হওয়ার এত মিনিট পরে শুরু হয়।",
+    "noCapHelp": "খালি রাখলে কোনো সীমা নেই।",
+    "saveError": "নিয়মগুলো সংরক্ষণ করা যায়নি। সংখ্যাগুলো দেখে আবার চেষ্টা করুন।"
   },
   "grid": {
     "tooNarrow": "এই রুটিনের ছকের জন্য বড় স্ক্রিন প্রয়োজন — ল্যান্ডস্কেপ বা বড় উইন্ডো চেষ্টা করুন।",
