@@ -70,7 +70,7 @@ export function CopyRulesDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent size="sm">
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <DialogHeader>
             <DialogTitle>{t('fines.rules.copyDialog.title')}</DialogTitle>
@@ -91,10 +91,7 @@ export function CopyRulesDialog({
                 {t('fines.rules.copyDialog.academicYearLabel')}
               </label>
               <Select value={fromAcademicYearId} onValueChange={setFromAcademicYearId}>
-                <SelectTrigger
-                  id="copy-rules-year"
-                  aria-label={t('fines.rules.copyDialog.academicYearLabel')}
-                >
+                <SelectTrigger id="copy-rules-year">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
