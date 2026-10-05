@@ -116,7 +116,7 @@ describe('SubjectChoicesPanel', () => {
     expect(screen.queryByText(/No optional subjects/)).toBeNull();
 
     yearsFail = false;
-    await user.click(screen.getByRole('button', { name: 'Try again' }));
+    await user.click(screen.getByRole('button', { name: 'Retry' }));
     await screen.findByRole('radio', { name: 'History' });
   });
 

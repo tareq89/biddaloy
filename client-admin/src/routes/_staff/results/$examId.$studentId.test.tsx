@@ -4,7 +4,9 @@
  * (header). Same `renderWithRouter` + real route tree pattern as
  * `grading-scales/$scaleId.test.tsx`.
  */
+import { REGION_BD_BN } from '@biddaloy/ui/i18n';
 import { apiErrorBody, cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
+import { formatNumber } from '@biddaloy/ui/utils';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -117,7 +119,11 @@ describe('/results/$examId/$studentId', () => {
       'https://cdn.example.com/logo.png',
     );
     // The legend comes from the grading scale the result was computed with.
-    expect(await screen.findByText('A+ (5.00) — Outstanding')).toBeTruthy();
+    expect(
+      await screen.findByText(
+        `A+ (${formatNumber(5, REGION_BD_BN, { decimals: 2 })}) — Outstanding`,
+      ),
+    ).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Back to exam' }).getAttribute('href')).toBe(
       '/exams/exam-1',
     );
@@ -153,7 +159,7 @@ describe('/results/$examId/$studentId', () => {
     expect(screen.queryByText(/Outstanding/)).toBeNull();
   });
 
-  it('shows an error when the result detail fails to load, and Try again refetches it', async () => {
+  it('shows an error when the result detail fails to load, and Retry refetches it', async () => {
     mockReportCard();
     let detailCalls = 0;
     server.use(
@@ -168,7 +174,7 @@ describe('/results/$examId/$studentId', () => {
 
     expect(await screen.findByText("Couldn't load this report card.")).toBeTruthy();
 
-    await user.click(screen.getByRole('button', { name: 'Try again' }));
+    await user.click(screen.getByRole('button', { name: 'Retry' }));
 
     expect(await screen.findByText('Rafi Ahmed')).toBeTruthy();
     expect(detailCalls).toBe(2);

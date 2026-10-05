@@ -7,6 +7,7 @@
  * just before *a* preview but before a preview of *these exact inputs* —
  * the first test pins the whole enable → edit → re-disable loop.
  */
+import { REGION_BD_BN } from '@biddaloy/ui/i18n';
 import {
   cleanupTestState,
   guardianFactory,
@@ -15,12 +16,16 @@ import {
   studentFactory,
 } from '@biddaloy/ui/test';
 import { apiErrorBody } from '@biddaloy/ui/test';
+import { formatNumber } from '@biddaloy/ui/utils';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { delay, http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { routeTree } from '../../../routeTree.gen';
+
+/** Counts render in the region's numerals. */
+const n = (value: number) => formatNumber(value, REGION_BD_BN);
 
 const GUARDIAN_MOTHER = guardianFactory({
   id: 'guardian-1',
@@ -159,17 +164,17 @@ describe('/communications/reminders', () => {
 
     // Recipient row: name, channel, address, fully rendered message.
     await screen.findByText('Dear Rahima Begum, Arif Hossain has dues.');
-    expect(screen.getByText('Will receive (1)')).toBeTruthy();
+    expect(screen.getByText(`Will receive (${n(1)})`)).toBeTruthy();
     expect(screen.getByText(GUARDIAN_MOTHER.phone as string)).toBeTruthy();
 
     // The rendered body is what the network charges for — its count sits
     // with the SMS recipient row ('Dear Rahima Begum, Arif Hossain has
     // dues.' = 41 GSM-7 septets).
-    expect(screen.getByText('41 characters · 1 SMS segment')).toBeTruthy();
+    expect(screen.getByText(`${n(41)} characters · ${n(1)} SMS segment`)).toBeTruthy();
 
     // Skipped row: the snake_case wire reason mapped to plain language —
     // a silently dropped guardian is the failure mode the issue names.
-    expect(screen.getByText('Skipped (1)')).toBeTruthy();
+    expect(screen.getByText(`Skipped (${n(1)})`)).toBeTruthy();
     expect(screen.getByText('Karim Uddin')).toBeTruthy();
     expect(screen.getByText('No phone or email on file for the preferred channel')).toBeTruthy();
   });
@@ -287,9 +292,9 @@ describe('/communications/reminders', () => {
     expect(sendBody?.['guardian_ids']).toEqual([GUARDIAN_MOTHER.id]);
     expect(sendBody?.['medium']).toBeUndefined();
 
-    expect(screen.getByText('Sent (1)')).toBeTruthy();
+    expect(screen.getByText(`Sent (${n(1)})`)).toBeTruthy();
     expect(screen.getByText('Queued')).toBeTruthy();
-    expect(screen.getByText('Skipped (1)')).toBeTruthy();
+    expect(screen.getByText(`Skipped (${n(1)})`)).toBeTruthy();
     expect(screen.getByText(/No phone or email on file for the preferred channel/)).toBeTruthy();
   });
 
@@ -411,19 +416,19 @@ describe('/communications/reminders', () => {
 
     // Default (guardian preference) with the mother preferring SMS —
     // counter visible, labelled as a template-based estimate.
-    expect(screen.getByText('14 characters · 1 SMS segment')).toBeTruthy();
+    expect(screen.getByText(`${n(14)} characters · ${n(1)} SMS segment`)).toBeTruthy();
     expect(screen.getByText(/Estimated from the template/)).toBeTruthy();
 
     // Explicit Email override: no SMS will go out — quoting SMS segment
     // limits would be noise.
     await user.click(screen.getByRole('combobox', { name: 'Channel override' }));
     await user.click(await screen.findByRole('option', { name: 'Email' }));
-    expect(screen.queryByText('14 characters · 1 SMS segment')).toBeNull();
+    expect(screen.queryByText(`${n(14)} characters · ${n(1)} SMS segment`)).toBeNull();
 
     // Explicit SMS override: back.
     await user.click(screen.getByRole('combobox', { name: 'Channel override' }));
     await user.click(await screen.findByRole('option', { name: 'SMS' }));
-    expect(screen.getByText('14 characters · 1 SMS segment')).toBeTruthy();
+    expect(screen.getByText(`${n(14)} characters · ${n(1)} SMS segment`)).toBeTruthy();
   });
 
   it('surfaces the server 400 verbatim when every candidate is skipped', async () => {
@@ -471,12 +476,14 @@ describe('/communications/reminders', () => {
 
     // 44 UTF-16 code units ≤ 70 → one UCS-2 segment. A GSM-7 counter
     // would have claimed 160 per segment — the AC this pins.
-    const counter = screen.getByText(`${bangla.length} characters · 1 SMS segment`);
+    const counter = screen.getByText(`${n(bangla.length)} characters · ${n(1)} SMS segment`);
     expect(counter.getAttribute('aria-live')).toBe('polite');
 
     // Push past 70 code units → concatenated at 67 per segment.
     await user.paste(bangla);
-    expect(screen.getByText(`${bangla.length * 2} characters · 2 SMS segments`)).toBeTruthy();
+    expect(
+      screen.getByText(`${n(bangla.length * 2)} characters · ${n(2)} SMS segments`),
+    ).toBeTruthy();
   });
 
   // [8.14.17]: `_staff.tsx`'s `RequirePermission` now refuses the whole
