@@ -35,7 +35,11 @@ describe('/admissions/applicants', () => {
   };
 
   function mockIntakes() {
-    server.use(http.get('/api/v1/admission-intakes', () => HttpResponse.json([])));
+    server.use(
+      http.get('/api/v1/admission-intakes', () =>
+        HttpResponse.json([{ id: 'intake-1', title: 'Class 1 Admission 2026' }]),
+      ),
+    );
   }
 
   it('lists applicants and links to the detail screen', async () => {
@@ -52,6 +56,30 @@ describe('/admissions/applicants', () => {
     await screen.findByRole('heading', { name: 'Admission applicants' });
     expect(await screen.findByText('REF-001')).toBeTruthy();
     expect(screen.getByText('Jane Doe')).toBeTruthy();
+
+    const view = screen.getAllByRole('link', { name: 'View' })[0];
+    expect(view?.getAttribute('href')).toBe('/admissions/applicants/applicant-1');
+    // the reference number is plain text, not a link
+    expect(screen.queryByRole('link', { name: 'REF-001' })).toBeNull();
+    expect(screen.getAllByText('01700-000000').length).toBeGreaterThan(0);
+    expect(screen.queryByText(/2026-01-01/)).toBeNull();
+    expect((await screen.findAllByText('Class 1 Admission 2026')).length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Awaiting review').length).toBeGreaterThan(0);
+  });
+
+  it('shows a real empty state when there are no applications', async () => {
+    mockIntakes();
+    server.use(http.get('/api/v1/admission/applicants', () => HttpResponse.json([])));
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/admissions/applicants'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    expect(await screen.findByText('No applications yet')).toBeTruthy();
+    expect(screen.queryByText('Rows per page')).toBeNull();
   });
 
   it('refuses the whole route for TEACHER, who lacks ADMISSION_REVIEW', async () => {
