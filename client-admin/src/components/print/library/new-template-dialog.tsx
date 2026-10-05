@@ -5,6 +5,7 @@
  * people see; the design can also be pre-picked (the empty state's grid).
  */
 import { DocumentKind } from '@biddaloy/shared';
+import { ApiError } from '@biddaloy/ui/api';
 import {
   Button,
   Dialog,
@@ -13,6 +14,9 @@ import {
   DialogHeader,
   DialogTitle,
   Input,
+  Tabs,
+  TabsList,
+  TabsTrigger,
 } from '@biddaloy/ui/components';
 import { useCreatePrintTemplate, usePrintSuggestions } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
@@ -66,6 +70,7 @@ export function NewTemplateDialog({
   const canCreate = Boolean(selected) && name.trim() !== '' && !create.isPending;
 
   function handleOpenChange(next: boolean) {
+    if (!next && create.isPending) return; // no closing mid-request
     if (!next) {
       create.reset();
       setTypedName(undefined);
@@ -88,32 +93,30 @@ export function NewTemplateDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent>
+      <DialogContent size="lg">
         <DialogHeader>
           <DialogTitle>{t('new_dialog.title')}</DialogTitle>
         </DialogHeader>
 
-        <div role="group" aria-label={t('new_dialog.kind')} className="flex gap-2">
-          {KINDS.map((value) => (
-            <Button
-              key={value}
-              type="button"
-              size="sm"
-              variant={kind === value ? 'default' : 'outline'}
-              aria-pressed={kind === value}
-              onClick={() => {
-                setKind(value);
-                setSelectedKey(undefined);
-                setTypedName(undefined);
-              }}
-            >
-              {t(`kind.${value}`)}
-            </Button>
-          ))}
-        </div>
+        <Tabs
+          value={kind}
+          onValueChange={(value) => {
+            setKind(value);
+            setSelectedKey(undefined);
+            setTypedName(undefined);
+          }}
+        >
+          <TabsList variant="line" aria-label={t('new_dialog.kind')}>
+            {KINDS.map((value) => (
+              <TabsTrigger key={value} value={value}>
+                {t(`kind.${value}`)}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
 
         <fieldset className="flex flex-col gap-2">
-          <legend className="text-sm font-medium">{t('new_dialog.designs')}</legend>
+          <legend className="text-label">{t('new_dialog.designs')}</legend>
           {shown.length === 0 && !suggestionsQuery.isPending ? (
             <p role="status" className="text-sm text-muted-foreground">
               {t('new_dialog.noSuggestions')}
@@ -137,7 +140,7 @@ export function NewTemplateDialog({
 
         {selected ? (
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="new-template-name" className="text-sm font-medium">
+            <label htmlFor="new-template-name" className="text-label">
               {t('new_dialog.name')}
             </label>
             <Input
@@ -146,13 +149,15 @@ export function NewTemplateDialog({
               maxLength={80}
               onChange={(e) => setTypedName(e.target.value)}
             />
-            <p className="text-xs text-muted-foreground">{t('new_dialog.nameHelp')}</p>
+            <p className="text-caption text-text-secondary">{t('new_dialog.nameHelp')}</p>
           </div>
         ) : null}
 
         {create.isError ? (
           <p role="alert" className="text-sm text-destructive">
-            {t('new_dialog.createFailed')}
+            {create.error instanceof ApiError && create.error.statusCode === 409
+              ? t('new_dialog.nameTaken')
+              : t('new_dialog.createFailed')}
           </p>
         ) : null}
 

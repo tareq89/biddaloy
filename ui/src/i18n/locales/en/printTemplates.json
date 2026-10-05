@@ -1,17 +1,16 @@
 {
   "title": "Print designs",
-  "caption": "Your school's print templates",
-  "new": "New template",
+  "caption": "Your school's print designs",
+  "new": "New design",
   "empty": {
     "heading": "Start from a design",
     "explanation": "Pick a design to begin. You can change everything in the editor."
   },
-  "loadError": "Could not load the templates.",
+  "loadError": "Couldn't load the designs.",
   "columns": {
     "name": "Name",
     "type": "Type",
     "status": "Status",
-    "default": "Default",
     "batch": "Cards per round",
     "updated": "Last updated",
     "actions": "Actions"
@@ -31,7 +30,7 @@
     "allKinds": "All documents"
   },
   "actions": {
-    "edit": "Edit",
+    "edit": "Edit design",
     "makeDefault": "Make default",
     "archive": "Archive"
   },
@@ -40,11 +39,12 @@
     "explain": "It will no longer be offered when printing. Past prints keep their record.",
     "confirm": "Archive",
     "cancel": "Cancel",
-    "failed": "Could not archive this template."
+    "failed": "Couldn't archive the design.",
+    "failedIsDefault": "This is the default design. Make another design the default first."
   },
   "makeDefaultFailed": "Could not make this the default.",
   "new_dialog": {
-    "title": "New template",
+    "title": "New design",
     "kind": "Document type",
     "designs": "Choose a design",
     "name": "Name",
@@ -53,7 +53,8 @@
     "creating": "Creating…",
     "cancel": "Cancel",
     "noSuggestions": "There are no designs for this document type yet.",
-    "createFailed": "Could not create the template."
+    "createFailed": "Couldn't create the design.",
+    "nameTaken": "A design with this name already exists."
   },
   "style": {
     "classic": "Classic",
@@ -78,5 +79,10 @@
     "copyFailed": "Could not copy the link",
     "back": "Go back"
   },
-  "defaultNameAcr": "ACR A4 page"
+  "defaultNameAcr": "ACR A4 page",
+  "subtitle": "ID card and ACR page designs.",
+  "makeDefaultConfirm": {
+    "title": "Make {{name}} the default?",
+    "explain": "It will be picked first when printing this document type."
+  }
 }
