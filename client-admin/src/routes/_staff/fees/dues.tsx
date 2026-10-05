@@ -1,15 +1,9 @@
-import { FeeStatus, FeeType, Permission } from '@biddaloy/shared';
+import { FeeStatus, FeeType, Permission, PeriodType } from '@biddaloy/shared';
 import {
   Button,
   RoutePending,
   StatusBadge,
   statusLabelKey,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
   type DataTableColumn,
 } from '@biddaloy/ui/components';
 import {
@@ -26,13 +20,23 @@ import {
 } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { ListShell, useListShellState, type FilterFieldDescriptor } from '@biddaloy/ui/shells';
-import { downloadCsv, formatDate, formatServerAmount, parseServerDate } from '@biddaloy/ui/utils';
-import { createFileRoute, Link } from '@tanstack/react-router';
+import {
+  downloadCsv,
+  formatDate,
+  formatMonth,
+  formatMonthName,
+  formatNumber,
+  formatServerAmount,
+  parseServerDate,
+  renderDigits,
+  toIsoDate,
+} from '@biddaloy/ui/utils';
+import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import { BanknoteIcon, DownloadIcon, SendIcon, XIcon } from 'lucide-react';
 import * as React from 'react';
 import { z } from 'zod';
 
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
-import { RecordPaymentModal } from '../payments/-record/record-payment-modal';
 import { SendReminderDialog } from '../students/-send-reminder-dialog';
 
 /** `DataTableSort.id` values that map onto a server-sortable field —
@@ -101,7 +105,7 @@ export const Route = createFileRoute('/_staff/fees/dues')({
   validateSearch: duesSearchSchema,
   loaderDeps: ({ search }) => ({
     page: search.page ?? 1,
-    limit: search.limit ?? 10,
+    limit: search.limit ?? 25,
     sort: search.sort,
     order: search.order,
     search: search.search,
@@ -163,141 +167,83 @@ function deriveRowStatus(row: FeeDueRow): FeeStatus {
     : FeeStatus.PENDING;
 }
 
-/** [16.4.5] wallet balance chip — no batched wallet-balance endpoint
- * exists (unlike `useLastReminders(visibleStudentIds)` below, which the
- * server does support in bulk), so this is a small standalone component
- * with its own `useStudentWallet` call per visible row rather than a
- * `toReminderLabel`-style lookup built from one shared query. React Query
- * dedupes/caches per `student_id` on its own, and only currently-visible
- * rows mount one of these. */
+/** [16.4.5] credit balance — no batched wallet endpoint exists, so one
+ * `useStudentWallet` call per visible row (React Query dedupes per student). */
 function WalletChip({ studentId }: { studentId: string }) {
-  const { t } = useTranslation('fees');
   const regionConfig = useRegionConfig();
   const walletQuery = useStudentWallet(studentId);
 
   if (walletQuery.isLoading) {
-    return <span className="text-xs text-muted-foreground">{t('dues.walletLoading')}</span>;
+    return <span aria-hidden="true" className="inline-block h-3 w-16 rounded-sm bg-muted" />;
   }
-  if (walletQuery.isError || walletQuery.data === undefined) {
-    return <span className="text-xs text-muted-foreground">—</span>;
-  }
+  if (walletQuery.isError || walletQuery.data === undefined) return <span>—</span>;
+  const { balance } = walletQuery.data;
   return (
-    <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-foreground tabular-nums">
-      {t('dues.walletChip', { amount: formatServerAmount(walletQuery.data.balance, regionConfig) })}
+    <span className={Number(balance) === 0 ? 'text-text-secondary' : undefined}>
+      {formatServerAmount(balance, regionConfig)}
     </span>
   );
 }
 
-/**
- * [16.4.5] wires the "Record payment" action to the real modal from
- * #661. The modal (`RecordPaymentModalProps`) only accepts a
- * `studentId`/`guardianId` pre-selection, not specific fee lines, so
- * `opts.feeIds` is accepted for forward-compatibility but currently
- * unused — recording still opens the cart for the whole student, same
- * as every other "Record payment" entry point in the app.
- */
-function useRecordPaymentSeam() {
-  const [studentId, setStudentId] = React.useState<string | undefined>(undefined);
-  const [isOpen, setIsOpen] = React.useState(false);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- forward-compat: kept until the modal supports pre-selecting fee lines
-  const open = React.useCallback((id: string, _opts?: { feeIds?: string[] }) => {
-    setStudentId(id);
-    setIsOpen(true);
-  }, []);
-  return { studentId, isOpen, onOpenChange: setIsOpen, open };
-}
-
-/** [16.4.5] the expanded row's per-fee-line breakdown — one line per
- * `FeeDueEntry`, matching `fee-dues.service.ts`'s bill-shaped `DueEntry`
- * one-for-one. `fees-tab.tsx`'s "Open bills" section renders the same
- * shape; this isn't shared into a common file since the two aren't in
- * this ticket's file territory together with a natural home for one
- * (dues.tsx and fees-tab.tsx are two independently-owned files here),
- * and the table is a handful of lines either way. */
-function DuesFeeLines({
-  dues,
-  onRecordPayment,
-}: {
-  dues: FeeDueEntry[];
-  onRecordPayment?: ((feeId: string) => void) | undefined;
-}) {
+/** [16.4.5] the expanded row's per-fee list — one item per `FeeDueEntry`. A list
+ * (not a table) because it must read in both table and card mode. */
+function DuesFeeLines({ name, dues }: { name: string; dues: FeeDueEntry[] }) {
   const { t } = useTranslation('fees');
   const regionConfig = useRegionConfig();
 
-  function periodLabel(due: FeeDueEntry): string {
-    const date = formatDate(parseServerDate(due.period_start), regionConfig);
-    return due.occurrence > 1 ? `${date} (${due.occurrence})` : date;
-  }
-
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>{t('dues.expanded.columnFee')}</TableHead>
-          <TableHead>{t('dues.expanded.columnPeriod')}</TableHead>
-          <TableHead>{t('dues.expanded.columnDueDate')}</TableHead>
-          <TableHead>{t('dues.expanded.columnAmount')}</TableHead>
-          <TableHead>{t('dues.expanded.columnDiscount')}</TableHead>
-          <TableHead>{t('dues.expanded.columnPaid')}</TableHead>
-          <TableHead>{t('dues.expanded.columnBalance')}</TableHead>
-          {onRecordPayment && <TableHead>{t('dues.expanded.columnActions')}</TableHead>}
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {dues.map((due) => (
-          <TableRow key={due.student_fee_id}>
-            <TableCell>
-              <span className="flex items-center gap-2">
-                {due.fee_name}
-                {due.is_late_fee && (
-                  <span className="inline-flex items-center rounded-full bg-status-overdue-bg px-2 py-0.5 text-xs font-medium text-status-overdue-fg">
-                    {t('dues.expanded.lateFeeBadge')}
-                  </span>
-                )}
-              </span>
-            </TableCell>
-            <TableCell>{periodLabel(due)}</TableCell>
-            <TableCell>
-              {due.due_date ? formatDate(parseServerDate(due.due_date), regionConfig) : '—'}
-            </TableCell>
-            <TableCell className="tabular-nums">
-              {formatServerAmount(due.total_amount, regionConfig)}
-            </TableCell>
-            <TableCell className="tabular-nums">
-              {formatServerAmount(
-                due.standing_discount_amount + due.one_off_discount_amount,
-                regionConfig,
-              )}
-            </TableCell>
-            <TableCell className="tabular-nums">
-              {formatServerAmount(due.paid_amount, regionConfig)}
-            </TableCell>
-            <TableCell className="tabular-nums">
-              {formatServerAmount(due.balance, regionConfig)}
-            </TableCell>
-            {onRecordPayment && (
-              <TableCell>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => onRecordPayment(due.student_fee_id)}
-                >
-                  {t('dues.expanded.recordPayment')}
-                </Button>
-              </TableCell>
-            )}
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+    <div className="px-4 pb-2">
+      <ul
+        aria-label={t('dues.expandLabel', { name, count: dues.length })}
+        className="divide-y divide-border-subtle"
+      >
+        {dues.map((due) => {
+          const periodStart = parseServerDate(due.period_start);
+          const period =
+            due.period_type === PeriodType.MONTH
+              ? formatMonth(periodStart, regionConfig)
+              : formatDate(periodStart, regionConfig);
+          const date = due.due_date ? formatDate(parseServerDate(due.due_date), regionConfig) : '—';
+          return (
+            <li key={due.student_fee_id} className="py-2">
+              <div className="flex items-start justify-between gap-4">
+                <p className="flex min-w-0 flex-wrap items-center gap-2 font-medium">
+                  {due.occurrence > 1
+                    ? `${due.fee_name} (${formatNumber(due.occurrence, regionConfig)})`
+                    : due.fee_name}
+                  {due.is_late_fee && (
+                    <StatusBadge tone="warning" label={t('dues.expanded.lateFeeBadge')} />
+                  )}
+                </p>
+                <p className="shrink-0 font-medium tabular-nums">
+                  {formatServerAmount(due.balance, regionConfig)}
+                </p>
+              </div>
+              <p className="text-caption text-text-secondary">
+                {t('dues.expanded.periodAndDue', { period, date })}
+              </p>
+              <p className="text-caption text-text-secondary">
+                {t('dues.expanded.breakdown', {
+                  total: formatServerAmount(due.total_amount, regionConfig),
+                  discount: formatServerAmount(
+                    due.standing_discount_amount + due.one_off_discount_amount,
+                    regionConfig,
+                  ),
+                  paid: formatServerAmount(due.paid_amount, regionConfig),
+                })}
+              </p>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 }
 
 function DuesQueuePage() {
   const { t } = useTranslation('fees');
   const regionConfig = useRegionConfig();
-  const [state, actions] = useListShellState({ limit: 10 });
+  const [state, actions] = useListShellState();
   const filters = state.filters as DuesFilters;
   const flagged = filters.flagged === 'true';
 
@@ -340,23 +286,13 @@ function DuesQueuePage() {
 
   const canCollectFees = useHasPermission(Permission.FEE_COLLECT);
   const canSendReminder = useHasPermission(Permission.COMMUNICATION_BULK_SEND);
-  const recordPayment = useRecordPaymentSeam();
-  const onRecordPayment = recordPayment.open;
+  const navigate = useNavigate();
 
-  const [reminderDialogOpen, setReminderDialogOpen] = React.useState(false);
+  const [reminderTarget, setReminderTarget] = React.useState<{
+    ids: string[];
+    bulk: boolean;
+  } | null>(null);
 
-  // Plain zero-padded numbers, not localized month names — no shared
-  // month-name formatter exists in `@biddaloy/ui/utils`/`i18n` yet
-  // (`formatDate`'s own doc comment: numeric-only "deliberately not a
-  // localized month-name format... a locale-aware calendar UI composes
-  // this with real i18n later"), and `boundary/no-raw-intl` forbids
-  // reaching for `Intl.DateTimeFormat` directly outside that shared
-  // layer. Same digit rendering `fees-tab.tsx` already uses for a
-  // fee-month label (`{fee.year}-{String(fee.month).padStart(2, '0')}`).
-  const monthOptions = React.useMemo(
-    () => Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0')),
-    [],
-  );
   const currentYear = new Date().getFullYear();
   const yearOptions = React.useMemo(
     () => [currentYear - 2, currentYear - 1, currentYear, currentYear + 1].map(String),
@@ -372,6 +308,13 @@ function DuesQueuePage() {
   function handleFilterChange(patch: Record<string, string | null>) {
     const next = { ...patch };
     if ('class_id' in next) next.section_id = null;
+    // Flagged mode hides month/year/status/fee type — clear their values too.
+    if (next.flagged === 'true') {
+      next.month = null;
+      next.year = null;
+      next.status = null;
+      next.fee_type = null;
+    }
     actions.setFilters(next);
   }
 
@@ -380,6 +323,11 @@ function DuesQueuePage() {
     return reminder
       ? formatDate(new Date(reminder.sent_at), regionConfig)
       : t('dues.neverReminded');
+  }
+
+  function reminderIso(studentId: string): string {
+    const reminder = lastReminders?.get(studentId);
+    return reminder ? toIsoDate(new Date(reminder.sent_at)) : '';
   }
 
   function exportSelectedToCsv() {
@@ -404,7 +352,7 @@ function DuesQueuePage() {
         formatServerAmount(paid, regionConfig),
         formatServerAmount(row.total_due, regionConfig),
         t(statusLabelKey('fee', deriveRowStatus(row)), { ns: 'common' }),
-        toReminderLabel(row.student_id),
+        reminderIso(row.student_id),
       ];
     });
     downloadCsv('dues.csv', [header, ...lines]);
@@ -414,38 +362,37 @@ function DuesQueuePage() {
     {
       id: 'student',
       header: t('dues.columnStudent'),
-      accessorFn: (row) => `${row.full_name} (${row.registration_number})`,
+      accessorFn: (row) => (
+        <span className="flex flex-col">
+          <span className="font-medium">{row.full_name}</span>
+          <span className="text-caption text-text-secondary">
+            {t('dues.studentCaption', {
+              registration: row.registration_number,
+              roll: formatNumber(row.roll_number, regionConfig),
+            })}
+          </span>
+        </span>
+      ),
       sortable: !flagged,
-      // [8.14.10] name is the natural card title.
       card: 'title',
     },
     {
       id: 'class',
       header: t('dues.columnClass'),
-      accessorFn: (row) => row.class_name ?? t('dues.allClasses'),
+      accessorFn: (row) => `${row.class_name ?? '—'} · ${row.section_name ?? '—'}`,
       sortable: !flagged,
       card: 'subtitle',
     },
     {
-      id: 'section',
-      header: t('dues.columnSection'),
-      accessorFn: (row) => row.section_name ?? t('dues.allSections'),
-    },
-    {
       id: 'total',
       header: t('dues.columnTotal'),
-      // `row.total_due` is already `total_amount - paid_amount -
-      // discount_amount` summed server-side (`FeeDuesService`'s own
-      // `StudentDueAggregate.total_due` doc comment) — the *balance*, not
-      // the gross billed amount. Gross total is billed + paid, recomputed
-      // from the per-month breakdown for this column specifically.
+      // `row.total_due` is the *balance*; gross billed is recomputed from the
+      // per-fee breakdown for this column.
       accessorFn: (row) =>
         formatServerAmount(
           row.dues.reduce((sum, due) => sum + due.total_amount, 0),
           regionConfig,
         ),
-      // Money column — right-aligns and carries `tabular-nums` via
-      // `align` (design contract §2), per [8.14.7]'s `DataTableColumn.align`.
       align: 'end',
     },
     {
@@ -461,7 +408,9 @@ function DuesQueuePage() {
     {
       id: 'due',
       header: t('dues.columnDue'),
-      accessorFn: (row) => formatServerAmount(row.total_due, regionConfig),
+      accessorFn: (row) => (
+        <span className="font-medium">{formatServerAmount(row.total_due, regionConfig)}</span>
+      ),
       sortable: !flagged,
       align: 'end',
     },
@@ -472,47 +421,27 @@ function DuesQueuePage() {
       card: 'badge',
     },
     {
-      // [16.4.5] one wallet lookup per visible row — see `WalletChip`'s
-      // own comment for why this can't be a batched hook like
-      // `lastReminders` below.
       id: 'wallet',
       header: t('dues.columnWallet'),
       accessorFn: (row) => <WalletChip studentId={row.student_id} />,
+      align: 'end',
     },
     {
       id: 'lastReminder',
       header: t('dues.columnLastReminder'),
-      accessorFn: (row) => toReminderLabel(row.student_id),
-    },
-    {
-      id: 'actions',
-      header: t('dues.columnActions'),
-      pinned: true,
-      card: 'actions',
       accessorFn: (row) =>
-        canCollectFees && (
-          <Link
-            to="/payments/record"
-            search={{ student_id: row.student_id }}
-            className="text-sm font-medium text-primary underline"
-          >
-            {t('dues.collect')}
-          </Link>
+        lastReminders?.get(row.student_id) ? (
+          toReminderLabel(row.student_id)
+        ) : (
+          <span className="text-text-secondary">{t('dues.neverReminded')}</span>
         ),
     },
   ];
 
-  // [8.14.10] `section_id`/`month`/`year`/`status` used the `disabled`
-  // prop to grey out while their governing choice (class chosen /
-  // not flagged) made them meaningless — `FilterBar`'s `SelectFilterField`
-  // has no `disabled` prop (`ui/src/shells/filter-bar.tsx`), and this
-  // migration doesn't touch that file. The equivalent here is an empty
-  // `options` array: the control still renders, but there is nothing to
-  // pick beyond "All …", so it can't drive a meaningless filter. This
-  // preserves the *functional* coupling (no stray month/year/status filter
-  // while `class_id`/`flagged` disagree) without the greyed-out visual —
-  // flagged in the PR body as a design-system gap, not fixed here.
-  const filterFields: FilterFieldDescriptor[] = [
+  // Flagged mode: `QueryFlaggedDuesDto` accepts none of month/year/status/fee_type,
+  // so those controls are not rendered at all.
+  const FLAGGED_HIDDEN = new Set(['month', 'year', 'status', 'fee_type']);
+  const allFilterFields: FilterFieldDescriptor[] = [
     {
       kind: 'text',
       key: 'search',
@@ -548,49 +477,46 @@ function DuesQueuePage() {
       key: 'month',
       label: t('dues.monthLabel'),
       allLabel: t('dues.allMonths'),
-      options: flagged
-        ? []
-        : monthOptions.map((month, index) => ({ value: String(index + 1), label: month })),
+      options: Array.from({ length: 12 }, (_, i) => ({
+        value: String(i + 1),
+        label: formatMonthName(i + 1, regionConfig),
+      })),
     },
     {
       kind: 'select',
       key: 'year',
       label: t('dues.yearLabel'),
       allLabel: t('dues.allYears'),
-      options: flagged ? [] : yearOptions.map((year) => ({ value: year, label: year })),
+      options: yearOptions.map((year) => ({
+        value: year,
+        label: renderDigits(year, regionConfig.numerals),
+      })),
     },
     {
       kind: 'select',
       key: 'status',
       label: t('dues.statusLabel'),
       allLabel: t('dues.allStatuses'),
-      options: flagged
-        ? []
-        : [
-            {
-              value: FeeStatus.PENDING,
-              label: t(statusLabelKey('fee', FeeStatus.PENDING), { ns: 'common' }),
-            },
-            {
-              value: FeeStatus.PARTIALLY_PAID,
-              label: t(statusLabelKey('fee', FeeStatus.PARTIALLY_PAID), { ns: 'common' }),
-            },
-          ],
+      options: [
+        {
+          value: FeeStatus.PENDING,
+          label: t(statusLabelKey('fee', FeeStatus.PENDING), { ns: 'common' }),
+        },
+        {
+          value: FeeStatus.PARTIALLY_PAID,
+          label: t(statusLabelKey('fee', FeeStatus.PARTIALLY_PAID), { ns: 'common' }),
+        },
+      ],
     },
     {
       kind: 'select',
       key: 'fee_type',
       label: t('dues.feeTypeLabel'),
       allLabel: t('dues.allFeeTypes'),
-      // [16.4.5] same "empty until flagged is off" treatment as
-      // month/year/status above — `QueryFlaggedDuesDto` doesn't accept
-      // `fee_type` either.
-      options: flagged
-        ? []
-        : Object.values(FeeType).map((feeType) => ({
-            value: feeType,
-            label: t(`feeTypes.${feeType}`, { ns: 'feeStructures' }),
-          })),
+      options: Object.values(FeeType).map((feeType) => ({
+        value: feeType,
+        label: t(`feeTypes.${feeType}`, { ns: 'feeStructures' }),
+      })),
     },
     {
       kind: 'checkbox',
@@ -599,10 +525,25 @@ function DuesQueuePage() {
     },
   ];
 
+  const filterFields = flagged
+    ? allFilterFields.filter((field) => !('key' in field && FLAGGED_HIDDEN.has(field.key)))
+    : allFilterFields;
+
   return (
     <>
       <ListShell
         title={t('dues.title')}
+        subtitle={t('dues.subtitle')}
+        actions={[
+          {
+            id: 'record',
+            label: t('dues.recordPayment'),
+            icon: <BanknoteIcon />,
+            priority: 'primary',
+            allowed: canCollectFees,
+            onClick: () => void navigate({ to: '/payments/record' }),
+          },
+        ]}
         filters={{ fields: filterFields, values: state.filters, onChange: handleFilterChange }}
         tableId="fees-dues"
         caption={t('dues.caption')}
@@ -612,16 +553,23 @@ function DuesQueuePage() {
         expandRowLabel={(row) =>
           t('dues.expandLabel', { name: row.full_name, count: row.dues.length })
         }
-        renderExpandedRow={(row) => (
-          <DuesFeeLines
-            dues={row.dues}
-            onRecordPayment={
-              canCollectFees
-                ? (feeId) => onRecordPayment(row.student_id, { feeIds: [feeId] })
-                : undefined
-            }
-          />
-        )}
+        renderExpandedRow={(row) => <DuesFeeLines name={row.full_name} dues={row.dues} />}
+        rowActions={(row) => [
+          { intent: 'view', label: t('dues.view'), to: `/students/${row.student_id}?tab=fees` },
+          {
+            intent: 'pay',
+            label: t('dues.collect'),
+            to: `/payments/record?student_id=${row.student_id}`,
+            allowed: canCollectFees,
+          },
+          {
+            intent: 'send',
+            label: t('dues.remindShort'),
+            allowed: canSendReminder,
+            onClick: () => setReminderTarget({ ids: [row.student_id], bulk: false }),
+          },
+        ]}
+        defaultColumnVisibility={{ total: false, paid: false }}
         sorting={flagged ? null : state.sorting}
         onSortingChange={actions.setSorting}
         page={state.page}
@@ -637,44 +585,45 @@ function DuesQueuePage() {
         loading={duesQuery.isLoading}
         isFetching={duesQuery.isFetching}
         {...(duesQuery.isError ? { error: t('dues.errorMessage') } : {})}
-        emptyMessage={t('dues.emptyMessage')}
+        emptyState={{ title: t('dues.emptyMessage'), explanation: t('dues.emptyExplanation') }}
         announceResults={(count, total) =>
           t('dues.announceResults', { visible: count, total, count: total })
         }
         bulkActions={
           <>
             {canSendReminder && (
-              <Button type="button" size="sm" onClick={() => setReminderDialogOpen(true)}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() =>
+                  setReminderTarget({ ids: Array.from(state.selectedIds), bulk: true })
+                }
+              >
+                <SendIcon aria-hidden="true" />
                 {t('dues.sendReminder')}
               </Button>
             )}
-            <Button type="button" size="sm" variant="outline" onClick={exportSelectedToCsv}>
+            <Button type="button" variant="outline" onClick={exportSelectedToCsv}>
+              <DownloadIcon aria-hidden="true" />
               {t('dues.exportCsv')}
             </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              onClick={() => actions.setSelectedIds(new Set())}
-            >
+            <Button type="button" variant="ghost" onClick={() => actions.setSelectedIds(new Set())}>
+              <XIcon aria-hidden="true" />
               {t('dues.clearSelection')}
             </Button>
           </>
         }
       />
       <SendReminderDialog
-        open={reminderDialogOpen}
-        onOpenChange={setReminderDialogOpen}
-        studentIds={Array.from(state.selectedIds)}
-        onSent={() => actions.setSelectedIds(new Set())}
+        open={reminderTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setReminderTarget(null);
+        }}
+        studentIds={reminderTarget?.ids ?? []}
+        onSent={() => {
+          if (reminderTarget?.bulk) actions.setSelectedIds(new Set());
+        }}
       />
-      {recordPayment.studentId !== undefined && (
-        <RecordPaymentModal
-          open={recordPayment.isOpen}
-          onOpenChange={recordPayment.onOpenChange}
-          studentId={recordPayment.studentId}
-        />
-      )}
     </>
   );
 }
