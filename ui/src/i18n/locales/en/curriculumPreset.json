@@ -65,9 +65,8 @@
   },
   "applied": {
     "title": "Curriculum applied",
-    "preset": "Curriculum: {{id}} (version {{version}})",
+    "preset": "{{name}} (version {{version}})",
     "appliedAt": "Applied on {{date}}",
-    "appliedBy": "Applied by user {{id}}",
     "createdHeading": "What was created",
     "created": {
       "settings": "Settings",
@@ -80,20 +79,34 @@
       "gradingBands": "Grading bands",
       "examTemplates": "Exam templates",
       "examTemplateComponents": "Exam template parts"
-    }
+    },
+    "versionOnly": "Version {{version}}"
   },
   "custom": {
-    "message": "Your school was set up without a ready-made curriculum."
+    "message": "A ready-made curriculum can only be added to a brand-new school. Your school already has the records below, so carry on with them as they are.",
+    "title": "A ready-made curriculum can no longer be added to this school"
   },
   "blocked": {
-    "heading": "A curriculum cannot be applied because these already exist:",
-    "item": "{{entity}} — {{count}}",
-    "open": "Open {{entity}}"
+    "heading": "Already in your school",
+    "entities": {
+      "academicYears": "Academic years",
+      "classes": "Classes",
+      "subjects": "Subjects",
+      "students": "Students",
+      "exams": "Exams",
+      "gradingScales": "Grading scales",
+      "examTemplates": "Exam structures",
+      "other": "Other records"
+    },
+    "countItems": "{{count}}",
+    "countPeople": "{{count}}"
   },
   "settingsLink": {
     "title": "Ready-made curriculum",
     "applied": "Applied: {{id}} · {{version}}",
     "notApplied": "Not applied",
     "open": "Open"
-  }
+  },
+  "subtitle": "Add classes, subjects, exams and grading to a new school in one go.",
+  "unverifiedBadge": "Not verified"
 }

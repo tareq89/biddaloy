@@ -1,8 +1,9 @@
 import '@biddaloy/ui/test';
 
+import { REGION_BD_EN, RegionConfigProvider } from '@biddaloy/ui/i18n';
 import { cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
 import { createRootRoute } from '@tanstack/react-router';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -72,8 +73,17 @@ function mockApi(status: Record<string, unknown>, presets: object[] = [NCTB, QAW
   );
 }
 
+// Pinned: the default RegionConfig is Bangla, and these assertions read English.
+function PinnedPage() {
+  return (
+    <RegionConfigProvider value={REGION_BD_EN}>
+      <CurriculumPresetPage schoolId={SCHOOL_ID} />
+    </RegionConfigProvider>
+  );
+}
+
 function renderPage() {
-  const root = createRootRoute({ component: () => <CurriculumPresetPage schoolId={SCHOOL_ID} /> });
+  const root = createRootRoute({ component: PinnedPage });
   const user = userEvent.setup();
   renderWithRouter(root, { locale: 'en', role: 'ADMIN', tenantId: SCHOOL_ID });
   return user;
@@ -95,9 +105,7 @@ describe('CurriculumPresetPage', () => {
 
   it('renders a card per preset and flags unverified packs', async () => {
     mockApi({ state: 'AVAILABLE' });
-    const root = createRootRoute({
-      component: () => <CurriculumPresetPage schoolId={SCHOOL_ID} />,
-    });
+    const root = createRootRoute({ component: PinnedPage });
     const { baseElement } = renderWithRouter(root, {
       locale: 'en',
       role: 'ADMIN',
@@ -238,18 +246,81 @@ describe('CurriculumPresetPage', () => {
       ),
     );
     await user.click(screen.getByRole('button', { name: 'Apply' }));
-    expect(await screen.findByTestId('preset-blocked')).toBeDefined();
-    expect(screen.getByText('classes — 3')).toBeDefined();
+    const blocked = await screen.findByTestId('preset-blocked');
+    expect(within(blocked).getByText('Classes')).toBeDefined();
+    expect(within(blocked).getByText('3')).toBeDefined();
   });
 
-  it('CUSTOM shows the message and blockers, never an apply button', async () => {
+  it('CUSTOM shows the status card and blockers, never an apply button', async () => {
     mockApi({ state: 'CUSTOM', blockers: [{ entity: 'students', count: 40 }] });
     renderPage();
     expect(
-      await screen.findByText('Your school was set up without a ready-made curriculum.'),
+      await screen.findByRole('heading', {
+        level: 2,
+        name: 'A ready-made curriculum can no longer be added to this school',
+      }),
     ).toBeDefined();
-    expect(screen.getByText('students — 40')).toBeDefined();
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+    expect(screen.getByRole('status').textContent).toContain('brand-new school');
+    expect(within(screen.getByTestId('preset-blocked')).getByText('Students')).toBeDefined();
     expect(screen.queryByRole('button', { name: /apply/i })).toBeNull();
+  });
+
+  it('CUSTOM names each blocker in plain words, links the ones with a list, and never shows the server label', async () => {
+    mockApi({
+      state: 'CUSTOM',
+      blockers: [
+        { entity: 'academic years', count: 2 },
+        { entity: 'subjects', count: 6 },
+        { entity: 'exam templates', count: 3 },
+      ],
+    });
+    renderPage();
+    const blocked = await screen.findByTestId('preset-blocked');
+    expect(within(blocked).getByText('Academic years')).toBeDefined();
+    expect(within(blocked).getByText('Subjects')).toBeDefined();
+    expect(within(blocked).getByText('Exam structures')).toBeDefined();
+    const links = within(blocked).getAllByRole('link');
+    expect(links.map((a) => a.getAttribute('href'))).toEqual([
+      '/academic-years',
+      '/exams/templates',
+    ]);
+    expect(within(blocked).queryByText(/academic years/)).toBeNull();
+  });
+
+  it('APPLIED shows the curriculum name and a long date, never an id', async () => {
+    mockApi({
+      state: 'APPLIED',
+      preset: {
+        id: 'bd/nctb',
+        version: '2026.1',
+        appliedAt: '2026-09-09T05:00:00Z',
+        appliedByUserId: 'user-uuid-42',
+      },
+    });
+    renderPage();
+    const applied = await screen.findByTestId('preset-applied');
+    expect(within(applied).getByText('NCTB National Curriculum (version 2026.1)')).toBeDefined();
+    expect(within(applied).getByText('Applied on 9th September, 2026')).toBeDefined();
+    expect(applied.textContent).not.toContain('user-uuid-42');
+    expect(applied.textContent).not.toContain('bd/nctb');
+  });
+
+  it('pick step: a selected card is ringed and its select button stays outline', async () => {
+    mockApi({ state: 'AVAILABLE' });
+    const user = renderPage();
+    await user.click((await screen.findAllByRole('button', { name: 'Choose' }))[0]!);
+    const chosen = screen.getByRole('button', { name: 'Chosen' });
+    expect(chosen.getAttribute('aria-pressed')).toBe('true');
+    expect(chosen.getAttribute('data-variant')).toBe('outline');
+    expect(screen.getByTestId('preset-card-bd/nctb').className).toContain('ring-primary');
+  });
+
+  it('flags an unverified curriculum with a "Not verified" badge', async () => {
+    mockApi({ state: 'AVAILABLE' });
+    renderPage();
+    await screen.findByText('Qawmi Madrasa');
+    expect(screen.getAllByText('Not verified')).toHaveLength(1);
   });
 
   it('shows an error panel with retry when status fails', async () => {
