@@ -203,7 +203,8 @@
     "attendanceTab": {
       "monthStepper": {
         "previousLabel": "আগের মাস",
-        "nextLabel": "পরের মাস"
+        "nextLabel": "পরের মাস",
+        "thisMonth": "এই মাস"
       },
       "summary": {
         "percentage": "উপস্থিতি",
@@ -215,7 +216,8 @@
       },
       "loading": "উপস্থিতি লোড হচ্ছে",
       "errorMessage": "উপস্থিতি লোড করা যায়নি।",
-      "noRecordsThisMonth": "এই মাসে কোনো উপস্থিতি রেকর্ড নেই।"
+      "noRecordsThisMonth": "এই মাসে কোনো উপস্থিতি রেকর্ড নেই।",
+      "noRecordsExplanation": "এই মাসে উপস্থিতি নেওয়া হলে এখানে দেখা যাবে।"
     },
     "homeworkTab": {
       "completionPercent": "সম্পন্নের হার",
@@ -224,7 +226,8 @@
       "defaulters": "বকেয়া",
       "loading": "বাড়ির কাজ লোড হচ্ছে",
       "errorMessage": "বাড়ির কাজ লোড করা যায়নি।",
-      "emptyMessage": "এখনো কোনো বাড়ির কাজ দেওয়া হয়নি।"
+      "emptyMessage": "এখনো কোনো বাড়ির কাজ দেওয়া হয়নি।",
+      "emptyExplanation": "বাড়ির কাজ দেওয়া হলে অগ্রগতি এখানে দেখা যাবে।"
     },
     "deleteDialog": {
       "title": "শিক্ষার্থী মুছে ফেলুন",
@@ -267,6 +270,11 @@
     "programs": {
       "emptyExplanation": "কোনো প্রোগ্রামে নথিভুক্ত করলে অগ্রগতি এখানে দেখা যাবে।",
       "since": "{{date}} থেকে"
+    },
+    "results": {
+      "view": "ফলাফল দেখুন",
+      "cardSubtitle": "গ্রেড {{grade}} · জিপিএ {{gpa}}",
+      "emptyExplanation": "কোনো পরীক্ষার নম্বর দেওয়া হলে ফলাফল এখানে দেখা যাবে।"
     }
   },
   "new": {
