@@ -273,9 +273,10 @@ describe('/fees/dues', () => {
   // [8.14.10]: FilterBar migration — the rows-per-page control changes
   // `limit` and resets `page` in one URL update.
   it('changing rows per page writes limit and resets page', async () => {
+    // The page-size select lives in the footer, which only shows while there are rows.
     server.use(
       http.get('/api/v1/fees/dues', () =>
-        HttpResponse.json({ data: [], total: 0, page: 2, limit: 10, totalPages: 1 }),
+        HttpResponse.json({ data: [duesRow()], total: 1, page: 2, limit: 10, totalPages: 1 }),
       ),
     );
 
@@ -288,12 +289,12 @@ describe('/fees/dues', () => {
 
     const user = userEvent.setup();
     await screen.findByRole('region', { name: 'Dues queue' });
-    await user.click(screen.getByRole('combobox', { name: 'Rows per page' }));
+    await user.click(await screen.findByRole('combobox', { name: 'Rows per page' }));
     // Option labels render in the tenant's own region digits (Bengali
     // numerals here), independent of the `en` UI locale.
-    await user.click(await screen.findByRole('option', { name: '২০' }));
+    await user.click(await screen.findByRole('option', { name: /^(50|৫০)$/ }));
 
-    await waitFor(() => expect(router.state.location.search).toMatchObject({ limit: 20, page: 1 }));
+    await waitFor(() => expect(router.state.location.search).toMatchObject({ limit: 50, page: 1 }));
   });
 
   // [8.14.10]: `section_id`'s FilterBar descriptor has no options until a
