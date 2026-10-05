@@ -55,7 +55,7 @@ describe('/guardians/$guardianId', () => {
       expect(screen.getByRole('heading', { level: 1, name: 'Abdul Karim' })).toBeTruthy(),
     );
     expect(screen.getByRole('tab', { name: 'Information', selected: true })).toBeTruthy();
-    await screen.findByText('+880 1712-345678');
+    await screen.findByText('01712-345678');
     expect(screen.getByText('karim@example.com')).toBeTruthy();
     // The greyscale guarantee (`StatusBadge`'s own spec) is what proves
     // "not colour alone" — this just proves the label renders, twice:

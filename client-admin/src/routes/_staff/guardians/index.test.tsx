@@ -47,7 +47,7 @@ describe('/guardians', () => {
 
     await waitFor(() => expect(screen.getByText('Abdul Karim')).toBeTruthy());
     expect(screen.getByText('Father')).toBeTruthy();
-    expect(screen.getByText('+880 1712-345678')).toBeTruthy();
+    expect(screen.getByText('01712-345678')).toBeTruthy();
     expect(screen.getByText('SMS')).toBeTruthy();
     expect(screen.getByText('Karim Rahman')).toBeTruthy();
     expect(screen.getByText('Primary')).toBeTruthy();

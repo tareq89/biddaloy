@@ -1,3 +1,4 @@
+import { REGION_BD_BN } from '@biddaloy/ui/i18n';
 import {
   classSectionFactory,
   cleanupTestState,
@@ -5,6 +6,7 @@ import {
   server,
   studentFactory,
 } from '@biddaloy/ui/test';
+import { formatNumber } from '@biddaloy/ui/utils';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -245,7 +247,9 @@ describe('students/-detail/recurring-fees-tab', () => {
     // modal's own "N selected" summary is how that seeding surfaces in
     // the UI, matching `generate-fees-modal.test.tsx`'s own assertion
     // shape for the same counter.
-    expect(await within(dialog).findByText('1 selected')).toBeTruthy();
+    expect(
+      await within(dialog).findByText(`${formatNumber(1, REGION_BD_BN)} selected`),
+    ).toBeTruthy();
   });
 
   it('hides schedule-management actions for a role without SCHEDULE_MANAGE', async () => {

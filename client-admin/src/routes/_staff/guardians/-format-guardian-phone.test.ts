@@ -5,7 +5,7 @@ import { formatGuardianPhone } from './-format-guardian-phone';
 
 describe('formatGuardianPhone', () => {
   it('[8.11.4] formats a valid phone per RegionConfig', () => {
-    expect(formatGuardianPhone('+8801712345678', REGION_BD_EN)).toBe('+880 1712-345678');
+    expect(formatGuardianPhone('+8801712345678', REGION_BD_EN)).toBe('01712-345678');
   });
 
   it('returns null for a guardian with no phone on file', () => {
