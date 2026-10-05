@@ -156,12 +156,16 @@
     "lateCountsAsPresent": "Count late as present",
     "leaveCountsAsWorkingDay": "Count leave as a working day",
     "allowFutureDates": "Allow marking future dates",
-    "autoAbsentLegend": "Auto-absent guardian notification",
+    "autoAbsentLegend": "Automatic absence message",
     "autoAbsentEnabled": "Notify guardians automatically when a student is marked absent",
     "autoAbsentCutoffTime": "Send by",
     "confirmEnableNotificationDescription": "Enabling this sends every absent student's guardian a notification automatically, every school day. Are you sure?",
     "confirmEnableNotificationConfirm": "Yes, enable it",
-    "confirmEnableNotificationCancel": "Cancel"
+    "confirmEnableNotificationCancel": "Cancel",
+    "description": "When a student counts as late or absent, and how the attendance rate is worked out.",
+    "correctionWindowHelp": "Past attendance can be corrected for this many days.",
+    "lowAttendanceHelp": "Below this a student is shown as low attendance.",
+    "confirmEnableNotificationTitle": "Turn on automatic absence messages?"
   },
   "signIn": {
     "legend": "Sign-in options",
@@ -237,16 +241,23 @@
     "lateFeeKind": "Kind",
     "lateFeeKindPercent": "Percent",
     "lateFeeKindFlat": "Flat amount",
-    "lateFeeValue": "Value"
+    "lateFeeValue": "Value",
+    "title": "Fee rules",
+    "description": "Approval, telling families and late fees — for every fee bill.",
+    "approvalModeHelp": "How an admin confirms once more before sensitive changes, such as changing late fees.",
+    "lateFeeIntro": "Tick the fees that get a late fee.",
+    "lateFeeType": "Fee type"
   },
   "evaluations": {
     "legend": "Evaluations",
     "incidentSmsLabel": "Send an SMS when a new incident report is filed",
-    "incidentSmsHint": "The SMS says only that a new report exists, never what it says. SMS is sent only if an SMS provider is set up in the SMS settings above.",
-    "providerConfigured": "An SMS provider is set up, so incident SMS can be sent.",
-    "providerMissingWarning": "No SMS provider is set up yet. Incident SMS will not be sent until you set one up in the SMS settings above.",
+    "incidentSmsHint": "The SMS says only that a new report exists, never what it says.",
+    "providerMissingWarning": "Incident SMS will not be sent until an SMS provider is set up in Communication.",
     "providerNotConfigured": "No SMS provider is set up.",
-    "pushAlwaysOn": "Push notifications are always on."
+    "pushAlwaysOn": "Push notifications are always on.",
+    "description": "Who is told, and how, when a new incident report is filed.",
+    "providerReady": "SMS provider is set up",
+    "openSmsSettings": "Communication › set up SMS"
   },
   "organisation": {
     "legend": "Shift, version & group",
