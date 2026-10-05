@@ -105,6 +105,20 @@ describe('Cross-tenant access (regression)', () => {
        VALUES ('${SUPER_ADMIN_USER_ID}', '${TENANT_B}', '${UserRole.SUPER_ADMIN}', NOW(), NOW())
        ON CONFLICT DO NOTHING`,
     );
+    // [13.3.4] Platform school routes (GET /schools) need platform authority:
+    // SUPER_ADMIN on the platform tenant (the 'default-school' slug outside
+    // production). Tenant A stays outside every membership this user holds.
+    await dataSource.query(
+      `INSERT INTO schools (id, name, slug, created_at, updated_at)
+       SELECT gen_random_uuid(), 'Platform', 'default-school', NOW(), NOW()
+       WHERE NOT EXISTS (SELECT 1 FROM schools WHERE slug = 'default-school')`,
+    );
+    await dataSource.query(
+      `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
+       SELECT '${SUPER_ADMIN_USER_ID}', id, '${UserRole.SUPER_ADMIN}', NOW(), NOW()
+       FROM schools WHERE slug = 'default-school'
+       ON CONFLICT DO NOTHING`,
+    );
 
     const loginRes = await supertest(app.getHttpServer())
       .post('/api/v1/auth/login')
