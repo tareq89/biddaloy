@@ -8,7 +8,7 @@
  * `useMutation` calling `ui/src/hooks/auth.ts`'s `activate()`; this
  * component is presentational + validation only, no network.
  */
-import { checkPassword, type PasswordAudience } from '@biddaloy/shared';
+import { checkPassword, type PasswordAudience, type PasswordRuleId } from '@biddaloy/shared';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
@@ -36,6 +36,8 @@ export interface SetPasswordFormProps {
   /** Renders a ghost button under submit when given. */
   onSkip?: () => void;
   skipLabel?: string;
+  /** Server-rejected rules for the last submitted password (`weakPasswordRules`). */
+  failedRules?: PasswordRuleId[] | undefined;
 }
 
 interface SetPasswordFormValues {
@@ -89,6 +91,7 @@ function PasswordField({
   control,
   loading,
   audience,
+  failed,
 }: {
   id: string;
   label: string;
@@ -97,6 +100,7 @@ function PasswordField({
   loading: boolean;
   /** Set on the new-password field to show the live checklist under it. */
   audience?: PasswordAudience;
+  failed?: PasswordRuleId[] | undefined;
 }) {
   const { t } = useTranslation('auth');
   const [visible, setVisible] = React.useState(false);
@@ -134,7 +138,9 @@ function PasswordField({
               {visible ? t('password.hide') : t('password.show')}
             </Button>
           </div>
-          {audience && <FormPasswordChecklist password={field.value} audience={audience} />}
+          {audience && (
+            <FormPasswordChecklist password={field.value} audience={audience} failed={failed} />
+          )}
           <FormMessage />
         </FormItem>
       )}
@@ -152,6 +158,7 @@ export function SetPasswordForm({
   audience = 'staff',
   onSkip,
   skipLabel,
+  failedRules,
 }: SetPasswordFormProps) {
   const { t } = useTranslation('auth');
   // Inside <AuthLayout> the layout owns the card.
@@ -193,7 +200,10 @@ export function SetPasswordForm({
   const matches = password === confirm;
   const canSubmit = checkPassword(password, audience).every((rule) => rule.ok) && matches;
 
+  const submitted = React.useRef('');
+
   function handleValidSubmit(values: SetPasswordFormValues): void {
+    submitted.current = values.password;
     onSubmit(values.password);
   }
 
@@ -235,6 +245,7 @@ export function SetPasswordForm({
             control={form.control}
             loading={loading}
             audience={audience}
+            failed={password === submitted.current ? failedRules : undefined}
           />
           <PasswordField
             id="set-password-confirm"

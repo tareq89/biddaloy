@@ -52,7 +52,7 @@ describe('SetPasswordForm', () => {
     renderWithProviders(<SetPasswordForm heading="Welcome" onSubmit={onSubmit} />, {
       locale: 'en',
     });
-    const submit = screen.getByRole('button', { name: 'Set password' });
+    const submit = screen.getByRole<HTMLButtonElement>('button', { name: 'Set password' });
 
     await user.type(await screen.findByLabelText('New password'), 'short');
     await user.type(screen.getByLabelText('Confirm password'), 'short');

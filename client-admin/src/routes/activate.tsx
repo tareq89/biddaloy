@@ -1,3 +1,4 @@
+import { type PasswordAudience } from '@biddaloy/shared';
 import {
   ApiError,
   postAuthActivateResend,
@@ -11,6 +12,7 @@ import {
   Label,
   SetPasswordForm,
   Skeleton,
+  weakPasswordRules,
 } from '@biddaloy/ui/components';
 import type { SignInFormError } from '@biddaloy/ui/components';
 import { activate } from '@biddaloy/ui/hooks';
@@ -305,6 +307,13 @@ function ActivatePage() {
         loading={mutation.isPending}
         error={buildActivateError(mutation.error, t)}
         submitLabel={t('setPassword.submit')}
+        // `password_audience` ships with the server's activate-verify (#1617);
+        // older responses lack it, so default to the stricter staff rules.
+        audience={
+          (verifyQuery.data as { password_audience?: PasswordAudience }).password_audience ??
+          'staff'
+        }
+        failedRules={weakPasswordRules(mutation.error)}
       />
     </AuthLayout>
   );

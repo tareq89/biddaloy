@@ -293,6 +293,7 @@ export {
   FormPasswordChecklist,
   PasswordChecklist,
   type PasswordChecklistProps,
+  weakPasswordRules,
 } from './password-checklist';
 export { SetPasswordForm, type SetPasswordFormProps } from './set-password-form';
 export { OtpInput, type OtpInputProps } from './otp-input';

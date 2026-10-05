@@ -30,6 +30,7 @@ import {
   OtpInput,
   SetPasswordForm,
   type SignInFormError,
+  weakPasswordRules,
 } from '@biddaloy/ui/components';
 import { resetPassword } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
@@ -60,8 +61,8 @@ type Step =
 /** Mirrors `login.tsx`'s `buildLoginError`/`activate.tsx`'s `buildActivateError`
  * — never the raw `ApiError` message, only translated copy. A 401 here means
  * "wrong/expired code", not "wrong password" (the password itself has no
- * server-side complaint besides length, already caught by `SetPasswordForm`'s
- * own zod schema). */
+ * server-side complaint beyond the strength rules, which `SetPasswordForm`
+ * already checks live). */
 function buildResetError(error: unknown, t: TFunction<'auth'>): SignInFormError | null {
   if (!error) return null;
 
@@ -371,6 +372,10 @@ function ForgotPasswordPage() {
       <SetPasswordForm
         heading={t('reset.heading')}
         subtext={t('reset.subtext')}
+        // Anonymous here, so the audience is unknown: staff rules are the
+        // stricter set, the server still accepts them (W5 #1632 refines this).
+        audience="staff"
+        failedRules={weakPasswordRules(resetMutation.error)}
         onSubmit={(password) =>
           resetMutation.mutate({ phone: step.phone, otp: step.otp, new_password: password })
         }

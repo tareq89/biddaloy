@@ -1,3 +1,4 @@
+import { audienceForRoles, type PasswordRuleId, type UserRole } from '@biddaloy/shared';
 import { ApiError } from '@biddaloy/ui/api';
 import {
   Button,
@@ -18,6 +19,7 @@ import {
   type GuardianContactFormValues,
   type ProfileFormServerError,
   type ProfileFormSubmitValues,
+  weakPasswordRules,
 } from '@biddaloy/ui/components';
 import {
   changePassword,
@@ -159,6 +161,7 @@ function PortalAccount() {
   const [passwordError, setPasswordError] = React.useState<ChangePasswordFormServerError | null>(
     null,
   );
+  const [passwordFailedRules, setPasswordFailedRules] = React.useState<PasswordRuleId[]>();
   const [changingPassword, setChangingPassword] = React.useState(false);
   const [signingOut, setSigningOut] = React.useState(false);
   const [showAllDevices, setShowAllDevices] = React.useState(false);
@@ -278,6 +281,7 @@ function PortalAccount() {
     new_password: string;
   }): Promise<void> {
     setPasswordError(null);
+    setPasswordFailedRules(undefined);
     setChangingPassword(true);
     try {
       await changePassword(values);
@@ -290,6 +294,7 @@ function PortalAccount() {
       } else {
         setPasswordError({ message: t('account.error.saveFailed') });
       }
+      setPasswordFailedRules(weakPasswordRules(error));
     } finally {
       setChangingPassword(false);
     }
@@ -419,6 +424,8 @@ function PortalAccount() {
         onSubmit={(values) => void handlePasswordSubmit(values)}
         submitting={changingPassword}
         serverError={passwordError}
+        audience={audienceForRoles(role ? [role as UserRole] : [])}
+        failedRules={passwordFailedRules}
       />
 
       <PushNotificationSettings

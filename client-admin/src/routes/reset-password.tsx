@@ -12,6 +12,7 @@ import {
   Button,
   SetPasswordForm,
   type SignInFormError,
+  weakPasswordRules,
 } from '@biddaloy/ui/components';
 import { resetPassword } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
@@ -121,6 +122,10 @@ function ResetPasswordPage() {
         onSubmit={(password) => mutation.mutate(password)}
         loading={mutation.isPending}
         error={buildResetError(mutation.error, t)}
+        // Anonymous here, so the audience is unknown: staff rules are the
+        // stricter set, the server still accepts them (W5 #1632 refines this).
+        audience="staff"
+        failedRules={weakPasswordRules(mutation.error)}
         submitLabel={t('setPassword.submit')}
       />
     </AuthLayout>
