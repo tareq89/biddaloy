@@ -240,6 +240,20 @@ function DuesFeeLines({ name, dues }: { name: string; dues: FeeDueEntry[] }) {
   );
 }
 
+/** Its own component: `DataTable` caches a cell's value per row, so a string built before the
+ * last-reminders response arrived would never update. Same query key as the page's, so React
+ * Query dedupes the request. */
+function LastReminderCell({ studentId, studentIds }: { studentId: string; studentIds: string[] }) {
+  const { t } = useTranslation('fees');
+  const regionConfig = useRegionConfig();
+  const reminder = useLastReminders(studentIds).data?.get(studentId);
+  return reminder ? (
+    <>{formatDate(new Date(reminder.sent_at), regionConfig)}</>
+  ) : (
+    <span className="text-text-secondary">{t('dues.neverReminded')}</span>
+  );
+}
+
 function DuesQueuePage() {
   const { t } = useTranslation('fees');
   const regionConfig = useRegionConfig();
@@ -316,13 +330,6 @@ function DuesQueuePage() {
       next.fee_type = null;
     }
     actions.setFilters(next);
-  }
-
-  function toReminderLabel(studentId: string): string {
-    const reminder = lastReminders?.get(studentId);
-    return reminder
-      ? formatDate(new Date(reminder.sent_at), regionConfig)
-      : t('dues.neverReminded');
   }
 
   function reminderIso(studentId: string): string {
@@ -429,12 +436,9 @@ function DuesQueuePage() {
     {
       id: 'lastReminder',
       header: t('dues.columnLastReminder'),
-      accessorFn: (row) =>
-        lastReminders?.get(row.student_id) ? (
-          toReminderLabel(row.student_id)
-        ) : (
-          <span className="text-text-secondary">{t('dues.neverReminded')}</span>
-        ),
+      accessorFn: (row) => (
+        <LastReminderCell studentId={row.student_id} studentIds={visibleStudentIds} />
+      ),
     },
   ];
 

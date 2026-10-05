@@ -577,4 +577,24 @@ describe('/fees/dues', () => {
     expect(await screen.findByText('৳250.00')).toBeTruthy();
     expect(screen.getByRole('columnheader', { name: 'Credit balance' })).toBeTruthy();
   });
+
+  it('shows the last reminder as a long date once the reminders arrive', async () => {
+    server.use(
+      http.get('/api/v1/fees/dues', () =>
+        HttpResponse.json({ data: [duesRow()], total: 1, page: 1, limit: 25, totalPages: 1 }),
+      ),
+      http.get('/api/v1/communications/last-reminders', () =>
+        HttpResponse.json([{ student_id: 'student-1', sent_at: '2026-03-05T10:00:00.000Z' }]),
+      ),
+    );
+
+    renderEn({
+      initialEntries: ['/fees/dues'],
+      tenantId: 'tenant-1',
+      role: 'ACCOUNTANT',
+      locale: 'en',
+    });
+
+    expect(await screen.findByText('5th March, 2026')).toBeTruthy();
+  });
 });
