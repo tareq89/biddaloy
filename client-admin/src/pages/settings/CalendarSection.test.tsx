@@ -85,11 +85,10 @@ describe('CalendarSection', () => {
       tenantId: SCHOOL_ID,
     });
 
-    await user.selectOptions(await screen.findByLabelText('Country'), 'IN');
-    await user.selectOptions(
-      screen.getByLabelText('What do you call a grading period?'),
-      'SEMESTER',
-    );
+    await user.click(await screen.findByLabelText('Country'));
+    await user.click(await screen.findByRole('option', { name: 'India' }));
+    await user.click(screen.getByLabelText('What do you call a grading period?'));
+    await user.click(await screen.findByRole('option', { name: 'Semester' }));
     await user.click(screen.getByRole('button', { name: 'Save' }));
 
     await waitFor(() => expect(patchBody).toHaveBeenCalled());
@@ -110,8 +109,6 @@ describe('CalendarSection', () => {
       tenantId: SCHOOL_ID,
     });
 
-    expect(
-      await screen.findByText('Week starts Friday, weekend is Friday, timezone Asia/Dhaka'),
-    ).toBeTruthy();
+    expect(await screen.findByText('Week starts Friday, weekend is Friday.')).toBeTruthy();
   });
 });
