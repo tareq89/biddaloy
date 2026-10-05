@@ -16,13 +16,16 @@
  */
 import {
   Button,
+  Card,
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
   Input,
+  toast,
 } from '@biddaloy/ui/components';
 import {
   useSchoolSettings,
@@ -30,18 +33,11 @@ import {
   type RoutineSettingsInput,
 } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
-import {
-  FormSection,
-  FormShell,
-  buildFormShellErrors,
-  useWarnUnsavedChanges,
-} from '@biddaloy/ui/shells';
+import { useWarnUnsavedChanges } from '@biddaloy/ui/shells';
 import { boundedNumericString } from '@biddaloy/ui/utils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-
-import { MutationErrorMessage } from '../../../../components/MutationErrorMessage';
 
 // [21.8.1] `RoutineSettingsDto` requires `@IsInt() @Min(1)` for both caps —
 // bare `z.string()` let 0/negative/decimal values through client-side, so
@@ -103,94 +99,101 @@ export function RoutineSettingsPanel({ schoolId }: RoutineSettingsPanelProps) {
             values.maxConsecutivePeriods === '' ? null : Number(values.maxConsecutivePeriods),
         },
       },
-      { onSuccess: () => form.reset(values, { keepIsSubmitSuccessful: true }) },
+      {
+        onSuccess: () => {
+          form.reset(values, { keepIsSubmitSuccessful: true });
+          toast.success(t('save.success'));
+        },
+        onError: () => toast.error(t('settingsPanel.saveError')),
+      },
     );
   }
 
-  const summaryErrors = buildFormShellErrors(
-    form.formState.errors,
-    (field) => `routine-settings-${field.replace(/\./g, '-')}`,
-  );
-
   return (
-    <Form {...form}>
-      <FormShell
-        errors={summaryErrors}
-        submitCount={form.formState.submitCount}
-        onSubmit={(event) => void form.handleSubmit(handleSave)(event)}
-      >
-        <FormSection legend={t('settingsPanel.legend')}>
-          <FormField
-            control={form.control}
-            name="defaultChangeoverMinutes"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel htmlFor="routine-settings-defaultChangeoverMinutes">
-                  {t('settingsPanel.defaultChangeoverMinutes')}
-                </FormLabel>
-                <FormControl>
-                  <Input
-                    id="routine-settings-defaultChangeoverMinutes"
-                    type="number"
-                    min={0}
-                    max={120}
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="maxPeriodsPerTeacherPerDay"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel htmlFor="routine-settings-maxPeriodsPerTeacherPerDay">
-                  {t('settingsPanel.maxPeriodsPerTeacherPerDay')}
-                </FormLabel>
-                <FormControl>
-                  <Input
-                    id="routine-settings-maxPeriodsPerTeacherPerDay"
-                    type="number"
-                    min={1}
-                    placeholder={t('settingsPanel.noCap')}
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="maxConsecutivePeriods"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel htmlFor="routine-settings-maxConsecutivePeriods">
-                  {t('settingsPanel.maxConsecutivePeriods')}
-                </FormLabel>
-                <FormControl>
-                  <Input
-                    id="routine-settings-maxConsecutivePeriods"
-                    type="number"
-                    min={1}
-                    placeholder={t('settingsPanel.noCap')}
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </FormSection>
-
-        <Button type="submit" loading={updateSettings.isPending}>
-          {t('save.action')}
-        </Button>
-        {updateSettings.isSuccess && <p role="status">{t('save.success')}</p>}
-        {updateSettings.isError && <MutationErrorMessage error={updateSettings.error} />}
-      </FormShell>
-    </Form>
+    <Card padded={false} className="overflow-hidden">
+      <Form {...form}>
+        <form onSubmit={(event) => void form.handleSubmit(handleSave)(event)} noValidate>
+          <div className="p-4 md:p-5">
+            <h2 className="text-h2">{t('settingsPanel.legend')}</h2>
+            <p className="mt-1 text-text-secondary">{t('settingsPanel.description')}</p>
+          </div>
+          <div className="grid gap-4 px-4 pb-4 md:grid-cols-2 md:px-5 md:pb-5">
+            <FormField
+              control={form.control}
+              name="defaultChangeoverMinutes"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel htmlFor="routine-settings-defaultChangeoverMinutes">
+                    {t('settingsPanel.defaultChangeoverMinutes')}
+                  </FormLabel>
+                  <FormControl>
+                    <Input
+                      id="routine-settings-defaultChangeoverMinutes"
+                      type="number"
+                      min={0}
+                      max={120}
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormDescription>{t('settingsPanel.defaultChangeoverHelp')}</FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="maxPeriodsPerTeacherPerDay"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel htmlFor="routine-settings-maxPeriodsPerTeacherPerDay">
+                    {t('settingsPanel.maxPeriodsPerTeacherPerDay')}
+                  </FormLabel>
+                  <FormControl>
+                    <Input
+                      id="routine-settings-maxPeriodsPerTeacherPerDay"
+                      type="number"
+                      min={1}
+                      placeholder={t('settingsPanel.noCap')}
+                      inputMode="numeric"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormDescription>{t('settingsPanel.noCapHelp')}</FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="maxConsecutivePeriods"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel htmlFor="routine-settings-maxConsecutivePeriods">
+                    {t('settingsPanel.maxConsecutivePeriods')}
+                  </FormLabel>
+                  <FormControl>
+                    <Input
+                      id="routine-settings-maxConsecutivePeriods"
+                      type="number"
+                      min={1}
+                      placeholder={t('settingsPanel.noCap')}
+                      inputMode="numeric"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormDescription>{t('settingsPanel.noCapHelp')}</FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+          <div className="border-t border-border-subtle p-4 md:flex md:justify-end md:px-5">
+            <Button type="submit" loading={updateSettings.isPending} className="w-full md:w-auto">
+              {t('save.action')}
+            </Button>
+          </div>
+        </form>
+      </Form>
+    </Card>
   );
 }
