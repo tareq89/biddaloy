@@ -23,8 +23,8 @@ describe('SecretField', () => {
       { locale: 'en' },
     );
 
-    expect(await screen.findByText('Not configured')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Set' })).toBeTruthy();
+    expect(await screen.findByText('Not added')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Add' })).toBeTruthy();
   });
 
   it('shows "Configured" with no hint when configured but the value is too short to hint at', async () => {
@@ -39,8 +39,8 @@ describe('SecretField', () => {
       { locale: 'en' },
     );
 
-    expect(await screen.findByText('Configured')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Replace' })).toBeTruthy();
+    expect(await screen.findByText('Added')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Change' })).toBeTruthy();
   });
 
   it('shows the masked hint with Replace and Clear when configured', async () => {
@@ -55,9 +55,9 @@ describe('SecretField', () => {
       { locale: 'en' },
     );
 
-    expect(await screen.findByText('Configured — ends ••••4821')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Replace' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Clear' })).toBeTruthy();
+    expect(await screen.findByText('Added — ends ••••4821')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Change' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Remove' })).toBeTruthy();
   });
 
   it('switches to an editable input when Replace is clicked, without submitting anything until typed', async () => {
@@ -73,7 +73,7 @@ describe('SecretField', () => {
       { locale: 'en' },
     );
 
-    await user.click(await screen.findByRole('button', { name: 'Replace' }));
+    await user.click(await screen.findByRole('button', { name: 'Change' }));
 
     // Entering editing mode with nothing typed must not touch onChange —
     // an untouched edit box should stay indistinguishable from never
@@ -96,7 +96,7 @@ describe('SecretField', () => {
       { locale: 'en' },
     );
 
-    await user.click(await screen.findByRole('button', { name: 'Replace' }));
+    await user.click(await screen.findByRole('button', { name: 'Change' }));
     const input = await screen.findByLabelText('Access token');
     expect(input).toHaveProperty('type', 'password');
 
@@ -117,7 +117,7 @@ describe('SecretField', () => {
       { locale: 'en' },
     );
 
-    await user.click(await screen.findByRole('button', { name: 'Replace' }));
+    await user.click(await screen.findByRole('button', { name: 'Change' }));
     const input = await screen.findByLabelText('Access token');
     await user.type(input, 'x');
     expect(onChange).toHaveBeenLastCalledWith('x');
@@ -152,7 +152,7 @@ describe('SecretField', () => {
       { locale: 'en' },
     );
 
-    await user.click(await screen.findByRole('button', { name: 'Clear' }));
+    await user.click(await screen.findByRole('button', { name: 'Remove' }));
 
     expect(onChange).toHaveBeenCalledWith(null);
   });
@@ -170,7 +170,7 @@ describe('SecretField', () => {
       { locale: 'en' },
     );
 
-    await user.click(await screen.findByRole('button', { name: 'Replace' }));
+    await user.click(await screen.findByRole('button', { name: 'Change' }));
     await user.click(await screen.findByRole('button', { name: 'Cancel' }));
 
     expect(onChange).toHaveBeenCalledWith(undefined);
@@ -188,9 +188,9 @@ describe('SecretField', () => {
       { locale: 'en' },
     );
 
-    expect(await screen.findByText('Not configured')).toBeTruthy();
+    expect(await screen.findByText('Not added')).toBeTruthy();
     // A cleared secret shows "Set", not "Clear" again — nothing left to clear.
-    expect(screen.queryByRole('button', { name: 'Clear' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Remove' })).toBeNull();
   });
 
   it('renders a description that the status text and the edit input both reference', async () => {
@@ -208,10 +208,10 @@ describe('SecretField', () => {
 
     const help = await screen.findByText('Stored encrypted.');
     expect(help.id).toBe('test-secret-help');
-    const status = screen.getByText('Configured — ends ••••4821');
+    const status = screen.getByText('Added — ends ••••4821');
     expect(status.getAttribute('aria-describedby')).toBe('test-secret-help');
 
-    await user.click(screen.getByRole('button', { name: 'Replace' }));
+    await user.click(screen.getByRole('button', { name: 'Change' }));
     expect(screen.getByLabelText('Access token').getAttribute('aria-describedby')).toBe(
       'test-secret-help',
     );
@@ -229,7 +229,7 @@ describe('SecretField', () => {
       { locale: 'en' },
     );
 
-    for (const name of ['Replace', 'Clear']) {
+    for (const name of ['Change', 'Remove']) {
       const button = await screen.findByRole('button', { name });
       expect(button.getAttribute('data-size')).not.toBe('sm');
     }
