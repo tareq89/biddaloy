@@ -1,23 +1,12 @@
 /**
- * Record achievements — [34.4.1], D5. Milestone select (prefilled),
- * multi-select of ACTIVE enrolments (prefilled with one when opened from a
- * Students-tab row), achieved_on/score/grade/remark. `Enter` submits (a
- * plain form submit already does this natively); on success focus returns
- * to whichever element invoked the dialog (the caller passes
- * `returnFocusRef`, same contract `Dialog`'s own focus-trap already
- * expects — closing it restores focus to the trigger unless told
- * otherwise).
+ * Record achievements — [34.4.1], D5; a full-page modal since 31.4.programs-2b (D21).
+ * Milestone select (prefilled), checkbox list of ACTIVE enrolments (prefilled with one when
+ * opened from a Students-tab row), achieved_on/score/grade/remark. `Enter` in a field submits
+ * (a hidden submit button makes the browser's implicit submission work). Name, props and
+ * export are unchanged — the students page mounts it from local state too.
  */
 import {
-  Button,
-  Checkbox,
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
+  DatePicker,
   Input,
   Select,
   SelectContent,
@@ -33,8 +22,14 @@ import {
   useRecordAchievements,
   type ProgramMilestone,
 } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { FullPageShell } from '@biddaloy/ui/shells';
+import { toIsoDate, toLatinDigits } from '@biddaloy/ui/utils';
+import { CircleAlertIcon } from 'lucide-react';
 import * as React from 'react';
+
+import { LabelledField } from './-labelled-field';
+import { DiscardConfirm, StudentPickCard } from './-student-pick-card';
 
 export interface RecordDialogProps {
   open: boolean;
@@ -57,26 +52,31 @@ export function RecordDialog({
 }: RecordDialogProps) {
   const { t } = useTranslation('programs');
   const { t: tCommon } = useTranslation('common');
+  const regionConfig = useTenantRegionConfig();
 
   const [selectedProgramId, setSelectedProgramId] = React.useState(programId);
   const [selectedMilestoneId, setSelectedMilestoneId] = React.useState(milestoneId ?? '');
   const [enrollmentIds, setEnrollmentIds] = React.useState<Set<string>>(
     new Set(enrollmentIdPrefill ? [enrollmentIdPrefill] : []),
   );
-  const [achievedOn, setAchievedOn] = React.useState(() => new Date().toISOString().slice(0, 10));
+  const [achievedOn, setAchievedOn] = React.useState<Date>(() => new Date());
   const [score, setScore] = React.useState('');
   const [grade, setGrade] = React.useState('');
   const [remark, setRemark] = React.useState('');
+  const [scoreInvalid, setScoreInvalid] = React.useState(false);
+  const [discardOpen, setDiscardOpen] = React.useState(false);
 
   React.useEffect(() => {
     if (!open) return;
     setSelectedProgramId(programId);
     setSelectedMilestoneId(milestoneId ?? '');
     setEnrollmentIds(new Set(enrollmentIdPrefill ? [enrollmentIdPrefill] : []));
-    setAchievedOn(new Date().toISOString().slice(0, 10));
+    setAchievedOn(new Date());
     setScore('');
     setGrade('');
     setRemark('');
+    setScoreInvalid(false);
+    setDiscardOpen(false);
   }, [open, programId, milestoneId, enrollmentIdPrefill]);
 
   const programsQuery = usePrograms();
@@ -88,6 +88,15 @@ export function RecordDialog({
 
   const milestones: ProgramMilestone[] = programQuery.data?.milestones ?? [];
   const enrollments = enrollmentsQuery.data ?? [];
+  const busy = recordAchievements.isPending;
+  const dirty =
+    selectedProgramId !== programId ||
+    selectedMilestoneId !== (milestoneId ?? '') ||
+    enrollmentIds.size !== (enrollmentIdPrefill ? 1 : 0) ||
+    toIsoDate(achievedOn) !== toIsoDate(new Date()) ||
+    score !== '' ||
+    grade !== '' ||
+    remark !== '';
 
   function toggleEnrollment(id: string) {
     setEnrollmentIds((prev) => {
@@ -98,19 +107,36 @@ export function RecordDialog({
     });
   }
 
-  function handleSubmit(event: React.FormEvent) {
-    event.preventDefault();
+  function toggleAll() {
+    const allSelected = enrollments.every((e) => enrollmentIds.has(e.id));
+    setEnrollmentIds(allSelected ? new Set() : new Set(enrollments.map((e) => e.id)));
+  }
+
+  function close() {
+    if (!busy) onOpenChange(false);
+  }
+
+  function submit() {
     if (!selectedProgramId || !selectedMilestoneId || enrollmentIds.size === 0) return;
-    const parsedScore = score.trim() ? Number(score) : undefined;
-    if (parsedScore !== undefined && Number.isNaN(parsedScore)) return;
+    // Bangla digits are accepted: normalise before parsing instead of rejecting them.
+    const scoreText = toLatinDigits(score).trim();
+    const parsedScore = scoreText ? Number(scoreText) : undefined;
+    if (parsedScore !== undefined && Number.isNaN(parsedScore)) {
+      setScoreInvalid(true);
+      return;
+    }
+    setScoreInvalid(false);
+    // Row-record opened from the URL has no `studentId` prop: take it from the prefilled enrolment.
+    const optimisticStudentId =
+      studentId ?? enrollments.find((e) => e.id === enrollmentIdPrefill)?.student.id;
     recordAchievements.mutate(
       {
         programId: selectedProgramId,
-        ...(studentId ? { studentId } : {}),
+        ...(optimisticStudentId ? { studentId: optimisticStudentId } : {}),
         input: {
           enrollment_ids: Array.from(enrollmentIds),
           milestone_id: selectedMilestoneId,
-          achieved_on: achievedOn,
+          achieved_on: toIsoDate(achievedOn),
           ...(parsedScore !== undefined ? { score: parsedScore } : {}),
           ...(grade.trim() ? { grade: grade.trim() } : {}),
           ...(remark.trim() ? { remark: remark.trim() } : {}),
@@ -120,137 +146,145 @@ export function RecordDialog({
     );
   }
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <DialogHeader>
-            <DialogTitle>{t('dialogs.record.title')}</DialogTitle>
-            <DialogDescription>{t('dialogs.record.title')}</DialogDescription>
-          </DialogHeader>
+  if (!open) return null;
 
-          {!programId && (
-            <div className="flex flex-col gap-1.5">
-              <span className="text-sm font-medium">{t('list.title')}</span>
-              <Select
-                value={selectedProgramId}
-                onValueChange={(value) => {
-                  setSelectedProgramId(value);
-                  // Milestone/enrolments belong to the *previous* program —
-                  // switching programs must not carry them over.
-                  setSelectedMilestoneId('');
-                  setEnrollmentIds(new Set());
-                }}
-              >
-                <SelectTrigger aria-label={t('list.title')}>
-                  <SelectValue />
+  return (
+    <FullPageShell
+      title={t('dialogs.record.title')}
+      onClose={close}
+      dirty={dirty}
+      primary={{
+        label: t('dialogs.record.save'),
+        onClick: submit,
+        busy,
+        disabled: !selectedProgramId || !selectedMilestoneId || enrollmentIds.size === 0,
+      }}
+      secondary={{
+        label: tCommon('actions.cancel'),
+        onClick: () => (busy ? undefined : dirty ? setDiscardOpen(true) : close()),
+      }}
+    >
+      <form
+        className="space-y-6"
+        onSubmit={(e) => {
+          e.preventDefault();
+          submit();
+        }}
+      >
+        <button type="submit" hidden aria-hidden tabIndex={-1} />
+        <section className="rounded-lg border border-border-subtle bg-surface p-4 shadow-e1 md:p-5">
+          <div className="grid gap-4 md:grid-cols-2">
+            {!programId && (
+              <LabelledField id="record-program" label={t('dialogs.program')} required>
+                <Select
+                  value={selectedProgramId}
+                  onValueChange={(value) => {
+                    setSelectedProgramId(value);
+                    // Milestone/enrolments belong to the *previous* program —
+                    // switching programs must not carry them over.
+                    setSelectedMilestoneId('');
+                    setEnrollmentIds(new Set());
+                  }}
+                >
+                  <SelectTrigger id="record-program" className="w-full">
+                    <SelectValue placeholder={t('dialogs.selectPlaceholder')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(programsQuery.data ?? []).map((program) => (
+                      <SelectItem key={program.id} value={program.id}>
+                        {program.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </LabelledField>
+            )}
+
+            <LabelledField id="record-milestone" label={t('dialogs.record.milestone')} required>
+              <Select value={selectedMilestoneId} onValueChange={setSelectedMilestoneId}>
+                <SelectTrigger id="record-milestone" className="w-full">
+                  <SelectValue placeholder={t('dialogs.selectPlaceholder')} />
                 </SelectTrigger>
                 <SelectContent>
-                  {(programsQuery.data ?? []).map((program) => (
-                    <SelectItem key={program.id} value={program.id}>
-                      {program.name}
+                  {milestones.map((m) => (
+                    <SelectItem key={m.id} value={m.id}>
+                      {m.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-          )}
+            </LabelledField>
 
-          <div className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium">{t('dialogs.record.milestone')}</span>
-            <Select value={selectedMilestoneId} onValueChange={setSelectedMilestoneId}>
-              <SelectTrigger aria-label={t('dialogs.record.milestone')}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {milestones.map((m) => (
-                  <SelectItem key={m.id} value={m.id}>
-                    {m.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <LabelledField id="record-achieved-on" label={t('dialogs.record.achievedOn')}>
+              <DatePicker
+                id="record-achieved-on"
+                aria-label={t('dialogs.record.achievedOn')}
+                config={regionConfig}
+                value={achievedOn}
+                onValueChange={(d) => d && setAchievedOn(d)}
+              />
+            </LabelledField>
+
+            <LabelledField id="record-score" label={t('dialogs.record.score')}>
+              <Input
+                id="record-score"
+                inputMode="decimal"
+                aria-invalid={scoreInvalid || undefined}
+                value={score}
+                onChange={(e) => {
+                  setScore(e.target.value);
+                  setScoreInvalid(false);
+                }}
+              />
+              {scoreInvalid && (
+                <p role="alert" className="text-destructive">
+                  {t('dialogs.record.scoreInvalid')}
+                </p>
+              )}
+            </LabelledField>
+
+            <LabelledField id="record-grade" label={t('dialogs.record.grade')}>
+              <Input id="record-grade" value={grade} onChange={(e) => setGrade(e.target.value)} />
+            </LabelledField>
+
+            <LabelledField id="record-remark" label={t('dialogs.record.remark')}>
+              <Textarea
+                id="record-remark"
+                value={remark}
+                onChange={(e) => setRemark(e.target.value)}
+              />
+            </LabelledField>
           </div>
+        </section>
 
-          <div className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium">{t('dialogs.record.students')}</span>
-            <ul className="flex max-h-48 flex-col gap-1 overflow-auto">
-              {enrollments.map((row) => (
-                <li key={row.id}>
-                  <label className="flex items-center gap-2 text-sm">
-                    <Checkbox
-                      checked={enrollmentIds.has(row.id)}
-                      onCheckedChange={() => toggleEnrollment(row.id)}
-                    />
-                    {row.student.full_name}
-                  </label>
-                </li>
-              ))}
-            </ul>
-          </div>
+        <StudentPickCard
+          label={t('dialogs.record.students')}
+          items={enrollments.map((e) => ({
+            id: e.id,
+            name: e.student.full_name,
+            roll: e.student.roll_number,
+          }))}
+          selected={enrollmentIds}
+          onToggle={toggleEnrollment}
+          onToggleAll={toggleAll}
+          emptyText={t('dialogs.record.noStudents')}
+        />
 
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="record-achieved-on" className="text-sm font-medium">
-              {t('dialogs.record.achievedOn')}
-            </label>
-            <input
-              id="record-achieved-on"
-              type="date"
-              value={achievedOn}
-              onChange={(e) => setAchievedOn(e.target.value)}
-              className="h-9 rounded-md border border-border bg-card px-3 text-sm"
-            />
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="record-score" className="text-sm font-medium">
-              {t('dialogs.record.score')}
-            </label>
-            <Input
-              id="record-score"
-              type="number"
-              step="0.01"
-              value={score}
-              onChange={(e) => setScore(e.target.value)}
-            />
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="record-grade" className="text-sm font-medium">
-              {t('dialogs.record.grade')}
-            </label>
-            <Input id="record-grade" value={grade} onChange={(e) => setGrade(e.target.value)} />
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="record-remark" className="text-sm font-medium">
-              {t('dialogs.record.remark')}
-            </label>
-            <Textarea
-              id="record-remark"
-              value={remark}
-              onChange={(e) => setRemark(e.target.value)}
-            />
-          </div>
-
-          {recordAchievements.isError && (
-            <p role="alert" className="text-sm text-destructive">
-              {t('dialogs.record.errorMessage')}
-            </p>
-          )}
-
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button type="button" variant="outline">
-                {tCommon('actions.cancel')}
-              </Button>
-            </DialogClose>
-            <Button type="submit" loading={recordAchievements.isPending}>
-              {t('dialogs.record.save')}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+        {recordAchievements.isError && (
+          <p role="alert" className="flex items-center gap-1.5 text-destructive">
+            <CircleAlertIcon aria-hidden className="size-4 shrink-0" />
+            {t('dialogs.record.errorMessage')}
+          </p>
+        )}
+      </form>
+      <DiscardConfirm
+        open={discardOpen}
+        onOpenChange={setDiscardOpen}
+        onDiscard={() => {
+          setDiscardOpen(false);
+          close();
+        }}
+      />
+    </FullPageShell>
   );
 }
