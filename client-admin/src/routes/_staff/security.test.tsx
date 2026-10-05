@@ -1,5 +1,5 @@
 import { cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -46,8 +46,40 @@ describe('/security', () => {
 
     renderSecurityPage();
 
-    expect(await screen.findByRole('heading', { level: 1, name: 'Active sessions' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Security' })).toBeTruthy();
+    expect(screen.getByRole('heading', { level: 2, name: 'Active sessions' })).toBeTruthy();
     expect(await screen.findByText('This device')).toBeTruthy();
+    expect(screen.getByText('Unknown device')).toBeTruthy();
+  });
+
+  it('lists the current device first, even when the API returns it last', async () => {
+    server.use(
+      http.get('/api/v1/auth/sessions', () =>
+        HttpResponse.json({ data: [...SESSIONS_RESPONSE.data].reverse() }),
+      ),
+    );
+
+    renderSecurityPage();
+
+    const rows = await screen.findAllByTestId('session-row');
+    expect(rows).toHaveLength(2);
+    expect(within(rows[0]!).getByText('This device')).toBeTruthy();
+    expect(within(rows[1]!).getByText('Unknown device')).toBeTruthy();
+  });
+
+  it('tells the user when signing out a device fails', async () => {
+    server.use(
+      http.get('/api/v1/auth/sessions', () => HttpResponse.json(SESSIONS_RESPONSE)),
+      http.delete('/api/v1/auth/sessions/:id', () => HttpResponse.json({}, { status: 500 })),
+    );
+
+    const user = userEvent.setup();
+    renderSecurityPage();
+
+    await screen.findByText('Unknown device');
+    await user.click(screen.getByRole('button', { name: /Sign out — Unknown device/ }));
+
+    expect((await screen.findByRole('alert')).textContent).toBe('Something went wrong');
     expect(screen.getByText('Unknown device')).toBeTruthy();
   });
 
@@ -79,5 +111,7 @@ describe('/security', () => {
 
     expect(await screen.findByText("Couldn't load your sessions. Please try again.")).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy();
+    // The title never disappears behind the error.
+    expect(screen.getByRole('heading', { level: 1, name: 'Security' })).toBeTruthy();
   });
 });
