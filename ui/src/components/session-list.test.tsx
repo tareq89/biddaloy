@@ -94,10 +94,60 @@ describe('SessionList', () => {
     await user.click(screen.getByRole('button', { name: 'Sign out everywhere' }));
     expect(onRevokeAll).not.toHaveBeenCalled();
 
-    const dialog = within(screen.getByRole('dialog'));
-    await user.click(dialog.getByRole('button', { name: 'Sign out everywhere' }));
+    const dialog = within(screen.getByRole('alertdialog'));
+    const confirm = dialog.getByRole('button', { name: 'Sign out everywhere' });
+    expect(confirm.getAttribute('data-variant')).toBe('danger');
+    await user.click(confirm);
 
     expect(onRevokeAll).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders one divided list with icon, IP, sign-in time and a device total', async () => {
+    const android: Session = {
+      ...OTHER,
+      id: 'session-android',
+      user_agent: 'Mozilla/5.0 (Linux; Android 14; Pixel 8) Chrome/128.0.0.0 Mobile Safari/537.36',
+      ip_address: '103.112.45.8',
+    };
+    const { container } = await renderInEnglish(
+      <SessionList
+        sessions={[CURRENT, android, OTHER]}
+        onRevoke={() => {}}
+        onRevokeAll={() => {}}
+        config={REGION_BD_EN}
+        locale="en"
+      />,
+    );
+
+    expect(screen.getAllByRole('list')).toHaveLength(1);
+    expect(screen.getAllByRole('listitem')).toHaveLength(3);
+    const rows = screen.getAllByTestId('session-row');
+    expect(rows[1]?.querySelector('.lucide-smartphone')).not.toBeNull();
+    expect(rows[0]?.querySelector('.lucide-monitor')).not.toBeNull();
+    expect(rows[2]?.querySelector('.lucide-circle-help')).not.toBeNull();
+    expect(screen.getByText(/^IP 103\.112\.45\.8 · Last used /)).toBeTruthy();
+    expect(screen.getAllByText(/^Signed in: /)).toHaveLength(3);
+    expect(screen.getByText('3 devices in total')).toBeTruthy();
+    expect(container.querySelectorAll('li [data-slot="card"]')).toHaveLength(0);
+  });
+
+  it('compact variant: icon-only sign-out, no footer count, no sign-in line', async () => {
+    await renderInEnglish(
+      <SessionList
+        sessions={[CURRENT, OTHER]}
+        onRevoke={() => {}}
+        onRevokeAll={() => {}}
+        config={REGION_BD_EN}
+        locale="en"
+        variant="compact"
+      />,
+    );
+
+    expect(screen.queryByText(/devices in total/)).toBeNull();
+    expect(screen.queryByText(/^Signed in:/)).toBeNull();
+    const button = screen.getByRole('button', { name: /Sign out — Chrome/ });
+    expect(button.textContent).toBe('');
+    expect(screen.getByRole('button', { name: 'Sign out everywhere' })).toBeTruthy();
   });
 
   it('renders an EmptyState when only the current device is signed in', async () => {

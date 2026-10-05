@@ -20,6 +20,21 @@ const defaultValues = {
 };
 
 describe('GuardianContactForm', () => {
+  it('[31.2.14a] titles the card with an h2 and a right-aligned auto-width submit', async () => {
+    renderWithProviders(
+      <GuardianContactForm
+        defaultValues={defaultValues}
+        config={REGION_BD_EN}
+        onSubmit={vi.fn()}
+      />,
+      { locale: 'en' },
+    );
+    expect(
+      (await screen.findByRole('heading', { level: 2, name: 'Contact numbers' })).tagName,
+    ).toBe('H2');
+    expect(screen.getByRole('button', { name: 'Save changes' }).className).toContain('md:w-auto');
+  });
+
   it('[8.14.4] plan correction 2 — normalizes a typed national number into the +880 shape BD_PHONE_REGEX requires', async () => {
     const onSubmit = vi.fn();
     const user = userEvent.setup();
