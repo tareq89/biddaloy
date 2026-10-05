@@ -6,8 +6,8 @@
  *     Cancel / destructive-Delete confirm.
  *   - Blocked specifically by a 409 (`ClassService.remove`'s
  *     `ConflictException` — students still enrolled, or sections still
- *     exist): the server's own message (naming the count — the issue's
- *     own "explanation why" AC) in a highlighted box, with the
+ *     exist): a translated sentence (never the server's text, which
+ *     embeds the class UUID) in a highlighted box, with the
  *     destructive-Delete button replaced by "Move students" (a real next
  *     step: jumps to this class's Students tab) + "Close" — retrying the
  *     same delete would just fail again, so offering retry would be
@@ -34,7 +34,7 @@ import {
 import { useDeleteClass } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { Link } from '@tanstack/react-router';
-import * as React from 'react';
+import { Trash2Icon } from 'lucide-react';
 
 export interface DeleteClassDialogProps {
   open: boolean;
@@ -54,11 +54,7 @@ export function DeleteClassDialog({
   const { t } = useTranslation('classes');
   const deleteClass = useDeleteClass();
 
-  React.useEffect(() => {
-    if (open) deleteClass.reset();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only on open/close transitions
-  }, [open]);
-
+  // Callers mount this dialog only while it is open (fresh mutation state).
   function handleConfirm() {
     deleteClass.mutate(classId, { onSuccess: onDeleted });
   }
@@ -74,8 +70,17 @@ export function DeleteClassDialog({
   const failedNonBlocked = deleteClass.isError && !blocked;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+    <Dialog
+      open={open}
+      // A delete in flight must not be abandoned (Esc / outside / Back).
+      onOpenChange={(next) => !(deleteClass.isPending && !next) && onOpenChange(next)}
+    >
+      <DialogContent
+        size="sm"
+        role="alertdialog"
+        showCloseButton={false}
+        onInteractOutside={(e) => e.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle>{t('deleteClassDialog.title')}</DialogTitle>
           {!blocked && (
@@ -86,23 +91,16 @@ export function DeleteClassDialog({
         </DialogHeader>
 
         {blocked && (
-          <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
-            <p role="alert">
-              {deleteClass.error instanceof Error
-                ? deleteClass.error.message
-                : t('deleteClassDialog.errorMessage')}
-            </p>
+          <div className="rounded-md bg-status-overdue-bg p-3 text-status-overdue-fg">
+            <p role="alert">{t('deleteClassDialog.blockedMessage')}</p>
           </div>
         )}
 
         {failedNonBlocked && (
           // Not a 409 — a generic failure alongside the normal retry
-          // footer below, same shape as `-delete-section-dialog.tsx`,
-          // rather than the "blocked" state's dead-end button swap.
+          // footer below, rather than the "blocked" state's dead-end swap.
           <p role="alert" className="text-sm text-destructive">
-            {deleteClass.error instanceof Error
-              ? deleteClass.error.message
-              : t('deleteClassDialog.errorMessage')}
+            {t('deleteClassDialog.errorMessage')}
           </p>
         )}
 
@@ -126,16 +124,17 @@ export function DeleteClassDialog({
           ) : (
             <>
               <DialogClose asChild>
-                <Button type="button" variant="outline">
+                <Button type="button" variant="outline" disabled={deleteClass.isPending}>
                   {t('actions.cancel', { ns: 'common' })}
                 </Button>
               </DialogClose>
               <Button
                 type="button"
-                variant="destructive"
+                variant="danger"
                 loading={deleteClass.isPending}
                 onClick={handleConfirm}
               >
+                <Trash2Icon aria-hidden="true" />
                 {deleteClass.isPending
                   ? t('deleteClassDialog.deleting')
                   : t('deleteClassDialog.confirm')}
