@@ -421,6 +421,10 @@ export class SeatPlansService {
             roll_number: allocation.student?.roll_number ?? null,
             section_name: allocation.student?.class_section?.section_name ?? null,
             subject_name: allocation.exam_schedule?.subject?.name_en ?? null,
+            subject_name_bn: allocation.exam_schedule?.subject?.name_bn ?? null,
+            exam_date: allocation.exam_schedule?.date ?? null, // 'YYYY-MM-DD'
+            starts_at: allocation.exam_schedule?.starts_at ?? null, // 'HH:mm:ss'
+            ends_at: allocation.exam_schedule?.ends_at ?? null,
             room_id: allocation.room_id,
             seat_number: allocation.seat_number,
           })),

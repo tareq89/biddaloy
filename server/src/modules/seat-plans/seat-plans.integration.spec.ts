@@ -151,6 +151,7 @@ describe('SeatPlansService (integration)', () => {
       subjectRepo.create({
         id: SUBJECT_ID,
         name_en: 'Mathematics',
+        name_bn: 'গণিত',
         code: 'MATH',
         tenant_id: SEED_TENANT_ID,
       }),
@@ -274,6 +275,20 @@ describe('SeatPlansService (integration)', () => {
       where: { tenant_id: SEED_TENANT_ID, seat_plan_id: plan.id },
     });
     expect(allocationsAfterGenerate).toHaveLength(2);
+
+    // [31.3.7b] the detail rows carry the sitting's Bangla name, date and time.
+    const detail = await service.findOne(SEED_TENANT_ID, plan.id);
+    const detailRows = detail.rooms.flatMap((r) => r.allocations);
+    expect(detailRows).toHaveLength(2);
+    for (const row of detailRows) {
+      expect(row).toMatchObject({
+        subject_name: 'Mathematics',
+        subject_name_bn: 'গণিত',
+        exam_date: '2026-06-01',
+        starts_at: '09:00:00',
+      });
+      expect(row.ends_at).toBeTruthy();
+    }
 
     // 2. Manually edit one seat: move the schedule-1 allocation into room 2.
     const toMove = allocationsAfterGenerate.find((a) => a.exam_schedule_id === SCHEDULE_1_ID)!;
