@@ -1,20 +1,20 @@
 import { CalendarEventType } from '@biddaloy/shared';
 import {
-  AgendaList,
-  type AgendaEvent,
-  Card,
+  DayPanel,
   MonthGrid,
   type MonthGridEvent,
   StudentPicker,
   type StudentPickerItem,
 } from '@biddaloy/ui/components';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { PageContainer, PageHeader } from '@biddaloy/ui/shells';
+import { formatMonth } from '@biddaloy/ui/utils';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
 /**
  * [17.5.2]'s `/portal/calendar` — static composition of the same
  * presentational pieces the route renders (`StudentPicker`, `MonthGrid`,
- * `AgendaList`), same "client-admin isn't globbed into a running
+ * `DayPanel`), same "client-admin isn't globbed into a running
  * Storybook instance yet" precedent as `-calendar-view.stories.tsx`
  * ([17.4.2]'s staff calendar). No data hooks, no router — a route-level
  * RTL test (`calendar.test.tsx`) exercises the real thing.
@@ -67,10 +67,14 @@ function PortalCalendarView({
   showPicker: boolean;
 }) {
   const { t } = useTranslation('portal');
-  const agendaEvents: AgendaEvent[] = events;
+  const config = useRegionConfig();
+  const selectedDate = '2026-09-08';
+  const onSelected = events.filter(
+    (e) => e.startDate <= selectedDate && (e.endDate ?? e.startDate) >= selectedDate,
+  );
   return (
-    <div className="flex max-w-3xl flex-col gap-3">
-      <h1 className="text-lg font-semibold tracking-tight">{t('calendar.title')}</h1>
+    <PageContainer>
+      <PageHeader title={t('calendar.title')} subtitle={`Fatima Rahman · ${formatMonth('2026-09', config)}`} />
       {showPicker && (
         <StudentPicker
           label={t('calendar.pickerLabel')}
@@ -79,17 +83,13 @@ function PortalCalendarView({
           to="/portal/calendar"
         />
       )}
-      <div className="flex items-center justify-between gap-2">
-        <span aria-hidden="true">{'<'}</span>
-        <span className="text-sm font-semibold" aria-hidden="true">
-          {t('attendanceGrid.months.9')} 2026
-        </span>
-        <span aria-hidden="true">{'>'}</span>
-      </div>
-      <Card className="p-3.5">
-        <div className="hidden md:block">
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:gap-6">
+        <div className="min-w-0 flex-1">
           <MonthGrid
             month="2026-09"
+            today="2026-09-08"
+            selectedDate={selectedDate}
+            onMonthChange={() => undefined}
             firstDayOfWeek={0}
             weeklyOffDays={[5, 6]}
             events={events}
@@ -97,22 +97,15 @@ function PortalCalendarView({
             moreLabel={(count) => t('calendar.moreEvents', { count: count })}
           />
         </div>
-        <div className="md:hidden">
-          <AgendaList
-            events={agendaEvents}
-            formatDayHeading={(day) => day}
-            emptyLabel={t('calendar.agendaEmpty')}
-          />
-        </div>
-      </Card>
-    </div>
+        <DayPanel date={selectedDate} events={onSelected} />
+      </div>
+    </PageContainer>
   );
 }
 
 type Story = StoryObj<typeof PortalCalendarView>;
 
-/** Desktop-shaped: `MonthGrid` visible via `md:block` (Storybook's own
- * viewport is desktop-sized by default). One linked child, no picker —
+/** Grid on every width with the day panel beside it. One linked child, no picker —
  * the "no picker when exactly one student" case `calendar.test.tsx`
  * asserts. */
 export const DesktopGridSingleChild: Story = {
@@ -134,11 +127,7 @@ export const SecondChildScopedEvents: Story = {
   render: () => <PortalCalendarView events={CLASS_3_EVENTS} showPicker />,
 };
 
-/** Empty month: `AgendaList`'s own empty-state text
- * ("No events this month.") — both the grid and agenda branches are
- * always mounted (same `hidden md:block` / `md:hidden` split as the
- * real route), so viewing this story at a narrow Storybook viewport
- * shows the mobile-shaped agenda empty state. */
+/** Empty month: the grid with no chips and the panel's own empty-day line. */
 export const EmptyMonth: Story = {
   render: () => <PortalCalendarView events={[]} showPicker={false} />,
 };
