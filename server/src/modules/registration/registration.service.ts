@@ -6,6 +6,7 @@ import {
   HttpStatus,
   Injectable,
   Logger,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -14,13 +15,14 @@ import { IsNull, QueryFailedError, Repository } from 'typeorm';
 import {
   AuditAction,
   CommunicationMedium,
+  CommunicationStatus,
   LoginResponse,
   UserRole,
   UserStatus,
 } from '@biddaloy/shared';
 import { AuditService } from '../audit/audit.service';
 import { isSecretEchoEnabled } from '../account-access/account-access-echo';
-import { render } from '../account-access/account-access-templates';
+import { AccountAccessDeliveryService } from '../account-access/account-access-delivery.service';
 import { OtpService } from '../account-access/otp.service';
 import { isSmsAllowed } from '../account-access/phone-delivery.util';
 import { resolveAppBaseUrl } from '../account-access/app-base-url.util';
@@ -29,7 +31,7 @@ import { AuthResult, AuthService } from '../auth/auth.service';
 import { RequestContext } from '../../common/request-context.util';
 import { SocialIdentityService } from '../auth/social/social-identity.service';
 import { SocialTicketService } from '../auth/social/social-ticket.service';
-import { CommunicationProviderRegistryService } from '../communications/providers/communication-provider.registry';
+import { UserIdentity } from '../auth/entities/user-identity.entity';
 import { ProvisioningService } from '../schools/provisioning/provisioning.service';
 import { AdminNoticeService } from '../schools/trial/admin-notice.service';
 import { TrialService } from '../schools/trial/trial.service';
@@ -42,6 +44,8 @@ import { TurnstileService } from './turnstile.service';
 
 const OTP_PURPOSE = 'REGISTER';
 const RESEND_IN_SECONDS = 60;
+/** One captcha buys a stage; this caps how many extra codes (SMS cost) it can send. */
+const MAX_RESENDS = 3;
 /** D31: SMS codes only go to numbers with an allowed prefix (default Bangladesh); others get the code by email. */
 const DEFAULT_SMS_PREFIXES = '+880';
 
@@ -75,7 +79,8 @@ function slugFor(name: string): string {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .slice(0, 60);
-  return `${base || 'school'}-${randomBytes(2).toString('hex')}`;
+  // A name with no Latin letters (Bangla) has no readable base, so it gets a longer random suffix.
+  return `${base || 'school'}-${randomBytes(base ? 3 : 5).toString('hex')}`;
 }
 
 /**
@@ -90,7 +95,7 @@ export class RegistrationService {
     private readonly turnstile: TurnstileService,
     private readonly staging: RegistrationStagingService,
     private readonly otp: OtpService,
-    private readonly registry: CommunicationProviderRegistryService,
+    private readonly delivery: AccountAccessDeliveryService,
     private readonly provisioning: ProvisioningService,
     private readonly trial: TrialService,
     private readonly notices: AdminNoticeService,
@@ -129,7 +134,18 @@ export class RegistrationService {
     this.turnstile.assertAvailable();
     const staged = await this.staging.peek(dto.registration_id);
     if (!staged) throw new GoneException('This registration has expired — start again');
-    return this.sendCode(dto.registration_id, staged);
+    if ((staged.resends ?? 0) >= MAX_RESENDS) {
+      throw new HttpException(
+        {
+          statusCode: HttpStatus.TOO_MANY_REQUESTS,
+          message: 'Too many codes requested — start again',
+        },
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+    const result = await this.sendCode(dto.registration_id, staged);
+    await this.staging.save(dto.registration_id, { ...staged, resends: (staged.resends ?? 0) + 1 });
+    return result;
   }
 
   async verify(
@@ -176,32 +192,35 @@ export class RegistrationService {
   }
 
   /**
-   * There is no school yet, so the code goes out through the platform's own sender school
-   * (`REGISTRATION_SENDER_SCHOOL_ID`; providers resolve their settings per school). Never throws —
-   * a delivery failure looks the same as success to the caller, and the secret is never logged.
+   * There is no school yet, so the code goes out through the platform school
+   * (`PLATFORM_TENANT_ID`) with the normal secret-safe `communication_logs` row. In production a
+   * code that cannot be sent is a 503, never a silent 202; elsewhere it stays quiet (the echo
+   * flag is how tests read the code).
    */
   private async deliver(staged: StagedRegistration, code: string): Promise<void> {
-    try {
-      const senderSchoolId = this.config.get<string>('REGISTRATION_SENDER_SCHOOL_ID');
-      const medium =
-        staged.channel === 'email' ? CommunicationMedium.EMAIL : CommunicationMedium.SMS;
-      const provider = this.registry.resolve(medium);
-      if (!senderSchoolId || !provider) {
-        this.logger.warn(`Registration code not sent: no ${medium} sender configured`);
-        return;
+    const production = this.config.get<string>('NODE_ENV') === 'production';
+    const tenantId = this.config.get<string>('PLATFORM_TENANT_ID');
+    let sent = false;
+    if (tenantId) {
+      try {
+        const res = await this.delivery.deliver({
+          tenantId,
+          medium: staged.channel === 'email' ? CommunicationMedium.EMAIL : CommunicationMedium.SMS,
+          to: staged.identifier,
+          recipientName: staged.admin_name,
+          kind: 'OTP',
+          vars: { code },
+        });
+        sent = res.status === CommunicationStatus.SENT;
+      } catch {
+        this.logger.warn('Registration code delivery failed');
       }
-      const message = render('OTP', medium, staged.country_code === 'BD' ? 'bn' : 'en', {
-        school: 'Biddaloy',
-        name: staged.admin_name,
-        code,
+    }
+    if (!sent && production) {
+      throw new ServiceUnavailableException({
+        message: 'Registration is temporarily unavailable',
+        details: { code: 'REGISTRATION_UNAVAILABLE' },
       });
-      const result = await provider.send(
-        { to: staged.identifier, body: message.body, subject: message.subject },
-        senderSchoolId,
-      );
-      if (!result.success) this.logger.warn(`Registration code delivery failed (${medium})`);
-    } catch {
-      this.logger.warn('Registration code delivery failed');
     }
   }
 
@@ -233,6 +252,21 @@ export class RegistrationService {
           details: { code: 'ACCOUNT_UNAVAILABLE' },
         });
       }
+      // Deny wins (same rule as OTP sign-in): if any school of this user turns code sign-in off,
+      // a code alone must not give them a session, so they sign in with their password first.
+      const denied = await this.memberships
+        .createQueryBuilder('m')
+        .innerJoin('m.tenant', 's')
+        .where('m.user_id = :id', { id: owner.id })
+        .andWhere('m.deleted_at IS NULL')
+        .andWhere("s.settings->'auth'->>'otpLoginEnabled' = 'false'")
+        .getCount();
+      if (denied > 0) {
+        throw new ConflictException({
+          message: 'Sign in with your password to add a school',
+          details: { code: 'SIGN_IN_REQUIRED' },
+        });
+      }
       const openTrial = await this.memberships
         .createQueryBuilder('m')
         .innerJoin('m.tenant', 's')
@@ -251,7 +285,6 @@ export class RegistrationService {
 
     // A missing/expired ticket just means no Google link: the code already proved the registrant.
     const ticket = socialTicketId ? await this.socialTickets.consume(socialTicketId) : null;
-    let linked = false;
 
     const adminContacts = owner
       ? { [verifiedField]: staged[verifiedField] }
@@ -264,12 +297,12 @@ export class RegistrationService {
           slug: slugFor(staged.school_name),
           admin: { name: staged.admin_name, ...adminContacts },
           idempotency_key: registrationId,
-          send_invitation: false,
           country_code: staged.country_code,
           address: staged.address,
         },
         null,
         {
+          sendInvitation: false,
           inTransaction: async (manager, result) => {
             // The contact checks above ran outside this transaction. Re-assert them against the
             // admin row provisioning actually used: a user created through the unproven contact in
@@ -289,13 +322,7 @@ export class RegistrationService {
                 : { email_verified_at: () => 'COALESCE(email_verified_at, now())' },
             );
             if (ticket) {
-              linked = await this.socialIdentity.link(
-                userId,
-                ticket,
-                manager,
-                context,
-                result.school.id,
-              );
+              await this.socialIdentity.link(userId, ticket, manager, context, result.school.id);
             }
             await this.audit.record(
               {
@@ -357,6 +384,9 @@ export class RegistrationService {
     const user = await this.users.findOneOrFail({ where: { id: result.admin.user_id } });
     const auth = await this.auth.startSession(user, context);
     const needsPassword = user.password_hash === null;
+    // Any Google identity counts, whether linked just now or already on the account (D34).
+    const hasIdentity =
+      (await this.users.manager.count(UserIdentity, { where: { user_id: user.id } })) > 0;
     return {
       auth,
       body: {
@@ -364,7 +394,7 @@ export class RegistrationService {
         memberships: auth.memberships,
         needs_password: needsPassword,
         // Staff accounts need a password unless a social identity is the way in (D34).
-        password_required: needsPassword && !linked,
+        password_required: needsPassword && !hasIdentity,
       },
     };
   }

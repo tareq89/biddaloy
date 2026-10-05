@@ -16,6 +16,8 @@ export interface StagedRegistration {
   /** What the code was sent to, and how. Fixed at start so verify cannot be pointed elsewhere. */
   identifier: string;
   channel: 'sms' | 'email';
+  /** Extra codes already sent for this stage. */
+  resends?: number;
 }
 
 /**
@@ -37,6 +39,11 @@ export class RegistrationStagingService {
     const id = randomUUID();
     await this.redis.set(this.key(id), JSON.stringify(payload), 'EX', TTL_SEC);
     return id;
+  }
+
+  /** Rewrites a stage without touching its remaining lifetime. */
+  async save(id: string, payload: StagedRegistration): Promise<void> {
+    await this.redis.set(this.key(id), JSON.stringify(payload), 'KEEPTTL');
   }
 
   async peek(id: string): Promise<StagedRegistration | null> {
