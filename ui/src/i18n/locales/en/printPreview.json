@@ -5,18 +5,20 @@
     "printer": "{{name}} · {{type}}"
   },
   "controls": {
-    "template": "Template",
+    "template": "Design",
     "printer": "Printer",
-    "batchSize": "Cards per round (max {{max}})",
-    "choosePrinter": "Choose a printer"
+    "batchSize": "Cards per round",
+    "choosePrinter": "Choose a printer",
+    "templateLocked": "The design can't change once printing starts.",
+    "batchMax": "Up to {{max}}"
   },
   "printerType": {
     "CARD": "Card printer",
     "OFFICE": "Office printer"
   },
   "noTemplate": {
-    "title": "No template for this document yet",
-    "explanation": "A template decides how the card looks.",
+    "title": "No design for this document yet",
+    "explanation": "The design decides how the card looks.",
     "action": "Create one from a suggestion"
   },
   "noPrinter": {
@@ -39,7 +41,8 @@
     "overflow": "Text does not fit: {{fields}}",
     "noPhoto": "No photo",
     "empty": "Missing: {{fields}}",
-    "printAnyway": "Print anyway"
+    "printAnyway": "Print this round anyway",
+    "badge": "Check"
   },
   "confirm": {
     "title": "Did all {{count}} cards print correctly?",
@@ -84,5 +87,11 @@
     "sectionTitle": "Whole section",
     "continueSection": "Continue with the whole section"
   },
-  "back": "Back"
+  "back": "Back",
+  "round": {
+    "help": "Print and confirm a round to unlock the next.",
+    "step": "Round {{n}} · {{count}}",
+    "listLabel": "Rounds"
+  },
+  "previewLabel": "Card preview"
 }
