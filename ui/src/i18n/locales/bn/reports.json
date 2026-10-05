@@ -1,9 +1,10 @@
 {
   "title": "ফি আদায়ের প্রতিবেদন",
-  "errorMessage": "সংগ্রহ প্রতিবেদন লোড করা যায়নি।",
+  "errorMessage": "আদায়ের প্রতিবেদন লোড করা যায়নি।",
   "actions": {
     "downloadCsv": "সিএসভি ডাউনলোড করুন",
-    "csvDownloadError": "সিএসভি ডাউনলোড করা যায়নি। আবার চেষ্টা করুন।"
+    "csvDownloadError": "সিএসভি ডাউনলোড করা যায়নি। আবার চেষ্টা করুন।",
+    "print": "প্রিন্ট করুন"
   },
   "filters": {
     "presetLabel": "তারিখের পরিসর",
@@ -26,35 +27,46 @@
       "NAGAD": "নগদ (মোবাইল ব্যাংকিং)",
       "ROCKET": "রকেট"
     },
-    "collectorLabel": "সংগ্রহকারী",
-    "allCollectors": "সকল সংগ্রহকারী"
+    "collectorLabel": "আদায়কারী",
+    "allCollectors": "সব আদায়কারী"
   },
   "totals": {
-    "collected": "সংগৃহীত",
-    "reversed": "বিপরীত",
-    "net": "নিট",
+    "collected": "মোট আদায়",
+    "reversed": "বাতিল হওয়া",
+    "net": "নিট আদায়",
     "standingDiscount": "স্থায়ী ছাড়",
     "oneOffDiscount": "একবারের ছাড়",
     "walletUsed": "জমা টাকা ব্যবহার",
     "walletAdded": "জমা টাকা যোগ",
-    "changeReturned": "ফেরত দেওয়া ভাংতি"
-  },
-  "print": {
-    "range": "পরিসর: {{from}} – {{to}}"
-  },
-  "chart": {
-    "title": "দৈনিক সংগ্রহ",
-    "empty": "এই পরিসরে কোনো সংগ্রহ নেই।"
+    "changeReturned": "ফেরত দেওয়া ভাংতি",
+    "paymentCount": "{{count}}টি পেমেন্ট",
+    "reversedHelp": "মোট থেকে বাদ যায়",
+    "netHelp": "মোট আদায় থেকে বাতিল বাদে",
+    "otherTitle": "ছাড় ও জমা টাকা"
   },
   "tables": {
     "method": "পদ্ধতি",
-    "collector": "সংগ্রহকারী",
+    "collector": "আদায়কারী",
     "feeType": "ফি এর ধরন",
-    "amount": "পরিমাণ",
-    "count": "সংখ্যা",
-    "byMethodCaption": "পদ্ধতি অনুযায়ী সংগ্রহ",
-    "byCollectorCaption": "সংগ্রহকারী অনুযায়ী সংগ্রহ",
-    "byFeeTypeCaption": "ফি এর ধরন অনুযায়ী সংগ্রহ",
-    "emptyMessage": "এই পরিসরে কোনো সারি নেই।"
-  }
+    "emptyMessage": "এই পরিসরে কোনো সারি নেই।",
+    "payments": "পেমেন্ট",
+    "collected": "আদায়",
+    "reversed": "বাতিল",
+    "net": "নিট",
+    "discount": "ছাড়",
+    "date": "তারিখ",
+    "unknownCollector": "অজানা",
+    "byMethodTitle": "পদ্ধতি অনুযায়ী আদায়",
+    "byMethodHelp": "কোন পথে কত টাকা এসেছে।",
+    "byCollectorTitle": "আদায়কারী অনুযায়ী",
+    "byCollectorHelp": "কে কত টাকা নিয়েছেন — দিনশেষে হাতের টাকা মেলাতে।",
+    "byFeeTypeTitle": "ফির ধরন অনুযায়ী",
+    "byFeeTypeHelp": "কোন ফি বাবদ কত টাকা এসেছে, আর কত ছাড় গেছে।",
+    "byDayTitle": "দিন অনুযায়ী",
+    "byDayHelp": "প্রতিদিনের আদায়, পুরোনো দিন আগে।",
+    "rowCaption": "{{count}}টি পেমেন্ট · বাতিল {{amount}}",
+    "emptyExplanation": "অন্য তারিখের পরিসর বা ফিল্টার বেছে দেখুন।"
+  },
+  "subtitleAllMethods": "সব পদ্ধতি",
+  "subtitleAllCollectors": "সব আদায়কারী"
 }
