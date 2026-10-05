@@ -2,7 +2,7 @@
   "title": "ভর্তি প্রতিবেদন",
   "caption": "নির্বাচিত বছরের ভর্তি ও চলে যাওয়া শিক্ষার্থী",
   "filterYear": "শিক্ষাবর্ষ",
-  "filterCurrentYear": "চলতি বছর",
+  "filterCurrentYear": "চলতি বছর ({{name}})",
   "filterClass": "শ্রেণি",
   "filterAllClasses": "সব শ্রেণি",
   "countsLabel": "মোট সংখ্যা",
@@ -25,5 +25,9 @@
   "emptyMessage": "এই বছরে কোনো তথ্য নেই",
   "errorMessage": "প্রতিবেদন আনা যায়নি",
   "truncated": "শুধু প্রথম {{count}}টি তথ্য দেখানো হচ্ছে। তালিকা ছোট করতে একটি শ্রেণি বেছে নিন।",
-  "noValue": "—"
+  "noValue": "—",
+  "subtitle": "শিক্ষাবর্ষ {{year}} · {{class}} — কে ভর্তি হলো, কে চলে গেল",
+  "countLeftDetail": "নাম কাটা {{withdrawn}} · অন্য স্কুলে {{transferred}}",
+  "viewStudent": "শিক্ষার্থী দেখুন",
+  "emptyExplanation": "এই বছরে কেউ ভর্তি হলে, চলে গেলে বা পাশ করলে এখানে দেখা যাবে।"
 }

@@ -2,7 +2,7 @@
   "title": "Admission reports",
   "caption": "Admissions and leavers for the selected year",
   "filterYear": "Academic year",
-  "filterCurrentYear": "Current year",
+  "filterCurrentYear": "Current year ({{name}})",
   "filterClass": "Class",
   "filterAllClasses": "All classes",
   "countsLabel": "Totals",
@@ -25,5 +25,9 @@
   "emptyMessage": "No records for this year",
   "errorMessage": "Could not load the report",
   "truncated": "Showing the first {{count}} records only. Pick a class to narrow the list.",
-  "noValue": "—"
+  "noValue": "—",
+  "subtitle": "Academic year {{year}} · {{class}} — who joined, who left",
+  "countLeftDetail": "Withdrawn {{withdrawn}} · Transferred {{transferred}}",
+  "viewStudent": "View student",
+  "emptyExplanation": "Admissions, leavers and graduations recorded in this year show up here."
 }
