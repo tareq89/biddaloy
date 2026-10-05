@@ -146,7 +146,11 @@ function RoutineReviewPage() {
 
   const title = t('review.title');
 
-  if (routinesQuery.isPending || academicYearsQuery.isPending) {
+  if (
+    routinesQuery.isPending ||
+    academicYearsQuery.isPending ||
+    (!canManage && ownTeacherQuery.isPending)
+  ) {
     return (
       <PageContainer>
         <div aria-busy="true" className="flex flex-col gap-4">
