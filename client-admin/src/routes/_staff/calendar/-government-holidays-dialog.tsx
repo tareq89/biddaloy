@@ -1,23 +1,18 @@
 /**
- * [17.4.2] `GET /calendar/public-holidays` suggestions -> tick a subset
- * -> `POST /calendar/public-holidays/add` with only the ticked entry
- * ids. Entries already added as a `HOLIDAY` event this year are shown
- * disabled rather than omitted, so the list stays a stable "everything
- * for this year" view.
+ * [17.4.2] / [31.4] `GET /calendar/public-holidays` suggestions -> tick a
+ * subset -> `POST /calendar/public-holidays/add` with only the ticked entry
+ * ids. A full-page modal (`FullPageShell`, D21: a form that contains a list)
+ * mounted by `/calendar?panel=holidays`. File and export name kept so
+ * `index.tsx` keeps its `open` / `onOpenChange` mount. Entries already added
+ * as a `HOLIDAY` event this year are shown disabled rather than omitted, so
+ * the list stays a stable "everything for this year" view.
  */
-import {
-  Button,
-  Checkbox,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@biddaloy/ui/components';
+import { Card, Checkbox, ConfirmDialog, EmptyState, StatusBadge } from '@biddaloy/ui/components';
 import type { CalendarEvent, PublicHolidayEntry } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
-import { formatDate, parseServerDate } from '@biddaloy/ui/utils';
+import { FullPageShell } from '@biddaloy/ui/shells';
+import { formatDate, formatNumber } from '@biddaloy/ui/utils';
+import { CalendarXIcon } from 'lucide-react';
 import * as React from 'react';
 
 export interface GovernmentHolidaysDialogProps {
@@ -26,6 +21,8 @@ export interface GovernmentHolidaysDialogProps {
   suggestions: PublicHolidayEntry[];
   existingEvents: CalendarEvent[];
   isPending: boolean;
+  /** The add request failed: show a translated alert. */
+  error?: unknown;
   onAdd: (entryIds: string[]) => void;
 }
 
@@ -44,15 +41,20 @@ export function GovernmentHolidaysDialog({
   suggestions,
   existingEvents,
   isPending,
+  error,
   onAdd,
 }: GovernmentHolidaysDialogProps) {
   const { t } = useTranslation('calendar');
+  const { t: tCommon } = useTranslation('common');
   const regionConfig = useRegionConfig();
   const [checked, setChecked] = React.useState<Set<string>>(new Set());
+  const [discardOpen, setDiscardOpen] = React.useState(false);
 
   React.useEffect(() => {
     if (!open) setChecked(new Set());
   }, [open]);
+
+  if (!open) return null;
 
   function toggle(id: string) {
     setChecked((prev) => {
@@ -63,53 +65,91 @@ export function GovernmentHolidaysDialog({
     });
   }
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{t('governmentHolidaysDialog.title')}</DialogTitle>
-          <DialogDescription>{t('governmentHolidaysDialog.description')}</DialogDescription>
-        </DialogHeader>
+  // A pending add must not be abandoned mid-request (Esc / X / Cancel).
+  const close = () => {
+    if (!isPending) onOpenChange(false);
+  };
 
-        {suggestions.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{t('governmentHolidaysDialog.empty')}</p>
-        ) : (
-          <ul className="flex flex-col gap-2">
-            {suggestions.map((entry) => {
-              const alreadyAdded = isAlreadyAdded(entry, existingEvents);
-              return (
-                <li key={entry.id} className="flex items-center gap-2">
-                  <Checkbox
-                    id={`gov-holiday-${entry.id}`}
-                    checked={alreadyAdded || checked.has(entry.id)}
-                    disabled={alreadyAdded}
-                    onCheckedChange={() => toggle(entry.id)}
-                  />
-                  <label htmlFor={`gov-holiday-${entry.id}`} className="flex-1 text-sm">
-                    {entry.name} — {formatDate(parseServerDate(entry.date), regionConfig)}
-                  </label>
-                  {alreadyAdded && (
-                    <span className="text-xs text-muted-foreground">
-                      {t('governmentHolidaysDialog.alreadyAdded')}
-                    </span>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
+  return (
+    <>
+      <FullPageShell
+        title={t('governmentHolidaysDialog.title')}
+        size="form"
+        dirty={checked.size > 0}
+        onClose={close}
+        secondary={{
+          label: t('eventForm.cancel'),
+          // The shell's footer Cancel bypasses its own discard prompt.
+          onClick: () => (checked.size > 0 ? setDiscardOpen(true) : close()),
+        }}
+        primary={{
+          label: t('governmentHolidaysDialog.addCount', {
+            count: checked.size,
+            n: formatNumber(checked.size, regionConfig),
+          }),
+          onClick: () => onAdd(Array.from(checked)),
+          disabled: checked.size === 0,
+          busy: isPending,
+        }}
+      >
+        <p className="mt-0.5 text-text-secondary">{t('governmentHolidaysDialog.description')}</p>
+
+        {error != null && (
+          <p role="alert" className="text-destructive">
+            {t('governmentHolidaysDialog.addFailed')}
+          </p>
         )}
 
-        <DialogFooter>
-          <Button
-            type="button"
-            loading={isPending}
-            disabled={checked.size === 0}
-            onClick={() => onAdd(Array.from(checked))}
-          >
-            {t('governmentHolidaysDialog.add')}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        {suggestions.length === 0 ? (
+          <EmptyState
+            icon={<CalendarXIcon aria-hidden="true" />}
+            title={t('governmentHolidaysDialog.emptyTitle')}
+            explanation={t('governmentHolidaysDialog.empty')}
+          />
+        ) : (
+          <Card className="p-4 md:p-5">
+            <ul className="divide-y divide-border-subtle">
+              {suggestions.map((entry) => {
+                const alreadyAdded = isAlreadyAdded(entry, existingEvents);
+                return (
+                  <li key={entry.id} className="flex min-h-11 items-center gap-3 py-2">
+                    <Checkbox
+                      id={`gov-holiday-${entry.id}`}
+                      checked={alreadyAdded || checked.has(entry.id)}
+                      disabled={alreadyAdded}
+                      onCheckedChange={() => toggle(entry.id)}
+                    />
+                    <label htmlFor={`gov-holiday-${entry.id}`} className="min-w-0 flex-1">
+                      {entry.name}{' '}
+                      <span className="text-text-secondary">
+                        {formatDate(entry.date, regionConfig)}
+                      </span>
+                    </label>
+                    {alreadyAdded && (
+                      <StatusBadge
+                        tone="neutral"
+                        label={t('governmentHolidaysDialog.alreadyAdded')}
+                      />
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </Card>
+        )}
+      </FullPageShell>
+      <ConfirmDialog
+        open={discardOpen}
+        onOpenChange={setDiscardOpen}
+        title={tCommon('fullPage.discardTitle')}
+        description={tCommon('fullPage.discardDescription')}
+        confirmLabel={tCommon('fullPage.discardConfirm')}
+        cancelLabel={tCommon('fullPage.keepEditing')}
+        onConfirm={() => {
+          setDiscardOpen(false);
+          onOpenChange(false);
+        }}
+      />
+    </>
   );
 }
