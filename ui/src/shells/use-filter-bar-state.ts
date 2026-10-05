@@ -55,6 +55,8 @@ export interface UseFilterBarStateOptions {
   onChange: (patch: Record<string, string | null>) => void;
   /** @default 300 */
   debounceMs?: number;
+  /** Display-only; the URL keeps the raw value. Used for `date-range` and `number-range` chips. */
+  formatValue?: (kind: 'date' | 'number', value: string) => string;
 }
 
 export interface UseFilterBarStateResult {
@@ -93,11 +95,14 @@ function labelFor(
   fields: readonly FilterFieldDescriptor[],
   key: string,
   value: string,
+  formatValue?: UseFilterBarStateOptions['formatValue'],
 ): string | null {
+  const show = (kind: 'date' | 'number') => formatValue?.(kind, value) ?? value;
   for (const field of fields) {
     switch (field.kind) {
       case 'text':
-        if (field.key === key) return `${field.label}: ${value}`;
+        if (field.key === key)
+          return `${field.label}: ${field.formatChip ? field.formatChip(value) : value}`;
         break;
       case 'select':
         if (field.key === key) {
@@ -112,12 +117,12 @@ function labelFor(
         if (field.key === key) return field.label;
         break;
       case 'date-range':
-        if (field.fromKey === key) return `${field.fromLabel}: ${value}`;
-        if (field.toKey === key) return `${field.toLabel}: ${value}`;
+        if (field.fromKey === key) return `${field.fromLabel}: ${show('date')}`;
+        if (field.toKey === key) return `${field.toLabel}: ${show('date')}`;
         break;
       case 'number-range':
-        if (field.minKey === key) return `${field.minLabel}: ${value}`;
-        if (field.maxKey === key) return `${field.maxLabel}: ${value}`;
+        if (field.minKey === key) return `${field.minLabel}: ${show('number')}`;
+        if (field.maxKey === key) return `${field.maxLabel}: ${show('number')}`;
         break;
     }
   }
@@ -129,6 +134,7 @@ export function useFilterBarState({
   values,
   onChange,
   debounceMs = 300,
+  formatValue,
 }: UseFilterBarStateOptions): UseFilterBarStateResult {
   const debouncedKeys = React.useMemo(() => debouncedKeysOf(fields), [fields]);
   // Comma-joined so the effect below has a stable primitive dependency —
@@ -249,8 +255,8 @@ export function useFilterBarState({
   const chips = React.useMemo<ActiveFilterChip[]>(() => {
     return Object.entries(values)
       .filter(([, value]) => value !== undefined && value !== '')
-      .map(([key, value]) => ({ key, value, label: labelFor(fields, key, value) }));
-  }, [fields, values]);
+      .map(([key, value]) => ({ key, value, label: labelFor(fields, key, value, formatValue) }));
+  }, [fields, values, formatValue]);
 
   // A pending debounced commit (`setLocalValue`'s `setTimeout`) for `key`
   // must not survive a clear — otherwise a keystroke typed just before

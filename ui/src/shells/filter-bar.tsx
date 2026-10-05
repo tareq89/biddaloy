@@ -6,7 +6,7 @@
  * debounce + Bengali-digit normalization (`use-filter-bar-state.ts`), the
  * `'__all__'` Radix-Select sentinel (every page used to redeclare this
  * itself — `client-admin/src/routes/_staff/invoices/index.tsx:36` and
- * two other pages), the mobile "Filters (n)" disclosure, and the
+ * two other pages), the mobile "Filters (n)" bottom sheet, and the
  * always-visible active-filter chip row — including a chip for a
  * `values` key **no descriptor covers**, which is the fix for the
  * "invisible active filter" bug class this ticket exists to kill
@@ -18,20 +18,22 @@
  * own shape), never calls `useListShellState` itself — see
  * `list-shell.tsx`'s header comment for why that split exists.
  *
- * Mobile collapse is CSS-only (`md:hidden`/`md:flex` on a single control
- * tree, the same `aria-expanded`/`aria-controls` grammar
- * `app-shell.tsx`'s nav-group disclosure already uses) — no `matchMedia`
- * hook, no second copy of the controls, since two trees would mean
- * duplicate ids and duplicate form controls, which axe (rightly) flags.
+ * Two render scopes share one field renderer: `bar` (desktop 12-column row;
+ * on a phone only the primary box and the "Filters (n)" button show, the rest
+ * is `hidden md:flex`) and `sheet` (the same fields, full width, inside the
+ * phone `FilterSheet`, which only mounts while open). The scope is part of
+ * every control id so the two copies never collide.
  * The chip row is *never* part of that collapsible tree — an active
  * filter must stay visible and clearable on a 320px phone even while the
- * controls that created it are collapsed behind the trigger.
+ * controls that created it are collapsed behind the sheet button.
  */
+import { SearchIcon, SlidersHorizontalIcon, XIcon } from 'lucide-react';
 import * as React from 'react';
 
 import { Button } from '../components/button';
 import { Checkbox } from '../components/checkbox';
 import { DatePicker } from '../components/date-picker';
+import { FilterSheet } from '../components/filter-sheet';
 import { Input } from '../components/input';
 import { Label } from '../components/label';
 import {
@@ -42,8 +44,7 @@ import {
   SelectValue,
 } from '../components/select';
 import { useRegionConfig, useTranslation } from '../i18n';
-import { cn } from '../primitives/lib/utils';
-import { parseDate, toIsoDate } from '../utils';
+import { formatDate, formatNumber, parseDate, toIsoDate } from '../utils';
 
 import { useFilterBarState } from './use-filter-bar-state';
 
@@ -68,6 +69,8 @@ export interface TextFilterField {
    * worth the API complexity for a mistake `console.warn` already flags
    * loudly in development). */
   primary?: boolean;
+  /** Display-only chip text, e.g. a numeric text filter shown in tenant digits; the URL keeps the raw value. */
+  formatChip?: (value: string) => string;
 }
 
 export interface SelectFilterField {
@@ -124,6 +127,8 @@ export interface FilterBarProps {
   onChange: (patch: Record<string, string | null>) => void;
   /** @default 300 */
   debounceMs?: number;
+  /** Total matches, shown on the phone sheet's primary button ("Show 48 results"). */
+  resultCount?: number;
 }
 
 /** `parseDate` throws on anything that isn't a real `YYYY-MM-DD` date — a
@@ -158,11 +163,24 @@ function keysOf(field: FilterFieldDescriptor): string[] {
   }
 }
 
-export function FilterBar({ fields, values, onChange, debounceMs }: FilterBarProps) {
+interface RangePart {
+  label: string;
+  id: string;
+  control: React.ReactNode;
+}
+
+export function FilterBar({ fields, values, onChange, debounceMs, resultCount }: FilterBarProps) {
   const { t } = useTranslation();
   const regionConfig = useRegionConfig();
-  const panelId = React.useId();
-  const [expanded, setExpanded] = React.useState(false);
+  const baseId = React.useId();
+  const [sheetOpen, setSheetOpen] = React.useState(false);
+
+  // Chips show formatted values; the URL keeps the raw ISO date / digits.
+  const formatValue = React.useCallback(
+    (kind: 'date' | 'number', value: string) =>
+      kind === 'date' ? formatDate(value, regionConfig) : formatNumber(Number(value), regionConfig),
+    [regionConfig],
+  );
 
   // `exactOptionalPropertyTypes` is on for this package, so `debounceMs`
   // (optional on both `FilterBarProps` and `UseFilterBarStateOptions`)
@@ -173,6 +191,7 @@ export function FilterBar({ fields, values, onChange, debounceMs }: FilterBarPro
     fields,
     values,
     onChange,
+    formatValue,
     ...(debounceMs !== undefined ? { debounceMs } : {}),
   });
 
@@ -182,35 +201,96 @@ export function FilterBar({ fields, values, onChange, debounceMs }: FilterBarPro
   if (process.env.NODE_ENV !== 'production' && primaryFields.length > 1) {
     console.warn(
       '[FilterBar] more than one field has `primary: true` — only the first stays inline on ' +
-        'mobile; the rest fall behind the "Filters (n)" disclosure like any other field.',
+        'mobile; the rest fall behind the "Filters (n)" sheet like any other field.',
     );
   }
   const primaryField = primaryFields[0];
   const collapsibleFields = fields.filter((field) => field !== primaryField);
 
-  // "Filters (n)" is a promise about what opening the panel reveals, not
+  // "Filters (n)" is a promise about what opening the sheet reveals, not
   // the total active-filter count — a `primary` field's own chip (stays
   // inline, never collapsed) and a deep-linked unknown-key chip (no
   // control at all, so nothing to reveal) must not inflate it.
   const collapsibleKeys = new Set(collapsibleFields.flatMap(keysOf));
   const collapsibleActiveCount = chips.filter((chip) => collapsibleKeys.has(chip.key)).length;
 
-  function renderField(field: FilterFieldDescriptor) {
-    switch (field.kind) {
-      case 'text':
-        return (
+  function labelled(label: string, id: string, control: React.ReactNode, srOnlyOnPhone = false) {
+    return (
+      <div className="flex min-w-0 flex-col gap-1.5">
+        <Label htmlFor={id} className={srOnlyOnPhone ? 'sr-only md:not-sr-only' : undefined}>
+          {label}
+        </Label>
+        {control}
+      </div>
+    );
+  }
+
+  /** Bar scope: one group label over both controls with "–" between. Sheet
+   * scope: two separate labelled fields. */
+  function range(
+    scope: 'bar' | 'sheet',
+    groupLabel: string,
+    groupKey: string,
+    [from, to]: [RangePart, RangePart],
+  ) {
+    if (scope === 'sheet') {
+      return (
+        <>
+          {labelled(from.label, from.id, from.control)}
+          {labelled(to.label, to.id, to.control)}
+        </>
+      );
+    }
+    const labelId = `${baseId}-group-${groupKey}`;
+    return (
+      <div className="flex min-w-0 flex-col gap-1.5">
+        <span id={labelId} className="text-label font-medium">
+          {groupLabel}
+        </span>
+        <div role="group" aria-labelledby={labelId} className="flex items-center gap-1.5">
+          {from.control}
+          <span aria-hidden="true" className="text-text-secondary">
+            –
+          </span>
+          {to.control}
+        </div>
+      </div>
+    );
+  }
+
+  function renderField(f: FilterFieldDescriptor, scope: 'bar' | 'sheet') {
+    const id = (key: string) => `${baseId}-${scope}-${key}`;
+    switch (f.kind) {
+      case 'text': {
+        const input = (
           <Input
-            key={field.key}
-            aria-label={field.label}
-            placeholder={field.placeholder}
-            className={cn(field.primary ? 'min-w-40 flex-1' : 'w-40')}
-            value={localValues[field.key] ?? ''}
-            onChange={(event) => setLocalValue(field.key, event.target.value)}
+            id={id(f.key)}
+            placeholder={f.placeholder}
+            className={f.primary ? 'ps-10' : 'w-full'}
+            value={localValues[f.key] ?? ''}
+            onChange={(event) => setLocalValue(f.key, event.target.value)}
           />
         );
+        return labelled(
+          f.label,
+          id(f.key),
+          f.primary ? (
+            <div className="relative">
+              <SearchIcon
+                aria-hidden="true"
+                className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-text-secondary"
+              />
+              {input}
+            </div>
+          ) : (
+            input
+          ),
+          f.primary === true && scope === 'bar',
+        );
+      }
       case 'select': {
-        const current = values[field.key];
-        // A URL/deep-link value that isn't one of `field.options` (a status
+        const current = values[f.key];
+        // A URL/deep-link value that isn't one of `f.options` (a status
         // since renamed, a stale bookmark) must not render the trigger
         // blank — that's the same "invisible active filter" bug class this
         // ticket exists to kill, just one descriptor level down from the
@@ -218,166 +298,177 @@ export function FilterBar({ fields, values, onChange, debounceMs }: FilterBarPro
         // synthetic item so the trigger still shows *something* and the
         // value stays selectable back to itself / clearable via "All".
         const isKnown =
-          current === undefined || field.options.some((option) => option.value === current);
-        return (
+          current === undefined || f.options.some((option) => option.value === current);
+        return labelled(
+          f.label,
+          id(f.key),
           <Select
-            key={field.key}
             value={current ?? ALL_VALUE}
-            onValueChange={(value) => setValue(field.key, value === ALL_VALUE ? null : value)}
+            onValueChange={(value) => setValue(f.key, value === ALL_VALUE ? null : value)}
           >
-            <SelectTrigger aria-label={field.label} className="w-40">
+            <SelectTrigger id={id(f.key)} className="w-full">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={ALL_VALUE}>{field.allLabel}</SelectItem>
+              <SelectItem value={ALL_VALUE}>{f.allLabel}</SelectItem>
               {!isKnown && current !== undefined && (
                 <SelectItem value={current}>
-                  {t('filters.unknownFilter', { key: field.label, value: current })}
+                  {t('filters.unknownFilter', { key: f.label, value: current })}
                 </SelectItem>
               )}
-              {field.options.map((option) => (
+              {f.options.map((option) => (
                 <SelectItem key={option.value} value={option.value}>
                   {option.label}
                 </SelectItem>
               ))}
             </SelectContent>
-          </Select>
+          </Select>,
         );
       }
-      case 'date-range':
-        return (
-          <div
-            key={`${field.fromKey}:${field.toKey}`}
-            role="group"
-            aria-label={field.label}
-            className="flex items-center gap-1.5"
-          >
+      case 'date-range': {
+        const picker = (key: string, label: string) => ({
+          label,
+          id: id(key),
+          control: (
             <DatePicker
-              aria-label={field.fromLabel}
+              id={id(key)}
+              aria-label={label}
+              className="w-full"
               config={regionConfig}
-              value={safeParseDate(values[field.fromKey])}
-              onValueChange={(date) => setValue(field.fromKey, date ? toIsoDate(date) : null)}
+              value={safeParseDate(values[key])}
+              onValueChange={(date) => setValue(key, date ? toIsoDate(date) : null)}
             />
-            <span aria-hidden="true" className="text-muted-foreground">
-              –
-            </span>
-            <DatePicker
-              aria-label={field.toLabel}
-              config={regionConfig}
-              value={safeParseDate(values[field.toKey])}
-              onValueChange={(date) => setValue(field.toKey, date ? toIsoDate(date) : null)}
-            />
-          </div>
-        );
+          ),
+        });
+        return range(scope, f.label, f.fromKey, [
+          picker(f.fromKey, f.fromLabel),
+          picker(f.toKey, f.toLabel),
+        ]);
+      }
       case 'checkbox':
         return (
-          <div key={field.key} className="flex items-center gap-2">
+          <div className="flex min-h-11 items-center gap-3 md:min-h-8">
             <Checkbox
-              id={`filter-bar-${field.key}`}
-              checked={values[field.key] === 'true'}
-              onCheckedChange={(checked) => setValue(field.key, checked === true ? 'true' : null)}
+              id={id(f.key)}
+              checked={values[f.key] === 'true'}
+              onCheckedChange={(checked) => setValue(f.key, checked === true ? 'true' : null)}
             />
-            <Label htmlFor={`filter-bar-${field.key}`}>{field.label}</Label>
+            <Label htmlFor={id(f.key)}>{f.label}</Label>
           </div>
         );
-      case 'number-range':
-        return (
-          <div
-            key={`${field.minKey}:${field.maxKey}`}
-            role="group"
-            aria-label={field.label}
-            className="flex items-center gap-1.5"
-          >
+      case 'number-range': {
+        const num = (key: string, label: string) => ({
+          label,
+          id: id(key),
+          control: (
             <Input
-              aria-label={field.minLabel}
+              id={id(key)}
+              aria-label={label}
               type="text"
               inputMode="numeric"
-              className="w-20"
-              value={localValues[field.minKey] ?? ''}
-              onChange={(event) => setLocalValue(field.minKey, event.target.value)}
+              className="w-full"
+              value={localValues[key] ?? ''}
+              onChange={(event) => setLocalValue(key, event.target.value)}
             />
-            <span aria-hidden="true" className="text-muted-foreground">
-              –
-            </span>
-            <Input
-              aria-label={field.maxLabel}
-              type="text"
-              inputMode="numeric"
-              className="w-20"
-              value={localValues[field.maxKey] ?? ''}
-              onChange={(event) => setLocalValue(field.maxKey, event.target.value)}
-            />
-          </div>
-        );
+          ),
+        });
+        return range(scope, f.label, f.minKey, [
+          num(f.minKey, f.minLabel),
+          num(f.maxKey, f.maxLabel),
+        ]);
+      }
+    }
+  }
+
+  /** Desktop column span for a collapsible field in the 12-column bar. */
+  function spanClass(f: FilterFieldDescriptor) {
+    switch (f.kind) {
+      case 'select':
+        return 'md:col-span-2';
+      case 'date-range':
+        return 'md:col-span-4';
+      case 'checkbox':
+        return 'md:col-span-2 md:self-end';
+      default:
+        return 'md:col-span-3';
     }
   }
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex flex-wrap items-center gap-2">
-        {primaryField && renderField(primaryField)}
+    <section aria-label={t('filters.showFiltersNone')} className="space-y-3">
+      <div className="flex items-end gap-2 md:grid md:grid-cols-12 md:gap-4">
+        {primaryField && (
+          <div className="min-w-0 flex-1 md:col-span-4">{renderField(primaryField, 'bar')}</div>
+        )}
         {collapsibleFields.length > 0 && (
           <Button
             type="button"
             variant="outline"
-            className="md:hidden"
-            aria-expanded={expanded}
-            aria-controls={panelId}
-            onClick={() => setExpanded((value) => !value)}
+            className="shrink-0 md:hidden"
+            aria-haspopup="dialog"
+            onClick={() => setSheetOpen(true)}
           >
-            {expanded
-              ? t('filters.hideFilters')
-              : collapsibleActiveCount === 0
-                ? t('filters.showFiltersNone')
-                : t('filters.showFilters', { count: collapsibleActiveCount })}
+            <SlidersHorizontalIcon aria-hidden="true" />
+            {collapsibleActiveCount === 0
+              ? t('filters.showFiltersNone')
+              : t('filters.showFilters', { count: collapsibleActiveCount })}
           </Button>
         )}
+        {collapsibleFields.map((f) => (
+          <div key={keysOf(f).join(':')} className={`hidden md:flex md:flex-col ${spanClass(f)}`}>
+            {renderField(f, 'bar')}
+          </div>
+        ))}
       </div>
       {collapsibleFields.length > 0 && (
-        <div
-          id={panelId}
-          className={cn(
-            'flex flex-wrap items-center gap-2',
-            expanded ? 'flex' : 'hidden',
-            'md:flex',
-          )}
+        <FilterSheet
+          open={sheetOpen}
+          onOpenChange={setSheetOpen}
+          onClearAll={clearAll}
+          {...(resultCount !== undefined ? { resultCount } : {})}
         >
-          {collapsibleFields.map(renderField)}
-        </div>
+          {collapsibleFields.map((f) => (
+            <React.Fragment key={keysOf(f).join(':')}>{renderField(f, 'sheet')}</React.Fragment>
+          ))}
+        </FilterSheet>
       )}
       {chips.length > 0 && (
-        <ul aria-label={t('filters.activeFilters')} className="flex flex-wrap items-center gap-2">
+        <ul
+          aria-label={t('filters.activeFilters')}
+          className="flex flex-wrap items-center gap-x-2 md:gap-y-2"
+        >
           {chips.map((chip) => {
             const label =
               chip.label ?? t('filters.unknownFilter', { key: chip.key, value: chip.value });
             return (
-              <li
-                key={chip.key}
-                className="flex items-center gap-1 rounded-full border border-border-subtle bg-muted px-2 py-1 text-xs text-muted-foreground"
-              >
-                <span>{label}</span>
-                <Button
+              <li key={chip.key}>
+                <button
                   type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  iconOnly
+                  className="inline-flex h-11 items-center md:h-7"
                   aria-label={t('filters.removeFilter', { label })}
                   onClick={() => clearFilter(chip.key)}
                 >
-                  <span aria-hidden="true">×</span>
-                </Button>
+                  <span className="inline-flex h-7 items-center gap-1 rounded-full bg-secondary ps-3 pe-2 text-label text-secondary-foreground">
+                    {label}
+                    <XIcon className="size-3.5" aria-hidden="true" />
+                  </span>
+                </button>
               </li>
             );
           })}
           {chips.length > 1 && (
             <li>
-              <Button type="button" variant="ghost" size="sm" onClick={clearAll}>
+              <button
+                type="button"
+                className="inline-flex h-11 items-center rounded-md px-2 text-label font-medium text-primary hover:bg-muted md:h-7"
+                onClick={clearAll}
+              >
                 {t('filters.clearAll')}
-              </Button>
+              </button>
             </li>
           )}
         </ul>
       )}
-    </div>
+    </section>
   );
 }
