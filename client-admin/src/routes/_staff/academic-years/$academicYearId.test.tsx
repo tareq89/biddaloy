@@ -134,7 +134,7 @@ describe('/academic-years/$academicYearId', () => {
 
     const user = userEvent.setup();
     await user.click(await screen.findByRole('button', { name: 'Delete' }));
-    const dialog = within(await screen.findByRole('dialog'));
+    const dialog = within(await screen.findByRole('alertdialog'));
     await user.click(dialog.getByRole('button', { name: 'Delete' }));
 
     await waitFor(() => expect(router.state.location.pathname).toBe('/academic-years'));
