@@ -60,14 +60,38 @@ describe('/admissions/applicants', () => {
     expect(await screen.findByText('REF-001')).toBeTruthy();
     expect(screen.getByText('Jane Doe')).toBeTruthy();
 
-    const view = screen.getAllByRole('link', { name: 'View' })[0];
-    expect(view?.getAttribute('href')).toBe('/admissions/applicants/applicant-1');
+    const table = within(screen.getByRole('table'));
+    expect(table.getByRole('link', { name: 'View' }).getAttribute('href')).toBe(
+      '/admissions/applicants/applicant-1',
+    );
     // the reference number is plain text, not a link
     expect(screen.queryByRole('link', { name: 'REF-001' })).toBeNull();
-    expect(screen.getAllByText('01700-000000').length).toBeGreaterThan(0);
+    expect(table.getByText('01700-000000')).toBeTruthy();
     expect(screen.queryByText(/2026-01-01/)).toBeNull();
-    expect((await screen.findAllByText('Class 1 Admission 2026')).length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Awaiting review').length).toBeGreaterThan(0);
+    expect(await table.findByText('Class 1 Admission 2026')).toBeTruthy();
+    expect(table.getByText('Awaiting review')).toBeTruthy();
+  });
+
+  it('sends the status filter to the server', async () => {
+    mockIntakes();
+    const seen: (string | null)[] = [];
+    server.use(
+      http.get('/api/v1/admission/applicants', ({ request }) => {
+        seen.push(new URL(request.url).searchParams.get('status'));
+        return HttpResponse.json([applicant]);
+      }),
+    );
+    renderWithRouter(routeTree, {
+      initialEntries: ['/admissions/applicants'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+    await screen.findByText('REF-001');
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('combobox', { name: 'Status' }));
+    await user.click(await screen.findByRole('option', { name: 'Shortlisted' }));
+    await waitFor(() => expect(seen.at(-1)).toBe('SHORTLISTED'));
   });
 
   it('shows a real empty state when there are no applications', async () => {

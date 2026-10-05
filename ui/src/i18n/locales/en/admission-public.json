@@ -56,7 +56,8 @@
       "required": "Please fill this in.",
       "choose": "Please choose one.",
       "phone": "Enter a correct mobile number, like 01711-000004.",
-      "document": "Please add this file."
+      "document": "Please add this file.",
+      "email": "Enter a correct email address."
     }
   },
   "confirmation": {
@@ -64,7 +65,8 @@
     "explanation": "Please save this reference number. To check your status you'll need it and the guardian phone number you gave on the form.",
     "copy": "Copy number",
     "copied": "Copied!",
-    "checkStatusLink": "Check application status"
+    "checkStatusLink": "Check application status",
+    "clipboardHint": "Could not copy. Select the number above and copy it by hand."
   },
   "status": {
     "title": "Check your application status",
@@ -74,7 +76,6 @@
       "referenceNumberHelp": "It looks like this: ADM-2026-000123"
     },
     "submit": "Check status",
-    "loading": "Checking…",
     "notFound": "We couldn't find an application with this reference number and phone number. Please check both and try again.",
     "error": "Something went wrong. Please try again.",
     "statuses": {
