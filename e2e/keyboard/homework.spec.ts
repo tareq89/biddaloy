@@ -91,7 +91,7 @@ test('Ctrl+K -> Assign homework action -> create+assign form -> save, mouse-free
     // `createClassSection` always names its one section "A".
     await selectByTypeahead(page, 'A');
 
-    await page.getByRole('button', { name: t('homework.form.submit') }).focus();
+    await page.getByRole('button', { name: t('homework.form.submitCreate') }).focus();
     await page.keyboard.press('Enter');
   });
 

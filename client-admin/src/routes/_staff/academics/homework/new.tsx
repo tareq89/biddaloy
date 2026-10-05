@@ -5,17 +5,20 @@
  * `class_id`/`section_id`/`subject_id` search params prefill the form,
  * which lets a future section-scoped entry point (22.4.6) deep-link here.
  */
-import { ApiError } from '@biddaloy/ui/api';
-import { RoutePending } from '@biddaloy/ui/components';
+import { Card, ConfirmDialog, RoutePending } from '@biddaloy/ui/components';
 import { useAssignHomework, useCreateHomework } from '@biddaloy/ui/hooks';
 import { RegionConfigProvider, useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { FullPageShell, useCloseFullPage } from '@biddaloy/ui/shells';
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
+import { CircleAlert } from 'lucide-react';
 import * as React from 'react';
 import { z } from 'zod';
 
 import { loadRouteNamespaces } from '../../../../route-loaders';
 
 import { AssignHomeworkForm, type AssignHomeworkFormSubmitPayload } from './-assign-homework-form';
+
+const FORM_ID = 'homework-create-form';
 
 const newHomeworkSearchSchema = z.object({
   class_id: z.string().optional().catch(undefined),
@@ -33,7 +36,9 @@ export const Route = createFileRoute('/_staff/academics/homework/new')({
 function NewHomeworkPage() {
   const search = Route.useSearch();
   const { t } = useTranslation('homework');
+  const { t: tCommon } = useTranslation('common');
   const navigate = useNavigate();
+  const close = useCloseFullPage(() => void navigate({ to: '/academics/homework' }));
 
   const createHomework = useCreateHomework();
   const assignHomework = useAssignHomework();
@@ -41,6 +46,9 @@ function NewHomeworkPage() {
 
   const [createdId, setCreatedId] = React.useState<string | null>(null);
   const [errorMessage, setErrorMessage] = React.useState<string | undefined>(undefined);
+  const [dirty, setDirty] = React.useState(false);
+  const [discardOpen, setDiscardOpen] = React.useState(false);
+  const pending = createHomework.isPending || assignHomework.isPending;
 
   async function handleSubmit(payload: AssignHomeworkFormSubmitPayload) {
     setErrorMessage(undefined);
@@ -53,41 +61,73 @@ function NewHomeworkPage() {
       }
       await assignHomework.mutateAsync({ homeworkId, input: payload.assignment });
       void navigate({ to: '/academics/homework/$homeworkId', params: { homeworkId } });
-    } catch (error) {
-      setErrorMessage(error instanceof ApiError ? error.message : t('form.genericError'));
+    } catch {
+      // Never print the server's message: it is not translated (D9).
+      setErrorMessage(t('form.genericError'));
     }
   }
 
   return (
     <RegionConfigProvider value={regionConfig}>
-      <div className="flex flex-col gap-4">
-        <h1 className="text-lg font-semibold">{t('form.createTitle')}</h1>
+      <FullPageShell
+        title={t('form.createTitle')}
+        size="form"
+        dirty={dirty}
+        onClose={close}
+        secondary={{
+          label: tCommon('actions.cancel'),
+          // The footer's secondary bypasses the shell's dirty check.
+          onClick: () => (dirty ? setDiscardOpen(true) : close()),
+        }}
+        primary={{
+          label: t('form.submitCreate'),
+          busy: pending,
+          onClick: () =>
+            (document.getElementById(FORM_ID) as HTMLFormElement | null)?.requestSubmit(),
+        }}
+      >
+        <div className="flex flex-col gap-6">
+          {createdId !== null && (assignHomework.isError || errorMessage !== undefined) && (
+            <Card padded role="alert" className="flex items-start gap-2">
+              <CircleAlert className="mt-0.5 size-4 shrink-0 text-destructive" aria-hidden="true" />
+              <p>
+                {t('form.assignFailedAfterCreate')}{' '}
+                <Link
+                  to="/academics/homework/$homeworkId"
+                  params={{ homeworkId: createdId }}
+                  className="underline"
+                >
+                  {t('form.viewCreatedHomework')}
+                </Link>
+              </p>
+            </Card>
+          )}
 
-        {createdId !== null && (assignHomework.isError || errorMessage !== undefined) && (
-          <p role="alert" className="text-sm text-destructive">
-            {t('form.assignFailedAfterCreate')}{' '}
-            <Link
-              to="/academics/homework/$homeworkId"
-              params={{ homeworkId: createdId }}
-              className="underline"
-            >
-              {t('form.viewCreatedHomework')}
-            </Link>
-          </p>
-        )}
-
-        <AssignHomeworkForm
-          mode="create"
-          initial={{
-            ...(search.class_id !== undefined ? { classId: search.class_id } : {}),
-            ...(search.section_id !== undefined ? { sectionId: search.section_id } : {}),
-            ...(search.subject_id !== undefined ? { subjectId: search.subject_id } : {}),
-          }}
-          isPending={createHomework.isPending || assignHomework.isPending}
-          {...(createdId === null && errorMessage !== undefined ? { error: errorMessage } : {})}
-          onSubmit={(payload) => void handleSubmit(payload)}
-        />
-      </div>
+          <AssignHomeworkForm
+            mode="create"
+            formId={FORM_ID}
+            hideFooter
+            onDirtyChange={setDirty}
+            initial={{
+              ...(search.class_id !== undefined ? { classId: search.class_id } : {}),
+              ...(search.section_id !== undefined ? { sectionId: search.section_id } : {}),
+              ...(search.subject_id !== undefined ? { subjectId: search.subject_id } : {}),
+            }}
+            isPending={pending}
+            {...(createdId === null && errorMessage !== undefined ? { error: errorMessage } : {})}
+            onSubmit={(payload) => void handleSubmit(payload)}
+          />
+        </div>
+      </FullPageShell>
+      <ConfirmDialog
+        open={discardOpen}
+        onOpenChange={setDiscardOpen}
+        title={tCommon('fullPage.discardTitle')}
+        description={tCommon('fullPage.discardDescription')}
+        confirmLabel={tCommon('fullPage.discardConfirm')}
+        cancelLabel={tCommon('fullPage.keepEditing')}
+        onConfirm={close}
+      />
     </RegionConfigProvider>
   );
 }
