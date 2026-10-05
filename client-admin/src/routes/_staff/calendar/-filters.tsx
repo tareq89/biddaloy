@@ -1,13 +1,7 @@
-/** [17.4.2] Type + class filter bar above the grid/agenda. */
+/** [17.4.2] / [31.4] Type + class filter bar above the month grid. */
 import { CalendarEventType } from '@biddaloy/shared';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@biddaloy/ui/components';
 import { useTranslation } from '@biddaloy/ui/i18n';
+import { FilterBar, type FilterFieldDescriptor } from '@biddaloy/ui/shells';
 
 export interface CalendarFiltersProps {
   types: CalendarEventType[];
@@ -16,9 +10,6 @@ export interface CalendarFiltersProps {
   onClassIdChange: (classId: string | undefined) => void;
   classOptions: { id: string; name: string }[];
 }
-
-const ALL_TYPES_VALUE = '__all__';
-const ALL_CLASSES_VALUE = '__all__';
 
 export function CalendarFilters({
   types,
@@ -29,64 +20,44 @@ export function CalendarFilters({
 }: CalendarFiltersProps) {
   const { t } = useTranslation('calendar');
 
+  const fields: FilterFieldDescriptor[] = [
+    {
+      kind: 'select',
+      key: 'types',
+      label: t('filters.typesLabel'),
+      allLabel: t('filters.allTypes'),
+      options: Object.values(CalendarEventType).map((value) => ({
+        value,
+        label: t(`types.${value}`),
+      })),
+    },
+    {
+      kind: 'select',
+      key: 'class_id',
+      label: t('filters.classLabel'),
+      allLabel: t('filters.allClasses'),
+      options: classOptions.map((option) => ({ value: option.id, label: option.name })),
+    },
+  ];
+
   // Single-select control mapped onto the multi-value `types` filter: one
-  // type at a time is enough for this ticket's scope; the query layer
+  // type at a time is enough; the query layer
   // (`CalendarEventsFilters.types`) already accepts an array so a future
   // multi-select swap doesn't touch the data layer.
-  const selectedType = types[0];
+  const values: Record<string, string> = {};
+  if (types[0]) values.types = types[0];
+  if (classId) values.class_id = classId;
 
   return (
-    <div className="flex flex-wrap gap-3">
-      <div className="flex flex-col gap-1">
-        <label htmlFor="calendar-filter-type" className="text-xs font-medium text-muted-foreground">
-          {t('filters.typesLabel')}
-        </label>
-        <Select
-          value={selectedType ?? ALL_TYPES_VALUE}
-          onValueChange={(value) =>
-            onTypesChange(value === ALL_TYPES_VALUE ? [] : [value as CalendarEventType])
-          }
-        >
-          <SelectTrigger id="calendar-filter-type" className="w-48">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL_TYPES_VALUE}>{t('filters.allTypes')}</SelectItem>
-            {Object.values(CalendarEventType).map((value) => (
-              <SelectItem key={value} value={value}>
-                {t(`types.${value}`)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="flex flex-col gap-1">
-        <label
-          htmlFor="calendar-filter-class"
-          className="text-xs font-medium text-muted-foreground"
-        >
-          {t('filters.classLabel')}
-        </label>
-        <Select
-          value={classId ?? ALL_CLASSES_VALUE}
-          onValueChange={(value) =>
-            onClassIdChange(value === ALL_CLASSES_VALUE ? undefined : value)
-          }
-        >
-          <SelectTrigger id="calendar-filter-class" className="w-48">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL_CLASSES_VALUE}>{t('filters.allClasses')}</SelectItem>
-            {classOptions.map((option) => (
-              <SelectItem key={option.id} value={option.id}>
-                {option.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-    </div>
+    <FilterBar
+      fields={fields}
+      values={values}
+      onChange={(patch) => {
+        if ('types' in patch) {
+          onTypesChange(patch.types ? [patch.types as CalendarEventType] : []);
+        }
+        if ('class_id' in patch) onClassIdChange(patch.class_id ?? undefined);
+      }}
+    />
   );
 }
