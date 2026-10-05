@@ -1,20 +1,23 @@
 /**
- * [17.4.2] Event details panel — built on `Dialog` (no dedicated `Sheet`
- * primitive exists in `@biddaloy/ui/components` yet, see this ticket's
- * plan-comment note). A locked (past) event hides Edit/Delete entirely,
- * matching AC "past event shows lock and no edit".
+ * [17.4.2] / [31.4] Event details — a small `Dialog` (no dedicated `Sheet`
+ * primitive). A locked (past) event hides Edit/Delete entirely. Delete asks
+ * first (`ConfirmDialog`).
  */
 import {
   Button,
+  ConfirmDialog,
   Dialog,
   DialogContent,
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  StatusBadge,
 } from '@biddaloy/ui/components';
 import type { CalendarEvent } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
-import { formatDate, parseServerDate } from '@biddaloy/ui/utils';
+import { formatDate, formatDateRange } from '@biddaloy/ui/utils';
+import { Trash2Icon } from 'lucide-react';
+import * as React from 'react';
 
 export interface EventDetailsSheetProps {
   open: boolean;
@@ -24,6 +27,10 @@ export interface EventDetailsSheetProps {
   onEdit: () => void;
   onDelete: () => void;
   onPublish: () => void;
+  /** A delete is in flight: the dialogs cannot be dismissed. */
+  deleting?: boolean;
+  /** Delete or publish failed: show a translated alert. */
+  actionFailed?: boolean;
 }
 
 export function EventDetailsSheet({
@@ -34,70 +41,101 @@ export function EventDetailsSheet({
   onEdit,
   onDelete,
   onPublish,
+  deleting = false,
+  actionFailed = false,
 }: EventDetailsSheetProps) {
   const { t } = useTranslation('calendar');
   const regionConfig = useRegionConfig();
+  const [confirmOpen, setConfirmOpen] = React.useState(false);
 
   if (!event) return null;
 
   const canEdit = canManage && !event.is_locked;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{event.name}</DialogTitle>
-        </DialogHeader>
+    <>
+      <Dialog open={open} onOpenChange={(next) => !deleting && onOpenChange(next)}>
+        <DialogContent size="sm">
+          <DialogHeader>
+            <DialogTitle>{event.name}</DialogTitle>
+          </DialogHeader>
 
-        <dl className="flex flex-col gap-2 text-sm">
-          <div>
-            <dt className="font-medium">{t('eventForm.type')}</dt>
-            <dd>{t(`types.${event.type}`)}</dd>
-          </div>
-          <div>
-            <dt className="font-medium">{t('eventForm.startDate')}</dt>
-            <dd>
-              {formatDate(parseServerDate(event.start_date), regionConfig)}
-              {event.end_date !== event.start_date
-                ? ` – ${formatDate(parseServerDate(event.end_date), regionConfig)}`
-                : ''}
-            </dd>
-          </div>
-          {event.description && (
+          <dl className="flex flex-col gap-3">
             <div>
-              <dt className="font-medium">{t('eventForm.description')}</dt>
-              <dd>{event.description}</dd>
+              <dt className="text-caption text-text-secondary">{t('eventForm.type')}</dt>
+              <dd className="flex items-center gap-2">
+                {t(`types.${event.type}`)}
+                {!event.published && <StatusBadge tone="neutral" label={t('eventDetails.draft')} />}
+              </dd>
             </div>
-          )}
-        </dl>
-
-        {!event.published && <p className="text-muted-foreground">{t('eventDetails.draft')}</p>}
-        {event.is_locked && (
-          <p role="status" className="text-muted-foreground">
-            {t('eventDetails.locked')}
-          </p>
-        )}
-
-        {canManage && (
-          <DialogFooter>
-            {!event.published && (
-              <Button type="button" variant="outline" onClick={onPublish}>
-                {t('eventDetails.publish')}
-              </Button>
+            <div>
+              <dt className="text-caption text-text-secondary">{t('eventForm.startDate')}</dt>
+              <dd>
+                {event.end_date !== event.start_date
+                  ? formatDateRange(event.start_date, event.end_date, regionConfig)
+                  : formatDate(event.start_date, regionConfig)}
+              </dd>
+            </div>
+            {event.description && (
+              <div>
+                <dt className="text-caption text-text-secondary">{t('eventForm.description')}</dt>
+                <dd>{event.description}</dd>
+              </div>
             )}
-            {canEdit && (
-              <>
-                <Button type="button" variant="outline" onClick={onEdit}>
-                  {t('eventDetails.edit')}
-                </Button>
-                <Button type="button" variant="destructive" onClick={onDelete}>
+          </dl>
+
+          {event.is_locked && (
+            <p role="status" className="text-text-secondary">
+              {t('eventDetails.locked')}
+            </p>
+          )}
+          {actionFailed && (
+            <p role="alert" className="text-destructive">
+              {t('eventDetails.actionFailed')}
+            </p>
+          )}
+
+          {canManage && (
+            <DialogFooter>
+              {canEdit && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="text-destructive"
+                  onClick={() => setConfirmOpen(true)}
+                >
+                  <Trash2Icon aria-hidden="true" />
                   {t('eventDetails.delete')}
                 </Button>
-              </>
-            )}
-          </DialogFooter>
-        )}
-      </DialogContent>
-    </Dialog>
+              )}
+              {!event.published && (
+                <Button type="button" variant="outline" onClick={onPublish}>
+                  {t('eventDetails.publish')}
+                </Button>
+              )}
+              {canEdit && (
+                <Button type="button" onClick={onEdit}>
+                  {t('eventDetails.edit')}
+                </Button>
+              )}
+            </DialogFooter>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <ConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        tone="danger"
+        title={t('eventDetails.deleteConfirmTitle')}
+        description={t('eventDetails.deleteConfirmDescription', { name: event.name })}
+        confirmLabel={t('eventDetails.delete')}
+        busy={deleting}
+        onConfirm={() => {
+          onDelete();
+          setConfirmOpen(false);
+        }}
+      />
+    </>
   );
 }
