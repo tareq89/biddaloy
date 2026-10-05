@@ -2,8 +2,8 @@
  * [25.7] step 3: move one student to a different room/seat.
  * `PATCH /seat-plans/:id/allocations/:allocationId` (#25.4) — 400
  * `SEAT_CAPACITY_SHORTFALL` (target room full) and 409 `SEAT_ALREADY_TAKEN`
- * both surface inline (see `seat-plans.service.ts#updateAllocation`), same
- * "read `ApiError.message`" pattern `-generate-seat-plan-modal.tsx` uses.
+ * both surface inline as translated lines (see `seat-plans.service.ts#updateAllocation`);
+ * anything else is one generic line — never the server text.
  */
 import { ApiError } from '@biddaloy/ui/api';
 import {
@@ -16,6 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
   Input,
+  Label,
   Select,
   SelectContent,
   SelectItem,
@@ -66,12 +67,21 @@ export function ReseatDialog({ open, onOpenChange, planId, allocation, rooms }: 
     );
   }
 
-  const errorMessage =
-    editAllocation.error instanceof ApiError ? editAllocation.error.message : undefined;
+  const errorCode =
+    editAllocation.error instanceof ApiError
+      ? (editAllocation.error.details as { code?: string } | undefined)?.code
+      : undefined;
+  const errorMessage = !editAllocation.error
+    ? undefined
+    : errorCode === 'SEAT_ALREADY_TAKEN'
+      ? t('reseat.errorTaken')
+      : errorCode === 'SEAT_CAPACITY_SHORTFALL'
+        ? t('reseat.errorFull')
+        : t('errors.unknown');
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent>
+      <DialogContent size="sm">
         <DialogHeader>
           <DialogTitle>{t('reseat.title')}</DialogTitle>
           <DialogDescription>
@@ -81,9 +91,9 @@ export function ReseatDialog({ open, onOpenChange, planId, allocation, rooms }: 
 
         <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
           <div className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium">{t('reseat.roomLabel')}</span>
+            <Label htmlFor="reseat-room">{t('reseat.roomLabel')}</Label>
             <Select value={roomId} onValueChange={setRoomId}>
-              <SelectTrigger aria-label={t('reseat.roomLabel')}>
+              <SelectTrigger id="reseat-room" className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -97,9 +107,10 @@ export function ReseatDialog({ open, onOpenChange, planId, allocation, rooms }: 
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium">{t('reseat.seatNumberLabel')}</span>
+            <Label htmlFor="reseat-seat">{t('reseat.seatNumberLabel')}</Label>
             <Input
-              aria-label={t('reseat.seatNumberLabel')}
+              id="reseat-seat"
+              inputMode="numeric"
               value={seatNumber}
               onChange={(event) => setSeatNumber(event.target.value)}
             />
@@ -113,7 +124,7 @@ export function ReseatDialog({ open, onOpenChange, planId, allocation, rooms }: 
 
           <DialogFooter>
             <DialogClose asChild>
-              <Button type="button" variant="ghost">
+              <Button type="button" variant="outline">
                 {t('actions.cancel', { ns: 'common' })}
               </Button>
             </DialogClose>
