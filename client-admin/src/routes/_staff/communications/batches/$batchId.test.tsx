@@ -58,7 +58,7 @@ function logRow(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function render(role = 'ACCOUNTANT') {
+function render(role = 'ADMIN') {
   return renderWithRouter(routeTree, {
     initialEntries: ['/communications/batches/batch-1'],
     tenantId: 'tenant-1',
