@@ -7,10 +7,16 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { EntityManager, MoreThanOrEqual, QueryFailedError, Repository } from 'typeorm';
+import { EntityManager, MoreThan, MoreThanOrEqual, QueryFailedError, Repository } from 'typeorm';
 import Redis from 'ioredis';
 import type { TenantSettings, OrganisationSettings } from '@biddaloy/shared';
-import { AuditAction, CommunicationStatus, UserStatus } from '@biddaloy/shared';
+import {
+  AuditAction,
+  CommunicationStatus,
+  TRIAL_EXPIRED_REASON,
+  UserStatus,
+} from '@biddaloy/shared';
+import { getSeatUsage } from './trial/seat-limit.service';
 import { School } from './entities/school.entity';
 import { TenantSettingsDto, OrganisationRenameDto } from './dto/tenant-settings.dto';
 import { resolveTenantSettings } from './settings/tenant-settings-resolver';
@@ -93,11 +99,66 @@ export class SchoolsService {
    * `SUPER_ADMIN` only — an ADMIN already knows their one school from
    * `tenant.id`, no picker involved.
    */
-  async findAll(): Promise<Pick<School, 'id' | 'name' | 'slug' | 'status' | 'created_at'>[]> {
+  async findAll(
+    trial?: 'active' | 'expired',
+  ): Promise<
+    Pick<
+      School,
+      | 'id'
+      | 'name'
+      | 'slug'
+      | 'status'
+      | 'created_at'
+      | 'country_code'
+      | 'trial_ends_at'
+      | 'seat_limit'
+      | 'status_reason'
+    >[]
+  > {
     return this.repo.find({
-      select: ['id', 'name', 'slug', 'status', 'created_at'],
+      select: [
+        'id',
+        'name',
+        'slug',
+        'status',
+        'created_at',
+        'country_code',
+        'trial_ends_at',
+        'seat_limit',
+        'status_reason',
+      ],
+      where:
+        trial === 'active'
+          ? { trial_ends_at: MoreThan(new Date()) }
+          : trial === 'expired'
+            ? { status_reason: TRIAL_EXPIRED_REASON }
+            : undefined,
       order: { name: 'ASC' },
     });
+  }
+
+  /**
+   * [13.3.4] Pre-checks for `PATCH :id/trial` that `TrialService.extend` doesn't do: the school
+   * must have had a trial, and `seat_limit` can't drop below today's ACTIVE students.
+   * ponytail: unlocked read, so a student added between this check and the update can slip
+   * past by one; lock in TrialService.extend if that ever matters.
+   */
+  async assertTrialExtendable(schoolId: string, seatLimit?: number): Promise<void> {
+    const school = await this.findById(schoolId);
+    if (school.trial_ends_at === null) {
+      throw new ConflictException({
+        message: 'This school never had a trial',
+        details: { code: 'NOT_IN_TRIAL' },
+      });
+    }
+    if (seatLimit === undefined) return;
+    const { used } = await getSeatUsage(this.repo.manager, schoolId);
+    if (seatLimit < used) {
+      throw new ConflictException({
+        message: `Seat limit ${seatLimit} is below the ${used} active students`,
+        details: { code: 'SEAT_LIMIT_BELOW_USAGE', used, requested: seatLimit },
+      });
+    }
   }
 
   /**
@@ -626,6 +687,19 @@ export class SchoolsService {
             status_changed_at: school.status_changed_at,
           },
         };
+      }
+
+      // A manual reactivate of a school whose trial already ended would be undone by the next
+      // daily trial job; the extend route is the one action that fixes both.
+      if (
+        dto.status === 'ACTIVE' &&
+        school.trial_ends_at &&
+        school.trial_ends_at.getTime() <= now.getTime()
+      ) {
+        throw new ConflictException({
+          message: 'The trial has ended; extend it (PATCH /schools/:id/trial) to reactivate',
+          details: { code: 'TRIAL_EXPIRED' },
+        });
       }
 
       await schoolRepo.update(schoolId, {
