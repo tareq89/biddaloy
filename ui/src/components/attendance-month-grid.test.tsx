@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { i18n, REGION_BD_EN, RegionConfigProvider } from '../i18n';
 import { renderWithProviders } from '../test';
-import { formatDate, parseServerDate } from '../utils/date';
+import { formatDate, formatMonth, parseServerDate } from '../utils/date';
 
 import { AttendanceMonthGrid, type AttendanceDayCell } from './attendance-month-grid';
 
@@ -88,13 +88,53 @@ describe('AttendanceMonthGrid', () => {
     expect(screen.getByRole('button', { name: label('2026-09-06', 'Not marked') })).toBeTruthy();
 
     // The legend lists all six, always visible (not behind a disclosure).
-    const legend = screen.getByText('Legend').closest('div') as HTMLElement;
+    const legend = screen.getByRole('list', { name: 'Legend' });
     expect(within(legend).getByText('Present')).toBeTruthy();
     expect(within(legend).getByText('Late')).toBeTruthy();
     expect(within(legend).getByText('Absent')).toBeTruthy();
     expect(within(legend).getByText('Leave')).toBeTruthy();
     expect(within(legend).getByText('Not a school day')).toBeTruthy();
     expect(within(legend).getByText('Not marked')).toBeTruthy();
+  });
+
+  it('captions the month with the formatter and shows no header without onMonthChange', async () => {
+    await renderInEnglish(<AttendanceMonthGrid month={SEPTEMBER_2026} days={[]} />);
+    expect(screen.getByText(formatMonth('2026-09', REGION_BD_EN))).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Today' })).toBeNull();
+  });
+
+  it('renders a MonthHeader with next/previous/Today when onMonthChange is given', async () => {
+    const onMonthChange = vi.fn();
+    const { user } = await renderInEnglish(
+      <AttendanceMonthGrid
+        month={SEPTEMBER_2026}
+        days={[]}
+        today="2026-09-04"
+        onMonthChange={onMonthChange}
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Next month' }));
+    expect(onMonthChange).toHaveBeenLastCalledWith('2026-10');
+    await user.click(screen.getByRole('button', { name: 'Previous month' }));
+    expect(onMonthChange).toHaveBeenLastCalledWith('2026-08');
+    await user.click(screen.getByRole('button', { name: 'Today' }));
+    expect(onMonthChange).toHaveBeenLastCalledWith('2026-09');
+  });
+
+  it('marks today with aria-current and the selected day with a selected ground', async () => {
+    await renderInEnglish(
+      <AttendanceMonthGrid
+        month={SEPTEMBER_2026}
+        days={[]}
+        today="2026-09-04"
+        selectedDate="2026-09-10"
+      />,
+    );
+    const current = document.querySelectorAll('[aria-current="date"]');
+    expect(current).toHaveLength(1);
+    expect(current[0]?.textContent).toContain('4');
+    const selected = document.querySelector('[data-selected]') as HTMLElement;
+    expect(selected.className).toContain('bg-secondary');
   });
 
   it('renders a missing day (short/incomplete `days` array) as Not marked instead of crashing', async () => {
