@@ -26,8 +26,6 @@
     "submitHint": "Press Ctrl+Enter to complete",
     "submitBlocked": "Score every criterion before completing.",
     "completeError": "Couldn't complete the ACR.",
-    "next": "Next",
-    "back": "Back",
     "stepOf": "Step {{current}} of {{total}}",
     "criterionOf": "Criterion {{current}} of {{total}}",
     "keyboardHint": "Press 4, 3, 2 or 1 to score and move on",
@@ -136,7 +134,12 @@
         "leave": "Leave without saving"
       }
     },
-    "print": "Print ACR"
+    "print": "Print ACR",
+    "pageTitle": "ACR — {{name}}",
+    "stepsLabel": "ACR steps",
+    "scoredOf": "{{scored}} of {{total}} scored",
+    "prevCriterion": "Previous criterion",
+    "nextCriterion": "Next criterion"
   },
   "incident": {
     "title": "Incidents",

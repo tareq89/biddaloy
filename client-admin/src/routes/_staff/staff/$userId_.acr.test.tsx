@@ -3,6 +3,7 @@ import {
   cleanupTestState,
   renderWithRouter,
   server,
+  userResponseFactory,
 } from '@biddaloy/ui/test';
 import { screen } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
@@ -30,10 +31,19 @@ describe('ACR page', () => {
         HttpResponse.json(acrAssessmentFactory({ id: 'acr-1', user_id: 'user-1' })),
       ),
     );
+    server.use(
+      http.get('/api/v1/users/:id', () =>
+        HttpResponse.json(userResponseFactory({ id: 'user-1', full_name: 'Abdul Karim' })),
+      ),
+    );
     render();
-    expect(
-      await screen.findByRole('heading', { name: 'Annual Confidential Report' }, { timeout: 5000 }),
-    ).toBeTruthy();
+    // A full-page modal whose only h1 names whose report this is.
+    const h1 = await screen.findByRole(
+      'heading',
+      { level: 1, name: 'ACR — Abdul Karim' },
+      { timeout: 5000 },
+    );
+    expect(h1.closest('[role="dialog"]')).toBeTruthy();
   });
 
   it('shows the load error when the assessment belongs to someone else', async () => {
