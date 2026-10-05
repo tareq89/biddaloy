@@ -5,7 +5,6 @@ import { adminApiSession, apiSession, get, post } from '../api';
 import { expect, loggedIn, test } from '../fixtures/test';
 import { t } from '../i18n';
 import { AppShellPage } from '../pages/app-shell';
-import { DetailShellPage } from '../pages/detail-shell';
 
 /**
  * [24.4.2] EXAM_CONTROLLER journey (#1369, D13, D16): the built-in exam controller
@@ -162,7 +161,7 @@ test('runs an exam: create, seat plan, read-only marks, publish result', async (
   // --- 4. process and publish the result ----------------------------------------
   await page.goto(`/exams/${exam.id}`);
   await expect(page.getByRole('heading', { name: examName })).toBeVisible();
-  await new DetailShellPage(page).openTab('exams.detail.tabs.results', 'results');
+  // Process / publish / reopen are header actions on the exam detail.
   await page.getByRole('button', { name: t('exams.resultsPanel.process') }).click();
   // The grid is deliberately unsubmitted (step 3) and the second section has none, so the
   // dialog offers only the audited "process anyway" override. That button renders only once
@@ -172,7 +171,8 @@ test('runs an exam: create, seat plan, read-only marks, publish result', async (
     .click();
   await page.getByRole('button', { name: t('exams.resultsPanel.publish') }).click();
   await page.getByRole('button', { name: t('exams.publishDialog.confirm') }).click();
-  await expect(page.getByRole('button', { name: t('exams.resultsPanel.reopen') })).toBeVisible();
+  await page.getByRole('button', { name: t('common.actions.moreActions') }).click();
+  await expect(page.getByRole('menuitem', { name: t('exams.resultsPanel.reopen') })).toBeVisible();
 });
 
 test('prints documents but cannot manage print templates', async ({ page }) => {

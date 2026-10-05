@@ -5,7 +5,7 @@ import {
   renderWithRouter,
   server,
 } from '@biddaloy/ui/test';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -119,7 +119,8 @@ describe('exams/$examId Results tab', () => {
       locale: 'en',
     });
 
-    await screen.findByText('No results yet — process this exam first.');
+    await screen.findByText('No results yet');
+    expect(screen.getByText(/Process results/)).toBeTruthy();
   });
 
   function renderResultsTab() {
@@ -225,7 +226,27 @@ describe('exams/$examId Results tab', () => {
     expect(names[2]).toContain('Zahid Islam');
   });
 
-  it('offers Publish (not Reopen) for a processed exam', async () => {
+  /** `/results` (marks lane) passes `examStatus`, so the panel draws the toolbar. */
+  function renderResultsRoute(status: 'DRAFT' | 'PROCESSED' | 'PUBLISHED') {
+    const exam = mockExam(status);
+    server.use(
+      http.get('/api/v1/exams', () =>
+        HttpResponse.json({ data: [exam], total: 1, page: 1, limit: 50, totalPages: 1 }),
+      ),
+      http.get('/api/v1/exams/:examId/results', () => HttpResponse.json(ROWS)),
+    );
+    renderWithRouter(routeTree, {
+      initialEntries: ['/results'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+  }
+
+  const filled = () =>
+    screen.getAllByRole('button').filter((b) => b.getAttribute('data-variant') === 'default');
+
+  it('exam detail Results tab has no status actions (the header holds them)', async () => {
     server.use(
       http.get('/api/v1/exams/:id', () => HttpResponse.json(mockExam('PROCESSED'))),
       http.get('/api/v1/exams/:examId/results', () => HttpResponse.json(ROWS)),
@@ -233,20 +254,60 @@ describe('exams/$examId Results tab', () => {
     renderResultsTab();
 
     await screen.findByRole('link', { name: /Amina Khatun/ });
-    expect(screen.getByRole('button', { name: 'Publish' })).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Reopen' })).toBeNull();
+    const panel = screen.getByRole('tabpanel');
+    expect(within(panel).queryByRole('button', { name: 'Publish' })).toBeNull();
+    expect(within(panel).queryByRole('button', { name: 'Process again' })).toBeNull();
   });
 
-  it('offers Reopen (not Publish) for a published exam', async () => {
+  it('/results toolbar: DRAFT has one filled Process result', async () => {
+    renderResultsRoute('DRAFT');
+    await screen.findByRole('link', { name: /Amina Khatun/ });
+    const buttons = filled().filter((b) => b.textContent === 'Process result');
+    expect(buttons).toHaveLength(1);
+  });
+
+  it('/results toolbar: PROCESSED has outline Analysis + Process again and a filled Publish', async () => {
+    renderResultsRoute('PROCESSED');
+    await screen.findByRole('link', { name: /Amina Khatun/ });
+    expect(
+      screen.getByRole('button', { name: 'Result analysis' }).getAttribute('data-variant'),
+    ).toBe('outline');
+    expect(
+      screen.getByRole('button', { name: 'Process again' }).getAttribute('data-variant'),
+    ).toBe('outline');
+    expect(screen.getByRole('button', { name: 'Publish' }).getAttribute('data-variant')).toBe(
+      'default',
+    );
+  });
+
+  it('/results toolbar: PUBLISHED has a filled SMS, and Reopen only as a menu item', async () => {
+    renderResultsRoute('PUBLISHED');
+    await screen.findByRole('link', { name: /Amina Khatun/ });
+    expect(
+      screen.getByRole('button', { name: 'Send result SMS' }).getAttribute('data-variant'),
+    ).toBe('default');
+    expect(screen.queryByRole('button', { name: 'Reopen' })).toBeNull();
+    expect(
+      screen.queryAllByRole('button').filter((b) => b.getAttribute('data-variant') === 'destructive'),
+    ).toHaveLength(0);
+
+    await userEvent.setup().click(screen.getByRole('button', { name: 'More actions' }));
+    expect(await screen.findByRole('menuitem', { name: 'Reopen' })).toBeTruthy();
+  });
+
+  it('renders pass and fail as badges', async () => {
     server.use(
-      http.get('/api/v1/exams/:id', () => HttpResponse.json(mockExam('PUBLISHED'))),
+      http.get('/api/v1/exams/:id', () => HttpResponse.json(mockExam())),
       http.get('/api/v1/exams/:examId/results', () => HttpResponse.json(ROWS)),
     );
     renderResultsTab();
-
-    await screen.findByRole('link', { name: /Amina Khatun/ });
-    expect(screen.getByRole('button', { name: 'Reopen' })).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Publish' })).toBeNull();
+    await screen.findByRole('link', { name: /Karim Rahman/ });
+    expect(screen.getAllByText('Pass')).toHaveLength(2);
+    expect(screen.getByText('Fail').closest('[data-tone]')?.getAttribute('data-tone')).toBe(
+      'danger',
+    );
+    // GPA keeps two decimals.
+    expect(screen.getByText('৩.৫০')).toBeTruthy();
   });
 
   it('shows a retryable error when results fail to load', async () => {
