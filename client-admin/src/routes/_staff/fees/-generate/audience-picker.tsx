@@ -1,38 +1,44 @@
 /**
- * [16.3.6] The Generate Fees modal's "Students" section — search + class/
- * section/status filters over a checkbox list, plus "Select all N
+ * [16.3.6] The Generate Fees full-page form's "Students" card — search +
+ * class/section/program filters over a checkbox list, plus "Select all N
  * matching" (`GET /students/ids`, `useStudentIds`) for picking a whole
  * filtered set without paging through it row by row.
  *
  * Inactive students (`enrollment_status !== 'ACTIVE'`) stay selectable —
  * `include inactive` only controls whether they show up in the list at
- * all — but each inactive row is greyed and carries a tooltip explaining
- * why, since generating a fee for a transferred/graduated student is
- * usually a mistake the accountant should notice before submitting.
+ * all — but each inactive row carries an "Inactive" badge, since generating
+ * a fee for a transferred/graduated student is usually a mistake the
+ * accountant should notice before submitting.
  */
+import { Permission } from '@biddaloy/shared';
 import { ApiError } from '@biddaloy/ui/api';
 import {
+  Button,
+  Card,
   Checkbox,
   Input,
+  Label,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
+  StatusBadge,
 } from '@biddaloy/ui/components';
 import {
+  programsQueryOptions,
   useClasses,
   useClassSections,
-  usePrograms,
+  useHasPermission,
   useStudentIds,
   useStudentSearch,
   type Student,
   type StudentIdsFilters,
 } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { formatNumber } from '@biddaloy/ui/utils';
+import { useQuery } from '@tanstack/react-query';
+import { ListChecksIcon, SearchIcon } from 'lucide-react';
 import * as React from 'react';
 
 const ALL_VALUE = '__all__';
@@ -58,6 +64,7 @@ export function AudiencePicker({
   onProgramIdChange,
 }: AudiencePickerProps) {
   const { t } = useTranslation('feeGeneration');
+  const regionConfig = useRegionConfig();
   const [search, setSearch] = React.useState('');
   const [classId, setClassId] = React.useState(ALL_VALUE);
   const [sectionId, setSectionId] = React.useState(ALL_VALUE);
@@ -67,7 +74,12 @@ export function AudiencePicker({
     academicYearId !== '' ? { academic_year_id: academicYearId } : {},
   );
   const sectionsQuery = useClassSections(classId !== ALL_VALUE ? classId : undefined);
-  const programsQuery = usePrograms({ includeArchived: false });
+  // A role without `PROGRAM_READ` cannot call `GET /programs` — no request, no program field.
+  const canReadPrograms = useHasPermission(Permission.PROGRAM_READ);
+  const programsQuery = useQuery({
+    ...programsQueryOptions({ includeArchived: false }),
+    enabled: canReadPrograms,
+  });
 
   const idsFilters: StudentIdsFilters = {
     ...(search.trim() !== '' ? { search: search.trim() } : {}),
@@ -101,7 +113,7 @@ export function AudiencePicker({
       // loaded page (`students`) only covers the first `limit` rows, so
       // most ids from "select all N matching" have no name here yet. A raw
       // uuid is worse than an honest placeholder: it would show up in the
-      // selected chip, the duplicates list, and every later screen. The
+      // selected pill, the duplicates list, and every later screen. The
       // placeholder self-heals below once a search page happens to load
       // that student.
       next.set(id, byId.get(id) ?? t('audience.unknownStudentName'));
@@ -111,14 +123,13 @@ export function AudiencePicker({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- fire once per select-all click
   }, [selectAllRequested, idsQuery.isSuccess, idsQuery.isError, idsQuery.data]);
 
+  // Never the server's own message — only translated sentences reach the screen.
   const selectAllErrorMessage = React.useMemo(() => {
     if (!idsQuery.error) return null;
     if (idsQuery.error instanceof ApiError && idsQuery.error.statusCode === 413) {
       return t('audience.selectAllTooManyMatches');
     }
-    return idsQuery.error instanceof Error
-      ? idsQuery.error.message
-      : t('audience.selectAllTooManyMatches');
+    return t('audience.selectAllFailed');
   }, [idsQuery.error, t]);
 
   // Backfills real names into `selected` as search pages load — covers any
@@ -145,54 +156,76 @@ export function AudiencePicker({
     onSelectedChange(next);
   }
 
+  const matchCount = idsQuery.data?.total ?? studentsQuery.data?.total ?? 0;
+
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-sm font-medium">{t('audience.heading')}</span>
+    <Card padded>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="text-h2">{t('audience.heading')}</h2>
+          <p className="mt-0.5 text-text-secondary">{t('section.studentsDescription')}</p>
+        </div>
         <span
-          className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium"
+          className="inline-flex h-6 shrink-0 items-center rounded-full bg-secondary px-2 text-label text-secondary-foreground"
           data-testid="selected-count-chip"
         >
-          {t('audience.selectedCount', { count: selected.size })}
+          {t('audience.selectedCount', {
+            count: selected.size,
+            n: formatNumber(selected.size, regionConfig),
+          })}
         </span>
       </div>
 
-      <Input
-        aria-label={t('audience.searchLabel')}
-        placeholder={t('audience.searchPlaceholder')}
-        value={search}
-        onChange={(event) => setSearch(event.target.value)}
-        onKeyDown={(event) => {
-          // Enter here must never submit the surrounding form — it's a
-          // search box, not the modal's confirm action.
-          if (event.key === 'Enter') event.preventDefault();
-        }}
-      />
+      <div className="mt-4 grid gap-4 md:grid-cols-3">
+        <div className="flex flex-col gap-1.5 md:col-span-3">
+          <Label htmlFor="audience-search">{t('audience.searchLabel')}</Label>
+          <div className="relative">
+            <SearchIcon
+              className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-text-secondary"
+              aria-hidden="true"
+            />
+            <Input
+              id="audience-search"
+              className="ps-9"
+              placeholder={t('audience.searchPlaceholder')}
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              onKeyDown={(event) => {
+                // Enter here must never submit the surrounding form — it's a
+                // search box, not the form's confirm action.
+                if (event.key === 'Enter') event.preventDefault();
+              }}
+            />
+          </div>
+        </div>
 
-      <div className="flex flex-wrap gap-2">
-        <Select
-          value={classId}
-          onValueChange={(value) => {
-            setClassId(value);
-            setSectionId(ALL_VALUE);
-          }}
-        >
-          <SelectTrigger aria-label={t('audience.classLabel')}>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL_VALUE}>{t('audience.allClasses')}</SelectItem>
-            {classesQuery.data?.data.map((klass) => (
-              <SelectItem key={klass.id} value={klass.id}>
-                {klass.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="audience-class">{t('audience.classLabel')}</Label>
+          <Select
+            value={classId}
+            onValueChange={(value) => {
+              setClassId(value);
+              setSectionId(ALL_VALUE);
+            }}
+          >
+            <SelectTrigger id="audience-class">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL_VALUE}>{t('audience.allClasses')}</SelectItem>
+              {classesQuery.data?.data.map((klass) => (
+                <SelectItem key={klass.id} value={klass.id}>
+                  {klass.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
 
-        {classId !== ALL_VALUE && (
-          <Select value={sectionId} onValueChange={setSectionId}>
-            <SelectTrigger aria-label={t('audience.sectionLabel')}>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="audience-section">{t('audience.sectionLabel')}</Label>
+          <Select value={sectionId} onValueChange={setSectionId} disabled={classId === ALL_VALUE}>
+            <SelectTrigger id="audience-section" disabled={classId === ALL_VALUE}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -204,93 +237,96 @@ export function AudiencePicker({
               ))}
             </SelectContent>
           </Select>
+        </div>
+
+        {onProgramIdChange && canReadPrograms && (
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="audience-program">{t('audience.programLabel')}</Label>
+            <Select
+              value={programId ?? ALL_VALUE}
+              onValueChange={(value) => onProgramIdChange(value === ALL_VALUE ? undefined : value)}
+            >
+              <SelectTrigger id="audience-program">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL_VALUE}>{t('audience.anyProgram')}</SelectItem>
+                {programsQuery.data?.map((program) => (
+                  <SelectItem key={program.id} value={program.id}>
+                    {program.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         )}
 
-        {onProgramIdChange && (
-          <Select
-            value={programId ?? ALL_VALUE}
-            onValueChange={(value) => onProgramIdChange(value === ALL_VALUE ? undefined : value)}
-          >
-            <SelectTrigger aria-label={t('audience.programLabel')}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL_VALUE}>{t('audience.anyProgram')}</SelectItem>
-              {programsQuery.data?.map((program) => (
-                <SelectItem key={program.id} value={program.id}>
-                  {program.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-
-        <label className="flex items-center gap-2 text-sm">
+        <label className="flex min-h-11 items-center gap-3 md:col-span-3 md:min-h-8">
           <Checkbox
             checked={includeInactive}
             onCheckedChange={(checked) => setIncludeInactive(checked === true)}
-            aria-label={t('audience.includeInactiveLabel')}
           />
           {t('audience.includeInactiveLabel')}
         </label>
       </div>
 
-      <div className="flex flex-col items-start gap-1">
-        <button
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-border-subtle pt-3">
+        <p className="text-text-secondary">
+          {t('audience.matchCount', {
+            count: studentsQuery.data?.total ?? 0,
+            n: formatNumber(studentsQuery.data?.total ?? 0, regionConfig),
+          })}
+        </p>
+        <Button
           type="button"
-          className="self-start text-sm font-medium text-primary underline-offset-2 hover:underline"
+          variant="ghost"
+          className="text-primary"
           onClick={() => setSelectAllRequested(true)}
           disabled={idsQuery.isFetching}
         >
-          {t('audience.selectAllMatching', {
-            count: idsQuery.data?.total ?? studentsQuery.data?.total ?? 0,
-          })}
-        </button>
-        {selectAllErrorMessage && (
-          <div className="flex items-center gap-2 text-sm text-destructive" role="alert">
-            <span>{selectAllErrorMessage}</span>
-            <button
-              type="button"
-              className="font-medium underline-offset-2 hover:underline"
-              onClick={() => setSelectAllRequested(true)}
-            >
-              {t('audience.selectAllRetry')}
-            </button>
-          </div>
-        )}
+          <ListChecksIcon aria-hidden="true" />
+          {t('audience.selectAllMatching', { n: formatNumber(matchCount, regionConfig) })}
+        </Button>
       </div>
+      {selectAllErrorMessage && (
+        <p role="alert" className="mt-2 flex items-center gap-2 text-caption text-destructive">
+          {selectAllErrorMessage}
+          <Button type="button" variant="ghost" onClick={() => setSelectAllRequested(true)}>
+            {t('audience.selectAllRetry')}
+          </Button>
+        </p>
+      )}
 
-      <ul className="flex max-h-64 flex-col gap-1 overflow-y-auto rounded-md border border-border-subtle p-2">
+      <ul
+        aria-label={t('audience.heading')}
+        className="mt-2 max-h-80 divide-y divide-border-subtle overflow-y-auto rounded-md border border-border-subtle"
+      >
         {studentsQuery.isPending && (
-          <li className="text-sm text-muted-foreground">{t('audience.loading')}</li>
+          <li className="px-3 py-3 text-text-secondary">{t('audience.loading')}</li>
         )}
         {studentsQuery.isSuccess && students.length === 0 && (
-          <li className="text-sm text-muted-foreground">{t('audience.empty')}</li>
+          <li className="px-3 py-3 text-text-secondary">{t('audience.empty')}</li>
         )}
-        {students.map((student) => {
-          const isActive = student.enrollment_status === 'ACTIVE';
-          const row = (
-            <li
-              key={student.id}
-              className={`flex items-center gap-2 rounded px-1 py-1 ${isActive ? '' : 'opacity-50'}`}
-            >
+        {students.map((student) => (
+          <li key={student.id} className="px-3">
+            <label className="flex min-h-11 items-center gap-3 md:min-h-9">
               <Checkbox
                 checked={selected.has(student.id)}
                 onCheckedChange={(checked) => toggleStudent(student, checked === true)}
-                aria-label={student.full_name}
               />
-              <span className="text-sm">{student.full_name}</span>
-            </li>
-          );
-          if (isActive) return row;
-          return (
-            <Tooltip key={student.id}>
-              <TooltipTrigger asChild>{row}</TooltipTrigger>
-              <TooltipContent>{t('audience.inactiveTooltip')}</TooltipContent>
-            </Tooltip>
-          );
-        })}
+              <span className="min-w-0 flex-1">
+                <span className="block">{student.full_name}</span>
+                <span className="block text-caption text-text-secondary">
+                  {student.registration_number}
+                </span>
+              </span>
+              {student.enrollment_status !== 'ACTIVE' && (
+                <StatusBadge tone="neutral" label={t('audience.inactiveBadge')} />
+              )}
+            </label>
+          </li>
+        ))}
       </ul>
-    </div>
+    </Card>
   );
 }

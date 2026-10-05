@@ -74,7 +74,7 @@ test('generating fees with an existing duplicate skips it, and the log filters b
    * firing) rather than blind re-clicks. */
   async function clickGenerateAndWaitForPreview(): Promise<void> {
     const button = page.getByRole('dialog').getByRole('button', {
-      name: t('fees.generations.generateButton'),
+      name: t('feeGeneration.review.submitAction'),
     });
     for (let attempt = 0; attempt < 3; attempt += 1) {
       try {
@@ -99,7 +99,11 @@ test('generating fees with an existing duplicate skips it, and the log filters b
    * scope every time — a second call is exactly what a duplicate run
    * looks like. */
   async function fillGenerateForm(): Promise<void> {
-    await page.getByRole('button', { name: t('fees.generations.generateButton') }).click();
+    // `.first()`: on an empty log the empty state repeats this action; the header one comes first.
+    await page
+      .getByRole('button', { name: t('fees.generations.generateButton') })
+      .first()
+      .click();
     // The dialog's own entry transition (Radix `Dialog`) is still moving
     // right after the click that opens it — clicking the year `<Select>`
     // trigger during that window sees it detach and remount mid-click
@@ -113,10 +117,8 @@ test('generating fees with an existing duplicate skips it, and the log filters b
     await yearCombobox.click();
     await page.getByRole('option', { name: yearName }).click();
 
-    await page.getByRole('combobox', { name: t('feeGeneration.period.monthLabel') }).click();
-    await page.getByRole('option', { name: t('feeGeneration.months.1') }).click();
-    await page.getByLabel(t('feeGeneration.period.yearLabel')).fill('2026');
-    await page.getByLabel(t('feeGeneration.period.dueDateLabel')).fill('2026-01-10');
+    // Picking the year moves the month picker to that year's first month (January 2026) and
+    // defaults the due date to the 10th, so the period needs no further input.
 
     await page.getByLabel(t('feeGeneration.audience.searchLabel')).fill(studentName);
     // `useStudentSearch` re-fetches on every keystroke, same as the
@@ -164,7 +166,7 @@ test('generating fees with an existing duplicate skips it, and the log filters b
   await test.step('second, identical run: duplicate detected, SKIP already selected', async () => {
     await fillGenerateForm();
     const generateButton = page.getByRole('dialog').getByRole('button', {
-      name: t('fees.generations.generateButton'),
+      name: t('feeGeneration.review.submitAction'),
     });
     await clickGenerateAndWaitForPreview();
 

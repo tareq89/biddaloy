@@ -1,5 +1,5 @@
 /**
- * [16.3.6] The Generate Fees modal's "Fees" section — a checkbox list of
+ * [16.3.6] The Generate Fees full-page form's "Fees" card — a checkbox list of
  * the fee structures defined for the chosen academic year. Structures
  * whose `class_id` matches the majority class among the currently
  * selected students float to the top, since that's the fee set an
@@ -7,7 +7,7 @@
  * a tenant-wide structure (`class_id: null`) sorts after every
  * class-matching one, then everything else keeps the server's own order.
  */
-import { Checkbox } from '@biddaloy/ui/components';
+import { Card, Checkbox } from '@biddaloy/ui/components';
 import { feeStructuresQueryOptions, type FeeStructure } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { formatCurrency, formatServerAmount, parseCurrency } from '@biddaloy/ui/utils';
@@ -15,10 +15,11 @@ import { useQuery } from '@tanstack/react-query';
 
 export interface FeePickerProps {
   academicYearId: string;
+  /** The chosen academic year's name, for the card's description. */
+  academicYearName: string;
   majorityClassId: string | undefined;
   selected: Set<string>;
   onSelectedChange: (selected: Set<string>) => void;
-  studentCount: number;
 }
 
 function sortStructures(structures: FeeStructure[], majorityClassId: string | undefined) {
@@ -32,10 +33,10 @@ function sortStructures(structures: FeeStructure[], majorityClassId: string | un
 
 export function FeePicker({
   academicYearId,
+  academicYearName,
   majorityClassId,
   selected,
   onSelectedChange,
-  studentCount,
 }: FeePickerProps) {
   const { t } = useTranslation('feeGeneration');
   const config = useRegionConfig();
@@ -51,9 +52,9 @@ export function FeePicker({
   // `structure.amount` is a server decimal ("500" or "500.00"), same
   // shape `fee-structures/index.tsx`'s own list column reads with
   // `formatServerAmount` — not minor units. Parsed to minor units before
-  // summing so `runningTotal` can go straight into `formatCurrency` below
+  // summing so the total can go straight into `formatCurrency` below
   // without every intermediate sum re-triggering its own integer check.
-  const runningTotal = structures
+  const perStudentTotal = structures
     .filter((structure) => selected.has(structure.id))
     .reduce((sum, structure) => sum + parseCurrency(String(structure.amount), config), 0);
 
@@ -65,39 +66,38 @@ export function FeePicker({
   }
 
   return (
-    <div className="flex flex-col gap-2" data-testid="fee-picker">
-      <span className="text-sm font-medium">{t('fees.heading')}</span>
+    <Card padded data-testid="fee-picker">
+      <h2 className="text-h2">{t('fees.heading')}</h2>
+      <p className="mt-0.5 text-text-secondary">
+        {t('fees.description', { year: academicYearName })}
+      </p>
 
-      <ul className="flex max-h-56 flex-col gap-1 overflow-y-auto rounded-md border border-border-subtle p-2">
+      <ul className="mt-3 divide-y divide-border-subtle rounded-md border border-border-subtle">
         {structuresQuery.isPending && (
-          <li className="text-sm text-muted-foreground">{t('fees.loading')}</li>
+          <li className="px-3 py-3 text-text-secondary">{t('fees.loading')}</li>
         )}
         {structuresQuery.isSuccess && structures.length === 0 && (
-          <li className="text-sm text-muted-foreground">{t('fees.empty')}</li>
+          <li className="px-3 py-3 text-text-secondary">{t('fees.empty')}</li>
         )}
         {structures.map((structure) => (
-          <li key={structure.id} className="flex items-center justify-between gap-2 px-1 py-1">
-            <label className="flex items-center gap-2 text-sm">
+          <li key={structure.id} className="px-3">
+            <label className="flex min-h-11 items-center gap-3 md:min-h-9">
               <Checkbox
                 checked={selected.has(structure.id)}
                 onCheckedChange={(checked) => toggle(structure, checked === true)}
-                aria-label={structure.name}
               />
-              {structure.name}
+              <span className="min-w-0 flex-1">{structure.name}</span>
+              <span className="ms-auto shrink-0 text-text-secondary tabular-nums">
+                {formatServerAmount(structure.amount, config)}
+              </span>
             </label>
-            <span className="text-xs text-muted-foreground">
-              {formatServerAmount(structure.amount, config)}
-            </span>
           </li>
         ))}
       </ul>
 
-      <p className="text-sm text-muted-foreground">
-        {t('fees.runningTotal', {
-          amount: formatCurrency(runningTotal, config),
-          count: studentCount,
-        })}
+      <p className="mt-3 text-text-secondary">
+        {t('fees.perStudent', { amount: formatCurrency(perStudentTotal, config) })}
       </p>
-    </div>
+    </Card>
   );
 }
