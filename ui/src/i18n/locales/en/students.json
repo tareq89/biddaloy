@@ -7,7 +7,7 @@
     "caption": "Students",
     "addStudent": "Add student",
     "importStudents": "Import students",
-    "searchLabel": "Search by name, roll, or registration no.",
+    "searchLabel": "Search",
     "classLabel": "Class",
     "allClasses": "All classes",
     "sectionLabel": "Section",
@@ -38,7 +38,7 @@
     "view": "View",
     "sendReminder": "Send reminder",
     "exportCsv": "Export CSV",
-    "clearSelection": "Clear",
+    "clearSelection": "Clear selection",
     "emptyMessage": "No students found",
     "errorMessage": "Failed to load students",
     "announceResults_one": "{{visible}} of {{total}} student",
@@ -50,7 +50,12 @@
     "versionLabel": "Version",
     "allVersions": "All versions",
     "printIdCards": "Print ID cards ({{count}})",
-    "printWholeClass": "Print ID cards for whole {{name}}"
+    "printWholeClass": "Print ID cards for whole {{name}}",
+    "edit": "Edit",
+    "allGenders": "All genders",
+    "searchPlaceholder": "Name, roll or registration number",
+    "cardSubtitle": "{{class}} · Section {{section}} · Roll {{roll}}",
+    "emptyExplanation": "Add your first student and the list will show up here."
   },
   "sendReminderDialog": {
     "title": "Send reminder",
@@ -259,7 +264,12 @@
       "preferredCommunication": "Preferred contact",
       "address": "Home address",
       "fullNameBn": "Name (Bangla)",
-      "bloodGroup": "Blood group"
+      "bloodGroup": "Blood group",
+      "genderOptions": {
+        "MALE": "Male",
+        "FEMALE": "Female",
+        "OTHER": "Other"
+      }
     },
     "preferredCommunicationOptions": {
       "SMS": "SMS",

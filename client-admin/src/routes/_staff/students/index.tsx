@@ -20,9 +20,18 @@ import {
 } from '@biddaloy/ui/hooks';
 import { RegionConfigProvider, useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { ListShell, useListShellState, type FilterFieldDescriptor } from '@biddaloy/ui/shells';
-import { downloadCsv } from '@biddaloy/ui/utils';
+import { downloadCsv, formatDate, formatNumber } from '@biddaloy/ui/utils';
 import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
+import {
+  DownloadIcon,
+  IdCardIcon,
+  ImageUpIcon,
+  PlusIcon,
+  SendIcon,
+  UploadIcon,
+  XIcon,
+} from 'lucide-react';
 import * as React from 'react';
 import { z } from 'zod';
 
@@ -30,6 +39,7 @@ import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loader
 
 import { BulkPhotoDialog } from './-bulk-photo-dialog';
 import { SendReminderDialog } from './-send-reminder-dialog';
+import { GENDER_VALUES } from './-student-form-schema';
 
 /** `DataTableSort.id` values that map onto a server-sortable field —
  * `StudentSortField`'s own allowlist, keyed by this page's column ids
@@ -112,7 +122,7 @@ export const Route = createFileRoute('/_staff/students/')({
   // a filter change to actually trigger a refetch.
   loaderDeps: ({ search }) => ({
     page: search.page ?? 1,
-    limit: search.limit ?? 10,
+    limit: search.limit ?? 25,
     sort: search.sort,
     order: search.order,
     search: search.search,
@@ -165,7 +175,7 @@ function StudentsListPage() {
   const { t } = useTranslation('students');
   const { t: tBackup } = useTranslation('backup');
   const queryClient = useQueryClient();
-  const [state, actions] = useListShellState({ limit: 10 });
+  const [state, actions] = useListShellState();
   const filters = state.filters as StudentFilters;
   const { openPerformance } = Route.useSearch();
 
@@ -258,7 +268,7 @@ function StudentsListPage() {
       kind: 'text',
       key: 'search',
       label: t('list.searchLabel'),
-      placeholder: t('list.searchLabel'),
+      placeholder: t('list.searchPlaceholder'),
       primary: true,
     },
     {
@@ -286,13 +296,20 @@ function StudentsListPage() {
       key: 'enrollment_status',
       label: t('list.statusLabel'),
       allLabel: t('list.allStatuses'),
-      options: Object.values(EnrollmentStatus).map((status) => ({ value: status, label: status })),
+      options: Object.values(EnrollmentStatus).map((status) => ({
+        value: status,
+        label: t(`status.enrollment.${status}`, { ns: 'common' }),
+      })),
     },
     {
-      kind: 'text',
+      kind: 'select',
       key: 'gender',
       label: t('list.genderFilterLabel'),
-      placeholder: t('list.genderFilterLabel'),
+      allLabel: t('list.allGenders'),
+      options: GENDER_VALUES.map((value) => ({
+        value,
+        label: t(`form.fields.genderOptions.${value}`),
+      })),
     },
     ...(showShiftFilter
       ? [
@@ -350,11 +367,22 @@ function StudentsListPage() {
     downloadCsv('students.csv', [header, ...lines]);
   }
 
+  const regionConfig = useTenantRegionConfig();
+
+  // Known values get a translated label; legacy free text is shown as typed.
+  function genderLabel(gender: string | null | undefined): string {
+    if (!gender) return t('list.emptyValue');
+    return (GENDER_VALUES as readonly string[]).includes(gender)
+      ? t(`form.fields.genderOptions.${gender}`)
+      : gender;
+  }
+
   const columns: DataTableColumn<Student>[] = [
     {
       id: 'roll',
       header: t('list.columnRoll'),
-      accessorFn: (row) => row.roll_number,
+      accessorFn: (row) => formatNumber(row.roll_number, regionConfig),
+      align: 'end',
     },
     {
       id: 'registration',
@@ -373,16 +401,8 @@ function StudentsListPage() {
     {
       id: 'class',
       header: t('list.columnClass'),
-      accessorFn: (row) => row.class_section.class.name,
-      // [8.14.7] Class alone (not class + section) is the closest thing
-      // this row has to a subtitle — short enough to sit under the name
-      // without repeating what `section` already spells out in the `dl`.
+      accessorFn: (row) => `${row.class_section.class.name} · ${row.class_section.section_name}`,
       card: 'subtitle',
-    },
-    {
-      id: 'section',
-      header: t('list.columnSection'),
-      accessorFn: (row) => row.class_section.section_name,
     },
     {
       id: 'guardian',
@@ -402,12 +422,13 @@ function StudentsListPage() {
     {
       id: 'dateOfBirth',
       header: t('list.columnDateOfBirth'),
-      accessorFn: (row) => row.date_of_birth ?? t('list.emptyValue'),
+      accessorFn: (row) =>
+        row.date_of_birth ? formatDate(row.date_of_birth, regionConfig) : t('list.emptyValue'),
     },
     {
       id: 'gender',
       header: t('list.columnGender'),
-      accessorFn: (row) => row.gender ?? t('list.emptyValue'),
+      accessorFn: (row) => genderLabel(row.gender),
     },
     {
       id: 'address',
@@ -417,81 +438,76 @@ function StudentsListPage() {
     {
       id: 'preferredCommunication',
       header: t('list.columnPreferredCommunication'),
-      accessorFn: (row) => row.preferred_communication,
-    },
-    {
-      id: 'actions',
-      header: t('list.columnActions'),
-      pinned: true,
-      // Already `pinned: true`, which `DataTable`'s default card-role
-      // resolution would assign to `'actions'` on its own — declared
-      // explicitly anyway so this stays correct if a future column also
-      // becomes `pinned`.
-      card: 'actions',
-      accessorFn: (row) => (
-        <div className="flex justify-end gap-3">
-          {canCollectFees && (
-            <Link
-              to="/payments/record"
-              search={{ student_id: row.id }}
-              className="text-sm font-medium text-primary underline"
-            >
-              {t('list.collectFees')}
-            </Link>
-          )}
-          <Link
-            to="/students/$studentId"
-            params={{ studentId: row.id }}
-            {...(openPerformance ? { search: { tab: 'performance' } } : {})}
-            data-focus-anchor={row.id}
-            className="text-sm text-muted-foreground underline"
-          >
-            {t('list.view')}
-          </Link>
-        </div>
-      ),
+      accessorFn: (row) =>
+        row.preferred_communication
+          ? t(`form.preferredCommunicationOptions.${row.preferred_communication}`)
+          : t('list.emptyValue'),
     },
   ];
-
-  const regionConfig = useTenantRegionConfig();
 
   return (
     <RegionConfigProvider value={regionConfig}>
       <CachedDataNotice queryKey={studentsQueryOptions(studentListFilters).queryKey} />
       <ListShell
         title={t('list.title')}
-        primaryAction={
-          <div className="flex items-center gap-2">
-            {canUpdateStudent && (
-              <Button type="button" variant="outline" onClick={() => setPhotosDialogOpen(true)}>
-                {t('bulkPhotos.action')}
-              </Button>
-            )}
-            {canBulkImport && (
-              <Button asChild variant="outline">
-                <Link to="/students/import">{t('list.importStudents')}</Link>
-              </Button>
-            )}
-            {canPrint && wholeClass !== undefined && (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => printPreview({ class_section_id: wholeClass.sectionId })}
-              >
-                {t('list.printWholeClass', { name: wholeClass.label })}
-              </Button>
-            )}
-            {canAddStudent && (
-              <Button asChild>
-                <Link to="/students/new">{t('list.addStudent')}</Link>
-              </Button>
-            )}
-          </div>
-        }
+        actions={[
+          {
+            id: 'import',
+            label: t('list.importStudents'),
+            icon: <UploadIcon className="size-4" aria-hidden />,
+            priority: 'secondary',
+            allowed: canBulkImport,
+            onClick: () => void navigate({ to: '/students/import' }),
+          },
+          {
+            id: 'print-section',
+            label: t('list.printWholeClass', { name: wholeClass?.label ?? '' }),
+            icon: <IdCardIcon className="size-4" aria-hidden />,
+            priority: 'secondary',
+            allowed: canPrint && wholeClass !== undefined,
+            onClick: () => wholeClass && printPreview({ class_section_id: wholeClass.sectionId }),
+          },
+          {
+            id: 'add',
+            label: t('list.addStudent'),
+            icon: <PlusIcon className="size-4" aria-hidden />,
+            priority: 'primary',
+            allowed: canAddStudent,
+            onClick: () => void navigate({ to: '/students/new' }),
+          },
+          {
+            id: 'photos',
+            label: t('bulkPhotos.action'),
+            icon: <ImageUpIcon className="size-4" aria-hidden />,
+            priority: 'tertiary',
+            allowed: canUpdateStudent,
+            onClick: () => setPhotosDialogOpen(true),
+          },
+        ]}
         filters={{ fields: filterFields, values: state.filters, onChange: handleFiltersChange }}
         tableId="students-list"
         caption={t('list.caption')}
         columns={columns}
+        rowActions={(row) => [
+          {
+            intent: 'view',
+            label: t('list.view'),
+            to: `/students/${row.id}${openPerformance ? '?tab=performance' : ''}`,
+            'data-focus-anchor': row.id,
+          },
+          {
+            intent: 'edit',
+            label: t('list.edit'),
+            to: `/students/${row.id}/edit`,
+            allowed: canUpdateStudent,
+          },
+          {
+            intent: 'pay',
+            label: t('list.collectFees'),
+            to: `/payments/record?student_id=${row.id}`,
+            allowed: canCollectFees,
+          },
+        ]}
         data={studentsQuery.data?.data ?? []}
         getRowId={(row) => row.id}
         sorting={state.sorting}
@@ -523,40 +539,45 @@ function StudentsListPage() {
         loading={studentsQuery.isLoading}
         isFetching={studentsQuery.isFetching}
         {...(studentsQuery.isError ? { error: t('list.errorMessage') } : {})}
-        emptyMessage={t('list.emptyMessage')}
+        emptyState={{
+          title: t('list.emptyMessage'),
+          explanation: t('list.emptyExplanation'),
+          ...(canAddStudent
+            ? {
+                action: {
+                  label: t('list.addStudent'),
+                  onClick: () => void navigate({ to: '/students/new' }),
+                },
+              }
+            : {}),
+        }}
         announceResults={(count, total) =>
           t('list.announceResults', { visible: count, total, count: total })
         }
         bulkActions={
           <>
             {canSendReminder && (
-              <Button type="button" size="sm" onClick={() => setReminderDialogOpen(true)}>
+              <Button type="button" variant="outline" onClick={() => setReminderDialogOpen(true)}>
+                <SendIcon className="size-4" aria-hidden />
                 {t('list.sendReminder')}
               </Button>
             )}
             {canPrint && (
               <Button
                 type="button"
-                size="sm"
+                variant="outline"
                 onClick={() => printPreview({ ids: Array.from(state.selectedIds).join(',') })}
               >
+                <IdCardIcon className="size-4" aria-hidden />
                 {t('list.printIdCards', { count: state.selectedIds.size })}
               </Button>
             )}
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={() => void exportSelectedToCsv()}
-            >
+            <Button type="button" variant="outline" onClick={() => void exportSelectedToCsv()}>
+              <DownloadIcon className="size-4" aria-hidden />
               {t('list.exportCsv')}
             </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              onClick={() => actions.setSelectedIds(new Set())}
-            >
+            <Button type="button" variant="ghost" onClick={() => actions.setSelectedIds(new Set())}>
+              <XIcon className="size-4" aria-hidden />
               {t('list.clearSelection')}
             </Button>
           </>
@@ -567,9 +588,9 @@ function StudentsListPage() {
           same permission-gated one-liner `students/import.tsx` links back
           from. */}
       {isEmpty && canManageBackup && (
-        <p className="mt-2 text-sm text-muted-foreground">
+        <p className="mt-2 text-muted-foreground">
           {tBackup('migrateWholeSchool')}{' '}
-          <Link to="/settings" className="text-primary underline">
+          <Link to="/settings" className="text-primary">
             {tBackup('migrateWholeSchoolLink')}
           </Link>
         </p>
