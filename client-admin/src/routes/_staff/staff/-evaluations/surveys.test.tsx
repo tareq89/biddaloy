@@ -9,7 +9,7 @@ import {
   surveyFactory,
   surveyResultsFactory,
 } from '@biddaloy/ui/test';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -70,7 +70,10 @@ describe('survey list and results', () => {
       ),
     );
     render('/staff/evaluations?tab=surveys');
-    expect(await screen.findByRole('link', { name: 'Term 2 survey' })).toBeTruthy();
+    expect(await screen.findByText('Term 2 survey')).toBeTruthy();
+    // The title is plain text now; the row's Open action is the link.
+    expect(screen.queryByRole('link', { name: 'Term 2 survey' })).toBeNull();
+    expect(screen.getByRole('link', { name: 'Open' })).toBeTruthy();
   });
 
   it('shows the waiting message for sealed results and never an average', async () => {
@@ -92,9 +95,35 @@ describe('survey list and results', () => {
     );
     render('/staff/evaluations/surveys/s1');
     expect(
-      await screen.findByText('Waiting for more responses (2 of 5)', undefined, { timeout: 4000 }),
+      await screen.findByText(/Waiting for more responses/, undefined, { timeout: 4000 }),
     ).toBeTruthy();
+    expect(screen.getByText('Waiting')).toBeTruthy();
     await waitFor(() => expect(screen.queryByText(/Average/)).toBeNull());
+  });
+
+  it('closing an open survey asks first; only the confirm calls the API', async () => {
+    let closed = 0;
+    server.use(
+      http.get('/api/v1/surveys/s1', () =>
+        HttpResponse.json(
+          surveyDetailFactory({ id: 's1', title: 'Term 2 survey', status: 'OPEN' }),
+        ),
+      ),
+      http.get('/api/v1/surveys/s1/results', () =>
+        HttpResponse.json(surveyResultsFactory({ surveyId: 's1', minResponses: 5, results: [] })),
+      ),
+      http.post('/api/v1/surveys/s1/close', () => {
+        closed += 1;
+        return HttpResponse.json(surveyDetailFactory({ id: 's1', status: 'CLOSED' }));
+      }),
+    );
+    render('/staff/evaluations/surveys/s1');
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Close survey' }));
+    const dialog = await screen.findByRole('alertdialog');
+    expect(closed).toBe(0);
+    await user.click(within(dialog).getByRole('button', { name: 'Close survey' }));
+    await waitFor(() => expect(closed).toBe(1));
   });
 });
 
