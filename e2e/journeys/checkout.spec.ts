@@ -3,6 +3,9 @@ import { expect, loggedIn, test } from '../fixtures/test';
 import { t } from '../i18n';
 import { ApprovalModalPage, DetailShellPage } from '../pages';
 
+// [31.4] The footer's primary reads "Record <amount>" (or "Record payment" before any amount), so match the verb.
+const RECORD_BUTTON = /রেকর্ড করুন|^Record/;
+
 /**
  * [16.4.6] Journey: Record Payment, through the real modal
  * (`record-payment-modal.tsx`) reached from the student detail page.
@@ -84,7 +87,7 @@ test('a partial checkout across two bills leaves a balance, then a CASH top-up c
     .first()
     .click();
 
-  await expect(page.getByRole('dialog', { name: t('payments.record.title') })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: t('payments.record.title') })).toBeVisible();
   // 500 fully covers the first bill, 300 of it lands on the second.
   await page.getByLabel(t('payments.record.amountReceived.label')).fill('800');
   // Not `getByLabel`: the Bangla translation for "Cash" ("নগদ") is the
@@ -99,7 +102,7 @@ test('a partial checkout across two bills leaves a balance, then a CASH top-up c
   // until that lands, same reasoning `record-payment-modal.test.tsx`'s
   // own tests wait on the "Pay" input's value rather than clicking
   // straight through.
-  const submitButton = page.getByRole('button', { name: t('payments.record.submitAction') });
+  const submitButton = page.getByRole('button', { name: RECORD_BUTTON });
   await expect(submitButton).toBeEnabled({ timeout: 10_000 });
   await submitButton.click();
   await expect(page.getByText(t('payments.record.success.title'))).toBeVisible();
@@ -121,11 +124,11 @@ test('a partial checkout across two bills leaves a balance, then a CASH top-up c
   // the page's "Record payment" button sitting behind the still-open
   // dialog's overlay.
   await page.getByRole('button', { name: t('payments.record.success.recordAnother') }).click();
-  await expect(page.getByRole('dialog', { name: t('payments.record.title') })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: t('payments.record.title') })).toBeVisible();
   await page.getByLabel(t('payments.record.amountReceived.label')).fill('500');
   await page.getByLabel(t('payments.record.tender.tenderedLabel')).fill('600');
   await page.getByLabel(t('payments.record.tender.changeToWallet')).check();
-  const topUpSubmit = page.getByRole('button', { name: t('payments.record.submitAction') });
+  const topUpSubmit = page.getByRole('button', { name: RECORD_BUTTON });
   await expect(topUpSubmit).toBeEnabled({ timeout: 10_000 });
   await topUpSubmit.click();
   await expect(page.getByText(t('payments.record.success.title'))).toBeVisible();
@@ -200,7 +203,7 @@ test('a discounted bKash checkout needs step-up approval, then settles', async (
     .getByRole('button', { name: t('students.detail.fees.recordPayment') })
     .first()
     .click();
-  await expect(page.getByRole('dialog', { name: t('payments.record.title') })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: t('payments.record.title') })).toBeVisible();
 
   // Unlock the discount cell and discount enough of the 1000 bill to
   // require approval, paying the rest (500) via bKash — the "Tendered"/
@@ -222,12 +225,12 @@ test('a discounted bKash checkout needs step-up approval, then settles', async (
   await page.getByLabel(t('payments.record.amountReceived.label')).fill('500');
   await cartForAmount;
   await expect(page.getByLabel(t('payments.record.cart.columnPay'))).toHaveValue(/[1-9১-৯]/);
-  await page.getByRole('button', { name: t('payments.record.discount.unlock') }).click();
+  await page.getByRole('button', { name: t('payments.record.discount.give') }).click();
   await page.getByLabel(t('payments.record.discount.label')).fill('500');
   await page.getByLabel(t('payments.record.method.methods.BKASH')).check();
   await page.getByLabel(t('payments.record.method.referenceLabel')).fill('BKASH-TXN-1');
 
-  const discountSubmit = page.getByRole('button', { name: t('payments.record.submitAction') });
+  const discountSubmit = page.getByRole('button', { name: RECORD_BUTTON });
   await expect(discountSubmit).toBeEnabled({ timeout: 10_000 });
   const checkoutRequest = page.waitForRequest(
     (req) => req.method() === 'POST' && req.url().includes('/payments/checkout'),
