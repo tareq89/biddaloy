@@ -63,6 +63,8 @@ export const STUDENT_FORM_SERVER_FIELDS = [
   'preferred_communication',
 ] as const;
 
+export const GENDER_VALUES = ['MALE', 'FEMALE', 'OTHER'] as const;
+
 export function buildStudentFormSchema(messages: StudentFormMessages) {
   return z.object({
     full_name: z.string().trim().min(1, messages.fullNameRequired),
