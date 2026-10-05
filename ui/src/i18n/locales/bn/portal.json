@@ -13,7 +13,8 @@
   "children": {
     "title": "আপনার সন্তানেরা",
     "meta": "{{className}} {{section}} · রোল {{roll}}",
-    "metaNoClass": "রোল {{roll}}"
+    "metaNoClass": "রোল {{roll}}",
+    "viewFeesFor": "{{name}}-এর ফি দেখুন"
   },
   "actions": {
     "viewFeeBreakdown": "ফি-এর বিস্তারিত দেখুন"
