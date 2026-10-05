@@ -10,9 +10,15 @@ import {
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { routeTree } from '../../../../routeTree.gen';
+
+const notifyOutcome = vi.hoisted(() => vi.fn());
+vi.mock('@biddaloy/ui/api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@biddaloy/ui/api')>()),
+  notifyOutcome,
+}));
 
 describe('/academics/homework/$homeworkId', () => {
   afterEach(async () => {
@@ -43,6 +49,8 @@ describe('/academics/homework/$homeworkId', () => {
     await screen.findByRole('heading', { name: 'Algebra worksheet' });
     expect(screen.getByText('Chapter 3 exercises')).toBeTruthy();
     expect(screen.getByText('Tick (done / not done)')).toBeTruthy();
+    expect(screen.getByText(/2026/)).toBeTruthy();
+    expect(screen.queryByRole('tablist')).toBeNull();
   });
 
   it('404 shows an error state', async () => {
@@ -101,14 +109,50 @@ describe('/academics/homework/$homeworkId', () => {
     await user.click(await screen.findByRole('button', { name: 'Assign to section or student' }));
 
     await screen.findByRole('dialog');
-    await user.click(screen.getByLabelText('Section'));
+    await user.click(screen.getByRole('combobox', { name: /^Section/ }));
     await user.click(await screen.findByRole('option', { name: section.section_name }));
-    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await user.click(screen.getByRole('button', { name: 'Assign' }));
 
     await waitFor(() => expect(assignBody).toBeDefined());
     expect(assignBody?.section_id).toBe(section.id);
-    expect(await screen.findByRole('status')).toBeTruthy();
+    await waitFor(() =>
+      expect(notifyOutcome).toHaveBeenCalledWith(expect.objectContaining({ variant: 'success' })),
+    );
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
+
+  it('a failed assign shows the generic error, not the server message', async () => {
+    const klass = classFactory({ id: 'class-1', name: 'Class 6' });
+    const section = classSectionFactory({ id: 'section-1', section_name: 'A', class: klass });
+
+    server.use(
+      http.get('/api/v1/homework/:id', () => HttpResponse.json(homework)),
+      http.get('/api/v1/classes/:id', () => HttpResponse.json(klass)),
+      http.get('/api/v1/classes/:classId/sections', () => HttpResponse.json([section])),
+      http.get('/api/v1/subjects', () =>
+        HttpResponse.json({ data: [], total: 0, page: 1, limit: 100, totalPages: 1 }),
+      ),
+      http.post('/api/v1/homework/:id/assign', () =>
+        HttpResponse.json(apiErrorBody(400, 'internal backend detail', '/x'), { status: 400 }),
+      ),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/academics/homework/hw-1'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Assign to section or student' }));
+    await screen.findByRole('dialog');
+    await user.click(screen.getByRole('combobox', { name: /^Section/ }));
+    await user.click(await screen.findByRole('option', { name: section.section_name }));
+    await user.click(screen.getByRole('button', { name: 'Assign' }));
+
+    expect(await screen.findByText('Something went wrong. Please try again.')).toBeTruthy();
+    expect(screen.queryByText('internal backend detail')).toBeNull();
   });
 
   it('there is no Reassign button', async () => {
