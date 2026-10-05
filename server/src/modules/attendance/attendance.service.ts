@@ -305,22 +305,6 @@ export class AttendanceService {
       throw new BadRequestException('date must be YYYY-MM-DD');
     }
 
-    // A period register must be one the routine schedules that day; its
-    // subject is snapshotted onto the session when it is first created (D21).
-    let periodSubjectId: string | null = null;
-    if (periodNo !== null) {
-      const period = (
-        await this.attendanceAccessService.resolvePeriods(tenantId, sectionId, dto.date)
-      ).find((p) => p.period_no === periodNo);
-      if (!period) {
-        throw new BadRequestException({
-          message: 'That period is not scheduled for this section on this date',
-          details: { code: 'ATTENDANCE_PERIOD_NOT_SCHEDULED' },
-        });
-      }
-      periodSubjectId = period.subject_id;
-    }
-
     // 8 (part). Duplicate student_id is a 400 (malformed request), checked
     // before anything transactional.
     const studentIds = dto.entries.map((e) => e.student_id);
@@ -338,7 +322,7 @@ export class AttendanceService {
       result = await this.dataSource.transaction((manager) =>
         this.writeRegisterDay(
           manager,
-          { sectionId, tenantId, role, userId, ip, userAgent, periodSubjectId, matrix: false },
+          { sectionId, tenantId, role, userId, ip, userAgent, matrix: false },
           dto,
         ),
       );
@@ -406,12 +390,11 @@ export class AttendanceService {
       userId: string;
       ip: string | null;
       userAgent: string | null;
-      periodSubjectId: string | null;
       matrix: boolean;
     },
     dto: PutRegisterDto,
   ): Promise<RegisterResponseDto> {
-    const { sectionId, tenantId, role, userId, ip, userAgent, periodSubjectId } = ctx;
+    const { sectionId, tenantId, role, userId, ip, userAgent } = ctx;
     const periodNo = dto.period_no ?? null;
     const studentIds = dto.entries.map((e) => e.student_id);
     const sessionRepo = manager.getRepository(AttendanceSession);
@@ -434,6 +417,24 @@ export class AttendanceService {
       },
       lock: { mode: 'pessimistic_write' },
     });
+
+    // A NEW period register must be one the routine schedules that day; its
+    // subject is snapshotted onto the session now (D21). An existing one is
+    // never re-checked: a slot cancelled or a routine unpublished later must
+    // not lock a teacher (or a queued offline replay) out of their own draft.
+    let periodSubjectId: string | null = null;
+    if (!session && periodNo !== null) {
+      const period = (
+        await this.attendanceAccessService.resolvePeriods(tenantId, sectionId, dto.date)
+      ).find((p) => p.period_no === periodNo);
+      if (!period) {
+        throw new BadRequestException({
+          message: 'That period is not scheduled for this section on this date',
+          details: { code: 'ATTENDANCE_PERIOD_NOT_SCHEDULED' },
+        });
+      }
+      periodSubjectId = period.subject_id;
+    }
 
     // 2. Idempotency — checked before the version check, so a replay of an
     // already-accepted write reads as a 200, never as a conflict.
@@ -842,7 +843,6 @@ export class AttendanceService {
           userId,
           ip,
           userAgent,
-          periodSubjectId: null,
           matrix: true,
         };
         const versions: Record<string, number> = {};
@@ -1077,11 +1077,15 @@ export class AttendanceService {
       throw new NotFoundException('Attendance session not found');
     }
 
-    await this.attendanceAccessService.assertCanAccessSection(
+    // Same gate as the register itself: the period switch (D18) and that
+    // period's substitute apply to a period record's history too.
+    await this.assertRegisterAccess(
       role,
       userId,
       session.section_id,
       tenantId,
+      session.date,
+      session.period_no,
     );
 
     const result = await this.auditService.findByEntity(

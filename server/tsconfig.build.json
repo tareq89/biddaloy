@@ -10,6 +10,8 @@
     "test",
     "src/**/*.spec.ts",
     "src/**/*.integration.spec.ts",
-    "src/**/*.e2e-spec.ts"
+    "src/**/*.e2e-spec.ts",
+    "src/**/*.fixture.ts",
+    "src/**/__fixtures__/**"
   ]
 }

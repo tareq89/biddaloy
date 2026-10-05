@@ -597,6 +597,14 @@ export const ROLE_NARROWINGS: RoleNarrowing[] = [
   {
     controller: 'AttendanceController',
     method: 'GET',
+    path: '/attendance/sections/:sectionId/periods',
+    reason:
+      'staff period list for marking (Epic 41); family holds ATTENDANCE_READ for their own child, not the section periods' +
+      ' — same roles as the section register; COMMITTEE lacks ATTENDANCE_READ.',
+  },
+  {
+    controller: 'AttendanceController',
+    method: 'GET',
     path: '/attendance/records/:recordId/history',
     reason:
       'staff-only correction history for a mark; not exposed on the family attendance view' +
@@ -609,6 +617,14 @@ export const ROLE_NARROWINGS: RoleNarrowing[] = [
     reason:
       'staff-only section summary; family holds ATTENDANCE_READ for their own child only' +
       ' #1364 OFFICE_STAFF and EXAM_CONTROLLER (both hold ATTENDANCE_READ) joined; COMMITTEE lacks ATTENDANCE_READ.',
+  },
+  {
+    controller: 'AttendanceSummaryController',
+    method: 'GET',
+    path: '/attendance/sections/:sectionId/subject-summary',
+    reason:
+      'staff-only subject-wise section summary (Epic 41); family holds ATTENDANCE_READ for their own child only' +
+      ' — same roles as the section summary; COMMITTEE lacks ATTENDANCE_READ.',
   },
   {
     controller: 'AttendanceSummaryController',
