@@ -151,9 +151,11 @@ export function RoutineAgenda({
   return (
     <div className="flex flex-col gap-3">
       {/* D18: a horizontally-scrolling row of day tabs, never columns
-          in a grid — this scrolls at 390px instead of overflowing it. */}
+          in a grid — this scrolls at 390px instead of overflowing it.
+          Plain toggle buttons in a group, not ARIA tabs: there is no
+          arrow-key tab pattern or tab panel behind them. */}
       <div
-        role="tablist"
+        role="group"
         aria-label={t('agenda.daySwitcherLabel')}
         className="flex [scrollbar-width:none] overflow-x-auto border-b border-border-subtle"
       >
@@ -161,8 +163,7 @@ export function RoutineAgenda({
           <button
             key={day.date}
             type="button"
-            role="tab"
-            aria-selected={day.date === selectedDate}
+            aria-pressed={day.date === selectedDate}
             onClick={() => onSelectDate(day.date)}
             className={cn(
               'inline-flex h-11 shrink-0 items-center border-b-2 px-3 whitespace-nowrap md:h-10',

@@ -144,6 +144,7 @@
     "legendTitle": "সূচক",
     "loading": "উপস্থিতি ক্যালেন্ডার লোড হচ্ছে",
     "lateWithMinutes": "{{minutes}} মিনিট বিলম্বে",
+    "selected": "নির্বাচিত",
     "status": {
       "present": "উপস্থিত",
       "late": "বিলম্বিত",

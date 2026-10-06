@@ -11,8 +11,8 @@ import { escapeRegExp } from '../regex';
  * `keyboard/attendance.spec.ts` follows.
  *
  * Both views render the same `RoutineAgenda` component
- * (`ui/src/components/routine-agenda.tsx`): a `role="tablist"` day
- * switcher with today marked by `agenda.todayLabel`, and each day's
+ * (`ui/src/components/routine-agenda.tsx`): a `role="group"` day
+ * switcher of `aria-pressed` buttons, with today marked by `agenda.todayLabel`, and each day's
  * items list any cancelled period with `agenda.cancelledLabel`.
  *
  * **Known gap, flagged rather than hidden**: `ensureRoutineSeed`'s one
@@ -33,14 +33,14 @@ test.describe('teacher: My routine, phone viewport', () => {
   }) => {
     await page.goto('/routines/my');
 
-    const daySwitcher = page.getByRole('tablist', { name: t('routines.agenda.daySwitcherLabel') });
+    const daySwitcher = page.getByRole('group', { name: t('routines.agenda.daySwitcherLabel') });
     await expect(daySwitcher).toBeVisible();
 
     // Today's tab is one of the seven, marked with the today label —
     // asserted via the translation key so it holds in bn locale.
     await expect(daySwitcher.getByText(t('routines.agenda.todayLabel')).first()).toBeVisible();
 
-    const todayTab = daySwitcher.getByRole('tab', { selected: true });
+    const todayTab = daySwitcher.getByRole('button', { pressed: true });
     await expect(todayTab).toBeVisible();
     await todayTab.click();
 
@@ -67,7 +67,9 @@ test.describe('teacher: My routine, phone viewport', () => {
     // date (2026-02-09) falls inside today's rolling window — walk the
     // day switcher's seven tabs looking for it rather than assuming a
     // fixed date.
-    const dayTabs = page.getByRole('tab');
+    const dayTabs = page
+      .getByRole('group', { name: t('routines.agenda.daySwitcherLabel') })
+      .getByRole('button');
     const count = await dayTabs.count();
     let found = false;
     for (let i = 0; i < count; i += 1) {
@@ -101,7 +103,7 @@ test.describe('guardian: portal routine, phone viewport', () => {
     // an empty state instead of a switcher — both are legitimate given
     // this spec runs against whichever seeded child the shared
     // `parent@biddaloy.test` account happens to be linked to.
-    const daySwitcher = page.getByRole('tablist', { name: t('routines.agenda.daySwitcherLabel') });
+    const daySwitcher = page.getByRole('group', { name: t('routines.agenda.daySwitcherLabel') });
     const emptyState = page.getByText(t('portal.routine.noRoutineExplanation'));
     await expect(daySwitcher.or(emptyState)).toBeVisible();
   });
