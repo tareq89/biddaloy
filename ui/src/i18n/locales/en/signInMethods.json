@@ -1,8 +1,8 @@
 {
   "title": "Sign-in methods",
   "password": {
-    "set": "Password is set",
-    "notSet": "No password yet",
+    "title": "Password",
+    "change": "Set or change password",
     "setNow": "Set a password",
     "saved": "Your password is set.",
     "alreadySet": "You already have a password."

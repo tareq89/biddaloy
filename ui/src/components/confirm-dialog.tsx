@@ -30,6 +30,8 @@ export interface ConfirmDialogProps {
   tone?: 'danger' | 'default';
   onConfirm: () => void;
   busy?: boolean;
+  /** Hide the confirm button (e.g. the action is blocked and only Cancel makes sense). */
+  hideConfirm?: boolean;
 }
 
 export function ConfirmDialog({
@@ -42,6 +44,7 @@ export function ConfirmDialog({
   tone = 'danger',
   onConfirm,
   busy,
+  hideConfirm,
 }: ConfirmDialogProps) {
   const { t } = useTranslation('common');
   return (
@@ -65,15 +68,17 @@ export function ConfirmDialog({
               {cancelLabel ?? t('actions.cancel')}
             </Button>
           </DialogClose>
-          <Button
-            type="button"
-            variant={tone === 'danger' ? 'danger' : 'default'}
-            loading={busy ?? false}
-            onClick={onConfirm}
-          >
-            {tone === 'danger' && <Trash2Icon aria-hidden="true" />}
-            {confirmLabel}
-          </Button>
+          {!hideConfirm && (
+            <Button
+              type="button"
+              variant={tone === 'danger' ? 'danger' : 'default'}
+              loading={busy ?? false}
+              onClick={onConfirm}
+            >
+              {tone === 'danger' && <Trash2Icon aria-hidden="true" />}
+              {confirmLabel}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
