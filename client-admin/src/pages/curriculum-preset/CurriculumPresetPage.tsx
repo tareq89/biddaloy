@@ -36,13 +36,31 @@ function CardsSkeleton() {
 }
 
 export function CurriculumPresetPage({ schoolId }: CurriculumPresetPageProps) {
+  const [stepId, setStepId] = useWizardShellStep(STEP_IDS);
+  return <CurriculumPresetForm schoolId={schoolId} stepId={stepId} onStepChange={setStepId} />;
+}
+
+export interface CurriculumPresetFormProps extends CurriculumPresetPageProps {
+  /** One of `pick | options | review`. The page keeps it in `?step=`; the onboarding wizard
+   * (whose own `?step=` is taken) keeps it in local state. */
+  stepId: string;
+  onStepChange: (stepId: string) => void;
+  /** Inside another page: no `PageContainer` / `PageHeader` frame around the loading, error and applied states. */
+  embedded?: boolean;
+}
+
+/** [13.5.4] The preset flow itself, reusable: the page and the guided onboarding setup both render it. */
+export function CurriculumPresetForm({
+  schoolId,
+  stepId,
+  onStepChange: setStepId,
+  embedded = false,
+}: CurriculumPresetFormProps) {
   const { t } = useTranslation('curriculumPreset');
   const pick = usePickText();
   const status = usePresetStatus();
   const list = usePresetList();
   const apply = useApplyPreset(schoolId);
-  const [stepId, setStepId] = useWizardShellStep(STEP_IDS);
-
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
   const [options, setOptions] = React.useState<ApplyOptions>({
     stages: [],
@@ -99,12 +117,15 @@ export function CurriculumPresetPage({ schoolId }: CurriculumPresetPageProps) {
 
   const title = t('title');
   // Every non-wizard state sits in the same frame so the title never disappears.
-  const framed = (body: React.ReactNode) => (
-    <PageContainer size="narrow">
-      <PageHeader title={title} subtitle={t('subtitle')} />
-      {body}
-    </PageContainer>
-  );
+  const framed = (body: React.ReactNode) =>
+    embedded ? (
+      body
+    ) : (
+      <PageContainer size="narrow">
+        <PageHeader title={title} subtitle={t('subtitle')} />
+        {body}
+      </PageContainer>
+    );
 
   if (status.isError || list.isError) {
     return framed(
