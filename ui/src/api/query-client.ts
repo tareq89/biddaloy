@@ -1,4 +1,4 @@
-import { MutationCache, QueryCache, QueryClient } from '@tanstack/react-query';
+import { type Mutation, MutationCache, QueryCache, QueryClient } from '@tanstack/react-query';
 
 import { toast } from '../components/toast';
 import { shouldRetryQuery } from '../hooks/retry';
@@ -19,8 +19,18 @@ import { ApiError, isTenantSuspendedError } from './errors';
  * paused, and `RouteErrorFallback` renders a full-page state for it (see
  * `throwOnError` below). A "permission denied" toast on top of that page
  * would contradict it.
+ *
+ * A mutation whose own `onError` explains its 403s (the attendance month
+ * save's "only someone who can correct attendance" dialog) opts out with
+ * `meta: { handlesForbidden: true }`, so the user does not get both.
  */
-function handleMutationError(error: unknown): void {
+function handleMutationError(
+  error: unknown,
+  _variables: unknown,
+  _onMutateResult: unknown,
+  mutation: Mutation<unknown, unknown, unknown>,
+): void {
+  if (mutation.meta?.handlesForbidden === true) return;
   if (error instanceof ApiError && error.statusCode === 403 && !isTenantSuspendedError(error)) {
     toast.error(i18n.t('errors.permissionDenied', { ns: COMMON_NAMESPACE }));
   }

@@ -519,6 +519,8 @@ export function useSaveRegisterMatrix(sectionId: string) {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: attendanceKeys.all });
     },
+    // The register page shows its own dialog for ATTENDANCE_WINDOW_CLOSED (403).
+    meta: { handlesForbidden: true },
   });
 }
 
