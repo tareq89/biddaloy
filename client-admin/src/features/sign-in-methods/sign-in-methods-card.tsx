@@ -36,8 +36,7 @@ export interface SignInMethodsCardProps {
  * Google / Facebook provider. Used on `/security` and `/portal/account`.
  *
  * The server does not say whether the account already has a password, so the
- * Password row offers "Set a password" until this page learns otherwise (a
- * successful set, or the server's 409 "already set").
+ * Password row makes no claim either way: one neutral "Set or change" action.
  */
 export function SignInMethodsCard({ roles }: SignInMethodsCardProps) {
   const { t } = useTranslation('signInMethods');
@@ -48,7 +47,6 @@ export function SignInMethodsCard({ roles }: SignInMethodsCardProps) {
   const startLink = useStartSocialLink();
   const disconnect = useDisconnectIdentity();
 
-  const [passwordSet, setPasswordSet] = React.useState(false);
   const [passwordOpen, setPasswordOpen] = React.useState(false);
   const [lastMethod, setLastMethod] = React.useState(false);
 
@@ -71,14 +69,12 @@ export function SignInMethodsCard({ roles }: SignInMethodsCardProps) {
   const setPassword = useMutation({
     mutationFn: setFirstPassword,
     onSuccess: () => {
-      setPasswordSet(true);
       setPasswordOpen(false);
       toast.success(t('password.saved'));
     },
     onError: (error) => {
       // 409: a password already exists (another tab or device set it).
       if (error instanceof ApiError && error.statusCode === 409) {
-        setPasswordSet(true);
         setPasswordOpen(false);
         toast.success(t('password.alreadySet'));
       }
@@ -94,6 +90,7 @@ export function SignInMethodsCard({ roles }: SignInMethodsCardProps) {
   const providerList = providers.data ?? [];
   const showProviders = providerList.length > 0 && identities.isSuccess;
 
+  // A button, not a plain link: the start URL needs the bearer token, so fetch it, then navigate.
   function handleConnect(provider: SocialProvider): void {
     startLink.mutate(provider, {
       onSuccess: (url) => window.location.assign(url),
@@ -122,13 +119,17 @@ export function SignInMethodsCard({ roles }: SignInMethodsCardProps) {
         </h2>
         <ul className="mt-3 divide-y divide-border-subtle border-t border-border-subtle">
           <Row
-            label={passwordSet ? t('password.set') : t('password.notSet')}
+            label={t('password.title')}
+            // ponytail: no has_password flag from the server, so no "set / not set" claim; see #1694.
             action={
-              passwordSet ? null : (
-                <Button type="button" variant="outline" onClick={() => setPasswordOpen(true)}>
-                  {t('password.setNow')}
-                </Button>
-              )
+              <Button
+                type="button"
+                variant="outline"
+                className="min-h-11 sm:min-h-0"
+                onClick={() => setPasswordOpen(true)}
+              >
+                {t('password.change')}
+              </Button>
             }
           />
           <Row label={t('code')} status={<StatusBadge tone="success" label={t('alwaysOn')} />} />
@@ -146,6 +147,7 @@ export function SignInMethodsCard({ roles }: SignInMethodsCardProps) {
                       <Button
                         type="button"
                         variant="outline"
+                        className="min-h-11 sm:min-h-0"
                         aria-label={`${t('disconnect')} ${label}`}
                         loading={disconnect.isPending && disconnect.variables === provider}
                         onClick={() => handleDisconnect(provider)}
@@ -156,6 +158,7 @@ export function SignInMethodsCard({ roles }: SignInMethodsCardProps) {
                       <Button
                         type="button"
                         variant="outline"
+                        className="min-h-11 sm:min-h-0"
                         aria-label={`${t('connect')} ${label}`}
                         loading={startLink.isPending && startLink.variables === provider}
                         onClick={() => handleConnect(provider)}
@@ -187,10 +190,10 @@ export function SignInMethodsCard({ roles }: SignInMethodsCardProps) {
         >
           <DialogContent size="md">
             <DialogHeader>
-              <DialogTitle className="sr-only">{t('password.setNow')}</DialogTitle>
+              <DialogTitle className="sr-only">{t('password.change')}</DialogTitle>
             </DialogHeader>
             <SetPasswordForm
-              heading={t('password.setNow')}
+              heading={t('password.change')}
               audience={audienceForRoles(roles)}
               onSubmit={(password) => setPassword.mutate(password)}
               loading={setPassword.isPending}

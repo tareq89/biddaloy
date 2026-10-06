@@ -15,6 +15,7 @@ export interface PeopleCardProps {
 }
 
 /**
+ * ponytail: the cast below turns off route type-checking for every link here; drop it when #1644 lands.
  * Typed routes don't know every target yet (`/staff/import` ships in another
  * ticket), and each target reads `?from=welcome` to offer "Back to setup".
  */
@@ -66,7 +67,12 @@ export function PeopleCard({
           <WelcomeLink to={excel.to}>{t('uploadExcel')}</WelcomeLink>
         </Button>
         {onDownloadSample && (
-          <Button type="button" variant="ghost" onClick={onDownloadSample}>
+          <Button
+            type="button"
+            variant="ghost"
+            className="min-h-11 md:min-h-0"
+            onClick={onDownloadSample}
+          >
             <DownloadIcon aria-hidden className="size-4" />
             {t('downloadSample')}
           </Button>
