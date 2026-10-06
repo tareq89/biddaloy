@@ -45,6 +45,9 @@ const PUBLIC_PATHS = new Set([
   // [12.7] The emailed contact-change confirm link is clicked from the
   // inbox, possibly logged out.
   '/verify-email',
+  // [13.6.1] Sign-up and the social sign-in landing are reached signed out.
+  '/register',
+  '/auth/social/done',
 ]);
 
 /**
