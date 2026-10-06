@@ -78,12 +78,13 @@ export class SocialAuthService {
     if (!secret) throw new NotFoundException('Unknown sign-in provider');
     const fbUserId = verifySignedRequest(signedRequest, secret);
     const code = randomUUID();
-    await this.identities.deleteBySubject(SocialProvider.FACEBOOK, fbUserId, code, context);
+    // Built before the delete: a missing or bad APP_BASE_URL must fail while
+    // nothing has been removed yet, not after (Meta would retry a 500 and
+    // every retry would audit a code nobody ever received).
     // Deletion is immediate, so the status page only ever says "done".
-    return {
-      url: this.appUrl(`/api/v1/auth/social/facebook/data-deletion/status?code=${code}`),
-      confirmation_code: code,
-    };
+    const url = this.appUrl(`/api/v1/auth/social/facebook/data-deletion/status?code=${code}`);
+    await this.identities.deleteBySubject(SocialProvider.FACEBOOK, fbUserId, code, context);
+    return { url, confirmation_code: code };
   }
 
   private appUrl(path: string): string {
