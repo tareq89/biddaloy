@@ -28,7 +28,7 @@ import { AttendancePage } from '../pages';
  * passed between tests), so `--grep`, sharding and retries work.
  *
  * What is left behind: the check-list and month-edit tests use fresh class
- * sections. The period test marks a period on the SEEDED Class 6 / A and,
+ * sections. The period test marks a period on a SEEDED Class 6 section and,
  * when the day has no register yet, adds one with one absentee. Neither can
  * be undone (there is no delete-register endpoint), so it never writes the
  * day register on `MARK_DATE`: `journeys/attendance.spec.ts` owns that one.
@@ -256,23 +256,64 @@ interface PeriodRegister {
   students: { student_id: string; roll_number: number; suggested_status: string | null }[];
 }
 
-/** The newest date in the correction window whose routine has a period
- * nobody has marked yet — the seed marks only the two newest weekly slots,
- * and the routine's weekday decides which days have periods at all. */
+interface OpenPeriod {
+  sectionId: string;
+  date: string;
+  period: PeriodInfo;
+  /** The day has no register yet: add one with this absentee first. */
+  absentee: string | null;
+}
+
+/** A routine period nobody has marked yet, in the correction window, whose
+ * roster can open with the prefill notice: the day register already has an
+ * absentee, or there is no day register yet and the day is not `MARK_DATE`
+ * (so this spec may add one). Tries every seeded Class 6 section the teacher
+ * can open, newest day first. The seed marks A's two newest weekly slots, so
+ * on a fresh database it is usually B's Monday slot that qualifies. */
 async function findOpenPeriod(
   request: APIRequestContext,
-  session: ApiSession,
-  sectionId: string,
-): Promise<{ date: string; period: PeriodInfo } | null> {
+  teacher: ApiSession,
+  admin: ApiSession,
+): Promise<OpenPeriod | null> {
+  const mine = await get<{ section_id: string; section_name: string; class_name: string }[]>(
+    request,
+    teacher,
+    '/attendance/my-sections',
+  );
+  const sectionIds = mine
+    .filter((s) => s.class_name === 'Class 6')
+    .sort((a, b) => a.section_name.localeCompare(b.section_name))
+    .map((s) => s.section_id);
   for (let back = 0; back <= 2; back += 1) {
     const date = addDays(MARK_DATE, -back);
-    const periods = await get<PeriodInfo[]>(
-      request,
-      session,
-      `/attendance/sections/${sectionId}/periods?date=${date}`,
-    );
-    const open = periods.find((p) => p.state === null);
-    if (open) return { date, period: open };
+    for (const sectionId of sectionIds) {
+      const periods = await get<PeriodInfo[]>(
+        request,
+        teacher,
+        `/attendance/sections/${sectionId}/periods?date=${date}`,
+      );
+      for (const period of periods.filter((p) => p.state === null)) {
+        const probe = await get<PeriodRegister>(
+          request,
+          teacher,
+          `/attendance/sections/${sectionId}/register?date=${date}&period_no=${period.period_no}`,
+        );
+        if (probe.students.some((s) => s.suggested_status)) {
+          return { sectionId, date, period, absentee: null };
+        }
+        // No prefill yet. Adding a day register is fine, but never on MARK_DATE
+        // (journeys/attendance.spec.ts owns Class 6 / A's) and never over a
+        // register that already exists.
+        if (date === MARK_DATE) continue;
+        const day = await get<{
+          session: { id: string | null };
+          students: { student_id: string }[];
+        }>(request, admin, `/attendance/sections/${sectionId}/register?date=${date}`);
+        if (day.session.id === null && day.students[0]) {
+          return { sectionId, date, period, absentee: day.students[0].student_id };
+        }
+      }
+    }
   }
   return null;
 }
@@ -286,47 +327,28 @@ test.describe('period attendance', () => {
   }) => {
     const teacher = await apiSession(request, 'teacher');
     const admin = await adminApiSession(request);
-    const section = await seededClassSixA(request, teacher);
 
-    const open = await findOpenPeriod(request, teacher, section.section_id);
+    const open = await findOpenPeriod(request, teacher, admin);
     test.skip(
       open === null,
-      'no unmarked routine period in the last 3 school days (seeded routine: A has a weekly Monday slot)',
+      'no unmarked routine period with a prefill in the last 3 school days (seeded routine: Class 6 A and B have a weekly Monday slot)',
     );
-    const { date, period } = open!;
+    const { sectionId, date, period, absentee } = open!;
 
-    // The prefill needs an absent day mark. Write one only if the day has no register yet.
-    const probe = await get<PeriodRegister>(
-      request,
-      teacher,
-      `/attendance/sections/${section.section_id}/register?date=${date}&period_no=${period.period_no}`,
-    );
-    if (!probe.students.some((s) => s.suggested_status)) {
-      const day = await get<{ session: { id: string | null }; students: { student_id: string }[] }>(
-        request,
-        admin,
-        `/attendance/sections/${section.section_id}/register?date=${date}`,
-      );
-      test.skip(
-        day.session.id !== null,
-        'the day register is already final with no absentee to prefill',
-      );
-      test.skip(
-        date === MARK_DATE,
-        "would create Class 6 / A's day register on MARK_DATE, which journeys/attendance.spec.ts owns",
-      );
-      await put(request, admin, `/attendance/sections/${section.section_id}/register`, {
+    // The prefill needs an absent day mark: add the day register it needs.
+    if (absentee !== null) {
+      await put(request, admin, `/attendance/sections/${sectionId}/register`, {
         date,
         base_version: 0,
         client_request_id: crypto.randomUUID(),
-        entries: [{ student_id: day.students[0]!.student_id, status: AttendanceStatus.ABSENT }],
+        entries: [{ student_id: absentee, status: AttendanceStatus.ABSENT }],
       });
     }
 
-    const heldBefore = await subjectHeld(request, admin, section.section_id, date, period);
+    const heldBefore = await subjectHeld(request, admin, sectionId, date, period);
 
     const attendance = new AttendancePage(page);
-    await attendance.gotoSection(section.section_id, date);
+    await attendance.gotoSection(sectionId, date);
     await page
       .getByRole('tab', { name: new RegExp(period.subject_name ?? String(period.period_no)) })
       .click();
@@ -335,7 +357,7 @@ test.describe('period attendance', () => {
     await attendance.submit();
     await expect(page.getByText(t('attendance.mark.savedToast'))).toBeVisible();
 
-    const heldAfter = await subjectHeld(request, admin, section.section_id, date, period);
+    const heldAfter = await subjectHeld(request, admin, sectionId, date, period);
     expect(heldAfter).toBe(heldBefore + 1);
   });
 });
