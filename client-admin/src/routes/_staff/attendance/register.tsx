@@ -464,7 +464,10 @@ function RegisterPageContent() {
                 )}
                 {outsideDates.length > 0 && (
                   <p className="text-sm text-text-secondary">
-                    {t('register.outsideWindowNotice', { dates: fmtDates(outsideDates) })}
+                    {t('register.outsideWindowNotice', {
+                      count: outsideDates.length,
+                      dates: fmtDates(outsideDates),
+                    })}
                   </p>
                 )}
                 <p className="text-caption text-text-secondary">{t('register.keysHint')}</p>

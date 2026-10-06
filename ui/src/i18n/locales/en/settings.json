@@ -183,7 +183,6 @@
     "confirmEnableNotificationTitle": "Turn on automatic absence messages?",
     "shiftTimesLegend": "Times per shift",
     "shiftTimesHelp": "Leave a row empty to use the school's times above.",
-    "shiftColumn": "Shift",
     "shiftLateAfter": "Late after",
     "shiftAbsentAfter": "Absent after",
     "shiftBothRequired": "Fill both times or leave both empty.",
