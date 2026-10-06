@@ -266,7 +266,7 @@ sequenceDiagram
         G-->>U: "Nothing was saved. Someone changed 6 Oct" · Reload
     else 6 Oct is a future day or has no school
         A-->>G: 422 ATTENDANCE_MATRIX_LOCKED_DATE {dates: [6 Oct]}
-        G-->>U: "6 Oct cannot be marked" · Reload
+        G-->>U: "6 Oct cannot be marked" · Remove these days from my changes
     else 5 Oct is finalized and the user lacks ATTENDANCE_CORRECT
         A-->>G: 403 ATTENDANCE_WINDOW_CLOSED {dates: [5 Oct]}
         G-->>U: "5 Oct can only be changed by someone who can correct attendance"<br/>· Remove these days from my changes
@@ -277,13 +277,17 @@ sequenceDiagram
 ```
 
 The save is all-or-nothing (see the API section above), so after any refusal
-**no** day is written. Closing a conflict dialog any way (Esc, outside click)
-also reloads the month, so a stale draft cannot fail the next Save again.
+**no** day is written. Closing the "someone changed" (409) dialog any way (Esc,
+outside click) also reloads the month, so a stale draft cannot fail the next
+Save again. The "cannot be marked" and "only someone who can correct" dialogs
+just close and keep the draft: only the listed days are the problem, so the
+user removes those days or keeps editing. A reason of 1–2 letters is refused
+even when none is required, rather than dropped from the save without a word.
 
 Keyboard: arrows move, `P` / `A` / `L` / `E` set the status, `Space` flips
 present/absent, `Home` / `End` jump to the first / last open day, `Esc`
 cancels. `Ctrl+S` saves from anywhere on the page while editing, the reason
-field included. The palette reaches it with **Edit monthly register**.
+field included, but not while one of these dialogs is open. The palette reaches it with **Edit monthly register**.
 
 ## 4. The correction rules
 
@@ -384,7 +388,8 @@ roster: **Whole day** plus one tab per period of that date's routine
 (`Period 1 · Mathematics  8:00`). A period that already has a register carries
 a badge, with the same words as the check-list: **Draft** or **Submitted**
 (Submitted = `FINALIZED`). A substitute teacher sees only the tab of the period
-they cover, no Whole day tab. Pick a tab and the same roster now saves a period
+they cover, no Whole day tab, and lands on the first period even from a link
+without `?period=`. Pick a tab and the same roster now saves a period
 register; if the day register has absentees, the roster opens with them
 pre-marked and says so ("Students absent or on leave today are already filled
 in").
