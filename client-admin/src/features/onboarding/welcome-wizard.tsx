@@ -68,23 +68,27 @@ export function WelcomeWizard({ guided, excel, people, summary }: WelcomeWizardP
     else setPath(chosen);
   }
 
+  // The guided path carries its own Back / Next per question, so the frame
+  // shows no footer there (two Next buttons would compete). Excel uses the frame's.
   const footer =
     step === 'setup' && !path
       ? { primary: { label: t('footer.next'), onClick: () => void nextFromDoors() } }
-      : step === 'setup'
-        ? {
-            primary: { label: t('footer.next'), onClick: () => setStep('people') },
-            secondary: { label: t('footer.back'), onClick: () => setPath(null) },
-          }
-        : step === 'people'
+      : step === 'setup' && path === 'guided'
+        ? null
+        : step === 'setup'
           ? {
-              primary: { label: t('footer.next'), onClick: () => setStep('done') },
-              secondary: { label: t('footer.back'), onClick: () => setStep('setup') },
+              primary: { label: t('footer.next'), onClick: () => setStep('people') },
+              secondary: { label: t('footer.back'), onClick: () => setPath(null) },
             }
-          : {
-              primary: { label: t('footer.finish'), onClick: () => void navigate({ to: '/' }) },
-              secondary: { label: t('footer.back'), onClick: () => setStep('people') },
-            };
+          : step === 'people'
+            ? {
+                primary: { label: t('footer.next'), onClick: () => setStep('done') },
+                secondary: { label: t('footer.back'), onClick: () => setStep('setup') },
+              }
+            : {
+                primary: { label: t('footer.finish'), onClick: () => void navigate({ to: '/' }) },
+                secondary: { label: t('footer.back'), onClick: () => setStep('people') },
+              };
 
   const steps = [
     { id: 'setup', label: t('steps.setup') },
@@ -97,8 +101,10 @@ export function WelcomeWizard({ guided, excel, people, summary }: WelcomeWizardP
       title={t('title')}
       closeLabel={t('footer.later')}
       onClose={() => void doLater()}
-      primary={{ ...footer.primary, busy: update.isPending && step === 'setup' && !path }}
-      {...(footer.secondary ? { secondary: footer.secondary } : {})}
+      {...(footer
+        ? { primary: { ...footer.primary, busy: update.isPending && step === 'setup' && !path } }
+        : {})}
+      {...(footer?.secondary ? { secondary: footer.secondary } : {})}
     >
       <StepIndicator
         steps={steps}

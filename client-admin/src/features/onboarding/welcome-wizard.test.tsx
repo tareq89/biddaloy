@@ -91,6 +91,8 @@ describe('WelcomeWizard', () => {
     expect(await screen.findByText('GUIDED SLOT')).toBeTruthy();
     expect(patches).toContainEqual({ setup_path: 'guided' });
     expect(router.state.location.search).toMatchObject({ step: 'setup', path: 'guided' });
+    // Guided owns its Back / Next, so the frame footer is gone.
+    expect(screen.queryByRole('button', { name: 'Next' })).toBeNull();
   });
 
   it('Excel opens the Excel slot; Back returns to the doors', async () => {
