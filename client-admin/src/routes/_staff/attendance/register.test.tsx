@@ -1,5 +1,6 @@
 import { REGION_BD_EN } from '@biddaloy/ui/i18n';
 import { cleanupTestState, renderWithRouter, server, userEvent } from '@biddaloy/ui/test';
+import { tenantTodayIso } from '@biddaloy/ui/utils';
 import { act, screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -397,8 +398,7 @@ describe('/attendance/register month edit', () => {
   });
 
   // The school's date (Asia/Dhaka in REGION_BD_EN), never the runner's clock.
-  const dhakaToday = () =>
-    new Intl.DateTimeFormat('en-CA', { timeZone: REGION_BD_EN.timezone }).format(new Date());
+  const dhakaToday = () => tenantTodayIso(REGION_BD_EN);
 
   /** Today's register exists (version 1). `respond` gets the PUT count (1, 2, ...). */
   function useTodayMatrix(respond: (n: number) => Response) {

@@ -16,6 +16,7 @@ import {
   isPastDueDate,
   parseDate,
   parseServerDate,
+  tenantTodayIso,
   toIsoDate,
 } from './date';
 
@@ -147,6 +148,15 @@ describe('formatMonth', () => {
 
   it('shows the none value for a bad month', () => {
     expect(formatMonth('2026-13', REGION_BD_EN)).toBe('—');
+  });
+});
+
+describe('tenantTodayIso', () => {
+  it("is the date on the tenant clock, not the runner's", () => {
+    // 20:30 UTC on 5 Oct is already 6 Oct in Dhaka (UTC+6).
+    const now = new Date('2026-10-05T20:30:00Z');
+    expect(tenantTodayIso(REGION_BD_EN, now)).toBe('2026-10-06');
+    expect(tenantTodayIso({ ...REGION_BD_EN, timezone: 'Etc/UTC' }, now)).toBe('2026-10-05');
   });
 });
 
