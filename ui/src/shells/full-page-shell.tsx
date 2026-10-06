@@ -94,7 +94,11 @@ export function FullPageShell({
             </div>
           </header>
           <div className={cn('mx-auto w-full flex-1 space-y-6 px-4 py-4 md:px-6 md:py-6', width)}>
-            {children}
+            {/* Content that suspends (a lazily loaded i18n namespace) must not hide this
+             * dialog: hiding detaches its focus trap and Radix drops the trap from its
+             * stack, so a dialog opened inside can't pause it and focus keeps being pulled
+             * back (e.g. the curriculum preset confirm inside /welcome). */}
+            <React.Suspense fallback={null}>{children}</React.Suspense>
           </div>
           {primary && (
             <footer className="sticky bottom-0 z-30 border-t border-border-subtle bg-surface">
