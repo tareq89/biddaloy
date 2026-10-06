@@ -9,6 +9,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '../primitives/popover';
 import { formatMonth, formatMonthName } from '../utils/date';
 import { renderDigits } from '../utils/digits';
 
+import { Button } from './button';
 import { MonthHeader } from './month-header';
 
 export interface MonthPickerProps extends Omit<
@@ -24,11 +25,25 @@ export interface MonthPickerProps extends Omit<
   min?: string | undefined;
   max?: string | undefined;
   'aria-label': string;
+  /** When set, a "Clear" button under the grid calls it (`onValueChange` never emits empty). */
+  onClear?: () => void;
 }
 
 /** Shared trigger look for DatePicker and MonthPicker (PATTERN: DatePicker). */
 export const pickerTriggerClass =
   'flex h-[var(--control-h,2rem)] w-full items-center justify-between gap-2 rounded-md border border-border-functional bg-surface px-3 text-start text-body-lg text-text-primary outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:bg-muted md:text-body';
+
+/** "Clear" row under a picker grid. Module-shared with DatePicker. */
+export function PickerClear({ onClear }: { onClear: () => void }) {
+  const { t } = useTranslation('common');
+  return (
+    <div className="mt-2 flex justify-end border-t border-border-subtle pt-2">
+      <Button type="button" variant="ghost" size="sm" onClick={onClear}>
+        {t('date.clear')}
+      </Button>
+    </div>
+  );
+}
 
 const pad = (m: number) => String(m).padStart(2, '0');
 
@@ -86,6 +101,7 @@ export function MonthPicker({
   placeholder,
   min,
   max,
+  onClear,
   className,
   ...props
 }: MonthPickerProps) {
@@ -95,15 +111,27 @@ export function MonthPicker({
   const valueYear = value ? Number(value.slice(0, 4)) : new Date().getFullYear();
   const [viewYear, setViewYear] = React.useState(valueYear);
   React.useEffect(() => setViewYear(valueYear), [valueYear]);
+  const valueId = React.useId();
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover
+      open={open}
+      onOpenChange={(next) => {
+        // Reopen on the selected year, not the one browsed to last time.
+        if (next) setViewYear(valueYear);
+        setOpen(next);
+      }}
+    >
       <PopoverTrigger asChild>
         <button
           type="button"
           {...props}
+          // Same as DatePicker: the value is the description, `aria-label` the name.
+          aria-describedby={[valueId, props['aria-describedby']].filter(Boolean).join(' ')}
           className={cn(pickerTriggerClass, !value && 'text-text-secondary', className)}
         >
-          <span>{value ? formatMonth(value, config) : (placeholder ?? t('date.pickMonth'))}</span>
+          <span id={valueId}>
+            {value ? formatMonth(value, config) : (placeholder ?? t('date.pickMonth'))}
+          </span>
           <CalendarRangeIcon className="size-4 text-text-secondary" aria-hidden="true" />
         </button>
       </PopoverTrigger>
@@ -127,6 +155,14 @@ export function MonthPicker({
               setOpen(false);
             }}
           />
+          {onClear && value && (
+            <PickerClear
+              onClear={() => {
+                onClear();
+                setOpen(false);
+              }}
+            />
+          )}
         </div>
       </PopoverContent>
     </Popover>

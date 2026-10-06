@@ -76,6 +76,9 @@ export function ListShell<TData extends RowData>({
         'one above the other. Pass only `filters` (the typed `FilterBar`) for a new page.',
     );
   }
+  if (process.env.NODE_ENV !== 'production' && primaryAction && actions?.length) {
+    console.warn('[ListShell] `primaryAction` (deprecated) wins; `actions` are not rendered.');
+  }
 
   return (
     <PageContainer size="wide">

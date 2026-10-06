@@ -13,6 +13,7 @@ import * as React from 'react';
 
 import { useTranslation } from '../i18n';
 import { Popover, PopoverAnchor, PopoverContent } from '../primitives/popover';
+import { toLatinDigits } from '../utils/digits';
 
 import { Input } from './input';
 
@@ -61,11 +62,12 @@ export function Combobox({
   const listboxId = React.useId();
 
   const selectedOption = options.find((option) => option.value === value) ?? null;
-  const trimmed = query.trim().toLowerCase();
+  // Latin digits on both sides: `৮` typed on a Latin keyboard is `8`.
+  const trimmed = toLatinDigits(query.trim().toLowerCase());
   const filtered =
     trimmed === ''
       ? options
-      : options.filter((option) => option.label.toLowerCase().includes(trimmed));
+      : options.filter((option) => toLatinDigits(option.label.toLowerCase()).includes(trimmed));
 
   function optionId(index: number): string {
     return `${listboxId}-option-${index}`;

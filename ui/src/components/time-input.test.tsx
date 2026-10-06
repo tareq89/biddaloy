@@ -44,6 +44,18 @@ describe('TimeInput', () => {
     expect(spy).toHaveBeenCalledWith('08:30');
   });
 
+  it('an API time with seconds selects the grid option, not a duplicate', async () => {
+    const user = userEvent.setup();
+    await setup({ value: '08:00:00', min: '07:00', max: '09:00' });
+    const input = screen.getByRole('combobox', { name: 'Start' });
+    expect(input).toHaveProperty('value', formatTime('08:00', REGION_BD_EN));
+    await user.click(input);
+    // Focus filters by the selected label: one match, no "08:00:00" twin.
+    expect(
+      await screen.findAllByRole('option', { name: formatTime('08:00', REGION_BD_EN) }),
+    ).toHaveLength(1);
+  });
+
   it('shows an off-grid saved value', async () => {
     await setup({ value: '08:10' });
     expect(screen.getByRole('combobox', { name: 'Start' })).toHaveProperty(

@@ -638,10 +638,42 @@ describe('DataTable footer [31.2.4b]', () => {
     expect(screen.queryByText(/Showing/)).toBeNull();
   });
 
-  it('paginated={false} shows only "Total n"', async () => {
+  it('keeps Previous after a later page fails, without the count', async () => {
+    const onPageChange = vi.fn();
     await renderInEnglish(
-      <DataTable {...base} data={STUDENTS} totalCount={3} paginated={false} />,
+      <DataTable
+        {...base}
+        data={[]}
+        page={3}
+        pageSize={2}
+        totalCount={0}
+        error="Failed"
+        onPageChange={onPageChange}
+      />,
     );
+    expect(screen.queryByText(/Showing/)).toBeNull();
+    expect(screen.getByRole('button', { name: 'Next' }).hasAttribute('disabled')).toBe(true);
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Previous' }));
+    expect(onPageChange).toHaveBeenCalledWith(2);
+  });
+
+  it('moves an out-of-range page to the last real page', async () => {
+    const onPageChange = vi.fn();
+    await renderInEnglish(
+      <DataTable
+        {...base}
+        data={[]}
+        page={3}
+        pageSize={2}
+        totalCount={4}
+        onPageChange={onPageChange}
+      />,
+    );
+    expect(onPageChange).toHaveBeenCalledWith(2);
+  });
+
+  it('paginated={false} shows only "Total n"', async () => {
+    await renderInEnglish(<DataTable {...base} data={STUDENTS} totalCount={3} paginated={false} />);
     expect(screen.getByText('Total 3')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Next' })).toBeNull();
   });
@@ -1080,6 +1112,23 @@ describe('rowActions', () => {
   it('shows labelled buttons in card mode', async () => {
     await renderInEnglish(<Controlled layout="cards" rowActions={rowActions} />);
     expect(screen.getByText('Edit Rahim Uddin').tagName).toBe('SPAN');
+  });
+
+  it('Space on a row action button presses it, not the row selection', async () => {
+    const user = userEvent.setup();
+    const onClick = vi.fn();
+    await renderInEnglish(
+      <Controlled
+        selectable
+        rowActions={(row) => [{ intent: 'edit', label: `Edit ${row.name}`, onClick }]}
+      />,
+    );
+    screen.getByRole('button', { name: 'Edit Rahim Uddin' }).focus();
+    await user.keyboard(' ');
+    expect(onClick).toHaveBeenCalledOnce();
+    expect(
+      screen.getByRole('checkbox', { name: 'Select row 1' }).getAttribute('aria-checked'),
+    ).toBe('false');
   });
 
   it('adds no Actions header when rowActions is omitted', async () => {

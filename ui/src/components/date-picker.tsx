@@ -17,7 +17,7 @@ import { formatDate, formatMonth, toIsoDate } from '../utils/date';
 import { renderDigits } from '../utils/digits';
 
 import { MonthHeader } from './month-header';
-import { MonthButtons, pickerTriggerClass } from './month-picker';
+import { MonthButtons, PickerClear, pickerTriggerClass } from './month-picker';
 
 export interface DatePickerProps extends Omit<
   React.ComponentProps<'button'>,
@@ -32,6 +32,10 @@ export interface DatePickerProps extends Omit<
   /** Inclusive. */
   min?: Date | undefined;
   max?: Date | undefined;
+  /** A "Clear" button under the grid sets the value back to `undefined`.
+   * Default `true`, like the typed input this replaced; pass `false` on a
+   * field that must always hold a date. */
+  clearable?: boolean;
 }
 
 export function DatePicker({
@@ -41,12 +45,14 @@ export function DatePicker({
   placeholder,
   min,
   max,
+  clearable = true,
   className,
   ...props
 }: DatePickerProps) {
   const { t } = useTranslation('common');
   const [open, setOpen] = React.useState(false);
   const [viewMonth, setViewMonth] = React.useState(() => value ?? new Date());
+  const valueId = React.useId();
 
   React.useEffect(() => {
     if (value) setViewMonth(value);
@@ -58,9 +64,14 @@ export function DatePicker({
         <button
           type="button"
           {...props}
+          // `aria-label` replaces the visible text as the name, so the value is
+          // read as the description (kept alongside a form field's own).
+          aria-describedby={[valueId, props['aria-describedby']].filter(Boolean).join(' ')}
           className={cn(pickerTriggerClass, !value && 'text-text-secondary', className)}
         >
-          <span>{value ? formatDate(value, config) : (placeholder ?? t('date.pick'))}</span>
+          <span id={valueId}>
+            {value ? formatDate(value, config) : (placeholder ?? t('date.pick'))}
+          </span>
           <CalendarIcon className="size-4 text-text-secondary" aria-hidden="true" />
         </button>
       </PopoverTrigger>
@@ -77,6 +88,14 @@ export function DatePicker({
             setOpen(false);
           }}
         />
+        {clearable && value && (
+          <PickerClear
+            onClear={() => {
+              onValueChange(undefined);
+              setOpen(false);
+            }}
+          />
+        )}
       </PopoverContent>
     </Popover>
   );
@@ -209,9 +228,7 @@ export function Calendar({
 
   function moveFocus(delta: number) {
     hadFocusRef.current = !!gridRef.current?.contains(document.activeElement);
-    const next = clamp(
-      new Date(roving.getFullYear(), roving.getMonth(), roving.getDate() + delta),
-    );
+    const next = clamp(new Date(roving.getFullYear(), roving.getMonth(), roving.getDate() + delta));
     setFocused(next);
     if (!sameMonth(next, month)) onMonthChange(new Date(next.getFullYear(), next.getMonth(), 1));
   }

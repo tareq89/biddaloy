@@ -115,13 +115,16 @@ describe('DetailShell', () => {
   it('scrolls the active tab into view on mount and on change', async () => {
     const spy = vi.fn();
     Element.prototype.scrollIntoView = spy;
-    const user = userEvent.setup();
-    await renderInEnglish(<Controlled />);
-    expect(spy.mock.contexts.at(-1)).toBe(screen.getByRole('tab', { name: 'Overview' }));
-    await user.click(screen.getByRole('tab', { name: 'Payments' }));
-    expect(spy.mock.contexts.at(-1)).toBe(screen.getByRole('tab', { name: 'Payments' }));
-    // @ts-expect-error restore jsdom's lack of it
-    delete Element.prototype.scrollIntoView;
+    try {
+      const user = userEvent.setup();
+      await renderInEnglish(<Controlled />);
+      expect(spy.mock.contexts.at(-1)).toBe(screen.getByRole('tab', { name: 'Overview' }));
+      await user.click(screen.getByRole('tab', { name: 'Payments' }));
+      expect(spy.mock.contexts.at(-1)).toBe(screen.getByRole('tab', { name: 'Payments' }));
+    } finally {
+      // @ts-expect-error restore jsdom's lack of it
+      delete Element.prototype.scrollIntoView;
+    }
   });
 
   it('renders the header: name, identifiers and status badge', async () => {

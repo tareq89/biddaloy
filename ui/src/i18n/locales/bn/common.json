@@ -204,8 +204,8 @@
     "announceResults_other": "{{total}}টির মধ্যে {{count}}টি ফলাফল",
     "pageOf": "{{total}} পাতার মধ্যে {{page}} নম্বর পাতা",
     "actions": "কাজ",
-    "total_one": "মোট {{count}}টি",
-    "total_other": "মোট {{count}}টি"
+    "total_one": "মোট {{total}}টি",
+    "total_other": "মোট {{total}}টি"
   },
   "weekdays": {
     "1": "সোম",
@@ -276,7 +276,8 @@
     "previousYear": "আগের বছর",
     "nextYear": "পরের বছর",
     "calendar": "ক্যালেন্ডার",
-    "chooseMonthYear": "মাস ও বছর বাছুন"
+    "chooseMonthYear": "মাস ও বছর বাছুন",
+    "clear": "মুছুন"
   },
   "combobox": {
     "results_one": "{{count}}টি ফলাফল",
@@ -298,7 +299,7 @@
     "home": "হোমে ফিরুন"
   },
   "formShell": {
-    "summary_one": "জমা দেওয়া তথ্যে ১টি সমস্যা আছে",
+    "summary_one": "জমা দেওয়া তথ্যে {{count}}টি সমস্যা আছে",
     "summary_other": "জমা দেওয়া তথ্যে {{count}}টি সমস্যা আছে"
   },
   "fileUpload": {

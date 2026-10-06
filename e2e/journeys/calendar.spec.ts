@@ -47,6 +47,8 @@ test.describe.serial('calendar: create -> grid, past-lock, teacher read-only, fe
       await page.locator('#event-form-name').fill(eventName);
       for (const label of [t('calendar.eventForm.startDate'), t('calendar.eventForm.endDate')]) {
         await page.getByLabel(label).click();
+        // isVisible() does not wait: let the picker's grid paint first.
+        await expect(page.getByRole('grid', { name: t('common.date.calendar') })).toBeVisible();
         const cell = page.locator(`[role="grid"] [data-date="${CREATE_DATE}"]`);
         // tomorrow can be next month
         if (!(await cell.isVisible())) {

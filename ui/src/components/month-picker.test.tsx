@@ -52,6 +52,47 @@ describe('MonthPicker', () => {
     expect(trigger().textContent).toContain(formatMonth('2026-10', REGION_BD_EN));
   });
 
+  it('the trigger announces the value as its description', async () => {
+    await setup(<Controlled initial="2026-10" />);
+    expect(
+      screen.getByRole('button', {
+        name: 'Month',
+        description: formatMonth('2026-10', REGION_BD_EN),
+      }),
+    ).toBeTruthy();
+  });
+
+  it('Clear shows only with onClear, and calls it', async () => {
+    const user = userEvent.setup();
+    const onClear = vi.fn();
+    await setup(
+      <MonthPicker aria-label="Month" value="2026-10" onValueChange={() => {}} onClear={onClear} />,
+    );
+    await user.click(trigger());
+    await user.click(await screen.findByRole('button', { name: 'Clear' }));
+    expect(onClear).toHaveBeenCalledOnce();
+  });
+
+  it('has no Clear without onClear', async () => {
+    const user = userEvent.setup();
+    await setup(<Controlled initial="2026-10" />);
+    await user.click(trigger());
+    await screen.findByRole('button', { name: 'March' });
+    expect(screen.queryByRole('button', { name: 'Clear' })).toBeNull();
+  });
+
+  it('reopens on the selected year after browsing away without picking', async () => {
+    const user = userEvent.setup();
+    await setup(<Controlled initial="2026-10" />);
+    await user.click(trigger());
+    await user.click(await screen.findByRole('button', { name: 'Previous year' }));
+    expect(screen.getByText('2025')).toBeTruthy();
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByText('2025')).toBeNull());
+    await user.click(trigger());
+    expect(await screen.findByText('2026')).toBeTruthy();
+  });
+
   it('shows the placeholder when empty', async () => {
     await setup(<Controlled />);
     expect(trigger().textContent).toContain('Pick a month');

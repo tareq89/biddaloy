@@ -269,26 +269,30 @@ export function DataTable<TData extends RowData>({
   sortOptionLabel,
 }: DataTableProps<TData>) {
   const { t } = useTranslation();
+  // Latest callback in a ref: an inline `rowActions` must not rebuild the column model each render.
+  const rowActionsRef = React.useRef(rowActions);
+  rowActionsRef.current = rowActions;
+  const hasRowActions = rowActions !== undefined;
   const allColumns = React.useMemo<DataTableColumn<TData>[]>(
     () =>
-      rowActions
+      hasRowActions
         ? [
             ...columnsProp,
             {
               id: ROW_ACTIONS_COLUMN_ID,
               header: t('table.actions'),
-              accessorFn: (row) => <RowActions actions={rowActions(row)} />,
+              accessorFn: (row) => <RowActions actions={rowActionsRef.current?.(row) ?? []} />,
               pinned: true,
               align: 'end',
               card: 'actions',
             },
           ]
         : columnsProp,
-    [columnsProp, rowActions, t],
+    [columnsProp, hasRowActions, t],
   );
   if (
     process.env.NODE_ENV !== 'production' &&
-    rowActions &&
+    hasRowActions &&
     columnsProp.some((c) => c.id === 'actions')
   ) {
     console.warn('DataTable: pass either `rowActions` or an `id: "actions"` column, not both.');
@@ -411,7 +415,16 @@ export function DataTable<TData extends RowData>({
   const from = (safePage - 1) * pageSize + 1;
   const to = Math.min(safePage * pageSize, totalCount);
   const showEmptyState = emptyState !== undefined && !loading && !error && rows.length === 0;
-  const showFooter = !loading && !error && totalCount > 0;
+  // While a page loads or fails, the count is unknown but the pager stays (disabled while
+  // loading; Previous still works after an error) so focus and a way back are not lost.
+  const busy = loading || !!error;
+  const showFooter = busy ? paginated && page > 1 : totalCount > 0;
+  const current = busy ? page : safePage;
+  // `?page=3` after its last row was deleted: move to the real last page rather than show a
+  // footer that contradicts the (empty) rows.
+  React.useEffect(() => {
+    if (paginated && !busy && page > totalPages) onPageChange(totalPages);
+  }, [paginated, busy, page, totalPages, onPageChange]);
   const [focusedCell, setFocusedCell] = React.useState<{ row: number; col: number }>({
     row: 0,
     col: 0,
@@ -606,7 +619,7 @@ export function DataTable<TData extends RowData>({
         !footerFramed && 'md:flex-row md:items-center md:justify-between',
       )}
     >
-      <TableCount total={totalCount} from={from} to={to} />
+      {busy ? <span /> : <TableCount total={totalCount} from={from} to={to} />}
       <div className="flex items-center gap-3">
         {onPageSizeChange && (
           <>
@@ -638,24 +651,26 @@ export function DataTable<TData extends RowData>({
             size="icon"
             iconOnly
             aria-label={t('pagination.previous')}
-            disabled={safePage <= 1}
-            onClick={() => onPageChange(safePage - 1)}
+            disabled={loading || current <= 1}
+            onClick={() => onPageChange(current - 1)}
           >
             <ChevronLeftIcon aria-hidden="true" />
           </Button>
-          <span className="text-text-secondary">
-            {t('table.pageOf', {
-              page: formatNumber(safePage, regionConfig),
-              total: formatNumber(totalPages, regionConfig),
-            })}
-          </span>
+          {!busy && (
+            <span className="text-text-secondary">
+              {t('table.pageOf', {
+                page: formatNumber(safePage, regionConfig),
+                total: formatNumber(totalPages, regionConfig),
+              })}
+            </span>
+          )}
           <Button
             type="button"
             variant="outline"
             size="icon"
             iconOnly
             aria-label={t('pagination.next')}
-            disabled={safePage >= totalPages}
+            disabled={busy || safePage >= totalPages}
             onClick={() => onPageChange(safePage + 1)}
           >
             <ChevronRightIcon aria-hidden="true" />
@@ -961,7 +976,11 @@ export function DataTable<TData extends RowData>({
                                     } else if (event.key === 'End') {
                                       event.preventDefault();
                                       setFocusedCell({ row: rowIndex, col: dataColCount - 1 });
-                                    } else if (event.key === ' ') {
+                                    } else if (
+                                      event.key === ' ' &&
+                                      // Space on a button inside the cell (row actions) is that button's.
+                                      event.target === event.currentTarget
+                                    ) {
                                       event.preventDefault();
                                       toggleRow(row.id);
                                     }

@@ -36,9 +36,10 @@ function tenantClock(date: Date, config: RegionConfig): Parts {
 }
 
 /**
- * Never throws; `null` means "show —". `date` mode = calendar date (local fields of a `Date`,
- * first 10 chars of a string, so a Postgres `date` never shifts a day); `clock` mode = the
- * tenant's wall clock for instants.
+ * Never throws; `null` means "show —". `date` mode = calendar date: local fields of a `Date`,
+ * or the digits of `YYYY-MM-DD` / a serialised Postgres `date` (`YYYY-MM-DDT00:00:00.000Z`), so
+ * it never shifts a day; any other instant string is read on the tenant clock. `clock` mode =
+ * the tenant's wall clock for instants; a bare `YYYY-MM-DD` has no time, so it is `null`.
  */
 function toParts(
   value: Date | string | null | undefined,
@@ -70,7 +71,9 @@ function toParts(
     }
   }
   if (!/^\d{4}-\d{2}-\d{2}/.test(s)) return null;
-  if (mode === 'clock' && s.length > 10) {
+  const calendarDate = /^\d{4}-\d{2}-\d{2}(?:T00:00:00(?:\.0+)?Z)?$/.test(s);
+  if (mode === 'clock' && s.length === 10) return null;
+  if (mode === 'clock' || !calendarDate) {
     const instant = new Date(s);
     return Number.isNaN(instant.getTime()) ? null : tenantClock(instant, config);
   }
@@ -134,7 +137,8 @@ export function formatDateTime(
   config: RegionConfig,
 ): string {
   const p = toParts(value, config, 'clock');
-  return p ? `${longDate(p, config)}, ${timeText(p, config)}` : NONE;
+  // A bare `YYYY-MM-DD` has no time to show: just the date.
+  return p ? `${longDate(p, config)}, ${timeText(p, config)}` : formatDate(value, config);
 }
 
 /** `YYYY-MM-DD` from the date's local calendar fields, Latin digits always — for URLs, search
@@ -144,10 +148,6 @@ export function toIsoDate(date: Date): string {
   const m = String(date.getMonth() + 1).padStart(2, '0');
   const d = String(date.getDate()).padStart(2, '0');
   return `${y}-${m}-${d}`;
-}
-
-function isBlank(value: Date | string | null | undefined): value is null | undefined | '' {
-  return value === null || value === undefined || value === '';
 }
 
 /** `October 2026` / `অক্টোবর ২০২৬`. Accepts `YYYY-MM`, `YYYY-MM-DD…` or a `Date`. */
@@ -176,15 +176,11 @@ export function formatWeekday(
   value: Date | string | null | undefined,
   config: RegionConfig,
 ): string {
-  if (isBlank(value)) return NONE;
-  if (value instanceof Date) {
-    if (Number.isNaN(value.getTime())) return NONE;
-    return new Intl.DateTimeFormat(config.locale, { weekday: 'long' }).format(value);
-  }
-  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(toLatinDigits(value));
-  if (!match) return NONE;
+  // Same parsing as formatDate, so an impossible date is `—` here too.
+  const p = toParts(value, config, 'date');
+  if (!p) return NONE;
   return new Intl.DateTimeFormat(config.locale, { weekday: 'long', timeZone: 'UTC' }).format(
-    Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])),
+    Date.UTC(p.y, p.m - 1, p.d),
   );
 }
 
@@ -207,7 +203,7 @@ export function formatDateRange(
   return `${dayOrdinal(a.d, config)} ${formatMonthName(a.m, config)} – ${dayOrdinal(b.d, config)} ${formatMonthName(b.m, config)}, ${year}`;
 }
 
-/** Inverse of `formatDate`. Throws `RangeError` on anything that isn't a
+/** Inverse of `toIsoDate`. Throws `RangeError` on anything that isn't a
  * `YYYY-MM-DD` shape in either digit system, or a calendar date that
  * doesn't exist (`2024-02-30`) — `new Date(...)` silently rolls invalid
  * dates forward instead of rejecting them, which is exactly the "mangles

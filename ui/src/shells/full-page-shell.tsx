@@ -142,7 +142,9 @@ export function FullPageShell({
 }
 
 /** D22 "closing returns to where the user came from": history back when there is an in-app
- * entry, else `fallback` (deep link / new tab). */
+ * entry, else `fallback` (deep link / new tab). For an overlay, open it with a push (no
+ * `replace`) so that back removes `add`; an overlay opened with `replace` must pass its own
+ * close function to `onClose` instead of this hook, or back would leave the host route. */
 export function useCloseFullPage(fallback: () => void): () => void {
   // Router types are not registered inside the ui package, so `useRouter()` is `any` here.
   const router = useRouter() as { history: { canGoBack: () => boolean; back: () => void } };
