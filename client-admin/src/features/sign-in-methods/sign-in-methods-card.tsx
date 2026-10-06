@@ -62,9 +62,9 @@ export function SignInMethodsCard({ roles }: SignInMethodsCardProps) {
     // Only known provider names are echoed back, never raw URL text.
     const name = (v: string | null) => (v === 'google' || v === 'facebook' ? t(v) : '');
     if (linked) toast.success(t('linked', { provider: name(linked) }));
-    else if (social === 'conflict') toast.error(t('conflict', { provider: '' }));
-    else if (social === 'cancelled') toast.error(t('cancelled', { provider: '' }));
-    else if (social === 'failed') toast.error(t('failed', { provider: '' }));
+    else if (social === 'conflict') toast.error(t('conflict'));
+    else if (social === 'cancelled') toast.error(t('cancelled'));
+    else if (social === 'failed') toast.error(t('failed'));
     router.history.replace(router.state.location.pathname);
   }, [router, t]);
 
