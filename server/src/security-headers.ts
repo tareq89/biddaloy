@@ -8,7 +8,13 @@ import type { HelmetOptions } from 'helmet';
  * are broader (e.g. `style-src ... 'unsafe-inline'`, `font-src ... https:`)
  * than this app actually needs — verify any change here by loading each SPA
  * with the browser console open and confirming zero CSP violations.
+ *
+ * One third-party origin is allowed: Cloudflare Turnstile, the captcha on the
+ * public `/register` form ([13.5.1]). It loads a script and renders its
+ * challenge in an iframe, both from `TURNSTILE_ORIGIN`.
  */
+const TURNSTILE_ORIGIN = 'https://challenges.cloudflare.com';
+
 export function buildHelmetOptions(nodeEnv: string | undefined): HelmetOptions {
   const isProduction = nodeEnv === 'production';
 
@@ -20,10 +26,11 @@ export function buildHelmetOptions(nodeEnv: string | undefined): HelmetOptions {
         baseUri: ["'self'"],
         fontSrc: ["'self'"],
         formAction: ["'self'"],
+        frameSrc: [TURNSTILE_ORIGIN],
         frameAncestors: ["'none'"],
         imgSrc: ["'self'"],
         objectSrc: ["'none'"],
-        scriptSrc: ["'self'"],
+        scriptSrc: ["'self'", TURNSTILE_ORIGIN],
         styleSrc: ["'self'"],
         // Forcing http->https upgrades makes sense once TLS is real
         // (production, behind the nginx from #32) but actively breaks local
