@@ -1228,6 +1228,145 @@
           </div>
         </section>
 
+        <section class="space-y-4" id="p17">
+          <div>
+            <h2 class="text-h2">17 · Sign-up and onboarding (Epic 13.0)</h2>
+            <p class="mt-0.5 text-text-secondary">D40 — register card, welcome wizard and the dashboard checklist. Sample data; the real components are named in patterns.md §12.</p>
+          </div>
+
+          <!-- PATTERN: StepIndicator — done = tick, current = filled number + aria-current="step", later = muted. Phone: one line "ধাপ ২ / ৩ · ফোন যাচাই" instead (sm:hidden / hidden sm:flex) -->
+          <div class="rounded-lg border border-border-subtle bg-surface shadow-e1 p-4 md:p-5">
+            <p class="text-body font-medium sm:hidden">ধাপ ২ / ৩<span class="text-text-secondary"> · ফোন যাচাই</span></p>
+            <ol class="hidden items-center gap-2 sm:flex">
+              <li class="flex flex-1 flex-col items-center gap-1 text-body text-text-secondary">
+                <span class="flex size-6 items-center justify-center rounded-full border border-primary text-label text-primary"><i data-lucide="check" class="size-3.5"></i><span class="sr-only">সম্পন্ন</span></span>আপনার তথ্য
+              </li>
+              <li aria-hidden="true" class="h-px flex-1 bg-border-subtle"></li>
+              <li aria-current="step" class="flex flex-1 flex-col items-center gap-1 text-body font-medium text-text-primary">
+                <span class="flex size-6 items-center justify-center rounded-full border border-primary bg-primary text-label text-primary-foreground">২</span>ফোন যাচাই
+              </li>
+              <li aria-hidden="true" class="h-px flex-1 bg-border-subtle"></li>
+              <li class="flex flex-1 flex-col items-center gap-1 text-body text-text-secondary">
+                <span class="flex size-6 items-center justify-center rounded-full border border-border-subtle text-label">৩</span>পাসওয়ার্ড
+              </li>
+            </ol>
+          </div>
+          <!-- /PATTERN -->
+
+          <div class="grid items-start gap-6 md:grid-cols-2">
+            <div class="rounded-lg border border-border-subtle bg-surface shadow-e1 space-y-4 p-4 md:p-5">
+              <!-- PATTERN: PasswordInput — the eye button sits inside the right edge; the input gets pr-12 -->
+              <div class="flex flex-col gap-1.5">
+                <label for="pw-new" class="text-label text-text-primary">নতুন পাসওয়ার্ড</label>
+                <div class="relative">
+                  <input id="pw-new" type="text" value="Rahim@2026" aria-describedby="pw-rules" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 pr-12 text-body-lg text-text-primary md:h-8 md:text-body">
+                  <button type="button" aria-label="পাসওয়ার্ড লুকান" aria-pressed="true" class="absolute right-0 top-0 inline-flex size-11 items-center justify-center rounded-md text-text-secondary hover:bg-muted md:size-8"><i data-lucide="eye-off" class="size-4"></i></button>
+                </div>
+                <!-- /PATTERN -->
+                <!-- PATTERN: PasswordChecklist — met = circle-check (paid tone) + normal text, not met = circle-x + muted text; each row ends with an sr-only status word -->
+                <ul id="pw-rules" role="list" class="flex flex-col gap-1">
+                  <li class="flex items-center gap-2 text-caption text-text-primary"><span class="text-status-paid-fg"><i data-lucide="circle-check" class="size-4"></i></span>কমপক্ষে ৮টি অক্ষর<span class="sr-only">পূর্ণ হয়েছে</span></li>
+                  <li class="flex items-center gap-2 text-caption text-text-secondary"><span><i data-lucide="circle-x" class="size-4"></i></span>একটি সংখ্যা (০–৯)<span class="sr-only">পূর্ণ হয়নি</span></li>
+                </ul>
+                <!-- /PATTERN -->
+              </div>
+              <div class="flex flex-col gap-1.5">
+                <label for="pw-again" class="text-label text-text-primary">পাসওয়ার্ড আবার লিখুন</label>
+                <input id="pw-again" type="password" value="Rahim@2026" aria-describedby="pw-ok" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body">
+                <!-- PATTERN: Field success message — the green twin of the error text -->
+                <p id="pw-ok" class="flex items-center gap-1 text-caption text-status-paid-fg"><i data-lucide="circle-check" class="size-3.5"></i>পাসওয়ার্ড দুটি মিলেছে</p>
+                <!-- /PATTERN -->
+              </div>
+            </div>
+
+            <div class="rounded-lg border border-border-subtle bg-surface shadow-e1 space-y-4 p-4 md:p-5">
+              <!-- PATTERN: Divider with a word -->
+              <div class="flex items-center gap-3 text-caption text-text-secondary" role="separator"><span class="h-px flex-1 bg-border-subtle"></span>অথবা<span class="h-px flex-1 bg-border-subtle"></span></div>
+              <!-- /PATTERN -->
+
+              <!-- PATTERN: Checkbox with links — the box is its own 44 px (32 px desktop) button; the sentence sits beside it, not inside a label around the links -->
+              <div class="flex items-start gap-1">
+                <button type="button" role="checkbox" aria-checked="true" aria-label="আমি শর্তাবলি ও গোপনীয়তা নীতি মেনে নিচ্ছি" class="inline-flex size-11 shrink-0 items-center justify-center md:size-8"><span class="flex size-5 items-center justify-center rounded-sm bg-primary text-primary-foreground"><i data-lucide="check" class="size-3.5"></i></span></button>
+                <p id="tos-text" class="flex min-h-11 items-center text-body md:min-h-8">আমি <a href="#" class="text-primary underline">শর্তাবলি</a> ও <a href="#" class="text-primary underline">গোপনীয়তা নীতি</a> মেনে নিচ্ছি</p>
+              </div>
+              <!-- /PATTERN -->
+
+              <!-- PATTERN: Radio and unchecked Checkbox — unchecked box: border only; radio: ring, selected = brand ring + filled dot -->
+              <div class="flex flex-wrap items-center gap-6">
+                <span class="inline-flex items-center gap-2"><span class="size-5 rounded-sm border border-border-functional bg-surface"></span>অনির্বাচিত</span>
+                <span class="inline-flex items-center gap-2"><span class="size-5 rounded-full border border-border-functional bg-surface"></span>অনির্বাচিত</span>
+                <span class="inline-flex items-center gap-2"><span class="flex size-5 items-center justify-center rounded-full border border-primary bg-surface"><span class="size-2.5 rounded-full bg-primary"></span></span>নির্বাচিত</span>
+              </div>
+              <!-- /PATTERN -->
+
+              <!-- PATTERN: Inline info note -->
+              <p class="flex items-center gap-2 rounded-md bg-status-partial-bg px-3 py-2 text-caption text-status-partial-fg"><i data-lucide="info" class="size-4 shrink-0"></i>পরে মেনু থেকেও সেট আপ করতে পারবেন।</p>
+              <!-- /PATTERN -->
+            </div>
+          </div>
+
+          <!-- PATTERN: ChoiceCard group — each card is ONE role="radio"; selected = border-primary + filled dot; optional Recommended badge; icon well on the right -->
+          <div role="radiogroup" aria-label="স্কুল সেট আপের উপায়" class="space-y-3">
+            <button type="button" role="radio" aria-checked="true" class="flex w-full items-start gap-3 rounded-lg border-2 border-primary bg-surface p-4 text-left shadow-e1">
+              <span class="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border border-primary"><span class="size-2.5 rounded-full bg-primary"></span></span>
+              <span class="min-w-0 flex-1">
+                <span class="flex flex-wrap items-center gap-2"><span class="text-h3">কয়েকটি প্রশ্নের উত্তর দিন</span>
+                  <!-- PATTERN: Recommended badge — neutral chip pill with a star, NOT a status tone -->
+                  <span class="inline-flex h-6 items-center gap-1 rounded-full bg-secondary px-2 text-label text-secondary-foreground"><i data-lucide="star" class="size-3.5"></i>আমাদের পরামর্শ</span>
+                  <!-- /PATTERN -->
+                </span>
+                <span class="mt-1 block text-text-secondary">প্রায় ৫ মিনিট লাগবে। আপনার শ্রেণি, বিষয় ও গ্রেডিং আমরা তৈরি করে দেব।</span>
+              </span>
+              <span class="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted text-text-secondary"><i data-lucide="list-checks"></i></span>
+            </button>
+            <button type="button" role="radio" aria-checked="false" class="flex w-full items-start gap-3 rounded-lg border border-border-functional bg-surface p-4 text-left">
+              <span class="mt-0.5 size-5 shrink-0 rounded-full border border-border-functional"></span>
+              <span class="min-w-0 flex-1"><span class="text-h3">আমি পরে করব</span><span class="mt-1 block text-text-secondary">যেকোনো সময় মেনু থেকে সব কিছু সেট আপ করতে পারবেন।</span></span>
+              <span class="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted text-text-secondary"><i data-lucide="clock"></i></span>
+            </button>
+          </div>
+          <!-- /PATTERN -->
+
+          <!-- PATTERN: SocialButtons — stacked full-width outline link buttons, 44 px at every width, inline SVG icon in currentColor -->
+          <div class="flex flex-col gap-2">
+            <a href="#" class="inline-flex h-11 w-full items-center justify-center gap-2 rounded-md border border-border-functional bg-surface px-4 font-medium text-text-primary hover:bg-muted"><svg viewBox="0 0 24 24" aria-hidden="true" class="size-4 fill-current"><path d="M12 11v2.8h6.5c-.3 1.7-2 4.9-6.5 4.9a7.2 7.2 0 1 1 0-14.4c2.3 0 3.8.9 4.7 1.8l2.1-2A10 10 0 0 0 12 2a10 10 0 1 0 0 20c5.8 0 9.6-4 9.6-9.8 0-.7-.1-1.2-.2-1.7z"/></svg>Google দিয়ে চালিয়ে যান</a>
+            <a href="#" class="inline-flex h-11 w-full items-center justify-center gap-2 rounded-md border border-border-functional bg-surface px-4 font-medium text-text-primary hover:bg-muted"><svg viewBox="0 0 24 24" aria-hidden="true" class="size-4 fill-current"><path d="M13.5 22v-8.2h2.8l.4-3.3h-3.2V8.4c0-.9.3-1.6 1.6-1.6h1.7V3.9a22 22 0 0 0-2.4-.1c-2.4 0-4.1 1.5-4.1 4.2v2.5H7.5v3.3h2.8V22z"/></svg>Facebook দিয়ে চালিয়ে যান</a>
+          </div>
+          <!-- /PATTERN -->
+
+          <!-- PATTERN: NoticeBar— full width, between the top bar and the page; info tone shown (status-partial). Phone: icon + truncated text are ONE 44 px button, action hidden -->
+          <div role="status" data-tone="info" class="flex w-full items-center gap-3 bg-status-partial-bg px-4 py-2 text-body text-status-partial-fg">
+            <button type="button" class="flex h-11 min-w-0 flex-1 items-center justify-start gap-2 md:h-auto"><i data-lucide="clock" class="size-4 shrink-0"></i><span class="truncate md:whitespace-normal">ট্রায়াল: ২৩ দিন বাকি · ১০ জনের মধ্যে ৪ জন শিক্ষার্থী</span></button>
+            <span class="hidden shrink-0 md:block"><span class="inline-flex h-8 items-center rounded-md border border-border-functional bg-surface px-3 font-medium text-text-primary">প্ল্যান দেখুন</span></span>
+          </div>
+          <!-- /PATTERN -->
+
+          <section class="rounded-lg border border-border-subtle bg-surface shadow-e1 p-4 md:p-5" aria-labelledby="cl-title">
+            <h3 id="cl-title" class="text-h2">আপনার স্কুলের সেটআপ শেষ করুন</h3>
+            <p id="cl-sub" class="mt-1 text-text-secondary">৭টির মধ্যে ৩টি শেষ</p>
+            <!-- PATTERN: ProgressBar — role=progressbar, muted track, brand fill (the width is the one inline style) -->
+            <div role="progressbar" aria-valuemin="0" aria-valuemax="7" aria-valuenow="3" aria-labelledby="cl-sub" class="mt-3 h-2 w-full overflow-hidden rounded-full bg-muted"><div class="h-full rounded-full bg-primary" style="width:43%"></div></div>
+            <!-- /PATTERN -->
+            <!-- PATTERN: ChecklistRow — a link row: status icon, label, status word, chevron; done rows are text-text-secondary -->
+            <ul role="list" class="mt-3 divide-y divide-border-subtle">
+              <li><a href="#" class="flex min-h-11 items-center gap-3 px-1 text-text-secondary hover:bg-muted md:min-h-10"><span class="text-status-paid-fg"><i data-lucide="circle-check" class="size-4"></i></span><span class="min-w-0 flex-1">স্কুলের নাম ও লোগো</span><span class="text-caption">শেষ</span><i data-lucide="chevron-right" class="size-4"></i></a></li>
+              <li><a href="#" class="flex min-h-11 items-center gap-3 px-1 text-text-primary hover:bg-muted md:min-h-10"><span class="text-text-secondary"><i data-lucide="circle" class="size-4"></i></span><span class="min-w-0 flex-1">ফি কাঠামো</span><span class="text-caption text-text-secondary">বাকি</span><i data-lucide="chevron-right" class="size-4 text-text-secondary"></i></a></li>
+            </ul>
+            <!-- /PATTERN -->
+          </section>
+          <!-- PATTERN: Dismissible hint card — icon well, title, one line, outline actions, a close (X) -->
+          <section class="flex flex-col gap-3 rounded-lg border border-border-subtle bg-surface shadow-e1 p-4 md:flex-row md:items-center md:p-5" aria-labelledby="hint-title">
+            <span class="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted text-text-secondary"><i data-lucide="key-round"></i></span>
+            <div class="min-w-0 flex-1"><h3 id="hint-title" class="text-h3">পরের বার আরও সহজে লগ ইন করুন</h3><p class="text-text-secondary">Google বা Facebook যুক্ত করুন।</p></div>
+            <div class="flex flex-wrap gap-2">
+              <span class="inline-flex h-11 items-center justify-center rounded-md border border-border-functional bg-surface px-4 font-medium text-text-primary md:h-8 md:px-3">Google যুক্ত করুন</span>
+              <span class="inline-flex h-11 items-center justify-center rounded-md border border-border-functional bg-surface px-4 font-medium text-text-primary md:h-8 md:px-3">Facebook যুক্ত করুন</span>
+            </div>
+            <button type="button" aria-label="বন্ধ করুন" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-muted md:size-8"><i data-lucide="x" class="size-4"></i></button>
+          </section>
+          <!-- /PATTERN -->
+        </section>
+
       </div>
     </main>
 </div>
