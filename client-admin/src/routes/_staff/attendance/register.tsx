@@ -172,6 +172,9 @@ function RegisterPageContent() {
   };
   const [reason, setReason] = React.useState('');
   const [reasonError, setReasonError] = React.useState(false);
+  // The server asked for a reason (a FINALIZED day inside the window, which the
+  // matrix cannot show up front).
+  const [reasonAsked, setReasonAsked] = React.useState(false);
   const [conflictDates, setConflictDates] = React.useState<string[] | null>(null);
   const today = localIso(new Date());
 
@@ -184,6 +187,7 @@ function RegisterPageContent() {
     setDraft(new Map());
     setReason('');
     setReasonError(false);
+    setReasonAsked(false);
   }, [search.section_id, month, search.edit]);
 
   useWarnUnsavedChanges(draft.size > 0);
@@ -196,6 +200,7 @@ function RegisterPageContent() {
   const changedDates = [...new Set([...draft.keys()].map((key) => key.split('|')[1] ?? ''))].sort();
   const oldestAllowed = localIso(new Date(Date.now() - DEFAULT_WINDOW_DAYS * 86_400_000));
   const outsideDates = changedDates.filter((date) => date < oldestAllowed);
+  const reasonNeeded = outsideDates.length > 0 || reasonAsked;
   const newDates = matrix
     ? changedDates.filter((date) =>
         matrix.rows.every((row) => !(row.marks as Record<string, unknown>)[date]),
@@ -211,7 +216,7 @@ function RegisterPageContent() {
   function onSave() {
     if (matrix === undefined || draft.size === 0 || saveMatrix.isPending) return;
     const trimmed = reason.trim();
-    if (outsideDates.length > 0 && trimmed.length < 3) {
+    if (reasonNeeded && trimmed.length < 3) {
       setReasonError(true);
       return;
     }
@@ -227,7 +232,12 @@ function RegisterPageContent() {
       }),
     }));
     saveMatrix.mutate(
-      { client_request_id: crypto.randomUUID(), days, ...(trimmed ? { reason: trimmed } : {}) },
+      {
+        client_request_id: crypto.randomUUID(),
+        days,
+        // Only when a changed day needs one — an unneeded reason is noise in the history.
+        ...(reasonNeeded ? { reason: trimmed } : {}),
+      },
       {
         onSuccess: (result) => {
           toast.success(t('register.saved', { count: result.saved_dates.length }));
@@ -243,7 +253,10 @@ function RegisterPageContent() {
           ) {
             // Stale day, reused request id, or locked date: nothing was saved.
             setConflictDates(Array.isArray(details?.dates) ? (details.dates as string[]) : []);
-          } else if (code === 'ATTENDANCE_REASON_REQUIRED' || code === 'ATTENDANCE_WINDOW_CLOSED') {
+          } else if (code === 'ATTENDANCE_REASON_REQUIRED') {
+            setReasonAsked(true);
+            setReasonError(true);
+          } else if (code === 'ATTENDANCE_WINDOW_CLOSED') {
             setReasonError(true);
           } else {
             toast.error(t('mark.errorToast'));
@@ -400,13 +413,13 @@ function RegisterPageContent() {
               <div className="grid content-start gap-1.5">
                 <Label htmlFor="register-reason">
                   {t('register.reasonLabel')}
-                  {outsideDates.length > 0 && <span aria-hidden="true"> *</span>}
+                  {reasonNeeded && <span aria-hidden="true"> *</span>}
                 </Label>
                 <Textarea
                   id="register-reason"
                   rows={2}
                   value={reason}
-                  required={outsideDates.length > 0}
+                  required={reasonNeeded}
                   aria-invalid={reasonError}
                   aria-describedby="register-reason-help"
                   onChange={(event) => {
