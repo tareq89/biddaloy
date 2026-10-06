@@ -11,9 +11,11 @@ export const ONBOARDING_STEPS = ['setup', 'people', 'done'] as const;
 export type OnboardingStep = (typeof ONBOARDING_STEPS)[number];
 export type OnboardingSlotPath = 'guided' | 'excel';
 
+/** Drops the setup slot's own state: the path and the guided question `q`. */
 function withoutPath(search: Record<string, unknown>) {
   const rest = { ...search };
   delete rest.path;
+  delete rest.q;
   return rest;
 }
 
@@ -29,7 +31,7 @@ export function useOnboardingStep() {
   return {
     step: step as OnboardingStep,
     path,
-    /** Moving to a step always leaves any `path` behind. */
+    /** Moving to a step always leaves any `path` (and guided `q`) behind. */
     setStep: (next: OnboardingStep) =>
       navigateSearch((prev) => ({ ...withoutPath(prev), step: next })),
     /** `null` goes back to the three doors. */
