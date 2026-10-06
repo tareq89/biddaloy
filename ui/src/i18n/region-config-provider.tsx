@@ -1,10 +1,27 @@
-import { createContext, useContext, useEffect, type ReactNode } from 'react';
+import { createContext, useContext, useLayoutEffect, type ReactNode } from 'react';
 
 import { setInterpolationNumerals } from './i18n';
-import { LOCALE_REGION_DEFAULTS, REGION_BD_BN, type RegionConfig } from './region-config';
+import {
+  LOCALE_REGION_DEFAULTS,
+  REGION_BD_BN,
+  type NumeralSystem,
+  type RegionConfig,
+} from './region-config';
 import { useLocale } from './use-locale';
 
 const RegionConfigContext = createContext<RegionConfig>(REGION_BD_BN);
+const DepthContext = createContext(0);
+
+// ponytail: one global numeral system for i18next's formatter. Every mounted provider registers
+// here; the deepest one (ties: the latest) wins, so unmounting one provider restores another's
+// value instead of wiping it. Upgrade path: numerals in i18next's per-call options if two
+// tenants ever render at once.
+const mounted: { depth: number; numerals: NumeralSystem }[] = [];
+function syncNumerals(): void {
+  let top: (typeof mounted)[number] | undefined;
+  for (const entry of mounted) if (!top || entry.depth >= top.depth) top = entry;
+  setInterpolationNumerals(top?.numerals);
+}
 
 export interface RegionConfigProviderProps {
   children: ReactNode;
@@ -25,15 +42,25 @@ export interface RegionConfigProviderProps {
 export function RegionConfigProvider({ children, value }: RegionConfigProviderProps) {
   const { locale } = useLocale();
   const resolved = value ?? LOCALE_REGION_DEFAULTS[locale];
+  const depth = useContext(DepthContext) + 1;
 
-  // Pushed during render: children call t() in this same pass, before any effect runs.
-  // ponytail: module-level value, last mounted provider wins; a component that does not re-render
-  // after tenant settings load keeps the language-default digits until its next render. Upgrade
-  // path: a numerals field in i18next's per-instance options if two tenants ever render at once.
+  // Set during render too: children call t() in this same pass, before any effect runs.
   setInterpolationNumerals(resolved.numerals);
-  useEffect(() => () => setInterpolationNumerals(undefined), []);
+  useLayoutEffect(() => {
+    const entry = { depth, numerals: resolved.numerals };
+    mounted.push(entry);
+    syncNumerals();
+    return () => {
+      mounted.splice(mounted.indexOf(entry), 1);
+      syncNumerals();
+    };
+  }, [depth, resolved.numerals]);
 
-  return <RegionConfigContext.Provider value={resolved}>{children}</RegionConfigContext.Provider>;
+  return (
+    <DepthContext.Provider value={depth}>
+      <RegionConfigContext.Provider value={resolved}>{children}</RegionConfigContext.Provider>
+    </DepthContext.Provider>
+  );
 }
 
 export function useRegionConfig(): RegionConfig {
