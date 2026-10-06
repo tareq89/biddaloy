@@ -430,7 +430,7 @@ flowchart TD
   | Any staff role, or mixed | 8+ characters, upper, lower, digit, special |
   | Only PARENT / STUDENT | 8+ characters, a digit |
 
-- **Google (Facebook is planned: #1647, not built).** The server lists the
+- **Google and Facebook.** The server lists the
   configured providers (`GET /auth/social/providers`) and the UI draws one
   button each. The flow is server-side authorization code with PKCE and
   `state`. Identities live in `user_identities`. **Connecting is always

@@ -17,7 +17,7 @@ flowchart LR
 | --- | --- | --- |
 | Cloudflare Turnstile | Captcha on the public `/register` form. The widget loads from `https://challenges.cloudflare.com` (allowed in the CSP, see [07-deployment.md](07-deployment.md)). | `TURNSTILE_SECRET_KEY` (server). `VITE_TURNSTILE_SITE_KEY` (build arg; no key means the widget is hidden). Set both or neither. |
 | Google sign-in | "Continue with Google" at login and register, and "connect" on the security page. | `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`. A provider with no credentials is not listed. |
-| Facebook sign-in | **Planned (#1647), not built.** No provider exists yet. | `FACEBOOK_OAUTH_CLIENT_ID`, `FACEBOOK_OAUTH_CLIENT_SECRET` are reserved in `.env.example` only. |
+| Facebook sign-in | "Continue with Facebook", same places as Google. PKCE; Graph API `GRAPH_VERSION` is pinned in `facebook.provider.ts`. Meta also calls our data-deletion callback (`POST /api/v1/auth/social/facebook/data-deletion`), which links to a public status page. See [22-onboarding.md](22-onboarding.md). | `FACEBOOK_OAUTH_CLIENT_ID`, `FACEBOOK_OAUTH_CLIENT_SECRET`. Set the callback URL in the Meta app dashboard. |
 
 ## Self-hosted infrastructure
 
