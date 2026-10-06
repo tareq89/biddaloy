@@ -191,7 +191,13 @@ function RegisterPageContent() {
   // The server asked for a reason (a FINALIZED day inside the window, which the
   // matrix cannot show up front).
   const [reasonAsked, setReasonAsked] = React.useState(false);
-  const [conflictDates, setConflictDates] = React.useState<string[] | null>(null);
+  // A save the server refused as a whole: which kind, and for which dates.
+  // `conflict` = someone else changed a day (409), `locked` = a future or closed
+  // day (422), `closed` = only ATTENDANCE_CORRECT may change it (403).
+  const [problem, setProblem] = React.useState<{
+    kind: 'conflict' | 'locked' | 'closed';
+    dates: string[];
+  } | null>(null);
 
   // A new section, month or `?edit` starts a clean draft (the blocker below has
   // already asked before any of those navigations when the draft was not empty).
@@ -231,6 +237,12 @@ function RegisterPageContent() {
     : [];
   const fmtDates = (dates: readonly string[]) =>
     dates.map((date) => formatDate(date, regionConfig)).join(', ');
+
+  function reloadMonth() {
+    setDraft(new Map());
+    setProblem(null);
+    void matrixQuery.refetch();
+  }
 
   function leaveEdit() {
     void navigate({ search: (prev) => ({ ...prev, edit: undefined }) });
@@ -275,18 +287,19 @@ function RegisterPageContent() {
         onError: (error) => {
           const details = error instanceof ApiError ? error.details : undefined;
           const code = details?.code;
-          if (
-            error instanceof ApiError &&
-            (error.statusCode === 409 || code === 'ATTENDANCE_MATRIX_LOCKED_DATE')
-          ) {
-            // Stale day, reused request id, or locked date: nothing was saved.
-            setConflictDates(Array.isArray(details?.dates) ? (details.dates as string[]) : []);
+          const dates = Array.isArray(details?.dates) ? (details.dates as string[]) : [];
+          // Nothing was saved in any of these (the save is all-or-nothing).
+          if (error instanceof ApiError && error.statusCode === 409) {
+            // Stale day, reused request id, or a register created meanwhile.
+            setProblem({ kind: 'conflict', dates });
+          } else if (code === 'ATTENDANCE_MATRIX_LOCKED_DATE') {
+            setProblem({ kind: 'locked', dates });
+          } else if (code === 'ATTENDANCE_WINDOW_CLOSED') {
+            // 403: the caller lacks ATTENDANCE_CORRECT — no reason can fix this.
+            setProblem({ kind: 'closed', dates });
           } else if (code === 'ATTENDANCE_REASON_REQUIRED') {
             setReasonAsked(true);
             setReasonError(true);
-          } else if (code === 'ATTENDANCE_WINDOW_CLOSED') {
-            // 403: the caller lacks ATTENDANCE_CORRECT — no reason can fix this.
-            toast.error(t('mark.readOnlyExplanation'));
           } else {
             toast.error(t('mark.errorToast'));
           }
@@ -298,6 +311,7 @@ function RegisterPageContent() {
   const names = { className: className ?? '', sectionName: sectionName ?? '' };
   const caption = t('register.caption', { ...names, month: monthLabel });
   const cardTitle = t('register.cardTitle', { ...names, month: monthLabel });
+  const problemDates = problem?.dates.length ? fmtDates(problem.dates) : monthLabel;
 
   return (
     <PageContainer>
@@ -670,29 +684,46 @@ function RegisterPageContent() {
         onConfirm={() => blocker.proceed?.()}
       />
       <Dialog
-        open={conflictDates !== null}
-        onOpenChange={(open) => !open && setConflictDates(null)}
+        open={problem !== null}
+        // Closing a conflict any way (Esc, outside click, X) reloads: keeping the
+        // stale grid would only fail the next Save the same way. A `closed`
+        // problem just closes; the draft is the user's to keep or trim.
+        onOpenChange={(open) => {
+          if (open) return;
+          if (problem?.kind === 'closed') setProblem(null);
+          else reloadMonth();
+        }}
       >
         <DialogContent size="sm">
           <DialogHeader>
             <DialogTitle>{t('register.conflictTitle')}</DialogTitle>
             <DialogDescription>
-              {t('register.conflictBody', {
-                dates: conflictDates?.length ? fmtDates(conflictDates) : monthLabel,
-              })}
+              {problem?.kind === 'locked'
+                ? t('register.lockedBody', { dates: problemDates })
+                : problem?.kind === 'closed'
+                  ? t('register.closedBody', { dates: problemDates })
+                  : t('register.conflictBody', { dates: problemDates })}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button
-              type="button"
-              onClick={() => {
-                setDraft(new Map());
-                setConflictDates(null);
-                void matrixQuery.refetch();
-              }}
-            >
-              {t('register.reload')}
-            </Button>
+            {problem?.kind === 'closed' && problem.dates.length > 0 ? (
+              <Button
+                type="button"
+                onClick={() => {
+                  const drop = new Set(problem.dates);
+                  setDraft(
+                    new Map([...draft].filter(([key]) => !drop.has(key.split('|')[1] ?? ''))),
+                  );
+                  setProblem(null);
+                }}
+              >
+                {t('register.removeDays')}
+              </Button>
+            ) : (
+              <Button type="button" onClick={reloadMonth}>
+                {t('register.reload')}
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
