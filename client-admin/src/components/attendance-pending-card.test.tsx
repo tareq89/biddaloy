@@ -168,6 +168,6 @@ describe('AttendancePendingCard', () => {
     useSections([makeSection({})]);
     await user.click(screen.getByRole('button', { name: 'Retry' }));
 
-    expect(await screen.findByText(/of .+ sections pending/)).toBeTruthy();
+    expect(await screen.findByText(/of .+ section pending/)).toBeTruthy();
   });
 });
