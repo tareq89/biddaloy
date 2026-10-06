@@ -770,6 +770,44 @@ describe('/attendance/$sectionId', () => {
       ).toBeNull();
     });
 
+    it("switching tabs never writes one tab's draft under another tab's key", async () => {
+      mockPeriodRoutes();
+      server.use(
+        http.get('/api/v1/attendance/sections/section-1/register', async ({ request }) => {
+          const isPeriod = new URL(request.url).searchParams.has('period_no');
+          // Slow period data: the cached period register shows while this refetches.
+          if (isPeriod) await new Promise((resolve) => setTimeout(resolve, 100));
+          return HttpResponse.json(isPeriod ? periodRegister(null) : registerBody());
+        }),
+      );
+      renderWithRouter(routeTree, {
+        initialEntries: ['/attendance/section-1?date=2026-09-04&period=1'],
+        tenantId: 'tenant-1',
+        role: 'TEACHER',
+        locale: 'en',
+      });
+
+      const user = userEvent.setup();
+      await screen.findByText('Rafi Ahmed');
+      await user.click(await screen.findByRole('tab', { name: 'Whole day' }));
+      await waitFor(() =>
+        expect(screen.getByRole('tab', { name: 'Whole day' }).getAttribute('aria-selected')).toBe(
+          'true',
+        ),
+      );
+      await user.click(await screen.findByText('Rafi Ahmed'));
+      expect(await screen.findByText('Present 1')).toBeTruthy();
+
+      const periodKey = 'attendance-draft:tenant-1:section-1:2026-09-04:1';
+      const setItem = vi.spyOn(Storage.prototype, 'setItem');
+      await user.click(screen.getByRole('tab', { name: /P1 · Maths/ }));
+      expect(await screen.findByText('Present 0')).toBeTruthy();
+
+      const periodWrites = setItem.mock.calls.filter(([key]) => key === periodKey);
+      expect(periodWrites.length).toBeGreaterThan(0);
+      for (const [, value] of periodWrites) expect(value).not.toContain('PRESENT');
+    });
+
     it('a 403 ATTENDANCE_PERIOD_DISABLED drops ?period= and shows the day register', async () => {
       mockPeriodRoutes([]);
       server.use(
