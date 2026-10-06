@@ -39,11 +39,13 @@ import {
   toast,
 } from '@biddaloy/ui/components';
 import {
+  useActiveTenant,
   useClasses,
   useClassSections,
   useHasPermission,
   useRegisterMatrix,
   useSaveRegisterMatrix,
+  useSchoolSettings,
 } from '@biddaloy/ui/hooks';
 import {
   RegionConfigProvider,
@@ -72,9 +74,10 @@ import './-register-print.css';
 
 const MONTH_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
 
-function currentMonthIso(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+/** The school's calendar date (`YYYY-MM-DD`), not the browser's: the server
+ * decides future and closed days on the tenant clock (`localToday(timezone)`). */
+function tenantToday(timeZone: string): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone }).format(new Date());
 }
 
 const searchSchema = z.object({
@@ -88,14 +91,14 @@ const searchSchema = z.object({
   edit: z.coerce.boolean().optional().catch(undefined),
 });
 
-/** Default correction window (days) from `11-attendance.md`. Only decides
- * whether the reason field is marked required up front; the tenant's real
- * window is enforced by the server and its 422/403 shows under the field. */
+/** Default correction window (days) from `11-attendance.md`, used when the
+ * tenant's own window is unreadable (the settings read needs SETTINGS_MANAGE).
+ * It only decides whether the reason is marked required up front; the server
+ * enforces the real rule, and its 422 shows under the field. */
 const DEFAULT_WINDOW_DAYS = 2;
 
-function localIso(date: Date): string {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-}
+/** Same length rule as the server's `MIN_REASON_LENGTH`. */
+const MIN_REASON_LENGTH = 3;
 
 /** `md` and up (768px) — edit mode is desktop-only (D14). */
 function useIsMd(): boolean {
@@ -136,7 +139,8 @@ function RegisterPageContent() {
   const regionConfig = useRegionConfig();
   const navigate = Route.useNavigate();
   const search = Route.useSearch();
-  const month = search.month ?? currentMonthIso();
+  const today = tenantToday(regionConfig.timezone);
+  const month = search.month ?? today.slice(0, 7);
 
   const classesQuery = useClasses();
   const sectionsQuery = useClassSections(search.class_id);
@@ -158,6 +162,13 @@ function RegisterPageContent() {
   const rows = matrixQuery.data?.rows ?? [];
   const matrix = matrixQuery.data;
   const canMark = useHasPermission(Permission.ATTENDANCE_MARK);
+  // The tenant's correction window. Only SETTINGS_MANAGE can read settings;
+  // `''` keeps the query off for everyone else (they get the default).
+  const canReadSettings = useHasPermission(Permission.SETTINGS_MANAGE);
+  const tenantId = useActiveTenant();
+  const settingsQuery = useSchoolSettings(canReadSettings ? (tenantId ?? '') : '');
+  const windowDays =
+    settingsQuery.data?.attendance?.correctionWindowDays ?? DEFAULT_WINDOW_DAYS;
   const isMd = useIsMd();
   const editing = search.edit === true && isMd && canMark && rows.length > 0;
   const saveMatrix = useSaveRegisterMatrix(search.section_id ?? '', month);
@@ -176,7 +187,6 @@ function RegisterPageContent() {
   // matrix cannot show up front).
   const [reasonAsked, setReasonAsked] = React.useState(false);
   const [conflictDates, setConflictDates] = React.useState<string[] | null>(null);
-  const today = localIso(new Date());
 
   // A new section, month or `?edit` starts a clean draft (the blocker below has
   // already asked before any of those navigations when the draft was not empty).
@@ -198,8 +208,16 @@ function RegisterPageContent() {
   });
 
   const changedDates = [...new Set([...draft.keys()].map((key) => key.split('|')[1] ?? ''))].sort();
-  const oldestAllowed = localIso(new Date(Date.now() - DEFAULT_WINDOW_DAYS * 86_400_000));
-  const outsideDates = changedDates.filter((date) => date < oldestAllowed);
+  // Server rule (`attendance.service.ts`, "closed days"): a day that already
+  // has a register and is older than the window needs a reason. A day with no
+  // register never does. A FINALIZED day inside the window also does, but the
+  // matrix does not carry the state, so that case is left to the server's 422.
+  const oldestAllowed = new Date(Date.parse(today) - windowDays * 86_400_000)
+    .toISOString()
+    .slice(0, 10);
+  const outsideDates = matrix
+    ? changedDates.filter((date) => date < oldestAllowed && matrix.versions[date] !== undefined)
+    : [];
   const reasonNeeded = outsideDates.length > 0 || reasonAsked;
   const newDates = matrix
     ? changedDates.filter((date) =>
@@ -216,7 +234,7 @@ function RegisterPageContent() {
   function onSave() {
     if (matrix === undefined || draft.size === 0 || saveMatrix.isPending) return;
     const trimmed = reason.trim();
-    if (reasonNeeded && trimmed.length < 3) {
+    if (reasonNeeded && trimmed.length < MIN_REASON_LENGTH) {
       setReasonError(true);
       return;
     }
@@ -235,8 +253,10 @@ function RegisterPageContent() {
       {
         client_request_id: crypto.randomUUID(),
         days,
-        // Only when a changed day needs one — an unneeded reason is noise in the history.
-        ...(reasonNeeded ? { reason: trimmed } : {}),
+        // Whatever the user typed is sent: only the server knows every day that
+        // needs one (a FINALIZED day inside the window), and dropping a typed
+        // reason would turn a working save into a 422.
+        ...(trimmed.length >= MIN_REASON_LENGTH ? { reason: trimmed } : {}),
       },
       {
         onSuccess: (result) => {
