@@ -192,7 +192,8 @@ export function RegisterDetailsForm({
           name="terms"
           render={({ field }) => (
             <FormItem>
-              <div className="flex items-start gap-2">
+              {/* The label stretches over a 44 px row on phone, so the whole row is the tap target. */}
+              <div className="flex min-h-11 items-center gap-2 sm:min-h-0">
                 <FormControl>
                   <Checkbox
                     id="register-terms"
@@ -201,7 +202,10 @@ export function RegisterDetailsForm({
                     disabled={loading}
                   />
                 </FormControl>
-                <FormLabel htmlFor="register-terms" className="font-normal">
+                <FormLabel
+                  htmlFor="register-terms"
+                  className="flex flex-1 items-center self-stretch font-normal"
+                >
                   {t('terms')}
                 </FormLabel>
               </div>
