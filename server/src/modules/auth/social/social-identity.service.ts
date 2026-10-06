@@ -81,7 +81,7 @@ export class SocialIdentityService {
 
   /**
    * Meta's data-deletion callback: removes only the `provider`+`subject`
-   * identity row(s). Never touches the user or any school data. One
+   * identity row (unique per provider+subject). Never touches the user or any school data. One
    * `DELETE ... RETURNING` (no load-mutate-save, no find-then-delete race),
    * audited in the same transaction. Audited even when nothing matched, so
    * every confirmation code handed back to Meta can be found later.

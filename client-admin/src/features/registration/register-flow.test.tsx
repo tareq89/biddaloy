@@ -160,6 +160,9 @@ describe('RegisterFlow', () => {
     // The heading must not steal focus from the field: the code is the next thing to type.
     const field = await screen.findByLabelText('Enter the code we sent');
     await waitFor(() => expect(document.activeElement).toBe(field));
+    // Focus skips the "we sent a code to …" line, so the field points a screen reader at it.
+    expect(field.getAttribute('aria-describedby')).toBe('register-otp-sent-to');
+    expect(document.getElementById('register-otp-sent-to')?.textContent).toBeTruthy();
 
     await user.click(screen.getByRole('button', { name: 'Change number' }));
     const heading = await screen.findByRole('heading', { name: 'Create your school' });
