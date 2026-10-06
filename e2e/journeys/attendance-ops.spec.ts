@@ -5,6 +5,7 @@ import {
   apiSession,
   createStudentsInSection,
   get,
+  isFridayAnywhere,
   markableDateIso,
   post,
   put,
@@ -23,8 +24,14 @@ import { AttendancePage } from '../pages';
  * Serial, one worker: the Settings test flips the tenant's period switch
  * (restored in a `finally`), so nothing else in this file may run beside it.
  * Every date comes from `markableDateIso()` — the SCHOOL's date (Asia/Dhaka),
- * never the runner's clock; fresh class sections (not the seeded A/B) keep
- * these tests off `journeys/attendance.spec.ts`'s register.
+ * never the runner's clock. Each test sets up its own data (no state is
+ * passed between tests), so `--grep`, sharding and retries work.
+ *
+ * What is left behind: the check-list and month-edit tests use fresh class
+ * sections. The period test marks a period on the SEEDED Class 6 / A and,
+ * when the day has no register yet, adds one with one absentee. Neither can
+ * be undone (there is no delete-register endpoint), so it never writes the
+ * day register on `MARK_DATE`: `journeys/attendance.spec.ts` owns that one.
  */
 test.describe.configure({ mode: 'serial' });
 
@@ -37,14 +44,16 @@ function addDays(dateIso: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-/** The school is closed on Friday. The dashboard card and the unfiltered
- * list read "today" from the browser, so a Friday on either clock (the
- * runner's or Dhaka's) turns them into the holiday state. */
-function isFridayAnywhere(): boolean {
-  const dhaka = new Date(
-    `${new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Dhaka' }).format(new Date())}T00:00:00Z`,
+/** The seeded Class 6 / A, as `session` sees it in `my-sections`. */
+async function seededClassSixA(request: APIRequestContext, session: ApiSession) {
+  const mine = await get<{ section_id: string; section_name: string; class_name: string }[]>(
+    request,
+    session,
+    '/attendance/my-sections',
   );
-  return dhaka.getUTCDay() === 5 || new Date().getDay() === 5;
+  const section = mine.find((s) => s.class_name === 'Class 6' && s.section_name === 'A');
+  if (!section) throw new Error('Seeded Class 6 / A not found — has `yarn seed` run?');
+  return section;
 }
 
 interface Matrix {
@@ -83,11 +92,10 @@ test.describe('check-list', () => {
     const chain = await createStudentsInSection(request, admin, 'Ops Pending Student', 2);
     const attendance = new AttendancePage(page);
 
+    // Only this test's own row is asserted: other specs running beside this
+    // one can move the tenant-wide "N of M pending" count at any time.
     await attendance.gotoPending(MARK_DATE);
     await expect(attendance.sectionLink(chain.className)).toBeVisible();
-    const before = await attendance.pendingCounts();
-    // Seeded Class 6 sections plus this fresh one are still to be finalized.
-    expect(before.pending).toBeGreaterThanOrEqual(1);
 
     await attendance.sectionLink(chain.className).click();
     await expect(
@@ -107,11 +115,12 @@ test.describe('check-list', () => {
 
     await attendance.gotoPending(MARK_DATE);
     await expect(attendance.sectionLink(chain.className)).toHaveCount(0);
-    const after = await attendance.pendingCounts();
-    expect(after.pending).toBe(before.pending - 1);
+    // ...and it is listed as done instead.
+    await page.goto(`/attendance?status=done&date=${MARK_DATE}`);
+    await expect(attendance.sectionLink(chain.className)).toBeVisible();
   });
 
-  test('the dashboard card shows the list count and links to the filtered list', async ({
+  test('the dashboard card shows a pending count and links to the filtered list', async ({
     page,
     request,
   }) => {
@@ -120,29 +129,30 @@ test.describe('check-list', () => {
       'the school is closed on Friday: the card shows the holiday text',
     );
     const admin = await adminApiSession(request);
-    await createStudentsInSection(request, admin, 'Ops Card Student', 2);
+    // A fresh, unmarked section: the card has at least one pending to show.
+    const chain = await createStudentsInSection(request, admin, 'Ops Card Student', 2);
     const attendance = new AttendancePage(page);
-
-    // No `date`: the card and this list both read the browser's "today".
-    await attendance.gotoPending();
-    const { pending, total } = await attendance.pendingCounts();
 
     await page.goto('/dashboard');
     const card = page
       .getByRole('heading', { level: 2, name: t('attendance.dashboardCard.title') })
       .locator('xpath=ancestor::*[self::div or self::section][1]');
     await expect(card).toBeVisible();
-    // Same numbers as the list (the card and the list read the same endpoint).
-    expect(await attendance.countsFrom(card, 'attendance.dashboardCard.pending')).toEqual({
-      pending,
-      total,
-    });
+    // The exact numbers are tenant-wide and other specs move them, so only
+    // their shape is checked; this test's own section is checked in the list.
+    const { pending, total } = await attendance.countsFrom(
+      card,
+      'attendance.dashboardCard.pending_other',
+    );
+    expect(pending).toBeGreaterThanOrEqual(1);
+    expect(total).toBeGreaterThanOrEqual(pending);
 
     await card.getByRole('link', { name: t('attendance.dashboardCard.open') }).click();
     await expect(page).toHaveURL(/\/attendance\?.*status=pending/);
     await expect(
       page.getByRole('heading', { level: 1, name: t('attendance.list.title') }),
     ).toBeVisible();
+    await expect(attendance.sectionLink(chain.className)).toBeVisible();
   });
 });
 
@@ -159,6 +169,7 @@ test.describe('monthly edit', () => {
 
     await attendance.gotoRegisterEdit(chain, MONTH);
     const columns = await attendance.editableColumns();
+    test.skip(columns.length === 0, 'no open school day yet this month');
     const last = columns.at(-1)!;
     const previous = columns.at(-2) ?? last;
     await attendance.setCellByKey(0, last, 'a');
@@ -203,9 +214,9 @@ test.describe('monthly edit', () => {
 
     await attendance.gotoRegisterEdit(chain, MONTH);
     const columns = await attendance.editableColumns();
+    test.skip(columns.length < 2, 'needs two open school days in the month so far');
     const last = columns.at(-1)!;
     const previous = columns.at(-2);
-    test.skip(previous === undefined, 'needs two editable days in the month');
     await attendance.setCellByKey(0, last, 'a');
     await attendance.setCellByKey(1, previous!, 'a');
 
@@ -266,9 +277,6 @@ async function findOpenPeriod(
   return null;
 }
 
-let markedPeriod: { sectionId: string; date: string; period: PeriodInfo; held: number } | null =
-  null;
-
 test.describe('period attendance', () => {
   test.use(loggedIn('teacher'));
 
@@ -278,13 +286,7 @@ test.describe('period attendance', () => {
   }) => {
     const teacher = await apiSession(request, 'teacher');
     const admin = await adminApiSession(request);
-    const mine = await get<{ section_id: string; section_name: string; class_name: string }[]>(
-      request,
-      teacher,
-      '/attendance/my-sections',
-    );
-    const section = mine.find((s) => s.class_name === 'Class 6' && s.section_name === 'A');
-    if (!section) throw new Error('Seeded Class 6 / A not found — has `yarn seed` run?');
+    const section = await seededClassSixA(request, teacher);
 
     const open = await findOpenPeriod(request, teacher, section.section_id);
     test.skip(
@@ -309,6 +311,10 @@ test.describe('period attendance', () => {
         day.session.id !== null,
         'the day register is already final with no absentee to prefill',
       );
+      test.skip(
+        date === MARK_DATE,
+        "would create Class 6 / A's day register on MARK_DATE, which journeys/attendance.spec.ts owns",
+      );
       await put(request, admin, `/attendance/sections/${section.section_id}/register`, {
         date,
         base_version: 0,
@@ -331,29 +337,52 @@ test.describe('period attendance', () => {
 
     const heldAfter = await subjectHeld(request, admin, section.section_id, date, period);
     expect(heldAfter).toBe(heldBefore + 1);
-    markedPeriod = { sectionId: section.section_id, date, period, held: heldAfter };
   });
 });
 
 test.describe('subject report', () => {
   test.use(loggedIn('admin'));
 
-  test('the By-subject tab shows the period that was just held', async ({ page }) => {
-    test.skip(markedPeriod === null, 'the period test above did not run');
-    const { sectionId, date, period, held } = markedPeriod!;
+  test('the By-subject tab heads each subject with the periods held', async ({
+    page,
+    request,
+  }) => {
+    // Its own data, read from the API: no state from the period test above.
+    const admin = await adminApiSession(request);
+    const section = await seededClassSixA(request, admin);
+    const summary = await subjectSummary(request, admin, section.section_id, MONTH);
+    const subject = summary.subjects.find((s) => s.held > 0);
+    test.skip(subject === undefined, 'no period register on Class 6 / A this month');
+    const { name, held } = subject!;
+
     await page.goto(
-      `/attendance/reports?view=subjects&section_id=${sectionId}&month=${date.slice(0, 7)}`,
+      `/attendance/reports?view=subjects&section_id=${section.section_id}&month=${MONTH}`,
     );
     await expect(
       page.getByRole('tab', { name: t('attendance.reports.viewSubjects') }),
     ).toBeVisible();
     // The column header carries "<subject> (<held>)", digits Latin or Bangla.
     const bangla = String(held).replace(/\d/g, (d) => '০১২৩৪৫৬৭৮৯'[Number(d)]!);
-    await expect(
-      page.getByRole('columnheader', { name: new RegExp(`${period.subject_name}`) }),
-    ).toContainText(new RegExp(`\\((?:${held}|${bangla})\\)`));
+    await expect(page.getByRole('columnheader', { name: new RegExp(name) })).toContainText(
+      new RegExp(`\\((?:${held}|${bangla})\\)`),
+    );
   });
 });
+
+/** `GET .../subject-summary` over one whole month (`YYYY-MM`). */
+async function subjectSummary(
+  request: APIRequestContext,
+  session: ApiSession,
+  sectionId: string,
+  month: string,
+) {
+  const last = new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5)), 0));
+  return get<{ subjects: { subject_id: string; name: string; held: number }[] }>(
+    request,
+    session,
+    `/attendance/sections/${sectionId}/subject-summary?from=${month}-01&to=${month}-${String(last.getUTCDate()).padStart(2, '0')}`,
+  );
+}
 
 async function subjectHeld(
   request: APIRequestContext,
@@ -362,13 +391,7 @@ async function subjectHeld(
   date: string,
   period: PeriodInfo,
 ): Promise<number> {
-  const month = date.slice(0, 7);
-  const last = new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5)), 0));
-  const summary = await get<{ subjects: { subject_id: string; held: number }[] }>(
-    request,
-    session,
-    `/attendance/sections/${sectionId}/subject-summary?from=${month}-01&to=${month}-${String(last.getUTCDate()).padStart(2, '0')}`,
-  );
+  const summary = await subjectSummary(request, session, sectionId, date.slice(0, 7));
   return summary.subjects.find((s) => s.subject_id === period.subject_id)?.held ?? 0;
 }
 
@@ -382,7 +405,7 @@ test.describe('settings', () => {
     test.setTimeout(90_000);
     const admin = await adminApiSession(request);
     const settingsPath = `/schools/${admin.tenantId}/settings`;
-    const original = await get<{ attendance?: Record<string, unknown> }>(
+    const original = await get<{ version: number; attendance?: Record<string, unknown> }>(
       request,
       admin,
       settingsPath,
@@ -398,13 +421,7 @@ test.describe('settings', () => {
     const absentLabel = `${shift.name} — ${t('settings.attendance.shiftAbsentAfter')}`;
 
     // A date whose routine has periods (A's weekly Monday slot), so the tabs can be looked for.
-    const mine = await get<{ section_id: string; section_name: string; class_name: string }[]>(
-      request,
-      admin,
-      '/attendance/my-sections',
-    );
-    const section = mine.find((s) => s.class_name === 'Class 6' && s.section_name === 'A');
-    if (!section) throw new Error('Seeded Class 6 / A not found — has `yarn seed` run?');
+    const section = await seededClassSixA(request, admin);
     let periodDate: string | null = null;
     for (let back = 0; back < 28 && periodDate === null; back += 1) {
       const date = addDays(MARK_DATE, -back);
@@ -462,7 +479,7 @@ test.describe('settings', () => {
       const response = await request.patch(`/api/v1${settingsPath}`, {
         headers: { Authorization: `Bearer ${admin.token}`, 'X-Tenant-ID': admin.tenantId },
         data: {
-          version: 1,
+          version: original.version,
           attendance: { ...rest, periodAttendance: { enabled: true }, shiftTimes: [] },
         },
       });

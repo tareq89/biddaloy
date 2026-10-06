@@ -445,6 +445,16 @@ export function markableDateIso(): string {
   return d.toISOString().slice(0, 10);
 }
 
+/** The school is closed on Friday. Screens that read "today" from the
+ * browser can see a Friday on either clock (the runner's or Dhaka's), so a
+ * spec that needs a school day skips when it is Friday on EITHER. */
+export function isFridayAnywhere(): boolean {
+  const dhaka = new Date(
+    `${new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Dhaka' }).format(new Date())}T00:00:00Z`,
+  );
+  return dhaka.getUTCDay() === 5 || new Date().getDay() === 5;
+}
+
 /** N students in one shared, freshly-created section — for pagination
  * specs that need more than a page's worth of rows without paying for a
  * class chain per student. */
