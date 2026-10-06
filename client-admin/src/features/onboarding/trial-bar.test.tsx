@@ -51,14 +51,18 @@ describe('TrialBar', () => {
     mockStatus(trial(10));
     renderBar('ADMIN');
     expect(await screen.findByText('Trial: 10 days left · 12 of 50 students')).toBeTruthy();
-    expect(screen.getByRole('status').getAttribute('data-tone')).toBe('warning');
+    expect(screen.getByRole('status').closest('[data-tone]')?.getAttribute('data-tone')).toBe(
+      'warning',
+    );
   });
 
   it('uses the danger tone in the last 3 days', async () => {
     mockStatus(trial(3));
     renderBar('ADMIN');
     await screen.findByText(/3 days left/);
-    expect(screen.getByRole('status').getAttribute('data-tone')).toBe('danger');
+    expect(screen.getByRole('status').closest('[data-tone]')?.getAttribute('data-tone')).toBe(
+      'danger',
+    );
   });
 
   it('renders nothing for a TEACHER or a school without a trial', async () => {
