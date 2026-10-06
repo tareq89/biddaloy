@@ -1142,6 +1142,7 @@ export async function starterWorkbook(
 export async function endTrial(schoolId: string): Promise<void> {
   const url = process.env.DATABASE_URL;
   if (!url) throw new Error('DATABASE_URL is not set — endTrial needs the e2e database');
+  // @ts-expect-error no @types/pg in e2e; hoisted from the server
   const { Client } = await import('pg');
   const client = new Client({ connectionString: url });
   await client.connect();
