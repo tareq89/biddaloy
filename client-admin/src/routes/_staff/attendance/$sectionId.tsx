@@ -178,6 +178,15 @@ function SectionRegisterPage() {
     currentVersion: number | undefined;
   } | null>(null);
 
+  // Runs before the seed effect below: on a tab switch with the new tab's register already
+  // cached, the seed effect would otherwise set `seededKey` first and this one would write the
+  // previous tab's draft (still in state until the re-render) under the new tab's key.
+  React.useEffect(() => {
+    // `seededKey` stops the previous tab's draft being written under the new tab's key.
+    if (registerQuery.data && seededKey.current === storageKey) writeDraft(storageKey, draft);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- persist on every draft change, key derived above
+  }, [draft, storageKey]);
+
   // Seeds from a saved local draft first (survives a reload while
   // offline), falling back to the server's register — see the plan's
   // "Draft state" section.
@@ -194,12 +203,6 @@ function SectionRegisterPage() {
     setDraft(seeded);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- re-seed only on section/date/period change, not every draft edit
   }, [sectionId, date, period, registerQuery.data]);
-
-  React.useEffect(() => {
-    // `seededKey` stops the previous tab's draft being written under the new tab's key.
-    if (registerQuery.data && seededKey.current === storageKey) writeDraft(storageKey, draft);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- persist on every draft change, key derived above
-  }, [draft, storageKey]);
 
   // Stale tab after the tenant switch was turned off: fall back to the day register.
   const loadError = registerQuery.error;
