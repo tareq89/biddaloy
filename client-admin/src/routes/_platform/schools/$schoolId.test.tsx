@@ -371,4 +371,49 @@ describe('/schools/$schoolId', () => {
 
     expect(await screen.findByText('Could not load this school.')).toBeTruthy();
   });
+
+  it('shows the Trial card for a school with a trial, and extends it from the dialog', async () => {
+    let body: unknown = null;
+    server.use(
+      http.get('/api/v1/schools', () =>
+        HttpResponse.json([
+          {
+            id: ACTIVE_SCHOOL_ID,
+            name: 'Ananta School',
+            slug: 'ananta-school',
+            status: 'ACTIVE',
+            created_at: '2026-01-15T00:00:00.000Z',
+            country_code: 'BD',
+            trial_ends_at: '2026-01-10T00:00:00.000Z',
+            seat_limit: 50,
+            status_reason: null,
+          },
+        ]),
+      ),
+      http.patch(`/api/v1/schools/${ACTIVE_SCHOOL_ID}/trial`, async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json({ id: ACTIVE_SCHOOL_ID });
+      }),
+    );
+    const user = userEvent.setup();
+    renderDetail();
+
+    await screen.findByRole('heading', { name: 'Trial', level: 2 });
+    expect(screen.getByText('Trial ended')).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Extend trial' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.type(within(dialog).getByLabelText('Days to add'), '14');
+    await user.type(within(dialog).getByLabelText('Reason'), 'Asked for more time');
+    await user.click(within(dialog).getByRole('button', { name: 'Extend trial' }));
+
+    await waitFor(() => expect(body).toEqual({ days: 14, reason: 'Asked for more time' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
+
+  it('hides the Trial card for a school that never had a trial', async () => {
+    renderDetail();
+    await screen.findByRole('heading', { name: 'Ananta School', level: 1 });
+    await screen.findByRole('heading', { name: 'Stats' });
+    expect(screen.queryByRole('heading', { name: 'Trial' })).toBeNull();
+  });
 });
