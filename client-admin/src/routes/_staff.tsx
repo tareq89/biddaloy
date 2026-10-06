@@ -33,6 +33,8 @@ import * as React from 'react';
 
 import { CommandPaletteLauncher } from '../components/command-palette-launcher';
 import { StaffUserMenu } from '../components/staff-user-menu';
+import { TrialBar } from '../features/onboarding/trial-bar';
+import { useWelcomeGate } from '../features/onboarding/welcome-gate';
 import { MORE_ICON, PLATFORM_NAV_ICONS, STAFF_NAV_ICONS } from '../nav-icons';
 import {
   isPathUnder,
@@ -91,7 +93,7 @@ export const Route = createFileRoute('/_staff')({
   // (brand, nav groups, sidebar item labels) render on every navigation,
   // not just the first, so preloading `nav` here means it's warm before
   // any leaf route's own loader even runs.
-  loader: () => loadRouteNamespaces('nav'),
+  loader: () => loadRouteNamespaces('nav', 'trial'),
   component: StaffLayout,
 });
 
@@ -129,6 +131,8 @@ function StaffLayout() {
   // what lets the checker attribute this file's plain nav keys correctly.
   useTranslation('auditLogs');
   const navigate = useNavigate();
+  // [13.5.1] first-visit ADMIN -> /welcome, once.
+  useWelcomeGate();
 
   // [8.14.17]: `useMatches()`'s last entry is the deepest match currently
   // rendered — the leaf route under `_staff`, e.g. `/_staff/fees/dues`.
@@ -353,6 +357,7 @@ function StaffLayout() {
             navLabel={t('navLabel')}
             skipLinkLabel={t('skipToContent')}
           >
+            <TrialBar className="mb-4 rounded-md" />
             {breadcrumbItems.length > 0 && (
               <Breadcrumbs
                 items={breadcrumbItems}

@@ -25,7 +25,7 @@ import {
 } from '@biddaloy/ui/i18n';
 import { FullPageShell } from '@biddaloy/ui/shells';
 import { formatPhone } from '@biddaloy/ui/utils';
-import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
+import { createFileRoute, Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { ChevronDownIcon, DownloadIcon } from 'lucide-react';
 import * as React from 'react';
 
@@ -51,7 +51,7 @@ const PREVIEW_ROW_LIMIT = 20;
  */
 export const Route = createFileRoute('/_staff/students/import')({
   staticData: { chromeless: true },
-  loader: () => loadRouteNamespaces('studentImport', 'guardians', 'bulkImport', 'backup'),
+  loader: () => loadRouteNamespaces('studentImport', 'guardians', 'bulkImport', 'backup', 'trial'),
   pendingComponent: ImportStudentsPending,
   component: ImportStudentsPage,
 });
@@ -114,6 +114,8 @@ function ImportStudentsContent() {
   );
 
   const navigate = useNavigate();
+  const { t: tTrial } = useTranslation('trial');
+  const fromWelcome = (useSearch({ strict: false })).from === 'welcome';
   const [upload, setUpload] = React.useState<
     BulkUploadPreviewController<StudentUploadSummary, BulkUploadResult> | undefined
   >(undefined);
@@ -147,6 +149,17 @@ function ImportStudentsContent() {
       secondary={secondary}
     >
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 p-4 md:p-6">
+        {/* [13.5.1]: the welcome wizard's people step links here with `?from=welcome`. */}
+        {fromWelcome && (
+          // ponytail: cast until /welcome is in routeTree (#1644) — drop it then.
+          <Link
+            to={'/welcome' as never}
+            search={{ step: 'people' } as never}
+            className="inline-flex min-h-11 items-center text-primary underline underline-offset-2 md:min-h-8"
+          >
+            {tTrial('import.backToSetup')}
+          </Link>
+        )}
         <Card padded asChild>
           <section aria-labelledby="import-template-heading">
             <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between md:gap-6">
@@ -259,6 +272,13 @@ function ImportStudentsContent() {
  */
 export function ImportPreviewSummary({ result }: { result: PreviewResult<StudentUploadSummary> }) {
   const { t } = useTranslation('studentImport');
+  const { t: tTrial } = useTranslation('trial');
+  // ponytail: `seats` is on the validate response but `useValidateStudentUpload`
+  // (ui/src/hooks/bulk-upload.ts) does not copy it into `summary` yet — read it
+  // defensively so this lights up as soon as that one-line pass-through lands.
+  const seats = (
+    result.summary as { seats?: { used: number; limit: number | null; new_rows: number } }
+  ).seats;
   const clean = result.hard_error_count === 0 && result.errors.length === 0;
   return (
     <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
@@ -268,6 +288,9 @@ export function ImportPreviewSummary({ result }: { result: PreviewResult<Student
           {t('preview.willCreate', { count: result.summary.rows_to_create })}
         </span>
       </div>
+      {seats && seats.limit !== null && (
+        <span className="text-text-secondary">{tTrial('import.seats', seats)}</span>
+      )}
     </div>
   );
 }
