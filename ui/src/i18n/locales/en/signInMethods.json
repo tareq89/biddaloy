@@ -15,7 +15,7 @@
   "connected": "Connected as {{email}}",
   "cannotDisconnect": "Set a password first, so you still have a way in.",
   "linked": "{{provider}} is now connected.",
-  "conflict": "That {{provider}} account is already connected to someone else.",
+  "conflict": "That account is already connected to someone else.",
   "leave": {
     "title": "Leave this school",
     "body": "You will lose access to {{school}}. An admin of the school can bring you back.",
@@ -30,8 +30,8 @@
     "title": "Sign in faster next time",
     "body": "Connect Google or Facebook and skip the code."
   },
-  "failed": "We could not connect {{provider}}. Please try again.",
-  "cancelled": "Connecting {{provider}} was cancelled.",
+  "failed": "We could not connect that account. Please try again.",
+  "cancelled": "Connecting the account was cancelled.",
   "error": "Something went wrong. Please try again.",
   "alwaysOn": "Always on"
 }

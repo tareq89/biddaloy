@@ -124,9 +124,9 @@ describe('sign-in methods', () => {
 
   it.each([
     ['?linked=google', 'success', 'Google is now connected.'],
-    ['?social=conflict', 'error', 'That  account is already connected to someone else.'],
-    ['?social=cancelled', 'error', 'Connecting  was cancelled.'],
-    ['?social=failed', 'error', 'We could not connect . Please try again.'],
+    ['?social=conflict', 'error', 'That account is already connected to someone else.'],
+    ['?social=cancelled', 'error', 'Connecting the account was cancelled.'],
+    ['?social=failed', 'error', 'We could not connect that account. Please try again.'],
   ] as const)('toasts for %s and drops the param', async (search, kind, message) => {
     mockPage();
     const spy = vi.spyOn(toast, kind);
