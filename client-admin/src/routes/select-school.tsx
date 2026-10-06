@@ -1,5 +1,5 @@
 import type { UserRole } from '@biddaloy/shared';
-import { decodeAccessTokenMemberships, getAccessToken } from '@biddaloy/ui/api';
+import { decodeAccessTokenMemberships, getAccessToken, postAuthLogout } from '@biddaloy/ui/api';
 import { AuthLayout, Button, EmptyState, SchoolPicker } from '@biddaloy/ui/components';
 import { logout, switchActiveTenant } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
@@ -59,8 +59,11 @@ function SelectSchoolPage() {
   // can legitimately show 0 or 1 memberships by the time it's read —
   // e.g. a user removed from every school since their token was issued.
   React.useEffect(() => {
-    // Zero memberships renders the empty state below instead of bouncing away.
-    if (memberships.length === 1) {
+    if (memberships.length === 0) {
+      // The empty state below stays up, but the refresh cookie is revoked now: on a
+      // shared office PC people close the tab rather than press "Sign out".
+      void postAuthLogout('/auth/logout').catch(() => {});
+    } else if (memberships.length === 1) {
       const [only] = memberships;
       if (only) {
         switchActiveTenant(queryClient, only.tenantId, only.role);

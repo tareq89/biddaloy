@@ -1,6 +1,7 @@
 import { authHandlers, cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { routeTree } from '../routeTree.gen';
@@ -68,7 +69,13 @@ describe('/select-school', () => {
 
   it('zero memberships: shows an empty state with a way out, and the way out signs out', async () => {
     const user = userEvent.setup();
-    server.use(authHandlers.logout);
+    let logouts = 0;
+    server.use(
+      http.post('/api/v1/auth/logout', () => {
+        logouts += 1;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
     const { router, container } = renderWithRouter(routeTree, {
       initialEntries: ['/select-school'],
       accessToken: fakeJwtWithMemberships([]),
@@ -78,6 +85,8 @@ describe('/select-school', () => {
     expect(
       await screen.findByRole('heading', { name: 'You are not in any school yet' }),
     ).toBeTruthy();
+    // Revoked server-side on arrival, in case the tab is just closed.
+    await waitFor(() => expect(logouts).toBeGreaterThan(0));
     expect(screen.getByText("Ask your school's admin to add you.")).toBeTruthy();
     await expect(container).toHaveNoViolations();
 
