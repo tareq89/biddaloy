@@ -1,3 +1,4 @@
+import { REGION_BD_BN } from '@biddaloy/ui/i18n';
 import {
   classFactory,
   classSectionFactory,
@@ -5,6 +6,7 @@ import {
   renderWithRouter,
   server,
 } from '@biddaloy/ui/test';
+import { formatNumber } from '@biddaloy/ui/utils';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -77,7 +79,7 @@ describe('/routines', () => {
     const link = await screen.findByRole('link', { name: /Section A/ });
     expect(link.getAttribute('href')).toBe(`/routines/section-A?classId=${CLASS_1}`);
     expect(screen.getByRole('table', { name: 'Sections of Class 6' })).toBeTruthy();
-    expect(screen.getByText('Total 2')).toBeTruthy();
+    expect(screen.getByText(`Total ${formatNumber(2, REGION_BD_BN)}`)).toBeTruthy();
     expect(screen.getAllByRole('link', { name: 'Arrange routine' })[0]?.getAttribute('href')).toBe(
       `/routines/section-A?classId=${CLASS_1}`,
     );

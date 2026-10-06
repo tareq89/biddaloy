@@ -1,5 +1,6 @@
-import { REGION_BD_EN } from '@biddaloy/ui/i18n';
+import { REGION_BD_BN, REGION_BD_EN } from '@biddaloy/ui/i18n';
 import { cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
+import { formatNumber } from '@biddaloy/ui/utils';
 import { screen, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -59,7 +60,8 @@ describe('/attendance/staff/leave', () => {
     expect(screen.getByRole('heading', { level: 2, name: 'My leave' })).toBeTruthy();
     const casual = (await screen.findByText('Casual')).closest('tr') as HTMLElement;
     expect(within(casual).getByText('8')).toBeTruthy();
-    expect(await screen.findByText('Total 5')).toBeTruthy();
+    // The footer reads the RegionConfigProvider context (Bangla by default), not the pinned settings.
+    expect(await screen.findByText(`Total ${formatNumber(5, REGION_BD_BN)}`)).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Request leave' })).toBeTruthy();
   });
 

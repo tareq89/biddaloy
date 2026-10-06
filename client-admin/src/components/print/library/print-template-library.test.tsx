@@ -2,7 +2,9 @@ import '@biddaloy/ui/test';
 
 import { toast } from '@biddaloy/ui/components';
 import type { PrintSuggestion, PrintTemplateRow } from '@biddaloy/ui/hooks';
+import { REGION_BD_BN } from '@biddaloy/ui/i18n';
 import { cleanupTestState, renderWithProviders, server } from '@biddaloy/ui/test';
+import { formatNumber } from '@biddaloy/ui/utils';
 import { screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -142,7 +144,7 @@ describe('PrintTemplateLibrary', () => {
 
     await screen.findAllByText('Other');
     expect(screen.queryByRole('navigation', { name: /pagination/i })).toBeNull();
-    expect(screen.getAllByText(/Total\s*2/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(`Total ${formatNumber(2, REGION_BD_BN)}`).length).toBeGreaterThan(0);
     const row = screen.getAllByRole('row').find((r) => /Classic/.test(r.textContent ?? ''))!;
     expect(within(row).getByText('Default')).toBeTruthy();
     expect(within(row).queryByRole('button', { name: /^Make default/ })).toBeNull();

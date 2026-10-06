@@ -365,7 +365,7 @@ describe('/marks/$examId/$sectionId/$subjectId', () => {
       `Math · Section Six - A · Half Yearly 2026 · ${formatNumber(1, REGION_BD_BN)} student`,
     );
     // Desktop only: the keyboard help and the student total.
-    expect(screen.getByText('Total 1')).toBeTruthy();
+    expect(screen.getByText(`Total ${formatNumber(1, REGION_BD_BN)}`)).toBeTruthy();
     expect(screen.getByText('Enter')).toBeTruthy();
   });
 
