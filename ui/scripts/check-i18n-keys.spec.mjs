@@ -183,6 +183,25 @@ describe('runCheck — t() call sites', () => {
     expect(errors).toEqual([]);
   });
 
+  it('does not treat `count` used as an option value as a plural call', () => {
+    const { localesDir, sourceDir } = makeFixture();
+    for (const locale of ['bn', 'en']) {
+      writeLocale(localesDir, locale, 'common', {
+        attempts_one: 'once',
+        attempts_other: '{{count}} times',
+      });
+    }
+    writeSource(
+      sourceDir,
+      'banner.tsx',
+      "const { t } = useTranslation();\nt('attempts', { context: count });\n",
+    );
+
+    const { errors } = runCheck({ localesDir, sourceDirs: [sourceDir] });
+
+    expect(errors).toHaveLength(1);
+  });
+
   it('does not resolve a plural-only key against a call with no count — i18next itself would not either', () => {
     const { localesDir, sourceDir } = makeFixture();
     writeLocale(localesDir, 'bn', 'common', {
