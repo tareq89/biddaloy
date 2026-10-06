@@ -36,7 +36,8 @@
     "filterPending": "Pending",
     "filterDone": "Done",
     "dateLabel": "Date",
-    "pendingCount": "{{pending}} of {{total}} sections pending",
+    "pendingCount_one": "{{pending}} of {{total}} section pending",
+    "pendingCount_other": "{{pending}} of {{total}} sections pending",
     "classTeacher": "Class teacher",
     "noClassTeacher": "Not assigned",
     "stateNotStarted": "Not started",
@@ -231,7 +232,8 @@
   },
   "dashboardCard": {
     "title": "Today's attendance",
-    "pending": "{{pending}} of {{total}} sections pending",
+    "pending_one": "{{pending}} of {{total}} section pending",
+    "pending_other": "{{pending}} of {{total}} sections pending",
     "allDone": "All sections are marked",
     "holiday": "School is closed today",
     "open": "See pending sections"

@@ -109,6 +109,19 @@ describe('AttendancePendingCard', () => {
     expect(screen.queryByRole('link')).toBeNull();
   });
 
+  it('a class with no school today is not counted as pending', async () => {
+    useSections([
+      makeSection({ section_id: 's-1', today: finalized }),
+      makeSection({ section_id: 's-2', is_working_day: false }),
+    ]);
+
+    renderCard();
+
+    // The only working section is finalized: all done, not "1 of 2 pending".
+    expect(await screen.findByText('All sections are marked')).toBeTruthy();
+    expect(screen.queryByRole('link')).toBeNull();
+  });
+
   it('renders nothing and fetches nothing without ATTENDANCE_READ', async () => {
     let requests = 0;
     server.use(

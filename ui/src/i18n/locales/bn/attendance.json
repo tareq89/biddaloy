@@ -36,7 +36,8 @@
     "filterPending": "বাকি",
     "filterDone": "সম্পন্ন",
     "dateLabel": "তারিখ",
-    "pendingCount": "{{total}}টির মধ্যে {{pending}}টি শাখা বাকি",
+    "pendingCount_one": "{{total}}টির মধ্যে {{pending}}টি শাখা বাকি",
+    "pendingCount_other": "{{total}}টির মধ্যে {{pending}}টি শাখা বাকি",
     "classTeacher": "শ্রেণি-শিক্ষক",
     "noClassTeacher": "নির্ধারিত নেই",
     "stateNotStarted": "শুরু হয়নি",
@@ -231,7 +232,8 @@
   },
   "dashboardCard": {
     "title": "আজকের উপস্থিতি",
-    "pending": "{{total}}টির মধ্যে {{pending}}টি শাখা বাকি",
+    "pending_one": "{{total}}টির মধ্যে {{pending}}টি শাখা বাকি",
+    "pending_other": "{{total}}টির মধ্যে {{pending}}টি শাখা বাকি",
     "allDone": "সব শাখার উপস্থিতি নেওয়া হয়েছে",
     "holiday": "আজ স্কুল বন্ধ",
     "open": "বাকি শাখা দেখুন"
