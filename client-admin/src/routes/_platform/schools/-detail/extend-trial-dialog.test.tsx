@@ -46,6 +46,16 @@ describe('ExtendTrialDialog', () => {
     expect(called).toBe(false);
   });
 
+  it('a reason over 500 characters gets a translated sentence', async () => {
+    const { user } = renderDialog();
+    const dialog = await screen.findByRole('dialog');
+    await user.type(within(dialog).getByLabelText('Days to add'), '7');
+    await user.click(within(dialog).getByLabelText('Reason'));
+    await user.paste('x'.repeat(501));
+    await user.click(within(dialog).getByRole('button', { name: 'Extend trial' }));
+    expect(await within(dialog).findByText('Keep the reason under 500 characters.')).toBeTruthy();
+  });
+
   it('sends days, optional limit and reason, then closes', async () => {
     let body: unknown = null;
     server.use(

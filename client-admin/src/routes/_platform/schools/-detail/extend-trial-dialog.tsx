@@ -75,7 +75,11 @@ export function ExtendTrialDialog({
           .refine((v) => v === '' || /^\d{1,9}$/.test(v), {
             message: t('trial.dialog.errors.seatLimit'),
           }),
-        reason: z.string().trim().min(10, t('trial.dialog.errors.reasonLength')).max(500),
+        reason: z
+          .string()
+          .trim()
+          .min(10, t('trial.dialog.errors.reasonLength'))
+          .max(500, t('trial.dialog.errors.reasonTooLong')),
       }),
     [t],
   );

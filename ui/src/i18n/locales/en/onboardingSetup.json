@@ -33,6 +33,7 @@
       "title": "Your school",
       "nameEn": "School name (English)",
       "nameBn": "School name (Bangla)",
+      "nameRequired": "Enter the school name.",
       "logo": "School logo",
       "hint": "You can change these later in Settings."
     },

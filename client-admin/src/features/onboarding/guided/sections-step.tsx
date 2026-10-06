@@ -16,9 +16,10 @@ const LETTERS = 'ABCDEFGHIJ'.split('');
 type RowRun = () => Promise<boolean>;
 
 /**
- * One class: a 1-10 stepper and the letters it will have. Existing sections are kept
- * (the stepper cannot go below them and the default is "no change"); only the missing
- * letters are created, in order, one request each.
+ * One class: a 1-10 stepper for how many sections it will have, and their names. Existing
+ * sections (lettered or not, e.g. "Morning") are kept and counted: the stepper cannot go below
+ * them and the default is "no change". Raising it adds the first unused letters, in order,
+ * one request each.
  */
 function ClassRow({
   cls,
@@ -42,8 +43,11 @@ function ClassRow({
   const [done, setDone] = React.useState(0);
   const floor = Math.max(existing.length, 1);
   const count = Math.min(MAX_SECTIONS, Math.max(floor, Math.trunc(Number(draft)) || floor));
-  const letters = LETTERS.slice(0, count);
-  const missing = letters.filter((l) => !existing.includes(l));
+  const missing = LETTERS.filter((l) => !existing.includes(l)).slice(
+    0,
+    Math.max(0, count - existing.length),
+  );
+  const names = [...existing, ...missing];
 
   // Creates what is missing, stopping at the first failure; a retry resumes there
   // (the refetched section list no longer counts the letters that went through).
@@ -92,7 +96,7 @@ function ClassRow({
         className="text-text-secondary"
         aria-label={t('guided.sections.perClass', { className: cls.name })}
       >
-        {letters.join(', ')}
+        {names.join(', ')}
       </span>
       <div className="md:ms-auto" aria-live="polite">
         {create.isPending && (
