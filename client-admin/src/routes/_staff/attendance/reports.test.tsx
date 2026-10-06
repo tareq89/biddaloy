@@ -335,4 +335,70 @@ describe('/attendance/reports', () => {
     const cells = within(row).getAllByRole('cell');
     expect(cells.some((c) => c.querySelector('.md\\:inline')?.textContent === '3')).toBe(true);
   });
+
+  describe('By subject tab', () => {
+    function settingsWithPeriod(enabled: boolean) {
+      server.use(
+        http.get('/api/v1/schools/:id/settings', () =>
+          HttpResponse.json({
+            version: 1,
+            attendance: { periodAttendance: { enabled }, lowAttendanceThresholdPercent: 75 },
+          }),
+        ),
+      );
+    }
+    function subjectSummary() {
+      server.use(
+        http.get('/api/v1/attendance/sections/:sectionId/subject-summary', () =>
+          HttpResponse.json({
+            subjects: [{ subject_id: 'sub-1', name: 'Bangla', held: 8 }],
+            rows: [
+              {
+                student_id: 'student-1',
+                roll_number: 3,
+                full_name: 'Karim Rahman',
+                by_subject: {
+                  'sub-1': {
+                    present: 7,
+                    late: 0,
+                    absent: 1,
+                    leave: 0,
+                    attended: 7,
+                    percentage: 87.5,
+                  },
+                },
+              },
+            ],
+          }),
+        ),
+      );
+    }
+    const entry = (url: string) =>
+      renderWithRouter(routeTree, {
+        initialEntries: [url],
+        tenantId: 'tenant-1',
+        role: 'ADMIN',
+        locale: 'en',
+      });
+
+    it('hides the tab and falls back to the summary view with the switch off', async () => {
+      settingsWithPeriod(false);
+      entry('/attendance/reports?view=subjects');
+      await screen.findByRole('tab', { name: 'Month summary' });
+      expect(screen.queryByRole('tab', { name: 'By subject' })).toBeNull();
+      expect(screen.getByRole('tab', { name: 'Month summary' }).getAttribute('aria-selected')).toBe(
+        'true',
+      );
+    });
+
+    it('shows the tab with the switch on, keeps view=subjects, and hides the minimum filter', async () => {
+      settingsWithPeriod(true);
+      subjectSummary();
+      entry('/attendance/reports?view=subjects&section_id=section-1');
+      const tab = await screen.findByRole('tab', { name: 'By subject' });
+      await waitFor(() => expect(tab.getAttribute('aria-selected')).toBe('true'));
+      await screen.findByText('Karim Rahman');
+      expect(screen.queryByText('Minimum attendance (%)')).toBeNull();
+    });
+  });
 });
