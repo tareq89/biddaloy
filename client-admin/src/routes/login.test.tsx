@@ -204,7 +204,7 @@ describe('/login', () => {
       await user.click(screen.getByRole('button', { name: 'Sign in' }));
 
       const alert = await screen.findByRole('alert');
-      expect(alert.textContent).toBe('That phone number or code is incorrect.');
+      expect(alert.textContent).toBe('That number, email or code is incorrect.');
       expect(screen.queryByText('Invalid credentials')).toBeNull();
     });
 
