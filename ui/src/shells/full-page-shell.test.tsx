@@ -115,6 +115,34 @@ describe('FullPageShell', () => {
     expect(field.value).toBe('abc');
   });
 
+  it('while the body suspends: a loading status, no footer, header Close still there', async () => {
+    let load = () => {};
+    const loaded = new Promise<void>((resolve) => (load = resolve));
+    const Late = React.lazy(async () => {
+      await loaded;
+      return { default: () => <p>body</p> };
+    });
+    const { localeReady } = renderWithRouter(
+      createRootRoute({
+        component: () => (
+          <FullPageShell title="Add student" onClose={() => {}} primary={primary}>
+            <Late />
+          </FullPageShell>
+        ),
+      }),
+      { locale: 'en' },
+    );
+    await localeReady;
+    // The footer's primary must not act on a form that hasn't mounted.
+    expect((await screen.findByRole('status')).getAttribute('aria-busy')).toBe('true');
+    expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Close' })).toBeTruthy();
+    load();
+    await screen.findByText('body');
+    expect(screen.queryByRole('status')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Save' })).toBeTruthy();
+  });
+
   it('wide width, busy primary, secondary on start side', async () => {
     const { localeReady } = setup({
       size: 'wide',
