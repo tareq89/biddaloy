@@ -146,7 +146,7 @@ describe('WelcomeWizard', () => {
   it('the header close dismisses and leaves for the dashboard', async () => {
     const patches = useServer();
     renderEn('/welcome');
-    await userEvent.click(await screen.findByRole('button', { name: 'Close' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Do this later' }));
     expect(await screen.findByText('HOME')).toBeTruthy();
     expect(patches).toContainEqual({ dismissed: true });
   });
