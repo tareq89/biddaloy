@@ -8,17 +8,31 @@
  *
  * Not a security boundary: the server does not enforce `password_required`
  * yet (follow-up issue). `localStorage`, not `sessionStorage`, so a new tab
- * is gated too; `clearAuthState()` drops it on logout, like the tenant hint.
+ * is gated too; `clearAuthState()` drops it on logout, like the tenant hint,
+ * and a record for a different signed-in account is ignored.
  * Same try/catch-and-degrade shape as `tenant-storage.ts`.
  */
 import { UserRole } from '@biddaloy/shared';
 
+import { getAccessToken } from './auth-state';
+import { decodeAccessTokenSubject } from './session';
+
 const STORAGE_KEY = 'biddaloy:firstPasswordRequired';
 
-/** The roles are kept so the card can pick the right password rules after a reload. */
+/** Who is signed in now, by the access token's `sub` (`null` when it has none). */
+function currentSub(): string | null {
+  const token = getAccessToken();
+  return token ? decodeAccessTokenSubject(token) : null;
+}
+
+/**
+ * Records that the signed-in account owes a password. Keyed by its `sub`, so
+ * another account signing in on this browser later is not gated by it. The
+ * roles are kept so the card can pick the right password rules after a reload.
+ */
 export function requireFirstPassword(roles: UserRole[]): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(roles));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ sub: currentSub(), roles }));
   } catch {
     // No usable storage: the in-page card still blocks; only reload-proofing is lost.
   }
@@ -26,7 +40,8 @@ export function requireFirstPassword(roles: UserRole[]): void {
 
 /**
  * The roles recorded by `requireFirstPassword`, or `null` when no password is
- * owed. A garbled value still gates, with `[]` (staff password rules).
+ * owed: nothing recorded, no session, or a record for another account (which
+ * is dropped). A garbled value is dropped too.
  */
 export function getFirstPasswordGate(): UserRole[] | null {
   let raw: string | null;
@@ -35,16 +50,21 @@ export function getFirstPasswordGate(): UserRole[] | null {
   } catch {
     return null;
   }
-  if (raw === null) return null;
+  if (raw === null || !getAccessToken()) return null;
+  let gate: { sub?: unknown; roles?: unknown } | null = null;
   try {
-    const parsed: unknown = JSON.parse(raw);
-    const known = Object.values(UserRole) as string[];
-    return Array.isArray(parsed)
-      ? parsed.filter((r): r is UserRole => typeof r === 'string' && known.includes(r))
-      : [];
+    gate = JSON.parse(raw) as { sub?: unknown; roles?: unknown } | null;
   } catch {
-    return [];
+    // Dropped below.
   }
+  if (typeof gate !== 'object' || gate === null || gate.sub !== currentSub()) {
+    clearFirstPasswordGate();
+    return null;
+  }
+  const known = Object.values(UserRole) as string[];
+  return Array.isArray(gate.roles)
+    ? gate.roles.filter((r): r is UserRole => typeof r === 'string' && known.includes(r))
+    : [];
 }
 
 export function clearFirstPasswordGate(): void {
