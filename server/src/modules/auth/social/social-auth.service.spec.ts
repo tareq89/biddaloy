@@ -94,4 +94,25 @@ describe('SocialAuthService.facebookDataDeletion', () => {
       `${BASE}/api/v1/auth/social/facebook/data-deletion/status?code=${res.confirmation_code}`,
     );
   });
+
+  it('still deletes when Facebook sign-in is off (no client id) but the secret is set', async () => {
+    // Sign-in is turned off, yet existing identities must stay deletable.
+    const { service, deleteBySubject } = build(
+      { APP_BASE_URL: BASE, FACEBOOK_OAUTH_CLIENT_SECRET: SECRET },
+      [],
+    );
+
+    await service.facebookDataDeletion(signedRequest(), CONTEXT);
+
+    expect(deleteBySubject).toHaveBeenCalledOnce();
+  });
+
+  it('404s when the secret is not set', async () => {
+    const { service, deleteBySubject } = build({ APP_BASE_URL: BASE });
+
+    await expect(service.facebookDataDeletion(signedRequest(), CONTEXT)).rejects.toThrow(
+      'Unknown sign-in provider',
+    );
+    expect(deleteBySubject).not.toHaveBeenCalled();
+  });
 });

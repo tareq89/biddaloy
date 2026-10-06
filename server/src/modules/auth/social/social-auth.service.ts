@@ -72,8 +72,9 @@ export class SocialAuthService {
     signedRequest: string,
     context: RequestContext,
   ): Promise<{ url: string; confirmation_code: string }> {
-    // Same "configured" rule as sign-in (id + secret), then the secret itself.
-    this.provider(SocialProvider.FACEBOOK);
+    // Only the secret is needed to check Meta's signature. Not the sign-in
+    // "configured" rule (id + secret): with the client id removed, sign-in is
+    // off, but Meta's deletion requests for existing identities must still work.
     const secret = this.config.get<string>('FACEBOOK_OAUTH_CLIENT_SECRET');
     if (!secret) throw new NotFoundException('Unknown sign-in provider');
     const fbUserId = verifySignedRequest(signedRequest, secret);

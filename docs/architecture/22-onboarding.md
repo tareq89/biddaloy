@@ -274,7 +274,9 @@ Same flow as Google (server-side code + PKCE + `state`, see
 - `GRAPH_VERSION` (`v24.0`) is the one place the Graph API version lives.
   Bump it before Meta retires the version.
 - Env: `FACEBOOK_OAUTH_CLIENT_ID`, `FACEBOOK_OAUTH_CLIENT_SECRET`. Both or the
-  provider is not listed.
+  provider is not listed. The data-deletion callback needs only the secret, so
+  removing the client id turns sign-in off but Meta's deletion requests still
+  work. Keep the secret set while any Facebook identities exist.
 - Meta requires a **data-deletion callback**. `POST /api/v1/auth/social/facebook/data-deletion`
   takes Meta's `signed_request`, checks the HMAC and its age (24 h), and removes
   only the Facebook identity (the user account stays). It answers
@@ -295,7 +297,7 @@ Things only the owner can do, outside the code. Tick as done.
 
 - [ ] Create a Meta app with Facebook Login. Redirect URI: `<APP_URL>/api/v1/auth/social/facebook/callback`.
 - [ ] Set the data-deletion callback URL to `<APP_URL>/api/v1/auth/social/facebook/data-deletion`.
-- [ ] Set `FACEBOOK_OAUTH_CLIENT_ID`, `FACEBOOK_OAUTH_CLIENT_SECRET`.
+- [ ] Set `FACEBOOK_OAUTH_CLIENT_ID`, `FACEBOOK_OAUTH_CLIENT_SECRET`. To turn Facebook sign-in off later, remove only the client id; keep the secret while any Facebook identities exist, or Meta's deletion requests get a 404.
 - [ ] Submit app review. Until it passes, only app testers can sign in; the button still works for them.
 - [ ] Product call, #1705: a person who signed up with Facebook only and has no phone or email Facebook shares can be locked out. Decide the fix.
 

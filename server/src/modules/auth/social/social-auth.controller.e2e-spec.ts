@@ -250,10 +250,13 @@ describe('SocialAuthController (e2e)', () => {
       await post(signedFor({ algorithm: 'HMAC-SHA256', user_id: 'x' })).expect(404);
     });
 
-    it('404s when the provider itself is not configured, even with the secret set', async () => {
+    it('still answers when sign-in is off (no client id) but the secret is set', async () => {
       facebook.configured = false;
-      await post(signedFor({ algorithm: 'HMAC-SHA256', user_id: 'x' })).expect(404);
-      facebook.configured = true;
+      try {
+        await post(signedFor({ algorithm: 'HMAC-SHA256', user_id: 'x' })).expect(200);
+      } finally {
+        facebook.configured = true;
+      }
     });
   });
 
