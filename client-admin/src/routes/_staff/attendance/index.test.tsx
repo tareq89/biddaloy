@@ -70,7 +70,7 @@ describe('/attendance', () => {
     expect(within(links[0]!).getByText('Not started')).toBeTruthy();
     expect(within(links[0]!).getByText('40 students')).toBeTruthy();
     expect(within(links[1]!).getByText('Draft')).toBeTruthy();
-    expect(within(links[2]!).getByText('Finalized')).toBeTruthy();
+    expect(within(links[2]!).getByText('Submitted')).toBeTruthy();
   });
 
   const mixed = [

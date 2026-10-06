@@ -73,7 +73,7 @@ function StateBadge({ section }: { section: MySection }) {
   const today = section.today;
   if (!today) return <StatusBadge tone="warning" label={t('list.stateNotStarted')} />;
   if (today.state !== 'FINALIZED') return <StatusBadge tone="info" label={t('list.stateDraft')} />;
-  return <StatusBadge tone="success" label={t('list.stateFinalized')} />;
+  return <StatusBadge tone="success" label={t('mark.stateFinalized')} />;
 }
 
 function AttendanceListPage() {

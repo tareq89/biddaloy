@@ -42,7 +42,6 @@
     "noClassTeacher": "Not assigned",
     "stateNotStarted": "Not started",
     "stateDraft": "Draft",
-    "stateFinalized": "Finalized",
     "allDoneTitle": "All sections are marked",
     "noneDoneTitle": "No section is submitted yet",
     "noneDoneBody": "A section shows here once its attendance is submitted.",

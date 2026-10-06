@@ -94,6 +94,21 @@ describe('PeriodSwitcher', () => {
     expect(onChange).toHaveBeenLastCalledWith(1);
   });
 
+  it('a substitute (section not in my-sections) sees only their period, no Whole day', async () => {
+    mockPeriods([period(3)]);
+    server.use(
+      http.get('/api/v1/attendance/my-sections', () =>
+        HttpResponse.json([{ section_id: 'other-section' }]),
+      ),
+    );
+    renderSwitcher({ period: 3 });
+    await waitFor(() =>
+      expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual([
+        expect.stringContaining('Subject 3'),
+      ]),
+    );
+  });
+
   it('falls back to Whole day when the selected period is not in the list', async () => {
     mockPeriods([period(1)]);
     const onChange = renderSwitcher({ period: 5 });
