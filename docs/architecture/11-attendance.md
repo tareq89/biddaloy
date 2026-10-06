@@ -199,10 +199,17 @@ Things worth knowing:
 
 ### The pending check-list
 
-"Pending" means: **a section with students whose register for the day is not
-`FINALIZED`**. That includes a section nobody has touched ("Not started") and a
-`DRAFT` one (marks saved, not finalized). Sections with no students are left
-out of the list and the count.
+"Pending" means: **a section with students, on a school day for its class,
+whose register for the day is not `FINALIZED`**. That includes a section nobody
+has touched ("Not started") and a `DRAFT` one (marks saved, not finalized).
+Left out of the list and the count:
+
+- a section with no students;
+- a section whose **class** has no school that day (`is_working_day` is per
+  class: an exam break, a class-level holiday). It cannot be marked, so it
+  must not sit in "pending" all day.
+
+When no class has school, the list shows "School is closed" and no count.
 
 ```mermaid
 flowchart LR
@@ -219,8 +226,28 @@ their own). Example: with 8 sections, 5 finalized and 1 draft, the header reads
 ### Editing a month from the grid
 
 `/attendance/register?edit=true` turns the month register into an editable grid
-(desktop only; it needs `ATTENDANCE_MARK`). The grid only remembers the cells
-you changed. Save sends **only the changed days**, in one request.
+(desktop only). The grid only remembers the cells you changed. Save sends
+**only the changed days**, in one request.
+
+**Who can save what.** Opening the grid needs `ATTENDANCE_MARK`. Saving a day
+is a different question, answered per day by the server:
+
+| The changed day                                         | Needs                                  |
+| ------------------------------------------------------- | -------------------------------------- |
+| has no register yet                                     | nothing extra (a past one is born `FINALIZED`) |
+| has a `DRAFT` register inside the correction window     | nothing extra                          |
+| has a register that is `FINALIZED` **or** older than the window | `ATTENDANCE_CORRECT` **and** a reason (3+ letters) |
+
+So a teacher (`ATTENDANCE_MARK` only) can fill gaps and fix this week's drafts,
+but gets `403 ATTENDANCE_WINDOW_CLOSED` for almost any older day, because
+teachers finalize every day and back-filled days are born finalized.
+
+**The reason field.** Whatever the user types (3+ letters) is always sent. It
+is marked required up front only when the page can see it is needed: a changed
+day that already has a register and is older than the window. (The window is
+the tenant's own for `SETTINGS_MANAGE`, else the 2-day default.) A finalized
+day inside the window looks the same as a draft in the matrix, so for that one
+the server's 422 turns the field red.
 
 ```mermaid
 sequenceDiagram
@@ -228,24 +255,35 @@ sequenceDiagram
     participant G as Edit grid
     participant A as API
     U->>G: A on Roll 1, 6 Oct · L on Roll 2, 5 Oct
-    Note over G: "2 cells changed"<br/>reason needed only for a day<br/>outside the correction window
-    U->>G: Ctrl+S
+    Note over G: "2 cells changed"<br/>reason typed: "Copied from paper"
+    U->>G: Ctrl+S (anywhere on the page)
     G->>A: PUT register-matrix {days: [5 Oct, 6 Oct], reason}
     alt every day still matches what was loaded
         A-->>G: 200 saved_dates, new versions
         G-->>U: "Saved 2 days", back to read-only
     else someone saved 6 Oct meanwhile
         A-->>G: 409 ATTENDANCE_MATRIX_CONFLICT {dates: [6 Oct]}
-        G-->>U: "Nothing was saved. Someone changed 6 Oct"
+        G-->>U: "Nothing was saved. Someone changed 6 Oct" · Reload
+    else 6 Oct is a future day or has no school
+        A-->>G: 422 ATTENDANCE_MATRIX_LOCKED_DATE {dates: [6 Oct]}
+        G-->>U: "6 Oct cannot be marked" · Reload
+    else 5 Oct is finalized and the user lacks ATTENDANCE_CORRECT
+        A-->>G: 403 ATTENDANCE_WINDOW_CLOSED {dates: [5 Oct]}
+        G-->>U: "5 Oct can only be changed by someone who can correct attendance"<br/>· Remove these days from my changes
+    else 5 Oct needs a reason and none was sent
+        A-->>G: 422 ATTENDANCE_REASON_REQUIRED {dates: [5 Oct]}
+        G-->>U: reason field turns red and required
     end
 ```
 
-The save is all-or-nothing (see the API section above), so after a conflict
-**neither** day is written. The user reloads the month and edits again.
+The save is all-or-nothing (see the API section above), so after any refusal
+**no** day is written. Closing a conflict dialog any way (Esc, outside click)
+also reloads the month, so a stale draft cannot fail the next Save again.
 
 Keyboard: arrows move, `P` / `A` / `L` / `E` set the status, `Space` flips
-present/absent, `Home` / `End` jump to the first / last open day, `Ctrl+S`
-saves, `Esc` cancels. The palette reaches it with **Edit monthly register**.
+present/absent, `Home` / `End` jump to the first / last open day, `Esc`
+cancels. `Ctrl+S` saves from anywhere on the page while editing, the reason
+field included. The palette reaches it with **Edit monthly register**.
 
 ## 4. The correction rules
 
@@ -344,12 +382,18 @@ minus leave unless `leaveCountsAsWorkingDay`. A range over 400 days is refused
 With the period switch on, the register screen shows a tab row above the
 roster: **Whole day** plus one tab per period of that date's routine
 (`Period 1 · Mathematics  8:00`). A period that already has a register carries
-a badge (Draft / Finalized). Pick a tab and the same roster now saves a period
+a badge, with the same words as the check-list: **Draft** or **Submitted**
+(Submitted = `FINALIZED`). A substitute teacher sees only the tab of the period
+they cover, no Whole day tab. Pick a tab and the same roster now saves a period
 register; if the day register has absentees, the roster opens with them
 pre-marked and says so ("Students absent or on leave today are already filled
 in").
 
-`/attendance/reports` gets a **By subject** tab (visible when the switch is on).
+`/attendance/reports` gets a **By subject** tab, shown when the switch is on.
+**Known limitation:** the page reads the switch from the school settings, which
+only `SETTINGS_MANAGE` (admins) may read. So today only admins ever see the tab;
+a teacher's settings read is refused and the tab stays hidden. Tracked in
+[#1686](https://github.com/tareq89/biddaloy/issues/1686).
 One column per subject, headed `Mathematics (8)` where 8 is `held`. Each cell is
 `attended/held`, with the percentage under it.
 
