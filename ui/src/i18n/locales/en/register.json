@@ -8,7 +8,10 @@
   "social": {
     "google": "Continue with Google",
     "facebook": "Continue with Facebook",
-    "or": "or"
+    "or": "or",
+    "googleName": "Google",
+    "facebookName": "Facebook",
+    "continuingWith": "Continuing with {{provider}}"
   },
   "fields": {
     "adminName": "Your name",
@@ -27,12 +30,14 @@
     "sentToEmail": "We sent a 6-digit code to {{email}}",
     "resendIn": "Send again in {{seconds}} s",
     "resend": "Send the code again",
-    "changeNumber": "Change number"
+    "changeNumber": "Change number",
+    "verify": "Verify"
   },
   "password": {
     "title": "Set your password",
     "skip": "Not now",
-    "save": "Save and continue"
+    "save": "Save and continue",
+    "subtitle": "You will use it to sign in next time."
   },
   "errors": {
     "captcha": "Please complete the check to show you are not a robot.",
@@ -41,6 +46,16 @@
     "otpLocked": "Too many wrong tries. Please wait a while and try again.",
     "trialAlreadyOpen": "A trial school already exists for this number or email. Sign in instead.",
     "unavailable": "Sign-up is not available right now. Please try again later.",
-    "generic": "Something went wrong. Please try again."
+    "generic": "Something went wrong. Please try again.",
+    "contactInUse": "This number or email is already used for another school. Sign in instead.",
+    "signInRequired": "You already have an account. Sign in to continue.",
+    "resendLimit": "You have asked for too many codes. Please go back and start again."
+  },
+  "progress": "Step {{current}} of {{total}}",
+  "validation": {
+    "required": "This field is required.",
+    "phone": "Enter a valid mobile number.",
+    "email": "Enter a valid email address.",
+    "terms": "Please accept to continue."
   }
 }
