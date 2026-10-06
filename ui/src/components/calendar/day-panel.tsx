@@ -5,7 +5,7 @@
 import * as React from 'react';
 
 import { useRegionConfig, useTranslation } from '../../i18n';
-import { formatDate, formatWeekday, parseServerDate } from '../../utils/date';
+import { formatDate, formatWeekday } from '../../utils/date';
 
 import type { MonthGridEvent } from './month-grid';
 
@@ -22,7 +22,7 @@ export function DayPanel({ date, events, onEventClick }: DayPanelProps) {
   return (
     <aside aria-labelledby={id}>
       <h3 id={id} className="text-h3">
-        {formatDate(parseServerDate(date), regionConfig)}
+        {formatDate(date, regionConfig)}
       </h3>
       <p className="text-text-secondary">
         {formatWeekday(date, regionConfig)} · {t('dayPanel.eventCount', { count: events.length })}

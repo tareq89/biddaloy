@@ -7,7 +7,6 @@ import { ChevronLeftIcon, ChevronRightIcon } from 'lucide-react';
 
 import { useTranslation } from '../i18n';
 
-
 import { Button } from './button';
 import { TableCount } from './table-count';
 
@@ -43,13 +42,13 @@ export function Pagination({
 
   return (
     <nav aria-label={t('pagination.label')} className="flex items-center justify-between text-sm">
-      <span aria-live="polite">
+      <div aria-live="polite">
         {totalCount === 0 ? (
           <span className="text-text-secondary">{t('table.empty')}</span>
         ) : (
           <TableCount total={totalCount} from={rangeStart} to={rangeEnd} />
         )}
-      </span>
+      </div>
       <div className="flex gap-1.5">
         <Button
           type="button"

@@ -204,8 +204,8 @@
     "announceResults_other": "{{count}} of {{total}} results",
     "pageOf": "Page {{page}} of {{total}}",
     "actions": "Actions",
-    "total_one": "Total {{count}}",
-    "total_other": "Total {{count}}"
+    "total_one": "Total {{total}}",
+    "total_other": "Total {{total}}"
   },
   "weekdays": {
     "1": "Mon",
@@ -276,7 +276,8 @@
     "previousYear": "Previous year",
     "nextYear": "Next year",
     "calendar": "Calendar",
-    "chooseMonthYear": "Choose month and year"
+    "chooseMonthYear": "Choose month and year",
+    "clear": "Clear"
   },
   "combobox": {
     "results_one": "{{count}} result",
@@ -298,7 +299,7 @@
     "home": "Go home"
   },
   "formShell": {
-    "summary_one": "There is 1 problem with your submission",
+    "summary_one": "There is {{count}} problem with your submission",
     "summary_other": "There are {{count}} problems with your submission"
   },
   "fileUpload": {

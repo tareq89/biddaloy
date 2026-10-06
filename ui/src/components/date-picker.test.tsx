@@ -61,6 +61,26 @@ describe('DatePicker', () => {
     expect(trigger().textContent).toContain(formatDate(date, REGION_BD_EN));
   });
 
+  it('the trigger announces the value as its description, the label as its name', async () => {
+    const date = new Date(2024, 0, 5);
+    await setup(<Controlled initial={date} />);
+    expect(
+      screen.getByRole('button', {
+        name: 'Enrollment date',
+        description: formatDate(date, REGION_BD_EN),
+      }),
+    ).toBeTruthy();
+  });
+
+  it('Clear empties a picked value and closes', async () => {
+    const user = userEvent.setup();
+    await setup(<Controlled initial={new Date(2024, 0, 5)} />);
+    await openGrid(user);
+    await user.click(screen.getByRole('button', { name: 'Clear' }));
+    await waitFor(() => expect(screen.queryByRole('grid')).toBeNull());
+    expect(trigger().textContent).toContain('Pick a date');
+  });
+
   it('opens, arrow-navigates, Enter selects and closes', async () => {
     const user = userEvent.setup();
     await setup(<Controlled initial={new Date(2024, 0, 5)} />);

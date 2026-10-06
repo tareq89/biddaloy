@@ -22,7 +22,8 @@ export function TableCount({ total, from, to }: TableCountProps) {
             end: formatNumber(to, regionConfig),
             total: formatNumber(total, regionConfig),
           })
-        : t('table.total', { count: total })}
+        : // `count` picks the plural form; `total` is the grouped display text.
+          t('table.total', { count: total, total: formatNumber(total, regionConfig) })}
     </p>
   );
 }

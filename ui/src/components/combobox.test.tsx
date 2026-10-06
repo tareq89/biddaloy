@@ -61,6 +61,24 @@ describe('Combobox', () => {
     expect(screen.queryByRole('option', { name: 'Eight' })).toBeNull();
   });
 
+  it('Latin digits typed find a Bangla-digit label', async () => {
+    const user = userEvent.setup();
+    render(
+      <Combobox
+        aria-label="Time"
+        options={[
+          { value: '08:00', label: 'সকাল ৮:০০' },
+          { value: '09:00', label: 'সকাল ৯:০০' },
+        ]}
+        value={null}
+        onValueChange={() => {}}
+      />,
+    );
+    await user.type(screen.getByRole('combobox', { name: 'Time' }), '8:00');
+    await waitFor(() => expect(screen.getByRole('option', { name: 'সকাল ৮:০০' })).toBeTruthy());
+    expect(screen.queryByRole('option', { name: 'সকাল ৯:০০' })).toBeNull();
+  });
+
   it('sets aria-activedescendant to the highlighted option as ArrowDown moves through the list', async () => {
     const user = userEvent.setup();
     render(<Controlled />);

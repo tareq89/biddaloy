@@ -121,7 +121,10 @@ function ActionControl({ action, labelled }: { action: RowAction; labelled: bool
   if (labelled) return control;
   return (
     <Tooltip>
-      <TooltipTrigger asChild>{control}</TooltipTrigger>
+      {/* The tooltip repeats `aria-label`; don't announce it twice as a description. */}
+      <TooltipTrigger asChild aria-describedby={undefined}>
+        {control}
+      </TooltipTrigger>
       <TooltipContent side="top">{action.label}</TooltipContent>
     </Tooltip>
   );

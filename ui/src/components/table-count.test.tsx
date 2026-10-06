@@ -28,6 +28,11 @@ describe('TableCount', () => {
     expect(screen.getByText('Total 12')).toBeTruthy();
   });
 
+  it('groups a large bare total like the range does', async () => {
+    await render(<TableCount total={12345} />);
+    expect(screen.getByText('Total 12,345')).toBeTruthy();
+  });
+
   it('uses Bangla digits under REGION_BD_BN', async () => {
     await render(<TableCount total={12} from={1} to={12} />, REGION_BD_BN, 'bn');
     expect(screen.getByText(/১২/)).toBeTruthy();

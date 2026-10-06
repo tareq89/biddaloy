@@ -11,6 +11,7 @@ import {
   formatMonthName,
   formatRelativeAge,
   formatTime,
+  formatWeekday,
   getAcademicYear,
   isPastDueDate,
   parseDate,
@@ -69,8 +70,19 @@ describe('formatDate', () => {
     try {
       expect(formatDate('2026-09-09T00:00:00.000Z', REGION_BD_EN)).toBe('9th September, 2026');
     } finally {
-      process.env.TZ = originalTz;
+      if (originalTz === undefined) delete process.env.TZ;
+      else process.env.TZ = originalTz;
     }
+  });
+
+  it('reads a non-midnight instant string on the tenant clock', () => {
+    // 20:00 UTC on the 9th is already 02:00 on the 10th in Dhaka.
+    expect(formatDate('2026-09-09T20:00:00Z', REGION_BD_EN)).toBe('10th September, 2026');
+  });
+
+  it('formatWeekday rejects an impossible date like formatDate does', () => {
+    expect(formatWeekday('2026-02-30', REGION_BD_EN)).toBe('—');
+    expect(formatWeekday('2026-09-09', REGION_BD_EN)).toBe('Wednesday');
   });
 
   it.each(['', null, undefined, 'garbage', '2026-02-30', new Date(Number.NaN)])(
@@ -120,7 +132,7 @@ describe('formatTime', () => {
     expect(formatTime(new Date(Date.UTC(2026, 7, 25, 3, 5)), REGION_BD_EN)).toBe('9:05 AM');
   });
 
-  it.each(['25:00', ''])('shows the none value for %j', (value) => {
+  it.each(['25:00', '', '2026-10-08'])('shows the none value for %j', (value) => {
     expect(formatTime(value, REGION_BD_EN)).toBe('—');
   });
 });
@@ -279,6 +291,10 @@ describe('formatDateTime', () => {
     // 19:00 UTC on the 24th is already 01:00 on the 25th in Dhaka.
     const date = new Date(Date.UTC(2026, 7, 24, 19, 0));
     expect(formatDateTime(date, REGION_BD_EN)).toBe('25th August, 2026, 1:00 AM');
+  });
+
+  it('shows only the date for a bare YYYY-MM-DD (no time to show)', () => {
+    expect(formatDateTime('2026-10-08', REGION_BD_EN)).toBe('8th October, 2026');
   });
 });
 

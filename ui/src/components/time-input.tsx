@@ -7,8 +7,9 @@ import { formatTime } from '../utils/date';
 import { Combobox, type ComboboxOption } from './combobox';
 
 export interface TimeInputProps {
-  /** `"08:00"`. */
+  /** `"08:00"`; an API `"08:00:00"` is read as `"08:00"`. */
   value: string | undefined;
+  /** Always `HH:mm`. */
   onValueChange: (value: string) => void;
   /** Default 30. */
   stepMinutes?: number;
@@ -28,6 +29,9 @@ function toMinutes(hhmm: string): number {
   return Number(h) * 60 + Number(m);
 }
 
+const toHhmm = (minutes: number): string =>
+  `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
+
 export function TimeInput({
   value,
   onValueChange,
@@ -41,12 +45,14 @@ export function TimeInput({
   const regionConfig = useRegionConfig();
   const options: ComboboxOption[] = [];
   for (let m = toMinutes(min); m <= toMinutes(max); m += Math.max(1, stepMinutes)) {
-    const hhmm = `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+    const hhmm = toHhmm(m);
     options.push({ value: hhmm, label: formatTime(hhmm, regionConfig) });
   }
+  // Seconds dropped so a Postgres `time` ("08:00:00") matches the "08:00" option.
+  const current = value ? toHhmm(toMinutes(value)) : undefined;
   // Data saved off the step grid (08:10) must still show.
-  if (value && !options.some((o) => o.value === value)) {
-    options.push({ value, label: formatTime(value, regionConfig) });
+  if (current && !options.some((o) => o.value === current)) {
+    options.push({ value: current, label: formatTime(current, regionConfig) });
     options.sort((a, b) => toMinutes(a.value) - toMinutes(b.value));
   }
   return (
@@ -55,7 +61,7 @@ export function TimeInput({
         {...props}
         className="pe-9"
         options={options}
-        value={value ?? null}
+        value={current ?? null}
         onValueChange={(v) => v && onValueChange(v)}
         placeholder={placeholder ?? t('date.pickTime')}
         announceResults={(n) => t('combobox.results', { count: n })}
