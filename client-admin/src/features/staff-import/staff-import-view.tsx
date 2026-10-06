@@ -253,16 +253,17 @@ function DoneSummary({
         <li>{t('done.created', { count: result.created })}</li>
         {result.restored > 0 && <li>{t('done.restored', { count: result.restored })}</li>}
         <li>{t('done.invited', { count: result.invited })}</li>
-        {result.failed.length > 0 && (
-          <li role="alert">
-            {t('done.failed', { count: result.failed.length })}.{' '}
-            {t('done.failedRows', { rows: rowsOf(result.failed) })}
-          </li>
-        )}
-        {result.invite_failed.length > 0 && (
-          <li role="alert">{t('done.inviteFailedRows', { rows: rowsOf(result.invite_failed) })}</li>
-        )}
       </ul>
+      {(result.failed.length > 0 || result.invite_failed.length > 0) && (
+        <div role="alert" className="flex flex-col gap-1">
+          {result.failed.length > 0 && (
+            <p>{t('done.failed', { count: result.failed.length, rows: rowsOf(result.failed) })}</p>
+          )}
+          {result.invite_failed.length > 0 && (
+            <p>{t('done.inviteFailedRows', { rows: rowsOf(result.invite_failed) })}</p>
+          )}
+        </div>
+      )}
       <div className="flex flex-wrap gap-2">
         <Button asChild>
           <Link to="/staff">{t('done.seeStaff')}</Link>

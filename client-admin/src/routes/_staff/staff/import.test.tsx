@@ -18,6 +18,6 @@ describe('/staff/import', () => {
       locale: 'en',
     });
 
-    expect(await screen.findByRole('heading', { name: 'Import staff from Excel' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Import from Excel' })).toBeTruthy();
   });
 });
