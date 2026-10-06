@@ -33,6 +33,11 @@ export class LoginPage {
    */
   async loginWithOtp(phone: string): Promise<void> {
     await this.page.getByRole('tab', { name: t('auth.tabs.otp') }).click();
+    await this.requestAndEnterOtp(phone);
+  }
+
+  /** The same, from a page whose code form is already open (`?mode=code`, the "First time here?" link). */
+  async requestAndEnterOtp(phone: string): Promise<void> {
     await this.page.getByLabel(t('auth.otp.identifierLabel')).fill(phone);
 
     const [response] = await Promise.all([

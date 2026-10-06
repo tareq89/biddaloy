@@ -404,7 +404,7 @@ export async function createInvitedParentUser(
   request: APIRequestContext,
   session: ApiSession,
   fullName: string,
-  role: 'PARENT' | 'STUDENT' = 'PARENT',
+  role: 'PARENT' | 'STUDENT' | 'TEACHER' = 'PARENT',
 ): Promise<{ id: string; phone: string; token: string }> {
   const phone = `017${Math.floor(10_000_000 + Math.random() * 89_999_999)}`;
   const created = await post<{ user: { id: string }; invitation: { debug?: { token: string } } }>(
@@ -1045,4 +1045,113 @@ export async function closeSurvey(
   id: string,
 ): Promise<SurveyResponse> {
   return post<SurveyResponse>(request, session, `/surveys/${id}/close`, {});
+}
+
+/** [13.7.1] A trial school made the way a stranger makes one: `POST
+ * /auth/register/start` then `/verify` with the code echoed in `debug.otp`
+ * (`ACCOUNT_ACCESS_ECHO_SECRETS`). The contact details are unique per call
+ * (a second open trial for the same contact is a 409 `TRIAL_ALREADY_OPEN`).
+ * The refresh cookie lands on `request`, so `request.storageState()` builds a
+ * browser context signed in as this admin. */
+export interface RegisteredSchool {
+  session: ApiSession;
+  role: string;
+  adminName: string;
+  schoolName: string;
+  email: string;
+  phone: string;
+}
+
+export function uniqueRegistration(): Pick<
+  RegisteredSchool,
+  'adminName' | 'schoolName' | 'email' | 'phone'
+> {
+  const n = `${Date.now()}${Math.floor(Math.random() * 1000)}`;
+  return {
+    adminName: `Reg Admin ${n}`,
+    schoolName: `E2E Trial School ${n}`,
+    email: `reg-${n}@e2e.example.com`,
+    phone: `+88017${String(Math.floor(10_000_000 + Math.random() * 89_999_999))}`,
+  };
+}
+
+export async function registerTrialSchool(request: APIRequestContext): Promise<RegisteredSchool> {
+  const who = uniqueRegistration();
+  const started = await request.post('/api/v1/auth/register/start', {
+    data: {
+      admin_name: who.adminName,
+      school_name: who.schoolName,
+      country_code: 'BD',
+      address: '1 Test Road, Dhaka',
+      phone: who.phone,
+      email: who.email,
+      terms_accepted: true,
+      captcha_token: 'no-captcha',
+    },
+  });
+  if (!started.ok()) throw new Error(`register/start ${started.status()} ${await started.text()}`);
+  const start = (await started.json()) as { registration_id: string; debug?: { otp: string } };
+  if (!start.debug?.otp) throw new Error('register/start did not echo an OTP');
+  const verified = await request.post('/api/v1/auth/register/verify', {
+    data: { registration_id: start.registration_id, otp: start.debug.otp },
+  });
+  if (!verified.ok()) {
+    throw new Error(`register/verify ${verified.status()} ${await verified.text()}`);
+  }
+  const body = (await verified.json()) as RefreshResponse;
+  const membership = body.memberships.find((m) => m.role === 'ADMIN');
+  if (!membership) throw new Error('no ADMIN membership after register/verify');
+  return {
+    ...who,
+    session: { token: body.access_token, tenantId: membership.tenantId },
+    role: membership.role,
+  };
+}
+
+/** `GET /backup/template?variant=starter` — the real starter workbook, then
+ * `rows` appended under its header (row 1 holds the column keys; the SAMPLE
+ * row is ignored on import). `exceljs` is the server's own dependency. */
+export async function starterWorkbook(
+  request: APIRequestContext,
+  session: ApiSession,
+  rows: Record<string, Record<string, string | boolean>[]>,
+): Promise<Buffer> {
+  const res = await request.get('/api/v1/backup/template?variant=starter&lang=en', {
+    headers: { Authorization: `Bearer ${session.token}`, 'X-Tenant-ID': session.tenantId },
+  });
+  if (!res.ok()) throw new Error(`template ${res.status()} ${await res.text()}`);
+  // Lazy: only the specs that build a workbook pay for loading exceljs.
+  const { default: ExcelJS } = await import('exceljs');
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load((await res.body()) as unknown as ArrayBuffer);
+  for (const [sheetName, sheetRows] of Object.entries(rows)) {
+    const sheet = workbook.getWorksheet(sheetName);
+    if (!sheet) throw new Error(`starter has no sheet ${sheetName}`);
+    const keys = (sheet.getRow(1).values as (string | undefined)[]).slice(1);
+    for (const row of sheetRows) {
+      sheet.addRow(keys.map((key) => (key ? (row[key] ?? null) : null)));
+    }
+  }
+  return Buffer.from(await workbook.xlsx.writeBuffer());
+}
+
+/** Ends a trial the only way there is: the daily job is not reachable, so the
+ * row is set the way that job leaves it (suspended, reason TRIAL_EXPIRED).
+ * ponytail: raw SQL via the server's `pg`; swap for an endpoint if one appears.
+ * Limit: skips TrialService.expire (audit row, tenant-status cache invalidation). */
+export async function endTrial(schoolId: string): Promise<void> {
+  const url = process.env.DATABASE_URL;
+  if (!url) throw new Error('DATABASE_URL is not set — endTrial needs the e2e database');
+  const { Client } = await import('pg');
+  const client = new Client({ connectionString: url });
+  await client.connect();
+  try {
+    await client.query(
+      `UPDATE schools SET trial_ends_at = now() - interval '1 day', status = 'SUSPENDED',
+         status_reason = 'TRIAL_EXPIRED' WHERE id = $1`,
+      [schoolId],
+    );
+  } finally {
+    await client.end();
+  }
 }

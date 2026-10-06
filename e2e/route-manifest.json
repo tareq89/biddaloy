@@ -49,7 +49,8 @@
     {
       "path": "/dashboard",
       "role": "admin",
-      "archetype": "bespoke"
+      "archetype": "bespoke",
+      "overlays": ["trial-details"]
     },
     {
       "path": "/notifications",
@@ -59,7 +60,8 @@
     {
       "path": "/security",
       "role": "admin",
-      "archetype": "bespoke"
+      "archetype": "bespoke",
+      "overlays": ["leave-school"]
     },
     {
       "path": "/schools",
@@ -72,7 +74,8 @@
         "schoolId": "seeded"
       },
       "role": "super_admin",
-      "archetype": "detail"
+      "archetype": "detail",
+      "overlays": ["extend-trial"]
     },
     {
       "path": "/schools/new",
@@ -407,7 +410,8 @@
     {
       "path": "/staff",
       "role": "admin",
-      "archetype": "list"
+      "archetype": "list",
+      "overlays": ["restore-member"]
     },
     {
       "path": "/staff/import",

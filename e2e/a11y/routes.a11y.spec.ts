@@ -1,6 +1,6 @@
 import type { APIRequestContext, Page } from '@playwright/test';
 
-import { adminApiSession, createStudentWithDues } from '../api';
+import { adminApiSession, createStaffUser, createStudentWithDues } from '../api';
 import { expect, guest, loggedIn, test } from '../fixtures/test';
 import type { SeedRole } from '../seed-contract';
 import { resolvePath, routes, type ManifestRoute } from '../responsive/routes';
@@ -57,6 +57,16 @@ async function ensureDuesRow(request: APIRequestContext): Promise<void> {
   await createStudentWithDues(request, session, `A11y Dues ${Date.now()}`);
 }
 
+/** [13.7.1] The `/staff::restore-member` opener needs someone under "Former". */
+async function ensureFormerMember(request: APIRequestContext): Promise<void> {
+  const session = await adminApiSession(request);
+  const { id } = await createStaffUser(request, session, `A11y Former ${Date.now()}`);
+  const removed = await request.delete(`/api/v1/users/${id}`, {
+    headers: { Authorization: `Bearer ${session.token}`, 'X-Tenant-ID': session.tenantId },
+  });
+  if (!removed.ok()) throw new Error(`DELETE /users/${id} failed: ${removed.status()}`);
+}
+
 for (const { locale, theme } of VARIANTS) {
   test.describe(`a11y · ${locale}${theme === 'dark' ? ' · dark' : ''} @sweep`, () => {
     for (const route of routes) {
@@ -76,6 +86,7 @@ for (const { locale, theme } of VARIANTS) {
             // Overlay openers below select the first row — make sure one exists.
             if (route.overlays?.length) await ensureDuesRow(request);
           }
+          if (route.path === '/staff' && route.overlays?.length) await ensureFormerMember(request);
           if (theme === 'dark') {
             // Seeded via `addInitScript`, not a plain `localStorage.setItem`
             // after `goto()` — it has to be in place before
@@ -99,7 +110,7 @@ for (const { locale, theme } of VARIANTS) {
               const opener = overlayOpeners[`${route.path}::${overlay}`];
               if (!opener) throw new Error(`no opener for ${route.path}::${overlay}`);
               await opener(page, locale);
-              await expectNoAxeViolations(page, '[role="dialog"]');
+              await expectNoAxeViolations(page, '[role="dialog"], [role="alertdialog"]');
               await page.keyboard.press('Escape');
             });
           }
