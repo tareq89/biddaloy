@@ -304,6 +304,9 @@
     "summary_one": "There is {{count}} problem with your submission",
     "summary_other": "There are {{count}} problems with your submission"
   },
+  "stepIndicator": {
+    "done": "(done)"
+  },
   "fileUpload": {
     "chooseFile": "Choose file",
     "chooseFiles": "Choose files",

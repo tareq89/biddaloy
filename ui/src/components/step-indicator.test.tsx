@@ -1,6 +1,8 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
+import { renderWithProviders } from '../test/render-with-providers';
+
 import { StepIndicator } from './step-indicator';
 
 const steps = [
@@ -19,15 +21,19 @@ describe('StepIndicator', () => {
     await expect(container).toHaveNoViolations();
   });
 
-  it('draws a tick for done steps and numbers for the rest', () => {
-    render(<StepIndicator steps={steps} current="b" progressLabel="Step 2 of 3" />);
+  it('draws a tick for done steps, says "done" to screen readers, and numbers the rest', async () => {
+    const view = renderWithProviders(
+      <StepIndicator steps={steps} current="b" progressLabel="Step 2 of 3" />,
+      { locale: 'en' },
+    );
+    await view.localeReady;
     const [done, active, later] = screen.getAllByRole('listitem') as [
       HTMLElement,
       HTMLElement,
       HTMLElement,
     ];
     expect(done.querySelector('svg')).not.toBeNull();
-    expect(done.textContent).toBe('Account');
+    expect(done.textContent).toBe('Account (done)');
     expect(active.textContent).toBe('2Details');
     expect(later.textContent).toBe('3Verify');
   });

@@ -3,6 +3,7 @@
  * Controlled: the wizard owns the choice because "Next" lives in its footer.
  */
 import { useTranslation } from '@biddaloy/ui/i18n';
+import { isSafeSupportUrl } from '@biddaloy/ui/utils';
 
 import { ChoiceCardGroup, type ChoiceOption } from './choice-card-group';
 
@@ -12,7 +13,7 @@ export interface SetupDoorsProps {
   value: SetupDoor;
   onChange: (door: SetupDoor) => void;
   onEnter: () => void;
-  /** From the onboarding status; the link is hidden when null. */
+  /** From the onboarding status; the link is hidden when null or not https:/mailto:. */
   supportUrl: string | null;
 }
 
@@ -38,7 +39,7 @@ export function SetupDoors({ value, onChange, onEnter, supportUrl }: SetupDoorsP
         onChange={onChange}
         onEnter={onEnter}
       />
-      {supportUrl && (
+      {isSafeSupportUrl(supportUrl) && (
         <p className="text-sm">
           <a
             href={supportUrl}

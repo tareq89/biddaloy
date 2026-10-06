@@ -37,12 +37,14 @@ export function NoticeBar({ tone, children, action, onOpenDetails, className }: 
   const body = (
     <>
       <Icon aria-hidden="true" className="size-4 shrink-0" />
-      <span className="truncate sm:whitespace-normal">{children}</span>
+      {/* The live region is the text only, so the button's label is not re-announced. */}
+      <span role="status" className="truncate sm:whitespace-normal">
+        {children}
+      </span>
     </>
   );
   return (
     <div
-      role="status"
       data-tone={tone}
       className={cn(
         'flex w-full items-center gap-3 px-4 text-sm',

@@ -9,7 +9,8 @@ describe('NoticeBar', () => {
     'renders the %s tone as a status',
     async (tone) => {
       const { container } = render(<NoticeBar tone={tone}>Trial ends soon</NoticeBar>);
-      expect(screen.getByRole('status').getAttribute('data-tone')).toBe(tone);
+      expect(container.firstElementChild?.getAttribute('data-tone')).toBe(tone);
+      expect(screen.getByRole('status').textContent).toBe('Trial ends soon');
       // Icon sits beside the text, so tone is not colour alone.
       expect(container.querySelector('svg')).not.toBeNull();
       await expect(container).toHaveNoViolations();
@@ -34,6 +35,9 @@ describe('NoticeBar', () => {
       </NoticeBar>,
     );
     const button = screen.getByRole('button', { name: 'Trial ends in 3 days' });
+    // The live region is the text inside the button, not a wrapper around the button.
+    expect(button.contains(screen.getByRole('status'))).toBe(true);
+    expect(screen.getByRole('status').contains(button)).toBe(false);
     await user.click(button);
     // Click focused it; tabbing away and back proves it is in the tab order.
     await user.tab();

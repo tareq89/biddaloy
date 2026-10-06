@@ -33,6 +33,7 @@ import { isTenantSuspendedError } from '../api/errors';
 import { captureRouteError, recordRouteChunkFallback } from '../api/sentry';
 import { decodeAccessTokenMemberships } from '../api/session';
 import { useTranslation } from '../i18n';
+import { isSafeSupportUrl } from '../utils/support-url';
 
 import { Button } from './button';
 import { ErrorState } from './error-state';
@@ -175,8 +176,6 @@ export function RouteErrorFallback({
 }: RouteErrorFallbackProps) {
   const navigate = useNavigate();
   const { t } = useTranslation('common');
-  const { t: tTrial } = useTranslation('trial');
-  const { t: tAuth } = useTranslation('auth');
   // Props still override; the defaults are translated here so an app that
   // passes no copy (or only some) is never stuck with English on a Bangla page.
   message = message ?? t('routeError.message');
@@ -251,32 +250,14 @@ export function RouteErrorFallback({
   }
 
   if (kind === 'trial-ended') {
-    const token = getAccessToken();
-    const hasOtherSchools = token ? decodeAccessTokenMemberships(token).length > 1 : false;
     return (
-      <div className="flex flex-col items-center gap-2">
-        <RouteStatusState
-          title={tTrial('ended.title')}
-          explanation={tTrial('ended.body')}
-          onRetry={reset}
-          retryLabel={retryLabel}
-          onHome={onHome}
-          homeLabel={homeLabel}
-          icon={<Lock aria-hidden="true" />}
-        />
-        <div className="flex flex-wrap items-center justify-center gap-2">
-          {supportUrl && /^(https:|mailto:)/i.test(supportUrl) && (
-            <Button asChild>
-              <a href={supportUrl}>{tTrial('ended.contact')}</a>
-            </Button>
-          )}
-          {hasOtherSchools && (
-            <Button variant="outline" onClick={() => void navigate({ to: '/select-school' })}>
-              {tAuth('selectSchool.chooseAnother')}
-            </Button>
-          )}
-        </div>
-      </div>
+      <TrialEndedState
+        onRetry={reset}
+        retryLabel={retryLabel}
+        onHome={onHome}
+        homeLabel={homeLabel}
+        supportUrl={supportUrl}
+      />
     );
   }
 
@@ -302,5 +283,55 @@ export function RouteErrorFallback({
       onHome={onHome}
       homeLabel={homeLabel}
     />
+  );
+}
+
+/**
+ * The trial-ended fork, in its own component so only it loads the `trial` and
+ * `auth` namespaces: the offline / update / generic forks keep reading `common`
+ * alone, and never wait on two more chunks when the network is the problem.
+ */
+function TrialEndedState({
+  onRetry,
+  retryLabel,
+  onHome,
+  homeLabel,
+  supportUrl,
+}: {
+  onRetry: () => void;
+  retryLabel: string;
+  onHome: () => void;
+  homeLabel: string;
+  supportUrl: string | null | undefined;
+}) {
+  const navigate = useNavigate();
+  const { t: tTrial } = useTranslation('trial');
+  const { t: tAuth } = useTranslation('auth');
+  const token = getAccessToken();
+  const hasOtherSchools = token ? decodeAccessTokenMemberships(token).length > 1 : false;
+  return (
+    <div className="flex flex-col items-center gap-2">
+      <RouteStatusState
+        title={tTrial('ended.title')}
+        explanation={tTrial('ended.body')}
+        onRetry={onRetry}
+        retryLabel={retryLabel}
+        onHome={onHome}
+        homeLabel={homeLabel}
+        icon={<Lock aria-hidden="true" />}
+      />
+      <div className="flex flex-wrap items-center justify-center gap-2">
+        {isSafeSupportUrl(supportUrl) && (
+          <Button asChild>
+            <a href={supportUrl}>{tTrial('ended.contact')}</a>
+          </Button>
+        )}
+        {hasOtherSchools && (
+          <Button variant="outline" onClick={() => void navigate({ to: '/select-school' })}>
+            {tAuth('selectSchool.chooseAnother')}
+          </Button>
+        )}
+      </div>
+    </div>
   );
 }

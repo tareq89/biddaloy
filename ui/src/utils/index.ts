@@ -42,3 +42,4 @@ export { countSmsSegments, type SmsEncoding, type SmsSegmentInfo } from './sms';
 export { boundedNumericString } from './zod-helpers';
 export { VIEW_TRANSITION_FOCUS_TIMEOUT_MS, waitForViewTransition } from './view-transition';
 export { describeUserAgent, type DeviceDescription } from './user-agent';
+export { isSafeSupportUrl } from './support-url';

@@ -7,6 +7,7 @@
 import { CheckIcon } from 'lucide-react';
 import * as React from 'react';
 
+import { useTranslation } from '../i18n';
 import { cn } from '../primitives/lib/utils';
 
 export interface StepIndicatorProps {
@@ -19,6 +20,7 @@ export interface StepIndicatorProps {
 }
 
 export function StepIndicator({ steps, current, progressLabel, className }: StepIndicatorProps) {
+  const { t } = useTranslation('common');
   const active = steps.find((s) => s.id === current);
   const currentIndex = steps.findIndex((s) => s.id === current);
   return (
@@ -52,6 +54,8 @@ export function StepIndicator({ steps, current, progressLabel, className }: Step
                 {i < currentIndex ? <CheckIcon className="size-3.5" /> : i + 1}
               </span>
               {step.label}
+              {/* The tick above is decorative; this is what a screen reader hears. */}
+              {i < currentIndex && <span className="sr-only"> {t('stepIndicator.done')}</span>}
             </li>
           </React.Fragment>
         ))}
