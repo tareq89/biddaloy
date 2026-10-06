@@ -122,8 +122,9 @@ function ResetPasswordPage() {
         onSubmit={(password) => mutation.mutate(password)}
         loading={mutation.isPending}
         error={buildResetError(mutation.error, t)}
-        // Anonymous here, so the audience is unknown: staff rules are the
-        // stricter set, the server still accepts them (W5 #1632 refines this).
+        // Anonymous here and there is no reset-verify call, so the audience is
+        // unknown: staff rules are the stricter set. If the server judges by
+        // the family rules it accepts these too; `failedRules` covers the rest.
         audience="staff"
         failedRules={weakPasswordRules(mutation.error)}
         submitLabel={t('setPassword.submit')}

@@ -59,4 +59,15 @@ describe('/reset-password', () => {
       expect(screen.getByText('This link has expired or has already been used.')).toBeTruthy(),
     );
   });
+
+  it('shows the five staff rules (the audience is unknown before the reset)', async () => {
+    server.use(authHandlers.refreshFailure);
+    renderWithRouter(routeTree, {
+      initialEntries: ['/reset-password?token=a-valid-reset-token'],
+      locale: 'en',
+    });
+
+    await screen.findByLabelText('New password');
+    expect(screen.getAllByRole('listitem')).toHaveLength(5);
+  });
 });

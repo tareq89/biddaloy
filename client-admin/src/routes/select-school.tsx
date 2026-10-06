@@ -1,6 +1,6 @@
 import type { UserRole } from '@biddaloy/shared';
 import { decodeAccessTokenMemberships, getAccessToken } from '@biddaloy/ui/api';
-import { AuthLayout, Button, SchoolPicker } from '@biddaloy/ui/components';
+import { AuthLayout, Button, EmptyState, SchoolPicker } from '@biddaloy/ui/components';
 import { logout, switchActiveTenant } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { useQueryClient } from '@tanstack/react-query';
@@ -59,12 +59,8 @@ function SelectSchoolPage() {
   // can legitimately show 0 or 1 memberships by the time it's read —
   // e.g. a user removed from every school since their token was issued.
   React.useEffect(() => {
-    if (memberships.length === 0) {
-      // A memberless account has nowhere useful to go — revoke the
-      // session server-side too, the same reasoning `login()`'s own
-      // zero-memberships branch documents.
-      void logout(queryClient).finally(() => void navigate({ to: '/login' }));
-    } else if (memberships.length === 1) {
+    // Zero memberships renders the empty state below instead of bouncing away.
+    if (memberships.length === 1) {
       const [only] = memberships;
       if (only) {
         switchActiveTenant(queryClient, only.tenantId, only.role);
@@ -84,6 +80,21 @@ function SelectSchoolPage() {
 
   function handleSignOut(): void {
     void logout(queryClient).finally(() => void navigate({ to: '/login' }));
+  }
+
+  if (memberships.length === 0) {
+    // ponytail: no support link — the onboarding status call that carries
+    // `support_url` needs an active school, which this account does not have.
+    return (
+      <AuthLayout>
+        <EmptyState
+          headingLevel={1}
+          title={t('selectSchool.none.title')}
+          explanation={t('selectSchool.none.body')}
+          action={{ label: t('selectSchool.none.signOut'), onClick: handleSignOut }}
+        />
+      </AuthLayout>
+    );
   }
 
   if (memberships.length < 2) return null; // the effect above is already navigating away
