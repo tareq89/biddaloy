@@ -15,16 +15,26 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
-import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiConsumes,
+  ApiOkResponse,
+  ApiOperation,
+  ApiProduces,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import type { CookieOptions, Request, Response } from 'express';
 import { JwtPayload, SocialProvider } from '@biddaloy/shared';
 import { STRICT_RATE_LIMIT } from '../../../rate-limit';
 import { requestContext } from '../../../common/request-context.util';
+import { escapeHtml } from '../../invoices/invoice-print-format.util';
 import { CurrentUser } from '../decorators/current-user.decorator';
 import { setRefreshCookie } from '../token-cookie';
 import {
   FacebookDataDeletionDto,
   FacebookDataDeletionResponseDto,
+  FacebookDataDeletionStatusQueryDto,
   SocialCallbackQueryDto,
   SocialIdentityDto,
   SocialLinkStartDto,
@@ -94,10 +104,14 @@ export class SocialAuthController {
     await this.identities.unlink(user.sub, provider, requestContext(request));
   }
 
-  /** Meta calls this (form-encoded) when someone removes the app; the signature is the auth. */
+  /**
+   * Meta calls this (form-encoded) when someone removes the app; the
+   * signature is the auth. Default (global) rate-limit tier, not STRICT:
+   * Meta calls from a few IPs and a 429 would drop a real deletion request.
+   */
   @Post('facebook/data-deletion')
   @HttpCode(HttpStatus.OK)
-  @Throttle({ default: STRICT_RATE_LIMIT })
+  @ApiConsumes('application/x-www-form-urlencoded')
   @ApiOperation({ summary: "Meta's data-deletion callback: removes the Facebook identity only." })
   @ApiOkResponse({ type: FacebookDataDeletionResponseDto })
   @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad signed_request.' })
@@ -106,6 +120,33 @@ export class SocialAuthController {
     @Req() request: Request,
   ): Promise<FacebookDataDeletionResponseDto> {
     return this.social.facebookDataDeletion(body.signed_request, requestContext(request));
+  }
+
+  /**
+   * The status page Meta links the person to. Deletion happens inside the
+   * callback, so the answer is always "done"; no lookup, so nothing to probe.
+   */
+  @Get('facebook/data-deletion/status')
+  @ApiOperation({ summary: 'Plain HTML page confirming a Facebook data deletion.' })
+  @ApiProduces('text/html')
+  @ApiOkResponse({ description: 'Bilingual (en + bn) confirmation page.' })
+  facebookDataDeletionStatus(
+    @Query() query: FacebookDataDeletionStatusQueryDto,
+    @Res() response: Response,
+  ): void {
+    const code = escapeHtml(query.code);
+    response
+      .status(HttpStatus.OK)
+      .set('Content-Security-Policy', "default-src 'none'; frame-ancestors 'none'")
+      .type('html')
+      .send(
+        `<!doctype html><html lang="en"><head><meta charset="utf-8">` +
+          `<meta name="viewport" content="width=device-width, initial-scale=1">` +
+          `<title>Data deletion</title></head><body>` +
+          `<p>Your Facebook sign-in data was deleted. Confirmation code: <code>${code}</code></p>` +
+          `<p lang="bn">আপনার Facebook দিয়ে সাইন-ইনের তথ্য মুছে ফেলা হয়েছে। নিশ্চিত করার কোড: <code>${code}</code></p>` +
+          `</body></html>`,
+      );
   }
 
   @Get(':provider/start')
