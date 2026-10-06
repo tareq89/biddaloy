@@ -58,6 +58,7 @@ import {
 import * as React from 'react';
 
 import { CalendarFeedCard } from '../../components/calendar-feed-card';
+import { SignInMethodsCard } from '../../features/sign-in-methods/sign-in-methods-card';
 import { loadRouteNamespaces } from '../../route-loaders';
 
 /**
@@ -92,7 +93,7 @@ export const Route = createFileRoute('/portal/account')({
   // `sessions.*` strings — preloaded here so first navigation to this route
   // never suspends into a blank `I18nProvider` fallback, same reasoning
   // `route-loaders.ts`'s own doc comment documents for every other route.
-  loader: () => loadRouteNamespaces('auth', 'push', 'calendarFeed'),
+  loader: () => loadRouteNamespaces('auth', 'push', 'calendarFeed', 'signInMethods'),
   component: PortalAccountRoute,
 });
 
@@ -433,6 +434,10 @@ function PortalAccount() {
           decodeAccessTokenMemberships(accessToken ?? '').map((m) => m.role),
         )}
         failedRules={passwordFailedRules}
+      />
+
+      <SignInMethodsCard
+        roles={decodeAccessTokenMemberships(accessToken ?? '').map((m) => m.role)}
       />
 
       <PushNotificationSettings
