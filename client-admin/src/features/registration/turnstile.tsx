@@ -22,17 +22,26 @@ interface TurnstileApi {
   remove: (widgetId: string) => void;
 }
 
+// The in-flight load, shared so a second mount (StrictMode, a captcha reset) does not add the
+// script twice. Reset on failure so a later mount can try again.
+let loading: Promise<TurnstileApi> | null = null;
+
 function loadScript(): Promise<TurnstileApi> {
   const existing = (window as unknown as { turnstile?: TurnstileApi }).turnstile;
   if (existing) return Promise.resolve(existing);
-  return new Promise((resolve, reject) => {
+  loading ??= new Promise((resolve, reject) => {
     const script = document.createElement('script');
     script.src = SCRIPT_SRC;
     script.async = true;
     script.onload = () => resolve((window as unknown as { turnstile: TurnstileApi }).turnstile);
-    script.onerror = () => reject(new Error('turnstile script failed'));
+    script.onerror = () => {
+      loading = null;
+      script.remove();
+      reject(new Error('turnstile script failed'));
+    };
     document.head.appendChild(script);
   });
+  return loading;
 }
 
 /**
@@ -40,7 +49,14 @@ function loadScript(): Promise<TurnstileApi> {
  * If the script cannot load (blocked, offline) it says so in place, instead of the form only
  * complaining about a missing check on submit.
  */
-export function Turnstile({ onToken }: { onToken: (token: string | null) => void }) {
+export function Turnstile({
+  onToken,
+  siteKey = TURNSTILE_SITE_KEY,
+}: {
+  onToken: (token: string | null) => void;
+  /** Defaults to the build's key; a story passes one to show the widget's states. */
+  siteKey?: string | undefined;
+}) {
   const { t } = useTranslation('register');
   const ref = React.useRef<HTMLDivElement>(null);
   const [failed, setFailed] = React.useState(false);
@@ -48,7 +64,7 @@ export function Turnstile({ onToken }: { onToken: (token: string | null) => void
   onTokenRef.current = onToken;
 
   React.useEffect(() => {
-    if (!TURNSTILE_SITE_KEY || !ref.current) return;
+    if (!siteKey || !ref.current) return;
     let widgetId: string | undefined;
     let api: TurnstileApi | undefined;
     let cancelled = false;
@@ -58,7 +74,7 @@ export function Turnstile({ onToken }: { onToken: (token: string | null) => void
         if (cancelled) return;
         api = turnstile;
         widgetId = turnstile.render(el, {
-          sitekey: TURNSTILE_SITE_KEY,
+          sitekey: siteKey,
           callback: (token) => onTokenRef.current(token),
           'expired-callback': () => onTokenRef.current(null),
           'error-callback': () => onTokenRef.current(null),
@@ -73,9 +89,9 @@ export function Turnstile({ onToken }: { onToken: (token: string | null) => void
       cancelled = true;
       if (api && widgetId) api.remove(widgetId);
     };
-  }, []);
+  }, [siteKey]);
 
-  if (!TURNSTILE_SITE_KEY) return null;
+  if (!siteKey) return null;
   return (
     <div>
       <div ref={ref} />
