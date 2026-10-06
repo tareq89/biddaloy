@@ -444,6 +444,24 @@ describe('/attendance/register month edit', () => {
     expect(bodies[0]!.reason).toBe('Typed anyway');
   });
 
+  it('a 1-2 letter reason is an error even when none is required, not silently dropped', async () => {
+    setDesktop(true);
+    const { bodies, url } = useTodayMatrix(() =>
+      HttpResponse.json({ saved_dates: [dhakaToday()], versions: {} }),
+    );
+    const user = userEvent.setup();
+    await openEditor('ADMIN', url);
+    await user.click(await screen.findByRole('button', { name: 'Edit' }));
+    (await screen.findByRole('gridcell', { name: /Karim Rahman, .*: Present/ })).focus();
+    await user.keyboard('a');
+    await user.type(screen.getByLabelText(/Reason for correction/), 'ok');
+    await user.click(screen.getByRole('button', { name: 'Save (1)' }));
+    expect((await screen.findByRole('alert')).textContent).toBe(
+      'Write a reason of at least 3 letters.',
+    );
+    expect(bodies).toHaveLength(0);
+  });
+
   it('with no reason, a 422 ATTENDANCE_REASON_REQUIRED marks the field required', async () => {
     setDesktop(true);
     // Today's register is already FINALIZED: the server asks for a reason once.
@@ -542,8 +560,10 @@ describe('/attendance/register month edit', () => {
 
   it('a 422 ATTENDANCE_MATRIX_LOCKED_DATE says the day cannot be marked, not "someone changed"', async () => {
     setDesktop(true);
-    useMatrix(() =>
-      HttpResponse.json(
+    let puts = 0;
+    useMatrix(() => {
+      puts += 1;
+      return HttpResponse.json(
         {
           statusCode: 422,
           message: 'locked',
@@ -553,8 +573,8 @@ describe('/attendance/register month edit', () => {
           details: { code: 'ATTENDANCE_MATRIX_LOCKED_DATE', dates: ['2026-01-01'] },
         },
         { status: 422 },
-      ),
-    );
+      );
+    });
     const user = userEvent.setup();
     await openEditor();
     await user.click(await screen.findByRole('button', { name: 'Edit' }));
@@ -566,6 +586,15 @@ describe('/attendance/register month edit', () => {
     const dialog = await screen.findByRole('dialog', { name: 'Nothing was saved' });
     expect(within(dialog).getByText(/cannot be marked/)).toBeTruthy();
     expect(within(dialog).queryByText(/while you were editing/)).toBeNull();
+    // Ctrl+S under the dialog does not resend the refused save.
+    await user.keyboard('{Control>}s{/Control}');
+    expect(puts).toBe(1);
+    // Only the listed days are bad: drop them, keep the rest of the draft.
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Remove these days from my changes' }),
+    );
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(screen.getByRole('button', { name: 'Save (0)' }).hasAttribute('disabled')).toBe(true);
   });
 
   it('shows the conflicting dates, saves nothing, and Reload keeps edit mode with an empty draft', async () => {

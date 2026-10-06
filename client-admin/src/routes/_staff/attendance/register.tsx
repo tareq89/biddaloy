@@ -252,8 +252,13 @@ function RegisterPageContent() {
 
   function onSave() {
     if (matrix === undefined || draft.size === 0 || saveMatrix.isPending) return;
+    // A dialog is up (a refused save, or "discard changes?" holding a
+    // navigation): Ctrl+S must not save underneath it.
+    if (problem !== null || blocker.status === 'blocked') return;
     const trimmed = reason.trim();
-    if (reasonNeeded && trimmed.length < MIN_REASON_LENGTH) {
+    // A too-short reason is an error even when none is required: it would
+    // otherwise be dropped from the save without a word.
+    if ((reasonNeeded || trimmed.length > 0) && trimmed.length < MIN_REASON_LENGTH) {
       setReasonError(true);
       return;
     }
@@ -316,7 +321,11 @@ function RegisterPageContent() {
   React.useEffect(() => {
     if (!editing) return;
     const onKeyDown = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') {
+      // `code` too: with a Bangla layout (Bijoy) `key` is not 's'.
+      if (
+        (event.metaKey || event.ctrlKey) &&
+        (event.code === 'KeyS' || event.key.toLowerCase() === 's')
+      ) {
         event.preventDefault();
         onSaveRef.current();
       }
@@ -460,12 +469,12 @@ function RegisterPageContent() {
                   {t('register.changedCount', { count: draft.size })}
                 </h2>
                 {newDates.length > 0 && (
-                  <p className="text-sm text-text-secondary">
+                  <p className="text-caption text-text-secondary">
                     {t('register.newDayNotice', { dates: fmtDates(newDates) })}
                   </p>
                 )}
                 {outsideDates.length > 0 && (
-                  <p className="text-sm text-text-secondary">
+                  <p className="text-caption text-text-secondary">
                     {t('register.outsideWindowNotice', {
                       count: outsideDates.length,
                       dates: fmtDates(outsideDates),
@@ -706,12 +715,12 @@ function RegisterPageContent() {
       <Dialog
         open={problem !== null}
         // Closing a conflict any way (Esc, outside click, X) reloads: keeping the
-        // stale grid would only fail the next Save the same way. A `closed`
-        // problem just closes; the draft is the user's to keep or trim.
+        // stale grid would only fail the next Save the same way. A `locked` or
+        // `closed` problem just closes; the draft is the user's to keep or trim.
         onOpenChange={(open) => {
           if (open) return;
-          if (problem?.kind === 'closed') setProblem(null);
-          else reloadMonth();
+          if (problem?.kind === 'conflict') reloadMonth();
+          else setProblem(null);
         }}
       >
         <DialogContent size="sm">
@@ -726,7 +735,7 @@ function RegisterPageContent() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            {problem?.kind === 'closed' && problem.dates.length > 0 ? (
+            {problem && problem.kind !== 'conflict' && problem.dates.length > 0 ? (
               <Button
                 type="button"
                 onClick={() => {
