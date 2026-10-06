@@ -253,5 +253,42 @@
     "editAction": "Edit {{name}}",
     "emptyTitle": "No holiday lists yet",
     "tableCaption": "Table of holiday lists"
+  },
+  "trial": {
+    "column": "Trial",
+    "daysLeft_one": "{{days}} day left",
+    "daysLeft_other": "{{days}} days left",
+    "ended": "Ended",
+    "filterLabel": "Trial",
+    "filterAll": "Any",
+    "filterActive": "In trial",
+    "filterEnded": "Ended",
+    "card": {
+      "title": "Trial",
+      "endsOn": "Trial ends",
+      "endedOn": "Trial ended",
+      "students": "Students used / limit",
+      "unlimited": "no limit",
+      "extendAction": "Extend trial"
+    },
+    "dialog": {
+      "title": "Extend trial",
+      "description": "Add days to the trial of {{name}}. An ended trial becomes active again.",
+      "daysLabel": "Days to add",
+      "daysHelp": "A whole number from 1 to 365.",
+      "seatLimitLabel": "Student limit (optional)",
+      "seatLimitHelp": "Leave empty to keep the current limit.",
+      "reasonLabel": "Reason",
+      "submit": "Extend trial",
+      "success": "Trial extended.",
+      "errors": {
+        "days": "Enter a whole number from 1 to 365.",
+        "seatLimit": "Enter a whole number, 0 or more.",
+        "reasonLength": "Write at least 10 characters.",
+        "notInTrial": "This school never had a trial.",
+        "seatBelowUsage": "The limit cannot be below the {{used}} students already enrolled.",
+        "generic": "Could not extend the trial. Try again."
+      }
+    }
   }
 }
