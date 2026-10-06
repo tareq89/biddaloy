@@ -41,6 +41,7 @@
   },
   "errors": {
     "captcha": "Please complete the check to show you are not a robot.",
+    "captchaUnavailable": "The robot check could not load. Check your connection, turn off any blocker for this page, then reload.",
     "otpInvalid": "That code is not right. Check it and try again.",
     "otpExpired": "That code has expired. Ask for a new one.",
     "otpLocked": "Too many wrong tries. Please wait a while and try again.",

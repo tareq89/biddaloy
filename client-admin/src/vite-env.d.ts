@@ -14,4 +14,8 @@ interface ImportMetaEnv {
    * `registerServiceWorker` reads it to stand down, so the PWA worker
    * never fights MSW's for the root scope. */
   readonly VITE_USE_MOCKS?: string;
+  /** [13.5.1] Cloudflare Turnstile site key for `/register`. Unset (local
+   * dev, e2e) renders no widget; the server only checks the token when it
+   * has `TURNSTILE_SECRET_KEY`. */
+  readonly VITE_TURNSTILE_SITE_KEY?: string;
 }
