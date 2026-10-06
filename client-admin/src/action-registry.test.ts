@@ -40,6 +40,8 @@ const NAV_PATH_TO_ROUTE_ID: Record<string, string> = {
   '/communications/send': '/_staff/communications/send',
   '/communications/reminders': '/_staff/communications/reminders',
   '/attendance': '/_staff/attendance/',
+  '/attendance?status=pending': '/_staff/attendance/',
+  '/attendance/register?edit=true': '/_staff/attendance/register',
   '/attendance/staff': '/_staff/attendance/staff/',
   '/attendance/staff/leave': '/_staff/attendance/staff/leave',
   '/fees/generate?generate=1': '/_staff/fees/generate',
@@ -101,6 +103,7 @@ const REGISTERED_ACTION_FILES: Record<string, string> = {
   'communications.sendMessage': 'client-admin/src/routes/_staff/communications/send.tsx',
   'communications.sendFeeReminder': 'client-admin/src/routes/_staff/communications/reminders.tsx',
   'attendance.take': 'client-admin/src/routes/_staff/attendance/index.tsx',
+  'attendance.register.edit': 'client-admin/src/routes/_staff/attendance/register.tsx',
   'attendance.markStaff': 'client-admin/src/routes/_staff/attendance/staff/index.tsx',
   'leave.record': `${R}_staff/attendance/staff/-leave-request-dialog.tsx`,
   'fees.generate': `${R}_staff/fees/-generate/generate-fees-modal.tsx`,
@@ -271,6 +274,8 @@ describe('action-registry.ts', () => {
     'staff.add',
     'staff.makeTeacher',
     'students.uploadPhotos',
+    // [41.4.7] Edit mode needs ATTENDANCE_MARK; the register route is read-gated.
+    'attendance.register.edit',
   ]);
 
   it('every seeded action targets a route that exists in STAFF_ROUTE_PERMISSIONS with the same permission (or a documented, stricter exception)', () => {

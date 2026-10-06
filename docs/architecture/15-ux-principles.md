@@ -122,9 +122,9 @@ Academics
   Online learning [N6] · Online classes · Online exams              A E T
 
 Attendance
-  Students [have] · Monthly grid [partial] · Upload device file [partial] · Period/subject-wise [N15]
+  Students [have] · Monthly grid [have] · Upload device file [partial] · Period/subject-wise [have]
   Staff [N5] · Leave · Report for payroll                           A E (Ac)
-  Reports [have] · Yearly summary [partial] · Defaulters [have] · Submission check-list [N15]
+  Reports [have] · Yearly summary [partial] · Defaulters [have] · Submission check-list [have]
   Printable register [have] · Sheet layout [Print module — follow-up epic]
 
 Exams & Results
@@ -155,7 +155,7 @@ Reports [8.15] — a hub that LINKS to screens that live with their data; no cop
 Administration
   Print templates [have, 32.0] — library, then the full-screen editor
   Settings [have] → sub-pages:
-    Attendance policy & times [partial → N15] · Communication providers [have]
+    Attendance policy & times [have] · Communication providers [have]
     Printers [have, 32.0] (calibration, margins) · School profile & logo [have] · Region & locale [17.0] · Presets & feature toggles [N3]
     Organisation structure [have, 33.0 — Settings section, no new route; a
     shift/version/group field only shows once the tenant has 2+ entries in
