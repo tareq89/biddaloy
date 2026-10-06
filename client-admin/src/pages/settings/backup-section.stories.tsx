@@ -169,6 +169,19 @@ export const ScheduleAndPin: Story = {
   },
 };
 
+/** [13.5.12] The starter-file download sits with the blank-template one in
+ * the restore card. */
+export const StarterDownload: Story = {
+  parameters: {
+    msw: {
+      handlers: [
+        jobsHandler([jobFixture({ id: 'job-done' })]),
+        http.get('/api/v1/backup/template', () => new HttpResponse(new Blob(['xlsx']))),
+      ],
+    },
+  },
+};
+
 export const DeepLinkHighlight: Story = {
   args: { backupJobId: 'job-linked' },
   parameters: {

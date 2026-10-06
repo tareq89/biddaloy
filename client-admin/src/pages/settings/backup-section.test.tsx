@@ -674,6 +674,36 @@ describe('BackupSection', () => {
     expect(screen.getAllByRole('button', { name: 'Create a new backup' })).toHaveLength(1);
   });
 
+  it('the starter button requests variant=starter; the blank-template button requests no variant', async () => {
+    const requests: Array<{ lang: string | null; variant: string | null }> = [];
+    server.use(
+      http.get('/api/v1/backup/jobs', () =>
+        HttpResponse.json({ data: [], total: 0, page: 1, limit: 10, totalPages: 1 }),
+      ),
+      http.get('/api/v1/backup/template', ({ request }) => {
+        const params = new URL(request.url).searchParams;
+        requests.push({ lang: params.get('lang'), variant: params.get('variant') });
+        return new HttpResponse(new Blob(['xlsx']), { status: 200 });
+      }),
+    );
+    // jsdom has no object-URL support.
+    URL.createObjectURL = vi.fn(() => 'blob:x');
+    URL.revokeObjectURL = vi.fn();
+
+    const { user } = renderWithProviders(
+      <RegionConfigProvider value={REGION_BD_EN}>
+        <BackupSection />
+      </RegionConfigProvider>,
+      { locale: 'en', role: 'ADMIN', tenantId: SCHOOL_ID },
+    );
+
+    await user.click(await screen.findByRole('button', { name: 'Download starter file' }));
+    await waitFor(() => expect(requests).toEqual([{ lang: 'en', variant: 'starter' }]));
+
+    await user.click(screen.getByRole('button', { name: 'Download blank template' }));
+    await waitFor(() => expect(requests[1]).toEqual({ lang: 'en', variant: null }));
+  });
+
   it('renders nothing without BACKUP_MANAGE permission', () => {
     server.use(
       http.get('/api/v1/backup/jobs', () =>
