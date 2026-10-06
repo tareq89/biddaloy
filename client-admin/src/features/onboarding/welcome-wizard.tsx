@@ -95,7 +95,7 @@ export function WelcomeWizard({ guided, excel, people, summary }: WelcomeWizardP
   return (
     <FullPageShell
       title={t('title')}
-      // ponytail: the shell labels this "Close"; the ticket wants "Do it later" — needs a label prop on FullPageShell.
+      closeLabel={t('footer.later')}
       onClose={() => void doLater()}
       primary={{ ...footer.primary, busy: update.isPending && step === 'setup' && !path }}
       {...(footer.secondary ? { secondary: footer.secondary } : {})}

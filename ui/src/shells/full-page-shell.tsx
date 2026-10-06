@@ -35,6 +35,8 @@ export interface FullPageShellAction {
 export interface FullPageShellProps {
   title: string;
   onClose: () => void;
+  /** Header close button text; defaults to "Close". */
+  closeLabel?: string;
   dirty?: boolean;
   size?: 'form' | 'wide';
   primary: FullPageShellAction;
@@ -45,6 +47,7 @@ export interface FullPageShellProps {
 export function FullPageShell({
   title,
   onClose,
+  closeLabel,
   dirty,
   size = 'form',
   primary,
@@ -85,7 +88,7 @@ export function FullPageShell({
                 onClick={requestClose}
               >
                 <XIcon aria-hidden="true" />
-                {t('actions.close')}
+                {closeLabel ?? t('actions.close')}
               </Button>
             </div>
           </header>
