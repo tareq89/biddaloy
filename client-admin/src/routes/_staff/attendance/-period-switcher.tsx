@@ -37,19 +37,24 @@ export function PeriodSwitcher({
   const periodsQuery = useSectionPeriods(sectionId, date);
   const periods = periodsQuery.data;
   // `my-sections` lists exactly the sections the caller can open (all of them
-  // for a tenant-wide role). Unknown yet, or unreadable: keep the tab.
+  // for a tenant-wide role). Unreadable: keep the tab. Still loading: render
+  // nothing yet, so the tab does not show and then vanish.
   const mySections = useMySections();
   const canOpenDay = mySections.data?.some((s) => s.section_id === sectionId) ?? true;
 
-  // A date change keeps the chosen period only if the new date's list has it.
   React.useEffect(() => {
-    if (periods && period !== undefined && !periods.some((p) => p.period_no === period)) {
+    if (!periods) return;
+    // A date change keeps the chosen period only if the new date's list has it.
+    if (period !== undefined && !periods.some((p) => p.period_no === period)) {
       onChange(undefined, { replace: true });
+    } else if (period === undefined && !canOpenDay && periods[0]) {
+      // A substitute cannot open the day register: start on the first period.
+      onChange(periods[0].period_no, { replace: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- react to the list/selection only, `onChange` is a fresh closure each render
-  }, [periods, period]);
+  }, [periods, period, canOpenDay]);
 
-  if (!periods) return null;
+  if (!periods || mySections.isPending) return null;
   if (periods.length === 0) {
     if (!showRoutineHint) return null;
     return (
