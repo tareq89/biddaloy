@@ -8,8 +8,8 @@ const GRAPH = 'https://graph.facebook.com/v19.0';
 const AUTH_URL = 'https://www.facebook.com/v19.0/dialog/oauth';
 
 /**
- * Authorization-code flow; the `state` (bound to the browser) is the CSRF
- * guard. Facebook has no id_token and no nonce, so the identity is the Graph
+ * Authorization-code flow with PKCE (D37); the `state` (bound to the browser)
+ * is the CSRF guard. Facebook has no id_token and no nonce, so the identity is the Graph
  * API `id` read over a direct TLS call. `email` is often absent (phone-only
  * accounts) — that is fine, the identity is the `id`.
  */
@@ -31,7 +31,7 @@ export class FacebookProvider implements SocialProviderClient {
     return !!this.clientId && !!this.clientSecret;
   }
 
-  authorizeUrl(args: { state: string; redirectUri: string }): string {
+  authorizeUrl(args: { state: string; codeChallenge: string; redirectUri: string }): string {
     const url = new URL(AUTH_URL);
     url.search = new URLSearchParams({
       client_id: this.clientId ?? '',
@@ -39,17 +39,24 @@ export class FacebookProvider implements SocialProviderClient {
       response_type: 'code',
       scope: 'public_profile,email',
       state: args.state,
+      code_challenge: args.codeChallenge,
+      code_challenge_method: 'S256',
     }).toString();
     return url.toString();
   }
 
-  async exchange(args: { code: string; redirectUri: string }): Promise<SocialProfile> {
+  async exchange(args: {
+    code: string;
+    codeVerifier: string;
+    redirectUri: string;
+  }): Promise<SocialProfile> {
     const tokenRes = await fetch(
       `${GRAPH}/oauth/access_token?${new URLSearchParams({
         client_id: this.clientId ?? '',
         client_secret: this.clientSecret ?? '',
         redirect_uri: args.redirectUri,
         code: args.code,
+        code_verifier: args.codeVerifier,
       })}`,
       { signal: AbortSignal.timeout(10_000) },
     );
