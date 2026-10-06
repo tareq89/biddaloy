@@ -44,14 +44,21 @@ export function NoticeBar({ tone, children, action, onOpenDetails, className }: 
     <div
       role="status"
       data-tone={tone}
-      className={cn('flex w-full items-center gap-3 px-4 py-2 text-sm', toneClass, className)}
+      className={cn(
+        'flex w-full items-center gap-3 px-4 text-sm',
+        // With a details button the button carries the padding, so the whole
+        // bar height is the tap target (44 px on phone).
+        !onOpenDetails && 'py-2',
+        toneClass,
+        className,
+      )}
     >
       {onOpenDetails ? (
         <Button
           variant="ghost"
           size="sm"
           onClick={onOpenDetails}
-          className="h-auto min-w-0 flex-1 justify-start px-0 py-0 text-inherit hover:bg-transparent"
+          className="h-auto min-h-11 min-w-0 flex-1 justify-start px-0 py-2 text-inherit hover:bg-transparent sm:min-h-0"
         >
           {body}
         </Button>
