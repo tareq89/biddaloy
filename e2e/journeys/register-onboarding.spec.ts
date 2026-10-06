@@ -50,7 +50,7 @@ test.describe('register and set up a school', () => {
         await welcome.next();
       });
 
-      await test.step('guided door: curriculum (skipped here, see the fixme below), sections', async () => {
+      await test.step('guided door: curriculum (skipped here, the next test applies one), sections', async () => {
         await expect(
           page.getByRole('heading', { name: t('onboardingSetup.guided.curriculum.title') }),
         ).toBeVisible();
@@ -84,9 +84,6 @@ test.describe('register and set up a school', () => {
   });
 
   test('the guided door applies a curriculum preset', async ({ browser, playwright }) => {
-    // App bug: inside /welcome the confirm dialog's field never takes focus or
-    // text (the Radix focus trap of FullPageShell wins), so "Apply" stays disabled.
-    test.fixme(true, 'ConfirmApplyDialog field cannot be typed into inside the /welcome wizard');
     const school = await newSchool(browser, playwright);
     try {
       const { page } = school;

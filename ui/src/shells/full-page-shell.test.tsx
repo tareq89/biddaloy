@@ -1,8 +1,10 @@
 import { createRootRoute, createRoute, useNavigate } from '@tanstack/react-router';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import * as React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
+import { Popover, PopoverContent, PopoverTrigger } from '../components/popover';
 import { renderWithRouter } from '../test/render-with-router';
 
 import { FullPageShell, useCloseFullPage, type FullPageShellProps } from './full-page-shell';
@@ -56,6 +58,61 @@ describe('FullPageShell', () => {
     await user.click(screen.getByRole('button', { name: 'Close' }));
     await user.click(await screen.findByRole('button', { name: 'Discard changes' }));
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('a body that suspends does not leave the focus trap stealing focus from overlays inside', async () => {
+    // A lazily loaded namespace suspends the body mid-life. Before the shell had its own
+    // Suspense, that hid the whole dialog, Radix dropped its focus trap from the stack,
+    // and focus moving into a popover / dialog opened inside was pulled straight back
+    // (a popover then closes at once). A modal Dialog here would make the two traps fight
+    // forever in jsdom; a Popover fails cleanly.
+    let load = () => {};
+    const loaded = new Promise<void>((resolve) => (load = resolve));
+    const Late = React.lazy(async () => {
+      await loaded;
+      return { default: () => <p>loaded</p> };
+    });
+    function Body() {
+      const [late, setLate] = React.useState(false);
+      const [name, setName] = React.useState('');
+      return (
+        <>
+          <button type="button" onClick={() => setLate(true)}>
+            load
+          </button>
+          {late && <Late />}
+          <Popover>
+            <PopoverTrigger>open</PopoverTrigger>
+            <PopoverContent>
+              <label htmlFor="typed">Name</label>
+              <input id="typed" value={name} onChange={(e) => setName(e.target.value)} />
+            </PopoverContent>
+          </Popover>
+        </>
+      );
+    }
+    const user = userEvent.setup();
+    const { localeReady } = renderWithRouter(
+      createRootRoute({
+        component: () => (
+          <React.Suspense fallback={null}>
+            <FullPageShell title="Set up" onClose={() => {}}>
+              <Body />
+            </FullPageShell>
+          </React.Suspense>
+        ),
+      }),
+      { locale: 'en' },
+    );
+    await localeReady;
+    await user.click(await screen.findByText('load'));
+    load();
+    await screen.findByText('loaded');
+    await user.click(screen.getByText('open'));
+    const field = await screen.findByLabelText<HTMLInputElement>('Name');
+    await user.click(field);
+    await user.keyboard('abc');
+    expect(field.value).toBe('abc');
   });
 
   it('wide width, busy primary, secondary on start side', async () => {
