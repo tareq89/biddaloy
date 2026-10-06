@@ -164,6 +164,25 @@ describe('runCheck — t() call sites', () => {
     expect(errors).toEqual([]);
   });
 
+  it('treats the shorthand { count } as a plural call', () => {
+    const { localesDir, sourceDir } = makeFixture();
+    for (const locale of ['bn', 'en']) {
+      writeLocale(localesDir, locale, 'common', {
+        attempts_one: 'once',
+        attempts_other: '{{count}} times',
+      });
+    }
+    writeSource(
+      sourceDir,
+      'banner.tsx',
+      "const { t } = useTranslation();\nt('attempts', { count });\n",
+    );
+
+    const { errors } = runCheck({ localesDir, sourceDirs: [sourceDir] });
+
+    expect(errors).toEqual([]);
+  });
+
   it('does not resolve a plural-only key against a call with no count — i18next itself would not either', () => {
     const { localesDir, sourceDir } = makeFixture();
     writeLocale(localesDir, 'bn', 'common', {
