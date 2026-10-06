@@ -396,3 +396,6 @@ export {
   type RepeatableRowFormProps,
   type RepeatableRowValue,
 } from './repeatable-row-form/repeatable-row-form';
+export { SocialButtons, type SocialButtonsProps } from './social-buttons';
+export { NoticeBar, type NoticeBarProps, type NoticeBarTone } from './notice-bar';
+export { StepIndicator, type StepIndicatorProps } from './step-indicator';
