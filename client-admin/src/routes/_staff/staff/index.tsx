@@ -397,7 +397,7 @@ function StaffListPage() {
         onPageChange={actions.setPage}
         onPageSizeChange={actions.setLimit}
         pageSizeLabel={t('pagination.rowsPerPage', { ns: 'common' })}
-        {...(canPrint
+        {...(canPrint && !isFormer
           ? {
               selectedIds: state.selectedIds,
               onSelectedIdsChange: actions.setSelectedIds,
@@ -436,13 +436,17 @@ function StaffListPage() {
         loading={usersQuery.isLoading}
         isFetching={usersQuery.isFetching}
         {...(usersQuery.isError ? { error: t('list.errorMessage') } : {})}
-        emptyState={{
-          title: t('list.emptyMessage'),
-          explanation: t('list.emptyExplanation'),
-          ...(canCreate
-            ? { action: { label: t('list.addUser'), onClick: () => setAddUserOpen(true) } }
-            : {}),
-        }}
+        emptyState={
+          isFormer
+            ? { title: t('former.emptyMessage'), explanation: t('former.emptyExplanation') }
+            : {
+                title: t('list.emptyMessage'),
+                explanation: t('list.emptyExplanation'),
+                ...(canCreate
+                  ? { action: { label: t('list.addUser'), onClick: () => setAddUserOpen(true) } }
+                  : {}),
+              }
+        }
         announceResults={(count, total) => t('list.announceResults', { count, total })}
       />
 

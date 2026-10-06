@@ -189,7 +189,8 @@ Schools [have] · Public holiday sets [17.0] · Preset library [N3]
 
 Not in the nav on purpose (reached by a redirect, a link or a button):
 `/welcome` (the setup wizard, opens once for an admin of an unfinished school),
-`/register`, `/auth/social/done`, and `/staff/import` (a button on Staff).
+`/register` and `/auth/social/done`. (`/staff/import` is in the nav, under
+People, as shown above.)
 The setup checklist is a card on the Dashboard, and the trial bar sits under
 the top bar for admins only. See [22-onboarding.md](22-onboarding.md).
 

@@ -42,6 +42,8 @@ export interface RegisterFlowProps {
   /** Name / email from the social profile, prefilled by the route. */
   initialValues?: Partial<RegisterDetailsValues>;
   initialCountry?: string;
+  /** The social callback came back failed or cancelled (`/register?social=…`). */
+  initialError?: 'socialFailed' | 'socialCancelled';
   onDone: () => void;
 }
 
@@ -97,6 +99,7 @@ export function RegisterFlow({
   socialTicket,
   initialValues,
   initialCountry,
+  initialError,
   onDone,
 }: RegisterFlowProps) {
   const { t } = useTranslation('register');
@@ -108,7 +111,7 @@ export function RegisterFlow({
   const [started, setStarted] = React.useState<RegisterStartResult | null>(null);
   const [sentTo, setSentTo] = React.useState('');
   const [verified, setVerified] = React.useState<RegisterVerifyResult | null>(null);
-  const [error, setError] = React.useState<string | null>(null);
+  const [error, setError] = React.useState<string | null>(initialError ?? null);
   const [resendNonce, setResendNonce] = React.useState(0);
   const [captchaResetKey, setCaptchaResetKey] = React.useState(0);
   const headingRef = React.useRef<HTMLHeadingElement>(null);

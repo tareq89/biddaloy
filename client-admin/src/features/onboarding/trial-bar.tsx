@@ -17,6 +17,8 @@ export function TrialBar({ className }: { className?: string }) {
   const { data } = useQuery({
     ...onboardingStatusQueryOptions(),
     enabled: role === UserRole.ADMIN,
+    // Shell chrome, like the welcome gate: never throw a suspension 403 [15.4.2].
+    throwOnError: false,
   });
   if (role !== UserRole.ADMIN || !data?.trial) return null;
   const { days_left: days, seats } = data.trial;
@@ -24,8 +26,8 @@ export function TrialBar({ className }: { className?: string }) {
     days <= 0
       ? t('barLastDay')
       : seats.limit === null
-        ? t('barNoLimit', { days })
-        : t('bar', { days, used: seats.used, limit: seats.limit });
+        ? t('barNoLimit', { count: days })
+        : t('bar', { count: days, used: seats.used, limit: seats.limit });
   return (
     <>
       <NoticeBar

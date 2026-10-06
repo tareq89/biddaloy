@@ -1,5 +1,6 @@
 {
-  "bar": "Trial: {{days}} days left · {{used}} of {{limit}} students",
+  "bar_one": "Trial: {{count}} day left · {{used}} of {{limit}} students",
+  "bar_other": "Trial: {{count}} days left · {{used}} of {{limit}} students",
   "barLastDay": "Trial ends today",
   "seePlans": "See plans",
   "details": {
@@ -7,7 +8,8 @@
     "body": "The trial lets you try everything with a limited number of students.",
     "kept": "Everything you add now is kept when you continue.",
     "open": "Trial details",
-    "daysLeft": "{{days}} days left in your trial.",
+    "daysLeft_one": "{{count}} day left in your trial.",
+    "daysLeft_other": "{{count}} days left in your trial.",
     "students": "{{used}} of {{limit}} students used.",
     "studentsNoLimit": "{{used}} students added."
   },
@@ -20,9 +22,10 @@
     "title": "Student limit reached",
     "body": "You have {{used}} of {{limit}} students. {{requested}} more will not fit.",
     "bodyNoRequest": "You have {{used}} of {{limit}} students.",
-    "hint": "Open the trial bar and contact us to add more students."
+    "hint": "Contact us to add more students."
   },
-  "barNoLimit": "Trial: {{days}} days left",
+  "barNoLimit_one": "Trial: {{count}} day left",
+  "barNoLimit_other": "Trial: {{count}} days left",
   "import": {
     "seats": "{{new_rows}} new students · {{used}} of {{limit}} used",
     "backToSetup": "Back to setup"

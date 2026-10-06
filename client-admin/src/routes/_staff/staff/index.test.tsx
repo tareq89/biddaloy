@@ -681,6 +681,9 @@ describe('/staff', () => {
 
     await waitFor(() => expect(restored).toBe(true));
     await waitFor(() => expect(screen.queryByText('Gone Person')).toBeNull());
+    // An empty Former list has its own words, and no "add someone" pitch.
+    expect(await screen.findByText('No former staff')).toBeTruthy();
+    expect(screen.queryByText('Add someone and they will show up here.')).toBeNull();
   });
 
   it('default list sends no membership param', async () => {

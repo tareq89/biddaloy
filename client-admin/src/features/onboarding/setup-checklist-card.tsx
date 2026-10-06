@@ -23,8 +23,9 @@ const TARGETS: Record<OnboardingItemId, { to: string; search?: Record<string, st
     messageSettings: { to: '/settings', search: { section: 'communication' } },
   };
 
-/** Pure so the dashboard and tests agree on when the card shows. */
-export function showChecklist(status: OnboardingStatus | undefined): status is OnboardingStatus {
+/** Shows until dismissed or every item is done. Existing schools are dismissed by migration
+ * `1791400000100-DismissChecklistForExistingSchools`, so they never see it. */
+function showChecklist(status: OnboardingStatus | undefined): status is OnboardingStatus {
   return !!status && !status.dismissed_at && status.items.some((i) => !i.done);
 }
 

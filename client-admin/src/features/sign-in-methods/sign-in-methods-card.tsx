@@ -126,7 +126,11 @@ export function SignInMethodsCard({ roles }: SignInMethodsCardProps) {
                 type="button"
                 variant="outline"
                 className="min-h-11 sm:min-h-0"
-                onClick={() => setPasswordOpen(true)}
+                onClick={() => {
+                  // A 409 closes the dialog from code, so clear its last error on the way back in.
+                  setPassword.reset();
+                  setPasswordOpen(true);
+                }}
               >
                 {t('password.change')}
               </Button>
@@ -148,7 +152,7 @@ export function SignInMethodsCard({ roles }: SignInMethodsCardProps) {
                         type="button"
                         variant="outline"
                         className="min-h-11 sm:min-h-0"
-                        aria-label={`${t('disconnect')} ${label}`}
+                        aria-label={t('disconnectProvider', { provider: label })}
                         loading={disconnect.isPending && disconnect.variables === provider}
                         onClick={() => handleDisconnect(provider)}
                       >
@@ -159,7 +163,7 @@ export function SignInMethodsCard({ roles }: SignInMethodsCardProps) {
                         type="button"
                         variant="outline"
                         className="min-h-11 sm:min-h-0"
-                        aria-label={`${t('connect')} ${label}`}
+                        aria-label={t('connectProvider', { provider: label })}
                         loading={startLink.isPending && startLink.variables === provider}
                         onClick={() => handleConnect(provider)}
                       >

@@ -3,7 +3,7 @@ import '@biddaloy/ui/test';
 
 import { cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
 import { createRootRoute, createRoute } from '@tanstack/react-router';
-import { screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -85,6 +85,48 @@ describe('TrialBar', () => {
     expect(screen.getByRole('link', { name: 'Contact us' }).getAttribute('href')).toBe(
       'https://help.test/x',
     );
+  });
+
+  it('says "1 day", not "1 days"', async () => {
+    mockStatus(trial(1));
+    renderBar('ADMIN');
+    expect(await screen.findByText('Trial: 1 day left · 12 of 50 students')).toBeTruthy();
+  });
+
+  // The bar is shell chrome: a suspended school's 403 must not take the shell
+  // (and its school switcher) down to the error page.
+  it('stays quiet when the school is suspended', async () => {
+    let calls = 0;
+    server.use(
+      http.get('/api/v1/onboarding/status', () => {
+        calls++;
+        return HttpResponse.json(
+          { statusCode: 403, message: 'Suspended', details: { code: 'TENANT_SUSPENDED' } },
+          { status: 403 },
+        );
+      }),
+    );
+    const root = createRootRoute();
+    const index = createRoute({
+      getParentRoute: () => root,
+      path: '/',
+      component: () => (
+        <>
+          <TrialBar />
+          <p>Shell still here</p>
+        </>
+      ),
+    });
+    renderWithRouter(root.addChildren([index]), {
+      locale: 'en',
+      role: 'ADMIN',
+      tenantId: 'school-1',
+      accessToken: 'a.b.c',
+    });
+    await waitFor(() => expect(calls).toBeGreaterThan(0));
+    await new Promise((r) => setTimeout(r, 50));
+    expect(screen.getByText('Shell still here')).toBeTruthy();
+    expect(screen.queryByRole('status')).toBeNull();
   });
 
   it('drops a javascript: support url', async () => {

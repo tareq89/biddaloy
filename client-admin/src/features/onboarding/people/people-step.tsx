@@ -24,9 +24,9 @@ export function PeopleStep({ onDownloadStudentSample, onDownloadStaffSample }: P
 
   return (
     <div className="flex flex-col gap-4">
-      <h2 className="text-xl font-semibold">{t('heading')}</h2>
+      <h2 className="text-h2">{t('heading')}</h2>
       {status.data?.trial && limit !== null && (
-        <p className="text-sm text-muted-foreground">{t('trialCap', { limit })}</p>
+        <p className="text-sm text-text-secondary">{t('trialCap', { limit })}</p>
       )}
       <PeopleCard
         title={t('students.title')}
@@ -43,7 +43,7 @@ export function PeopleStep({ onDownloadStudentSample, onDownloadStaffSample }: P
         excel={{ to: '/staff/import' }}
         onDownloadSample={onDownloadStaffSample}
       />
-      <p className="text-sm text-muted-foreground">{t('later')}</p>
+      <p className="text-sm text-text-secondary">{t('later')}</p>
     </div>
   );
 }

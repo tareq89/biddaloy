@@ -85,19 +85,41 @@ function ImportStudentsContent() {
   const { mutateAsync: validateAsync } = validateMutation;
   const { mutateAsync: commitAsync } = commitMutation;
 
+  const { t: tTrial } = useTranslation('trial');
   const validate = React.useCallback(
     (file: File, onProgress: (percent: number) => void) =>
-      validateAsync({ file, onProgress }).catch((err: unknown) => {
-        // The inline failure Card is the primary signal, but a user who
-        // navigated away mid-validate would otherwise get none at all.
-        notifyOutcome({
-          tenantId: captureNotificationTenant(),
-          variant: 'error',
-          message: t('notifications.failed'),
-        });
-        throw err;
-      }),
-    [validateAsync, t],
+      validateAsync({ file, onProgress }).then(
+        (result) => {
+          // [13.2.3] The file does not fit the trial's seats: the server adds one
+          // row-0 error in English. Show the translated message instead.
+          const seats = result.summary.seats;
+          if (!seats || seats.limit === null) return result;
+          const message = `${tTrial('seatLimit.body', {
+            used: seats.used,
+            limit: seats.limit,
+            requested: seats.new_rows,
+          })} ${tTrial('seatLimit.hint')}`;
+          return {
+            ...result,
+            errors: result.errors.map((error) =>
+              error.row === 0 && error.message.startsWith('Seat limit reached')
+                ? { ...error, message }
+                : error,
+            ),
+          };
+        },
+        (err: unknown) => {
+          // The inline failure Card is the primary signal, but a user who
+          // navigated away mid-validate would otherwise get none at all.
+          notifyOutcome({
+            tenantId: captureNotificationTenant(),
+            variant: 'error',
+            message: t('notifications.failed'),
+          });
+          throw err;
+        },
+      ),
+    [validateAsync, t, tTrial],
   );
 
   const commit = React.useCallback(
@@ -114,7 +136,6 @@ function ImportStudentsContent() {
   );
 
   const navigate = useNavigate();
-  const { t: tTrial } = useTranslation('trial');
   const fromWelcome = useSearch({ strict: false }).from === 'welcome';
   const [upload, setUpload] = React.useState<
     BulkUploadPreviewController<StudentUploadSummary, BulkUploadResult> | undefined

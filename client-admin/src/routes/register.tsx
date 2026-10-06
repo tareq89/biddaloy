@@ -6,11 +6,12 @@ import { z } from 'zod';
 import { RegisterFlow } from '../features/registration/register-flow';
 import { loadRouteNamespaces } from '../route-loaders';
 
-/** `social_ticket` is the provider the social callback sent the visitor back
- * from (the ticket itself rides an httpOnly cookie). Junk falls back to the
- * plain form rather than a router 404. */
+/** `social` is what the server's social callback appends
+ * (`social-auth.service.ts`): the provider the visitor came back from (the
+ * ticket itself rides an httpOnly cookie), or `failed` / `cancelled`. Junk
+ * falls back to the plain form rather than a router 404. */
 const registerSearchSchema = z.object({
-  social_ticket: z.enum(['google', 'facebook']).optional().catch(undefined),
+  social: z.enum(['google', 'facebook', 'failed', 'cancelled']).optional().catch(undefined),
   country: z.string().optional().catch(undefined),
 });
 
@@ -27,12 +28,16 @@ export const Route = createFileRoute('/register')({
 });
 
 function RegisterPage() {
-  const { social_ticket: provider, country } = Route.useSearch();
+  const { social, country } = Route.useSearch();
   const navigate = useNavigate();
   return (
     <AuthLayout>
       <RegisterFlow
-        {...(provider ? { socialTicket: { provider } } : {})}
+        {...(social === 'google' || social === 'facebook'
+          ? { socialTicket: { provider: social } }
+          : {})}
+        {...(social === 'failed' ? { initialError: 'socialFailed' as const } : {})}
+        {...(social === 'cancelled' ? { initialError: 'socialCancelled' as const } : {})}
         {...(country ? { initialCountry: country } : {})}
         onDone={() => void navigate({ to: '/welcome' })}
       />

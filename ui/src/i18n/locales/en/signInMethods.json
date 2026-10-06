@@ -12,6 +12,8 @@
   "facebook": "Facebook",
   "connect": "Connect",
   "disconnect": "Disconnect",
+  "connectProvider": "Connect {{provider}}",
+  "disconnectProvider": "Disconnect {{provider}}",
   "connected": "Connected as {{email}}",
   "cannotDisconnect": "Set a password first, so you still have a way in.",
   "linked": "{{provider}} is now connected.",
@@ -25,10 +27,6 @@
     "thisSchool": "this school",
     "done": "You have left {{school}}.",
     "error": "We could not leave the school. Please try again."
-  },
-  "hint": {
-    "title": "Sign in faster next time",
-    "body": "Connect Google or Facebook and skip the code."
   },
   "failed": "We could not connect that account. Please try again.",
   "cancelled": "Connecting the account was cancelled.",

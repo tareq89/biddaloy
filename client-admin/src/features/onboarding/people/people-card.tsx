@@ -16,9 +16,10 @@ export interface PeopleCardProps {
 
 /**
  * ponytail: the cast below turns off route type-checking for every link here.
- * Every target reads `?from=welcome` via `useSearch({ strict: false })` to offer
- * "Back to setup", but none declares it in its search schema; declare it per
- * route and type `to` if this ever needs real checking.
+ * Only `/students/import` and `/staff/import` read `?from=welcome` (via
+ * `useSearch({ strict: false })`) to offer "Back to setup"; every other target
+ * ignores it, and `/staff`'s search schema strips it. Declare it per route and
+ * type `to` if this ever needs real checking.
  */
 export function WelcomeLink({
   to,
@@ -54,9 +55,9 @@ export function PeopleCard({
   return (
     <Card padded className="flex flex-col gap-3">
       <div>
-        <h2 className="text-lg font-semibold">{title}</h2>
-        <p className="text-sm text-muted-foreground">{count}</p>
-        {note && <p className="text-sm text-muted-foreground">{note}</p>}
+        <h3 className="text-h3">{title}</h3>
+        <p className="text-sm text-text-secondary">{count}</p>
+        {note && <p className="text-sm text-text-secondary">{note}</p>}
       </div>
       <div className="flex flex-col gap-2 md:flex-row">
         <Button asChild variant="outline" className="w-full md:w-auto">

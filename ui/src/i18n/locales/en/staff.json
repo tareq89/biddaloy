@@ -515,6 +515,8 @@
     "bringBack": "Bring back",
     "bringBackConfirm": "Bring {{name}} back to this school? They get their access again.",
     "restored": "{{name}} is back.",
-    "errorMessage": "Could not bring this person back. Please try again."
+    "errorMessage": "Could not bring this person back. Please try again.",
+    "emptyMessage": "No former staff",
+    "emptyExplanation": "People removed from your school show up here."
   }
 }

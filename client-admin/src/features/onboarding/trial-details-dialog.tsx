@@ -8,10 +8,7 @@ import {
   DialogTitle,
 } from '@biddaloy/ui/components';
 import { useTranslation } from '@biddaloy/ui/i18n';
-
-/** Same allow-list the trial-ended screen uses. */
-export const isSafeSupportUrl = (url: string | null | undefined): url is string =>
-  !!url && /^(https:|mailto:)/i.test(url);
+import { isSafeSupportUrl } from '@biddaloy/ui/utils';
 
 export interface TrialDetailsDialogProps {
   open: boolean;
@@ -37,7 +34,7 @@ export function TrialDetailsDialog({
           <DialogDescription>{t('details.body')}</DialogDescription>
         </DialogHeader>
         <ul className="flex flex-col gap-1">
-          <li>{t('details.daysLeft', { days: Math.max(daysLeft, 0) })}</li>
+          <li>{t('details.daysLeft', { count: Math.max(daysLeft, 0) })}</li>
           <li>
             {seats.limit === null
               ? t('details.studentsNoLimit', { used: seats.used })

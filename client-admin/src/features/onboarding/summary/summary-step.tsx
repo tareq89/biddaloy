@@ -37,7 +37,7 @@ export function SummaryStep() {
 
   return (
     <div className="flex flex-col gap-4">
-      <h2 className="text-xl font-semibold">{t('summary.title')}</h2>
+      <h2 className="text-h2">{t('summary.title')}</h2>
       {isError && (
         <p role="alert" className="text-sm text-destructive">
           {t('summary.saveError')}
@@ -53,7 +53,7 @@ export function SummaryStep() {
         </ul>
       </Card>
       <section aria-labelledby="onboarding-next" className="flex flex-col gap-2">
-        <h3 id="onboarding-next" className="text-base font-semibold">
+        <h3 id="onboarding-next" className="text-h3">
           {t('summary.next.title')}
         </h3>
         <ul className="flex flex-col gap-2">
@@ -62,7 +62,7 @@ export function SummaryStep() {
               <WelcomeLink
                 to={s.to}
                 search={'search' in s ? s.search : undefined}
-                className="block rounded-md border border-border px-4 py-3 text-sm font-medium hover:bg-muted"
+                className="block rounded-md border border-border-subtle px-4 py-3 text-sm font-medium hover:bg-muted"
               >
                 {t(`summary.next.${s.key}`)}
               </WelcomeLink>

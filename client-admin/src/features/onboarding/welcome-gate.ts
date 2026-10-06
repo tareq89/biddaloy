@@ -30,6 +30,9 @@ export function useWelcomeGate(): void {
   const { data } = useQuery({
     ...onboardingStatusQueryOptions(),
     enabled: role === UserRole.ADMIN,
+    // Runs in the staff shell: a suspended school's 403 must not replace the
+    // whole shell (and its school switcher) with the error page [15.4.2].
+    throwOnError: false,
   });
   const go = shouldGoToWelcome(role, pathname, data);
   React.useEffect(() => {

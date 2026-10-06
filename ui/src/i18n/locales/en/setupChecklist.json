@@ -17,7 +17,7 @@
   "todo": "To do",
   "hint": {
     "title": "Sign in faster next time",
-    "body": "Connect Google or Facebook and skip the code.",
+    "body": "Connect your Google account and skip the code.",
     "google": "Connect Google",
     "facebook": "Connect Facebook",
     "dismiss": "Dismiss",

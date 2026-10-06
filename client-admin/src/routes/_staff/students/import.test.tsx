@@ -214,6 +214,35 @@ describe('/students/import', () => {
     expect(screen.queryByRole('button', { name: 'Confirm' })).toBeNull();
   });
 
+  it('shows the trial seat-limit error in the app language, not the server text', async () => {
+    const n = (value: number) => formatNumber(value, REGION_BD_BN);
+    server.use(
+      validateHandler({
+        ...cleanPreviewBody,
+        // `bulk-upload.service.ts` adds this row-0 error when the file does not fit.
+        errors: [
+          {
+            row: 0,
+            column: null,
+            message: 'Seat limit reached: 9 of 10 seats in use, and this file adds 3',
+            severity: 'error',
+          },
+        ],
+        hard_error_count: 1,
+        seats: { used: 9, limit: 10, new_rows: 3 },
+      }),
+    );
+    renderImportPage();
+    await uploadFile(makeFile('students.csv'));
+
+    expect(
+      await screen.findByText(
+        `You have ${n(9)} of ${n(10)} students. ${n(3)} more will not fit. Contact us to add more students.`,
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByText(/Seat limit reached/)).toBeNull();
+  });
+
   it('does not create any student until Confirm is clicked, then shows the done summary', async () => {
     let commitCalled = false;
     server.use(

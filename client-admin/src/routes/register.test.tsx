@@ -30,4 +30,20 @@ describe('/register', () => {
     expect(await screen.findByRole('button', { name: 'Continue' })).toBeTruthy();
     expect(router.state.location.pathname).toBe('/register');
   });
+
+  // The server's social callback sends `?social=<provider>` (social-auth.service.ts).
+  it('shows "Continuing with Google" after the Google round trip', async () => {
+    server.use(authHandlers.refreshFailure);
+    renderWithRouter(routeTree, { initialEntries: ['/register?social=google'], locale: 'en' });
+
+    expect(await screen.findByText('Continuing with Google')).toBeTruthy();
+  });
+
+  it('says so when the social sign-up failed', async () => {
+    server.use(authHandlers.refreshFailure);
+    renderWithRouter(routeTree, { initialEntries: ['/register?social=failed'], locale: 'en' });
+
+    expect(await screen.findByText(/Signing up with that account did not work/)).toBeTruthy();
+    expect(screen.queryByText(/Continuing with/)).toBeNull();
+  });
 });
