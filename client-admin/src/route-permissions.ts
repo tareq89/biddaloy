@@ -34,6 +34,9 @@ export const STAFF_ROUTE_PERMISSIONS: Record<string, Permission> = {
   '/_staff/students/': Permission.STUDENT_READ,
   '/_staff/students/new': Permission.STUDENT_CREATE,
   '/_staff/students/import': Permission.STUDENT_BULK_UPLOAD,
+  // [13.6.1] The first-run setup wizard is the school owner's — the same
+  // permission Settings uses (ADMIN-only today).
+  '/_staff/welcome': Permission.SETTINGS_MANAGE,
   '/_staff/students/$studentId': Permission.STUDENT_READ,
   '/_staff/students/$studentId_/edit': Permission.STUDENT_UPDATE,
   '/_staff/guardians/': Permission.GUARDIAN_READ,
@@ -48,6 +51,8 @@ export const STAFF_ROUTE_PERMISSIONS: Record<string, Permission> = {
   // outright.
   '/_staff/calendar/import': Permission.CALENDAR_MANAGE,
   '/_staff/staff/': Permission.USER_READ,
+  // [13.6.1] Same permission the "Add user" button uses.
+  '/_staff/staff/import': Permission.USER_CREATE,
   '/_staff/staff/$userId': Permission.USER_READ,
   // [28.3.2] ACR_READ to view; the form itself gates edits on ACR_WRITE.
   '/_staff/staff/$userId_/acr/$assessmentId': Permission.ACR_READ,

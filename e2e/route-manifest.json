@@ -17,6 +17,16 @@
       "archetype": "bespoke"
     },
     {
+      "path": "/register",
+      "role": "guest",
+      "archetype": "bespoke"
+    },
+    {
+      "path": "/auth/social/done",
+      "role": "guest",
+      "archetype": "redirect"
+    },
+    {
       "path": "/forgot-password",
       "role": "guest",
       "archetype": "bespoke"
@@ -398,6 +408,16 @@
       "path": "/staff",
       "role": "admin",
       "archetype": "list"
+    },
+    {
+      "path": "/staff/import",
+      "role": "admin",
+      "archetype": "bespoke"
+    },
+    {
+      "path": "/welcome",
+      "role": "admin",
+      "archetype": "bespoke"
     },
     {
       "path": "/staff/teaching-assignments",
