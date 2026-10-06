@@ -389,23 +389,27 @@ describe('[41.3.1] period / subject-summary / month-save hooks', () => {
     ],
   });
 
-  it('useSaveRegisterMatrix PUTs, invalidates matrix + my-sections, never queues', async () => {
+  it('useSaveRegisterMatrix PUTs, invalidates the whole attendance branch, never queues', async () => {
     server.use(
       http.put('/api/v1/attendance/sections/section-1/register-matrix', () =>
         HttpResponse.json({ saved_dates: ['2026-09-04'], versions: { '2026-09-04': 2 } }),
       ),
     );
     const queryClient = createTestQueryClient();
-    const spy = vi.spyOn(queryClient, 'invalidateQueries');
-    const { result } = renderHookWithProviders(
-      () => useSaveRegisterMatrix('section-1', '2026-09'),
-      { tenantId: 'tenant-1', queryClient },
-    );
+    // A month save rewrites day registers: the matrix AND the daily roster
+    // (whose stale base_version would otherwise 409 the next submit) go stale.
+    const matrixKey = registerMatrixKey('section-1', '2026-09');
+    const dayKey = sectionRegisterKey('section-1', '2026-09-04');
+    queryClient.setQueryData(matrixKey, {});
+    queryClient.setQueryData(dayKey, {});
+    const { result } = renderHookWithProviders(() => useSaveRegisterMatrix('section-1'), {
+      tenantId: 'tenant-1',
+      queryClient,
+    });
     result.current.mutate(matrixInput());
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    const keys = spy.mock.calls.map((c) => c[0]?.queryKey);
-    expect(keys).toContainEqual(registerMatrixKey('section-1', '2026-09'));
-    expect(keys).toContainEqual(attendanceKeys.lists());
+    expect(queryClient.getQueryState(matrixKey)?.isInvalidated).toBe(true);
+    expect(queryClient.getQueryState(dayKey)?.isInvalidated).toBe(true);
     expect(enqueueMutationMock).not.toHaveBeenCalled();
   });
 
@@ -422,7 +426,7 @@ describe('[41.3.1] period / subject-summary / month-save hooks', () => {
       ),
     );
     const { result } = renderHookWithProviders(
-      () => useSaveRegisterMatrix('section-1', '2026-09'),
+      () => useSaveRegisterMatrix('section-1'),
       { tenantId: 'tenant-1' },
     );
     result.current.mutate(matrixInput());

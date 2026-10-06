@@ -176,7 +176,7 @@ function RegisterPageContent() {
   const loading =
     matrixQuery.isPending || (search.edit === true && matrixQuery.isPlaceholderData);
   const editing = search.edit === true && isMd && canMark && rows.length > 0 && !loading;
-  const saveMatrix = useSaveRegisterMatrix(search.section_id ?? '', month);
+  const saveMatrix = useSaveRegisterMatrix(search.section_id ?? '');
 
   // Changed cells only. A ref mirrors it so the route blocker (and a save
   // that clears the draft right before navigating) read the live value.
