@@ -7,9 +7,10 @@
  */
 import { Permission } from '@biddaloy/shared';
 import { Button, Card, Skeleton, StatusBadge } from '@biddaloy/ui/components';
-import { useHasPermission, useMySections } from '@biddaloy/ui/hooks';
+import { mySectionsQueryOptions, useHasPermission } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { formatNumber } from '@biddaloy/ui/utils';
+import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { RotateCcwIcon } from 'lucide-react';
 
@@ -18,7 +19,8 @@ export function AttendancePendingCard() {
   const { t: tCommon } = useTranslation('common');
   const regionConfig = useRegionConfig();
   const canRead = useHasPermission(Permission.ATTENDANCE_READ);
-  const query = useMySections();
+  // Gated, so a viewer without ATTENDANCE_READ never calls the endpoint.
+  const query = useQuery({ ...mySectionsQueryOptions(), enabled: canRead });
 
   if (!canRead) return null;
 
