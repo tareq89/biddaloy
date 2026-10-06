@@ -51,10 +51,12 @@ export function AttendancePendingCard() {
     );
   }
 
-  const sections = query.data.filter((section) => section.student_count > 0);
-  if (sections.length === 0) return null;
+  const withStudents = query.data.filter((section) => section.student_count > 0);
+  if (withStudents.length === 0) return null;
 
-  const holiday = sections.every((section) => !section.is_working_day);
+  // `is_working_day` is per class: a class with no school today is not pending.
+  const sections = withStudents.filter((section) => section.is_working_day);
+  const holiday = sections.length === 0;
   const pending = sections.filter(
     (section) => section.today === null || section.today.state !== 'FINALIZED',
   ).length;
@@ -69,6 +71,7 @@ export function AttendancePendingCard() {
           <StatusBadge
             tone="warning"
             label={t('dashboardCard.pending', {
+              count: sections.length,
               pending: formatNumber(pending, regionConfig),
               total: formatNumber(sections.length, regionConfig),
             })}

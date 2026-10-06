@@ -130,13 +130,16 @@ function AttendanceListPage() {
   }
 
   // D27: a section with no students has nothing to mark — out of the list and the count.
-  const markable = sections.filter((s) => s.student_count > 0);
+  // Same for a section whose CLASS has no school today (`is_working_day` is per
+  // class): marking it is refused, so it must not sit in "pending" all day.
+  const withStudents = sections.filter((s) => s.student_count > 0);
+  const markable = withStudents.filter((s) => s.is_working_day);
   const isPending = (s: MySection) => s.today?.state !== 'FINALIZED';
   const pendingCount = markable.filter(isPending).length;
   const visible = markable.filter((s) =>
     status === 'pending' ? isPending(s) : status === 'done' ? !isPending(s) : true,
   );
-  const holiday = sections.every((s) => !s.is_working_day);
+  const holiday = withStudents.length > 0 && markable.length === 0;
   // Array.prototype.sort is stable: server order is kept within a group.
   const sorted = [...visible].sort((a, b) => rank(a) - rank(b));
 
@@ -157,7 +160,15 @@ function AttendanceListPage() {
     <PageContainer>
       <PageHeader
         title={t('list.title')}
-        subtitle={t('list.pendingCount', { pending: pendingCount, total: markable.length })}
+        subtitle={
+          holiday
+            ? undefined
+            : t('list.pendingCount', {
+                count: markable.length,
+                pending: pendingCount,
+                total: markable.length,
+              })
+        }
       />
       <div className="mb-4 flex flex-wrap items-end gap-3">
         <FilterBar

@@ -135,6 +135,25 @@ describe('/attendance', () => {
 
     expect(await screen.findByText('School is closed on this day')).toBeTruthy();
     expect(screen.queryByText('Class 5 – A')).toBeNull();
+    // No "N of M pending" over a holiday notice.
+    expect(screen.queryByText(/sections? pending/)).toBeNull();
+  });
+
+  it('a class with no school today is neither listed nor counted as pending', async () => {
+    server.use(
+      http.get('/api/v1/attendance/my-sections', () =>
+        HttpResponse.json([
+          section('s-a', 'A', null),
+          { ...section('s-b', 'B', null), is_working_day: false },
+        ]),
+      ),
+    );
+
+    renderList();
+
+    expect(await screen.findByText('1 of 1 section pending')).toBeTruthy();
+    expect(screen.getByText('Class 5 – A')).toBeTruthy();
+    expect(screen.queryByText('Class 5 – B')).toBeNull();
   });
 
   it('shows the all-done state when pending is chosen and nothing is pending', async () => {
