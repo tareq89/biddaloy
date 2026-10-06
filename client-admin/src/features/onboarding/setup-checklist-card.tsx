@@ -1,0 +1,94 @@
+/** [13.5.1] Dashboard "Finish setting up your school" card. ADMIN only; hidden once dismissed or all done. */
+import { UserRole, type OnboardingItemId, type OnboardingStatus } from '@biddaloy/shared';
+import { Button, Card, ProgressBar } from '@biddaloy/ui/components';
+import {
+  onboardingStatusQueryOptions,
+  useActiveRole,
+  useUpdateOnboarding,
+} from '@biddaloy/ui/hooks';
+import { useTranslation } from '@biddaloy/ui/i18n';
+import { useQuery } from '@tanstack/react-query';
+import { Link } from '@tanstack/react-router';
+import { ChevronRightIcon, CircleCheckIcon, CircleIcon } from 'lucide-react';
+
+const TARGETS: Record<OnboardingItemId, { to: string; search?: Record<string, string | number> }> =
+  {
+    profile: { to: '/settings', search: { section: 'school' } },
+    structure: { to: '/classes' },
+    sections: { to: '/classes' },
+    students: { to: '/students' },
+    staff: { to: '/staff' },
+    feeStructures: { to: '/fee-structures' },
+    guardianInvites: { to: '/guardians', search: { invite: 1 } },
+    messageSettings: { to: '/settings', search: { section: 'communication' } },
+  };
+
+/** Pure so the dashboard and tests agree on when the card shows. */
+export function showChecklist(status: OnboardingStatus | undefined): status is OnboardingStatus {
+  return !!status && !status.dismissed_at && status.items.some((i) => !i.done);
+}
+
+export function SetupChecklistCard() {
+  const { t } = useTranslation('setupChecklist');
+  const role = useActiveRole();
+  const update = useUpdateOnboarding();
+  const { data } = useQuery({
+    ...onboardingStatusQueryOptions(),
+    enabled: role === UserRole.ADMIN,
+  });
+  if (role !== UserRole.ADMIN || !showChecklist(data)) return null;
+  const done = data.items.filter((i) => i.done).length;
+  return (
+    <Card padded asChild>
+      <section aria-labelledby="setup-checklist-heading" className="flex flex-col gap-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex flex-col gap-1">
+            <h2 id="setup-checklist-heading" className="text-h3">
+              {t('title')}
+            </h2>
+            <p className="text-text-secondary">
+              {t('progress', { done, total: data.items.length })}
+            </p>
+          </div>
+          <Button
+            variant="ghost"
+            className="min-h-11 md:min-h-8"
+            disabled={update.isPending}
+            onClick={() => update.mutate({ dismissed: true })}
+          >
+            {t('hide')}
+          </Button>
+        </div>
+        <ProgressBar done={done} total={data.items.length} label={t('title')} />
+        <ul className="divide-y divide-border-subtle">
+          {data.items.map((item) => {
+            const target = TARGETS[item.id];
+            const Icon = item.done ? CircleCheckIcon : CircleIcon;
+            return (
+              <li key={item.id}>
+                <Link
+                  {...(target as { to: never })}
+                  className="flex min-h-11 items-center gap-3 px-1 hover:bg-muted md:min-h-10"
+                >
+                  <Icon
+                    aria-hidden="true"
+                    className={`size-5 shrink-0 ${item.done ? 'text-status-paid-fg' : ''}`}
+                  />
+                  <span
+                    className={`flex-1 ${item.done ? 'text-text-secondary' : 'text-text-primary'}`}
+                  >
+                    {t(`items.${item.id}`)}
+                  </span>
+                  <span className="text-caption text-text-secondary">
+                    {item.done ? t('done') : t('todo')}
+                  </span>
+                  <ChevronRightIcon aria-hidden="true" className="size-4 shrink-0" />
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      </section>
+    </Card>
+  );
+}
