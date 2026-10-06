@@ -503,7 +503,7 @@ export function useSubjectSummary(sectionId: string | undefined, from: string, t
  * `input.client_request_id` is generated once per save attempt by the
  * caller (`crypto.randomUUID()`), as for `useSubmitRegister`.
  */
-export function useSaveRegisterMatrix(sectionId: string, month: string) {
+export function useSaveRegisterMatrix(sectionId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (input: PutRegisterMatrixInput) =>
@@ -513,9 +513,11 @@ export function useSaveRegisterMatrix(sectionId: string, month: string) {
           input,
         )
       ).data,
+    // The whole branch, as `useSubmitRegister` does: a month save rewrites day
+    // registers, so the daily roster, summaries, streaks, history and period
+    // suggestions can all change (this covers the matrix key too).
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: registerMatrixKey(sectionId, month) });
-      void queryClient.invalidateQueries({ queryKey: attendanceKeys.lists() });
+      void queryClient.invalidateQueries({ queryKey: attendanceKeys.all });
     },
   });
 }
