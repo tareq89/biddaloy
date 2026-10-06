@@ -1,8 +1,10 @@
 import { ApiError, NoMembershipsError, RateLimitedError } from '@biddaloy/ui/api';
 import {
   AuthLayout,
+  NoticeBar,
   OtpSignInForm,
   SignInForm,
+  SocialButtons,
   Tabs,
   TabsContent,
   TabsList,
@@ -11,12 +13,22 @@ import {
   type SignInCredentials,
   type SignInFormError,
 } from '@biddaloy/ui/components';
-import { login, requestOtp, verifyOtp } from '@biddaloy/ui/hooks';
+import {
+  login,
+  requestOtp,
+  socialProvidersQueryOptions,
+  socialStartUrl,
+  verifyOtp,
+  type OtpLoginResult,
+} from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import type { TFunction } from 'i18next';
+import * as React from 'react';
 import { z } from 'zod';
+
+import { FirstPasswordStep } from '../features/first-password/first-password-step';
 
 /**
  * The protected-route guard (`__root.tsx`'s `beforeLoad`) redirects every
@@ -52,6 +64,11 @@ const loginSearchSchema = z.object({
   // code" tab (used by e2e) — anything else falls back to the default
   // `password` tab rather than erroring.
   method: z.enum(['password', 'otp']).optional().catch(undefined),
+  // 13.5: `?mode=code` opens the code form (the "First time here?" link).
+  mode: z.enum(['code']).optional().catch(undefined),
+  // 13.4: the social callback sends a visitor back with `?social=not_linked`
+  // when the provider account is not connected to any user.
+  social: z.enum(['not_linked']).optional().catch(undefined),
 });
 
 export const Route = createFileRoute('/login')({
@@ -134,17 +151,58 @@ function LoginPage() {
   });
 
   const otpRequestMutation = useMutation({
-    mutationFn: (phone: string) => requestOtp(phone),
+    mutationFn: (identifier: string) => requestOtp(identifier),
   });
 
   const otpVerifyMutation = useMutation({
     mutationFn: (credentials: OtpSignInCredentials) => verifyOtp(queryClient, credentials),
-    onSuccess: handleSuccess,
+    // A first code sign-in asks for a password in the same card before moving on.
+    onSuccess: (result) =>
+      result.needs_password ? setPasswordStep(result) : handleSuccess(result),
   });
+
+  const [passwordStep, setPasswordStep] = React.useState<OtpLoginResult | null>(null);
+  const providers = useQuery(socialProvidersQueryOptions()).data ?? [];
+  const tab = search.mode === 'code' || search.method === 'otp' ? 'otp' : 'password';
+
+  function selectTab(value: string): void {
+    void navigate({
+      to: '/login',
+      search: (prev) => ({
+        ...prev,
+        method: undefined,
+        mode: value === 'otp' ? 'code' : undefined,
+      }),
+      replace: true,
+    });
+  }
+
+  if (passwordStep) {
+    return (
+      <AuthLayout>
+        <FirstPasswordStep
+          roles={passwordStep.memberships.map((m) => m.role)}
+          passwordRequired={passwordStep.password_required}
+          onDone={() => handleSuccess(passwordStep)}
+        />
+      </AuthLayout>
+    );
+  }
 
   return (
     <AuthLayout>
-      <Tabs defaultValue={search.method ?? 'password'}>
+      {search.social === 'not_linked' && (
+        <NoticeBar tone="info" className="mb-5 rounded-md py-2">
+          {t('login.socialNotLinked')}
+        </NoticeBar>
+      )}
+      <SocialButtons
+        providers={providers}
+        labelFor={(provider) => t(`login.${provider}`)}
+        hrefFor={(provider) => socialStartUrl(provider, 'login', search.redirect)}
+        className="mb-5"
+      />
+      <Tabs value={tab} onValueChange={selectTab}>
         <TabsList className="mb-5 w-full">
           <TabsTrigger value="password" className="flex-1">
             {t('tabs.password')}
@@ -167,6 +225,14 @@ function LoginPage() {
               </Link>
             }
           />
+          <Link
+            to="/login"
+            search={(prev) => ({ ...prev, method: undefined, mode: 'code' })}
+            replace
+            className="mt-4 flex h-11 w-full items-center justify-center rounded-md px-3 text-sm font-medium text-primary hover:bg-muted"
+          >
+            {t('login.firstTime')}
+          </Link>
         </TabsContent>
         <TabsContent value="otp">
           <OtpSignInForm

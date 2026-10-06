@@ -44,7 +44,7 @@ describe('OtpSignInForm', () => {
 
     await user.click(await screen.findByRole('button', { name: 'Send code' }));
 
-    await waitFor(() => expect(screen.getByText('Enter your phone number.')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('Enter your email or phone number.')).toBeTruthy());
     expect(onRequest).not.toHaveBeenCalled();
   });
 
@@ -55,12 +55,46 @@ describe('OtpSignInForm', () => {
       locale: 'en',
     });
 
-    await user.type(await screen.findByLabelText('Phone number'), '1712345678');
+    await user.type(await screen.findByLabelText('Mobile number or email'), '1712345678');
     await user.click(screen.getByRole('button', { name: 'Send code' }));
 
     await waitFor(() => expect(onRequest).toHaveBeenCalledWith('01712345678'));
     await screen.findByRole('heading', { name: 'Enter the code' });
     expect(screen.getByText('We sent a 6-digit code to 01712345678.')).toBeTruthy();
+  });
+
+  it('accepts an email: lower-cases it, requests a code for it, and verifies with it', async () => {
+    const onRequest = vi.fn().mockResolvedValue(undefined);
+    const onVerify = vi.fn();
+    const user = userEvent.setup();
+    renderWithProviders(<OtpSignInForm onRequest={onRequest} onVerify={onVerify} />, {
+      locale: 'en',
+    });
+
+    await user.type(
+      await screen.findByLabelText('Mobile number or email'),
+      'Rahim@Greenview.edu.bd',
+    );
+    await user.click(screen.getByRole('button', { name: 'Send code' }));
+    await waitFor(() => expect(onRequest).toHaveBeenCalledWith('rahim@greenview.edu.bd'));
+
+    await user.type(await screen.findByLabelText('6-digit code'), '123456');
+    await user.click(screen.getByRole('button', { name: 'Sign in' }));
+    expect(onVerify).toHaveBeenCalledWith({ identifier: 'rahim@greenview.edu.bd', otp: '123456' });
+  });
+
+  it('rejects a value that is neither an email nor a phone number', async () => {
+    const onRequest = vi.fn();
+    const user = userEvent.setup();
+    renderWithProviders(<OtpSignInForm onRequest={onRequest} onVerify={vi.fn()} />, {
+      locale: 'en',
+    });
+
+    await user.type(await screen.findByLabelText('Mobile number or email'), 'nope@');
+    await user.click(screen.getByRole('button', { name: 'Send code' }));
+
+    await screen.findByText('Enter a valid email or an 11-digit phone number.');
+    expect(onRequest).not.toHaveBeenCalled();
   });
 
   it('normalizes Bengali numerals in the code field before verifying', async () => {
@@ -71,14 +105,14 @@ describe('OtpSignInForm', () => {
       locale: 'en',
     });
 
-    await user.type(await screen.findByLabelText('Phone number'), '1712345678');
+    await user.type(await screen.findByLabelText('Mobile number or email'), '1712345678');
     await user.click(screen.getByRole('button', { name: 'Send code' }));
     await screen.findByRole('heading', { name: 'Enter the code' });
 
     await user.type(screen.getByLabelText('6-digit code'), '১২৩৪৫৬');
     await user.click(screen.getByRole('button', { name: 'Sign in' }));
 
-    expect(onVerify).toHaveBeenCalledWith({ phone: '01712345678', otp: '123456' });
+    expect(onVerify).toHaveBeenCalledWith({ identifier: '01712345678', otp: '123456' });
   });
 
   it('"Change number" returns to the phone phase', async () => {
@@ -88,13 +122,13 @@ describe('OtpSignInForm', () => {
       locale: 'en',
     });
 
-    await user.type(await screen.findByLabelText('Phone number'), '1712345678');
+    await user.type(await screen.findByLabelText('Mobile number or email'), '1712345678');
     await user.click(screen.getByRole('button', { name: 'Send code' }));
     await screen.findByRole('heading', { name: 'Enter the code' });
 
     await user.click(screen.getByRole('button', { name: 'Use a different number' }));
 
-    expect(await screen.findByLabelText('Phone number')).toBeTruthy();
+    expect(await screen.findByLabelText('Mobile number or email')).toBeTruthy();
   });
 
   it('disables resend for 60 seconds after entering the code phase, then re-enables it', async () => {
@@ -105,7 +139,7 @@ describe('OtpSignInForm', () => {
       locale: 'en',
     });
 
-    await user.type(await screen.findByLabelText('Phone number'), '1712345678');
+    await user.type(await screen.findByLabelText('Mobile number or email'), '1712345678');
     await user.click(screen.getByRole('button', { name: 'Send code' }));
     await screen.findByRole('heading', { name: 'Enter the code' });
 
@@ -157,10 +191,10 @@ describe('OtpSignInForm', () => {
       <OtpSignInForm onRequest={onRequest} onVerify={vi.fn()} />,
       { locale: 'en' },
     );
-    await screen.findByLabelText('Phone number');
+    await screen.findByLabelText('Mobile number or email');
     await expect(container).toHaveNoViolations();
 
-    await user.type(screen.getByLabelText('Phone number'), '1712345678');
+    await user.type(screen.getByLabelText('Mobile number or email'), '1712345678');
     await user.click(screen.getByRole('button', { name: 'Send code' }));
     await screen.findByRole('heading', { name: 'Enter the code' });
     await expect(container).toHaveNoViolations();
