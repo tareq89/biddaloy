@@ -38,11 +38,52 @@
     "badPhone": "This mobile number is not valid.",
     "badEmail": "This email is not valid.",
     "missingContact": "Add a mobile number or an email.",
-    "unknownRole": "This role does not exist."
+    "unknownRole": "This role does not exist.",
+    "nameRequired": "Name is required.",
+    "numericMobile": "The mobile number lost its leading 0. Format the column as Text and type it again.",
+    "accountClash": "This mobile number or email is used by another account.",
+    "roleChange": "This person already has another role here. An import does not change roles.",
+    "other": "This value is not valid."
   },
   "done": {
     "created": "{{count}} added",
     "invited": "{{count}} invited",
-    "failed": "{{count}} failed"
-  }
+    "failed": "{{count}} failed",
+    "title": "Import finished",
+    "restored": "{{count}} brought back",
+    "failedRows": "Could not add, rows: {{rows}}",
+    "inviteFailedRows": "Invitation not sent, rows: {{rows}}",
+    "importAnother": "Import another file",
+    "seeStaff": "See staff"
+  },
+  "template": {
+    "title": "Sample file",
+    "explanation": "Download the sample, fill in one person per row, then upload it below.",
+    "download": "Download sample file"
+  },
+  "guide": {
+    "toggle": "What goes in each column",
+    "roles": "Roles you can use: {{roles}}"
+  },
+  "upload": {
+    "title": "Upload your file",
+    "explanation": "Nothing is saved until you check the list and confirm."
+  },
+  "preview": {
+    "title": "People in this file",
+    "caption": "People that will be added or brought back",
+    "columns": {
+      "name": "Name",
+      "contact": "Mobile / email",
+      "role": "Role",
+      "action": "What happens"
+    },
+    "shownOf": "Showing {{shown}} of {{total}}"
+  },
+  "action": {
+    "create": "Added",
+    "restore": "Brought back",
+    "skip": "Skipped"
+  },
+  "backToSetup": "Back to setup"
 }
