@@ -762,6 +762,34 @@ describe('AppShell', () => {
       ).toBeNull();
     });
 
+    it('lights the root item only on `/`, not on an unmatched path', async () => {
+      const items = [
+        { to: '/', label: 'Dashboard' },
+        { to: '/exams/templates', label: 'Exam templates' },
+      ];
+      renderWithRouter(layoutTree(items, []), {
+        initialEntries: ['/exams/abc'],
+        role: 'SUPER_ADMIN',
+      });
+      await screen.findByText('exam detail');
+      const current = screen.getAllByRole('link').filter((l) => l.getAttribute('aria-current'));
+      expect(current).toEqual([]);
+    });
+
+    it('lights one of several same-path items, picked by its search values', async () => {
+      const items = [
+        { to: '/exams', search: { tab: 'dues' }, label: 'Dues' },
+        { to: '/exams', search: { tab: 'payment' }, label: 'Payment' },
+      ];
+      renderWithRouter(layoutTree(items, []), {
+        initialEntries: ['/exams?tab=payment'],
+        role: 'SUPER_ADMIN',
+      });
+      await screen.findByRole('link', { name: 'Payment' });
+      const current = screen.getAllByRole('link').filter((l) => l.getAttribute('aria-current'));
+      expect(current.map((l) => l.textContent)).toEqual(['Payment']);
+    });
+
     it('re-opens a collapsed group on client navigation without persisting (#879)', async () => {
       const { router } = renderWithRouter(layoutTree(navItems, navGroups), {
         initialEntries: ['/students'],
