@@ -3,6 +3,7 @@ import { decodeAccessTokenMemberships, getAccessToken, postAuthLogout } from '@b
 import { AuthLayout, Button, EmptyState, SchoolPicker } from '@biddaloy/ui/components';
 import { logout, switchActiveTenant } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
+import { isSafeSupportUrl } from '@biddaloy/ui/utils';
 import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import * as React from 'react';
@@ -86,8 +87,7 @@ function SelectSchoolPage() {
   }
 
   if (memberships.length === 0) {
-    // ponytail: no support link — the onboarding status call that carries
-    // `support_url` needs an active school, which this account does not have.
+    const supportUrl = import.meta.env.VITE_SUPPORT_URL;
     return (
       <AuthLayout>
         <EmptyState
@@ -96,6 +96,11 @@ function SelectSchoolPage() {
           explanation={t('selectSchool.none.body')}
           action={{ label: t('selectSchool.none.signOut'), onClick: handleSignOut }}
         />
+        {isSafeSupportUrl(supportUrl) && (
+          <Button asChild variant="ghost" className="mt-2 w-full text-primary">
+            <a href={supportUrl}>{t('selectSchool.none.contact')}</a>
+          </Button>
+        )}
       </AuthLayout>
     );
   }

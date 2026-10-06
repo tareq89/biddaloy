@@ -28,7 +28,7 @@ import { useNavigate, type ErrorComponentProps } from '@tanstack/react-router';
 import { Lock, RefreshCw, WifiOff } from 'lucide-react';
 import * as React from 'react';
 
-import { getAccessToken, setActiveRole, setActiveTenant } from '../api/auth-state';
+import { getAccessToken, getActiveTenant, setActiveRole, setActiveTenant } from '../api/auth-state';
 import { isTenantSuspendedError } from '../api/errors';
 import { captureRouteError, recordRouteChunkFallback } from '../api/sentry';
 import { decodeAccessTokenMemberships } from '../api/session';
@@ -67,9 +67,8 @@ export interface RouteErrorFallbackProps extends ErrorComponentProps {
    * available action differ. */
   suspendedTitle?: string;
   suspendedMessage?: string;
-  /** [13.5] "Contact us" target for the trial-ended state (the onboarding
-   * status's `support_url`). The link is left out when there is none; the
-   * retry button and "Choose another school" remain, so it is never a dead end. */
+  /** [13.5] "Contact us" target for the trial-ended state, supplied by the app
+   * (client-admin: build-time `VITE_SUPPORT_URL`). Hidden when unset or unsafe. */
   supportUrl?: string | null;
 }
 
@@ -309,7 +308,11 @@ function TrialEndedState({
   const { t: tTrial } = useTranslation('trial');
   const { t: tAuth } = useTranslation('auth');
   const token = getAccessToken();
-  const hasOtherSchools = token ? decodeAccessTokenMemberships(token).length > 1 : false;
+  // A membership is a (school, role) pair: two roles at the expired school is not another school.
+  const active = getActiveTenant();
+  const hasOtherSchools = token
+    ? decodeAccessTokenMemberships(token).some((m) => m.tenantId !== active)
+    : false;
 
   // The expired school is still the active one, and the root guard sends anyone with an
   // active school away from the picker. Leaving it first (here and in the reload hint)
