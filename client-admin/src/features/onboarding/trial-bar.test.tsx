@@ -106,6 +106,7 @@ describe('TrialBar', () => {
         );
       }),
     );
+    const SHELL_TEXT = 'Shell still here';
     const root = createRootRoute();
     const index = createRoute({
       getParentRoute: () => root,
@@ -113,7 +114,7 @@ describe('TrialBar', () => {
       component: () => (
         <>
           <TrialBar />
-          <p>Shell still here</p>
+          <p>{SHELL_TEXT}</p>
         </>
       ),
     });
@@ -125,7 +126,7 @@ describe('TrialBar', () => {
     });
     await waitFor(() => expect(calls).toBeGreaterThan(0));
     await new Promise((r) => setTimeout(r, 50));
-    expect(screen.getByText('Shell still here')).toBeTruthy();
+    expect(screen.getByText(SHELL_TEXT)).toBeTruthy();
     expect(screen.queryByRole('status')).toBeNull();
   });
 
