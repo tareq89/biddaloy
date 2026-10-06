@@ -41,7 +41,8 @@
       "title": "Classes and subjects",
       "hint": "Pick a ready-made list of classes and subjects. You can change it later.",
       "blocked": "Your school already has classes or students, so a ready-made curriculum cannot be applied.",
-      "byHand": "Set up by hand"
+      "byHand": "Set up by hand",
+      "skip": "Skip this step"
     },
     "sections": {
       "title": "Sections",

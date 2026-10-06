@@ -20,6 +20,7 @@ export function CurriculumStep({ onBack, onNext }: { onBack: () => void; onNext:
   const schoolId = getActiveTenant();
   const status = usePresetStatus();
   const [presetStep, setPresetStep] = React.useState('pick');
+  const wizardOpen = !!schoolId && !!status.data && status.data.state === 'AVAILABLE';
 
   return (
     <div className="flex flex-col gap-4">
@@ -45,7 +46,17 @@ export function CurriculumStep({ onBack, onNext }: { onBack: () => void; onNext:
           onStepChange={setPresetStep}
         />
       ) : null}
-      <StepNav onBack={onBack} onPrimary={onNext} />
+      {/* The preset flow has its own Next / Apply: ours stays a quiet skip until it is applied. */}
+      {wizardOpen ? (
+        <StepNav
+          onBack={onBack}
+          onPrimary={onNext}
+          quiet
+          primaryLabel={t('guided.curriculum.skip')}
+        />
+      ) : (
+        <StepNav onBack={onBack} onPrimary={onNext} />
+      )}
     </div>
   );
 }

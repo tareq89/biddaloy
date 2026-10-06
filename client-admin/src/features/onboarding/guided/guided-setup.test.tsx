@@ -119,6 +119,19 @@ describe('CurriculumStep', () => {
     expect(body).toHaveBeenCalledWith(expect.objectContaining({ preset_id: 'bd/nctb' }));
   });
 
+  it('while the preset flow is open, the step offers a quiet skip, not a second Next', async () => {
+    server.use(
+      http.get('/api/v1/presets/status', () => HttpResponse.json({ state: 'AVAILABLE' })),
+      http.get('/api/v1/presets', () => HttpResponse.json([NCTB])),
+    );
+    const { router } = renderAt(2);
+    await screen.findAllByRole('button', { name: 'Choose' });
+    // Only the preset flow's own Next; ours is the skip.
+    expect(screen.getAllByRole('button', { name: 'Next' })).toHaveLength(1);
+    await userEvent.click(screen.getByRole('button', { name: 'Skip this step' }));
+    await waitFor(() => expect(router.state.location.search).toMatchObject({ q: 3 }));
+  });
+
   it('a school that is not fresh sees the reason and the by-hand link; Next skips to sections', async () => {
     server.use(
       http.get('/api/v1/presets/status', () =>
