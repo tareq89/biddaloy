@@ -132,4 +132,38 @@ describe('/activate', () => {
 
     await waitFor(() => expect(router.state.location.pathname).toBe('/dashboard'));
   });
+
+  describe('13.5: password rules follow the account audience', () => {
+    const verifyAs = (password_audience: 'family' | 'staff') =>
+      http.post('/api/v1/auth/activate/verify', () =>
+        HttpResponse.json({
+          status: 'valid',
+          full_name: 'Rahima',
+          school_name: 'Dhanmondi High School',
+          password_audience,
+        }),
+      );
+
+    it('a family account sees two rules', async () => {
+      server.use(authHandlers.refreshFailure, verifyAs('family'));
+      renderWithRouter(routeTree, {
+        initialEntries: ['/activate?token=a-valid-invite-token-value'],
+        locale: 'en',
+      });
+
+      await screen.findByLabelText('New password');
+      expect(screen.getAllByRole('listitem')).toHaveLength(2);
+    });
+
+    it('a staff account sees five rules', async () => {
+      server.use(authHandlers.refreshFailure, verifyAs('staff'));
+      renderWithRouter(routeTree, {
+        initialEntries: ['/activate?token=a-valid-invite-token-value'],
+        locale: 'en',
+      });
+
+      await screen.findByLabelText('New password');
+      expect(screen.getAllByRole('listitem')).toHaveLength(5);
+    });
+  });
 });

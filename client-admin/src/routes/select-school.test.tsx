@@ -66,14 +66,22 @@ describe('/select-school', () => {
     expect(screen.queryByRole('heading', { name: 'Choose a school' })).toBeNull();
   });
 
-  it('logs out and redirects to /login for zero memberships, rather than looping', async () => {
+  it('zero memberships: shows an empty state with a way out, and the way out signs out', async () => {
+    const user = userEvent.setup();
     server.use(authHandlers.logout);
-    const { router } = renderWithRouter(routeTree, {
+    const { router, container } = renderWithRouter(routeTree, {
       initialEntries: ['/select-school'],
       accessToken: fakeJwtWithMemberships([]),
       locale: 'en',
     });
 
+    expect(
+      await screen.findByRole('heading', { name: 'You are not in any school yet' }),
+    ).toBeTruthy();
+    expect(screen.getByText("Ask your school's admin to add you.")).toBeTruthy();
+    await expect(container).toHaveNoViolations();
+
+    await user.click(screen.getByRole('button', { name: 'Sign out' }));
     await waitFor(() => expect(router.state.location.pathname).toBe('/login'));
   });
 

@@ -1,5 +1,5 @@
 /**
- * 12.5's "Sign in with code" tab — a passwordless phone+OTP alternative to
+ * 12.5's "Sign in with code" form (phone or email) — a passwordless alternative to
  * `SignInForm`, sharing its card/brand-mark/banner grammar so the two tabs
  * on `/login` read as one surface. Two phases inside one component,
  * `phase: 'phone' | 'code'`, the same "step state in the component, not the
@@ -18,20 +18,20 @@ import { z } from 'zod';
 
 import { useRegionConfig, useTranslation } from '../i18n';
 import { cn } from '../primitives/lib/utils';
-import { toLatinDigits } from '../utils';
-import { parsePhone } from '../utils/phone';
+import { detectLoginIdentifier, toLatinDigits } from '../utils';
 
 import { useInsideAuthLayout } from './auth-layout';
 import { Button } from './button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from './form-field';
+import { Input } from './input';
 import { OtpInput } from './otp-input';
-import { PhoneInput } from './phone-input';
 import type { SignInFormError } from './sign-in-form';
 
-export type OtpSignInCredentials = { phone: string; otp: string };
+/** `identifier` is the canonical phone (trunk-0) or lower-cased email. */
+export type OtpSignInCredentials = { identifier: string; otp: string };
 
 export interface OtpSignInFormProps {
-  onRequest: (phone: string) => Promise<void>;
+  onRequest: (identifier: string) => Promise<void>;
   onVerify: (input: OtpSignInCredentials) => void;
   loading?: boolean;
   error?: SignInFormError | null;
@@ -40,7 +40,7 @@ export interface OtpSignInFormProps {
 const RESEND_COOLDOWN_SECONDS = 60;
 
 interface PhoneFormValues {
-  phone: string;
+  identifier: string;
 }
 
 /** Same alert-vs-status banner markup as `SignInForm`, factored out since
@@ -121,18 +121,21 @@ export function OtpSignInForm({
   const schema = React.useMemo(
     () =>
       z.object({
-        phone: z
+        identifier: z
           .string()
           .trim()
-          .min(1, t('otp.phoneRequired'))
-          .refine((value) => parsePhone(value, regionConfig).valid, t('identifier.invalid')),
+          .min(1, t('identifier.required'))
+          .refine(
+            (value) => detectLoginIdentifier(value, regionConfig).kind !== 'invalid',
+            t('identifier.invalid'),
+          ),
       }),
     [regionConfig, t],
   );
 
   const form = useForm<PhoneFormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { phone: '' },
+    defaultValues: { identifier: '' },
     mode: 'onBlur',
     reValidateMode: 'onBlur',
   });
@@ -146,14 +149,15 @@ export function OtpSignInForm({
   }, [phase.kind, secondsLeft]);
 
   function toStorageFormat(raw: string): string {
-    const parsed = parsePhone(raw, regionConfig);
-    // Unreachable once the schema's own refine has passed.
-    if (!parsed.valid) return '';
-    return toLatinDigits(`0${parsed.value}`);
+    const detected = detectLoginIdentifier(raw, regionConfig);
+    // 'invalid' is unreachable once the schema's own refine has passed.
+    if (detected.kind === 'email') return detected.email;
+    if (detected.kind === 'phone') return toLatinDigits(detected.phone);
+    return '';
   }
 
   async function handlePhoneSubmit(values: PhoneFormValues): Promise<void> {
-    const phone = toStorageFormat(values.phone);
+    const phone = toStorageFormat(values.identifier);
     if (!phone) return;
     setRequesting(true);
     try {
@@ -181,7 +185,7 @@ export function OtpSignInForm({
   }
 
   function handleVerifySubmit(phone: string): void {
-    onVerify({ phone, otp: toLatinDigits(otp) });
+    onVerify({ identifier: phone, otp: toLatinDigits(otp) });
   }
 
   const brandMark = framed ? (
@@ -274,16 +278,16 @@ export function OtpSignInForm({
 
           <FormField
             control={form.control}
-            name="phone"
+            name="identifier"
             render={({ field }) => (
               <FormItem>
-                <FormLabel htmlFor="otp-sign-in-phone">{t('otp.phoneLabel')}</FormLabel>
+                <FormLabel htmlFor="otp-sign-in-identifier">{t('otp.identifierLabel')}</FormLabel>
                 <FormControl>
-                  <PhoneInput
+                  <Input
                     {...field}
-                    id="otp-sign-in-phone"
-                    config={regionConfig}
-                    onValueChange={(value) => field.onChange(value)}
+                    id="otp-sign-in-identifier"
+                    autoComplete="username"
+                    placeholder={t('identifier.placeholder')}
                     disabled={requesting}
                   />
                 </FormControl>

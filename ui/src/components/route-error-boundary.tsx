@@ -28,10 +28,13 @@ import { useNavigate, type ErrorComponentProps } from '@tanstack/react-router';
 import { Lock, RefreshCw, WifiOff } from 'lucide-react';
 import * as React from 'react';
 
+import { getAccessToken } from '../api/auth-state';
 import { isTenantSuspendedError } from '../api/errors';
 import { captureRouteError, recordRouteChunkFallback } from '../api/sentry';
+import { decodeAccessTokenMemberships } from '../api/session';
 import { useTranslation } from '../i18n';
 
+import { Button } from './button';
 import { ErrorState } from './error-state';
 import { RouteStatusState } from './route-status-state';
 
@@ -62,6 +65,10 @@ export interface RouteErrorFallbackProps extends ErrorComponentProps {
    * available action differ. */
   suspendedTitle?: string;
   suspendedMessage?: string;
+  /** [13.5] "Contact us" target for the trial-ended state (the onboarding
+   * status's `support_url`). The link is left out when there is none; the
+   * retry button and "Choose another school" remain, so it is never a dead end. */
+  supportUrl?: string | null;
 }
 
 /**
@@ -109,7 +116,7 @@ export interface RouteErrorFallbackProps extends ErrorComponentProps {
 const CHUNK_LOAD_FAILURE =
   /failed to fetch dynamically imported module|error loading dynamically imported module|importing a module script failed|loading chunk \S+ failed/i;
 
-type RouteErrorKind = 'offline' | 'update' | 'suspended' | 'error';
+type RouteErrorKind = 'offline' | 'update' | 'suspended' | 'trial-ended' | 'error';
 
 /** True for exactly the errors this boundary would render as its offline
  * fork. Exported so a route `loader` deciding whether to swallow a
@@ -127,7 +134,10 @@ function classifyRouteError(error: unknown): RouteErrorKind {
   }
 
   if (isTenantSuspendedError(error)) {
-    return 'suspended';
+    // The 403 carries `details.reason` only when the trial ran out.
+    return (error as { details?: { reason?: unknown } }).details?.reason === 'TRIAL_EXPIRED'
+      ? 'trial-ended'
+      : 'suspended';
   }
 
   const message = error instanceof Error ? error.message : '';
@@ -161,9 +171,12 @@ export function RouteErrorFallback({
   onReloadForUpdate = () => window.location.reload(),
   suspendedTitle,
   suspendedMessage,
+  supportUrl,
 }: RouteErrorFallbackProps) {
   const navigate = useNavigate();
   const { t } = useTranslation('common');
+  const { t: tTrial } = useTranslation('trial');
+  const { t: tAuth } = useTranslation('auth');
   // Props still override; the defaults are translated here so an app that
   // passes no copy (or only some) is never stuck with English on a Bangla page.
   message = message ?? t('routeError.message');
@@ -195,7 +208,8 @@ export function RouteErrorFallback({
     // See `recordRouteChunkFallback` for why an online chunk failure does
     // not deserve an issue of its own in this deployment.
     if (kind !== 'error') {
-      recordRouteChunkFallback(kind);
+      // A trial that ran out is a kind of suspension; same breadcrumb.
+      recordRouteChunkFallback(kind === 'trial-ended' ? 'suspended' : kind);
       return;
     }
     captureRouteError(error);
@@ -233,6 +247,36 @@ export function RouteErrorFallback({
         homeLabel={homeLabel}
         icon={<WifiOff aria-hidden="true" />}
       />
+    );
+  }
+
+  if (kind === 'trial-ended') {
+    const token = getAccessToken();
+    const hasOtherSchools = token ? decodeAccessTokenMemberships(token).length > 1 : false;
+    return (
+      <div className="flex flex-col items-center gap-2">
+        <RouteStatusState
+          title={tTrial('ended.title')}
+          explanation={tTrial('ended.body')}
+          onRetry={reset}
+          retryLabel={retryLabel}
+          onHome={onHome}
+          homeLabel={homeLabel}
+          icon={<Lock aria-hidden="true" />}
+        />
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          {supportUrl && (
+            <Button asChild>
+              <a href={supportUrl}>{tTrial('ended.contact')}</a>
+            </Button>
+          )}
+          {hasOtherSchools && (
+            <Button variant="outline" onClick={() => void navigate({ to: '/select-school' })}>
+              {tAuth('selectSchool.chooseAnother')}
+            </Button>
+          )}
+        </div>
+      </div>
     );
   }
 

@@ -34,7 +34,7 @@ export const PhoneValidationError: Story = {
 export const CodePhase: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await userEvent.type(canvas.getByLabelText('Phone number'), '1712345678');
+    await userEvent.type(canvas.getByLabelText('Mobile number or email'), '1712345678');
     await userEvent.click(canvas.getByRole('button', { name: 'Send code' }));
   },
 };
@@ -47,7 +47,7 @@ export const InvalidCode: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await userEvent.type(canvas.getByLabelText('Phone number'), '1712345678');
+    await userEvent.type(canvas.getByLabelText('Mobile number or email'), '1712345678');
     await userEvent.click(canvas.getByRole('button', { name: 'Send code' }));
   },
 };
@@ -56,11 +56,25 @@ export const Submitting: Story = {
   args: { loading: true },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await userEvent.type(canvas.getByLabelText('Phone number'), '1712345678');
+    await userEvent.type(canvas.getByLabelText('Mobile number or email'), '1712345678');
     await userEvent.click(canvas.getByRole('button', { name: 'Send code' }));
   },
 };
 
 export const RightToLeft: Story = {
   decorators: [rtlDecorator],
+};
+
+/** An email works in the same field as a phone number. */
+export const EmailCodePhase: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.type(canvas.getByLabelText('Mobile number or email'), 'rahim@greenview.edu.bd');
+    await userEvent.click(canvas.getByRole('button', { name: 'Send code' }));
+  },
+};
+
+/** Phone size: the field and the primary button fill the card. */
+export const Phone: Story = {
+  parameters: { viewport: { defaultViewport: 'mobile1' } },
 };
