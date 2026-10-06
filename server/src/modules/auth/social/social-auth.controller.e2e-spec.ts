@@ -21,13 +21,13 @@ const API = '/api/v1';
 function stubProvider(name: SocialProvider): SocialProviderClient & {
   configured: boolean;
   nextSubject: string;
-  nextEmail: string;
+  nextEmail: string | null;
 } {
   return {
     name,
     configured: true,
     nextSubject: 'sub-default',
-    nextEmail: 'person@example.com',
+    nextEmail: 'person@example.com' as string | null,
     isConfigured() {
       return this.configured;
     },
@@ -52,6 +52,7 @@ describe('SocialAuthController (e2e)', () => {
   const TWO_WAYS_ID = '00000000-0000-4000-8000-0000000013a3';
   const NO_SCHOOL_ID = '00000000-0000-4000-8000-0000000013a4';
   const FB_DELETE_ID = '00000000-0000-4000-8000-0000000013a5';
+  const FB_OTHER_ID = '00000000-0000-4000-8000-0000000013a6';
   const SUB_PREFIX = 'e2e-social-';
 
   beforeAll(async () => {
@@ -78,7 +79,7 @@ describe('SocialAuthController (e2e)', () => {
   afterAll(async () => {
     await dataSource.query(`DELETE FROM user_identities WHERE subject LIKE $1`, [`${SUB_PREFIX}%`]);
     await dataSource.query(`DELETE FROM users WHERE id = ANY($1)`, [
-      [NOLOGIN_ID, ABROAD_ID, NO_SCHOOL_ID, FB_DELETE_ID],
+      [NOLOGIN_ID, ABROAD_ID, NO_SCHOOL_ID, FB_DELETE_ID, FB_OTHER_ID],
     ]);
     await app.close();
   });
@@ -136,7 +137,8 @@ describe('SocialAuthController (e2e)', () => {
   describe('POST /auth/social/facebook/data-deletion', () => {
     const FB_SECRET = 'e2e-facebook-secret';
     const signedFor = (payload: Record<string, unknown>, secret = FB_SECRET) => {
-      const body = Buffer.from(JSON.stringify(payload)).toString('base64url');
+      const issued = { issued_at: Math.floor(Date.now() / 1000), ...payload };
+      const body = Buffer.from(JSON.stringify(issued)).toString('base64url');
       return `${createHmac('sha256', secret).update(body).digest('base64url')}.${body}`;
     };
     const post = (signed: string | undefined) =>
@@ -154,15 +156,23 @@ describe('SocialAuthController (e2e)', () => {
 
     it('removes only the Facebook identity; the user and other identities stay', async () => {
       await dataSource.query(
-        `INSERT INTO users (id, full_name, status) VALUES ($1, 'FB Delete', 'ACTIVE')
+        `INSERT INTO users (id, full_name, status) VALUES ($1, 'FB Delete', 'ACTIVE'), ($2, 'FB Other', 'ACTIVE')
          ON CONFLICT (id) DO NOTHING`,
-        [FB_DELETE_ID],
+        [FB_DELETE_ID, FB_OTHER_ID],
       );
-      await dataSource.query(
+      const inserted: Array<{ id: string; subject: string }> = await dataSource.query(
         `INSERT INTO user_identities (user_id, provider, subject)
-         VALUES ($1, 'google', $2), ($1, 'facebook', $3)`,
-        [FB_DELETE_ID, `${SUB_PREFIX}del-g`, `${SUB_PREFIX}del-f`],
+         VALUES ($1, 'google', $2), ($1, 'facebook', $3), ($4, 'facebook', $5)
+         RETURNING id, subject`,
+        [
+          FB_DELETE_ID,
+          `${SUB_PREFIX}del-g`,
+          `${SUB_PREFIX}del-f`,
+          FB_OTHER_ID,
+          `${SUB_PREFIX}other-f`,
+        ],
       );
+      const deleted = inserted.find((row) => row.subject === `${SUB_PREFIX}del-f`)!;
       const res = await post(
         signedFor({ algorithm: 'HMAC-SHA256', user_id: `${SUB_PREFIX}del-f` }),
       ).expect(200);
@@ -176,16 +186,57 @@ describe('SocialAuthController (e2e)', () => {
       expect(left).toEqual([{ provider: 'google' }]);
       const users = await dataSource.query(`SELECT id FROM users WHERE id = $1`, [FB_DELETE_ID]);
       expect(users).toHaveLength(1);
-      // The deletion is audited.
+      // Another person's Facebook identity is untouched.
+      const other = await dataSource.query(`SELECT 1 FROM user_identities WHERE user_id = $1`, [
+        FB_OTHER_ID,
+      ]);
+      expect(other).toHaveLength(1);
+      // The deletion is audited against the deleted row, with the code handed to Meta.
       const audit = await dataSource.query(
-        `SELECT 1 FROM audit_logs WHERE action = 'DELETE' AND entity_type = 'UserIdentity'
-         AND old_values->>'reason' = 'provider_data_deletion_callback'`,
+        `SELECT entity_id, tenant_id FROM audit_logs WHERE action = 'DELETE'
+         AND entity_type = 'UserIdentity' AND old_values->>'confirmation_code' = $1`,
+        [res.body.confirmation_code],
       );
-      expect(audit.length).toBeGreaterThan(0);
+      // This user has no school, so the primary tenant is null.
+      expect(audit).toEqual([{ entity_id: deleted.id, tenant_id: null }]);
     });
 
-    it('answers 200 for an unknown Facebook user (nothing to delete)', async () => {
-      await post(signedFor({ algorithm: 'HMAC-SHA256', user_id: 'nobody' })).expect(200);
+    it('answers 200 for an unknown Facebook user and still records the code', async () => {
+      const res = await post(signedFor({ algorithm: 'HMAC-SHA256', user_id: 'nobody' })).expect(
+        200,
+      );
+      const audit = await dataSource.query(
+        `SELECT entity_id FROM audit_logs WHERE old_values->>'confirmation_code' = $1`,
+        [res.body.confirmation_code],
+      );
+      expect(audit).toEqual([{ entity_id: null }]);
+    });
+
+    it('the returned url opens a plain, script-free confirmation page', async () => {
+      const res = await post(signedFor({ algorithm: 'HMAC-SHA256', user_id: 'nobody' })).expect(
+        200,
+      );
+      const url = new URL(res.body.url);
+      expect(url.pathname).toBe(`${API}/auth/social/facebook/data-deletion/status`);
+      const page = await http().get(`${url.pathname}${url.search}`).expect(200);
+      expect(page.headers['content-type']).toContain('text/html');
+      expect(page.headers['content-security-policy']).toContain("default-src 'none'");
+      expect(page.text).toContain(res.body.confirmation_code);
+      expect(page.text).toContain('lang="bn"');
+      expect(page.text).not.toContain('<script');
+    });
+
+    it('400s the status page for a code that is not a UUID', async () => {
+      await http()
+        .get(`${API}/auth/social/facebook/data-deletion/status?code=<script>alert(1)</script>`)
+        .expect(400);
+    });
+
+    it('400s a replayed (stale) signed_request', async () => {
+      const stale = Math.floor(Date.now() / 1000) - 2 * 24 * 60 * 60;
+      await post(signedFor({ algorithm: 'HMAC-SHA256', user_id: 'x', issued_at: stale })).expect(
+        400,
+      );
     });
 
     it('400s a bad signature, a wrong algorithm, and a missing body', async () => {
@@ -197,6 +248,12 @@ describe('SocialAuthController (e2e)', () => {
     it('404s when Facebook is not configured on this server', async () => {
       delete process.env.FACEBOOK_OAUTH_CLIENT_SECRET;
       await post(signedFor({ algorithm: 'HMAC-SHA256', user_id: 'x' })).expect(404);
+    });
+
+    it('404s when the provider itself is not configured, even with the secret set', async () => {
+      facebook.configured = false;
+      await post(signedFor({ algorithm: 'HMAC-SHA256', user_id: 'x' })).expect(404);
+      facebook.configured = true;
     });
   });
 
@@ -228,6 +285,18 @@ describe('SocialAuthController (e2e)', () => {
       .expect(200);
     expect(identities.body).toHaveLength(1);
     expect(identities.body[0].provider).toBe('google');
+  });
+
+  it('connects a phone-only account (no email from the provider) and stores email NULL', async () => {
+    google.nextEmail = null;
+    expect(await connect(`${SUB_PREFIX}no-email`, await adminToken())).toContain(
+      '/security?linked=google',
+    );
+    google.nextEmail = 'person@example.com';
+    const rows = await dataSource.query(`SELECT email FROM user_identities WHERE subject = $1`, [
+      `${SUB_PREFIX}no-email`,
+    ]);
+    expect(rows).toEqual([{ email: null }]);
   });
 
   it('never connects by matching email: same email, unknown subject stays unlinked', async () => {

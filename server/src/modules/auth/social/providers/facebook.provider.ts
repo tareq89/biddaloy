@@ -4,8 +4,12 @@ import { ConfigService } from '@nestjs/config';
 import { SocialProvider } from '@biddaloy/shared';
 import type { SocialProfile, SocialProviderClient } from './social-provider';
 
-const GRAPH = 'https://graph.facebook.com/v19.0';
-const AUTH_URL = 'https://www.facebook.com/v19.0/dialog/oauth';
+/** The one place the Graph API version lives; bump before Meta retires it. */
+const GRAPH_VERSION = 'v24.0';
+const GRAPH = `https://graph.facebook.com/${GRAPH_VERSION}`;
+const AUTH_URL = `https://www.facebook.com/${GRAPH_VERSION}/dialog/oauth`;
+/** A signed_request older than this is a replay (Meta sends it at once). */
+const SIGNED_REQUEST_MAX_AGE_S = 24 * 60 * 60;
 
 /**
  * Authorization-code flow with PKCE (D37); the `state` (bound to the browser)
@@ -67,7 +71,11 @@ export class FacebookProvider implements SocialProviderClient {
     }
 
     // Bearer header, not a query param, so the token never lands in a URL log.
-    const meRes = await fetch(`${GRAPH}/me?fields=id,name,email`, {
+    // appsecret_proof keeps /me working if "Require App Secret" is switched on.
+    const proof = createHmac('sha256', this.clientSecret ?? '')
+      .update(token.access_token)
+      .digest('hex');
+    const meRes = await fetch(`${GRAPH}/me?fields=id,name,email&appsecret_proof=${proof}`, {
       headers: { authorization: `Bearer ${token.access_token}` },
       signal: AbortSignal.timeout(10_000),
     });
@@ -93,13 +101,15 @@ export function verifySignedRequest(signedRequest: string, secret: string): stri
   const parts = signedRequest.split('.');
   if (parts.length !== 2 || !parts[0] || !parts[1]) throw bad();
   const [sig, payload] = parts;
+  // Strict base64url only: Buffer's decoder skips junk, which would make the signature malleable.
+  if (!/^[A-Za-z0-9_-]+$/.test(sig)) throw bad();
 
   const expected = createHmac('sha256', secret).update(payload).digest();
   const given = Buffer.from(sig, 'base64url');
   // timingSafeEqual throws on unequal lengths, so compare lengths first.
   if (given.length !== expected.length || !timingSafeEqual(given, expected)) throw bad();
 
-  let data: { algorithm?: unknown; user_id?: unknown };
+  let data: { algorithm?: unknown; user_id?: unknown; issued_at?: unknown };
   try {
     data = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
   } catch {
@@ -107,5 +117,11 @@ export function verifySignedRequest(signedRequest: string, secret: string): stri
   }
   if (data?.algorithm !== 'HMAC-SHA256') throw bad();
   if (typeof data.user_id !== 'string' || !data.user_id) throw bad();
+  if (
+    typeof data.issued_at !== 'number' ||
+    Date.now() / 1000 - data.issued_at > SIGNED_REQUEST_MAX_AGE_S
+  ) {
+    throw bad();
+  }
   return data.user_id;
 }

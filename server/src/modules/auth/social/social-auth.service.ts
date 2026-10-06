@@ -72,12 +72,18 @@ export class SocialAuthService {
     signedRequest: string,
     context: RequestContext,
   ): Promise<{ url: string; confirmation_code: string }> {
+    // Same "configured" rule as sign-in (id + secret), then the secret itself.
+    this.provider(SocialProvider.FACEBOOK);
     const secret = this.config.get<string>('FACEBOOK_OAUTH_CLIENT_SECRET');
     if (!secret) throw new NotFoundException('Unknown sign-in provider');
     const fbUserId = verifySignedRequest(signedRequest, secret);
-    await this.identities.deleteBySubject(SocialProvider.FACEBOOK, fbUserId, context);
     const code = randomUUID();
-    return { url: this.appUrl(`/data-deletion?code=${code}`), confirmation_code: code };
+    await this.identities.deleteBySubject(SocialProvider.FACEBOOK, fbUserId, code, context);
+    // Deletion is immediate, so the status page only ever says "done".
+    return {
+      url: this.appUrl(`/api/v1/auth/social/facebook/data-deletion/status?code=${code}`),
+      confirmation_code: code,
+    };
   }
 
   private appUrl(path: string): string {

@@ -306,6 +306,20 @@ const ALLOWLIST: AllowlistEntry[] = [
       "[13.2.4] Bearer-authenticated but tenant-agnostic — starts connecting a provider to the caller's own account, identified solely by user.sub (AuthGuard(jwt) only).",
   },
   {
+    controller: 'SocialAuthController',
+    method: 'POST',
+    path: '/auth/social/facebook/data-deletion',
+    reason:
+      "[13.7.1] Meta's server-to-server data-deletion callback — the HMAC-signed signed_request (app secret) is the credential; deletes only the matching Facebook identity row. Default throttle tier so Meta is not turned away.",
+  },
+  {
+    controller: 'SocialAuthController',
+    method: 'GET',
+    path: '/auth/social/facebook/data-deletion/status',
+    reason:
+      '[13.7.1] Public static confirmation page Meta links the person to — echoes the UUID-validated code, no lookup, no user or tenant data, strict CSP.',
+  },
+  {
     controller: 'RegistrationController',
     method: 'POST',
     path: '/auth/register/start',
