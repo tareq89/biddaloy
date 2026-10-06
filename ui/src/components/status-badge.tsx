@@ -324,12 +324,12 @@ export function StatusBadge(props: StatusBadgeProps) {
       data-slot="status-badge"
       data-tone={tone}
       className={cn(
-        'inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2 text-label whitespace-nowrap',
+        'inline-flex min-h-6 max-w-full shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-label',
         fg,
         bg,
       )}
     >
-      <Icon className="size-3.5" aria-hidden />
+      <Icon className="size-3.5 shrink-0" aria-hidden />
       {label}
     </span>
   );
