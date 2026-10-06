@@ -109,11 +109,12 @@
   },
   "removeMember": {
     "title": "Remove from this school",
-    "description": "{{name}} will lose access to this school. Their account and history remain, and any memberships at other schools are unaffected.",
+    "description": "{{name}} will lose access to this school. Their account and history remain, and any memberships at other schools are unaffected. You can bring them back later from the Former filter.",
     "selfBlocked": "You cannot remove your own account from this school.",
     "confirm": "Remove access",
     "removing": "Removing…",
-    "errorMessage": "Could not remove this member. Please try again."
+    "errorMessage": "Could not remove this member. Please try again.",
+    "lastAdmin": "You are the only admin here. Make someone else an admin first."
   },
   "resetDialog": {
     "title": "Reset password?",
@@ -501,5 +502,19 @@
       "SETTINGS_MANAGE": "Manage settings",
       "BACKUP_MANAGE": "Backup & restore"
     }
+  },
+  "filters": {
+    "membership": {
+      "label": "Membership",
+      "current": "Current",
+      "former": "Former"
+    }
+  },
+  "former": {
+    "leftOn": "Left on {{date}}",
+    "bringBack": "Bring back",
+    "bringBackConfirm": "Bring {{name}} back to this school? They get their access again.",
+    "restored": "{{name}} is back.",
+    "errorMessage": "Could not bring this person back. Please try again."
   }
 }

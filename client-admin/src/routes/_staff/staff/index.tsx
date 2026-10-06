@@ -47,6 +47,7 @@ import { EditUserDialog } from './-edit-user-dialog';
 import { formatStaffPhone } from './-format-staff-phone';
 import { PromoteTeacherDialog } from './-promote-teacher-dialog';
 import { RemoveMemberDialog } from './-remove-member-dialog';
+import { RestoreMemberDialog } from './-restore-member-dialog';
 
 /** [12.6] Every value `deriveInvitationStatus` can produce — a plain
  * array, not `Object.values`, because `InvitationStatus` is a type alias
@@ -64,6 +65,7 @@ interface StaffFilters {
   role?: string | undefined;
   status?: string | undefined;
   invitation_status?: string | undefined;
+  membership?: string | undefined;
   designation_id?: string | undefined;
   joined_from?: string | undefined;
   joined_to?: string | undefined;
@@ -80,6 +82,8 @@ const staffSearchSchema = z.object({
   role: z.string().optional().catch(undefined),
   status: z.string().optional().catch(undefined),
   invitation_status: z.string().optional().catch(undefined),
+  // [13.5.9] `former` = people who left or were removed; absent = current.
+  membership: z.enum(['former']).optional().catch(undefined),
   // [23.12] The nav-tree gap: "Staff is ONE register... with staff-type
   // filter and designations" — a `Designation` (23.2) id, alongside the
   // existing `role` filter, not replacing it.
@@ -128,6 +132,7 @@ export const Route = createFileRoute('/_staff/staff/')({
     role: search.role,
     status: search.status,
     invitationStatus: search.invitation_status,
+    membership: search.membership,
     designationId: search.designation_id,
     joinedFrom: search.joined_from,
     joinedTo: search.joined_to,
@@ -149,6 +154,7 @@ export const Route = createFileRoute('/_staff/staff/')({
             ...(role !== undefined ? { role } : {}),
             ...(status !== undefined ? { status } : {}),
             ...(invitationStatus !== undefined ? { invitation_status: invitationStatus } : {}),
+            ...(deps.membership === 'former' ? { membership: 'former' as const } : {}),
             ...(deps.designationId !== undefined ? { designation_id: deps.designationId } : {}),
             ...(deps.joinedFrom !== undefined ? { joined_from: deps.joinedFrom } : {}),
             ...(deps.joinedTo !== undefined ? { joined_to: deps.joinedTo } : {}),
@@ -185,7 +191,9 @@ function StaffListPage() {
   const [promoteOpen, setPromoteOpen] = useLandingFlag('promote', canCreate);
   const [editTarget, setEditTarget] = React.useState<StaffUser | null>(null);
   const [removeTarget, setRemoveTarget] = React.useState<StaffUser | null>(null);
+  const [restoreTarget, setRestoreTarget] = React.useState<StaffUser | null>(null);
 
+  const isFormer = filters.membership === 'former';
   const roleParam = toRoleParam(filters.role);
   const statusParam = toStatusParam(filters.status);
   const invitationStatusParam = toInvitationStatusParam(filters.invitation_status);
@@ -198,6 +206,7 @@ function StaffListPage() {
     ...(roleParam !== undefined ? { role: roleParam } : {}),
     ...(statusParam !== undefined ? { status: statusParam } : {}),
     ...(invitationStatusParam !== undefined ? { invitation_status: invitationStatusParam } : {}),
+    ...(isFormer ? { membership: 'former' as const } : {}),
     ...(filters.designation_id !== undefined ? { designation_id: filters.designation_id } : {}),
     ...(filters.joined_from !== undefined ? { joined_from: filters.joined_from } : {}),
     ...(filters.joined_to !== undefined ? { joined_to: filters.joined_to } : {}),
@@ -212,6 +221,13 @@ function StaffListPage() {
       label: t('list.searchLabel'),
       placeholder: t('list.searchPlaceholder'),
       primary: true,
+    },
+    {
+      kind: 'select',
+      key: 'membership',
+      label: t('filters.membership.label'),
+      allLabel: t('filters.membership.current'),
+      options: [{ value: 'former', label: t('filters.membership.former') }],
     },
     {
       kind: 'select',
@@ -287,15 +303,22 @@ function StaffListPage() {
     {
       id: 'status',
       header: t('list.columnStatus'),
-      accessorFn: (row) => (
-        <div className="flex flex-wrap gap-1">
-          <StatusBadge domain="user" status={row.status} />
-          {row.invitation_status !== 'ACTIVATED' && (
-            <StatusBadge domain="invitation" status={row.invitation_status} />
-          )}
-        </div>
-      ),
-      sortable: true,
+      accessorFn: (row) =>
+        isFormer ? (
+          t('former.leftOn', {
+            date: row.left_at
+              ? formatDate(new Date(row.left_at), regionConfig)
+              : t('list.emptyValue'),
+          })
+        ) : (
+          <div className="flex flex-wrap gap-1">
+            <StatusBadge domain="user" status={row.status} />
+            {row.invitation_status !== 'ACTIVATED' && (
+              <StatusBadge domain="invitation" status={row.invitation_status} />
+            )}
+          </div>
+        ),
+      sortable: !isFormer,
       card: 'badge',
     },
     {
@@ -333,26 +356,37 @@ function StaffListPage() {
         tableId="staff-list"
         caption={t('list.caption')}
         columns={columns}
-        rowActions={(row) => [
-          {
-            intent: 'view',
-            label: t('list.view'),
-            to: `/staff/${row.id}`,
-            'data-focus-anchor': row.id,
-          },
-          {
-            intent: 'edit',
-            label: t('list.edit'),
-            allowed: canUpdate,
-            onClick: () => setEditTarget(row),
-          },
-          {
-            intent: 'remove',
-            label: t('detail.actions.remove'),
-            allowed: canRemove,
-            onClick: () => setRemoveTarget(row),
-          },
-        ]}
+        rowActions={(row) =>
+          isFormer
+            ? [
+                {
+                  intent: 'restore',
+                  label: t('former.bringBack'),
+                  allowed: canRemove,
+                  onClick: () => setRestoreTarget(row),
+                },
+              ]
+            : [
+                {
+                  intent: 'view',
+                  label: t('list.view'),
+                  to: `/staff/${row.id}`,
+                  'data-focus-anchor': row.id,
+                },
+                {
+                  intent: 'edit',
+                  label: t('list.edit'),
+                  allowed: canUpdate,
+                  onClick: () => setEditTarget(row),
+                },
+                {
+                  intent: 'remove',
+                  label: t('detail.actions.remove'),
+                  allowed: canRemove,
+                  onClick: () => setRemoveTarget(row),
+                },
+              ]
+        }
         data={usersQuery.data?.data ?? []}
         getRowId={(row) => row.id}
         sorting={state.sorting}
@@ -431,6 +465,15 @@ function StaffListPage() {
           }}
           user={removeTarget}
           isSelf={removeTarget.id === currentUserId}
+        />
+      )}
+      {restoreTarget !== null && (
+        <RestoreMemberDialog
+          open
+          onOpenChange={(open) => {
+            if (!open) setRestoreTarget(null);
+          }}
+          user={restoreTarget}
         />
       )}
     </RegionConfigProvider>
