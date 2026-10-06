@@ -1,5 +1,6 @@
 import { cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -188,6 +189,35 @@ describe('/attendance', () => {
 
     const link = await screen.findByRole('link', { name: /Class 5/ });
     expect(link.getAttribute('href')).toBe(`/attendance/s-none?date=${todayLocalIso()}`);
+  });
+
+  it('in Bangla, a date picked in the DatePicker reaches the URL as ASCII digits (#626)', async () => {
+    const requested: Array<string | null> = [];
+    server.use(
+      http.get('/api/v1/attendance/my-sections', ({ request }) => {
+        requested.push(new URL(request.url).searchParams.get('date'));
+        return HttpResponse.json([section('s-none', 'A', null)]);
+      }),
+    );
+
+    const { router, localeReady } = renderWithRouter(routeTree, {
+      initialEntries: ['/attendance?date=2026-09-04'],
+      tenantId: 'tenant-1',
+      role: 'TEACHER',
+      locale: 'bn',
+    });
+    await localeReady;
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'তারিখ' }));
+    await user.click(document.querySelector('[data-date="2026-09-10"]') as HTMLElement);
+
+    await waitFor(() =>
+      expect((router.state.location.search as { date?: string }).date).toBe('2026-09-10'),
+    );
+    await waitFor(() => expect(requested).toContain('2026-09-10'));
+    const link = await screen.findByRole('link', { name: /Class 5/ });
+    expect(link.getAttribute('href')).toBe('/attendance/s-none?date=2026-09-10');
   });
 
   it('shows an empty state when the teacher has no mapped sections', async () => {
