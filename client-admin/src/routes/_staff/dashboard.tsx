@@ -2,6 +2,7 @@ import { EmptyState, RoutePending } from '@biddaloy/ui/components';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 
+import { AttendancePendingCard } from '../../components/attendance-pending-card';
 import { UpcomingCalendarCard } from '../../components/upcoming-calendar-card';
 import { ConnectHintCard } from '../../features/onboarding/connect-hint-card';
 import { SetupChecklistCard } from '../../features/onboarding/setup-checklist-card';
@@ -19,7 +20,7 @@ export const Route = createFileRoute('/_staff/dashboard')({
   // `nav` strings (already warm from `_staff.tsx`'s own loader, but
   // listed again here per the plan's per-route table so this route is
   // self-sufficient if ever moved out from under that layout).
-  loader: () => loadRouteNamespaces('nav', 'calendar', 'setupChecklist'),
+  loader: () => loadRouteNamespaces('nav', 'calendar', 'setupChecklist', 'attendance'),
   pendingComponent: DashboardPending,
   component: DashboardPage,
 });
@@ -33,6 +34,8 @@ function DashboardPage() {
       {/* [13.5.1]: each hides itself (ADMIN only / dismissed / nothing to show). */}
       <SetupChecklistCard />
       <ConnectHintCard />
+      {/* [41.4.2]: hides itself without ATTENDANCE_READ. */}
+      <AttendancePendingCard />
       {/* [17.5.4]: hides itself without CALENDAR_READ. */}
       <UpcomingCalendarCard calendarPath="/calendar" requirePermission />
       <EmptyState
