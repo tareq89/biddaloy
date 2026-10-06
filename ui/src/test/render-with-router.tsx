@@ -4,6 +4,7 @@ import {
   createRouter,
   RouterProvider,
   type AnyRoute,
+  type ErrorRouteComponent,
 } from '@tanstack/react-router';
 import { render, type RenderOptions, type RenderResult } from '@testing-library/react';
 
@@ -28,6 +29,9 @@ export interface RenderWithRouterOptions extends Omit<RenderOptions, 'wrapper'> 
   accessToken?: string;
   locale?: string;
   queryClient?: QueryClient;
+  /** The app's `createRouter({ defaultErrorComponent })`, for a test that
+   * needs the real route tree's error screen rather than Router's own. */
+  defaultErrorComponent?: ErrorRouteComponent;
 }
 
 export interface RenderWithRouterResult<
@@ -76,6 +80,7 @@ export function renderWithRouter<TRouteTree extends AnyRoute>(
     accessToken,
     locale,
     queryClient = createTestQueryClient(),
+    defaultErrorComponent,
     ...renderOptions
   } = options;
 
@@ -94,7 +99,12 @@ export function renderWithRouter<TRouteTree extends AnyRoute>(
   // created — any route in the test tree that calls
   // `context.queryClient.ensureQueryData(...)` in its `loader` works the
   // same way it would in production.
-  const router = createRouter({ routeTree, history, context: { queryClient } });
+  const router = createRouter({
+    routeTree,
+    history,
+    context: { queryClient },
+    ...(defaultErrorComponent ? { defaultErrorComponent } : {}),
+  });
 
   const view = render(
     <QueryClientProvider client={queryClient}>

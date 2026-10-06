@@ -18,4 +18,8 @@ interface ImportMetaEnv {
    * dev, e2e) renders no widget; the server only checks the token when it
    * has `TURNSTILE_SECRET_KEY`. */
   readonly VITE_TURNSTILE_SITE_KEY?: string;
+  /** [13.5] "Contact us" link on the trial-ended screen. Unset hides the link.
+   * Same value as the server's `SUPPORT_CONTACT_URL`; `docker-compose.yml`
+   * passes that one in. Only `https:` / `mailto:` links are shown. */
+  readonly VITE_SUPPORT_URL?: string;
 }
