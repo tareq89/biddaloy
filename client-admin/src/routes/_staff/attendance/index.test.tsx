@@ -148,6 +148,19 @@ describe('/attendance', () => {
     expect(await screen.findByText('All sections are marked')).toBeTruthy();
   });
 
+  it('the all-done state for a past ?date= does not say "Today"', async () => {
+    server.use(
+      http.get('/api/v1/attendance/my-sections', () =>
+        HttpResponse.json([section('s-final', 'C', FINALIZED)]),
+      ),
+    );
+
+    renderList('?status=pending&date=2026-09-04');
+
+    expect(await screen.findByText('All sections are marked')).toBeTruthy();
+    expect(screen.queryByText(/Today/)).toBeNull();
+  });
+
   it('passes a chosen date to the API and to each row link', async () => {
     let requested: string | null = null;
     server.use(
