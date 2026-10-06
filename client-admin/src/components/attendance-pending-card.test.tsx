@@ -1,8 +1,9 @@
 import '@biddaloy/ui/test';
 
+import { mySectionsQueryOptions } from '@biddaloy/ui/hooks';
 import { cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
 import { createRootRoute, createRoute } from '@tanstack/react-router';
-import { screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -108,19 +109,33 @@ describe('AttendancePendingCard', () => {
     expect(screen.queryByRole('link')).toBeNull();
   });
 
-  it('renders nothing without ATTENDANCE_READ', async () => {
-    const { container } = renderCard({ role: 'GUARDIAN' });
+  it('renders nothing and fetches nothing without ATTENDANCE_READ', async () => {
+    let requests = 0;
+    server.use(
+      http.get('/api/v1/attendance/my-sections', () => {
+        requests += 1;
+        return HttpResponse.json([]);
+      }),
+    );
 
-    await Promise.resolve();
+    const { container, queryClient } = renderCard({ role: 'GUARDIAN' });
+
+    // The card mounted (its query exists) but the query never left idle.
+    const key = mySectionsQueryOptions().queryKey;
+    await waitFor(() => expect(queryClient.getQueryState(key)).toBeDefined());
+    expect(queryClient.getQueryState(key)!.fetchStatus).toBe('idle');
+    expect(requests).toBe(0);
     expect(container.innerHTML).toBe('');
   });
 
   it('renders nothing for an empty list', async () => {
     useSections([]);
 
-    const { container } = renderCard();
+    const { container, queryClient } = renderCard();
 
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await waitFor(() =>
+      expect(queryClient.getQueryState(mySectionsQueryOptions().queryKey)?.status).toBe('success'),
+    );
     expect(screen.queryByText("Today's attendance")).toBeNull();
     expect(container.textContent).toBe('');
   });
