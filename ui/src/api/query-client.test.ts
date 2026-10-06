@@ -117,6 +117,25 @@ describe('createAppQueryClient', () => {
     expect(toastErrorSpy).toHaveBeenCalledExactlyOnceWith("You don't have permission to do that.");
   });
 
+  it('does not toast a 403 for a mutation that handles it itself (meta.handlesForbidden)', async () => {
+    const toastErrorSpy = vi.spyOn(toast, 'error').mockImplementation(() => '');
+    const queryClient = createAppQueryClient();
+
+    await expect(
+      queryClient
+        .getMutationCache()
+        .build(queryClient, {
+          mutationFn: () => {
+            throw apiError(403);
+          },
+          meta: { handlesForbidden: true },
+        })
+        .execute(undefined),
+    ).rejects.toThrow();
+
+    expect(toastErrorSpy).not.toHaveBeenCalled();
+  });
+
   it('does not toast for a non-403 ApiError or a plain Error', async () => {
     const toastErrorSpy = vi.spyOn(toast, 'error').mockImplementation(() => '');
     const queryClient = createAppQueryClient();
