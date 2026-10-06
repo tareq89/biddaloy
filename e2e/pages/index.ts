@@ -8,3 +8,6 @@ export { LoginPage } from './login-page';
 export { ActivatePage } from './activate-page';
 export { SchoolPickerPage } from './school-picker';
 export { ApprovalModalPage } from './approval-modal';
+export { RegisterPage, type RegisterDetails } from './register-page';
+export { WelcomePage } from './welcome-page';
+export { StaffImportPage, type UploadFile } from './staff-import-page';

@@ -24,7 +24,7 @@ import {
 import { acrBody, surveyBody } from '../fixtures/evaluations';
 import { test } from '../fixtures/test';
 import manifest from '../route-manifest.json';
-import { SEED_PASSWORD_ENV, SEED_ROLE_EMAILS } from '../seed-contract';
+import { SEED_PASSWORD_ENV, SEED_ROLE_EMAILS, SEED_TRIAL_SCHOOL } from '../seed-contract';
 
 /** Shared manifest typing + param resolution for the responsive suites
  * (same resolution strategy as the a11y suite). */
@@ -58,10 +58,11 @@ export async function resolvePath(
   if (route.path.includes('$schoolId')) {
     // SUPER_ADMIN platform console (#535) — `GET /schools` is SUPER_ADMIN
     // only, so this can't ride the shared ADMIN session. Resolves the
-    // seeded second school the same way `provision-and-suspend.spec.ts`
-    // does, rather than provisioning a fresh one per viewport/theme run.
+    // seeded trial school (`SEED_TRIAL_SCHOOL`, [13.7.1]: the one page that
+    // carries the trial card and its "Extend trial" dialog) rather than
+    // provisioning a fresh one per viewport/theme run. Read-only here.
     const superAdmin = await superAdminApiSession(request);
-    const schoolId = await findSchoolIdBySlug(request, superAdmin, 'rose-valley-school');
+    const schoolId = await findSchoolIdBySlug(request, superAdmin, SEED_TRIAL_SCHOOL.slug);
     return route.path.replace('$schoolId', schoolId);
   }
   if (route.path.startsWith('/my-class/')) {
