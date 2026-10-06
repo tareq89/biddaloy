@@ -186,7 +186,37 @@ describe('SectionsStep', () => {
     await userEvent.type(inputs[0]!, '3');
     await userEvent.click(screen.getByRole('button', { name: 'Create sections' }));
     await waitFor(() => expect(router.state.location.search).toMatchObject({ step: 'people' }));
+    // The guided question goes with the setup slot, so "Guided" later starts at question 1.
+    expect(router.state.location.search).not.toHaveProperty('q');
     expect(calls).toEqual(['c1:A', 'c1:B', 'c1:C']);
+  });
+
+  it('the progress counter keeps its total while the section list refetches', async () => {
+    const created: object[] = [];
+    let release!: () => void;
+    const held = new Promise<void>((r) => (release = r));
+    let gets = 0;
+    mockClasses([cls('c1', 'Class 1')], {}, async (_id, name) => {
+      if (created.length === 1) await held;
+      created.push(sec(name));
+      return HttpResponse.json({ id: name, section_name: name }, { status: 201 });
+    });
+    server.use(
+      http.get('/api/v1/classes/:id/sections', () => {
+        gets += 1;
+        return HttpResponse.json(created);
+      }),
+    );
+    renderAt(3);
+    const [input] = await sectionInputs();
+    await userEvent.clear(input!);
+    await userEvent.type(input!, '3');
+    await userEvent.click(screen.getByRole('button', { name: 'Create sections' }));
+
+    // A went through and the list refetched (now [A]); B is in flight.
+    await waitFor(() => expect(gets).toBeGreaterThanOrEqual(2));
+    await waitFor(() => expect(screen.getByText('2 / 3')).toBeTruthy());
+    release();
   });
 
   it('a failed row shows an error and Retry while the others still go through', async () => {

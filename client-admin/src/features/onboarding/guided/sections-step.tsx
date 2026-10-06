@@ -41,6 +41,8 @@ function ClassRow({
   const [draft, setDraft] = React.useState<string | null>(null);
   const [error, setError] = React.useState(false);
   const [done, setDone] = React.useState(0);
+  // Fixed when a run starts: each create refetches the list, which shrinks `missing`.
+  const [total, setTotal] = React.useState(0);
   const floor = Math.max(existing.length, 1);
   const count = Math.min(MAX_SECTIONS, Math.max(floor, Math.trunc(Number(draft)) || floor));
   const missing = LETTERS.filter((l) => !existing.includes(l)).slice(
@@ -58,6 +60,7 @@ function ClassRow({
   const run = React.useCallback<RowRun>(async () => {
     setError(false);
     setDone(0);
+    setTotal(missingRef.current.length);
     for (const [i, letter] of missingRef.current.entries()) {
       try {
         await mutateRef.current({ section_name: letter });
@@ -101,7 +104,7 @@ function ClassRow({
       <div className="md:ms-auto" aria-live="polite">
         {create.isPending && (
           <span className="text-caption text-text-secondary">
-            {done + 1} / {missing.length}
+            {done + 1} / {total}
           </span>
         )}
         {error && (
