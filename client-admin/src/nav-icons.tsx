@@ -70,6 +70,7 @@ export const STAFF_NAV_ICONS: Record<StaffNavItemId, LucideIcon> = {
   'people.guardians': UsersRoundIcon,
   'people.calendar': CalendarDaysIcon,
   'people.staff': BriefcaseIcon,
+  'people.staffImport': FileSpreadsheetIcon,
   'people.programs': MilestoneIcon,
   'people.admissionIntakes': DoorOpenIcon,
   'people.admissionApplicants': UserPlusIcon,

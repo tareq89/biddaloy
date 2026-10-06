@@ -85,6 +85,8 @@
     "myClass": "আমার শ্রেণি",
     "new": "নতুন",
     "import": "ফাইল থেকে যোগ",
+    "importFromExcel": "এক্সেল থেকে আমদানি",
+    "welcome": "স্কুল সেটআপ",
     "edit": "সম্পাদনা",
     "notifications": "বিজ্ঞপ্তি",
     "security": "নিরাপত্তা",

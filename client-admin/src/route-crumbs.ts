@@ -49,6 +49,8 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
   '/forgot-password': 'pre-auth screen, no shell',
   '/reset-password': 'pre-auth screen, no shell',
   '/verify-email': 'pre-auth screen, no shell',
+  '/register': 'pre-auth screen, no shell',
+  '/auth/social/done': 'redirect-only landing, never renders a page',
   '/select-school': 'post-auth, pre-tenant-selection — no tenant nav to trail into yet',
   '/i/$token': 'public invite-accept link, opened signed-out',
   '/v/$token': 'public document-verify page, opened signed-out from a printed QR code',
@@ -89,6 +91,8 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
   '/_staff/guardians/': [{ label: { entity: 'guardian' } }],
   '/_staff/calendar/': [{ label: { key: 'calendar' } }],
   '/_staff/staff/': [{ label: { entity: 'staff' } }],
+  '/_staff/staff/import': [{ label: { entity: 'staff' } }, { label: { key: 'importFromExcel' } }],
+  '/_staff/welcome': [{ label: { key: 'welcome' } }],
   '/_staff/staff/teaching-assignments': [
     { label: { entity: 'staff' } },
     { label: { key: 'teachingAssignments' } },
@@ -123,7 +127,7 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
   // "Exams & Results" segment; that's the nav group label, not part of
   // any sibling route's own crumb trail either.
   '/_staff/exams/templates/': [{ label: { key: 'examTemplates' } }],
-    '/_staff/exams/templates/$templateId': [
+  '/_staff/exams/templates/$templateId': [
     { label: { key: 'examTemplates' } },
     { label: { key: 'examTemplateDetail' }, dynamic: 'entity' },
   ],

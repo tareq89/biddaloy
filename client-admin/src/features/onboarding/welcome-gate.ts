@@ -33,7 +33,6 @@ export function useWelcomeGate(): void {
   });
   const go = shouldGoToWelcome(role, pathname, data);
   React.useEffect(() => {
-    // ponytail: cast until the /welcome route lands in routeTree (#1644) — drop it then.
-    if (go) void navigate({ to: '/welcome' as never });
+    if (go) void navigate({ to: '/welcome' });
   }, [go, navigate]);
 }

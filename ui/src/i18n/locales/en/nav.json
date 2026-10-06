@@ -85,6 +85,8 @@
     "myClass": "My class",
     "new": "New",
     "import": "Import from file",
+    "importFromExcel": "Import from Excel",
+    "welcome": "Set up your school",
     "edit": "Edit",
     "notifications": "Notifications",
     "security": "Security",

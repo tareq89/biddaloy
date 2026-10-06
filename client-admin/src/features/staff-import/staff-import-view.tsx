@@ -83,9 +83,8 @@ export function StaffImportView() {
       <PageHeader title={t('title')} />
       {fromWelcome && (
         <div>
-          {/* ponytail: `/welcome` is not in the generated route tree yet; drop the casts when it is. */}
           <Button variant="outline" asChild>
-            <Link to={'/welcome' as never} search={{ step: 'people' } as never}>
+            <Link to="/welcome" search={{ step: 'people' }}>
               {t('backToSetup')}
             </Link>
           </Button>
