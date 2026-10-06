@@ -272,7 +272,14 @@ const deleteSessionNotFound = http.delete('/api/v1/auth/sessions/:id', () =>
   }),
 );
 
+/** `GET /auth/social/providers` — no provider configured, so `SocialButtons`
+ * renders nothing. Tests that need buttons override this per file. */
+const socialProviders = http.get('/api/v1/auth/social/providers', () =>
+  HttpResponse.json({ providers: [] }),
+);
+
 export const authHandlers = {
+  socialProviders,
   login,
   loginInvalidCredentials,
   loginRateLimited,
@@ -322,4 +329,5 @@ export const authDefaultHandlers = [
   logout,
   logoutAll,
   sessions,
+  socialProviders,
 ];
