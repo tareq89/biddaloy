@@ -379,6 +379,61 @@ describe('/attendance/register month edit', () => {
     expect(puts).toBe(0);
   });
 
+  it('sends no reason for an in-window day, and sends one after the server asks for it', async () => {
+    setDesktop(true);
+    const now = new Date();
+    const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const today = `${month}-${String(now.getDate()).padStart(2, '0')}`;
+    const bodies: Record<string, unknown>[] = [];
+    server.use(
+      pinEnglishRegion,
+      http.get('/api/v1/attendance/sections/:sectionId/register-matrix', () =>
+        HttpResponse.json({
+          dates: dates31(month),
+          versions: { [today]: 1 },
+          rows: [registerRow({ marks: { [today]: 'PRESENT' } })],
+        }),
+      ),
+      http.put('/api/v1/attendance/sections/:sectionId/register-matrix', async ({ request }) => {
+        bodies.push((await request.json()) as Record<string, unknown>);
+        // Today's register is already FINALIZED: the server asks for a reason once.
+        return bodies.length === 1
+          ? HttpResponse.json(
+              {
+                statusCode: 422,
+                message: 'reason',
+                timestamp: new Date().toISOString(),
+                path: '/attendance/sections/x/register-matrix',
+                requestId: 'req-1',
+                details: { code: 'ATTENDANCE_REASON_REQUIRED', dates: [today] },
+              },
+              { status: 422 },
+            )
+          : HttpResponse.json({ saved_dates: [today], versions: {} });
+      }),
+    );
+    const user = userEvent.setup();
+    await openEditor(
+      'ADMIN',
+      `/attendance/register?class_id=${CLASS_ID}&section_id=${SECTION_ID}&month=${month}`,
+    );
+    await user.click(await screen.findByRole('button', { name: 'Edit' }));
+    (await screen.findByRole('gridcell', { name: /Karim Rahman, .*: Present/ })).focus();
+    await user.keyboard('a');
+    expect(screen.queryByText(/outside the correction window/)).toBeNull();
+    await user.type(screen.getByLabelText(/Reason for correction/), 'Typed anyway');
+    await user.click(screen.getByRole('button', { name: 'Save (1)' }));
+
+    expect((await screen.findByRole('alert')).textContent).toBe(
+      'Write a reason of at least 3 letters.',
+    );
+    expect(bodies[0]).not.toHaveProperty('reason');
+
+    await user.click(screen.getByRole('button', { name: 'Save (1)' }));
+    await waitFor(() => expect(bodies).toHaveLength(2));
+    expect(bodies[1]!.reason).toBe('Typed anyway');
+  });
+
   it('shows the conflicting dates, saves nothing, and Reload keeps edit mode with an empty draft', async () => {
     setDesktop(true);
     useMatrix(() =>
