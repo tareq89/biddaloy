@@ -320,7 +320,7 @@ describe('SchoolSettingsPage', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText('Configuring settings for Greenview School')).toBeTruthy();
+      expect(screen.getByText('Settings for Greenview School')).toBeTruthy();
     });
     expect(screen.queryByLabelText('School')).toBeNull();
   });
