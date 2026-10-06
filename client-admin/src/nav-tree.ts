@@ -457,6 +457,7 @@ export const STAFF_NAV_GROUPS: readonly StaffNavGroupDef[] = [
       STAFF_NAV_ITEMS['people.guardians'],
       STAFF_NAV_ITEMS['people.calendar'],
       STAFF_NAV_ITEMS['people.staff'],
+      STAFF_NAV_ITEMS['people.staffImport'],
       STAFF_NAV_ITEMS['people.programs'],
       STAFF_NAV_ITEMS['people.admissionIntakes'],
       STAFF_NAV_ITEMS['people.admissionApplicants'],
