@@ -1,11 +1,18 @@
-import { adminApiSession, createStudentsInSection, get, markableDateIso, put } from '../api';
+import {
+  adminApiSession,
+  createStudentsInSection,
+  get,
+  isFridayAnywhere,
+  put,
+} from '../api';
 import { expect, loggedIn, test } from '../fixtures/test';
 import { t } from '../i18n';
 import { tabUntilFocused } from './keyboard-utils';
 
 /**
  * [41.4.7] The two palette actions and the screens they open, KEYBOARD
- * ONLY. This file contains no `page.mouse` and no `.click(` call — grep it.
+ * ONLY. Every step goes through `page.keyboard` (plus API calls for setup
+ * and checks); there is no pointer input anywhere in this file.
  *
  * Palette labels are typed in Bangla because the e2e locale is `bn`; they
  * are the `bn` labels of `attendance.pending` / `attendance.register.edit`
@@ -81,11 +88,7 @@ test("palette: today's pending attendance, down to a section register", async ({
   request,
 }) => {
   // Friday (school closed) turns the unfiltered list into a holiday notice.
-  const dhakaFriday =
-    new Date(
-      `${new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Dhaka' }).format(new Date())}T00:00:00Z`,
-    ).getUTCDay() === 5;
-  test.skip(dhakaFriday || new Date().getDay() === 5, 'the school is closed on Friday');
+  test.skip(isFridayAnywhere(), 'the school is closed on Friday');
 
   const admin = await adminApiSession(request);
   const chain = await createStudentsInSection(request, admin, 'Ops Kbd Pending Student', 2);
@@ -129,7 +132,11 @@ test('palette: edit the monthly register, mark a cell and save with Ctrl+S', asy
   const section = sections.find((s) => s.class_name === 'Class 6' && s.section_name === 'B');
   if (!section) throw new Error('Seeded Class 6 / B not found — has `yarn seed` run?');
   const matrixPath = `/attendance/sections/${section.section_id}/register-matrix`;
-  const month = markableDateIso().slice(0, 7);
+  // The month the page opens on: the SCHOOL's current month (Asia/Dhaka), not
+  // `markableDateIso()`'s, which steps back a day on a Friday the 1st.
+  const month = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Dhaka' })
+    .format(new Date())
+    .slice(0, 7);
   const before = await get<Matrix>(request, admin, `${matrixPath}?month=${month}`);
 
   try {
@@ -151,20 +158,28 @@ test('palette: edit the monthly register, mark a cell and save with Ctrl+S', asy
     await test.step('End jumps to the last open day, a letter sets the status, Ctrl+S saves', async () => {
       await tabUntilGridCell(page);
       await page.keyboard.press('End');
-      // Pick a letter that really changes the cell (the seed already has some absences).
-      const label =
+      // Walk left to a day that already has marks, so the `finally` below can
+      // put it back exactly (a register the test created could not be removed).
+      const focusedLabel = async () =>
         (await page.evaluate(() => document.activeElement?.getAttribute('aria-label'))) ?? '';
+      const notMarked = t('attendance.register.notMarked');
+      for (let i = 0; i < 31 && (await focusedLabel()).includes(notMarked); i += 1) {
+        await page.keyboard.press('ArrowLeft');
+      }
+      const label = await focusedLabel();
+      test.skip(label.includes(notMarked), 'Class 6 / B has no marked day this month yet');
+      // Pick a letter that really changes the cell (the seed already has some absences).
       await page.keyboard.press(
         label.includes(t('attendance.statusControl.status.ABSENT')) ? 'p' : 'a',
       );
       await expect(
         page.getByText(t('attendance.register.changedCount_one', { count: 1 })),
       ).toBeVisible();
-      // A correction on an already-submitted day wants a reason: Shift+Tab reaches it, Tab comes back.
+      // A correction on an already-submitted day wants a reason: Shift+Tab
+      // reaches it, and Ctrl+S saves straight from there.
       await page.keyboard.press('Shift+Tab');
       await expect(page.getByLabel(t('attendance.register.reasonLabel'))).toBeFocused();
       await page.keyboard.type('Keyboard journey correction');
-      await page.keyboard.press('Tab');
       await page.keyboard.press('Control+s');
       // Saving leaves edit mode: the page's Edit action is back.
       await expect(page.getByRole('button', { name: t('attendance.register.edit') })).toBeVisible();

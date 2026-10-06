@@ -121,12 +121,8 @@ export class AttendancePage {
     ).toBeVisible();
   }
 
-  /** The list's "N of M sections pending" subtitle, parsed. */
-  async pendingCounts(): Promise<{ pending: number; total: number }> {
-    return this.countsFrom(this.page.locator('main'), 'attendance.list.pendingCount');
-  }
-
-  /** Reads `{pending, total}` out of a translated "N of M" template. The
+  /** Reads `{pending, total}` out of a translated "N of M" template (pass the
+   * plural form's full key, e.g. `attendance.dashboardCard.pending_other`). The
    * template is turned into a regex with the two numbers as groups (Latin
    * or Bangla digits) and matched inside `scope`'s text. */
   async countsFrom(scope: Locator, key: string): Promise<{ pending: number; total: number }> {
