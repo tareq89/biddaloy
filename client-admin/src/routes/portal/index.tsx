@@ -34,6 +34,7 @@ import { ChevronRightIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 import { UpcomingCalendarCard } from '../../components/upcoming-calendar-card';
+import { ConnectHintCard } from '../../features/onboarding/connect-hint-card';
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../route-loaders';
 
 import { DueThisMonthCard, DueThisMonthSection } from './-due-this-month-card';
@@ -107,7 +108,7 @@ export const Route = createFileRoute('/portal/')({
       // [8.14.5]: swallowed — see `_staff/academic-years/index.tsx`'s
       // identical comment for why.
       queryClient.ensureQueryData(myStudentsQueryOptions()).catch(swallowUnlessOffline),
-      loadRouteNamespaces('portal', 'common', 'calendar', 'evaluations'),
+      loadRouteNamespaces('portal', 'common', 'calendar', 'evaluations', 'setupChecklist'),
     ]),
   pendingComponent: PortalOverviewPending,
   component: PortalOverviewRoute,
@@ -335,6 +336,7 @@ function PortalPage({ subtitle, children }: { subtitle?: string; children: React
       <PageHeader title={tNav('items.portalOverview')} subtitle={subtitle} />
       <div className="grid grid-cols-1 gap-6 md:grid-cols-3 md:items-start">
         <div className="min-w-0 space-y-6 md:col-span-2">
+          <ConnectHintCard />
           <PortalSurveysCard />
           {children}
         </div>
