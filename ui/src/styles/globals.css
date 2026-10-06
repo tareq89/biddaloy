@@ -707,6 +707,7 @@
   [role='menuitemradio'],
   [role='menuitemcheckbox'],
   [role='option'],
+  [role='gridcell'][tabindex],
   a[href],
   summary,
   label[for] {

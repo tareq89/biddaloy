@@ -17,10 +17,26 @@ const matrix = {
   ],
   versions: {},
   rows: [
-    { student_id: 's1', roll_number: 1, full_name: 'Karim', marks: { '2026-01-01': 'PRESENT' } },
-    { student_id: 's2', roll_number: 2, full_name: 'Rina', marks: {} },
+    {
+      student_id: 's1',
+      roll_number: 1,
+      full_name: 'Karim',
+      marks: { '2026-01-01': 'PRESENT' },
+      summary: summary(1, 100),
+    },
+    { student_id: 's2', roll_number: 2, full_name: 'Rina', marks: {}, summary: summary(0, null) },
   ],
 } as unknown as RegisterMatrix;
+
+function summary(present: number, percentage: number | null) {
+  return {
+    present_days: present,
+    absent_days: 0,
+    late_days: 0,
+    leave_days: 0,
+    attendance_percentage: percentage,
+  };
+}
 
 function Harness({ onCancel = () => {} }: { onCancel?: () => void }) {
   const [draft, setDraft] = React.useState<Draft>(new Map());
@@ -60,6 +76,9 @@ describe('RegisterEditGrid', () => {
     expect(await screen.findByRole('grid', { name: 'Register' })).toBeTruthy();
     expect(screen.getAllByRole('columnheader').length).toBeGreaterThan(0);
     expect(screen.getByRole('rowheader', { name: 'Karim' })).toBeTruthy();
+    // The view matrix's five totals stay, read-only (not in the tab order).
+    expect(screen.getByRole('columnheader', { name: 'Attendance %' })).toBeTruthy();
+    expect(screen.getByRole('gridcell', { name: '100%' }).hasAttribute('tabindex')).toBe(false);
   });
 
   it('has no axe violations', async () => {

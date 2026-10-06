@@ -213,7 +213,7 @@ One month component serves the date picker and the calendar page.
   filled one.
 - **Anything clickable shows a pointer cursor;** disabled shows `not-allowed`.
   One global rule in `ui/src/styles/globals.css` does it (buttons, `a[href]`,
-  `role=tab|menuitem|option`, `summary`, `label[for]`) — never add `cursor-pointer` by hand.
+  `role=tab|menuitem|option`, a focusable `role=gridcell`, `summary`, `label[for]`) — never add `cursor-pointer` by hand.
 - **Empty state:** icon, title, one sentence, one (outline) action.
   **Error state:** a translated sentence + Retry.
   **Loading:** a skeleton shaped like the content.
