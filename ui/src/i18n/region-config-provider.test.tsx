@@ -57,6 +57,26 @@ describe('RegionConfigProvider', () => {
     await waitFor(() => expect(screen.getByText('মোট 312টি')).toBeTruthy());
   });
 
+  it('keeps the tenant numerals when one provider unmounts after another mounts (route switch)', async () => {
+    const instance = createI18nInstance();
+    await instance.changeLanguage('bn');
+    instance.addResourceBundle('bn', 'common', { n: 'মোট {{count}}টি' }, true, true);
+    const latinBn = { ...REGION_BD_BN, numerals: 'latin' } as const;
+    const route = (name: string) => (
+      <I18nProvider i18n={instance}>
+        <RegionConfigProvider key={name} value={latinBn}>
+          <p>{name}</p>
+        </RegionConfigProvider>
+      </I18nProvider>
+    );
+    const { rerender } = render(route('a'));
+    await screen.findByText('a');
+    rerender(route('b'));
+    await screen.findByText('b');
+    // Before: route a's unmount cleanup ran after b rendered and reset to the bn default (৩১২).
+    expect(instance.t(COUNT_KEY, { count: 312 })).toBe('মোট 312টি');
+  });
+
   it('defaults to the BD region matching the active locale, and follows it when the locale switches', async () => {
     const instance = createI18nInstance();
 
