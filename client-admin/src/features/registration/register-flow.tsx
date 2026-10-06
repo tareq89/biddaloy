@@ -77,9 +77,8 @@ function errorKey(error: unknown, where: Where): string {
     if (error.statusCode === 400) return 'otpInvalid';
     if (error.statusCode === 410) return 'otpExpired';
   }
-  if (where === 'resend') {
-    if (error.statusCode === 410) return 'otpExpired';
-  }
+  // On resend a 410 can only mean the staged sign-up itself is gone.
+  if (where === 'resend' && error.statusCode === 410) return 'registrationExpired';
   return 'generic';
 }
 
@@ -141,7 +140,12 @@ export function RegisterFlow({
       setResendNonce((n) => n + 1);
       setError(null);
     },
-    onError: (e) => setError(errorKey(e, 'resend')),
+    onError: (e) => {
+      const key = errorKey(e, 'resend');
+      setError(key);
+      // Nothing left to resend for: back to the kept details (the form remounts, so a new captcha).
+      if (key === 'registrationExpired') setStep('details');
+    },
   });
 
   const verify = useMutation({

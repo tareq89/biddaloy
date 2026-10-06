@@ -44,6 +44,7 @@
     "captchaUnavailable": "The robot check could not load. Check your connection, turn off any blocker for this page, then reload.",
     "otpInvalid": "That code is not right. Check it and try again.",
     "otpExpired": "That code has expired. Ask for a new one.",
+    "registrationExpired": "This sign-up has expired. Please start again.",
     "otpLocked": "Too many wrong tries. Please wait a while and try again.",
     "trialAlreadyOpen": "A trial school already exists for this number or email. Sign in instead.",
     "unavailable": "Sign-up is not available right now. Please try again later.",
