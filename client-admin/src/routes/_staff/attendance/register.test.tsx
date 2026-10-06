@@ -1,6 +1,6 @@
 import { REGION_BD_EN } from '@biddaloy/ui/i18n';
 import { cleanupTestState, renderWithRouter, server, userEvent } from '@biddaloy/ui/test';
-import { screen, waitFor, within } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -423,6 +423,29 @@ describe('/attendance/register month edit', () => {
     expect(within(dialog).getByText('1 changed cell will be lost.')).toBeTruthy();
     await user.click(within(dialog).getByRole('button', { name: 'Discard' }));
     await waitFor(() => expect(screen.queryByRole('grid')).toBeNull());
+  });
+
+  it('keeps the draft when the viewport drops below md mid-edit', async () => {
+    setDesktop(true);
+    useMatrix();
+    const user = userEvent.setup();
+    await openEditor();
+    await user.click(await screen.findByRole('button', { name: 'Edit' }));
+    (await screen.findByRole('gridcell', { name: /Karim Rahman, .*: Present/ })).focus();
+    await user.keyboard('a');
+    expect(await screen.findByText('1 cell changed')).toBeTruthy();
+
+    const flip = (on: boolean) =>
+      act(() => {
+        setDesktop(on);
+        window.matchMedia(MD_QUERY).dispatchEvent(new Event('change'));
+      });
+    flip(false);
+    await waitFor(() => expect(screen.queryByRole('grid')).toBeNull());
+    flip(true);
+
+    expect(await screen.findByText('1 cell changed')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Save (1)' })).toBeTruthy();
   });
 
   it('on a phone: notice, no Edit button, ?edit is ignored, day numbers link to the roster', async () => {

@@ -175,15 +175,18 @@ function RegisterPageContent() {
   const [conflictDates, setConflictDates] = React.useState<string[] | null>(null);
   const today = localIso(new Date());
 
-  // A new section, month or mode starts a clean draft (the blocker below has
+  // A new section, month or `?edit` starts a clean draft (the blocker below has
   // already asked before any of those navigations when the draft was not empty).
+  // Keyed on `search.edit`, not `editing`: a viewport shrinking below `md` (or a
+  // lost ATTENDANCE_MARK) only hides the grid — the draft stays, and the blocker
+  // still asks before it is thrown away.
   React.useEffect(() => {
     setDraft(new Map());
     setReason('');
     setReasonError(false);
-  }, [search.section_id, month, editing]);
+  }, [search.section_id, month, search.edit]);
 
-  useWarnUnsavedChanges(editing && draft.size > 0);
+  useWarnUnsavedChanges(draft.size > 0);
   const blocker = useBlocker({
     shouldBlockFn: () => draftRef.current.size > 0,
     enableBeforeUnload: false,
