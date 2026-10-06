@@ -12,12 +12,15 @@ export function StepNav({
   submit = false,
   primaryLabel,
   busy = false,
+  quiet = false,
 }: {
   onBack: () => void;
   onPrimary?: () => void;
   submit?: boolean;
   primaryLabel?: React.ReactNode;
   busy?: boolean;
+  /** A ghost primary, for when the step's content has its own filled one. */
+  quiet?: boolean;
 }) {
   const { t } = useTranslation('onboardingSetup');
   return (
@@ -25,7 +28,12 @@ export function StepNav({
       <Button type="button" variant="outline" onClick={onBack} disabled={busy}>
         {t('footer.back')}
       </Button>
-      <Button type={submit ? 'submit' : 'button'} onClick={onPrimary} loading={busy}>
+      <Button
+        type={submit ? 'submit' : 'button'}
+        onClick={onPrimary}
+        loading={busy}
+        {...(quiet ? { variant: 'ghost' as const } : {})}
+      >
         {primaryLabel ?? t('footer.next')}
       </Button>
     </div>

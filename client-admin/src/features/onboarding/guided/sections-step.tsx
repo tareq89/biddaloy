@@ -57,13 +57,17 @@ function ClassRow({
   missingRef.current = missing;
   const mutateRef = React.useRef(create.mutateAsync);
   mutateRef.current = create.mutateAsync;
+  // The refetch can land after a fast Retry; these are skipped even before it does.
+  const createdRef = React.useRef(new Set<string>());
   const run = React.useCallback<RowRun>(async () => {
     setError(false);
     setDone(0);
-    setTotal(missingRef.current.length);
-    for (const [i, letter] of missingRef.current.entries()) {
+    const todo = missingRef.current.filter((l) => !createdRef.current.has(l));
+    setTotal(todo.length);
+    for (const [i, letter] of todo.entries()) {
       try {
         await mutateRef.current({ section_name: letter });
+        createdRef.current.add(letter);
         setDone(i + 1);
       } catch {
         setError(true);
