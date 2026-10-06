@@ -1,5 +1,5 @@
 import { REGION_BD_EN } from '@biddaloy/ui/i18n';
-import { cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
+import { cleanupTestState, renderWithRouter, server, userEvent } from '@biddaloy/ui/test';
 import { screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -251,5 +251,189 @@ describe('/attendance/register', () => {
     // never apply: the totals footer uses the locale-default (English) region.
     expect(await screen.findByText('Total 1')).toBeTruthy();
     expect(settingsRequested).toBe(false);
+  });
+});
+
+// [41.4.3] Month edit. jsdom's matchMedia stub reports "no match" (phone) by
+// default; a test flips the cached `md` query to simulate a desktop.
+const MD_QUERY = '(min-width: 768px)';
+function setDesktop(on: boolean) {
+  (window.matchMedia(MD_QUERY) as { matches: boolean }).matches = on;
+}
+
+const EDIT_URL = `/attendance/register?class_id=${CLASS_ID}&section_id=${SECTION_ID}&month=2026-01`;
+
+function useMatrix(putHandler?: Parameters<typeof http.put>[1]) {
+  server.use(
+    pinEnglishRegion,
+    http.get('/api/v1/attendance/sections/:sectionId/register-matrix', () =>
+      HttpResponse.json({
+        dates: dates31('2026-01'),
+        versions: { '2026-01-01': 3 },
+        rows: [
+          registerRow(),
+          registerRow({
+            student_id: 'student-2',
+            roll_number: 5,
+            full_name: 'Rina Akter',
+            marks: { '2026-01-01': 'PRESENT' },
+          }),
+        ],
+      }),
+    ),
+    ...(putHandler
+      ? [http.put('/api/v1/attendance/sections/:sectionId/register-matrix', putHandler)]
+      : []),
+  );
+}
+
+async function openEditor(role = 'ADMIN', url = EDIT_URL) {
+  const { localeReady } = renderWithRouter(routeTree, {
+    initialEntries: [url],
+    tenantId: 'tenant-1',
+    role,
+    locale: 'en',
+  });
+  await localeReady;
+}
+
+describe('/attendance/register month edit', () => {
+  afterEach(async () => {
+    setDesktop(false);
+    await cleanupTestState();
+  });
+
+  it('hides Edit without ATTENDANCE_MARK', async () => {
+    setDesktop(true);
+    useMatrix();
+    await openEditor('ACCOUNTANT');
+    await screen.findByRole('table');
+    expect(screen.queryByRole('button', { name: 'Edit' })).toBeNull();
+  });
+
+  it('saves one item per changed date with every marked student', async () => {
+    setDesktop(true);
+    let body: Record<string, unknown> | undefined;
+    useMatrix(async ({ request }) => {
+      body = (await request.json()) as Record<string, unknown>;
+      return HttpResponse.json({ saved_dates: ['2026-01-01', '2026-01-03'], versions: {} });
+    });
+    const user = userEvent.setup();
+    await openEditor();
+    await user.click(await screen.findByRole('button', { name: 'Edit' }));
+
+    const grid = await screen.findByRole('grid');
+    // Jan 1: Karim PRESENT -> ABSENT. Jan 3: nobody marked yet -> Karim LATE.
+    within(grid)
+      .getByRole('gridcell', { name: /Karim Rahman, .*: Present/ })
+      .focus();
+    await user.keyboard('a');
+    within(grid)
+      .getAllByRole('gridcell', { name: /Karim Rahman, .*: Not marked/ })[0]!
+      .focus();
+    await user.keyboard('l');
+    expect(await screen.findByText('2 cells changed')).toBeTruthy();
+    expect(screen.getByText(/will be created/)).toBeTruthy();
+
+    // All of January is past the 2-day window, so a reason is needed.
+    await user.type(screen.getByLabelText(/Reason for correction/), 'Copied from paper register');
+    await user.click(screen.getByRole('button', { name: 'Save (2)' }));
+
+    await waitFor(() => expect(body).toBeTruthy());
+    const days = body!.days as { date: string; base_version: number | null; entries: unknown[] }[];
+    expect(days.map((d) => d.date)).toEqual(['2026-01-01', '2026-01-03']);
+    expect(days[0]).toMatchObject({
+      base_version: 3,
+      entries: [
+        { student_id: 'student-1', status: 'ABSENT' },
+        { student_id: 'student-2', status: 'PRESENT' },
+      ],
+    });
+    expect(days[1]).toMatchObject({
+      base_version: null,
+      entries: [{ student_id: 'student-1', status: 'LATE' }],
+    });
+    expect(body!.reason).toBe('Copied from paper register');
+    expect(typeof body!.client_request_id).toBe('string');
+    // Edit mode is left once saved.
+    await waitFor(() => expect(screen.queryByRole('grid')).toBeNull());
+  });
+
+  it('requires a reason for an old date and sends nothing without it', async () => {
+    setDesktop(true);
+    let puts = 0;
+    useMatrix(() => {
+      puts += 1;
+      return HttpResponse.json({ saved_dates: [], versions: {} });
+    });
+    const user = userEvent.setup();
+    await openEditor();
+    await user.click(await screen.findByRole('button', { name: 'Edit' }));
+    (await screen.findByRole('gridcell', { name: /Karim Rahman, .*: Present/ })).focus();
+    await user.keyboard('a');
+    expect(screen.getByText(/outside the correction window/)).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Save (1)' }));
+    expect((await screen.findByRole('alert')).textContent).toBe(
+      'Write a reason of at least 3 letters.',
+    );
+    expect(puts).toBe(0);
+  });
+
+  it('shows the conflicting dates, saves nothing, and Reload keeps edit mode with an empty draft', async () => {
+    setDesktop(true);
+    useMatrix(() =>
+      HttpResponse.json(
+        {
+          statusCode: 409,
+          message: 'conflict',
+          timestamp: new Date().toISOString(),
+          path: '/attendance/sections/x/register-matrix',
+          requestId: 'req-1',
+          details: { code: 'ATTENDANCE_MATRIX_CONFLICT', dates: ['2026-01-01'] },
+        },
+        { status: 409 },
+      ),
+    );
+    const user = userEvent.setup();
+    await openEditor();
+    await user.click(await screen.findByRole('button', { name: 'Edit' }));
+    (await screen.findByRole('gridcell', { name: /Karim Rahman, .*: Present/ })).focus();
+    await user.keyboard('a');
+    await user.type(screen.getByLabelText(/Reason for correction/), 'Paper register');
+    await user.click(screen.getByRole('button', { name: 'Save (1)' }));
+
+    expect(await screen.findByText('Nothing was saved')).toBeTruthy();
+    expect(screen.getByText(/while you were editing/).textContent).toContain('2026');
+    await user.click(screen.getByRole('button', { name: 'Reload the month' }));
+    await waitFor(() => expect(screen.queryByText('Nothing was saved')).toBeNull());
+    expect(screen.getByRole('grid')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Save (0)' }).hasAttribute('disabled')).toBe(true);
+  });
+
+  it('asks before discarding changes on Cancel', async () => {
+    setDesktop(true);
+    useMatrix();
+    const user = userEvent.setup();
+    await openEditor();
+    await user.click(await screen.findByRole('button', { name: 'Edit' }));
+    (await screen.findByRole('gridcell', { name: /Karim Rahman, .*: Present/ })).focus();
+    await user.keyboard('a');
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    const dialog = await screen.findByRole('alertdialog');
+    expect(within(dialog).getByText('1 changed cell will be lost.')).toBeTruthy();
+    await user.click(within(dialog).getByRole('button', { name: 'Discard' }));
+    await waitFor(() => expect(screen.queryByRole('grid')).toBeNull());
+  });
+
+  it('on a phone: notice, no Edit button, ?edit is ignored, day numbers link to the roster', async () => {
+    useMatrix();
+    await openEditor('ADMIN', `${EDIT_URL}&edit=true`);
+    await screen.findByRole('table');
+    expect(screen.getByText(/cannot be edited on a phone/)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Edit' })).toBeNull();
+    expect(screen.queryByRole('grid')).toBeNull();
+    const link = screen.getAllByRole('link', { name: /Open the register of/ })[0]!;
+    expect(link.getAttribute('href')).toContain(`/attendance/${SECTION_ID}`);
+    expect(link.getAttribute('href')).toContain('date=2026-01-01');
   });
 });
