@@ -260,6 +260,30 @@ describe('RouteErrorFallback', () => {
     expect(screen.queryByRole('link', { name: 'Contact us' })).toBeNull();
   });
 
+  it('does not offer "Choose another school" for two roles at the expired school only', async () => {
+    const payload = btoa(
+      JSON.stringify({
+        memberships: [
+          { tenantId: 'tenant-0', role: 'ADMIN', name: 'School 0' },
+          { tenantId: 'tenant-0', role: 'TEACHER', name: 'School 0' },
+        ],
+      }),
+    )
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '');
+    renderWithRouter(buildRouteTree(TrialEndedPage), {
+      initialEntries: ['/broken'],
+      accessToken: `header.${payload}.signature`,
+      tenantId: 'tenant-0',
+    });
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Your trial has ended' }),
+    ).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Choose another school' })).toBeNull();
+  });
+
   it('still reports a genuine crash that happens to occur while offline', async () => {
     // The regression this guards: classifying by connectivity alone turned
     // every bug hit in a lift into "check your connection" — a retry that
