@@ -79,6 +79,32 @@ export class SocialIdentityService {
     }
   }
 
+  /**
+   * Meta's data-deletion callback: removes only the `provider`+`subject`
+   * identity row(s). Never touches the user or any school data. Deletes by
+   * criteria (no load-mutate-save) so nothing else can be written.
+   */
+  async deleteBySubject(
+    provider: SocialProvider,
+    subject: string,
+    context: RequestContext,
+  ): Promise<void> {
+    const rows = await this.identities.find({ where: { provider, subject } });
+    await this.identities.delete({ provider, subject });
+    for (const row of rows) {
+      await this.audit.record({
+        action: AuditAction.DELETE,
+        entity_type: 'UserIdentity',
+        entity_id: row.id,
+        tenant_id: await this.authService.primaryTenantId(row.user_id),
+        performed_by_user_id: null,
+        ip_address: context.ip,
+        user_agent: context.userAgent,
+        old_values: { provider, reason: 'provider_data_deletion_callback' },
+      });
+    }
+  }
+
   /** Refuses to remove the last way to sign in (409 LAST_SIGN_IN_METHOD). */
   async unlink(userId: string, provider: SocialProvider, context: RequestContext): Promise<void> {
     const identity = await this.identities.findOne({ where: { user_id: userId, provider } });
