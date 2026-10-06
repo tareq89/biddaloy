@@ -1,3 +1,9 @@
+import { UserRole } from '@biddaloy/shared';
+import {
+  clearFirstPasswordGate,
+  getFirstPasswordGate,
+  requireFirstPassword,
+} from '@biddaloy/ui/api';
 import {
   authHandlers,
   cleanupTestState,
@@ -32,6 +38,7 @@ describe('/login', () => {
   });
 
   afterEach(async () => {
+    clearFirstPasswordGate();
     await cleanupTestState();
   });
 
@@ -284,12 +291,50 @@ describe('/login', () => {
       expect(await screen.findByRole('heading', { name: 'Set a password' })).toBeTruthy();
       expect(screen.queryByRole('button', { name: 'Skip for now' })).toBeNull();
       expect(router.state.location.pathname).toBe('/login');
+      expect(getFirstPasswordGate()).toEqual(['TEACHER']);
 
       const user = userEvent.setup();
       await user.type(screen.getByLabelText('New password'), 'A-strong-pass1!');
       await user.type(screen.getByLabelText('Confirm password'), 'A-strong-pass1!');
       await user.click(screen.getByRole('button', { name: 'Set password' }));
       await waitFor(() => expect(router.state.location.pathname).toBe('/dashboard'));
+      expect(getFirstPasswordGate()).toBeNull();
+    });
+
+    it('a reload while a staff password is owed lands back on the card, not in the app', async () => {
+      requireFirstPassword([UserRole.TEACHER]);
+      server.use(
+        http.post('/api/v1/account/first-password', () => new HttpResponse(null, { status: 204 })),
+      );
+      const { router } = renderWithRouter(routeTree, {
+        initialEntries: ['/students'],
+        tenantId: 'tenant-1',
+        role: UserRole.TEACHER,
+        locale: 'en',
+      });
+
+      expect(await screen.findByRole('heading', { name: 'Set a password' })).toBeTruthy();
+      expect(router.state.location.pathname).toBe('/login');
+      expect(screen.queryByRole('button', { name: 'Skip for now' })).toBeNull();
+
+      const user = userEvent.setup();
+      await user.type(screen.getByLabelText('New password'), 'A-strong-pass1!');
+      await user.type(screen.getByLabelText('Confirm password'), 'A-strong-pass1!');
+      await user.click(screen.getByRole('button', { name: 'Set password' }));
+      await waitFor(() => expect(router.state.location.pathname).toBe('/students'));
+      expect(getFirstPasswordGate()).toBeNull();
+    });
+
+    it('a family account that may skip records no password gate', async () => {
+      server.use(
+        authHandlers.refreshFailure,
+        authHandlers.otpRequest,
+        otpVerifyNeedingPassword(false, 'PARENT'),
+      );
+      renderWithRouter(routeTree, { initialEntries: ['/login?mode=code'], locale: 'en' });
+      await codeSignIn();
+      expect(await screen.findByRole('button', { name: 'Skip for now' })).toBeTruthy();
+      expect(getFirstPasswordGate()).toBeNull();
     });
 
     it('a family account may skip the password step, then continues', async () => {
