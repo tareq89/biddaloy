@@ -325,6 +325,23 @@ describe('/login', () => {
       expect(getFirstPasswordGate()).toBeNull();
     });
 
+    it('a reload on /login?mode=code while a password is owed shows the card, not sign-in', async () => {
+      requireFirstPassword([UserRole.TEACHER]);
+      renderWithRouter(routeTree, { initialEntries: ['/login?mode=code'], locale: 'en' });
+
+      expect(await screen.findByRole('heading', { name: 'Set a password' })).toBeTruthy();
+      expect(screen.queryByRole('heading', { name: 'Sign in' })).toBeNull();
+    });
+
+    it('a leftover gate with no session shows sign-in, not the password card', async () => {
+      requireFirstPassword([UserRole.TEACHER]);
+      server.use(authHandlers.refreshFailure);
+      renderWithRouter(routeTree, { initialEntries: ['/login?step=password'], locale: 'en' });
+
+      expect(await screen.findByRole('heading', { name: 'Sign in' })).toBeTruthy();
+      expect(screen.queryByRole('heading', { name: 'Set a password' })).toBeNull();
+    });
+
     it('a family account that may skip records no password gate', async () => {
       server.use(
         authHandlers.refreshFailure,

@@ -189,8 +189,9 @@ function LoginPage() {
     });
   }
 
-  // A reload (or another tab) while a staff password is still owed.
-  const owedRoles = search.step === 'password' && !passwordStep ? getFirstPasswordGate() : null;
+  // A reload (or another tab) while a staff password is still owed, whatever the
+  // URL says: `?step=password` from `_staff`, or `?mode=code` after the in-page step.
+  const owedRoles = passwordStep ? null : getFirstPasswordGate();
   if (owedRoles) {
     return (
       <AuthLayout>
