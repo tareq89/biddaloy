@@ -183,7 +183,6 @@
     "confirmEnableNotificationTitle": "অনুপস্থিতির স্বয়ংক্রিয় বার্তা চালু করবেন?",
     "shiftTimesLegend": "শিফটভেদে সময়",
     "shiftTimesHelp": "সারি ফাঁকা রাখলে উপরের স্কুলের সময়ই চলবে।",
-    "shiftColumn": "শিফট",
     "shiftLateAfter": "এর পরে বিলম্বে",
     "shiftAbsentAfter": "এর পরে অনুপস্থিত",
     "shiftBothRequired": "দুটি সময়ই দিন, অথবা দুটিই ফাঁকা রাখুন।",
