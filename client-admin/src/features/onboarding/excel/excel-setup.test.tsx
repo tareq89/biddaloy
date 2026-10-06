@@ -17,7 +17,14 @@ function makeFile(): File {
   }) as File;
 }
 
-function mockValidate(over: { errors?: object[]; hard_error_count?: number; kind?: string } = {}) {
+function mockValidate(
+  over: {
+    errors?: object[];
+    hard_error_count?: number;
+    kind?: string;
+    classes?: { updates?: number; deletes?: number };
+  } = {},
+) {
   server.use(
     http.post('/api/v1/backup/validate', () =>
       HttpResponse.json({
@@ -32,7 +39,14 @@ function mockValidate(over: { errors?: object[]; hard_error_count?: number; kind
           source_school_slug: 'x',
         },
         tabs: [
-          { name: 'classes', present: true, creates: 4, updates: 0, unchanged: 0, deletes: 0 },
+          {
+            name: 'classes',
+            present: true,
+            creates: 4,
+            updates: over.classes?.updates ?? 0,
+            unchanged: 0,
+            deletes: over.classes?.deletes ?? 0,
+          },
           { name: 'sections', present: true, creates: 8, updates: 0, unchanged: 0, deletes: 0 },
         ],
         totals: { creates: 12, updates: 0, unchanged: 0, deletes: 0 },
@@ -136,6 +150,29 @@ describe('ExcelSetup', () => {
     expect(screen.getByRole('button', { name: 'Create these' }).hasAttribute('disabled')).toBe(
       true,
     );
+  });
+
+  // The confirmation is sent for the user, so a starter file that would change or remove
+  // existing rows must never reach "Create these".
+  it.each([
+    ['updates', { updates: 1 }],
+    ['deletes', { deletes: 1 }],
+  ])('refuses a starter file that %s existing rows and sends no restore', async (_, classes) => {
+    mockValidate({ classes });
+    let restoreCalled = false;
+    server.use(
+      http.post('/api/v1/backup/restore', () => {
+        restoreCalled = true;
+        return HttpResponse.json({ job_id: 'job-1', snapshot_job_id: 's' }, { status: 202 });
+      }),
+    );
+    const { user } = await setup();
+    await upload(user);
+    expect(await screen.findByText(/not the sample file/)).toBeTruthy();
+    const confirm = screen.getByRole('button', { name: 'Create these' });
+    expect(confirm.hasAttribute('disabled')).toBe(true);
+    await user.click(confirm);
+    expect(restoreCalled).toBe(false);
   });
 
   it('clean file: previews counts, writes nothing until confirm, then runs the job and calls onDone', async () => {
