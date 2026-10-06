@@ -602,7 +602,7 @@ describe('DataTable pagination', () => {
 });
 
 describe('DataTable footer [31.2.4b]', () => {
-  const base = {
+  const withoutPageHandler = {
     tableId: 'footer-test',
     caption: 'Students',
     columns: COLUMNS,
@@ -610,6 +610,18 @@ describe('DataTable footer [31.2.4b]', () => {
     sorting: null,
     onSortingChange: () => undefined,
   };
+  const base = { ...withoutPageHandler, onPageChange: () => undefined };
+
+  it('shows the total only, with no pager, when there is no onPageChange', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    await renderInEnglish(
+      <DataTable {...withoutPageHandler} data={STUDENTS} page={1} pageSize={2} totalCount={10} />,
+    );
+    expect(screen.queryByRole('button', { name: 'Next' })).toBeNull();
+    expect(screen.getByText(/Total/)).toBeTruthy();
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('onPageChange'));
+    warn.mockRestore();
+  });
 
   it('shows the range and total', async () => {
     await renderInEnglish(
