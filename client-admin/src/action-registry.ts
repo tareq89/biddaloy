@@ -127,6 +127,24 @@ export const ACTIONS: readonly PaletteAction[] = [
     kind: 'navigate',
     run: (ctx) => ctx.navigate({ to: '/attendance' }),
   },
+  // [41.4.7] Both land on a filtered/edit-mode view of an existing route
+  // (`ctx.navigate` only takes a `to` string, so the search rides in it,
+  // like `fees.generate`). The register route itself is gated at
+  // ATTENDANCE_READ; edit mode needs ATTENDANCE_MARK (stricter, on purpose).
+  {
+    id: 'attendance.pending',
+    label: { en: "Today's pending attendance", bn: 'আজকের বাকি উপস্থিতি' },
+    permission: Permission.ATTENDANCE_READ,
+    kind: 'navigate',
+    run: (ctx) => ctx.navigate({ to: '/attendance?status=pending' }),
+  },
+  {
+    id: 'attendance.register.edit',
+    label: { en: 'Edit monthly register', bn: 'মাসিক খাতা সম্পাদনা' },
+    permission: Permission.ATTENDANCE_MARK,
+    kind: 'navigate',
+    run: (ctx) => ctx.navigate({ to: '/attendance/register?edit=true' }),
+  },
   // [36.4] Mirrors `attendance.take` above — permission copied verbatim
   // from `route-permissions.ts`'s `/_staff/attendance/staff/` entry.
   {

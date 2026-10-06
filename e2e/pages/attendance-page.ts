@@ -7,6 +7,11 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+/** `"১২"` or `"12"` to 12. */
+function toNumber(digits: string): number {
+  return Number(digits.replace(/[০-৯]/g, (d) => String('০১২৩৪৫৬৭৮৯'.indexOf(d))));
+}
+
 /**
  * Drives the two staff attendance screens ([9.6]'s marking screen,
  * `/attendance/$sectionId`) and the portal's per-child calendar ([9.9]'s
@@ -103,6 +108,79 @@ export class AttendancePage {
       late: extract('attendance.mark.lateCount'),
       unmarked: extract('attendance.mark.unmarkedCount'),
     };
+  }
+
+  // --- [41.4.7] check-list + monthly edit grid ---------------------------
+
+  /** `/attendance` filtered to the sections still to be finalized. `date`
+   * pins the register day (the school's date — never the runner's). */
+  async gotoPending(date?: string): Promise<void> {
+    await this.page.goto(`/attendance?status=pending${date ? `&date=${date}` : ''}`);
+    await expect(
+      this.page.getByRole('heading', { level: 1, name: this.t('attendance.list.title') }),
+    ).toBeVisible();
+  }
+
+  /** The list's "N of M sections pending" subtitle, parsed. */
+  async pendingCounts(): Promise<{ pending: number; total: number }> {
+    return this.countsFrom(this.page.locator('main'), 'attendance.list.pendingCount');
+  }
+
+  /** Reads `{pending, total}` out of a translated "N of M" template. The
+   * template is turned into a regex with the two numbers as groups (Latin
+   * or Bangla digits) and matched inside `scope`'s text. */
+  async countsFrom(scope: Locator, key: string): Promise<{ pending: number; total: number }> {
+    const template = escapeRegExp(this.t(key, { pending: '@P@', total: '@T@' }));
+    const digits = '([0-9০-৯]+)';
+    const pattern = new RegExp(template.replace('@P@', digits).replace('@T@', digits));
+    await expect(scope).toContainText(pattern);
+    const text = (await scope.textContent()) ?? '';
+    const match = text.match(pattern);
+    if (!match) throw new Error(`"${key}" not found in "${text}"`);
+    // A translation may put the two numbers in the other order.
+    const [first, second] = [toNumber(match[1]!), toNumber(match[2]!)];
+    return template.indexOf('@P@') < template.indexOf('@T@')
+      ? { pending: first, total: second }
+      : { pending: second, total: first };
+  }
+
+  /** A section's row link in the check-list, found by its class name. */
+  sectionLink(className: string): Locator {
+    return this.page.getByRole('link', { name: new RegExp(escapeRegExp(className)) });
+  }
+
+  /** `/attendance/register` already in edit mode for one section's month. */
+  async gotoRegisterEdit(chain: { classId: string; sectionId: string }, month: string) {
+    await this.page.goto(
+      `/attendance/register?class_id=${chain.classId}&section_id=${chain.sectionId}&month=${month}&edit=true`,
+    );
+    await expect(this.editGrid()).toBeVisible();
+  }
+
+  editGrid(): Locator {
+    return this.page.getByRole('grid');
+  }
+
+  /** The `[row,col]` cells the grid lets you edit (working days up to today),
+   * as positions, so a spec can pick "the last two days" without knowing
+   * which weekday today is. */
+  async editableColumns(): Promise<number[]> {
+    const positions = await this.editGrid()
+      .locator('td[data-pos]')
+      .evaluateAll((cells) => cells.map((cell) => (cell as HTMLElement).dataset.pos ?? ''));
+    return [...new Set(positions.map((p) => Number(p.split(',')[1])))].sort((a, b) => a - b);
+  }
+
+  editCell(row: number, col: number): Locator {
+    return this.editGrid().locator(`td[data-pos="${row},${col}"]`);
+  }
+
+  /** Focuses one grid cell and presses the status letter (`A`, `P`, `L`, `E`). */
+  async setCellByKey(row: number, col: number, key: string): Promise<void> {
+    const cell = this.editCell(row, col);
+    await cell.focus();
+    await this.page.keyboard.press(key);
+    await expect(cell).toHaveAttribute('data-changed', 'true');
   }
 
   async gotoPortalMonth(studentId: string, month: string): Promise<void> {
