@@ -43,7 +43,7 @@ import {
 } from '@biddaloy/ui/hooks';
 import { useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { PageContainer } from '@biddaloy/ui/shells';
-import { parseDate, toIsoDate } from '@biddaloy/ui/utils';
+import { parseDate, tenantTodayIso, toIsoDate } from '@biddaloy/ui/utils';
 import { createFileRoute } from '@tanstack/react-router';
 import { CalendarClock, CheckCheck, Info, MoreVertical, RotateCcw, Send } from 'lucide-react';
 import * as React from 'react';
@@ -57,10 +57,11 @@ import { PeriodSwitcher } from './-period-switcher';
 import { RecordHistoryPanel } from './-record-history-panel';
 import { RosterMarker, type Draft } from './-roster-marker';
 
-// `.toISOString()` is UTC — see `index.tsx`'s identical fix. This
-// function is what decides the search-schema default AND the future-date
-// gate (`date > todayIso()`), so a UTC skew here doesn't just link to the
-// wrong day, it can wrongly deny or allow the LEAVE-only future-date path.
+// Browser-local, not `.toISOString()` (UTC), for the search-schema default
+// only: `validateSearch` runs outside React, before the tenant's timezone is
+// known. The future-date gate below uses `tenantTodayIso` — the server's own
+// "today" — because a skew there would wrongly allow or deny the LEAVE-only
+// future-date path.
 function todayIso(): string {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
@@ -405,7 +406,8 @@ function SectionRegisterPage() {
   // can only ever be true for a caller who holds ATTENDANCE_CORRECT but
   // whose `register.editable` still came back `false`.
   const canCorrectOutsideWindow = !register.editable && canCorrect;
-  const futureDateLeaveOnly = date > todayIso() && register.policy.allow_future_dates;
+  const futureDateLeaveOnly =
+    date > tenantTodayIso(regionConfig) && register.policy.allow_future_dates;
   const allowedStatuses = futureDateLeaveOnly ? [AttendanceStatus.LEAVE] : undefined;
   const correctionStudent = students.find((s) => s.student_id === correctionStudentId) ?? null;
   const historyStudent = students.find((s) => s.student_id === historyStudentId) ?? null;
