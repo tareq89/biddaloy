@@ -37,7 +37,7 @@
  * start fetching before the click lands. `aria-current="page"` marks the current route's link, the same signal
  * sighted users get from the highlight.
  *
- * [31.2.9a] The router's fuzzy `activeProps` is gone: `pickActiveNavTo`
+ * [31.2.9a] The router's fuzzy `activeProps` is gone: `pickActiveNavItem`
  * lights exactly one item (the most specific match, D10) and writes
  * `aria-current` itself. The phone header is the opt-in 56 px sticky row
  * (`mobileTitle` / `mobileActions`, D12); the drawer is a start-edge panel
@@ -209,16 +209,33 @@ function visibleItems(
   );
 }
 
-/** The longest nav `to` equal to the path or a segment-prefix of it. One item, never two (D10). */
-function pickActiveNavTo(pathname: string, items: readonly AppShellNavItem[]): string | undefined {
-  let best: string | undefined;
-  for (const { to } of items) {
+/** How well an item's `search` fits the URL: its values all match (2), it has
+ * none (1), or they differ (0). Only breaks ties between items with the same `to`. */
+function searchFit(item: AppShellNavItem, search: Record<string, unknown>): number {
+  if (item.search === undefined) return 1;
+  return Object.entries(item.search).every(([key, value]) => String(search[key]) === value) ? 2 : 0;
+}
+
+/** The item with the longest `to` equal to the path or a segment-prefix of it
+ * (`/` matches only itself); same-`to` items are split by `searchFit`. One
+ * item, never two (D10). */
+function pickActiveNavItem(
+  pathname: string,
+  search: Record<string, unknown>,
+  items: readonly AppShellNavItem[],
+): AppShellNavItem | undefined {
+  let best: AppShellNavItem | undefined;
+  for (const item of items) {
+    const { to } = item;
     const prefix = to.endsWith('/') ? to : `${to}/`;
+    const matches = to === '/' ? pathname === '/' : pathname === to || pathname.startsWith(prefix);
+    if (!matches) continue;
     if (
-      (pathname === to || pathname.startsWith(prefix)) &&
-      (best === undefined || to.length > best.length)
+      best === undefined ||
+      to.length > best.to.length ||
+      (to.length === best.to.length && searchFit(item, search) > searchFit(best, search))
     ) {
-      best = to;
+      best = item;
     }
   }
   return best;
@@ -233,16 +250,16 @@ const NAV_LINK_INACTIVE = 'text-text-secondary hover:bg-muted hover:text-text-pr
 
 function NavLink({
   item,
-  activeTo,
+  activeItem,
   size,
   onNavigate,
 }: {
   item: AppShellNavItem;
-  activeTo: string | undefined;
+  activeItem: AppShellNavItem | undefined;
   size: NavSize;
   onNavigate?: (() => void) | undefined;
 }) {
-  const active = item.to === activeTo;
+  const active = item === activeItem;
   return (
     <li>
       <Link
@@ -250,7 +267,7 @@ function NavLink({
         {...(item.search !== undefined && { search: item.search })}
         onClick={onNavigate}
         // `exact`: `Link` must never claim a fuzzy match (and write its own
-        // `aria-current`) — `pickActiveNavTo` is the single source of truth.
+        // `aria-current`) — `pickActiveNavItem` is the single source of truth.
         activeOptions={{ exact: true }}
         aria-current={active ? 'page' : undefined}
         className={cn(
@@ -293,13 +310,13 @@ function readGroupCollapsed(groupId: string, fallback: boolean): boolean {
 function NavGroupSection({
   group,
   role,
-  activeTo,
+  activeItem,
   size,
   onNavigate,
 }: {
   group: AppShellNavGroup;
   role: string | null;
-  activeTo: string | undefined;
+  activeItem: AppShellNavItem | undefined;
   size: NavSize;
   onNavigate?: (() => void) | undefined;
 }) {
@@ -307,9 +324,9 @@ function NavGroupSection({
   const rest = visibleItems(group.items, role);
   // [30.1.3] With 8 groups, all-expanded is an unusable sidebar. A group
   // with no saved preference starts collapsed unless it owns the lit item.
-  // `search` is deliberately not part of the match: Finance owns `/fees`
+  // `search` only picks between same-path items, so Finance owns `/fees`
   // whether or not `?tab=dues` is set.
-  const ownsActiveRoute = [...pinned, ...rest].some((item) => item.to === activeTo);
+  const ownsActiveRoute = [...pinned, ...rest].some((item) => item === activeItem);
   const [collapsed, setCollapsed] = React.useState(() =>
     readGroupCollapsed(group.id, !ownsActiveRoute),
   );
@@ -370,7 +387,7 @@ function NavGroupSection({
           <NavLink
             key={`${item.to}:${item.label}`}
             item={item}
-            activeTo={activeTo}
+            activeItem={activeItem}
             size={size}
             onNavigate={onNavigate}
           />
@@ -382,7 +399,7 @@ function NavGroupSection({
           <NavLink
             key={`${item.to}:${item.label}`}
             item={item}
-            activeTo={activeTo}
+            activeItem={activeItem}
             size={size}
             onNavigate={onNavigate}
           />
@@ -397,7 +414,7 @@ function NavContent({
   navGroups,
   role,
   navLabel,
-  activeTo,
+  activeItem,
   size,
   onNavigate,
 }: {
@@ -405,7 +422,7 @@ function NavContent({
   navGroups: readonly AppShellNavGroup[];
   role: string | null;
   navLabel: string;
-  activeTo: string | undefined;
+  activeItem: AppShellNavItem | undefined;
   size: NavSize;
   onNavigate?: (() => void) | undefined;
 }) {
@@ -417,7 +434,7 @@ function NavContent({
           <NavLink
             key={`${item.to}:${item.label}`}
             item={item}
-            activeTo={activeTo}
+            activeItem={activeItem}
             size={size}
             onNavigate={onNavigate}
           />
@@ -428,7 +445,7 @@ function NavContent({
           key={group.id}
           group={group}
           role={role}
-          activeTo={activeTo}
+          activeItem={activeItem}
           size={size}
           onNavigate={onNavigate}
         />
@@ -506,7 +523,10 @@ export function AppShell({
 }: AppShellProps) {
   const role = useActiveRole();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const activeTo = pickActiveNavTo(pathname, [
+  const search: Record<string, unknown> = useRouterState({
+    select: (s) => s.location.search as Record<string, unknown>,
+  });
+  const activeItem = pickActiveNavItem(pathname, search, [
     ...visibleItems(navItems, role),
     ...navGroups.flatMap((g) => [
       ...visibleItems(g.pinnedItems ?? [], role),
@@ -592,7 +612,7 @@ export function AppShell({
       navGroups={navGroups}
       role={role}
       navLabel={navLabel}
-      activeTo={activeTo}
+      activeItem={activeItem}
       size="drawer"
       onNavigate={() => setDrawerOpen(false)}
     />
@@ -683,7 +703,7 @@ export function AppShell({
                 navGroups={navGroups}
                 role={role}
                 navLabel={navLabel}
-                activeTo={activeTo}
+                activeItem={activeItem}
                 size="sidebar"
               />
             </aside>
@@ -694,11 +714,7 @@ export function AppShell({
               no-heading fallback — no `outline-none` here, a jump like this
               should show the same visible focus ring any other target does
               (WCAG 2.4.7). */}
-          <main
-            id={APP_SHELL_MAIN_ID}
-            tabIndex={-1}
-            className="min-w-0 flex-1 p-4 md:p-6"
-          >
+          <main id={APP_SHELL_MAIN_ID} tabIndex={-1} className="min-w-0 flex-1 p-4 md:p-6">
             {children}
           </main>
         </div>
