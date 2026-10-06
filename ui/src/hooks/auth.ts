@@ -1,7 +1,6 @@
 import type { LoginResponse } from '@biddaloy/shared';
 import { queryOptions, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import axios from 'axios';
 
 import { clearAuthState, setAccessToken } from '../api/auth-state';
 import {
@@ -13,12 +12,12 @@ import {
   postAuthLogin,
   postAuthLogout,
   postAuthResetPassword,
-  toApiError,
+  publicPost,
   type ForgotPasswordResponse,
   type OtpRequestResponse,
   type SessionDto,
 } from '../api/client';
-import { NoMembershipsError, RateLimitedError } from '../api/errors';
+import { NoMembershipsError } from '../api/errors';
 import { resetSessionBootstrap, scheduleTokenRefresh } from '../api/session';
 
 import { switchActiveTenant } from './tenant';
@@ -165,24 +164,6 @@ export async function resetPassword(
 ): Promise<LoginResponse> {
   const result = await postAuthResetPassword(input);
   return adoptSession(queryClient, result);
-}
-
-/**
- * Bare-axios POST for the public (pre-session) auth routes: 429 becomes
- * `RateLimitedError`, anything else `toApiError`. `withCredentials` so the
- * refresh cookie a session-issuing route sets is stored.
- */
-export async function publicPost<T>(path: string, body: unknown): Promise<T> {
-  try {
-    return (await axios.post<T>(`/api/v1${path}`, body, { withCredentials: true })).data;
-  } catch (error) {
-    if (axios.isAxiosError(error) && error.response?.status === 429) {
-      const header: unknown = error.response.headers['retry-after'];
-      const parsed = typeof header === 'string' ? Number.parseInt(header, 10) : NaN;
-      throw new RateLimitedError(Number.isFinite(parsed) ? parsed : null);
-    }
-    throw toApiError(error);
-  }
 }
 
 /**

@@ -1,9 +1,10 @@
 import type { LoginResponse } from '@biddaloy/shared';
 import type { QueryClient } from '@tanstack/react-query';
 
+import { publicPost } from '../api/client';
 import type { components } from '../api/schema';
 
-import { adoptSession, publicPost } from './auth';
+import { adoptSession } from './auth';
 
 export type RegisterStartInput = components['schemas']['RegisterStartDto'];
 export type RegisterVerifyInput = components['schemas']['RegisterVerifyDto'];

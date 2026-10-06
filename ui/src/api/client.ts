@@ -379,37 +379,14 @@ export interface OtpRequestResponse {
   debug?: { otp?: string };
 }
 
-/** `POST /auth/otp/request` — always resolves, even for an unknown phone
- * (enumeration-safe, see `OtpLoginService.request`'s own comment). `debug`
- * is only ever populated with D6's `ACCOUNT_ACCESS_ECHO_SECRETS` flag on
- * (never in production) — for e2e/Playwright, not for any real UI. */
-export async function postAuthOtpRequest(phone: string): Promise<OtpRequestResponse> {
+/**
+ * Bare-axios POST for the public (pre-session) auth routes (sign-in by code,
+ * register): 429 becomes `RateLimitedError`, anything else `toApiError`.
+ * `withCredentials` so the refresh cookie a session-issuing route sets is stored.
+ */
+export async function publicPost<T>(path: string, body: unknown): Promise<T> {
   try {
-    const response = await axios.post<OtpRequestResponse>(`${API_BASE_URL}/auth/otp/request`, {
-      phone,
-    });
-    return response.data;
-  } catch (error) {
-    if (axios.isAxiosError(error) && error.response?.status === 429) {
-      const header: unknown = error.response.headers['retry-after'];
-      const parsed = typeof header === 'string' ? Number.parseInt(header, 10) : NaN;
-      throw new RateLimitedError(Number.isFinite(parsed) ? parsed : null);
-    }
-    throw toApiError(error);
-  }
-}
-
-/** `POST /auth/otp/verify` — sets the refresh cookie via `withCredentials`
- * and returns a `LoginResponse`, identical in shape to `postAuthLogin`. */
-export async function postAuthOtpVerify(input: {
-  phone: string;
-  otp: string;
-}): Promise<LoginResponse> {
-  try {
-    const response = await axios.post<LoginResponse>(`${API_BASE_URL}/auth/otp/verify`, input, {
-      withCredentials: true,
-    });
-    return response.data;
+    return (await axios.post<T>(`${API_BASE_URL}${path}`, body, { withCredentials: true })).data;
   } catch (error) {
     if (axios.isAxiosError(error) && error.response?.status === 429) {
       const header: unknown = error.response.headers['retry-after'];
