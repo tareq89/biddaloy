@@ -232,10 +232,10 @@ their own). Example: with 8 sections, 5 finalized and 1 draft, the header reads
 **Who can save what.** Opening the grid needs `ATTENDANCE_MARK`. Saving a day
 is a different question, answered per day by the server:
 
-| The changed day                                         | Needs                                  |
-| ------------------------------------------------------- | -------------------------------------- |
-| has no register yet                                     | nothing extra (a past one is born `FINALIZED`) |
-| has a `DRAFT` register inside the correction window     | nothing extra                          |
+| The changed day                                                 | Needs                                              |
+| --------------------------------------------------------------- | -------------------------------------------------- |
+| has no register yet                                             | nothing extra (a past one is born `FINALIZED`)     |
+| has a `DRAFT` register inside the correction window             | nothing extra                                      |
 | has a register that is `FINALIZED` **or** older than the window | `ATTENDANCE_CORRECT` **and** a reason (3+ letters) |
 
 So a teacher (`ATTENDANCE_MARK` only) can fill gaps and fix this week's drafts,
