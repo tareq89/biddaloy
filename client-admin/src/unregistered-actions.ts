@@ -40,6 +40,10 @@ export const PALETTE_ALLOW_LIST: readonly PaletteAllowListEntry[] = [
   },
   { file: `${R}_platform/holiday-sets/index.tsx`, reason: 'Platform console, pages-only palette' },
   {
+    file: `${R}_platform/schools/-detail/extend-trial-dialog.tsx`,
+    reason: 'Platform console; acts on one school',
+  },
+  {
     file: `${R}_platform/schools/-detail/preset-reset-dialog.tsx`,
     reason: 'Platform console; acts on one school',
   },

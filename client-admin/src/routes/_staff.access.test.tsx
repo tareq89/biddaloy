@@ -170,14 +170,20 @@ describe('_staff route access [8.14.17]', () => {
     // resolve a role from, `ensureSessionLoaded()` reports unauthenticated
     // and the whole app redirects to `/login` before any staff route ever
     // matches. Still fail-closed, just at a higher gate: an unresolved
-    // visitor never sees staff content either way.
+    // visitor never sees staff content either way. The default refresh
+    // handler hands back a session with no school, so the visitor lands
+    // on /select-school's "not in any school" state (#1632: sign out
+    // offered there instead of bouncing to /login).
     const { router } = renderWithRouter(routeTree, {
       initialEntries: ['/students'],
       tenantId: 'tenant-1',
       locale: 'en',
     });
 
-    await waitFor(() => expect(router.state.location.pathname).toBe('/login'));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/select-school'));
+    expect(
+      await screen.findByRole('heading', { name: 'You are not in any school yet' }),
+    ).toBeTruthy();
     expect(screen.queryByText(ACCESS_DENIED_TITLE)).toBeNull();
     // Sidebar (and its Calendar link) never mounts pre-login.
     expect(screen.queryByRole('link', { name: /calendar/i })).toBeNull();
