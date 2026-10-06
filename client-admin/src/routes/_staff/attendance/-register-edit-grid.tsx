@@ -9,8 +9,9 @@
  *
  * Keyboard (D12), roving tabindex: arrows move between editable cells (closed
  * days and future days are skipped), Home/End jump to the row's first/last
- * editable day, P/A/L/E set the status, Space flips PRESENT/ABSENT,
- * Ctrl/Cmd+S saves, Esc cancels. A click cycles PRESENT > ABSENT > LATE > LEAVE.
+ * editable day, P/A/L/E set the status, Space flips PRESENT/ABSENT, Esc
+ * cancels. A click cycles PRESENT > ABSENT > LATE > LEAVE. Ctrl/Cmd+S is the
+ * page's (`register.tsx`), so it also works from the reason field.
  */
 import { AttendanceStatus } from '@biddaloy/shared';
 import type { RegisterMatrix } from '@biddaloy/ui/hooks';
@@ -114,7 +115,6 @@ export interface RegisterEditGridProps {
   /** Local `YYYY-MM-DD`; later dates are locked. */
   today: string;
   caption: string;
-  onSave: () => void;
   onCancel: () => void;
 }
 
@@ -124,7 +124,6 @@ export function RegisterEditGrid({
   onDraftChange,
   today,
   caption,
-  onSave,
   onCancel,
 }: RegisterEditGridProps) {
   const { t } = useTranslation('attendance');
@@ -163,11 +162,6 @@ export function RegisterEditGrid({
     const date = dates[c];
     if (!row || !date) return;
     const lower = event.key.toLowerCase();
-    if ((event.metaKey || event.ctrlKey) && lower === 's') {
-      event.preventDefault();
-      onSave();
-      return;
-    }
     if (event.metaKey || event.ctrlKey || event.altKey) return;
     let handled = true;
     if (event.key === 'ArrowRight') focusCell(r, step(c, 1));
