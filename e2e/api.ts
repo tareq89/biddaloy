@@ -1142,16 +1142,27 @@ export async function starterWorkbook(
 export async function endTrial(schoolId: string): Promise<void> {
   const url = process.env.DATABASE_URL;
   if (!url) throw new Error('DATABASE_URL is not set — endTrial needs the e2e database');
-  // @ts-expect-error no @types/pg in e2e; hoisted from the server
-  const { Client } = await import('pg');
+  // `pg` is hoisted from the server and has no types here. A typed shape instead of
+  // `@ts-expect-error`, which would break tsc the day `@types/pg` gets hoisted too.
+  const { Client } = (await import('pg' as string)) as {
+    Client: new (options: { connectionString: string }) => {
+      connect(): Promise<void>;
+      query(sql: string, params: unknown[]): Promise<{ rowCount: number | null }>;
+      end(): Promise<void>;
+    };
+  };
   const client = new Client({ connectionString: url });
   await client.connect();
   try {
-    await client.query(
+    const { rowCount } = await client.query(
       `UPDATE schools SET trial_ends_at = now() - interval '1 day', status = 'SUSPENDED',
          status_reason = 'TRIAL_EXPIRED' WHERE id = $1`,
       [schoolId],
     );
+    // 0 rows means DATABASE_URL is not the database the server uses.
+    if (rowCount !== 1) {
+      throw new Error(`endTrial: school ${schoolId} not found in ${new URL(url).pathname}`);
+    }
   } finally {
     await client.end();
   }

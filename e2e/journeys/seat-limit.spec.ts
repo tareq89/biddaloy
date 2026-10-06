@@ -19,7 +19,13 @@ test('the 11th student of a trial school shows the limit message', async ({
   const school = await newSchool(browser, playwright);
   try {
     const { page, api, session } = school;
-    const chain = await createClassSection(api, session);
+    // This year, not `createClassSection`'s fixed default: the new school has no
+    // other year, and the pickers below must keep finding this class after 2026.
+    const year = new Date().getFullYear();
+    const chain = await createClassSection(api, session, {
+      start_date: `${year}-01-01`,
+      end_date: `${year}-12-31`,
+    });
     for (let n = 1; n <= 10; n++) {
       await post(api, session, '/students', {
         full_name: `Seat Student ${n}`,
