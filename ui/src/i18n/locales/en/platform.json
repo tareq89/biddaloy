@@ -285,6 +285,7 @@
         "days": "Enter a whole number from 1 to 365.",
         "seatLimit": "Enter a whole number, 0 or more.",
         "reasonLength": "Write at least 10 characters.",
+        "reasonTooLong": "Keep the reason under 500 characters.",
         "notInTrial": "This school never had a trial.",
         "seatBelowUsage": "The limit cannot be below the {{used}} students already enrolled.",
         "generic": "Could not extend the trial. Try again."

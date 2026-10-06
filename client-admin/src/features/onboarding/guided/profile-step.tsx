@@ -12,6 +12,7 @@ import {
 import { useSchoolProfile, useUpdateSchoolProfile } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { zodResolver } from '@hookform/resolvers/zod';
+import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
@@ -19,14 +20,21 @@ import { SchoolLogoField } from '../../../pages/settings/school-profile-section'
 
 import { StepNav } from './step-nav';
 
-const schema = z.object({ name: z.string().trim().min(1), name_bn: z.string() });
-type Values = z.infer<typeof schema>;
+type Values = { name: string; name_bn: string };
 
 /** Step 1: name (en / bn) and logo, through the same hooks the Settings profile uses. */
 export function ProfileStep({ onBack, onNext }: { onBack: () => void; onNext: () => void }) {
   const { t } = useTranslation('onboardingSetup');
   const profile = useSchoolProfile();
   const update = useUpdateSchoolProfile();
+  const schema = React.useMemo(
+    () =>
+      z.object({
+        name: z.string().trim().min(1, t('guided.profile.nameRequired')),
+        name_bn: z.string(),
+      }),
+    [t],
+  );
   const form = useForm<Values>({
     resolver: zodResolver(schema),
     values: { name: profile.data?.name ?? '', name_bn: profile.data?.name_bn ?? '' },
@@ -84,11 +92,8 @@ export function ProfileStep({ onBack, onNext }: { onBack: () => void; onNext: ()
             {t('saveError')}
           </p>
         )}
-        <StepNav
-          onBack={onBack}
-          onPrimary={() => void form.handleSubmit(save)()}
-          busy={update.isPending}
-        />
+        {/* A submit button, so Enter in a field moves on too. */}
+        <StepNav onBack={onBack} submit busy={update.isPending} />
       </form>
     </Form>
   );

@@ -48,8 +48,8 @@ describe('ProfileStep', () => {
     const name = await screen.findByLabelText<HTMLInputElement>('School name (English)');
     expect(name.value).toBe('Ananta School');
     await userEvent.clear(name);
-    await userEvent.type(name, 'New School');
-    await userEvent.click(screen.getByRole('button', { name: 'Next' }));
+    // Enter in the field submits, like the Next button.
+    await userEvent.type(name, 'New School{Enter}');
     await waitFor(() => expect(router.state.location.search).toMatchObject({ q: 2 }));
     expect(body).toHaveBeenCalledWith(expect.objectContaining({ name: 'New School' }));
   });
@@ -66,6 +66,8 @@ describe('ProfileStep', () => {
     const name = await screen.findByLabelText<HTMLInputElement>('School name (English)');
     await userEvent.clear(name);
     await userEvent.click(screen.getByRole('button', { name: 'Next' }));
+    // Translated, never zod's default English.
+    expect(await screen.findByText('Enter the school name.')).toBeTruthy();
     expect(router.state.location.search).toMatchObject({ q: 1 });
     await userEvent.type(name, 'Ananta School');
     await userEvent.click(screen.getByRole('button', { name: 'Next' }));
@@ -212,6 +214,26 @@ describe('SectionsStep', () => {
     failB = false;
     await userEvent.click(retry);
     await waitFor(() => expect(calls).toContain('c1:B'));
+  });
+
+  it('custom-named sections count as sections: the default creates nothing, one more adds A', async () => {
+    const calls: string[] = [];
+    mockClasses([cls('c1', 'Class 1')], { c1: [sec('Morning'), sec('Day')] }, (id, name) => {
+      calls.push(`${id}:${name}`);
+      return HttpResponse.json({ id: 'x', section_name: name }, { status: 201 });
+    });
+    const { router } = renderAt(3);
+    const [input] = await sectionInputs();
+    expect(input!.value).toBe('2');
+    expect(screen.getByText('Morning, Day')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Next' })).toBeTruthy();
+
+    await userEvent.clear(input!);
+    await userEvent.type(input!, '3');
+    expect(screen.getByText('Morning, Day, A')).toBeTruthy();
+    await userEvent.click(screen.getByRole('button', { name: 'Create sections' }));
+    await waitFor(() => expect(router.state.location.search).toMatchObject({ step: 'people' }));
+    expect(calls).toEqual(['c1:A']);
   });
 
   it('with nothing to create, Next is enabled and moves on', async () => {
