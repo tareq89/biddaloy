@@ -3,7 +3,9 @@
   "password": {
     "set": "Password is set",
     "notSet": "No password yet",
-    "setNow": "Set a password"
+    "setNow": "Set a password",
+    "saved": "Your password is set.",
+    "alreadySet": "You already have a password."
   },
   "code": "A code by SMS or email",
   "google": "Google",
@@ -18,10 +20,18 @@
     "title": "Leave this school",
     "body": "You will lose access to {{school}}. An admin of the school can bring you back.",
     "confirm": "Leave school",
-    "lastAdmin": "You are the only admin. Make someone else an admin first."
+    "lastAdmin": "You are the only admin. Make someone else an admin first.",
+    "section": "Stop being a member of this school's staff. Your account stays, and other schools are not affected.",
+    "thisSchool": "this school",
+    "done": "You have left {{school}}.",
+    "error": "We could not leave the school. Please try again."
   },
   "hint": {
     "title": "Sign in faster next time",
     "body": "Connect Google or Facebook and skip the code."
-  }
+  },
+  "failed": "We could not connect {{provider}}. Please try again.",
+  "cancelled": "Connecting {{provider}} was cancelled.",
+  "error": "Something went wrong. Please try again.",
+  "alwaysOn": "Always on"
 }
