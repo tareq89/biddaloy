@@ -284,19 +284,49 @@ Same flow as Google (server-side code + PKCE + `state`, see
   `GET /api/v1/auth/social/facebook/data-deletion/status?code=<uuid>`
   (plain HTML, English and Bangla).
 
+```mermaid
+sequenceDiagram
+    participant P as Person
+    participant M as Meta
+    participant S as Server
+    P->>M: removes the app in Facebook settings
+    M->>S: POST /api/v1/auth/social/facebook/data-deletion (signed_request)
+    S->>S: check HMAC + age, delete the facebook row in user_identities, audit
+    S-->>M: { url, confirmation_code }
+    M-->>P: shows the confirmation code and link
+    P->>S: GET .../data-deletion/status?code=...
+    S-->>P: static "deleted" page (en + bn)
+```
+
+Example response:
+
+```json
+{
+  "url": "https://app.example.com/api/v1/auth/social/facebook/data-deletion/status?code=3f2b8c1e-6a4d-4e8f-9b1a-2c7d5e0f4a91",
+  "confirmation_code": "3f2b8c1e-6a4d-4e8f-9b1a-2c7d5e0f4a91"
+}
+```
+
 ## Owner checklist
 
 Things only the owner can do, outside the code. Tick as done.
 
+**Base URL**
+
+- [ ] Set `APP_BASE_URL` to the public `https://` origin that serves both the app
+  and `/api`, for example `https://app.example.com`. The sign-in redirect URIs
+  and the data-deletion status URL below are built from it. In production the
+  server refuses social sign-in and data deletion without it.
+
 **Google sign-in**
 
-- [ ] Create a Google OAuth client. Redirect URI: `<APP_URL>/api/v1/auth/social/google/callback`.
+- [ ] Create a Google OAuth client. Redirect URI: `<APP_BASE_URL>/api/v1/auth/social/google/callback`.
 - [ ] Set `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`.
 
 **Facebook sign-in**
 
-- [ ] Create a Meta app with Facebook Login. Redirect URI: `<APP_URL>/api/v1/auth/social/facebook/callback`.
-- [ ] Set the data-deletion callback URL to `<APP_URL>/api/v1/auth/social/facebook/data-deletion`.
+- [ ] Create a Meta app with Facebook Login. Redirect URI: `<APP_BASE_URL>/api/v1/auth/social/facebook/callback`.
+- [ ] Set the data-deletion callback URL to `<APP_BASE_URL>/api/v1/auth/social/facebook/data-deletion`.
 - [ ] Set `FACEBOOK_OAUTH_CLIENT_ID`, `FACEBOOK_OAUTH_CLIENT_SECRET`. To turn Facebook sign-in off later, remove only the client id; keep the secret while any Facebook identities exist, or Meta's deletion requests get a 404.
 - [ ] Submit app review. Until it passes, only app testers can sign in; the button still works for them.
 - [ ] Product call, #1705: a person who signed up with Facebook only and has no phone or email Facebook shares can be locked out. Decide the fix.
@@ -310,6 +340,7 @@ Things only the owner can do, outside the code. Tick as done.
 
 - [ ] `SUPPORT_CONTACT_URL` and `VITE_SUPPORT_URL` (same value; `https:` or `mailto:`). Shown on the "trial ended" screen.
 - [ ] Optional: `OTP_SMS_ALLOWED_PREFIXES` (default `+880`), `TRIAL_DAYS` (default 30), `TRIAL_SEAT_LIMIT` (default 10).
+  `docker-compose.yml` passes these through with the same defaults, so setting them in `.env` is enough.
 
 **Legal pages and copy**
 
