@@ -5,7 +5,7 @@ import { BadRequestException } from '@nestjs/common';
 import { FacebookProvider, verifySignedRequest } from './facebook.provider';
 
 const SECRET = 'app-secret';
-const args = { code: 'c', redirectUri: 'https://app.test/cb' };
+const args = { code: 'c', codeVerifier: 'verifier', redirectUri: 'https://app.test/cb' };
 
 function provider(env: Record<string, string | undefined> = {}) {
   const values = { FACEBOOK_OAUTH_CLIENT_ID: '123', FACEBOOK_OAUTH_CLIENT_SECRET: SECRET, ...env };
@@ -44,10 +44,18 @@ describe('FacebookProvider', () => {
     expect(provider({ FACEBOOK_OAUTH_CLIENT_ID: '' }).isConfigured()).toBe(false);
   });
 
-  it('builds an authorization URL carrying state and the email scope', () => {
-    const url = new URL(provider().authorizeUrl({ state: 'st', redirectUri: args.redirectUri }));
+  it('builds an authorization URL carrying state, the email scope and the PKCE challenge', () => {
+    const url = new URL(
+      provider().authorizeUrl({
+        state: 'st',
+        codeChallenge: 'chal',
+        redirectUri: args.redirectUri,
+      }),
+    );
     expect(url.searchParams.get('state')).toBe('st');
     expect(url.searchParams.get('scope')).toContain('email');
+    expect(url.searchParams.get('code_challenge')).toBe('chal');
+    expect(url.searchParams.get('code_challenge_method')).toBe('S256');
   });
 
   it('returns the profile, sending the token as a bearer header', async () => {
@@ -60,6 +68,9 @@ describe('FacebookProvider', () => {
       email: 'a@b.c',
       name: 'A',
     });
+    const tokenUrl = new URL(fetchMock.mock.calls[0][0]);
+    expect(tokenUrl.searchParams.get('code_verifier')).toBe('verifier');
+    expect(tokenUrl.searchParams.get('client_secret')).toBe(SECRET);
     const [, meInit] = fetchMock.mock.calls[1];
     expect(meInit.headers.authorization).toBe('Bearer tok');
   });
