@@ -2,9 +2,12 @@
  * [41.4.4] "Whole day" + one tab per period of the date's routine. Renders
  * nothing when the date has no periods (switch off, or no published
  * routine) — except the admin-only hint pointing at `/routines`.
+ *
+ * A substitute teacher (no access to the section, only to the period they
+ * cover) gets no "Whole day" tab: the day register would refuse them.
  */
 import { StatusBadge, Tabs, TabsList, TabsTrigger } from '@biddaloy/ui/components';
-import { useSectionPeriods } from '@biddaloy/ui/hooks';
+import { useMySections, useSectionPeriods } from '@biddaloy/ui/hooks';
 import { useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { formatTime } from '@biddaloy/ui/utils';
 import { Link } from '@tanstack/react-router';
@@ -33,6 +36,10 @@ export function PeriodSwitcher({
   const regionConfig = useTenantRegionConfig();
   const periodsQuery = useSectionPeriods(sectionId, date);
   const periods = periodsQuery.data;
+  // `my-sections` lists exactly the sections the caller can open (all of them
+  // for a tenant-wide role). Unknown yet, or unreadable: keep the tab.
+  const mySections = useMySections();
+  const canOpenDay = mySections.data?.some((s) => s.section_id === sectionId) ?? true;
 
   // A date change keeps the chosen period only if the new date's list has it.
   React.useEffect(() => {
@@ -62,7 +69,7 @@ export function PeriodSwitcher({
       onValueChange={(value) => onChange(value === WHOLE_DAY ? undefined : Number(value))}
     >
       <TabsList variant="line" aria-label={t('period.tabsLabel')}>
-        <TabsTrigger value={WHOLE_DAY}>{t('period.wholeDay')}</TabsTrigger>
+        {canOpenDay && <TabsTrigger value={WHOLE_DAY}>{t('period.wholeDay')}</TabsTrigger>}
         {periods.map((p) => {
           const name = p.name ?? String(p.period_no);
           return (
@@ -71,10 +78,11 @@ export function PeriodSwitcher({
               <span className="text-caption font-normal text-text-secondary">
                 {formatTime(p.starts_at, regionConfig)}
               </span>
+              {/* Same names and tones as the check-list and the register header (P7). */}
               {p.state === 'FINALIZED' ? (
                 <StatusBadge tone="success" label={t('mark.stateFinalized')} />
               ) : p.state === 'DRAFT' ? (
-                <StatusBadge tone="warning" label={t('list.draft')} />
+                <StatusBadge tone="info" label={t('list.stateDraft')} />
               ) : null}
             </TabsTrigger>
           );
