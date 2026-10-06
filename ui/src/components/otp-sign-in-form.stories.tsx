@@ -43,7 +43,7 @@ export const CodePhase: Story = {
  * `SignInForm`'s `InvalidCredentials` story. */
 export const InvalidCode: Story = {
   args: {
-    error: { message: 'That phone number or code is incorrect.', tone: 'alert' },
+    error: { message: 'That number, email or code is incorrect.', tone: 'alert' },
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);

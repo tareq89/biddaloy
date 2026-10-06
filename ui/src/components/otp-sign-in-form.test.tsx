@@ -126,7 +126,7 @@ describe('OtpSignInForm', () => {
     await user.click(screen.getByRole('button', { name: 'Send code' }));
     await screen.findByRole('heading', { name: 'Enter the code' });
 
-    await user.click(screen.getByRole('button', { name: 'Use a different number' }));
+    await user.click(screen.getByRole('button', { name: 'Use a different number or email' }));
 
     expect(await screen.findByLabelText('Mobile number or email')).toBeTruthy();
   });
@@ -160,13 +160,13 @@ describe('OtpSignInForm', () => {
       <OtpSignInForm
         onRequest={vi.fn()}
         onVerify={vi.fn()}
-        error={{ message: 'That phone number or code is incorrect.', tone: 'alert' }}
+        error={{ message: 'That number, email or code is incorrect.', tone: 'alert' }}
       />,
       { locale: 'en' },
     );
 
     const banner = await screen.findByRole('alert');
-    expect(banner.textContent).toBe('That phone number or code is incorrect.');
+    expect(banner.textContent).toBe('That number, email or code is incorrect.');
   });
 
   it('renders a rate-limit error as a calm status banner, not an alert', async () => {

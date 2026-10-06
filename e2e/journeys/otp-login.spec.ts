@@ -1,5 +1,6 @@
 import { adminApiSession, createInvitedParentUser } from '../api';
 import { guest, test, expect } from '../fixtures/test';
+import { t } from '../i18n';
 import { LoginPage } from '../pages/login-page';
 
 /**
@@ -14,6 +15,9 @@ import { LoginPage } from '../pages/login-page';
  * step to run first, unlike `password-recovery.spec.ts`'s journey, which
  * needs a *real* password to have forgotten before recovery even makes
  * sense. This account never gets one; `/auth/otp/verify` is its only way in.
+ *
+ * [13.5.3] A first code sign-in without a password now offers "Set a
+ * password" in the same card; a guardian may skip it (staff may not).
  */
 test.describe('guardian passwordless sign-in', () => {
   test.use(guest);
@@ -28,6 +32,10 @@ test.describe('guardian passwordless sign-in', () => {
     await login.goto();
     await login.loginWithOtp(guardian.phone);
 
+    await expect(
+      page.getByRole('heading', { name: t('auth.firstPassword.heading') }),
+    ).toBeVisible();
+    await page.getByRole('button', { name: t('auth.setPassword.skip') }).click();
     await expect(page).toHaveURL(/\/portal/);
   });
 });
