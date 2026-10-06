@@ -1,7 +1,7 @@
 import { queryOptions, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 
-import { apiClient, toApiError } from '../api/client';
+import { API_BASE_URL, apiClient, toApiError } from '../api/client';
 import type { components } from '../api/schema';
 
 import { shouldRetryQuery } from './retry';
@@ -22,7 +22,7 @@ export function socialProvidersQueryOptions() {
     queryFn: async ({ signal }): Promise<SocialProvider[]> => {
       try {
         const res = await axios.get<components['schemas']['SocialProvidersDto']>(
-          '/api/v1/auth/social/providers',
+          `${API_BASE_URL}/auth/social/providers`,
           { signal },
         );
         return res.data.providers;
@@ -43,7 +43,7 @@ export function socialStartUrl(
 ): string {
   const params = new URLSearchParams({ intent });
   if (redirect) params.set('redirect', redirect);
-  return `/api/v1/auth/social/${provider}/start?${params.toString()}`;
+  return `${API_BASE_URL}/auth/social/${provider}/start?${params.toString()}`;
 }
 
 /** `GET /auth/social/identities` — the signed-in user's linked accounts. */
