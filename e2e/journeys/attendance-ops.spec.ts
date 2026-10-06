@@ -343,10 +343,7 @@ test.describe('period attendance', () => {
 test.describe('subject report', () => {
   test.use(loggedIn('admin'));
 
-  test('the By-subject tab heads each subject with the periods held', async ({
-    page,
-    request,
-  }) => {
+  test('the By-subject tab heads each subject with the periods held', async ({ page, request }) => {
     // Its own data, read from the API: no state from the period test above.
     const admin = await adminApiSession(request);
     const section = await seededClassSixA(request, admin);

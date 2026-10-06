@@ -1,10 +1,4 @@
-import {
-  adminApiSession,
-  createStudentsInSection,
-  get,
-  isFridayAnywhere,
-  put,
-} from '../api';
+import { adminApiSession, createStudentsInSection, get, isFridayAnywhere, put } from '../api';
 import { expect, loggedIn, test } from '../fixtures/test';
 import { t } from '../i18n';
 import { tabUntilFocused } from './keyboard-utils';

@@ -148,7 +148,7 @@ describe('RegisterEditGrid', () => {
     expect(cell(/Rina, .*1.*: Leave, changed/)).toBeTruthy();
   });
 
-  it('Esc cancels (Ctrl+S is the page\'s, see register.test.tsx)', async () => {
+  it("Esc cancels (Ctrl+S is the page's, see register.test.tsx)", async () => {
     const user = userEvent.setup();
     const onCancel = vi.fn();
     renderGrid({ onCancel });

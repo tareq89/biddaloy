@@ -425,10 +425,9 @@ describe('[41.3.1] period / subject-summary / month-save hooks', () => {
         ),
       ),
     );
-    const { result } = renderHookWithProviders(
-      () => useSaveRegisterMatrix('section-1'),
-      { tenantId: 'tenant-1' },
-    );
+    const { result } = renderHookWithProviders(() => useSaveRegisterMatrix('section-1'), {
+      tenantId: 'tenant-1',
+    });
     result.current.mutate(matrixInput());
     await waitFor(() => expect(result.current.isError).toBe(true));
     expect((result.current.error as ApiError).details?.dates).toEqual(['2026-09-04']);
