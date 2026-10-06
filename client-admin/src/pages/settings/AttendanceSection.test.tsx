@@ -183,4 +183,103 @@ describe('AttendanceSection', () => {
     expect((await screen.findByRole('alert')).textContent).toBe("Couldn't save. Try again.");
     expect(screen.queryByText(SERVER_TEXT)).toBeNull();
   });
+
+  describe('shift times and period switch', () => {
+    const SHIFTS = [
+      { id: 'sh-1', name: 'Morning' },
+      { id: 'sh-2', name: 'Day' },
+    ];
+
+    function mockShifts(rows = SHIFTS) {
+      server.use(
+        http.get('*/routines/shifts', () =>
+          HttpResponse.json({
+            data: rows,
+            total: rows.length,
+            page: 1,
+            limit: 100,
+            totalPages: 1,
+          }),
+        ),
+      );
+    }
+
+    function capturePatch() {
+      const patchBody = vi.fn();
+      server.use(
+        http.patch('/api/v1/schools/:id/settings', async ({ request }) => {
+          patchBody(await request.json());
+          return HttpResponse.json({ version: 1 });
+        }),
+      );
+      return patchBody;
+    }
+
+    function renderSection(attendance = ATTENDANCE) {
+      return renderWithProviders(
+        <WithTestRouter>
+          <AttendanceSection schoolId={SCHOOL_ID} attendance={attendance} />
+        </WithTestRouter>,
+        { locale: 'en', role: 'ADMIN', tenantId: SCHOOL_ID },
+      );
+    }
+
+    it('hides the shift section when the school has no shifts', async () => {
+      mockShifts([]);
+      renderSection();
+      await screen.findByLabelText('Late after');
+      expect(screen.queryByText('Times per shift')).toBeNull();
+    });
+
+    it('prefills two shift rows from the saved setting and sends only complete rows', async () => {
+      mockShifts();
+      const patchBody = capturePatch();
+      const { user } = renderSection({
+        ...ATTENDANCE,
+        shiftTimes: [
+          { shiftId: 'sh-1', lateAfter: '08:00', absentAfter: '08:30' },
+          { shiftId: 'gone', lateAfter: '07:00', absentAfter: '07:30' },
+        ],
+      } as typeof ATTENDANCE);
+
+      expect(inputValue(await screen.findByLabelText('Morning — Late after'))).toBe('8:00 AM');
+      expect(inputValue(screen.getByLabelText('Morning — Absent after'))).toBe('8:30 AM');
+      expect(inputValue(screen.getByLabelText('Day — Late after'))).toBe('');
+
+      await user.click(screen.getByRole('button', { name: 'Save' }));
+      await waitFor(() => expect(patchBody).toHaveBeenCalled());
+      const attendance = patchBody.mock.calls[0]![0].attendance;
+      // Day is empty, "gone" no longer exists: only Morning goes out.
+      expect(attendance.shiftTimes).toEqual([
+        { shiftId: 'sh-1', lateAfter: '08:00', absentAfter: '08:30' },
+      ]);
+      expect(attendance.periodAttendance).toEqual({ enabled: false });
+      expect(attendance.lateAfter).toBe('09:00');
+      expect(attendance.weeklyOffDays).toEqual([0, 6]);
+    });
+
+    it('blocks save when a row has only one time', async () => {
+      mockShifts();
+      const patchBody = capturePatch();
+      const { user } = renderSection();
+
+      await user.click(await screen.findByLabelText('Day — Late after'));
+      await user.click(await screen.findByRole('option', { name: '8:00 AM' }));
+      await user.click(screen.getByRole('button', { name: 'Save' }));
+
+      expect(await screen.findByText('Fill both times or leave both empty.')).toBeTruthy();
+      expect(patchBody).not.toHaveBeenCalled();
+    });
+
+    it('sends periodAttendance.enabled when the switch is toggled', async () => {
+      mockShifts([]);
+      const patchBody = capturePatch();
+      const { user } = renderSection();
+
+      await user.click(await screen.findByLabelText('Take attendance in each period'));
+      await user.click(screen.getByRole('button', { name: 'Save' }));
+      await waitFor(() => expect(patchBody).toHaveBeenCalled());
+      expect(patchBody.mock.calls[0]![0].attendance.periodAttendance).toEqual({ enabled: true });
+    });
+  });
 });
