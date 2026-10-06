@@ -128,7 +128,7 @@ proves ownership stamps one of them, with a `CONTACT_VERIFIED` audit row:
 
 - **Activation** (accepting an invite) verifies whichever contact the
   invite actually went out on.
-- **OTP login** verifies the phone the code was sent to.
+- **OTP login** verifies the phone or email the code was sent to.
 - **Password reset** verifies the OTP branch's phone / the link branch's
   email.
 - **The contact-change flow below** verifies the NEW value, once
@@ -173,17 +173,18 @@ with the account's real contact untouched throughout.
 ## Passwordless sign-in (OTP login)
 
 `POST /auth/otp/request` and `POST /auth/otp/verify`
-(`server/src/modules/account-access/otp-login.service.ts`) let a phone-only
-account — a guardian who was never given a password — sign in without one.
+(`server/src/modules/account-access/otp-login.service.ts`) let an account with
+no password (a guardian who was never given one) sign in without one, by phone or
+email.
 It reuses the same building blocks as password recovery above: `OtpService`
 for the code, `AuthService.startSession()` for the session.
 
 ```mermaid
 flowchart TD
-    A["POST /auth/otp/request<br/>{ phone }"] --> B{Known ACTIVE phone,<br/>OTP login allowed?}
+    A["POST /auth/otp/request<br/>{ phone } or { email }"] --> B{Known ACTIVE phone or email,<br/>OTP login allowed?}
     B -- "no" --> Z["202 Accepted<br/>(nothing sent — enumeration-safe)"]
     B -- "yes" --> C["SMS: 6-digit OTP<br/>(OtpService, Redis, 5 min TTL)"]
-    C --> D["POST /auth/otp/verify<br/>{ phone, otp }"]
+    C --> D["POST /auth/otp/verify<br/>{ phone | email, otp }"]
     D -- "wrong/expired/locked" --> E["401 'Invalid credentials'<br/>(same message as password login)"]
     D -- "right code" --> F["LOGIN audit row, method: otp"]
     F --> G["Caller signed in<br/>(identical LoginResponse shape to password login)"]
@@ -209,6 +210,34 @@ flowchart TD
 - **The OTP itself is never logged** — `OtpService` only ever logs
   purpose/identifier, matching the rule password recovery's OTP already
   follows.
+
+## Public sign-up route (Epic 13.0)
+
+`POST /auth/register/start | resend | verify` are open to strangers, so each
+layer below stops a different abuse.
+
+```mermaid
+flowchart TD
+    A["POST /auth/register/start"] --> T{"Turnstile token valid?"}
+    T -- "no" --> E1["400 Captcha verification failed"]
+    T -- "yes" --> P{"Phone prefix allowed for SMS?"}
+    P -- "yes" --> S["SMS code"]
+    P -- "no" --> M["Code to email instead"]
+    S --> R["verify: 5 wrong guesses lock 15 min"]
+    M --> R
+```
+
+| Protection | Detail |
+| --- | --- |
+| Captcha | Cloudflare Turnstile, checked on `start` (`registration/turnstile.service.ts`). With no `TURNSTILE_SECRET_KEY`, dev and test skip it; **production returns 503** and the routes stay closed (never fail open). |
+| Rate limit | `STRICT_RATE_LIMIT`, 5 requests per 60 s per client, on all three routes. |
+| Per-number limit | Resend cooldown 60 s, at most 3 resends per stage, and the OTP lockout above. One captcha buys one stage. |
+| Allowed prefixes | SMS only to `OTP_SMS_ALLOWED_PREFIXES` (default `+880`), so the route cannot be used to run up SMS bills abroad. Others get an email code. |
+| Enumeration | `start` and `resend` always answer 202 and never say whether the contact is known. **Exception:** `verify` answers `409 CONTACT_IN_USE` or `SIGN_IN_REQUIRED` once the code is proven. This reveals that an account exists and is an accepted product call. |
+| Consent | Terms acceptance is stored in the audit log with the school id. |
+
+Gaps: the server has no captcha-specific error code (#1700) and does not
+normalise phone numbers (#1701). See [22-onboarding.md](22-onboarding.md).
 
 ## Session & token lifecycle
 

@@ -99,6 +99,8 @@ People
       + Subjects (optional/4th) [19.0] · Fines [N8] · Documents [have, 32.0]
   Guardians [have] → detail: Information, Linked students, Payments, Communication
   Staff [partial] — ONE register (teachers, employees, administration, principal/VP as designations)
+    Import from Excel [13.0, /staff/import]                         A
+    "Former" filter [13.0] — people who left or were removed        A
     Staff detail — tabs today: Profile, Memberships, Permissions, Login history, Invitation
       + HR record [23.0] · Teaching assignments [29.0+23.0] · Attendance & leave [N5]
       + ACR · Incidents · Performance [28.0, have — ACR_READ, admin only]
@@ -182,7 +184,14 @@ Account [have]
 
 ```text
 Schools [have] · Public holiday sets [17.0] · Preset library [N3]
+  Schools list: Trial column, ?trial filter · School detail: Trial card + "Extend trial" [13.0]
 ```
+
+Not in the nav on purpose (reached by a redirect, a link or a button):
+`/welcome` (the setup wizard, opens once for an admin of an unfinished school),
+`/register`, `/auth/social/done`, and `/staff/import` (a button on Staff).
+The setup checklist is a card on the Dashboard, and the trial bar sits under
+the top bar for admins only. See [22-onboarding.md](22-onboarding.md).
 
 ### 3.4 Placement decisions (final)
 

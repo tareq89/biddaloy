@@ -400,6 +400,52 @@ Key points:
   `User` by phone/email is linked, not duplicated; a `23505` race between
   two concurrent batches is retried as "found".
 
+## Sign-in methods, first password, leaving (Epic 13.0)
+
+```mermaid
+flowchart TD
+    A["/login"] --> B{"Method"}
+    B -- "password" --> P["POST /auth/login"]
+    B -- "code" --> C["POST /auth/otp/request<br/>{ phone } or { email }"]
+    C --> V["POST /auth/otp/verify"]
+    B -- "Google" --> G["GET /auth/social/google/start"]
+    V --> N{"needs_password?"}
+    N -- yes --> F["First password step<br/>POST /account/first-password"]
+    N -- no --> S["Signed in"]
+    F --> S
+    G --> S
+```
+
+- **Code sign-in works by phone or email.** The identifier is either one.
+  `/otp/verify` also returns `needs_password` and `password_required`
+  (no password + staff role + no linked social account). The gate is
+  client-side, stored per account and cleared on logout or when a password is
+  set. Server enforcement is open: #1697. See
+  [22-onboarding.md](22-onboarding.md).
+- **Password rules depend on the role**, checked only when a password is set
+  or changed (never at sign-in). Strictest role across all memberships wins.
+
+  | Roles | Rules |
+  | --- | --- |
+  | Any staff role, or mixed | 8+ characters, upper, lower, digit, special |
+  | Only PARENT / STUDENT | 8+ characters, a digit |
+
+- **Google (Facebook is planned: #1647, not built).** The server lists the
+  configured providers (`GET /auth/social/providers`) and the UI draws one
+  button each. The flow is server-side authorization code with PKCE and
+  `state`. Identities live in `user_identities`. **Connecting is always
+  explicit** (`POST /auth/social/:provider/link-start` from a signed-in
+  session). An identity is never attached by matching email. Example: a Google
+  account with `rahim@example.com` does not sign in to a user who has that
+  email unless it was connected first.
+- **Leaving and former members.** Staff leave with `POST /users/me/leave`.
+  An admin removes with `DELETE /users/:id`. Both soft-delete the
+  `user_tenants` row (`deleted_at`); the user account and their other schools
+  stay. The last admin cannot leave or be removed. Guardians and students
+  have no "leave". `POST /users/:id/restore` (needs `MEMBER_REMOVE`, ADMIN and SUPER_ADMIN only today) brings back the rows
+  ended by the latest event. A person with no active staff role is a
+  "Former" member.
+
 ## Why this deviated from the original plan
 
 The original plan assumed one school and a single `role` column directly on
