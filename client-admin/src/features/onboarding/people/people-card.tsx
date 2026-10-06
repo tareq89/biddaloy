@@ -15,9 +15,10 @@ export interface PeopleCardProps {
 }
 
 /**
- * ponytail: the cast below turns off route type-checking for every link here; drop it when #1644 lands.
- * Typed routes don't know every target yet (`/staff/import` ships in another
- * ticket), and each target reads `?from=welcome` to offer "Back to setup".
+ * ponytail: the cast below turns off route type-checking for every link here.
+ * Every target reads `?from=welcome` via `useSearch({ strict: false })` to offer
+ * "Back to setup", but none declares it in its search schema; declare it per
+ * route and type `to` if this ever needs real checking.
  */
 export function WelcomeLink({
   to,

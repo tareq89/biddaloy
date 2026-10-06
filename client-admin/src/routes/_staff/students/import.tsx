@@ -151,10 +151,9 @@ function ImportStudentsContent() {
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 p-4 md:p-6">
         {/* [13.5.1]: the welcome wizard's people step links here with `?from=welcome`. */}
         {fromWelcome && (
-          // ponytail: cast until /welcome is in routeTree (#1644) — drop it then.
           <Link
-            to={'/welcome' as never}
-            search={{ step: 'people' } as never}
+            to="/welcome"
+            search={{ step: 'people' }}
             className="inline-flex min-h-11 items-center text-primary underline underline-offset-2 md:min-h-8"
           >
             {tTrial('import.backToSetup')}
