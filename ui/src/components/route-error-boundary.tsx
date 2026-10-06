@@ -265,7 +265,7 @@ export function RouteErrorFallback({
           icon={<Lock aria-hidden="true" />}
         />
         <div className="flex flex-wrap items-center justify-center gap-2">
-          {supportUrl && (
+          {supportUrl && /^(https:|mailto:)/i.test(supportUrl) && (
             <Button asChild>
               <a href={supportUrl}>{tTrial('ended.contact')}</a>
             </Button>

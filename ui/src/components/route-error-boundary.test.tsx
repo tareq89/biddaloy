@@ -236,6 +236,20 @@ describe('RouteErrorFallback', () => {
     expect(captureRouteError).not.toHaveBeenCalled();
   });
 
+  it('drops a support link that is not https: or mailto:', async () => {
+    renderWithRouter(
+      buildRouteTree(TrialEndedPage, (props) => (
+        <RouteErrorFallback {...props} supportUrl="javascript:alert(1)" />
+      )),
+      { initialEntries: ['/broken'] },
+    );
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Your trial has ended' }),
+    ).toBeTruthy();
+    expect(screen.queryByRole('link', { name: 'Contact us' })).toBeNull();
+  });
+
   it('offers "Choose another school" on the trial-ended state only with 2+ schools', async () => {
     renderWithRouter(buildRouteTree(TrialEndedPage), {
       initialEntries: ['/broken'],
