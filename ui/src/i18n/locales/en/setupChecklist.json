@@ -12,5 +12,15 @@
     "messageSettings": "Message settings"
   },
   "hide": "Hide",
-  "continueSetup": "Continue school setup"
+  "continueSetup": "Continue school setup",
+  "done": "Done",
+  "todo": "To do",
+  "hint": {
+    "title": "Sign in faster next time",
+    "body": "Connect Google or Facebook and skip the code.",
+    "google": "Connect Google",
+    "facebook": "Connect Facebook",
+    "dismiss": "Dismiss",
+    "failed": "We could not connect that account. Please try again."
+  }
 }
