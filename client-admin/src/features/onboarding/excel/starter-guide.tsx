@@ -60,9 +60,7 @@ export function StarterGuide() {
         )}
       </div>
       <div className="flex flex-col gap-1">
-        <h3 className="text-sm font-semibold">
-          {t('excel.sheetsTitle', { defaultValue: 'What goes in each sheet' })}
-        </h3>
+        <h3 className="text-sm font-semibold">{t('excel.sheetsTitle')}</h3>
         <ul className="list-disc pl-5 text-sm text-text-secondary">
           {STARTER_SHEETS.map((sheet) => (
             <li key={sheet}>{t(`excel.sheet.${sheet}`, { defaultValue: tabLabel(tb, sheet) })}</li>
