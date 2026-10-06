@@ -1,9 +1,12 @@
 /**
  * [13.5] The trial-ended screen as the real app wires it: the router's
- * `defaultErrorComponent` over the real route tree, so an unwired prop fails here.
+ * `defaultErrorComponent` over the real route tree, so an unwired prop or the
+ * root guard bouncing the picker fails here.
  */
+import { getActiveTenant } from '@biddaloy/ui/api';
 import { cleanupTestState, renderWithRouter } from '@biddaloy/ui/test';
 import { screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { RouteErrorFallbackWithUpdate } from './route-error-fallback';
@@ -59,5 +62,16 @@ describe('trial-ended screen in the app', () => {
     expect(screen.getByRole('link', { name: 'Contact us' }).getAttribute('href')).toBe(
       'https://example.com/help',
     );
+  });
+
+  it('"Choose another school" lands on the picker, not back on the expired school', async () => {
+    const user = userEvent.setup();
+    const { router } = renderExpiredDashboard();
+
+    await user.click(await screen.findByRole('button', { name: 'Choose another school' }));
+
+    expect(await screen.findByRole('heading', { name: 'Choose a school' })).toBeTruthy();
+    expect(router.state.location.pathname).toBe('/select-school');
+    expect(getActiveTenant()).toBeNull();
   });
 });
