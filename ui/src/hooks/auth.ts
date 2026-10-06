@@ -1,6 +1,7 @@
 import type { LoginResponse } from '@biddaloy/shared';
 import { queryOptions, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
+import axios from 'axios';
 
 import { clearAuthState, setAccessToken } from '../api/auth-state';
 import {
@@ -11,14 +12,13 @@ import {
   postAuthForgotPassword,
   postAuthLogin,
   postAuthLogout,
-  postAuthOtpRequest,
-  postAuthOtpVerify,
   postAuthResetPassword,
+  toApiError,
   type ForgotPasswordResponse,
   type OtpRequestResponse,
   type SessionDto,
 } from '../api/client';
-import { NoMembershipsError } from '../api/errors';
+import { NoMembershipsError, RateLimitedError } from '../api/errors';
 import { resetSessionBootstrap, scheduleTokenRefresh } from '../api/session';
 
 import { switchActiveTenant } from './tenant';
@@ -34,7 +34,7 @@ export type { SessionDto };
  * comment for the reasoning behind the single-vs-multi-membership split and
  * the zero-membership rejection; both callers share it unchanged.
  */
-async function adoptSession(
+export async function adoptSession(
   queryClient: QueryClient,
   result: LoginResponse,
 ): Promise<LoginResponse> {
@@ -168,29 +168,61 @@ export async function resetPassword(
 }
 
 /**
- * 12.5's "Sign in with code" tab, phone phase: `POST /auth/otp/request`.
- * Always resolves — enumeration-safe, per `OtpLoginService.request`'s own
- * contract — never rejects for "no such account"; only a genuine
- * network/429 failure throws (`postAuthOtpRequest` already turns 429 into
- * `RateLimitedError`).
+ * Bare-axios POST for the public (pre-session) auth routes: 429 becomes
+ * `RateLimitedError`, anything else `toApiError`. `withCredentials` so the
+ * refresh cookie a session-issuing route sets is stored.
  */
-export async function requestOtp(phone: string): Promise<OtpRequestResponse> {
-  return postAuthOtpRequest(phone);
+export async function publicPost<T>(path: string, body: unknown): Promise<T> {
+  try {
+    return (await axios.post<T>(`/api/v1${path}`, body, { withCredentials: true })).data;
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response?.status === 429) {
+      const header: unknown = error.response.headers['retry-after'];
+      const parsed = typeof header === 'string' ? Number.parseInt(header, 10) : NaN;
+      throw new RateLimitedError(Number.isFinite(parsed) ? parsed : null);
+    }
+    throw toApiError(error);
+  }
 }
 
 /**
- * 12.5's "Sign in with code" tab, code phase: `POST /auth/otp/verify`. Like
- * `login()`, a successful verify leaves the app signed in via
- * `adoptSession` — same membership-count contract (single membership picks
- * itself, 2+ leaves the choice to `/select-school`, zero throws
- * `NoMembershipsError`).
+ * "Sign in with code", request phase: `POST /auth/otp/request`. `identifier`
+ * is a phone or an email. Always resolves (enumeration-safe); only a
+ * network/429 failure throws.
+ */
+export async function requestOtp(identifier: string): Promise<OtpRequestResponse> {
+  return publicPost<OtpRequestResponse>('/auth/otp/request', { identifier });
+}
+
+/** `POST /auth/otp/verify`'s result: a `LoginResponse` plus whether the
+ * account still needs a first password. */
+export type OtpLoginResult = LoginResponse & {
+  needs_password: boolean;
+  password_required: boolean;
+};
+
+/**
+ * "Sign in with code", verify phase. Same membership-count contract as
+ * `login()`. `phone` is the legacy alias of `identifier` (the server accepts
+ * both) so older callers keep compiling.
  */
 export async function verifyOtp(
   queryClient: QueryClient,
-  input: { phone: string; otp: string },
-): Promise<LoginResponse> {
-  const result = await postAuthOtpVerify(input);
-  return adoptSession(queryClient, result);
+  input: { identifier?: string; phone?: string; otp: string },
+): Promise<OtpLoginResult> {
+  const { identifier, phone, otp } = input;
+  const result = await publicPost<OtpLoginResult>('/auth/otp/verify', {
+    identifier: identifier ?? phone,
+    otp,
+  });
+  await adoptSession(queryClient, result);
+  return result;
+}
+
+/** `POST /account/first-password` (bearer): 204, or 409 when a password
+ * already exists. */
+export async function setFirstPassword(password: string): Promise<void> {
+  await apiClient.post('/account/first-password', { password });
 }
 
 /**

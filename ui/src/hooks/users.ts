@@ -40,6 +40,8 @@ export interface UserListFilters {
   designation_id?: string;
   joined_from?: string;
   joined_to?: string;
+  /** [13.3] `former` lists members who left or were removed (restorable). */
+  membership?: 'current' | 'former';
   sort?: 'full_name' | 'email' | 'joined_at' | 'status';
   order?: 'asc' | 'desc';
   page?: number;
@@ -301,5 +303,29 @@ export function useRemoveMember() {
       void queryClient.invalidateQueries({ queryKey: userKeys.lists() });
       queryClient.removeQueries({ queryKey: userKeys.detail(id) });
     },
+  });
+}
+
+/** [13.3] `POST /users/me/leave` — the caller drops their own membership of
+ * the active school (204). The session's membership list is stale afterwards,
+ * so the caller is expected to sign out / re-pick a school. */
+export function useLeaveSchool() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      await apiClient.post('/users/me/leave');
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: userKeys.all }),
+  });
+}
+
+/** [13.3] `POST /users/:id/restore` — re-activates a former member (204). */
+export function useRestoreMember() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      await apiClient.post(`/users/${id}/restore`);
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: userKeys.all }),
   });
 }

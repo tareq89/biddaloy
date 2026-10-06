@@ -2,9 +2,11 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { apiClient } from '../api/client';
 import { ApiError } from '../api/errors';
+import type { components } from '../api/schema';
 
 import { studentKeys } from './students';
 import type { BulkImportError, PreviewResult } from './use-bulk-upload-preview';
+import { userKeys } from './users';
 
 /**
  * Hand-declared to mirror the server's `BulkUploadPreviewRowDto` /
@@ -138,5 +140,73 @@ export function useCommitStudentUpload() {
         void queryClient.invalidateQueries({ queryKey: studentKeys.lists() });
       }
     },
+  });
+}
+
+export type StaffImportValidateResult = components['schemas']['StaffImportValidateResultDto'];
+export type StaffImportResult = components['schemas']['StaffImportResultDto'];
+export type StaffUploadSummary = Pick<StaffImportValidateResult, 'summary' | 'rows'>;
+
+/** [13.3] `POST /users/bulk-upload/validate` (multipart `file`) — staff import
+ * dry run; same `PreviewResult` shape as the student one. */
+export function useValidateStaffUpload() {
+  return useMutation({
+    mutationFn: async ({
+      file,
+      onProgress,
+    }: {
+      file: File;
+      onProgress?: (percent: number) => void;
+    }): Promise<PreviewResult<StaffUploadSummary>> => {
+      const formData = new FormData();
+      formData.append('file', file);
+      try {
+        const { data } = await apiClient.post<StaffImportValidateResult>(
+          '/users/bulk-upload/validate',
+          formData,
+          {
+            onUploadProgress: (event) => {
+              if (onProgress && event.total) {
+                onProgress(Math.round((event.loaded / event.total) * 100));
+              }
+            },
+          },
+        );
+        return {
+          staging_id: data.staging_id,
+          expires_at: data.expires_at,
+          errors: data.errors,
+          hard_error_count: data.hard_error_count,
+          summary: { summary: data.summary, rows: data.rows },
+        };
+      } catch (error) {
+        throw withHttpStatusShape(error);
+      }
+    },
+    retry: false,
+  });
+}
+
+/** [13.3] `POST /users/bulk-upload/commit`. The result carries `invite_failed`
+ * (rows created but whose invitation could not be sent). */
+export function useCommitStaffUpload() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      stagingId: string;
+      sendInvitations: boolean;
+    }): Promise<StaffImportResult> => {
+      try {
+        const res = await apiClient.post<StaffImportResult>('/users/bulk-upload/commit', {
+          staging_id: input.stagingId,
+          send_invitations: input.sendInvitations,
+        });
+        return res.data;
+      } catch (error) {
+        throw withHttpStatusShape(error);
+      }
+    },
+    retry: false,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: userKeys.lists() }),
   });
 }
