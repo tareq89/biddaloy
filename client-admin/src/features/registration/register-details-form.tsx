@@ -16,7 +16,7 @@ import {
   SelectValue,
 } from '@biddaloy/ui/components';
 import { useLocale, useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
-import { parsePhone, toLatinDigits } from '@biddaloy/ui/utils';
+import { detectLoginIdentifier, parsePhone, toLatinDigits } from '@biddaloy/ui/utils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
@@ -39,8 +39,8 @@ export interface RegisterDetailsFormProps {
   /** Values to keep (back from the code step) or prefill (social sign-up). */
   initialValues?: Partial<RegisterDetailsValues>;
   initialCountry?: string;
-  /** `values.phone` stays as typed (so Change number can restore it); `phone` is international
-   * (`+8801…`); `captchaToken` is never empty. */
+  /** `values.phone` stays as typed (so Change number can restore it); `phone` is what sign-in
+   * sends (`01…`), or the `+…` number as typed outside the region; `captchaToken` is never empty. */
   onSubmit: (values: RegisterDetailsValues, phone: string, captchaToken: string) => void;
   loading?: boolean;
   /** Bumped by the parent after a failed start: a Turnstile token is single use. */
@@ -104,10 +104,11 @@ export function RegisterDetailsForm({
   function handleValid(values: RegisterDetailsValues): void {
     const token = TURNSTILE_SITE_KEY ? captcha : NO_CAPTCHA_TOKEN;
     if (!token) return onCaptchaMissing();
-    const parsed = parsePhone(values.phone, regionConfig);
-    const phone = parsed.valid
-      ? `+${regionConfig.phone.country}${parsed.value}`
-      : toLatinDigits(values.phone).replace(/[\s().-]/g, '');
+    // A local number goes in the same form sign-in sends (`01…`): the server stores it as
+    // given and matches sign-in exactly, so `+8801…` here could never be signed in with.
+    const id = detectLoginIdentifier(values.phone, regionConfig);
+    const phone =
+      id.kind === 'phone' ? id.phone : toLatinDigits(values.phone).replace(/[\s().-]/g, '');
     onSubmit(values, phone, token);
   }
 

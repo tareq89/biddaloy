@@ -88,7 +88,7 @@ export const ServerError: Story = {
 };
 
 const codeArgs = {
-  sentTo: '+8801712345678',
+  sentTo: '01712345678',
   channel: 'sms' as const,
   resendIn: 60,
   resendNonce: 0,

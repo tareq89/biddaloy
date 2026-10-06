@@ -46,7 +46,7 @@ describe('RegisterDetailsForm', () => {
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
-  it('submits an international phone with a captcha token when everything is valid', async () => {
+  it('submits a local phone in the sign-in form, with a captcha token, when everything is valid', async () => {
     const { onSubmit, user } = setup({
       initialValues: {
         adminName: 'A',
@@ -60,8 +60,25 @@ describe('RegisterDetailsForm', () => {
     await user.click(await screen.findByRole('button', { name: 'Continue' }));
     await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
     expect(onSubmit.mock.calls[0]?.[0]).toMatchObject({ phone: '01712345678', country: 'BD' });
-    expect(onSubmit.mock.calls[0]?.[1]).toBe('+8801712345678');
+    // The form sign-in sends: a `+880…` here could never be signed in with.
+    expect(onSubmit.mock.calls[0]?.[1]).toBe('01712345678');
     expect(onSubmit.mock.calls[0]?.[2]).toBe('no-captcha');
+  });
+
+  it('sends a +880 number typed in full in the same local form', async () => {
+    const { onSubmit, user } = setup({
+      initialValues: {
+        adminName: 'A',
+        schoolName: 'S',
+        address: 'Addr',
+        email: 'a@b.co',
+        phone: '+880 1712-345678',
+        terms: true,
+      },
+    });
+    await user.click(await screen.findByRole('button', { name: 'Continue' }));
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled());
+    expect(onSubmit.mock.calls[0]?.[1]).toBe('01712345678');
   });
 
   it('accepts a +country number as typed', async () => {

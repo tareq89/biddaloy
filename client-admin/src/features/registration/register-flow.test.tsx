@@ -91,7 +91,7 @@ describe('RegisterFlow', () => {
     expect(bodies[0]).toMatchObject({
       admin_name: 'Rahim Uddin',
       country_code: 'BD',
-      phone: '+8801712345678',
+      phone: '01712345678',
       terms_accepted: true,
       captcha_token: 'no-captcha',
     });
@@ -169,6 +169,21 @@ describe('RegisterFlow', () => {
     await user.click(screen.getByRole('button', { name: 'Change number' }));
     expect((await screen.findByLabelText<HTMLInputElement>('Your name')).value).toBe('Rahim Uddin');
     expect(screen.getByLabelText<HTMLInputElement>('Mobile number').value).toBe('01712345678');
+  });
+
+  it('a resend after the sign-up expired goes back to the details, not round the loop', async () => {
+    useServer({ start: () => HttpResponse.json(START_FAST) });
+    server.use(http.post('/api/v1/auth/register/resend', () => errorBody(410)));
+    const { user } = setup();
+    await fillDetails(user);
+    await user.click(screen.getByRole('button', { name: 'Continue' }));
+    await user.click(
+      await screen.findByRole('button', { name: 'Send the code again' }, { timeout: 3000 }),
+    );
+
+    expect((await screen.findByRole('alert')).textContent).toMatch(/sign-up has expired/);
+    expect(screen.getByLabelText<HTMLInputElement>('Your name').value).toBe('Rahim Uddin');
+    expect(screen.getByRole('button', { name: 'Continue' })).toBeTruthy();
   });
 
   it.each([
