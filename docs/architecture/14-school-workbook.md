@@ -65,6 +65,31 @@ tenant data — it only stages a dry-run preview an admin reviews before
 typing the confirmation phrase. `POST /backup/restore` is the only route
 that touches real rows.
 
+## The starter workbook (Epic 13.0)
+
+A brand-new school does not need all the tabs. `GET /backup/template?variant=starter`
+returns a smaller blank file, and the onboarding wizard's Excel door uses it.
+
+```mermaid
+flowchart LR
+    S["GET /backup/template?variant=starter"] --> F["5 sheets: academic_years, classes,<br/>sections, subjects, fee_structures"]
+    F --> V["POST /backup/validate"] --> P["Preview"] --> R["POST /backup/restore"]
+```
+
+The five names are `STARTER_TABS` in
+`server/src/modules/workbook/template/template.constants.ts`. The full
+template (`variant=full`, the default) has every tab. A template file is
+`TEMPLATE` kind, so it can never delete anything by absence (see below).
+The wizard also enables "Create these" only when the preview has no updates or
+deletes. That check is in the client; a server-side flag is open as #1698.
+The starter file is also offered under Settings, Backup & restore.
+
+**Why `seat_limit`, `trial_ends_at` and `onboarding` are in no tab.** They are
+the destination school's commercial and setup state. A file must not be able
+to extend a trial, raise a seat limit or fake finished setup. The `school`
+tab leaves them out (`tabs/school/school.tab.ts`). Seats are still enforced
+when a restore adds students, see [22-onboarding.md](22-onboarding.md).
+
 ## The tabs (table lists the original 18; later epics add more)
 
 Applied (and exported) strictly in this order — a tab may only reference a
