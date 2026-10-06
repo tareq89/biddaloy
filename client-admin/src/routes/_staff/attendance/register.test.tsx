@@ -551,6 +551,46 @@ describe('/attendance/register month edit', () => {
     expect(screen.getByRole('button', { name: 'Save (0)' }).hasAttribute('disabled')).toBe(true);
   });
 
+  it('edit mode shows a skeleton, not the old grid, while a new month loads', async () => {
+    setDesktop(true);
+    useMatrix();
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    server.use(
+      // February only; January falls through to `useMatrix`'s handler.
+      http.get('/api/v1/attendance/sections/:sectionId/register-matrix', async ({ request }) => {
+        if (new URL(request.url).searchParams.get('month') !== '2026-02') return;
+        await gate;
+        return HttpResponse.json({
+          dates: dates31('2026-02').slice(0, 28),
+          versions: {},
+          rows: [registerRow({ marks: {} })],
+        });
+      }),
+    );
+    const { localeReady, router } = renderWithRouter(routeTree, {
+      initialEntries: [`${EDIT_URL}&edit=true`],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+    await localeReady;
+    await screen.findByRole('grid');
+
+    await act(() =>
+      router.navigate({
+        to: '/attendance/register',
+        search: { class_id: CLASS_ID, section_id: SECTION_ID, month: '2026-02', edit: true },
+      }),
+    );
+    // January's grid is gone while February loads: nothing can be edited onto it.
+    await waitFor(() => expect(screen.queryByRole('grid')).toBeNull());
+    expect(document.querySelector('[aria-busy="true"]')).not.toBeNull();
+
+    release();
+    expect(await screen.findByRole('grid')).toBeTruthy();
+  });
+
   it('asks before discarding changes on Cancel', async () => {
     setDesktop(true);
     useMatrix();

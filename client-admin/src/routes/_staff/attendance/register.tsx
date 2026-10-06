@@ -170,7 +170,12 @@ function RegisterPageContent() {
   const windowDays =
     settingsQuery.data?.attendance?.correctionWindowDays ?? DEFAULT_WINDOW_DAYS;
   const isMd = useIsMd();
-  const editing = search.edit === true && isMd && canMark && rows.length > 0;
+  // `keepPreviousData`: while a new month or section loads, `rows` is still the
+  // OLD one. In edit mode that would let a cell edit land on a date (or a
+  // student) that is no longer on screen, so edit mode waits for real data.
+  const loading =
+    matrixQuery.isPending || (search.edit === true && matrixQuery.isPlaceholderData);
+  const editing = search.edit === true && isMd && canMark && rows.length > 0 && !loading;
   const saveMatrix = useSaveRegisterMatrix(search.section_id ?? '', month);
 
   // Changed cells only. A ref mirrors it so the route blocker (and a save
@@ -239,7 +244,10 @@ function RegisterPageContent() {
       return;
     }
     setReasonError(false);
-    const days = changedDates.map((date) => ({
+    // Guard: only dates of the loaded month (a draft never outlives its month).
+    const days = changedDates
+      .filter((date) => matrix.dates.some((d) => d.date === date))
+      .map((date) => ({
       date,
       base_version: matrix.versions[date] ?? null,
       entries: matrix.rows.flatMap((row) => {
@@ -314,7 +322,7 @@ function RegisterPageContent() {
             id: 'edit',
             label: t('register.edit'),
             icon: <PencilIcon aria-hidden="true" />,
-            allowed: !editing && isMd && canMark && rows.length > 0,
+            allowed: !editing && !loading && isMd && canMark && rows.length > 0,
             onClick: () => void navigate({ search: (prev) => ({ ...prev, edit: true }) }),
           },
           {
@@ -392,7 +400,7 @@ function RegisterPageContent() {
           title={t('register.pickTitle')}
           explanation={t('register.selectPrompt')}
         />
-      ) : matrixQuery.isPending ? (
+      ) : loading ? (
         <div aria-busy="true" aria-live="polite">
           <span className="sr-only">{t('register.loading')}</span>
           <Skeleton className="h-64 w-full rounded-lg" />
@@ -488,6 +496,8 @@ function RegisterPageContent() {
             </div>
             {editing && matrix ? (
               <RegisterEditGrid
+                // A new section or month is a new grid: the focused cell resets too.
+                key={`${search.section_id}|${month}`}
                 matrix={matrix}
                 draft={draft}
                 onDraftChange={setDraft}
