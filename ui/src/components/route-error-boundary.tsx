@@ -28,10 +28,11 @@ import { useNavigate, type ErrorComponentProps } from '@tanstack/react-router';
 import { Lock, RefreshCw, WifiOff } from 'lucide-react';
 import * as React from 'react';
 
-import { getAccessToken } from '../api/auth-state';
+import { getAccessToken, setActiveRole, setActiveTenant } from '../api/auth-state';
 import { isTenantSuspendedError } from '../api/errors';
 import { captureRouteError, recordRouteChunkFallback } from '../api/sentry';
 import { decodeAccessTokenMemberships } from '../api/session';
+import { clearPersistedTenant } from '../api/tenant-storage';
 import { useTranslation } from '../i18n';
 import { isSafeSupportUrl } from '../utils/support-url';
 
@@ -309,6 +310,16 @@ function TrialEndedState({
   const { t: tAuth } = useTranslation('auth');
   const token = getAccessToken();
   const hasOtherSchools = token ? decodeAccessTokenMemberships(token).length > 1 : false;
+
+  // The expired school is still the active one, and the root guard sends anyone with an
+  // active school away from the picker. Leaving it first (here and in the reload hint)
+  // is what lets the picker open, and a reload lands on the picker too.
+  function chooseAnotherSchool(): void {
+    setActiveTenant(null);
+    setActiveRole(null);
+    clearPersistedTenant();
+    void navigate({ to: '/select-school' });
+  }
   return (
     <div className="flex flex-col items-center gap-2">
       <RouteStatusState
@@ -327,7 +338,7 @@ function TrialEndedState({
           </Button>
         )}
         {hasOtherSchools && (
-          <Button variant="outline" onClick={() => void navigate({ to: '/select-school' })}>
+          <Button variant="outline" onClick={chooseAnotherSchool}>
             {tAuth('selectSchool.chooseAnother')}
           </Button>
         )}
