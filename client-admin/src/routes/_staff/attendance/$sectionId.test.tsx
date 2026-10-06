@@ -727,6 +727,43 @@ describe('/attendance/$sectionId', () => {
       expect(await screen.findByText('Absent 1')).toBeTruthy();
     });
 
+    it('prefills when the period tab is picked from the day register', async () => {
+      mockPeriodRoutes();
+      // As in the app: the day register is saved (a session, marks), and the
+      // period register answers a little later than the tab click.
+      const day = registerBody();
+      server.use(
+        http.get('/api/v1/attendance/sections/section-1/register', async ({ request }) => {
+          if (!new URL(request.url).searchParams.has('period_no')) {
+            return HttpResponse.json({
+              ...day,
+              session: { ...day.session, id: 'day-session', version: 2 },
+              students: day.students.map((st, i) => ({
+                ...st,
+                status: i === 0 ? 'ABSENT' : 'PRESENT',
+              })),
+            });
+          }
+          await new Promise((resolve) => setTimeout(resolve, 100));
+          return HttpResponse.json(periodRegister('ABSENT'));
+        }),
+      );
+      renderWithRouter(routeTree, {
+        initialEntries: ['/attendance/section-1?date=2026-09-04'],
+        tenantId: 'tenant-1',
+        role: 'TEACHER',
+        locale: 'en',
+      });
+
+      const user = userEvent.setup();
+      await screen.findByText('Absent 1');
+      await user.click(await screen.findByRole('tab', { name: /P1 · Maths/ }));
+      expect(
+        await screen.findByText('Students absent or on leave today are already filled in.'),
+      ).toBeTruthy();
+      expect(await screen.findByText('Absent 1')).toBeTruthy();
+    });
+
     it('does not prefill over an existing local draft for that period', async () => {
       window.localStorage.setItem(
         'attendance-draft:tenant-1:section-1:2026-09-04:1',

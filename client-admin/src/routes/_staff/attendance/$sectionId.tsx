@@ -170,23 +170,31 @@ function SectionRegisterPage() {
   // simply gets no hint. `''` keeps the query disabled for everyone else.
   const settingsQuery = useSchoolSettings(canManageRoutines ? (tenantId ?? '') : '');
   const periodsEnabled = settingsQuery.data?.attendance?.periodAttendance?.enabled === true;
-  const seededKey = React.useRef<string | null>(null);
-  const [prefilledCount, setPrefilledCount] = React.useState(0);
-  const [draft, setDraft] = React.useState<Draft>({});
+  // The draft carries the storage key it was seeded for, so it is only ever
+  // persisted under that key. A ref here was not enough: React can re-mount
+  // this page keeping refs but resetting state (seen in the production build),
+  // and the empty initial draft was then written over the real one.
+  const [draftState, setDraftState] = React.useState<{ key: string | null; draft: Draft }>({
+    key: null,
+    draft: {},
+  });
+  const draft = draftState.draft;
+  const setDraft = (next: React.SetStateAction<Draft>) =>
+    setDraftState((current) => ({
+      key: current.key,
+      draft: typeof next === 'function' ? next(current.draft) : next,
+    }));
   const [confirmUnmarkedOpen, setConfirmUnmarkedOpen] = React.useState(false);
   const [conflict, setConflict] = React.useState<{
     currentRegister: Register | undefined;
     currentVersion: number | undefined;
   } | null>(null);
 
-  // Runs before the seed effect below: on a tab switch with the new tab's register already
-  // cached, the seed effect would otherwise set `seededKey` first and this one would write the
-  // previous tab's draft (still in state until the re-render) under the new tab's key.
   React.useEffect(() => {
-    // `seededKey` stops the previous tab's draft being written under the new tab's key.
-    if (registerQuery.data && seededKey.current === storageKey) writeDraft(storageKey, draft);
+    // A tab switch renders the previous tab's draft once under the new key: skip it.
+    if (registerQuery.data && draftState.key === storageKey) writeDraft(storageKey, draft);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- persist on every draft change, key derived above
-  }, [draft, storageKey]);
+  }, [draftState, storageKey]);
 
   // Seeds from a saved local draft first (survives a reload while
   // offline), falling back to the server's register — see the plan's
@@ -196,12 +204,7 @@ function SectionRegisterPage() {
     const saved = readDraft(storageKey);
     // D8: a fresh period register (no session yet, no local draft) starts from the suggestions.
     const prefill = !saved && period !== undefined && !registerQuery.data.session.id;
-    const seeded = saved ?? seedDraft(registerQuery.data, prefill);
-    seededKey.current = storageKey;
-    setPrefilledCount(
-      prefill ? registerQuery.data.students.filter((s) => s.suggested_status).length : 0,
-    );
-    setDraft(seeded);
+    setDraftState({ key: storageKey, draft: saved ?? seedDraft(registerQuery.data, prefill) });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- re-seed only on section/date/period change, not every draft edit
   }, [sectionId, date, period, registerQuery.data]);
 
@@ -269,6 +272,17 @@ function SectionRegisterPage() {
   }
 
   const students = registerQuery.data?.students ?? [];
+  // Derived, not stored: an unsaved period register whose roster still holds a
+  // day-register suggestion. Survives a re-seed from the local draft.
+  const prefilledCount =
+    period !== undefined && registerQuery.data && !registerQuery.data.session.id
+      ? students.filter(
+          // Same structural cast as `seedDraft`'s: the generated union vs the shared enum.
+          (s) =>
+            s.suggested_status &&
+            draft[s.student_id]?.status === (s.suggested_status as AttendanceStatus),
+        ).length
+      : 0;
   const counts = students.reduce(
     (acc, student) => {
       const status = draft[student.student_id]?.status ?? null;
