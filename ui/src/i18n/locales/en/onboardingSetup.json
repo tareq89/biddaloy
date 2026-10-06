@@ -25,7 +25,8 @@
   "footer": {
     "back": "Back",
     "next": "Next",
-    "later": "Do this later"
+    "later": "Do this later",
+    "finish": "Go to dashboard"
   },
   "guided": {
     "profile": {
@@ -64,5 +65,7 @@
     "preview": "This is what will be created",
     "confirm": "Create these",
     "done": "Your school has been set up."
-  }
+  },
+  "progress": "Step {{current}} of {{total}}",
+  "saveError": "We could not save that. Please try again."
 }
