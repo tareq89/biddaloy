@@ -438,6 +438,88 @@ export function useRegisterMatrix(sectionId: string | undefined, month: string) 
   return useQuery(registerMatrixQueryOptions(sectionId, month));
 }
 
+// [41.3.1] period list, subject summary, month-register save
+
+export type SectionPeriod = components['schemas']['PeriodDto'];
+export type SubjectSummary = components['schemas']['SubjectSummaryDto'];
+export type PutRegisterMatrixInput = components['schemas']['PutRegisterMatrixDto'];
+export type MatrixSaveResponse = components['schemas']['MatrixSaveResponseDto'];
+
+export function sectionPeriodsKey(sectionId: string | undefined, date: string) {
+  return [...attendanceKeys.all, 'periods', sectionId, date] as const;
+}
+
+export function sectionPeriodsQueryOptions(sectionId: string | undefined, date: string) {
+  return queryOptions({
+    queryKey: sectionPeriodsKey(sectionId, date),
+    queryFn: async ({ signal }) => {
+      const res = await apiClient.get<SectionPeriod[]>(
+        `/attendance/sections/${sectionId}/periods`,
+        { params: { date }, signal },
+      );
+      return res.data;
+    },
+    enabled: sectionId !== undefined,
+    retry: shouldRetryQuery,
+  });
+}
+
+export function useSectionPeriods(sectionId: string | undefined, date: string) {
+  return useQuery(sectionPeriodsQueryOptions(sectionId, date));
+}
+
+export function subjectSummaryKey(sectionId: string | undefined, from: string, to: string) {
+  return [...attendanceKeys.all, 'subject-summary', sectionId, from, to] as const;
+}
+
+export function subjectSummaryQueryOptions(
+  sectionId: string | undefined,
+  from: string,
+  to: string,
+) {
+  return queryOptions({
+    queryKey: subjectSummaryKey(sectionId, from, to),
+    queryFn: async ({ signal }) => {
+      const res = await apiClient.get<SubjectSummary>(
+        `/attendance/sections/${sectionId}/subject-summary`,
+        { params: { from, to }, signal },
+      );
+      return res.data;
+    },
+    enabled: sectionId !== undefined,
+    retry: shouldRetryQuery,
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useSubjectSummary(sectionId: string | undefined, from: string, to: string) {
+  return useQuery(subjectSummaryQueryOptions(sectionId, from, to));
+}
+
+/**
+ * `PUT /attendance/sections/:sectionId/register-matrix` — save a month
+ * edit. Online-only on purpose: not on the offline queue. A 409
+ * (`details.dates`) is thrown to the caller untouched.
+ * `input.client_request_id` is generated once per save attempt by the
+ * caller (`crypto.randomUUID()`), as for `useSubmitRegister`.
+ */
+export function useSaveRegisterMatrix(sectionId: string, month: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: PutRegisterMatrixInput) =>
+      (
+        await apiClient.put<MatrixSaveResponse>(
+          `/attendance/sections/${sectionId}/register-matrix`,
+          input,
+        )
+      ).data,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: registerMatrixKey(sectionId, month) });
+      void queryClient.invalidateQueries({ queryKey: attendanceKeys.lists() });
+    },
+  });
+}
+
 export interface LowAttendanceFilters {
   from: string;
   to: string;

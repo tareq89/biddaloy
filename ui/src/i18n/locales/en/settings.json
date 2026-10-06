@@ -180,7 +180,16 @@
     "description": "When a student counts as late or absent, and how the attendance rate is worked out.",
     "correctionWindowHelp": "Past attendance can be corrected for this many days.",
     "lowAttendanceHelp": "Below this a student is shown as low attendance.",
-    "confirmEnableNotificationTitle": "Turn on automatic absence messages?"
+    "confirmEnableNotificationTitle": "Turn on automatic absence messages?",
+    "shiftTimesLegend": "Times per shift",
+    "shiftTimesHelp": "Leave a row empty to use the school's times above.",
+    "shiftColumn": "Shift",
+    "shiftLateAfter": "Late after",
+    "shiftAbsentAfter": "Absent after",
+    "shiftBothRequired": "Fill both times or leave both empty.",
+    "periodLegend": "Period attendance",
+    "periodEnabled": "Take attendance in each period",
+    "periodHelp": "Teachers can mark each period of the routine. The daily percentage, fines and messages still use the whole-day register."
   },
   "signIn": {
     "legend": "Ways to sign in",

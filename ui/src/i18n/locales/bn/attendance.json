@@ -30,7 +30,21 @@
     "subtitle_other": "আজ {{date}} · {{count}}টি শাখা বাকি",
     "subtitleDone": "আজ {{date}} · সব শাখার উপস্থিতি জমা হয়েছে",
     "studentCount_one": "{{count}} জন শিক্ষার্থী",
-    "studentCount_other": "{{count}} জন শিক্ষার্থী"
+    "studentCount_other": "{{count}} জন শিক্ষার্থী",
+    "filterStatus": "অবস্থা",
+    "filterAll": "সব",
+    "filterPending": "বাকি",
+    "filterDone": "সম্পন্ন",
+    "dateLabel": "তারিখ",
+    "pendingCount": "{{total}}টির মধ্যে {{pending}}টি শাখা বাকি",
+    "classTeacher": "শ্রেণি-শিক্ষক",
+    "noClassTeacher": "নির্ধারিত নেই",
+    "stateNotStarted": "শুরু হয়নি",
+    "stateDraft": "খসড়া",
+    "stateFinalized": "চূড়ান্ত",
+    "allDoneTitle": "সব শাখার উপস্থিতি নেওয়া হয়েছে",
+    "holidayTitle": "এই দিন স্কুল বন্ধ",
+    "holidayBody": "উপস্থিতি নেওয়ার দরকার নেই।"
   },
   "mark": {
     "title": "{{className}} – {{sectionName}}",
@@ -145,7 +159,11 @@
     "subtitle": "শাখার মাসিক হিসাব, আর কার উপস্থিতি কম।",
     "selectSectionTitle": "শাখা বাছুন",
     "emptyTitle": "কোনো হিসাব নেই",
-    "flagsEmptyTitle": "এই মাসে কেউ সর্বনিম্নের নিচে নেই"
+    "flagsEmptyTitle": "এই মাসে কেউ সর্বনিম্নের নিচে নেই",
+    "viewSubjects": "বিষয়ভিত্তিক",
+    "subjectCell": "{{attended}}/{{held}}",
+    "subjectsEmptyTitle": "এই মাসে কোনো পিরিয়ড উপস্থিতি নেওয়া হয়নি",
+    "subjectsPickSection": "শাখা বাছুন"
   },
   "register": {
     "title": "উপস্থিতির খাতা",
@@ -182,6 +200,43 @@
     "legendUnmarked": "· = চিহ্নিত হয়নি",
     "scrollHint": "পুরো মাস দেখতে ছকটি পাশে সরান।",
     "emptyExplanation": "শিক্ষার্থী ভর্তি হলে খাতা এখানে দেখা যাবে।",
-    "unknownStatus": "অজানা"
+    "unknownStatus": "অজানা",
+    "edit": "সম্পাদনা",
+    "save": "সংরক্ষণ করুন ({{count}})",
+    "cancel": "বাতিল",
+    "editingSubtitle": "সম্পাদনা চলছে",
+    "changedCount": "{{count}}টি ঘর বদলেছে",
+    "newDayNotice": "{{dates}}-এর খাতা নতুন তৈরি হবে।",
+    "outsideWindowNotice": "{{dates}} সংশোধনের সময়সীমার বাইরে, তাই কারণ লিখতে হবে।",
+    "reasonLabel": "সংশোধনের কারণ",
+    "reasonHelp": "একটি কারণই সব পরিবর্তনের ইতিহাসে লেখা থাকবে।",
+    "reasonRequired": "অন্তত ৩ অক্ষরের কারণ লিখুন।",
+    "keysHint": "তীর-চিহ্নে ঘর বদলান · P উপস্থিত · A অনুপস্থিত · L বিলম্বে · E ছুটি · Ctrl+S সংরক্ষণ",
+    "cellLabel": "{{name}}, {{date}}: {{status}}",
+    "cellChanged": "বদলানো হয়েছে",
+    "saved": "{{count}} দিনের খাতা সংরক্ষিত হয়েছে।",
+    "conflictTitle": "কিছুই সংরক্ষণ হয়নি",
+    "conflictBody": "আপনি সম্পাদনা করার সময় {{dates}}-এর খাতা অন্য কেউ বদলেছেন।",
+    "reload": "মাসটি নতুন করে আনুন",
+    "discardTitle": "পরিবর্তন বাদ দেবেন?",
+    "discardBody": "{{count}}টি বদলানো ঘর হারিয়ে যাবে।",
+    "discardConfirm": "বাদ দিন",
+    "phoneNotice": "ফোনে পুরো মাস একসাথে সম্পাদনা করা যায় না। কোনো তারিখে টিপলে সেই দিনের খাতা খুলবে।",
+    "openDay": "{{date}}-এর খাতা খুলুন"
+  },
+  "dashboardCard": {
+    "title": "আজকের উপস্থিতি",
+    "pending": "{{total}}টির মধ্যে {{pending}}টি শাখা বাকি",
+    "allDone": "সব শাখার উপস্থিতি নেওয়া হয়েছে",
+    "holiday": "আজ স্কুল বন্ধ",
+    "open": "বাকি শাখা দেখুন"
+  },
+  "period": {
+    "tabsLabel": "সারাদিন বা পিরিয়ড",
+    "wholeDay": "সারাদিন",
+    "tab": "{{name}} · {{subject}}",
+    "noRoutineHint": "রুটিন প্রকাশ করলে এখানে পিরিয়ড দেখা যাবে।",
+    "openRoutines": "রুটিন খুলুন",
+    "prefilledNotice": "আজ যারা অনুপস্থিত বা ছুটিতে, তাদের আগে থেকেই বসানো হয়েছে।"
   }
 }
