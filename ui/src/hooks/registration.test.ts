@@ -3,6 +3,7 @@ import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { clearAuthState, getAccessToken } from '../api/auth-state';
+import { RateLimitedError } from '../api/errors';
 import { loginResponseFactory } from '../test/msw/handlers/auth';
 import { server } from '../test/msw/server';
 import { apiErrorBody } from '../test/msw/support';
@@ -48,6 +49,17 @@ describe('startRegistration', () => {
     );
 
     await expect(startRegistration(START)).rejects.toMatchObject({ statusCode: 409 });
+  });
+
+  it('maps a 429 to RateLimitedError', async () => {
+    server.use(
+      http.post(
+        '/api/v1/auth/register/start',
+        () => new HttpResponse(null, { status: 429, headers: { 'retry-after': '30' } }),
+      ),
+    );
+
+    await expect(startRegistration(START)).rejects.toBeInstanceOf(RateLimitedError);
   });
 });
 
