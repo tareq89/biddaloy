@@ -56,7 +56,7 @@ describe('PeopleStep', () => {
     expect(hrefs).toEqual([
       '/students/new?from=welcome',
       '/students/import?from=welcome',
-      '/staff?add=1&from=welcome',
+      '/staff?new=1&from=welcome',
       '/staff/import?from=welcome',
     ]);
     expect(screen.getByText(/People › Students and People › Staff/)).toBeTruthy();
@@ -84,5 +84,16 @@ describe('PeopleStep', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Download sample file' }));
     expect(students).toHaveBeenCalledOnce();
     expect(screen.getAllByRole('button', { name: 'Download sample file' })).toHaveLength(1);
+  });
+});
+
+describe('PeopleStep staff link', () => {
+  it('opens /staff with the search key the staff route honours', async () => {
+    mockStatus();
+    const { router } = renderStep();
+    const links = await screen.findAllByRole('link');
+    await userEvent.click(links[2]!);
+    expect(router.state.location.pathname).toBe('/staff');
+    expect(router.state.location.search).toMatchObject({ new: 1, from: 'welcome' });
   });
 });

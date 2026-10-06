@@ -24,7 +24,7 @@ export async function downloadStaffTemplate(): Promise<void> {
   const tStaff = i18n.getFixedT(null, 'staff');
   const header = STAFF_COLUMNS.map((column) => t(`columns.${column}.label`));
   const rows = [
-    ['Rahim Uddin', '01712345678', '', tStaff(`roles.${UserRole.TEACHER}`), 'Assistant Teacher'],
+    ['Rahim Uddin', '+8801712345678', '', tStaff(`roles.${UserRole.TEACHER}`), 'Assistant Teacher'],
     ['Karim Hossain', '', 'karim@example.com', tStaff(`roles.${UserRole.ACCOUNTANT}`), ''],
   ];
   downloadCsv('staff-import-template.csv', [header, ...rows]);
