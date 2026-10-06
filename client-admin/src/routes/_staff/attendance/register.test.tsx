@@ -1,9 +1,8 @@
-import { toast } from '@biddaloy/ui/components';
 import { REGION_BD_EN } from '@biddaloy/ui/i18n';
 import { cleanupTestState, renderWithRouter, server, userEvent } from '@biddaloy/ui/test';
 import { act, screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 
 import { routeTree } from '../../../routeTree.gen';
 
@@ -487,9 +486,8 @@ describe('/attendance/register month edit', () => {
     expect(screen.queryByText(/outside the correction window/)).toBeNull();
   });
 
-  it('a 403 ATTENDANCE_WINDOW_CLOSED says the day can no longer be edited, not "write a reason"', async () => {
+  it('a 403 ATTENDANCE_WINDOW_CLOSED names the days and can drop them from the draft', async () => {
     setDesktop(true);
-    const toastSpy = vi.spyOn(toast, 'error').mockImplementation(() => '');
     useMatrix(() =>
       HttpResponse.json(
         {
@@ -511,13 +509,46 @@ describe('/attendance/register month edit', () => {
     await user.type(screen.getByLabelText(/Reason for correction/), 'Paper register');
     await user.click(screen.getByRole('button', { name: 'Save (1)' }));
 
-    await waitFor(() =>
-      expect(toastSpy).toHaveBeenCalledWith(
-        'This register is outside the correction window and can no longer be edited here.',
+    const dialog = await screen.findByRole('dialog', { name: 'Nothing was saved' });
+    expect(
+      within(dialog).getByText(/can only be changed by someone who can correct attendance/)
+        .textContent,
+    ).toContain('2026');
+    // Not "write a reason": no reason can fix a missing permission.
+    expect(screen.queryByRole('alert')).toBeNull();
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Remove these days from my changes' }),
+    );
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(screen.getByRole('button', { name: 'Save (0)' }).hasAttribute('disabled')).toBe(true);
+  });
+
+  it('a 422 ATTENDANCE_MATRIX_LOCKED_DATE says the day cannot be marked, not "someone changed"', async () => {
+    setDesktop(true);
+    useMatrix(() =>
+      HttpResponse.json(
+        {
+          statusCode: 422,
+          message: 'locked',
+          timestamp: new Date().toISOString(),
+          path: '/attendance/sections/x/register-matrix',
+          requestId: 'req-1',
+          details: { code: 'ATTENDANCE_MATRIX_LOCKED_DATE', dates: ['2026-01-01'] },
+        },
+        { status: 422 },
       ),
     );
-    expect(screen.queryByRole('alert')).toBeNull();
-    toastSpy.mockRestore();
+    const user = userEvent.setup();
+    await openEditor();
+    await user.click(await screen.findByRole('button', { name: 'Edit' }));
+    (await screen.findByRole('gridcell', { name: /Karim Rahman, .*: Present/ })).focus();
+    await user.keyboard('a');
+    await user.type(screen.getByLabelText(/Reason for correction/), 'Paper register');
+    await user.click(screen.getByRole('button', { name: 'Save (1)' }));
+
+    const dialog = await screen.findByRole('dialog', { name: 'Nothing was saved' });
+    expect(within(dialog).getByText(/cannot be marked/)).toBeTruthy();
+    expect(within(dialog).queryByText(/while you were editing/)).toBeNull();
   });
 
   it('shows the conflicting dates, saves nothing, and Reload keeps edit mode with an empty draft', async () => {
@@ -548,6 +579,15 @@ describe('/attendance/register month edit', () => {
     await user.click(screen.getByRole('button', { name: 'Reload the month' }));
     await waitFor(() => expect(screen.queryByText('Nothing was saved')).toBeNull());
     expect(screen.getByRole('grid')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Save (0)' }).hasAttribute('disabled')).toBe(true);
+
+    // Esc on a conflict reloads too: the stale draft never survives a dismiss.
+    (await screen.findByRole('gridcell', { name: /Karim Rahman, .*: Present/ })).focus();
+    await user.keyboard('a');
+    await user.click(screen.getByRole('button', { name: 'Save (1)' }));
+    expect(await screen.findByText('Nothing was saved')).toBeTruthy();
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByText('Nothing was saved')).toBeNull());
     expect(screen.getByRole('button', { name: 'Save (0)' }).hasAttribute('disabled')).toBe(true);
   });
 
