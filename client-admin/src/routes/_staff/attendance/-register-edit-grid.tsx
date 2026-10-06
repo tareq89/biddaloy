@@ -195,12 +195,9 @@ export function RegisterEditGrid({
   };
 
   return (
-    <div
-      role="region"
-      aria-label={caption}
-      className="relative w-full overflow-x-auto"
-      // The grid itself is the tab stop (roving tabindex); the wrapper only scrolls.
-    >
+    // The grid itself is the tab stop (roving tabindex) and carries the name;
+    // the wrapper only scrolls, so it is not a second named region.
+    <div className="relative w-full overflow-x-auto">
       <table
         ref={gridRef}
         role="grid"
@@ -223,6 +220,23 @@ export function RegisterEditGrid({
                 <span className="sr-only">{formatDate(date.date, regionConfig)}</span>
               </th>
             ))}
+            {/* Same totals as the view matrix, read-only: the SAVED counts, so the
+                layout does not jump and the paper register can be checked. */}
+            <th scope="col" className="h-9 border-s border-border-subtle px-2 text-end font-medium">
+              {t('register.totalPresent')}
+            </th>
+            <th scope="col" className="h-9 px-2 text-end font-medium">
+              {t('register.totalAbsent')}
+            </th>
+            <th scope="col" className="h-9 px-2 text-end font-medium">
+              {t('register.totalLate')}
+            </th>
+            <th scope="col" className="h-9 px-2 text-end font-medium">
+              {t('register.totalLeave')}
+            </th>
+            <th scope="col" className="h-9 px-2 text-end font-medium">
+              {t('register.totalPercentage')}
+            </th>
           </tr>
         </thead>
         <tbody className="divide-y divide-border-subtle">
@@ -269,7 +283,7 @@ export function RegisterEditGrid({
                     onFocus={() => setActive({ r, c })}
                     onKeyDown={(e) => onCellKeyDown(e, r, c)}
                     onClick={() => onCellClick(r, c)}
-                    className={`h-9 min-w-8 cursor-pointer text-center select-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring ${toneClass(status)} ${
+                    className={`h-9 min-w-8 text-center select-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring ${toneClass(status)} ${
                       changed ? 'ring-2 ring-primary ring-inset' : ''
                     }`}
                   >
@@ -277,6 +291,23 @@ export function RegisterEditGrid({
                   </td>
                 );
               })}
+              <td role="gridcell" className="h-9 border-s border-border-subtle px-2 text-end">
+                {formatNumber(row.summary.present_days, regionConfig)}
+              </td>
+              <td role="gridcell" className="h-9 px-2 text-end">
+                {formatNumber(row.summary.absent_days, regionConfig)}
+              </td>
+              <td role="gridcell" className="h-9 px-2 text-end">
+                {formatNumber(row.summary.late_days, regionConfig)}
+              </td>
+              <td role="gridcell" className="h-9 px-2 text-end">
+                {formatNumber(row.summary.leave_days, regionConfig)}
+              </td>
+              <td role="gridcell" className="h-9 px-2 text-end">
+                {row.summary.attendance_percentage === null
+                  ? '—'
+                  : `${formatNumber(row.summary.attendance_percentage, regionConfig)}%`}
+              </td>
             </tr>
           ))}
         </tbody>
