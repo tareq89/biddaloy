@@ -30,7 +30,21 @@
     "subtitle_other": "Today, {{date}} · {{count}} sections left",
     "subtitleDone": "Today, {{date}} · every section is submitted",
     "studentCount_one": "{{count}} student",
-    "studentCount_other": "{{count}} students"
+    "studentCount_other": "{{count}} students",
+    "filterStatus": "Status",
+    "filterAll": "All",
+    "filterPending": "Pending",
+    "filterDone": "Done",
+    "dateLabel": "Date",
+    "pendingCount": "{{pending}} of {{total}} sections pending",
+    "classTeacher": "Class teacher",
+    "noClassTeacher": "Not assigned",
+    "stateNotStarted": "Not started",
+    "stateDraft": "Draft",
+    "stateFinalized": "Finalized",
+    "allDoneTitle": "All sections are marked",
+    "holidayTitle": "School is closed on this day",
+    "holidayBody": "No attendance is needed."
   },
   "mark": {
     "title": "{{className}} – {{sectionName}}",
@@ -145,7 +159,11 @@
     "subtitle": "A section's month at a glance, and who is falling behind.",
     "selectSectionTitle": "Pick a section",
     "emptyTitle": "Nothing to show",
-    "flagsEmptyTitle": "Nobody is below the minimum this month"
+    "flagsEmptyTitle": "Nobody is below the minimum this month",
+    "viewSubjects": "By subject",
+    "subjectCell": "{{attended}}/{{held}}",
+    "subjectsEmptyTitle": "No period attendance this month",
+    "subjectsPickSection": "Pick a section"
   },
   "register": {
     "title": "Attendance register",
@@ -182,6 +200,43 @@
     "legendUnmarked": "· = not marked",
     "scrollHint": "Swipe the table sideways to see the whole month.",
     "emptyExplanation": "The register appears once students are enrolled.",
-    "unknownStatus": "Unknown"
+    "unknownStatus": "Unknown",
+    "edit": "Edit",
+    "save": "Save ({{count}})",
+    "cancel": "Cancel",
+    "editingSubtitle": "Editing",
+    "changedCount": "{{count}} cells changed",
+    "newDayNotice": "The register for {{dates}} will be created.",
+    "outsideWindowNotice": "{{dates}} is outside the correction window, so a reason is needed.",
+    "reasonLabel": "Reason for correction",
+    "reasonHelp": "One reason is saved in the history of every change.",
+    "reasonRequired": "Write a reason of at least 3 letters.",
+    "keysHint": "Arrow keys move · P present · A absent · L late · E leave · Ctrl+S save",
+    "cellLabel": "{{name}}, {{date}}: {{status}}",
+    "cellChanged": "changed",
+    "saved": "Saved {{count}} days.",
+    "conflictTitle": "Nothing was saved",
+    "conflictBody": "Someone changed {{dates}} while you were editing.",
+    "reload": "Reload the month",
+    "discardTitle": "Discard your changes?",
+    "discardBody": "{{count}} changed cells will be lost.",
+    "discardConfirm": "Discard",
+    "phoneNotice": "A whole month cannot be edited on a phone. Tap a date to open that day's register.",
+    "openDay": "Open the register of {{date}}"
+  },
+  "dashboardCard": {
+    "title": "Today's attendance",
+    "pending": "{{pending}} of {{total}} sections pending",
+    "allDone": "All sections are marked",
+    "holiday": "School is closed today",
+    "open": "See pending sections"
+  },
+  "period": {
+    "tabsLabel": "Whole day or a period",
+    "wholeDay": "Whole day",
+    "tab": "{{name}} · {{subject}}",
+    "noRoutineHint": "Periods appear here once the routine is published.",
+    "openRoutines": "Open routines",
+    "prefilledNotice": "Students absent or on leave today are already filled in."
   }
 }

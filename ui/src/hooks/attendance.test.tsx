@@ -10,19 +10,26 @@ import { waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { ApiError } from '../api/errors';
 import { server } from '../test/msw/server';
 import { apiErrorBody } from '../test/msw/support';
 import { renderHookWithProviders } from '../test/render-hook-with-providers';
+import { createTestQueryClient } from '../test/render-with-providers';
 
 import {
   attendanceKeys,
+  registerMatrixKey,
   sectionRegisterKey,
   useCorrectRecord,
   useMySections,
   useRecordHistory,
+  useSaveRegisterMatrix,
+  useSectionPeriods,
   useSectionRegister,
+  useSubjectSummary,
   useSubmitRegister,
   type PutRegisterInput,
+  type PutRegisterMatrixInput,
 } from './attendance';
 
 const { enqueueMutationMock } = vi.hoisted(() => ({ enqueueMutationMock: vi.fn() }));
@@ -334,6 +341,93 @@ describe('useCorrectRecord', () => {
 
     result.current.mutate({ recordId: 'record-1', status: AttendanceStatus.PRESENT, reason: 'no' });
     await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(enqueueMutationMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('[41.3.1] period / subject-summary / month-save hooks', () => {
+  it('useSectionPeriods calls /periods with ?date=', async () => {
+    let url = '';
+    server.use(
+      http.get('/api/v1/attendance/sections/section-1/periods', ({ request }) => {
+        url = request.url;
+        return HttpResponse.json([]);
+      }),
+    );
+    const { result } = renderHookWithProviders(() => useSectionPeriods('section-1', '2026-09-04'), {
+      tenantId: 'tenant-1',
+    });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(new URL(url).searchParams.get('date')).toBe('2026-09-04');
+  });
+
+  it('useSubjectSummary calls /subject-summary with from and to', async () => {
+    let url = '';
+    server.use(
+      http.get('/api/v1/attendance/sections/section-1/subject-summary', ({ request }) => {
+        url = request.url;
+        return HttpResponse.json({ subjects: [], rows: [] });
+      }),
+    );
+    const { result } = renderHookWithProviders(
+      () => useSubjectSummary('section-1', '2026-09-01', '2026-09-30'),
+      { tenantId: 'tenant-1' },
+    );
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    const params = new URL(url).searchParams;
+    expect([params.get('from'), params.get('to')]).toEqual(['2026-09-01', '2026-09-30']);
+  });
+
+  const matrixInput = (): PutRegisterMatrixInput => ({
+    client_request_id: crypto.randomUUID(),
+    days: [
+      {
+        date: '2026-09-04',
+        base_version: 1,
+        entries: [{ student_id: 'student-1', status: AttendanceStatus.ABSENT }],
+      },
+    ],
+  });
+
+  it('useSaveRegisterMatrix PUTs, invalidates matrix + my-sections, never queues', async () => {
+    server.use(
+      http.put('/api/v1/attendance/sections/section-1/register-matrix', () =>
+        HttpResponse.json({ saved_dates: ['2026-09-04'], versions: { '2026-09-04': 2 } }),
+      ),
+    );
+    const queryClient = createTestQueryClient();
+    const spy = vi.spyOn(queryClient, 'invalidateQueries');
+    const { result } = renderHookWithProviders(
+      () => useSaveRegisterMatrix('section-1', '2026-09'),
+      { tenantId: 'tenant-1', queryClient },
+    );
+    result.current.mutate(matrixInput());
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    const keys = spy.mock.calls.map((c) => c[0]?.queryKey);
+    expect(keys).toContainEqual(registerMatrixKey('section-1', '2026-09'));
+    expect(keys).toContainEqual(attendanceKeys.lists());
+    expect(enqueueMutationMock).not.toHaveBeenCalled();
+  });
+
+  it('useSaveRegisterMatrix 409 reaches the caller with details.dates, not queued', async () => {
+    server.use(
+      http.put('/api/v1/attendance/sections/section-1/register-matrix', () =>
+        HttpResponse.json(
+          {
+            ...apiErrorBody(409, 'Changed', '/attendance/sections/section-1/register-matrix'),
+            details: { dates: ['2026-09-04'] },
+          },
+          { status: 409 },
+        ),
+      ),
+    );
+    const { result } = renderHookWithProviders(
+      () => useSaveRegisterMatrix('section-1', '2026-09'),
+      { tenantId: 'tenant-1' },
+    );
+    result.current.mutate(matrixInput());
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect((result.current.error as ApiError).details?.dates).toEqual(['2026-09-04']);
     expect(enqueueMutationMock).not.toHaveBeenCalled();
   });
 });
