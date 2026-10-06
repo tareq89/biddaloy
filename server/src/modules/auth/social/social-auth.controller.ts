@@ -1,4 +1,5 @@
 import {
+  Body,
   Controller,
   Delete,
   NotFoundException,
@@ -22,6 +23,8 @@ import { requestContext } from '../../../common/request-context.util';
 import { CurrentUser } from '../decorators/current-user.decorator';
 import { setRefreshCookie } from '../token-cookie';
 import {
+  FacebookDataDeletionDto,
+  FacebookDataDeletionResponseDto,
   SocialCallbackQueryDto,
   SocialIdentityDto,
   SocialLinkStartDto,
@@ -89,6 +92,20 @@ export class SocialAuthController {
       throw new NotFoundException('Unknown sign-in provider');
     }
     await this.identities.unlink(user.sub, provider, requestContext(request));
+  }
+
+  /** Meta calls this (form-encoded) when someone removes the app; the signature is the auth. */
+  @Post('facebook/data-deletion')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: STRICT_RATE_LIMIT })
+  @ApiOperation({ summary: "Meta's data-deletion callback: removes the Facebook identity only." })
+  @ApiOkResponse({ type: FacebookDataDeletionResponseDto })
+  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad signed_request.' })
+  facebookDataDeletion(
+    @Body() body: FacebookDataDeletionDto,
+    @Req() request: Request,
+  ): Promise<FacebookDataDeletionResponseDto> {
+    return this.social.facebookDataDeletion(body.signed_request, requestContext(request));
   }
 
   @Get(':provider/start')

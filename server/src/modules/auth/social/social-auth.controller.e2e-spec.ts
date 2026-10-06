@@ -3,6 +3,7 @@ import supertest = require('supertest');
 import cookieParser = require('cookie-parser');
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { createHmac } from 'crypto';
 import { DataSource } from 'typeorm';
 import { SocialProvider } from '@biddaloy/shared';
 import { AppModule } from '../../../app.module';
@@ -50,6 +51,7 @@ describe('SocialAuthController (e2e)', () => {
   // is append-only (the test reset truncates it between runs).
   const TWO_WAYS_ID = '00000000-0000-4000-8000-0000000013a3';
   const NO_SCHOOL_ID = '00000000-0000-4000-8000-0000000013a4';
+  const FB_DELETE_ID = '00000000-0000-4000-8000-0000000013a5';
   const SUB_PREFIX = 'e2e-social-';
 
   beforeAll(async () => {
@@ -76,7 +78,7 @@ describe('SocialAuthController (e2e)', () => {
   afterAll(async () => {
     await dataSource.query(`DELETE FROM user_identities WHERE subject LIKE $1`, [`${SUB_PREFIX}%`]);
     await dataSource.query(`DELETE FROM users WHERE id = ANY($1)`, [
-      [NOLOGIN_ID, ABROAD_ID, NO_SCHOOL_ID],
+      [NOLOGIN_ID, ABROAD_ID, NO_SCHOOL_ID, FB_DELETE_ID],
     ]);
     await app.close();
   });
@@ -129,6 +131,73 @@ describe('SocialAuthController (e2e)', () => {
     expect(list.body.providers).toEqual([]);
     await http().get(`${API}/auth/social/google/start?intent=login`).expect(404);
     facebook.configured = true;
+  });
+
+  describe('POST /auth/social/facebook/data-deletion', () => {
+    const FB_SECRET = 'e2e-facebook-secret';
+    const signedFor = (payload: Record<string, unknown>, secret = FB_SECRET) => {
+      const body = Buffer.from(JSON.stringify(payload)).toString('base64url');
+      return `${createHmac('sha256', secret).update(body).digest('base64url')}.${body}`;
+    };
+    const post = (signed: string | undefined) =>
+      http()
+        .post(`${API}/auth/social/facebook/data-deletion`)
+        .type('form')
+        .send(signed === undefined ? {} : { signed_request: signed });
+
+    beforeEach(() => {
+      process.env.FACEBOOK_OAUTH_CLIENT_SECRET = FB_SECRET;
+    });
+    afterAll(() => {
+      delete process.env.FACEBOOK_OAUTH_CLIENT_SECRET;
+    });
+
+    it('removes only the Facebook identity; the user and other identities stay', async () => {
+      await dataSource.query(
+        `INSERT INTO users (id, full_name, status) VALUES ($1, 'FB Delete', 'ACTIVE')
+         ON CONFLICT (id) DO NOTHING`,
+        [FB_DELETE_ID],
+      );
+      await dataSource.query(
+        `INSERT INTO user_identities (user_id, provider, subject)
+         VALUES ($1, 'google', $2), ($1, 'facebook', $3)`,
+        [FB_DELETE_ID, `${SUB_PREFIX}del-g`, `${SUB_PREFIX}del-f`],
+      );
+      const res = await post(
+        signedFor({ algorithm: 'HMAC-SHA256', user_id: `${SUB_PREFIX}del-f` }),
+      ).expect(200);
+      expect(res.body.confirmation_code).toEqual(expect.any(String));
+      expect(res.body.url).toContain(res.body.confirmation_code);
+
+      const left = await dataSource.query(
+        `SELECT provider FROM user_identities WHERE user_id = $1`,
+        [FB_DELETE_ID],
+      );
+      expect(left).toEqual([{ provider: 'google' }]);
+      const users = await dataSource.query(`SELECT id FROM users WHERE id = $1`, [FB_DELETE_ID]);
+      expect(users).toHaveLength(1);
+      // The deletion is audited.
+      const audit = await dataSource.query(
+        `SELECT 1 FROM audit_logs WHERE action = 'DELETE' AND entity_type = 'UserIdentity'
+         AND old_values->>'reason' = 'provider_data_deletion_callback'`,
+      );
+      expect(audit.length).toBeGreaterThan(0);
+    });
+
+    it('answers 200 for an unknown Facebook user (nothing to delete)', async () => {
+      await post(signedFor({ algorithm: 'HMAC-SHA256', user_id: 'nobody' })).expect(200);
+    });
+
+    it('400s a bad signature, a wrong algorithm, and a missing body', async () => {
+      await post(signedFor({ algorithm: 'HMAC-SHA256', user_id: 'x' }, 'wrong')).expect(400);
+      await post(signedFor({ algorithm: 'HMAC-SHA1', user_id: 'x' })).expect(400);
+      await post(undefined).expect(400);
+    });
+
+    it('404s when Facebook is not configured on this server', async () => {
+      delete process.env.FACEBOOK_OAUTH_CLIENT_SECRET;
+      await post(signedFor({ algorithm: 'HMAC-SHA256', user_id: 'x' })).expect(404);
+    });
   });
 
   it('lists configured providers', async () => {

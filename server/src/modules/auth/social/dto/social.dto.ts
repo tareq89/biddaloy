@@ -51,3 +51,18 @@ export class SocialCallbackQueryDto {
   @MaxLength(200)
   error?: string;
 }
+
+/** Meta posts this form body to the data-deletion callback. */
+export class FacebookDataDeletionDto {
+  @IsString()
+  @MaxLength(4000)
+  signed_request: string;
+}
+
+export class FacebookDataDeletionResponseDto {
+  @ApiProperty()
+  url: string;
+
+  @ApiProperty()
+  confirmation_code: string;
+}
