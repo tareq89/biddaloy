@@ -195,6 +195,58 @@ Things worth knowing:
   sends back as each day's next `base_version`. `GET .../register-matrix`
   returns the same `versions` map.
 
+## 3a. The check-list and the month edit screens
+
+### The pending check-list
+
+"Pending" means: **a section with students whose register for the day is not
+`FINALIZED`**. That includes a section nobody has touched ("Not started") and a
+`DRAFT` one (marks saved, not finalized). Sections with no students are left
+out of the list and the count.
+
+```mermaid
+flowchart LR
+    P["Ctrl+K → Today's pending attendance"] --> L["/attendance?status=pending"]
+    D["Dashboard card<br/>'3 of 8 pending'"] --> L
+    L --> R["/attendance/:sectionId<br/>(the register)"]
+```
+
+Both entry points show the **same number**, because both read
+`GET /attendance/my-sections` (an admin sees every section, a teacher only
+their own). Example: with 8 sections, 5 finalized and 1 draft, the header reads
+"3 of 8 sections pending" and the filtered list has 3 rows.
+
+### Editing a month from the grid
+
+`/attendance/register?edit=true` turns the month register into an editable grid
+(desktop only; it needs `ATTENDANCE_MARK`). The grid only remembers the cells
+you changed. Save sends **only the changed days**, in one request.
+
+```mermaid
+sequenceDiagram
+    participant U as Admin
+    participant G as Edit grid
+    participant A as API
+    U->>G: A on Roll 1, 6 Oct · L on Roll 2, 5 Oct
+    Note over G: "2 cells changed"<br/>reason needed only for a day<br/>outside the correction window
+    U->>G: Ctrl+S
+    G->>A: PUT register-matrix {days: [5 Oct, 6 Oct], reason}
+    alt every day still matches what was loaded
+        A-->>G: 200 saved_dates, new versions
+        G-->>U: "Saved 2 days", back to read-only
+    else someone saved 6 Oct meanwhile
+        A-->>G: 409 ATTENDANCE_MATRIX_CONFLICT {dates: [6 Oct]}
+        G-->>U: "Nothing was saved. Someone changed 6 Oct"
+    end
+```
+
+The save is all-or-nothing (see the API section above), so after a conflict
+**neither** day is written. The user reloads the month and edits again.
+
+Keyboard: arrows move, `P` / `A` / `L` / `E` set the status, `Space` flips
+present/absent, `Home` / `End` jump to the first / last open day, `Ctrl+S`
+saves, `Esc` cancels. The palette reaches it with **Edit monthly register**.
+
 ## 4. The correction rules
 
 | Situation                                                                 | Who                                                            | Requires                              |
@@ -286,6 +338,30 @@ It uses the school's `lateCountsAsPresent`. Denominator = `held`
 minus leave unless `leaveCountsAsWorkingDay`. A range over 400 days is refused
 (`422 SCHOOL_CALENDAR_RANGE_TOO_WIDE`), and a switched-off school gets
 `403 ATTENDANCE_PERIOD_DISABLED`.
+
+### The period switcher and the subject-wise report
+
+With the period switch on, the register screen shows a tab row above the
+roster: **Whole day** plus one tab per period of that date's routine
+(`Period 1 · Mathematics  8:00`). A period that already has a register carries
+a badge (Draft / Finalized). Pick a tab and the same roster now saves a period
+register; if the day register has absentees, the roster opens with them
+pre-marked and says so ("Students absent or on leave today are already filled
+in").
+
+`/attendance/reports` gets a **By subject** tab (visible when the switch is on).
+One column per subject, headed `Mathematics (8)` where 8 is `held`. Each cell is
+`attended/held`, with the percentage under it.
+
+```text
+Roll  Student   Mathematics (8)
+ 3    Rahim     7/8
+                87.5 %
+```
+
+Worked example: 8 Mathematics periods were held this month. Rahim was `PRESENT`
+in 6, `LATE` in 1 and `ABSENT` in 1. With `lateCountsAsPresent` on, he attended
+6 + 1 = 7 of 8, so 7 / 8 = **87.5 %**.
 
 ## 5. Working days and the percentage
 
@@ -666,9 +742,14 @@ The service loads at most the 15 newest sessions (the longest threshold).
 
 ## 11. What this epic deliberately did not build
 
-- **Period-level attendance UI** — API only for now. The routes, the rules in
-  [§4a](#4a-period-attendance) and the subject summary all work; no screen
-  uses them yet.
+- **A period check-list** — "Pending" ([§3a](#3a-the-check-list-and-the-month-edit-screens))
+  looks at whole-day registers only; there is no "which periods are still
+  unmarked today" list.
+- **A portal / student-detail subject view** — the subject-wise report is a staff
+  screen under `/attendance/reports`. Guardians and the student page do not
+  show per-subject attendance.
+- **Remind a teacher** — the check-list shows which sections are pending but
+  has no "nudge the teacher" action.
 - **Half-day and "excused" statuses** — only `PRESENT` / `ABSENT` / `LATE` /
   `LEAVE` exist. `LEAVE` is the only "not a plain absence" state.
 - **Approval workflows for corrections** — a correction with a reason is
