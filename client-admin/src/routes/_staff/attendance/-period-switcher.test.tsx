@@ -102,11 +102,10 @@ describe('PeriodSwitcher', () => {
       ),
     );
     renderSwitcher({ period: 3 });
-    await waitFor(() =>
-      expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual([
-        expect.stringContaining('Subject 3'),
-      ]),
-    );
+    await screen.findByRole('tab', { name: /Subject 3/ });
+    // Whole day shows while my-sections loads, so its absence means the final state.
+    await waitFor(() => expect(screen.queryByRole('tab', { name: 'Whole day' })).toBeNull());
+    expect(screen.getAllByRole('tab')).toHaveLength(1);
   });
 
   it('falls back to Whole day when the selected period is not in the list', async () => {
