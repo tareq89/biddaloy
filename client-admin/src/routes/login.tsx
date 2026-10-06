@@ -21,6 +21,7 @@ import {
 } from '@biddaloy/ui/components';
 import {
   login,
+  logout,
   requestOtp,
   socialProvidersQueryOptions,
   socialStartUrl,
@@ -189,6 +190,17 @@ function LoginPage() {
     });
   }
 
+  // Someone else's owed card (a shared PC) must not lock out the next person.
+  // `logout` clears the gate; the bump re-renders even when the URL is unchanged.
+  const [, rerender] = React.useReducer((n: number) => n + 1, 0);
+  function signOut(): void {
+    void logout(queryClient).finally(() => {
+      setPasswordStep(null);
+      rerender();
+      void navigate({ to: '/login', search: {}, replace: true });
+    });
+  }
+
   // A reload (or another tab) while a staff password is still owed, whatever the
   // URL says: `?step=password` from `_staff`, or `?mode=code` after the in-page step.
   const owedRoles = passwordStep ? null : getFirstPasswordGate();
@@ -199,6 +211,7 @@ function LoginPage() {
           roles={owedRoles}
           passwordRequired
           onDone={() => void navigate({ to: search.redirect ?? '/' })}
+          onSignOut={signOut}
         />
       </AuthLayout>
     );
@@ -211,6 +224,7 @@ function LoginPage() {
           roles={passwordStep.memberships.map((m) => m.role)}
           passwordRequired={passwordStep.password_required}
           onDone={() => handleSuccess(passwordStep)}
+          onSignOut={signOut}
         />
       </AuthLayout>
     );

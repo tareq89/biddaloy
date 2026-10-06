@@ -12,6 +12,7 @@ import {
   postAuthLogin,
   postAuthLogout,
   postAuthResetPassword,
+  postFirstPassword,
   publicPost,
   type ForgotPasswordResponse,
   type OtpRequestResponse,
@@ -200,10 +201,10 @@ export async function verifyOtp(
   return result;
 }
 
-/** `POST /account/first-password` (bearer): 204, or 409 when a password
- * already exists. */
+/** `POST /account/first-password`: 204, or 409 when a password already exists.
+ * Works with no active school (see `postFirstPassword`). */
 export async function setFirstPassword(password: string): Promise<void> {
-  await apiClient.post('/account/first-password', { password });
+  await postFirstPassword(password);
 }
 
 /**

@@ -26,7 +26,7 @@ import { ApiError, type ApiErrorBody, NoActiveTenantError, RateLimitedError } fr
  * ("v1"). Relative, not absolute: Vite's dev proxy forwards /api to the
  * local Nest server, and production serves everything same-origin — see
  * client-admin's vite.config.ts and server/src/main.ts's static-serving. */
-const API_BASE_URL = '/api/v1';
+export const API_BASE_URL = '/api/v1';
 
 /** [14.13.3, hardened per money-tier review item 7] A caller wanting to
  * target a tenant other than the ambient active one (e.g. a SUPER_ADMIN
@@ -178,22 +178,15 @@ function sessionAuthHeader(token: string | null): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-export async function getAuthSessions(): Promise<SessionListResponse> {
+/** Sends a tenant-agnostic bearer request (cookie included), retrying once
+ * with a refreshed token on a 401; every failure comes out as `toApiError`. */
+async function withSession<T>(send: (headers: Record<string, string>) => Promise<T>): Promise<T> {
   try {
-    const response = await axios.get<SessionListResponse>(`${API_BASE_URL}/auth/sessions`, {
-      withCredentials: true,
-      headers: sessionAuthHeader(getAccessToken()),
-    });
-    return response.data;
+    return await send(sessionAuthHeader(getAccessToken()));
   } catch (error) {
     if (axios.isAxiosError(error) && error.response?.status === 401) {
       try {
-        const token = await refreshAccessToken();
-        const response = await axios.get<SessionListResponse>(`${API_BASE_URL}/auth/sessions`, {
-          withCredentials: true,
-          headers: sessionAuthHeader(token),
-        });
-        return response.data;
+        return await send(sessionAuthHeader(await refreshAccessToken()));
       } catch (retryError) {
         throw toApiError(retryError);
       }
@@ -202,27 +195,32 @@ export async function getAuthSessions(): Promise<SessionListResponse> {
   }
 }
 
-export async function deleteAuthSession(id: string): Promise<void> {
-  try {
-    await axios.delete(`${API_BASE_URL}/auth/sessions/${id}`, {
-      withCredentials: true,
-      headers: sessionAuthHeader(getAccessToken()),
-    });
-  } catch (error) {
-    if (axios.isAxiosError(error) && error.response?.status === 401) {
-      try {
-        const token = await refreshAccessToken();
-        await axios.delete(`${API_BASE_URL}/auth/sessions/${id}`, {
+export async function getAuthSessions(): Promise<SessionListResponse> {
+  return withSession(
+    async (headers) =>
+      (
+        await axios.get<SessionListResponse>(`${API_BASE_URL}/auth/sessions`, {
           withCredentials: true,
-          headers: sessionAuthHeader(token),
-        });
-        return;
-      } catch (retryError) {
-        throw toApiError(retryError);
-      }
-    }
-    throw toApiError(error);
-  }
+          headers,
+        })
+      ).data,
+  );
+}
+
+export async function deleteAuthSession(id: string): Promise<void> {
+  await withSession((headers) =>
+    axios.delete(`${API_BASE_URL}/auth/sessions/${id}`, { withCredentials: true, headers }),
+  );
+}
+
+/** `POST /account/first-password` (bearer, tenant-agnostic): 204, or 409 when a
+ * password already exists. Not `apiClient`: right after a first code sign-in an
+ * account with 2+ schools has no active school yet, and `apiClient` would refuse
+ * to send the request at all (`NoActiveTenantError`). */
+export async function postFirstPassword(password: string): Promise<void> {
+  await withSession((headers) =>
+    axios.post(`${API_BASE_URL}/account/first-password`, { password }, { headers }),
+  );
 }
 
 /** `POST /auth/login`, bypassing `apiClient` for the same reason
