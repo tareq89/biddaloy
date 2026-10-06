@@ -643,4 +643,195 @@ describe('/attendance/$sectionId', () => {
     await user.keyboard('{Shift>}p{/Shift}');
     expect(stillUnmarked()).toBeTruthy();
   });
+
+  describe('[41.4.4] period switcher', () => {
+    const PERIODS = [
+      {
+        period_no: 1,
+        name: 'P1',
+        starts_at: '08:00',
+        ends_at: '08:45',
+        subject_id: 'sub-1',
+        subject_name: 'Maths',
+        teacher_names: [],
+        state: null,
+      },
+    ];
+
+    function mockPeriodRoutes(periods: unknown[] = PERIODS) {
+      server.use(
+        http.get('/api/v1/attendance/sections/section-1/periods', () => HttpResponse.json(periods)),
+      );
+    }
+
+    function periodRegister(suggested: string | null) {
+      const base = registerBody();
+      return {
+        ...base,
+        session: { ...base.session, period_no: 1 },
+        students: base.students.map((st, i) => ({
+          ...st,
+          suggested_status: i === 0 ? suggested : null,
+        })),
+      };
+    }
+
+    function mockRegisters(
+      periodBody: Record<string, unknown>,
+      requests: Array<string | null> = [],
+    ) {
+      server.use(
+        http.get('/api/v1/attendance/sections/section-1/register', ({ request }) => {
+          const url = new URL(request.url);
+          requests.push(url.searchParams.get('period_no'));
+          return HttpResponse.json(url.searchParams.has('period_no') ? periodBody : registerBody());
+        }),
+      );
+    }
+
+    it('choosing a period updates ?period= and loads that register', async () => {
+      mockPeriodRoutes();
+      const requests: Array<string | null> = [];
+      mockRegisters(periodRegister(null), requests);
+      renderWithRouter(routeTree, {
+        initialEntries: ['/attendance/section-1?date=2026-09-04'],
+        tenantId: 'tenant-1',
+        role: 'TEACHER',
+        locale: 'en',
+      });
+
+      const user = userEvent.setup();
+      await user.click(await screen.findByRole('tab', { name: /P1 · Maths/ }));
+      await waitFor(() => expect(requests).toContain('1'));
+      await user.click(screen.getByRole('tab', { name: 'Whole day' }));
+      await waitFor(() =>
+        expect(screen.getByRole('tab', { name: 'Whole day' }).getAttribute('aria-selected')).toBe(
+          'true',
+        ),
+      );
+    });
+
+    it('prefills from suggested_status and shows the notice once', async () => {
+      mockPeriodRoutes();
+      mockRegisters(periodRegister('ABSENT'));
+      renderWithRouter(routeTree, {
+        initialEntries: ['/attendance/section-1?date=2026-09-04&period=1'],
+        tenantId: 'tenant-1',
+        role: 'TEACHER',
+        locale: 'en',
+      });
+
+      expect(
+        await screen.findByText('Students absent or on leave today are already filled in.'),
+      ).toBeTruthy();
+      expect(await screen.findByText('Absent 1')).toBeTruthy();
+    });
+
+    it('does not prefill over an existing local draft for that period', async () => {
+      window.localStorage.setItem(
+        'attendance-draft:tenant-1:section-1:2026-09-04:1',
+        JSON.stringify({ 'student-2': { status: 'PRESENT', minutes_late: null } }),
+      );
+      mockPeriodRoutes();
+      mockRegisters(periodRegister('ABSENT'));
+      renderWithRouter(routeTree, {
+        initialEntries: ['/attendance/section-1?date=2026-09-04&period=1'],
+        tenantId: 'tenant-1',
+        role: 'TEACHER',
+        locale: 'en',
+      });
+
+      await screen.findByText('Rafi Ahmed');
+      await screen.findByText('Present 1');
+      expect(
+        screen.queryByText('Students absent or on leave today are already filled in.'),
+      ).toBeNull();
+      expect(screen.getByText('Absent 0')).toBeTruthy();
+    });
+
+    it('stores the day draft and the period draft under separate keys', async () => {
+      mockPeriodRoutes();
+      mockRegisters(periodRegister('ABSENT'));
+      renderWithRouter(routeTree, {
+        initialEntries: ['/attendance/section-1?date=2026-09-04&period=1'],
+        tenantId: 'tenant-1',
+        role: 'TEACHER',
+        locale: 'en',
+      });
+
+      await screen.findByText('Absent 1');
+      await waitFor(() =>
+        expect(
+          window.localStorage.getItem('attendance-draft:tenant-1:section-1:2026-09-04:1'),
+        ).toContain('ABSENT'),
+      );
+      expect(
+        window.localStorage.getItem('attendance-draft:tenant-1:section-1:2026-09-04'),
+      ).toBeNull();
+    });
+
+    it('a 403 ATTENDANCE_PERIOD_DISABLED drops ?period= and shows the day register', async () => {
+      mockPeriodRoutes([]);
+      server.use(
+        http.get('/api/v1/attendance/sections/section-1/register', ({ request }) =>
+          new URL(request.url).searchParams.has('period_no')
+            ? HttpResponse.json(
+                {
+                  statusCode: 403,
+                  message: 'Forbidden',
+                  timestamp: '2026-09-04T00:00:00Z',
+                  path: '/',
+                  requestId: 'r',
+                  details: { code: 'ATTENDANCE_PERIOD_DISABLED' },
+                },
+                { status: 403 },
+              )
+            : HttpResponse.json(registerBody()),
+        ),
+      );
+      renderWithRouter(routeTree, {
+        initialEntries: ['/attendance/section-1?date=2026-09-04&period=1'],
+        tenantId: 'tenant-1',
+        role: 'TEACHER',
+        locale: 'en',
+      });
+
+      expect(await screen.findByText('Rafi Ahmed')).toBeTruthy();
+    });
+
+    it('shows the routine hint to an admin with the switch on, never to a teacher', async () => {
+      mockPeriodRoutes([]);
+      mockRegisters(registerBody());
+      server.use(
+        http.get('/api/v1/schools/tenant-1/settings', () =>
+          HttpResponse.json({ attendance: { periodAttendance: { enabled: true } } }),
+        ),
+      );
+      renderWithRouter(routeTree, {
+        initialEntries: ['/attendance/section-1?date=2026-09-04'],
+        tenantId: 'tenant-1',
+        role: 'ADMIN',
+        locale: 'en',
+      });
+      expect(
+        await screen.findByText('Periods appear here once the routine is published.'),
+      ).toBeTruthy();
+      expect(screen.getByRole('link', { name: 'Open routines' }).getAttribute('href')).toBe(
+        '/routines',
+      );
+    });
+
+    it('does not show the routine hint to a teacher', async () => {
+      mockPeriodRoutes([]);
+      mockRegisters(registerBody());
+      renderWithRouter(routeTree, {
+        initialEntries: ['/attendance/section-1?date=2026-09-04'],
+        tenantId: 'tenant-1',
+        role: 'TEACHER',
+        locale: 'en',
+      });
+      await screen.findByText('Rafi Ahmed');
+      expect(screen.queryByText('Periods appear here once the routine is published.')).toBeNull();
+    });
+  });
 });

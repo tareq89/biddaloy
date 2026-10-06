@@ -34,6 +34,7 @@ import {
   useActiveTenant,
   useHasPermission,
   useOnline,
+  useSchoolSettings,
   useSectionRegister,
   useSubmitRegister,
   type PutRegisterInput,
@@ -52,6 +53,7 @@ import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loader
 
 import { ConflictDialog } from './-conflict-dialog';
 import { CorrectionDialog } from './-correction-dialog';
+import { PeriodSwitcher } from './-period-switcher';
 import { RecordHistoryPanel } from './-record-history-panel';
 import { RosterMarker, type Draft } from './-roster-marker';
 
@@ -69,7 +71,7 @@ const searchSchema = z.object({
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/)
     .catch(() => todayIso()),
-  period: z.coerce.number().int().min(1).max(12).optional().catch(undefined),
+  period: z.coerce.number().int().min(1).max(30).optional().catch(undefined),
 });
 
 export const Route = createFileRoute('/_staff/attendance/$sectionId')({
@@ -85,8 +87,14 @@ export const Route = createFileRoute('/_staff/attendance/$sectionId')({
   component: SectionRegisterPage,
 });
 
-function draftKey(tenantId: string | null, sectionId: string, date: string): string {
-  return `attendance-draft:${tenantId ?? 'no-tenant'}:${sectionId}:${date}`;
+function draftKey(
+  tenantId: string | null,
+  sectionId: string,
+  date: string,
+  period?: number,
+): string {
+  // The period suffix keeps a day draft and a period draft from overwriting each other.
+  return `attendance-draft:${tenantId ?? 'no-tenant'}:${sectionId}:${date}${period === undefined ? '' : `:${period}`}`;
 }
 
 function readDraft(key: string): Draft | null {
@@ -115,7 +123,7 @@ function clearDraft(key: string): void {
   }
 }
 
-function seedDraft(register: Register): Draft {
+function seedDraft(register: Register, prefill = false): Draft {
   const draft: Draft = {};
   for (const student of register.students) {
     draft[student.student_id] = {
@@ -123,7 +131,8 @@ function seedDraft(register: Register): Draft {
       // string-literal union (`openapi-typescript` doesn't reference
       // `@biddaloy/shared`'s enum), not `AttendanceStatus` itself —
       // structurally identical, so the cast is safe.
-      status: student.status as AttendanceStatus | null,
+      status: (student.status ??
+        (prefill ? student.suggested_status : null)) as AttendanceStatus | null,
       minutes_late: student.minutes_late,
     };
   }
@@ -154,7 +163,14 @@ function SectionRegisterPage() {
   const [correctionStudentId, setCorrectionStudentId] = React.useState<string | null>(null);
   const [historyStudentId, setHistoryStudentId] = React.useState<string | null>(null);
 
-  const storageKey = draftKey(tenantId, sectionId, date);
+  const storageKey = draftKey(tenantId, sectionId, date, period);
+  const canManageRoutines = useHasPermission(Permission.ROUTINE_MANAGE);
+  // Hint only: the settings read needs SETTINGS_MANAGE server-side, so a caller without it
+  // simply gets no hint. `''` keeps the query disabled for everyone else.
+  const settingsQuery = useSchoolSettings(canManageRoutines ? (tenantId ?? '') : '');
+  const periodsEnabled = settingsQuery.data?.attendance?.periodAttendance?.enabled === true;
+  const seededKey = React.useRef<string | null>(null);
+  const [prefilledCount, setPrefilledCount] = React.useState(0);
   const [draft, setDraft] = React.useState<Draft>({});
   const [confirmUnmarkedOpen, setConfirmUnmarkedOpen] = React.useState(false);
   const [conflict, setConflict] = React.useState<{
@@ -168,14 +184,35 @@ function SectionRegisterPage() {
   React.useEffect(() => {
     if (!registerQuery.data) return;
     const saved = readDraft(storageKey);
-    setDraft(saved ?? seedDraft(registerQuery.data));
+    // D8: a fresh period register (no session yet, no local draft) starts from the suggestions.
+    const prefill = !saved && period !== undefined && !registerQuery.data.session.id;
+    const seeded = saved ?? seedDraft(registerQuery.data, prefill);
+    seededKey.current = storageKey;
+    setPrefilledCount(
+      prefill ? registerQuery.data.students.filter((s) => s.suggested_status).length : 0,
+    );
+    setDraft(seeded);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- re-seed only on section/date/period change, not every draft edit
   }, [sectionId, date, period, registerQuery.data]);
 
   React.useEffect(() => {
-    if (registerQuery.data) writeDraft(storageKey, draft);
+    // `seededKey` stops the previous tab's draft being written under the new tab's key.
+    if (registerQuery.data && seededKey.current === storageKey) writeDraft(storageKey, draft);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- persist on every draft change, key derived above
   }, [draft, storageKey]);
+
+  // Stale tab after the tenant switch was turned off: fall back to the day register.
+  const loadError = registerQuery.error;
+  React.useEffect(() => {
+    if (
+      period !== undefined &&
+      loadError instanceof ApiError &&
+      loadError.statusCode === 403 &&
+      (loadError.details as { code?: string } | undefined)?.code === 'ATTENDANCE_PERIOD_DISABLED'
+    ) {
+      void navigate({ search: (prev) => ({ ...prev, period: undefined }), replace: true });
+    }
+  }, [loadError, period, navigate]);
 
   function handleUndo(previous: Draft) {
     setDraft(previous);
@@ -463,6 +500,26 @@ function SectionRegisterPage() {
           />
         </div>
       </header>
+
+      <PeriodSwitcher
+        sectionId={sectionId}
+        date={date}
+        period={period}
+        showRoutineHint={canManageRoutines && periodsEnabled}
+        onChange={(next, opts) =>
+          void navigate({
+            search: (prev) => ({ ...prev, period: next }),
+            replace: opts?.replace ?? false,
+          })
+        }
+      />
+
+      {prefilledCount > 0 && (
+        <p className="flex items-start gap-2 rounded-lg border border-border-subtle bg-muted p-4 text-text-secondary">
+          <Info aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+          {t('period.prefilledNotice')}
+        </p>
+      )}
 
       {!register.editable && (
         <p className="flex items-start gap-2 rounded-lg border border-border-subtle bg-muted p-4 text-text-secondary">
