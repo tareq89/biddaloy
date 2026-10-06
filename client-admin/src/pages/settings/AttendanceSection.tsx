@@ -31,7 +31,11 @@ import {
   SelectValue,
   TimeInput,
 } from '@biddaloy/ui/components';
-import { useUpdateSchoolSettings, type AttendancePolicySettings } from '@biddaloy/ui/hooks';
+import {
+  useShifts,
+  useUpdateSchoolSettings,
+  type AttendancePolicySettings,
+} from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { useFormShellMode, useWarnUnsavedChanges } from '@biddaloy/ui/shells';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -59,25 +63,46 @@ const WEEKDAY_LABEL_KEYS = [
   'attendance.weekday.6',
 ] as const;
 
-const attendanceSchema = z.object({
-  weeklyOff0: z.boolean(),
-  weeklyOff1: z.boolean(),
-  weeklyOff2: z.boolean(),
-  weeklyOff3: z.boolean(),
-  weeklyOff4: z.boolean(),
-  weeklyOff5: z.boolean(),
-  weeklyOff6: z.boolean(),
-  lateAfter: z.string().regex(HH_MM_PATTERN),
-  absentAfter: z.string().regex(HH_MM_PATTERN),
-  correctionWindowDays: latinBounded(0, 365),
-  lowAttendanceThresholdPercent: latinBounded(0, 100),
-  lateCountsAsPresent: z.boolean(),
-  leaveCountsAsWorkingDay: z.boolean(),
-  allowFutureDates: z.boolean(),
-  percentageDenominator: z.enum(['WORKING_DAYS', 'MARKED_DAYS']),
-  autoAbsentEnabled: z.boolean(),
-  autoAbsentCutoffTime: z.string().regex(HH_MM_PATTERN),
-});
+const attendanceSchema = z
+  .object({
+    weeklyOff0: z.boolean(),
+    weeklyOff1: z.boolean(),
+    weeklyOff2: z.boolean(),
+    weeklyOff3: z.boolean(),
+    weeklyOff4: z.boolean(),
+    weeklyOff5: z.boolean(),
+    weeklyOff6: z.boolean(),
+    lateAfter: z.string().regex(HH_MM_PATTERN),
+    absentAfter: z.string().regex(HH_MM_PATTERN),
+    correctionWindowDays: latinBounded(0, 365),
+    lowAttendanceThresholdPercent: latinBounded(0, 100),
+    lateCountsAsPresent: z.boolean(),
+    leaveCountsAsWorkingDay: z.boolean(),
+    allowFutureDates: z.boolean(),
+    percentageDenominator: z.enum(['WORKING_DAYS', 'MARKED_DAYS']),
+    autoAbsentEnabled: z.boolean(),
+    autoAbsentCutoffTime: z.string().regex(HH_MM_PATTERN),
+    periodEnabled: z.boolean(),
+    // Keyed by shift id; '' or missing = not set. Entries for deleted shifts stay in
+    // form state but are filtered out on save (see `handleSave`).
+    shiftTimes: z.record(
+      z.string(),
+      z.object({ lateAfter: z.string().optional(), absentAfter: z.string().optional() }),
+    ),
+  })
+  .superRefine((values, ctx) => {
+    // Exactly one of the pair is an error; the message is shown translated
+    // (`attendance.shiftBothRequired`), never this string.
+    for (const [id, row] of Object.entries(values.shiftTimes)) {
+      if (Boolean(row.lateAfter) !== Boolean(row.absentAfter)) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'both-required',
+          path: ['shiftTimes', id, row.lateAfter ? 'absentAfter' : 'lateAfter'],
+        });
+      }
+    }
+  });
 
 type AttendanceFormValues = z.infer<typeof attendanceSchema>;
 
@@ -114,6 +139,8 @@ const DEFAULT_VALUES: AttendanceFormValues = {
   percentageDenominator: 'WORKING_DAYS',
   autoAbsentEnabled: false,
   autoAbsentCutoffTime: '10:00',
+  periodEnabled: false,
+  shiftTimes: {},
 };
 
 function toFormValues(attendance: AttendancePolicySettings | undefined): AttendanceFormValues {
@@ -134,6 +161,13 @@ function toFormValues(attendance: AttendancePolicySettings | undefined): Attenda
     percentageDenominator: attendance.percentageDenominator,
     autoAbsentEnabled: attendance.autoAbsentNotification.enabled,
     autoAbsentCutoffTime: attendance.autoAbsentNotification.cutoffTime,
+    periodEnabled: attendance.periodAttendance?.enabled ?? false,
+    shiftTimes: Object.fromEntries(
+      (attendance.shiftTimes ?? []).map((row) => [
+        row.shiftId,
+        { lateAfter: row.lateAfter, absentAfter: row.absentAfter },
+      ]),
+    ),
   };
 }
 
@@ -156,6 +190,8 @@ export function AttendanceSection({ schoolId, attendance }: AttendanceSectionPro
   useWarnUnsavedChanges(form.formState.isDirty);
 
   const updateSettings = useUpdateSchoolSettings(schoolId);
+  const shiftsQuery = useShifts();
+  const shifts = shiftsQuery.data?.data ?? [];
 
   function handleAutoAbsentChange(checked: boolean, onChange: (value: boolean) => void) {
     if (checked) {
@@ -187,7 +223,19 @@ export function AttendanceSection({ schoolId, attendance }: AttendanceSectionPro
         enabled: values.autoAbsentEnabled,
         cutoffTime: values.autoAbsentCutoffTime,
       },
+      periodAttendance: { enabled: values.periodEnabled },
     };
+    // Only once the shift list has loaded: sending [] early would wipe the
+    // saved array (the server replaces it whole). Complete rows of shifts
+    // that still exist only.
+    if (shiftsQuery.data) {
+      policy.shiftTimes = shifts.flatMap((shift) => {
+        const row = values.shiftTimes[shift.id];
+        return row?.lateAfter && row.absentAfter
+          ? [{ shiftId: shift.id, lateAfter: row.lateAfter, absentAfter: row.absentAfter }]
+          : [];
+      });
+    }
     updateSettings.mutate(
       { version: 1, attendance: policy },
       { onSuccess: () => form.reset(values, { keepIsSubmitSuccessful: true }) },
@@ -257,7 +305,7 @@ export function AttendanceSection({ schoolId, attendance }: AttendanceSectionPro
   );
 
   const checkboxField = (
-    name: 'lateCountsAsPresent' | 'leaveCountsAsWorkingDay' | 'allowFutureDates',
+    name: 'lateCountsAsPresent' | 'leaveCountsAsWorkingDay' | 'allowFutureDates' | 'periodEnabled',
     label: string,
   ) => (
     <FormField
@@ -384,6 +432,69 @@ export function AttendanceSection({ schoolId, attendance }: AttendanceSectionPro
             )}
           />
           {timeField('autoAbsentCutoffTime', t('attendance.autoAbsentCutoffTime'))}
+        </div>
+
+        {shifts.length > 0 && (
+          <fieldset className="mt-6 border-t border-border-subtle pt-4">
+            <legend className="text-h3">{t('attendance.shiftTimesLegend')}</legend>
+            <p className="text-body-sm mt-1 text-text-secondary">
+              {t('attendance.shiftTimesHelp')}
+            </p>
+            <div className="mt-4 grid gap-4">
+              {shifts.map((shift) => (
+                <div
+                  key={shift.id}
+                  role="group"
+                  aria-label={shift.name}
+                  className="grid gap-2 md:grid-cols-3 md:items-start md:gap-4"
+                >
+                  <p className="text-label text-text-primary md:pt-2">{shift.name}</p>
+                  {(['lateAfter', 'absentAfter'] as const).map((key) => (
+                    <FormField
+                      key={key}
+                      control={form.control}
+                      name={`shiftTimes.${shift.id}.${key}`}
+                      render={({ field }) => {
+                        const label = t(
+                          key === 'lateAfter'
+                            ? 'attendance.shiftLateAfter'
+                            : 'attendance.shiftAbsentAfter',
+                        );
+                        return (
+                          <FormItem>
+                            <FormLabel htmlFor={`attendance-shift-${shift.id}-${key}`}>
+                              {label}
+                            </FormLabel>
+                            <TimeInput
+                              id={`attendance-shift-${shift.id}-${key}`}
+                              aria-label={`${shift.name} — ${label}`}
+                              value={field.value || undefined}
+                              onValueChange={field.onChange}
+                            />
+                            {form.formState.errors.shiftTimes?.[shift.id]?.[key] && (
+                              <p role="alert" className="text-caption text-destructive">
+                                {t('attendance.shiftBothRequired')}
+                              </p>
+                            )}
+                          </FormItem>
+                        );
+                      }}
+                    />
+                  ))}
+                </div>
+              ))}
+            </div>
+          </fieldset>
+        )}
+
+        <h3 className="mt-6 border-t border-border-subtle pt-4 text-h3">
+          {t('attendance.periodLegend')}
+        </h3>
+        <div className="mt-4 grid gap-1 md:grid-cols-2">
+          {checkboxField('periodEnabled', t('attendance.periodEnabled'))}
+          <p className="text-body-sm text-text-secondary md:col-span-2">
+            {t('attendance.periodHelp')}
+          </p>
         </div>
       </SettingsSection>
     </Form>
