@@ -1,4 +1,5 @@
 import { STAFF_ROLES, UserRole } from '@biddaloy/shared';
+import { getFirstPasswordGate } from '@biddaloy/ui/api';
 import {
   AccessDeniedState,
   AppHeader,
@@ -23,6 +24,7 @@ import { RequirePermission, RequireRole } from '@biddaloy/ui/routes';
 import {
   createFileRoute,
   Outlet,
+  redirect,
   useMatches,
   useNavigate,
   useRouterState,
@@ -74,6 +76,16 @@ import { useBreadcrumbs } from '../use-breadcrumbs';
  *      unexplained.
  */
 export const Route = createFileRoute('/_staff')({
+  // [13.5.3] A first code sign-in that owes a password (`password_required`)
+  // already holds a session; a reload or a new tab must land back on the
+  // "set a password" card, not in the app. Client-side only — see
+  // `first-password-gate.ts`.
+  beforeLoad: ({ location }) => {
+    if (getFirstPasswordGate()) {
+      // eslint-disable-next-line @typescript-eslint/only-throw-error
+      throw redirect({ to: '/login', search: { step: 'password', redirect: location.href } });
+    }
+  },
   // [8.14.5]: this pathless layout renders the sidebar/header chrome
   // every staff route sits inside — its own `nav` namespace strings
   // (brand, nav groups, sidebar item labels) render on every navigation,

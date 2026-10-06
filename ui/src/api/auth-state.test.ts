@@ -74,6 +74,8 @@ describe('auth-state never writes to localStorage or sessionStorage', () => {
     clearAuthState();
 
     expect(localStorageRemoveSpy).toHaveBeenCalledWith('biddaloy:activeTenant');
+    // [13.5.3]: and the first-password gate, so the next account does not inherit it.
+    expect(localStorageRemoveSpy).toHaveBeenCalledWith('biddaloy:firstPasswordRequired');
     expect(localStorageSpy).not.toHaveBeenCalled();
   });
 });

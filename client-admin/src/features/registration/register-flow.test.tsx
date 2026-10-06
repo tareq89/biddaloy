@@ -1,4 +1,5 @@
 /** [13.5.1] Details → code → password → done, MSW-backed. */
+import { clearFirstPasswordGate, getFirstPasswordGate } from '@biddaloy/ui/api';
 import { authHandlers, cleanupTestState, renderWithProviders, server } from '@biddaloy/ui/test';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -65,6 +66,7 @@ function setup(onDone = vi.fn()) {
 
 describe('RegisterFlow', () => {
   afterEach(async () => {
+    clearFirstPasswordGate();
     await cleanupTestState();
   });
 
@@ -80,9 +82,12 @@ describe('RegisterFlow', () => {
     await user.type(await screen.findByLabelText('New password'), 'A-strong-pass1!');
     await user.type(screen.getByLabelText('Confirm password'), 'A-strong-pass1!');
     expect(screen.queryByRole('button', { name: 'Not now' })).toBeNull();
+    // A reload now must come back to a password card (`_staff`'s gate).
+    expect(getFirstPasswordGate()).toEqual(['ADMIN']);
     await user.click(screen.getByRole('button', { name: 'Save and continue' }));
 
     await waitFor(() => expect(onDone).toHaveBeenCalledTimes(1));
+    expect(getFirstPasswordGate()).toBeNull();
     expect(bodies[0]).toMatchObject({
       admin_name: 'Rahim Uddin',
       country_code: 'BD',
@@ -90,6 +95,39 @@ describe('RegisterFlow', () => {
       terms_accepted: true,
       captcha_token: 'no-captcha',
     });
+  });
+
+  async function reachPassword(user: ReturnType<typeof userEvent.setup>) {
+    await fillDetails(user);
+    await user.click(screen.getByRole('button', { name: 'Continue' }));
+    await user.type(await screen.findByLabelText('Enter the code we sent'), '123456');
+    await user.keyboard('{Enter}');
+    await user.type(await screen.findByLabelText('New password'), 'A-strong-pass1!');
+    await user.type(screen.getByLabelText('Confirm password'), 'A-strong-pass1!');
+    await user.click(screen.getByRole('button', { name: 'Save and continue' }));
+  }
+
+  it('a weak password marks the failed rule on the checklist, with no generic banner', async () => {
+    useServer();
+    server.use(
+      http.post('/api/v1/account/first-password', () =>
+        errorBody(400, { code: 'PASSWORD_TOO_WEAK', failed: ['special'] }),
+      ),
+    );
+    const { onDone, user } = setup();
+    await reachPassword(user);
+    expect(await screen.findByText('4 of 5 rules met')).toBeTruthy();
+    expect(screen.queryByText('Something went wrong. Please try again.')).toBeNull();
+    expect(onDone).not.toHaveBeenCalled();
+  });
+
+  it('a 409 (password already set in another tab) just continues', async () => {
+    useServer();
+    server.use(http.post('/api/v1/account/first-password', () => errorBody(409)));
+    const { onDone, user } = setup();
+    await reachPassword(user);
+    await waitFor(() => expect(onDone).toHaveBeenCalledTimes(1));
+    expect(getFirstPasswordGate()).toBeNull();
   });
 
   it('shows "Not now" only when the password is optional', async () => {

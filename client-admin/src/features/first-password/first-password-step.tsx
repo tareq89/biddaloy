@@ -1,5 +1,5 @@
 import { audienceForRoles, type UserRole } from '@biddaloy/shared';
-import { ApiError } from '@biddaloy/ui/api';
+import { ApiError, clearFirstPasswordGate } from '@biddaloy/ui/api';
 import { SetPasswordForm, weakPasswordRules, type SignInFormError } from '@biddaloy/ui/components';
 import { setFirstPassword } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
@@ -21,12 +21,16 @@ export interface FirstPasswordStepProps {
  */
 export function FirstPasswordStep({ roles, passwordRequired, onDone }: FirstPasswordStepProps) {
   const { t } = useTranslation('auth');
+  const done = () => {
+    clearFirstPasswordGate();
+    onDone();
+  };
   const mutation = useMutation({
     mutationFn: setFirstPassword,
-    onSuccess: onDone,
+    onSuccess: done,
     // 409: a password already exists (another tab set it) — nothing left to do.
     onError: (error) => {
-      if (error instanceof ApiError && error.statusCode === 409) onDone();
+      if (error instanceof ApiError && error.statusCode === 409) done();
     },
   });
 

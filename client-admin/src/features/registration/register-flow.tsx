@@ -4,8 +4,18 @@
  * `/register` route mounts this inside `AuthLayout` and owns the redirect in
  * `onDone`; `verifyRegistration` has already adopted the session by then.
  */
-import { ApiError, RateLimitedError } from '@biddaloy/ui/api';
-import { SocialButtons, StepIndicator, type SignInFormError } from '@biddaloy/ui/components';
+import {
+  ApiError,
+  clearFirstPasswordGate,
+  RateLimitedError,
+  requireFirstPassword,
+} from '@biddaloy/ui/api';
+import {
+  SocialButtons,
+  StepIndicator,
+  weakPasswordRules,
+  type SignInFormError,
+} from '@biddaloy/ui/components';
 import {
   resendRegistrationCode,
   setFirstPassword,
@@ -140,16 +150,27 @@ export function RegisterFlow({
     onSuccess: (result) => {
       setVerified(result);
       setError(null);
-      if (result.needs_password) setStep('password');
-      else onDone();
+      if (!result.needs_password) return onDone();
+      // Survives a reload / new tab: `_staff` sends the user back to a password card.
+      if (result.password_required) requireFirstPassword(result.memberships.map((m) => m.role));
+      setStep('password');
     },
     onError: (e) => setError(errorKey(e, 'verify')),
   });
 
+  const passwordDone = () => {
+    clearFirstPasswordGate();
+    onDone();
+  };
   const savePassword = useMutation({
     mutationFn: (password: string) => setFirstPassword(password),
-    onSuccess: onDone,
-    onError: (e) => setError(errorKey(e, 'password')),
+    onSuccess: passwordDone,
+    onError: (e) => {
+      // 409: a password already exists (set in another tab) — nothing left to do.
+      if (e instanceof ApiError && e.statusCode === 409) return passwordDone();
+      // A weak password is shown on the checklist itself, not as a banner.
+      setError(weakPasswordRules(e) ? null : errorKey(e, 'password'));
+    },
   });
 
   const tr = t;
@@ -240,6 +261,7 @@ export function RegisterFlow({
         <RegisterPasswordStep
           loading={savePassword.isPending}
           error={passwordError}
+          failedRules={weakPasswordRules(savePassword.error)}
           onSubmit={(password) => savePassword.mutate(password)}
           {...(verified?.password_required === false ? { onSkip: onDone } : {})}
         />

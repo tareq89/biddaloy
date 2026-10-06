@@ -1,4 +1,5 @@
 /** Step 3: the first password. "Not now" only when the server said the account can go without one. */
+import type { PasswordRuleId } from '@biddaloy/shared';
 import { SetPasswordForm, type SignInFormError } from '@biddaloy/ui/components';
 import { useTranslation } from '@biddaloy/ui/i18n';
 
@@ -8,6 +9,8 @@ export interface RegisterPasswordStepProps {
   onSkip?: () => void;
   loading?: boolean;
   error?: SignInFormError | null;
+  /** Rules the server said the last submitted password broke. */
+  failedRules?: PasswordRuleId[] | undefined;
 }
 
 export function RegisterPasswordStep({
@@ -15,6 +18,7 @@ export function RegisterPasswordStep({
   onSkip,
   loading,
   error,
+  failedRules,
 }: RegisterPasswordStepProps) {
   const { t } = useTranslation('register');
   return (
@@ -25,6 +29,7 @@ export function RegisterPasswordStep({
       submitLabel={t('password.save')}
       skipLabel={t('password.skip')}
       onSubmit={onSubmit}
+      failedRules={failedRules}
       {...(onSkip ? { onSkip } : {})}
       {...(loading !== undefined ? { loading } : {})}
       {...(error !== undefined ? { error } : {})}

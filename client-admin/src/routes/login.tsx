@@ -1,4 +1,10 @@
-import { ApiError, NoMembershipsError, RateLimitedError } from '@biddaloy/ui/api';
+import {
+  ApiError,
+  getFirstPasswordGate,
+  NoMembershipsError,
+  RateLimitedError,
+  requireFirstPassword,
+} from '@biddaloy/ui/api';
 import {
   AuthLayout,
   NoticeBar,
@@ -69,6 +75,8 @@ const loginSearchSchema = z.object({
   // 13.4: the social callback sends a visitor back with `?social=not_linked`
   // when the provider account is not connected to any user.
   social: z.enum(['not_linked']).optional().catch(undefined),
+  // 13.5.3: `_staff` sends a session that still owes a first password here.
+  step: z.enum(['password']).optional().catch(undefined),
 });
 
 export const Route = createFileRoute('/login')({
@@ -157,8 +165,12 @@ function LoginPage() {
   const otpVerifyMutation = useMutation({
     mutationFn: (credentials: OtpSignInCredentials) => verifyOtp(queryClient, credentials),
     // A first code sign-in asks for a password in the same card before moving on.
-    onSuccess: (result) =>
-      result.needs_password ? setPasswordStep(result) : handleSuccess(result),
+    onSuccess: (result) => {
+      if (!result.needs_password) return handleSuccess(result);
+      // Survives a reload / new tab: `_staff` sends the user back here until it is set.
+      if (result.password_required) requireFirstPassword(result.memberships.map((m) => m.role));
+      setPasswordStep(result);
+    },
   });
 
   const [passwordStep, setPasswordStep] = React.useState<OtpLoginResult | null>(null);
@@ -175,6 +187,20 @@ function LoginPage() {
       }),
       replace: true,
     });
+  }
+
+  // A reload (or another tab) while a staff password is still owed.
+  const owedRoles = search.step === 'password' && !passwordStep ? getFirstPasswordGate() : null;
+  if (owedRoles) {
+    return (
+      <AuthLayout>
+        <FirstPasswordStep
+          roles={owedRoles}
+          passwordRequired
+          onDone={() => void navigate({ to: search.redirect ?? '/' })}
+        />
+      </AuthLayout>
+    );
   }
 
   if (passwordStep) {

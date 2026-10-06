@@ -39,6 +39,11 @@ export {
   setActiveTenant,
   subscribeAuthState,
 } from './auth-state';
+export {
+  clearFirstPasswordGate,
+  getFirstPasswordGate,
+  requireFirstPassword,
+} from './first-password-gate';
 export { clearApiCache } from './sw-cache';
 // [8.12.3]'s offline read cache. Only the pieces a consuming app or a
 // query hook actually needs are re-exported here — the database handle,
