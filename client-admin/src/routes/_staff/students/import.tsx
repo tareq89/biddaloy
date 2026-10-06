@@ -115,7 +115,7 @@ function ImportStudentsContent() {
 
   const navigate = useNavigate();
   const { t: tTrial } = useTranslation('trial');
-  const fromWelcome = (useSearch({ strict: false })).from === 'welcome';
+  const fromWelcome = useSearch({ strict: false }).from === 'welcome';
   const [upload, setUpload] = React.useState<
     BulkUploadPreviewController<StudentUploadSummary, BulkUploadResult> | undefined
   >(undefined);
@@ -273,12 +273,7 @@ function ImportStudentsContent() {
 export function ImportPreviewSummary({ result }: { result: PreviewResult<StudentUploadSummary> }) {
   const { t } = useTranslation('studentImport');
   const { t: tTrial } = useTranslation('trial');
-  // ponytail: `seats` is on the validate response but `useValidateStudentUpload`
-  // (ui/src/hooks/bulk-upload.ts) does not copy it into `summary` yet — read it
-  // defensively so this lights up as soon as that one-line pass-through lands.
-  const seats = (
-    result.summary as { seats?: { used: number; limit: number | null; new_rows: number } }
-  ).seats;
+  const seats = result.summary.seats;
   const clean = result.hard_error_count === 0 && result.errors.length === 0;
   return (
     <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
