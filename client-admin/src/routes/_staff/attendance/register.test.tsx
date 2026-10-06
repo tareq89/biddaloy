@@ -1,8 +1,9 @@
+import { toast } from '@biddaloy/ui/components';
 import { REGION_BD_EN } from '@biddaloy/ui/i18n';
 import { cleanupTestState, renderWithRouter, server, userEvent } from '@biddaloy/ui/test';
 import { act, screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { routeTree } from '../../../routeTree.gen';
 
@@ -432,6 +433,39 @@ describe('/attendance/register month edit', () => {
     await user.click(screen.getByRole('button', { name: 'Save (1)' }));
     await waitFor(() => expect(bodies).toHaveLength(2));
     expect(bodies[1]!.reason).toBe('Typed anyway');
+  });
+
+  it('a 403 ATTENDANCE_WINDOW_CLOSED says the day can no longer be edited, not "write a reason"', async () => {
+    setDesktop(true);
+    const toastSpy = vi.spyOn(toast, 'error').mockImplementation(() => '');
+    useMatrix(() =>
+      HttpResponse.json(
+        {
+          statusCode: 403,
+          message: 'closed',
+          timestamp: new Date().toISOString(),
+          path: '/attendance/sections/x/register-matrix',
+          requestId: 'req-1',
+          details: { code: 'ATTENDANCE_WINDOW_CLOSED', dates: ['2026-01-01'] },
+        },
+        { status: 403 },
+      ),
+    );
+    const user = userEvent.setup();
+    await openEditor();
+    await user.click(await screen.findByRole('button', { name: 'Edit' }));
+    (await screen.findByRole('gridcell', { name: /Karim Rahman, .*: Present/ })).focus();
+    await user.keyboard('a');
+    await user.type(screen.getByLabelText(/Reason for correction/), 'Paper register');
+    await user.click(screen.getByRole('button', { name: 'Save (1)' }));
+
+    await waitFor(() =>
+      expect(toastSpy).toHaveBeenCalledWith(
+        'This register is outside the correction window and can no longer be edited here.',
+      ),
+    );
+    expect(screen.queryByRole('alert')).toBeNull();
+    toastSpy.mockRestore();
   });
 
   it('shows the conflicting dates, saves nothing, and Reload keeps edit mode with an empty draft', async () => {

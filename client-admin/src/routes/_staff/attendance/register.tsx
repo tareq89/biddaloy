@@ -257,7 +257,8 @@ function RegisterPageContent() {
             setReasonAsked(true);
             setReasonError(true);
           } else if (code === 'ATTENDANCE_WINDOW_CLOSED') {
-            setReasonError(true);
+            // 403: the caller lacks ATTENDANCE_CORRECT — no reason can fix this.
+            toast.error(t('mark.readOnlyExplanation'));
           } else {
             toast.error(t('mark.errorToast'));
           }
