@@ -2,7 +2,10 @@ import type { SocialProvider } from '@biddaloy/shared';
 
 export interface SocialProfile {
   subject: string;
-  /** Only set when the provider vouches the address is verified. */
+  /**
+   * Provider-reported, for display only. Never treated as verified and never
+   * used for matching (D9): Facebook gives no verification flag.
+   */
   email: string | null;
   name: string | null;
 }

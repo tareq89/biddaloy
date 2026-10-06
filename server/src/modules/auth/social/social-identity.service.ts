@@ -81,28 +81,52 @@ export class SocialIdentityService {
 
   /**
    * Meta's data-deletion callback: removes only the `provider`+`subject`
-   * identity row(s). Never touches the user or any school data. Deletes by
-   * criteria (no load-mutate-save) so nothing else can be written.
+   * identity row(s). Never touches the user or any school data. One
+   * `DELETE ... RETURNING` (no load-mutate-save, no find-then-delete race),
+   * audited in the same transaction. Audited even when nothing matched, so
+   * every confirmation code handed back to Meta can be found later.
    */
   async deleteBySubject(
     provider: SocialProvider,
     subject: string,
+    confirmationCode: string,
     context: RequestContext,
   ): Promise<void> {
-    const rows = await this.identities.find({ where: { provider, subject } });
-    await this.identities.delete({ provider, subject });
-    for (const row of rows) {
-      await this.audit.record({
+    await this.identities.manager.transaction(async (manager) => {
+      const { raw } = await manager
+        .createQueryBuilder()
+        .delete()
+        .from(UserIdentity)
+        .where({ provider, subject })
+        .returning(['id', 'user_id'])
+        .execute();
+      const rows = raw as Array<{ id: string; user_id: string }>;
+      const entry = {
         action: AuditAction.DELETE,
-        entity_type: 'UserIdentity',
-        entity_id: row.id,
-        tenant_id: await this.authService.primaryTenantId(row.user_id),
+        entity_type: 'UserIdentity' as const,
         performed_by_user_id: null,
         ip_address: context.ip,
         user_agent: context.userAgent,
-        old_values: { provider, reason: 'provider_data_deletion_callback' },
-      });
-    }
+        old_values: {
+          provider,
+          reason: 'provider_data_deletion_callback',
+          confirmation_code: confirmationCode,
+        },
+      };
+      if (!rows.length) {
+        await this.audit.record({ ...entry, entity_id: null, tenant_id: null }, manager);
+      }
+      for (const row of rows) {
+        await this.audit.record(
+          {
+            ...entry,
+            entity_id: row.id,
+            tenant_id: await this.authService.primaryTenantId(row.user_id),
+          },
+          manager,
+        );
+      }
+    });
   }
 
   /** Refuses to remove the last way to sign in (409 LAST_SIGN_IN_METHOD). */

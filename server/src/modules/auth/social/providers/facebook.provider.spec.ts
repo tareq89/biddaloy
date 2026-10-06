@@ -71,7 +71,10 @@ describe('FacebookProvider', () => {
     const tokenUrl = new URL(fetchMock.mock.calls[0][0]);
     expect(tokenUrl.searchParams.get('code_verifier')).toBe('verifier');
     expect(tokenUrl.searchParams.get('client_secret')).toBe(SECRET);
-    const [, meInit] = fetchMock.mock.calls[1];
+    const [meUrl, meInit] = fetchMock.mock.calls[1];
+    expect(new URL(meUrl).searchParams.get('appsecret_proof')).toBe(
+      createHmac('sha256', SECRET).update('tok').digest('hex'),
+    );
     expect(meInit.headers.authorization).toBe('Bearer tok');
   });
 
@@ -94,7 +97,8 @@ describe('FacebookProvider', () => {
 });
 
 describe('verifySignedRequest', () => {
-  const good = { algorithm: 'HMAC-SHA256', user_id: 'fb-9' };
+  const now = () => Math.floor(Date.now() / 1000);
+  const good = { algorithm: 'HMAC-SHA256', user_id: 'fb-9', issued_at: now() };
 
   it('returns the user id for a good signature', () => {
     expect(verifySignedRequest(signed(good), SECRET)).toBe('fb-9');
@@ -123,12 +127,25 @@ describe('verifySignedRequest', () => {
     }
   });
 
+  it('rejects a signature with non-base64url characters even if it decodes to the right bytes', () => {
+    const [sig, body] = signed(good).split('.');
+    expect(() => verifySignedRequest(`${sig}=.${body}`, SECRET)).toThrow(BadRequestException);
+    expect(() => verifySignedRequest(`!${sig}.${body}`, SECRET)).toThrow(BadRequestException);
+  });
+
+  it('rejects a replayed (over a day old) or undated signed_request', () => {
+    const stale = signed({ ...good, issued_at: now() - 25 * 60 * 60 });
+    expect(() => verifySignedRequest(stale, SECRET)).toThrow(BadRequestException);
+    const undated = signed({ algorithm: 'HMAC-SHA256', user_id: 'fb-9' });
+    expect(() => verifySignedRequest(undated, SECRET)).toThrow(BadRequestException);
+  });
+
   it('rejects a validly signed payload that is not JSON or has no user_id', () => {
     const body = Buffer.from('not json').toString('base64url');
     const sig = createHmac('sha256', SECRET).update(body).digest('base64url');
     expect(() => verifySignedRequest(`${sig}.${body}`, SECRET)).toThrow(BadRequestException);
-    expect(() => verifySignedRequest(signed({ algorithm: 'HMAC-SHA256' }), SECRET)).toThrow(
-      BadRequestException,
-    );
+    expect(() =>
+      verifySignedRequest(signed({ algorithm: 'HMAC-SHA256', issued_at: now() }), SECRET),
+    ).toThrow(BadRequestException);
   });
 });
