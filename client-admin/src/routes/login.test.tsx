@@ -333,6 +333,57 @@ describe('/login', () => {
       expect(screen.queryByRole('heading', { name: 'Sign in' })).toBeNull();
     });
 
+    it('the owed card has a way out: signing out shows sign-in and drops the gate', async () => {
+      requireFirstPassword([UserRole.TEACHER]);
+      renderWithRouter(routeTree, { initialEntries: ['/login'], locale: 'en' });
+
+      expect(await screen.findByRole('heading', { name: 'Set a password' })).toBeTruthy();
+      await userEvent
+        .setup()
+        .click(screen.getByRole('button', { name: 'Sign in with another account' }));
+
+      expect(await screen.findByRole('heading', { name: 'Sign in' })).toBeTruthy();
+      expect(getFirstPasswordGate()).toBeNull();
+    });
+
+    it('staff in 2+ schools can set the owed password before any school is picked', async () => {
+      let auth: string | null = null;
+      server.use(
+        authHandlers.refreshFailure,
+        authHandlers.otpRequest,
+        http.post('/api/v1/auth/otp/verify', () =>
+          HttpResponse.json({
+            ...loginResponseFactory({
+              memberships: [
+                { tenantId: 't1', role: 'TEACHER', name: 'School One' } as never,
+                { tenantId: 't2', role: 'TEACHER', name: 'School Two' } as never,
+              ],
+            }),
+            needs_password: true,
+            password_required: true,
+          }),
+        ),
+        http.post('/api/v1/account/first-password', ({ request }) => {
+          auth = request.headers.get('Authorization');
+          return new HttpResponse(null, { status: 204 });
+        }),
+      );
+      const { router } = renderWithRouter(routeTree, {
+        initialEntries: ['/login?mode=code'],
+        locale: 'en',
+      });
+      await codeSignIn();
+
+      const user = userEvent.setup();
+      await user.type(await screen.findByLabelText('New password'), 'A-strong-pass1!');
+      await user.type(screen.getByLabelText('Confirm password'), 'A-strong-pass1!');
+      await user.click(screen.getByRole('button', { name: 'Set password' }));
+
+      await waitFor(() => expect(router.state.location.pathname).toBe('/select-school'));
+      expect(auth).toMatch(/^Bearer /);
+      expect(getFirstPasswordGate()).toBeNull();
+    });
+
     it('a leftover gate with no session shows sign-in, not the password card', async () => {
       requireFirstPassword([UserRole.TEACHER]);
       server.use(authHandlers.refreshFailure);

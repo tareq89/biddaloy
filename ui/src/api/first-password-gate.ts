@@ -41,7 +41,8 @@ export function requireFirstPassword(roles: UserRole[]): void {
 /**
  * The roles recorded by `requireFirstPassword`, or `null` when no password is
  * owed: nothing recorded, no session, or a record for another account (which
- * is dropped). A garbled value is dropped too.
+ * is dropped). A garbled value is dropped too. So a read can remove a stale
+ * record from storage; that is idempotent, so calling it during render is safe.
  */
 export function getFirstPasswordGate(): UserRole[] | null {
   let raw: string | null;

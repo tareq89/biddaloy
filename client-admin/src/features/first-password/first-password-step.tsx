@@ -12,6 +12,8 @@ export interface FirstPasswordStepProps {
   passwordRequired: boolean;
   /** Called after the password is saved (or skipped, or already existed). */
   onDone: () => void;
+  /** Required card only: the way out for someone who is not this account (shared PC). */
+  onSignOut?: () => void;
 }
 
 /**
@@ -19,7 +21,12 @@ export interface FirstPasswordStepProps {
  * (`needs_password`). Staff must set one (`passwordRequired`); everyone else
  * may skip.
  */
-export function FirstPasswordStep({ roles, passwordRequired, onDone }: FirstPasswordStepProps) {
+export function FirstPasswordStep({
+  roles,
+  passwordRequired,
+  onDone,
+  onSignOut,
+}: FirstPasswordStepProps) {
   const { t } = useTranslation('auth');
   const done = () => {
     clearFirstPasswordGate();
@@ -49,7 +56,11 @@ export function FirstPasswordStep({ roles, passwordRequired, onDone }: FirstPass
       error={error}
       failedRules={weakPasswordRules(mutation.error)}
       submitLabel={t('setPassword.submit')}
-      {...(passwordRequired ? {} : { onSkip: onDone, skipLabel: t('setPassword.skip') })}
+      {...(!passwordRequired
+        ? { onSkip: onDone, skipLabel: t('setPassword.skip') }
+        : onSignOut
+          ? { onSkip: onSignOut, skipLabel: t('schoolPicker.signOut') }
+          : {})}
     />
   );
 }
