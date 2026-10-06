@@ -25,22 +25,12 @@ import {
   PageHeader,
   type FilterFieldDescriptor,
 } from '@biddaloy/ui/shells';
-import { formatDate, parseDate, toIsoDate } from '@biddaloy/ui/utils';
+import { formatDate, parseDate, tenantTodayIso, toIsoDate } from '@biddaloy/ui/utils';
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import { CalendarCheck2, ChevronRight } from 'lucide-react';
 import { z } from 'zod';
 
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
-
-// `.toISOString()` is UTC — a teacher in Asia/Dhaka (UTC+6) opening this
-// list between 00:00 and 06:00 local time would get UTC's *previous*
-// calendar day, linking to yesterday's register while `TodayPill` still
-// shows the server-computed state for today. Local getters, matching
-// `register.tsx`/`reports.tsx`'s own `currentMonthIso()`.
-function todayIso(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-}
 
 const searchSchema = z.object({
   status: z.enum(['pending', 'done']).optional().catch(undefined),
@@ -80,7 +70,9 @@ function AttendanceListPage() {
   const { t } = useTranslation('attendance');
   const regionConfig = useTenantRegionConfig();
   const { status, date: chosenDate } = Route.useSearch();
-  const today = todayIso();
+  // The school's date, not the browser's (nor UTC's): the same "today" the
+  // server computed each section's state for, and the register page uses.
+  const today = tenantTodayIso(regionConfig);
   const date = chosenDate ?? today;
   const query = useMySections(chosenDate);
   const navigate = useNavigate({ from: Route.fullPath });
