@@ -34,6 +34,7 @@
  * renders as an em dash, never `0%`.
  */
 import { Permission } from '@biddaloy/shared';
+import { getActiveTenant } from '@biddaloy/ui/api';
 import {
   RoutePending,
   StatusBadge,
@@ -49,6 +50,7 @@ import {
   useHasPermission,
   useLowAttendance,
   useRegisterMatrix,
+  useSchoolSettings,
   type LowAttendanceFlag,
   type RegisterMatrixRow,
 } from '@biddaloy/ui/hooks';
@@ -72,6 +74,8 @@ import * as React from 'react';
 
 import { loadRouteNamespaces } from '../../../route-loaders';
 import { SendReminderDialog } from '../students/-send-reminder-dialog';
+
+import { SubjectSummaryTab } from './-subject-summary-tab';
 
 interface ReportsFilters {
   class_id?: string | undefined;
@@ -133,7 +137,18 @@ function ReportsPageContent() {
   const regionConfig = useRegionConfig();
   const [state, actions] = useListShellState();
   const filters = state.filters as ReportsFilters;
-  const view = filters.view === 'flags' ? 'flags' : 'summary';
+  // Tenant switch + low-attendance threshold, read the way AttendanceSection's
+  // page does: the active tenant's settings. Unreadable (no SETTINGS_MANAGE) =
+  // switch treated as off, so `?view=subjects` falls back to summary.
+  const settingsQuery = useSchoolSettings(getActiveTenant() ?? '');
+  const periodEnabled = settingsQuery.data?.attendance?.periodAttendance?.enabled === true;
+  const lowThreshold = settingsQuery.data?.attendance?.lowAttendanceThresholdPercent;
+  const view =
+    filters.view === 'flags'
+      ? 'flags'
+      : filters.view === 'subjects' && periodEnabled
+        ? 'subjects'
+        : 'summary';
   const month = filters.month ?? currentMonthIso();
   const { from, to } = monthToRange(month);
   // A free-text filter — reject anything that doesn't parse to a real
@@ -349,13 +364,17 @@ function ReportsPageContent() {
         label: section.section_name,
       })),
     },
-    {
-      kind: 'text',
-      key: 'threshold',
-      label: t('reports.thresholdLabel'),
-      placeholder: t('reports.thresholdPlaceholder'),
-      formatChip: (value) => formatNumber(Number(value), regionConfig),
-    },
+    ...(view === 'subjects'
+      ? []
+      : ([
+          {
+            kind: 'text',
+            key: 'threshold',
+            label: t('reports.thresholdLabel'),
+            placeholder: t('reports.thresholdPlaceholder'),
+            formatChip: (value: string) => formatNumber(Number(value), regionConfig),
+          },
+        ] satisfies FilterFieldDescriptor[])),
   ];
 
   const noSectionSelected = view === 'summary' && filters.section_id === undefined;
@@ -384,59 +403,70 @@ function ReportsPageContent() {
       <PageHeader title={t('reports.title')} subtitle={t('reports.subtitle')} />
       <Tabs
         value={view}
-        onValueChange={(next) => actions.setFilters({ view: next === 'flags' ? 'flags' : null })}
+        onValueChange={(next) => actions.setFilters({ view: next === 'summary' ? null : next })}
       >
         <TabsList variant="line" aria-label={t('reports.viewLabel')}>
           <TabsTrigger value="summary">{t('reports.viewSummary')}</TabsTrigger>
           <TabsTrigger value="flags">{t('reports.viewFlags')}</TabsTrigger>
+          {periodEnabled && <TabsTrigger value="subjects">{t('reports.viewSubjects')}</TabsTrigger>}
         </TabsList>
       </Tabs>
       <FilterBar
         fields={filterFields}
         values={state.filters}
         onChange={handleFilterChange}
-        resultCount={totalCount}
+        {...(view === 'subjects' ? {} : { resultCount: totalCount })}
       />
-      <DataTable
-        tableId="attendance-reports"
-        caption={t('reports.caption')}
-        // Two distinct row shapes (`RegisterMatrixRow` vs `LowAttendanceFlag`)
-        // share one `<DataTable>` instance, switched on `view` — TS has no
-        // way to correlate `columns`/`data`/`getRowId`'s three separate
-        // union types back into one matched generic, so these two casts
-        // (not `unknown`, `never` — a type no real value satisfies,
-        // matching this file's other "trust the runtime `view` check"
-        // casts) tell it what every other branch here already guarantees
-        // at runtime. `tsc --noEmit`'s whole-program inference needs both;
-        // type-aware ESLint's per-file inference only ever flags one of
-        // the two as redundant (which one flips depending on unrelated
-        // edits elsewhere in the file) — a real discrepancy between the
-        // two checkers' inference order on this generic component, not a
-        // mistake in either direction.
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
-        columns={(view === 'summary' ? summaryColumns : flagsColumns) as DataTableColumn<never>[]}
-        data={rows as never[]}
-        getRowId={(row: { student_id: string }) => row.student_id}
-        rowActions={rowActions}
-        // Neither view is server-sortable — no `sort_by` column on either
-        // `register-matrix` or `flags/low`.
-        sorting={null}
-        onSortingChange={() => undefined}
-        // Summary is one whole section (total shown as "Total N"); only the
-        // flags view pages through the server.
-        paginated={view === 'flags'}
-        page={state.page}
-        pageSize={state.limit}
-        totalCount={totalCount}
-        onPageChange={actions.setPage}
-        onPageSizeChange={actions.setLimit}
-        pageSizeLabel={t('pagination.rowsPerPage', { ns: 'common' })}
-        loading={loading}
-        isFetching={isFetching}
-        emptyState={emptyState}
-        {...(isError ? { error: t('reports.errorMessage') } : {})}
-        announceResults={(count, total) => t('reports.announceResults', { visible: count, total })}
-      />
+      {view === 'subjects' ? (
+        <SubjectSummaryTab
+          sectionId={filters.section_id}
+          month={month}
+          lowThreshold={lowThreshold}
+        />
+      ) : (
+        <DataTable
+          tableId="attendance-reports"
+          caption={t('reports.caption')}
+          // Two distinct row shapes (`RegisterMatrixRow` vs `LowAttendanceFlag`)
+          // share one `<DataTable>` instance, switched on `view` — TS has no
+          // way to correlate `columns`/`data`/`getRowId`'s three separate
+          // union types back into one matched generic, so these two casts
+          // (not `unknown`, `never` — a type no real value satisfies,
+          // matching this file's other "trust the runtime `view` check"
+          // casts) tell it what every other branch here already guarantees
+          // at runtime. `tsc --noEmit`'s whole-program inference needs both;
+          // type-aware ESLint's per-file inference only ever flags one of
+          // the two as redundant (which one flips depending on unrelated
+          // edits elsewhere in the file) — a real discrepancy between the
+          // two checkers' inference order on this generic component, not a
+          // mistake in either direction.
+          // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+          columns={(view === 'summary' ? summaryColumns : flagsColumns) as DataTableColumn<never>[]}
+          data={rows as never[]}
+          getRowId={(row: { student_id: string }) => row.student_id}
+          rowActions={rowActions}
+          // Neither view is server-sortable — no `sort_by` column on either
+          // `register-matrix` or `flags/low`.
+          sorting={null}
+          onSortingChange={() => undefined}
+          // Summary is one whole section (total shown as "Total N"); only the
+          // flags view pages through the server.
+          paginated={view === 'flags'}
+          page={state.page}
+          pageSize={state.limit}
+          totalCount={totalCount}
+          onPageChange={actions.setPage}
+          onPageSizeChange={actions.setLimit}
+          pageSizeLabel={t('pagination.rowsPerPage', { ns: 'common' })}
+          loading={loading}
+          isFetching={isFetching}
+          emptyState={emptyState}
+          {...(isError ? { error: t('reports.errorMessage') } : {})}
+          announceResults={(count, total) =>
+            t('reports.announceResults', { visible: count, total })
+          }
+        />
+      )}
       <SendReminderDialog
         open={reminderStudentId !== null}
         onOpenChange={(open) => !open && setReminderStudentId(null)}
