@@ -116,6 +116,10 @@
   "migrateWholeSchoolLink": "Use the full workbook template",
   "downloadTemplate": "Download blank template",
   "downloadTemplateFailed": "Couldn't download the template. Try again.",
+  "template": {
+    "starter": "Download starter file",
+    "starterHint": "A small file with only years, classes, sections, subjects and fee structures."
+  },
   "scheduleLabel": "Automatic backup",
   "scheduleHint": "Saved as soon as you choose. A change can take up to an hour to start.",
   "scheduleOff": "Off",

@@ -17,6 +17,7 @@ import {
 } from '@biddaloy/ui/components';
 import {
   downloadBackup,
+  downloadWorkbookTemplate,
   useBackupJob,
   useBackupJobs,
   useActiveRole,
@@ -27,9 +28,15 @@ import {
   useUpdateSchoolSettings,
   type WorkbookJob,
 } from '@biddaloy/ui/hooks';
-import { useRegionConfig, useTranslation, type RegionConfig } from '@biddaloy/ui/i18n';
+import { useLocale, useRegionConfig, useTranslation, type RegionConfig } from '@biddaloy/ui/i18n';
 import { formatDateTime, formatNumber } from '@biddaloy/ui/utils';
-import { CircleAlertIcon, DatabaseBackupIcon, PinIcon, PinOffIcon } from 'lucide-react';
+import {
+  CircleAlertIcon,
+  DatabaseBackupIcon,
+  DownloadIcon,
+  PinIcon,
+  PinOffIcon,
+} from 'lucide-react';
 import * as React from 'react';
 
 import { RestoreWizard } from './restore-wizard';
@@ -111,6 +118,8 @@ export function BackupSection({ backupJobId }: BackupSectionProps) {
   const { t } = useTranslation('backup');
   const regionConfig = useRegionConfig();
   const canManage = useHasPermission(Permission.BACKUP_MANAGE);
+  const { locale } = useLocale();
+  const [downloadingStarter, setDownloadingStarter] = React.useState(false);
 
   const [page, setPage] = React.useState(1);
   const jobsQuery = useBackupJobs({ page, limit: PAGE_SIZE });
@@ -243,6 +252,17 @@ export function BackupSection({ backupJobId }: BackupSectionProps) {
       highlightRef.current.scrollIntoView({ block: 'center' });
     }
   }, [backupJobId, jobsQuery.data]);
+
+  async function handleDownloadStarter() {
+    setDownloadingStarter(true);
+    try {
+      await downloadWorkbookTemplate(locale, { variant: 'starter' });
+    } catch {
+      toast.error(t('downloadTemplateFailed'));
+    } finally {
+      setDownloadingStarter(false);
+    }
+  }
 
   function handleRequest() {
     if (requestMutation.isPending) return;
@@ -453,8 +473,23 @@ export function BackupSection({ backupJobId }: BackupSectionProps) {
       </SettingsSection>
 
       <SettingsSection title={t('restoreSectionTitle')} description={t('restoreDescription')}>
-        <div className="mt-4">
+        <div className="mt-4 flex flex-col gap-4">
           <RestoreWizard hideTitle />
+          {/* [13.5.12] Sits with the full template button (inside the wizard)
+              so the two downloads read side by side. */}
+          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+            <p className="text-text-secondary">{t('template.starterHint')}</p>
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-11 w-full shrink-0 sm:min-h-0 md:w-auto"
+              loading={downloadingStarter}
+              onClick={() => void handleDownloadStarter()}
+            >
+              <DownloadIcon aria-hidden="true" />
+              {t('template.starter')}
+            </Button>
+          </div>
         </div>
       </SettingsSection>
     </>
