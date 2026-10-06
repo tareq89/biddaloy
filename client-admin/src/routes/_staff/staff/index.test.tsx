@@ -636,4 +636,99 @@ describe('/staff', () => {
     ).toBe('true');
     expect(within(dialog).getAllByRole('alert')).toHaveLength(2);
   });
+
+  // [13.5.9] Former members.
+  it('former view: filter in the URL, left date shown, only Bring back, restore refetches', async () => {
+    const params: (string | null)[] = [];
+    let restored = false;
+    const former = userResponseFactory({
+      id: 'user-9',
+      full_name: 'Gone Person',
+      left_at: '2025-06-01T00:00:00.000Z',
+    });
+    server.use(
+      http.get('/api/v1/users', ({ request }) => {
+        params.push(new URL(request.url).searchParams.get('membership'));
+        return HttpResponse.json(paginated(restored ? [] : [former]));
+      }),
+      http.post('/api/v1/users/user-9/restore', () => {
+        restored = true;
+        return new HttpResponse(null, { status: 204 });
+      }),
+      http.get('/api/v1/schools/:id/settings', () => HttpResponse.json({ version: 1 })),
+    );
+
+    const { router } = renderWithRouter(routeTree, {
+      initialEntries: ['/staff?membership=former'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    await screen.findByText('Gone Person');
+    expect(router.state.location.search).toMatchObject({ membership: 'former' });
+    expect(params[0]).toBe('former');
+    expect(
+      screen.getByText(`Left on ${formatDate(new Date('2025-06-01T00:00:00.000Z'), REGION_BD_EN)}`),
+    ).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Remove from school' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Edit' })).toBeNull();
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Bring back' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: 'Bring back' }));
+
+    await waitFor(() => expect(restored).toBe(true));
+    await waitFor(() => expect(screen.queryByText('Gone Person')).toBeNull());
+  });
+
+  it('default list sends no membership param', async () => {
+    let seen: string | null = 'unset';
+    server.use(
+      http.get('/api/v1/users', ({ request }) => {
+        seen = new URL(request.url).searchParams.get('membership');
+        return HttpResponse.json(paginated([]));
+      }),
+    );
+    renderWithRouter(routeTree, {
+      initialEntries: ['/staff'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+    await waitFor(() => expect(seen).toBeNull());
+  });
+
+  it('remove dialog shows the last-admin sentence on 409 LAST_ADMIN', async () => {
+    const other = userResponseFactory({ id: 'user-2', full_name: 'Other Admin' });
+    server.use(
+      http.get('/api/v1/users', () => HttpResponse.json(paginated([other]))),
+      http.delete('/api/v1/users/:id', () =>
+        HttpResponse.json(
+          {
+            ...apiErrorBody(409, 'Cannot remove the last admin', '/api/v1/users/user-2'),
+            details: { code: 'LAST_ADMIN' },
+          },
+          { status: 409 },
+        ),
+      ),
+    );
+    renderWithRouter(routeTree, {
+      initialEntries: ['/staff'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+      accessToken: fakeToken('me'),
+    });
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Remove from school' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: 'Remove access' }));
+    expect(
+      await within(dialog).findByText(
+        'You are the only admin here. Make someone else an admin first.',
+      ),
+    ).toBeTruthy();
+  });
 });

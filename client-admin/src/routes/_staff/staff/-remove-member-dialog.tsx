@@ -69,6 +69,11 @@ export function RemoveMemberDialog({
     removeMember.error instanceof ApiError &&
     removeMember.error.statusCode === 400 &&
     removeMember.error.message.includes('your own account');
+  const lastAdmin =
+    removeMember.isError &&
+    removeMember.error instanceof ApiError &&
+    removeMember.error.statusCode === 409 &&
+    removeMember.error.details?.code === 'LAST_ADMIN';
   const blocked = isSelf || selfBlockedByServer;
 
   return (
@@ -86,7 +91,12 @@ export function RemoveMemberDialog({
             {t('removeMember.selfBlocked')}
           </p>
         )}
-        {removeMember.isError && !selfBlockedByServer && (
+        {lastAdmin && (
+          <p role="alert" className="text-sm text-destructive">
+            {t('removeMember.lastAdmin')}
+          </p>
+        )}
+        {removeMember.isError && !selfBlockedByServer && !lastAdmin && (
           <p role="alert" className="text-sm text-destructive">
             {t('removeMember.errorMessage')}
           </p>
