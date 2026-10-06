@@ -49,7 +49,7 @@ describe('sign-in methods', () => {
     mockPage({ providers: [] });
     renderAt('/security');
 
-    expect(await screen.findByText('No password yet')).toBeTruthy();
+    expect(await screen.findByText('Password')).toBeTruthy();
     expect(screen.getByText('A code by SMS or email')).toBeTruthy();
     expect(screen.queryByRole('button', { name: /Connect/ })).toBeNull();
   });
@@ -103,6 +103,7 @@ describe('sign-in methods', () => {
 
   it('opens the set-password dialog and saves a password', async () => {
     mockPage();
+    const spy = vi.spyOn(toast, 'success');
     let body: unknown;
     server.use(
       http.post('/api/v1/account/first-password', async ({ request }) => {
@@ -112,14 +113,33 @@ describe('sign-in methods', () => {
     );
     renderAt('/security');
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Set a password' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Set or change password' }));
     const dialog = await screen.findByRole('dialog');
     const fields = within(dialog).getAllByLabelText(/password/i, { selector: 'input' });
     for (const field of fields) await userEvent.type(field, 'Correct-Horse-9-Battery');
     await userEvent.click(within(dialog).getByRole('button', { name: 'Set a password' }));
 
     await waitFor(() => expect(body).toEqual({ password: 'Correct-Horse-9-Battery' }));
-    expect(await screen.findByText('Password is set')).toBeTruthy();
+    await waitFor(() => expect(spy).toHaveBeenCalledWith('Your password is set.'));
+  });
+
+  it('a 409 on set-password says one already exists', async () => {
+    mockPage();
+    const spy = vi.spyOn(toast, 'success');
+    server.use(
+      http.post('/api/v1/account/first-password', () =>
+        HttpResponse.json({ statusCode: 409, message: 'set', requestId: 'r1' }, { status: 409 }),
+      ),
+    );
+    renderAt('/security');
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Set or change password' }));
+    const dialog = await screen.findByRole('dialog');
+    const fields = within(dialog).getAllByLabelText(/password/i, { selector: 'input' });
+    for (const field of fields) await userEvent.type(field, 'Correct-Horse-9-Battery');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Set a password' }));
+
+    await waitFor(() => expect(spy).toHaveBeenCalledWith('You already have a password.'));
   });
 
   it.each([

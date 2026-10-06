@@ -70,6 +70,7 @@ export function LeaveSchoolSection() {
           description={lastAdmin ? t('leave.lastAdmin') : t('leave.body', { school })}
           confirmLabel={t('leave.confirm')}
           busy={leave.isPending}
+          hideConfirm={lastAdmin}
           onConfirm={handleConfirm}
         />
       </section>

@@ -39,7 +39,7 @@ export function PeopleStep({ onDownloadStudentSample, onDownloadStaffSample }: P
         title={t('staff.title')}
         count={t('staff.added', { count: counts?.staff ?? 0 })}
         note={t('staff.oneFile')}
-        byHand={{ to: '/staff', search: { add: 1 } }}
+        byHand={{ to: '/staff', search: { new: 1 } }}
         excel={{ to: '/staff/import' }}
         onDownloadSample={onDownloadStaffSample}
       />

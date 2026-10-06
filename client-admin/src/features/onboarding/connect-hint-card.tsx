@@ -30,7 +30,9 @@ function readDismissed(userId: string | null): boolean {
 export function ConnectHintCard() {
   const { t } = useTranslation('setupChecklist');
   const userId = useCurrentUserId();
-  const [dismissed, setDismissed] = React.useState(() => readDismissed(userId));
+  const [clicked, setDismissed] = React.useState(false);
+  // Re-read per userId: it may arrive after the first render.
+  const dismissed = clicked || readDismissed(userId);
   const link = useStartSocialLink();
   const providers = useQuery({ ...socialProvidersQueryOptions(), enabled: !dismissed });
   const identities = useQuery({ ...identitiesQueryOptions(), enabled: !dismissed });
@@ -69,7 +71,7 @@ export function ConnectHintCard() {
           <Button
             key={p}
             variant="outline"
-            className="h-11 md:h-9"
+            className="min-h-11 w-full md:min-h-0 md:w-auto"
             disabled={link.isPending}
             onClick={() => link.mutate(p, { onSuccess: (url) => window.location.assign(url) })}
           >
