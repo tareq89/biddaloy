@@ -3,6 +3,10 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      # Inlined into the client bundle at build time (see .env.example).
+      args:
+        VITE_TURNSTILE_SITE_KEY: ${VITE_TURNSTILE_SITE_KEY:-}
+        VITE_SUPPORT_URL: ${SUPPORT_CONTACT_URL:-}
     image: biddaloy-app
     restart: unless-stopped
     environment:
@@ -22,6 +26,14 @@ services:
       S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID}
       S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY}
       S3_FORCE_PATH_STYLE: 'true'
+      # Onboarding (Epic 13). Empty means "off": no captcha check, no social
+      # sign-in button, no support link. Optional ones with a non-empty
+      # default (TRIAL_DAYS, OTP_SMS_ALLOWED_PREFIXES, ...) are left out so an
+      # empty value cannot replace that default.
+      TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:-}
+      GOOGLE_OAUTH_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID:-}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${GOOGLE_OAUTH_CLIENT_SECRET:-}
+      SUPPORT_CONTACT_URL: ${SUPPORT_CONTACT_URL:-}
     depends_on:
       db:
         condition: service_healthy
