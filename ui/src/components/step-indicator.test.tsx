@@ -21,7 +21,11 @@ describe('StepIndicator', () => {
 
   it('draws a tick for done steps and numbers for the rest', () => {
     render(<StepIndicator steps={steps} current="b" progressLabel="Step 2 of 3" />);
-    const [done, active, later] = screen.getAllByRole('listitem');
+    const [done, active, later] = screen.getAllByRole('listitem') as [
+      HTMLElement,
+      HTMLElement,
+      HTMLElement,
+    ];
     expect(done.querySelector('svg')).not.toBeNull();
     expect(done.textContent).toBe('Account');
     expect(active.textContent).toBe('2Details');
