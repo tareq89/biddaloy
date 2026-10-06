@@ -176,7 +176,10 @@ Example (limit 10, 9 in use, an upload of 3):
 `/welcome` opens once for an ADMIN of an unfinished school, and only when they
 land on the dashboard (D36, `welcome-gate.ts`). The migration
 `1791400000000-OnboardingFoundation` marks every school that existed then as
-finished.
+finished, and `1791400000100-DismissChecklistForExistingSchools` also marks
+them dismissed, so those schools never see the wizard or the dashboard
+checklist. Example: an existing school's `onboarding` becomes
+`{ "finished_at": "2026-10-06T…", "dismissed_at": "2026-10-06T…" }`.
 
 The three doors:
 
