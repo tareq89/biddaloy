@@ -10,6 +10,8 @@ const GRAPH = `https://graph.facebook.com/${GRAPH_VERSION}`;
 const AUTH_URL = `https://www.facebook.com/${GRAPH_VERSION}/dialog/oauth`;
 /** A signed_request older than this is a replay (Meta sends it at once). */
 const SIGNED_REQUEST_MAX_AGE_S = 24 * 60 * 60;
+/** Clock skew allowed for an `issued_at` in the future; more would open the replay window forever. */
+const SIGNED_REQUEST_MAX_SKEW_S = 5 * 60;
 
 /**
  * Authorization-code flow with PKCE (D37); the `state` (bound to the browser)
@@ -117,10 +119,8 @@ export function verifySignedRequest(signedRequest: string, secret: string): stri
   }
   if (data?.algorithm !== 'HMAC-SHA256') throw bad();
   if (typeof data.user_id !== 'string' || !data.user_id) throw bad();
-  if (
-    typeof data.issued_at !== 'number' ||
-    Date.now() / 1000 - data.issued_at > SIGNED_REQUEST_MAX_AGE_S
-  ) {
+  const age = typeof data.issued_at === 'number' ? Date.now() / 1000 - data.issued_at : NaN;
+  if (!(age <= SIGNED_REQUEST_MAX_AGE_S && age >= -SIGNED_REQUEST_MAX_SKEW_S)) {
     throw bad();
   }
   return data.user_id;

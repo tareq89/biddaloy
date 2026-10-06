@@ -100,32 +100,25 @@ export class SocialIdentityService {
         .where({ provider, subject })
         .returning(['id', 'user_id'])
         .execute();
-      const rows = raw as Array<{ id: string; user_id: string }>;
-      const entry = {
-        action: AuditAction.DELETE,
-        entity_type: 'UserIdentity' as const,
-        performed_by_user_id: null,
-        ip_address: context.ip,
-        user_agent: context.userAgent,
-        old_values: {
-          provider,
-          reason: 'provider_data_deletion_callback',
-          confirmation_code: confirmationCode,
-        },
-      };
-      if (!rows.length) {
-        await this.audit.record({ ...entry, entity_id: null, tenant_id: null }, manager);
-      }
-      for (const row of rows) {
-        await this.audit.record(
-          {
-            ...entry,
-            entity_id: row.id,
-            tenant_id: await this.authService.primaryTenantId(row.user_id),
+      // UQ (provider, subject): at most one row.
+      const [row] = raw as Array<{ id: string; user_id: string }>;
+      await this.audit.record(
+        {
+          action: AuditAction.DELETE,
+          entity_type: 'UserIdentity',
+          entity_id: row?.id ?? null,
+          tenant_id: row ? await this.authService.primaryTenantId(row.user_id) : null,
+          performed_by_user_id: null,
+          ip_address: context.ip,
+          user_agent: context.userAgent,
+          old_values: {
+            provider,
+            reason: 'provider_data_deletion_callback',
+            confirmation_code: confirmationCode,
           },
-          manager,
-        );
-      }
+        },
+        manager,
+      );
     });
   }
 

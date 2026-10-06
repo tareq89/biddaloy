@@ -140,6 +140,14 @@ describe('verifySignedRequest', () => {
     expect(() => verifySignedRequest(undated, SECRET)).toThrow(BadRequestException);
   });
 
+  it('rejects an issued_at more than 5 minutes in the future, allows small clock skew', () => {
+    // A far-future issued_at would never age out, so the replay window would be open-ended.
+    const future = signed({ ...good, issued_at: now() + 10 * 60 });
+    expect(() => verifySignedRequest(future, SECRET)).toThrow(BadRequestException);
+    const skewed = signed({ ...good, issued_at: now() + 60 });
+    expect(verifySignedRequest(skewed, SECRET)).toBe('fb-9');
+  });
+
   it('rejects a validly signed payload that is not JSON or has no user_id', () => {
     const body = Buffer.from('not json').toString('base64url');
     const sig = createHmac('sha256', SECRET).update(body).digest('base64url');
