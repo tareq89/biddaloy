@@ -14,6 +14,14 @@ export function defaultCountry(initialCountry?: string): string {
   return (zone && TIME_ZONE_COUNTRY[zone]) || 'BD';
 }
 
+// One formatter per locale: the form names ~195 countries on every render.
+const displayNames = new Map<string, Intl.DisplayNames>();
+
 export function countryName(code: string, locale: string): string {
-  return new Intl.DisplayNames([locale], { type: 'region' }).of(code) ?? code;
+  let names = displayNames.get(locale);
+  if (!names) {
+    names = new Intl.DisplayNames([locale], { type: 'region' });
+    displayNames.set(locale, names);
+  }
+  return names.of(code) ?? code;
 }
