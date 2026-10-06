@@ -232,7 +232,10 @@ export function RoutineGrid({
                                   period: periodLabel,
                                   subject: cell.subjectLabel,
                                   teachers: cell.teacherLabels.join(', '),
-                                })
+                                }) +
+                                (cell.recurrence === 'WEEKLY'
+                                  ? ''
+                                  : ` — ${t(`grid.recurrence.${cell.recurrence}`)}`)
                               : t('routine.cellLabelEmpty', {
                                   ns: 'common',
                                   weekday: weekdayLabel,

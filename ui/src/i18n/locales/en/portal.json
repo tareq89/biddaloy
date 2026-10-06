@@ -144,6 +144,7 @@
     "legendTitle": "Legend",
     "loading": "Loading attendance calendar",
     "lateWithMinutes": "Late by {{minutes}} minutes",
+    "selected": "Selected",
     "status": {
       "present": "Present",
       "late": "Late",

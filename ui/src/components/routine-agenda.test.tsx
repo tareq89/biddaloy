@@ -1,4 +1,4 @@
-import { act, fireEvent, screen } from '@testing-library/react';
+import { act, fireEvent, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { i18n, REGION_BD_EN, RegionConfigProvider } from '../i18n';
@@ -111,7 +111,7 @@ describe('RoutineAgenda', () => {
     expect(screen.getByText('2 periods')).toBeTruthy();
   });
 
-  it('marks today and the selected tab', async () => {
+  it('marks today and the selected day', async () => {
     await renderInEnglish(
       <RoutineAgenda
         days={[NORMAL_DAY, COVERING_DAY]}
@@ -121,9 +121,10 @@ describe('RoutineAgenda', () => {
         onToggleWeekView={vi.fn()}
       />,
     );
-    const [todayTab, otherTab] = screen.getAllByRole('tab');
-    expect(todayTab?.getAttribute('aria-selected')).toBe('true');
-    expect(otherTab?.getAttribute('aria-selected')).toBe('false');
+    const switcher = screen.getByRole('group', { name: 'Choose a day' });
+    const [todayTab, otherTab] = within(switcher).getAllByRole('button');
+    expect(todayTab?.getAttribute('aria-pressed')).toBe('true');
+    expect(otherTab?.getAttribute('aria-pressed')).toBe('false');
     expect(todayTab?.textContent).toBe('Today');
     expect(otherTab?.textContent).toBe('Thu 24');
   });
@@ -138,7 +139,9 @@ describe('RoutineAgenda', () => {
         onToggleWeekView={vi.fn()}
       />,
     );
-    expect(screen.getByRole('button', { pressed: true })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Week view' }).getAttribute('aria-pressed')).toBe(
+      'true',
+    );
   });
 
   it('marks a covering period and shows a cancelled one as cancelled, not hidden', async () => {
@@ -196,7 +199,7 @@ describe('RoutineAgenda', () => {
         onToggleWeekView={vi.fn()}
       />,
     );
-    fireEvent.click(screen.getByRole('tab', { name: 'Thu 24' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Thu 24' }));
     expect(onSelectDate).toHaveBeenCalledWith(COVERING_DAY.date);
   });
 
