@@ -380,11 +380,14 @@ describe('/attendance/register month edit', () => {
     expect(puts).toBe(0);
   });
 
-  it('sends no reason for an in-window day, and sends one after the server asks for it', async () => {
-    setDesktop(true);
-    const now = new Date();
-    const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    const today = `${month}-${String(now.getDate()).padStart(2, '0')}`;
+  // The school's date (Asia/Dhaka in REGION_BD_EN), never the runner's clock.
+  const dhakaToday = () =>
+    new Intl.DateTimeFormat('en-CA', { timeZone: REGION_BD_EN.timezone }).format(new Date());
+
+  /** Today's register exists (version 1). `respond` gets the PUT count (1, 2, ...). */
+  function useTodayMatrix(respond: (n: number) => Response) {
+    const today = dhakaToday();
+    const month = today.slice(0, 7);
     const bodies: Record<string, unknown>[] = [];
     server.use(
       pinEnglishRegion,
@@ -397,32 +400,57 @@ describe('/attendance/register month edit', () => {
       ),
       http.put('/api/v1/attendance/sections/:sectionId/register-matrix', async ({ request }) => {
         bodies.push((await request.json()) as Record<string, unknown>);
-        // Today's register is already FINALIZED: the server asks for a reason once.
-        return bodies.length === 1
-          ? HttpResponse.json(
-              {
-                statusCode: 422,
-                message: 'reason',
-                timestamp: new Date().toISOString(),
-                path: '/attendance/sections/x/register-matrix',
-                requestId: 'req-1',
-                details: { code: 'ATTENDANCE_REASON_REQUIRED', dates: [today] },
-              },
-              { status: 422 },
-            )
-          : HttpResponse.json({ saved_dates: [today], versions: {} });
+        return respond(bodies.length);
       }),
     );
-    const user = userEvent.setup();
-    await openEditor(
-      'ADMIN',
-      `/attendance/register?class_id=${CLASS_ID}&section_id=${SECTION_ID}&month=${month}`,
+    return {
+      bodies,
+      url: `/attendance/register?class_id=${CLASS_ID}&section_id=${SECTION_ID}&month=${month}`,
+    };
+  }
+
+  it('sends a typed reason even for an in-window day', async () => {
+    setDesktop(true);
+    const { bodies, url } = useTodayMatrix(() =>
+      HttpResponse.json({ saved_dates: [dhakaToday()], versions: {} }),
     );
+    const user = userEvent.setup();
+    await openEditor('ADMIN', url);
     await user.click(await screen.findByRole('button', { name: 'Edit' }));
     (await screen.findByRole('gridcell', { name: /Karim Rahman, .*: Present/ })).focus();
     await user.keyboard('a');
+    // Inside the window: not required up front...
     expect(screen.queryByText(/outside the correction window/)).toBeNull();
-    await user.type(screen.getByLabelText(/Reason for correction/), 'Typed anyway');
+    // ...but a reason the user typed is never dropped (a FINALIZED day needs one).
+    await user.type(screen.getByLabelText(/Reason for correction/), '  Typed anyway ');
+    await user.click(screen.getByRole('button', { name: 'Save (1)' }));
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    expect(bodies[0]!.reason).toBe('Typed anyway');
+  });
+
+  it('with no reason, a 422 ATTENDANCE_REASON_REQUIRED marks the field required', async () => {
+    setDesktop(true);
+    // Today's register is already FINALIZED: the server asks for a reason once.
+    const { bodies, url } = useTodayMatrix((n) =>
+      n === 1
+        ? HttpResponse.json(
+            {
+              statusCode: 422,
+              message: 'reason',
+              timestamp: new Date().toISOString(),
+              path: '/attendance/sections/x/register-matrix',
+              requestId: 'req-1',
+              details: { code: 'ATTENDANCE_REASON_REQUIRED', dates: [dhakaToday()] },
+            },
+            { status: 422 },
+          )
+        : HttpResponse.json({ saved_dates: [dhakaToday()], versions: {} }),
+    );
+    const user = userEvent.setup();
+    await openEditor('ADMIN', url);
+    await user.click(await screen.findByRole('button', { name: 'Edit' }));
+    (await screen.findByRole('gridcell', { name: /Karim Rahman, .*: Present/ })).focus();
+    await user.keyboard('a');
     await user.click(screen.getByRole('button', { name: 'Save (1)' }));
 
     expect((await screen.findByRole('alert')).textContent).toBe(
@@ -430,9 +458,33 @@ describe('/attendance/register month edit', () => {
     );
     expect(bodies[0]).not.toHaveProperty('reason');
 
+    await user.type(screen.getByLabelText(/Reason for correction/), 'Paper register');
     await user.click(screen.getByRole('button', { name: 'Save (1)' }));
     await waitFor(() => expect(bodies).toHaveLength(2));
-    expect(bodies[1]!.reason).toBe('Typed anyway');
+    expect(bodies[1]!.reason).toBe('Paper register');
+  });
+
+  it("uses the tenant's correction window when it can read the settings", async () => {
+    setDesktop(true);
+    useMatrix();
+    // Added after `useMatrix` so it wins: a 10 000-day window puts January 2026
+    // inside it, so no reason is asked for up front.
+    server.use(
+      http.get('/api/v1/schools/:schoolId/settings', () =>
+        HttpResponse.json({
+          version: 1,
+          region: REGION_BD_EN,
+          attendance: { correctionWindowDays: 10_000 },
+        }),
+      ),
+    );
+    const user = userEvent.setup();
+    await openEditor();
+    await user.click(await screen.findByRole('button', { name: 'Edit' }));
+    (await screen.findByRole('gridcell', { name: /Karim Rahman, .*: Present/ })).focus();
+    await user.keyboard('a');
+    expect(await screen.findByText('1 cell changed')).toBeTruthy();
+    expect(screen.queryByText(/outside the correction window/)).toBeNull();
   });
 
   it('a 403 ATTENDANCE_WINDOW_CLOSED says the day can no longer be edited, not "write a reason"', async () => {
