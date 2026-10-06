@@ -307,6 +307,22 @@ function RegisterPageContent() {
       },
     );
   }
+  // Ctrl/Cmd+S saves from anywhere on the page while editing, the reason field
+  // included (a cell-only handler let the browser's "Save page" open there).
+  const onSaveRef = React.useRef(onSave);
+  onSaveRef.current = onSave;
+  React.useEffect(() => {
+    if (!editing) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') {
+        event.preventDefault();
+        onSaveRef.current();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [editing]);
+
   const monthLabel = formatMonth(month, regionConfig);
   const names = { className: className ?? '', sectionName: sectionName ?? '' };
   const caption = t('register.caption', { ...names, month: monthLabel });
@@ -517,7 +533,6 @@ function RegisterPageContent() {
                 onDraftChange={setDraft}
                 today={today}
                 caption={caption}
-                onSave={onSave}
                 onCancel={leaveEdit}
               />
             ) : (

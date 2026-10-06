@@ -22,13 +22,7 @@ const matrix = {
   ],
 } as unknown as RegisterMatrix;
 
-function Harness({
-  onSave = () => {},
-  onCancel = () => {},
-}: {
-  onSave?: () => void;
-  onCancel?: () => void;
-}) {
+function Harness({ onCancel = () => {} }: { onCancel?: () => void }) {
   const [draft, setDraft] = React.useState<Draft>(new Map());
   return (
     <>
@@ -39,7 +33,6 @@ function Harness({
         onDraftChange={setDraft}
         today="2026-01-03"
         caption="Register"
-        onSave={onSave}
         onCancel={onCancel}
       />
     </>
@@ -136,14 +129,11 @@ describe('RegisterEditGrid', () => {
     expect(cell(/Rina, .*1.*: Leave, changed/)).toBeTruthy();
   });
 
-  it('Ctrl+S saves and Esc cancels', async () => {
+  it('Esc cancels (Ctrl+S is the page\'s, see register.test.tsx)', async () => {
     const user = userEvent.setup();
-    const onSave = vi.fn();
     const onCancel = vi.fn();
-    renderGrid({ onSave, onCancel });
+    renderGrid({ onCancel });
     cell(/Karim, .*1.*: Present/).focus();
-    await user.keyboard('{Control>}s{/Control}');
-    expect(onSave).toHaveBeenCalledTimes(1);
     await user.keyboard('{Escape}');
     await waitFor(() => expect(onCancel).toHaveBeenCalledTimes(1));
   });

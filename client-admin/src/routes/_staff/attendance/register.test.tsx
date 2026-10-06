@@ -359,6 +359,23 @@ describe('/attendance/register month edit', () => {
     await waitFor(() => expect(screen.queryByRole('grid')).toBeNull());
   });
 
+  it('Ctrl+S saves from the reason field, not only from the grid', async () => {
+    setDesktop(true);
+    let puts = 0;
+    useMatrix(() => {
+      puts += 1;
+      return HttpResponse.json({ saved_dates: ['2026-01-01'], versions: {} });
+    });
+    const user = userEvent.setup();
+    await openEditor();
+    await user.click(await screen.findByRole('button', { name: 'Edit' }));
+    (await screen.findByRole('gridcell', { name: /Karim Rahman, .*: Present/ })).focus();
+    await user.keyboard('a');
+    await user.type(screen.getByLabelText(/Reason for correction/), 'Paper register');
+    await user.keyboard('{Control>}s{/Control}');
+    await waitFor(() => expect(puts).toBe(1));
+  });
+
   it('requires a reason for an old date and sends nothing without it', async () => {
     setDesktop(true);
     let puts = 0;
