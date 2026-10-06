@@ -150,6 +150,14 @@ export function toIsoDate(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
+/** Today's date on the TENANT's clock (`config.timezone`), as `YYYY-MM-DD` —
+ * the same day the server means by "today" (`localToday(timezone)`), which
+ * the browser's own clock can be a day away from around midnight. */
+export function tenantTodayIso(config: RegionConfig, now: Date = new Date()): string {
+  const { y, m, d } = tenantClock(now, config);
+  return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+}
+
 /** `October 2026` / `অক্টোবর ২০২৬`. Accepts `YYYY-MM`, `YYYY-MM-DD…` or a `Date`. */
 export function formatMonth(value: Date | string | null | undefined, config: RegionConfig): string {
   const p = toParts(value, config, 'date', { month: true });

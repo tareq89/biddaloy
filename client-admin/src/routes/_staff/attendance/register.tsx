@@ -54,7 +54,15 @@ import {
   useTranslation,
 } from '@biddaloy/ui/i18n';
 import { PageContainer, PageHeader, useWarnUnsavedChanges } from '@biddaloy/ui/shells';
-import { formatDate, formatMonth, formatNumber, parseServerDate } from '@biddaloy/ui/utils';
+import {
+  formatDate,
+  formatMonth,
+  formatNumber,
+  parseDate,
+  parseServerDate,
+  tenantTodayIso,
+  toIsoDate,
+} from '@biddaloy/ui/utils';
 import { createFileRoute, Link, useBlocker } from '@tanstack/react-router';
 import { FileSpreadsheet, PencilIcon, PrinterIcon, SaveIcon, XIcon } from 'lucide-react';
 import * as React from 'react';
@@ -73,12 +81,6 @@ import {
 import './-register-print.css';
 
 const MONTH_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
-
-/** The school's calendar date (`YYYY-MM-DD`), not the browser's: the server
- * decides future and closed days on the tenant clock (`localToday(timezone)`). */
-function tenantToday(timeZone: string): string {
-  return new Intl.DateTimeFormat('en-CA', { timeZone }).format(new Date());
-}
 
 const searchSchema = z.object({
   class_id: z.string().uuid().optional().catch(undefined),
@@ -139,7 +141,9 @@ function RegisterPageContent() {
   const regionConfig = useRegionConfig();
   const navigate = Route.useNavigate();
   const search = Route.useSearch();
-  const today = tenantToday(regionConfig.timezone);
+  // The school's date, not the browser's: the server decides future and
+  // closed days on the tenant clock.
+  const today = tenantTodayIso(regionConfig);
   const month = search.month ?? today.slice(0, 7);
 
   const classesQuery = useClasses();
@@ -167,14 +171,12 @@ function RegisterPageContent() {
   const canReadSettings = useHasPermission(Permission.SETTINGS_MANAGE);
   const tenantId = useActiveTenant();
   const settingsQuery = useSchoolSettings(canReadSettings ? (tenantId ?? '') : '');
-  const windowDays =
-    settingsQuery.data?.attendance?.correctionWindowDays ?? DEFAULT_WINDOW_DAYS;
+  const windowDays = settingsQuery.data?.attendance?.correctionWindowDays ?? DEFAULT_WINDOW_DAYS;
   const isMd = useIsMd();
   // `keepPreviousData`: while a new month or section loads, `rows` is still the
   // OLD one. In edit mode that would let a cell edit land on a date (or a
   // student) that is no longer on screen, so edit mode waits for real data.
-  const loading =
-    matrixQuery.isPending || (search.edit === true && matrixQuery.isPlaceholderData);
+  const loading = matrixQuery.isPending || (search.edit === true && matrixQuery.isPlaceholderData);
   const editing = search.edit === true && isMd && canMark && rows.length > 0 && !loading;
   const saveMatrix = useSaveRegisterMatrix(search.section_id ?? '');
 
@@ -223,9 +225,9 @@ function RegisterPageContent() {
   // has a register and is older than the window needs a reason. A day with no
   // register never does. A FINALIZED day inside the window also does, but the
   // matrix does not carry the state, so that case is left to the server's 422.
-  const oldestAllowed = new Date(Date.parse(today) - windowDays * 86_400_000)
-    .toISOString()
-    .slice(0, 10);
+  const oldest = parseDate(today);
+  oldest.setDate(oldest.getDate() - windowDays);
+  const oldestAllowed = toIsoDate(oldest);
   const outsideDates = matrix
     ? changedDates.filter((date) => date < oldestAllowed && matrix.versions[date] !== undefined)
     : [];
@@ -260,15 +262,15 @@ function RegisterPageContent() {
     const days = changedDates
       .filter((date) => matrix.dates.some((d) => d.date === date))
       .map((date) => ({
-      date,
-      base_version: matrix.versions[date] ?? null,
-      entries: matrix.rows.flatMap((row) => {
-        const status =
-          draft.get(`${row.student_id}|${date}`) ??
-          (row.marks as Record<string, AttendanceStatus | null | undefined>)[date];
-        return status ? [{ student_id: row.student_id, status }] : [];
-      }),
-    }));
+        date,
+        base_version: matrix.versions[date] ?? null,
+        entries: matrix.rows.flatMap((row) => {
+          const status =
+            draft.get(`${row.student_id}|${date}`) ??
+            (row.marks as Record<string, AttendanceStatus | null | undefined>)[date];
+          return status ? [{ student_id: row.student_id, status }] : [];
+        }),
+      }));
     saveMatrix.mutate(
       {
         client_request_id: crypto.randomUUID(),

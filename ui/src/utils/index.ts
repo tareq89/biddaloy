@@ -16,6 +16,7 @@ export {
   formatMonthName,
   formatTime,
   formatWeekday,
+  tenantTodayIso,
   toIsoDate,
   formatRelativeAge,
   parseDate,
