@@ -208,6 +208,12 @@ function AttendanceListPage() {
               : formatDate(date, regionConfig)
           }
         />
+      ) : sorted.length === 0 && status === 'done' ? (
+        <EmptyState
+          icon={<CalendarCheck2 />}
+          title={t('list.noneDoneTitle')}
+          explanation={t('list.noneDoneBody')}
+        />
       ) : (
         <section aria-labelledby="att-sections">
           <h2 id="att-sections" className="sr-only">

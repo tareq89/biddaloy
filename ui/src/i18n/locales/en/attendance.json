@@ -43,6 +43,8 @@
     "stateDraft": "Draft",
     "stateFinalized": "Finalized",
     "allDoneTitle": "All sections are marked",
+    "noneDoneTitle": "No section is submitted yet",
+    "noneDoneBody": "A section shows here once its attendance is submitted.",
     "holidayTitle": "School is closed on this day",
     "holidayBody": "No attendance is needed."
   },

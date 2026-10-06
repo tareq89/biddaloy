@@ -149,6 +149,19 @@ describe('/attendance', () => {
     expect(await screen.findByText('All sections are marked')).toBeTruthy();
   });
 
+  it('?status=done with nothing submitted shows an empty state, not a blank list', async () => {
+    server.use(
+      http.get('/api/v1/attendance/my-sections', () =>
+        HttpResponse.json([section('s-none', 'A', null)]),
+      ),
+    );
+
+    renderList('?status=done');
+
+    expect(await screen.findByText('No section is submitted yet')).toBeTruthy();
+    expect(screen.queryByText('Class 5 – A')).toBeNull();
+  });
+
   it('the all-done state for a past ?date= does not say "Today"', async () => {
     server.use(
       http.get('/api/v1/attendance/my-sections', () =>
