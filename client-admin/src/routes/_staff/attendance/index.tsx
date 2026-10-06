@@ -201,7 +201,12 @@ function AttendanceListPage() {
         <EmptyState
           icon={<CalendarCheck2 />}
           title={t('list.allDoneTitle')}
-          explanation={t('list.subtitleDone', { date: formatDate(date, regionConfig) })}
+          // `subtitleDone` says "Today, …" — a past `?date=` just names the day.
+          explanation={
+            date === today
+              ? t('list.subtitleDone', { date: formatDate(date, regionConfig) })
+              : formatDate(date, regionConfig)
+          }
         />
       ) : (
         <section aria-labelledby="att-sections">
