@@ -9,18 +9,26 @@
  */
 import { ApiError } from '@biddaloy/ui/api';
 import {
+  DatePicker,
   EmptyState,
   ErrorState,
   RoutePending,
+  Label,
   Skeleton,
   StatusBadge,
 } from '@biddaloy/ui/components';
 import { mySectionsQueryOptions, useMySections, type MySection } from '@biddaloy/ui/hooks';
 import { useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
-import { PageContainer, PageHeader } from '@biddaloy/ui/shells';
-import { formatDate } from '@biddaloy/ui/utils';
+import {
+  FilterBar,
+  PageContainer,
+  PageHeader,
+  type FilterFieldDescriptor,
+} from '@biddaloy/ui/shells';
+import { formatDate, parseDate, toIsoDate } from '@biddaloy/ui/utils';
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import { CalendarCheck2, ChevronRight } from 'lucide-react';
+import { z } from 'zod';
 
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 
@@ -34,10 +42,21 @@ function todayIso(): string {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 }
 
+const searchSchema = z.object({
+  status: z.enum(['pending', 'done']).optional().catch(undefined),
+  date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional()
+    .catch(undefined),
+});
+
 export const Route = createFileRoute('/_staff/attendance/')({
-  loader: ({ context: { queryClient } }) =>
+  validateSearch: searchSchema,
+  loaderDeps: ({ search }) => ({ date: search.date }),
+  loader: ({ context: { queryClient }, deps }) =>
     Promise.all([
-      queryClient.ensureQueryData(mySectionsQueryOptions()).catch(swallowUnlessOffline),
+      queryClient.ensureQueryData(mySectionsQueryOptions(deps.date)).catch(swallowUnlessOffline),
       loadRouteNamespaces('attendance'),
     ]),
   pendingComponent: AttendanceListPending,
@@ -49,27 +68,22 @@ function rank(section: MySection): number {
   return section.today.state === 'FINALIZED' ? 2 : 1;
 }
 
-function TodayBadge({ section }: { section: MySection }) {
+function StateBadge({ section }: { section: MySection }) {
   const { t } = useTranslation('attendance');
   const today = section.today;
-  if (!today) return <StatusBadge tone="warning" label={t('list.notMarked')} />;
-  if (today.state !== 'FINALIZED') return <StatusBadge tone="info" label={t('list.draft')} />;
-  return (
-    <StatusBadge
-      tone="success"
-      label={t('list.marked', {
-        present: today.present + today.late,
-        total: today.present + today.absent + today.late + today.leave,
-      })}
-    />
-  );
+  if (!today) return <StatusBadge tone="warning" label={t('list.stateNotStarted')} />;
+  if (today.state !== 'FINALIZED') return <StatusBadge tone="info" label={t('list.stateDraft')} />;
+  return <StatusBadge tone="success" label={t('list.stateFinalized')} />;
 }
 
 function AttendanceListPage() {
   const { t } = useTranslation('attendance');
   const regionConfig = useTenantRegionConfig();
-  const query = useMySections();
-  const navigate = useNavigate();
+  const { status, date: chosenDate } = Route.useSearch();
+  const today = todayIso();
+  const date = chosenDate ?? today;
+  const query = useMySections(chosenDate);
+  const navigate = useNavigate({ from: Route.fullPath });
 
   if (query.isPending) {
     return (
@@ -115,53 +129,117 @@ function AttendanceListPage() {
     );
   }
 
-  const today = todayIso();
-  const pending = sections.filter((s) => s.today?.state !== 'FINALIZED').length;
-  const date = formatDate(today, regionConfig);
+  // D27: a section with no students has nothing to mark — out of the list and the count.
+  const markable = sections.filter((s) => s.student_count > 0);
+  const isPending = (s: MySection) => s.today?.state !== 'FINALIZED';
+  const pendingCount = markable.filter(isPending).length;
+  const visible = markable.filter((s) =>
+    status === 'pending' ? isPending(s) : status === 'done' ? !isPending(s) : true,
+  );
+  const holiday = sections.every((s) => !s.is_working_day);
   // Array.prototype.sort is stable: server order is kept within a group.
-  const sorted = [...sections].sort((a, b) => rank(a) - rank(b));
+  const sorted = [...visible].sort((a, b) => rank(a) - rank(b));
+
+  const filterFields: FilterFieldDescriptor[] = [
+    {
+      kind: 'select',
+      key: 'status',
+      label: t('list.filterStatus'),
+      allLabel: t('list.filterAll'),
+      options: [
+        { value: 'pending', label: t('list.filterPending') },
+        { value: 'done', label: t('list.filterDone') },
+      ],
+    },
+  ];
 
   return (
     <PageContainer>
       <PageHeader
         title={t('list.title')}
-        subtitle={
-          pending > 0
-            ? t('list.subtitle', { date, count: pending })
-            : t('list.subtitleDone', { date })
-        }
+        subtitle={t('list.pendingCount', { pending: pendingCount, total: markable.length })}
       />
-      <section aria-labelledby="att-sections">
-        <h2 id="att-sections" className="sr-only">
-          {t('list.caption')}
-        </h2>
-        <ul className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {sorted.map((section) => (
-            <li key={section.section_id} className="min-w-0">
-              <Link
-                to="/attendance/$sectionId"
-                params={{ sectionId: section.section_id }}
-                search={{ date: today }}
-                className="flex min-h-16 items-center gap-3 rounded-lg border border-border-subtle bg-surface p-4 no-underline shadow-e1 hover:bg-muted md:p-5"
-              >
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-h3">
-                    {t('mark.title', {
-                      className: section.class_name,
-                      sectionName: section.section_name,
-                    })}
+      <div className="mb-4 flex flex-wrap items-end gap-3">
+        <FilterBar
+          fields={filterFields}
+          values={status ? { status } : {}}
+          onChange={(patch) =>
+            void navigate({
+              search: (prev) => ({
+                ...prev,
+                status:
+                  patch.status === 'pending' || patch.status === 'done' ? patch.status : undefined,
+              }),
+            })
+          }
+        />
+        <div className="grid gap-1.5 md:w-64">
+          <Label htmlFor="attendance-list-date">{t('list.dateLabel')}</Label>
+          <DatePicker
+            id="attendance-list-date"
+            aria-label={t('list.dateLabel')}
+            className="w-full"
+            config={regionConfig}
+            value={parseDate(date)}
+            max={new Date()}
+            clearable={false}
+            onValueChange={(next) =>
+              void navigate({
+                search: (prev) => ({ ...prev, date: next ? toIsoDate(next) : prev.date }),
+              })
+            }
+          />
+        </div>
+      </div>
+      {holiday ? (
+        <EmptyState
+          icon={<CalendarCheck2 />}
+          title={t('list.holidayTitle')}
+          explanation={t('list.holidayBody')}
+        />
+      ) : sorted.length === 0 && status === 'pending' ? (
+        <EmptyState
+          icon={<CalendarCheck2 />}
+          title={t('list.allDoneTitle')}
+          explanation={t('list.subtitleDone', { date: formatDate(date, regionConfig) })}
+        />
+      ) : (
+        <section aria-labelledby="att-sections">
+          <h2 id="att-sections" className="sr-only">
+            {t('list.caption')}
+          </h2>
+          <ul className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {sorted.map((section) => (
+              <li key={section.section_id} className="min-w-0">
+                <Link
+                  to="/attendance/$sectionId"
+                  params={{ sectionId: section.section_id }}
+                  search={{ date }}
+                  className="flex min-h-16 items-center gap-3 rounded-lg border border-border-subtle bg-surface p-4 no-underline shadow-e1 hover:bg-muted md:p-5"
+                >
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-h3">
+                      {t('mark.title', {
+                        className: section.class_name,
+                        sectionName: section.section_name,
+                      })}
+                    </span>
+                    <span className="mt-0.5 block text-text-secondary">
+                      {t('list.studentCount', { count: section.student_count })}
+                    </span>
+                    <span className="mt-0.5 block truncate text-text-secondary">
+                      {t('list.classTeacher')}:{' '}
+                      {section.class_teacher_name ?? t('list.noClassTeacher')}
+                    </span>
                   </span>
-                  <span className="mt-0.5 block text-text-secondary">
-                    {t('list.studentCount', { count: section.student_count })}
-                  </span>
-                </span>
-                <TodayBadge section={section} />
-                <ChevronRight aria-hidden className="size-4 shrink-0 text-text-secondary" />
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </section>
+                  <StateBadge section={section} />
+                  <ChevronRight aria-hidden className="size-4 shrink-0 text-text-secondary" />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </PageContainer>
   );
 }
