@@ -48,7 +48,11 @@
       "perClass": "Sections in {{className}}",
       "addSection": "Add a section",
       "created_one": "{{count}} section created",
-      "created_other": "{{count}} sections created"
+      "created_other": "{{count}} sections created",
+      "create": "Create sections",
+      "count": "Sections",
+      "retry": "Retry",
+      "empty": "There are no classes yet. Go back and pick a curriculum first."
     }
   },
   "excel": {
@@ -64,7 +68,18 @@
     "downloadErrors": "Download the list of problems",
     "preview": "This is what will be created",
     "confirm": "Create these",
-    "done": "Your school has been set up."
+    "done": "Your school has been set up.",
+    "sheetsTitle": "What goes in each sheet",
+    "createOnly": "This file can only add new things. Nothing you have is changed or deleted.",
+    "notStarter": "This is not the sample file. Download it above and use that one.",
+    "alreadyCreated": "Already created: {{sheets}}. Fix the problem and upload again.",
+    "sheet": {
+      "academic_years": "Academic years — the year your school runs, with its start and end dates",
+      "classes": "Classes — each class you teach, like Class 1 or Class 6",
+      "sections": "Sections — the groups inside each class, like A and B",
+      "subjects": "Subjects — what each class studies",
+      "fee_structures": "Fees — what each class pays, and when"
+    }
   },
   "progress": "Step {{current}} of {{total}}",
   "saveError": "We could not save that. Please try again."
