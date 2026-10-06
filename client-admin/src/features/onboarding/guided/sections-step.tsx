@@ -74,7 +74,7 @@ function ClassRow({
     <li className="flex flex-col gap-2 border-b border-border-subtle py-3 last:border-b-0 md:flex-row md:items-center md:gap-4">
       <span className="font-medium md:w-48">{cls.name}</span>
       <div className="flex items-center gap-2">
-        <Label htmlFor={inputId}>{t('guided.sections.count', { defaultValue: 'Sections' })}</Label>
+        <Label htmlFor={inputId}>{t('guided.sections.count')}</Label>
         <Input
           id={inputId}
           type="number"
@@ -103,8 +103,8 @@ function ClassRow({
         {error && (
           <span className="flex items-center gap-2 text-sm text-destructive" role="alert">
             {t('saveError')}
-            <Button type="button" size="sm" variant="outline" onClick={() => void run()}>
-              {t('guided.sections.retry', { defaultValue: 'Retry' })}
+            <Button type="button" variant="outline" onClick={() => void run()}>
+              {t('guided.sections.retry')}
             </Button>
           </span>
         )}
@@ -158,9 +158,7 @@ export function SectionsStep({ onBack, onDone }: { onBack: () => void; onDone: (
         <Skeleton aria-busy="true" className="h-44 w-full" />
       ) : classes.data.length === 0 ? (
         <Card padded role="status">
-          {t('guided.sections.empty', {
-            defaultValue: 'There are no classes yet. Go back and pick a curriculum first.',
-          })}
+          {t('guided.sections.empty')}
         </Card>
       ) : (
         <Card padded>
@@ -180,11 +178,7 @@ export function SectionsStep({ onBack, onDone }: { onBack: () => void; onDone: (
         onBack={onBack}
         onPrimary={() => void primary()}
         busy={busy}
-        primaryLabel={
-          toCreate > 0
-            ? t('guided.sections.create', { defaultValue: 'Create sections' })
-            : undefined
-        }
+        primaryLabel={toCreate > 0 ? t('guided.sections.create') : undefined}
       />
     </div>
   );

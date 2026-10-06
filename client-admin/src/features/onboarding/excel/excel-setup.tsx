@@ -86,9 +86,7 @@ export function ExcelSetup({ onDone }: { onDone?: () => void } = {}) {
             <StarterPreview tabs={result.summary.tabs} />
           ) : (
             <p role="alert" className="text-sm font-medium text-destructive">
-              {t('excel.notStarter', {
-                defaultValue: 'This is not the sample file. Download it above and use that one.',
-              })}
+              {t('excel.notStarter')}
             </p>
           )
         }
@@ -169,6 +167,8 @@ function SetupProgress({
   }
   if (done) return <p className="text-sm font-medium">{t('excel.done')}</p>;
   if (job && job.status !== 'QUEUED' && job.status !== 'RUNNING') {
+    // The restore processes tabs in the validate response's order, so every
+    // tab before the failed one with creates has already been written.
     const cut = job.failed_tab ? tabs.findIndex((tab) => tab.name === job.failed_tab) : -1;
     const created = (cut < 0 ? [] : tabs.slice(0, cut)).filter((tab) => tab.creates > 0);
     return (
@@ -179,7 +179,6 @@ function SetupProgress({
         {created.length > 0 && (
           <p className="text-sm text-text-secondary">
             {t('excel.alreadyCreated', {
-              defaultValue: 'Already created: {{sheets}}. Fix the problem and upload again.',
               sheets: created.map((tab) => tabLabel(tb, tab.name)).join(', '),
             })}
           </p>

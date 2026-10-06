@@ -20,12 +20,7 @@ export function StarterPreview({ tabs }: { tabs: RestoreSummary['tabs'] }) {
           </li>
         ))}
       </ul>
-      <p className="text-caption text-text-secondary">
-        {t('excel.createOnly', {
-          defaultValue:
-            'This file can only add new things. Nothing you have is changed or deleted.',
-        })}
-      </p>
+      <p className="text-caption text-text-secondary">{t('excel.createOnly')}</p>
     </div>
   );
 }
