@@ -49,7 +49,7 @@ export function SubjectSummaryTab({ sectionId, month, lowThreshold }: SubjectSum
               held: formatNumber(subject.held, regionConfig),
             })}
           </span>
-          <span className="text-xs text-muted-foreground">
+          <span className="text-caption text-text-secondary">
             {pct === null ? (
               '—'
             ) : (

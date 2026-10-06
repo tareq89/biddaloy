@@ -437,7 +437,7 @@ export function AttendanceSection({ schoolId, attendance }: AttendanceSectionPro
         {shifts.length > 0 && (
           <fieldset className="mt-6 border-t border-border-subtle pt-4">
             <legend className="text-h3">{t('attendance.shiftTimesLegend')}</legend>
-            <p className="text-body-sm mt-1 text-text-secondary">
+            <p className="mt-1 text-caption text-text-secondary">
               {t('attendance.shiftTimesHelp')}
             </p>
             <div className="mt-4 grid gap-4">
@@ -492,7 +492,7 @@ export function AttendanceSection({ schoolId, attendance }: AttendanceSectionPro
         </h3>
         <div className="mt-4 grid gap-1 md:grid-cols-2">
           {checkboxField('periodEnabled', t('attendance.periodEnabled'))}
-          <p className="text-body-sm text-text-secondary md:col-span-2">
+          <p className="text-caption text-text-secondary md:col-span-2">
             {t('attendance.periodHelp')}
           </p>
         </div>
