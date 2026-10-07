@@ -102,8 +102,9 @@ function ReceiptBody() {
         ) : (
           <>
             <InvoiceReceipt
+              // An unknown method (newer server) shows as sent rather than vanishing.
               receipt={toDisplayReceipt(receiptQuery.data, region, (method) =>
-                t(`record.method.methods.${method}`, { ns: 'payments', defaultValue: '—' }),
+                t(`record.method.methods.${method}`, { ns: 'payments', defaultValue: method }),
               )}
               width="a4"
               config={region}
