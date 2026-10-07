@@ -1,8 +1,8 @@
 /**
  * [8.11.8]'s Add-user dialog — `POST /users` creates the account *and*
  * its membership in the active school in one transaction
- * (`UserService.create`). Local `useState` rather than react-hook-form,
- * same weight-class reasoning as `academic-years/-year-form-dialog.tsx`.
+ * (`UserService.create`). Built on react-hook-form (`useForm`) so name
+ * and role errors sit under their own fields.
  * A 409 (duplicate email — global accounts are unique by email, not
  * per-school) renders its own inline message instead of the generic one.
  */
@@ -180,9 +180,7 @@ export function AddUserDialog({ open, onOpenChange }: AddUserDialogProps) {
                   <Select value={field.value} onValueChange={field.onChange}>
                     <FormControl>
                       <SelectTrigger id="add-user-role">
-                        <SelectValue
-                          placeholder={t('form.selectPlaceholder', { ns: 'common' })}
-                        >
+                        <SelectValue placeholder={t('form.selectPlaceholder', { ns: 'common' })}>
                           {field.value ? t(`roles.${field.value}`) : undefined}
                         </SelectValue>
                       </SelectTrigger>

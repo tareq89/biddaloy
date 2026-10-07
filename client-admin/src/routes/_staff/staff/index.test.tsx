@@ -344,7 +344,9 @@ describe('/staff', () => {
   });
 
   it('add-user dialog shows a description under each role, including EXAM_CONTROLLER', async () => {
-    server.use(http.get('/api/v1/users', () => HttpResponse.json(paginated([userResponseFactory()]))));
+    server.use(
+      http.get('/api/v1/users', () => HttpResponse.json(paginated([userResponseFactory()]))),
+    );
 
     renderWithRouter(routeTree, {
       initialEntries: ['/staff'],
@@ -467,7 +469,9 @@ describe('/staff', () => {
   // the sortable "Name" column header writes it, replacing the old no-op
   // `onSortingChange`.
   it('clicking the Name column header writes sort/order to the URL', async () => {
-    server.use(http.get('/api/v1/users', () => HttpResponse.json(paginated([userResponseFactory()]))));
+    server.use(
+      http.get('/api/v1/users', () => HttpResponse.json(paginated([userResponseFactory()]))),
+    );
 
     const { router } = renderWithRouter(routeTree, {
       initialEntries: ['/staff'],
@@ -585,9 +589,9 @@ describe('/staff', () => {
     const doneRow = screen.getByText('Done Person').closest('tr') as HTMLElement;
     expect(within(openRow).getByText('Invitation pending')).toBeTruthy();
     expect(within(doneRow).queryByText('Invitation pending')).toBeNull();
-    for (const name of ['View', 'Edit', 'Remove from school']) {
-      expect(within(openRow).getByLabelText(name)).toBeTruthy();
-    }
+    expect(within(openRow).getByRole('link', { name: 'View' })).toBeTruthy();
+    expect(within(openRow).getByRole('button', { name: 'Edit' })).toBeTruthy();
+    expect(within(openRow).getByRole('button', { name: 'Remove from school' })).toBeTruthy();
     expect(screen.getAllByRole('button', { name: 'Add staff member' })).toHaveLength(1);
   });
 
@@ -603,13 +607,15 @@ describe('/staff', () => {
     });
 
     const user = userEvent.setup();
-    await user.click(await screen.findByLabelText('Edit'));
+    await user.click(await screen.findByRole('button', { name: 'Edit' }));
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).getByDisplayValue('Abdul Karim')).toBeTruthy();
   });
 
   it('add-user dialog puts the name and role errors under their own fields', async () => {
-    server.use(http.get('/api/v1/users', () => HttpResponse.json(paginated([userResponseFactory()]))));
+    server.use(
+      http.get('/api/v1/users', () => HttpResponse.json(paginated([userResponseFactory()]))),
+    );
 
     renderWithRouter(routeTree, {
       initialEntries: ['/staff'],
@@ -625,9 +631,9 @@ describe('/staff', () => {
 
     const nameField = within(dialog).getByLabelText(/^Full name/);
     expect(nameField.getAttribute('aria-invalid')).toBe('true');
-    expect(within(dialog).getByRole('combobox', { name: /^Role/ }).getAttribute('aria-invalid')).toBe(
-      'true',
-    );
+    expect(
+      within(dialog).getByRole('combobox', { name: /^Role/ }).getAttribute('aria-invalid'),
+    ).toBe('true');
     expect(within(dialog).getAllByRole('alert')).toHaveLength(2);
   });
 });
