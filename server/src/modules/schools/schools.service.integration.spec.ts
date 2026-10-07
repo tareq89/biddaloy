@@ -139,7 +139,9 @@ describe('SchoolsService (integration)', () => {
       plainToInstance(TenantSettingsDto, { version: 1, routine }),
       SEED_ADMIN_USER_ID,
     );
-    expect(returned.routine?.defaultChangeoverMinutes).toBe(10);
+    expect((returned.routine as { defaultChangeoverMinutes?: number }).defaultChangeoverMinutes).toBe(
+      10,
+    );
     const stored = await schoolRepo.findOneByOrFail({ id: school.id });
     expect((stored.settings as any).routine).toEqual(routine);
 
