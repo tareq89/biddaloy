@@ -217,6 +217,9 @@ export function SurveyFormPage({ onDone }: { onDone: () => void }) {
   }
 
   async function submit(andPublish: boolean) {
+    // Every path (Publish, Save as draft, Ctrl+Enter) lands here; one at a time,
+    // or a second create would run before `createdId` is set.
+    if (create.isPending || update.isPending || publish.isPending) return;
     const { next, rows, qs, firstId } = validate();
     setErrors(next);
     setRowErrors(rows);
