@@ -751,7 +751,8 @@ export class GuardianService {
         );
       }
       if (query.relationship) {
-        qb.andWhere('guardian.relationship = :relationship', {
+        // Column holds mixed case (`Father` from forms, `OTHER` default) — match any case.
+        qb.andWhere('LOWER(guardian.relationship) = LOWER(:relationship)', {
           relationship: query.relationship,
         });
       }

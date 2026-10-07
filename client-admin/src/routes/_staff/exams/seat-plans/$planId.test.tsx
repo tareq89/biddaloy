@@ -195,7 +195,7 @@ describe('SeatPlanDetail', () => {
     mockBaseline(plan({ status: 'PUBLISHED' }));
     renderDetail();
 
-    await screen.findByText('Term 1 Seating');
+    expect(await screen.findAllByText('Term 1 Seating')).toHaveLength(2);
     expect(screen.getByText('Published')).not.toBeNull();
     for (const button of screen.getAllByRole('button', { name: 'Reseat' })) {
       expect(button.getAttribute('disabled')).not.toBeNull();

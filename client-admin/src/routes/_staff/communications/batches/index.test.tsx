@@ -19,7 +19,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { routeTree } from '../../../../routeTree.gen';
 
-function render(role = 'ACCOUNTANT') {
+function render(role = 'ADMIN') {
   return renderWithRouter(routeTree, {
     initialEntries: ['/communications/batches'],
     tenantId: 'tenant-1',
@@ -179,7 +179,7 @@ describe('/communications/batches', () => {
     const { router } = renderWithRouter(routeTree, {
       initialEntries: ['/communications/batches?page=2'],
       tenantId: 'tenant-1',
-      role: 'ACCOUNTANT',
+      role: 'ADMIN',
       locale: 'en',
     });
 

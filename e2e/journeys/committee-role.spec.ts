@@ -77,6 +77,7 @@ test('cannot reach students, fees, exams, settings or the collections report', a
       'nav.items.students',
       'nav.items.guardians',
       'nav.items.fees',
+      'nav.items.payments',
       'nav.items.invoices',
       'nav.items.seatPlans',
       'nav.items.settings',

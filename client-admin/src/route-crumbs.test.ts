@@ -60,6 +60,8 @@ describe('ROUTE_CRUMBS', () => {
       const segments = routeId.split('/');
       const isParamRoute = segments.some((segment) => segment.startsWith('$'));
       if (!isParamRoute || !Array.isArray(value)) continue;
+      // Deliberately static: three ids cannot feed one resolver (31.3.5).
+      if (routeId === '/_staff/marks/$examId/$sectionId/$subjectId') continue;
 
       const hasDynamicSegment = value.some((segment) => segment.dynamic === 'entity');
       expect(
@@ -67,5 +69,11 @@ describe('ROUTE_CRUMBS', () => {
         `ROUTE_CRUMBS['${routeId}'] is a $param route but no segment is marked dynamic: 'entity'`,
       ).toBe(true);
     }
+  });
+
+  it('[31.3.5] the survey trail has three segments and the second carries `to`', () => {
+    const trail = ROUTE_CRUMBS['/_staff/staff/evaluations_/surveys/$surveyId'];
+    expect(Array.isArray(trail) && trail.length).toBe(3);
+    expect(Array.isArray(trail) && trail[1]!.to).toBe('/staff/evaluations?tab=surveys');
   });
 });

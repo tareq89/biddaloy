@@ -75,7 +75,9 @@ function PaymentsPage() {
         <EmptyState
           title={t('title')}
           explanation={t('explanation')}
-          action={{ label: t('recordAction'), onClick: () => setModalOpen(true) }}
+          {...(canRecord
+            ? { action: { label: t('recordAction'), onClick: () => setModalOpen(true) } }
+            : {})}
         />
         <RecordPaymentModal
           open={search.record === '1'}

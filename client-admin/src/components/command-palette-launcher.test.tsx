@@ -1,10 +1,13 @@
 import { cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
+import { createRootRoute, createRoute } from '@tanstack/react-router';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { routeTree } from '../routeTree.gen';
+
+import { CommandPaletteLauncher } from './command-palette-launcher';
 
 /**
  * [30.5.1] `CommandPaletteLauncher` replaces the retired
@@ -185,6 +188,47 @@ describe('CommandPaletteLauncher', () => {
     await user.type(input, 'ab');
 
     expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual(['Page', 'Action']);
+    expect(searchCalls).toBe(0);
+  });
+
+  it('with `pages`, shows only the Page tab, navigates to a page and makes no /search call', async () => {
+    let searchCalls = 0;
+    server.use(
+      http.get('/api/v1/search', () => {
+        searchCalls += 1;
+        return HttpResponse.json({});
+      }),
+    );
+    const rootRoute = createRootRoute();
+    const pages = [{ id: 'results', label: 'Results page', to: '/portal/results' }];
+    const tree = rootRoute.addChildren([
+      createRoute({
+        getParentRoute: () => rootRoute,
+        path: '/',
+        component: () => <CommandPaletteLauncher pages={pages} />,
+      }),
+      createRoute({
+        getParentRoute: () => rootRoute,
+        path: '/portal/results',
+        component: () => <p data-testid="results-page" />,
+      }),
+    ]);
+    const { router } = renderWithRouter(tree, {
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Search (Ctrl+K)' }));
+    await user.type(screen.getByRole('combobox', { name: 'Search' }), 'Results');
+
+    expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual(['Page']);
+    await user.click(await screen.findByRole('option', { name: /Results page/ }));
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/portal/results'));
+    // Wait past the 300 ms search debounce, or a late /search call would be missed.
+    await new Promise((resolve) => setTimeout(resolve, 400));
     expect(searchCalls).toBe(0);
   });
 });

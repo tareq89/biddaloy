@@ -88,7 +88,14 @@ export class SyllabusService {
     const where: Record<string, unknown> = { tenant_id: tenantId };
     if (classId) where.class_id = classId;
     if (subjectId) where.subject_id = subjectId;
-    return this.repo.find({ where, order: { sequence: 'ASC' } });
+    return this.repo.find({
+      where: { ...where, subject: { tenant_id: tenantId } },
+      relations: { subject: true },
+      // `SyllabusTopic` has no deleted_at of its own, so this only keeps a
+      // soft-deleted subject's name on its topics.
+      withDeleted: true,
+      order: { sequence: 'ASC' },
+    });
   }
 
   async findOne(id: string, tenantId: string): Promise<SyllabusTopic> {

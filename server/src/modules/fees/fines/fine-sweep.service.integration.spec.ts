@@ -60,14 +60,16 @@ describe('FineSweepService (integration)', () => {
   /** A fresh tenant + academic year + class + section, isolated per test so
    * `FineRule`'s (tenant, year, trigger, class) uniqueness never collides
    * across tests. */
-  async function setupTenant(yearStart: string, yearEnd: string) {
-    const school = await dataSource
-      .getRepository(School)
-      .save({
-        name: `Fine Sweep Test ${Date.now()}-${Math.random()}`,
-        slug: `fine-sweep-test-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-        settings: { version: 1, attendance: { weeklyOffDays: [] } } as any,
-      });
+  async function setupTenant(
+    yearStart: string,
+    yearEnd: string,
+    region: { locale: string; numerals: string } = { locale: 'en-BD', numerals: 'latin' },
+  ) {
+    const school = await dataSource.getRepository(School).save({
+      name: `Fine Sweep Test ${Date.now()}-${Math.random()}`,
+      slug: `fine-sweep-test-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      settings: { version: 1, region, attendance: { weeklyOffDays: [] } } as any,
+    });
     const year = await dataSource.getRepository(AcademicYear).save({
       name: 'Fine Sweep Test Year',
       start_date: yearStart,
@@ -211,7 +213,11 @@ describe('FineSweepService (integration)', () => {
 
     const defaultStudent = await makeStudent(tenantId, sectionId, 'Default');
     const classStudent = await makeStudent(tenantId, sectionB.id, 'ClassB');
-    await markAbsences(tenantId, sectionId, defaultStudent, ['2026-03-02', '2026-03-03', '2026-03-04']);
+    await markAbsences(tenantId, sectionId, defaultStudent, [
+      '2026-03-02',
+      '2026-03-03',
+      '2026-03-04',
+    ]);
     await markAbsences(tenantId, sectionB.id, classStudent, ['2026-03-02', '2026-03-03']);
     void otherSection;
 
@@ -219,7 +225,11 @@ describe('FineSweepService (integration)', () => {
     const defaultRow = rows.find((r) => r.student_id === defaultStudent);
     const classRow = rows.find((r) => r.student_id === classStudent);
 
-    expect(defaultRow).toMatchObject({ count: 3, amount: 60, fee_structure_id: defaultStructureId });
+    expect(defaultRow).toMatchObject({
+      count: 3,
+      amount: 60,
+      fee_structure_id: defaultStructureId,
+    });
     expect(classRow).toMatchObject({ count: 2, amount: 100, fee_structure_id: classStructureId });
   });
 
@@ -231,7 +241,10 @@ describe('FineSweepService (integration)', () => {
     const student5 = await makeStudent(tenantId, sectionId, 'Five');
     const student15 = await makeStudent(tenantId, sectionId, 'Fifteen');
     const fiveDates = ['04-01', '04-02', '04-03', '04-04', '04-05'].map((d) => `2026-${d}`);
-    const fifteenDates = Array.from({ length: 15 }, (_, i) => `2026-04-${String(i + 1).padStart(2, '0')}`);
+    const fifteenDates = Array.from(
+      { length: 15 },
+      (_, i) => `2026-04-${String(i + 1).padStart(2, '0')}`,
+    );
     await markAbsences(tenantId, sectionId, student5, fiveDates);
     await markAbsences(tenantId, sectionId, student15, fifteenDates);
 
@@ -259,10 +272,24 @@ describe('FineSweepService (integration)', () => {
     const studentId = await makeStudent(tenantId, sectionId, 'Idempotent');
     await markAbsences(tenantId, sectionId, studentId, ['2026-06-02', '2026-06-03']);
 
-    const first = await service.generate(tenantId, null, '2026-06', {}, DuplicateStrategy.SKIP, false);
+    const first = await service.generate(
+      tenantId,
+      null,
+      '2026-06',
+      {},
+      DuplicateStrategy.SKIP,
+      false,
+    );
     expect(first.generated_count).toBe(1);
 
-    const second = await service.generate(tenantId, null, '2026-06', {}, DuplicateStrategy.SKIP, false);
+    const second = await service.generate(
+      tenantId,
+      null,
+      '2026-06',
+      {},
+      DuplicateStrategy.SKIP,
+      false,
+    );
     expect(second.generated_count).toBe(0);
   });
 
@@ -288,6 +315,32 @@ describe('FineSweepService (integration)', () => {
     expect(afterWindow).toHaveLength(1);
   });
 
+  // [31.3.7d] D9: new fine notes follow the school's language and numerals.
+  async function noteFor(region: { locale: string; numerals: string }, name: string) {
+    const { tenantId, yearId, sectionId } = await setupTenant('2026-01-01', '2026-12-31', region);
+    const structureId = await makeStructure(tenantId, yearId, 20);
+    await makeRule({ tenantId, yearId, structureId });
+    const studentId = await makeStudent(tenantId, sectionId, name);
+    await markAbsences(tenantId, sectionId, studentId, ['2026-07-01', '2026-07-02']);
+    await service.generate(tenantId, null, '2026-07', {}, DuplicateStrategy.SKIP, false);
+    const bill = await dataSource
+      .getRepository(StudentFee)
+      .findOneOrFail({ where: { student_id: studentId, fee_structure_id: structureId } });
+    return bill.note;
+  }
+
+  it('writes the note in Bangla with Bengali numerals for a bn-BD / bengali school', async () => {
+    expect(await noteFor({ locale: 'bn-BD', numerals: 'bengali' }, 'BnDigits')).toContain(
+      '২ দিন অনুপস্থিত',
+    );
+  });
+
+  it('writes the note in Bangla with Latin numerals for a bn-BD / latin school', async () => {
+    expect(await noteFor({ locale: 'bn-BD', numerals: 'latin' }, 'BnLatin')).toContain(
+      '2 দিন অনুপস্থিত',
+    );
+  });
+
   it('bills carry fine_rule_id + note, and the FeeGeneration row has source FINE_RULE', async () => {
     const { tenantId, yearId, sectionId } = await setupTenant('2026-01-01', '2026-12-31');
     const structureId = await makeStructure(tenantId, yearId, 20);
@@ -295,7 +348,14 @@ describe('FineSweepService (integration)', () => {
     const studentId = await makeStudent(tenantId, sectionId, 'Traceable');
     await markAbsences(tenantId, sectionId, studentId, ['2026-07-01', '2026-07-02']);
 
-    const result = await service.generate(tenantId, null, '2026-07', {}, DuplicateStrategy.SKIP, false);
+    const result = await service.generate(
+      tenantId,
+      null,
+      '2026-07',
+      {},
+      DuplicateStrategy.SKIP,
+      false,
+    );
     const bill = await dataSource
       .getRepository(StudentFee)
       .findOneOrFail({ where: { student_id: studentId, fee_structure_id: structureId } });

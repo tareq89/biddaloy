@@ -1,11 +1,17 @@
-import { Permission, UserRole } from '@biddaloy/shared';
+import { Permission, roleHasPermission, STAFF_ROLES, UserRole } from '@biddaloy/shared';
 import { hasPermission } from '@biddaloy/ui/hooks';
 import { QueryClient } from '@tanstack/react-query';
 import { createRouter } from '@tanstack/react-router';
 import { describe, expect, it } from 'vitest';
 
 import { NOT_IN_NAV } from './nav-not-in-nav';
-import { matchesNavSearch, STAFF_NAV_GROUPS, STAFF_NAV_ITEMS } from './nav-tree';
+import {
+  isPathUnder,
+  matchesNavSearch,
+  STAFF_BOTTOM_NAV,
+  STAFF_NAV_GROUPS,
+  STAFF_NAV_ITEMS,
+} from './nav-tree';
 import { routeTree } from './routeTree.gen';
 
 function allGroupItems() {
@@ -77,12 +83,50 @@ describe('nav-tree', () => {
     expect(examsResults?.items.map((item) => item.id)).toEqual([
       'examsResults.exams',
       'examsResults.examTemplates',
+      'examsResults.marksEntry',
       'examsResults.seatPlans',
       'examsResults.gradingScales',
+      'examsResults.results',
       'examsResults.analysis',
       'examsResults.promotion',
     ]);
     expect(examsResults?.pinnedItems ?? []).toEqual([]);
+  });
+
+  it('[31.3.1] drops finance.fees and adds the five new items in place', () => {
+    expect('finance.fees' in STAFF_NAV_ITEMS).toBe(false);
+    const academics = STAFF_NAV_GROUPS.find((group) => group.id === 'academics')!;
+    const ids = academics.items.map((item) => item.id);
+    const at = ids.indexOf('academics.routineBuilder');
+    expect(ids.slice(at + 1, at + 3)).toEqual([
+      'academics.routineReview',
+      'academics.routineSubstitutions',
+    ]);
+    const finance = STAFF_NAV_GROUPS.find((group) => group.id === 'finance')!;
+    const fIds = finance.items.map((item) => item.id);
+    expect(fIds.indexOf('finance.payments')).toBe(fIds.indexOf('finance.invoices') - 1);
+  });
+
+  it('[31.3.1] every staff role has 1-4 distinct bottom-bar cells it holds the permission for', () => {
+    for (const role of STAFF_ROLES) {
+      const cells = STAFF_BOTTOM_NAV[role];
+      expect(cells.length).toBeGreaterThanOrEqual(1);
+      expect(cells.length).toBeLessThanOrEqual(4);
+      expect(new Set(cells.map((c) => c.id)).size).toBe(cells.length);
+      for (const cell of cells) {
+        const item = STAFF_NAV_ITEMS[cell.id];
+        expect(item).toBeDefined();
+        if ('permission' in item) expect(roleHasPermission(role, item.permission)).toBe(true);
+      }
+    }
+    expect(STAFF_BOTTOM_NAV.TEACHER[0]!.id).toBe('academics.myClass');
+  });
+
+  it('[31.3.1] isPathUnder matches whole segments', () => {
+    expect(isPathUnder('/fees/dues/x', '/fees/dues')).toBe(true);
+    expect(isPathUnder('/feesx', '/fees')).toBe(false);
+    expect(isPathUnder('/dashboard', '/dashboard')).toBe(true);
+    expect(isPathUnder('/my-class/abc', '/my-class')).toBe(true);
   });
 
   it('every item referenced by a group matches its STAFF_NAV_ITEMS entry', () => {

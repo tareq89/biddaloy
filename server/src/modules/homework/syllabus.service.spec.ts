@@ -8,6 +8,7 @@ import { Class } from '../academics/entities/class.entity';
 import { Subject } from '../academics/entities/subject.entity';
 import { AuditService } from '../audit/audit.service';
 import { SyllabusTopicStatus } from '@biddaloy/shared';
+import { toSyllabusTopicResponseDto } from './dto/syllabus.dto';
 
 /**
  * Unit tests for [22.3.4]'s `SyllabusService`: create, reorder, edit
@@ -86,6 +87,31 @@ async function buildService(existing: SyllabusTopic[] = []) {
 }
 
 describe('SyllabusService', () => {
+  it('findAll loads the subject, scoped to the tenant, and the mapper emits its names', async () => {
+    const withSubject = topic({
+      subject: { tenant_id: TENANT_ID, name_en: 'Mathematics', name_bn: 'গণিত' },
+    } as Partial<SyllabusTopic>);
+    const { service, topicRepo } = await buildService([withSubject]);
+
+    const rows = await service.findAll(TENANT_ID, 'class-1');
+
+    const arg = topicRepo.find.mock.calls[0][0];
+    expect(arg.where.tenant_id).toBe(TENANT_ID);
+    expect(arg.where.subject.tenant_id).toBe(TENANT_ID);
+    expect(arg.relations.subject).toBe(true);
+    expect(toSyllabusTopicResponseDto(rows[0]!)).toMatchObject({
+      subject_name_en: 'Mathematics',
+      subject_name_bn: 'গণিত',
+    });
+  });
+
+  it('the mapper gives null names when the subject relation was not loaded', () => {
+    expect(toSyllabusTopicResponseDto(topic())).toMatchObject({
+      subject_name_en: null,
+      subject_name_bn: null,
+    });
+  });
+
   it('creates a topic with default status PLANNED', async () => {
     const { service, topicRepo } = await buildService([]);
 

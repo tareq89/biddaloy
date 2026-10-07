@@ -107,9 +107,27 @@ describe('Admission flow (integration)', () => {
   });
 
   it("tenant B's intakes are not returned to tenant A", async () => {
-    await createIntake();
-    const rows = await intakeService.findAll('00000000-0000-4000-8000-00000000dead');
-    expect(rows).toHaveLength(0);
+    const mine = await createIntake();
+    const otherTenantId = '00000000-0000-4000-8000-00000000dead';
+    await dataSource.query(
+      `INSERT INTO schools (id, name, slug, created_at, updated_at)
+       VALUES ($1, 'Intake Other', 'intake-other', NOW(), NOW()) ON CONFLICT DO NOTHING`,
+      [otherTenantId],
+    );
+    const [theirs] = await dataSource.query(
+      `INSERT INTO admission_intakes
+         (id, tenant_id, class_section_id, title, seat_count, open_date, close_date, required_document_types, created_at, updated_at)
+       VALUES (DEFAULT, $1, $2, 'Other Tenant Intake', 1, '2026-01-01', '2099-12-31', '[]'::jsonb, NOW(), NOW())
+       RETURNING id`,
+      [otherTenantId, SEED_SECTION_1_ID],
+    );
+    try {
+      const ids = (await intakeService.findAll(SEED_TENANT_ID)).map((r) => r.id);
+      expect(ids).toContain(mine);
+      expect(ids).not.toContain(theirs.id);
+    } finally {
+      await dataSource.query(`DELETE FROM admission_intakes WHERE tenant_id = $1`, [otherTenantId]);
+    }
   });
 
   it('submit -> shortlist -> admit produces a Student + Guardian, tenant-scoped throughout', async () => {

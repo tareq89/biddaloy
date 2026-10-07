@@ -6626,6 +6626,8 @@ export interface components {
             entity_id: string | null;
             performed_by_user_id: string | null;
             performed_by_name: string | null;
+            /** @description Display name of the record (student name, invoice number…), when it can be resolved; null otherwise. */
+            entity_label: string | null;
             old_values: {
                 [key: string]: unknown;
             } | null;
@@ -7498,6 +7500,8 @@ export interface components {
         InvoiceSnapshotLine: {
             fee_name: string;
             period_label: string;
+            /** @description Billing month as 'YYYY-MM' — format it on the client. Older invoices are back-filled when one invoice is fetched (GET /invoices/:id); list responses leave it unset. */
+            period_start?: string;
             amount: number;
             discount: number;
             paid_this_time: number;
@@ -9721,7 +9725,7 @@ export interface components {
             academic_year_id: string;
             name: string;
             /** @enum {string} */
-            state: "DRAFT" | "REVIEW" | "PUBLISHED";
+            state: "DRAFT" | "PUBLISHED" | "REVIEW";
             /** Format: date-time */
             published_at: string | null;
             /** Format: date-time */
@@ -9747,7 +9751,7 @@ export interface components {
             room: components["schemas"]["Room"] | null;
             room_id: string | null;
             /** @enum {string} */
-            recurrence: "WEEKLY" | "MONTHLY" | "BIWEEKLY";
+            recurrence: "MONTHLY" | "WEEKLY" | "BIWEEKLY";
             recurrence_offset: number;
             valid_from: string;
             valid_to: string | null;
@@ -9819,7 +9823,7 @@ export interface components {
             /** Format: uuid */
             room_id?: string | null;
             /** @enum {string} */
-            recurrence: "WEEKLY" | "MONTHLY" | "BIWEEKLY";
+            recurrence: "MONTHLY" | "WEEKLY" | "BIWEEKLY";
             recurrence_offset?: number;
             valid_from: string;
             valid_to?: string | null;
@@ -10089,7 +10093,7 @@ export interface components {
         CreateExamDto: {
             name: string;
             /** @enum {string} */
-            kind: "TERM" | "OTHER" | "MONTHLY" | "MODEL";
+            kind: "TERM" | "MONTHLY" | "MODEL" | "OTHER";
             /** Format: uuid */
             academic_year_id: string;
             /** Format: uuid */
@@ -10129,9 +10133,9 @@ export interface components {
             academic_term_id: string | null;
             name: string;
             /** @enum {string} */
-            kind: "TERM" | "OTHER" | "MONTHLY" | "MODEL";
+            kind: "TERM" | "MONTHLY" | "MODEL" | "OTHER";
             /** @enum {string} */
-            status: "DRAFT" | "PUBLISHED" | "PROCESSED";
+            status: "DRAFT" | "PROCESSED" | "PUBLISHED";
             /** Format: date-time */
             published_at: string | null;
             /** Format: date-time */
@@ -10153,9 +10157,9 @@ export interface components {
             academic_term_id: string | null;
             name: string;
             /** @enum {string} */
-            kind: "TERM" | "OTHER" | "MONTHLY" | "MODEL";
+            kind: "TERM" | "MONTHLY" | "MODEL" | "OTHER";
             /** @enum {string} */
-            status: "DRAFT" | "PUBLISHED" | "PROCESSED";
+            status: "DRAFT" | "PROCESSED" | "PUBLISHED";
             /** Format: date-time */
             published_at: string | null;
             /** Format: date-time */
@@ -10168,7 +10172,7 @@ export interface components {
         UpdateExamDto: {
             name?: string;
             /** @enum {string} */
-            kind?: "TERM" | "OTHER" | "MONTHLY" | "MODEL";
+            kind?: "TERM" | "MONTHLY" | "MODEL" | "OTHER";
             /** Format: uuid */
             academic_year_id?: string;
             /** Format: uuid */
@@ -10232,7 +10236,7 @@ export interface components {
             id: string;
             name: string;
             /** @enum {string} */
-            kind: "TERM" | "OTHER" | "MONTHLY" | "MODEL";
+            kind: "TERM" | "MONTHLY" | "MODEL" | "OTHER";
             rowCount: number;
             classGrades: number[];
         };
@@ -10254,13 +10258,13 @@ export interface components {
             id: string;
             name: string;
             /** @enum {string} */
-            kind: "TERM" | "OTHER" | "MONTHLY" | "MODEL";
+            kind: "TERM" | "MONTHLY" | "MODEL" | "OTHER";
             rows: components["schemas"]["ExamTemplateRowDto"][];
         };
         CreateExamTemplateDto: {
             name: string;
             /** @enum {string} */
-            kind: "TERM" | "OTHER" | "MONTHLY" | "MODEL";
+            kind: "TERM" | "MONTHLY" | "MODEL" | "OTHER";
         };
         ExamTemplateComponentInputDto: {
             name: string;
@@ -10277,7 +10281,7 @@ export interface components {
         UpdateExamTemplateDto: {
             name?: string;
             /** @enum {string} */
-            kind?: "TERM" | "OTHER" | "MONTHLY" | "MODEL";
+            kind?: "TERM" | "MONTHLY" | "MODEL" | "OTHER";
             rows?: components["schemas"]["ExamTemplateRowInputDto"][];
         };
         SetSubjectChoiceDto: {
@@ -10482,6 +10486,8 @@ export interface components {
             id: string;
             class_id: string;
             subject_id: string;
+            subject_name_en: string | null;
+            subject_name_bn: string | null;
             name: string;
             description: string | null;
             sequence: number;
@@ -15715,7 +15721,7 @@ export interface operations {
                 to_date?: string;
                 min_amount?: number;
                 max_amount?: number;
-                sort?: "status" | "invoice_number" | "total_amount" | "issued_date" | "due_date";
+                sort?: "status" | "total_amount" | "due_date" | "invoice_number" | "issued_date";
                 order?: "asc" | "desc";
                 page?: number;
                 limit?: number;
