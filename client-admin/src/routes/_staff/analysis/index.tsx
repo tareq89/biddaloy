@@ -14,9 +14,11 @@
  * that satisfies step 7's "phone renders as cards" requirement without a
  * hand-rolled breakpoint.
  */
+import { Permission } from '@biddaloy/shared';
 import {
   EmptyState,
   ErrorState,
+  Label,
   RoutePending,
   Select,
   SelectContent,
@@ -28,10 +30,19 @@ import {
   TabsContent,
   TabsList,
   TabsTrigger,
+  toast,
 } from '@biddaloy/ui/components';
-import { examsQueryOptions, useClassSections, useExams } from '@biddaloy/ui/hooks';
+import {
+  downloadAnalysisCsv,
+  examsQueryOptions,
+  useClassSections,
+  useExams,
+  useHasPermission,
+} from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
+import { PageContainer, PageHeader } from '@biddaloy/ui/shells';
 import { createFileRoute } from '@tanstack/react-router';
+import { DownloadIcon, FileClockIcon, FilePenLineIcon, PrinterIcon } from 'lucide-react';
 import * as React from 'react';
 import { z } from 'zod';
 
@@ -57,8 +68,9 @@ export const Route = createFileRoute('/_staff/analysis/')({
   validateSearch: searchSchema,
   loader: ({ context: { queryClient } }) =>
     Promise.all([
-      queryClient.ensureQueryData(examsQueryOptions({})).catch(swallowUnlessOffline),
-      loadRouteNamespaces('exams', 'common'),
+      // Same key `useExams({ limit: 50 })` reads below.
+      queryClient.ensureQueryData(examsQueryOptions({ limit: 50 })).catch(swallowUnlessOffline),
+      loadRouteNamespaces('exams', 'grading', 'common', 'nav'),
     ]),
   pendingComponent: AnalysisPending,
   component: AnalysisPage,
@@ -66,7 +78,9 @@ export const Route = createFileRoute('/_staff/analysis/')({
 
 function AnalysisPage() {
   const { t } = useTranslation('exams');
+  const { t: tg } = useTranslation('grading');
   const { t: tNav } = useTranslation('nav');
+  const canManageExam = useHasPermission(Permission.EXAM_MANAGE);
   const { examId, sectionId, tab, byComponent } = Route.useSearch();
   const navigate = Route.useNavigate();
 
@@ -81,9 +95,24 @@ function AnalysisPage() {
 
   React.useEffect(() => {
     if (!selectedExam) return;
-    const tabLabel = t(`analysis.tabs.${tab === 'pass-fail' ? 'passFail' : tab}`);
+    const tabLabel = tg(`analysisPage.tabs.${tab === 'pass-fail' ? 'passFail' : tab}`);
     document.title = `${tabLabel} · ${selectedExam.name}`;
-  }, [selectedExam, tab, t]);
+  }, [selectedExam, tab, tg]);
+
+  // One toolbar for the page; it acts on the selected tab.
+  const [csvBusy, setCsvBusy] = React.useState(false);
+  async function handleDownloadCsv() {
+    if (!selectedExam) return;
+    setCsvBusy(true);
+    try {
+      await downloadAnalysisCsv(selectedExam.id, tab, sectionId, selectedExam.name);
+    } catch {
+      toast.error(t('analysis.downloadCsvError'));
+    } finally {
+      setCsvBusy(false);
+    }
+  }
+  const ready = selectedExam !== undefined && selectedExam.status !== 'DRAFT';
 
   function setExam(nextExamId: string) {
     void navigate({ search: (prev) => ({ ...prev, examId: nextExamId, sectionId: undefined }) });
@@ -107,67 +136,114 @@ function AnalysisPage() {
   }
 
   return (
-    <div className="flex flex-col gap-4 p-4">
-      <h1 className="text-lg font-semibold">{tNav('items.analysis', { ns: 'nav' })}</h1>
+    <PageContainer>
+      <div className="print:hidden">
+        <PageHeader
+          title={tNav('items.analysis')}
+          subtitle={tg('analysisPage.subtitle')}
+          actions={[
+            {
+              id: 'print',
+              label: tg('analysisPage.print'),
+              icon: <PrinterIcon />,
+              onClick: () => window.print(),
+              allowed: ready,
+            },
+            {
+              id: 'csv',
+              label: tg('analysisPage.downloadCsv'),
+              icon: <DownloadIcon />,
+              onClick: () => void handleDownloadCsv(),
+              allowed: ready,
+              busy: csvBusy,
+            },
+          ]}
+        />
+      </div>
 
       {examsQuery.isLoading ? (
-        <Skeleton className="h-10 w-64" />
+        <div className="flex flex-col gap-4 md:flex-row">
+          <Skeleton className="h-11 w-full md:h-8 md:w-96" />
+          <Skeleton className="h-11 w-full md:h-8 md:w-56" />
+        </div>
       ) : examsQuery.isError ? (
         <ErrorState
           message={t('resultsRoute.loadError')}
           onRetry={() => void examsQuery.refetch()}
         />
+      ) : exams.length === 0 ? (
+        <EmptyState
+          icon={<FilePenLineIcon />}
+          title={tg('marksEntry.noExamsTitle')}
+          explanation={tg('marksEntry.noExamsText')}
+        />
       ) : (
         <>
-          <div className="flex flex-wrap items-center gap-2 print:hidden">
-            <Select value={selectedExamId ?? ''} onValueChange={setExam}>
-              <SelectTrigger aria-label={t('resultsRoute.examLabel')} className="w-64">
-                <SelectValue placeholder={t('resultsRoute.examPlaceholder')} />
-              </SelectTrigger>
-              <SelectContent>
-                {exams.map((exam) => (
-                  <SelectItem key={exam.id} value={exam.id}>
-                    {exam.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            {selectedExam && (
-              <Select value={sectionId ?? '__all__'} onValueChange={setSection}>
-                <SelectTrigger aria-label={t('analysis.sectionFilter')} className="w-48">
-                  <SelectValue placeholder={t('analysis.sectionFilter')} />
+          <div className="flex flex-col gap-4 md:flex-row md:items-end print:hidden">
+            <div className="flex flex-col gap-1.5 md:w-96 md:shrink-0">
+              <Label htmlFor="analysis-exam">{t('resultsRoute.examLabel')}</Label>
+              <Select value={selectedExamId ?? ''} onValueChange={setExam}>
+                <SelectTrigger id="analysis-exam" className="w-full">
+                  <SelectValue placeholder={t('resultsRoute.examPlaceholder')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="__all__">{t('analysis.allSections')}</SelectItem>
-                  {sections.map((section) => (
-                    <SelectItem key={section.id} value={section.id}>
-                      {section.section_name}
+                  {exams.map((exam) => (
+                    <SelectItem key={exam.id} value={exam.id}>
+                      {exam.class?.name
+                        ? tg('marksEntry.examOption', { exam: exam.name, class: exam.class.name })
+                        : exam.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            {selectedExam && (
+              <div className="flex flex-col gap-1.5 md:w-56 md:shrink-0">
+                <Label htmlFor="analysis-section">{t('analysis.sectionFilter')}</Label>
+                <Select value={sectionId ?? '__all__'} onValueChange={setSection}>
+                  <SelectTrigger id="analysis-section" className="w-full">
+                    <SelectValue placeholder={t('analysis.sectionFilter')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__all__">{tg('analysisPage.allSections')}</SelectItem>
+                    {sections.map((section) => (
+                      <SelectItem key={section.id} value={section.id}>
+                        {section.section_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             )}
           </div>
 
           {!selectedExam ? (
-            <p className="text-sm text-muted-foreground">{t('resultsRoute.selectExamHint')}</p>
+            <p className="text-text-secondary">{t('resultsRoute.selectExamHint')}</p>
           ) : selectedExam.status === 'DRAFT' ? (
             <EmptyState
-              title={t('analysis.empty.notProcessed')}
-              explanation={t('resultsPanel.empty')}
-              action={{
-                label: t('resultsPanel.process'),
-                onClick: () =>
-                  void navigate({ to: '/exams/$examId', params: { examId: selectedExam.id } }),
-              }}
+              icon={<FileClockIcon />}
+              title={tg('analysisPage.notProcessedTitle')}
+              explanation={tg('analysisPage.notProcessedText')}
+              {...(canManageExam
+                ? {
+                    action: {
+                      label: tg('analysisPage.openExam'),
+                      onClick: () =>
+                        void navigate({
+                          to: '/exams/$examId',
+                          params: { examId: selectedExam.id },
+                        }),
+                    },
+                  }
+                : {})}
             />
           ) : (
             <Tabs value={tab} onValueChange={setTab}>
               <TabsList className="print:hidden">
-                <TabsTrigger value="merit">{t('analysis.tabs.merit')}</TabsTrigger>
-                <TabsTrigger value="defaulted">{t('analysis.tabs.defaulted')}</TabsTrigger>
-                <TabsTrigger value="pass-fail">{t('analysis.tabs.passFail')}</TabsTrigger>
+                <TabsTrigger value="merit">{tg('analysisPage.tabs.merit')}</TabsTrigger>
+                <TabsTrigger value="defaulted">{tg('analysisPage.tabs.defaulted')}</TabsTrigger>
+                <TabsTrigger value="pass-fail">{tg('analysisPage.tabs.passFail')}</TabsTrigger>
               </TabsList>
 
               <TabsContent value="merit">
@@ -203,7 +279,7 @@ function AnalysisPage() {
           )}
         </>
       )}
-    </div>
+    </PageContainer>
   );
 }
 

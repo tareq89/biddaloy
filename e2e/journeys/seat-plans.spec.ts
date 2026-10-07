@@ -87,12 +87,12 @@ test.describe.serial('seat plans: generate -> reseat -> reshuffle -> publish', (
     const klass = await findSeededClass6(request, session);
 
     const suffix = Date.now().toString(36).toUpperCase();
-    const math = await post<{ id: string; name_en: string }>(request, session, '/subjects', {
+    const math = await post<{ id: string; name_en: string; name_bn: string }>(request, session, '/subjects', {
       code: `E2ESP-MATH-${suffix}`,
       name_en: `E2E Seat Plan Math ${suffix}`,
       name_bn: `ই২ই আসন গণিত ${suffix}`,
     });
-    const english = await post<{ id: string; name_en: string }>(request, session, '/subjects', {
+    const english = await post<{ id: string; name_en: string; name_bn: string }>(request, session, '/subjects', {
       code: `E2ESP-ENG-${suffix}`,
       name_en: `E2E Seat Plan English ${suffix}`,
       name_bn: `ই২ই আসন ইংরেজি ${suffix}`,
@@ -130,8 +130,15 @@ test.describe.serial('seat plans: generate -> reseat -> reshuffle -> publish', (
     await page.goto('/exams/seat-plans');
     await expect(page.getByRole('heading', { name: t('seatPlans.list.title') })).toBeVisible();
 
-    await page.getByRole('button', { name: t('seatPlans.list.generateButton') }).click();
-    await expect(page.getByRole('dialog')).toBeVisible();
+    // The header button comes first (an empty list also offers one in its empty state).
+    await page
+      .getByRole('button', { name: t('seatPlans.list.generateButton') })
+      .first()
+      .click();
+    // Generate is a full page now, not a dialog.
+    await expect(
+      page.getByRole('heading', { level: 1, name: t('seatPlans.generate.title') }),
+    ).toBeVisible();
 
     await page.getByLabel(t('seatPlans.generate.nameLabel')).fill(planName);
 
@@ -139,17 +146,19 @@ test.describe.serial('seat plans: generate -> reseat -> reshuffle -> publish', (
     await page.getByRole('option', { name: `E2E Seat Plan Exam ${suffix}` }).click();
 
     const schedulePicker = page.getByTestId('schedule-picker');
-    await schedulePicker.getByRole('checkbox', { name: math.name_en }).check();
-    await schedulePicker.getByRole('checkbox', { name: english.name_en }).check();
+    // A sitting is labelled in the UI language: Bangla name when the subject has one.
+    const subjectName = (s: { name_en: string; name_bn: string }) =>
+      new RegExp(`${s.name_en}|${s.name_bn}`);
+    await schedulePicker.getByRole('checkbox', { name: subjectName(math) }).check();
+    await schedulePicker.getByRole('checkbox', { name: subjectName(english) }).check();
 
     const roomPicker = page.getByTestId('room-picker');
     await roomPicker.getByRole('checkbox', { name: roomAName }).check();
     await roomPicker.getByRole('checkbox', { name: roomBName }).check();
 
     await page.getByRole('button', { name: t('seatPlans.generate.submit') }).click();
-    await expect(page.getByRole('dialog')).toBeHidden();
-
-    await expect(page.getByText(planName)).toBeVisible();
+    // Success opens the new plan.
+    await expect(page.getByRole('heading', { level: 1, name: planName })).toBeVisible();
   });
 
   test('section-mixing: the generated schedule seats both sections in the rooms', async ({
@@ -179,9 +188,12 @@ test.describe.serial('seat plans: generate -> reseat -> reshuffle -> publish', (
     await expect(page.getByRole('heading', { name: planName })).toBeVisible();
 
     // --- reseat one student to the other room -------------------------------
-    const reseatButtons = page.getByRole('button', {
-      name: t('seatPlansDetail.room.reseatButton'),
-    });
+    // The icon button is named "<Change seat> — <student>": match on the fixed part.
+    const reseatLabel = t('seatPlansDetail.room.reseatButton', { name: '' }).replace(
+      /\s*[—-]\s*$/,
+      '',
+    );
+    const reseatButtons = page.getByRole('button', { name: reseatLabel });
     await reseatButtons.first().click();
     await expect(page.getByRole('dialog')).toBeVisible();
     const roomCombobox = page.getByRole('combobox', {
@@ -205,24 +217,29 @@ test.describe.serial('seat plans: generate -> reseat -> reshuffle -> publish', (
       .getByRole('button', { name: t('seatPlansDetail.room.reshuffleButton') })
       .first()
       .click();
+    // Reseating a room throws away manual moves, so it asks first.
+    await page
+      .getByRole('alertdialog')
+      .getByRole('button', { name: t('seatPlansDetail.reshuffle.confirm') })
+      .click();
     await expect(page.getByRole('alert')).toHaveCount(0);
 
     // --- publish --------------------------------------------------------------
     await page.getByRole('button', { name: t('seatPlansDetail.detail.publishButton') }).click();
-    await expect(page.getByRole('dialog')).toBeVisible();
-    await page.getByRole('button', { name: t('seatPlansDetail.publish.confirm') }).click();
+    await page
+      .getByRole('alertdialog')
+      .getByRole('button', { name: t('seatPlansDetail.publish.confirm') })
+      .click();
     await expect(page.getByText(t('seatPlansDetail.detail.publishedBanner'))).toBeVisible();
 
-    // Edit controls are disabled once published.
+    // Edit controls are gone (hidden, not disabled) once published.
+    await expect(page.getByRole('button', { name: reseatLabel })).toHaveCount(0);
     await expect(
-      page.getByRole('button', { name: t('seatPlansDetail.room.reseatButton') }).first(),
-    ).toBeDisabled();
-    await expect(
-      page.getByRole('button', { name: t('seatPlansDetail.room.reshuffleButton') }).first(),
-    ).toBeDisabled();
+      page.getByRole('button', { name: t('seatPlansDetail.room.reshuffleButton') }),
+    ).toHaveCount(0);
     await expect(
       page.getByRole('button', { name: t('seatPlansDetail.detail.publishButton') }),
-    ).toBeDisabled();
+    ).toHaveCount(0);
 
     // --- re-generating against an already-published schedule is rejected ----
     const response = await request.post('/api/v1/seat-plans/generate', {

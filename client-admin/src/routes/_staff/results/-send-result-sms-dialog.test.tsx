@@ -4,8 +4,9 @@
  * sending.
  */
 import { setActiveRole, setActiveTenant } from '@biddaloy/ui/api';
-import { I18nProvider, i18n } from '@biddaloy/ui/i18n';
+import { I18nProvider, REGION_BD_BN, i18n } from '@biddaloy/ui/i18n';
 import { apiErrorBody, cleanupTestState, createTestQueryClient, server } from '@biddaloy/ui/test';
+import { formatNumber } from '@biddaloy/ui/utils';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -65,7 +66,7 @@ describe('SendResultSmsDialog', () => {
 
     expect(
       await screen.findByText(
-        "Up to 10 guardian(s) will be sent their child's result by SMS. Each message uses one SMS credit.",
+        `Up to ${formatNumber(10, REGION_BD_BN)} guardian(s) will be sent their child's result by SMS. Each message uses one SMS credit.`,
       ),
     ).toBeTruthy();
     const sendButton = screen.getByRole('button', { name: 'Send' });
@@ -74,7 +75,9 @@ describe('SendResultSmsDialog', () => {
     await user.click(sendButton);
 
     await waitFor(() => expect(sent).toBe(true));
-    expect(await screen.findByText('10 message(s) queued.')).toBeTruthy();
+    expect(
+      await screen.findByText(`${formatNumber(10, REGION_BD_BN)} message(s) queued.`),
+    ).toBeTruthy();
     // A second click would queue — and bill — every SMS again.
     expect(sendButton.hasAttribute('disabled')).toBe(true);
   });
@@ -125,6 +128,8 @@ describe('SendResultSmsDialog', () => {
     expect(onOpenChange).not.toHaveBeenCalled();
 
     release();
-    expect(await screen.findByText('4 message(s) queued.')).toBeTruthy();
+    expect(
+      await screen.findByText(`${formatNumber(4, REGION_BD_BN)} message(s) queued.`),
+    ).toBeTruthy();
   });
 });

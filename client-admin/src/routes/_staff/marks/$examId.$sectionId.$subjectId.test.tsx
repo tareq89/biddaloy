@@ -1,5 +1,5 @@
 import { REGION_BD_BN } from '@biddaloy/ui/i18n';
-import { cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
+import { cleanupTestState, examFactory, renderWithRouter, server } from '@biddaloy/ui/test';
 import { formatNumber } from '@biddaloy/ui/utils';
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -162,12 +162,12 @@ describe('/marks/$examId/$sectionId/$subjectId', () => {
     });
 
     await screen.findByLabelText('Rafi Ahmed — Written');
-    await user.click(screen.getByRole('button', { name: /Submit/ }));
-    await screen.findByText('1 blank cells will be submitted as-is.');
-
     await user.click(screen.getByRole('button', { name: 'Submit' }));
+    await screen.findByText(`${formatNumber(1, REGION_BD_BN)} blank cell will be submitted as-is.`);
 
-    await screen.findByText(/submitted by/i);
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Submit' }));
+
+    await screen.findByText(/Only an admin can reopen it/);
     const submittedCell = screen.getByLabelText<HTMLInputElement>('Rafi Ahmed — Written');
     expect(submittedCell.disabled).toBe(true);
   });
@@ -208,13 +208,13 @@ describe('/marks/$examId/$sectionId/$subjectId', () => {
 
     await user.type(await screen.findByLabelText('Rafi Ahmed — Written'), '90');
     // Well inside the 600ms debounce — nothing has been saved yet.
-    await user.click(screen.getByRole('button', { name: /Submit/ }));
+    await user.click(screen.getByRole('button', { name: 'Submit' }));
     await screen.findByRole('heading', { name: 'Submit this marks list?' });
     expect(screen.queryByText(/blank cells will be submitted/)).toBeNull();
 
-    await user.click(screen.getByRole('button', { name: 'Submit' }));
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Submit' }));
 
-    await screen.findByText(/submitted by/i);
+    await screen.findByText(/Only an admin can reopen it/);
     expect(calls).toEqual(['save', 'submit']);
   });
 
@@ -238,7 +238,7 @@ describe('/marks/$examId/$sectionId/$subjectId', () => {
     });
 
     await user.type(await screen.findByLabelText('Rafi Ahmed — Written'), '90');
-    await user.click(screen.getByRole('button', { name: /Submit/ }));
+    await user.click(screen.getByRole('button', { name: 'Submit' }));
     await screen.findByRole('heading', { name: 'Submit this marks list?' });
     await user.click(screen.getByRole('button', { name: 'Submit' }));
 
@@ -329,5 +329,168 @@ describe('/marks/$examId/$sectionId/$subjectId', () => {
     });
 
     await screen.findByRole('button', { name: 'Reopen' });
+  });
+
+  it('names the subject, section and exam in the subtitle', async () => {
+    const exam = examFactory({ id: 'exam-1', name: 'Half Yearly 2026' });
+    server.use(
+      http.get(GRID_URL, () => HttpResponse.json(baseGrid)),
+      http.get('/api/v1/exams', () =>
+        HttpResponse.json({ data: [exam], total: 1, page: 1, limit: 50, totalPages: 1 }),
+      ),
+      http.get('/api/v1/exams/exam-1/marks/progress', () =>
+        HttpResponse.json({
+          counts: { DRAFT: 1, SUBMITTED: 0 },
+          outstanding: [
+            {
+              section_id: 'sec-1',
+              section_name: 'Six - A',
+              subject_id: 'subj-1',
+              subject_name: 'Math',
+              subject_name_bn: null,
+              state: 'DRAFT',
+            },
+          ],
+        }),
+      ),
+    );
+    renderWithRouter(routeTree, {
+      initialEntries: ['/marks/exam-1/sec-1/subj-1'],
+      tenantId: 'tenant-1',
+      role: 'TEACHER',
+      locale: 'en',
+    });
+
+    await screen.findByText(
+      `Math · Section Six - A · Half Yearly 2026 · ${formatNumber(1, REGION_BD_BN)} student`,
+    );
+    // Desktop only: the keyboard help and the student total.
+    expect(screen.getByText(`Total ${formatNumber(1, REGION_BD_BN)}`)).toBeTruthy();
+    expect(screen.getByText('Enter')).toBeTruthy();
+  });
+
+  it("never borrows another subject's name for the subtitle, but still names the section", async () => {
+    const exam = examFactory({ id: 'exam-1', name: 'Half Yearly 2026' });
+    server.use(
+      http.get(GRID_URL, () => HttpResponse.json(baseGrid)),
+      http.get('/api/v1/exams', () =>
+        HttpResponse.json({ data: [exam], total: 1, page: 1, limit: 50, totalPages: 1 }),
+      ),
+      // This subject is done, so only another subject of the section is outstanding.
+      http.get('/api/v1/exams/exam-1/marks/progress', () =>
+        HttpResponse.json({
+          counts: { DRAFT: 1, SUBMITTED: 1 },
+          outstanding: [
+            {
+              section_id: 'sec-1',
+              section_name: 'Six - A',
+              subject_id: 'subj-other',
+              subject_name: 'English',
+              subject_name_bn: null,
+              state: 'DRAFT',
+            },
+          ],
+        }),
+      ),
+    );
+    renderWithRouter(routeTree, {
+      initialEntries: ['/marks/exam-1/sec-1/subj-1'],
+      tenantId: 'tenant-1',
+      role: 'TEACHER',
+      locale: 'en',
+    });
+
+    await screen.findByText(
+      `Section Six - A · Half Yearly 2026 · ${formatNumber(1, REGION_BD_BN)} student`,
+    );
+    expect(screen.queryByText(/English/)).toBeNull();
+  });
+
+  it('shows the saved time without seconds, in the tenant numerals', async () => {
+    const user = userEvent.setup();
+    server.use(
+      http.get(GRID_URL, () => HttpResponse.json(baseGrid)),
+      http.patch(GRID_URL, async ({ request }) => {
+        const body = (await request.json()) as { cells: Array<Record<string, unknown>> };
+        return HttpResponse.json({
+          cells: body.cells.map((cell) => ({ ...cell, saved_at: new Date().toISOString() })),
+        });
+      }),
+    );
+    renderWithRouter(routeTree, {
+      initialEntries: ['/marks/exam-1/sec-1/subj-1'],
+      tenantId: 'tenant-1',
+      role: 'TEACHER',
+      locale: 'en',
+    });
+
+    await user.type(await screen.findByLabelText('Rafi Ahmed — Written'), '90');
+    const line = await within(screen.getByTestId('save-state-line')).findByText(
+      /All changes saved/,
+      undefined,
+      { timeout: 3000 },
+    );
+    // "<hh>:<mm>" in Bangla digits and no seconds part.
+    expect(line.textContent).toMatch(/[০-৯]{1,2}:[০-৯]{2}(?!:)/);
+    expect(line.textContent).not.toMatch(/:[০-৯]{2}:/);
+  });
+
+  it('a submitted grid shows a Submitted badge and a date sentence, never the user id', async () => {
+    server.use(
+      http.get(GRID_URL, () =>
+        HttpResponse.json({
+          ...baseGrid,
+          state: 'SUBMITTED',
+          submitted_by: 'user-uuid-123',
+          submitted_at: '2026-09-09T09:45:00.000Z',
+        }),
+      ),
+    );
+    renderWithRouter(routeTree, {
+      initialEntries: ['/marks/exam-1/sec-1/subj-1'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    await screen.findByText('Submitted');
+    await screen.findByText(/Only an admin can reopen it/);
+    expect(screen.queryByText(/user-uuid-123/)).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Submit' })).toBeNull();
+  });
+
+  it('an error response shows the load-error sentence, not the page title', async () => {
+    server.use(http.get(GRID_URL, () => HttpResponse.json({ message: 'x' }, { status: 400 })));
+    renderWithRouter(routeTree, {
+      initialEntries: ['/marks/exam-1/sec-1/subj-1'],
+      tenantId: 'tenant-1',
+      role: 'TEACHER',
+      locale: 'en',
+    });
+
+    await screen.findByText("Couldn't load marks lists.");
+    expect(screen.queryByRole('heading', { name: 'Marks list' })).toBeNull();
+  });
+
+  it('asks before leaving with unsaved marks', async () => {
+    const user = userEvent.setup();
+    server.use(
+      http.get(GRID_URL, () => HttpResponse.json(baseGrid)),
+      http.patch(GRID_URL, () => HttpResponse.json({ message: 'boom' }, { status: 500 })),
+    );
+    renderWithRouter(routeTree, {
+      initialEntries: ['/marks/exam-1/sec-1/subj-1'],
+      tenantId: 'tenant-1',
+      role: 'TEACHER',
+      locale: 'en',
+    });
+
+    await user.type(await screen.findByLabelText('Rafi Ahmed — Written'), '90');
+    const navLinks = screen.getAllByRole('link', { name: 'Enter marks' });
+    expect(navLinks.every((a) => a.getAttribute('href') === '/marks')).toBe(true);
+    await user.click(navLinks.find((a) => a.closest('aside, nav'))!);
+    await screen.findByRole('heading', { name: 'Leave without saving?' });
+    await user.click(screen.getByRole('button', { name: 'Stay' }));
+    expect(screen.queryByRole('heading', { name: 'Leave without saving?' })).toBeNull();
   });
 });

@@ -1,9 +1,11 @@
+import { createRootRoute } from '@tanstack/react-router';
 import { act, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { renderWithProviders } from '../test';
+import { renderWithRouter } from '../test/render-with-router';
 
 import { PageHeader, type PageAction, type PageActionPriority } from './page-header';
 
@@ -15,7 +17,11 @@ async function renderInEnglish(ui: React.ReactElement) {
   return view;
 }
 
-const act1 = (id: string, priority: PageActionPriority, extra?: Partial<PageAction>) => ({
+const act1 = (
+  id: string,
+  priority: PageActionPriority,
+  extra?: Omit<Partial<PageAction>, 'to' | 'onClick'>,
+): PageAction => ({
   id,
   label: id,
   priority,
@@ -110,6 +116,24 @@ describe('PageHeader', () => {
     );
     expect(screen.getByRole('button', { name: 'save' }).hasAttribute('disabled')).toBe(true);
     expect(screen.getByRole('button', { name: /^go/ }).getAttribute('aria-busy')).toBe('true');
+  });
+
+  it('renders a `to` action as a real link, inline and in the More menu', async () => {
+    const user = userEvent.setup();
+    const actions: PageAction[] = [
+      { id: 'add', label: 'Add student', priority: 'primary', to: '/students/new' },
+      { id: 'import', label: 'Import', priority: 'tertiary', to: '/students/import' },
+    ];
+    const rootRoute = createRootRoute({
+      component: () => <PageHeader title="Students" actions={actions} />,
+    });
+    renderWithRouter(rootRoute, { locale: 'en' });
+
+    const add = await screen.findByRole('link', { name: 'Add student' });
+    expect(add.getAttribute('href')).toBe('/students/new');
+    await user.click(screen.getByRole('button', { name: 'More actions' }));
+    const item = await screen.findByRole('menuitem', { name: 'Import' });
+    expect(item.getAttribute('href')).toBe('/students/import');
   });
 
   it('is axe clean', async () => {

@@ -1,5 +1,5 @@
 /**
- * Copy-components dialog — [19.6.1], D9. Source is either another subject
+ * Copy-parts tool — [19.6.1], D9; a full page (`?copy=1`) since [31.4.exams-2b]. Source is either another subject
  * in this exam, or the same subject in a different exam; targets are a
  * multi-select of subjects. The preview (what will be created vs. what
  * will be skipped) is computed client-side, from data already on hand
@@ -11,15 +11,8 @@
  */
 import { ExamComponentKind } from '@biddaloy/shared';
 import {
-  Button,
   Checkbox,
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
+  Label,
   RadioGroup,
   RadioGroupItem,
   Select,
@@ -34,7 +27,9 @@ import {
   useExamComponentsAll,
   useExams,
 } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { FullPageShell } from '@biddaloy/ui/shells';
+import { formatNumber } from '@biddaloy/ui/utils';
 import * as React from 'react';
 
 export interface CopySubjectOption {
@@ -43,23 +38,26 @@ export interface CopySubjectOption {
 }
 
 export interface CopyComponentsDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
   examId: string;
   classId: string;
   subjects: CopySubjectOption[];
+  /** Closing drops `?copy=1` — the parent owns that. */
+  onClose: () => void;
 }
+
+const CARD = 'rounded-lg border border-border-subtle bg-surface shadow-e1';
+const ROW = 'flex min-h-11 items-center gap-3 md:min-h-8';
 
 type SourceMode = 'subject' | 'exam';
 
 export function CopyComponentsDialog({
-  open,
-  onOpenChange,
   examId,
   classId,
   subjects,
+  onClose,
 }: CopyComponentsDialogProps) {
   const { t } = useTranslation('exams');
+  const config = useRegionConfig();
   const [sourceMode, setSourceMode] = React.useState<SourceMode>('subject');
   const [sourceSubjectId, setSourceSubjectId] = React.useState('');
   const [sourceExamId, setSourceExamId] = React.useState('');
@@ -78,17 +76,12 @@ export function CopyComponentsDialog({
   );
   const targetComponentsQuery = useExamComponentsAll(examId);
   const copyMutation = useCopyExamComponents(examId);
-
+  // `saved` clears `dirty` before closing, so the unsaved-changes guard stays out of the way.
+  const [saved, setSaved] = React.useState(false);
   React.useEffect(() => {
-    if (!open) return;
-    setSourceMode('subject');
-    setSourceSubjectId('');
-    setSourceExamId('');
-    setSourceExamSubjectId('');
-    setTargetSubjectIds(new Set());
-    copyMutation.reset();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only on open/close
-  }, [open]);
+    if (saved) onClose();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- close once, when saved flips
+  }, [saved]);
 
   // Only 'subject' mode's source can also be checked as a target (in
   // 'exam' mode the source subject lives in a different exam, so it never
@@ -145,6 +138,8 @@ export function CopyComponentsDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `t` is stable enough for this preview
   }, [targetSubjectIds, allTargetComponents, sourceComponents, subjects]);
 
+  const started = effectiveSourceSubjectId !== '' || targetSubjectIds.size > 0;
+  const totalCreated = preview.reduce((n, row) => n + row.created.length, 0);
   const canConfirm =
     effectiveSourceSubjectId !== '' && targetSubjectIds.size > 0 && sourceComponents.length > 0;
 
@@ -156,155 +151,138 @@ export function CopyComponentsDialog({
         source_subject_id: effectiveSourceSubjectId,
         target_subject_ids: [...targetSubjectIds],
       },
-      { onSuccess: () => onOpenChange(false) },
+      { onSuccess: () => setSaved(true) },
     );
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{t('copyDialog.title')}</DialogTitle>
-          <DialogDescription>{t('copyDialog.description')}</DialogDescription>
-        </DialogHeader>
+    <FullPageShell
+      title={t('copyDialog.title')}
+      size="form"
+      dirty={started && !saved}
+      onClose={onClose}
+      secondary={{ label: t('copyDialog.cancel'), onClick: onClose }}
+      primary={{
+        label: t('copyDialog.confirm'),
+        onClick: handleConfirm,
+        busy: copyMutation.isPending,
+        disabled: !canConfirm || totalCreated === 0,
+      }}
+    >
+      <div className="flex flex-col gap-6">
+        <p className="text-text-secondary">{t('copyDialog.description')}</p>
 
-        <div className="flex flex-col gap-4">
-          <fieldset className="flex flex-col gap-2">
-            <legend className="text-sm font-medium">{t('copyDialog.sourceLabel')}</legend>
-            <RadioGroup value={sourceMode} onValueChange={(v) => setSourceMode(v as SourceMode)}>
-              <label className="flex items-center gap-2 text-sm">
-                <RadioGroupItem value="subject" />
-                {t('copyDialog.sourceModeSubject')}
-              </label>
-              <label className="flex items-center gap-2 text-sm">
-                <RadioGroupItem value="exam" />
-                {t('copyDialog.sourceModeExam')}
-              </label>
-            </RadioGroup>
-          </fieldset>
+        <section className={`${CARD} flex flex-col gap-4 p-4 md:p-5`}>
+          <h2 className="text-h2">{t('copyDialog.sourceCard')}</h2>
+          <RadioGroup
+            value={sourceMode}
+            onValueChange={(v) => setSourceMode(v as SourceMode)}
+            aria-label={t('copyDialog.sourceLabel')}
+          >
+            <label className={ROW}>
+              <RadioGroupItem value="subject" />
+              {t('copyDialog.sourceModeSubject')}
+            </label>
+            <label className={ROW}>
+              <RadioGroupItem value="exam" />
+              {t('copyDialog.sourceModeExam')}
+            </label>
+          </RadioGroup>
 
-          {sourceMode === 'subject' ? (
+          {sourceMode === 'exam' && (
             <div className="flex flex-col gap-1.5">
-              <span className="text-sm font-medium">{t('copyDialog.sourceSubjectLabel')}</span>
-              <Select value={sourceSubjectId} onValueChange={setSourceSubjectId}>
-                <SelectTrigger aria-label={t('copyDialog.sourceSubjectLabel')}>
-                  <SelectValue placeholder={t('copyDialog.sourceSubjectPlaceholder')} />
+              <Label htmlFor="copy-source-exam">{t('copyDialog.sourceExamLabel')}</Label>
+              <Select value={sourceExamId} onValueChange={setSourceExamId}>
+                <SelectTrigger id="copy-source-exam" className="w-full">
+                  <SelectValue placeholder={t('copyDialog.sourceExamPlaceholder')} />
                 </SelectTrigger>
                 <SelectContent>
-                  {subjects.map((s) => (
-                    <SelectItem key={s.subject_id} value={s.subject_id}>
-                      {s.name}
+                  {otherExams.map((e) => (
+                    <SelectItem key={e.id} value={e.id}>
+                      {e.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-          ) : (
-            <>
-              <div className="flex flex-col gap-1.5">
-                <span className="text-sm font-medium">{t('copyDialog.sourceExamLabel')}</span>
-                <Select value={sourceExamId} onValueChange={setSourceExamId}>
-                  <SelectTrigger aria-label={t('copyDialog.sourceExamLabel')}>
-                    <SelectValue placeholder={t('copyDialog.sourceExamPlaceholder')} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {otherExams.map((e) => (
-                      <SelectItem key={e.id} value={e.id}>
-                        {e.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <span className="text-sm font-medium">{t('copyDialog.sourceSubjectLabel')}</span>
-                <Select value={sourceExamSubjectId} onValueChange={setSourceExamSubjectId}>
-                  <SelectTrigger aria-label={t('copyDialog.sourceSubjectLabel')}>
-                    <SelectValue placeholder={t('copyDialog.sourceSubjectPlaceholder')} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {subjects.map((s) => (
-                      <SelectItem key={s.subject_id} value={s.subject_id}>
-                        {s.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </>
           )}
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="copy-source-subject">{t('copyDialog.sourceSubjectLabel')}</Label>
+            <Select
+              value={sourceMode === 'exam' ? sourceExamSubjectId : sourceSubjectId}
+              onValueChange={sourceMode === 'exam' ? setSourceExamSubjectId : setSourceSubjectId}
+            >
+              <SelectTrigger id="copy-source-subject" className="w-full">
+                <SelectValue placeholder={t('copyDialog.sourceSubjectPlaceholder')} />
+              </SelectTrigger>
+              <SelectContent>
+                {subjects.map((s) => (
+                  <SelectItem key={s.subject_id} value={s.subject_id}>
+                    {s.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </section>
 
-          <fieldset className="flex flex-col gap-2">
-            <legend className="text-sm font-medium">{t('copyDialog.targetsLabel')}</legend>
-            {subjects
-              .filter((s) => sourceMode === 'exam' || s.subject_id !== effectiveSourceSubjectId)
-              .map((s) => (
-                <label key={s.subject_id} className="flex items-center gap-2 text-sm">
-                  <Checkbox
-                    checked={targetSubjectIds.has(s.subject_id)}
-                    onCheckedChange={() => toggleTarget(s.subject_id)}
-                  />
-                  {s.name}
-                </label>
-              ))}
-          </fieldset>
+        <section className={`${CARD} flex flex-col gap-2 p-4 md:p-5`}>
+          <h2 className="text-h2">{t('copyDialog.targetsLabel')}</h2>
+          {subjects
+            .filter((s) => sourceMode === 'exam' || s.subject_id !== effectiveSourceSubjectId)
+            .map((s) => (
+              <label key={s.subject_id} className={ROW}>
+                <Checkbox
+                  checked={targetSubjectIds.has(s.subject_id)}
+                  onCheckedChange={() => toggleTarget(s.subject_id)}
+                />
+                {s.name}
+              </label>
+            ))}
+        </section>
 
-          {targetSubjectIds.size > 0 && (
-            <div className="flex flex-col gap-2 rounded-md border p-3">
-              <p className="text-sm font-medium">{t('copyDialog.previewTitle')}</p>
-              {preview.map((row) => (
-                <div key={row.subjectId} className="text-sm">
-                  <p className="font-medium">{row.subjectName}</p>
-                  {row.created.length > 0 && (
-                    <p>
-                      {t('copyDialog.previewCreated', {
-                        count: row.created.length,
-                        names: row.created.join(', '),
-                      })}
+        {targetSubjectIds.size > 0 && (
+          <section className={`${CARD} flex flex-col gap-3 p-4 md:p-5`}>
+            <h2 className="text-h2">{t('copyDialog.previewTitle')}</h2>
+            {preview.map((row) => (
+              <div key={row.subjectId}>
+                <p className="font-medium">{row.subjectName}</p>
+                {row.created.length > 0 && (
+                  <p>
+                    {t('copyDialog.previewCreated', {
+                      n: formatNumber(row.created.length, config),
+                      names: row.created.join(', '),
+                    })}
+                  </p>
+                )}
+                {row.skipped.length > 0 && (
+                  <>
+                    <p className="mt-2 text-caption text-text-secondary">
+                      {t('copyDialog.skippedTitle')}
                     </p>
-                  )}
-                  {row.skipped.length > 0 && (
-                    <ul className="list-disc pl-5 text-muted-foreground">
+                    <ul className="divide-y divide-border-subtle text-text-secondary">
                       {row.skipped.map((s) => (
-                        <li key={s.name}>
+                        <li key={s.name} className="py-1.5">
                           {s.name} — {s.reason}
                         </li>
                       ))}
                     </ul>
-                  )}
-                  {row.created.length === 0 && row.skipped.length === 0 && (
-                    <p className="text-muted-foreground">{t('copyDialog.previewNothing')}</p>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
+                  </>
+                )}
+                {row.created.length === 0 && row.skipped.length === 0 && (
+                  <p className="text-text-secondary">{t('copyDialog.previewNothing')}</p>
+                )}
+              </div>
+            ))}
+          </section>
+        )}
 
-          {copyMutation.isError && (
-            <p role="alert" className="text-sm text-destructive">
-              {copyMutation.error instanceof Error
-                ? copyMutation.error.message
-                : t('copyDialog.errorMessage')}
-            </p>
-          )}
-        </div>
-
-        <DialogFooter>
-          <DialogClose asChild>
-            <Button type="button" variant="outline">
-              {t('actions.cancel', { ns: 'common' })}
-            </Button>
-          </DialogClose>
-          <Button
-            type="button"
-            onClick={handleConfirm}
-            loading={copyMutation.isPending}
-            disabled={!canConfirm}
-          >
-            {t('copyDialog.confirm')}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        {copyMutation.isError && (
+          <p role="alert" className="text-sm text-destructive">
+            {t('copyDialog.errorMessage')}
+          </p>
+        )}
+      </div>
+    </FullPageShell>
   );
 }

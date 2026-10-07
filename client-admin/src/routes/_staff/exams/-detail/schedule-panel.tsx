@@ -1,23 +1,29 @@
 /**
- * Schedule tab — [19.11.1]. One row per scheduled subject (date, start,
- * end, venue), sorted by date then start time. Keyboard-first inline
- * editing: click or press Enter on a cell to edit it, Enter commits,
- * Escape cancels, Tab moves to the next cell. `components-panel.tsx` (the
- * Setup tab) has no inline-edit pattern to clone — it only supports
- * add/delete — so this panel designs its own minimal one rather than a
- * per-row modal, per the issue's "keyboard-editable, not a modal" rule.
+ * Schedule tab — [19.11.1], redesigned in [31.4.exams-2b]. One row per scheduled
+ * subject (date, start, end, venue), sorted by date then start time. Date and
+ * time cells are the kit `DatePicker` / `TimeInput` (picking a value saves the
+ * cell); the venue is an inline `Input` (Enter saves, Esc cancels, blur saves),
+ * so every cell stays keyboard-editable without a modal. Time clashes between
+ * rows on one date are flagged client-side — the server's English overlap
+ * warnings are never shown.
  */
 import { Permission } from '@biddaloy/shared';
 import {
   Button,
-  ErrorState,
+  ConfirmDialog,
+  DataTable,
+  DatePicker,
   Input,
+  Label,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
   Skeleton,
+  StatusBadge,
+  TimeInput,
+  ErrorState,
 } from '@biddaloy/ui/components';
 import {
   useClassSubjects,
@@ -28,8 +34,11 @@ import {
   useUpdateExamSchedule,
   type ExamScheduleRow,
 } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { parseDate, toIsoDate } from '@biddaloy/ui/utils';
 import * as React from 'react';
+
+import { subjectLabel } from './subject-label';
 
 export interface SchedulePanelProps {
   examId: string;
@@ -37,15 +46,92 @@ export interface SchedulePanelProps {
   academicYearId: string;
 }
 
-type ColumnKey = 'date' | 'starts_at' | 'ends_at' | 'venue';
+const CARD = 'rounded-lg border border-border-subtle bg-surface shadow-e1';
+const hhmm = (value: string) => value.slice(0, 5);
 
-interface EditingCell {
-  rowId: string;
-  column: ColumnKey;
+/** ponytail: `DataTable`'s `td` handles Space / arrows / Home / End for grid navigation and
+ * the events bubble up from inputs and portalled pickers inside a cell, which breaks typing
+ * and option navigation. Stop them here. Shared request: the `td` handler should ignore events
+ * whose target is not the `td` itself. */
+function Cell({ children }: { children: React.ReactNode }) {
+  return (
+    // eslint-disable-next-line jsx-a11y/no-static-element-interactions -- only stops key events bubbling to the table cell
+    <div onKeyDown={(e) => e.stopPropagation()}>{children}</div>
+  );
+}
+
+/** Venue is the one free-text cell; it keeps its own edit state. */
+function VenueCell({
+  row,
+  label,
+  canManage,
+  onSave,
+}: {
+  row: ExamScheduleRow;
+  label: string;
+  canManage: boolean;
+  onSave: (venue: string | null) => void;
+}) {
+  const { t } = useTranslation('exams');
+  const [editing, setEditing] = React.useState(false);
+  const [draft, setDraft] = React.useState('');
+  // Unmounting the focused input can fire `blur` after Enter or Escape; this
+  // makes sure one edit is saved (or dropped) exactly once.
+  const handled = React.useRef(false);
+  const inputRef = React.useRef<HTMLInputElement>(null);
+
+  React.useEffect(() => {
+    if (editing) inputRef.current?.focus();
+  }, [editing]);
+
+  function commit() {
+    if (handled.current) return;
+    handled.current = true;
+    onSave(draft.trim() || null);
+    setEditing(false);
+  }
+
+  if (editing) {
+    return (
+      <Input
+        ref={inputRef}
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            commit();
+          } else if (e.key === 'Escape') {
+            e.preventDefault();
+            handled.current = true;
+            setEditing(false);
+          }
+        }}
+        onBlur={commit}
+        aria-label={t('schedulePanel.columnVenue')}
+      />
+    );
+  }
+  return (
+    <button
+      type="button"
+      className="min-h-11 w-full rounded px-1 text-start hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring md:min-h-8"
+      onClick={() => {
+        handled.current = false;
+        setDraft(row.venue ?? '');
+        setEditing(true);
+      }}
+      disabled={!canManage}
+      aria-label={`${row.venue ?? '—'}, ${label}`}
+    >
+      {row.venue ?? '—'}
+    </button>
+  );
 }
 
 export function SchedulePanel({ examId, classId, academicYearId }: SchedulePanelProps) {
-  const { t } = useTranslation('exams');
+  const { t, i18n } = useTranslation('exams');
+  const config = useRegionConfig();
   const canManage = useHasPermission(Permission.EXAM_MANAGE);
   const classSubjectsQuery = useClassSubjects(classId, academicYearId);
   const scheduleQuery = useExamSchedule(examId);
@@ -53,140 +139,68 @@ export function SchedulePanel({ examId, classId, academicYearId }: SchedulePanel
   const updateSchedule = useUpdateExamSchedule(examId);
   const deleteSchedule = useDeleteExamSchedule(examId);
 
-  const [editing, setEditing] = React.useState<EditingCell | null>(null);
-  const [draft, setDraft] = React.useState('');
-  const [warnings, setWarnings] = React.useState<string[]>([]);
+  const [pendingRemove, setPendingRemove] = React.useState<ExamScheduleRow | null>(null);
   const [addSubjectId, setAddSubjectId] = React.useState<string | undefined>(undefined);
-  const inputRef = React.useRef<HTMLInputElement>(null);
-
-  const rows = React.useMemo(
-    () =>
-      (scheduleQuery.data ?? [])
-        .slice()
-        .sort((a, b) =>
-          a.date !== b.date ? a.date.localeCompare(b.date) : a.starts_at.localeCompare(b.starts_at),
-        ),
-    [scheduleQuery.data],
-  );
+  const [addDate, setAddDate] = React.useState<Date | undefined>(() => new Date());
+  const [addStart, setAddStart] = React.useState('09:00');
+  const [addEnd, setAddEnd] = React.useState('11:00');
 
   const subjects = classSubjectsQuery.data ?? [];
-  const scheduledSubjectIds = new Set(rows.map((r) => r.subject_id));
+
+  function subjectName(row: ExamScheduleRow): string {
+    const subject =
+      row.subject ?? subjects.find((s) => s.subject_id === row.subject_id)?.subject ?? null;
+    return subject ? subjectLabel(subject, i18n.language) : '—';
+  }
+
+  const rows = React.useMemo(() => {
+    const sorted = (scheduleQuery.data ?? [])
+      .slice()
+      .sort((a, b) =>
+        a.date !== b.date ? a.date.localeCompare(b.date) : a.starts_at.localeCompare(b.starts_at),
+      );
+    // A clash: another row on the same date whose time range overlaps this one's.
+    return sorted.map((row) => ({
+      row,
+      clashes: sorted
+        .filter(
+          (other) =>
+            other.id !== row.id &&
+            other.date === row.date &&
+            hhmm(row.starts_at) < hhmm(other.ends_at) &&
+            hhmm(other.starts_at) < hhmm(row.ends_at),
+        )
+        .map(subjectName),
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- subjectName only reads subjects + language
+  }, [scheduleQuery.data, subjects, i18n.language]);
+
+  const scheduledSubjectIds = new Set((scheduleQuery.data ?? []).map((r) => r.subject_id));
   const unscheduledSubjects = subjects.filter((s) => !scheduledSubjectIds.has(s.subject_id));
 
-  React.useEffect(() => {
-    if (editing) inputRef.current?.focus();
-  }, [editing]);
+  const save = (id: string, input: Parameters<typeof updateSchedule.mutate>[0]['input']) =>
+    updateSchedule.mutate({ id, input });
 
-  function startEdit(row: ExamScheduleRow, column: ColumnKey) {
-    if (!canManage) return;
-    setEditing({ rowId: row.id, column });
-    setDraft(String(row[column] ?? ''));
-  }
-
-  function cancelEdit() {
-    setEditing(null);
-    setDraft('');
-  }
-
-  function commitEdit(row: ExamScheduleRow) {
-    if (!editing) return;
-    const value = draft.trim();
-    updateSchedule.mutate(
-      {
-        id: row.id,
-        input: { [editing.column]: editing.column === 'venue' ? value || null : value },
-      },
-      {
-        onSuccess: (result) => setWarnings(result.warnings),
-      },
-    );
-    setEditing(null);
-    setDraft('');
-  }
-
-  function handleCellKeyDown(event: React.KeyboardEvent, row: ExamScheduleRow, column: ColumnKey) {
-    if (editing) return;
-    if (event.key === 'Enter') {
-      event.preventDefault();
-      startEdit(row, column);
-    }
-  }
-
-  function handleInputKeyDown(event: React.KeyboardEvent<HTMLInputElement>, row: ExamScheduleRow) {
-    if (event.key === 'Enter') {
-      event.preventDefault();
-      commitEdit(row);
-    } else if (event.key === 'Escape') {
-      event.preventDefault();
-      cancelEdit();
-    }
-    // Tab is left to the browser's default focus movement — committing on
-    // blur (below) means Tab both moves focus and saves the cell.
-  }
-
-  function handleAdd() {
-    if (!addSubjectId) return;
+  function handleAdd(event: React.FormEvent) {
+    event.preventDefault();
+    if (!addSubjectId || !addDate) return;
     createSchedule.mutate(
       {
         subject_id: addSubjectId,
-        date: new Date().toISOString().slice(0, 10),
-        starts_at: '09:00',
-        ends_at: '11:00',
+        date: toIsoDate(addDate),
+        starts_at: addStart,
+        ends_at: addEnd,
       },
-      {
-        onSuccess: (result) => {
-          setWarnings(result.warnings);
-          setAddSubjectId(undefined);
-        },
-      },
+      { onSuccess: () => setAddSubjectId(undefined) },
     );
   }
 
-  function subjectName(row: ExamScheduleRow): string {
-    return (
-      row.subject?.name_en ??
-      subjects.find((s) => s.subject_id === row.subject_id)?.subject.name_en ??
-      row.subject_id
-    );
-  }
-
-  function renderCell(row: ExamScheduleRow, column: ColumnKey) {
-    const isEditing = editing?.rowId === row.id && editing.column === column;
-    if (isEditing) {
-      return (
-        <Input
-          ref={inputRef}
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => handleInputKeyDown(e, row)}
-          onBlur={() => commitEdit(row)}
-          aria-label={t(`schedulePanel.column${capitalize(column)}`)}
-          type={
-            column === 'date'
-              ? 'date'
-              : column === 'starts_at' || column === 'ends_at'
-                ? 'time'
-                : 'text'
-          }
-        />
-      );
-    }
-    const display = row[column] ?? '—';
-    return (
-      <button
-        type="button"
-        className="w-full rounded px-1 py-0.5 text-left hover:bg-muted focus:outline focus:outline-2 focus:outline-primary"
-        onClick={() => startEdit(row, column)}
-        onKeyDown={(e) => handleCellKeyDown(e, row, column)}
-        disabled={!canManage}
-      >
-        {display}
-      </button>
-    );
-  }
+  type Item = (typeof rows)[number];
+  const cellLabel = (item: Item, column: string) =>
+    t('schedulePanel.editCell', { column, subject: subjectName(item.row) });
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-6">
       {scheduleQuery.isLoading && <Skeleton className="h-24 w-full" />}
       {scheduleQuery.isError && (
         <ErrorState
@@ -195,95 +209,201 @@ export function SchedulePanel({ examId, classId, academicYearId }: SchedulePanel
         />
       )}
 
-      {warnings.length > 0 && (
-        <div
-          role="alert"
-          className="rounded-md border border-status-due-fg bg-status-due-bg p-3 text-sm text-status-due-fg"
-        >
-          {warnings.map((w, i) => (
-            <p key={i}>{w}</p>
-          ))}
-        </div>
+      {(updateSchedule.isError || createSchedule.isError) && (
+        <p role="alert" className="text-sm text-destructive">
+          {t('schedulePanel.saveError')}
+        </p>
       )}
 
       {!scheduleQuery.isLoading && !scheduleQuery.isError && (
-        <table className="w-full text-sm">
-          <caption className="sr-only">{t('schedulePanel.tableCaption')}</caption>
-          <thead>
-            <tr className="border-b text-left text-muted-foreground">
-              <th className="py-2">{t('schedulePanel.columnSubject')}</th>
-              <th className="py-2">{t('schedulePanel.columnDate')}</th>
-              <th className="py-2">{t('schedulePanel.columnStartsAt')}</th>
-              <th className="py-2">{t('schedulePanel.columnEndsAt')}</th>
-              <th className="py-2">{t('schedulePanel.columnVenue')}</th>
-              {canManage && <th className="py-2">{t('schedulePanel.columnActions')}</th>}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr key={row.id} className="border-b">
-                <td className="py-2">{subjectName(row)}</td>
-                <td className="py-2">{renderCell(row, 'date')}</td>
-                <td className="py-2">{renderCell(row, 'starts_at')}</td>
-                <td className="py-2">{renderCell(row, 'ends_at')}</td>
-                <td className="py-2">{renderCell(row, 'venue')}</td>
-                {canManage && (
-                  <td className="py-2">
-                    <button
-                      type="button"
-                      onClick={() => deleteSchedule.mutate(row.id)}
-                      className="text-sm font-medium text-destructive underline"
-                    >
-                      {t('schedulePanel.remove')}
-                    </button>
-                  </td>
-                )}
-              </tr>
-            ))}
-            {rows.length === 0 && (
-              <tr>
-                <td colSpan={6} className="py-4 text-center text-muted-foreground">
-                  {t('schedulePanel.empty')}
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+        // ponytail: DataTable's "Total n" footer stays; add a footer slot only if it ever clutters.
+        <DataTable
+          tableId="exam-schedule"
+          caption={t('schedulePanel.tableCaption')}
+          paginated={false}
+          columns={[
+            {
+              id: 'subject',
+              header: t('schedulePanel.columnSubject'),
+              accessorFn: ({ row, clashes }: Item) => (
+                <span className="flex flex-col gap-1">
+                  <span className="flex flex-wrap items-center gap-2">
+                    <span className="font-medium">{subjectName(row)}</span>
+                    {clashes.length > 0 && (
+                      <StatusBadge tone="warning" label={t('schedulePanel.overlapBadge')} />
+                    )}
+                  </span>
+                  {clashes.length > 0 && (
+                    // ponytail: ', ' joins the names; a locale-aware list needs a shared formatter.
+                    <span className="text-caption text-text-secondary">
+                      {t('schedulePanel.overlapWith', { subjects: clashes.join(', ') })}
+                    </span>
+                  )}
+                </span>
+              ),
+              card: 'title',
+            },
+            {
+              id: 'date',
+              header: t('schedulePanel.columnDate'),
+              accessorFn: (item: Item) => (
+                <Cell>
+                  <DatePicker
+                    config={config}
+                    value={parseDate(item.row.date.slice(0, 10))}
+                    onValueChange={(date) => date && save(item.row.id, { date: toIsoDate(date) })}
+                    disabled={!canManage}
+                    aria-label={cellLabel(item, t('schedulePanel.columnDate'))}
+                  />
+                </Cell>
+              ),
+            },
+            {
+              id: 'starts_at',
+              header: t('schedulePanel.columnStartsAt'),
+              accessorFn: (item: Item) => (
+                <Cell>
+                  <TimeInput
+                    value={hhmm(item.row.starts_at)}
+                    onValueChange={(value) => save(item.row.id, { starts_at: value })}
+                    stepMinutes={15}
+                    disabled={!canManage}
+                    aria-label={cellLabel(item, t('schedulePanel.columnStartsAt'))}
+                  />
+                </Cell>
+              ),
+            },
+            {
+              id: 'ends_at',
+              header: t('schedulePanel.columnEndsAt'),
+              accessorFn: (item: Item) => (
+                <Cell>
+                  <TimeInput
+                    value={hhmm(item.row.ends_at)}
+                    onValueChange={(value) => save(item.row.id, { ends_at: value })}
+                    stepMinutes={15}
+                    disabled={!canManage}
+                    aria-label={cellLabel(item, t('schedulePanel.columnEndsAt'))}
+                  />
+                </Cell>
+              ),
+            },
+            {
+              id: 'venue',
+              header: t('schedulePanel.columnVenue'),
+              accessorFn: (item: Item) => (
+                <Cell>
+                  <VenueCell
+                    row={item.row}
+                    label={cellLabel(item, t('schedulePanel.columnVenue'))}
+                    canManage={canManage}
+                    onSave={(venue) => save(item.row.id, { venue })}
+                  />
+                </Cell>
+              ),
+            },
+          ]}
+          rowActions={(item: Item) => [
+            {
+              intent: 'remove',
+              label: t('schedulePanel.remove'),
+              allowed: canManage,
+              onClick: () => setPendingRemove(item.row),
+            },
+          ]}
+          data={rows}
+          getRowId={(item: Item) => item.row.id}
+          sorting={null}
+          onSortingChange={() => {}}
+          page={1}
+          pageSize={Math.max(rows.length, 1)}
+          totalCount={rows.length}
+          onPageChange={() => {}}
+          emptyState={{
+            title: t('schedulePanel.emptyTitle'),
+            explanation: t('schedulePanel.emptyText'),
+          }}
+        />
       )}
 
       {canManage && unscheduledSubjects.length > 0 && (
-        <div className="flex flex-wrap items-end gap-2 rounded-md border p-3">
-          <div className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium">{t('schedulePanel.addSubjectLabel')}</span>
-            <Select value={addSubjectId ?? ''} onValueChange={setAddSubjectId}>
-              <SelectTrigger aria-label={t('schedulePanel.addSubjectLabel')}>
-                <SelectValue placeholder={t('schedulePanel.addSubjectPlaceholder')} />
-              </SelectTrigger>
-              <SelectContent>
-                {unscheduledSubjects.map((s) => (
-                  <SelectItem key={s.subject_id} value={s.subject_id}>
-                    {s.subject.name_en}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+        <form onSubmit={handleAdd} className={`${CARD} p-4 md:p-5`}>
+          <h2 className="text-h2">{t('schedulePanel.addTitle')}</h2>
+          <div className="mt-4 grid gap-4 md:grid-cols-12 md:items-end">
+            <div className="flex flex-col gap-1.5 md:col-span-4">
+              <Label htmlFor="schedule-add-subject">{t('schedulePanel.addSubjectLabel')}</Label>
+              <Select value={addSubjectId ?? ''} onValueChange={setAddSubjectId}>
+                <SelectTrigger id="schedule-add-subject" className="w-full">
+                  <SelectValue placeholder={t('schedulePanel.addSubjectPlaceholder')} />
+                </SelectTrigger>
+                <SelectContent>
+                  {unscheduledSubjects.map((s) => (
+                    <SelectItem key={s.subject_id} value={s.subject_id}>
+                      {subjectLabel(s.subject, i18n.language)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-1.5 md:col-span-3">
+              <Label>{t('schedulePanel.columnDate')}</Label>
+              <DatePicker
+                config={config}
+                value={addDate}
+                onValueChange={setAddDate}
+                aria-label={t('schedulePanel.columnDate')}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5 md:col-span-2">
+              <Label>{t('schedulePanel.columnStartsAt')}</Label>
+              <TimeInput
+                value={addStart}
+                onValueChange={setAddStart}
+                stepMinutes={15}
+                aria-label={t('schedulePanel.columnStartsAt')}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5 md:col-span-2">
+              <Label>{t('schedulePanel.columnEndsAt')}</Label>
+              <TimeInput
+                value={addEnd}
+                onValueChange={setAddEnd}
+                stepMinutes={15}
+                aria-label={t('schedulePanel.columnEndsAt')}
+              />
+            </div>
+            <Button
+              type="submit"
+              variant="outline"
+              className="w-full md:col-span-1"
+              loading={createSchedule.isPending}
+              disabled={!addSubjectId || !addDate}
+            >
+              {t('schedulePanel.add')}
+            </Button>
           </div>
-          <Button
-            type="button"
-            onClick={handleAdd}
-            loading={createSchedule.isPending}
-            disabled={!addSubjectId}
-          >
-            {t('schedulePanel.add')}
-          </Button>
-        </div>
+        </form>
       )}
-    </div>
-  );
-}
 
-function capitalize(s: string): string {
-  return (
-    s.charAt(0).toUpperCase() + s.slice(1).replace(/_([a-z])/g, (_, c: string) => c.toUpperCase())
+      <ConfirmDialog
+        open={pendingRemove !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingRemove(null);
+            deleteSchedule.reset();
+          }
+        }}
+        title={t('schedulePanel.removeTitle')}
+        description={`${t('schedulePanel.removeDescription', {
+          subject: pendingRemove ? subjectName(pendingRemove) : '',
+        })}${deleteSchedule.isError ? ` ${t('schedulePanel.removeError')}` : ''}`}
+        confirmLabel={t('schedulePanel.removeConfirm')}
+        busy={deleteSchedule.isPending}
+        onConfirm={() =>
+          pendingRemove &&
+          deleteSchedule.mutate(pendingRemove.id, { onSuccess: () => setPendingRemove(null) })
+        }
+      />
+    </div>
   );
 }

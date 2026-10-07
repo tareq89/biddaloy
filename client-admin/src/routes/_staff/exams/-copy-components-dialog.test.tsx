@@ -8,7 +8,7 @@ import {
 } from '@biddaloy/ui/test';
 import { screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { CopyComponentsDialog } from './-copy-components-dialog';
 
@@ -59,11 +59,12 @@ function mockApi(components: Record<string, ReturnType<typeof component>[]>, cop
   return copyBodies;
 }
 
+const onClose = vi.fn();
+
 function renderDialog() {
   return renderWithProviders(
     <CopyComponentsDialog
-      open
-      onOpenChange={() => undefined}
+      onClose={onClose}
       examId={EXAM_ID}
       classId="class-1"
       subjects={SUBJECTS}
@@ -74,6 +75,7 @@ function renderDialog() {
 
 describe('CopyComponentsDialog', () => {
   afterEach(async () => {
+    onClose.mockReset();
     await cleanupTestState();
   });
 
@@ -92,7 +94,7 @@ describe('CopyComponentsDialog', () => {
 
     // Mathematics is the source subject *and* still a valid target here.
     await user.click(within(dialog).getByRole('checkbox', { name: 'Mathematics' }));
-    await within(dialog).findByText('1 to create: Written');
+    await within(dialog).findByText('১ to create: Written');
 
     await user.click(within(dialog).getByRole('button', { name: 'Copy' }));
     await waitFor(() =>
@@ -144,8 +146,8 @@ describe('CopyComponentsDialog', () => {
     await user.click(await screen.findByRole('option', { name: 'Mathematics' }));
     await user.click(within(dialog).getByRole('checkbox', { name: 'English' }));
 
-    await within(dialog).findByText('Written — a component with this name already exists');
-    within(dialog).getByText('Attendance — this subject already has an attendance component');
+    await within(dialog).findByText('Written — a part with this name already exists');
+    within(dialog).getByText('Attendance — this subject already has an attendance part');
     expect(within(dialog).queryByText(/to create/)).toBeNull();
   });
 
@@ -162,6 +164,26 @@ describe('CopyComponentsDialog', () => {
     expect(within(dialog).getByRole('button', { name: 'Copy' })).toHaveProperty('disabled', true);
   });
 
+  it('has a Close button and closes at once when nothing has been chosen', async () => {
+    mockApi({});
+    const { user } = renderDialog();
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByRole('heading', { name: 'Copy parts' })).toBeTruthy();
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('asks before discarding a started choice', async () => {
+    mockApi({ [`${EXAM_ID}:subject-math`]: [component(EXAM_ID, 'subject-math', 'Written')] });
+    const { user } = renderDialog();
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('checkbox', { name: 'Mathematics' }));
+    await user.keyboard('{Escape}');
+    // A confirm opens instead of closing straight away.
+    expect(onClose).not.toHaveBeenCalled();
+    expect(await screen.findByRole('alertdialog')).toBeTruthy();
+  });
+
   it('shows the error and keeps the dialog open when the copy fails', async () => {
     mockApi({ [`${EXAM_ID}:subject-math`]: [component(EXAM_ID, 'subject-math', 'Written')] }, 500);
     const { user } = renderDialog();
@@ -170,7 +192,7 @@ describe('CopyComponentsDialog', () => {
     await user.click(within(dialog).getByLabelText('Subject'));
     await user.click(await screen.findByRole('option', { name: 'Mathematics' }));
     await user.click(within(dialog).getByRole('checkbox', { name: 'English' }));
-    await within(dialog).findByText('1 to create: Written');
+    await within(dialog).findByText('১ to create: Written');
     await user.click(within(dialog).getByRole('button', { name: 'Copy' }));
 
     await within(dialog).findByRole('alert');

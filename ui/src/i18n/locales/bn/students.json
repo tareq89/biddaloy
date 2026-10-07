@@ -7,7 +7,7 @@
     "caption": "শিক্ষার্থী",
     "addStudent": "শিক্ষার্থী যোগ করুন",
     "importStudents": "শিক্ষার্থী আমদানি",
-    "searchLabel": "নাম, রোল বা রেজিস্ট্রেশন নম্বর দিয়ে খুঁজুন",
+    "searchLabel": "খুঁজুন",
     "classLabel": "শ্রেণি",
     "allClasses": "সকল শ্রেণি",
     "sectionLabel": "শাখা",
@@ -29,7 +29,7 @@
     "columnSection": "শাখা",
     "columnGuardian": "অভিভাবক",
     "columnStatus": "অবস্থা",
-    "columnActions": "কার্যক্রম",
+    "columnActions": "কাজ",
     "columnDateOfBirth": "জন্ম তারিখ",
     "columnGender": "লিঙ্গ",
     "columnAddress": "ঠিকানা",
@@ -38,7 +38,7 @@
     "view": "দেখুন",
     "sendReminder": "রিমাইন্ডার পাঠান",
     "exportCsv": "সিএসভি এক্সপোর্ট",
-    "clearSelection": "মুছুন",
+    "clearSelection": "নির্বাচন বাতিল",
     "emptyMessage": "কোনো শিক্ষার্থী পাওয়া যায়নি",
     "errorMessage": "শিক্ষার্থীদের তথ্য লোড করা যায়নি",
     "announceResults_one": "{{total}} জনের মধ্যে {{visible}} জন শিক্ষার্থী",
@@ -50,7 +50,12 @@
     "versionLabel": "ভার্সন",
     "allVersions": "সকল ভার্সন",
     "printIdCards": "আইডি কার্ড প্রিন্ট ({{count}})",
-    "printWholeClass": "পুরো {{name}}-এর আইডি কার্ড প্রিন্ট"
+    "printWholeClass": "পুরো {{name}}-এর আইডি কার্ড প্রিন্ট",
+    "edit": "সম্পাদনা",
+    "allGenders": "সকল লিঙ্গ",
+    "searchPlaceholder": "নাম, রোল বা রেজিস্ট্রেশন নম্বর",
+    "cardSubtitle": "{{class}} · শাখা {{section}} · রোল {{roll}}",
+    "emptyExplanation": "প্রথম শিক্ষার্থী যোগ করলে তালিকা এখানে দেখা যাবে।"
   },
   "sendReminderDialog": {
     "title": "রিমাইন্ডার পাঠান",
@@ -259,7 +264,12 @@
       "preferredCommunication": "পছন্দের যোগাযোগ মাধ্যম",
       "address": "বাড়ির ঠিকানা",
       "fullNameBn": "নাম (বাংলা)",
-      "bloodGroup": "রক্তের গ্রুপ"
+      "bloodGroup": "রক্তের গ্রুপ",
+      "genderOptions": {
+        "MALE": "পুরুষ",
+        "FEMALE": "নারী",
+        "OTHER": "অন্যান্য"
+      }
     },
     "preferredCommunicationOptions": {
       "SMS": "এসএমএস",

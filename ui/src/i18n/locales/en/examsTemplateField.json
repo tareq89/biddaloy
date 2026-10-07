@@ -1,9 +1,9 @@
 {
-  "label": "Start from template (optional)",
-  "none": "No template",
+  "label": "Start from an exam structure (optional)",
+  "none": "No exam structure",
   "toast": {
-    "created_one": "Exam created with {{count}} component",
-    "created_other": "Exam created with {{count}} components",
-    "noRows": "Exam created — the template had no rows for this class's subjects. Add components manually."
+    "created_one": "Exam created with {{n}} part",
+    "created_other": "Exam created with {{n}} parts",
+    "noRows": "Exam created — the structure had nothing for this class's subjects. Add the parts yourself."
   }
 }

@@ -1,40 +1,67 @@
 {
   "detail": {
-    "back": "Back to seat plans",
     "loadError": "Could not load this seat plan.",
     "publishButton": "Publish seat plan",
-    "publishedBanner": "This seat plan has been published and can no longer be edited.",
-    "noRooms": "This seat plan has no rooms."
+    "publishedBanner": "This seat plan is published — seats, rooms and invigilators can no longer be changed.",
+    "noRooms": "This seat plan has no rooms",
+    "draftHint": "Seats, rooms and invigilators can be changed until you publish; not after.",
+    "facts": {
+      "subjects": "Exam subjects",
+      "rooms": "Rooms",
+      "students": "Students",
+      "seatOrder": "Seat order"
+    },
+    "countItems": "{{n}}",
+    "countPeople": "{{n}}",
+    "seatOrder": {
+      "SEQUENTIAL": "In order",
+      "RANDOM": "Random"
+    },
+    "sittingLabel": "Show seats for",
+    "noRoomsText": "Rooms appear here once the plan is generated with at least one room."
   },
   "status": {
     "DRAFT": "Draft",
     "PUBLISHED": "Published"
   },
   "room": {
-    "capacity": "Capacity {{capacity}}",
+    "capacity": "capacity {{capacity}}",
     "invigilatorLabel": "Invigilator",
     "invigilatorPlaceholder": "Assign an invigilator",
     "invigilatorNone": "Unassigned",
-    "reshuffleButton": "Reshuffle this room",
-    "reseatButton": "Reseat",
+    "reshuffleButton": "Reseat this room",
+    "reseatButton": "Change seat — {{name}}",
     "columnStudent": "Student",
     "columnSection": "Section",
     "columnRoll": "Roll",
     "columnSeat": "Seat",
     "tableCaption": "Students seated in room {{room}}",
-    "seatLabel": "Seat {{seat}}",
-    "empty": "No students seated in this room."
+    "empty": "Nobody sits in this room for this subject.",
+    "seated": "{{n}} seated · {{capacity}}",
+    "invigilatorError": "Couldn't change the invigilator."
   },
   "reseat": {
-    "title": "Reseat student",
-    "description": "Move {{name}} to a different room or seat.",
+    "title": "Change seat",
+    "description": "Move {{name}} to another room or seat.",
     "roomLabel": "Room",
     "seatNumberLabel": "Seat number",
-    "submit": "Save"
+    "submit": "Save",
+    "errorTaken": "Someone already sits in this seat.",
+    "errorFull": "This room has no free seat."
   },
   "publish": {
     "title": "Publish seat plan",
     "description": "Once published this plan becomes read-only: seats, rooms, and invigilators can no longer be changed.",
-    "confirm": "Publish"
+    "confirm": "Publish",
+    "errorMessage": "Couldn't publish the seat plan."
+  },
+  "reshuffle": {
+    "title": "Reseat this room?",
+    "description": "Every seat in {{room}} will be given again. Manual changes will be lost.",
+    "confirm": "Reseat",
+    "errorMessage": "Couldn't reseat the room."
+  },
+  "errors": {
+    "unknown": "Something went wrong. Please try again."
   }
 }

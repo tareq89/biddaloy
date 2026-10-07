@@ -12,7 +12,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@biddaloy/ui/components';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { formatNumber } from '@biddaloy/ui/utils';
+import { CircleAlertIcon } from 'lucide-react';
 
 export interface SubmitDialogProps {
   open: boolean;
@@ -20,6 +22,8 @@ export interface SubmitDialogProps {
   blankCount: number;
   onConfirm: () => void;
   confirming: boolean;
+  /** Translated line shown when the submit request failed. */
+  error?: string | undefined;
 }
 
 export function SubmitDialog({
@@ -28,23 +32,35 @@ export function SubmitDialog({
   blankCount,
   onConfirm,
   confirming,
+  error,
 }: SubmitDialogProps) {
   const { t } = useTranslation('exams');
+  const { t: tg } = useTranslation('grading');
+  const config = useRegionConfig();
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent size="sm" closeLabel={t('actions.close', { ns: 'common' })}>
         <DialogHeader>
           <DialogTitle>{t('submitDialog.title')}</DialogTitle>
           <DialogDescription>{t('submitDialog.description')}</DialogDescription>
         </DialogHeader>
         {blankCount > 0 && (
-          <p className="text-sm text-muted-foreground">
-            {t('submitDialog.blankCount', { count: blankCount })}
+          <p className="text-text-secondary">
+            {tg('marksSheet.blankCount', {
+              count: blankCount,
+              n: formatNumber(blankCount, config),
+            })}
+          </p>
+        )}
+        {error && (
+          <p role="alert" className="flex items-center gap-1 text-caption text-destructive">
+            <CircleAlertIcon aria-hidden="true" className="size-3.5" />
+            {error}
           </p>
         )}
         <DialogFooter>
-          <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             {t('submitDialog.cancel')}
           </Button>
           <Button type="button" loading={confirming} onClick={onConfirm}>

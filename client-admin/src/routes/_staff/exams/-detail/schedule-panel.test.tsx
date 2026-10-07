@@ -8,10 +8,10 @@ import {
   server,
   subjectFactory,
 } from '@biddaloy/ui/test';
-import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { routeTree } from '../../../../routeTree.gen';
 
@@ -96,6 +96,7 @@ describe('exams/$examId Schedule tab', () => {
     const exam = examFactory({ id: 'exam-1', class: klass, class_id: klass.id });
     const math = subjectFactory({ id: 'subject-math', name_en: 'Mathematics' });
     let lastPatchBody: unknown = null;
+    let patchCount = 0;
 
     server.use(
       http.get('/api/v1/exams/:id', () => HttpResponse.json(exam)),
@@ -127,6 +128,7 @@ describe('exams/$examId Schedule tab', () => {
         ]),
       ),
       http.patch('/api/v1/exams/:examId/schedule/:id', async ({ request }) => {
+        patchCount += 1;
         lastPatchBody = await request.json();
         return HttpResponse.json({
           schedule: {
@@ -151,7 +153,7 @@ describe('exams/$examId Schedule tab', () => {
       locale: 'en',
     });
 
-    const venueButton = await screen.findByRole('button', { name: 'Main Hall' });
+    const venueButton = await screen.findByRole('button', { name: /^Main Hall/ });
     venueButton.focus();
     await user.keyboard('{Enter}');
 
@@ -163,8 +165,17 @@ describe('exams/$examId Schedule tab', () => {
     // Commit sends the PATCH and closes the editor back to display mode —
     // the GET handler above isn't stateful, so the redisplayed value is
     // whatever it returns; the PATCH body is what proves the edit worked.
-    await screen.findByRole('button', { name: 'Main Hall' });
+    await screen.findByRole('button', { name: /^Main Hall/ });
     expect(lastPatchBody).toMatchObject({ venue: 'Second Hall' });
+    // Enter saves once, even though removing the focused input fires `blur`.
+    expect(patchCount).toBe(1);
+
+    // Escape drops the edit: no save from the `blur` that follows it.
+    await user.click(screen.getByRole('button', { name: /^Main Hall/ }));
+    await user.type(await screen.findByLabelText('Venue'), ' X');
+    await user.keyboard('{Escape}');
+    await screen.findByRole('button', { name: /^Main Hall/ });
+    expect(patchCount).toBe(1);
   });
 
   // --- Shared fixtures for the tests below -------------------------------
@@ -228,7 +239,7 @@ describe('exams/$examId Schedule tab', () => {
   }
 
   function renderScheduleTab() {
-    renderWithRouter(routeTree, {
+    return renderWithRouter(routeTree, {
       initialEntries: ['/exams/exam-1?tab=schedule'],
       tenantId: 'tenant-1',
       role: 'ADMIN',
@@ -236,14 +247,14 @@ describe('exams/$examId Schedule tab', () => {
     });
   }
 
-  it('breaks a same-date tie by start time, and names rows that arrive without a subject', async () => {
+  it('breaks a same-date tie by start time, and never shows a raw subject id', async () => {
     mockScheduleTab({
       classSubjects: [math, english],
       schedule: [
         scheduleRow({ id: 'a', starts_at: '13:00:00' }),
         // No embedded subject — the name comes from the class's subject list.
         scheduleRow({ id: 'b', subject: null, subject_id: english.id, starts_at: '09:00:00' }),
-        // No embedded subject and not a class subject — the raw id is shown.
+        // No embedded subject and not a class subject — a dash, never the raw id.
         scheduleRow({ id: 'c', subject: null, subject_id: 'subject-gone', date: '2026-02-06' }),
       ],
     });
@@ -253,7 +264,7 @@ describe('exams/$examId Schedule tab', () => {
     const rows = screen.getAllByRole('row');
     within(rows[1]!).getByText('English'); // 2026-02-05 09:00
     within(rows[2]!).getByText('Mathematics'); // 2026-02-05 13:00
-    within(rows[3]!).getByText('subject-gone'); // 2026-02-06
+    expect(within(rows[3]!).queryByText('subject-gone')).toBeNull(); // 2026-02-06
   });
 
   it('Escape closes the editor without saving', async () => {
@@ -261,13 +272,13 @@ describe('exams/$examId Schedule tab', () => {
     const sent = mockScheduleTab({ schedule: [scheduleRow()] });
     renderScheduleTab();
 
-    await user.click(await screen.findByRole('button', { name: 'Main Hall' }));
+    await user.click(await screen.findByRole('button', { name: /^Main Hall/ }));
     await user.type(screen.getByLabelText('Venue'), ' Annex');
     await user.keyboard('{Escape}');
 
     // Back to display mode with the original value, and nothing was sent.
     expect(screen.queryByLabelText('Venue')).toBeNull();
-    expect(screen.getByRole('button', { name: 'Main Hall' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /^Main Hall/ })).toBeTruthy();
     expect(sent.patches).toEqual([]);
   });
 
@@ -276,7 +287,7 @@ describe('exams/$examId Schedule tab', () => {
     const sent = mockScheduleTab({ schedule: [scheduleRow({ venue: null })] });
     renderScheduleTab();
 
-    await user.click(await screen.findByRole('button', { name: '—' }));
+    await user.click(await screen.findByRole('button', { name: /^—, / }));
     const input = screen.getByLabelText<HTMLInputElement>('Venue');
     expect(input.value).toBe('');
 
@@ -286,58 +297,102 @@ describe('exams/$examId Schedule tab', () => {
     await waitFor(() => expect(sent.patches).toEqual([{ venue: null }]));
   });
 
-  it('edits the date with a date input and times with a time input', async () => {
+  it('edits the date with the DatePicker and times with the TimeInput, saving HH:mm', async () => {
     const user = userEvent.setup();
     const sent = mockScheduleTab({ schedule: [scheduleRow()] });
-    renderScheduleTab();
+    const { container } = renderScheduleTab();
 
-    await user.click(await screen.findByRole('button', { name: '2026-02-05' }));
-    expect(screen.getByLabelText('Date').getAttribute('type')).toBe('date');
-    await user.keyboard('{Enter}');
-    // A non-venue column is sent as-is (never turned into null).
-    await waitFor(() => expect(sent.patches).toEqual([{ date: '2026-02-05' }]));
+    // No native date/time inputs anywhere on the page.
+    await screen.findByText('Mathematics');
+    expect(container.querySelector('input[type=date], input[type=time]')).toBeNull();
 
-    await user.click(await screen.findByRole('button', { name: '09:00:00' }));
-    expect(screen.getByLabelText('Starts at').getAttribute('type')).toBe('time');
-    await user.keyboard('{Escape}');
+    const startCell = screen.getByRole('combobox', { name: 'Change Starts at — Mathematics' });
+    await user.click(startCell);
+    await user.clear(startCell); // the list is filtered by the current label until cleared
+    await user.click((await screen.findAllByRole('option', { name: /১০:০০|10:00/ }))[0]!);
+    await waitFor(() => expect(sent.patches).toEqual([{ starts_at: '10:00' }]));
 
-    await user.click(screen.getByRole('button', { name: '11:00:00' }));
-    expect(screen.getByLabelText('Ends at').getAttribute('type')).toBe('time');
+    await user.click(screen.getByRole('button', { name: 'Change Date — Mathematics' }));
+    // Pick another day of the displayed month (Feb 2026).
+    await screen.findByRole('grid', { name: 'Calendar' });
+    await user.click(document.querySelector<HTMLElement>('[data-date="2026-02-12"]')!);
+    await waitFor(() => expect(sent.patches.at(-1)).toEqual({ date: '2026-02-12' }));
   });
 
-  it('shows the warnings the server returns after a save', async () => {
-    const user = userEvent.setup();
+  it('flags two rows that overlap on one date, naming each other, without server warning text', async () => {
     mockScheduleTab({
-      schedule: [scheduleRow()],
+      classSubjects: [math, english],
       warnings: ['Mathematics overlaps another exam on 2026-02-05'],
+      schedule: [
+        scheduleRow({ id: 'a', starts_at: '09:00:00', ends_at: '11:00:00' }),
+        scheduleRow({
+          id: 'b',
+          subject: english,
+          subject_id: english.id,
+          starts_at: '10:00:00',
+          ends_at: '12:00:00',
+        }),
+        // Same date but not overlapping.
+        scheduleRow({
+          id: 'c',
+          subject: english,
+          subject_id: 'subject-other',
+          starts_at: '12:00:00',
+          ends_at: '13:00:00',
+        }),
+      ],
     });
     renderScheduleTab();
 
-    expect(screen.queryByRole('alert')).toBeNull();
-    await user.click(await screen.findByRole('button', { name: 'Main Hall' }));
-    await user.keyboard('{Enter}');
-
-    const alert = await screen.findByRole('alert');
-    expect(alert.textContent).toContain('Mathematics overlaps another exam on 2026-02-05');
+    await screen.findByText('Same time as English');
+    expect(screen.getAllByText('Time clash')).toHaveLength(2);
+    expect(screen.getByText('Same time as Mathematics')).toBeTruthy();
+    expect(screen.queryByText(/overlaps another exam/)).toBeNull();
   });
 
-  it('ignores keys other than Enter on a cell, and Enter on a second cell while one is open', async () => {
+  it('ignores keys other than Enter on the venue cell', async () => {
     const user = userEvent.setup();
     mockScheduleTab({ schedule: [scheduleRow()] });
     renderScheduleTab();
 
-    const venueButton = await screen.findByRole('button', { name: 'Main Hall' });
+    const venueButton = await screen.findByRole('button', { name: /^Main Hall/ });
     venueButton.focus();
     await user.keyboard('a');
     expect(screen.queryByRole('textbox')).toBeNull();
 
     await user.keyboard('{Enter}');
     expect(screen.getByLabelText('Venue')).toBeTruthy();
+  });
 
-    // Only one cell can be edited at a time.
-    fireEvent.keyDown(screen.getByRole('button', { name: '2026-02-05' }), { key: 'Enter' });
-    expect(screen.queryByLabelText('Date')).toBeNull();
-    expect(screen.getByLabelText('Venue')).toBeTruthy();
+  it('Remove asks first, and a failed remove shows a translated message', async () => {
+    const user = userEvent.setup();
+    mockScheduleTab({ schedule: [scheduleRow()] });
+    server.use(
+      http.delete('/api/v1/exams/:examId/schedule/:id', () =>
+        HttpResponse.json({ message: 'db exploded' }, { status: 500 }),
+      ),
+    );
+    renderScheduleTab();
+
+    await user.click(await screen.findByRole('button', { name: 'Remove from schedule' }));
+    const confirm = await screen.findByRole('alertdialog');
+    await user.click(within(confirm).getByRole('button', { name: 'Remove' }));
+    expect(await within(confirm).findByText(/Couldn't remove it\./)).toBeTruthy();
+    expect(screen.queryByText(/db exploded/)).toBeNull();
+  });
+
+  it('a failed inline edit shows a translated alert instead of silently reverting', async () => {
+    const user = userEvent.setup();
+    mockScheduleTab({ schedule: [scheduleRow()] });
+    server.use(
+      http.patch('/api/v1/exams/:examId/schedule/:id', () =>
+        HttpResponse.json({ message: 'db exploded' }, { status: 500 }),
+      ),
+    );
+    renderScheduleTab();
+    await user.click(await screen.findByRole('button', { name: /^Main Hall/ }));
+    await user.type(screen.getByLabelText('Venue'), 'X{Enter}');
+    expect(await screen.findByText("Couldn't save the schedule change.")).toBeTruthy();
   });
 
   it('shows an error state when the schedule fails to load', async () => {
@@ -355,37 +410,32 @@ describe('exams/$examId Schedule tab', () => {
     expect(screen.queryByRole('table')).toBeNull();
   });
 
-  it('shows an empty state, then adds an unscheduled subject with default times', async () => {
+  it('shows an empty state, then adds an unscheduled subject with default times and the LOCAL day', async () => {
     const user = userEvent.setup();
-    const sent = mockScheduleTab({
-      schedule: [],
-      classSubjects: [math],
-      warnings: ['Mathematics has no venue yet'],
-    });
-    renderScheduleTab();
+    // 23:30 local: the UTC day can differ from the local day, the local one must be sent.
+    vi.useFakeTimers({ toFake: ['Date'], now: new Date(2026, 1, 5, 23, 30) });
+    try {
+      const sent = mockScheduleTab({ schedule: [], classSubjects: [math] });
+      renderScheduleTab();
 
-    expect(await screen.findByText('No subjects scheduled yet.')).toBeTruthy();
-    const addButton = screen.getByRole<HTMLButtonElement>('button', { name: 'Add' });
-    expect(addButton.disabled).toBe(true);
+      expect(await screen.findByText('No schedule yet')).toBeTruthy();
+      const addButton = screen.getByRole<HTMLButtonElement>('button', { name: 'Add' });
+      expect(addButton.disabled).toBe(true);
 
-    await user.click(screen.getByRole('combobox', { name: 'Subject' }));
-    await user.click(await screen.findByRole('option', { name: 'Mathematics' }));
-    expect(addButton.disabled).toBe(false);
-    await user.click(addButton);
+      await user.click(screen.getByRole('combobox', { name: 'Subject' }));
+      await user.click(await screen.findByRole('option', { name: 'Mathematics' }));
+      expect(addButton.disabled).toBe(false);
+      await user.click(addButton);
 
-    await waitFor(() => expect(sent.posts).toHaveLength(1));
-    expect(sent.posts[0]).toEqual({
-      subject_id: 'subject-math',
-      date: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
-      starts_at: '09:00',
-      ends_at: '11:00',
-    });
-    expect((await screen.findByRole('alert')).textContent).toContain(
-      'Mathematics has no venue yet',
-    );
-    // The picker resets after a successful add.
-    await waitFor(() =>
-      expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Add' }).disabled).toBe(true),
-    );
+      await waitFor(() => expect(sent.posts).toHaveLength(1));
+      expect(sent.posts[0]).toEqual({
+        subject_id: 'subject-math',
+        date: '2026-02-05',
+        starts_at: '09:00',
+        ends_at: '11:00',
+      });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

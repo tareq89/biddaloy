@@ -25,7 +25,9 @@ import {
   DialogTitle,
 } from '@biddaloy/ui/components';
 import { usePublishResults, useReopenResults } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { formatNumber } from '@biddaloy/ui/utils';
+import { CircleAlertIcon } from 'lucide-react';
 
 export interface PublishDialogProps {
   open: boolean;
@@ -36,6 +38,8 @@ export interface PublishDialogProps {
 
 export function PublishDialog({ open, onOpenChange, examId, resultCount }: PublishDialogProps) {
   const { t } = useTranslation('exams');
+  const { t: tg } = useTranslation('grading');
+  const config = useRegionConfig();
   const publishResults = usePublishResults(examId);
 
   function handleOpenChange(next: boolean) {
@@ -46,16 +50,17 @@ export function PublishDialog({ open, onOpenChange, examId, resultCount }: Publi
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent>
+      <DialogContent size="sm" closeLabel={t('actions.close', { ns: 'common' })}>
         <DialogHeader>
           <DialogTitle>{t('publishDialog.title')}</DialogTitle>
           <DialogDescription>
-            {t('publishDialog.description', { count: resultCount })}
+            {tg('resultsPage.publishDescription', { n: formatNumber(resultCount, config) })}
           </DialogDescription>
         </DialogHeader>
 
         {publishResults.isError && (
-          <p role="alert" className="text-sm text-destructive">
+          <p role="alert" className="flex items-center gap-1 text-caption text-destructive">
+            <CircleAlertIcon aria-hidden="true" className="size-3.5" />
             {t('publishDialog.errorMessage')}
           </p>
         )}
@@ -99,6 +104,8 @@ export function ReopenPreviewDialog({
   resultCount,
 }: ReopenPreviewDialogProps) {
   const { t } = useTranslation('exams');
+  const { t: tg } = useTranslation('grading');
+  const config = useRegionConfig();
   const reopenResults = useReopenResults(examId);
 
   // Once Confirm is clicked the approval modal may open over this one —
@@ -113,14 +120,17 @@ export function ReopenPreviewDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent>
+      <DialogContent size="sm" closeLabel={t('actions.close', { ns: 'common' })}>
         <DialogHeader>
           <DialogTitle>{t('reopenDialog.title')}</DialogTitle>
-          <DialogDescription>{t('reopenDialog.impact', { count: resultCount })}</DialogDescription>
+          <DialogDescription>
+            {tg('resultsPage.reopenImpact', { n: formatNumber(resultCount, config) })}
+          </DialogDescription>
         </DialogHeader>
 
         {reopenResults.isError && (
-          <p role="alert" className="text-sm text-destructive">
+          <p role="alert" className="flex items-center gap-1 text-caption text-destructive">
+            <CircleAlertIcon aria-hidden="true" className="size-3.5" />
             {t('reopenDialog.errorMessage')}
           </p>
         )}

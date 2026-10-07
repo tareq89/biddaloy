@@ -7,7 +7,7 @@
 import { REGION_BD_BN } from '@biddaloy/ui/i18n';
 import { apiErrorBody, cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
 import { formatNumber } from '@biddaloy/ui/utils';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -110,8 +110,10 @@ describe('/results/$examId/$studentId', () => {
     mockReportCard();
     renderReportCard();
 
-    expect(await screen.findByText('Half-Yearly 2026')).toBeTruthy();
-    expect(screen.getAllByText('Rafi Ahmed')).toHaveLength(2);
+    // Header fact and the card itself.
+    expect(await screen.findAllByText('Half-Yearly 2026')).toHaveLength(2);
+    // Breadcrumb, header and the card itself.
+    expect(screen.getAllByText('Rafi Ahmed')).toHaveLength(3);
     expect(screen.getByText('Green Valley School')).toBeTruthy();
     expect(screen.getByText('Mathematics')).toBeTruthy();
     // The school has a logo, so the header shows it.
@@ -124,9 +126,44 @@ describe('/results/$examId/$studentId', () => {
         `A+ (${formatNumber(5, REGION_BD_BN, { decimals: 2 })}) — Outstanding`,
       ),
     ).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Back to exam' }).getAttribute('href')).toBe(
-      '/exams/exam-1',
+    expect(screen.queryByRole('link', { name: 'Back to exam' })).toBeNull();
+  });
+
+  it('opens with the student name as the one h1, a Pass badge and the key facts', async () => {
+    mockReportCard();
+    renderReportCard();
+
+    const h1 = await screen.findByRole('heading', { level: 1, name: 'Rafi Ahmed' });
+    const header = within(h1.closest('header')!);
+    expect(header.getByText('Pass')).toBeTruthy();
+    expect(
+      header.getByText(`${formatNumber(4.5, REGION_BD_BN, { decimals: 2 })} · A`),
+    ).toBeTruthy();
+    expect(header.getByText(formatNumber(7, REGION_BD_BN))).toBeTruthy();
+    expect(header.getByText(formatNumber(3, REGION_BD_BN))).toBeTruthy();
+    expect(header.getByText('Half-Yearly 2026')).toBeTruthy();
+    // No back link, and "Print" is the header's one button.
+    expect(screen.queryByRole('link', { name: 'Back to exam' })).toBeNull();
+    expect(header.getAllByRole('button')).toHaveLength(1);
+  });
+
+  it('shows a Fail badge and a dash position for a failing, unranked student', async () => {
+    mockReportCard();
+    server.use(
+      http.get(DETAIL_URL, () =>
+        HttpResponse.json({
+          ...DETAIL,
+          result: { ...DETAIL.result, is_fail: true, position: null },
+        }),
+      ),
     );
+    renderReportCard();
+
+    const h1 = await screen.findByRole('heading', { level: 1, name: 'Rafi Ahmed' });
+    const header = within(h1.closest('header')!);
+    expect(header.getByText('Fail')).toBeTruthy();
+    expect(header.queryByText('Pass')).toBeNull();
+    expect(header.getByText('—')).toBeTruthy();
   });
 
   it('opens the browser print dialog when Print is clicked', async () => {
@@ -154,7 +191,7 @@ describe('/results/$examId/$studentId', () => {
     server.use(http.get(SCALE_URL, () => notFound('/grading/scales/scale-1')));
     renderReportCard();
 
-    expect(await screen.findByText('Half-Yearly 2026')).toBeTruthy();
+    expect(await screen.findAllByText('Half-Yearly 2026')).toHaveLength(2);
     expect(screen.getByText('Grade legend')).toBeTruthy();
     expect(screen.queryByText(/Outstanding/)).toBeNull();
   });
@@ -176,7 +213,7 @@ describe('/results/$examId/$studentId', () => {
 
     await user.click(screen.getByRole('button', { name: 'Retry' }));
 
-    expect(await screen.findAllByText('Rafi Ahmed')).toHaveLength(2);
+    expect(await screen.findAllByText('Rafi Ahmed')).toHaveLength(3);
     expect(detailCalls).toBe(2);
   });
 

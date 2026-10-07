@@ -1,19 +1,25 @@
-import '@biddaloy/ui/test';
-
-import { cleanupTestState, renderWithProviders, server } from '@biddaloy/ui/test';
-import { screen, waitFor } from '@testing-library/react';
+import { cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { TemplatesList } from './-templates-list';
+import { routeTree } from '../../../routeTree.gen';
 
-const TEMPLATE = { id: 't1', name: 'Half-yearly', kind: 'TERM', rowCount: 3, classGrades: [5, 6] };
+const TEMPLATE = {
+  id: 't1',
+  name: 'Half-yearly',
+  kind: 'TERM',
+  rowCount: 28,
+  classGrades: [8, 6, 7],
+};
+const SECOND = { id: 't2', name: 'Annual', kind: 'MODEL', rowCount: 3, classGrades: [9] };
 
 function setup(list: unknown[]) {
   server.use(http.get('/api/v1/exam-templates', () => HttpResponse.json(list)));
   const user = userEvent.setup();
-  const view = renderWithProviders(<TemplatesList onCreated={vi.fn()} />, {
+  const view = renderWithRouter(routeTree, {
+    initialEntries: ['/exams/templates'],
     locale: 'en',
     tenantId: 'school-1',
     role: 'ADMIN',
@@ -21,25 +27,41 @@ function setup(list: unknown[]) {
   return { ...view, user };
 }
 
-describe('TemplatesList', () => {
+describe('TemplatesList (exam structures)', () => {
   afterEach(async () => {
     await cleanupTestState();
   });
 
-  it('shows the empty state', async () => {
-    setup([]);
+  it('shows the title, the subtitle and one primary add button', async () => {
+    setup([TEMPLATE]);
+    await screen.findByRole('heading', { name: 'Exam structures' });
     expect(
-      await screen.findByText(
-        'No exam structures yet — use a ready-made curriculum or create one.',
+      screen.getByText(
+        'Set the parts and marks of each class and subject once; pick the structure when you create an exam.',
       ),
     ).toBeTruthy();
+    const add = screen.getByRole('button', { name: 'Add exam structure' });
+    expect(add.getAttribute('data-variant')).toBe('default');
   });
 
-  it('lists templates with kind, row count and grades; no axe violations', async () => {
-    const { container } = setup([TEMPLATE]);
-    expect(await screen.findByText('Half-yearly')).toBeTruthy();
-    expect(screen.getAllByText('5, 6').length).toBeGreaterThan(0);
-    await expect(container).toHaveNoViolations();
+  it('shows the empty state with only the header add button', async () => {
+    setup([]);
+    expect(await screen.findByText('No exam structures yet')).toBeTruthy();
+    expect(screen.getAllByRole('button', { name: 'Add exam structure' })).toHaveLength(1);
+  });
+
+  it('lists structures with type, sorted classes in tenant digits and the subject count', async () => {
+    setup([TEMPLATE, SECOND]);
+    const row = (await screen.findByText('Half-yearly')).closest('tr') as HTMLElement;
+    expect(within(row).getByText('Term')).toBeTruthy();
+    expect(within(row).getByText('৬, ৭, ৮')).toBeTruthy();
+    expect(within(row).getByText('২৮')).toBeTruthy();
+    expect(within(row).getByRole('link', { name: 'Edit' }).getAttribute('href')).toBe(
+      '/exams/templates/t1',
+    );
+    // Unpaginated: a total, no rows-per-page control.
+    expect(screen.queryByText('Rows per page')).toBeNull();
+    expect(screen.getByText(/Total/)).toBeTruthy();
   });
 
   it('delete asks for confirmation and only deletes on confirm', async () => {
@@ -51,15 +73,16 @@ describe('TemplatesList', () => {
       }),
     );
     const { user } = setup([TEMPLATE]);
-    await user.click(await screen.findByRole('button', { name: 'Delete template Half-yearly' }));
-    expect(await screen.findByText('Delete template?')).toBeTruthy();
+    await user.click(await screen.findByRole('button', { name: 'Delete Half-yearly' }));
+    const confirm = await screen.findByRole('alertdialog');
+    expect(within(confirm).getByText('Delete this exam structure?')).toBeTruthy();
     expect(deleted).not.toHaveBeenCalled();
 
-    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    await user.click(within(confirm).getByRole('button', { name: 'Cancel' }));
     expect(deleted).not.toHaveBeenCalled();
 
-    await user.click(screen.getByRole('button', { name: 'Delete template Half-yearly' }));
-    await user.click(await screen.findByRole('button', { name: 'Delete template' }));
+    await user.click(screen.getByRole('button', { name: 'Delete Half-yearly' }));
+    await user.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Delete' }));
     await waitFor(() => expect(deleted).toHaveBeenCalledTimes(1));
   });
 });

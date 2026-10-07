@@ -4,6 +4,7 @@
  * into a "More actions" menu. On phone only the primary stays inline (it
  * fills the row) and every other action moves into the menu.
  */
+import { Link } from '@tanstack/react-router';
 import { EllipsisIcon } from 'lucide-react';
 import type * as React from 'react';
 
@@ -14,10 +15,9 @@ import { cn } from '../primitives/lib/utils';
 
 export type PageActionPriority = 'primary' | 'secondary' | 'tertiary' | 'destructive';
 
-export interface PageAction {
+interface PageActionBase {
   id: string;
   label: string;
-  onClick: () => void;
   /** Defaults to `true` — set `false` to hide an action the user may not take. */
   allowed?: boolean;
   /** Defaults to `'secondary'`. */
@@ -28,6 +28,11 @@ export interface PageAction {
   /** Button `loading` (spinner + `aria-busy`, label kept). */
   busy?: boolean;
 }
+
+/** An in-page action (`onClick`), or a navigation (`to`) rendered as a real
+ * link, so it can open in a new tab or have its address copied. */
+export type PageAction = PageActionBase &
+  ({ onClick: () => void; to?: never } | { to: string; onClick?: never });
 
 export interface PageHeaderProps {
   title: string;
@@ -87,34 +92,59 @@ export function PageHeaderActions({
         ? ('destructive' as const)
         : ('outline' as const);
 
-  const button = (a: PageAction, className = '') => (
-    <Button
-      key={a.id}
-      type="button"
-      variant={variantOf(a)}
-      data-action-id={a.id}
-      disabled={a.disabled ?? false}
-      loading={a.busy ?? false}
-      onClick={a.onClick}
-      className={className}
-    >
-      {a.icon}
-      {a.label}
-    </Button>
-  );
+  // A disabled link has nowhere to go: it falls back to a disabled button.
+  const isLink = (a: PageAction): a is PageAction & { to: string } =>
+    a.to !== undefined && !(a.disabled ?? false);
 
-  const item = (a: PageAction, className = '') => (
-    <MenuItem
-      key={a.id}
-      variant={a.priority === 'destructive' ? 'destructive' : 'default'}
-      disabled={(a.disabled ?? false) || (a.busy ?? false)}
-      className={className}
-      onSelect={a.onClick}
-    >
-      {a.icon}
-      {a.label}
-    </MenuItem>
-  );
+  const button = (a: PageAction, className = '') =>
+    isLink(a) ? (
+      <Button key={a.id} asChild variant={variantOf(a)} data-action-id={a.id} className={className}>
+        <Link to={a.to}>
+          {a.icon}
+          {a.label}
+        </Link>
+      </Button>
+    ) : (
+      <Button
+        key={a.id}
+        type="button"
+        variant={variantOf(a)}
+        data-action-id={a.id}
+        disabled={a.disabled ?? false}
+        loading={a.busy ?? false}
+        onClick={a.onClick}
+        className={className}
+      >
+        {a.icon}
+        {a.label}
+      </Button>
+    );
+
+  const item = (a: PageAction, className = '') =>
+    isLink(a) ? (
+      <MenuItem
+        key={a.id}
+        asChild
+        variant={a.priority === 'destructive' ? 'destructive' : 'default'}
+        className={className}
+      >
+        <Link to={a.to}>
+          {a.icon}
+          {a.label}
+        </Link>
+      </MenuItem>
+    ) : (
+      <MenuItem
+        key={a.id}
+        variant={a.priority === 'destructive' ? 'destructive' : 'default'}
+        disabled={(a.disabled ?? false) || (a.busy ?? false)}
+        className={className}
+        onSelect={a.onClick}
+      >
+        {a.icon}
+        {a.label}
+      </MenuItem>
+    );
 
   return (
     <div className="flex w-full items-center gap-2 md:w-auto md:shrink-0">

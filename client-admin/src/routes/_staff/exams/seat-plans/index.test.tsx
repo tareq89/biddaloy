@@ -40,9 +40,68 @@ describe('/exams/seat-plans', () => {
     await screen.findByText('Half Yearly Seating');
     const row = screen.getAllByRole('row')[1] as HTMLElement;
     expect(within(row).getByText('Draft')).toBeTruthy();
-    expect(within(row).getByText('2')).toBeTruthy();
-    expect(within(row).getByText('3')).toBeTruthy();
-    expect(within(row).getByText('40')).toBeTruthy();
+    // Counts use the tenant's numerals.
+    expect(within(row).getByText('২')).toBeTruthy();
+    expect(within(row).getByText('৩')).toBeTruthy();
+    expect(within(row).getByText('৪০')).toBeTruthy();
+    expect(within(row).getByRole('link', { name: 'View' }).getAttribute('href')).toBe(
+      '/exams/seat-plans/plan-1',
+    );
+    expect(screen.getByText('Seat plans for exams at this school', { exact: false })).toBeTruthy();
+  });
+
+  it('shows the empty state with a single add button (the header one)', async () => {
+    server.use(http.get('/api/v1/seat-plans', () => HttpResponse.json([])));
+    renderWithRouter(routeTree, {
+      initialEntries: ['/exams/seat-plans'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+    expect(await screen.findByText('No seat plans yet')).toBeTruthy();
+    expect(screen.getAllByRole('button', { name: 'Generate seat plan' })).toHaveLength(1);
+  });
+
+  it('pages at 25 by default', async () => {
+    const plans = Array.from({ length: 26 }, (_, i) => ({
+      id: `plan-${i}`,
+      name: `Plan ${String(i).padStart(2, '0')}`,
+      status: 'PUBLISHED',
+      seat_order_mode: 'SEQUENTIAL',
+      schedule_count: 1,
+      room_count: 1,
+      student_count: 10,
+    }));
+    server.use(http.get('/api/v1/seat-plans', () => HttpResponse.json(plans)));
+    renderWithRouter(routeTree, {
+      initialEntries: ['/exams/seat-plans'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+    await screen.findByText('Plan 00');
+    expect(screen.queryByText('Plan 25')).toBeNull();
+    expect(screen.getAllByText('Published')).toHaveLength(25);
+  });
+
+  it('?generate=1 opens the full-page form', async () => {
+    server.use(
+      http.get('/api/v1/seat-plans', () => HttpResponse.json([])),
+      http.get('/api/v1/exams', () =>
+        HttpResponse.json({ data: [], total: 0, page: 1, limit: 100, totalPages: 0 }),
+      ),
+      http.get('/api/v1/routines/rooms', () =>
+        HttpResponse.json({ data: [], total: 0, page: 1, limit: 100, totalPages: 0 }),
+      ),
+    );
+    renderWithRouter(routeTree, {
+      initialEntries: ['/exams/seat-plans?generate=1'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+    expect(await screen.findByRole('heading', { name: 'Generate seat plan' })).toBeTruthy();
+    expect(screen.getByRole('dialog')).toBeTruthy();
   });
 
   it('shows the forbidden message to a role without SEAT_PLAN_MANAGE', async () => {

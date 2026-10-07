@@ -1,21 +1,18 @@
 /**
  * [26.5.1] Merit list tab — `ResultsPanel`'s table styling via `DataTable`
- * (which already renders a phone card list below 768px, [8.14.7]), plus a
- * Print button and a CSV link. Shows the section position column only
- * when a section is selected; otherwise the class-wide position.
+ * (which already renders a phone card list below 768px, [8.14.7]). Shows the
+ * section position column only when a section is selected; otherwise the
+ * class-wide position.
+ *
+ * [31.4.marks-3] Print and CSV live once in the page header (`index.tsx`);
+ * this tab keeps only the print area. Numbers use the tenant's numerals and
+ * the result is a `StatusBadge`.
  */
-import {
-  Button,
-  DataTable,
-  ErrorState,
-  Skeleton,
-  toast,
-  type DataTableColumn,
-} from '@biddaloy/ui/components';
-import { downloadAnalysisCsv, useMeritList, type MeritRow } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
-import { Printer } from 'lucide-react';
-import * as React from 'react';
+import { DataTable, ErrorState, StatusBadge, type DataTableColumn } from '@biddaloy/ui/components';
+import { useMeritList, type MeritRow } from '@biddaloy/ui/hooks';
+import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { formatNumber } from '@biddaloy/ui/utils';
+import { ListXIcon } from 'lucide-react';
 
 export interface AnalysisTabProps {
   examId: string;
@@ -33,22 +30,11 @@ export function MeritTab({
   className,
 }: AnalysisTabProps) {
   const { t } = useTranslation('exams');
+  const { t: tg } = useTranslation('grading');
+  const config = useRegionConfig();
   const meritQuery = useMeritList(examId, sectionId);
   const rows = meritQuery.data?.rows ?? [];
 
-  const [csvBusy, setCsvBusy] = React.useState(false);
-  async function handleDownloadCsv() {
-    setCsvBusy(true);
-    try {
-      await downloadAnalysisCsv(examId, 'merit', sectionId, examName);
-    } catch {
-      toast.error(t('analysis.downloadCsvError'));
-    } finally {
-      setCsvBusy(false);
-    }
-  }
-
-  if (meritQuery.isLoading) return <Skeleton className="h-32 w-full" />;
   if (meritQuery.isError)
     return (
       <ErrorState message={t('resultsPanel.loadError')} onRetry={() => void meritQuery.refetch()} />
@@ -60,40 +46,57 @@ export function MeritTab({
       header: sectionId
         ? t('analysis.merit.columnSectionPosition')
         : t('analysis.merit.columnPosition'),
-      accessorFn: (row) => (sectionId ? (row.section_position ?? '—') : (row.position ?? '—')),
-      card: 'title',
+      accessorFn: (row) => formatNumber(sectionId ? row.section_position : row.position, config),
+      align: 'end',
+      card: 'subtitle',
     },
     {
-      id: 'student',
-      header: t('analysis.merit.columnStudent'),
-      accessorFn: (row) => `${row.roll_number} · ${row.full_name}`,
+      id: 'roll',
+      header: tg('analysisPage.columnRoll'),
+      accessorFn: (row) => formatNumber(row.roll_number, config),
+      align: 'end',
+      card: 'subtitle',
+    },
+    {
+      id: 'name',
+      header: tg('analysisPage.columnName'),
+      accessorFn: (row) => <span className="font-medium">{row.full_name}</span>,
+      card: 'title',
     },
     ...(!sectionId
       ? [
           {
             id: 'section',
             header: t('analysis.merit.columnSection'),
-            accessorFn: (row: MeritRow) => row.section_name ?? '—',
+            accessorFn: (row: MeritRow) =>
+              row.section_name ? tg('marksEntry.sectionValue', { name: row.section_name }) : '—',
+            card: 'subtitle',
           } satisfies DataTableColumn<MeritRow>,
         ]
       : []),
     {
       id: 'total',
-      header: t('analysis.merit.columnTotal'),
-      accessorFn: (row) => row.total_marks,
+      header: tg('analysisPage.columnTotal'),
+      accessorFn: (row) => formatNumber(row.total_marks, config),
       align: 'end',
     },
     {
       id: 'gpa',
       header: t('analysis.merit.columnGpa'),
-      accessorFn: (row) => row.gpa.toFixed(2),
+      accessorFn: (row) => formatNumber(row.gpa, config, { decimals: 2 }),
       align: 'end',
     },
     { id: 'grade', header: t('analysis.merit.columnGrade'), accessorFn: (row) => row.grade },
     {
-      id: 'status',
-      header: t('analysis.merit.columnStatus'),
-      accessorFn: (row) => (row.is_fail ? t('analysis.merit.fail') : t('analysis.merit.pass')),
+      id: 'result',
+      header: tg('analysisPage.columnResult'),
+      accessorFn: (row) => (
+        <StatusBadge
+          tone={row.is_fail ? 'danger' : 'success'}
+          label={row.is_fail ? t('analysis.merit.fail') : t('analysis.merit.pass')}
+        />
+      ),
+      card: 'badge',
     },
   ];
 
@@ -106,34 +109,24 @@ export function MeritTab({
           {sectionName ? ` · ${sectionName}` : ''}
         </p>
       </div>
-      <div className="flex justify-end gap-2 print:hidden">
-        <Button type="button" variant="outline" onClick={() => window.print()}>
-          <Printer className="size-4" />
-          {t('analysis.print')}
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => void handleDownloadCsv()}
-          disabled={csvBusy}
-          loading={csvBusy}
-        >
-          {t('analysis.downloadCsv')}
-        </Button>
-      </div>
       <DataTable
         tableId="analysis-merit"
-        caption={t('analysis.tabs.merit')}
+        caption={tg('analysisPage.tabs.merit')}
         columns={columns}
         data={rows}
         getRowId={(row) => row.student_id}
         sorting={null}
         onSortingChange={() => undefined}
-        page={1}
-        pageSize={Math.max(1, rows.length)}
         totalCount={rows.length}
-        onPageChange={() => undefined}
-        emptyMessage={t('resultsPanel.empty')}
+        paginated={false}
+        loading={meritQuery.isLoading}
+        emptyState={{
+          icon: <ListXIcon />,
+          title: tg('analysisPage.noRowsTitle'),
+          explanation: sectionId
+            ? tg('analysisPage.noRowsSectionText')
+            : tg('analysisPage.noRowsText'),
+        }}
       />
     </div>
   );

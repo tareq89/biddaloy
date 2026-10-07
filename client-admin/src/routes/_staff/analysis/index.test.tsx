@@ -1,4 +1,5 @@
 import { ExamStatus } from '@biddaloy/shared';
+import { REGION_BD_BN } from '@biddaloy/ui/i18n';
 import {
   classSectionFactory,
   cleanupTestState,
@@ -6,6 +7,7 @@ import {
   renderWithRouter,
   server,
 } from '@biddaloy/ui/test';
+import { formatNumber } from '@biddaloy/ui/utils';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -55,7 +57,7 @@ const PASS_FAIL_BODY = {
   ],
   overall: {
     subject_id: null,
-    subject_name: 'Overall',
+    subject_name: 'OVERALL_FROM_SERVER',
     appeared: 30,
     passed: 25,
     failed: 5,
@@ -114,6 +116,14 @@ function mockExam(overrides: Parameters<typeof examFactory>[0] = {}) {
   return exam;
 }
 
+const render = (url: string, role = 'ADMIN') =>
+  renderWithRouter(routeTree, {
+    initialEntries: [url],
+    tenantId: 'tenant-1',
+    role,
+    locale: 'en',
+  });
+
 describe('/analysis', () => {
   afterEach(async () => {
     await cleanupTestState();
@@ -122,74 +132,105 @@ describe('/analysis', () => {
   it('switching tabs updates the URL', async () => {
     const user = userEvent.setup();
     const exam = mockExam();
-    const { router } = renderWithRouter(routeTree, {
-      initialEntries: [`/analysis?examId=${exam.id}&tab=merit`],
-      tenantId: 'tenant-1',
-      role: 'ADMIN',
-      locale: 'en',
-    });
+    const { router } = render(`/analysis?examId=${exam.id}&tab=merit`);
 
-    const defaultersTab = await screen.findByRole('tab', { name: 'Defaulters' });
-    await user.click(defaultersTab);
+    const failedTab = await screen.findByRole('tab', { name: 'Failed or absent' });
+    expect(screen.getByRole('tab', { name: 'Merit list' })).toBeTruthy();
+    expect(screen.getByRole('tab', { name: 'Pass/fail by subject' })).toBeTruthy();
+    await user.click(failedTab);
 
     await waitFor(() => {
       expect(router.state.location.search).toMatchObject({ tab: 'defaulted' });
     });
   });
 
+  it('labels both pickers and names the class in the exam option', async () => {
+    const exam = mockExam();
+    render(`/analysis?examId=${exam.id}&tab=merit`);
+
+    const examPicker = await screen.findByLabelText('Exam');
+    expect(examPicker.textContent).toContain(`${exam.name} · ${exam.class.name}`);
+    expect(screen.getByLabelText('Section')).toBeTruthy();
+  });
+
+  it('shows Print and Download CSV once in the header, not inside the tab', async () => {
+    const exam = mockExam();
+    render(`/analysis?examId=${exam.id}&tab=merit`);
+
+    await screen.findByText('Rahim Uddin');
+    expect(screen.getAllByRole('button', { name: 'Print' })).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: 'Download CSV' })).toHaveLength(1);
+    const area = document.getElementById('analysis-print-area')!;
+    expect(within(area).queryByRole('button', { name: 'Print' })).toBeNull();
+  });
+
+  it('merit shows a Pass badge, tenant numerals and a total', async () => {
+    const exam = mockExam();
+    render(`/analysis?examId=${exam.id}&tab=merit`);
+
+    await screen.findByText('Rahim Uddin');
+    const area = within(document.getElementById('analysis-print-area')!);
+    expect(area.getByText('Pass')).toBeTruthy();
+    expect(area.getByText(formatNumber(4.5, REGION_BD_BN, { decimals: 2 }))).toBeTruthy();
+    expect(area.getByText(formatNumber(450, REGION_BD_BN))).toBeTruthy();
+    expect(screen.getByText(`Total ${formatNumber(1, REGION_BD_BN)}`)).toBeTruthy();
+  });
+
   it('merit shows section position when a section is chosen', async () => {
     const exam = mockExam();
-    renderWithRouter(routeTree, {
-      initialEntries: [`/analysis?examId=${exam.id}&sectionId=sec-1&tab=merit`],
-      tenantId: 'tenant-1',
-      role: 'ADMIN',
-      locale: 'en',
-    });
+    render(`/analysis?examId=${exam.id}&sectionId=sec-1&tab=merit`);
 
     await screen.findByText('Section position');
   });
 
   it('defaulted reasons render', async () => {
     const exam = mockExam();
-    renderWithRouter(routeTree, {
-      initialEntries: [`/analysis?examId=${exam.id}&tab=defaulted`],
-      tenantId: 'tenant-1',
-      role: 'ADMIN',
-      locale: 'en',
-    });
+    render(`/analysis?examId=${exam.id}&tab=defaulted`);
 
     await screen.findByText(/Failed: Math/);
     await screen.findByText(/Absent: Physics/);
   });
 
-  it('the by-component toggle swaps the table', async () => {
+  it('the by-part toggle swaps the table', async () => {
     const user = userEvent.setup();
     const exam = mockExam();
-    renderWithRouter(routeTree, {
-      initialEntries: [`/analysis?examId=${exam.id}&tab=pass-fail`],
-      tenantId: 'tenant-1',
-      role: 'ADMIN',
-      locale: 'en',
-    });
+    render(`/analysis?examId=${exam.id}&tab=pass-fail`);
 
     await screen.findByText('Math');
     expect(screen.queryByText('Written')).toBeNull();
 
-    await user.click(screen.getByRole('checkbox', { name: 'By component' }));
+    await user.click(screen.getByRole('checkbox', { name: 'By part' }));
 
     await screen.findByText('Written');
   });
 
-  it('shows the DRAFT exam empty state', async () => {
-    const exam = mockExam({ status: ExamStatus.DRAFT });
-    renderWithRouter(routeTree, {
-      initialEntries: [`/analysis?examId=${exam.id}&tab=merit`],
-      tenantId: 'tenant-1',
-      role: 'ADMIN',
-      locale: 'en',
-    });
+  it('shows the translated overall row, never the server word, in tenant numerals', async () => {
+    const exam = mockExam();
+    render(`/analysis?examId=${exam.id}&tab=pass-fail`);
 
-    await screen.findByText('Process results first.');
-    within(screen.getByRole('button', { name: 'Process result' }));
+    await screen.findByText('Overall');
+    expect(screen.queryByText('OVERALL_FROM_SERVER')).toBeNull();
+    expect(
+      screen.getAllByText(`${formatNumber(83.3, REGION_BD_BN, { decimals: 1 })}%`).length,
+    ).toBeGreaterThan(0);
+    expect(screen.getAllByText(`A: ${formatNumber(10, REGION_BD_BN)}`)).toHaveLength(2);
+    // "Total n" counts subjects, not the overall row.
+    expect(screen.getByText(`Total ${formatNumber(1, REGION_BD_BN)}`)).toBeTruthy();
+  });
+
+  it('shows the not-processed state without Print/CSV, and the exam link only with EXAM_MANAGE', async () => {
+    const exam = mockExam({ status: ExamStatus.DRAFT });
+    const admin = render(`/analysis?examId=${exam.id}&tab=merit`);
+
+    await screen.findByText('Results are not ready yet');
+    expect(screen.getByRole('button', { name: 'Open the exam' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Print' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Download CSV' })).toBeNull();
+    admin.unmount();
+
+    mockExam({ status: ExamStatus.DRAFT });
+    render(`/analysis?examId=${exam.id}&tab=merit`, 'TEACHER');
+    await screen.findByText('Results are not ready yet');
+    expect(screen.queryByRole('button', { name: 'Open the exam' })).toBeNull();
   });
 });

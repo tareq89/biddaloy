@@ -74,14 +74,17 @@ test('create a template, fill the grid, save, then create an exam from it', asyn
   });
 
   await test.step('add class 7 and the subject', async () => {
-    await tabUntilFocused(page, t('examTemplates.grid.gradeLabel'), 40, { tag: 'INPUT' });
+    // "Add class" opens a small dialog with one field; Enter adds the class and selects its tab.
+    await tabUntilFocused(page, t('examTemplates.grid.addGrade'), 40, { tag: 'BUTTON' });
+    await page.keyboard.press('Enter');
+    await expect(
+      page.getByRole('textbox', { name: t('examTemplates.grid.gradeLabel') }),
+    ).toBeFocused();
     await page.keyboard.type(String(grade));
     await page.keyboard.press('Enter');
-    // The new grade's section renders ABOVE the grade input.
-    await tabUntilFocused(page, t('examTemplates.grid.subjectPicker', { grade }), 10, {
-      shift: true,
-    });
-    await selectByTypeahead(page, `${subjectCode} — ${subjectName}`);
+    // The add-subject card of the new class sits below the tab row.
+    await tabUntilFocused(page, t('examTemplates.grid.subjectPicker', { grade }), 10);
+    await selectByTypeahead(page, subjectCode);
     await tabUntilFocused(page, t('examTemplates.grid.addSubject'), 3, { tag: 'BUTTON' });
     await page.keyboard.press('Enter');
   });
@@ -141,21 +144,27 @@ test('create a template, fill the grid, save, then create an exam from it', asyn
   });
 
   await test.step('save', async () => {
-    await tabUntilFocused(page, t('examTemplates.grid.save'), 10, { tag: 'BUTTON' });
+    // Save lives in the page header (above the grid): focus it directly, then press Enter.
+    await page.getByRole('button', { name: t('examTemplates.detail.save') }).focus();
     const saved = page.waitForResponse(
       (r) => r.request().method() === 'PATCH' && /\/exam-templates\/[^/]+$/.test(r.url()),
     );
     await page.keyboard.press('Enter');
     expect((await saved).ok()).toBe(true);
-    await expect(cell('examTemplates.grid.columnFull', 2)).toHaveValue('30');
+    // Saved marks show in the tenant's digits.
+    await expect(cell('examTemplates.grid.columnFull', 2)).toHaveValue(/^(30|৩০)$/);
   });
 
-  await test.step('Esc discards an unsaved extra row', async () => {
+  await test.step('Esc leaves the field; the header Discard drops an unsaved extra row', async () => {
     await cell('examTemplates.grid.columnPass', 2).focus();
     await page.keyboard.press('Enter');
     await expect(cell('examTemplates.grid.columnName', 3)).toBeFocused();
     await page.keyboard.type('Temp');
     await page.keyboard.press('Escape');
+    // Esc must not throw the draft away silently.
+    await expect(cell('examTemplates.grid.columnName', 3)).toHaveValue('Temp');
+    await page.getByRole('button', { name: t('examTemplates.detail.discard') }).focus();
+    await page.keyboard.press('Enter');
     await expect(cell('examTemplates.grid.columnName', 3)).toHaveCount(0);
     await expect(cell('examTemplates.grid.columnName', 2)).toHaveValue('MCQ');
   });
@@ -198,7 +207,7 @@ test('create a template, fill the grid, save, then create an exam from it', asyn
   await test.step('the success toast reports both components', async () => {
     // i18next cannot plural here (`t()` is a plain lookup): `_other` = count 2.
     await expect(
-      page.getByText(t('examsTemplateField.toast.created_other', { count: 2 })),
+      page.getByText(t('examsTemplateField.toast.created_other', { count: 2, n: 2 })),
     ).toBeVisible();
   });
 });
