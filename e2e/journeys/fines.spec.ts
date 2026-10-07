@@ -14,6 +14,9 @@ import { expect, loggedIn, test } from '../fixtures/test';
 import { t } from '../i18n';
 import { DetailShellPage } from '../pages';
 
+// [31.4] The Record Payment footer primary reads "Record <amount>" (or "Record payment" before any amount), so match the verb (same as checkout.spec.ts).
+const RECORD_BUTTON = /রেকর্ড করুন|^Record/;
+
 /**
  * [38.5.1] The epic's cross-role money proof: an ATTENDANCE_ABSENT
  * `FineRule` + 3 absent days last month -> the accountant sweeps the
@@ -147,11 +150,14 @@ test.describe.serial('fines: rule -> sweep -> dues -> payment -> portal', () => 
           .getByRole('button', { name: t('students.detail.fees.recordPayment') })
           .first()
           .click();
-        await expect(page.getByRole('dialog', { name: t('payments.record.title') })).toBeVisible();
+        // [31.4] Record Payment is a full page now, not a dialog.
+        await expect(
+          page.getByRole('heading', { level: 1, name: t('payments.record.title') }),
+        ).toBeVisible();
 
         // 3 absences x 50 per `createFineStructure` above.
         await page.getByLabel(t('payments.record.amountReceived.label')).fill('150');
-        const submitPayment = page.getByRole('button', { name: t('payments.record.submitAction') });
+        const submitPayment = page.getByRole('button', { name: RECORD_BUTTON });
         await expect(submitPayment).toBeEnabled({ timeout: 10_000 });
         await submitPayment.click();
         await expect(page.getByText(t('payments.record.success.title'))).toBeVisible();

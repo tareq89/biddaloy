@@ -117,7 +117,6 @@
     "changeHandlingLabel": "ফেরতের টাকা"
   },
   "detail": {
-    "back": "পেমেন্টে ফিরে যান",
     "loadError": "এই পেমেন্ট লোড করা যায়নি।",
     "retry": "আবার চেষ্টা করুন",
     "amount": "পরিমাণ",
@@ -127,15 +126,16 @@
     "invoice": "চালান",
     "noInvoice": "কোনো চালান নেই",
     "unknown": "অজানা",
-    "reversalOf": "#{{id}} এর বিপরীত",
-    "reversedBanner": "এই পেমেন্টটি বাতিল (reverse) করা হয়েছে।",
+    "reversedBanner": "এই পেমেন্টটি বাতিল করা হয়েছে।",
     "reverseAction": "পেমেন্ট বাতিল করুন",
     "allocations": {
-      "title": "বরাদ্দ",
+      "title": "কোন ফিতে কত গেল",
       "columnFee": "ফি",
       "columnPeriod": "সময়কাল",
       "columnAmount": "পরিমাণ",
-      "columnDiscount": "ছাড়"
+      "columnDiscount": "ছাড়",
+      "help": "এই পেমেন্টের টাকা যে বিলগুলোতে বসেছে।",
+      "phoneLine": "{{period}} · ছাড় {{discount}}"
     },
     "reverseDialog": {
       "title": "এই পেমেন্টটি বাতিল করবেন?",
@@ -146,13 +146,72 @@
       "reasonLabel": "কারণ",
       "confirm": "পেমেন্ট বাতিল করুন",
       "errorMessage": "পেমেন্ট বাতিল করা যায়নি।",
-      "errorLaterPayments": "পরবর্তী পেমেন্টগুলো আগে বাতিল করতে হবে:"
-    }
+      "errorLaterPayments": "পরবর্তী পেমেন্টগুলো আগে বাতিল করতে হবে:",
+      "laterPaymentLink": "পরবর্তী পেমেন্ট {{n}}"
+    },
+    "reference": "লেনদেন রেফারেন্স",
+    "approver": "ছাড় অনুমোদনকারী",
+    "printReceipt": "রসিদ প্রিন্ট করুন",
+    "printError": "রসিদ প্রিন্টের জন্য খোলা যায়নি।",
+    "viewInvoice": "চালান দেখুন",
+    "viewStudent": "শিক্ষার্থীর পাতা",
+    "remarks": "মন্তব্য",
+    "reversalEntry": "এটি একটি বাতিলের এন্ট্রি।",
+    "viewOriginal": "মূল পেমেন্ট দেখুন",
+    "reversedStatus": "বাতিল হয়েছে",
+    "viewReversal": "বাতিলের এন্ট্রি দেখুন"
   },
   "printFormat": {
     "label": "কাগজের মাপ",
     "a4": "A4 পাতা",
     "pos80": "রসিদ প্রিন্টার — ৮০ মিমি",
     "pos58": "রসিদ প্রিন্টার — ৫৮ মিমি"
+  },
+  "invoices": {
+    "subtitle": "প্রতিটি পেমেন্টের রসিদ ও ক্রেডিট নোট, নতুনগুলো আগে।",
+    "view": "দেখুন",
+    "creditNote": "ক্রেডিট নোট",
+    "emptyText": "পেমেন্ট রেকর্ড করলে এখানে তার চালান দেখা যাবে।",
+    "amountRangeLabel": "পরিমাণ (৳)",
+    "minAmount": "সর্বনিম্ন",
+    "maxAmount": "সর্বোচ্চ"
+  },
+  "invoiceDetail": {
+    "student": "শিক্ষার্থী",
+    "payment": "পেমেন্ট",
+    "paymentValue": "{{method}} · {{date}}",
+    "originalInvoice": "মূল চালান",
+    "creditNote": "ক্রেডিট নোট",
+    "lines": {
+      "caption": "{{name}}-এর বিল",
+      "fee": "ফি",
+      "period": "মেয়াদ",
+      "billed": "বিল",
+      "discount": "ছাড়",
+      "paidNow": "এবার পরিশোধ",
+      "balance": "বাকি",
+      "phoneLine": "{{period}} · বিল {{billed}}"
+    },
+    "totals": {
+      "billed": "মোট বিল",
+      "discount": "ছাড়",
+      "tax": "কর",
+      "wallet": "ওয়ালেট থেকে",
+      "paid": "পরিশোধিত",
+      "change": "ফেরত"
+    },
+    "notes": "নোট",
+    "printTitle": "প্রিন্ট",
+    "printAction": "প্রিন্ট করুন",
+    "sendTitle": "অভিভাবককে পাঠান",
+    "sendWhatsapp": "হোয়াটসঅ্যাপ",
+    "sendSms": "এসএমএস",
+    "shareTitle": "শেয়ার লিংক",
+    "shareHelp": "লিংক থাকলে যে কেউ লগইন ছাড়া রসিদটি দেখতে পারবে।",
+    "shareCreate": "লিংক তৈরি করুন",
+    "shareRevoke": "লিংক বন্ধ করুন",
+    "shareRevokeTitle": "এই লিংক বন্ধ করবেন?",
+    "shareFailed": "শেয়ার লিংক তৈরি করা যায়নি।",
+    "revokeFailed": "লিংক বন্ধ করা যায়নি।"
   }
 }

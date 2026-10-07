@@ -1,5 +1,5 @@
 import { cleanupTestState, renderWithProviders, server } from '@biddaloy/ui/test';
-import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { delay, http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -173,7 +173,7 @@ describe('RecordPaymentModal', () => {
     // typed into the `MoneyInput`. `1000` (major units, i.e. 1,000.00)
     // becomes minor units `100000`, which converts back to `'1000.00'`.
     await waitFor(() => expect(lastAmount).toBe('1000.00'));
-    const payInput = screen.getByLabelText<HTMLInputElement>('Pay');
+    const payInput = screen.getByLabelText<HTMLInputElement>(/^Pay — /);
     await waitFor(() => expect(payInput.value).not.toBe(''));
   });
 
@@ -238,12 +238,12 @@ describe('RecordPaymentModal', () => {
     // Amount, then the discount straight away — inside the amount's 300 ms
     // debounce and the cart request after it.
     fireEvent.change(screen.getByLabelText('Amount received'), { target: { value: '1000' } });
-    await user.click(screen.getByRole('button', { name: 'Give discount' }));
-    fireEvent.change(screen.getByLabelText('Discount'), { target: { value: '500' } });
+    await user.click(screen.getByRole('button', { name: /^Give discount/ }));
+    fireEvent.change(screen.getByLabelText(/^Discount/), { target: { value: '500' } });
 
-    const payInput = screen.getByLabelText<HTMLInputElement>('Pay');
+    const payInput = screen.getByLabelText<HTMLInputElement>(/^Pay — /);
     await waitFor(() => expect(payInput.value).toMatch(/[1-9১-৯]/), { timeout: 2000 });
-    const submitButton = screen.getByRole<HTMLButtonElement>('button', { name: /^Record/  });
+    const submitButton = screen.getByRole<HTMLButtonElement>('button', { name: /^Record/ });
     await waitFor(() => expect(submitButton.disabled).toBe(false));
     await user.click(submitButton);
 
@@ -294,17 +294,17 @@ describe('RecordPaymentModal', () => {
     await renderModal({ studentId: 'student-1' });
     await screen.findByText('Tuition — March');
 
-    await userEvent.click(screen.getByRole('button', { name: 'Give discount' }));
-    fireEvent.change(screen.getByLabelText('Discount'), { target: { value: '500' } });
+    await userEvent.click(screen.getByRole('button', { name: /^Give discount/ }));
+    fireEvent.change(screen.getByLabelText(/^Discount/), { target: { value: '500' } });
     fireEvent.change(screen.getByLabelText('Amount received'), { target: { value: '1000' } });
 
-    const payInput = screen.getByLabelText<HTMLInputElement>('Pay');
+    const payInput = screen.getByLabelText<HTMLInputElement>(/^Pay — /);
     await waitFor(() => expect(payInput.value).toMatch(/[1-9১-৯]/), { timeout: 2000 });
     // Pay caps at 500 (balance 1,000 minus the 500 discount), not the raw
     // 1,000 suggestion — "৫০০" (Bengali 500) as a substring rules out ১,০০০.
     await waitFor(() => expect(payInput.value).toMatch(/৫০০|500/));
     expect(payInput.value).not.toMatch(/১,?০০০|1,?000/);
-    const submitButton = screen.getByRole<HTMLButtonElement>('button', { name: /^Record/  });
+    const submitButton = screen.getByRole<HTMLButtonElement>('button', { name: /^Record/ });
     await waitFor(() => expect(submitButton.disabled).toBe(false));
   });
 
@@ -348,10 +348,10 @@ describe('RecordPaymentModal', () => {
 
     fireEvent.change(screen.getByLabelText('Amount received'), { target: { value: '1000' } });
     await waitFor(() =>
-      expect(screen.getAllByLabelText<HTMLInputElement>('Pay')[1]?.value).toMatch(/[1-9১-৯]/),
+      expect(screen.getAllByLabelText<HTMLInputElement>(/^Pay — /)[1]?.value).toMatch(/[1-9১-৯]/),
     );
-    await user.click(screen.getAllByRole('button', { name: 'Give discount' })[1]!);
-    fireEvent.change(screen.getByLabelText('Discount'), { target: { value: '200' } });
+    await user.click(screen.getAllByRole('button', { name: /^Give discount/ })[1]!);
+    fireEvent.change(screen.getByLabelText(/^Discount/), { target: { value: '200' } });
 
     await user.click(screen.getByRole('button', { name: 'Remove Fatema Begum' }));
     await waitFor(() => expect(screen.queryByText('Tuition — 2')).toBeNull());
@@ -361,9 +361,9 @@ describe('RecordPaymentModal', () => {
 
     await screen.findByText('Tuition — 2');
     await waitFor(() =>
-      expect(screen.getAllByLabelText<HTMLInputElement>('Pay')[1]?.value).toMatch(/[1-9১-৯]/),
+      expect(screen.getAllByLabelText<HTMLInputElement>(/^Pay — /)[1]?.value).toMatch(/[1-9১-৯]/),
     );
-    expect(screen.getAllByRole('button', { name: 'Give discount' })).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: /^Give discount/ })).toHaveLength(2);
     expect(screen.queryByLabelText('Discount')).toBeNull();
   });
 
@@ -413,7 +413,7 @@ describe('RecordPaymentModal', () => {
     await screen.findByText('Tuition — March');
 
     const submitButton = await screen.findByRole<HTMLButtonElement>('button', {
-      name: /^Record/ ,
+      name: /^Record/,
     });
     await waitFor(() => expect(submitButton.disabled).toBe(false));
     await user.click(submitButton);
@@ -473,6 +473,97 @@ describe('RecordPaymentModal', () => {
     expect(screen.queryByText(/SECRET/)).toBeNull();
   });
 
+  it('Cancel with nothing typed closes at once, even for a deep-linked student', async () => {
+    server.use(http.get('/api/v1/payments/cart', () => HttpResponse.json(cartResponse())));
+    const user = userEvent.setup();
+    const { onOpenChange } = await renderModal({ studentId: 'student-1' });
+    await screen.findByText('Tuition — March');
+
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+  });
+
+  it('Cancel after typing asks before discarding, like Close', async () => {
+    server.use(http.get('/api/v1/payments/cart', () => HttpResponse.json(cartResponse())));
+    const user = userEvent.setup();
+    const { onOpenChange } = await renderModal({ studentId: 'student-1' });
+    await screen.findByText('Tuition — March');
+    fireEvent.change(screen.getByLabelText('Amount received'), { target: { value: '1000' } });
+
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    const dialog = await screen.findByRole('alertdialog');
+    expect(onOpenChange).not.toHaveBeenCalled();
+    await user.click(within(dialog).getByRole('button', { name: 'Discard changes' }));
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it.each([
+    [
+      'choosing another payment method',
+      async (user: ReturnType<typeof userEvent.setup>) => {
+        await user.click(screen.getByLabelText('Cheque'));
+      },
+    ],
+    [
+      'ticking the credit balance',
+      async (user: ReturnType<typeof userEvent.setup>) => {
+        await user.click(await screen.findByLabelText(/Use credit balance/));
+      },
+    ],
+  ])('%s makes the form dirty', async (_name, act) => {
+    server.use(
+      http.get('/api/v1/payments/cart', () =>
+        HttpResponse.json(
+          cartResponse({
+            students: [
+              {
+                id: 'student-1',
+                full_name: 'Rahim Uddin',
+                registration_number: 'R-1',
+                class_name: 'Six',
+                section_name: 'A',
+                wallet_balance: 3000,
+                bills: [bill()],
+              },
+            ],
+          }),
+        ),
+      ),
+    );
+    const user = userEvent.setup();
+    await renderModal({ studentId: 'student-1' });
+    await screen.findByText('Tuition — March');
+    await act(user);
+
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(await screen.findByRole('alertdialog')).toBeTruthy();
+  });
+
+  it('a Pay edit stays dirty after the amount is cleared back to empty', async () => {
+    server.use(http.get('/api/v1/payments/cart', () => HttpResponse.json(cartResponse())));
+    const user = userEvent.setup();
+    await renderModal({ studentId: 'student-1' });
+    await screen.findByText('Tuition — March');
+    fireEvent.change(await screen.findByLabelText(/^Pay — /), { target: { value: '100' } });
+    fireEvent.change(screen.getByLabelText('Amount received'), { target: { value: '' } });
+
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(await screen.findByRole('alertdialog')).toBeTruthy();
+  });
+
+  it('gives each row its own Pay and discount names', async () => {
+    server.use(http.get('/api/v1/payments/cart', () => HttpResponse.json(cartResponse())));
+    await renderModal({ studentId: 'student-1' });
+
+    expect((await screen.findByLabelText(/^Pay — Tuition — March /)).tagName).toBe('INPUT');
+    expect(screen.getByRole('button', { name: /^Give discount — Tuition — March / })).toBeTruthy();
+  });
+
   it('[16.4.4] Enter inside the reference field does not submit the form', async () => {
     let checkoutCalls = 0;
     server.use(
@@ -523,7 +614,7 @@ describe('RecordPaymentModal', () => {
     await screen.findByText('Tuition — March');
 
     const submitButton = await screen.findByRole<HTMLButtonElement>('button', {
-      name: /^Record/ ,
+      name: /^Record/,
     });
     await waitFor(() => expect(submitButton.disabled).toBe(false));
     await user.click(submitButton);
@@ -564,7 +655,7 @@ describe('RecordPaymentModal', () => {
     await screen.findByText('Tuition — March');
 
     const submitButton = await screen.findByRole<HTMLButtonElement>('button', {
-      name: /^Record/ ,
+      name: /^Record/,
     });
     await waitFor(() => expect(submitButton.disabled).toBe(false));
     await user.click(submitButton);

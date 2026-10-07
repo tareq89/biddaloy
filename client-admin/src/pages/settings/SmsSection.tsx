@@ -1,12 +1,17 @@
 import {
-  Button,
   Form,
+  FormDescription,
   FormControl,
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
   Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from '@biddaloy/ui/components';
 import {
   useTestSchoolConnection,
@@ -15,35 +20,16 @@ import {
   type TenantSettingsInput,
 } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
-import {
-  FormSection,
-  FormShell,
-  buildFormShellErrors,
-  useFormShellMode,
-  useWarnUnsavedChanges,
-} from '@biddaloy/ui/shells';
+import { useFormShellMode, useWarnUnsavedChanges } from '@biddaloy/ui/shells';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
-import { ConnectionTestResultMessage } from '../../components/ConnectionTestResultMessage';
-import { MutationErrorMessage } from '../../components/MutationErrorMessage';
 import { SecretField } from '../../components/SecretField';
 
-// Every field the `id` doesn't follow directly from `sms-${fieldName}` —
-// `provider`/`greenwebApiUrl` do (`sms-provider`, `sms-greenweb-apiUrl`
-// after the dash-join, see `SMS_FIELD_IDS` below covers all four instead
-// of relying on a naming pattern), but `mimsmsSenderId`/`mimsmsApiUrl`
-// map to `sms-mimsms-senderId`/`sms-mimsms-apiUrl`, not
-// `sms-mimsmsSenderId` — an explicit map is clearer than a regex that
-// has to know both gateways' id conventions.
-const SMS_FIELD_IDS: Record<string, string> = {
-  provider: 'sms-provider',
-  greenwebApiUrl: 'sms-greenweb-apiUrl',
-  mimsmsSenderId: 'sms-mimsms-senderId',
-  mimsmsApiUrl: 'sms-mimsms-apiUrl',
-};
+import { ChannelFooter, ChannelStatusBadge, isSmsReady } from './connection-test-status';
+import { SettingsSection } from './settings-layout';
 
 const smsSchema = z
   .object({
@@ -147,122 +133,119 @@ export function SmsSection({ schoolId, sms }: SmsSectionProps) {
     testConnection.mutate({ medium: 'SMS', config: buildConfig(form.getValues()) });
   }
 
-  const summaryErrors = buildFormShellErrors(
-    form.formState.errors,
-    (field) => SMS_FIELD_IDS[field] ?? `sms-${field}`,
+  // Badge from the saved props, never form state: it must not flip while typing.
+  const ready = isSmsReady(sms);
+  const errors = form.formState.errors;
+  const company = provider === 'mimsms' ? t('sms.providerMimsms') : t('sms.providerGreenweb');
+
+  const apiUrlField = (name: 'greenwebApiUrl' | 'mimsmsApiUrl', id: string, label: string) => (
+    <FormField
+      control={form.control}
+      name={name}
+      render={({ field }) => (
+        <FormItem>
+          <FormLabel htmlFor={id}>{label}</FormLabel>
+          <FormControl>
+            <Input id={id} className="font-mono" {...field} />
+          </FormControl>
+          <FormDescription>{t('sms.apiUrlHelp')}</FormDescription>
+          <FormMessage />
+        </FormItem>
+      )}
+    />
   );
 
   return (
     <Form {...form}>
-      <FormShell
-        errors={summaryErrors}
-        submitCount={form.formState.submitCount}
+      <SettingsSection
+        id="sms-section"
+        title={t('sms.legend')}
+        description={t('sms.description')}
+        badge={<ChannelStatusBadge ready={ready} />}
         onSubmit={(event) => void form.handleSubmit(handleSave)(event)}
+        saving={updateSettings.isPending}
+        advancedOpen={!!(errors.greenwebApiUrl || errors.mimsmsApiUrl)}
+        advanced={
+          <div className="mt-2 grid gap-4 md:grid-cols-2">
+            {provider === 'greenweb'
+              ? apiUrlField('greenwebApiUrl', 'sms-greenweb-apiUrl', t('sms.greenwebApiUrl'))
+              : apiUrlField('mimsmsApiUrl', 'sms-mimsms-apiUrl', t('sms.mimsmsApiUrl'))}
+          </div>
+        }
+        footerStart={
+          <ChannelFooter
+            onTest={handleTestConnection}
+            test={testConnection}
+            update={updateSettings}
+          />
+        }
       >
-        <FormSection legend={t('sms.legend')}>
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
           <FormField
             control={form.control}
             name="provider"
             render={({ field }) => (
-              <FormItem>
+              <FormItem className="md:col-span-2">
                 <FormLabel htmlFor="sms-provider">{t('sms.provider')}</FormLabel>
-                <FormControl>
-                  <select
-                    id="sms-provider"
-                    className="h-8 rounded-md border border-input bg-card px-2.5 text-sm"
-                    {...field}
-                  >
-                    <option value="greenweb">{t('sms.providerGreenweb')}</option>
-                    <option value="mimsms">{t('sms.providerMimsms')}</option>
-                  </select>
-                </FormControl>
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <FormControl>
+                    <SelectTrigger id="sms-provider">
+                      <SelectValue />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="greenweb">{t('sms.providerGreenweb')}</SelectItem>
+                    <SelectItem value="mimsms">{t('sms.providerMimsms')}</SelectItem>
+                  </SelectContent>
+                </Select>
                 <FormMessage />
               </FormItem>
             )}
           />
 
           {provider === 'greenweb' ? (
-            <>
+            <div className="md:col-span-2">
               <SecretField
                 id="sms-greenweb-apiKey"
                 label={t('sms.greenwebApiKey')}
                 masked={sms?.greenweb?.apiKey}
                 value={greenwebApiKey}
                 onChange={setGreenwebApiKey}
+                description={t('sms.apiKeyHelp', { company })}
               />
-              <FormField
-                control={form.control}
-                name="greenwebApiUrl"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel htmlFor="sms-greenweb-apiUrl">{t('sms.greenwebApiUrl')}</FormLabel>
-                    <FormControl>
-                      <Input id="sms-greenweb-apiUrl" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </>
+            </div>
           ) : (
             <>
-              <SecretField
-                id="sms-mimsms-apiKey"
-                label={t('sms.mimsmsApiKey')}
-                masked={sms?.mimsms?.apiKey}
-                value={mimsmsApiKey}
-                onChange={setMimsmsApiKey}
-              />
               <FormField
                 control={form.control}
                 name="mimsmsSenderId"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel htmlFor="sms-mimsms-senderId">{t('sms.mimsmsSenderId')}</FormLabel>
+                    <FormLabel htmlFor="sms-mimsms-senderId" required>
+                      {t('sms.mimsmsSenderId')}
+                    </FormLabel>
                     <FormControl>
                       <Input id="sms-mimsms-senderId" {...field} />
                     </FormControl>
+                    <FormDescription>{t('sms.senderIdHelp')}</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-              <FormField
-                control={form.control}
-                name="mimsmsApiUrl"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel htmlFor="sms-mimsms-apiUrl">{t('sms.mimsmsApiUrl')}</FormLabel>
-                    <FormControl>
-                      <Input id="sms-mimsms-apiUrl" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              <div className="md:col-span-2">
+                <SecretField
+                  id="sms-mimsms-apiKey"
+                  label={t('sms.mimsmsApiKey')}
+                  masked={sms?.mimsms?.apiKey}
+                  value={mimsmsApiKey}
+                  onChange={setMimsmsApiKey}
+                  description={t('sms.apiKeyHelp', { company })}
+                />
+              </div>
             </>
           )}
-        </FormSection>
-        <div className="flex items-center gap-2">
-          <Button type="submit" loading={updateSettings.isPending}>
-            {t('save.action')}
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            loading={testConnection.isPending}
-            onClick={handleTestConnection}
-          >
-            {t('testConnection.action')}
-          </Button>
         </div>
-        <ConnectionTestResultMessage
-          data={testConnection.data}
-          isError={testConnection.isError}
-          error={testConnection.error}
-        />
-        {updateSettings.isSuccess && <p role="status">{t('save.success')}</p>}
-        {updateSettings.isError && <MutationErrorMessage error={updateSettings.error} />}
-      </FormShell>
+      </SettingsSection>
     </Form>
   );
 }

@@ -1,3 +1,4 @@
+import { REGION_BD_EN, RegionConfigProvider } from '@biddaloy/ui/i18n';
 import {
   acrCriterionFactory,
   cleanupTestState,
@@ -13,24 +14,74 @@ import {
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { AcrCriteriaSection } from './AcrCriteriaSection';
+
+const SERVER_TEXT = 'SERVER_SECRET_TEXT';
+const failing = (path: string, method: 'patch' | 'put' | 'post' = 'patch') =>
+  http[method](path, () =>
+    HttpResponse.json(
+      {
+        statusCode: 400,
+        message: SERVER_TEXT,
+        timestamp: new Date().toISOString(),
+        path,
+        requestId: 'r',
+      },
+      { status: 400 },
+    ),
+  );
 
 afterEach(async () => {
   await cleanupTestState();
 });
 
 // `useBlocker` needs a router in context.
-function withRouter() {
-  const router = createRouter({
-    routeTree: createRootRoute({ component: AcrCriteriaSection }),
+function makeRouter() {
+  return createRouter({
+    routeTree: createRootRoute({
+      component: () => (
+        <RegionConfigProvider value={REGION_BD_EN}>
+          <AcrCriteriaSection />
+        </RegionConfigProvider>
+      ),
+    }),
     history: createMemoryHistory({ initialEntries: ['/'] }),
   });
+}
+
+function withRouter(router = makeRouter()) {
   return <RouterProvider router={router} />;
 }
 
 describe('AcrCriteriaSection', () => {
+  it('with unsaved edits, a settings category switch (search only) is not blocked; leaving the page is', async () => {
+    server.use(
+      http.get('/api/v1/acr/criteria', () =>
+        HttpResponse.json({
+          id: 'v1',
+          version: 1,
+          criteria: [acrCriterionFactory({ id: 'c1', code: 'PUNCTUALITY', sort_order: 1 })],
+        }),
+      ),
+    );
+    const router = makeRouter();
+    renderWithProviders(withRouter(router), { locale: 'en', tenantId: 'tenant-1', role: 'ADMIN' });
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Add criterion' }));
+
+    // The history is where blockers run, so pushing to it is what a category link does.
+    router.history.push('/?section=fees');
+    await waitFor(() => expect(router.history.location.search).toBe('?section=fees'));
+    expect(screen.queryByRole('dialog')).toBeNull();
+
+    router.history.push('/somewhere-else');
+    expect(await screen.findByRole('dialog')).toBeTruthy();
+    expect(router.history.location.pathname).toBe('/');
+  });
+
   it('shows the applies-to-new-ACRs notice and, after Save, the new version', async () => {
     let putBody: unknown;
     server.use(
@@ -60,11 +111,112 @@ describe('AcrCriteriaSection', () => {
     expect(await screen.findByText('Code and both names are required.')).toBeTruthy();
     expect(putBody).toBeUndefined();
 
-    await user.click(screen.getAllByRole('button', { name: 'Remove' })[1]!);
+    // The blank row has no code yet, so its controls are named by its position.
+    await user.click(screen.getByRole('button', { name: 'Remove: 2' }));
     await user.click(screen.getByRole('button', { name: 'Save criteria' }));
     await waitFor(() =>
       expect(screen.getByText('Saved as version 2. Applies to new ACRs only.')).toBeTruthy(),
     );
     expect(putBody).toMatchObject({ criteria: [{ code: 'PUNCTUALITY', sort_order: 1 }] });
+  });
+
+  it('shows the version badge, the total and a disabled move-up on the first row', async () => {
+    server.use(
+      http.get('/api/v1/acr/criteria', () =>
+        HttpResponse.json({
+          id: 'v1',
+          version: 1,
+          criteria: [
+            acrCriterionFactory({ id: 'c1', code: 'PUNCTUALITY', sort_order: 1 }),
+            acrCriterionFactory({ id: 'c2', code: 'TEAMWORK', sort_order: 2 }),
+          ],
+        }),
+      ),
+    );
+    renderWithProviders(withRouter(), { locale: 'en', tenantId: 'tenant-1', role: 'ADMIN' });
+
+    expect(await screen.findByText('Version 1')).toBeTruthy();
+    expect(screen.getByText('Total 2')).toBeTruthy();
+    const up = screen.getByRole('button', { name: 'Move up: PUNCTUALITY' });
+    expect((up as HTMLButtonElement).disabled).toBe(true);
+    const down = screen.getByRole('button', { name: 'Move down: PUNCTUALITY' });
+    expect((down as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('on a phone shows one labelled block per criterion, not the table', async () => {
+    vi.stubGlobal('matchMedia', () => ({
+      matches: true,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+    }));
+    try {
+      server.use(
+        http.get('/api/v1/acr/criteria', () =>
+          HttpResponse.json({
+            id: 'v1',
+            version: 1,
+            criteria: [acrCriterionFactory({ id: 'c1', code: 'PUNCTUALITY', sort_order: 1 })],
+          }),
+        ),
+      );
+      renderWithProviders(withRouter(), { locale: 'en', tenantId: 'tenant-1', role: 'ADMIN' });
+
+      expect(await screen.findByLabelText('Code')).toBeTruthy();
+      expect(screen.queryByRole('table')).toBeNull();
+      // One set of actions only: the table layout is not mounted as well.
+      expect(screen.getAllByRole('button', { name: 'Remove: PUNCTUALITY' })).toHaveLength(1);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('shows a translated error, never the server text, when the save fails', async () => {
+    server.use(
+      http.get('/api/v1/acr/criteria', () =>
+        HttpResponse.json({
+          id: 'v1',
+          version: 1,
+          criteria: [acrCriterionFactory({ id: 'c1', code: 'PUNCTUALITY', sort_order: 1 })],
+        }),
+      ),
+      failing('/api/v1/acr/criteria', 'put'),
+    );
+    renderWithProviders(withRouter(), { locale: 'en', tenantId: 'tenant-1', role: 'ADMIN' });
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Save criteria' }));
+
+    expect((await screen.findByRole('alert')).textContent).toBe("Couldn't save. Try again.");
+    expect(screen.queryByText(SERVER_TEXT)).toBeNull();
+  });
+
+  it('names every phone-row control with the row identity', async () => {
+    vi.stubGlobal('matchMedia', () => ({
+      matches: true,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+    }));
+    try {
+      server.use(
+        http.get('/api/v1/acr/criteria', () =>
+          HttpResponse.json({
+            id: 'v1',
+            version: 1,
+            criteria: [
+              acrCriterionFactory({ id: 'c1', code: 'PUNCTUALITY', sort_order: 1 }),
+              acrCriterionFactory({ id: 'c2', code: 'TEAMWORK', sort_order: 2 }),
+            ],
+          }),
+        ),
+      );
+      renderWithProviders(withRouter(), { locale: 'en', tenantId: 'tenant-1', role: 'ADMIN' });
+
+      expect(await screen.findByLabelText('Code: PUNCTUALITY')).toBeTruthy();
+      expect(screen.getByLabelText('Code: TEAMWORK')).toBeTruthy();
+      expect(screen.getByLabelText('Name (English): TEAMWORK')).toBeTruthy();
+      expect(screen.getByLabelText('Block: PUNCTUALITY')).toBeTruthy();
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });

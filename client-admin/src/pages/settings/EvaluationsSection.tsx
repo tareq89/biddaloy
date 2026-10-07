@@ -5,25 +5,23 @@
  * `{ version: 1, evaluations: {...} }` only. Default off.
  */
 import {
-  Button,
   Checkbox,
   Form,
   FormControl,
   FormField,
   FormItem,
   FormLabel,
+  StatusBadge,
 } from '@biddaloy/ui/components';
 import { useUpdateSchoolSettings, type MaskedTenantSettings } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
-import {
-  FormSection,
-  FormShell,
-  useFormShellMode,
-  useWarnUnsavedChanges,
-} from '@biddaloy/ui/shells';
+import { useFormShellMode, useWarnUnsavedChanges } from '@biddaloy/ui/shells';
+import { Link } from '@tanstack/react-router';
+import { ArrowRightIcon, CircleAlertIcon } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 
-import { MutationErrorMessage } from '../../components/MutationErrorMessage';
+import { SettingsSaved, SettingsSection } from './settings-layout';
+import { SettingsMutationError } from './settings-mutation-error';
 
 interface FormValues {
   incidentSmsEnabled: boolean;
@@ -59,17 +57,25 @@ export function EvaluationsSection({
 
   return (
     <Form {...form}>
-      <FormShell
-        errors={[]}
-        submitCount={form.formState.submitCount}
+      <SettingsSection
+        id="evaluations-section"
+        title={t('evaluations.legend')}
+        description={t('evaluations.description')}
         onSubmit={(event) => void form.handleSubmit(handleSave)(event)}
+        saving={updateSettings.isPending}
+        footerStart={
+          <>
+            {updateSettings.isSuccess && <SettingsSaved />}
+            {updateSettings.isError && <SettingsMutationError error={updateSettings.error} />}
+          </>
+        }
       >
-        <FormSection legend={t('evaluations.legend')}>
+        <div className="mt-4 flex flex-col gap-3">
           <FormField
             control={form.control}
             name="incidentSmsEnabled"
             render={({ field }) => (
-              <FormItem className="flex items-center gap-2">
+              <FormItem className="flex min-h-11 flex-row items-center gap-3 md:min-h-8">
                 <FormControl>
                   <Checkbox
                     id="evaluations-incidentSmsEnabled"
@@ -78,34 +84,41 @@ export function EvaluationsSection({
                     onCheckedChange={(checked) => field.onChange(checked === true)}
                   />
                 </FormControl>
-                <FormLabel htmlFor="evaluations-incidentSmsEnabled">
+                <FormLabel htmlFor="evaluations-incidentSmsEnabled" className="flex-1 self-stretch">
                   {t('evaluations.incidentSmsLabel')}
                 </FormLabel>
               </FormItem>
             )}
           />
-          <p id="evaluations-incidentSmsHint" className="text-sm text-muted-foreground">
-            {t('evaluations.incidentSmsHint')}
+          <p id="evaluations-incidentSmsHint" className="text-caption text-text-secondary">
+            {t('evaluations.incidentSmsHint')} {t('evaluations.pushAlwaysOn')}
           </p>
-          {smsOn && !smsConfigured ? (
-            <p role="alert" className="text-sm text-destructive">
+          <div className="flex flex-col gap-2 rounded-md bg-muted p-3 md:flex-row md:items-center md:justify-between">
+            <StatusBadge
+              tone={smsConfigured ? 'success' : 'warning'}
+              label={t(
+                smsConfigured ? 'evaluations.providerReady' : 'evaluations.providerNotConfigured',
+              )}
+            />
+            {!smsConfigured && (
+              <Link
+                to="/settings"
+                search={{ section: 'communication' }}
+                className="inline-flex h-11 items-center gap-1 rounded-md px-2 font-medium text-primary hover:bg-surface md:h-8"
+              >
+                <ArrowRightIcon aria-hidden="true" className="size-4" />
+                {t('evaluations.openSmsSettings')}
+              </Link>
+            )}
+          </div>
+          {smsOn && !smsConfigured && (
+            <p role="alert" className="flex items-center gap-1 text-caption text-destructive">
+              <CircleAlertIcon aria-hidden="true" className="size-3.5 shrink-0" />
               {t('evaluations.providerMissingWarning')}
             </p>
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              {smsConfigured
-                ? t('evaluations.providerConfigured')
-                : t('evaluations.providerNotConfigured')}
-            </p>
           )}
-          <p className="text-sm text-muted-foreground">{t('evaluations.pushAlwaysOn')}</p>
-        </FormSection>
-        <Button type="submit" loading={updateSettings.isPending}>
-          {t('save.action')}
-        </Button>
-        {updateSettings.isSuccess && <p role="status">{t('save.success')}</p>}
-        {updateSettings.isError && <MutationErrorMessage error={updateSettings.error} />}
-      </FormShell>
+        </div>
+      </SettingsSection>
     </Form>
   );
 }

@@ -1,6 +1,8 @@
 import { apiClient, getActiveRole } from '@biddaloy/ui/api';
 import {
   Button,
+  ConfirmDialog,
+  ErrorState,
   FileUpload,
   Form,
   FormControl,
@@ -17,21 +19,17 @@ import {
   useUploadSchoolLogo,
   type SchoolProfile,
 } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
-import {
-  FormSection,
-  FormShell,
-  buildFormShellErrors,
-  useFormShellMode,
-  useWarnUnsavedChanges,
-} from '@biddaloy/ui/shells';
+import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { useFormShellMode, useWarnUnsavedChanges } from '@biddaloy/ui/shells';
+import { formatPhone } from '@biddaloy/ui/utils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery } from '@tanstack/react-query';
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
-import { MutationErrorMessage } from '../../components/MutationErrorMessage';
+import { SettingsSaved, SettingsSection } from './settings-layout';
+import { SettingsMutationError } from './settings-mutation-error';
 
 const LOGO_MAX_BYTES = 512 * 1024;
 const LOGO_ACCEPT = 'image/png,image/jpeg,image/webp';
@@ -93,9 +91,8 @@ function toFormValues(profile: SchoolProfile | undefined): ProfileFormValues {
 /**
  * [15.5.6] First section on the Settings page: the school's identity
  * (name in English and Bengali, address, phone, email, EIIN) and its
- * logo. Same RHF + `FormShell` grammar as every other settings section
- * (`SignInSection.tsx` is the simplest reference) — one section, one
- * `FormShell`, saved independently of everything else on the page.
+ * logo. RHF + `SettingsSection` (31.4 settings-1b): one card, saved
+ * independently of everything else on the page.
  *
  * Read-only for anyone who isn't ADMIN/SUPER_ADMIN: the six text fields
  * render as plain values (no inputs, no save button), and the logo
@@ -134,7 +131,9 @@ export function SchoolProfileSection() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profileQuery.data]);
 
-  useWarnUnsavedChanges(form.formState.isDirty && !form.formState.isSubmitSuccessful);
+  // `isDirty` alone: `.mutate()` is not awaited, so `isSubmitSuccessful` would silence the
+  // warning after a failed save. `onSuccess` resets the form, which clears `isDirty`.
+  useWarnUnsavedChanges(form.formState.isDirty);
 
   function handleSave(values: ProfileFormValues) {
     updateProfile.mutate(
@@ -175,8 +174,14 @@ export function SchoolProfileSection() {
   }
 
   function handleRemove() {
+    setLogoError(null);
     removeLogo.mutate(undefined, {
       onSuccess: () => setConfirmingRemove(false),
+      // The dialog has no error slot: close it and say so under the logo row.
+      onError: () => {
+        setConfirmingRemove(false);
+        setLogoError(t('profile.logo.removeError'));
+      },
     });
   }
 
@@ -187,15 +192,16 @@ export function SchoolProfileSection() {
   // final state up to whichever response lands last.
   const logoBusy = uploadLogo.isPending || removeLogo.isPending;
 
-  const summaryErrors = buildFormShellErrors(form.formState.errors, (field) => `profile-${field}`);
-
   if (profileQuery.isError) {
     return (
-      <FormSection legend={t('profile.legend')}>
-        <p role="alert" className="text-sm text-destructive">
-          {t('profile.loadError')}
-        </p>
-      </FormSection>
+      <SettingsSection id="profile-section" title={t('profile.legend')}>
+        <div className="mt-4">
+          <ErrorState
+            message={t('profile.loadError')}
+            onRetry={() => void profileQuery.refetch()}
+          />
+        </div>
+      </SettingsSection>
     );
   }
 
@@ -205,7 +211,15 @@ export function SchoolProfileSection() {
   // catches up once the `useEffect` above re-seeds it, a visible flash a
   // test asserting on the loaded value would otherwise have to race.
   if (!profileQuery.data) {
-    return <FormSection legend={t('profile.legend')}>{null}</FormSection>;
+    return (
+      <SettingsSection id="profile-section" title={t('profile.legend')}>
+        <div className="mt-4 space-y-3" aria-hidden="true">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="h-10 animate-pulse rounded-md bg-muted" />
+          ))}
+        </div>
+      </SettingsSection>
+    );
   }
 
   if (!canEdit) {
@@ -213,183 +227,117 @@ export function SchoolProfileSection() {
     return <ReadOnlyProfile profile={profile} t={t} />;
   }
 
+  const field = (
+    name: keyof ProfileFormValues,
+    label: string,
+    extra?: { type?: string; wide?: boolean },
+  ) => (
+    <FormField
+      control={form.control}
+      name={name}
+      render={({ field: f }) => (
+        <FormItem className={extra?.wide ? 'md:col-span-2' : undefined}>
+          <FormLabel htmlFor={`profile-${name}`}>{label}</FormLabel>
+          <FormControl>
+            <Input id={`profile-${name}`} type={extra?.type} {...f} />
+          </FormControl>
+          <FormMessage />
+        </FormItem>
+      )}
+    />
+  );
+
   return (
     <Form {...form}>
-      <FormShell
-        errors={summaryErrors}
-        submitCount={form.formState.submitCount}
+      <SettingsSection
+        id="profile-section"
+        title={t('profile.legend')}
+        description={t('profile.description')}
         onSubmit={(event) => void form.handleSubmit(handleSave)(event)}
+        saving={updateProfile.isPending}
+        footerStart={
+          <>
+            {updateProfile.isSuccess && <SettingsSaved />}
+            {updateProfile.isError && <SettingsMutationError error={updateProfile.error} />}
+          </>
+        }
       >
-        <FormSection legend={t('profile.legend')}>
-          <FormField
-            control={form.control}
-            name="name"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel htmlFor="profile-name">{t('profile.name')}</FormLabel>
-                <FormControl>
-                  <Input id="profile-name" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="name_bn"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel htmlFor="profile-name_bn">{t('profile.nameBn')}</FormLabel>
-                <FormControl>
-                  <Input id="profile-name_bn" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="address"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel htmlFor="profile-address">{t('profile.address')}</FormLabel>
-                <FormControl>
-                  <Input id="profile-address" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="phone"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel htmlFor="profile-phone">{t('profile.phone')}</FormLabel>
-                <FormControl>
-                  <Input id="profile-phone" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="email"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel htmlFor="profile-email">{t('profile.email')}</FormLabel>
-                <FormControl>
-                  <Input id="profile-email" type="email" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="registration_id"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel htmlFor="profile-registration_id">
-                  {t('profile.registrationId')}
-                </FormLabel>
-                <FormControl>
-                  <Input id="profile-registration_id" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </FormSection>
-
-        <FormSection legend={t('profile.logo.legend')}>
-          <div className="flex items-center gap-4">
-            {logoObjectUrl ? (
-              <img
-                src={logoObjectUrl}
-                alt={t('profile.logo.alt')}
-                className="h-16 w-16 rounded border border-border object-contain"
-              />
-            ) : (
-              <div
-                role="img"
-                aria-label={t('profile.logo.empty')}
-                className="flex h-16 w-16 items-center justify-center rounded border border-dashed border-border text-xs text-muted-foreground"
-              >
-                {t('profile.logo.empty')}
-              </div>
-            )}
-
-            <div className="flex flex-col gap-1.5">
-              {/* The shared `FileUpload` (sr-only native input + a real
-                  `Button`) rather than a bare `<input type="file">`: the
-                  native control is ~300px wide and only 20px tall, which
-                  fails both the 320px reflow gate and the 24x24 target-size
-                  gate on /settings (e2e/responsive/*). `items` stays empty —
-                  the logo preview to the left is the "selected file" state. */}
-              <FileUpload
-                items={[]}
-                onFilesSelected={handleFilesSelected}
-                accept={LOGO_ACCEPT}
-                multiple={false}
-                disabled={logoBusy}
-                aria-label={t('profile.logo.upload')}
-                chooseLabel={t('profile.logo.upload')}
-              />
-              {uploadLogo.isPending && (
-                <p role="status" className="text-xs text-muted-foreground">
-                  {t('profile.logo.uploading')}
-                </p>
-              )}
-              {logoError && (
-                <p role="alert" className="text-sm text-destructive">
-                  {logoError}
-                </p>
-              )}
-
-              {profileQuery.data?.logo_url && !confirmingRemove && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={logoBusy}
-                  onClick={() => setConfirmingRemove(true)}
-                >
-                  {t('profile.logo.remove')}
-                </Button>
-              )}
-              {confirmingRemove && (
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-sm">{t('profile.logo.removeConfirm')}</span>
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    loading={removeLogo.isPending}
-                    disabled={logoBusy}
-                    onClick={handleRemove}
-                  >
-                    {t('profile.logo.removeConfirmYes')}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    disabled={logoBusy}
-                    onClick={() => setConfirmingRemove(false)}
-                  >
-                    {t('profile.logo.removeCancel')}
-                  </Button>
-                </div>
-              )}
-            </div>
+        <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-center md:gap-4">
+          {logoObjectUrl ? (
+            <img
+              src={logoObjectUrl}
+              alt={t('profile.logo.alt')}
+              className="size-16 rounded-md border border-border-subtle object-contain"
+            />
+          ) : (
+            <div
+              role="img"
+              aria-label={t('profile.logo.empty')}
+              className="size-16 rounded-md border border-border-subtle bg-muted"
+            />
+          )}
+          <div className="min-w-0">
+            <p className="font-medium">{t('profile.logo.legend')}</p>
+            <p className="text-caption text-text-secondary">{t('profile.logo.help')}</p>
           </div>
-        </FormSection>
+          <div className="flex flex-col gap-2 md:ms-auto md:flex-row">
+            {/* The shared `FileUpload` (sr-only native input + a real `Button`)
+                rather than a bare `<input type="file">`: the native control
+                fails the 320px reflow and 24x24 target-size gates (e2e/responsive/*).
+                `items` stays empty: the preview is the "selected file" state. */}
+            <FileUpload
+              items={[]}
+              onFilesSelected={handleFilesSelected}
+              accept={LOGO_ACCEPT}
+              multiple={false}
+              disabled={logoBusy}
+              aria-label={t('profile.logo.upload')}
+              chooseLabel={t('profile.logo.upload')}
+            />
+            {profileQuery.data?.logo_url && (
+              <Button
+                type="button"
+                variant="ghost"
+                disabled={logoBusy}
+                onClick={() => setConfirmingRemove(true)}
+                className="w-full md:w-auto"
+              >
+                {t('profile.logo.remove')}
+              </Button>
+            )}
+          </div>
+        </div>
+        {uploadLogo.isPending && (
+          <p role="status" className="mt-2 text-caption text-text-secondary">
+            {t('profile.logo.uploading')}
+          </p>
+        )}
+        {logoError && (
+          <p role="alert" className="mt-2 text-destructive">
+            {logoError}
+          </p>
+        )}
 
-        <Button type="submit" loading={updateProfile.isPending}>
-          {t('save.action')}
-        </Button>
-        {updateProfile.isSuccess && <p role="status">{t('save.success')}</p>}
-        {updateProfile.isError && <MutationErrorMessage error={updateProfile.error} />}
-      </FormShell>
+        <div className="mt-4 grid gap-4 border-t border-border-subtle pt-4 md:grid-cols-2">
+          {field('name', t('profile.name'))}
+          {field('name_bn', t('profile.nameBn'))}
+          {field('phone', t('profile.phone'))}
+          {field('email', t('profile.email'), { type: 'email' })}
+          {field('registration_id', t('profile.registrationId'))}
+          {field('address', t('profile.address'), { wide: true })}
+        </div>
+      </SettingsSection>
+      <ConfirmDialog
+        open={confirmingRemove}
+        onOpenChange={setConfirmingRemove}
+        title={t('profile.logo.removeConfirm')}
+        description={t('profile.logo.removeConfirmDescription')}
+        confirmLabel={t('profile.logo.removeConfirmYes')}
+        cancelLabel={t('profile.logo.removeCancel')}
+        tone="danger"
+        busy={removeLogo.isPending}
+        onConfirm={handleRemove}
+      />
     </Form>
   );
 }
@@ -402,33 +350,37 @@ function ReadOnlyProfile({
   t: (key: string) => string;
 }) {
   const logoObjectUrl = useAuthenticatedImageUrl(profile?.logo_url);
+  const regionConfig = useRegionConfig();
 
   return (
-    <FormSection legend={t('profile.legend')}>
-      <dl className="grid gap-2 text-sm">
-        <ReadOnlyRow label={t('profile.name')} value={profile?.name} />
-        <ReadOnlyRow label={t('profile.nameBn')} value={profile?.name_bn} />
-        <ReadOnlyRow label={t('profile.address')} value={profile?.address} />
-        <ReadOnlyRow label={t('profile.phone')} value={profile?.phone} />
-        <ReadOnlyRow label={t('profile.email')} value={profile?.email} />
-        <ReadOnlyRow label={t('profile.registrationId')} value={profile?.registration_id} />
-      </dl>
+    <SettingsSection id="profile-section" title={t('profile.legend')}>
       {logoObjectUrl && (
         <img
           src={logoObjectUrl}
           alt={t('profile.logo.alt')}
-          className="mt-2 h-16 w-16 rounded object-contain"
+          className="mt-4 size-16 rounded-md border border-border-subtle object-contain"
         />
       )}
-    </FormSection>
+      <dl className="mt-4 grid gap-4 md:grid-cols-2">
+        <ReadOnlyRow label={t('profile.name')} value={profile?.name} />
+        <ReadOnlyRow label={t('profile.nameBn')} value={profile?.name_bn} />
+        <ReadOnlyRow
+          label={t('profile.phone')}
+          value={profile?.phone ? formatPhone(profile.phone, regionConfig) : undefined}
+        />
+        <ReadOnlyRow label={t('profile.email')} value={profile?.email} />
+        <ReadOnlyRow label={t('profile.registrationId')} value={profile?.registration_id} />
+        <ReadOnlyRow label={t('profile.address')} value={profile?.address} />
+      </dl>
+    </SettingsSection>
   );
 }
 
 function ReadOnlyRow({ label, value }: { label: string; value: string | null | undefined }) {
   return (
-    <div className="flex gap-2">
-      <dt className="font-medium text-muted-foreground">{label}</dt>
-      <dd>{value || '—'}</dd>
+    <div>
+      <dt className="text-caption text-text-secondary">{label}</dt>
+      <dd className="font-medium">{value || '—'}</dd>
     </div>
   );
 }

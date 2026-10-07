@@ -2,13 +2,48 @@ import '@biddaloy/ui/test';
 
 import type { MaskedRegionSettings } from '@biddaloy/ui/hooks';
 import { cleanupTestState, renderWithProviders, server } from '@biddaloy/ui/test';
+import {
+  createMemoryHistory,
+  createRootRoute,
+  createRouter,
+  RouterProvider,
+} from '@tanstack/react-router';
 import { screen, waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
+import * as React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { CalendarSection } from './CalendarSection';
 
+const SERVER_TEXT = 'SERVER_SECRET_TEXT';
+const failing = (path: string, method: 'patch' | 'put' | 'post' = 'patch') =>
+  http[method](path, () =>
+    HttpResponse.json(
+      {
+        statusCode: 400,
+        message: SERVER_TEXT,
+        timestamp: new Date().toISOString(),
+        path,
+        requestId: 'r',
+      },
+      { status: 400 },
+    ),
+  );
+
 const SCHOOL_ID = 'school-1';
+
+// The section's two "change in …" links are router links, so it needs a router.
+function WithRouter({ region }: { region: MaskedRegionSettings }) {
+  const [router] = React.useState(() =>
+    createRouter({
+      routeTree: createRootRoute({
+        component: () => <CalendarSection schoolId={SCHOOL_ID} region={region} />,
+      }),
+      history: createMemoryHistory({ initialEntries: ['/'] }),
+    }),
+  );
+  return <RouterProvider router={router} />;
+}
 
 const REGION: MaskedRegionSettings = {
   locale: 'en-BD',
@@ -16,7 +51,12 @@ const REGION: MaskedRegionSettings = {
   currency: { code: 'BDT', symbol: '৳', position: 'prefix', decimals: 2, grouping: 'lakh-crore' },
   numerals: 'latin',
   date: { format: 'dd/MM/yyyy', firstDayOfWeek: 0, calendar: 'gregorian' },
-  phone: { country: 'BD', pattern: '^01[0-9]{9}$', example: '01712345678', displayFormat: '+880 XXXXXXXXXX' },
+  phone: {
+    country: 'BD',
+    pattern: '^01[0-9]{9}$',
+    example: '01712345678',
+    displayFormat: '+880 XXXXXXXXXX',
+  },
   address: { fields: ['street', 'city'], order: ['street', 'city'] },
   academicYear: { startMonth: 1 },
   identifiers: { national: 'NID', student: 'Student ID' },
@@ -54,13 +94,16 @@ describe('CalendarSection', () => {
       }),
     );
 
-    const { user } = renderWithProviders(
-      <CalendarSection schoolId={SCHOOL_ID} region={REGION} />,
-      { locale: 'en', role: 'ADMIN', tenantId: SCHOOL_ID },
-    );
+    const { user } = renderWithProviders(<WithRouter region={REGION} />, {
+      locale: 'en',
+      role: 'ADMIN',
+      tenantId: SCHOOL_ID,
+    });
 
-    await user.selectOptions(await screen.findByLabelText('Country'), 'IN');
-    await user.selectOptions(screen.getByLabelText('What do you call a grading period?'), 'SEMESTER');
+    await user.click(await screen.findByLabelText('Country'));
+    await user.click(await screen.findByRole('option', { name: 'India' }));
+    await user.click(screen.getByLabelText('What do you call a grading period?'));
+    await user.click(await screen.findByRole('option', { name: 'Semester' }));
     await user.click(screen.getByRole('button', { name: 'Save' }));
 
     await waitFor(() => expect(patchBody).toHaveBeenCalled());
@@ -75,14 +118,27 @@ describe('CalendarSection', () => {
   it('shows the derived week start / weekend days from GET /calendar-settings', async () => {
     mockCalendarSettings();
 
-    renderWithProviders(<CalendarSection schoolId={SCHOOL_ID} region={REGION} />, {
+    renderWithProviders(<WithRouter region={REGION} />, {
       locale: 'en',
       role: 'ADMIN',
       tenantId: SCHOOL_ID,
     });
 
-    expect(
-      await screen.findByText('Week starts Friday, weekend is Friday, timezone Asia/Dhaka'),
-    ).toBeTruthy();
+    expect(await screen.findByText('Week starts Friday, weekend is Friday.')).toBeTruthy();
+  });
+
+  it('shows a translated error, never the server text, when the save fails', async () => {
+    mockCalendarSettings();
+    server.use(failing('/api/v1/schools/:id/settings'));
+    const { user } = renderWithProviders(<WithRouter region={REGION} />, {
+      locale: 'en',
+      role: 'ADMIN',
+      tenantId: SCHOOL_ID,
+    });
+
+    await user.click(await screen.findByRole('button', { name: 'Save' }));
+
+    expect((await screen.findByRole('alert')).textContent).toBe("Couldn't save. Try again.");
+    expect(screen.queryByText(SERVER_TEXT)).toBeNull();
   });
 });

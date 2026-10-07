@@ -2,9 +2,16 @@ import { Permission } from '@biddaloy/shared';
 import { getActiveTenant } from '@biddaloy/ui/api';
 import {
   Button,
-  Card,
   DataTable,
   EmptyState,
+  ErrorState,
+  Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  StatusBadge,
   toast,
   type DataTableColumn,
 } from '@biddaloy/ui/components';
@@ -20,13 +27,23 @@ import {
   useUpdateSchoolSettings,
   type WorkbookJob,
 } from '@biddaloy/ui/hooks';
-import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
-import { formatDateTime } from '@biddaloy/ui/utils';
+import { useRegionConfig, useTranslation, type RegionConfig } from '@biddaloy/ui/i18n';
+import { formatDateTime, formatNumber } from '@biddaloy/ui/utils';
+import { CircleAlertIcon, DatabaseBackupIcon, PinIcon, PinOffIcon } from 'lucide-react';
 import * as React from 'react';
 
 import { RestoreWizard } from './restore-wizard';
+import { SettingsSection } from './settings-layout';
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 25; // D19
+
+const STATUS_TONE = {
+  QUEUED: 'warning',
+  RUNNING: 'info',
+  DONE: 'success',
+  FAILED: 'danger',
+  DELETED: 'neutral',
+} as const;
 
 /** [14.12.2] Mirrors server `STORAGE_CAP_BYTES`
  * (`server/src/modules/workbook/schedule/retention.service.ts`) — 500 MB,
@@ -50,10 +67,11 @@ type BackupRow = WorkbookJob & { expired: boolean; downloading: boolean };
  * elsewhere in `ui/src/utils` — kept local rather than adding one for a
  * single caller. Returns an em dash for a job that hasn't produced a file
  * yet (`QUEUED`/`RUNNING`/`FAILED`). */
-function formatFileSize(bytes: string | null | undefined): string {
+function formatFileSize(bytes: string | null | undefined, config: RegionConfig): string {
   if (bytes === null || bytes === undefined) return '—';
   const numeric = Number(bytes);
-  if (numeric < 1024) return `${numeric} B`;
+  // D6: the digits follow the school's numerals, like every other number.
+  if (numeric < 1024) return `${formatNumber(numeric, config)} B`;
   const units = ['KB', 'MB', 'GB', 'TB'];
   let value = numeric / 1024;
   let unitIndex = 0;
@@ -61,7 +79,7 @@ function formatFileSize(bytes: string | null | undefined): string {
     value /= 1024;
     unitIndex += 1;
   }
-  return `${value.toFixed(1)} ${units[unitIndex]}`;
+  return `${formatNumber(Number(value.toFixed(1)), config, { decimals: 1 })} ${units[unitIndex]}`;
 }
 
 /** Reads an axios-shaped or fetch-shaped error's HTTP status code — same
@@ -141,7 +159,6 @@ export function BackupSection({ backupJobId }: BackupSectionProps) {
   // download is actually attempted — `BackupJob` carries no expiry field
   // itself, only the download endpoint knows.
   const [expiredIds, setExpiredIds] = React.useState<ReadonlySet<string>>(new Set());
-  const [downloadingId, setDownloadingId] = React.useState<string | undefined>(undefined);
 
   const deepLinkJobQuery = useBackupJob(backupJobId);
   const [deepLinkError, setDeepLinkError] = React.useState<'expired' | 'failed' | undefined>(
@@ -163,9 +180,16 @@ export function BackupSection({ backupJobId }: BackupSectionProps) {
     setDeepLinkError(undefined);
   }
 
+  // One download per backup at a time: a second click while the first is still
+  // streaming would start another large request and save a second file.
+  const [downloadingIds, setDownloadingIds] = React.useState<ReadonlySet<string>>(new Set());
+  const inFlight = React.useRef(new Set<string>());
+
   const handleDownload = React.useCallback(
-    async (id: string): Promise<'ok' | 'expired' | 'error'> => {
-      setDownloadingId(id);
+    async (id: string): Promise<'ok' | 'busy' | 'expired' | 'error'> => {
+      if (inFlight.current.has(id)) return 'busy';
+      inFlight.current.add(id);
+      setDownloadingIds(new Set(inFlight.current));
       try {
         await downloadBackup(id);
         return 'ok';
@@ -177,7 +201,8 @@ export function BackupSection({ backupJobId }: BackupSectionProps) {
         toast.error(t('downloadFailed'));
         return 'error';
       } finally {
-        setDownloadingId(undefined);
+        inFlight.current.delete(id);
+        setDownloadingIds(new Set(inFlight.current));
       }
     },
     [t],
@@ -238,19 +263,23 @@ export function BackupSection({ backupJobId }: BackupSectionProps) {
     });
   }
 
+  // A page emptied by retention or deletes (total still > 0) moves back to the last page
+  // that has jobs, rather than showing "no backups" with the pager gone.
+  const total = jobsQuery.data?.total ?? 0;
+  const lastPage = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  if (jobsQuery.data && page > lastPage) setPage(lastPage);
+
   if (!canManage) return null;
 
   // `DataTable`'s underlying `@tanstack/react-table` memoizes a cell's
   // value by `(row.original, columnId)`, not by the `accessorFn` closure
   // identity — so a per-row UI flag (whether *this* download turned out to
-  // be expired, whether *this* row is mid-download) has to live ON the row
-  // object passed as `data`, not only in a closure captured by a column
-  // def that gets rebuilt every render. Baking `expired`/`downloading`
-  // into a fresh row array here is what makes the table actually notice.
+  // be expired) has to live ON the row object passed as `data`, not only in
+  // a closure captured by a column def that gets rebuilt every render.
   const jobs: BackupRow[] = (jobsQuery.data?.data ?? []).map((job) => ({
     ...job,
     expired: expiredIds.has(job.id),
-    downloading: downloadingId === job.id,
+    downloading: downloadingIds.has(job.id),
   }));
 
   const columns: DataTableColumn<BackupRow>[] = [
@@ -267,9 +296,16 @@ export function BackupSection({ backupJobId }: BackupSectionProps) {
         return (
           <span
             {...(row.id === backupJobId ? { ref: highlightRef } : {})}
-            className={row.id === backupJobId ? '-mx-1 rounded bg-secondary px-1' : undefined}
+            className={row.id === backupJobId ? '-mx-1 rounded-sm bg-secondary px-1' : undefined}
           >
             {label}
+            {row.pinned && (
+              <PinIcon
+                role="img"
+                aria-label={t('pinnedLabel')}
+                className="ms-1.5 inline size-3.5 text-primary"
+              />
+            )}
           </span>
         );
       },
@@ -278,188 +314,168 @@ export function BackupSection({ backupJobId }: BackupSectionProps) {
     {
       id: 'status',
       header: t('columnStatus'),
-      accessorFn: (row) => <BackupStatusBadge status={row.status} />,
+      // D9: only the badge. `row.error` is a server string and is never shown.
+      accessorFn: (row) =>
+        row.status === 'DONE' && row.expired ? (
+          <StatusBadge tone="neutral" label={t('downloadExpired')} />
+        ) : (
+          <StatusBadge tone={STATUS_TONE[row.status]} label={t(`status.${row.status}`)} />
+        ),
       card: 'badge',
     },
     {
       id: 'date',
       header: t('columnCreatedAt'),
       accessorFn: (row) => formatDateTime(new Date(row.created_at), regionConfig),
+      card: 'subtitle',
     },
     {
       id: 'size',
       header: t('columnSize'),
-      accessorFn: (row) => formatFileSize(row.size_bytes),
+      accessorFn: (row) => formatFileSize(row.size_bytes, regionConfig),
       align: 'end',
+      card: 'field',
     },
     {
       id: 'requestedBy',
       header: t('columnRequestedBy'),
-      accessorFn: (row) => row.requested_by?.full_name ?? '—',
-    },
-    {
-      id: 'pinned',
-      header: t('columnPinned'),
-      // Only a DONE job has anything stored to pin/unpin — a
-      // QUEUED/RUNNING/FAILED/DELETED row has no exempt-from-retention
-      // state to toggle.
-      accessorFn: (row) => {
-        if (row.status !== 'DONE') return null;
-        const isPending = pinMutation.isPending && pinMutation.variables?.id === row.id;
-        return (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            loading={isPending}
-            onClick={() => handleTogglePin(row.id, !row.pinned)}
-          >
-            {row.pinned ? t('unpin') : t('pin')}
-          </Button>
-        );
-      },
-    },
-    {
-      id: 'actions',
-      header: t('columnActions'),
-      pinned: true,
-      card: 'actions',
-      accessorFn: (row) => {
-        if (row.status === 'FAILED') {
-          return (
-            <span className="text-sm text-destructive">
-              {t('failedReason', { reason: row.error ?? t('status.FAILED') })}
-            </span>
-          );
-        }
-        if (row.status !== 'DONE') return null;
-        if (row.expired) {
-          return <span className="text-sm text-muted-foreground">{t('downloadExpired')}</span>;
-        }
-        return (
-          <Button
-            type="button"
-            variant="ghost"
-            loading={row.downloading}
-            onClick={() => void handleDownload(row.id)}
-          >
-            {t('download')}
-          </Button>
-        );
-      },
+      // A scheduled backup has no requester (`backup-schedule.service.ts`).
+      accessorFn: (row) =>
+        row.requested_by?.full_name ?? (row.kind === 'EXPORT' ? t('requestedByAutomatic') : '—'),
+      card: 'field',
     },
   ];
 
   return (
-    <Card className="flex flex-col gap-4 p-6">
-      <div className="flex flex-col gap-1">
-        <h2 className="text-base font-semibold">{t('sectionTitle')}</h2>
-        <p className="text-sm text-muted-foreground">{t('containsDescription')}</p>
-        <p className="text-sm text-muted-foreground">{t('neverContainsDescription')}</p>
-      </div>
-
-      {/* [14.12.3/#617] No immediate-resync mechanism (D10/D11) — the copy
-          below deliberately never implies the new schedule is already
-          running; the hourly reconciler (#615) is the only resync path.
-          Hidden for a SUPER_ADMIN — see `isSuperAdmin` above. */}
-      {!isSuperAdmin && (
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="backup-schedule" className="text-sm font-medium">
-            {t('scheduleLabel')}
-          </label>
-          <select
-            id="backup-schedule"
-            className="h-8 w-fit rounded-md border border-input bg-card px-2.5 text-sm"
-            value={schedule}
-            disabled={!settingsQuery.data || updateSettings.isPending}
-            onChange={(event) =>
-              handleScheduleChange(event.target.value as 'OFF' | 'WEEKLY' | 'DAILY')
-            }
-          >
-            <option value="OFF">{t('scheduleOff')}</option>
-            <option value="WEEKLY">{t('scheduleWeekly')}</option>
-            <option value="DAILY">{t('scheduleDaily')}</option>
-          </select>
-          <p className="text-xs text-muted-foreground">{t('scheduleHint')}</p>
+    <>
+      <SettingsSection
+        id="backup-section"
+        title={t('sectionTitle')}
+        description={`${t('containsDescription')} ${t('neverContainsDescription')}`}
+        // With no backups the EmptyState's own button is the only request action.
+        actions={
+          total > 0 ? (
+            <Button
+              type="button"
+              className="w-full md:w-auto"
+              loading={requestMutation.isPending}
+              onClick={handleRequest}
+            >
+              <DatabaseBackupIcon aria-hidden="true" />
+              {t('requestExport')}
+            </Button>
+          ) : undefined
+        }
+      >
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
+          {/* [14.12.3/#617] No immediate-resync mechanism (D10/D11) — the copy
+              below deliberately never implies the new schedule is already
+              running; the hourly reconciler (#615) is the only resync path.
+              Hidden for a SUPER_ADMIN — see `isSuperAdmin` above. */}
+          {!isSuperAdmin && (
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="backup-schedule">{t('scheduleLabel')}</Label>
+              <Select
+                value={schedule}
+                disabled={!settingsQuery.data || updateSettings.isPending}
+                onValueChange={(v) => handleScheduleChange(v as 'OFF' | 'WEEKLY' | 'DAILY')}
+              >
+                <SelectTrigger id="backup-schedule" aria-describedby="backup-schedule-help">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="OFF">{t('scheduleOff')}</SelectItem>
+                  <SelectItem value="WEEKLY">{t('scheduleWeekly')}</SelectItem>
+                  <SelectItem value="DAILY">{t('scheduleDaily')}</SelectItem>
+                </SelectContent>
+              </Select>
+              <p id="backup-schedule-help" className="text-caption text-text-secondary">
+                {t('scheduleHint')}
+              </p>
+            </div>
+          )}
+          <div className="flex flex-col gap-1.5">
+            <span className="text-label text-text-primary">{t('storageLabel')}</span>
+            <p className="flex min-h-11 items-center rounded-md bg-muted px-3 md:min-h-8">
+              {t('storageUsed', {
+                used: formatFileSize(jobsQuery.data?.storage_total_bytes, regionConfig),
+                cap: formatFileSize(String(STORAGE_CAP_BYTES), regionConfig),
+              })}
+            </p>
+          </div>
         </div>
-      )}
 
-      <p className="text-sm text-muted-foreground">
-        {t('storageUsed', {
-          used: formatFileSize(jobsQuery.data?.storage_total_bytes),
-          cap: formatFileSize(String(STORAGE_CAP_BYTES)),
-        })}
-      </p>
+        {deepLinkError && (
+          <p role="alert" className="mt-4 flex items-center gap-1 text-destructive">
+            <CircleAlertIcon aria-hidden="true" className="size-4 shrink-0" />
+            {deepLinkError === 'failed' ? t('failedDescription') : t('deepLinkExpired')}
+          </p>
+        )}
 
-      {deepLinkError && (
-        <p role="alert" className="text-sm text-destructive">
-          {deepLinkError === 'failed' ? t('failedDescription') : t('deepLinkExpired')}
-        </p>
-      )}
+        <h3 className="mt-6 text-h3">{t('jobsListTitle')}</h3>
+        <p className="mt-0.5 text-text-secondary">{t('retentionHelp')}</p>
 
-      {jobs.length > 0 && (
-        <div>
-          <Button type="button" loading={requestMutation.isPending} onClick={handleRequest}>
-            {t('requestExport')}
-          </Button>
+        <div className="mt-3">
+          {jobsQuery.isError ? (
+            <ErrorState message={t('listLoadError')} onRetry={() => void jobsQuery.refetch()} />
+          ) : total === 0 && !jobsQuery.isLoading ? (
+            <EmptyState
+              title={t('emptyTenant')}
+              explanation={t('emptyTenantDescription')}
+              action={{ label: t('requestExport'), onClick: handleRequest }}
+            />
+          ) : (
+            <DataTable
+              tableId="backup-jobs"
+              caption={t('jobsListTitle')}
+              columns={columns}
+              data={jobs}
+              getRowId={(row) => row.id}
+              sorting={null}
+              onSortingChange={() => undefined}
+              page={page}
+              pageSize={PAGE_SIZE}
+              totalCount={total}
+              onPageChange={setPage}
+              loading={jobsQuery.isLoading}
+              isFetching={jobsQuery.isFetching}
+              rowActions={(row) =>
+                row.status !== 'DONE'
+                  ? []
+                  : [
+                      ...(row.expired
+                        ? []
+                        : [
+                            {
+                              intent: 'download' as const,
+                              label: t('download'),
+                              busy: row.downloading,
+                              onClick: () => void handleDownload(row.id),
+                            },
+                          ]),
+                      {
+                        // The intent table has no "pin": `edit` + a pin icon.
+                        intent: 'edit' as const,
+                        icon: row.pinned ? (
+                          <PinOffIcon aria-hidden="true" />
+                        ) : (
+                          <PinIcon aria-hidden="true" />
+                        ),
+                        label: row.pinned ? t('unpin') : t('pin'),
+                        onClick: () => handleTogglePin(row.id, !row.pinned),
+                      },
+                    ]
+              }
+            />
+          )}
         </div>
-      )}
+      </SettingsSection>
 
-      {jobs.length === 0 && !jobsQuery.isLoading && !jobsQuery.isError ? (
-        // EmptyState's own action is the only "request a backup" button here —
-        // showing the header button too duplicated the same label (Playwright's
-        // strict-mode locator caught it as two matching elements).
-        <EmptyState
-          title={t('emptyTenant')}
-          explanation={t('emptyTenantDescription')}
-          action={{ label: t('requestExport'), onClick: handleRequest }}
-        />
-      ) : (
-        <DataTable
-          tableId="backup-jobs"
-          caption={t('jobsListTitle')}
-          columns={columns}
-          data={jobs}
-          getRowId={(row) => row.id}
-          sorting={null}
-          onSortingChange={() => undefined}
-          page={page}
-          pageSize={PAGE_SIZE}
-          totalCount={jobsQuery.data?.total ?? 0}
-          onPageChange={setPage}
-          loading={jobsQuery.isLoading}
-          isFetching={jobsQuery.isFetching}
-          {...(jobsQuery.isError ? { error: t('requestExportFailed') } : {})}
-        />
-      )}
-
-      <RestoreWizard />
-    </Card>
-  );
-}
-
-/** Small local status pill — deliberately not the shared `StatusBadge`
- * (`ui/src/components/status-badge.tsx`): that component's domain union is
- * driven by `shared/src/enums` lifecycle enums, and wiring a new
- * `'backup'` domain through it plus `common.json`'s `status.*` tree is
- * more machinery than one section's four-value status needs. Every
- * status still renders as text, never colour alone, matching that
- * component's own accessibility guarantee. */
-function BackupStatusBadge({ status }: { status: WorkbookJob['status'] }) {
-  const { t } = useTranslation('backup');
-  const toneClass: Record<WorkbookJob['status'], string> = {
-    QUEUED: 'bg-muted text-muted-foreground',
-    RUNNING: 'bg-status-partial-bg text-status-partial-fg',
-    DONE: 'bg-status-paid-bg text-status-paid-fg',
-    FAILED: 'bg-status-overdue-bg text-status-overdue-fg',
-    DELETED: 'bg-muted text-muted-foreground',
-  };
-  return (
-    <span
-      data-slot="backup-status-badge"
-      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${toneClass[status]}`}
-    >
-      {t(`status.${status}`)}
-    </span>
+      <SettingsSection title={t('restoreSectionTitle')} description={t('restoreDescription')}>
+        <div className="mt-4">
+          <RestoreWizard hideTitle />
+        </div>
+      </SettingsSection>
+    </>
   );
 }

@@ -1,32 +1,38 @@
 import {
-  Button,
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
   Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from '@biddaloy/ui/components';
 import {
   useUpdateSchoolSettings,
   type MaskedRegionSettings,
   type TenantSettingsInput,
 } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { useFormShellMode, useWarnUnsavedChanges } from '@biddaloy/ui/shells';
 import {
-  FormSection,
-  FormShell,
-  buildFormShellErrors,
-  useFormShellMode,
-  useWarnUnsavedChanges,
-} from '@biddaloy/ui/shells';
-import { boundedNumericString } from '@biddaloy/ui/utils';
+  boundedNumericString,
+  formatCurrency,
+  formatMonthName,
+  formatNumber,
+} from '@biddaloy/ui/utils';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useForm } from 'react-hook-form';
+import { useForm, type FieldPath } from 'react-hook-form';
 import { z } from 'zod';
 
-import { MutationErrorMessage } from '../../components/MutationErrorMessage';
+import { COUNTRIES, WEEKDAY_KEYS } from './CalendarSection';
+import { SettingsSaved, SettingsSection } from './settings-layout';
+import { SettingsMutationError } from './settings-mutation-error';
 
 const regionalSchema = z.object({
   locale: z.string().min(1),
@@ -45,10 +51,10 @@ const regionalSchema = z.object({
     grouping: z.enum(['lakh-crore', 'thousand']),
   }),
   date: z.object({
-    format: z.string().min(1),
-    // 0 (Sunday) through 6 (Saturday).
+    // 0 (Sunday) through 6 (Saturday). `date.format` and `date.calendar` are
+    // not editable (nothing reads the format since D5; only `gregory` works):
+    // `handleSave` sends the stored values back unchanged.
     firstDayOfWeek: boundedNumericString(0, 6),
-    calendar: z.string().min(1),
   }),
   phone: z.object({
     country: z.string().min(1),
@@ -71,7 +77,8 @@ const regionalSchema = z.object({
   }),
   identifiers: z.object({
     national: z.string().min(1),
-    student: z.string().min(1),
+    // The server accepts an empty student-ID rule ("no format enforced").
+    student: z.string(),
   }),
 });
 
@@ -90,8 +97,17 @@ function splitList(value: string): string[] {
     .filter(Boolean);
 }
 
+/** Errors under any field inside the "Advanced" disclosure open it. */
+const ADVANCED_ERROR_ROOTS = ['timezone', 'phone', 'address', 'identifiers'] as const;
+
+interface Choice {
+  value: string;
+  label: string;
+}
+
 export function RegionalSection({ schoolId, region }: RegionalSectionProps) {
-  const { t } = useTranslation('settings');
+  const { t, i18n } = useTranslation('settings');
+  const regionConfig = useRegionConfig();
   const form = useForm<RegionalFormValues>({
     resolver: zodResolver(regionalSchema),
     defaultValues: {
@@ -99,7 +115,7 @@ export function RegionalSection({ schoolId, region }: RegionalSectionProps) {
       numerals: region.numerals,
       timezone: region.timezone,
       currency: { ...region.currency, decimals: String(region.currency.decimals) },
-      date: { ...region.date, firstDayOfWeek: String(region.date.firstDayOfWeek) },
+      date: { firstDayOfWeek: String(region.date.firstDayOfWeek) },
       phone: region.phone,
       address: { fields: region.address.fields.join(', '), order: region.address.order.join(', ') },
       academicYear: { startMonth: String(region.academicYear.startMonth) },
@@ -108,369 +124,287 @@ export function RegionalSection({ schoolId, region }: RegionalSectionProps) {
     ...useFormShellMode(),
   });
 
-  useWarnUnsavedChanges(form.formState.isDirty && !form.formState.isSubmitSuccessful);
+  // `isDirty` alone: `.mutate()` is not awaited, so `isSubmitSuccessful` would silence the
+  // warning after a failed save. `onSuccess` resets the form, which clears `isDirty`.
+  useWarnUnsavedChanges(form.formState.isDirty);
 
   const updateSettings = useUpdateSchoolSettings(schoolId);
 
   function handleSave(values: RegionalFormValues) {
-    const regionConfig: RegionConfig = {
+    const regionConfigToSave: RegionConfig = {
       ...values,
-      // [17.1.3] `country` and `calendar` aren't editable in this form yet
-      // (D11/D19 UI lands in a later Epic 17 task) — pass the existing
-      // values through unchanged so a save here can't drop them.
+      // [17.1.3] `country` and `calendar` aren't editable in this form
+      // (`CalendarSection` owns them): pass the existing values through
+      // unchanged so a save here can't drop them.
       country: region.country,
       ...(region.calendar ? { calendar: region.calendar } : {}),
       currency: { ...values.currency, decimals: Number(values.currency.decimals) },
-      date: { ...values.date, firstDayOfWeek: Number(values.date.firstDayOfWeek) },
+      date: {
+        format: region.date.format,
+        calendar: region.date.calendar,
+        firstDayOfWeek: Number(values.date.firstDayOfWeek),
+      },
       address: { fields: splitList(values.address.fields), order: splitList(values.address.order) },
       academicYear: { startMonth: Number(values.academicYear.startMonth) },
     };
     updateSettings.mutate(
-      { version: 1, region: regionConfig },
+      { version: 1, region: regionConfigToSave },
       { onSuccess: () => form.reset(values, { keepIsSubmitSuccessful: true }) },
     );
   }
 
-  const summaryErrors = buildFormShellErrors(
-    form.formState.errors,
-    (field) => `regional-${field.replace(/\./g, '-')}`,
+  const errors = form.formState.errors;
+  const hasAdvancedError =
+    ADVANCED_ERROR_ROOTS.some((root) => errors[root] !== undefined) ||
+    errors.currency?.code !== undefined;
+
+  // Choices that show plain words instead of codes. A stored value outside
+  // the known list stays selectable as "keep the current value".
+  const withCurrent = (choices: Choice[], current: string): Choice[] =>
+    choices.some((c) => c.value === current)
+      ? choices
+      : [...choices, { value: current, label: t('regional.keepCurrent') }];
+  const localeChoices = withCurrent(
+    [
+      { value: 'bn-BD', label: t('regional.localeBnBd') },
+      { value: 'en-BD', label: t('regional.localeEnBd') },
+    ],
+    region.locale,
+  );
+  const countryChoices = withCurrent(
+    COUNTRIES.map((c) => ({ value: c.code, label: i18n.language === 'bn' ? c.bn : c.en })),
+    region.phone.country,
+  );
+  const numeralChoices: Choice[] = [
+    { value: 'latin', label: t('regional.numeralsLatin') },
+    { value: 'bengali', label: t('regional.numeralsBengali') },
+  ];
+  const weekdayChoices: Choice[] = WEEKDAY_KEYS.map((key, i) => ({
+    value: String(i),
+    label: t(`calendar.weekday.${key}`),
+  }));
+  const monthChoices: Choice[] = Array.from({ length: 12 }, (_, i) => ({
+    value: String(i + 1),
+    label: formatMonthName(i + 1, regionConfig),
+  }));
+  const decimalChoices: Choice[] = Array.from({ length: 5 }, (_, i) => ({
+    value: String(i),
+    label: formatNumber(i, regionConfig),
+  }));
+
+  function selectField(
+    name: FieldPath<RegionalFormValues>,
+    id: string,
+    label: string,
+    choices: Choice[],
+    options: { help?: string; wide?: boolean } = {},
+  ) {
+    return (
+      <FormField
+        control={form.control}
+        name={name}
+        render={({ field }) => (
+          <FormItem className={options.wide ? 'md:col-span-2' : undefined}>
+            <FormLabel htmlFor={id}>{label}</FormLabel>
+            <Select value={field.value as string} onValueChange={field.onChange}>
+              <FormControl>
+                <SelectTrigger id={id}>
+                  <SelectValue />
+                </SelectTrigger>
+              </FormControl>
+              <SelectContent>
+                {choices.map((c) => (
+                  <SelectItem key={c.value} value={c.value}>
+                    {c.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {options.help && <FormDescription>{options.help}</FormDescription>}
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+    );
+  }
+
+  function inputField(
+    name: FieldPath<RegionalFormValues>,
+    id: string,
+    label: string,
+    options: { help?: string; mono?: boolean; placeholder?: string } = {},
+  ) {
+    return (
+      <FormField
+        control={form.control}
+        name={name}
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel htmlFor={id}>{label}</FormLabel>
+            <FormControl>
+              <Input
+                id={id}
+                className={options.mono ? 'font-mono' : undefined}
+                placeholder={options.placeholder}
+                {...field}
+                value={field.value as string}
+              />
+            </FormControl>
+            {options.help && <FormDescription>{options.help}</FormDescription>}
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+    );
+  }
+
+  // Live example of the money settings, built from what is typed right now.
+  const currency = form.watch('currency');
+  const decimals = Number(currency.decimals);
+  let amount = '—';
+  if (Number.isInteger(decimals) && decimals >= 0 && decimals <= 4) {
+    try {
+      amount = formatCurrency(1234567 * 10 ** decimals, {
+        ...regionConfig,
+        numerals: form.watch('numerals'),
+        currency: { ...currency, decimals },
+      });
+    } catch {
+      amount = '—';
+    }
+  }
+
+  const advanced = (
+    <div className="pt-2">
+      <p className="text-caption text-text-secondary">{t('regional.advancedHelp')}</p>
+      <div className="mt-3 grid gap-4 md:grid-cols-2">
+        {inputField('timezone', 'regional-timezone', t('regional.timezone'), {
+          help: t('regional.timezoneHelp'),
+          mono: true,
+        })}
+        {inputField('currency.code', 'regional-currency-code', t('regional.currencyCode'), {
+          help: t('regional.currencyCodeHelp'),
+          mono: true,
+        })}
+      </div>
+      <h3 className="mt-6 border-t border-border-subtle pt-4 text-h3">
+        {t('regional.phoneLegend')}
+      </h3>
+      <div className="mt-4 grid gap-4 md:grid-cols-2">
+        {selectField(
+          'phone.country',
+          'regional-phone-country',
+          t('regional.phoneCountry'),
+          countryChoices,
+        )}
+        {inputField('phone.example', 'regional-phone-example', t('regional.phoneExample'))}
+        {inputField(
+          'phone.displayFormat',
+          'regional-phone-displayFormat',
+          t('regional.phoneDisplayFormat'),
+          { help: t('regional.phoneDisplayFormatHelp'), mono: true },
+        )}
+        {inputField('phone.pattern', 'regional-phone-pattern', t('regional.phonePattern'), {
+          help: t('regional.phonePatternHelp'),
+          mono: true,
+        })}
+      </div>
+      <h3 className="mt-6 border-t border-border-subtle pt-4 text-h3">
+        {t('regional.identifiersLegend')}
+      </h3>
+      <div className="mt-4 grid gap-4 md:grid-cols-2">
+        {inputField('address.fields', 'regional-address-fields', t('regional.addressFields'), {
+          help: t('regional.commaHelp'),
+          mono: true,
+        })}
+        {inputField('address.order', 'regional-address-order', t('regional.addressOrder'), {
+          help: t('regional.commaHelp'),
+          mono: true,
+        })}
+        {inputField(
+          'identifiers.national',
+          'regional-identifiers-national',
+          t('regional.identifiersNational'),
+          { mono: true },
+        )}
+        {inputField(
+          'identifiers.student',
+          'regional-identifiers-student',
+          t('regional.identifiersStudent'),
+          { mono: true, placeholder: t('regional.studentIdPlaceholder') },
+        )}
+      </div>
+    </div>
   );
 
   return (
     <Form {...form}>
-      <FormShell
-        errors={summaryErrors}
-        submitCount={form.formState.submitCount}
+      <SettingsSection
+        id="regional-section"
+        title={t('regional.legend')}
+        description={t('regional.description')}
         onSubmit={(event) => void form.handleSubmit(handleSave)(event)}
+        saving={updateSettings.isPending}
+        footerStart={
+          <>
+            {updateSettings.isSuccess && <SettingsSaved />}
+            {updateSettings.isError && <SettingsMutationError error={updateSettings.error} />}
+          </>
+        }
+        advanced={advanced}
+        advancedOpen={hasAdvancedError}
       >
-        <FormSection legend={t('regional.legend')}>
-          <FormField
-            control={form.control}
-            name="locale"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel htmlFor="regional-locale">{t('regional.locale')}</FormLabel>
-                <FormControl>
-                  <Input id="regional-locale" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="numerals"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel htmlFor="regional-numerals">{t('regional.numerals')}</FormLabel>
-                <FormControl>
-                  <select
-                    id="regional-numerals"
-                    className="h-8 rounded-md border border-input bg-card px-2.5 text-sm"
-                    {...field}
-                  >
-                    <option value="latin">{t('regional.numeralsLatin')}</option>
-                    <option value="bengali">{t('regional.numeralsBengali')}</option>
-                  </select>
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="timezone"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel htmlFor="regional-timezone">{t('regional.timezone')}</FormLabel>
-                <FormControl>
-                  <Input id="regional-timezone" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </FormSection>
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
+          {selectField('locale', 'regional-locale', t('regional.locale'), localeChoices)}
+          {selectField('numerals', 'regional-numerals', t('regional.numerals'), numeralChoices)}
+          {selectField(
+            'date.firstDayOfWeek',
+            'regional-date-firstDayOfWeek',
+            t('regional.dateFirstDayOfWeek'),
+            weekdayChoices,
+          )}
+          {selectField(
+            'academicYear.startMonth',
+            'regional-academicYear-startMonth',
+            t('regional.academicYearStartMonth'),
+            monthChoices,
+          )}
+        </div>
 
-        <FormSection legend={t('regional.currencyLegend')}>
-          <FormField
-            control={form.control}
-            name="currency.code"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel htmlFor="regional-currency-code">{t('regional.currencyCode')}</FormLabel>
-                <FormControl>
-                  <Input id="regional-currency-code" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="currency.symbol"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel htmlFor="regional-currency-symbol">
-                  {t('regional.currencySymbol')}
-                </FormLabel>
-                <FormControl>
-                  <Input id="regional-currency-symbol" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="currency.position"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel htmlFor="regional-currency-position">
-                  {t('regional.currencyPosition')}
-                </FormLabel>
-                <FormControl>
-                  <select
-                    id="regional-currency-position"
-                    className="h-8 rounded-md border border-input bg-card px-2.5 text-sm"
-                    {...field}
-                  >
-                    <option value="prefix">{t('regional.currencyPositionPrefix')}</option>
-                    <option value="suffix">{t('regional.currencyPositionSuffix')}</option>
-                  </select>
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="currency.decimals"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel htmlFor="regional-currency-decimals">
-                  {t('regional.currencyDecimals')}
-                </FormLabel>
-                <FormControl>
-                  <Input id="regional-currency-decimals" type="number" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="currency.grouping"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel htmlFor="regional-currency-grouping">
-                  {t('regional.currencyGrouping')}
-                </FormLabel>
-                <FormControl>
-                  <select
-                    id="regional-currency-grouping"
-                    className="h-8 rounded-md border border-input bg-card px-2.5 text-sm"
-                    {...field}
-                  >
-                    <option value="lakh-crore">{t('regional.currencyGroupingLakhCrore')}</option>
-                    <option value="thousand">{t('regional.currencyGroupingThousand')}</option>
-                  </select>
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </FormSection>
-
-        <FormSection legend={t('regional.dateLegend')}>
-          <FormField
-            control={form.control}
-            name="date.format"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel htmlFor="regional-date-format">{t('regional.dateFormat')}</FormLabel>
-                <FormControl>
-                  <Input id="regional-date-format" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="date.firstDayOfWeek"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel htmlFor="regional-date-firstDayOfWeek">
-                  {t('regional.dateFirstDayOfWeek')}
-                </FormLabel>
-                <FormControl>
-                  <Input id="regional-date-firstDayOfWeek" type="number" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="date.calendar"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel htmlFor="regional-date-calendar">{t('regional.dateCalendar')}</FormLabel>
-                <FormControl>
-                  <Input id="regional-date-calendar" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </FormSection>
-
-        <FormSection legend={t('regional.phoneLegend')}>
-          <FormField
-            control={form.control}
-            name="phone.country"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel htmlFor="regional-phone-country">{t('regional.phoneCountry')}</FormLabel>
-                <FormControl>
-                  <Input id="regional-phone-country" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="phone.pattern"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel htmlFor="regional-phone-pattern">{t('regional.phonePattern')}</FormLabel>
-                <FormControl>
-                  <Input id="regional-phone-pattern" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="phone.example"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel htmlFor="regional-phone-example">{t('regional.phoneExample')}</FormLabel>
-                <FormControl>
-                  <Input id="regional-phone-example" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="phone.displayFormat"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel htmlFor="regional-phone-displayFormat">
-                  {t('regional.phoneDisplayFormat')}
-                </FormLabel>
-                <FormControl>
-                  <Input id="regional-phone-displayFormat" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </FormSection>
-
-        <FormSection legend={t('regional.addressLegend')}>
-          <FormField
-            control={form.control}
-            name="address.fields"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel htmlFor="regional-address-fields">
-                  {t('regional.addressFields')}
-                </FormLabel>
-                <FormControl>
-                  <Input id="regional-address-fields" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="address.order"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel htmlFor="regional-address-order">{t('regional.addressOrder')}</FormLabel>
-                <FormControl>
-                  <Input id="regional-address-order" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </FormSection>
-
-        <FormSection legend={t('regional.academicYearLegend')}>
-          <FormField
-            control={form.control}
-            name="academicYear.startMonth"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel htmlFor="regional-academicYear-startMonth">
-                  {t('regional.academicYearStartMonth')}
-                </FormLabel>
-                <FormControl>
-                  <Input id="regional-academicYear-startMonth" type="number" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </FormSection>
-
-        <FormSection legend={t('regional.identifiersLegend')}>
-          <FormField
-            control={form.control}
-            name="identifiers.national"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel htmlFor="regional-identifiers-national">
-                  {t('regional.identifiersNational')}
-                </FormLabel>
-                <FormControl>
-                  <Input id="regional-identifiers-national" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="identifiers.student"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel htmlFor="regional-identifiers-student">
-                  {t('regional.identifiersStudent')}
-                </FormLabel>
-                <FormControl>
-                  <Input id="regional-identifiers-student" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </FormSection>
-
-        <Button type="submit" loading={updateSettings.isPending}>
-          {t('save.action')}
-        </Button>
-        {updateSettings.isSuccess && <p role="status">{t('save.success')}</p>}
-        {updateSettings.isError && <MutationErrorMessage error={updateSettings.error} />}
-      </FormShell>
+        <h3 className="mt-6 border-t border-border-subtle pt-4 text-h3">
+          {t('regional.currencyLegend')}
+        </h3>
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
+          {inputField('currency.symbol', 'regional-currency-symbol', t('regional.currencySymbol'))}
+          {selectField(
+            'currency.position',
+            'regional-currency-position',
+            t('regional.currencyPosition'),
+            [
+              { value: 'prefix', label: t('regional.currencyPositionPrefix') },
+              { value: 'suffix', label: t('regional.currencyPositionSuffix') },
+            ],
+          )}
+          {selectField(
+            'currency.decimals',
+            'regional-currency-decimals',
+            t('regional.currencyDecimals'),
+            decimalChoices,
+          )}
+          {selectField(
+            'currency.grouping',
+            'regional-currency-grouping',
+            t('regional.currencyGrouping'),
+            [
+              { value: 'lakh-crore', label: t('regional.currencyGroupingLakhCrore') },
+              { value: 'thousand', label: t('regional.currencyGroupingThousand') },
+            ],
+          )}
+          <p className="flex items-center gap-2 rounded-md bg-muted px-3 py-2 md:col-span-2">
+            {t('regional.currencyPreview', { amount })}
+          </p>
+        </div>
+      </SettingsSection>
     </Form>
   );
 }

@@ -1,6 +1,5 @@
 {
   "invoiceDetail": {
-    "back": "চালান তালিকায় ফিরুন",
     "loadError": "চালান লোড করা যায়নি।",
     "retry": "আবার চেষ্টা করুন",
     "issuedDate": "ইস্যুর তারিখ",
@@ -10,12 +9,6 @@
     "totalAmount": "মোট",
     "print": "প্রিন্ট",
     "printError": "প্রিন্টযোগ্য চালান খোলা যায়নি। আবার চেষ্টা করুন।",
-    "printFormat": {
-      "label": "প্রিন্ট ফরম্যাট",
-      "a4": "এ৪",
-      "pos80": "পস ৮০মিমি",
-      "pos58": "পস ৫৮মিমি"
-    },
     "share": {
       "create": "শেয়ার লিংক তৈরি করুন",
       "urlLabel": "শেয়ারযোগ্য রসিদ লিংক",
@@ -23,9 +16,6 @@
       "copyLink": "লিংক কপি করুন",
       "copied": "লিংক কপি হয়েছে।",
       "copyFailed": "লিংক কপি করা যায়নি। নিচে থেকে নির্বাচন করে কপি করুন।",
-      "revoke": "বাতিল করুন",
-      "cancel": "বাতিল",
-      "revokeConfirmTitle": "এই শেয়ার লিংক বাতিল করবেন?",
       "revokeConfirmExplanation": "এই লিংক থাকা যে কেউ আর রসিদ খুলতে পারবে না।",
       "revoked": "শেয়ার লিংক বাতিল হয়েছে।"
     },
@@ -38,7 +28,6 @@
       "noGuardians": "এই শিক্ষার্থীর জন্য রসিদ পাঠানোর মতো কোনো অভিভাবক নেই।",
       "pickGuardian": "একজন অভিভাবক বেছে নিন"
     },
-    "creditNoteBadge": "ক্রেডিট নোট",
     "publicReceipt": {
       "loading": "রসিদ লোড হচ্ছে…",
       "notFoundTitle": "এই লিংকটি সঠিক নয়",
@@ -66,16 +55,12 @@
     "fromDateLabel": "ইস্যু শুরু",
     "toDateLabel": "ইস্যু শেষ",
     "dateRangeLabel": "ইস্যুর তারিখ",
-    "amountRangeLabel": "পরিমাণ",
-    "minAmountLabel": "সর্বনিম্ন পরিমাণ",
-    "maxAmountLabel": "সর্বোচ্চ পরিমাণ",
     "columnNumber": "চালান নং",
     "columnStudent": "শিক্ষার্থী",
     "columnAmount": "পরিমাণ",
     "columnStatus": "অবস্থা",
     "columnIssueDate": "ইস্যুর তারিখ",
     "columnDueDate": "শেষ তারিখ",
-    "columnActions": "কার্যক্রম",
     "print": "প্রিন্ট",
     "printError": "প্রিন্টযোগ্য চালান খোলা যায়নি। আবার চেষ্টা করুন।",
     "emptyMessage": "কোনো চালান পাওয়া যায়নি",

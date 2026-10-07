@@ -1,18 +1,31 @@
 import { Permission } from '@biddaloy/shared';
 import { decodeAccessTokenMemberships, getActiveRole, getActiveTenant } from '@biddaloy/ui/api';
 import {
+  ErrorState,
+  Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@biddaloy/ui/components';
+import {
   useAccessToken,
   useHasPermission,
   useSchoolSettings,
   useSchools,
 } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
+import { PageContainer } from '@biddaloy/ui/shells';
+import { Link, useLocation, useSearch } from '@tanstack/react-router';
+import { ChevronLeftIcon } from 'lucide-react';
 import * as React from 'react';
 
 import { AcrCriteriaSection } from './settings/AcrCriteriaSection';
 import { AttendanceSection } from './settings/AttendanceSection';
 import { BackupSection } from './settings/backup-section';
 import { CalendarSection } from './settings/CalendarSection';
+import { isSmsReady } from './settings/connection-test-status';
 import { EmailSection } from './settings/EmailSection';
 import { EvaluationsSection } from './settings/EvaluationsSection';
 import { FeesSection } from './settings/FeesSection';
@@ -22,27 +35,28 @@ import { PresetLinkCard } from './settings/PresetLinkCard';
 import { PrintersSection } from './settings/PrintersSection';
 import { RegionalSection } from './settings/RegionalSection';
 import { SchoolProfileSection } from './settings/school-profile-section';
+import {
+  resolveSettingsCategory,
+  SETTINGS_CATEGORIES,
+  type SettingsCategoryId,
+} from './settings/settings-categories';
+import { SettingsLayout } from './settings/settings-layout';
 import { SignInSection } from './settings/SignInSection';
 import { SmsCreditSection } from './settings/SmsCreditSection';
 import { SmsSection } from './settings/SmsSection';
 import { WhatsAppSection } from './settings/WhatsAppSection';
 
 /**
- * #8.7.13's dashboard: pick a school (super admin only — an ADMIN always
- * configures their own, no picker), then one `FormShell` per medium,
- * each saving independently. Reachability (the nav item, the permission
- * check) is `App.tsx`'s job, not this component's — this page assumes
- * the caller already has `SETTINGS_MANAGE` and renders unconditionally.
- *
- * "The school being configured is unmistakable on screen at all times"
- * (the issue's own acceptance criterion) is the banner right below the
- * picker — `sticky top-0` keeps it pinned at the viewport top as the
- * sections below scroll past, rather than just scrolling away with them,
- * so a long page never separates a form field from the name of the
- * school it belongs to.
+ * #8.7.13's dashboard, grouped into categories (31.4 settings-1a, D30): a
+ * side list of categories, the selected one in `?section=`, and only that
+ * category's sections on screen. Old `#anchor` and `?backup=` links resolve
+ * to their category. To register a section, see `settings/settings-categories.ts`.
+ * A SUPER_ADMIN picks a school first (an ADMIN always configures their own);
+ * each section saves independently. Reachability (nav item, permission check)
+ * is `_staff.tsx`'s job: this page assumes the caller holds `SETTINGS_MANAGE`.
  */
 export interface SchoolSettingsPageProps {
-  /** [14.11.2] The `id` from `?backup=<jobId>` in the URL — threaded down
+  /** [14.11.2] The `id` from `?backup=<jobId>` in the URL, threaded down
    * from `_staff/settings.tsx`'s `Route.useSearch()` to `BackupSection`,
    * which is the only section a deep link ever targets. */
   backupJobId?: string;
@@ -59,15 +73,10 @@ export function SchoolSettingsPage({ backupJobId }: SchoolSettingsPageProps = {}
 
   const schoolId = isSuperAdmin ? pickedSchoolId : (ownSchoolId ?? undefined);
   // An ADMIN's own school never appears in `schools` (that list is
-  // SUPER_ADMIN-only — see `useSchools`'s own comment), but its name is
-  // already sitting in the access token (`JwtMembership.name`, [8.9.5]) —
-  // no separate fetch needed, and no raw UUID ever reaches the banner below.
-  // `useAccessToken()`, not `getAccessToken()`: this must recompute after a
-  // token refresh (`session.ts`'s proactive timer, or the request
-  // interceptor's reactive 401 retry) carries a renamed school's fresh
-  // membership name — a plain `getAccessToken()` read here would keep
-  // showing the name from whichever token was current when this component
-  // last rendered for an unrelated reason.
+  // SUPER_ADMIN-only), but its name is already in the access token
+  // (`JwtMembership.name`, [8.9.5]). `useAccessToken()`, not
+  // `getAccessToken()`: this must recompute after a token refresh carries a
+  // renamed school's fresh membership name.
   const accessToken = useAccessToken();
   const ownSchoolName = React.useMemo(() => {
     if (!accessToken) return undefined;
@@ -75,9 +84,8 @@ export function SchoolSettingsPage({ backupJobId }: SchoolSettingsPageProps = {}
       (m) => m.tenantId === ownSchoolId,
     );
     if (!membership) return undefined;
-    // A stale token from before `JwtMembership.name` existed (or one issued
-    // just before a rename propagated) can still be valid for up to its
-    // remaining lifetime — fall back rather than show a blank banner.
+    // A stale token from before `JwtMembership.name` existed can still be
+    // valid for its remaining lifetime: fall back rather than show a blank.
     return membership.name ?? t('unnamedSchool');
   }, [accessToken, ownSchoolId, t]);
   const schoolName = isSuperAdmin
@@ -87,51 +95,168 @@ export function SchoolSettingsPage({ backupJobId }: SchoolSettingsPageProps = {}
   const settingsQuery = useSchoolSettings(schoolId ?? '');
   const canEditAcrCriteria = useHasPermission(Permission.ACR_WRITE);
   const canApplyPreset = useHasPermission(Permission.CURRICULUM_PRESET_APPLY);
+  const canManagePrinting = useHasPermission(Permission.PRINT_TEMPLATE_MANAGE);
+  const canManageBackup = useHasPermission(Permission.BACKUP_MANAGE);
+
+  const { section } = useSearch({ from: '/_staff/settings' });
+  const hash = useLocation().hash;
+  const categories = SETTINGS_CATEGORIES.filter(
+    (c) => (c.id !== 'printing' || canManagePrinting) && (c.id !== 'backup' || canManageBackup),
+  );
+  const allowed = new Set<SettingsCategoryId>(categories.map((c) => c.id));
+  const active = resolveSettingsCategory({ section, backup: backupJobId, hash }, allowed);
+
+  // Scroll once per hash (a section may only mount once its data loads), never
+  // again on a later category switch or refetch.
+  const scrolledHash = React.useRef<string | undefined>(undefined);
+  React.useEffect(() => {
+    if (!hash) {
+      scrolledHash.current = undefined;
+      return;
+    }
+    if (scrolledHash.current === hash) return;
+    const target = document.getElementById(hash);
+    if (target) {
+      target.scrollIntoView({ block: 'start' });
+      scrolledHash.current = hash;
+    }
+  }, [hash, active, settingsQuery.data]);
+
+  /** Today's sections, unchanged inside, one `case` per category. */
+  function renderCategory(id: SettingsCategoryId): React.ReactNode {
+    // The profile, backup and ACR sections take no `schoolId` (always the
+    // caller's own tenant), so they are not behind the SUPER_ADMIN picker.
+    const loaded = schoolId && settingsQuery.data ? { schoolId, data: settingsQuery.data } : null;
+    switch (id) {
+      case 'school':
+        return (
+          <>
+            <SchoolProfileSection />
+            {loaded && (
+              <>
+                <OrganisationSection
+                  schoolId={loaded.schoolId}
+                  organisation={loaded.data.organisation}
+                />
+                <RegionalSection schoolId={loaded.schoolId} region={loaded.data.region} />
+                <CalendarSection schoolId={loaded.schoolId} region={loaded.data.region} />
+              </>
+            )}
+          </>
+        );
+      case 'academics':
+        return (
+          <>
+            {loaded && (
+              <>
+                <AttendanceSection schoolId={loaded.schoolId} attendance={loaded.data.attendance} />
+                <EvaluationsSection
+                  key={loaded.schoolId}
+                  schoolId={loaded.schoolId}
+                  evaluations={loaded.data.evaluations}
+                  smsConfigured={isSmsReady(loaded.data.communications?.sms)}
+                />
+              </>
+            )}
+            {canEditAcrCriteria && <AcrCriteriaSection />}
+            {canApplyPreset && <PresetLinkCard />}
+          </>
+        );
+      case 'finance':
+        return (
+          loaded && (
+            <FeesSection key={loaded.schoolId} schoolId={loaded.schoolId} fees={loaded.data.fees} />
+          )
+        );
+      case 'communication':
+        return (
+          loaded && (
+            <>
+              <SmsSection schoolId={loaded.schoolId} sms={loaded.data.communications?.sms} />
+              <SmsCreditSection
+                key={loaded.schoolId}
+                schoolId={loaded.schoolId}
+                isSuperAdmin={isSuperAdmin}
+              />
+              <WhatsAppSection
+                schoolId={loaded.schoolId}
+                whatsapp={loaded.data.communications?.whatsapp}
+              />
+              <MessengerSection
+                schoolId={loaded.schoolId}
+                messenger={loaded.data.communications?.messenger}
+              />
+              <EmailSection schoolId={loaded.schoolId} email={loaded.data.communications?.email} />
+            </>
+          )
+        );
+      case 'printing':
+        // [32.3.7] Takes no `schoolId`; carries `id="printers-section"` itself.
+        return loaded && <PrintersSection />;
+      case 'security':
+        return (
+          loaded && (
+            <SignInSection
+              key={loaded.schoolId}
+              schoolId={loaded.schoolId}
+              auth={loaded.data.auth}
+            />
+          )
+        );
+      case 'backup':
+        return <BackupSection {...(backupJobId !== undefined ? { backupJobId } : {})} />;
+    }
+  }
+
+  const subtitle = schoolId && schoolName ? t('configuringBanner', { schoolName }) : undefined;
 
   return (
-    <div className="mx-auto flex max-w-2xl flex-col gap-6 p-6">
-      <h1 className="text-lg font-semibold">{t('title')}</h1>
-
-      {/* [15.5.6] Always the caller's own school (GET/PATCH
-          /schools/me/profile), independent of the SUPER_ADMIN picker
-          below — there is no route yet for a SUPER_ADMIN to edit another
-          school's identity, only its provider settings. */}
-      <SchoolProfileSection />
-
-      {/* [14.11.2] Not gated behind the SUPER_ADMIN school picker below,
-          same reasoning as `SchoolProfileSection` above: it takes no
-          `schoolId` prop, always operates on the caller's own active
-          tenant, and gates its own visibility via `BACKUP_MANAGE`. Gating
-          it on `schoolId && settingsQuery.data` would leave a SUPER_ADMIN
-          opening a `?backup=<jobId>` email link on a page where this
-          never mounts, since they haven't picked a school yet. */}
-      <BackupSection {...(backupJobId !== undefined ? { backupJobId } : {})} />
-
-      {/* [28.4.1] Like `BackupSection`, always the caller's own active
-          tenant (criteria are per school), so not behind the SUPER_ADMIN
-          picker; `ACR_WRITE` mirrors `PUT /acr/criteria`. */}
-      {canEditAcrCriteria && <AcrCriteriaSection />}
-
-      {canApplyPreset && <PresetLinkCard />}
+    <PageContainer size="wide">
+      {active && (
+        <Link
+          to="/settings"
+          search={{}}
+          className="inline-flex h-11 items-center gap-1 font-medium text-primary md:hidden"
+        >
+          <ChevronLeftIcon aria-hidden="true" />
+          {t('title')}
+        </Link>
+      )}
+      {/* PageHeader.title is a string; on phone the title is the category
+          name (a drill-down level), so the header markup is inlined (the
+          shared request for a node title was refused). */}
+      <header className="min-w-0">
+        <h1 className="text-h1">
+          {active ? (
+            <>
+              <span className="md:hidden">{t(`categories.${active}`)}</span>
+              <span className="hidden md:inline">{t('title')}</span>
+            </>
+          ) : (
+            t('title')
+          )}
+        </h1>
+        {subtitle && <p className="mt-0.5 truncate text-text-secondary">{subtitle}</p>}
+      </header>
 
       {isSuperAdmin && (
-        <div className="grid gap-1.5">
-          <label htmlFor="school-picker" className="text-sm font-medium">
-            {t('schoolPicker.label')}
-          </label>
-          <select
-            id="school-picker"
-            className="h-8 rounded-md border border-input bg-card px-2.5 text-sm"
+        <div className="grid gap-1.5 md:w-80">
+          <Label htmlFor="school-picker">{t('schoolPicker.label')}</Label>
+          <Select
             value={pickedSchoolId ?? ''}
-            onChange={(event) => setPickedSchoolId(event.target.value || undefined)}
+            onValueChange={(v) => setPickedSchoolId(v || undefined)}
           >
-            <option value="">{t('schoolPicker.placeholder')}</option>
-            {schools?.map((school) => (
-              <option key={school.id} value={school.id}>
-                {school.name}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger id="school-picker">
+              <SelectValue placeholder={t('schoolPicker.placeholder')} />
+            </SelectTrigger>
+            <SelectContent>
+              {schools?.map((school) => (
+                <SelectItem key={school.id} value={school.id}>
+                  {school.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           {schoolsQuery.isError && (
             <p role="alert" className="text-sm text-destructive">
               {t('schoolPicker.error')}
@@ -140,60 +265,30 @@ export function SchoolSettingsPage({ backupJobId }: SchoolSettingsPageProps = {}
         </div>
       )}
 
-      {schoolId && schoolName && (
-        <div
-          role="status"
-          className="sticky top-0 z-10 rounded-lg border border-primary/30 bg-primary/5 px-4 py-2 text-sm font-medium backdrop-blur-sm"
-        >
-          {t('configuringBanner', { schoolName })}
-        </div>
-      )}
-
       {schoolId && settingsQuery.isError && (
-        <p role="alert" className="text-sm text-destructive">
-          {t('settingsLoadError')}
-        </p>
+        <ErrorState message={t('settingsLoadError')} onRetry={() => void settingsQuery.refetch()} />
       )}
 
-      {schoolId && settingsQuery.data && (
-        <div className="flex flex-col gap-8">
-          <div id="regional-section">
-            <RegionalSection schoolId={schoolId} region={settingsQuery.data.region} />
-          </div>
-          <CalendarSection schoolId={schoolId} region={settingsQuery.data.region} />
-          <div id="attendance-section">
-            <AttendanceSection schoolId={schoolId} attendance={settingsQuery.data.attendance} />
-          </div>
-          <div id="organisation-section">
-            <OrganisationSection
-              schoolId={schoolId}
-              organisation={settingsQuery.data.organisation}
-            />
-          </div>
-          {/* [32.3.7] Takes no `schoolId`: printers belong to the caller's own
-              school, and the section hides itself without PRINT_TEMPLATE_MANAGE. */}
-          <PrintersSection />
-          <SignInSection key={schoolId} schoolId={schoolId} auth={settingsQuery.data.auth} />
-          <WhatsAppSection
-            schoolId={schoolId}
-            whatsapp={settingsQuery.data.communications?.whatsapp}
-          />
-          <MessengerSection
-            schoolId={schoolId}
-            messenger={settingsQuery.data.communications?.messenger}
-          />
-          <EmailSection schoolId={schoolId} email={settingsQuery.data.communications?.email} />
-          <SmsSection schoolId={schoolId} sms={settingsQuery.data.communications?.sms} />
-          <SmsCreditSection key={schoolId} schoolId={schoolId} isSuperAdmin={isSuperAdmin} />
-          <FeesSection key={schoolId} schoolId={schoolId} fees={settingsQuery.data.fees} />
-          <EvaluationsSection
-            key={schoolId}
-            schoolId={schoolId}
-            evaluations={settingsQuery.data.evaluations}
-            smsConfigured={Boolean(settingsQuery.data.communications?.sms?.provider)}
-          />
-        </div>
-      )}
-    </div>
+      <SettingsLayout
+        categories={categories.map((c) => ({
+          id: c.id,
+          icon: c.icon,
+          label: t(`categories.${c.id}`),
+        }))}
+        active={active}
+        fallback="school"
+        renderPanel={(id) => (
+          <>
+            {/* A SUPER_ADMIN must pick a school before the school-bound cards appear. */}
+            {isSuperAdmin && !schoolId && id !== 'backup' && (
+              <p className="rounded-md bg-muted px-3 py-2 text-text-secondary">
+                {t('schoolPicker.hint')}
+              </p>
+            )}
+            {renderCategory(id)}
+          </>
+        )}
+      />
+    </PageContainer>
   );
 }

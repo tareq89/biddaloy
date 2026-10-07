@@ -93,6 +93,7 @@
   "settingsLink": {
     "title": "Ready-made curriculum",
     "applied": "Applied: {{id}} · {{version}}",
+    "appliedUnnamed": "Applied · {{version}}",
     "notApplied": "Not applied",
     "open": "Open"
   }

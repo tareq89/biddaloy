@@ -1,6 +1,5 @@
 {
   "invoiceDetail": {
-    "back": "Back to invoices",
     "loadError": "Couldn't load this invoice.",
     "retry": "Try again",
     "issuedDate": "Issue date",
@@ -10,12 +9,6 @@
     "totalAmount": "Total",
     "print": "Print",
     "printError": "Couldn't open the printable invoice. Try again.",
-    "printFormat": {
-      "label": "Print format",
-      "a4": "A4",
-      "pos80": "POS 80mm",
-      "pos58": "POS 58mm"
-    },
     "share": {
       "create": "Create share link",
       "urlLabel": "Shareable receipt link",
@@ -23,9 +16,6 @@
       "copyLink": "Copy link",
       "copied": "Link copied.",
       "copyFailed": "Couldn't copy the link. You can select and copy it below.",
-      "revoke": "Revoke",
-      "cancel": "Cancel",
-      "revokeConfirmTitle": "Revoke this share link?",
       "revokeConfirmExplanation": "Anyone holding this link will no longer be able to open the receipt.",
       "revoked": "Share link revoked."
     },
@@ -38,7 +28,6 @@
       "noGuardians": "This student has no guardian to send a receipt to.",
       "pickGuardian": "Choose a guardian"
     },
-    "creditNoteBadge": "Credit note",
     "publicReceipt": {
       "loading": "Loading receipt…",
       "notFoundTitle": "This link isn't valid",
@@ -66,16 +55,12 @@
     "fromDateLabel": "Issued from",
     "toDateLabel": "Issued to",
     "dateRangeLabel": "Issue date",
-    "amountRangeLabel": "Amount",
-    "minAmountLabel": "Minimum amount",
-    "maxAmountLabel": "Maximum amount",
     "columnNumber": "Invoice No.",
     "columnStudent": "Student",
     "columnAmount": "Amount",
     "columnStatus": "Status",
     "columnIssueDate": "Issue date",
     "columnDueDate": "Due date",
-    "columnActions": "Actions",
     "print": "Print",
     "printError": "Couldn't open the printable invoice. Try again.",
     "emptyMessage": "No invoices found",

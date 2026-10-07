@@ -8,7 +8,7 @@ import {
   useTranslation,
 } from '@biddaloy/ui/i18n';
 import { ListShell, useListShellState, type FilterFieldDescriptor } from '@biddaloy/ui/shells';
-import { formatDate, formatServerAmount } from '@biddaloy/ui/utils';
+import { formatDate, formatServerAmount, parseServerDate } from '@biddaloy/ui/utils';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { Banknote, Receipt } from 'lucide-react';
 import { z } from 'zod';
@@ -130,7 +130,7 @@ function PaymentsList({ canRecord, onRecord }: { canRecord: boolean; onRecord: (
     {
       id: 'date',
       header: t('list.columnDate'),
-      accessorFn: (row) => formatDate(new Date(row.payment_date), regionConfig),
+      accessorFn: (row) => formatDate(parseServerDate(row.payment_date), regionConfig),
       card: 'subtitle',
     },
     {

@@ -4,6 +4,7 @@ import { createFileRoute } from '@tanstack/react-router';
 import { z } from 'zod';
 
 import { SchoolSettingsPage } from '../../pages/SchoolSettingsPage';
+import { SETTINGS_CATEGORY_IDS } from '../../pages/settings/settings-categories';
 import { loadRouteNamespaces } from '../../route-loaders';
 
 /** [14.11.2] `?backup=<jobId>` — a deep link into `BackupSection` (e.g.
@@ -12,6 +13,8 @@ import { loadRouteNamespaces } from '../../route-loaders';
  * silently drops rather than 500ing the route. */
 const settingsSearchSchema = z.object({
   backup: z.string().optional().catch(undefined),
+  /** D30: the selected settings category. */
+  section: z.enum(SETTINGS_CATEGORY_IDS).optional().catch(undefined),
 });
 
 /**
@@ -30,10 +33,12 @@ export const Route = createFileRoute('/_staff/settings')({
   // picker), not a route param, so there's nothing this `loader` can
   // `ensureQueryData` ahead of time. `backup` is added here for
   // `BackupSection`'s own header copy and job-status labels.
+  // `feeStructures`: the late-fee table names fees from its `feeTypes.*` labels.
   // [613]: `bulkImport` too — `RestoreWizard` mounts the shared
   // `BulkUploadPreview`, whose own copy (file picker, expiry countdown,
   // confirm/upload-another buttons) lives in that namespace.
-  loader: () => loadRouteNamespaces('settings', 'backup', 'bulkImport', 'evaluations'),
+  loader: () =>
+    loadRouteNamespaces('settings', 'backup', 'bulkImport', 'evaluations', 'feeStructures'),
   pendingComponent: SettingsPending,
   component: SettingsRoute,
 });

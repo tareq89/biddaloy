@@ -6,14 +6,14 @@
  * surface is three parallel list editors rather than a flat field form —
  * `react-hook-form`/`FormShell`'s per-field validation summary doesn't fit
  * "add/rename/remove a row in an array," so this component manages its
- * own local list state instead and reuses `FormSection` purely for the
- * legend/border chrome every other settings section already has.
+ * own local list state instead and reuses `SettingsSection` for the card
+ * chrome every other settings section has.
  *
  * [D4] A value still in use by a class/section is rejected by the
  * server, not pre-checked here — the count can change between render and
- * save, so the server is the sole authority. Its refusal message
- * ("Cannot remove "X" from shifts — 2 row(s) still use it…") is parsed
- * back onto the offending row rather than shown as a generic banner.
+ * save, so the server is the sole authority. Its refusal ("Cannot remove
+ * "X" from shifts — ...") is parsed only to find the offending row; the row
+ * shows a translated line, never the server text.
  *
  * [33.3.1] A rename is sent as an explicit `{ list, from, to }` instruction
  * alongside the normal `organisation` patch (same request) — never
@@ -21,11 +21,22 @@
  * limit the server enforces (`schools.service.ts`'s `applyOrganisationVocabularyGuard`).
  */
 import { ApiError } from '@biddaloy/ui/api';
-import { Button, Input } from '@biddaloy/ui/components';
+import {
+  Button,
+  Input,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@biddaloy/ui/components';
 import { useUpdateSchoolSettings, type OrganisationSettings } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
-import { FormSection, useWarnUnsavedChanges } from '@biddaloy/ui/shells';
+import { useWarnUnsavedChanges } from '@biddaloy/ui/shells';
+import { CircleMinusIcon, PencilIcon, PlusIcon, Undo2Icon } from 'lucide-react';
 import * as React from 'react';
+
+import { SettingsSaved, SettingsSection } from './settings-layout';
+import { SettingsMutationError } from './settings-mutation-error';
 
 type ListName = 'shifts' | 'versions' | 'groups';
 const LIST_NAMES: ListName[] = ['shifts', 'versions', 'groups'];
@@ -46,7 +57,7 @@ interface ListState {
   renamingValue: string | null;
   renameInput: string;
   rename: Rename | null;
-  rowError: { value: string; message: string } | null;
+  rowError: { value: string } | null;
 }
 
 function emptyListState(values: string[]): ListState {
@@ -99,12 +110,13 @@ export function OrganisationSection({ schoolId, organisation }: OrganisationSect
     groups: organisation?.groups ?? [],
   });
   const updateSettings = useUpdateSchoolSettings(schoolId);
-  const [genericError, setGenericError] = React.useState<string | null>(null);
 
   const dirty = LIST_NAMES.some((list) => isDirty(lists[list], savedRef.current[list]));
   useWarnUnsavedChanges(dirty);
 
   function updateList(list: ListName, updater: (state: ListState) => ListState) {
+    // Editing a row makes any earlier save error stale.
+    updateSettings.reset();
     setLists((prev) => ({ ...prev, [list]: updater(prev[list]) }));
   }
 
@@ -170,7 +182,6 @@ export function OrganisationSection({ schoolId, organisation }: OrganisationSect
   }
 
   function handleSave() {
-    setGenericError(null);
     setLists((prev) => {
       const cleared = LIST_NAMES.reduce(
         (acc, list) => ({ ...acc, [list]: { ...prev[list], rowError: null } }),
@@ -204,50 +215,70 @@ export function OrganisationSection({ schoolId, organisation }: OrganisationSect
           setLists(toInitialState(settings.organisation));
         },
         onError: (error) => {
-          const message = error instanceof Error ? error.message : String(error);
-          const match = REMOVE_REFUSAL_PATTERN.exec(message);
+          const match = REMOVE_REFUSAL_PATTERN.exec(
+            error instanceof Error ? error.message : String(error),
+          );
           if (match && error instanceof ApiError) {
             const value = match[1]!;
             const list = match[2] as ListName;
-            updateList(list, (state) => ({ ...state, rowError: { value, message } }));
-            return;
+            // Set directly: `updateList` would reset the mutation (and with it this error state).
+            setLists((prev) => ({ ...prev, [list]: { ...prev[list], rowError: { value } } }));
           }
-          setGenericError(message);
+          // Any other failure shows through `updateSettings.isError` below.
         },
       },
     );
   }
 
-  return (
-    <FormSection legend={t('organisation.legend')}>
-      {LIST_NAMES.map((list) => (
-        <VocabularyList
-          key={list}
-          list={list}
-          state={lists[list]}
-          onAddValueChange={(value) => updateList(list, (state) => ({ ...state, addValue: value }))}
-          onAdd={() => handleAdd(list)}
-          onToggleRemove={(value) => handleToggleRemove(list, value)}
-          onStartRename={(value) => handleStartRename(list, value)}
-          onCancelRename={() => handleCancelRename(list)}
-          onRenameInputChange={(value) =>
-            updateList(list, (state) => ({ ...state, renameInput: value }))
-          }
-          onConfirmRename={() => handleConfirmRename(list)}
-        />
-      ))}
+  const refused = LIST_NAMES.some((list) => lists[list].rowError !== null);
 
-      {genericError && (
-        <p role="alert" className="text-sm text-destructive">
-          {genericError}
+  return (
+    <SettingsSection
+      id="organisation-section"
+      title={t('organisation.legend')}
+      description={t('organisation.description')}
+      onSubmit={(event) => {
+        event.preventDefault();
+        handleSave();
+      }}
+      saving={updateSettings.isPending}
+      footerStart={
+        <>
+          {updateSettings.isSuccess && <SettingsSaved />}
+          {updateSettings.isError && !refused && (
+            <SettingsMutationError error={updateSettings.error} />
+          )}
+        </>
+      }
+    >
+      <TooltipProvider delayDuration={300}>
+        <div className="mt-4 grid gap-6 md:grid-cols-3">
+          {LIST_NAMES.map((list) => (
+            <VocabularyList
+              key={list}
+              list={list}
+              state={lists[list]}
+              onAddValueChange={(value) =>
+                updateList(list, (state) => ({ ...state, addValue: value }))
+              }
+              onAdd={() => handleAdd(list)}
+              onToggleRemove={(value) => handleToggleRemove(list, value)}
+              onStartRename={(value) => handleStartRename(list, value)}
+              onCancelRename={() => handleCancelRename(list)}
+              onRenameInputChange={(value) =>
+                updateList(list, (state) => ({ ...state, renameInput: value }))
+              }
+              onConfirmRename={() => handleConfirmRename(list)}
+            />
+          ))}
+        </div>
+      </TooltipProvider>
+      {updateSettings.isError && refused && (
+        <p role="alert" className="mt-3 text-destructive">
+          {t('organisation.removeInUseSummary')}
         </p>
       )}
-
-      <Button type="button" onClick={handleSave} loading={updateSettings.isPending}>
-        {t('save.action')}
-      </Button>
-      {updateSettings.isSuccess && !genericError && <p role="status">{t('save.success')}</p>}
-    </FormSection>
+    </SettingsSection>
   );
 }
 
@@ -282,86 +313,116 @@ function VocabularyList({
 }: VocabularyListProps) {
   const { t } = useTranslation('settings');
 
+  const iconButton = (
+    label: string,
+    value: string,
+    icon: React.ReactNode,
+    onClick: () => void,
+    disabled = false,
+  ) => (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          aria-label={`${label}: ${value}`}
+          disabled={disabled}
+          onClick={onClick}
+        >
+          {icon}
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent>{label}</TooltipContent>
+    </Tooltip>
+  );
+
   return (
-    <fieldset className="grid gap-2" data-testid={`organisation-${list}`}>
-      <legend className="text-sm font-medium">{t(LABEL_KEY[list])}</legend>
+    <fieldset className="min-w-0" data-testid={`organisation-${list}`}>
+      <legend className="text-h3">{t(LABEL_KEY[list])}</legend>
 
       {state.entries.length === 0 && (
-        <p className="text-sm text-muted-foreground">{t('organisation.emptyList')}</p>
+        <p className="mt-2 text-text-secondary">{t('organisation.emptyList')}</p>
       )}
 
-      <ul className="flex flex-col gap-1.5">
+      <ul className="mt-2 divide-y divide-border-subtle border-y border-border-subtle">
         {state.entries.map((entry) => (
-          <li key={entry.value} className="flex flex-col gap-1">
+          <li key={entry.value}>
             {state.renamingValue === entry.value ? (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 py-1.5">
                 <Input
                   aria-label={t('organisation.renamePlaceholder')}
+                  className="min-w-0 flex-1"
                   value={state.renameInput}
                   onChange={(event) => onRenameInputChange(event.target.value)}
                   placeholder={t('organisation.renamePlaceholder')}
                 />
-                <Button type="button" size="sm" onClick={onConfirmRename}>
+                <Button type="button" variant="outline" size="sm" onClick={onConfirmRename}>
                   {t('organisation.renameConfirm')}
                 </Button>
-                <Button type="button" size="sm" variant="outline" onClick={onCancelRename}>
+                <Button type="button" variant="ghost" size="sm" onClick={onCancelRename}>
                   {t('organisation.renameCancel')}
                 </Button>
               </div>
             ) : (
-              <div className="flex items-center gap-2">
+              <div className="flex h-11 items-center justify-between gap-2 md:h-9">
                 <span
                   className={
                     entry.markedForRemoval
-                      ? 'text-sm text-muted-foreground line-through'
-                      : 'text-sm'
+                      ? 'truncate text-text-secondary line-through'
+                      : 'truncate'
                   }
                 >
                   {entry.value}
                 </span>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  // [CodeRabbit, PR #916] Only one rename per list per
-                  // save — disabled on every other row while one is
-                  // pending, so the one-at-a-time limit is visible, not a
-                  // silent no-op discovered only after Save. The row that
-                  // *is* the pending rename's target stays enabled, so a
-                  // chained rename (Morning → Prabhati → Shokal) still
-                  // works.
-                  disabled={state.rename !== null && state.rename.to !== entry.value}
-                  onClick={() => onStartRename(entry.value)}
-                >
-                  {t('organisation.renameAction')}
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => onToggleRemove(entry.value)}
-                >
-                  {t('organisation.removeAction')}
-                </Button>
+                <span className="flex shrink-0 items-center">
+                  {iconButton(
+                    t('organisation.renameAction'),
+                    entry.value,
+                    <PencilIcon aria-hidden="true" className="text-primary" />,
+                    () => onStartRename(entry.value),
+                    // [CodeRabbit, PR #916] Only one rename per list per
+                    // save: disabled on every other row while one is
+                    // pending, so the limit is visible, not a silent no-op.
+                    // The pending rename's own row stays enabled, so a
+                    // chained rename (Morning -> Prabhati -> Shokal) works.
+                    state.rename !== null && state.rename.to !== entry.value,
+                  )}
+                  {entry.markedForRemoval
+                    ? iconButton(
+                        t('organisation.undoRemoveAction'),
+                        entry.value,
+                        <Undo2Icon aria-hidden="true" />,
+                        () => onToggleRemove(entry.value),
+                      )
+                    : iconButton(
+                        t('organisation.removeAction'),
+                        entry.value,
+                        <CircleMinusIcon aria-hidden="true" className="text-destructive" />,
+                        () => onToggleRemove(entry.value),
+                      )}
+                </span>
               </div>
             )}
             {state.rowError?.value === entry.value && (
-              <p role="alert" className="text-sm text-destructive">
-                {state.rowError.message}
+              <p role="alert" className="pb-1.5 text-destructive">
+                {t('organisation.removeInUse', { value: entry.value })}
               </p>
             )}
           </li>
         ))}
       </ul>
 
-      <div className="flex items-center gap-2">
+      <div className="mt-3 flex gap-2">
         <Input
-          aria-label={t('organisation.addPlaceholder')}
+          aria-label={`${t(LABEL_KEY[list])}: ${t('organisation.addPlaceholder')}`}
+          className="min-w-0 flex-1"
           value={state.addValue}
           onChange={(event) => onAddValueChange(event.target.value)}
           placeholder={t('organisation.addPlaceholder')}
         />
-        <Button type="button" size="sm" onClick={onAdd}>
+        <Button type="button" variant="outline" onClick={onAdd}>
+          <PlusIcon aria-hidden="true" />
           {t('organisation.addAction')}
         </Button>
       </div>

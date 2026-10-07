@@ -20,6 +20,7 @@ import { PaymentMethod } from '@biddaloy/shared';
 import { captureNotificationTenant, notifyOutcome } from '@biddaloy/ui/api';
 import {
   Button,
+  ConfirmDialog,
   ErrorState,
   Input,
   Label,
@@ -50,7 +51,7 @@ import {
   serverAmountToMinorUnits,
 } from '@biddaloy/ui/utils';
 import { useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from '@tanstack/react-router';
+import { useNavigate, useRouter } from '@tanstack/react-router';
 import { Search, X } from 'lucide-react';
 import * as React from 'react';
 
@@ -96,6 +97,7 @@ export function RecordPaymentModal({
   const { t } = useTranslation('payments');
   const config = useRegionConfig();
   const navigate = useNavigate();
+  const router = useRouter();
   const queryClient = useQueryClient();
   const searchId = React.useId();
   const amountId = React.useId();
@@ -109,6 +111,9 @@ export function RecordPaymentModal({
   // The seeded student (deep link / guardian entry) is not "typed data";
   // only a hand-made add/remove makes the student step count as dirty.
   const [studentsEdited, setStudentsEdited] = React.useState(false);
+  // `linesTouched` resets when the amount changes; this one stays set for any hand edit.
+  const [linesEdited, setLinesEdited] = React.useState(false);
+  const [confirmingCancel, setConfirmingCancel] = React.useState(false);
   const debouncedSearch = useDebouncedValue(search, 300);
 
   const [amountReceivedMinorUnits, setAmountReceivedMinorUnits] = React.useState<
@@ -283,6 +288,7 @@ export function RecordPaymentModal({
 
   function handleLineChange(studentFeeId: string, patch: Partial<CartLineState>) {
     setLinesTouched(true);
+    setLinesEdited(true);
     setLines((prev) => {
       const next = new Map(prev);
       const current = next.get(studentFeeId) ?? { payMinorUnits: 0, discountMinorUnits: 0 };
@@ -387,6 +393,7 @@ export function RecordPaymentModal({
     setSelected([]);
     setSearch('');
     setStudentsEdited(false);
+    setLinesEdited(false);
     setNeedsSeed(Boolean(studentId));
     setAmountReceivedMinorUnits(undefined);
     setLines(new Map());
@@ -498,7 +505,10 @@ export function RecordPaymentModal({
   const dirty =
     studentsEdited ||
     amountReceivedMinorUnits !== undefined ||
-    linesTouched ||
+    linesEdited ||
+    paymentMethod !== PaymentMethod.CASH ||
+    walletUseMinorUnits > 0 ||
+    changeHandling !== 'RETURN' ||
     tenderedMinorUnits !== undefined ||
     transactionReference !== '' ||
     remarks !== '';
@@ -521,11 +531,12 @@ export function RecordPaymentModal({
         secondary={{
           label: t('record.success.viewInvoice'),
           onClick: () => {
-            // Replace, not push: Back from the invoice should skip this finished form.
+            // On the record page, replace: Back from the invoice should skip this finished form. Host screens keep their page in history.
             void navigate({
               to: '/invoices/$invoiceId',
               params: { invoiceId: success.invoice_id },
-              replace: true,
+              // Read from the router at click time (no re-render subscription for one click).
+              replace: router.state.location.pathname === '/payments/record',
             });
           },
         }}
@@ -541,7 +552,11 @@ export function RecordPaymentModal({
       size="wide"
       dirty={dirty}
       onClose={resetAndClose}
-      secondary={{ label: t('record.cancel'), onClick: resetAndClose }}
+      secondary={{
+        label: t('record.cancel'),
+        // Same discard confirm as header Close / Esc (the shell only guards those two).
+        onClick: () => (dirty ? setConfirmingCancel(true) : resetAndClose()),
+      }}
       primary={{
         label:
           subtotalMinorUnits > 0
@@ -802,6 +817,19 @@ export function RecordPaymentModal({
           )}
         </section>
       </form>
+      <ConfirmDialog
+        open={confirmingCancel}
+        onOpenChange={setConfirmingCancel}
+        tone="danger"
+        title={t('fullPage.discardTitle', { ns: 'common' })}
+        description={t('fullPage.discardDescription', { ns: 'common' })}
+        confirmLabel={t('fullPage.discardConfirm', { ns: 'common' })}
+        cancelLabel={t('fullPage.keepEditing', { ns: 'common' })}
+        onConfirm={() => {
+          setConfirmingCancel(false);
+          resetAndClose();
+        }}
+      />
     </FullPageShell>
   );
 }

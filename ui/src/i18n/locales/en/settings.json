@@ -1,11 +1,23 @@
 {
-  "title": "School settings",
+  "title": "Settings",
   "schoolPicker": {
     "label": "School",
     "placeholder": "Choose a school to configure",
-    "error": "Couldn't load the list of schools. Try refreshing the page."
+    "error": "Couldn't load the list of schools. Try refreshing the page.",
+    "hint": "Pick a school above to see its settings."
   },
-  "configuringBanner": "Configuring settings for {{schoolName}}",
+  "configuringBanner": "Settings for {{schoolName}}",
+  "categories": {
+    "label": "Settings categories",
+    "school": "School",
+    "academics": "Academics",
+    "finance": "Finance",
+    "communication": "Communication",
+    "printing": "Printing",
+    "security": "Sign-in & security",
+    "backup": "Backup"
+  },
+  "advanced": "Advanced settings",
   "unnamedSchool": "this school",
   "settingsLoadError": "Couldn't load settings for this school. Try refreshing the page.",
   "profile": {
@@ -16,7 +28,7 @@
     "address": "Address",
     "phone": "Phone",
     "email": "Email",
-    "registrationId": "EIIN / registration ID",
+    "registrationId": "EIIN / registration number",
     "logo": {
       "legend": "Logo",
       "alt": "School logo",
@@ -28,27 +40,34 @@
       "remove": "Remove logo",
       "removeConfirm": "Remove the school logo?",
       "removeConfirmYes": "Remove",
-      "removeCancel": "Cancel"
-    }
+      "removeCancel": "Cancel",
+      "help": "PNG, JPEG or WebP, up to 512 KB. It saves as soon as you pick it.",
+      "removeConfirmDescription": "Receipts and printouts will show no logo. You can upload one again later.",
+      "removeError": "Couldn't remove the logo. Try again."
+    },
+    "description": "Shown on receipts, invoices and printouts."
   },
   "secret": {
-    "configured": "Configured — ends {{hint}}",
-    "configuredNoHint": "Configured",
-    "notConfigured": "Not configured",
-    "replace": "Replace",
-    "clear": "Clear",
+    "configured": "Added — ends {{hint}}",
+    "configuredNoHint": "Added",
+    "notConfigured": "Not added",
+    "replace": "Change",
+    "clear": "Remove",
     "cancel": "Cancel",
-    "set": "Set"
+    "set": "Add",
+    "metaTokenHelp": "Copy it from Meta Business."
   },
   "testConnection": {
-    "action": "Test connection"
+    "action": "Test connection",
+    "success": "Connection works",
+    "failure": "Couldn't connect — check the details and try again."
   },
   "save": {
     "action": "Save",
     "success": "Saved"
   },
   "regional": {
-    "legend": "Regional",
+    "legend": "Language, numbers and dates",
     "locale": "Language and number format",
     "numerals": "Numeral system",
     "numeralsLatin": "Latin (0-9)",
@@ -64,53 +83,71 @@
     "currencyGrouping": "Number grouping",
     "currencyGroupingLakhCrore": "Lakh/crore",
     "currencyGroupingThousand": "Thousand",
-    "dateLegend": "Date format",
-    "dateFormat": "Date format",
     "dateFirstDayOfWeek": "First day of week",
-    "dateCalendar": "Calendar",
-    "phoneLegend": "Phone format",
-    "phoneCountry": "Phone country code",
-    "phonePattern": "Phone number pattern",
+    "phoneLegend": "Phone numbers",
+    "phoneCountry": "Phone country",
+    "phonePattern": "Phone number check rule",
     "phoneExample": "Example phone number",
-    "phoneDisplayFormat": "Phone display format",
-    "addressLegend": "Address",
-    "addressFields": "Address fields (comma-separated)",
-    "addressOrder": "Address field order (comma-separated)",
-    "academicYearLegend": "Academic year",
+    "phoneDisplayFormat": "How phone numbers are shown",
+    "addressFields": "Address parts",
+    "addressOrder": "Order of address parts",
     "academicYearStartMonth": "Academic year start month",
-    "identifiersLegend": "Identifiers",
-    "identifiersNational": "National ID format",
-    "identifiersStudent": "Student ID format"
+    "identifiersLegend": "Address and ID numbers",
+    "identifiersNational": "National ID check rule",
+    "identifiersStudent": "Student ID check rule",
+    "description": "How numbers, money and dates appear on every page.",
+    "localeBnBd": "Bangla (Bangladesh)",
+    "localeEnBd": "English (Bangladesh)",
+    "keepCurrent": "Keep the current value",
+    "currencyPreview": "Example: {{amount}}",
+    "advancedHelp": "Time zone, phone, address and ID rules. You rarely need to change these; a wrong value can stop phone or ID checks from working.",
+    "timezoneHelp": "No need to change this for a school in Bangladesh.",
+    "currencyCodeHelp": "Three-letter international code.",
+    "phoneDisplayFormatHelp": "Each X is replaced by a digit of the number.",
+    "phonePatternHelp": "A regular expression. A phone number that does not match is not accepted.",
+    "commaHelp": "Separate with commas.",
+    "studentIdPlaceholder": "Leave empty to accept any ID"
   },
   "whatsapp": {
     "legend": "WhatsApp",
     "phoneNumberId": "Phone number ID",
-    "apiVersion": "API version",
-    "accessToken": "Access token"
+    "apiVersion": "API version (optional)",
+    "accessToken": "Access token",
+    "description": "Enter your Meta Business account details to message guardians on WhatsApp.",
+    "phoneNumberIdHelp": "Find it in Meta's WhatsApp Manager. It is a long number, not a phone number.",
+    "apiVersionHelp": "Leave empty to use the version the app is set to."
   },
   "messenger": {
     "legend": "Messenger",
-    "pageId": "Page ID",
-    "accessToken": "Access token"
+    "pageId": "Facebook Page ID",
+    "accessToken": "Access token",
+    "description": "Enter your Facebook Page details to message guardians on Messenger.",
+    "pageIdHelp": "Find it under the page's About section."
   },
   "email": {
     "legend": "Email",
-    "host": "SMTP host",
-    "port": "SMTP port",
-    "user": "SMTP username",
-    "from": "From address",
-    "password": "Password"
+    "host": "Email server (SMTP)",
+    "port": "Port",
+    "user": "Server username",
+    "from": "Send emails from",
+    "password": "Server password",
+    "description": "Emails from this school are sent through this server.",
+    "portHelp": "Usually 587. Change it only if your email server says so."
   },
   "sms": {
     "legend": "SMS",
-    "provider": "Provider",
+    "provider": "SMS company",
     "providerGreenweb": "Greenweb",
     "providerMimsms": "MimSMS",
-    "greenwebApiKey": "Greenweb API key",
-    "greenwebApiUrl": "Greenweb API URL (optional)",
-    "mimsmsApiKey": "MimSMS API key",
-    "mimsmsSenderId": "MimSMS sender ID",
-    "mimsmsApiUrl": "MimSMS API URL (optional)"
+    "greenwebApiKey": "API key",
+    "greenwebApiUrl": "API address (optional)",
+    "mimsmsApiKey": "API key",
+    "mimsmsSenderId": "Sender name (Sender ID)",
+    "mimsmsApiUrl": "API address (optional)",
+    "description": "All SMS from this school go through this company.",
+    "apiKeyHelp": "Copy it from your {{company}} account page. After saving, the full key is never shown again.",
+    "apiUrlHelp": "Leave empty to use the company's own address.",
+    "senderIdHelp": "The name people see as the sender. Use the one the company approved."
   },
   "attendance": {
     "legend": "Attendance policy",
@@ -134,46 +171,55 @@
     "lateCountsAsPresent": "Count late as present",
     "leaveCountsAsWorkingDay": "Count leave as a working day",
     "allowFutureDates": "Allow marking future dates",
-    "autoAbsentLegend": "Auto-absent guardian notification",
+    "autoAbsentLegend": "Automatic absence message",
     "autoAbsentEnabled": "Notify guardians automatically when a student is marked absent",
     "autoAbsentCutoffTime": "Send by",
     "confirmEnableNotificationDescription": "Enabling this sends every absent student's guardian a notification automatically, every school day. Are you sure?",
     "confirmEnableNotificationConfirm": "Yes, enable it",
-    "confirmEnableNotificationCancel": "Cancel"
+    "confirmEnableNotificationCancel": "Cancel",
+    "description": "When a student counts as late or absent, and how the attendance rate is worked out.",
+    "correctionWindowHelp": "Past attendance can be corrected for this many days.",
+    "lowAttendanceHelp": "Below this a student is shown as low attendance.",
+    "confirmEnableNotificationTitle": "Turn on automatic absence messages?"
   },
   "signIn": {
-    "legend": "Sign-in options",
-    "otpLoginEnabled": "Allow sign-in with mobile number + code"
+    "legend": "Ways to sign in",
+    "otpLoginEnabled": "Allow sign-in with a code sent to the phone",
+    "description": "How teachers, staff and guardians of this school sign in.",
+    "otpLoginHelp": "When on, people can sign in without a password using a code sent to their phone. When off, only the password works."
   },
   "smsCredit": {
     "legend": "SMS credit",
-    "loading": "Loading…",
     "loadError": "Couldn't load your SMS credit balance. Try refreshing the page.",
-    "modeOff": "Own provider / unmetered",
-    "modePlatform": "Platform credits",
+    "modeOff": "School's own SMS company — no credit needed",
+    "modePlatform": "Platform credit",
     "available": "Available",
-    "reserved": "Reserved",
+    "reserved": "Held for sending",
     "ledger": {
-      "caption": "SMS credit movements, newest first.",
+      "caption": "SMS credit history, newest first.",
       "empty": "No movements yet.",
       "kindHeader": "Type",
-      "unitsHeader": "Units",
-      "referenceHeader": "Reference",
+      "unitsHeader": "Credit",
+      "referenceHeader": "What for",
       "reasonHeader": "Reason",
       "dateHeader": "Date",
       "kind": {
-        "GRANT": "Grant",
-        "RESERVE": "Reserve",
-        "DEBIT": "Debit",
-        "RELEASE": "Release",
-        "ADJUST": "Adjust"
+        "GRANT": "Added",
+        "RESERVE": "Held",
+        "DEBIT": "Used",
+        "RELEASE": "Returned",
+        "ADJUST": "Adjusted"
       },
       "referenceType": {
         "batch": "Reminder round",
         "log": "Message",
-        "manual": "Manual"
-      }
-    }
+        "manual": "By hand"
+      },
+      "emptyExplanation": "Credit added or used will show here."
+    },
+    "description": "Each SMS uses credit. Credit is added by the platform.",
+    "descriptionOff": "This school sends SMS through its own company, so no credit is counted.",
+    "ledgerTitle": "Credit history"
   },
   "calendar": {
     "legend": "Calendar",
@@ -185,10 +231,10 @@
     "weekShapeLabel": "Week start / weekend",
     "weekShapeLoading": "Loading…",
     "weekShapeError": "Couldn't load week shape.",
-    "weekShapeValue": "Week starts {{weekStart}}, weekend is {{weekend}}, timezone {{timezone}}",
+    "weekShapeValue": "Week starts {{weekStart}}, weekend is {{weekend}}.",
     "weekendSeparator": " and ",
-    "changeInRegional": "Change in Regional",
-    "changeInAttendance": "Change in Attendance",
+    "changeInRegional": "Change the first day of the week",
+    "changeInAttendance": "Change weekly off days (Academics)",
     "weekday": {
       "sunday": "Sunday",
       "monday": "Monday",
@@ -197,7 +243,9 @@
       "thursday": "Thursday",
       "friday": "Friday",
       "saturday": "Saturday"
-    }
+    },
+    "description": "Exams, holidays and terms are arranged with this.",
+    "countryHelp": "Public holidays come from this country."
   },
   "fees": {
     "approvalLegend": "Extra approval",
@@ -213,16 +261,23 @@
     "lateFeeKind": "Kind",
     "lateFeeKindPercent": "Percent",
     "lateFeeKindFlat": "Flat amount",
-    "lateFeeValue": "Value"
+    "lateFeeValue": "Value",
+    "title": "Fee rules",
+    "description": "Approval, telling families and late fees — for every fee bill.",
+    "approvalModeHelp": "How an admin confirms once more before sensitive changes, such as changing late fees.",
+    "lateFeeIntro": "Tick the fees that get a late fee.",
+    "lateFeeType": "Fee type"
   },
   "evaluations": {
     "legend": "Evaluations",
     "incidentSmsLabel": "Send an SMS when a new incident report is filed",
-    "incidentSmsHint": "The SMS says only that a new report exists, never what it says. SMS is sent only if an SMS provider is set up in the SMS settings above.",
-    "providerConfigured": "An SMS provider is set up, so incident SMS can be sent.",
-    "providerMissingWarning": "No SMS provider is set up yet. Incident SMS will not be sent until you set one up in the SMS settings above.",
-    "providerNotConfigured": "No SMS provider is set up.",
-    "pushAlwaysOn": "Push notifications are always on."
+    "incidentSmsHint": "The SMS says only that a new report exists, never what it says.",
+    "providerMissingWarning": "Incident SMS will not be sent until an SMS company is added in Communication.",
+    "providerNotConfigured": "No SMS company added.",
+    "pushAlwaysOn": "Push notifications are always on.",
+    "description": "Who is told, and how, when a new incident report is filed.",
+    "providerReady": "SMS company added",
+    "openSmsSettings": "Communication › add SMS company"
   },
   "organisation": {
     "legend": "Shift, version & group",
@@ -236,11 +291,15 @@
     "renamePlaceholder": "New name",
     "renameConfirm": "Save",
     "renameCancel": "Cancel",
-    "emptyList": "No values yet."
+    "emptyList": "No values yet.",
+    "description": "Classes and sections use these names. Press Save after renaming or removing.",
+    "undoRemoveAction": "Undo remove",
+    "removeInUse": "\"{{value}}\" is still used by classes or sections, so it can't be removed. Rename it instead.",
+    "removeInUseSummary": "Nothing was saved. Fix the value marked above and try again."
   },
   "printers": {
     "title": "Printers",
-    "explainer": "Your browser can't tell which printer you pick in its print dialog, so choose the same printer here when you print. Each printer can be off by a millimetre or two — the calibration page fixes that.",
+    "explainer": "Pick the printer here when you print. Each printer prints a millimetre or two off — fix that with the measuring page.",
     "add": "Add printer",
     "edit": "Edit",
     "archive": "Archive",
@@ -264,16 +323,16 @@
       "INTERLEAVED": "Automatic both sides",
       "GROUPED": "I turn the stack over by hand"
     },
-    "offsetValue": "Offset X {{x}} mm, Y {{y}} mm",
-    "calibrate": "Print calibration page",
+    "offsetValue": "Left–right {{x}} · up–down {{y}}",
+    "calibrate": "Print measuring page",
     "calibrateError": "Could not open the print window.",
     "popupBlocked": "Your browser blocked the print window. Allow pop-ups for this site and try again.",
     "guide": {
-      "title": "Calibrate {{name}}",
-      "step1": "Measure how far the first cross is from the top-left corner of the paper. It should be exactly 20 mm.",
-      "step2": "Enter the difference as the offset X and Y in this printer's settings (a printed cross that is 1 mm too far right needs X −1).",
+      "title": "{{name}}: fix the measurements",
+      "step1": "On the printed page, measure from the top-left corner of the paper to the first cross. It should be exactly 20 mm.",
+      "step2": "Enter the difference in the printer's shift. A cross printed 1 mm too far right needs left–right −1.",
       "step3": "Print the page again and check that the cross is now at 20 mm.",
-      "editOffset": "Edit offset",
+      "editOffset": "Change the shift",
       "close": "Done"
     },
     "form": {
@@ -281,16 +340,16 @@
       "editTitle": "Edit printer",
       "name": "Name",
       "type": "Printer type",
-      "margins": "Margins (mm)",
+      "margins": "Blank edge of the paper (mm)",
       "marginTop": "Top",
       "marginRight": "Right",
       "marginBottom": "Bottom",
       "marginLeft": "Left",
-      "offsetX": "Offset X (mm)",
-      "offsetY": "Offset Y (mm)",
-      "scale": "Scale",
+      "offsetX": "Shift left–right (mm)",
+      "offsetY": "Shift up–down (mm)",
+      "scale": "Size",
       "duplex": "Printing on both sides",
-      "gap": "Cutting gap (mm)",
+      "gap": "Cutting gap between cards (mm)",
       "save": "Save",
       "saving": "Saving…",
       "cancel": "Cancel",
@@ -298,11 +357,31 @@
       "errors": {
         "name": "Enter a name.",
         "margin": "Margins must be between 0 and 20 mm.",
-        "offset": "Offset must be between −10 and 10 mm.",
-        "scale": "Scale must be between 0.90 and 1.10.",
+        "offset": "The shift must be between −10 and 10 mm.",
+        "scale": "Size must be between 0.90 and 1.10.",
         "gap": "The gap must be between 0 and 20 mm."
-      }
+      },
+      "advanced": "Measurements (advanced)",
+      "advancedHelp": "Usually left alone. Enter what the measuring page shows.",
+      "offsetHelp": "−10 to 10",
+      "scaleHelp": "1 = actual size (0.90 to 1.10)",
+      "gapHelp": "Office printers only."
     },
-    "archiveTitle": "Archive printer"
+    "archiveTitle": "Archive printer",
+    "listCaption": "Printers",
+    "columns": {
+      "name": "Name",
+      "type": "Type",
+      "duplex": "Both sides",
+      "offset": "Shift (mm)"
+    }
+  },
+  "channelStatus": {
+    "ready": "Set up",
+    "notReady": "Not set up"
+  },
+  "mutationError": {
+    "generic": "Couldn't save. Try again.",
+    "forbidden": "You don't have permission to do this."
   }
 }

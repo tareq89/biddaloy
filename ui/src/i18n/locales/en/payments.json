@@ -117,7 +117,6 @@
     "changeHandlingLabel": "Change"
   },
   "detail": {
-    "back": "Back to payments",
     "loadError": "Couldn't load this payment.",
     "retry": "Retry",
     "amount": "Amount",
@@ -127,15 +126,16 @@
     "invoice": "Invoice",
     "noInvoice": "No invoice",
     "unknown": "Unknown",
-    "reversalOf": "Reversal of #{{id}}",
     "reversedBanner": "This payment has been reversed.",
     "reverseAction": "Reverse payment",
     "allocations": {
-      "title": "Allocations",
+      "title": "Where the money went",
       "columnFee": "Fee",
       "columnPeriod": "Period",
       "columnAmount": "Amount",
-      "columnDiscount": "Discount"
+      "columnDiscount": "Discount",
+      "help": "The bills this payment was put against.",
+      "phoneLine": "{{period}} · Discount {{discount}}"
     },
     "reverseDialog": {
       "title": "Reverse this payment?",
@@ -146,13 +146,72 @@
       "reasonLabel": "Reason",
       "confirm": "Reverse payment",
       "errorMessage": "Reversing this payment failed.",
-      "errorLaterPayments": "Later payments must be reversed first:"
-    }
+      "errorLaterPayments": "Later payments must be reversed first:",
+      "laterPaymentLink": "Later payment {{n}}"
+    },
+    "reference": "Transaction reference",
+    "approver": "Discount approved by",
+    "printReceipt": "Print receipt",
+    "printError": "The receipt could not be opened for printing.",
+    "viewInvoice": "View invoice",
+    "viewStudent": "Student page",
+    "remarks": "Remarks",
+    "reversalEntry": "This is a reversal entry.",
+    "viewOriginal": "View original payment",
+    "reversedStatus": "Reversed",
+    "viewReversal": "View reversal entry"
   },
   "printFormat": {
     "label": "Paper size",
     "a4": "A4 page",
     "pos80": "Receipt printer — 80 mm",
     "pos58": "Receipt printer — 58 mm"
+  },
+  "invoices": {
+    "subtitle": "Every payment's receipt and credit note, newest first.",
+    "view": "View",
+    "creditNote": "Credit note",
+    "emptyText": "When you record a payment its invoice appears here.",
+    "amountRangeLabel": "Amount (৳)",
+    "minAmount": "Minimum",
+    "maxAmount": "Maximum"
+  },
+  "invoiceDetail": {
+    "student": "Student",
+    "payment": "Payment",
+    "paymentValue": "{{method}} · {{date}}",
+    "originalInvoice": "Original invoice",
+    "creditNote": "Credit note",
+    "lines": {
+      "caption": "Bills for {{name}}",
+      "fee": "Fee",
+      "period": "Period",
+      "billed": "Bill",
+      "discount": "Discount",
+      "paidNow": "Paid now",
+      "balance": "Left to pay",
+      "phoneLine": "{{period}} · Bill {{billed}}"
+    },
+    "totals": {
+      "billed": "Total billed",
+      "discount": "Discount",
+      "tax": "Tax",
+      "wallet": "From wallet",
+      "paid": "Paid",
+      "change": "Change given"
+    },
+    "notes": "Notes",
+    "printTitle": "Print",
+    "printAction": "Print",
+    "sendTitle": "Send to guardian",
+    "sendWhatsapp": "WhatsApp",
+    "sendSms": "SMS",
+    "shareTitle": "Share link",
+    "shareHelp": "Anyone with the link can see this receipt without signing in.",
+    "shareCreate": "Create link",
+    "shareRevoke": "Turn off link",
+    "shareRevokeTitle": "Turn off this link?",
+    "shareFailed": "The share link couldn't be created.",
+    "revokeFailed": "The link couldn't be turned off."
   }
 }
