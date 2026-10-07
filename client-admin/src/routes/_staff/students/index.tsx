@@ -457,7 +457,7 @@ function StudentsListPage() {
             icon: <UploadIcon className="size-4" aria-hidden />,
             priority: 'secondary',
             allowed: canBulkImport,
-            onClick: () => void navigate({ to: '/students/import' }),
+            to: '/students/import',
           },
           {
             id: 'print-section',
@@ -473,7 +473,7 @@ function StudentsListPage() {
             icon: <PlusIcon className="size-4" aria-hidden />,
             priority: 'primary',
             allowed: canAddStudent,
-            onClick: () => void navigate({ to: '/students/new' }),
+            to: '/students/new',
           },
           {
             id: 'photos',

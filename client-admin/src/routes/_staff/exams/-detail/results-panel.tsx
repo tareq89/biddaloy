@@ -123,7 +123,11 @@ export function ResultsPanel({ examId, examStatus }: ResultsPanelProps) {
                 </MenuTrigger>
                 <MenuContent align="end">
                   {secondary.map((a) => (
-                    <MenuItem key={a.id} className="md:hidden" onSelect={a.onClick}>
+                    <MenuItem
+                      key={a.id}
+                      className="md:hidden"
+                      {...(a.onClick && { onSelect: a.onClick })}
+                    >
                       {a.icon}
                       {a.label}
                     </MenuItem>
@@ -134,7 +138,7 @@ export function ResultsPanel({ examId, examStatus }: ResultsPanelProps) {
                       key={a.id}
                       variant="destructive"
                       className="text-destructive"
-                      onSelect={a.onClick}
+                      {...(a.onClick && { onSelect: a.onClick })}
                     >
                       {a.icon}
                       {a.label}
