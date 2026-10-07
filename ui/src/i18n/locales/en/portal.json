@@ -397,8 +397,8 @@
   },
   "surveys": {
     "subtitle": "Tell the school what you think of your teachers.",
-    "pendingCount_one": "{{count}} teacher left to answer",
-    "pendingCount_other": "{{count}} teachers left to answer",
+    "pendingCount_one": "{{n}} form left to fill in",
+    "pendingCount_other": "{{n}} forms left to fill in",
     "optionalHint": "Every question is optional — give stars, write, or both. Answer at least one."
   }
 }

@@ -71,7 +71,7 @@ describe('/portal/surveys', () => {
     expect(screen.getByText('Tell the school what you think of your teachers.')).toBeTruthy();
   });
 
-  it('counts the teachers left to answer', async () => {
+  it('counts the forms left (one per teacher and subject), not the teachers', async () => {
     const two = pendingSurveyFactory({
       id: 's1',
       anonymous: true,
@@ -84,9 +84,10 @@ describe('/portal/surveys', () => {
           subjectName: 'Mathematics',
           subjectNameBn: 'গণিত',
         },
+        // The same teacher for a second subject: a second form.
         {
-          teacherId: 't2',
-          teacherName: 'Karim Ali',
+          teacherId: 't1',
+          teacherName: 'Rahim Uddin',
           subjectId: 'sub2',
           subjectName: 'Science',
           subjectNameBn: 'বিজ্ঞান',
@@ -97,7 +98,7 @@ describe('/portal/surveys', () => {
     render();
 
     expect(
-      await screen.findByText('2 teachers left to answer', undefined, { timeout: 4000 }),
+      await screen.findByText(/^\S+ forms left to fill in$/, undefined, { timeout: 4000 }),
     ).toBeTruthy();
   });
 
