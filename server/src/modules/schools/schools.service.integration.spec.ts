@@ -130,6 +130,28 @@ describe('SchoolsService (integration)', () => {
     expect(logs[0].created_at).toBeInstanceOf(Date);
   });
 
+  it('[8.10.7.0-s3] persists routine through updateSettings and keeps it across a fees-only patch', async () => {
+    const school = await createSchool();
+    const routine = { defaultChangeoverMinutes: 10, maxPeriodsPerTeacherPerDay: 5 };
+
+    const returned = await service.updateSettings(
+      school.id,
+      plainToInstance(TenantSettingsDto, { version: 1, routine }),
+      SEED_ADMIN_USER_ID,
+    );
+    expect(returned.routine?.defaultChangeoverMinutes).toBe(10);
+    const stored = await schoolRepo.findOneByOrFail({ id: school.id });
+    expect((stored.settings as any).routine).toEqual(routine);
+
+    await service.updateSettings(
+      school.id,
+      plainToInstance(TenantSettingsDto, { version: 1, fees: { approvalMode: 'OTP' } }),
+      SEED_ADMIN_USER_ID,
+    );
+    const after = await schoolRepo.findOneByOrFail({ id: school.id });
+    expect((after.settings as any).routine).toEqual(routine);
+  });
+
   it('never stores the secret value in the audit diff, asserted against the raw stored row', async () => {
     const school = await createSchool();
     const patch = plainToInstance(TenantSettingsDto, {

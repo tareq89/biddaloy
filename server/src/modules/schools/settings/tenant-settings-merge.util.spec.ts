@@ -161,6 +161,61 @@ describe('mergeTenantSettings', () => {
     });
   });
 
+  it('replaces routine wholesale when present, and leaves it untouched when the patch omits it (8.10.7.0-s3)', () => {
+    const existing = {
+      version: 1,
+      fees: { approvalMode: 'OTP' },
+      routine: {
+        defaultChangeoverMinutes: 5,
+        maxConsecutivePeriods: 3,
+        subjectPeriodsPerWeek: { s1: 4 },
+      },
+    };
+
+    const untouched = mergeTenantSettings(existing, { version: 1, fees: { approvalMode: 'OTP' } });
+    expect(untouched.routine).toEqual(existing.routine);
+
+    const merged = mergeTenantSettings(
+      existing,
+      toPatch({ version: 1, routine: { defaultChangeoverMinutes: 7 } }),
+    );
+    expect(merged.routine).toEqual({ defaultChangeoverMinutes: 7 });
+    expect(merged.fees).toEqual({ approvalMode: 'OTP' });
+  });
+
+  it('stores a cleared routine cap as null (8.10.7.0-s3)', () => {
+    const merged = mergeTenantSettings(
+      { version: 1 },
+      { version: 1, routine: { defaultChangeoverMinutes: 5, maxPeriodsPerTeacherPerDay: null } },
+    );
+    expect((merged.routine as Record<string, unknown>).maxPeriodsPerTeacherPerDay).toBeNull();
+  });
+
+  it('every TenantSettingsDto section survives a merge (8.10.7.0-s3)', () => {
+    // Adding a section to TenantSettingsDto without listing it here is a compile error,
+    // and listing it without a merge branch fails the assertion below.
+    // `organisationRenames` is a write instruction stripped before the merge, and `preset`
+    // is not in the DTO (a PATCH can never set it, D37 of Epic 35).
+    const EVERY_SECTION: Record<
+      Exclude<keyof TenantSettingsDto, 'version' | 'organisationRenames'>,
+      { marker: string }
+    > = {
+      region: { marker: 'region' },
+      communications: { marker: 'communications' },
+      attendance: { marker: 'attendance' },
+      routine: { marker: 'routine' },
+      organisation: { marker: 'organisation' },
+      auth: { marker: 'auth' },
+      backup: { marker: 'backup' },
+      fees: { marker: 'fees' },
+      evaluations: { marker: 'evaluations' },
+    };
+    const merged = mergeTenantSettings({}, { version: 1, ...EVERY_SECTION });
+    for (const key of Object.keys(EVERY_SECTION)) {
+      expect(merged[key]).toMatchObject({ marker: key });
+    }
+  });
+
   it('ignores a patched preset and keeps the stored one (35.1.2)', () => {
     const preset = { id: 'bd-national', version: 1 };
     const withPreset = { version: 1, preset };
