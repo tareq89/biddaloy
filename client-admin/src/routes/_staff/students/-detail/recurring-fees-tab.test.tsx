@@ -106,7 +106,7 @@ describe('students/-detail/recurring-fees-tab', () => {
 
     expect(await screen.findByText('Included schedule')).toBeTruthy();
     expect(await screen.findByText('Excluded schedule')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Exclude schedule' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Exclude from this rule' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Include again' })).toBeTruthy();
   });
 
@@ -124,15 +124,15 @@ describe('students/-detail/recurring-fees-tab', () => {
 
     const user = userEvent.setup();
     await screen.findByText('Included schedule');
-    await user.click(screen.getByRole('button', { name: 'Exclude schedule' }));
+    await user.click(screen.getByRole('button', { name: 'Exclude from this rule' }));
 
     // `AddExclusionDto.reason` is `@IsNotEmpty()`, so submit stays disabled
     // until a reason is typed rather than 400ing after a round trip.
-    const submit = screen.getByRole('button', { name: 'Exclude schedule' });
+    const submit = screen.getByRole('button', { name: 'Exclude from this rule' });
     expect(submit.hasAttribute('disabled')).toBe(true);
 
     await user.type(screen.getByLabelText('Reason'), 'Sibling discount');
-    await user.click(screen.getByRole('button', { name: 'Exclude schedule' }));
+    await user.click(screen.getByRole('button', { name: 'Exclude from this rule' }));
 
     await waitFor(() => expect(excludedBody).toBeDefined());
     expect(excludedBody).toEqual({ student_id: 'student-1', reason: 'Sibling discount' });
@@ -185,7 +185,7 @@ describe('students/-detail/recurring-fees-tab', () => {
     await screen.findByText('Matching schedule');
     expect(screen.queryByRole('button', { name: 'Add schedule' })).toBeNull();
     expect(screen.getByRole('button', { name: 'Bill one-off' })).toBeTruthy();
-    expect(screen.getByText('Already covered automatically by this schedule.')).toBeTruthy();
+    expect(screen.getByText('This rule already bills this student automatically.')).toBeTruthy();
   });
 
   it('explains the mismatch when the audience does not match the student', async () => {
@@ -210,7 +210,7 @@ describe('students/-detail/recurring-fees-tab', () => {
     expect(screen.getByRole('button', { name: 'Bill one-off' })).toBeTruthy();
     expect(
       screen.getByText(
-        'This student doesn\'t match this schedule\'s audience — use "Bill one-off" instead.',
+        'This rule doesn\'t cover this student (a different class or section, or not currently enrolled) — use "Bill one-off" instead.',
       ),
     ).toBeTruthy();
   });
@@ -262,7 +262,7 @@ describe('students/-detail/recurring-fees-tab', () => {
     });
 
     await screen.findByText('Included schedule');
-    expect(screen.queryByRole('button', { name: 'Exclude schedule' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Exclude from this rule' })).toBeNull();
     await screen.findByText('Excluded schedule');
     expect(screen.queryByRole('button', { name: 'Include again' })).toBeNull();
   });

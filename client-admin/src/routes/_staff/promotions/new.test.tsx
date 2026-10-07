@@ -182,7 +182,7 @@ describe('/promotions/new', () => {
     await user.click(checkbox);
 
     await screen.findByText('Select at least one exam.');
-    expect(screen.getByRole('button', { name: 'Create run' }).hasAttribute('disabled')).toBe(true);
+    expect(screen.getByRole('button', { name: 'Create list' }).hasAttribute('disabled')).toBe(true);
   });
 
   it('blocks submit and shows the classes link for a blocking reason', async () => {
@@ -206,7 +206,7 @@ describe('/promotions/new', () => {
     );
     const link = await screen.findByRole('link', { name: /Open classes for/ });
     expect(link.getAttribute('href')).toBe(`/classes?academic_year_id=${year2027.id}`);
-    expect(screen.getByRole('button', { name: 'Create run' }).hasAttribute('disabled')).toBe(true);
+    expect(screen.getByRole('button', { name: 'Create list' }).hasAttribute('disabled')).toBe(true);
   });
 
   it('unblocks PICK_TARGET_CLASS once a target class is picked', async () => {
@@ -227,14 +227,14 @@ describe('/promotions/new', () => {
     });
 
     await screen.findByText('Choose a target class, or graduate the source class.');
-    expect(screen.getByRole('button', { name: 'Create run' }).hasAttribute('disabled')).toBe(true);
+    expect(screen.getByRole('button', { name: 'Create list' }).hasAttribute('disabled')).toBe(true);
 
     const targetClassSelect = screen.getByRole('combobox', { name: 'Target class' });
     await user.click(targetClassSelect);
     await user.click(await screen.findByRole('option', { name: 'Class 7' }));
 
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'Create run' }).hasAttribute('disabled')).toBe(
+      expect(screen.getByRole('button', { name: 'Create list' }).hasAttribute('disabled')).toBe(
         false,
       ),
     );
@@ -263,7 +263,7 @@ describe('/promotions/new', () => {
     await user.click(screen.getByRole('radio', { name: 'Snake (balance across sections)' }));
 
     const submit = await waitFor(() => {
-      const button = screen.getByRole('button', { name: 'Create run' });
+      const button = screen.getByRole('button', { name: 'Create list' });
       expect(button.hasAttribute('disabled')).toBe(false);
       return button;
     });

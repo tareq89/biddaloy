@@ -169,7 +169,7 @@ describe('ReopenPreviewDialog', () => {
 
     expect(
       await screen.findByText(
-        '12 published result(s) will be unpublished and marks become editable again. This needs step-up approval.',
+        '12 published result(s) will be unpublished and marks become editable again. This needs extra approval.',
       ),
     ).toBeTruthy();
     // The approval modal's own field must NOT be on screen yet — it only
@@ -207,7 +207,7 @@ describe('ReopenPreviewDialog', () => {
 
     // Preview visible before the first click.
     await screen.findByText(
-      '12 published result(s) will be unpublished and marks become editable again. This needs step-up approval.',
+      '12 published result(s) will be unpublished and marks become editable again. This needs extra approval.',
     );
     expect(screen.queryByLabelText('Email or phone')).toBeNull();
 

@@ -12,8 +12,8 @@
     "saving": "Creating…"
   },
   "list": {
-    "title": "Exam templates",
-    "caption": "Exam templates",
+    "title": "Exam structures",
+    "caption": "Exam structures",
     "add": "New template",
     "columnName": "Name",
     "columnKind": "Kind",
@@ -22,7 +22,7 @@
     "columnActions": "Actions",
     "delete": "Delete",
     "deleteRow": "Delete template {{name}}",
-    "emptyMessage": "No templates yet — apply a curriculum preset or create one.",
+    "emptyMessage": "No exam structures yet — use a ready-made curriculum or create one.",
     "errorMessage": "Couldn't load the templates.",
     "announceResults": "Showing {{visible}} of {{total}} templates"
   },

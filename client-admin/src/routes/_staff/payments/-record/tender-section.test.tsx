@@ -57,7 +57,7 @@ describe('TenderSection', () => {
       tenderedMinorUnits: 500000,
     });
 
-    await user.click(await screen.findByLabelText('Credit change to wallet'));
+    await user.click(await screen.findByLabelText('Keep the change as credit'));
     expect(onChangeHandlingChange).toHaveBeenCalledWith('TO_WALLET');
   });
 

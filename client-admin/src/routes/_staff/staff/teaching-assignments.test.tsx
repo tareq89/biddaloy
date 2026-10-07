@@ -77,7 +77,7 @@ describe('/staff/teaching-assignments', () => {
       locale: 'en',
     });
 
-    await screen.findByRole('heading', { name: 'Teaching assignments' });
+    await screen.findByRole('heading', { name: 'Teacher assignments' });
 
     const user = userEvent.setup();
     await user.click(screen.getByRole('combobox', { name: 'Class' }));
@@ -120,7 +120,7 @@ describe('/staff/teaching-assignments', () => {
       locale: 'en',
     });
 
-    await screen.findByRole('heading', { name: 'Teaching assignments' });
+    await screen.findByRole('heading', { name: 'Teacher assignments' });
     const retryButton = await screen.findByRole('button', { name: 'Retry' });
 
     broken = false;
@@ -170,7 +170,7 @@ describe('/staff/teaching-assignments', () => {
       locale: 'en',
     });
 
-    await screen.findByRole('heading', { name: 'Teaching assignments' });
+    await screen.findByRole('heading', { name: 'Teacher assignments' });
 
     const user = userEvent.setup();
     await user.click(screen.getByRole('combobox', { name: 'Class' }));

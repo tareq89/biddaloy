@@ -172,7 +172,7 @@ describe('RoutineAgenda', () => {
       />,
     );
     expect(screen.getByText('Holiday — Eid ul-Fitr')).toBeTruthy();
-    expect(screen.queryByText('No classes.')).toBeNull();
+    expect(screen.queryByText('No periods.')).toBeNull();
   });
 
   it('shows the generic empty state for a genuinely empty working day', async () => {
@@ -185,7 +185,7 @@ describe('RoutineAgenda', () => {
         onToggleWeekView={vi.fn()}
       />,
     );
-    expect(screen.getByText('No classes.')).toBeTruthy();
+    expect(screen.getByText('No periods.')).toBeTruthy();
   });
 
   it('lets a day switcher tab select a different day', async () => {
