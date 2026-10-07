@@ -207,7 +207,7 @@ test('create a template, fill the grid, save, then create an exam from it', asyn
   await test.step('the success toast reports both components', async () => {
     // i18next cannot plural here (`t()` is a plain lookup): `_other` = count 2.
     await expect(
-      page.getByText(t('examsTemplateField.toast.created_other', { count: 2 })),
+      page.getByText(t('examsTemplateField.toast.created_other', { count: 2, n: 2 })),
     ).toBeVisible();
   });
 });
