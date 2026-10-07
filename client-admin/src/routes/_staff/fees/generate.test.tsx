@@ -348,10 +348,10 @@ describe('/fees/generate', () => {
   });
 
   it('drops a deep-linked generated_by_user_id when the role cannot read users', async () => {
-    let lastQuery = '';
+    const queries: string[] = [];
     server.use(
       http.get('/api/v1/fees/generations', ({ request }) => {
-        lastQuery = new URL(request.url).search;
+        queries.push(new URL(request.url).search);
         return HttpResponse.json({
           data: [batchFactory()],
           total: 1,
@@ -365,8 +365,8 @@ describe('/fees/generate', () => {
     render('ACCOUNTANT', ['/fees/generate?generated_by_user_id=user-1']);
 
     await screen.findByText('Karim Rahman');
-    await waitFor(() =>
-      expect(new URLSearchParams(lastQuery).has('generated_by_user_id')).toBe(false),
-    );
+    // Neither the route loader's prefetch nor the page asks for the dropped filter.
+    expect(queries.length).toBeGreaterThan(0);
+    expect(queries.filter((q) => new URLSearchParams(q).has('generated_by_user_id'))).toEqual([]);
   });
 });
