@@ -97,9 +97,9 @@ test.describe('admin closes', () => {
     const closeName = t('evaluations.surveys.detail.close');
     const inline = page.getByRole('button', { name: closeName, exact: true });
     const more = page.getByRole('button', { name: t('common.actions.moreActions') });
-    await expect(inline.or(more).first()).toBeVisible();
-    if ((await inline.count()) > 0) {
-      await inline.click();
+    await expect(inline.or(more).filter({ visible: true }).first()).toBeVisible();
+    if (await inline.first().isVisible()) {
+      await inline.first().click();
     } else {
       await more.click();
       await page.getByRole('menuitem', { name: closeName, exact: true }).click();
