@@ -122,6 +122,11 @@ describe('validatePresetPack', () => {
       'grading bands have a gap between F and B',
     ],
     [
+      'fractional band bound',
+      (p) => (p.gradingScale!.bands[1].to = 79.5),
+      'grading band B: from and to must be whole numbers',
+    ],
+    [
       'band overlap',
       (p) => (p.gradingScale!.bands[1].from = 30),
       'grading bands F and B are unsorted or overlap',
