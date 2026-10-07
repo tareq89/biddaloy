@@ -234,9 +234,8 @@ function InvoicesListPage() {
       id: 'dueDate',
       header: t('invoices.columnDueDate'),
       accessorFn: (row) => formatDate(parseServerDate(row.due_date), regionConfig),
+      // Shown on cards too: an issued or overdue invoice's due date differs from its issue date.
       sortable: true,
-      // For a receipt it equals the issue date; the detail page has it.
-      card: 'hidden',
     },
   ];
 
