@@ -83,11 +83,28 @@ describe('TemplateGrid', () => {
     expect(screen.queryByLabelText(/BAN — Bangla, class 5/)).toBeNull();
   });
 
+  it('switches tabs and selects a newly added class without a parent controlling the grade', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<TemplateGrid rows={ROWS} subjects={SUBJECTS} onSave={vi.fn()} />, {
+      locale: 'en',
+    });
+    await cell('Part name');
+    await user.click(screen.getAllByRole('tab')[1]!);
+    expect(await cell('Part name', 1, 'ENG — English', 6)).toBeTruthy();
+
+    await user.click(screen.getByRole('button', { name: 'Add class' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.type(within(dialog).getByLabelText('Class number'), '7{Enter}');
+    expect(await screen.findByRole('combobox', { name: /Subject to add to class 7/ })).toBeTruthy();
+  });
+
   it('adds and removes part rows', async () => {
     const { user } = setup();
     await user.click(await screen.findByRole('button', { name: 'Add part' }));
     expect(await cell('Part name', 2)).toBeTruthy();
-    await user.click(screen.getByRole('button', { name: 'Remove part 2 of BAN — Bangla, class 5' }));
+    await user.click(
+      screen.getByRole('button', { name: 'Remove part 2 of BAN — Bangla, class 5' }),
+    );
     expect(screen.queryByLabelText(/Part name — BAN — Bangla, class 5, row 2/)).toBeNull();
   });
 

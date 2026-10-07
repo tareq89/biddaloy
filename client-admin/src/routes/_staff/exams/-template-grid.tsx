@@ -169,6 +169,12 @@ export function TemplateGrid({
   const numerals = config.numerals;
   const [blocks, setBlocks] = React.useState(() => toDraft(rows, numerals));
   const [extraGrades, setExtraGrades] = React.useState<number[]>([]);
+  // Fallback selection when the parent does not control `selectedGrade`.
+  const [localGrade, setLocalGrade] = React.useState<number | undefined>(undefined);
+  function selectGrade(grade: number) {
+    setLocalGrade(grade);
+    onGradeChange?.(grade);
+  }
   const [gradeOpen, setGradeOpen] = React.useState(false);
   const [gradeInput, setGradeInput] = React.useState('');
   const [gradeError, setGradeError] = React.useState(false);
@@ -249,7 +255,7 @@ export function TemplateGrid({
     setGradeInput('');
     setGradeOpen(false);
     if (!grades.includes(n)) setExtraGrades([...extraGrades, n]);
-    onGradeChange?.(n);
+    selectGrade(n);
   }
   function discard() {
     setBlocks(toDraft(rows, numerals));
@@ -257,13 +263,12 @@ export function TemplateGrid({
     setAttempted(false);
   }
 
-  const dirty =
-    JSON.stringify(plain(blocks)) !== JSON.stringify(plain(toDraft(rows, numerals)));
+  const dirty = JSON.stringify(plain(blocks)) !== JSON.stringify(plain(toDraft(rows, numerals)));
   const grades = [...new Set([...blocks.map((b) => b.classGrade), ...extraGrades])].sort(
     (a, b) => a - b,
   );
-  const active =
-    selectedGrade !== undefined && grades.includes(selectedGrade) ? selectedGrade : grades[0];
+  const requested = selectedGrade ?? localGrade;
+  const active = requested !== undefined && grades.includes(requested) ? requested : grades[0];
   const allErrors = blocks.map(validateBlock);
   const blockInvalid = (b: DraftBlock, i: number) =>
     Object.keys(allErrors[i] ?? {}).length > 0 ||
@@ -362,7 +367,7 @@ export function TemplateGrid({
   return (
     // eslint-disable-next-line jsx-a11y/no-static-element-interactions -- delegates Esc from inner inputs
     <div ref={rootRef} className="flex flex-col gap-6" onKeyDown={onKeyDown}>
-      <Tabs value={String(active)} onValueChange={(v) => onGradeChange?.(Number(v))}>
+      <Tabs value={String(active)} onValueChange={(v) => selectGrade(Number(v))}>
         <div className="flex items-center overflow-x-auto">
           <TabsList variant="line" aria-label={t('grid.gradesLabel')}>
             {grades.map((grade) => (
@@ -530,7 +535,9 @@ export function TemplateGrid({
                           />
                           {code === 'fullInvalid' && (
                             <p role="alert" className="text-sm text-destructive">
-                              {t('grid.error.fullInvalid', { max: formatNumber(MAX_MARKS, config, { decimals: 2 }) })}
+                              {t('grid.error.fullInvalid', {
+                                max: formatNumber(MAX_MARKS, config, { decimals: 2 }),
+                              })}
                             </p>
                           )}
                         </div>
