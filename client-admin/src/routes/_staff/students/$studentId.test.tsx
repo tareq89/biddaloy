@@ -3,6 +3,7 @@ import {
   cleanupTestState,
   classFactory,
   classSectionFactory,
+  guardianFactory,
   renderWithRouter,
   server,
   studentFactory,
@@ -156,6 +157,66 @@ describe('/students/$studentId', () => {
     expect(screen.getByText('৳2,000.00')).toBeTruthy();
   });
 
+  it('shows facts (registration, class, roll, primary guardian), no back link, and the people-study-money tab order', async () => {
+    const guardian = guardianFactory({
+      id: 'g-1',
+      full_name: 'Karim Uddin',
+      phone: '+8801711000004',
+      is_primary_contact: true,
+    });
+    const student = studentFactory({
+      id: 'student-1',
+      full_name: 'Rahim Uddin',
+      roll_number: 7,
+      guardians: [guardian],
+      gender: 'MALE',
+      preferred_communication: 'SMS',
+    });
+    server.use(http.get('/api/v1/students/:id', () => HttpResponse.json(student)));
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/students/student-1'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    await screen.findByRole('heading', { name: 'Rahim Uddin' });
+    expect(screen.queryByRole('link', { name: 'Back to students' })).toBeNull();
+    expect(screen.getByText(student.registration_number)).toBeTruthy();
+    expect(screen.getByText('Primary guardian')).toBeTruthy();
+    expect(screen.getByText(/Karim Uddin · /)).toBeTruthy();
+    expect(screen.queryByText('+8801711000004')).toBeNull();
+
+    const tabNames = screen.getAllByRole('tab').map((tab) => tab.textContent);
+    expect(tabNames.slice(0, 3)).toEqual(['Overview', 'Guardians', 'Enrollment']);
+    expect(tabNames).toContain('Automatic billing');
+    expect(tabNames).toContain('Documents');
+    expect(tabNames).not.toContain('Recurring fees');
+
+    // Overview shows translated labels, never the raw enum.
+    expect(screen.getByText('Male')).toBeTruthy();
+    expect(screen.queryByText('MALE')).toBeNull();
+  });
+
+  it('keeps typed Records input when switching to another tab and back', async () => {
+    const student = studentFactory({ id: 'student-1', full_name: 'Rahim Uddin' });
+    server.use(http.get('/api/v1/students/:id', () => HttpResponse.json(student)));
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/students/student-1?tab=records'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await user.type(await screen.findByLabelText('Religion'), 'Islam');
+    await user.click(screen.getByRole('tab', { name: 'Overview' }));
+    await user.click(screen.getByRole('tab', { name: 'Records' }));
+    expect(screen.getByDisplayValue('Islam')).toBe(screen.getByLabelText('Religion'));
+  });
+
   it('gates page actions by permission — ADMIN sees all five, ACCOUNTANT sees Collect fees, Edit and Send reminder', async () => {
     const student = studentFactory({ id: 'student-1' });
     server.use(http.get('/api/v1/students/:id', () => HttpResponse.json(student)));
@@ -262,7 +323,8 @@ describe('/students/$studentId', () => {
     const user = userEvent.setup();
     await user.click(await screen.findByRole('button', { name: 'More actions' }));
     await user.click(await screen.findByRole('menuitem', { name: 'Delete' }));
-    const dialog = within(await screen.findByRole('dialog'));
+    // ConfirmDialog is an alertdialog.
+    const dialog = within(await screen.findByRole('alertdialog'));
     await user.click(dialog.getByRole('button', { name: 'Delete' }));
 
     await waitFor(() => expect(router.state.location.pathname).toBe('/students'));
@@ -393,6 +455,62 @@ describe('/students/$studentId', () => {
 
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(patchBody).toEqual({ class_id: 'class-2', section_id: 'section-2' });
+  });
+
+  it('[8.11.3] Move class dialog shows a translated line, never the server text, and stays open on 409 and 422', async () => {
+    const student = studentFactory({ id: 'student-1', full_name: 'Rahim Uddin' });
+    const targetClass = classFactory({ id: 'class-2', name: 'Class Two' });
+    const targetSection = classSectionFactory({
+      id: 'section-2',
+      class: targetClass,
+      section_name: 'B',
+      capacity: 40,
+    });
+    let status = 409;
+    server.use(
+      http.get('/api/v1/students/:id', () => HttpResponse.json(student)),
+      http.get('/api/v1/enrollments/student/:studentId', () => HttpResponse.json([])),
+      http.get('/api/v1/enrollments/:studentId/current', () =>
+        HttpResponse.json({
+          id: 'enrollment-1',
+          student_id: 'student-1',
+          class_id: 'class-1',
+          section_id: 'section-1',
+          academic_year_id: 'ay-1',
+          enrollment_status: 'ACTIVE',
+        }),
+      ),
+      http.get('/api/v1/classes', () =>
+        HttpResponse.json({ data: [targetClass], total: 1, page: 1, limit: 100, totalPages: 1 }),
+      ),
+      http.get('/api/v1/classes/:classId/sections', () => HttpResponse.json([targetSection])),
+      http.patch('/api/v1/enrollments/:id', () =>
+        HttpResponse.json({ message: 'raw server text' }, { status }),
+      ),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/students/student-1?tab=enrollment'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Move class' }));
+    const dialog = within(await screen.findByRole('dialog'));
+    await user.click(dialog.getByRole('combobox', { name: 'Class' }));
+    await user.click(await screen.findByRole('option', { name: 'Class Two' }));
+    await user.click(dialog.getByRole('combobox', { name: 'Section' }));
+    await user.click(await screen.findByRole('option', { name: 'B' }));
+
+    for (const code of [409, 422]) {
+      status = code;
+      await user.click(dialog.getByRole('button', { name: 'Move' }));
+      expect(await dialog.findByText("Couldn't move the student. Try again.")).toBeTruthy();
+      expect(screen.queryByText('raw server text')).toBeNull();
+      expect(screen.getByRole('dialog')).toBeTruthy();
+    }
   });
 
   it('[8.11.3] Move class dialog blocks submission and shows an error when the current-enrollment lookup fails', async () => {

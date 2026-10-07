@@ -2,20 +2,25 @@
   "list": {
     "title": "অভিভাবক",
     "caption": "অভিভাবক",
-    "searchLabel": "নাম, ফোন বা ইমেইল দিয়ে খুঁজুন",
+    "searchLabel": "খুঁজুন",
     "columnName": "নাম",
     "columnRelationship": "সম্পর্ক",
     "columnPhone": "ফোন",
     "columnPreferredCommunication": "পছন্দের যোগাযোগ মাধ্যম",
     "columnLinkedStudents": "যুক্ত শিক্ষার্থী",
     "columnPrimaryContact": "প্রধান যোগাযোগ",
-    "columnActions": "কার্যক্রম",
+    "columnActions": "কাজ",
     "allPreferredCommunication": "সকল মাধ্যম",
     "view": "দেখুন",
     "emptyValue": "—",
     "emptyMessage": "কোনো অভিভাবক পাওয়া যায়নি",
     "errorMessage": "অভিভাবকের তথ্য লোড করা যায়নি",
-    "announceResults": "{{total}} জনের মধ্যে {{count}} জন অভিভাবক দেখানো হচ্ছে"
+    "announceResults": "{{total}} জনের মধ্যে {{count}} জন অভিভাবক দেখানো হচ্ছে",
+    "searchPlaceholder": "নাম, ফোন বা ইমেইল",
+    "allRelationships": "সকল সম্পর্ক",
+    "primaryOnlyFilter": "শুধু প্রধান যোগাযোগ",
+    "moreStudents": "+{{n}} জন",
+    "emptyExplanation": "শিক্ষার্থী যোগ করার সময় তার অভিভাবক যোগ করলে এখানে দেখা যাবে।"
   },
   "preferredCommunicationOptions": {
     "SMS": "এসএমএস",
@@ -25,8 +30,6 @@
     "MESSENGER": "মেসেঞ্জার"
   },
   "detail": {
-    "back": "অভিভাবক তালিকায় ফিরুন",
-    "identifiers": "{{relationship}}",
     "forbidden": "এটি দেখার অনুমতি আপনার নেই।",
     "loadError": "অভিভাবকের তথ্য লোড করা যায়নি।",
     "tabs": {
@@ -46,18 +49,24 @@
       "columnOccupation": "পেশা",
       "columnPreferredCommunication": "পছন্দের যোগাযোগ মাধ্যম",
       "columnPrimaryContact": "প্রধান যোগাযোগ",
-      "emptyValue": "—"
+      "emptyValue": "—",
+      "title": "যোগাযোগের তথ্য",
+      "columnRelationship": "সম্পর্ক"
     },
     "linkedStudents": {
       "columnName": "নাম",
       "columnClass": "শ্রেণি",
-      "columnSection": "শাখা",
       "editAction": "যুক্ত শিক্ষার্থী সম্পাদনা করুন",
       "saveAction": "সংরক্ষণ করুন",
       "saving": "সংরক্ষণ করা হচ্ছে…",
       "cancelAction": "বাতিল",
       "emptyMessage": "এখনো কোনো শিক্ষার্থী যুক্ত করা হয়নি।",
-      "saveErrorMessage": "যুক্ত শিক্ষার্থী হালনাগাদ করা যায়নি। আবার চেষ্টা করুন।"
+      "saveErrorMessage": "যুক্ত শিক্ষার্থী হালনাগাদ করা যায়নি। আবার চেষ্টা করুন।",
+      "title": "যুক্ত শিক্ষার্থী",
+      "description": "এই অভিভাবক যাদের দেখাশোনা করেন।",
+      "columnRoll": "রোল",
+      "columnRegistration": "রেজিস্ট্রেশন নম্বর",
+      "emptyExplanation": "শিক্ষার্থী যুক্ত করলে এখানে দেখা যাবে।"
     },
     "communication": {
       "columnDate": "তারিখ",
@@ -65,7 +74,8 @@
       "columnRecipient": "প্রাপক",
       "columnStatus": "অবস্থা",
       "emptyMessage": "এখনো কোনো বার্তা পাঠানো হয়নি।",
-      "errorMessage": "বার্তার ইতিহাস লোড করা যায়নি।"
+      "errorMessage": "বার্তার ইতিহাস লোড করা যায়নি।",
+      "emptyExplanation": "এই অভিভাবককে কোনো বার্তা পাঠালে এখানে দেখা যাবে।"
     },
     "payments": {
       "columnDate": "তারিখ",
@@ -74,7 +84,13 @@
       "columnReference": "রেফারেন্স",
       "columnStudent": "শিক্ষার্থী",
       "emptyMessage": "এখনো কোনো পেমেন্ট নথিভুক্ত নেই।",
-      "errorMessage": "পেমেন্টের ইতিহাস লোড করা যায়নি।"
+      "errorMessage": "পেমেন্টের ইতিহাস লোড করা যায়নি।",
+      "view": "পেমেন্ট দেখুন",
+      "emptyExplanation": "এই অভিভাবকের সন্তানদের পেমেন্ট এখানে দেখা যাবে।"
+    },
+    "facts": {
+      "studentCount_one": "{{n}} জন",
+      "studentCount_other": "{{n}} জন"
     }
   },
   "editDialog": {
@@ -93,7 +109,8 @@
     "fullNameRequired": "পূর্ণ নাম আবশ্যক।",
     "save": "পরিবর্তন সংরক্ষণ করুন",
     "saving": "সংরক্ষণ করা হচ্ছে…",
-    "errorMessage": "অভিভাবকের তথ্য হালনাগাদ করা যায়নি। আবার চেষ্টা করুন।"
+    "errorMessage": "অভিভাবকের তথ্য হালনাগাদ করা যায়নি। আবার চেষ্টা করুন।",
+    "sectionTitle": "অভিভাবকের তথ্য"
   },
   "studentPicker": {
     "selectedLabel": "যুক্ত শিক্ষার্থী",

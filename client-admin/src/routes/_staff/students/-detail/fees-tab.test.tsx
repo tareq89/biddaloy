@@ -115,12 +115,41 @@ describe('students/-detail/fees-tab', () => {
     expect(await within(panel).findByText('৳150.00')).toBeTruthy();
   });
 
-  it('hides Record payment for a role without FEE_COLLECT', async () => {
-    renderFeesTab([feeLine()], { role: 'TEACHER' });
+  it('has no per-bill Record payment button for any role (the header primary is the one entry)', async () => {
+    renderFeesTab([feeLine()]);
 
     await screen.findByRole('tab', { name: 'Open bills', selected: true });
     await screen.findByText('Tuition');
     expect(screen.queryByRole('button', { name: 'Record payment' })).toBeNull();
+  });
+
+  it('shows the three summary amounts in one Fee summary card, with the balance flagged when owed', async () => {
+    renderFeesTab([feeLine()]);
+
+    const summary = await screen.findByLabelText('Fee summary');
+    expect(within(summary).getByText('Total billed')).toBeTruthy();
+    expect(within(summary).getByText('Total paid')).toBeTruthy();
+    // Billed and balance are both ৳500.00 here: exactly two cells, only the balance is flagged.
+    const [billed, balance] = within(summary).getAllByText('৳500.00');
+    expect(within(summary).getAllByText('৳500.00')).toHaveLength(2);
+    // `classList`, not a substring: a missing space would fuse two classes into one.
+    expect(billed!.classList.contains('text-status-overdue-fg')).toBe(false);
+    expect(balance!.classList.contains('text-status-overdue-fg')).toBe(true);
+    expect(balance!.classList.contains('md:text-h2')).toBe(true);
+  });
+
+  it('shows the period as a month, a late-fee badge, and an empty state with an explanation', async () => {
+    renderFeesTab([feeLine({ id: 'fee-late', late_fee_for_student_fee_id: 'fee-1' })]);
+
+    await screen.findByText('Tuition');
+    expect(screen.getByText('Late fee')).toBeTruthy();
+    expect(screen.getByText(/March 2026/)).toBeTruthy();
+  });
+
+  it('shows an EmptyState when there are no open bills', async () => {
+    renderFeesTab([feeLine({ status: 'PAID' })]);
+
+    expect(await screen.findByText('Every bill for this student is paid.')).toBeTruthy();
   });
 
   it('Wallet transactions show a translated kind label, not the raw enum', async () => {

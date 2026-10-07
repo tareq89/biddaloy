@@ -4,7 +4,6 @@
  * and a date that cannot be in the future (D18). Unpaid dues only warn
  * (D15), they never block. Not wired into the detail page here (#1197).
  */
-import { ApiError } from '@biddaloy/ui/api';
 import {
   Button,
   Dialog,
@@ -13,6 +12,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DatePicker,
   Input,
   Select,
   SelectContent,
@@ -23,7 +23,12 @@ import {
 } from '@biddaloy/ui/components';
 import { useLeaveStudent, useStudentFeeSummary, type LeaveStudentInput } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
-import { formatCurrency, serverAmountToMinorUnits } from '@biddaloy/ui/utils';
+import {
+  formatCurrency,
+  parseServerDate,
+  serverAmountToMinorUnits,
+  toIsoDate,
+} from '@biddaloy/ui/utils';
 import { AlertTriangle } from 'lucide-react';
 import * as React from 'react';
 
@@ -106,7 +111,7 @@ export function LeaveDialog({ open, onOpenChange, studentId, studentName }: Leav
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent size="md" closeLabel={t('actions.close', { ns: 'common' })}>
         {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- Ctrl+Enter bubbles from the focused field */}
         <form
           className="flex flex-col gap-4"
@@ -122,15 +127,19 @@ export function LeaveDialog({ open, onOpenChange, studentId, studentName }: Leav
           {balance > 0 && (
             <div
               role="status"
-              className="flex items-start gap-2.5 rounded-md bg-status-due-bg p-3 text-sm text-status-due-fg"
+              className="flex items-start gap-2 rounded-md bg-status-due-bg p-3 text-status-due-fg"
             >
               <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-              <span>{t('leave.duesWarning', { amount: formatCurrency(serverAmountToMinorUnits(balance, config), config) })}</span>
+              <span>
+                {t('leave.duesWarning', {
+                  amount: formatCurrency(serverAmountToMinorUnits(balance, config), config),
+                })}
+              </span>
             </div>
           )}
 
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="leave-type" className="text-sm font-medium">
+            <label htmlFor="leave-type" className="font-medium">
               {t('leave.typeLabel')}
             </label>
             <Select value={type} onValueChange={(value) => setType(value as LeaveType)}>
@@ -148,20 +157,25 @@ export function LeaveDialog({ open, onOpenChange, studentId, studentName }: Leav
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="leave-date" className="text-sm font-medium">
+            <label htmlFor="leave-date" className="font-medium">
               {t('leave.dateLabel')}
             </label>
-            <Input
+            <DatePicker
               id="leave-date"
-              type="date"
-              value={occurredOn}
-              max={todayDateInputValue()}
-              onChange={(event) => setOccurredOn(event.target.value)}
+              aria-label={t('leave.dateLabel')}
+              config={config}
+              value={occurredOn ? parseServerDate(occurredOn) : undefined}
+              onValueChange={(date) => setOccurredOn(date ? toIsoDate(date) : '')}
+              max={new Date()}
               aria-invalid={submitted && dateError !== null}
               aria-describedby={submitted && dateError ? 'leave-date-error' : undefined}
             />
             {submitted && dateError && (
-              <p id="leave-date-error" role="alert" className="text-sm text-destructive">
+              <p
+                id="leave-date-error"
+                role="alert"
+                className="flex items-center gap-1 text-caption text-destructive"
+              >
                 {dateError}
               </p>
             )}
@@ -169,7 +183,7 @@ export function LeaveDialog({ open, onOpenChange, studentId, studentName }: Leav
 
           {type === 'TRANSFERRED_OUT' && (
             <div className="flex flex-col gap-1.5">
-              <label htmlFor="leave-destination" className="text-sm font-medium">
+              <label htmlFor="leave-destination" className="font-medium">
                 {t('leave.destinationLabel')}
               </label>
               <Input
@@ -181,7 +195,7 @@ export function LeaveDialog({ open, onOpenChange, studentId, studentName }: Leav
           )}
 
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="leave-reason" className="text-sm font-medium">
+            <label htmlFor="leave-reason" className="font-medium">
               {t('leave.reasonLabel')}
             </label>
             <Textarea
@@ -193,14 +207,18 @@ export function LeaveDialog({ open, onOpenChange, studentId, studentName }: Leav
               aria-describedby={submitted && reasonError ? 'leave-reason-error' : undefined}
             />
             {submitted && reasonError && (
-              <p id="leave-reason-error" role="alert" className="text-sm text-destructive">
+              <p
+                id="leave-reason-error"
+                role="alert"
+                className="flex items-center gap-1 text-caption text-destructive"
+              >
                 {reasonError}
               </p>
             )}
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="leave-remark" className="text-sm font-medium">
+            <label htmlFor="leave-remark" className="font-medium">
               {t('leave.remarkLabel')}
             </label>
             <Textarea
@@ -212,8 +230,8 @@ export function LeaveDialog({ open, onOpenChange, studentId, studentName }: Leav
           </div>
 
           {leave.isError && (
-            <p role="alert" className="text-sm text-destructive">
-              {leave.error instanceof ApiError ? leave.error.message : t('errors.generic')}
+            <p role="alert" className="flex items-center gap-1 text-caption text-destructive">
+              {t('errors.generic')}
             </p>
           )}
 

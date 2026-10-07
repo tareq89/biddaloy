@@ -1,10 +1,20 @@
 import { EnrollmentStatus, Permission } from '@biddaloy/shared';
 import { ApiError } from '@biddaloy/ui/api';
-import { ErrorState, RoutePending, Skeleton, StatusBadge } from '@biddaloy/ui/components';
+import { ErrorState, RoutePending, StatusBadge } from '@biddaloy/ui/components';
 import { studentQueryOptions, useHasPermission, useStudent } from '@biddaloy/ui/hooks';
 import { RegionConfigProvider, useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
-import { DetailShell, useDetailShellTab } from '@biddaloy/ui/shells';
-import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
+import { DetailShell, PageContainer, useDetailShellTab } from '@biddaloy/ui/shells';
+import { formatNumber, formatPhone } from '@biddaloy/ui/utils';
+import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import {
+  HandCoinsIcon,
+  IdCardIcon,
+  LogOutIcon,
+  PencilIcon,
+  RotateCcwIcon,
+  SendIcon,
+  Trash2Icon,
+} from 'lucide-react';
 import * as React from 'react';
 import { z } from 'zod';
 
@@ -102,32 +112,36 @@ export const Route = createFileRoute('/_staff/students/$studentId')({
         'performance',
         'student-lifecycle',
         'printHistory',
+        // students-7a's Activity tab reads `auditLogs:actions.*`; same
+        // suspend-the-whole-page reasoning as 'fees'.
+        'auditLogs',
       ),
     ]),
   pendingComponent: StudentDetailPending,
   component: StudentDetailPage,
 });
 
+// People -> study -> money -> history (D20).
 const TAB_IDS = [
   'overview',
+  'guardians',
   'enrollment',
+  'attendance',
+  'results',
+  'homework',
+  'subject-choices',
+  'programs',
+  'performance',
   'fees',
   'fines',
   'recurring-fees',
   'payments',
   'invoices',
-  'guardians',
   'communication',
-  'activity',
-  'attendance',
-  'homework',
-  'performance',
-  'subject-choices',
-  'results',
-  'programs',
-  'records',
   'notes',
+  'records',
   'documents',
+  'activity',
 ] as const;
 
 function StudentDetailPage() {
@@ -173,19 +187,15 @@ function StudentDetailPage() {
     document.querySelector<HTMLElement>(`[data-action-id="${pending.target}"]`)?.focus();
   }, [isActive, leaveDialogOpen, readmitDialogOpen]);
 
+  const guardians = studentQuery.data?.guardians ?? [];
+  const primaryGuardian = guardians.find((g) => g.is_primary_contact) ?? guardians[0];
+
   return (
     <RegionConfigProvider value={regionConfig}>
-      <div className="flex flex-col gap-4">
-        <Link
-          to="/students"
-          className="inline-flex min-h-6 items-center self-start text-sm text-primary underline"
-        >
-          {t('detail.back')}
-        </Link>
-
-        {studentQuery.isPending ? (
-          <Skeleton className="h-7 w-64" />
-        ) : studentQuery.isError ? (
+      {studentQuery.isPending ? (
+        <RoutePending variant="detail" label={t('routePending.label', { ns: 'nav' })} />
+      ) : studentQuery.isError ? (
+        <PageContainer>
           <ErrorState
             message={
               studentQuery.error instanceof ApiError && studentQuery.error.statusCode === 403
@@ -195,262 +205,288 @@ function StudentDetailPage() {
             retryLabel={t('actions.retry', { ns: 'common' })}
             onRetry={() => void studentQuery.refetch()}
           />
-        ) : (
-          <>
-            <DetailShell
-              name={studentQuery.data.full_name}
-              identifiers={t('detail.identifiers', {
-                registrationNumber: studentQuery.data.registration_number,
-                className: studentQuery.data.class_section.class.name,
-                roll: studentQuery.data.roll_number,
-              })}
-              statusBadge={
-                <span className="inline-flex items-center gap-2">
-                  <StatusBadge
-                    domain="enrollment"
-                    status={studentQuery.data.enrollment_status as EnrollmentStatus}
+        </PageContainer>
+      ) : (
+        <>
+          <DetailShell
+            name={studentQuery.data.full_name}
+            facts={[
+              {
+                label: t('detail.facts.registrationNumber'),
+                value: studentQuery.data.registration_number,
+              },
+              {
+                label: t('detail.facts.class'),
+                value: t('detail.facts.classValue', {
+                  class: studentQuery.data.class_section.class.name,
+                  section: studentQuery.data.class_section.section_name,
+                }),
+              },
+              {
+                label: t('detail.facts.roll'),
+                value: formatNumber(studentQuery.data.roll_number, regionConfig),
+              },
+              ...(primaryGuardian
+                ? [
+                    {
+                      label: t('detail.facts.primaryGuardian'),
+                      value: primaryGuardian.phone
+                        ? `${primaryGuardian.full_name} · ${formatPhone(primaryGuardian.phone, regionConfig)}`
+                        : primaryGuardian.full_name,
+                    },
+                  ]
+                : []),
+            ]}
+            statusBadge={
+              <>
+                <StatusBadge
+                  domain="enrollment"
+                  status={studentQuery.data.enrollment_status as EnrollmentStatus}
+                />
+                <PromotionOverrideBadge studentId={studentId} />
+              </>
+            }
+            actions={[
+              {
+                id: 'edit',
+                label: t('detail.actions.edit'),
+                icon: <PencilIcon />,
+                allowed: canUpdate,
+                priority: 'secondary',
+                onClick: () =>
+                  void navigate({ to: '/students/$studentId/edit', params: { studentId } }),
+              },
+              // Secondary = a real button in the header (Tab-reachable), not
+              // buried in "More actions". Status changes only via these events.
+              {
+                id: 'record-leaving',
+                label: t('detail.actions.recordLeaving'),
+                icon: <LogOutIcon />,
+                allowed: canManageLifecycle && isActive,
+                priority: 'secondary',
+                onClick: () => {
+                  pendingFocus.current = { target: 'readmit', wasActive: true };
+                  setLeaveDialogOpen(true);
+                },
+              },
+              {
+                id: 'readmit',
+                label: t('detail.actions.readmit'),
+                icon: <RotateCcwIcon />,
+                allowed: canManageLifecycle && !isActive,
+                priority: 'secondary',
+                onClick: () => {
+                  pendingFocus.current = { target: 'record-leaving', wasActive: false };
+                  setReadmitDialogOpen(true);
+                },
+              },
+              {
+                id: 'collect-fees',
+                label: t('detail.actions.collectFees'),
+                icon: <HandCoinsIcon />,
+                allowed: canCollectFees,
+                priority: 'primary',
+                onClick: () =>
+                  void navigate({ to: '/payments/record', search: { student_id: studentId } }),
+              },
+              {
+                id: 'send-reminder',
+                label: t('detail.actions.sendReminder'),
+                icon: <SendIcon />,
+                allowed: canSendReminder,
+                priority: 'tertiary',
+                onClick: () => setReminderDialogOpen(true),
+              },
+              {
+                id: 'print-id-card',
+                label: t('detail.actions.printIdCard'),
+                icon: <IdCardIcon />,
+                allowed: canPrint,
+                priority: 'tertiary',
+                onClick: () =>
+                  void navigate({
+                    to: '/print/preview',
+                    search: {
+                      kind: 'STUDENT_ID_CARD',
+                      subject_type: 'STUDENT',
+                      ids: studentId,
+                      from: `/students/${studentId}`,
+                    },
+                  }),
+              },
+              {
+                id: 'delete',
+                label: t('detail.actions.delete'),
+                icon: <Trash2Icon />,
+                allowed: canDelete,
+                priority: 'destructive',
+                onClick: () => setDeleteDialogOpen(true),
+              },
+            ]}
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+            tabs={[
+              {
+                id: 'overview',
+                label: t('detail.tabs.overview'),
+                content: <OverviewTab studentId={studentId} />,
+              },
+              {
+                id: 'guardians',
+                label: t('detail.tabs.guardians'),
+                content: <GuardiansTab studentId={studentId} />,
+              },
+              {
+                id: 'enrollment',
+                label: t('detail.tabs.enrollment'),
+                content: (
+                  <EnrollmentTab
+                    studentId={studentId}
+                    studentName={studentQuery.data.full_name}
+                    enrollmentStatus={studentQuery.data.enrollment_status}
                   />
-                  <PromotionOverrideBadge studentId={studentId} />
-                </span>
-              }
-              actions={[
-                {
-                  id: 'edit',
-                  label: t('detail.actions.edit'),
-                  allowed: canUpdate,
-                  priority: 'secondary',
-                  onClick: () =>
-                    void navigate({ to: '/students/$studentId/edit', params: { studentId } }),
-                },
-                // Secondary = a real button in the header (Tab-reachable), not
-                // buried in "More actions". Status changes only via these events.
-                {
-                  id: 'record-leaving',
-                  label: t('detail.actions.recordLeaving'),
-                  allowed: canManageLifecycle && isActive,
-                  priority: 'secondary',
-                  onClick: () => {
-                    pendingFocus.current = { target: 'readmit', wasActive: true };
-                    setLeaveDialogOpen(true);
-                  },
-                },
-                {
-                  id: 'readmit',
-                  label: t('detail.actions.readmit'),
-                  allowed: canManageLifecycle && !isActive,
-                  priority: 'secondary',
-                  onClick: () => {
-                    pendingFocus.current = { target: 'record-leaving', wasActive: false };
-                    setReadmitDialogOpen(true);
-                  },
-                },
-                {
-                  id: 'collect-fees',
-                  label: t('detail.actions.collectFees'),
-                  allowed: canCollectFees,
-                  priority: 'primary',
-                  onClick: () =>
-                    void navigate({ to: '/payments/record', search: { student_id: studentId } }),
-                },
-                {
-                  id: 'send-reminder',
-                  label: t('detail.actions.sendReminder'),
-                  allowed: canSendReminder,
-                  priority: 'tertiary',
-                  onClick: () => setReminderDialogOpen(true),
-                },
-                {
-                  id: 'print-id-card',
-                  label: t('detail.actions.printIdCard'),
-                  allowed: canPrint,
-                  priority: 'tertiary',
-                  onClick: () =>
-                    void navigate({
-                      to: '/print/preview',
-                      search: {
-                        kind: 'STUDENT_ID_CARD',
-                        subject_type: 'STUDENT',
-                        ids: studentId,
-                        from: `/students/${studentId}`,
-                      },
-                    }),
-                },
-                {
-                  id: 'delete',
-                  label: t('detail.actions.delete'),
-                  allowed: canDelete,
-                  priority: 'destructive',
-                  onClick: () => setDeleteDialogOpen(true),
-                },
-              ]}
-              activeTab={activeTab}
-              onTabChange={setActiveTab}
-              tabs={[
-                {
-                  id: 'overview',
-                  label: t('detail.tabs.overview'),
-                  content: <OverviewTab studentId={studentId} />,
-                },
-                {
-                  id: 'enrollment',
-                  label: t('detail.tabs.enrollment'),
-                  content: (
-                    <EnrollmentTab
-                      studentId={studentId}
-                      studentName={studentQuery.data.full_name}
-                      enrollmentStatus={studentQuery.data.enrollment_status}
-                    />
-                  ),
-                },
-                {
-                  id: 'fees',
-                  label: t('detail.tabs.fees'),
-                  content: <FeesTab studentId={studentId} />,
-                },
-                {
-                  id: 'fines',
-                  label: t('detail.tabs.fines'),
-                  content: <FinesTab studentId={studentId} />,
-                },
-                {
-                  id: 'recurring-fees',
-                  label: t('detail.tabs.recurringFees'),
-                  content: <RecurringFeesTab studentId={studentId} />,
-                },
-                {
-                  id: 'payments',
-                  label: t('detail.tabs.payments'),
-                  content: <PaymentsTab studentId={studentId} />,
-                },
-                {
-                  id: 'invoices',
-                  label: t('detail.tabs.invoices'),
-                  content: <InvoicesTab studentId={studentId} />,
-                },
-                {
-                  id: 'guardians',
-                  label: t('detail.tabs.guardians'),
-                  content: <GuardiansTab studentId={studentId} />,
-                },
-                {
-                  id: 'communication',
-                  label: t('detail.tabs.communication'),
-                  content: <CommunicationTab studentId={studentId} />,
-                },
-                {
-                  id: 'activity',
-                  label: t('detail.tabs.activity'),
-                  content: <ActivityTab studentId={studentId} />,
-                },
-                {
-                  id: 'attendance',
-                  label: t('detail.tabs.attendance'),
-                  content: <AttendanceTab studentId={studentId} />,
-                },
-                {
-                  id: 'homework',
-                  label: t('detail.tabs.homework'),
-                  content: <HomeworkTab studentId={studentId} />,
-                },
-                ...(canViewPerformance
-                  ? [
-                      {
-                        id: 'performance',
-                        label: tPerformance('title'),
-                        content: (
-                          <PerformanceTab
-                            studentId={studentId}
-                            subjectName={studentQuery.data.full_name}
-                          />
-                        ),
-                      },
-                    ]
-                  : []),
-                {
-                  id: 'subject-choices',
-                  // [19.6.1] — 'exams' namespace, not 'students': this tab
-                  // is the fourth-subject picker, owned by the exams
-                  // feature even though it's mounted on student detail.
-                  label: t('detail.tabs.fourthSubject', { ns: 'exams' }),
-                  content: <SubjectChoicesPanel studentId={studentId} />,
-                },
-                {
-                  id: 'results',
-                  // [19.9.1] — 'exams' namespace, same reasoning as
-                  // 'subject-choices' above: exam-owned, mounted here.
-                  label: t('detail.tabs.results', { ns: 'exams' }),
-                  content: <ResultsPanel studentId={studentId} />,
-                },
-                {
-                  id: 'programs',
-                  // [34.5.1] — 'programs' namespace: programs are owned by
-                  // the programs feature even though mounted here, same
-                  // pattern as 'subject-choices'/'results' above.
-                  label: t('detail.tabs.programs', { ns: 'programs' }),
-                  content: <ProgramsPanel studentId={studentId} />,
-                },
-                ...(canReadRecords
-                  ? [
-                      {
-                        id: 'records',
-                        label: t('detail.tabs.records'),
-                        content: <RecordsTab studentId={studentId} />,
-                      },
-                    ]
-                  : []),
-                ...(canReadNotes
-                  ? [
-                      {
-                        id: 'notes',
-                        label: t('detail.tabs.notes'),
-                        content: <NotesTab studentId={studentId} />,
-                      },
-                    ]
-                  : []),
-                ...(canPrint
-                  ? [
-                      {
-                        id: 'documents',
-                        label: t('detail.tabs.documents'),
-                        content: <DocumentsTab studentId={studentId} />,
-                      },
-                    ]
-                  : []),
-              ]}
-            />
+                ),
+              },
+              {
+                id: 'attendance',
+                label: t('detail.tabs.attendance'),
+                content: <AttendanceTab studentId={studentId} />,
+              },
+              {
+                id: 'results',
+                // [19.9.1] — 'exams' namespace: exam-owned, mounted here.
+                label: t('detail.tabs.results', { ns: 'exams' }),
+                content: <ResultsPanel studentId={studentId} />,
+              },
+              {
+                id: 'homework',
+                label: t('detail.tabs.homework'),
+                content: <HomeworkTab studentId={studentId} />,
+              },
+              {
+                id: 'subject-choices',
+                // [19.6.1] — 'exams' namespace, not 'students': this tab
+                // is the fourth-subject picker, owned by the exams
+                // feature even though it's mounted on student detail.
+                label: t('detail.tabs.fourthSubject', { ns: 'exams' }),
+                content: <SubjectChoicesPanel studentId={studentId} />,
+              },
+              {
+                id: 'programs',
+                // [34.5.1] — 'programs' namespace, same pattern as above.
+                label: t('detail.tabs.programs', { ns: 'programs' }),
+                content: <ProgramsPanel studentId={studentId} />,
+              },
+              ...(canViewPerformance
+                ? [
+                    {
+                      id: 'performance',
+                      label: tPerformance('title'),
+                      content: (
+                        <PerformanceTab
+                          studentId={studentId}
+                          subjectName={studentQuery.data.full_name}
+                        />
+                      ),
+                    },
+                  ]
+                : []),
+              {
+                id: 'fees',
+                label: t('detail.tabs.fees'),
+                content: <FeesTab studentId={studentId} />,
+              },
+              {
+                id: 'fines',
+                label: t('detail.tabs.fines'),
+                content: <FinesTab studentId={studentId} />,
+              },
+              {
+                id: 'recurring-fees',
+                label: t('detail.tabs.recurringFees'),
+                content: <RecurringFeesTab studentId={studentId} />,
+              },
+              {
+                id: 'payments',
+                label: t('detail.tabs.payments'),
+                content: <PaymentsTab studentId={studentId} />,
+              },
+              {
+                id: 'invoices',
+                label: t('detail.tabs.invoices'),
+                content: <InvoicesTab studentId={studentId} />,
+              },
+              {
+                id: 'communication',
+                label: t('detail.tabs.communication'),
+                content: <CommunicationTab studentId={studentId} />,
+              },
+              ...(canReadNotes
+                ? [
+                    {
+                      id: 'notes',
+                      label: t('detail.tabs.notes'),
+                      content: <NotesTab studentId={studentId} />,
+                    },
+                  ]
+                : []),
+              ...(canReadRecords
+                ? [
+                    {
+                      id: 'records',
+                      label: t('detail.tabs.records'),
+                      content: <RecordsTab studentId={studentId} />,
+                    },
+                  ]
+                : []),
+              ...(canPrint
+                ? [
+                    {
+                      id: 'documents',
+                      label: t('detail.tabs.documents'),
+                      content: <DocumentsTab studentId={studentId} />,
+                    },
+                  ]
+                : []),
+              {
+                id: 'activity',
+                label: t('detail.tabs.activity'),
+                content: <ActivityTab studentId={studentId} />,
+              },
+            ]}
+          />
 
-            <SendReminderDialog
-              open={reminderDialogOpen}
-              onOpenChange={setReminderDialogOpen}
-              studentIds={[studentId]}
-              onSent={() => {
-                // The dialog already closes itself on success — a single
-                // student's reminder leaves nothing else (no selection) to
-                // clear the way the list page's bulk send does.
-              }}
-            />
-            <LeaveDialog
-              open={leaveDialogOpen}
-              onOpenChange={setLeaveDialogOpen}
-              studentId={studentId}
-              studentName={studentQuery.data.full_name}
-            />
-            <ReadmitDialog
-              open={readmitDialogOpen}
-              onOpenChange={setReadmitDialogOpen}
-              studentId={studentId}
-              studentName={studentQuery.data.full_name}
-            />
-            <DeleteStudentDialog
-              open={deleteDialogOpen}
-              onOpenChange={setDeleteDialogOpen}
-              studentId={studentId}
-              studentName={studentQuery.data.full_name}
-              onDeleted={() => void navigate({ to: '/students' })}
-            />
-          </>
-        )}
-      </div>
+          <SendReminderDialog
+            open={reminderDialogOpen}
+            onOpenChange={setReminderDialogOpen}
+            studentIds={[studentId]}
+            onSent={() => {
+              // The dialog already closes itself on success — a single
+              // student's reminder leaves nothing else (no selection) to
+              // clear the way the list page's bulk send does.
+            }}
+          />
+          <LeaveDialog
+            open={leaveDialogOpen}
+            onOpenChange={setLeaveDialogOpen}
+            studentId={studentId}
+            studentName={studentQuery.data.full_name}
+          />
+          <ReadmitDialog
+            open={readmitDialogOpen}
+            onOpenChange={setReadmitDialogOpen}
+            studentId={studentId}
+            studentName={studentQuery.data.full_name}
+          />
+          <DeleteStudentDialog
+            open={deleteDialogOpen}
+            onOpenChange={setDeleteDialogOpen}
+            studentId={studentId}
+            studentName={studentQuery.data.full_name}
+            onDeleted={() => void navigate({ to: '/students' })}
+          />
+        </>
+      )}
     </RegionConfigProvider>
   );
 }

@@ -70,8 +70,6 @@
     "errorMessage": "Couldn't send the reminder. Nothing was sent — try again."
   },
   "detail": {
-    "back": "Back to students",
-    "identifiers": "{{registrationNumber}} · Class {{className}} · Roll {{roll}}",
     "forbidden": "You don't have permission to view this.",
     "loadError": "Couldn't load this student.",
     "actions": {
@@ -88,7 +86,7 @@
       "enrollment": "Enrollment",
       "fees": "Fees",
       "fines": "Fines",
-      "recurringFees": "Recurring fees",
+      "recurringFees": "Automatic billing",
       "payments": "Payments",
       "invoices": "Invoices",
       "guardians": "Guardians",
@@ -103,18 +101,24 @@
     "overview": {
       "dateOfBirth": "Date of birth",
       "gender": "Gender",
-      "address": "Address",
-      "preferredCommunication": "Preferred contact"
+      "address": "Home address",
+      "preferredCommunication": "Preferred contact",
+      "title": "Personal details",
+      "fullNameBn": "Name in Bangla",
+      "bloodGroup": "Blood group"
     },
     "enrollment": {
       "columnClass": "Class",
-      "columnSection": "Section",
       "columnAcademicYear": "Academic year",
       "columnStatus": "Status",
       "columnEnrolledAt": "Enrolled on",
       "emptyMessage": "No enrolment history yet.",
       "errorMessage": "Couldn't load enrolment history.",
-      "moveClassAction": "Move class"
+      "moveClassAction": "Move class",
+      "title": "Enrolment history",
+      "classValue": "{{class}} · Section {{section}}",
+      "cardSubtitle": "{{class}} · Enrolled {{date}}",
+      "emptyExplanation": "Class moves and new-year enrolments show up here."
     },
     "fees": {
       "totalBilled": "Total billed",
@@ -128,10 +132,7 @@
       "columnDiscount": "Discount",
       "columnBalance": "Balance",
       "columnStatus": "Status",
-      "columnActions": "Actions",
       "lateFeeBadge": "Late fee",
-      "recordPayment": "Record payment",
-      "recordPaymentSeamToast": "Record payment — coming soon ({{feeCount}} fee(s) selected)",
       "emptyMessage": "No open bills.",
       "errorMessage": "Couldn't load fee details.",
       "openBillsTab": "Open bills",
@@ -148,7 +149,12 @@
       "previousPage": "Previous",
       "nextPage": "Next",
       "pageOf": "Page {{page}} of {{totalPages}}",
-      "discountsTab": "Discounts"
+      "discountsTab": "Discounts",
+      "summaryLabel": "Fee summary",
+      "cardSubtitle": "Due {{due}} · Balance {{balance}}",
+      "emptyExplanation": "Every bill for this student is paid.",
+      "historyEmptyExplanation": "Paid bills will show up here.",
+      "walletEmptyExplanation": "Overpayments are kept here as credit."
     },
     "payments": {
       "columnDate": "Date",
@@ -157,7 +163,9 @@
       "columnReference": "Reference",
       "columnReceivedBy": "Received by",
       "emptyMessage": "No payments recorded yet.",
-      "errorMessage": "Couldn't load payment history."
+      "errorMessage": "Couldn't load payment history.",
+      "view": "View payment",
+      "emptyExplanation": "Payments you record will show up here."
     },
     "invoices": {
       "columnNumber": "Invoice",
@@ -167,33 +175,48 @@
       "print": "Print",
       "emptyMessage": "No invoices issued yet.",
       "errorMessage": "Couldn't load invoices.",
-      "printError": "Couldn't open the printable invoice."
+      "printError": "Couldn't open the printable invoice.",
+      "view": "View invoice",
+      "emptyExplanation": "Invoices appear here once bills are created."
     },
     "guardians": {
       "columnName": "Name",
       "columnRelationship": "Relationship",
-      "columnContact": "Contact",
-      "primary": "Primary",
-      "emptyMessage": "No guardians on file."
+      "primary": "Primary contact",
+      "emptyMessage": "No guardians on file.",
+      "caption": "Guardians of {{name}}",
+      "columnPhone": "Phone",
+      "columnEmail": "Email",
+      "columnPreferred": "Preferred contact",
+      "cardSubtitle": "{{relationship}} · {{phone}}",
+      "view": "View {{name}}",
+      "emptyExplanation": "Add a guardian by editing the student.",
+      "editHintBefore": "To add or change guardians,",
+      "editHintLink": "edit the student",
+      "editHintAfter": "."
     },
     "communication": {
-      "columnDate": "Date",
+      "columnDate": "Date and time",
       "columnMedium": "Medium",
       "columnRecipient": "Recipient",
       "columnStatus": "Status",
       "emptyMessage": "No messages sent yet.",
-      "errorMessage": "Couldn't load message history."
+      "errorMessage": "Couldn't load message history.",
+      "emptyExplanation": "Reminders and messages you send show up here."
     },
     "activity": {
-      "columnDate": "Date",
+      "columnDate": "Date and time",
       "columnAction": "Action",
       "emptyMessage": "No activity recorded yet.",
-      "errorMessage": "Couldn't load activity."
+      "errorMessage": "Couldn't load activity.",
+      "columnBy": "Done by",
+      "emptyExplanation": "Changes to this student are recorded here."
     },
     "attendanceTab": {
       "monthStepper": {
         "previousLabel": "Previous month",
-        "nextLabel": "Next month"
+        "nextLabel": "Next month",
+        "thisMonth": "This month"
       },
       "summary": {
         "percentage": "Attendance",
@@ -205,7 +228,8 @@
       },
       "loading": "Loading attendance",
       "errorMessage": "Couldn't load attendance.",
-      "noRecordsThisMonth": "No attendance records for this month."
+      "noRecordsThisMonth": "No attendance records for this month.",
+      "noRecordsExplanation": "Attendance taken this month will show up here."
     },
     "homeworkTab": {
       "completionPercent": "Completion",
@@ -214,7 +238,8 @@
       "defaulters": "Defaulters",
       "loading": "Loading homework",
       "errorMessage": "Couldn't load homework.",
-      "emptyMessage": "No homework assigned yet."
+      "emptyMessage": "No homework assigned yet.",
+      "emptyExplanation": "Progress shows up once homework is set."
     },
     "deleteDialog": {
       "title": "Delete student",
@@ -227,14 +252,41 @@
       "title": "Move class",
       "description": "Move {{name}} to a different class or section.",
       "classLabel": "Class",
-      "classPlaceholder": "Select a class",
+      "classPlaceholder": "Select",
       "sectionLabel": "Section",
-      "sectionPlaceholder": "Select a section",
+      "sectionPlaceholder": "Select",
       "capacityWarning": "This section is at capacity ({{enrolled}}/{{capacity}}). You can still proceed.",
       "confirm": "Move",
       "moving": "Moving…",
       "errorMessage": "Couldn't move the student. Try again.",
       "loadError": "Couldn't load the student's current enrollment. Try again."
+    },
+    "facts": {
+      "registrationNumber": "Registration no.",
+      "class": "Class",
+      "classValue": "{{class}} · Section {{section}}",
+      "roll": "Roll",
+      "primaryGuardian": "Primary guardian"
+    },
+    "overrideBadge": {
+      "promote": "Promoted by exception",
+      "retain": "Kept back by exception",
+      "graduate": "Graduated by exception"
+    },
+    "fines": {
+      "errorMessage": "Couldn't load fines."
+    },
+    "subjects": {
+      "emptyExplanation": "This class has no optional subjects to choose."
+    },
+    "programs": {
+      "emptyExplanation": "Enrol the student in a program to track progress here.",
+      "since": "Since {{date}}"
+    },
+    "results": {
+      "view": "View result",
+      "cardSubtitle": "Grade {{grade}} · GPA {{gpa}}",
+      "emptyExplanation": "Results appear once marks are entered for an exam."
     }
   },
   "new": {
@@ -250,7 +302,8 @@
       "identity": "Identity",
       "placement": "Placement",
       "guardians": "Guardians",
-      "preferences": "Preferences"
+      "preferences": "Preferences",
+      "guardiansHelp": "Find a guardian who is already on record, or add a new one."
     },
     "fields": {
       "fullName": "Full name",
@@ -269,7 +322,9 @@
         "MALE": "Male",
         "FEMALE": "Female",
         "OTHER": "Other"
-      }
+      },
+      "rollNumberPlaceholder": "e.g. 12",
+      "rollNumberHelp": "Leave blank to use the next roll number in the section."
     },
     "preferredCommunicationOptions": {
       "SMS": "SMS",
@@ -287,7 +342,7 @@
     },
     "draftAvailable": "You have an unsaved draft of this form.",
     "restoreDraftAction": "Restore draft",
-    "discardDraftAction": "Discard",
+    "discardDraftAction": "Discard draft",
     "unsavedChangesDialog": {
       "title": "Leave without saving?",
       "description": "You have unsaved changes. If you leave now, they will be lost.",
@@ -297,7 +352,6 @@
     "guardians": {
       "selectedLabel": "Linked guardians",
       "removeAction": "Remove {{name}}",
-      "removeAction_short": "Remove",
       "searchLabel": "Search guardians",
       "searchPlaceholder": "Search by name or phone",
       "noResults": "No guardians found.",
@@ -309,10 +363,13 @@
         "emailLabel": "Guardian's email",
         "nameRequired": "Guardian name is required.",
         "saveAction": "Add guardian",
-        "cancelAction": "Cancel"
-      }
+        "cancelAction": "Cancel",
+        "createError": "The guardian could not be added. Check the details and try again."
+      },
+      "unknownName": "Guardian"
     },
-    "bloodGroupNotSet": "Not set"
+    "bloodGroupNotSet": "Not set",
+    "cancelAction": "Cancel"
   },
   "discounts": {
     "addRule": "Add discount rule",
@@ -349,7 +406,10 @@
       "errorReason": "Reason must be at least 3 characters.",
       "errorDateRange": "End date must be on or after the start date.",
       "errorSave": "Couldn't save the discount rule."
-    }
+    },
+    "emptyExplanation": "Add a rule and matching bills get the discount automatically.",
+    "fromDate": "From {{date}}",
+    "deleteConfirmDescriptionNamed": "The rule {{rule}} will be deleted. This can't be undone; future bills won't get the discount."
   },
   "photo": {
     "title": "Photo",

@@ -1,8 +1,8 @@
 /**
  * [8.11.8]'s Add-user dialog — `POST /users` creates the account *and*
  * its membership in the active school in one transaction
- * (`UserService.create`). Local `useState` rather than react-hook-form,
- * same weight-class reasoning as `academic-years/-year-form-dialog.tsx`.
+ * (`UserService.create`). Built on react-hook-form (`useForm`) so name
+ * and role errors sit under their own fields.
  * A 409 (duplicate email — global accounts are unique by email, not
  * per-school) renders its own inline message instead of the generic one.
  */
@@ -17,6 +17,12 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
   Input,
   PhoneInput,
   Select,
@@ -28,6 +34,7 @@ import {
 import { useActiveTenant, useCreateUser, type UserRoleFilter } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import * as React from 'react';
+import { useForm } from 'react-hook-form';
 
 export interface AddUserDialogProps {
   open: boolean;
@@ -37,147 +44,183 @@ export interface AddUserDialogProps {
 /** SUPER_ADMIN is a platform role: `POST /users` always refuses it (#731). */
 const ASSIGNABLE_ROLES = STAFF_ROLES.filter((r) => r !== UserRole.SUPER_ADMIN);
 
+interface AddUserValues {
+  full_name: string;
+  email: string;
+  phone: string;
+  role: string;
+}
+
+const EMPTY: AddUserValues = { full_name: '', email: '', phone: '', role: '' };
+
 export function AddUserDialog({ open, onOpenChange }: AddUserDialogProps) {
   const { t } = useTranslation('staff');
   const regionConfig = useRegionConfig();
   const tenantId = useActiveTenant();
   const createUser = useCreateUser();
-
-  const [fullName, setFullName] = React.useState('');
-  const [email, setEmail] = React.useState('');
-  const [phone, setPhone] = React.useState('');
-  const [role, setRole] = React.useState<string | null>(null);
-  const [validationError, setValidationError] = React.useState<string | null>(null);
+  const form = useForm<AddUserValues>({ defaultValues: EMPTY });
 
   React.useEffect(() => {
     if (!open) return;
-    setFullName('');
-    setEmail('');
-    setPhone('');
-    setRole(null);
-    setValidationError(null);
+    form.reset(EMPTY);
     createUser.reset();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only on open/close transitions
   }, [open]);
 
-  function handleSubmit(event: React.FormEvent) {
-    event.preventDefault();
-    if (fullName.trim() === '') {
-      setValidationError(t('addUser.errorNameRequired'));
-      return;
-    }
-    if (role === null) {
-      setValidationError(t('addUser.errorRoleRequired'));
-      return;
-    }
+  function handleSubmit(values: AddUserValues) {
     if (tenantId === null) return;
-    setValidationError(null);
     createUser.mutate(
       {
-        full_name: fullName.trim(),
-        ...(email.trim() !== '' ? { email: email.trim() } : {}),
-        ...(phone.trim() !== '' ? { phone: phone.trim() } : {}),
-        role: role as UserRoleFilter,
+        full_name: values.full_name.trim(),
+        ...(values.email.trim() !== '' ? { email: values.email.trim() } : {}),
+        ...(values.phone.trim() !== '' ? { phone: values.phone.trim() } : {}),
+        role: values.role as UserRoleFilter,
         tenantId,
       },
-      { onSuccess: () => onOpenChange(false) },
+      {
+        onSuccess: () => onOpenChange(false),
+        // A 409 (duplicate email) sits under the email field; anything else
+        // keeps the generic alert above the footer.
+        onError: (error) => {
+          if (error instanceof ApiError && error.statusCode === 409) {
+            form.setError('email', { message: t('addUser.errorDuplicateEmail') });
+          }
+        },
+      },
     );
   }
 
-  const duplicateEmail =
+  const genericError =
     createUser.isError &&
-    createUser.error instanceof ApiError &&
-    createUser.error.statusCode === 409;
+    !(createUser.error instanceof ApiError && createUser.error.statusCode === 409);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <DialogHeader>
-            <DialogTitle>{t('addUser.title')}</DialogTitle>
-            <DialogDescription>{t('addUser.description')}</DialogDescription>
-          </DialogHeader>
+      <DialogContent size="md" closeLabel={t('actions.close', { ns: 'common' })}>
+        <Form {...form}>
+          <form
+            onSubmit={(event) => void form.handleSubmit(handleSubmit)(event)}
+            className="flex flex-col gap-4"
+            noValidate
+          >
+            <DialogHeader>
+              <DialogTitle>{t('addUser.title')}</DialogTitle>
+              <DialogDescription>{t('addUser.description')}</DialogDescription>
+            </DialogHeader>
 
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="add-user-name" className="text-sm font-medium">
-              {t('addUser.nameLabel')}
-            </label>
-            <Input
-              id="add-user-name"
-              value={fullName}
-              onChange={(event) => setFullName(event.target.value)}
+            <FormField
+              control={form.control}
+              name="full_name"
+              rules={{
+                validate: (v) => v.trim() !== '' || t('addUser.errorNameRequired'),
+              }}
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel htmlFor="add-user-name" required>
+                    {t('addUser.nameLabel')}
+                  </FormLabel>
+                  <FormControl>
+                    <Input id="add-user-name" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </div>
 
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="add-user-email" className="text-sm font-medium">
-              {t('addUser.emailLabel')}
-            </label>
-            <Input
-              id="add-user-email"
-              type="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
+            <FormField
+              control={form.control}
+              name="email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel htmlFor="add-user-email">{t('addUser.emailLabel')}</FormLabel>
+                  <FormControl>
+                    <Input
+                      id="add-user-email"
+                      type="email"
+                      {...field}
+                      onChange={(event) => {
+                        form.clearErrors('email');
+                        field.onChange(event);
+                      }}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </div>
 
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="add-user-phone" className="text-sm font-medium">
-              {t('addUser.phoneLabel')}
-            </label>
-            <PhoneInput
-              id="add-user-phone"
-              value={phone}
-              config={regionConfig}
-              onValueChange={(value) => setPhone(value)}
+            <FormField
+              control={form.control}
+              name="phone"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel htmlFor="add-user-phone">{t('addUser.phoneLabel')}</FormLabel>
+                  <FormControl>
+                    <PhoneInput
+                      id="add-user-phone"
+                      value={field.value}
+                      config={regionConfig}
+                      onValueChange={(value) => field.onChange(value)}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </div>
 
-          <div className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium">{t('addUser.roleLabel')}</span>
-            <Select value={role ?? ''} onValueChange={(value) => setRole(value)}>
-              <SelectTrigger aria-label={t('addUser.roleLabel')}>
-                <SelectValue placeholder={t('addUser.rolePlaceholder')}>
-                  {role ? t(`roles.${role}`) : undefined}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {ASSIGNABLE_ROLES.map((staffRole) => (
-                  <SelectItem key={staffRole} value={staffRole}>
-                    <span className="flex flex-col">
-                      <span>{t(`roles.${staffRole}`)}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {t(`roleDescriptions.${staffRole}`)}
-                      </span>
-                    </span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+            <FormField
+              control={form.control}
+              name="role"
+              rules={{ validate: (v) => v !== '' || t('addUser.errorRoleRequired') }}
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel htmlFor="add-user-role" required>
+                    {t('addUser.roleLabel')}
+                  </FormLabel>
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <FormControl>
+                      <SelectTrigger id="add-user-role">
+                        <SelectValue placeholder={t('form.selectPlaceholder', { ns: 'common' })}>
+                          {field.value ? t(`roles.${field.value}`) : undefined}
+                        </SelectValue>
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {ASSIGNABLE_ROLES.map((staffRole) => (
+                        <SelectItem key={staffRole} value={staffRole}>
+                          <span className="flex flex-col">
+                            <span>{t(`roles.${staffRole}`)}</span>
+                            <span className="text-caption text-text-secondary">
+                              {t(`roleDescriptions.${staffRole}`)}
+                            </span>
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-          {validationError && (
-            <p role="alert" className="text-sm text-destructive">
-              {validationError}
-            </p>
-          )}
-          {createUser.isError && (
-            <p role="alert" className="text-sm text-destructive">
-              {duplicateEmail ? t('addUser.errorDuplicateEmail') : t('addUser.errorMessage')}
-            </p>
-          )}
+            {genericError && (
+              <p role="alert" className="text-caption text-destructive">
+                {t('addUser.errorMessage')}
+              </p>
+            )}
 
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button type="button" variant="outline">
-                {t('actions.cancel', { ns: 'common' })}
+            <DialogFooter>
+              <DialogClose asChild>
+                <Button type="button" variant="outline">
+                  {t('actions.cancel', { ns: 'common' })}
+                </Button>
+              </DialogClose>
+              <Button type="submit" loading={createUser.isPending}>
+                {createUser.isPending ? t('addUser.saving') : t('addUser.save')}
               </Button>
-            </DialogClose>
-            <Button type="submit" loading={createUser.isPending}>
-              {createUser.isPending ? t('addUser.saving') : t('addUser.save')}
-            </Button>
-          </DialogFooter>
-        </form>
+            </DialogFooter>
+          </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );

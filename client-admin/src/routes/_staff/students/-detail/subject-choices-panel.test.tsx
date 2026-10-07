@@ -92,7 +92,7 @@ describe('SubjectChoicesPanel', () => {
         choice_group: null,
       },
     ]);
-  const fail = () => HttpResponse.json({ message: 'boom' }, { status: 500 });
+  const fail = () => HttpResponse.json({ message: 'boom' }, { status: 400 });
 
   function renderPanel() {
     return renderWithProviders(<SubjectChoicesPanel studentId="student-1" />, {
@@ -112,7 +112,7 @@ describe('SubjectChoicesPanel', () => {
     const { user } = renderPanel();
 
     // Not the "no options" empty state — optionsQuery never ran.
-    await screen.findByText("Couldn't load subject choices.", {}, { timeout: 5000 });
+    await screen.findByText("Couldn't load subject choices.");
     expect(screen.queryByText(/No optional subjects/)).toBeNull();
 
     yearsFail = false;
@@ -128,7 +128,7 @@ describe('SubjectChoicesPanel', () => {
     );
     renderPanel();
 
-    await screen.findByText("Couldn't load subject choices.", {}, { timeout: 5000 });
+    await screen.findByText("Couldn't load subject choices.");
     expect(screen.queryByText(history.id)).toBeNull();
   });
 
@@ -140,7 +140,7 @@ describe('SubjectChoicesPanel', () => {
     );
     renderPanel();
 
-    await screen.findByText("Couldn't load subject choices.", {}, { timeout: 5000 });
+    await screen.findByText("Couldn't load subject choices.");
   });
 
   it('shows the empty state when no optional subjects are offered', async () => {
@@ -152,6 +152,36 @@ describe('SubjectChoicesPanel', () => {
     renderPanel();
 
     await screen.findByText("No optional subjects are offered for this student's class.");
+  });
+
+  it('shows an unknown subject as a dash, never its id', async () => {
+    server.use(
+      http.get('/api/v1/academic-years', yearsOk),
+      http.get('/api/v1/subjects', () =>
+        HttpResponse.json({ data: [], total: 0, page: 1, limit: 100, totalPages: 1 }),
+      ),
+      http.get('/api/v1/students/:studentId/subject-choices', optionsOk),
+    );
+    renderPanel();
+
+    await screen.findByRole('radio', { name: '—' });
+    expect(screen.queryByText(history.id)).toBeNull();
+  });
+
+  it('shows the translated save error, not the server text', async () => {
+    server.use(
+      http.get('/api/v1/academic-years', yearsOk),
+      http.get('/api/v1/subjects', subjectsOk),
+      http.get('/api/v1/students/:studentId/subject-choices', optionsOk),
+      http.put('/api/v1/students/:studentId/subject-choices', () =>
+        HttpResponse.json({ message: 'server says nope' }, { status: 409 }),
+      ),
+    );
+    const { user } = renderPanel();
+
+    await user.click(await screen.findByRole('radio', { name: 'History' }));
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).not.toContain('server says nope');
   });
 
   it('surfaces a failed save', async () => {

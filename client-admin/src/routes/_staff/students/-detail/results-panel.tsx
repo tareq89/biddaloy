@@ -10,9 +10,17 @@
  * Mounted as a tab the same way [19.6.1]'s `SubjectChoicesPanel` is
  * (`$studentId.tsx`).
  */
-import { ErrorState, Skeleton } from '@biddaloy/ui/components';
+import {
+  DataTable,
+  ErrorState,
+  Skeleton,
+  StatusBadge,
+  type DataTableColumn,
+} from '@biddaloy/ui/components';
 import { useStudentResults } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { formatNumber } from '@biddaloy/ui/utils';
+import { AwardIcon } from 'lucide-react';
 
 export interface ResultsPanelProps {
   studentId: string;
@@ -20,6 +28,8 @@ export interface ResultsPanelProps {
 
 export function ResultsPanel({ studentId }: ResultsPanelProps) {
   const { t } = useTranslation('exams');
+  const { t: tStudents } = useTranslation('students');
+  const regionConfig = useRegionConfig();
   const resultsQuery = useStudentResults(studentId);
 
   if (resultsQuery.isPending) return <Skeleton className="h-24 w-full" />;
@@ -27,56 +37,71 @@ export function ResultsPanel({ studentId }: ResultsPanelProps) {
     return (
       <ErrorState
         message={t('studentResultsPanel.loadError')}
+        retryLabel={t('actions.retry', { ns: 'common' })}
         onRetry={() => void resultsQuery.refetch()}
       />
     );
   }
 
   const rows = resultsQuery.data;
-  if (rows.length === 0) {
-    return <p className="text-sm text-muted-foreground">{t('studentResultsPanel.empty')}</p>;
-  }
+  type Row = (typeof rows)[number];
+  const columns: DataTableColumn<Row>[] = [
+    {
+      id: 'exam',
+      header: t('studentResultsPanel.columnExam'),
+      accessorFn: (row) => (
+        <span className="flex flex-wrap items-center gap-2 font-medium">
+          {row.exam_name}
+          {row.is_fail && <StatusBadge tone="danger" label={t('studentResultsPanel.failTag')} />}
+        </span>
+      ),
+      card: 'title',
+    },
+    { id: 'grade', header: t('studentResultsPanel.columnGrade'), accessorFn: (row) => row.grade },
+    {
+      id: 'gpa',
+      header: t('studentResultsPanel.columnGpa'),
+      align: 'end',
+      accessorFn: (row) => formatNumber(row.gpa, regionConfig, { decimals: 2 }),
+    },
+    {
+      id: 'status',
+      header: t('studentResultsPanel.columnStatus'),
+      // The one label this panel exists for: staff must never read an
+      // unpublished row as something a parent can already see.
+      accessorFn: (row) =>
+        row.published ? (
+          <StatusBadge tone="success" label={t('studentResultsPanel.published')} />
+        ) : (
+          <StatusBadge tone="warning" label={t('studentResultsPanel.notPublished')} />
+        ),
+      card: 'badge',
+    },
+  ];
 
   return (
-    <table className="w-full border-collapse text-sm">
-      <caption className="sr-only">{t('studentResultsPanel.caption')}</caption>
-      <thead>
-        <tr className="border-b text-start text-muted-foreground">
-          <th className="py-1 text-start">{t('studentResultsPanel.columnExam')}</th>
-          <th className="py-1 text-start">{t('studentResultsPanel.columnGrade')}</th>
-          <th className="py-1 text-start">{t('studentResultsPanel.columnGpa')}</th>
-          <th className="py-1 text-start">{t('studentResultsPanel.columnStatus')}</th>
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((row) => (
-          <tr key={row.exam_id} className="border-b border-border-subtle">
-            <td className="py-1.5 font-medium">
-              {row.exam_name}
-              {row.is_fail && (
-                <span className="ms-1.5 text-[11px] font-normal text-destructive">
-                  {t('studentResultsPanel.failTag')}
-                </span>
-              )}
-            </td>
-            <td className="py-1.5">{row.grade}</td>
-            <td className="py-1.5 tabular-nums">{row.gpa.toFixed(2)}</td>
-            <td className="py-1.5">
-              {row.published ? (
-                <span className="text-xs text-muted-foreground">
-                  {t('studentResultsPanel.published')}
-                </span>
-              ) : (
-                // The one label this panel exists for: staff must never
-                // read this row as something a parent can already see.
-                <span className="rounded-full border border-status-due-fg px-2 py-0.5 text-xs text-status-due-fg">
-                  {t('studentResultsPanel.notPublished')}
-                </span>
-              )}
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+    <DataTable
+      tableId="student-results"
+      caption={t('studentResultsPanel.caption')}
+      paginated={false}
+      sorting={null}
+      onSortingChange={() => {}}
+      columns={columns}
+      data={rows}
+      getRowId={(row) => row.exam_id}
+      totalCount={rows.length}
+      rowActions={(row) => [
+        {
+          intent: 'view',
+          label: tStudents('detail.results.view'),
+          to: `/results/${row.exam_id}/${studentId}`,
+        },
+      ]}
+      emptyState={{
+        title: t('studentResultsPanel.empty'),
+        explanation: tStudents('detail.results.emptyExplanation'),
+        icon: <AwardIcon aria-hidden="true" />,
+      }}
+    />
   );
 }

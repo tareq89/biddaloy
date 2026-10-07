@@ -13,7 +13,16 @@
  * the server never implemented — removed rather than left calling a 404.
  */
 import { Permission } from '@biddaloy/shared';
-import { Button, Input } from '@biddaloy/ui/components';
+import {
+  Button,
+  Card,
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  Textarea,
+} from '@biddaloy/ui/components';
 import {
   useAddScheduleExclusion,
   useHasPermission,
@@ -40,39 +49,55 @@ function ExcludeAction({ scheduleId, studentId }: { scheduleId: string; studentI
   const [reason, setReason] = React.useState('');
   const addExclusion = useAddScheduleExclusion(scheduleId);
 
-  if (!promptOpen) {
-    return (
-      <Button type="button" size="sm" variant="outline" onClick={() => setPromptOpen(true)}>
-        {t('recurringFeesTab.excludeAction')}
-      </Button>
-    );
-  }
-
   return (
-    <div className="flex items-center gap-2">
-      <Input
-        aria-label={t('recurringFeesTab.excludeReasonLabel')}
-        placeholder={t('recurringFeesTab.excludeReasonLabel')}
-        value={reason}
-        onChange={(event) => setReason(event.target.value)}
-        className="max-w-48"
-      />
-      {/* `AddExclusionDto.reason` is `@IsNotEmpty()`, so an empty reason
-          400s — the button stays disabled instead of round-tripping. */}
-      <Button
-        type="button"
-        size="sm"
-        disabled={addExclusion.isPending || reason.trim() === ''}
-        onClick={() =>
-          addExclusion.mutate(
-            { student_id: studentId, reason: reason.trim() },
-            { onSuccess: () => setPromptOpen(false) },
-          )
-        }
-      >
+    <>
+      <Button type="button" variant="outline" onClick={() => setPromptOpen(true)}>
         {t('recurringFeesTab.excludeAction')}
       </Button>
-    </div>
+      <Dialog open={promptOpen} onOpenChange={setPromptOpen}>
+        <DialogContent size="sm">
+          <DialogHeader>
+            <DialogTitle>{t('recurringFeesTab.excludeAction')}</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-1.5">
+            <label htmlFor={`exclude-reason-${scheduleId}`} className="font-medium">
+              {t('recurringFeesTab.excludeReasonLabel')}
+            </label>
+            <Textarea
+              id={`exclude-reason-${scheduleId}`}
+              value={reason}
+              onChange={(event) => setReason(event.target.value)}
+              rows={3}
+            />
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setPromptOpen(false)}>
+              {t('actions.cancel', { ns: 'common' })}
+            </Button>
+            {/* `AddExclusionDto.reason` is `@IsNotEmpty()`, so an empty reason
+                400s — the button stays disabled instead of round-tripping. */}
+            <Button
+              type="button"
+              disabled={reason.trim() === ''}
+              loading={addExclusion.isPending}
+              onClick={() =>
+                addExclusion.mutate(
+                  { student_id: studentId, reason: reason.trim() },
+                  {
+                    onSuccess: () => {
+                      setPromptOpen(false);
+                      setReason('');
+                    },
+                  },
+                )
+              }
+            >
+              {t('recurringFeesTab.excludeAction')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
@@ -88,11 +113,10 @@ function IncludeAgainRow({
   const { t } = useTranslation('fees');
   const includeMutation = useIncludeStudentInSchedule(scheduleId);
   return (
-    <li className="flex items-center justify-between rounded-lg border border-border-subtle p-3">
-      <span className="text-sm">{name}</span>
+    <li className="flex min-h-11 flex-wrap items-center justify-between gap-3 py-2">
+      <span>{name}</span>
       <Button
         type="button"
-        size="sm"
         variant="outline"
         disabled={includeMutation.isPending}
         onClick={() => includeMutation.mutate(studentId)}
@@ -143,14 +167,14 @@ function AddToScheduleRow({
   const { t } = useTranslation('fees');
 
   return (
-    <li className="flex flex-col gap-2 rounded-lg border border-border-subtle p-3">
-      <div className="flex items-center justify-between gap-3">
-        <span className="text-sm">{schedule.name}</span>
-        <Button type="button" size="sm" variant="outline" onClick={onBillOneOff}>
+    <li className="flex flex-col gap-1 py-2">
+      <div className="flex min-h-11 flex-wrap items-center justify-between gap-3 py-2">
+        <span>{schedule.name}</span>
+        <Button type="button" variant="outline" onClick={onBillOneOff}>
           {t('recurringFeesTab.billOneOffAction')}
         </Button>
       </div>
-      <p className="text-xs text-muted-foreground">
+      <p className="text-caption text-text-secondary">
         {matchesAudience
           ? t('recurringFeesTab.alreadyCoveredNotice')
           : t('recurringFeesTab.noAudienceMatchNotice')}
@@ -191,84 +215,88 @@ export function RecurringFeesTab({ studentId }: RecurringFeesTabProps) {
 
           return (
             <div className="flex flex-col gap-6">
-              <section className="flex flex-col gap-3">
-                <h2 className="text-base font-medium">{t('recurringFeesTab.includedTitle')}</h2>
-                {included.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    {t('recurringFeesTab.includedEmptyMessage')}
-                  </p>
-                ) : (
-                  <ul className="flex flex-col gap-2">
-                    {included.map((schedule) => (
-                      <li
-                        key={schedule.id}
-                        className="flex items-center justify-between rounded-lg border border-border-subtle p-3"
-                      >
-                        <span className="text-sm">{schedule.name}</span>
-                        {canManage && (
-                          <ExcludeAction scheduleId={schedule.id} studentId={studentId} />
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </section>
-
-              <section className="flex flex-col gap-3">
-                <h2 className="text-base font-medium">{t('recurringFeesTab.excludedTitle')}</h2>
-                {excluded.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    {t('recurringFeesTab.excludedEmptyMessage')}
-                  </p>
-                ) : (
-                  <ul className="flex flex-col gap-2">
-                    {excluded.map((schedule) =>
-                      canManage ? (
-                        <IncludeAgainRow
-                          key={schedule.id}
-                          scheduleId={schedule.id}
-                          studentId={studentId}
-                          name={schedule.name}
-                        />
-                      ) : (
-                        <li
-                          key={schedule.id}
-                          className="flex items-center justify-between rounded-lg border border-border-subtle p-3"
-                        >
-                          <span className="text-sm">{schedule.name}</span>
-                        </li>
-                      ),
-                    )}
-                  </ul>
-                )}
-              </section>
-
-              {canManage && (
-                <section className="flex flex-col gap-3">
-                  <h2 className="text-base font-medium">
-                    {t('recurringFeesTab.addToScheduleTitle')}
-                  </h2>
-                  {addable.length === 0 || !student ? (
-                    <p className="text-sm text-muted-foreground">
-                      {t('recurringFeesTab.addToScheduleEmptyMessage')}
+              <Card padded asChild>
+                <section>
+                  <h2 className="text-h2">{t('recurringFeesTab.includedTitle')}</h2>
+                  {included.length === 0 ? (
+                    <p className="mt-2 text-text-secondary">
+                      {t('recurringFeesTab.includedEmptyMessage')}
                     </p>
                   ) : (
-                    <ul className="flex flex-col gap-2">
-                      {addable.map((schedule) => (
-                        <AddToScheduleRow
+                    <ul className="mt-2 divide-y divide-border-subtle">
+                      {included.map((schedule) => (
+                        <li
                           key={schedule.id}
-                          schedule={schedule}
-                          matchesAudience={audienceMatchesStudent(schedule, {
-                            classId: student.class_section.class_id,
-                            sectionId: student.class_section_id,
-                            isActive: student.enrollment_status === 'ACTIVE',
-                          })}
-                          onBillOneOff={() => setBillOneOffOpen(true)}
-                        />
+                          className="flex min-h-11 flex-wrap items-center justify-between gap-3 py-2"
+                        >
+                          <span>{schedule.name}</span>
+                          {canManage && (
+                            <ExcludeAction scheduleId={schedule.id} studentId={studentId} />
+                          )}
+                        </li>
                       ))}
                     </ul>
                   )}
                 </section>
+              </Card>
+
+              <Card padded asChild>
+                <section>
+                  <h2 className="text-h2">{t('recurringFeesTab.excludedTitle')}</h2>
+                  {excluded.length === 0 ? (
+                    <p className="mt-2 text-text-secondary">
+                      {t('recurringFeesTab.excludedEmptyMessage')}
+                    </p>
+                  ) : (
+                    <ul className="mt-2 divide-y divide-border-subtle">
+                      {excluded.map((schedule) =>
+                        canManage ? (
+                          <IncludeAgainRow
+                            key={schedule.id}
+                            scheduleId={schedule.id}
+                            studentId={studentId}
+                            name={schedule.name}
+                          />
+                        ) : (
+                          <li
+                            key={schedule.id}
+                            className="flex min-h-11 flex-wrap items-center justify-between gap-3 py-2"
+                          >
+                            <span>{schedule.name}</span>
+                          </li>
+                        ),
+                      )}
+                    </ul>
+                  )}
+                </section>
+              </Card>
+
+              {canManage && (
+                <Card padded asChild>
+                  <section>
+                    <h2 className="text-h2">{t('recurringFeesTab.addToScheduleTitle')}</h2>
+                    {addable.length === 0 || !student ? (
+                      <p className="mt-2 text-text-secondary">
+                        {t('recurringFeesTab.addToScheduleEmptyMessage')}
+                      </p>
+                    ) : (
+                      <ul className="mt-2 divide-y divide-border-subtle">
+                        {addable.map((schedule) => (
+                          <AddToScheduleRow
+                            key={schedule.id}
+                            schedule={schedule}
+                            matchesAudience={audienceMatchesStudent(schedule, {
+                              classId: student.class_section.class_id,
+                              sectionId: student.class_section_id,
+                              isActive: student.enrollment_status === 'ACTIVE',
+                            })}
+                            onBillOneOff={() => setBillOneOffOpen(true)}
+                          />
+                        ))}
+                      </ul>
+                    )}
+                  </section>
+                </Card>
               )}
             </div>
           );

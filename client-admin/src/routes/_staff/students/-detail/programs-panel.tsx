@@ -9,17 +9,29 @@
 import { Permission } from '@biddaloy/shared';
 import {
   Button,
+  Card,
+  EmptyState,
   ErrorState,
   MilestoneChecklist,
   ProgressBar,
   Skeleton,
+  StatusBadge,
+  type StatusTone,
 } from '@biddaloy/ui/components';
 import { useHasPermission, useRemoveAchievement, useStudentPrograms } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { formatDate, formatDateRange, parseServerDate } from '@biddaloy/ui/utils';
+import { PlusIcon } from 'lucide-react';
 import * as React from 'react';
 
 import { EnrolDialog } from '../../programs/-enrol-dialog';
 import { RecordDialog } from '../../programs/-record-dialog';
+
+const PROGRAM_TONE: Record<string, StatusTone> = {
+  ACTIVE: 'success',
+  COMPLETED: 'info',
+  WITHDRAWN: 'neutral',
+};
 
 export interface ProgramsPanelProps {
   studentId: string;
@@ -27,6 +39,9 @@ export interface ProgramsPanelProps {
 
 export function ProgramsPanel({ studentId }: ProgramsPanelProps) {
   const { t } = useTranslation('programs');
+  // Explicit second binding: also makes sure `students` is loaded for the copy below.
+  const { t: tStudents } = useTranslation('students');
+  const regionConfig = useRegionConfig();
   const programsQuery = useStudentPrograms(studentId);
   const canManage = useHasPermission(Permission.PROGRAM_MANAGE);
   const [enrolOpen, setEnrolOpen] = React.useState(false);
@@ -68,13 +83,14 @@ export function ProgramsPanel({ studentId }: ProgramsPanelProps) {
 
   if (entries.length === 0) {
     return (
-      <div className="flex flex-col items-start gap-3">
-        <p className="text-sm text-muted-foreground">{t('studentProgramsPanel.empty')}</p>
-        {canManage && (
-          <Button type="button" onClick={() => setEnrolOpen(true)}>
-            {t('students.enrol')}
-          </Button>
-        )}
+      <>
+        <EmptyState
+          title={t('studentProgramsPanel.empty')}
+          explanation={tStudents('detail.programs.emptyExplanation')}
+          {...(canManage
+            ? { action: { label: t('students.enrol'), onClick: () => setEnrolOpen(true) } }
+            : {})}
+        />
         {enrolOpen && (
           <EnrolDialog
             open
@@ -84,90 +100,113 @@ export function ProgramsPanel({ studentId }: ProgramsPanelProps) {
             onEnrolled={() => setEnrolOpen(false)}
           />
         )}
-      </div>
+      </>
     );
   }
 
   return (
     <div className="flex flex-col gap-3">
       {canManage && (
-        <Button type="button" className="self-end" onClick={() => setEnrolOpen(true)}>
-          {t('students.enrol')}
-        </Button>
+        <div className="flex justify-end">
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full md:w-auto"
+            onClick={() => setEnrolOpen(true)}
+          >
+            <PlusIcon className="size-4" aria-hidden />
+            {t('students.enrol')}
+          </Button>
+        </div>
       )}
 
       <ul className="flex flex-col gap-3">
         {entries.map((entry) => (
-          <li key={entry.enrollment.id} className="rounded-md border border-border p-3">
-            <div className="flex items-center justify-between gap-2">
-              <div>
-                <span className="font-medium">{entry.program.name}</span>
-                <span className="ms-2 text-xs text-muted-foreground">
-                  {t(`status.${entry.enrollment.status}`)}
-                </span>
-                <p className="text-xs text-muted-foreground">
-                  {entry.enrollment.started_on}
-                  {entry.enrollment.ended_on ? ` – ${entry.enrollment.ended_on}` : ''}
-                </p>
+          <Card padded asChild key={entry.enrollment.id}>
+            <li>
+              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="text-h3">{entry.program.name}</h3>
+                    <StatusBadge
+                      tone={PROGRAM_TONE[entry.enrollment.status] ?? 'neutral'}
+                      label={t(`status.${entry.enrollment.status}`)}
+                    />
+                  </div>
+                  <p className="mt-0.5 text-text-secondary">
+                    {entry.enrollment.ended_on
+                      ? formatDateRange(
+                          entry.enrollment.started_on,
+                          entry.enrollment.ended_on,
+                          regionConfig,
+                        )
+                      : tStudents('detail.programs.since', {
+                          date: formatDate(
+                            parseServerDate(entry.enrollment.started_on),
+                            regionConfig,
+                          ),
+                        })}
+                  </p>
+                </div>
+                {entry.milestone_total > 0 && (
+                  <ProgressBar
+                    done={entry.achieved_count}
+                    total={entry.milestone_total}
+                    label={t('students.progress', {
+                      done: entry.achieved_count,
+                      total: entry.milestone_total,
+                    })}
+                  />
+                )}
               </div>
-              {entry.milestone_total > 0 && (
-                <ProgressBar
-                  done={entry.achieved_count}
-                  total={entry.milestone_total}
-                  label={t('students.progress', {
-                    done: entry.achieved_count,
-                    total: entry.milestone_total,
-                  })}
-                />
-              )}
-            </div>
 
-            <div
-              className="mt-2"
-              ref={(el) => {
-                milestonesContainerRefs.current[entry.enrollment.id] = el;
-              }}
-            >
-              <MilestoneChecklist
-                items={entry.milestones.map((m) => ({
-                  id: m.id,
-                  name: m.name,
-                  achievedOn: m.achievement?.achieved_on ?? null,
-                  scoreGrade: m.achievement
-                    ? [m.achievement.score, m.achievement.grade]
-                        .filter((value) => value !== null && value !== undefined)
-                        .join(' / ') || null
-                    : null,
-                  remark: m.achievement?.remark ?? null,
-                }))}
-                undoLabel={t('milestones.remove')}
-                onRecord={(milestoneId) =>
-                  setRecordFor({
-                    programId: entry.program.id,
-                    enrollmentId: entry.enrollment.id,
-                    milestoneId,
-                  })
-                }
-                onUndo={(milestoneId) => {
-                  const achievementId = entry.milestones.find((m) => m.id === milestoneId)
-                    ?.achievement?.id;
-                  if (!achievementId) return;
-                  removeAchievement.mutate(
-                    {
-                      achievementId,
-                      programId: entry.program.id,
-                      studentId,
-                      milestoneId,
-                    },
-                    {
-                      onSuccess: () => refocusMilestone(entry.enrollment.id, milestoneId),
-                      onError: () => refocusMilestone(entry.enrollment.id, milestoneId),
-                    },
-                  );
+              <div
+                className="mt-2"
+                ref={(el) => {
+                  milestonesContainerRefs.current[entry.enrollment.id] = el;
                 }}
-              />
-            </div>
-          </li>
+              >
+                <MilestoneChecklist
+                  items={entry.milestones.map((m) => ({
+                    id: m.id,
+                    name: m.name,
+                    achievedOn: m.achievement?.achieved_on ?? null,
+                    scoreGrade: m.achievement
+                      ? [m.achievement.score, m.achievement.grade]
+                          .filter((value) => value !== null && value !== undefined)
+                          .join(' / ') || null
+                      : null,
+                    remark: m.achievement?.remark ?? null,
+                  }))}
+                  undoLabel={t('milestones.remove')}
+                  onRecord={(milestoneId) =>
+                    setRecordFor({
+                      programId: entry.program.id,
+                      enrollmentId: entry.enrollment.id,
+                      milestoneId,
+                    })
+                  }
+                  onUndo={(milestoneId) => {
+                    const achievementId = entry.milestones.find((m) => m.id === milestoneId)
+                      ?.achievement?.id;
+                    if (!achievementId) return;
+                    removeAchievement.mutate(
+                      {
+                        achievementId,
+                        programId: entry.program.id,
+                        studentId,
+                        milestoneId,
+                      },
+                      {
+                        onSuccess: () => refocusMilestone(entry.enrollment.id, milestoneId),
+                        onError: () => refocusMilestone(entry.enrollment.id, milestoneId),
+                      },
+                    );
+                  }}
+                />
+              </div>
+            </li>
+          </Card>
         ))}
       </ul>
 

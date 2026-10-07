@@ -20,7 +20,7 @@ export function RecordsTab({ studentId }: RecordsTabProps) {
   const studentQuery = useStudent(studentId);
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="space-y-6">
       <TabQueryState
         query={studentQuery}
         forbiddenMessage={t('tab.forbidden')}

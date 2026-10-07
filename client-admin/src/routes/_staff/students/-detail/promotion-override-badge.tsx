@@ -1,3 +1,4 @@
+import { StatusBadge } from '@biddaloy/ui/components';
 import { useStudentPromotionOverrides } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 
@@ -14,7 +15,7 @@ export interface PromotionOverrideBadgeProps {
  * so sort by `committed_at` here rather than trusting array order.
  */
 export function PromotionOverrideBadge({ studentId }: PromotionOverrideBadgeProps) {
-  const { t } = useTranslation('promotions');
+  const { t } = useTranslation('students');
   const { data } = useStudentPromotionOverrides(studentId);
 
   if (!data || data.length === 0) return null;
@@ -24,13 +25,11 @@ export function PromotionOverrideBadge({ studentId }: PromotionOverrideBadgeProp
   )[0];
   if (!latest) return null;
 
+  // Short label only; the full sentence with note and approver lives in the Enrollment tab.
   return (
-    <span className="inline-flex items-center rounded-full bg-status-due-bg px-2 py-0.5 text-xs font-medium text-status-due-fg">
-      {t(`badge.${latest.final_outcome.toLowerCase()}`, {
-        year: latest.target_academic_year_name ?? '',
-        note: latest.override_note ?? '',
-        user: latest.overridden_by_name ?? '',
-      })}
-    </span>
+    <StatusBadge
+      tone="warning"
+      label={t(`detail.overrideBadge.${latest.final_outcome.toLowerCase()}`)}
+    />
   );
 }
