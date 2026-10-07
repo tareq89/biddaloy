@@ -29,7 +29,12 @@ export function PhoneInput({ value, onValueChange, config, ...props }: PhoneInpu
       inputMode="tel"
       placeholder={config.phone.example}
       value={value}
-      aria-invalid={value !== '' && !parsePhone(value, config).valid}
+      // A host's own error (e.g. "required" on an empty field) also marks it invalid.
+      aria-invalid={
+        props['aria-invalid'] === true ||
+        props['aria-invalid'] === 'true' ||
+        (value !== '' && !parsePhone(value, config).valid)
+      }
       onChange={(event) => {
         const raw = event.target.value;
         const result = parsePhone(raw, config);
