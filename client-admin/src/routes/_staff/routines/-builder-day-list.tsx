@@ -8,7 +8,7 @@ import type { RoutineGridCell, RoutineGridPeriodRow } from '@biddaloy/ui/compone
 import { Card, Tabs, TabsContent, TabsList, TabsTrigger } from '@biddaloy/ui/components';
 import { routineCellKey } from '@biddaloy/ui/components';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
-import { formatTime } from '@biddaloy/ui/utils';
+import { formatNumber, formatTime } from '@biddaloy/ui/utils';
 import { ChevronRightIcon, PlusIcon, TriangleAlertIcon } from 'lucide-react';
 import * as React from 'react';
 
@@ -60,7 +60,9 @@ export function BuilderDayList({
                 );
               }
               const cell = cells[routineCellKey(selected, period.id)];
-              const periodLabel = t('agenda.periodLabel', { sequence: period.sequence });
+              const periodLabel = t('agenda.periodLabel', {
+                sequence: formatNumber(period.sequence, config),
+              });
               const label = cell
                 ? tCommon('routine.cellLabel', {
                     weekday: weekdayLabels[selected],

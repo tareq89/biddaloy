@@ -37,9 +37,9 @@ import {
   type ResolvedSlot,
   type Routine,
 } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { PageContainer, PageHeader } from '@biddaloy/ui/shells';
-import { toIsoDate } from '@biddaloy/ui/utils';
+import { formatNumber, toIsoDate } from '@biddaloy/ui/utils';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { CalendarClockIcon, UserRoundXIcon } from 'lucide-react';
 import * as React from 'react';
@@ -84,6 +84,7 @@ export const Route = createFileRoute('/_staff/routines/my')({
 
 function MyRoutinePage() {
   const { t, i18n } = useTranslation('routines');
+  const config = useRegionConfig();
   const navigate = useNavigate();
   const canManage = useHasPermission(Permission.ROUTINE_MANAGE);
   const currentUserId = useCurrentUserId();
@@ -224,7 +225,9 @@ function MyRoutinePage() {
   };
   const periodLabel = (id: string) => {
     const entry = periodLookupQuery.data?.[id];
-    return entry ? t('agenda.periodLabel', { sequence: entry.sequence }) : '—';
+    return entry
+      ? t('agenda.periodLabel', { sequence: formatNumber(entry.sequence, config) })
+      : '—';
   };
   const weeklyOffDays = new Set(calendarSettingsQuery.data?.weeklyOffDays ?? []);
   const holidayFor = (date: string) =>
