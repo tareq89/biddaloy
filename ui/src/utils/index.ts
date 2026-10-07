@@ -36,6 +36,7 @@ export { csvCell, downloadCsv, toCsvContent } from './csv';
 export { detectLoginIdentifier, type LoginIdentifier } from './login-identifier';
 export { formatName } from './name';
 export { formatNumber, parseNumber } from './number';
+export { PAGE_SIZE_OPTIONS } from './page-size';
 export { formatPhone, parsePhone, type PhoneParseResult } from './phone';
 export { parseValidationFieldErrors } from './server-validation-errors';
 export { countSmsSegments, type SmsEncoding, type SmsSegmentInfo } from './sms';

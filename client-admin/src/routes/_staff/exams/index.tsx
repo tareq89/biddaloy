@@ -14,7 +14,7 @@ import {
 } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { ListShell, useListShellState, type FilterFieldDescriptor } from '@biddaloy/ui/shells';
-import { formatNumber } from '@biddaloy/ui/utils';
+import { formatNumber, PAGE_SIZE_OPTIONS } from '@biddaloy/ui/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { Plus } from 'lucide-react';
 import * as React from 'react';
@@ -41,9 +41,29 @@ const examsSearchSchema = z.object({
 
 export const Route = createFileRoute('/_staff/exams/')({
   validateSearch: examsSearchSchema,
-  loader: ({ context: { queryClient } }) =>
+  // Warm the exact query the page reads: same page, limit rule and filters
+  // as `useListShellState` + the `useExams` call below.
+  loaderDeps: ({ search }) => ({
+    page: search.page ?? 1,
+    limit:
+      search.limit !== undefined && (PAGE_SIZE_OPTIONS as readonly number[]).includes(search.limit)
+        ? search.limit
+        : 25,
+    academicYearId: search.academic_year_id,
+    classId: search.academic_year_id ? search.class_id : undefined,
+  }),
+  loader: ({ context: { queryClient }, deps }) =>
     Promise.all([
-      queryClient.ensureQueryData(examsQueryOptions({ page: 1, limit: 25 })).catch(swallowUnlessOffline),
+      queryClient
+        .ensureQueryData(
+          examsQueryOptions({
+            ...(deps.academicYearId ? { academic_year_id: deps.academicYearId } : {}),
+            ...(deps.classId ? { class_id: deps.classId } : {}),
+            page: deps.page,
+            limit: deps.limit,
+          }),
+        )
+        .catch(swallowUnlessOffline),
       loadRouteNamespaces('exams', 'common', 'examsTemplateField'),
     ]),
   pendingComponent: ExamsListPending,
