@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Payment } from '../fees/entities/payment.entity';
 import { PaymentMethod } from '@biddaloy/shared';
+import { SCHOOL_TZ, endOfLocalDay, startOfLocalDay } from '../../common/time';
 import {
   CollectionsCsvRow,
   CollectionsByCollector,
@@ -12,36 +13,6 @@ import {
   CollectionsReportDto,
   CollectionsReportQueryDto,
 } from './dto/collections-report.dto';
-
-/** [D14] Same reasoning as `payments-query.service.ts`'s own copy — every
- * "which school calendar day did this fall on" comparison goes through the
- * tenant's calendar day in Asia/Dhaka, never server-local/UTC time. This
- * report's territory doesn't include wiring up shared date-utility
- * plumbing across modules (there is no `server/src/common/time.ts` yet —
- * confirmed absent in the pre-flight comment on #671), so it duplicates the
- * same small helper the fees module already carries three copies of. */
-const SCHOOL_TIMEZONE = 'Asia/Dhaka';
-
-/** Converts a `YYYY-MM-DD` filter value into the UTC instant of that
- * calendar day's midnight *in the school's timezone*. */
-function startOfDayInSchoolTimezone(dateStr: string): Date {
-  const utcMidnight = new Date(`${dateStr}T00:00:00Z`);
-  const tzMs = new Date(
-    utcMidnight.toLocaleString('en-US', { timeZone: SCHOOL_TIMEZONE }),
-  ).getTime();
-  const utcMs = new Date(utcMidnight.toLocaleString('en-US', { timeZone: 'UTC' })).getTime();
-  const offsetMs = tzMs - utcMs;
-  return new Date(utcMidnight.getTime() - offsetMs);
-}
-
-/** The UTC instant one millisecond before the *next* calendar day starts in
- * the school's timezone — i.e. the last instant of `dateStr` in Dhaka. */
-function endOfDayInSchoolTimezone(dateStr: string): Date {
-  const nextDay = new Date(`${dateStr}T00:00:00Z`);
-  nextDay.setUTCDate(nextDay.getUTCDate() + 1);
-  const nextDayStr = nextDay.toISOString().slice(0, 10);
-  return new Date(startOfDayInSchoolTimezone(nextDayStr).getTime() - 1);
-}
 
 interface PaymentTotalsRow {
   collected: string | null;
@@ -95,8 +66,8 @@ export class CollectionsReportService {
 
   private buildRange(query: CollectionsReportQueryDto) {
     return {
-      from: startOfDayInSchoolTimezone(query.from),
-      to: endOfDayInSchoolTimezone(query.to),
+      from: startOfLocalDay(query.from),
+      to: endOfLocalDay(query.to),
     };
   }
 
@@ -239,7 +210,7 @@ export class CollectionsReportService {
       Array<{ date: string; collected: string; reversed: string; net: string }>
     >(
       `SELECT
-         (p.payment_date AT TIME ZONE '${SCHOOL_TIMEZONE}')::date::text AS date,
+         (p.payment_date AT TIME ZONE '${SCHOOL_TZ}')::date::text AS date,
          COALESCE(SUM(CASE WHEN p.reversal_of_payment_id IS NULL THEN p.total_amount ELSE 0 END), 0) AS collected,
          COALESCE(SUM(CASE WHEN p.reversal_of_payment_id IS NOT NULL THEN p.total_amount ELSE 0 END), 0) AS reversed,
          COALESCE(SUM(CASE WHEN p.reversal_of_payment_id IS NULL THEN p.total_amount ELSE -p.total_amount END), 0) AS net
@@ -332,7 +303,7 @@ export class CollectionsReportService {
          -- stored as 2026-03-15T20:00:00Z — new Date(...).toISOString()
          -- in JS would stamp it with the wrong calendar day. by_day above
          -- already converts the same way; this keeps the CSV consistent.
-         to_char(p.payment_date AT TIME ZONE '${SCHOOL_TIMEZONE}', 'YYYY-MM-DD"T"HH24:MI:SS') AS date,
+         to_char(p.payment_date AT TIME ZONE '${SCHOOL_TZ}', 'YYYY-MM-DD"T"HH24:MI:SS') AS date,
          i.invoice_number AS invoice_number,
          s.full_name AS student_name,
          p.payment_method AS payment_method,

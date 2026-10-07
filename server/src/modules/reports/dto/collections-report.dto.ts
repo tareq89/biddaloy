@@ -6,13 +6,13 @@ import { PaymentMethod } from '@biddaloy/shared';
  * [16.6.2] Query for `GET /reports/collections` and
  * `GET /reports/collections.csv`. `from`/`to` are `YYYY-MM-DD` calendar
  * days in the school's own timezone (Asia/Dhaka, D14) — see
- * `startOfDayInSchoolTimezone`/`endOfDayInSchoolTimezone` in
- * `collections-report.service.ts` for how they're turned into UTC
+ * `startOfLocalDay`/`endOfLocalDay` in
+ * `common/time.ts` for how they're turned into UTC
  * instants.
  */
 export class CollectionsReportQueryDto {
   // `@IsDateString()` accepts a full ISO timestamp (e.g. `2026-03-01T00:00Z`),
-  // which `endOfDayInSchoolTimezone` then mishandles (`new Date(`${v}T00:00:00Z`)`
+  // which `endOfLocalDay` then mishandles (`new Date(`${v}T00:00:00Z`)`
   // becomes an invalid instant) and throws a RangeError -> 500 instead of a
   // clean 400. Require a bare `YYYY-MM-DD` calendar day instead.
   @ApiProperty({ example: '2026-03-01' })

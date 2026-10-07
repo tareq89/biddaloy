@@ -259,6 +259,27 @@ describe('CollectionsReportService', () => {
       expect(result.totals.collected).toBe(Number(inside.total_amount));
     });
 
+    it('excludes a payment at the very next Dhaka midnight from the `to` day', async () => {
+      const student = await makeStudent();
+      // 2026-03-31T18:00:00Z is 1 Apr 00:00 in Dhaka — outside `to: 2026-03-31`.
+      await makePayment(student.id, SEED_TENANT_ID, {
+        payment_date: new Date('2026-03-31T18:00:00Z'),
+        total_amount: 333,
+      });
+      // One second earlier is still 31 Mar in Dhaka — inside.
+      const inside = await makePayment(student.id, SEED_TENANT_ID, {
+        payment_date: new Date('2026-03-31T17:59:59Z'),
+        total_amount: 444,
+      });
+
+      const result = await service.getReport(SEED_TENANT_ID, {
+        from: '2026-03-31',
+        to: '2026-03-31',
+      });
+
+      expect(result.totals.collected).toBe(Number(inside.total_amount));
+    });
+
     it('is tenant-isolated', async () => {
       const student = await makeStudent();
       const other = await makeStudent(OTHER_TENANT_ID);

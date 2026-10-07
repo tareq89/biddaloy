@@ -14,7 +14,7 @@ import { Program } from '../programs/entities/program.entity';
 import { ProgramEnrollment } from '../programs/entities/program-enrollment.entity';
 import { applyProgramAudience } from './program-audience';
 import { AuditService } from '../audit/audit.service';
-import { localToday } from '../attendance/attendance-policy.util';
+import { localToday } from '../../common/time';
 import { nextRunDates, periodFor } from './recurrence.util';
 import {
   AddExclusionDto,
@@ -31,11 +31,6 @@ import {
 import { FamilyStudentScheduleDto, toFamilyStudentSchedule } from './dto/family.dto';
 
 const PREVIEW_LIMIT = 50;
-// Duplicated rather than imported, matching checkout.service.ts /
-// payments-query.service.ts / collections-report.service.ts — schedule
-// windows are school-local calendar days (Asia/Dhaka, epic #637 D14),
-// never server-local/UTC time.
-const SCHOOL_TIMEZONE = 'Asia/Dhaka';
 
 /**
  * [16.7.1] CRUD + exclusions + clone-to-next-year for `RecurringSchedule`.
@@ -809,7 +804,7 @@ export class RecurringSchedulesService {
     // student keeps seeing last year's (never-deactivated) schedules
     // forever. `today` is the school's local calendar day (Asia/Dhaka),
     // not UTC — otherwise this flips a few hours early/late every day.
-    const today = localToday(SCHOOL_TIMEZONE);
+    const today = localToday();
     const schedules = await this.repo
       .createQueryBuilder('rs')
       .where('rs.tenant_id = :tenantId', { tenantId })
@@ -914,7 +909,7 @@ export class RecurringSchedulesService {
       relations: { fee_structure: true },
     });
 
-    const today = localToday(SCHOOL_TIMEZONE);
+    const today = localToday();
     return schedules.map((schedule) => {
       const fees = structures
         .filter((s) => s.schedule_id === schedule.id && s.fee_structure)

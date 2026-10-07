@@ -5,6 +5,7 @@ import { FeeStatus, FeeType, PeriodType } from '@biddaloy/shared';
 import { StudentFee } from './entities/student-fee.entity';
 import { Student } from '../students/entities/student.entity';
 import { WalletService } from './wallet.service';
+import { localToday } from '../../common/time';
 
 /** Mirrors `fee-dues.service.ts`'s private `OPEN_STATUSES` — duplicated
  * rather than imported/exported because `fee-dues.service.ts` is outside
@@ -15,16 +16,6 @@ const OPEN_STATUSES = [FeeStatus.PENDING, FeeStatus.PARTIALLY_PAID];
  * opens with more than a handful of siblings selected, and this keeps the
  * combined-bills sort/allocation walk small. */
 export const MAX_CART_STUDENTS = 10;
-
-/** [D14] All "today" comparisons in SchoolManager go through the tenant's
- * calendar day in Asia/Dhaka, never server-local time — a bill due
- * `2026-09-14` must not flip to "overdue" at UTC midnight, six hours before
- * the school's own midnight. */
-const SCHOOL_TIMEZONE = 'Asia/Dhaka';
-
-function todayInSchoolTimezone(): string {
-  return new Intl.DateTimeFormat('en-CA', { timeZone: SCHOOL_TIMEZONE }).format(new Date());
-}
 
 /** `due_date`/`period_start` are `date` columns. The pg driver can hand
  * TypeORM either a `'YYYY-MM-DD'` string or a `Date` (depending on driver
@@ -158,7 +149,8 @@ export class CheckoutCartService {
     }
 
     const walletByStudent = new Map(students.map((s, i) => [s.id, wallets[i]]));
-    const today = todayInSchoolTimezone();
+    // Dhaka calendar day, not UTC: a bill due 2026-09-14 must not flip to overdue at UTC midnight.
+    const today = localToday();
 
     // Grouped by student first, so per-student wallet allocation (below)
     // never needs to re-derive which bills belong to which student.

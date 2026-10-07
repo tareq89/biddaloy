@@ -21,19 +21,9 @@ import { AuditService } from '../audit/audit.service';
 import { InvoicesService } from '../invoices/invoices.service';
 import { CheckoutDto, CheckoutResultDto } from './dto/checkout.dto';
 import { buildIssuerSnapshot, lockSchoolForSnapshot } from '../schools/profile/issuer-snapshot';
+import { localToday } from '../../common/time';
 
 const AMOUNT_EPSILON = 0.01;
-
-/** [D14] Same reasoning as `checkout-cart.service.ts`'s own copy — every
- * "is this bill overdue" check goes through the tenant's calendar day in
- * Asia/Dhaka, never server-local time. Duplicated rather than imported:
- * `checkout-cart.service.ts` doesn't export it, and this ticket's
- * territory doesn't include changing that file just to share one helper. */
-const SCHOOL_TIMEZONE = 'Asia/Dhaka';
-
-function todayInSchoolTimezone(): string {
-  return new Intl.DateTimeFormat('en-CA', { timeZone: SCHOOL_TIMEZONE }).format(new Date());
-}
 
 function dateKey(value: Date | string | null): string | null {
   if (value === null) return null;
@@ -266,7 +256,8 @@ export class CheckoutService {
         }
 
         const now = dto.payment_date ? new Date(dto.payment_date) : new Date();
-        const today = todayInSchoolTimezone();
+        // Dhaka calendar day, not UTC: a bill due 2026-09-14 must not flip to overdue at UTC midnight.
+        const today = localToday();
 
         // [15.5.5] Frozen at the moment of record — same reasoning as
         // `PaymentAllocationService.recordWithAllocation` and
