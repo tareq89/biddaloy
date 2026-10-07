@@ -3,7 +3,7 @@ import { waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 
-import { setActiveTenant } from '../api/auth-state';
+import { setActiveRole, setActiveTenant } from '../api/auth-state';
 import { isTenantSuspendedError } from '../api/errors';
 import { server } from '../test/msw/server';
 import { renderHookWithProviders } from '../test/render-hook-with-providers';
@@ -192,5 +192,27 @@ describe('useTenantRegionConfig', () => {
     expect(called).toBe(0);
     expect(result.current.currency.code).not.toBe('CAD');
     expect(result.current.currency.code).toBeTruthy();
+  });
+
+  it('ignores settings cached under an earlier role once the role loses SETTINGS_MANAGE', async () => {
+    server.use(
+      http.get('/api/v1/schools/:id/settings', () => HttpResponse.json(settingsResponse('CAD'))),
+    );
+
+    const { result, rerender } = renderHookWithProviders(() => useTenantRegionConfig(), {
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+    });
+    await waitFor(() => {
+      expect(result.current.currency.code).toBe('CAD');
+    });
+
+    // Same tenant, same query client: only the role changes.
+    setActiveRole('ACCOUNTANT');
+    rerender();
+
+    await waitFor(() => {
+      expect(result.current.currency.code).not.toBe('CAD');
+    });
   });
 });
