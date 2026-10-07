@@ -353,7 +353,7 @@ describe('/promotions/new', () => {
         return HttpResponse.json({ id: 'run-new' }, { status: 201 });
       }),
     );
-    renderWithRouter(routeTree, {
+    const { router } = renderWithRouter(routeTree, {
       initialEntries: ['/promotions/new?classId=00000000-0000-4000-8000-000000000006'],
       tenantId: 'tenant-1',
       role: 'ADMIN',
@@ -369,8 +369,12 @@ describe('/promotions/new', () => {
     });
     await user.click(submit);
     await user.click(screen.getByRole('button', { name: 'Close' }));
-    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    const cancel = screen.getByRole('button', { name: 'Cancel' });
+    expect(cancel.hasAttribute('disabled')).toBe(true);
+    await user.click(cancel);
 
     expect(screen.getByRole('heading', { level: 1, name: 'New promotion list' })).toBeTruthy();
+    // The create was not abandoned: it finishes and opens the new list.
+    await waitFor(() => expect(router.state.location.pathname).toBe('/promotions/run-new'));
   });
 });
