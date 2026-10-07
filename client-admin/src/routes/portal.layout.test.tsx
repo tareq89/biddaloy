@@ -49,6 +49,13 @@ describe('portal layout shell', () => {
     expect(within(bar).queryAllByRole('link', { current: 'page' })).toHaveLength(0);
   });
 
+  it('shows the desktop header only from md up, so phones get one header row', async () => {
+    render('/portal/fees');
+    // jsdom applies no CSS, so check the wrapper class the staff shell uses too.
+    const header = (await screen.findAllByRole('banner'))[0]!;
+    expect(header.parentElement?.className).toBe('hidden md:flex');
+  });
+
   it('account menu has Security, which goes to /portal/account', async () => {
     const { router } = render('/portal/fees');
     const user = userEvent.setup();
