@@ -109,7 +109,8 @@
     "dialog": {
       "statusLabel": "Status",
       "minutesLateLabel": "Minutes late",
-      "remarksLabel": "Remarks"
+      "remarksLabel": "Remarks",
+      "holidayLabel": "Holiday"
     },
     "noRecordsThisMonth": "No attendance records for this month yet.",
     "error": {

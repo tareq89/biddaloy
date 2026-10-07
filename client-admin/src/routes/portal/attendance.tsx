@@ -182,7 +182,8 @@ function PortalAttendance() {
   const effectiveDate =
     clicked?.key === clickKey
       ? clicked.date
-      : search.month === currentMonthIso()
+      : // One clock reading for both the date and the month check.
+        search.month === today.slice(0, 7)
         ? today
         : undefined;
   const effectiveDay =
@@ -385,7 +386,7 @@ function AttendanceDayPanel({ day, month }: { day: AttendanceDayCell | null; mon
           )}
           {!day.isWorkingDay && day.holidayName && (
             <div className="py-3">
-              <dt className="text-text-secondary">{t('attendance.dialog.statusLabel')}</dt>
+              <dt className="text-text-secondary">{t('attendance.dialog.holidayLabel')}</dt>
               <dd className="mt-0.5">{day.holidayName}</dd>
             </div>
           )}
@@ -410,14 +411,17 @@ function AttendanceSkeleton({
   label: string;
   showPicker?: boolean;
 }) {
+  // Same frame (width and spacing) as the loaded page.
   return (
-    <div className="flex flex-col gap-3" aria-busy="true" aria-live="polite">
-      <span className="sr-only">{label}</span>
-      <Skeleton className="h-8 w-2/5" />
-      {showPicker && <Skeleton className="h-12 w-full rounded-lg" />}
-      <Skeleton className="h-28 w-full rounded-lg" />
-      <Skeleton className="h-72 w-full rounded-lg" />
-    </div>
+    <PageContainer>
+      <div className="flex flex-col gap-3" aria-busy="true" aria-live="polite">
+        <span className="sr-only">{label}</span>
+        <Skeleton className="h-8 w-2/5" />
+        {showPicker && <Skeleton className="h-12 w-full rounded-lg" />}
+        <Skeleton className="h-28 w-full rounded-lg" />
+        <Skeleton className="h-72 w-full rounded-lg" />
+      </div>
+    </PageContainer>
   );
 }
 

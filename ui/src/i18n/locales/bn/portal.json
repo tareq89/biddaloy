@@ -109,7 +109,8 @@
     "dialog": {
       "statusLabel": "অবস্থা",
       "minutesLateLabel": "বিলম্বের মিনিট",
-      "remarksLabel": "মন্তব্য"
+      "remarksLabel": "মন্তব্য",
+      "holidayLabel": "ছুটি"
     },
     "noRecordsThisMonth": "এই মাসের কোনো উপস্থিতি রেকর্ড এখনও নেই।",
     "error": {
