@@ -6,6 +6,7 @@ import { Button } from '@biddaloy/ui/components';
 import { useStaffDocuments } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { useNavigate, useRouterState } from '@tanstack/react-router';
+import { PrinterIcon } from 'lucide-react';
 
 import { SubjectPrintHistory } from '../../../../components/print/history/subject-print-history';
 
@@ -23,38 +24,39 @@ export function StaffDocumentsTab({
   const hasPhoto = (documents.data ?? []).some((d) => d.document_type === 'PHOTO');
 
   return (
-    <div className="flex flex-col gap-6">
-      <section className="flex flex-col gap-2">
-        <h2 className="text-sm font-semibold">{t('documents.photoTitle')}</h2>
-        <p className="text-sm text-muted-foreground">
+    <div className="space-y-6">
+      <section className="rounded-lg border border-border-subtle bg-surface p-4 shadow-e1 md:p-5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-h2">{t('documents.photoTitle')}</h2>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() =>
+              void navigate({
+                to: '/print/preview',
+                search: { kind: 'STAFF_ID_CARD', subject_type: 'STAFF', ids: userId, from },
+              })
+            }
+          >
+            <PrinterIcon aria-hidden="true" />
+            {t('documents.printButton')}
+          </Button>
+        </div>
+        <p className="mt-1 text-text-secondary">
           {hasPhoto ? t('documents.photoOnFile') : t('documents.photoMissing')}
         </p>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="self-start"
-          onClick={onOpenHrRecord}
-        >
+        <Button type="button" variant="outline" className="mt-4" onClick={onOpenHrRecord}>
           {t('documents.openHrRecord')}
         </Button>
       </section>
-      <div>
-        <Button
-          type="button"
-          onClick={() =>
-            void navigate({
-              to: '/print/preview',
-              search: { kind: 'STAFF_ID_CARD', subject_type: 'STAFF', ids: userId, from },
-            })
-          }
-        >
-          {t('documents.printButton')}
-        </Button>
-      </div>
-      <section aria-label={t('documents.historyTitle')} className="flex flex-col gap-2">
-        <h2 className="text-sm font-semibold">{t('documents.historyTitle')}</h2>
-        <SubjectPrintHistory subjectType="STAFF" subjectId={userId} />
+      <section
+        aria-label={t('documents.historyTitle')}
+        className="rounded-lg border border-border-subtle bg-surface p-4 shadow-e1 md:p-5"
+      >
+        <h2 className="text-h2">{t('documents.historyTitle')}</h2>
+        <div className="mt-4">
+          <SubjectPrintHistory subjectType="STAFF" subjectId={userId} />
+        </div>
       </section>
     </div>
   );

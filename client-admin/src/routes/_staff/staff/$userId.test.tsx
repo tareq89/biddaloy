@@ -1,4 +1,4 @@
-import { ROLE_PERMISSIONS, UserRole } from '@biddaloy/shared';
+import { Permission, ROLE_PERMISSIONS, UserRole } from '@biddaloy/shared';
 import { toast } from '@biddaloy/ui/components';
 import { REGION_BD_EN } from '@biddaloy/ui/i18n';
 import {
@@ -12,10 +12,21 @@ import {
 import { formatDate } from '@biddaloy/ui/utils';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { http, HttpResponse } from 'msw';
+import { delay, http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import en from '../../../../../ui/src/i18n/locales/en/staff.json';
 import { routeTree } from '../../../routeTree.gen';
+
+// Denial is simulated per test: no built-in role holds ADMIN's other permissions but not one.
+const denied = vi.hoisted(() => ({ value: new Set<string>() }));
+vi.mock('@biddaloy/ui/hooks', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@biddaloy/ui/hooks')>();
+  return {
+    ...actual,
+    useHasPermission: (p: string) => !denied.value.has(p) && actual.useHasPermission(p as never),
+  };
+});
 
 function fakeToken(sub: string): string {
   const payload = btoa(JSON.stringify({ sub })).replace(/=+$/, '');
@@ -33,6 +44,7 @@ function paginated<T>(data: T[]) {
  */
 describe('/staff/$userId', () => {
   afterEach(async () => {
+    denied.value = new Set();
     await cleanupTestState();
   });
 
@@ -107,14 +119,14 @@ describe('/staff/$userId', () => {
         'Permissions follow the role — the server enforces this same list. They cannot be edited per person.',
       ),
     ).toBeTruthy();
-    // Every TEACHER permission renders, humanized; an ADMIN-only one does not.
+    // Every TEACHER permission renders translated; an ADMIN-only one does not.
+    const panel = within(screen.getByRole('tabpanel'));
     for (const permission of ROLE_PERMISSIONS[UserRole.TEACHER]) {
-      const label =
-        permission.toLowerCase().replace(/_/g, ' ').charAt(0).toUpperCase() +
-        permission.toLowerCase().replace(/_/g, ' ').slice(1);
-      expect(screen.getByText(label)).toBeTruthy();
+      expect(panel.getByText(en.permissions.items[permission])).toBeTruthy();
     }
-    expect(screen.queryByText('Member remove')).toBeNull();
+    expect(panel.queryByText(en.permissions.items.MEMBER_REMOVE)).toBeNull();
+    // No raw enum text, no lowercase English group names.
+    expect(panel.queryByText(/_/)).toBeNull();
     // Read-only: nothing in the tab is an editable control.
     expect(screen.queryByRole('checkbox')).toBeNull();
   });
@@ -136,40 +148,40 @@ describe('/staff/$userId', () => {
     expect(await screen.findByRole('tab', { name: 'Documents' })).toBeTruthy();
   });
 
-  it("Memberships tab shows this school's single membership plus the isolation note", async () => {
+  it('shows header facts (role, joined, last sign-in), no back link and no Memberships tab', async () => {
     const user = userResponseFactory({
       id: 'user-1',
       role: 'ACCOUNTANT',
       created_at: '2025-02-01T00:00:00.000Z',
       member_since: '2025-06-10T00:00:00.000Z',
+      last_login_at: null,
+      invitation_status: 'PENDING',
     });
     server.use(
       http.get('/api/v1/users/:id', () => HttpResponse.json(user)),
       http.get('/api/v1/teachers', () => HttpResponse.json(paginated([]))),
-      // Default tenant settings carry Bangla numerals — omitting `region`
-      // falls back to the locale-derived Latin-digit default, same trick
-      // `guardians/$guardianId.test.tsx` documents for phone parsing.
+      // Latin-digit region — see `guardians/$guardianId.test.tsx`.
       http.get('/api/v1/schools/:id/settings', () => HttpResponse.json({ version: 1 })),
     );
 
     renderWithRouter(routeTree, {
-      initialEntries: ['/staff/user-1?tab=memberships'],
+      initialEntries: ['/staff/user-1'],
       tenantId: 'tenant-1',
       role: 'ADMIN',
       locale: 'en',
     });
 
-    expect(await screen.findByText('Member since')).toBeTruthy();
-    // The membership's own date — not the account's created_at, which
-    // predates it here exactly to catch that mix-up.
+    expect(await screen.findByText('Joined this school')).toBeTruthy();
+    // The membership's own date, not the account's created_at.
     expect(await screen.findByText(formatDate('2025-06-10', REGION_BD_EN))).toBeTruthy();
-    expect(screen.queryByText('2025-02-01')).toBeNull();
-    expect((await screen.findAllByText('Accountant')).length).toBeGreaterThan(0);
-    expect(
-      screen.getByText(
-        "Only this school's membership is shown. Memberships at other schools are not visible from here.",
-      ),
-    ).toBeTruthy();
+    expect(screen.getByText('Role')).toBeTruthy();
+    expect(screen.getByText('Last sign-in')).toBeTruthy();
+    expect(screen.getByText('Not yet')).toBeTruthy();
+    expect(screen.queryByRole('link', { name: /back/i })).toBeNull();
+    expect(screen.queryByRole('tab', { name: 'Memberships' })).toBeNull();
+    // The open invitation shows in the header badge area too.
+    const header = screen.getByRole('heading', { level: 1 }).closest('header') as HTMLElement;
+    expect(within(header).getByText('Invitation pending')).toBeTruthy();
   });
 
   it('Login History tab renders LOGIN audit rows for an ADMIN', async () => {
@@ -244,7 +256,8 @@ describe('/staff/$userId', () => {
     });
 
     const user = userEvent.setup();
-    await user.click(await screen.findByRole('button', { name: 'Remove from school' }));
+    await user.click(await screen.findByRole('button', { name: 'More actions' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Remove from school' }));
     const dialog = await screen.findByRole('dialog');
     expect(
       within(dialog).getByText('You cannot remove your own account from this school.'),
@@ -272,7 +285,8 @@ describe('/staff/$userId', () => {
     });
 
     const user = userEvent.setup();
-    await user.click(await screen.findByRole('button', { name: 'Remove from school' }));
+    await user.click(await screen.findByRole('button', { name: 'More actions' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Remove from school' }));
     const dialog = await screen.findByRole('dialog');
     await user.click(within(dialog).getByRole('button', { name: 'Remove access' }));
 
@@ -354,7 +368,7 @@ describe('/staff/$userId', () => {
       locale: 'en',
     });
 
-    await screen.findByRole('tab', { name: 'Teaching assignments' });
+    await screen.findByRole('tab', { name: 'Teacher assignments' });
   });
 
   it('[#1026] hides the Teaching assignments tab for a non-teacher', async () => {
@@ -372,7 +386,7 @@ describe('/staff/$userId', () => {
     });
 
     await screen.findByRole('tab', { name: 'Profile' });
-    expect(screen.queryByRole('tab', { name: 'Teaching assignments' })).toBeNull();
+    expect(screen.queryByRole('tab', { name: 'Teacher assignments' })).toBeNull();
   });
 
   it('is axe clean', async () => {
@@ -391,5 +405,87 @@ describe('/staff/$userId', () => {
 
     expect(await screen.findAllByText('Abdul Karim')).toHaveLength(2);
     await expect(container).toHaveNoViolations();
+  });
+
+  describe('tab gates and state', () => {
+    const staffUser = userResponseFactory({ id: 'user-1', staff_profile_id: 'sp-1' });
+    function base() {
+      server.use(
+        http.get('/api/v1/users/:id', () => HttpResponse.json(staffUser)),
+        http.get('/api/v1/teachers', () => HttpResponse.json(paginated([]))),
+      );
+    }
+    const mount = (entry = '/staff/user-1') =>
+      renderWithRouter(routeTree, {
+        initialEntries: [entry],
+        tenantId: 'tenant-1',
+        role: 'ADMIN',
+        locale: 'en',
+      });
+
+    it('shows Attendance & Leave with STAFF_ATTENDANCE_READ and a staff profile', async () => {
+      base();
+      mount();
+      expect(await screen.findByRole('tab', { name: 'Attendance & Leave' })).toBeTruthy();
+    });
+
+    it('hides Attendance & Leave without STAFF_ATTENDANCE_READ', async () => {
+      base();
+      denied.value = new Set([Permission.STAFF_ATTENDANCE_READ]);
+      mount();
+      await screen.findByRole('tab', { name: 'Profile' });
+      expect(screen.queryByRole('tab', { name: 'Attendance & Leave' })).toBeNull();
+    });
+
+    it('keeps a ?tab=teachingAssignments deep link while the teacher lookup is pending', async () => {
+      const teacher = teacherFactory({ id: 'teacher-1', employee_id: 'EMP-1' });
+      server.use(
+        http.get('/api/v1/users/:id', () => HttpResponse.json(teacher.user)),
+        http.get('/api/v1/teachers', async () => {
+          await delay(150);
+          return HttpResponse.json(paginated([teacher]));
+        }),
+        http.get('/api/v1/teachers/:id/assignments', () => HttpResponse.json([])),
+      );
+      mount(`/staff/${teacher.user.id}?tab=teachingAssignments`);
+      expect(
+        await screen.findByRole('tab', { name: 'Teacher assignments', selected: true }),
+      ).toBeTruthy();
+      expect(screen.getByRole('tab', { name: 'Profile', selected: false })).toBeTruthy();
+    });
+
+    it('keeps unsaved HR edits when switching tabs and back (visited panels stay mounted)', async () => {
+      base();
+      server.use(
+        http.get('/api/v1/staff-hr-records', () =>
+          HttpResponse.json([
+            {
+              id: 'hr-1',
+              user_id: 'user-1',
+              index_no: null,
+              salary_code: null,
+              mpo_date: null,
+              salary_scale: null,
+              department: null,
+              blood_group: null,
+              name_bn: null,
+              religion: null,
+              created_at: '2026-01-01T00:00:00.000Z',
+              updated_at: '2026-01-01T00:00:00.000Z',
+            },
+          ]),
+        ),
+      );
+      mount('/staff/user-1?tab=hrRecord');
+      const user = userEvent.setup();
+      const panel = within(await screen.findByRole('tabpanel', { name: 'HR record' }));
+      await user.click(await panel.findByRole('button', { name: 'Edit' }));
+      await user.type(panel.getByLabelText('Department'), 'Science');
+
+      await user.click(screen.getByRole('tab', { name: 'Profile' }));
+      await user.click(screen.getByRole('tab', { name: 'HR record' }));
+
+      expect(screen.getByDisplayValue('Science')).toBeTruthy();
+    });
   });
 });

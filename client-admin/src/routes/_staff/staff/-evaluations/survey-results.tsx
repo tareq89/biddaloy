@@ -4,14 +4,16 @@
  * count) — this view passes that through: it never shows more than it is given
  * and never invents an average.
  */
-import { Card, ErrorState, Skeleton } from '@biddaloy/ui/components';
+import { ErrorState, Skeleton, StatusBadge } from '@biddaloy/ui/components';
 import { useSurveyResults, type SurveyStatus } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { formatNumber } from '@biddaloy/ui/utils';
 
 import { useSurveyNames } from './use-survey-names';
 
 export function SurveyResults({ surveyId, status }: { surveyId: string; status: SurveyStatus }) {
   const { t } = useTranslation('evaluations');
+  const cfg = useTenantRegionConfig();
   const query = useSurveyResults(surveyId);
   const { teacherName, subjectName } = useSurveyNames();
 
@@ -27,55 +29,78 @@ export function SurveyResults({ surveyId, status }: { surveyId: string; status: 
   const { minResponses, results } = query.data;
 
   return (
-    <section aria-labelledby="survey-results-heading" className="flex flex-col gap-4">
-      <h2 id="survey-results-heading" className="text-lg font-semibold">
-        {t('surveys.detail.resultsTitle')}
-      </h2>
-      {status === 'OPEN' && (
-        <p className="text-sm text-muted-foreground">{t('surveys.detail.sealedOpen')}</p>
+    <section aria-labelledby="survey-results-heading" className="space-y-4">
+      <div>
+        <h2 id="survey-results-heading" className="text-h2">
+          {t('surveys.detail.resultsTitle')}
+        </h2>
+        <p className="mt-0.5 text-text-secondary">
+          {t('surveys.detail.resultsSubtitle', { count: formatNumber(results.length, cfg) })}
+        </p>
+      </div>
+      {status === 'OPEN' && results.length === 0 && (
+        <p className="text-text-secondary">{t('surveys.detail.sealedOpen')}</p>
       )}
-      <ul className="flex flex-col gap-3 sm:grid sm:grid-cols-2">
+      <ul className="grid gap-4 md:grid-cols-2">
         {results.map((pair) => (
-          <li key={`${pair.teacherId}:${pair.subjectId}`}>
-            <Card className="flex flex-col gap-3 p-4">
+          <li
+            key={`${pair.teacherId}:${pair.subjectId}`}
+            className="rounded-lg border border-border-subtle bg-surface p-4 shadow-e1 md:p-5"
+          >
+            <div className="flex items-start justify-between gap-4">
               <div>
-                <h3 className="font-medium">{teacherName(pair.teacherId)}</h3>
-                <p className="text-sm text-muted-foreground">
+                <h3 className="text-h3">{teacherName(pair.teacherId)}</h3>
+                <p className="text-text-secondary">
                   {subjectName(pair.subjectId)} ·{' '}
-                  {t('surveys.detail.responses', { count: pair.count })}
+                  {t('surveys.detail.responses', { count: formatNumber(pair.count, cfg) })}
                 </p>
               </div>
-              {pair.hidden ? (
-                <p role="status" className="text-sm">
-                  {t('surveys.detail.waiting', { count: pair.count, min: minResponses })}
-                </p>
-              ) : (
-                pair.questions.map((q) => (
-                  <div key={q.questionId} className="flex flex-col gap-1">
-                    <p className="text-sm font-medium">{q.text}</p>
-                    <p className="text-sm">
-                      {q.averageStars === null
-                        ? t('surveys.detail.noStars')
-                        : t('surveys.detail.averageStars', { value: q.averageStars })}
-                    </p>
-                    {q.comments.length === 0 ? (
-                      <p className="text-sm text-muted-foreground">
-                        {t('surveys.detail.noComments')}
+              {pair.hidden && (
+                <StatusBadge tone="warning" label={t('surveys.detail.waitingBadge')} />
+              )}
+            </div>
+            {pair.hidden ? (
+              <p role="status" className="mt-3 text-text-secondary">
+                {t('surveys.detail.waiting', {
+                  count: formatNumber(pair.count, cfg),
+                  min: formatNumber(minResponses, cfg),
+                })}{' '}
+                {t('surveys.detail.waitingWhy')}
+              </p>
+            ) : (
+              <ul className="mt-3 divide-y divide-border-subtle">
+                {pair.questions.map((q) => (
+                  <li key={q.questionId} className="py-3 last:pb-0">
+                    <div className="flex items-start justify-between gap-4">
+                      <p className="font-medium">{q.text}</p>
+                      <p
+                        className={`shrink-0 tabular-nums ${q.averageStars === null ? 'text-text-secondary' : ''}`}
+                      >
+                        {q.averageStars === null
+                          ? t('surveys.detail.noStarsShort')
+                          : t('surveys.detail.averageStars', {
+                              value: formatNumber(q.averageStars, cfg, { decimals: 1 }),
+                            })}
                       </p>
+                    </div>
+                    {q.comments.length === 0 ? (
+                      <p className="mt-2 text-text-secondary">{t('surveys.detail.noComments')}</p>
                     ) : (
                       <ul
                         aria-label={t('surveys.detail.comments')}
-                        className="list-disc ps-5 text-sm"
+                        className="mt-2 space-y-1 text-text-secondary"
                       >
                         {q.comments.map((c, i) => (
-                          <li key={i}>{c}</li>
+                          <li key={i} className="border-s-2 border-border-subtle ps-3">
+                            {c}
+                          </li>
                         ))}
                       </ul>
                     )}
-                  </div>
-                ))
-              )}
-            </Card>
+                  </li>
+                ))}
+              </ul>
+            )}
           </li>
         ))}
       </ul>

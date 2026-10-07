@@ -9,19 +9,21 @@
     "columnGrade": "Grade",
     "columnSections": "Sections",
     "columnStudents": "Students",
-    "columnActions": "Actions",
     "edit": "Edit",
     "delete": "Delete",
-    "emptyMessage": "No classes found",
+    "emptyMessage": "No classes yet",
     "errorMessage": "Failed to load classes",
     "announceResults_one": "{{visible}} of {{total}} class",
     "announceResults_other": "{{visible}} of {{total}} classes",
-    "expandLabel": "Sections for {{name}}",
     "noGrade": "—",
     "shiftLabel": "Shift",
     "allShifts": "All shifts",
     "versionLabel": "Version",
-    "allVersions": "All versions"
+    "allVersions": "All versions",
+    "view": "View",
+    "emptyExplanation": "Classes you add will appear here.",
+    "noMatchMessage": "No classes match these filters",
+    "noMatchExplanation": "Try a different shift or version, or clear the filters."
   },
   "classForm": {
     "createTitle": "Add class",
@@ -32,7 +34,7 @@
     "gradeLabel": "Grade",
     "gradePlaceholder": "e.g. 6",
     "academicYearLabel": "Academic year",
-    "academicYearPlaceholder": "Select an academic year",
+    "academicYearPlaceholder": "Select",
     "errorNameRequired": "Name is required",
     "errorAcademicYearRequired": "Academic year is required",
     "errorGradeInvalid": "Grade must be a positive whole number",
@@ -40,9 +42,10 @@
     "save": "Save",
     "saving": "Saving…",
     "shiftLabel": "Shift",
-    "shiftPlaceholder": "Select a shift",
+    "shiftPlaceholder": "Select",
     "versionLabel": "Version",
-    "versionPlaceholder": "Select a version"
+    "versionPlaceholder": "Select",
+    "noneOption": "Not set"
   },
   "sectionForm": {
     "createTitle": "Add section",
@@ -58,7 +61,7 @@
     "save": "Save",
     "saving": "Saving…",
     "groupLabel": "Group",
-    "groupPlaceholder": "Select a group"
+    "groupPlaceholder": "Select"
   },
   "deleteClassDialog": {
     "title": "Delete class",
@@ -67,46 +70,49 @@
     "deleting": "Deleting…",
     "errorMessage": "Failed to delete class",
     "moveStudents": "Move students",
-    "close": "Close"
+    "close": "Close",
+    "blockedMessage": "This class still has students or sections, so it can't be deleted. Move the students and delete the sections first."
   },
   "deleteSectionDialog": {
     "title": "Delete section",
     "description": "Delete \"{{name}}\"? This cannot be undone.",
     "confirm": "Delete",
     "deleting": "Deleting…",
-    "errorMessage": "Failed to delete section"
+    "errorMessage": "Failed to delete section",
+    "blockedMessage": "This section still has students, so it can't be deleted. Move them to another section first."
   },
   "sections": {
-    "heading": "Sections — {{className}}",
-    "addSection": "+ Section",
+    "heading": "Sections",
+    "addSection": "Add section",
     "columnName": "Section",
     "columnCapacity": "Capacity",
     "columnEnrolled": "Enrolled",
-    "columnActions": "Actions",
     "noCapacity": "—",
     "edit": "Edit",
     "delete": "Delete",
     "emptyMessage": "No sections yet",
-    "errorMessage": "Failed to load sections"
+    "errorMessage": "Failed to load sections",
+    "emptyExplanation": "Students can be enrolled once you add a section.",
+    "caption": "Sections in this class"
   },
   "subjects": {
     "heading": "Subjects",
-    "addSubject": "+ Subject",
+    "addSubject": "Add subject",
     "columnName": "Subject",
     "columnCode": "Code",
     "columnOptional": "Optional",
-    "columnActions": "Actions",
-    "yes": "Yes",
-    "no": "No",
     "remove": "Remove",
     "emptyMessage": "No subjects offered yet",
-    "errorMessage": "Failed to load subjects"
+    "emptyExplanation": "Subjects you add for this class will appear here.",
+    "errorMessage": "Failed to load subjects",
+    "optional": "Optional",
+    "caption": "Subjects offered by this class"
   },
   "subjectAttachForm": {
     "title": "Add subject",
     "description": "Attach a subject this class offers in its academic year.",
     "subjectLabel": "Subject",
-    "subjectPlaceholder": "Select a subject",
+    "subjectPlaceholder": "Select",
     "optionalLabel": "Optional subject",
     "errorSubjectRequired": "Subject is required",
     "errorMessage": "Failed to attach subject",
@@ -122,12 +128,10 @@
   },
   "assignTeacherForm": {
     "title": "Assign teacher",
-    "description": "Assign a teacher to this section, as class-teacher or subject-teacher.",
+    "description": "Make a teacher this section's class teacher, assistant class teacher or subject teacher.",
     "teacherLabel": "Teacher",
     "teacherPlaceholder": "Select a teacher",
     "modeLabel": "Assignment type",
-    "classTeacherOption": "Class teacher",
-    "subjectTeacherOption": "Subject teacher",
     "subjectLabel": "Subject",
     "subjectPlaceholder": "Select a subject",
     "errorTeacherRequired": "Teacher is required",
@@ -152,14 +156,15 @@
     "tabSubjects": "Subjects",
     "tabHomework": "Homework",
     "forbidden": "You don't have permission to view this.",
-    "grade": "Grade {{grade}}",
     "students": {
       "columnName": "Name",
       "columnRoll": "Roll",
       "columnSection": "Section",
       "columnStatus": "Status",
       "emptyMessage": "No students in this class",
-      "errorMessage": "Failed to load students"
+      "errorMessage": "Failed to load students",
+      "view": "View",
+      "emptyExplanation": "Students enrolled in this class will appear here."
     },
     "homework": {
       "loading": "Loading homework",
@@ -177,7 +182,8 @@
       "columnType": "Type",
       "columnAmount": "Amount",
       "emptyMessage": "No fee structures for this class",
-      "errorMessage": "Failed to load fee structures"
+      "errorMessage": "Failed to load fee structures",
+      "emptyExplanation": "Fee structures added for this class will appear here."
     },
     "teachers": {
       "columnName": "Name",
@@ -190,9 +196,16 @@
       "assign": "Assign",
       "assignAria": "Assign teacher to section {{section}}",
       "remove": "Remove",
-      "removeAria": "Remove {{name}} ({{role}})",
-      "removeError": "Failed to remove teacher"
-    }
+      "removeError": "Failed to remove teacher",
+      "removeConfirmTitle": "Remove this teacher?",
+      "removeConfirmDescription": "{{name}} will be removed from section {{section}}. You can assign them again later.",
+      "emptyExplanation": "Add a section first, then assign teachers here."
+    },
+    "factGrade": "Grade",
+    "factAcademicYear": "Academic year",
+    "factSections": "Sections",
+    "sectionCount_one": "{{count}} section",
+    "sectionCount_other": "{{count}} sections"
   },
   "assignmentType": {
     "CLASS_TEACHER": "Class teacher",

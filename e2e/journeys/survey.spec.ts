@@ -65,7 +65,8 @@ test.describe('admin publishes', () => {
     await page
       .getByRole('button', { name: t('evaluations.surveys.detail.publish'), exact: true })
       .click();
-    await expect(page.getByText(t('evaluations.surveys.detail.sealedOpen'))).toBeVisible();
+    // A published survey with a target shows its sealed pair (the badge), not the empty-state line.
+    await expect(page.getByText(t('evaluations.surveys.detail.waitingBadge'))).toBeVisible();
   });
 });
 
@@ -104,6 +105,11 @@ test.describe('admin closes', () => {
       await more.click();
       await page.getByRole('menuitem', { name: closeName, exact: true }).click();
     }
+    // Closing is irreversible, so it confirms first.
+    await page
+      .getByRole('alertdialog')
+      .getByRole('button', { name: closeName, exact: true })
+      .click();
     await expect(page.getByRole('status').filter({ hasText: /[1১]/ }).first()).toBeVisible();
     // No average is shown while sealed.
     await expect(page.getByText(/Average|গড়/)).toHaveCount(0);

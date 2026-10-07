@@ -2,7 +2,13 @@
  * [28.4.1] Incidents tab: type filter (server-side) and severity filter.
  * `GET /incidents` only accepts `type`, so severity is filtered here.
  */
-import type { DataTableColumn } from '@biddaloy/ui/components';
+import {
+  DataTable,
+  Skeleton,
+  StatusBadge,
+  type DataTableColumn,
+  type StatusTone,
+} from '@biddaloy/ui/components';
 import {
   useIncidents,
   useUser,
@@ -12,21 +18,30 @@ import {
   type IncidentType,
 } from '@biddaloy/ui/hooks';
 import { useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
-import { ListShell, useListShellState, type FilterFieldDescriptor } from '@biddaloy/ui/shells';
+import { FilterBar, useListShellState, type FilterFieldDescriptor } from '@biddaloy/ui/shells';
 import { formatDate, parseDate } from '@biddaloy/ui/utils';
 
 const TYPES: IncidentType[] = ['BEHAVIOUR', 'ABSENCE', 'COMPLAINT', 'COMMENDATION', 'OTHER'];
 const SEVERITIES: IncidentSeverity[] = ['LOW', 'MEDIUM', 'HIGH'];
+const SEVERITY_TONE: Record<IncidentSeverity, StatusTone> = {
+  HIGH: 'danger',
+  MEDIUM: 'warning',
+  LOW: 'neutral',
+};
 
 function StaffName({ userId }: { userId: string }) {
   const { data } = useUser(userId);
-  return <>{data?.full_name ?? '…'}</>;
+  return data ? (
+    <span className="font-medium">{data.full_name}</span>
+  ) : (
+    <Skeleton className="h-4 w-24" />
+  );
 }
 
 export function IncidentsList() {
   const { t } = useTranslation('evaluations');
   const regionConfig = useTenantRegionConfig();
-  const [state, actions] = useListShellState({ limit: 1000 });
+  const [state, actions] = useListShellState();
   const type = TYPES.find((v) => v === state.filters.type);
   const severity = SEVERITIES.find((v) => v === state.filters.severity);
   const filters: IncidentListFilters = type ? { type } : {};
@@ -66,7 +81,12 @@ export function IncidentsList() {
     {
       id: 'severity',
       header: t('incident.columnSeverity'),
-      accessorFn: (row) => t(`incident.severities.${row.severity}`),
+      accessorFn: (row) => (
+        <StatusBadge
+          tone={SEVERITY_TONE[row.severity]}
+          label={t(`incident.severities.${row.severity}`)}
+        />
+      ),
       card: 'badge',
     },
     {
@@ -77,30 +97,44 @@ export function IncidentsList() {
     {
       id: 'description',
       header: t('incident.columnDescription'),
-      accessorFn: (row) => row.description,
+      accessorFn: (row) => (
+        <span className="block break-words whitespace-normal md:truncate" title={row.description}>
+          {row.description}
+        </span>
+      ),
     },
   ];
 
+  // A stale URL page past the end would slice nothing while rows exist.
+  const page = Math.min(state.page, Math.max(1, Math.ceil(rows.length / state.limit)));
+  const pageRows = rows.slice((page - 1) * state.limit, page * state.limit);
   return (
-    <ListShell
-      title={t('incident.title')}
-      filters={{ fields: filterFields, values: state.filters, onChange: actions.setFilters }}
-      tableId="incidents-list"
-      caption={t('incident.title')}
-      columns={columns}
-      data={rows}
-      getRowId={(row) => row.id}
-      sorting={null}
-      onSortingChange={() => undefined}
-      page={1}
-      pageSize={Math.max(rows.length, 1)}
-      totalCount={rows.length}
-      onPageChange={() => undefined}
-      loading={query.isLoading}
-      loadingMessage={t('incident.loading')}
-      isFetching={query.isFetching}
-      {...(query.isError ? { error: t('incident.loadError') } : {})}
-      emptyMessage={t('incident.empty')}
-    />
+    <section className="space-y-4">
+      <FilterBar
+        fields={filterFields}
+        values={state.filters}
+        onChange={actions.setFilters}
+        resultCount={rows.length}
+      />
+      <DataTable
+        tableId="incidents-list"
+        caption={t('incident.title')}
+        columns={columns}
+        data={pageRows}
+        getRowId={(row) => row.id}
+        sorting={null}
+        onSortingChange={() => undefined}
+        page={page}
+        pageSize={state.limit}
+        totalCount={rows.length}
+        onPageChange={actions.setPage}
+        onPageSizeChange={actions.setLimit}
+        loading={query.isLoading}
+        loadingMessage={t('incident.loading')}
+        isFetching={query.isFetching}
+        {...(query.isError ? { error: t('incident.loadError') } : {})}
+        emptyState={{ title: t('incident.emptyTitle'), explanation: t('incident.empty') }}
+      />
+    </section>
   );
 }

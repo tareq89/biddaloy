@@ -9,12 +9,7 @@
  * `students/index.tsx`.
  */
 import { FeeType, Permission } from '@biddaloy/shared';
-import {
-  Button,
-  CachedDataNotice,
-  RoutePending,
-  type DataTableColumn,
-} from '@biddaloy/ui/components';
+import { CachedDataNotice, RoutePending, type DataTableColumn } from '@biddaloy/ui/components';
 import {
   feeStructuresQueryOptions,
   useAcademicYears,
@@ -28,6 +23,7 @@ import { RegionConfigProvider, useTenantRegionConfig, useTranslation } from '@bi
 import { ListShell, useListShellState, type FilterFieldDescriptor } from '@biddaloy/ui/shells';
 import { formatServerAmount } from '@biddaloy/ui/utils';
 import { createFileRoute } from '@tanstack/react-router';
+import { PlusIcon } from 'lucide-react';
 import * as React from 'react';
 import { z } from 'zod';
 
@@ -88,7 +84,7 @@ export const Route = createFileRoute('/_staff/fee-structures/')({
   validateSearch: feeStructuresSearchSchema,
   loaderDeps: ({ search }) => ({
     page: search.page ?? 1,
-    limit: search.limit ?? 10,
+    limit: search.limit ?? 25,
     sort: search.sort,
     order: search.order,
     search: search.search,
@@ -129,8 +125,9 @@ export const Route = createFileRoute('/_staff/fee-structures/')({
 function FeeStructuresListPage() {
   const { t } = useTranslation('feeStructures');
   const regionConfig = useTenantRegionConfig();
-  const [state, actions] = useListShellState({ limit: 10 });
+  const [state, actions] = useListShellState();
   const filters = state.filters as FeeStructureFilters;
+  const filtered = Object.keys(state.filters).length > 0;
 
   const canCreate = useHasPermission(Permission.FEE_STRUCTURE_CREATE);
   const canUpdate = useHasPermission(Permission.FEE_STRUCTURE_UPDATE);
@@ -236,15 +233,9 @@ function FeeStructuresListPage() {
       accessorFn: (row) => t(`feeTypes.${row.fee_type}`),
     },
     {
-      id: 'amount',
-      header: t('list.columnAmount'),
-      // `amount` arrives as a `decimal(10,2)` **string**, which is exactly
-      // what `formatServerAmount` exists to take — never `parseFloat`.
-      accessorFn: (row) => formatServerAmount(row.amount, regionConfig),
-      sortable: true,
-      // Money column — right-aligns and carries `tabular-nums` via `align`
-      // (design contract §2), per [8.14.7]'s `DataTableColumn.align`.
-      align: 'end',
+      id: 'academicYear',
+      header: t('list.columnAcademicYear'),
+      accessorFn: (row) => row.academic_year?.name ?? t('list.emptyValue'),
     },
     {
       id: 'class',
@@ -253,45 +244,25 @@ function FeeStructuresListPage() {
       // per-student targeting in favour of this simpler "no class ==
       // whole school" shape).
       accessorFn: (row) =>
-        row.class === null
-          ? t('list.wholeSchool')
-          : row.section
-            ? `${row.class.name} · ${row.section.section_name}`
-            : row.class.name,
+        row.class === null ? (
+          <span className="text-text-secondary">{t('list.wholeSchool')}</span>
+        ) : row.section ? (
+          `${row.class.name} · ${row.section.section_name}`
+        ) : (
+          row.class.name
+        ),
       card: 'subtitle',
     },
-    ...(canUpdate || canDelete
-      ? [
-          {
-            id: 'actions',
-            header: t('list.columnActions'),
-            pinned: true,
-            card: 'actions',
-            accessorFn: (row: FeeStructure) => (
-              <div className="flex gap-3">
-                {canUpdate && (
-                  <button
-                    type="button"
-                    onClick={() => setEditing(row)}
-                    className="text-sm font-medium text-primary underline"
-                  >
-                    {t('list.edit')}
-                  </button>
-                )}
-                {canDelete && (
-                  <button
-                    type="button"
-                    onClick={() => setDeleting(row)}
-                    className="text-sm font-medium text-destructive underline"
-                  >
-                    {t('list.delete')}
-                  </button>
-                )}
-              </div>
-            ),
-          } as DataTableColumn<FeeStructure>,
-        ]
-      : []),
+    {
+      id: 'amount',
+      header: t('list.columnAmount'),
+      // `amount` arrives as a `decimal(10,2)` **string**, which is exactly
+      // what `formatServerAmount` exists to take — never `parseFloat`.
+      accessorFn: (row) => formatServerAmount(row.amount, regionConfig),
+      sortable: true,
+      // Money column — right-aligns and carries `tabular-nums` via `align`.
+      align: 'end',
+    },
   ];
 
   return (
@@ -299,13 +270,31 @@ function FeeStructuresListPage() {
       <CachedDataNotice queryKey={feeStructuresQueryOptions(structureListFilters).queryKey} />
       <ListShell
         title={t('list.title')}
-        primaryAction={
-          canCreate && (
-            <Button type="button" onClick={() => setCreateOpen(true)}>
-              {t('list.addStructure')}
-            </Button>
-          )
-        }
+        subtitle={t('list.subtitle')}
+        actions={[
+          {
+            id: 'add',
+            label: t('list.addStructure'),
+            icon: <PlusIcon />,
+            priority: 'primary',
+            allowed: canCreate,
+            onClick: () => setCreateOpen(true),
+          },
+        ]}
+        rowActions={(row) => [
+          {
+            intent: 'edit',
+            label: t('list.edit'),
+            allowed: canUpdate,
+            onClick: () => setEditing(row),
+          },
+          {
+            intent: 'delete',
+            label: t('list.delete'),
+            allowed: canDelete,
+            onClick: () => setDeleting(row),
+          },
+        ]}
         filters={{ fields: filterFields, values: state.filters, onChange: handleFilterChange }}
         tableId="fee-structures-list"
         caption={t('list.caption')}
@@ -323,7 +312,14 @@ function FeeStructuresListPage() {
         loading={structuresQuery.isLoading}
         isFetching={structuresQuery.isFetching}
         {...(structuresQuery.isError ? { error: t('list.errorMessage') } : {})}
-        emptyMessage={t('list.emptyMessage')}
+        emptyState={{
+          // Filtered to nothing is not "no structures yet".
+          title: filtered ? t('list.noMatchMessage') : t('list.emptyMessage'),
+          explanation: filtered ? t('list.noMatchExplanation') : t('list.emptyExplanation'),
+          ...(canCreate && !filtered
+            ? { action: { label: t('list.addStructure'), onClick: () => setCreateOpen(true) } }
+            : {}),
+        }}
         announceResults={(count, total) =>
           t('list.announceResults', { visible: count, total, count: total })
         }

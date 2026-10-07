@@ -11,7 +11,6 @@
 import {
   Button,
   Dialog,
-  DialogClose,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -31,7 +30,10 @@ import {
   useUpdateClass,
 } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
+import { toLatinDigits } from '@biddaloy/ui/utils';
 import * as React from 'react';
+
+import { ErrorText, Field, useCloseGuard } from './-dialog-kit';
 
 export interface ClassFormInitialValues {
   name: string;
@@ -92,27 +94,29 @@ export function ClassFormDialog({
   const updateClass = useUpdateClass(classId ?? '');
   const mutation = mode === 'create' ? createClass : updateClass;
 
-  const [name, setName] = React.useState(initialValues?.name ?? '');
-  const [numericGrade, setNumericGrade] = React.useState(
-    initialValues?.numericGrade !== undefined ? String(initialValues.numericGrade) : '',
-  );
-  const [academicYearId, setAcademicYearId] = React.useState(defaultAcademicYearId ?? '');
-  const [shift, setShift] = React.useState(initialValues?.shift ?? NONE_VALUE);
-  const [version, setVersion] = React.useState(initialValues?.version ?? NONE_VALUE);
+  // Snapshot once: a background refetch changing the props must not read as an edit.
+  const [initial] = React.useState(() => initialValues ?? EMPTY_VALUES);
+  const [initialYear] = React.useState(() => defaultAcademicYearId ?? '');
+  const initialGrade = initial.numericGrade !== undefined ? String(initial.numericGrade) : '';
+  const initialShift = initial.shift ?? NONE_VALUE;
+  const initialVersion = initial.version ?? NONE_VALUE;
+  // Callers mount this dialog only while it is open, so state starts fresh
+  // on every open (no reset effect needed).
+  const [name, setName] = React.useState(initial.name);
+  const [numericGrade, setNumericGrade] = React.useState(initialGrade);
+  const [academicYearId, setAcademicYearId] = React.useState(initialYear);
+  const [shift, setShift] = React.useState(initialShift);
+  const [version, setVersion] = React.useState(initialVersion);
   const [validationError, setValidationError] = React.useState<string | null>(null);
 
-  React.useEffect(() => {
-    if (!open) return;
-    const values = initialValues ?? EMPTY_VALUES;
-    setName(values.name);
-    setNumericGrade(values.numericGrade !== undefined ? String(values.numericGrade) : '');
-    setAcademicYearId(defaultAcademicYearId ?? '');
-    setShift(values.shift ?? NONE_VALUE);
-    setVersion(values.version ?? NONE_VALUE);
-    setValidationError(null);
-    mutation.reset();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only on open/close transitions
-  }, [open]);
+  const isDirty =
+    name !== initial.name ||
+    numericGrade !== initialGrade ||
+    academicYearId !== initialYear ||
+    shift !== initialShift ||
+    version !== initialVersion;
+
+  const { requestClose, discardDialog } = useCloseGuard(isDirty, mutation.isPending, onOpenChange);
 
   // [D5] Each select only renders once its vocabulary has 2+ entries — a
   // single-shift school sees nothing new, same rule the list filters use.
@@ -123,6 +127,7 @@ export function ClassFormDialog({
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
+    if (mutation.isPending) return;
 
     if (!name.trim()) {
       setValidationError(t('classForm.errorNameRequired'));
@@ -132,7 +137,8 @@ export function ClassFormDialog({
       setValidationError(t('classForm.errorAcademicYearRequired'));
       return;
     }
-    const parsedGrade = numericGrade.trim() === '' ? undefined : Number(numericGrade);
+    const parsedGrade =
+      numericGrade.trim() === '' ? undefined : Number(toLatinDigits(numericGrade.trim()));
     if (parsedGrade !== undefined && (!Number.isInteger(parsedGrade) || parsedGrade <= 0)) {
       setValidationError(t('classForm.errorGradeInvalid'));
       return;
@@ -187,120 +193,107 @@ export function ClassFormDialog({
   const title = mode === 'create' ? t('classForm.createTitle') : t('classForm.editTitle');
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <DialogHeader>
-            <DialogTitle>{title}</DialogTitle>
-            <DialogDescription>{t('classForm.description')}</DialogDescription>
-          </DialogHeader>
+    <>
+      <Dialog open={open} onOpenChange={(next) => (next ? onOpenChange(true) : requestClose())}>
+        <DialogContent size="md" onInteractOutside={(e) => e.preventDefault()}>
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            <DialogHeader>
+              <DialogTitle>{title}</DialogTitle>
+              <DialogDescription>{t('classForm.description')}</DialogDescription>
+            </DialogHeader>
 
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="class-form-name" className="text-sm font-medium">
-              {t('classForm.nameLabel')}
-            </label>
-            <Input
-              id="class-form-name"
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              placeholder={t('classForm.namePlaceholder')}
-            />
-          </div>
+            <Field id="class-form-name" label={t('classForm.nameLabel')} required>
+              <Input
+                id="class-form-name"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                placeholder={t('classForm.namePlaceholder')}
+              />
+            </Field>
 
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="class-form-grade" className="text-sm font-medium">
-              {t('classForm.gradeLabel')}
-            </label>
-            <Input
-              id="class-form-grade"
-              type="number"
-              value={numericGrade}
-              onChange={(event) => setNumericGrade(event.target.value)}
-              placeholder={t('classForm.gradePlaceholder')}
-            />
-          </div>
+            <Field id="class-form-grade" label={t('classForm.gradeLabel')}>
+              <Input
+                id="class-form-grade"
+                inputMode="numeric"
+                value={numericGrade}
+                onChange={(event) => setNumericGrade(event.target.value)}
+                placeholder={t('classForm.gradePlaceholder')}
+              />
+            </Field>
 
-          {mode === 'create' && (
-            <div className="flex flex-col gap-1.5">
-              <span className="text-sm font-medium">{t('classForm.academicYearLabel')}</span>
-              <Select value={academicYearId} onValueChange={setAcademicYearId}>
-                <SelectTrigger aria-label={t('classForm.academicYearLabel')}>
-                  <SelectValue placeholder={t('classForm.academicYearPlaceholder')} />
-                </SelectTrigger>
-                <SelectContent>
-                  {academicYearsQuery.data?.data.map((year) => (
-                    <SelectItem key={year.id} value={year.id}>
-                      {year.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
+            {mode === 'create' && (
+              <Field id="class-form-year" label={t('classForm.academicYearLabel')} required>
+                <Select value={academicYearId} onValueChange={setAcademicYearId}>
+                  <SelectTrigger id="class-form-year">
+                    <SelectValue placeholder={t('classForm.academicYearPlaceholder')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {academicYearsQuery.data?.data.map((year) => (
+                      <SelectItem key={year.id} value={year.id}>
+                        {year.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+            )}
 
-          {showShift && (
-            <div className="flex flex-col gap-1.5">
-              <span className="text-sm font-medium">{t('classForm.shiftLabel')}</span>
-              <Select value={shift} onValueChange={setShift}>
-                <SelectTrigger aria-label={t('classForm.shiftLabel')}>
-                  <SelectValue placeholder={t('classForm.shiftPlaceholder')} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NONE_VALUE}>{t('classForm.shiftPlaceholder')}</SelectItem>
-                  {shifts.map((value) => (
-                    <SelectItem key={value} value={value}>
-                      {value}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
+            {showShift && (
+              <Field id="class-form-shift" label={t('classForm.shiftLabel')}>
+                <Select value={shift} onValueChange={setShift}>
+                  <SelectTrigger id="class-form-shift">
+                    <SelectValue placeholder={t('classForm.shiftPlaceholder')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NONE_VALUE}>{t('classForm.noneOption')}</SelectItem>
+                    {shifts.map((value) => (
+                      <SelectItem key={value} value={value}>
+                        {value}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+            )}
 
-          {showVersion && (
-            <div className="flex flex-col gap-1.5">
-              <span className="text-sm font-medium">{t('classForm.versionLabel')}</span>
-              <Select value={version} onValueChange={setVersion}>
-                <SelectTrigger aria-label={t('classForm.versionLabel')}>
-                  <SelectValue placeholder={t('classForm.versionPlaceholder')} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NONE_VALUE}>{t('classForm.versionPlaceholder')}</SelectItem>
-                  {versions.map((value) => (
-                    <SelectItem key={value} value={value}>
-                      {value}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
+            {showVersion && (
+              <Field id="class-form-version" label={t('classForm.versionLabel')}>
+                <Select value={version} onValueChange={setVersion}>
+                  <SelectTrigger id="class-form-version">
+                    <SelectValue placeholder={t('classForm.versionPlaceholder')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NONE_VALUE}>{t('classForm.noneOption')}</SelectItem>
+                    {versions.map((value) => (
+                      <SelectItem key={value} value={value}>
+                        {value}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+            )}
 
-          {validationError && (
-            <p role="alert" className="text-sm text-destructive">
-              {validationError}
-            </p>
-          )}
-          {mutation.isError && (
-            <p role="alert" className="text-sm text-destructive">
-              {mutation.error instanceof Error
-                ? mutation.error.message
-                : t('classForm.errorMessage')}
-            </p>
-          )}
+            {validationError && <ErrorText>{validationError}</ErrorText>}
+            {mutation.isError && <ErrorText>{t('classForm.errorMessage')}</ErrorText>}
 
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button type="button" variant="outline">
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={mutation.isPending}
+                onClick={requestClose}
+              >
                 {t('actions.cancel', { ns: 'common' })}
               </Button>
-            </DialogClose>
-            <Button type="submit" loading={mutation.isPending}>
-              {mutation.isPending ? t('classForm.saving') : t('classForm.save')}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+              <Button type="submit" loading={mutation.isPending}>
+                {mutation.isPending ? t('classForm.saving') : t('classForm.save')}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+      {discardDialog}
+    </>
   );
 }

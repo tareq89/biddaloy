@@ -44,6 +44,7 @@ describe('staff/$userId Teaching assignments tab', () => {
             section_name: 'A',
             class_id: 'class-1',
             class_name: 'Class 6',
+            assignment_type: 'CLASS_TEACHER',
             subject_id: null,
             subject_name: null,
           },
@@ -59,12 +60,10 @@ describe('staff/$userId Teaching assignments tab', () => {
     });
 
     await waitFor(() =>
-      expect(
-        screen.getByRole('tab', { name: 'Teaching assignments', selected: true }),
-      ).toBeTruthy(),
+      expect(screen.getByRole('tab', { name: 'Teacher assignments', selected: true })).toBeTruthy(),
     );
-    await screen.findByText('Class 6');
-    expect(screen.getByText('A')).toBeTruthy();
+    await screen.findByText('Class 6 · A');
+    expect(screen.getByText('Class teacher')).toBeTruthy();
   });
 
   it('assign opens the dialog with the teacher prefilled', async () => {
@@ -89,6 +88,7 @@ describe('staff/$userId Teaching assignments tab', () => {
                   section_name: 'A',
                   class_id: klass.id,
                   class_name: klass.name,
+                  assignment_type: 'CLASS_TEACHER',
                   subject_id: null,
                   subject_name: null,
                 },
@@ -137,7 +137,7 @@ describe('staff/$userId Teaching assignments tab', () => {
     await testUser.click(within(dialog).getByRole('button', { name: 'Assign' }));
 
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-    await screen.findByText('Class 6');
+    await screen.findByText('Class 6 · A');
   });
 
   it('removes an assignment', async () => {
@@ -162,6 +162,7 @@ describe('staff/$userId Teaching assignments tab', () => {
                   section_name: 'A',
                   class_id: 'class-1',
                   class_name: 'Class 6',
+                  assignment_type: 'CLASS_TEACHER',
                   subject_id: null,
                   subject_name: null,
                 },
@@ -182,10 +183,59 @@ describe('staff/$userId Teaching assignments tab', () => {
       locale: 'en',
     });
 
-    await screen.findByText('Class 6');
-    await testUser.click(screen.getByRole('button', { name: 'Remove' }));
+    await screen.findByText('Class 6 · A');
+    await testUser.click(screen.getByRole('button', { name: 'Remove assignment' }));
+    // Removing asks first (danger confirm); only the confirm calls the API.
+    const confirm = await screen.findByRole('alertdialog');
+    expect(removed).toBe(false);
+    await testUser.click(within(confirm).getByRole('button', { name: 'Remove' }));
 
-    await waitFor(() => expect(screen.queryByText('Class 6')).toBeNull());
+    await waitFor(() => expect(screen.queryByText('Class 6 · A')).toBeNull());
     await screen.findByText('No assignments yet');
+  });
+
+  it('shows a duty column with all three roles, class teacher first', async () => {
+    const teacher = teacherFactory({ id: 'teacher-1', employee_id: 'EMP-00001' });
+    const user = teacher.user;
+    const row = (id: string, assignment_type: string, subject_name: string | null) => ({
+      id,
+      teacher_id: teacher.id,
+      employee_id: teacher.employee_id,
+      full_name: user.full_name,
+      section_id: 'section-1',
+      section_name: 'A',
+      class_id: 'class-1',
+      class_name: 'Class 6',
+      assignment_type,
+      subject_id: subject_name ? 'sub-1' : null,
+      subject_name,
+    });
+    server.use(
+      http.get('/api/v1/users/:id', () => HttpResponse.json(user)),
+      http.get('/api/v1/teachers', () => HttpResponse.json(paginated([teacher]))),
+      http.get('/api/v1/teachers/:teacherId/assignments', () =>
+        HttpResponse.json([
+          row('a-3', 'SUBJECT_TEACHER', 'Math'),
+          row('a-2', 'ASSISTANT_CLASS_TEACHER', null),
+          row('a-1', 'CLASS_TEACHER', null),
+        ]),
+      ),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: [`/staff/${user.id}?tab=teachingAssignments`],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    await screen.findByText('Assistant class teacher');
+    const rows = within(screen.getByRole('table'))
+      .getAllByRole('row')
+      .slice(1)
+      .map((r) => r.textContent ?? '');
+    expect(rows[0]).toContain('Class teacher');
+    expect(rows[1]).toContain('Assistant class teacher');
+    expect(rows[2]).toContain('Subject teacher');
   });
 });

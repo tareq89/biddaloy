@@ -48,17 +48,19 @@ test('opens the dashboard and reads an ACR without being able to change it', asy
   const shell = new AppShellPage(page);
   await shell.navigateTo('nav.items.evaluations');
   await expect(page).toHaveURL(/\/staff\/evaluations/);
-  await expect(
-    page.getByRole('heading', { name: t('evaluations.acr.register.title') }),
-  ).toBeVisible();
+  await expect(page.getByRole('heading', { name: t('evaluations.title') })).toBeVisible();
   // The Surveys tab has no "new survey" button for a read-only role (an ADMIN sees it).
   await page.getByRole('tab', { name: t('evaluations.tabs.surveys') }).click();
-  await expect(page.getByRole('heading', { name: t('evaluations.surveys.title') })).toBeVisible();
+  await expect(
+    page.getByRole('tab', { name: t('evaluations.tabs.surveys'), selected: true }),
+  ).toBeVisible();
   await expect(page.getByRole('button', { name: t('evaluations.surveys.new') })).toHaveCount(0);
 
   // Open the ACR itself (by URL: the register can be long) and check it is read-only.
   await page.goto(`/staff/${subjectId}/acr/${acrId}`);
-  await expect(page.getByRole('heading', { name: t('evaluations.acr.title') })).toBeVisible();
+  await expect(page
+      .getByRole('dialog')
+      .getByRole('heading', { level: 1, name: t('evaluations.acr.pageTitle', { name: '' }).trim() })).toBeVisible();
   // The ACR is INCOMPLETE, so step 1 is editable for ACR_WRITE (ADMIN) and disabled
   // only because COMMITTEE lacks it (`readOnly = completed || !canWrite`, acr-form.tsx).
   await expect(

@@ -26,8 +26,6 @@
     "submitHint": "Press Ctrl+Enter to complete",
     "submitBlocked": "Score every criterion before completing.",
     "completeError": "Couldn't complete the ACR.",
-    "next": "Next",
-    "back": "Back",
     "stepOf": "Step {{current}} of {{total}}",
     "criterionOf": "Criterion {{current}} of {{total}}",
     "keyboardHint": "Press 4, 3, 2 or 1 to score and move on",
@@ -75,19 +73,21 @@
     },
     "register": {
       "title": "ACR register",
-      "yearFilter": "Year",
-      "allYears": "All years",
+      "yearFilter": "Academic year",
+      "allYears": "All academic years",
       "statusFilter": "Status",
-      "allStatuses": "All",
+      "allStatuses": "All statuses",
       "columnStaff": "Staff member",
-      "columnYear": "Year",
+      "columnYear": "Academic year",
       "columnStatus": "Status",
-      "columnTotal": "Total",
+      "columnTotal": "Total score",
       "columnCompletedAt": "Completed",
       "open": "Open",
       "loading": "Loading ACRs…",
       "empty": "No ACRs yet for this filter.",
-      "errorMessage": "Couldn't load the ACR register."
+      "errorMessage": "Couldn't load the ACR register.",
+      "cardSubtitle": "Academic year {{year}}",
+      "emptyTitle": "No ACRs"
     },
     "status": {
       "INCOMPLETE": "In progress",
@@ -99,7 +99,10 @@
       "empty": "No ACR has been started for this staff member.",
       "errorMessage": "Couldn't load ACR history.",
       "trendTitle": "Year over year",
-      "trendLabel": "{{year}}: {{total}}"
+      "trendLabel": "{{year}}: {{total}}",
+      "columnYear": "Academic year",
+      "columnTotal": "Total",
+      "columnStatus": "Status"
     },
     "criteriaSettings": {
       "title": "ACR criteria",
@@ -131,7 +134,12 @@
         "leave": "Leave without saving"
       }
     },
-    "print": "Print ACR"
+    "print": "Print ACR",
+    "pageTitle": "ACR — {{name}}",
+    "stepsLabel": "ACR steps",
+    "scoredOf": "{{scored}} of {{total}} scored",
+    "prevCriterion": "Previous criterion",
+    "nextCriterion": "Next criterion"
   },
   "incident": {
     "title": "Incidents",
@@ -177,7 +185,8 @@
       "MEDIUM": "Medium",
       "HIGH": "High"
     },
-    "staffSearch": "Search staff by name"
+    "staffSearch": "Search staff by name",
+    "emptyTitle": "No incidents"
   },
   "surveys": {
     "placeholderTitle": "Surveys",
@@ -239,7 +248,20 @@
         "clear": "Explains lessons clearly",
         "respect": "Treats students with respect",
         "help": "Is ready to help when I am stuck"
-      }
+      },
+      "sectionInfo": "Survey details",
+      "sectionSchedule": "Dates and results",
+      "targetsHelp": "Each teacher is rated for one subject. The teacher must be assigned to that subject.",
+      "questionsHelp": "Three common questions are filled in — change them or add your own.",
+      "teacherN": "Teacher {{n}}",
+      "subjectN": "Subject {{n}}",
+      "removeTargetN": "Remove teacher {{n}}",
+      "removeQuestionN": "Remove question {{n}}",
+      "errorRowSubject": "Choose a subject.",
+      "errorRowTeacher": "Choose a teacher.",
+      "errorDuplicateTarget": "This teacher and subject are already added.",
+      "errorNotAssigned": "A teacher is not assigned to the chosen subject. Change the teacher or the subject.",
+      "errorSummary": "Not saved: fix {{count}} field(s)."
     },
     "detail": {
       "documentTitle": "{{title}} — Survey · Biddaloy",
@@ -253,18 +275,30 @@
       "opensAt": "Opens",
       "closesAt": "Closes",
       "noDate": "Not set",
-      "anonymousOn": "Anonymous — hidden from management",
-      "anonymousOff": "Names are shown to management",
       "resultsTitle": "Results",
       "resultsLoadError": "Couldn't load results.",
       "sealedOpen": "Results appear once the survey is closed.",
-      "waiting": "Waiting for more responses ({{count}} of {{min}})",
+      "waiting": "Waiting for more responses ({{count}} of {{min}}).",
       "responses": "{{count}} responses",
       "averageStars": "Average {{value}} of 5",
       "noStars": "Not enough star ratings to show an average.",
       "noComments": "No comments.",
-      "comments": "Comments"
-    }
+      "comments": "Comments",
+      "identityLabel": "Identity",
+      "identityHidden": "Hidden",
+      "identityShown": "Names shown",
+      "minResponsesLabel": "Answers needed before results show",
+      "minResponsesValue": "{{count}}",
+      "resultsSubtitle": "By teacher and subject · {{count}} in total",
+      "waitingBadge": "Waiting",
+      "waitingWhy": "Results stay hidden below this number so no single answer can be traced.",
+      "noStarsShort": "Not enough ratings",
+      "closeConfirm": {
+        "title": "Close this survey?",
+        "description": "Once “{{title}}” is closed nobody can answer it any more. It cannot be reopened."
+      }
+    },
+    "open": "Open"
   },
   "portalSurveys": {
     "title": "Surveys",
@@ -298,5 +332,6 @@
   "nav": {
     "evaluations": "Evaluations"
   },
-  "forbidden": "You don't have access to evaluations."
+  "forbidden": "You don't have access to evaluations.",
+  "subtitle": "ACRs, teacher surveys and incidents in one place."
 }

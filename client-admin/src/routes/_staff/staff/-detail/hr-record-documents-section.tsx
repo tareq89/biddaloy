@@ -63,14 +63,13 @@ function DocumentSlot({
   }
 
   return (
-    <div className="rounded-lg border border-border-subtle p-3">
+    <div className="rounded-md border border-border-subtle p-3">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-sm font-medium">{t(`hrRecord.documents.types.${documentType}`)}</span>
+        <span className="font-medium">{t(`hrRecord.documents.types.${documentType}`)}</span>
         {document ? (
           <Button
             type="button"
             variant="outline"
-            size="sm"
             onClick={() =>
               void downloadStaffDocument(document).catch(() =>
                 toast.error(t('hrRecord.documents.downloadError')),
@@ -80,7 +79,7 @@ function DocumentSlot({
             {document.original_filename}
           </Button>
         ) : (
-          <span className="text-sm text-muted-foreground">
+          <span className="text-caption text-text-secondary">
             {t('hrRecord.documents.notUploaded')}
           </span>
         )}

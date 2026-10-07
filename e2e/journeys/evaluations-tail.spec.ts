@@ -122,7 +122,9 @@ test.describe('ACR print', () => {
 
     await test.step('INCOMPLETE: no Print button', async () => {
       await page.goto(`/staff/${incomplete!.user_id}/acr/${incomplete!.id}`);
-      await expect(page.getByRole('heading', { name: t('evaluations.acr.title') })).toBeVisible();
+      await expect(page
+      .getByRole('dialog')
+      .getByRole('heading', { level: 1, name: t('evaluations.acr.pageTitle', { name: '' }).trim() })).toBeVisible();
       await expect(page.getByRole('button', { name: t('evaluations.acr.print') })).toHaveCount(0);
     });
   });

@@ -26,8 +26,6 @@
     "submitHint": "সম্পন্ন করতে Ctrl+Enter চাপুন",
     "submitBlocked": "সম্পন্ন করার আগে সব মানদণ্ডে নম্বর দিন।",
     "completeError": "এসিআর সম্পন্ন করা যায়নি।",
-    "next": "পরবর্তী",
-    "back": "পেছনে",
     "stepOf": "ধাপ {{current}} / {{total}}",
     "criterionOf": "মানদণ্ড {{current}} / {{total}}",
     "keyboardHint": "নম্বর দিয়ে এগিয়ে যেতে ৪, ৩, ২ বা ১ চাপুন",
@@ -75,19 +73,21 @@
     },
     "register": {
       "title": "এসিআর তালিকা",
-      "yearFilter": "বছর",
-      "allYears": "সব বছর",
+      "yearFilter": "শিক্ষাবর্ষ",
+      "allYears": "সব শিক্ষাবর্ষ",
       "statusFilter": "অবস্থা",
-      "allStatuses": "সব",
+      "allStatuses": "সব অবস্থা",
       "columnStaff": "কর্মী",
-      "columnYear": "বছর",
+      "columnYear": "শিক্ষাবর্ষ",
       "columnStatus": "অবস্থা",
-      "columnTotal": "মোট",
+      "columnTotal": "মোট নম্বর",
       "columnCompletedAt": "সম্পন্নের তারিখ",
       "open": "খুলুন",
       "loading": "এসিআর লোড হচ্ছে…",
       "empty": "এই ফিল্টারে এখনো কোনো এসিআর নেই।",
-      "errorMessage": "এসিআর তালিকা লোড করা যায়নি।"
+      "errorMessage": "এসিআর তালিকা লোড করা যায়নি।",
+      "cardSubtitle": "শিক্ষাবর্ষ {{year}}",
+      "emptyTitle": "কোনো এসিআর নেই"
     },
     "status": {
       "INCOMPLETE": "চলমান",
@@ -99,7 +99,10 @@
       "empty": "এই কর্মীর জন্য কোনো এসিআর শুরু হয়নি।",
       "errorMessage": "এসিআরের ইতিহাস লোড করা যায়নি।",
       "trendTitle": "বছর অনুযায়ী",
-      "trendLabel": "{{year}}: {{total}}"
+      "trendLabel": "{{year}}: {{total}}",
+      "columnYear": "শিক্ষাবর্ষ",
+      "columnTotal": "মোট নম্বর",
+      "columnStatus": "অবস্থা"
     },
     "criteriaSettings": {
       "title": "এসিআরের মানদণ্ড",
@@ -131,7 +134,12 @@
         "leave": "সংরক্ষণ ছাড়া ছেড়ে যান"
       }
     },
-    "print": "এসিআর প্রিন্ট করুন"
+    "print": "এসিআর প্রিন্ট করুন",
+    "pageTitle": "এসিআর — {{name}}",
+    "stepsLabel": "এসিআরের ধাপ",
+    "scoredOf": "{{total}}টির মধ্যে {{scored}}টিতে নম্বর দেওয়া হয়েছে",
+    "prevCriterion": "আগের মানদণ্ড",
+    "nextCriterion": "পরের মানদণ্ড"
   },
   "incident": {
     "title": "ঘটনা",
@@ -177,7 +185,8 @@
       "MEDIUM": "মাঝারি",
       "HIGH": "বেশি"
     },
-    "staffSearch": "নাম দিয়ে কর্মী খুঁজুন"
+    "staffSearch": "নাম দিয়ে কর্মী খুঁজুন",
+    "emptyTitle": "কোনো ঘটনা নেই"
   },
   "surveys": {
     "placeholderTitle": "জরিপ",
@@ -239,7 +248,20 @@
         "clear": "পাঠ পরিষ্কারভাবে বোঝান",
         "respect": "শিক্ষার্থীদের সম্মান করেন",
         "help": "আটকে গেলে সাহায্য করতে প্রস্তুত থাকেন"
-      }
+      },
+      "sectionInfo": "জরিপের তথ্য",
+      "sectionSchedule": "সময় ও ফলাফল",
+      "targetsHelp": "যে শিক্ষককে যে বিষয়ের জন্য মূল্যায়ন করা হবে। শিক্ষককে ওই বিষয়ে নিযুক্ত থাকতে হবে।",
+      "questionsHelp": "তিনটি সাধারণ প্রশ্ন আগে থেকেই দেওয়া আছে — চাইলে বদলান বা নতুন যোগ করুন।",
+      "teacherN": "শিক্ষক {{n}}",
+      "subjectN": "বিষয় {{n}}",
+      "removeTargetN": "শিক্ষক {{n}} বাদ দিন",
+      "removeQuestionN": "প্রশ্ন {{n}} বাদ দিন",
+      "errorRowSubject": "একটি বিষয় বাছুন।",
+      "errorRowTeacher": "একজন শিক্ষক বাছুন।",
+      "errorDuplicateTarget": "এই শিক্ষক ও বিষয় আগেই যোগ করা হয়েছে।",
+      "errorNotAssigned": "একজন শিক্ষক বাছাই করা বিষয়ে নিযুক্ত নন। শিক্ষক বা বিষয় বদলান।",
+      "errorSummary": "জরিপ সংরক্ষণ হয়নি: {{count}}টি ঘর ঠিক করুন।"
     },
     "detail": {
       "documentTitle": "{{title}} — জরিপ · Biddaloy",
@@ -253,18 +275,30 @@
       "opensAt": "শুরু",
       "closesAt": "শেষ",
       "noDate": "নির্ধারিত নেই",
-      "anonymousOn": "পরিচয় গোপন — ব্যবস্থাপনা দেখতে পাবে না",
-      "anonymousOff": "ব্যবস্থাপনা নাম দেখতে পাবে",
       "resultsTitle": "ফলাফল",
       "resultsLoadError": "ফলাফল লোড করা যায়নি।",
       "sealedOpen": "জরিপ বন্ধ হলে ফলাফল দেখা যাবে।",
-      "waiting": "আরও উত্তরের অপেক্ষায় ({{min}}টির মধ্যে {{count}}টি)",
+      "waiting": "আরও উত্তরের অপেক্ষায় ({{min}}টির মধ্যে {{count}}টি)।",
       "responses": "{{count}}টি উত্তর",
       "averageStars": "গড় ৫-এর মধ্যে {{value}}",
       "noStars": "গড় দেখানোর জন্য যথেষ্ট তারকা রেটিং নেই।",
       "noComments": "কোনো মন্তব্য নেই।",
-      "comments": "মন্তব্য"
-    }
+      "comments": "মন্তব্য",
+      "identityLabel": "পরিচয়",
+      "identityHidden": "গোপন",
+      "identityShown": "নাম দেখা যাবে",
+      "minResponsesLabel": "ফল দেখানোর ন্যূনতম উত্তর",
+      "minResponsesValue": "{{count}}টি",
+      "resultsSubtitle": "শিক্ষক ও বিষয় অনুযায়ী · মোট {{count}}টি",
+      "waitingBadge": "অপেক্ষায়",
+      "waitingWhy": "কারো পরিচয় যাতে বোঝা না যায়, তাই এর কম উত্তরে ফল দেখানো হয় না।",
+      "noStarsShort": "যথেষ্ট রেটিং নেই",
+      "closeConfirm": {
+        "title": "জরিপ বন্ধ করবেন?",
+        "description": "“{{title}}” বন্ধ হলে আর কেউ উত্তর দিতে পারবে না। এটি আবার চালু করা যাবে না।"
+      }
+    },
+    "open": "খুলুন"
   },
   "portalSurveys": {
     "title": "জরিপ",
@@ -298,5 +332,6 @@
   "nav": {
     "evaluations": "মূল্যায়ন"
   },
-  "forbidden": "মূল্যায়ন দেখার অনুমতি আপনার নেই।"
+  "forbidden": "মূল্যায়ন দেখার অনুমতি আপনার নেই।",
+  "subtitle": "এসিআর, শিক্ষক জরিপ ও ঘটনা এক জায়গায়।"
 }
