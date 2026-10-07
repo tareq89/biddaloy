@@ -105,6 +105,9 @@ export function ReportCard({ data, issuer, logoUrl, activeLanguage, labels }: Re
   const config = useRegionConfig();
   const num = (v: number | null) => formatNumber(v, config);
   const gpa = (v: number) => formatNumber(v, config, { decimals: 2 });
+  // A milestone score keeps its own decimals (92.5 stays 92.5), in tenant numerals.
+  const score = (v: number) =>
+    formatNumber(v, config, { decimals: String(v).split('.')[1]?.length ?? 0 });
   return (
     <div
       data-slot="report-card"
@@ -222,7 +225,10 @@ export function ReportCard({ data, issuer, logoUrl, activeLanguage, labels }: Re
                 </td>
                 <td className="py-1">
                   {program.latest
-                    ? [program.latest.score, program.latest.grade]
+                    ? [
+                        program.latest.score === null ? null : score(program.latest.score),
+                        program.latest.grade,
+                      ]
                         .filter((v) => v !== null && v !== undefined)
                         .join(' / ')
                     : '—'}
