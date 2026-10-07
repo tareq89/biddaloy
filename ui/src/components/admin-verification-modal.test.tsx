@@ -169,8 +169,15 @@ describe('AdminVerificationModal', () => {
     expect(screen.queryByText('scopes.fees.discount')).toBeNull();
     unmount();
 
-    i18n.addResource('en', 'approval', 'scopes.fees.discount', 'Approve: discount on a payment');
-    renderWithProviders(<AdminVerificationModal {...props} />, { locale: 'en' });
-    await screen.findByText('Approve: discount on a payment');
+    // The i18n instance is shared across tests, so put the bundle back afterwards.
+    const original = structuredClone(i18n.getResourceBundle('en', 'approval') as object);
+    try {
+      i18n.addResource('en', 'approval', 'scopes.fees.discount', 'Approve: discount on a payment');
+      renderWithProviders(<AdminVerificationModal {...props} />, { locale: 'en' });
+      await screen.findByText('Approve: discount on a payment');
+    } finally {
+      i18n.removeResourceBundle('en', 'approval');
+      i18n.addResourceBundle('en', 'approval', original);
+    }
   });
 });
