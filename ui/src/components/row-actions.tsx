@@ -49,6 +49,8 @@ export interface RowAction {
   to?: string;
   allowed?: boolean;
   icon?: React.ReactNode;
+  /** The action's request is in flight: clicks are ignored, the control stays focusable. */
+  busy?: boolean;
   /** Copied onto the rendered button/link as the `data-focus-anchor` attribute, so
    * `useRouteFocus`'s Back-navigation focus restore lands on the row (CONTRACT Addendum 7).
    * Pages pass `{ intent: 'view', …, 'data-focus-anchor': row.id }`. */
@@ -91,7 +93,11 @@ function ActionControl({ action, labelled }: { action: RowAction; labelled: bool
   const { icon: DefaultIcon, tone } = INTENTS[action.intent];
   const glyph = action.icon ?? <DefaultIcon className="size-4" aria-hidden />;
   const anchor = action['data-focus-anchor'];
-  const className = cn(labelled ? LABELLED_BUTTON : ICON_BUTTON, tone);
+  const className = cn(
+    labelled ? LABELLED_BUTTON : ICON_BUTTON,
+    tone,
+    action.busy && 'cursor-wait opacity-50',
+  );
   const content = (
     <>
       {glyph}
@@ -112,7 +118,9 @@ function ActionControl({ action, labelled }: { action: RowAction; labelled: bool
       type="button"
       className={className}
       aria-label={labelled ? undefined : action.label}
-      onClick={action.onClick}
+      aria-disabled={action.busy || undefined}
+      aria-busy={action.busy || undefined}
+      onClick={action.busy ? undefined : action.onClick}
       data-focus-anchor={anchor}
     >
       {content}
@@ -150,7 +158,7 @@ function MoreItem({ action }: { action: RowAction }) {
     );
   }
   return (
-    <MenuItem variant={variant} onSelect={() => action.onClick?.()}>
+    <MenuItem variant={variant} disabled={action.busy ?? false} onSelect={() => action.onClick?.()}>
       {inner}
     </MenuItem>
   );

@@ -57,7 +57,7 @@ const STORAGE_CAP_BYTES = 500 * 1024 * 1024;
 /** `WorkbookJob` plus this render's per-row UI flags — see the comment
  * where `jobs` is built for why these have to sit on the row object
  * itself. */
-type BackupRow = WorkbookJob & { expired: boolean };
+type BackupRow = WorkbookJob & { expired: boolean; downloading: boolean };
 
 /** Formats a byte count as a short human-readable size ("1.2 MB").
  * `size_bytes` is a bigint column the server hands back as a string — this
@@ -180,8 +180,16 @@ export function BackupSection({ backupJobId }: BackupSectionProps) {
     setDeepLinkError(undefined);
   }
 
+  // One download per backup at a time: a second click while the first is still
+  // streaming would start another large request and save a second file.
+  const [downloadingIds, setDownloadingIds] = React.useState<ReadonlySet<string>>(new Set());
+  const inFlight = React.useRef(new Set<string>());
+
   const handleDownload = React.useCallback(
-    async (id: string): Promise<'ok' | 'expired' | 'error'> => {
+    async (id: string): Promise<'ok' | 'busy' | 'expired' | 'error'> => {
+      if (inFlight.current.has(id)) return 'busy';
+      inFlight.current.add(id);
+      setDownloadingIds(new Set(inFlight.current));
       try {
         await downloadBackup(id);
         return 'ok';
@@ -192,6 +200,9 @@ export function BackupSection({ backupJobId }: BackupSectionProps) {
         }
         toast.error(t('downloadFailed'));
         return 'error';
+      } finally {
+        inFlight.current.delete(id);
+        setDownloadingIds(new Set(inFlight.current));
       }
     },
     [t],
@@ -252,6 +263,12 @@ export function BackupSection({ backupJobId }: BackupSectionProps) {
     });
   }
 
+  // A page emptied by retention or deletes (total still > 0) moves back to the last page
+  // that has jobs, rather than showing "no backups" with the pager gone.
+  const total = jobsQuery.data?.total ?? 0;
+  const lastPage = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  if (jobsQuery.data && page > lastPage) setPage(lastPage);
+
   if (!canManage) return null;
 
   // `DataTable`'s underlying `@tanstack/react-table` memoizes a cell's
@@ -262,6 +279,7 @@ export function BackupSection({ backupJobId }: BackupSectionProps) {
   const jobs: BackupRow[] = (jobsQuery.data?.data ?? []).map((job) => ({
     ...job,
     expired: expiredIds.has(job.id),
+    downloading: downloadingIds.has(job.id),
   }));
 
   const columns: DataTableColumn<BackupRow>[] = [
@@ -336,7 +354,7 @@ export function BackupSection({ backupJobId }: BackupSectionProps) {
         description={`${t('containsDescription')} ${t('neverContainsDescription')}`}
         // With no backups the EmptyState's own button is the only request action.
         actions={
-          jobs.length > 0 ? (
+          total > 0 ? (
             <Button
               type="button"
               className="w-full md:w-auto"
@@ -400,7 +418,7 @@ export function BackupSection({ backupJobId }: BackupSectionProps) {
         <div className="mt-3">
           {jobsQuery.isError ? (
             <ErrorState message={t('listLoadError')} onRetry={() => void jobsQuery.refetch()} />
-          ) : jobs.length === 0 && !jobsQuery.isLoading ? (
+          ) : total === 0 && !jobsQuery.isLoading ? (
             <EmptyState
               title={t('emptyTenant')}
               explanation={t('emptyTenantDescription')}
@@ -417,7 +435,7 @@ export function BackupSection({ backupJobId }: BackupSectionProps) {
               onSortingChange={() => undefined}
               page={page}
               pageSize={PAGE_SIZE}
-              totalCount={jobsQuery.data?.total ?? 0}
+              totalCount={total}
               onPageChange={setPage}
               loading={jobsQuery.isLoading}
               isFetching={jobsQuery.isFetching}
@@ -431,6 +449,7 @@ export function BackupSection({ backupJobId }: BackupSectionProps) {
                             {
                               intent: 'download' as const,
                               label: t('download'),
+                              busy: row.downloading,
                               onClick: () => void handleDownload(row.id),
                             },
                           ]),
