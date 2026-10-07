@@ -121,7 +121,7 @@ describe('/grading-scales', () => {
       '/grading-scales/scale-a',
       '/grading-scales/scale-b',
     ]);
-    expect(screen.getByText('Total 2')).toBeTruthy();
+    expect(screen.getByText(`Total ${formatNumber(2, REGION_BD_BN)}`)).toBeTruthy();
   });
 
   it('labels the academic-year filter', async () => {

@@ -107,7 +107,7 @@ describe('/marks', () => {
       .map((a) => a.getAttribute('href'))
       .filter((h) => h?.startsWith('/marks/exam-1'));
     expect(hrefs).toEqual(['/marks/exam-1/sec-1/subj-1', '/marks/exam-1/sec-2/subj-2']);
-    expect(screen.getByText('Total 2')).toBeTruthy();
+    expect(screen.getByText(`Total ${formatNumber(2, REGION_BD_BN)}`)).toBeTruthy();
   });
 
   it('the status filter hides the other group', async () => {
@@ -118,7 +118,7 @@ describe('/marks', () => {
     await findRowLinks('Enter marks');
     await user.click(screen.getByRole('combobox', { name: 'Status' }));
     await user.click(await screen.findByRole('option', { name: 'Not submitted' }));
-    await screen.findByText('Total 1');
+    await screen.findByText(`Total ${formatNumber(1, REGION_BD_BN)}`);
     expect(rowLinks('View marks')).toHaveLength(0);
   });
 
