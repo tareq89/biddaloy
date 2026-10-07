@@ -133,7 +133,7 @@ describe('/login', () => {
         expect(screen.getByLabelText('Password', { selector: 'input' })).toBeTruthy(),
       );
 
-      await user.click(screen.getByRole('tab', { name: 'Sign in with code' }));
+      await user.click(screen.getByRole('tab', { name: 'With a phone code' }));
 
       expect(await screen.findByLabelText('Phone number')).toBeTruthy();
       expect(screen.queryByLabelText('Password', { selector: 'input' })).toBeNull();

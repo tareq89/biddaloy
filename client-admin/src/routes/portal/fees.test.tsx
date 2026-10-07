@@ -359,9 +359,11 @@ describe('/portal/fees', () => {
       expect(screen.getByRole('heading', { level: 2, name: 'Outstanding' })).toBeTruthy();
       expect(screen.getByText('৳9,000.00')).toBeTruthy();
       expect(screen.getByText('৳3,500.00')).toBeTruthy();
-      expect(screen.getAllByText('Charged').length).toBeGreaterThan(0);
-      expect(screen.getAllByText('Discount').length).toBeGreaterThan(0);
-      expect(screen.getAllByText('Paid').length).toBeGreaterThan(0);
+      const summary = screen.getByRole('heading', { level: 2, name: 'Outstanding' })
+        .parentElement as HTMLElement;
+      expect(within(summary).getByText('Charged')).toBeTruthy();
+      expect(within(summary).getByText('Discount')).toBeTruthy();
+      expect(within(summary).getByText('Paid')).toBeTruthy();
     });
 
     it('groups large amounts in lakh/crore, not thousands', async () => {
@@ -386,7 +388,9 @@ describe('/portal/fees', () => {
       await localeReady;
 
       // ৳1,20,000.00 — not ৳120,000.00.
-      expect((await screen.findAllByText('৳1,20,000.00')).length).toBeGreaterThan(0);
+      const headline = (await screen.findByRole('heading', { level: 2, name: 'Outstanding' }))
+        .parentElement as HTMLElement;
+      expect(headline.querySelector('p')?.textContent).toBe('৳1,20,000.00');
     });
 
     it('renders a zero discount as an em dash, never ৳0.00', async () => {
@@ -431,7 +435,12 @@ describe('/portal/fees', () => {
       // The regression this pins: `useFeeDues` drops PAID months entirely,
       // so a page sourced from it would silently hide July.
       // Columns: month, charged, discount, paid, outstanding, status.
-      expect(within(july).getAllByRole('cell')[4]?.textContent).toBe('৳0.00');
+      const headers = within(july.closest('table') as HTMLElement)
+        .getAllByRole('columnheader')
+        .map((th) => th.textContent);
+      expect(within(july).getAllByRole('cell')[headers.indexOf('Outstanding')]?.textContent).toBe(
+        '৳0.00',
+      );
       expect(badgeText(july)).toEqual(['Paid']);
     });
 
@@ -564,8 +573,8 @@ describe('/portal/fees', () => {
       try {
         renderFees();
 
-        // Newest invoice first, so the first Print button is INV-2025-0912's.
-        const button = (await screen.findAllByRole('button', { name: 'Print' }))[0] as HTMLElement;
+        const invoiceRow = (await screen.findByText('INV-2025-0912')).closest('tr') as HTMLElement;
+        const button = within(invoiceRow).getByRole('button', { name: 'Print' });
         await userEvent.click(button);
 
         // The tab is opened *before* the request, inside the click's
@@ -591,8 +600,8 @@ describe('/portal/fees', () => {
       try {
         renderFees();
 
-        // Newest invoice first, so the first Print button is INV-2025-0912's.
-        const button = (await screen.findAllByRole('button', { name: 'Print' }))[0] as HTMLElement;
+        const invoiceRow = (await screen.findByText('INV-2025-0912')).closest('tr') as HTMLElement;
+        const button = within(invoiceRow).getByRole('button', { name: 'Print' });
         await userEvent.click(button);
 
         await waitFor(() =>
@@ -768,7 +777,11 @@ describe('/portal/fees', () => {
 
       await screen.findByText('September 2025');
       expect(screen.getByText('Credit balance')).toBeTruthy();
-      expect(screen.getAllByText('৳1,500.00').length).toBeGreaterThan(0);
+      const wallet = screen
+        .getByText('Credit balance')
+        .closest('[data-slot="card"]') as HTMLElement;
+      // The balance and the one transaction.
+      expect(within(wallet).getAllByText('৳1,500.00')).toHaveLength(2);
       expect(screen.getByText('Overpayment credit')).toBeTruthy();
       // Withheld field: the family shape carries no `note`, so nothing
       // rendered by this card may depend on one being present.

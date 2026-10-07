@@ -4,7 +4,7 @@ import { formatDate } from '@biddaloy/ui/utils';
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactElement } from 'react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { DiffPanel, type DiffPanelProps } from './-diff-panel';
 
@@ -150,6 +150,30 @@ describe('DiffPanel', () => {
     expect(screen.getByText('পরিবর্তিত')).toBeTruthy();
     expect(screen.getByRole('cell', { name: 'হ্যাঁ' })).toBeTruthy();
     expect(screen.getByRole('cell', { name: 'না' })).toBeTruthy();
+  });
+
+  it('stacks each changed field as Before / After lines on a phone, with no table', async () => {
+    const spy = vi.spyOn(window, 'matchMedia').mockImplementation(
+      (query: string) =>
+        ({
+          matches: true,
+          media: query,
+          addEventListener: () => undefined,
+          removeEventListener: () => undefined,
+        }) as unknown as MediaQueryList,
+    );
+    try {
+      renderPanel({
+        oldValues: { full_name: 'Rahim' },
+        newValues: { full_name: 'Rahim Uddin' },
+      });
+
+      expect(await screen.findByText('Before: Rahim')).toBeTruthy();
+      expect(screen.getByText('After: Rahim Uddin')).toBeTruthy();
+      expect(screen.queryByRole('table')).toBeNull();
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   it('is axe clean', async () => {

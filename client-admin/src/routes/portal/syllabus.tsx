@@ -1,7 +1,9 @@
+import { SyllabusTopicStatus } from '@biddaloy/shared';
 import {
   Card,
   EmptyState,
   ErrorState,
+  ProgressBar,
   RoutePending,
   Skeleton,
   StatusBadge,
@@ -13,8 +15,16 @@ import {
   useSyllabusTopicList,
   type Student,
 } from '@biddaloy/ui/hooks';
-import { useLocale, useTranslation } from '@biddaloy/ui/i18n';
+import {
+  RegionConfigProvider,
+  useLocale,
+  useRegionConfig,
+  useTranslation,
+} from '@biddaloy/ui/i18n';
+import { PageContainer, PageHeader } from '@biddaloy/ui/shells';
+import { formatNumber } from '@biddaloy/ui/utils';
 import { createFileRoute } from '@tanstack/react-router';
+import { BookOpenIcon } from 'lucide-react';
 import { z } from 'zod';
 
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../route-loaders';
@@ -42,20 +52,30 @@ export const Route = createFileRoute('/portal/syllabus')({
       loadRouteNamespaces('portal', 'common'),
     ]),
   pendingComponent: PortalSyllabusPending,
-  component: PortalSyllabus,
+  component: PortalSyllabusRoute,
 });
+
+function PortalSyllabusRoute() {
+  return (
+    <RegionConfigProvider>
+      <PortalSyllabus />
+    </RegionConfigProvider>
+  );
+}
 
 /** Same "class section · roll" line `attendance.tsx` and `portal/index.tsx` render. */
 function useStudentMeta(): (student: Student) => string {
   const { t } = useTranslation('portal');
+  const config = useRegionConfig();
   return (student: Student) => {
     const className = student.class_section?.class?.name ?? null;
+    const roll = formatNumber(student.roll_number, config);
     return className === null
-      ? t('children.metaNoClass', { roll: student.roll_number })
+      ? t('children.metaNoClass', { roll })
       : t('children.meta', {
           className,
           section: student.class_section?.section_name ?? '',
-          roll: student.roll_number,
+          roll,
         });
   };
 }
@@ -90,17 +110,23 @@ function PortalSyllabus() {
 
   if (students.length === 0 || selected === undefined) {
     return (
-      <EmptyState
-        title={t('empty.title')}
-        explanation={t('empty.explanation')}
-        action={{ label: t('empty.action'), onClick: () => void studentsQuery.refetch() }}
-      />
+      <PageContainer size="narrow">
+        <PageHeader title={t('syllabus.title')} />
+        <EmptyState
+          title={t('empty.title')}
+          explanation={t('empty.explanation')}
+          action={{ label: t('empty.action'), onClick: () => void studentsQuery.refetch() }}
+        />
+      </PageContainer>
     );
   }
 
   return (
-    <div className="flex max-w-2xl flex-col gap-3">
-      <h1 className="text-lg font-semibold tracking-tight">{t('syllabus.title')}</h1>
+    <PageContainer size="narrow">
+      <PageHeader
+        title={t('syllabus.title')}
+        subtitle={`${selected.full_name} · ${studentMeta(selected)}`}
+      />
       {students.length > 1 && (
         <StudentPicker
           label={t('syllabus.pickerLabel')}
@@ -114,13 +140,15 @@ function PortalSyllabus() {
         />
       )}
       {classId === undefined ? (
-        <Card className="p-3.5">
-          <p className="text-sm text-muted-foreground">{t('syllabus.noClass')}</p>
-        </Card>
+        <EmptyState
+          icon={<BookOpenIcon />}
+          title={t('syllabus.noClassTitle')}
+          explanation={t('syllabus.noClass')}
+        />
       ) : (
         <SyllabusBody topicsQuery={topicsQuery} t={t} />
       )}
-    </div>
+    </PageContainer>
   );
 }
 
@@ -132,13 +160,14 @@ function SyllabusBody({
   t: ReturnType<typeof useTranslation>['t'];
 }) {
   const { locale } = useLocale();
+  const config = useRegionConfig();
 
   if (topicsQuery.isPending) {
     return (
-      <div className="flex flex-col gap-3" aria-busy="true" aria-live="polite">
+      <div className="space-y-6" aria-busy="true" aria-live="polite">
         <span className="sr-only">{t('syllabus.loading')}</span>
-        <Skeleton className="h-28 w-full rounded-lg" />
-        <Skeleton className="h-28 w-full rounded-lg" />
+        <Skeleton className="h-48 w-full rounded-lg" />
+        <Skeleton className="h-48 w-full rounded-lg" />
       </div>
     );
   }
@@ -157,9 +186,11 @@ function SyllabusBody({
 
   if (topics.length === 0) {
     return (
-      <Card className="p-3.5">
-        <p className="text-sm text-muted-foreground">{t('syllabus.empty')}</p>
-      </Card>
+      <EmptyState
+        icon={<BookOpenIcon />}
+        title={t('syllabus.emptyTitle')}
+        explanation={t('syllabus.empty')}
+      />
     );
   }
 
@@ -188,36 +219,69 @@ function SyllabusBody({
   );
 
   return (
-    <>
-      {subjects.map((subject) => (
-        <Card key={subject.subjectId} className="flex flex-col gap-2 p-3.5">
-          <h2 className="text-sm font-semibold">{subject.heading}</h2>
-          <ol className="flex flex-col gap-2">
-            {subject.topics.map((topic) => (
-              <li key={topic.id} className="flex items-start justify-between gap-2">
-                <div className="flex flex-col gap-0.5">
-                  <span className="text-sm font-medium">{topic.name}</span>
-                  {topic.description && (
-                    <span className="text-xs text-muted-foreground">{topic.description}</span>
-                  )}
-                </div>
-                <StatusBadge domain="syllabusTopic" status={topic.status} />
-              </li>
-            ))}
-          </ol>
-        </Card>
-      ))}
-    </>
+    <div className="space-y-6">
+      {subjects.map((subject) => {
+        const done = subject.topics.filter(
+          (topic) => topic.status === SyllabusTopicStatus.DONE,
+        ).length;
+        const titleId = `subject-${subject.subjectId}`;
+        return (
+          <Card key={subject.subjectId} asChild padded>
+            <article aria-labelledby={titleId}>
+              <h2 id={titleId} className="text-h2">
+                {subject.heading}
+              </h2>
+              <div className="mt-3">
+                <ProgressBar
+                  done={done}
+                  total={subject.topics.length}
+                  label={t('syllabus.progressLabel', {
+                    done: formatNumber(done, config),
+                    total: formatNumber(subject.topics.length, config),
+                  })}
+                />
+              </div>
+              <ol className="mt-3 divide-y divide-border-subtle border-t border-border-subtle">
+                {subject.topics.map((topic, index) => (
+                  <li key={topic.id} className="flex min-h-11 items-start gap-3 py-2.5">
+                    {/* Numbered 1…n inside the subject (`sequence` can have gaps); the
+                        `<ol>` already numbers for a screen reader. */}
+                    <span
+                      aria-hidden="true"
+                      className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-caption text-text-secondary"
+                    >
+                      {formatNumber(index + 1, config)}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium">{topic.name}</p>
+                      {topic.description && (
+                        <p className="text-caption text-text-secondary">{topic.description}</p>
+                      )}
+                    </div>
+                    <span className="shrink-0">
+                      <StatusBadge domain="syllabusTopic" status={topic.status} />
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            </article>
+          </Card>
+        );
+      })}
+    </div>
   );
 }
 
 function SyllabusSkeleton({ label }: { label: string }) {
   return (
-    <div className="flex max-w-2xl flex-col gap-3" aria-busy="true" aria-live="polite">
+    <div className="space-y-6" aria-busy="true" aria-live="polite">
       <span className="sr-only">{label}</span>
-      <Skeleton className="h-7 w-2/5" />
-      <Skeleton className="h-28 w-full rounded-lg" />
-      <Skeleton className="h-28 w-full rounded-lg" />
+      <div className="flex flex-col gap-0.5">
+        <Skeleton className="h-9 w-2/5" />
+        <Skeleton className="h-5 w-3/5" />
+      </div>
+      <Skeleton className="h-48 w-full rounded-lg" />
+      <Skeleton className="h-48 w-full rounded-lg" />
     </div>
   );
 }

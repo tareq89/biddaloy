@@ -1,6 +1,6 @@
 import { getActiveTenant } from '@biddaloy/ui/api';
 import { RoutePending } from '@biddaloy/ui/components';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { RegionConfigProvider, useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { createFileRoute } from '@tanstack/react-router';
 
 import { CurriculumPresetPage } from '../../pages/curriculum-preset/CurriculumPresetPage';
@@ -19,9 +19,15 @@ export const Route = createFileRoute('/_staff/curriculum-preset')({
 
 function CurriculumPresetRoute() {
   const schoolId = getActiveTenant();
+  const regionConfig = useTenantRegionConfig();
   // ponytail: a SUPER_ADMIN with no active tenant sees nothing; the platform
   // school detail page is their entry point.
-  return schoolId ? <CurriculumPresetPage schoolId={schoolId} /> : null;
+  // The school's own number and date format, not the viewer's.
+  return schoolId ? (
+    <RegionConfigProvider value={regionConfig}>
+      <CurriculumPresetPage schoolId={schoolId} />
+    </RegionConfigProvider>
+  ) : null;
 }
 
 function CurriculumPresetPending() {

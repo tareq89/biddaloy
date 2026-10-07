@@ -58,8 +58,7 @@ export function StudentSearch({
               <Button
                 type="button"
                 variant="ghost"
-                size="sm"
-                className="w-full justify-start"
+                className="h-11 w-full justify-start md:h-8"
                 onClick={() => handleSelect(student)}
               >
                 {student.full_name} · {student.registration_number}

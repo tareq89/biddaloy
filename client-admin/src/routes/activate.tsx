@@ -5,9 +5,10 @@ import {
   RateLimitedError,
 } from '@biddaloy/ui/api';
 import {
+  AuthLayout,
   Button,
   Input,
-  RouteStatusState,
+  Label,
   SetPasswordForm,
   Skeleton,
 } from '@biddaloy/ui/components';
@@ -16,12 +17,13 @@ import { activate } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { detectLoginIdentifier } from '@biddaloy/ui/utils';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import type { TFunction } from 'i18next';
+import { CircleCheck, Link2Off, TriangleAlert, UserX } from 'lucide-react';
 import * as React from 'react';
 import { z } from 'zod';
 
-import { AuthScreen } from './-auth-screen';
+import { GuestStatus } from './-guest-status';
 
 /** The token is `.optional().catch(undefined)` rather than required — a
  * malformed or missing `?token=` is a real, reachable case (a bad copy-
@@ -70,27 +72,6 @@ function buildActivateError(error: unknown, t: TFunction<'auth'>): SignInFormErr
   return { message: t('errors.generic'), tone: 'alert' };
 }
 
-/** Decorative, `aria-hidden` — matches the icon convention `RouteStatusState`
- * expects its callers to supply. */
-function LinkIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="size-8">
-      <path
-        d="M8.5 11.5a3 3 0 0 0 4.24 0l2-2a3 3 0 1 0-4.24-4.24l-.5.5"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-      />
-      <path
-        d="M11.5 8.5a3 3 0 0 0-4.24 0l-2 2a3 3 0 1 0 4.24 4.24l.5-.5"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-
 /** The small self-service resend form the plan corrects the issue's own
  * wording into — enumeration-safe, so it always shows the same "done"
  * copy regardless of what actually happened server-side. */
@@ -120,7 +101,7 @@ function ResendForm() {
 
   if (mutation.isSuccess) {
     return (
-      <p role="status" className="text-sm text-muted-foreground">
+      <p role="status" className="text-text-secondary">
         {t('activate.resendDone')}
       </p>
     );
@@ -128,44 +109,83 @@ function ResendForm() {
 
   return (
     <form
-      className="flex w-full flex-col gap-2"
+      className="flex flex-col gap-4 border-t border-border-subtle pt-5"
       onSubmit={(event) => {
         event.preventDefault();
         mutation.mutate();
       }}
     >
-      <label htmlFor="activate-resend-identifier" className="sr-only">
-        {t('activate.resendLabel')}
-      </label>
+      <Label htmlFor="activate-resend-identifier">{t('activate.resendLabel')}</Label>
       <Input
         id="activate-resend-identifier"
         value={identifier}
         onChange={(event) => setIdentifier(event.target.value)}
-        placeholder={t('activate.resendLabel')}
+        placeholder={t('identifier.placeholder')}
+        autoComplete="username"
         disabled={mutation.isPending}
       />
-      <Button type="submit" loading={mutation.isPending} disabled={!identifier.trim()}>
+      <Button
+        type="submit"
+        className="w-full"
+        loading={mutation.isPending}
+        disabled={!identifier.trim()}
+      >
         {t('activate.resendAction')}
       </Button>
     </form>
   );
 }
 
-function TerminalCard({ status }: { status: TerminalStatus }) {
+// Navigation, so a link (open in a new tab, copy the address), styled as a button.
+function ToSignInButton() {
   const { t } = useTranslation('auth');
-  const navigate = useNavigate();
+  return (
+    <Button asChild variant="ghost" className="w-full text-primary">
+      <Link to="/login">{t('toSignIn')}</Link>
+    </Button>
+  );
+}
+
+/** A link that cannot be used: each state offers the step that fits it. */
+function TerminalCard({ status }: { status: TerminalStatus | 'missing' }) {
+  const { t } = useTranslation('auth');
+
+  if (status === 'consumed') {
+    return (
+      <GuestStatus icon={CircleCheck} tone="info" title={t('activate.consumed')}>
+        <Button asChild className="w-full">
+          <Link to="/login">{t('submit.action')}</Link>
+        </Button>
+        <Button asChild variant="ghost" className="w-full text-primary">
+          <Link to="/forgot-password">{t('forgot.link')}</Link>
+        </Button>
+      </GuestStatus>
+    );
+  }
+
+  if (status === 'suspended') {
+    return (
+      <GuestStatus
+        icon={UserX}
+        tone="danger"
+        title={t('activate.suspended')}
+        explanation={t('activate.suspendedExplanation')}
+      >
+        <ToSignInButton />
+      </GuestStatus>
+    );
+  }
 
   return (
-    <div className="flex flex-col gap-4">
-      <RouteStatusState
-        title={t(`activate.${status}`)}
-        explanation={t('activate.linkExplanation')}
-        icon={<LinkIcon />}
-        onRetry={() => void navigate({ to: '/login' })}
-        retryLabel={t('submit.action')}
-      />
-      {(status === 'expired' || status === 'revoked') && <ResendForm />}
-    </div>
+    <GuestStatus
+      icon={Link2Off}
+      tone="warning"
+      title={status === 'missing' ? t('activate.missingToken') : t(`activate.${status}`)}
+      explanation={t('activate.linkExplanation')}
+    >
+      <ResendForm />
+      <ToSignInButton />
+    </GuestStatus>
   );
 }
 
@@ -208,77 +228,71 @@ function ActivatePage() {
 
   if (!token) {
     return (
-      <AuthScreen>
-        <RouteStatusState
-          title={t('activate.missingToken')}
-          explanation={t('activate.linkExplanation')}
-          icon={<LinkIcon />}
-          onRetry={() => void navigate({ to: '/login' })}
-          retryLabel={t('submit.action')}
-        />
-      </AuthScreen>
+      <AuthLayout>
+        <TerminalCard status="missing" />
+      </AuthLayout>
     );
   }
 
   if (overrideStatus) {
     return (
-      <AuthScreen>
+      <AuthLayout>
         <TerminalCard status={overrideStatus} />
-      </AuthScreen>
+      </AuthLayout>
     );
   }
 
   if (verifyQuery.isPending) {
     return (
-      <AuthScreen>
+      <AuthLayout>
         <div
           role="status"
+          aria-busy="true"
           aria-label={t('activate.verifying')}
-          className="flex flex-col gap-4 rounded-lg border border-border-subtle bg-card p-8"
+          className="flex flex-col gap-4"
         >
           <Skeleton className="h-6 w-2/3" />
           <Skeleton className="h-10 w-full" />
           <Skeleton className="h-10 w-full" />
           <Skeleton className="h-10 w-full" />
         </div>
-      </AuthScreen>
+      </AuthLayout>
     );
   }
 
   if (verifyQuery.isError || !verifyQuery.data) {
     return (
-      <AuthScreen>
-        <RouteStatusState
-          title={t('errors.generic')}
-          explanation={t('activate.linkExplanation')}
-          icon={<LinkIcon />}
-          onRetry={() => void verifyQuery.refetch()}
-          retryLabel={t('submit.action')}
-        />
-      </AuthScreen>
+      <AuthLayout>
+        <GuestStatus icon={TriangleAlert} tone="danger" title={t('errors.generic')}>
+          <Button variant="outline" className="w-full" onClick={() => void verifyQuery.refetch()}>
+            {t('actions.retry', { ns: 'common' })}
+          </Button>
+        </GuestStatus>
+      </AuthLayout>
     );
   }
 
   if (verifyQuery.data.status !== 'valid') {
     return (
-      <AuthScreen>
+      <AuthLayout>
         <TerminalCard status={verifyQuery.data.status} />
-      </AuthScreen>
+      </AuthLayout>
     );
   }
 
   return (
-    <AuthScreen>
+    <AuthLayout>
       <SetPasswordForm
         heading={t('activate.welcome', {
           name: verifyQuery.data.full_name,
           school: verifyQuery.data.school_name,
         })}
+        subtext={t('activate.subtext')}
         onSubmit={(password) => mutation.mutate(password)}
         loading={mutation.isPending}
         error={buildActivateError(mutation.error, t)}
         submitLabel={t('setPassword.submit')}
       />
-    </AuthScreen>
+    </AuthLayout>
   );
 }

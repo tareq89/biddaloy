@@ -14,7 +14,7 @@
     "title": "Your children",
     "meta": "{{className}} {{section}} · Roll {{roll}}",
     "metaNoClass": "Roll {{roll}}",
-    "viewFeesFor": "View {{name}}'s fees"
+    "viewFeesFor": "View fee breakdown - {{name}}"
   },
   "actions": {
     "viewFeeBreakdown": "View fee breakdown"
@@ -46,7 +46,6 @@
     "walletBalance": "Balance",
     "walletEmpty": "No credit balance activity yet.",
     "recurringTitle": "Recurring fees",
-    "recurringEmpty": "No recurring fees set up.",
     "recurringNextOn": "Next on {{date}}",
     "error": {
       "message": "Could not load these fees. Something went wrong reaching the school's records — check your connection and try again.",
@@ -57,52 +56,74 @@
     "invoiceNumber": "Invoice no.",
     "issuedOn": "Issued on",
     "amount": "Amount",
-    "print": "Print"
+    "print": "Print",
+    "breakdownEmptyTitle": "No months yet",
+    "invoicesEmptyTitle": "No invoices"
   },
   "results": {
     "title": "Results",
     "loading": "Loading results",
-    "empty": "No published results yet. Results appear here once the school publishes them.",
     "failTag": "Fail",
     "printLabel": "Print {{name}}",
     "breakdownError": "Could not load this exam's breakdown.",
     "error": {
       "message": "Could not load your results. Something went wrong reaching the school's records — check your connection and try again.",
       "retry": "Try again"
-    }
+    },
+    "passTag": "Pass",
+    "showSubjects": "Show subject marks",
+    "hideSubjects": "Hide subject marks",
+    "subjectsCaption": "{{name}} — marks by subject",
+    "emptyTitle": "No results yet",
+    "emptyExplanation": "Results appear here once the school publishes them.",
+    "printError": "Could not load this report card to print. Try again."
   },
   "programs": {
     "title": "Programs",
     "loading": "Loading programs",
-    "empty": "No programs yet. Programs appear here once the school enrols this student in one.",
     "error": {
       "message": "Could not load these programs. Something went wrong reaching the school's records — check your connection and try again.",
       "retry": "Try again"
-    }
+    },
+    "progressLabel": "{{done}} of {{total}} milestones achieved",
+    "next": "Next",
+    "achieved": "Achieved",
+    "notYet": "Not yet",
+    "showAll_one": "Show all {{count}} milestone",
+    "showAll_other": "Show all {{count}} milestones",
+    "showFewer": "Show fewer",
+    "emptyTitle": "No programs yet",
+    "emptyExplanation": "Programs appear here once the school enrols this student in one."
   },
   "examSchedule": {
     "title": "Exam schedule",
     "loading": "Loading exam schedule",
-    "empty": "No exam schedule yet. It appears here once the school publishes a complete schedule.",
     "error": {
       "message": "Could not load the exam schedule. Something went wrong reaching the school's records — check your connection and try again.",
       "retry": "Try again"
-    }
+    },
+    "next": {
+      "title": "Next exam"
+    },
+    "columns": {
+      "date": "Date",
+      "time": "Time",
+      "subject": "Subject",
+      "venue": "Venue"
+    },
+    "done": "Finished",
+    "unknownSubject": "Subject not set",
+    "emptyTitle": "No exam schedule yet",
+    "emptyExplanation": "It appears here once the school publishes a complete schedule."
   },
   "attendance": {
-    "title": "Attendance",
     "loading": "Loading attendance",
     "pickerLabel": "Choose a student",
-    "monthStepper": {
-      "previousLabel": "Previous month, {{month}}",
-      "nextLabel": "Next month, {{month}}"
-    },
     "summary": {
       "present": "Present",
       "absent": "Absent",
       "late": "Late",
       "leave": "Leave",
-      "percentage": "Attendance",
       "notEnoughData": "Not enough marked days this month",
       "rateFor": "Attendance rate · {{month}}"
     },
@@ -129,7 +150,10 @@
     "error": {
       "message": "Couldn't load the syllabus.",
       "retry": "Try again"
-    }
+    },
+    "progressLabel": "{{done}} of {{total}} topics done",
+    "noClassTitle": "Not in a class yet",
+    "emptyTitle": "No syllabus yet"
   },
   "attendanceGrid": {
     "caption": "{{month}} {{year}}",
@@ -177,7 +201,13 @@
     "error": {
       "message": "Could not load this student's routine. Check your connection and try again.",
       "retry": "Try again"
-    }
+    },
+    "noRoutineTitle": "No routine yet",
+    "periodCount_one": "{{count}} period",
+    "periodCount_other": "{{count}} periods",
+    "until": "until {{time}}",
+    "substitute": "Substitute teacher",
+    "periodFallback": "Period"
   },
   "payments": {
     "title": "Recent payments",
@@ -201,10 +231,6 @@
     "title": "Calendar",
     "loading": "Loading the school calendar",
     "pickerLabel": "Choose a student",
-    "previousMonth": "Previous month",
-    "nextMonth": "Next month",
-    "today": "Today",
-    "agendaEmpty": "No events this month.",
     "moreEvents_one": "+{{count}} more",
     "moreEvents_other": "+{{count}} more",
     "error": {
@@ -242,7 +268,8 @@
     "loading": "Loading your account",
     "error": {
       "message": "Could not load your account. Something went wrong reaching the school's records — check your connection and try again.",
-      "retry": "Try again"
+      "retry": "Try again",
+      "saveFailed": "Could not save your changes. Check your connection and try again."
     },
     "profile": {
       "title": "Profile",
@@ -271,7 +298,7 @@
     },
     "contact": {
       "title": "Email & phone",
-      "none": "Not set",
+      "none": "Not added",
       "verified": "Verified {{date}}",
       "unverified": "Unverified",
       "change": "Change",
@@ -304,7 +331,10 @@
         "noPassword": "Your account has no password set — ask an admin to update this for you",
         "invalidCode": "That code is incorrect or has expired",
         "generic": "Something went wrong. Please try again."
-      }
+      },
+      "explanation": "You sign in with these, and need them if you forget your password.",
+      "verifiedShort": "Verified",
+      "add": "Add"
     },
     "guardian": {
       "title": "Contact numbers",
@@ -352,17 +382,23 @@
         "wrongPassword": "That password is not correct"
       }
     },
-    "preferences": {
-      "title": "Preferences",
-      "language": "Language",
-      "theme": "Theme"
-    },
     "signOut": {
       "action": "Sign out",
       "signingOut": "Signing out…"
     },
     "devices": {
-      "title": "Devices"
-    }
+      "title": "Devices",
+      "showAll_one": "Show all {{count}} device",
+      "showAll_other": "Show all {{count}} devices",
+      "showFewer": "Show fewer",
+      "revokeError": "Could not sign that device out. Try again."
+    },
+    "subtitle": "Your name, contact details, password and signed-in devices."
+  },
+  "surveys": {
+    "subtitle": "Tell the school what you think of your teachers.",
+    "pendingCount_one": "{{n}} form left to fill in",
+    "pendingCount_other": "{{n}} forms left to fill in",
+    "optionalHint": "Every question is optional — give stars, write, or both. Answer at least one."
   }
 }

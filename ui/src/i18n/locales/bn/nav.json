@@ -157,8 +157,8 @@
       "error": "ব্যর্থ",
       "info": "তথ্য"
     },
-    "unreadCount_one": "{{count}}টি অপঠিত",
-    "unreadCount_other": "{{count}}টি অপঠিত",
+    "unreadCount_one": "{{n}}টি অপঠিত",
+    "unreadCount_other": "{{n}}টি অপঠিত",
     "emptyTitle": "কোনো বিজ্ঞপ্তি নেই",
     "emptyDescription": "কোনো আমদানি, পেমেন্ট বা বার্তা শেষ হলে বা ব্যর্থ হলে তা এখানে দেখা যাবে।"
   },

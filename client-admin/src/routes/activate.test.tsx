@@ -1,6 +1,7 @@
 import { authHandlers, cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { routeTree } from '../routeTree.gen';
@@ -25,6 +26,30 @@ describe('/activate', () => {
     await waitFor(() =>
       expect(screen.getByText('This link is incomplete — ask for a new one.')).toBeTruthy(),
     );
+    expect(screen.getByLabelText('Email or phone number')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Send a new link' })).toBeTruthy();
+  });
+
+  it('a failed verify offers a retry that checks the link again, not sign in', async () => {
+    let calls = 0;
+    server.use(
+      authHandlers.refreshFailure,
+      http.post('/api/v1/auth/activate/verify', () => {
+        calls += 1;
+        return new HttpResponse(null, { status: 500 });
+      }),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/activate?token=a-valid-invite-token-value'],
+      locale: 'en',
+    });
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('button', { name: 'Retry' }));
+
+    await waitFor(() => expect(calls).toBe(2));
+    expect(screen.queryByRole('button', { name: 'Sign in' })).toBeNull();
   });
 
   it('renders the welcome heading and set-password form for a valid token', async () => {
@@ -52,7 +77,7 @@ describe('/activate', () => {
     });
 
     await waitFor(() => expect(screen.getByText('This link has expired.')).toBeTruthy());
-    expect(screen.getByPlaceholderText('Email or phone number')).toBeTruthy();
+    expect(screen.getByLabelText('Email or phone number')).toBeTruthy();
   });
 
   it('the resend form always shows the done copy, regardless of the identifier', async () => {
@@ -68,7 +93,7 @@ describe('/activate', () => {
     });
 
     const user = userEvent.setup();
-    const input = await screen.findByPlaceholderText('Email or phone number');
+    const input = await screen.findByLabelText('Email or phone number');
     await user.type(input, 'someone@example.com');
     await user.click(screen.getByRole('button', { name: 'Send a new link' }));
 
@@ -92,6 +117,7 @@ describe('/activate', () => {
     await setPassword();
 
     await waitFor(() => expect(screen.getByText('This account has been suspended.')).toBeTruthy());
+    expect(screen.getByText('Contact your school office.')).toBeTruthy();
   });
 
   it('a successful activation navigates to the dashboard, same as a single-membership login', async () => {

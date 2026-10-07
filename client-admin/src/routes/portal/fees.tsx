@@ -583,7 +583,10 @@ function BreakdownCard({ fees, config }: { fees: BreakdownFee[]; config: RegionC
         onSortingChange={noop}
         paginated={false}
         totalCount={rows.length}
-        emptyState={{ title: t('fees.breakdownTitle'), explanation: t('fees.breakdownEmpty') }}
+        emptyState={{
+          title: t('fees.breakdownEmptyTitle'),
+          explanation: t('fees.breakdownEmpty'),
+        }}
       />
     </Card>
   );
@@ -728,7 +731,10 @@ function InvoicesCard({
         onSortingChange={noop}
         paginated={false}
         totalCount={invoices.length}
-        emptyState={{ title: t('fees.invoicesTitle'), explanation: t('fees.invoicesEmpty') }}
+        emptyState={{
+          title: t('fees.invoicesEmptyTitle'),
+          explanation: t('fees.invoicesEmpty'),
+        }}
         // The row itself does not navigate — there is no invoice detail
         // page. Printing is the only affordance.
         rowActions={(invoice) => [

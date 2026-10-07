@@ -5,7 +5,7 @@ import {
   renderWithRouter,
   server,
 } from '@biddaloy/ui/test';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -40,9 +40,7 @@ const survey = (anonymous: boolean) =>
 
 async function open() {
   const user = userEvent.setup();
-  await user.click(
-    await screen.findByText('Rahim Uddin · Mathematics', undefined, { timeout: 4000 }),
-  );
+  await user.click(await screen.findByText('Rahim Uddin', undefined, { timeout: 4000 }));
   return user;
 }
 
@@ -60,6 +58,71 @@ describe('/portal/surveys', () => {
     expect(await screen.findByText(shown, undefined, { timeout: 4000 })).toBeTruthy();
     expect(screen.queryByText(new RegExp(notShown))).toBeNull();
     expect(document.body.textContent?.toLowerCase()).not.toContain('untraceable');
+  });
+
+  it('shows the page title and subtitle above the surveys, with exactly one h1', async () => {
+    server.use(http.get('/api/v1/surveys/mine', () => HttpResponse.json([survey(true)])));
+    render();
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Surveys' }, { timeout: 4000 }),
+    ).toBeTruthy();
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+    expect(screen.getByText('Tell the school what you think of your teachers.')).toBeTruthy();
+  });
+
+  it('counts the forms left (one per teacher and subject), not the teachers', async () => {
+    const two = pendingSurveyFactory({
+      id: 's1',
+      anonymous: true,
+      questions: [{ id: 'q1', text: 'Explains clearly', starsEnabled: true }],
+      pending: [
+        {
+          teacherId: 't1',
+          teacherName: 'Rahim Uddin',
+          subjectId: 'sub1',
+          subjectName: 'Mathematics',
+          subjectNameBn: 'গণিত',
+        },
+        // The same teacher for a second subject: a second form.
+        {
+          teacherId: 't1',
+          teacherName: 'Rahim Uddin',
+          subjectId: 'sub2',
+          subjectName: 'Science',
+          subjectNameBn: 'বিজ্ঞান',
+        },
+      ],
+    });
+    server.use(http.get('/api/v1/surveys/mine', () => HttpResponse.json([two])));
+    render();
+
+    expect(
+      await screen.findByText(/^\S+ forms left to fill in$/, undefined, { timeout: 4000 }),
+    ).toBeTruthy();
+  });
+
+  it('shows the teacher name and the subject as separate lines of the summary', async () => {
+    server.use(http.get('/api/v1/surveys/mine', () => HttpResponse.json([survey(true)])));
+    render();
+
+    const summary = (await screen.findByText('Rahim Uddin', undefined, { timeout: 4000 })).closest(
+      'summary',
+    ) as HTMLElement;
+    expect(within(summary).getByText('Mathematics')).toBeTruthy();
+    expect(within(summary).queryByText(/·/)).toBeNull();
+  });
+
+  it('starts the open form with the "every question is optional" hint', async () => {
+    server.use(http.get('/api/v1/surveys/mine', () => HttpResponse.json([survey(true)])));
+    render();
+    await open();
+
+    expect(
+      screen.getByText(
+        'Every question is optional — give stars, write, or both. Answer at least one.',
+      ),
+    ).toBeTruthy();
   });
 
   it('stars are optional: a text-only answer is sent without stars', async () => {
@@ -129,5 +192,32 @@ describe('/portal/surveys', () => {
     server.use(http.get('/api/v1/surveys/mine', () => HttpResponse.json([])));
     render();
     expect(await screen.findByText('Nothing waiting', undefined, { timeout: 4000 })).toBeTruthy();
+    // The empty frame still has the page title — exactly one h1.
+    expect(screen.getAllByRole('heading', { level: 1 }).map((h) => h.textContent)).toEqual([
+      'Surveys',
+    ]);
+    expect(screen.getByRole('heading', { level: 2, name: 'Nothing waiting' })).toBeTruthy();
+  });
+
+  it('is axe clean', async () => {
+    server.use(http.get('/api/v1/surveys/mine', () => HttpResponse.json([survey(true)])));
+    const { container } = render();
+    await open();
+
+    await expect(container).toHaveNoViolations();
+  });
+
+  it('shows the error frame, with no h1, when the surveys fail to load', async () => {
+    server.use(
+      http.get('/api/v1/surveys/mine', () =>
+        HttpResponse.json(apiErrorBody(500, 'boom', '/surveys/mine'), { status: 500 }),
+      ),
+    );
+    render();
+
+    expect(
+      await screen.findByText("Couldn't load your surveys.", undefined, { timeout: 15000 }),
+    ).toBeTruthy();
+    expect(screen.queryAllByRole('heading', { level: 1 })).toHaveLength(0);
   });
 });

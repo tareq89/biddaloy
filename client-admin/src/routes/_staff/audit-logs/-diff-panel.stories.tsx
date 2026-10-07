@@ -93,3 +93,12 @@ export const UnknownEntityType: Story = {
     newValues: { status: 'DONE' },
   },
 };
+
+/** Phone width: the table becomes one stacked "Before / After" pair per field. */
+export const Mobile: Story = {
+  args: {
+    oldValues: { full_name: 'Rahim', address: 'House 4, Road 2, Mirpur' },
+    newValues: { full_name: 'Rahim Uddin', address: 'House 9, Road 7, Dhanmondi' },
+  },
+  parameters: { viewport: { defaultViewport: 'mobile1' } },
+};

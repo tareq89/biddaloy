@@ -14,7 +14,8 @@ import {
   Skeleton,
   SkeletonText,
 } from '@biddaloy/ui/components';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { formatNumber } from '@biddaloy/ui/utils';
 
 import { usePickText, usePresetPreview, type PresetPreview } from './use-presets';
 
@@ -37,6 +38,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 function SubjectsByClass({ preview }: { preview: PresetPreview }) {
   const { t, i18n } = useTranslation('curriculumPreset');
+  const config = useRegionConfig();
   const bn = i18n.language.startsWith('bn');
   const names = new Map(preview.subjects.map((s) => [s.code, bn ? s.nameBn : s.nameEn]));
   const rows = preview.classSubjects ?? [];
@@ -59,7 +61,9 @@ function SubjectsByClass({ preview }: { preview: PresetPreview }) {
           }
           return (
             <li key={grade}>
-              <span className="font-medium">{t('preview.className', { grade })}</span>
+              <span className="font-medium">
+                {t('preview.className', { grade: formatNumber(grade, config) })}
+              </span>
               <ul className="ps-4">
                 {compulsory.length > 0 && (
                   <li>
@@ -80,6 +84,7 @@ function SubjectsByClass({ preview }: { preview: PresetPreview }) {
 
 export function PresetPreviewSheet({ presetId, onClose, returnFocusTo }: PresetPreviewSheetProps) {
   const { t } = useTranslation('curriculumPreset');
+  const config = useRegionConfig();
   const pick = usePickText();
   const query = usePresetPreview(presetId);
   const preview = query.data;
@@ -127,14 +132,18 @@ export function PresetPreviewSheet({ presetId, onClose, returnFocusTo }: PresetP
                 <p>{preview.groups.join(', ')}</p>
               </Section>
             )}
-            <p>{t('preview.subjects', { count: preview.counts.subjects })}</p>
+            <p>{t('preview.subjects', { count: formatNumber(preview.counts.subjects, config) })}</p>
             {preview.classSubjects && <SubjectsByClass preview={preview} />}
             <Section title={t('preview.gradingScale')}>
               {preview.gradingScale ? (
                 <ul>
                   {preview.gradingScale.bands.map((b) => (
                     <li key={b.grade}>
-                      {t('preview.band', { from: b.from, to: b.to, grade: b.grade })}
+                      {t('preview.band', {
+                        from: formatNumber(b.from, config),
+                        to: formatNumber(b.to, config),
+                        grade: b.grade,
+                      })}
                     </li>
                   ))}
                 </ul>
