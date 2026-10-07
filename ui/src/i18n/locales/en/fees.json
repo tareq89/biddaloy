@@ -339,7 +339,7 @@
     "includeAction": "Include again",
     "billOneOffAction": "Bill one-off",
     "alreadyCoveredNotice": "This rule already bills this student automatically.",
-    "noAudienceMatchNotice": "This student is not in this rule's classes or sections — use \"Bill one-off\" instead.",
+    "noAudienceMatchNotice": "This rule doesn't cover this student (a different class or section, or not currently enrolled) — use \"Bill one-off\" instead.",
     "includedEmptyMessage": "Not covered by any automatic billing rule",
     "excludedEmptyMessage": "Not excluded from any rule",
     "addToScheduleTitle": "Other active rules",

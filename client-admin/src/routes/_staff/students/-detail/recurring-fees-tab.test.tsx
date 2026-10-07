@@ -210,7 +210,7 @@ describe('students/-detail/recurring-fees-tab', () => {
     expect(screen.getByRole('button', { name: 'Bill one-off' })).toBeTruthy();
     expect(
       screen.getByText(
-        'This student is not in this rule\'s classes or sections — use "Bill one-off" instead.',
+        'This rule doesn\'t cover this student (a different class or section, or not currently enrolled) — use "Bill one-off" instead.',
       ),
     ).toBeTruthy();
   });
