@@ -189,6 +189,7 @@ export function BulkUploadPreview<S, C>({
   }
 
   function handleReset() {
+    if (state.status === 'committing') return;
     setLocalError(undefined);
     setSelectedFile(undefined);
     reset();
@@ -300,6 +301,7 @@ export function BulkUploadPreview<S, C>({
                 variant="ghost"
                 className="w-full md:w-auto"
                 onClick={handleReset}
+                disabled={state.status === 'committing'}
               >
                 <RotateCcwIcon aria-hidden="true" />
                 {t('uploadAnother')}
@@ -331,7 +333,12 @@ export function BulkUploadPreview<S, C>({
                   <Button type="button" onClick={confirm} disabled={confirmDisabled}>
                     {state.status === 'committing' ? t('confirming') : t('confirm')}
                   </Button>
-                  <Button type="button" variant="outline" onClick={handleReset}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleReset}
+                    disabled={state.status === 'committing'}
+                  >
                     {t('uploadAnother')}
                   </Button>
                 </div>
