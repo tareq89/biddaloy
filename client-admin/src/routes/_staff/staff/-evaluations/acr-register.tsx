@@ -95,7 +95,9 @@ export function AcrRegister() {
   ];
 
   const rows = query.data ?? [];
-  const pageRows = rows.slice((state.page - 1) * state.limit, state.page * state.limit);
+  // A stale URL page past the end would slice nothing while rows exist.
+  const page = Math.min(state.page, Math.max(1, Math.ceil(rows.length / state.limit)));
+  const pageRows = rows.slice((page - 1) * state.limit, page * state.limit);
   return (
     <section className="space-y-4">
       <FilterBar
@@ -112,7 +114,7 @@ export function AcrRegister() {
         getRowId={(row) => row.id}
         sorting={null}
         onSortingChange={() => undefined}
-        page={state.page}
+        page={page}
         pageSize={state.limit}
         totalCount={rows.length}
         onPageChange={actions.setPage}
