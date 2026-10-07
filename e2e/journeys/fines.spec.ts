@@ -95,18 +95,42 @@ test.describe.serial('fines: rule -> sweep -> dues -> payment -> portal', () => 
 
         const dialog = page.getByRole('dialog', { name: t('fines.generate.title') });
         await expect(dialog).toBeVisible();
-        await dialog.getByLabel(t('fines.generate.monthLabel')).fill(previousMonthValue);
+
+        // The modal already defaults to the previous calendar month; only open
+        // the picker when the absences landed in a different month.
+        const now = new Date();
+        const defaultMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        const defaultValue = `${defaultMonth.getFullYear()}-${String(defaultMonth.getMonth() + 1).padStart(2, '0')}`;
+        const monthTrigger = dialog.getByLabel(t('fines.generate.monthLabel'));
+        const [wantYear, wantMonth] = previousMonthValue.split('-').map(Number) as [number, number];
+        if (previousMonthValue !== defaultValue) {
+          await monthTrigger.click();
+          const popover = page.locator('[data-radix-popper-content-wrapper]');
+          for (let year = defaultMonth.getFullYear(); year !== wantYear;) {
+            const step = year < wantYear ? 1 : -1;
+            await popover
+              .getByRole('button', {
+                name: t(step > 0 ? 'common.date.nextYear' : 'common.date.previousYear'),
+              })
+              .click();
+            year += step;
+          }
+          // The twelve month buttons are the only `aria-pressed` buttons in the popover.
+          await popover
+            .locator('button[aria-pressed]')
+            .nth(wantMonth - 1)
+            .click();
+        }
 
         await dialog.getByLabel(t('fines.generate.classLabel')).click();
         await page.getByRole('option', { name: chain.className }).click();
 
-        // No prior fines for this month/class -> `GenerateFinesModal`'s own
-        // `handleSubmit` sees zero duplicates on the preview and
-        // auto-advances straight to the real generate call, closing the
-        // dialog on success — there's no separate "confirm" click to make
-        // in this no-duplicate path.
-        const submitButton = dialog.getByRole('button', { name: t('fines.generate.submitAction') });
-        await submitButton.click();
+        // Always two steps: see what will be made, then make it.
+        await dialog.getByRole('button', { name: t('fines.generate.previewAction') }).click();
+        await expect(
+          dialog.getByRole('heading', { name: t('fines.generate.previewHeading') }),
+        ).toBeVisible();
+        await dialog.getByRole('button', { name: t('fines.generate.submitAction') }).click();
         await expect(dialog).toBeHidden({ timeout: 15_000 });
       });
 

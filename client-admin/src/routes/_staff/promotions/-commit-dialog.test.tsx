@@ -7,7 +7,13 @@
  */
 import { setActiveRole, setActiveTenant } from '@biddaloy/ui/api';
 import { ApprovalModalHostProvider, useCommitPromotionRun } from '@biddaloy/ui/hooks';
-import { I18nProvider, i18n } from '@biddaloy/ui/i18n';
+import {
+  I18nProvider,
+  REGION_BD_BN,
+  REGION_BD_EN,
+  i18n,
+  type RegionConfig,
+} from '@biddaloy/ui/i18n';
 import { apiErrorBody, cleanupTestState, createTestQueryClient, server } from '@biddaloy/ui/test';
 import { QueryClientProvider } from '@tanstack/react-query';
 import {
@@ -33,16 +39,21 @@ const COUNTS: PromotionRunCounts = { promoted: 20, retained: 3, graduated: 5 };
 function Harness({
   hasPlacementErrors = false,
   hasUnnotedOverrides = false,
+  config = REGION_BD_EN,
+  onOpenChange = () => {},
 }: {
+  onOpenChange?: (open: boolean) => void;
   hasPlacementErrors?: boolean;
   hasUnnotedOverrides?: boolean;
+  config?: RegionConfig;
 }) {
   const commitRun = useCommitPromotionRun('run-1');
   return (
     <CommitDialog
       open
-      onOpenChange={() => {}}
+      onOpenChange={onOpenChange}
       counts={COUNTS}
+      config={config}
       hasPlacementErrors={hasPlacementErrors}
       hasUnnotedOverrides={hasUnnotedOverrides}
       confirming={commitRun.isPending}
@@ -81,6 +92,39 @@ describe('CommitDialog', () => {
   it('renders the promoted/retained/graduated counts', async () => {
     await renderWithProviders(<Harness />);
     await screen.findByText('20 promoted, 3 retained, 5 graduated. This cannot be undone.');
+  });
+
+  it('renders the counts in the tenant numerals', async () => {
+    await renderWithProviders(<Harness config={REGION_BD_BN} />);
+    await screen.findByText('২০ promoted, ৩ retained, ৫ graduated. This cannot be undone.');
+  });
+
+  it('has an outline Cancel that closes and a Finalise that stays blocked', async () => {
+    const closed: boolean[] = [];
+    await renderWithProviders(<Harness onOpenChange={(open) => closed.push(open)} />);
+    await userEvent.setup().click(await screen.findByRole('button', { name: 'Cancel' }));
+    expect(closed).toEqual([false]);
+  });
+
+  it('cannot be dismissed while the commit is pending', async () => {
+    const closed: boolean[] = [];
+    await renderWithProviders(
+      <CommitDialog
+        open
+        onOpenChange={(open) => closed.push(open)}
+        counts={COUNTS}
+        config={REGION_BD_EN}
+        hasPlacementErrors={false}
+        hasUnnotedOverrides={false}
+        confirming
+        onConfirm={() => {}}
+      />,
+    );
+    const cancel = await screen.findByRole('button', { name: 'Cancel' });
+    expect(cancel.hasAttribute('disabled')).toBe(true);
+    await userEvent.setup().keyboard('{Escape}');
+    expect(closed).toEqual([]);
+    expect(screen.getByRole('dialog')).toBeTruthy();
   });
 
   it('disables Commit while a row has a placement error', async () => {

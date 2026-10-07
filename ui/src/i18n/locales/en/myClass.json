@@ -1,6 +1,11 @@
 {
   "title": "My class",
   "empty": "You are not a class teacher of any section yet — ask an admin.",
+  "pickerSubtitle": "Pick a section to open.",
+  "sectionsHeading": "Your sections",
+  "emptyTitle": "No section yet",
+  "loadError": "Could not load your sections.",
+  "loading": "Loading…",
   "retry": "Try again",
   "seeAll": "See all",
   "roles": {
@@ -30,13 +35,10 @@
     "results": "No results yet.",
     "roster": "No students in this section."
   },
-  "pageTitle": "My class · {{section}}",
   "cardError": "Could not load this card.",
   "roll": "Roll {{roll}}",
-  "flagDays": "{{count}} days",
-  "duesSummary": "{{total}} due from {{count}} students",
   "homeworkCounts": {
-    "total": "Assignments",
+    "total": "Total",
     "completed": "Completed",
     "defaulters": "Defaulters"
   },
@@ -46,5 +48,16 @@
     "failed": "Failed students"
   },
   "callGuardian": "Call guardian of {{name}}",
-  "noPhone": "No phone"
+  "noPhone": "No phone",
+  "subtitle": "{{role}} · Today, {{date}}",
+  "sectionLoadError": "Could not load this section.",
+  "notTakenBadge": "Not taken",
+  "absentCount_one": "{{n}} absent",
+  "absentCount_other": "{{n}} absent",
+  "flagDays_one": "{{n}} day",
+  "flagDays_other": "{{n}} days",
+  "duesTotal": "Total due",
+  "duesStudents": "Students",
+  "studentCount_one": "{{n}}",
+  "studentCount_other": "{{n}}"
 }

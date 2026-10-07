@@ -1,12 +1,13 @@
 /**
  * [16.3.6] Replaces `generate-fees-wizard.tsx`'s multi-step `WizardShell`
- * with a single `Dialog` + one react-hook-form form: Period → Students
- * (`audience-picker.tsx`) → Fees (`fee-picker.tsx`) → Notify families →
- * footer preview + Generate. D18 dropped the wizard entirely — there's no
+ * with a single full-page modal (`FullPageShell`, D21/D22/D23) and four
+ * cards: Period → Students (`audience-picker.tsx`) → Fees (`fee-picker.tsx`)
+ * → Check and create. D18 dropped the wizard entirely — there's no
  * dry-run-shaped review step here; instead `useGenerateFeesPreview` runs
  * on Generate and, only if it finds duplicates or inactive students,
- * shows `duplicates-step.tsx` inline in the same dialog before the real
- * `useGenerateFees` submit.
+ * shows `duplicates-step.tsx` inline in the same page before the real
+ * `useGenerateFees` submit. The component is mounted only while `open`, so
+ * every open starts from a fresh form.
  *
  * `useApprovedMutation(generate, { approvalScope: 'fees.duplicate_override'
  * })` — not `{ scope }` — per the published plan's correction
@@ -20,15 +21,12 @@ import {
   RateLimitedError,
 } from '@biddaloy/ui/api';
 import {
-  Button,
+  Card,
   Checkbox,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  Input,
+  ConfirmDialog,
+  DatePicker,
+  Label,
+  MonthPicker,
   Select,
   SelectContent,
   SelectItem,
@@ -45,17 +43,17 @@ import {
   type GenerateFeesPreviewResult,
   type PeriodType,
 } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
-import { parseServerDate } from '@biddaloy/ui/utils';
+import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { FullPageShell } from '@biddaloy/ui/shells';
+import { formatNumber, parseServerDate } from '@biddaloy/ui/utils';
 import { useQuery } from '@tanstack/react-query';
 import type { TFunction } from 'i18next';
+import { CircleAlertIcon } from 'lucide-react';
 import * as React from 'react';
 
 import { AudiencePicker } from './audience-picker';
 import { DuplicatesStep } from './duplicates-step';
 import { FeePicker } from './fee-picker';
-
-const MONTHS = Array.from({ length: 12 }, (_, index) => index + 1);
 
 function addDays(date: Date, days: number): Date {
   const next = new Date(date);
@@ -83,9 +81,8 @@ function toDateInputValue(date: Date): string {
 
 function describeSubmitError(error: unknown, t: TFunction<'feeGeneration'>): string {
   if (error instanceof RateLimitedError) return t('errors.rateLimited');
-  if (error instanceof ApiError) {
-    return error.statusCode === 429 ? t('errors.rateLimited') : error.message;
-  }
+  // Only translated sentences reach the screen, never the server's own message.
+  if (error instanceof ApiError && error.statusCode === 429) return t('errors.rateLimited');
   return t('errors.unknown');
 }
 
@@ -119,7 +116,24 @@ export function GenerateFeesModal({
   onOpenChange,
   preselectedStudent,
 }: GenerateFeesModalProps) {
+  if (!open) return null;
+  return (
+    <GenerateFeesFullPage
+      onClose={() => onOpenChange(false)}
+      preselectedStudent={preselectedStudent ?? null}
+    />
+  );
+}
+
+function GenerateFeesFullPage({
+  onClose,
+  preselectedStudent,
+}: {
+  onClose: () => void;
+  preselectedStudent: { id: string; name: string } | null;
+}) {
   const { t } = useTranslation('feeGeneration');
+  const regionConfig = useRegionConfig();
 
   const yearsQuery = useAcademicYears();
   const academicYears = React.useMemo(() => yearsQuery.data?.data ?? [], [yearsQuery.data]);
@@ -128,12 +142,19 @@ export function GenerateFeesModal({
   const [periodType, setPeriodType] = React.useState<PeriodType>('MONTH');
   const [month, setMonth] = React.useState('');
   const [calendarYear, setCalendarYear] = React.useState('');
-  const [weekStart, setWeekStart] = React.useState('');
-  const [dueDate, setDueDate] = React.useState('');
+  const [weekStart, setWeekStart] = React.useState<Date | undefined>(undefined);
+  const [dueDate, setDueDate] = React.useState<Date | undefined>(undefined);
   const [dueDateTouched, setDueDateTouched] = React.useState(false);
   const [notifyFamilies, setNotifyFamilies] = React.useState(true);
+  // Set by the user's own year / month picks (not by the auto-defaults).
+  const [periodTouched, setPeriodTouched] = React.useState(false);
+  const [confirmingCancel, setConfirmingCancel] = React.useState(false);
 
-  const [selectedStudents, setSelectedStudents] = React.useState<Map<string, string>>(new Map());
+  const [selectedStudents, setSelectedStudents] = React.useState<Map<string, string>>(() =>
+    preselectedStudent
+      ? new Map([[preselectedStudent.id, preselectedStudent.name]])
+      : new Map<string, string>(),
+  );
   const [selectedFees, setSelectedFees] = React.useState<Set<string>>(new Set());
   const [programId, setProgramId] = React.useState<string | undefined>(undefined);
 
@@ -153,9 +174,20 @@ export function GenerateFeesModal({
   // month — same reasoning the old wizard gave: "this month" would sit
   // outside the academic year for part of the calendar. Keyed on
   // `academicYearId`, not on `selectedYear` itself, for the same
-  // background-refetch reason the wizard's own effect documents.
+  // background-refetch reason the wizard's own effect documents. Also
+  // re-defaults when the chosen year changes and the current month falls
+  // outside it, since `MonthPicker` disables every month outside the year.
   React.useEffect(() => {
-    if (!selectedYear || month !== '') return;
+    if (!selectedYear) return;
+    const picked =
+      month !== '' && calendarYear !== '' ? `${calendarYear}-${month.padStart(2, '0')}` : '';
+    if (
+      picked !== '' &&
+      picked >= selectedYear.start_date.slice(0, 7) &&
+      picked <= selectedYear.end_date.slice(0, 7)
+    ) {
+      return;
+    }
     const start = parseServerDate(selectedYear.start_date);
     setMonth(String(start.getMonth() + 1));
     setCalendarYear(String(start.getFullYear()));
@@ -164,7 +196,7 @@ export function GenerateFeesModal({
 
   const periodStart = React.useMemo(() => {
     if (periodType === 'WEEK') {
-      return weekStart !== '' ? parseServerDate(weekStart) : undefined;
+      return weekStart;
     }
     if (month === '' || calendarYear === '') return undefined;
     return new Date(Number(calendarYear), Number(month) - 1, 1);
@@ -175,14 +207,9 @@ export function GenerateFeesModal({
   // silently overwrite a due date they'd deliberately chosen.
   React.useEffect(() => {
     if (dueDateTouched || !periodStart) return;
-    setDueDate(toDateInputValue(addDays(periodStart, 9)));
+    setDueDate(addDays(periodStart, 9));
     // eslint-disable-next-line react-hooks/exhaustive-deps -- default only, not a controlled sync
   }, [periodStart]);
-
-  React.useEffect(() => {
-    if (!open || !preselectedStudent) return;
-    setSelectedStudents(new Map([[preselectedStudent.id, preselectedStudent.name]]));
-  }, [open, preselectedStudent]);
 
   const generate = useGenerateFees();
   const previewMutation = useGenerateFeesPreview();
@@ -204,6 +231,17 @@ export function GenerateFeesModal({
     return map;
   }, [feeStructuresQuery.data]);
 
+  // Anything the user has touched — Close / Esc then ask before discarding.
+  const dirty =
+    selectedFees.size > 0 ||
+    programId !== undefined ||
+    dueDateTouched ||
+    periodTouched ||
+    periodType !== 'MONTH' ||
+    weekStart !== undefined ||
+    !notifyFamilies ||
+    selectedStudents.size > (preselectedStudent ? 1 : 0);
+
   const feeCount = selectedFees.size;
   const studentCount = selectedStudents.size;
   // The server's own resolved count for the current scope, once a preview
@@ -216,7 +254,7 @@ export function GenerateFeesModal({
   const canGenerate =
     academicYearId !== '' &&
     periodStart !== undefined &&
-    dueDate !== '' &&
+    dueDate !== undefined &&
     // [34.5.3] `program_id` alone resolves the whole program server-side
     // (`GenerateFeesDto.program_id`, additive with `student_ids` when both
     // are set) — a staffer targeting "active students of program X" never
@@ -262,7 +300,7 @@ export function GenerateFeesModal({
 
   /** `GenerateFeesDto`'s own shape: the preview scope plus `due_date`. */
   function scope() {
-    return { ...previewScope(), due_date: dueDate };
+    return { ...previewScope(), due_date: dueDate ? toDateInputValue(dueDate) : '' };
   }
 
   // Sorted so the key doesn't depend on Set/Map iteration order, and used
@@ -279,14 +317,6 @@ export function GenerateFeesModal({
     });
   }
 
-  function resetAndClose() {
-    setPreview(null);
-    setPreviewScopeKey(null);
-    setDuplicateAction('SKIP');
-    setProgramId(undefined);
-    onOpenChange(false);
-  }
-
   function submitGenerate(action?: DuplicateAction) {
     const notifyTenantId = captureNotificationTenant();
     generate.mutate(
@@ -301,12 +331,12 @@ export function GenerateFeesModal({
             tenantId: notifyTenantId,
             variant: 'success',
             message: t('notifications.generated', {
-              generated: result.generated_count,
-              skipped: result.skipped_count,
-              students: result.student_count,
+              generated: formatNumber(result.generated_count, regionConfig),
+              skipped: formatNumber(result.skipped_count, regionConfig),
+              students: formatNumber(result.student_count, regionConfig),
             }),
           });
-          resetAndClose();
+          onClose();
         },
         onError: () =>
           notifyOutcome({
@@ -318,8 +348,8 @@ export function GenerateFeesModal({
     );
   }
 
-  function handleGenerateClick(event: React.FormEvent) {
-    event.preventDefault();
+  function handleGenerateClick(event?: { preventDefault: () => void }) {
+    event?.preventDefault();
     if (!canGenerate) return;
 
     const currentScopeKey = scopeKey();
@@ -342,46 +372,91 @@ export function GenerateFeesModal({
 
   const submitError = generate.error ?? previewMutation.error;
 
+  // `would_generate` already leaves the duplicates out; the other actions bill them too.
+  const bills =
+    preview !== null && previewScopeKey === scopeKey()
+      ? preview.would_generate + (duplicateAction === 'SKIP' ? 0 : preview.duplicates.length)
+      : effectiveStudentCount * feeCount;
+  const monthMin = selectedYear?.start_date.slice(0, 7);
+  const monthMax = selectedYear?.end_date.slice(0, 7);
+  const requiredMark = (
+    <>
+      <span className="text-destructive" aria-hidden="true">
+        {' '}
+        *
+      </span>
+      <span className="sr-only"> {t('form.required', { ns: 'common' })}</span>
+    </>
+  );
+
   return (
-    <Dialog open={open} onOpenChange={(next) => (next ? onOpenChange(true) : resetAndClose())}>
-      <DialogContent
-        className="max-w-2xl"
+    <FullPageShell
+      title={t('title')}
+      onClose={onClose}
+      dirty={dirty}
+      size="form"
+      primary={{
+        label: t('review.submitAction'),
+        onClick: () => handleGenerateClick(),
+        busy: previewMutation.isPending || generate.isPending,
+        disabled: !canGenerate,
+      }}
+      // Cancel asks first when something changed, same as Close / Esc.
+      secondary={{
+        label: t('modal.cancel'),
+        onClick: () => (dirty ? setConfirmingCancel(true) : onClose()),
+      }}
+    >
+      {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- Cmd/Ctrl+Enter submit shortcut */}
+      <form
+        className="space-y-6"
+        onSubmit={handleGenerateClick}
         onKeyDown={(event) => {
-          // Cmd/Ctrl+Enter submits from anywhere in the dialog — Enter
-          // alone inside the audience search box is separately swallowed
-          // in `AudiencePicker` so it never bubbles here as a plain Enter.
+          // Cmd/Ctrl+Enter submits from anywhere in the form — Enter alone
+          // inside the audience search box is separately swallowed in
+          // `AudiencePicker` so it never bubbles here as a plain Enter.
           if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
             handleGenerateClick(event);
           }
         }}
       >
-        <DialogHeader>
-          <DialogTitle>{t('title')}</DialogTitle>
-          <DialogDescription>{t('modal.description')}</DialogDescription>
-        </DialogHeader>
+        <Card padded>
+          <h2 className="text-h2">{t('section.periodTitle')}</h2>
+          <p className="mt-0.5 text-text-secondary">{t('section.periodDescription')}</p>
 
-        <form className="flex flex-col gap-5" onSubmit={handleGenerateClick}>
-          <div className="flex flex-col gap-2">
-            <span className="text-sm font-medium">{t('year.label')}</span>
-            <Select value={academicYearId} onValueChange={setAcademicYearId}>
-              <SelectTrigger aria-label={t('year.label')}>
-                <SelectValue placeholder={t('year.placeholder')} />
-              </SelectTrigger>
-              <SelectContent>
-                {academicYears.map((year) => (
-                  <SelectItem key={year.id} value={year.id}>
-                    {year.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="generate-year">
+                {t('year.label')}
+                {requiredMark}
+              </Label>
+              <Select
+                value={academicYearId}
+                onValueChange={(value) => {
+                  setAcademicYearId(value);
+                  setPeriodTouched(true);
+                }}
+              >
+                <SelectTrigger id="generate-year">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {academicYears.map((year) => (
+                    <SelectItem key={year.id} value={year.id}>
+                      {year.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-            <div className="flex gap-2">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="generate-period-type">{t('period.typeLabel')}</Label>
               <Select
                 value={periodType}
                 onValueChange={(value) => setPeriodType(value as PeriodType)}
               >
-                <SelectTrigger aria-label={t('period.typeLabel')}>
+                <SelectTrigger id="generate-period-type">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -389,76 +464,101 @@ export function GenerateFeesModal({
                   <SelectItem value="WEEK">{t('period.week')}</SelectItem>
                 </SelectContent>
               </Select>
-
-              {periodType === 'MONTH' ? (
-                <>
-                  <Select value={month} onValueChange={setMonth}>
-                    <SelectTrigger aria-label={t('period.monthLabel')}>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {MONTHS.map((value) => (
-                        <SelectItem key={value} value={String(value)}>
-                          {t(`months.${value}`)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Input
-                    aria-label={t('period.yearLabel')}
-                    type="number"
-                    value={calendarYear}
-                    onChange={(event) => setCalendarYear(event.target.value)}
-                  />
-                </>
-              ) : (
-                <Input
-                  aria-label={t('period.weekStartLabel')}
-                  type="date"
-                  value={weekStart}
-                  onChange={(event) => setWeekStart(event.target.value)}
-                />
-              )}
             </div>
 
+            {periodType === 'MONTH' ? (
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="generate-month">
+                  {t('period.monthLabel')}
+                  {requiredMark}
+                </Label>
+                <MonthPicker
+                  id="generate-month"
+                  aria-label={t('period.monthLabel')}
+                  value={
+                    month !== '' && calendarYear !== ''
+                      ? `${calendarYear}-${month.padStart(2, '0')}`
+                      : undefined
+                  }
+                  onValueChange={(value) => {
+                    const [year = '', picked = ''] = value.split('-');
+                    setPeriodTouched(true);
+                    setCalendarYear(year);
+                    setMonth(String(Number(picked)));
+                  }}
+                  min={monthMin}
+                  max={monthMax}
+                />
+              </div>
+            ) : (
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="generate-week-start">
+                  {t('period.weekStartLabel')}
+                  {requiredMark}
+                </Label>
+                <DatePicker
+                  id="generate-week-start"
+                  aria-label={t('period.weekStartLabel')}
+                  config={regionConfig}
+                  value={weekStart}
+                  onValueChange={setWeekStart}
+                />
+              </div>
+            )}
+
             <div className="flex flex-col gap-1.5">
-              <span className="text-sm font-medium">{t('period.dueDateLabel')}</span>
-              <Input
+              <Label htmlFor="generate-due-date">
+                {t('period.dueDateLabel')}
+                {requiredMark}
+              </Label>
+              <DatePicker
+                id="generate-due-date"
                 aria-label={t('period.dueDateLabel')}
-                type="date"
+                config={regionConfig}
                 value={dueDate}
-                onChange={(event) => {
-                  setDueDate(event.target.value);
+                onValueChange={(date) => {
+                  setDueDate(date);
                   setDueDateTouched(true);
                 }}
               />
+              <p className="text-caption text-text-secondary">{t('period.dueDateHelp')}</p>
             </div>
           </div>
+        </Card>
 
-          <AudiencePicker
-            academicYearId={academicYearId}
-            selected={selectedStudents}
-            onSelectedChange={setSelectedStudents}
-            programId={programId}
-            onProgramIdChange={setProgramId}
-          />
+        <AudiencePicker
+          academicYearId={academicYearId}
+          selected={selectedStudents}
+          onSelectedChange={setSelectedStudents}
+          programId={programId}
+          onProgramIdChange={setProgramId}
+        />
 
-          <FeePicker
-            academicYearId={academicYearId}
-            majorityClassId={majorityClassId(selectedStudents)}
-            selected={selectedFees}
-            onSelectedChange={setSelectedFees}
-            studentCount={studentCount}
-          />
+        <FeePicker
+          academicYearId={academicYearId}
+          academicYearName={selectedYear?.name ?? ''}
+          majorityClassId={majorityClassId(selectedStudents)}
+          selected={selectedFees}
+          onSelectedChange={setSelectedFees}
+        />
 
-          <label className="flex items-center gap-2 text-sm">
-            <Checkbox
-              checked={notifyFamilies}
-              onCheckedChange={(checked) => setNotifyFamilies(checked === true)}
-              aria-label={t('notify.label')}
-            />
-            {t('notify.label')}
-          </label>
+        <Card padded>
+          <h2 className="text-h2">{t('review.title')}</h2>
+          {studentCount === 0 && programId !== undefined && resolvedStudentCount === undefined ? (
+            <p className="mt-2 text-text-secondary">{t('summary.programAudience')}</p>
+          ) : (
+            <>
+              <p className="mt-2 text-h3">
+                {t('summary.bills', { count: bills, n: formatNumber(bills, regionConfig) })}
+              </p>
+              <p className="text-text-secondary">
+                {t('summary.detail', {
+                  students: formatNumber(effectiveStudentCount, regionConfig),
+                  fees: formatNumber(feeCount, regionConfig),
+                })}
+              </p>
+            </>
+          )}
 
           {preview && (
             <DuplicatesStep
@@ -470,42 +570,37 @@ export function GenerateFeesModal({
             />
           )}
 
+          <div className="mt-3 border-t border-border-subtle pt-3">
+            <label className="flex min-h-11 items-center gap-3 md:min-h-8">
+              <Checkbox
+                checked={notifyFamilies}
+                onCheckedChange={(checked) => setNotifyFamilies(checked === true)}
+              />
+              {t('notify.label')}
+            </label>
+          </div>
+
           {submitError !== null && submitError !== undefined && (
-            <p role="alert" className="text-sm text-destructive">
+            <p role="alert" className="mt-3 flex items-center gap-1 text-caption text-destructive">
+              <CircleAlertIcon className="size-3.5" aria-hidden="true" />
               {describeSubmitError(submitError, t)}
             </p>
           )}
-
-          <DialogFooter className="flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm text-muted-foreground">
-              {studentCount === 0 && programId !== undefined && resolvedStudentCount === undefined
-                ? t('summary.programAudience')
-                : t('summary.line', {
-                    students: effectiveStudentCount,
-                    fees: feeCount,
-                    bills:
-                      duplicateAction === 'SKIP' &&
-                      preview !== null &&
-                      previewScopeKey === scopeKey()
-                        ? preview.would_generate
-                        : effectiveStudentCount * feeCount,
-                  })}
-            </p>
-            <div className="flex gap-2">
-              <Button type="button" variant="ghost" onClick={resetAndClose}>
-                {t('modal.cancel')}
-              </Button>
-              <Button
-                type="submit"
-                disabled={!canGenerate}
-                loading={previewMutation.isPending || generate.isPending}
-              >
-                {t('review.submitAction')}
-              </Button>
-            </div>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+        </Card>
+      </form>
+      <ConfirmDialog
+        open={confirmingCancel}
+        onOpenChange={setConfirmingCancel}
+        tone="danger"
+        title={t('fullPage.discardTitle', { ns: 'common' })}
+        description={t('fullPage.discardDescription', { ns: 'common' })}
+        confirmLabel={t('fullPage.discardConfirm', { ns: 'common' })}
+        cancelLabel={t('fullPage.keepEditing', { ns: 'common' })}
+        onConfirm={() => {
+          setConfirmingCancel(false);
+          onClose();
+        }}
+      />
+    </FullPageShell>
   );
 }

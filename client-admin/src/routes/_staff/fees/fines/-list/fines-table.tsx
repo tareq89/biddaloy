@@ -1,18 +1,10 @@
 /**
- * [38.4.3] Columns for the `/fees/fines` list — student / fine type /
- * reason / incident date+month / amount / paid / status / origin / actions,
- * per the ticket's step 2.
- *
- * Plan correction: the ticket describes row actions as "an actions menu"
- * (Waive, Open student) — `@biddaloy/ui/components` has no dropdown-menu
- * primitive (only `UserMenu`, which is shell chrome, not a generic list).
- * Same as `fees/schedules/index.tsx`'s `ScheduleRowActions` and
- * `fees/dues.tsx`'s "Collect" link, the actions column renders inline
- * text-link buttons instead of a popup menu.
+ * [38.4.3] Columns and row actions for the `/fees/fines` list.
  */
 import type { FeeStatus } from '@biddaloy/shared';
 import {
   StatusBadge,
+  type RowAction,
   Tooltip,
   TooltipContent,
   TooltipTrigger,
@@ -20,9 +12,9 @@ import {
 } from '@biddaloy/ui/components';
 import type { Fine } from '@biddaloy/ui/hooks';
 import type { RegionConfig } from '@biddaloy/ui/i18n';
-import { formatDate, formatServerAmount, parseServerDate } from '@biddaloy/ui/utils';
-import { Link } from '@tanstack/react-router';
+import { formatDate, formatMonth, formatServerAmount, parseServerDate } from '@biddaloy/ui/utils';
 import type { TFunction } from 'i18next';
+import { BadgeMinus } from 'lucide-react';
 
 function truncatedReason(note: string | null): { short: string; full: string } | null {
   if (!note) return null;
@@ -34,30 +26,41 @@ function fineOrigin(fine: Fine): 'RULE' | 'MANUAL' {
   return fine.origin ?? 'MANUAL';
 }
 
-export interface FinesTableCallbacks {
+export interface FineRowActionOptions {
   onWaive: (fine: Fine) => void;
   /** Waiving needs FEE_APPROVE; without it the row action is hidden. */
   canWaive: boolean;
 }
 
+export function buildFineRowActions(
+  t: TFunction<'fines', undefined>,
+  { onWaive, canWaive }: FineRowActionOptions,
+): (row: Fine) => RowAction[] {
+  return (row) => [
+    {
+      intent: 'view',
+      label: t('openStudent', { ns: 'fines' }),
+      to: `/students/${row.student_id}`,
+    },
+    {
+      intent: 'edit',
+      icon: <BadgeMinus />,
+      label: t('waiveDialog.confirm', { ns: 'fines' }),
+      onClick: () => onWaive(row),
+      allowed: canWaive && row.status !== 'WAIVED' && row.status !== 'PAID',
+    },
+  ];
+}
+
 export function buildFinesColumns(
   t: TFunction<'fines', undefined>,
   regionConfig: RegionConfig,
-  { onWaive, canWaive }: FinesTableCallbacks,
 ): DataTableColumn<Fine>[] {
   return [
     {
       id: 'student',
       header: t('columns.student', { ns: 'fines' }),
-      accessorFn: (row) => (
-        <Link
-          to="/students/$studentId"
-          params={{ studentId: row.student_id }}
-          className="font-medium text-primary underline-offset-2 hover:underline"
-        >
-          {row.student_name ?? row.student_id}
-        </Link>
-      ),
+      accessorFn: (row) => <span className="font-medium">{row.student_name ?? '—'}</span>,
       card: 'title',
     },
     {
@@ -89,7 +92,7 @@ export function buildFinesColumns(
       accessorFn: (row) =>
         row.incident_date
           ? formatDate(parseServerDate(row.incident_date), regionConfig)
-          : row.period_start.slice(0, 7),
+          : formatMonth(row.period_start.slice(0, 7), regionConfig),
     },
     {
       id: 'amount',
@@ -116,32 +119,6 @@ export function buildFinesColumns(
         fineOrigin(row) === 'RULE'
           ? t('origin.RULE', { ns: 'fines' })
           : t('origin.MANUAL', { ns: 'fines' }),
-    },
-    {
-      id: 'actions',
-      header: t('columns.actions', { ns: 'fines' }),
-      pinned: true,
-      card: 'actions',
-      accessorFn: (row) => (
-        <div className="flex flex-wrap gap-3">
-          {canWaive && row.status !== 'WAIVED' && row.status !== 'PAID' && (
-            <button
-              type="button"
-              className="text-sm font-medium text-primary underline-offset-2 hover:underline"
-              onClick={() => onWaive(row)}
-            >
-              {t('waiveDialog.confirm', { ns: 'fines' })}
-            </button>
-          )}
-          <Link
-            to="/students/$studentId"
-            params={{ studentId: row.student_id }}
-            className="text-sm font-medium text-primary underline-offset-2 hover:underline"
-          >
-            {t('openStudent', { ns: 'fines' })}
-          </Link>
-        </div>
-      ),
     },
   ];
 }

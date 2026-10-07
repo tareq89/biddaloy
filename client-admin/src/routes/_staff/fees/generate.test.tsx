@@ -5,7 +5,6 @@
  * (stubbed here as a local placeholder — see `generate.tsx`'s own
  * `GenerateFeesModal` comment).
  */
-import { REGION_BD_BN } from '@biddaloy/ui/i18n';
 import {
   apiErrorBody,
   cleanupTestState,
@@ -13,11 +12,16 @@ import {
   server,
   userResponseFactory,
 } from '@biddaloy/ui/test';
-import { formatDate } from '@biddaloy/ui/utils';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+// The default test RegionConfig is Bangla; pin REGION_BD_EN so assertions read in Latin digits.
+vi.mock('@biddaloy/ui/i18n', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@biddaloy/ui/i18n')>();
+  return { ...actual, useRegionConfig: () => actual.REGION_BD_EN };
+});
 
 import { routeTree } from '../../../routeTree.gen';
 
@@ -70,7 +74,10 @@ describe('/fees/generate', () => {
 
     await screen.findByRole('heading', { name: 'Fee bills created' });
     expect(await screen.findByText('Karim Rahman')).toBeTruthy();
-    expect(screen.getByText('Partial')).toBeTruthy();
+    expect(screen.getByText('Partly collected')).toBeTruthy();
+    // Month name, not the ISO date.
+    expect(screen.getByText('September 2026')).toBeTruthy();
+    expect(screen.queryByText(/2026-09-01/)).toBeNull();
   });
 
   it('shows the empty state when no batches match', async () => {
@@ -82,7 +89,7 @@ describe('/fees/generate', () => {
 
     render();
 
-    expect(await screen.findByText('No fee generations found')).toBeTruthy();
+    expect(await screen.findByText('No fee bills created yet')).toBeTruthy();
   });
 
   it('shows the error state when the batches request fails', async () => {
@@ -132,7 +139,7 @@ describe('/fees/generate', () => {
     await screen.findByText('Karim Rahman');
 
     const user = userEvent.setup();
-    await user.click(screen.getByRole('combobox', { name: 'Source' }));
+    await user.click(screen.getByRole('combobox', { name: 'How created' }));
     await user.click(await screen.findByRole('option', { name: 'Manual' }));
 
     await waitFor(() => expect(lastSource).toBe('MANUAL'));
@@ -169,18 +176,15 @@ describe('/fees/generate', () => {
     );
 
     render();
-    // Region config (independent of the `en` UI locale) defaults to
-    // Bengali numerals, so the period button's date reads in Bangla.
-    const periodButton = await screen.findByRole('button', {
-      name: (accessibleName) =>
-        accessibleName.includes(formatDate(new Date('2026-09-01T00:00:00.000Z'), REGION_BD_BN)),
-    });
-
     const user = userEvent.setup();
-    await user.click(periodButton);
+    await user.click(await screen.findByRole('button', { name: 'View bills' }));
 
-    expect(await screen.findByText('Rahim Uddin')).toBeTruthy();
-    expect(screen.getByText('Monthly tuition (9)')).toBeTruthy();
+    const dialog = within(await screen.findByRole('dialog'));
+    expect(await dialog.findByText('Rahim Uddin')).toBeTruthy();
+    expect(dialog.getByRole('heading', { name: 'Billing round — September 2026' })).toBeTruthy();
+    expect(dialog.getByText('Monthly tuition · September 2026')).toBeTruthy();
+    expect(dialog.getByText('REG-1')).toBeTruthy();
+    expect(dialog.getByText('Pending')).toBeTruthy();
   });
 
   it('forwards every URL filter param to the generations query', async () => {
@@ -235,6 +239,7 @@ describe('/fees/generate', () => {
 
     const params = new URLSearchParams(lastQuery);
     expect([...params.keys()].sort()).toEqual(['limit', 'page']);
+    expect(params.get('limit')).toBe('25');
   });
 
   it('opening then closing the generate-fees modal refetches the list', async () => {
@@ -253,15 +258,41 @@ describe('/fees/generate', () => {
     );
 
     const user = userEvent.setup();
-    render();
+    const { router } = render();
     await screen.findByRole('heading', { name: 'Fee bills created' });
     await waitFor(() => expect(hits).toBeGreaterThan(0));
     const hitsBeforeOpen = hits;
 
-    await user.click(await screen.findByRole('button', { name: 'Generate fees' }));
+    await user.click(await screen.findByRole('button', { name: 'Create bills' }));
+    // The create flow is in the URL (D22).
+    await waitFor(() => expect(router.state.location.search).toMatchObject({ generate: 1 }));
+
     await user.keyboard('{Escape}');
 
     await waitFor(() => expect(hits).toBeGreaterThan(hitsBeforeOpen));
+    await waitFor(() => expect(router.state.location.search).not.toHaveProperty('generate'));
+  });
+
+  it('does not request users or show the Created by filter without USER_READ', async () => {
+    let usersRequested = false;
+    server.use(
+      http.get('/api/v1/users', () => {
+        usersRequested = true;
+        return HttpResponse.json({ data: [], total: 0, page: 1, limit: 100, totalPages: 0 });
+      }),
+      http.get('/api/v1/fees/generations', () =>
+        HttpResponse.json({ data: [batchFactory()], total: 1, page: 1, limit: 25, totalPages: 1 }),
+      ),
+    );
+
+    render('ACCOUNTANT');
+
+    await screen.findByRole('heading', { name: 'Fee bills created' });
+    await screen.findByText('Karim Rahman');
+    expect(usersRequested).toBe(false);
+    expect(screen.queryByRole('combobox', { name: 'Created by' })).toBeNull();
+    // The other filters are still there.
+    expect(screen.getByRole('combobox', { name: 'How created' })).toBeTruthy();
   });
 
   it('closing the bills drawer clears the selected batch', async () => {
@@ -294,13 +325,8 @@ describe('/fees/generate', () => {
     );
 
     render();
-    const periodButton = await screen.findByRole('button', {
-      name: (accessibleName) =>
-        accessibleName.includes(formatDate(new Date('2026-09-01T00:00:00.000Z'), REGION_BD_BN)),
-    });
-
     const user = userEvent.setup();
-    await user.click(periodButton);
+    await user.click(await screen.findByRole('button', { name: 'View bills' }));
     await screen.findByText('Rahim Uddin');
 
     await user.keyboard('{Escape}');
@@ -319,5 +345,28 @@ describe('/fees/generate', () => {
 
     await screen.findByText("You don't have access to this page.");
     expect(screen.queryByText('Fee bills created')).toBeNull();
+  });
+
+  it('drops a deep-linked generated_by_user_id when the role cannot read users', async () => {
+    const queries: string[] = [];
+    server.use(
+      http.get('/api/v1/fees/generations', ({ request }) => {
+        queries.push(new URL(request.url).search);
+        return HttpResponse.json({
+          data: [batchFactory()],
+          total: 1,
+          page: 1,
+          limit: 25,
+          totalPages: 1,
+        });
+      }),
+    );
+
+    render('ACCOUNTANT', ['/fees/generate?generated_by_user_id=user-1']);
+
+    await screen.findByText('Karim Rahman');
+    // Neither the route loader's prefetch nor the page asks for the dropped filter.
+    expect(queries.length).toBeGreaterThan(0);
+    expect(queries.filter((q) => new URLSearchParams(q).has('generated_by_user_id'))).toEqual([]);
   });
 });

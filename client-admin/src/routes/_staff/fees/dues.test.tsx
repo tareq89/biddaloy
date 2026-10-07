@@ -160,7 +160,7 @@ describe('/fees/dues', () => {
     );
 
     const { router } = renderEn({
-      initialEntries: ['/fees/dues?class_id=class-9'],
+      initialEntries: ['/fees/dues?class_id=class-9&month=3&search=Karim'],
       tenantId: 'tenant-1',
       role: 'ACCOUNTANT',
       locale: 'en',
@@ -174,7 +174,10 @@ describe('/fees/dues', () => {
     await waitFor(() => expect(flaggedRequested).toBe(true));
     expect(flaggedClassId).toBe('class-9');
     expect(router.state.location.search).toMatchObject({ class_id: 'class-9', flagged: 'true' });
-    // Flagged mode renders only search, class and section.
+    // Flagged mode renders only class and section; month and the typed search are cleared.
+    expect(router.state.location.search).not.toHaveProperty('month');
+    expect(router.state.location.search).not.toHaveProperty('search');
+    expect(screen.queryByRole('textbox', { name: 'Search' })).toBeNull();
     for (const name of ['Month', 'Year', 'Status', 'Fee type']) {
       expect(screen.queryByRole('combobox', { name })).toBeNull();
     }
@@ -576,5 +579,25 @@ describe('/fees/dues', () => {
     await screen.findByText(/Karim Rahman/);
     expect(await screen.findByText('৳250.00')).toBeTruthy();
     expect(screen.getByRole('columnheader', { name: 'Credit balance' })).toBeTruthy();
+  });
+
+  it('shows the last reminder as a long date once the reminders arrive', async () => {
+    server.use(
+      http.get('/api/v1/fees/dues', () =>
+        HttpResponse.json({ data: [duesRow()], total: 1, page: 1, limit: 25, totalPages: 1 }),
+      ),
+      http.get('/api/v1/communications/last-reminders', () =>
+        HttpResponse.json([{ student_id: 'student-1', sent_at: '2026-03-05T10:00:00.000Z' }]),
+      ),
+    );
+
+    renderEn({
+      initialEntries: ['/fees/dues'],
+      tenantId: 'tenant-1',
+      role: 'ACCOUNTANT',
+      locale: 'en',
+    });
+
+    expect(await screen.findByText('5th March, 2026')).toBeTruthy();
   });
 });

@@ -185,7 +185,7 @@ export function RuleFormDialog({
 
   const duplicateMessage =
     mutation.error instanceof ApiError && mutation.error.statusCode === 409
-      ? mutation.error.message
+      ? t('fines.rules.form.duplicateMessage')
       : null;
 
   const isEdit = mode === 'edit';
@@ -193,7 +193,7 @@ export function RuleFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[85vh] overflow-y-auto">
+      <DialogContent size="md">
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <DialogHeader>
             <DialogTitle>{title}</DialogTitle>
@@ -201,13 +201,15 @@ export function RuleFormDialog({
           </DialogHeader>
 
           <div className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium">{t('fines.rules.form.triggerLabel')}</span>
+            <label htmlFor="fine-rule-trigger" className="text-sm font-medium">
+              {t('fines.rules.form.triggerLabel')}
+            </label>
             <Select
               value={trigger}
               onValueChange={(value) => setTrigger(value as FineTrigger)}
               disabled={isEdit}
             >
-              <SelectTrigger aria-label={t('fines.rules.form.triggerLabel')} disabled={isEdit}>
+              <SelectTrigger id="fine-rule-trigger" disabled={isEdit}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -222,9 +224,11 @@ export function RuleFormDialog({
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium">{t('fines.rules.form.feeStructureLabel')}</span>
+            <label htmlFor="fine-rule-fee" className="text-sm font-medium">
+              {t('fines.rules.form.feeStructureLabel')}
+            </label>
             <Select value={feeStructureId} onValueChange={setFeeStructureId}>
-              <SelectTrigger aria-label={t('fines.rules.form.feeStructureLabel')}>
+              <SelectTrigger id="fine-rule-fee">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -238,12 +242,14 @@ export function RuleFormDialog({
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium">{t('fines.rules.form.classLabel')}</span>
+            <label htmlFor="fine-rule-class" className="text-sm font-medium">
+              {t('fines.rules.form.classLabel')}
+            </label>
             <Select
               value={classId === '' ? NO_CLASS : classId}
               onValueChange={(value) => setClassId(value === NO_CLASS ? '' : value)}
             >
-              <SelectTrigger aria-label={t('fines.rules.form.classLabel')}>
+              <SelectTrigger id="fine-rule-class">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -276,12 +282,14 @@ export function RuleFormDialog({
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium">{t('fines.rules.form.capLabel')}</span>
+            <label htmlFor="fine-rule-cap" className="text-sm font-medium">
+              {t('fines.rules.form.capLabel')}
+            </label>
             <MoneyInput
               value={capPerPeriod}
               onValueChange={setCapPerPeriod}
               config={regionConfig}
-              aria-label={t('fines.rules.form.capLabel')}
+              id="fine-rule-cap"
             />
           </div>
 

@@ -38,7 +38,7 @@ export interface FullPageShellProps {
   dirty?: boolean;
   size?: 'form' | 'wide';
   primary: FullPageShellAction;
-  secondary?: Pick<FullPageShellAction, 'label' | 'onClick'>;
+  secondary?: Pick<FullPageShellAction, 'label' | 'onClick' | 'disabled'>;
   children: React.ReactNode;
 }
 
@@ -104,6 +104,7 @@ export function FullPageShell({
                   type="button"
                   variant="outline"
                   className="h-11"
+                  disabled={secondary.disabled ?? false}
                   onClick={secondary.onClick}
                 >
                   {secondary.label}

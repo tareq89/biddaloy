@@ -6,17 +6,19 @@
  *
  * See the `## Plan — #1003` GitHub comment for the full design.
  */
-import { Button, RoutePending } from '@biddaloy/ui/components';
+import { RoutePending, Skeleton, StatusBadge } from '@biddaloy/ui/components';
 import {
   promotionRunsQueryOptions,
   useAcademicYears,
-  useClasses,
+  useAllClasses,
   usePromotionRuns,
 } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { ListShell, useListShellState } from '@biddaloy/ui/shells';
 import { formatDate, formatNumber } from '@biddaloy/ui/utils';
-import { createFileRoute, Link } from '@tanstack/react-router';
+import { createFileRoute } from '@tanstack/react-router';
+import { PlusIcon } from 'lucide-react';
+import type { ReactNode } from 'react';
 
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 
@@ -33,57 +35,82 @@ export const Route = createFileRoute('/_staff/promotions/')({
 function PromotionsListPage() {
   const { t } = useTranslation('promotions');
   const config = useRegionConfig();
-  const [state, actions] = useListShellState({ limit: 10 });
+  const navigate = Route.useNavigate();
+  const [state, actions] = useListShellState();
 
   const runsQuery = usePromotionRuns();
-  const classesQuery = useClasses({});
-  const yearsQuery = useAcademicYears();
+  const classesQuery = useAllClasses();
+  const yearsQuery = useAcademicYears({ limit: 100 });
 
-  const classNames = new Map((classesQuery.data?.data ?? []).map((cls) => [cls.id, cls.name]));
+  const classNames = new Map((classesQuery.data ?? []).map((cls) => [cls.id, cls.name]));
   const yearNames = new Map((yearsQuery.data?.data ?? []).map((year) => [year.id, year.name]));
+
+  // Never render a raw id: skeleton while the lookup loads, a dash when the id is unknown.
+  const nameOr = (names: Map<string, string>, id: string, loading: boolean): ReactNode =>
+    names.get(id) ?? (loading ? <Skeleton className="h-4 w-24" /> : t('list.emptyValue'));
 
   const runs = runsQuery.data ?? [];
   const totalCount = runs.length;
   const data = runs.slice((state.page - 1) * state.limit, state.page * state.limit);
+  const goNew = () => void navigate({ to: '/promotions/new' });
 
   return (
     <ListShell
       title={t('list.title')}
-      primaryAction={
-        <Button asChild>
-          <Link to="/promotions/new">{t('list.newRun')}</Link>
-        </Button>
-      }
+      subtitle={t('list.subtitle')}
+      actions={[
+        {
+          id: 'new',
+          label: t('list.newRun'),
+          icon: <PlusIcon aria-hidden="true" />,
+          priority: 'primary',
+          onClick: goNew,
+        },
+      ]}
       tableId="promotion-runs-list"
       caption={t('list.caption')}
       columns={[
         {
           id: 'sourceTarget',
-          header: `${t('list.columnSourceClass')} → ${t('list.columnTargetClass')}`,
-          accessorFn: (row) => {
-            const sourceName = classNames.get(row.source_class_id) ?? row.source_class_id;
-            const targetName =
-              row.target_class_id === null
+          header: t('list.columnSourceTarget'),
+          card: 'title',
+          accessorFn: (row) => (
+            <span className="font-medium">
+              {nameOr(classNames, row.source_class_id, classesQuery.isLoading)} →{' '}
+              {row.target_class_id === null
                 ? t('outcome.graduate')
-                : (classNames.get(row.target_class_id) ?? row.target_class_id);
-            return (
-              <Link to="/promotions/$runId" params={{ runId: row.id }} className="underline">
-                {sourceName} → {targetName}
-              </Link>
-            );
-          },
+                : nameOr(classNames, row.target_class_id, classesQuery.isLoading)}
+            </span>
+          ),
         },
         {
           id: 'targetYear',
           header: t('list.columnTargetYear'),
-          accessorFn: (row) =>
-            yearNames.get(row.target_academic_year_id) ?? row.target_academic_year_id,
+          card: 'subtitle',
+          // Desktop: just the year (the header says what it is). The phone card subtitle has no
+          // header, so it carries the prefixed text.
+          accessorFn: (row) => {
+            const year = yearNames.get(row.target_academic_year_id);
+            return year === undefined ? (
+              nameOr(yearNames, row.target_academic_year_id, yearsQuery.isLoading)
+            ) : (
+              <>
+                <span className="max-md:hidden">{year}</span>
+                <span className="md:hidden">{t('list.cardSubtitle', { year })}</span>
+              </>
+            );
+          },
         },
         {
           id: 'status',
           header: t('list.columnStatus'),
-          accessorFn: (row) =>
-            t(row.status === 'DRAFT' ? 'list.statusDraft' : 'list.statusCommitted'),
+          card: 'badge',
+          accessorFn: (row) => (
+            <StatusBadge
+              tone={row.status === 'DRAFT' ? 'neutral' : 'success'}
+              label={t(row.status === 'DRAFT' ? 'list.statusDraft' : 'list.statusCommitted')}
+            />
+          ),
         },
         {
           id: 'algorithm',
@@ -96,13 +123,22 @@ function PromotionsListPage() {
         {
           id: 'overrides',
           header: t('list.columnOverrides'),
+          align: 'end',
           accessorFn: (row) => formatNumber(row.override_count, config),
         },
         {
           id: 'committedAt',
           header: t('list.columnCommittedAt'),
           accessorFn: (row) =>
-            row.committed_at ? formatDate(new Date(row.committed_at), config) : '—',
+            row.committed_at ? formatDate(row.committed_at, config) : t('list.emptyValue'),
+        },
+      ]}
+      rowActions={(row) => [
+        {
+          intent: 'view',
+          label: t('list.view'),
+          to: `/promotions/${row.id}`,
+          'data-focus-anchor': row.id,
         },
       ]}
       data={data}
@@ -118,7 +154,11 @@ function PromotionsListPage() {
       loading={runsQuery.isLoading}
       isFetching={runsQuery.isFetching}
       {...(runsQuery.isError ? { error: t('list.errorMessage') } : {})}
-      emptyMessage={t('list.empty')}
+      emptyState={{
+        title: t('list.empty'),
+        explanation: t('list.emptyExplanation'),
+        action: { label: t('list.newRun'), onClick: goNew },
+      }}
     />
   );
 }

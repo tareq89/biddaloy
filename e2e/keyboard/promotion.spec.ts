@@ -148,10 +148,11 @@ test('keyboard-only: palette to new run, fill the form, R-override a row, commit
   // sidebar is too environment-dependent to assert on. Pickers go through
   // `selectByTypeahead` with this run's own unique names.
   await test.step('fill the new-run form mouse-free', async () => {
-    await expect(page.getByRole('dialog')).toBeHidden();
-    // `useRouteFocus` focuses the new page's <h1> once the navigation and
-    // its view transition settle — the signal that the form is ready.
-    await expect(page.getByRole('heading', { level: 1 })).toBeFocused();
+    // The new-run form is a full-page modal (itself a dialog) that focuses its own first
+    // control, so "ready" is its <h1>, not focus on it and not "no dialog".
+    await expect(
+      page.getByRole('heading', { level: 1, name: t('promotions.newRunForm.title') }),
+    ).toBeVisible();
 
     // `selectByTypeahead`'s flow, but the option may carry a " (<year>)"
     // suffix: the form adds it only when that year is on the first page of

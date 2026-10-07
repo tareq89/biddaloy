@@ -1,6 +1,11 @@
 {
   "title": "আমার শ্রেণি",
   "empty": "আপনি এখনো কোনো শাখার শ্রেণি শিক্ষক নন — অ্যাডমিনকে জানান।",
+  "pickerSubtitle": "কোন শাখা দেখবেন, বাছুন।",
+  "sectionsHeading": "আপনার শাখা",
+  "emptyTitle": "এখনো কোনো শাখা নেই",
+  "loadError": "আপনার শাখার তালিকা আনা যায়নি।",
+  "loading": "লোড হচ্ছে…",
   "retry": "আবার চেষ্টা করুন",
   "seeAll": "সব দেখুন",
   "roles": {
@@ -30,13 +35,12 @@
     "results": "এখনও কোনো ফলাফল নেই।",
     "roster": "এই শাখায় কোনো শিক্ষার্থী নেই।"
   },
-  "pageTitle": "আমার শ্রেণি · {{section}}",
   "cardError": "এই কার্ডটি লোড করা যায়নি।",
   "roll": "রোল {{roll}}",
-  "flagDays": "{{count}} দিন",
-  "duesSummary": "{{count}} জন শিক্ষার্থীর কাছে মোট বকেয়া {{total}}",
+  "flagDays_one": "{{n}} দিন",
+  "flagDays_other": "{{n}} দিন",
   "homeworkCounts": {
-    "total": "বাড়ির কাজ",
+    "total": "মোট",
     "completed": "সম্পন্ন",
     "defaulters": "অসম্পন্ন"
   },
@@ -46,5 +50,14 @@
     "failed": "অকৃতকার্য শিক্ষার্থী"
   },
   "callGuardian": "{{name}}-এর অভিভাবককে ফোন করুন",
-  "noPhone": "ফোন নেই"
+  "noPhone": "ফোন নেই",
+  "subtitle": "{{role}} · আজ {{date}}",
+  "sectionLoadError": "এই শাখার তথ্য আনা যায়নি।",
+  "notTakenBadge": "নেওয়া হয়নি",
+  "absentCount_one": "{{n}} জন",
+  "absentCount_other": "{{n}} জন",
+  "duesTotal": "মোট বকেয়া",
+  "duesStudents": "শিক্ষার্থী",
+  "studentCount_one": "{{n}} জন",
+  "studentCount_other": "{{n}} জন"
 }

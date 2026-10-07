@@ -11,22 +11,14 @@
  * `generate-fees-modal.tsx` uses for fee-structure names. See the plan
  * comment on #1119.
  */
+import { FeeType } from '@biddaloy/shared';
+import { captureNotificationTenant, notifyOutcome } from '@biddaloy/ui/api';
 import {
-  ApiError,
-  captureNotificationTenant,
-  notifyOutcome,
-  RateLimitedError,
-} from '@biddaloy/ui/api';
-import {
-  Button,
   Checkbox,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  Input,
+  ConfirmDialog,
+  DataTable,
+  EmptyState,
+  MonthPicker,
   RadioGroup,
   RadioGroupItem,
   Select,
@@ -37,8 +29,10 @@ import {
 } from '@biddaloy/ui/components';
 import {
   ApprovalCancelledError,
+  useAcademicYears,
   useClasses,
   useClassSections,
+  useFeeStructures,
   useGenerateFines,
   usePreviewFineGeneration,
   useStudentSearch,
@@ -46,11 +40,14 @@ import {
   type FineSweepPreviewResult,
 } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
-import { formatCurrency, serverAmountToMinorUnits } from '@biddaloy/ui/utils';
+import { FullPageShell } from '@biddaloy/ui/shells';
+import { formatCurrency, formatNumber, serverAmountToMinorUnits } from '@biddaloy/ui/utils';
 import type { TFunction } from 'i18next';
+import { CalendarCheck2, CircleAlert, TriangleAlert } from 'lucide-react';
 import * as React from 'react';
 
 const ALL_VALUE = '__all__';
+const CREATE_LOCK_MS = 600;
 
 function previousMonthValue(): string {
   const now = new Date();
@@ -58,9 +55,8 @@ function previousMonthValue(): string {
   return `${previous.getFullYear()}-${String(previous.getMonth() + 1).padStart(2, '0')}`;
 }
 
-function describeSubmitError(error: unknown, t: TFunction<'fines'>): string {
-  if (error instanceof RateLimitedError) return t('generate.errorMessage');
-  if (error instanceof ApiError) return error.message;
+/** Never the server's text (D9) — always the translated sentence. */
+function describeSubmitError(t: TFunction<'fines'>): string {
   return t('generate.errorMessage');
 }
 
@@ -92,6 +88,14 @@ export function GenerateFinesModal({ open, onOpenChange, prefill }: GenerateFine
   const classesQuery = useClasses();
   const sectionsQuery = useClassSections(classId !== ALL_VALUE ? classId : undefined);
 
+  const [confirmDiscard, setConfirmDiscard] = React.useState(false);
+  // The primary changes from "See what will be made" to "Generate fines" in the
+  // same spot; a double-click must not create fines before the preview is read.
+  const [createLocked, setCreateLocked] = React.useState(false);
+  const lockTimer = React.useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const previewHeadingRef = React.useRef<HTMLHeadingElement>(null);
+  React.useEffect(() => () => clearTimeout(lockTimer.current), []);
+
   const previewMutation = usePreviewFineGeneration();
   const generate = useGenerateFines();
 
@@ -105,6 +109,22 @@ export function GenerateFinesModal({ open, onOpenChange, prefill }: GenerateFine
     },
     { enabled: preview !== null },
   );
+  // Scope the name lookup to the month's academic year so the 100-row page is
+  // not eaten by other years' fine types.
+  const yearsQuery = useAcademicYears();
+  const monthYearId = (yearsQuery.data?.data ?? []).find(
+    (year) => year.start_date.slice(0, 7) <= month && month <= year.end_date.slice(0, 7),
+  )?.id;
+  const fineTypesQuery = useFeeStructures({
+    fee_type: FeeType.FINE,
+    limit: 100,
+    ...(monthYearId !== undefined ? { academic_year_id: monthYearId } : {}),
+  });
+  const fineTypes = React.useMemo(() => {
+    const map = new Map<string, string>();
+    for (const structure of fineTypesQuery.data?.data ?? []) map.set(structure.id, structure.name);
+    return map;
+  }, [fineTypesQuery.data]);
   const studentNames = React.useMemo(() => {
     const map = new Map<string, string>();
     for (const student of studentsQuery.data?.data ?? []) map.set(student.id, student.full_name);
@@ -161,8 +181,12 @@ export function GenerateFinesModal({ open, onOpenChange, prefill }: GenerateFine
     });
   }
 
-  function handleSubmit(event: React.FormEvent) {
-    event.preventDefault();
+  const hasCurrentPreview = preview !== null && previewScopeKey === scopeKey();
+  const previewIsZero =
+    hasCurrentPreview && preview.would_create === 0 && preview.duplicates.length === 0;
+  const busy = previewMutation.isPending || generate.isPending;
+
+  function handleSubmit() {
     if (!canSubmit) return;
 
     const currentScopeKey = scopeKey();
@@ -171,17 +195,29 @@ export function GenerateFinesModal({ open, onOpenChange, prefill }: GenerateFine
       return;
     }
 
+    // Always stop at the preview: the accountant sees what will be created
+    // before anything is written.
     previewMutation.mutate(scope(), {
       onSuccess: (result) => {
         setPreview(result);
         setPreviewScopeKey(currentScopeKey);
-        // Nothing to review — skip straight to the real submit. A zero
-        // preview has nothing to duplicate-check either, so it always
-        // stops here for the accountant to see "no fines" and re-pick a
-        // scope, rather than silently no-op generating.
-        if (result.duplicates.length === 0 && result.would_create > 0) submitGenerate('SKIP');
+        setCreateLocked(true);
+        clearTimeout(lockTimer.current);
+        lockTimer.current = setTimeout(() => setCreateLocked(false), CREATE_LOCK_MS);
       },
     });
+  }
+
+  // A request in flight must not be abandoned by Esc / X / Cancel.
+  function requestClose() {
+    if (busy) return;
+    resetAndClose();
+  }
+
+  function requestCancel() {
+    if (busy) return;
+    if (hasCurrentPreview) setConfirmDiscard(true);
+    else resetAndClose();
   }
 
   const distinctStudentCount = preview
@@ -189,190 +225,256 @@ export function GenerateFinesModal({ open, onOpenChange, prefill }: GenerateFine
     : 0;
   const submitError = generate.error ?? previewMutation.error;
 
-  return (
-    <Dialog open={open} onOpenChange={(next) => (next ? onOpenChange(true) : resetAndClose())}>
-      <DialogContent className="max-w-xl">
-        <DialogHeader>
-          <DialogTitle>{t('generate.title')}</DialogTitle>
-          <DialogDescription>{t('generate.description')}</DialogDescription>
-        </DialogHeader>
+  React.useEffect(() => {
+    if (hasCurrentPreview && !previewIsZero) previewHeadingRef.current?.focus();
+  }, [hasCurrentPreview, previewIsZero]);
 
-        <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
+  if (!open) return null;
+
+  const duplicateOptions = [
+    {
+      value: 'SKIP',
+      label: t('generate.duplicates.skipLabel'),
+      hint: t('generate.duplicates.skipHint'),
+    },
+    {
+      value: 'REMOVE_OLDER',
+      label: t('generate.duplicates.removeOlderLabel'),
+      hint: t('generate.duplicates.removeOlderHint'),
+    },
+    {
+      value: 'CREATE_ANYWAY',
+      label: t('generate.duplicates.createAnywayLabel'),
+      hint: t('generate.duplicates.createAnywayHint'),
+    },
+  ] as const;
+
+  return (
+    <FullPageShell
+      title={t('generate.title')}
+      onClose={requestClose}
+      size="wide"
+      dirty={hasCurrentPreview && !busy}
+      primary={{
+        label: hasCurrentPreview ? t('generate.submitAction') : t('generate.previewAction'),
+        onClick: handleSubmit,
+        busy,
+        disabled: !canSubmit || previewIsZero || (hasCurrentPreview && createLocked),
+      }}
+      secondary={{ label: t('actions.cancel', { ns: 'common' }), onClick: requestCancel }}
+    >
+      <section
+        aria-labelledby="gen-scope"
+        className="rounded-lg border border-border-subtle bg-surface p-4 shadow-e1 md:p-5"
+      >
+        <h2 id="gen-scope" className="text-h3">
+          {t('generate.scopeHeading')}
+        </h2>
+        <p className="mt-1 text-text-secondary">{t('generate.description')}</p>
+        <div className="mt-4 grid gap-4 md:grid-cols-3">
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="generate-fines-month" className="text-sm font-medium">
+            <label htmlFor="generate-fines-month" className="text-label">
               {t('generate.monthLabel')}
             </label>
-            <Input
+            <MonthPicker
               id="generate-fines-month"
-              type="month"
+              aria-label={t('generate.monthLabel')}
               value={month}
-              onChange={(event) => {
-                setMonth(event.target.value);
+              onValueChange={(value) => {
+                setMonth(value);
                 setPreview(null);
               }}
             />
           </div>
 
-          <div className="flex gap-2">
-            <div className="flex flex-1 flex-col gap-1.5">
-              <span className="text-sm font-medium">{t('generate.classLabel')}</span>
-              <Select
-                value={classId}
-                onValueChange={(value) => {
-                  setClassId(value);
-                  setSectionId(ALL_VALUE);
-                  setPreview(null);
-                }}
-              >
-                <SelectTrigger aria-label={t('generate.classLabel')}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={ALL_VALUE}>{t('generate.allClasses')}</SelectItem>
-                  {(classesQuery.data?.data ?? []).map((klass) => (
-                    <SelectItem key={klass.id} value={klass.id}>
-                      {klass.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex flex-1 flex-col gap-1.5">
-              <span className="text-sm font-medium">{t('generate.sectionLabel')}</span>
-              <Select
-                value={sectionId}
-                onValueChange={(value) => {
-                  setSectionId(value);
-                  setPreview(null);
-                }}
-              >
-                <SelectTrigger
-                  aria-label={t('generate.sectionLabel')}
-                  disabled={classId === ALL_VALUE}
-                >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={ALL_VALUE}>{t('generate.allSections')}</SelectItem>
-                  {(sectionsQuery.data ?? []).map((section) => (
-                    <SelectItem key={section.id} value={section.id}>
-                      {section.section_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="generate-fines-class" className="text-label">
+              {t('generate.classLabel')}
+            </label>
+            <Select
+              value={classId}
+              onValueChange={(value) => {
+                setClassId(value);
+                setSectionId(ALL_VALUE);
+                setPreview(null);
+              }}
+            >
+              <SelectTrigger id="generate-fines-class">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL_VALUE}>{t('generate.allClasses')}</SelectItem>
+                {(classesQuery.data?.data ?? []).map((klass) => (
+                  <SelectItem key={klass.id} value={klass.id}>
+                    {klass.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
-          <label className="flex items-center gap-2 text-sm">
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="generate-fines-section" className="text-label">
+              {t('generate.sectionLabel')}
+            </label>
+            <Select
+              value={sectionId}
+              onValueChange={(value) => {
+                setSectionId(value);
+                setPreview(null);
+              }}
+            >
+              <SelectTrigger id="generate-fines-section" disabled={classId === ALL_VALUE}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL_VALUE}>{t('generate.allSections')}</SelectItem>
+                {(sectionsQuery.data ?? []).map((section) => (
+                  <SelectItem key={section.id} value={section.id}>
+                    {section.section_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <label className="flex min-h-11 items-center gap-3 md:col-span-3 md:min-h-8">
             <Checkbox
               checked={notifyFamilies}
               onCheckedChange={(checked) => setNotifyFamilies(checked === true)}
-              aria-label={t('generate.notifyLabel')}
             />
             {t('generate.notifyLabel')}
           </label>
+        </div>
+      </section>
 
-          {preview !== null &&
-            (preview.would_create === 0 && preview.duplicates.length === 0 ? (
-              <p className="text-sm text-muted-foreground">{t('generate.previewZero')}</p>
-            ) : (
-              <div className="flex flex-col gap-2 rounded-md border border-border-subtle p-3">
-                <p className="text-sm font-medium">
-                  {t('generate.previewLine', {
-                    count: distinctStudentCount,
-                    total: formatCurrency(
-                      serverAmountToMinorUnits(preview.total_amount, config),
-                      config,
-                    ),
-                  })}
-                </p>
-                <ul
-                  className="flex max-h-40 flex-col gap-1 overflow-y-auto text-sm"
-                  data-testid="fine-preview-rows"
-                >
-                  {preview.students.map((row) => (
-                    <li
-                      key={`${row.student_id}-${row.rule_id}`}
-                      className="flex items-center justify-between gap-2"
-                    >
-                      <span>{studentNames.get(row.student_id) ?? row.student_id}</span>
-                      <span className="text-muted-foreground">
-                        {row.count} ×{' '}
-                        {formatCurrency(serverAmountToMinorUnits(row.amount, config), config)}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
+      {hasCurrentPreview &&
+        (previewIsZero ? (
+          <EmptyState
+            icon={<CalendarCheck2 />}
+            title={t('generate.previewZero')}
+            explanation={t('generate.previewZeroHint')}
+          />
+        ) : (
+          <section aria-labelledby="gen-preview" className="space-y-3">
+            <div>
+              <h2
+                id="gen-preview"
+                ref={previewHeadingRef}
+                tabIndex={-1}
+                className="text-h3 outline-none"
+              >
+                {t('generate.previewHeading')}
+              </h2>
+              <p className="mt-0.5 text-text-secondary">
+                {t('generate.previewLine', {
+                  count: distinctStudentCount,
+                  n: formatNumber(distinctStudentCount, config),
+                  total: formatCurrency(
+                    serverAmountToMinorUnits(preview.total_amount, config),
+                    config,
+                  ),
+                })}
+              </p>
+            </div>
+            <div data-testid="fine-preview-rows">
+              <DataTable
+                tableId="fine-preview"
+                caption={t('generate.previewHeading')}
+                paginated={false}
+                data={preview.students}
+                getRowId={(row) => `${row.student_id}-${row.rule_id}`}
+                sorting={null}
+                onSortingChange={() => {}}
+                totalCount={preview.students.length}
+                columns={[
+                  {
+                    id: 'student',
+                    header: t('generate.columnStudent'),
+                    accessorFn: (row) => studentNames.get(row.student_id) ?? '—',
+                    card: 'title',
+                  },
+                  {
+                    id: 'fine',
+                    header: t('generate.columnFine'),
+                    accessorFn: (row) => fineTypes.get(row.fee_structure_id) ?? '—',
+                    card: 'subtitle',
+                  },
+                  {
+                    id: 'count',
+                    header: t('generate.columnCount'),
+                    accessorFn: (row) =>
+                      t('generate.countTimes', {
+                        count: row.count,
+                        n: formatNumber(row.count, config),
+                      }),
+                    align: 'end',
+                  },
+                  {
+                    id: 'amount',
+                    header: t('generate.columnAmount'),
+                    accessorFn: (row) =>
+                      formatCurrency(serverAmountToMinorUnits(row.amount, config), config),
+                    align: 'end',
+                  },
+                ]}
+              />
+            </div>
+          </section>
+        ))}
 
-                {preview.duplicates.length > 0 && (
-                  <RadioGroup
-                    value={duplicateAction}
-                    onValueChange={(value) => setDuplicateAction(value as typeof duplicateAction)}
-                    aria-label={t('generate.duplicates.heading')}
-                    className="flex flex-col gap-2"
-                  >
-                    <h3 className="text-sm font-medium">{t('generate.duplicates.heading')}</h3>
-                    <label className="flex items-start gap-2 text-sm">
-                      <RadioGroupItem value="SKIP" />
-                      <span>
-                        <span className="font-medium">{t('generate.duplicates.skipLabel')}</span>{' '}
-                        <span className="text-muted-foreground">
-                          {t('generate.duplicates.skipHint')}
-                        </span>
-                      </span>
-                    </label>
-                    <label className="flex items-start gap-2 text-sm">
-                      <RadioGroupItem value="REMOVE_OLDER" />
-                      <span>
-                        <span className="font-medium">
-                          {t('generate.duplicates.removeOlderLabel')}
-                        </span>{' '}
-                        <span className="text-muted-foreground">
-                          {t('generate.duplicates.removeOlderHint')}
-                        </span>
-                      </span>
-                    </label>
-                    <label className="flex items-start gap-2 text-sm">
-                      <RadioGroupItem value="CREATE_ANYWAY" />
-                      <span>
-                        <span className="font-medium">
-                          {t('generate.duplicates.createAnywayLabel')}
-                        </span>{' '}
-                        <span className="text-muted-foreground">
-                          {t('generate.duplicates.createAnywayHint')}
-                        </span>
-                      </span>
-                    </label>
-                  </RadioGroup>
-                )}
-              </div>
+      {hasCurrentPreview && preview.duplicates.length > 0 && (
+        <section
+          aria-labelledby="gen-duplicates"
+          className="rounded-lg border border-border-subtle bg-surface p-4 shadow-e1 md:p-5"
+        >
+          <h2 id="gen-duplicates" className="flex items-center gap-2 text-h3">
+            <TriangleAlert className="text-status-due-fg" aria-hidden="true" />
+            {t('generate.duplicates.heading')}
+          </h2>
+          <RadioGroup
+            value={duplicateAction}
+            onValueChange={(value) => setDuplicateAction(value as typeof duplicateAction)}
+            aria-labelledby="gen-duplicates"
+            className="mt-2 flex flex-col"
+          >
+            {duplicateOptions.map((option) => (
+              <label
+                key={option.value}
+                htmlFor={`gen-dup-${option.value}`}
+                className="flex min-h-11 items-start gap-3 py-2"
+              >
+                <RadioGroupItem id={`gen-dup-${option.value}`} value={option.value} />
+                <span>
+                  <span className="block font-medium">{option.label}</span>
+                  <span className="block text-caption text-text-secondary">{option.hint}</span>
+                </span>
+              </label>
             ))}
+          </RadioGroup>
+        </section>
+      )}
 
-          {submitError !== null && submitError !== undefined && (
-            <p role="alert" className="text-sm text-destructive">
-              {describeSubmitError(submitError, t)}
-            </p>
-          )}
+      {submitError !== null && submitError !== undefined && (
+        <p role="alert" className="flex items-center gap-1 text-caption text-destructive">
+          <CircleAlert className="size-4" aria-hidden="true" />
+          {describeSubmitError(t)}
+        </p>
+      )}
 
-          <DialogFooter>
-            <Button type="button" variant="ghost" onClick={resetAndClose}>
-              {t('actions.cancel', { ns: 'common' })}
-            </Button>
-            <Button
-              type="submit"
-              disabled={
-                !canSubmit ||
-                (preview !== null && preview.would_create === 0 && preview.duplicates.length === 0)
-              }
-              loading={previewMutation.isPending || generate.isPending}
-            >
-              {t('generate.submitAction')}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+      <ConfirmDialog
+        open={confirmDiscard}
+        onOpenChange={setConfirmDiscard}
+        tone="danger"
+        title={t('fullPage.discardTitle', { ns: 'common' })}
+        description={t('fullPage.discardDescription', { ns: 'common' })}
+        confirmLabel={t('fullPage.discardConfirm', { ns: 'common' })}
+        cancelLabel={t('fullPage.keepEditing', { ns: 'common' })}
+        onConfirm={() => {
+          setConfirmDiscard(false);
+          resetAndClose();
+        }}
+      />
+    </FullPageShell>
   );
 }

@@ -1,11 +1,11 @@
 /**
- * [16.4.4]'s placeholder payments page (C1) — real route tree, per
- * `bulk-reminder-wizard.test.tsx`'s own convention. The two things that
- * matter: `?record=1` opens the modal on load (so a refresh or a shared
- * link survives), and the Record payment button sets it.
+ * `/payments` — the payment list ([31.4]) over the real route tree, per
+ * `bulk-reminder-wizard.test.tsx`'s own convention. Record payment is its
+ * own page now: the header button and the old `?record=1` link both land
+ * on `/payments/record`.
  */
 import { cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
-import { screen } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -21,20 +21,70 @@ function render(initialEntries: string[]) {
   });
 }
 
+const row = (over: Record<string, unknown>) => ({
+  id: 'p1',
+  student: { full_name: 'Rahim Uddin', registration_number: 'REG-001' },
+  total_amount: 1500,
+  payment_method: 'CASH',
+  transaction_reference: null,
+  payment_date: '2026-03-05T06:00:00.000Z',
+  reversal_of_payment_id: null,
+  reversed_by_payment_id: null,
+  ...over,
+});
+
+function mockList(seen?: URLSearchParams[]) {
+  server.use(
+    http.get('/api/v1/payments', ({ request }) => {
+      const params = new URL(request.url).searchParams;
+      seen?.push(params);
+      const reversed = params.get('include_reversed') === 'true';
+      const data = [
+        row({}),
+        row({ id: 'p2', student: null, payment_method: 'BKASH', transaction_reference: 'TX-9' }),
+        ...(reversed ? [row({ id: 'p3', reversed_by_payment_id: 'p4' })] : []),
+      ];
+      return HttpResponse.json({ data, total: data.length, page: 1, limit: 25 });
+    }),
+  );
+}
+
 describe('/payments', () => {
   afterEach(async () => {
     await cleanupTestState();
   });
 
-  it('[16.4.4] does not open the modal without ?record=1', async () => {
+  it('lists payments with labelled method, deleted-student fallback and one primary action', async () => {
+    mockList();
     const { localeReady } = render(['/payments']);
     await localeReady;
 
-    await screen.findByText(/Record a payment from this page/);
-    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(await screen.findByText('Rahim Uddin')).toBeTruthy();
+    expect(screen.getByText('Deleted student')).toBeTruthy();
+    expect(screen.getByText('Cash')).toBeTruthy();
+    expect(screen.getByText('TX-9')).toBeTruthy();
+    expect(screen.queryByText('CASH')).toBeNull();
+    expect(screen.getByText('Showing 1–2 of 2')).toBeTruthy();
+    expect(screen.getAllByRole('button', { name: 'Record payment' })).toHaveLength(1);
+    expect(screen.queryByRole('columnheader', { name: 'Status' })).toBeNull();
   });
 
-  it('opens the modal when ?record=1 is present on load', async () => {
+  it('"Show reversed too" sends include_reversed=true and reveals the status column', async () => {
+    const seen: URLSearchParams[] = [];
+    mockList(seen);
+    const user = userEvent.setup();
+    const { localeReady } = render(['/payments']);
+    await localeReady;
+    await screen.findByText('Rahim Uddin');
+
+    await user.click(await screen.findByRole('checkbox', { name: 'Show reversed too' }));
+
+    await waitFor(() => expect(seen.some((p) => p.get('include_reversed') === 'true')).toBe(true));
+    const header = await screen.findByRole('columnheader', { name: 'Status' });
+    expect(within(header.closest('table')!).getByText('Reversed')).toBeTruthy();
+  });
+
+  it('redirects the old ?record=1 link to /payments/record, keeping student_id', async () => {
     server.use(
       http.get('/api/v1/payments/cart', () =>
         HttpResponse.json({
@@ -45,19 +95,21 @@ describe('/payments', () => {
       ),
     );
 
-    const { localeReady } = render(['/payments?record=1&student_id=student-1']);
+    const { localeReady, router } = render(['/payments?record=1&student_id=student-1']);
     await localeReady;
 
-    await screen.findByRole('dialog');
+    await waitFor(() => expect(router.state.location.pathname).toBe('/payments/record'));
+    expect(router.state.location.search).toEqual({ student_id: 'student-1' });
   });
 
-  it('the Record payment button sets ?record=1', async () => {
+  it('the header button navigates to /payments/record', async () => {
     const user = userEvent.setup();
+    mockList();
     const { localeReady, router } = render(['/payments']);
     await localeReady;
 
-    await user.click((await screen.findAllByRole('button', { name: 'Record payment' }))[0]!);
+    await user.click(await screen.findByRole('button', { name: 'Record payment' }));
 
-    expect(router.state.location.search.record).toBe('1');
+    await waitFor(() => expect(router.state.location.pathname).toBe('/payments/record'));
   });
 });

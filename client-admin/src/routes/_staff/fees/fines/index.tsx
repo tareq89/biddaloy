@@ -1,9 +1,8 @@
 /**
  * [38.4.3] `/fees/fines` — the Fines list: filters, totals footer, and the
- * "Log fine" / "Generate fines" entry points (38.4.1's modals), plus a
- * "Fines | Rules" tab bar linking to `rules.tsx` (38.4.2). Clones
- * `fees/schedules/index.tsx`'s page shell and `fees/dues.tsx`'s URL-state
- * filter pattern.
+ * "Log fine" / "Generate fines" entry points (38.4.1's modals), and a header
+ * button to `rules.tsx` (38.4.2). Composed (not `ListShell`) so the totals Card
+ * sits between the filters and the table.
  *
  * Keyboard: `l` opens Log fine, `g` opens Generate fines — same inline
  * `keydown` listener `fines/-rules/rules-panel.tsx` uses for its own `n`
@@ -11,17 +10,11 @@
  *
  * The command palette (`fines.log`/`fines.generate`/`fines.waive` in
  * `action-registry.ts`) can only `navigate({ to })` — no entity id crosses
- * that boundary (`ActionRunContext`'s own documented limitation, see
- * `grading.copyScale`/`programs.enrol` for precedent). Its `run()` lands
- * here with a `?logFine=1`/`?generateFines=1` query flag, which this route
- * reads to open the modal unprefilled — the palette's "prefilled on a
- * student page" acceptance line does not hold for these three actions
- * (flagged in the PR body, not fixed here — would need `ActionRunContext`
- * itself to carry an entity id, which is `command-palette-launcher.tsx`'s
- * territory, not this ticket's file list).
+ * that boundary, so its `run()` lands here with `?logFine=1`/`?generateFines=1`,
+ * which open the modals unprefilled.
  */
 import { FeeStatus, Permission } from '@biddaloy/shared';
-import { Button, EmptyState, RoutePending } from '@biddaloy/ui/components';
+import { DataTable, ErrorState, RoutePending } from '@biddaloy/ui/components';
 import {
   useClasses,
   useClassSections,
@@ -32,17 +25,24 @@ import {
   type FinesFilters,
 } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
-import { ListShell, useListShellState } from '@biddaloy/ui/shells';
+import {
+  FilterBar,
+  PageContainer,
+  PageHeader,
+  useCloseFullPage,
+  useListShellState,
+  type PageAction,
+} from '@biddaloy/ui/shells';
 import { formatServerAmount } from '@biddaloy/ui/utils';
 import { createFileRoute } from '@tanstack/react-router';
+import { FilePlus2, Gavel, ListChecks, Plus, SearchX } from 'lucide-react';
 import * as React from 'react';
 import { z } from 'zod';
 
 import { loadRouteNamespaces } from '../../../../route-loaders';
 
 import { buildFinesFilterFields, FINE_FEE_TYPE } from './-list/fines-filters';
-import { buildFinesColumns } from './-list/fines-table';
-import { FinesTabs } from './-list/fines-tabs';
+import { buildFineRowActions, buildFinesColumns } from './-list/fines-table';
 import { GenerateFinesModal } from './-modals/generate-fines-modal';
 import { LogFineModal } from './-modals/log-fine-modal';
 import { WaiveFineDialog } from './-modals/waive-fine-dialog';
@@ -95,7 +95,7 @@ export const Route = createFileRoute('/_staff/fees/fines/')({
   component: FinesListPage,
 });
 
-function FinesTotalsFooter({
+function FinesTotals({
   totals,
 }: {
   totals: { charged: number; collected: number; waived: number; outstanding: number };
@@ -103,16 +103,28 @@ function FinesTotalsFooter({
   const { t } = useTranslation('fines');
   const regionConfig = useRegionConfig();
   return (
-    <dl className="mt-4 grid grid-cols-2 gap-4 rounded-md border p-4 sm:grid-cols-4">
-      {(['charged', 'collected', 'waived', 'outstanding'] as const).map((key) => (
-        <div key={key}>
-          <dt className="text-xs text-muted-foreground">{t(`totals.${key}`)}</dt>
-          <dd className="text-lg font-semibold tabular-nums">
-            {formatServerAmount(totals[key], regionConfig)}
-          </dd>
-        </div>
-      ))}
-    </dl>
+    <section
+      aria-labelledby="fines-totals"
+      className="rounded-lg border border-border-subtle bg-surface p-4 shadow-e1 md:p-5"
+    >
+      <h2 id="fines-totals" className="sr-only">
+        {t('totals.heading')}
+      </h2>
+      <dl className="grid grid-cols-2 gap-4 md:grid-cols-4">
+        {(['charged', 'collected', 'waived', 'outstanding'] as const).map((key) => (
+          <div key={key}>
+            <dt className="text-caption text-text-secondary">{t(`totals.${key}`)}</dt>
+            <dd
+              className={['text-h3 tabular-nums', key === 'outstanding' && 'text-status-overdue-fg']
+                .filter(Boolean)
+                .join(' ')}
+            >
+              {formatServerAmount(totals[key], regionConfig)}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </section>
   );
 }
 
@@ -122,7 +134,7 @@ function FinesListPage() {
   const regionConfig = useRegionConfig();
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
-  const [state, actions] = useListShellState({ limit: 20 });
+  const [state, actions] = useListShellState();
 
   const canGenerate = useHasPermission(Permission.FEE_GENERATE);
   const canWaive = useHasPermission(Permission.FEE_APPROVE);
@@ -144,27 +156,21 @@ function FinesListPage() {
   const sectionsQuery = useClassSections(state.filters.class_id);
   const fineStructuresQuery = useFeeStructures({ fee_type: FINE_FEE_TYPE, limit: 100 });
 
-  const monthOptions = React.useMemo(
-    () => Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0')),
-    [],
-  );
-
-  const [logFineOpen, setLogFineOpen] = React.useState(false);
-  const [generateFinesOpen, setGenerateFinesOpen] = React.useState(false);
   const [waiving, setWaiving] = React.useState<Fine | null>(null);
 
-  // Palette entry points — see this file's own header comment.
-  React.useEffect(() => {
-    if (search.logFine && canGenerate) {
-      setLogFineOpen(true);
-      void navigate({ search: (prev) => ({ ...prev, logFine: undefined }), replace: true });
-    }
-    if (search.generateFines) {
-      if (canGenerate) setGenerateFinesOpen(true);
-      void navigate({ search: (prev) => ({ ...prev, generateFines: undefined }), replace: true });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once per mount to consume the one-shot query flag
-  }, [search.logFine, search.generateFines]);
+  // The search params ARE the open state (D22): opening sets one, closing goes
+  // back, a refresh reopens. The command palette links to the same params.
+  const logOpen = search.logFine === '1' && canGenerate;
+  const generateOpen = search.generateFines === '1' && canGenerate;
+  const openLog = () => void navigate({ search: (prev) => ({ ...prev, logFine: 1 }) });
+  const openGenerate = () => void navigate({ search: (prev) => ({ ...prev, generateFines: 1 }) });
+  const closeLog = useCloseFullPage(
+    () => void navigate({ search: (prev) => ({ ...prev, logFine: undefined }), replace: true }),
+  );
+  const closeGenerate = useCloseFullPage(
+    () =>
+      void navigate({ search: (prev) => ({ ...prev, generateFines: undefined }), replace: true }),
+  );
 
   React.useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -172,15 +178,15 @@ function FinesListPage() {
       if (isEditableTarget(event.target)) return;
       if (event.key === 'l' && canGenerate) {
         event.preventDefault();
-        setLogFineOpen(true);
+        void navigate({ search: (prev) => ({ ...prev, logFine: 1 }) });
       } else if (event.key === 'g' && canGenerate) {
         event.preventDefault();
-        setGenerateFinesOpen(true);
+        void navigate({ search: (prev) => ({ ...prev, generateFines: 1 }) });
       }
     }
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [canGenerate]);
+  }, [canGenerate, navigate]);
 
   function handleFilterChange(patch: Record<string, string | null>) {
     const next = { ...patch };
@@ -192,81 +198,102 @@ function FinesListPage() {
     classes: (classesQuery.data?.data ?? []).map((klass) => ({ id: klass.id, name: klass.name })),
     sections: sectionsQuery.data ?? [],
     fineStructures: fineStructuresQuery.data?.data ?? [],
-    monthOptions,
+    regionConfig,
   });
 
-  const columns = buildFinesColumns(t, regionConfig, { onWaive: setWaiving, canWaive });
+  const columns = buildFinesColumns(t, regionConfig);
+  const rowActions = buildFineRowActions(t, { onWaive: setWaiving, canWaive });
 
-  const isEmpty = !finesQuery.isLoading && fines.length === 0 && finesQuery.data?.total === 0;
+  const headerActions: PageAction[] = [
+    {
+      id: 'rules',
+      label: t('tabs.rules'),
+      priority: 'secondary',
+      icon: <ListChecks />,
+      onClick: () => void navigate({ to: '/fees/fines/rules' }),
+    },
+    {
+      id: 'log',
+      label: t('logForm.title'),
+      priority: 'secondary',
+      icon: <Plus />,
+      allowed: canGenerate,
+      onClick: openLog,
+    },
+    {
+      id: 'generate',
+      label: t('generate.title'),
+      priority: 'primary',
+      icon: <FilePlus2 />,
+      allowed: canGenerate,
+      onClick: openGenerate,
+    },
+  ];
+  const isFiltered = Object.keys(state.filters).length > 0;
 
   return (
-    <>
-      <FinesTabs />
-      {isEmpty ? (
-        <EmptyState
-          title={t('empty.title')}
-          explanation={t('empty.description')}
-          {...(canGenerate
-            ? {
-                action: { label: t('logForm.title'), onClick: () => setLogFineOpen(true) },
-                secondaryAction: {
-                  label: t('generate.title'),
-                  onClick: () => setGenerateFinesOpen(true),
-                },
-              }
-            : {})}
+    <PageContainer>
+      <PageHeader title={t('title')} subtitle={t('subtitle')} actions={headerActions} />
+      <FilterBar
+        fields={filterFields}
+        values={state.filters}
+        onChange={handleFilterChange}
+        {...(finesQuery.data ? { resultCount: finesQuery.data.total } : {})}
+      />
+      {finesQuery.data && finesQuery.data.total > 0 && <FinesTotals totals={totals} />}
+      {finesQuery.isError ? (
+        <ErrorState
+          message={t('loadError')}
+          retryLabel={tCommon('actions.retry')}
+          onRetry={() => void finesQuery.refetch()}
         />
       ) : (
-        <>
-          <ListShell
-            title={t('title')}
-            primaryAction={
-              <div className="flex gap-2">
-                {canGenerate && (
-                  <>
-                    <Button type="button" variant="outline" onClick={() => setLogFineOpen(true)}>
-                      {t('logForm.title')}
-                    </Button>
-                    <Button type="button" onClick={() => setGenerateFinesOpen(true)}>
-                      {t('generate.title')}
-                    </Button>
-                  </>
-                )}
-              </div>
-            }
-            filters={{ fields: filterFields, values: state.filters, onChange: handleFilterChange }}
-            tableId="fees-fines"
-            caption={t('title')}
-            columns={columns}
-            data={fines}
-            getRowId={(row) => row.id}
-            sorting={null}
-            onSortingChange={() => {}}
-            page={state.page}
-            pageSize={state.limit}
-            totalCount={finesQuery.data?.total ?? 0}
-            onPageChange={actions.setPage}
-            onPageSizeChange={actions.setLimit}
-            pageSizeLabel={tCommon('pagination.rowsPerPage')}
-            loading={finesQuery.isLoading}
-            isFetching={finesQuery.isFetching}
-            {...(finesQuery.isError ? { error: t('empty.title') } : {})}
-            emptyMessage={t('empty.title')}
-          />
-          <FinesTotalsFooter totals={totals} />
-        </>
+        <DataTable
+          tableId="fees-fines"
+          caption={t('title')}
+          columns={columns}
+          data={fines}
+          getRowId={(row) => row.id}
+          rowActions={rowActions}
+          sorting={null}
+          onSortingChange={() => {}}
+          page={state.page}
+          pageSize={state.limit}
+          totalCount={finesQuery.data?.total ?? 0}
+          onPageChange={actions.setPage}
+          onPageSizeChange={actions.setLimit}
+          pageSizeLabel={tCommon('pagination.rowsPerPage')}
+          loading={finesQuery.isLoading}
+          isFetching={finesQuery.isFetching}
+          emptyState={
+            isFiltered
+              ? {
+                  icon: <SearchX />,
+                  title: t('emptyFiltered.title'),
+                  explanation: t('emptyFiltered.description'),
+                }
+              : {
+                  icon: <Gavel />,
+                  title: t('empty.title'),
+                  explanation: t('empty.description'),
+                  ...(canGenerate
+                    ? { action: { label: t('logForm.title'), onClick: openLog } }
+                    : {}),
+                }
+          }
+        />
       )}
 
-      {canGenerate && <LogFineModal open={logFineOpen} onOpenChange={setLogFineOpen} />}
-      {canGenerate && (
-        <GenerateFinesModal open={generateFinesOpen} onOpenChange={setGenerateFinesOpen} />
+      {logOpen && <LogFineModal open onOpenChange={(open) => !open && closeLog()} />}
+      {generateOpen && (
+        <GenerateFinesModal open onOpenChange={(open) => !open && closeGenerate()} />
       )}
       <WaiveFineDialog
         open={waiving !== null}
         onOpenChange={(open) => !open && setWaiving(null)}
         {...(waiving ? { fineId: waiving.id, studentId: waiving.student_id } : {})}
       />
-    </>
+    </PageContainer>
   );
 }
 

@@ -5,16 +5,12 @@
  * split (same `MOBILE_BREAKPOINT`, same `useIsMobile`) and its
  * `Ctrl+Enter` submit shortcut, adapted to promotions' own columns.
  *
- * Keyboard model: the "final" outcome cell in each row is the one
- * arrow-key-navigable column (`P`/`R`/`G` set the outcome, `ArrowUp`/
- * `ArrowDown` move to the same cell on the next/previous row, `ArrowRight`
- * jumps to that row's group `Select`). The group `Select` and note
- * `<input>` are reached by native `Tab` order instead of custom arrow
- * handling — hijacking arrows inside a text input or an open `Select`
- * would break cursor movement / Radix's own `ArrowDown`-opens-the-list
- * behavior, so only the read-only-ish outcome cell gets the marks-grid
- * treatment. Tab order already visits final → group → note → next row's
- * final, so `P/R/G → note → Ctrl+Enter` is fully mouse-free regardless.
+ * Keyboard model: the "final decision" in each row is a kit `Select`. Its closed trigger
+ * handles `P`/`R`/`G` (set the outcome), `ArrowUp`/`ArrowDown` (same trigger on the
+ * previous/next row) and `ArrowRight` (that row's group `Select`); every other printable key
+ * is swallowed so Radix type-to-search cannot change a decision, while Space/Enter still open
+ * the list. The group `Select` and reason `Input` are reached by `Tab`. Ctrl/Cmd+Enter opens
+ * Finalise from anywhere (not while the delete confirm is open).
  *
  * Each change calls `useUpdatePromotionEntries` — immediately for
  * outcome/group, debounced for the note text (a note is typically
@@ -24,7 +20,9 @@ import { Permission, type PromotionOutcome } from '@biddaloy/shared';
 import { ApiError } from '@biddaloy/ui/api';
 import {
   Button,
+  ConfirmDialog,
   ErrorState,
+  Input,
   RoutePending,
   Select,
   SelectContent,
@@ -32,11 +30,13 @@ import {
   SelectTrigger,
   SelectValue,
   Skeleton,
+  StatusBadge,
   toast,
+  type StatusTone,
 } from '@biddaloy/ui/components';
 import {
   useAcademicYears,
-  useClasses,
+  useAllClasses,
   useClassSections,
   useCommitPromotionRun,
   useDeletePromotionRun,
@@ -51,9 +51,11 @@ import {
   type PromotionEntry,
 } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
-import { formatDate } from '@biddaloy/ui/utils';
+import { DetailShell, type DetailShellAction } from '@biddaloy/ui/shells';
+import { formatDate, formatNumber } from '@biddaloy/ui/utils';
 import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
+import { CircleCheckIcon, RotateCcwIcon, Trash2Icon, TriangleAlertIcon } from 'lucide-react';
 import * as React from 'react';
 
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
@@ -68,6 +70,11 @@ const OUTCOME_KEY: Record<PromotionOutcome, string> = {
   PROMOTE: 'outcome.promote',
   RETAIN: 'outcome.retain',
   GRADUATE: 'outcome.graduate',
+};
+
+const PLACEMENT_ERROR_KEY: Record<string, string> = {
+  OVER_CAPACITY: 'grid.placementError.OVER_CAPACITY',
+  NO_ELIGIBLE_SECTION: 'grid.placementError.NO_ELIGIBLE_SECTION',
 };
 
 export const Route = createFileRoute('/_staff/promotions/$runId')({
@@ -131,12 +138,19 @@ function PromotionRunPage() {
   const editsRef = React.useRef<ReadonlyMap<string, EntryEdit>>(new Map());
   const [noteErrors, setNoteErrors] = React.useState<ReadonlySet<string>>(new Set());
   const [commitOpen, setCommitOpen] = React.useState(false);
+  const [deleteOpen, setDeleteOpen] = React.useState(false);
+  // Set when a decision becomes an override; the reason input mounts on that render, so the
+  // focus moves in an effect rather than a frame callback that could run before it exists.
+  const [focusNoteFor, setFocusNoteFor] = React.useState<string | null>(null);
   const [staleBanner, setStaleBanner] = React.useState(false);
   const [cohortChangedBanner, setCohortChangedBanner] = React.useState(false);
   const [mobileIndex, setMobileIndex] = React.useState(0);
 
   const noteTimers = React.useRef(new Map<string, ReturnType<typeof setTimeout>>());
   const focusRefs = React.useRef(new Map<string, HTMLElement>());
+  // Radix returns focus to the Select trigger after our effect; this lets the close handler
+  // send it to the reason box instead.
+  const noteFocusPending = React.useRef<string | null>(null);
 
   React.useEffect(
     () => () => {
@@ -146,18 +160,24 @@ function PromotionRunPage() {
   );
 
   const run = runQuery.data;
-  const classesQuery = useClasses({});
-  const yearsQuery = useAcademicYears();
+  const classesQuery = useAllClasses();
+  const yearsQuery = useAcademicYears({ limit: 100 });
   const sectionsQuery = useClassSections(run?.target_class_id ?? undefined);
   const committedByQuery = useUser(run?.committed_by_user_id ?? undefined);
   const approvedByQuery = useUser(run?.approved_by_user_id ?? undefined);
+
+  React.useEffect(() => {
+    if (focusNoteFor === null) return;
+    focusRefs.current.get(`note:${focusNoteFor}`)?.focus();
+    setFocusNoteFor(null);
+  }, [focusNoteFor]);
 
   // Same rule as the Commit button (`!readOnly && canManage`): the shortcut
   // must not open the dialog on a committed run or for a role that can't
   // commit.
   const canCommit = run?.status === 'DRAFT' && canManage;
   React.useEffect(() => {
-    if (typeof window === 'undefined' || !canCommit) return;
+    if (typeof window === 'undefined' || !canCommit || deleteOpen) return;
     function handleKeyDown(event: KeyboardEvent) {
       if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
         event.preventDefault();
@@ -166,11 +186,17 @@ function PromotionRunPage() {
     }
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [canCommit]);
+  }, [canCommit, deleteOpen]);
 
   if (runQuery.isPending) return <Skeleton className="h-64 w-full" />;
   if (runQuery.isError || !run) {
-    return <ErrorState message={t('list.errorMessage')} onRetry={() => void runQuery.refetch()} />;
+    return (
+      <ErrorState
+        message={t('grid.loadError')}
+        retryLabel={t('actions.retry', { ns: 'common' })}
+        onRetry={() => void runQuery.refetch()}
+      />
+    );
   }
 
   const readOnly = run.status === 'COMMITTED';
@@ -178,7 +204,7 @@ function PromotionRunPage() {
   const sectionNames = new Map(
     (sectionsQuery.data ?? []).map((section) => [section.id, section.section_name]),
   );
-  const classNames = new Map((classesQuery.data?.data ?? []).map((cls) => [cls.id, cls.name]));
+  const classNames = new Map((classesQuery.data ?? []).map((cls) => [cls.id, cls.name]));
   const yearNames = new Map((yearsQuery.data?.data ?? []).map((year) => [year.id, year.name]));
 
   const entries = [...run.entries].sort(
@@ -286,9 +312,8 @@ function PromotionRunPage() {
     if (body) void send([body]);
     if (outcome !== entry.suggested_outcome) {
       // Override: jump focus to this row's note input (D-required note).
-      window.requestAnimationFrame(() => {
-        focusRefs.current.get(`note:${entry.student_id}`)?.focus();
-      });
+      setFocusNoteFor(entry.student_id);
+      noteFocusPending.current = entry.student_id;
     }
   }
 
@@ -343,11 +368,16 @@ function PromotionRunPage() {
   }
 
   function handleOutcomeKeyDown(
-    event: React.KeyboardEvent<HTMLDivElement>,
+    event: React.KeyboardEvent<HTMLButtonElement>,
     entry: PromotionEntry,
     rowIndex: number,
   ) {
     const key = event.key;
+    // Ctrl/Cmd+Enter is the page-level Finalise shortcut: keep the Select from opening on it.
+    if (event.ctrlKey || event.metaKey) {
+      if (key === 'Enter') event.preventDefault();
+      return;
+    }
     if (key === 'p' || key === 'P') {
       event.preventDefault();
       setOutcome(entry, 'PROMOTE');
@@ -376,7 +406,10 @@ function PromotionRunPage() {
     if (key === 'ArrowRight') {
       event.preventDefault();
       focusRefs.current.get(`group:${entry.student_id}`)?.focus();
+      return;
     }
+    // Radix type-to-search would pick the option whose label starts with this letter.
+    if (key.length === 1 && key !== ' ') event.preventDefault();
   }
 
   // Only commit can fail with these codes — the entries PATCH never checks
@@ -428,271 +461,423 @@ function PromotionRunPage() {
   function deleteDraft() {
     deleteRun.mutate(runId, {
       onSuccess: () => void navigate({ to: '/promotions' }),
+      onError: (error: unknown) => {
+        setDeleteOpen(false);
+        if (error instanceof ApiError && error.statusCode === 409) {
+          // Finalised (or otherwise changed) elsewhere: show the current state.
+          toast.error(t('grid.deleteConflict'));
+          void queryClient.invalidateQueries({
+            queryKey: promotionRunQueryOptions(runId).queryKey,
+          });
+        } else if (!(error instanceof ApiError && error.statusCode === 403)) {
+          toast.error(t('grid.deleteFailed'));
+        }
+      },
     });
   }
 
-  const sourceClassName = classNames.get(run.source_class_id) ?? run.source_class_id;
+  // `DetailShell`'s name is a plain string: a dash while a lookup loads or the id is unknown.
+  const dash = t('list.emptyValue');
+  const className = (id: string) => classNames.get(id) ?? dash;
+  const sourceClassName = className(run.source_class_id);
   const targetClassName =
-    run.target_class_id === null
-      ? t('outcome.graduate')
-      : (classNames.get(run.target_class_id) ?? run.target_class_id);
-  const targetYearName = yearNames.get(run.target_academic_year_id) ?? run.target_academic_year_id;
+    run.target_class_id === null ? t('outcome.graduate') : className(run.target_class_id);
+  const nameOr = (value: string | undefined, loading: boolean): React.ReactNode =>
+    value ?? (loading ? <Skeleton className="h-4 w-24" /> : dash);
   const algorithmLabel = t(
     run.algorithm === 'BLOCK' ? 'newRunForm.algorithmBlock' : 'newRunForm.algorithmSnake',
   );
+  const fmt = (n: number) => formatNumber(n, config);
+
+  const facts: { label: string; value: React.ReactNode }[] = [
+    {
+      label: t('grid.facts.targetYear'),
+      value: nameOr(yearNames.get(run.target_academic_year_id), yearsQuery.isLoading),
+    },
+    {
+      label: t('grid.facts.exams'),
+      value: t('grid.facts.examCount', { n: fmt(run.exam_ids.length) }),
+    },
+    { label: t('grid.facts.algorithm'), value: algorithmLabel },
+    {
+      label: t('grid.facts.students'),
+      value: t('grid.facts.studentCount', { n: fmt(entries.length) }),
+    },
+  ];
+  if (readOnly) {
+    facts.push(
+      { label: t('grid.facts.committedAt'), value: formatDate(run.committed_at, config) },
+      {
+        label: t('grid.facts.committedBy'),
+        value: run.committed_by_user_id
+          ? nameOr(committedByQuery.data?.full_name, committedByQuery.isLoading)
+          : dash,
+      },
+    );
+    if (run.approved_by_user_id) {
+      facts.push({
+        label: t('grid.facts.approvedBy'),
+        value: nameOr(approvedByQuery.data?.full_name, approvedByQuery.isLoading),
+      });
+    }
+  }
+
+  const actions: DetailShellAction[] =
+    !readOnly && canManage
+      ? [
+          {
+            id: 'refresh',
+            label: refreshRun.isPending ? t('grid.refreshing') : t('grid.refresh'),
+            icon: <RotateCcwIcon aria-hidden="true" />,
+            priority: 'secondary',
+            busy: refreshRun.isPending,
+            onClick: () => void refresh(),
+          },
+          {
+            id: 'commit',
+            label: t('grid.commit'),
+            icon: <CircleCheckIcon aria-hidden="true" />,
+            priority: 'primary',
+            onClick: () => setCommitOpen(true),
+          },
+          {
+            id: 'delete',
+            label: t('grid.delete'),
+            icon: <Trash2Icon aria-hidden="true" />,
+            priority: 'destructive',
+            onClick: () => setDeleteOpen(true),
+          },
+        ]
+      : [];
+
+  const countBadge = (label: string, n: number, tone: StatusTone) => (
+    <StatusBadge tone={tone} label={t('grid.countBadge', { label, n: fmt(n) })} />
+  );
+
+  // Placement result of one row: the section and roll, a danger badge for a problem, or a dash.
+  function placement(entry: PromotionEntry, finalOutcome: PromotionOutcome, override: boolean) {
+    if (finalOutcome !== 'PROMOTE') return dash;
+    if (!override && entry.placement_error) {
+      return (
+        <StatusBadge
+          tone="danger"
+          label={t(PLACEMENT_ERROR_KEY[entry.placement_error] ?? 'grid.placementError.unknown')}
+        />
+      );
+    }
+    const section = sectionNames.get(entry.target_section_id ?? '') ?? dash;
+    const roll = entry.new_roll_number === null ? dash : fmt(entry.new_roll_number);
+    return `${section} · ${roll}`;
+  }
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="sticky top-0 z-20 flex flex-col gap-2 border-b border-border-subtle bg-background p-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <h1 className="text-lg font-semibold">
-              {sourceClassName} → {targetClassName}
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              {t('grid.runSummary', {
-                source: sourceClassName,
-                target: `${targetClassName} (${targetYearName})`,
-                exams: run.exam_ids.length,
-                algorithm: algorithmLabel,
-              })}
-            </p>
-          </div>
-          {!readOnly && canManage && (
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                loading={refreshRun.isPending}
-                onClick={() => void refresh()}
-              >
-                {refreshRun.isPending ? t('grid.refreshing') : t('grid.refresh')}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                loading={deleteRun.isPending}
-                onClick={deleteDraft}
-              >
-                {t('grid.delete')}
-              </Button>
-              <Button type="button" size="sm" onClick={() => setCommitOpen(true)}>
-                {t('grid.commit')} ({t('grid.commitShortcutHint')})
-              </Button>
-            </div>
+    <DetailShell
+      name={`${sourceClassName} → ${targetClassName}`}
+      statusBadge={
+        <StatusBadge
+          tone={readOnly ? 'success' : 'neutral'}
+          label={t(readOnly ? 'list.statusCommitted' : 'list.statusDraft')}
+        />
+      }
+      facts={facts}
+      actions={actions}
+    >
+      <div className="space-y-4">
+        <div role="status" aria-label={t('grid.countsLabel')} className="flex flex-wrap gap-2">
+          {countBadge(t('grid.counts.promoted'), counts.promoted, 'success')}
+          {countBadge(t('grid.counts.retained'), counts.retained, 'warning')}
+          {countBadge(t('grid.counts.graduated'), counts.graduated, 'neutral')}
+          {countBadge(t('grid.counts.overrides'), counts.overrides, 'info')}
+          {countBadge(
+            t('grid.counts.errors'),
+            counts.errors,
+            counts.errors > 0 ? 'danger' : 'neutral',
           )}
         </div>
 
-        <div className="flex flex-wrap gap-4 text-sm text-muted-foreground" role="status">
-          <span>
-            {t('grid.counts.promoted')}: {counts.promoted}
-          </span>
-          <span>
-            {t('grid.counts.retained')}: {counts.retained}
-          </span>
-          <span>
-            {t('grid.counts.graduated')}: {counts.graduated}
-          </span>
-          <span>
-            {t('grid.counts.overrides')}: {counts.overrides}
-          </span>
-          <span className={counts.errors > 0 ? 'text-destructive' : undefined}>
-            {t('grid.counts.errors')}: {counts.errors}
-          </span>
-        </div>
-
-        {readOnly && (
-          <p className="rounded-md border border-border-subtle bg-muted p-2 text-sm text-muted-foreground">
-            {t('grid.readOnlyBanner', {
-              date: run.committed_at ? formatDate(new Date(run.committed_at), config) : '',
-              committedBy: committedByQuery.data?.full_name ?? run.committed_by_user_id ?? '',
-              approvedBy: approvedByQuery.data?.full_name ?? run.approved_by_user_id ?? '',
-            })}
-          </p>
+        {!readOnly && counts.errors > 0 && (
+          <AlertCard
+            title={t('grid.errorsTitle', { n: fmt(counts.errors) })}
+            body={t('grid.errorsBody')}
+          />
         )}
 
         {staleBanner && !readOnly && (
-          <div role="alert" className="flex items-center gap-2 rounded-md border border-destructive p-2 text-sm text-destructive">
-            <span>{t('grid.staleResultsPrompt')}</span>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              loading={refreshRun.isPending}
-              onClick={() => void refresh()}
-            >
-              {t('grid.refresh')}
-            </Button>
-          </div>
+          <AlertCard
+            title={t('grid.staleResultsPrompt')}
+            action={
+              <Button
+                type="button"
+                variant="outline"
+                loading={refreshRun.isPending}
+                onClick={() => void refresh()}
+              >
+                {t('grid.refresh')}
+              </Button>
+            }
+          />
         )}
 
-        {cohortChangedBanner && !readOnly && (
-          <div
-            role="alert"
-            className="rounded-md border border-destructive p-2 text-sm text-destructive"
-          >
-            {t('grid.cohortChangedPrompt')}
-          </div>
+        {cohortChangedBanner && !readOnly && <AlertCard title={t('grid.cohortChangedPrompt')} />}
+
+        {isMobile ? (
+          <PromotionEntryCard
+            entries={entries}
+            index={mobileIndex}
+            onIndexChange={setMobileIndex}
+            groups={groups}
+            readOnly={readOnly}
+            effective={effective}
+            isOverride={isOverride}
+            noteErrors={noteErrors}
+            placement={placement}
+            config={config}
+            onOutcome={setOutcome}
+            onGroup={setGroup}
+            onNote={setNote}
+            onNoteBlur={blurNote}
+          />
+        ) : (
+          <section className="overflow-hidden rounded-lg border border-border-subtle bg-surface shadow-e1">
+            <div className="overflow-x-auto">
+              <table className="w-full text-start">
+                <caption className="sr-only">{t('grid.tableCaption')}</caption>
+                <thead className="border-b border-border-subtle bg-muted text-label text-text-secondary">
+                  <tr>
+                    <th className="h-10 px-4 text-end font-medium">{t('grid.columnMeritRank')}</th>
+                    <th className="h-10 min-w-40 px-4 text-start font-medium">
+                      {t('grid.columnStudent')}
+                    </th>
+                    <th className="h-10 px-4 text-end font-medium">{t('grid.columnMeanGpa')}</th>
+                    <th className="h-10 px-4 text-start font-medium">
+                      {t('grid.columnSuggested')}
+                    </th>
+                    <th className="h-10 px-4 text-start font-medium">{t('grid.columnFinal')}</th>
+                    {groups.length > 0 && (
+                      <th className="h-10 px-4 text-start font-medium">{t('grid.columnGroup')}</th>
+                    )}
+                    <th className="h-10 px-4 text-start font-medium">
+                      {t('grid.columnPlacement')}
+                    </th>
+                    <th className="h-10 min-w-40 px-4 text-start font-medium">
+                      {t('grid.columnOverrideNote')}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border-subtle">
+                  {entries.map((entry, rowIndex) => {
+                    const eff = effective(entry);
+                    const override = isOverride(entry);
+                    const noteError = noteErrors.has(entry.student_id);
+                    return (
+                      <tr key={entry.student_id} className="align-top hover:bg-muted">
+                        <td className="px-4 py-1.5 text-end tabular-nums">
+                          {entry.merit_rank === null ? dash : fmt(entry.merit_rank)}
+                        </td>
+                        <td className="px-4 py-1.5">
+                          <span className="font-medium">{entry.student_name ?? dash}</span>
+                          <span className="block text-caption text-text-secondary">
+                            {t('grid.studentRoll', {
+                              roll:
+                                entry.student_roll_number === null
+                                  ? dash
+                                  : fmt(entry.student_roll_number),
+                            })}
+                          </span>
+                        </td>
+                        <td className="px-4 py-1.5 text-end tabular-nums">
+                          {entry.mean_gpa === null
+                            ? dash
+                            : formatNumber(Number(entry.mean_gpa), config, { decimals: 2 })}
+                        </td>
+                        <td className="px-4 py-1.5">{t(OUTCOME_KEY[entry.suggested_outcome])}</td>
+                        <td className="px-4 py-1.5">
+                          {readOnly ? (
+                            t(OUTCOME_KEY[eff.final_outcome])
+                          ) : (
+                            <>
+                              <Select
+                                value={eff.final_outcome}
+                                onValueChange={(value) =>
+                                  setOutcome(entry, value as PromotionOutcome)
+                                }
+                              >
+                                <SelectTrigger
+                                  ref={(el) => {
+                                    const key = `outcome:${entry.student_id}`;
+                                    if (el) focusRefs.current.set(key, el);
+                                    else focusRefs.current.delete(key);
+                                  }}
+                                  aria-label={t('grid.columnFinal')}
+                                  className="w-36"
+                                  onKeyDown={(event) =>
+                                    handleOutcomeKeyDown(event, entry, rowIndex)
+                                  }
+                                >
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent
+                                  onCloseAutoFocus={(event) => {
+                                    if (noteFocusPending.current !== entry.student_id) return;
+                                    noteFocusPending.current = null;
+                                    const note = focusRefs.current.get(`note:${entry.student_id}`);
+                                    if (note) {
+                                      event.preventDefault();
+                                      note.focus();
+                                    }
+                                  }}
+                                >
+                                  {(Object.keys(OUTCOME_KEY) as PromotionOutcome[]).map(
+                                    (outcome) => (
+                                      <SelectItem key={outcome} value={outcome}>
+                                        {t(OUTCOME_KEY[outcome])}
+                                      </SelectItem>
+                                    ),
+                                  )}
+                                </SelectContent>
+                              </Select>
+                              {override && (
+                                <div className="mt-1">
+                                  <StatusBadge tone="info" label={t('grid.overrideChip')} />
+                                </div>
+                              )}
+                            </>
+                          )}
+                        </td>
+                        {groups.length > 0 && (
+                          <td className="px-4 py-1.5">
+                            <Select
+                              value={eff.group_name ?? NONE_VALUE}
+                              onValueChange={(value) => setGroup(entry, value)}
+                              disabled={readOnly}
+                            >
+                              <SelectTrigger
+                                ref={(el) => {
+                                  const key = `group:${entry.student_id}`;
+                                  if (el) focusRefs.current.set(key, el);
+                                  else focusRefs.current.delete(key);
+                                }}
+                                aria-label={t('grid.columnGroup')}
+                              >
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem
+                                  value={NONE_VALUE}
+                                  disabled={eff.group_name != null}
+                                  title={
+                                    eff.group_name != null
+                                      ? t('grid.groupClearUnsupported')
+                                      : undefined
+                                  }
+                                >
+                                  {t('grid.groupNone')}
+                                </SelectItem>
+                                {groups.map((group) => (
+                                  <SelectItem key={group} value={group}>
+                                    {group}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </td>
+                        )}
+                        <td className="px-4 py-1.5">
+                          {placement(entry, eff.final_outcome, override)}
+                        </td>
+                        <td className="px-4 py-1.5">
+                          {readOnly ? (
+                            (eff.override_note ?? dash)
+                          ) : override ? (
+                            <>
+                              <Input
+                                ref={(el) => {
+                                  const key = `note:${entry.student_id}`;
+                                  if (el) focusRefs.current.set(key, el);
+                                  else focusRefs.current.delete(key);
+                                }}
+                                aria-label={t('grid.columnOverrideNote')}
+                                placeholder={t('grid.notePlaceholder')}
+                                value={eff.override_note ?? ''}
+                                onChange={(event) => setNote(entry.student_id, event.target.value)}
+                                onBlur={() => blurNote(entry)}
+                              />
+                              {noteError && (
+                                <p
+                                  role="alert"
+                                  className="mt-1 text-caption text-status-overdue-fg"
+                                >
+                                  {t('grid.noteRequired')}
+                                </p>
+                              )}
+                            </>
+                          ) : (
+                            dash
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <p className="border-t border-border-subtle px-4 py-3 text-text-secondary">
+              {t(readOnly ? 'grid.footerTotal' : 'grid.footerHint', { n: fmt(entries.length) })}
+            </p>
+          </section>
         )}
       </div>
 
-      {isMobile ? (
-        <PromotionEntryCard
-          entries={entries}
-          index={mobileIndex}
-          onIndexChange={setMobileIndex}
-          groups={groups}
-          readOnly={readOnly}
-          effective={effective}
-          isOverride={isOverride}
-          noteErrors={noteErrors}
-          sectionNames={sectionNames}
-          onOutcome={setOutcome}
-          onGroup={setGroup}
-          onNote={setNote}
-          onNoteBlur={blurNote}
+      {commitOpen && (
+        <CommitDialog
+          open={commitOpen}
+          onOpenChange={setCommitOpen}
+          counts={counts}
+          config={config}
+          hasPlacementErrors={hasPlacementErrors}
+          hasUnnotedOverrides={hasUnnotedOverrides}
+          confirming={commitRun.isPending || updateEntries.isPending}
+          onConfirm={() => void confirmCommit()}
         />
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-sm">
-            <caption className="sr-only">{t('list.title')}</caption>
-            <thead>
-              <tr className="border-b text-start text-muted-foreground">
-                <th className="px-2 py-2">{t('grid.columnMeritRank')}</th>
-                <th className="sticky start-0 z-10 min-w-40 bg-background px-2 py-2">
-                  {t('grid.columnStudent')}
-                </th>
-                <th className="px-2 py-2">{t('grid.columnSuggested')}</th>
-                <th className="px-2 py-2">{t('grid.columnFinal')}</th>
-                <th className="px-2 py-2">{t('grid.columnGroup')}</th>
-                <th className="px-2 py-2">{t('grid.columnTargetSection')}</th>
-                <th className="px-2 py-2">{t('grid.columnNewRoll')}</th>
-                <th className="min-w-40 px-2 py-2">{t('grid.columnOverrideNote')}</th>
-                <th className="px-2 py-2">{t('grid.columnPlacementError')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {entries.map((entry, rowIndex) => {
-                const eff = effective(entry);
-                const override = isOverride(entry);
-                const noteError = noteErrors.has(entry.student_id);
-                return (
-                  <tr key={entry.student_id} className="border-b align-top">
-                    <td className="px-2 py-2">{entry.merit_rank ?? '—'}</td>
-                    <td className="sticky start-0 z-10 bg-background px-2 py-2">
-                      <span className="font-medium">{entry.student_roll_number}</span>{' '}
-                      {entry.student_name}
-                    </td>
-                    <td className="px-2 py-2">{t(OUTCOME_KEY[entry.suggested_outcome])}</td>
-                    <td className="px-2 py-2">
-                      <div
-                        ref={(el) => {
-                          const key = `outcome:${entry.student_id}`;
-                          if (el) focusRefs.current.set(key, el);
-                          else focusRefs.current.delete(key);
-                        }}
-                        role="button"
-                        tabIndex={readOnly ? -1 : 0}
-                        aria-label={t('grid.columnFinal')}
-                        className="flex items-center gap-1 rounded-md border border-input px-2 py-1 focus:outline-none focus:ring-2 focus:ring-ring"
-                        onKeyDown={(event) =>
-                          readOnly ? undefined : handleOutcomeKeyDown(event, entry, rowIndex)
-                        }
-                      >
-                        {t(OUTCOME_KEY[eff.final_outcome])}
-                        {override && (
-                          <span className="rounded bg-status-due-fg/20 px-1 text-xs text-status-due-fg">
-                            {t('grid.overrideChip')}
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-2 py-2">
-                      <Select
-                        value={eff.group_name ?? NONE_VALUE}
-                        onValueChange={(value) => setGroup(entry, value)}
-                        disabled={readOnly}
-                      >
-                        <SelectTrigger
-                          ref={(el) => {
-                            const key = `group:${entry.student_id}`;
-                            if (el) focusRefs.current.set(key, el);
-                            else focusRefs.current.delete(key);
-                          }}
-                          aria-label={t('grid.columnGroup')}
-                        >
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem
-                            value={NONE_VALUE}
-                            disabled={eff.group_name != null}
-                            title={
-                              eff.group_name != null ? t('grid.groupClearUnsupported') : undefined
-                            }
-                          >
-                            {t('grid.groupNone')}
-                          </SelectItem>
-                          {groups.map((group) => (
-                            <SelectItem key={group} value={group}>
-                              {group}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </td>
-                    <td className="px-2 py-2">
-                      {eff.final_outcome === 'PROMOTE'
-                        ? (sectionNames.get(entry.target_section_id ?? '') ?? '—')
-                        : '—'}
-                    </td>
-                    <td className="px-2 py-2">
-                      {eff.final_outcome === 'PROMOTE' ? (entry.new_roll_number ?? '—') : '—'}
-                    </td>
-                    <td className="px-2 py-2">
-                      <input
-                        ref={(el) => {
-                          const key = `note:${entry.student_id}`;
-                          if (el) focusRefs.current.set(key, el);
-                          else focusRefs.current.delete(key);
-                        }}
-                        type="text"
-                        disabled={readOnly}
-                        aria-label={t('grid.columnOverrideNote')}
-                        value={eff.override_note ?? ''}
-                        className="h-9 w-full rounded-md border border-input bg-background px-2"
-                        onChange={(event) => setNote(entry.student_id, event.target.value)}
-                        onBlur={() => blurNote(entry)}
-                      />
-                      {noteError && (
-                        <p role="alert" className="text-xs text-destructive">
-                          {t('grid.noteRequired')}
-                        </p>
-                      )}
-                    </td>
-                    <td className="px-2 py-2 text-destructive">
-                      {!override && eff.final_outcome === 'PROMOTE' ? (entry.placement_error ?? '') : ''}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
       )}
-
-      <CommitDialog
-        open={commitOpen}
-        onOpenChange={setCommitOpen}
-        counts={counts}
-        hasPlacementErrors={hasPlacementErrors}
-        hasUnnotedOverrides={hasUnnotedOverrides}
-        confirming={commitRun.isPending || updateEntries.isPending}
-        onConfirm={() => void confirmCommit()}
+      <ConfirmDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        tone="danger"
+        title={t('grid.deleteConfirm.title')}
+        description={t('grid.deleteConfirm.body')}
+        confirmLabel={t('grid.deleteConfirm.confirm')}
+        cancelLabel={t('grid.deleteConfirm.cancel')}
+        busy={deleteRun.isPending}
+        onConfirm={deleteDraft}
       />
-    </div>
+    </DetailShell>
+  );
+}
+
+function AlertCard({
+  title,
+  body,
+  action,
+}: {
+  title: string;
+  body?: string;
+  action?: React.ReactNode;
+}) {
+  return (
+    <section
+      role="alert"
+      className="flex items-start gap-3 rounded-lg border border-border-subtle bg-surface p-4 shadow-e1 md:p-5"
+    >
+      <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-status-overdue-bg text-status-overdue-fg">
+        <TriangleAlertIcon aria-hidden="true" />
+      </span>
+      <div className="min-w-0 space-y-1">
+        <h2 className="text-h3">{title}</h2>
+        {body && <p className="text-text-secondary">{body}</p>}
+        {action && <div className="pt-2">{action}</div>}
+      </div>
+    </section>
   );
 }
 
