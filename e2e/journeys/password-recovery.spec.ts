@@ -85,7 +85,7 @@ test.describe('admin staff-detail reset', () => {
     const staffMember = await createStaffUser(request, admin, 'Staff Reset E2E');
 
     await page.goto(`/staff/${staffMember.id}`);
-    await expect(page.getByText('Staff Reset E2E')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Staff Reset E2E' })).toBeVisible();
 
     await page.getByRole('button', { name: t('staff.detail.actions.resetPassword') }).click();
     const dialog = page.getByRole('dialog');

@@ -142,7 +142,7 @@ describe('PrintPreview', () => {
     vi.mocked(runPrint).mockResolvedValue(printResult(50));
     const { user } = setup(ids(120));
 
-    expect(await screen.findByText(/Batch 1 of 3 · 50 cards/)).toBeTruthy();
+    expect(await screen.findByText(/Round 1 of 3 · 50 cards/)).toBeTruthy();
     await waitFor(() =>
       expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Print' }).disabled).toBe(false),
     );
@@ -150,12 +150,12 @@ describe('PrintPreview', () => {
     await user.click(screen.getByRole<HTMLButtonElement>('button', { name: 'Print' }));
     // The job is created and printed; now the answer is needed before anything else can happen.
     expect(await screen.findByText('Did all 50 cards print correctly?')).toBeTruthy();
-    expect(screen.getByText(/Batch 1 of 3/)).toBeTruthy(); // batch 2 is not reachable yet
+    expect(screen.getByText(/Round 1 of 3/)).toBeTruthy(); // batch 2 is not reachable yet
 
     await user.click(screen.getByRole('button', { name: 'Yes, all printed' }));
     await user.click(await screen.findByRole('button', { name: 'Continue' }));
 
-    expect(await screen.findByText(/Batch 2 of 3 · 50 cards/)).toBeTruthy();
+    expect(await screen.findByText(/Round 2 of 3 · 50 cards/)).toBeTruthy();
     expect(vi.mocked(runPrint).mock.calls[0]?.[0].request).toMatchObject({
       kind: 'create',
       body: { subject_ids: ids(120).slice(0, 50), batch_label: '1/3' },
@@ -167,12 +167,12 @@ describe('PrintPreview', () => {
     servePreview();
     const { user } = setup(ids(120));
 
-    const input = await screen.findByLabelText<HTMLInputElement>(/Cards per batch/);
+    const input = await screen.findByLabelText<HTMLInputElement>(/Cards per round/);
     await user.clear(input);
     await user.type(input, '80');
 
     await waitFor(() => expect(input.value).toBe('50'));
-    expect(screen.getByText(/Batch 1 of 3/)).toBeTruthy();
+    expect(screen.getByText(/Round 1 of 3/)).toBeTruthy();
   });
 
   it('clearing the batch size falls back to the maximum instead of breaking the batches', async () => {
@@ -180,11 +180,11 @@ describe('PrintPreview', () => {
     servePreview();
     const { user } = setup(ids(120));
 
-    const input = await screen.findByLabelText<HTMLInputElement>(/Cards per batch/);
+    const input = await screen.findByLabelText<HTMLInputElement>(/Cards per round/);
     await user.clear(input); // a cleared number input reads as NaN
 
     await waitFor(() => expect(input.value).toBe('50'));
-    expect(screen.getByText(/Batch 1 of 3/)).toBeTruthy();
+    expect(screen.getByText(/Round 1 of 3/)).toBeTruthy();
     await waitFor(() =>
       expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Print' }).disabled).toBe(false),
     );

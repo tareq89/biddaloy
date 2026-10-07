@@ -93,10 +93,18 @@ test.describe('admin closes', () => {
 
   test('results stay sealed below the minimum', async ({ page }) => {
     await page.goto(`/staff/evaluations/surveys/${surveyId}`);
-    await page
-      .getByRole('button', { name: t('evaluations.surveys.detail.close'), exact: true })
-      .click();
-    await expect(page.getByRole('status').filter({ hasText: '1' }).first()).toBeVisible();
+    // On a phone the header folds "Close survey" into the "More actions" menu.
+    const closeName = t('evaluations.surveys.detail.close');
+    const inline = page.getByRole('button', { name: closeName, exact: true });
+    const more = page.getByRole('button', { name: t('common.actions.moreActions') });
+    await expect(inline.or(more).filter({ visible: true }).first()).toBeVisible();
+    if (await inline.first().isVisible()) {
+      await inline.first().click();
+    } else {
+      await more.click();
+      await page.getByRole('menuitem', { name: closeName, exact: true }).click();
+    }
+    await expect(page.getByRole('status').filter({ hasText: /[1১]/ }).first()).toBeVisible();
     // No average is shown while sealed.
     await expect(page.getByText(/Average|গড়/)).toHaveCount(0);
   });

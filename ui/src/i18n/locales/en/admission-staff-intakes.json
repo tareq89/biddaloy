@@ -1,8 +1,8 @@
 {
   "list": {
-    "title": "Admission intakes",
-    "caption": "Admission intakes",
-    "addIntake": "Add intake",
+    "title": "Admission rounds",
+    "caption": "Admission rounds",
+    "addIntake": "Add admission round",
     "columnTitle": "Title",
     "columnClassSection": "Class / Section",
     "columnSeatCount": "Seats",
@@ -11,12 +11,12 @@
     "columnStatus": "Status",
     "statusOpen": "Open",
     "statusClosed": "Closed",
-    "emptyMessage": "No admission intakes found",
-    "errorMessage": "Failed to load admission intakes"
+    "emptyMessage": "No admission rounds found",
+    "errorMessage": "Failed to load admission rounds"
   },
   "createDialog": {
-    "title": "Add admission intake",
-    "errorMessage": "Failed to create admission intake",
+    "title": "Add admission round",
+    "errorMessage": "Failed to create admission round",
     "save": "Create",
     "saving": "Creating…"
   },
@@ -36,6 +36,6 @@
   "detail": {
     "save": "Save",
     "saving": "Saving…",
-    "errorMessage": "Failed to save admission intake"
+    "errorMessage": "Failed to save admission round"
   }
 }

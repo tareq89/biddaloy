@@ -80,7 +80,7 @@ async function selectBothStudents(user: ReturnType<typeof userEvent.setup>) {
 
 async function fillMessageStep(user: ReturnType<typeof userEvent.setup>) {
   await user.click(wizardNext());
-  await user.type(screen.getByRole('textbox', { name: 'Batch name' }), 'August dues');
+  await user.type(screen.getByRole('textbox', { name: 'Round name' }), 'August dues');
   await user.click(screen.getByRole('textbox', { name: 'Message template' }));
   await user.paste('Dear {{guardian_name}}, dues are open.');
 }
@@ -136,7 +136,7 @@ describe('bulk reminder wizard', () => {
     // On review: never previewed — the standing rule.
     const submit = screen.getByRole<HTMLButtonElement>('button', { name: 'Send reminders' });
     expect(submit.disabled).toBe(true);
-    expect(screen.getByText('Run the preview to enable sending.')).toBeTruthy();
+    expect(screen.getByText('Check the preview to enable sending.')).toBeTruthy();
 
     await user.click(screen.getByRole('button', { name: 'Preview recipients' }));
     // MSW's default bulk preview echoes both students back as recipients.
@@ -170,7 +170,7 @@ describe('bulk reminder wizard', () => {
     await screen.findByRole('checkbox', { name: `Select row ${n(1)}` });
     await selectBothStudents(user);
     await user.click(wizardNext());
-    await user.type(screen.getByRole('textbox', { name: 'Batch name' }), 'August dues');
+    await user.type(screen.getByRole('textbox', { name: 'Round name' }), 'August dues');
     await user.click(screen.getByRole('textbox', { name: 'Message template' }));
     await user.paste('Dear {{parent_name}}');
 
@@ -220,7 +220,7 @@ describe('bulk reminder wizard', () => {
       mediums: ['EMAIL', 'SMS', 'WHATSAPP'],
     });
 
-    const link = screen.getByRole<HTMLAnchorElement>('link', { name: 'View batch progress' });
+    const link = screen.getByRole<HTMLAnchorElement>('link', { name: 'See sending progress' });
     expect(link.getAttribute('href')).toBe('/communications/batches/batch-new-1');
   });
 

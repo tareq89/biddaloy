@@ -43,3 +43,29 @@ test('drawer opens, traps focus, and restores it on close', async ({ page }) => 
     await expect(trigger).toBeFocused();
   });
 });
+
+test('drawer is a start-edge full-height sheet with a sticky 44 px close (D13)', async ({
+  page,
+}) => {
+  await page.goto('/dashboard');
+  await page.getByRole('button', { name: t('nav.openMenuLabel') }).click();
+  const drawer = page.getByRole('dialog');
+  await expect(drawer).toBeVisible();
+  // wait out the slide-in so the box is final
+  await drawer.evaluate((el) => Promise.all(el.getAnimations().map((a) => a.finished)));
+
+  const box = (await drawer.boundingBox())!;
+  expect(box.x).toBe(0);
+  expect(Math.abs(box.height - page.viewportSize()!.height)).toBeLessThanOrEqual(1);
+
+  // not vacuous: the nav list is longer than the viewport, so it really scrolls
+  expect(await drawer.evaluate((el) => el.scrollHeight - el.clientHeight)).toBeGreaterThan(0);
+  await drawer.evaluate((el) => el.scrollTo(0, el.scrollHeight));
+  expect(await drawer.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
+  const close = drawer.getByRole('button', { name: t('nav.closeMenuLabel') });
+  const closeBox = (await close.boundingBox())!;
+  expect(closeBox.y).toBeGreaterThanOrEqual(0);
+  expect(closeBox.y + closeBox.height).toBeLessThanOrEqual(page.viewportSize()!.height);
+  expect(closeBox.width).toBeGreaterThanOrEqual(44);
+  expect(closeBox.height).toBeGreaterThanOrEqual(44);
+});

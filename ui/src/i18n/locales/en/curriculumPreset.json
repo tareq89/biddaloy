@@ -1,15 +1,15 @@
 {
-  "title": "Curriculum preset",
-  "loadError": "Could not load the curriculum presets.",
+  "title": "Ready-made curriculum",
+  "loadError": "Could not load the ready-made curricula.",
   "retry": "Try again",
   "steps": {
-    "pick": "Choose a preset",
+    "pick": "Choose a curriculum",
     "options": "Options",
     "confirm": "Confirm"
   },
-  "submit": "Apply preset",
+  "submit": "Use this curriculum",
   "cards": {
-    "label": "Curriculum presets",
+    "label": "Ready-made curricula",
     "select": "Choose",
     "selected": "Chosen",
     "preview": "Preview",
@@ -17,7 +17,7 @@
     "withVersions": "Versions: {{names}}"
   },
   "unverified": "Not checked — review marks and grading before use",
-  "unverifiedWarning": "This preset has not been checked against the official curriculum. Its subjects, and any marks or grading scale it includes, may be wrong. Check them, or set your own, before you rely on them.",
+  "unverifiedWarning": "This curriculum has not been checked against the official curriculum. Its subjects, and any marks or grading scale it includes, may be wrong. Check them, or set your own, before you rely on them.",
   "options": {
     "stages": "Stages to set up",
     "versions": "Versions to set up",
@@ -29,16 +29,16 @@
   "review": {
     "summary": "{{name}} — stages: {{stages}}, start year {{year}}.",
     "versions": "Versions: {{names}}.",
-    "next": "Press “Apply preset” to type the preset name and confirm."
+    "next": "Press “Use this curriculum” to type the curriculum name and confirm."
   },
   "confirm": {
     "title": "Apply {{name}}?",
-    "creates": "This will create the academic year, classes, subjects, grading scale and exam templates from the preset.",
+    "creates": "This will create the academic year, classes, subjects, grading scale and exam templates from the curriculum.",
     "irreversible": "This cannot be undone by you — only a platform administrator can reset it.",
     "typeLabel": "Type “{{name}}” to confirm",
     "apply": "Apply",
     "cancel": "Cancel",
-    "error": "Could not apply the preset. Please try again."
+    "error": "Could not apply the curriculum. Please try again."
   },
   "preview": {
     "title": "{{name}}",
@@ -64,8 +64,8 @@
     "none": "None"
   },
   "applied": {
-    "title": "Preset applied",
-    "preset": "Preset: {{id}} (version {{version}})",
+    "title": "Curriculum applied",
+    "preset": "Curriculum: {{id}} (version {{version}})",
     "appliedAt": "Applied on {{date}}",
     "appliedBy": "Applied by user {{id}}",
     "createdHeading": "What was created",
@@ -83,15 +83,15 @@
     }
   },
   "custom": {
-    "message": "Your school was set up without a curriculum preset."
+    "message": "Your school was set up without a ready-made curriculum."
   },
   "blocked": {
-    "heading": "A preset cannot be applied because these already exist:",
+    "heading": "A curriculum cannot be applied because these already exist:",
     "item": "{{entity}} — {{count}}",
     "open": "Open {{entity}}"
   },
   "settingsLink": {
-    "title": "Curriculum preset",
+    "title": "Ready-made curriculum",
     "applied": "Applied: {{id}} · {{version}}",
     "notApplied": "Not applied",
     "open": "Open"

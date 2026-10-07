@@ -13,7 +13,7 @@ import { ListShellPage } from '../pages/list-shell';
  */
 
 async function expectDialogOpen(page: Page): Promise<void> {
-  const dialog = page.getByRole('dialog');
+  const dialog = page.getByRole('dialog').or(page.getByRole('alertdialog'));
   await expect(dialog).toBeVisible();
   // `role="dialog"` resolves to `DialogContent` (`ui/src/primitives/
   // dialog.tsx`), which itself carries the open transition

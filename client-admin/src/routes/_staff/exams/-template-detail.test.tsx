@@ -32,19 +32,19 @@ describe('TemplateDetail preset banner', () => {
 
   it('shows with APPLIED for a viewer holding CURRICULUM_PRESET_APPLY', async () => {
     mount('ADMIN', 'APPLIED');
-    expect(await screen.findByText(/This comes from your curriculum preset/)).toBeTruthy();
+    expect(await screen.findByText(/This comes from your ready-made curriculum/)).toBeTruthy();
   });
 
   it('is absent with AVAILABLE', async () => {
     mount('ADMIN', 'AVAILABLE');
     await screen.findByText('Annual');
-    expect(screen.queryByText(/This comes from your curriculum preset/)).toBeNull();
+    expect(screen.queryByText(/This comes from your ready-made curriculum/)).toBeNull();
   });
 
   it('is not mounted without the permission', async () => {
     mount('TEACHER', 'APPLIED');
     await screen.findByText('Annual');
     await new Promise((r) => setTimeout(r, 50));
-    expect(screen.queryByText(/This comes from your curriculum preset/)).toBeNull();
+    expect(screen.queryByText(/This comes from your ready-made curriculum/)).toBeNull();
   });
 });

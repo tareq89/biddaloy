@@ -1,5 +1,5 @@
 {
-  "title": "Collections Report",
+  "title": "Fee collection report",
   "errorMessage": "Could not load the collections report.",
   "actions": {
     "downloadCsv": "Download CSV",
@@ -35,8 +35,8 @@
     "net": "Net",
     "standingDiscount": "Standing discount",
     "oneOffDiscount": "One-off discount",
-    "walletUsed": "Wallet used",
-    "walletAdded": "Wallet added",
+    "walletUsed": "Credit used",
+    "walletAdded": "Credit added",
     "changeReturned": "Change returned"
   },
   "print": {

@@ -146,35 +146,16 @@ export interface AppShellProps {
    * of the viewport below `md`, and `<main>` gets bottom padding (inclusive
    * of the safe-area inset) so content can scroll clear of it.
    *
-   * [8.14.3]: providing `bottomNav` alone no longer removes the `<md`
-   * header-bar + hamburger drawer — the portal (no `mobileHeaderActions`)
-   * still drops it exactly as before, but a caller that also passes
-   * `mobileHeaderActions` (staff) keeps both: the drawer is where the full
-   * destination list still lives, `BottomNav`'s own `more` cell is what
-   * opens it. See `showMobileHeader` below and `app-shell.test.tsx`'s
-   * portal-regression-lock case, which pins the old portal-only behaviour
-   * byte-for-byte. */
+   * Providing `bottomNav` alone drops the legacy `<md` header row and
+   * hamburger (the old portal shape); pass `mobileTitle` / `mobileActions` to
+   * keep the one-row phone top bar and its drawer, which `BottomNav`'s `more`
+   * cell opens. */
   bottomNav?: ReactNode;
-  /** [8.14.3] Rendered between `brand` and the hamburger trigger in the
-   * `<md` header row — e.g. a search launcher and a notification bell.
-   * Passing this (even alongside `bottomNav`) keeps the header row and its
-   * drawer rendering; see `bottomNav`'s own comment. Omitted by every
-   * caller that doesn't need one — the portal today.
-   * @deprecated use `mobileTitle` / `mobileActions`; language, theme and
-   * switch-school live in the account menu (D12). */
-  mobileHeaderActions?: ReactNode;
   /** D12: school name in the one-row phone top bar (truncates). Passing this or
    * `mobileActions` switches the phone header to the 56 px sticky row. */
   mobileTitle?: string;
   /** D12: right side of the phone top bar — search, bell, account, in that order. */
   mobileActions?: ReactNode;
-  /** [8.14.3] Rendered inside the drawer `DialogContent`, above the nav
-   * landmark — e.g. the staff `TenantBar` plus its own controls, so
-   * switching school or role stays one tap away even though the `<md`
-   * header row no longer carries `topBar`'s content directly.
-   * @deprecated use `mobileTitle` / `mobileActions`; language, theme and
-   * switch-school live in the account menu (D12). */
-  drawerHeader?: ReactNode;
   /** The active route's content — a consuming app's root route renders
    * `<AppShell navItems={...}><Outlet /></AppShell>`. */
   children: ReactNode;
@@ -463,7 +444,6 @@ function NavDrawer({
   trigger,
   brand,
   closeMenuLabel,
-  drawerHeader,
   children,
 }: {
   open: boolean;
@@ -471,7 +451,6 @@ function NavDrawer({
   trigger: ReactNode;
   brand: ReactNode;
   closeMenuLabel: string;
-  drawerHeader: ReactNode;
   children: ReactNode;
 }) {
   return (
@@ -496,10 +475,7 @@ function NavDrawer({
             </Button>
           </DialogClose>
         </div>
-        <div className="p-2">
-          {drawerHeader}
-          {children}
-        </div>
+        <div className="p-2">{children}</div>
       </DialogContent>
     </Dialog>
   );
@@ -515,10 +491,8 @@ export function AppShell({
   navLabel = 'Main',
   skipLinkLabel = 'Skip to main content',
   bottomNav,
-  mobileHeaderActions,
   mobileTitle,
   mobileActions,
-  drawerHeader,
   children,
 }: AppShellProps) {
   const role = useActiveRole();
@@ -539,14 +513,9 @@ export function AppShell({
   // otherwise pass the presence check while rendering nothing — hiding the
   // `<md` drawer and leaving that viewport with no navigation at all.
   const hasBottomNav = Boolean(bottomNav);
-  // [8.14.3]: the header row (and its drawer) is dropped only for a
-  // `bottomNav`-only caller (the portal, today) — a caller that also hands
-  // over `mobileHeaderActions` (staff) keeps it, since that's the only
-  // place those actions and the "More" drawer have anywhere to render.
-  // `mobileHeaderActions !== undefined` rather than `Boolean(...)`: an
-  // empty fragment is still "I want the row", unlike `bottomNav`'s
-  // false/null case above where nothing at all would be left to open.
-  const showMobileHeader = !hasBottomNav || mobileHeaderActions !== undefined;
+  // A `bottomNav`-only caller drops the bare brand+hamburger row; any other
+  // caller without `mobileTitle` / `mobileActions` keeps it so the drawer exists.
+  const showMobileHeader = !hasBottomNav;
   const useNewMobileBar = mobileTitle !== undefined || mobileActions !== undefined;
   const headerRef = React.useRef<HTMLDivElement>(null);
   const hasTopBar = topBar !== undefined;
@@ -651,7 +620,6 @@ export function AppShell({
                   }
                   brand={brand}
                   closeMenuLabel={closeMenuLabel}
-                  drawerHeader={drawerHeader}
                 >
                   {drawerNav}
                 </NavDrawer>
@@ -666,7 +634,6 @@ export function AppShell({
           {showMobileHeader && !useNewMobileBar && (
             <div className="flex items-center justify-between gap-2 border-b border-border-subtle p-2 md:hidden">
               {brand !== undefined && <div className="truncate text-sm font-semibold">{brand}</div>}
-              {mobileHeaderActions}
               <NavDrawer
                 open={drawerOpen}
                 onOpenChange={setDrawerOpen}
@@ -678,7 +645,6 @@ export function AppShell({
                 }
                 brand={brand}
                 closeMenuLabel={closeMenuLabel}
-                drawerHeader={drawerHeader}
               >
                 {drawerNav}
               </NavDrawer>

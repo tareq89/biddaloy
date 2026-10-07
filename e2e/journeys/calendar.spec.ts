@@ -55,6 +55,8 @@ test.describe.serial('calendar: create -> grid, past-lock, teacher read-only, fe
           await page.getByRole('button', { name: t('common.date.nextMonth') }).click();
         }
         await cell.click();
+        // let this picker finish closing, or the next one's grid matches twice
+        await expect(cell).toBeHidden();
       }
       // Publish immediately is checked by default — leave it, so the
       // event is visible on the grid without an extra publish step.

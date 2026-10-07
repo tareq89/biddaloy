@@ -49,7 +49,7 @@
   },
   "regional": {
     "legend": "আঞ্চলিক",
-    "locale": "লোকেল",
+    "locale": "ভাষা ও সংখ্যার ধরন",
     "numerals": "সংখ্যা পদ্ধতি",
     "numeralsLatin": "ল্যাটিন (0-9)",
     "numeralsBengali": "বাংলা (০-৯)",
@@ -169,7 +169,7 @@
         "ADJUST": "সমন্বয়"
       },
       "referenceType": {
-        "batch": "ব্যাচ",
+        "batch": "রিমাইন্ডারের দফা",
         "log": "বার্তা",
         "manual": "ম্যানুয়াল"
       }
@@ -200,7 +200,7 @@
     }
   },
   "fees": {
-    "approvalLegend": "ধাপে অনুমোদন",
+    "approvalLegend": "অতিরিক্ত অনুমোদন",
     "approvalModeLabel": "অনুমোদনের পদ্ধতি",
     "approvalModeOtp": "শুধু OTP",
     "approvalModeOtpOrPassword": "OTP অথবা পাসওয়ার্ড",

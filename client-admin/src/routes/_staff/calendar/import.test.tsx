@@ -98,7 +98,7 @@ describe('/calendar/import', () => {
 
     expect(await screen.findAllByText('Unchanged')).toHaveLength(2);
     // Commit stays enabled — an all-UNCHANGED file has no errors.
-    const commitButton = screen.getByRole('button', { name: 'Commit import' });
+    const commitButton = screen.getByRole('button', { name: 'Confirm import' });
     expect(commitButton.hasAttribute('disabled')).toBe(false);
   });
 
@@ -108,7 +108,7 @@ describe('/calendar/import', () => {
     await uploadFile(makeFile('calendar.csv'));
 
     await screen.findByText('Error');
-    const commitButton = screen.getByRole('button', { name: 'Commit import' });
+    const commitButton = screen.getByRole('button', { name: 'Confirm import' });
     expect(commitButton.hasAttribute('disabled')).toBe(true);
 
     const user = userEvent.setup();
@@ -116,7 +116,7 @@ describe('/calendar/import', () => {
     await waitFor(() => expect(commitButton.hasAttribute('disabled')).toBe(false));
   });
 
-  it('does not commit until "Commit import" is clicked, then shows a draft success screen', async () => {
+  it('does not commit until "Confirm import" is clicked, then shows a draft success screen', async () => {
     let commitCalled = false;
     server.use(
       validateHandler(cleanPreview),
@@ -137,7 +137,7 @@ describe('/calendar/import', () => {
     expect(commitCalled).toBe(false);
 
     const user = userEvent.setup();
-    await user.click(screen.getByRole('button', { name: 'Commit import' }));
+    await user.click(screen.getByRole('button', { name: 'Confirm import' }));
 
     await screen.findByText('Import complete');
     expect(commitCalled).toBe(true);
@@ -156,12 +156,12 @@ describe('/calendar/import', () => {
     await screen.findByText('2 new');
 
     const user = userEvent.setup();
-    await user.click(screen.getByRole('button', { name: 'Commit import' }));
+    await user.click(screen.getByRole('button', { name: 'Confirm import' }));
 
     expect(await screen.findByRole('alert')).toBeTruthy();
     // Stayed on the preview screen, not a success screen — the button is
     // clickable again (not stuck disabled from a lingering isPending).
-    expect(screen.getByRole('button', { name: 'Commit import' }).hasAttribute('disabled')).toBe(
+    expect(screen.getByRole('button', { name: 'Confirm import' }).hasAttribute('disabled')).toBe(
       false,
     );
   });
@@ -184,7 +184,7 @@ describe('/calendar/import', () => {
 
     const user = userEvent.setup();
     await user.click(screen.getByLabelText('Publish immediately'));
-    await user.click(screen.getByRole('button', { name: 'Commit import' }));
+    await user.click(screen.getByRole('button', { name: 'Confirm import' }));
 
     await screen.findByText('Import complete');
     expect(screen.getByText('2 event(s) were published.')).toBeTruthy();

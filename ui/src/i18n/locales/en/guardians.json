@@ -118,7 +118,7 @@
       "runPreview": "Preview invitations"
     },
     "preview": {
-      "runFirst": "Run the preview to see who will be invited.",
+      "runFirst": "Check the preview to see who will be invited.",
       "summary": "{{count}} guardian(s) will be invited — {{skipped}} skipped.",
       "skippedSummary": "{{count}} skipped"
     },

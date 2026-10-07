@@ -68,7 +68,7 @@ describe('/fees/generate', () => {
 
     render();
 
-    await screen.findByRole('heading', { name: 'Generated fees' });
+    await screen.findByRole('heading', { name: 'Fee bills created' });
     expect(await screen.findByText('Karim Rahman')).toBeTruthy();
     expect(screen.getByText('Partial')).toBeTruthy();
   });
@@ -202,7 +202,7 @@ describe('/fees/generate', () => {
       '/fees/generate?period_from=2026-01-01&period_to=2026-01-31&fee_type=MONTHLY_TUITION&source=MANUAL&generated_by_user_id=user-1&collection_status=PARTIAL',
     ]);
 
-    await screen.findByRole('heading', { name: 'Generated fees' });
+    await screen.findByRole('heading', { name: 'Fee bills created' });
     await waitFor(() => expect(lastQuery).not.toBe(''));
 
     const params = new URLSearchParams(lastQuery);
@@ -230,7 +230,7 @@ describe('/fees/generate', () => {
     );
 
     render();
-    await screen.findByRole('heading', { name: 'Generated fees' });
+    await screen.findByRole('heading', { name: 'Fee bills created' });
     await waitFor(() => expect(lastQuery).not.toBe(''));
 
     const params = new URLSearchParams(lastQuery);
@@ -254,7 +254,7 @@ describe('/fees/generate', () => {
 
     const user = userEvent.setup();
     render();
-    await screen.findByRole('heading', { name: 'Generated fees' });
+    await screen.findByRole('heading', { name: 'Fee bills created' });
     await waitFor(() => expect(hits).toBeGreaterThan(0));
     const hitsBeforeOpen = hits;
 
@@ -318,6 +318,6 @@ describe('/fees/generate', () => {
     render('TEACHER');
 
     await screen.findByText("You don't have access to this page.");
-    expect(screen.queryByText('Generated fees')).toBeNull();
+    expect(screen.queryByText('Fee bills created')).toBeNull();
   });
 });
