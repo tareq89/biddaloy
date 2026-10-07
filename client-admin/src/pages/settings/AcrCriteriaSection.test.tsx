@@ -38,8 +38,8 @@ afterEach(async () => {
 });
 
 // `useBlocker` needs a router in context.
-function withRouter() {
-  const router = createRouter({
+function makeRouter() {
+  return createRouter({
     routeTree: createRootRoute({
       component: () => (
         <RegionConfigProvider value={REGION_BD_EN}>
@@ -49,10 +49,39 @@ function withRouter() {
     }),
     history: createMemoryHistory({ initialEntries: ['/'] }),
   });
+}
+
+function withRouter(router = makeRouter()) {
   return <RouterProvider router={router} />;
 }
 
 describe('AcrCriteriaSection', () => {
+  it('with unsaved edits, a settings category switch (search only) is not blocked; leaving the page is', async () => {
+    server.use(
+      http.get('/api/v1/acr/criteria', () =>
+        HttpResponse.json({
+          id: 'v1',
+          version: 1,
+          criteria: [acrCriterionFactory({ id: 'c1', code: 'PUNCTUALITY', sort_order: 1 })],
+        }),
+      ),
+    );
+    const router = makeRouter();
+    renderWithProviders(withRouter(router), { locale: 'en', tenantId: 'tenant-1', role: 'ADMIN' });
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Add criterion' }));
+
+    // The history is where blockers run, so pushing to it is what a category link does.
+    router.history.push('/?section=fees');
+    await waitFor(() => expect(router.history.location.search).toBe('?section=fees'));
+    expect(screen.queryByRole('dialog')).toBeNull();
+
+    router.history.push('/somewhere-else');
+    expect(await screen.findByRole('dialog')).toBeTruthy();
+    expect(router.history.location.pathname).toBe('/');
+  });
+
   it('shows the applies-to-new-ACRs notice and, after Save, the new version', async () => {
     let putBody: unknown;
     server.use(
