@@ -192,7 +192,7 @@ describe('/routines/substitutions', () => {
     expect(queries.every((query) => !query.has('class_id'))).toBe(true);
   });
 
-  it('shows "Clear filters" on an empty filtered list, and a retryable error', async () => {
+  it('shows "Clear filters" on an empty filtered list', async () => {
     mockBaseData();
     server.use(http.get('/api/v1/routines/substitutions', () => HttpResponse.json([])));
     render(`/routines/substitutions?substitute_teacher_id=${TEACHER_1_ID}`);
