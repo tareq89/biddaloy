@@ -90,9 +90,11 @@ function MarksEntryPage() {
   // would 403 without EXAM_MANAGE.
   const exam = useExams({ limit: 50 }).data?.data.find((e) => e.id === examId);
   const progressRows = useExamProgress(examId).data?.outstanding;
-  const row =
-    progressRows?.find((r) => r.section_id === sectionId && r.subject_id === subjectId) ??
-    progressRows?.find((r) => r.section_id === sectionId);
+  // The subject name only from this exact section + subject row; any row of
+  // the section still names the section (a submitted subject drops out of
+  // `outstanding`), but must never lend its subject name.
+  const row = progressRows?.find((r) => r.section_id === sectionId && r.subject_id === subjectId);
+  const sectionRow = row ?? progressRows?.find((r) => r.section_id === sectionId);
   const role = useActiveRole();
   // Entering and submitting marks both need MARK_ENTER (the controller's own
   // gate for PATCH and POST submit), not EXAM_MANAGE — a TEACHER holds
@@ -239,7 +241,7 @@ function MarksEntryPage() {
   const studentCount = grid.students.length;
   const subtitle = [
     subject,
-    row ? tg('marksEntry.sectionValue', { name: row.section_name }) : undefined,
+    sectionRow ? tg('marksEntry.sectionValue', { name: sectionRow.section_name }) : undefined,
     exam?.name,
     tg('marksSheet.studentCount', { count: studentCount, n: formatNumber(studentCount, config) }),
   ]
