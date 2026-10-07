@@ -398,6 +398,32 @@ describe('AuditService (integration)', () => {
       expect(await labelsFor('ClassSection', sectionLabel.id)).toBe(sectionLabel.label);
     });
 
+    it('gives no label to a ClassSection whose class belongs to another tenant', async () => {
+      const suffix = Math.random().toString(36).slice(2, 8);
+      const yearRepo = dataSource.getRepository(AcademicYear);
+      const otherYear = await yearRepo.save(
+        yearRepo.create({
+          name: `Y-other-${suffix}`,
+          start_date: new Date('2030-01-01'),
+          end_date: new Date('2030-12-31'),
+          tenant_id: OTHER_TENANT_ID,
+        }),
+      );
+      const classRepo = dataSource.getRepository(Class);
+      const otherClass = await classRepo.save(
+        classRepo.create({
+          name: `Secret Class ${suffix}`,
+          academic_year_id: otherYear.id,
+          tenant_id: OTHER_TENANT_ID,
+        }),
+      );
+      const secRepo = dataSource.getRepository(ClassSection);
+      const crossSection = await secRepo.save(
+        secRepo.create({ class_id: otherClass.id, section_name: 'Z', tenant_id: TENANT_ID }),
+      );
+      expect(await labelsFor('ClassSection', crossSection.id)).toBeUndefined();
+    });
+
     it('gives no label to an unknown entity type', async () => {
       expect(await labelsFor('AcrFormVersion', studentId)).toBeUndefined();
     });
