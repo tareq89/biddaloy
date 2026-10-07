@@ -220,6 +220,19 @@ describe('/portal/calendar', () => {
     expect(within(panel).getByText('Exam')).toBeTruthy();
   });
 
+  it('moves to the next month when a trailing day from it is clicked, keeping that day', async () => {
+    mockCalendar({ students: [fatima], eventsByClass: { [CLASS_8_ID]: [] } });
+    const { router } = renderCalendar();
+
+    // September 2026's grid ends with leading days of October.
+    await userEvent.click(await screen.findByTestId('day-cell-2026-10-01'));
+
+    await waitFor(() => expect(router.state.location.search).toMatchObject({ month: '2026-10' }));
+    expect(
+      await screen.findByRole('complementary', { name: formatDate('2026-10-01', REGION_BD_EN) }),
+    ).toBeTruthy();
+  });
+
   it('changes ?month= from the grid header and keeps the student', async () => {
     mockCalendar({ students: [fatima, imran], eventsByClass: { [CLASS_8_ID]: [] } });
     const { router } = renderCalendar(`/portal/calendar?student=${FATIMA_ID}`);
@@ -275,5 +288,4 @@ describe('/portal/calendar', () => {
     ).toBeTruthy();
     expect(screen.queryByRole('heading', { level: 1 })).toBeNull();
   });
-
 });
