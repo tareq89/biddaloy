@@ -7,7 +7,7 @@
 import { REGION_BD_BN } from '@biddaloy/ui/i18n';
 import { cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
 import { formatNumber } from '@biddaloy/ui/utils';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -181,6 +181,47 @@ describe('/grading-scales/$scaleId', () => {
         `${formatNumber(3, REGION_BD_BN)} students' results will be recalculated against the new grades.`,
       ),
     ).toBeTruthy();
+  });
+
+  it('after a confirmed save, takes the bands the server stored, so nothing looks unsaved', async () => {
+    const user = userEvent.setup();
+    mockLookups();
+    let saved = false;
+    // The server keeps the edit but returns the bands in its own order.
+    const stored = {
+      ...SCALE,
+      revision: 2,
+      bands: [
+        { ...SCALE.bands[1]!, sequence: 1 },
+        { ...SCALE.bands[0]!, grade: 'A+x', sequence: 2 },
+      ],
+    };
+    server.use(
+      http.get('/api/v1/grading/scales/:id', () => HttpResponse.json(saved ? stored : SCALE)),
+      http.post('/api/v1/grading/scales/:id/bands/preview', () =>
+        HttpResponse.json({
+          valid: true,
+          problems: [],
+          bands_changed: true,
+          affected_result_count: 0,
+        }),
+      ),
+      http.post('/api/v1/grading/scales/:id/bands/confirm', () => {
+        saved = true;
+        return HttpResponse.json({});
+      }),
+    );
+    renderScale();
+
+    await makeEdit(user);
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Save' }).hasAttribute('disabled')).toBe(true),
+    );
   });
 
   it('an empty scale offers the NCTB grades, which fill seven rows', async () => {
