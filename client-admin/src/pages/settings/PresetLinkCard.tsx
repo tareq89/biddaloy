@@ -10,23 +10,25 @@ import { usePickText, usePresetList } from '../curriculum-preset/use-presets';
 export function PresetLinkCard() {
   const { t } = useTranslation('curriculumPreset');
   const { data } = usePresetStatus();
-  const { data: presets } = usePresetList();
+  const { data: presets, isPending: presetsPending } = usePresetList();
   const pick = usePickText();
   const applied = data?.state === 'APPLIED' ? data.preset : undefined;
-  // D9: the preset's name, never its id (the id only shows until the list loads).
-  const presetName = applied
-    ? (() => {
-        const found = presets?.find((p) => p.id === applied.id);
-        return found ? pick(found.name) : applied.id;
-      })()
-    : undefined;
-  // Never the raw id: until the list loads, show nothing for the state line.
-  const listLoading = applied !== undefined && presets === undefined;
+  // D9: the preset's name, never its id.
+  const found = applied ? presets?.find((p) => p.id === applied.id) : undefined;
+  // Until the list loads, show nothing for the state line.
+  const listLoading = applied !== undefined && presetsPending;
   const state = listLoading
     ? ''
     : applied
-      ? // `id` and `name` both passed: the wording lives in a shared file that drops `{{id}}` separately.
-        t('settingsLink.applied', { id: presetName, name: presetName, version: applied.version })
+      ? found
+        ? // `id` and `name` both passed: the wording lives in a shared file that drops `{{id}}` separately.
+          t('settingsLink.applied', {
+            id: pick(found.name),
+            name: pick(found.name),
+            version: applied.version,
+          })
+        : // The list failed to load or doesn't have this preset: no name to show.
+          t('settingsLink.appliedUnnamed', { version: applied.version })
       : t('settingsLink.notApplied');
   return (
     <section className="flex flex-col gap-3 rounded-lg border border-border-subtle bg-surface p-4 shadow-e1 md:flex-row md:items-center md:justify-between md:p-5">

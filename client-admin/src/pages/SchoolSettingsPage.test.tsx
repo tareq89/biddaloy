@@ -375,6 +375,13 @@ describe('SchoolSettingsPage', () => {
       expect(screen.queryByText(/nctb ·/)).toBeNull();
     });
 
+    it('still shows the version (never the id) when the preset list fails to load', async () => {
+      server.use(http.get('/api/v1/presets', () => HttpResponse.json(null, { status: 500 })));
+      mount('ADMIN', 'APPLIED');
+      expect(await screen.findByText('Applied · 2025.1')).toBeTruthy();
+      expect(screen.queryByText(/nctb/)).toBeNull();
+    });
+
     it('is hidden without CURRICULUM_PRESET_APPLY', async () => {
       mount('TEACHER', 'AVAILABLE');
       await screen.findByText('Settings for Greenview School');

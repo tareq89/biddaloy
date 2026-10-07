@@ -93,6 +93,7 @@
   "settingsLink": {
     "title": "তৈরি শিক্ষাক্রম",
     "applied": "প্রয়োগ করা হয়েছে: {{id}} · {{version}}",
+    "appliedUnnamed": "প্রয়োগ করা হয়েছে · {{version}}",
     "notApplied": "প্রয়োগ করা হয়নি",
     "open": "খুলুন"
   }
