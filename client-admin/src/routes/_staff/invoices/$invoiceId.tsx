@@ -494,7 +494,9 @@ function InvoiceDetailPage() {
                       className="h-11 w-full"
                       loading={shareInvoice.isPending}
                       onClick={() => {
+                        // Either action makes the other's earlier failure alert stale.
                         shareInvoice.reset();
+                        revokeShare.reset();
                         // `useShareInvoice`'s mutation resolves to
                         // `{ invoiceId, result }`, not the create response
                         // directly — see its own doc comment.
@@ -532,6 +534,7 @@ function InvoiceDetailPage() {
                         className="h-11 w-full text-destructive"
                         onClick={() => {
                           revokeShare.reset();
+                          shareInvoice.reset();
                           setRevokeTargetId(liveShare.id);
                         }}
                       >
