@@ -676,12 +676,11 @@ describe('/portal', () => {
       );
       const { container } = renderPortal();
 
-      // `w-40` is unique to the single-student shape's name placeholder —
-      // the multi-child shape never uses it. Its appearance here, while
-      // `duesQuery` is still unresolved, is the regression this pins: the
-      // skeleton must not wait for both queries before picking a shape.
+      // The single-student shape appearing while `duesQuery` is still
+      // unresolved is the regression this pins: the skeleton must not wait
+      // for both queries before picking a shape.
       await waitFor(() =>
-        expect(container.querySelector('[data-slot="skeleton"].w-40')).toBeTruthy(),
+        expect(container.querySelector('[aria-busy="true"][data-shape="single"]')).toBeTruthy(),
       );
       expect(screen.queryAllByRole('heading', { level: 1 })).toHaveLength(0);
     });
