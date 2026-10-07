@@ -17,7 +17,7 @@ import { activate } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { detectLoginIdentifier } from '@biddaloy/ui/utils';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import type { TFunction } from 'i18next';
 import { CircleCheck, Link2Off, TriangleAlert, UserX } from 'lucide-react';
 import * as React from 'react';
@@ -136,16 +136,12 @@ function ResendForm() {
   );
 }
 
+// Navigation, so a link (open in a new tab, copy the address), styled as a button.
 function ToSignInButton() {
   const { t } = useTranslation('auth');
-  const navigate = useNavigate();
   return (
-    <Button
-      variant="ghost"
-      className="w-full text-primary"
-      onClick={() => void navigate({ to: '/login' })}
-    >
-      {t('toSignIn')}
+    <Button asChild variant="ghost" className="w-full text-primary">
+      <Link to="/login">{t('toSignIn')}</Link>
     </Button>
   );
 }
@@ -153,20 +149,15 @@ function ToSignInButton() {
 /** A link that cannot be used: each state offers the step that fits it. */
 function TerminalCard({ status }: { status: TerminalStatus | 'missing' }) {
   const { t } = useTranslation('auth');
-  const navigate = useNavigate();
 
   if (status === 'consumed') {
     return (
       <GuestStatus icon={CircleCheck} tone="info" title={t('activate.consumed')}>
-        <Button className="w-full" onClick={() => void navigate({ to: '/login' })}>
-          {t('submit.action')}
+        <Button asChild className="w-full">
+          <Link to="/login">{t('submit.action')}</Link>
         </Button>
-        <Button
-          variant="ghost"
-          className="w-full text-primary"
-          onClick={() => void navigate({ to: '/forgot-password' })}
-        >
-          {t('forgot.link')}
+        <Button asChild variant="ghost" className="w-full text-primary">
+          <Link to="/forgot-password">{t('forgot.link')}</Link>
         </Button>
       </GuestStatus>
     );
@@ -273,11 +264,7 @@ function ActivatePage() {
     return (
       <AuthLayout>
         <GuestStatus icon={TriangleAlert} tone="danger" title={t('errors.generic')}>
-          <Button
-            variant="outline"
-            className="w-full"
-            onClick={() => void verifyQuery.refetch()}
-          >
+          <Button variant="outline" className="w-full" onClick={() => void verifyQuery.refetch()}>
             {t('actions.retry', { ns: 'common' })}
           </Button>
         </GuestStatus>
