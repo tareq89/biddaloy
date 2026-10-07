@@ -206,6 +206,12 @@ describe('/students/new', () => {
         0,
       ),
     );
+    // The input must point at its own error message, so a screen reader announces it.
+    const roll = screen.getByRole('textbox', { name: /^Roll number/ });
+    const describedBy = (roll.getAttribute('aria-describedby') ?? '')
+      .split(' ')
+      .map((id) => document.getElementById(id)?.textContent);
+    expect(describedBy).toContain('roll_number must be a positive number');
   });
 
   it('submits and navigates to the new student on success', async () => {
