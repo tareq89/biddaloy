@@ -318,11 +318,17 @@ describe('/portal/results', () => {
     expect(within(passed).queryByText('Fail')).toBeNull();
   });
 
-  it('shows GPA with two decimals, the kind label, and a dash for no position', async () => {
+  it('shows GPA with two decimals, fractional total marks, the kind label, and a dash for no position', async () => {
     mockResults({
       students: [fatima],
       results: {
-        'student-1': [resultRow('exam-1', 'First Term Exam', true, { gpa: 4.5, position: null })],
+        'student-1': [
+          resultRow('exam-1', 'First Term Exam', true, {
+            gpa: 4.5,
+            position: null,
+            total_marks: 449.5,
+          }),
+        ],
       },
     });
     renderResults();
@@ -334,7 +340,8 @@ describe('/portal/results', () => {
       within(article).getByText(label).nextElementSibling?.textContent;
     expect(fact('GPA')).toBe('4.50');
     expect(fact('Grade')).toBe('A+');
-    expect(fact('Total marks')).toBe('450');
+    // A half mark is kept, not rounded to 450.
+    expect(fact('Total marks')).toBe('449.5');
     expect(fact('Position')).toBe('—');
     expect(within(article).getByText('Term')).toBeTruthy();
   });

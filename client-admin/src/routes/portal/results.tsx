@@ -46,7 +46,7 @@ import {
 } from '@biddaloy/ui/hooks';
 import { RegionConfigProvider, useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { PageContainer, PageHeader } from '@biddaloy/ui/shells';
-import { formatNumber } from '@biddaloy/ui/utils';
+import { formatNumber, formatScore } from '@biddaloy/ui/utils';
 import { createFileRoute } from '@tanstack/react-router';
 import { AwardIcon, ChevronDownIcon, ChevronUpIcon, PrinterIcon } from 'lucide-react';
 import * as React from 'react';
@@ -247,7 +247,7 @@ function ResultCard({
       value: formatNumber(row.gpa, config, { decimals: 2 }),
     },
     { label: tExams('reportCard.grade'), value: row.grade },
-    { label: tExams('reportCard.totalMarks'), value: formatNumber(row.total_marks, config) },
+    { label: tExams('reportCard.totalMarks'), value: formatScore(row.total_marks, config) },
     {
       label: tExams('reportCard.position'),
       value: row.position === null ? '—' : formatNumber(row.position, config),
@@ -353,7 +353,7 @@ function ResultBreakdown({ studentId, examId }: { studentId: string; examId: str
       id: 'obtained',
       header: tExams('reportCard.obtained'),
       align: 'end',
-      accessorFn: (subject) => formatNumber(subject.obtained, config),
+      accessorFn: (subject) => formatScore(subject.obtained, config),
     },
     {
       id: 'grade',
