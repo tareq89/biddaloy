@@ -191,7 +191,13 @@ export function PromotionEntryCard({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={NONE_VALUE}>{t('grid.groupNone')}</SelectItem>
+              <SelectItem
+                value={NONE_VALUE}
+                disabled={eff.group_name != null}
+                title={eff.group_name != null ? t('grid.groupClearUnsupported') : undefined}
+              >
+                {t('grid.groupNone')}
+              </SelectItem>
               {groups.map((group) => (
                 <SelectItem key={group} value={group}>
                   {group}
