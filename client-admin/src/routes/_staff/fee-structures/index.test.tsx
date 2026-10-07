@@ -158,6 +158,15 @@ describe('/fee-structures', () => {
     expect(await screen.findByText('No fee structures found')).toBeTruthy();
   });
 
+  it('says the filters matched nothing, with no Add action, when filtered to empty', async () => {
+    server.use(listHandler([]), ...referenceHandlers());
+
+    render('ADMIN', '/fee-structures?academic_year_id=year-1');
+
+    expect(await screen.findByText('No fee structures match these filters')).toBeTruthy();
+    expect(screen.queryByText('No fee structures found')).toBeNull();
+  });
+
   it('puts the chosen filters on the request and in the URL', async () => {
     let lastQuery: Record<string, string> = {};
     server.use(
@@ -273,7 +282,8 @@ describe('/fee-structures', () => {
     const nameInput = dialog.getByLabelText('Name * (required)');
     expect(nameInput.getAttribute('aria-invalid')).toBe('true');
     expect(nameInput.getAttribute('aria-describedby')).toBe('structure-form-name-error');
-    expect(document.activeElement).toBe(nameInput);
+    // Focus lands after the error renders, so the field is already described when focused.
+    await waitFor(() => expect(document.activeElement).toBe(nameInput));
     expect(dialog.getByText('Amount must be greater than zero')).toBeTruthy();
     expect(dialog.getByText('Academic year is required')).toBeTruthy();
   });

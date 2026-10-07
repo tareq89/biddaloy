@@ -27,7 +27,9 @@
     "announceResults_other": "{{visible}} of {{total}} fee structures",
     "subtitle": "What each class pays for each fee.",
     "columnAcademicYear": "Academic year",
-    "emptyExplanation": "Add your first fee structure and it will show up here."
+    "emptyExplanation": "Add your first fee structure and it will show up here.",
+    "noMatchMessage": "No fee structures match these filters",
+    "noMatchExplanation": "Try a different search, year, class or section, or clear the filters."
   },
   "form": {
     "createTitle": "Add fee structure",

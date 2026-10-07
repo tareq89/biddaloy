@@ -127,6 +127,7 @@ function FeeStructuresListPage() {
   const regionConfig = useTenantRegionConfig();
   const [state, actions] = useListShellState();
   const filters = state.filters as FeeStructureFilters;
+  const filtered = Object.keys(state.filters).length > 0;
 
   const canCreate = useHasPermission(Permission.FEE_STRUCTURE_CREATE);
   const canUpdate = useHasPermission(Permission.FEE_STRUCTURE_UPDATE);
@@ -312,9 +313,10 @@ function FeeStructuresListPage() {
         isFetching={structuresQuery.isFetching}
         {...(structuresQuery.isError ? { error: t('list.errorMessage') } : {})}
         emptyState={{
-          title: t('list.emptyMessage'),
-          explanation: t('list.emptyExplanation'),
-          ...(canCreate
+          // Filtered to nothing is not "no structures yet".
+          title: filtered ? t('list.noMatchMessage') : t('list.emptyMessage'),
+          explanation: filtered ? t('list.noMatchExplanation') : t('list.emptyExplanation'),
+          ...(canCreate && !filtered
             ? { action: { label: t('list.addStructure'), onClick: () => setCreateOpen(true) } }
             : {}),
         }}
