@@ -49,45 +49,45 @@ test('public submit → staff shortlist/admit → student created → public sta
 
     await guestPage.goto('/admission/default-school');
 
-    // The intake picker only renders when the school has more than one open
-    // intake — default-school always has at least the seed script's own
-    // "Class 1 Admission 2026", so with our own intake added there are
-    // always ≥2 and this select always renders in practice. Select by our
-    // own intake's title rather than relying on "there's only one"
-    // auto-selection, which the seed data already breaks. Waiting on the
-    // locator itself (not a non-waiting isVisible() check) matters here —
-    // the intake list is still loading right after goto(), so a check made
-    // before it resolves always reads as "not visible" regardless of how
-    // many intakes exist.
+    // The intake picker only renders when the school has more than one open intake -
+    // default-school always has the seed script's own "Class 1 Admission 2026", so with our
+    // own intake added there are always two. Choose ours by title. Waiting on the combobox
+    // itself matters: the intake list is still loading right after goto().
     await guestPage
-      .getByLabel(t('admission-public.form.fields.intake'), { exact: true })
-      .selectOption({ label: `E2E Intake ${suffix}` });
+      .getByRole('combobox', { name: t('admission-public.form.fields.intake') })
+      .click();
+    await guestPage.getByRole('option', { name: `E2E Intake ${suffix}` }).click();
+
+    // Labels carry a required mark (" *" and a screen-reader "(required)"), so match on the
+    // label text rather than the whole accessible name.
+    await guestPage.getByLabel(t('admission-public.form.fields.applicantName')).fill(applicantName);
+
+    // Date of birth is a DatePicker: open it and pick the 1st of the current month (never in
+    // the future, because the picker's max is today).
+    const today = new Date();
+    const firstOfMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`;
+    await guestPage
+      .getByRole('button', { name: t('admission-public.form.fields.dateOfBirth') })
+      .click();
+    await guestPage.locator(`[data-date="${firstOfMonth}"]`).click();
 
     await guestPage
-      .getByLabel(t('admission-public.form.fields.applicantName'), { exact: true })
-      .fill(applicantName);
+      .getByRole('combobox', { name: t('admission-public.form.fields.gender') })
+      .click();
     await guestPage
-      .getByLabel(t('admission-public.form.fields.dateOfBirth'), { exact: true })
-      .fill('2018-06-01');
+      .getByRole('option', { name: t('admission-public.form.fields.genderOptions.MALE') })
+      .click();
     await guestPage
-      .getByLabel(t('admission-public.form.fields.gender'), { exact: true })
-      .selectOption('MALE');
-    await guestPage
-      .getByLabel(t('admission-public.form.fields.guardianName'), { exact: true })
+      .getByLabel(t('admission-public.form.fields.guardianName'))
       .fill(`Guardian of ${applicantName}`);
-    await guestPage
-      .getByLabel(t('admission-public.form.fields.guardianPhone'), { exact: true })
-      .fill(guardianPhone);
-    await guestPage
-      .getByLabel(t('admission-public.form.documents.PHOTO'), { exact: true })
-      .setInputFiles({
-        name: 'photo.jpg',
-        mimeType: 'image/jpeg',
-        // A real JPEG signature — the server's magic-byte check (T10)
-        // rejects anything else with a 400, unlike the old Buffer.from('x')
-        // this journey used to silently drop.
-        buffer: Buffer.from([0xff, 0xd8, 0xff, 0xe0]),
-      });
+    await guestPage.getByLabel(t('admission-public.form.fields.guardianPhone')).fill(guardianPhone);
+    await guestPage.getByLabel(t('admission-public.form.documents.PHOTO')).setInputFiles({
+      name: 'photo.jpg',
+      mimeType: 'image/jpeg',
+      // A real JPEG signature - the server's magic-byte check (T10) rejects anything else
+      // with a 400.
+      buffer: Buffer.from([0xff, 0xd8, 0xff, 0xe0]),
+    });
 
     await guestPage.getByRole('button', { name: t('admission-public.form.submit') }).click();
 
@@ -102,7 +102,10 @@ test('public submit → staff shortlist/admit → student created → public sta
   const detail = new DetailShellPage(page);
 
   await test.step('staff finds the applicant and shortlists it', async () => {
-    const list = new ListShellPage(page, { titleKey: 'admission-staff-applicants.list.title' });
+    const list = new ListShellPage(page, {
+      titleKey: 'admission-staff-applicants.list.title',
+      openLabelKey: 'admission-staff-applicants.list.view',
+    });
     await page.goto('/admissions/applicants');
     await list.expectLoaded();
     await list.openRowByText(applicantName);
@@ -156,10 +159,10 @@ test('public submit → staff shortlist/admit → student created → public sta
 
     await guestPage.goto('/admission/default-school/status');
     await guestPage
-      .getByLabel(t('admission-public.status.fields.referenceNumber'), { exact: true })
+      .getByLabel(t('admission-public.status.fields.referenceNumber'))
       .fill(referenceNumber);
     await guestPage
-      .getByLabel(t('admission-public.status.fields.guardianPhone'), { exact: true })
+      .getByLabel(t('admission-public.status.fields.guardianPhone'))
       .fill(guardianPhone);
     await guestPage.getByRole('button', { name: t('admission-public.status.submit') }).click();
 

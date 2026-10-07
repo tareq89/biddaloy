@@ -16,14 +16,45 @@ describe('/academic-years/$academicYearId', () => {
     await cleanupTestState();
   });
 
-  it('deep-links via ?tab= — opening straight at ?tab=statistics shows the Statistics tab, not Classes', async () => {
-    const year = academicYearFactory({ id: 'year-1' });
+  it('the header shows the stored name as the h1, the long-form period and the counts as facts', async () => {
+    const year = academicYearFactory({ id: 'year-1', name: 'Session 26' });
     server.use(
       http.get('/api/v1/academic-years/:id', () => HttpResponse.json(year)),
       http.get('/api/v1/academic-years/:id/stats', () =>
-        HttpResponse.json({ classes_count: 2, students_count: 30, fee_structures_count: 3 }),
+        HttpResponse.json({ classes_count: 4, students_count: 120, fee_structures_count: 6 }),
+      ),
+      // Latin numerals so the digit assertions test "are the right counts shown";
+      // numeral-system formatting is owned by number.spec.ts / region-config.spec.ts.
+      http.get('/api/v1/schools/:id/settings', () =>
+        HttpResponse.json({ version: 1, region: { numerals: 'latin' } }),
       ),
     );
+
+    const { localeReady } = renderWithRouter(routeTree, {
+      initialEntries: ['/academic-years/year-1'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+    await localeReady;
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Session 26' })).toBeTruthy();
+    expect(await screen.findByText('4 classes')).toBeTruthy();
+    expect(screen.getByText('120 students')).toBeTruthy();
+    expect(screen.getByText('6 fee structures')).toBeTruthy();
+    // One long-form period (no ISO date on screen).
+    expect(screen.getByText(/January.*December.*20\d\d/)).toBeTruthy();
+    expect(screen.queryByText(/\d{4}-\d{2}-\d{2}/)).toBeNull();
+    // The back link is gone: only the breadcrumb leads back.
+    // (the breadcrumb is the one link back; the old in-page link would make it two)
+    expect(
+      within(screen.getByRole('main')).getAllByRole('link', { name: 'Academic Years' }),
+    ).toHaveLength(1);
+  });
+
+  it('has three tabs only, and ?tab=statistics falls back to the first tab', async () => {
+    const year = academicYearFactory({ id: 'year-1' });
+    server.use(http.get('/api/v1/academic-years/:id', () => HttpResponse.json(year)));
 
     renderWithRouter(routeTree, {
       initialEntries: ['/academic-years/year-1?tab=statistics'],
@@ -33,40 +64,17 @@ describe('/academic-years/$academicYearId', () => {
     });
 
     await waitFor(() =>
-      expect(screen.getByRole('tab', { name: 'Statistics', selected: true })).toBeTruthy(),
+      expect(screen.getByRole('tab', { name: 'Classes', selected: true })).toBeTruthy(),
     );
+    expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual([
+      'Classes',
+      'Fee Structures',
+      'Terms',
+    ]);
+    expect(screen.queryByRole('tab', { name: 'Statistics' })).toBeNull();
   });
 
-  it('the Statistics tab shows classes/students/fee-structure counts', async () => {
-    const year = academicYearFactory({ id: 'year-1' });
-    server.use(
-      http.get('/api/v1/academic-years/:id', () => HttpResponse.json(year)),
-      http.get('/api/v1/academic-years/:id/stats', () =>
-        HttpResponse.json({ classes_count: 4, students_count: 120, fee_structures_count: 6 }),
-      ),
-      // Counts render through `formatNumber(count, regionConfig)` — override
-      // the tenant's region settings to Latin numerals so this test's plain
-      // digit assertions test "are the right counts shown", not numeral-system
-      // formatting (`number.spec.ts`/`region-config.spec.ts` already own that).
-      http.get('/api/v1/schools/:id/settings', () =>
-        HttpResponse.json({ version: 1, region: { numerals: 'latin' } }),
-      ),
-    );
-
-    const { localeReady } = renderWithRouter(routeTree, {
-      initialEntries: ['/academic-years/year-1?tab=statistics'],
-      tenantId: 'tenant-1',
-      role: 'ADMIN',
-      locale: 'en',
-    });
-    await localeReady;
-
-    await screen.findByText('4');
-    expect(screen.getByText('120')).toBeTruthy();
-    expect(screen.getByText('6')).toBeTruthy();
-  });
-
-  it('renders Edit/Set current/Delete for ADMIN, who holds ACADEMIC_YEAR_MANAGE', async () => {
+  it('Edit is the only filled button, Set as current is outline, and Delete sits in More actions', async () => {
     const year = academicYearFactory({ id: 'year-1', is_current: false });
     server.use(http.get('/api/v1/academic-years/:id', () => HttpResponse.json(year)));
 
@@ -78,9 +86,17 @@ describe('/academic-years/$academicYearId', () => {
     });
 
     await screen.findByRole('tab', { name: 'Classes' });
-    expect(screen.getByRole('button', { name: 'Edit' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Set as current' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Delete' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Edit' }).getAttribute('data-variant')).toBe(
+      'default',
+    );
+    expect(
+      screen.getByRole('button', { name: 'Set as current' }).getAttribute('data-variant'),
+    ).toBe('outline');
+    expect(screen.queryByRole('button', { name: 'Delete' })).toBeNull();
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'More actions' }));
+    expect(await screen.findByRole('menuitem', { name: 'Delete' })).toBeTruthy();
   });
 
   // [8.14.17]: `_staff.tsx`'s `RequirePermission` now refuses the whole
@@ -101,6 +117,32 @@ describe('/academic-years/$academicYearId', () => {
 
     expect(await screen.findByText("You don't have access to this page.")).toBeTruthy();
     expect(screen.queryByRole('tab', { name: 'Classes' })).toBeNull();
+  });
+
+  it('Set as current opens a confirm dialog that warns it unsets every other year', async () => {
+    const year = academicYearFactory({ id: 'year-1', name: 'Next', is_current: false });
+    let called = false;
+    server.use(
+      http.get('/api/v1/academic-years/:id', () => HttpResponse.json(year)),
+      http.post('/api/v1/academic-years/:id/set-current', () => {
+        called = true;
+        return HttpResponse.json({ ...year, is_current: true });
+      }),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/academic-years/year-1'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Set as current' }));
+    const dialog = within(await screen.findByRole('alertdialog'));
+    expect(dialog.getByText(/unsets every other academic year/i)).toBeTruthy();
+    await user.click(dialog.getByRole('button', { name: 'Set as current' }));
+    await waitFor(() => expect(called).toBe(true));
   });
 
   it('does not show Set as current for the year already marked current', async () => {
@@ -133,8 +175,10 @@ describe('/academic-years/$academicYearId', () => {
     });
 
     const user = userEvent.setup();
-    await user.click(await screen.findByRole('button', { name: 'Delete' }));
-    const dialog = within(await screen.findByRole('dialog'));
+    await user.click(await screen.findByRole('button', { name: 'More actions' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Delete' }));
+    const dialog = within(await screen.findByRole('alertdialog'));
+    expect(dialog.getByText(/Delete "Delete Me"\?/)).toBeTruthy();
     await user.click(dialog.getByRole('button', { name: 'Delete' }));
 
     await waitFor(() => expect(router.state.location.pathname).toBe('/academic-years'));
@@ -144,13 +188,13 @@ describe('/academic-years/$academicYearId', () => {
     const year = academicYearFactory({ id: 'year-1' });
     server.use(
       http.get('/api/v1/academic-years/:id', () => HttpResponse.json(year)),
-      http.get('/api/v1/academic-years/:id/stats', () =>
+      http.get('/api/v1/classes', () =>
         HttpResponse.json(
           {
             statusCode: 403,
             message: 'Forbidden',
             timestamp: new Date().toISOString(),
-            path: '/api/v1/academic-years/year-1/stats',
+            path: '/api/v1/classes',
             requestId: 'req-1',
           },
           { status: 403 },
@@ -159,7 +203,7 @@ describe('/academic-years/$academicYearId', () => {
     );
 
     renderWithRouter(routeTree, {
-      initialEntries: ['/academic-years/year-1?tab=statistics'],
+      initialEntries: ['/academic-years/year-1'],
       tenantId: 'tenant-1',
       role: 'ADMIN',
       locale: 'en',

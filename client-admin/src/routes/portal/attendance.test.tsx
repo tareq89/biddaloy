@@ -180,6 +180,7 @@ describe('/portal/attendance', () => {
     renderAttendance();
 
     await screen.findByRole('heading', { level: 1, name: 'Attendance' });
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
     expect(screen.queryByRole('navigation', { name: 'Choose a student' })).toBeNull();
   });
 
@@ -194,6 +195,41 @@ describe('/portal/attendance', () => {
     expect(await screen.findByText('Not enough marked days this month')).toBeTruthy();
     expect(screen.getByText('—')).toBeTruthy();
     expect(screen.queryByText('0%')).toBeNull();
+  });
+
+  it('renders "—" and never "0%" for an unmarked month whose percentage is 0', async () => {
+    mockAttendance({
+      students: [fatima],
+      days: { [FATIMA_ID]: [] },
+      summaries: {
+        [FATIMA_ID]: summary(FATIMA_ID, {
+          attendance_percentage: 0,
+          present_days: 0,
+          absent_days: 0,
+          late_days: 0,
+          leave_days: 0,
+        }),
+      },
+    });
+    renderAttendance();
+
+    expect(await screen.findByText('Not enough marked days this month')).toBeTruthy();
+    expect(screen.getByText('—')).toBeTruthy();
+    expect(screen.queryByText('0%')).toBeNull();
+  });
+
+  it('names the month once as a heading in the rate label and in the grid header', async () => {
+    mockAttendance({
+      students: [fatima],
+      days: { [FATIMA_ID]: [] },
+      summaries: { [FATIMA_ID]: summary(FATIMA_ID) },
+    });
+    renderAttendance();
+
+    expect(
+      await screen.findByRole('heading', { level: 2, name: 'Attendance rate · September 2026' }),
+    ).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Previous month' })).toBeTruthy();
   });
 
   it('explains an account with no students linked to it', async () => {
@@ -215,7 +251,7 @@ describe('/portal/attendance', () => {
     expect(await screen.findByText('No attendance records for this month yet.')).toBeTruthy();
   });
 
-  it('opens a dialog with status, minutes late and remarks when a marked day is selected', async () => {
+  it('shows the clicked day in the side panel with status, minutes late and remarks, and opens no dialog', async () => {
     mockAttendance({
       students: [fatima],
       days: {
@@ -237,12 +273,66 @@ describe('/portal/attendance', () => {
     });
     await userEvent.click(cell);
 
-    const dialog = await screen.findByRole('dialog');
-    expect(within(dialog).getByText('Bus was late')).toBeTruthy();
-    expect(within(dialog).getByText('12')).toBeTruthy();
+    const panel = await screen.findByRole('complementary', {
+      name: formatDate('2026-09-03', REGION_BD_EN),
+    });
+    expect(within(panel).getByText('Bus was late')).toBeTruthy();
+    expect(within(panel).getByText('12')).toBeTruthy();
+    expect(within(panel).getByText('Late')).toBeTruthy();
+    expect(screen.queryByRole('dialog')).toBeNull();
   });
 
-  it('steps to the previous and next month via real links, rewriting ?month=', async () => {
+  it('labels a holiday row "Holiday", not a second "Status"', async () => {
+    mockAttendance({
+      students: [fatima],
+      days: {
+        [FATIMA_ID]: [
+          attendanceDay({ date: '2026-09-04', is_working_day: false, holiday_name: 'Victory Day' }),
+        ],
+      },
+      summaries: { [FATIMA_ID]: summary(FATIMA_ID) },
+    });
+    renderAttendance();
+
+    await userEvent.click(
+      await screen.findByRole('button', {
+        name: (n) => n.startsWith(formatDate('2026-09-04', REGION_BD_EN)),
+      }),
+    );
+
+    const panel = await screen.findByRole('complementary', {
+      name: formatDate('2026-09-04', REGION_BD_EN),
+    });
+    expect(within(panel).getByText('Holiday').nextElementSibling?.textContent).toBe('Victory Day');
+    expect(within(panel).queryAllByText('Status').length).toBeLessThanOrEqual(1);
+  });
+
+  it('shows today in the panel by default for the current month', async () => {
+    mockAttendance({
+      students: [fatima],
+      days: { [FATIMA_ID]: [attendanceDay({ date: '2026-09-15', status: 'PRESENT' })] },
+      summaries: { [FATIMA_ID]: summary(FATIMA_ID) },
+    });
+    renderAttendance();
+
+    const panel = await screen.findByRole('complementary', {
+      name: formatDate('2026-09-15', REGION_BD_EN),
+    });
+    expect(within(panel).getByText('Present')).toBeTruthy();
+  });
+
+  it('asks to pick a day when another month is shown', async () => {
+    mockAttendance({
+      students: [fatima],
+      days: { [FATIMA_ID]: [] },
+      summaries: { [FATIMA_ID]: summary(FATIMA_ID) },
+    });
+    renderAttendance('/portal/attendance?month=2026-08');
+
+    expect(await screen.findByText('Pick a day on the calendar to see its details')).toBeTruthy();
+  });
+
+  it('steps to the previous and next month, rewriting ?month=', async () => {
     mockAttendance({
       students: [fatima],
       days: { [FATIMA_ID]: [] },
@@ -254,12 +344,12 @@ describe('/portal/attendance', () => {
       expect(daysRequests).toContainEqual({ studentId: FATIMA_ID, month: '2026-09' }),
     );
 
-    await userEvent.click(screen.getByRole('link', { name: /Previous month/ }));
+    await userEvent.click(screen.getByRole('button', { name: 'Previous month' }));
     await waitFor(() =>
       expect(daysRequests).toContainEqual({ studentId: FATIMA_ID, month: '2026-08' }),
     );
 
-    await userEvent.click(screen.getByRole('link', { name: /Next month/ }));
+    await userEvent.click(screen.getByRole('button', { name: 'Next month' }));
     await waitFor(() =>
       expect(daysRequests).toContainEqual({ studentId: FATIMA_ID, month: '2026-09' }),
     );

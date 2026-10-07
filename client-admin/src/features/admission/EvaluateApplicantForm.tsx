@@ -12,6 +12,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  Label,
   Textarea,
 } from '@biddaloy/ui/components';
 import { useTranslation } from '@biddaloy/ui/i18n';
@@ -48,19 +49,19 @@ export function EvaluateApplicantForm({
     );
   }
 
-  const title = decision === 'SHORTLIST' ? t('evaluate.shortlistTitle') : t('evaluate.noteTitle');
+  const title = decision === 'SHORTLIST' ? t('evaluate.shortlistTitle') : t('detail.actionAddNote');
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent size="sm">
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <DialogHeader>
             <DialogTitle>{title}</DialogTitle>
           </DialogHeader>
 
+          <Label htmlFor="evaluate-notes">{t('evaluate.notesLabel')}</Label>
           <Textarea
-            aria-label={t('evaluate.notesLabel')}
-            placeholder={t('evaluate.notesLabel')}
+            id="evaluate-notes"
             value={notes}
             onChange={(event) => setNotes(event.target.value)}
           />

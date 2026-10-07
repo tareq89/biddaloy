@@ -1,4 +1,7 @@
+import { Toaster } from '@biddaloy/ui/components';
+import { REGION_BD_BN } from '@biddaloy/ui/i18n';
 import { cleanupTestState, renderWithProviders, server } from '@biddaloy/ui/test';
+import { formatNumber } from '@biddaloy/ui/utils';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -9,6 +12,8 @@ import { FillAssistDialog } from './-fill-assist-dialog';
 afterEach(async () => {
   await cleanupTestState();
 });
+
+const n = (value: number) => formatNumber(value, REGION_BD_BN);
 
 const PROPOSAL = {
   section_id: 'section-1',
@@ -22,7 +27,27 @@ const PROPOSAL = {
   valid_to: null,
 };
 
+function mockPeriods() {
+  server.use(
+    http.get('/api/v1/routines/shifts', () =>
+      HttpResponse.json({
+        data: [{ id: 'shift-1' }],
+        total: 1,
+        page: 1,
+        limit: 100,
+        totalPages: 1,
+      }),
+    ),
+    http.get('/api/v1/routines/shifts/shift-1/period-slots', () =>
+      HttpResponse.json([
+        { id: 'p1', sequence: 3, kind: 'CLASS', name: null, starts_at: '09:20', ends_at: '10:00' },
+      ]),
+    ),
+  );
+}
+
 function mockLookups() {
+  mockPeriods();
   server.use(
     http.get('/api/v1/routines/routine-1/greedy-fill', () => HttpResponse.json([PROPOSAL])),
     http.get('/api/v1/subjects', () =>
@@ -75,7 +100,7 @@ describe('FillAssistDialog', () => {
     await waitFor(() => expect(screen.getByText(/Math/)).toBeTruthy());
     expect(created).toBeNull(); // preview only, nothing written yet
 
-    await user.click(screen.getByRole('button', { name: /Fill 1 period/i }));
+    await user.click(screen.getByRole('button', { name: new RegExp(`Fill ${n(1)} period`, 'i') }));
     await waitFor(() => expect(created).not.toBeNull());
     expect((created as { subject_id: string }).subject_id).toBe('subject-math');
     expect(onDone).toHaveBeenCalled();
@@ -154,15 +179,19 @@ describe('FillAssistDialog', () => {
     );
 
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: /Fill 2 periods/i })).toBeTruthy(),
+      expect(
+        screen.getByRole('button', { name: new RegExp(`Fill ${n(2)} periods`, 'i') }),
+      ).toBeTruthy(),
     );
-    await user.click(screen.getByRole('button', { name: /Fill 2 periods/i }));
+    await user.click(screen.getByRole('button', { name: new RegExp(`Fill ${n(2)} periods`, 'i') }));
 
     // Only the first proposal succeeded — the dialog stays open with the
     // remaining one, and onDone fires because that first write did land.
     await waitFor(() => expect(callCount).toBe(2));
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: /Fill 1 period/i })).toBeTruthy(),
+      expect(
+        screen.getByRole('button', { name: new RegExp(`Fill ${n(1)} period`, 'i') }),
+      ).toBeTruthy(),
     );
     expect(onDone).toHaveBeenCalled();
   });
@@ -183,7 +212,97 @@ describe('FillAssistDialog', () => {
 
     await waitFor(() => expect(screen.getByText(/Nothing left to fill/i)).toBeTruthy());
     expect(
-      screen.getByRole<HTMLButtonElement>('button', { name: /Fill 0 periods/i }).disabled,
+      screen.getByRole<HTMLButtonElement>('button', {
+        name: new RegExp(`Fill ${n(0)} periods`, 'i'),
+      }).disabled,
     ).toBe(true);
+  });
+
+  it('names the day and the period on each proposed row, with "—" for an unknown teacher', async () => {
+    mockLookups();
+    server.use(
+      http.get('/api/v1/routines/routine-1/greedy-fill', () =>
+        HttpResponse.json([{ ...PROPOSAL, teacher_ids: ['teacher-gone'] }]),
+      ),
+    );
+    renderWithProviders(
+      <FillAssistDialog
+        open
+        onOpenChange={vi.fn()}
+        routineId="routine-1"
+        sectionId="section-1"
+        weekdayLabels={{ 1: 'Mon' }}
+        onDone={vi.fn()}
+      />,
+      { tenantId: 'tenant-1', locale: 'en' },
+    );
+
+    await waitFor(() => expect(screen.getByText(`Mon · Period ${n(3)}`)).toBeTruthy());
+    expect(screen.getByText('Math · —')).toBeTruthy();
+    expect(screen.queryByText(/teacher-gone/)).toBeNull();
+  });
+
+  it('shows the translated conflict sentence, never the server message, when a write fails', async () => {
+    mockLookups();
+    server.use(
+      http.post('/api/v1/routines/routine-1/slots', () =>
+        HttpResponse.json(
+          {
+            statusCode: 409,
+            message: 'Conflict',
+            requestId: 'req-1',
+            details: {
+              violations: [{ code: 'ROOM_DOUBLE_BOOKED', message: 'Room 204 is already booked' }],
+            },
+          },
+          { status: 409 },
+        ),
+      ),
+    );
+    const user = userEvent.setup();
+    renderWithProviders(
+      <>
+        <Toaster />
+        <FillAssistDialog
+          open
+          onOpenChange={vi.fn()}
+          routineId="routine-1"
+          sectionId="section-1"
+          weekdayLabels={{ 1: 'Mon' }}
+          onDone={vi.fn()}
+        />
+      </>,
+      { tenantId: 'tenant-1', locale: 'en' },
+    );
+
+    await user.click(
+      await screen.findByRole('button', { name: new RegExp(`Fill ${n(1)} period`, 'i') }),
+    );
+    await waitFor(() =>
+      expect(screen.getByText('This room is already in use at this time.')).toBeTruthy(),
+    );
+    expect(screen.queryByText(/Room 204/)).toBeNull();
+  });
+
+  it('shows a translated error line when the proposals cannot be loaded', async () => {
+    server.use(
+      http.get('/api/v1/routines/routine-1/greedy-fill', () =>
+        HttpResponse.json({ statusCode: 500, message: 'boom' }, { status: 500 }),
+      ),
+    );
+    renderWithProviders(
+      <FillAssistDialog
+        open
+        onOpenChange={vi.fn()}
+        routineId="routine-1"
+        sectionId="section-1"
+        weekdayLabels={{}}
+        onDone={vi.fn()}
+      />,
+      { tenantId: 'tenant-1', locale: 'en' },
+    );
+
+    expect(await screen.findByRole('alert', {}, { timeout: 8000 })).toBeTruthy();
+    expect(screen.getByText(/Couldn't work out the periods to fill/)).toBeTruthy();
   });
 });

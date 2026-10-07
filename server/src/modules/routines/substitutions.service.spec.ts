@@ -72,14 +72,16 @@ describe('SubstitutionsService [21.5.1]', () => {
     expect(result).toMatchObject({ substitute_teacher_id: 't-2' });
   });
 
-  it('refuses a substitution on a date the slot does not occur on', async () => {
-    await expect(
-      ctx.service.record(
-        { routine_slot_id: 'slot-1', date: '2026-01-06' } as any, // Tuesday, slot is Monday
-        TENANT_ID,
-        'user-1',
-      ),
-    ).rejects.toThrow(UnprocessableEntityException);
+  it('refuses a substitution on a date the slot does not occur on, with code SLOT_NOT_ON_DATE', async () => {
+    const attempt = ctx.service.record(
+      { routine_slot_id: 'slot-1', date: '2026-01-06' } as any, // Tuesday, slot is Monday
+      TENANT_ID,
+      'user-1',
+    );
+    await expect(attempt).rejects.toThrow(UnprocessableEntityException);
+    await expect(attempt).rejects.toMatchObject({
+      response: { details: { code: 'SLOT_NOT_ON_DATE' } },
+    });
   });
 
   it('never touches routine_slots — only the substitution repo is written to', async () => {

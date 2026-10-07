@@ -17,11 +17,14 @@
  * flagged in the PR description).
  */
 import { getActiveTenant } from '@biddaloy/ui/api';
-import { toast } from '@biddaloy/ui/components';
 import {
+  Card,
+  EmptyState,
   RoutineGrid,
   routineCellKey,
-  RoutePending,
+  Skeleton,
+  StatusBadge,
+  toast,
   type RoutineGridCell,
 } from '@biddaloy/ui/components';
 import {
@@ -41,24 +44,24 @@ import {
   type ConstraintViolation,
   type ConstraintWarning,
 } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
-import { createFileRoute } from '@tanstack/react-router';
+import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { DetailShell, PageContainer, PageHeader } from '@biddaloy/ui/shells';
+import { formatNumber, formatTime, toIsoDate } from '@biddaloy/ui/utils';
+import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import { SendIcon, TableIcon, WandSparklesIcon } from 'lucide-react';
 import * as React from 'react';
 import { z } from 'zod';
 
 import { loadRouteNamespaces } from '../../../route-loaders';
 
+import { BuilderDayList } from './-builder-day-list';
 import { CellPicker, type CellPickerValue } from './-cell-picker';
 import { ConflictList } from './-conflict-list';
 import { FillAssistDialog } from './-fill-assist-dialog';
+import { subjectName } from './-subject-name';
 import { WorkloadPanel } from './-workload-panel';
 
 const WEEKDAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
-
-function todayIso(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-}
 
 const searchSchema = z.object({
   classId: z.string().uuid().optional().catch(undefined),
@@ -67,14 +70,8 @@ const searchSchema = z.object({
 export const Route = createFileRoute('/_staff/routines/$sectionId')({
   validateSearch: searchSchema,
   loader: () => loadRouteNamespaces('routines', 'common'),
-  pendingComponent: RoutineBuilderPending,
   component: RoutineBuilderPage,
 });
-
-function RoutineBuilderPending() {
-  const { t } = useTranslation('routines');
-  return <RoutePending variant="form" label={t('routePending.label', { ns: 'nav' })} />;
-}
 
 interface ActiveCell {
   weekday: number;
@@ -83,7 +80,9 @@ interface ActiveCell {
 }
 
 function RoutineBuilderPage() {
-  const { t } = useTranslation('routines');
+  const { t, i18n } = useTranslation('routines');
+  const config = useRegionConfig();
+  const navigate = useNavigate();
   const { sectionId } = Route.useParams();
   const { classId } = Route.useSearch();
   const schoolId = getActiveTenant() ?? '';
@@ -127,22 +126,85 @@ function RoutineBuilderPage() {
   const [warnings, setWarnings] = React.useState<ConstraintWarning[]>([]);
   const [fillAssistOpen, setFillAssistOpen] = React.useState(false);
 
+  const backToList = {
+    label: t('builder.backToList'),
+    onClick: () => void navigate({ to: '/routines', search: { classId } }),
+  };
+  const problem = (
+    title: string,
+    explanation: string,
+    action: { label: string; onClick: () => void },
+    known?: { name: string },
+  ) => {
+    const empty = (
+      <EmptyState
+        title={title}
+        explanation={explanation}
+        action={action}
+        icon={<TableIcon aria-hidden="true" />}
+      />
+    );
+    return known ? (
+      <DetailShell name={known.name}>{empty}</DetailShell>
+    ) : (
+      <PageContainer>
+        <PageHeader title={t('builder.backToList')} />
+        {empty}
+      </PageContainer>
+    );
+  };
+
   if (!classId) {
-    return <p className="p-4 text-sm text-muted-foreground">{t('builder.noClassIdExplanation')}</p>;
+    return problem(t('builder.noClassIdTitle'), t('builder.noClassIdExplanation'), backToList);
   }
 
-  if (sectionsQuery.isPending || routinesQuery.isPending) return null;
+  if (sectionsQuery.isPending || routinesQuery.isPending) {
+    return (
+      <PageContainer>
+        <div aria-busy="true" className="flex flex-col gap-4">
+          <span className="sr-only">{t('builder.loading')}</span>
+          <Skeleton className="h-8 w-1/3" />
+          <Skeleton className="h-5 w-1/2" />
+          {Array.from({ length: 6 }, (_, index) => (
+            <Skeleton key={index} className="h-14 w-full" />
+          ))}
+        </div>
+      </PageContainer>
+    );
+  }
 
   if (!section) {
-    return <p className="p-4 text-sm text-destructive">{t('builder.sectionNotFound')}</p>;
+    return problem(
+      t('builder.sectionNotFound'),
+      t('builder.sectionNotFoundExplanation'),
+      backToList,
+    );
   }
 
+  const sectionTitle = t('builder.title', {
+    className: section.class.name,
+    sectionName: section.section_name,
+  });
+
   if (!section.class.shift_id) {
-    return <p className="p-4 text-sm text-muted-foreground">{t('builder.noShiftExplanation')}</p>;
+    return problem(
+      t('builder.noShiftTitle'),
+      t('builder.noShiftExplanation'),
+      {
+        label: t('builder.openClass'),
+        onClick: () => void navigate({ to: '/classes/$classId', params: { classId } }),
+      },
+      { name: sectionTitle },
+    );
   }
 
   if (!routine) {
-    return <p className="p-4 text-sm text-muted-foreground">{t('builder.noRoutineExplanation')}</p>;
+    return problem(
+      t('builder.noRoutineTitle'),
+      t('builder.noRoutineExplanation'),
+      { label: t('builder.openReview'), onClick: () => void navigate({ to: '/routines/review' }) },
+      { name: sectionTitle },
+    );
   }
 
   const weekdays = [0, 1, 2, 3, 4, 5, 6].filter(
@@ -166,7 +228,7 @@ function RoutineBuilderPage() {
   // the grid (and `activeCellSlot`/`handleClearCell` below, which both
   // read `sectionSlots`) pointed at the live row, not the historical one —
   // same predicate `greedy-fill.service.ts` already uses server-side.
-  const today = todayIso();
+  const today = toIsoDate(new Date());
   const sectionSlots = (slotsQuery.data ?? []).filter(
     (entry) =>
       entry.slot.section_id === sectionId &&
@@ -177,11 +239,13 @@ function RoutineBuilderPage() {
   for (const entry of sectionSlots) {
     cells[routineCellKey(entry.slot.weekday, entry.slot.period_slot_id)] = {
       slotId: entry.slot.id,
-      subjectLabel:
-        subjectsQuery.data?.data.find((subject) => subject.id === entry.slot.subject_id)?.name_en ??
-        entry.slot.subject_id,
+      subjectLabel: subjectName(
+        subjectsQuery.data?.data.find((subject) => subject.id === entry.slot.subject_id),
+        i18n.language,
+      ),
       teacherLabels: entry.teacher_ids.map(
-        (id) => teachersQuery.data?.data.find((teacher) => teacher.id === id)?.user.full_name ?? id,
+        (id) =>
+          teachersQuery.data?.data.find((teacher) => teacher.id === id)?.user.full_name ?? '—',
       ),
       recurrence: entry.slot.recurrence,
       hasViolation: false,
@@ -210,7 +274,7 @@ function RoutineBuilderPage() {
       teacher_ids: value.teacherIds,
       recurrence: value.recurrence,
       recurrence_offset: value.recurrenceOffset,
-      valid_from: existing?.slot.valid_from ?? todayIso(),
+      valid_from: existing?.slot.valid_from ?? today,
       valid_to: existing?.slot.valid_to ?? null,
     };
     const mutation = existing
@@ -249,81 +313,139 @@ function RoutineBuilderPage() {
     });
   }
 
-  return (
-    <div className="flex flex-col gap-4 p-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-lg font-semibold">
-          {t('builder.title', {
-            className: section.class.name,
-            sectionName: section.section_name,
-          })}
-        </h1>
-        <button
-          type="button"
-          className="h-9 rounded-md border border-border-subtle px-3 text-sm"
-          onClick={() => setFillAssistOpen(true)}
-        >
-          {t('builder.fillAssistAction')}
-        </button>
-      </div>
+  const activePeriod = activeCell
+    ? periods.find((period) => period.id === activeCell.periodSlotId)
+    : undefined;
+  const filled = Object.keys(cells).length;
+  const total = weekdays.length * periods.filter((period) => period.kind !== 'BREAK').length;
+  const stateTone = { DRAFT: 'neutral', REVIEW: 'warning', PUBLISHED: 'success' } as const;
 
-      {/* [1047] Violations render inside the still-open CellPicker instead —
+  return (
+    <DetailShell
+      name={sectionTitle}
+      statusBadge={
+        <StatusBadge
+          tone={stateTone[routine.state]}
+          label={t(`review.stateLabel.${routine.state}`)}
+        />
+      }
+      facts={[
+        {
+          label: t('builder.studentsFact'),
+          value: t('builder.studentsValue', {
+            count: section.enrolled_count,
+            formattedCount: formatNumber(section.enrolled_count, config),
+          }),
+        },
+        {
+          label: t('builder.filledFact'),
+          value: t('builder.filledValue', {
+            filled: formatNumber(filled, config),
+            total: formatNumber(total, config),
+          }),
+        },
+      ]}
+      actions={[
+        {
+          id: 'review',
+          label: t('builder.reviewAction'),
+          icon: <SendIcon />,
+          priority: 'secondary',
+          onClick: () => void navigate({ to: '/routines/review' }),
+        },
+        {
+          id: 'fill',
+          label: t('builder.fillAssistAction'),
+          icon: <WandSparklesIcon />,
+          priority: 'primary',
+          onClick: () => setFillAssistOpen(true),
+        },
+      ]}
+    >
+      <div className="flex flex-col gap-6">
+        {/* [1047] Violations render inside the still-open CellPicker instead —
           see that component's own `violations` prop doc. This page-level
           list is warnings only: those only arrive on a *successful* save,
           after the dialog has already closed. */}
-      <ConflictList violations={[]} warnings={warnings} />
+        <ConflictList violations={[]} warnings={warnings} />
 
-      <RoutineGrid
-        weekdays={weekdays}
-        weekdayLabels={weekdayLabels}
-        periods={periods}
-        cells={cells}
-        onActivateCell={(weekday, periodSlotId) => setActiveCell({ weekday, periodSlotId })}
-        onClearCell={handleClearCell}
-        onTypeAhead={(weekday, periodSlotId, char) =>
-          setActiveCell({ weekday, periodSlotId, initialFilter: char })
-        }
-      />
-
-      <WorkloadPanel
-        routineId={routine.id}
-        maxPeriodsPerTeacherPerDay={settingsQuery.data?.routine?.maxPeriodsPerTeacherPerDay}
-      />
-
-      {activeCell && (
-        <CellPicker
-          open
-          onOpenChange={(open) => {
-            if (!open) {
-              setActiveCell(null);
-              setViolations([]);
-            }
-          }}
-          initialFilter={activeCell.initialFilter}
-          initialValue={
-            activeCellSlot()
-              ? {
-                  subjectId: activeCellSlot()!.slot.subject_id,
-                  teacherIds: activeCellSlot()!.teacher_ids,
-                  recurrence: activeCellSlot()!.slot.recurrence,
-                  recurrenceOffset: activeCellSlot()!.slot.recurrence_offset,
+        <section className="space-y-3">
+          <p className="hidden text-text-secondary md:block">{t('builder.keyboardHint')}</p>
+          <div className="hidden md:block">
+            <Card padded={false} className="overflow-hidden">
+              <RoutineGrid
+                weekdays={weekdays}
+                weekdayLabels={weekdayLabels}
+                periods={periods}
+                cells={cells}
+                onActivateCell={(weekday, periodSlotId) => setActiveCell({ weekday, periodSlotId })}
+                onClearCell={handleClearCell}
+                onTypeAhead={(weekday, periodSlotId, char) =>
+                  setActiveCell({ weekday, periodSlotId, initialFilter: char })
                 }
-              : undefined
-          }
-          onSave={handleSave}
-          saving={createSlot.isPending || updateSlot.isPending}
-          violations={violations}
-        />
-      )}
+              />
+            </Card>
+          </div>
+          <div className="md:hidden">
+            <BuilderDayList
+              weekdays={weekdays}
+              weekdayLabels={weekdayLabels}
+              periods={periods}
+              cells={cells}
+              onActivateCell={(weekday, periodSlotId) => setActiveCell({ weekday, periodSlotId })}
+            />
+          </div>
+        </section>
 
-      <FillAssistDialog
-        open={fillAssistOpen}
-        onOpenChange={setFillAssistOpen}
-        routineId={routine.id}
-        sectionId={sectionId}
-        weekdayLabels={weekdayLabels}
-        onDone={() => setViolations([])}
-      />
-    </div>
+        <WorkloadPanel
+          routineId={routine.id}
+          maxPeriodsPerTeacherPerDay={settingsQuery.data?.routine?.maxPeriodsPerTeacherPerDay}
+        />
+
+        {activeCell && (
+          <CellPicker
+            open
+            onOpenChange={(open) => {
+              if (!open) {
+                setActiveCell(null);
+                setViolations([]);
+              }
+            }}
+            initialFilter={activeCell.initialFilter}
+            {...(activePeriod
+              ? {
+                  dayLabel: weekdayLabels[activeCell.weekday],
+                  periodLabel: t('agenda.periodLabel', {
+                    sequence: formatNumber(activePeriod.sequence, config),
+                  }),
+                  timeLabel: formatTime(activePeriod.starts_at, config),
+                }
+              : {})}
+            initialValue={
+              activeCellSlot()
+                ? {
+                    subjectId: activeCellSlot()!.slot.subject_id,
+                    teacherIds: activeCellSlot()!.teacher_ids,
+                    recurrence: activeCellSlot()!.slot.recurrence,
+                    recurrenceOffset: activeCellSlot()!.slot.recurrence_offset,
+                  }
+                : undefined
+            }
+            onSave={handleSave}
+            saving={createSlot.isPending || updateSlot.isPending}
+            violations={violations}
+          />
+        )}
+
+        <FillAssistDialog
+          open={fillAssistOpen}
+          onOpenChange={setFillAssistOpen}
+          routineId={routine.id}
+          sectionId={sectionId}
+          weekdayLabels={weekdayLabels}
+          onDone={() => setViolations([])}
+        />
+      </div>
+    </DetailShell>
   );
 }

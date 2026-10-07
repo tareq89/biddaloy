@@ -6,13 +6,16 @@
     "columnTitle": "শিরোনাম",
     "columnClassSection": "শ্রেণি / শাখা",
     "columnSeatCount": "আসন",
-    "columnOpenDate": "শুরু",
-    "columnCloseDate": "শেষ",
     "columnStatus": "অবস্থা",
     "statusOpen": "চলমান",
     "statusClosed": "বন্ধ",
-    "emptyMessage": "কোনো ভর্তি পর্ব পাওয়া যায়নি",
-    "errorMessage": "ভর্তি পর্ব লোড করা যায়নি"
+    "errorMessage": "ভর্তি পর্ব লোড করা যায়নি",
+    "subtitle": "কোন শ্রেণিতে কত আসনে, কবে থেকে কবে পর্যন্ত অনলাইনে আবেদন নেওয়া হবে।",
+    "columnWindow": "আবেদনের সময়",
+    "viewApplicants": "আবেদনকারী দেখুন",
+    "edit": "সম্পাদনা",
+    "emptyTitle": "এখনো কোনো ভর্তি পর্ব নেই",
+    "emptyText": "একটি পর্ব যোগ করলে অভিভাবকেরা অনলাইনে আবেদন করতে পারবেন।"
   },
   "createDialog": {
     "title": "ভর্তি পর্ব যোগ করুন",
@@ -23,19 +26,25 @@
   "form": {
     "titleLabel": "শিরোনাম",
     "classSectionLabel": "শ্রেণি / শাখা",
-    "classSectionPlaceholder": "একটি শ্রেণি ও শাখা নির্বাচন করুন",
     "seatCountLabel": "আসন সংখ্যা",
     "openDateLabel": "শুরুর তারিখ",
     "closeDateLabel": "শেষের তারিখ",
-    "requiredDocumentsLabel": "প্রয়োজনীয় ডকুমেন্ট",
+    "requiredDocumentsLabel": "প্রয়োজনীয় নথি",
     "documentPhoto": "ছবি",
     "documentBirthCertificate": "জন্ম সনদ",
     "documentTranscript": "একাডেমিক ট্রান্সক্রিপ্ট",
-    "dateRangeError": "শেষের তারিখ শুরুর তারিখের আগে হতে পারবে না।"
+    "dateRangeError": "শেষের তারিখ শুরুর তারিখের আগে হতে পারবে না।",
+    "datesHelp": "এই দুই তারিখের মধ্যে অভিভাবকেরা অনলাইনে আবেদন করতে পারবেন।",
+    "documentsHelp": "আবেদনের সময় অভিভাবককে এগুলো আপলোড করতে হবে।"
   },
   "detail": {
     "save": "সংরক্ষণ করুন",
     "saving": "সংরক্ষণ হচ্ছে…",
-    "errorMessage": "ভর্তি পর্ব সংরক্ষণ করা যায়নি"
+    "errorMessage": "ভর্তি পর্ব সংরক্ষণ করা যায়নি",
+    "sectionTitle": "পর্বের তথ্য",
+    "applicantCount_one": "{{formatted}}টি আবেদন জমা পড়েছে",
+    "applicantCount_other": "{{formatted}}টি আবেদন জমা পড়েছে",
+    "saved": "সংরক্ষণ হয়েছে",
+    "loadError": "এই পর্বটি লোড করা যায়নি"
   }
 }

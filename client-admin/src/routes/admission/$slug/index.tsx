@@ -7,6 +7,7 @@
  * this ticket, one line, alongside the existing `/i/` entry) — without it
  * an unauthenticated visitor bounces to `/login` before this ever renders.
  */
+import { AuthLayout } from '@biddaloy/ui/components';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { createFileRoute } from '@tanstack/react-router';
 import * as React from 'react';
@@ -29,14 +30,12 @@ function PublicAdmissionRoute() {
   } | null>(null);
 
   return (
-    <div className="flex min-h-screen justify-center bg-muted/20 p-4 sm:p-6">
-      <div className="w-full max-w-md">
-        {submitted ? (
-          <AdmissionConfirmation slug={slug} referenceNumber={submitted.reference_number} />
-        ) : (
-          <PublicAdmissionForm slug={slug} onSubmitted={setSubmitted} />
-        )}
-      </div>
-    </div>
+    <AuthLayout size="wide">
+      {submitted ? (
+        <AdmissionConfirmation slug={slug} referenceNumber={submitted.reference_number} />
+      ) : (
+        <PublicAdmissionForm slug={slug} onSubmitted={setSubmitted} />
+      )}
+    </AuthLayout>
   );
 }

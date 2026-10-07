@@ -35,7 +35,8 @@ import {
   type Routine,
   type Student,
 } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { formatNumber } from '@biddaloy/ui/utils';
 import { createFileRoute } from '@tanstack/react-router';
 import * as React from 'react';
 import { z } from 'zod';
@@ -117,6 +118,7 @@ function useStudentMeta(): (student: Student) => string {
 function PortalRoutine() {
   const { t } = useTranslation('portal');
   const { t: tRoutines } = useTranslation('routines');
+  const config = useRegionConfig();
   const search = Route.useSearch();
   const studentMeta = useStudentMeta();
   const dates = React.useMemo(agendaDates, []);
@@ -222,7 +224,9 @@ function PortalRoutine() {
     teachersQuery.data?.data.find((teacher) => teacher.id === id)?.user.full_name ?? id;
   const periodLabel = (id: string) => {
     const entry = periodLookupQuery.data?.[id];
-    return entry ? tRoutines('agenda.periodLabel', { sequence: entry.sequence }) : id;
+    return entry
+      ? tRoutines('agenda.periodLabel', { sequence: formatNumber(entry.sequence, config) })
+      : id;
   };
   const weeklyOffDays = new Set(calendarSettingsQuery.data?.weeklyOffDays ?? []);
   const holidayFor = (date: string) =>

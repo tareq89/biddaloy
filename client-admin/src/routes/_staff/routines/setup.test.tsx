@@ -1,5 +1,5 @@
 import { cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -42,8 +42,51 @@ describe('/routines/setup', () => {
       locale: 'en',
     });
 
-    expect(await screen.findByText('Morning')).toBeTruthy();
-    expect(screen.getAllByRole('button', { name: 'Delete' }).length).toBeGreaterThanOrEqual(0);
+    expect((await screen.findAllByText('Morning')).length).toBeGreaterThan(0);
+    expect(screen.getByRole('heading', { level: 1, name: 'Routine setup' })).toBeTruthy();
+    expect(screen.getByRole('tab', { name: 'Shifts and periods', selected: true })).toBeTruthy();
+    expect(screen.getByRole('tab', { name: 'Rooms' })).toBeTruthy();
+    expect(screen.getByRole('tab', { name: 'Routine rules' })).toBeTruthy();
+  });
+
+  it('puts the selected tab in the URL and shows only that panel', async () => {
+    mockCommonRoutes();
+    const { router } = renderWithRouter(routeTree, {
+      initialEntries: ['/routines/setup'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('tab', { name: 'Rooms' }));
+
+    expect(await screen.findByRole('heading', { name: 'No rooms yet' })).toBeTruthy();
+    // The inactive panel is hidden, not unmounted (so typed rows survive).
+    expect(screen.queryByRole('heading', { name: 'Shifts' })).toBeNull();
+    await waitFor(() => expect(router.state.location.search).toEqual({ tab: 'rooms' }));
+  });
+
+  it('opens the rules tab from ?tab=rules, and falls back to the first tab for a bad value', async () => {
+    mockCommonRoutes();
+    renderWithRouter(routeTree, {
+      initialEntries: ['/routines/setup?tab=rules'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+    expect(await screen.findByRole('heading', { name: 'Routine rules' })).toBeTruthy();
+  });
+
+  it('an invalid tab shows the shifts and periods tab', async () => {
+    mockCommonRoutes();
+    renderWithRouter(routeTree, {
+      initialEntries: ['/routines/setup?tab=nonsense'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+    expect((await screen.findAllByText('Morning')).length).toBeGreaterThan(0);
   });
 
   it('switches the selected shift when a different one is clicked', async () => {
@@ -68,11 +111,32 @@ describe('/routines/setup', () => {
     });
 
     const user = userEvent.setup();
-    await screen.findByText('Afternoon');
-    await user.click(screen.getByRole('button', { name: 'Afternoon' }));
+    const shiftSelect = await screen.findByRole('combobox', { name: 'Shift' });
+    await within(shiftSelect).findByText('Morning');
+    await user.click(shiftSelect);
+    await user.click(await screen.findByRole('option', { name: 'Afternoon' }));
 
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'Afternoon' }).className).toMatch(/underline/),
+    await within(screen.getByRole('combobox', { name: 'Shift' })).findByText('Afternoon');
+  });
+
+  it('keeps what you typed in the rules tab when you switch tab and back', async () => {
+    mockCommonRoutes();
+    renderWithRouter(routeTree, {
+      initialEntries: ['/routines/setup?tab=rules'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+    const user = userEvent.setup();
+
+    const input = await screen.findByLabelText('Gap between periods (minutes)');
+    await user.clear(input);
+    await user.type(input, '17');
+    await user.click(screen.getByRole('tab', { name: 'Rooms' }));
+    await user.click(screen.getByRole('tab', { name: 'Routine rules' }));
+
+    expect(screen.getByLabelText<HTMLInputElement>('Gap between periods (minutes)').value).toBe(
+      '17',
     );
   });
 });

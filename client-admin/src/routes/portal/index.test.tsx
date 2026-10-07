@@ -250,22 +250,45 @@ describe('/portal', () => {
       expect(screen.queryByText(/2025–26/)).toBeNull();
     });
 
-    it('makes each child card a link into that child\u2019s fee view', async () => {
+    it('gives each child card a footer link into that child\u2019s fee view, named after the child', async () => {
       mockPortal(students, dues);
       renderPortal();
 
-      // The whole card is the link, not a "view" control inside it — so
-      // the tap target is the card and there is no nested interactive
-      // element for a screen reader to step through.
-      const link = (await screen.findByText('Fatima Rahman')).closest('a') as HTMLAnchorElement;
-      expect(link).toBeTruthy();
+      const link = await screen.findByRole('link', { name: "View Fatima Rahman's fees" });
       expect(link.getAttribute('href')).toBe('/portal/fees?student=student-1');
-      expect(link.getAttribute('data-slot')).toBe('card');
+      // The card itself is not a link — it holds a list.
+      expect(
+        (screen.getByText('Fatima Rahman').closest('[data-slot="card"]') as HTMLElement).tagName,
+      ).toBe('ARTICLE');
 
       // Every child gets their own, including the paid-up one.
       expect(
-        (screen.getByText('Ayesha Rahman').closest('a') as HTMLAnchorElement).getAttribute('href'),
+        screen.getByRole('link', { name: "View Ayesha Rahman's fees" }).getAttribute('href'),
       ).toBe('/portal/fees?student=student-3');
+    });
+
+    it('shows no "Due this month" block inside a paid-up child card', async () => {
+      mockPortal(students, dues);
+      renderPortal();
+
+      const paidUp = (await screen.findByText('Ayesha Rahman')).closest(
+        '[data-slot="card"]',
+      ) as HTMLElement;
+      expect(within(paidUp).queryByText('Due this month')).toBeNull();
+      // ...while a child who owes this month carries it inside the same card.
+      const owing = screen.getByText('Fatima Rahman').closest('[data-slot="card"]') as HTMLElement;
+      expect(within(owing).getByText('Due this month')).toBeTruthy();
+    });
+
+    it('paints a zero family total in the paid tone', async () => {
+      mockPortal(students, []);
+      renderPortal();
+
+      await screen.findByText('Ayesha Rahman');
+      const heading = screen.getByRole('heading', { level: 2, name: 'Total outstanding' });
+      const amount = (heading.parentElement as HTMLElement).querySelector('p') as HTMLElement;
+      expect(amount.textContent).toBe('Nothing due');
+      expect(amount.className).toContain('text-status-paid-fg');
     });
 
     it('reconciles the hero total against the cards of the children who owe', async () => {
@@ -278,20 +301,21 @@ describe('/portal', () => {
       expect(await screen.findByText('\u09f311,000.00')).toBeTruthy();
       const owing = ['Fatima Rahman', 'Imran Rahman'].map((name) => {
         const card = screen.getByText(name).closest('[data-slot="card"]') as HTMLElement;
-        return within(card).getByText(/\u09f3/).textContent;
+        // The headline amount is the first figure in the card.
+        return within(card).getAllByText(/\u09f3/)[0]?.textContent;
       });
       expect(owing).toEqual(['\u09f35,000.00', '\u09f36,000.00']);
       const paidUp = screen.getByText('Ayesha Rahman').closest('[data-slot="card"]') as HTMLElement;
       expect(within(paidUp).getByText('Nothing due')).toBeTruthy();
     });
 
-    it('has exactly one h1: the hero label', async () => {
+    it('has exactly one h1: the page title, equal to the nav label', async () => {
       mockPortal(students, dues);
       renderPortal();
 
       await screen.findByText('Ayesha Rahman');
       const headings = screen.getAllByRole('heading', { level: 1 });
-      expect(headings.map((h) => h.textContent)).toEqual(['Total outstanding']);
+      expect(headings.map((h) => h.textContent)).toEqual(['Overview']);
       // Section titles stay h2 — `useRouteFocus` never looks at them.
       expect(screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)).toContain(
         'Your children',
@@ -359,8 +383,8 @@ describe('/portal', () => {
       mockPortal(students, dues, payments);
       renderPortal();
 
-      expect(await screen.findByRole('heading', { level: 1, name: 'Fatima Rahman' })).toBeTruthy();
-      expect(screen.getByText('Class 8 B · Roll 14')).toBeTruthy();
+      expect(await screen.findByRole('heading', { level: 1, name: 'Overview' })).toBeTruthy();
+      expect(screen.getByText('Fatima Rahman · Class 8 B · Roll 14')).toBeTruthy();
       expect(screen.queryByText('Your children')).toBeNull();
     });
 
@@ -368,23 +392,22 @@ describe('/portal', () => {
       mockPortal(students, dues, payments);
       renderPortal();
 
-      await screen.findByRole('heading', { level: 1, name: 'Fatima Rahman' });
+      await screen.findByRole('heading', { level: 1, name: 'Overview' });
       // No picker, and the promoted student is not itself a drill-down
       // link — there is nowhere else to switch to.
       expect(screen.queryByRole('navigation', { name: 'Choose a student' })).toBeNull();
       expect(screen.queryByRole('link', { name: /Fatima Rahman/ })).toBeNull();
     });
 
-    it('has exactly one h1: the student name, not the hero label', async () => {
+    it('has exactly one h1: the page title; the student sits in the subtitle', async () => {
       mockPortal(students, dues, payments);
       renderPortal();
 
-      await screen.findByText('Class 8 B · Roll 14');
+      await screen.findByText('Fatima Rahman · Class 8 B · Roll 14');
       expect(screen.getAllByRole('heading', { level: 1 }).map((h) => h.textContent)).toEqual([
-        'Fatima Rahman',
+        'Overview',
       ]);
-      // The hero label is still on the page — just not as a heading.
-      expect(screen.getByText('Total outstanding')).toBeTruthy();
+      expect(screen.getByRole('heading', { level: 2, name: 'Total outstanding' })).toBeTruthy();
     });
 
     it('renders recent payments with method and transaction reference, never a receipt number', async () => {
@@ -426,6 +449,8 @@ describe('/portal', () => {
 
       const link = await screen.findByRole('link', { name: 'View fee breakdown' });
       expect(link.getAttribute('href')).toBe('/portal/fees');
+      // The page's one filled primary: default-variant Button.
+      expect(link.getAttribute('data-variant')).toBe('default');
       expect(screen.queryByText(/Pay now/i)).toBeNull();
     });
 
@@ -475,7 +500,7 @@ describe('/portal', () => {
       );
       renderPortal();
 
-      await screen.findByRole('heading', { level: 1, name: 'Fatima Rahman' });
+      await screen.findByRole('heading', { level: 1, name: 'Overview' });
       const expected = new Date();
       expected.setDate(expected.getDate() - 30);
       expect(
@@ -487,7 +512,7 @@ describe('/portal', () => {
       mockPortal(students, [], [payment('p-1', 'FAILED', -1, 5000)]);
       renderPortal();
 
-      await screen.findByRole('heading', { level: 1, name: 'Fatima Rahman' });
+      await screen.findByRole('heading', { level: 1, name: 'Overview' });
       await screen.findByRole('heading', { level: 2, name: 'Recent payments' });
       expect(screen.queryByText(/Last paid/)).toBeNull();
     });
@@ -524,14 +549,17 @@ describe('/portal', () => {
       expect(screen.queryByRole('alert')).toBeNull();
     });
 
-    it('uses the EmptyState title as the frame’s only h1', async () => {
+    it('uses the page title as the frame’s only h1; the EmptyState title is an h2', async () => {
       mockPortal([], []);
       renderPortal();
 
       await screen.findByText('No students linked to you yet');
       expect(screen.getAllByRole('heading', { level: 1 }).map((h) => h.textContent)).toEqual([
-        'No students linked to you yet',
+        'Overview',
       ]);
+      expect(
+        screen.getByRole('heading', { level: 2, name: 'No students linked to you yet' }),
+      ).toBeTruthy();
     });
 
     it('refetches when the parent checks again', async () => {
@@ -606,7 +634,7 @@ describe('/portal', () => {
         await screen.findByRole('button', { name: 'Try again' }, { timeout: 15000 }),
       );
 
-      expect(await screen.findByRole('heading', { level: 1, name: 'Fatima Rahman' })).toBeTruthy();
+      expect(await screen.findByRole('heading', { level: 1, name: 'Overview' })).toBeTruthy();
     });
 
     it('shows the route-level pending skeleton — never a blank frame or a bare id — while loading, with no h1', async () => {
@@ -648,12 +676,11 @@ describe('/portal', () => {
       );
       const { container } = renderPortal();
 
-      // `w-40` is unique to the single-student shape's name placeholder —
-      // the multi-child shape never uses it. Its appearance here, while
-      // `duesQuery` is still unresolved, is the regression this pins: the
-      // skeleton must not wait for both queries before picking a shape.
+      // The single-student shape appearing while `duesQuery` is still
+      // unresolved is the regression this pins: the skeleton must not wait
+      // for both queries before picking a shape.
       await waitFor(() =>
-        expect(container.querySelector('[data-slot="skeleton"].w-40')).toBeTruthy(),
+        expect(container.querySelector('[aria-busy="true"][data-shape="single"]')).toBeTruthy(),
       );
       expect(screen.queryAllByRole('heading', { level: 1 })).toHaveLength(0);
     });
@@ -670,7 +697,10 @@ describe('/portal', () => {
     const { localeReady } = renderPortal('bn');
     await localeReady;
 
-    expect(await screen.findByRole('heading', { level: 1, name: 'মোট বকেয়া' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { level: 1, name: 'সারসংক্ষেপ' })).toBeTruthy();
+    expect(screen.getByRole('heading', { level: 2, name: 'মোট বকেয়া' })).toBeTruthy();
+    // Roll numbers render in the tenant's numerals.
+    expect(screen.getByText('ক্লাস ৮ খ · রোল ১৪')).toBeTruthy();
     expect(screen.getByText('আপনার সন্তানেরা')).toBeTruthy();
     expect(screen.getByText('কোনো বকেয়া নেই')).toBeTruthy();
     // bn-BD's region config uses Bengali numerals, so the amount is not

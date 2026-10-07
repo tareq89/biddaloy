@@ -4,8 +4,11 @@
  * path can move a routine back out of it — so this dialog states that
  * plainly before publishing, and no unpublish control exists anywhere in
  * this codebase (there is nothing to call).
+ *
+ * [31.4] A kit `ConfirmDialog` (default tone: publishing is not destructive,
+ * it is just irreversible, so it is confirmed rather than coloured red).
  */
-import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, toast } from '@biddaloy/ui/components';
+import { ConfirmDialog, toast } from '@biddaloy/ui/components';
 import { usePublishRoutine } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 
@@ -30,24 +33,16 @@ export function PublishDialog({ open, onOpenChange, routineId }: PublishDialogPr
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{t('publishDialog.title')}</DialogTitle>
-          <DialogDescription>{t('publishDialog.oneWayExplanation')}</DialogDescription>
-        </DialogHeader>
-
-        <p className="text-sm text-muted-foreground">{t('publishDialog.correctionsExplanation')}</p>
-
-        <DialogFooter>
-          <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
-            {t('publishDialog.cancel')}
-          </Button>
-          <Button type="button" loading={publish.isPending} onClick={handleConfirm}>
-            {t('publishDialog.confirm')}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <ConfirmDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={t('publishDialog.title')}
+      description={`${t('publishDialog.oneWayExplanation')} ${t('publishDialog.correctionsExplanation')}`}
+      confirmLabel={t('publishDialog.confirm')}
+      cancelLabel={t('publishDialog.cancel')}
+      tone="default"
+      busy={publish.isPending}
+      onConfirm={handleConfirm}
+    />
   );
 }

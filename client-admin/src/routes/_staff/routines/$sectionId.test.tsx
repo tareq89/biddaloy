@@ -8,7 +8,7 @@ import {
   subjectFactory,
   teacherFactory,
 } from '@biddaloy/ui/test';
-import { formatTime } from '@biddaloy/ui/utils';
+import { formatNumber, formatTime } from '@biddaloy/ui/utils';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -16,6 +16,9 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { routeTree } from '../../../routeTree.gen';
 
+const TEACHER_CLASH_TEXT =
+  'A teacher on this period is already teaching another section at this time.';
+const GRID_NAME = 'Weekly routine table';
 const PERIOD_TEXT = `${formatTime('08:00', REGION_BD_BN)} – ${formatTime('08:40', REGION_BD_BN)}`;
 
 const SECTION = classSectionFactory({
@@ -34,10 +37,10 @@ const SUBJECT = subjectFactory({ id: 'subject-math', name_en: 'Math' });
 const TEACHER = teacherFactory({ id: 'teacher-1' });
 TEACHER.user.full_name = 'Ms Nahar';
 
-function mockCommonRoutes() {
+function mockCommonRoutes(enrolledCount = 40) {
   server.use(
     http.get('/api/v1/classes/11111111-1111-4111-8111-111111111111/sections', () =>
-      HttpResponse.json([{ ...SECTION, enrolled_count: 40 }]),
+      HttpResponse.json([{ ...SECTION, enrolled_count: enrolledCount }]),
     ),
     http.get('/api/v1/calendar-settings', () =>
       HttpResponse.json({ weeklyOffDays: [5, 6], termLabel: null }),
@@ -86,6 +89,38 @@ describe('/routines/$sectionId', () => {
     await cleanupTestState();
   });
 
+  it('says "1 student", not "1 students", for a one-student section', async () => {
+    mockCommonRoutes(1);
+    renderWithRouter(routeTree, {
+      initialEntries: ['/routines/section-1?classId=11111111-1111-4111-8111-111111111111'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    expect(await screen.findByText(`${formatNumber(1, REGION_BD_BN)} student`)).toBeTruthy();
+  });
+
+  it('shows the section as the page title with the routine state and how full the week is', async () => {
+    mockCommonRoutes();
+    renderWithRouter(routeTree, {
+      initialEntries: ['/routines/section-1?classId=11111111-1111-4111-8111-111111111111'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Class 6 – A' })).toBeTruthy();
+    expect(screen.getByText('Draft')).toBeTruthy();
+    expect(screen.getByText(`${formatNumber(40, REGION_BD_BN)} students`)).toBeTruthy();
+    // 1 class period x 5 working days (Sun-Thu), nothing placed yet.
+    expect(
+      await screen.findByText(
+        `${formatNumber(0, REGION_BD_BN)} of ${formatNumber(5, REGION_BD_BN)} periods`,
+      ),
+    ).toBeTruthy();
+  });
+
   it('opens the cell picker on Enter and saves a new slot', async () => {
     mockCommonRoutes();
     server.use(
@@ -118,7 +153,7 @@ describe('/routines/$sectionId', () => {
       locale: 'en',
     });
 
-    const table = await screen.findByRole('table');
+    const table = await screen.findByRole('table', { name: GRID_NAME });
     await waitFor(() => expect(screen.getByText(PERIOD_TEXT)).toBeTruthy());
     fireEvent.keyDown(table, { key: 'Enter' });
 
@@ -164,7 +199,7 @@ describe('/routines/$sectionId', () => {
       locale: 'en',
     });
 
-    const table = await screen.findByRole('table');
+    const table = await screen.findByRole('table', { name: GRID_NAME });
     await waitFor(() => expect(screen.getByText(PERIOD_TEXT)).toBeTruthy());
     fireEvent.keyDown(table, { key: 'Enter' });
 
@@ -174,9 +209,9 @@ describe('/routines/$sectionId', () => {
     await user.click(screen.getByLabelText('Ms Nahar'));
     await user.click(screen.getByRole('button', { name: 'Save' }));
 
-    await waitFor(() =>
-      expect(screen.getByText('Ms Nahar is already teaching 7B at this time')).toBeTruthy(),
-    );
+    await waitFor(() => expect(screen.getByText(TEACHER_CLASH_TEXT)).toBeTruthy());
+    // The server's English sentence never reaches the screen (D9).
+    expect(screen.queryByText('Ms Nahar is already teaching 7B at this time')).toBeNull();
     // The empty cell placeholder is still there — the failed save never wrote a slot.
     expect(screen.getAllByText('Empty').length).toBeGreaterThan(0);
   });
@@ -227,7 +262,7 @@ describe('/routines/$sectionId', () => {
       locale: 'en',
     });
 
-    const table = await screen.findByRole('table');
+    const table = await screen.findByRole('table', { name: GRID_NAME });
     await waitFor(() => expect(screen.getByText(PERIOD_TEXT)).toBeTruthy());
     fireEvent.keyDown(table, { key: 'Enter' });
 
@@ -257,7 +292,7 @@ describe('/routines/$sectionId', () => {
     await expect(
       waitFor(() => expect(screen.getByRole('alert')).toBeTruthy(), { timeout: 500 }),
     ).rejects.toThrow();
-    expect(screen.queryByText('Ms Nahar is already teaching 7B')).toBeNull();
+    expect(screen.queryByText(TEACHER_CLASH_TEXT)).toBeNull();
   });
 
   it('opens the cell picker prefilled when editing an existing slot, and shows a generic error on a non-conflict failure', async () => {
@@ -294,8 +329,8 @@ describe('/routines/$sectionId', () => {
       locale: 'en',
     });
 
-    const table = await screen.findByRole('table');
-    await waitFor(() => expect(screen.getByText('Math')).toBeTruthy());
+    const table = await screen.findByRole('table', { name: GRID_NAME });
+    await waitFor(() => expect(screen.getAllByText('Math').length).toBeGreaterThan(0));
     fireEvent.keyDown(table, { key: 'Enter' });
 
     // Prefilled from the existing slot: the subject picker already shows Math selected.
@@ -372,14 +407,14 @@ describe('/routines/$sectionId', () => {
     });
 
     // The grid renders the active row's subject, not the superseded one.
-    await waitFor(() => expect(screen.getByText('Math')).toBeTruthy());
+    await waitFor(() => expect(screen.getAllByText('Math').length).toBeGreaterThan(0));
     expect(screen.queryByText('subject-old')).toBeNull();
 
     // Editing the cell prefills from the active row and saves against
     // slot-1, not slot-old — proves `activeCellSlot()` (a `.find`, which
     // without the filter would return whichever row is listed first) also
     // resolved to the effective row, not just that some row rendered.
-    const table = await screen.findByRole('table');
+    const table = await screen.findByRole('table', { name: GRID_NAME });
     fireEvent.keyDown(table, { key: 'Enter' });
     await waitFor(() => expect(screen.getByLabelText('Subject')).toBeTruthy());
 
@@ -397,7 +432,8 @@ describe('/routines/$sectionId', () => {
       locale: 'en',
     });
 
-    expect(await screen.findByText(/routine builder's section list/i)).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Which section?' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Class routine' })).toBeTruthy();
   });
 
   it('shows the sectionNotFound explanation when the section id does not match', async () => {
@@ -409,7 +445,7 @@ describe('/routines/$sectionId', () => {
       locale: 'en',
     });
 
-    expect(await screen.findByText(/section.*not found|not found/i)).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Section not found.' })).toBeTruthy();
   });
 
   it('shows the noShift explanation when the section has no shift', async () => {
@@ -431,7 +467,8 @@ describe('/routines/$sectionId', () => {
       locale: 'en',
     });
 
-    expect(await screen.findByText(/no shift/i)).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'This class has no shift' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Open class' })).toBeTruthy();
   });
 
   it('shows the noRoutine explanation when no routine exists for the year', async () => {
@@ -451,7 +488,8 @@ describe('/routines/$sectionId', () => {
       locale: 'en',
     });
 
-    expect(await screen.findByText(/no routine/i)).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'No routine yet' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Open routine review' })).toBeTruthy();
   });
 
   it('clears an existing cell on Delete/Backspace', async () => {
@@ -487,8 +525,8 @@ describe('/routines/$sectionId', () => {
       locale: 'en',
     });
 
-    const table = await screen.findByRole('table');
-    await waitFor(() => expect(screen.getByText('Math')).toBeTruthy());
+    const table = await screen.findByRole('table', { name: GRID_NAME });
+    await waitFor(() => expect(screen.getAllByText('Math').length).toBeGreaterThan(0));
     fireEvent.keyDown(table, { key: 'Delete' });
 
     await waitFor(() => expect(screen.queryByText('Math')).toBeNull());
@@ -504,8 +542,8 @@ describe('/routines/$sectionId', () => {
     });
 
     const user = userEvent.setup();
-    await screen.findByRole('table');
-    await user.click(screen.getByRole('button', { name: /fill assist/i }));
+    await screen.findByRole('table', { name: GRID_NAME });
+    await user.click(screen.getByRole('button', { name: /fill empty periods/i }));
 
     await waitFor(() => expect(screen.getByRole('dialog')).toBeTruthy());
   });

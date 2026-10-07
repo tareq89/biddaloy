@@ -14,16 +14,18 @@ import {
   Button,
   Checkbox,
   Dialog,
-  DialogClose,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  ConfirmDialog,
   DatePicker,
   Input,
+  Label,
 } from '@biddaloy/ui/components';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { toIsoDate } from '@biddaloy/ui/utils';
 import * as React from 'react';
 
 export interface YearFormPayload {
@@ -57,16 +59,27 @@ const EMPTY_VALUES: YearFormInitialValues = {
   isCurrent: false,
 };
 
-/** `date.toISOString().slice(0, 10)` converts to UTC first — `DatePicker`
- * hands back a local-midnight `Date`, so in any timezone ahead of UTC
- * that rolls the date back a day. Reading the local year/month/day
- * components instead serializes the calendar date actually picked — same
- * fix `-student-form-schema.ts`'s `toLocalDateString` documents. */
-function toLocalDateString(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+/** Label with a visual required mark; the control carries `aria-required`. */
+export function Field({
+  label,
+  htmlFor,
+  children,
+}: {
+  label: string;
+  htmlFor?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <Label htmlFor={htmlFor}>
+        {label}
+        <span className="text-destructive" aria-hidden="true">
+          {' *'}
+        </span>
+      </Label>
+      {children}
+    </div>
+  );
 }
 
 export function YearFormDialog({
@@ -88,17 +101,21 @@ export function YearFormDialog({
   const [validationError, setValidationError] = React.useState<string | null>(null);
   const [confirmingIsCurrent, setConfirmingIsCurrent] = React.useState(false);
 
-  React.useEffect(() => {
-    if (!open) return;
-    const values = initialValues ?? EMPTY_VALUES;
-    setName(values.name);
-    setStartDate(values.startDate);
-    setEndDate(values.endDate);
-    setIsCurrent(values.isCurrent);
-    setValidationError(null);
-    setConfirmingIsCurrent(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only on open/close transitions
-  }, [open]);
+  const [discardOpen, setDiscardOpen] = React.useState(false);
+  const initial = initialValues ?? EMPTY_VALUES;
+  const isDirty =
+    name !== initial.name ||
+    isCurrent !== initial.isCurrent ||
+    startDate?.getTime() !== initial.startDate?.getTime() ||
+    endDate?.getTime() !== initial.endDate?.getTime();
+
+  /** Every close path (Esc, X, outside, Cancel) comes through here: never mid-request,
+   * and ask first when there are unsaved edits. */
+  function requestClose() {
+    if (isPending) return;
+    if (isDirty) setDiscardOpen(true);
+    else onOpenChange(false);
+  }
 
   /** Checking the box unsets every other current academic year server-side
    * (`academic-year.service.ts`'s `create`/`update`) — same side effect
@@ -138,8 +155,8 @@ export function YearFormDialog({
     setValidationError(null);
     onSubmit({
       name: name.trim(),
-      start_date: toLocalDateString(startDate),
-      end_date: toLocalDateString(endDate),
+      start_date: toIsoDate(startDate),
+      end_date: toIsoDate(endDate),
       is_current: isCurrent,
     });
   }
@@ -147,100 +164,107 @@ export function YearFormDialog({
   const title = mode === 'create' ? t('form.createTitle') : t('form.editTitle');
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <DialogHeader>
-            <DialogTitle>{title}</DialogTitle>
-            <DialogDescription>{t('form.description')}</DialogDescription>
-          </DialogHeader>
+    <>
+      <Dialog open={open} onOpenChange={(next) => (next ? onOpenChange(true) : requestClose())}>
+        <DialogContent size="md" onInteractOutside={(e) => isPending && e.preventDefault()}>
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            <DialogHeader>
+              <DialogTitle>{title}</DialogTitle>
+              <DialogDescription>{t('form.description')}</DialogDescription>
+            </DialogHeader>
 
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="year-form-name" className="text-sm font-medium">
-              {t('form.nameLabel')}
-            </label>
-            <Input
-              id="year-form-name"
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              placeholder={t('form.namePlaceholder')}
-            />
-          </div>
-
-          <div className="flex gap-3">
-            <div className="flex flex-1 flex-col gap-1.5">
-              <span className="text-sm font-medium">{t('form.startDateLabel')}</span>
-              <DatePicker
-                aria-label={t('form.startDateLabel')}
-                config={regionConfig}
-                value={startDate}
-                onValueChange={setStartDate}
+            <Field label={t('form.nameLabel')} htmlFor="year-form-name">
+              <Input
+                id="year-form-name"
+                aria-required="true"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                placeholder={t('form.namePlaceholder')}
               />
+            </Field>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <Field label={t('form.startDateLabel')}>
+                <DatePicker
+                  aria-label={t('form.startDateLabel')}
+                  config={regionConfig}
+                  value={startDate}
+                  onValueChange={setStartDate}
+                />
+              </Field>
+              <Field label={t('form.endDateLabel')}>
+                <DatePicker
+                  aria-label={t('form.endDateLabel')}
+                  config={regionConfig}
+                  value={endDate}
+                  onValueChange={setEndDate}
+                />
+              </Field>
             </div>
-            <div className="flex flex-1 flex-col gap-1.5">
-              <span className="text-sm font-medium">{t('form.endDateLabel')}</span>
-              <DatePicker
-                aria-label={t('form.endDateLabel')}
-                config={regionConfig}
-                value={endDate}
-                onValueChange={setEndDate}
+
+            <div className="flex items-start gap-2">
+              <Checkbox
+                id="year-form-is-current"
+                checked={isCurrent}
+                onCheckedChange={(checked) => handleIsCurrentChange(checked === true)}
               />
+              <Label htmlFor="year-form-is-current">{t('form.isCurrentLabel')}</Label>
             </div>
-          </div>
 
-          <div className="flex items-start gap-2">
-            <Checkbox
-              id="year-form-is-current"
-              checked={isCurrent}
-              onCheckedChange={(checked) => handleIsCurrentChange(checked === true)}
-            />
-            <label htmlFor="year-form-is-current" className="text-sm">
-              {t('form.isCurrentLabel')}
-            </label>
-          </div>
-
-          {confirmingIsCurrent && (
-            <div className="rounded-md border border-border-subtle bg-muted p-3 text-sm">
-              <p>{t('form.confirmIsCurrentDescription')}</p>
-              <div className="mt-2 flex gap-2">
-                <Button type="button" size="sm" onClick={handleConfirmIsCurrent}>
-                  {t('form.confirmIsCurrentConfirm')}
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setConfirmingIsCurrent(false)}
-                >
-                  {t('form.confirmIsCurrentCancel')}
-                </Button>
+            {confirmingIsCurrent && (
+              <div className="rounded-md border border-border-subtle bg-muted p-3">
+                <p>{t('form.confirmIsCurrentDescription')}</p>
+                <div className="mt-3 flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setConfirmingIsCurrent(false)}
+                  >
+                    {t('form.confirmIsCurrentCancel')}
+                  </Button>
+                  <Button type="button" onClick={handleConfirmIsCurrent}>
+                    {t('form.confirmIsCurrentConfirm')}
+                  </Button>
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {validationError && (
-            <p role="alert" className="text-sm text-destructive">
-              {validationError}
-            </p>
-          )}
-          {isError && (
-            <p role="alert" className="text-sm text-destructive">
-              {t('form.errorMessage')}
-            </p>
-          )}
+            {validationError && (
+              <p role="alert" className="text-destructive">
+                {validationError}
+              </p>
+            )}
+            {isError && (
+              <p role="alert" className="text-destructive">
+                {t('form.errorMessage')}
+              </p>
+            )}
 
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button type="button" variant="outline">
+            <DialogFooter>
+              <Button type="button" variant="outline" disabled={isPending} onClick={requestClose}>
                 {t('actions.cancel', { ns: 'common' })}
               </Button>
-            </DialogClose>
-            <Button type="submit" loading={isPending}>
-              {isPending ? t('form.saving') : t('form.save')}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+              <Button type="submit" loading={isPending}>
+                {isPending ? t('form.saving') : t('form.save')}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <ConfirmDialog
+        open={discardOpen}
+        onOpenChange={setDiscardOpen}
+        tone="default"
+        title={t('fullPage.discardTitle', { ns: 'common' })}
+        description={t('fullPage.discardDescription', { ns: 'common' })}
+        confirmLabel={t('fullPage.discardConfirm', { ns: 'common' })}
+        cancelLabel={t('fullPage.keepEditing', { ns: 'common' })}
+        onConfirm={() => {
+          setDiscardOpen(false);
+          onOpenChange(false);
+        }}
+      />
+    </>
   );
 }

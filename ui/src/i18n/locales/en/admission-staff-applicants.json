@@ -6,20 +6,23 @@
     "columnApplicantName": "Applicant",
     "columnGuardianPhone": "Guardian phone",
     "columnStatus": "Status",
-    "columnSubmittedDate": "Submitted",
+    "columnSubmittedDate": "Applied on",
     "filterIntake": "Admission round",
     "filterAllIntakes": "All admission rounds",
     "filterStatus": "Status",
     "filterAllStatuses": "All statuses",
-    "statusPending": "Pending",
+    "statusPending": "Awaiting review",
     "statusShortlisted": "Shortlisted",
     "statusAdmitted": "Admitted",
     "statusRejected": "Rejected",
-    "emptyMessage": "No admission applicants found",
-    "errorMessage": "Failed to load admission applicants"
+    "errorMessage": "Failed to load admission applicants",
+    "subtitle": "Applications sent through the online form — open one to review and decide.",
+    "columnIntake": "Admission round",
+    "view": "View",
+    "emptyTitle": "No applications yet",
+    "emptyText": "Applications appear here when guardians apply online."
   },
   "detail": {
-    "tabOverview": "Overview",
     "sectionApplicant": "Applicant",
     "sectionDocuments": "Documents",
     "sectionHistory": "Evaluation history",
@@ -32,19 +35,41 @@
     "notProvided": "Not provided",
     "noDocuments": "No documents uploaded",
     "noEvaluations": "No evaluations recorded yet",
-    "noteOnly": "Note",
-    "actionShortlist": "Shortlist",
+    "actionShortlist": "Add to shortlist",
     "actionAdmit": "Admit",
     "actionReject": "Reject",
     "rejectTitle": "Reject applicant",
     "rejectErrorMessage": "Failed to reject applicant",
     "rejecting": "Rejecting…",
-    "errorMessage": "Failed to load applicant"
+    "errorMessage": "Failed to load applicant",
+    "factIntake": "Admission round",
+    "factReference": "Reference number",
+    "factApplied": "Applied on",
+    "actionAddNote": "Add note",
+    "historySubtitle": "Newest first",
+    "uploaded": "Uploaded",
+    "genderOptions": {
+      "MALE": "Boy",
+      "FEMALE": "Girl",
+      "OTHER": "Other"
+    },
+    "documentTypes": {
+      "PHOTO": "Photo",
+      "BIRTH_CERTIFICATE": "Birth certificate",
+      "TRANSCRIPT": "Academic transcript"
+    },
+    "decision": {
+      "NOTE": "Note",
+      "SHORTLIST": "Added to shortlist",
+      "ADMIT": "Admitted",
+      "REJECT": "Rejected"
+    },
+    "rejectNotesLabel": "Reason (optional)",
+    "rejectDescription": "{{name}} will be told the application was not accepted. This cannot be undone."
   },
   "evaluate": {
-    "noteTitle": "Record evaluation note",
-    "shortlistTitle": "Shortlist applicant",
-    "notesLabel": "Notes",
+    "shortlistTitle": "Add to shortlist",
+    "notesLabel": "Note",
     "errorMessage": "Failed to record evaluation",
     "save": "Save",
     "saving": "Saving…"

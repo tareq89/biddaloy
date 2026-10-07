@@ -82,7 +82,7 @@ function mockCommonLookups() {
 }
 
 describe('/routines/my', () => {
-  it('says no teacher record exists for a non-teacher role', async () => {
+  it('shows the page title and a no-teacher empty state with a link for a routine manager', async () => {
     mockCommonLookups();
     server.use(
       http.get('/api/v1/routines', () => HttpResponse.json([{ ...ROUTINE, state: 'PUBLISHED' }])),
@@ -99,7 +99,9 @@ describe('/routines/my', () => {
       locale: 'en',
     });
 
-    await waitFor(() => expect(screen.getByText(/no teacher record found/i)).toBeTruthy());
+    expect(await screen.findByRole('heading', { level: 1, name: 'My routine' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'No routine for you' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'See class routines' })).toBeTruthy();
   });
 
   it('says the school has not published a routine yet when none exists beyond DRAFT', async () => {
@@ -125,7 +127,8 @@ describe('/routines/my', () => {
       locale: 'en',
     });
 
-    await waitFor(() => expect(screen.getByText(/hasn't published a routine yet/i)).toBeTruthy());
+    expect(await screen.findByRole('heading', { name: 'No routine published yet' })).toBeTruthy();
+    expect(screen.getByText(/hasn't published a routine yet/i)).toBeTruthy();
   });
 
   it('shows own periods and marks a covered one as covering, without hiding a cancelled one', async () => {
@@ -203,5 +206,68 @@ describe('/routines/my', () => {
 
     await waitFor(() => expect(screen.getByText(/covering for mr karim/i)).toBeTruthy());
     expect(screen.getByText('Cancelled')).toBeTruthy();
+  });
+
+  it('uses the Bangla subject name, and shows a dash rather than an id for an unknown section', async () => {
+    mockCommonLookups();
+    server.use(
+      http.get('/api/v1/subjects', () =>
+        HttpResponse.json({
+          data: [
+            {
+              id: 'subject-en',
+              name_en: 'English',
+              name_bn: 'ইংরেজি',
+              code: 'ENG',
+              is_active: true,
+            },
+          ],
+          total: 1,
+          page: 1,
+          limit: 100,
+          totalPages: 1,
+        }),
+      ),
+      http.get('/api/v1/routines', () => HttpResponse.json([{ ...ROUTINE, state: 'PUBLISHED' }])),
+      http.get('/api/v1/teachers', () =>
+        HttpResponse.json({
+          data: [{ id: 'teacher-1', user: { id: 'current-user', full_name: 'Ms Nahar' } }],
+          total: 1,
+          page: 1,
+          limit: 100,
+          totalPages: 1,
+        }),
+      ),
+      http.get('/api/v1/routines/resolve', ({ request }) =>
+        HttpResponse.json([
+          {
+            date: new URL(request.url).searchParams.get('from') ?? '2026-09-23',
+            routine_slot_id: 'slot-own',
+            section_id: 'section-unknown',
+            period_slot_id: 'period-unknown',
+            weekday: 3,
+            subject_id: 'subject-en',
+            room_id: null,
+            kind: 'CLASS',
+            teacher_ids: ['teacher-1'],
+            substituted: false,
+            cancelled: false,
+          },
+        ]),
+      ),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/routines/my'],
+      tenantId: 'tenant-1',
+      role: 'TEACHER',
+      accessToken: fakeJwtWithSubject('current-user'),
+      locale: 'bn',
+    });
+
+    await waitFor(() => expect(screen.getByText('ইংরেজি')).toBeTruthy());
+    expect(screen.queryByText('English')).toBeNull();
+    expect(screen.queryByText('section-unknown')).toBeNull();
+    expect(screen.queryByText('period-unknown')).toBeNull();
   });
 });

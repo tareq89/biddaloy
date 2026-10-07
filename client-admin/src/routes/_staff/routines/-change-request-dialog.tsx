@@ -5,7 +5,18 @@
  * already disables the opening button in that case, so this dialog only
  * needs to surface a generic save error, not re-derive that rule.
  */
-import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Textarea, toast } from '@biddaloy/ui/components';
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  Label,
+  Textarea,
+  toast,
+} from '@biddaloy/ui/components';
 import { useOpenChangeRequest } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import * as React from 'react';
@@ -15,6 +26,8 @@ export interface ChangeRequestDialogProps {
   onOpenChange: (open: boolean) => void;
   routineId: string;
   slotId: string;
+  /** "Mon · Period 3 · Math" — names the period in the description. */
+  slotLabel?: string | undefined;
   onDone: () => void;
 }
 
@@ -23,6 +36,7 @@ export function ChangeRequestDialog({
   onOpenChange,
   routineId,
   slotId,
+  slotLabel,
   onDone,
 }: ChangeRequestDialogProps) {
   const { t } = useTranslation('routines');
@@ -49,22 +63,29 @@ export function ChangeRequestDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent size="sm">
         <DialogHeader>
           <DialogTitle>{t('changeRequestDialog.title')}</DialogTitle>
-          <DialogDescription>{t('changeRequestDialog.description')}</DialogDescription>
+          <DialogDescription>
+            {slotLabel
+              ? t('changeRequestDialog.slotDescription', { slot: slotLabel })
+              : t('changeRequestDialog.description')}
+          </DialogDescription>
         </DialogHeader>
 
-        <Textarea
-          aria-label={t('changeRequestDialog.noteLabel')}
-          placeholder={t('changeRequestDialog.notePlaceholder')}
-          value={note}
-          onChange={(event) => setNote(event.target.value)}
-          maxLength={500}
-        />
+        <div className="flex flex-col gap-1">
+          <Label htmlFor="change-request-note">{t('changeRequestDialog.noteLabel')}</Label>
+          <Textarea
+            id="change-request-note"
+            placeholder={t('changeRequestDialog.notePlaceholder')}
+            value={note}
+            onChange={(event) => setNote(event.target.value)}
+            maxLength={500}
+          />
+        </div>
 
         <DialogFooter>
-          <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             {t('changeRequestDialog.cancel')}
           </Button>
           <Button

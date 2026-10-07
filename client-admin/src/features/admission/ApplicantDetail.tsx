@@ -1,45 +1,52 @@
 /**
- * [27.10] Applicant detail — fields, uploaded documents, evaluation
- * history, and status-gated Evaluate/Shortlist/Admit/Reject actions.
- * `DetailShell` gives the header/status-badge/tiered-action pattern
- * (cloned from `client-admin/src/routes/_staff/classes/$classId.tsx`); a
- * single "overview" tab is enough here, no need for `DetailShell`'s
- * multi-tab strip.
+ * [27.10] Applicant detail — facts header, applicant/documents/history cards, and
+ * status-gated Shortlist/Admit/Add-note/Reject actions. Tab-less `DetailShell`.
  */
 import { AdmissionApplicantStatus } from '@biddaloy/shared';
 import {
   Button,
+  Card,
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
   ErrorState,
+  Label,
   RoutePending,
+  StatusBadge,
   Textarea,
+  type StatusTone,
 } from '@biddaloy/ui/components';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { DetailShell } from '@biddaloy/ui/shells';
+import { formatDate, formatDateTime, formatPhone } from '@biddaloy/ui/utils';
+import { FileTextIcon, ImageIcon, ListChecksIcon, UserCheckIcon } from 'lucide-react';
 import * as React from 'react';
 
 import { AdmitApplicantModal } from './AdmitApplicantModal';
+import { APPLICANT_STATUS } from './applicantStatus';
 import { EvaluateApplicantForm } from './EvaluateApplicantForm';
 import {
   useApplicant,
   useRejectApplicant,
   type EvaluateApplicantInput,
 } from './hooks/useApplicants';
+import { useIntake } from './hooks/useIntakes';
 
-const STATUS_BADGE_CLASS: Record<AdmissionApplicantStatus, string> = {
-  [AdmissionApplicantStatus.PENDING]: 'bg-muted text-muted-foreground',
-  [AdmissionApplicantStatus.SHORTLISTED]: 'bg-status-pending-bg text-status-pending-fg',
-  [AdmissionApplicantStatus.ADMITTED]: 'bg-status-paid-bg text-status-paid-fg',
-  [AdmissionApplicantStatus.REJECTED]: 'bg-status-overdue-bg text-status-overdue-fg',
+const DECISION_TONE: Record<string, StatusTone> = {
+  NOTE: 'neutral',
+  SHORTLIST: 'info',
+  ADMIT: 'success',
+  REJECT: 'danger',
 };
 
 export function ApplicantDetail({ applicantId }: { applicantId: string }) {
   const { t } = useTranslation('admission-staff-applicants');
   const applicantQuery = useApplicant(applicantId);
+  const regionConfig = useRegionConfig();
+  const intakeQuery = useIntake(applicantQuery.data?.applicant.intake_id);
   const rejectApplicant = useRejectApplicant(applicantId);
 
   const [admitOpen, setAdmitOpen] = React.useState(false);
@@ -64,13 +71,6 @@ export function ApplicantDetail({ applicantId }: { applicantId: string }) {
 
   const { applicant, evaluations } = applicantQuery.data;
 
-  const statusLabel: Record<AdmissionApplicantStatus, string> = {
-    [AdmissionApplicantStatus.PENDING]: t('list.statusPending'),
-    [AdmissionApplicantStatus.SHORTLISTED]: t('list.statusShortlisted'),
-    [AdmissionApplicantStatus.ADMITTED]: t('list.statusAdmitted'),
-    [AdmissionApplicantStatus.REJECTED]: t('list.statusRejected'),
-  };
-
   const mutable =
     applicant.status !== AdmissionApplicantStatus.ADMITTED &&
     applicant.status !== AdmissionApplicantStatus.REJECTED;
@@ -84,26 +84,33 @@ export function ApplicantDetail({ applicantId }: { applicantId: string }) {
     setEvaluateOpen(true);
   }
 
+  const sortedEvaluations = [...evaluations].sort((x, y) =>
+    y.created_at.localeCompare(x.created_at),
+  );
+  const genderKey = ['MALE', 'FEMALE', 'OTHER'].includes(applicant.gender)
+    ? `detail.genderOptions.${applicant.gender}`
+    : null;
+
   return (
     <div className="flex flex-col gap-4">
       <DetailShell
         name={applicant.applicant_name}
-        identifiers={
-          <>
-            {applicant.reference_number} · {applicant.guardian_phone}
-          </>
-        }
+        facts={[
+          { label: t('detail.factReference'), value: applicant.reference_number },
+          { label: t('detail.factApplied'), value: formatDate(applicant.created_at, regionConfig) },
+          { label: t('detail.factIntake'), value: intakeQuery.data?.title ?? '—' },
+        ]}
         statusBadge={
-          <span
-            className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_BADGE_CLASS[applicant.status]}`}
-          >
-            {statusLabel[applicant.status]}
-          </span>
+          <StatusBadge
+            tone={APPLICANT_STATUS[applicant.status].tone}
+            label={t(APPLICANT_STATUS[applicant.status].labelKey)}
+          />
         }
         actions={[
           {
-            id: 'evaluate',
+            id: 'shortlist',
             label: t('detail.actionShortlist'),
+            icon: <ListChecksIcon aria-hidden />,
             onClick: () => openEvaluate('SHORTLIST'),
             allowed: shortlistable,
             priority: 'secondary',
@@ -111,9 +118,17 @@ export function ApplicantDetail({ applicantId }: { applicantId: string }) {
           {
             id: 'admit',
             label: t('detail.actionAdmit'),
+            icon: <UserCheckIcon aria-hidden />,
             onClick: () => setAdmitOpen(true),
             allowed: mutable,
             priority: 'primary',
+          },
+          {
+            id: 'note',
+            label: t('detail.actionAddNote'),
+            onClick: () => openEvaluate(undefined),
+            allowed: mutable,
+            priority: 'tertiary',
           },
           {
             id: 'reject',
@@ -123,80 +138,100 @@ export function ApplicantDetail({ applicantId }: { applicantId: string }) {
             priority: 'destructive',
           },
         ]}
-        tabs={[
-          {
-            id: 'overview',
-            label: t('detail.tabOverview'),
-            content: (
-              <div className="flex flex-col gap-6">
-                <section className="flex flex-col gap-2">
-                  <h2 className="text-sm font-semibold">{t('detail.sectionApplicant')}</h2>
-                  <dl className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
-                    <Field label={t('detail.fieldDateOfBirth')} value={applicant.date_of_birth} />
-                    <Field label={t('detail.fieldGender')} value={applicant.gender} />
-                    <Field label={t('detail.fieldGuardianName')} value={applicant.guardian_name} />
-                    <Field
-                      label={t('detail.fieldGuardianPhone')}
-                      value={applicant.guardian_phone}
-                    />
-                    <Field
-                      label={t('detail.fieldGuardianEmail')}
-                      value={applicant.guardian_email ?? t('detail.notProvided')}
-                    />
-                    <Field
-                      label={t('detail.fieldHomeAddress')}
-                      value={applicant.home_address ?? t('detail.notProvided')}
-                    />
-                  </dl>
-                </section>
+      >
+        <div className="grid gap-6 md:grid-cols-3 md:items-start">
+          <div className="flex flex-col gap-6 md:col-span-2">
+            <Card padded>
+              <h2 className="text-h2">{t('detail.sectionApplicant')}</h2>
+              <dl className="mt-4 grid gap-4 md:grid-cols-3">
+                <Field
+                  label={t('detail.fieldDateOfBirth')}
+                  value={formatDate(applicant.date_of_birth, regionConfig)}
+                />
+                <Field
+                  label={t('detail.fieldGender')}
+                  value={genderKey ? t(genderKey) : t('detail.notProvided')}
+                />
+                <Field label={t('detail.fieldGuardianName')} value={applicant.guardian_name} />
+                <Field
+                  label={t('detail.fieldGuardianPhone')}
+                  value={formatPhone(applicant.guardian_phone, regionConfig)}
+                />
+                <Field
+                  label={t('detail.fieldGuardianEmail')}
+                  value={applicant.guardian_email ?? t('detail.notProvided')}
+                />
+                <Field
+                  label={t('detail.fieldHomeAddress')}
+                  value={applicant.home_address ?? t('detail.notProvided')}
+                />
+              </dl>
+            </Card>
 
-                <section className="flex flex-col gap-2">
-                  <h2 className="text-sm font-semibold">{t('detail.sectionDocuments')}</h2>
-                  {applicant.documents.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">{t('detail.noDocuments')}</p>
-                  ) : (
-                    // ponytail: no storage-serving endpoint exists yet for
-                    // admission documents (checked `server/src/modules/admission`
-                    // and `homework-submission.controller.ts` for a pattern to
-                    // reuse — neither has one), so this lists what was uploaded
-                    // without a preview/download link. Add the link once a
-                    // signed-URL route for `storage_key` ships.
-                    <ul className="flex flex-col gap-1 text-sm">
-                      {applicant.documents.map((document) => (
-                        <li key={document.storage_key}>{document.type}</li>
-                      ))}
-                    </ul>
-                  )}
-                </section>
+            <Card padded>
+              <h2 className="text-h2">{t('detail.sectionDocuments')}</h2>
+              {applicant.documents.length === 0 ? (
+                <p className="mt-2 text-text-secondary">{t('detail.noDocuments')}</p>
+              ) : (
+                // ponytail: no storage-serving endpoint exists yet for
+                // admission documents (checked `server/src/modules/admission`
+                // and `homework-submission.controller.ts` for a pattern to
+                // reuse — neither has one), so this lists what was uploaded
+                // without a preview/download link. Add the link once a
+                // signed-URL route for `storage_key` ships.
+                <ul className="mt-2 divide-y divide-border-subtle">
+                  {applicant.documents.map((document) => {
+                    const Icon = document.type === 'PHOTO' ? ImageIcon : FileTextIcon;
+                    return (
+                      <li key={document.storage_key} className="flex items-center gap-3 py-3">
+                        <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted text-text-secondary">
+                          <Icon className="size-4" aria-hidden />
+                        </span>
+                        <span className="min-w-0 flex-1 font-medium">
+                          {t(`detail.documentTypes.${document.type}`, {
+                            defaultValue: t('detail.notProvided'),
+                          })}
+                        </span>
+                        <span className="text-text-secondary">{t('detail.uploaded')}</span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </Card>
+          </div>
 
-                <section className="flex flex-col gap-2">
-                  <h2 className="text-sm font-semibold">{t('detail.sectionHistory')}</h2>
-                  {evaluations.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">{t('detail.noEvaluations')}</p>
-                  ) : (
-                    <ul className="flex flex-col gap-3 text-sm">
-                      {evaluations.map((evaluation) => (
-                        <li
-                          key={evaluation.id}
-                          className="rounded-md border border-border-subtle p-3"
-                        >
-                          <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
-                            <span>{evaluation.decision ?? t('detail.noteOnly')}</span>
-                            <span>{evaluation.created_at.slice(0, 10)}</span>
-                          </div>
-                          <p className="mt-1">{evaluation.notes}</p>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </section>
-              </div>
-            ),
-          },
-        ]}
-        activeTab="overview"
-        onTabChange={() => {}}
-      />
+          <Card padded>
+            <h2 className="text-h2">{t('detail.sectionHistory')}</h2>
+            <p className="mt-1 text-text-secondary">{t('detail.historySubtitle')}</p>
+            {sortedEvaluations.length === 0 ? (
+              <p className="mt-2 text-text-secondary">{t('detail.noEvaluations')}</p>
+            ) : (
+              <ul className="mt-2 divide-y divide-border-subtle">
+                {sortedEvaluations.map((evaluation) => {
+                  const decision = evaluation.decision ?? 'NOTE';
+                  return (
+                    <li key={evaluation.id} className="py-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <StatusBadge
+                          tone={DECISION_TONE[decision] ?? 'neutral'}
+                          label={t(`detail.decision.${decision}`, {
+                            defaultValue: t('detail.decision.NOTE'),
+                          })}
+                        />
+                        <span className="text-caption text-text-secondary">
+                          {formatDateTime(evaluation.created_at, regionConfig)}
+                        </span>
+                      </div>
+                      <p className="mt-1.5">{evaluation.notes}</p>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </Card>
+        </div>
+      </DetailShell>
 
       <AdmitApplicantModal applicant={applicant} open={admitOpen} onOpenChange={setAdmitOpen} />
       <EvaluateApplicantForm
@@ -210,10 +245,11 @@ export function ApplicantDetail({ applicantId }: { applicantId: string }) {
         open={rejectOpen}
         onOpenChange={(next) => {
           setRejectOpen(next);
+          if (!next) rejectApplicant.reset();
           if (!next) setRejectNotes('');
         }}
       >
-        <DialogContent>
+        <DialogContent size="sm">
           <form
             onSubmit={(event) => {
               event.preventDefault();
@@ -228,11 +264,14 @@ export function ApplicantDetail({ applicantId }: { applicantId: string }) {
           >
             <DialogHeader>
               <DialogTitle>{t('detail.rejectTitle')}</DialogTitle>
+              <DialogDescription>
+                {t('detail.rejectDescription', { name: applicant.applicant_name })}
+              </DialogDescription>
             </DialogHeader>
 
+            <Label htmlFor="reject-notes">{t('detail.rejectNotesLabel')}</Label>
             <Textarea
-              aria-label={t('evaluate.notesLabel')}
-              placeholder={t('evaluate.notesLabel')}
+              id="reject-notes"
               value={rejectNotes}
               onChange={(event) => setRejectNotes(event.target.value)}
             />
@@ -247,7 +286,7 @@ export function ApplicantDetail({ applicantId }: { applicantId: string }) {
               <Button type="button" variant="outline" onClick={() => setRejectOpen(false)}>
                 {t('actions.cancel', { ns: 'common' })}
               </Button>
-              <Button type="submit" variant="destructive" loading={rejectApplicant.isPending}>
+              <Button type="submit" variant="danger" loading={rejectApplicant.isPending}>
                 {rejectApplicant.isPending ? t('detail.rejecting') : t('detail.actionReject')}
               </Button>
             </DialogFooter>

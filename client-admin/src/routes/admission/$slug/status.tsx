@@ -7,12 +7,14 @@
  *
  * Same `PUBLIC_PATH_PREFIXES` note as `index.tsx`.
  */
-import { Button, Card, Input, Label } from '@biddaloy/ui/components';
+import { AuthLayout, Button, Input, Label, StatusBadge } from '@biddaloy/ui/components';
 import { useTranslation } from '@biddaloy/ui/i18n';
-import { createFileRoute } from '@tanstack/react-router';
+import { createFileRoute, Link } from '@tanstack/react-router';
+import { CircleAlertIcon } from 'lucide-react';
 import * as React from 'react';
 import { z } from 'zod';
 
+import { APPLICANT_STATUS } from '../../../features/admission/applicantStatus';
 import {
   isUnknownReference,
   useAdmissionStatus,
@@ -40,65 +42,146 @@ function AdmissionStatusRoute() {
   const [referenceNumber, setReferenceNumber] = React.useState(search.referenceNumber ?? '');
   const [guardianPhone, setGuardianPhone] = React.useState('');
 
+  const [errors, setErrors] = React.useState<{
+    reference?: string | undefined;
+    phone?: string | undefined;
+  }>({});
+
   const statusMutation = useAdmissionStatus(slug);
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
+    const found = {
+      ...(referenceNumber.trim() === '' ? { reference: t('form.errors.required') } : {}),
+      ...(guardianPhone.trim() === '' ? { phone: t('form.errors.required') } : {}),
+    };
+    setErrors(found);
+    if (found.reference) {
+      document.getElementById('reference-number')?.focus();
+      return;
+    }
+    if (found.phone) {
+      document.getElementById('guardian-phone')?.focus();
+      return;
+    }
     statusMutation.mutate({
       referenceNumber: referenceNumber.trim(),
       guardianPhone: guardianPhone.trim(),
     });
   }
 
+  const requiredMark = (
+    <>
+      <span className="text-destructive" aria-hidden="true">
+        {' *'}
+      </span>
+      <span className="sr-only">{t('form.required')}</span>
+    </>
+  );
+  const errorLine = (id: string, message: string | undefined) =>
+    message ? (
+      <p id={`${id}-error`} className="flex items-center gap-1 text-caption text-destructive">
+        <CircleAlertIcon className="size-3.5 shrink-0" aria-hidden />
+        {message}
+      </p>
+    ) : null;
+
+  const result = statusMutation.isSuccess ? statusMutation.data : null;
+  const known = result !== null && Object.hasOwn(APPLICANT_STATUS, result.status);
+
   return (
-    <div className="flex min-h-screen justify-center bg-muted/20 p-4 sm:p-6">
-      <div className="w-full max-w-md">
-        <Card className="flex flex-col gap-4 p-6">
-          <h1 className="text-lg font-semibold">{t('status.title')}</h1>
-          <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-            <div className="grid gap-1.5">
-              <Label htmlFor="reference-number">{t('status.fields.referenceNumber')}</Label>
-              <Input
-                id="reference-number"
-                value={referenceNumber}
-                onChange={(event) => setReferenceNumber(event.target.value)}
-                required
-              />
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="guardian-phone">{t('status.fields.guardianPhone')}</Label>
-              <Input
-                id="guardian-phone"
-                type="tel"
-                value={guardianPhone}
-                onChange={(event) => setGuardianPhone(event.target.value)}
-                required
-              />
-            </div>
-            <Button type="submit" loading={statusMutation.isPending}>
-              {t('status.submit')}
-            </Button>
-          </form>
+    <AuthLayout>
+      <h1 className="text-h1">{t('status.title')}</h1>
+      <p className="mt-0.5 text-text-secondary">{t('status.subtitle')}</p>
+      <form noValidate onSubmit={handleSubmit} className="mt-5 flex flex-col gap-4">
+        <div className="grid gap-1.5">
+          <Label htmlFor="reference-number">
+            {t('status.fields.referenceNumber')}
+            {requiredMark}
+          </Label>
+          <Input
+            id="reference-number"
+            autoComplete="off"
+            value={referenceNumber}
+            onChange={(event) => {
+              setReferenceNumber(event.target.value);
+              setErrors((e) => ({ ...e, reference: undefined }));
+            }}
+            aria-invalid={Boolean(errors.reference)}
+            aria-describedby={errors.reference ? 'reference-number-error' : 'reference-number-help'}
+          />
+          <p id="reference-number-help" className="text-caption text-text-secondary">
+            {t('status.fields.referenceNumberHelp')}
+          </p>
+          {errorLine('reference-number', errors.reference)}
+        </div>
+        <div className="grid gap-1.5">
+          <Label htmlFor="guardian-phone">
+            {t('status.fields.guardianPhone')}
+            {requiredMark}
+          </Label>
+          <Input
+            id="guardian-phone"
+            type="tel"
+            inputMode="tel"
+            autoComplete="tel"
+            value={guardianPhone}
+            onChange={(event) => {
+              setGuardianPhone(event.target.value);
+              setErrors((e) => ({ ...e, phone: undefined }));
+            }}
+            aria-invalid={Boolean(errors.phone)}
+            aria-describedby={errors.phone ? 'guardian-phone-error' : undefined}
+          />
+          {errorLine('guardian-phone', errors.phone)}
+        </div>
+        {statusMutation.isError && (
+          <p role="alert" className="flex items-center gap-1 text-caption text-destructive">
+            <CircleAlertIcon className="size-3.5 shrink-0" aria-hidden />
+            {isUnknownReference(statusMutation.error) ? t('status.notFound') : t('status.error')}
+          </p>
+        )}
+        <Button type="submit" className="w-full" loading={statusMutation.isPending}>
+          {t('status.submit')}
+        </Button>
+      </form>
 
-          {statusMutation.isError && (
-            <p role="alert" className="text-sm text-destructive">
-              {isUnknownReference(statusMutation.error) ? t('status.notFound') : t('status.error')}
-            </p>
-          )}
-
-          {statusMutation.isSuccess && (
-            <div role="status" className="flex flex-col gap-1 rounded-md border border-border p-4">
-              <p className="text-sm text-muted-foreground">{statusMutation.data.intake_title}</p>
-              <p className="font-medium">{statusMutation.data.applicant_name}</p>
-              <p className="text-lg font-semibold">
-                {t(`status.statuses.${statusMutation.data.status}`, {
-                  defaultValue: statusMutation.data.status,
-                })}
-              </p>
+      {result && (
+        <div role="status" className="mt-5 border-t border-border-subtle pt-5">
+          <StatusBadge
+            tone={
+              known
+                ? APPLICANT_STATUS[result.status as keyof typeof APPLICANT_STATUS].tone
+                : 'neutral'
+            }
+            label={t(known ? `status.badges.${result.status}` : 'status.badges.unknown')}
+          />
+          <h2 className="mt-2 text-h2">
+            {known ? t(`status.statuses.${result.status}`) : t('status.unknown')}
+          </h2>
+          <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2">
+            <div>
+              <dt className="text-caption text-text-secondary">{t('status.studentLabel')}</dt>
+              <dd className="font-medium">{result.applicant_name}</dd>
             </div>
-          )}
-        </Card>
+            <div>
+              <dt className="text-caption text-text-secondary">{t('status.roundLabel')}</dt>
+              <dd className="font-medium">{result.intake_title}</dd>
+            </div>
+          </dl>
+          {known && <p className="mt-3 text-text-secondary">{t(`status.next.${result.status}`)}</p>}
+        </div>
+      )}
+
+      <div className="mt-2 flex justify-center">
+        <Link
+          to="/admission/$slug"
+          params={{ slug }}
+          className="inline-flex h-11 items-center rounded-md px-3 font-medium text-primary hover:bg-muted"
+        >
+          {t('status.newApplication')}
+        </Link>
       </div>
-    </div>
+    </AuthLayout>
   );
 }
