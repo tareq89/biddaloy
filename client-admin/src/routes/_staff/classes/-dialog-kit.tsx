@@ -117,7 +117,9 @@ export function DangerConfirmDialog({
 }) {
   const { t } = useTranslation('common');
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    // While the request runs no close path (Back, focus loss) may unmount it,
+    // or its success/error feedback is lost; same guard as `-delete-class-dialog.tsx`.
+    <Dialog open={open} onOpenChange={(next) => !(busy && !next) && onOpenChange(next)}>
       <DialogContent
         size="sm"
         role="alertdialog"
