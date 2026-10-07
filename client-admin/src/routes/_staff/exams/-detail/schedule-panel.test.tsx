@@ -96,6 +96,7 @@ describe('exams/$examId Schedule tab', () => {
     const exam = examFactory({ id: 'exam-1', class: klass, class_id: klass.id });
     const math = subjectFactory({ id: 'subject-math', name_en: 'Mathematics' });
     let lastPatchBody: unknown = null;
+    let patchCount = 0;
 
     server.use(
       http.get('/api/v1/exams/:id', () => HttpResponse.json(exam)),
@@ -127,6 +128,7 @@ describe('exams/$examId Schedule tab', () => {
         ]),
       ),
       http.patch('/api/v1/exams/:examId/schedule/:id', async ({ request }) => {
+        patchCount += 1;
         lastPatchBody = await request.json();
         return HttpResponse.json({
           schedule: {
@@ -165,6 +167,15 @@ describe('exams/$examId Schedule tab', () => {
     // whatever it returns; the PATCH body is what proves the edit worked.
     await screen.findByRole('button', { name: /^Main Hall/ });
     expect(lastPatchBody).toMatchObject({ venue: 'Second Hall' });
+    // Enter saves once, even though removing the focused input fires `blur`.
+    expect(patchCount).toBe(1);
+
+    // Escape drops the edit: no save from the `blur` that follows it.
+    await user.click(screen.getByRole('button', { name: /^Main Hall/ }));
+    await user.type(await screen.findByLabelText('Venue'), ' X');
+    await user.keyboard('{Escape}');
+    await screen.findByRole('button', { name: /^Main Hall/ });
+    expect(patchCount).toBe(1);
   });
 
   // --- Shared fixtures for the tests below -------------------------------
