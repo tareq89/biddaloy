@@ -8,9 +8,10 @@
  * `SubstitutionsService.assertSlotOccursOn` (server) stays the only
  * authority on whether a date is a real occurrence of the slot (a period
  * can run every other week or once a month) — this dialog only narrows the
- * list by weekday and never re-derives that rule. A 422 comes back in the
- * server's English; it is translated here (`notOnDateError`), never shown
- * verbatim.
+ * list by weekday and by the slot's valid_from..valid_to range, and never
+ * re-derives the recurrence rule. The server's 422 for that check carries
+ * `details.code: 'SLOT_NOT_ON_DATE'`; it is translated here
+ * (`notOnDateError`), never shown verbatim.
  */
 import { ApiError } from '@biddaloy/ui/api';
 import {
@@ -119,14 +120,23 @@ export function SubstitutionDialog({ open, onOpenChange, onDone }: SubstitutionD
   const teacherName = (id: string) =>
     teachersQuery.data?.data.find((teacher) => teacher.id === id)?.user.full_name ?? '—';
 
-  const sectionOptions = [...new Set(slots.map((entry) => entry.slot.section_id))]
+  // Same bounds as the server's check: valid_to inclusive, null means still in force.
+  const isoDate = date ? toIsoDate(date) : undefined;
+  const slotsOnDate = isoDate
+    ? slots.filter(
+        ({ slot }) =>
+          slot.valid_from <= isoDate && (slot.valid_to === null || isoDate <= slot.valid_to),
+      )
+    : slots;
+
+  const sectionOptions = [...new Set(slotsOnDate.map((entry) => entry.slot.section_id))]
     .map((id) => [id, sectionLabel(id)] as const)
     .sort((a, b) => a[1].localeCompare(b[1]));
 
   const sequenceOf = (entry: RoutineSlotWithWarnings) =>
     periodLookup.data?.[entry.slot.period_slot_id]?.sequence ?? 0;
   const slotOptions = date
-    ? slots
+    ? slotsOnDate
         .filter(
           (entry) => entry.slot.section_id === sectionId && entry.slot.weekday === date.getDay(),
         )
@@ -170,7 +180,9 @@ export function SubstitutionDialog({ open, onOpenChange, onDone }: SubstitutionD
         },
         onError: (error) =>
           setErrorKey(
-            error instanceof ApiError && error.statusCode === 422 ? 'notOnDateError' : 'errorToast',
+            error instanceof ApiError && error.details?.['code'] === 'SLOT_NOT_ON_DATE'
+              ? 'notOnDateError'
+              : 'errorToast',
           ),
       },
     );
