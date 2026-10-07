@@ -448,6 +448,9 @@ describe('/audit-logs', () => {
       await screen.findByRole('heading', { level: 2, name: 'No activity found' }),
     ).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Clear all filters' })).toBeNull();
+    // Nothing was filtered, so the explanation doesn't blame filters.
+    expect(screen.getByText('Nothing has been recorded for this school yet.')).toBeTruthy();
+    expect(screen.queryByText(/Nothing matches these filters/)).toBeNull();
   });
 
   it('offers "Clear all filters" on an empty filtered result and clears every filter param', async () => {
@@ -459,6 +462,7 @@ describe('/audit-logs', () => {
 
     const user = userEvent.setup();
     await screen.findByRole('heading', { level: 2, name: 'No activity found' });
+    expect(screen.getByText(/Nothing matches these filters/)).toBeTruthy();
     await user.click(screen.getByRole('button', { name: 'Clear all filters' }));
 
     await waitFor(() => {
