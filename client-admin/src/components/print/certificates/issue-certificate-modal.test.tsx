@@ -229,7 +229,10 @@ function serve(
   );
 }
 
-function setup(initialKind: 'TESTIMONIAL' | undefined = 'TESTIMONIAL') {
+function setup(
+  initialKind: 'TESTIMONIAL' | 'TRANSFER_CERTIFICATE' | undefined = 'TESTIMONIAL',
+  url = '/',
+) {
   const onClose = vi.fn();
   const root = createRootRoute({ component: Outlet });
   const index = createRoute({
@@ -247,6 +250,7 @@ function setup(initialKind: 'TESTIMONIAL' | undefined = 'TESTIMONIAL') {
     ),
   });
   const view = renderWithRouter(root.addChildren([index]), {
+    initialEntries: [url],
     locale: 'en',
     role: 'ADMIN',
     tenantId: 'school-1',
@@ -552,6 +556,17 @@ describe('IssueCertificateModal', () => {
     expect(screen.getByRole('button', { name: /see preview/i }).hasAttribute('disabled')).toBe(
       true,
     );
+  });
+
+  it('a ?step=print link with empty required details lands on the details step', async () => {
+    serve();
+    const { user } = setup('TESTIMONIAL', '/?step=print');
+    const field = await screen.findByLabelText(/conduct/i);
+    expect(screen.queryByRole('button', { name: /^print$/i })).toBeNull();
+    // Typing a valid value must not jump ahead on its own.
+    await user.type(field, 'Good');
+    expect(screen.getByLabelText(/conduct/i)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /^print$/i })).toBeNull();
   });
 
   it('Close with a typed value asks before discarding', async () => {
