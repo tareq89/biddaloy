@@ -23,7 +23,9 @@ describe('print history (integration)', () => {
     const module = await createTestModule(ALL_ENTITIES, []);
     ds = module.get(DataSource);
     const audit: any = { record: async () => undefined };
-    jobs = new PrintJobsService(ds, { get: async (k: string) => ({ body: k }) } as any, audit);
+    jobs = new PrintJobsService(ds, { get: async (k: string) => ({ body: k }) } as any, audit, {
+      documentsSettings: async () => ({}),
+    } as any);
     history = new PrintHistoryService(ds, audit);
     verify = new PublicVerifyService(ds);
   });
