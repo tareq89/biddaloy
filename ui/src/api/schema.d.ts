@@ -4878,6 +4878,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/study-plans/capacity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Periods left for a section, subject and term, before a plan exists. */
+        get: operations["StudyPlansController_capacity_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/study-plans/progress.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Progress of every plan of a class and term as CSV (admin, executive). */
+        get: operations["StudyPlansController_progressCsv_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/study-plans/import/validate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Validate a lessons CSV/XLSX (max 5MB) for a plan (class_id + subject_id) or a template (class_grade + subject_code) and stage it. Writes nothing. */
+        post: operations["StudyPlansController_importValidate_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/study-plans/import/commit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Commit a validated import into a plan, a new plan or a new template (once). */
+        post: operations["StudyPlansController_importCommit_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/study-plans/{id}": {
         parameters: {
             query?: never;
@@ -4895,6 +4963,57 @@ export interface paths {
         head?: never;
         /** Reassign the plan owner (administrator only). */
         patch: operations["StudyPlansController_update_v1"];
+        trace?: never;
+    };
+    "/api/v1/study-plans/{id}/schedule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Dated schedule: expected date and status of every lesson. */
+        get: operations["StudyPlansController_getSchedule_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/study-plans/{id}/lessons.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Download the lesson list as CSV (title, periods, topic, notes). */
+        get: operations["StudyPlansController_lessonsCsv_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/study-plans/{id}/carry-over": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Lessons not finished, for the next term plan. */
+        get: operations["StudyPlansController_carryOver_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/study-plans/{id}/lessons": {
@@ -4942,6 +5061,163 @@ export interface paths {
         put?: never;
         /** Copy this plan to another section of the same year. */
         post: operations["StudyPlansController_copyToSection_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/lesson-deliveries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The caller's periods for a date with planned lesson and delivery. */
+        get: operations["LessonDeliveriesController_day_v1"];
+        /** Record taught / partly / not taught for one period (upsert). */
+        put: operations["LessonDeliveriesController_put_v1"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/lesson-deliveries/today-all-taught": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark today's unmarked, planned, non-cancelled periods taught. */
+        post: operations["LessonDeliveriesController_todayAllTaught_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/lesson-deliveries/extra": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Log an extra class (always TAUGHT). */
+        post: operations["LessonDeliveriesController_extra_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/study-plan-templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List study plan templates. */
+        get: operations["StudyPlanTemplatesController_list_v1"];
+        put?: never;
+        /** Create a study plan template. */
+        post: operations["StudyPlanTemplatesController_create_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/study-plan-templates/from-plan/{planId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Save a study plan as a template. */
+        post: operations["StudyPlanTemplatesController_fromPlan_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/study-plan-templates/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read one template with its lessons. */
+        get: operations["StudyPlanTemplatesController_get_v1"];
+        put?: never;
+        post?: never;
+        /** Soft-delete a template; plans copied from it are untouched. */
+        delete: operations["StudyPlanTemplatesController_remove_v1"];
+        options?: never;
+        head?: never;
+        /** Edit a template. */
+        patch: operations["StudyPlanTemplatesController_update_v1"];
+        trace?: never;
+    };
+    "/api/v1/study-plan-templates/{id}/copy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Copy a template into a new study plan of the caller. */
+        post: operations["StudyPlanTemplatesController_copy_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/students/{studentId}/study-plans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Per subject of the student's section: last taught lesson, next 5 lessons, behind counts and exam syllabus progress. Never notes or unreported counts. */
+        get: operations["FamilyStudyPlansController_studyPlans_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/students/{studentId}/lessons": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Each period of one day with its planned lesson and the teacher's report status. */
+        get: operations["FamilyStudyPlansController_lessons_v1"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -10966,6 +11242,8 @@ export interface components {
             sequence: number;
             /** @enum {string} */
             status: "DONE" | "PLANNED" | "IN_PROGRESS";
+            sections_planned?: number;
+            sections_taught?: number;
         };
         CreateSyllabusTopicDto: {
             /** Format: uuid */
@@ -10993,6 +11271,51 @@ export interface components {
             /** @enum {string} */
             status?: "DONE" | "PLANNED" | "IN_PROGRESS";
         };
+        PlanRangeDto: {
+            from: string;
+            to: string;
+        };
+        PlanCapacityResponseDto: {
+            periods_total: number;
+            periods_left: number;
+            range: components["schemas"]["PlanRangeDto"];
+        };
+        StudyPlanImportPreviewRowDto: {
+            row: number;
+            title: string;
+            periods: number;
+            topic?: string;
+        };
+        StudyPlanImportValidateResultDto: {
+            staging_id: string;
+            expires_at: string;
+            rows_to_create: number;
+            preview: components["schemas"]["StudyPlanImportPreviewRowDto"][];
+            errors: components["schemas"]["BulkImportErrorDto"][];
+            warnings: components["schemas"]["BulkImportErrorDto"][];
+            hard_error_count: number;
+        };
+        ImportPlanScopeDto: {
+            /** Format: uuid */
+            section_id: string;
+            /** Format: uuid */
+            subject_id: string;
+            /** Format: uuid */
+            academic_term_id: string | null;
+        };
+        ImportTemplateTargetDto: {
+            name: string;
+            class_grade: number;
+            subject_code: string;
+        };
+        CommitStudyPlanImportDto: {
+            /** Format: uuid */
+            staging_id: string;
+            /** Format: uuid */
+            plan_id?: string;
+            plan?: components["schemas"]["ImportPlanScopeDto"];
+            template?: components["schemas"]["ImportTemplateTargetDto"];
+        };
         StudyPlanLessonDto: {
             id?: string;
             title: string;
@@ -11009,6 +11332,76 @@ export interface components {
             /** Format: uuid */
             academic_term_id: string | null;
             lessons?: components["schemas"]["StudyPlanLessonDto"][];
+        };
+        SchedulePeriodDto: {
+            date: string;
+            period_slot_id: string;
+            /** @enum {string} */
+            kind: "ROUTINE" | "EXTRA";
+            /** @enum {string} */
+            status: "TAUGHT" | "PARTLY" | "NOT_TAUGHT" | "UNREPORTED" | "FUTURE" | "EXCLUDED";
+            reason?: string;
+            lesson_id: string | null;
+            routine_slot_id?: string;
+            substitute_teacher_id?: string;
+        };
+        ScheduleLessonDto: {
+            id: string;
+            title: string;
+            periods: number;
+            taught_periods: number;
+            /** @enum {string} */
+            status: "DONE" | "IN_PROGRESS" | "UPCOMING";
+            expected_date: string | null;
+            expected_end_date: string | null;
+            /** @description Does not fully fit before the range ends. */
+            overflow: boolean;
+            in_extra_class: boolean;
+        };
+        PlanCapacityDto: {
+            /** @description Non-excluded periods still ahead (today included). */
+            periods_left: number;
+            /** @description Remaining periods of the lessons not yet done. */
+            periods_needed: number;
+            /** @description periods_needed <= periods_left. */
+            fits: boolean;
+        };
+        PlanSummaryDto: {
+            lessons_done: number;
+            lessons_total: number;
+            /** @description Owed by today minus taught; negative means ahead. */
+            periods_behind: number;
+            lessons_behind: number;
+            unreported_periods: number;
+            unreported_school_days: number;
+            oldest_unreported_date: string | null;
+            /** @description Latest human-written delivery row for the section and subject (D44). */
+            last_reported_at: string | null;
+            capacity: components["schemas"]["PlanCapacityDto"];
+            /** @description No PUBLISHED routine for the plan year (D14 empty state). */
+            routine_missing: boolean;
+        };
+        PlanScheduleResponseDto: {
+            range: components["schemas"]["PlanRangeDto"];
+            today: string;
+            periods: components["schemas"]["SchedulePeriodDto"][];
+            lessons: components["schemas"]["ScheduleLessonDto"][];
+            summary: components["schemas"]["PlanSummaryDto"];
+        };
+        CarryOverLessonDto: {
+            id: string;
+            title: string;
+            periods: number;
+            topic_id?: string;
+            notes?: string;
+        };
+        CarryOverFromTermDto: {
+            id: string;
+            name: string;
+        };
+        CarryOverResponseDto: {
+            lessons: components["schemas"]["CarryOverLessonDto"][];
+            from_term: components["schemas"]["CarryOverFromTermDto"] | null;
         };
         UpdateStudyPlanDto: {
             /** Format: uuid */
@@ -11028,6 +11421,196 @@ export interface components {
         CopyToSectionDto: {
             /** Format: uuid */
             section_id: string;
+        };
+        LessonDeliveryDto: {
+            id: string;
+            /** @enum {string} */
+            status: "TAUGHT" | "PARTLY" | "NOT_TAUGHT";
+            reason: string | null;
+            note: string | null;
+            is_extra: boolean;
+            auto: boolean;
+            /** @description ISO instant of the last change (D44). */
+            recorded_at: string;
+        };
+        LessonDeliveryPeriodDto: {
+            section: {
+                id: string;
+                name: string;
+            };
+            subject: {
+                id: string;
+                name_en: string | null;
+                name_bn: string | null;
+            };
+            period_slot_id: string;
+            sequence: number;
+            starts_at: string;
+            ends_at: string;
+            routine_slot_id: string;
+            substituting: boolean;
+            cancelled: boolean;
+            plan_id: string | null;
+            lesson: {
+                id: string;
+                number: number;
+                title: string;
+                part: number;
+                of: number;
+            };
+            delivery: components["schemas"]["LessonDeliveryDto"] | null;
+            can_mark: boolean;
+        };
+        LessonDeliveriesDayDto: {
+            date: string;
+            periods: components["schemas"]["LessonDeliveryPeriodDto"][];
+            due: {
+                unreported_periods: number;
+                oldest_date: string | null;
+                school_days_until_escalation: number;
+            };
+        };
+        PutLessonDeliveryDto: {
+            /** Format: uuid */
+            section_id: string;
+            /** Format: uuid */
+            subject_id: string;
+            date: string;
+            /** Format: uuid */
+            period_slot_id: string;
+            /** @enum {string} */
+            status: "TAUGHT" | "PARTLY" | "NOT_TAUGHT";
+            /** @enum {string} */
+            reason?: "TEACHER_ABSENT" | "SCHOOL_CLOSED" | "EXAM" | "ON_LEAVE" | "CANCELLED" | "OTHER";
+            note?: string;
+        };
+        SavedLessonDeliveryDto: {
+            id: string;
+            /** @enum {string} */
+            status: "TAUGHT" | "PARTLY" | "NOT_TAUGHT";
+            reason: string | null;
+            note: string | null;
+            is_extra: boolean;
+            auto: boolean;
+            /** @description ISO instant of the last change (D44). */
+            recorded_at: string;
+            section_id: string;
+            subject_id: string;
+            date: string;
+            period_slot_id: string;
+        };
+        TodayAllTaughtResponseDto: {
+            created: number;
+            skipped: number;
+            deliveries: components["schemas"]["SavedLessonDeliveryDto"][];
+        };
+        ExtraLessonDeliveryDto: {
+            /** Format: uuid */
+            section_id: string;
+            /** Format: uuid */
+            subject_id: string;
+            date: string;
+            /** Format: uuid */
+            period_slot_id: string;
+            note?: string;
+        };
+        StudyPlanTemplateLessonDto: {
+            id?: string;
+            title: string;
+            periods: number;
+            notes?: string;
+        };
+        CreateStudyPlanTemplateDto: {
+            name: string;
+            class_grade: number;
+            subject_code: string;
+            lessons: components["schemas"]["StudyPlanTemplateLessonDto"][];
+        };
+        FromPlanDto: {
+            name?: string;
+        };
+        UpdateStudyPlanTemplateDto: {
+            name?: string;
+            class_grade?: number;
+            subject_code?: string;
+            lessons?: components["schemas"]["StudyPlanTemplateLessonDto"][];
+        };
+        CopyStudyPlanTemplateDto: {
+            /** Format: uuid */
+            section_id: string;
+            /** Format: uuid */
+            subject_id: string;
+            /** Format: uuid */
+            academic_term_id: string | null;
+        };
+        FamilySectionDto: {
+            id: string;
+            name: string;
+            class_name: string;
+        };
+        FamilyIdNameDto: {
+            id: string;
+            name: string;
+        };
+        FamilySubjectRefDto: {
+            id: string;
+            name_en: string | null;
+            name_bn: string | null;
+        };
+        FamilyLastTaughtDto: {
+            /** @description 1-based position in the plan. */
+            number: number;
+            title: string;
+            date: string;
+        };
+        FamilyNextLessonDto: {
+            number: number;
+            title: string;
+            expected_date: string | null;
+        };
+        FamilyExamSyllabusDto: {
+            exam_id: string;
+            exam_name: string;
+            exam_date: string | null;
+            lessons_in_syllabus: number;
+            lessons_taught: number;
+        };
+        FamilySubjectPlanDto: {
+            subject: components["schemas"]["FamilySubjectRefDto"];
+            plan_id: string;
+            teacher_names: string[];
+            last_taught: components["schemas"]["FamilyLastTaughtDto"] | null;
+            next: components["schemas"]["FamilyNextLessonDto"][];
+            expected_finish_date: string | null;
+            periods_behind: number;
+            lessons_behind: number;
+            lessons_done: number;
+            lessons_total: number;
+            exam_syllabus: components["schemas"]["FamilyExamSyllabusDto"][];
+        };
+        FamilyStudyPlansResponseDto: {
+            section: components["schemas"]["FamilySectionDto"];
+            term: components["schemas"]["FamilyIdNameDto"] | null;
+            subjects: components["schemas"]["FamilySubjectPlanDto"][];
+            subjects_without_plan: components["schemas"]["FamilySubjectRefDto"][];
+        };
+        FamilyLessonRefDto: {
+            number: number;
+            title: string;
+            /** @description Which period of the lesson falls on this slot (1-based). */
+            part: number;
+            /** @description Periods the lesson takes in total. */
+            of: number;
+        };
+        FamilyDayPeriodDto: {
+            period_slot_id: string;
+            sequence: number;
+            starts_at: string;
+            subject: components["schemas"]["FamilySubjectRefDto"];
+            cancelled: boolean;
+            lesson: components["schemas"]["FamilyLessonRefDto"] | null;
+            /** @enum {string|null} */
+            status: "TAUGHT" | "PARTLY" | "NOT_TAUGHT" | null;
         };
         CreateIntakeDto: {
             title: string;
@@ -25214,6 +25797,9 @@ export interface operations {
     StudyPlansController_list_v1: {
         parameters: {
             query?: {
+                behind?: boolean;
+                sort?: "behind_periods" | "section" | "subject";
+                order?: "asc" | "desc";
                 class_id?: string;
                 section_id?: string;
                 subject_id?: string;
@@ -25237,9 +25823,7 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content: {
-                    "application/json": Record<string, never>;
-                };
+                content?: never;
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
             401: {
@@ -25265,6 +25849,146 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["CreateStudyPlanDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    StudyPlansController_capacity_v1: {
+        parameters: {
+            query: {
+                section_id: string;
+                subject_id: string;
+                academic_term_id?: string;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanCapacityResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    StudyPlansController_progressCsv_v1: {
+        parameters: {
+            query: {
+                class_id: string;
+                academic_term_id: string;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    StudyPlansController_importValidate_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file?: string;
+                };
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudyPlanImportValidateResultDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    StudyPlansController_importCommit_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommitStudyPlanImportDto"];
             };
         };
         responses: {
@@ -25386,6 +26110,103 @@ export interface operations {
             };
         };
     };
+    StudyPlansController_getSchedule_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanScheduleResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    StudyPlansController_lessonsCsv_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    StudyPlansController_carryOver_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CarryOverResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     StudyPlansController_replaceLessons_v1: {
         parameters: {
             query?: never;
@@ -25486,6 +26307,456 @@ export interface operations {
                 };
                 content: {
                     "application/json": Record<string, never>;
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    LessonDeliveriesController_day_v1: {
+        parameters: {
+            query: {
+                teacher: "me";
+                date: string;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LessonDeliveriesDayDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    LessonDeliveriesController_put_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PutLessonDeliveryDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedLessonDeliveryDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    LessonDeliveriesController_todayAllTaught_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TodayAllTaughtResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    LessonDeliveriesController_extra_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExtraLessonDeliveryDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedLessonDeliveryDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    StudyPlanTemplatesController_list_v1: {
+        parameters: {
+            query?: {
+                class_grade?: number;
+                subject_code?: string;
+                q?: string;
+                page?: number;
+                limit?: number;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    StudyPlanTemplatesController_create_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateStudyPlanTemplateDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    StudyPlanTemplatesController_fromPlan_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                planId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FromPlanDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    StudyPlanTemplatesController_get_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    StudyPlanTemplatesController_remove_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    StudyPlanTemplatesController_update_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateStudyPlanTemplateDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    StudyPlanTemplatesController_copy_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CopyStudyPlanTemplateDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    FamilyStudyPlansController_studyPlans_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                studentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FamilyStudyPlansResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    FamilyStudyPlansController_lessons_v1: {
+        parameters: {
+            query: {
+                date: string;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                studentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FamilyDayPeriodDto"][];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */

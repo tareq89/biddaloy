@@ -3,6 +3,8 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { SyllabusService } from './syllabus.service';
+import { StudyPlan } from '../study-plans/entities/study-plan.entity';
+import { PlanScheduleService } from '../study-plans/plan-schedule.service';
 import { SyllabusTopic } from './entities/syllabus-topic.entity';
 import { Class } from '../academics/entities/class.entity';
 import { Subject } from '../academics/entities/subject.entity';
@@ -76,6 +78,8 @@ async function buildService(existing: SyllabusTopic[] = []) {
       { provide: getRepositoryToken(SyllabusTopic), useValue: topicRepo },
       { provide: getRepositoryToken(Class), useValue: classRepo },
       { provide: getRepositoryToken(Subject), useValue: subjectRepo },
+      { provide: getRepositoryToken(StudyPlan), useValue: {} },
+      { provide: PlanScheduleService, useValue: {} },
       { provide: AuditService, useValue: auditService },
       { provide: TeacherScopeService, useValue: { teachesSubjectInClass: vi.fn() } },
     ],

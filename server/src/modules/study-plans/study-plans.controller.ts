@@ -11,11 +11,18 @@ import {
   Put,
   Query,
   Req,
+  Res,
+  StreamableFile,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Request } from 'express';
+import { ApiBody, ApiConsumes, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Request, Response } from 'express';
+import { Readable } from 'stream';
 import { JwtPayload, Permission } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
@@ -26,6 +33,14 @@ import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator
 import { requestContext } from '../../common/request-context.util';
 import { StudyPlanCaller, StudyPlansService } from './study-plans.service';
 import { PlanScheduleService } from './plan-schedule.service';
+import { CsvFile, StudyPlanCsvService } from './study-plan-csv.service';
+import { STRICT_RATE_LIMIT } from '../../rate-limit';
+import {
+  CommitStudyPlanImportDto,
+  ProgressCsvQueryDto,
+  StudyPlanImportValidateResultDto,
+  ValidateStudyPlanImportDto,
+} from './dto/study-plan-import.dto';
 import {
   CopyToSectionDto,
   CreateStudyPlanDto,
@@ -43,6 +58,15 @@ import {
 
 type Tenant = { id: string; role: string };
 
+const IMPORT_MAX_FILE_SIZE = 5 * 1024 * 1024;
+
+/** Express `attachment()` gives an ASCII-safe filename (Bangla names); Content-Type goes second so it wins. */
+function sendCsv(res: Response, file: CsvFile): StreamableFile {
+  res.attachment(file.filename);
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  return new StreamableFile(Readable.from(Buffer.from(file.csv, 'utf-8')));
+}
+
 /**
  * [66.2.01/#2006] Study plan routes. Permission guards only say "may use the
  * feature"; the owner scope (D6/D28) is enforced in `StudyPlansService`.
@@ -56,6 +80,7 @@ export class StudyPlansController {
   constructor(
     private readonly service: StudyPlansService,
     private readonly schedule: PlanScheduleService,
+    private readonly csv: StudyPlanCsvService,
   ) {}
 
   private caller(tenant: Tenant, user: JwtPayload, request: Request): StudyPlanCaller {
@@ -98,6 +123,62 @@ export class StudyPlansController {
     );
   }
 
+  @Get('progress.csv')
+  @RequirePermissions(Permission.SYLLABUS_READ)
+  @ApiOperation({
+    summary: 'Progress of every plan of a class and term as CSV (admin, executive).',
+  })
+  async progressCsv(
+    @Query() query: ProgressCsvQueryDto,
+    @Res({ passthrough: true }) res: Response,
+    @CurrentTenant() tenant: Tenant,
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
+  ) {
+    return sendCsv(
+      res,
+      await this.csv.progressCsv(query, tenant.id, this.caller(tenant, user, request)),
+    );
+  }
+
+  @Post('import/validate')
+  @RequirePermissions(Permission.SYLLABUS_READ)
+  @Throttle({ default: STRICT_RATE_LIMIT })
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: IMPORT_MAX_FILE_SIZE } }))
+  @ApiOperation({
+    summary:
+      'Validate a lessons CSV/XLSX (max 5MB) for a plan (class_id + subject_id) or a template (class_grade + subject_code) and stage it. Writes nothing.',
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: { type: 'object', properties: { file: { type: 'string', format: 'binary' } } },
+  })
+  @ApiOkResponse({ type: StudyPlanImportValidateResultDto })
+  importValidate(
+    @UploadedFile() file: Express.Multer.File,
+    @Body() body: ValidateStudyPlanImportDto,
+    @CurrentTenant() tenant: Tenant,
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
+  ) {
+    return this.csv.validate(file, body, tenant.id, this.caller(tenant, user, request));
+  }
+
+  @Post('import/commit')
+  @RequirePermissions(Permission.SYLLABUS_READ)
+  @Throttle({ default: STRICT_RATE_LIMIT })
+  @ApiOperation({
+    summary: 'Commit a validated import into a plan, a new plan or a new template (once).',
+  })
+  importCommit(
+    @Body() dto: CommitStudyPlanImportDto,
+    @CurrentTenant() tenant: Tenant,
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
+  ) {
+    return this.csv.commit(dto, tenant.id, this.caller(tenant, user, request));
+  }
+
   @Post()
   @RequirePermissions(Permission.SYLLABUS_MANAGE)
   @ApiOperation({ summary: 'Create a study plan for a section and subject.' })
@@ -133,6 +214,22 @@ export class StudyPlansController {
     @Req() request: Request,
   ) {
     return this.schedule.getSchedule(id, tenant.id, this.caller(tenant, user, request));
+  }
+
+  @Get(':id/lessons.csv')
+  @RequirePermissions(Permission.SYLLABUS_READ)
+  @ApiOperation({ summary: 'Download the lesson list as CSV (title, periods, topic, notes).' })
+  async lessonsCsv(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Res({ passthrough: true }) res: Response,
+    @CurrentTenant() tenant: Tenant,
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
+  ) {
+    return sendCsv(
+      res,
+      await this.csv.exportLessons(id, tenant.id, this.caller(tenant, user, request)),
+    );
   }
 
   @Get(':id/carry-over')

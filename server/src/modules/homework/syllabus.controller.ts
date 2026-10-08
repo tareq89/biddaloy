@@ -52,7 +52,14 @@ export class SyllabusController {
     @CurrentTenant() tenant: { id: string; role: string },
   ) {
     const topics = await this.service.findAll(tenant.id, classId, subjectId);
-    return topics.map(toSyllabusTopicResponseDto);
+    // D31/D41: the two derived numbers only exist for one class x subject.
+    const coverage =
+      classId && subjectId ? await this.service.coverageFor(classId, subjectId, tenant.id) : null;
+    return topics.map((t) => {
+      const dto = toSyllabusTopicResponseDto(t);
+      if (!coverage) return dto;
+      return { ...dto, ...(coverage.get(t.id) ?? { sections_planned: 0, sections_taught: 0 }) };
+    });
   }
 
   @Post()
