@@ -2,10 +2,9 @@
  * [66.2] Study-plan detail: `DetailShell` header (facts, behind badge) and the
  * ordered lessons table. Dates and the behind count come from
  * `GET /study-plans/:id/schedule`; nothing date-related is computed here.
- * Secondary actions (extra class, CSV, More menu) are 3-07: `extraActions`
- * is the slot they fill.
+ * Header actions (extra class, CSV, More menu and their dialogs) are 3-07.
  */
-import { Permission } from '@biddaloy/shared';
+import { Permission, UserRole } from '@biddaloy/shared';
 import { ApiError } from '@biddaloy/ui/api';
 import {
   ConfirmDialog,
@@ -17,7 +16,10 @@ import {
   StatusBadge,
 } from '@biddaloy/ui/components';
 import {
+  downloadStudyPlanLessonsCsv,
   studyPlanQueryOptions,
+  useActiveRole,
+  useDeleteStudyPlan,
   useHasPermission,
   useStudyPlan,
   useStudyPlanSchedule,
@@ -27,12 +29,29 @@ import {
 import { RegionConfigProvider, useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { DetailShell, type DetailShellAction } from '@biddaloy/ui/shells';
 import { formatDateRange, formatNumber } from '@biddaloy/ui/utils';
-import { createFileRoute, Link } from '@tanstack/react-router';
-import { ListOrdered, Plus } from 'lucide-react';
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
+import {
+  CalendarPlus,
+  Copy,
+  Download,
+  Flag,
+  Library,
+  ListOrdered,
+  Plus,
+  Trash2,
+  UserRoundCog,
+} from 'lucide-react';
 import * as React from 'react';
 
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../../route-loaders';
+import { subjectName } from '../homework/-subject-name';
 
+import { errorCode } from './-detail/action-errors';
+import { AddToLibraryDialog } from './-detail/add-to-library-dialog';
+import { ChangeOwnerDialog } from './-detail/change-owner-dialog';
+import { CopyToSectionDialog } from './-detail/copy-to-section-dialog';
+import { ExamMarkersDialog } from './-detail/exam-markers-dialog';
+import { ExtraClassDialog } from './-detail/extra-class-dialog';
 import { LessonFormDialog } from './-detail/lesson-form-dialog';
 import { LessonsTable } from './-detail/lessons-table';
 import { studyPlanTitle } from './-detail/plan-title';
@@ -42,14 +61,13 @@ export const Route = createFileRoute('/_staff/academics/study-plans/$planId')({
   loader: ({ context: { queryClient }, params }) =>
     Promise.all([
       queryClient.ensureQueryData(studyPlanQueryOptions(params.planId)).catch(swallowUnlessOffline),
-      loadRouteNamespaces('studyPlans', 'syllabus', 'common'),
+      loadRouteNamespaces('studyPlans', 'syllabus', 'routines', 'common'),
     ]),
   pendingComponent: StudyPlanDetailPending,
   component: StudyPlanDetailPage,
 });
 
-/** 3-07 fills this slot (extra class, CSV, More menu). */
-const EXTRA_ACTIONS: DetailShellAction[] = [];
+type PlanDialog = 'extra' | 'copy' | 'markers' | 'owner' | 'library' | 'delete';
 
 function StudyPlanDetailPage() {
   const { planId } = Route.useParams();
@@ -58,6 +76,13 @@ function StudyPlanDetailPage() {
   const regionConfig = useTenantRegionConfig();
   const canManage = useHasPermission(Permission.SYLLABUS_MANAGE);
   const canReadRoutine = useHasPermission(Permission.ROUTINE_READ);
+  const canManageTemplates = useHasPermission(Permission.STUDY_PLAN_TEMPLATE_MANAGE);
+  const isAdmin = useActiveRole() === UserRole.ADMIN;
+  const navigate = useNavigate();
+  const deletePlan = useDeleteStudyPlan();
+  const [dialog, setDialog] = React.useState<PlanDialog | null>(null);
+  const [markerExamId, setMarkerExamId] = React.useState<string | undefined>(undefined);
+  const [actionError, setActionError] = React.useState<string | null>(null);
 
   const planQuery = useStudyPlan(planId);
   const scheduleQuery = useStudyPlanSchedule(planId);
@@ -156,17 +181,99 @@ function StudyPlanDetailPage() {
     },
   ];
 
+  const busy = isPending || deletePlan.isPending;
+  const open = (next: PlanDialog) => {
+    if (busy) return;
+    setActionError(null);
+    setDialog(next);
+  };
   const actions: DetailShellAction[] = [
+    {
+      id: 'extra-class',
+      label: t('actions.extraClass'),
+      icon: <CalendarPlus />,
+      onClick: () => open('extra'),
+      allowed: editable,
+      keepOnPhone: true,
+    },
+    {
+      id: 'download-csv',
+      label: t('actions.downloadCsv'),
+      icon: <Download />,
+      onClick: () => void downloadStudyPlanLessonsCsv(planId),
+    },
     {
       id: 'add-lesson',
       label: t('detail.addLesson'),
       icon: <Plus />,
-      onClick: () => !isPending && setForm({}),
+      onClick: () => !busy && setForm({}),
       allowed: editable,
       priority: 'primary',
     },
-    ...EXTRA_ACTIONS,
+    {
+      id: 'copy',
+      label: t('actions.copyToSection'),
+      icon: <Copy />,
+      onClick: () => open('copy'),
+      allowed: editable,
+      priority: 'tertiary',
+    },
+    {
+      id: 'add-to-library',
+      label: t('actions.addToLibrary'),
+      icon: <Library />,
+      onClick: () => open('library'),
+      allowed: canManageTemplates,
+      priority: 'tertiary',
+    },
+    {
+      id: 'exam-marker',
+      label: t('actions.examMarker'),
+      icon: <Flag />,
+      onClick: () => {
+        setMarkerExamId(undefined);
+        open('markers');
+      },
+      allowed: editable,
+      priority: 'tertiary',
+    },
+    {
+      id: 'change-owner',
+      label: t('actions.changeOwner'),
+      icon: <UserRoundCog />,
+      onClick: () => open('owner'),
+      allowed: isAdmin,
+      priority: 'tertiary',
+    },
+    {
+      id: 'delete-plan',
+      label: t('actions.deletePlan'),
+      icon: <Trash2 />,
+      onClick: () => open('delete'),
+      allowed: editable,
+      priority: 'destructive',
+    },
   ];
+
+  function handleDeletePlan() {
+    setActionError(null);
+    deletePlan.mutate(planId, {
+      onSuccess: () => {
+        setDialog(null);
+        void navigate({ href: '/academics/syllabus?tab=plans' });
+      },
+      onError: (error) => {
+        setDialog(null);
+        setActionError(
+          errorCode(error) === 'STUDY_PLAN_OUT_OF_SCOPE'
+            ? t('detail.notYourPlan')
+            : tCommon('status.error'),
+        );
+      },
+    });
+  }
+
+  const closeDialog = (next: boolean) => !next && setDialog(null);
 
   const current = plan.lessons;
   function handleSubmit(lesson: StudyPlanLesson) {
@@ -187,6 +294,11 @@ function StudyPlanDetailPage() {
   return (
     <RegionConfigProvider value={regionConfig}>
       <div className="flex flex-col gap-4">
+        {actionError && (
+          <p role="alert" className="rounded-md bg-muted px-4 py-3 text-destructive">
+            {actionError}
+          </p>
+        )}
         <DetailShell name={name} statusBadge={behindBadge()} facts={facts} actions={actions}>
           {summary?.routine_missing && (
             <p className="mb-4 rounded-md bg-muted px-4 py-3 text-text-secondary">
@@ -219,12 +331,37 @@ function StudyPlanDetailPage() {
               editable={editable}
               onEdit={(lesson) => setForm({ lesson })}
               onDelete={(lesson, index) => setDeleting({ lesson, index })}
+              {...(editable
+                ? {
+                    onEditMarker: (marker) => {
+                      setMarkerExamId(marker.exam_id);
+                      open('markers');
+                    },
+                  }
+                : {})}
             />
           )}
         </DetailShell>
 
         {editable && (
           <>
+            <ExtraClassDialog open={dialog === 'extra'} onOpenChange={closeDialog} plan={plan} />
+            <CopyToSectionDialog open={dialog === 'copy'} onOpenChange={closeDialog} plan={plan} />
+            <ExamMarkersDialog
+              open={dialog === 'markers'}
+              onOpenChange={closeDialog}
+              plan={plan}
+              initialExamId={markerExamId}
+            />
+            <ConfirmDialog
+              open={dialog === 'delete'}
+              onOpenChange={(next) => !next && !deletePlan.isPending && setDialog(null)}
+              title={t('actions.deletePlan')}
+              description={t('actions.deleteConfirm', { name })}
+              confirmLabel={t('actions.deletePlan')}
+              busy={deletePlan.isPending}
+              onConfirm={handleDeletePlan}
+            />
             <LessonFormDialog
               open={form !== null}
               onOpenChange={(open) => !open && !isPending && setForm(null)}
@@ -250,6 +387,17 @@ function StudyPlanDetailPage() {
               onConfirm={handleDelete}
             />
           </>
+        )}
+        {canManageTemplates && (
+          <AddToLibraryDialog
+            open={dialog === 'library'}
+            onOpenChange={closeDialog}
+            plan={plan}
+            defaultName={`${subjectName(plan.subject, i18n.language)} ${plan.section.class_name} — ${plan.term?.name ?? t('list.filters.wholeYear')}`}
+          />
+        )}
+        {isAdmin && (
+          <ChangeOwnerDialog open={dialog === 'owner'} onOpenChange={closeDialog} plan={plan} />
         )}
       </div>
     </RegionConfigProvider>
