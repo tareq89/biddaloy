@@ -227,14 +227,14 @@ flowchart TD
     M --> R
 ```
 
-| Protection | Detail |
-| --- | --- |
-| Captcha | Cloudflare Turnstile, checked on `start` (`registration/turnstile.service.ts`). With no `TURNSTILE_SECRET_KEY`, dev and test skip it; **production returns 503** and the routes stay closed (never fail open). |
-| Rate limit | `STRICT_RATE_LIMIT`, 5 requests per 60 s per client, on all three routes. |
-| Per-number limit | Resend cooldown 60 s, at most 3 resends per stage, and the OTP lockout above. One captcha buys one stage. |
-| Allowed prefixes | SMS only to `OTP_SMS_ALLOWED_PREFIXES` (default `+880`), so the route cannot be used to run up SMS bills abroad. Others get an email code. |
-| Enumeration | `start` and `resend` always answer 202 and never say whether the contact is known. **Exception:** `verify` answers `409 CONTACT_IN_USE` or `SIGN_IN_REQUIRED` once the code is proven. This reveals that an account exists and is an accepted product call. |
-| Consent | Terms acceptance is stored in the audit log with the school id. |
+| Protection       | Detail                                                                                                                                                                                                                                                      |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Captcha          | Cloudflare Turnstile, checked on `start` (`registration/turnstile.service.ts`). With no `TURNSTILE_SECRET_KEY`, dev and test skip it; **production returns 503** and the routes stay closed (never fail open).                                              |
+| Rate limit       | `STRICT_RATE_LIMIT`, 5 requests per 60 s per client, on all three routes.                                                                                                                                                                                   |
+| Per-number limit | Resend cooldown 60 s, at most 3 resends per stage, and the OTP lockout above. One captcha buys one stage.                                                                                                                                                   |
+| Allowed prefixes | SMS only to `OTP_SMS_ALLOWED_PREFIXES` (default `+880`), so the route cannot be used to run up SMS bills abroad. Others get an email code.                                                                                                                  |
+| Enumeration      | `start` and `resend` always answer 202 and never say whether the contact is known. **Exception:** `verify` answers `409 CONTACT_IN_USE` or `SIGN_IN_REQUIRED` once the code is proven. This reveals that an account exists and is an accepted product call. |
+| Consent          | Terms acceptance is stored in the audit log with the school id.                                                                                                                                                                                             |
 
 Gaps: the server has no captcha-specific error code (#1700) and does not
 normalise phone numbers (#1701). See [22-onboarding.md](22-onboarding.md).
@@ -566,15 +566,39 @@ to force a version. If `yarn audit` shows anything else, it is new: fix it.
 
 ```mermaid
 flowchart LR
-  lhci["@lhci/cli (dev/CI only)"] --> lh[lighthouse] --> pp["puppeteer-core"] --> ez["extract-zip 2.0.1<br/>no patched version"]
+  lhci["@lhci/cli (dev/CI only)"] --> lh["lighthouse 12.6.1"] --> pp["puppeteer-core 24.x"] --> pb["@puppeteer/browsers 2.x"] --> ez["extract-zip 2.0.1<br/>no patched version"]
   server["@biddaloy/server"] --> xl["exceljs 4.4.0"] --> uuid["uuid 8.3.2<br/>only v4 is called"]
+  lhci --> uuid
 ```
 
-| Advisory | Package | Why we accept it | Revisit when |
-|---|---|---|---|
-| GHSA-7pqw-9j4j-h8q3 | `extract-zip` 2.0.1 (arbitrary file write via symlink entries) | No patched version exists. Dev/CI only: puppeteer unzips the Chrome build it downloads from Google's CDN, a trusted vendor archive, never user input. | puppeteer drops `extract-zip`, or a patched release appears |
-| GHSA-jmr9-qjv8-65gv | `extract-zip` 2.0.1 (symlink path traversal) | Same as above. | Same as above |
-| GHSA-w5hq-g745-h8pq | `uuid` 8.3.2 via `exceljs` (missing buffer bounds check in v3/v5/v6 when a `buf` argument is passed) | `exceljs` only does `const {v4: uuidv4} = require('uuid')` (`node_modules/exceljs/lib/xlsx/xform/sheet/cf-ext/cf-rule-ext-xform.js:1`): v4, no buffer, so the vulnerable path is never called. Forcing uuid 11 on it is a 3-major jump for code we do not use. | `exceljs` bumps `uuid`, or we replace `exceljs` |
+| Advisory            | Package                                                                                                              | Why we accept it                                                                                                                                                                                                                                                                                                                                                              | Revisit when                                                                                                                                                                                           |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| GHSA-7pqw-9j4j-h8q3 | `extract-zip` 2.0.1 (arbitrary file write via symlink entries)                                                       | No patched version exists. Dev/CI only, and it only runs if something triggers a browser download (`@puppeteer/browsers install`). lhci does not: it launches the Chrome already installed on the machine (via chrome-launcher).                                                                                                                                              | `@lhci/cli` ships a lighthouse that uses puppeteer-core 25 or later (`@puppeteer/browsers` 3.x has no `extract-zip`; our own root `puppeteer` 25 already uses 3.x), or a patched `extract-zip` appears |
+| GHSA-jmr9-qjv8-65gv | `extract-zip` 2.0.1 (symlink path traversal)                                                                         | Same as above.                                                                                                                                                                                                                                                                                                                                                                | Same as above                                                                                                                                                                                          |
+| GHSA-w5hq-g745-h8pq | `uuid` 8.3.2 via `exceljs` and `@lhci/cli` (missing buffer bounds check in v3/v5/v6 when a `buf` argument is passed) | Both callers only use v4 with no buffer, so the vulnerable path is never called. `exceljs` does `const {v4: uuidv4} = require('uuid')` (`node_modules/exceljs/lib/xlsx/xform/sheet/cf-ext/cf-rule-ext-xform.js:1`); `@lhci/cli` calls `uuid.v4()` (`node_modules/@lhci/cli/src/collect/node-runner.js:65`). Forcing uuid 11 on them is a 3-major jump for code we do not use. | `exceljs` or `@lhci/cli` bumps `uuid`, or we replace `exceljs`                                                                                                                                         |
 
-Re-check the `uuid` claim after any `exceljs` upgrade:
-`rg -n "require\(['\"]uuid" node_modules/exceljs/lib` must show only `v4`.
+So `yarn audit` lists `uuid` on two paths, `@biddaloy/server>exceljs>uuid`
+and `@lhci/cli>uuid`. Both are this one accepted advisory, not a new finding.
+
+Re-check the `uuid` claim after any `exceljs` or `@lhci/cli` upgrade:
+`rg -n "require\(['\"]uuid" node_modules/exceljs/lib node_modules/@lhci/cli/src`
+must show only `v4`.
+
+### Forced versions (`resolutions`)
+
+Epic 51.0 also forced three patched versions through the root
+`package.json` `resolutions` block. Yarn 1 does not allow comments there, so
+the reason for each one, and when it can go, lives here.
+
+All three exist only because `@lhci/cli` 0.15.1 (dev/CI only) still pulls in
+old ranges. The production server does not need any of them.
+
+| Resolution                | Advisory                                 | What forces it (from `yarn.lock`)                                                                                                                                                                                                                    | Remove when                                                             |
+| ------------------------- | ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `"qs": "^6.16.0"`         | GHSA-4mjr-xmp4-gh2g, GHSA-x5fp-wj9c-mxmx | `@lhci/cli` → `express` 4.22.2 and `body-parser` 1.20.6, which both ask for `qs ~6.15.1` (6.16 is out of a tilde range). The server's `express` 5.2.1 (`qs ^6.14.0`) and `body-parser` 2.x (`qs ^6.15.2`) already allow 6.16 without the resolution. | `@lhci/cli` moves off express 4 (or its express 4 asks for `qs` ≥ 6.16) |
+| `"tmp": "^0.2.7"`         | GHSA-ph9p-34f9-6g65, GHSA-52f5-9888-hmc6 | `@lhci/cli` asks for `tmp ^0.1.0` directly, and through `inquirer` 6 → `external-editor` for `tmp ^0.0.33`                                                                                                                                           | `@lhci/cli` (and its `inquirer`) ask for `tmp` ≥ 0.2.7                  |
+| `"compression": "^1.8.2"` | GHSA-vc2v-76pw-4v95                      | `@lhci/cli` asks for `compression ^1.7.4`. 1.8.2 is in that range; the resolution makes sure a fresh install can never pick an older one.                                                                                                            | `@lhci/cli` asks for `compression` ≥ 1.8.2                              |
+
+To check whether a row can go: delete it from `resolutions`, run `yarn`, then
+`yarn audit`. If the advisory in that row does not come back, the
+resolution is no longer needed.
