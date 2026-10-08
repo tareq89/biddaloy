@@ -534,6 +534,36 @@ describe('IssueCertificateModal', () => {
     expect(posts.filter((p) => p.url === '/certificates').length).toBe(1);
   });
 
+  it('a finished run stays on the result even when the details stop being valid; Close does not bounce to details', async () => {
+    serve();
+    const { user, onClose, router, queryClient } = setup();
+    await next(user, /^next$/i);
+    await user.type(await screen.findByLabelText(/conduct/i), 'Good');
+    await user.click(await screen.findByRole('button', { name: /for all of class 10/i }));
+    await screen.findByText(/3 students/i);
+    await next(user, /see preview/i);
+    await next(user, /^next$/i);
+    await next(user, /^print$/i);
+    await user.click(await screen.findByRole('button', { name: /yes, all printed/i }));
+    await user.click(await screen.findByRole('button', { name: /^continue$/i }));
+    expect(await screen.findByText(/3 certificates issued/i)).toBeTruthy();
+
+    // The class list reloads and hangs: the details are "not ready" again, but everyone is issued,
+    // so the wizard must not jump back to Details (blockedAhead needs !run.done).
+    server.use(http.get('/api/v1/students', () => new Promise<never>(() => undefined)));
+    void queryClient.resetQueries({
+      predicate: (q) => JSON.stringify(q.queryKey).includes('"enrollment_status":"ACTIVE"'),
+    });
+    await new Promise((r) => setTimeout(r, 50));
+    expect(screen.getByText(/3 certificates issued/i)).toBeTruthy();
+    expect(router.state.location.searchStr).toContain('step=print');
+
+    const close = screen.getAllByRole('button', { name: /^close$/i });
+    await user.click(close[close.length - 1]!);
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(router.state.location.searchStr).not.toContain('step=details');
+  });
+
   it('the result view leaves out a certificate marked as not printed', async () => {
     serve();
     const { user } = setup();
