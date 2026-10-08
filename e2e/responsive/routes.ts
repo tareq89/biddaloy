@@ -205,6 +205,22 @@ export async function resolvePath(
     const programs = await get<{ id: string }[]>(request, session, '/programs');
     return route.path.replace('$programId', programs[0]!.id);
   }
+  if (route.path.includes('study-plans/$planId')) {
+    // [66.2] Must precede the seat-plan branch below (also `$planId`). Posts
+    // directly: the `createStudyPlan` helper in e2e/api.ts lands with wave close.
+    const chain = await createClassSection(request, session);
+    const subject = await post<{ id: string }>(request, session, '/subjects', {
+      code: `RP-${stamp.toString(36).toUpperCase()}`,
+      name_en: 'Reflow Plan Subject',
+    });
+    const plan = await post<{ id: string }>(request, session, '/study-plans', {
+      section_id: chain.sectionId,
+      subject_id: subject.id,
+      academic_term_id: null,
+      lessons: [1, 2, 3].map((n) => ({ title: `Reflow Lesson ${n}`, periods: 1 })),
+    });
+    return route.path.replace('$planId', plan.id);
+  }
   if (route.path.includes('$planId')) {
     const plans = await get<{ id: string }[]>(request, session, '/seat-plans');
     if (!plans[0]) test.skip(true, 'no seat plan seeded: building one needs a scheduled exam');

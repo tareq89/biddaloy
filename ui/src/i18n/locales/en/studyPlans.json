@@ -170,7 +170,9 @@
     "addLesson": "Add lesson",
     "markerDropped": "The {{exam}} marker was removed with that lesson.",
     "notYourPlan": "You can only change plans for the subjects you teach.",
-    "error": "Couldn't load the study plan."
+    "error": "Couldn't load the study plan.",
+    "notFound": "Study plan not found.",
+    "forbidden": "You don't have permission to view this study plan."
   },
   "lesson": {
     "addTitle": "Add lesson",
@@ -181,7 +183,9 @@
     "notes": "Notes or links",
     "titleRequired": "Enter a lesson title.",
     "periodsMin": "At least 1 period.",
-    "deleteConfirm": "Delete lesson {{no}} '{{title}}'? Lessons after it move up one place."
+    "deleteConfirm": "Delete lesson {{no}} '{{title}}'? Lessons after it move up one place.",
+    "edit": "Edit lesson",
+    "delete": "Delete lesson"
   },
   "actions": {
     "extraClass": "Log extra class",
