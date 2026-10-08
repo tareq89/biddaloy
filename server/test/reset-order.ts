@@ -101,6 +101,11 @@ export const TRANSACTIONAL_TABLES_CHILD_FIRST = [
   'homework_assignments',
   'homework',
   'syllabus_topics',
+  // [66.1.02] study_plans/lesson_deliveries/study_plan_templates FK sections,
+  // subjects, terms, period slots and users, so they clear before them.
+  'lesson_deliveries',
+  'study_plans',
+  'study_plan_templates',
   // [19.2.1] result_subjects/results reference exams+students+grading_scales;
   // marks/mark_grids/exam_components reference exams+students+subjects;
   // student_subject_choices references students+class_subjects;
