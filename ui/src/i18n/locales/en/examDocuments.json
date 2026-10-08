@@ -73,7 +73,9 @@
   "resultCertificate": {
     "title": "Result certificate",
     "description": "Only for students who passed",
-    "action": "Print certificates"
+    "action": "Print certificates",
+    "loadError": "Could not load the results. Try again.",
+    "nonePassed": "No student passed this exam, so there is no result certificate to print."
   },
   "meritCertificate": {
     "title": "Merit certificate",

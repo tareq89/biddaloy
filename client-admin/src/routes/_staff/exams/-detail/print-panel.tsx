@@ -12,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
   Skeleton,
+  toast,
 } from '@biddaloy/ui/components';
 import {
   resultsQueryOptions,
@@ -58,6 +59,7 @@ export function PrintPanel({ examId }: PrintPanelProps) {
   const [reportSection, setReportSection] = React.useState<string | undefined>(undefined);
   const [tabSection, setTabSection] = React.useState<string | undefined>(undefined);
   const [meritOpen, setMeritOpen] = React.useState(false);
+  const [certBusy, setCertBusy] = React.useState(false);
 
   const queries = [examQuery, schedule, components, plans, roster];
   if (queries.some((x) => x.isPending)) {
@@ -129,12 +131,26 @@ export function PrintPanel({ examId }: PrintPanelProps) {
 
   /** Fetched at click time, so no results call happens until someone asks. */
   async function printResultCertificates() {
-    const results = await queryClient.fetchQuery(resultsQueryOptions(examId));
-    const ids = [...results]
-      .filter((r) => !r.is_fail)
-      .sort((a, b) => a.roll_number - b.roll_number)
-      .map((r) => r.student_id)
-      .join(',');
+    if (certBusy) return;
+    setCertBusy(true);
+    let ids: string;
+    try {
+      const results = await queryClient.fetchQuery(resultsQueryOptions(examId));
+      ids = [...results]
+        .filter((r) => !r.is_fail)
+        .sort((a, b) => a.roll_number - b.roll_number)
+        .map((r) => r.student_id)
+        .join(',');
+    } catch {
+      toast.error(t('resultCertificate.loadError'));
+      return;
+    } finally {
+      setCertBusy(false);
+    }
+    if (ids === '') {
+      toast.error(t('resultCertificate.nonePassed'));
+      return;
+    }
     router.history.push(examPreviewHref(examId, 'RESULT_CERTIFICATE', { ids }));
   }
 
@@ -276,15 +292,18 @@ export function PrintPanel({ examId }: PrintPanelProps) {
           >
             {sectionSelect('print-tab-section', tabSectionId, setTabSection)}
           </DocumentCard>
-          <DocumentCard
-            title={t('resultCertificate.title')}
-            description={t('resultCertificate.description')}
-            action={{
-              label: t('resultCertificate.action'),
-              onClick: () => void printResultCertificates(),
-            }}
-            {...(resultsUnavailable ? { unavailable: resultsUnavailable } : {})}
-          />
+          {canResults ? (
+            <DocumentCard
+              title={t('resultCertificate.title')}
+              description={t('resultCertificate.description')}
+              action={{
+                label: t('resultCertificate.action'),
+                onClick: () => void printResultCertificates(),
+                busy: certBusy,
+              }}
+              {...(resultsUnavailable ? { unavailable: resultsUnavailable } : {})}
+            />
+          ) : null}
           <DocumentCard
             title={t('meritCertificate.title')}
             description={t('meritCertificate.description')}
