@@ -70,6 +70,9 @@ import { Homework } from '../src/modules/homework/entities/homework.entity';
 import { HomeworkAssignment } from '../src/modules/homework/entities/homework-assignment.entity';
 import { HomeworkSubmission } from '../src/modules/homework/entities/homework-submission.entity';
 import { SyllabusTopic } from '../src/modules/homework/entities/syllabus-topic.entity';
+import { StudyPlan } from '../src/modules/study-plans/entities/study-plan.entity';
+import { LessonDelivery } from '../src/modules/study-plans/entities/lesson-delivery.entity';
+import { StudyPlanTemplate } from '../src/modules/study-plans/entities/study-plan-template.entity';
 import { AdmissionIntake } from '../src/modules/admission/entities/admission-intake.entity';
 import { AdmissionApplicant } from '../src/modules/admission/entities/admission-applicant.entity';
 import { AdmissionEvaluation } from '../src/modules/admission/entities/admission-evaluation.entity';
@@ -189,6 +192,9 @@ export const ALL_ENTITIES = [
   HomeworkAssignment,
   HomeworkSubmission,
   SyllabusTopic,
+  StudyPlan,
+  LessonDelivery,
+  StudyPlanTemplate,
   AdmissionIntake,
   AdmissionApplicant,
   AdmissionEvaluation,

@@ -10,6 +10,9 @@ import { homeworkTab } from '../tabs/academics/homework.tab';
 import { homeworkAssignmentTab } from '../tabs/academics/homework-assignment.tab';
 import { homeworkSubmissionTab } from '../tabs/academics/homework-submission.tab';
 import { syllabusTopicTab } from '../tabs/academics/syllabus-topic.tab';
+import { studyPlanTemplatesTab } from '../tabs/academics/study-plan-templates.tab';
+import { studyPlansTab } from '../tabs/academics/study-plans.tab';
+import { lessonDeliveriesTab } from '../tabs/academics/lesson-deliveries.tab';
 import { promotionRunsTab } from '../tabs/people/promotion-runs.tab';
 import { promotionEntriesTab } from '../tabs/people/promotion-entries.tab';
 import { seatPlansTab } from '../tabs/exams/seat-plans.tab';
@@ -191,6 +194,11 @@ export const EXPECTED_TABS = [
   'survey_targets',
   'survey_responses',
   'survey_answers',
+  // [66.1.03] Epic 66.0 study plans. Depend on `sections`, `subjects`, `teachers`,
+  // `period_slots` and `users`, all earlier in this list.
+  'study_plan_templates',
+  'study_plans',
+  'lesson_deliveries',
 ] as const;
 
 export type ExpectedTabName = (typeof EXPECTED_TABS)[number];
@@ -259,6 +267,10 @@ export const ALL_TABS: readonly TabSpec<any, any>[] = [
   ...acrTabs,
   ...incidentsTabs,
   ...surveysTabs,
+  // [66.1.03] Same order as EXPECTED_TABS.
+  studyPlanTemplatesTab,
+  studyPlansTab,
+  lessonDeliveriesTab,
 ];
 
 export class RegistryError extends Error {

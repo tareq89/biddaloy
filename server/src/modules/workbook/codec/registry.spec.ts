@@ -150,6 +150,10 @@ describe('EXPECTED_TABS', () => {
       'survey_targets',
       'survey_responses',
       'survey_answers',
+      // [66.1.03] Epic 66.0 study plans.
+      'study_plan_templates',
+      'study_plans',
+      'lesson_deliveries',
     ]);
   });
 
