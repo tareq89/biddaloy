@@ -12,6 +12,13 @@ describe('ProgressBar', () => {
     expect(screen.getByText('3 / 5')).toBeTruthy();
   });
 
+  it('draws the label with kit type tokens', () => {
+    render(<ProgressBar done={3} total={5} label="3 / 5" />);
+    const label = screen.getByText('3 / 5');
+    expect(label.className).toContain('text-caption');
+    expect(label.className).toContain('text-text-secondary');
+  });
+
   it('renders 0% width without dividing by zero when total is 0', () => {
     render(<ProgressBar done={0} total={0} label="0 / 0" />);
     const bar = screen.getByRole('progressbar');

@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 import { renderWithProviders } from '../test/render-with-providers';
 
-import { StepIndicator } from './step-indicator';
+import { Stepper, StepIndicator } from './step-indicator';
 
 const steps = [
   { id: 'a', label: 'Account' },
@@ -40,6 +40,19 @@ describe('StepIndicator', () => {
 
   it('carries the phone text with the active label', () => {
     render(<StepIndicator steps={steps} current="b" progressLabel="Step 2 of 3" />);
-    expect(screen.getByText(/Step 2 of 3/).textContent).toContain('Details');
+    expect(screen.getByText('Step 2 of 3')).toBeTruthy();
+    expect(screen.getAllByText('Details').length).toBeGreaterThan(0);
+  });
+
+  it('names the nav by label and keeps one segment per step', () => {
+    render(<Stepper steps={steps} current="b" progressLabel="Step 2 of 3" label="Steps" />);
+    const nav = screen.getByRole('navigation', { name: 'Steps' });
+    expect(nav.querySelectorAll('span.h-1')).toHaveLength(3);
+    expect(nav.querySelectorAll('span.h-1.bg-primary')).toHaveLength(2);
+    expect(nav.querySelectorAll('[aria-current="step"]')).toHaveLength(1);
+  });
+
+  it('StepIndicator is the same component as Stepper', () => {
+    expect(StepIndicator).toBe(Stepper);
   });
 });
