@@ -5022,7 +5022,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List seat plans for the current tenant. */
+        /** List seat plans for the current tenant, optionally of one exam. */
         get: operations["SeatPlansController_findAll_v1"];
         put?: never;
         post?: never;
@@ -5580,6 +5580,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/certificates/templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Live, published templates of one certificate kind. Default first. */
+        get: operations["CertificatesController_templateList_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/certificates/printers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Printer profiles (same rows as GET /printers). */
+        get: operations["CertificatesController_printerList_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/certificates/assets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Print assets (same rows as GET /print-assets). */
+        get: operations["CertificatesController_assetList_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/certificates/assets/{id}/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Stream an asset (artwork / font). Tenant-scoped — 404 across tenants. */
+        get: operations["CertificatesController_assetFile_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/certificates/photo": {
         parameters: {
             query?: never;
@@ -5674,6 +5742,23 @@ export interface paths {
         };
         /** What is still to print: counts per kind and exams with missing admit cards. */
         get: operations["PrintHistoryController_queue_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/print-history/queue/id-cards": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Active students still waiting for an ID card (matches the queue count). */
+        get: operations["PrintHistoryController_idCardQueue_v1"];
         put?: never;
         post?: never;
         delete?: never;
@@ -5801,6 +5886,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/exams/{examId}/documents/tabulation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Per-subject marks of every student in one section. */
+        get: operations["ExamDocumentsController_tabulation_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/students/{studentId}/exams/{examId}/admit-card": {
         parameters: {
             query?: never;
@@ -5812,6 +5914,23 @@ export interface paths {
         put?: never;
         /** Print the student's own admit card (PARENT/STUDENT, linkage-checked). Each call is a logged copy. */
         post: operations["FamilyAdmitCardController_print_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/students/{studentId}/exams/{examId}/admit-card/assets/{assetId}/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Artwork/font bytes of the default admit-card template (linked family). */
+        get: operations["FamilyAdmitCardController_assetFile_v1"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -11100,6 +11219,44 @@ export interface components {
             position: number;
             section_position: number | null;
             gpa: number;
+        };
+        TabulationSubjectDto: {
+            subject_id: string;
+            name_en: string;
+            name_bn: string | null;
+            full_marks: number;
+        };
+        TabulationCellDto: {
+            obtained: number;
+            grade: string;
+            is_fail: boolean;
+        };
+        TabulationRowDto: {
+            student_id: string;
+            roll_number: number;
+            full_name: string;
+            cells: {
+                [key: string]: components["schemas"]["TabulationCellDto"];
+            };
+            total_marks: number;
+            gpa: number;
+            grade: string;
+            section_position: number | null;
+            is_fail: boolean;
+        };
+        TabulationDto: {
+            exam: {
+                id: string;
+                name: string;
+                published_at: string | null;
+            };
+            section: {
+                id: string;
+                name: string;
+                class_name: string;
+            };
+            subjects: components["schemas"]["TabulationSubjectDto"][];
+            rows: components["schemas"]["TabulationRowDto"][];
         };
         ProgramMilestoneDto: {
             id: string;
@@ -25239,7 +25396,9 @@ export interface operations {
     };
     SeatPlansController_findAll_v1: {
         parameters: {
-            query?: never;
+            query?: {
+                exam_id?: string;
+            };
             header: {
                 /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
                 "X-Tenant-ID": string;
@@ -26469,6 +26628,132 @@ export interface operations {
             };
         };
     };
+    CertificatesController_templateList_v1: {
+        parameters: {
+            query: {
+                document_kind: "TRANSFER_CERTIFICATE" | "TESTIMONIAL" | "CHARACTER_CERTIFICATE" | "STUDY_CERTIFICATE" | "PARTICIPATION_CERTIFICATE";
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CertificatesController_printerList_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>[];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CertificatesController_assetList_v1: {
+        parameters: {
+            query?: {
+                kind?: string;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PrintAsset"][];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CertificatesController_assetFile_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     CertificatesController_photo_v1: {
         parameters: {
             query?: never;
@@ -26677,11 +26962,45 @@ export interface operations {
             };
         };
     };
+    PrintHistoryController_idCardQueue_v1: {
+        parameters: {
+            query?: {
+                page?: number;
+                limit?: number;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     PrintHistoryController_register_v1: {
         parameters: {
             query?: {
                 document_kind?: "TRANSFER_CERTIFICATE" | "TESTIMONIAL" | "CHARACTER_CERTIFICATE" | "STUDY_CERTIFICATE" | "PARTICIPATION_CERTIFICATE" | "RESULT_CERTIFICATE" | "MERIT_CERTIFICATE";
                 year?: number;
+                /** @description Only copies issued to this student */
+                subject_id?: string;
                 status?: "VALID" | "REVOKED";
                 /** @description Matches the holder name or the serial (case-insensitive contains) */
                 q?: string;
@@ -26719,6 +27038,8 @@ export interface operations {
             query?: {
                 document_kind?: "TRANSFER_CERTIFICATE" | "TESTIMONIAL" | "CHARACTER_CERTIFICATE" | "STUDY_CERTIFICATE" | "PARTICIPATION_CERTIFICATE" | "RESULT_CERTIFICATE" | "MERIT_CERTIFICATE";
                 year?: number;
+                /** @description Only copies issued to this student */
+                subject_id?: string;
                 status?: "VALID" | "REVOKED";
                 /** @description Matches the holder name or the serial (case-insensitive contains) */
                 q?: string;
@@ -26909,6 +27230,41 @@ export interface operations {
             };
         };
     };
+    ExamDocumentsController_tabulation_v1: {
+        parameters: {
+            query: {
+                section_id: string;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                examId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TabulationDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     FamilyAdmitCardController_print_v1: {
         parameters: {
             query?: never;
@@ -26921,6 +27277,39 @@ export interface operations {
             path: {
                 studentId: string;
                 examId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    FamilyAdmitCardController_assetFile_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                studentId: string;
+                examId: string;
+                assetId: string;
             };
             cookie?: never;
         };
