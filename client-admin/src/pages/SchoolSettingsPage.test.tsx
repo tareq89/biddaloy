@@ -166,7 +166,9 @@ describe('SchoolSettingsPage', () => {
     expect(screen.queryByRole('link', { name: 'Settings' })).toBeNull();
 
     await user.click(screen.getByRole('link', { name: 'Academics' }));
-    const back = await screen.findByRole('link', { name: 'Settings' });
+    // The first visit to a category suspends the page while its i18n
+    // namespaces load (`useSuspense: true`); on a busy CI shard that outlasts 1s.
+    const back = await screen.findByRole('link', { name: 'Settings' }, { timeout: 5000 });
     expect(back.getAttribute('href')).toBe('/settings');
     expect(screen.getByRole('navigation', { name: 'Settings categories' }).className).toContain(
       'hidden',
