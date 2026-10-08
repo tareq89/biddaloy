@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -9,7 +10,7 @@ import { DataSource, IsNull } from 'typeorm';
 import { AuditAction, Permission, roleHasPermission } from '@biddaloy/shared';
 import { PrintJobItem } from '../entities/print-job-item.entity';
 import { AuditService } from '../../audit/audit.service';
-import { QueryPrintHistoryDto } from './dto/print-history.dto';
+import { QueryPrintHistoryDto, QueryRegisterDto } from './dto/print-history.dto';
 import type { PrintCaller } from './print-jobs.service';
 
 /**
@@ -40,6 +41,16 @@ const acrGate = (role: string, n: string) =>
      AND NOT EXISTS (
        SELECT 1 FROM acr_assessments a
         WHERE a.id = i.subject_id AND a.tenant_id = i.tenant_id AND a.user_id = ${n}::uuid)))`;
+
+const SERIAL_TEXT = `i.data_snapshot->'values'->>'print.serial_no'`;
+const REGISTER_MAX_ROWS = 10_000;
+// A register row never carries the snapshot itself, only the two text values read out of it.
+const REGISTER_SELECT = `
+  i.id AS item_id, i.document_kind, ${SERIAL_TEXT} AS serial, i.serial_year, i.serial_no,
+  i.copy_number, i.subject_id, i.subject_label,
+  i.data_snapshot->'values'->>'student.class' AS class_name,
+  i.created_at AS issued_at, u.full_name AS printed_by_name, i.revoked_at, i.revoke_reason`;
+const REGISTER_ORDER = `ORDER BY i.serial_year DESC, i.document_kind, i.serial_no DESC, i.copy_number DESC`;
 
 const escapeLike = (v: string) => v.replace(/[\\%_]/g, (c) => `\\${c}`);
 
@@ -78,6 +89,57 @@ export class PrintHistoryService {
     if (q.revoked === false) clauses.push('i.revoked_at IS NULL');
     if (q.q) add((n) => `i.subject_label ILIKE ${n} ESCAPE '\\'`, `%${escapeLike(q.q as string)}%`);
     return { sql: clauses.join(' AND '), params };
+  }
+
+  /** Register WHERE: only serial rows; every value is a bound parameter. */
+  private registerWhere(caller: PrintCaller, q: QueryRegisterDto) {
+    const params: unknown[] = [caller.tenantId, caller.userId];
+    const clauses = ['i.tenant_id = $1', 'i.serial_no IS NOT NULL', acrGate(caller.role, '$2')];
+    const add = (sql: (n: string) => string, value: unknown) => {
+      params.push(value);
+      clauses.push(sql(`$${params.length}`));
+    };
+    if (q.document_kind) add((n) => `i.document_kind = ${n}`, q.document_kind);
+    if (q.year) add((n) => `i.serial_year = ${n}`, q.year);
+    if (q.status === 'VALID') clauses.push('i.revoked_at IS NULL');
+    if (q.status === 'REVOKED') clauses.push('i.revoked_at IS NOT NULL');
+    if (q.q) {
+      add(
+        (n) => `(i.subject_label ILIKE ${n} ESCAPE '\\' OR ${SERIAL_TEXT} ILIKE ${n} ESCAPE '\\')`,
+        `%${escapeLike(q.q as string)}%`,
+      );
+    }
+    return { sql: clauses.join(' AND '), params };
+  }
+
+  /** D33: every issued certificate copy, by serial. Revoked copies stay in the list. */
+  async register(caller: PrintCaller, q: QueryRegisterDto) {
+    const page = q.page || 1;
+    const limit = q.limit || 20;
+    const { sql, params } = this.registerWhere(caller, q);
+    const [data, count] = await Promise.all([
+      this.ds.query(
+        `SELECT ${REGISTER_SELECT} ${ROW_FROM} WHERE ${sql} ${REGISTER_ORDER}
+          LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+        [...params, limit, (page - 1) * limit],
+      ),
+      this.ds.query(`SELECT count(*)::int AS n ${ROW_FROM} WHERE ${sql}`, params),
+    ]);
+    const total = count[0].n as number;
+    return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
+  }
+
+  /** Same rows as `register()`, unpaged, capped so an export can't exhaust memory. */
+  async registerCsvRows(caller: PrintCaller, q: QueryRegisterDto) {
+    const { sql, params } = this.registerWhere(caller, q);
+    const rows = await this.ds.query(
+      `SELECT ${REGISTER_SELECT} ${ROW_FROM} WHERE ${sql} ${REGISTER_ORDER} LIMIT ${REGISTER_MAX_ROWS + 1}`,
+      params,
+    );
+    if (rows.length > REGISTER_MAX_ROWS) {
+      throw new BadRequestException('Too many rows — narrow the filter');
+    }
+    return rows;
   }
 
   async list(caller: PrintCaller, q: QueryPrintHistoryDto) {
