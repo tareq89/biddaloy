@@ -1,0 +1,41 @@
+import { Controller, HttpCode, Param, ParseUUIDPipe, Post, UseGuards } from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
+import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { JwtPayload, Permission } from '@biddaloy/shared';
+import { ContextGuard, RolesGuard } from '../../auth/guards/context.guard';
+import { PermissionsGuard } from '../../auth/guards/permissions.guard';
+import { RequirePermissions } from '../../auth/decorators/require-permissions.decorator';
+import { CurrentTenant } from '../../auth/decorators/current-tenant.decorator';
+import { CurrentUser } from '../../auth/decorators/current-user.decorator';
+import { ApiTenantAuth } from '../../../common/decorators/api-tenant-auth.decorator';
+import { FamilyAccessService } from '../../students/family-access.service';
+import { FamilyAdmitCardService } from './family-admit-card.service';
+
+/** [48.2.09] Portal self-print. Mirrors `StudentExamScheduleController` (assertLinked first). */
+@ApiTags('exam-documents')
+@ApiTenantAuth()
+@Controller('students/:studentId/exams/:examId/admit-card')
+@UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
+export class FamilyAdmitCardController {
+  constructor(
+    private readonly service: FamilyAdmitCardService,
+    private readonly familyAccess: FamilyAccessService,
+  ) {}
+
+  @Post()
+  @HttpCode(200)
+  @RequirePermissions(Permission.RESULT_READ)
+  @ApiOperation({
+    summary:
+      "Print the student's own admit card (PARENT/STUDENT, linkage-checked). Each call is a logged copy.",
+  })
+  async print(
+    @Param('studentId', ParseUUIDPipe) studentId: string,
+    @Param('examId', ParseUUIDPipe) examId: string,
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
+  ) {
+    await this.familyAccess.assertLinked(tenant.role, user.sub, studentId, tenant.id);
+    return this.service.print(tenant, user.sub, studentId, examId);
+  }
+}

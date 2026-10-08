@@ -47,6 +47,9 @@ const photoUrl = (type: string, id: string, key: string | null, channel?: 'CERTI
     ? `${channel ? '/certificates' : '/print-jobs'}/photo?subject_type=${type}&subject_id=${id}&key=${encodeURIComponent(key)}`
     : null;
 
+/** Kinds a `{ family: true }` caller may print. Add a kind only together with its own portal route. */
+const FAMILY_KINDS: DocumentKind[] = [DocumentKind.EXAM_ADMIT_CARD];
+
 const DEFAULT_SERIAL_COPY_LABEL = 'প্রতিলিপি / DUPLICATE (copy {n})';
 
 @Injectable()
@@ -80,6 +83,12 @@ export class PrintJobsService {
     }
   }
 
+  private assertFamilyKind(kind: DocumentKind) {
+    if (!FAMILY_KINDS.includes(kind)) {
+      throw new ForbiddenException('This document cannot be printed from the portal');
+    }
+  }
+
   /** Template + its published version, all scoped to the tenant. */
   private async loadTemplate(
     manager: EntityManager,
@@ -93,8 +102,10 @@ export class PrintJobsService {
     });
     if (!template || template.archived_at) throw new NotFoundException('Template not found');
     // Permission first, so a caller who may not print this kind learns nothing about the template.
-    // (The family hook has already passed assertLinked; there is no staff role to check.)
-    if (!family) this.assertCanPrint(template.document_kind, caller);
+    // A family caller has no staff role, so it gets an allow-list instead: a crafted template_id
+    // for a staff card / ACR / certificate is a 403.
+    if (family) this.assertFamilyKind(template.document_kind);
+    else this.assertCanPrint(template.document_kind, caller);
     const resolver = RESOLVERS[template.document_kind];
     if (!resolver || resolver.subjectType !== dto.subject_type) {
       throw new BadRequestException('subject_type does not match the template');
