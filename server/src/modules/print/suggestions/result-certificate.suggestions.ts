@@ -34,7 +34,7 @@ const PARAGRAPHS: Record<Kind, Record<Lang, { sentence: string; extra?: string; 
   [DocumentKind.RESULT_CERTIFICATE]: {
     bn: {
       sentence:
-        'এই মর্মে প্রত্যয়ন করা যাচ্ছে যে, {{student.name_bn}}, {{student.class}} শ্রেণি, শাখা {{student.section}}, রোল {{student.roll}}, {{exam.year}} সালের {{exam.name}}-এ মোট নম্বর {{result.total_marks}}, জিপিএ {{result.gpa}} (গ্রেড {{result.grade}}) পেয়ে সফলতার সাথে উত্তীর্ণ হয়েছে।',
+        'এই মর্মে প্রত্যয়ন করা যাচ্ছে যে, {{student.name_bn}}, শ্রেণি {{student.class}}, শাখা {{student.section}}, রোল {{student.roll}}, {{exam.year}} সালের {{exam.name}}-এ মোট নম্বর {{result.total_marks}}, জিপিএ {{result.gpa}} (গ্রেড {{result.grade}}) পেয়ে সফলতার সাথে উত্তীর্ণ হয়েছে।',
       wish: 'আমরা তার উত্তরোত্তর সাফল্য কামনা করি।',
     },
     en: {
@@ -46,7 +46,7 @@ const PARAGRAPHS: Record<Kind, Record<Lang, { sentence: string; extra?: string; 
   [DocumentKind.MERIT_CERTIFICATE]: {
     bn: {
       sentence:
-        'এই মর্মে প্রত্যয়ন করা যাচ্ছে যে, {{student.name_bn}}, {{student.class}} শ্রেণি, শাখা {{student.section}}, রোল {{student.roll}}, {{exam.year}} সালের {{exam.name}}-এ জিপিএ {{result.gpa}} (গ্রেড {{result.grade}}) পেয়ে শ্রেণিতে {{result.position}} তম স্থান অধিকার করেছে।',
+        'এই মর্মে প্রত্যয়ন করা যাচ্ছে যে, {{student.name_bn}}, শ্রেণি {{student.class}}, শাখা {{student.section}}, রোল {{student.roll}}, {{exam.year}} সালের {{exam.name}}-এ জিপিএ {{result.gpa}} (গ্রেড {{result.grade}}) পেয়ে শ্রেণিতে মেধাক্রম {{result.position}} অর্জন করেছে।',
       extra: 'শাখায় মেধাক্রম: {{result.section_position}}',
       wish: 'আমরা তার উত্তরোত্তর সাফল্য কামনা করি।',
     },
