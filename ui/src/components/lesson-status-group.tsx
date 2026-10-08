@@ -6,6 +6,7 @@
  * no `useTranslation` here. Picking NOT_TAUGHT only calls `onChange`; the
  * reason dialog is the page's job.
  */
+import type { LessonDeliveryStatus } from '@biddaloy/shared';
 import { Check, Contrast, X, type LucideIcon } from 'lucide-react';
 import { RadioGroup as RadioGroupPrimitive } from 'radix-ui';
 
@@ -13,8 +14,7 @@ import { cn } from '../primitives/lib/utils';
 
 import { RadioGroup } from './radio';
 
-// TODO(#1999): replace with `LessonDeliveryStatus` from @biddaloy/shared once it lands.
-export type LessonDeliveryStatus = 'TAUGHT' | 'PARTLY' | 'NOT_TAUGHT';
+export type { LessonDeliveryStatus };
 
 export interface LessonStatusGroupProps {
   value: LessonDeliveryStatus | null;
