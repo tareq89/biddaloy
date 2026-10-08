@@ -300,6 +300,7 @@ export function PrintHistoryPage({
       />
       {reprintRow ? (
         <ReprintDialog
+          key={reprintRow.item_id}
           open
           onOpenChange={(open) => !open && setReprintRow(undefined)}
           row={reprintRow}

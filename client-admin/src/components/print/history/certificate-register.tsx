@@ -48,6 +48,7 @@ function RegisterReprint({ itemId, onClose }: { itemId: string; onClose: () => v
   if (!item.data) return null;
   return (
     <ReprintDialog
+      key={item.data.item_id}
       open
       onOpenChange={(open) => !open && onClose()}
       row={item.data}
