@@ -42,6 +42,19 @@ describe('createI18nInstance', () => {
     );
   });
 
+  it('resolves the wave-3 examDocuments and certificates namespaces in both languages', async () => {
+    const instance = createI18nInstance();
+    await instance.loadNamespaces(['examDocuments', 'certificates']);
+
+    await instance.changeLanguage('en');
+    expect(instance.t('admitCard.title', { ns: 'examDocuments' })).toBe('Admit cards');
+    expect(instance.t('issue.titleNoKind', { ns: 'certificates' })).toBe('Issue a certificate');
+
+    await instance.changeLanguage('bn');
+    expect(instance.t('admitCard.title', { ns: 'examDocuments' })).toBe('প্রবেশপত্র');
+    expect(instance.t('issue.titleNoKind', { ns: 'certificates' })).toBe('সনদ ইস্যু করুন');
+  });
+
   it('does not double-escape interpolated values — React already escapes on render', () => {
     const instance = createI18nInstance();
 

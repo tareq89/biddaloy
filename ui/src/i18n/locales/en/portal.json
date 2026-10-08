@@ -114,7 +114,22 @@
     "done": "Finished",
     "unknownSubject": "Subject not set",
     "emptyTitle": "No exam schedule yet",
-    "emptyExplanation": "It appears here once the school publishes a complete schedule."
+    "emptyExplanation": "It appears here once the school publishes a complete schedule.",
+    "admitCard": {
+      "room": "Room",
+      "seat": "Seat",
+      "ready": "Admit card ready.",
+      "readyHelp": "It opens as a page you can print or save on your phone.",
+      "print": "Print admit card",
+      "withheldTitle": "The admit card cannot be printed now",
+      "withheldBody": "{{name}} has {{amount}} due. By the school's rule the admit card prints after the dues are paid. Once paid, print it from this page.",
+      "withheldBodyNoAmount": "{{name}} has fees due. By the school's rule the admit card prints after the dues are paid. Once paid, print it from this page.",
+      "seeDues": "See dues and pay",
+      "callOffice": "Call the office ({{phone}})",
+      "notReady": "The admit card is not ready yet.",
+      "error": "The admit card could not be printed. Try again.",
+      "popupBlocked": "Allow pop-ups for this site, then try again."
+    }
   },
   "attendance": {
     "loading": "Loading attendance",
