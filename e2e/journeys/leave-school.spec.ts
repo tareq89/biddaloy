@@ -1,3 +1,5 @@
+import type { BrowserContext } from '@playwright/test';
+
 import { createTeacher, loginAsFreshUser } from '../api';
 import { shells } from '../config';
 import { newSchool } from '../fixtures/new-school';
@@ -16,9 +18,10 @@ test.describe('leave a school', () => {
   test('a teacher leaves, the admin brings them back', async ({ browser, playwright }) => {
     const school = await newSchool(browser, playwright);
     const teacherApi = await playwright.request.newContext({ baseURL: shells.app.baseURL });
+    let teacherContext: BrowserContext | undefined;
     try {
       const teacher = await createTeacher(school.api, school.session, 'Leaving Teacher');
-      const teacherContext = await browser.newContext({
+      teacherContext = await browser.newContext({
         storageState: await loginAsFreshUser(
           teacherApi,
           shells.app.baseURL,
@@ -38,6 +41,7 @@ test.describe('leave a school', () => {
         await expect(teacherPage).toHaveURL(/\/login/);
       });
       await teacherContext.close();
+      teacherContext = undefined;
 
       const { page } = school;
       const list = new ListShellPage(page, { titleKey: 'staff.list.title' });
@@ -59,6 +63,7 @@ test.describe('leave a school', () => {
         await expect(list.row('Leaving Teacher')).toBeVisible();
       });
     } finally {
+      await teacherContext?.close();
       await teacherApi.dispose();
       await school.context.close();
       await school.api.dispose();

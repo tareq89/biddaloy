@@ -27,23 +27,29 @@ export async function newSchool(
   playwright: PlaywrightWorkerArgs['playwright'],
 ): Promise<NewSchool> {
   const api = await playwright.request.newContext({ baseURL: shells.app.baseURL });
-  const school = await registerTrialSchool(api);
-  const state = await api.storageState();
-  const context = await browser.newContext({
-    storageState: {
-      ...state,
-      origins: [
-        {
-          origin: shells.app.baseURL.replace(/\/$/, ''),
-          localStorage: [
-            {
-              name: 'biddaloy:activeTenant',
-              value: JSON.stringify({ tenantId: school.session.tenantId, role: school.role }),
-            },
-          ],
-        },
-      ],
-    },
-  });
-  return { ...school, api, context, page: await context.newPage() };
+  // The caller only gets `api` back on success; on a failed setup nobody else can dispose it.
+  try {
+    const school = await registerTrialSchool(api);
+    const state = await api.storageState();
+    const context = await browser.newContext({
+      storageState: {
+        ...state,
+        origins: [
+          {
+            origin: shells.app.baseURL.replace(/\/$/, ''),
+            localStorage: [
+              {
+                name: 'biddaloy:activeTenant',
+                value: JSON.stringify({ tenantId: school.session.tenantId, role: school.role }),
+              },
+            ],
+          },
+        ],
+      },
+    });
+    return { ...school, api, context, page: await context.newPage() };
+  } catch (err) {
+    await api.dispose();
+    throw err;
+  }
 }
