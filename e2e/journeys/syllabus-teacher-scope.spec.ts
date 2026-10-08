@@ -53,13 +53,17 @@ test('teacher adds a topic for the subject they teach, is refused for another', 
     await expect(page.getByRole('heading', { name: t('syllabus.list.title') })).toBeVisible();
 
     async function pick(subjectName: string) {
-      await page.getByLabel(t('syllabus.list.classLabel')).focus();
+      await page.getByLabel(t('syllabus.list.classLabel'), { exact: true }).focus();
       await selectByTypeahead(page, className);
-      await page.getByLabel(t('syllabus.list.subjectLabel')).focus();
+      await page.getByLabel(t('syllabus.list.subjectLabel'), { exact: true }).focus();
       await selectByTypeahead(page, subjectName);
     }
     async function addTopic(name: string) {
-      await page.getByRole('button', { name: t('syllabus.list.addTopic') }).click();
+      // An empty topic list shows the add button twice (page header + empty state); the header one is first.
+      await page
+        .getByRole('button', { name: t('syllabus.list.addTopic') })
+        .first()
+        .click();
       await page.getByLabel(t('syllabus.form.nameLabel')).fill(name);
       await page.getByRole('button', { name: t('syllabus.form.submit') }).click();
     }
