@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
-import { Permission } from '@biddaloy/shared';
+import { Permission, roleHasPermission, UserRole } from '@biddaloy/shared';
 import { PrintHistoryService } from './print-history.service';
 import { PrintJobsService } from './print-jobs.service';
 import { PrintHistoryController, PrintJobActionsController } from './print-history.controller';
@@ -166,5 +166,46 @@ describe('print history route roles (guards)', () => {
   it('subject-history, confirm and reprint are gated by DOCUMENT_PRINT', () => {
     expect(meta('roles', PrintJobActionsController)).toBeUndefined();
     expect(meta('permissions', PrintJobActionsController)).toContain(Permission.DOCUMENT_PRINT);
+  });
+});
+
+describe('PrintHistoryService.register', () => {
+  it('every filter is a bound parameter; only serial rows; tenant scoped', async () => {
+    const { svc, query } = makeHistory();
+    await svc.register(caller(), {
+      document_kind: 'TESTIMONIAL',
+      year: 2026,
+      status: 'REVOKED',
+      q: "x'; DROP TABLE users;--",
+    } as any);
+    const [sql, params] = query.mock.calls[0] as unknown as [string, unknown[]];
+    expect(params).toEqual(expect.arrayContaining(['t1', 'TESTIMONIAL', 2026]));
+    expect(sql).not.toContain('TESTIMONIAL');
+    expect(sql).not.toContain('DROP TABLE');
+    expect(sql).toContain('i.serial_no IS NOT NULL');
+    expect(sql).toContain('i.revoked_at IS NOT NULL');
+    expect(sql).toContain('i.tenant_id = $1');
+    expect(sql).not.toContain('i.data_snapshot,');
+  });
+
+  it('escapes % and _ in q', async () => {
+    const { svc, query } = makeHistory();
+    await svc.register(caller(), { q: '50%_off' } as any);
+    const [, params] = query.mock.calls[0] as unknown as [string, unknown[]];
+    expect(params).toContain('%50\\%\\_off%');
+  });
+
+  it('CSV export refuses more than 10 000 rows', async () => {
+    const query = vi.fn(async () => new Array(10001).fill({}));
+    const svc = new PrintHistoryService({ query } as any, { record: vi.fn() } as any);
+    await expect(svc.registerCsvRows(caller(), {} as any)).rejects.toThrow('Too many rows');
+  });
+
+  it('D32: every role holding CERTIFICATE_ISSUE also holds PRINT_HISTORY_READ', () => {
+    for (const role of Object.values(UserRole)) {
+      if (roleHasPermission(role, Permission.CERTIFICATE_ISSUE)) {
+        expect(roleHasPermission(role, Permission.PRINT_HISTORY_READ), role).toBe(true);
+      }
+    }
   });
 });

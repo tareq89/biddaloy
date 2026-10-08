@@ -16,7 +16,7 @@ import {
   Min,
   MinLength,
 } from 'class-validator';
-import { PRINT_BATCH_CEILING } from '@biddaloy/shared';
+import { CERTIFICATE_SERIAL_CODE, PRINT_BATCH_CEILING } from '@biddaloy/shared';
 
 export class ConfirmPrintJobDto {
   @ApiProperty({
@@ -40,6 +40,7 @@ export class ReprintPrintJobDto {
 
 export class RevokePrintItemDto {
   @ApiProperty({ minLength: 1, maxLength: 280 })
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString()
   @MinLength(1)
   @MaxLength(280)
@@ -91,6 +92,46 @@ export class QueryPrintHistoryDto {
   @IsBoolean()
   revoked?: boolean;
   @ApiPropertyOptional({ description: 'Matches the subject label (case-insensitive contains)' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  q?: string;
+  @ApiPropertyOptional({ default: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number;
+  @ApiPropertyOptional({ default: 20 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit?: number;
+}
+
+const SERIAL_KINDS = Object.keys(CERTIFICATE_SERIAL_CODE);
+
+export class QueryRegisterDto {
+  @ApiPropertyOptional({ enum: SERIAL_KINDS })
+  @IsOptional()
+  @IsIn(SERIAL_KINDS)
+  document_kind?: string;
+  @ApiPropertyOptional({ minimum: 2000, maximum: 2100 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(2000)
+  @Max(2100)
+  year?: number;
+  @ApiPropertyOptional({ enum: ['VALID', 'REVOKED'] })
+  @IsOptional()
+  @IsIn(['VALID', 'REVOKED'])
+  status?: 'VALID' | 'REVOKED';
+  @ApiPropertyOptional({
+    description: 'Matches the holder name or the serial (case-insensitive contains)',
+  })
   @IsOptional()
   @IsString()
   @MaxLength(120)

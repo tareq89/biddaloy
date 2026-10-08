@@ -11,6 +11,7 @@ const row = (over: Record<string, unknown> = {}) => ({
   issued_at: '2027-03-01T00:00:00.000Z',
   school_name: 'Biddaloy High',
   school_name_bn: null,
+  serial: null,
   // Columns the service must never pass through, even if a future query selects them.
   subject_id: 'secret-id',
   tenant_id: 'secret-tenant',
@@ -39,6 +40,12 @@ describe('PublicVerifyService', () => {
     expect(res.status).toBe('REVOKED');
     expect(res.revoked_at).toBe('2027-03-02T00:00:00.000Z');
     expect(Object.keys(res).sort()).toEqual([...PUBLIC_VERIFY_FIELDS, 'revoked_at'].sort());
+  });
+
+  it('shows the serial of a certificate and null for kinds without one', async () => {
+    const withSerial = await make([row({ serial: 'TSM-2026-00009' })]).svc.verify('tok');
+    expect(withSerial.serial).toBe('TSM-2026-00009');
+    expect((await make([row()]).svc.verify('tok')).serial).toBeNull();
   });
 
   it('an unknown token is a 404', async () => {
