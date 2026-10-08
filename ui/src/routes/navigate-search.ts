@@ -18,9 +18,12 @@ import { useNavigate } from '@tanstack/react-router';
  */
 export function useSearchNavigate(): (
   updateSearch: (prev: Record<string, unknown>) => Record<string, unknown>,
+  opts?: { replace?: boolean },
 ) => void {
   const navigate = useNavigate();
-  return (updateSearch) => {
-    void navigate({ search: updateSearch } as unknown as Parameters<typeof navigate>[0]);
+  return (updateSearch, opts) => {
+    void navigate({ search: updateSearch, replace: opts?.replace } as unknown as Parameters<
+      typeof navigate
+    >[0]);
   };
 }
