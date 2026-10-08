@@ -54,12 +54,6 @@ export {
   type RoutineGridPeriodRow,
   type RoutineGridCell,
 } from './routine-grid';
-export {
-  RoutineAgenda,
-  type RoutineAgendaProps,
-  type RoutineAgendaDay,
-  type RoutineAgendaItem,
-} from './routine-agenda';
 export { FileUpload, type FileUploadItem, type FileUploadProps } from './file-upload';
 export {
   BulkUploadPreview,
