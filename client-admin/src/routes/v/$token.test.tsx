@@ -58,6 +58,27 @@ describe('/v/$token verify page', () => {
     expect(tenantHeader).toBeNull();
   });
 
+  it('shows the serial number for a certificate and none for an ID card', async () => {
+    server.use(
+      http.get('/api/v1/public/verify/:token', ({ params }) =>
+        HttpResponse.json(
+          params.token === 'cert-token'
+            ? { ...VERIFICATION, document_kind: 'TRANSFER_CERTIFICATE', serial: 'TC-2026-00001' }
+            : VERIFICATION,
+        ),
+      ),
+    );
+
+    renderWithRouter(routeTree, { initialEntries: ['/v/cert-token'], locale: 'en' });
+    await waitFor(() => expect(screen.getByText('TC-2026-00001')).toBeTruthy());
+    expect(screen.getByText('Serial number')).toBeTruthy();
+    await cleanupTestState();
+
+    renderWithRouter(routeTree, { initialEntries: ['/v/card-token'], locale: 'en' });
+    await waitFor(() => expect(screen.getByText('Valid document')).toBeTruthy());
+    expect(screen.queryByText('Serial number')).toBeNull();
+  });
+
   it('shows a revoked document in words, with the revoke date', async () => {
     server.use(
       http.get('/api/v1/public/verify/:token', () =>
