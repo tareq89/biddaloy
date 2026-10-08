@@ -114,6 +114,16 @@ export class PrintHistoryController {
   }
 
   // Declared before `items/:id`.
+  @Get('queue')
+  @RequirePermissions(Permission.DOCUMENT_PRINT)
+  @ApiOperation({
+    summary: 'What is still to print: counts per kind and exams with missing admit cards.',
+  })
+  queue(@CurrentTenant() tenant: Tenant, @CurrentUser() user: JwtPayload) {
+    return this.history.queue(caller(tenant, user));
+  }
+
+  // Declared before `items/:id`.
   @Get('register')
   @RequirePermissions(Permission.PRINT_HISTORY_READ)
   @ApiOperation({

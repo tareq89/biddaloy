@@ -11,6 +11,7 @@ import { AuditAction, Permission, roleHasPermission } from '@biddaloy/shared';
 import { PrintJobItem } from '../entities/print-job-item.entity';
 import { AuditService } from '../../audit/audit.service';
 import { QueryPrintHistoryDto, QueryRegisterDto } from './dto/print-history.dto';
+import { todayInSchoolTz } from '../../../common/time';
 import type { PrintCaller } from './print-jobs.service';
 
 /**
@@ -52,6 +53,8 @@ const REGISTER_SELECT = `
   i.created_at AS issued_at, u.full_name AS printed_by_name, i.revoked_at, i.revoke_reason`;
 const REGISTER_ORDER = `ORDER BY i.serial_year DESC, i.document_kind, i.serial_no DESC, i.copy_number DESC`;
 
+type QueueExam = { exam_id: string; exam_name: string; class_name: string; missing: number };
+
 const escapeLike = (v: string) => v.replace(/[\\%_]/g, (c) => `\\${c}`);
 
 @Injectable()
@@ -60,6 +63,72 @@ export class PrintHistoryService {
     @InjectDataSource() private readonly ds: DataSource,
     private readonly audit: AuditService,
   ) {}
+
+  /**
+   * D5 / D42: what is still to print, derived (no table) as "should exist" minus "was printed".
+   * A copy counts as printed unless it is revoked or its outcome is FAILED. Also called by the dashboard.
+   */
+  async queueCounts(tenantId: string): Promise<{
+    total: number;
+    by_kind: { kind: string; count: number }[];
+    exams: QueueExam[];
+  }> {
+    const printed = (kind: string, subject: string, context: string) => `
+      EXISTS (SELECT 1 FROM print_job_items i
+               WHERE i.tenant_id = $1 AND i.document_kind = '${kind}' AND i.subject_id = ${subject}
+                 ${context} AND i.revoked_at IS NULL AND i.outcome <> 'FAILED')`;
+    const [exams, idCards]: [QueueExam[], { n: number }[]] = await Promise.all([
+      // Exams with a PUBLISHED seat-plan sitting that are not over yet; missing = ACTIVE students with no good card.
+      this.ds.query(
+        `SELECT q.exam_id, q.exam_name, q.class_name, q.missing FROM (
+           SELECT ex.id AS exam_id, ex.name AS exam_name, c.name AS class_name, ex.first_date,
+                  (SELECT count(*)::int
+                     FROM enrollments en
+                     JOIN students s ON s.id = en.student_id AND s.tenant_id = $1 AND s.deleted_at IS NULL
+                    WHERE en.tenant_id = $1 AND en.class_id = ex.class_id
+                      AND en.academic_year_id = ex.academic_year_id AND en.enrollment_status = 'ACTIVE'
+                      AND NOT ${printed('EXAM_ADMIT_CARD', 's.id', 'AND i.context_id = ex.id')}) AS missing
+             FROM (
+               SELECT e.id, e.name, e.class_id, e.academic_year_id, min(es.date) AS first_date
+                 FROM exams e
+                 JOIN exam_schedules es ON es.exam_id = e.id AND es.tenant_id = $1 AND es.deleted_at IS NULL
+                WHERE e.tenant_id = $1 AND e.deleted_at IS NULL
+                GROUP BY e.id
+               HAVING max(es.date) >= $2::date
+                  AND EXISTS (
+                    SELECT 1 FROM exam_schedules x
+                      JOIN seat_plan_schedules sps ON sps.exam_schedule_id = x.id AND sps.tenant_id = $1 AND sps.deleted_at IS NULL
+                      JOIN seat_plans sp ON sp.id = sps.seat_plan_id AND sp.tenant_id = $1
+                       AND sp.status = 'PUBLISHED' AND sp.deleted_at IS NULL
+                     WHERE x.exam_id = e.id AND x.tenant_id = $1 AND x.deleted_at IS NULL)
+             ) ex
+             JOIN classes c ON c.id = ex.class_id AND c.tenant_id = $1
+         ) q WHERE q.missing > 0 ORDER BY q.first_date, q.exam_name, q.exam_id`,
+        [tenantId, todayInSchoolTz()],
+      ),
+      this.ds.query(
+        `SELECT count(*)::int AS n FROM students s
+          WHERE s.tenant_id = $1 AND s.deleted_at IS NULL AND s.enrollment_status = 'ACTIVE'
+            AND NOT ${printed('STUDENT_ID_CARD', 's.id', '')}`,
+        [tenantId],
+      ),
+    ]);
+    const admit = exams.reduce((n, e) => n + e.missing, 0);
+    const id = idCards[0].n;
+    const by_kind = [
+      { kind: 'EXAM_ADMIT_CARD', count: admit },
+      { kind: 'STUDENT_ID_CARD', count: id },
+    ].filter((k) => k.count > 0);
+    return {
+      total: admit + id,
+      by_kind,
+      exams,
+    };
+  }
+
+  queue(caller: PrintCaller) {
+    return this.queueCounts(caller.tenantId);
+  }
 
   /** Builds the WHERE for the list. Every value is a bound parameter. */
   private where(caller: PrintCaller, q: QueryPrintHistoryDto) {
