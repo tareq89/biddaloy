@@ -21,6 +21,7 @@ export async function schoolValues(
     'school.name_bn': i.name_bn ?? '',
     'school.address': i.address ?? '',
     'school.phone': i.phone ?? '',
+    'school.eiin': i.registration_id ?? '',
     'school.logo': i.logo_key ?? '',
   };
 }
