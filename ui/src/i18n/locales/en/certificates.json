@@ -79,6 +79,7 @@
     "issue": "Issue certificate",
     "issuedTitle": "Issued certificates",
     "empty": "No certificate issued yet.",
+    "loadError": "Could not load the issued certificates.",
     "transcript": "Print transcript",
     "transcriptYear": "Year",
     "revokedReason": "Reason: {{reason}}",
