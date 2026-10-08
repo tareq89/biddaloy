@@ -41,6 +41,16 @@ describe('parseStaffSpreadsheet', () => {
     expect(row.values.name).toBe('রিনা');
   });
 
+  it('accepts E-mail as the email header', async () => {
+    const buf = await xlsx([
+      ['Role', 'Name', 'E-mail', 'Mobile', 'Designation'],
+      ['Teacher', 'Rina', 'rina@x.com', '01711111111', ''],
+    ]);
+    const [row] = await parseStaffSpreadsheet(buf, 'a.xlsx');
+    expect(row.values.name).toBe('Rina');
+    expect(row.values.email).toBe('rina@x.com');
+  });
+
   it('names the missing columns', async () => {
     const buf = await xlsx([
       ['Name', 'Mobile'],

@@ -10,7 +10,7 @@ const MAX_DATA_ROWS = 2000;
 export const HEADER_LABELS = {
   name: ['name', 'নাম'],
   mobile: ['mobile', 'মোবাইল'],
-  email: ['email', 'ইমেইল', 'ই-মেইল'],
+  email: ['email', 'e-mail', 'ইমেইল', 'ই-মেইল'],
   role: ['role', 'ভূমিকা'],
   designation: ['designation', 'পদবি', 'পদবী'],
 } as const;
@@ -137,9 +137,9 @@ export async function parseStaffSpreadsheet(
 
   const col = new Map<StaffHeader, number>();
   ws.getRow(1).eachCell({ includeEmpty: false }, (cell, colNumber) => {
-    const label = cellToString(cell.value).toLowerCase();
+    const label = key(cellToString(cell.value));
     const h = HEADERS.find((k) =>
-      (HEADER_LABELS[k] as readonly string[]).some((l) => nfc(l) === label),
+      (HEADER_LABELS[k] as readonly string[]).some((l) => key(l) === label),
     );
     if (h && !col.has(h)) col.set(h, colNumber);
   });
