@@ -416,5 +416,70 @@
     "pickDateFirst": "Pick a date first.",
     "noRoutine": "There is no routine for this academic year yet.",
     "notOnDateError": "This period doesn't happen on the date you picked (it may run every other week or once a month). Pick another date."
+  },
+  "marking": {
+    "todayTitle": "Today, {{weekday}}",
+    "dayTitle": "{{weekday}}, {{date}}",
+    "backToToday": "Back to today",
+    "dayMeta_one": "{{date}} · {{count}} period",
+    "dayMeta_other": "{{date}} · {{count}} period",
+    "deadline": "Report by {{time}}",
+    "counts": "{{left}} periods left · {{reported}} reported · {{cancelled}} cancelled · {{noPlan}} with no study plan",
+    "allTaught": "All of today's periods were taught",
+    "allTaughtHelp_one": "Only the {{count}} remaining period gets ✓. Reported and cancelled periods don't change.",
+    "allTaughtHelp_other": "Only the {{count}} remaining period gets ✓. Reported and cancelled periods don't change.",
+    "periodLine": "{{period}} · {{time}}",
+    "badge": {
+      "reported": "Reported",
+      "pending": "Not reported yet",
+      "noPlan": "No study plan",
+      "autoCancelled": "Not taught · cancelled",
+      "autoLeave": "Not taught · on leave"
+    },
+    "todaysLesson": "Today's lesson",
+    "lessonPeriods": "{{done}}/{{total}} periods",
+    "lessonFinished": "lesson finished",
+    "sameLesson": "Same lesson continues",
+    "lessonMoved": "Lesson moved",
+    "lessonMovedBody": "It will be in the next period",
+    "status": {
+      "taught": "Taught",
+      "partly": "Partly",
+      "notTaught": "Not taught"
+    },
+    "statusGroupLabel": "{{period}} · {{section}} · {{subject}}",
+    "reportedAt": "Reported at {{time}}. You can change it for 7 days.",
+    "windowClosed": "Only an admin can change this now.",
+    "noPlanBody": "This section has no study plan for {{subject}} yet, so nothing to report.",
+    "makePlan": "Make a study plan",
+    "autoCancelledBody": "The period was cancelled in the routine, so it was reported for you. Nothing to do.",
+    "autoLeaveBody": "You were on approved leave, so it was reported for you.",
+    "saveFailed": "Couldn't save. Try again.",
+    "due": {
+      "title_one": "{{count}} period from yesterday not reported",
+      "title_other": "{{count}} period from yesterday not reported",
+      "titleSince_one": "{{count}} period not reported since {{date}}",
+      "titleSince_other": "{{count}} period not reported since {{date}}",
+      "escalated": "The head teacher and admin have been told.",
+      "escalation_one": "If they are still not reported after {{count}} more school day, the head teacher and admin are told.",
+      "escalation_other": "If they are still not reported after {{count}} more school day, the head teacher and admin are told.",
+      "action": "Report yesterday's periods",
+      "actionDay": "Report {{weekday}}'s periods"
+    },
+    "reason": {
+      "title": "Why wasn't the period taught?",
+      "subtitle": "{{section}} · {{subject}} · {{period}}. '{{title}}' moves to the next period.",
+      "label": "Reason",
+      "TEACHER_ABSENT": "Teacher absent",
+      "SCHOOL_CLOSED": "School closed",
+      "EXAM": "Exam",
+      "OTHER": "Other",
+      "note": "What happened",
+      "noteHelp": "Write one line when you choose Other.",
+      "submit": "Report as not taught"
+    },
+    "nextDays": "Next days",
+    "nextDayMeta_one": "{{count}} period · first {{section}}",
+    "nextDayMeta_other": "{{count}} period · first {{section}}"
   }
 }

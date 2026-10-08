@@ -41,5 +41,14 @@
     "errorRequired": "Enter a topic name.",
     "genericError": "Something went wrong. Please try again.",
     "required": "(required)"
+  },
+  "tabs": {
+    "label": "Syllabus sections",
+    "topics": "Topics",
+    "plans": "Study plans",
+    "library": "Template library"
+  },
+  "topics": {
+    "taughtIn": "Taught in {{taught}} of {{total}} sections"
   }
 }

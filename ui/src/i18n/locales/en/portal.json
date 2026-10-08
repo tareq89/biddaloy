@@ -153,7 +153,35 @@
     },
     "progressLabel": "{{done}} of {{total}} topics done",
     "noClassTitle": "Not in a class yet",
-    "emptyTitle": "No syllabus yet"
+    "emptyTitle": "No syllabus yet",
+    "plan": {
+      "examTitle": "{{exam}}",
+      "examMeta": "From {{date}} · how much of the syllabus is taught",
+      "examMetaNoDate": "How much of the syllabus is taught",
+      "teacher": "Teacher: {{names}}",
+      "examRemaining": "The remaining {{count}} lessons should finish by {{date}}.",
+      "planFinish": "Whole plan expected to finish by {{date}}",
+      "notStarted": "Not started yet",
+      "lessonsOf": "{{done}}/{{total}} lessons",
+      "behind_one": "{{count}} lesson behind",
+      "behind_other": "{{count}} lesson behind",
+      "onTime": "On time",
+      "noPlan": "No study plan",
+      "whereNow": "Where now",
+      "lastTaught": "last taught {{when}}",
+      "whyBehind": "Why behind",
+      "whyBehindBody": "By the routine the class should be about {{lessons}} lessons further by now — {{periods}} periods were not taught.",
+      "examBox": "{{exam}} syllabus: {{total}} lessons, {{taught}} taught",
+      "nextFive": "Next 5 lessons",
+      "estimateNote": "Dates are estimates. They move when a class is cancelled or a holiday falls.",
+      "now": "Now: lesson {{no}} · {{title}}",
+      "lastTaughtLesson": "Lesson {{no}}: {{title}}",
+      "otherSubjects": "Other subjects",
+      "topicsOnly": "Only the topic list · {{done}} of {{total}} done",
+      "tomorrow": "tomorrow, {{date}}",
+      "today": "today, {{date}}",
+      "yesterday": "yesterday, {{date}}"
+    }
   },
   "attendanceGrid": {
     "caption": "{{month}} {{year}}",
@@ -207,7 +235,9 @@
     "periodCount_other": "{{count}} periods",
     "until": "until {{time}}",
     "substitute": "Substitute teacher",
-    "periodFallback": "Period"
+    "periodFallback": "Period",
+    "lesson": "Lesson {{no}}: {{title}}",
+    "lessonPart": "part {{part}} of {{of}}"
   },
   "payments": {
     "title": "Recent payments",

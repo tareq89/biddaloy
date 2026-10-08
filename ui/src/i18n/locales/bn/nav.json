@@ -104,7 +104,9 @@
     "payments": "পেমেন্ট",
     "portalSurveys": "জরিপ",
     "surveyDetail": "জরিপ",
-    "myClassSection": "শাখা"
+    "myClassSection": "শাখা",
+    "studyPlans": "পাঠ পরিকল্পনা",
+    "studyPlanDetail": "পাঠ পরিকল্পনা"
   },
   "groups": {
     "people": "ব্যক্তিবর্গ",

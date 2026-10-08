@@ -104,7 +104,9 @@
     "payments": "Payments",
     "portalSurveys": "Surveys",
     "surveyDetail": "Survey",
-    "myClassSection": "Section"
+    "myClassSection": "Section",
+    "studyPlans": "Study plans",
+    "studyPlanDetail": "Study plan"
   },
   "groups": {
     "people": "People",

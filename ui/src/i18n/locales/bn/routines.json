@@ -416,5 +416,70 @@
     "pickDateFirst": "আগে তারিখ বাছুন।",
     "noRoutine": "এই শিক্ষাবর্ষের এখনো কোনো রুটিন নেই।",
     "notOnDateError": "বেছে নেওয়া তারিখে এই পিরিয়ডটি হয় না (এটি হয়তো দুই সপ্তাহে বা মাসে একবার হয়)। অন্য তারিখ বাছুন।"
+  },
+  "marking": {
+    "todayTitle": "আজ, {{weekday}}",
+    "dayTitle": "{{weekday}}, {{date}}",
+    "backToToday": "আজকে ফিরুন",
+    "dayMeta_one": "{{date}} · {{count}}টি পিরিয়ড",
+    "dayMeta_other": "{{date}} · {{count}}টি পিরিয়ড",
+    "deadline": "{{time}}-র মধ্যে জানান",
+    "counts": "{{left}}টি পিরিয়ড বাকি · {{reported}}টি জানানো · {{cancelled}}টি বাতিল · {{noPlan}}টিতে পাঠ পরিকল্পনা নেই",
+    "allTaught": "আজকের সব পিরিয়ড পড়ানো হয়েছে",
+    "allTaughtHelp_one": "শুধু বাকি {{count}}টি পিরিয়ডে ✓ বসবে। আগে জানানো আর বাতিল পিরিয়ড বদলাবে না।",
+    "allTaughtHelp_other": "শুধু বাকি {{count}}টি পিরিয়ডে ✓ বসবে। আগে জানানো আর বাতিল পিরিয়ড বদলাবে না।",
+    "periodLine": "{{period}} · {{time}}",
+    "badge": {
+      "reported": "জানানো হয়েছে",
+      "pending": "জানানো বাকি",
+      "noPlan": "পাঠ পরিকল্পনা নেই",
+      "autoCancelled": "হয়নি · বাতিল",
+      "autoLeave": "হয়নি · ছুটিতে"
+    },
+    "todaysLesson": "আজকের পাঠ",
+    "lessonPeriods": "{{done}}/{{total}} পিরিয়ড",
+    "lessonFinished": "পাঠ শেষ",
+    "sameLesson": "একই পাঠ চলবে",
+    "lessonMoved": "পাঠ সরে গেছে",
+    "lessonMovedBody": "পরের পিরিয়ডে হবে",
+    "status": {
+      "taught": "পড়ানো হয়েছে",
+      "partly": "আংশিক",
+      "notTaught": "হয়নি"
+    },
+    "statusGroupLabel": "{{period}} · {{section}} · {{subject}}",
+    "reportedAt": "{{time}}-এ জানানো। ৭ দিনের মধ্যে বদলাতে পারবেন।",
+    "windowClosed": "এখন শুধু অ্যাডমিন বদলাতে পারবেন।",
+    "noPlanBody": "এই শাখার {{subject}}-এর পাঠ পরিকল্পনা এখনো নেই, তাই কিছু জানাতে হবে না।",
+    "makePlan": "পাঠ পরিকল্পনা বানান",
+    "autoCancelledBody": "পিরিয়ডটি রুটিনে বাতিল করা হয়েছে, তাই নিজে থেকেই জানানো হয়েছে। আপনার কিছু করতে হবে না।",
+    "autoLeaveBody": "আপনি অনুমোদিত ছুটিতে ছিলেন, তাই নিজে থেকেই জানানো হয়েছে।",
+    "saveFailed": "সংরক্ষণ হয়নি। আবার চেষ্টা করুন।",
+    "due": {
+      "title_one": "গতকালের {{count}}টি পিরিয়ড জানানো হয়নি",
+      "title_other": "গতকালের {{count}}টি পিরিয়ড জানানো হয়নি",
+      "titleSince_one": "{{date}} থেকে {{count}}টি পিরিয়ড জানানো হয়নি",
+      "titleSince_other": "{{date}} থেকে {{count}}টি পিরিয়ড জানানো হয়নি",
+      "escalated": "প্রধান শিক্ষক ও অ্যাডমিনকে জানানো হয়েছে।",
+      "escalation_one": "আর {{count}} স্কুল-দিন না জানালে প্রধান শিক্ষক ও অ্যাডমিন জানবেন।",
+      "escalation_other": "আর {{count}} স্কুল-দিন না জানালে প্রধান শিক্ষক ও অ্যাডমিন জানবেন।",
+      "action": "গতকালের পিরিয়ড জানান",
+      "actionDay": "{{weekday}}-এর পিরিয়ড জানান"
+    },
+    "reason": {
+      "title": "পিরিয়ড হয়নি কেন?",
+      "subtitle": "{{section}} · {{subject}} · {{period}}। '{{title}}' পরের পিরিয়ডে সরে যাবে।",
+      "label": "কারণ",
+      "TEACHER_ABSENT": "শিক্ষক অনুপস্থিত",
+      "SCHOOL_CLOSED": "স্কুল বন্ধ",
+      "EXAM": "পরীক্ষা",
+      "OTHER": "অন্য",
+      "note": "কী হয়েছিল",
+      "noteHelp": "\"অন্য\" বাছলে এক লাইনে লিখুন।",
+      "submit": "হয়নি হিসেবে জানান"
+    },
+    "nextDays": "পরের দিনগুলো",
+    "nextDayMeta_one": "{{count}}টি পিরিয়ড · প্রথমটি {{section}}",
+    "nextDayMeta_other": "{{count}}টি পিরিয়ড · প্রথমটি {{section}}"
   }
 }
