@@ -110,104 +110,109 @@ export function LeaveRequestDialog({
 
   return (
     <>
-    <Dialog open={open} onOpenChange={requestClose}>
-      <DialogContent size="md" closeLabel={t('actions.close', { ns: 'common' })}>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <DialogHeader>
-            <DialogTitle>{t('request.title')}</DialogTitle>
-            <DialogDescription>{t('request.description')}</DialogDescription>
-          </DialogHeader>
+      <Dialog open={open} onOpenChange={requestClose}>
+        <DialogContent size="md" closeLabel={t('actions.close', { ns: 'common' })}>
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            <DialogHeader>
+              <DialogTitle>{t('request.title')}</DialogTitle>
+              <DialogDescription>{t('request.description')}</DialogDescription>
+            </DialogHeader>
 
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="leave-request-type">{t('request.typeLabel')}</Label>
-            <Select value={leaveType} onValueChange={(value) => setLeaveType(value as LeaveType)}>
-              <SelectTrigger id="leave-request-type">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {LEAVE_TYPES.map((type) => (
-                  <SelectItem key={type} value={type}>
-                    {t(`type.${type}`)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="leave-request-type">{t('request.typeLabel')}</Label>
+              <Select value={leaveType} onValueChange={(value) => setLeaveType(value as LeaveType)}>
+                <SelectTrigger id="leave-request-type">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {LEAVE_TYPES.map((type) => (
+                    <SelectItem key={type} value={type}>
+                      {t(`type.${type}`)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="leave-request-start">{t('request.startDateLabel')}</Label>
-            <DatePicker
-              id="leave-request-start"
-              aria-label={t('request.startDateLabel')}
-              config={regionConfig}
-              value={startDate === '' ? undefined : parseDate(startDate)}
-              onValueChange={(next) => setStartDate(next ? toIsoDate(next) : '')}
-            />
-          </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="leave-request-start">{t('request.startDateLabel')}</Label>
+              <DatePicker
+                id="leave-request-start"
+                aria-label={t('request.startDateLabel')}
+                config={regionConfig}
+                value={startDate === '' ? undefined : parseDate(startDate)}
+                onValueChange={(next) => {
+                  const start = next ? toIsoDate(next) : '';
+                  setStartDate(start);
+                  // A start after the chosen end makes that end meaningless: clear it.
+                  if (start !== '' && endDate !== '' && start > endDate) setEndDate('');
+                }}
+              />
+            </div>
 
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="leave-request-end">{t('request.endDateLabel')}</Label>
-            <DatePicker
-              id="leave-request-end"
-              aria-label={t('request.endDateLabel')}
-              config={regionConfig}
-              value={endDate === '' ? undefined : parseDate(endDate)}
-              min={startDate === '' ? undefined : parseDate(startDate)}
-              onValueChange={(next) => setEndDate(next ? toIsoDate(next) : '')}
-            />
-          </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="leave-request-end">{t('request.endDateLabel')}</Label>
+              <DatePicker
+                id="leave-request-end"
+                aria-label={t('request.endDateLabel')}
+                config={regionConfig}
+                value={endDate === '' ? undefined : parseDate(endDate)}
+                min={startDate === '' ? undefined : parseDate(startDate)}
+                onValueChange={(next) => setEndDate(next ? toIsoDate(next) : '')}
+              />
+            </div>
 
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="leave-request-reason">{t('request.reasonLabel')}</Label>
-            <Textarea
-              id="leave-request-reason"
-              rows={3}
-              placeholder={t('request.reasonPlaceholder')}
-              value={reason}
-              onChange={(event) => setReason(event.target.value)}
-            />
-          </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="leave-request-reason">{t('request.reasonLabel')}</Label>
+              <Textarea
+                id="leave-request-reason"
+                rows={3}
+                placeholder={t('request.reasonPlaceholder')}
+                value={reason}
+                onChange={(event) => setReason(event.target.value)}
+              />
+            </div>
 
-          {validationError && (
-            <p role="alert" className="text-sm text-destructive">
-              {validationError}
-            </p>
-          )}
-          {createRequest.isError && (
-            <p role="alert" className="text-sm text-destructive">
-              {serverErrorMessage}
-            </p>
-          )}
+            {validationError && (
+              <p role="alert" className="text-sm text-destructive">
+                {validationError}
+              </p>
+            )}
+            {createRequest.isError && (
+              <p role="alert" className="text-sm text-destructive">
+                {serverErrorMessage}
+              </p>
+            )}
 
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={createRequest.isPending}
-              onClick={() => requestClose(false)}
-            >
-              {t('actions.cancel', { ns: 'common' })}
-            </Button>
-            <Button type="submit" loading={createRequest.isPending}>
-              {createRequest.isPending ? t('request.submitting') : t('request.submit')}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-    <ConfirmDialog
-      open={confirmDiscardOpen}
-      onOpenChange={setConfirmDiscardOpen}
-      title={t('request.discardTitle')}
-      description={t('request.discardBody')}
-      confirmLabel={t('request.discardConfirm')}
-      cancelLabel={t('request.discardKeep')}
-      tone="danger"
-      onConfirm={() => {
-        setConfirmDiscardOpen(false);
-        onOpenChange(false);
-      }}
-    />
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={createRequest.isPending}
+                onClick={() => requestClose(false)}
+              >
+                {t('actions.cancel', { ns: 'common' })}
+              </Button>
+              <Button type="submit" loading={createRequest.isPending}>
+                {createRequest.isPending ? t('request.submitting') : t('request.submit')}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+      <ConfirmDialog
+        open={confirmDiscardOpen}
+        onOpenChange={setConfirmDiscardOpen}
+        title={t('request.discardTitle')}
+        description={t('request.discardBody')}
+        confirmLabel={t('request.discardConfirm')}
+        cancelLabel={t('request.discardKeep')}
+        tone="danger"
+        onConfirm={() => {
+          setConfirmDiscardOpen(false);
+          onOpenChange(false);
+        }}
+      />
     </>
   );
 }
