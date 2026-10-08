@@ -12,7 +12,7 @@ import {
 import type { PrintSuggestion } from './suggestions';
 
 type Lang = 'bn' | 'en';
-type Kind = DocumentKind.RESULT_CERTIFICATE | DocumentKind.MERIT_CERTIFICATE;
+type Kind = (typeof DocumentKind)['RESULT_CERTIFICATE' | 'MERIT_CERTIFICATE'];
 
 /** Body font and rough line metrics the layout reserves room for (see the spec guard). */
 export const BODY_PT = 13;
@@ -67,7 +67,7 @@ function buildCertificate(kind: Kind, lang: Lang): PrintSuggestion {
   const [titleBn, titleEn, slug] = TITLES[kind];
   const p = PARAGRAPHS[kind][lang];
 
-  const wrap = (rect: Rect, t: string): PrintElement => ({
+  const wrap = (rect: Rect, t: string) => ({
     ...text(rect, { text: t, font, pt: BODY_PT, color: c, align: 'center' }),
     overflow: 'WRAP' as const,
   });
