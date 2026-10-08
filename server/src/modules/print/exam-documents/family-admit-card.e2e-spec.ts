@@ -8,6 +8,7 @@ import { UserRole } from '@biddaloy/shared';
 import { AppModule } from '../../../app.module';
 import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { buildValidationPipeOptions } from '../../../validation-pipe';
+import { StorageService } from '../../storage/storage.service';
 import {
   SEED_TENANT_ID,
   SEED_ACADEMIC_YEAR_ID,
@@ -301,5 +302,81 @@ describe('Family admit-card self-print E2E (48.2.09)', () => {
     const rows = res.body.items ?? res.body.data ?? res.body;
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({ job_status: 'CONFIRMED', copy_number: 1 });
+  });
+
+  // [48.3.gS-01] Artwork bytes for the self-print.
+  describe('GET assets/:assetId/file', () => {
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg"/>';
+    const fileUrl = (s: string, e: string, a: string) => `${url(s, e)}/assets/${a}/file`;
+
+    /** An uploaded artwork row + object, optionally referenced by a default admit-card template. */
+    async function artwork(tenantId: string, used: boolean) {
+      const key = `tenants/${tenantId}/print-assets/${randomUUID()}.svg`;
+      await app.get(StorageService).put(key, Buffer.from(svg), 'image/svg+xml');
+      const asset = await q(
+        `INSERT INTO print_assets (tenant_id, asset_kind, storage_key, content_type, byte_size, original_name)
+         VALUES ($1, 'ARTWORK', $2, 'image/svg+xml', $3, 'bg.svg') RETURNING id`,
+        [tenantId, key, svg.length],
+      );
+      if (used) {
+        const id = await q(
+          `INSERT INTO print_templates (tenant_id, document_kind, name, batch_size, draft, is_default)
+           VALUES ($1, 'EXAM_ADMIT_CARD', $2, 10, '{}'::jsonb, true) RETURNING id`,
+          [tenantId, `T-${randomUUID()}`],
+        );
+        const v = await q(
+          `INSERT INTO print_template_versions (tenant_id, template_id, version, definition)
+           VALUES ($1, $2, 1, $3::jsonb) RETURNING id`,
+          [tenantId, id, JSON.stringify({ background: { assetId: asset } })],
+        );
+        await ds.query(`UPDATE print_templates SET current_version_id = $1 WHERE id = $2`, [v, id]);
+      }
+      return asset;
+    }
+
+    it('linked PARENT and STUDENT get the bytes (200, image/svg+xml)', async () => {
+      const asset = await artwork(SEED_TENANT_ID, true);
+      for (const role of ['PARENT', 'STUDENT']) {
+        const res = await http()
+          .get(fileUrl(studentId, examId, asset))
+          .set(as(role));
+        expect(res.status, role).toBe(200);
+        expect(res.headers['content-type']).toContain('image/svg+xml');
+      }
+    });
+
+    it('PARENT linked to another child is 401', async () => {
+      const asset = await artwork(SEED_TENANT_ID, true);
+      await http()
+        .get(fileUrl(studentId, examId, asset))
+        .set(as('OTHER_PARENT'))
+        .expect(401);
+    });
+
+    it('TEACHER is 403 FAMILY_ONLY', async () => {
+      const asset = await artwork(SEED_TENANT_ID, true);
+      await http()
+        .get(fileUrl(studentId, examId, asset))
+        .set(as('TEACHER'))
+        .expect(403);
+    });
+
+    it('an asset the default template does not use is 404', async () => {
+      await artwork(SEED_TENANT_ID, true);
+      const unused = await artwork(SEED_TENANT_ID, false);
+      await http()
+        .get(fileUrl(studentId, examId, unused))
+        .set(as('PARENT'))
+        .expect(404);
+    });
+
+    it("another tenant's asset id is 404", async () => {
+      await artwork(SEED_TENANT_ID, true);
+      const foreign = await artwork(otherTenantId, false);
+      await http()
+        .get(fileUrl(studentId, examId, foreign))
+        .set(as('PARENT'))
+        .expect(404);
+    });
   });
 });

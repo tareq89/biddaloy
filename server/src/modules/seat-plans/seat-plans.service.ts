@@ -320,9 +320,22 @@ export class SeatPlansService {
    * runs two grouped counts alongside the plan list rather than the client
    * calling `findOne` per row (N+1 the staff list screen would otherwise
    * have to do itself). */
-  async findAll(tenantId: string) {
+  async findAll(tenantId: string, { examId }: { examId?: string } = {}) {
+    // `exam_id` narrows to plans with a sitting of that exam (the exam Print tab).
+    const planIdsOfExam = examId
+      ? In(
+          (
+            await this.dataSource.query(
+              `SELECT DISTINCT sps.seat_plan_id FROM seat_plan_schedules sps
+               JOIN exam_schedules es ON es.id = sps.exam_schedule_id AND es.tenant_id = sps.tenant_id
+               WHERE sps.tenant_id = $1 AND es.exam_id = $2`,
+              [tenantId, examId],
+            )
+          ).map((r: { seat_plan_id: string }) => r.seat_plan_id),
+        )
+      : undefined;
     const plans = await this.seatPlanRepo.find({
-      where: { tenant_id: tenantId },
+      where: { tenant_id: tenantId, ...(planIdsOfExam && { id: planIdsOfExam }) },
       order: { created_at: 'DESC' },
     });
     if (plans.length === 0) return [];
