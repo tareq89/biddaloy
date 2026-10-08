@@ -67,6 +67,57 @@ describe('PageHeader', () => {
     expect(screen.getByRole('button', { name: 'p' }).className).toContain('flex-1');
   });
 
+  it('keepOnPhone keeps one secondary inline on phone; the others stay in More; desktop is unchanged', async () => {
+    const user = userEvent.setup();
+    await renderInEnglish(
+      <PageHeader
+        title="T"
+        actions={[
+          act1('p', 'primary'),
+          act1('log', 'secondary', { keepOnPhone: true }),
+          act1('csv', 'secondary'),
+          act1('more1', 'tertiary'),
+        ]}
+      />,
+    );
+    const log = screen.getByRole('button', { name: 'log' });
+    expect(log.className).not.toContain('hidden');
+    expect(log.getAttribute('data-action-id')).toBe('log');
+    expect(screen.getByRole('button', { name: 'csv' }).className).toContain(
+      'hidden md:inline-flex',
+    );
+    await user.click(screen.getByRole('button', { name: 'More actions' }));
+    // phone More menu: no duplicate of the kept action, the rest present
+    expect(screen.queryByRole('menuitem', { name: 'log' })).toBeNull();
+    expect(screen.getByRole('menuitem', { name: 'csv' })).toBeTruthy();
+    expect(screen.getByRole('menuitem', { name: 'more1' })).toBeTruthy();
+  });
+
+  it('no More trigger appears when keepOnPhone is the only thing that would be in it', async () => {
+    await renderInEnglish(
+      <PageHeader
+        title="T"
+        actions={[act1('p', 'primary'), act1('log', 'secondary', { keepOnPhone: true })]}
+      />,
+    );
+    expect(screen.queryByRole('button', { name: 'More actions' })).toBeNull();
+  });
+
+  it('warns when two actions are keepOnPhone', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    await renderInEnglish(
+      <PageHeader
+        title="T"
+        actions={[
+          act1('a', 'secondary', { keepOnPhone: true }),
+          act1('b', 'secondary', { keepOnPhone: true }),
+        ]}
+      />,
+    );
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('keepOnPhone'));
+    warn.mockRestore();
+  });
+
   it('shows a phone-only More trigger listing the secondary when the desktop menu is empty', async () => {
     const user = userEvent.setup();
     await renderInEnglish(
