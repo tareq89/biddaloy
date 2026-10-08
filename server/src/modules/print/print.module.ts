@@ -4,8 +4,16 @@ import { PrintAssetsModule } from './assets/print-assets.module';
 import { PrintersModule } from './printers/printers.module';
 import { PrintJobsModule } from './jobs/print-jobs.module';
 
+import { ExamDocumentsModule } from './exam-documents/exam-documents.module';
+
 /** [32.2.9] Every printing route lives behind this one module (D55). */
 @Module({
-  imports: [PrintTemplatesModule, PrintAssetsModule, PrintersModule, PrintJobsModule],
+  imports: [
+    PrintTemplatesModule,
+    PrintAssetsModule,
+    PrintersModule,
+    PrintJobsModule,
+    ExamDocumentsModule,
+  ],
 })
 export class PrintModule {}
