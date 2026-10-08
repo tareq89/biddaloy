@@ -37,6 +37,7 @@ export class TurnstileService {
         body,
         signal: AbortSignal.timeout(5000),
       });
+      if (!res.ok) throw new Error(`siteverify ${res.status}`);
       success = ((await res.json()) as { success?: boolean }).success === true;
     } catch {
       throw unavailable();

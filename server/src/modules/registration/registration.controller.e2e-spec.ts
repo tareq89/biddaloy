@@ -325,7 +325,7 @@ describe('RegistrationController (e2e)', () => {
       process.env.TURNSTILE_SECRET_KEY = 'secret';
       const fetchSpy = vi
         .spyOn(globalThis, 'fetch')
-        .mockResolvedValue({ json: async () => ({ success: false }) } as Response);
+        .mockResolvedValue({ ok: true, json: async () => ({ success: false }) } as Response);
       try {
         await start(details()).expect(400);
       } finally {

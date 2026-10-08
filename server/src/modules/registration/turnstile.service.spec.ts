@@ -22,17 +22,33 @@ describe('TurnstileService', () => {
   });
 
   it('rejects a token Cloudflare says is bad', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ json: async () => ({ success: false }) }));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({ ok: true, json: async () => ({ success: false }) }),
+    );
     await expect(service({ TURNSTILE_SECRET_KEY: 's' }).verify('bad', '1.2.3.4')).rejects.toThrow(
       BadRequestException,
     );
   });
 
   it('accepts a token Cloudflare says is good', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ json: async () => ({ success: true }) }));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({ ok: true, json: async () => ({ success: true }) }),
+    );
     await expect(
       service({ TURNSTILE_SECRET_KEY: 's' }).verify('good', null),
     ).resolves.toBeUndefined();
+  });
+
+  it('answers 503 (not a captcha rejection) when Cloudflare answers non-2xx', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({ ok: false, status: 502, json: async () => ({ success: false }) }),
+    );
+    await expect(service({ TURNSTILE_SECRET_KEY: 's' }).verify('t', null)).rejects.toThrow(
+      ServiceUnavailableException,
+    );
   });
 
   it('answers 503 (not a pass) when Cloudflare cannot be reached', async () => {
