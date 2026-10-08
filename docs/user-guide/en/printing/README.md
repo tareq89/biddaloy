@@ -12,7 +12,7 @@ it later or cancel a lost one.
 | ---------- | ------------------------------------------------------------- |
 | Admin      | Everything: design cards, add printers, print, see history, cancel a card |
 | Accountant | Print and reprint cards                                       |
-| Executive  | See the print history and the certificate register            |
+| Executive  | See the print history and the certificate register; issue certificates |
 | Office staff | Print ID cards, issue certificates, print exam documents    |
 | Exam controller | Print exam documents                                      |
 

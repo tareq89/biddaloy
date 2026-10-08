@@ -1,7 +1,6 @@
 # Certificates
 
-**Who can do this:** Admin and Office staff. The Executive can see the register
-but not issue.
+**Who can do this:** Admin, Executive and Office staff.
 
 You can issue five kinds of certificate to a student: **Transfer certificate
 (TC)**, **Testimonial**, **Character certificate**, **Study certificate** and
@@ -33,8 +32,8 @@ flowchart LR
 7. **Print**: choose your printer and press **Print**. Answer **Did all print
    correctly?**
 
-The serial number is taken only when you confirm the print. If you close before
-that, no number is used up.
+The serial number is taken when you press **Print**. If you close before that,
+no number is used up.
 
 ## Transfer certificate (TC)
 
@@ -62,8 +61,9 @@ left out and listed.
 ## Reprint and DUPLICATE
 
 Open the student's **Documents** tab (or the register) and press **Reprint**.
-The reprint keeps the **same serial number** and prints the word **DUPLICATE**
-so nobody mistakes it for the original.
+The reprint keeps the **same serial number** and always prints a **DUPLICATE**
+label (even if the template's own label is blank), so nobody mistakes it for the
+original.
 
 ## Cancel a certificate (revoke)
 
@@ -71,7 +71,7 @@ so nobody mistakes it for the original.
 
 Open the certificate in **Reports → Printables & documents** and press
 **Revoke**. You must write a **reason**. The certificate shows as Revoked, with
-the reason, in the register and on its verify page.
+the reason, in the register. Its verify page shows only that it is Revoked.
 
 ## The register
 
@@ -80,7 +80,8 @@ certificate issued: serial, kind, student, date and status. Filter by kind and
 year. Press **Download for Excel** to get a file that opens in Excel (it is a
 CSV file).
 
-The **To print** tab lists who is still waiting for a card.
+The **To print** tab lists who is still waiting for a card. Only people who can
+print documents (not the Executive) see it.
 
 ## The QR code
 

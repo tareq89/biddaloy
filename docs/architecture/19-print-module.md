@@ -162,7 +162,8 @@ Layer 2 lives in the template's JSON. A real (trimmed) example:
   catalog are allowed in a placeholder, and the server checks this when the
   template is saved (`validateTemplateDefinition`).
 - The **copy label** (D44) is blank on copy 1. From copy 2 the template's
-  `copyLabel` text prints, for example `প্রতিলিপি / DUPLICATE (copy 2)`.
+  `copyLabel` text prints; a certificate kind with a blank label still gets the
+  default `প্রতিলিপি / DUPLICATE (copy {n})`, so DUPLICATE can never be hidden.
 - Positions are in **millimetres**. The same JSON draws the editor canvas, the
   preview and the printed page, so what you see is what prints.
 - `overflow` says what happens to a long name: `SHRINK` (smaller text),
@@ -407,4 +408,5 @@ flowchart LR
 - Tabulation needed its own endpoint (`GET /exams/:examId/documents/tabulation`,
   48.3.01); the marks data was too scattered to assemble in the browser.
 - The `EXECUTIVE` role needed read access on the certificate channel (48.3.02)
-  so it can open the register; it still cannot issue.
+  so it can open the register. It also holds `CERTIFICATE_ISSUE`, but not
+  `DOCUMENT_PRINT`, so it does not see the To print tab.
