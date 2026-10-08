@@ -14,7 +14,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
 import { JwtPayload, Permission } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
@@ -25,14 +25,21 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
 import { requestContext } from '../../common/request-context.util';
 import { StudyPlanCaller, StudyPlansService } from './study-plans.service';
+import { PlanScheduleService } from './plan-schedule.service';
 import {
   CopyToSectionDto,
   CreateStudyPlanDto,
-  ListStudyPlansQueryDto,
   ReplaceLessonsDto,
   SetExamMarkersDto,
   UpdateStudyPlanDto,
 } from './dto/study-plan.dto';
+import {
+  CarryOverResponseDto,
+  ListStudyPlansWithSummaryQueryDto,
+  PlanCapacityQueryDto,
+  PlanCapacityResponseDto,
+  PlanScheduleResponseDto,
+} from './dto/plan-schedule.dto';
 
 type Tenant = { id: string; role: string };
 
@@ -46,7 +53,10 @@ type Tenant = { id: string; role: string };
 @Controller('study-plans')
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 export class StudyPlansController {
-  constructor(private readonly service: StudyPlansService) {}
+  constructor(
+    private readonly service: StudyPlansService,
+    private readonly schedule: PlanScheduleService,
+  ) {}
 
   private caller(tenant: Tenant, user: JwtPayload, request: Request): StudyPlanCaller {
     return {
@@ -61,12 +71,31 @@ export class StudyPlansController {
   @RequirePermissions(Permission.SYLLABUS_READ)
   @ApiOperation({ summary: 'List study plans the caller can read.' })
   list(
-    @Query() query: ListStudyPlansQueryDto,
+    @Query() query: ListStudyPlansWithSummaryQueryDto,
     @CurrentTenant() tenant: Tenant,
     @CurrentUser() user: JwtPayload,
     @Req() request: Request,
   ) {
-    return this.service.findAll(query, tenant.id, this.caller(tenant, user, request));
+    return this.schedule.listWithSummary(query, tenant.id, this.caller(tenant, user, request));
+  }
+
+  @Get('capacity')
+  @RequirePermissions(Permission.SYLLABUS_READ)
+  @ApiOperation({ summary: 'Periods left for a section, subject and term, before a plan exists.' })
+  @ApiOkResponse({ type: PlanCapacityResponseDto })
+  capacity(
+    @Query() query: PlanCapacityQueryDto,
+    @CurrentTenant() tenant: Tenant,
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
+  ) {
+    return this.schedule.capacityForCaller(
+      tenant.id,
+      this.caller(tenant, user, request),
+      query.section_id,
+      query.subject_id,
+      query.academic_term_id ?? null,
+    );
   }
 
   @Post()
@@ -91,6 +120,32 @@ export class StudyPlansController {
     @Req() request: Request,
   ) {
     return this.service.findOneForCaller(id, tenant.id, this.caller(tenant, user, request));
+  }
+
+  @Get(':id/schedule')
+  @RequirePermissions(Permission.SYLLABUS_READ)
+  @ApiOperation({ summary: 'Dated schedule: expected date and status of every lesson.' })
+  @ApiOkResponse({ type: PlanScheduleResponseDto })
+  getSchedule(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentTenant() tenant: Tenant,
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
+  ) {
+    return this.schedule.getSchedule(id, tenant.id, this.caller(tenant, user, request));
+  }
+
+  @Get(':id/carry-over')
+  @RequirePermissions(Permission.SYLLABUS_READ)
+  @ApiOperation({ summary: 'Lessons not finished, for the next term plan.' })
+  @ApiOkResponse({ type: CarryOverResponseDto })
+  carryOver(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentTenant() tenant: Tenant,
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
+  ) {
+    return this.schedule.carryOver(id, tenant.id, this.caller(tenant, user, request));
   }
 
   @Patch(':id')
