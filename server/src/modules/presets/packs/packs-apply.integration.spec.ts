@@ -12,6 +12,7 @@ import { DEFAULT_ATTENDANCE_SETTINGS } from '../../schools/settings/tenant-setti
 import { Class } from '../../academics/entities/class.entity';
 import { AcademicYear } from '../../academics/entities/academic-year.entity';
 import { ClassSubject } from '../../academics/entities/class-subject.entity';
+import { StorageService } from '../../storage/storage.service';
 import { PresetApplyService } from '../preset-apply.service';
 import { PresetRegistryService } from '../preset-registry.service';
 import { PRESET_PACKS } from './index';
@@ -28,6 +29,7 @@ describe('every registered pack applies to a fresh tenant (integration)', () => 
       PresetRegistryService,
       AuditService,
       { provide: TenantSettingsCache, useValue: { invalidate: vi.fn() } },
+      { provide: StorageService, useValue: { put: async () => undefined } },
     ]);
     ds = module.get<DataSource>(getDataSourceToken());
     svc = module.get(PresetApplyService);
@@ -71,34 +73,47 @@ describe('every registered pack applies to a fresh tenant (integration)', () => 
     expect(registry.list().map((p) => p.id)).toEqual(PRESET_PACKS.map((p) => p.id));
   });
 
-  it.each(PRESET_PACKS.map((p) => [p.id, p] as const))('%s applies with all stages', async (_id, pack) => {
-    const t = await newSchool();
-    const { created } = await svc.apply(t, uid, {
-      preset_id: pack.id,
-      start_year: 2026,
-      stages: pack.stages.map((s) => s.key),
-      versions: pack.versions?.map((v) => v.key) ?? [],
-    });
-    expect(Object.values(created).some((n) => n > 0)).toBe(true);
-    if (pack.id !== 'blank') expect(created.classes).toBeGreaterThan(0);
-    else expect(created).toMatchObject({ academicYears: 1, classes: 0, subjects: 0, classSubjects: 0 });
+  it.each(PRESET_PACKS.map((p) => [p.id, p] as const))(
+    '%s applies with all stages',
+    async (_id, pack) => {
+      const t = await newSchool();
+      const { created } = await svc.apply(t, uid, {
+        preset_id: pack.id,
+        start_year: 2026,
+        stages: pack.stages.map((s) => s.key),
+        versions: pack.versions?.map((v) => v.key) ?? [],
+      });
+      expect(Object.values(created).some((n) => n > 0)).toBe(true);
+      if (pack.id !== 'blank') expect(created.classes).toBeGreaterThan(0);
+      else
+        expect(created).toMatchObject({
+          academicYears: 1,
+          classes: 0,
+          subjects: 0,
+          classSubjects: 0,
+        });
 
-    const settings = await settingsOf(t);
-    expect(settings.preset).toMatchObject({ id: pack.id, version: pack.version });
-    expect(await ds.getRepository(AcademicYear).countBy({ tenant_id: t, is_current: true })).toBe(1);
-    // Weekly-off is not part of apply: every tenant keeps the Friday default (see packs README note).
-    expect(settings.attendance?.weeklyOffDays ?? DEFAULT_ATTENDANCE_SETTINGS.weeklyOffDays).toEqual([5]);
+      const settings = await settingsOf(t);
+      expect(settings.preset).toMatchObject({ id: pack.id, version: pack.version });
+      expect(await ds.getRepository(AcademicYear).countBy({ tenant_id: t, is_current: true })).toBe(
+        1,
+      );
+      // Weekly-off is not part of apply: every tenant keeps the Friday default (see packs README note).
+      expect(
+        settings.attendance?.weeklyOffDays ?? DEFAULT_ATTENDANCE_SETTINGS.weeklyOffDays,
+      ).toEqual([5]);
 
-    const byGroup = new Map<string, number>();
-    for (const cs of await csRows(t)) {
-      if (cs.choice_group === null) continue;
-      expect(cs.is_optional).toBe(false);
-      expect(cs.group_name).toBeNull();
-      const k = `${cs.class_id}|${cs.choice_group}`;
-      byGroup.set(k, (byGroup.get(k) ?? 0) + 1);
-    }
-    for (const n of byGroup.values()) expect(n).toBeGreaterThanOrEqual(2);
-  });
+      const byGroup = new Map<string, number>();
+      for (const cs of await csRows(t)) {
+        if (cs.choice_group === null) continue;
+        expect(cs.is_optional).toBe(false);
+        expect(cs.group_name).toBeNull();
+        const k = `${cs.class_id}|${cs.choice_group}`;
+        byGroup.set(k, (byGroup.get(k) ?? 0) + 1);
+      }
+      for (const n of byGroup.values()) expect(n).toBeGreaterThanOrEqual(2);
+    },
+  );
 
   it('NCTB: Religion choice at class 5, Agriculture / Home Science at class 7', async () => {
     const t = await newSchool();
@@ -110,11 +125,18 @@ describe('every registered pack applies to a fresh tenant (integration)', () => 
     });
     const rows = await csRows(t);
     const at = (grade: number, group: string) =>
-      rows.filter((r) => r.class.numeric_grade === grade && r.class.version === 'bangla' && r.choice_group === group);
+      rows.filter(
+        (r) =>
+          r.class.numeric_grade === grade &&
+          r.class.version === 'bangla' &&
+          r.choice_group === group,
+      );
     expect(at(5, 'Religion')).toHaveLength(4);
-    expect(at(7, 'Agriculture / Home Science').map((r) => r.subject.code).sort()).toEqual(
-      expect.arrayContaining(['P-10', 'P-11']),
-    );
+    expect(
+      at(7, 'Agriculture / Home Science')
+        .map((r) => r.subject.code)
+        .sort(),
+    ).toEqual(expect.arrayContaining(['P-10', 'P-11']));
   });
 
   it('NCTB PRIMARY + bangla only: 5 classes, none above 5', async () => {
