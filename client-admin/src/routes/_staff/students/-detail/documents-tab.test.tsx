@@ -1,7 +1,7 @@
 import '@biddaloy/ui/test';
 
 import { cleanupTestState, renderWithProviders, server } from '@biddaloy/ui/test';
-import { screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -57,6 +57,37 @@ describe('student DocumentsTab', () => {
         kind: 'STUDENT_ID_CARD',
         subject_type: 'STUDENT',
         ids: 's-1',
+        from: '/students/s-1',
+      },
+    });
+  });
+
+  it('Transcript opens /print/document for the current year and returns here', async () => {
+    server.use(
+      http.get('/api/v1/academic-years', () =>
+        HttpResponse.json({
+          data: [{ id: 'y-1', name: '2026', is_current: true }],
+          total: 1,
+          page: 1,
+          limit: 10,
+          totalPages: 1,
+        }),
+      ),
+    );
+    const { user } = renderWithProviders(<DocumentsTab studentId="s-1" />, {
+      locale: 'en',
+      role: 'ADMIN',
+      tenantId: 'tenant-1',
+    });
+    const button = await screen.findByRole('button', { name: 'Print transcript' });
+    await waitFor(() => expect((button as HTMLButtonElement).disabled).toBe(false));
+    await user.click(button);
+    expect(navigateMock).toHaveBeenCalledWith({
+      to: '/print/document',
+      search: {
+        doc: 'transcript',
+        student_id: 's-1',
+        academic_year_id: 'y-1',
         from: '/students/s-1',
       },
     });

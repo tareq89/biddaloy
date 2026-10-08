@@ -1,5 +1,5 @@
 import { DocumentKind } from '@biddaloy/shared';
-import type { PrintHistoryFilters } from '@biddaloy/ui/hooks';
+import type { PrintHistoryFilters, RegisterFilters } from '@biddaloy/ui/hooks';
 import { z } from 'zod';
 
 /**
@@ -32,6 +32,10 @@ export const printHistorySearchSchema = z.object({
   // In the URL as text ('true' / 'false') so the filter bar's select can carry it.
   revoked: z.enum(['true', 'false']).optional().catch(undefined),
   q: z.string().optional().catch(undefined),
+  // The page's tab, and the register's own filters (the kind and `q` are shared).
+  tab: z.enum(['history', 'register', 'to-print']).optional().catch(undefined),
+  year: z.coerce.number().int().optional().catch(undefined),
+  status: z.enum(['VALID', 'REVOKED']).optional().catch(undefined),
 });
 
 export type PrintHistorySearch = z.infer<typeof printHistorySearchSchema>;
@@ -67,6 +71,18 @@ export function toHistoryFilters(search: PrintHistorySearch): PrintHistoryFilter
     ...(search.to !== undefined ? { to: search.to } : {}),
     ...(search.outcome !== undefined ? { outcome: search.outcome } : {}),
     ...(search.revoked !== undefined ? { revoked: search.revoked === 'true' } : {}),
+    ...(search.q !== undefined && search.q !== '' ? { q: search.q } : {}),
+  };
+}
+
+/** The query parameters `useCertificateRegister` and the CSV download send. */
+export function toRegisterFilters(search: PrintHistorySearch): RegisterFilters {
+  return {
+    page: search.page ?? 1,
+    limit: search.limit ?? 25,
+    ...(search.document_kind !== undefined ? { document_kind: search.document_kind } : {}),
+    ...(search.year !== undefined ? { year: search.year } : {}),
+    ...(search.status !== undefined ? { status: search.status } : {}),
     ...(search.q !== undefined && search.q !== '' ? { q: search.q } : {}),
   };
 }

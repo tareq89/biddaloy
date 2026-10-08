@@ -194,6 +194,13 @@ export function DetailsStep(props: DetailsStepProps) {
               year: formatNumber(props.year, region).replace(/[,٬]/g, ''),
             })}
           </p>
+          <Link
+            to="/reports/printables"
+            search={{ tab: 'register' }}
+            className="mt-2 inline-block text-primary underline"
+          >
+            {t('serial.openRegister')}
+          </Link>
         </Card>
 
         {props.bulk ? (
