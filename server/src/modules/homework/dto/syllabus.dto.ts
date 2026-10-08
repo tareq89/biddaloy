@@ -113,6 +113,10 @@ export class SyllabusTopicResponseDto {
   description: string | null;
   sequence: number;
   status: SyllabusTopicStatus;
+  /** Only when both `class_id` and `subject_id` are given: sections whose plan links this topic. */
+  sections_planned?: number;
+  /** Of those, sections where every lesson linked to the topic is DONE. */
+  sections_taught?: number;
 }
 
 export function toSyllabusTopicResponseDto(topic: SyllabusTopic): SyllabusTopicResponseDto {
