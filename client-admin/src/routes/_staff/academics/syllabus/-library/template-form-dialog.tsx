@@ -279,6 +279,7 @@ export function TemplateFormDialog({
               <Label htmlFor="tpl-file">{t('library.form.file')}</Label>
               <Input
                 id="tpl-file"
+                key={`${grade}-${code}`}
                 type="file"
                 accept=".csv"
                 disabled={!scopeReady}

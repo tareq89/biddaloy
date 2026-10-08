@@ -1,5 +1,5 @@
 import { TENANT_SETTINGS_SCHEMA_VERSION } from '../dto/tenant-settings.dto';
-import { ApprovalMode, TermLabel } from '@biddaloy/shared';
+import { ApprovalMode, DEFAULT_STUDY_PLANS_SETTINGS, TermLabel } from '@biddaloy/shared';
 import type {
   AttendancePolicySettings,
   AuthSettings,
@@ -9,7 +9,6 @@ import type {
   OrganisationSettings,
   RegionSettings,
   RoutineSettings,
-  StudyPlansSettings,
   TenantSettings,
 } from '@biddaloy/shared';
 
@@ -119,14 +118,8 @@ export const DEFAULT_ROUTINE_SETTINGS: RoutineSettings = {
 /** [48.1.03] D9: admit cards are never withheld unless a school opts in. */
 export const DEFAULT_DOCUMENTS_SETTINGS: DocumentsSettings = { withholdAdmitCardForDues: false };
 
-/** [66.1.04] D25 timings, D26 guardian SMS off by default. */
-export const DEFAULT_STUDY_PLANS_SETTINGS: StudyPlansSettings = {
-  statusDeadline: '18:00',
-  reminderTime: '08:00',
-  escalateAfterSchoolDays: 2,
-  weeklyDigestTime: '17:00',
-  guardianDigestSms: false,
-};
+// [66.1.04] Lives in @biddaloy/shared so the admin UI reads the same constant.
+export { DEFAULT_STUDY_PLANS_SETTINGS };
 
 export const DEFAULT_TENANT_SETTINGS: TenantSettings = {
   version: TENANT_SETTINGS_SCHEMA_VERSION,

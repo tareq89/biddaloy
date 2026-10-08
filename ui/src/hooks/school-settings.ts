@@ -3,6 +3,7 @@ import type {
   DocumentsSettings,
   EvaluationsSettings,
   InvitationStatus,
+  StudyPlansSettings,
 } from '@biddaloy/shared';
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -180,6 +181,8 @@ export interface MaskedTenantSettings {
   organisation?: OrganisationSettings;
   /** [21.7.1] Not secret data, same reasoning as `attendance` above. */
   routine?: RoutineSettingsInput;
+  /** [66.1.01] Not secret data. */
+  studyPlans?: StudyPlansSettings;
 }
 
 export interface ConnectionTestResult {

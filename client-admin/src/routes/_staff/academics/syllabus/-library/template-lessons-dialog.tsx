@@ -41,7 +41,7 @@ export function TemplateLessonsDialog({
           <Skeleton className="h-24 w-full" />
         ) : query.isError ? (
           <ErrorState
-            message={t('detail.error')}
+            message={t('library.lessonsError')}
             retryLabel={tCommon('actions.retry')}
             onRetry={() => void query.refetch()}
           />

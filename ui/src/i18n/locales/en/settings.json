@@ -412,7 +412,7 @@
       "reminder": "The teacher gets a reminder push.",
       "reminderValue": "Next day {{time}}",
       "escalateValue_one": "After {{count}} school day",
-      "escalateValue_other": "After {{count}} school day",
+      "escalateValue_other": "After {{count}} school days",
       "escalate": "The head teacher and admin are told.",
       "digestValue": "End of week {{time}}",
       "digest": "Guardians and the committee get a summary."

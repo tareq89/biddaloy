@@ -6,7 +6,7 @@
  * reads the form's live values, so editing a time updates the sentence before
  * saving.
  */
-import { type StudyPlansSettings } from '@biddaloy/shared';
+import { DEFAULT_STUDY_PLANS_SETTINGS, type StudyPlansSettings } from '@biddaloy/shared';
 import {
   Checkbox,
   Form,
@@ -35,19 +35,7 @@ import { useForm } from 'react-hook-form';
 import { SettingsSaved, SettingsSection } from './settings-layout';
 import { SettingsMutationError } from './settings-mutation-error';
 
-/**
- * Mirrors the server's `DEFAULT_STUDY_PLANS_SETTINGS`
- * (`server/src/modules/schools/settings/tenant-settings-defaults.ts`). That
- * constant is not exported from `@biddaloy/shared`, so it is repeated here for
- * the "key absent" case; the server stays the source of truth on save.
- */
-const DEFAULTS = {
-  statusDeadline: '18:00',
-  reminderTime: '08:00',
-  escalateAfterSchoolDays: 2,
-  weeklyDigestTime: '17:00',
-  guardianDigestSms: false,
-} as const;
+const DEFAULTS = DEFAULT_STUDY_PLANS_SETTINGS;
 
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
 

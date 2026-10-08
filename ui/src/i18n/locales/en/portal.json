@@ -181,7 +181,7 @@
       "notStarted": "Not started yet",
       "lessonsOf": "{{done}}/{{total}} lessons",
       "behind_one": "{{count}} lesson behind",
-      "behind_other": "{{count}} lesson behind",
+      "behind_other": "{{count}} lessons behind",
       "onTime": "On time",
       "noPlan": "No study plan",
       "whereNow": "Where now",
