@@ -2767,18 +2767,33 @@ export async function ensureSeatPlanDemoSeed(
 
   // room_id on the existing MATH/ENG schedules — [25.8]'s `## Files` asks
   // for "exam schedules with room_id set" explicitly.
+  // [48.3.99] Sittings in the future, so the exam Print tab and To print show live numbers:
+  // a seeded date already in the past moves to today + 10 / + 11 (Dhaka); a future one stays.
+  const dhakaToday = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Dhaka' }).format(
+    new Date(),
+  );
+  const inDays = (n: number) => {
+    const d = new Date(`${dhakaToday}T00:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + n);
+    return d.toISOString().slice(0, 10);
+  };
   const mathSchedule = await repos.examScheduleRepository.findOne({
     where: { id: mathScheduleId },
   });
-  if (mathSchedule && mathSchedule.room_id !== roomA.id) {
+  if (mathSchedule && (mathSchedule.room_id !== roomA.id || mathSchedule.date < dhakaToday)) {
     mathSchedule.room_id = roomA.id;
+    if (mathSchedule.date < dhakaToday) mathSchedule.date = inDays(10);
     await repos.examScheduleRepository.save(mathSchedule);
   }
   const englishSchedule = await repos.examScheduleRepository.findOne({
     where: { id: englishScheduleId },
   });
-  if (englishSchedule && englishSchedule.room_id !== roomB.id) {
+  if (
+    englishSchedule &&
+    (englishSchedule.room_id !== roomB.id || englishSchedule.date < dhakaToday)
+  ) {
     englishSchedule.room_id = roomB.id;
+    if (englishSchedule.date < dhakaToday) englishSchedule.date = inDays(11);
     await repos.examScheduleRepository.save(englishSchedule);
   }
 

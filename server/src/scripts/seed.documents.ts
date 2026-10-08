@@ -20,6 +20,8 @@ export interface DocumentsSeedPorts {
     issueValues: Record<string, string>;
   }): Promise<{ job_id: string }>;
   confirmJob(jobId: string, failedItemIds: string[]): Promise<unknown>;
+  /** Revokes one issued copy with a reason (D22), through the register's own service. */
+  revokeItem(itemId: string, reason: string): Promise<unknown>;
 }
 
 export interface DocumentsSeedRepositories {
@@ -33,6 +35,9 @@ const TEMPLATES = [
   { name: 'Transfer certificate (A4, Bangla)', suggestion: 'tc-a4-bn' },
   { name: 'Testimonial (A4, Bangla)', suggestion: 'testimonial-a4-bn' },
   { name: 'Character certificate (A4, Bangla)', suggestion: 'character-a4-bn' },
+  // [48.3.99] Defaults for the result and merit certificates the exam Print flow offers.
+  { name: 'Result certificate (A4, Bangla)', suggestion: 'result-a4-bn' },
+  { name: 'Merit certificate (A4, Bangla)', suggestion: 'merit-a4-bn' },
 ] as const;
 
 /** Demo roster student -> the certificate they were issued (0002 left, 0003 graduated; see seed.lifecycle.ts). */
@@ -53,6 +58,9 @@ const ISSUED = [
   },
 ] as const;
 
+/** [48.3.99] Student 0004 gets a testimonial that is then revoked, so the register shows a D39 row. */
+const REVOKED = { n: 4, reason: 'ভুল নাম ছাপা হয়েছে' } as const;
+
 /**
  * [48.2.15] Published default templates for the admit card, TC, testimonial and character
  * certificate, plus one TC and one testimonial issued through the real services (so they get
@@ -63,8 +71,8 @@ export async function ensureDocumentsSeed(
   repos: DocumentsSeedRepositories,
   ports: DocumentsSeedPorts,
   tenantId: string,
-): Promise<{ templates: number; certificates: number }> {
-  const result = { templates: 0, certificates: 0 };
+): Promise<{ templates: number; certificates: number; revoked: number }> {
+  const result = { templates: 0, certificates: 0, revoked: 0 };
   const idByName = new Map<string, string>();
 
   for (const t of TEMPLATES) {
@@ -103,6 +111,43 @@ export async function ensureDocumentsSeed(
     });
     await ports.confirmJob(job.job_id, []);
     result.certificates += 1;
+  }
+
+  const revokedStudent = await repos.studentRepository.findOne({
+    where: {
+      tenant_id: tenantId,
+      registration_number: `${DEMO_ACADEMIC_YEAR.name}-${String(REVOKED.n).padStart(4, '0')}`,
+    },
+  });
+  const testimonialId = idByName.get(TEMPLATES[2].name);
+  if (revokedStudent && testimonialId) {
+    const done = await repos.printJobItemRepository.findOne({
+      where: {
+        tenant_id: tenantId,
+        subject_id: revokedStudent.id,
+        document_kind: DocumentKind.TESTIMONIAL,
+      },
+    });
+    if (!done) {
+      const job = await ports.issueCertificate({
+        templateId: testimonialId,
+        studentId: revokedStudent.id,
+        issueValues: { 'issue.conduct': CONDUCT },
+      });
+      await ports.confirmJob(job.job_id, []);
+      result.certificates += 1;
+      const item = await repos.printJobItemRepository.findOne({
+        where: {
+          tenant_id: tenantId,
+          subject_id: revokedStudent.id,
+          document_kind: DocumentKind.TESTIMONIAL,
+        },
+      });
+      if (item) {
+        await ports.revokeItem(item.id, REVOKED.reason);
+        result.revoked += 1;
+      }
+    }
   }
   return result;
 }

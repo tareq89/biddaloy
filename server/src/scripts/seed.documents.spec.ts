@@ -23,7 +23,7 @@ describe('ensureDocumentsSeed [48.2.15]', () => {
     const templates = repo([]);
     const items = repo([]);
     const students = repo(
-      [2, 3].map((n) => ({
+      [2, 3, 4].map((n) => ({
         id: `s${n}`,
         tenant_id: 't1',
         registration_number: `${DEMO_ACADEMIC_YEAR.name}-000${n}`,
@@ -45,6 +45,7 @@ describe('ensureDocumentsSeed [48.2.15]', () => {
       setDefaultTemplate: vi.fn(() => Promise.resolve()),
       issueCertificate: vi.fn(({ studentId }: { studentId: string }) => {
         items.rows.push({
+          id: `item-${studentId}`,
           tenant_id: 't1',
           subject_id: studentId,
           document_kind: studentId === 's2' ? 'TRANSFER_CERTIFICATE' : 'TESTIMONIAL',
@@ -52,6 +53,7 @@ describe('ensureDocumentsSeed [48.2.15]', () => {
         return Promise.resolve({ job_id: `job-${studentId}` });
       }),
       confirmJob: vi.fn(() => Promise.resolve()),
+      revokeItem: vi.fn(() => Promise.resolve()),
     };
     const repos = {
       printTemplateRepository: templates,
@@ -60,15 +62,25 @@ describe('ensureDocumentsSeed [48.2.15]', () => {
     } as unknown as DocumentsSeedRepositories;
 
     expect(await ensureDocumentsSeed(repos, ports, 't1')).toEqual({
-      templates: 4,
-      certificates: 2,
+      templates: 6,
+      certificates: 3,
+      revoked: 1,
     });
     expect(await ensureDocumentsSeed(repos, ports, 't1')).toEqual({
       templates: 0,
       certificates: 0,
+      revoked: 0,
     });
-    expect(created).toEqual(['admit-card-bn', 'tc-a4-bn', 'testimonial-a4-bn', 'character-a4-bn']);
-    expect(ports.confirmJob).toHaveBeenCalledTimes(2);
+    expect(created).toEqual([
+      'admit-card-bn',
+      'tc-a4-bn',
+      'testimonial-a4-bn',
+      'character-a4-bn',
+      'result-a4-bn',
+      'merit-a4-bn',
+    ]);
+    expect(ports.confirmJob).toHaveBeenCalledTimes(3);
+    expect(ports.revokeItem).toHaveBeenCalledTimes(1);
   });
 
   it('ignores an archived template of the same name and issues against a fresh one', async () => {
@@ -97,6 +109,7 @@ describe('ensureDocumentsSeed [48.2.15]', () => {
       setDefaultTemplate: vi.fn(() => Promise.resolve()),
       issueCertificate: vi.fn(() => Promise.resolve({ job_id: 'job-1' })),
       confirmJob: vi.fn(() => Promise.resolve()),
+      revokeItem: vi.fn(() => Promise.resolve()),
     };
     const repos = {
       printTemplateRepository: templates,
