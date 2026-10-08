@@ -21,6 +21,8 @@ import { useQuery } from '@tanstack/react-query';
 import { IdCardIcon, PrinterIcon } from 'lucide-react';
 import * as React from 'react';
 
+import { PRINT_KIND_ORDER } from '../library/suggestion-card';
+
 import { HistoryItemDialog } from './history-item-dialog';
 import { filterValues, toHistoryFilters, type PrintHistorySearch } from './print-history-filters';
 import { ReprintDialog } from './reprint-dialog';
@@ -136,10 +138,7 @@ export function PrintHistoryPage({
       key: 'document_kind',
       label: t('filters.kind'),
       allLabel: t('filters.allKinds'),
-      options: (canReadAcr
-        ? (['STUDENT_ID_CARD', 'STAFF_ID_CARD', 'ACR_ASSESSMENT'] as const)
-        : (['STUDENT_ID_CARD', 'STAFF_ID_CARD'] as const)
-      ).map((k) => ({
+      options: PRINT_KIND_ORDER.filter((k) => canReadAcr || k !== 'ACR_ASSESSMENT').map((k) => ({
         value: k,
         label: t(`kind.${k}`),
       })),

@@ -32,7 +32,7 @@ import { PlusIcon, StarIcon } from 'lucide-react';
 import * as React from 'react';
 
 import { NewTemplateDialog } from './new-template-dialog';
-import { SuggestionCard } from './suggestion-card';
+import { PRINT_KIND_ORDER, SuggestionCard } from './suggestion-card';
 
 export interface PrintTemplateLibraryProps {
   onEdit: (templateId: string) => void;
@@ -40,12 +40,10 @@ export interface PrintTemplateLibraryProps {
   openNewDialog?: boolean;
 }
 
-/** Student cards first, then staff cards, then ACR pages (not alphabetical). */
-const KIND_ORDER: Record<string, number> = {
-  STUDENT_ID_CARD: 0,
-  STAFF_ID_CARD: 1,
-  ACR_ASSESSMENT: 2,
-};
+/** The same order as the new-template dialog (not alphabetical). */
+const KIND_ORDER: Record<string, number> = Object.fromEntries(
+  PRINT_KIND_ORDER.map((k, i) => [k, i]),
+);
 
 /** Each confirm owns its mutation hook, which takes the template id at hook time. */
 function ArchiveConfirm({
@@ -202,7 +200,7 @@ export function PrintTemplateLibrary({ onEdit, openNewDialog = false }: PrintTem
       key: 'kind',
       label: t('filters.kind'),
       allLabel: t('filters.allKinds'),
-      options: (['STUDENT_ID_CARD', 'STAFF_ID_CARD', 'ACR_ASSESSMENT'] as const).map((k) => ({
+      options: PRINT_KIND_ORDER.map((k) => ({
         value: k,
         label: t(`kind.${k}`),
       })),

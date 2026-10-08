@@ -22,7 +22,8 @@
     "holder": "ধারক",
     "school": "বিদ্যালয়",
     "issuedOn": "ইস্যুর তারিখ",
-    "copy": "কপি"
+    "copy": "কপি",
+    "serial": "ক্রমিক নম্বর"
   },
   "footer": "SchoolManager দ্বারা যাচাইকৃত",
   "notFoundTitle": "নথিটি খুঁজে পাওয়া যায়নি",

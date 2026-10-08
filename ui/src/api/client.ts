@@ -499,6 +499,8 @@ export interface PublicVerification {
   school_name_bn: string | null;
   issued_at: string;
   copy_number: number;
+  /** Certificate serial number (D18); absent for ID cards. */
+  serial?: string | null;
   status: 'VALID' | 'REVOKED';
   revoked_at?: string;
 }

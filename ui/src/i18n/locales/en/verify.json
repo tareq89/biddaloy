@@ -22,7 +22,8 @@
     "holder": "Holder",
     "school": "School",
     "issuedOn": "Issued on",
-    "copy": "Copy"
+    "copy": "Copy",
+    "serial": "Serial number"
   },
   "footer": "Verified by SchoolManager",
   "notFoundTitle": "We could not find this document",
