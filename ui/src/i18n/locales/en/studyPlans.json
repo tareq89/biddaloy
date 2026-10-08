@@ -217,7 +217,8 @@
     "section": "Section",
     "save": "Copy",
     "notYours": "You don't teach {{subject}} in that section.",
-    "exists": "That section already has a plan for this term."
+    "exists": "That section already has a plan for this term.",
+    "openExisting": "Open it"
   },
   "markers": {
     "title": "Exam syllabus markers",

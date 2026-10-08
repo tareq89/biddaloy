@@ -2,7 +2,8 @@
  * D16: page title, subtitle and tiered action row. At most one filled
  * (primary) + two outline buttons inline on desktop; everything else goes
  * into a "More actions" menu. On phone only the primary stays inline (it
- * fills the row) and every other action moves into the menu.
+ * fills the row) and every other action moves into the menu, except a
+ * secondary flagged `keepOnPhone` (at most one) which stays inline beside it.
  */
 import { Link } from '@tanstack/react-router';
 import { EllipsisIcon } from 'lucide-react';
@@ -27,6 +28,9 @@ interface PageActionBase {
   disabled?: boolean;
   /** Button `loading` (spinner + `aria-busy`, label kept). */
   busy?: boolean;
+  /** Secondary only: stays an inline outline button on phone instead of moving into More.
+   * At most one per header, and it must sit among the first two secondaries. */
+  keepOnPhone?: boolean;
 }
 
 /** An in-page action (`onClick`), or a navigation (`to`) rendered as a real
@@ -76,6 +80,17 @@ export function PageHeaderActions({
     );
   }
 
+  const kept = secondary.filter((a) => a.keepOnPhone === true);
+  if (
+    process.env.NODE_ENV !== 'production' &&
+    (kept.length > 1 || kept.some((a) => secondary.indexOf(a) > 1))
+  ) {
+    console.warn(
+      `PageHeader: "keepOnPhone" allows one secondary action among the first two (${kept
+        .map((a) => a.id)
+        .join(', ')}).`,
+    );
+  }
   const menuBase = [...secondary.slice(2), ...tertiary];
   // A lone destructive with nothing else to share a menu with stays inline.
   const destructiveInline =
@@ -83,7 +98,8 @@ export function PageHeaderActions({
   const destructiveMenu = destructive.filter((a) => !destructiveInline.includes(a));
   const inlineOthers = [...secondary.slice(0, 2), ...destructiveInline];
   const desktopMenuEmpty = menuBase.length === 0 && destructiveMenu.length === 0;
-  const hasMenu = inlineOthers.length > 0 || !desktopMenuEmpty;
+  const phoneMenuOthers = inlineOthers.filter((a) => a !== kept[0]);
+  const hasMenu = phoneMenuOthers.length > 0 || !desktopMenuEmpty;
 
   const variantOf = (a: PageAction) =>
     a.priority === 'primary'
@@ -147,8 +163,8 @@ export function PageHeaderActions({
     );
 
   return (
-    <div className="flex w-full items-center gap-2 md:w-auto md:shrink-0">
-      {inlineOthers.map((a) => button(a, cn('hidden md:inline-flex')))}
+    <div className="flex w-full flex-wrap items-center gap-2 md:w-auto md:shrink-0 md:flex-nowrap">
+      {inlineOthers.map((a) => button(a, cn(a !== kept[0] && 'hidden md:inline-flex')))}
       {hasMenu && (
         <Menu>
           <MenuTrigger asChild>
@@ -164,7 +180,7 @@ export function PageHeaderActions({
             </Button>
           </MenuTrigger>
           <MenuContent align="end">
-            {inlineOthers.map((a) => item(a, 'md:hidden'))}
+            {phoneMenuOthers.map((a) => item(a, 'md:hidden'))}
             {menuBase.map((a) => item(a))}
             {menuBase.length > 0 && destructiveMenu.length > 0 && <MenuSeparator />}
             {destructiveMenu.map((a) => item(a))}

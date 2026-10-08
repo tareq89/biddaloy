@@ -29,3 +29,15 @@ export const WithActionsMobile: Story = {
   args: { subtitle: '২৪০ জন শিক্ষার্থী', actions: ACTIONS },
   parameters: { viewport: { defaultViewport: 'mobile1' } },
 };
+
+export const KeepOnPhone: Story = {
+  args: {
+    actions: [
+      ACTIONS[0]!,
+      { id: 'extra', label: 'Log extra class', onClick: noop, keepOnPhone: true },
+      ACTIONS[1]!,
+      ACTIONS[3]!,
+    ],
+  },
+  parameters: { viewport: { defaultViewport: 'mobile1' } },
+};
