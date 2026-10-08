@@ -9,7 +9,8 @@
       "subject": "Subject",
       "term": "Term",
       "wholeYear": "Whole year",
-      "behindOnly": "Behind only"
+      "behindOnly": "Behind only",
+      "all": "All"
     },
     "columns": {
       "section": "Section",
@@ -34,7 +35,8 @@
     "emptyTitle": "No study plans yet",
     "emptyExplanation": "A study plan lists a subject's lessons in order; dates come from the routine.",
     "newPlan": "New study plan",
-    "error": "Couldn't load study plans."
+    "error": "Couldn't load study plans.",
+    "deleteFailed": "Couldn't delete the study plan."
   },
   "create": {
     "title": "New study plan",
