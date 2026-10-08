@@ -87,6 +87,27 @@ describe('StudentsTab', () => {
     expect(screen.getByText('Total 1')).toBeTruthy();
   });
 
+  it('clears a failed status change alert when the status filter changes', async () => {
+    server.use(
+      http.patch('/api/v1/program-enrollments/:id', () =>
+        HttpResponse.json(
+          { statusCode: 500, message: 'boom', requestId: 'r', path: '/', timestamp: '' },
+          { status: 500 },
+        ),
+      ),
+    );
+    await renderTab();
+    await screen.findByText('Anika Rahman');
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole('button', { name: 'Withdraw' }));
+    expect(await screen.findByRole('alert')).toBeTruthy();
+
+    await user.click(screen.getByLabelText('Status'));
+    await user.click(await screen.findByRole('option', { name: 'Withdrawn' }));
+    await waitFor(() => expect(screen.queryByRole('alert')).toBeNull());
+  });
+
   it('offers only Reactivate on a withdrawn row', async () => {
     await renderTab(vi.fn(), true, { ...ENROLLMENTS[0]!, status: 'WITHDRAWN' });
     await screen.findByText('Anika Rahman');
