@@ -21,6 +21,7 @@ import {
   useConfirmPrintJob,
   useIdCardQueue,
   usePrintQueue,
+  useRevokePrintItem,
 } from './print';
 
 const page = { data: [], total: 0, page: 1, limit: 50, totalPages: 0 };
@@ -158,16 +159,42 @@ describe('student-certificate routing of the shared confirm / reprint helpers', 
         return HttpResponse.json({ job_id: 'job-1', status: 'CONFIRMED', failed_item_ids: [] });
       }),
     );
+    const queryClient = createTestQueryClient();
+    const spy = vi.spyOn(queryClient, 'invalidateQueries');
     const { result } = renderHookWithProviders(() => useConfirmPrintJob(), {
       tenantId: 'tenant-1',
+      queryClient,
     });
     await result.current.mutateAsync({
       jobId: 'job-1',
       failedItemIds: [],
       kind: 'STUDENT_ID_CARD',
     });
+    // An ID-card confirm changes the to-print queue, not the certificate register.
+    const keys = spy.mock.calls.map((c) => c[0]?.queryKey);
+    expect(keys).toContainEqual(printQueueKeys.all);
+    expect(keys).not.toContainEqual(certificateRegisterKeys.all);
     await result.current.mutateAsync({ jobId: 'job-1', failedItemIds: [] });
     expect(hits).toEqual(['print-jobs', 'print-jobs']);
+  });
+
+  it('useRevokePrintItem refreshes history, the register and the to-print queue', async () => {
+    server.use(
+      http.post('/api/v1/print-history/items/i-1/revoke', () =>
+        HttpResponse.json({ item_id: 'i-1', revoked_at: '2026-10-08T00:00:00.000Z' }),
+      ),
+    );
+    const queryClient = createTestQueryClient();
+    const spy = vi.spyOn(queryClient, 'invalidateQueries');
+    const { result } = renderHookWithProviders(() => useRevokePrintItem(), {
+      tenantId: 'tenant-1',
+      queryClient,
+    });
+    await result.current.mutateAsync({ itemId: 'i-1', reason: 'Lost' });
+    const keys = spy.mock.calls.map((c) => c[0]?.queryKey);
+    expect(keys).toContainEqual(printHistoryKeys.all);
+    expect(keys).toContainEqual(certificateRegisterKeys.all);
+    expect(keys).toContainEqual(printQueueKeys.all);
   });
 
   it('reprintPrintJob picks the path from the kind', async () => {

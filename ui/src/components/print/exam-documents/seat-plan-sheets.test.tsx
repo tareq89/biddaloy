@@ -82,6 +82,26 @@ describe('SeatListSheet', () => {
     await expect(container).toHaveNoViolations();
   });
 
+  it('splits a room over 70 seats onto a second sheet and counts sheets', async () => {
+    const { container } = render(
+      <SeatListSheet {...base} pages={[room('101', 100), room('102', 10)]} labels={LIST} />,
+    );
+    const docs = container.querySelectorAll('[data-slot="a4-document"]');
+    expect(docs).toHaveLength(3);
+    expect(docs[0]!.querySelectorAll('tbody tr')).toHaveLength(70);
+    expect(screen.getByText('Seats 1–70')).toBeTruthy();
+    expect(screen.getByText('Seats 71–100')).toBeTruthy();
+    // Both halves of room 101 keep a unique heading.
+    expect([...container.querySelectorAll('h2')].map((h) => h.textContent)).toEqual([
+      'Half Yearly - Room 101 (Seats 1–70)',
+      'Half Yearly - Room 101 (Seats 71–100)',
+      'Half Yearly - Room 102',
+    ]);
+    expect(screen.getByText('Page 3 / 3')).toBeTruthy();
+    expect(docs[0]!.querySelectorAll('tbody th[scope="row"]')).toHaveLength(70);
+    await expect(container).toHaveNoViolations();
+  });
+
   it('prints Bangla digits under a bn region', () => {
     render(<SeatListSheet {...base} pages={[room('101', 4)]} labels={LIST} />, REGION_BD_BN);
     expect(screen.getByText('Seats ১–৪')).toBeTruthy();
@@ -136,5 +156,32 @@ describe('SeatStickerSheet', () => {
     expect(screen.getAllByText('Room 101 · Seat 45')).toHaveLength(1);
     expect(container.querySelector('style')).toBeNull();
     await expect(container).toHaveNoViolations();
+  });
+
+  it('rounds perPage to whole rows of 3, at most 7 rows', () => {
+    const stickers = Array.from({ length: 30 }, (_, i) => ({
+      seat: String(i + 1),
+      roll: i + 1,
+      name: `Student ${i + 1}`,
+      section: 'A',
+      room: '101',
+    }));
+    const counts = (perPage: number) => {
+      const { container, unmount } = render(
+        <SeatStickerSheet
+          issuer={ISSUER}
+          stickers={stickers}
+          perPage={perPage}
+          labels={{ roll: 'Roll', room: 'Room', seat: 'Seat' }}
+        />,
+      );
+      const pages = container.querySelectorAll('[data-slot="seat-sticker-page"]');
+      const out = [...pages].map((p) => p.querySelectorAll('[data-slot="seat-sticker"]').length);
+      unmount();
+      return out;
+    };
+    expect(counts(10)).toEqual([9, 9, 9, 3]);
+    expect(counts(24)).toEqual([21, 9]);
+    expect(counts(0)).toEqual(Array(10).fill(3));
   });
 });

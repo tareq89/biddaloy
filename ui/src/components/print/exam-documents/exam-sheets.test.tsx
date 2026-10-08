@@ -85,6 +85,22 @@ describe('BlankMarksSheet', () => {
     expect(screen.getByText('CQ (৭০)')).toBeTruthy();
     expect(screen.getByText('MCQ (৩০)')).toBeTruthy();
   });
+
+  it('numbers pages within each subject, in Bangla digits under bn', () => {
+    const pages = ['A', 'B'].flatMap((s) => ['Bangla', 'Maths'].map((x) => page(s, x)));
+    const { container } = render(
+      <BlankMarksSheet {...base} pages={pages} labels={MARKS} />,
+      REGION_BD_BN,
+    );
+    const titles = [...container.querySelectorAll('h2')].map((h) => h.textContent);
+    expect(titles).toEqual([
+      'Half Yearly - Bangla - A (১)',
+      'Half Yearly - Maths - A (১)',
+      'Half Yearly - Bangla - B (২)',
+      'Half Yearly - Maths - B (২)',
+    ]);
+    expect(container.querySelectorAll('tbody th[scope="row"]')).toHaveLength(8);
+  });
 });
 
 describe('ExamRoutineNotice', () => {
@@ -106,6 +122,9 @@ describe('ExamRoutineNotice', () => {
     expect(sigs).toHaveLength(1);
     expect(sigs[0]!.textContent).toBe('Head teacher');
     expect(container.querySelectorAll('[data-slot="a4-document"]')).toHaveLength(1);
+    // The title is printed once, by the A4 heading - no second standalone title line.
+    expect(container.querySelector('h2')!.textContent).toBe('Half Yearly - Exam routine');
+    expect(screen.queryByText('Exam routine')).toBeNull();
     await expect(container).toHaveNoViolations();
   });
 });

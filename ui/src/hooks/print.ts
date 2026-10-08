@@ -184,28 +184,9 @@ export interface PrintHistoryPage {
   totalPages: number;
 }
 
-export interface CertificateTemplateRow {
-  id: string;
-  name: string;
-  is_default: boolean;
-  current_version_id: string;
-}
-
-export interface RegisterRow {
-  item_id: string;
-  document_kind: DocumentKind;
-  serial: string;
-  serial_year: number;
-  serial_no: number;
-  copy_number: number;
-  subject_id: string;
-  subject_label: string;
-  class_name: string | null;
-  issued_at: string;
-  printed_by_name: string | null;
-  revoked_at: string | null;
-  revoke_reason: string | null;
-}
+export type CertificateTemplateRow = components['schemas']['CertificateTemplateRowDto'];
+export type RegisterRow = components['schemas']['RegisterRowDto'];
+export type RegisterPage = components['schemas']['RegisterPageDto'];
 
 export interface RegisterFilters {
   document_kind?: DocumentKind;
@@ -217,29 +198,9 @@ export interface RegisterFilters {
   limit?: number;
 }
 
-export interface PrintQueue {
-  total: number;
-  by_kind: { kind: DocumentKind; count: number }[];
-  exams: { exam_id: string; exam_name: string; class_name: string; missing: number }[];
-}
-
-export interface IdCardQueueRow {
-  student_id: string;
-  full_name: string;
-  registration_number: string | null;
-  class_name: string | null;
-  section_name: string | null;
-  admitted_on: string | null;
-  has_photo: boolean;
-}
-
-export interface Paged<T> {
-  data: T[];
-  total: number;
-  page: number;
-  limit: number;
-  totalPages: number;
-}
+export type PrintQueue = components['schemas']['PrintQueueDto'];
+export type IdCardQueueRow = components['schemas']['IdCardQueueRowDto'];
+export type IdCardQueuePage = components['schemas']['IdCardQueuePageDto'];
 
 interface ConfirmedJob {
   job_id: string;
@@ -535,10 +496,11 @@ export function useConfirmPrintJob() {
       ).data,
     onSuccess: (_data, { kind }) => {
       void queryClient.invalidateQueries({ queryKey: printHistoryKeys.all });
-      // A confirmed certificate also changes the register and the to-print counts.
+      // Any confirm can move a student in or out of the to-print queue (admit / ID cards,
+      // and FAILED items go back in), so the queue is refreshed whatever the kind.
+      void queryClient.invalidateQueries({ queryKey: printQueueKeys.all });
       if (kind && isStudentCertificateKind(kind)) {
         void queryClient.invalidateQueries({ queryKey: certificateRegisterKeys.all });
-        void queryClient.invalidateQueries({ queryKey: printQueueKeys.all });
       }
     },
   });
@@ -602,7 +564,13 @@ export function useRevokePrintItem() {
           { reason },
         )
       ).data,
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: printHistoryKeys.all }),
+    // A revoked copy shows as REVOKED in the register, and a revoked ID card puts the student
+    // back in the to-print queue.
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: printHistoryKeys.all });
+      void queryClient.invalidateQueries({ queryKey: certificateRegisterKeys.all });
+      void queryClient.invalidateQueries({ queryKey: printQueueKeys.all });
+    },
   });
 }
 
@@ -695,7 +663,7 @@ export function certificateRegisterQueryOptions(filters: RegisterFilters = {}) {
     queryKey: certificateRegisterKeys.list(filters),
     queryFn: async ({ signal }) =>
       (
-        await apiClient.get<Paged<RegisterRow>>('/print-history/register', {
+        await apiClient.get<RegisterPage>('/print-history/register', {
           params: definedParams(filters),
           signal,
         })
@@ -742,7 +710,7 @@ export function useIdCardQueue(paging: { page?: number; limit?: number } = {}) {
     queryKey: printQueueKeys.list({ idCards: paging }),
     queryFn: async ({ signal }) =>
       (
-        await apiClient.get<Paged<IdCardQueueRow>>('/print-history/queue/id-cards', {
+        await apiClient.get<IdCardQueuePage>('/print-history/queue/id-cards', {
           params: definedParams(paging),
           signal,
         })

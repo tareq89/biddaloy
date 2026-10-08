@@ -73,6 +73,8 @@ export interface TranscriptExam {
   gpa: number;
   grade: string;
   position: number | null;
+  /** The exam's overall result failed: its grade is boxed like a failed subject. */
+  isFail?: boolean;
 }
 
 export interface YearlyTranscriptProps {
@@ -130,7 +132,6 @@ export function TabulationSheet({
       logoUrl={logoUrl ?? null}
       {...(activeLanguage !== undefined ? { activeLanguage } : {})}
       title={`${labels.title} - ${where}`}
-      subtitle={where}
       orientation="landscape"
       signatures={[labels.classTeacher, labels.examController, labels.headTeacher]}
       printedOn={printedOn}
@@ -176,7 +177,9 @@ export function TabulationSheet({
               className={`print:break-inside-avoid ${r.isFail ? 'bg-muted [print-color-adjust:exact]' : ''}`}
             >
               <td className={td}>{num(r.roll)}</td>
-              <td className={`${td} text-start`}>{r.name}</td>
+              <th scope="row" className={`${td} text-start font-normal`}>
+                {r.name}
+              </th>
               {subjects.flatMap((s) => {
                 const c = r.cells[s.id];
                 return [
@@ -222,13 +225,9 @@ export function YearlyTranscript({
   const config = useRegionConfig();
   const num = (n: number | null) => formatNumber(n, config);
   const gpa = (n: number) => formatNumber(n, config, { decimals: 2 });
-  const subtitle = [
-    student.name,
-    `${labels.roll} ${num(student.roll)}`,
-    student.className,
-    student.section,
-    yearName,
-  ].join(' · ');
+  const subtitle = [`${labels.roll} ${num(student.roll)}`, student.className, student.section].join(
+    ' · ',
+  );
   return (
     <A4Document
       issuer={issuer}
@@ -261,7 +260,9 @@ export function YearlyTranscript({
           <tbody>
             {e.subjects.map((s, j) => (
               <tr key={`${j}-${s.name}`}>
-                <td className={c}>{s.name}</td>
+                <th scope="row" className={`${c} font-normal`}>
+                  {s.name}
+                </th>
                 <td className={`${c} text-end`}>{num(s.obtained)}</td>
                 <td className={c}>
                   <Grade grade={s.grade} fail={s.isFail} />
@@ -286,10 +287,14 @@ export function YearlyTranscript({
         <tbody>
           {exams.map((e, i) => (
             <tr key={`${i}-${e.name}`}>
-              <td className={c}>{e.name}</td>
+              <th scope="row" className={`${c} font-normal`}>
+                {e.name}
+              </th>
               <td className={c}>{num(e.total)}</td>
               <td className={c}>{gpa(e.gpa)}</td>
-              <td className={c}>{e.grade}</td>
+              <td className={c}>
+                <Grade grade={e.grade} fail={!!e.isFail} />
+              </td>
               <td className={c}>{e.position === null ? DASH : num(e.position)}</td>
             </tr>
           ))}

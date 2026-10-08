@@ -124,9 +124,11 @@ describe('TabulationSheet', () => {
   it('prints a dash for a subject the student did not take and GPA with 2 decimals', () => {
     const { container } = render(<TabulationSheet {...tabProps} />);
     const cells = container.querySelectorAll('tbody tr')[2]!.querySelectorAll('td');
+    // The name is the row header (th), so the data cells start at the roll.
+    expect(container.querySelectorAll('tbody th[scope="row"]')).toHaveLength(3);
+    expect(cells[3]!.textContent).toBe('—');
     expect(cells[4]!.textContent).toBe('—');
-    expect(cells[5]!.textContent).toBe('—');
-    expect(cells[7]!.textContent).toBe('3.50');
+    expect(cells[6]!.textContent).toBe('3.50');
   });
 
   it('prints Bangla digits under bn', () => {
@@ -150,8 +152,9 @@ const exam = (name: string, fail = false): TranscriptExam => ({
   ],
   total: 155,
   gpa: 4.5,
-  grade: 'A',
+  grade: fail ? 'F' : 'A',
   position: fail ? null : 3,
+  isFail: fail,
 });
 const yLabels = {
   title: 'Yearly transcript',
@@ -187,6 +190,10 @@ describe('YearlyTranscript', () => {
     expect(container.querySelector('[data-slot="a4-document"]')!.className).toContain('210mm');
     expect(container.querySelectorAll('[data-slot="a4-signature"]')).toHaveLength(2);
     expect(tables[2]!.querySelectorAll('tbody tr')[1]!.textContent).toContain('—');
+    // The failed exam's overall grade is boxed in the summary too.
+    const summary = tables[2]!.querySelectorAll('tbody tr');
+    expect(summary[1]!.querySelector('span.border')?.textContent).toBe('F');
+    expect(summary[0]!.querySelector('span.border')).toBeNull();
     await expect(container).toHaveNoViolations();
   });
 
