@@ -18,7 +18,15 @@
   "kind": {
     "STUDENT_ID_CARD": "Student ID card",
     "STAFF_ID_CARD": "Staff ID card",
-    "ACR_ASSESSMENT": "ACR (confidential report)"
+    "ACR_ASSESSMENT": "ACR (confidential report)",
+    "EXAM_ADMIT_CARD": "Admit card",
+    "TRANSFER_CERTIFICATE": "Transfer certificate (TC)",
+    "TESTIMONIAL": "Testimonial",
+    "CHARACTER_CERTIFICATE": "Character certificate",
+    "STUDY_CERTIFICATE": "Study certificate",
+    "PARTICIPATION_CERTIFICATE": "Participation certificate",
+    "RESULT_CERTIFICATE": "Result certificate",
+    "MERIT_CERTIFICATE": "Merit certificate"
   },
   "status": {
     "published": "Published",
