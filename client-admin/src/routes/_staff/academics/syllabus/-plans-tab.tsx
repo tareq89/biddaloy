@@ -163,10 +163,8 @@ export function PlansTab({ onCreate }: { onCreate?: (() => void) | undefined }) 
   const classes = useClasses();
   const subjects = useSubjects({ limit: 100 });
   const settings = useSchoolSettings(schoolId ?? '');
-  // ponytail: hand-written MaskedTenantSettings (ui/src/hooks) lacks `studyPlans`; narrow here.
   const escalateAfter =
-    (settings.data as { studyPlans?: { escalateAfterSchoolDays?: number } } | undefined)?.studyPlans
-      ?.escalateAfterSchoolDays ?? DEFAULT_ESCALATE_AFTER;
+    settings.data?.studyPlans?.escalateAfterSchoolDays ?? DEFAULT_ESCALATE_AFTER;
 
   const sorting = state.sorting ?? { id: 'behind_periods', desc: true };
   const sortId = ['behind_periods', 'section', 'subject'].find((x) => x === sorting.id);

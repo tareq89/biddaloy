@@ -126,7 +126,7 @@ export function PeriodCard({
           <p className="text-body">{t('marking.noPlanBody', { subject: subjectLabel })}</p>
           {canMakePlan && (
             <Button variant="outline" className="h-14 w-full md:h-11 md:w-fit" asChild>
-              <Link to="/academics/syllabus" search={{ tab: 'plans', new: 1 } as never}>
+              <Link to="/academics/syllabus" search={{ tab: 'plans', new: 1 }}>
                 {t('marking.makePlan')}
               </Link>
             </Button>

@@ -100,6 +100,7 @@
     "subtitle": "The school's plan templates, by class and subject code, reused every year",
     "searchPlaceholder": "Template name",
     "nameTaken": "A template with this name already exists.",
+    "lessonsError": "Couldn't load this template's lessons.",
     "classGrade": "Class {{grade}}",
     "columns": {
       "subject": "Subject · code",
@@ -126,9 +127,9 @@
       "plan": "Study plan",
       "file": "CSV file",
       "readOk_one": "{{count}} lesson read, no errors",
-      "readOk_other": "{{count}} lesson read, no errors",
+      "readOk_other": "{{count}} lessons read, no errors",
       "readErrors_one": "{{count}} row has a problem",
-      "readErrors_other": "{{count}} row has a problem",
+      "readErrors_other": "{{count}} rows have a problem",
       "renameTitle": "Edit template"
     },
     "deleteConfirm": "Delete {{name}}? Plans already copied from it keep their lessons.",
