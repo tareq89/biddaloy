@@ -112,6 +112,7 @@ describe('PresetApplyService (integration)', () => {
       gradingBands: 3,
       examTemplates: 1,
       examTemplateComponents: 1,
+      printTemplates: 0, // the fixture pack lists no certificates
     });
     expect((await presetOf(a)).id).toBe('test/pack');
     expect(await rows(a)).toMatchObject({ classes: 3, years: 1, audits: 1 });
