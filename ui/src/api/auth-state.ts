@@ -7,6 +7,7 @@
  * back these setters with a real store without changing this module's
  * public surface.
  */
+import { clearFirstPasswordGate } from './first-password-gate';
 import { clearAllFormDrafts } from './form-draft-storage';
 import { clearFreshness } from './freshness';
 import { deleteOfflineDb, purgeTenantRefCache } from './offline-db';
@@ -123,6 +124,8 @@ export function clearAuthState(): void {
   // this, [8.9.5]'s cold-boot restore could silently pick a tenant the new
   // user happens to also belong to, one they never actually chose.
   clearPersistedTenant();
+  // [13.5.3]: same reason — the next account must not inherit a password gate.
+  clearFirstPasswordGate();
   // [8.12.1]: unconditional, unlike the switch above — logout and session
   // expiry both land here, and the next person at this browser must not
   // be able to read the previous session's data out of the offline cache.

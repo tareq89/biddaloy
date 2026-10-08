@@ -45,10 +45,37 @@ export {
   requestOtp,
   resetPassword,
   sessionsQueryOptions,
+  setFirstPassword,
   useRevokeSession,
   verifyOtp,
+  type OtpLoginResult,
   type SessionDto,
 } from './auth';
+export {
+  resendRegistrationCode,
+  startRegistration,
+  verifyRegistration,
+  type RegisterStartInput,
+  type RegisterStartResult,
+  type RegisterVerifyInput,
+  type RegisterVerifyResult,
+} from './registration';
+export {
+  onboardingKeys,
+  onboardingStatusQueryOptions,
+  useUpdateOnboarding,
+  type UpdateOnboardingInput,
+} from './onboarding';
+export {
+  identitiesQueryOptions,
+  socialKeys,
+  socialProvidersQueryOptions,
+  socialStartUrl,
+  useDisconnectIdentity,
+  useStartSocialLink,
+  type SocialIdentity,
+  type SocialProvider,
+} from './social';
 export { useAccessToken, useActiveRole, useActiveTenant, useCurrentUserId } from './auth-state';
 export {
   currentUserQueryOptions,
@@ -60,6 +87,8 @@ export {
   useCreateUser,
   useCurrentUser,
   useRemoveMember,
+  useLeaveSchool,
+  useRestoreMember,
   useRequestContactChange,
   useResendInvitation,
   useRevokeInvitation,
@@ -830,6 +859,11 @@ export {
 export {
   useValidateStudentUpload,
   useCommitStudentUpload,
+  useValidateStaffUpload,
+  useCommitStaffUpload,
+  type StaffImportResult,
+  type StaffImportValidateResult,
+  type StaffUploadSummary,
   type BulkUploadError,
   type BulkUploadResult,
   type StudentUploadPreviewRow,
@@ -1048,6 +1082,8 @@ export {
   schoolSettingsKeys,
   schoolSettingsQueryOptions,
   useSchools,
+  useExtendTrial,
+  type ExtendTrialInput,
   useSchoolSettings,
   useUpdateSchoolSettings,
   useTestSchoolConnection,

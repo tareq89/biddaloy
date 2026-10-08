@@ -304,6 +304,9 @@
     "summary_one": "জমা দেওয়া তথ্যে {{count}}টি সমস্যা আছে",
     "summary_other": "জমা দেওয়া তথ্যে {{count}}টি সমস্যা আছে"
   },
+  "stepIndicator": {
+    "done": "(সম্পন্ন)"
+  },
   "fileUpload": {
     "chooseFile": "ফাইল বাছুন",
     "chooseFiles": "ফাইল বাছুন",

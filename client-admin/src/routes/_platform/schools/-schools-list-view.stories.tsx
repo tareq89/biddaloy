@@ -26,6 +26,10 @@ const SCHOOLS: SchoolSummary[] = [
     slug: 'ananta-school',
     status: 'ACTIVE',
     created_at: '2026-01-15T00:00:00.000Z',
+    country_code: 'BD',
+    trial_ends_at: null,
+    seat_limit: null,
+    status_reason: null,
   },
   {
     id: '00000000-0000-4000-8000-000000000002',
@@ -33,6 +37,10 @@ const SCHOOLS: SchoolSummary[] = [
     slug: 'zenith-school',
     status: 'SUSPENDED',
     created_at: '2026-03-20T00:00:00.000Z',
+    country_code: 'BD',
+    trial_ends_at: null,
+    seat_limit: null,
+    status_reason: null,
   },
 ];
 

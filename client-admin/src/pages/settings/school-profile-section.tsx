@@ -107,11 +107,6 @@ export function SchoolProfileSection() {
 
   const profileQuery = useSchoolProfile();
   const updateProfile = useUpdateSchoolProfile();
-  const uploadLogo = useUploadSchoolLogo();
-  const removeLogo = useRemoveSchoolLogo();
-
-  const [logoError, setLogoError] = React.useState<string | null>(null);
-  const [confirmingRemove, setConfirmingRemove] = React.useState(false);
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
@@ -152,45 +147,6 @@ export function SchoolProfileSection() {
       },
     );
   }
-
-  // `FileUpload` already resets its own `<input>` after each pick, so the
-  // same file can be re-chosen after a failed upload.
-  function handleFilesSelected(files: File[]) {
-    const file = files[0];
-    if (!file) return;
-
-    setLogoError(null);
-    if (file.size > LOGO_MAX_BYTES) {
-      // Client-side pre-check of size only — the server is the authority
-      // on format/dimensions ([15.5.3]'s own contract), so this is purely
-      // a fast "don't even bother uploading" guard.
-      setLogoError(t('profile.logo.tooLarge'));
-      return;
-    }
-
-    uploadLogo.mutate(file, {
-      onError: () => setLogoError(t('profile.logo.uploadError')),
-    });
-  }
-
-  function handleRemove() {
-    setLogoError(null);
-    removeLogo.mutate(undefined, {
-      onSuccess: () => setConfirmingRemove(false),
-      // The dialog has no error slot: close it and say so under the logo row.
-      onError: () => {
-        setConfirmingRemove(false);
-        setLogoError(t('profile.logo.removeError'));
-      },
-    });
-  }
-
-  const logoObjectUrl = useAuthenticatedImageUrl(profileQuery.data?.logo_url);
-
-  // Upload and remove are mutually exclusive while either is in flight:
-  // both target the same logo, and letting them overlap would leave the
-  // final state up to whichever response lands last.
-  const logoBusy = uploadLogo.isPending || removeLogo.isPending;
 
   if (profileQuery.isError) {
     return (
@@ -262,61 +218,7 @@ export function SchoolProfileSection() {
           </>
         }
       >
-        <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-center md:gap-4">
-          {logoObjectUrl ? (
-            <img
-              src={logoObjectUrl}
-              alt={t('profile.logo.alt')}
-              className="size-16 rounded-md border border-border-subtle object-contain"
-            />
-          ) : (
-            <div
-              role="img"
-              aria-label={t('profile.logo.empty')}
-              className="size-16 rounded-md border border-border-subtle bg-muted"
-            />
-          )}
-          <div className="min-w-0">
-            <p className="font-medium">{t('profile.logo.legend')}</p>
-            <p className="text-caption text-text-secondary">{t('profile.logo.help')}</p>
-          </div>
-          <div className="flex flex-col gap-2 md:ms-auto md:flex-row">
-            {/* The shared `FileUpload` (sr-only native input + a real `Button`)
-                rather than a bare `<input type="file">`: the native control
-                fails the 320px reflow and 24x24 target-size gates (e2e/responsive/*).
-                `items` stays empty: the preview is the "selected file" state. */}
-            <FileUpload
-              items={[]}
-              onFilesSelected={handleFilesSelected}
-              accept={LOGO_ACCEPT}
-              multiple={false}
-              disabled={logoBusy}
-              aria-label={t('profile.logo.upload')}
-              chooseLabel={t('profile.logo.upload')}
-            />
-            {profileQuery.data?.logo_url && (
-              <Button
-                type="button"
-                variant="ghost"
-                disabled={logoBusy}
-                onClick={() => setConfirmingRemove(true)}
-                className="w-full md:w-auto"
-              >
-                {t('profile.logo.remove')}
-              </Button>
-            )}
-          </div>
-        </div>
-        {uploadLogo.isPending && (
-          <p role="status" className="mt-2 text-caption text-text-secondary">
-            {t('profile.logo.uploading')}
-          </p>
-        )}
-        {logoError && (
-          <p role="alert" className="mt-2 text-destructive">
-            {logoError}
-          </p>
-        )}
+        <SchoolLogoField logoUrl={profileQuery.data?.logo_url} />
 
         <div className="mt-4 grid gap-4 border-t border-border-subtle pt-4 md:grid-cols-2">
           {field('name', t('profile.name'))}
@@ -327,6 +229,118 @@ export function SchoolProfileSection() {
           {field('address', t('profile.address'), { wide: true })}
         </div>
       </SettingsSection>
+    </Form>
+  );
+}
+
+/**
+ * [13.5.4] The logo row (preview, upload, remove + confirm), exported so the guided
+ * onboarding setup shows the exact same control. Own state, own mutations.
+ */
+export function SchoolLogoField({ logoUrl }: { logoUrl: string | null | undefined }) {
+  const { t } = useTranslation('settings');
+  const uploadLogo = useUploadSchoolLogo();
+  const removeLogo = useRemoveSchoolLogo();
+  const [logoError, setLogoError] = React.useState<string | null>(null);
+  const [confirmingRemove, setConfirmingRemove] = React.useState(false);
+
+  // `FileUpload` already resets its own `<input>` after each pick, so the
+  // same file can be re-chosen after a failed upload.
+  function handleFilesSelected(files: File[]) {
+    const file = files[0];
+    if (!file) return;
+
+    setLogoError(null);
+    if (file.size > LOGO_MAX_BYTES) {
+      // Client-side pre-check of size only — the server is the authority
+      // on format/dimensions ([15.5.3]'s own contract), so this is purely
+      // a fast "don't even bother uploading" guard.
+      setLogoError(t('profile.logo.tooLarge'));
+      return;
+    }
+
+    uploadLogo.mutate(file, {
+      onError: () => setLogoError(t('profile.logo.uploadError')),
+    });
+  }
+
+  function handleRemove() {
+    setLogoError(null);
+    removeLogo.mutate(undefined, {
+      onSuccess: () => setConfirmingRemove(false),
+      // The dialog has no error slot: close it and say so under the logo row.
+      onError: () => {
+        setConfirmingRemove(false);
+        setLogoError(t('profile.logo.removeError'));
+      },
+    });
+  }
+
+  const logoObjectUrl = useAuthenticatedImageUrl(logoUrl);
+
+  // Upload and remove are mutually exclusive while either is in flight:
+  // both target the same logo, and letting them overlap would leave the
+  // final state up to whichever response lands last.
+  const logoBusy = uploadLogo.isPending || removeLogo.isPending;
+
+  return (
+    <>
+      <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-center md:gap-4">
+        {logoObjectUrl ? (
+          <img
+            src={logoObjectUrl}
+            alt={t('profile.logo.alt')}
+            className="size-16 rounded-md border border-border-subtle object-contain"
+          />
+        ) : (
+          <div
+            role="img"
+            aria-label={t('profile.logo.empty')}
+            className="size-16 rounded-md border border-border-subtle bg-muted"
+          />
+        )}
+        <div className="min-w-0">
+          <p className="font-medium">{t('profile.logo.legend')}</p>
+          <p className="text-caption text-text-secondary">{t('profile.logo.help')}</p>
+        </div>
+        <div className="flex flex-col gap-2 md:ms-auto md:flex-row">
+          {/* The shared `FileUpload` (sr-only native input + a real `Button`)
+                rather than a bare `<input type="file">`: the native control
+                fails the 320px reflow and 24x24 target-size gates (e2e/responsive/*).
+                `items` stays empty: the preview is the "selected file" state. */}
+          <FileUpload
+            items={[]}
+            onFilesSelected={handleFilesSelected}
+            accept={LOGO_ACCEPT}
+            multiple={false}
+            disabled={logoBusy}
+            aria-label={t('profile.logo.upload')}
+            chooseLabel={t('profile.logo.upload')}
+          />
+          {logoUrl && (
+            <Button
+              type="button"
+              variant="ghost"
+              disabled={logoBusy}
+              onClick={() => setConfirmingRemove(true)}
+              className="w-full md:w-auto"
+            >
+              {t('profile.logo.remove')}
+            </Button>
+          )}
+        </div>
+      </div>
+      {uploadLogo.isPending && (
+        <p role="status" className="mt-2 text-caption text-text-secondary">
+          {t('profile.logo.uploading')}
+        </p>
+      )}
+      {logoError && (
+        <p role="alert" className="mt-2 text-destructive">
+          {logoError}
+        </p>
+      )}
+
       <ConfirmDialog
         open={confirmingRemove}
         onOpenChange={setConfirmingRemove}
@@ -338,7 +352,7 @@ export function SchoolProfileSection() {
         busy={removeLogo.isPending}
         onConfirm={handleRemove}
       />
-    </Form>
+    </>
   );
 }
 

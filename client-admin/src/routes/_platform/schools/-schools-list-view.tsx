@@ -2,8 +2,10 @@ import { StatusBadge, type DataTableColumn } from '@biddaloy/ui/components';
 import type { SchoolSummary } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { ListShell } from '@biddaloy/ui/shells';
-import { formatDate } from '@biddaloy/ui/utils';
+import { formatDate, formatNumber } from '@biddaloy/ui/utils';
 import { PlusIcon } from 'lucide-react';
+
+import { trialDaysLeft } from './-detail/trial-card';
 
 /**
  * Presentational half of `index.tsx`'s list page — pulled out so it can be
@@ -17,6 +19,9 @@ export interface SchoolsListViewProps {
   error?: string;
   search: string;
   onSearchChange: (value: string) => void;
+  /** URL-backed trial filter (`?trial=`); absent = any school. */
+  trial?: 'active' | 'expired';
+  onTrialChange?: (value: 'active' | 'expired' | undefined) => void;
   onNew: () => void;
 }
 
@@ -27,6 +32,8 @@ export function SchoolsListView({
   error,
   search,
   onSearchChange,
+  trial,
+  onTrialChange,
   onNew,
 }: SchoolsListViewProps) {
   const { t } = useTranslation('platform');
@@ -55,6 +62,18 @@ export function SchoolsListView({
         />
       ),
       card: 'badge',
+    },
+    {
+      id: 'trial',
+      header: t('trial.column'),
+      accessorFn: (row) => {
+        if (!row.trial_ends_at) return null;
+        const days = trialDaysLeft(row.trial_ends_at);
+        return days > 0
+          ? t('trial.daysLeft', { count: days, days: formatNumber(days, config) })
+          : t('trial.ended');
+      },
+      card: 'subtitle',
     },
     {
       id: 'created_at',
@@ -110,9 +129,25 @@ export function SchoolsListView({
             placeholder: t('schools.searchPlaceholder'),
             primary: true,
           },
+          {
+            kind: 'select',
+            key: 'trial',
+            label: t('trial.filterLabel'),
+            allLabel: t('trial.filterAll'),
+            options: [
+              { value: 'active', label: t('trial.filterActive') },
+              { value: 'expired', label: t('trial.filterEnded') },
+            ],
+          },
         ],
-        values: { q: search },
-        onChange: (patch) => onSearchChange(patch.q ?? ''),
+        values: { q: search, ...(trial ? { trial } : {}) },
+        onChange: (patch) => {
+          if ('q' in patch) onSearchChange(patch.q ?? '');
+          if ('trial' in patch) {
+            const next = patch.trial;
+            onTrialChange?.(next === 'active' || next === 'expired' ? next : undefined);
+          }
+        },
       }}
       announceResults={(count, total) => t('schools.announceResults', { count: count, total })}
     />

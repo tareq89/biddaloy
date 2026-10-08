@@ -35,9 +35,12 @@ export interface FullPageShellAction {
 export interface FullPageShellProps {
   title: string;
   onClose: () => void;
+  /** Header close button text; defaults to "Close". */
+  closeLabel?: string;
   dirty?: boolean;
   size?: 'form' | 'wide';
-  primary: FullPageShellAction;
+  /** Omit (with `secondary`) when the content owns its own buttons — no footer renders. */
+  primary?: FullPageShellAction;
   secondary?: Pick<FullPageShellAction, 'label' | 'onClick' | 'disabled'>;
   children: React.ReactNode;
 }
@@ -45,6 +48,7 @@ export interface FullPageShellProps {
 export function FullPageShell({
   title,
   onClose,
+  closeLabel,
   dirty,
   size = 'form',
   primary,
@@ -85,44 +89,46 @@ export function FullPageShell({
                 onClick={requestClose}
               >
                 <XIcon aria-hidden="true" />
-                {t('actions.close')}
+                {closeLabel ?? t('actions.close')}
               </Button>
             </div>
           </header>
           <div className={cn('mx-auto w-full flex-1 space-y-6 px-4 py-4 md:px-6 md:py-6', width)}>
             {children}
           </div>
-          <footer className="sticky bottom-0 z-30 border-t border-border-subtle bg-surface">
-            <div
-              className={cn(
-                'mx-auto flex w-full items-center justify-between gap-2 px-4 py-3 md:px-6',
-                width,
-              )}
-            >
-              {secondary ? (
+          {primary && (
+            <footer className="sticky bottom-0 z-30 border-t border-border-subtle bg-surface">
+              <div
+                className={cn(
+                  'mx-auto flex w-full items-center justify-between gap-2 px-4 py-3 md:px-6',
+                  width,
+                )}
+              >
+                {secondary ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-11"
+                    disabled={secondary.disabled ?? false}
+                    onClick={secondary.onClick}
+                  >
+                    {secondary.label}
+                  </Button>
+                ) : (
+                  <span />
+                )}
                 <Button
                   type="button"
-                  variant="outline"
                   className="h-11"
-                  disabled={secondary.disabled ?? false}
-                  onClick={secondary.onClick}
+                  loading={primary.busy ?? false}
+                  disabled={primary.disabled ?? false}
+                  onClick={primary.onClick}
                 >
-                  {secondary.label}
+                  {primary.label}
                 </Button>
-              ) : (
-                <span />
-              )}
-              <Button
-                type="button"
-                className="h-11"
-                loading={primary.busy ?? false}
-                disabled={primary.disabled ?? false}
-                onClick={primary.onClick}
-              >
-                {primary.label}
-              </Button>
-            </div>
-          </footer>
+              </div>
+            </footer>
+          )}
           <ConfirmDialog
             open={confirming}
             onOpenChange={setConfirming}

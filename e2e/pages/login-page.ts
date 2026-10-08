@@ -26,14 +26,14 @@ export class LoginPage {
   }
 
   /**
-   * 12.5's passwordless flow: click the "With a phone code" tab, submit the
+   * 12.5's passwordless flow: click the code tab, submit the
    * phone number, wait for `POST /auth/otp/request`'s response (D6's echo
    * flag puts the real code in `debug.otp` — nothing in the UI reads it,
    * this is purely a test hook), then fill and submit that code.
    */
   async loginWithOtp(phone: string): Promise<void> {
     await this.page.getByRole('tab', { name: t('auth.tabs.otp') }).click();
-    await this.page.getByLabel(t('auth.otp.phoneLabel')).fill(phone);
+    await this.page.getByLabel(t('auth.otp.identifierLabel')).fill(phone);
 
     const [response] = await Promise.all([
       this.page.waitForResponse((res) => res.url().includes('/auth/otp/request')),

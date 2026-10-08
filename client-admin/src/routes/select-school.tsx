@@ -1,8 +1,9 @@
 import type { UserRole } from '@biddaloy/shared';
-import { decodeAccessTokenMemberships, getAccessToken } from '@biddaloy/ui/api';
-import { AuthLayout, Button, SchoolPicker } from '@biddaloy/ui/components';
+import { decodeAccessTokenMemberships, getAccessToken, postAuthLogout } from '@biddaloy/ui/api';
+import { AuthLayout, Button, EmptyState, SchoolPicker } from '@biddaloy/ui/components';
 import { logout, switchActiveTenant } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
+import { isSafeSupportUrl } from '@biddaloy/ui/utils';
 import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import * as React from 'react';
@@ -60,10 +61,9 @@ function SelectSchoolPage() {
   // e.g. a user removed from every school since their token was issued.
   React.useEffect(() => {
     if (memberships.length === 0) {
-      // A memberless account has nowhere useful to go — revoke the
-      // session server-side too, the same reasoning `login()`'s own
-      // zero-memberships branch documents.
-      void logout(queryClient).finally(() => void navigate({ to: '/login' }));
+      // The empty state below stays up, but the refresh cookie is revoked now: on a
+      // shared office PC people close the tab rather than press "Sign out".
+      void postAuthLogout('/auth/logout').catch(() => {});
     } else if (memberships.length === 1) {
       const [only] = memberships;
       if (only) {
@@ -84,6 +84,25 @@ function SelectSchoolPage() {
 
   function handleSignOut(): void {
     void logout(queryClient).finally(() => void navigate({ to: '/login' }));
+  }
+
+  if (memberships.length === 0) {
+    const supportUrl = import.meta.env.VITE_SUPPORT_URL;
+    return (
+      <AuthLayout>
+        <EmptyState
+          headingLevel={1}
+          title={t('selectSchool.none.title')}
+          explanation={t('selectSchool.none.body')}
+          action={{ label: t('selectSchool.none.signOut'), onClick: handleSignOut }}
+        />
+        {isSafeSupportUrl(supportUrl) && (
+          <Button asChild variant="ghost" className="mt-2 w-full text-primary">
+            <a href={supportUrl}>{t('selectSchool.none.contact')}</a>
+          </Button>
+        )}
+      </AuthLayout>
+    );
   }
 
   if (memberships.length < 2) return null; // the effect above is already navigating away

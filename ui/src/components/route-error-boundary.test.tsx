@@ -60,6 +60,28 @@ function SuspendedTenantPage(): React.ReactNode {
   });
 }
 
+/** [13.5]: the same 403, with the reason the server adds when the trial ran out. */
+function TrialEndedPage(): React.ReactNode {
+  throw Object.assign(new Error('This school has been suspended'), {
+    statusCode: 403,
+    details: { code: 'TENANT_SUSPENDED', reason: 'TRIAL_EXPIRED' },
+  });
+}
+
+/** `decodeAccessTokenMemberships` never checks a signature. */
+function fakeJwtWithSchools(count: number): string {
+  const memberships = Array.from({ length: count }, (_, i) => ({
+    tenantId: `tenant-${i}`,
+    role: 'ADMIN',
+    name: `School ${i}`,
+  }));
+  const payload = btoa(JSON.stringify({ memberships }))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+  return `header.${payload}.signature`;
+}
+
 /** jsdom reports `navigator.onLine === true`; this flips it for the
  * duration of a test. Returns the restore function. */
 function goOffline(): () => void {
@@ -193,6 +215,73 @@ describe('RouteErrorFallback', () => {
     expect(screen.queryByRole('alert')).toBeNull();
     expect(captureRouteError).not.toHaveBeenCalled();
     expect(recordRouteChunkFallback).toHaveBeenCalledWith('suspended');
+  });
+
+  it('renders the trial-ended state, not the plain suspended one, for TRIAL_EXPIRED', async () => {
+    renderWithRouter(
+      buildRouteTree(TrialEndedPage, (props) => (
+        <RouteErrorFallback {...props} supportUrl="https://example.com/help" />
+      )),
+      { initialEntries: ['/broken'] },
+    );
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Your trial has ended' }),
+    ).toBeTruthy();
+    expect(screen.queryByText(/this school has been suspended/i)).toBeNull();
+    expect(screen.getByRole('link', { name: 'Contact us' }).getAttribute('href')).toBe(
+      'https://example.com/help',
+    );
+    expect(screen.queryByRole('button', { name: 'Choose another school' })).toBeNull();
+    expect(captureRouteError).not.toHaveBeenCalled();
+  });
+
+  it('drops a support link that is not https: or mailto:', async () => {
+    renderWithRouter(
+      buildRouteTree(TrialEndedPage, (props) => (
+        <RouteErrorFallback {...props} supportUrl="javascript:alert(1)" />
+      )),
+      { initialEntries: ['/broken'] },
+    );
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Your trial has ended' }),
+    ).toBeTruthy();
+    expect(screen.queryByRole('link', { name: 'Contact us' })).toBeNull();
+  });
+
+  it('offers "Choose another school" on the trial-ended state only with 2+ schools', async () => {
+    renderWithRouter(buildRouteTree(TrialEndedPage), {
+      initialEntries: ['/broken'],
+      accessToken: fakeJwtWithSchools(2),
+    });
+
+    expect(await screen.findByRole('button', { name: 'Choose another school' })).toBeTruthy();
+    expect(screen.queryByRole('link', { name: 'Contact us' })).toBeNull();
+  });
+
+  it('does not offer "Choose another school" for two roles at the expired school only', async () => {
+    const payload = btoa(
+      JSON.stringify({
+        memberships: [
+          { tenantId: 'tenant-0', role: 'ADMIN', name: 'School 0' },
+          { tenantId: 'tenant-0', role: 'TEACHER', name: 'School 0' },
+        ],
+      }),
+    )
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '');
+    renderWithRouter(buildRouteTree(TrialEndedPage), {
+      initialEntries: ['/broken'],
+      accessToken: `header.${payload}.signature`,
+      tenantId: 'tenant-0',
+    });
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Your trial has ended' }),
+    ).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Choose another school' })).toBeNull();
   });
 
   it('still reports a genuine crash that happens to occur while offline', async () => {

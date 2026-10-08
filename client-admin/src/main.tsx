@@ -8,16 +8,17 @@ import {
   updateSentryRouteTag,
   updateSentryTenantTag,
 } from '@biddaloy/ui/api';
-import { RouteErrorFallback, RoutePending, Toaster } from '@biddaloy/ui/components';
+import { RoutePending, Toaster } from '@biddaloy/ui/components';
 import { I18nProvider, useTranslation } from '@biddaloy/ui/i18n';
 import { enableMocking } from '@biddaloy/ui/mocks';
 import { installPromptListen } from '@biddaloy/ui/pwa';
 import { QueryClientProvider } from '@tanstack/react-query';
-import { createRouter, RouterProvider, type ErrorComponentProps } from '@tanstack/react-router';
+import { createRouter, RouterProvider } from '@tanstack/react-router';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 
-import { registerServiceWorker, reloadForUpdate } from './pwa/register';
+import { registerServiceWorker } from './pwa/register';
+import { RouteErrorFallbackWithUpdate } from './route-error-fallback';
 import { routeTree } from './routeTree.gen';
 import './index.css';
 
@@ -35,48 +36,12 @@ installPromptListen();
 // each one is set the way it is.
 const queryClient = createAppQueryClient();
 
-// [8.12.2]: the boundary's "this page is from an older version" fork
-// reloads through the service-worker-aware `reloadForUpdate` (it lets a
-// waiting worker activate first) instead of `ui`'s app-agnostic plain
-// `location.reload()` default. A named wrapper rather than an inline
-// arrow so the component identity is stable across renders.
-function RouteErrorFallbackWithUpdate(props: ErrorComponentProps) {
-  // [8.12.6]: the copy is passed translated. `@biddaloy/ui` stays
-  // translation-agnostic and defaults its strings to English, which meant
-  // this Bangla-default app rendered "You're offline" in English on the
-  // one screen a user sees precisely when nothing else is working.
-  //
-  // [8.14.5]: `useTranslation('common')`, not the bare `useTranslation()`
-  // this used to be — behaviourally identical (`common` is `i18n.ts`'s own
-  // `defaultNS`), but `check-i18n-keys.mjs` resolves a file's default
-  // namespace from the *first* `useTranslation(...)` call with a quoted
-  // string argument; a bare call doesn't match that pattern at all, so it
-  // was silently skipped in favour of `RoutePendingFallback`'s
-  // `useTranslation('nav')` further down, misattributing every key below
-  // to the wrong namespace.
-  const { t } = useTranslation('common');
-  return (
-    <RouteErrorFallback
-      {...props}
-      onReloadForUpdate={reloadForUpdate}
-      offlineTitle={t('offline.pageTitle')}
-      offlineMessage={t('offline.pageExplanation')}
-      updateTitle={t('update.pageTitle')}
-      updateMessage={t('update.pageExplanation')}
-      updateRetryLabel={t('update.reload')}
-      suspendedTitle={t('suspended.pageTitle')}
-      suspendedMessage={t('suspended.pageExplanation')}
-      retryLabel={t('offline.retry')}
-    />
-  );
-}
-
 // [8.14.5]: router-wide `defaultPendingComponent` — before this, a route
 // with no loader (or a loader still in flight past `defaultPendingMs`)
 // rendered `null` inside `<main>` while pending, which is the "blank
 // content area" flash this ticket exists to kill. A named component, not
 // an inline arrow, for the same stable-identity reason
-// `RouteErrorFallbackWithUpdate` above already documents. `variant="form"`
+// `RouteErrorFallbackWithUpdate` (`route-error-fallback.tsx`) already documents. `variant="form"`
 // is the generic middle ground: it doesn't visually promise a table
 // (`list`) or a single record's fields (`detail`) when the router doesn't
 // know which route it's covering for — routes with a more specific shape

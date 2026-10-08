@@ -37,6 +37,10 @@ RUN yarn install --frozen-lockfile --production --network-timeout 600000
 FROM base AS builder
 COPY --from=deps /app ./
 COPY . .
+# Public Turnstile site key for the sign-up captcha; Vite inlines it at build time.
+ARG VITE_TURNSTILE_SITE_KEY
+# "Contact us" link on the trial-ended screen (same value as SUPPORT_CONTACT_URL).
+ARG VITE_SUPPORT_URL
 RUN yarn build:shared && yarn build:server && yarn build:client-admin
 
 # ---- Runner (production) ----

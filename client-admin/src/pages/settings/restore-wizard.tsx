@@ -208,7 +208,7 @@ interface TabDiffTotals {
 /** Single pass over the per-tab diff, shared by `canCommit`'s "is there
  * anything to do" gate, the confirm slot's delete-count warning, and the
  * totals row in `RestoreDiffSummary`. */
-function sumTabDiffs(tabs: TabSummaryDto[]): TabDiffTotals {
+export function sumTabDiffs(tabs: TabSummaryDto[]): TabDiffTotals {
   return tabs.reduce(
     (acc, tab) => ({
       creates: acc.creates + tab.creates,
@@ -220,7 +220,7 @@ function sumTabDiffs(tabs: TabSummaryDto[]): TabDiffTotals {
   );
 }
 
-function tabLabel(t: ReturnType<typeof useTranslation<'backup'>>['t'], tab: string): string {
+export function tabLabel(t: ReturnType<typeof useTranslation<'backup'>>['t'], tab: string): string {
   return t(`diffTabName.${tab}`, { defaultValue: tab });
 }
 
