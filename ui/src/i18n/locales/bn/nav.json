@@ -106,7 +106,9 @@
     "portalSurveys": "জরিপ",
     "surveyDetail": "জরিপ",
     "myClassSection": "শাখা",
-    "printDocument": "প্রিন্ট"
+    "printDocument": "প্রিন্ট",
+    "studyPlans": "পাঠ পরিকল্পনা",
+    "studyPlanDetail": "পাঠ পরিকল্পনা"
   },
   "groups": {
     "people": "ব্যক্তিবর্গ",
