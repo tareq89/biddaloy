@@ -138,6 +138,9 @@ function validAction(overrides: Partial<PaletteAction> = {}): PaletteAction {
  * failure message — mirrors `route-permissions.test.ts`'s style. */
 function isShapeValid(action: PaletteAction): boolean {
   if (!PERMISSION_VALUES.has(action.permission)) return false;
+  if (action.alsoRequires && !action.alsoRequires.every((p) => PERMISSION_VALUES.has(p))) {
+    return false;
+  }
   if (action.label.en.length === 0 || action.label.bn.length === 0) return false;
   if (!VALID_KINDS.has(action.kind)) return false;
   if (action.context && !action.context.every((entity) => VALID_CONTEXTS.has(entity))) {
@@ -160,6 +163,7 @@ describe('action-registry.ts', () => {
     '%s: permission is a real Permission enum member',
     (_id, action) => {
       expect(PERMISSION_VALUES.has(action.permission)).toBe(true);
+      for (const p of action.alsoRequires ?? []) expect(PERMISSION_VALUES.has(p)).toBe(true);
     },
   );
 
@@ -314,6 +318,11 @@ describe('action-registry.ts', () => {
       });
       return to;
     };
+    it('exams.printAdmitCards also needs DOCUMENT_PRINT', () => {
+      const action = ACTIONS.find((a) => a.id === 'exams.printAdmitCards');
+      expect(action?.alsoRequires).toContain(Permission.DOCUMENT_PRINT);
+    });
+
     it('exams.printAdmitCards opens that exam’s Print tab', () => {
       expect(target('exams.printAdmitCards', { examId: 'e1' })).toBe('/exams/e1?tab=print');
       expect(target('exams.printAdmitCards')).toBe('/exams');

@@ -258,7 +258,11 @@ export function CommandPaletteLauncher({
   const actionResults = React.useMemo(() => {
     if (trimmedQuery === '') return [];
     const locale = i18n.language.startsWith('bn') ? 'bn' : 'en';
-    return ACTIONS.filter((action) => hasPermission(activeRole, action.permission))
+    return ACTIONS.filter(
+      (action) =>
+        hasPermission(activeRole, action.permission) &&
+        (action.alsoRequires ?? []).every((p) => hasPermission(activeRole, p)),
+    )
       .filter(
         // `context: []` means "needs no entity" (ACR / incident actions), same as omitted.
         (action) =>
