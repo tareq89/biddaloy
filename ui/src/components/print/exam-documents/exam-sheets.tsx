@@ -58,6 +58,8 @@ export interface ExamRoutineNoticeProps {
 const th = 'border-b border-foreground px-1 py-1 text-start font-semibold';
 const td = 'border-b border-border-subtle px-1 py-0.5';
 const blank = `${td} border-s border-border-subtle`;
+/** Row header: reads like a cell on paper, announced as the row's name by a screen reader. */
+const rowTh = `${td} text-start font-normal`;
 
 export function BlankMarksSheet({
   issuer,
@@ -70,17 +72,22 @@ export function BlankMarksSheet({
 }: BlankMarksSheetProps) {
   const config = useRegionConfig();
   const num = (n: number | null) => formatNumber(n, config);
+  // Pages are numbered within each subject's pile (1, 2, … per class + subject).
+  const seen = new Map<string, number>();
   return (
     <>
       {pages.map((p, i) => {
         const where = [p.className, p.section, p.subject].join(' · ');
+        const pile = `${p.className}\u0000${p.subject}`;
+        const n = (seen.get(pile) ?? 0) + 1;
+        seen.set(pile, n);
         return (
           <A4Document
             key={`${p.className}-${p.section}-${p.subject}-${i}`}
             issuer={issuer}
             logoUrl={logoUrl ?? null}
             {...(activeLanguage !== undefined ? { activeLanguage } : {})}
-            title={`${examName} - ${p.subject} - ${p.section} (${i + 1})`}
+            title={`${examName} - ${p.subject} - ${p.section} (${num(n)})`}
             subtitle={where}
             signatures={[labels.teacher]}
             printedOn={printedOn}
@@ -113,7 +120,9 @@ export function BlankMarksSheet({
                 {p.students.map((s, r) => (
                   <tr key={`${s.roll}-${r}`} className="h-[9mm] print:break-inside-avoid">
                     <td className={td}>{num(s.roll)}</td>
-                    <td className={td}>{s.name}</td>
+                    <th scope="row" className={rowTh}>
+                      {s.name}
+                    </th>
                     {p.components.map((c, ci) => (
                       <td key={`${ci}-${c.name}`} className={blank} />
                     ))}
@@ -149,7 +158,6 @@ export function ExamRoutineNotice({
       signatures={[labels.headTeacher]}
       printedOn={printedOn}
     >
-      <p className="text-center font-bold print:text-print-title">{labels.title}</p>
       <table className="w-full border-collapse">
         <caption className="sr-only">
           {labels.title} - {className}
