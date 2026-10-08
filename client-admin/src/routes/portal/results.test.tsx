@@ -255,7 +255,7 @@ describe('/portal/results', () => {
       await userEvent.click(await screen.findByRole('button', { name: 'Print First Term Exam' }));
       await waitFor(() =>
         expect(toastSpy).toHaveBeenCalledWith(
-          'Could not load this report card to print. Try again.',
+          'Could not record this print, so it was not printed. Try again.',
         ),
       );
       expect(printSpy).not.toHaveBeenCalled();
