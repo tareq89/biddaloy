@@ -557,3 +557,24 @@ and error detail before logging (`common/redact-log.util.ts`) — verified
 against a _failing_ request, not just a successful one, since the leak is
 usually in an error log written under debugging pressure. Request bodies
 (the login path carries a plaintext password) are never logged at all.
+
+## Accepted dependency risks (Epic 51.0)
+
+`yarn audit` (this is a Yarn 1 repo, so `npm audit` does not work) still
+reports three advisories after Epic 51.0. We looked at each one and chose not
+to force a version. If `yarn audit` shows anything else, it is new: fix it.
+
+```mermaid
+flowchart LR
+  lhci["@lhci/cli (dev/CI only)"] --> lh[lighthouse] --> pp["puppeteer-core"] --> ez["extract-zip 2.0.1<br/>no patched version"]
+  server["@biddaloy/server"] --> xl["exceljs 4.4.0"] --> uuid["uuid 8.3.2<br/>only v4 is called"]
+```
+
+| Advisory | Package | Why we accept it | Revisit when |
+|---|---|---|---|
+| GHSA-7pqw-9j4j-h8q3 | `extract-zip` 2.0.1 (arbitrary file write via symlink entries) | No patched version exists. Dev/CI only: puppeteer unzips the Chrome build it downloads from Google's CDN, a trusted vendor archive, never user input. | puppeteer drops `extract-zip`, or a patched release appears |
+| GHSA-jmr9-qjv8-65gv | `extract-zip` 2.0.1 (symlink path traversal) | Same as above. | Same as above |
+| GHSA-w5hq-g745-h8pq | `uuid` 8.3.2 via `exceljs` (missing buffer bounds check in v3/v5/v6 when a `buf` argument is passed) | `exceljs` only does `const {v4: uuidv4} = require('uuid')` (`node_modules/exceljs/lib/xlsx/xform/sheet/cf-ext/cf-rule-ext-xform.js:1`): v4, no buffer, so the vulnerable path is never called. Forcing uuid 11 on it is a 3-major jump for code we do not use. | `exceljs` bumps `uuid`, or we replace `exceljs` |
+
+Re-check the `uuid` claim after any `exceljs` upgrade:
+`rg -n "require\(['\"]uuid" node_modules/exceljs/lib` must show only `v4`.
