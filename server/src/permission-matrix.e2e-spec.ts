@@ -745,6 +745,9 @@ export const UI_ONLY_PERMISSIONS: Permission[] = [
   Permission.INVOICE_PRINT,
   Permission.ATTENDANCE_CORRECT,
   Permission.FEE_COLLECT,
+  // [48.1.01] Plumbing landed ahead of the certificate-issue routes (later
+  // Epic 48 waves), which will gate on it and drop it from this list.
+  Permission.CERTIFICATE_ISSUE,
   // [16.2.1] Plumbing landed ahead of the routes that will require them:
   // PAYMENT_REVERSE now gates `POST /payments/:id/reverse` (16.6.1) and
   // REPORT_COLLECTIONS_READ now gates `GET /reports/collections` and

@@ -328,9 +328,9 @@ if should_run "frontend"; then
     FRONTEND_EXTRA_ARGS=(--changed origin/main)
   fi
   if [ "$COVERAGE" = 1 ]; then
-    yarn test:frontend:coverage "${FRONTEND_EXTRA_ARGS[@]}"
+    yarn test:frontend:coverage ${FRONTEND_EXTRA_ARGS[@]+"${FRONTEND_EXTRA_ARGS[@]}"}
   else
-    yarn test:frontend --run "${FRONTEND_EXTRA_ARGS[@]}"
+    yarn test:frontend --run ${FRONTEND_EXTRA_ARGS[@]+"${FRONTEND_EXTRA_ARGS[@]}"}
   fi
   section_done "frontend"
 fi
