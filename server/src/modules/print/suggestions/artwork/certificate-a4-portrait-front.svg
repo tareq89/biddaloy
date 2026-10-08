@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="210mm" height="297mm" viewBox="0 0 210 297">
+<title>Certificate A4 portrait front</title>
+<desc>Background artwork only. Fields are placed by the print template.</desc>
+<rect width="210" height="297" fill="#FBFDFE"/><rect x="5" y="5" width="200" height="287" fill="none" stroke="#0B3A6B" stroke-width="1.2"/><rect x="9" y="9" width="192" height="279" fill="none" stroke="#C9A227" stroke-width="0.4"/><circle cx="9" cy="9" r="4" fill="#0B3A6B"/><circle cx="9" cy="9" r="2" fill="#C9A227"/><circle cx="201" cy="9" r="4" fill="#0B3A6B"/><circle cx="201" cy="9" r="2" fill="#C9A227"/><circle cx="9" cy="288" r="4" fill="#0B3A6B"/><circle cx="9" cy="288" r="2" fill="#C9A227"/><circle cx="201" cy="288" r="4" fill="#0B3A6B"/><circle cx="201" cy="288" r="2" fill="#C9A227"/>
+</svg>
