@@ -497,6 +497,7 @@
       "DOCUMENT_PRINT": "Print documents",
       "PRINT_HISTORY_READ": "View print history",
       "DOCUMENT_REVOKE": "Revoke documents",
+      "CERTIFICATE_ISSUE": "Issue student certificates",
       "AUDIT_LOG_READ": "View audit log",
       "AUDIT_ENTITY_HISTORY_READ": "View activity history",
       "SETTINGS_MANAGE": "Manage settings",
