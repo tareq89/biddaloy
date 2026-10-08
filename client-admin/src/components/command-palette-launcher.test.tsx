@@ -231,4 +231,66 @@ describe('CommandPaletteLauncher', () => {
     await new Promise((resolve) => setTimeout(resolve, 400));
     expect(searchCalls).toBe(0);
   });
+
+  describe('[48.3.15] Epic 48 actions use the route ids', () => {
+    async function openActions(entry: string, role: string, query: string) {
+      const view = renderWithRouter(routeTree, {
+        initialEntries: [entry],
+        tenantId: 'tenant-1',
+        role,
+        locale: 'en',
+      });
+      const user = userEvent.setup();
+      await user.click((await screen.findAllByRole('button', { name: 'Search (Ctrl+K)' }))[0]!);
+      await user.type(screen.getByRole('combobox', { name: 'Search' }), query);
+      return { ...view, user };
+    }
+
+    it('on an exam page an EXAM_CONTROLLER lands on that exam’s Print tab', async () => {
+      const { user, router } = await openActions('/exams/e-1', 'EXAM_CONTROLLER', '>admit');
+      await user.click(await screen.findByRole('option', { name: 'Print admit cards' }));
+      await waitFor(() => expect(router.state.location.pathname).toBe('/exams/e-1'));
+      expect(router.state.location.search).toMatchObject({ tab: 'print' });
+    });
+
+    it('on a student page an OFFICE_STAFF opens the issue modal (issue=pick)', async () => {
+      const { user, router } = await openActions('/students/s-1', 'OFFICE_STAFF', '>issue');
+      await user.click(await screen.findByRole('option', { name: 'Issue certificate' }));
+      await waitFor(() =>
+        expect(router.state.location.search).toMatchObject({ tab: 'documents', issue: 'pick' }),
+      );
+    });
+
+    const absent = (name: string) => expect(screen.queryByRole('option', { name })).toBeNull();
+
+    it('a role without CERTIFICATE_ISSUE sees Certificate register but not Issue certificate', async () => {
+      await openActions('/students/s-1', 'EXAM_CONTROLLER', '>certificate');
+      expect(await screen.findByRole('option', { name: 'Certificate register' })).toBeTruthy();
+      absent('Issue certificate');
+    });
+
+    it('Issue certificate is absent on a page with no student', async () => {
+      await openActions('/students', 'OFFICE_STAFF', '>certificate');
+      expect(await screen.findByRole('option', { name: 'Certificate register' })).toBeTruthy();
+      absent('Issue certificate');
+    });
+
+    it('Print admit cards is absent without EXAM_MANAGE', async () => {
+      await openActions('/exams/e-1', 'OFFICE_STAFF', '>print');
+      expect(await screen.findByRole('option', { name: 'Print student ID card' })).toBeTruthy();
+      absent('Print admit cards');
+    });
+
+    it('Print admit cards is absent off an exam page', async () => {
+      await openActions('/students', 'EXAM_CONTROLLER', '>print');
+      expect(await screen.findByRole('option', { name: 'Print student ID card' })).toBeTruthy();
+      absent('Print admit cards');
+    });
+
+    it('a PRINT_HISTORY_READ-only role does not see To print', async () => {
+      await openActions('/students', 'EXECUTIVE', '>print');
+      expect(await screen.findByRole('option', { name: 'Print history' })).toBeTruthy();
+      absent('To print');
+    });
+  });
 });
