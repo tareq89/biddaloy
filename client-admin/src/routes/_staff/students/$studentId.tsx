@@ -190,17 +190,27 @@ function StudentDetailPage() {
   const canPrint = useHasPermission(Permission.DOCUMENT_PRINT);
   const canIssueCertificate = useHasPermission(Permission.CERTIFICATE_ISSUE);
   const canReadRegister = useHasPermission(Permission.PRINT_HISTORY_READ);
-  // Not `useCloseFullPage`: every wizard step is its own history entry, so "history back" would
-  // only step back one step instead of closing (Close and Esc must close from any step).
+  // Not `useCloseFullPage` ("history back"): the wizard may have been opened by a link, so Close
+  // drops `?issue`/`?step` in place. The wizard replaces its step changes, so Back stays closed.
+  const issueFocusPending = React.useRef(false);
   const closeIssue = React.useCallback(() => {
+    issueFocusPending.current = true;
     void navigateSearch({
       search: (p) => ({ ...p, issue: undefined, step: undefined }),
       replace: true,
     });
-    // The modal is unmounted, not closed in place, so give focus back to the button that opened it.
-    // After the dialog's own focus restore (which runs on a 0ms timer and would land on <body>).
-    window.setTimeout(() => document.getElementById(ISSUE_TRIGGER_ID)?.focus(), 50);
   }, [navigateSearch]);
+  // The modal is unmounted, not closed in place, so give focus back to the button that opened it
+  // once `?issue` is gone — a frame later, after the dialog's own focus restore (a 0ms timer that
+  // would land on <body>).
+  React.useEffect(() => {
+    if (search.issue !== undefined || !issueFocusPending.current) return;
+    issueFocusPending.current = false;
+    const frame = window.requestAnimationFrame(() =>
+      document.getElementById(ISSUE_TRIGGER_ID)?.focus(),
+    );
+    return () => window.cancelAnimationFrame(frame);
+  }, [search.issue]);
   // `?leave=1` opens the Leave dialog once (only for someone who may record leaving), then the
   // param goes away.
   React.useEffect(() => {
