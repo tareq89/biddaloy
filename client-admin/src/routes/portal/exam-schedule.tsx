@@ -333,9 +333,8 @@ function ExamTableCard({
   timeLabel: (row: StudentExamScheduleRow) => string;
   subjectLabel: (row: StudentExamScheduleRow) => string;
 }) {
-  const { t } = useTranslation('portal');
+  const { t, i18n } = useTranslation('portal');
   const { t: tCommon } = useTranslation('common');
-  const { t: tPortal, i18n } = useTranslation('portal');
   const [busy, setBusy] = React.useState(false);
   const first = group.rows[0]!;
   const last = group.rows[group.rows.length - 1]!;
@@ -368,9 +367,9 @@ function ExamTableCard({
         } else if (error instanceof ApiError && error.statusCode === 404) {
           setCardState(examId, 'not-ready');
         } else if (error.message === 'POPUP_BLOCKED') {
-          toast.error(tPortal('examSchedule.admitCard.popupBlocked'));
+          toast.error(t('examSchedule.admitCard.popupBlocked'));
         } else {
-          toast.error(tPortal('examSchedule.admitCard.error'));
+          toast.error(t('examSchedule.admitCard.error'));
         }
       },
     }).finally(() => setBusy(false));
@@ -422,7 +421,11 @@ function ExamTableCard({
       </div>
       {upcoming &&
         (cardState === 'withheld' ? (
-          <WithheldPanel student={student} config={config} />
+          <WithheldPanel
+            student={student}
+            config={config}
+            onRetry={() => setCardState(examId, 'ready')}
+          />
         ) : (
           <AdmitCardPanel
             state={cardState}
@@ -448,7 +451,15 @@ function ExamTableCard({
 }
 
 /** Reads the dues and office phone only once the card is actually withheld. */
-function WithheldPanel({ student, config }: { student: Student; config: RegionConfig }) {
+function WithheldPanel({
+  student,
+  config,
+  onRetry,
+}: {
+  student: Student;
+  config: RegionConfig;
+  onRetry: () => void;
+}) {
   const dues = useFeeDues({ limit: 50 });
   const profile = useSchoolProfile();
   const row = dues.data?.data.find((d) => d.student_id === student.id);
@@ -460,6 +471,7 @@ function WithheldPanel({ student, config }: { student: Student; config: RegionCo
       feesHref={`/portal/fees?student=${student.id}`}
       amount={row ? formatServerAmount(row.total_due, config) : undefined}
       officePhone={profile.data?.phone}
+      onRetry={onRetry}
     />
   );
 }

@@ -1,6 +1,6 @@
 import { Button } from '@biddaloy/ui/components';
 import { useTranslation } from '@biddaloy/ui/i18n';
-import { CreditCardIcon, PhoneIcon, PrinterIcon } from 'lucide-react';
+import { CreditCardIcon, PhoneIcon, PrinterIcon, RotateCwIcon } from 'lucide-react';
 
 export type AdmitCardState = 'ready' | 'withheld' | 'not-ready';
 
@@ -13,6 +13,8 @@ export interface AdmitCardPanelProps {
   /** Already formatted with the region's numerals and currency; absent while dues load or fail. */
   amount?: string | undefined;
   officePhone?: string | null | undefined;
+  /** Withheld only: back to the ready state, e.g. once the dues are paid. */
+  onRetry?: () => void;
 }
 
 export function AdmitCardPanel({
@@ -23,6 +25,7 @@ export function AdmitCardPanel({
   feesHref,
   amount,
   officePhone,
+  onRetry,
 }: AdmitCardPanelProps) {
   const { t } = useTranslation('portal');
 
@@ -59,6 +62,12 @@ export function AdmitCardPanel({
                 <PhoneIcon aria-hidden="true" />
                 {t('examSchedule.admitCard.callOffice', { phone: officePhone })}
               </a>
+            </Button>
+          )}
+          {onRetry && (
+            <Button variant="outline" onClick={onRetry} className="min-h-11 w-full md:w-auto">
+              <RotateCwIcon aria-hidden="true" />
+              {t('examSchedule.admitCard.tryAgain')}
             </Button>
           )}
         </div>
