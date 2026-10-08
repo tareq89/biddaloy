@@ -1,0 +1,82 @@
+{
+  "issue": {
+    "title": "Issue {{kind}}",
+    "titleNoKind": "Issue a certificate"
+  },
+  "steps": {
+    "label": "Steps",
+    "kind": "Kind",
+    "details": "Details",
+    "preview": "Preview",
+    "print": "Print",
+    "counter": "Step {{n}} / {{total}}"
+  },
+  "kind": {
+    "label": "Which certificate?",
+    "noLeaving": "Record a transfer or withdrawal first.",
+    "recordLeaving": "Record leaving",
+    "notCurrent": "Only for current students.",
+    "notCurrentOrGraduated": "Only for current or graduated students.",
+    "noTemplate": "No published template yet."
+  },
+  "language": {
+    "title": "Certificate language",
+    "help": "The whole certificate prints in one language.",
+    "default": "School default"
+  },
+  "fields": {
+    "title": "Details for this certificate",
+    "help": "These go on this certificate only; they are not saved to the student's profile.",
+    "required": "{{field}} is required",
+    "tooLong": "At most {{max}} characters",
+    "count": "{{n}} / {{max}}",
+    "none": "This template asks for nothing extra."
+  },
+  "profile": {
+    "title": "From the profile",
+    "wrong": "Something wrong?",
+    "fix": "Fix it in the student's profile",
+    "thenBack": ", then come back."
+  },
+  "serial": {
+    "title": "Serial number",
+    "next": "Next",
+    "help": "The number belongs to this certificate once you confirm the print. Closing before that uses no number.",
+    "issuedThisYear_other": "{{count}} issued in {{year}} so far",
+    "issuedThisYear_one": "{{count}} issued in {{year}} so far",
+    "openRegister": "Open the register"
+  },
+  "bulk": {
+    "title": "The whole class at once?",
+    "help": "Everyone gets the same details, with consecutive serial numbers.",
+    "action": "For all of {{className}}",
+    "count_other": "{{count}} students",
+    "count_one": "{{count}} student",
+    "ineligible_other": "{{count}} students cannot get this certificate and were left out:",
+    "ineligible_one": "{{count}} student cannot get this certificate and was left out:",
+    "single": "Only {{name}}"
+  },
+  "actions": {
+    "back": "Back",
+    "next": "Next",
+    "preview": "See preview",
+    "print": "Print",
+    "close": "Close"
+  },
+  "printer": {
+    "label": "Printer",
+    "none": "Add a printer in Settings first."
+  },
+  "done": {
+    "title_other": "{{count}} certificates issued",
+    "title_one": "{{count}} certificate issued",
+    "serials": "Serials {{first}} – {{last}}"
+  },
+  "documentsTab": {
+    "issue": "Issue certificate",
+    "issuedTitle": "Issued certificates",
+    "empty": "No certificate issued yet.",
+    "transcript": "Print transcript",
+    "transcriptYear": "Year"
+  }
+}

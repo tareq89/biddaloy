@@ -1,0 +1,156 @@
+{
+  "phase": {
+    "before": "Before the exam",
+    "beforeHint": "Seat plan published {{published}} · exam starts {{starts}}",
+    "inHall": "In the exam hall",
+    "inHallHint": "{{rooms}} rooms · {{sittings}} sittings",
+    "after": "After results",
+    "afterHint": "These open once results are processed and published"
+  },
+  "admitCard": {
+    "title": "Admit cards",
+    "description": "2 per A4 page, with seat, room and the sitting timetable",
+    "chooseHint": "Next, choose: everyone, only those not printed yet, or one section",
+    "examinees": "Examinees",
+    "printed": "Printed",
+    "remaining": "Remaining",
+    "dues": "{{count}} students owe fees. They are marked in the list; you can still print.",
+    "duesLink": "See who",
+    "action": "Print admit cards"
+  },
+  "admitPicker": {
+    "title": "Which admit cards?",
+    "all": "Everyone ({{count}})",
+    "remaining": "Not printed yet ({{count}})",
+    "section": "One section",
+    "sectionLabel": "Section",
+    "next": "Preview"
+  },
+  "routine": {
+    "title": "Exam routine notice",
+    "description": "A4 for the notice board, made from the schedule",
+    "meta": "{{count}} subjects · {{range}}",
+    "action": "Print notice"
+  },
+  "seatList": {
+    "title": "Seat list",
+    "description": "For the door: by room and sitting",
+    "meta": "{{rooms}} rooms · one page per room per sitting",
+    "action": "Print seat list"
+  },
+  "invigilator": {
+    "title": "Invigilator sheet",
+    "description": "Attendance, script number and signature boxes",
+    "meta": "One page per room per sitting",
+    "action": "Print sheets"
+  },
+  "stickers": {
+    "title": "Seat stickers",
+    "description": "Roll, name and class, for the desks",
+    "meta": "{{perPage}} per page · {{total}} in all",
+    "action": "Print stickers"
+  },
+  "marksSheet": {
+    "title": "Blank marks sheet",
+    "description": "Teachers write marks by hand, entered later",
+    "meta": "{{count}} subjects · by section",
+    "action": "Print marks sheets"
+  },
+  "reportCard": {
+    "title": "Mark sheet (report card)",
+    "description": "Each student's subject marks and GPA",
+    "action": "Print mark sheets"
+  },
+  "tabulation": {
+    "title": "Tabulation sheet",
+    "description": "A whole section's marks on one sheet, A4 landscape",
+    "action": "Print tabulation",
+    "summary": "This section: {{examinees}} sat · {{passed}} passed · {{failed}} failed"
+  },
+  "resultCertificate": {
+    "title": "Result certificate",
+    "description": "Only for students who passed",
+    "action": "Print certificates"
+  },
+  "meritCertificate": {
+    "title": "Merit certificate",
+    "description": "Class positions 1st–3rd; by section or top N also possible",
+    "action": "Print certificates"
+  },
+  "merit": {
+    "dialogTitle": "Who gets a merit certificate?",
+    "scope": "Rank by",
+    "scopeClass": "Class position",
+    "scopeSection": "Section position",
+    "top": "Top",
+    "count_other": "{{count}} students",
+    "count_one": "{{count}} student",
+    "continue": "Continue"
+  },
+  "unavailable": {
+    "noSeatPlan": "No published seat plan yet.",
+    "noSchedule": "The exam has no schedule yet.",
+    "notProcessed": "Results are not processed yet.",
+    "notPublished": "Results are not published yet.",
+    "noTemplate": "No published template for this document."
+  },
+  "fix": {
+    "makeSeatPlan": "Make a seat plan",
+    "addSchedule": "Add the schedule",
+    "seeProgress": "See progress",
+    "goToResults": "Go to Results",
+    "createTemplate": "Create one"
+  },
+  "page": {
+    "print": "Print",
+    "close": "Close",
+    "loading": "Preparing the document…",
+    "loadError": "The document could not be loaded.",
+    "pages_other": "{{count}} pages",
+    "pages_one": "{{count}} page",
+    "printedOn": "Printed: {{date}}",
+    "fromSeatPlan": "Made from the seat plan",
+    "pageOf": "Page {{n}} / {{total}}",
+    "logError": "The print could not be recorded, so it was not printed. Try again.",
+    "empty": "Nothing to print."
+  },
+  "doc": {
+    "seatList": "Seat list",
+    "invigilator": "Invigilator sheet",
+    "stickers": "Seat stickers",
+    "marksSheet": "Marks sheet",
+    "routine": "Exam routine",
+    "tabulation": "Tabulation sheet",
+    "reportCards": "Mark sheets",
+    "transcript": "Academic transcript"
+  },
+  "col": {
+    "seat": "Seat",
+    "roll": "Roll",
+    "name": "Name",
+    "section": "Section",
+    "class": "Class",
+    "room": "Room {{room}}",
+    "seats": "Seats {{from}}–{{to}}",
+    "present": "Present",
+    "scriptNo": "Script no.",
+    "signature": "Signature",
+    "marks": "Marks",
+    "date": "Date",
+    "day": "Day",
+    "subject": "Subject",
+    "time": "Time",
+    "total": "Total",
+    "gpa": "GPA",
+    "grade": "Grade",
+    "merit": "Merit",
+    "fullMarks": "Full marks {{n}}",
+    "exam": "Exam"
+  },
+  "sign": {
+    "classTeacher": "Class teacher",
+    "examController": "Exam controller",
+    "headTeacher": "Head teacher",
+    "invigilator": "Invigilator"
+  }
+}

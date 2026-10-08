@@ -104,5 +104,69 @@
   },
   "printIdCards": "Print ID cards",
   "versionValue": "Version {{version}}",
-  "emptyExplanation": "Printed cards will show up here."
+  "emptyExplanation": "Printed cards will show up here.",
+  "subtitle": "What was printed, which certificates were issued, and what is still to print.",
+  "tabs": {
+    "history": "Print history",
+    "register": "Certificate register",
+    "toPrint": "To print"
+  },
+  "register": {
+    "heading_other": "{{count}} certificates in {{year}}",
+    "heading_one": "{{count}} certificate in {{year}}",
+    "headingAll_other": "{{count}} certificates",
+    "headingAll_one": "{{count}} certificate",
+    "export": "Download for Excel",
+    "searchPlaceholder": "Name or serial number",
+    "year": "Year",
+    "allYears": "All years",
+    "status": "Status",
+    "allStatus": "Valid and revoked",
+    "valid": "Valid",
+    "revoked": "Revoked",
+    "col": {
+      "serial": "Serial",
+      "kind": "Kind",
+      "student": "Student",
+      "issuedOn": "Issued on",
+      "issuedBy": "Issued by",
+      "copy": "Copy"
+    },
+    "duplicate": "{{n}} · duplicate",
+    "revokeReason": "Reason for revoking:",
+    "empty": "No certificate issued yet.",
+    "emptyExplanation": "Issue one from a student's Documents tab.",
+    "announce": "Showing {{visible}} of {{total}}"
+  },
+  "toPrint": {
+    "summary_other": "{{count}} papers waiting, nearest exam first",
+    "summary_one": "{{count}} paper waiting, nearest exam first",
+    "admitCards": "Admit cards",
+    "idCards": "ID cards",
+    "waiting_other": "{{count}} waiting",
+    "waiting_one": "{{count}} waiting",
+    "examLine": "{{exam}} · {{className}}",
+    "printAdmit_other": "Print {{count}} admit cards",
+    "printAdmit_one": "Print {{count}} admit card",
+    "duesNote": "{{count}} owe fees. They will print, marked in the list.",
+    "hasDues": "Owes fees",
+    "neverIssued": "Never got an ID card",
+    "neverIssuedHelp": "Admitted this year, or never printed before",
+    "noPhoto_other": "{{count}} have no photo and will be left out.",
+    "noPhoto_one": "{{count}} has no photo and will be left out.",
+    "printId_other": "Print {{count}} ID cards",
+    "printId_one": "Print {{count}} ID card",
+    "photo": "Photo",
+    "photoYes": "Has photo",
+    "photoNo": "No photo",
+    "addPhoto": "Add",
+    "showRest_other": "Show {{count}} more",
+    "showRest_one": "Show {{count}} more",
+    "col": {
+      "registration": "Registration",
+      "admitted": "Admitted",
+      "dues": "Dues"
+    },
+    "empty": "Nothing waiting to be printed."
+  }
 }
