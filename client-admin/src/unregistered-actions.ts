@@ -68,6 +68,42 @@ export const PALETTE_ALLOW_LIST: readonly PaletteAllowListEntry[] = [
     reason: 'Needs the class and subject picked on the page',
   },
   {
+    file: `${R}_staff/academics/syllabus/-library/template-lessons-dialog.tsx`,
+    reason: "One template's lessons, opened from its row",
+  },
+  {
+    file: `${R}_staff/academics/syllabus/-library/template-form-dialog.tsx`,
+    reason: "Add or rename needs the library tab's class grade and subject",
+  },
+  {
+    file: `${R}_staff/academics/study-plans/-detail/lesson-form-dialog.tsx`,
+    reason: 'Adds or edits a lesson inside one plan',
+  },
+  {
+    file: `${R}_staff/academics/study-plans/-detail/extra-class-dialog.tsx`,
+    reason: 'Acts on one study plan',
+  },
+  {
+    file: `${R}_staff/academics/study-plans/-detail/copy-to-section-dialog.tsx`,
+    reason: 'Acts on one study plan',
+  },
+  {
+    file: `${R}_staff/academics/study-plans/-detail/exam-markers-dialog.tsx`,
+    reason: 'Acts on one study plan',
+  },
+  {
+    file: `${R}_staff/academics/study-plans/-detail/change-owner-dialog.tsx`,
+    reason: 'Acts on one study plan',
+  },
+  {
+    file: `${R}_staff/academics/study-plans/-detail/add-to-library-dialog.tsx`,
+    reason: 'Acts on one study plan',
+  },
+  {
+    file: `${R}_staff/routines/-marking/not-taught-dialog.tsx`,
+    reason: "One period's reason, opened from its cross button",
+  },
+  {
     file: `${R}_staff/attendance/$sectionId.tsx`,
     reason: "Confirms and history inside one section's marking",
   },
