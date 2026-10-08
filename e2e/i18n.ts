@@ -18,6 +18,7 @@ import bnAuth from '../ui/src/i18n/locales/bn/auth.json';
 import bnBackup from '../ui/src/i18n/locales/bn/backup.json';
 import bnBulkImport from '../ui/src/i18n/locales/bn/bulkImport.json';
 import bnCalendar from '../ui/src/i18n/locales/bn/calendar.json';
+import bnCertificates from '../ui/src/i18n/locales/bn/certificates.json';
 import bnClasses from '../ui/src/i18n/locales/bn/classes.json';
 import bnCommon from '../ui/src/i18n/locales/bn/common.json';
 import bnCommunications from '../ui/src/i18n/locales/bn/communications.json';
@@ -26,6 +27,7 @@ import bnCurriculumPreset from '../ui/src/i18n/locales/bn/curriculumPreset.json'
 import bnExamTemplates from '../ui/src/i18n/locales/bn/examTemplates.json';
 import bnExamsTemplateField from '../ui/src/i18n/locales/bn/examsTemplateField.json';
 import bnPresetReset from '../ui/src/i18n/locales/bn/presetReset.json';
+import bnExamDocuments from '../ui/src/i18n/locales/bn/examDocuments.json';
 import bnExams from '../ui/src/i18n/locales/bn/exams.json';
 import bnFeeGeneration from '../ui/src/i18n/locales/bn/feeGeneration.json';
 import bnFees from '../ui/src/i18n/locales/bn/fees.json';
@@ -159,6 +161,8 @@ const catalogs = {
     examTemplates: bnExamTemplates,
     examsTemplateField: bnExamsTemplateField,
     presetReset: bnPresetReset,
+    examDocuments: bnExamDocuments,
+    certificates: bnCertificates,
     exams: bnExams,
     feeGeneration: bnFeeGeneration,
     fees: bnFees,
