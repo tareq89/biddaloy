@@ -5,6 +5,9 @@ import {
   Header,
   HttpCode,
   HttpStatus,
+  Param,
+  ParseUUIDPipe,
+  Patch,
   Post,
   Query,
   Res,
@@ -13,7 +16,6 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { IsIn, IsString, IsUUID } from 'class-validator';
 import type { Response } from 'express';
 import { JwtPayload, Permission } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../../auth/guards/context.guard';
@@ -22,38 +24,33 @@ import { RequirePermissions } from '../../auth/decorators/require-permissions.de
 import { CurrentTenant } from '../../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../../common/decorators/api-tenant-auth.decorator';
-import { PrintJobsService } from './print-jobs.service';
+import { PrintCaller, PrintJobsService } from './print-jobs.service';
 import { CreatePrintJobDto, PreviewPrintJobDto } from './dto/print-job.dto';
-
-export class PhotoQueryDto {
-  @IsIn(['STUDENT', 'STAFF'])
-  subject_type: 'STUDENT' | 'STAFF';
-
-  @IsUUID()
-  subject_id: string;
-
-  @IsString()
-  key: string;
-}
+import { ConfirmPrintJobDto, ReprintPrintJobDto } from './dto/print-history.dto';
+import { PhotoQueryDto } from './print-jobs.controller';
 
 type Tenant = { id: string; role: string };
 
-/** [32.2.x] Server-built print data. The client never sends field values. */
+/**
+ * [48.2.04] The five student certificates (TC, testimonial, character, study,
+ * participation). Same service as `/print-jobs`, but gated by CERTIFICATE_ISSUE
+ * (EXECUTIVE holds it, not DOCUMENT_PRINT) and refusing every other kind.
+ */
 @ApiTags('print')
 @ApiTenantAuth()
-@Controller('print-jobs')
+@Controller('certificates')
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
-@RequirePermissions(Permission.DOCUMENT_PRINT)
-export class PrintJobsController {
+@RequirePermissions(Permission.CERTIFICATE_ISSUE)
+export class CertificatesController {
   constructor(private readonly service: PrintJobsService) {}
 
-  private caller(tenant: Tenant, user: JwtPayload) {
-    return { tenantId: tenant.id, userId: user.sub, role: tenant.role };
+  private caller(tenant: Tenant, user: JwtPayload): PrintCaller {
+    return { tenantId: tenant.id, userId: user.sub, role: tenant.role, channel: 'CERTIFICATE' };
   }
 
   @Post('preview')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Resolve print data for a template + subjects without creating a job.' })
+  @ApiOperation({ summary: 'Resolve certificate data for a template + students, no job.' })
   preview(
     @Body() dto: PreviewPrintJobDto,
     @CurrentTenant() tenant: Tenant,
@@ -63,9 +60,7 @@ export class PrintJobsController {
   }
 
   @Post()
-  @ApiOperation({
-    summary: 'Create a print job (copy numbers + verify tokens) and return the items to render.',
-  })
+  @ApiOperation({ summary: 'Issue certificates: next serial per student, verify tokens.' })
   create(
     @Body() dto: CreatePrintJobDto,
     @CurrentTenant() tenant: Tenant,
@@ -74,9 +69,31 @@ export class PrintJobsController {
     return this.service.create(this.caller(tenant, user), dto);
   }
 
+  @Patch('jobs/:id/confirm')
+  @ApiOperation({ summary: 'Answer "did all N print?" for a certificate job. 409 if confirmed.' })
+  confirm(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ConfirmPrintJobDto,
+    @CurrentTenant() tenant: Tenant,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.service.confirm(this.caller(tenant, user), id, dto.failed_item_ids);
+  }
+
+  @Post('jobs/:id/reprint')
+  @ApiOperation({ summary: 'Reprint certificates: same serial, new copy number (DUPLICATE).' })
+  reprint(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ReprintPrintJobDto,
+    @CurrentTenant() tenant: Tenant,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.service.reprint(this.caller(tenant, user), id, dto.item_ids);
+  }
+
   @Get('photo')
   @Header('Cache-Control', 'no-store')
-  @ApiOperation({ summary: 'Stream a subject photo referenced by a preview/job item.' })
+  @ApiOperation({ summary: 'Stream a student photo referenced by a certificate item.' })
   async photo(
     @Query() q: PhotoQueryDto,
     @CurrentTenant() tenant: Tenant,

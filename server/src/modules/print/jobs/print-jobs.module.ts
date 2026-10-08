@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { AuditModule } from '../../audit/audit.module';
 import { StorageModule } from '../../storage/storage.module';
+import { SchoolsModule } from '../../schools/schools.module';
+import { CertificatesController } from './certificates.controller';
 import { PrintJobsController } from './print-jobs.controller';
 import { PrintJobActionsController, PrintHistoryController } from './print-history.controller';
 import { PrintJobsService } from './print-jobs.service';
@@ -10,13 +12,15 @@ import { PublicVerifyService } from '../verify/public-verify.service';
 
 /** Resolvers are plain classes reached through `RESOLVERS`; only the services need DI. Wired into the app in 32.2.9. */
 @Module({
-  imports: [AuditModule, StorageModule],
+  imports: [AuditModule, StorageModule, SchoolsModule],
   controllers: [
     PrintJobsController,
+    CertificatesController,
     PrintJobActionsController,
     PrintHistoryController,
     PublicVerifyController,
   ],
   providers: [PrintJobsService, PrintHistoryService, PublicVerifyService],
+  exports: [PrintJobsService, PrintHistoryService],
 })
 export class PrintJobsModule {}
