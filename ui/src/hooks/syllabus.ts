@@ -18,6 +18,9 @@ export interface SyllabusTopic {
   description: string | null;
   sequence: number;
   status: SyllabusTopicStatus;
+  /** Only present when both class and subject filters are set (66.2.07, D31). */
+  sections_taught?: number;
+  sections_planned?: number;
 }
 
 export interface SyllabusTopicListFilters {
