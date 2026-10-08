@@ -60,6 +60,7 @@ export function IssueCertificateModal({
   const region = useRegionConfig();
   const canManageTemplates = useHasPermission(Permission.PRINT_TEMPLATE_MANAGE);
   const canManageSettings = useHasPermission(Permission.SETTINGS_MANAGE);
+  const canManageLifecycle = useHasPermission(Permission.STUDENT_LIFECYCLE_MANAGE);
 
   const studentQuery = useStudent(studentId);
   const student = studentQuery.data;
@@ -394,6 +395,7 @@ export function IssueCertificateModal({
               }}
               availability={availability}
               canManageTemplates={canManageTemplates}
+              canManageLifecycle={canManageLifecycle}
               onRecordLeaving={onRecordLeaving}
             />
           )

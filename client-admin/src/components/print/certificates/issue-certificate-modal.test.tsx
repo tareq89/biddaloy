@@ -246,6 +246,7 @@ function serve(
 function setup(
   initialKind: 'TESTIMONIAL' | 'TRANSFER_CERTIFICATE' | undefined = 'TESTIMONIAL',
   url = '/',
+  role = 'ADMIN',
 ) {
   const onClose = vi.fn();
   const root = createRootRoute({ component: Outlet });
@@ -266,7 +267,7 @@ function setup(
   const view = renderWithRouter(root.addChildren([index]), {
     initialEntries: [url],
     locale: 'en',
-    role: 'ADMIN',
+    role,
     tenantId: 'school-1',
   });
   return { ...view, user: userEvent.setup(), onClose };
@@ -309,6 +310,20 @@ describe('IssueCertificateModal', () => {
     (await screen.findByRole('button', { name: /^next$/i })).focus();
     await user.keyboard('{Enter}');
     expect(await screen.findByText(/certificate language/i)).toBeTruthy();
+  });
+
+  it('"Record leaving" is offered only to someone who may record it', async () => {
+    serve();
+    const admin = setup(undefined);
+    expect(await screen.findByRole('button', { name: /record leaving/i })).toBeTruthy();
+    admin.unmount();
+    await cleanupTestState();
+
+    serve();
+    setup(undefined, '/', 'OFFICE_STAFF'); // CERTIFICATE_ISSUE without STUDENT_LIFECYCLE_MANAGE
+    await screen.findByRole('radiogroup', { name: /which certificate/i });
+    await waitFor(() => expect(screen.getAllByRole('radio').length).toBe(5));
+    expect(screen.queryByRole('button', { name: /record leaving/i })).toBeNull();
   });
 
   it('focus starts on the step heading, and Tab reaches the typed field', async () => {

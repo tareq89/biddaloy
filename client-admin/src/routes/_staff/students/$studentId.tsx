@@ -205,12 +205,13 @@ function StudentDetailPage() {
       [navigateSearch],
     ),
   );
-  // `?leave=1` opens the Leave dialog once, then the param goes away.
+  // `?leave=1` opens the Leave dialog once (only for someone who may record leaving), then the
+  // param goes away.
   React.useEffect(() => {
     if (search.leave !== '1') return;
-    setLeaveDialogOpen(true);
+    if (canManageLifecycle) setLeaveDialogOpen(true);
     void navigateSearch({ search: (p) => ({ ...p, leave: undefined }), replace: true });
-  }, [search.leave, navigateSearch]);
+  }, [search.leave, navigateSearch, canManageLifecycle]);
   // The Fees/Payments/Invoices tabs format currency — same reasoning as
   // `/settings`'s own `RegionConfigProvider` wrap: `useRegionConfig()`
   // has no ambient provider above the route tree, so without this every
