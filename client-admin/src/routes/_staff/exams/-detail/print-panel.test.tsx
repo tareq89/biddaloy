@@ -1,3 +1,4 @@
+import { toast } from '@biddaloy/ui/components';
 import {
   classFactory,
   cleanupTestState,
@@ -5,7 +6,6 @@ import {
   renderWithRouter,
   server,
 } from '@biddaloy/ui/test';
-import { toast } from '@biddaloy/ui/components';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';

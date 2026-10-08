@@ -463,9 +463,7 @@ describe('IssueCertificateModal', () => {
     serve({ serialPrefix: 'DAHS' });
     const { user } = setup();
     await next(user, /^next$/i);
-    await waitFor(() =>
-      expect(screen.getByTestId('next-serial').textContent).toBe('DAHS-TSM-2026-00010'),
-    );
+    expect((await screen.findByText('DAHS-TSM-2026-00010')).dataset['testid']).toBe('next-serial');
   });
 
   it('issued-this-year counts serials, not reprinted copies', async () => {
