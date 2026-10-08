@@ -25,7 +25,7 @@ flowchart TB
 A **template document** is drawn from a published template. A **code-rendered
 document** is built by a React component from live data; it has no template and
 no print job. Report cards and transcripts only write one audit row per print
-(`POST /transcripts/document-prints`, D17, D25, D26). They open at
+(`POST /students/:studentId/document-prints`, D17, D25, D26). They open at
 `/print/document?doc=<name>` (for example
 `/print/document?doc=seat-list&exam_id=…`).
 
@@ -221,7 +221,8 @@ sequenceDiagram
 ```
 
 The certificate channel also serves the template, printer and asset reads it
-needs (`/certificates/templates`, `/printers`, `/assets`, `/photo`), so an office
+needs (`/certificates/templates`, `/certificates/printers`, `/certificates/assets`,
+`/certificates/photo`), so an office
 clerk who cannot manage templates can still issue a certificate. The family
 path creates the same kind of job, but only for the caller's own child.
 
@@ -278,7 +279,7 @@ code, `TSM-2026-00009` without it (D24). Codes: `TC`, `TSM`, `CHR`, `STD`,
 | A reprint keeps the serial and prints DUPLICATE (D8).                                                | Serial reprint path in `PrintJobsService`; copy label from copy 2 (D44).                                                                      |
 | Revoking needs a written reason (D19).                                                               | `POST /print-history/items/:id/revoke` takes the reason; the register shows it.                                                               |
 | The QR token is stored only as a hash.                                                               | `verify_token_hash`; the plain token exists only in the response.                                                                             |
-| The public page shows **only** document type, holder name, school, issue date, copy, serial, status. | Allow-list in `PublicVerifyService`; never ids or photos (D22). The serial was added in Epic 48 (D18).                                        |
+| The public page shows **only** document type, holder name, school, issue date, copy, serial, status. | Allow-list in `PublicVerifyService`; never ids or photos (D22). The serial was added by Epic 48 D18.                                          |
 | The public route is rate limited and needs no login or tenant header.                                | `PUBLIC_VERIFY_RATE_LIMIT` (30 per minute), `GET /public/verify/:token`.                                                                      |
 | Uploaded SVGs cannot carry scripts or remote references.                                             | `svg-sanitize.ts` (allow-list of elements and attributes).                                                                                    |
 | A staff card needs the HR permission too.                                                            | `STAFF_HR_READ` checked next to `DOCUMENT_PRINT` (D18).                                                                                       |
