@@ -165,8 +165,14 @@
     "col": {
       "registration": "Registration",
       "admitted": "Admitted",
-      "dues": "Dues"
+      "dues": "Dues",
+      "roll": "Roll",
+      "section": "Section",
+      "class": "Class"
     },
-    "empty": "Nothing waiting to be printed."
+    "empty": "Nothing waiting to be printed.",
+    "classLabel": "Class",
+    "allClasses": "All classes",
+    "emptyExplanation": "Everything is printed. New work shows up here."
   }
 }

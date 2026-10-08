@@ -4,6 +4,7 @@ import {
   filterValues,
   printHistorySearchSchema,
   toHistoryFilters,
+  toRegisterFilters,
   type PrintHistorySearch,
 } from './print-history-filters';
 
@@ -89,5 +90,41 @@ describe('toHistoryFilters', () => {
 
   it('does not send an empty search text', () => {
     expect(toHistoryFilters({ q: '' })).not.toHaveProperty('q');
+  });
+});
+
+describe('tab and register search', () => {
+  it('parses tab, year and status; a bad tab or status falls back to nothing', () => {
+    expect(parse({ tab: 'register', year: '2026', status: 'REVOKED' })).toMatchObject({
+      tab: 'register',
+      year: 2026,
+      status: 'REVOKED',
+    });
+    expect(parse({ tab: 'nope', year: 'abc', status: 'x' })).toEqual({});
+    expect(parse({ tab: 'to-print' }).tab).toBe('to-print');
+  });
+
+  it('the history filters ignore tab, year and status', () => {
+    const search = parse({ tab: 'register', year: 2026, status: 'VALID', q: 'a' });
+    expect(filterValues(search)).toEqual({ q: 'a' });
+    expect(toHistoryFilters(search)).toEqual({ page: 1, limit: 25, q: 'a' });
+  });
+
+  it('toRegisterFilters sends kind, year, status and q', () => {
+    const search = parse({
+      document_kind: 'TESTIMONIAL',
+      year: 2026,
+      status: 'VALID',
+      q: 'rafi',
+      page: 2,
+    });
+    expect(toRegisterFilters(search)).toEqual({
+      page: 2,
+      limit: 25,
+      document_kind: 'TESTIMONIAL',
+      year: 2026,
+      status: 'VALID',
+      q: 'rafi',
+    });
   });
 });

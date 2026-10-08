@@ -189,4 +189,52 @@ describe('ReprintDialog', () => {
     expect(onOpenChange).toHaveBeenCalledWith(false);
     expect(runPrint).not.toHaveBeenCalled();
   });
+
+  it('channel="certificate" lists the certificate printers and fetches artwork from /certificates/assets', async () => {
+    const hits: string[] = [];
+    server.use(
+      http.get('/api/v1/certificates/printers', () => {
+        hits.push('printers');
+        return HttpResponse.json([printer('p-9', 'Office')]);
+      }),
+      http.get('/api/v1/certificates/assets', () => {
+        hits.push('assets');
+        return HttpResponse.json([]);
+      }),
+      http.get('/api/v1/printers', () => {
+        hits.push('document-printers');
+        return HttpResponse.json([]);
+      }),
+    );
+    vi.mocked(runPrint).mockResolvedValue(done);
+    const onOpenChange = vi.fn();
+    const { user } = renderWithProviders(
+      <ReprintDialog
+        open
+        onOpenChange={onOpenChange}
+        row={{ ...row, document_kind: 'TESTIMONIAL' }}
+        channel="certificate"
+      />,
+      { locale: 'en', role: 'EXECUTIVE', tenantId: 'tenant-1' },
+    );
+    await waitFor(() =>
+      expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Print' }).disabled).toBe(false),
+    );
+    await user.click(screen.getByRole('button', { name: 'Print' }));
+    const args = vi.mocked(runPrint).mock.calls[0]![0];
+    expect(args.assetPath).toBe('/certificates/assets');
+    expect(args.printer.id).toBe('p-9');
+    expect(hits).not.toContain('document-printers');
+  });
+
+  it('the default channel keeps the default artwork path', async () => {
+    serve([printer('p-1', 'Front office')]);
+    vi.mocked(runPrint).mockResolvedValue(done);
+    const { user } = open();
+    await waitFor(() =>
+      expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Print' }).disabled).toBe(false),
+    );
+    await user.click(screen.getByRole('button', { name: 'Print' }));
+    expect(vi.mocked(runPrint).mock.calls[0]![0].assetPath).toBeUndefined();
+  });
 });

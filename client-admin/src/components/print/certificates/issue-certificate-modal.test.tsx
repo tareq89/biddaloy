@@ -426,6 +426,15 @@ describe('IssueCertificateModal', () => {
     expect((await screen.findByTestId('next-serial')).textContent).toBe('TSM-2026-00001');
   });
 
+  it('the serial card links to the register tab', async () => {
+    serve();
+    const { user } = setup();
+    await next(user, /^next$/i);
+    const link = await screen.findByRole('link', { name: 'Open the register' });
+    expect(link.getAttribute('href')).toContain('/reports/printables');
+    expect(link.getAttribute('href')).toContain('tab=register');
+  });
+
   const jobBody = (jobId: string, ids: string[]) => ({
     job_id: jobId,
     version: { id: 'v', definition: definition() },

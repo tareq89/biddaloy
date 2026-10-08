@@ -61,6 +61,8 @@ export interface ListShellProps<TData extends RowData> extends DataTableProps<TD
    * Bengali-digit normalization, active-filter chips including
    * deep-linked ones, mobile "Filters (n)" disclosure all come free). */
   filters?: FilterBarProps;
+  /** Tab row rendered between the header and the filter bar (e.g. a page with several lists). */
+  tabs?: ReactNode;
 }
 
 export function ListShell<TData extends RowData>({
@@ -70,6 +72,7 @@ export function ListShell<TData extends RowData>({
   primaryAction,
   filterBar,
   filters,
+  tabs,
   ...dataTableProps
 }: ListShellProps<TData>) {
   if (process.env.NODE_ENV !== 'production' && filterBar && filters) {
@@ -102,6 +105,7 @@ export function ListShell<TData extends RowData>({
       ) : (
         <PageHeader title={title} subtitle={subtitle} actions={actions} />
       )}
+      {tabs}
       {filters && (
         <FilterBar {...filters} {...(resultCount !== undefined ? { resultCount } : {})} />
       )}

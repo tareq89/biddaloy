@@ -95,15 +95,14 @@ export function DocumentsTab({ studentId }: { studentId: string }) {
               variant="outline"
               disabled={!selectedYear}
               onClick={() =>
-                // `/print/document` lands with 48.3.08 (#1961); typed loosely until its route exists.
                 void navigate({
-                  to: '/print/document' as never,
+                  to: '/print/document',
                   search: {
                     doc: 'transcript',
                     student_id: studentId,
                     academic_year_id: selectedYear,
                     from,
-                  } as never,
+                  },
                 })
               }
             >

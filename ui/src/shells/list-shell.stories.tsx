@@ -11,6 +11,7 @@ import { withMemoryRouter } from '../../.storybook/router-decorator';
 import { Button } from '../components/button';
 import type { DataTableColumn } from '../components/data-table';
 import { Input } from '../components/input';
+import { Tabs, TabsList, TabsTrigger } from '../primitives/tabs';
 
 import type { FilterFieldDescriptor } from './filter-bar';
 import { ListShell } from './list-shell';
@@ -194,4 +195,34 @@ function StudentsListPageWithFilterBar() {
 export const WithFilterBar: Story = {
   decorators: [withMemoryRouter(['/students'])],
   render: () => <StudentsListPageWithFilterBar />,
+};
+
+/** A page with several lists puts its tab row between the title and the filters. */
+export const WithTabs: Story = {
+  decorators: [withMemoryRouter(['/students'])],
+  render: () => (
+    <ListShell
+      title="Print & documents"
+      subtitle="What was printed, and what is still to print."
+      tabs={
+        <Tabs value="register">
+          <TabsList variant="line" aria-label="Sections">
+            <TabsTrigger value="history">History</TabsTrigger>
+            <TabsTrigger value="register">Register</TabsTrigger>
+          </TabsList>
+        </Tabs>
+      }
+      tableId="tabs-demo"
+      caption="Students"
+      columns={COLUMNS}
+      data={ALL_STUDENTS}
+      getRowId={(row) => row.id}
+      sorting={null}
+      onSortingChange={() => undefined}
+      page={1}
+      pageSize={20}
+      totalCount={ALL_STUDENTS.length}
+      onPageChange={() => undefined}
+    />
+  ),
 };
