@@ -375,4 +375,119 @@ describe('/academics/syllabus', () => {
       window.matchMedia = original;
     }
   });
+
+  describe('tabs', () => {
+    function plansHandlers() {
+      return [
+        http.get('/api/v1/academic-years', () =>
+          HttpResponse.json({ data: [], total: 0, page: 1, limit: 25, totalPages: 0 }),
+        ),
+        http.get('/api/v1/calendar/terms', () => HttpResponse.json([])),
+        http.get('/api/v1/schools/:id/settings', () => HttpResponse.json({ version: 1 })),
+        http.get('/api/v1/study-plans', () =>
+          HttpResponse.json({ data: [], total: 0, page: 1, limit: 25, totalPages: 0 }),
+        ),
+      ];
+    }
+
+    it('defaults to Topics, clicking Study plans sets ?tab=plans and back drops it', async () => {
+      server.use(...classesAndSubjectsHandlers(), ...plansHandlers());
+      const { router } = renderWithRouter(routeTree, {
+        initialEntries: ['/academics/syllabus'],
+        tenantId: 'tenant-1',
+        role: 'ADMIN',
+        locale: 'en',
+      });
+      const user = userEvent.setup();
+      const topics = await screen.findByRole('tab', { name: 'Topics' });
+      expect(topics.getAttribute('aria-selected')).toBe('true');
+      expect(await screen.findByRole('combobox', { name: 'Class' })).toBeTruthy();
+
+      await user.click(screen.getByRole('tab', { name: 'Study plans' }));
+      await waitFor(() => expect(router.state.location.search).toMatchObject({ tab: 'plans' }));
+      expect(await screen.findByText('No study plans yet')).toBeTruthy();
+
+      await user.click(screen.getByRole('tab', { name: 'Topics' }));
+      await waitFor(() => expect(router.state.location.search).not.toHaveProperty('tab'));
+    });
+
+    it('the Topics tab makes no study-plan request', async () => {
+      let planRequests = 0;
+      server.use(
+        ...classesAndSubjectsHandlers(),
+        ...plansHandlers(),
+        http.get('/api/v1/study-plans', () => {
+          planRequests += 1;
+          return HttpResponse.json({ data: [], total: 0, page: 1, limit: 25, totalPages: 0 });
+        }),
+      );
+      renderWithRouter(routeTree, {
+        initialEntries: ['/academics/syllabus'],
+        tenantId: 'tenant-1',
+        role: 'ADMIN',
+        locale: 'en',
+      });
+      await screen.findByRole('combobox', { name: 'Class' });
+      await new Promise((r) => setTimeout(r, 100));
+      expect(planRequests).toBe(0);
+    });
+
+    it('?tab=plans on load shows the plans panel', async () => {
+      server.use(...classesAndSubjectsHandlers(), ...plansHandlers());
+      renderWithRouter(routeTree, {
+        initialEntries: ['/academics/syllabus?tab=plans'],
+        tenantId: 'tenant-1',
+        role: 'ADMIN',
+        locale: 'en',
+      });
+      expect(await screen.findByText('No study plans yet')).toBeTruthy();
+      expect(
+        (await screen.findByRole('tab', { name: 'Study plans' })).getAttribute('aria-selected'),
+      ).toBe('true');
+    });
+
+    it('arrow keys move between tabs', async () => {
+      server.use(...classesAndSubjectsHandlers(), ...plansHandlers());
+      renderWithRouter(routeTree, {
+        initialEntries: ['/academics/syllabus'],
+        tenantId: 'tenant-1',
+        role: 'ADMIN',
+        locale: 'en',
+      });
+      const user = userEvent.setup();
+      (await screen.findByRole('tab', { name: 'Topics' })).focus();
+      await user.keyboard('{ArrowRight}');
+      expect(document.activeElement).toBe(screen.getByRole('tab', { name: 'Study plans' }));
+    });
+  });
+
+  it('shows "Taught in x of y sections" under a topic when the API returns the counts', async () => {
+    server.use(
+      ...classesAndSubjectsHandlers(),
+      http.get('/api/v1/syllabus-topics', () =>
+        HttpResponse.json([
+          topic({ sections_planned: 3, sections_taught: 2 }),
+          topic({
+            id: 'topic-2',
+            name: 'Geometry',
+            sequence: 1,
+            sections_planned: 0,
+            sections_taught: 0,
+          }),
+        ]),
+      ),
+    );
+    renderWithRouter(routeTree, {
+      initialEntries: ['/academics/syllabus?class_id=class-1&subject_id=subject-1'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+    expect(
+      await screen.findByText(
+        `Taught in ${formatNumber(2, REGION_BD_BN)} of ${formatNumber(3, REGION_BD_BN)} sections`,
+      ),
+    ).toBeTruthy();
+    expect(screen.getAllByText(/Taught in/)).toHaveLength(1);
+  });
 });
