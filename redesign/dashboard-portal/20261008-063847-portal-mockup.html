@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="bn" data-density="comfortable">
+<head>
+<!-- app:head -->
+<title>Mockup — portal home</title>
+<script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+</head>
+<body class="flex min-h-screen flex-col bg-bg text-body-lg text-text-primary">
+
+<!-- SHELL — from starter-portal.html, unchanged. -->
+<header class="sticky top-0 z-30 flex h-14 items-center gap-1 border-b border-border-subtle bg-surface px-1 md:gap-2 md:px-6">
+  <button type="button" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-muted hover:text-text-primary md:size-9 md:hidden" aria-label="মেনু খুলুন"><i data-lucide="menu"></i></button>
+  <span class="min-w-0 truncate text-h3">নমুনা আদর্শ বিদ্যালয়</span>
+  <span class="hidden shrink-0 rounded-full bg-muted px-2 py-0.5 text-caption text-text-secondary md:inline">অভিভাবক</span>
+  <button type="button" class="hidden md:inline-flex size-11 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-muted hover:text-text-primary md:size-9" aria-label="স্কুল বা ভূমিকা পরিবর্তন করুন"><i data-lucide="arrow-left-right"></i></button>
+  <div class="ml-auto flex shrink-0 items-center md:gap-1">
+    <button type="button" class="hidden h-9 w-64 items-center gap-2 rounded-md border border-border-functional bg-surface px-3 text-text-secondary md:flex" aria-label="খুঁজুন (Ctrl+K)"><i data-lucide="search"></i><span>অনুসন্ধান…</span><kbd class="ml-auto font-sans text-caption">Ctrl+K</kbd></button>
+    <button type="button" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-muted hover:text-text-primary md:size-9 md:hidden" aria-label="খুঁজুন"><i data-lucide="search"></i></button>
+    <button type="button" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-muted hover:text-text-primary md:size-9 relative" aria-label="বিজ্ঞপ্তি, ৩টি অপঠিত"><i data-lucide="bell"></i><span class="absolute top-0.5 left-1/2 ml-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1 text-caption font-medium text-primary-foreground md:-top-0.5">৩</span></button>
+    <button type="button" class="hidden md:inline-flex size-11 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-muted hover:text-text-primary md:size-9" aria-label="ভাষা পরিবর্তন করুন"><i data-lucide="languages"></i></button>
+    <button type="button" class="hidden md:inline-flex size-11 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-muted hover:text-text-primary md:size-9" aria-label="থিম"><i data-lucide="moon"></i></button>
+    <button type="button" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-muted hover:text-text-primary md:size-9" aria-label="অ্যাকাউন্ট মেনু"><i data-lucide="circle-user-round"></i></button>
+  </div>
+</header>
+
+<div class="flex flex-1">
+    <nav class="hidden w-60 shrink-0 border-r border-border-subtle bg-surface px-3 py-4 md:block" aria-label="প্রধান">
+      <p class="px-3 pb-3 text-label text-text-secondary">SchoolManager</p>
+      <ul class="space-y-0.5">
+          <li><a href="#" data-nav="portal.overview" aria-current="page" class="flex h-11 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="house"></i><span class="truncate">সারসংক্ষেপ</span></a></li>
+          <li><a href="#" data-nav="portal.fees" class="flex h-11 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="credit-card"></i><span class="truncate">ফি ও চালান</span></a></li>
+          <li><a href="#" data-nav="portal.attendance" class="flex h-11 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="calendar-check-2"></i><span class="truncate">উপস্থিতি</span></a></li>
+          <li><a href="#" data-nav="portal.routine" class="flex h-11 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="calendar-clock"></i><span class="truncate">রুটিন</span></a></li>
+          <li><a href="#" data-nav="portal.calendar" class="flex h-11 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="calendar-days"></i><span class="truncate">ক্যালেন্ডার</span></a></li>
+          <li><a href="#" data-nav="portal.results" class="flex h-11 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="award"></i><span class="truncate">ফলাফল</span></a></li>
+          <li><a href="#" data-nav="portal.programs" class="flex h-11 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="milestone"></i><span class="truncate">প্রোগ্রাম</span></a></li>
+          <li><a href="#" data-nav="portal.examSchedule" class="flex h-11 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="file-clock"></i><span class="truncate">পরীক্ষার সময়সূচি</span></a></li>
+          <li><a href="#" data-nav="portal.syllabus" class="flex h-11 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="book-open"></i><span class="truncate">সিলেবাস</span></a></li>
+          <li><a href="#" data-nav="portal.account" class="flex h-11 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="user-round"></i><span class="truncate">অ্যাকাউন্ট</span></a></li>
+      </ul>
+    </nav>
+
+    <main id="main-content" class="min-w-0 flex-1">
+      <div class="mx-auto w-full max-w-screen-xl space-y-4 px-4 md:space-y-6 py-4 md:px-6 md:py-6">
+
+        <!-- NEW · "আজ" strip — one card per child, the first thing a parent sees -->
+        <section aria-label="আজ স্কুলে হাজিরা" class="space-y-3">
+          <p class="text-text-secondary">আজ সোমবার, ২৩ নভেম্বর</p>
+          <!-- PHONE · one compact row per child -->
+          <ul class="divide-y divide-border-subtle rounded-lg border border-border-subtle bg-surface shadow-e1 md:hidden">
+            <li class="flex items-center gap-3 p-3">
+              <span class="flex size-11 shrink-0 items-center justify-center rounded-full bg-secondary text-h3 text-secondary-foreground" aria-hidden="true">আ</span>
+              <div class="min-w-0 flex-1"><p class="text-h3">আয়েশা</p><p class="text-caption text-text-secondary">৭ম শ্রেণি · খ শাখা</p></div>
+              <span class="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-status-paid-bg px-3 py-1.5 font-semibold text-status-paid-fg"><i data-lucide="circle-check" class="size-5"></i>উপস্থিত</span>
+            </li>
+            <li class="flex items-center gap-3 p-3">
+              <span class="flex size-11 shrink-0 items-center justify-center rounded-full bg-secondary text-h3 text-secondary-foreground" aria-hidden="true">রা</span>
+              <div class="min-w-0 flex-1"><p class="text-h3">রাফি</p><p class="text-caption text-text-secondary">৩য় শ্রেণি · ক শাখা</p></div>
+              <span class="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-status-overdue-bg px-3 py-1.5 font-semibold text-status-overdue-fg"><i data-lucide="circle-x" class="size-5"></i>অনুপস্থিত</span>
+            </li>
+          </ul>
+          <!-- DESKTOP · one card per child -->
+          <div class="hidden gap-3 md:grid md:grid-cols-2 md:gap-6">
+            <div class="flex flex-col gap-3 rounded-lg border border-border-subtle bg-surface p-4 shadow-e1 md:p-5">
+              <div class="flex items-center gap-3">
+                <span class="flex size-12 shrink-0 items-center justify-center rounded-full bg-secondary text-h2 text-secondary-foreground" aria-hidden="true">আ</span>
+                <div class="min-w-0">
+                  <p class="text-h2">আয়েশা</p>
+                  <p class="text-text-secondary">৭ম শ্রেণি · খ শাখা</p>
+                </div>
+              </div>
+              <p class="flex min-h-12 items-center gap-2 rounded-md bg-status-paid-bg px-4 py-2 text-h3 text-status-paid-fg"><i data-lucide="circle-check" class="size-6 shrink-0"></i>আজ স্কুলে উপস্থিত</p>
+              <p class="text-caption text-text-secondary">সকাল ৮:১০-এ হাজিরা নেওয়া হয়েছে</p>
+            </div>
+            <div class="flex flex-col gap-3 rounded-lg border border-border-subtle bg-surface p-4 shadow-e1 md:p-5">
+              <div class="flex items-center gap-3">
+                <span class="flex size-12 shrink-0 items-center justify-center rounded-full bg-secondary text-h2 text-secondary-foreground" aria-hidden="true">রা</span>
+                <div class="min-w-0">
+                  <p class="text-h2">রাফি</p>
+                  <p class="text-text-secondary">৩য় শ্রেণি · ক শাখা</p>
+                </div>
+              </div>
+              <p class="flex min-h-12 items-center gap-2 rounded-md bg-status-overdue-bg px-4 py-2 text-h3 text-status-overdue-fg"><i data-lucide="circle-x" class="size-6 shrink-0"></i>আজ অনুপস্থিত</p>
+              <p class="text-caption text-text-secondary">সকাল ৮:১৫-এ হাজিরা নেওয়া হয়েছে</p>
+            </div>
+          </div>
+        </section>
+
+        <div class="grid gap-4 md:gap-6 lg:grid-cols-2 lg:items-start">
+
+          <!-- EXISTING · dues hero + child cards (MultiChildView), restyled to kit tokens only -->
+          <div class="flex flex-col gap-3">
+            <section class="flex flex-col gap-1 rounded-lg border border-border-subtle bg-surface p-4 shadow-e1 md:p-5">
+              <h1 class="text-body-lg text-text-secondary">মোট বকেয়া</h1>
+              <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
+                <p class="text-display text-status-overdue-fg">৳৩,৮৫০</p>
+                <span class="inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2 text-label whitespace-nowrap bg-status-overdue-bg text-status-overdue-fg"><i data-lucide="triangle-alert" class="size-3.5"></i>মেয়াদোত্তীর্ণ আছে</span>
+              </div>
+              <p class="text-caption text-text-secondary">২ জন সন্তানের মধ্যে ২ জনের · ৳১,২০০ মেয়াদোত্তীর্ণ</p>
+            </section>
+
+            <h2 class="mt-1 px-0.5 text-label text-text-secondary">সন্তানেরা</h2>
+
+            <!-- PHONE · tightened child cards (class/roll already shown in the আজ rows) -->
+            <a href="#" class="flex items-center gap-3 rounded-lg border border-border-subtle bg-surface p-3 shadow-e1 hover:bg-muted md:hidden">
+              <div class="min-w-0 flex-1">
+                <div class="flex items-baseline justify-between gap-3"><p class="text-h3">আয়েশা রহমান</p><span class="text-h2 tabular-nums">৳২,৬৫০</span></div>
+                <div class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1"><span class="inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2 text-label whitespace-nowrap bg-status-due-bg text-status-due-fg"><i data-lucide="clock" class="size-3.5"></i>অপেক্ষমাণ</span><span class="text-caption text-text-secondary">শেষ দিন ৩০ নভেম্বর</span></div>
+              </div>
+              <i data-lucide="chevron-right" class="shrink-0 text-text-secondary"></i>
+            </a>
+            <a href="#" class="flex items-center gap-3 rounded-lg border border-border-subtle bg-surface p-3 shadow-e1 hover:bg-muted md:hidden">
+              <div class="min-w-0 flex-1">
+                <div class="flex items-baseline justify-between gap-3"><p class="text-h3">রাফি রহমান</p><span class="text-h2 tabular-nums">৳১,২০০</span></div>
+                <div class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1"><span class="inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2 text-label whitespace-nowrap bg-status-overdue-bg text-status-overdue-fg"><i data-lucide="triangle-alert" class="size-3.5"></i>মেয়াদোত্তীর্ণ</span><span class="text-caption text-text-secondary">৮ দিন দেরি</span></div>
+              </div>
+              <i data-lucide="chevron-right" class="shrink-0 text-text-secondary"></i>
+            </a>
+            
+            <a href="#" class="hidden items-center gap-3 rounded-lg border border-border-subtle bg-surface p-4 shadow-e1 hover:bg-muted md:flex">
+              <div class="min-w-0 flex-1">
+                <p class="text-h3">আয়েশা রহমান</p>
+                <p class="text-caption text-text-secondary">৭ম শ্রেণি · খ শাখা · রোল ১২</p>
+                <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <span class="text-h2 tabular-nums">৳২,৬৫০</span>
+                  <span class="inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2 text-label whitespace-nowrap bg-status-due-bg text-status-due-fg"><i data-lucide="clock" class="size-3.5"></i>অপেক্ষমাণ</span>
+                </div>
+                <p class="mt-1 text-caption text-text-secondary">জমার শেষ দিন ৩০ নভেম্বর</p>
+              </div>
+              <i data-lucide="chevron-right" class="shrink-0 text-text-secondary"></i>
+            </a>
+
+            <a href="#" class="hidden items-center gap-3 rounded-lg border border-border-subtle bg-surface p-4 shadow-e1 hover:bg-muted md:flex">
+              <div class="min-w-0 flex-1">
+                <p class="text-h3">রাফি রহমান</p>
+                <p class="text-caption text-text-secondary">৩য় শ্রেণি · ক শাখা · রোল ৭</p>
+                <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <span class="text-h2 tabular-nums">৳১,২০০</span>
+                  <span class="inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2 text-label whitespace-nowrap bg-status-overdue-bg text-status-overdue-fg"><i data-lucide="triangle-alert" class="size-3.5"></i>মেয়াদোত্তীর্ণ</span>
+                </div>
+                <p class="mt-1 text-caption text-text-secondary">শেষ দিন ছিল ১৫ নভেম্বর · ৮ দিন দেরি</p>
+              </div>
+              <i data-lucide="chevron-right" class="shrink-0 text-text-secondary"></i>
+            </a>
+          </div>
+
+          <!-- NEW · M: এ মাসের হাজিরা (calendar heatmap) -->
+          <section class="rounded-lg border border-border-subtle bg-surface p-4 shadow-e1 md:p-5" aria-labelledby="w-month">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <h2 id="w-month" class="text-h2">এ মাসের হাজিরা</h2>
+              <div role="tablist" aria-label="সন্তান বাছুন" class="inline-flex gap-1 rounded-lg border border-border-subtle p-1">
+                <button type="button" role="tab" aria-selected="true" class="h-11 rounded-md bg-secondary px-4 font-semibold text-secondary-foreground">আয়েশা</button>
+                <button type="button" role="tab" aria-selected="false" class="h-11 rounded-md px-4 text-text-secondary hover:bg-muted">রাফি</button>
+              </div>
+            </div>
+            <p class="mt-3 flex flex-wrap items-baseline gap-x-2"><span class="text-display">১৯ দিন</span><span class="text-text-secondary">উপস্থিত</span></p>
+            <p class="mt-1">২০ দিনের মধ্যে ১৯ দিন উপস্থিত, শুধু ১১ নভেম্বর আসেনি।</p>
+
+            <div class="mt-4" role="img" aria-label="নভেম্বর ২০২৬-এর হাজিরা: ১৯ দিন উপস্থিত, ১১ নভেম্বর অনুপস্থিত, প্রতি শুক্রবার ছুটি, ২৪ নভেম্বর থেকে সামনের দিন।">
+              <div aria-hidden="true">
+                <p class="mb-2 flex items-baseline justify-between gap-2"><span class="text-h3">নভেম্বর ২০২৬</span><span class="text-caption text-text-secondary md:hidden">আজ ৮:১৫-এ আপডেট</span></p>
+                <div class="grid grid-cols-7 gap-1 text-center text-caption text-text-secondary md:gap-1.5">
+                  <span>রবি</span><span>সোম</span><span>মঙ্গল</span><span>বুধ</span><span>বৃহ</span><span>শুক্র</span><span>শনি</span>
+                </div>
+                <div id="cal" class="mt-1 grid grid-cols-7 gap-1 md:gap-1.5"></div>
+              </div>
+            </div>
+
+            <ul class="mt-3 flex flex-nowrap gap-x-3 text-caption md:mt-4 md:flex-wrap md:gap-x-4 md:gap-y-2 md:text-label" aria-label="চিহ্নের মানে">
+              <li class="flex items-center gap-1.5"><span class="flex size-4 items-center justify-center rounded-sm md:size-5 bg-status-paid-bg text-status-paid-fg"><i data-lucide="check" class="size-3 md:size-3.5"></i></span>উপস্থিত</li>
+              <li class="flex items-center gap-1.5"><span class="flex size-4 items-center justify-center rounded-sm md:size-5 bg-status-overdue-bg text-status-overdue-fg"><i data-lucide="x" class="size-3 md:size-3.5"></i></span>অনুপস্থিত</li>
+              <li class="flex items-center gap-1.5"><span class="flex size-4 items-center justify-center rounded-sm md:size-5 bg-muted text-text-secondary"><i data-lucide="tree-palm" class="size-3 md:size-3.5"></i></span>ছুটি</li>
+              <li class="flex items-center gap-1.5"><span class="size-4 rounded-sm border border-dashed md:size-5 border-border-functional"></span>সামনের দিন</li>
+            </ul>
+
+            <div class="mt-4 flex flex-wrap items-center justify-between gap-x-3 border-t border-border-subtle pt-1">
+              <p class="hidden text-caption text-text-secondary md:block">আজ সকাল ৮:১৫-এ আপডেট</p>
+              <div class="-mx-2 flex w-full items-center justify-between md:mx-0 md:-mr-2 md:w-auto md:justify-start">
+                <button type="button" aria-pressed="false" class="inline-flex h-11 items-center gap-1.5 rounded-md px-2 text-label text-text-secondary hover:bg-muted"><i data-lucide="table-2" class="size-4"></i>টেবিল দেখুন</button>
+                <a href="#" class="inline-flex h-11 items-center gap-1 rounded-md px-2 font-medium text-primary hover:bg-muted">পুরো হাজিরা<i data-lucide="chevron-right" class="size-4"></i></a>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <!-- NEW · three S cards -->
+        <div class="grid gap-4 md:grid-cols-3 md:gap-6">
+
+          <!-- PHONE · compact (D16): whole card is the tap target; expands in place -->
+          <section class="relative flex flex-col rounded-lg border border-border-subtle bg-surface px-4 pt-2 pb-4 shadow-e1 md:hidden" aria-labelledby="c-hw">
+            <h2 id="c-hw" class="text-h2"><button type="button" aria-expanded="false" class="flex min-h-11 w-full items-center justify-between gap-3 text-left after:absolute after:inset-0 after:rounded-lg">আজকের হোমওয়ার্ক<i data-lucide="chevron-down" class="shrink-0 text-text-secondary"></i></button></h2>
+            <p class="flex items-baseline gap-2"><span class="text-display">২টি</span><span class="text-text-secondary">নতুন কাজ</span></p>
+            <p class="mt-1 flex items-center gap-1.5"><i data-lucide="clock" class="size-4 shrink-0 text-status-due-fg"></i>আয়েশার গণিত কাল জমা দিতে হবে</p>
+          </section>
+          
+          <!-- PHONE · compact (D16): whole card is the tap target; expands in place -->
+          <section class="relative flex flex-col rounded-lg border border-border-subtle bg-surface px-4 pt-2 pb-4 shadow-e1 md:hidden" aria-labelledby="c-result">
+            <h2 id="c-result" class="text-h2"><button type="button" aria-expanded="false" class="flex min-h-11 w-full items-center justify-between gap-3 text-left after:absolute after:inset-0 after:rounded-lg">সর্বশেষ ফল<i data-lucide="chevron-down" class="shrink-0 text-text-secondary"></i></button></h2>
+            <p class="text-text-secondary">আয়েশা · অর্ধবার্ষিক পরীক্ষা</p>
+            <p class="mt-1 flex items-baseline gap-2"><span class="text-display">জিপিএ ৪.৬৭</span><span class="text-text-secondary">/ ৫</span></p>
+            <p class="mt-1 flex items-center gap-1.5"><i data-lucide="trending-up" class="size-5 shrink-0 text-status-paid-fg"></i>গত পরীক্ষার চেয়ে ভালো</p>
+          </section>
+          
+          <!-- PHONE · compact (D16): whole card is the tap target; expands in place -->
+          <section class="relative flex flex-col rounded-lg border border-border-subtle bg-surface px-4 pt-2 pb-4 shadow-e1 md:hidden" aria-labelledby="c-holiday">
+            <h2 id="c-holiday" class="text-h2"><button type="button" aria-expanded="false" class="flex min-h-11 w-full items-center justify-between gap-3 text-left after:absolute after:inset-0 after:rounded-lg">পরের ছুটি<i data-lucide="chevron-down" class="shrink-0 text-text-secondary"></i></button></h2>
+            <p class="text-display">বিজয় দিবস</p>
+            <p class="mt-1">১৬ ডিসেম্বর, বুধবার · <span class="font-semibold text-secondary-foreground">আর ২৩ দিন</span></p>
+          </section>
+          
+          <!-- DESKTOP · full S cards -->
+
+          <section class="hidden flex-col rounded-lg border border-border-subtle bg-surface p-4 shadow-e1 md:flex md:p-5" aria-labelledby="w-hw">
+            <h2 id="w-hw" class="text-h2">আজকের হোমওয়ার্ক</h2>
+            <ul class="mt-2 divide-y divide-border-subtle">
+              <li class="flex gap-3 py-3">
+                <span class="flex size-11 shrink-0 items-center justify-center rounded-md bg-secondary text-secondary-foreground" aria-hidden="true"><i data-lucide="calculator"></i></span>
+                <div class="min-w-0">
+                  <p class="font-semibold">গণিত <span class="font-normal text-text-secondary">· আয়েশা</span></p>
+                  <p>অনুশীলনী ৫.২, ১ থেকে ৮ নম্বর</p>
+                  <p class="mt-0.5 flex items-center gap-1 text-label text-status-due-fg"><i data-lucide="clock" class="size-3.5"></i>কাল জমা দিতে হবে</p>
+                </div>
+              </li>
+              <li class="flex gap-3 py-3">
+                <span class="flex size-11 shrink-0 items-center justify-center rounded-md bg-secondary text-secondary-foreground" aria-hidden="true"><i data-lucide="book-open"></i></span>
+                <div class="min-w-0">
+                  <p class="font-semibold">বাংলা <span class="font-normal text-text-secondary">· রাফি</span></p>
+                  <p>‘আমাদের ছোট নদী’ কবিতা মুখস্থ</p>
+                  <p class="mt-0.5 flex items-center gap-1 text-label text-text-secondary"><i data-lucide="calendar" class="size-3.5"></i>বুধবার জমা</p>
+                </div>
+              </li>
+            </ul>
+          </section>
+
+          <section class="hidden flex-col rounded-lg border border-border-subtle bg-surface p-4 shadow-e1 md:flex md:p-5" aria-labelledby="w-result">
+            <h2 id="w-result" class="text-h2">সর্বশেষ ফল</h2>
+            <p class="text-text-secondary">আয়েশা · অর্ধবার্ষিক পরীক্ষা</p>
+            <p class="mt-3 flex items-baseline gap-2"><span class="text-display">জিপিএ ৪.৬৭</span><span class="text-text-secondary">/ ৫</span></p>
+            <div class="mt-2 flex h-2 overflow-hidden rounded-full bg-primary/15" aria-hidden="true"><div class="rounded-full bg-primary" style="width:93.4%"></div></div>
+            <p class="mt-3 flex items-start gap-2"><i data-lucide="trending-up" class="mt-1 size-5 shrink-0 text-status-paid-fg"></i><span>গত পরীক্ষার চেয়ে ভালো <span class="text-text-secondary">(আগে ৪.৫০ ছিল)</span></span></p>
+            <div class="mt-auto pt-4">
+              <div class="border-t border-border-subtle pt-1">
+                <a href="#" class="-ml-2 inline-flex h-11 items-center gap-1 rounded-md px-2 font-medium text-primary hover:bg-muted">পুরো ফল<i data-lucide="chevron-right" class="size-4"></i></a>
+              </div>
+            </div>
+          </section>
+
+          <section class="hidden flex-col rounded-lg border border-border-subtle bg-surface p-4 shadow-e1 md:flex md:p-5" aria-labelledby="w-holiday">
+            <h2 id="w-holiday" class="text-h2">পরের ছুটি</h2>
+            <div class="mt-3 flex items-center gap-3">
+              <span class="flex size-12 shrink-0 items-center justify-center rounded-full bg-secondary text-secondary-foreground" aria-hidden="true"><i data-lucide="flag"></i></span>
+              <div class="min-w-0">
+                <p class="text-display">বিজয় দিবস</p>
+              </div>
+            </div>
+            <p class="mt-2">১৬ ডিসেম্বর, বুধবার</p>
+            <p class="mt-2 inline-flex w-fit items-center gap-1.5 rounded-full bg-secondary px-3 py-1 font-semibold text-secondary-foreground"><i data-lucide="calendar-clock" class="size-4"></i>আর ২৩ দিন পর</p>
+            <div class="mt-auto pt-4">
+              <div class="border-t border-border-subtle pt-1">
+                <a href="#" class="-ml-2 inline-flex h-11 items-center gap-1 rounded-md px-2 font-medium text-primary hover:bg-muted">ক্যালেন্ডার দেখুন<i data-lucide="chevron-right" class="size-4"></i></a>
+              </div>
+            </div>
+          </section>
+        </div>
+
+      </div>
+    </main>
+</div>
+
+<nav class="flex border-t border-border-subtle bg-surface md:hidden" aria-label="পোর্টাল">
+  <a href="#" data-nav="portal.overview" aria-current="page" class="group flex h-16 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 text-caption text-text-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground data-[active=true]:font-semibold data-[active=true]:text-secondary-foreground"><span class="flex h-7 w-14 items-center justify-center rounded-full group-aria-[current=page]:bg-secondary group-data-[active=true]:bg-secondary"><i data-lucide="house"></i></span><span class="max-w-full truncate px-1">সারসংক্ষেপ</span></a>
+  <a href="#" data-nav="portal.fees" class="group flex h-16 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 text-caption text-text-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground data-[active=true]:font-semibold data-[active=true]:text-secondary-foreground"><span class="flex h-7 w-14 items-center justify-center rounded-full group-aria-[current=page]:bg-secondary group-data-[active=true]:bg-secondary"><i data-lucide="credit-card"></i></span><span class="max-w-full truncate px-1">ফি ও চালান</span></a>
+  <a href="#" data-nav="portal.attendance" class="group flex h-16 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 text-caption text-text-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground data-[active=true]:font-semibold data-[active=true]:text-secondary-foreground"><span class="flex h-7 w-14 items-center justify-center rounded-full group-aria-[current=page]:bg-secondary group-data-[active=true]:bg-secondary"><i data-lucide="calendar-check-2"></i></span><span class="max-w-full truncate px-1">উপস্থিতি</span></a>
+  <a href="#" data-nav="portal.results" class="group flex h-16 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 text-caption text-text-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground data-[active=true]:font-semibold data-[active=true]:text-secondary-foreground"><span class="flex h-7 w-14 items-center justify-center rounded-full group-aria-[current=page]:bg-secondary group-data-[active=true]:bg-secondary"><i data-lucide="award"></i></span><span class="max-w-full truncate px-1">ফলাফল</span></a>
+  <button type="button" data-active="false" aria-haspopup="dialog" class="group flex h-16 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 text-caption text-text-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground data-[active=true]:font-semibold data-[active=true]:text-secondary-foreground"><span class="flex h-7 w-14 items-center justify-center rounded-full group-aria-[current=page]:bg-secondary group-data-[active=true]:bg-secondary"><i data-lucide="ellipsis"></i></span><span class="max-w-full truncate px-1">আরও</span></button>
+</nav>
+
+<script>
+// Mockup-only: draws the 30 day cells (Nov 2026 starts on Sunday). Today = 23, absent = 11, Fridays off.
+const bn = (n) => String(n).replace(/\d/g, (d) => "০১২৩৪৫৬৭৮৯"[d]);
+const cal = document.getElementById("cal");
+const base = "flex h-9 flex-col items-center justify-center gap-0.5 rounded-md text-label md:h-12";
+for (let d = 1; d <= 30; d++) {
+  const fri = [6, 13, 20, 27].includes(d);
+  let cls, icon = "";
+  if (fri) { cls = "bg-muted text-text-secondary"; icon = "tree-palm"; }
+  else if (d === 11) { cls = "bg-status-overdue-bg text-status-overdue-fg font-semibold"; icon = "x"; }
+  else if (d <= 23) { cls = "bg-status-paid-bg text-status-paid-fg"; icon = "check"; }
+  else { cls = "border border-dashed border-border-functional text-text-secondary"; }
+  if (d === 23) cls += " ring-2 ring-primary ring-offset-2 ring-offset-surface";
+  cal.insertAdjacentHTML("beforeend",
+    `<div class="${base} ${cls}"><span class="leading-none">${bn(d)}</span>${icon ? `<i data-lucide="${icon}" class="size-4"></i>` : `<span class="size-4"></span>`}</div>`);
+}
+lucide.createIcons({ attrs: { width: 18, height: 18, "stroke-width": 1.75, "aria-hidden": "true" } });
+</script>
+</body>
+</html>
