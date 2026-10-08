@@ -251,7 +251,10 @@ const RAMP_SUBPROPS = [
   ['weight', '--font-weight'],
   ['tracking', '--letter-spacing'],
 ];
-for (const [step, values] of Object.entries(preset.typography.ramp)) {
+for (const [step, values] of [
+  ...Object.entries(preset.typography.ramp),
+  ...Object.entries(preset.typography.printRamp),
+]) {
   for (const [tsKey, cssSuffix] of RAMP_SUBPROPS) {
     expectVar(lightVars, '@theme', `--text-${step}${cssSuffix}`, values[tsKey]);
   }
@@ -949,7 +952,7 @@ if (errors.length > 0) {
 
 console.log(
   `check-contrast: OK — ${preset.CONTRAST_PAIRS.length} pairs meet WCAG 2.2, ` +
-    `${Object.keys(preset.typography.ramp).length} type steps mirrored, ` +
+    `${Object.keys(preset.typography.ramp).length} type steps + ${Object.keys(preset.typography.printRamp).length} print steps mirrored, ` +
     `${lightSteps.length} elevation steps mirrored in light and dark, ` +
     `${Object.keys(motionVarNames).length} motion tokens mirrored under a live reduced-motion rule, ` +
     `${DENSITY_EXPECTATIONS.length} density variables scoped to [data-density='comfortable'] ` +

@@ -78,6 +78,11 @@ export const typography = {
     label: { size: '0.8125rem', lineHeight: '1.125rem', weight: '500', tracking: '0em' },
     caption: { size: '0.75rem', lineHeight: '1.0625rem', weight: '400', tracking: '0em' },
   },
+  /** [48.1.04] D38 — print-only sizes. Never used on screen; points, because paper. */
+  printRamp: {
+    'print-title': { size: '28pt', lineHeight: '34pt', weight: '700', tracking: '0em' },
+    'print-door': { size: '72pt', lineHeight: '80pt', weight: '700', tracking: '0em' },
+  },
 } as const;
 
 export type TypeStep = keyof typeof typography.ramp;

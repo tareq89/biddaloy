@@ -342,6 +342,11 @@ export {
   type InvoiceReceiptStudent,
 } from './print/invoice-receipt';
 export {
+  A4Document,
+  type A4DocumentProps,
+} from './print/a4-document';
+export { DocumentCard, type DocumentCardProps } from './document-card';
+export {
   ReportCard,
   type ReportCardComponent,
   type ReportCardData,

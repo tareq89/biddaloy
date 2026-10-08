@@ -1108,6 +1108,30 @@
             <p class="mt-0.5 text-text-secondary">D31 — the badge is a pill (min-w-5 h-5 px-1) that holds 4 digits, then “৯৯৯৯+”. It starts just right of the bell’s centre and grows to the right, so the bell stays visible.</p>
           </div>
 
+          <!-- PATTERN: DocumentCard -->
+          <div class="grid items-start gap-6 md:grid-cols-3">
+            <section class="rounded-lg border border-border-subtle bg-surface shadow-e1 p-4 md:p-5" aria-label="Admit card">
+              <h3 class="text-h2">প্রবেশপত্র</h3>
+              <p class="mt-1 text-text-secondary">প্রতি শিক্ষার্থীর জন্য একটি কার্ড।</p>
+              <p class="mt-1 text-caption text-text-secondary">৪০ জনের মধ্যে ৩২ জনের প্রিন্ট হয়েছে</p>
+              <div class="mt-4"><button type="button" class="min-h-11 md:min-h-0 rounded-md bg-primary px-4 py-2 font-medium text-primary-foreground">প্রিন্ট করুন</button></div>
+            </section>
+            <section class="rounded-lg border border-border-subtle bg-surface shadow-e1 p-4 md:p-5" aria-label="Marks sheet">
+              <h3 class="text-h2">নম্বর শিট</h3>
+              <p class="mt-1 text-text-secondary">শিক্ষকের জন্য খালি নম্বর শিট।</p>
+              <div class="mt-4"><button type="button" class="min-h-11 md:min-h-0 rounded-md border border-border bg-surface px-4 py-2 font-medium">প্রিন্ট করুন</button></div>
+            </section>
+            <section class="rounded-lg border border-border-subtle bg-surface shadow-e1 p-4 md:p-5" aria-label="Seat list">
+              <h3 class="text-h2">আসন তালিকা</h3>
+              <p class="mt-1 text-text-secondary">কক্ষ অনুযায়ী আসন বিন্যাস।</p>
+              <div class="mt-4 flex flex-col items-start gap-2">
+                <button type="button" disabled aria-describedby="doc-reason" class="min-h-11 md:min-h-0 cursor-not-allowed rounded-md bg-muted px-4 py-2 font-medium text-text-secondary">প্রিন্ট করুন</button>
+                <p id="doc-reason" class="text-caption text-text-secondary">এখনও আসন বিন্যাস নেই · <a href="#" class="font-medium text-primary underline underline-offset-2">আসন বিন্যাস তৈরি করুন</a></p>
+              </div>
+            </section>
+          </div>
+          <!-- /PATTERN -->
+
           <!-- PATTERN: NotificationBell -->
           <div class="rounded-lg border border-border-subtle bg-surface shadow-e1 flex items-center gap-12 p-4 md:p-5">
             <button type="button" class="relative inline-flex size-11 shrink-0 items-center justify-center rounded-md hover:bg-muted md:size-9 text-text-secondary" aria-label="বিজ্ঞপ্তি, ৩টি অপঠিত"><i data-lucide="bell"></i><span class="absolute top-0.5 left-1/2 ml-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1 text-caption font-medium text-destructive-foreground md:-top-0.5">৩</span></button>
