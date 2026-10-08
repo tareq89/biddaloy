@@ -26,6 +26,7 @@ import { AttendanceSection } from './settings/AttendanceSection';
 import { BackupSection } from './settings/backup-section';
 import { CalendarSection } from './settings/CalendarSection';
 import { isSmsReady } from './settings/connection-test-status';
+import { DocumentsSection } from './settings/DocumentsSection';
 import { EmailSection } from './settings/EmailSection';
 import { EvaluationsSection } from './settings/EvaluationsSection';
 import { FeesSection } from './settings/FeesSection';
@@ -192,7 +193,14 @@ export function SchoolSettingsPage({ backupJobId }: SchoolSettingsPageProps = {}
         );
       case 'printing':
         // [32.3.7] Takes no `schoolId`; carries `id="printers-section"` itself.
-        return loaded && <PrintersSection />;
+        return (
+          loaded && (
+            <>
+              <PrintersSection />
+              <DocumentsSection schoolId={loaded.schoolId} documents={loaded.data.documents} />
+            </>
+          )
+        );
       case 'security':
         return (
           loaded && (
