@@ -206,9 +206,18 @@ export function IssueCertificateModal({
   const renderPreview = useCertificatePreview();
   const { mutate: loadRender } = renderPreview;
   const valuesKey = JSON.stringify(values);
-  const currentStepId: StepId =
+  // Preview and print need valid details: a step click or a `?step=print` link must not skip them.
+  const detailsOk =
+    valid && Boolean(definition) && subjectIds.length > 0 && !bulkLoading && !bulkTooMany;
+  const requestedStepId: StepId =
     kind && kindOk ? ((STEP_IDS.includes(stepId as StepId) ? stepId : 'kind') as StepId) : 'kind';
+  const blockedAhead = STEP_IDS.indexOf(requestedStepId) > 1 && !detailsOk;
+  const currentStepId: StepId = blockedAhead ? 'details' : requestedStepId;
   const currentIndex = STEP_IDS.indexOf(currentStepId);
+  // Move the URL back too, so the wizard does not jump ahead the moment the details become valid.
+  React.useEffect(() => {
+    if (blockedAhead) setStepId('details');
+  }, [blockedAhead, setStepId]);
   React.useEffect(() => {
     if (currentStepId !== 'preview' || !templateId) return;
     loadRender({
@@ -333,7 +342,14 @@ export function IssueCertificateModal({
           label={t('steps.label')}
           steps={STEP_IDS.map((id) => ({ id, label: stepLabels[id] }))}
           currentStepId={currentStepId}
-          onStepChange={(id) => (run.pending ? undefined : goTo(id as StepId))}
+          onStepChange={(id) => {
+            if (run.pending) return;
+            if (STEP_IDS.indexOf(id as StepId) > 1 && !detailsOk) {
+              setAttempted(true);
+              return;
+            }
+            goTo(id as StepId);
+          }}
         />
         <h2 ref={announcementRef} tabIndex={-1} className="sr-only">
           {t('steps.counter', {
