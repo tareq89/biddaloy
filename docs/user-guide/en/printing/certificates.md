@@ -7,9 +7,10 @@ You can issue five kinds of certificate to a student: **Transfer certificate
 **Certificate of participation**. Every one gets a **serial number** and is
 recorded, so you can find, reprint or cancel it later.
 
-If you applied a curriculum preset, ready-made Bangla and English templates for
-the TC, testimonial and character certificate are already there. Otherwise
-create a template first (see [Templates](templates.md)).
+If you applied a curriculum preset that lists certificates (the Bangladesh NCTB,
+Alia and Qawmi presets do), ready-made Bangla and English templates for the TC,
+testimonial and character certificate are already there. The Cambridge and
+Blank presets list none. Otherwise create a template first (see [Templates](templates.md)).
 
 ## Issue a certificate
 
