@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
-import { StepIndicator } from './step-indicator';
+import { Stepper } from './step-indicator';
 
 const steps = [
   { id: 'account', label: 'Account' },
@@ -8,15 +8,15 @@ const steps = [
   { id: 'verify', label: 'Verify' },
 ];
 
-const meta: Meta<typeof StepIndicator> = {
-  title: 'Components/StepIndicator',
-  component: StepIndicator,
+const meta: Meta<typeof Stepper> = {
+  title: 'Components/Stepper',
+  component: Stepper,
   tags: ['autodocs'],
-  args: { steps, current: 'details', progressLabel: 'Step 2 of 3' },
+  args: { steps, current: 'details', progressLabel: 'Step 2 of 3', label: 'Steps' },
 };
 
 export default meta;
-type Story = StoryObj<typeof StepIndicator>;
+type Story = StoryObj<typeof Stepper>;
 
 export const Middle: Story = {};
 export const First: Story = { args: { current: 'account', progressLabel: 'Step 1 of 3' } };
