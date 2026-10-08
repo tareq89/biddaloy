@@ -199,15 +199,26 @@ describe('family read grants [5.1]', () => {
     Permission.SYLLABUS_READ,
     Permission.SYLLABUS_MANAGE,
   ] as const;
+  const TEMPLATE_MANAGE = Permission.STUDY_PLAN_TEMPLATE_MANAGE;
 
   const STAFF_HOMEWORK_EXPECTATIONS: ReadonlyArray<readonly [UserRole, readonly Permission[]]> = [
     [UserRole.ADMIN, [...HOMEWORK_PERMISSIONS]],
     [UserRole.ACCOUNTANT, []],
-    [UserRole.EXECUTIVE, []],
+    // [66.1.01] D9 — reads every plan; not SYLLABUS_MANAGE.
+    [UserRole.EXECUTIVE, [Permission.SYLLABUS_READ]],
     [UserRole.TEACHER, [...HOMEWORK_PERMISSIONS]],
     [UserRole.STUDENT, [Permission.HOMEWORK_READ, Permission.SYLLABUS_READ]],
     [UserRole.PARENT, [Permission.HOMEWORK_READ, Permission.SYLLABUS_READ]],
   ];
+
+  // [66.1.01] D28 — only ADMIN and EXECUTIVE manage study-plan templates.
+  for (const role of Object.values(UserRole)) {
+    if (role === UserRole.SUPER_ADMIN) continue;
+    const holds = role === UserRole.ADMIN || role === UserRole.EXECUTIVE;
+    it(`${holds ? 'grants' : 'does not grant'} ${role} STUDY_PLAN_TEMPLATE_MANAGE`, () => {
+      expect(ROLE_PERMISSIONS[role].includes(TEMPLATE_MANAGE)).toBe(holds);
+    });
+  }
 
   for (const [role, expected] of STAFF_HOMEWORK_EXPECTATIONS) {
     it(`grants ${role} exactly the D26 homework/syllabus permission set`, () => {

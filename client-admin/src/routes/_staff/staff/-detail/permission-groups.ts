@@ -104,6 +104,7 @@ export const PERMISSION_GROUPS: readonly { id: string; permissions: readonly Per
       Permission.ROUTINE_MANAGE,
       Permission.SYLLABUS_READ,
       Permission.SYLLABUS_MANAGE,
+      Permission.STUDY_PLAN_TEMPLATE_MANAGE,
       Permission.PROGRAM_READ,
       Permission.PROGRAM_MANAGE,
       Permission.PROGRAM_RECORD,

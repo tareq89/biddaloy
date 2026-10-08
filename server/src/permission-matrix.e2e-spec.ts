@@ -772,6 +772,8 @@ export const UI_ONLY_PERMISSIONS: Permission[] = [
   Permission.INVOICE_PRINT,
   Permission.ATTENDANCE_CORRECT,
   Permission.FEE_COLLECT,
+  // [66.1.01] Routes land in 66.2.06, which removes this line.
+  Permission.STUDY_PLAN_TEMPLATE_MANAGE,
   // [16.2.1] Plumbing landed ahead of the routes that will require them:
   // PAYMENT_REVERSE now gates `POST /payments/:id/reverse` (16.6.1) and
   // REPORT_COLLECTIONS_READ now gates `GET /reports/collections` and

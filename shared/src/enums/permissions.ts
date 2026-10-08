@@ -216,6 +216,8 @@ export enum Permission {
   SYLLABUS_READ = 'SYLLABUS_READ',
   // [22.1.1] Create/edit/mark a SyllabusTopic's status.
   SYLLABUS_MANAGE = 'SYLLABUS_MANAGE',
+  // [66.1.01] D28 — create/edit/delete study-plan library templates.
+  STUDY_PLAN_TEMPLATE_MANAGE = 'STUDY_PLAN_TEMPLATE_MANAGE',
 
   // Programs (34.x)
   // [34.1.1] D4 — read a Program/ProgramMilestone/ProgramEnrollment.
@@ -357,6 +359,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.HOMEWORK_IMPORT,
     Permission.SYLLABUS_READ,
     Permission.SYLLABUS_MANAGE,
+    Permission.STUDY_PLAN_TEMPLATE_MANAGE,
     // [34.1.1] D4 — ADMIN holds all three program permissions.
     Permission.PROGRAM_READ,
     Permission.PROGRAM_MANAGE,
@@ -570,6 +573,9 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.RESULT_READ,
     // [21.1.1] Class routine read.
     Permission.ROUTINE_READ,
+    // [66.1.01] D9 — executives read every study plan (also #1834 D39).
+    Permission.SYLLABUS_READ,
+    Permission.STUDY_PLAN_TEMPLATE_MANAGE,
     // [34.1.1] D4/D24 — EXECUTIVE holds all three program permissions.
     Permission.PROGRAM_READ,
     Permission.PROGRAM_MANAGE,

@@ -44,6 +44,7 @@ export const AUDIT_ENTITY_TYPES = [
   'InvitationBatch',
   'Invoice',
   'LeaveRecord',
+  'LessonDelivery',
   'Mark',
   'MarkGrid',
   'Membership',
@@ -78,6 +79,8 @@ export const AUDIT_ENTITY_TYPES = [
   // [Epic 38.2.3] `FinesService.waiveFine` audits the bill it waived.
   'StudentFee',
   'StudentSubjectChoice',
+  'StudyPlan',
+  'StudyPlanTemplate',
   'SyllabusTopic',
   'TeacherClassSection',
   'Trial',
