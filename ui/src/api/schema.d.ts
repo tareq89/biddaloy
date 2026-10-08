@@ -11271,6 +11271,61 @@ export interface components {
             /** @enum {string} */
             status?: "DONE" | "PLANNED" | "IN_PROGRESS";
         };
+        PlanListSectionDto: {
+            id: string;
+            name: string;
+            class_id: string;
+            class_name: string;
+        };
+        PlanListSubjectDto: {
+            id: string;
+            name_en: string;
+            name_bn: string | null;
+            code: string;
+        };
+        PlanListTermDto: {
+            id: string;
+            name: string;
+        };
+        PlanCapacityDto: {
+            /** @description Non-excluded periods still ahead (today included). */
+            periods_left: number;
+            /** @description Remaining periods of the lessons not yet done. */
+            periods_needed: number;
+            /** @description periods_needed <= periods_left. */
+            fits: boolean;
+        };
+        PlanSummaryDto: {
+            lessons_done: number;
+            lessons_total: number;
+            /** @description Owed by today minus taught; negative means ahead. */
+            periods_behind: number;
+            lessons_behind: number;
+            unreported_periods: number;
+            unreported_school_days: number;
+            oldest_unreported_date: string | null;
+            /** @description Latest human-written delivery row for the section and subject (D44). */
+            last_reported_at: string | null;
+            capacity: components["schemas"]["PlanCapacityDto"];
+            /** @description No PUBLISHED routine for the plan year (D14 empty state). */
+            routine_missing: boolean;
+        };
+        PlanListRowDto: {
+            id: string;
+            academic_year_id: string;
+            section: components["schemas"]["PlanListSectionDto"];
+            subject: components["schemas"]["PlanListSubjectDto"];
+            term: components["schemas"]["PlanListTermDto"] | null;
+            lesson_count: number;
+            summary: components["schemas"]["PlanSummaryDto"];
+        };
+        PlanListResponseDto: {
+            data: components["schemas"]["PlanListRowDto"][];
+            total: number;
+            page: number;
+            limit: number;
+            totalPages: number;
+        };
         PlanRangeDto: {
             from: string;
             to: string;
@@ -11357,29 +11412,6 @@ export interface components {
             /** @description Does not fully fit before the range ends. */
             overflow: boolean;
             in_extra_class: boolean;
-        };
-        PlanCapacityDto: {
-            /** @description Non-excluded periods still ahead (today included). */
-            periods_left: number;
-            /** @description Remaining periods of the lessons not yet done. */
-            periods_needed: number;
-            /** @description periods_needed <= periods_left. */
-            fits: boolean;
-        };
-        PlanSummaryDto: {
-            lessons_done: number;
-            lessons_total: number;
-            /** @description Owed by today minus taught; negative means ahead. */
-            periods_behind: number;
-            lessons_behind: number;
-            unreported_periods: number;
-            unreported_school_days: number;
-            oldest_unreported_date: string | null;
-            /** @description Latest human-written delivery row for the section and subject (D44). */
-            last_reported_at: string | null;
-            capacity: components["schemas"]["PlanCapacityDto"];
-            /** @description No PUBLISHED routine for the plan year (D14 empty state). */
-            routine_missing: boolean;
         };
         PlanScheduleResponseDto: {
             range: components["schemas"]["PlanRangeDto"];
@@ -25823,7 +25855,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["PlanListResponseDto"];
+                };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
             401: {

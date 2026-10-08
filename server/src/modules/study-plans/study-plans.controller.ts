@@ -53,6 +53,7 @@ import {
   ListStudyPlansWithSummaryQueryDto,
   PlanCapacityQueryDto,
   PlanCapacityResponseDto,
+  PlanListResponseDto,
   PlanScheduleResponseDto,
 } from './dto/plan-schedule.dto';
 
@@ -95,6 +96,7 @@ export class StudyPlansController {
   @Get()
   @RequirePermissions(Permission.SYLLABUS_READ)
   @ApiOperation({ summary: 'List study plans the caller can read.' })
+  @ApiOkResponse({ type: PlanListResponseDto })
   list(
     @Query() query: ListStudyPlansWithSummaryQueryDto,
     @CurrentTenant() tenant: Tenant,

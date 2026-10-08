@@ -117,3 +117,41 @@ export class ListStudyPlansWithSummaryQueryDto extends ListStudyPlansQueryDto {
   @IsOptional() @IsIn(['behind_periods', 'section', 'subject']) sort?: string;
   @IsOptional() @IsIn(['asc', 'desc']) order?: 'asc' | 'desc';
 }
+
+class PlanListSectionDto {
+  @ApiProperty() id: string;
+  @ApiProperty() name: string;
+  @ApiProperty() class_id: string;
+  @ApiProperty() class_name: string;
+}
+
+class PlanListSubjectDto {
+  @ApiProperty() id: string;
+  @ApiProperty() name_en: string;
+  @ApiProperty({ nullable: true, type: String }) name_bn: string | null;
+  @ApiProperty() code: string;
+}
+
+class PlanListTermDto {
+  @ApiProperty() id: string;
+  @ApiProperty() name: string;
+}
+
+/** One row of `GET /study-plans`: the plan base fields plus its progress summary. */
+export class PlanListRowDto {
+  @ApiProperty() id: string;
+  @ApiProperty() academic_year_id: string;
+  @ApiProperty({ type: PlanListSectionDto }) section: PlanListSectionDto;
+  @ApiProperty({ type: PlanListSubjectDto }) subject: PlanListSubjectDto;
+  @ApiProperty({ nullable: true, type: PlanListTermDto }) term: PlanListTermDto | null;
+  @ApiProperty() lesson_count: number;
+  @ApiProperty({ type: PlanSummaryDto }) summary: PlanSummaryDto;
+}
+
+export class PlanListResponseDto {
+  @ApiProperty({ type: [PlanListRowDto] }) data: PlanListRowDto[];
+  @ApiProperty() total: number;
+  @ApiProperty() page: number;
+  @ApiProperty() limit: number;
+  @ApiProperty() totalPages: number;
+}
