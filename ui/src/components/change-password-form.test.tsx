@@ -53,6 +53,19 @@ describe('ChangePasswordForm', () => {
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
+  it('reports match / mismatch live, in a polite region, as the confirm field changes', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<ChangePasswordForm onSubmit={vi.fn()} />, { locale: 'en' });
+
+    await user.type(await screen.findByLabelText('New password'), 'New-pass1!');
+    await user.type(screen.getByLabelText('Confirm new password'), 'New-pass');
+    const status = screen.getByText('Passwords do not match.').closest('[aria-live]');
+    expect(status?.getAttribute('aria-live')).toBe('polite');
+
+    await user.type(screen.getByLabelText('Confirm new password'), '1!');
+    expect(status?.textContent).toBe('Passwords match');
+  });
+
   it('shows required-field errors on an empty submit, and does not invent a strength policy', async () => {
     const onSubmit = vi.fn();
     const user = userEvent.setup();

@@ -22,13 +22,14 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
 import { useTranslation } from '../i18n';
+import { cn } from '../primitives/lib/utils';
 
 import { Button } from './button';
 import { Card } from './card';
 import { Checkbox } from './checkbox';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from './form-field';
 import { Input } from './input';
-import { FormPasswordChecklist } from './password-checklist';
+import { FormPasswordChecklist, RuleIcon } from './password-checklist';
 
 export interface ChangePasswordFormValues {
   current_password: string;
@@ -117,6 +118,8 @@ export function ChangePasswordForm({
   }
 
   const passwordType = showPasswords ? 'text' : 'password';
+  const [newPassword, confirmPassword] = form.watch(['new_password', 'confirm_password']);
+  const matches = newPassword === confirmPassword;
 
   return (
     <Card padded>
@@ -196,6 +199,27 @@ export function ChangePasswordForm({
                       disabled={submitting}
                     />
                   </FormControl>
+                  {/* Live as you type, same as `SetPasswordForm`; always mounted so it is announced. */}
+                  <p
+                    aria-live="polite"
+                    className={cn(
+                      'flex items-center gap-2 text-xs empty:hidden',
+                      matches ? 'text-status-paid-fg' : 'text-status-overdue-fg',
+                    )}
+                  >
+                    {confirmPassword !== '' && (
+                      <>
+                        {matches ? (
+                          <RuleIcon ok />
+                        ) : (
+                          <CircleAlertIcon className="size-4 shrink-0" aria-hidden="true" />
+                        )}
+                        <span>
+                          {matches ? tAuth('setPassword.match') : tAuth('setPassword.mismatch')}
+                        </span>
+                      </>
+                    )}
+                  </p>
                   <FormMessage />
                 </FormItem>
               )}
