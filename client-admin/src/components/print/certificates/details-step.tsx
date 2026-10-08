@@ -23,10 +23,9 @@ import { kindReasonKey } from './kind-step';
 import type { IneligibleStudent } from './print-step';
 
 /** `DAHS-TC-2026-00007` -> prefix `DAHS`; `TSM-2026-00009` -> no prefix. */
-function nextSerial(kind: DocumentKind, year: number, latest: RegisterRow | undefined): string {
-  const parts = latest?.serial.split('-') ?? [];
-  const prefix = parts.length > 3 ? parts.slice(0, -3).join('-') : undefined;
-  return formatSerial({ kind, year, n: (latest?.serial_no ?? 0) + 1, prefix });
+export function prefixOfSerial(serial: string | undefined): string | undefined {
+  const parts = serial?.split('-') ?? [];
+  return parts.length > 3 ? parts.slice(0, -3).join('-') : undefined;
 }
 
 export interface DetailsStepProps {
@@ -46,6 +45,8 @@ export interface DetailsStepProps {
   profileValues: Array<{ key: string; value: string }>;
   year: number;
   latest: RegisterRow | undefined;
+  /** The school's serial prefix as the next certificate will get it (settings, D-serial). */
+  serialPrefix: string | undefined;
   issuedCount: number;
   bulk:
     | {
@@ -184,7 +185,12 @@ export function DetailsStep(props: DetailsStepProps) {
         <Card padded>
           <h2 className="text-h2">{t('serial.title')}</h2>
           <p className="mt-2 text-h2" data-testid="next-serial">
-            {nextSerial(kind, props.year, props.latest)}
+            {formatSerial({
+              kind,
+              year: props.year,
+              n: (props.latest?.serial_no ?? 0) + 1,
+              prefix: props.serialPrefix,
+            })}
           </p>
           <p className="mt-2 text-text-secondary">{t('serial.help')}</p>
           <p className="mt-3 border-t border-border-subtle pt-3 text-caption">

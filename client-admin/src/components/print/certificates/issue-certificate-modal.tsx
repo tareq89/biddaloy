@@ -12,6 +12,7 @@ import {
   validateIssueValues,
   type StudentCertificateKind,
 } from '@biddaloy/shared';
+import { getActiveTenant } from '@biddaloy/ui/api';
 import { ConfirmDialog, Skeleton } from '@biddaloy/ui/components';
 import {
   useCertificatePreview,
@@ -19,6 +20,7 @@ import {
   useCertificateTemplates,
   useHasPermission,
   useLifecycleEvents,
+  useSchoolSettings,
   useStudent,
   useStudents,
 } from '@biddaloy/ui/hooks';
@@ -27,7 +29,9 @@ import { FullPageShell, StepIndicator, useWizardShellStep } from '@biddaloy/ui/s
 import { formatNumber } from '@biddaloy/ui/utils';
 import * as React from 'react';
 
-import { DetailsStep } from './details-step';
+import { currentYear } from '../history/certificate-register';
+
+import { DetailsStep, prefixOfSerial } from './details-step';
 import { kindAvailability, type KindAvailability } from './kind-eligibility';
 import { KindStep } from './kind-step';
 import { PreviewStep, PrintStep, usePrintRun, type IneligibleStudent } from './print-step';
@@ -150,13 +154,22 @@ export function IssueCertificateModal({
     .map(([key, v]) => ({ key, value: v as string }));
 
   // --- serial card -------------------------------------------------------------------------
-  const year = new Date().getFullYear();
+  // The school's calendar year, the same one the register defaults to (the server uses Dhaka's).
+  const year = currentYear(region);
   const register = useCertificateRegister({
     ...(kind ? { document_kind: kind } : {}),
     year,
     limit: 1,
   });
+  // Newest serial first: its number is how many certificates (copy 1) this kind has this year,
+  // since serials are max + 1. The register's `total` also counts reprinted copies.
   const latest = register.data?.data[0];
+  const issuedCount = latest?.serial_no ?? 0;
+  // The prefix comes from the settings; only someone who cannot read them gets the last serial's.
+  const settings = useSchoolSettings(canManageSettings ? (getActiveTenant() ?? '') : '');
+  const serialPrefix = settings.data
+    ? settings.data.documents?.serialPrefix || undefined
+    : prefixOfSerial(latest?.serial);
 
   // --- bulk (D22) ----------------------------------------------------------------------------
   const [bulk, setBulk] = React.useState(false);
@@ -403,7 +416,8 @@ export function IssueCertificateModal({
             profileValues={profileValues}
             year={year}
             latest={latest}
-            issuedCount={register.data?.total ?? 0}
+            serialPrefix={serialPrefix}
+            issuedCount={issuedCount}
             bulk={
               // A TC is one leaving student, never a whole class.
               classId && kind !== DocumentKind.TRANSFER_CERTIFICATE

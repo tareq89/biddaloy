@@ -114,10 +114,18 @@ function serve(
     latestSerial?: string | null;
     classIds?: string[];
     batchSize?: number;
+    serialPrefix?: string;
+    registerTotal?: number;
   } = {},
 ) {
   const kinds = opts.kinds ?? ['TESTIMONIAL'];
   server.use(
+    http.get('/api/v1/schools/school-1/settings', () =>
+      HttpResponse.json({
+        version: 1,
+        documents: opts.serialPrefix ? { serialPrefix: opts.serialPrefix } : {},
+      }),
+    ),
     http.get('/api/v1/students/s-1', () => HttpResponse.json(student)),
     http.get('/api/v1/students/s-1/lifecycle-events', () => HttpResponse.json([])),
     http.get('/api/v1/certificates/templates', ({ request }) => {
@@ -185,7 +193,13 @@ function serve(
             },
           ]
         : [];
-      return HttpResponse.json({ data: row, total: row.length, page: 1, limit: 1, totalPages: 1 });
+      return HttpResponse.json({
+        data: row,
+        total: opts.registerTotal ?? row.length,
+        page: 1,
+        limit: 1,
+        totalPages: 1,
+      });
     }),
     http.get('/api/v1/students', ({ request }) => {
       const status = new URL(request.url).searchParams.get('enrollment_status');
@@ -428,6 +442,23 @@ describe('IssueCertificateModal', () => {
     const second = setup();
     await next(second.user, /^next$/i);
     expect((await screen.findByTestId('next-serial')).textContent).toBe('TSM-2026-00001');
+  });
+
+  it('next-serial card: the prefix comes from the settings, not the last serial', async () => {
+    serve({ serialPrefix: 'DAHS' });
+    const { user } = setup();
+    await next(user, /^next$/i);
+    await waitFor(() =>
+      expect(screen.getByTestId('next-serial').textContent).toBe('DAHS-TSM-2026-00010'),
+    );
+  });
+
+  it('issued-this-year counts serials, not reprinted copies', async () => {
+    // Serial 9 is the newest; 12 register rows means 3 of them are reprints.
+    serve({ registerTotal: 12 });
+    const { user } = setup();
+    await next(user, /^next$/i);
+    expect(await screen.findByText(/9 issued in/i)).toBeTruthy();
   });
 
   it('the serial card links to the register tab', async () => {
