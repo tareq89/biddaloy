@@ -474,6 +474,15 @@ describe('/portal/exam-schedule', () => {
       expect(call.getAttribute('href')).toBe('tel:01711-223344');
     });
 
+    it('Try again on the withheld message brings the print button back', async () => {
+      await printAndWithhold();
+
+      const alert = await screen.findByRole('alert');
+      await userEvent.click(within(alert).getByRole('button', { name: 'Try again' }));
+      expect(await screen.findByRole('button', { name: 'Print admit card' })).toBeTruthy();
+      expect(screen.queryByRole('alert')).toBeNull();
+    });
+
     it('shows the amount in Bangla digits under bn', async () => {
       await printAndWithhold('bn');
 

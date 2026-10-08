@@ -129,7 +129,8 @@
       "callOffice": "Call the office ({{phone}})",
       "notReady": "The admit card is not ready yet.",
       "error": "The admit card could not be printed. Try again.",
-      "popupBlocked": "Allow pop-ups for this site, then try again."
+      "popupBlocked": "Allow pop-ups for this site, then try again.",
+      "tryAgain": "Try again"
     }
   },
   "attendance": {
