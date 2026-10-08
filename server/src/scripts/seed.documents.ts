@@ -36,12 +36,22 @@ const TEMPLATES = [
 ] as const;
 
 /** Demo roster student -> the certificate they were issued (0002 left, 0003 graduated; see seed.lifecycle.ts). */
+const CONDUCT = 'সন্তোষজনক';
+// A template only accepts the issue.* fields its sentences use: the testimonial has no remark.
 const ISSUED = [
-  { n: 2, template: TEMPLATES[1].name, kind: DocumentKind.TRANSFER_CERTIFICATE },
-  { n: 3, template: TEMPLATES[2].name, kind: DocumentKind.TESTIMONIAL },
+  {
+    n: 2,
+    template: TEMPLATES[1].name,
+    kind: DocumentKind.TRANSFER_CERTIFICATE,
+    values: { 'issue.conduct': CONDUCT, 'issue.remark': '—' },
+  },
+  {
+    n: 3,
+    template: TEMPLATES[2].name,
+    kind: DocumentKind.TESTIMONIAL,
+    values: { 'issue.conduct': CONDUCT },
+  },
 ] as const;
-
-const ISSUE_VALUES = { 'issue.conduct': 'সন্তোষজনক', 'issue.remark': '—' };
 
 /**
  * [48.2.15] Published default templates for the admit card, TC, testimonial and character
@@ -88,7 +98,7 @@ export async function ensureDocumentsSeed(
     const job = await ports.issueCertificate({
       templateId,
       studentId: student.id,
-      issueValues: ISSUE_VALUES,
+      issueValues: { ...c.values },
     });
     await ports.confirmJob(job.job_id, []);
     result.certificates += 1;
