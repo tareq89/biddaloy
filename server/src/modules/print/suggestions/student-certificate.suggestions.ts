@@ -81,7 +81,7 @@ const PARAGRAPHS: Record<CertKind, Record<Lang, string[]>> = {
   },
   [DocumentKind.CHARACTER_CERTIFICATE]: {
     bn: [
-      'এই মর্মে প্রত্যয়ন করা যাচ্ছে যে, {{student.name_bn}}, পিতা {{student.father_name}}, মাতা {{student.mother_name}}, এই বিদ্যালয়ের {{student.class}} শ্রেণির রোল নং {{student.roll}} এর শিক্ষার্থী। আমার জানামতে তার চরিত্র ও আচরণ {{issue.conduct}}।',
+      'এই মর্মে প্রত্যয়ন করা যাচ্ছে যে, {{student.name_bn}}, পিতা {{student.father_name}}, মাতা {{student.mother_name}}, এই বিদ্যালয়ের শ্রেণি {{student.class}}, রোল নং {{student.roll}}-এর শিক্ষার্থী। আমার জানামতে তার চরিত্র ও আচরণ {{issue.conduct}}।',
       '{{issue.remark}}',
       WISH.bn,
     ],
@@ -93,17 +93,17 @@ const PARAGRAPHS: Record<CertKind, Record<Lang, string[]>> = {
   },
   [DocumentKind.STUDY_CERTIFICATE]: {
     bn: [
-      'এই মর্মে প্রত্যয়ন করা যাচ্ছে যে, {{student.name_bn}}, পিতা {{student.father_name}}, মাতা {{student.mother_name}}, {{student.academic_year}} শিক্ষাবর্ষে এই বিদ্যালয়ের {{student.class}} শ্রেণির {{student.section}} শাখার রোল নং {{student.roll}} এর একজন নিয়মিত শিক্ষার্থী। সে {{student.admission_date}} তারিখে এই বিদ্যালয়ে ভর্তি হয়েছে।',
+      'এই মর্মে প্রত্যয়ন করা যাচ্ছে যে, {{student.name_bn}}, পিতা {{student.father_name}}, মাতা {{student.mother_name}}, {{student.academic_year}} শিক্ষাবর্ষে এই বিদ্যালয়ের শ্রেণি {{student.class}}, শাখা {{student.section}}, রোল নং {{student.roll}}-এর একজন নিয়মিত শিক্ষার্থী। সে {{student.admission_date}} তারিখে এই বিদ্যালয়ে ভর্তি হয়েছে।',
       '{{issue.remark}}',
     ],
     en: [
-      'This is to certify that {{student.name}}, son/daughter of {{student.father_name}} and {{student.mother_name}}, is a regular student of class {{student.class}}, section {{student.section}}, roll {{student.roll}} in {{student.academic_year}} at this school. He/she was admitted on {{student.admission_date}}.',
+      'This is to certify that {{student.name}}, son/daughter of {{student.father_name}} and {{student.mother_name}}, is a regular student of {{student.class}}, section {{student.section}}, roll {{student.roll}} in {{student.academic_year}} at this school. He/she was admitted on {{student.admission_date}}.',
       '{{issue.remark}}',
     ],
   },
   [DocumentKind.PARTICIPATION_CERTIFICATE]: {
     bn: [
-      'এই মর্মে প্রত্যয়ন করা যাচ্ছে যে, {{student.name_bn}}, {{student.class}} শ্রেণির রোল নং {{student.roll}}, {{issue.event_date}} তারিখে অনুষ্ঠিত {{issue.event_name}}-এ অংশগ্রহণ করেছে।',
+      'এই মর্মে প্রত্যয়ন করা যাচ্ছে যে, {{student.name_bn}}, শ্রেণি {{student.class}}, রোল নং {{student.roll}}, {{issue.event_date}} তারিখে অনুষ্ঠিত {{issue.event_name}}-এ অংশগ্রহণ করেছে।',
       WISH.bn,
     ],
     en: [
