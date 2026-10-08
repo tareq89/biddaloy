@@ -41,7 +41,7 @@ import { Permission } from '@biddaloy/shared';
  */
 
 /** The entity kinds a palette action may be scoped to. */
-export type ActionContext = 'student' | 'guardian' | 'invoice' | 'gradingScale';
+export type ActionContext = 'student' | 'guardian' | 'invoice' | 'gradingScale' | 'exam';
 
 /** How the palette presents the action once triggered. */
 export type ActionKind = 'modal' | 'navigate' | 'inline';
@@ -49,6 +49,11 @@ export type ActionKind = 'modal' | 'navigate' | 'inline';
 /** What `run()` receives — currently just a TanStack Router navigate. */
 export interface ActionRunContext {
   readonly navigate: (opts: { readonly to: string }) => void;
+  /** Ids of the current route, when it has them (the palette's context). */
+  readonly params?: {
+    readonly studentId?: string | undefined;
+    readonly examId?: string | undefined;
+  };
 }
 
 export interface PaletteAction {
@@ -517,5 +522,47 @@ export const ACTIONS: readonly PaletteAction[] = [
     permission: Permission.SETTINGS_MANAGE,
     kind: 'navigate',
     run: (ctx) => ctx.navigate({ to: '/settings#printers-section' }),
+  },
+
+  // [48.3.15] Epic 48 D14. With the route's id they land on that exam / student, never a list.
+  {
+    id: 'exams.printAdmitCards',
+    label: { en: 'Print admit cards', bn: 'প্রবেশপত্র প্রিন্ট করুন' },
+    permission: Permission.EXAM_MANAGE,
+    kind: 'navigate',
+    context: ['exam'],
+    run: (ctx) =>
+      ctx.navigate({
+        to: ctx.params?.examId ? `/exams/${ctx.params.examId}?tab=print` : '/exams',
+      }),
+  },
+  // CERTIFICATE_ISSUE is stricter than `/students`'s STUDENT_READ: documented exception.
+  {
+    id: 'certificates.issue',
+    label: { en: 'Issue certificate', bn: 'সনদ ইস্যু করুন' },
+    permission: Permission.CERTIFICATE_ISSUE,
+    kind: 'modal',
+    context: ['student'],
+    run: (ctx) =>
+      ctx.navigate({
+        to: ctx.params?.studentId
+          ? `/students/${ctx.params.studentId}?tab=documents&issue=pick`
+          : '/students',
+      }),
+  },
+  {
+    id: 'certificates.register',
+    label: { en: 'Certificate register', bn: 'সনদ রেজিস্টার' },
+    permission: Permission.PRINT_HISTORY_READ,
+    kind: 'navigate',
+    run: (ctx) => ctx.navigate({ to: '/reports/printables?tab=register' }),
+  },
+  // DOCUMENT_PRINT is stricter than the page's PRINT_HISTORY_READ: the To print tab needs it.
+  {
+    id: 'print.toPrint',
+    label: { en: 'To print', bn: 'প্রিন্ট বাকি' },
+    permission: Permission.DOCUMENT_PRINT,
+    kind: 'navigate',
+    run: (ctx) => ctx.navigate({ to: '/reports/printables?tab=to-print' }),
   },
 ];
