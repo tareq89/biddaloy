@@ -74,6 +74,10 @@ import {
 } from './seed.util';
 import { ensureStudentLifecycleSeed } from './seed.lifecycle';
 import { ensureEvaluationsSeed } from './seed.evaluations';
+import { ensureStudyPlansSeed } from './seed.study-plans';
+import { StudyPlan } from '../modules/study-plans/entities/study-plan.entity';
+import { StudyPlanTemplate } from '../modules/study-plans/entities/study-plan-template.entity';
+import { LessonDelivery } from '../modules/study-plans/entities/lesson-delivery.entity';
 import { AcrAssessment } from '../modules/acr/entities/acr-assessment.entity';
 import { AcrCriterion } from '../modules/acr/entities/acr-criterion.entity';
 import { AcrFormVersion } from '../modules/acr/entities/acr-form-version.entity';
@@ -312,6 +316,25 @@ export async function seed() {
       },
       school.id,
       lifecycleAdmin.id,
+    );
+
+    // [66.1.07] Demo study-plan template, two plans and four lesson deliveries.
+    await ensureStudyPlansSeed(
+      {
+        userRepository,
+        academicYearRepository: dataSource.getRepository(AcademicYear),
+        academicTermRepository: dataSource.getRepository(AcademicTerm),
+        classRepository: dataSource.getRepository(Class),
+        classSectionRepository: dataSource.getRepository(ClassSection),
+        subjectRepository: dataSource.getRepository(Subject),
+        periodSlotRepository: dataSource.getRepository(PeriodSlot),
+        routineSlotRepository: dataSource.getRepository(RoutineSlot),
+        examRepository: dataSource.getRepository(Exam),
+        templateRepository: dataSource.getRepository(StudyPlanTemplate),
+        planRepository: dataSource.getRepository(StudyPlan),
+        deliveryRepository: dataSource.getRepository(LessonDelivery),
+      },
+      school.id,
     );
   }
 

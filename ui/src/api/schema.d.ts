@@ -9043,6 +9043,13 @@ export interface components {
         EvaluationsSettingsDto: {
             incidentSmsEnabled?: boolean;
         };
+        StudyPlansSettingsDto: {
+            statusDeadline?: string;
+            reminderTime?: string;
+            escalateAfterSchoolDays?: number;
+            weeklyDigestTime?: string;
+            guardianDigestSms?: boolean;
+        };
         TenantSettingsDto: {
             organisationRenames?: components["schemas"]["OrganisationRenameDto"][];
             /** @enum {number} */
@@ -9056,6 +9063,7 @@ export interface components {
             backup?: components["schemas"]["BackupSettingsDto"];
             fees?: components["schemas"]["FeesSettingsDto"];
             evaluations?: components["schemas"]["EvaluationsSettingsDto"];
+            studyPlans?: components["schemas"]["StudyPlansSettingsDto"];
         };
         UpdateSchoolProfileDto: {
             name?: string;
