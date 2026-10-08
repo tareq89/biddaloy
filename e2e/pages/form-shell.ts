@@ -14,10 +14,11 @@ export class FormShellPage {
   /** `fillField('students.form.fields.fullName', 'Rahim')` — labels only,
    * which is what keeps this an a11y canary: an unlabeled input fails
    * the suite before it fails a screen-reader user. A required field's
-   * name ends in the screen-reader-only "(required)" suffix. */
+   * label text also carries the visual "*" and the screen-reader-only
+   * "(required)" suffix. */
   async fillField(labelKey: string, value: string): Promise<void> {
     const required = escapeRegExp(t('common.form.required'));
-    const name = new RegExp(`^${escapeRegExp(t(labelKey))}\\s*(${required})?$`);
+    const name = new RegExp(`^${escapeRegExp(t(labelKey))}\\s*(\\*?\\s*${required})?$`);
     await this.page.getByLabel(name).fill(value);
   }
 

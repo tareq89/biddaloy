@@ -84,7 +84,8 @@ test('create a template, fill the grid, save, then create an exam from it', asyn
     await page.keyboard.press('Enter');
     // The add-subject card of the new class sits below the tab row.
     await tabUntilFocused(page, t('examTemplates.grid.subjectPicker', { grade }), 10);
-    await selectByTypeahead(page, subjectCode);
+    // Options read "<code> — <name>".
+    await selectByTypeahead(page, `${subjectCode} — ${subjectName}`);
     await tabUntilFocused(page, t('examTemplates.grid.addSubject'), 3, { tag: 'BUTTON' });
     await page.keyboard.press('Enter');
   });

@@ -127,7 +127,8 @@ test.describe.serial('attendance: teacher marks -> guardian sees -> admin sees t
       await attendance.gotoPortalMonth(studentId, ATTENDANCE_SEED_ABSENT_DATE.slice(0, 7));
       await attendance.dayCell(ATTENDANCE_SEED_ABSENT_DATE).click();
 
-      await expect(page.getByRole('dialog')).toContainText(
+      // The day's details sit in a side panel next to the grid (no dialog).
+      await expect(page.getByRole('complementary').getByRole('definition')).toContainText(
         t('portal.attendanceGrid.status.absent'),
       );
     });

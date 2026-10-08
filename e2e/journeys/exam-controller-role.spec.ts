@@ -142,7 +142,7 @@ test('runs an exam: create, seat plan, read-only marks, publish result', async (
   await page.getByTestId('schedule-picker').getByRole('checkbox', { name: subjectName }).check();
   await page.getByTestId('room-picker').getByRole('checkbox', { name: roomName }).check();
   await page.getByRole('button', { name: t('seatPlans.generate.submit') }).click();
-  await page.getByRole('link', { name: planName }).click();
+  // Generating lands straight on the new plan.
   await expect(page.getByRole('heading', { name: planName })).toBeVisible();
 
   // --- 3. marks grid is view-only: disabled cells, no submit button, and the API refuses a write

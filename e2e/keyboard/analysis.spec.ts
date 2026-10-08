@@ -155,10 +155,10 @@ test('keyboard-only: pick exam and section, arrow to Defaulted, toggle by compon
   });
 
   await test.step('arrow from Merit to Defaulted, assert a reason cell', async () => {
-    await tabUntilFocused(page, t('exams.analysis.tabs.merit'), 30, { tag: 'BUTTON' });
+    await tabUntilFocused(page, t('grading.analysisPage.tabs.merit'), 30, { tag: 'BUTTON' });
     await page.keyboard.press('ArrowRight');
     await expect(
-      page.getByRole('tab', { name: t('exams.analysis.tabs.defaulted') }),
+      page.getByRole('tab', { name: t('grading.analysisPage.tabs.defaulted') }),
     ).toHaveAttribute('aria-selected', 'true');
 
     await expect(page.getByText(student.full_name)).toBeVisible();
@@ -169,22 +169,26 @@ test('keyboard-only: pick exam and section, arrow to Defaulted, toggle by compon
   await test.step('arrow to Pass/Fail, toggle by component, assert the component table', async () => {
     await page.keyboard.press('ArrowRight');
     await expect(
-      page.getByRole('tab', { name: t('exams.analysis.tabs.passFail') }),
+      page.getByRole('tab', { name: t('grading.analysisPage.tabs.passFail') }),
     ).toHaveAttribute('aria-selected', 'true');
 
     // A Radix checkbox is a <button> named by its sibling label, so
     // `tabUntilFocused`'s text match can't see it — focus it by role.
-    await page.getByRole('checkbox', { name: t('exams.analysis.byComponent') }).focus();
+    await page.getByRole('checkbox', { name: t('grading.analysisPage.byPart') }).focus();
     await page.keyboard.press('Space');
     await expect(
       page.getByRole('columnheader', {
-        name: t('exams.analysis.passFailComponent.columnComponent'),
+        name: t('grading.analysisPage.columnPart'),
       }),
     ).toBeVisible();
   });
 
   await test.step('the print button is reachable by keyboard', async () => {
-    await tabUntilFocused(page, t('exams.analysis.print'), 30, { tag: 'BUTTON' });
-    await expect(page.getByRole('button', { name: t('exams.analysis.print') })).toBeFocused();
+    // Print is a page-header action, above the tabs: Shift+Tab back to it.
+    await tabUntilFocused(page, t('grading.analysisPage.print'), 30, {
+      tag: 'BUTTON',
+      shift: true,
+    });
+    await expect(page.getByRole('button', { name: t('grading.analysisPage.print') })).toBeFocused();
   });
 });
