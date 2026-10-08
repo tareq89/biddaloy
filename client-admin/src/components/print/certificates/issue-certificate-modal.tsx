@@ -65,7 +65,8 @@ export function IssueCertificateModal({
   const studentQuery = useStudent(studentId);
   const student = studentQuery.data;
   const events = useLifecycleEvents(studentId);
-  const [stepId, setStepId] = useWizardShellStep(STEP_IDS);
+  // Replace, not push: Close drops ?issue, and Back must not reopen the wizard on its last step.
+  const [stepId, setStepId] = useWizardShellStep(STEP_IDS, { replace: true });
 
   // --- step 1: which kind ---------------------------------------------------------------
   const [kind, setKind] = React.useState<DocumentKind | undefined>(initialKind);

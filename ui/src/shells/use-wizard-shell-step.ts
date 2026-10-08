@@ -6,12 +6,19 @@
  * it to the URL and relying on the same fallback to paper over it on
  * next read — the visible step and the URL should never disagree, even
  * for one render.
+ *
+ * By default each step is its own history entry (browser Back goes one step back). Pass
+ * `{ replace: true }` for a wizard that is closed by dropping its search params: then Back after
+ * Close leaves the page instead of reopening the wizard on its last step.
  */
 import { useSearch } from '@tanstack/react-router';
 
 import { useSearchNavigate } from '../routes/navigate-search';
 
-export function useWizardShellStep(stepIds: readonly string[]): [string, (stepId: string) => void] {
+export function useWizardShellStep(
+  stepIds: readonly string[],
+  { replace = false }: { replace?: boolean } = {},
+): [string, (stepId: string) => void] {
   // `strict: false` — this hook has no fixed route id, same reasoning as
   // `useListUrlState` (see its own comment).
   const search = useSearch({ strict: false }) as unknown as Record<string, unknown>;
@@ -23,7 +30,7 @@ export function useWizardShellStep(stepIds: readonly string[]): [string, (stepId
 
   function setStep(stepId: string): void {
     if (!stepIds.includes(stepId)) return;
-    navigateSearch((prev) => ({ ...prev, step: stepId }));
+    navigateSearch((prev) => ({ ...prev, step: stepId }), { replace });
   }
 
   return [currentStepId, setStep];
