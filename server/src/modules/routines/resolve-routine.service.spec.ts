@@ -34,6 +34,8 @@ function buildService(
     substitutions?: any[];
     enrollment?: any;
     workingDays?: string[];
+    sections?: any[];
+    workingDaysByClass?: Record<string, string[]>;
     teacher?: any;
     routine?: any;
     subjects?: any[];
@@ -71,9 +73,13 @@ function buildService(
     findOne: vi.fn(async () => ('teacher' in overrides ? overrides.teacher : { id: 't-1' })),
   };
   const calendarService: any = {
-    getWorkingDays: vi.fn(async () => ({
-      dates: overrides.workingDays ?? ['2026-01-05', '2026-01-06'],
+    getWorkingDays: vi.fn(async (args: any) => ({
+      dates: overrides.workingDaysByClass?.[args.classId] ??
+        overrides.workingDays ?? ['2026-01-05', '2026-01-06'],
     })),
+  };
+  const sectionRepo: any = {
+    find: vi.fn(async () => overrides.sections ?? [{ id: 'section-1', class_id: 'class-1' }]),
   };
 
   const service = new ResolveRoutineService(
@@ -87,6 +93,7 @@ function buildService(
     teacherRepo,
     subjectRepo,
     calendarService,
+    sectionRepo,
   );
   return {
     service,
@@ -277,6 +284,73 @@ describe('ResolveRoutineService [21.5.1]', () => {
     expect(ctx.calendarService.getWorkingDays).toHaveBeenCalledWith(
       expect.objectContaining({ tenantId: TENANT_ID }),
     );
+  });
+
+  describe('class-scoped holidays (66.0.02)', () => {
+    const TUE_SLOT = { ...MON_SLOT, id: 'slot-t', weekday: 2 };
+    const SLOT_2 = { ...MON_SLOT, id: 'slot-2', section_id: 'section-2', weekday: 2 };
+    const caller = { role: 'ADMIN', userId: 'user-1' };
+    const range = { from: '2026-01-05', to: '2026-01-06' };
+
+    it('section query: drops a date that is a holiday for its own class', async () => {
+      const c = buildService({
+        slots: [MON_SLOT, TUE_SLOT],
+        workingDaysByClass: { 'class-1': ['2026-01-05'] },
+      });
+      const result = await c.service.resolveRoutine(
+        { section_id: 'section-1', ...range } as any,
+        TENANT_ID,
+        caller,
+      );
+      expect(result.map((r) => r.date)).toEqual(['2026-01-05']);
+    });
+
+    it('teacher query: only the holiday class loses its occurrence', async () => {
+      const c = buildService({
+        slots: [TUE_SLOT, SLOT_2],
+        teacherRows: [
+          { routine_slot_id: 'slot-t', teacher_id: 't-1' },
+          { routine_slot_id: 'slot-2', teacher_id: 't-1' },
+        ],
+        sections: [
+          { id: 'section-1', class_id: 'class-1' },
+          { id: 'section-2', class_id: 'class-2' },
+        ],
+        workingDaysByClass: { 'class-1': ['2026-01-05'], 'class-2': ['2026-01-05', '2026-01-06'] },
+      });
+      const result = await c.service.resolveRoutine(
+        { teacher_id: 't-1', ...range } as any,
+        TENANT_ID,
+        caller,
+      );
+      expect(result.map((r) => r.routine_slot_id)).toEqual(['slot-2']);
+    });
+
+    it('asks once per distinct class, always with tenantId and classId', async () => {
+      const c = buildService({
+        slots: [MON_SLOT, TUE_SLOT],
+        sections: [{ id: 'section-1', class_id: 'class-1' }],
+      });
+      await c.service.resolveRoutine(
+        { section_id: 'section-1', ...range } as any,
+        TENANT_ID,
+        caller,
+      );
+      expect(c.calendarService.getWorkingDays).toHaveBeenCalledTimes(1);
+      expect(c.calendarService.getWorkingDays).toHaveBeenCalledWith(
+        expect.objectContaining({ tenantId: TENANT_ID, classId: 'class-1' }),
+      );
+    });
+
+    it('returns [] when every class has no working day', async () => {
+      const c = buildService({ workingDaysByClass: { 'class-1': [] } });
+      const result = await c.service.resolveRoutine(
+        { section_id: 'section-1', ...range } as any,
+        TENANT_ID,
+        caller,
+      );
+      expect(result).toEqual([]);
+    });
   });
 
   describe('D11 step 2: state-based visibility', () => {

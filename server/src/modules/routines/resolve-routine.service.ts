@@ -10,6 +10,7 @@ import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { Enrollment } from '../students/entities/enrollment.entity';
 import { Teacher } from '../academics/entities/teacher.entity';
 import { Subject } from '../academics/entities/subject.entity';
+import { ClassSection } from '../academics/entities/class-section.entity';
 import { SchoolCalendarService } from '../calendar/school-calendar.service';
 import { occursOn } from './recurrence';
 import { ResolveRoutineQueryDto, ResolvedSlot } from './dto/resolve.dto';
@@ -50,6 +51,7 @@ export class ResolveRoutineService {
     @InjectRepository(Teacher) private readonly teacherRepo: Repository<Teacher>,
     @InjectRepository(Subject) private readonly subjectRepo: Repository<Subject>,
     private readonly calendarService: SchoolCalendarService,
+    @InjectRepository(ClassSection) private readonly sectionRepo: Repository<ClassSection>,
   ) {}
 
   async resolveRoutine(
@@ -117,14 +119,6 @@ export class ResolveRoutineService {
     // unrestricted beyond the section/teacher/student filter already
     // required above).
 
-    const { dates } = await this.calendarService.getWorkingDays({
-      tenantId,
-      from: query.from,
-      to: query.to,
-      academicYearId: academicYear.id,
-    });
-    if (dates.length === 0) return [];
-
     const slots = await this.slotRepo.find({
       where: {
         routine_id: routine.id,
@@ -133,6 +127,33 @@ export class ResolveRoutineService {
       },
     });
     if (slots.length === 0) return [];
+
+    // A holiday can be scoped to one class, so working days are asked per
+    // distinct class of the slots found (D17).
+    // ponytail: one getWorkingDays per class (a teacher touches a handful);
+    // upgrade to a single holiday query for all classes if a profile shows it.
+    const sectionIds = Array.from(new Set(slots.map((s) => s.section_id)));
+    const sections = await this.sectionRepo.find({
+      where: { id: In(sectionIds), tenant_id: tenantId },
+      withDeleted: true,
+      select: { id: true, class_id: true },
+    });
+    const classBySection = new Map(sections.map((c) => [c.id, c.class_id as string | null]));
+    const classKeys = new Set<string | null>(
+      sectionIds.map((id) => classBySection.get(id) ?? null),
+    );
+    const datesByClass = new Map<string | null, string[]>();
+    for (const classId of classKeys) {
+      const { dates } = await this.calendarService.getWorkingDays({
+        tenantId,
+        from: query.from,
+        to: query.to,
+        academicYearId: academicYear.id,
+        ...(classId ? { classId } : {}),
+      });
+      datesByClass.set(classId, dates);
+    }
+    if (Array.from(datesByClass.values()).every((d) => d.length === 0)) return [];
 
     const slotIds = slots.map((s) => s.id);
     const periodSlotIds = Array.from(new Set(slots.map((s) => s.period_slot_id)));
@@ -177,6 +198,7 @@ export class ResolveRoutineService {
       const ownTeacherIds = teachersBySlot.get(slot.id) ?? [];
       const validTo = slot.valid_to ?? '9999-12-31';
 
+      const dates = datesByClass.get(classBySection.get(slot.section_id) ?? null) ?? [];
       for (const date of dates) {
         if (date < slot.valid_from || date > validTo) continue;
         if (!occursOn(slot, date, academicYear.start_date as unknown as string)) continue;
