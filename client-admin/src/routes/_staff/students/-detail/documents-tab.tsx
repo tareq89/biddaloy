@@ -24,6 +24,9 @@ import { IssuedCertificates } from '../../../../components/print/certificates/is
 import { SubjectPrintHistory } from '../../../../components/print/history/subject-print-history';
 import { StudentPhotoCard } from '../../../../components/print/student-photo-card';
 
+/** The "Issue certificate" button: the student page returns focus here when the modal closes. */
+export const ISSUE_TRIGGER_ID = 'issue-certificate-trigger';
+
 export function DocumentsTab({ studentId }: { studentId: string }) {
   const { t } = useTranslation('students');
   const { t: tc } = useTranslation('certificates');
@@ -46,6 +49,7 @@ export function DocumentsTab({ studentId }: { studentId: string }) {
       <div className="flex flex-wrap items-center gap-3">
         {canIssue ? (
           <Button
+            id={ISSUE_TRIGGER_ID}
             type="button"
             onClick={() =>
               void navigate({

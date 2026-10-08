@@ -91,6 +91,14 @@ export async function resolvePath(
   }
   const session: ApiSession = await sharedAdminSession(request);
   const stamp = Date.now();
+  if (route.path === '/exams/$examId') {
+    // [48.4.03] The Print tab overlay needs a real exam with a schedule and a published seat
+    // plan: the demo school's seeded "First Term Exam" (`ensureSeatPlanDemoSeed`).
+    const exams = await get<{ data: { id: string; name: string }[] }>(request, session, '/exams');
+    const exam = exams.data.find((e) => e.name === 'First Term Exam');
+    if (!exam) throw new Error('No seeded "First Term Exam" — has `yarn seed` run?');
+    return route.path.replace('$examId', exam.id);
+  }
   if (route.path.startsWith('/exams/templates/')) {
     // [35.5.3] Must precede the print-template branch below: an exam-template
     // detail needs an EXAM template id, not a print-template one.
