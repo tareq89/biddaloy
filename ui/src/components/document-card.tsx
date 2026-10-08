@@ -13,7 +13,8 @@ import { Button } from './button';
 export interface DocumentCardProps {
   title: string;
   description: string;
-  action: { label: string; onClick?: () => void; href?: string; primary?: boolean };
+  /** `busy` shows the button's spinner while an `onClick` action is working. */
+  action: { label: string; onClick?: () => void; href?: string; primary?: boolean; busy?: boolean };
   unavailable?: { reason: string; fixLabel: string; fixHref: string };
   meta?: string;
   /** Extra content between the text and the button (numbers, a warning, a section picker). */
@@ -72,7 +73,12 @@ export function DocumentCard({
             <Link to={action.href}>{action.label}</Link>
           </Button>
         ) : (
-          <Button variant={variant} className={cls} onClick={action.onClick}>
+          <Button
+            variant={variant}
+            className={cls}
+            onClick={action.onClick}
+            loading={action.busy ?? false}
+          >
             {action.label}
           </Button>
         )}

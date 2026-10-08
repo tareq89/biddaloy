@@ -5,15 +5,18 @@ import {
   renderWithRouter,
   server,
 } from '@biddaloy/ui/test';
-import { screen, within } from '@testing-library/react';
+import { toast } from '@biddaloy/ui/components';
+import { screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { routeTree } from '../../../../routeTree.gen';
 
 /** [48.3.A-02] Print tab: cards by phase, one filled button, reasons + fix links, dues. */
 describe('exams/$examId Print tab', () => {
   afterEach(async () => {
+    vi.restoreAllMocks();
     await cleanupTestState();
   });
 
@@ -140,5 +143,41 @@ describe('exams/$examId Print tab', () => {
     mock({ status: 'PUBLISHED', plan: true, dues: 0, withhold: false });
     await screen.findByRole('heading', { name: 'Admit cards' });
     expect(screen.queryByRole('status')).toBeNull();
+  });
+
+  it('result certificate: a failed results load toasts instead of navigating', async () => {
+    const errorToast = vi.spyOn(toast, 'error').mockImplementation(() => '');
+    server.use(
+      http.get('/api/v1/exams/:examId/results', () =>
+        HttpResponse.json({ message: 'no' }, { status: 403 }),
+      ),
+    );
+    const { router } = mock({ status: 'PUBLISHED', plan: true });
+    await screen.findByRole('heading', { name: 'Result certificate' });
+    await userEvent.click(
+      within(card('Result certificate')).getByRole('button', { name: 'Print certificates' }),
+    );
+    await waitFor(() =>
+      expect(errorToast).toHaveBeenCalledWith('Could not load the results. Try again.'),
+    );
+    expect(router.state.location.pathname).toBe('/exams/exam-1');
+  });
+
+  it('result certificate: nobody passed -> a toast, no empty preview', async () => {
+    const errorToast = vi.spyOn(toast, 'error').mockImplementation(() => '');
+    server.use(
+      http.get('/api/v1/exams/:examId/results', () =>
+        HttpResponse.json([{ student_id: 's-1', roll_number: 1, is_fail: true }]),
+      ),
+    );
+    const { router } = mock({ status: 'PUBLISHED', plan: true });
+    await screen.findByRole('heading', { name: 'Result certificate' });
+    await userEvent.click(
+      within(card('Result certificate')).getByRole('button', { name: 'Print certificates' }),
+    );
+    await waitFor(() =>
+      expect(errorToast).toHaveBeenCalledWith(expect.stringMatching(/No student passed/)),
+    );
+    expect(router.state.location.pathname).toBe('/exams/exam-1');
   });
 });
