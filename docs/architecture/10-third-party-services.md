@@ -9,8 +9,11 @@ doesn't.
 flowchart LR
     B[Browser] --> T[Cloudflare Turnstile]
     B --> G[Google OAuth]
+    B --> FB[Facebook OAuth]
     API[NestJS app] -- "siteverify" --> T
     API -- "code exchange" --> G
+    API -- "code exchange" --> FB
+    FB -- "data-deletion callback" --> API
 ```
 
 | Service | What it is for | Env values |

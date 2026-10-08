@@ -409,11 +409,13 @@ flowchart TD
     B -- "code" --> C["POST /auth/otp/request<br/>{ phone } or { email }"]
     C --> V["POST /auth/otp/verify"]
     B -- "Google" --> G["GET /auth/social/google/start"]
+    B -- "Facebook" --> FB["GET /auth/social/facebook/start"]
     V --> N{"needs_password?"}
     N -- yes --> F["First password step<br/>POST /account/first-password"]
     N -- no --> S["Signed in"]
     F --> S
     G --> S
+    FB --> S
 ```
 
 - **Code sign-in works by phone or email.** The identifier is either one.
