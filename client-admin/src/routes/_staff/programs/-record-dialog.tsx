@@ -174,6 +174,8 @@ export function RecordDialog({
       secondary={{
         label: tCommon('actions.cancel'),
         onClick: () => (busy ? undefined : dirty ? setDiscardOpen(true) : close()),
+        // Visibly unavailable while the save runs (Close and Discard already wait via `close`).
+        disabled: busy,
       }}
     >
       <form

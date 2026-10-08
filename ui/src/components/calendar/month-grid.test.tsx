@@ -91,10 +91,37 @@ describe('MonthGrid', () => {
   });
 
   it('shows at most 3 dots for a busy day', async () => {
-    const { localeReady } = setup({ events: [ev('1'), ev('2'), ev('3'), ev('4')] });
+    const { localeReady } = setup({
+      events: [ev('1'), ev('2'), ev('3'), ev('4')],
+      onDayClick: vi.fn(),
+    });
     await localeReady;
     const cell = screen.getByTestId('day-cell-2026-10-08');
     expect(cell.querySelectorAll('div[aria-hidden="true"] > span')).toHaveLength(3);
     expect(within(cell).getByText('+1 more')).toBeTruthy();
+  });
+
+  it('keeps event buttons instead of dots when a day tap leads nowhere', async () => {
+    const onEventClick = vi.fn();
+    const { user, localeReady } = setup({ events: [ev('1')], onEventClick });
+    await localeReady;
+    const cell = screen.getByTestId('day-cell-2026-10-08');
+    expect(cell.querySelectorAll('div[aria-hidden="true"] > span')).toHaveLength(0);
+    await user.click(within(cell).getByRole('button', { name: 'Event 1' }));
+    expect(onEventClick).toHaveBeenCalledWith('1');
+  });
+
+  it('keeps one day tabbable after the month changes', async () => {
+    const { rerender, localeReady } = setup({ selectedDate: '2026-10-20' });
+    await localeReady;
+    rerender(
+      <RegionConfigProvider value={REGION_BD_EN}>
+        <MonthGrid {...BASE} month="2026-12" selectedDate="2026-10-20" />
+      </RegionConfigProvider>,
+    );
+    const tabbable = screen
+      .getAllByRole('gridcell')
+      .filter((cell) => cell.getAttribute('tabindex') === '0');
+    expect(tabbable).toHaveLength(1);
   });
 });

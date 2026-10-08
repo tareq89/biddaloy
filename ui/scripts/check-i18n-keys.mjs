@@ -127,7 +127,9 @@ const NS_OPTION_RE = /\bns\s*:\s*(['"])([^'"]+)\1/;
 // matching below is gated on this so a call site missing `count` can still
 // be caught as genuinely unresolved, rather than incorrectly "matching" a
 // plural-only key it could never actually resolve at runtime.
-const COUNT_OPTION_RE = /\bcount\s*[:,}]/; // `{ count: n }` or the shorthand `{ count }`
+// `count` must be an option key (`{ count: n }` or the shorthand `{ count }`),
+// not a value such as `{ context: count }`.
+const COUNT_OPTION_RE = /[{,]\s*count\s*[:,}]/;
 
 /** Every `t('key'[, options])` call site found under `sourceDirs`, with
  * its resolved namespace and whether the call passed a `count` option. */

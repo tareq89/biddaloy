@@ -66,6 +66,8 @@ export function AdmissionReports() {
   });
   const report = reportQuery.data;
   const rows = report?.rows ?? [];
+  // A background refetch can shrink `rows` under a later page: show the last page instead.
+  const currentPage = Math.min(page, Math.max(1, Math.ceil(rows.length / pageSize)));
   const year = years.find((y) => y.id === academicYearId);
   const className = (classesQuery.data?.data ?? []).find((c) => c.id === classId)?.name;
 
@@ -191,7 +193,7 @@ export function AdmissionReports() {
         tableId="admission-reports"
         caption={t('caption')}
         columns={columns}
-        data={rows.slice((page - 1) * pageSize, page * pageSize)}
+        data={rows.slice((currentPage - 1) * pageSize, currentPage * pageSize)}
         getRowId={(r) =>
           [
             r.event_type,
@@ -204,7 +206,7 @@ export function AdmissionReports() {
         }
         sorting={null}
         onSortingChange={() => {}}
-        page={page}
+        page={currentPage}
         pageSize={pageSize}
         totalCount={rows.length}
         onPageChange={setPage}

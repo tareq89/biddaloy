@@ -99,7 +99,9 @@ describe('/students', () => {
       locale: 'en',
     });
 
-    await screen.findByRole('link', { name: 'View' });
+    // A cold route-tree render loads lazy routes and i18n namespaces first;
+    // on a busy CI shard that outlasts the 1s default.
+    await screen.findByRole('link', { name: 'View' }, { timeout: 5000 });
     expect(screen.queryByRole('link', { name: 'Collect fees' })).toBeNull();
   });
 

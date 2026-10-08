@@ -17,7 +17,7 @@ import {
 import { resetPassword } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import type { TFunction } from 'i18next';
 import { Link2Off } from 'lucide-react';
 import { z } from 'zod';
@@ -58,7 +58,6 @@ function buildResetError(error: unknown, t: TFunction<'auth'>): SignInFormError 
 
 function BadLink({ title }: { title: string }) {
   const { t } = useTranslation('auth');
-  const navigate = useNavigate();
   return (
     <GuestStatus
       icon={Link2Off}
@@ -66,15 +65,11 @@ function BadLink({ title }: { title: string }) {
       title={title}
       explanation={t('forgot.linkExplanation')}
     >
-      <Button className="w-full" onClick={() => void navigate({ to: '/forgot-password' })}>
-        {t('forgot.requestNew')}
+      <Button asChild className="w-full">
+        <Link to="/forgot-password">{t('forgot.requestNew')}</Link>
       </Button>
-      <Button
-        variant="ghost"
-        className="w-full text-primary"
-        onClick={() => void navigate({ to: '/login' })}
-      >
-        {t('toSignIn')}
+      <Button asChild variant="ghost" className="w-full text-primary">
+        <Link to="/login">{t('toSignIn')}</Link>
       </Button>
     </GuestStatus>
   );

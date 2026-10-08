@@ -35,14 +35,14 @@ async function resetFocus(page: Page): Promise<void> {
   });
 }
 
-/** Documents, Notes, Records are the last three tabs: End reaches Documents, ArrowLeft Notes, then Records. */
+/** Notes, Records, Documents, Activity are the last four tabs: End reaches Activity, then ArrowLeft Documents, Records, Notes. */
 async function openTabByKeyboard(page: Page, tab: 'records' | 'notes'): Promise<void> {
   const tabs = page.getByRole('tablist').first().getByRole('tab');
   await tabs.first().focus();
   await page.keyboard.press('End');
   await expect(tabs.last()).toBeFocused();
   // Await each press: roving focus moves in a setTimeout + view transition.
-  const back = tab === 'records' ? 2 : 1;
+  const back = tab === 'records' ? 2 : 3;
   for (let i = 1; i <= back; i++) {
     await page.keyboard.press('ArrowLeft');
     await expect(tabs.nth(-1 - i)).toBeFocused();

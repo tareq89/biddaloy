@@ -36,7 +36,8 @@ export async function expectNoHorizontalScrollAtWidth(
   await page.setViewportSize({ width, height: 900 });
   const path = await resolvePath(request, route);
   await page.goto(path);
-  await expect(pageOrDialogHeading(page, route)).toBeVisible();
+  // A loader-gated route (e.g. /fees/dues) shows RoutePending, no h1, until its data lands.
+  await expect(pageOrDialogHeading(page, route)).toBeVisible({ timeout: 15_000 });
   await expectNoHorizontalScroll(page);
   // [8.14.7] `DataTable`'s card mode exists precisely so a 320/640px page
   // no longer needs its own inner scroll region.

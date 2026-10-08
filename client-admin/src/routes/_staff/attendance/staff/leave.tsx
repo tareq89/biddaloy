@@ -61,7 +61,11 @@ function LeavePage() {
         <>
           <span className="hidden md:inline">{formatNumber(row.balance, regionConfig)}</span>
           <span className="md:hidden">
-            {t('myLeave.daysLeft', { count: row.balance, n: row.balance })}
+            {/* `count` picks the plural form; `n` is the school-formatted number. */}
+            {t('myLeave.daysLeft', {
+              count: row.balance,
+              n: formatNumber(row.balance, regionConfig),
+            })}
           </span>
         </>
       ),

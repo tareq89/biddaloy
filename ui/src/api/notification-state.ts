@@ -175,14 +175,16 @@ let lastTenant = getActiveTenant();
 let lastGeneration = currentSessionGeneration();
 notifications = lastKey ? readStored(lastKey) : [];
 subscribeAuthState(() => {
-  if (currentSessionGeneration() !== lastGeneration) {
+  const sessionEnded = currentSessionGeneration() !== lastGeneration;
+  if (sessionEnded) {
     lastGeneration = currentSessionGeneration();
     purgeStored();
   }
   const key = storageKey();
   const tenant = getActiveTenant();
   // Tenant is compared too: with no signed-in user the key is null, but a school switch must still empty the list.
-  if (key === lastKey && tenant === lastTenant) return;
+  // A session end always reloads, even when key and tenant were already null.
+  if (!sessionEnded && key === lastKey && tenant === lastTenant) return;
   lastKey = key;
   lastTenant = tenant;
   notifications = key ? readStored(key) : [];

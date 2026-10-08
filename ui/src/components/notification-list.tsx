@@ -108,6 +108,12 @@ export function NotificationList({
   const [visibleCount, setVisibleCount] = React.useState(pageSize);
   const sentinelRef = React.useRef<HTMLLIElement>(null);
   const total = notifications.length;
+  // A shorter list (cleared, or swapped on a school switch) starts again at one page.
+  const [prevTotal, setPrevTotal] = React.useState(total);
+  if (total !== prevTotal) {
+    setPrevTotal(total);
+    if (total < prevTotal) setVisibleCount(pageSize);
+  }
   const hasMore = visibleCount < total;
 
   React.useEffect(() => {

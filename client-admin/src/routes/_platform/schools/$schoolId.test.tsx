@@ -173,6 +173,7 @@ describe('/schools/$schoolId', () => {
     await user.click(within(pendingRow).getByRole('button', { name: 'Send invitation again' }));
 
     await waitFor(() => expect(toastSpy).toHaveBeenCalledWith('Could not resend the invitation.'));
+    toastSpy.mockRestore();
   });
 
   it('revokes a pending invitation only after confirming in the dialog', async () => {

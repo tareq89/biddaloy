@@ -3,9 +3,9 @@ import { t } from '../i18n';
 
 /**
  * [28.4.8] Keyboard-only: Ctrl+K "Publish teacher survey" opens the survey
- * dialog on the Surveys tab (the palette navigates with `?publishSurvey=1`,
- * which TanStack parses as a number). Ctrl+Enter with an empty form must show
- * the validation alert, not submit.
+ * dialog on the Surveys tab (the palette navigates with
+ * `?tab=surveys&publishSurvey=1`; TanStack parses the flag as a number).
+ * Ctrl+Enter with an empty form must show the validation alert, not submit.
  */
 test.use(loggedIn('admin'));
 

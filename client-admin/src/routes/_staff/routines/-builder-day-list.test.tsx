@@ -1,5 +1,7 @@
 import { routineCellKey, type RoutineGridPeriodRow } from '@biddaloy/ui/components';
+import { REGION_BD_BN } from '@biddaloy/ui/i18n';
 import { renderWithProviders } from '@biddaloy/ui/test';
+import { formatNumber } from '@biddaloy/ui/utils';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -58,7 +60,10 @@ describe('BuilderDayList', () => {
     const user = userEvent.setup();
 
     expect(
-      await screen.findByRole('button', { name: 'Sun, Period 1: Math, Ms Nahar' }),
+      // The period number follows the school's numerals (BD default: Bangla digits).
+      await screen.findByRole('button', {
+        name: `Sun, Period ${formatNumber(1, REGION_BD_BN)}: Math, Ms Nahar`,
+      }),
     ).toBeTruthy();
     await user.click(screen.getByRole('button', { name: /: empty$/ }));
     await waitFor(() => expect(onActivate).toHaveBeenCalledWith(0, 'p2'));

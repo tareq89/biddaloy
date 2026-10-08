@@ -131,6 +131,27 @@ describe('MilestoneEditor', () => {
     await waitFor(() => expect(requestBody).toMatchObject({ milestone_ids: ['m-2', 'm-1'] }));
   });
 
+  it('drops the failure alert once a later change succeeds', async () => {
+    const user = userEvent.setup();
+    server.use(
+      http.post('/api/v1/programs/:id/milestones', () =>
+        HttpResponse.json(
+          { statusCode: 500, message: 'boom', requestId: 'r', path: '/', timestamp: '' },
+          { status: 500 },
+        ),
+      ),
+      http.put('/api/v1/programs/:id/milestones/order', () => HttpResponse.json(MILESTONES)),
+    );
+    await renderEditor();
+
+    await user.type(await screen.findByLabelText('New milestone name'), 'Third');
+    await user.click(screen.getByRole('button', { name: 'Add milestone' }));
+    expect(await screen.findByRole('alert')).toBeTruthy();
+
+    await user.click(screen.getAllByRole('button', { name: 'Move milestone down' })[0]!);
+    await waitFor(() => expect(screen.queryByRole('alert')).toBeNull());
+  });
+
   it('hides add/edit/remove/reorder controls when canManage is false', async () => {
     await renderEditor({ canManage: false });
     await screen.findByText('First');

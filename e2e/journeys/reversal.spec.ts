@@ -63,7 +63,7 @@ test('reversing a payment restores dues, cancels the invoice, and nets out of co
 
   await test.step('dues are restored', async () => {
     await page.goto('/fees/dues');
-    await page.getByLabel(t('fees.dues.searchLabel')).fill(name);
+    await page.getByLabel(t('fees.dues.searchLabel'), { exact: true }).fill(name);
     await expect(page.getByText(name).first()).toBeVisible();
     // This journey runs in `bn` (this app's real market locale, per the
     // suite's default) — `formatCurrency` renders Bangla digits

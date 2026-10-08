@@ -11,7 +11,9 @@ test.use(loggedIn('parent'));
 
 test("keyboard-only: portal syllabus renders the seeded child's topics", async ({ page }) => {
   await page.goto('/portal/syllabus');
-  await expect(page.getByRole('heading', { name: t('portal.syllabus.title') })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: t('portal.syllabus.title'), exact: true }),
+  ).toBeVisible();
 
   await page.keyboard.press('Tab');
   await expect(page.locator(':focus')).toBeVisible();

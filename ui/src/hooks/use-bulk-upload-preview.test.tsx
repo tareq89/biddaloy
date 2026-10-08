@@ -80,6 +80,32 @@ describe('useBulkUploadPreview', () => {
     expect(result.current.state).toEqual({ status: 'done', commitResult: { ok: true } });
   });
 
+  it('ignores reset while committing, so the commit result still lands', async () => {
+    const commitDeferred = deferred<{ ok: true }>();
+    const validate = vi.fn().mockResolvedValue(RESULT);
+    const commit = vi.fn().mockReturnValue(commitDeferred.promise);
+    const { result } = renderHook(() => useBulkUploadPreview({ validate, commit }));
+
+    await act(async () => {
+      result.current.selectFile(new File(['x'], 'a.csv'));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    act(() => {
+      result.current.confirm();
+    });
+    act(() => {
+      result.current.reset();
+    });
+    expect(result.current.state.status).toBe('committing');
+
+    await act(async () => {
+      commitDeferred.resolve({ ok: true });
+      await commitDeferred.promise;
+    });
+    expect(result.current.state).toEqual({ status: 'done', commitResult: { ok: true } });
+  });
+
   it('a validate rejection goes to failed/error', async () => {
     const validate = vi.fn().mockRejectedValue(new Error('bad file'));
     const { result } = renderHook(() => useBulkUploadPreview({ validate, commit: vi.fn() }));
@@ -89,7 +115,11 @@ describe('useBulkUploadPreview', () => {
       await Promise.resolve();
       await Promise.resolve();
     });
-    expect(result.current.state).toEqual({ status: 'failed', reason: 'error', message: 'bad file' });
+    expect(result.current.state).toEqual({
+      status: 'failed',
+      reason: 'error',
+      message: 'bad file',
+    });
   });
 
   it('commit rejected with a 410 (axios-shaped) or 404 goes to failed/expired', async () => {

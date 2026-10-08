@@ -210,7 +210,8 @@ function PortalLayout() {
       <AppShell
         navItems={navItems}
         brand={t('brand')}
-        // Desktop only: below md the one 56 px phone row (mobileTitle/mobileActions) replaces it (D12).
+        // Desktop-only, as in the staff shell: below `md` the phone row
+        // (`mobileTitle` / `mobileActions`) carries these controls (D12).
         topBar={
           <div className="hidden md:flex">
             <AppHeader

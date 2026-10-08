@@ -25,6 +25,16 @@ export function formatNumber(
   return negative ? `-${numeral}` : numeral;
 }
 
+/** A mark or score stored as `numeric(…, 2)`: keeps the fraction it has
+ * (87.5, 87.25) and pads nothing (88, not 88.00). Worked in whole
+ * hundredths so float noise never adds a digit. */
+export function formatScore(value: number | null | undefined, config: RegionConfig): string {
+  if (value == null || !Number.isFinite(value)) return '—';
+  const hundredths = Math.round(value * 100);
+  const decimals = hundredths % 100 === 0 ? 0 : hundredths % 10 === 0 ? 1 : 2;
+  return formatNumber(hundredths / 100, config, { decimals });
+}
+
 /** Accepts either digit system and grouping separators; returns a plain
  * JS number. Throws `RangeError` on invalid input, same reasoning as
  * `parseCurrency`. Unlike `parseCurrency`/`parsePhone`, no `RegionConfig`

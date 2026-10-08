@@ -166,7 +166,9 @@ describe('SchoolSettingsPage', () => {
     expect(screen.queryByRole('link', { name: 'Settings' })).toBeNull();
 
     await user.click(screen.getByRole('link', { name: 'Academics' }));
-    const back = await screen.findByRole('link', { name: 'Settings' });
+    // The first visit to a category suspends the page while its i18n
+    // namespaces load (`useSuspense: true`); on a busy CI shard that outlasts 1s.
+    const back = await screen.findByRole('link', { name: 'Settings' }, { timeout: 5000 });
     expect(back.getAttribute('href')).toBe('/settings');
     expect(screen.getByRole('navigation', { name: 'Settings categories' }).className).toContain(
       'hidden',
@@ -373,6 +375,13 @@ describe('SchoolSettingsPage', () => {
       mount('ADMIN', 'APPLIED');
       expect(await screen.findByText('Applied: NCTB Bangla Medium · 2025.1')).toBeTruthy();
       expect(screen.queryByText(/nctb ·/)).toBeNull();
+    });
+
+    it('still shows the version (never the id) when the preset list fails to load', async () => {
+      server.use(http.get('/api/v1/presets', () => HttpResponse.json(null, { status: 500 })));
+      mount('ADMIN', 'APPLIED');
+      expect(await screen.findByText('Applied · 2025.1')).toBeTruthy();
+      expect(screen.queryByText(/nctb/)).toBeNull();
     });
 
     it('is hidden without CURRICULUM_PRESET_APPLY', async () => {

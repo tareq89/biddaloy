@@ -114,6 +114,7 @@ export interface DataTableProps<TData extends RowData> {
   /** @default 25 */
   pageSize?: number;
   totalCount: number;
+  /** Required for the pager. Without it the table renders as `paginated={false}`. */
   onPageChange?: (page: number) => void;
   /** D19: `false` drops the pager; the footer shows only "Total n". @default true */
   paginated?: boolean;
@@ -244,8 +245,8 @@ export function DataTable<TData extends RowData>({
   page = 1,
   pageSize = 25,
   totalCount,
-  onPageChange = () => {},
-  paginated = true,
+  onPageChange,
+  paginated: paginatedProp = true,
   emptyState,
   onPageSizeChange,
   pageSizeOptions = PAGE_SIZE_OPTIONS,
@@ -297,6 +298,11 @@ export function DataTable<TData extends RowData>({
   ) {
     console.warn('DataTable: pass either `rowActions` or an `id: "actions"` column, not both.');
   }
+  if (process.env.NODE_ENV !== 'production' && paginatedProp && !onPageChange) {
+    console.warn('DataTable: pass `onPageChange` or `paginated={false}`; showing the total only.');
+  }
+  // A pager without a handler would render buttons that never change the page.
+  const paginated = paginatedProp && onPageChange !== undefined;
   const regionConfig = useRegionConfig();
   // [8.14.15] Props are overrides now, not English defaults — the lint
   // guard can't see a destructuring default, so the resolved fallback
@@ -423,7 +429,7 @@ export function DataTable<TData extends RowData>({
   // `?page=3` after its last row was deleted: move to the real last page rather than show a
   // footer that contradicts the (empty) rows.
   React.useEffect(() => {
-    if (paginated && !busy && page > totalPages) onPageChange(totalPages);
+    if (paginated && !busy && page > totalPages) onPageChange?.(totalPages);
   }, [paginated, busy, page, totalPages, onPageChange]);
   const [focusedCell, setFocusedCell] = React.useState<{ row: number; col: number }>({
     row: 0,
@@ -652,7 +658,7 @@ export function DataTable<TData extends RowData>({
             iconOnly
             aria-label={t('pagination.previous')}
             disabled={loading || current <= 1}
-            onClick={() => onPageChange(current - 1)}
+            onClick={() => onPageChange?.(current - 1)}
           >
             <ChevronLeftIcon aria-hidden="true" />
           </Button>
@@ -671,7 +677,7 @@ export function DataTable<TData extends RowData>({
             iconOnly
             aria-label={t('pagination.next')}
             disabled={busy || safePage >= totalPages}
-            onClick={() => onPageChange(safePage + 1)}
+            onClick={() => onPageChange?.(safePage + 1)}
           >
             <ChevronRightIcon aria-hidden="true" />
           </Button>

@@ -176,9 +176,15 @@ export function FilterBar({ fields, values, onChange, debounceMs, resultCount }:
   const [sheetOpen, setSheetOpen] = React.useState(false);
 
   // Chips show formatted values; the URL keeps the raw ISO date / digits.
+  // A value that can't be formatted exactly (bad date, non-number) shows raw,
+  // and decimals are kept, so a chip never hides or rounds the active filter.
   const formatValue = React.useCallback(
-    (kind: 'date' | 'number', value: string) =>
-      kind === 'date' ? formatDate(value, regionConfig) : formatNumber(Number(value), regionConfig),
+    (kind: 'date' | 'number', value: string) => {
+      if (kind === 'date') return safeParseDate(value) ? formatDate(value, regionConfig) : value;
+      if (!/^-?\d+(\.\d+)?$/.test(value)) return value;
+      const decimals = value.split('.')[1]?.length ?? 0;
+      return formatNumber(Number(value), regionConfig, { decimals });
+    },
     [regionConfig],
   );
 

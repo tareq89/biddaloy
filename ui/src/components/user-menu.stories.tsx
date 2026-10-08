@@ -14,7 +14,7 @@ import { DownloadIcon } from 'lucide-react';
 import { userEvent, within } from 'storybook/test';
 
 import { rtlDecorator } from '../../.storybook/rtl-decorator';
-import { setAccessToken, setActiveTenant } from '../api/auth-state';
+import { clearAuthState, setAccessToken, setActiveTenant } from '../api/auth-state';
 
 import { MenuItem } from './menu';
 import { UserMenu } from './user-menu';
@@ -116,13 +116,12 @@ export const AccountControls: Story = {
     showAccountControls: true,
     profileItem: <MenuItem>Security</MenuItem>,
   },
-  decorators: [
-    (Story) => {
-      setAccessToken(fakeJwt(twoSchools));
-      setActiveTenant('tenant-1');
-      return <Story />;
-    },
-  ],
+  // Set once per story and undone on leave, so other stories never see this account.
+  beforeEach: () => {
+    setAccessToken(fakeJwt(twoSchools));
+    setActiveTenant('tenant-1');
+    return () => clearAuthState();
+  },
   play: openMenu,
 };
 

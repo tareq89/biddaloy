@@ -10,6 +10,7 @@
     "system": "System",
     "emptyValue": "—",
     "emptyMessage": "Nothing matches these filters. Change them and look again.",
+    "emptyMessageUnfiltered": "Nothing has been recorded for this school yet.",
     "errorMessage": "Couldn't load the audit trail.",
     "announceResults": "{{visible}} of {{total}} entries shown",
     "expandLabel": "Show changes: {{summary}}, {{when}}",

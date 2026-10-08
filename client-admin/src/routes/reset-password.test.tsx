@@ -28,7 +28,7 @@ describe('/reset-password', () => {
     await waitFor(() =>
       expect(screen.getByText('This link is incomplete — ask for a new one.')).toBeTruthy(),
     );
-    await userEvent.setup().click(screen.getByRole('button', { name: 'Ask for a new link' }));
+    await userEvent.setup().click(screen.getByRole('link', { name: 'Ask for a new link' }));
     await waitFor(() => expect(router.state.location.pathname).toBe('/forgot-password'));
   });
 

@@ -35,7 +35,7 @@ const ONE_BAND: BandInput[] = [
 
 const num = (n: number) => formatNumber(n, REGION_BD_BN);
 // Every cell is labelled "Row <n> — <column>"; these match a column across rows.
-const col = (name: string) => new RegExp(`— ${name.replace(/[()]/g, '\\$&')}$`);
+const col = (name: string) => new RegExp(`— ${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`);
 
 describe('BandEditor', () => {
   it('Enter in the last row appends a band starting from the previous percent_to + 1', async () => {

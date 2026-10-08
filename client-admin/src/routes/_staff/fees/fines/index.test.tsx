@@ -82,6 +82,9 @@ describe('/fees/fines', () => {
     expect(within(totals).getByText('Collected')).toBeTruthy();
     expect(within(totals).getByText('Waived')).toBeTruthy();
     expect(within(totals).getByText('Outstanding')).toBeTruthy();
+    const outstanding = within(totals).getByText('Outstanding').nextElementSibling!;
+    expect(outstanding.classList.contains('tabular-nums')).toBe(true);
+    expect(outstanding.classList.contains('text-status-overdue-fg')).toBe(true);
     expect(
       totals.compareDocumentPosition(screen.getByRole('table')) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();

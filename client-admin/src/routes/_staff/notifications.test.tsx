@@ -50,7 +50,8 @@ describe('/notifications', () => {
     renderNotificationsPage();
 
     expect(await screen.findByRole('heading', { level: 1, name: 'Notifications' })).toBeTruthy();
-    expect(screen.getByText(/2 unread/)).toBeTruthy();
+    // The count leads, so a truncated subtitle still shows it.
+    expect(screen.getByText(/2 unread/).textContent).toMatch(/^2 unread · /);
 
     await user.click(screen.getByRole('button', { name: 'Mark all read' }));
     await waitFor(() => expect(screen.queryByText(/unread/)).toBeNull());

@@ -333,7 +333,8 @@ function RoutineBuilderPage() {
         {
           label: t('builder.studentsFact'),
           value: t('builder.studentsValue', {
-            count: formatNumber(section.enrolled_count, config),
+            count: section.enrolled_count,
+            formattedCount: formatNumber(section.enrolled_count, config),
           }),
         },
         {
@@ -414,7 +415,9 @@ function RoutineBuilderPage() {
             {...(activePeriod
               ? {
                   dayLabel: weekdayLabels[activeCell.weekday],
-                  periodLabel: t('agenda.periodLabel', { sequence: activePeriod.sequence }),
+                  periodLabel: t('agenda.periodLabel', {
+                    sequence: formatNumber(activePeriod.sequence, config),
+                  }),
                   timeLabel: formatTime(activePeriod.starts_at, config),
                 }
               : {})}

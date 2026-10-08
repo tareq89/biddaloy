@@ -74,7 +74,7 @@ two platform pages (see "Platform shell").
 | `finance.dues` | `/fees/dues` | শিক্ষার্থীর বকেয়া | `hand-coins` |
 | `finance.recordPayment` | `/payments/record` | পেমেন্ট রেকর্ড করুন | `banknote` |
 | `finance.feeStructures` | `/fee-structures` | ফি কাঠামো | `layers` |
-| `finance.generateFees` | `/fees/generate` | ফির বিল তৈরি | `file-plus-2` |
+| `finance.generateFees` | `/fees/generate` | তৈরি হওয়া ফির বিল | `file-plus-2` |
 | `finance.recurringSchedules` | `/fees/schedules` | স্বয়ংক্রিয় বিল | `repeat` |
 | `finance.fines` | `/fees/fines` | জরিমানা | `gavel` |
 | `finance.payments` | `/payments` | পেমেন্ট | `receipt-text` |

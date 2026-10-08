@@ -9,7 +9,7 @@ import { postAuthVerifyEmail } from '@biddaloy/ui/api';
 import { AuthLayout, Button, Skeleton } from '@biddaloy/ui/components';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { useQuery } from '@tanstack/react-query';
-import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import { createFileRoute, Link } from '@tanstack/react-router';
 import { CircleCheck, Link2Off, TriangleAlert } from 'lucide-react';
 import { z } from 'zod';
 
@@ -29,7 +29,6 @@ export const Route = createFileRoute('/verify-email')({
 function VerifyEmailPage() {
   const { t } = useTranslation('auth');
   const { token } = Route.useSearch();
-  const navigate = useNavigate();
 
   const verifyQuery = useQuery({
     queryKey: ['verify-email', token],
@@ -39,8 +38,8 @@ function VerifyEmailPage() {
   });
 
   const signInButton = (
-    <Button className="w-full" onClick={() => void navigate({ to: '/login' })}>
-      {t('verifyEmail.signIn')}
+    <Button asChild className="w-full">
+      <Link to="/login">{t('verifyEmail.signIn')}</Link>
     </Button>
   );
 
@@ -79,19 +78,11 @@ function VerifyEmailPage() {
     return (
       <AuthLayout>
         <GuestStatus icon={TriangleAlert} tone="danger" title={t('errors.generic')}>
-          <Button
-            variant="outline"
-            className="w-full"
-            onClick={() => void verifyQuery.refetch()}
-          >
+          <Button variant="outline" className="w-full" onClick={() => void verifyQuery.refetch()}>
             {t('actions.retry', { ns: 'common' })}
           </Button>
-          <Button
-            variant="ghost"
-            className="w-full text-primary"
-            onClick={() => void navigate({ to: '/login' })}
-          >
-            {t('toSignIn')}
+          <Button asChild variant="ghost" className="w-full text-primary">
+            <Link to="/login">{t('toSignIn')}</Link>
           </Button>
         </GuestStatus>
       </AuthLayout>

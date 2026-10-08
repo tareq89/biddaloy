@@ -2,14 +2,16 @@ import { cleanupTestState, renderWithProviders, server } from '@biddaloy/ui/test
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { afterAll, afterEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { SubstitutionDialog } from './-substitution-dialog';
 
 // The dialog defaults its date to "today" and only lists periods on that
 // weekday — pin the clock to a Monday (weekday 1). Only `Date` is faked.
-vi.useFakeTimers({ toFake: ['Date'] });
-vi.setSystemTime(new Date(2026, 1, 2, 10));
+beforeAll(() => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date(2026, 1, 2, 10));
+});
 afterAll(() => {
   vi.useRealTimers();
 });
@@ -180,6 +182,7 @@ describe('SubstitutionDialog', () => {
             statusCode: 422,
             message: 'Routine slot "slot-1" does not occur on 2026-02-02',
             requestId: 'req-1',
+            details: { code: 'SLOT_NOT_ON_DATE' },
           },
           { status: 422 },
         ),
@@ -198,6 +201,65 @@ describe('SubstitutionDialog', () => {
     const alert = await screen.findByRole('alert');
     expect(alert.textContent).toContain("This period doesn't happen on the date you picked");
     expect(alert.textContent).not.toContain('does not occur on');
+  });
+
+  it('shows the generic error, not the not-on-date sentence, for any other 422', async () => {
+    mockPickerData();
+    server.use(
+      http.post('/api/v1/routines/substitutions', () =>
+        HttpResponse.json(
+          { statusCode: 422, message: 'Something else went wrong', requestId: 'req-2' },
+          { status: 422 },
+        ),
+      ),
+    );
+    const user = userEvent.setup();
+    await renderDialog();
+
+    await pickSection(user);
+    await user.click(await screen.findByRole('combobox', { name: 'Period' }));
+    await user.click(await screen.findByRole('option', { name: /Math/ }));
+    await user.click(screen.getByRole('combobox', { name: 'Substitute teacher' }));
+    await user.click(await screen.findByRole('option', { name: 'Mr Karim' }));
+    await user.click(screen.getByRole('button', { name: /^save$/i }));
+
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toContain('Could not save');
+    expect(alert.textContent).not.toContain("doesn't happen on the date");
+  });
+
+  it('does not offer a section whose only period ended before the date', async () => {
+    mockPickerData();
+    const slot = (id: string, sectionId: string, validTo: string | null) => ({
+      slot: {
+        id,
+        section_id: sectionId,
+        weekday: 1,
+        period_slot_id: 'p1',
+        subject_id: 'subject-math',
+        recurrence: 'WEEKLY',
+        recurrence_offset: 0,
+        valid_from: '2026-01-01',
+        valid_to: validTo,
+      },
+      teacher_ids: ['teacher-1'],
+      warnings: [],
+    });
+    server.use(
+      http.get('/api/v1/routines/routine-1/slots', () =>
+        // The date is 2026-02-02: section B's period ended on 2026-01-31.
+        HttpResponse.json([
+          slot('slot-1', 'section-1', null),
+          slot('slot-2', 'section-2', '2026-01-31'),
+        ]),
+      ),
+    );
+    const user = userEvent.setup();
+    await renderDialog();
+
+    await user.click(await screen.findByRole('combobox', { name: 'Class and section' }));
+    expect(await screen.findByRole('option', { name: 'Class 6 – A' })).toBeTruthy();
+    expect(screen.queryByRole('option', { name: 'Class 6 – B' })).toBeNull();
   });
 
   it('says so when the section has no period on the chosen weekday', async () => {

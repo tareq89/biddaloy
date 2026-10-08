@@ -77,7 +77,9 @@
   },
   "upcomingPanel": {
     "title": "Upcoming",
-    "nextHoliday": "Next holiday: {{name}} · in {{n}} days",
+    "nextHoliday_one": "Next holiday: {{name}} · in {{n}} day",
+    "nextHoliday_other": "Next holiday: {{name}} · in {{n}} days",
+    "nextHolidayToday": "Next holiday: {{name}} · today",
     "empty": "Nothing scheduled in the next 60 days."
   }
 }

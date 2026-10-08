@@ -23,7 +23,7 @@ const NAV_PATH_TO_ROUTE_ID: Record<string, string> = {
   '/payments/record': '/_staff/payments/record',
   '/staff/evaluations?startAcr=1': '/_staff/staff/evaluations',
   '/staff/evaluations?reportIncident=1': '/_staff/staff/evaluations',
-  '/staff/evaluations?publishSurvey=1': '/_staff/staff/evaluations',
+  '/staff/evaluations?tab=surveys&publishSurvey=1': '/_staff/staff/evaluations',
   '/curriculum-preset': '/_staff/curriculum-preset',
   '/roles': '/_staff/roles/',
   '/exams?create=1': '/_staff/exams/',

@@ -10,6 +10,7 @@
     "system": "সিস্টেম",
     "emptyValue": "—",
     "emptyMessage": "এই ফিল্টারে কোনো কার্যক্রম নেই। ফিল্টার বদলে আবার দেখুন।",
+    "emptyMessageUnfiltered": "এই প্রতিষ্ঠানে এখনো কোনো কার্যক্রম রেকর্ড হয়নি।",
     "errorMessage": "নিরীক্ষার ইতিহাস লোড করা যায়নি।",
     "announceResults": "{{total}}টির মধ্যে {{visible}}টি এন্ট্রি দেখানো হচ্ছে",
     "expandLabel": "পরিবর্তন দেখুন: {{summary}}, {{when}}",

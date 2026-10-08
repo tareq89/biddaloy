@@ -87,7 +87,11 @@ function TeachingAssignmentsPage() {
   // No `classId` in the URL: show the first class without writing it.
   // ponytail: "first class with data" needs classes x sections x teachers queries (no API
   // count of assignments per class); keep the first class, upgrade if the API adds a count.
-  const effectiveClassId = search.classId ?? classes[0]?.id;
+  // A bookmarked id for a deleted (or another school's) class falls back too.
+  const effectiveClassId =
+    (search.classId !== undefined && classes.some((c) => c.id === search.classId)
+      ? search.classId
+      : undefined) ?? classes[0]?.id;
 
   const sectionsQuery = useClassSections(effectiveClassId);
   const sections = sectionsQuery.data ?? [];

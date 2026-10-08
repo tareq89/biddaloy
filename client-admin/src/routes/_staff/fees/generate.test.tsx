@@ -72,7 +72,7 @@ describe('/fees/generate', () => {
 
     render();
 
-    await screen.findByRole('heading', { name: 'Create fee bills' });
+    await screen.findByRole('heading', { name: 'Fee bills created' });
     expect(await screen.findByText('Karim Rahman')).toBeTruthy();
     expect(screen.getByText('Partly collected')).toBeTruthy();
     // Month name, not the ISO date.
@@ -206,7 +206,7 @@ describe('/fees/generate', () => {
       '/fees/generate?period_from=2026-01-01&period_to=2026-01-31&fee_type=MONTHLY_TUITION&source=MANUAL&generated_by_user_id=user-1&collection_status=PARTIAL',
     ]);
 
-    await screen.findByRole('heading', { name: 'Create fee bills' });
+    await screen.findByRole('heading', { name: 'Fee bills created' });
     await waitFor(() => expect(lastQuery).not.toBe(''));
 
     const params = new URLSearchParams(lastQuery);
@@ -234,7 +234,7 @@ describe('/fees/generate', () => {
     );
 
     render();
-    await screen.findByRole('heading', { name: 'Create fee bills' });
+    await screen.findByRole('heading', { name: 'Fee bills created' });
     await waitFor(() => expect(lastQuery).not.toBe(''));
 
     const params = new URLSearchParams(lastQuery);
@@ -259,7 +259,7 @@ describe('/fees/generate', () => {
 
     const user = userEvent.setup();
     const { router } = render();
-    await screen.findByRole('heading', { name: 'Create fee bills' });
+    await screen.findByRole('heading', { name: 'Fee bills created' });
     await waitFor(() => expect(hits).toBeGreaterThan(0));
     const hitsBeforeOpen = hits;
 
@@ -287,7 +287,7 @@ describe('/fees/generate', () => {
 
     render('ACCOUNTANT');
 
-    await screen.findByRole('heading', { name: 'Create fee bills' });
+    await screen.findByRole('heading', { name: 'Fee bills created' });
     await screen.findByText('Karim Rahman');
     expect(usersRequested).toBe(false);
     expect(screen.queryByRole('combobox', { name: 'Created by' })).toBeNull();
@@ -344,14 +344,14 @@ describe('/fees/generate', () => {
     render('TEACHER');
 
     await screen.findByText("You don't have access to this page.");
-    expect(screen.queryByText('Create fee bills')).toBeNull();
+    expect(screen.queryByText('Fee bills created')).toBeNull();
   });
 
   it('drops a deep-linked generated_by_user_id when the role cannot read users', async () => {
-    let lastQuery = '';
+    const queries: string[] = [];
     server.use(
       http.get('/api/v1/fees/generations', ({ request }) => {
-        lastQuery = new URL(request.url).search;
+        queries.push(new URL(request.url).search);
         return HttpResponse.json({
           data: [batchFactory()],
           total: 1,
@@ -365,8 +365,8 @@ describe('/fees/generate', () => {
     render('ACCOUNTANT', ['/fees/generate?generated_by_user_id=user-1']);
 
     await screen.findByText('Karim Rahman');
-    await waitFor(() =>
-      expect(new URLSearchParams(lastQuery).has('generated_by_user_id')).toBe(false),
-    );
+    // Neither the route loader's prefetch nor the page asks for the dropped filter.
+    expect(queries.length).toBeGreaterThan(0);
+    expect(queries.filter((q) => new URLSearchParams(q).has('generated_by_user_id'))).toEqual([]);
   });
 });

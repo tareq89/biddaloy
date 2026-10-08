@@ -110,6 +110,15 @@ describe('notification-state', () => {
     expect(getNotifications()).toEqual([]);
   });
 
+  it('logout clears history even when no user or school was set', () => {
+    pushNotification({ tenantId: null, message: 'Something happened', variant: 'info' });
+    expect(getNotifications()).toHaveLength(1);
+
+    clearAuthState();
+
+    expect(getNotifications()).toEqual([]);
+  });
+
   it('drops a notification whose captured tenant no longer matches the active tenant', () => {
     // Mirrors an async op (a bulk import, a reminder batch) that started
     // under tenant A but only resolves after the user has switched to

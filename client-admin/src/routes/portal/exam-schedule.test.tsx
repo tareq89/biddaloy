@@ -21,7 +21,10 @@ vi.useFakeTimers({ toFake: ['Date'] });
 afterAll(() => {
   vi.useRealTimers();
 });
-vi.setSystemTime(new Date('2026-02-05T10:00:00.000Z'));
+// 10:00 local time on 2026-02-05, whatever the machine's timezone: today's
+// 09:00-11:00 sittings are still running.
+const NOW = new Date(2026, 1, 5, 10, 0);
+vi.setSystemTime(NOW);
 
 /**
  * [19.11.1] Portal exam schedule — visibility is entirely server side
@@ -49,7 +52,13 @@ describe('/portal/exam-schedule', () => {
   const fatima = child('Fatima Rahman', 'student-1', 'Class 8', 'B', 14);
   const imran = child('Imran Rahman', 'student-2', 'Class 3', 'A', 7);
 
-  function row(examId: string, subjectName: string, date: string, startsAt: string) {
+  function row(
+    examId: string,
+    subjectName: string,
+    date: string,
+    startsAt: string,
+    endsAt = '11:00:00',
+  ) {
     return {
       id: `${examId}-${subjectName}`,
       exam_id: examId,
@@ -58,7 +67,7 @@ describe('/portal/exam-schedule', () => {
       subject: { id: subjectName, name_en: subjectName, name_bn: subjectName },
       date,
       starts_at: startsAt,
-      ends_at: '11:00:00',
+      ends_at: endsAt,
       venue: 'Main Hall',
     };
   }
@@ -228,6 +237,32 @@ describe('/portal/exam-schedule', () => {
       'Science',
     );
     expect(screen.queryByText('Mathematics')).toBeNull();
+  });
+
+  it('treats a sitting that ended earlier today as finished, and names the next one', async () => {
+    vi.setSystemTime(new Date(2026, 1, 5, 12, 0));
+    try {
+      mockSchedule({
+        students: [fatima],
+        schedule: {
+          'student-1': [
+            row('exam-1', 'Mathematics', '2026-02-05', '09:00:00', '11:00:00'),
+            row('exam-1', 'English', '2026-02-05', '13:00:00', '15:00:00'),
+          ],
+        },
+      });
+
+      renderSchedule();
+
+      const card = await screen.findByRole('complementary', { name: 'Next exam' });
+      expect(within(card).getByText('English')).toBeTruthy();
+      const [morning, afternoon] = bodyRows('First Term Exam');
+      expect(within(morning!).getByText('Finished')).toBeTruthy();
+      expect(within(morning!).queryByText('Today')).toBeNull();
+      expect(within(afternoon!).getByText('Today')).toBeTruthy();
+    } finally {
+      vi.setSystemTime(NOW);
+    }
   });
 
   it('breaks a same-day tie by start time', async () => {

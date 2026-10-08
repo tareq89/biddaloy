@@ -115,6 +115,21 @@ describe('/reports/collections', () => {
     expect(params?.has('collector_id')).toBe(false);
   });
 
+  it('names a filtered collector with no rows "Selected collector", never "All collectors"', async () => {
+    server.use(
+      http.get('/api/v1/reports/collections', () =>
+        HttpResponse.json(reportResponse({ by_collector: [] })),
+      ),
+    );
+    renderReport('/reports/collections?received_by_user_id=11111111-1111-4111-8111-111111111111');
+
+    expect(await screen.findByText(/· Selected collector$/)).toBeTruthy();
+    expect(screen.queryByText(/· All collectors$/)).toBeNull();
+    expect(screen.getByRole('combobox', { name: 'Collector' }).textContent).toContain(
+      'Selected collector',
+    );
+  });
+
   it('sends the current method/collector filters on CSV download and shows an error toast when it fails', async () => {
     let csvParams: URLSearchParams | undefined;
     server.use(

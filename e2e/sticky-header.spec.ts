@@ -97,6 +97,8 @@ test.describe('sticky header scroll contract', () => {
       await expect(page.getByRole('heading', { name: t('students.list.title') })).toBeVisible();
 
       await page.mouse.wheel(0, 1000);
+      // The page must actually scroll, or a bar at y = 0 proves nothing.
+      await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
       const bar = page.locator('[data-app-mobile-header]');
       await expect.poll(async () => (await bar.boundingBox())?.y).toBe(0);
 

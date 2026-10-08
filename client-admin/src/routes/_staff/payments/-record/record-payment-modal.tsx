@@ -51,7 +51,7 @@ import {
   serverAmountToMinorUnits,
 } from '@biddaloy/ui/utils';
 import { useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from '@tanstack/react-router';
+import { useNavigate, useRouter } from '@tanstack/react-router';
 import { Search, X } from 'lucide-react';
 import * as React from 'react';
 
@@ -97,6 +97,7 @@ export function RecordPaymentModal({
   const { t } = useTranslation('payments');
   const config = useRegionConfig();
   const navigate = useNavigate();
+  const router = useRouter();
   const queryClient = useQueryClient();
   const searchId = React.useId();
   const amountId = React.useId();
@@ -534,7 +535,8 @@ export function RecordPaymentModal({
             void navigate({
               to: '/invoices/$invoiceId',
               params: { invoiceId: success.invoice_id },
-              replace: window.location.pathname === '/payments/record',
+              // Read from the router at click time (no re-render subscription for one click).
+              replace: router.state.location.pathname === '/payments/record',
             });
           },
         }}

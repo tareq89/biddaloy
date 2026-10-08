@@ -332,7 +332,8 @@ describe('/attendance/reports', () => {
     });
 
     const row = (await screen.findByText('Karim Rahman')).closest('tr') as HTMLElement;
-    const cells = within(row).getAllByRole('cell');
-    expect(cells.some((c) => c.querySelector('.md\\:inline')?.textContent === '3')).toBe(true);
+    // By visible text, not class: the bare number for the table, "Roll N" for the card.
+    expect(within(row).getByText('3')).toBeTruthy();
+    expect(within(row).getByText(/^Roll\s/)).toBeTruthy();
   });
 });

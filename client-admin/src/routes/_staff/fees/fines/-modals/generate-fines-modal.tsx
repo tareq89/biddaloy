@@ -216,7 +216,7 @@ export function GenerateFinesModal({ open, onOpenChange, prefill }: GenerateFine
 
   function requestCancel() {
     if (busy) return;
-    if (preview !== null) setConfirmDiscard(true);
+    if (hasCurrentPreview) setConfirmDiscard(true);
     else resetAndClose();
   }
 
@@ -254,7 +254,7 @@ export function GenerateFinesModal({ open, onOpenChange, prefill }: GenerateFine
       title={t('generate.title')}
       onClose={requestClose}
       size="wide"
-      dirty={preview !== null && !busy}
+      dirty={hasCurrentPreview && !busy}
       primary={{
         label: hasCurrentPreview ? t('generate.submitAction') : t('generate.previewAction'),
         onClick: handleSubmit,

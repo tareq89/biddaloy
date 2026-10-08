@@ -63,5 +63,8 @@ export function useTenantRegionConfig(): RegionConfig {
   // `TermLabel` enum `resolveRegionConfig` expects — the two are
   // value-identical (`shared/src/enums/calendar-enums.spec.ts` pins the
   // enum to that exact member set), so this cast is safe.
-  return resolveRegionConfig(fallback, data?.region as Partial<RegionSettings> | undefined);
+  // A disabled query still returns cached data, so a role that just lost
+  // SETTINGS_MANAGE must not keep the region an earlier role loaded.
+  const region = canReadSettings ? data?.region : undefined;
+  return resolveRegionConfig(fallback, region as Partial<RegionSettings> | undefined);
 }

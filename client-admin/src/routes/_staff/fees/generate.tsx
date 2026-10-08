@@ -1,8 +1,10 @@
 import { Permission } from '@biddaloy/shared';
+import { getActiveRole } from '@biddaloy/ui/api';
 import { RoutePending } from '@biddaloy/ui/components';
 import {
   feeGenerationsKeys,
   feeGenerationsQueryOptions,
+  hasPermission,
   useFeeGenerations,
   useHasPermission,
   type FeeGeneration,
@@ -99,7 +101,8 @@ export const Route = createFileRoute('/_staff/fees/generate')({
           feeGenerationsQueryOptions({
             page: deps.page,
             limit: deps.limit,
-            ...toFeeGenerationsFilters(deps),
+            // Same role check as the page's `useHasPermission`, so the prefetched key matches.
+            ...toFeeGenerationsFilters(deps, hasPermission(getActiveRole(), Permission.USER_READ)),
           }),
         )
         .catch(swallowUnlessOffline),

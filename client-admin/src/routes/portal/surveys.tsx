@@ -29,7 +29,7 @@ import {
 import { useMySurveys, useRespondSurvey, type PendingSurvey } from '@biddaloy/ui/hooks';
 import { RegionConfigProvider, useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { PageContainer, PageHeader } from '@biddaloy/ui/shells';
-import { formatDate } from '@biddaloy/ui/utils';
+import { formatDate, formatNumber } from '@biddaloy/ui/utils';
 import { createFileRoute } from '@tanstack/react-router';
 import {
   CalendarClockIcon,
@@ -116,7 +116,11 @@ function PortalSurveys() {
                 )}
               </ul>
               <p className="mt-4 text-label text-text-secondary">
-                {tPortal('surveys.pendingCount', { count: survey.pending.length })}
+                {/* One form per teacher-and-subject pair, so this counts forms, not teachers. */}
+                {tPortal('surveys.pendingCount', {
+                  count: survey.pending.length,
+                  n: formatNumber(survey.pending.length, config),
+                })}
               </p>
               <div className="mt-2 divide-y divide-border-subtle rounded-md border border-border-subtle">
                 {survey.pending.map((pair) => (

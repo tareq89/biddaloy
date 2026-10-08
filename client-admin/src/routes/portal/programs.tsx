@@ -40,7 +40,7 @@ import {
 import { RegionConfigProvider, useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import type { RegionConfig } from '@biddaloy/ui/i18n';
 import { PageContainer, PageHeader } from '@biddaloy/ui/shells';
-import { formatDate, formatNumber } from '@biddaloy/ui/utils';
+import { formatDate, formatNumber, formatScore } from '@biddaloy/ui/utils';
 import { createFileRoute } from '@tanstack/react-router';
 import {
   ChevronDownIcon,
@@ -300,7 +300,7 @@ function MilestoneRow({
   const achievement = milestone.achievement;
   const score =
     achievement?.score != null && Number.isFinite(Number(achievement.score))
-      ? formatNumber(Number(achievement.score), config)
+      ? formatScore(Number(achievement.score), config)
       : achievement?.score;
   const scoreGrade = [score, achievement?.grade].filter(Boolean).join(' / ');
 

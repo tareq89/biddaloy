@@ -344,12 +344,8 @@ function ForgotPasswordPage() {
           title={t('forgot.sent')}
           explanation={t('forgot.sentExplanation')}
         >
-          <Button
-            variant="outline"
-            className="w-full"
-            onClick={() => void navigate({ to: '/login' })}
-          >
-            {t('forgot.backToLogin')}
+          <Button asChild variant="outline" className="w-full">
+            <Link to="/login">{t('forgot.backToLogin')}</Link>
           </Button>
         </GuestStatus>
       </AuthLayout>

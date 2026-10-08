@@ -55,7 +55,13 @@ describe('/portal/programs', () => {
       milestones: milestones.map((m) => ({
         id: m.id,
         name: m.name,
-        achievement: m.achieved ? { achieved_on: '2026-01-10', score: null, grade: null } : null,
+        achievement: m.achieved
+          ? {
+              achieved_on: '2026-01-10',
+              score: null as string | null,
+              grade: null as string | null,
+            }
+          : null,
       })),
       achieved_count: milestones.filter((m) => m.achieved).length,
       milestone_total: milestones.length,
@@ -143,6 +149,19 @@ describe('/portal/programs', () => {
     expect(within(next).getByText('Next')).toBeTruthy();
     const later = screen.getByText('Juz 3').closest('li') as HTMLElement;
     expect(within(later).queryByText('Next')).toBeNull();
+  });
+
+  it('keeps a fractional milestone score (87.5, not 88)', async () => {
+    const program = entry('program-1', 'Hifz Program', 'ACTIVE', [
+      { id: 'm-1', name: 'Juz 1', achieved: true },
+    ]);
+    program.milestones[0]!.achievement = { achieved_on: '2026-01-10', score: '87.5', grade: 'A' };
+    mockPrograms({ students: [fatima], programs: { 'student-1': [program] } });
+    renderPrograms();
+
+    const achieved = (await screen.findByText('Juz 1')).closest('li') as HTMLElement;
+    expect(within(achieved).getByText(/87\.5 \/ A/)).toBeTruthy();
+    expect(within(achieved).queryByText(/\b88\b/)).toBeNull();
   });
 
   it('shows only a short list for a long program until "Show all" is pressed', async () => {

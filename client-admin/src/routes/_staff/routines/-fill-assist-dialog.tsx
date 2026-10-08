@@ -88,7 +88,10 @@ export function FillAssistDialog({
     const day = weekdayLabels[proposal.weekday] ?? '';
     return sequence === undefined
       ? day
-      : t('fillAssist.rowWhen', { day, period: t('agenda.periodLabel', { sequence }) });
+      : t('fillAssist.rowWhen', {
+          day,
+          period: t('agenda.periodLabel', { sequence: formatNumber(sequence, config) }),
+        });
   };
 
   async function handleConfirm() {

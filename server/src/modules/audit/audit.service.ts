@@ -241,10 +241,12 @@ export class AuditService {
       case 'Class':
         return scoped(Class, 'e.name');
       case 'ClassSection':
+        // The class is tenant-scoped too, so a cross-tenant link never leaks its name.
         return scoped(ClassSection, "c.name || ' – ' || e.section_name").leftJoin(
           'e.class',
           'c',
           'c.tenant_id = :tenantId',
+          { tenantId },
         );
       case 'Exam':
         return scoped(Exam, 'e.name');

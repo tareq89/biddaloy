@@ -50,10 +50,14 @@ export function UpcomingPanel({ events, today, limit = 5, onEventClick }: Upcomi
       <h2 className="text-h3">{t('upcomingPanel.title')}</h2>
       {nextHoliday && (
         <p className="mt-1 text-text-secondary">
-          {t('upcomingPanel.nextHoliday', {
-            name: nextHoliday.name,
-            n: formatNumber(daysUntil, regionConfig),
-          })}
+          {/* `count` picks the plural form; `n` is the tenant-formatted number. */}
+          {daysUntil <= 0
+            ? t('upcomingPanel.nextHolidayToday', { name: nextHoliday.name })
+            : t('upcomingPanel.nextHoliday', {
+                name: nextHoliday.name,
+                count: daysUntil,
+                n: formatNumber(daysUntil, regionConfig),
+              })}
         </p>
       )}
       {upcoming.length === 0 ? (

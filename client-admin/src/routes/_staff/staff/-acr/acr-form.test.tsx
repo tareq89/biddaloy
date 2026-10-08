@@ -104,6 +104,17 @@ function pressed(name: string) {
 }
 
 describe('AcrForm', () => {
+  it('a malformed stored period date leaves the picker empty instead of crashing the page', async () => {
+    // `renderForm` waits for the h1, so reaching the assertions means render did not throw.
+    await renderForm(
+      acrAssessmentFactory({
+        id: 'acr-1',
+        step1_data: { period_from: 'not-a-date', period_to: '2026-13-45' },
+      }),
+    );
+    expect(screen.getByRole('heading', { level: 1, name: TITLE })).toBeTruthy();
+  });
+
   it('digit keys score the active criterion and advance to the next', async () => {
     let patchBody: unknown;
     server.use(

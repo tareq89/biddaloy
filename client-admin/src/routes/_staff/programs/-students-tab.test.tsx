@@ -4,8 +4,9 @@
  * withdraw. Same hand-rolled provider stack as `-record-dialog.test.tsx`.
  */
 import { setActiveRole, setActiveTenant } from '@biddaloy/ui/api';
-import { I18nProvider, i18n } from '@biddaloy/ui/i18n';
+import { I18nProvider, i18n, REGION_BD_BN } from '@biddaloy/ui/i18n';
 import { cleanupTestState, createTestQueryClient, server } from '@biddaloy/ui/test';
+import { formatNumber } from '@biddaloy/ui/utils';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -84,7 +85,28 @@ describe('StudentsTab', () => {
     expect(screen.getByRole('button', { name: 'Mark complete' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Withdraw' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Reactivate' })).toBeNull();
-    expect(screen.getByText('Total 1')).toBeTruthy();
+    expect(screen.getByText(`Total ${formatNumber(1, REGION_BD_BN)}`)).toBeTruthy();
+  });
+
+  it('clears a failed status change alert when the status filter changes', async () => {
+    server.use(
+      http.patch('/api/v1/program-enrollments/:id', () =>
+        HttpResponse.json(
+          { statusCode: 500, message: 'boom', requestId: 'r', path: '/', timestamp: '' },
+          { status: 500 },
+        ),
+      ),
+    );
+    await renderTab();
+    await screen.findByText('Anika Rahman');
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole('button', { name: 'Withdraw' }));
+    expect(await screen.findByRole('alert')).toBeTruthy();
+
+    await user.click(screen.getByLabelText('Status'));
+    await user.click(await screen.findByRole('option', { name: 'Withdrawn' }));
+    await waitFor(() => expect(screen.queryByRole('alert')).toBeNull());
   });
 
   it('offers only Reactivate on a withdrawn row', async () => {

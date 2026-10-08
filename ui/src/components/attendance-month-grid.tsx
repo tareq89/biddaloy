@@ -325,9 +325,11 @@ export function AttendanceMonthGrid({
                       ? t('attendanceGrid.lateWithMinutes', { minutes: gridDay.cell.minutesLate })
                       : label;
                   const accessibleDate = formatDate(parseServerDate(gridDay.date), config);
-                  const accessibleLabel = `${accessibleDate} — ${lateLabel}`;
                   const isToday = gridDay.date === today;
                   const isSelected = gridDay.date === selectedDate;
+                  const accessibleLabel = isSelected
+                    ? `${accessibleDate} — ${lateLabel} — ${t('attendanceGrid.selected')}`
+                    : `${accessibleDate} — ${lateLabel}`;
 
                   const content = (
                     <div className="mx-auto flex min-h-14 w-full flex-col items-center gap-1 py-1">

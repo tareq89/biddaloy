@@ -66,7 +66,7 @@ test('edit changes a field and the detail shows it; delete removes from the list
   await test.step('delete via the dialog', async () => {
     await detail.clickAction('students.detail.actions.delete');
     await page
-      .getByRole('dialog')
+      .getByRole('alertdialog')
       .getByRole('button', { name: t('students.detail.deleteDialog.confirm') })
       .click();
   });

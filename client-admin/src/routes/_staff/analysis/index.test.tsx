@@ -173,7 +173,7 @@ describe('/analysis', () => {
     expect(area.getByText('Pass')).toBeTruthy();
     expect(area.getByText(formatNumber(4.5, REGION_BD_BN, { decimals: 2 }))).toBeTruthy();
     expect(area.getByText(formatNumber(450, REGION_BD_BN))).toBeTruthy();
-    expect(screen.getByText('Total 1')).toBeTruthy();
+    expect(screen.getByText(`Total ${formatNumber(1, REGION_BD_BN)}`)).toBeTruthy();
   });
 
   it('merit shows section position when a section is chosen', async () => {
@@ -215,7 +215,7 @@ describe('/analysis', () => {
     ).toBeGreaterThan(0);
     expect(screen.getAllByText(`A: ${formatNumber(10, REGION_BD_BN)}`)).toHaveLength(2);
     // "Total n" counts subjects, not the overall row.
-    expect(screen.getByText('Total 1')).toBeTruthy();
+    expect(screen.getByText(`Total ${formatNumber(1, REGION_BD_BN)}`)).toBeTruthy();
   });
 
   it('shows the not-processed state without Print/CSV, and the exam link only with EXAM_MANAGE', async () => {

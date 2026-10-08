@@ -163,7 +163,8 @@ test.describe('ACR form accessibility', () => {
     await expect(first.getByRole('button', { pressed: true })).toHaveCount(1);
     // Live regions: status line(s) announce progress.
     expect(await page.locator('[role="status"], [aria-live="polite"]').count()).toBeGreaterThan(0);
-    await expectNoAxeViolations(page, 'main');
+    // The ACR form is a FullPageShell overlay, not inside <main>.
+    await expectNoAxeViolations(page, '[data-slot="full-page-shell"]');
   });
 });
 

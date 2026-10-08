@@ -66,7 +66,9 @@ test.describe('admin publishes', () => {
       .getByRole('button', { name: t('evaluations.surveys.detail.publish'), exact: true })
       .click();
     // A published survey with a target shows its sealed pair (the badge), not the empty-state line.
-    await expect(page.getByText(t('evaluations.surveys.detail.waitingBadge'))).toBeVisible();
+    await expect(
+      page.getByText(t('evaluations.surveys.detail.waitingBadge'), { exact: true }),
+    ).toBeVisible();
   });
 });
 
@@ -98,9 +100,9 @@ test.describe('admin closes', () => {
     const closeName = t('evaluations.surveys.detail.close');
     const inline = page.getByRole('button', { name: closeName, exact: true });
     const more = page.getByRole('button', { name: t('common.actions.moreActions') });
-    await expect(inline.or(more).first()).toBeVisible();
-    if ((await inline.count()) > 0) {
-      await inline.click();
+    await expect(inline.or(more).filter({ visible: true }).first()).toBeVisible();
+    if (await inline.first().isVisible()) {
+      await inline.first().click();
     } else {
       await more.click();
       await page.getByRole('menuitem', { name: closeName, exact: true }).click();

@@ -8,7 +8,13 @@ import { REGION_BD_BN, REGION_BD_EN } from '../i18n/region-config';
 import { RegionConfigProvider } from '../i18n/region-config-provider';
 import { renderWithProviders } from '../test';
 
-import { MarksGrid, cellKey, type MarksGridCell } from './marks-grid';
+import {
+  MarksGrid,
+  cellKey,
+  formatMax,
+  type MarksGridCell,
+  type MarksGridComponent,
+} from './marks-grid';
 
 async function renderInEnglish(ui: React.ReactElement) {
   // Region config is decoupled from locale; the default is Bangla digits, so pin Latin here.
@@ -226,5 +232,15 @@ describe('MarksGrid kit look and numerals', () => {
       <MarksGrid students={[]} components={components} cells={cells} onStage={vi.fn()} />,
     );
     expect(screen.getByRole('heading', { level: 2, name: 'No students' })).toBeTruthy();
+  });
+});
+
+describe('formatMax', () => {
+  const component = (full_marks: string) =>
+    ({ id: 'c1', name: 'Written', source: 'MANUAL', full_marks }) satisfies MarksGridComponent;
+
+  it('drops trailing zeros but keeps a real fraction', () => {
+    expect(formatMax(component('100.00'), REGION_BD_EN)).toBe('100');
+    expect(formatMax(component('12.5'), REGION_BD_EN)).toBe('12.5');
   });
 });

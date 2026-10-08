@@ -130,7 +130,8 @@ function CriteriaEditor({
   const dirty = JSON.stringify(rows) !== JSON.stringify(initial);
   useWarnUnsavedChanges(dirty);
   const blocker = useBlocker({
-    shouldBlockFn: () => dirty,
+    // A category switch stays on /settings and keeps this panel (and its edits) mounted.
+    shouldBlockFn: ({ current, next }) => dirty && next.pathname !== current.pathname,
     enableBeforeUnload: false,
     withResolver: true,
   });

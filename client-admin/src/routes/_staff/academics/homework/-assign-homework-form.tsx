@@ -202,10 +202,18 @@ export function AssignHomeworkForm({
       errors.dueDate = t('form.dueBeforeAssigned');
     }
     setFieldErrors(errors);
-    const first = (['class', 'subject', 'title', 'section', 'student'] as const).find(
-      (key) => errors[key],
-    );
-    if (first) document.getElementById(`homework-form-${first}`)?.focus();
+    // Every field that can be in error, in order; the date pickers' ids don't follow the key.
+    const focusIds = {
+      class: 'homework-form-class',
+      subject: 'homework-form-subject',
+      title: 'homework-form-title',
+      section: 'homework-form-section',
+      student: 'homework-form-student',
+      assignedDate: 'homework-form-assigned',
+      dueDate: 'homework-form-due',
+    } as const;
+    const first = (Object.keys(focusIds) as (keyof typeof focusIds)[]).find((key) => errors[key]);
+    if (first) document.getElementById(focusIds[first])?.focus();
     if (Object.keys(errors).length > 0 || !assignedDate || !dueDate) return;
 
     const assignment: AssignHomeworkInput = {

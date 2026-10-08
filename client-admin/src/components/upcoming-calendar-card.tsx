@@ -130,10 +130,15 @@ export function UpcomingCalendarCard({
 
       {nextHoliday && (
         <p className="mt-1 text-text-secondary">
-          {t('upcomingPanel.nextHoliday', {
-            name: nextHoliday.name,
-            n: formatNumber(daysUntil(nextHoliday), regionConfig),
-          })}
+          {/* `count` picks the plural form; `n` is the tenant-formatted number. A
+              holiday that has already started reads as today. */}
+          {daysUntil(nextHoliday) <= 0
+            ? t('upcomingPanel.nextHolidayToday', { name: nextHoliday.name })
+            : t('upcomingPanel.nextHoliday', {
+                name: nextHoliday.name,
+                count: daysUntil(nextHoliday),
+                n: formatNumber(daysUntil(nextHoliday), regionConfig),
+              })}
         </p>
       )}
 

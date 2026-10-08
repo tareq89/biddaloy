@@ -310,7 +310,10 @@ export function EventFormPage({
         description={tCommon('fullPage.discardDescription')}
         confirmLabel={tCommon('fullPage.discardConfirm')}
         cancelLabel={tCommon('fullPage.keepEditing')}
+        // A save that started meanwhile can't be abandoned: wait for it, as `close` does.
+        busy={isPending}
         onConfirm={() => {
+          if (isPending) return;
           setDiscardOpen(false);
           onClose();
         }}

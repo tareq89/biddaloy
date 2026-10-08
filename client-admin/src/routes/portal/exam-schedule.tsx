@@ -171,12 +171,17 @@ function PortalExamSchedule() {
     );
   }
 
-  const todayIso = toIsoDate(new Date());
+  const now = new Date();
+  const todayIso = toIsoDate(now);
+  const nowTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  // Finished: an earlier day, or today with its end time already past.
+  const isFinished = (row: StudentExamScheduleRow) =>
+    row.date < todayIso || (row.date === todayIso && row.ends_at.slice(0, 5) <= nowTime);
   const groups = groupByExam(scheduleQuery.data);
   const next = groups
     .flatMap((group) => group.rows)
     .sort(bySitting)
-    .find((row) => row.date >= todayIso);
+    .find((row) => !isFinished(row));
 
   // The server's own bn/en subject names; each falls back to the other. A
   // row with no subject says so instead of showing an id.
@@ -256,6 +261,7 @@ function PortalExamSchedule() {
                 key={group.exam.id}
                 group={group}
                 todayIso={todayIso}
+                isFinished={isFinished}
                 config={config}
                 dateLabel={dateLabel}
                 timeLabel={timeLabel}
@@ -292,6 +298,7 @@ function NextRow({
 function ExamTableCard({
   group,
   todayIso,
+  isFinished,
   config,
   dateLabel,
   timeLabel,
@@ -299,6 +306,7 @@ function ExamTableCard({
 }: {
   group: ExamGroup;
   todayIso: string;
+  isFinished: (row: StudentExamScheduleRow) => boolean;
   config: RegionConfig;
   dateLabel: (date: string) => string;
   timeLabel: (row: StudentExamScheduleRow) => string;
@@ -310,9 +318,9 @@ function ExamTableCard({
   const last = group.rows[group.rows.length - 1]!;
   // Past sittings read muted; the badge carries the state as text too.
   // No row-class hook on `DataTable`, so the state shows inside the cells:
-  // past rows muted, today's row tinted.
+  // finished rows (including today's ended sittings) muted, today's upcoming ones tinted.
   const muted = (row: StudentExamScheduleRow) =>
-    row.date < todayIso
+    isFinished(row)
       ? 'text-text-secondary'
       : row.date === todayIso
         ? 'rounded bg-secondary px-1'
@@ -341,8 +349,11 @@ function ExamTableCard({
       accessorFn: (row) => (
         <span className={`flex items-center gap-2 font-medium ${muted(row)}`}>
           {subjectLabel(row)}
-          {row.date < todayIso && <StatusBadge tone="neutral" label={t('examSchedule.done')} />}
-          {row.date === todayIso && <StatusBadge tone="info" label={tCommon('date.today')} />}
+          {isFinished(row) ? (
+            <StatusBadge tone="neutral" label={t('examSchedule.done')} />
+          ) : (
+            row.date === todayIso && <StatusBadge tone="info" label={tCommon('date.today')} />
+          )}
         </span>
       ),
     },

@@ -37,10 +37,10 @@ const SUBJECT = subjectFactory({ id: 'subject-math', name_en: 'Math' });
 const TEACHER = teacherFactory({ id: 'teacher-1' });
 TEACHER.user.full_name = 'Ms Nahar';
 
-function mockCommonRoutes() {
+function mockCommonRoutes(enrolledCount = 40) {
   server.use(
     http.get('/api/v1/classes/11111111-1111-4111-8111-111111111111/sections', () =>
-      HttpResponse.json([{ ...SECTION, enrolled_count: 40 }]),
+      HttpResponse.json([{ ...SECTION, enrolled_count: enrolledCount }]),
     ),
     http.get('/api/v1/calendar-settings', () =>
       HttpResponse.json({ weeklyOffDays: [5, 6], termLabel: null }),
@@ -87,6 +87,18 @@ function mockCommonRoutes() {
 describe('/routines/$sectionId', () => {
   afterEach(async () => {
     await cleanupTestState();
+  });
+
+  it('says "1 student", not "1 students", for a one-student section', async () => {
+    mockCommonRoutes(1);
+    renderWithRouter(routeTree, {
+      initialEntries: ['/routines/section-1?classId=11111111-1111-4111-8111-111111111111'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    expect(await screen.findByText(`${formatNumber(1, REGION_BD_BN)} student`)).toBeTruthy();
   });
 
   it('shows the section as the page title with the routine state and how full the week is', async () => {
