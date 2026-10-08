@@ -82,6 +82,9 @@ const NAV_PATH_TO_ROUTE_ID: Record<string, string> = {
   '/academics/homework/new': '/_staff/academics/homework/new',
   '/academics/homework/import': '/_staff/academics/homework/import',
   '/academics/syllabus': '/_staff/academics/syllabus/',
+  '/academics/syllabus?tab=plans': '/_staff/academics/syllabus/',
+  '/academics/syllabus?tab=plans&new=1': '/_staff/academics/syllabus/',
+  '/academics/syllabus?tab=library': '/_staff/academics/syllabus/',
   '/analysis': '/_staff/analysis/',
   '/promotions/new': '/_staff/promotions/new',
   '/staff': '/_staff/staff/',
@@ -151,6 +154,10 @@ const REGISTERED_ACTION_FILES: Record<string, string> = {
   'homework.assign': 'client-admin/src/routes/_staff/academics/homework/new.tsx',
   'homework.import': 'client-admin/src/routes/_staff/academics/homework/import.tsx',
   'syllabus.markTopic': 'client-admin/src/routes/_staff/academics/syllabus/index.tsx',
+  'studyPlans.markToday': 'client-admin/src/routes/_staff/routines/my.tsx',
+  'studyPlans.open': 'client-admin/src/routes/_staff/academics/syllabus/index.tsx',
+  'studyPlans.library': 'client-admin/src/routes/_staff/academics/syllabus/index.tsx',
+  'studyPlans.create': `${R}_staff/academics/syllabus/-create-plan/create-plan-wizard.tsx`,
   'promotions.promote': 'client-admin/src/routes/_staff/promotions/new.tsx',
   'print.studentIdCard': 'client-admin/src/components/print/print-id-card-modal.tsx',
   'print.staffIdCard': 'client-admin/src/components/print/print-id-card-modal.tsx',
@@ -260,6 +267,9 @@ describe('action-registry.ts', () => {
     'fines.log',
     'fines.generate',
     'fines.waive',
+    // [66.3] SYLLABUS_MANAGE is stricter than the syllabus page's SYLLABUS_READ
+    // gate; the create wizard is the only thing it opens.
+    'studyPlans.create',
     // [28.3.2] ACR_WRITE is stricter than `/staff`'s USER_READ gate — see
     // `action-registry.ts`'s comment on `acr.start`.
     'acr.start',
