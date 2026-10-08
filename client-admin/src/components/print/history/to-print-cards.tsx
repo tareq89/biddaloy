@@ -131,7 +131,8 @@ export function ExamGroup({ exam, filled }: { exam: QueueExam; filled: boolean }
   return (
     <Group
       title={t('toPrint.examLine', { exam: exam.exam_name, className: exam.class_name })}
-      badge={t('toPrint.waiting', { count: exam.missing })}
+      // The roster is the list below, so once it has loaded the badge counts what it shows.
+      badge={t('toPrint.waiting', { count: roster.isSuccess ? waiting.length : exam.missing })}
       lines={
         owing > 0 ? <p className="text-warning">{t('toPrint.duesNote', { count: owing })}</p> : null
       }

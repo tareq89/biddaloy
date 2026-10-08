@@ -206,6 +206,7 @@ const examOf = (c: StudentResultCard): TranscriptExam => ({
     isFail: s.is_fail,
   })),
   total: c.result.total_marks,
+  isFail: c.result.is_fail,
   gpa: c.result.gpa,
   grade: c.result.grade,
   position: c.result.position,
