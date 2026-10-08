@@ -8,6 +8,7 @@ import {
   DEFAULT_ORGANISATION_SETTINGS,
   DEFAULT_REGION_SETTINGS,
   DEFAULT_ROUTINE_SETTINGS,
+  DEFAULT_STUDY_PLANS_SETTINGS,
 } from './tenant-settings-defaults';
 
 describe('resolveTenantSettings', () => {
@@ -174,6 +175,30 @@ describe('resolveTenantSettings', () => {
         );
       },
     );
+  });
+
+  describe('studyPlans (66.1.04)', () => {
+    it('nothing stored resolves to the defaults', () => {
+      expect(resolveTenantSettings({}).studyPlans).toEqual(DEFAULT_STUDY_PLANS_SETTINGS);
+    });
+
+    it('bad fields fall back to default, good siblings survive, unknown keys drop', () => {
+      const out = resolveTenantSettings({
+        studyPlans: {
+          statusDeadline: '7 am',
+          reminderTime: '09:30',
+          escalateAfterSchoolDays: -1,
+          weeklyDigestTime: '16:45',
+          guardianDigestSms: 'true',
+          bogus: 1,
+        },
+      }).studyPlans;
+      expect(out).toEqual({
+        ...DEFAULT_STUDY_PLANS_SETTINGS,
+        reminderTime: '09:30',
+        weeklyDigestTime: '16:45',
+      });
+    });
   });
 
   describe('evaluations.incidentSmsEnabled (28.4.7)', () => {

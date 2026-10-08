@@ -9,6 +9,7 @@ import type {
   OrganisationSettings,
   RegionSettings,
   RoutineSettings,
+  StudyPlansSettings,
   TenantSettings,
 } from '@biddaloy/shared';
 
@@ -118,6 +119,15 @@ export const DEFAULT_ROUTINE_SETTINGS: RoutineSettings = {
 /** [48.1.03] D9: admit cards are never withheld unless a school opts in. */
 export const DEFAULT_DOCUMENTS_SETTINGS: DocumentsSettings = { withholdAdmitCardForDues: false };
 
+/** [66.1.04] D25 timings, D26 guardian SMS off by default. */
+export const DEFAULT_STUDY_PLANS_SETTINGS: StudyPlansSettings = {
+  statusDeadline: '18:00',
+  reminderTime: '08:00',
+  escalateAfterSchoolDays: 2,
+  weeklyDigestTime: '17:00',
+  guardianDigestSms: false,
+};
+
 export const DEFAULT_TENANT_SETTINGS: TenantSettings = {
   version: TENANT_SETTINGS_SCHEMA_VERSION,
   region: DEFAULT_REGION_SETTINGS,
@@ -128,4 +138,5 @@ export const DEFAULT_TENANT_SETTINGS: TenantSettings = {
   backup: DEFAULT_BACKUP_SETTINGS,
   fees: DEFAULT_FEES_SETTINGS,
   documents: DEFAULT_DOCUMENTS_SETTINGS,
+  studyPlans: DEFAULT_STUDY_PLANS_SETTINGS,
 };

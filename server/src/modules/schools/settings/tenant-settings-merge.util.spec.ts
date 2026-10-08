@@ -14,6 +14,84 @@ function toPatch(plain: Record<string, unknown>): Record<string, unknown> {
 }
 
 describe('mergeTenantSettings', () => {
+  // [#1811] Adding a section to TenantSettingsDto without listing it here is a compile error,
+  // and listing it without a merge branch fails the assertion below. `organisationRenames` is
+  // a write instruction stripped before the merge; `preset` is not in the DTO and must never
+  // be PATCHed (D37 of Epic 35).
+  const EVERY_SECTION: Record<
+    Exclude<keyof TenantSettingsDto, 'version' | 'organisationRenames'>,
+    { marker: string }
+  > = {
+    region: { marker: 'region' },
+    communications: { marker: 'communications' },
+    attendance: { marker: 'attendance' },
+    routine: { marker: 'routine' },
+    organisation: { marker: 'organisation' },
+    auth: { marker: 'auth' },
+    backup: { marker: 'backup' },
+    fees: { marker: 'fees' },
+    evaluations: { marker: 'evaluations' },
+    studyPlans: { marker: 'studyPlans' },
+  };
+
+  it('every DTO section survives a merge', () => {
+    const merged = mergeTenantSettings({}, { version: 1, ...EVERY_SECTION });
+    for (const key of Object.keys(EVERY_SECTION)) {
+      expect(merged[key]).toMatchObject({ marker: key });
+    }
+  });
+
+  it('stores routine on PATCH and leaves fees alone (#1811)', () => {
+    const existing = { version: 1, fees: { approvalMode: 'OTP' } };
+    const merged = mergeTenantSettings(
+      existing,
+      toPatch({ version: 1, routine: { defaultChangeoverMinutes: 10 } }),
+    );
+    expect(merged.routine).toEqual({ defaultChangeoverMinutes: 10 });
+    expect(merged.fees).toEqual(existing.fees);
+  });
+
+  it('replaces routine wholesale; a cleared cap (null) sticks; omitted patch keeps it (#1811)', () => {
+    const existing = {
+      version: 1,
+      routine: {
+        defaultChangeoverMinutes: 5,
+        maxConsecutivePeriods: 3,
+        subjectPeriodsPerWeek: { s1: 4 },
+      },
+    };
+    expect(
+      mergeTenantSettings(
+        existing,
+        toPatch({ version: 1, routine: { defaultChangeoverMinutes: 7 } }),
+      ).routine,
+    ).toEqual({ defaultChangeoverMinutes: 7 });
+    expect(
+      mergeTenantSettings(
+        existing,
+        toPatch({
+          version: 1,
+          routine: { defaultChangeoverMinutes: 5, maxPeriodsPerTeacherPerDay: null },
+        }),
+      ).routine,
+    ).toEqual({ defaultChangeoverMinutes: 5, maxPeriodsPerTeacherPerDay: null });
+    expect(mergeTenantSettings(existing, toPatch({ version: 1 })).routine).toEqual(
+      existing.routine,
+    );
+  });
+
+  it('shallow-merges studyPlans per field and keeps it when omitted (66.1.04)', () => {
+    const existing = { version: 1, studyPlans: { statusDeadline: '17:30' } };
+    const merged = mergeTenantSettings(
+      existing,
+      toPatch({ version: 1, studyPlans: { guardianDigestSms: true } }),
+    );
+    expect(merged.studyPlans).toEqual({ statusDeadline: '17:30', guardianDigestSms: true });
+    expect(mergeTenantSettings(existing, toPatch({ version: 1 })).studyPlans).toEqual(
+      existing.studyPlans,
+    );
+  });
+
   it('shallow-merges attendance: omitted keys survive, sent keys replace', () => {
     const MORNING = '0b6f8a52-3c1e-4d7a-9f20-5e8c1a2b3c4d';
     const DAY = '7d2e9c41-8a5b-4f3e-b1c6-2a9d8e7f6b5a';
