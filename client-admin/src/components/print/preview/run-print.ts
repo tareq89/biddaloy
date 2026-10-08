@@ -42,6 +42,8 @@ export interface RunPrintArgs {
   tenantId: string;
   lang: string;
   title: string;
+  /** Where artwork is fetched from; certificates use `/certificates/assets`. */
+  assetPath?: string;
   onError: (error: Error) => void;
 }
 
@@ -89,6 +91,7 @@ export async function runPrint(
   deps: RunPrintDeps = defaultRunPrintDeps,
 ): Promise<RunPrintResult | undefined> {
   const { request, printer, assets, subjectType, tenantId, lang, title, onError } = args;
+  const assetPath = args.assetPath ?? '/print-assets';
   let result: RunPrintResult | undefined;
   let failed = false;
 
@@ -121,7 +124,7 @@ export async function runPrint(
       const assetData = new Map(
         await Promise.all(
           assetIds.map(
-            async (id) => [id, await dataUrl(`/print-assets/${id}/file`)] as [string, string],
+            async (id) => [id, await dataUrl(`${assetPath}/${id}/file`)] as [string, string],
           ),
         ),
       );
