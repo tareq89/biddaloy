@@ -1,11 +1,10 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { ComponentProps } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { ExamMarkerRow } from './exam-marker-row';
 
-const renderRow = (props: Partial<ComponentProps<typeof ExamMarkerRow>> = {}) =>
+const renderRow = (edit: { onEdit: () => void; editLabel: string } | { onEdit?: undefined } = {}) =>
   render(
     <table>
       <tbody>
@@ -13,7 +12,7 @@ const renderRow = (props: Partial<ComponentProps<typeof ExamMarkerRow>> = {}) =>
           colSpan={4}
           title="Half-yearly syllabus ends here"
           meta="Lessons 1-24"
-          {...props}
+          {...edit}
         />
       </tbody>
     </table>,

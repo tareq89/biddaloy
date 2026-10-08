@@ -15,6 +15,7 @@ import type { StudyPlan } from '../modules/study-plans/entities/study-plan.entit
 import type { StudyPlanTemplate } from '../modules/study-plans/entities/study-plan-template.entity';
 import type { User } from '../modules/users/entities/user.entity';
 import { DEMO_ACADEMIC_YEAR } from './seed.util';
+import { todayInSchoolTz } from '../common/time';
 
 // Like seed.evaluations.ts: must not import anything that reaches AppModule.
 
@@ -69,13 +70,15 @@ function lastWeekdays(today: string, weekday: number, count: number): string[] {
 /**
  * [66.1.07] Demo rows for Epic 66: one template, two plans (section A, MATH
  * term-scoped then SCI whole-year) and four lesson deliveries on the routine
- * seed's section A slots. Idempotent: every row is found by natural key
- * first. Warns and skips when the demo prerequisites are absent.
+ * seed's section A slots. Idempotent: template and plans are found by natural
+ * key first, and deliveries are written only when section A has none yet (their
+ * dates move with `today`, so a date-keyed check would add a set every day).
+ * Warns and skips when the demo prerequisites are absent.
  */
 export async function ensureStudyPlansSeed(
   repos: StudyPlansSeedRepositories,
   tenantId: string,
-  today: string = new Date().toISOString().slice(0, 10),
+  today: string = todayInSchoolTz(),
 ): Promise<void> {
   const year = await repos.academicYearRepository.findOne({
     where: { tenant_id: tenantId, name: DEMO_ACADEMIC_YEAR.name },
@@ -165,6 +168,13 @@ export async function ensureStudyPlansSeed(
   await ensurePlan(sci.id, null, planLessons(6), []);
 
   // --- deliveries ------------------------------------------------------------
+  if (
+    await repos.deliveryRepository.findOne({
+      where: { tenant_id: tenantId, section_id: section.id },
+    })
+  ) {
+    return;
+  }
   const mondays = lastWeekdays(today, 1, 3);
   const [extraDate] = lastWeekdays(today, 2, 1);
   const rows: {
@@ -184,10 +194,16 @@ export async function ensureStudyPlansSeed(
     is_extra: false,
   }));
 
-  // An extra class on a free period (the routine seed uses period 5 for section B only).
-  const freePeriod = await repos.periodSlotRepository.findOne({
-    where: { tenant_id: tenantId, sequence: 3 },
+  // An extra class on a free period: the routine seed gives section A only
+  // periods 1-2, so period 3 of section A's own shift is free.
+  const mondayPeriod = await repos.periodSlotRepository.findOne({
+    where: { tenant_id: tenantId, id: mondaySlot.period_slot_id },
   });
+  const freePeriod = mondayPeriod
+    ? await repos.periodSlotRepository.findOne({
+        where: { tenant_id: tenantId, shift_id: mondayPeriod.shift_id, sequence: 3 },
+      })
+    : null;
   if (freePeriod) {
     rows.push({
       date: extraDate!,
@@ -199,16 +215,12 @@ export async function ensureStudyPlansSeed(
   }
 
   for (const r of rows) {
-    const key = {
-      tenant_id: tenantId,
-      section_id: section.id,
-      date: r.date,
-      period_slot_id: r.period_slot_id,
-    };
-    if (await repos.deliveryRepository.findOne({ where: key })) continue;
     await repos.deliveryRepository.save(
       repos.deliveryRepository.create({
-        ...key,
+        tenant_id: tenantId,
+        section_id: section.id,
+        date: r.date,
+        period_slot_id: r.period_slot_id,
         subject_id: math.id,
         status: r.status,
         reason: r.reason,

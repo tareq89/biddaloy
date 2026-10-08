@@ -27,15 +27,22 @@ describe('ReorderButtons', () => {
     expect(screen.getByRole('button', { name: 'Down 4' })).toBeTruthy();
   });
 
-  it('disables up at the first row', () => {
-    setup(0);
-    expect(screen.getByRole('button', { name: 'Up 4' })).toHaveProperty('disabled', true);
-    expect(screen.getByRole('button', { name: 'Down 4' })).toHaveProperty('disabled', false);
+  it('marks up aria-disabled at the first row; it stays focusable and does nothing', async () => {
+    const onMove = setup(0);
+    const up = screen.getByRole('button', { name: 'Up 4' });
+    expect(up.getAttribute('aria-disabled')).toBe('true');
+    // Not `disabled`: focus must not fall to <body> after a move to the top.
+    expect(up).toHaveProperty('disabled', false);
+    await userEvent.click(up);
+    expect(onMove).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Down 4' }).getAttribute('aria-disabled')).toBeNull();
   });
 
-  it('disables down at the last row', () => {
+  it('marks down aria-disabled at the last row', () => {
     setup(4);
-    expect(screen.getByRole('button', { name: 'Down 4' })).toHaveProperty('disabled', true);
+    expect(screen.getByRole('button', { name: 'Down 4' }).getAttribute('aria-disabled')).toBe(
+      'true',
+    );
   });
 
   it('moves up and down by one', async () => {

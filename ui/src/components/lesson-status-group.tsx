@@ -67,11 +67,15 @@ export function LessonStatusGroup({
             value={status}
             className={cn(
               'inline-flex h-14 min-w-0 flex-col items-center justify-center gap-0.5 rounded-md border px-2 text-label outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-surface md:h-11 md:flex-row md:gap-1.5 md:px-3',
-              value === status ? SELECTED_TONE[status] : UNSELECTED,
+              // Not colour alone (WCAG 1.4.1): the selected option also gets a
+              // thicker border and an underlined word.
+              value === status ? cn('border-2 font-semibold', SELECTED_TONE[status]) : UNSELECTED,
             )}
           >
             <Icon aria-hidden="true" className="size-4 shrink-0" />
-            <span className="truncate">{labels[status]}</span>
+            <span className={cn('truncate', value === status && 'underline underline-offset-4')}>
+              {labels[status]}
+            </span>
           </RadioGroupPrimitive.Item>
         );
       })}

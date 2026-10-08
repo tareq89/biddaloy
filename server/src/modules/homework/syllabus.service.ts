@@ -11,7 +11,7 @@ import {
   Permission,
   SyllabusTopicStatus,
   UserRole,
-  hasTenantDataScope,
+  hasTenantScope,
   roleHasPermission,
 } from '@biddaloy/shared';
 import { SyllabusTopic } from './entities/syllabus-topic.entity';
@@ -58,8 +58,10 @@ export class SyllabusService {
     }
   }
 
-  /** D16: ADMIN (tenant-wide + SYLLABUS_MANAGE) writes anywhere; a TEACHER only
-   * for a class x subject they hold a SUBJECT_TEACHER row for. */
+  /** D16: a tenant-wide role with SYLLABUS_MANAGE (ADMIN, SUPER_ADMIN) writes
+   * anywhere; a TEACHER only for a class x subject they hold a SUBJECT_TEACHER
+   * row for. `hasTenantScope`, not `hasTenantDataScope`: SUPER_ADMIN could
+   * write syllabus topics before D16 and this gate must not take that away. */
   private async assertCanWrite(
     role: string,
     userId: string,
@@ -67,7 +69,7 @@ export class SyllabusService {
     classId: string,
     subjectId: string,
   ): Promise<void> {
-    if (hasTenantDataScope(role) && roleHasPermission(role, Permission.SYLLABUS_MANAGE)) return;
+    if (hasTenantScope(role) && roleHasPermission(role, Permission.SYLLABUS_MANAGE)) return;
     if (
       role === UserRole.TEACHER &&
       (await this.teacherScope.teachesSubjectInClass({ userId, tenantId, classId, subjectId }))
@@ -247,9 +249,11 @@ export class SyllabusService {
 
       // All-or-nothing: check every distinct class x subject before any update.
       const pairs = new Map(topics.map((t) => [`${t.class_id}|${t.subject_id}`, t]));
-      for (const t of pairs.values()) {
-        await this.assertCanWrite(role, userId, tenantId, t.class_id, t.subject_id);
-      }
+      await Promise.all(
+        Array.from(pairs.values(), (t) =>
+          this.assertCanWrite(role, userId, tenantId, t.class_id, t.subject_id),
+        ),
+      );
 
       for (const item of items) {
         await repo.update({ id: item.id, tenant_id: tenantId }, { sequence: item.sequence });

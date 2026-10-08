@@ -784,6 +784,18 @@ describe('TenantSettingsDto', () => {
       expect(await planErr({ guardianDigestSms: 'yes' })).toBeDefined();
       expect(await planErr({ bogus: 1 })).toBeDefined();
     });
+
+    it('rejects an explicit null on each field', async () => {
+      for (const field of [
+        'statusDeadline',
+        'reminderTime',
+        'escalateAfterSchoolDays',
+        'weeklyDigestTime',
+        'guardianDigestSms',
+      ]) {
+        expect(await planErr({ [field]: null })).toBeDefined();
+      }
+    });
   });
 
   describe('evaluations', () => {

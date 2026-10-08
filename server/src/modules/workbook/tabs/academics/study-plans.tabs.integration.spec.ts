@@ -1,7 +1,12 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { DataSource } from 'typeorm';
 import type { TestingModule } from '@nestjs/testing';
-import { LessonDeliveryReason, LessonDeliveryStatus, PeriodSlotKind } from '@biddaloy/shared';
+import {
+  ExamKind,
+  LessonDeliveryReason,
+  LessonDeliveryStatus,
+  PeriodSlotKind,
+} from '@biddaloy/shared';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
 import { School } from '../../../schools/entities/school.entity';
@@ -14,6 +19,8 @@ import { Teacher } from '../../../academics/entities/teacher.entity';
 import { AcademicTerm } from '../../../calendar/entities/academic-term.entity';
 import { Shift } from '../../../routines/entities/shift.entity';
 import { PeriodSlot } from '../../../routines/entities/period-slot.entity';
+import { Exam } from '../../../exams/entities/exam.entity';
+import { SyllabusTopic } from '../../../homework/entities/syllabus-topic.entity';
 import { StudyPlan } from '../../../study-plans/entities/study-plan.entity';
 import { LessonDelivery } from '../../../study-plans/entities/lesson-delivery.entity';
 import { StudyPlanTemplate } from '../../../study-plans/entities/study-plan-template.entity';
@@ -51,6 +58,8 @@ describe('study plan tabs (round trip, integration)', () => {
       'lesson_deliveries',
       'study_plans',
       'study_plan_templates',
+      'syllabus_topics',
+      'exams',
       'period_slots',
       'shifts',
       'academic_terms',
@@ -132,13 +141,26 @@ describe('study plan tabs (round trip, integration)', () => {
       );
     }
 
+    // Real rows of this tenant: `upsert` drops embedded ids that are not.
+    const topic = await ds.getRepository(SyllabusTopic).save({
+      tenant_id: tenantId,
+      class_id: klass.id,
+      subject_id: math.id,
+      name: 'Decimals',
+      sequence: 1,
+    });
+    const exam = await ds.getRepository(Exam).save({
+      tenant_id: tenantId,
+      academic_year_id: year.id,
+      class_id: klass.id,
+      name: `Half-yearly ${tag}`,
+      kind: ExamKind.TERM,
+    });
     const lessons = [
       { id: 'l1', title: 'Fractions', periods: 3, notes: 'Use blocks' },
-      { id: 'l2', title: 'Decimals', periods: 2, topic_id: '11111111-1111-4111-8111-111111111111' },
+      { id: 'l2', title: 'Decimals', periods: 2, topic_id: topic.id },
     ];
-    const exam_markers = [
-      { exam_id: '22222222-2222-4222-8222-222222222222', up_to_lesson_id: 'l1' },
-    ];
+    const exam_markers = [{ exam_id: exam.id, up_to_lesson_id: 'l1' }];
     const base = {
       tenant_id: tenantId,
       academic_year_id: year.id,
@@ -190,7 +212,7 @@ describe('study plan tabs (round trip, integration)', () => {
       subject_code: `M-${tag}`,
       lessons: [{ id: 'l1', title: 'Fractions', periods: 3 }],
     });
-    return { user, teacher, year, klass, section, math, bangla, shift, slots };
+    return { user, teacher, year, klass, section, math, bangla, shift, slots, topic, exam };
   }
 
   type World = Awaited<ReturnType<typeof seed>>;
@@ -313,6 +335,36 @@ describe('study plan tabs (round trip, integration)', () => {
     expect(await ds.getRepository(StudyPlan).countBy({ tenant_id: OTHER })).toBe(2);
     expect(await ds.getRepository(LessonDelivery).countBy({ tenant_id: OTHER })).toBe(3);
     expect(await ds.getRepository(StudyPlanTemplate).countBy({ tenant_id: OTHER })).toBe(1);
+  });
+
+  it("restore drops a topic_id / exam_id that is not this school's own", async () => {
+    const w = await seed(TENANT, 'g');
+    const theirs = await seed(OTHER, 'h');
+    const { ex, im } = await contexts(w);
+    const plan = (await studyPlansTab.load(TENANT, ds.manager)).find(
+      (p) => p.academic_term_id !== null,
+    )!;
+    const row = studyPlansTab.toRow(plan, ex);
+    const cells = Object.fromEntries(
+      studyPlansTab.columns.map((c) => [c.key, String(toCell(c.type, row[c.key]) ?? '')]),
+    );
+    cells.lessons = JSON.stringify([
+      { id: 'l1', title: 'Fractions', periods: 3 },
+      { id: 'l2', title: 'Decimals', periods: 2, topic_id: theirs.topic.id },
+    ]);
+    cells.exam_markers = JSON.stringify([
+      { exam_id: theirs.exam.id, up_to_lesson_id: 'l1' },
+      { exam_id: w.exam.id, up_to_lesson_id: 'l2' },
+    ]);
+    const parsed = studyPlansTab.fromRow(cells, 2, im);
+    if ('errors' in parsed) throw new Error(JSON.stringify(parsed.errors));
+    const saved = await studyPlansTab.upsert(parsed.row, plan, TENANT, ds.manager);
+    expect(saved.lessons[1]).toEqual({ id: 'l2', title: 'Decimals', periods: 2 });
+    expect(saved.exam_markers).toEqual([{ exam_id: w.exam.id, up_to_lesson_id: 'l2' }]);
+    // Upserting onto the existing plan keeps its term and owner.
+    const reloaded = await ds.getRepository(StudyPlan).findOneByOrFail({ id: plan.id });
+    expect(reloaded.academic_term_id).toBe(plan.academic_term_id);
+    expect(reloaded.owner_override_teacher_id).toBe(w.teacher.id);
   });
 
   it('restoring a term that does not exist in the school fails with a clear message', async () => {

@@ -24,10 +24,25 @@ describe('RadioRows', () => {
     expect(screen.getByRole('group', { name: 'Templates' })).toBeTruthy();
   });
 
-  it('links the caption as the radio description', () => {
+  it('names the radiogroup by the legend too', () => {
     setup();
-    const id = screen.getByRole('radio', { name: /Template A/ }).getAttribute('aria-describedby');
+    expect(screen.getByRole('radiogroup', { name: 'Templates' })).toBeTruthy();
+  });
+
+  it('names each radio by its title only; the caption is the description, read once', () => {
+    setup();
+    const radio = screen.getByRole('radio', { name: 'Template A' });
+    const id = radio.getAttribute('aria-describedby');
     expect(document.getElementById(id as string)?.textContent).toBe('Ten lessons');
+  });
+
+  it('clicking the caption selects too', async () => {
+    const onValueChange = vi.fn();
+    render(
+      <RadioRows value="c" onValueChange={onValueChange} options={options} legend="Templates" />,
+    );
+    await userEvent.click(screen.getByText('Template A'));
+    expect(onValueChange).toHaveBeenCalledWith('a');
   });
 
   it('clicking the label selects', async () => {

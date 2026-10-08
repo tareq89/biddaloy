@@ -131,7 +131,7 @@ describe('AddRoutines1789800011000 (integration)', () => {
         `ALTER TABLE "seat_allocations" ADD CONSTRAINT "FK_seat_allocations_room" FOREIGN KEY ("room_id") REFERENCES "rooms"("id") ON DELETE CASCADE ON UPDATE NO ACTION`,
       );
       await queryRunner.query(
-        `ALTER TABLE "lesson_deliveries" ADD CONSTRAINT "FK_lesson_deliveries_period_slot" FOREIGN KEY ("period_slot_id") REFERENCES "period_slots"("id") ON DELETE CASCADE ON UPDATE NO ACTION`,
+        `ALTER TABLE "lesson_deliveries" ADD CONSTRAINT "FK_lesson_deliveries_period_slot" FOREIGN KEY ("period_slot_id") REFERENCES "period_slots"("id") ON DELETE RESTRICT ON UPDATE NO ACTION`,
       );
     }
 

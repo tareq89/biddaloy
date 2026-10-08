@@ -342,6 +342,33 @@ describe('ResolveRoutineService [21.5.1]', () => {
       );
     });
 
+    it("teacher query: asks working days only for the teacher's own classes", async () => {
+      const c = buildService({
+        slots: [TUE_SLOT, SLOT_2],
+        teacherRows: [
+          { routine_slot_id: 'slot-t', teacher_id: 't-other' },
+          { routine_slot_id: 'slot-2', teacher_id: 't-1' },
+        ],
+        sections: [{ id: 'section-2', class_id: 'class-2' }],
+      });
+      await c.service.resolveRoutine({ teacher_id: 't-1', ...range } as any, TENANT_ID, caller);
+      expect(c.calendarService.getWorkingDays).toHaveBeenCalledTimes(1);
+      expect(c.calendarService.getWorkingDays).toHaveBeenCalledWith(
+        expect.objectContaining({ classId: 'class-2' }),
+      );
+    });
+
+    it('rejects a reversed range with 422 even when the section has no slots', async () => {
+      const c = buildService({ slots: [] });
+      await expect(
+        c.service.resolveRoutine(
+          { section_id: 'section-1', from: '2026-12-01', to: '2026-01-01' } as any,
+          TENANT_ID,
+          caller,
+        ),
+      ).rejects.toMatchObject({ response: { details: { code: 'SCHOOL_CALENDAR_INVALID_RANGE' } } });
+    });
+
     it('returns [] when every class has no working day', async () => {
       const c = buildService({ workingDaysByClass: { 'class-1': [] } });
       const result = await c.service.resolveRoutine(

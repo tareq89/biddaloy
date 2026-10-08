@@ -89,7 +89,9 @@ export class StudyPlans1791500000000 implements MigrationInterface {
       ['tenant', 'tenant_id', 'schools', 'CASCADE'],
       ['section', 'section_id', 'class_sections', 'CASCADE'],
       ['subject', 'subject_id', 'subjects', 'CASCADE'],
-      ['period_slot', 'period_slot_id', 'period_slots', 'CASCADE'],
+      // RESTRICT: a delivery is teaching history. Replacing a shift's period
+      // set must not silently wipe it (`PeriodSlotsService` refuses with 409).
+      ['period_slot', 'period_slot_id', 'period_slots', 'RESTRICT'],
       ['recorded_by', 'recorded_by_user_id', 'users', 'SET NULL'],
     ];
     for (const [short, col, table, onDelete] of deliveryFks) {

@@ -29,18 +29,26 @@ export interface ChoiceCardOption {
   icon?: LucideIcon;
 }
 
-export interface ChoiceCardsProps {
-  /** Group name, read by screen readers. Use this or `labelledBy`. */
-  label?: string;
-  /** Id of a visible heading that names the group. */
-  labelledBy?: string;
+/** Exactly one of `label` / `labelledBy`: the radiogroup always has a name. */
+export type ChoiceCardsProps = {
   value: string | undefined;
   onValueChange: (value: string) => void;
   options: readonly ChoiceCardOption[];
   /** Columns from `md` up; phone is always 1. */
   columns?: 1 | 2 | 3;
   className?: string;
-}
+} & (
+  | {
+      /** Used as `aria-label` when there is no visible heading. */
+      label: string;
+      labelledBy?: never;
+    }
+  | {
+      /** Id of the element that names the group. */
+      labelledBy: string;
+      label?: never;
+    }
+);
 
 const COLUMNS = { 1: '', 2: 'md:grid-cols-2', 3: 'md:grid-cols-3' } as const;
 

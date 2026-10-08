@@ -53,8 +53,9 @@ function setup() {
   void r.subject.save({ tenant_id: TENANT, code: 'MATH' });
   void r.subject.save({ tenant_id: TENANT, code: 'SCI' });
   void r.user.save({ email: 'teacher@biddaloy.test' });
-  void r.periodSlot.save({ tenant_id: TENANT, sequence: 1 });
-  void r.periodSlot.save({ tenant_id: TENANT, sequence: 3 });
+  void r.periodSlot.save({ tenant_id: TENANT, shift_id: 'shift-1', sequence: 1 });
+  void r.periodSlot.save({ tenant_id: TENANT, shift_id: 'shift-2', sequence: 3 });
+  void r.periodSlot.save({ tenant_id: TENANT, shift_id: 'shift-1', sequence: 3 });
   void r.routineSlot.save({
     tenant_id: TENANT,
     section_id: 'classSection-1',
@@ -94,6 +95,20 @@ describe('ensureStudyPlansSeed [66.1.07]', () => {
     expect(r.delivery.rows.filter((d) => d.is_extra)).toEqual([
       expect.objectContaining({ status: 'TAUGHT' }),
     ]);
+  });
+
+  it("puts the extra class on period 3 of section A's own shift", async () => {
+    const { r, repos } = setup();
+    await ensureStudyPlansSeed(repos, TENANT, TODAY);
+    expect(r.delivery.rows.find((d) => d.is_extra)?.period_slot_id).toBe('periodSlot-3');
+  });
+
+  it('is idempotent across days: a run a week later adds no deliveries', async () => {
+    const { r, repos } = setup();
+    await ensureStudyPlansSeed(repos, TENANT, TODAY);
+    const first = counts(r);
+    await ensureStudyPlansSeed(repos, TENANT, '2026-10-16');
+    expect(counts(r)).toEqual(first);
   });
 
   it('is idempotent: a second run adds no rows', async () => {

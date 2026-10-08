@@ -14,6 +14,7 @@ const SHIFT = {
 function buildService() {
   const shiftRepo: any = { findOne: vi.fn(async () => SHIFT) };
   const routineSlotRepo: any = { count: vi.fn(async () => 0) };
+  const deliveryRepo: any = { count: vi.fn(async () => 0) };
   const repo: any = {
     find: vi.fn(async () => []),
     create: vi.fn((v: any) => v),
@@ -28,6 +29,7 @@ function buildService() {
           getRepository: (entity: any) => {
             if (entity?.name === 'Shift') return shiftRepo;
             if (entity?.name === 'RoutineSlot') return routineSlotRepo;
+            if (entity?.name === 'LessonDelivery') return deliveryRepo;
             return repo;
           },
         }),
@@ -38,7 +40,7 @@ function buildService() {
     routineSettings: vi.fn(async () => ({ defaultChangeoverMinutes: 5 })),
   };
   const service = new PeriodSlotsService(shiftRepo, repo, routineSlotRepo, settingsReader);
-  return { service, shiftRepo, repo, routineSlotRepo, settingsReader };
+  return { service, shiftRepo, repo, routineSlotRepo, deliveryRepo, settingsReader };
 }
 
 const validSlots = [
@@ -116,6 +118,18 @@ describe('PeriodSlotsService [21.3.1]', () => {
     await expect(
       ctx.service.replaceForShift('shift-1', { slots: validSlots } as any, TENANT_ID),
     ).rejects.toThrow(ConflictException);
+    expect(ctx.repo.delete).not.toHaveBeenCalled();
+  });
+
+  it('refuses to replace slots that recorded lesson deliveries point at', async () => {
+    ctx.repo.find = vi.fn(async () => [{ id: 'old-slot-1' }]);
+    ctx.deliveryRepo.count = vi.fn(async () => 2);
+    await expect(
+      ctx.service.replaceForShift('shift-1', { slots: validSlots } as any, TENANT_ID),
+    ).rejects.toThrow(ConflictException);
+    expect(ctx.deliveryRepo.count).toHaveBeenCalledWith({
+      where: expect.objectContaining({ tenant_id: TENANT_ID }),
+    });
     expect(ctx.repo.delete).not.toHaveBeenCalled();
   });
 

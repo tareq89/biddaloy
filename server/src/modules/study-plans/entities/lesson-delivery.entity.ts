@@ -1,4 +1,5 @@
 import {
+  Check,
   Entity,
   PrimaryGeneratedColumn,
   Column,
@@ -20,16 +21,20 @@ import { User } from '../../users/entities/user.entity';
  * [66.1.03/#2001] What actually happened in one period: taught, partly
  * taught, or not taught (with a reason). One row per (section, date, period).
  * The reason-iff-NOT_TAUGHT and no-extra-NOT_TAUGHT CHECKs live in
- * `1791500000000-StudyPlans.ts`. No `deleted_at`: a correction is an update.
+ * `1791500000000-StudyPlans.ts`, mirrored by `@Check` so `migration:generate`
+ * does not drop them. No `deleted_at`: a correction is an update.
  *
  * Relations:
- * - @ManyToOne → School, ClassSection, Subject, PeriodSlot (CASCADE)
+ * - @ManyToOne → School, ClassSection, Subject (CASCADE)
+ * - @ManyToOne → PeriodSlot (RESTRICT): history is never wiped by a bell-schedule edit
  * - @ManyToOne → User (nullable, SET NULL): who recorded it
  */
 @Entity('lesson_deliveries')
 @Unique('UQ_lesson_deliveries_slot', ['tenant_id', 'section_id', 'date', 'period_slot_id'])
 @Index('IDX_lesson_deliveries_plan_scope', ['tenant_id', 'section_id', 'subject_id', 'date'])
 @Index('IDX_lesson_deliveries_tenant_date', ['tenant_id', 'date'])
+@Check('CHK_lesson_deliveries_reason', `("status" = 'NOT_TAUGHT') = ("reason" IS NOT NULL)`)
+@Check('CHK_lesson_deliveries_extra', `NOT "is_extra" OR "status" <> 'NOT_TAUGHT'`)
 export class LessonDelivery {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -58,7 +63,7 @@ export class LessonDelivery {
   @Column({ type: 'date' })
   date: string;
 
-  @ManyToOne(() => PeriodSlot, { nullable: false, onDelete: 'CASCADE' })
+  @ManyToOne(() => PeriodSlot, { nullable: false, onDelete: 'RESTRICT' })
   @JoinColumn({ name: 'period_slot_id' })
   period_slot: PeriodSlot;
 

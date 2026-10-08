@@ -1,4 +1,5 @@
 import {
+  Check,
   Entity,
   PrimaryGeneratedColumn,
   Column,
@@ -34,6 +35,10 @@ import { Teacher } from '../../academics/entities/teacher.entity';
  */
 @Entity('study_plans')
 @Index('IDX_study_plans_tenant_year', ['tenant_id', 'academic_year_id'])
+@Check(
+  'CHK_study_plans_json',
+  `jsonb_typeof("lessons") = 'array' AND jsonb_typeof("exam_markers") = 'array'`,
+)
 export class StudyPlan {
   @PrimaryGeneratedColumn('uuid')
   id: string;

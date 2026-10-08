@@ -18,6 +18,8 @@ describe('StepIndicator', () => {
     );
     const items = screen.getAllByRole('listitem');
     expect(items.map((li) => li.getAttribute('aria-current'))).toEqual([null, 'step', null]);
+    // Connectors live inside the items: the DOM list has one <li> per step.
+    expect(container.querySelectorAll('ol > li')).toHaveLength(3);
     await expect(container).toHaveNoViolations();
   });
 

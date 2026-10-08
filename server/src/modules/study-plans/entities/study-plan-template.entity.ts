@@ -1,4 +1,5 @@
 import {
+  Check,
   Entity,
   PrimaryGeneratedColumn,
   Column,
@@ -25,6 +26,7 @@ import { School } from '../../schools/entities/school.entity';
   where: '"deleted_at" IS NULL',
 })
 @Index('IDX_study_plan_templates_key', ['tenant_id', 'class_grade', 'subject_code'])
+@Check('CHK_study_plan_templates_json', `jsonb_typeof("lessons") = 'array'`)
 export class StudyPlanTemplate {
   @PrimaryGeneratedColumn('uuid')
   id: string;
