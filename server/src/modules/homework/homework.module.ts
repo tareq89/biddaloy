@@ -21,6 +21,7 @@ import { COMMUNICATIONS_QUEUE } from '../communications/communications.constants
 // students/students.module.ts).
 import { BulkImportModule } from '../bulk-import/bulk-import.module';
 import { AuditModule } from '../audit/audit.module';
+import { ClassModule } from '../classes/classes.module';
 import { HomeworkController } from './homework.controller';
 import { HomeworkService } from './homework.service';
 import { HomeworkAccessService } from './homework-access.service';
@@ -70,6 +71,9 @@ import { HomeworkAnalyticsService } from './homework-analytics.service';
     SchoolsModule,
     BulkImportModule,
     AuditModule,
+    // `TeacherScopeService` for `SyllabusService` write scope (66.0 D16).
+    // ClassModule imports nothing from homework, so there is no cycle.
+    ClassModule,
     BullModule.registerQueue({
       name: COMMUNICATIONS_QUEUE,
       defaultJobOptions: {

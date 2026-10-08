@@ -6,6 +6,7 @@ import { SyllabusService } from './syllabus.service';
 import { SyllabusTopic } from './entities/syllabus-topic.entity';
 import { Class } from '../academics/entities/class.entity';
 import { Subject } from '../academics/entities/subject.entity';
+import { TeacherScopeService } from '../classes/teacher-scope.service';
 import { AuditService } from '../audit/audit.service';
 import { SyllabusTopicStatus } from '@biddaloy/shared';
 import { toSyllabusTopicResponseDto } from './dto/syllabus.dto';
@@ -16,6 +17,8 @@ import { toSyllabusTopicResponseDto } from './dto/syllabus.dto';
  */
 
 const TENANT_ID = 'tenant-1';
+const ADMIN = 'ADMIN';
+const USER = 'user-1';
 
 function topic(overrides: Partial<SyllabusTopic> = {}): SyllabusTopic {
   return {
@@ -74,6 +77,7 @@ async function buildService(existing: SyllabusTopic[] = []) {
       { provide: getRepositoryToken(Class), useValue: classRepo },
       { provide: getRepositoryToken(Subject), useValue: subjectRepo },
       { provide: AuditService, useValue: auditService },
+      { provide: TeacherScopeService, useValue: { teachesSubjectInClass: vi.fn() } },
     ],
   }).compile();
 
@@ -118,6 +122,8 @@ describe('SyllabusService', () => {
     const created = await service.create(
       { class_id: 'class-1', subject_id: 'subj-1', name: 'Algebra basics', sequence: 1 } as any,
       TENANT_ID,
+      ADMIN,
+      USER,
     );
 
     expect(created).toMatchObject({
@@ -136,6 +142,8 @@ describe('SyllabusService', () => {
       service.create(
         { class_id: 'class-x', subject_id: 'subj-1', name: 'X', sequence: 1 } as any,
         TENANT_ID,
+        ADMIN,
+        USER,
       ),
     ).rejects.toThrow(BadRequestException);
   });
@@ -144,7 +152,13 @@ describe('SyllabusService', () => {
     const existing = topic();
     const { service, topicRepo } = await buildService([existing]);
 
-    await service.update(existing.id, { status: SyllabusTopicStatus.DONE } as any, TENANT_ID);
+    await service.update(
+      existing.id,
+      { status: SyllabusTopicStatus.DONE } as any,
+      TENANT_ID,
+      ADMIN,
+      USER,
+    );
 
     expect(topicRepo.update).toHaveBeenCalledWith(
       { id: existing.id, tenant_id: TENANT_ID },
@@ -156,7 +170,13 @@ describe('SyllabusService', () => {
     const { service } = await buildService([]);
 
     await expect(
-      service.update('missing', { status: SyllabusTopicStatus.DONE } as any, TENANT_ID),
+      service.update(
+        'missing',
+        { status: SyllabusTopicStatus.DONE } as any,
+        TENANT_ID,
+        ADMIN,
+        USER,
+      ),
     ).rejects.toThrow(NotFoundException);
   });
 
@@ -164,7 +184,7 @@ describe('SyllabusService', () => {
     const existing = topic();
     const { service, topicRepo } = await buildService([existing]);
 
-    await service.remove(existing.id, TENANT_ID);
+    await service.remove(existing.id, TENANT_ID, ADMIN, USER);
 
     expect(topicRepo.delete).toHaveBeenCalledWith({ id: existing.id, tenant_id: TENANT_ID });
   });
@@ -180,6 +200,8 @@ describe('SyllabusService', () => {
         { id: 'b', sequence: 1 },
       ],
       TENANT_ID,
+      ADMIN,
+      USER,
     );
 
     expect(topicRepo.update).toHaveBeenCalledWith(
@@ -202,6 +224,8 @@ describe('SyllabusService', () => {
           { id: 'a', sequence: 2 },
         ],
         TENANT_ID,
+        ADMIN,
+        USER,
       ),
     ).rejects.toThrow(BadRequestException);
   });
@@ -210,8 +234,8 @@ describe('SyllabusService', () => {
     const a = topic({ id: 'a' });
     const { service } = await buildService([a]);
 
-    await expect(service.reorder([{ id: 'not-mine', sequence: 1 }], TENANT_ID)).rejects.toThrow(
-      NotFoundException,
-    );
+    await expect(
+      service.reorder([{ id: 'not-mine', sequence: 1 }], TENANT_ID, ADMIN, USER),
+    ).rejects.toThrow(NotFoundException);
   });
 });
