@@ -121,14 +121,12 @@ export async function ensureDocumentsSeed(
   });
   const testimonialId = idByName.get(TEMPLATES[2].name);
   if (revokedStudent && testimonialId) {
-    const done = await repos.printJobItemRepository.findOne({
-      where: {
-        tenant_id: tenantId,
-        subject_id: revokedStudent.id,
-        document_kind: DocumentKind.TESTIMONIAL,
-      },
-    });
-    if (!done) {
+    const where = {
+      tenant_id: tenantId,
+      subject_id: revokedStudent.id,
+      document_kind: DocumentKind.TESTIMONIAL,
+    };
+    if (!(await repos.printJobItemRepository.findOne({ where }))) {
       const job = await ports.issueCertificate({
         templateId: testimonialId,
         studentId: revokedStudent.id,
@@ -136,17 +134,12 @@ export async function ensureDocumentsSeed(
       });
       await ports.confirmJob(job.job_id, []);
       result.certificates += 1;
-      const item = await repos.printJobItemRepository.findOne({
-        where: {
-          tenant_id: tenantId,
-          subject_id: revokedStudent.id,
-          document_kind: DocumentKind.TESTIMONIAL,
-        },
-      });
-      if (item) {
-        await ports.revokeItem(item.id, REVOKED.reason);
-        result.revoked += 1;
-      }
+    }
+    // Revoke whenever it is not revoked yet, so a run that stopped between issue and revoke heals.
+    const item = await repos.printJobItemRepository.findOne({ where });
+    if (item && item.revoked_at == null) {
+      await ports.revokeItem(item.id, REVOKED.reason);
+      result.revoked += 1;
     }
   }
   return result;
