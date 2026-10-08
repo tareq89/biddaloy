@@ -14,6 +14,8 @@ import {
   formatSerial,
   isSerialKind,
   isStudentCertificateKind,
+  TemplateDefinition,
+  validateIssueValues,
   KIND_CONTEXT,
   Permission,
   PRINT_BATCH_CEILING,
@@ -84,6 +86,7 @@ export class PrintJobsService {
     caller: PrintCaller,
     dto: PreviewPrintJobDto,
     family = false,
+    strict = false,
   ) {
     const template = await manager.findOne(PrintTemplate, {
       where: { id: dto.template_id, tenant_id: caller.tenantId },
@@ -130,14 +133,29 @@ export class PrintJobsService {
       id: template.current_version_id,
       tenant_id: caller.tenantId,
     });
+    // D3/D43: only the issue.* fields the template places, trimmed. Preview (not strict) accepts
+    // a partial set: unknown / too-long keys still fail, missing ones fall back to the catalog sample.
+    const issue: Record<string, string> = {};
+    for (const [k, v] of Object.entries(dto.issue_values ?? {})) issue[k] = v.trim();
+    const issueErrors = validateIssueValues(
+      version.definition as TemplateDefinition,
+      template.document_kind,
+      issue,
+    ).filter((e) => strict || !e.endsWith(': required'));
+    if (issueErrors.length)
+      throw new BadRequestException({
+        statusCode: 400,
+        message: issueErrors,
+        error: 'Bad Request',
+      });
     const resolved = await resolver.resolve(caller.tenantId, ids, manager, caller.userId, context);
     // A subject from another tenant simply isn't returned — same as not existing.
     if (ids.some((id) => !resolved.has(id))) throw new NotFoundException('Subject not found');
-    return { template, version, ids, resolved, context };
+    return { template, version, ids, resolved, context, issue };
   }
 
   async preview(caller: PrintCaller, dto: PreviewPrintJobDto) {
-    const { template, version, ids, resolved } = await this.loadTemplate(
+    const { template, version, ids, resolved, issue } = await this.loadTemplate(
       this.ds.manager,
       caller,
       dto,
@@ -153,7 +171,7 @@ export class PrintJobsService {
         return {
           subject_id: id,
           label: r.label,
-          values: r.values,
+          values: { ...r.values, ...issue },
           photo_url: photoUrl(dto.subject_type, id, r.photoKey, caller.channel),
         };
       }),
@@ -170,11 +188,12 @@ export class PrintJobsService {
     const docs = await this.settings.documentsSettings(caller.tenantId);
     const family = opts?.family === true;
     return this.ds.transaction(async (manager) => {
-      const { template, version, ids, resolved, context } = await this.loadTemplate(
+      const { template, version, ids, resolved, context, issue } = await this.loadTemplate(
         manager,
         caller,
         dto,
         family,
+        true,
       );
 
       let printerName: string | null = null;
@@ -229,7 +248,7 @@ export class PrintJobsService {
       for (const id of serialKind ? ids : [...ids].sort()) {
         const r = resolved.get(id) as ResolvedSubject;
         let serial: { no: number; year: number; fresh: true } | undefined;
-        let baseValues: Record<string, unknown> = r.values;
+        let baseValues: Record<string, unknown> = { ...r.values, ...issue };
         if (serialKind) {
           serial = { no: nextSerial++, year, fresh: true };
           baseValues = {
@@ -250,6 +269,7 @@ export class PrintJobsService {
             context,
             serial,
             copyLabelText,
+            issueKeys: Object.keys(issue),
             outcome: family ? 'OK' : undefined,
           }),
         );
@@ -473,6 +493,7 @@ export class PrintJobsService {
       context?: PrintContext;
       serial?: { no: number; year: number; fresh?: true };
       copyLabelText?: string;
+      issueKeys?: string[];
       outcome?: 'OK';
     },
   ) {
@@ -586,6 +607,8 @@ export class PrintJobsService {
           subject_id: s.subjectId,
           copy_number: copyNumber,
           serial_no: serialText,
+          // Keys only: the typed text is in the snapshot.
+          ...(s.issueKeys?.length ? { issue_keys: s.issueKeys } : {}),
         },
       },
       manager,
