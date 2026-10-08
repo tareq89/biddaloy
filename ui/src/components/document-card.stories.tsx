@@ -1,11 +1,14 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
+import { withMemoryRouter } from '../../.storybook/router-decorator';
+
 import { DocumentCard } from './document-card';
 
 const meta: Meta<typeof DocumentCard> = {
   title: 'Components/DocumentCard',
   component: DocumentCard,
   tags: ['autodocs'],
+  decorators: [withMemoryRouter(['/'])],
   args: { title: 'Admit card', description: 'One card per student.', action: { label: 'Print' } },
 };
 export default meta;
@@ -21,7 +24,7 @@ export const Unavailable: Story = {
     unavailable: {
       reason: 'No seat plan yet',
       fixLabel: 'Make a seat plan',
-      fixHref: '#seat-plan',
+      fixHref: '/exams/seat-plan',
     },
   },
 };

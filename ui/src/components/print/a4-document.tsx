@@ -7,6 +7,13 @@
  *
  * Tables in `children` should use `<table>` + `<thead>`; the browser repeats
  * `<thead>` on every printed page, so there is no JS pagination.
+ *
+ * Page box: the caller's scoped print CSS owns `@page` (it cannot be scoped
+ * here), e.g. `@page { size: A4 landscape; margin: 10mm }` like the attendance
+ * register's print CSS. The print min-height is the sheet minus those 10mm
+ * margins minus 1mm slack (297-21 = 276, 210-21 = 189), so the frame fills
+ * one sheet and pushes the signatures to its foot without spilling onto a
+ * second one. Each frame breaks after itself except the last.
  */
 import * as React from 'react';
 
@@ -43,10 +50,10 @@ export function A4Document({
       data-slot="a4-document"
       data-orientation={orientation}
       aria-labelledby={titleId}
-      className={`mx-auto flex w-full flex-col gap-4 text-sm print:break-after-page ${
+      className={`mx-auto flex w-full flex-col gap-4 text-sm print:break-after-page print:last:break-after-auto ${
         orientation === 'landscape'
-          ? 'max-w-[297mm] print:min-h-[210mm]'
-          : 'max-w-[210mm] print:min-h-[297mm]'
+          ? 'max-w-[297mm] print:min-h-[189mm]'
+          : 'max-w-[210mm] print:min-h-[276mm]'
       }`}
     >
       <IssuerHeader
@@ -55,7 +62,7 @@ export function A4Document({
         {...(activeLanguage !== undefined ? { activeLanguage } : {})}
       />
       <div className="border-t border-border-subtle pt-2">
-        <h2 id={titleId} className="text-h2">
+        <h2 id={titleId} className="text-h2 print:text-print-title">
           {title}
         </h2>
         {subtitle ? <p className="text-text-secondary">{subtitle}</p> : null}

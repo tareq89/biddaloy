@@ -80,12 +80,15 @@ describe('print enums', () => {
       expect(() => formatSerial({ year: 2026, kind: DocumentKind.EXAM_ADMIT_CARD, n: 1 })).toThrow(
         RangeError,
       );
+      expect(() => formatSerial({ ...ok, n: 1, prefix: 'da-hs' })).toThrow(RangeError);
+      expect(() => formatSerial({ ...ok, n: 1, year: 26 })).toThrow(RangeError);
     });
 
     it('has a code for every serial kind and none for the admit card', () => {
       expect(Object.keys(CERTIFICATE_SERIAL_CODE)).toHaveLength(7);
       expect(isSerialKind(DocumentKind.MERIT_CERTIFICATE)).toBe(true);
       expect(isSerialKind(DocumentKind.EXAM_ADMIT_CARD)).toBe(false);
+      expect(isSerialKind('toString' as DocumentKind)).toBe(false);
     });
 
     // D6: result/merit are exam documents, they stay on DOCUMENT_PRINT.

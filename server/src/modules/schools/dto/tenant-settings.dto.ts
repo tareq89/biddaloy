@@ -655,11 +655,12 @@ export class DocumentsSettingsDto {
   @IsBoolean()
   withholdAdmitCardForDues?: boolean;
 
-  @ApiPropertyOptional({ example: 'DAHS' })
+  /** `null` clears a stored prefix (the block is shallow-merged). */
+  @ApiPropertyOptional({ example: 'DAHS', nullable: true })
   @IsOptional()
   @IsString()
   @Matches(SERIAL_PREFIX_PATTERN)
-  serialPrefix?: string;
+  serialPrefix?: string | null;
 }
 
 /**

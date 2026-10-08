@@ -45,16 +45,16 @@ describe('A4Document', () => {
     expect(again.container.querySelectorAll('[data-slot="a4-signature"]')).toHaveLength(0);
   });
 
-  it('landscape uses the 297mm width, portrait 210mm', () => {
+  it('landscape uses the 297mm width, portrait 210mm; print height fits inside 10mm margins', () => {
     const { container, unmount } = renderDoc({ orientation: 'landscape' });
-    expect(container.querySelector('[data-slot="a4-document"]')?.className).toContain(
-      'max-w-[297mm]',
-    );
+    const land = container.querySelector('[data-slot="a4-document"]')?.className;
+    expect(land).toContain('max-w-[297mm]');
+    expect(land).toContain('print:min-h-[189mm]');
     unmount();
-    const p = renderDoc();
-    expect(p.container.querySelector('[data-slot="a4-document"]')?.className).toContain(
-      'max-w-[210mm]',
-    );
+    const port = renderDoc().container.querySelector('[data-slot="a4-document"]')?.className;
+    expect(port).toContain('max-w-[210mm]');
+    expect(port).toContain('print:min-h-[276mm]');
+    expect(port).toContain('print:last:break-after-auto');
   });
 
   it('injects no style element', () => {

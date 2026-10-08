@@ -48,6 +48,22 @@ describe('ChoiceCards', () => {
     );
   });
 
+  it('names each card by its title only and repeats disabled reasons on the group', () => {
+    render(<Harness />);
+    const testimonial = screen.getByRole('radio', { name: 'Testimonial' });
+    expect(testimonial.getAttribute('aria-describedby')).toBeTruthy();
+    const group = screen.getByRole('radiogroup', { name: 'Kind' });
+    expect(document.getElementById(group.getAttribute('aria-describedby') ?? '')?.textContent).toBe(
+      'TC: Record a leaving event first',
+    );
+  });
+
+  it('marks only the checked card with a check icon', () => {
+    render(<Harness />);
+    expect(screen.getByRole('radio', { name: 'Testimonial' }).querySelector('svg')).not.toBeNull();
+    expect(screen.getByRole('radio', { name: 'Character' }).querySelector('svg')).toBeNull();
+  });
+
   it('is axe clean', async () => {
     const { container } = render(<Harness />);
     await expect(container).toHaveNoViolations();

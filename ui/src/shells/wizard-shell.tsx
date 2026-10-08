@@ -129,7 +129,12 @@ export function WizardShell({
     <PageContainer size="narrow">
       <PageHeader title={title} />
 
-      <StepIndicator steps={allSteps} currentStepId={currentStepId} onStepChange={onStepChange} />
+      <StepIndicator
+        steps={allSteps}
+        currentStepId={currentStepId}
+        onStepChange={onStepChange}
+        doneLabel={t('wizard.stepDone')}
+      />
       <div ref={stepAnnouncementRef} tabIndex={-1} aria-live="polite" className="sr-only">
         {t('wizard.stepAnnouncement', {
           current: currentIndex + 1,

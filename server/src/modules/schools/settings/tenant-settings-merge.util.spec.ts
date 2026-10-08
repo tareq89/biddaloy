@@ -198,12 +198,19 @@ describe('mergeTenantSettings', () => {
     expect(merged.fees).toEqual(fees);
   });
 
-  it('replaces documents wholesale so removing serialPrefix sticks (48.1.03)', () => {
-    const merged = mergeTenantSettings(
-      { version: 1, documents: { withholdAdmitCardForDues: true, serialPrefix: 'DAHS' } },
-      toPatch({ version: 1, documents: { withholdAdmitCardForDues: true } }),
-    );
-    expect(merged.documents).toEqual({ withholdAdmitCardForDues: true });
+  it('shallow-merges documents: a partial PATCH keeps the other key, null clears serialPrefix (48.1.03)', () => {
+    const stored = {
+      version: 1,
+      documents: { withholdAdmitCardForDues: true, serialPrefix: 'DAHS' },
+    };
+    expect(
+      mergeTenantSettings(stored, toPatch({ version: 1, documents: { serialPrefix: 'ABC' } }))
+        .documents,
+    ).toEqual({ withholdAdmitCardForDues: true, serialPrefix: 'ABC' });
+    expect(
+      mergeTenantSettings(stored, toPatch({ version: 1, documents: { serialPrefix: null } }))
+        .documents,
+    ).toEqual({ withholdAdmitCardForDues: true, serialPrefix: null });
   });
 
   it('leaves documents untouched when the patch omits it (48.1.03)', () => {

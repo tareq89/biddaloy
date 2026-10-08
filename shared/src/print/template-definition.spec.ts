@@ -4,7 +4,7 @@ import { CR80, DocumentKind } from '../enums/print';
 import {
   boundIssueFields,
   fillPlaceholders,
-  templateDefinitionSchema,
+  PLACEHOLDER_PATTERN,
   textPlaceholders,
   validateIssueValues,
   validateTemplateDefinition,
@@ -125,7 +125,24 @@ describe('placeholders and issue fields [48.1.01] D43', () => {
   });
 
   it('refuses a 2001-character text', () => {
-    expect(templateDefinitionSchema.safeParse(def([t('x'.repeat(2001))])).success).toBe(false);
+    expect(cert(TC, [t('x'.repeat(2001))]).success).toBe(false);
+  });
+
+  it('grandfathers a stored text the new rules refuse, until it is edited', () => {
+    const stored = {
+      page: { widthMm: 210, heightMm: 297, sides: ['front'] },
+      front: { elements: [t('{{old.key}} ' + 'x'.repeat(2001))] },
+    };
+    const moved = { ...stored, front: { elements: [{ ...stored.front.elements[0], x: 1 }] } };
+    expect(validateTemplateDefinition(moved, TC).success).toBe(false);
+    expect(validateTemplateDefinition(moved, TC, stored).success).toBe(true);
+    const edited = { ...stored, front: { elements: [t('{{old.key}}')] } };
+    expect(validateTemplateDefinition(edited, TC, stored).success).toBe(false);
+  });
+
+  it('keeps PLACEHOLDER_PATTERN stateless for .test()', () => {
+    expect(PLACEHOLDER_PATTERN.test('{{a}}')).toBe(true);
+    expect(PLACEHOLDER_PATTERN.test('{{a}}')).toBe(true);
   });
 
   it('refuses an admit-card field in a transfer certificate', () => {
