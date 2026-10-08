@@ -257,6 +257,17 @@
   --text-caption--font-weight: 400;
   --text-caption--letter-spacing: 0em;
 
+  /* [48.1.04] D38 — print-only sizes (mirror of typography.printRamp). */
+  --text-print-title: 28pt;
+  --text-print-title--line-height: 34pt;
+  --text-print-title--font-weight: 700;
+  --text-print-title--letter-spacing: 0em;
+
+  --text-print-door: 72pt;
+  --text-print-door--line-height: 80pt;
+  --text-print-door--font-weight: 700;
+  --text-print-door--letter-spacing: 0em;
+
   /* Raw scale — fixed value, fixed meaning, in every theme. Reach for these
      only when a colour must stay the same regardless of theme (e.g. a
      brand mark). For anything else use the semantic role tokens below. */
