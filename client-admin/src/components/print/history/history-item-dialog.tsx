@@ -32,6 +32,8 @@ export interface HistoryItemDialogProps {
   /** Only shown for a copy that is still valid. */
   onReprint?: (item: PrintHistoryItemDetail) => void;
   onRevoke?: (item: PrintHistoryItemDetail) => void;
+  /** Hides Reprint for kinds the person may not reprint (certificates need a different permission). */
+  canReprint?: (item: PrintHistoryItemDetail) => boolean;
 }
 
 /** Every string under `key` anywhere in the (JSON) definition. */
@@ -56,10 +58,12 @@ function ItemBody({
   itemId,
   onReprint,
   onRevoke,
+  canReprint,
 }: {
   itemId: string;
   onReprint: HistoryItemDialogProps['onReprint'];
   onRevoke: HistoryItemDialogProps['onRevoke'];
+  canReprint: HistoryItemDialogProps['canReprint'];
 }) {
   const { t } = useTranslation('printHistory');
   const region = useRegionConfig();
@@ -144,7 +148,7 @@ function ItemBody({
       <p className="text-xs text-muted-foreground">{t('item.qrNote')}</p>
 
       <DialogFooter>
-        {!revoked && onReprint ? (
+        {!revoked && onReprint && (canReprint?.(item) ?? true) ? (
           <Button type="button" variant="outline" onClick={() => onReprint(item)}>
             {t('actions.reprint')}
           </Button>
@@ -165,6 +169,7 @@ export function HistoryItemDialog({
   itemId,
   onReprint,
   onRevoke,
+  canReprint,
 }: HistoryItemDialogProps) {
   const { t } = useTranslation('printHistory');
   return (
@@ -174,7 +179,12 @@ export function HistoryItemDialog({
           <DialogTitle>{t('item.title')}</DialogTitle>
         </DialogHeader>
         {open && itemId ? (
-          <ItemBody itemId={itemId} onReprint={onReprint} onRevoke={onRevoke} />
+          <ItemBody
+            itemId={itemId}
+            onReprint={onReprint}
+            onRevoke={onRevoke}
+            canReprint={canReprint}
+          />
         ) : null}
       </DialogContent>
     </Dialog>
