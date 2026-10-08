@@ -11,7 +11,7 @@ import { formatDate, formatWeekday } from '@biddaloy/ui/utils';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { afterAll, afterEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { routeTree } from '../../routeTree.gen';
 
@@ -395,5 +395,137 @@ describe('/portal/exam-schedule', () => {
 
     await screen.findByRole('table', { name: 'First Term Exam' });
     await expect(container).toHaveNoViolations();
+  });
+
+  describe('admit card', () => {
+    const PRINT_URL = '/api/v1/students/:studentId/exams/:examId/admit-card';
+    const upcoming = row('exam-1', 'Mathematics', '2026-02-05', '09:00:00');
+    const finished = row('exam-2', 'Science', '2026-01-05', '09:00:00');
+    finished.exam = { id: 'exam-2', name: 'Old Exam', kind: 'TERM' };
+
+    beforeEach(() => {
+      // jsdom's window.open returns null, which `openPrintWindow` reads as a blocked popup.
+      vi.stubGlobal('open', () => ({ close: vi.fn(), location: {} }));
+    });
+
+    function reject(status: number, details?: Record<string, unknown>) {
+      server.use(
+        http.post(PRINT_URL, () =>
+          HttpResponse.json(
+            { ...apiErrorBody(status, 'no', '/'), ...(details ? { details } : {}) },
+            { status },
+          ),
+        ),
+      );
+    }
+
+    function mockDues(phone: string | null = '01711-223344') {
+      server.use(
+        http.get('/api/v1/fees/dues', () =>
+          HttpResponse.json({
+            data: [{ student_id: 'student-1', total_due: 2800, dues: [] }],
+            total: 1,
+            page: 1,
+            limit: 50,
+          }),
+        ),
+        http.get('/api/v1/schools/me/profile', () => HttpResponse.json({ name: 'S', phone })),
+      );
+    }
+
+    async function printAndWithhold(locale = 'en') {
+      mockSchedule({ students: [fatima], schedule: { 'student-1': [upcoming] } });
+      reject(409, { code: 'ADMIT_CARD_WITHHELD' });
+      mockDues();
+      renderSchedule('/portal/exam-schedule', locale);
+      const button = await screen.findByRole('button', {
+        name: locale === 'bn' ? 'প্রবেশপত্র প্রিন্ট করুন' : 'Print admit card',
+      });
+      await userEvent.click(button);
+    }
+
+    it('offers the button on an upcoming exam and not on a finished one', async () => {
+      mockSchedule({ students: [fatima], schedule: { 'student-1': [upcoming, finished] } });
+      renderSchedule();
+
+      await screen.findByRole('table', { name: 'Old Exam' });
+      expect(screen.getAllByRole('button', { name: 'Print admit card' })).toHaveLength(1);
+    });
+
+    it('keeps the button visible and at least 44px tall at phone width', async () => {
+      vi.stubGlobal('innerWidth', 390);
+      mockSchedule({ students: [fatima], schedule: { 'student-1': [upcoming] } });
+      renderSchedule();
+
+      const button = await screen.findByRole('button', { name: 'Print admit card' });
+      expect(button.className).toContain('min-h-11'); // 2.75rem = 44px
+      expect(button.className).toContain('w-full');
+    });
+
+    it('a withheld 409 swaps in the dues message with the amount, fees link and office call', async () => {
+      await printAndWithhold();
+
+      const alert = await screen.findByRole('alert');
+      expect(within(alert).getByText(/৳2,800\.00 due/)).toBeTruthy();
+      expect(
+        within(alert).getByRole('link', { name: 'See dues and pay' }).getAttribute('href'),
+      ).toBe('/portal/fees?student=student-1');
+      const call = await within(alert).findByRole('link', { name: /01711-223344/ });
+      expect(call.getAttribute('href')).toBe('tel:01711-223344');
+    });
+
+    it('shows the amount in Bangla digits under bn', async () => {
+      await printAndWithhold('bn');
+
+      const alert = await screen.findByRole('alert');
+      expect(await within(alert).findByText(/৳২,৮০০\.০০/)).toBeTruthy();
+    });
+
+    it('has no call button when the school profile has no phone', async () => {
+      mockSchedule({ students: [fatima], schedule: { 'student-1': [upcoming] } });
+      reject(409, { code: 'ADMIT_CARD_WITHHELD' });
+      mockDues(null);
+      renderSchedule();
+      await userEvent.click(await screen.findByRole('button', { name: 'Print admit card' }));
+
+      const alert = await screen.findByRole('alert');
+      await within(alert).findByText(/৳2,800\.00 due/);
+      expect(within(alert).queryByRole('link', { name: /Call the office/ })).toBeNull();
+    });
+
+    it('a 404 says the card is not ready yet', async () => {
+      mockSchedule({ students: [fatima], schedule: { 'student-1': [upcoming] } });
+      reject(404);
+      renderSchedule();
+      await userEvent.click(await screen.findByRole('button', { name: 'Print admit card' }));
+
+      expect(await screen.findByText('The admit card is not ready yet.')).toBeTruthy();
+    });
+
+    it('switching child resets the panel', async () => {
+      mockSchedule({
+        students: [fatima, imran],
+        schedule: {
+          'student-1': [upcoming],
+          'student-2': [{ ...row('exam-3', 'Science', '2026-03-01', '10:00:00') }],
+        },
+      });
+      reject(404);
+      renderSchedule();
+      await userEvent.click(await screen.findByRole('button', { name: 'Print admit card' }));
+      await screen.findByText('The admit card is not ready yet.');
+
+      const picker = await screen.findByRole('navigation', { name: 'Choose a student' });
+      await userEvent.click(within(picker).getByRole('link', { name: /Imran Rahman/ }));
+
+      expect(await screen.findByRole('button', { name: 'Print admit card' })).toBeTruthy();
+      expect(screen.queryByText('The admit card is not ready yet.')).toBeNull();
+    });
+
+    it('is axe clean in the ready and withheld states', async () => {
+      await printAndWithhold();
+      await screen.findByRole('alert');
+      await expect(document.body).toHaveNoViolations();
+    });
   });
 });
