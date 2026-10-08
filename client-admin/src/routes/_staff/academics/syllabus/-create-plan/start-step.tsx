@@ -17,6 +17,7 @@ import {
 } from '@biddaloy/ui/hooks';
 import { useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { downloadCsv, formatDate, formatNumber } from '@biddaloy/ui/utils';
+import { Link } from '@tanstack/react-router';
 import { DownloadIcon, FileSpreadsheetIcon, LibraryIcon, SquarePenIcon } from 'lucide-react';
 import * as React from 'react';
 
@@ -175,10 +176,13 @@ export function StartStep({
           {list.length === 0 ? (
             <p className="text-text-secondary">
               {t('create.noTemplates')}{' '}
-              {/* ponytail: plain link; the Template library tab (3-05) is not in the route schema yet. */}
-              <a className="text-primary underline" href="/academics/syllabus?tab=library">
+              <Link
+                className="text-primary underline"
+                to="/academics/syllabus"
+                search={{ tab: 'library' }}
+              >
                 {t('create.openLibrary')}
-              </a>
+              </Link>
             </p>
           ) : (
             <RadioRows

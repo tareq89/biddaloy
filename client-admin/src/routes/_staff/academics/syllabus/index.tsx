@@ -9,17 +9,18 @@ import { useHasPermission } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { PageContainer, PageHeader, type PageAction } from '@biddaloy/ui/shells';
 import { createFileRoute } from '@tanstack/react-router';
-import { Plus } from 'lucide-react';
+import { Plus, Upload } from 'lucide-react';
 import * as React from 'react';
 import { z } from 'zod';
 
 import { loadRouteNamespaces } from '../../../../route-loaders';
 
 import { CreatePlanWizard } from './-create-plan/create-plan-wizard';
+import { LibraryTab, type LibraryDialog } from './-library/library-tab';
 import { PlansPageHeader, PlansTab } from './-plans-tab';
 import { TopicsTab, useTopicsSelection } from './-topics-tab';
 
-const TABS = ['topics', 'plans'] as const;
+const TABS = ['topics', 'plans', 'library'] as const;
 type SyllabusTab = (typeof TABS)[number];
 
 const optionalString = z.string().optional().catch(undefined);
@@ -39,6 +40,8 @@ const syllabusSearchSchema = z.object({
   // `?behind=1` parses to a number, so accept both.
   behind: z.union([z.string(), z.number()]).transform(String).optional().catch(undefined),
   q: optionalString,
+  tpl_grade: optionalString,
+  tpl_subject: optionalString,
   // One-shot flags: `?new=1` opens the create wizard (TanStack parses it to a number);
   // `?template=<id>` opens it on that library template.
   new: z.union([z.string(), z.number()]).optional().catch(undefined),
@@ -62,6 +65,9 @@ function SyllabusPage() {
   const [createOpen, setCreateOpen] = React.useState(false);
   const { hasSelection } = useTopicsSelection(search);
 
+  const canManageTemplates = useHasPermission(Permission.STUDY_PLAN_TEMPLATE_MANAGE);
+  const [libraryDialog, setLibraryDialog] = React.useState<LibraryDialog>(null);
+  const { t: tPlans } = useTranslation('studyPlans');
   const wizardOpen = tab === 'plans' && search.new !== undefined && canManage;
   // A user without SYLLABUS_MANAGE gets no wizard and no stray `new`.
   React.useEffect(() => {
@@ -97,7 +103,32 @@ function SyllabusPage() {
 
   return (
     <PageContainer>
-      {tab === 'plans' ? (
+      {tab === 'library' ? (
+        <PageHeader
+          title={t('list.title')}
+          subtitle={tPlans('library.subtitle')}
+          actions={
+            canManageTemplates
+              ? [
+                  {
+                    id: 'addTemplate',
+                    label: tPlans('library.add'),
+                    icon: <Plus />,
+                    priority: 'primary',
+                    onClick: () => setLibraryDialog('add'),
+                  },
+                  {
+                    id: 'addTemplateCsv',
+                    label: tPlans('library.addFromCsv'),
+                    icon: <Upload />,
+                    priority: 'secondary',
+                    onClick: () => setLibraryDialog('csv'),
+                  },
+                ]
+              : []
+          }
+        />
+      ) : tab === 'plans' ? (
         <PlansPageHeader title={t('list.title')} onCreate={canManage ? openWizard : undefined} />
       ) : (
         <PageHeader title={t('list.title')} subtitle={t('list.subtitle')} actions={topicsActions} />
@@ -122,6 +153,20 @@ function SyllabusPage() {
             onPick={pick}
             createOpen={createOpen}
             setCreateOpen={setCreateOpen}
+          />
+        </TabsContent>
+        <TabsContent value="library" className="space-y-4 pt-4 md:pt-6">
+          <LibraryTab
+            addDialog={libraryDialog}
+            onAddDialog={setLibraryDialog}
+            onCopy={
+              canManage
+                ? (template) =>
+                    void navigate({
+                      search: (prev) => ({ ...prev, tab: 'plans', new: 1, template }),
+                    })
+                : undefined
+            }
           />
         </TabsContent>
         <TabsContent value="plans" className="space-y-4 pt-4 md:pt-6">
