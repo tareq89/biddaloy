@@ -8,6 +8,7 @@
  *
  * The dependencies are injected so a test can prove the order without a browser.
  */
+import type { DocumentKind } from '@biddaloy/shared';
 import { apiClient } from '@biddaloy/ui/api';
 import {
   BUNDLED_PRINT_FONTS,
@@ -30,7 +31,7 @@ import {
 
 export type PrintRequest =
   | { kind: 'create'; body: CreatePrintJobInput }
-  | { kind: 'reprint'; jobId: string; itemIds: string[] };
+  | { kind: 'reprint'; jobId: string; itemIds: string[]; documentKind?: DocumentKind };
 
 export interface RunPrintArgs {
   request: PrintRequest;
@@ -97,7 +98,7 @@ export async function runPrint(
       const job: CreatePrintJobResult =
         request.kind === 'create'
           ? await deps.createPrintJob(request.body)
-          : await deps.reprintPrintJob(request.jobId, request.itemIds);
+          : await deps.reprintPrintJob(request.jobId, request.itemIds, request.documentKind);
       result = {
         jobId: job.job_id,
         items: job.items.map((i) => ({

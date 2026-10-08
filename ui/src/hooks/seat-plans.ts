@@ -55,19 +55,25 @@ export interface SeatCapacityShortfallDetails {
   suggested_rooms: Array<{ room_id: string; capacity: number }>;
 }
 
-export const seatPlanKeys = createEntityKeys('seat-plans');
+export const seatPlanKeys = createEntityKeys<{ examId?: string }>('seat-plans');
 
-export function seatPlansQueryOptions() {
+/** `examId` narrows the list to one exam; with no filter the call sends no params. */
+export function seatPlansQueryOptions(filters: { examId?: string } = {}) {
   return queryOptions({
-    queryKey: seatPlanKeys.list({}),
+    queryKey: seatPlanKeys.list(filters.examId ? { examId: filters.examId } : {}),
     queryFn: async ({ signal }) =>
-      (await apiClient.get<SeatPlanRow[]>('/seat-plans', { signal })).data,
+      (
+        await apiClient.get<SeatPlanRow[]>('/seat-plans', {
+          params: filters.examId ? { exam_id: filters.examId } : {},
+          signal,
+        })
+      ).data,
     retry: shouldRetryQuery,
   });
 }
 
-export function useSeatPlans() {
-  return useQuery(seatPlansQueryOptions());
+export function useSeatPlans(filters: { examId?: string } = {}) {
+  return useQuery(seatPlansQueryOptions(filters));
 }
 
 export function useGenerateSeatPlan() {

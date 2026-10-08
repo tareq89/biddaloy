@@ -39,7 +39,10 @@ import { useRememberedPrinter } from '../preview/use-remembered-printer';
 export interface ReprintDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  row: Pick<PrintHistoryRow, 'item_id' | 'job_id' | 'subject_label' | 'subject_type'>;
+  row: Pick<
+    PrintHistoryRow,
+    'item_id' | 'job_id' | 'subject_label' | 'subject_type' | 'document_kind'
+  >;
 }
 
 interface PendingJob {
@@ -69,7 +72,12 @@ export function ReprintDialog({ open, onOpenChange, row }: ReprintDialogProps) {
     setPrinting(true);
     remember(printer.id);
     const result = await runPrint({
-      request: { kind: 'reprint', jobId: row.job_id, itemIds: [row.item_id] },
+      request: {
+        kind: 'reprint',
+        jobId: row.job_id,
+        itemIds: [row.item_id],
+        documentKind: row.document_kind,
+      },
       printer,
       assets: fontAssets.data ?? [],
       subjectType: row.subject_type,
@@ -97,13 +105,22 @@ export function ReprintDialog({ open, onOpenChange, row }: ReprintDialogProps) {
         open={open}
         items={pending.items}
         onConfirm={async (failedItemIds) => {
-          await confirmJob.mutateAsync({ jobId: pending.jobId, failedItemIds });
+          await confirmJob.mutateAsync({
+            jobId: pending.jobId,
+            failedItemIds,
+            kind: row.document_kind,
+          });
         }}
         onReprintFailed={(failedItemIds) => {
           const jobId = pending.jobId;
           setPending(null);
           void runPrint({
-            request: { kind: 'reprint', jobId, itemIds: failedItemIds },
+            request: {
+              kind: 'reprint',
+              jobId,
+              itemIds: failedItemIds,
+              documentKind: row.document_kind,
+            },
             printer: printer as NonNullable<typeof printer>,
             assets: fontAssets.data ?? [],
             subjectType: row.subject_type,

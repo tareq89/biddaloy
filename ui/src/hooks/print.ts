@@ -12,7 +12,11 @@
  * (`components/print/print-document`) calls them inside its `prepare` step,
  * after it has already opened the blank tab (D53) — a hook can't be called there.
  */
-import type { DocumentKind, TemplateDefinition } from '@biddaloy/shared';
+import {
+  isStudentCertificateKind,
+  type DocumentKind,
+  type TemplateDefinition,
+} from '@biddaloy/shared';
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { apiClient, fetchPublicVerification } from '../api/client';
@@ -103,6 +107,8 @@ export interface PrintJobItemResult {
   copy_number: number;
   verify_url: string;
   photo_url: string | null;
+  /** The printed serial; null for kinds without one (ID cards). */
+  serial_no: string | null;
 }
 
 export interface CreatePrintJobResult {
@@ -177,6 +183,81 @@ export interface PrintHistoryPage {
   limit: number;
   totalPages: number;
 }
+
+export interface CertificateTemplateRow {
+  id: string;
+  name: string;
+  is_default: boolean;
+  current_version_id: string;
+}
+
+export interface RegisterRow {
+  item_id: string;
+  document_kind: DocumentKind;
+  serial: string;
+  serial_year: number;
+  serial_no: number;
+  copy_number: number;
+  subject_id: string;
+  subject_label: string;
+  class_name: string | null;
+  issued_at: string;
+  printed_by_name: string | null;
+  revoked_at: string | null;
+  revoke_reason: string | null;
+}
+
+export interface RegisterFilters {
+  document_kind?: DocumentKind;
+  year?: number;
+  status?: 'VALID' | 'REVOKED';
+  q?: string;
+  subject_id?: string;
+  page?: number;
+  limit?: number;
+}
+
+export interface PrintQueue {
+  total: number;
+  by_kind: { kind: DocumentKind; count: number }[];
+  exams: { exam_id: string; exam_name: string; class_name: string; missing: number }[];
+}
+
+export interface IdCardQueueRow {
+  student_id: string;
+  full_name: string;
+  registration_number: string | null;
+  class_name: string | null;
+  section_name: string | null;
+  admitted_on: string | null;
+  has_photo: boolean;
+}
+
+export interface Paged<T> {
+  data: T[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+interface ConfirmedJob {
+  job_id: string;
+  status: 'CONFIRMED';
+  failed_item_ids: string[];
+}
+
+/** Confirm and reprint of a student certificate go through `/certificates/jobs/:id/*`. */
+const jobsBase = (kind?: DocumentKind) =>
+  kind && isStudentCertificateKind(kind) ? '/certificates/jobs' : '/print-jobs';
+
+export const certificateRegisterKeys = createEntityKeys<RegisterFilters>('certificate-register');
+export const printQueueKeys = createEntityKeys<{ idCards?: { page?: number; limit?: number } }>(
+  'print-queue',
+);
+export const certificateTemplateKeys = createEntityKeys<{ kind?: DocumentKind }>(
+  'certificate-templates',
+);
 
 /* ------------------------------------------------------------------- keys */
 
@@ -437,14 +518,29 @@ export async function createPrintJob(input: CreatePrintJobInput): Promise<Create
 export function useConfirmPrintJob() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ jobId, failedItemIds }: { jobId: string; failedItemIds: string[] }) =>
+    mutationFn: async ({
+      jobId,
+      failedItemIds,
+      kind,
+    }: {
+      jobId: string;
+      failedItemIds: string[];
+      /** Student certificates live on `/certificates/jobs`; `/print-jobs` answers them 403. */
+      kind?: DocumentKind;
+    }) =>
       (
-        await apiClient.patch<{ job_id: string; status: 'CONFIRMED'; failed_item_ids: string[] }>(
-          `/print-jobs/${jobId}/confirm`,
-          { failed_item_ids: failedItemIds },
-        )
+        await apiClient.patch<ConfirmedJob>(`${jobsBase(kind)}/${jobId}/confirm`, {
+          failed_item_ids: failedItemIds,
+        })
       ).data,
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: printHistoryKeys.all }),
+    onSuccess: (_data, { kind }) => {
+      void queryClient.invalidateQueries({ queryKey: printHistoryKeys.all });
+      // A confirmed certificate also changes the register and the to-print counts.
+      if (kind && isStudentCertificateKind(kind)) {
+        void queryClient.invalidateQueries({ queryKey: certificateRegisterKeys.all });
+        void queryClient.invalidateQueries({ queryKey: printQueueKeys.all });
+      }
+    },
   });
 }
 
@@ -452,9 +548,10 @@ export function useConfirmPrintJob() {
 export async function reprintPrintJob(
   jobId: string,
   itemIds: string[],
+  kind?: DocumentKind,
 ): Promise<CreatePrintJobResult> {
   return (
-    await apiClient.post<CreatePrintJobResult>(`/print-jobs/${jobId}/reprint`, {
+    await apiClient.post<CreatePrintJobResult>(`${jobsBase(kind)}/${jobId}/reprint`, {
       item_ids: itemIds,
     })
   ).data;
@@ -506,6 +603,151 @@ export function useRevokePrintItem() {
         )
       ).data,
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: printHistoryKeys.all }),
+  });
+}
+
+/* ----------------------------------------------------------- certificates */
+
+export function useCertificateTemplates(kind: DocumentKind | undefined) {
+  return useQuery({
+    queryKey: certificateTemplateKeys.list(kind ? { kind } : {}),
+    queryFn: async ({ signal }) =>
+      (
+        await apiClient.get<CertificateTemplateRow[]>('/certificates/templates', {
+          params: { document_kind: kind },
+          signal,
+        })
+      ).data,
+    enabled: kind !== undefined,
+    retry: shouldRetryQuery,
+  });
+}
+
+export function useCertificatePrinters() {
+  return useQuery({
+    queryKey: [...printerKeys.all, 'certificates'] as const,
+    queryFn: async ({ signal }) =>
+      (await apiClient.get<PrinterRow[]>('/certificates/printers', { signal })).data,
+    retry: shouldRetryQuery,
+  });
+}
+
+export function useCertificateAssets() {
+  return useQuery({
+    queryKey: [...printAssetKeys.all, 'certificates'] as const,
+    queryFn: async ({ signal }) =>
+      (await apiClient.get<PrintAssetRow[]>('/certificates/assets', { signal })).data,
+    retry: shouldRetryQuery,
+  });
+}
+
+/** A mutation only because it is a POST — it issues nothing and uses no serial. */
+export function useCertificatePreview() {
+  return useMutation({
+    mutationFn: async (input: PreviewPrintJobInput) =>
+      (await apiClient.post<PreviewPrintJobResult>('/certificates/preview', input)).data,
+  });
+}
+
+/** Plain function like `createPrintJob`: `openPrintWindow` calls it inside `prepare`. */
+export async function createCertificateJob(
+  input: CreatePrintJobInput,
+): Promise<CreatePrintJobResult> {
+  return (await apiClient.post<CreatePrintJobResult>('/certificates', input)).data;
+}
+
+/** Same serial, new copy number (DUPLICATE). */
+export async function reprintCertificateJob(
+  jobId: string,
+  itemIds: string[],
+): Promise<CreatePrintJobResult> {
+  return (
+    await apiClient.post<CreatePrintJobResult>(`/certificates/jobs/${jobId}/reprint`, {
+      item_ids: itemIds,
+    })
+  ).data;
+}
+
+export function useConfirmCertificateJob() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ jobId, failedItemIds }: { jobId: string; failedItemIds: string[] }) =>
+      (
+        await apiClient.patch<ConfirmedJob>(`/certificates/jobs/${jobId}/confirm`, {
+          failed_item_ids: failedItemIds,
+        })
+      ).data,
+    // A confirmed issue changes the history, the register and the to-print counts.
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: printHistoryKeys.all });
+      void queryClient.invalidateQueries({ queryKey: certificateRegisterKeys.all });
+      void queryClient.invalidateQueries({ queryKey: printQueueKeys.all });
+    },
+  });
+}
+
+/** Drop `undefined` so the URL never carries `year=undefined`. */
+const definedParams = <T extends object>(filters: T) =>
+  Object.fromEntries(Object.entries(filters).filter(([, v]) => v !== undefined));
+
+export function certificateRegisterQueryOptions(filters: RegisterFilters = {}) {
+  return queryOptions({
+    queryKey: certificateRegisterKeys.list(filters),
+    queryFn: async ({ signal }) =>
+      (
+        await apiClient.get<Paged<RegisterRow>>('/print-history/register', {
+          params: definedParams(filters),
+          signal,
+        })
+      ).data,
+    retry: shouldRetryQuery,
+  });
+}
+
+export function useCertificateRegister(filters: RegisterFilters = {}) {
+  return useQuery(certificateRegisterQueryOptions(filters));
+}
+
+/** Same blob-URL save as `downloadCollectionsReportCsv` (auth is a header, so no plain `<a href>`). */
+export async function downloadCertificateRegisterCsv(filters: RegisterFilters = {}): Promise<void> {
+  const res = await apiClient.get<Blob>('/print-history/register.csv', {
+    params: definedParams(filters),
+    responseType: 'blob',
+  });
+  const blob = res.data instanceof Blob ? res.data : new Blob([res.data], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = `certificate-register-${filters.year ?? 'all'}.csv`;
+  anchor.style.display = 'none';
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
+/* ------------------------------------------------------------ to-print queue */
+
+export function usePrintQueue() {
+  return useQuery({
+    queryKey: printQueueKeys.list({}),
+    queryFn: async ({ signal }) =>
+      (await apiClient.get<PrintQueue>('/print-history/queue', { signal })).data,
+    retry: shouldRetryQuery,
+  });
+}
+
+export function useIdCardQueue(paging: { page?: number; limit?: number } = {}) {
+  return useQuery({
+    queryKey: printQueueKeys.list({ idCards: paging }),
+    queryFn: async ({ signal }) =>
+      (
+        await apiClient.get<Paged<IdCardQueueRow>>('/print-history/queue/id-cards', {
+          params: definedParams(paging),
+          signal,
+        })
+      ).data,
+    retry: shouldRetryQuery,
   });
 }
 

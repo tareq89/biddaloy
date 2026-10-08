@@ -161,7 +161,7 @@ describe('runPrint', () => {
 
     await runPrint(args({ request: { kind: 'reprint', jobId: 'job-0', itemIds: ['i-9'] } }), deps);
 
-    expect(deps.reprintPrintJob).toHaveBeenCalledWith('job-0', ['i-9']);
+    expect(deps.reprintPrintJob).toHaveBeenCalledWith('job-0', ['i-9'], undefined);
     expect(deps.createPrintJob).not.toHaveBeenCalled();
     expect(order[0]).toBe('reprintPrintJob');
   });
