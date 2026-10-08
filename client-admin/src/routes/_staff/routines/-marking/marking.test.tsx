@@ -321,6 +321,55 @@ describe('/routines/my marking', () => {
     expect(taught.getAttribute('aria-checked')).toBe('false');
   });
 
+  it('a failed not-taught save shows an alert inside the dialog', async () => {
+    setup({ periods: [OPEN] });
+    server.use(
+      http.put('/api/v1/lesson-deliveries', () =>
+        HttpResponse.json({ message: 'x' }, { status: 500 }),
+      ),
+    );
+    const user = userEvent.setup();
+    render();
+
+    await user.click(await screen.findByRole('radio', { name: 'Not taught' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('radio', { name: 'Teacher absent' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Report as not taught' }));
+    const alert = await within(dialog).findByRole('alert');
+    expect(alert.textContent).toBe("Couldn't save. Try again.");
+  });
+
+  it('a failed taught pick does not show an error in the not-taught dialog', async () => {
+    setup({ periods: [OPEN] });
+    server.use(
+      http.put('/api/v1/lesson-deliveries', () =>
+        HttpResponse.json({ message: 'x' }, { status: 500 }),
+      ),
+    );
+    const user = userEvent.setup();
+    render();
+
+    await user.click(await screen.findByRole('radio', { name: 'Taught' }));
+    await screen.findByText("Couldn't save. Try again.");
+    await user.click(screen.getByRole('radio', { name: 'Not taught' }));
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).queryByRole('alert')).toBeNull();
+  });
+
+  it('a successful not-taught submit returns focus to the not-taught button', async () => {
+    setup({ periods: [OPEN] });
+    const user = userEvent.setup();
+    render();
+
+    const notTaught = await screen.findByRole('radio', { name: 'Not taught' });
+    await user.click(notTaught);
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('radio', { name: 'Teacher absent' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Report as not taught' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    await waitFor(() => expect(document.activeElement).toBe(notTaught));
+  });
+
   it('a period outside the window is disabled with the admin-only caption', async () => {
     setup({ periods: [{ ...DONE, can_mark: false }] });
     render();
@@ -358,7 +407,7 @@ describe('/routines/my marking', () => {
       });
       render();
 
-      expect(await screen.findByText(/3 period not reported since/)).toBeTruthy();
+      expect(await screen.findByText(/3 periods not reported since/)).toBeTruthy();
       expect(screen.getByText('The head teacher and admin have been told.')).toBeTruthy();
     });
 
