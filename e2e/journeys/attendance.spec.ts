@@ -153,7 +153,22 @@ test.describe.serial('attendance: teacher marks -> guardian sees -> admin sees t
       );
       await flags.expectLoaded();
 
-      await expect(flags.dataRows()).toHaveCount(1);
+      // Other specs enrol students into this seeded section mid-run. With no
+      // marks that month (0 present, 0 absent) they still flag at 0%, so
+      // count only students who were actually marked.
+      await expect
+        .poll(() =>
+          flags.dataRows().evaluateAll(
+            (rows) =>
+              rows.filter((row) => {
+                const [present, absent] = [...row.querySelectorAll('td')]
+                  .slice(4, 6)
+                  .map((td) => td.textContent?.trim() ?? '');
+                return !(present === absent && /^[0০]$/.test(present));
+              }).length,
+          ),
+        )
+        .toBe(1);
     });
   });
 });
