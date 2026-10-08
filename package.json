@@ -98,7 +98,8 @@
     "browserslist": "^4.28.8",
     "multer": "^2.3.0",
     "nodemailer": "^10.0.6",
-    "basic-ftp": "^6.2.1"
+    "basic-ftp": "^6.2.1",
+    "qs": "^6.16.0"
   },
   "msw": {
     "workerDirectory": [
