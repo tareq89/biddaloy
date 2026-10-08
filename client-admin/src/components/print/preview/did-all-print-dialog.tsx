@@ -13,7 +13,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@biddaloy/ui/components';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { formatNumber } from '@biddaloy/ui/utils';
 import * as React from 'react';
 
 export interface DidAllPrintItem {
@@ -41,6 +42,7 @@ export function DidAllPrintDialog({
   onContinue,
 }: DidAllPrintDialogProps) {
   const { t } = useTranslation('printPreview');
+  const region = useRegionConfig();
   const [step, setStep] = React.useState<Step>('ask');
   const [failed, setFailed] = React.useState<string[]>([]);
   const [saving, setSaving] = React.useState(false);
@@ -70,11 +72,12 @@ export function DidAllPrintDialog({
     // The answer is required: it isn't dismissable by clicking outside or pressing Escape.
     <Dialog open={open} onOpenChange={() => undefined}>
       <DialogContent
+        size="sm"
         onEscapeKeyDown={(e) => e.preventDefault()}
         onPointerDownOutside={(e) => e.preventDefault()}
       >
         <DialogHeader>
-          <DialogTitle>{t('confirm.title', { count: items.length })}</DialogTitle>
+          <DialogTitle>{t('confirm.title', { n: formatNumber(items.length, region) })}</DialogTitle>
         </DialogHeader>
 
         {step === 'pick' ? (
@@ -129,7 +132,7 @@ export function DidAllPrintDialog({
             <>
               {failed.length > 0 ? (
                 <Button type="button" variant="outline" onClick={() => onReprintFailed(failed)}>
-                  {t('confirm.reprintFailed', { count: failed.length })}
+                  {t('confirm.reprintFailed', { n: formatNumber(failed.length, region) })}
                 </Button>
               ) : null}
               <Button type="button" onClick={onContinue}>

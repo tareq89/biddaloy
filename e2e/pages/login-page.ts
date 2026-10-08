@@ -26,7 +26,7 @@ export class LoginPage {
   }
 
   /**
-   * 12.5's passwordless flow: click the "Sign in with code" tab, submit the
+   * 12.5's passwordless flow: click the "With a phone code" tab, submit the
    * phone number, wait for `POST /auth/otp/request`'s response (D6's echo
    * flag puts the real code in `debug.otp` — nothing in the UI reads it,
    * this is purely a test hook), then fill and submit that code.

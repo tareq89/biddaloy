@@ -37,6 +37,8 @@ export function RevokeDialog({ open, onOpenChange, itemId, subjectLabel }: Revok
   const invalid = trimmed === '';
 
   function handleOpenChange(next: boolean) {
+    // No closing (or reset) while the request is in flight.
+    if (!next && revoke.isPending) return;
     if (!next) {
       setReason('');
       setTouched(false);
@@ -61,7 +63,7 @@ export function RevokeDialog({ open, onOpenChange, itemId, subjectLabel }: Revok
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent>
+      <DialogContent size="sm">
         <DialogHeader>
           <DialogTitle>{t('revoke.title', { name: subjectLabel })}</DialogTitle>
         </DialogHeader>
@@ -97,7 +99,12 @@ export function RevokeDialog({ open, onOpenChange, itemId, subjectLabel }: Revok
         ) : null}
 
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={revoke.isPending}
+            onClick={() => handleOpenChange(false)}
+          >
             {t('revoke.cancel')}
           </Button>
           <Button

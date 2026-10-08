@@ -59,7 +59,7 @@ export function filterValues(search: PrintHistorySearch): Record<string, string>
 export function toHistoryFilters(search: PrintHistorySearch): PrintHistoryFilters {
   return {
     page: search.page ?? 1,
-    limit: search.limit ?? 10,
+    limit: search.limit ?? 25,
     ...(search.document_kind !== undefined ? { document_kind: search.document_kind } : {}),
     ...(search.template_id !== undefined ? { template_id: search.template_id } : {}),
     ...(search.printed_by !== undefined ? { printed_by: search.printed_by } : {}),

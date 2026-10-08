@@ -1,4 +1,5 @@
 /** Print history ("Printables & documents") — [32.4.1]. Filters live in the URL. */
+import { DocumentKind, PrintSubjectType } from '@biddaloy/shared';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { createFileRoute } from '@tanstack/react-router';
 
@@ -19,6 +20,16 @@ function PrintablesPage() {
   return (
     <PrintHistoryPage
       search={search}
+      onPrintIdCards={() =>
+        void navigate({
+          to: '/print/preview',
+          search: {
+            kind: DocumentKind.STUDENT_ID_CARD,
+            subject_type: PrintSubjectType.STUDENT,
+            from: '/reports/printables',
+          },
+        })
+      }
       onSearchChange={(patch) =>
         void navigate({
           search: (prev) => {

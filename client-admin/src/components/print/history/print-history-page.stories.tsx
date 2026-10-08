@@ -33,7 +33,7 @@ const history = (rows: PrintHistoryRow[]) => ({
   msw: {
     handlers: [
       http.get('/api/v1/print-history', () =>
-        HttpResponse.json({ data: rows, total: rows.length, page: 1, limit: 10, totalPages: 1 }),
+        HttpResponse.json({ data: rows, total: rows.length, page: 1, limit: 25, totalPages: 1 }),
       ),
       http.get('/api/v1/print-templates', () => HttpResponse.json([])),
       http.get('/api/v1/users', () =>
@@ -46,7 +46,7 @@ const history = (rows: PrintHistoryRow[]) => ({
 const meta: Meta<typeof PrintHistoryPage> = {
   title: 'Print/PrintHistory',
   component: PrintHistoryPage,
-  args: { search: {}, onSearchChange: () => undefined },
+  args: { search: {}, onSearchChange: () => undefined, onPrintIdCards: () => undefined },
   loaders: [
     () => {
       setActiveTenant('school-1');

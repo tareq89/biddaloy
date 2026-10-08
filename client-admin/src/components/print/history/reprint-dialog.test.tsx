@@ -137,6 +137,24 @@ describe('ReprintDialog', () => {
     expect(error.mock.calls[0]![0]).not.toBe(error.mock.calls[1]![0]);
   });
 
+  it('cannot be cancelled or dismissed while the print is being prepared', async () => {
+    serve([printer('p-1', 'Front office')]);
+    let finish: (v: undefined) => void = () => undefined;
+    vi.mocked(runPrint).mockReturnValue(new Promise((r) => (finish = r)));
+    const { user, onOpenChange } = open();
+    await waitFor(() =>
+      expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Print' }).disabled).toBe(false),
+    );
+    await user.click(screen.getByRole('button', { name: 'Print' }));
+
+    await waitFor(() =>
+      expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Cancel' }).disabled).toBe(true),
+    );
+    await user.keyboard('{Escape}');
+    expect(onOpenChange).not.toHaveBeenCalled();
+    finish(undefined);
+  });
+
   it('Cancel closes without printing', async () => {
     serve([printer('p-1', 'Front office')]);
     const { user, onOpenChange } = open();

@@ -1,20 +1,18 @@
 /**
- * [17.4.2] `/calendar` — the staff calendar. Month grid on desktop,
- * agenda list on narrow viewports (both always mounted, `view` search
- * param picks which one paints — see the `md:hidden`/`hidden md:block`
- * wrap below); term bands, a type/class filter bar, and (ADMIN only,
- * `CALENDAR_MANAGE`) create/edit/delete/publish and a government
- * holidays picker.
+ * [17.4.2] / [31.4] `/calendar` — the staff calendar. A month grid with a
+ * selected-day panel and an upcoming panel (D26), term bands, a type/class
+ * filter bar, and (ADMIN only, `CALENDAR_MANAGE`) create/edit/delete/publish
+ * and a government holidays picker. The event form and the holidays picker
+ * are full-page modals opened by `?panel=` (D22).
  */
 import { CalendarEventType, Permission } from '@biddaloy/shared';
 import {
-  AgendaList,
-  type AgendaEvent,
-  Button,
+  DayPanel,
   ErrorState,
   MonthGrid,
   type MonthGridEvent,
   Skeleton,
+  StatusBadge,
 } from '@biddaloy/ui/components';
 import {
   calendarSettingsQueryOptions,
@@ -37,7 +35,10 @@ import {
   type UpdateCalendarEventInput,
 } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
-import { createFileRoute, Link } from '@tanstack/react-router';
+import { FullPageShell, PageContainer, PageHeader } from '@biddaloy/ui/shells';
+import { toIsoDate } from '@biddaloy/ui/utils';
+import { createFileRoute } from '@tanstack/react-router';
+import { CopyIcon, DownloadIcon, FlagIcon, PlusIcon, UploadIcon } from 'lucide-react';
 import * as React from 'react';
 import { z } from 'zod';
 
@@ -45,7 +46,7 @@ import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loader
 
 import { CloneDialog } from './-clone-dialog';
 import { EventDetailsSheet } from './-event-details-sheet';
-import { EventFormDialog, type EventFormPayload } from './-event-form-dialog';
+import { EventFormPage, type EventFormPayload } from './-event-form-dialog';
 import { CalendarFilters } from './-filters';
 import { GovernmentHolidaysDialog } from './-government-holidays-dialog';
 import { UpcomingPanel } from './-upcoming-panel';
@@ -58,8 +59,9 @@ export const calendarSearchSchema = z.object({
     .optional()
     .catch(undefined),
   types: z.string().optional().catch(undefined),
-  view: z.enum(['grid', 'agenda']).optional().catch(undefined),
   class_id: z.string().optional().catch(undefined),
+  panel: z.enum(['new-event', 'edit-event', 'holidays']).optional().catch(undefined),
+  event_id: z.string().optional().catch(undefined),
 });
 
 function currentMonth(): string {
@@ -79,12 +81,6 @@ function monthRange(month: string): { from: string; to: string } {
   const to = new Date(Date.UTC(year, mo, 0));
   to.setUTCDate(to.getUTCDate() + 7);
   return { from: from.toISOString().slice(0, 10), to: to.toISOString().slice(0, 10) };
-}
-
-function addMonths(month: string, delta: number): string {
-  const { year, mo } = splitMonth(month);
-  const date = new Date(Date.UTC(year, mo - 1 + delta, 1));
-  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
 }
 
 export const Route = createFileRoute('/_staff/calendar/')({
@@ -108,11 +104,14 @@ const WEEKDAY_KEYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 function CalendarPage() {
   const { t } = useTranslation('calendar');
+  const { t: tImport } = useTranslation('calendarImport');
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
 
   const month = search.month ?? currentMonth();
-  const view = search.view ?? 'grid';
+  // Local calendar day (B20): `toISOString()` would read the UTC day.
+  const today = toIsoDate(new Date());
+  const [selectedDate, setSelectedDate] = React.useState(today);
   const types = React.useMemo(
     () => (search.types ? (search.types.split(',') as CalendarEventType[]) : []),
     [search.types],
@@ -140,15 +139,12 @@ function CalendarPage() {
 
   const events = eventsQuery.data?.data ?? [];
 
-  const [createOpen, setCreateOpen] = React.useState(false);
-  const [editingId, setEditingId] = React.useState<string | undefined>(undefined);
   const [detailsId, setDetailsId] = React.useState<string | undefined>(undefined);
-  const [governmentHolidaysOpen, setGovernmentHolidaysOpen] = React.useState(false);
   const [cloneOpen, setCloneOpen] = React.useState(false);
-  const { t: tImport } = useTranslation('calendarImport');
   const academicYearsQuery = useAcademicYears();
   const cloneMutation = useCloneCalendar();
 
+  const editingId = search.panel === 'edit-event' ? search.event_id : undefined;
   const detailsEvent = useCalendarEvent(detailsId);
   const editingEvent = useCalendarEvent(editingId);
 
@@ -162,6 +158,18 @@ function CalendarPage() {
     void navigate({ search: (prev) => ({ ...prev, ...patch }) });
   }
 
+  function closePanel() {
+    createEvent.reset();
+    updateEvent.reset();
+    setSearch({ panel: undefined, event_id: undefined });
+  }
+
+  function onMonthChange(next: string) {
+    setSearch({ month: next });
+    // The selected day must sit inside the visible month.
+    setSelectedDate(next === currentMonth() ? today : `${next}-01`);
+  }
+
   // `EventFormPayload`'s optional fields are `T | undefined` (this
   // route's own `exactOptionalPropertyTypes`-safe shape); the server DTOs
   // declare those same fields as bare optional (`T?`, no explicit
@@ -173,7 +181,7 @@ function CalendarPage() {
 
   function handleCreateSubmit(payload: EventFormPayload) {
     createEvent.mutate(dropUndefined<CreateCalendarEventInput>(payload), {
-      onSuccess: () => setCreateOpen(false),
+      onSuccess: closePanel,
     });
   }
 
@@ -184,7 +192,7 @@ function CalendarPage() {
     const { publish: _publish, ...editable } = payload;
     void _publish;
     updateEvent.mutate(dropUndefined<UpdateCalendarEventInput>(editable), {
-      onSuccess: () => setEditingId(undefined),
+      onSuccess: closePanel,
     });
   }
 
@@ -195,9 +203,13 @@ function CalendarPage() {
     name: event.name,
     startDate: event.start_date,
     endDate: event.end_date,
+    ...(event.published
+      ? {}
+      : { badge: <StatusBadge tone="neutral" label={t('eventDetails.draft')} /> }),
   }));
 
-  const agendaEvents: AgendaEvent[] = monthGridEvents;
+  const eventsOn = (day: string) =>
+    monthGridEvents.filter((event) => event.startDate <= day && event.endDate >= day);
 
   const termBands = (termsQuery.data ?? []).map((term) => ({
     id: term.id,
@@ -218,171 +230,144 @@ function CalendarPage() {
   }
 
   return (
-    <div className="flex flex-col gap-4 md:flex-row">
-      <div className="flex flex-1 flex-col gap-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h1 className="text-lg font-semibold">{t('page.title')}</h1>
-          <div className="flex flex-wrap gap-2">
-            {canManage && (
-              <>
-                <Button asChild variant="outline">
-                  <Link to="/calendar/import">{tImport('toolbar.import')}</Link>
-                </Button>
-                <Button type="button" variant="outline" onClick={() => setCloneOpen(true)}>
-                  {tImport('toolbar.clone')}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={!academicYearId}
-                  onClick={() => {
-                    if (academicYearId) void downloadCalendarExport(academicYearId, 'xlsx');
-                  }}
-                >
-                  {tImport('toolbar.export')}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setGovernmentHolidaysOpen(true)}
-                >
-                  {t('page.governmentHolidays')}
-                </Button>
-                <Button type="button" onClick={() => setCreateOpen(true)}>
-                  {t('page.addEvent')}
-                </Button>
-              </>
-            )}
+    <PageContainer>
+      <PageHeader
+        title={t('page.title')}
+        actions={[
+          {
+            id: 'holidays',
+            label: t('page.governmentHolidays'),
+            icon: <FlagIcon />,
+            priority: 'secondary',
+            allowed: canManage,
+            onClick: () => setSearch({ panel: 'holidays' }),
+          },
+          {
+            id: 'import',
+            label: tImport('toolbar.import'),
+            icon: <UploadIcon />,
+            priority: 'secondary',
+            allowed: canManage,
+            onClick: () => void navigate({ to: '/calendar/import' }),
+          },
+          {
+            id: 'add',
+            label: t('page.addEvent'),
+            icon: <PlusIcon />,
+            priority: 'primary',
+            allowed: canManage,
+            onClick: () => setSearch({ panel: 'new-event' }),
+          },
+          {
+            id: 'clone',
+            label: tImport('toolbar.clone'),
+            icon: <CopyIcon />,
+            priority: 'tertiary',
+            allowed: canManage,
+            onClick: () => setCloneOpen(true),
+          },
+          {
+            id: 'export',
+            label: tImport('toolbar.export'),
+            icon: <DownloadIcon />,
+            priority: 'tertiary',
+            allowed: canManage && !!academicYearId,
+            onClick: () => {
+              if (academicYearId) void downloadCalendarExport(academicYearId, 'xlsx');
+            },
+          },
+        ]}
+      />
+
+      <CalendarFilters
+        types={types}
+        onTypesChange={(next) => setSearch({ types: next.length ? next.join(',') : undefined })}
+        classId={classId}
+        onClassIdChange={(next) => setSearch({ class_id: next })}
+        classOptions={classOptions}
+      />
+
+      {eventsQuery.isLoading ? (
+        <Skeleton aria-busy="true" className="h-96 w-full" />
+      ) : (
+        <div className="flex flex-col gap-4 md:flex-row md:items-start md:gap-6">
+          <MonthGrid
+            month={month}
+            firstDayOfWeek={settingsQuery.data?.firstDayOfWeek ?? 0}
+            weeklyOffDays={settingsQuery.data?.weeklyOffDays ?? [5, 6]}
+            events={monthGridEvents}
+            terms={termBands}
+            weekdayLabels={WEEKDAY_KEYS.map((key) => t(`weekdays.${key}`, { defaultValue: key }))}
+            moreLabel={(count) => t('page.moreEvents', { count })}
+            selectedDate={selectedDate}
+            today={today}
+            onMonthChange={onMonthChange}
+            onDayClick={setSelectedDate}
+            onEventClick={setDetailsId}
+          />
+          <div className="flex flex-col gap-4 md:w-80 md:shrink-0 md:gap-6">
+            <DayPanel
+              date={selectedDate}
+              events={eventsOn(selectedDate)}
+              onEventClick={setDetailsId}
+            />
+            <UpcomingPanel events={events} today={today} onEventClick={setDetailsId} />
           </div>
         </div>
+      )}
 
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              aria-label={t('page.previousMonth')}
-              onClick={() => setSearch({ month: addMonths(month, -1) })}
-            >
-              {'<'}
-            </Button>
-            <span className="text-sm font-medium">{month}</span>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              aria-label={t('page.nextMonth')}
-              onClick={() => setSearch({ month: addMonths(month, 1) })}
-            >
-              {'>'}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setSearch({ month: currentMonth() })}
-            >
-              {t('page.today')}
-            </Button>
-          </div>
-
-          <div className="flex gap-2">
-            <Button
-              type="button"
-              variant={view === 'grid' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setSearch({ view: 'grid' })}
-            >
-              {t('page.viewGrid')}
-            </Button>
-            <Button
-              type="button"
-              variant={view === 'agenda' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setSearch({ view: 'agenda' })}
-            >
-              {t('page.viewAgenda')}
-            </Button>
-          </div>
-        </div>
-
-        <CalendarFilters
-          types={types}
-          onTypesChange={(next) => setSearch({ types: next.length ? next.join(',') : undefined })}
-          classId={classId}
-          onClassIdChange={(next) => setSearch({ class_id: next })}
-          classOptions={classOptions}
-        />
-
-        {eventsQuery.isLoading ? (
-          <Skeleton className="h-96 w-full" />
-        ) : (
-          <>
-            <div className={view === 'grid' ? 'hidden md:block' : 'hidden'}>
-              <MonthGrid
-                month={month}
-                firstDayOfWeek={settingsQuery.data?.firstDayOfWeek ?? 0}
-                weeklyOffDays={settingsQuery.data?.weeklyOffDays ?? [5, 6]}
-                events={monthGridEvents}
-                terms={termBands}
-                weekdayLabels={WEEKDAY_KEYS.map((key) =>
-                  t(`weekdays.${key}`, { defaultValue: key }),
-                )}
-                moreLabel={(count) => t('page.moreEvents', { count })}
-                onEventClick={setDetailsId}
-              />
-            </div>
-            <div className={view === 'agenda' ? 'block' : 'block md:hidden'}>
-              <AgendaList
-                events={agendaEvents}
-                formatDayHeading={(day) => day}
-                emptyLabel={t('page.agendaEmpty')}
-                onEventClick={setDetailsId}
-              />
-            </div>
-          </>
-        )}
-      </div>
-
-      <div className="w-full md:w-64">
-        <UpcomingPanel
-          events={events}
-          today={new Date().toISOString().slice(0, 10)}
-          onEventClick={setDetailsId}
-        />
-      </div>
-
-      {canManage && (
-        <EventFormDialog
-          open={createOpen}
-          onOpenChange={setCreateOpen}
+      {canManage && search.panel === 'new-event' && (
+        <EventFormPage
           mode="create"
           isPending={createEvent.isPending}
           error={createEvent.error}
+          onClose={closePanel}
           onSubmit={handleCreateSubmit}
         />
       )}
 
-      {canManage && editingId && (
-        <EventFormDialog
-          open={editingId !== undefined}
-          onOpenChange={(open) => !open && setEditingId(undefined)}
+      {canManage && editingId && !editingEvent.data && (
+        <FullPageShell
+          title={t('eventForm.editTitle')}
+          onClose={closePanel}
+          primary={{ label: t('eventForm.save'), onClick: () => {}, disabled: true }}
+        >
+          {editingEvent.isError ? (
+            <ErrorState
+              message={t('page.errorMessage')}
+              onRetry={() => void editingEvent.refetch()}
+            />
+          ) : (
+            <Skeleton aria-busy="true" className="h-72 w-full" />
+          )}
+        </FullPageShell>
+      )}
+
+      {canManage && editingId && editingEvent.data && (
+        <EventFormPage
           mode="edit"
           initialValues={editingEvent.data}
           isPending={updateEvent.isPending}
           error={updateEvent.error}
+          onClose={closePanel}
           onSubmit={handleEditSubmit}
         />
       )}
 
       <EventDetailsSheet
         open={detailsId !== undefined}
-        onOpenChange={(open) => !open && setDetailsId(undefined)}
+        onOpenChange={(open) => {
+          if (open) return;
+          setDetailsId(undefined);
+          deleteEvent.reset();
+          publishEvent.reset();
+        }}
         event={detailsEvent.data}
         canManage={canManage}
+        deleting={deleteEvent.isPending}
+        actionFailed={deleteEvent.isError || publishEvent.isError}
         onEdit={() => {
-          setEditingId(detailsId);
+          setSearch({ panel: 'edit-event', event_id: detailsId });
           setDetailsId(undefined);
         }}
         onDelete={() => {
@@ -396,14 +381,16 @@ function CalendarPage() {
 
       {canManage && (
         <GovernmentHolidaysDialog
-          open={governmentHolidaysOpen}
-          onOpenChange={setGovernmentHolidaysOpen}
+          open={search.panel === 'holidays'}
+          onOpenChange={(open) => {
+            if (!open) setSearch({ panel: undefined });
+          }}
           suggestions={suggestionsQuery.data ?? []}
           existingEvents={yearHolidaysQuery.data?.data ?? []}
           isPending={addPublicHolidays.isPending}
           onAdd={(entryIds) =>
             addPublicHolidays.mutate(entryIds, {
-              onSuccess: () => setGovernmentHolidaysOpen(false),
+              onSuccess: () => setSearch({ panel: undefined }),
             })
           }
         />
@@ -430,6 +417,6 @@ function CalendarPage() {
           }}
         />
       )}
-    </div>
+    </PageContainer>
   );
 }

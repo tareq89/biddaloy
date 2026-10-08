@@ -1,5 +1,6 @@
 import '@biddaloy/ui/test';
 
+import { toast } from '@biddaloy/ui/components';
 import type { PrintSuggestion, PrintTemplateRow } from '@biddaloy/ui/hooks';
 import { cleanupTestState, renderWithProviders, server } from '@biddaloy/ui/test';
 import { screen, waitFor, within } from '@testing-library/react';
@@ -90,15 +91,16 @@ describe('PrintTemplateLibrary', () => {
     render();
 
     await screen.findAllByText('Published two');
-    const makeDefault = screen.getAllByRole('button', { name: /^Make default/ });
-    expect(makeDefault.map((b) => b.textContent)).toEqual(
-      expect.arrayContaining([expect.stringContaining('Published two')]),
-    );
-    expect(makeDefault.some((b) => /Draft three/.test(b.textContent ?? ''))).toBe(false); // unpublished
-    expect(makeDefault.some((b) => /Default one/.test(b.textContent ?? ''))).toBe(false); // already default
+    const rowOf = (name: string) =>
+      screen.getAllByRole('row').find((r) => (r.textContent ?? '').includes(name))!;
+    const has = (name: string) =>
+      within(rowOf(name)).queryByRole('button', { name: 'Make default' }) !== null;
+    expect(has('Published two')).toBe(true);
+    expect(has('Draft three')).toBe(false); // unpublished
+    expect(has('Default one')).toBe(false); // already default
   });
 
-  it("shows the server's message as is when archiving is refused (409)", async () => {
+  it('archiving the default (409) shows a translated toast, never the server sentence', async () => {
     serve([template()]);
     server.use(
       http.post('/api/v1/print-templates/t-1/archive', () =>
@@ -114,14 +116,79 @@ describe('PrintTemplateLibrary', () => {
         ),
       ),
     );
+    const error = vi.spyOn(toast, 'error').mockImplementation(() => 'id');
     const { user } = render();
     await screen.findAllByText('Classic');
 
     await user.click(screen.getAllByRole('button', { name: /^Archive/ })[0]!);
-    const dialog = await screen.findByRole('dialog');
+    const dialog = await screen.findByRole('alertdialog');
     await user.click(within(dialog).getByRole('button', { name: 'Archive' }));
 
-    expect(await screen.findByText('Choose another default first')).toBeTruthy();
+    await waitFor(() =>
+      expect(error).toHaveBeenCalledWith(
+        'This is the default design. Make another design the default first.',
+      ),
+    );
+    expect(screen.queryByText('Choose another default first')).toBeNull();
+    error.mockRestore();
+  });
+
+  it('shows no pager, a "Total 2" footer and a Default badge in the name cell', async () => {
+    serve([
+      template(),
+      template({ id: 't-2', name: 'Other', is_default: false, current_version_id: null }),
+    ]);
+    render();
+
+    await screen.findAllByText('Other');
+    expect(screen.queryByRole('navigation', { name: /pagination/i })).toBeNull();
+    expect(screen.getAllByText(/Total\s*2/).length).toBeGreaterThan(0);
+    const row = screen.getAllByRole('row').find((r) => /Classic/.test(r.textContent ?? ''))!;
+    expect(within(row).getByText('Default')).toBeTruthy();
+    expect(within(row).queryByRole('button', { name: /^Make default/ })).toBeNull();
+    expect(within(row).getByText('Published')).toBeTruthy();
+    const draft = screen.getAllByRole('row').find((r) => /Other/.test(r.textContent ?? ''))!;
+    expect(within(draft).getByText('Draft only')).toBeTruthy();
+  });
+
+  it('"New design" opens the dialog', async () => {
+    serve([template()], [suggestion()]);
+    const { user } = render();
+    await screen.findAllByText('Classic');
+
+    await user.click(screen.getByRole('button', { name: 'New design' }));
+
+    expect(await screen.findByRole('dialog')).toBeTruthy();
+  });
+
+  it('make default asks first, then calls the endpoint', async () => {
+    serve([template({ id: 'b', name: 'Published two', is_default: false })]);
+    let called = false;
+    server.use(
+      http.post('/api/v1/print-templates/b/default', () => {
+        called = true;
+        return HttpResponse.json({});
+      }),
+    );
+    const { user } = render();
+    await screen.findAllByText('Published two');
+
+    await user.click(screen.getAllByRole('button', { name: /^Make default/ })[0]!);
+    const dialog = await screen.findByRole('alertdialog');
+    expect(called).toBe(false);
+    await user.click(within(dialog).getByRole('button', { name: 'Make default' }));
+
+    await waitFor(() => expect(called).toBe(true));
+  });
+
+  it('shows the batch size in Bangla digits under the bn locale', async () => {
+    serve([template()]);
+    renderWithProviders(<PrintTemplateLibrary onEdit={vi.fn()} />, {
+      locale: 'bn',
+      role: 'ADMIN',
+      tenantId: 'school-1',
+    });
+    expect(await screen.findAllByText('৫০')).not.toHaveLength(0);
   });
 
   it('with no templates, shows the designs inline under "Start from a design"', async () => {
@@ -167,7 +234,7 @@ describe('PrintTemplateLibrary', () => {
     render('ACCOUNTANT');
 
     await screen.findAllByText('Classic');
-    expect(screen.queryByRole('button', { name: 'New template' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'New design' })).toBeNull();
     expect(screen.queryAllByRole('button', { name: /^Archive/ })).toHaveLength(0);
     expect(screen.queryAllByRole('button', { name: /^Make default/ })).toHaveLength(0);
     expect(screen.getAllByRole('button', { name: /^Edit/ }).length).toBeGreaterThan(0);

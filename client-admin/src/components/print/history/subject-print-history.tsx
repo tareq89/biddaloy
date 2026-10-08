@@ -4,7 +4,7 @@
  * only — revoking is an admin task done from the full history.
  */
 import { Permission } from '@biddaloy/shared';
-import { Button, Skeleton } from '@biddaloy/ui/components';
+import { Button, Skeleton, StatusBadge } from '@biddaloy/ui/components';
 import {
   useHasPermission,
   useSubjectPrintHistory,
@@ -12,11 +12,11 @@ import {
   type PrintSubjectType,
 } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
-import { formatDateTime } from '@biddaloy/ui/utils';
+import { formatDateTime, formatNumber } from '@biddaloy/ui/utils';
 import * as React from 'react';
 
 import { HistoryItemDialog } from './history-item-dialog';
-import { Pill } from './print-history-page';
+import { rowStatus } from './print-history-page';
 import { ReprintDialog } from './reprint-dialog';
 
 export interface SubjectPrintHistoryProps {
@@ -61,17 +61,16 @@ export function SubjectPrintHistory({ subjectType, subjectId }: SubjectPrintHist
           >
             <div className="flex flex-col">
               <span className="font-medium">
-                {t('documentValue', { name: row.template_name, version: row.template_version })} ·{' '}
-                {t('copyValue', { n: row.copy_number })}
+                {row.template_name} ·{' '}
+                {t('versionValue', { version: formatNumber(row.template_version, region) })} ·{' '}
+                {t('copyValue', { n: formatNumber(row.copy_number, region) })}
               </span>
               <span className="text-muted-foreground">
                 {formatDateTime(new Date(row.created_at), region)}
               </span>
             </div>
             <div className="flex items-center gap-2">
-              <Pill tone={row.revoked_at ? 'bad' : 'good'}>
-                {row.revoked_at ? t('status.REVOKED') : t('status.VALID')}
-              </Pill>
+              <StatusBadge {...rowStatus(row, t)} />
               <Button
                 type="button"
                 size="sm"

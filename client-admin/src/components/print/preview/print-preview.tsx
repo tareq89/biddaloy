@@ -11,7 +11,10 @@ import { getActiveTenant } from '@biddaloy/ui/api';
 import {
   BUNDLED_PRINT_FONTS,
   Button,
+  Card,
+  ConfirmDialog,
   EmptyState,
+  ErrorState,
   Input,
   Select,
   SelectContent,
@@ -19,6 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
   Skeleton,
+  StatusBadge,
   TemplateRenderer,
   toast,
 } from '@biddaloy/ui/components';
@@ -30,7 +34,9 @@ import {
   usePrintTemplates,
   type PrintSubjectType,
 } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { FullPageShell } from '@biddaloy/ui/shells';
+import { formatNumber } from '@biddaloy/ui/utils';
 import * as React from 'react';
 
 import { slotLabel } from '../editor/element-label';
@@ -52,6 +58,10 @@ export interface PrintPreviewProps {
   onAddPrinter: () => void;
   /** Every batch is confirmed. */
   onDone: () => void;
+  /** The frame's Close. */
+  onClose: () => void;
+  /** "Back" to the picker; only passed when the preview was reached from it. */
+  onBack?: () => void;
 }
 
 interface PendingJob {
@@ -84,18 +94,23 @@ function text(value: unknown): string {
   return value == null ? '' : JSON.stringify(value);
 }
 
-/** A readable name for an element in a pre-flight message: its field, else its text, else its id. */
+/** A readable name for an element in a pre-flight message: its field, else its text, else its kind. */
 function elementName(
   definition: TemplateDefinition,
   elementId: string,
   label: (field: string) => string | undefined,
+  kindLabel: (type: string) => string,
 ): string {
   const all = [...definition.front.elements, ...(definition.back?.elements ?? [])] as Array<
     Record<string, unknown>
   >;
   const el = all.find((e) => e.id === elementId);
   const field = typeof el?.field === 'string' ? el.field : undefined;
-  return (field && label(field)) || text(el?.field ?? el?.text ?? elementId);
+  return (
+    (field && label(field)) ||
+    (typeof el?.text === 'string' && el.text) ||
+    kindLabel(typeof el?.type === 'string' ? el.type : 'TEXT')
+  );
 }
 
 export function PrintPreview({
@@ -105,9 +120,13 @@ export function PrintPreview({
   onCreateTemplate,
   onAddPrinter,
   onDone,
+  onClose,
+  onBack,
 }: PrintPreviewProps) {
   const { t, i18n } = useTranslation('printPreview');
   const { t: tEditor } = useTranslation('printEditor');
+  const { t: tc } = useTranslation('common');
+  const region = useRegionConfig();
   const tenantId = getActiveTenant() ?? '';
   const prefix = subjectType === 'STUDENT' ? 'student' : 'staff';
 
@@ -150,6 +169,7 @@ export function PrintPreview({
   const batchKey = batchIds.join(',');
   const [pending, setPending] = React.useState<PendingJob | null>(null);
   const [printing, setPrinting] = React.useState(false);
+  const [leaving, setLeaving] = React.useState(false);
   const started = confirmed > 0 || pending !== null;
 
   // --- the preview -----------------------------------------------------------
@@ -206,18 +226,21 @@ export function PrintPreview({
       };
     });
 
+  // The field's own label ("Name"), never its key ("student.name").
+  const fieldLabel = (field: string) =>
+    slotLabel(tEditor, field) ?? tEditor(`fields.${field}`, { defaultValue: field });
   const usesPhoto = definition ? JSON.stringify(definition).includes(`${prefix}.photo`) : false;
   const issues: PreflightIssue[] = definition
     ? items.flatMap((item) => {
         const reasons: string[] = [];
         const fields = (overflow[item.subject_id] ?? []).map((id) =>
-          elementName(definition, id, (f) => slotLabel(tEditor, f)),
+          elementName(definition, id, fieldLabel, (type) => tEditor(`layers.type.${type}`)),
         );
         if (fields.length > 0) reasons.push(t('preflight.overflow', { fields: fields.join(', ') }));
         if (usesPhoto && !item.photo_url) reasons.push(t('preflight.noPhoto'));
         const nameKey = `${prefix}.name`;
         if (!text(item.values[nameKey]).trim()) {
-          reasons.push(t('preflight.empty', { fields: nameKey }));
+          reasons.push(t('preflight.empty', { fields: fieldLabel(nameKey) }));
         }
         return reasons.length > 0
           ? [{ subjectId: item.subject_id, label: item.label, reasons }]
@@ -233,8 +256,10 @@ export function PrintPreview({
   }
 
   // --- printing (D9, D53) ----------------------------------------------------
+  const running = React.useRef(false);
   async function startRun(request: PrintRequest, isReprint: boolean) {
-    if (!printer) return;
+    if (!printer || running.current) return;
+    running.current = true;
     setPrinting(true);
     remember(printer.id);
     const result = await runPrint({
@@ -248,6 +273,7 @@ export function PrintPreview({
       onError: (error) =>
         toast.error(error.message === 'POPUP_BLOCKED' ? t('popupBlocked') : t('printFailed')),
     });
+    running.current = false;
     setPrinting(false);
     if (result) {
       setPending({
@@ -282,19 +308,22 @@ export function PrintPreview({
     );
   };
 
-  // Enter prints when focus is on the page itself (not inside a control).
+  // Enter prints when focus is on the page itself (the shell), not inside a control.
   const printRef = React.useRef(print);
   printRef.current = print;
   React.useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       if (event.key !== 'Enter') return;
       const target = event.target as HTMLElement | null;
-      if (target && target !== document.body && !target.closest('[data-print-preview]')) return;
-      if (
-        target &&
-        target.closest('button, a, input, select, textarea, [role="combobox"], [role="dialog"]')
-      )
-        return;
+      // The preview lives inside the full-page shell (a Radix dialog), so focus rests on the
+      // shell itself or somewhere in it; any OTHER dialog (the "did all print?" one) is not ours.
+      if (target && target !== document.body) {
+        const shell = target.closest('[data-slot="full-page-shell"]');
+        if (!shell) return;
+        const dialog = target.closest('[role="dialog"], [role="alertdialog"]');
+        if (dialog && dialog !== shell) return;
+        if (target.closest('button, a, input, select, textarea, [role="combobox"]')) return;
+      }
       printRef.current();
     }
     window.addEventListener('keydown', onKeyDown);
@@ -302,109 +331,145 @@ export function PrintPreview({
   }, []);
 
   // --- empty states ----------------------------------------------------------
+  // Close is always there: every state renders inside the same full-page frame.
+  const frame = (
+    primary: { label: string; onClick: () => void; busy?: boolean; disabled?: boolean },
+    body: React.ReactNode,
+  ) => (
+    <FullPageShell
+      title={t('title')}
+      size="wide"
+      onClose={onClose}
+      // A pending reprint (after the last batch was confirmed) still needs its answer.
+      dirty={pending !== null || (started && confirmed < batches.length)}
+      {...(onBack
+        ? {
+            secondary: {
+              label: t('back'),
+              // Going back drops the chosen people, and with them the run's progress.
+              onClick: () => (started && confirmed < batches.length ? setLeaving(true) : onBack()),
+            },
+          }
+        : {})}
+      primary={primary}
+    >
+      {body}
+    </FullPageShell>
+  );
+
   if (templatesQuery.isPending || printersQuery.isPending) {
-    return <Skeleton role="status" aria-label={t('loading')} className="h-40 w-full" />;
+    return frame(
+      { label: t('print'), onClick: () => undefined, disabled: true },
+      <Skeleton role="status" aria-label={t('loading')} className="h-40 w-full" />,
+    );
   }
   if (!template) {
-    return (
-      <EmptyState
-        title={t('noTemplate.title')}
-        explanation={t('noTemplate.explanation')}
-        action={{ label: t('noTemplate.action'), onClick: onCreateTemplate }}
-      />
+    return frame(
+      { label: t('noTemplate.action'), onClick: onCreateTemplate },
+      <EmptyState title={t('noTemplate.title')} explanation={t('noTemplate.explanation')} />,
     );
   }
 
-  const printerTypeLabel = printer ? t(`printerType.${printer.printer_type}`) : '';
-
-  return (
-    <div data-print-preview className="flex flex-col gap-4">
-      <header className="flex flex-col gap-1">
-        <h1 className="text-lg font-semibold">{t('title')}</h1>
-        <p className="text-sm text-muted-foreground">
-          {t('header.batch', {
-            current: Math.min(confirmed + 1, batches.length),
-            total: batches.length,
-            count: batchIds.length,
-          })}
-          {printer
-            ? ` · ${t('header.printer', { name: printer.name, type: printerTypeLabel })}`
-            : ''}
-        </p>
-      </header>
-
-      <div className="grid gap-3 sm:grid-cols-3">
-        {published.length > 1 ? (
-          <div className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium">{t('controls.template')}</span>
-            <Select value={template.id} onValueChange={setPickedTemplateId} disabled={started}>
-              <SelectTrigger aria-label={t('controls.template')}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {published.map((x) => (
-                  <SelectItem key={x.id} value={x.id}>
-                    {x.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+  return frame(
+    {
+      label: printing ? t('printing') : t('print'),
+      onClick: print,
+      busy: printing,
+      disabled: !canPrint,
+    },
+    <div data-print-preview className="flex flex-col gap-6">
+      <Card padded>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-h2">
+              {t('header.batch', {
+                current: formatNumber(Math.min(confirmed + 1, batches.length), region),
+                total: formatNumber(batches.length, region),
+                count: formatNumber(batchIds.length, region),
+              })}
+            </h2>
+            <p className="mt-1 text-text-secondary">{t('round.help')}</p>
           </div>
-        ) : null}
-
-        {printers.length > 0 ? (
-          <div className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium">{t('controls.printer')}</span>
-            <Select
-              value={printer?.id ?? ''}
-              onValueChange={(id) => {
-                setPickedPrinterId(id);
-                remember(id);
-              }}
-            >
-              <SelectTrigger aria-label={t('controls.printer')}>
-                <SelectValue placeholder={t('controls.choosePrinter')} />
-              </SelectTrigger>
-              <SelectContent>
-                {printers.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
-                    {p.name} · {t(`printerType.${p.printer_type}`)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        ) : null}
-
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="print-batch-size" className="text-sm font-medium">
-            {t('controls.batchSize', { max: maxBatch })}
-          </label>
-          <Input
-            id="print-batch-size"
-            type="number"
-            min={1}
-            max={maxBatch}
-            value={batchSize}
-            disabled={started}
-            onChange={(e) => setBatchSizeInput(e.target.valueAsNumber)}
-          />
+          <BatchBar batchSizes={batches.map((b) => b.length)} current={confirmed} />
         </div>
-      </div>
+
+        <div className="mt-4 grid gap-4 md:grid-cols-3">
+          {published.length > 1 ? (
+            <div className="flex flex-col gap-1.5">
+              <span className="text-label">{t('controls.template')}</span>
+              <Select value={template.id} onValueChange={setPickedTemplateId} disabled={started}>
+                <SelectTrigger aria-label={t('controls.template')} className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {published.map((x) => (
+                    <SelectItem key={x.id} value={x.id}>
+                      {x.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {started ? (
+                <p className="text-caption text-text-secondary">{t('controls.templateLocked')}</p>
+              ) : null}
+            </div>
+          ) : null}
+
+          {printers.length > 0 ? (
+            <div className="flex flex-col gap-1.5">
+              <span className="text-label">{t('controls.printer')}</span>
+              <Select
+                value={printer?.id ?? ''}
+                onValueChange={(id) => {
+                  setPickedPrinterId(id);
+                  remember(id);
+                }}
+              >
+                <SelectTrigger aria-label={t('controls.printer')} className="w-full">
+                  <SelectValue placeholder={t('controls.choosePrinter')} />
+                </SelectTrigger>
+                <SelectContent>
+                  {printers.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name} · {t(`printerType.${p.printer_type}`)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ) : null}
+
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="print-batch-size" className="text-label">
+              {t('controls.batchSize')}
+            </label>
+            <Input
+              id="print-batch-size"
+              type="number"
+              min={1}
+              max={maxBatch}
+              value={batchSize}
+              disabled={started}
+              onChange={(e) => setBatchSizeInput(e.target.valueAsNumber)}
+            />
+            <p className="text-caption text-text-secondary">
+              {t('controls.batchMax', { max: formatNumber(maxBatch, region) })}
+            </p>
+          </div>
+        </div>
+      </Card>
 
       {printers.length === 0 ? (
-        <div
-          role="status"
-          className="flex items-center justify-between gap-3 rounded-lg border border-dashed border-border-subtle p-3 text-sm"
-        >
-          <span>{t('noPrinter.notice')}</span>
-          <Button type="button" size="sm" variant="outline" onClick={onAddPrinter}>
-            {t('noPrinter.action')}
-          </Button>
-        </div>
+        <Card padded role="status">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p>{t('noPrinter.notice')}</p>
+            <Button type="button" variant="outline" onClick={onAddPrinter}>
+              {t('noPrinter.action')}
+            </Button>
+          </div>
+        </Card>
       ) : null}
 
-      <BatchBar batchSizes={batches.map((b) => b.length)} current={confirmed} />
       <PreflightPanel
         issues={issues}
         total={items.length}
@@ -412,61 +477,92 @@ export function PrintPreview({
         onAcknowledgedChange={setPrintAnyway}
       />
 
+      {pending ? <p className="text-text-secondary">{t('locked')}</p> : null}
+
       {preview.isPending && !data ? (
         <Skeleton role="status" aria-label={t('loading')} className="h-56 w-full" />
       ) : preview.isError ? (
-        <p role="alert" className="text-sm text-destructive">
-          {t('previewError')}
-        </p>
+        <ErrorState
+          message={t('previewError')}
+          onRetry={() =>
+            loadPreview({
+              template_id: template.id,
+              subject_type: subjectType,
+              subject_ids: batchIds,
+            })
+          }
+        />
       ) : definition ? (
-        <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {items.map((item) => {
-            const values = {
-              ...(Object.fromEntries(
-                Object.entries(item.values).map(([k, v]) => [k, text(v)]),
-              ) as Record<string, string>),
-              [`${prefix}.photo`]: item.photo_url ? (dataUrls[item.photo_url] ?? '') : '',
-              'school.logo': wantsLogo ? (dataUrls[logoUrl] ?? '') : '',
-            };
-            return (
-              <li key={item.subject_id} className="flex flex-col gap-2">
-                <p className="text-sm font-medium">{item.label}</p>
-                <div className="flex flex-wrap gap-2 overflow-x-auto">
-                  {definition.page.sides.map((side) => (
-                    <figure
-                      key={side}
-                      className="flex flex-col gap-1"
-                      aria-label={`${item.label} · ${t(`sides.${side}`)}`}
-                    >
-                      <TemplateRenderer
-                        definition={definition}
-                        side={side}
-                        values={values}
-                        assetUrl={assetUrl}
-                        fonts={BUNDLED_PRINT_FONTS}
-                        mode="preview"
-                        {...(side === 'front'
-                          ? { onOverflow: reportOverflow(item.subject_id) }
-                          : {})}
+        <section aria-label={t('previewLabel')}>
+          <ul className="grid gap-6 md:grid-cols-2">
+            {items.map((item) => {
+              const values = {
+                ...(Object.fromEntries(
+                  Object.entries(item.values).map(([k, v]) => [k, text(v)]),
+                ) as Record<string, string>),
+                [`${prefix}.photo`]: item.photo_url ? (dataUrls[item.photo_url] ?? '') : '',
+                'school.logo': wantsLogo ? (dataUrls[logoUrl] ?? '') : '',
+              };
+              const issue = issues.find((i) => i.subjectId === item.subject_id);
+              return (
+                <li key={item.subject_id} className="flex flex-col gap-2">
+                  <p className="flex items-center gap-2 font-medium">
+                    {item.label}
+                    {issue ? (
+                      <StatusBadge
+                        tone="warning"
+                        label={
+                          issue.reasons.length === 1
+                            ? (issue.reasons[0] ?? '')
+                            : t('preflight.badge')
+                        }
                       />
-                      <figcaption className="text-xs text-muted-foreground">
-                        {t(`sides.${side}`)}
-                      </figcaption>
-                    </figure>
-                  ))}
-                </div>
-              </li>
-            );
-          })}
-        </ul>
+                    ) : null}
+                  </p>
+                  <div className="flex flex-wrap gap-2 overflow-x-auto">
+                    {definition.page.sides.map((side) => (
+                      <figure
+                        key={side}
+                        className="flex flex-col gap-1"
+                        aria-label={`${item.label} · ${t(`sides.${side}`)}`}
+                      >
+                        <TemplateRenderer
+                          definition={definition}
+                          side={side}
+                          values={values}
+                          assetUrl={assetUrl}
+                          fonts={BUNDLED_PRINT_FONTS}
+                          mode="preview"
+                          {...(side === 'front'
+                            ? { onOverflow: reportOverflow(item.subject_id) }
+                            : {})}
+                        />
+                        <figcaption className="text-caption text-text-secondary">
+                          {t(`sides.${side}`)}
+                        </figcaption>
+                      </figure>
+                    ))}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
       ) : null}
 
-      <div className="flex items-center gap-3">
-        <Button type="button" disabled={!canPrint} loading={printing} onClick={print}>
-          {printing ? t('printing') : t('print')}
-        </Button>
-        {pending ? <span className="text-sm text-muted-foreground">{t('locked')}</span> : null}
-      </div>
+      <ConfirmDialog
+        open={leaving}
+        onOpenChange={setLeaving}
+        tone="danger"
+        title={tc('fullPage.discardTitle')}
+        description={tc('fullPage.discardDescription')}
+        confirmLabel={tc('fullPage.discardConfirm')}
+        cancelLabel={tc('fullPage.keepEditing')}
+        onConfirm={() => {
+          setLeaving(false);
+          onBack?.();
+        }}
+      />
 
       {pending ? (
         <DidAllPrintDialog
@@ -489,6 +585,6 @@ export function PrintPreview({
           }}
         />
       ) : null}
-    </div>
+    </div>,
   );
 }

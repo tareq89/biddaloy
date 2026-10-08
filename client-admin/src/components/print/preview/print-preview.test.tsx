@@ -1,9 +1,11 @@
 import '@biddaloy/ui/test';
 
 import type { PrinterRow, PrintTemplateRow } from '@biddaloy/ui/hooks';
+import { REGION_BD_EN, RegionConfigProvider } from '@biddaloy/ui/i18n';
 import { cleanupTestState, renderWithProviders, server } from '@biddaloy/ui/test';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
+import type * as React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { PrintPreview } from './print-preview';
@@ -99,28 +101,39 @@ function serveLists(templates: PrintTemplateRow[], printers: PrinterRow[]) {
 
 const ids = (n: number) => Array.from({ length: n }, (_, i) => `s-${i + 1}`);
 
-function setup(subjectIds = ids(3)) {
+function setup(subjectIds = ids(3), withBack = false) {
   const onCreateTemplate = vi.fn();
   const onAddPrinter = vi.fn();
   const onDone = vi.fn();
+  const onClose = vi.fn();
+  const onBack = vi.fn();
   const view = renderWithProviders(
-    <PrintPreview
-      documentKind="STUDENT_ID_CARD"
-      subjectType="STUDENT"
-      subjectIds={subjectIds}
-      onCreateTemplate={onCreateTemplate}
-      onAddPrinter={onAddPrinter}
-      onDone={onDone}
-    />,
+    en(
+      <PrintPreview
+        documentKind="STUDENT_ID_CARD"
+        subjectType="STUDENT"
+        subjectIds={subjectIds}
+        onCreateTemplate={onCreateTemplate}
+        onAddPrinter={onAddPrinter}
+        onDone={onDone}
+        onClose={onClose}
+        {...(withBack ? { onBack } : {})}
+      />,
+    ),
     { locale: 'en', role: 'ADMIN', tenantId: 'school-1' },
   );
-  return { ...view, onCreateTemplate, onAddPrinter, onDone };
+  return { ...view, onCreateTemplate, onAddPrinter, onDone, onClose, onBack };
 }
 
 const printResult = (n: number) => ({
   jobId: 'job-1',
   items: ids(n).map((id) => ({ itemId: `i-${id}`, subjectId: id, label: `Student ${id}` })),
 });
+
+/** Digits follow the region, and the default region is Bangla: pin Latin for English assertions. */
+const en = (ui: React.ReactElement) => (
+  <RegionConfigProvider value={REGION_BD_EN}>{ui}</RegionConfigProvider>
+);
 
 describe('PrintPreview', () => {
   beforeEach(() => {
@@ -190,19 +203,41 @@ describe('PrintPreview', () => {
     );
   });
 
-  it('offers to create a template when there is none', async () => {
+  it('offers to create a template when there is none, as the frame primary, with Close', async () => {
     serveLists([], [printer()]);
-    const { user, onCreateTemplate } = setup();
+    const { user, onCreateTemplate, onClose } = setup();
 
-    expect(await screen.findByText('No template for this document yet')).toBeTruthy();
+    expect(await screen.findByText('No design for this document yet')).toBeTruthy();
     await user.click(screen.getByRole('button', { name: 'Create one from a suggestion' }));
     expect(onCreateTemplate).toHaveBeenCalledOnce();
+    await user.click(screen.getByRole('button', { name: 'Close' }));
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it('is a full-page frame: "Print preview" heading, Close, and Back only when onBack is passed', async () => {
+    serveLists([template()], [printer()]);
+    servePreview();
+    const { user, onClose } = setup(ids(3), false);
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Print preview' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Back' })).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Close' }));
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it('shows Back and calls onBack when the preview came from the picker', async () => {
+    serveLists([template()], [printer()]);
+    servePreview();
+    const { user, onBack } = setup(ids(3), true);
+
+    await user.click(await screen.findByRole('button', { name: 'Back' }));
+    expect(onBack).toHaveBeenCalledOnce();
   });
 
   it('ignores an unpublished template (no current version)', async () => {
     serveLists([template({ current_version_id: null })], [printer()]);
     setup();
-    expect(await screen.findByText('No template for this document yet')).toBeTruthy();
+    expect(await screen.findByText('No design for this document yet')).toBeTruthy();
   });
 
   it('keeps Print disabled until a printer exists, and offers to add one', async () => {
@@ -233,7 +268,7 @@ describe('PrintPreview', () => {
     const print = screen.getByRole<HTMLButtonElement>('button', { name: 'Print' });
     expect(print.disabled).toBe(true);
 
-    await user.click(screen.getByRole('checkbox', { name: 'Print anyway' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Print this round anyway' }));
     expect(print.disabled).toBe(false);
   });
 
@@ -274,5 +309,216 @@ describe('PrintPreview', () => {
     await user.click(await screen.findByRole('button', { name: 'Continue' }));
 
     await waitFor(() => expect(onDone).toHaveBeenCalledOnce());
+  });
+
+  it('the round heading is the exact header.batch text, with a stepper marking done / current / locked', async () => {
+    serveLists([template()], [printer()]);
+    servePreview();
+    server.use(
+      http.patch('/api/v1/print-jobs/:id/confirm', () =>
+        HttpResponse.json({ job_id: 'job-1', status: 'CONFIRMED', failed_item_ids: [] }),
+      ),
+    );
+    vi.mocked(runPrint).mockResolvedValue(printResult(50));
+    const { user } = setup(ids(120));
+
+    expect(
+      await screen.findByRole('heading', { level: 2, name: 'Round 1 of 3 · 50 cards' }),
+    ).toBeTruthy();
+    const states = () =>
+      within(screen.getByRole('list', { name: 'Rounds' }))
+        .getAllByRole('listitem')
+        .map((li) => li.getAttribute('data-state'));
+    expect(states()).toEqual(['current', 'locked', 'locked']);
+
+    await waitFor(() =>
+      expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Print' }).disabled).toBe(false),
+    );
+    await user.click(screen.getByRole('button', { name: 'Print' }));
+    await user.click(await screen.findByRole('button', { name: 'Yes, all printed' }));
+    await user.click(await screen.findByRole('button', { name: 'Continue' }));
+    await waitFor(() => expect(states()).toEqual(['done', 'current', 'locked']));
+  });
+
+  it('flags a card with no photo with a badge on that card', async () => {
+    serveLists([template()], [printer()]);
+    servePreview(
+      definition([
+        element({ field: 'student.name' }),
+        element({ id: 'ph', type: 'IMAGE', field: 'student.photo' }),
+      ]),
+      null,
+    );
+    setup(ids(1));
+
+    const section = await screen.findByRole('region', { name: 'Card preview' });
+    expect(within(section).getByText('No photo')).toBeTruthy();
+  });
+
+  it('names the missing field by its label, never by its raw key', async () => {
+    serveLists([template()], [printer()]);
+    servePreview();
+    server.use(
+      http.post('/api/v1/print-jobs/preview', () =>
+        HttpResponse.json({
+          template: {
+            id: 't-1',
+            batch_size: 50,
+            version: {
+              id: 'v-1',
+              version: 1,
+              definition: definition([element({ field: 'student.name' })]),
+            },
+          },
+          items: [
+            {
+              subject_id: 's-1',
+              label: 'Student s-1',
+              values: { 'student.name': '' },
+              photo_url: null,
+            },
+          ],
+        }),
+      ),
+    );
+    setup(ids(1));
+
+    expect(await screen.findAllByText(/Missing: Name/)).toBeTruthy();
+    expect(screen.queryByText(/student\.name/)).toBeNull();
+  });
+
+  it('locks the design select once the first round is printed', async () => {
+    serveLists(
+      [template(), template({ id: 't-2', name: 'Modern', is_default: false })],
+      [printer()],
+    );
+    servePreview();
+    vi.mocked(runPrint).mockResolvedValue(printResult(3));
+    const { user } = setup(ids(3));
+
+    const select = await screen.findByRole('combobox', { name: 'Design' });
+    expect(select.hasAttribute('disabled')).toBe(false);
+    await waitFor(() =>
+      expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Print' }).disabled).toBe(false),
+    );
+    await user.click(screen.getByRole('button', { name: 'Print' }));
+    await waitFor(() =>
+      expect(
+        screen.getByRole('combobox', { name: 'Design', hidden: true }).hasAttribute('disabled'),
+      ).toBe(true),
+    );
+    expect(screen.getByText("The design can't change once printing starts.")).toBeTruthy();
+  });
+
+  async function printAndConfirmFirstRound(user: ReturnType<typeof setup>['user']) {
+    await waitFor(() =>
+      expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Print' }).disabled).toBe(false),
+    );
+    await user.click(screen.getByRole('button', { name: 'Print' }));
+    await user.click(await screen.findByRole('button', { name: 'Yes, all printed' }));
+    await user.click(await screen.findByRole('button', { name: 'Continue' }));
+  }
+
+  function serveRun() {
+    serveLists([template()], [printer()]);
+    servePreview();
+    server.use(
+      http.patch('/api/v1/print-jobs/:id/confirm', () =>
+        HttpResponse.json({ job_id: 'job-1', status: 'CONFIRMED', failed_item_ids: [] }),
+      ),
+    );
+    vi.mocked(runPrint).mockResolvedValue(printResult(50));
+  }
+
+  it('Enter with focus on the shell prints once; Enter on a button does not print by itself', async () => {
+    serveLists([template()], [printer()]);
+    servePreview();
+    vi.mocked(runPrint).mockResolvedValue(printResult(3));
+    const { user } = setup(ids(3));
+    await waitFor(() =>
+      expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Print' }).disabled).toBe(false),
+    );
+
+    screen.getByRole('button', { name: 'Close' }).focus();
+    await user.keyboard('{Enter}'); // Close has no onClose effect on print
+    expect(runPrint).not.toHaveBeenCalled();
+
+    screen.getByRole('dialog').focus();
+    await user.keyboard('{Enter}');
+    await waitFor(() => expect(runPrint).toHaveBeenCalledOnce());
+  });
+
+  it('a double click on Print starts one request', async () => {
+    serveLists([template()], [printer()]);
+    servePreview();
+    vi.mocked(runPrint).mockImplementation(
+      () => new Promise((resolve) => setTimeout(() => resolve(printResult(3)), 50)),
+    );
+    const { user } = setup(ids(3));
+    await waitFor(() =>
+      expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Print' }).disabled).toBe(false),
+    );
+    await user.dblClick(screen.getByRole('button', { name: 'Print' }));
+    await waitFor(() => expect(runPrint).toHaveBeenCalledOnce());
+  });
+
+  it('Back between rounds asks before dropping the run', async () => {
+    serveRun();
+    const { user, onBack } = setup(ids(120), true);
+    await printAndConfirmFirstRound(user);
+
+    await user.click(screen.getByRole('button', { name: 'Back' }));
+    const dialog = await screen.findByRole('alertdialog');
+    expect(onBack).not.toHaveBeenCalled();
+    await user.click(within(dialog).getByRole('button', { name: /discard/i }));
+    expect(onBack).toHaveBeenCalledOnce();
+  });
+
+  it('Close between rounds asks before leaving', async () => {
+    serveRun();
+    const { user, onClose } = setup(ids(120));
+    await printAndConfirmFirstRound(user);
+
+    await user.click(screen.getByRole('button', { name: 'Close' }));
+    expect(await screen.findByRole('alertdialog')).toBeTruthy();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('names the missing staff name by its label too', async () => {
+    serveLists([template()], [printer()]);
+    server.use(
+      http.post('/api/v1/print-jobs/preview', () =>
+        HttpResponse.json({
+          template: {
+            id: 't-1',
+            batch_size: 50,
+            version: {
+              id: 'v-1',
+              version: 1,
+              definition: definition([element({ field: 'staff.name' })]),
+            },
+          },
+          items: [
+            { subject_id: 's-1', label: 'Staff 1', values: { 'staff.name': '' }, photo_url: null },
+          ],
+        }),
+      ),
+    );
+    renderWithProviders(
+      en(
+        <PrintPreview
+          documentKind="STAFF_ID_CARD"
+          subjectType="STAFF"
+          subjectIds={['s-1']}
+          onCreateTemplate={vi.fn()}
+          onAddPrinter={vi.fn()}
+          onDone={vi.fn()}
+          onClose={vi.fn()}
+        />,
+      ),
+      { locale: 'en', role: 'ADMIN', tenantId: 'school-1' },
+    );
+    expect((await screen.findAllByText(/Missing: Name/)).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/staff\.name/)).toBeNull();
   });
 });

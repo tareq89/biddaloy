@@ -4,19 +4,15 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import { SchoolsListView } from './-schools-list-view';
 
 /**
- * #533's three required states: ACTIVE/SUSPENDED rows, empty, loading.
- * `renderName` is a plain `<span>` here (no router) — see
- * `-schools-list-view.tsx`'s own comment on why the real route passes a
- * TanStack `Link` instead.
+ * #533's required states: ACTIVE/SUSPENDED rows, empty (no search match),
+ * loading.
  */
 const meta: Meta<typeof SchoolsListView> = {
   component: SchoolsListView,
   args: {
     search: '',
     onSearchChange: () => {},
-    renderName: (school: SchoolSummary) => (
-      <span className="font-medium text-primary underline">{school.name}</span>
-    ),
+    onNew: () => {},
   },
 };
 export default meta;

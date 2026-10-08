@@ -98,7 +98,7 @@ describe('NewTemplateDialog', () => {
     await user.click(await screen.findByRole('button', { name: /Classic · portrait/ }));
     expect(await screen.findByLabelText('Name')).toBeTruthy();
 
-    await user.click(screen.getByRole('button', { name: 'Staff ID card' }));
+    await user.click(screen.getByRole('tab', { name: 'Staff ID card' }));
 
     expect(screen.queryByLabelText('Name')).toBeNull();
     expect(
@@ -110,7 +110,7 @@ describe('NewTemplateDialog', () => {
   it('labels the ACR design as an A4 page, not "Classic · portrait"', async () => {
     serve();
     const { user } = setup();
-    await user.click(await screen.findByRole('button', { name: /ACR \(confidential report\)/ }));
+    await user.click(await screen.findByRole('tab', { name: /ACR \(confidential report\)/ }));
 
     expect(await screen.findByRole('button', { name: /ACR assessment · A4/ })).toBeTruthy();
     expect(screen.getByText('A4 page, front only, up to 30 criteria.')).toBeTruthy();
@@ -149,5 +149,29 @@ describe('NewTemplateDialog', () => {
 
     expect(await screen.findByRole('alert')).toBeTruthy();
     expect(onCreated).not.toHaveBeenCalled();
+  });
+
+  it('says the name is taken on a 409', async () => {
+    serve();
+    server.use(
+      http.post('/api/v1/print-templates', () =>
+        HttpResponse.json(
+          {
+            statusCode: 409,
+            message: 'duplicate',
+            timestamp: new Date().toISOString(),
+            path: '/api/v1/print-templates',
+            requestId: 'r-1',
+          },
+          { status: 409 },
+        ),
+      ),
+    );
+    const { user } = setup({ initialSuggestionKey: 'student-portrait-classic' });
+    await screen.findByLabelText('Name');
+
+    await user.click(screen.getByRole('button', { name: 'Create and open editor' }));
+
+    expect(await screen.findByText('A design with this name already exists.')).toBeTruthy();
   });
 });

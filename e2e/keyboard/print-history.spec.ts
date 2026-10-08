@@ -63,9 +63,10 @@ test('keyboard-only: find a printed card by name and read its details', async ({
   await test.step('open the row with Enter, read the snapshot, close with Esc', async () => {
     // The table is a roving-tabindex grid, so a row's own button cannot be reached by plain
     // Tab; focus it directly, then drive by keyboard (same shape as teaching-assignments).
-    const view = page.getByRole('button', {
-      name: new RegExp(`^${t('printHistory.actions.view')} ${name}`),
-    });
+    const view = page
+      .getByRole('row')
+      .filter({ hasText: name })
+      .getByRole('button', { name: t('printHistory.actions.view') });
     await expect(async () => {
       await view.first().focus();
       await expect(view.first()).toBeFocused();
