@@ -496,6 +496,7 @@
       "DOCUMENT_PRINT": "ডকুমেন্ট প্রিন্ট",
       "PRINT_HISTORY_READ": "প্রিন্টের ইতিহাস দেখা",
       "DOCUMENT_REVOKE": "ডকুমেন্ট বাতিল",
+      "CERTIFICATE_ISSUE": "শিক্ষার্থীর সনদপত্র প্রদান",
       "AUDIT_LOG_READ": "নিরীক্ষা লগ দেখা",
       "AUDIT_ENTITY_HISTORY_READ": "কার্যক্রমের ইতিহাস দেখা",
       "SETTINGS_MANAGE": "সেটিংস পরিচালনা",

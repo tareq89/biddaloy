@@ -156,6 +156,7 @@ export const PERMISSION_GROUPS: readonly { id: string; permissions: readonly Per
       Permission.DOCUMENT_PRINT,
       Permission.PRINT_HISTORY_READ,
       Permission.DOCUMENT_REVOKE,
+      Permission.CERTIFICATE_ISSUE,
     ],
   },
   {
