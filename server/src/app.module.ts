@@ -84,6 +84,9 @@ import { SeatPlan } from './modules/seat-plans/entities/seat-plan.entity';
 import { SeatPlanSchedule } from './modules/seat-plans/entities/seat-plan-schedule.entity';
 import { SeatAllocation } from './modules/seat-plans/entities/seat-allocation.entity';
 import { SyllabusTopic } from './modules/homework/entities/syllabus-topic.entity';
+import { StudyPlan } from './modules/study-plans/entities/study-plan.entity';
+import { LessonDelivery } from './modules/study-plans/entities/lesson-delivery.entity';
+import { StudyPlanTemplate } from './modules/study-plans/entities/study-plan-template.entity';
 import { ProgramsModule } from './modules/programs/programs.module';
 import { Program } from './modules/programs/entities/program.entity';
 import { ProgramMilestone } from './modules/programs/entities/program-milestone.entity';
@@ -287,6 +290,9 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
             HomeworkAssignment,
             HomeworkSubmission,
             SyllabusTopic,
+            StudyPlan,
+            LessonDelivery,
+            StudyPlanTemplate,
             AdmissionIntake,
             AdmissionApplicant,
             AdmissionEvaluation,
