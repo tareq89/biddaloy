@@ -1,4 +1,16 @@
-import { Controller, HttpCode, Param, ParseUUIDPipe, Post, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Header,
+  HttpCode,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Res,
+  StreamableFile,
+  UseGuards,
+} from '@nestjs/common';
+import type { Response } from 'express';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtPayload, Permission } from '@biddaloy/shared';
@@ -37,5 +49,28 @@ export class FamilyAdmitCardController {
   ) {
     await this.familyAccess.assertLinked(tenant.role, user.sub, studentId, tenant.id);
     return this.service.print(tenant, user.sub, studentId, examId);
+  }
+
+  @Get('assets/:assetId/file')
+  @RequirePermissions(Permission.RESULT_READ)
+  // Same headers as the staff `GET /print-assets/:id/file`.
+  @Header('Cache-Control', 'private, max-age=31536000, immutable')
+  @Header('X-Content-Type-Options', 'nosniff')
+  @Header('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; sandbox")
+  @ApiOperation({
+    summary: 'Artwork/font bytes of the default admit-card template (linked family).',
+  })
+  async assetFile(
+    @Param('studentId', ParseUUIDPipe) studentId: string,
+    @Param('examId', ParseUUIDPipe) examId: string,
+    @Param('assetId', ParseUUIDPipe) assetId: string,
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<StreamableFile> {
+    await this.familyAccess.assertLinked(tenant.role, user.sub, studentId, tenant.id);
+    const { asset, object } = await this.service.assetFile(tenant, studentId, examId, assetId);
+    res.setHeader('Content-Type', asset.content_type);
+    return new StreamableFile(object.body);
   }
 }

@@ -328,4 +328,99 @@ describe('ExamDocumentsService (integration)', () => {
       ).rejects.toBeInstanceOf(NotFoundException);
     });
   });
+
+  describe('tabulation', () => {
+    const subject = (en: string, code: string) =>
+      q(
+        `INSERT INTO subjects (tenant_id, name_en, name_bn, code) VALUES ($1, $2, 'বাংলা', $3) RETURNING id`,
+        [tenantId, en, code],
+      );
+    const component = (exam: string, sub: string, name: string, marks: number, seq: number) =>
+      ds.query(
+        `INSERT INTO exam_components (tenant_id, exam_id, subject_id, name, kind, full_marks, sequence)
+         VALUES ($1, $2, $3, $4, 'WRITTEN', $5, $6)`,
+        [tenantId, exam, sub, name, marks, seq],
+      );
+    const processed = async (
+      exam: string,
+      studentId: string,
+      sectionId: string,
+      total: number,
+      lines: Array<[string, number, boolean]>,
+    ) => {
+      const r = await q(
+        `INSERT INTO results (exam_id, student_id, total_marks, gpa, grade, position, section_id,
+           section_position, is_fail, grading_scale_id, grading_scale_revision, rule_version,
+           computed_at, tenant_id)
+         VALUES ($1, $2, $3, 5, 'A+', 1, $4, 1, false, $5, 1, 'nctb-v1', NOW(), $6) RETURNING id`,
+        [exam, studentId, total, sectionId, scale, tenantId],
+      );
+      for (const [sub, obtained, fail] of lines) {
+        await ds.query(
+          `INSERT INTO result_subjects (tenant_id, result_id, subject_id, obtained, grade, gpa, is_fail)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+          [tenantId, r, sub, obtained, fail ? 'F' : 'A+', fail ? 0 : 5, fail],
+        );
+      }
+    };
+
+    it('returns one row per student by roll with a cell per subject and summed full marks', async () => {
+      const bn = await subject('Bangla', 'BN');
+      const en = await subject('English', 'EN');
+      await component(examA, bn, 'Written', 70, 1);
+      await component(examA, bn, 'MCQ', 30, 2);
+      await component(examA, en, 'Written', 100, 1);
+      const s3 = await student('S3', 3, sectionA);
+      const s1 = await student('S1', 1, sectionA);
+      const s2 = await student('S2', 2, sectionA);
+      await processed(examA, s3, sectionA, 150, [
+        [bn, 80, false],
+        [en, 70, false],
+      ]);
+      await processed(examA, s1, sectionA, 190, [
+        [bn, 95, false],
+        [en, 95, false],
+      ]);
+      await processed(examA, s2, sectionA, 30, [
+        [bn, 20, true],
+        [en, 10, true],
+      ]);
+
+      const res = await service.tabulation(tenantId, examA, sectionA);
+
+      expect(res.section).toMatchObject({ id: sectionA, name: 'A', class_name: 'Class 8' });
+      expect(res.subjects.map((x) => [x.name_en, x.full_marks])).toEqual([
+        ['Bangla', 100],
+        ['English', 100],
+      ]);
+      expect(res.rows.map((r) => r.student_id)).toEqual([s1, s2, s3]);
+      expect(Object.keys(res.rows[0].cells)).toHaveLength(2);
+      expect(res.rows[0].total_marks).toBe(190);
+      expect(res.rows[1].cells[bn]).toEqual({ obtained: 20, grade: 'F', is_fail: true });
+    });
+
+    it('409 RESULTS_NOT_PROCESSED when the section has no results', async () => {
+      await expect(service.tabulation(tenantId, examA, sectionA)).rejects.toMatchObject({
+        response: { details: { code: 'RESULTS_NOT_PROCESSED' } },
+      });
+    });
+
+    it("404 for a section of another class or another tenant's section", async () => {
+      const otherClass = await q(
+        `INSERT INTO classes (name, academic_year_id, tenant_id) VALUES ('Class 9', $1, $2) RETURNING id`,
+        [year, tenantId],
+      );
+      const foreign = await q(
+        `INSERT INTO class_sections (class_id, section_name, tenant_id) VALUES ($1, 'Z', $2) RETURNING id`,
+        [otherClass, tenantId],
+      );
+      await expect(service.tabulation(tenantId, examA, foreign)).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+      const other = await seedTenant();
+      await expect(service.tabulation(other.t, other.exam, sectionA)).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+    });
+  });
 });
