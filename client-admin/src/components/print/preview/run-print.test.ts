@@ -105,6 +105,20 @@ describe('runPrint', () => {
     });
   });
 
+  it('fetches artwork from assetPath when given, else from /print-assets', async () => {
+    const { deps } = fakeDeps([]);
+    await runPrint(args({ assetPath: '/certificates/assets' }), deps);
+    expect(vi.mocked(deps.fetchBlob).mock.calls.map((c) => c[0])).toContain(
+      '/certificates/assets/art-1/file',
+    );
+
+    const other = fakeDeps([]);
+    await runPrint(args(), other.deps);
+    expect(vi.mocked(other.deps.fetchBlob).mock.calls.map((c) => c[0])).toContain(
+      '/print-assets/art-1/file',
+    );
+  });
+
   it('a failed job creation builds nothing, closes the tab and reports the error', async () => {
     const order: string[] = [];
     const onError = vi.fn();
