@@ -16,6 +16,14 @@ import { tabUntilFocused } from './keyboard-utils';
 
 test.use(loggedIn('admin'));
 
+/** The printer this spec adds is archived afterwards so it does not pile up in every picker. The
+ * student stays: it now holds an issued certificate in the register. */
+let printerId: string | undefined;
+test.afterAll(async ({ request }) => {
+  if (printerId)
+    await post(request, await adminApiSession(request), `/printers/${printerId}/archive`, {});
+});
+
 /** Arrow keys until the radio named `name` has focus, then Space checks it. */
 async function arrowToRadio(page: Page, name: string) {
   const radio = page.getByRole('radio', { name });
@@ -48,7 +56,7 @@ test('keyboard-only: issue a testimonial from the Documents tab to the result vi
   const name = `Kb Certificate ${Date.now()}`;
   const student = await createStudent(request, session, name);
   const printerName = `Kb Cert Printer ${Date.now()}`;
-  await post(request, session, '/printers', {
+  ({ id: printerId } = await post<{ id: string }>(request, session, '/printers', {
     name: printerName,
     printer_type: 'OFFICE',
     // An A4 certificate fills the sheet: no margin, no gap.
@@ -56,7 +64,7 @@ test('keyboard-only: issue a testimonial from the Documents tab to the result vi
     margin_right_mm: 0,
     margin_bottom_mm: 0,
     margin_left_mm: 0,
-  });
+  }));
 
   await page.addInitScript(() => {
     window.open = (() => ({

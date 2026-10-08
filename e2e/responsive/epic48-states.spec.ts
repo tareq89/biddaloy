@@ -1,4 +1,4 @@
-import { adminApiSession, get } from '../api';
+import { adminApiSession, seededFirstTermExamId } from '../api';
 import { expect, loggedIn, test } from '../fixtures/test';
 import { t } from '../i18n';
 import { expectNoHorizontalScroll, expectNoInnerHorizontalScroll } from '../pages/assertions';
@@ -18,9 +18,9 @@ test.use(loggedIn('admin'));
  * At 320 px the shared `Tabs` list (`ui/src/primitives/tabs.tsx`) scrolls sideways on EVERY page
  * that has tabs, Epic 48's included (the route-level `reflow.spec.ts` fails the same way on
  * `/exams/$examId`, `/students/$studentId` and `/reports/printables`). It is a kit change, not a
- * screen fix, so the 320 px cases are `fixme` until the kit issue lands.
+ * screen fix, so the 320 px cases are `fixme` until the kit issue (#1986) lands.
  */
-const KIT_TABS_320 = 'Tabs list scrolls at 320px (shared kit, not Epic 48)';
+const KIT_TABS_320 = 'Tabs list scrolls at 320px (shared kit, not Epic 48; #1986)';
 
 const WIDTHS = [320, 640] as const;
 
@@ -29,11 +29,9 @@ for (const width of WIDTHS) {
     test.fixme(width === 320, KIT_TABS_320);
     test('exam Print tab', async ({ page, request }) => {
       const session = await adminApiSession(request);
-      const exams = await get<{ data: { id: string; name: string }[] }>(request, session, '/exams');
-      const exam = exams.data.find((e) => e.name === 'First Term Exam');
-      if (!exam) throw new Error('No seeded "First Term Exam" — has `yarn seed` run?');
+      const examId = await seededFirstTermExamId(request, session);
       await page.setViewportSize({ width, height: 900 });
-      await page.goto(`/exams/${exam.id}?tab=print`);
+      await page.goto(`/exams/${examId}?tab=print`);
       await expect(
         page.getByRole('heading', { name: t('examDocuments.phase.before') }),
       ).toBeVisible();
