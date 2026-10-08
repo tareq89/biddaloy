@@ -1,4 +1,4 @@
-import { Permission } from '@biddaloy/shared';
+import { Permission, type StudyPlansSettings } from '@biddaloy/shared';
 import {
   ApiError,
   decodeAccessTokenMemberships,
@@ -49,6 +49,7 @@ import { SettingsLayout } from './settings/settings-layout';
 import { SignInSection } from './settings/SignInSection';
 import { SmsCreditSection } from './settings/SmsCreditSection';
 import { SmsSection } from './settings/SmsSection';
+import { StudyPlansSection } from './settings/StudyPlansSection';
 import { WhatsAppSection } from './settings/WhatsAppSection';
 
 /**
@@ -165,6 +166,12 @@ export function SchoolSettingsPage({ backupJobId }: SchoolSettingsPageProps = {}
                   key={loaded.schoolId}
                   schoolId={loaded.schoolId}
                   evaluations={loaded.data.evaluations}
+                  smsConfigured={isSmsReady(loaded.data.communications?.sms)}
+                />
+                <StudyPlansSection
+                  key={loaded.schoolId}
+                  schoolId={loaded.schoolId}
+                  studyPlans={(loaded.data as { studyPlans?: StudyPlansSettings }).studyPlans}
                   smsConfigured={isSmsReady(loaded.data.communications?.sms)}
                 />
               </>
