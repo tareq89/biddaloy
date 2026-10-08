@@ -1,0 +1,234 @@
+{
+  "list": {
+    "caption": "Study plans",
+    "subtitle": "{{term}} · {{count}} study plans, {{behind}} behind",
+    "filters": {
+      "search": "Search",
+      "searchPlaceholder": "Section or subject name",
+      "class": "Class",
+      "subject": "Subject",
+      "term": "Term",
+      "wholeYear": "Whole year",
+      "behindOnly": "Behind only"
+    },
+    "columns": {
+      "section": "Section",
+      "subject": "Subject",
+      "term": "Term",
+      "owner": "Owner",
+      "progress": "Progress",
+      "behind": "Behind",
+      "reporting": "Status reporting"
+    },
+    "lessonsDone": "{{done}}/{{total}} lessons",
+    "onTrack": "On track",
+    "behindBy": "{{periods}} periods behind (≈{{lessons}} lessons)",
+    "notReported_one": "{{count}} day not reported",
+    "notReported_other": "{{count}} day not reported",
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "open": "Open {{name}}",
+    "download": "Download {{name}} as CSV",
+    "progressCsv": "Progress CSV",
+    "mostBehindFirst": "Most behind first",
+    "emptyTitle": "No study plans yet",
+    "emptyExplanation": "A study plan lists a subject's lessons in order; dates come from the routine.",
+    "newPlan": "New study plan",
+    "error": "Couldn't load study plans."
+  },
+  "create": {
+    "title": "New study plan",
+    "steps": {
+      "scope": "Section · subject · term",
+      "start": "How to start",
+      "preview": "Preview",
+      "save": "Save"
+    },
+    "stepOf": "Step {{current}} of {{total}}",
+    "scopeSummary": "Plan for",
+    "change": "Change",
+    "section": "Section",
+    "carryOver": {
+      "title_one": "Add the {{count}} lesson left from last term?",
+      "title_other": "Add the {{count}} lesson left from last term?",
+      "body": "These were not taught in {{term}}. They go at the start; you can move or delete them later.",
+      "confirm_one": "Yes, add these {{count}} lessons at the start",
+      "confirm_other": "Yes, add these {{count}} lessons at the start"
+    },
+    "source": {
+      "title": "Where do the lessons come from?",
+      "empty": "Start empty",
+      "emptyHelp": "Write lessons one by one.",
+      "library": "From the library",
+      "libraryHelp": "Copy a school template and change it your way.",
+      "csv": "From a CSV file",
+      "csvHelp": "Upload a file you downloaded or wrote in Excel."
+    },
+    "templatesFor_one": "{{class}} · {{subject}} — {{count}} template",
+    "templatesFor_other": "{{class}} · {{subject}} — {{count}} template",
+    "templateMeta": "{{lessons}} lessons · {{periods}} periods · updated {{date}}",
+    "noTemplates": "No template for this class and subject yet.",
+    "openLibrary": "Open the template library",
+    "sampleCsv": "Download a sample",
+    "capacity": "{{term}} has about {{available}} periods. These lessons need {{needed}} — untick what to leave out in the preview.",
+    "preview": {
+      "keep": "Keep",
+      "no": "No.",
+      "title": "Lesson",
+      "periods": "Periods",
+      "fromTerm": "From {{term}}",
+      "summary": "{{lessons}} lessons · {{periods}} periods",
+      "emptyStart": "You will add lessons on the plan page."
+    },
+    "next": "Next",
+    "back": "Back",
+    "save": "Save plan",
+    "errors": {
+      "duplicate": "{{section}} already has a plan for {{subject}} in {{term}}.",
+      "openExisting": "Open it",
+      "notYourSubject": "You don't teach {{subject}} in {{section}}.",
+      "notOffered": "{{class}} does not study {{subject}}.",
+      "generic": "Couldn't save. Try again."
+    }
+  },
+  "library": {
+    "info": "Teachers copy any template into their own plan. A copy is separate — changing the template never changes it. Admins and the head teacher add and edit templates.",
+    "subtitle": "The school's plan templates, by class and subject code, reused every year",
+    "searchPlaceholder": "Template name",
+    "nameTaken": "A template with this name already exists.",
+    "classGrade": "Class {{grade}}",
+    "columns": {
+      "subject": "Subject · code",
+      "name": "Template name",
+      "lessons": "Lessons",
+      "periods": "Periods",
+      "updated": "Last updated"
+    },
+    "actions": {
+      "view": "View {{name}}",
+      "copyToMine": "Copy to my plan",
+      "edit": "Edit {{name}}",
+      "delete": "Delete {{name}}"
+    },
+    "add": "Add template",
+    "addFromCsv": "Add from CSV",
+    "form": {
+      "name": "Template name",
+      "classGrade": "Class",
+      "subject": "Subject",
+      "source": "Source",
+      "fromPlan": "From a study plan",
+      "fromCsv": "From a CSV file",
+      "plan": "Study plan",
+      "file": "CSV file",
+      "readOk_one": "{{count}} lesson read, no errors",
+      "readOk_other": "{{count}} lesson read, no errors",
+      "readErrors_one": "{{count}} row has a problem",
+      "readErrors_other": "{{count}} row has a problem",
+      "renameTitle": "Edit template"
+    },
+    "deleteConfirm": "Delete {{name}}? Plans already copied from it keep their lessons.",
+    "emptyTitle": "No templates yet",
+    "emptyExplanation": "Add one from a CSV file, or open any study plan and choose Add to library.",
+    "deleteFailed": "Couldn't delete the template."
+  },
+  "detail": {
+    "owner": "Owner",
+    "term": "Term",
+    "progress": "Progress",
+    "periodsLeft": "Periods left in the term",
+    "capacity": "{{left}} · the remaining lessons need {{needed}}",
+    "lessons": "Lessons",
+    "lessonsCaption": "{{lessons}} lessons · {{periods}} periods in all · dates come from the routine, leaving out holidays and cancelled periods",
+    "reorderHint": "To reorder: Alt + ↑ / ↓ on a row",
+    "columns": {
+      "no": "#",
+      "lesson": "Lesson",
+      "periods": "Periods",
+      "topic": "Syllabus topic",
+      "date": "Date (expected)",
+      "status": "Status"
+    },
+    "status": {
+      "done": "Done",
+      "inProgress": "In progress",
+      "upcoming": "Upcoming"
+    },
+    "inExtraClass": "in an extra class",
+    "overflow": "Won't fit this term",
+    "note": "Note: {{text}}",
+    "showDone": "Show lessons {{from}}–{{to}} · all done",
+    "showMore": "Show {{count}} more lessons ({{from}}–{{to}})",
+    "moved": "Moved '{{title}}' to position {{position}}",
+    "moveUp": "Move {{title}} up",
+    "moveDown": "Move {{title}} down",
+    "marker": "{{exam}} syllabus up to here",
+    "markerTaught": "lessons 1–{{to}} · {{taught}} taught",
+    "noRoutine": "Dates appear once the class routine is published.",
+    "openRoutines": "Open routines",
+    "emptyTitle": "No lessons yet",
+    "addLesson": "Add lesson",
+    "markerDropped": "The {{exam}} marker was removed with that lesson.",
+    "notYourPlan": "You can only change plans for the subjects you teach.",
+    "error": "Couldn't load the study plan."
+  },
+  "lesson": {
+    "addTitle": "Add lesson",
+    "editTitle": "Edit lesson",
+    "title": "Lesson title",
+    "periods": "Periods needed",
+    "topic": "Syllabus topic",
+    "notes": "Notes or links",
+    "titleRequired": "Enter a lesson title.",
+    "periodsMin": "At least 1 period.",
+    "deleteConfirm": "Delete lesson {{no}} '{{title}}'? Lessons after it move up one place."
+  },
+  "actions": {
+    "extraClass": "Log extra class",
+    "downloadCsv": "Download CSV",
+    "copyToSection": "Copy to another section",
+    "addToLibrary": "Add to library",
+    "examMarker": "Set exam syllabus marker",
+    "changeOwner": "Change owner",
+    "deletePlan": "Delete plan",
+    "deleteConfirm": "Delete the plan for {{name}}? Recorded periods stay; the lesson list is removed."
+  },
+  "extra": {
+    "title": "Log an extra class",
+    "date": "Date",
+    "period": "Period",
+    "note": "Note",
+    "save": "Log extra class",
+    "taken": "This period is already recorded for this day.",
+    "isRoutine": "{{subject}} already has this period in the routine — mark it on My routine instead.",
+    "windowClosed": "Only an admin can record a day older than 7 days.",
+    "openMyRoutine": "Open My routine"
+  },
+  "copy": {
+    "title": "Copy to another section",
+    "section": "Section",
+    "save": "Copy",
+    "notYours": "You don't teach {{subject}} in that section.",
+    "exists": "That section already has a plan for this term."
+  },
+  "markers": {
+    "title": "Exam syllabus markers",
+    "exam": "Exam",
+    "upTo": "Up to lesson",
+    "row": "{{exam}} · up to lesson {{no}} '{{title}}'",
+    "remove": "Remove {{exam}} marker",
+    "add": "Add marker"
+  },
+  "owner": {
+    "title": "Change owner",
+    "explain": "By default the routine's teacher owns the plan.",
+    "routineTeacher": "Routine's teacher ({{names}})",
+    "specific": "A specific teacher"
+  },
+  "addToLibrary": {
+    "title": "Add to the template library",
+    "name": "Template name",
+    "done": "Added to the library.",
+    "open": "Open the library"
+  }
+}

@@ -153,7 +153,35 @@
     },
     "progressLabel": "{{total}}টির মধ্যে {{done}}টি বিষয়বস্তু সম্পন্ন",
     "noClassTitle": "এখনও কোনো শ্রেণিতে যুক্ত নয়",
-    "emptyTitle": "এখনও কোনো সিলেবাস নেই"
+    "emptyTitle": "এখনও কোনো সিলেবাস নেই",
+    "plan": {
+      "examTitle": "{{exam}}",
+      "examMeta": "{{date}} থেকে · সিলেবাসের কতটা পড়ানো হলো",
+      "examMetaNoDate": "সিলেবাসের কতটা পড়ানো হলো",
+      "teacher": "শিক্ষক: {{names}}",
+      "examRemaining": "বাকি {{count}}টি পাঠ {{date}}-এর মধ্যে শেষ হওয়ার কথা।",
+      "planFinish": "পুরো পরিকল্পনা {{date}}-এর মধ্যে শেষ হওয়ার কথা",
+      "notStarted": "এখনো শুরু হয়নি",
+      "lessonsOf": "{{done}}/{{total}}টি পাঠ",
+      "behind_one": "{{count}} পাঠ পিছিয়ে",
+      "behind_other": "{{count}} পাঠ পিছিয়ে",
+      "onTime": "সময়মতো",
+      "noPlan": "পাঠ পরিকল্পনা নেই",
+      "whereNow": "এখন কোথায়",
+      "lastTaught": "শেষ পড়ানো হয়েছে {{when}}",
+      "whyBehind": "কেন পিছিয়ে",
+      "whyBehindBody": "রুটিন অনুযায়ী এতদিনে আরও প্রায় {{lessons}}টি পাঠ এগোনোর কথা — {{periods}}টি পিরিয়ড পড়ানো হয়নি।",
+      "examBox": "{{exam}}-এর সিলেবাস: {{total}}টি পাঠ, {{taught}}টি পড়ানো হয়েছে",
+      "nextFive": "পরের ৫টি পাঠ",
+      "estimateNote": "তারিখগুলো আনুমানিক। ক্লাস বাতিল হলে বা ছুটি পড়লে পরের দিকে সরে যায়।",
+      "now": "এখন: পাঠ {{no}} · {{title}}",
+      "lastTaughtLesson": "পাঠ {{no}}: {{title}}",
+      "otherSubjects": "অন্য বিষয়",
+      "topicsOnly": "শুধু টপিক তালিকা আছে · {{total}}টির {{done}}টি সম্পন্ন",
+      "tomorrow": "কাল, {{date}}",
+      "today": "আজ, {{date}}",
+      "yesterday": "গতকাল, {{date}}"
+    }
   },
   "attendanceGrid": {
     "caption": "{{month}} {{year}}",
@@ -207,7 +235,9 @@
     "periodCount_other": "{{count}}টি পিরিয়ড",
     "until": "{{time}} পর্যন্ত",
     "substitute": "বদলি শিক্ষক",
-    "periodFallback": "পিরিয়ড"
+    "periodFallback": "পিরিয়ড",
+    "lesson": "পাঠ {{no}}: {{title}}",
+    "lessonPart": "{{of}}-এর {{part}} অংশ"
   },
   "payments": {
     "title": "সাম্প্রতিক পরিশোধ",
