@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, IsNull, LessThanOrEqual, Not, Repository } from 'typeorm';
@@ -69,8 +69,15 @@ export class TrialService {
         lock: { mode: 'for_no_key_update' },
       });
       if (!school) throw new NotFoundException('School not found');
+      // NULL = no trial: extending would start one, and the daily job would later suspend it.
+      if (!school.trial_ends_at) {
+        throw new ConflictException({
+          message: 'School has no trial to extend',
+          details: { code: 'NO_TRIAL' },
+        });
+      }
 
-      const base = Math.max(now.getTime(), school.trial_ends_at?.getTime() ?? 0);
+      const base = Math.max(now.getTime(), school.trial_ends_at.getTime());
       const wasExpired =
         school.status === SchoolStatus.SUSPENDED && school.status_reason === TRIAL_EXPIRED_REASON;
       const patch: Partial<School> = {

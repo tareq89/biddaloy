@@ -1,3 +1,4 @@
+import { ConflictException } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import { DataSource } from 'typeorm';
@@ -132,6 +133,18 @@ describe('TrialService (integration)', () => {
     expect(s.trial_ends_at!.getTime()).toBe(now.getTime() + 14 * DAY_MS);
     expect(s.onboarding?.trial_warnings).toEqual([]);
     expect(tenantStatus.invalidate).toHaveBeenCalledWith(id);
+  });
+
+  it('extend refuses a school with no trial (409 NO_TRIAL) and leaves it untouched', async () => {
+    const id = await newSchool(null);
+    const err = await trial
+      .extend(id, { days: 5, reason: 'x' }, { userId: null }, now)
+      .catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(ConflictException);
+    expect((err as ConflictException).getResponse()).toMatchObject({
+      details: { code: 'NO_TRIAL' },
+    });
+    expect((await load(id)).trial_ends_at).toBeNull();
   });
 
   it('extend does not reactivate a school suspended for another reason', async () => {
