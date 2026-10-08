@@ -210,6 +210,40 @@ export async function get<T>(
   return (await response.json()) as T;
 }
 
+/** `DELETE <path>` — for specs that clean up what they created (afterAll). */
+export async function del(
+  request: APIRequestContext,
+  session: ApiSession,
+  path: string,
+): Promise<void> {
+  const response = await request.delete(`/api/v1${path}`, {
+    headers: {
+      Authorization: `Bearer ${session.token}`,
+      'X-Tenant-ID': session.tenantId,
+    },
+  });
+  if (!response.ok()) {
+    throw new Error(`DELETE ${path} failed: ${response.status()} ${await response.text()}`);
+  }
+}
+
+/** [48] The demo school's seeded "First Term Exam" (`ensureSeatPlanDemoSeed`: a schedule and a
+ * published seat plan). `GET /exams` pages 10 rows by default, and other specs create exams, so
+ * ask for one big page. */
+export async function seededFirstTermExamId(
+  request: APIRequestContext,
+  session: ApiSession,
+): Promise<string> {
+  const exams = await get<{ data: { id: string; name: string }[] }>(
+    request,
+    session,
+    '/exams?limit=1000',
+  );
+  const exam = exams.data.find((e) => e.name === 'First Term Exam');
+  if (!exam) throw new Error('No seeded "First Term Exam" — has `yarn seed` run?');
+  return exam.id;
+}
+
 /** Students require a real class section (`class_section_id` is a
  * mandatory UUID) — build the academic-year → class → section chain
  * once per call. Unique names keep this idempotent-enough for a shared
