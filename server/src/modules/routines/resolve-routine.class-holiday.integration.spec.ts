@@ -4,7 +4,7 @@ import { DataSource } from 'typeorm';
 import { getDataSourceToken } from '@nestjs/typeorm';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
-import { SEED_TENANT_ID } from '@test/constants';
+import { SEED_TENANT_ID, SEED_ADMIN_USER_ID } from '@test/constants';
 import { PeriodSlotKind, RoutineState, SlotRecurrence } from '@biddaloy/shared';
 import { ResolveRoutineService } from './resolve-routine.service';
 import { CalendarModule } from '../calendar/calendar.module';
@@ -13,6 +13,9 @@ import { School } from '../schools/entities/school.entity';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { Class } from '../academics/entities/class.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
+import { Student } from '../students/entities/student.entity';
+import { Enrollment } from '../students/entities/enrollment.entity';
+import { RoutineSlotTeacher } from './entities/routine-slot-teacher.entity';
 import { Subject } from '../academics/entities/subject.entity';
 import { CalendarEvent } from '../calendar/entities/calendar-event.entity';
 import { CalendarEventClass } from '../calendar/entities/calendar-event-class.entity';
@@ -36,6 +39,8 @@ describe('ResolveRoutineService — class-scoped holidays (integration)', () => 
   let sectionA: string; // class "Nine"
   let sectionB: string; // class "Eleven"
   let classA: string;
+  let routineId: string;
+  let suffix: string; // makes class names unique per test
 
   beforeAll(async () => {
     const module = await createTestModule(
@@ -74,7 +79,7 @@ describe('ResolveRoutineService — class-scoped holidays (integration)', () => 
         { id: SEED_TENANT_ID },
         { settings: { version: 1, attendance: { weeklyOffDays: [] } } as never },
       );
-    const suffix = Math.random().toString(36).slice(2, 8);
+    suffix = Math.random().toString(36).slice(2, 8);
     const mk = async (name: string) => {
       const c = await ds
         .getRepository(Class)
@@ -102,14 +107,12 @@ describe('ResolveRoutineService — class-scoped holidays (integration)', () => 
       starts_at: '08:00:00',
       ends_at: '08:40:00',
     });
-    const subject = await ds
-      .getRepository(Subject)
-      .save({
-        tenant_id: SEED_TENANT_ID,
-        code: suffix,
-        name_en: `Sub ${suffix}`,
-        name_bn: 'বি',
-      });
+    const subject = await ds.getRepository(Subject).save({
+      tenant_id: SEED_TENANT_ID,
+      code: suffix,
+      name_en: `Sub ${suffix}`,
+      name_bn: 'বি',
+    });
     const routine = await ds.getRepository(Routine).save({
       tenant_id: SEED_TENANT_ID,
       academic_year_id: yearId,
@@ -117,6 +120,7 @@ describe('ResolveRoutineService — class-scoped holidays (integration)', () => 
       state: RoutineState.PUBLISHED,
       published_at: new Date(),
     });
+    routineId = routine.id;
     // One slot per weekday (Mon..Wed) for each section.
     for (const section_id of [sectionA, sectionB]) {
       for (const weekday of [1, 2, 3]) {
@@ -199,8 +203,64 @@ describe('ResolveRoutineService — class-scoped holidays (integration)', () => 
     });
     const classOfB = await ds
       .getRepository(Class)
-      .save({ name: 'Nine', academic_year_id: yearB.id, tenant_id: TENANT_B });
+      .save({ name: `Nine ${suffix}`, academic_year_id: yearB.id, tenant_id: TENANT_B });
     await holiday({ classIds: [classOfB.id], tenantId: TENANT_B, yearId: yearB.id });
     expect(await datesFor(sectionA)).toEqual(DAYS);
+  });
+
+  it('teacher teaching in both classes: the holiday day shows only the other class period', async () => {
+    const teacherId = (
+      await ds.query(
+        `WITH sp AS (
+           INSERT INTO staff_profiles (id, user_id, tenant_id, employee_id, created_at, updated_at)
+           VALUES (gen_random_uuid(), $1::uuid, $2::uuid, 'EMP-CH-66-' || $3::text, NOW(), NOW())
+           ON CONFLICT (user_id) DO UPDATE SET updated_at = NOW()
+           RETURNING id
+         )
+         INSERT INTO teachers (id, user_id, employee_id, designations, tenant_id, staff_profile_id, created_at, updated_at)
+         SELECT gen_random_uuid(), $1::uuid, 'CH-T-' || $3::text, '{}', $2::uuid, sp.id, NOW(), NOW() FROM sp
+         RETURNING id`,
+        [SEED_ADMIN_USER_ID, SEED_TENANT_ID, suffix],
+      )
+    )[0].id as string;
+    const slots = await ds.getRepository(RoutineSlot).find({ where: { routine_id: routineId } });
+    for (const slot of slots) {
+      await ds
+        .getRepository(RoutineSlotTeacher)
+        .save({ tenant_id: SEED_TENANT_ID, routine_slot_id: slot.id, teacher_id: teacherId });
+    }
+    await holiday({ classIds: [classA] });
+    const result = await service.resolveRoutine(
+      { teacher_id: teacherId, from: DAYS[0], to: DAYS[2] } as never,
+      SEED_TENANT_ID,
+      { role: 'ADMIN', userId: 'unused' },
+    );
+    const onHoliday = result.filter((r) => r.date === HOLIDAY);
+    expect(onHoliday.map((r) => r.section_id)).toEqual([sectionB]);
+    expect(result).toHaveLength(5);
+  });
+
+  it('student query: a student enrolled in the holiday class gets no period that day', async () => {
+    const student = await ds.getRepository(Student).save({
+      tenant_id: SEED_TENANT_ID,
+      full_name: 'CH Student',
+      registration_number: `CH-${Math.random().toString(36).slice(2, 8)}`,
+      roll_number: 1,
+      class_section_id: sectionA,
+    });
+    await ds.getRepository(Enrollment).save({
+      tenant_id: SEED_TENANT_ID,
+      student_id: student.id,
+      class_id: classA,
+      section_id: sectionA,
+      academic_year_id: yearId,
+    });
+    await holiday({ classIds: [classA] });
+    const result = await service.resolveRoutine(
+      { student_id: student.id, from: DAYS[0], to: DAYS[2] } as never,
+      SEED_TENANT_ID,
+      { role: 'ADMIN', userId: 'unused' },
+    );
+    expect(result.map((r) => r.date)).toEqual([DAYS[0], DAYS[2]]);
   });
 });
