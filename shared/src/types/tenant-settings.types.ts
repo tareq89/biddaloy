@@ -264,6 +264,15 @@ export interface DocumentsSettings {
   serialPrefix?: string;
 }
 
+/** `studyPlans.*` (66.1.01) — reminder and digest timing. */
+export interface StudyPlansSettings {
+  statusDeadline: string; // 'HH:mm', default '18:00'
+  reminderTime: string; // 'HH:mm', default '08:00'
+  escalateAfterSchoolDays: number; // default 2
+  weeklyDigestTime: string; // 'HH:mm', default '17:00'
+  guardianDigestSms: boolean; // default false (D26)
+}
+
 export interface TenantSettings {
   version: typeof TENANT_SETTINGS_SCHEMA_VERSION;
   region?: RegionSettings;
@@ -277,4 +286,5 @@ export interface TenantSettings {
   fees?: FeesSettings;
   evaluations?: EvaluationsSettings;
   documents?: DocumentsSettings;
+  studyPlans?: StudyPlansSettings;
 }
