@@ -72,6 +72,7 @@ import {
   type PrintHistoryDemoSeedPorts,
 } from './seed.util';
 import { ensureStudentLifecycleSeed } from './seed.lifecycle';
+import { ensureDocumentsSeed, type DocumentsSeedPorts } from './seed.documents';
 import { ensureEvaluationsSeed } from './seed.evaluations';
 import { AcrAssessment } from '../modules/acr/entities/acr-assessment.entity';
 import { AcrCriterion } from '../modules/acr/entities/acr-criterion.entity';
@@ -87,6 +88,8 @@ import { StudentLifecycleEvent } from '../modules/students/entities/student-life
 import { StudentNote } from '../modules/students/entities/student-note.entity';
 import { StudentPublicExam } from '../modules/students/entities/student-public-exam.entity';
 import { PrintTemplatesService } from '../modules/print/templates/print-templates.service';
+import { PrintTemplate } from '../modules/print/entities/print-template.entity';
+import { PrintJobItem } from '../modules/print/entities/print-job-item.entity';
 import { PrintJobsService } from '../modules/print/jobs/print-jobs.service';
 import { PrintHistoryService } from '../modules/print/jobs/print-history.service';
 import { StorageService } from '../modules/storage/storage.service';
@@ -286,6 +289,17 @@ export async function seed() {
       },
       school.id,
       lifecycleAdmin.id,
+    );
+
+    // [48.2.15] Default admit card / TC / testimonial / character templates + two issued certificates.
+    await ensureDocumentsSeed(
+      {
+        printTemplateRepository: dataSource.getRepository(PrintTemplate),
+        printJobItemRepository: dataSource.getRepository(PrintJobItem),
+        studentRepository: dataSource.getRepository(Student),
+      },
+      documentsPorts(app, school.id, lifecycleAdmin.id),
+      school.id,
     );
 
     // [28.1.4] Default ACR form, demo ACRs, survey, incidents, note rating.
@@ -759,5 +773,37 @@ function printPorts(
       return { job_id: again.job_id };
     },
     revokeItem: async (itemId, reason) => history.revoke(await caller(), itemId, reason),
+  };
+}
+
+/** [48.2.15] The real template + certificate-channel job calls, as ADMIN (who holds both permissions). */
+function documentsPorts(
+  app: INestApplicationContext,
+  schoolId: string,
+  adminId: string,
+): DocumentsSeedPorts {
+  const templates = app.get(PrintTemplatesService);
+  const jobs = app.get(PrintJobsService);
+  const caller = {
+    tenantId: schoolId,
+    userId: adminId,
+    role: 'ADMIN',
+    channel: 'CERTIFICATE' as const,
+  };
+  return {
+    createTemplate: (suggestionKey, name) =>
+      templates.create(schoolId, adminId, { name, suggestion_key: suggestionKey }),
+    publishTemplate: (id) => templates.publish(schoolId, adminId, id),
+    setDefaultTemplate: (id) => templates.setDefault(schoolId, adminId, id),
+    issueCertificate: async ({ templateId, studentId, issueValues }) => {
+      const job = await jobs.create(caller, {
+        template_id: templateId,
+        subject_type: 'STUDENT',
+        subject_ids: [studentId],
+        issue_values: issueValues,
+      });
+      return { job_id: job.job_id };
+    },
+    confirmJob: (jobId, failed) => jobs.confirm(caller, jobId, failed),
   };
 }

@@ -10,6 +10,28 @@ import { useTranslation } from '@biddaloy/ui/i18n';
 
 import { useDataUrls } from '../preview/use-data-urls';
 
+/** One order everywhere: ID cards, ACR, admit card, then the certificates. */
+export const PRINT_KIND_ORDER = [
+  DocumentKind.STUDENT_ID_CARD,
+  DocumentKind.STAFF_ID_CARD,
+  DocumentKind.ACR_ASSESSMENT,
+  DocumentKind.EXAM_ADMIT_CARD,
+  DocumentKind.TRANSFER_CERTIFICATE,
+  DocumentKind.TESTIMONIAL,
+  DocumentKind.CHARACTER_CERTIFICATE,
+  DocumentKind.STUDY_CERTIFICATE,
+  DocumentKind.PARTICIPATION_CERTIFICATE,
+  DocumentKind.RESULT_CERTIFICATE,
+  DocumentKind.MERIT_CERTIFICATE,
+] as const;
+
+const ID_CARDS: readonly string[] = [DocumentKind.STUDENT_ID_CARD, DocumentKind.STAFF_ID_CARD];
+
+/** ID cards are told apart by style and orientation; every other kind has a named design. */
+export const isIdCardSuggestion = (s: PrintSuggestion) => ID_CARDS.includes(s.documentKind);
+export const suggestionNameKey = (s: PrintSuggestion) =>
+  `suggestion.${s.nameKey.replace('print.suggestion.', '')}`;
+
 export interface SuggestionCardProps {
   suggestion: PrintSuggestion;
   selected: boolean;
@@ -24,7 +46,12 @@ export function SuggestionCard({ suggestion, selected, onSelect }: SuggestionCar
   const isAcr = suggestion.documentKind === DocumentKind.ACR_ASSESSMENT;
   const style = t(`style.${suggestion.style}`);
   const orientation = t(`orientation.${suggestion.orientation}`);
-  const label = isAcr ? t('suggestion.acrLabel') : `${style} · ${orientation}`;
+  const named = !isAcr && !isIdCardSuggestion(suggestion);
+  const label = isAcr
+    ? t('suggestion.acrLabel')
+    : named
+      ? t(suggestionNameKey(suggestion))
+      : `${style} · ${orientation}`;
 
   return (
     <button
@@ -38,7 +65,7 @@ export function SuggestionCard({ suggestion, selected, onSelect }: SuggestionCar
       {thumbnail ? (
         <img
           src={thumbnail}
-          alt={isAcr ? label : t('suggestion.alt', { style, orientation })}
+          alt={isAcr || named ? label : t('suggestion.alt', { style, orientation })}
           className="h-24 w-full rounded-md bg-muted object-contain"
         />
       ) : (

@@ -4,9 +4,9 @@ import { validateTemplateDefinition } from '@biddaloy/shared';
 import { ARTWORK_DIR, PRINT_SUGGESTIONS } from './suggestions';
 
 describe('PRINT_SUGGESTIONS', () => {
-  it('has 9 entries with unique keys', () => {
-    expect(PRINT_SUGGESTIONS).toHaveLength(9);
-    expect(new Set(PRINT_SUGGESTIONS.map((s) => s.key)).size).toBe(9);
+  it('has 25 entries with unique keys', () => {
+    expect(PRINT_SUGGESTIONS).toHaveLength(25);
+    expect(new Set(PRINT_SUGGESTIONS.map((s) => s.key)).size).toBe(25);
   });
 
   it.each(PRINT_SUGGESTIONS.map((s) => [s.key, s] as const))(
