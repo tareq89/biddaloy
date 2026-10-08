@@ -256,4 +256,35 @@ describe('print queue (integration)', () => {
     await ds.query(`UPDATE print_job_items SET revoked_at = now() WHERE id = $1`, [revoked]);
     expect(await counts(t, true)).toEqual({ STUDENT_ID_CARD: 2 });
   });
+
+  it('idCardQueue lists exactly the students the count counts, with has_photo', async () => {
+    const t = await tenant();
+    const [printedOk, revoked, waiting, withdrawn] = [
+      await student(t),
+      await student(t),
+      await student(t),
+      await student(t, 'INACTIVE'),
+    ];
+    await printed(t, 'STUDENT_ID_CARD', printedOk);
+    const r = await printed(t, 'STUDENT_ID_CARD', revoked);
+    await ds.query(`UPDATE print_job_items SET revoked_at = now() WHERE id = $1`, [r]);
+    await ds.query(`UPDATE students SET photo_key = 'k' WHERE id = $1`, [waiting]);
+
+    const res = await history.idCardQueue(t.id, {});
+    expect(res.data.map((d: any) => d.student_id).sort()).toEqual([revoked, waiting].sort());
+    expect(res.data.map((d: any) => d.student_id)).not.toContain(withdrawn);
+    expect(res.total).toBe(2);
+    expect((await counts(t, true)).STUDENT_ID_CARD).toBe(2);
+    const row = (id: string) => res.data.find((d: any) => d.student_id === id);
+    expect(row(waiting).has_photo).toBe(true);
+    expect(row(revoked).has_photo).toBe(false);
+    expect(row(waiting)).toMatchObject({ class_name: 'Class 8', section_name: 'A' });
+    expect(row(waiting).admitted_on).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(await history.idCardQueue(t.id, { page: 2, limit: 1 })).toMatchObject({
+      total: 2,
+      totalPages: 2,
+    });
+    const other = await tenant();
+    expect((await history.idCardQueue(other.id, {})).total).toBe(0);
+  });
 });

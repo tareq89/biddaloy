@@ -27,6 +27,7 @@ import { PrintJobsService } from './print-jobs.service';
 import { PrintHistoryService } from './print-history.service';
 import {
   ConfirmPrintJobDto,
+  QueryIdCardQueueDto,
   QueryPrintHistoryDto,
   QueryRegisterDto,
   ReprintPrintJobDto,
@@ -121,6 +122,16 @@ export class PrintHistoryController {
   })
   queue(@CurrentTenant() tenant: Tenant, @CurrentUser() user: JwtPayload) {
     return this.history.queue(caller(tenant, user));
+  }
+
+  // Declared before `items/:id`.
+  @Get('queue/id-cards')
+  @RequirePermissions(Permission.DOCUMENT_PRINT)
+  @ApiOperation({
+    summary: 'Active students still waiting for an ID card (matches the queue count).',
+  })
+  idCardQueue(@Query() q: QueryIdCardQueueDto, @CurrentTenant() tenant: Tenant) {
+    return this.history.idCardQueue(tenant.id, q);
   }
 
   // Declared before `items/:id`.

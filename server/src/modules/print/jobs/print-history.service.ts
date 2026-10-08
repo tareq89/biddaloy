@@ -55,6 +55,16 @@ const REGISTER_ORDER = `ORDER BY i.serial_year DESC, i.document_kind, i.serial_n
 
 type QueueExam = { exam_id: string; exam_name: string; class_name: string; missing: number };
 
+/** A copy counts as printed unless it is revoked or its outcome is FAILED. `$1` is the tenant. */
+const printedExists = (kind: string, subject: string, context: string) => `
+      EXISTS (SELECT 1 FROM print_job_items i
+               WHERE i.tenant_id = $1 AND i.document_kind = '${kind}' AND i.subject_id = ${subject}
+                 ${context} AND i.revoked_at IS NULL AND i.outcome <> 'FAILED')`;
+
+/** One rule for "waiting for an ID card", shared by the count and the list so they cannot disagree. */
+const ID_CARD_WAITING = `s.tenant_id = $1 AND s.deleted_at IS NULL AND s.enrollment_status = 'ACTIVE'
+            AND NOT ${printedExists('STUDENT_ID_CARD', 's.id', '')}`;
+
 const escapeLike = (v: string) => v.replace(/[\\%_]/g, (c) => `\\${c}`);
 
 @Injectable()
@@ -73,10 +83,7 @@ export class PrintHistoryService {
     by_kind: { kind: string; count: number }[];
     exams: QueueExam[];
   }> {
-    const printed = (kind: string, subject: string, context: string) => `
-      EXISTS (SELECT 1 FROM print_job_items i
-               WHERE i.tenant_id = $1 AND i.document_kind = '${kind}' AND i.subject_id = ${subject}
-                 ${context} AND i.revoked_at IS NULL AND i.outcome <> 'FAILED')`;
+    const printed = printedExists;
     const [exams, idCards]: [QueueExam[], { n: number }[]] = await Promise.all([
       // Exams with a PUBLISHED seat-plan sitting that are not over yet; missing = ACTIVE students with no good card.
       this.ds.query(
@@ -106,12 +113,9 @@ export class PrintHistoryService {
          ) q WHERE q.missing > 0 ORDER BY q.first_date, q.exam_name, q.exam_id`,
         [tenantId, todayInSchoolTz()],
       ),
-      this.ds.query(
-        `SELECT count(*)::int AS n FROM students s
-          WHERE s.tenant_id = $1 AND s.deleted_at IS NULL AND s.enrollment_status = 'ACTIVE'
-            AND NOT ${printed('STUDENT_ID_CARD', 's.id', '')}`,
-        [tenantId],
-      ),
+      this.ds.query(`SELECT count(*)::int AS n FROM students s WHERE ${ID_CARD_WAITING}`, [
+        tenantId,
+      ]),
     ]);
     const admit = exams.reduce((n, e) => n + e.missing, 0);
     const id = idCards[0].n;
@@ -124,6 +128,40 @@ export class PrintHistoryService {
       by_kind,
       exams,
     };
+  }
+
+  /**
+   * The students behind the ID-card count (same WHERE). `admitted_on` is the first enrollment
+   * date (same source as the certificate resolver), falling back to the row's creation day (Dhaka).
+   */
+  async idCardQueue(tenantId: string, q: { page?: number; limit?: number }) {
+    const page = q.page || 1;
+    const limit = q.limit || 50;
+    const [data, count] = await Promise.all([
+      this.ds.query(
+        `SELECT s.id AS student_id, s.full_name, s.registration_number,
+                c.name AS class_name, cs.section_name,
+                a.admitted_on,
+                (s.photo_key IS NOT NULL) AS has_photo
+           FROM students s
+           JOIN class_sections cs ON cs.id = s.class_section_id AND cs.tenant_id = $1
+           JOIN classes c ON c.id = cs.class_id AND c.tenant_id = $1
+          CROSS JOIN LATERAL (
+                SELECT coalesce(
+                  (SELECT to_char(min(e0.enrolled_at), 'YYYY-MM-DD') FROM enrollments e0
+                    WHERE e0.student_id = s.id AND e0.tenant_id = s.tenant_id),
+                  to_char(s.created_at AT TIME ZONE 'Asia/Dhaka', 'YYYY-MM-DD')) AS admitted_on) a
+          WHERE ${ID_CARD_WAITING}
+          ORDER BY a.admitted_on DESC, s.full_name, s.id
+          LIMIT $2 OFFSET $3`,
+        [tenantId, limit, (page - 1) * limit],
+      ),
+      this.ds.query(`SELECT count(*)::int AS n FROM students s WHERE ${ID_CARD_WAITING}`, [
+        tenantId,
+      ]),
+    ]);
+    const total = count[0].n as number;
+    return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
 
   queue(caller: PrintCaller) {
@@ -170,6 +208,7 @@ export class PrintHistoryService {
     };
     if (q.document_kind) add((n) => `i.document_kind = ${n}`, q.document_kind);
     if (q.year) add((n) => `i.serial_year = ${n}`, q.year);
+    if (q.subject_id) add((n) => `i.subject_id = ${n}`, q.subject_id);
     if (q.status === 'VALID') clauses.push('i.revoked_at IS NULL');
     if (q.status === 'REVOKED') clauses.push('i.revoked_at IS NOT NULL');
     if (q.q) {

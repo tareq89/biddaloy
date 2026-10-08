@@ -239,6 +239,7 @@ describe('print history (integration)', () => {
       revoke?: string;
       tenant?: string;
       job?: string;
+      subject?: string;
     }) => {
       const no = o.serialNo ?? null;
       const serial =
@@ -252,7 +253,7 @@ describe('print history (integration)', () => {
           o.tenant ?? tenantId,
           o.job ?? jobId,
           o.kind,
-          randomUUID(),
+          o.subject ?? randomUUID(),
           o.label ?? 'Someone',
           no,
           o.serialYear ?? null,
@@ -298,6 +299,16 @@ describe('print history (integration)', () => {
       expect((await history.register(admin(), { document_kind: 'TESTIMONIAL' } as any)).total).toBe(
         3,
       );
+    });
+
+    it("subject_id lists only that student's copies (two documents), CSV too", async () => {
+      await item({ kind: 'TESTIMONIAL', serialNo: 1, serialYear: 2026, subject: studentA });
+      await item({ kind: 'TESTIMONIAL', serialNo: 3, serialYear: 2026, subject: studentA });
+      await item({ kind: 'TESTIMONIAL', serialNo: 2, serialYear: 2026, subject: studentB });
+      const q = { subject_id: studentA } as any;
+      expect((await history.register(admin(), q)).total).toBe(2);
+      expect(await history.registerCsvRows(admin(), q)).toHaveLength(2);
+      expect((await history.register(admin(), {} as any)).total).toBe(3);
     });
 
     it('status=REVOKED lists only revoked copies with their reason; VALID the rest', async () => {

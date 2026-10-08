@@ -14,6 +14,7 @@ import {
   SEED_ADMIN_PASSWORD,
   SEED_ADMIN_PASSWORD_HASH,
 } from '@test/constants';
+import { StorageService } from '../../storage/storage.service';
 import { RESOLVERS } from '../catalog/field-resolver';
 
 /**
@@ -387,6 +388,94 @@ describe('Certificates E2E (48.2.04)', () => {
         .post(`${API}/print-jobs`)
         .set(as('ADMIN'))
         .send(body(admitTpl, [studentA], { context_type: 'EXAM', context_id: randomUUID() }))
+        .expect(404);
+    });
+  });
+
+  describe('issue-modal reads', () => {
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg"/>';
+    let assetId: string;
+    let tenant2Asset: string;
+
+    async function artwork(tenantId: string) {
+      const key = `tenants/${tenantId}/print-assets/${randomUUID()}.svg`;
+      await app.get(StorageService).put(key, Buffer.from(svg), 'image/svg+xml');
+      const [a] = await ds.query(
+        `INSERT INTO print_assets (tenant_id, asset_kind, storage_key, content_type, byte_size, original_name)
+         VALUES ($1, 'ARTWORK', $2, 'image/svg+xml', $3, 'bg.svg') RETURNING id`,
+        [tenantId, key, svg.length],
+      );
+      return a.id as string;
+    }
+    beforeEach(async () => {
+      assetId = await artwork(SEED_TENANT_ID);
+      tenant2Asset = await artwork(tenant2Id);
+    });
+
+    const reads = () => [
+      `${API}/certificates/templates?document_kind=TESTIMONIAL`,
+      `${API}/certificates/printers`,
+      `${API}/certificates/assets`,
+      `${API}/certificates/assets/${assetId}/file`,
+    ];
+    const ALLOWED = ['SUPER_ADMIN', 'ADMIN', 'EXECUTIVE', 'OFFICE_STAFF'];
+
+    it('role matrix: EXECUTIVE gets 200 on all four reads', async () => {
+      for (const role of ROLES) {
+        for (const u of reads()) {
+          await http()
+            .get(u)
+            .set(as(role))
+            .expect(status(ALLOWED.includes(role) ? 200 : 403));
+        }
+      }
+    });
+
+    it('templates: other kinds 400; unpublished and archived are not listed', async () => {
+      await http()
+        .get(`${API}/certificates/templates?document_kind=STUDENT_ID_CARD`)
+        .set(as('ADMIN'))
+        .expect(400);
+      await http().get(`${API}/certificates/templates`).set(as('ADMIN')).expect(400);
+      const [unpublished] = await ds.query(
+        `INSERT INTO print_templates (tenant_id, document_kind, name, batch_size, draft)
+         VALUES ($1, 'TESTIMONIAL', 'Unpublished', 50, '{}'::jsonb) RETURNING id`,
+        [SEED_TENANT_ID],
+      );
+      const archived = await publishedTemplate(SEED_TENANT_ID, 'TESTIMONIAL');
+      await ds.query(`UPDATE print_templates SET archived_at = now() WHERE id = $1`, [archived]);
+      const res = await http()
+        .get(`${API}/certificates/templates?document_kind=TESTIMONIAL`)
+        .set(as('EXECUTIVE'))
+        .expect(200);
+      const ids = res.body.map((r: any) => r.id);
+      expect(ids).toEqual([testimonialTpl]);
+      expect(ids).not.toContain(unpublished.id);
+      expect(ids).not.toContain(archived);
+      expect(ids).not.toContain(tenant2Tpl);
+      expect(Object.keys(res.body[0]).sort()).toEqual([
+        'current_version_id',
+        'id',
+        'is_default',
+        'name',
+      ]);
+    });
+
+    it('asset file: bytes with the sandbox CSP; 404 across tenants', async () => {
+      const res = await http()
+        .get(`${API}/certificates/assets/${assetId}/file`)
+        .set(as('EXECUTIVE'))
+        .expect(200);
+      expect(res.headers['content-security-policy']).toContain('sandbox');
+      expect(res.headers['x-content-type-options']).toBe('nosniff');
+      expect(res.headers['content-type']).toContain('image/svg+xml');
+      await http()
+        .get(`${API}/certificates/assets/${assetId}/file`)
+        .set({ Authorization: `Bearer ${tenant2Token}`, 'X-Tenant-ID': tenant2Id })
+        .expect(404);
+      await http()
+        .get(`${API}/certificates/assets/${tenant2Asset}/file`)
+        .set(as('ADMIN'))
         .expect(404);
     });
   });
