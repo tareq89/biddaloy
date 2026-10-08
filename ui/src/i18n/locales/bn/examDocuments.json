@@ -5,7 +5,8 @@
     "inHall": "পরীক্ষার হলে",
     "inHallHint": "{{rooms}}টি কক্ষ · {{sittings}}টি সিটিং",
     "after": "ফলের পর",
-    "afterHint": "ফল প্রক্রিয়া ও প্রকাশ হলে এগুলো খুলবে"
+    "afterHint": "ফল প্রক্রিয়া ও প্রকাশ হলে এগুলো খুলবে",
+    "beforeHintPlain": "প্রবেশপত্র ও পরীক্ষার রুটিন"
   },
   "admitCard": {
     "title": "প্রবেশপত্র",
@@ -14,17 +15,19 @@
     "examinees": "পরীক্ষার্থী",
     "printed": "প্রিন্ট হয়েছে",
     "remaining": "বাকি",
-    "dues": "{{count}} জনের বকেয়া আছে। তালিকায় তাদের পাশে চিহ্ন থাকবে, তবুও প্রিন্ট করা যাবে।",
+    "dues": "{{n}} জনের বকেয়া আছে। তালিকায় তাদের পাশে চিহ্ন থাকবে, তবুও প্রিন্ট করা যাবে।",
     "duesLink": "কারা, দেখুন",
     "action": "প্রবেশপত্র প্রিন্ট করুন"
   },
   "admitPicker": {
     "title": "কোন প্রবেশপত্র?",
-    "all": "সবাই ({{count}})",
-    "remaining": "শুধু বাকিরা ({{count}})",
+    "all": "সবাই ({{n}})",
+    "remaining": "শুধু বাকিরা ({{n}})",
     "section": "একটি শাখা",
     "sectionLabel": "শাখা",
-    "next": "প্রিভিউ"
+    "next": "প্রিভিউ",
+    "sectionPlaceholder": "শাখা বাছুন",
+    "groupLabel": "কোন প্রবেশপত্র"
   },
   "routine": {
     "title": "পরীক্ষার রুটিন নোটিশ",
@@ -83,23 +86,27 @@
     "scopeClass": "শ্রেণির মেধাস্থান",
     "scopeSection": "শাখার মেধাস্থান",
     "top": "সেরা",
-    "count_other": "{{count}} জন",
-    "count_one": "{{count}} জন",
-    "continue": "এগিয়ে যান"
+    "count_other": "{{n}} জন",
+    "count_one": "{{n}} জন",
+    "continue": "এগিয়ে যান",
+    "topLabel": "সেরা কত জন (১–৫০)",
+    "none": "কোনো শিক্ষার্থী পাওয়া যায়নি।"
   },
   "unavailable": {
     "noSeatPlan": "এখনো কোনো সিট প্ল্যান প্রকাশ হয়নি।",
     "noSchedule": "পরীক্ষার সময়সূচি এখনো নেই।",
     "notProcessed": "ফল এখনো প্রক্রিয়া হয়নি।",
     "notPublished": "ফল এখনো প্রকাশ হয়নি।",
-    "noTemplate": "এই কাগজের কোনো প্রকাশিত টেমপ্লেট নেই।"
+    "noTemplate": "এই কাগজের কোনো প্রকাশিত টেমপ্লেট নেই।",
+    "noComponents": "নম্বর বিভাজন এখনো করা হয়নি।"
   },
   "fix": {
     "makeSeatPlan": "সিট প্ল্যান তৈরি করুন",
     "addSchedule": "সময়সূচি যোগ করুন",
     "seeProgress": "অগ্রগতি দেখুন",
     "goToResults": "ফলাফল ট্যাবে যান",
-    "createTemplate": "টেমপ্লেট তৈরি করুন"
+    "createTemplate": "টেমপ্লেট তৈরি করুন",
+    "addComponents": "নম্বর বিভাজন করুন"
   },
   "page": {
     "print": "প্রিন্ট করুন",
@@ -153,5 +160,7 @@
     "examController": "পরীক্ষা নিয়ন্ত্রক",
     "headTeacher": "প্রধান শিক্ষক",
     "invigilator": "পরিদর্শক"
-  }
+  },
+  "sectionLabel": "শাখা",
+  "sectionPlaceholder": "শাখা বাছুন"
 }

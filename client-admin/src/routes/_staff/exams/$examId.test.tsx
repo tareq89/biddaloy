@@ -115,7 +115,9 @@ describe('/exams/$examId', () => {
     expect(screen.queryByRole('button', { name: 'Reopen' })).toBeNull();
     // Nothing on the page is a red filled button.
     expect(
-      screen.queryAllByRole('button').filter((b) => b.getAttribute('data-variant') === 'destructive'),
+      screen
+        .queryAllByRole('button')
+        .filter((b) => b.getAttribute('data-variant') === 'destructive'),
     ).toHaveLength(0);
 
     await user.click(screen.getByRole('button', { name: 'More actions' }));
@@ -156,9 +158,24 @@ describe('/exams/$examId', () => {
     await screen.findByRole('heading', { name: 'Half Yearly 2026' });
     expect(screen.queryByRole('button', { name: 'Reopen' })).toBeNull();
     expect(
-      screen.queryAllByRole('button').filter((b) => b.getAttribute('data-variant') === 'destructive'),
+      screen
+        .queryAllByRole('button')
+        .filter((b) => b.getAttribute('data-variant') === 'destructive'),
     ).toHaveLength(0);
     await user.click(await screen.findByRole('button', { name: 'More actions' }));
     expect(await screen.findByRole('menuitem', { name: 'Reopen' })).toBeTruthy();
+  });
+
+  it('shows the Print tab to a DOCUMENT_PRINT holder and ?tab=print opens it', async () => {
+    renderExam('PUBLISHED', '/exams/exam-1?tab=print');
+    const tab = await screen.findByRole('tab', { name: 'Print' });
+    expect(tab.getAttribute('aria-selected')).toBe('true');
+  });
+
+  it('hides the Print tab without DOCUMENT_PRINT', async () => {
+    grant.only = new Set(['EXAM_MANAGE', 'EXAM_READ']);
+    renderExam('PUBLISHED');
+    await screen.findByRole('heading', { name: 'Half Yearly 2026' });
+    expect(screen.queryByRole('tab', { name: 'Print' })).toBeNull();
   });
 });

@@ -16,6 +16,10 @@ export interface DocumentCardProps {
   action: { label: string; onClick?: () => void; href?: string; primary?: boolean };
   unavailable?: { reason: string; fixLabel: string; fixHref: string };
   meta?: string;
+  /** Extra content between the text and the button (numbers, a warning, a section picker). */
+  children?: React.ReactNode;
+  /** Extra classes on the card, e.g. a grid span. */
+  className?: string;
   /** Pick the level that fits the page outline; looks the same at every level. */
   headingLevel?: 'h2' | 'h3' | 'h4';
 }
@@ -26,6 +30,8 @@ export function DocumentCard({
   action,
   unavailable,
   meta,
+  children,
+  className,
   headingLevel: Heading = 'h3',
 }: DocumentCardProps) {
   const id = React.useId();
@@ -37,13 +43,14 @@ export function DocumentCard({
     <section
       data-slot="document-card"
       aria-labelledby={titleId}
-      className="flex flex-col rounded-lg border border-border-subtle bg-surface p-4 shadow-e1 md:p-5"
+      className={`flex flex-col rounded-lg border border-border-subtle bg-surface p-4 shadow-e1 md:p-5 ${className ?? ''}`}
     >
       <Heading id={titleId} className="text-h2">
         {title}
       </Heading>
       <p className="mt-1 text-text-secondary">{description}</p>
       {meta ? <p className="mt-1 text-caption text-text-secondary">{meta}</p> : null}
+      {children}
       <div className="mt-4 flex flex-col items-start gap-2">
         {unavailable ? (
           <>

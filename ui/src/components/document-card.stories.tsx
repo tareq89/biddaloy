@@ -28,3 +28,11 @@ export const Unavailable: Story = {
     },
   },
 };
+
+export const WithExtraContent: Story = {
+  args: {
+    title: 'Admit cards',
+    action: { label: 'Print admit cards', primary: true },
+    children: <p className="mt-3 text-caption">128 examinees · 34 printed · 94 remaining</p>,
+  },
+};

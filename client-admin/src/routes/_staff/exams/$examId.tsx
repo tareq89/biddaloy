@@ -24,6 +24,7 @@ import { z } from 'zod';
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 
 import { ComponentsPanel } from './-detail/components-panel';
+import { PrintPanel } from './-detail/print-panel';
 import { ProgressPanel } from './-detail/progress-panel';
 import { ResultsPanel } from './-detail/results-panel';
 import { SchedulePanel } from './-detail/schedule-panel';
@@ -42,13 +43,13 @@ export const Route = createFileRoute('/_staff/exams/$examId')({
   loader: ({ context: { queryClient }, params }) =>
     Promise.all([
       queryClient.ensureQueryData(examQueryOptions(params.examId)).catch(swallowUnlessOffline),
-      loadRouteNamespaces('exams', 'common', 'examsTemplateField', 'grading'),
+      loadRouteNamespaces('exams', 'common', 'examsTemplateField', 'grading', 'examDocuments'),
     ]),
   pendingComponent: ExamDetailPending,
   component: ExamDetailPage,
 });
 
-const TAB_IDS = ['progress', 'setup', 'schedule', 'results'] as const;
+const TAB_IDS = ['progress', 'setup', 'schedule', 'results', 'print'] as const;
 
 function ExamDetailPage() {
   const { examId } = Route.useParams();
@@ -59,15 +60,14 @@ function ExamDetailPage() {
   const classQuery = useClass(exam?.class_id);
   const yearQuery = useAcademicYear(exam?.academic_year_id);
   const canManage = useHasPermission(Permission.EXAM_MANAGE);
+  const canPrint = useHasPermission(Permission.DOCUMENT_PRINT);
   const resultActions = useResultActions(examId, exam?.status);
   const [activeTab, setActiveTab] = useDetailShellTab(TAB_IDS);
   const [editOpen, setEditOpen] = React.useState(false);
 
   if (examQuery.isPending) return <ExamHeaderSkeleton />;
   if (examQuery.isError || !exam) {
-    return (
-      <ErrorState message={t('detail.loadError')} onRetry={() => void examQuery.refetch()} />
-    );
+    return <ErrorState message={t('detail.loadError')} onRetry={() => void examQuery.refetch()} />;
   }
 
   // A fact still loading shows a bar, never the id.
@@ -102,7 +102,9 @@ function ExamDetailPage() {
           // A lone destructive action stays inline in PageHeader; without the edit item (no
           // EXAM_MANAGE) Reopen would be a red inline button, so it goes to More as a plain item.
           ...resultActions.actions.map((a) =>
-            !canManage && a.priority === 'destructive' ? { ...a, priority: 'tertiary' as const } : a,
+            !canManage && a.priority === 'destructive'
+              ? { ...a, priority: 'tertiary' as const }
+              : a,
           ),
           {
             id: 'edit',
@@ -149,6 +151,15 @@ function ExamDetailPage() {
             // No `examStatus`: the header already holds the actions.
             content: <ResultsPanel examId={examId} />,
           },
+          ...(canPrint
+            ? [
+                {
+                  id: 'print',
+                  label: t('detail.tabs.print'),
+                  content: <PrintPanel examId={examId} />,
+                },
+              ]
+            : []),
         ]}
       />
       {resultActions.dialogs}
