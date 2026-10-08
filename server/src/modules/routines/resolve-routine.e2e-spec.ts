@@ -134,4 +134,55 @@ describe('Routine resolver honours class-scoped holidays (e2e)', () => {
       .set('Authorization', `Bearer ${adminToken}`)
       .expect(401);
   });
+
+  describe('roles on /routines/resolve (pinned, unchanged behaviour)', () => {
+    // The seeded admin user also acts as each role through X-Role.
+    const OTHER_TENANT = '00000000-0000-4000-8000-0000000066e2';
+    const actAs = async (role: UserRole, tenantId = SEED_TENANT_ID) => {
+      await ds.query(
+        `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
+         VALUES ($1, $2, $3, NOW(), NOW()) ON CONFLICT DO NOTHING`,
+        [SEED_ADMIN_USER_ID, tenantId, role],
+      );
+      // Log in again so the token carries the membership just added.
+      const login = await supertest(app.getHttpServer())
+        .post(`${API}/auth/login`)
+        .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
+        .expect(200);
+      return supertest(app.getHttpServer())
+        .get(`${API}/routines/resolve`)
+        .query({ section_id: SEED_SECTION_2_ID, from: DAY, to: DAY })
+        .set('Authorization', `Bearer ${login.body.access_token}`)
+        .set('X-Tenant-ID', tenantId)
+        .set('X-Role', role);
+    };
+
+    for (const role of [
+      UserRole.ADMIN,
+      UserRole.EXECUTIVE,
+      UserRole.TEACHER,
+      UserRole.PARENT,
+      UserRole.STUDENT,
+    ]) {
+      it(`${role} gets 200`, async () => {
+        await actAs(role).then((res) => expect(res.status).toBe(200));
+      });
+    }
+
+    it('COMMITTEE gets 403', async () => {
+      await actAs(UserRole.COMMITTEE).then((res) => expect(res.status).toBe(403));
+    });
+
+    it('tenant-2 admin asking for a tenant-1 section sees nothing of tenant 1', async () => {
+      await seed();
+      await ds.query(
+        `INSERT INTO schools (id, name, slug, created_at, updated_at)
+         VALUES ($1, 'E2E Other', 'e2e-other-66', NOW(), NOW()) ON CONFLICT DO NOTHING`,
+        [OTHER_TENANT],
+      );
+      const res = await actAs(UserRole.ADMIN, OTHER_TENANT);
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual([]);
+    });
+  });
 });
