@@ -159,9 +159,38 @@ describe('Print queue E2E (48.2.07)', () => {
       .expect(200);
     expect(after.body).toEqual(before.body);
 
+    // The ID-card list is scoped the same way.
+    const idUrl = `${API}/print-history/queue/id-cards`;
+    const otherList = await http()
+      .get(idUrl)
+      .set({ Authorization: `Bearer ${otherAdminToken}`, 'X-Tenant-ID': otherTenantId })
+      .expect(200);
+    expect(otherList.body.total).toBe(2);
+    expect(otherList.body.data[0]).toHaveProperty('has_photo', false);
+    const ownList = await http().get(idUrl).set(as(UserRole.ADMIN)).expect(200);
+    expect(ownList.body.total).toBe(
+      before.body.by_kind.find((k: any) => k.kind === 'STUDENT_ID_CARD')?.count ?? 0,
+    );
+
     await http()
       .get(`${API}/print-history/queue`)
       .set({ Authorization: `Bearer ${tokens[UserRole.ADMIN]}` })
       .expect(401);
+  });
+
+  describe('GET /print-history/queue/id-cards', () => {
+    const url = `${API}/print-history/queue/id-cards`;
+
+    it('role matrix', async () => {
+      for (const role of ALLOWED) {
+        const res = await http().get(url).set(as(role)).expect(200);
+        expect(res.body).toEqual(
+          expect.objectContaining({ data: expect.any(Array), total: expect.any(Number) }),
+        );
+      }
+      for (const role of DENIED) {
+        await http().get(url).set(as(role)).expect(403);
+      }
+    });
   });
 });

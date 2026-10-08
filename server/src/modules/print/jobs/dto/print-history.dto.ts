@@ -16,7 +16,11 @@ import {
   Min,
   MinLength,
 } from 'class-validator';
-import { CERTIFICATE_SERIAL_CODE, PRINT_BATCH_CEILING } from '@biddaloy/shared';
+import {
+  CERTIFICATE_SERIAL_CODE,
+  PRINT_BATCH_CEILING,
+  STUDENT_CERTIFICATE_KINDS,
+} from '@biddaloy/shared';
 
 export class ConfirmPrintJobDto {
   @ApiProperty({
@@ -125,6 +129,10 @@ export class QueryRegisterDto {
   @Min(2000)
   @Max(2100)
   year?: number;
+  @ApiPropertyOptional({ description: 'Only copies issued to this student' })
+  @IsOptional()
+  @IsUUID()
+  subject_id?: string;
   @ApiPropertyOptional({ enum: ['VALID', 'REVOKED'] })
   @IsOptional()
   @IsIn(['VALID', 'REVOKED'])
@@ -149,4 +157,26 @@ export class QueryRegisterDto {
   @Min(1)
   @Max(100)
   limit?: number;
+}
+
+export class QueryIdCardQueueDto {
+  @ApiPropertyOptional({ default: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number;
+  @ApiPropertyOptional({ default: 50 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit?: number;
+}
+
+export class CertificateTemplatesQueryDto {
+  @ApiProperty({ enum: STUDENT_CERTIFICATE_KINDS })
+  @IsIn([...STUDENT_CERTIFICATE_KINDS])
+  document_kind: string;
 }
