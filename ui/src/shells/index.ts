@@ -32,6 +32,7 @@ export {
 } from './detail-shell';
 export { useDetailShellTab } from './use-detail-shell-tab';
 export { WizardShell, type WizardShellProps, type WizardStep } from './wizard-shell';
+export { StepIndicator, type StepIndicatorProps } from './step-indicator';
 export { useWizardShellStep } from './use-wizard-shell-step';
 export {
   FormShell,
