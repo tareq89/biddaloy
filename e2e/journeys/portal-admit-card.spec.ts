@@ -1,4 +1,4 @@
-import type { APIRequestContext } from '@playwright/test';
+import type { APIRequestContext, Page } from '@playwright/test';
 
 import { type ApiSession, adminApiSession, get, patch } from '../api';
 import { expect, loggedIn, test } from '../fixtures/test';
@@ -11,6 +11,13 @@ import { t } from '../i18n';
  */
 
 test.describe.configure({ mode: 'serial' });
+
+/** Other journeys link more children to the shared parent: pick the seeded one with the exam. */
+async function openSeededChild(page: Page) {
+  await page.goto('/portal/exam-schedule');
+  const picker = page.getByRole('link', { name: /Nusrat Jahan.*Class 6 A/ });
+  if (await picker.count()) await picker.first().click();
+}
 
 async function withholdForDues(request: APIRequestContext, session: ApiSession, on: boolean) {
   const path = `/schools/${session.tenantId}/settings`;
@@ -26,7 +33,7 @@ test.describe('Parent sees the admit card button', () => {
 
   test('the print button is there and at least 44px tall on a phone', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto('/portal/exam-schedule');
+    await openSeededChild(page);
     const print = page.getByRole('button', { name: t('portal.examSchedule.admitCard.print') });
     await expect(print.first()).toBeVisible();
     const box = await print.first().boundingBox();
@@ -47,7 +54,7 @@ test.describe('Dues withhold the admit card', () => {
   }) => {
     await withholdForDues(request, await adminApiSession(request), true);
 
-    await page.goto('/portal/exam-schedule');
+    await openSeededChild(page);
     const withheld = page.getByRole('heading', {
       name: t('portal.examSchedule.admitCard.withheldTitle'),
     });
