@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Repository } from 'typeorm';
+import { In, IsNull, Repository } from 'typeorm';
 import sharp, { type Metadata } from 'sharp';
 import { AuditAction, PrintAssetKind } from '@biddaloy/shared';
 import { PrintAsset } from '../entities/print-asset.entity';
@@ -9,6 +9,22 @@ import { tenantObjectKey } from '../../storage/storage-key';
 import { AuditService } from '../../audit/audit.service';
 import { sanitizePrintSvg } from './svg-sanitize';
 import { sniffFont } from './font-sniff';
+
+/** Every string under `key` in a (JSON) template definition; same walk as the client's print preview. */
+function collectValues(value: unknown, key: string, into = new Set<string>()): Set<string> {
+  if (Array.isArray(value)) value.forEach((v) => collectValues(v, key, into));
+  else if (value !== null && typeof value === 'object') {
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      if (k === key && typeof v === 'string') into.add(v);
+      else collectValues(v, key, into);
+    }
+  }
+  return into;
+}
+
+/** Artwork and font ids a template definition uses. */
+export const assetIdsOf = (definition: unknown) =>
+  collectValues(definition, 'fontAssetId', collectValues(definition, 'assetId'));
 
 const MB = 1024 * 1024;
 export const PRINT_ASSET_UPLOAD_LIMIT = 20 * MB;
@@ -41,6 +57,13 @@ interface Prepared {
 /** [32.2.2] Print asset upload/list/serve/archive. Content is sniffed; the
  * client mimetype is never read. Assets are archived, never deleted —
  * published template versions may reference the object. */
+function kindWhere(kind?: string) {
+  if (kind !== undefined && !Object.values(PrintAssetKind).includes(kind as PrintAssetKind)) {
+    throw new BadRequestException('kind must be ARTWORK, IMAGE or FONT');
+  }
+  return kind ? { asset_kind: kind as PrintAssetKind } : {};
+}
+
 @Injectable()
 export class PrintAssetsService {
   constructor(
@@ -168,15 +191,39 @@ export class PrintAssetsService {
   }
 
   list(tenantId: string, kind?: string): Promise<PrintAsset[]> {
-    if (kind !== undefined && !Object.values(PrintAssetKind).includes(kind as PrintAssetKind)) {
-      throw new BadRequestException('kind must be ARTWORK, IMAGE or FONT');
-    }
     return this.repo.find({
-      where: {
-        tenant_id: tenantId,
-        archived_at: IsNull(),
-        ...(kind ? { asset_kind: kind as PrintAssetKind } : {}),
-      },
+      where: { tenant_id: tenantId, archived_at: IsNull(), ...kindWhere(kind) },
+      order: { created_at: 'DESC' },
+    });
+  }
+
+  /**
+   * Ids used by the current version of a live (non-archived) template of these kinds.
+   * An archived asset still counts: a published version keeps rendering it.
+   */
+  async referencedIds(tenantId: string, kinds: readonly string[]): Promise<Set<string>> {
+    const rows: { definition: unknown }[] = await this.repo.manager.query(
+      `SELECT v.definition FROM print_templates t
+       JOIN print_template_versions v ON v.id = t.current_version_id AND v.tenant_id = t.tenant_id
+       WHERE t.tenant_id = $1 AND t.archived_at IS NULL AND t.document_kind = ANY($2)`,
+      [tenantId, kinds],
+    );
+    const ids = new Set<string>();
+    for (const r of rows) assetIdsOf(r.definition).forEach((id) => ids.add(id));
+    return ids;
+  }
+
+  /** `list`, narrowed to `referencedIds` (archived ones included, see there). */
+  async listReferenced(
+    tenantId: string,
+    kinds: readonly string[],
+    kind?: string,
+  ): Promise<PrintAsset[]> {
+    const where = kindWhere(kind);
+    const ids = [...(await this.referencedIds(tenantId, kinds))];
+    if (ids.length === 0) return [];
+    return this.repo.find({
+      where: { tenant_id: tenantId, id: In(ids), ...where },
       order: { created_at: 'DESC' },
     });
   }

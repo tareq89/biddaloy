@@ -8,21 +8,9 @@ import { DataSource } from 'typeorm';
 import { DocumentKind, isGuardianRole } from '@biddaloy/shared';
 import { FeeDuesService } from '../../fees/fee-dues.service';
 import { SchoolSettingsReader } from '../../schools/settings/school-settings-reader.service';
-import { PrintAssetsService } from '../assets/print-assets.service';
+import { PrintAssetsService, assetIdsOf } from '../assets/print-assets.service';
 import { PrintJobsService } from '../jobs/print-jobs.service';
 import { CreatePrintJobDto } from '../jobs/dto/print-job.dto';
-
-/** Every string under `key` in a (JSON) template definition; same walk as the client's print preview. */
-function collectValues(value: unknown, key: string, into = new Set<string>()): Set<string> {
-  if (Array.isArray(value)) value.forEach((v) => collectValues(v, key, into));
-  else if (value !== null && typeof value === 'object') {
-    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
-      if (k === key && typeof v === 'string') into.add(v);
-      else collectValues(v, key, into);
-    }
-  }
-  return into;
-}
 
 /** [48.2.09] A linked PARENT/STUDENT prints their own admit card. Every query is tenant-scoped. */
 @Injectable()
@@ -87,13 +75,7 @@ export class FamilyAdmitCardService {
   ) {
     await this.assertAvailable(tenant, studentId, examId);
     const definition = await this.defaultDefinition(tenant.id);
-    if (
-      !definition ||
-      !(
-        collectValues(definition, 'assetId').has(assetId) ||
-        collectValues(definition, 'fontAssetId').has(assetId)
-      )
-    ) {
+    if (!definition || !assetIdsOf(definition).has(assetId)) {
       throw new NotFoundException('Print asset not found');
     }
     return this.assets.getFile(assetId, tenant.id);

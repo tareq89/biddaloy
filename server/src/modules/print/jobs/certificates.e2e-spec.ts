@@ -407,9 +407,23 @@ describe('Certificates E2E (48.2.04)', () => {
       );
       return a.id as string;
     }
+    /** Publishes a new current version of the template that uses these asset ids (versions are immutable). */
+    async function useAssets(templateId: string, ids: string[]) {
+      const definition = { elements: ids.map((id) => ({ type: 'image', assetId: id })) };
+      const [v] = await ds.query(
+        `INSERT INTO print_template_versions (tenant_id, template_id, version, definition)
+         SELECT tenant_id, id, 2, $2::jsonb FROM print_templates WHERE id = $1 RETURNING id`,
+        [templateId, JSON.stringify(definition)],
+      );
+      await ds.query(`UPDATE print_templates SET current_version_id = $1 WHERE id = $2`, [
+        v.id,
+        templateId,
+      ]);
+    }
     beforeEach(async () => {
       assetId = await artwork(SEED_TENANT_ID);
       tenant2Asset = await artwork(tenant2Id);
+      await useAssets(testimonialTpl, [assetId, tenant2Asset]);
     });
 
     const reads = () => [
@@ -477,6 +491,27 @@ describe('Certificates E2E (48.2.04)', () => {
         .get(`${API}/certificates/assets/${tenant2Asset}/file`)
         .set(as('ADMIN'))
         .expect(404);
+    });
+
+    it('assets: only ids a live certificate template uses; archived-but-used still streams', async () => {
+      const unused = await artwork(SEED_TENANT_ID);
+      const idCardArt = await artwork(SEED_TENANT_ID);
+      await useAssets(await publishedTemplate(SEED_TENANT_ID, 'STUDENT_ID_CARD'), [idCardArt]);
+      const retiredArt = await artwork(SEED_TENANT_ID);
+      const retired = await publishedTemplate(SEED_TENANT_ID, 'TESTIMONIAL');
+      await useAssets(retired, [retiredArt]);
+      await ds.query(`UPDATE print_templates SET archived_at = now() WHERE id = $1`, [retired]);
+      await ds.query(`UPDATE print_assets SET archived_at = now() WHERE id = $1`, [assetId]);
+
+      const list = await http().get(`${API}/certificates/assets`).set(as('EXECUTIVE')).expect(200);
+      expect(list.body.map((a: any) => a.id)).toEqual([assetId]);
+      await http()
+        .get(`${API}/certificates/assets/${assetId}/file`)
+        .set(as('EXECUTIVE'))
+        .expect(200);
+      for (const id of [unused, idCardArt, retiredArt]) {
+        await http().get(`${API}/certificates/assets/${id}/file`).set(as('EXECUTIVE')).expect(404);
+      }
     });
   });
 

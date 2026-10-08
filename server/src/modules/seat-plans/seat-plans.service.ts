@@ -328,7 +328,8 @@ export class SeatPlansService {
             await this.dataSource.query(
               `SELECT DISTINCT sps.seat_plan_id FROM seat_plan_schedules sps
                JOIN exam_schedules es ON es.id = sps.exam_schedule_id AND es.tenant_id = sps.tenant_id
-               WHERE sps.tenant_id = $1 AND es.exam_id = $2`,
+               WHERE sps.tenant_id = $1 AND es.exam_id = $2
+                 AND sps.deleted_at IS NULL AND es.deleted_at IS NULL`,
               [tenantId, examId],
             )
           ).map((r: { seat_plan_id: string }) => r.seat_plan_id),

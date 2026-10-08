@@ -5621,7 +5621,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Print assets (same rows as GET /print-assets). */
+        /** Print assets used by the current version of a live certificate template. */
         get: operations["CertificatesController_assetList_v1"];
         put?: never;
         post?: never;
@@ -5638,7 +5638,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Stream an asset (artwork / font). Tenant-scoped — 404 across tenants. */
+        /** Stream an asset a live certificate template uses. 404 for any other id. */
         get: operations["CertificatesController_assetFile_v1"];
         put?: never;
         post?: never;
@@ -11194,6 +11194,68 @@ export interface components {
         };
         ReprintPrintJobDto: {
             item_ids: string[];
+        };
+        CertificateTemplateRowDto: {
+            id: string;
+            name: string;
+            is_default: boolean;
+            current_version_id: string;
+        };
+        QueueKindCountDto: {
+            /** @enum {string} */
+            kind: "EXAM_ADMIT_CARD" | "STUDENT_ID_CARD";
+            count: number;
+        };
+        QueueExamDto: {
+            exam_id: string;
+            exam_name: string;
+            class_name: string;
+            missing: number;
+        };
+        PrintQueueDto: {
+            total: number;
+            by_kind: components["schemas"]["QueueKindCountDto"][];
+            exams: components["schemas"]["QueueExamDto"][];
+        };
+        IdCardQueueRowDto: {
+            student_id: string;
+            full_name: string;
+            registration_number: string;
+            class_name: string;
+            section_name: string;
+            /** @description YYYY-MM-DD */
+            admitted_on: string;
+            has_photo: boolean;
+        };
+        IdCardQueuePageDto: {
+            data: components["schemas"]["IdCardQueueRowDto"][];
+            total: number;
+            page: number;
+            limit: number;
+            totalPages: number;
+        };
+        RegisterRowDto: {
+            item_id: string;
+            /** @enum {string} */
+            document_kind: "TRANSFER_CERTIFICATE" | "TESTIMONIAL" | "CHARACTER_CERTIFICATE" | "STUDY_CERTIFICATE" | "PARTICIPATION_CERTIFICATE" | "RESULT_CERTIFICATE" | "MERIT_CERTIFICATE";
+            serial: string;
+            serial_year: number;
+            serial_no: number;
+            copy_number: number;
+            subject_id: string;
+            subject_label: string;
+            class_name: string | null;
+            issued_at: string;
+            printed_by_name: string | null;
+            revoked_at: string | null;
+            revoke_reason: string | null;
+        };
+        RegisterPageDto: {
+            data: components["schemas"]["RegisterRowDto"][];
+            total: number;
+            page: number;
+            limit: number;
+            totalPages: number;
         };
         RevokePrintItemDto: {
             reason: string;
@@ -26648,7 +26710,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["CertificateTemplateRowDto"][];
+                };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
             401: {
@@ -26951,7 +27015,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["PrintQueueDto"];
+                };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
             401: {
@@ -26983,7 +27049,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["IdCardQueuePageDto"];
+                };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
             401: {
@@ -27022,7 +27090,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["RegisterPageDto"];
+                };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
             401: {
