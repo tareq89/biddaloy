@@ -111,11 +111,7 @@ function MyRoutinePage() {
   const periodLookupQuery = usePeriodSlotLookup();
   const deliveriesQuery = useMyLessonDeliveries(date);
   const markAll = useMarkTodayAllTaught();
-  // `MaskedTenantSettings` (ui/hooks/school-settings.ts) does not list `studyPlans` yet.
-  const studyPlans = (
-    useSchoolSettings(useActiveTenant() ?? '').data as
-      { studyPlans?: { statusDeadline?: string } } | undefined
-  )?.studyPlans;
+  const studyPlans = useSchoolSettings(useActiveTenant() ?? '').data?.studyPlans;
   const canMakePlan = useHasPermission(Permission.SYLLABUS_MANAGE);
 
   const frame = (body: React.ReactNode) => (

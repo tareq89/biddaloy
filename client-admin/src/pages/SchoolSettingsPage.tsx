@@ -1,4 +1,4 @@
-import { Permission, type StudyPlansSettings } from '@biddaloy/shared';
+import { Permission } from '@biddaloy/shared';
 import {
   ApiError,
   decodeAccessTokenMemberships,
@@ -171,7 +171,7 @@ export function SchoolSettingsPage({ backupJobId }: SchoolSettingsPageProps = {}
                 <StudyPlansSection
                   key={loaded.schoolId}
                   schoolId={loaded.schoolId}
-                  studyPlans={(loaded.data as { studyPlans?: StudyPlansSettings }).studyPlans}
+                  studyPlans={loaded.data.studyPlans}
                   smsConfigured={isSmsReady(loaded.data.communications?.sms)}
                 />
               </>
