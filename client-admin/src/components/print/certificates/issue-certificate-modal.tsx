@@ -381,7 +381,7 @@ export function IssueCertificateModal({
 
         {currentStepId === 'kind' ? (
           loadingKinds ? (
-            <Skeleton role="status" aria-label={tc('loading')} className="h-40 w-full" />
+            <Skeleton role="status" aria-label={tc('status.loading')} className="h-40 w-full" />
           ) : (
             <KindStep
               value={kind}

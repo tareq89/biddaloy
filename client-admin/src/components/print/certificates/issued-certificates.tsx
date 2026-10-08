@@ -69,7 +69,7 @@ export function IssuedCertificates({ studentId }: { studentId: string }) {
           tableId="student-issued-certificates"
           caption={t('documentsTab.issuedTitle')}
           loading={query.isPending}
-          {...(query.isError ? { error: tKind('register.empty') } : {})}
+          {...(query.isError ? { error: t('documentsTab.loadError') } : {})}
           emptyMessage={t('documentsTab.empty')}
         />
       </div>
