@@ -74,6 +74,7 @@ import enAuth from '../ui/src/i18n/locales/en/auth.json';
 import enBackup from '../ui/src/i18n/locales/en/backup.json';
 import enBulkImport from '../ui/src/i18n/locales/en/bulkImport.json';
 import enCalendar from '../ui/src/i18n/locales/en/calendar.json';
+import enCertificates from '../ui/src/i18n/locales/en/certificates.json';
 import enClasses from '../ui/src/i18n/locales/en/classes.json';
 import enCommon from '../ui/src/i18n/locales/en/common.json';
 import enCommunications from '../ui/src/i18n/locales/en/communications.json';
@@ -82,6 +83,7 @@ import enCurriculumPreset from '../ui/src/i18n/locales/en/curriculumPreset.json'
 import enExamTemplates from '../ui/src/i18n/locales/en/examTemplates.json';
 import enExamsTemplateField from '../ui/src/i18n/locales/en/examsTemplateField.json';
 import enPresetReset from '../ui/src/i18n/locales/en/presetReset.json';
+import enExamDocuments from '../ui/src/i18n/locales/en/examDocuments.json';
 import enExams from '../ui/src/i18n/locales/en/exams.json';
 import enFeeGeneration from '../ui/src/i18n/locales/en/feeGeneration.json';
 import enFees from '../ui/src/i18n/locales/en/fees.json';
@@ -198,6 +200,8 @@ const catalogs = {
     examTemplates: enExamTemplates,
     examsTemplateField: enExamsTemplateField,
     presetReset: enPresetReset,
+    examDocuments: enExamDocuments,
+    certificates: enCertificates,
     exams: enExams,
     feeGeneration: enFeeGeneration,
     fees: enFees,

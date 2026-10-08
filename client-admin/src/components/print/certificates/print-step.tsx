@@ -326,10 +326,13 @@ export function PrintStep({
           {t('done.title', {
             count: run.serials.length,
             n: formatNumber(run.serials.length, region),
+            ns: 'certificates',
           })}
         </h2>
         {first && last ? (
-          <p className="mt-2 text-text-secondary">{t('done.serials', { first, last })}</p>
+          <p className="mt-2 text-text-secondary">
+            {t('done.serials', { first, last, ns: 'certificates' })}
+          </p>
         ) : null}
       </Card>
     );
@@ -342,26 +345,29 @@ export function PrintStep({
       <Card padded>
         {run.printers.length === 0 ? (
           <div role="status" className="flex flex-col gap-2">
-            <p>{t('printer.none')}</p>
+            <p>{t('printer.none', { ns: 'certificates' })}</p>
             {canManageSettings ? (
               <Link
                 to="/settings"
                 search={{ section: 'printing' } as never}
                 className="text-primary underline"
               >
-                {t('printer.settings')}
+                {t('printer.settings', { ns: 'certificates' })}
               </Link>
             ) : null}
           </div>
         ) : (
           <div className="flex max-w-sm flex-col gap-1.5">
-            <span className="text-label">{t('printer.label')}</span>
+            <span className="text-label">{t('printer.label', { ns: 'certificates' })}</span>
             <Select
               value={run.printer?.id ?? ''}
               onValueChange={run.pickPrinter}
               disabled={run.pending}
             >
-              <SelectTrigger aria-label={t('printer.label')} className="w-full">
+              <SelectTrigger
+                aria-label={t('printer.label', { ns: 'certificates' })}
+                className="w-full"
+              >
                 <SelectValue placeholder={tp('controls.choosePrinter')} />
               </SelectTrigger>
               <SelectContent>
