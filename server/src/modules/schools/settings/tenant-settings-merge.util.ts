@@ -51,10 +51,10 @@ function deepMergeOmittingUnset(existing: unknown, patch: unknown): unknown {
  * `region` is one dashboard section and is replaced wholesale when
  * present — the form that produces it always submits every field.
  *
- * `routine`, `fees`, `evaluations` and `documents` are replaced wholesale when
+ * `routine`, `fees` and `evaluations` are replaced wholesale when
  * present (the forms always send the whole block).
  *
- * `attendance` is shallow-merged: keys the patch omits (e.g. `shiftTimes`,
+ * `attendance` and `documents` are shallow-merged: keys the patch omits (e.g. `shiftTimes`,
  * `periodAttendance`, which the older attendance form never sends) survive;
  * keys the patch sends replace the stored value whole.
  *
@@ -133,8 +133,14 @@ export function mergeTenantSettings(
     merged.evaluations = patch.evaluations;
   }
 
-  // [48.1.03] Wholesale replace, like `fees`/`evaluations`.
-  if (patch.documents !== undefined) merged.documents = patch.documents;
+  // [48.1.03] Shallow-merged like `attendance`: both fields are optional, so a
+  // partial PATCH must not reset `withholdAdmitCardForDues`. `serialPrefix: null` clears it.
+  if (patch.documents !== undefined) {
+    merged.documents = {
+      ...(isPlainObject(merged.documents) ? merged.documents : {}),
+      ...(patch.documents as Record<string, unknown>),
+    };
+  }
 
   return merged;
 }

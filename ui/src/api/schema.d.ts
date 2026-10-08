@@ -9080,7 +9080,7 @@ export interface components {
         DocumentsSettingsDto: {
             withholdAdmitCardForDues?: boolean;
             /** @example DAHS */
-            serialPrefix?: string;
+            serialPrefix?: string | null;
         };
         TenantSettingsDto: {
             organisationRenames?: components["schemas"]["OrganisationRenameDto"][];

@@ -1,9 +1,17 @@
+import { createRootRoute } from '@tanstack/react-router';
 import { render, screen } from '@testing-library/react';
+import type * as React from 'react';
 import { describe, expect, it } from 'vitest';
+
+import { renderWithRouter } from '../test/render-with-router';
 
 import { DocumentCard } from './document-card';
 
 const UNAVAILABLE = { reason: 'No seat plan yet', fixLabel: 'Make a seat plan', fixHref: '/seat' };
+
+function renderRouted(ui: React.ReactElement) {
+  return renderWithRouter(createRootRoute({ component: () => ui }));
+}
 
 describe('DocumentCard', () => {
   it('primary is filled, others outline', async () => {
@@ -22,7 +30,7 @@ describe('DocumentCard', () => {
   });
 
   it('unavailable disables the button, describes it by the reason, keeps the fix link', async () => {
-    const { container } = render(
+    const { container } = renderRouted(
       <DocumentCard
         title="Seat list"
         description="d"
@@ -30,7 +38,7 @@ describe('DocumentCard', () => {
         unavailable={UNAVAILABLE}
       />,
     );
-    const button = screen.getByRole<HTMLButtonElement>('button', { name: 'Print' });
+    const button = await screen.findByRole<HTMLButtonElement>('button', { name: 'Print' });
     expect(button.disabled).toBe(true);
     const reason = document.getElementById(button.getAttribute('aria-describedby') ?? '');
     expect(reason?.textContent).toContain('No seat plan yet');
@@ -39,8 +47,19 @@ describe('DocumentCard', () => {
     await expect(container).toHaveNoViolations();
   });
 
-  it('href action renders a link', () => {
-    render(<DocumentCard title="t" description="d" action={{ label: 'Open', href: '/x' }} />);
-    expect(screen.getByRole('link', { name: 'Open' }).getAttribute('href')).toBe('/x');
+  it('href action renders a router link', async () => {
+    renderRouted(<DocumentCard title="t" description="d" action={{ label: 'Open', href: '/x' }} />);
+    expect((await screen.findByRole('link', { name: 'Open' })).getAttribute('href')).toBe('/x');
+  });
+
+  it('heading level defaults to h3 and can be changed', () => {
+    const { rerender } = render(
+      <DocumentCard title="Admit" description="d" action={{ label: 'Print' }} />,
+    );
+    expect(screen.getByRole('heading', { name: 'Admit', level: 3 })).toBeTruthy();
+    rerender(
+      <DocumentCard title="Admit" description="d" action={{ label: 'Print' }} headingLevel="h2" />,
+    );
+    expect(screen.getByRole('heading', { name: 'Admit', level: 2 })).toBeTruthy();
   });
 });

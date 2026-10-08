@@ -21,6 +21,20 @@ describe('StepIndicator', () => {
     expect(onStepChange).toHaveBeenCalledWith('first');
   });
 
+  it('completed steps carry the screen-reader done label outside the button', () => {
+    render(
+      <StepIndicator
+        steps={steps}
+        currentStepId="third"
+        onStepChange={() => {}}
+        doneLabel="(done)"
+      />,
+    );
+    expect(screen.getAllByText('(done)')).toHaveLength(2);
+    expect(screen.getByRole('button', { name: 'First' })).toBeTruthy();
+    expect(screen.getByText('Third').closest('li')?.textContent).not.toContain('(done)');
+  });
+
   it('without onStepChange no step is a button', () => {
     render(<StepIndicator steps={steps} currentStepId="third" />);
     expect(screen.queryAllByRole('button')).toHaveLength(0);

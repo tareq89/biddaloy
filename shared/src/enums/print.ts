@@ -95,7 +95,8 @@ export const CERTIFICATE_SERIAL_CODE: Partial<Record<DocumentKind, string>> = {
   [DocumentKind.RESULT_CERTIFICATE]: 'RES',
   [DocumentKind.MERIT_CERTIFICATE]: 'MRT',
 };
-export const isSerialKind = (kind: DocumentKind): boolean => kind in CERTIFICATE_SERIAL_CODE;
+export const isSerialKind = (kind: DocumentKind): boolean =>
+  Object.hasOwn(CERTIFICATE_SERIAL_CODE, kind);
 
 /** Kinds that need `CERTIFICATE_ISSUE` (D6). Result/merit are exam documents and stay on DOCUMENT_PRINT. */
 export const STUDENT_CERTIFICATE_KINDS = [
@@ -121,6 +122,12 @@ export function formatSerial(a: {
 }): string {
   const code = CERTIFICATE_SERIAL_CODE[a.kind];
   if (!code) throw new RangeError(`${a.kind} has no serial code`);
+  if (a.prefix && !SERIAL_PREFIX_PATTERN.test(a.prefix)) {
+    throw new RangeError(`bad serial prefix: ${a.prefix}`);
+  }
+  if (!Number.isInteger(a.year) || a.year < 1000 || a.year > 9999) {
+    throw new RangeError(`serial year must be 4 digits: ${a.year}`);
+  }
   if (!Number.isInteger(a.n) || a.n < 1 || a.n > 99999) {
     throw new RangeError(`serial number out of range: ${a.n}`);
   }

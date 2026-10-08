@@ -11,9 +11,18 @@ export interface StepIndicatorProps {
   onStepChange?: (id: string) => void;
   /** Accessible name, e.g. "ধাপ". When given, the list is wrapped in `<nav aria-label>`. */
   label?: string;
+  /** Screen-reader-only suffix on completed steps, e.g. "(সম্পন্ন)". Outside the
+   * button, so the button's name stays the step label. */
+  doneLabel?: string;
 }
 
-export function StepIndicator({ steps, currentStepId, onStepChange, label }: StepIndicatorProps) {
+export function StepIndicator({
+  steps,
+  currentStepId,
+  onStepChange,
+  label,
+  doneLabel,
+}: StepIndicatorProps) {
   const currentIndex = Math.max(
     0,
     steps.findIndex((step) => step.id === currentStepId),
@@ -42,6 +51,7 @@ export function StepIndicator({ steps, currentStepId, onStepChange, label }: Ste
                 {step.label}
               </span>
             )}
+            {isCompleted && doneLabel ? <span className="sr-only"> {doneLabel}</span> : null}
             {index < steps.length - 1 && (
               <span aria-hidden="true" className="ms-2 text-muted-foreground">
                 ›

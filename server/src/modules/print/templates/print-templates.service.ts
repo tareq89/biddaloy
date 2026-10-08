@@ -215,6 +215,7 @@ export class PrintTemplatesService {
             tenantId,
             template.document_kind,
             dto.draft,
+            template.draft,
           );
         }
         if (dto.name !== undefined) template.name = dto.name;
@@ -250,10 +251,12 @@ export class PrintTemplatesService {
       const repo = manager.getRepository(PrintTemplate);
       const template = await this.load(repo, tenantId, id, true);
       this.assertActive(template);
+      // The stored draft is its own baseline: each text passed the text rules when saved, or predates them.
       const definition = await this.validateDraft(
         manager,
         tenantId,
         template.document_kind,
+        template.draft,
         template.draft,
       );
       const versions = manager.getRepository(PrintTemplateVersion);
@@ -400,14 +403,18 @@ export class PrintTemplatesService {
     };
   }
 
-  /** Shared schema + no stripped (unknown) fields (D29) + every referenced asset is a live asset of this tenant. */
+  /**
+   * Shared schema + no stripped (unknown) fields (D29) + every referenced asset is a live asset of this tenant.
+   * `previous` (the stored draft) grandfathers unchanged texts past the Epic 48 text rules.
+   */
   private async validateDraft(
     manager: EntityManager,
     tenantId: string,
     kind: DocumentKind,
     draft: unknown,
+    previous: unknown,
   ): Promise<TemplateDefinition> {
-    const result = validateTemplateDefinition(draft, kind);
+    const result = validateTemplateDefinition(draft, kind, previous);
     if (!result.success)
       throw new BadRequestException({ message: 'Invalid draft', errors: result.errors });
     // Zod strips unknown keys; if parsing changed anything, the draft carried a field we don't know.

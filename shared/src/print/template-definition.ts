@@ -14,17 +14,21 @@ const base = {
   h: mm,
 };
 
-/** `{{key}}` inside a fixed text (D43). Double braces, so the copy label's `{n}` is untouched. */
-export const PLACEHOLDER_PATTERN = /\{\{\s*([A-Za-z0-9_.]+)\s*\}\}/g;
+/**
+ * `{{key}}` inside a fixed text (D43). Double braces, so the copy label's `{n}` is untouched.
+ * Not global, so `.test()`/`.exec()` carry no `lastIndex`; the helpers below make a `/g` copy.
+ */
+export const PLACEHOLDER_PATTERN = /\{\{\s*([A-Za-z0-9_.]+)\s*\}\}/;
+const placeholdersG = () => new RegExp(PLACEHOLDER_PATTERN, 'g');
 
 /** Placeholder keys in order of appearance, de-duplicated. */
 export function textPlaceholders(text: string): string[] {
-  return [...new Set([...text.matchAll(PLACEHOLDER_PATTERN)].map((m) => m[1] as string))];
+  return [...new Set([...text.matchAll(placeholdersG())].map((m) => m[1] as string))];
 }
 
 /** Replace every placeholder with `lookup(key)`; unknown keys are the lookup's call (return ''). */
 export function fillPlaceholders(text: string, lookup: (key: string) => string): string {
-  return text.replace(PLACEHOLDER_PATTERN, (_, key: string) => lookup(key));
+  return text.replace(placeholdersG(), (_, key: string) => lookup(key));
 }
 
 /** Exactly one of `a` / `b` must be set. */
@@ -35,7 +39,7 @@ const textElement = z
   .object({
     ...base,
     type: z.literal('TEXT'),
-    text: z.string().max(2000).optional(),
+    text: z.string().optional(),
     field: z.string().optional(),
     fontFamily: z.string().min(1),
     fontAssetId: z.uuid().optional(),
@@ -125,10 +129,19 @@ export type PrintElement = z.infer<typeof printElement>;
 export type TemplateValidationResult =
   { success: true; data: TemplateDefinition } | { success: false; errors: string[] };
 
-/** Zod parse, plus every bound `field` must exist in `FIELD_CATALOG[kind]` with a matching type (D29). */
+/** Longest fixed TEXT (D43). Checked here, not in the zod schema, so stored drafts are grandfathered. */
+export const TEXT_MAX_LENGTH = 2000;
+
+/**
+ * Zod parse, plus every bound `field` must exist in `FIELD_CATALOG[kind]` with a matching type (D29).
+ * The fixed-text rules added in Epic 48 (length, `{{placeholder}}` keys) only apply to a TEXT whose
+ * text differs from the same-id element in `previous` (the stored draft), so a draft saved before
+ * those rules still saves and publishes; only a changed text is held to them.
+ */
 export function validateTemplateDefinition(
   def: unknown,
   kind: DocumentKind,
+  previous?: unknown,
 ): TemplateValidationResult {
   const parsed = templateDefinitionSchema.safeParse(def);
   if (!parsed.success) {
@@ -139,9 +152,13 @@ export function validateTemplateDefinition(
   }
   const catalog = FIELD_CATALOG[kind] ?? [];
   const errors: string[] = [];
+  const before = previousTexts(previous);
   for (const name of ['front', 'back'] as const) {
     parsed.data[name]?.elements.forEach((el, i) => {
-      if (el.type === 'TEXT' && el.text !== undefined) {
+      if (el.type === 'TEXT' && el.text !== undefined && before.get(el.id) !== el.text) {
+        if (el.text.length > TEXT_MAX_LENGTH) {
+          errors.push(`${name}.elements.${i}.text: longer than ${TEXT_MAX_LENGTH} characters`);
+        }
         for (const key of textPlaceholders(el.text)) {
           if (catalog.find((c) => c.key === key)?.type !== 'text') {
             errors.push(`${name}.elements.${i}.text: {{${key}}} is not a text field of ${kind}`);
@@ -157,6 +174,23 @@ export function validateTemplateDefinition(
     });
   }
   return errors.length ? { success: false, errors } : { success: true, data: parsed.data };
+}
+
+/** id -> text of every TEXT element in a stored draft; tolerant of any shape. */
+function previousTexts(previous: unknown): Map<string, string> {
+  const out = new Map<string, string>();
+  const d = previous as
+    Partial<Record<'front' | 'back', { elements?: unknown }>> | null | undefined;
+  for (const name of ['front', 'back'] as const) {
+    const els = d?.[name]?.elements;
+    if (!Array.isArray(els)) continue;
+    for (const el of els as Array<Record<string, unknown>>) {
+      if (el?.type === 'TEXT' && typeof el.id === 'string' && typeof el.text === 'string') {
+        out.set(el.id, el.text);
+      }
+    }
+  }
+  return out;
 }
 
 /** Catalog `issueTime` fields any TEXT element binds, as `field` or as a `{{placeholder}}`, in catalog order (D3, D43). */
