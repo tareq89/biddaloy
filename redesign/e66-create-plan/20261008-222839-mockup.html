@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="bn">
+<head>
+<!-- app:head -->
+<title>নতুন পাঠ পরিকল্পনা</title>
+<script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+</head>
+<body class="flex min-h-screen flex-col bg-bg text-body text-text-primary">
+
+<header class="sticky top-0 z-30 border-b border-border-subtle bg-surface">
+  <div class="flex h-14 items-center justify-between gap-4 px-4 md:h-16 md:px-6">
+    <h1 class="min-w-0 truncate text-h2 md:text-h1">নতুন পাঠ পরিকল্পনা</h1>
+    <button type="button" class="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-md border border-border-functional bg-surface px-4 font-medium text-text-primary hover:bg-muted"><i data-lucide="x"></i>বন্ধ করুন</button>
+  </div>
+</header>
+
+<main id="main-content" class="flex-1">
+  <div class="mx-auto w-full max-w-3xl space-y-6 px-4 py-4 md:px-6 md:py-6">
+
+    <!-- Stepper (new kit pattern). Phone: "ধাপ ২/৪" + current step name + 4 segments. -->
+    <nav aria-label="ধাপ">
+      <div class="md:hidden">
+        <p class="text-label text-text-secondary">ধাপ ২/৪</p>
+        <p class="text-h3">কীভাবে শুরু করবেন</p>
+        <div class="mt-2 flex gap-1" aria-hidden="true"><span class="h-1.5 flex-1 rounded-full bg-primary"></span><span class="h-1.5 flex-1 rounded-full bg-primary"></span><span class="h-1.5 flex-1 rounded-full bg-muted"></span><span class="h-1.5 flex-1 rounded-full bg-muted"></span></div>
+      </div>
+      <ol class="hidden items-center gap-3 md:flex">
+        <li class="flex items-center gap-2 text-text-secondary"><span class="flex size-7 items-center justify-center rounded-full bg-status-paid-bg text-status-paid-fg"><i data-lucide="check" class="size-4"></i></span>শাখা · বিষয় · টার্ম</li>
+        <li aria-hidden="true" class="h-px flex-1 bg-border-subtle"></li>
+        <li aria-current="step" class="flex items-center gap-2 font-semibold text-primary"><span class="flex size-7 items-center justify-center rounded-full bg-primary text-label text-primary-foreground">২</span>কীভাবে শুরু</li>
+        <li aria-hidden="true" class="h-px flex-1 bg-border-subtle"></li>
+        <li class="flex items-center gap-2 text-text-secondary"><span class="flex size-7 items-center justify-center rounded-full border border-border-functional text-label">৩</span>প্রিভিউ</li>
+        <li aria-hidden="true" class="h-px flex-1 bg-border-subtle"></li>
+        <li class="flex items-center gap-2 text-text-secondary"><span class="flex size-7 items-center justify-center rounded-full border border-border-functional text-label">৪</span>সংরক্ষণ</li>
+      </ol>
+    </nav>
+
+    <!-- Step 1 recap -->
+    <div class="flex items-center justify-between gap-3 rounded-lg border border-border-subtle bg-surface px-4 py-2 shadow-e1">
+      <div class="min-w-0">
+        <p class="text-caption text-text-secondary">যার জন্য পরিকল্পনা</p>
+        <p class="truncate font-medium">৭ম-ক · গণিত · দ্বিতীয় টার্ম (জুলাই–ডিসে)</p>
+      </div>
+      <button type="button" class="inline-flex h-11 shrink-0 items-center rounded-md px-3 font-medium text-primary hover:bg-muted">বদলান</button>
+    </div>
+
+    <!-- Carry-over (D27) -->
+    <section aria-labelledby="co-title" class="rounded-lg border border-border-subtle bg-surface p-4 shadow-e1 md:p-5">
+      <div class="flex items-start gap-3">
+        <span class="flex size-10 shrink-0 items-center justify-center rounded-full bg-status-due-bg text-status-due-fg"><i data-lucide="corner-down-right"></i></span>
+        <div class="min-w-0 flex-1">
+          <h2 id="co-title" class="text-h2">আগের টার্মের বাকি ৩টি পাঠ যোগ করবেন?</h2>
+          <p class="mt-1 text-text-secondary">প্রথম টার্মে এই ৩টি পাঠ পড়ানো হয়নি। যোগ করলে নতুন পরিকল্পনার শুরুতে বসবে, পরে সরাতে বা মুছতে পারবেন।</p>
+          <ol class="mt-3 divide-y divide-border-subtle rounded-md border border-border-subtle">
+            <li class="flex items-center justify-between gap-3 px-3 py-2"><span><span class="text-text-secondary">৩৮.</span> ত্রিভুজের কোণ</span><span class="shrink-0 text-caption text-text-secondary">২ পিরিয়ড</span></li>
+            <li class="flex items-center justify-between gap-3 px-3 py-2"><span><span class="text-text-secondary">৩৯.</span> ত্রিভুজ আঁকা</span><span class="shrink-0 text-caption text-text-secondary">২ পিরিয়ড</span></li>
+            <li class="flex items-center justify-between gap-3 px-3 py-2"><span><span class="text-text-secondary">৪০.</span> পুনরালোচনা ও অনুশীলন</span><span class="shrink-0 text-caption text-text-secondary">১ পিরিয়ড</span></li>
+          </ol>
+          <label class="mt-3 flex min-h-11 items-center gap-3 md:min-h-8"><span class="flex size-5 shrink-0 items-center justify-center rounded-sm bg-primary text-primary-foreground"><i data-lucide="check" class="size-3.5"></i></span>হ্যাঁ, এই ৩টি পাঠ শুরুতে যোগ করুন</label>
+        </div>
+      </div>
+    </section>
+
+    <!-- Step 2: how to start (radio cards) -->
+    <section aria-labelledby="start-title" class="space-y-3">
+      <div>
+        <h2 id="start-title" class="text-h2">বাকি পাঠ কোথা থেকে আসবে?</h2>
+        <p class="mt-0.5 text-text-secondary">একটি বেছে নিন। যেটাই নিন, পরের ধাপে সব পাঠ দেখে বদলাতে পারবেন।</p>
+      </div>
+      <div role="radiogroup" aria-labelledby="start-title" class="grid gap-3 md:grid-cols-3">
+        <button type="button" role="radio" aria-checked="false" class="flex min-h-11 items-start gap-3 rounded-lg border border-border-functional bg-surface p-4 text-left hover:bg-muted md:flex-col">
+          <span class="flex size-10 shrink-0 items-center justify-center rounded-full bg-muted text-text-secondary"><i data-lucide="file-plus-2"></i></span>
+          <span><span class="block font-semibold">খালি থেকে</span><span class="block text-text-secondary">একটি একটি করে পাঠ লিখবেন।</span></span>
+        </button>
+        <button type="button" role="radio" aria-checked="true" class="flex min-h-11 items-start gap-3 rounded-lg border-2 border-primary bg-secondary p-4 text-left md:flex-col">
+          <span class="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground"><i data-lucide="library"></i></span>
+          <span><span class="block font-semibold text-secondary-foreground">লাইব্রেরি থেকে</span><span class="block text-text-secondary">স্কুলের টেমপ্লেট কপি করে নিজের মতো বদলান।</span></span>
+        </button>
+        <button type="button" role="radio" aria-checked="false" class="flex min-h-11 items-start gap-3 rounded-lg border border-border-functional bg-surface p-4 text-left hover:bg-muted md:flex-col">
+          <span class="flex size-10 shrink-0 items-center justify-center rounded-full bg-muted text-text-secondary"><i data-lucide="file-spreadsheet"></i></span>
+          <span><span class="block font-semibold">CSV থেকে</span><span class="block text-text-secondary">আগে নামানো বা এক্সেলে লেখা ফাইল তুলুন।</span></span>
+        </button>
+      </div>
+
+      <!-- Follow-up for the chosen card: which template -->
+      <fieldset class="rounded-lg border border-border-subtle bg-surface p-4 shadow-e1 md:p-5">
+        <legend class="sr-only">টেমপ্লেট বাছুন</legend>
+        <p class="text-h3">৭ম শ্রেণি · গণিত (MAT-109) — ২টি টেমপ্লেট</p>
+        <div class="mt-3 flex flex-col gap-2">
+          <label class="flex min-h-11 items-start gap-3 rounded-md border border-primary bg-secondary p-3">
+            <span class="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border border-primary bg-surface"><span class="size-2.5 rounded-full bg-primary"></span></span>
+            <span class="min-w-0"><span class="block font-semibold text-secondary-foreground">বোর্ডের বইয়ের ক্রমে</span><span class="block text-caption text-text-secondary">৪২টি পাঠ · ৭৬ পিরিয়ড · হালনাগাদ ১২ই ডিসেম্বর, ২০২৫</span></span>
+          </label>
+          <label class="flex min-h-11 items-start gap-3 rounded-md border border-border-functional p-3 hover:bg-muted">
+            <span class="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border border-border-functional bg-surface"></span>
+            <span class="min-w-0"><span class="block font-medium">দ্রুত গতি (অতিরিক্ত অনুশীলন কম)</span><span class="block text-caption text-text-secondary">৩৬টি পাঠ · ৬০ পিরিয়ড · হালনাগাদ ৩রা জানুয়ারি, ২০২৬</span></span>
+          </label>
+        </div>
+        <p class="mt-3 flex items-start gap-2 text-caption text-text-secondary"><i data-lucide="info" class="size-4 shrink-0"></i>দ্বিতীয় টার্মে আনুমানিক ৬৮টি পিরিয়ড আছে। বাকি ৩টি পাঠ যোগ করে প্রথম টেমপ্লেটে লাগবে ৮১টি — প্রিভিউতে কোনগুলো বাদ দেবেন বেছে নিতে পারবেন।</p>
+      </fieldset>
+    </section>
+
+  </div>
+</main>
+
+<footer class="border-t border-border-subtle bg-surface">
+  <div class="mx-auto flex w-full max-w-3xl items-center justify-between gap-2 px-4 py-3 md:px-6">
+    <button type="button" class="inline-flex h-11 items-center justify-center gap-2 rounded-md border border-border-functional bg-surface px-4 font-medium text-text-primary hover:bg-muted"><i data-lucide="arrow-left"></i>পেছনে</button>
+    <button type="submit" class="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-primary px-4 font-medium text-primary-foreground">পরের ধাপ: প্রিভিউ<i data-lucide="arrow-right"></i></button>
+  </div>
+</footer>
+
+<script>lucide.createIcons({ attrs: { width: 18, height: 18, "stroke-width": 1.75, "aria-hidden": "true" } });</script>
+</body>
+</html>
