@@ -12,12 +12,12 @@ import {
 import type { PrintSuggestion } from './suggestions';
 
 type Lang = 'bn' | 'en';
-type CertKind =
-  | DocumentKind.TRANSFER_CERTIFICATE
-  | DocumentKind.TESTIMONIAL
-  | DocumentKind.CHARACTER_CERTIFICATE
-  | DocumentKind.STUDY_CERTIFICATE
-  | DocumentKind.PARTICIPATION_CERTIFICATE;
+type CertKind = (typeof DocumentKind)[
+  | 'TRANSFER_CERTIFICATE'
+  | 'TESTIMONIAL'
+  | 'CHARACTER_CERTIFICATE'
+  | 'STUDY_CERTIFICATE'
+  | 'PARTICIPATION_CERTIFICATE'];
 
 /** Body font and the line metrics the layout reserves room for (rough: see the spec guard). */
 export const BODY_PT = 11;
