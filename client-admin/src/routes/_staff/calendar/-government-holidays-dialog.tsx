@@ -145,7 +145,10 @@ export function GovernmentHolidaysDialog({
         description={tCommon('fullPage.discardDescription')}
         confirmLabel={tCommon('fullPage.discardConfirm')}
         cancelLabel={tCommon('fullPage.keepEditing')}
+        // An add that started meanwhile can't be abandoned: wait for it, as `close` does.
+        busy={isPending}
         onConfirm={() => {
+          if (isPending) return;
           setDiscardOpen(false);
           onOpenChange(false);
         }}

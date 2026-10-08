@@ -68,6 +68,12 @@ export class AttendancePage {
         exact: true,
       })
       .click();
+    // LATE keeps the popover open for the minutes-late input; close it so it
+    // can't cover the sticky submit bar.
+    if (status === AttendanceStatus.LATE) {
+      await this.page.keyboard.press('Escape');
+      await expect(dialog).toBeHidden();
+    }
   }
 
   async markAllPresent(): Promise<void> {

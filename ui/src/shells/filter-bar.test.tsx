@@ -270,6 +270,17 @@ describe('FilterBar', () => {
     expect(screen.queryByText(/2026-10-01/)).toBeNull();
   });
 
+  it('a chip keeps decimals and shows a value it cannot format as typed', async () => {
+    await renderInEnglish(
+      <FilterBarDemo
+        initialValues={{ min_amount: '100.5', max_amount: 'abc', from_date: 'not-a-date' }}
+      />,
+    );
+    expect(screen.getByText('Min amount: ১০০.৫')).toBeTruthy();
+    expect(screen.getByText('Max amount: abc')).toBeTruthy();
+    expect(screen.getByText('From date: not-a-date')).toBeTruthy();
+  });
+
   it('removing a chip by its button name clears that key', async () => {
     const user = userEvent.setup();
     const onChangeSpy = vi.fn();

@@ -49,6 +49,13 @@ export function MilestoneEditor({ programId, milestones, canManage }: MilestoneE
 
   const ordered = [...milestones].sort((a, b) => a.sequence - b.sequence);
 
+  // One alert covers all three: a new attempt makes an earlier failure stale.
+  function clearFailures() {
+    addMilestone.reset();
+    updateMilestone.reset();
+    reorderMilestones.reset();
+  }
+
   function move(index: number, direction: -1 | 1) {
     const target = index + direction;
     if (target < 0 || target >= ordered.length) return;
@@ -56,6 +63,7 @@ export function MilestoneEditor({ programId, milestones, canManage }: MilestoneE
     const moved = next.splice(index, 1)[0];
     if (!moved) return;
     next.splice(target, 0, moved);
+    clearFailures();
     reorderMilestones.mutate(next.map((m) => m.id));
   }
 
@@ -73,6 +81,7 @@ export function MilestoneEditor({ programId, milestones, canManage }: MilestoneE
   function handleAdd(event: React.FormEvent) {
     event.preventDefault();
     if (!addName.trim()) return;
+    clearFailures();
     addMilestone.mutate(
       { name: addName.trim(), description: addDescription.trim() ? addDescription.trim() : null },
       {
@@ -93,6 +102,7 @@ export function MilestoneEditor({ programId, milestones, canManage }: MilestoneE
   function handleEditSave(event: React.FormEvent) {
     event.preventDefault();
     if (!editingId || !editName.trim()) return;
+    clearFailures();
     updateMilestone.mutate(
       {
         milestoneId: editingId,
@@ -150,7 +160,10 @@ export function MilestoneEditor({ programId, milestones, canManage }: MilestoneE
                     type="button"
                     variant="outline"
                     disabled={updateMilestone.isPending}
-                    onClick={() => setEditingId(null)}
+                    onClick={() => {
+                      updateMilestone.reset();
+                      setEditingId(null);
+                    }}
                   >
                     {tCommon('actions.cancel')}
                   </Button>

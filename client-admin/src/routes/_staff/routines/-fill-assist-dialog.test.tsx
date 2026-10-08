@@ -237,7 +237,7 @@ describe('FillAssistDialog', () => {
       { tenantId: 'tenant-1', locale: 'en' },
     );
 
-    await waitFor(() => expect(screen.getByText('Mon · Period 3')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(`Mon · Period ${n(3)}`)).toBeTruthy());
     expect(screen.getByText('Math · —')).toBeTruthy();
     expect(screen.queryByText(/teacher-gone/)).toBeNull();
   });

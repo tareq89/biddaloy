@@ -248,6 +248,7 @@ function NewPromotionRunPage() {
       secondary={{
         label: t('newRunForm.cancel'),
         onClick: () => (dirty ? setDiscardOpen(true) : close()),
+        disabled: mutation.isPending,
       }}
       primary={{
         label: t('newRunForm.create'),

@@ -372,9 +372,10 @@ function GenerateFeesFullPage({
 
   const submitError = generate.error ?? previewMutation.error;
 
+  // `would_generate` already leaves the duplicates out; the other actions bill them too.
   const bills =
-    duplicateAction === 'SKIP' && preview !== null && previewScopeKey === scopeKey()
-      ? preview.would_generate
+    preview !== null && previewScopeKey === scopeKey()
+      ? preview.would_generate + (duplicateAction === 'SKIP' ? 0 : preview.duplicates.length)
       : effectiveStudentCount * feeCount;
   const monthMin = selectedYear?.start_date.slice(0, 7);
   const monthMax = selectedYear?.end_date.slice(0, 7);

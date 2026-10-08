@@ -61,6 +61,9 @@ export function validatePresetPack(pack: PresetPack): string[] {
   if (bands) {
     if (bands.length === 0) errs.push('gradingScale must have at least one band');
     bands.forEach((b, i) => {
+      // grading_bands.percent_from/percent_to are int columns.
+      if (!Number.isInteger(b.from) || !Number.isInteger(b.to))
+        errs.push(`grading band ${b.grade}: from and to must be whole numbers`);
       if (b.from > b.to) errs.push(`grading band ${b.grade}: from is greater than to`);
       const prev = bands[i - 1];
       if (prev) {

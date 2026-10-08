@@ -589,9 +589,9 @@ describe('/staff', () => {
     const doneRow = screen.getByText('Done Person').closest('tr') as HTMLElement;
     expect(within(openRow).getByText('Invitation pending')).toBeTruthy();
     expect(within(doneRow).queryByText('Invitation pending')).toBeNull();
-    for (const name of ['View', 'Edit', 'Remove from school']) {
-      expect(within(openRow).getByLabelText(name)).toBeTruthy();
-    }
+    expect(within(openRow).getByRole('link', { name: 'View' })).toBeTruthy();
+    expect(within(openRow).getByRole('button', { name: 'Edit' })).toBeTruthy();
+    expect(within(openRow).getByRole('button', { name: 'Remove from school' })).toBeTruthy();
     expect(screen.getAllByRole('button', { name: 'Add staff member' })).toHaveLength(1);
   });
 
@@ -607,7 +607,7 @@ describe('/staff', () => {
     });
 
     const user = userEvent.setup();
-    await user.click(await screen.findByLabelText('Edit'));
+    await user.click(await screen.findByRole('button', { name: 'Edit' }));
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).getByDisplayValue('Abdul Karim')).toBeTruthy();
   });

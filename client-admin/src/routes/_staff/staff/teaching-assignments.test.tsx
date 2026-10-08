@@ -138,6 +138,29 @@ describe('/staff/teaching-assignments', () => {
     expect(screen.queryByText('Teacher A')).toBeNull();
   });
 
+  it('falls back to the first class when the URL names a class that is not in the list', async () => {
+    const classA = classFactory({ id: '3fa85f64-5717-4562-b3fc-2c963f66afa6', name: 'Class 6' });
+    const sectionA = classSectionFactory({ id: 'section-a', class_id: classA.id, class: classA });
+    const requested: string[] = [];
+    server.use(
+      http.get('/api/v1/classes', () => HttpResponse.json(paged([classA]))),
+      http.get('/api/v1/classes/:classId/sections', ({ params }) => {
+        requested.push(String(params.classId));
+        return HttpResponse.json(params.classId === classA.id ? [sectionA] : []);
+      }),
+      http.get('/api/v1/classes/:classId/sections/:sectionId/teachers', () =>
+        HttpResponse.json([assignment('a', sectionA, 'CLASS_TEACHER', 'Teacher A')]),
+      ),
+    );
+
+    // A well-formed id for a class that was deleted (or is another school's).
+    render('/staff/teaching-assignments?classId=9fa85f64-5717-4562-b3fc-2c963f66afa6');
+
+    await screen.findByText('Teacher A');
+    expect(screen.getByRole('combobox', { name: 'Class' }).textContent).toContain('Class 6');
+    expect(requested).not.toContain('9fa85f64-5717-4562-b3fc-2c963f66afa6');
+  });
+
   it('shows a retry action when the class list fails to load', async () => {
     const klass = classFactory({ id: 'class-a', name: 'Class 6' });
     // An explicit "unlock" flag, not a call counter — the route loader's

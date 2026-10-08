@@ -115,7 +115,9 @@ function FinesTotals({
           <div key={key}>
             <dt className="text-caption text-text-secondary">{t(`totals.${key}`)}</dt>
             <dd
-              className={`text-h3 tabular-nums${key === 'outstanding' ? 'text-status-overdue-fg' : ''}`}
+              className={['text-h3 tabular-nums', key === 'outstanding' && 'text-status-overdue-fg']
+                .filter(Boolean)
+                .join(' ')}
             >
               {formatServerAmount(totals[key], regionConfig)}
             </dd>

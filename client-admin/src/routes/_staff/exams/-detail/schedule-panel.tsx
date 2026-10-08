@@ -75,6 +75,9 @@ function VenueCell({
   const { t } = useTranslation('exams');
   const [editing, setEditing] = React.useState(false);
   const [draft, setDraft] = React.useState('');
+  // Unmounting the focused input can fire `blur` after Enter or Escape; this
+  // makes sure one edit is saved (or dropped) exactly once.
+  const handled = React.useRef(false);
   const inputRef = React.useRef<HTMLInputElement>(null);
 
   React.useEffect(() => {
@@ -82,6 +85,8 @@ function VenueCell({
   }, [editing]);
 
   function commit() {
+    if (handled.current) return;
+    handled.current = true;
     onSave(draft.trim() || null);
     setEditing(false);
   }
@@ -98,6 +103,7 @@ function VenueCell({
             commit();
           } else if (e.key === 'Escape') {
             e.preventDefault();
+            handled.current = true;
             setEditing(false);
           }
         }}
@@ -111,6 +117,7 @@ function VenueCell({
       type="button"
       className="min-h-11 w-full rounded px-1 text-start hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring md:min-h-8"
       onClick={() => {
+        handled.current = false;
         setDraft(row.venue ?? '');
         setEditing(true);
       }}

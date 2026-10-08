@@ -453,13 +453,10 @@ export function StudentForm<TInput>({
                       type="text"
                       inputMode="numeric"
                       placeholder={t('form.fields.rollNumberPlaceholder')}
-                      aria-describedby={`${fieldId('roll_number')}-help`}
                       {...field}
                     />
                   </FormControl>
-                  <FormDescription id={`${fieldId('roll_number')}-help`}>
-                    {t('form.fields.rollNumberHelp')}
-                  </FormDescription>
+                  <FormDescription>{t('form.fields.rollNumberHelp')}</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}

@@ -163,7 +163,8 @@ function ScaleEditorPage() {
   const [copyOpen, setCopyOpen] = React.useState(false);
   const [previewOpen, setPreviewOpen] = React.useState(false);
   const [affectedCount, setAffectedCount] = React.useState(0);
-  // Set once a save is confirmed, so the refetch that follows is not a "leave".
+  // Set once a save is confirmed, so leaving before the refetch lands is not
+  // blocked; cleared by any further edit.
   const savedRef = React.useRef(false);
 
   // Local edit buffer seeded once the scale loads — bands live client-side
@@ -374,6 +375,12 @@ function ScaleEditorPage() {
           onConfirmed={() => {
             savedRef.current = true;
             setPreviewOpen(false);
+            // Reseed from what the server stored (it may reorder or normalise
+            // bands), so `dirty` compares like with like. Skipped if the user
+            // edited again meanwhile.
+            void scaleQuery.refetch().then(({ data }) => {
+              if (data && savedRef.current) setBands(data.bands.map(toBandInput));
+            });
           }}
         />
       )}

@@ -109,8 +109,9 @@ test('invite guardians in bulk from the guardians list', async ({ page, request 
     // legitimately share this tenant and inflate the preview's total.
     // Assert this test's own two guardians are in the to-invite list rather
     // than asserting an exact global count.
-    await expect(dialog.getByText(`Shared Guardian ${suffix} — SMS`)).toBeVisible();
-    await expect(dialog.getByText(`Solo Guardian ${suffix} — SMS`)).toBeVisible();
+    const sms = t('guardians.preferredCommunicationOptions.SMS');
+    await expect(dialog.getByText(`Shared Guardian ${suffix} — ${sms}`)).toBeVisible();
+    await expect(dialog.getByText(`Solo Guardian ${suffix} — ${sms}`)).toBeVisible();
   });
 
   await test.step('confirm dispatch and poll the batch until it drains', async () => {

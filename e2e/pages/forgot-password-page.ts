@@ -24,7 +24,7 @@ export class ForgotPasswordPage {
 
   async submitIdentifier(identifier: string): Promise<void> {
     await this.page.getByLabel(t('auth.forgot.identifierLabel')).fill(identifier);
-    await this.page.getByRole('button', { name: t('auth.forgot.continue') }).click();
+    await this.page.getByRole('button', { name: t('auth.forgot.send') }).click();
   }
 
   async expectCodeStep(): Promise<void> {

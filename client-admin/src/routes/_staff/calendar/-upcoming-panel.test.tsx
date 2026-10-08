@@ -152,4 +152,27 @@ describe('UpcomingPanel', () => {
     expect(row.textContent).toContain('–');
     expect(screen.getByText(/Next holiday: Eid break/)).not.toBeNull();
   });
+
+  it.each([
+    ['2026-09-07', /^Next holiday: Eid break · in \S+ day$/],
+    ['2026-09-08', /^Next holiday: Eid break · today$/],
+  ])('says "in 1 day" (singular) or "today", never "in 1 days" — today %s', async (today, text) => {
+    renderWithProviders(
+      <UpcomingPanel
+        events={[
+          event({
+            id: 'h',
+            name: 'Eid break',
+            type: CalendarEventType.HOLIDAY,
+            start_date: '2026-09-08',
+            end_date: '2026-09-10',
+          }),
+        ]}
+        today={today}
+      />,
+      { locale: 'en' },
+    );
+
+    expect(await screen.findByText(text)).toBeTruthy();
+  });
 });

@@ -127,6 +127,47 @@ describe('GenerateFeesModal', () => {
     expect(screen.queryByText(/student-1|fee-1/)).toBeNull();
   });
 
+  it('counts bills from the preview for every duplicate action', async () => {
+    server.use(
+      http.get('/api/v1/students/ids', () =>
+        HttpResponse.json({ ids: ['student-1', 'student-2', 'student-3'], total: 3 }),
+      ),
+      // 3 students x 1 fee: one new bill, one duplicate, one pair the fee doesn't apply to.
+      http.post('/api/v1/fees/generate/preview', () =>
+        HttpResponse.json({
+          students_total: 3,
+          would_generate: 1,
+          duplicates: [
+            {
+              student_id: 'student-1',
+              fee_structure_id: 'fee-1',
+              existing_bill_id: 'existing-1',
+              paid_amount: 0,
+            },
+          ],
+          inactive: [],
+        }),
+      ),
+    );
+
+    const user = userEvent.setup();
+    await renderModal();
+
+    await user.click(await screen.findByRole('button', { name: /Select all/ }));
+    const feePicker = await screen.findByTestId('fee-picker');
+    await user.click((await within(feePicker).findAllByRole('checkbox'))[0]!);
+    expect(screen.getByText('3 bills will be created')).toBeTruthy();
+
+    await user.click(screen.getByRole('button', { name: 'Create bills' }));
+    await screen.findByText('Some bills for this period already exist');
+    expect(screen.getByText('1 bill will be created')).toBeTruthy();
+
+    await user.click(
+      screen.getByRole('radio', { name: /Delete the old bill and create a new one/ }),
+    );
+    expect(screen.getByText('2 bills will be created')).toBeTruthy();
+  });
+
   it('CREATE_ANYWAY triggers the approval flow: a 403 then a retried success', async () => {
     server.use(
       http.get('/api/v1/students/ids', () => HttpResponse.json({ ids: ['student-1'], total: 1 })),

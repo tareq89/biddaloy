@@ -178,7 +178,8 @@ export function StructureFormDialog({
         : next.amount
           ? 'structure-form-amount'
           : 'structure-form-year';
-      document.getElementById(firstInvalid)?.focus();
+      // After React renders the messages, so the field is described when focused.
+      requestAnimationFrame(() => document.getElementById(firstInvalid)?.focus());
       return;
     }
 

@@ -117,7 +117,9 @@ export function PrintIdCardModal({ initialType, onClose, onConfirm }: PrintIdCar
     setSearch('');
   }
 
-  const dirty = picked.size > 0 || sectionId !== '';
+  // Only the active mode's choice is at stake: a section picked before switching
+  // back to names (or to Staff) isn't shown, so losing it isn't a loss.
+  const dirty = activeMode === 'names' ? picked.size > 0 : sectionId !== '';
   // The shell's footer `secondary` bypasses its own close guard, so Cancel asks here.
   const cancel = () => (dirty ? setDiscarding(true) : onClose());
 

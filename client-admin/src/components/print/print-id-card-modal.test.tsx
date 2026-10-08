@@ -167,6 +167,21 @@ describe('PrintIdCardModal', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
+  it('a section picked before switching back to names is not unsaved work: Cancel just closes', async () => {
+    const { user, onClose } = setup();
+    await screen.findByRole('checkbox', { name: /Rahim Uddin/ });
+    await user.click(screen.getByRole('radio', { name: /Whole section/ }));
+    await user.click(screen.getByRole('combobox', { name: 'Class' }));
+    await user.click(await screen.findByRole('option', { name: 'Class 6' }));
+    await user.click(screen.getByRole('combobox', { name: 'Section' }));
+    await user.click(await screen.findByRole('option', { name: 'A' }));
+    await user.click(screen.getByRole('radio', { name: /Choose by name/ }));
+
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    expect(onClose).toHaveBeenCalled();
+  });
+
   it('under bn the primary and chips use Bangla digits', async () => {
     serve();
     const view = renderWithProviders(

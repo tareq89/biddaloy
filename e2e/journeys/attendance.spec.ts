@@ -127,7 +127,8 @@ test.describe.serial('attendance: teacher marks -> guardian sees -> admin sees t
       await attendance.gotoPortalMonth(studentId, ATTENDANCE_SEED_ABSENT_DATE.slice(0, 7));
       await attendance.dayCell(ATTENDANCE_SEED_ABSENT_DATE).click();
 
-      await expect(page.getByRole('dialog')).toContainText(
+      // The day's details sit in a side panel next to the grid (no dialog).
+      await expect(page.getByRole('complementary').getByRole('definition').first()).toContainText(
         t('portal.attendanceGrid.status.absent'),
       );
     });
@@ -152,7 +153,22 @@ test.describe.serial('attendance: teacher marks -> guardian sees -> admin sees t
       );
       await flags.expectLoaded();
 
-      await expect(flags.dataRows()).toHaveCount(1);
+      // Other specs enrol students into this seeded section mid-run. With no
+      // marks that month (0 present, 0 absent) they still flag at 0%, so
+      // count only students who were actually marked.
+      await expect
+        .poll(() =>
+          flags.dataRows().evaluateAll(
+            (rows) =>
+              rows.filter((row) => {
+                const [present, absent] = [...row.querySelectorAll('td')]
+                  .slice(4, 6)
+                  .map((td) => td.textContent?.trim() ?? '');
+                return !(present === absent && /^[0০]$/.test(present));
+              }).length,
+          ),
+        )
+        .toBe(1);
     });
   });
 });

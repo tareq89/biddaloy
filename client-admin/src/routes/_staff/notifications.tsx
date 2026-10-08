@@ -43,15 +43,16 @@ function NotificationsPage() {
   const feedRef = React.useRef<HTMLDivElement>(null);
 
   const description = t('notifications.pageDescription');
+  // The count leads: `PageHeader` truncates the subtitle on narrow screens.
   const subtitle =
     unreadCount > 0
       ? [
-          description,
           // `count` only picks the plural form; `n` is the tenant-formatted number.
           t('notifications.unreadCount', {
             count: unreadCount,
             n: formatNumber(unreadCount, config),
           }),
+          description,
         ].join(' · ')
       : description;
 
@@ -76,7 +77,12 @@ function NotificationsPage() {
           },
         ]}
       />
-      <div ref={feedRef} tabIndex={-1} className="space-y-6 outline-none">
+      {/* Focused after "Mark all read" unmounts: a keyboard user sees where focus went. */}
+      <div
+        ref={feedRef}
+        tabIndex={-1}
+        className="space-y-6 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+      >
         {notifications.length === 0 ? (
           <EmptyState
             icon={<Bell />}

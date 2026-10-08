@@ -214,7 +214,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     permission: Permission.ACR_WRITE,
     kind: 'navigate',
     context: [],
-    run: (ctx) => ctx.navigate({ to: '/staff/evaluations?publishSurvey=1' }),
+    run: (ctx) => ctx.navigate({ to: '/staff/evaluations?tab=surveys&publishSurvey=1' }),
   },
   // [28.4.5/D22] No entity id in `run()`: lands on the student list with a
   // flag that makes each row's "View" open the Performance tab.

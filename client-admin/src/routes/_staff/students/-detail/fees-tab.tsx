@@ -349,9 +349,14 @@ export function FeesTab({ studentId }: FeesTabProps) {
                     {t('detail.fees.outstanding')}
                   </dt>
                   <dd
-                    className={`mt-1 text-h3 tabular-nums md:text-h2${
-                      owes ? 'text-status-overdue-fg' : ''
-                    }`}
+                    // Joined, not a template literal: the Tailwind prettier plugin trims a
+                    // leading space inside the string, which fused the two classes before.
+                    className={[
+                      'mt-1 text-h3 tabular-nums md:text-h2',
+                      owes && 'text-status-overdue-fg',
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
                   >
                     {money(feeSummary.summary.balance)}
                   </dd>

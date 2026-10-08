@@ -142,7 +142,11 @@ function GrantSmsCreditsDialog({
       // A pending request must not be dismissed from under itself.
       onOpenChange={(next) => {
         if (!next && grant.isPending) return;
-        if (!next) setFailed(false);
+        if (!next) {
+          setFailed(false);
+          // Reopening starts a new attempt, never a retry of the last one.
+          idempotencyKeyRef.current = undefined;
+        }
         onOpenChange(next);
       }}
     >

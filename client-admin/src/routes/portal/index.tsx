@@ -361,47 +361,42 @@ function PortalSkeleton({
   // is genuinely unknown here.
   studentCount: number | undefined;
 }) {
-  if (studentCount === 1) {
-    return (
-      // No `<h1>` while pending — see this file's header comment. The
-      // `aria-busy` region carries the state for a screen reader instead,
-      // so the frame is never silently blank.
-      // Mirrors `SingleStudentView`'s own frame: the name+meta header (not
-      // a `Card`), the hero `Card`, then `RecentPayments`' card shell —
-      // that query has its own pending skeleton, so only its shell height
-      // is approximated here.
-      <div className="flex flex-col gap-3" aria-busy="true" aria-live="polite">
-        <span className="sr-only">{label}</span>
-        <div className="flex flex-col gap-0.5">
-          <Skeleton className="h-7 w-40" />
-          <Skeleton className="h-4 w-24" />
-        </div>
-        <Skeleton className="h-[6.5rem] w-full rounded-lg" />
-        <Skeleton className="h-24 w-full rounded-lg" />
-      </div>
-    );
-  }
-
+  const single = studentCount === 1;
   return (
-    // No `<h1>` while pending — see this file's header comment. The
-    // `aria-busy` region carries the state for a screen reader instead, so
-    // the frame is never silently blank.
-    // The three heights below are the boxes it actually renders: the
-    // hero `Card` (p-4 around a label, a `text-3xl` figure and a meta
-    // line), the uppercase section label, and a `ChildCard` (p-3.5 around
-    // a name row, a meta line and an amount/badge row). ([8.13.11])
-    //
-    // Also the fallback while `studentCount` is still unknown (neither
-    // query has resolved) — see this file's header comment on why a
-    // single student is the less common case, so a shape that's wrong for
-    // neither branch is wrong for both.
-    <div className="flex flex-col gap-3" aria-busy="true" aria-live="polite">
-      <span className="sr-only">{label}</span>
-      <Skeleton className="h-[7.25rem] w-full rounded-lg" />
-      <Skeleton className="mt-1 h-4 w-32" />
-      <Skeleton className="h-[6.25rem] w-full rounded-lg" />
-      <Skeleton className="h-[6.25rem] w-full rounded-lg" />
-    </div>
+    // Mirrors `PortalPage`: header, a two-column main column and the
+    // upcoming-events side column. No `<h1>` while pending — see this
+    // file's header comment; the `aria-busy` region carries the state for a
+    // screen reader instead, so the frame is never silently blank.
+    <PageContainer>
+      <div aria-busy="true" aria-live="polite" data-shape={single ? 'single' : 'multi'}>
+        <span className="sr-only">{label}</span>
+        {/* The page title, plus the "name · meta" subtitle a single student gets. */}
+        <div className="flex flex-col gap-1">
+          <Skeleton className="h-8 w-48" />
+          {single && <Skeleton className="h-4 w-56" />}
+        </div>
+        <div className="mt-6 grid gap-6 md:grid-cols-3 md:items-start">
+          <div className="min-w-0 space-y-6 md:col-span-2">
+            {/* The hero `Card`: label, display figure, meta line (and a button for one student). */}
+            <Skeleton className={`w-full rounded-lg ${single ? 'h-40' : 'h-32'}`} />
+            {single ? (
+              // `RecentPayments`' card shell; that query has its own skeleton.
+              <Skeleton className="h-24 w-full rounded-lg" />
+            ) : (
+              // Also the fallback while `studentCount` is unknown: the
+              // children heading and two `ChildCard`s.
+              <div className="space-y-3">
+                <Skeleton className="h-6 w-32" />
+                <Skeleton className="h-[6.25rem] w-full rounded-lg" />
+                <Skeleton className="h-[6.25rem] w-full rounded-lg" />
+              </div>
+            )}
+          </div>
+          {/* `UpcomingCalendarCard`. */}
+          <Skeleton className="h-48 w-full rounded-lg" />
+        </div>
+      </div>
+    </PageContainer>
   );
 }
 

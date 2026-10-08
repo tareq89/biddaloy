@@ -12,7 +12,7 @@ import type { CalendarEvent, PublicHolidayEntry } from '@biddaloy/ui/hooks';
 import { REGION_BD_BN } from '@biddaloy/ui/i18n';
 import { cleanupTestState, renderWithProviders } from '@biddaloy/ui/test';
 import { formatDate } from '@biddaloy/ui/utils';
-import { fireEvent, screen, within } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { EventDetailsSheet } from './-event-details-sheet';
@@ -350,6 +350,44 @@ describe('EventDetailsSheet', () => {
     await user.click(within(confirm).getByRole('button', { name: 'Delete' }));
 
     expect(onDelete).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the confirm open while the delete runs, then closes it when the delete fails', async () => {
+    const sheet = (props: { deleting: boolean; actionFailed: boolean }) => (
+      <EventDetailsSheet
+        open
+        onOpenChange={() => {}}
+        event={baseEvent()}
+        canManage
+        onEdit={() => {}}
+        onDelete={() => {}}
+        onPublish={() => {}}
+        {...props}
+      />
+    );
+    const { user, rerender } = renderWithProviders(
+      sheet({ deleting: false, actionFailed: false }),
+      {
+        locale: 'en',
+      },
+    );
+
+    await user.click(await screen.findByRole('button', { name: 'Delete' }));
+    await user.click(
+      within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Delete' }),
+    );
+
+    // The request is in flight: the confirm stays, its Cancel is disabled.
+    rerender(sheet({ deleting: true, actionFailed: false }));
+    const confirm = screen.getByRole('alertdialog');
+    expect(within(confirm).getByRole('button', { name: 'Cancel' }).hasAttribute('disabled')).toBe(
+      true,
+    );
+
+    // It failed: the confirm closes and the sheet's alert explains.
+    rerender(sheet({ deleting: false, actionFailed: true }));
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+    expect(screen.getByRole('alert')).toBeTruthy();
   });
 
   it('shows a neutral Draft badge for an unpublished event and a translated failure alert', async () => {

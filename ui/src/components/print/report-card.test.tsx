@@ -166,6 +166,34 @@ describe('ReportCard', () => {
     expect(screen.getByText(/92\.5/)).toBeTruthy();
   });
 
+  it('renders a program score in tenant numerals, keeping its decimals', () => {
+    rtlRender(
+      <RegionConfigProvider value={REGION_BD_BN}>
+        <ReportCard
+          data={{
+            ...BASE,
+            programs: [
+              {
+                program_name: 'Hifz Circle',
+                achieved_count: 7,
+                milestone_total: 30,
+                latest: {
+                  milestone_name: 'Juz 5',
+                  achieved_on: '2026-03-01',
+                  score: 92.5,
+                  grade: 'A',
+                },
+              },
+            ],
+          }}
+          issuer={ISSUER}
+          labels={LABELS}
+        />
+      </RegionConfigProvider>,
+    );
+    expect(screen.getByText('৯২.৫ / A')).toBeTruthy();
+  });
+
   it('renders GPA with two decimals in tenant numerals', () => {
     const { unmount } = rtlRender(
       <RegionConfigProvider value={REGION_BD_BN}>

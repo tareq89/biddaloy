@@ -258,7 +258,16 @@ function PortalCalendar() {
             onMonthChange={(next) =>
               void navigate({ search: { student: selected.id, month: next } })
             }
-            onDayClick={(date) => setPicked({ key: pickedKey, date })}
+            onDayClick={(date) => {
+              const dateMonth = date.slice(0, 7);
+              if (dateMonth === month) {
+                setPicked({ key: pickedKey, date });
+                return;
+              }
+              // A leading/trailing day from a neighbouring month: show that month, keep the day.
+              setPicked({ key: `${selected.id}:${dateMonth}`, date });
+              void navigate({ search: { student: selected.id, month: dateMonth } });
+            }}
             firstDayOfWeek={settingsQuery.data.firstDayOfWeek}
             weeklyOffDays={settingsQuery.data.weeklyOffDays}
             events={monthGridEvents}

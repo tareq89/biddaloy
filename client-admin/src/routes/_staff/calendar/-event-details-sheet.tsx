@@ -47,6 +47,14 @@ export function EventDetailsSheet({
   const { t } = useTranslation('calendar');
   const regionConfig = useRegionConfig();
   const [confirmOpen, setConfirmOpen] = React.useState(false);
+  // The confirm stays open (busy) while the delete runs and closes once it
+  // settles: on success the parent closes this sheet, on failure the sheet's
+  // alert says so.
+  const [wasDeleting, setWasDeleting] = React.useState(deleting);
+  if (wasDeleting !== deleting) {
+    setWasDeleting(deleting);
+    if (!deleting) setConfirmOpen(false);
+  }
 
   if (!event) return null;
 
@@ -124,17 +132,14 @@ export function EventDetailsSheet({
       </Dialog>
 
       <ConfirmDialog
-        open={confirmOpen}
+        open={open && confirmOpen}
         onOpenChange={setConfirmOpen}
         tone="danger"
         title={t('eventDetails.deleteConfirmTitle')}
         description={t('eventDetails.deleteConfirmDescription', { name: event.name })}
         confirmLabel={t('eventDetails.delete')}
         busy={deleting}
-        onConfirm={() => {
-          onDelete();
-          setConfirmOpen(false);
-        }}
+        onConfirm={onDelete}
       />
     </>
   );

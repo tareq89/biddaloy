@@ -72,7 +72,11 @@ export function StudentsTab({
       >
         <Select
           value={status}
-          onValueChange={(value) => setStatus(value as ProgramEnrollmentStatus)}
+          onValueChange={(value) => {
+            // A failed status change belongs to the list being left: drop its alert.
+            updateEnrollment.reset();
+            setStatus(value as ProgramEnrollmentStatus);
+          }}
         >
           <SelectTrigger id="program-students-status" className="w-full">
             <SelectValue />

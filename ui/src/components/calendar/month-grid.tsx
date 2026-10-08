@@ -126,9 +126,14 @@ export function MonthGrid({
   const today = todayProp ?? toIsoDate(new Date());
   const selected = selectedDate ?? today;
   const days = React.useMemo(() => buildDays(month, firstDayOfWeek), [month, firstDayOfWeek]);
-  const [focusedDay, setFocusedDay] = React.useState<string>(
-    days.includes(selected) ? selected : days.includes(today) ? today : (days[0] ?? month),
-  );
+  const defaultFocus = days.includes(selected)
+    ? selected
+    : days.includes(today)
+      ? today
+      : (days[0] ?? month);
+  const [focusedDayState, setFocusedDay] = React.useState<string>(defaultFocus);
+  // After a month change the old focus may be off-grid; fall back so one cell stays tabbable.
+  const focusedDay = days.includes(focusedDayState) ? focusedDayState : defaultFocus;
 
   const orderedWeekdayLabels = React.useMemo(() => {
     const rotated: string[] = [];
@@ -275,7 +280,14 @@ export function MonthGrid({
               >
                 {renderDigits(String(Number(day.slice(8, 10))), config.numerals)}
               </span>
-              <div className="mt-1 hidden min-w-0 flex-col gap-0.5 md:flex">
+              {/* Phones get dots instead of chips only when a day tap leads to the
+                  day's events; otherwise the chips stay, the only way to open one. */}
+              <div
+                className={cn(
+                  'mt-1 min-w-0 flex-col gap-0.5',
+                  onDayClick ? 'hidden md:flex' : 'flex w-full',
+                )}
+              >
                 {visibleEvents.map((event) => (
                   <button
                     type="button"
@@ -298,14 +310,16 @@ export function MonthGrid({
                   </span>
                 )}
               </div>
-              <div aria-hidden="true" className="flex gap-0.5 md:hidden">
-                {dayEvents.slice(0, 3).map((event) => (
-                  <span
-                    key={event.id}
-                    className={cn('size-1.5 rounded-full', EVENT_DOT_CLASSES[event.type])}
-                  />
-                ))}
-              </div>
+              {onDayClick && (
+                <div aria-hidden="true" className="flex gap-0.5 md:hidden">
+                  {dayEvents.slice(0, 3).map((event) => (
+                    <span
+                      key={event.id}
+                      className={cn('size-1.5 rounded-full', EVENT_DOT_CLASSES[event.type])}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           );
         })}

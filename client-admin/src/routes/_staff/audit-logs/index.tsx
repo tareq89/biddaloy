@@ -372,7 +372,7 @@ function AuditLogsList() {
       emptyState={{
         icon: <ScrollText />,
         title: t('list.emptyTitle'),
-        explanation: t('list.emptyMessage'),
+        explanation: hasActiveFilter ? t('list.emptyMessage') : t('list.emptyMessageUnfiltered'),
         ...(hasActiveFilter
           ? { action: { label: t('list.clearFilters'), onClick: clearFilters } }
           : {}),

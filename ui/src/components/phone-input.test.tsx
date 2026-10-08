@@ -50,6 +50,21 @@ describe('PhoneInput', () => {
     expect(input.getAttribute('aria-invalid')).toBe('true');
   });
 
+  it("keeps the host's own aria-invalid (e.g. a required error on an empty field)", () => {
+    render(
+      <PhoneInput
+        aria-label="Phone"
+        aria-invalid
+        value=""
+        onValueChange={() => {}}
+        config={REGION_BD_EN}
+      />,
+    );
+    expect(screen.getByRole('textbox', { name: 'Phone' }).getAttribute('aria-invalid')).toBe(
+      'true',
+    );
+  });
+
   it('is axe clean with a labelled, currently-valid value', async () => {
     const user = userEvent.setup();
     const { container } = render(<Controlled />);

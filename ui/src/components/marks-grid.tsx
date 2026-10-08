@@ -62,9 +62,11 @@ export function toStagedMark(raw: string): string | null {
   return complete === '' ? null : complete;
 }
 
-/** Full marks in the tenant's numerals. The server may send "100.00". */
+/** Full marks in the tenant's numerals. The server may send "100.00" (shown as
+ * 100); a real fraction like "12.5" keeps its digits instead of rounding to 13. */
 export function formatMax(component: MarksGridComponent, config: RegionConfig): string {
-  return formatNumber(Number(component.full_marks), config);
+  const fraction = component.full_marks.split('.')[1]?.replace(/0+$/, '') ?? '';
+  return formatNumber(Number(component.full_marks), config, { decimals: fraction.length });
 }
 
 /** Derived values arrive as strings; numbers show in tenant numerals, anything else as-is. */

@@ -365,8 +365,45 @@ describe('/marks/$examId/$sectionId/$subjectId', () => {
       `Math · Section Six - A · Half Yearly 2026 · ${formatNumber(1, REGION_BD_BN)} student`,
     );
     // Desktop only: the keyboard help and the student total.
-    expect(screen.getByText('Total 1')).toBeTruthy();
+    expect(screen.getByText(`Total ${formatNumber(1, REGION_BD_BN)}`)).toBeTruthy();
     expect(screen.getByText('Enter')).toBeTruthy();
+  });
+
+  it("never borrows another subject's name for the subtitle, but still names the section", async () => {
+    const exam = examFactory({ id: 'exam-1', name: 'Half Yearly 2026' });
+    server.use(
+      http.get(GRID_URL, () => HttpResponse.json(baseGrid)),
+      http.get('/api/v1/exams', () =>
+        HttpResponse.json({ data: [exam], total: 1, page: 1, limit: 50, totalPages: 1 }),
+      ),
+      // This subject is done, so only another subject of the section is outstanding.
+      http.get('/api/v1/exams/exam-1/marks/progress', () =>
+        HttpResponse.json({
+          counts: { DRAFT: 1, SUBMITTED: 1 },
+          outstanding: [
+            {
+              section_id: 'sec-1',
+              section_name: 'Six - A',
+              subject_id: 'subj-other',
+              subject_name: 'English',
+              subject_name_bn: null,
+              state: 'DRAFT',
+            },
+          ],
+        }),
+      ),
+    );
+    renderWithRouter(routeTree, {
+      initialEntries: ['/marks/exam-1/sec-1/subj-1'],
+      tenantId: 'tenant-1',
+      role: 'TEACHER',
+      locale: 'en',
+    });
+
+    await screen.findByText(
+      `Section Six - A · Half Yearly 2026 · ${formatNumber(1, REGION_BD_BN)} student`,
+    );
+    expect(screen.queryByText(/English/)).toBeNull();
   });
 
   it('shows the saved time without seconds, in the tenant numerals', async () => {

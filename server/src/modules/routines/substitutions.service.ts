@@ -131,7 +131,11 @@ export class SubstitutionsService {
       academicYear && occursOn(slot, date, academicYear.start_date as unknown as string);
 
     if (!inRange || !matchesRecurrence) {
-      throw new UnprocessableEntityException(`Routine slot "${slot.id}" does not occur on ${date}`);
+      // `details.code` lets the SPA tell this apart from any other 422.
+      throw new UnprocessableEntityException({
+        message: `Routine slot "${slot.id}" does not occur on ${date}`,
+        details: { code: 'SLOT_NOT_ON_DATE' },
+      });
     }
   }
 }

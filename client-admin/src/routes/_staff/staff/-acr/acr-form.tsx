@@ -47,6 +47,17 @@ import * as React from 'react';
 import { AcrPrintButton } from './acr-print-button';
 import { CriterionStep, SCORE_VALUES, type ScoreValue } from './criterion-step';
 
+/** `step1_data` is an open server record: a malformed stored date must leave the
+ * picker empty, not throw out of render (`parseDate` throws on a non-date). */
+function safeParseDate(value: string | undefined): Date | undefined {
+  if (!value) return undefined;
+  try {
+    return parseDate(value);
+  } catch {
+    return undefined;
+  }
+}
+
 interface Step1 {
   period_from: string;
   period_to: string;
@@ -231,8 +242,8 @@ export function AcrForm({
         id={id}
         config={regionConfig}
         aria-label={label}
-        value={value ? parseDate(value) : undefined}
-        min={min ? parseDate(min) : undefined}
+        value={safeParseDate(value)}
+        min={safeParseDate(min)}
         disabled={readOnly}
         onValueChange={(d) => onChange(d ? toIsoDate(d) : '')}
       />

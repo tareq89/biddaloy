@@ -32,7 +32,8 @@ describe('/verify-email', () => {
     await waitFor(() =>
       expect(screen.getByText('Your email address has been updated.')).toBeTruthy(),
     );
-    expect(screen.getByRole('button', { name: 'Sign in' })).toBeTruthy();
+    // Navigation, so a link (new tab, copy address).
+    expect(screen.getByRole('link', { name: 'Sign in' }).getAttribute('href')).toBe('/login');
   });
 
   it('shows the expired-link state for an expired/consumed token', async () => {

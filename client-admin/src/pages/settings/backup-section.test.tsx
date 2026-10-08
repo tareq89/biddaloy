@@ -138,6 +138,76 @@ describe('BackupSection', () => {
     expect(screen.queryByText("Couldn't download this backup. Try again.")).toBeNull();
   });
 
+  it('ignores a second Download click while the first download is still running', async () => {
+    let downloadHits = 0;
+    server.use(
+      http.get('/api/v1/backup/jobs', () =>
+        HttpResponse.json({
+          data: [jobFixture({ id: 'job-done' })],
+          total: 1,
+          page: 1,
+          limit: 10,
+          totalPages: 1,
+        }),
+      ),
+      http.get('/api/v1/backup/jobs/:id/download', async () => {
+        downloadHits += 1;
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        return new HttpResponse(new Blob(['bytes']), {
+          status: 200,
+          headers: { 'Content-Disposition': 'attachment; filename="backup.zip"' },
+        });
+      }),
+    );
+
+    const { user } = renderWithProviders(
+      <RegionConfigProvider value={REGION_BD_EN}>
+        <BackupSection />
+      </RegionConfigProvider>,
+      { locale: 'en', role: 'ADMIN', tenantId: SCHOOL_ID },
+    );
+
+    const downloadButton = await screen.findByRole('button', { name: 'Download' });
+    await user.click(downloadButton);
+    await waitFor(() => expect(downloadButton.getAttribute('aria-busy')).toBe('true'));
+    await user.click(downloadButton);
+
+    await waitFor(() => expect(downloadButton.getAttribute('aria-busy')).toBeNull());
+    expect(downloadHits).toBe(1);
+  });
+
+  it('moves back to the last page with jobs when the current page comes back empty', async () => {
+    const pages: number[] = [];
+    server.use(
+      http.get('/api/v1/backup/jobs', ({ request }) => {
+        const page = Number(new URL(request.url).searchParams.get('page') ?? '1');
+        pages.push(page);
+        // Page 2's only job is deleted by retention before page 2 is fetched.
+        const total = pages.includes(2) ? 25 : 26;
+        const data = page === 1 ? [jobFixture({ id: 'job-page-1' })] : [];
+        return HttpResponse.json({ data, total, page, limit: 25, totalPages: 2 });
+      }),
+    );
+
+    const { user } = renderWithProviders(
+      <RegionConfigProvider value={REGION_BD_EN}>
+        <BackupSection />
+      </RegionConfigProvider>,
+      { locale: 'en', role: 'ADMIN', tenantId: SCHOOL_ID },
+    );
+
+    await screen.findByText('Rahim Uddin');
+    await user.click(screen.getByRole('button', { name: 'Next' }));
+
+    await waitFor(() => expect(pages).toContain(2));
+    // The empty page 2 sends it back to page 1 (Previous disabled), not to "No backups yet".
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Previous' }).hasAttribute('disabled')).toBe(true);
+      expect(screen.getByText('Rahim Uddin')).toBeTruthy();
+    });
+    expect(screen.queryByText('No backups yet')).toBeNull();
+  });
+
   it('shows an expired row as a "Download expired" badge instead of a Download action after a 410', async () => {
     server.use(
       http.get('/api/v1/backup/jobs', () =>

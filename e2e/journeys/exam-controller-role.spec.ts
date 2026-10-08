@@ -94,13 +94,14 @@ test('runs an exam: create, seat plan, read-only marks, publish result', async (
   let subjectId: string;
   let subjectName: string;
   try {
-    const subject = await post<{ id: string; name_en: string }>(ctx, session, '/subjects', {
+    const subject = await post<{ id: string; name_bn: string }>(ctx, session, '/subjects', {
       code: `E2EXC-${suffix}`,
       name_en: `E2E Controller Subject ${suffix}`,
       name_bn: `ই২ই নিয়ন্ত্রক ${suffix}`,
     });
     subjectId = subject.id;
-    subjectName = subject.name_en;
+    // bn screens label the seat-plan picker with `name_bn`.
+    subjectName = subject.name_bn;
     await post(ctx, session, `/exams/${exam.id}/schedule`, {
       subject_id: subjectId,
       date: scheduleDate.toISOString().slice(0, 10),
@@ -141,7 +142,7 @@ test('runs an exam: create, seat plan, read-only marks, publish result', async (
   await page.getByTestId('schedule-picker').getByRole('checkbox', { name: subjectName }).check();
   await page.getByTestId('room-picker').getByRole('checkbox', { name: roomName }).check();
   await page.getByRole('button', { name: t('seatPlans.generate.submit') }).click();
-  await page.getByRole('link', { name: planName }).click();
+  // Generating lands straight on the new plan.
   await expect(page.getByRole('heading', { name: planName })).toBeVisible();
 
   // --- 3. marks grid is view-only: disabled cells, no submit button, and the API refuses a write

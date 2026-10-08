@@ -282,6 +282,31 @@ describe('/portal/attendance', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
+  it('labels a holiday row "Holiday", not a second "Status"', async () => {
+    mockAttendance({
+      students: [fatima],
+      days: {
+        [FATIMA_ID]: [
+          attendanceDay({ date: '2026-09-04', is_working_day: false, holiday_name: 'Victory Day' }),
+        ],
+      },
+      summaries: { [FATIMA_ID]: summary(FATIMA_ID) },
+    });
+    renderAttendance();
+
+    await userEvent.click(
+      await screen.findByRole('button', {
+        name: (n) => n.startsWith(formatDate('2026-09-04', REGION_BD_EN)),
+      }),
+    );
+
+    const panel = await screen.findByRole('complementary', {
+      name: formatDate('2026-09-04', REGION_BD_EN),
+    });
+    expect(within(panel).getByText('Holiday').nextElementSibling?.textContent).toBe('Victory Day');
+    expect(within(panel).queryAllByText('Status').length).toBeLessThanOrEqual(1);
+  });
+
   it('shows today in the panel by default for the current month', async () => {
     mockAttendance({
       students: [fatima],
@@ -304,9 +329,7 @@ describe('/portal/attendance', () => {
     });
     renderAttendance('/portal/attendance?month=2026-08');
 
-    expect(
-      await screen.findByText('Pick a day on the calendar to see its details'),
-    ).toBeTruthy();
+    expect(await screen.findByText('Pick a day on the calendar to see its details')).toBeTruthy();
   });
 
   it('steps to the previous and next month, rewriting ?month=', async () => {

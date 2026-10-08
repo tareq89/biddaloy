@@ -392,8 +392,11 @@ export function PublicAdmissionForm({ slug, onSubmitted }: PublicAdmissionFormPr
                   clearError('guardian-phone');
                 }}
                 config={regionConfig}
+                aria-invalid={errors['guardian-phone'] ? true : undefined}
                 aria-describedby={
-                  errors['guardian-phone'] ? 'guardian-phone-error' : 'guardian-phone-help'
+                  errors['guardian-phone']
+                    ? 'guardian-phone-help guardian-phone-error'
+                    : 'guardian-phone-help'
                 }
               />
               <p id="guardian-phone-help" className="text-caption text-text-secondary">

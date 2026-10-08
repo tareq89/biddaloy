@@ -77,7 +77,9 @@
   },
   "upcomingPanel": {
     "title": "আসন্ন",
-    "nextHoliday": "পরবর্তী ছুটি: {{name}} · {{n}} দিনে",
+    "nextHoliday_one": "পরবর্তী ছুটি: {{name}} · {{n}} দিনে",
+    "nextHoliday_other": "পরবর্তী ছুটি: {{name}} · {{n}} দিনে",
+    "nextHolidayToday": "পরবর্তী ছুটি: {{name}} · আজ",
     "empty": "আগামী ৬০ দিনে কিছু নির্ধারিত নেই।"
   }
 }
