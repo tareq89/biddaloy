@@ -376,7 +376,7 @@ describe('StudyPlanFlagsScheduler (integration)', () => {
       await guardianOf(onTrack, 'three', gUser3.id);
       const committeeUser = await member('comm2', UserRole.COMMITTEE);
 
-      await scheduler.runDigest(SEED_TENANT_ID, '2047-W11', SETTINGS);
+      await scheduler.runDigest(SEED_TENANT_ID, SETTINGS);
 
       const digest = pushed.filter((p) => p.type === 'study-plan.digest');
       const mine = digest.filter((p) => p.userId === gUser.id);
@@ -399,7 +399,7 @@ describe('StudyPlanFlagsScheduler (integration)', () => {
       const bUser = await makeUser('b-guardian');
       await guardianOf(kid, 'b', bUser.id, TENANT_B);
       const bCommittee = await member('b-comm', UserRole.COMMITTEE, TENANT_B);
-      await scheduler.runDigest(SEED_TENANT_ID, '2047-W11', SETTINGS);
+      await scheduler.runDigest(SEED_TENANT_ID, SETTINGS);
       const got = pushed.map((p) => p.userId);
       expect(got).not.toContain(bUser.id);
       expect(got).not.toContain(bCommittee);

@@ -283,8 +283,9 @@ export class StudyPlanCsvService {
   // ------------------------------------------------------------------ commit
 
   /**
-   * Permission and target checks run on a `peek` so a refusal does not burn
-   * the staging id; the write then `consume`s it, so it works once (404 after).
+   * Permission and target checks run on a `peek`, and the id is `consume`d only
+   * after the write succeeds: a refused write (409, 400) leaves the upload for a
+   * retry; a committed one is gone (404 after).
    */
   async commit(dto: CommitStudyPlanImportDto, tenantId: string, caller: StudyPlanCaller) {
     const targets = [dto.plan_id, dto.plan, dto.template].filter((t) => t !== undefined);
@@ -312,17 +313,21 @@ export class StudyPlanCsvService {
           'This upload was validated for a different target. Validate it again for the template.',
         );
       }
-      await this.consume(tenantId, caller, dto.staging_id);
-      return this.templates.create(
-        {
-          name: dto.template.name,
-          class_grade: dto.template.class_grade,
-          subject_code: dto.template.subject_code,
-          lessons: staged.lessons,
-        },
+      return this.consumeAfter(
         tenantId,
-        caller.userId,
-        caller.context,
+        caller,
+        dto.staging_id,
+        this.templates.create(
+          {
+            name: dto.template.name,
+            class_grade: dto.template.class_grade,
+            subject_code: dto.template.subject_code,
+            lessons: staged.lessons,
+          },
+          tenantId,
+          caller.userId,
+          caller.context,
+        ),
       );
     }
 
@@ -351,8 +356,21 @@ export class StudyPlanCsvService {
         plan.academic_year_id,
         plan.owner_override_teacher_id,
       );
-      await this.consume(tenantId, caller, dto.staging_id);
-      return this.plans.replaceLessons(dto.plan_id, staged.lessons, tenantId, caller);
+      // A row whose title matches an existing lesson keeps that lesson's id, so
+      // exam markers and delivery history survive an export -> edit -> import.
+      const idsByTitle = new Map<string, string[]>();
+      for (const l of plan.lessons)
+        idsByTitle.set(l.title, [...(idsByTitle.get(l.title) ?? []), l.id]);
+      const lessons = staged.lessons.map((l) => {
+        const id = idsByTitle.get(l.title)?.shift();
+        return id ? { ...l, id } : l;
+      });
+      return this.consumeAfter(
+        tenantId,
+        caller,
+        dto.staging_id,
+        this.plans.replaceLessons(dto.plan_id, lessons, tenantId, caller),
+      );
     }
 
     const scope = dto.plan!;
@@ -370,16 +388,20 @@ export class StudyPlanCsvService {
     });
     if (!cls) throw new NotFoundException('Class not found.');
     await this.plans.assertCanWrite(caller, section.id, scope.subject_id, cls.academic_year_id);
-    await this.consume(tenantId, caller, dto.staging_id);
-    return this.plans.create(
-      {
-        section_id: scope.section_id,
-        subject_id: scope.subject_id,
-        academic_term_id: scope.academic_term_id,
-        lessons: staged.lessons,
-      },
+    return this.consumeAfter(
       tenantId,
       caller,
+      dto.staging_id,
+      this.plans.create(
+        {
+          section_id: scope.section_id,
+          subject_id: scope.subject_id,
+          academic_term_id: scope.academic_term_id,
+          lessons: staged.lessons,
+        },
+        tenantId,
+        caller,
+      ),
     );
   }
 
@@ -389,9 +411,20 @@ export class StudyPlanCsvService {
     );
   }
 
-  private async consume(tenantId: string, caller: StudyPlanCaller, stagingId: string) {
-    const staged = await this.staging.consume<StagedImport>(tenantId, caller.userId, stagingId);
-    if (!staged) throw this.stagingGone();
+  /**
+   * Burns the staging id once `write` has succeeded; a failed write leaves it.
+   * ponytail: two racing commits of one id can both write (the plan/template
+   * unique keys turn the second create into a 409); lock the id if that matters.
+   */
+  private async consumeAfter<T>(
+    tenantId: string,
+    caller: StudyPlanCaller,
+    stagingId: string,
+    write: Promise<T>,
+  ): Promise<T> {
+    const out = await write;
+    await this.staging.consume<StagedImport>(tenantId, caller.userId, stagingId);
+    return out;
   }
 
   // ---------------------------------------------------------------- progress
@@ -440,17 +473,12 @@ export class StudyPlanCsvService {
         'last_taught_lesson',
       ],
     ];
-    // ponytail: one schedule per plan (a class x term is tens of plans); batch via summarize() if it grows.
+    // One resolver pass per section; a plan whose term or year was removed has no schedule.
+    const scheds = await this.schedule.schedulesFor(entities, tenantId);
     for (const base of bases) {
-      const entity = byId.get(base.id);
-      if (!entity) continue;
-      const [detail, sched] = await Promise.all([
-        this.plans.findOneForCaller(base.id, tenantId, caller),
-        this.schedule.scheduleFor(entity, tenantId).catch((err: unknown) => {
-          if (err instanceof NotFoundException) return null; // term or year was removed
-          throw err;
-        }),
-      ]);
+      if (!byId.has(base.id)) continue;
+      const detail = await this.plans.findOneForCaller(base.id, tenantId, caller);
+      const sched = scheds.get(base.id) ?? null;
       const taughtLessons = sched?.raw.lessons.filter((l) => l.status === 'DONE') ?? [];
       rows.push([
         `${base.section.class_name} ${base.section.name}`,

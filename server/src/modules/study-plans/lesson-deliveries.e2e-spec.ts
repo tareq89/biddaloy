@@ -296,6 +296,7 @@ describe('Lesson deliveries E2E (66.2.03)', () => {
       await as('put', '/lesson-deliveries', 'T')
         .send(body(`${monday}T00:00:00Z`))
         .expect(400);
+      await as('put', '/lesson-deliveries', 'T').send(body('2026-13-01')).expect(400);
     });
   });
 

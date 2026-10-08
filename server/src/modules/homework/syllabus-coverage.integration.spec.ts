@@ -31,14 +31,20 @@ describe('SyllabusService.coverageFor (integration)', () => {
   const TENANT_B = '00000000-0000-4000-8000-000000000095';
   const doneLessons = new Set<string>();
   const scheduleStub = {
-    scheduleFor: async (plan: StudyPlan) => ({
-      raw: {
-        lessons: plan.lessons.map((l) => ({
-          id: l.id,
-          status: doneLessons.has(l.id) ? 'DONE' : 'UPCOMING',
-        })),
-      },
-    }),
+    schedulesFor: async (plans: StudyPlan[]) =>
+      new Map(
+        plans.map((plan) => [
+          plan.id,
+          {
+            raw: {
+              lessons: plan.lessons.map((l) => ({
+                id: l.id,
+                status: doneLessons.has(l.id) ? 'DONE' : 'UPCOMING',
+              })),
+            },
+          },
+        ]),
+      ),
   };
 
   let yearId: string;

@@ -19,7 +19,7 @@ import { SchoolsService } from '../schools/schools.service';
 import { SchoolSettingsReader } from '../schools/settings/school-settings-reader.service';
 import { SchoolCalendarService } from '../calendar/school-calendar.service';
 import { BULK_IMPORT_REDIS } from '../bulk-import/import-staging.service';
-import { localToday } from '../attendance/attendance-policy.util';
+import { addDays, localTimeHHmm, localToday } from '../attendance/attendance-policy.util';
 import { StudyPlansService } from './study-plans.service';
 
 export const STUDY_PLAN_AUTO_DELIVERIES_QUEUE = 'study-plan-auto-deliveries';
@@ -27,21 +27,6 @@ export const STUDY_PLAN_AUTO_DELIVERIES_JOB_ID = 'study-plan-auto-deliveries';
 const INTERVAL_MS = 15 * 60 * 1000;
 const WINDOW_DAYS = 7; // today and the 7 days before (D29)
 const MARKER_TTL_SEC = 3 * 24 * 3600;
-
-function localTimeHHmm(timezone: string): string {
-  return new Intl.DateTimeFormat('en-GB', {
-    timeZone: timezone,
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23',
-  }).format(new Date());
-}
-
-function addDays(dateIso: string, days: number): string {
-  const d = new Date(`${dateIso}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
-}
 
 interface AutoRow {
   section_id: string;

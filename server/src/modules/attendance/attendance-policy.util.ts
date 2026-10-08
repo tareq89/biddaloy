@@ -85,6 +85,23 @@ export function localToday(timezone: string): string {
   return localDate(new Date(), timezone);
 }
 
+/** `HH:mm` in `timezone` right now (24h, so plain string comparison orders it). */
+export function localTimeHHmm(timezone: string): string {
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone: timezone,
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).format(new Date());
+}
+
+/** `YYYY-MM-DD` plus `n` calendar days (negative goes back). */
+export function addDays(iso: string, n: number): string {
+  const d = new Date(`${iso}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
 /** Whole calendar days from `aIso` to `bIso` (`bIso - aIso`). Positive when
  * `bIso` is later — e.g. `daysBetween(sessionDate, localToday(tz))` is the
  * "age" of a register: positive once the register's date is in the past. */

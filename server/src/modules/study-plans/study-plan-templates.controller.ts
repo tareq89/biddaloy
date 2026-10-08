@@ -13,9 +13,9 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
-import { JwtPayload, Permission } from '@biddaloy/shared';
+import { JwtPayload, Permission, UserRole } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
@@ -30,8 +30,11 @@ import {
   CreateStudyPlanTemplateDto,
   FromPlanDto,
   ListStudyPlanTemplatesQueryDto,
+  StudyPlanTemplateDetailDto,
+  StudyPlanTemplateListDto,
   UpdateStudyPlanTemplateDto,
 } from './dto/study-plan-template.dto';
+import { StudyPlanDetailDto } from './dto/study-plan.dto';
 
 type Tenant = { id: string; role: string };
 
@@ -59,6 +62,7 @@ export class StudyPlanTemplatesController {
   @Get()
   @RequirePermissions(Permission.SYLLABUS_READ)
   @ApiOperation({ summary: 'List study plan templates.' })
+  @ApiOkResponse({ type: StudyPlanTemplateListDto })
   list(@Query() query: ListStudyPlanTemplatesQueryDto, @CurrentTenant() tenant: Tenant) {
     return this.service.list(query, tenant.id);
   }
@@ -66,6 +70,7 @@ export class StudyPlanTemplatesController {
   @Post()
   @RequirePermissions(Permission.STUDY_PLAN_TEMPLATE_MANAGE)
   @ApiOperation({ summary: 'Create a study plan template.' })
+  @ApiCreatedResponse({ type: StudyPlanTemplateDetailDto })
   create(
     @Body() dto: CreateStudyPlanTemplateDto,
     @CurrentTenant() tenant: Tenant,
@@ -78,6 +83,7 @@ export class StudyPlanTemplatesController {
   @Post('from-plan/:planId')
   @RequirePermissions(Permission.STUDY_PLAN_TEMPLATE_MANAGE)
   @ApiOperation({ summary: 'Save a study plan as a template.' })
+  @ApiCreatedResponse({ type: StudyPlanTemplateDetailDto })
   fromPlan(
     @Param('planId', ParseUUIDPipe) planId: string,
     @Body() dto: FromPlanDto,
@@ -90,14 +96,21 @@ export class StudyPlanTemplatesController {
 
   @Get(':id')
   @RequirePermissions(Permission.SYLLABUS_READ)
-  @ApiOperation({ summary: 'Read one template with its lessons.' })
-  get(@Param('id', ParseUUIDPipe) id: string, @CurrentTenant() tenant: Tenant) {
-    return this.service.get(id, tenant.id);
+  @ApiOperation({ summary: 'Read one template with its lessons (no notes for families, D20).' })
+  @ApiOkResponse({ type: StudyPlanTemplateDetailDto })
+  async get(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentTenant() tenant: Tenant,
+  ): Promise<StudyPlanTemplateDetailDto> {
+    const t = await this.service.get(id, tenant.id);
+    if (tenant.role !== UserRole.PARENT && tenant.role !== UserRole.STUDENT) return t;
+    return { ...t, lessons: t.lessons.map(({ notes: _notes, ...l }) => l) };
   }
 
   @Patch(':id')
   @RequirePermissions(Permission.STUDY_PLAN_TEMPLATE_MANAGE)
   @ApiOperation({ summary: 'Edit a template.' })
+  @ApiOkResponse({ type: StudyPlanTemplateDetailDto })
   update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateStudyPlanTemplateDto,
@@ -124,6 +137,7 @@ export class StudyPlanTemplatesController {
   @Post(':id/copy')
   @RequirePermissions(Permission.SYLLABUS_MANAGE)
   @ApiOperation({ summary: 'Copy a template into a new study plan of the caller.' })
+  @ApiCreatedResponse({ type: StudyPlanDetailDto })
   copy(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: CopyStudyPlanTemplateDto,

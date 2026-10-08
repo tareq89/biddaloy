@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Matches } from 'class-validator';
+import { IsCalendarDate } from './lesson-delivery.dto';
 
 /** [66.2/#2013] Family-facing shapes: progress only, never notes or unreported counts (D20). */
 
@@ -83,6 +83,6 @@ export class FamilyDayPeriodDto {
 
 export class FamilyLessonsQueryDto {
   @ApiProperty({ example: '2026-10-15' })
-  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'date must be YYYY-MM-DD' })
+  @IsCalendarDate()
   date: string;
 }

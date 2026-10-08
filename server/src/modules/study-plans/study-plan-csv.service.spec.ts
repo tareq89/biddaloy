@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
-import { UserRole, type StudyPlanLesson } from '@biddaloy/shared';
+import { STUDY_PLAN_LIMITS, UserRole, type StudyPlanLesson } from '@biddaloy/shared';
 import { StudyPlanCsvService } from './study-plan-csv.service';
 import { parseLessonSheet, StudyPlanParseError } from './study-plan-csv.parser';
 import type { StudyPlanCaller } from './study-plans.service';
@@ -89,6 +89,13 @@ describe('StudyPlanCsvService', () => {
       await expect(parseLessonSheet(Buffer.from('title\r\nA'), 'x.csv')).rejects.toBeInstanceOf(
         StudyPlanParseError,
       );
+    });
+
+    it('rejects a file over the lesson cap', async () => {
+      const rows = Array.from({ length: STUDY_PLAN_LIMITS.maxLessons + 1 }, (_, i) => `L${i},1`);
+      await expect(
+        parseLessonSheet(Buffer.from(['title,periods', ...rows].join('\r\n')), 'x.csv'),
+      ).rejects.toThrow('too many rows');
     });
 
     it('turns periods = 0 and periods = 21 into row errors and blocks the commit', async () => {

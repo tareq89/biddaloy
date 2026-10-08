@@ -93,13 +93,14 @@ export async function parseLessonSheet(
       if (text !== '') any = true;
     }
     if (any) rows.push({ rowNumber, values });
+    // Stop at the cap: a sparse .xlsx can claim ~1M rows.
+    if (rows.length > STUDY_PLAN_LIMITS.maxLessons) {
+      throw new StudyPlanParseError(
+        `File has too many rows (max ${STUDY_PLAN_LIMITS.maxLessons} lessons)`,
+      );
+    }
   }
 
   if (rows.length === 0) throw new StudyPlanParseError('File contains no data rows');
-  if (rows.length > STUDY_PLAN_LIMITS.maxLessons) {
-    throw new StudyPlanParseError(
-      `File has too many rows (max ${STUDY_PLAN_LIMITS.maxLessons} lessons)`,
-    );
-  }
   return rows;
 }
