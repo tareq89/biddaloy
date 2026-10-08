@@ -3,12 +3,7 @@ import { ApiError } from '@biddaloy/ui/api';
 import { ErrorState, RoutePending, StatusBadge } from '@biddaloy/ui/components';
 import { studentQueryOptions, useHasPermission, useStudent } from '@biddaloy/ui/hooks';
 import { RegionConfigProvider, useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
-import {
-  DetailShell,
-  PageContainer,
-  useCloseFullPage,
-  useDetailShellTab,
-} from '@biddaloy/ui/shells';
+import { DetailShell, PageContainer, useDetailShellTab } from '@biddaloy/ui/shells';
 import { formatNumber, formatPhone } from '@biddaloy/ui/utils';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import {
@@ -30,7 +25,7 @@ import { ActivityTab } from './-detail/activity-tab';
 import { AttendanceTab } from './-detail/attendance-tab';
 import { CommunicationTab } from './-detail/communication-tab';
 import { DeleteStudentDialog } from './-detail/delete-student-dialog';
-import { DocumentsTab } from './-detail/documents-tab';
+import { DocumentsTab, ISSUE_TRIGGER_ID } from './-detail/documents-tab';
 import { EnrollmentTab } from './-detail/enrollment-tab';
 import { FeesTab } from './-detail/fees-tab';
 import { FinesTab } from './-detail/fines-tab';
@@ -184,16 +179,17 @@ function StudentDetailPage() {
   const canPrint = useHasPermission(Permission.DOCUMENT_PRINT);
   const canIssueCertificate = useHasPermission(Permission.CERTIFICATE_ISSUE);
   const canReadRegister = useHasPermission(Permission.PRINT_HISTORY_READ);
-  const closeIssue = useCloseFullPage(
-    React.useCallback(
-      () =>
-        void navigateSearch({
-          search: (p) => ({ ...p, issue: undefined, step: undefined }),
-          replace: true,
-        }),
-      [navigateSearch],
-    ),
-  );
+  // Not `useCloseFullPage`: every wizard step is its own history entry, so "history back" would
+  // only step back one step instead of closing (Close and Esc must close from any step).
+  const closeIssue = React.useCallback(() => {
+    void navigateSearch({
+      search: (p) => ({ ...p, issue: undefined, step: undefined }),
+      replace: true,
+    });
+    // The modal is unmounted, not closed in place, so give focus back to the button that opened it.
+    // After the dialog's own focus restore (which runs on a 0ms timer and would land on <body>).
+    window.setTimeout(() => document.getElementById(ISSUE_TRIGGER_ID)?.focus(), 50);
+  }, [navigateSearch]);
   // `?leave=1` opens the Leave dialog once (only for someone who may record leaving), then the
   // param goes away.
   React.useEffect(() => {

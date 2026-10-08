@@ -81,6 +81,35 @@ export const overlayOpeners: Record<string, (page: Page, locale: Locale) => Prom
     await new DetailShellPage(page, locale).clickAction('students.detail.actions.delete');
     await expectDialogOpen(page);
   },
+  // [48.4.03] Epic 48's screens are tab or overlay states of existing routes, which a route-only
+  // scan never opens. The `-tab` ones are not dialogs: the spec scans the page `main` for them.
+  '/exams/$examId::print-tab': async (page, locale) => {
+    await page.goto(`${new URL(page.url()).pathname}?tab=print`);
+    await expect(
+      page.getByRole('heading', { name: makeT(locale)('examDocuments.phase.before') }),
+    ).toBeVisible();
+  },
+  '/students/$studentId::issue-certificate': async (page, locale) => {
+    await page.goto(`${new URL(page.url()).pathname}?tab=documents&issue=pick`);
+    await expectDialogOpen(page);
+    await expect(
+      page
+        .getByRole('dialog')
+        .getByRole('heading', { name: makeT(locale)('certificates.kind.label') }),
+    ).toBeVisible();
+  },
+  '/reports/printables::register-tab': async (page, locale) => {
+    await page.goto('/reports/printables?tab=register');
+    await expect(
+      page.getByRole('tab', { name: makeT(locale)('printHistory.tabs.register'), selected: true }),
+    ).toBeVisible();
+  },
+  '/reports/printables::to-print-tab': async (page, locale) => {
+    await page.goto('/reports/printables?tab=to-print');
+    await expect(
+      page.getByRole('tab', { name: makeT(locale)('printHistory.tabs.toPrint'), selected: true }),
+    ).toBeVisible();
+  },
   // [30.4.1] `ShortcutsSheet` (`ui/src/components/shortcuts-sheet.tsx`) —
   // the `?` keyboard-shortcuts help. It is global, not tied to any one
   // route, so it is deliberately NOT in `route-manifest.json` — that file

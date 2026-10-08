@@ -96,7 +96,11 @@ for (const { locale, theme } of VARIANTS) {
               const opener = overlayOpeners[`${route.path}::${overlay}`];
               if (!opener) throw new Error(`no opener for ${route.path}::${overlay}`);
               await opener(page, locale);
-              await expectNoAxeViolations(page, '[role="dialog"]');
+              // A `-tab` overlay is a tab state of the page, not a dialog: scan the page body.
+              await expectNoAxeViolations(
+                page,
+                overlay.endsWith('-tab') ? 'main' : '[role="dialog"], [role="alertdialog"]',
+              );
               await page.keyboard.press('Escape');
             });
           }

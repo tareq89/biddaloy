@@ -157,7 +157,8 @@
         "examId": "seeded"
       },
       "role": "admin",
-      "archetype": "detail"
+      "archetype": "detail",
+      "overlays": ["print-tab"]
     },
     {
       "path": "/exams/templates",
@@ -458,7 +459,12 @@
     },
     { "path": "/print/preview", "role": "admin", "archetype": "bespoke" },
     { "path": "/print/document", "role": "admin", "archetype": "bespoke" },
-    { "path": "/reports/printables", "role": "admin", "archetype": "list" },
+    {
+      "path": "/reports/printables",
+      "role": "admin",
+      "archetype": "list",
+      "overlays": ["register-tab", "to-print-tab"]
+    },
     {
       "path": "/i/$token",
       "params": {
@@ -569,7 +575,7 @@
       },
       "role": "admin",
       "archetype": "detail",
-      "overlays": ["send-reminder", "delete-student"]
+      "overlays": ["send-reminder", "delete-student", "issue-certificate"]
     },
     {
       "path": "/students/$studentId/edit",
