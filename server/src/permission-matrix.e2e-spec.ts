@@ -71,6 +71,12 @@ export const IDENTITY_SCOPED: IdentityScopedEntry[] = [
     reason: '12.7 — self-service',
   },
   {
+    controller: 'UserController',
+    method: 'POST',
+    path: '/users/me/leave',
+    reason: '13.2.1 — self-service: the caller leaves a school, id from the JWT; staff roles only',
+  },
+  {
     controller: 'StudentController',
     method: 'GET',
     path: '/guardians/mine',

@@ -8,6 +8,7 @@ import { AuditAction, AuthTokenPurpose, SchoolStatus, UserRole } from '@biddaloy
 import { School } from '../entities/school.entity';
 import { User } from '../../users/entities/user.entity';
 import { UserTenant } from '../../auth/entities/user-tenant.entity';
+import { reviveMembership } from '../../users/users.service';
 import { AuthToken } from '../../account-access/entities/auth-token.entity';
 import { INVITE_TTL_MS } from '../../account-access/auth-token.service';
 import {
@@ -308,26 +309,35 @@ export class ProvisioningService {
     // answer with a defined 409 instead, without issuing another invitation.
     const existingMembership = await userTenantRepo.findOne({
       where: { user_id: user.id, tenant_id: schoolId, role: UserRole.ADMIN },
+      withDeleted: true,
     });
-    if (existingMembership) {
+    if (existingMembership && !existingMembership.deleted_at) {
       throw new ConflictException(`User "${user.id}" is already an ADMIN of this school`);
     }
 
     try {
-      await userTenantRepo.save(
-        userTenantRepo.create({
-          user_id: user.id,
-          tenant_id: schoolId,
-          role: UserRole.ADMIN,
-          // Marks this as the membership `provision()` itself created, so a
-          // later "restore from workbook" into this same school (whose
-          // `deleteByAbsence` on the `users` tab hard-deletes any UserTenant
-          // absent from the imported workbook) never removes the new
-          // school's own admin — see `users.tab.ts`'s `remove()`. Only the
-          // initial admin gets this; see the parameter's own comment.
-          metadata: isInitialSchoolAdmin ? { provisioned: true } : null,
-        }),
-      );
+      if (existingMembership) {
+        // Only a soft-deleted (former) admin reaches here: the unique index
+        // ignores soft-deletion, so bring that row back instead of inserting.
+        if (!(await reviveMembership(manager, existingMembership.id))) {
+          throw new ConflictException(`User "${user.id}" is already an ADMIN of this school`);
+        }
+      } else {
+        await userTenantRepo.save(
+          userTenantRepo.create({
+            user_id: user.id,
+            tenant_id: schoolId,
+            role: UserRole.ADMIN,
+            // Marks this as the membership `provision()` itself created, so a
+            // later "restore from workbook" into this same school (whose
+            // `deleteByAbsence` on the `users` tab hard-deletes any UserTenant
+            // absent from the imported workbook) never removes the new
+            // school's own admin — see `users.tab.ts`'s `remove()`. Only the
+            // initial admin gets this; see the parameter's own comment.
+            metadata: isInitialSchoolAdmin ? { provisioned: true } : null,
+          }),
+        );
+      }
     } catch (err) {
       // Two concurrent requests can both pass the pre-check above; the
       // unique index then rejects the second insert. Same 409 as the

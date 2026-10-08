@@ -31,6 +31,7 @@ import { normalizeSearchTerm } from '../../common/utils/normalize-search-term.ut
 import { BN_COLLATION } from '../../common/constants/collation';
 import { AuditService } from '../audit/audit.service';
 import { RequestContext } from '../../common/request-context.util';
+import { assertSeatsAvailable } from '../schools/trial/seat-limit.service';
 
 // [16.3.3] Caps the audience picker's "select all matching" id list — bounds
 // both the query cost and the response size for a single selection.
@@ -133,6 +134,10 @@ export class StudentService {
     // Atomically generate reg number, determine roll number, and persist
     const generateAndSave = async (txManager: EntityManager) => {
       const txStudentRepo = txManager.getRepository(Student);
+
+      // [13.2.3] A new student is ACTIVE, so it takes a seat. Locks the School row until this
+      // transaction ends, which is what makes two concurrent creates at limit-1 admit only one.
+      await assertSeatsAvailable(txManager, tenantId, 1);
 
       // Locking the "last matching row" only serializes concurrent creates
       // when such a row already exists — the very first student of a new

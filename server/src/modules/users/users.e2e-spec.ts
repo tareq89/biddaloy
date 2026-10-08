@@ -300,12 +300,13 @@ describe('Users & Teachers E2E [8.11.8]', () => {
         .set('X-Tenant-ID', TENANT_A)
         .expect(200);
 
-      // Membership row gone…
+      // Membership row soft-deleted (a former member, restorable) [13.2.1]…
       const memberships = await dataSource.query(
-        'SELECT 1 FROM user_tenants WHERE user_id = $1 AND tenant_id = $2',
+        'SELECT deleted_at FROM user_tenants WHERE user_id = $1 AND tenant_id = $2',
         [MEMBER_A_ID, TENANT_A],
       );
-      expect(memberships).toEqual([]);
+      expect(memberships).toHaveLength(1);
+      expect(memberships[0].deleted_at).not.toBeNull();
 
       // …but the global account survives, undeleted.
       const [row] = await dataSource.query('SELECT deleted_at FROM users WHERE id = $1', [
@@ -403,6 +404,12 @@ describe('Users & Teachers E2E [8.11.8]', () => {
          VALUES ($1, $2, $3, NOW(), NOW())
          ON CONFLICT DO NOTHING`,
         [MEMBER_A_ID, TENANT_A, UserRole.TEACHER],
+      );
+      // [13.2.1] removal is a soft delete, so the insert above conflicts with
+      // the former row; bring that row back.
+      await dataSource.query(
+        'UPDATE user_tenants SET deleted_at = NULL WHERE user_id = $1 AND tenant_id = $2',
+        [MEMBER_A_ID, TENANT_A],
       );
       const res = await request()
         .post('/api/v1/auth/login')

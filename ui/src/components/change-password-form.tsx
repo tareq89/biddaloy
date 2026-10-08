@@ -4,10 +4,9 @@
  * only, same split `profile-form.tsx` documents: the route owns
  * `changePassword()` (`ui/src/hooks/auth.ts`).
  *
- * The server has **no** password-strength policy (`ChangePasswordDto`'s own
- * header comment) — this form does not invent one. The only client-side
- * rule is "non-empty, and the confirm field matches"; everything else is
- * the server's call, surfaced back through `serverError`.
+ * The new-password rules are the shared `checkPassword(…, audience)` ones —
+ * the same functions the server enforces — shown live by `PasswordChecklist`.
+ * Everything else is the server's call, surfaced back through `serverError`.
  *
  * `current_password`/`new_password` use `autoComplete="current-password"`/
  * `"new-password"` respectively, same as `sign-in-form.tsx`'s single
@@ -15,6 +14,7 @@
  * offers to save/suggest a strong replacement here, not anything this form
  * renders itself.
  */
+import { checkPassword, type PasswordAudience, type PasswordRuleId } from '@biddaloy/shared';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { CircleAlertIcon, InfoIcon } from 'lucide-react';
 import * as React from 'react';
@@ -22,12 +22,14 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
 import { useTranslation } from '../i18n';
+import { cn } from '../primitives/lib/utils';
 
 import { Button } from './button';
 import { Card } from './card';
 import { Checkbox } from './checkbox';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from './form-field';
 import { Input } from './input';
+import { FormPasswordChecklist, RuleIcon } from './password-checklist';
 
 export interface ChangePasswordFormValues {
   current_password: string;
@@ -47,14 +49,21 @@ export interface ChangePasswordFormProps {
   onSubmit: (values: { current_password: string; new_password: string }) => void;
   submitting?: boolean;
   serverError?: ChangePasswordFormServerError | null;
+  /** Which rules apply; must match what the server enforces for this user. */
+  audience?: PasswordAudience;
+  /** Server-rejected rules for the last submitted password (`weakPasswordRules`). */
+  failedRules?: PasswordRuleId[] | undefined;
 }
 
 export function ChangePasswordForm({
   onSubmit,
   submitting = false,
   serverError = null,
+  audience = 'staff',
+  failedRules,
 }: ChangePasswordFormProps) {
   const { t } = useTranslation('portal');
+  const { t: tAuth } = useTranslation('auth');
   const [showPasswords, setShowPasswords] = React.useState(false);
 
   const schema = React.useMemo(
@@ -65,11 +74,24 @@ export function ChangePasswordForm({
           new_password: z.string().min(1, t('account.password.errors.newRequired')),
           confirm_password: z.string().min(1, t('account.password.errors.confirmRequired')),
         })
-        .refine((data) => data.new_password === data.confirm_password, {
-          message: t('account.password.errors.mismatch'),
-          path: ['confirm_password'],
+        .superRefine((data, ctx) => {
+          const failed = checkPassword(data.new_password, audience).find((rule) => !rule.ok);
+          if (data.new_password !== '' && failed) {
+            ctx.addIssue({
+              code: 'custom',
+              path: ['new_password'],
+              message: tAuth(`passwordRules.${failed.id}`),
+            });
+          }
+          if (data.new_password !== data.confirm_password) {
+            ctx.addIssue({
+              code: 'custom',
+              path: ['confirm_password'],
+              message: t('account.password.errors.mismatch'),
+            });
+          }
         }),
-    [t],
+    [t, tAuth, audience],
   );
 
   const form = useForm<ChangePasswordFormValues>({
@@ -88,11 +110,16 @@ export function ChangePasswordForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- see profile-form.tsx's identical comment
   }, [serverError]);
 
+  const submitted = React.useRef('');
+
   function handleValidSubmit(values: ChangePasswordFormValues): void {
+    submitted.current = values.new_password;
     onSubmit({ current_password: values.current_password, new_password: values.new_password });
   }
 
   const passwordType = showPasswords ? 'text' : 'password';
+  const [newPassword, confirmPassword] = form.watch(['new_password', 'confirm_password']);
+  const matches = newPassword === confirmPassword;
 
   return (
     <Card padded>
@@ -145,6 +172,11 @@ export function ChangePasswordForm({
                       disabled={submitting}
                     />
                   </FormControl>
+                  <FormPasswordChecklist
+                    password={field.value}
+                    audience={audience}
+                    failed={field.value === submitted.current ? failedRules : undefined}
+                  />
                   <FormMessage />
                 </FormItem>
               )}
@@ -167,6 +199,27 @@ export function ChangePasswordForm({
                       disabled={submitting}
                     />
                   </FormControl>
+                  {/* Live as you type, same as `SetPasswordForm`; always mounted so it is announced. */}
+                  <p
+                    aria-live="polite"
+                    className={cn(
+                      'flex items-center gap-2 text-xs empty:hidden',
+                      matches ? 'text-status-paid-fg' : 'text-status-overdue-fg',
+                    )}
+                  >
+                    {confirmPassword !== '' && (
+                      <>
+                        {matches ? (
+                          <RuleIcon ok />
+                        ) : (
+                          <CircleAlertIcon className="size-4 shrink-0" aria-hidden="true" />
+                        )}
+                        <span>
+                          {matches ? tAuth('setPassword.match') : tAuth('setPassword.mismatch')}
+                        </span>
+                      </>
+                    )}
+                  </p>
                   <FormMessage />
                 </FormItem>
               )}

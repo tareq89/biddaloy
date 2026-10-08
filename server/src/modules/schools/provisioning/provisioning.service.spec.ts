@@ -4,8 +4,14 @@ import { ConflictException, ForbiddenException } from '@nestjs/common';
 import { QueryFailedError } from 'typeorm';
 import { SchoolStatus, UserRole } from '@biddaloy/shared';
 import { ProvisioningService } from './provisioning.service';
+import { reviveMembership } from '../../users/users.service';
 import { ProvisioningController } from './provisioning.controller';
 import { RolesGuard } from '../../auth/guards/context.guard';
+
+vi.mock('../../users/users.service', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../users/users.service')>()),
+  reviveMembership: vi.fn(async () => 1),
+}));
 
 /** A minimal fluent stub matching the `createQueryBuilder` subset this
  * service chains — same shape as `GuardianProvisioningService`'s spec. */
@@ -262,9 +268,28 @@ describe('ProvisioningService', () => {
 
     expect(userTenantRepo.findOne).toHaveBeenCalledWith({
       where: { user_id: 'existing-user', tenant_id: 'school-1', role: UserRole.ADMIN },
+      withDeleted: true,
     });
     expect(userTenantRepo.save).not.toHaveBeenCalled();
     expect(authTokenRepo.save).not.toHaveBeenCalled();
+  });
+
+  it('[13.2.1] restores a former (soft-deleted) ADMIN membership instead of inserting a duplicate', async () => {
+    userRepo.__setFound({ id: 'existing-user', email: dto.admin.email, full_name: 'Admin One' });
+    userTenantRepo.findOne.mockResolvedValue({
+      id: 'old-membership',
+      user_id: 'existing-user',
+      tenant_id: 'school-1',
+      role: UserRole.ADMIN,
+      deleted_at: new Date(),
+    });
+    vi.mocked(reviveMembership).mockResolvedValueOnce(1);
+
+    await service.provisionAdminForSchool('school-1', dto.admin, ACTOR, manager);
+
+    // The unique index ignores soft-deletion, so an insert would 23505.
+    expect(reviveMembership).toHaveBeenCalledWith(manager, 'old-membership');
+    expect(userTenantRepo.save).not.toHaveBeenCalled();
   });
 
   it('replays the identical stored result on a repeated idempotency_key without creating new rows', async () => {

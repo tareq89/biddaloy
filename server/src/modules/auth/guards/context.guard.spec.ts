@@ -17,6 +17,7 @@ describe('ContextGuard', () => {
   let tenantStatus: {
     isActive: ReturnType<typeof vi.fn>;
     getStatus: ReturnType<typeof vi.fn>;
+    getStatusReason: ReturnType<typeof vi.fn>;
     findSchoolIdBySlug: ReturnType<typeof vi.fn>;
   };
   let configService: { get: ReturnType<typeof vi.fn> };
@@ -28,6 +29,7 @@ describe('ContextGuard', () => {
     tenantStatus = {
       isActive: vi.fn().mockResolvedValue(true),
       getStatus: vi.fn().mockResolvedValue(SchoolStatus.ACTIVE),
+      getStatusReason: vi.fn().mockResolvedValue(null),
       // Not found by default — most tests below rely on an explicitly
       // configured PLATFORM_TENANT_ID and never need dynamic resolution;
       // the ones that do (see "dynamic platform tenant resolution" below)
@@ -280,6 +282,26 @@ describe('ContextGuard', () => {
         });
       }
       expect(tenantStatus.getStatus).toHaveBeenCalledWith('tenant-1');
+    });
+
+    it('adds details.reason TRIAL_EXPIRED when the trial is what suspended the school', async () => {
+      tenantStatus.getStatus.mockResolvedValue(SchoolStatus.SUSPENDED);
+      tenantStatus.getStatusReason.mockResolvedValue('TRIAL_EXPIRED');
+      const context = createMockContext({
+        user: {
+          sub: 'user-1',
+          email: 'test@test.com',
+          phone: null,
+          memberships: [{ tenantId: 'tenant-1', role: UserRole.ADMIN }],
+        },
+        headers: { 'x-tenant-id': 'tenant-1' },
+      });
+
+      const error = (await guard.canActivate(context).catch((e) => e)) as ForbiddenException;
+      expect(error.getResponse()).toEqual({
+        message: 'This school has been suspended',
+        details: { code: 'TENANT_SUSPENDED', reason: 'TRIAL_EXPIRED' },
+      });
     });
 
     it('should allow access via another ACTIVE tenant membership for the same user', async () => {

@@ -349,6 +349,21 @@ export class UserController {
     await this.contactChangeService.confirmPhone(jwt.sub, dto.otp, requestContext(request));
   }
 
+  /** [13.2.1, D16] Staff leave a school themselves. Declared above `users/:id`. */
+  @Post('users/me/leave')
+  @HttpCode(204)
+  @Roles(...SELF_SERVICE_ROLES)
+  @ApiOperation({
+    summary:
+      "Leave this school (staff only). Soft-deletes the caller's membership; the last admin cannot leave.",
+  })
+  async leaveSchool(
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() jwt: JwtPayload,
+  ): Promise<void> {
+    await this.userService.leave(jwt.sub, tenant.id);
+  }
+
   @Get('users/:id')
   // [10.4] G7 — AC, E, T tightened off; see findAllUsers() above.
   @RequirePermissions(Permission.USER_READ)
@@ -380,7 +395,8 @@ export class UserController {
   @Delete('users/:id')
   @RequirePermissions(Permission.MEMBER_REMOVE)
   @ApiOperation({
-    summary: "Remove a member's access to this school (deletes the membership, not the account).",
+    summary:
+      "Remove a member's access to this school (soft-deletes the membership, not the account; the last admin cannot be removed).",
   })
   removeUser(
     @Param('id') id: string,
@@ -388,6 +404,18 @@ export class UserController {
     @CurrentUser() user: JwtPayload,
   ) {
     return this.userService.remove(id, tenant.id, user.sub);
+  }
+
+  @Post('users/:id/restore')
+  @HttpCode(204)
+  @RequirePermissions(Permission.MEMBER_REMOVE)
+  @ApiOperation({ summary: 'Bring a former member (left or removed) back into this school.' })
+  restoreUser(
+    @Param('id') id: string,
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.userService.restore(id, tenant.id, user.sub);
   }
 
   // --- Teacher endpoints ---

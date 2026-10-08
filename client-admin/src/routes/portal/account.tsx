@@ -1,4 +1,5 @@
-import { ApiError } from '@biddaloy/ui/api';
+import { audienceForRoles, type PasswordRuleId } from '@biddaloy/shared';
+import { ApiError, decodeAccessTokenMemberships } from '@biddaloy/ui/api';
 import {
   Button,
   Card,
@@ -18,6 +19,7 @@ import {
   type GuardianContactFormValues,
   type ProfileFormServerError,
   type ProfileFormSubmitValues,
+  weakPasswordRules,
 } from '@biddaloy/ui/components';
 import {
   changePassword,
@@ -25,6 +27,7 @@ import {
   logoutAll,
   myGuardianQueryOptions,
   sessionsQueryOptions,
+  useAccessToken,
   useActiveRole,
   useConfirmPhoneChange,
   useCurrentUser,
@@ -115,6 +118,7 @@ function PortalAccount() {
   const config = useRegionConfig();
   const { locale } = useLocale();
   const role = useActiveRole();
+  const accessToken = useAccessToken();
   const isParent = role === 'PARENT';
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -159,6 +163,7 @@ function PortalAccount() {
   const [passwordError, setPasswordError] = React.useState<ChangePasswordFormServerError | null>(
     null,
   );
+  const [passwordFailedRules, setPasswordFailedRules] = React.useState<PasswordRuleId[]>();
   const [changingPassword, setChangingPassword] = React.useState(false);
   const [signingOut, setSigningOut] = React.useState(false);
   const [showAllDevices, setShowAllDevices] = React.useState(false);
@@ -278,6 +283,7 @@ function PortalAccount() {
     new_password: string;
   }): Promise<void> {
     setPasswordError(null);
+    setPasswordFailedRules(undefined);
     setChangingPassword(true);
     try {
       await changePassword(values);
@@ -290,6 +296,7 @@ function PortalAccount() {
       } else {
         setPasswordError({ message: t('account.error.saveFailed') });
       }
+      setPasswordFailedRules(weakPasswordRules(error));
     } finally {
       setChangingPassword(false);
     }
@@ -419,6 +426,13 @@ function PortalAccount() {
         onSubmit={(values) => void handlePasswordSubmit(values)}
         submitting={changingPassword}
         serverError={passwordError}
+        // Every membership, in every school: the same roles the server's
+        // `assertPasswordAllowedForUser` judges by (a PARENT here who is
+        // also a TEACHER anywhere gets the staff rules).
+        audience={audienceForRoles(
+          decodeAccessTokenMemberships(accessToken ?? '').map((m) => m.role),
+        )}
+        failedRules={passwordFailedRules}
       />
 
       <PushNotificationSettings

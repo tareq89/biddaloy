@@ -147,7 +147,7 @@ describe('UserController', () => {
       // The created entity has no user_tenants relation loaded, so the
       // controller copies the role from the membership it just created.
       expect(result).toEqual({
-        user: { id: 'u1', role: UserRole.TEACHER, invitation_status: 'NONE' },
+        user: { id: 'u1', role: UserRole.TEACHER, left_at: null, invitation_status: 'NONE' },
         membership: { id: 'm1', role: UserRole.TEACHER },
         invitation: null,
       });
@@ -251,6 +251,7 @@ describe('UserController', () => {
         ...expected,
         role: null,
         member_since: null,
+        left_at: null,
         invitation_status: 'NONE',
       });
     });
@@ -272,6 +273,7 @@ describe('UserController', () => {
         ...expected,
         role: null,
         member_since: null,
+        left_at: null,
         invitation_status: 'NONE',
       });
     });

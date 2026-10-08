@@ -64,7 +64,10 @@ describe('StudentLifecycleService', () => {
     ]) {
       stubs.set(e, repoStub());
     }
-    const manager = { getRepository: (e: unknown) => stubs.get(e), query: vi.fn() };
+    const manager = {
+      getRepository: (e: unknown) => stubs.get(e),
+      query: vi.fn().mockResolvedValue([{ seat_limit: null }]),
+    };
     enrollmentService = { createInTransaction: vi.fn(async () => ({ id: 'enr-new' })) };
     audit = { record: vi.fn(async () => undefined) };
 

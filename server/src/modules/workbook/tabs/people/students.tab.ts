@@ -6,6 +6,12 @@ import { Student } from '../../../students/entities/student.entity';
 import { Guardian } from '../../../students/entities/guardian.entity';
 import { Enrollment } from '../../../students/entities/enrollment.entity';
 import { ClassSection } from '../../../academics/entities/class-section.entity';
+import {
+  lockSeatUsage,
+  seatLimitError,
+  assertSeatsAvailable,
+  type SeatUsage,
+} from '../../../schools/trial/seat-limit.service';
 import { fromCell, formatDateOnly } from '../../codec/cell-format';
 import { rehomeStorageKey } from '../../codec/storage-key-scope';
 import type {
@@ -561,6 +567,20 @@ export const studentsTab: TabSpec<Student, StudentRow> = {
       );
     }
 
+    // [13.2.3] A row takes a NEW seat when it ends up ACTIVE and the student was not already an
+    // active, live one (brand new, revived from soft delete, or re-activated). Checked on the
+    // restore transaction `m` — which sees this restore's earlier rows — so the running total is
+    // the post-restore total and a throw rolls the whole tab back (no partial write).
+    // ponytail: counts before `deleteByAbsence` removals run, so a restore that swaps students at
+    // a full school can be refused conservatively; exact net count needs the processor (outside
+    // this lane).
+    const takesNewSeat =
+      row.enrollment_status === EnrollmentStatus.ACTIVE &&
+      (!student ||
+        student.deleted_at !== null ||
+        student.enrollment_status !== EnrollmentStatus.ACTIVE);
+    if (takesNewSeat) await takeSeat(m, tenantId);
+
     if (student) {
       student.deleted_at = null;
     } else {
@@ -676,7 +696,27 @@ export const studentsTab: TabSpec<Student, StudentRow> = {
   },
 };
 
-/** `date_of_birth` is nullable; `formatDateOnly` itself rejects null. */
+/**
+ * Running seat total per restore transaction: lock + count once on the first new seat, then count
+ * up in memory (the School lock is held until commit, so nobody else can add). Outside a real
+ * transaction there is no such lock, so every call re-checks.
+ */
+const seatTotals = new WeakMap<EntityManager, SeatUsage>();
+
+async function takeSeat(m: EntityManager, tenantId: string): Promise<void> {
+  if (!m.queryRunner?.isTransactionActive) return assertSeatsAvailable(m, tenantId, 1);
+  let total = seatTotals.get(m);
+  if (!total) {
+    total = await lockSeatUsage(m, tenantId);
+    seatTotals.set(m, total);
+  }
+  if (total.limit !== null && total.used + 1 > total.limit) {
+    throw seatLimitError(total.used, total.limit, 1);
+  }
+  total.used += 1;
+}
+
+/** `date_of_birth` is nullable;`formatDateOnly` itself rejects null. */
 function formatNullableDateOnly(value: Date | string | null): string | null {
   return value === null || value === undefined ? null : formatDateOnly(value);
 }

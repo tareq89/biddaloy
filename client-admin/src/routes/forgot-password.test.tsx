@@ -37,8 +37,8 @@ describe('/forgot-password', () => {
     await user.click(screen.getByRole('button', { name: 'Continue' }));
 
     expect(await screen.findByRole('heading', { name: 'Choose a new password' })).toBeTruthy();
-    await user.type(await screen.findByLabelText('New password'), 'a-strong-password');
-    await user.type(screen.getByLabelText('Confirm password'), 'a-strong-password');
+    await user.type(await screen.findByLabelText('New password'), 'A-strong-pass1!');
+    await user.type(screen.getByLabelText('Confirm password'), 'A-strong-pass1!');
     await user.click(screen.getByRole('button', { name: 'Set password' }));
 
     await waitFor(() => expect(router.state.location.pathname).toBe('/dashboard'));

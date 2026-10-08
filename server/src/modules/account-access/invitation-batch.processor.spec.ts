@@ -1,7 +1,14 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { Job } from 'bullmq';
 import { InvitationBatchProcessor } from './invitation-batch.processor';
+import { UserTenant } from '../auth/entities/user-tenant.entity';
+import { reviveMembership } from '../users/users.service';
 import type { InvitationBatchJobData } from './guardian-provisioning.service';
+
+vi.mock('../users/users.service', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../users/users.service')>()),
+  reviveMembership: vi.fn(async () => 1),
+}));
 
 function fakeManagerQueryBuilder(result: { one?: unknown | null }) {
   const qb: any = {
@@ -150,5 +157,38 @@ describe('InvitationBatchProcessor', () => {
       actorUserId: 'admin-1',
       metadata: { batch_id: BATCH },
     });
+  });
+
+  it('[13.2.1] restores a former PARENT membership instead of inserting a duplicate', async () => {
+    guardianRepo.findOne.mockResolvedValue({ id: 'g1', tenant_id: TENANT, user_id: 'u1' });
+    const passwordlessUser = { id: 'u1', password_hash: null };
+    const membershipRepo = {
+      // No active membership, but a soft-deleted PARENT row exists.
+      findOne: vi.fn().mockResolvedValueOnce(null).mockResolvedValueOnce({ id: 'ut-old' }),
+      save: vi.fn(),
+      create: vi.fn((v: unknown) => v),
+    };
+    let txManager: unknown;
+    dataSource.transaction = vi.fn(async (cb: (manager: any) => Promise<unknown>) => {
+      const manager = {
+        getRepository: (entity: unknown) =>
+          entity === UserTenant
+            ? membershipRepo
+            : {
+                findOne: vi.fn().mockResolvedValue(passwordlessUser),
+                createQueryBuilder: () => fakeManagerQueryBuilder({ one: passwordlessUser }),
+                update: vi.fn(),
+                save: vi.fn(),
+              },
+      };
+      txManager = manager;
+      return cb(manager);
+    });
+
+    await processor.process(job());
+
+    // The unique index ignores soft-deletion, so an insert would fail with 23505.
+    expect(reviveMembership).toHaveBeenCalledWith(txManager, 'ut-old');
+    expect(membershipRepo.save).not.toHaveBeenCalled();
   });
 });
