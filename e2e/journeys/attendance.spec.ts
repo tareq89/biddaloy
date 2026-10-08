@@ -128,7 +128,7 @@ test.describe.serial('attendance: teacher marks -> guardian sees -> admin sees t
       await attendance.dayCell(ATTENDANCE_SEED_ABSENT_DATE).click();
 
       // The day's details sit in a side panel next to the grid (no dialog).
-      await expect(page.getByRole('complementary').getByRole('definition')).toContainText(
+      await expect(page.getByRole('complementary').getByRole('definition').first()).toContainText(
         t('portal.attendanceGrid.status.absent'),
       );
     });

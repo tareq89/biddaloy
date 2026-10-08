@@ -319,8 +319,8 @@ export function TemplateGrid({
         onCloseAutoFocus={(event) => {
           if (!gradeAdded.current) return;
           gradeAdded.current = false;
-          // The empty state's "Add class" button is gone once a class exists, so
-          // focus would fall to <body>; land on the new class's tab instead.
+          // Land on the new class's tab: with no classes the "Add class" button
+          // lives in the empty state, which unmounts, so focus would fall to <body>.
           const tab = rootRef.current?.querySelector<HTMLElement>(
             '[role="tab"][data-state="active"]',
           );

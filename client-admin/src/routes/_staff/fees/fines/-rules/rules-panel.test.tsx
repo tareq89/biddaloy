@@ -1,10 +1,10 @@
-import type { FineRule } from '@biddaloy/ui/hooks';
-import { REGION_BD_BN } from '@biddaloy/ui/i18n';
 /**
  * [38.4a] Rules tab list — #1120's own Tests list: rules render, a null
  * `class_id` shows "Whole school", an ACCOUNTANT without delete
  * permission sees no delete action, and the empty state.
  */
+import type { FineRule } from '@biddaloy/ui/hooks';
+import { REGION_BD_BN } from '@biddaloy/ui/i18n';
 import {
   academicYearFactory,
   cleanupTestState,
