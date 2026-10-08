@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest';
 import { DataSource } from 'typeorm';
 import { randomUUID } from 'crypto';
-import { ConflictException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
 import { PrintJobsService } from './print-jobs.service';
@@ -173,6 +173,7 @@ describe('print history (integration)', () => {
         'issued_at',
         'school_name',
         'school_name_bn',
+        'serial',
         'status',
       ].sort(),
     );
@@ -226,5 +227,133 @@ describe('print history (integration)', () => {
       NotFoundException,
     );
     expect((await history.list(intruder, {} as any)).total).toBe(0);
+  });
+
+  describe('register (D33)', () => {
+    let jobId: string;
+    const item = async (o: {
+      kind: string;
+      label?: string;
+      serialNo?: number | null;
+      serialYear?: number | null;
+      revoke?: string;
+      tenant?: string;
+      job?: string;
+    }) => {
+      const no = o.serialNo ?? null;
+      const serial =
+        no === null ? null : `${o.kind}-${o.serialYear}-${String(no).padStart(5, '0')}`;
+      await ds.query(
+        `INSERT INTO print_job_items
+           (tenant_id, job_id, document_kind, subject_type, subject_id, subject_label, copy_number,
+            serial_no, serial_year, data_snapshot, verify_token_hash, revoked_at, revoke_reason)
+         VALUES ($1, $2, $3, 'STUDENT', $4, $5, 1, $6, $7, $8::jsonb, $9, $10, $11)`,
+        [
+          o.tenant ?? tenantId,
+          o.job ?? jobId,
+          o.kind,
+          randomUUID(),
+          o.label ?? 'Someone',
+          no,
+          o.serialYear ?? null,
+          JSON.stringify({ values: { 'print.serial_no': serial, 'student.class': 'Class 10' } }),
+          randomUUID().replace(/-/g, '').padEnd(64, '0'),
+          o.revoke ? new Date() : null,
+          o.revoke ?? null,
+        ],
+      );
+    };
+
+    // Serial rows are inserted directly: the issuing flow lands in a later ticket.
+    beforeEach(async () => {
+      const [{ id: versionId }] = await ds.query(
+        `SELECT id FROM print_template_versions WHERE template_id = $1`,
+        [templateId],
+      );
+      [{ id: jobId }] = await ds.query(
+        `INSERT INTO print_jobs (tenant_id, template_version_id, document_kind, item_count)
+         VALUES ($1, $2, 'STUDENT_ID_CARD', 1) RETURNING id`,
+        [tenantId, versionId],
+      );
+    });
+
+    it('lists only serial rows: newest year, then kind, then serial descending; no snapshot', async () => {
+      await item({ kind: 'STUDENT_ID_CARD' });
+      await item({ kind: 'ADMIT_CARD' });
+      await item({ kind: 'TESTIMONIAL', serialNo: 1, serialYear: 2025 });
+      await item({ kind: 'TESTIMONIAL', serialNo: 8, serialYear: 2026 });
+      await item({ kind: 'TESTIMONIAL', serialNo: 9, serialYear: 2026 });
+      await item({ kind: 'CHARACTER_CERTIFICATE', serialNo: 3, serialYear: 2026 });
+      const res = await history.register(admin(), {} as any);
+      expect(res.data.map((r: any) => r.serial)).toEqual([
+        'CHARACTER_CERTIFICATE-2026-00003',
+        'TESTIMONIAL-2026-00009',
+        'TESTIMONIAL-2026-00008',
+        'TESTIMONIAL-2025-00001',
+      ]);
+      expect(res.total).toBe(4);
+      expect(res.data.every((r: any) => !('data_snapshot' in r))).toBe(true);
+      expect(res.data[0].class_name).toBe('Class 10');
+      expect((await history.register(admin(), { year: 2025 } as any)).total).toBe(1);
+      expect((await history.register(admin(), { document_kind: 'TESTIMONIAL' } as any)).total).toBe(
+        3,
+      );
+    });
+
+    it('status=REVOKED lists only revoked copies with their reason; VALID the rest', async () => {
+      await item({ kind: 'TESTIMONIAL', serialNo: 1, serialYear: 2026 });
+      await item({ kind: 'TESTIMONIAL', serialNo: 2, serialYear: 2026, revoke: 'Wrong name' });
+      const revoked = await history.register(admin(), { status: 'REVOKED' } as any);
+      expect(revoked.data).toHaveLength(1);
+      expect(revoked.data[0].revoke_reason).toBe('Wrong name');
+      expect(revoked.data[0].revoked_at).toBeTruthy();
+      expect((await history.register(admin(), { status: 'VALID' } as any)).total).toBe(1);
+      expect((await history.register(admin(), {} as any)).total).toBe(2);
+    });
+
+    it('q finds by serial text or by name', async () => {
+      await item({ kind: 'TESTIMONIAL', serialNo: 9, serialYear: 2026, label: 'Rahim Uddin' });
+      await item({ kind: 'TESTIMONIAL', serialNo: 10, serialYear: 2026, label: 'Karim' });
+      const bySerial = await history.register(admin(), { q: '00009' } as any);
+      expect(bySerial.data.map((r: any) => r.subject_label)).toEqual(['Rahim Uddin']);
+      const byName = await history.register(admin(), { q: 'RAHIM' } as any);
+      expect(byName.total).toBe(1);
+      expect((await history.register(admin(), { q: '%' } as any)).total).toBe(0);
+    });
+
+    it("never shows another tenant's serials", async () => {
+      await item({ kind: 'TESTIMONIAL', serialNo: 1, serialYear: 2026 });
+      const other = (
+        await ds.query(`INSERT INTO schools (name, slug) VALUES ($1, $2) RETURNING id`, [
+          `Other ${randomUUID()}`,
+          `other-${randomUUID()}`,
+        ])
+      )[0].id as string;
+      const intruder = { tenantId: other, userId, role: 'ADMIN' };
+      expect((await history.register(intruder, {} as any)).total).toBe(0);
+      expect(await history.registerCsvRows(intruder, {} as any)).toHaveLength(0);
+    });
+
+    it('CSV rows equal the list rows for the same filter; 10 001 rows is refused', async () => {
+      await item({ kind: 'TESTIMONIAL', serialNo: 1, serialYear: 2026 });
+      await item({ kind: 'TESTIMONIAL', serialNo: 2, serialYear: 2026, revoke: 'x' });
+      const q = { document_kind: 'TESTIMONIAL' } as any;
+      expect(await history.registerCsvRows(admin(), q)).toEqual(
+        (await history.register(admin(), q)).data,
+      );
+
+      await ds.query(
+        `INSERT INTO print_job_items
+           (tenant_id, job_id, document_kind, subject_type, subject_id, subject_label, copy_number,
+            serial_no, serial_year, data_snapshot, verify_token_hash)
+         SELECT $1, $2, 'STUDY_CERTIFICATE', 'STUDENT', gen_random_uuid(), 'Bulk', 1,
+                g, 2026, '{}'::jsonb, md5(g::text) || md5(g::text || 'x')
+           FROM generate_series(1, 10001) g`,
+        [tenantId, jobId],
+      );
+      await expect(history.registerCsvRows(admin(), {} as any)).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+    });
   });
 });
