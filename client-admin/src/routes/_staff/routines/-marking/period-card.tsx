@@ -51,7 +51,10 @@ export function PeriodCard({
     : (delivery?.status ?? null);
 
   function pick(status: LessonDeliveryStatus) {
-    if (status === 'NOT_TAUGHT') return setDialogOpen(true);
+    if (status === 'NOT_TAUGHT') {
+      upsert.reset();
+      return setDialogOpen(true);
+    }
     upsert.mutate({ ...base, status });
   }
 
@@ -167,15 +170,22 @@ export function PeriodCard({
 
       <NotTaughtDialog
         open={dialogOpen}
-        onOpenChange={setDialogOpen}
+        onOpenChange={(next) => {
+          upsert.reset(); // drop a stale error from an earlier pick or a cancelled try
+          setDialogOpen(next);
+        }}
         section={sectionLabel}
         subject={subjectLabel}
         period={periodText}
         lessonTitle={lesson.title}
         pending={upsert.isPending}
+        error={upsert.isError}
         onCloseFocus={() => {
-          const radios = groupRef.current?.querySelectorAll<HTMLElement>('[role="radio"]');
-          radios?.[radios.length - 1]?.focus(); // ✕ is last
+          // The group is disabled while saving; wait a tick so it is enabled again.
+          setTimeout(() => {
+            const radios = groupRef.current?.querySelectorAll<HTMLElement>('[role="radio"]');
+            radios?.[radios.length - 1]?.focus(); // ✕ is last
+          }, 0);
         }}
         onSubmit={(input) =>
           upsert.mutate(

@@ -26,6 +26,8 @@ export interface NotTaughtDialogProps {
   period: string;
   lessonTitle: string;
   pending: boolean;
+  /** Last save failed: show the sentence inside the dialog. */
+  error?: boolean;
   /** Focus goes back here on close (D12: the ✕ button). */
   onCloseFocus: () => void;
   onSubmit: (input: { reason: NotTaughtReason; note?: string }) => void;
@@ -39,6 +41,7 @@ export function NotTaughtDialog({
   period,
   lessonTitle,
   pending,
+  error = false,
   onCloseFocus,
   onSubmit,
 }: NotTaughtDialogProps) {
@@ -120,6 +123,11 @@ export function NotTaughtDialog({
               {t('marking.reason.noteHelp')}
             </p>
           </div>
+          {error && (
+            <p role="alert" className="text-caption text-status-overdue-fg">
+              {t('marking.saveFailed')}
+            </p>
+          )}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               {tc('actions.cancel')}
