@@ -47,6 +47,7 @@ import { GradingModule } from './modules/grading/grading.module';
 import { ExamsModule } from './modules/exams/exams.module';
 import { PromotionsModule } from './modules/promotions/promotions.module';
 import { HomeworkModule } from './modules/homework/homework.module';
+import { StudyPlansModule } from './modules/study-plans/study-plans.module';
 import { AdmissionModule } from './modules/admission/admission.module';
 import { StaffProfilesModule } from './modules/staff-profiles/staff-profiles.module';
 import { StaffProfile } from './modules/staff-profiles/entities/staff-profile.entity';
@@ -428,6 +429,7 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
     GradingModule,
     ExamsModule,
     HomeworkModule,
+    StudyPlansModule,
     AdmissionModule,
     SeatPlansModule,
     PresetsModule,
