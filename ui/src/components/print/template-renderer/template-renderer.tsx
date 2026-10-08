@@ -3,7 +3,7 @@
  * elements are positioned in mm and text is sized in pt. No px anywhere, so
  * the editor canvas, the preview and the print tab all show what prints.
  */
-import type { TemplateDefinition } from '@biddaloy/shared';
+import { fillPlaceholders, type TemplateDefinition } from '@biddaloy/shared';
 import { useTranslation } from 'react-i18next';
 
 import { renderDigits } from '../../../utils/digits';
@@ -69,14 +69,20 @@ export function TemplateRenderer({
   const drawBackground = bg && (mode !== 'print' || (showBackground ?? bg.print));
   const decorate = mode !== 'print';
 
-  const textFor = (field: string | undefined, literal: string | undefined): string => {
-    if (field === undefined) return literal ?? '';
+  const valueFor = (field: string): string => {
     if (field === 'print.copyLabel') {
-      return copy > 1 ? (definition.copyLabel?.text ?? '').replace('{n}', String(copy)) : '';
+      if (copy <= 1) return '';
+      // D44: a template without its own label shows the one the server chose.
+      return (
+        definition.copyLabel?.text?.replace('{n}', String(copy)) ?? values['print.copyLabel'] ?? ''
+      );
     }
     const v = values[field] ?? '';
     return ISO_DATE.test(v) ? renderDigits(v, numerals) : v;
   };
+
+  const textFor = (field: string | undefined, literal: string | undefined): string =>
+    field !== undefined ? valueFor(field) : fillPlaceholders(literal ?? '', valueFor);
 
   return (
     <div

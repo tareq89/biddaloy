@@ -25,6 +25,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  Textarea,
 } from '@biddaloy/ui/components';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import * as React from 'react';
@@ -184,35 +185,63 @@ function ColourField({
   );
 }
 
-/** Free text that commits when the field loses focus, not on every keystroke: each commit is an
- * undo step and clears the redo stack, so typing a word would otherwise cost one Ctrl+Z per letter. */
-function TextField({
+/** Fixed text as a sentence: commits on blur, and a field picker splices `{{key}}` in at the cursor
+ * (one commit, so one undo step). The picker stays empty so the same field can be picked twice. */
+function TextBlockField({
   id,
   label,
   value,
+  fields,
+  pickerLabel,
   onCommit,
 }: {
   id: string;
   label: string;
   value: string;
+  fields: Array<{ value: string; label: string }>;
+  pickerLabel: string;
   onCommit: (value: string) => void;
 }) {
   const [text, setText] = React.useState(value);
+  const ref = React.useRef<HTMLTextAreaElement>(null);
   React.useEffect(() => setText(value), [value]);
+  const insert = (fieldKey: string) => {
+    const el = ref.current;
+    const start = el?.selectionStart ?? text.length;
+    const end = el?.selectionEnd ?? text.length;
+    const token = `{{${fieldKey}}}`;
+    const next = text.slice(0, start) + token + text.slice(end);
+    setText(next);
+    onCommit(next);
+    requestAnimationFrame(() => {
+      el?.focus();
+      el?.setSelectionRange(start + token.length, start + token.length);
+    });
+  };
   return (
-    <div className="flex flex-col gap-1">
-      <label htmlFor={id} className="text-xs font-medium">
-        {label}
-      </label>
-      <Input
-        id={id}
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        onBlur={() => text !== value && onCommit(text)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') e.currentTarget.blur();
-        }}
-      />
+    // Commit when focus leaves the textarea AND its picker. Moving from the textarea to the picker
+    // must not commit, or picking a field would cost two undo steps (typed text, then the insert).
+    <div
+      className="flex flex-col gap-2"
+      onBlur={(e) => {
+        const to = e.relatedTarget;
+        if (e.currentTarget.contains(to) || to?.closest('[role=listbox]')) return;
+        if (text !== value) onCommit(text);
+      }}
+    >
+      <div className="flex flex-col gap-1">
+        <label htmlFor={id} className="text-xs font-medium">
+          {label}
+        </label>
+        <Textarea
+          id={id}
+          ref={ref}
+          rows={4}
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+        />
+      </div>
+      <Choice id={`${id}-insert`} label={pickerLabel} value="" options={fields} onChange={insert} />
     </div>
   );
 }
@@ -325,10 +354,12 @@ export function PropertiesPanel({
               onChange={(field) => onChange({ field })}
             />
           ) : (
-            <TextField
+            <TextBlockField
               id={`${key}-text`}
               label={t('properties.text')}
               value={element.text ?? ''}
+              fields={fieldOptions('text')}
+              pickerLabel={t('properties.field')}
               onCommit={(text) => onChange({ text })}
             />
           )}
