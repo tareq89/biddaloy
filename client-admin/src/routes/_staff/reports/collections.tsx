@@ -166,6 +166,8 @@ function CollectionsReportPage() {
   const loading = reportQuery.isLoading;
   const money = (amount: number) => formatServerAmount(amount, regionConfig);
   const count = (n: number) => formatNumber(n, regionConfig);
+  const activeCollectorId = reportFilters.received_by_user_id;
+  const activeCollectorRow = data?.by_collector.find((c) => c.user_id === activeCollectorId);
 
   const filterFields: FilterFieldDescriptor[] = [
     {
@@ -214,11 +216,18 @@ function CollectionsReportPage() {
       // instead of `GET /users` — that endpoint is ADMIN-only server-side,
       // but this page is also open to ACCOUNTANT/EXECUTIVE, who got a
       // silent 403 and an empty collector filter.
-      options: (data?.by_collector ?? []).flatMap((c) =>
-        c.user_id === null
-          ? []
-          : [{ value: c.user_id, label: c.full_name ?? t('tables.unknownCollector') }],
-      ),
+      options: [
+        ...(data?.by_collector ?? []).flatMap((c) =>
+          c.user_id === null
+            ? []
+            : [{ value: c.user_id, label: c.full_name ?? t('tables.unknownCollector') }],
+        ),
+        // The filtered report can hold no row for the chosen collector (nothing
+        // collected in range): keep it selectable so the select never reads "All".
+        ...(activeCollectorId && !activeCollectorRow
+          ? [{ value: activeCollectorId, label: t('filters.selectedCollector') }]
+          : []),
+      ],
     },
   ];
 
@@ -228,9 +237,8 @@ function CollectionsReportPage() {
     reportFilters.payment_method
       ? methodLabel(reportFilters.payment_method)
       : t('subtitleAllMethods'),
-    reportFilters.received_by_user_id
-      ? (data?.by_collector.find((c) => c.user_id === reportFilters.received_by_user_id)
-          ?.full_name ?? t('subtitleAllCollectors'))
+    activeCollectorId
+      ? (activeCollectorRow?.full_name ?? t('filters.selectedCollector'))
       : t('subtitleAllCollectors'),
   ].join(' · ');
 

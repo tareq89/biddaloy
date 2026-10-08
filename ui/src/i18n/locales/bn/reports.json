@@ -28,7 +28,8 @@
       "ROCKET": "রকেট"
     },
     "collectorLabel": "আদায়কারী",
-    "allCollectors": "সব আদায়কারী"
+    "allCollectors": "সব আদায়কারী",
+    "selectedCollector": "নির্বাচিত আদায়কারী"
   },
   "totals": {
     "collected": "মোট আদায়",

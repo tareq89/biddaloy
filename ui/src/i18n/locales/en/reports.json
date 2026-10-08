@@ -28,7 +28,8 @@
       "ROCKET": "Rocket"
     },
     "collectorLabel": "Collector",
-    "allCollectors": "All collectors"
+    "allCollectors": "All collectors",
+    "selectedCollector": "Selected collector"
   },
   "totals": {
     "collected": "Total collected",
