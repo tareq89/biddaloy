@@ -1,5 +1,6 @@
 import { Controller, HttpCode, Param, ParseUUIDPipe, Post, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { Throttle } from '@nestjs/throttler';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtPayload, Permission } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../../auth/guards/context.guard';
@@ -10,6 +11,7 @@ import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../../common/decorators/api-tenant-auth.decorator';
 import { FamilyAccessService } from '../../students/family-access.service';
 import { FamilyAdmitCardService } from './family-admit-card.service';
+import { STRICT_RATE_LIMIT } from '../../../rate-limit';
 
 /** [48.2.09] Portal self-print. Mirrors `StudentExamScheduleController` (assertLinked first). */
 @ApiTags('exam-documents')
@@ -24,6 +26,8 @@ export class FamilyAdmitCardController {
 
   @Post()
   @HttpCode(200)
+  // Each call mints a job, a verify token and an audit row: cap it per user.
+  @Throttle({ default: STRICT_RATE_LIMIT })
   @RequirePermissions(Permission.RESULT_READ)
   @ApiOperation({
     summary:

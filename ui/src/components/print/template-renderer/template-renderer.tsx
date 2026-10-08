@@ -3,7 +3,7 @@
  * elements are positioned in mm and text is sized in pt. No px anywhere, so
  * the editor canvas, the preview and the print tab all show what prints.
  */
-import { fillPlaceholders, type TemplateDefinition } from '@biddaloy/shared';
+import { fillPlaceholders, textPlaceholders, type TemplateDefinition } from '@biddaloy/shared';
 import { useTranslation } from 'react-i18next';
 
 import { renderDigits } from '../../../utils/digits';
@@ -35,6 +35,17 @@ export interface TemplateRendererProps {
 }
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** True when some TEXT element shows `print.copyLabel`, as its field or as a `{{placeholder}}`. */
+const placesCopyLabel = (def: TemplateDefinition) =>
+  [def.front, def.back].some((s) =>
+    s?.elements.some(
+      (el) =>
+        el.type === 'TEXT' &&
+        (el.field === 'print.copyLabel' ||
+          textPlaceholders(el.text ?? '').includes('print.copyLabel')),
+    ),
+  );
 
 const fontFaces = (fonts: PrintFont[]) =>
   fonts
@@ -72,17 +83,34 @@ export function TemplateRenderer({
   const valueFor = (field: string): string => {
     if (field === 'print.copyLabel') {
       if (copy <= 1) return '';
-      // D44: a template without its own label shows the one the server chose.
-      return (
-        definition.copyLabel?.text?.replace('{n}', String(copy)) ?? values['print.copyLabel'] ?? ''
-      );
+      // D44: a template without its own label (or a blank one) shows the one the server chose.
+      const own = definition.copyLabel?.text?.trim();
+      if (!own) return values['print.copyLabel'] ?? '';
+      // The label's own script picks the digits: "কপি ২", but "Copy 2".
+      const digits = /[\u0980-\u09FF]/.test(own) ? 'bengali' : 'latin';
+      return own.replaceAll('{n}', renderDigits(String(copy), digits));
     }
     const v = values[field] ?? '';
     return ISO_DATE.test(v) ? renderDigits(v, numerals) : v;
   };
 
-  const textFor = (field: string | undefined, literal: string | undefined): string =>
-    field !== undefined ? valueFor(field) : fillPlaceholders(literal ?? '', valueFor);
+  const textFor = (field: string | undefined, literal: string | undefined): string => {
+    if (field !== undefined) return valueFor(field);
+    const keys = textPlaceholders(literal ?? '');
+    // A sentence whose every {{field}} is blank (e.g. no public exam yet) prints nothing,
+    // not a sentence full of gaps. The editor keeps showing it so it can still be edited.
+    if (mode !== 'editor' && keys.length > 0 && keys.every((k) => valueFor(k) === '')) return '';
+    return fillPlaceholders(literal ?? '', valueFor);
+  };
+
+  // D8: a serial copy after the first must say DUPLICATE even if the template never placed the
+  // label. Serial documents are the ones with `print.serial_no`; the text is the server's label.
+  const stamp =
+    side === 'front' &&
+    copy > 1 &&
+    !!values['print.serial_no'] &&
+    !placesCopyLabel(definition) &&
+    valueFor('print.copyLabel');
 
   return (
     <div
@@ -147,6 +175,24 @@ export function TemplateRenderer({
           </div>
         );
       })}
+      {stamp && (
+        <div
+          data-testid="duplicate-stamp"
+          style={{
+            position: 'absolute',
+            top: '4mm',
+            right: '4mm',
+            padding: '1mm 2mm',
+            border: '0.4mm solid #b91c1c',
+            color: '#b91c1c',
+            fontSize: '10pt',
+            fontWeight: 700,
+            background: '#ffffff',
+          }}
+        >
+          {stamp}
+        </div>
+      )}
     </div>
   );
 }

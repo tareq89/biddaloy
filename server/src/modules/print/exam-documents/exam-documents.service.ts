@@ -42,7 +42,7 @@ export class ExamDocumentsService {
               COALESCE(p.copies, 0) AS printed_copies, p.last_at AS last_printed_at
        FROM enrollments e
        JOIN students s ON s.id = e.student_id AND s.tenant_id = e.tenant_id AND s.deleted_at IS NULL
-       LEFT JOIN class_sections cs ON cs.id = e.section_id
+       LEFT JOIN class_sections cs ON cs.id = e.section_id AND cs.tenant_id = e.tenant_id
        LEFT JOIN (
          SELECT subject_id, COUNT(*) AS copies, MAX(created_at) AS last_at
          FROM print_job_items

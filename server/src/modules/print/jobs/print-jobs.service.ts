@@ -152,7 +152,8 @@ export class PrintJobsService {
       version.definition as TemplateDefinition,
       template.document_kind,
       issue,
-    ).filter((e) => strict || !e.endsWith(': required'));
+      { partial: !strict },
+    );
     if (issueErrors.length)
       throw new BadRequestException({
         statusCode: 400,
@@ -195,9 +196,14 @@ export class PrintJobsService {
    * ever in this return value.
    */
   async create(caller: PrintCaller, dto: CreatePrintJobDto, opts?: { family?: true }) {
-    // Read before the transaction so a settings lookup never holds a connection open.
-    const docs = await this.settings.documentsSettings(caller.tenantId);
     const family = opts?.family === true;
+    // Only serial kinds use the prefix. Read before the transaction so a settings lookup never
+    // holds a connection open. A portal print is never a serial kind (FAMILY_KINDS), so it skips
+    // the read; for staff the kind is only known from the template, and looking that up first
+    // would cost the same one-row read.
+    const docs: { serialPrefix?: string } = family
+      ? {}
+      : await this.settings.documentsSettings(caller.tenantId);
     return this.ds.transaction(async (manager) => {
       const { template, version, ids, resolved, context, issue } = await this.loadTemplate(
         manager,
@@ -470,6 +476,8 @@ export class PrintJobsService {
                 ? { no: o.serial_no, year: o.serial_year }
                 : undefined,
             copyLabelText,
+            // Same audit shape as create: which issue-time fields this copy carries.
+            issueKeys: Object.keys(baseValues).filter((k) => k.startsWith('issue.')),
           }),
         );
       }
@@ -559,11 +567,14 @@ export class PrintJobsService {
     const verifiable = FIELD_CATALOG[s.kind].some((f) => f.key === 'print.verify_qr');
     const verifyUrl = verifiable ? `/v/${token}` : undefined;
     // D44: copy 1 prints no label; later copies use the template's text, else a kind default.
+    // D8: a serial kind always gets a label — a blank template text cannot hide the DUPLICATE.
+    const serialKind = isSerialKind(s.kind);
     const copyLabel =
       copyNumber === 1
         ? ''
-        : (
-            s.copyLabelText ?? (isSerialKind(s.kind) ? DEFAULT_SERIAL_COPY_LABEL : 'Copy {n}')
+        : (serialKind
+            ? s.copyLabelText?.trim() || DEFAULT_SERIAL_COPY_LABEL
+            : (s.copyLabelText ?? 'Copy {n}')
           ).replaceAll('{n}', String(copyNumber));
     const values: Record<string, unknown> = {
       ...s.baseValues,

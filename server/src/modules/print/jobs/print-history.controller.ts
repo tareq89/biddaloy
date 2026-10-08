@@ -23,6 +23,7 @@ import { RequirePermissions } from '../../auth/decorators/require-permissions.de
 import { CurrentTenant } from '../../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../../common/decorators/api-tenant-auth.decorator';
+import { SCHOOL_TZ } from '../../../common/time';
 import { PrintJobsService } from './print-jobs.service';
 import { PrintHistoryService } from './print-history.service';
 import {
@@ -35,7 +36,30 @@ import {
 } from './dto/print-history.dto';
 
 // en-CA formats as YYYY-MM-DD.
-const dhakaDay = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Dhaka' });
+const dhakaDay = new Intl.DateTimeFormat('en-CA', { timeZone: SCHOOL_TZ });
+
+// The register is read by a Bangla-speaking office: every label is "Bangla / English".
+const CSV_HEADER = [
+  'ক্রমিক নং / Serial',
+  'কপি / Copy',
+  'দলিল / Document',
+  'শিক্ষার্থী / Student',
+  'শ্রেণি / Class',
+  'ইস্যুর তারিখ / Issued on',
+  'ইস্যু করেছেন / Issued by',
+  'অবস্থা / Status',
+  'বাতিলের তারিখ / Revoked on',
+  'বাতিলের কারণ / Revoke reason',
+];
+const CSV_KIND: Record<string, string> = {
+  TRANSFER_CERTIFICATE: 'ছাড়পত্র / Transfer certificate',
+  TESTIMONIAL: 'প্রশংসাপত্র / Testimonial',
+  CHARACTER_CERTIFICATE: 'চারিত্রিক সনদপত্র / Character certificate',
+  STUDY_CERTIFICATE: 'অধ্যয়ন প্রত্যয়নপত্র / Study certificate',
+  PARTICIPATION_CERTIFICATE: 'অংশগ্রহণ সনদপত্র / Participation certificate',
+  RESULT_CERTIFICATE: 'ফলাফল সনদপত্র / Result certificate',
+  MERIT_CERTIFICATE: 'মেধা সনদপত্র / Merit certificate',
+};
 
 type Tenant = { id: string; role: string };
 const caller = (tenant: Tenant, user: JwtPayload) => ({
@@ -150,27 +174,16 @@ export class PrintHistoryController {
     const rows = await this.history.registerCsvRows(caller(tenant, user), q);
     const day = (d: Date | null) => (d ? dhakaDay.format(new Date(d)) : '');
     const csv = toCsvContent([
-      [
-        'Serial',
-        'Copy',
-        'Document',
-        'Student',
-        'Class',
-        'Issued on',
-        'Issued by',
-        'Status',
-        'Revoked on',
-        'Revoke reason',
-      ],
+      CSV_HEADER,
       ...rows.map((r: any) => [
         r.serial,
         r.copy_number,
-        r.document_kind,
+        CSV_KIND[r.document_kind] ?? r.document_kind,
         r.subject_label,
         r.class_name ?? '',
         day(r.issued_at),
         r.printed_by_name ?? '',
-        r.revoked_at ? 'Revoked' : 'Valid',
+        r.revoked_at ? 'বাতিল / Revoked' : 'বৈধ / Valid',
         day(r.revoked_at),
         r.revoke_reason ?? '',
       ]),

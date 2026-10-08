@@ -71,11 +71,15 @@ const PARAGRAPHS: Record<CertKind, Record<Lang, string[]>> = {
   },
   [DocumentKind.TESTIMONIAL]: {
     bn: [
-      'এই মর্মে প্রত্যয়ন করা যাচ্ছে যে, {{student.name_bn}}, পিতা {{student.father_name}}, মাতা {{student.mother_name}}, এই বিদ্যালয়ের শিক্ষার্থী হিসেবে {{public_exam.board}} বোর্ডের অধীনে {{public_exam.year}} সালের {{public_exam.name}} পরীক্ষায় রোল নং {{public_exam.roll}}, নিবন্ধন নং {{public_exam.registration}} নিয়ে অংশগ্রহণ করে জিপিএ {{public_exam.gpa}} অর্জন করেছে।',
+      'এই মর্মে প্রত্যয়ন করা যাচ্ছে যে, {{student.name_bn}}, পিতা {{student.father_name}}, মাতা {{student.mother_name}}, এই বিদ্যালয়ের একজন শিক্ষার্থী।',
+      // Own paragraph: a current student with no public exam yet gets no line here (the
+      // renderer drops a sentence whose every {{field}} is blank).
+      'সে {{public_exam.board}} বোর্ডের অধীনে {{public_exam.year}} সালের {{public_exam.name}} পরীক্ষায় রোল নং {{public_exam.roll}}, নিবন্ধন নং {{public_exam.registration}} নিয়ে অংশগ্রহণ করে জিপিএ {{public_exam.gpa}} অর্জন করেছে।',
       'বিদ্যালয়ে অধ্যয়নকালে তার আচরণ {{issue.conduct}} ছিল। ' + WISH.bn,
     ],
     en: [
-      'This is to certify that {{student.name}}, son/daughter of {{student.father_name}} and {{student.mother_name}}, a student of this school, appeared in the {{public_exam.name}} examination of {{public_exam.year}} under the {{public_exam.board}} Board with roll no. {{public_exam.roll}} and registration no. {{public_exam.registration}}, and obtained GPA {{public_exam.gpa}}.',
+      'This is to certify that {{student.name}}, son/daughter of {{student.father_name}} and {{student.mother_name}}, is/was a student of this school.',
+      'He/she appeared in the {{public_exam.name}} examination of {{public_exam.year}} under the {{public_exam.board}} Board with roll no. {{public_exam.roll}} and registration no. {{public_exam.registration}}, and obtained GPA {{public_exam.gpa}}.',
       'His/her conduct during the period of study was {{issue.conduct}}. ' + WISH.en,
     ],
   },

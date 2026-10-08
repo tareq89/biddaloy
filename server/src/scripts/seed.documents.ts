@@ -1,4 +1,4 @@
-import type { Repository } from 'typeorm';
+import { IsNull, type Repository } from 'typeorm';
 import { DocumentKind } from '@biddaloy/shared';
 import type { PrintJobItem } from '../modules/print/entities/print-job-item.entity';
 import type { PrintTemplate } from '../modules/print/entities/print-template.entity';
@@ -68,10 +68,11 @@ export async function ensureDocumentsSeed(
   const idByName = new Map<string, string>();
 
   for (const t of TEMPLATES) {
+    // Live templates only: an archived one cannot print (404), and its name is free to reuse.
     const existing = await repos.printTemplateRepository.findOne({
-      where: { tenant_id: tenantId, name: t.name },
+      where: { tenant_id: tenantId, name: t.name, archived_at: IsNull() },
     });
-    if (existing?.current_version_id || existing?.archived_at) {
+    if (existing?.current_version_id) {
       idByName.set(t.name, existing.id);
       continue;
     }

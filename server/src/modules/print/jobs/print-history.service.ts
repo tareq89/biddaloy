@@ -162,8 +162,9 @@ export class PrintHistoryService {
 
   /** Register WHERE: only serial rows; every value is a bound parameter. */
   private registerWhere(caller: PrintCaller, q: QueryRegisterDto) {
-    const params: unknown[] = [caller.tenantId, caller.userId];
-    const clauses = ['i.tenant_id = $1', 'i.serial_no IS NOT NULL', acrGate(caller.role, '$2')];
+    // No ACR gate: only certificates carry a serial, so an ACR row can never be here.
+    const params: unknown[] = [caller.tenantId];
+    const clauses = ['i.tenant_id = $1', 'i.serial_no IS NOT NULL'];
     const add = (sql: (n: string) => string, value: unknown) => {
       params.push(value);
       clauses.push(sql(`$${params.length}`));

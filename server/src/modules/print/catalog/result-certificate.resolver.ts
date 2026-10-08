@@ -7,7 +7,7 @@ import { blankValues, schoolValues } from './field-values';
 export type ResultCertificateKind =
   typeof DocumentKind.RESULT_CERTIFICATE | typeof DocumentKind.MERIT_CERTIFICATE;
 
-type Reason = 'NOT_PUBLISHED' | 'FAILED' | 'NOT_RANKED';
+type Reason = 'NO_RESULT' | 'NOT_PUBLISHED' | 'FAILED' | 'NOT_RANKED';
 
 interface Row {
   id: string;
@@ -50,7 +50,7 @@ export class ResultCertificateResolver implements FieldResolver {
 
     const [exam] = await manager.query(
       `SELECT e.id, e.name, ay.name AS year_name
-         FROM exams e JOIN academic_years ay ON ay.id = e.academic_year_id
+         FROM exams e JOIN academic_years ay ON ay.id = e.academic_year_id AND ay.tenant_id = e.tenant_id
         WHERE e.tenant_id = $1 AND e.id = $2 AND e.deleted_at IS NULL`,
       [tenantId, context.id],
     );
@@ -66,14 +66,25 @@ export class ResultCertificateResolver implements FieldResolver {
               r.published_at
          FROM results r
          JOIN students s ON s.id = r.student_id AND s.tenant_id = r.tenant_id
-         LEFT JOIN class_sections cs ON cs.id = r.section_id
-         LEFT JOIN classes c ON c.id = cs.class_id
+         LEFT JOIN class_sections cs ON cs.id = r.section_id AND cs.tenant_id = r.tenant_id
+         LEFT JOIN classes c ON c.id = cs.class_id AND c.tenant_id = r.tenant_id
         WHERE r.tenant_id = $1 AND r.exam_id = $2 AND r.student_id = ANY($3::uuid[])
           AND r.deleted_at IS NULL AND s.deleted_at IS NULL`,
       [tenantId, exam.id, subjectIds],
     );
 
     const refused: { id: string; reason: Reason }[] = [];
+    // A student of this school with no result for the exam (absent) is refused like the rest;
+    // an id that is not a student here stays missing, so the caller still gets a 404.
+    const found = new Set(rows.map((r) => r.id));
+    const missing = subjectIds.filter((id) => !found.has(id));
+    if (missing.length) {
+      const known: { id: string }[] = await manager.query(
+        `SELECT id FROM students WHERE tenant_id = $1 AND deleted_at IS NULL AND id = ANY($2::uuid[])`,
+        [tenantId, missing],
+      );
+      for (const k of known) refused.push({ id: k.id, reason: 'NO_RESULT' });
+    }
     for (const r of rows) {
       const reason = this.refusal(r);
       if (reason) refused.push({ id: r.id, reason });
@@ -95,7 +106,7 @@ export class ResultCertificateResolver implements FieldResolver {
           ...blankValues(this.kind),
           ...school,
           'student.name': r.full_name,
-          'student.name_bn': r.full_name_bn ?? '',
+          'student.name_bn': r.full_name_bn || r.full_name,
           'student.father_name': r.father_name ?? '',
           'student.mother_name': r.mother_name ?? '',
           'student.class': r.class_name ?? '',

@@ -72,12 +72,12 @@ export class StudentCertificateResolver implements FieldResolver {
          LEFT JOIN LATERAL (
            SELECT e2.class_id, e2.section_id, ay2.name AS year_name
              FROM enrollments e2
-             JOIN academic_years ay2 ON ay2.id = e2.academic_year_id
+             JOIN academic_years ay2 ON ay2.id = e2.academic_year_id AND ay2.tenant_id = e2.tenant_id
             WHERE e2.student_id = s.id AND e2.tenant_id = s.tenant_id
               AND e2.enrollment_status = 'ACTIVE'
             ORDER BY ay2.is_current DESC, e2.enrolled_at DESC, e2.id LIMIT 1) e ON true
-         LEFT JOIN classes c ON c.id = e.class_id
-         LEFT JOIN class_sections cs ON cs.id = e.section_id
+         LEFT JOIN classes c ON c.id = e.class_id AND c.tenant_id = s.tenant_id
+         LEFT JOIN class_sections cs ON cs.id = e.section_id AND cs.tenant_id = s.tenant_id
         WHERE s.tenant_id = $1 AND s.deleted_at IS NULL AND s.id = ANY($2::uuid[])`,
       [tenantId, subjectIds],
     );
@@ -90,8 +90,8 @@ export class StudentCertificateResolver implements FieldResolver {
                 to_char(ev.occurred_on, 'YYYY-MM-DD') AS occurred_on, ev.reason, ev.destination,
                 c.name AS class_name
            FROM student_lifecycle_events ev
-           LEFT JOIN enrollments en ON en.id = ev.enrollment_id
-           LEFT JOIN classes c ON c.id = en.class_id
+           LEFT JOIN enrollments en ON en.id = ev.enrollment_id AND en.tenant_id = ev.tenant_id
+           LEFT JOIN classes c ON c.id = en.class_id AND c.tenant_id = ev.tenant_id
           WHERE ev.tenant_id = $1 AND ev.student_id = ANY($2::uuid[])
           ORDER BY ev.student_id, ev.occurred_on DESC, ev.created_at DESC`,
         [tenantId, ids],
@@ -155,7 +155,7 @@ export class StudentCertificateResolver implements FieldResolver {
           ...blankValues(this.kind),
           ...school,
           'student.name': r.full_name,
-          'student.name_bn': r.full_name_bn ?? '',
+          'student.name_bn': r.full_name_bn || r.full_name,
           'student.father_name': r.father_name ?? '',
           'student.mother_name': r.mother_name ?? '',
           'student.class': r.class_name ?? '',

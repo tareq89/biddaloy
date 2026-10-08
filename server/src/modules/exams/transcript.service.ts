@@ -99,16 +99,14 @@ export class TranscriptService {
         sittingOf(a).localeCompare(sittingOf(b)) || a.created_at.getTime() - b.created_at.getTime(),
     );
 
-    const cards: ReportCard[] = [];
-    for (const exam of exams) {
-      const card = await this.resultsService.getStudentResultCard(
-        exam.id,
-        studentId,
-        tenantId,
-        publishedOnly,
-      );
-      if (card) cards.push(card);
-    }
+    // One round: a class has a handful of exams a year, so the fan-out stays small.
+    const cards = (
+      await Promise.all(
+        exams.map((exam) =>
+          this.resultsService.getStudentResultCard(exam.id, studentId, tenantId, publishedOnly),
+        ),
+      )
+    ).filter((c): c is ReportCard => !!c);
 
     return {
       student: {

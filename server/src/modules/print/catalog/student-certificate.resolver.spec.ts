@@ -70,6 +70,15 @@ async function refusal(p: Promise<unknown>) {
 }
 
 describe('StudentCertificateResolver', () => {
+  it('Bangla name falls back to the English one, never blank (a serial is spent on it)', async () => {
+    const m = manager({ students: [student('s1')] });
+    const v = (await run(DocumentKind.CHARACTER_CERTIFICATE, ['s1'], m)).get('s1')!.values;
+    expect(v['student.name_bn']).toBe('Student s1');
+    const bn = manager({ students: [{ ...student('s2'), full_name_bn: 'ছাত্র' }] });
+    const w = (await run(DocumentKind.CHARACTER_CERTIFICATE, ['s2'], bn)).get('s2')!.values;
+    expect(w['student.name_bn']).toBe('ছাত্র');
+  });
+
   it('TC fills leaving.* from the latest transfer event', async () => {
     const m = manager({
       students: [student('s1', 'TRANSFERRED')],
