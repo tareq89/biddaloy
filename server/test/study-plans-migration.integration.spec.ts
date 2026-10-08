@@ -8,7 +8,8 @@ import { StudyPlans1791500000000 } from '../src/migrations/1791500000000-StudyPl
  * [66.1.02/#2000] Runs the study-plans migration against the test database
  * (already migrated by `global-setup.ts`). Proves the rules live in the
  * database: scope uniqueness (incl. NULL term), one delivery per
- * section/date/period, reason-iff-NOT_TAUGHT, jsonb array checks, cascades.
+ * section/date/period, reason-iff-NOT_TAUGHT, jsonb array checks, cascades,
+ * and RESTRICT on a delivery's period slot.
  * `down()` then `up()` run inside one test so later specs still see the tables.
  * This is the newest migration, so nothing has to be reverted first.
  */
@@ -249,6 +250,17 @@ describe('StudyPlans1791500000000 (integration)', () => {
       [tenantId],
     );
     expect(row.recorded_by_user_id).toBeNull();
+  });
+
+  it('refuses to delete a period slot that a delivery points at (RESTRICT, 23503)', async () => {
+    await insertDelivery();
+    await expect(
+      dataSource.query(`DELETE FROM "period_slots" WHERE id = $1`, [slotA]),
+    ).rejects.toMatchObject({ code: '23503' });
+    // An unreferenced slot still deletes.
+    await expect(
+      dataSource.query(`DELETE FROM "period_slots" WHERE id = $1`, [slotB]),
+    ).resolves.toBeDefined();
   });
 
   it('cascades all three tables when the school is deleted', async () => {

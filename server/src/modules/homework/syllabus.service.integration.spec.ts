@@ -230,6 +230,12 @@ describe('SyllabusService write scope (integration)', () => {
     expect(await topicRepo().findOneBy({ id: saved.id })).toBeNull();
   });
 
+  it('SUPER_ADMIN still writes any class (not held out by hasTenantDataScope)', async () => {
+    const saved = await service.create(dto(class8, english), TENANT, UserRole.SUPER_ADMIN, userU);
+    await service.remove(saved.id, TENANT, UserRole.SUPER_ADMIN, userU);
+    expect(await topicRepo().findOneBy({ id: saved.id })).toBeNull();
+  });
+
   it("another tenant's topic id is 404, not 403, and unchanged", async () => {
     const other = await seed(class7, math, 'mine');
     await expect(service.remove(other.id, TENANT_B, TEACHER, userT)).rejects.toThrow(

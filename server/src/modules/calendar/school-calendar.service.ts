@@ -46,6 +46,30 @@ function epochDayToIso(epochDay: number): string {
  * existed; [9.4] replaced it so there is exactly one definition of "is this
  * a school day".
  */
+/** 422 when `to < from` or the range is wider than `MAX_RANGE_DAYS`. Exported
+ * so a caller that may return early (`ResolveRoutineService`) rejects a bad
+ * range the same way whether or not it ever reaches `getWorkingDays`. */
+export function assertWorkingDaysRange(
+  from: string,
+  to: string,
+): { fromDay: number; toDay: number } {
+  const fromDay = toEpochDay(from);
+  const toDay = toEpochDay(to);
+  if (toDay < fromDay) {
+    throw new UnprocessableEntityException({
+      message: '"to" must not be earlier than "from"',
+      details: { code: 'SCHOOL_CALENDAR_INVALID_RANGE' },
+    });
+  }
+  if (toDay - fromDay + 1 > MAX_RANGE_DAYS) {
+    throw new UnprocessableEntityException({
+      message: `Range must not exceed ${MAX_RANGE_DAYS} days`,
+      details: { code: 'SCHOOL_CALENDAR_RANGE_TOO_WIDE' },
+    });
+  }
+  return { fromDay, toDay };
+}
+
 @Injectable()
 export class SchoolCalendarService {
   constructor(
@@ -76,21 +100,7 @@ export class SchoolCalendarService {
     classId?: string;
   }): Promise<{ dates: string[]; count: number }> {
     const { tenantId, from, to, academicYearId, classId } = input;
-    const fromDay = toEpochDay(from);
-    const toDay = toEpochDay(to);
-
-    if (toDay < fromDay) {
-      throw new UnprocessableEntityException({
-        message: '"to" must not be earlier than "from"',
-        details: { code: 'SCHOOL_CALENDAR_INVALID_RANGE' },
-      });
-    }
-    if (toDay - fromDay + 1 > MAX_RANGE_DAYS) {
-      throw new UnprocessableEntityException({
-        message: `Range must not exceed ${MAX_RANGE_DAYS} days`,
-        details: { code: 'SCHOOL_CALENDAR_RANGE_TOO_WIDE' },
-      });
-    }
+    const { fromDay, toDay } = assertWorkingDaysRange(from, to);
 
     const settings = await this.schoolsService.getResolvedSettings(tenantId);
     const policy = resolveAttendancePolicy(settings);

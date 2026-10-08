@@ -131,6 +131,6 @@ export const studyPlanTemplatesTab: TabSpec<StudyPlanTemplate, StudyPlanTemplate
   },
 
   async remove(entity: StudyPlanTemplate, m: EntityManager): Promise<void> {
-    await m.remove(StudyPlanTemplate, entity);
+    await m.softRemove(StudyPlanTemplate, entity);
   },
 };

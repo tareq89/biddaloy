@@ -16,16 +16,24 @@ export interface ChoiceCardOption {
   icon?: LucideIcon;
 }
 
-export interface ChoiceCardsProps {
+/** Exactly one of `label` / `labelledBy`: the radiogroup always has a name. */
+export type ChoiceCardsProps = {
   value: string;
   onValueChange: (next: string) => void;
   options: ChoiceCardOption[];
-  /** Id of the element that names the group. */
-  labelledBy?: string;
-  /** Used as `aria-label` when there is no visible heading. */
-  label?: string;
   className?: string;
-}
+} & (
+  | {
+      /** Used as `aria-label` when there is no visible heading. */
+      label: string;
+      labelledBy?: never;
+    }
+  | {
+      /** Id of the element that names the group. */
+      labelledBy: string;
+      label?: never;
+    }
+);
 
 export function ChoiceCards({
   value,

@@ -1,6 +1,7 @@
 import type { EntityManager } from 'typeorm';
 import { PeriodSlot } from '../../../routines/entities/period-slot.entity';
 import { Shift } from '../../../routines/entities/shift.entity';
+import { LessonDelivery } from '../../../study-plans/entities/lesson-delivery.entity';
 import { PeriodSlotKind } from '@biddaloy/shared';
 import { fromCell } from '../../codec/cell-format';
 import type {
@@ -187,7 +188,10 @@ export const periodSlotsTab: TabSpec<PeriodSlot, PeriodSlotRow> = {
 
   async remove(entity: PeriodSlot, m: EntityManager): Promise<void> {
     // No independent soft-delete lifecycle (see PeriodSlot's docstring) —
-    // a period removed on restore is deleted outright.
+    // a period removed on restore is deleted outright. Its lesson deliveries
+    // (FK RESTRICT) cannot be in the workbook either (their period key would
+    // have matched this slot), so they go with it, as the old CASCADE did.
+    await m.delete(LessonDelivery, { tenant_id: entity.tenant_id, period_slot_id: entity.id });
     await m.remove(PeriodSlot, entity);
   },
 };

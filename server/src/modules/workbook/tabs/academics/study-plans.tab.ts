@@ -1,8 +1,14 @@
-import type { EntityManager } from 'typeorm';
-import type { StudyPlanExamMarker, StudyPlanLesson } from '@biddaloy/shared';
+import { In, type EntityManager } from 'typeorm';
+import {
+  STUDY_PLAN_LIMITS,
+  type StudyPlanExamMarker,
+  type StudyPlanLesson,
+} from '@biddaloy/shared';
 import { StudyPlan } from '../../../study-plans/entities/study-plan.entity';
 import { ClassSection } from '../../../academics/entities/class-section.entity';
 import { AcademicTerm } from '../../../calendar/entities/academic-term.entity';
+import { Exam } from '../../../exams/entities/exam.entity';
+import { SyllabusTopic } from '../../../homework/entities/syllabus-topic.entity';
 import { fromCell } from '../../codec/cell-format';
 import type {
   ColumnSpec,
@@ -42,25 +48,43 @@ const TERM_CELL = /^.+\|\d+$/;
 const isObject = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v);
 
-/** Returns a message when `value` is not an array of `{ title: string, periods: int >= 1 }`. */
+/** Returns a message when `value` is not a valid lesson list (shared
+ * `STUDY_PLAN_LIMITS`; every lesson has a unique text `id`). */
 export function lessonsCellError(value: unknown): string | null {
   if (!Array.isArray(value)) return 'must be a JSON array of lessons.';
+  const L = STUDY_PLAN_LIMITS;
+  if (value.length > L.maxLessons) return `must have at most ${L.maxLessons} lessons.`;
   const ok = value.every(
     (l) =>
       isObject(l) &&
+      typeof l.id === 'string' &&
+      l.id !== '' &&
       typeof l.title === 'string' &&
+      l.title.length <= L.titleMax &&
       Number.isInteger(l.periods) &&
-      (l.periods as number) >= 1,
+      (l.periods as number) >= L.periodsMin &&
+      (l.periods as number) <= L.periodsMax &&
+      (l.notes === undefined || (typeof l.notes === 'string' && l.notes.length <= L.notesMax)) &&
+      (l.topic_id === undefined || typeof l.topic_id === 'string'),
   );
-  return ok ? null : 'every lesson needs a text "title" and a whole-number "periods" of 1 or more.';
+  if (!ok) {
+    return `every lesson needs a text "id", a "title" of at most ${L.titleMax} characters, a whole-number "periods" from ${L.periodsMin} to ${L.periodsMax}, and "notes" of at most ${L.notesMax} characters.`;
+  }
+  const ids = value.map((l) => (l as { id: string }).id);
+  return new Set(ids).size === ids.length ? null : 'every lesson "id" must be unique.';
 }
 
-function markersCellError(value: unknown): string | null {
+/** Returns a message when a marker is malformed or points at a lesson not in `lessonIds`. */
+function markersCellError(value: unknown, lessonIds: ReadonlySet<string>): string | null {
   if (!Array.isArray(value)) return 'must be a JSON array of exam markers.';
   const ok = value.every(
     (m) => isObject(m) && typeof m.exam_id === 'string' && typeof m.up_to_lesson_id === 'string',
   );
-  return ok ? null : 'every marker needs an "exam_id" and an "up_to_lesson_id".';
+  if (!ok) return 'every marker needs an "exam_id" and an "up_to_lesson_id".';
+  const dangling = value.find((m) => !lessonIds.has(m.up_to_lesson_id as string));
+  return dangling
+    ? `"up_to_lesson_id" "${dangling.up_to_lesson_id}" is not a lesson in this row.`
+    : null;
 }
 
 const columns: readonly ColumnSpec[] = [
@@ -112,7 +136,9 @@ export const studyPlansTab: TabSpec<StudyPlan, StudyPlanRow> = {
   name: 'study_plans',
   entity: StudyPlan,
   excluded,
-  dependsOn: ['sections', 'subjects', 'teachers'],
+  // `exams` and `syllabus_topics` restore first so `upsert` can check the
+  // ids embedded in `lessons`/`exam_markers` against this tenant.
+  dependsOn: ['sections', 'subjects', 'teachers', 'exams', 'syllabus_topics'],
   columns,
   naturalKey: ['section', 'subject', 'term'],
   deleteByAbsence: true,
@@ -174,7 +200,10 @@ export const studyPlansTab: TabSpec<StudyPlan, StudyPlanRow> = {
 
     const lessonsError = lessonsCellError(values.lessons);
     if (lessonsError) fail('lessons', lessonsError, cells.lessons);
-    const markersError = markersCellError(values.exam_markers);
+    const lessonIds = new Set(
+      lessonsError ? [] : (values.lessons as StudyPlanLesson[]).map((l) => l.id),
+    );
+    const markersError = lessonsError ? null : markersCellError(values.exam_markers, lessonIds);
     if (markersError) fail('exam_markers', markersError, cells.exam_markers);
 
     const term = (values.term as string | null) ?? null;
@@ -264,6 +293,32 @@ export const studyPlansTab: TabSpec<StudyPlan, StudyPlanRow> = {
       termId = term.id;
     }
 
+    // `topic_id`/`exam_id` are raw ids inside JSONB: keep only those that are
+    // live rows of THIS tenant. A hand-edited workbook cannot point a plan at
+    // another school's data, and ids from another tenant's backup (new ids on
+    // restore) are dropped rather than left dangling.
+    const topicIds = row.lessons.flatMap((l) => (l.topic_id ? [l.topic_id] : []));
+    const examIds = row.exam_markers.map((mk) => mk.exam_id);
+    const [topics, exams] = await Promise.all([
+      topicIds.length
+        ? m.find(SyllabusTopic, {
+            where: { id: In(topicIds), tenant_id: tenantId },
+            select: { id: true },
+          })
+        : [],
+      examIds.length
+        ? m.find(Exam, { where: { id: In(examIds), tenant_id: tenantId }, select: { id: true } })
+        : [],
+    ]);
+    const liveTopics = new Set(topics.map((t) => t.id));
+    const liveExams = new Set(exams.map((e) => e.id));
+    const lessons = row.lessons.map((l) => {
+      if (!l.topic_id || liveTopics.has(l.topic_id)) return l;
+      const { topic_id: _dropped, ...rest } = l;
+      return rest;
+    });
+    const markers = row.exam_markers.filter((mk) => liveExams.has(mk.exam_id));
+
     const plan = existing ?? new StudyPlan();
     plan.tenant_id = tenantId;
     plan.academic_year_id = yearId;
@@ -271,18 +326,19 @@ export const studyPlansTab: TabSpec<StudyPlan, StudyPlanRow> = {
     plan.section_id = row.section_id;
     plan.subject_id = row.subject_id;
     plan.owner_override_teacher_id = row.owner_override_teacher_id;
-    plan.lessons = row.lessons;
-    plan.exam_markers = row.exam_markers;
+    plan.lessons = lessons;
+    plan.exam_markers = markers;
     // Loaded relations would override the FK columns set above on save.
-    plan.academic_term = null;
+    // `undefined`, not `null`: on an existing plan, null clears the FK.
+    plan.academic_term = undefined as never;
     plan.academic_year = undefined as never;
     plan.section = undefined as never;
     plan.subject = undefined as never;
-    plan.owner_override_teacher = null;
+    plan.owner_override_teacher = undefined as never;
     return m.save(StudyPlan, plan);
   },
 
   async remove(entity: StudyPlan, m: EntityManager): Promise<void> {
-    await m.remove(StudyPlan, entity);
+    await m.softRemove(StudyPlan, entity);
   },
 };

@@ -161,7 +161,7 @@ export class TeacherScopeService {
   }
 
   /** True when the user holds a live SUBJECT_TEACHER row for `subjectId` in any
-   *  live section of `classId`. Homeroom rows never count (write rule, like marks). */
+   *  live section of live `classId`. Homeroom rows never count (write rule, like marks). */
   async teachesSubjectInClass(input: {
     userId: string;
     tenantId: string;
@@ -181,6 +181,12 @@ export class TeacherScopeService {
         'class_sections',
         'cs',
         'cs.id = tcs.section_id AND cs.tenant_id = :tenantId AND cs.deleted_at IS NULL',
+        { tenantId },
+      )
+      .innerJoin(
+        'classes',
+        'c',
+        'c.id = cs.class_id AND c.tenant_id = :tenantId AND c.deleted_at IS NULL',
         { tenantId },
       )
       .innerJoin(

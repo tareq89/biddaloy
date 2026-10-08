@@ -8,12 +8,11 @@ import { FlagIcon, PencilIcon } from 'lucide-react';
 import { Button } from './button';
 import { TableCell, TableRow } from './table';
 
-export interface ExamMarkerLineProps {
+/** `editLabel` (a verb, e.g. "Edit marker") is required whenever `onEdit` is set. */
+export type ExamMarkerLineProps = {
   title: string;
   meta?: string;
-  onEdit?: () => void;
-  editLabel?: string;
-}
+} & ({ onEdit: () => void; editLabel: string } | { onEdit?: undefined; editLabel?: string });
 
 export function ExamMarkerLine({ title, meta, onEdit, editLabel }: ExamMarkerLineProps) {
   return (
@@ -27,7 +26,7 @@ export function ExamMarkerLine({ title, meta, onEdit, editLabel }: ExamMarkerLin
           type="button"
           variant="ghost"
           iconOnly
-          aria-label={editLabel ?? title}
+          aria-label={editLabel}
           className="size-11 text-text-secondary md:size-8"
           onClick={onEdit}
         >
@@ -38,9 +37,7 @@ export function ExamMarkerLine({ title, meta, onEdit, editLabel }: ExamMarkerLin
   );
 }
 
-export interface ExamMarkerRowProps extends ExamMarkerLineProps {
-  colSpan: number;
-}
+export type ExamMarkerRowProps = ExamMarkerLineProps & { colSpan: number };
 
 export function ExamMarkerRow({ colSpan, ...line }: ExamMarkerRowProps) {
   return (

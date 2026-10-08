@@ -5,7 +5,6 @@
  * The caller supplies the strings so copy stays with the screen.
  */
 import { CheckIcon } from 'lucide-react';
-import * as React from 'react';
 
 import { useTranslation } from '../i18n';
 import { cn } from '../primitives/lib/utils';
@@ -44,33 +43,34 @@ export function Stepper({ steps, current, progressLabel, label, className }: Ste
       </div>
       <ol className="hidden items-center gap-2 sm:flex">
         {steps.map((step, i) => (
-          <React.Fragment key={step.id}>
-            {i > 0 && <li aria-hidden="true" className="h-px w-6 bg-border-subtle" />}
-            <li
-              aria-current={step.id === current ? 'step' : undefined}
+          <li
+            key={step.id}
+            aria-current={step.id === current ? 'step' : undefined}
+            className={cn(
+              'flex items-center gap-2 text-sm',
+              step.id === current ? 'font-medium text-foreground' : 'text-muted-foreground',
+            )}
+          >
+            {/* Connector from the previous step: decorative, inside the item so
+                the list still counts only real steps. */}
+            {i > 0 && <span aria-hidden="true" className="h-px w-6 bg-border-subtle" />}
+            <span
+              aria-hidden="true"
               className={cn(
-                'flex items-center gap-2 text-sm',
-                step.id === current ? 'font-medium text-foreground' : 'text-muted-foreground',
+                'flex size-7 items-center justify-center rounded-full border text-xs',
+                step.id === current
+                  ? 'border-primary bg-primary text-primary-foreground'
+                  : i < currentIndex
+                    ? 'border-primary text-primary'
+                    : 'border-border-subtle',
               )}
             >
-              <span
-                aria-hidden="true"
-                className={cn(
-                  'flex size-7 items-center justify-center rounded-full border text-xs',
-                  step.id === current
-                    ? 'border-primary bg-primary text-primary-foreground'
-                    : i < currentIndex
-                      ? 'border-primary text-primary'
-                      : 'border-border-subtle',
-                )}
-              >
-                {i < currentIndex ? <CheckIcon className="size-3.5" /> : i + 1}
-              </span>
-              {step.label}
-              {/* The tick above is decorative; this is what a screen reader hears. */}
-              {i < currentIndex && <span className="sr-only"> {t('stepIndicator.done')}</span>}
-            </li>
-          </React.Fragment>
+              {i < currentIndex ? <CheckIcon className="size-3.5" /> : i + 1}
+            </span>
+            {step.label}
+            {/* The tick above is decorative; this is what a screen reader hears. */}
+            {i < currentIndex && <span className="sr-only"> {t('stepIndicator.done')}</span>}
+          </li>
         ))}
       </ol>
     </nav>

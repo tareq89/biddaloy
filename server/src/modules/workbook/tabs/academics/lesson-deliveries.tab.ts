@@ -1,5 +1,5 @@
 import type { EntityManager } from 'typeorm';
-import { LessonDeliveryReason, LessonDeliveryStatus } from '@biddaloy/shared';
+import { LessonDeliveryReason, LessonDeliveryStatus, STUDY_PLAN_LIMITS } from '@biddaloy/shared';
 import { LessonDelivery } from '../../../study-plans/entities/lesson-delivery.entity';
 import { formatDateOnly, fromCell } from '../../codec/cell-format';
 import type {
@@ -160,6 +160,10 @@ export const lessonDeliveriesTab: TabSpec<LessonDelivery, LessonDeliveryRow> = {
     if (!notTaught && reason)
       fail('reason', 'must be empty unless the status is NOT_TAUGHT.', reason);
     if (notTaught && values.is_extra) fail('is_extra', 'an extra period cannot be NOT_TAUGHT.');
+    const note = values.note as string | null;
+    if (note && note.length > STUDY_PLAN_LIMITS.deliveryNoteMax) {
+      fail('note', `must be at most ${STUDY_PLAN_LIMITS.deliveryNoteMax} characters.`);
+    }
 
     const sectionKey = values.section as string;
     const sectionId = ctx.ref('sections', sectionKey);
@@ -246,7 +250,7 @@ export const lessonDeliveriesTab: TabSpec<LessonDelivery, LessonDeliveryRow> = {
     delivery.section = undefined as never;
     delivery.subject = undefined as never;
     delivery.period_slot = undefined as never;
-    delivery.recorded_by = null;
+    delivery.recorded_by = undefined as never;
     return m.save(LessonDelivery, delivery);
   },
 

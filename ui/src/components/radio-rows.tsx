@@ -34,19 +34,24 @@ export function RadioRows({
   className,
 }: RadioRowsProps) {
   const baseId = React.useId();
+  const legendId = `${baseId}-legend`;
   return (
     <fieldset className={cn('min-w-0', className)}>
-      <legend className={cn('mb-2 text-label', legendHidden && 'sr-only')}>{legend}</legend>
-      <RadioGroup value={value} onValueChange={onValueChange}>
+      <legend id={legendId} className={cn('mb-2 text-label', legendHidden && 'sr-only')}>
+        {legend}
+      </legend>
+      <RadioGroup value={value} onValueChange={onValueChange} aria-labelledby={legendId}>
         {options.map((option, i) => {
           const id = `${baseId}-${i}`;
           const selected = value === option.value;
+          // Only the title is the <label> (the radio's name); the caption is its
+          // description alone. The label's ::after covers the row so the whole
+          // row still selects on click.
           return (
-            <label
+            <div
               key={option.value}
-              htmlFor={id}
               className={cn(
-                'flex min-h-11 cursor-pointer items-start gap-3 rounded-md border p-3',
+                'relative flex min-h-11 cursor-pointer items-start gap-3 rounded-md border p-3',
                 selected ? 'border-primary bg-secondary' : 'border-border-functional bg-surface',
                 option.disabled && 'cursor-not-allowed opacity-50',
               )}
@@ -59,21 +64,23 @@ export function RadioRows({
                 className="mt-0.5"
               />
               <span className="flex min-w-0 flex-col">
-                <span
+                <label
+                  htmlFor={id}
                   className={cn(
-                    'font-medium',
+                    'font-medium after:absolute after:inset-0',
+                    option.disabled ? 'cursor-not-allowed' : 'cursor-pointer',
                     selected && 'font-semibold text-secondary-foreground',
                   )}
                 >
                   {option.title}
-                </span>
+                </label>
                 {option.caption && (
                   <span id={`${id}-caption`} className="text-caption text-text-secondary">
                     {option.caption}
                   </span>
                 )}
               </span>
-            </label>
+            </div>
           );
         })}
       </RadioGroup>

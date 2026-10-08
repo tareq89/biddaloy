@@ -643,35 +643,37 @@ export class EvaluationsSettingsDto {
   incidentSmsEnabled?: boolean;
 }
 
-/** [66.1.04] `settings.studyPlans` — reminder and digest timing (D25, D26). */
+/** [66.1.04] `settings.studyPlans` — reminder and digest timing (D25, D26).
+ * `@OptionalSetting` (not `@IsOptional`): an explicit `null` is a 400, since
+ * clearing a field is not supported — omit it to keep the default. */
 export class StudyPlansSettingsDto implements Partial<StudyPlansSettings> {
   @ApiPropertyOptional()
-  @IsOptional()
+  @OptionalSetting()
   @IsString()
   @Matches(HH_MM_PATTERN)
   statusDeadline?: string;
 
   @ApiPropertyOptional()
-  @IsOptional()
+  @OptionalSetting()
   @IsString()
   @Matches(HH_MM_PATTERN)
   reminderTime?: string;
 
   @ApiPropertyOptional()
-  @IsOptional()
+  @OptionalSetting()
   @IsInt()
   @Min(1)
   @Max(10)
   escalateAfterSchoolDays?: number;
 
   @ApiPropertyOptional()
-  @IsOptional()
+  @OptionalSetting()
   @IsString()
   @Matches(HH_MM_PATTERN)
   weeklyDigestTime?: string;
 
   @ApiPropertyOptional()
-  @IsOptional()
+  @OptionalSetting()
   @IsBoolean()
   guardianDigestSms?: boolean;
 }

@@ -141,6 +141,27 @@ describe('studyPlansTab', () => {
     expect(errors[0].column).toBe('lessons');
   });
 
+  it('rejects lessons without an id, with a duplicate id, or over the shared limits', () => {
+    const cells = toCells(studyPlansTab, makePlan());
+    for (const bad of [
+      '[{"title":"x","periods":1}]',
+      '[{"id":"a","title":"x","periods":1},{"id":"a","title":"y","periods":1}]',
+      '[{"id":"a","title":"x","periods":21}]',
+      `[{"id":"a","title":"${'x'.repeat(201)}","periods":1}]`,
+    ]) {
+      expect(errorsOf(studyPlansTab, { ...cells, lessons: bad })[0].column).toBe('lessons');
+    }
+  });
+
+  it('rejects a marker whose up_to_lesson_id is not a lesson of the row', () => {
+    const errors = errorsOf(studyPlansTab, {
+      ...toCells(studyPlansTab, makePlan()),
+      exam_markers: '[{"exam_id":"e1","up_to_lesson_id":"nope"}]',
+    });
+    expect(errors).toHaveLength(1);
+    expect(errors[0].column).toBe('exam_markers');
+  });
+
   it('rejects an unknown section with one row error', () => {
     const errors = errorsOf(studyPlansTab, {
       ...toCells(studyPlansTab, makePlan()),
@@ -195,6 +216,15 @@ describe('lessonDeliveriesTab', () => {
     const row = rowOrThrow(lessonDeliveriesTab, toCells(lessonDeliveriesTab, delivery));
     expect(row).toMatchObject({ status: 'NOT_TAUGHT', reason: 'ON_LEAVE', auto: true });
     expect(row.recorded_by_user_id).toBeNull();
+  });
+
+  it('rejects a note longer than deliveryNoteMax as a row error', () => {
+    const errors = errorsOf(lessonDeliveriesTab, {
+      ...toCells(lessonDeliveriesTab, makeDelivery()),
+      note: 'x'.repeat(501),
+    });
+    expect(errors).toHaveLength(1);
+    expect(errors[0].column).toBe('note');
   });
 
   it('rejects NOT_TAUGHT without a reason', () => {
