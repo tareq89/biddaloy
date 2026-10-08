@@ -12072,6 +12072,25 @@ export interface components {
             /** @description Cloudflare Turnstile token. */
             captcha_token: string;
         };
+        RegisterDebugDto: {
+            /** @description The code itself. Only when ACCOUNT_ACCESS_ECHO_SECRETS=true (never in production). */
+            otp: string;
+        };
+        RegisterStartResponseDto: {
+            /**
+             * Format: uuid
+             * @description Pass back to resend and verify.
+             */
+            registration_id: string;
+            /**
+             * @description Where the code was sent.
+             * @enum {string}
+             */
+            channel: "sms" | "email";
+            /** @description Seconds until resend is allowed. */
+            resend_in: number;
+            debug?: components["schemas"]["RegisterDebugDto"];
+        };
         RegisterResendDto: {
             /** Format: uuid */
             registration_id: string;
@@ -12081,6 +12100,16 @@ export interface components {
             registration_id: string;
             /** @description The 6-digit code sent by SMS or email. */
             otp: string;
+        };
+        RegisterVerifyResponseDto: {
+            /** @description Short-lived bearer token for the Authorization header. */
+            access_token: string;
+            /** @description Every school/role pair the caller holds, for the tenant picker. */
+            memberships: components["schemas"]["MembershipResponseDto"][];
+            /** @description The new admin has no password yet. */
+            needs_password: boolean;
+            /** @description needs_password, and no social sign-in was linked to fall back on. */
+            password_required: boolean;
         };
         SocialProvidersDto: {
             providers: ("google" | "facebook")[];
@@ -12095,6 +12124,43 @@ export interface components {
         SocialLinkStartDto: {
             /** @description Provider authorization URL to send the browser to. */
             url: string;
+        };
+        OnboardingItemDto: {
+            /** @enum {string} */
+            id: "profile" | "structure" | "sections" | "students" | "staff" | "feeStructures" | "guardianInvites" | "messageSettings";
+            done: boolean;
+        };
+        OnboardingCountsDto: {
+            classes: number;
+            sections: number;
+            students: number;
+            staff: number;
+        };
+        OnboardingSeatsDto: {
+            /** @description ACTIVE students. */
+            used: number;
+            /** @description NULL = unlimited. */
+            limit: number | null;
+        };
+        OnboardingTrialDto: {
+            /** Format: date-time */
+            ends_at: string;
+            days_left: number;
+            seats: components["schemas"]["OnboardingSeatsDto"];
+        };
+        OnboardingStatusDto: {
+            /** Format: date-time */
+            finished_at: string | null;
+            /** Format: date-time */
+            dismissed_at: string | null;
+            seen: boolean;
+            /** @enum {string|null} */
+            setup_path: "guided" | "excel" | "later" | null;
+            items: components["schemas"]["OnboardingItemDto"][];
+            counts: components["schemas"]["OnboardingCountsDto"];
+            /** @description NULL = not in trial. */
+            trial: components["schemas"]["OnboardingTrialDto"] | null;
+            support_url: string | null;
         };
         UpdateOnboardingDto: {
             /** @enum {string} */
@@ -29760,7 +29826,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["RegisterStartResponseDto"];
                 };
             };
         };
@@ -29783,7 +29849,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["RegisterStartResponseDto"];
                 };
             };
         };
@@ -29806,7 +29872,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["RegisterVerifyResponseDto"];
                 };
             };
         };
@@ -29955,7 +30021,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["OnboardingStatusDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
@@ -29990,7 +30056,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["OnboardingStatusDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */

@@ -1,6 +1,6 @@
 import { Body, Controller, HttpCode, HttpStatus, Post, Req, Res } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiAcceptedResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request, Response } from 'express';
 import { STRICT_RATE_LIMIT } from '../../rate-limit';
 import { requestContext } from '../../common/request-context.util';
@@ -12,6 +12,7 @@ import {
 import { RegisterResendDto } from './dto/register-resend.dto';
 import { RegisterStartDto } from './dto/register-start.dto';
 import { RegisterVerifyDto } from './dto/register-verify.dto';
+import { RegisterStartResponseDto, RegisterVerifyResponseDto } from './dto/register-response.dto';
 import {
   RegistrationService,
   RegisterStartResult,
@@ -34,6 +35,7 @@ export class RegistrationController {
   @ApiOperation({
     summary: 'Stage a registration and send a code to the phone (or email outside the SMS list).',
   })
+  @ApiAcceptedResponse({ type: RegisterStartResponseDto })
   start(@Body() dto: RegisterStartDto, @Req() request: Request): Promise<RegisterStartResult> {
     return this.registration.start(dto, requestContext(request));
   }
@@ -42,6 +44,7 @@ export class RegistrationController {
   @HttpCode(HttpStatus.ACCEPTED)
   @Throttle({ default: STRICT_RATE_LIMIT })
   @ApiOperation({ summary: 'Send the code again (60 second cooldown).' })
+  @ApiAcceptedResponse({ type: RegisterStartResponseDto })
   resend(@Body() dto: RegisterResendDto): Promise<RegisterStartResult> {
     return this.registration.resend(dto);
   }
@@ -52,6 +55,7 @@ export class RegistrationController {
   @ApiOperation({
     summary: 'Prove the code: creates the school (in trial), the admin, and a signed-in session.',
   })
+  @ApiOkResponse({ type: RegisterVerifyResponseDto })
   async verify(
     @Body() dto: RegisterVerifyDto,
     @Req() request: Request,
