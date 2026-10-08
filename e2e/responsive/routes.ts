@@ -16,11 +16,13 @@ import {
   createTeacherForSection,
   currentAcademicYearId,
   findSchoolIdBySlug,
+  get,
   post,
   superAdminApiSession,
   type ApiSession,
 } from '../api';
 import { acrBody, surveyBody } from '../fixtures/evaluations';
+import { test } from '../fixtures/test';
 import manifest from '../route-manifest.json';
 import { SEED_PASSWORD_ENV, SEED_ROLE_EMAILS } from '../seed-contract';
 
@@ -182,6 +184,123 @@ export async function resolvePath(
     // own doc comment) and renders `noClassIdExplanation` without it. The
     // manifest itself can't carry query params, so it's added here instead.
     return path.startsWith('/routines/') ? `${path}?classId=${chain.classId}` : path;
+  }
+  if (route.path.startsWith('/admission/')) {
+    // Public, unauthenticated intake form of the seeded school.
+    return route.path.replace('$slug', 'default-school');
+  }
+  if (route.path.includes('$setId')) {
+    // Platform holiday sets come from an external fetch; render one only if
+    // the seed (or an earlier run) already left one behind.
+    const superAdmin = await superAdminApiSession(request);
+    const sets = await get<{ id: string }[]>(request, superAdmin, '/platform/holiday-sets');
+    if (!sets[0]) test.skip(true, 'no holiday set seeded: needs the external public-holiday fetch');
+    return route.path.replace('$setId', sets[0]!.id);
+  }
+  if (route.path.includes('$scaleId')) {
+    const scales = await get<{ id: string }[]>(request, session, '/grading/scales');
+    return route.path.replace('$scaleId', scales[0]!.id);
+  }
+  if (route.path.includes('$programId')) {
+    const programs = await get<{ id: string }[]>(request, session, '/programs');
+    return route.path.replace('$programId', programs[0]!.id);
+  }
+  if (route.path.includes('$planId')) {
+    const plans = await get<{ id: string }[]>(request, session, '/seat-plans');
+    if (!plans[0]) test.skip(true, 'no seat plan seeded: building one needs a scheduled exam');
+    return route.path.replace('$planId', plans[0]!.id);
+  }
+  if (route.path.includes('$runId')) {
+    const runs = await get<{ id: string }[]>(request, session, '/promotions');
+    if (!runs[0]) test.skip(true, 'no promotion run seeded: needs published exam results');
+    return route.path.replace('$runId', runs[0]!.id);
+  }
+  if (route.path.includes('$examId')) {
+    const chain = await createClassSection(request, session);
+    const exam = await post<{ id: string }>(request, session, '/exams', {
+      name: `Reflow Exam ${stamp}`,
+      kind: 'TERM',
+      academic_year_id: chain.academicYearId,
+      class_id: chain.classId,
+    });
+    return route.path.replace('$examId', exam.id);
+  }
+  if (route.path.includes('$homeworkId')) {
+    const chain = await createClassSection(request, session);
+    const subject = await post<{ id: string }>(request, session, '/subjects', {
+      code: `RH-${stamp.toString(36).toUpperCase()}`,
+      name_en: 'Reflow Homework Subject',
+    });
+    const homework = await post<{ id: string }>(request, session, '/homework', {
+      subject_id: subject.id,
+      class_id: chain.classId,
+      title: `Reflow Homework ${stamp}`,
+      grading_mode: 'TICK',
+    });
+    return route.path.replace('$homeworkId', homework.id);
+  }
+  if (route.path.includes('$intakeId') || route.path.includes('$applicantId')) {
+    const chain = await createClassSection(request, session);
+    const intake = await post<{ id: string }>(request, session, '/admission-intakes', {
+      title: `Reflow Intake ${stamp}`,
+      class_section_id: chain.sectionId,
+      seat_count: 10,
+      open_date: '2020-01-01',
+      close_date: '2099-12-31',
+      required_document_types: [],
+    });
+    if (route.path.includes('$intakeId')) return route.path.replace('$intakeId', intake.id);
+    const response = await request.post('/api/v1/public/admission/default-school/applicants', {
+      multipart: {
+        intake_id: intake.id,
+        applicant_name: `Reflow Applicant ${stamp}`,
+        date_of_birth: '2018-06-01',
+        gender: 'MALE',
+        guardian_name: `Reflow Guardian ${stamp}`,
+        guardian_phone: `1${3 + (stamp % 7)}${stamp.toString().slice(-8)}`,
+      },
+    });
+    if (!response.ok()) throw new Error(`applicant submit failed: ${response.status()}`);
+    const listed = await get<{ id: string }[] | { data: { id: string }[] }>(
+      request,
+      session,
+      `/admission/applicants?intakeId=${intake.id}`,
+    );
+    const applicant = (Array.isArray(listed) ? listed : listed.data)[0]!;
+    return route.path.replace('$applicantId', applicant.id);
+  }
+  if (route.path.startsWith('/payments/')) {
+    const { studentId } = await createStudentWithDues(request, session, `Reflow Payer ${stamp}`);
+    const student = await get<{ full_name: string }>(request, session, `/students/${studentId}`);
+    const dues = await get<{
+      data: { student_id: string; dues: { student_fee_id: string; balance: number }[] }[];
+    }>(request, session, `/fees/dues?search=${encodeURIComponent(student.full_name)}`);
+    const due = dues.data.find((row) => row.student_id === studentId)!.dues[0]!;
+    const result = await post<{ payment: { id: string } }>(request, session, '/payments/checkout', {
+      idempotency_key: crypto.randomUUID(),
+      lines: [{ student_fee_id: due.student_fee_id, amount: due.balance }],
+      payment_method: 'CASH',
+    });
+    return route.path.replace('$id', result.payment.id);
+  }
+  if (route.path.startsWith('/fees/schedules/')) {
+    const chain = await createClassSection(request, session);
+    const structure = await post<{ id: string }>(request, session, '/fee-structures', {
+      fee_type: 'MONTHLY_TUITION',
+      name: `Reflow Tuition ${stamp}`,
+      amount: 500,
+      class_id: chain.classId,
+      academic_year_id: chain.academicYearId,
+    });
+    const schedule = await post<{ id: string }>(request, session, '/fees/schedules', {
+      academic_year_id: chain.academicYearId,
+      name: `Reflow Schedule ${stamp}`,
+      audience: { class_id: chain.classId, enrollment_status: 'ACTIVE' },
+      rule: { kind: 'MONTHLY', day_of_month: 5 },
+      fee_structure_ids: [structure.id],
+      starts_on: '2026-01-01',
+    });
+    return route.path.replace('$id', schedule.id);
   }
   throw new Error(`no resolver for ${route.path}`);
 }

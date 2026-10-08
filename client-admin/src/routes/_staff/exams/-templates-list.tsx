@@ -24,14 +24,29 @@ export interface TemplatesListProps {
   /** Renders a template's name cell — the route passes a `<Link>` to the detail. */
   renderName?: (template: ExamTemplateSummary) => React.ReactNode;
   onCreated: (template: ExamTemplateDetail) => void;
+  /** Palette landing: open the create dialog; `onCreateClosed` lets the route clear its flag. */
+  openCreate?: boolean;
+  onCreateClosed?: () => void;
 }
 
-export function TemplatesList({ renderName, onCreated }: TemplatesListProps) {
+export function TemplatesList({
+  renderName,
+  onCreated,
+  openCreate,
+  onCreateClosed,
+}: TemplatesListProps) {
   const { t } = useTranslation('examTemplates');
   const config = useRegionConfig();
   const query = useExamTemplates();
   const remove = useDeleteExamTemplate();
-  const [createOpen, setCreateOpen] = React.useState(false);
+  const [createOpen, setCreateOpenState] = React.useState(!!openCreate);
+  React.useEffect(() => {
+    if (openCreate) setCreateOpenState(true);
+  }, [openCreate]);
+  const setCreateOpen = (open: boolean) => {
+    setCreateOpenState(open);
+    if (!open) onCreateClosed?.();
+  };
   const [toDelete, setToDelete] = React.useState<ExamTemplateSummary | null>(null);
 
   const gradesLabel = (grades: number[]) =>

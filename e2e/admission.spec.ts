@@ -81,13 +81,15 @@ test('public submit → staff shortlist/admit → student created → public sta
       .getByLabel(t('admission-public.form.fields.guardianName'))
       .fill(`Guardian of ${applicantName}`);
     await guestPage.getByLabel(t('admission-public.form.fields.guardianPhone')).fill(guardianPhone);
-    await guestPage.getByLabel(t('admission-public.form.documents.PHOTO')).setInputFiles({
-      name: 'photo.jpg',
-      mimeType: 'image/jpeg',
-      // A real JPEG signature - the server's magic-byte check (T10) rejects anything else
-      // with a 400.
-      buffer: Buffer.from([0xff, 0xd8, 0xff, 0xe0]),
-    });
+    await guestPage
+      .getByLabel(t('admission-public.form.documents.PHOTO'), { exact: true })
+      .setInputFiles({
+        name: 'photo.jpg',
+        mimeType: 'image/jpeg',
+        // A real JPEG signature - the server's magic-byte check (T10) rejects anything else
+        // with a 400.
+        buffer: Buffer.from([0xff, 0xd8, 0xff, 0xe0]),
+      });
 
     await guestPage.getByRole('button', { name: t('admission-public.form.submit') }).click();
 

@@ -32,7 +32,7 @@ describe('students/-detail/fines-tab', () => {
     };
   }
 
-  function renderFinesTab(options: { fines?: unknown[]; role?: string } = {}) {
+  function renderFinesTab(options: { fines?: unknown[]; role?: string; search?: string } = {}) {
     const student = studentFactory({ id: 'student-1', full_name: 'Rahim Uddin' });
     const fines = options.fines ?? [fineFixture()];
 
@@ -49,7 +49,7 @@ describe('students/-detail/fines-tab', () => {
     );
 
     return renderWithRouter(routeTree, {
-      initialEntries: ['/students/student-1?tab=fines'],
+      initialEntries: [`/students/student-1?tab=fines${options.search ?? ''}`],
       tenantId: 'tenant-1',
       role: options.role ?? 'ADMIN',
       locale: 'en',
@@ -134,12 +134,23 @@ describe('students/-detail/fines-tab', () => {
       http.get('/api/v1/fees/fines', () => new HttpResponse(null, { status: 400 })),
     );
     renderWithRouter(routeTree, {
-      initialEntries: ['/students/student-1?tab=fines'],
+      initialEntries: [`/students/student-1?tab=fines`],
       tenantId: 'tenant-1',
       role: 'ADMIN',
       locale: 'en',
     });
 
     expect(await screen.findByText("Couldn't load fines.")).toBeTruthy();
+  });
+  it('?logFine=1 opens the log-fine page; closing keeps tab=fines and clears logFine', async () => {
+    const { router } = renderFinesTab({ search: '&logFine=1' });
+    await waitFor(() => expect(screen.getByRole('dialog')).toBeTruthy());
+    await router.navigate({
+      to: '.',
+      search: (p: object) => ({ ...p, logFine: undefined }),
+    } as never);
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(router.state.location.search).toMatchObject({ tab: 'fines' });
+    expect(router.state.location.search).not.toHaveProperty('logFine');
   });
 });

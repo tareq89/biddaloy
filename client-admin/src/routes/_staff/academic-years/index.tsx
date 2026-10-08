@@ -20,7 +20,9 @@ import { formatDateRange, formatNumber, parseServerDate } from '@biddaloy/ui/uti
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { CalendarRangeIcon, PlusIcon } from 'lucide-react';
 import * as React from 'react';
+import { z } from 'zod';
 
+import { useLandingFlag } from '../-use-landing-flag';
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 
 import { DeleteYearDialog } from './-delete-year-dialog';
@@ -29,7 +31,9 @@ import { YearFormDialog, type YearFormPayload } from './-year-form-dialog';
 // ponytail: one page of 100 years, add paging if a tenant ever has more
 const YEARS_LIMIT = 100;
 
+// `z.looseObject`, not `z.object`: a plain object would strip the list-state params.
 export const Route = createFileRoute('/_staff/academic-years/')({
+  validateSearch: z.looseObject({ new: z.coerce.string().optional().catch(undefined) }),
   // [8.14.5]: no search-string filters here (unlike `students/index.tsx`),
   // so no `loaderDeps` — the list's full first page is the same query on
   // every visit.
@@ -92,7 +96,7 @@ function AcademicYearsListPage() {
     !yearsQuery.isLoading && !yearsQuery.isError && (yearsQuery.data?.total ?? 0) === 0;
 
   const createYear = useCreateAcademicYear();
-  const [createOpen, setCreateOpen] = React.useState(false);
+  const [createOpen, setCreateOpen] = useLandingFlag('new', canManage);
 
   const [editing, setEditing] = React.useState<AcademicYear | null>(null);
   const updateYear = useUpdateAcademicYear(editing?.id ?? '');

@@ -103,7 +103,7 @@ test.describe('guardian: portal routine, phone viewport', () => {
     // an empty state instead of a switcher — both are legitimate given
     // this spec runs against whichever seeded child the shared
     // `parent@biddaloy.test` account happens to be linked to.
-    const daySwitcher = page.getByRole('group', { name: t('routines.agenda.daySwitcherLabel') });
+    const daySwitcher = page.getByRole('tablist', { name: t('routines.agenda.daySwitcherLabel') });
     const emptyState = page.getByText(t('portal.routine.noRoutineExplanation'));
     await expect(daySwitcher.or(emptyState)).toBeVisible();
   });

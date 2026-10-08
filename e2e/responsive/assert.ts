@@ -7,8 +7,8 @@ import { resolvePath, type ManifestRoute } from './routes';
 /**
  * Most routes render their own `<h1>`. A `redirect` archetype route may
  * land somewhere that opens a modal by default instead (e.g.
- * `/payments/record` → `/payments?record=1`, auto-opening the Record
- * Payment modal to preserve the deep link) — Radix's `Dialog` correctly
+ * `/fees` → `/fees/dues`, or a redirect that auto-opens a modal to
+ * preserve a deep link) — Radix's `Dialog` correctly
  * `aria-hide`s the rest of the page while open, so the underlying page's
  * `<h1>` is legitimately absent from the accessibility tree in that case.
  * The dialog's own title (required by Radix's a11y contract on every
@@ -36,7 +36,8 @@ export async function expectNoHorizontalScrollAtWidth(
   await page.setViewportSize({ width, height: 900 });
   const path = await resolvePath(request, route);
   await page.goto(path);
-  await expect(pageOrDialogHeading(page, route)).toBeVisible();
+  // A loader-gated route (e.g. /fees/dues) shows RoutePending, no h1, until its data lands.
+  await expect(pageOrDialogHeading(page, route)).toBeVisible({ timeout: 15_000 });
   await expectNoHorizontalScroll(page);
   // [8.14.7] `DataTable`'s card mode exists precisely so a 320/640px page
   // no longer needs its own inner scroll region.

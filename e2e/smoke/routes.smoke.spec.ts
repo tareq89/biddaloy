@@ -35,7 +35,8 @@ for (const route of SMOKE_ROUTES) {
     test('has zero axe violations', async ({ page, request }) => {
       const path = await resolvePath(request, route);
       await page.goto(path);
-      await expect(pageOrDialogHeading(page, route)).toBeVisible();
+      // A loader-gated route (e.g. /fees/dues) shows RoutePending, no h1, until its data lands.
+      await expect(pageOrDialogHeading(page, route)).toBeVisible({ timeout: 15_000 });
       await expectNoAxeViolations(page);
     });
 

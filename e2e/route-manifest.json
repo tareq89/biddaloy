@@ -338,7 +338,7 @@
     {
       "path": "/fees",
       "role": "accountant",
-      "archetype": "list"
+      "archetype": "redirect"
     },
     {
       "path": "/fees/dues",

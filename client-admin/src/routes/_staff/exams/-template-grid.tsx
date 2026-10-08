@@ -182,6 +182,7 @@ export function TemplateGrid({
   const [attempted, setAttempted] = React.useState(false);
   const focusKey = React.useRef<string | null>(null);
   const rootRef = React.useRef<HTMLDivElement>(null);
+  const gradeAdded = React.useRef(false);
 
   // Re-seed when the saved CONTENT changes (after a save / refetch) — keyed on
   // content, not identity, so a rename's refetch does not wipe grid edits.
@@ -253,6 +254,7 @@ export function TemplateGrid({
     }
     setGradeError(false);
     setGradeInput('');
+    gradeAdded.current = true;
     setGradeOpen(false);
     if (!grades.includes(n)) setExtraGrades([...extraGrades, n]);
     selectGrade(n);
@@ -312,7 +314,21 @@ export function TemplateGrid({
 
   const gradeDialog = (
     <Dialog open={gradeOpen} onOpenChange={setGradeOpen}>
-      <DialogContent size="sm">
+      <DialogContent
+        size="sm"
+        onCloseAutoFocus={(event) => {
+          if (!gradeAdded.current) return;
+          gradeAdded.current = false;
+          // Land on the new class's tab: with no classes the "Add class" button
+          // lives in the empty state, which unmounts, so focus would fall to <body>.
+          const tab = rootRef.current?.querySelector<HTMLElement>(
+            '[role="tab"][data-state="active"]',
+          );
+          if (!tab) return;
+          event.preventDefault();
+          tab.focus();
+        }}
+      >
         <form onSubmit={addGrade} className="flex flex-col gap-4">
           <DialogHeader>
             <DialogTitle>{t('grid.addGradeTitle')}</DialogTitle>

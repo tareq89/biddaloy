@@ -108,7 +108,8 @@ export class ListShellPage {
     if (!this.config.searchLabelKey) {
       throw new Error(`No searchLabelKey configured for ${this.config.titleKey}`);
     }
-    await this.page.getByLabel(this.t(this.config.searchLabelKey)).fill(query);
+    // `exact`: the header's palette button is labelled "<search> (Ctrl+K)".
+    await this.page.getByLabel(this.t(this.config.searchLabelKey), { exact: true }).fill(query);
   }
 
   row(text: string): Locator {

@@ -28,7 +28,7 @@ import { ApprovalModalPage } from '../pages';
  * `promotions` namespace for it to live in). The bn string below is that
  * literal, not a translated lookup.
  */
-const PROMOTE_STUDENTS_ACTION_BN = 'শিক্ষার্থী উত্তরণ করুন';
+const PROMOTE_STUDENTS_ACTION_BN = 'শিক্ষার্থী প্রমোশন দিন';
 
 test.use(loggedIn('admin'));
 
@@ -227,7 +227,8 @@ test('keyboard-only: palette to new run, fill the form, R-override a row, commit
   });
 
   await test.step('the overridden student carries the override badge', async () => {
-    await page.goto(`/students/${student1.id}`);
+    // The override note renders on the Enrollment tab, not the default Overview.
+    await page.goto(`/students/${student1.id}?tab=enrollment`);
     await expect(page.getByRole('heading', { level: 1, name: student1.full_name })).toBeVisible();
     await expect(page.getByText('E2E keyboard override note', { exact: false })).toBeVisible();
   });

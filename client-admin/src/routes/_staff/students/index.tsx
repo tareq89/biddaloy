@@ -35,6 +35,7 @@ import {
 import * as React from 'react';
 import { z } from 'zod';
 
+import { useLandingFlag } from '../-use-landing-flag';
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 
 import { BulkPhotoDialog } from './-bulk-photo-dialog';
@@ -71,6 +72,7 @@ interface StudentFilters {
 
 const studentsSearchSchema = z.object({
   page: z.number().int().positive().optional().catch(undefined),
+  photos: z.coerce.string().optional().catch(undefined),
   limit: z.number().int().positive().optional().catch(undefined),
   sort: z.string().optional().catch(undefined),
   order: z.enum(['asc', 'desc']).optional().catch(undefined),
@@ -254,7 +256,7 @@ function StudentsListPage() {
   }
 
   const [reminderDialogOpen, setReminderDialogOpen] = React.useState(false);
-  const [photosDialogOpen, setPhotosDialogOpen] = React.useState(false);
+  const [photosDialogOpen, setPhotosDialogOpen] = useLandingFlag('photos', canUpdateStudent);
 
   // FilterBar's `onChange` patches one key at a time — intercept `class_id`
   // changes to also clear `section_id`, since a section chosen under the

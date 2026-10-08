@@ -2,7 +2,7 @@ import '@biddaloy/ui/test';
 
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { cleanupTestState, renderWithProviders } from '@biddaloy/ui/test';
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import * as React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -201,6 +201,10 @@ describe('TemplateGrid', () => {
     await user.click(await screen.findByRole('button', { name: 'Add class' }));
     const dialog = await screen.findByRole('dialog');
     await user.type(within(dialog).getByLabelText('Class number'), '3{Enter}');
+    // The empty state's button is gone; focus lands on the new class's tab, not <body>.
+    await waitFor(() =>
+      expect(document.activeElement).toBe(screen.getByRole('tab', { selected: true })),
+    );
     await user.click(await screen.findByRole('combobox', { name: /Subject to add to class 3/ }));
     await user.click(await screen.findByRole('option', { name: /ENG — English/ }));
     await user.click(screen.getByRole('button', { name: 'Add subject' }));
