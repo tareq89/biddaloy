@@ -9077,6 +9077,11 @@ export interface components {
         EvaluationsSettingsDto: {
             incidentSmsEnabled?: boolean;
         };
+        DocumentsSettingsDto: {
+            withholdAdmitCardForDues?: boolean;
+            /** @example DAHS */
+            serialPrefix?: string;
+        };
         TenantSettingsDto: {
             organisationRenames?: components["schemas"]["OrganisationRenameDto"][];
             /** @enum {number} */
@@ -9090,6 +9095,7 @@ export interface components {
             backup?: components["schemas"]["BackupSettingsDto"];
             fees?: components["schemas"]["FeesSettingsDto"];
             evaluations?: components["schemas"]["EvaluationsSettingsDto"];
+            documents?: components["schemas"]["DocumentsSettingsDto"];
         };
         UpdateSchoolProfileDto: {
             name?: string;
@@ -11122,7 +11128,7 @@ export interface components {
             tenant: components["schemas"]["School"];
             tenant_id: string;
             /** @enum {string} */
-            document_kind: "STUDENT_ID_CARD" | "STAFF_ID_CARD" | "ACR_ASSESSMENT";
+            document_kind: "STUDENT_ID_CARD" | "STAFF_ID_CARD" | "ACR_ASSESSMENT" | "EXAM_ADMIT_CARD" | "TRANSFER_CERTIFICATE" | "TESTIMONIAL" | "CHARACTER_CERTIFICATE" | "STUDY_CERTIFICATE" | "PARTICIPATION_CERTIFICATE" | "RESULT_CERTIFICATE" | "MERIT_CERTIFICATE";
             /** @enum {string} */
             layout_kind: "FIXED" | "FLOWING";
             name: string;
@@ -25991,7 +25997,7 @@ export interface operations {
     PrintTemplatesController_list_v1: {
         parameters: {
             query?: {
-                document_kind?: "STUDENT_ID_CARD" | "STAFF_ID_CARD" | "ACR_ASSESSMENT";
+                document_kind?: "STUDENT_ID_CARD" | "STAFF_ID_CARD" | "ACR_ASSESSMENT" | "EXAM_ADMIT_CARD" | "TRANSFER_CERTIFICATE" | "TESTIMONIAL" | "CHARACTER_CERTIFICATE" | "STUDY_CERTIFICATE" | "PARTICIPATION_CERTIFICATE" | "RESULT_CERTIFICATE" | "MERIT_CERTIFICATE";
                 include_archived?: boolean;
             };
             header: {

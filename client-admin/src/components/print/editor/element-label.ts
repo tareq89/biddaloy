@@ -2,10 +2,15 @@ import type { PrintElement } from '@biddaloy/shared';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import type { TFunction } from 'i18next';
 
-/** ACR criterion slots (acr.criterion.N.label|label_bn|score): one label per slot type, numbered. */
+/**
+ * Numbered slots: ACR criteria (acr.criterion.N.label|label_bn|score) and admit-card sittings
+ * (exam.sitting.N.subject|date|time|room|seat). One label per slot type, numbered.
+ */
 export function slotLabel(t: TFunction<'printEditor'>, fieldKey: string) {
-  const slot = /^acr\.criterion\.(\d+)\.(label|label_bn|score)$/.exec(fieldKey);
-  return slot ? t(`fields.acr.criterion_${slot[2]}`, { n: slot[1] }) : undefined;
+  const acr = /^acr\.criterion\.(\d+)\.(label|label_bn|score)$/.exec(fieldKey);
+  if (acr) return t(`fields.acr.criterion_${acr[2]}`, { n: acr[1] });
+  const sitting = /^exam\.sitting\.(\d+)\.(subject|date|time|room|seat)$/.exec(fieldKey);
+  return sitting ? t(`fields.exam.sitting_${sitting[2]}`, { n: Number(sitting[1]) }) : undefined;
 }
 
 /** A readable name for a layer: the field's label, the fixed text, or the element's kind. */

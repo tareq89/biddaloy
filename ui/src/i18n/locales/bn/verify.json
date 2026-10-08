@@ -7,7 +7,15 @@
   "kind": {
     "STUDENT_ID_CARD": "শিক্ষার্থীর পরিচয়পত্র",
     "STAFF_ID_CARD": "কর্মীর পরিচয়পত্র",
-    "ACR_ASSESSMENT": "এসিআর (গোপনীয় প্রতিবেদন)"
+    "ACR_ASSESSMENT": "এসিআর (গোপনীয় প্রতিবেদন)",
+    "EXAM_ADMIT_CARD": "প্রবেশপত্র",
+    "TRANSFER_CERTIFICATE": "ছাড়পত্র (টিসি)",
+    "TESTIMONIAL": "প্রশংসাপত্র",
+    "CHARACTER_CERTIFICATE": "চারিত্রিক সনদপত্র",
+    "STUDY_CERTIFICATE": "অধ্যয়ন প্রত্যয়নপত্র",
+    "PARTICIPATION_CERTIFICATE": "অংশগ্রহণ সনদপত্র",
+    "RESULT_CERTIFICATE": "ফলাফল সনদপত্র",
+    "MERIT_CERTIFICATE": "মেধা সনদপত্র"
   },
   "rows": {
     "type": "নথি",
