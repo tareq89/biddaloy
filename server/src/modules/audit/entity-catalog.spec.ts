@@ -24,9 +24,6 @@ const ENTITY_TYPE_LITERAL = /entity_type:\s*'([A-Za-z_]+)'/g;
  */
 const DEPRECATED_READ_ONLY_ENTRIES = new Set(['SchoolHoliday']);
 
-// ponytail: written by 48.2.10, which deletes this set
-const PENDING_WRITERS = new Set(['StudentDocumentPrint']);
-
 function collectServerSourceFiles(dir: string): string[] {
   const files: string[] = [];
   for (const name of readdirSync(dir)) {
@@ -68,8 +65,7 @@ describe('audit entity-type catalog contract', () => {
     const written = collectWrittenEntityTypes(serverSrcDir);
 
     const deadEntries = AUDIT_ENTITY_TYPES.filter(
-      (type) =>
-        !written.has(type) && !DEPRECATED_READ_ONLY_ENTRIES.has(type) && !PENDING_WRITERS.has(type),
+      (type) => !written.has(type) && !DEPRECATED_READ_ONLY_ENTRIES.has(type),
     );
     expect(deadEntries).toEqual([]);
   });
