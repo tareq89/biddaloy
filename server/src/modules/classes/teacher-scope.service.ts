@@ -159,4 +159,41 @@ export class TeacherScopeService {
       .addOrderBy('cs.section_name', 'ASC')
       .getRawMany<HomeroomSectionRow>();
   }
+
+  /** True when the user holds a live SUBJECT_TEACHER row for `subjectId` in any
+   *  live section of `classId`. Homeroom rows never count (write rule, like marks). */
+  async teachesSubjectInClass(input: {
+    userId: string;
+    tenantId: string;
+    classId: string;
+    subjectId: string;
+  }): Promise<boolean> {
+    const { userId, tenantId, classId, subjectId } = input;
+    return this.tcsRepo
+      .createQueryBuilder('tcs')
+      .innerJoin(
+        'teachers',
+        't',
+        't.id = tcs.teacher_id AND t.tenant_id = :tenantId AND t.deleted_at IS NULL',
+        { tenantId },
+      )
+      .innerJoin(
+        'class_sections',
+        'cs',
+        'cs.id = tcs.section_id AND cs.tenant_id = :tenantId AND cs.deleted_at IS NULL',
+        { tenantId },
+      )
+      .innerJoin(
+        'subjects',
+        's',
+        's.id = tcs.subject_id AND s.tenant_id = :tenantId AND s.deleted_at IS NULL',
+        { tenantId },
+      )
+      .where('tcs.tenant_id = :tenantId', { tenantId })
+      .andWhere('tcs.assignment_type = :type', { type: TeacherAssignmentType.SUBJECT_TEACHER })
+      .andWhere('tcs.subject_id = :subjectId', { subjectId })
+      .andWhere('cs.class_id = :classId', { classId })
+      .andWhere('t.user_id = :userId', { userId })
+      .getExists();
+  }
 }

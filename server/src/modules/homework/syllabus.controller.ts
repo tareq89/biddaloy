@@ -64,7 +64,13 @@ export class SyllabusController {
     @CurrentUser() user: JwtPayload,
     @Req() request: Request,
   ) {
-    const topic = await this.service.create(dto, tenant.id, user.sub, requestContext(request));
+    const topic = await this.service.create(
+      dto,
+      tenant.id,
+      tenant.role,
+      user.sub,
+      requestContext(request),
+    );
     return toSyllabusTopicResponseDto(topic);
   }
 
@@ -80,6 +86,7 @@ export class SyllabusController {
     const topics = await this.service.reorder(
       dto.items,
       tenant.id,
+      tenant.role,
       user.sub,
       requestContext(request),
     );
@@ -96,7 +103,14 @@ export class SyllabusController {
     @CurrentUser() user: JwtPayload,
     @Req() request: Request,
   ) {
-    const topic = await this.service.update(id, dto, tenant.id, user.sub, requestContext(request));
+    const topic = await this.service.update(
+      id,
+      dto,
+      tenant.id,
+      tenant.role,
+      user.sub,
+      requestContext(request),
+    );
     return toSyllabusTopicResponseDto(topic);
   }
 
@@ -109,7 +123,7 @@ export class SyllabusController {
     @CurrentUser() user: JwtPayload,
     @Req() request: Request,
   ): Promise<{ deleted: true }> {
-    await this.service.remove(id, tenant.id, user.sub, requestContext(request));
+    await this.service.remove(id, tenant.id, tenant.role, user.sub, requestContext(request));
     return { deleted: true };
   }
 }

@@ -317,4 +317,45 @@ describe('TeacherScopeService (integration)', () => {
       expect((await list(TENANT_B, userB.id)).map((r) => r.section_id)).toEqual([secB]);
     });
   });
+
+  describe('teachesSubjectInClass', () => {
+    const ask = (classId: string, subjectId: string, tenantId = TENANT_A, user = userId) =>
+      service.teachesSubjectInClass({ userId: user, tenantId, classId, subjectId });
+    const classOf = async (sectionId: string) =>
+      (
+        await dataSource
+          .getRepository(ClassSection)
+          .findOneOrFail({ where: { id: sectionId }, withDeleted: true })
+      ).class_id;
+
+    it('true for the mapped class and subject, false for other subject or class', async () => {
+      await assign(TeacherAssignmentType.SUBJECT_TEACHER, sec6A, liveSubjectId);
+      expect(await ask(await classOf(sec6A), liveSubjectId)).toBe(true);
+      // any section of the same class counts
+      expect(await ask(await classOf(sec6B), liveSubjectId)).toBe(true);
+      expect(await ask(await classOf(sec6A), otherSubjectId)).toBe(false);
+      expect(await ask(await classOf(sec7A), liveSubjectId)).toBe(false);
+    });
+
+    it('false for a homeroom-only teacher', async () => {
+      await assign(TeacherAssignmentType.CLASS_TEACHER, sec6A);
+      expect(await ask(await classOf(sec6A), liveSubjectId)).toBe(false);
+    });
+
+    it('false for a soft-deleted section, subject or teacher', async () => {
+      await assign(TeacherAssignmentType.SUBJECT_TEACHER, secDeleted, liveSubjectId);
+      await assign(TeacherAssignmentType.SUBJECT_TEACHER, sec7A, deletedSubjectId);
+      expect(await ask(await classOf(secDeleted), liveSubjectId)).toBe(false);
+      expect(await ask(await classOf(sec7A), deletedSubjectId)).toBe(false);
+      await assign(TeacherAssignmentType.SUBJECT_TEACHER, sec10A, liveSubjectId);
+      await dataSource.getRepository(Teacher).softDelete({ id: teacherId });
+      expect(await ask(await classOf(sec10A), liveSubjectId)).toBe(false);
+    });
+
+    it("false for another tenant's identical row", async () => {
+      await assign(TeacherAssignmentType.SUBJECT_TEACHER, sec6A, liveSubjectId);
+      const classId = await classOf(sec6A);
+      expect(await ask(classId, liveSubjectId, TENANT_B)).toBe(false);
+    });
+  });
 });

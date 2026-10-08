@@ -1,7 +1,19 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
-import { AuditAction, SyllabusTopicStatus } from '@biddaloy/shared';
+import {
+  AuditAction,
+  Permission,
+  SyllabusTopicStatus,
+  UserRole,
+  hasTenantDataScope,
+  roleHasPermission,
+} from '@biddaloy/shared';
 import { SyllabusTopic } from './entities/syllabus-topic.entity';
 import { Class } from '../academics/entities/class.entity';
 import { Subject } from '../academics/entities/subject.entity';
@@ -10,6 +22,7 @@ import {
   UpdateSyllabusTopicDto,
   ReorderSyllabusTopicItemDto,
 } from './dto/syllabus.dto';
+import { TeacherScopeService } from '../classes/teacher-scope.service';
 import { AuditService } from '../audit/audit.service';
 import { RequestContext } from '../../common/request-context.util';
 
@@ -23,6 +36,7 @@ export class SyllabusService {
     @InjectRepository(Subject)
     private readonly subjectRepo: Repository<Subject>,
     private readonly auditService: AuditService,
+    private readonly teacherScope: TeacherScopeService,
   ) {}
 
   /** IDOR guard: class_id/subject_id must belong to the caller's own
@@ -44,13 +58,37 @@ export class SyllabusService {
     }
   }
 
+  /** D16: ADMIN (tenant-wide + SYLLABUS_MANAGE) writes anywhere; a TEACHER only
+   * for a class x subject they hold a SUBJECT_TEACHER row for. */
+  private async assertCanWrite(
+    role: string,
+    userId: string,
+    tenantId: string,
+    classId: string,
+    subjectId: string,
+  ): Promise<void> {
+    if (hasTenantDataScope(role) && roleHasPermission(role, Permission.SYLLABUS_MANAGE)) return;
+    if (
+      role === UserRole.TEACHER &&
+      (await this.teacherScope.teachesSubjectInClass({ userId, tenantId, classId, subjectId }))
+    ) {
+      return;
+    }
+    throw new ForbiddenException({
+      message: 'You can only change syllabus topics of a class and subject you teach.',
+      details: { code: 'SYLLABUS_OUT_OF_SCOPE' },
+    });
+  }
+
   async create(
     dto: CreateSyllabusTopicDto,
     tenantId: string,
-    userId: string | null = null,
+    role: string,
+    userId: string,
     context: RequestContext = { ip: null, userAgent: null },
   ): Promise<SyllabusTopic> {
     await this.assertClassAndSubjectBelongToTenant(dto.class_id, dto.subject_id, tenantId);
+    await this.assertCanWrite(role, userId, tenantId, dto.class_id, dto.subject_id);
 
     return this.repo.manager.transaction(async (manager) => {
       const repo = manager.getRepository(SyllabusTopic);
@@ -110,10 +148,12 @@ export class SyllabusService {
     id: string,
     dto: UpdateSyllabusTopicDto,
     tenantId: string,
-    userId: string | null = null,
+    role: string,
+    userId: string,
     context: RequestContext = { ip: null, userAgent: null },
   ): Promise<SyllabusTopic> {
     const existing = await this.findOne(id, tenantId);
+    await this.assertCanWrite(role, userId, tenantId, existing.class_id, existing.subject_id);
 
     const changedKeys = Object.keys(dto);
     if (changedKeys.length > 0) {
@@ -148,10 +188,12 @@ export class SyllabusService {
   async remove(
     id: string,
     tenantId: string,
-    userId: string | null = null,
+    role: string,
+    userId: string,
     context: RequestContext = { ip: null, userAgent: null },
   ): Promise<void> {
     const existing = await this.findOne(id, tenantId);
+    await this.assertCanWrite(role, userId, tenantId, existing.class_id, existing.subject_id);
 
     await this.repo.manager.transaction(async (manager) => {
       const repo = manager.getRepository(SyllabusTopic);
@@ -182,7 +224,8 @@ export class SyllabusService {
   async reorder(
     items: ReorderSyllabusTopicItemDto[],
     tenantId: string,
-    userId: string | null = null,
+    role: string,
+    userId: string,
     context: RequestContext = { ip: null, userAgent: null },
   ): Promise<SyllabusTopic[]> {
     const ids = items.map((item) => item.id);
@@ -200,6 +243,12 @@ export class SyllabusService {
         throw new NotFoundException(
           `Syllabus topic(s) not found for this tenant: ${missing.join(', ')}`,
         );
+      }
+
+      // All-or-nothing: check every distinct class x subject before any update.
+      const pairs = new Map(topics.map((t) => [`${t.class_id}|${t.subject_id}`, t]));
+      for (const t of pairs.values()) {
+        await this.assertCanWrite(role, userId, tenantId, t.class_id, t.subject_id);
       }
 
       for (const item of items) {
