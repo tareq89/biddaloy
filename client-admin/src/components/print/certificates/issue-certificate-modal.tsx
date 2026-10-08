@@ -194,9 +194,15 @@ export function IssueCertificateModal({
     ((classActive.data?.total ?? 0) > (classActive.data?.data.length ?? 0) ||
       (wantsGraduated &&
         (classGraduated.data?.total ?? 0) > (classGraduated.data?.data.length ?? 0)));
-  const subjectIds = (bulk ? classmates.map((s) => s.id) : [studentId]).filter(
-    (id) => !excluded.has(id),
-  );
+  // The student whose page this is always stays in: a TC or character certificate is often for
+  // someone who already left, so they are not among the class's ACTIVE students.
+  const subjectIds = (
+    bulk
+      ? classmates.some((s) => s.id === studentId)
+        ? classmates.map((s) => s.id)
+        : [studentId, ...classmates.map((s) => s.id)]
+      : [studentId]
+  ).filter((id) => !excluded.has(id));
   const nameOf = (id: string) =>
     id === studentId
       ? (student?.full_name ?? id)
@@ -399,7 +405,8 @@ export function IssueCertificateModal({
             latest={latest}
             issuedCount={register.data?.total ?? 0}
             bulk={
-              classId
+              // A TC is one leaving student, never a whole class.
+              classId && kind !== DocumentKind.TRANSFER_CERTIFICATE
                 ? {
                     className,
                     count: subjectIds.length,

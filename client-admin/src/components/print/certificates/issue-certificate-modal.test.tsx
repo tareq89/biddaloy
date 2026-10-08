@@ -569,6 +569,47 @@ describe('IssueCertificateModal', () => {
     expect(screen.queryByRole('button', { name: /^print$/i })).toBeNull();
   });
 
+  it('whole class keeps the page’s student even when they are not an ACTIVE classmate', async () => {
+    serve({ classIds: ['s-2', 's-3'] });
+    const { user } = setup();
+    await next(user, /^next$/i);
+    await user.type(await screen.findByLabelText(/conduct/i), 'Good');
+    await user.click(await screen.findByRole('button', { name: /for all of class 10/i }));
+    await screen.findByText(/3 students/i);
+    await next(user, /see preview/i);
+    await next(user, /^next$/i);
+    await next(user, /^print$/i);
+    await waitFor(() => expect(posts.length).toBe(1));
+    expect((posts[0]?.body as { subject_ids: string[] }).subject_ids).toEqual([
+      's-1',
+      's-2',
+      's-3',
+    ]);
+  });
+
+  it('a transfer certificate offers no whole-class switch', async () => {
+    serve({ kinds: ['TRANSFER_CERTIFICATE'] });
+    server.use(
+      http.get('/api/v1/students/s-1', () =>
+        HttpResponse.json({ ...student, enrollment_status: 'TRANSFERRED_OUT' }),
+      ),
+      http.get('/api/v1/students/s-1/lifecycle-events', () =>
+        HttpResponse.json([
+          {
+            id: 'ev-1',
+            event_type: 'TRANSFERRED_OUT',
+            occurred_on: '2026-01-01',
+            created_at: '2026-01-01T00:00:00Z',
+          },
+        ]),
+      ),
+    );
+    const { user } = setup('TRANSFER_CERTIFICATE');
+    await next(user, /^next$/i);
+    await screen.findByLabelText(/conduct/i);
+    expect(screen.queryByRole('button', { name: /for all of class 10/i })).toBeNull();
+  });
+
   it('Close with a typed value asks before discarding', async () => {
     serve();
     const { user, onClose } = setup();
