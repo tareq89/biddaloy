@@ -556,6 +556,37 @@ export const ACTIONS: readonly PaletteAction[] = [
     run: (ctx) => ctx.navigate({ to: '/academics/syllabus' }),
   },
   {
+    id: 'studyPlans.markToday',
+    label: { en: "Mark today's lessons", bn: 'আজকের পাঠ জানান' },
+    permission: Permission.ROUTINE_READ,
+    kind: 'navigate',
+    run: (ctx) => ctx.navigate({ to: '/routines/my' }),
+  },
+  {
+    id: 'studyPlans.open',
+    label: { en: 'Open study plans', bn: 'পাঠ পরিকল্পনা খুলুন' },
+    permission: Permission.SYLLABUS_READ,
+    kind: 'navigate',
+    // No prefill: `ActionRunContext` carries no section or subject (D46).
+    run: (ctx) => ctx.navigate({ to: '/academics/syllabus?tab=plans' }),
+  },
+  {
+    id: 'studyPlans.create',
+    label: { en: 'New study plan', bn: 'নতুন পাঠ পরিকল্পনা' },
+    // Stricter than the syllabus route's SYLLABUS_READ: the wizard is the only
+    // thing this opens (see ROUTE_PERMISSION_EXCEPTIONS in the test).
+    permission: Permission.SYLLABUS_MANAGE,
+    kind: 'modal',
+    run: (ctx) => ctx.navigate({ to: '/academics/syllabus?tab=plans&new=1' }),
+  },
+  {
+    id: 'studyPlans.library',
+    label: { en: 'Template library', bn: 'টেমপ্লেট লাইব্রেরি' },
+    permission: Permission.SYLLABUS_READ,
+    kind: 'navigate',
+    run: (ctx) => ctx.navigate({ to: '/academics/syllabus?tab=library' }),
+  },
+  {
     id: 'promotions.promote',
     label: { en: 'Promote students', bn: 'শিক্ষার্থী প্রমোশন দিন' },
     permission: Permission.PROMOTION_MANAGE,
