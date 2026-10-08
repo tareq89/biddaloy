@@ -1,0 +1,374 @@
+<!doctype html>
+<html lang="bn">
+<head>
+<!-- app:head -->
+<title>ড্যাশবোর্ড — হিসাবরক্ষক</title>
+<script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+<!-- PROPOSED NEW TOKENS (not in globals.css yet). The existing --color-chart-1..5 alias the fee-status
+     colours, so a categorical series painted with them would read as "paid / due / overdue". These are
+     the only hex values in the mockup; they would land in @theme + the dark block of globals.css.
+     cat-1..3: categorical (payment method), validated light on #ffffff and dark on #1e293b.
+     seq-3:    one darker brand step so the 3-step ageing ramp (brand-400 / brand-600 / seq-3) passes the ordinal check. -->
+<style>
+  :root {
+    --color-chart-cat-1: #2a78d6; /* নগদ   */
+    --color-chart-cat-2: #eb6834; /* বিকাশ */
+    --color-chart-cat-3: #1baf7a; /* ব্যাংক */
+    --color-chart-seq-1: var(--color-brand-400);
+    --color-chart-seq-2: var(--color-brand-600);
+    --color-chart-seq-3: #2a2385;
+  }
+  :root[data-theme="dark"] {
+    --color-chart-cat-1: #3987e5;
+    --color-chart-cat-2: #d95926;
+    --color-chart-cat-3: #199e70;
+  }
+</style>
+</head>
+<body class="flex min-h-screen flex-col bg-bg text-body text-text-primary">
+
+<!-- ============================================================================
+     SHELL — copied from the kit. It is NOT part of a page proposal: change only
+     the three marked spots (sidebar active link, open group, bottom-bar cell).
+     ============================================================================ -->
+<!-- TOP BAR. Desktop (D11): school + role · search · bell · language · theme · account.
+     Phone (D12): one sticky 56px row — menu + school name · search · bell · account.
+     Language, theme, security, switch school and sign out live in the account menu on phone. -->
+<header class="sticky top-0 z-30 flex h-14 items-center gap-1 border-b border-border-subtle bg-surface px-1 md:gap-2 md:px-6">
+  <button type="button" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-muted hover:text-text-primary md:size-9 md:hidden" aria-label="মেনু খুলুন"><i data-lucide="menu"></i></button>
+  <span class="min-w-0 truncate text-h3">নমুনা আদর্শ বিদ্যালয়</span>
+  <span class="hidden shrink-0 rounded-full bg-muted px-2 py-0.5 text-caption text-text-secondary md:inline">হিসাবরক্ষক</span>
+  <button type="button" class="hidden md:inline-flex size-11 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-muted hover:text-text-primary md:size-9" aria-label="স্কুল বা ভূমিকা পরিবর্তন করুন"><i data-lucide="arrow-left-right"></i></button>
+  <div class="ml-auto flex shrink-0 items-center md:gap-1">
+    <button type="button" class="hidden h-9 w-64 items-center gap-2 rounded-md border border-border-functional bg-surface px-3 text-text-secondary md:flex" aria-label="খুঁজুন (Ctrl+K)"><i data-lucide="search"></i><span>অনুসন্ধান…</span><kbd class="ml-auto font-sans text-caption">Ctrl+K</kbd></button>
+    <button type="button" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-muted hover:text-text-primary md:size-9 md:hidden" aria-label="খুঁজুন"><i data-lucide="search"></i></button>
+    <button type="button" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-muted hover:text-text-primary md:size-9 relative" aria-label="বিজ্ঞপ্তি, ৩টি অপঠিত"><i data-lucide="bell"></i><span class="absolute top-0.5 left-1/2 ml-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1 text-caption font-medium text-primary-foreground md:-top-0.5">৩</span></button>
+    <button type="button" class="hidden md:inline-flex size-11 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-muted hover:text-text-primary md:size-9" aria-label="ভাষা পরিবর্তন করুন"><i data-lucide="languages"></i></button>
+    <button type="button" class="hidden md:inline-flex size-11 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-muted hover:text-text-primary md:size-9" aria-label="থিম"><i data-lucide="moon"></i></button>
+    <button type="button" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-muted hover:text-text-primary md:size-9" aria-label="অ্যাকাউন্ট মেনু"><i data-lucide="circle-user-round"></i></button>
+  </div>
+</header>
+
+<div class="flex flex-1">
+    <!-- SIDEBAR (desktop only). To adapt:
+         1. move aria-current="page" to the ONE link of this page (exactly one in the whole file);
+         2. put the "open" attribute on the <details> that holds it and remove it from the others.
+         Nothing else in the sidebar changes. -->
+    <nav class="hidden w-60 shrink-0 border-r border-border-subtle bg-surface px-3 py-4 md:block" aria-label="প্রধান">
+      <p class="px-3 pb-3 text-label text-text-secondary">SchoolManager</p>
+      <ul class="space-y-0.5 pb-2">
+          <li><a href="#" data-nav="dashboard" aria-current="page" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="layout-dashboard"></i><span class="truncate">ড্যাশবোর্ড</span></a></li>
+      </ul>
+      <!-- NAV GROUP people -->
+      <details class="group/nav">
+        <summary class="flex h-9 cursor-pointer list-none items-center justify-between rounded-md px-3 text-label text-text-secondary hover:bg-muted hover:text-text-primary">ব্যক্তিবর্গ<i data-lucide="chevron-right" class="size-4 group-open/nav:rotate-90"></i></summary>
+        <ul class="space-y-0.5 pb-2">
+          <li><a href="#" data-nav="people.students" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="graduation-cap"></i><span class="truncate">শিক্ষার্থী</span></a></li>
+          <li><a href="#" data-nav="people.guardians" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="users-round"></i><span class="truncate">অভিভাবক</span></a></li>
+          <li><a href="#" data-nav="people.calendar" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="calendar-days"></i><span class="truncate">ক্যালেন্ডার</span></a></li>
+          <li><a href="#" data-nav="people.staff" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="briefcase"></i><span class="truncate">কর্মী</span></a></li>
+          <li><a href="#" data-nav="people.programs" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="milestone"></i><span class="truncate">প্রোগ্রাম ও মাইলস্টোন</span></a></li>
+          <li><a href="#" data-nav="people.admissionIntakes" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="door-open"></i><span class="truncate">ভর্তি গ্রহণ</span></a></li>
+          <li><a href="#" data-nav="people.admissionApplicants" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="user-plus"></i><span class="truncate">ভর্তি আবেদনকারী</span></a></li>
+          <li><a href="#" data-nav="people.admissionReports" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="chart-pie"></i><span class="truncate">ভর্তি রিপোর্ট</span></a></li>
+          <li><a href="#" data-nav="people.teachingAssignments" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="presentation"></i><span class="truncate">শিক্ষক নিয়োগ</span></a></li>
+          <li><a href="#" data-nav="people.evaluations" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="star"></i><span class="truncate">মূল্যায়ন</span></a></li>
+        </ul>
+      </details>
+      <!-- NAV GROUP finance -->
+      <details class="group/nav">
+        <summary class="flex h-9 cursor-pointer list-none items-center justify-between rounded-md px-3 text-label text-text-secondary hover:bg-muted hover:text-text-primary">অর্থ<i data-lucide="chevron-right" class="size-4 group-open/nav:rotate-90"></i></summary>
+        <ul class="space-y-0.5 pb-2">
+          <li class="px-3 pt-1 text-caption text-text-secondary">দ্রুত পদক্ষেপ</li>
+          <li><a href="#" data-nav="finance.dues" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="hand-coins"></i><span class="truncate">শিক্ষার্থীর বকেয়া</span></a></li>
+          <li><a href="#" data-nav="finance.recordPayment" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="banknote"></i><span class="truncate">পেমেন্ট রেকর্ড করুন</span></a></li>
+          <li class="mx-3 my-1 border-t border-border-subtle" role="separator"></li>
+          <li><a href="#" data-nav="finance.fees" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="wallet"></i><span class="truncate">ফি</span></a></li>
+          <li><a href="#" data-nav="finance.feeStructures" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="layers"></i><span class="truncate">ফি কাঠামো</span></a></li>
+          <li><a href="#" data-nav="finance.generateFees" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="file-plus-2"></i><span class="truncate">ফি তৈরি</span></a></li>
+          <li><a href="#" data-nav="finance.recurringSchedules" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="repeat"></i><span class="truncate">পুনরাবৃত্ত সময়সূচী</span></a></li>
+          <li><a href="#" data-nav="finance.fines" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="gavel"></i><span class="truncate">জরিমানা</span></a></li>
+          <li><a href="#" data-nav="finance.invoices" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="receipt"></i><span class="truncate">চালান</span></a></li>
+        </ul>
+      </details>
+      <!-- NAV GROUP reports -->
+      <details class="group/nav">
+        <summary class="flex h-9 cursor-pointer list-none items-center justify-between rounded-md px-3 text-label text-text-secondary hover:bg-muted hover:text-text-primary">প্রতিবেদন<i data-lucide="chevron-right" class="size-4 group-open/nav:rotate-90"></i></summary>
+        <ul class="space-y-0.5 pb-2">
+          <li><a href="#" data-nav="reports.collectionsReport" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="chart-column"></i><span class="truncate">সংগ্রহ প্রতিবেদন</span></a></li>
+          <li><a href="#" data-nav="reports.printables" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="printer"></i><span class="truncate">প্রিন্ট ও ডকুমেন্ট</span></a></li>
+        </ul>
+      </details>
+      <!-- NAV GROUP communications -->
+      <details class="group/nav">
+        <summary class="flex h-9 cursor-pointer list-none items-center justify-between rounded-md px-3 text-label text-text-secondary hover:bg-muted hover:text-text-primary">যোগাযোগ<i data-lucide="chevron-right" class="size-4 group-open/nav:rotate-90"></i></summary>
+        <ul class="space-y-0.5 pb-2">
+          <li><a href="#" data-nav="communications.sendMessage" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="send"></i><span class="truncate">বার্তা পাঠান</span></a></li>
+          <li><a href="#" data-nav="communications.feeReminders" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="bell-ring"></i><span class="truncate">ফি রিমাইন্ডার</span></a></li>
+          <li><a href="#" data-nav="communications.reminderHistory" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="history"></i><span class="truncate">রিমাইন্ডার ইতিহাস</span></a></li>
+        </ul>
+      </details>
+    </nav>
+
+    <!-- PROPOSAL — everything inside <main> is the page design. -->
+    <main id="main-content" class="min-w-0 flex-1">
+  <div class="mx-auto w-full max-w-screen-xl space-y-4 px-4 py-4 md:space-y-6 md:px-6 md:py-6">
+    <header class="flex items-end justify-between gap-4">
+      <div class="min-w-0">
+        <h1 class="text-h1">ড্যাশবোর্ড</h1>
+        <p class="mt-0.5 text-text-secondary">বুধবার, ৭ অক্টোবর</p>
+      </div>
+      <button type="button" aria-label="সাজান" class="inline-flex h-11 w-11 shrink-0 items-center justify-center gap-2 rounded-md border border-border-functional bg-surface font-medium text-text-primary hover:bg-muted md:h-8 md:w-auto md:px-3"><i data-lucide="layout-grid"></i><span class="hidden md:inline">সাজান</span></button>
+    </header>
+
+    <!-- PHONE (below md) — D16 COMPACT rendering. Desktop markup below is hidden on phone, untouched on desktop. -->
+    <div class="space-y-4 md:hidden">
+      <section aria-label="আজকের সারসংক্ষেপ" class="rounded-lg bg-secondary p-4">
+        <p class="flex gap-2.5 text-body-lg"><i data-lucide="wallet" class="mt-1 shrink-0 text-secondary-foreground"></i><span>আজ ৳৪৮,৫০০ আদায় হয়েছে, গতকালের এই সময়ের চেয়ে বেশি — ৩৮ জন অভিভাবককে রিমাইন্ডার পাঠানো বাকি।</span></p>
+        <button type="button" class="mt-3 inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-primary px-4 font-medium text-primary-foreground"><i data-lucide="send"></i>৩৮ জনকে রিমাইন্ডার পাঠান</button>
+      </section>
+      <div class="grid grid-cols-2 gap-3" aria-label="আজকের মূল সংখ্যা">
+        <a href="#m-today" class="flex min-w-0 flex-col rounded-lg border border-border-subtle bg-surface shadow-e1 p-3">
+          <span class="truncate text-label text-text-secondary">আজকের আদায়</span>
+          <span class="mt-0.5 text-h1 whitespace-nowrap">৳৪৮,৫০০</span>
+          <span class="mt-auto pt-2"><span class="flex items-center gap-1 truncate text-caption text-status-paid-fg"><i data-lucide="trending-up" class="size-3.5 shrink-0"></i>গতকালের চেয়ে +৳৭,৩০০</span></span>
+        </a><a href="#" class="flex min-w-0 flex-col rounded-lg border border-border-subtle bg-surface shadow-e1 p-3">
+          <span class="truncate text-label text-text-secondary">এ মাসের আদায়</span>
+          <span class="mt-0.5 text-h1 whitespace-nowrap">৩১%</span>
+          <span class="mt-auto pt-2"><span class="block h-1.5 rounded-full bg-border-subtle"><span class="block h-1.5 rounded-full bg-primary" style="width:31%"></span></span></span>
+        </a><a href="#" class="flex min-w-0 flex-col rounded-lg border border-border-subtle bg-surface shadow-e1 p-3">
+          <span class="truncate text-label text-text-secondary">মোট বকেয়া</span>
+          <span class="mt-0.5 text-h1 whitespace-nowrap">৳৩,৮৬,০০০</span>
+          <span class="mt-auto pt-2"><span class="flex h-1.5 gap-0.5"><span class="rounded-l-full bg-(--color-chart-seq-1)" style="flex-grow:192"></span><span class="bg-(--color-chart-seq-2)" style="flex-grow:118"></span><span class="rounded-r-full bg-(--color-chart-seq-3)" style="flex-grow:76"></span></span></span>
+        </a><a href="#" class="flex min-w-0 flex-col rounded-lg border border-border-subtle bg-surface shadow-e1 p-3">
+          <span class="truncate text-label text-text-secondary">রিমাইন্ডার বাকি</span>
+          <span class="mt-0.5 text-h1 whitespace-nowrap">৩৮</span>
+          <span class="mt-auto pt-2"><span class="block truncate text-caption text-text-secondary">জন অভিভাবক</span></span>
+        </a>
+      </div>
+      <section aria-labelledby="m-today-h" id="m-today" class="rounded-lg border border-border-subtle bg-surface shadow-e1 px-4 pt-1 pb-2">
+        <div class="flex items-start gap-1">
+          <h2 id="m-today-h" class="min-w-0 flex-1 text-h3"><button type="button" aria-expanded="true" class="flex min-h-11 w-full items-center justify-between gap-3 text-left">আজকের আদায়<i data-lucide="chevron-up" class="shrink-0 text-text-secondary"></i></button></h2>
+          <button type="button" class="-mr-2 inline-flex size-11 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-muted" aria-label="উইজেট সেটিংস: আজকের আদায়"><i data-lucide="ellipsis-vertical"></i></button>
+        </div>
+        <p class="-mt-2 text-caption text-text-secondary">২ মিনিট আগে আপডেট</p>
+        <p class="mt-2 flex items-baseline gap-2"><span class="text-h1">৳৪৮,৫০০</span><span class="text-text-secondary">২৩টা পেমেন্ট</span></p>
+        <p class="mt-1">সবচেয়ে বেশি এসেছে ক্যাশে; বিকাশ প্রায় কাছাকাছি।</p>
+        <div class="mt-3 flex h-5 gap-0.5" role="img" aria-label="আজকের আদায় মাধ্যম অনুযায়ী: ক্যাশ ৳২২,০০০, বিকাশ ৳১৮,৫০০, ব্যাংক ৳৮,০০০"><div class="bg-(--color-chart-cat-1)" style="flex-grow:22000"></div><div class="bg-(--color-chart-cat-2)" style="flex-grow:18500"></div><div class="rounded-r-sm bg-(--color-chart-cat-3)" style="flex-grow:8000"></div></div>
+        <div class="mt-3 grid grid-cols-3 gap-3"><div class="min-w-0"><div class="flex items-center gap-1.5 text-label text-text-secondary"><span class="size-2.5 shrink-0 rounded-sm bg-(--color-chart-cat-1)"></span>ক্যাশ</div><div class="mt-0.5 font-medium">৳২২,০০০</div><div class="text-caption text-text-secondary">১১টা</div></div><div class="min-w-0"><div class="flex items-center gap-1.5 text-label text-text-secondary"><span class="size-2.5 shrink-0 rounded-sm bg-(--color-chart-cat-2)"></span>বিকাশ</div><div class="mt-0.5 font-medium">৳১৮,৫০০</div><div class="text-caption text-text-secondary">৯টা</div></div><div class="min-w-0"><div class="flex items-center gap-1.5 text-label text-text-secondary"><span class="size-2.5 shrink-0 rounded-sm bg-(--color-chart-cat-3)"></span>ব্যাংক</div><div class="mt-0.5 font-medium">৳৮,০০০</div><div class="text-caption text-text-secondary">৩টা</div></div></div>
+        <a href="#" class="mt-2 inline-flex h-11 items-center font-medium text-primary hover:underline">সংগ্রহ প্রতিবেদন</a>
+      </section><section aria-labelledby="m-month" class="relative rounded-lg border border-border-subtle bg-surface shadow-e1 px-4 pt-1 pb-4">
+        <h2 id="m-month" class="text-h3"><button type="button" aria-expanded="false" class="flex min-h-11 w-full items-center justify-between gap-3 text-left after:absolute after:inset-0 after:rounded-lg after:content-['']">মাসওয়ারি আদায়<i data-lucide="chevron-down" class="shrink-0 text-text-secondary"></i></button></h2>
+        <div class="flex items-end justify-between gap-3">
+          <p class="flex min-w-0 flex-wrap items-baseline gap-x-2"><span class="text-h1">৳৩০.৪ লাখ</span><span class="text-text-secondary">এ বছর</span></p><svg width="96" height="32" viewBox="0 0 96 32" class="shrink-0" aria-hidden="true"><polyline points="3,3.1 13,11.0 23,12.6 33,15.4 43,12.1 53,13.8 63,11.5 73,13.2 83,12.6" fill="none" class="stroke-text-secondary" stroke-width="1.5" stroke-linejoin="round"/><line x1="83" y1="12.6" x2="93" y2="24.7" class="stroke-primary" stroke-width="1.5" stroke-dasharray="3 3"/><circle cx="93" cy="24.7" r="3" class="fill-primary stroke-surface" stroke-width="2"/></svg>
+        </div>
+        <p class="mt-1">অক্টোবরের প্রথম ৭ দিনে সেপ্টেম্বরের একই সময়ের চেয়ে ৳৭,৫০০ বেশি।</p>
+      </section><section aria-labelledby="m-class" class="relative rounded-lg border border-border-subtle bg-surface shadow-e1 px-4 pt-1 pb-4">
+        <h2 id="m-class" class="text-h3"><button type="button" aria-expanded="false" class="flex min-h-11 w-full items-center justify-between gap-3 text-left after:absolute after:inset-0 after:rounded-lg after:content-['']">শ্রেণিভিত্তিক বকেয়া<i data-lucide="chevron-down" class="shrink-0 text-text-secondary"></i></button></h2>
+        <div class="flex items-end justify-between gap-3">
+          <p class="flex min-w-0 flex-wrap items-baseline gap-x-2"><span class="text-h1">৳১,০৬,০০০</span><span class="text-text-secondary">৯ম শ্রেণিতে</span></p>
+        </div>
+        <p class="mt-1">মোট বকেয়ার ২৭% শুধু ৯ম শ্রেণির।</p>
+      </section><section aria-labelledby="m-fee" class="relative rounded-lg border border-border-subtle bg-surface shadow-e1 px-4 pt-1 pb-4">
+        <h2 id="m-fee" class="text-h3"><button type="button" aria-expanded="false" class="flex min-h-11 w-full items-center justify-between gap-3 text-left after:absolute after:inset-0 after:rounded-lg after:content-['']">এ মাসের ফি<i data-lucide="chevron-down" class="shrink-0 text-text-secondary"></i></button></h2>
+        <div class="flex items-end justify-between gap-3">
+          <p class="flex min-w-0 flex-wrap items-baseline gap-x-2"><span class="text-h1">৮৪২</span><span class="text-text-secondary">চালান তৈরি</span></p>
+        </div>
+        <p class="mt-1"><span class="inline-flex items-center gap-1 text-status-paid-fg"><i data-lucide="circle-check" class="size-4 shrink-0"></i>জেনারেট হয়েছে ১ অক্টোবর</span></p>
+      </section><section aria-labelledby="m-recent" class="relative rounded-lg border border-border-subtle bg-surface shadow-e1 px-4 pt-1 pb-4">
+        <h2 id="m-recent" class="text-h3"><button type="button" aria-expanded="false" class="flex min-h-11 w-full items-center justify-between gap-3 text-left after:absolute after:inset-0 after:rounded-lg after:content-['']">সাম্প্রতিক পেমেন্ট<i data-lucide="chevron-down" class="shrink-0 text-text-secondary"></i></button></h2>
+        <div class="flex items-end justify-between gap-3">
+          <p class="flex min-w-0 flex-wrap items-baseline gap-x-2"><span class="text-h1">৳১২,৯০০</span><span class="text-text-secondary">শেষ ৫টায়</span></p>
+        </div>
+        <p class="mt-1">সবশেষ পেমেন্ট ৪ মিনিট আগে, বিকাশে।</p>
+      </section>
+    </div>
+
+    <!-- NEW: BriefingLine — rule-based: count of open items + the single most urgent one -->
+    <section aria-label="আজকের সারসংক্ষেপ" class="hidden items-start gap-3 rounded-lg bg-secondary p-4 md:flex md:items-center md:gap-4 md:p-5">
+      <span class="flex size-10 shrink-0 items-center justify-center rounded-full bg-surface text-secondary-foreground"><i data-lucide="wallet"></i></span>
+      <div class="min-w-0 flex-1">
+        <p class="text-body-lg text-text-primary">আজ এখন পর্যন্ত আদায় <strong class="font-semibold">৳৪৮,৫০০</strong> — গতকালের এই সময়ের চেয়ে বেশি। ৩৮টা রিমাইন্ডার পাঠানো বাকি।</p>
+        <p class="mt-1 text-label text-secondary-foreground">আজ ২টা বিষয়ে আপনার নজর দরকার। সবচেয়ে জরুরি: <a href="#w-rem-card" class="font-medium underline underline-offset-2">৩৮টা রিমাইন্ডার</a></p>
+      </div>
+    </section>
+
+    <!-- Phone order = the agreed widget order. Desktop (xl) reorders with xl:order-* so the 4-column grid has no holes. -->
+    <div class="hidden grid-cols-1 gap-4 md:grid md:grid-cols-2 md:gap-6 xl:grid-cols-4">
+      <section aria-labelledby="w-today" class="flex flex-col rounded-lg border border-border-subtle bg-surface p-4 shadow-e1 md:p-5 md:col-span-2 xl:order-1">
+        <div class="flex items-start justify-between gap-2">
+          <div class="min-w-0">
+            <h2 id="w-today" class="text-h3">আজকের আদায়</h2>
+            <p class="text-caption text-text-secondary">২ মিনিট আগে আপডেট</p>
+          </div>
+          <button type="button" class="-mt-1 -mr-2 inline-flex size-11 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-muted md:size-8" aria-label="উইজেট সেটিংস: আজকের আদায়"><i data-lucide="ellipsis-vertical"></i></button>
+        </div>
+        <div class="mt-3 flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
+          <p class="flex items-baseline gap-2"><span class="text-display">৳৪৮,৫০০</span><span class="text-text-secondary">২৩টা পেমেন্ট</span></p>
+          <p class="inline-flex items-center gap-1 text-label text-status-paid-fg"><i data-lucide="trending-up" class="size-4"></i>গতকাল এই সময়ে ছিল ৳৪১,২০০</p>
+        </div>
+        <p class="mt-1">সবচেয়ে বেশি এসেছে ক্যাশে; বিকাশ প্রায় কাছাকাছি।</p>
+        <div class="mt-4 flex h-6 gap-0.5" role="img" aria-label="আজকের আদায় মাধ্যম অনুযায়ী: ক্যাশ ৳২২,০০০, বিকাশ ৳১৮,৫০০, ব্যাংক ৳৮,০০০"><div class="h-full bg-(--color-chart-cat-1) " style="flex-grow:22000"></div><div class="h-full bg-(--color-chart-cat-2) " style="flex-grow:18500"></div><div class="h-full bg-(--color-chart-cat-3) rounded-r-sm" style="flex-grow:8000"></div></div>
+        <div class="mt-3 grid grid-cols-3 gap-3"><div class="min-w-0"><div class="flex items-center gap-1.5 text-label text-text-secondary"><span class="size-2.5 shrink-0 rounded-sm bg-(--color-chart-cat-1)"></span><span class="truncate">ক্যাশ</span></div><div class="mt-0.5 font-medium tabular-nums">৳২২,০০০</div><div class="text-caption text-text-secondary">১১টা পেমেন্ট</div></div><div class="min-w-0"><div class="flex items-center gap-1.5 text-label text-text-secondary"><span class="size-2.5 shrink-0 rounded-sm bg-(--color-chart-cat-2)"></span><span class="truncate">বিকাশ</span></div><div class="mt-0.5 font-medium tabular-nums">৳১৮,৫০০</div><div class="text-caption text-text-secondary">৯টা পেমেন্ট</div></div><div class="min-w-0"><div class="flex items-center gap-1.5 text-label text-text-secondary"><span class="size-2.5 shrink-0 rounded-sm bg-(--color-chart-cat-3)"></span><span class="truncate">ব্যাংক</span></div><div class="mt-0.5 font-medium tabular-nums">৳৮,০০০</div><div class="text-caption text-text-secondary">৩টা পেমেন্ট</div></div></div>
+        <div class="mt-auto flex items-center justify-between gap-3 pt-4"><a href="#" class="inline-flex h-11 items-center font-medium text-primary hover:underline md:h-8">সংগ্রহ প্রতিবেদন</a><button type="button" aria-expanded="false" class="inline-flex h-11 shrink-0 items-center gap-1.5 text-caption font-medium text-text-secondary hover:text-text-primary md:h-8"><i data-lucide="table-2" class="size-4"></i>টেবিল দেখুন</button></div>
+      </section>
+      <section aria-labelledby="w-month" class="flex flex-col rounded-lg border border-border-subtle bg-surface p-4 shadow-e1 md:p-5 md:col-span-2 xl:order-4 xl:col-span-4">
+        <div class="flex items-start justify-between gap-2">
+          <div class="min-w-0">
+            <h2 id="w-month" class="text-h3">মাসওয়ারি আদায়</h2>
+            <p class="text-caption text-text-secondary">আজ সকালে আপডেট</p>
+          </div>
+          <button type="button" class="-mt-1 -mr-2 inline-flex size-11 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-muted md:size-8" aria-label="উইজেট সেটিংস: মাসওয়ারি আদায়"><i data-lucide="ellipsis-vertical"></i></button>
+        </div>
+        <p class="mt-3 flex flex-wrap items-baseline gap-x-2"><span class="text-display">৳৩০.৪ লাখ</span><span class="text-text-secondary">এ বছর এ পর্যন্ত</span></p>
+        <p class="mt-1">অক্টোবরের প্রথম ৭ দিনে ৳৯৫,৫০০ এসেছে — সেপ্টেম্বরের একই সময়ের চেয়ে ৳৭,৫০০ বেশি।</p>
+        <figure class="mt-8" aria-label="মাসওয়ারি আদায়, জানুয়ারি থেকে অক্টোবর">
+          <div class="flex gap-2">
+            <div class="relative h-40 w-10 shrink-0 md:h-48 md:w-12" aria-hidden="true"><span class="absolute right-0 -translate-y-1/2 text-caption text-text-secondary" style="top:20%">৪ লাখ</span><span class="absolute right-0 -translate-y-1/2 text-caption text-text-secondary" style="top:60%">২ লাখ</span><span class="absolute right-0 -translate-y-1/2 text-caption text-text-secondary" style="top:100%">০</span></div>
+            <div class="min-w-0 flex-1">
+              <div class="relative h-40 md:h-48">
+                <svg viewBox="0 0 1200 100" preserveAspectRatio="none" class="absolute inset-0 size-full overflow-visible" aria-hidden="true">
+                  <line x1="0" x2="1200" y1="20" y2="20" class="stroke-border-subtle" stroke-width="1" vector-effect="non-scaling-stroke"/><line x1="0" x2="1200" y1="60" y2="60" class="stroke-border-subtle" stroke-width="1" vector-effect="non-scaling-stroke"/><line x1="0" x2="1200" y1="100" y2="100" class="stroke-border-subtle" stroke-width="1" vector-effect="non-scaling-stroke"/>
+                  <polyline points="50,4.0 150,32.0 250,38.0 350,48.0 450,36.0 550,42.0 650,34.0 750,40.0 850,38.0" fill="none" class="stroke-text-secondary" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
+                  <line x1="850" y1="38.0" x2="950" y2="81.0" class="stroke-primary" stroke-width="2" stroke-dasharray="4 4" vector-effect="non-scaling-stroke"/>
+                </svg>
+                <span class="absolute size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-text-secondary ring-2 ring-surface" style="left:4.166666666666667%;top:4.0%"></span>
+                <span class="absolute -ml-1 -translate-y-full pb-2 text-caption whitespace-nowrap text-text-secondary" style="left:4.166666666666667%;top:4.0%">৳৪.৮ লাখ, ভর্তির মাস</span>
+                <span class="absolute size-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary ring-2 ring-surface" style="left:79.16666666666667%;top:81.0%"></span>
+                <span class="absolute -translate-x-full pt-1 pr-3 text-right text-label whitespace-nowrap" style="left:79.16666666666667%;top:81.0%"><span class="font-semibold">৳৯৫,৫০০</span> <span class="text-text-secondary">অক্টোবর, ৭ দিনে</span></span>
+              </div>
+              <div class="mt-2 grid grid-cols-12 text-center text-caption whitespace-nowrap"><span class="text-text-secondary">জানু</span><span class="invisible md:visible text-text-secondary">ফেব্রু</span><span class="text-text-secondary">মার্চ</span><span class="invisible md:visible text-text-secondary">এপ্রিল</span><span class="text-text-secondary">মে</span><span class="invisible md:visible text-text-secondary">জুন</span><span class="text-text-secondary">জুলাই</span><span class="invisible md:visible text-text-secondary">আগস্ট</span><span class="text-text-secondary">সেপ্টে</span><span class="invisible md:visible font-semibold text-text-primary">অক্টো</span><span class="text-text-secondary/60">নভে</span><span class="invisible md:visible text-text-secondary/60">ডিসে</span></div>
+            </div>
+          </div>
+          <figcaption class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-caption text-text-secondary">
+            <span class="inline-flex items-center gap-1.5"><span class="h-0.5 w-4 bg-text-secondary"></span>শেষ হওয়া মাস</span>
+            <span class="inline-flex items-center gap-1.5"><span class="h-0.5 w-4 border-t-2 border-dashed border-primary"></span>চলতি মাস, এখনো চলছে</span>
+          </figcaption>
+        </figure>
+        <div class="mt-auto flex items-center justify-between gap-3 pt-4"><a href="#" class="inline-flex h-11 items-center font-medium text-primary hover:underline md:h-8">সংগ্রহ প্রতিবেদন খুলুন</a><button type="button" aria-expanded="false" class="inline-flex h-11 shrink-0 items-center gap-1.5 text-caption font-medium text-text-secondary hover:text-text-primary md:h-8"><i data-lucide="table-2" class="size-4"></i>টেবিল দেখুন</button></div>
+      </section>
+      <section aria-labelledby="w-age" class="flex flex-col rounded-lg border border-border-subtle bg-surface p-4 shadow-e1 md:p-5 md:col-span-2 xl:order-5">
+        <div class="flex items-start justify-between gap-2">
+          <div class="min-w-0">
+            <h2 id="w-age" class="text-h3">বকেয়া কত পুরনো</h2>
+            <p class="text-caption text-text-secondary">১০ মিনিট আগে আপডেট</p>
+          </div>
+          <button type="button" class="-mt-1 -mr-2 inline-flex size-11 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-muted md:size-8" aria-label="উইজেট সেটিংস: বকেয়া কত পুরনো"><i data-lucide="ellipsis-vertical"></i></button>
+        </div>
+        <p class="mt-3 flex flex-wrap items-baseline gap-x-2"><span class="text-display">৳৩,৮৬,০০০</span><span class="text-text-secondary">মোট বকেয়া</span></p>
+        <p class="mt-1">এর মধ্যে ৳৭৬,০০০ দুই মাসের বেশি পুরনো — এগুলো যত দেরি হবে, আদায় তত কঠিন।</p>
+        <div class="mt-4 flex h-6 gap-0.5" role="img" aria-label="বকেয়ার বয়স: ০ থেকে ৩০ দিন ৳১,৯২,০০০; ৩১ থেকে ৬০ দিন ৳১,১৮,০০০; ৬০ দিনের বেশি ৳৭৬,০০০"><div class="h-full bg-(--color-chart-seq-1) " style="flex-grow:192000"></div><div class="h-full bg-(--color-chart-seq-2) " style="flex-grow:118000"></div><div class="h-full bg-(--color-chart-seq-3) rounded-r-sm" style="flex-grow:76000"></div></div>
+        <div class="mt-3 grid grid-cols-3 gap-3"><div class="min-w-0"><div class="flex items-center gap-1.5 text-label text-text-secondary"><span class="size-2.5 shrink-0 rounded-sm bg-(--color-chart-seq-1)"></span><span class="truncate">০–৩০ দিন</span></div><div class="mt-0.5 font-medium tabular-nums">৳১,৯২,০০০</div><div class="text-caption text-text-secondary">৫০%</div></div><div class="min-w-0"><div class="flex items-center gap-1.5 text-label text-text-secondary"><span class="size-2.5 shrink-0 rounded-sm bg-(--color-chart-seq-2)"></span><span class="truncate">৩১–৬০ দিন</span></div><div class="mt-0.5 font-medium tabular-nums">৳১,১৮,০০০</div><div class="text-caption text-text-secondary">৩১%</div></div><div class="min-w-0"><div class="flex items-center gap-1.5 text-label text-text-secondary"><span class="size-2.5 shrink-0 rounded-sm bg-(--color-chart-seq-3)"></span><span class="truncate">৬০+ দিন</span></div><div class="mt-0.5 font-medium tabular-nums">৳৭৬,০০০</div><div class="text-caption text-text-secondary">২০%</div></div></div>
+        <div class="mt-auto flex items-center justify-between gap-3 pt-4"><a href="#" class="inline-flex h-11 items-center font-medium text-primary hover:underline md:h-8">৬০ দিনের বেশি পুরনো বকেয়া</a><button type="button" aria-expanded="false" class="inline-flex h-11 shrink-0 items-center gap-1.5 text-caption font-medium text-text-secondary hover:text-text-primary md:h-8"><i data-lucide="table-2" class="size-4"></i>টেবিল দেখুন</button></div>
+      </section>
+      <section aria-labelledby="w-class" class="flex flex-col rounded-lg border border-border-subtle bg-surface p-4 shadow-e1 md:p-5 md:col-span-2 xl:order-7">
+        <div class="flex items-start justify-between gap-2">
+          <div class="min-w-0">
+            <h2 id="w-class" class="text-h3">শ্রেণিভিত্তিক বকেয়া</h2>
+            <p class="text-caption text-text-secondary">১০ মিনিট আগে আপডেট</p>
+          </div>
+          <button type="button" class="-mt-1 -mr-2 inline-flex size-11 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-muted md:size-8" aria-label="উইজেট সেটিংস: শ্রেণিভিত্তিক বকেয়া"><i data-lucide="ellipsis-vertical"></i></button>
+        </div>
+        <p class="mt-3 flex flex-wrap items-baseline gap-x-2"><span class="text-display">৳১,০৬,০০০</span><span class="text-text-secondary">৯ম শ্রেণিতে, সবচেয়ে বেশি</span></p>
+        <p class="mt-1">মোট বকেয়ার ২৭% শুধু ৯ম শ্রেণির — ৮ম শ্রেণিও কাছাকাছি।</p>
+        <figure class="mt-4 space-y-2" role="img" aria-label="শ্রেণিভিত্তিক বকেয়া: ৯ম ৳১,০৬,০০০; ৮ম ৳৯৪,০০০; ৭ম ৳৬৮,০০০; ১০ম ৳৬৬,০০০; ৬ষ্ঠ ৳৫২,০০০"><div class="flex h-6 items-center gap-3"><span class="w-10 shrink-0 text-label font-semibold">৯ম</span><div class="flex min-w-0 flex-1 items-center gap-2"><div class="h-3 rounded-r-sm bg-primary" style="width:72%"></div><span class="text-label tabular-nums whitespace-nowrap font-semibold">৳১,০৬,০০০</span></div></div><div class="flex h-6 items-center gap-3"><span class="w-10 shrink-0 text-label text-text-secondary">৮ম</span><div class="flex min-w-0 flex-1 items-center gap-2"><div class="h-3 rounded-r-sm bg-border-functional" style="width:64%"></div><span class="text-label tabular-nums whitespace-nowrap text-text-secondary">৳৯৪,০০০</span></div></div><div class="flex h-6 items-center gap-3"><span class="w-10 shrink-0 text-label text-text-secondary">৭ম</span><div class="flex min-w-0 flex-1 items-center gap-2"><div class="h-3 rounded-r-sm bg-border-functional" style="width:46%"></div><span class="text-label tabular-nums whitespace-nowrap text-text-secondary">৳৬৮,০০০</span></div></div><div class="flex h-6 items-center gap-3"><span class="w-10 shrink-0 text-label text-text-secondary">১০ম</span><div class="flex min-w-0 flex-1 items-center gap-2"><div class="h-3 rounded-r-sm bg-border-functional" style="width:45%"></div><span class="text-label tabular-nums whitespace-nowrap text-text-secondary">৳৬৬,০০০</span></div></div><div class="flex h-6 items-center gap-3"><span class="w-10 shrink-0 text-label text-text-secondary">৬ষ্ঠ</span><div class="flex min-w-0 flex-1 items-center gap-2"><div class="h-3 rounded-r-sm bg-border-functional" style="width:35%"></div><span class="text-label tabular-nums whitespace-nowrap text-text-secondary">৳৫২,০০০</span></div></div></figure>
+        <div class="mt-auto flex items-center justify-between gap-3 pt-4"><a href="#" class="inline-flex h-11 items-center font-medium text-primary hover:underline md:h-8">৯ম শ্রেণির বকেয়া দেখুন</a><button type="button" aria-expanded="false" class="inline-flex h-11 shrink-0 items-center gap-1.5 text-caption font-medium text-text-secondary hover:text-text-primary md:h-8"><i data-lucide="table-2" class="size-4"></i>টেবিল দেখুন</button></div>
+      </section>
+      <section aria-labelledby="w-fee" class="flex flex-col rounded-lg border border-border-subtle bg-surface p-4 shadow-e1 md:p-5 xl:order-2">
+        <div class="flex items-start justify-between gap-2">
+          <div class="min-w-0">
+            <h2 id="w-fee" class="text-h3">এ মাসের ফি</h2>
+            <p class="text-caption text-text-secondary">১ অক্টোবর, সকাল ৬:০০</p>
+          </div>
+          <button type="button" class="-mt-1 -mr-2 inline-flex size-11 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-muted md:size-8" aria-label="উইজেট সেটিংস: এ মাসের ফি"><i data-lucide="ellipsis-vertical"></i></button>
+        </div>
+        <div class="mt-3"><span class="inline-flex h-6 shrink-0 items-center gap-1 rounded-full bg-status-paid-bg px-2 text-label whitespace-nowrap text-status-paid-fg"><i data-lucide="circle-check" class="size-3.5"></i>জেনারেট হয়েছে ১ অক্টোবর</span></div>
+        <p class="mt-3 flex flex-wrap items-baseline gap-x-2"><span class="text-display">৮৪২</span><span class="text-text-secondary">চালান তৈরি</span></p>
+        <p class="mt-1">অক্টোবরের ফি সময়মতো তৈরি হয়েছে; নভেম্বরেরটা ১ নভেম্বর নিজে থেকেই হবে।</p>
+        <div class="mt-auto flex items-center justify-between gap-3 pt-4"><a href="#" class="inline-flex h-11 items-center font-medium text-primary hover:underline md:h-8">চালান দেখুন</a></div>
+      </section>
+      <section aria-labelledby="w-rem" id="w-rem-card" class="flex flex-col rounded-lg border border-border-subtle bg-surface p-4 shadow-e1 md:p-5 xl:order-3">
+        <div class="flex items-start justify-between gap-2">
+          <div class="min-w-0">
+            <h2 id="w-rem" class="text-h3">রিমাইন্ডার পাঠানো বাকি</h2>
+            <p class="text-caption text-text-secondary">৫ মিনিট আগে আপডেট</p>
+          </div>
+          <button type="button" class="-mt-1 -mr-2 inline-flex size-11 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-muted md:size-8" aria-label="উইজেট সেটিংস: রিমাইন্ডার পাঠানো বাকি"><i data-lucide="ellipsis-vertical"></i></button>
+        </div>
+        <p class="mt-3 flex flex-wrap items-baseline gap-x-2"><span class="text-display">৩৮</span><span class="text-text-secondary">জন অভিভাবক</span></p>
+        <p class="mt-1">এদের ফির মেয়াদ পেরিয়েছে, কিন্তু এখনো রিমাইন্ডার যায়নি।</p>
+        <div class="mt-auto pt-4">
+          <button type="button" class="inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-primary px-4 font-medium text-primary-foreground md:h-8 md:px-3"><i data-lucide="send"></i>রিমাইন্ডার পাঠান</button>
+        </div>
+      </section>
+      <section aria-labelledby="w-recent" class="flex flex-col rounded-lg border border-border-subtle bg-surface p-4 shadow-e1 md:p-5 md:col-span-2 xl:order-6 xl:row-span-2">
+        <div class="flex items-start justify-between gap-2">
+          <div class="min-w-0">
+            <h2 id="w-recent" class="text-h3">সাম্প্রতিক পেমেন্ট</h2>
+            <p class="text-caption text-text-secondary">এইমাত্র আপডেট</p>
+          </div>
+          <button type="button" class="-mt-1 -mr-2 inline-flex size-11 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-muted md:size-8" aria-label="উইজেট সেটিংস: সাম্প্রতিক পেমেন্ট"><i data-lucide="ellipsis-vertical"></i></button>
+        </div>
+        <p class="mt-3 flex flex-wrap items-baseline gap-x-2"><span class="text-display">৳১২,৯০০</span><span class="text-text-secondary">শেষ ৫টা পেমেন্টে</span></p>
+        <p class="mt-1">সবশেষ পেমেন্ট এসেছে ৪ মিনিট আগে, বিকাশে।</p>
+        <table class="mt-4 w-full text-left">
+          <caption class="sr-only">শেষ ৫টা পেমেন্ট</caption>
+          <thead class="hidden border-b border-border-subtle text-label text-text-secondary md:table-header-group">
+            <tr><th scope="col" class="h-10 pr-3 font-medium">শিক্ষার্থী</th><th scope="col" class="h-10 pr-3 font-medium">শ্রেণি</th><th scope="col" class="h-10 pr-3 text-right font-medium">পরিমাণ</th><th scope="col" class="h-10 pr-3 font-medium">মাধ্যম</th><th scope="col" class="h-10 text-right font-medium">সময়</th></tr>
+          </thead>
+          <tbody class="divide-y divide-border-subtle"><tr>
+                <td class="py-2 pr-3 md:h-14 md:py-1"><span class="font-medium">সাদিয়া ইসলাম</span><span class="mt-0.5 flex flex-wrap gap-x-3 text-caption text-text-secondary md:hidden"><span>৮ম-ক</span><span class="inline-flex items-center gap-1.5"><span class="size-2 rounded-full bg-(--color-chart-cat-2)"></span>বিকাশ</span><span>১০:০৬</span></span></td>
+                <td class="hidden pr-3 text-text-secondary md:table-cell">৮ম-ক</td>
+                <td class="py-2 pr-3 text-right align-top font-medium tabular-nums md:align-middle md:py-1">৳৩,২০০</td>
+                <td class="hidden pr-3 text-text-secondary md:table-cell"><span class="inline-flex items-center gap-1.5"><span class="size-2 rounded-full bg-(--color-chart-cat-2)"></span>বিকাশ</span></td>
+                <td class="hidden text-right tabular-nums text-text-secondary md:table-cell">১০:০৬</td>
+              </tr><tr>
+                <td class="py-2 pr-3 md:h-14 md:py-1"><span class="font-medium">রাকিব হোসেন</span><span class="mt-0.5 flex flex-wrap gap-x-3 text-caption text-text-secondary md:hidden"><span>৬ষ্ঠ-খ</span><span class="inline-flex items-center gap-1.5"><span class="size-2 rounded-full bg-(--color-chart-cat-1)"></span>ক্যাশ</span><span>৯:৫২</span></span></td>
+                <td class="hidden pr-3 text-text-secondary md:table-cell">৬ষ্ঠ-খ</td>
+                <td class="py-2 pr-3 text-right align-top font-medium tabular-nums md:align-middle md:py-1">৳২,৫০০</td>
+                <td class="hidden pr-3 text-text-secondary md:table-cell"><span class="inline-flex items-center gap-1.5"><span class="size-2 rounded-full bg-(--color-chart-cat-1)"></span>ক্যাশ</span></td>
+                <td class="hidden text-right tabular-nums text-text-secondary md:table-cell">৯:৫২</td>
+              </tr><tr>
+                <td class="py-2 pr-3 md:h-14 md:py-1"><span class="font-medium">মেহজাবিন আক্তার</span><span class="mt-0.5 flex flex-wrap gap-x-3 text-caption text-text-secondary md:hidden"><span>৯ম-ক</span><span class="inline-flex items-center gap-1.5"><span class="size-2 rounded-full bg-(--color-chart-cat-3)"></span>ব্যাংক</span><span>৯:৪০</span></span></td>
+                <td class="hidden pr-3 text-text-secondary md:table-cell">৯ম-ক</td>
+                <td class="py-2 pr-3 text-right align-top font-medium tabular-nums md:align-middle md:py-1">৳৪,৫০০</td>
+                <td class="hidden pr-3 text-text-secondary md:table-cell"><span class="inline-flex items-center gap-1.5"><span class="size-2 rounded-full bg-(--color-chart-cat-3)"></span>ব্যাংক</span></td>
+                <td class="hidden text-right tabular-nums text-text-secondary md:table-cell">৯:৪০</td>
+              </tr><tr>
+                <td class="py-2 pr-3 md:h-14 md:py-1"><span class="font-medium">ইমরান কবির</span><span class="mt-0.5 flex flex-wrap gap-x-3 text-caption text-text-secondary md:hidden"><span>৭ম-খ</span><span class="inline-flex items-center gap-1.5"><span class="size-2 rounded-full bg-(--color-chart-cat-1)"></span>ক্যাশ</span><span>৯:৩১</span></span></td>
+                <td class="hidden pr-3 text-text-secondary md:table-cell">৭ম-খ</td>
+                <td class="py-2 pr-3 text-right align-top font-medium tabular-nums md:align-middle md:py-1">৳১,২০০</td>
+                <td class="hidden pr-3 text-text-secondary md:table-cell"><span class="inline-flex items-center gap-1.5"><span class="size-2 rounded-full bg-(--color-chart-cat-1)"></span>ক্যাশ</span></td>
+                <td class="hidden text-right tabular-nums text-text-secondary md:table-cell">৯:৩১</td>
+              </tr><tr>
+                <td class="py-2 pr-3 md:h-14 md:py-1"><span class="font-medium">তাসনিম ফারহানা</span><span class="mt-0.5 flex flex-wrap gap-x-3 text-caption text-text-secondary md:hidden"><span>১০ম-ক</span><span class="inline-flex items-center gap-1.5"><span class="size-2 rounded-full bg-(--color-chart-cat-2)"></span>বিকাশ</span><span>৯:১৫</span></span></td>
+                <td class="hidden pr-3 text-text-secondary md:table-cell">১০ম-ক</td>
+                <td class="py-2 pr-3 text-right align-top font-medium tabular-nums md:align-middle md:py-1">৳১,৫০০</td>
+                <td class="hidden pr-3 text-text-secondary md:table-cell"><span class="inline-flex items-center gap-1.5"><span class="size-2 rounded-full bg-(--color-chart-cat-2)"></span>বিকাশ</span></td>
+                <td class="hidden text-right tabular-nums text-text-secondary md:table-cell">৯:১৫</td>
+              </tr></tbody>
+        </table>
+        <div class="mt-auto flex items-center justify-between gap-3 pt-4"><a href="#" class="inline-flex h-11 items-center font-medium text-primary hover:underline md:h-8">সব পেমেন্ট</a></div>
+      </section>
+    </div>
+  </div>
+</main>
+</div>
+
+<!-- BOTTOM BAR (phone only, D14). To adapt: aria-current="page" goes on the ONE cell of this page;
+     if the page is not one of the cells, remove it and set data-active="true" on the "আরও" button instead.
+     IN THE APP this bar is "fixed inset-x-0 bottom-0 z-30" and the content wrapper reserves its height with
+     "pb-16 md:pb-0". IN A MOCKUP it stays in normal flow as the last child of <body>: the screenshot tool
+     captures the whole page as one tall frame, and a fixed bar would be painted across the middle of it.
+     Do not add "fixed" or "sticky bottom-0" to anything in a mockup. -->
+<nav class="flex border-t border-border-subtle bg-surface md:hidden" aria-label="দ্রুত নেভিগেশন">
+  <a href="#" data-nav="dashboard" aria-current="page" class="group flex h-16 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 text-caption text-text-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground data-[active=true]:font-semibold data-[active=true]:text-secondary-foreground"><span class="flex h-7 w-14 items-center justify-center rounded-full group-aria-[current=page]:bg-secondary group-data-[active=true]:bg-secondary"><i data-lucide="layout-dashboard"></i></span><span class="max-w-full truncate px-1">ড্যাশবোর্ড</span></a>
+  <a href="#" data-nav="finance.dues" class="group flex h-16 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 text-caption text-text-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground data-[active=true]:font-semibold data-[active=true]:text-secondary-foreground"><span class="flex h-7 w-14 items-center justify-center rounded-full group-aria-[current=page]:bg-secondary group-data-[active=true]:bg-secondary"><i data-lucide="hand-coins"></i></span><span class="max-w-full truncate px-1">বকেয়া</span></a>
+  <a href="#" data-nav="finance.recordPayment" class="group flex h-16 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 text-caption text-text-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground data-[active=true]:font-semibold data-[active=true]:text-secondary-foreground"><span class="flex h-7 w-14 items-center justify-center rounded-full group-aria-[current=page]:bg-secondary group-data-[active=true]:bg-secondary"><i data-lucide="banknote"></i></span><span class="max-w-full truncate px-1">পেমেন্ট</span></a>
+  <a href="#" data-nav="finance.invoices" class="group flex h-16 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 text-caption text-text-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground data-[active=true]:font-semibold data-[active=true]:text-secondary-foreground"><span class="flex h-7 w-14 items-center justify-center rounded-full group-aria-[current=page]:bg-secondary group-data-[active=true]:bg-secondary"><i data-lucide="receipt"></i></span><span class="max-w-full truncate px-1">চালান</span></a>
+  <button type="button" data-active="false" aria-haspopup="dialog" class="group flex h-16 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 text-caption text-text-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground data-[active=true]:font-semibold data-[active=true]:text-secondary-foreground"><span class="flex h-7 w-14 items-center justify-center rounded-full group-aria-[current=page]:bg-secondary group-data-[active=true]:bg-secondary"><i data-lucide="ellipsis"></i></span><span class="max-w-full truncate px-1">আরও</span></button>
+</nav>
+
+<script>lucide.createIcons({ attrs: { width: 18, height: 18, "stroke-width": 1.75, "aria-hidden": "true" } });</script>
+</body>
+</html>
