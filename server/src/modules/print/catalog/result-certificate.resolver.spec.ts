@@ -26,11 +26,16 @@ const row = (id: string, o: Record<string, unknown> = {}) => ({
   published_at: new Date(),
   ...o,
 });
-/** Manager answering the exam lookup, the results query, then the school lookup. */
+/** Manager answering the exam lookup, the results query, the student check, then the school lookup. */
 const mgr = (rows: unknown[]) =>
   ({
-    query: async (sql: string) =>
-      sql.includes('FROM results') ? rows : [{ id: 'e1', name: 'Half-Yearly', year_name: '2027' }],
+    query: async (sql: string, p: any[]) => {
+      if (sql.includes('FROM results')) return rows;
+      // Every id is a student of this school except 'foreign'.
+      if (sql.includes('FROM students WHERE'))
+        return (p[1] as string[]).filter((i) => i !== 'foreign').map((id) => ({ id }));
+      return [{ id: 'e1', name: 'Half-Yearly', year_name: '2027' }];
+    },
     findOne: async () => null,
   }) as any;
 
@@ -110,8 +115,23 @@ describe('ResultCertificateResolver', () => {
     expect(d.students).toEqual([{ id: 'b', reason: 'FAILED' }]);
   });
 
-  it('a student without a result is absent from the map', async () => {
-    expect((await run(DocumentKind.RESULT_CERTIFICATE, [], ['a'])).size).toBe(0);
+  it('a student without a result (absent) is refused with NO_RESULT, next to the others', async () => {
+    const d = await refusal(
+      run(DocumentKind.RESULT_CERTIFICATE, [row('b', { is_fail: true })], ['a', 'b']),
+    );
+    expect(d.students).toEqual([
+      { id: 'a', reason: 'NO_RESULT' },
+      { id: 'b', reason: 'FAILED' },
+    ]);
+  });
+
+  it('an id that is not a student of this school stays absent (the caller 404s)', async () => {
+    expect((await run(DocumentKind.RESULT_CERTIFICATE, [], ['foreign'])).size).toBe(0);
+  });
+
+  it('falls back to the English name when there is no Bangla name', async () => {
+    const v = (await run(DocumentKind.RESULT_CERTIFICATE, [row('a')])).get('a')!.values;
+    expect(v['student.name_bn']).toBe('Stu a');
   });
 
   it('rejects missing context with 400', async () => {

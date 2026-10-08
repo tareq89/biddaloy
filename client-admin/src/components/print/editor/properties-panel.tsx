@@ -123,6 +123,7 @@ function Choice<T extends string>({
   value,
   options,
   help,
+  placeholder,
   onChange,
 }: {
   id: string;
@@ -130,6 +131,7 @@ function Choice<T extends string>({
   value: T;
   options: Array<{ value: T; label: string }>;
   help?: string;
+  placeholder?: string;
   onChange: (value: T) => void;
 }) {
   return (
@@ -139,7 +141,7 @@ function Choice<T extends string>({
       </span>
       <Select value={value} onValueChange={(v) => onChange(v as T)}>
         <SelectTrigger id={id} aria-labelledby={`${id}-label`}>
-          <SelectValue />
+          <SelectValue placeholder={placeholder} />
         </SelectTrigger>
         <SelectContent>
           {options.map((o) => (
@@ -193,6 +195,7 @@ function TextBlockField({
   value,
   fields,
   pickerLabel,
+  pickerPlaceholder,
   onCommit,
 }: {
   id: string;
@@ -200,6 +203,7 @@ function TextBlockField({
   value: string;
   fields: Array<{ value: string; label: string }>;
   pickerLabel: string;
+  pickerPlaceholder: string;
   onCommit: (value: string) => void;
 }) {
   const [text, setText] = React.useState(value);
@@ -241,7 +245,14 @@ function TextBlockField({
           onChange={(e) => setText(e.target.value)}
         />
       </div>
-      <Choice id={`${id}-insert`} label={pickerLabel} value="" options={fields} onChange={insert} />
+      <Choice
+        id={`${id}-insert`}
+        label={pickerLabel}
+        placeholder={pickerPlaceholder}
+        value=""
+        options={fields}
+        onChange={insert}
+      />
     </div>
   );
 }
@@ -359,7 +370,8 @@ export function PropertiesPanel({
               label={t('properties.text')}
               value={element.text ?? ''}
               fields={fieldOptions('text')}
-              pickerLabel={t('properties.field')}
+              pickerLabel={t('properties.insertField')}
+              pickerPlaceholder={t('properties.insertFieldPlaceholder')}
               onCommit={(text) => onChange({ text })}
             />
           )}

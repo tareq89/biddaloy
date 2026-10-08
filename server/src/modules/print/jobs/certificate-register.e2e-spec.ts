@@ -177,7 +177,7 @@ describe('Certificate register E2E (48.2.06)', () => {
     expect(res.headers['content-type']).toContain('text/csv');
     expect(res.headers['content-disposition']).toContain('certificate-register.csv');
     const text = (res.body as Buffer).toString('utf-8');
-    expect(text.startsWith('\uFEFF"Serial","Copy","Document"')).toBe(true);
+    expect(text.startsWith('\uFEFF"ক্রমিক নং / Serial","কপি / Copy","দলিল / Document"')).toBe(true);
     expect(text).toContain('রহিম উদ্দিন');
     // A cell that starts with "=" must not reach Excel as a formula.
     expect(text).not.toMatch(/"=HYPERLINK/);

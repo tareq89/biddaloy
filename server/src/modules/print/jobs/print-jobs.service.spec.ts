@@ -275,6 +275,47 @@ describe('PrintJobsService', () => {
       expect((lock![1] as string[])[0]).toBe(`${TENANT}:SERIAL:TESTIMONIAL:2026:1`);
     });
 
+    it('a blank template label still marks a serial reprint DUPLICATE (D8)', async () => {
+      const { svc, manager } = reprintSetup(stored(A));
+      manager.findOneByOrFail.mockResolvedValue({
+        id: 'v1',
+        version: 1,
+        definition: { copyLabel: { text: '   ' } },
+      });
+      const res = await svc.reprint({ ...caller, channel: 'CERTIFICATE' }, 'j1', ['item1']);
+      expect((res.items[0] as any).values['print.copyLabel']).toBe(
+        'প্রতিলিপি / DUPLICATE (copy 2)',
+      );
+    });
+
+    it('reprint audit lists the issue-time keys, like create', async () => {
+      const { svc } = reprintSetup(stored(A));
+      const audit = (svc as any).audit.record as ReturnType<typeof vi.fn>;
+      // The stored snapshot carries a typed conduct; the reprint copies it.
+      const find = vi.fn(async () => [
+        {
+          id: 'item1',
+          document_kind: 'TESTIMONIAL',
+          subject_type: 'STUDENT',
+          subject_id: A,
+          subject_label: 'L',
+          serial_no: 1,
+          serial_year: 2026,
+          context_type: null,
+          context_id: null,
+          revoked_at: null,
+          data_snapshot: {
+            values: { 'print.serial_no': 'TSM-2026-00001', 'issue.conduct': 'Good' },
+            photoKey: null,
+            issuedAt: '2026-01-01T00:00:00Z',
+          },
+        },
+      ]);
+      ((svc as any).ds.manager as any).find = find;
+      await svc.reprint({ ...caller, channel: 'CERTIFICATE' }, 'j1', ['item1']);
+      expect((audit.mock.calls.at(-1)![0] as any).new_values.issue_keys).toEqual(['issue.conduct']);
+    });
+
     it('409s and inserts nothing when the serial belongs to a different student', async () => {
       const { svc, manager } = reprintSetup(stored(B));
       await expect(
@@ -301,6 +342,8 @@ describe('PrintJobsService', () => {
     expect(saved.find((x) => x.status).confirmed_at).toBeInstanceOf(Date);
     expect(saved.find((x) => x.job_id)).toMatchObject({ outcome: 'OK' });
     expect(res.items).toHaveLength(1);
+    // A portal print is never a serial kind, so it never reads the school settings.
+    expect((svc as any).settings.documentsSettings).not.toHaveBeenCalled();
   });
 
   // Security: `family: true` skips the staff permission check, so only the allow-listed kind

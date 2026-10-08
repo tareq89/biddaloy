@@ -57,6 +57,8 @@
     },
     "text": "Text",
     "field": "Field",
+    "insertField": "Insert field",
+    "insertFieldPlaceholder": "Pick a field to add at the cursor",
     "font": "Font",
     "size": "Size (pt)",
     "minSize": "Smallest size (pt)",

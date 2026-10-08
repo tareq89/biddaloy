@@ -45,6 +45,13 @@ describe('PropertiesPanel fixed text', () => {
     await cleanupTestState();
   });
 
+  it('names the insert picker for what it does, with a hint inside it', async () => {
+    const { picker } = await setup();
+    // Not "Field": that is the label of the field-binding select.
+    expect(screen.getByRole('combobox', { name: 'Insert field' })).toBe(picker());
+    expect(picker().textContent).toContain('Pick a field to add at the cursor');
+  });
+
   it('inserts the picked field once, resets the picker and refocuses the textarea', async () => {
     const user = userEvent.setup();
     const { onChange, area, picker } = await setup();

@@ -210,11 +210,15 @@ export function boundIssueFields(def: TemplateDefinition, kind: DocumentKind): F
   return (FIELD_CATALOG[kind] ?? []).filter((c) => c.issueTime && bound.has(c.key));
 }
 
-/** Errors for typed issue-time values; empty = valid. Shared by server and wizard. */
+/**
+ * Errors for typed issue-time values; empty = valid. Shared by server and wizard.
+ * `partial` (preview): a missing value is fine; unknown and too-long values still fail.
+ */
 export function validateIssueValues(
   def: TemplateDefinition,
   kind: DocumentKind,
   values: Record<string, string>,
+  opts?: { partial?: boolean },
 ): string[] {
   const fields = boundIssueFields(def, kind);
   const errors: string[] = [];
@@ -224,8 +228,9 @@ export function validateIssueValues(
   }
   for (const f of fields) {
     const v = values[f.key];
-    if (v === undefined || v.trim() === '') errors.push(`${f.key}: required`);
-    else if (v.length > (f.issueTime?.maxLength ?? 0)) {
+    if (v === undefined || v.trim() === '') {
+      if (!opts?.partial) errors.push(`${f.key}: required`);
+    } else if (v.length > (f.issueTime?.maxLength ?? 0)) {
       errors.push(`${f.key}: longer than ${f.issueTime?.maxLength} characters`);
     }
   }

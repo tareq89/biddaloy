@@ -93,7 +93,7 @@ export class AdmitCardResolver implements FieldResolver {
 
     const [exam] = await manager.query(
       `SELECT e.id, e.name, e.class_id, e.academic_year_id, ay.name AS year_name
-         FROM exams e JOIN academic_years ay ON ay.id = e.academic_year_id
+         FROM exams e JOIN academic_years ay ON ay.id = e.academic_year_id AND ay.tenant_id = e.tenant_id
         WHERE e.tenant_id = $1 AND e.id = $2 AND e.deleted_at IS NULL`,
       [tenantId, context.id],
     );
@@ -106,8 +106,8 @@ export class AdmitCardResolver implements FieldResolver {
          FROM students s
          JOIN enrollments e ON e.student_id = s.id AND e.tenant_id = s.tenant_id
           AND e.enrollment_status = 'ACTIVE' AND e.class_id = $3 AND e.academic_year_id = $4
-         JOIN classes c ON c.id = e.class_id
-         LEFT JOIN class_sections cs ON cs.id = e.section_id
+         JOIN classes c ON c.id = e.class_id AND c.tenant_id = s.tenant_id
+         LEFT JOIN class_sections cs ON cs.id = e.section_id AND cs.tenant_id = s.tenant_id
         WHERE s.tenant_id = $1 AND s.deleted_at IS NULL AND s.id = ANY($2::uuid[])`,
       [tenantId, subjectIds, exam.class_id, exam.academic_year_id],
     );
@@ -127,7 +127,7 @@ export class AdmitCardResolver implements FieldResolver {
          FROM seat_allocations sa
          JOIN seat_plans sp ON sp.id = sa.seat_plan_id AND sp.tenant_id = sa.tenant_id
           AND sp.status = 'PUBLISHED' AND sp.deleted_at IS NULL
-         JOIN rooms r ON r.id = sa.room_id
+         JOIN rooms r ON r.id = sa.room_id AND r.tenant_id = sa.tenant_id
         WHERE sa.tenant_id = $1 AND sa.student_id = ANY($2::uuid[])
           AND sa.exam_schedule_id = ANY($3::uuid[])`,
       [tenantId, students.map((s) => s.id), schedules.map((s) => s.id)],
@@ -149,7 +149,7 @@ export class AdmitCardResolver implements FieldResolver {
           ...blankValues(this.kind),
           ...school,
           'student.name': r.full_name,
-          'student.name_bn': r.full_name_bn ?? '',
+          'student.name_bn': r.full_name_bn || r.full_name,
           'student.father_name': r.father_name ?? '',
           'student.mother_name': r.mother_name ?? '',
           'student.class': r.class_name ?? '',
