@@ -43,14 +43,18 @@ test('keyboard-only: register search, row details, then the To print tab', async
     await page.keyboard.press('Control+3');
     // The palette label is en/bn data in `action-registry.ts`, not an i18n key.
     await page.keyboard.type('সনদ রেজিস্টার');
-    await expect(page.getByRole('option').first()).toBeVisible();
+    const target = page.getByRole('option', { name: /সনদ রেজিস্টার/ });
+    await expect(target).toBeVisible();
+    // Nothing is active until the first ArrowDown (activeIndex starts at -1): make sure it is
+    // the target that became active, not whatever happens to be first, before Enter.
     await page.keyboard.press('ArrowDown');
+    await expect(target).toHaveAttribute('aria-selected', 'true');
     await page.keyboard.press('Enter');
     await expect(page).toHaveURL(/tab=register/);
     await expect(page.getByRole('heading', { name: t('printHistory.title') })).toBeVisible();
   });
 
-  await test.step('type the serial into the search: the rows narrow to it', async () => {
+  await test.step('type the serial into the search: its row shows and a live region speaks', async () => {
     await tabUntilFocused(page, t('printHistory.filters.search'), 90, { tag: 'INPUT' });
     // Type once: the search box must keep every keystroke while its own URL commit round-trips.
     await page.keyboard.type(serial);

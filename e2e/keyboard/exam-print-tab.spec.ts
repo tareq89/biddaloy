@@ -1,4 +1,4 @@
-import { adminApiSession, get } from '../api';
+import { adminApiSession, seededFirstTermExamId } from '../api';
 import { expect, loggedIn, test } from '../fixtures/test';
 import { t } from '../i18n';
 import { tabUntilFocused } from './keyboard-utils';
@@ -20,15 +20,13 @@ test('keyboard-only: palette -> Print tab -> seat list -> Print and Close', asyn
   request,
 }) => {
   const session = await adminApiSession(request);
-  const exams = await get<{ data: { id: string; name: string }[] }>(request, session, '/exams');
-  const exam = exams.data.find((e) => e.name === 'First Term Exam');
-  if (!exam) throw new Error('No seeded "First Term Exam" — has `yarn seed` run?');
+  const examId = await seededFirstTermExamId(request, session);
 
   await page.addInitScript(() => {
     window.print = () => undefined;
   });
 
-  await page.goto(`/exams/${exam.id}`);
+  await page.goto(`/exams/${examId}`);
   await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible();
 
   await test.step('Ctrl+K, the Action tab, "Print admit cards" lands on the Print tab', async () => {
@@ -39,8 +37,12 @@ test('keyboard-only: palette -> Print tab -> seat list -> Print and Close', asyn
     await page.keyboard.press('Control+3');
     // The palette label is en/bn data in `action-registry.ts`, not an i18n key.
     await page.keyboard.type('প্রবেশপত্র প্রিন্ট');
-    await expect(page.getByRole('option').first()).toBeVisible();
+    const target = page.getByRole('option', { name: /প্রবেশপত্র প্রিন্ট/ });
+    await expect(target).toBeVisible();
+    // Nothing is active until the first ArrowDown (activeIndex starts at -1): make sure it is
+    // the target that became active, not whatever happens to be first, before Enter.
     await page.keyboard.press('ArrowDown');
+    await expect(target).toHaveAttribute('aria-selected', 'true');
     await page.keyboard.press('Enter');
     await expect(page).toHaveURL(/tab=print/);
     await expect(
@@ -48,7 +50,7 @@ test('keyboard-only: palette -> Print tab -> seat list -> Print and Close', asyn
     ).toBeVisible();
   });
 
-  await test.step('Tab reaches the admit-card button before any other card button', async () => {
+  await test.step('Tab reaches the admit-card button', async () => {
     await tabUntilFocused(page, t('examDocuments.admitCard.action'), 120);
   });
 
@@ -70,7 +72,7 @@ test('keyboard-only: palette -> Print tab -> seat list -> Print and Close', asyn
     // Close sits before Print in the page header, so walk back to it.
     await tabUntilFocused(page, t('examDocuments.page.close'), 5, { tag: 'BUTTON', shift: true });
     await page.keyboard.press('Enter');
-    await expect(page).toHaveURL(new RegExp(`/exams/${exam.id}`));
+    await expect(page).toHaveURL(new RegExp(`/exams/${examId}`));
     await expect(
       page.getByRole('heading', { name: t('examDocuments.phase.before') }),
     ).toBeVisible();
