@@ -47,6 +47,8 @@ import { AttendanceComponentService } from './attendance-component.service';
 import { MarksAuthorizationService } from './marks-authorization.util';
 import { ResultsService } from './results.service';
 import { ResultsController, StudentResultsController } from './results.controller';
+import { TranscriptService } from './transcript.service';
+import { TranscriptController } from './transcript.controller';
 import { AnalysisService } from './analysis.service';
 import { AnalysisController } from './analysis.controller';
 import { ResultSmsService } from './result-sms.service';
@@ -116,6 +118,7 @@ import {
     MarksController,
     ResultsController,
     StudentResultsController,
+    TranscriptController,
     AnalysisController,
     ExamSchedulesController,
     StudentExamScheduleController,
@@ -130,6 +133,7 @@ import {
     AttendanceComponentService,
     MarksAuthorizationService,
     ResultsService,
+    TranscriptService,
     AnalysisService,
     ResultSmsService,
     FamilyAccessService,
