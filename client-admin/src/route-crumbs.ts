@@ -200,6 +200,7 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
     { label: { key: 'printTemplateEdit' }, dynamic: 'entity' },
   ],
   '/_staff/print/preview': [{ label: { key: 'printPreview' } }],
+  '/_staff/print/document': [{ label: { key: 'printDocument' } }],
   '/_staff/reports/printables': [{ label: { key: 'printables' } }],
   '/_staff/communications/send': [{ label: { key: 'sendMessage' } }],
   '/_staff/communications/reminders': [{ label: { key: 'feeReminders' } }],
