@@ -13,8 +13,8 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { STUDY_PLAN_LIMITS } from '@biddaloy/shared';
-import type { StudyPlanTemplateLesson } from '@biddaloy/shared';
 
 /**
  * [66.2.06/#2011] Template lesson. No `topic_id` on purpose: the global
@@ -74,25 +74,37 @@ export class ListStudyPlanTemplatesQueryDto {
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(100) limit?: number;
 }
 
-export interface StudyPlanTemplateSummaryDto {
-  id: string;
-  name: string;
-  class_grade: number;
-  subject_code: string;
-  subject_name: string | null;
-  lesson_count: number;
-  total_periods: number;
-  updated_at: Date;
+// ---------------------------------------------------------------- responses
+
+/** A stored template lesson (`StudyPlanTemplateLesson`): never a topic link. */
+export class StudyPlanTemplateLessonItemDto {
+  @ApiProperty() id: string;
+  @ApiProperty() title: string;
+  @ApiProperty() periods: number;
+  @ApiPropertyOptional({ description: 'Left out for PARENT and STUDENT callers (D20).' })
+  notes?: string;
 }
 
-export interface StudyPlanTemplateDetailDto extends StudyPlanTemplateSummaryDto {
-  lessons: StudyPlanTemplateLesson[];
+export class StudyPlanTemplateSummaryDto {
+  @ApiProperty() id: string;
+  @ApiProperty() name: string;
+  @ApiProperty() class_grade: number;
+  @ApiProperty() subject_code: string;
+  @ApiProperty({ nullable: true, type: String }) subject_name: string | null;
+  @ApiProperty() lesson_count: number;
+  @ApiProperty() total_periods: number;
+  @ApiProperty({ type: String, format: 'date-time' }) updated_at: Date;
 }
 
-export interface StudyPlanTemplateListDto {
-  data: StudyPlanTemplateSummaryDto[];
-  total: number;
-  page: number;
-  limit: number;
-  totalPages: number;
+export class StudyPlanTemplateDetailDto extends StudyPlanTemplateSummaryDto {
+  @ApiProperty({ type: [StudyPlanTemplateLessonItemDto] })
+  lessons: StudyPlanTemplateLessonItemDto[];
+}
+
+export class StudyPlanTemplateListDto {
+  @ApiProperty({ type: [StudyPlanTemplateSummaryDto] }) data: StudyPlanTemplateSummaryDto[];
+  @ApiProperty() total: number;
+  @ApiProperty() page: number;
+  @ApiProperty() limit: number;
+  @ApiProperty() totalPages: number;
 }

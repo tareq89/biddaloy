@@ -249,6 +249,10 @@ describe('Study plans journey E2E (66.2.99/#2014)', () => {
       .expect(201);
     const planId: string = copied.body.id;
     expect(copied.body.lessons).toHaveLength(12);
+    // Plans owe nothing before their creation day; date this one back so past periods count.
+    await dataSource.query(`UPDATE study_plans SET created_at = '2000-01-01' WHERE id = $1`, [
+      planId,
+    ]);
     await as(
       'get',
       `/study-plans/capacity?section_id=${SEED_SECTION_1_ID}&subject_id=${subjectId}&academic_term_id=${termId}`,

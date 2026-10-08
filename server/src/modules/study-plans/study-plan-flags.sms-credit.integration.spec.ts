@@ -18,8 +18,8 @@ import { UserStatus, countSmsSegments } from '@biddaloy/shared';
 
 /**
  * [66.2.05/#2010] Guardian digest SMS against the REAL credit ledger. One
- * reservation per digest run (`batch:study-plan-digest:<tenant>:<week>`) for
- * every SMS recipient; plans, students and push are stubbed.
+ * reservation per digest run (`batch:<uuid>`, reference = that uuid) for the
+ * sum of every SMS's own segments; plans, students and push are stubbed.
  */
 describe('StudyPlanFlagsScheduler guardian-digest SMS credit (integration, D26)', () => {
   let ds: DataSource;
@@ -29,6 +29,7 @@ describe('StudyPlanFlagsScheduler guardian-digest SMS credit (integration, D26)'
   let pushes: string[];
   let n = 0;
   let week: string;
+  let baseline: Set<string>;
 
   const SETTINGS = {
     statusDeadline: '18:00',
@@ -50,7 +51,8 @@ describe('StudyPlanFlagsScheduler guardian-digest SMS credit (integration, D26)'
     if (ds) await ds.destroy();
   });
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    baseline = new Set((await ledgerFor(ds, TENANT_ID)).map((r) => r.id));
     jobs = [];
     pushes = [];
     week = `2047-W${String(++n).padStart(2, '0')}-${Math.random().toString(36).slice(2, 6)}`;
@@ -63,6 +65,7 @@ describe('StudyPlanFlagsScheduler guardian-digest SMS credit (integration, D26)'
     provider?: string;
     metered?: boolean;
     creditService?: SmsCreditService;
+    sectionGonePlan?: boolean;
   }) {
     const communications = new CommunicationsService(
       logRepo as never,
@@ -98,7 +101,11 @@ describe('StudyPlanFlagsScheduler guardian-digest SMS credit (integration, D26)'
     return new StudyPlanFlagsScheduler(
       {} as never,
       {
-        find: async () => [plan],
+        // A live plan on a soft-deleted section loads with no `section` relation.
+        find: async () =>
+          opts.sectionGonePlan
+            ? [{ id: 'p0', section_id: 'gone', subject: plan.subject }, plan]
+            : [plan],
         manager: {
           query: async (_sql: string, params: unknown[]) =>
             (params[0] as string[]).map((id) => ({ id })),
@@ -131,12 +138,12 @@ describe('StudyPlanFlagsScheduler guardian-digest SMS credit (integration, D26)'
 
   const reserves = async () =>
     (await ledgerFor(ds, TENANT_ID)).filter(
-      (r) => r.kind === 'RESERVE' && r.idempotency_key.includes(week),
+      (r) => r.kind === 'RESERVE' && !baseline.has(r.id) && !r.idempotency_key.startsWith('seed:'),
     );
 
   it('SMS is off by default: pushes only, no reservation', async () => {
     await credits.grant(TENANT_ID, 100, { idempotencyKey: `seed:${week}` });
-    await build({ provider: 'test' }).runDigest(TENANT_ID, week, {
+    await build({ provider: 'test' }).runDigest(TENANT_ID, {
       ...SETTINGS,
       guardianDigestSms: false,
     });
@@ -148,15 +155,19 @@ describe('StudyPlanFlagsScheduler guardian-digest SMS credit (integration, D26)'
   it('on + provider + metered + enough credit: one reservation for all SMS recipients', async () => {
     await credits.grant(TENANT_ID, 100, { idempotencyKey: `seed:${week}` });
     const before = await balanceFor(ds, TENANT_ID);
-    await build({ provider: 'test' }).runDigest(TENANT_ID, week, SETTINGS);
+    await build({ provider: 'test' }).runDigest(TENANT_ID, SETTINGS);
 
     const rows = await reserves();
     expect(rows.map((r) => [r.idempotency_key, r.units])).toEqual([
-      [`batch:study-plan-digest:${TENANT_ID}:${week}`, units * 2],
+      [`batch:${rows[0]?.reference_id}`, units * 2],
     ]);
     const after = await balanceFor(ds, TENANT_ID);
     expect(after.reserved - before.reserved).toBe(units * 2);
     expect(jobs).toHaveLength(2); // the guardian without a phone gets push only
+    // Each job settles its own message's segments against this run's batch (settlePart's cap).
+    for (const j of jobs) {
+      expect(j.data).toMatchObject({ batchId: rows[0].reference_id, segments: units });
+    }
     expect(pushes.filter((u) => u.startsWith('gu-'))).toHaveLength(3);
   });
 
@@ -169,7 +180,7 @@ describe('StudyPlanFlagsScheduler guardian-digest SMS credit (integration, D26)'
         reserve: async () => ({ ok: false }),
       } as never,
     });
-    await scheduler.runDigest(TENANT_ID, week, SETTINGS);
+    await scheduler.runDigest(TENANT_ID, SETTINGS);
     expect(jobs).toHaveLength(0);
     expect(pushes.filter((u) => u.startsWith('gu-'))).toHaveLength(3);
     expect(await reserves()).toHaveLength(0);
@@ -177,14 +188,22 @@ describe('StudyPlanFlagsScheduler guardian-digest SMS credit (integration, D26)'
 
   it('no ADMIN/EXECUTIVE sender: no reservation, no SMS, pushes still sent', async () => {
     await credits.grant(TENANT_ID, 100, { idempotencyKey: `seed:${week}` });
-    await build({ provider: 'test', noAdmin: true }).runDigest(TENANT_ID, week, SETTINGS);
+    await build({ provider: 'test', noAdmin: true }).runDigest(TENANT_ID, SETTINGS);
     expect(await reserves()).toHaveLength(0);
     expect(jobs).toHaveLength(0);
     expect(pushes.filter((u) => u.startsWith('gu-'))).toHaveLength(3);
   });
 
+  it('a plan on a soft-deleted section is skipped, the digest still goes out', async () => {
+    await build({ provider: 'test', metered: false, sectionGonePlan: true }).runDigest(
+      TENANT_ID,
+      SETTINGS,
+    );
+    expect(pushes.filter((u) => u.startsWith('gu-'))).toHaveLength(3);
+  });
+
   it('unmetered tenant: SMS goes out without a reservation', async () => {
-    await build({ provider: 'test', metered: false }).runDigest(TENANT_ID, week, SETTINGS);
+    await build({ provider: 'test', metered: false }).runDigest(TENANT_ID, SETTINGS);
     expect(jobs).toHaveLength(2);
     expect(jobs.every((j) => j.data.batchId === undefined)).toBe(true);
     expect(await reserves()).toHaveLength(0);

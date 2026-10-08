@@ -3,6 +3,7 @@ import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Queue } from 'bullmq';
 import type Redis from 'ioredis';
+import { randomUUID } from 'crypto';
 import { In, Repository } from 'typeorm';
 import {
   CommunicationMedium,
@@ -24,7 +25,9 @@ import { PushService } from '../push/push.service';
 import { CommunicationsService } from '../communications/communications.service';
 import { SmsCreditService } from '../communications/credits/sms-credit.service';
 import {
+  addDays,
   isWeeklyOff,
+  localTimeHHmm,
   localToday,
   resolveAttendancePolicy,
 } from '../attendance/attendance-policy.util';
@@ -53,20 +56,7 @@ export interface UnreportedRow {
   teacherId: string;
 }
 
-export function addDays(iso: string, n: number): string {
-  const [y, m, d] = iso.split('-').map(Number);
-  return new Date(Date.UTC(y, m - 1, d) + n * DAY_MS).toISOString().slice(0, 10);
-}
-
-/** `HH:mm` for `timezone`, right now (lexicographically comparable). */
-function localTimeHHmm(timezone: string): string {
-  return new Intl.DateTimeFormat('en-GB', {
-    timeZone: timezone,
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23',
-  }).format(new Date());
-}
+export { addDays };
 
 /** ISO year-week of a calendar date, e.g. `2026-W42`. */
 export function isoYearWeek(iso: string): string {
@@ -157,8 +147,16 @@ export class StudyPlanFlagsScheduler extends WorkerHost implements OnModuleInit 
 
     if (now >= settings.weeklyDigestTime && (await this.isLastWorkingDayOfWeek(tenantId, today))) {
       const week = isoYearWeek(today);
-      if (await this.claim(`${base}:digest:${week}`, DAYS_9)) {
-        await this.runDigest(tenantId, week, settings);
+      const key = `${base}:digest:${week}`;
+      if (await this.claim(key, DAYS_9)) {
+        try {
+          await this.runDigest(tenantId, settings);
+        } catch (error) {
+          // Sends never throw (safePush / caught enqueue), so a throw is a failed
+          // read: give the week back so the next sweep retries.
+          await this.redis.del(key);
+          throw error;
+        }
       }
     }
   }
@@ -332,13 +330,16 @@ export class StudyPlanFlagsScheduler extends WorkerHost implements OnModuleInit 
 
   // ---------------------------------------------------------------- digest
 
-  async runDigest(tenantId: string, week: string, settings: StudyPlansSettings): Promise<void> {
+  async runDigest(tenantId: string, settings: StudyPlansSettings): Promise<void> {
     const yearId = await this.currentYearId(tenantId);
     if (!yearId) return;
-    const plans = await this.planRepo.find({
-      where: { tenant_id: tenantId, academic_year_id: yearId },
-      relations: { subject: true, section: { class: true } },
-    });
+    // A live plan can sit on a soft-deleted section (STUDY_PLAN_SECTION_GONE): its join is empty.
+    const plans = (
+      await this.planRepo.find({
+        where: { tenant_id: tenantId, academic_year_id: yearId },
+        relations: { subject: true, section: { class: true } },
+      })
+    ).filter((p) => p.section?.class && p.subject);
     if (!plans.length) return;
     const summaries = await this.schedule.summarize(plans, tenantId);
 
@@ -359,13 +360,12 @@ export class StudyPlanFlagsScheduler extends WorkerHost implements OnModuleInit 
       sectionLabel.set(p.section_id, `${p.section.class.name}-${p.section.section_name}`);
     }
 
-    await this.digestGuardians(tenantId, week, settings, bySection, sectionLabel);
+    await this.digestGuardians(tenantId, settings, bySection, sectionLabel);
     await this.digestCommittee(tenantId, byClass);
   }
 
   private async digestGuardians(
     tenantId: string,
-    week: string,
     settings: StudyPlansSettings,
     bySection: Map<string, { behind: { subject: string; periods: number }[] }>,
     sectionLabel: Map<string, string>,
@@ -434,11 +434,10 @@ export class StudyPlanFlagsScheduler extends WorkerHost implements OnModuleInit 
     const sms = initiator
       ? await this.reserveSms(
           tenantId,
-          week,
           settings,
           messages.filter((m) => m.phone).map((m) => m.body),
         )
-      : { on: false as const, reservation: undefined };
+      : { on: false as const, batchId: undefined };
 
     for (const m of messages) {
       await this.safePush(m.userId, tenantId, {
@@ -458,7 +457,9 @@ export class StudyPlanFlagsScheduler extends WorkerHost implements OnModuleInit 
             },
             tenantId,
             initiator.id,
-            sms.reservation,
+            sms.batchId
+              ? { batchId: sms.batchId, segments: countSmsSegments(m.body).segments }
+              : undefined,
           )
           .catch((e) => this.logger.warn(`study-plan digest sms failed: ${String(e)}`));
       }
@@ -486,31 +487,28 @@ export class StudyPlanFlagsScheduler extends WorkerHost implements OnModuleInit 
 
   /**
    * D26: SMS only when opted in AND a provider is configured. Metered tenants
-   * reserve once per digest run (`batch:study-plan-digest:<tenant>:<week>`);
-   * on failure SMS is skipped and push still goes. Reserves the longest
-   * message's segments x recipients (upper bound).
+   * reserve once per digest run: the sum of every message's own segments under
+   * a fresh batch id, so `settlePart` caps each settle at this run's reserve.
+   * The Redis week marker is what keeps it once a week. On failure SMS is
+   * skipped and push still goes.
    */
   private async reserveSms(
     tenantId: string,
-    week: string,
     settings: StudyPlansSettings,
     bodies: string[],
-  ): Promise<{ on: boolean; reservation?: { batchId: string; segments: number } }> {
+  ): Promise<{ on: boolean; batchId?: string }> {
     try {
       if (!settings.guardianDigestSms || bodies.length === 0) return { on: false };
       const resolved = await this.schools.getResolvedSettings(tenantId);
       if (!resolved.communications?.sms?.provider) return { on: false };
       if (!(await this.smsCredit.isMetered(tenantId))) return { on: true };
-      const segments = Math.max(...bodies.map((b) => countSmsSegments(b).segments));
-      const batchId = `study-plan-digest:${tenantId}:${week}`;
-      const res = await this.smsCredit.reserve(
-        tenantId,
-        segments * bodies.length,
-        `batch:${batchId}`,
-        // The ledger's reference id is a uuid column; a tenant+week batch has none.
-        { type: 'batch', id: null },
-      );
-      return res.ok ? { on: true, reservation: { batchId, segments } } : { on: false };
+      const total = bodies.reduce((n, b) => n + countSmsSegments(b).segments, 0);
+      const batchId = randomUUID();
+      const res = await this.smsCredit.reserve(tenantId, total, `batch:${batchId}`, {
+        type: 'batch',
+        id: batchId,
+      });
+      return res.ok ? { on: true, batchId } : { on: false };
     } catch (e) {
       this.logger.warn(`study-plan digest sms setup failed: ${String(e)}`);
       return { on: false };

@@ -376,6 +376,18 @@ describe('LessonDeliveriesService (integration)', () => {
     expect(second.created).toBe(0);
   });
 
+  it('a routine in REVIEW gives no day periods and nothing for mark-all-taught', async () => {
+    await ds
+      .getRepository(Routine)
+      .update(
+        { tenant_id: SEED_TENANT_ID, academic_year_id: yearId },
+        { state: RoutineState.REVIEW },
+      );
+    expect((await service.day(WED, SEED_TENANT_ID, owner)).periods).toHaveLength(0);
+    expect((await service.markAllTaught(SEED_TENANT_ID, owner)).created).toBe(0);
+    expect(await rows()).toHaveLength(0);
+  });
+
   it('extra: free slot ok, again 409 SLOT_TAKEN, routine slot of X 409, other subject slot ok', async () => {
     // Another section-free slot does not exist on Wed, so use TUE for the checks and make
     // a gap: remove Tue P5 occurrence by a cancellation.

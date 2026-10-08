@@ -426,6 +426,8 @@ describe('Family study plans E2E (66.2/#2013)', () => {
       await as(`/students/${studentId}/lessons?date=nope`, 'PARENT').expect(400);
       // Impossible calendar day and date-time strings are rejected, not rolled over.
       await as(`/students/${studentId}/lessons?date=2026-02-31`, 'PARENT').expect(400);
+      // An out-of-range month made `new Date(...).toISOString()` throw: 400, not 500.
+      await as(`/students/${studentId}/lessons?date=2026-13-01`, 'PARENT').expect(400);
       await as(`/students/${studentId}/lessons?date=${lastMonday()}T10:00:00Z`, 'PARENT').expect(
         400,
       );

@@ -231,6 +231,10 @@ describe('Plan schedule E2E (66.2.02)', () => {
         lessons,
       })
       .expect(201);
+    // Plans owe nothing before their creation day; date this one back so past periods count.
+    await dataSource.query(`UPDATE study_plans SET created_at = '2000-01-01' WHERE id = $1`, [
+      res.body.id,
+    ]);
     return res.body.id;
   }
 

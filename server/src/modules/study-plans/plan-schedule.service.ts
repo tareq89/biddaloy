@@ -19,7 +19,7 @@ import { Routine } from '../routines/entities/routine.entity';
 import { ResolveRoutineService } from '../routines/resolve-routine.service';
 import type { ResolvedSlot } from '../routines/dto/resolve.dto';
 import { SchoolsService } from '../schools/schools.service';
-import { localToday } from '../attendance/attendance-policy.util';
+import { localDate, localToday } from '../attendance/attendance-policy.util';
 import { StudyPlanCaller, StudyPlansService } from './study-plans.service';
 import type {
   CarryOverResponseDto,
@@ -55,6 +55,8 @@ export interface MapInput {
   today: string;
   rangeStart?: string;
   rangeEnd: string;
+  /** Local date the plan was created: an unrecorded routine period before it is not owed. */
+  planStart?: string;
 }
 
 export interface MapResult {
@@ -165,6 +167,9 @@ export function mapLessonsToPeriods(input: MapInput): MapResult {
     const excluded = (reason: string) =>
       periods.push({ ...base, status: 'EXCLUDED', reason, lesson_id: null });
 
+    // A plan made mid-term does not owe the periods before it existed (recorded ones still count).
+    if (!d && input.planStart && date < input.planStart) continue;
+
     if (o?.cancelled) {
       excluded('CANCELLED');
       continue;
@@ -256,6 +261,8 @@ interface Range {
 
 type Scope = Pick<StudyPlan, 'subject_id' | 'lessons'>;
 
+export type PlanSchedule = PlanScheduleResponseDto & { raw: MapResult };
+
 /**
  * [66.2.02/#2007] Dated schedule for a plan: expected date and status of every
  * lesson, behind counts, capacity and unreported periods. Only the routine
@@ -275,9 +282,13 @@ export class PlanScheduleService {
     private readonly plans: StudyPlansService,
   ) {}
 
-  private async today(tenantId: string): Promise<string> {
+  private async timezone(tenantId: string): Promise<string> {
     const settings = await this.schools.getResolvedSettings(tenantId);
-    return localToday(settings.region?.timezone ?? 'UTC');
+    return settings.region?.timezone ?? 'UTC';
+  }
+
+  private async today(tenantId: string): Promise<string> {
+    return localToday(await this.timezone(tenantId));
   }
 
   private async rangeOf(
@@ -389,6 +400,7 @@ export class PlanScheduleService {
     occurrences: ResolvedSlot[],
     deliveries: LessonDelivery[],
     periodSequence: Map<string, number>,
+    planStart?: string,
   ): MapResult {
     return mapLessonsToPeriods({
       lessons: scope.lessons,
@@ -399,6 +411,7 @@ export class PlanScheduleService {
       today,
       rangeStart: range.from,
       rangeEnd: range.to,
+      planStart,
     });
   }
 
@@ -408,35 +421,11 @@ export class PlanScheduleService {
     return plan;
   }
 
-  async scheduleFor(
-    plan: StudyPlan,
-    tenantId: string,
-  ): Promise<PlanScheduleResponseDto & { raw: MapResult }> {
-    const [range, today, periodSequence, routineMissing] = await Promise.all([
-      this.rangeOf(tenantId, plan.academic_year_id, plan.academic_term_id),
-      this.today(tenantId),
-      this.sequences(tenantId),
-      this.hasPublishedRoutine(tenantId, plan.academic_year_id).then((x) => !x),
-    ]);
-    if (!range) throw new NotFoundException('The plan term or year no longer exists.');
-    const [occurrences, deliveries, last] = await Promise.all([
-      this.resolve(tenantId, plan.section_id, range),
-      this.deliveries(tenantId, plan.section_id, range),
-      this.lastReported(tenantId, [plan.section_id]),
-    ]);
-    const raw = this.mapScope(plan, range, today, occurrences, deliveries, periodSequence);
-    return {
-      range,
-      today,
-      periods: raw.periods,
-      lessons: raw.lessons,
-      summary: this.summaryOf(
-        raw,
-        last.get(`${plan.section_id}|${plan.subject_id}`) ?? null,
-        routineMissing || occurrences.length === 0,
-      ),
-      raw,
-    };
+  /** One plan's schedule; 404 when its term or year is gone. */
+  async scheduleFor(plan: StudyPlan, tenantId: string): Promise<PlanSchedule> {
+    const sched = (await this.schedulesFor([plan], tenantId)).get(plan.id);
+    if (!sched) throw new NotFoundException('The plan term or year no longer exists.');
+    return sched;
   }
 
   /** Controller entry: read check, then the schedule (no `raw` leaks out). */
@@ -451,18 +440,28 @@ export class PlanScheduleService {
     return res;
   }
 
-  /**
-   * Summaries for many plans. One resolver call and one delivery query per
-   * section x year, reused for every plan of that section.
-   */
+  /** Summaries for many plans; a plan whose term/year is gone gets an empty one. */
   async summarize(plans: StudyPlan[], tenantId: string): Promise<Map<string, PlanSummaryDto>> {
-    const out = new Map<string, PlanSummaryDto>();
+    const scheds = await this.schedulesFor(plans, tenantId);
+    return new Map(
+      plans.map((p) => [p.id, scheds.get(p.id)?.summary ?? this.emptySummary(p.lessons.length)]),
+    );
+  }
+
+  /**
+   * Schedules for many plans. One resolver call and one delivery query per
+   * section x year, reused for every plan of that section. A plan whose
+   * term/year is gone is left out of the map.
+   */
+  async schedulesFor(plans: StudyPlan[], tenantId: string): Promise<Map<string, PlanSchedule>> {
+    const out = new Map<string, PlanSchedule>();
     if (!plans.length) return out;
-    const [today, periodSequence, last] = await Promise.all([
-      this.today(tenantId),
+    const [tz, periodSequence, last] = await Promise.all([
+      this.timezone(tenantId),
       this.sequences(tenantId),
       this.lastReported(tenantId, [...new Set(plans.map((p) => p.section_id))]),
     ]);
+    const today = localToday(tz);
 
     const ranges = new Map<string, Range | null>();
     for (const p of plans) {
@@ -485,10 +484,7 @@ export class PlanScheduleService {
     for (const group of groups.values()) {
       const rs = group.map((p) => ranges.get(`${p.academic_year_id}|${p.academic_term_id ?? ''}`));
       const valid = rs.filter((r): r is Range => !!r);
-      if (!valid.length) {
-        for (const p of group) out.set(p.id, this.emptySummary(p.lessons.length));
-        continue;
-      }
+      if (!valid.length) continue;
       const union: Range = {
         from: valid.reduce((m, r) => (r.from < m ? r.from : m), valid[0].from),
         to: valid.reduce((m, r) => (r.to > m ? r.to : m), valid[0].to),
@@ -500,19 +496,29 @@ export class PlanScheduleService {
       ]);
       for (const p of group) {
         const range = ranges.get(`${p.academic_year_id}|${p.academic_term_id ?? ''}`);
-        if (!range) {
-          out.set(p.id, this.emptySummary(p.lessons.length));
-          continue;
-        }
-        const raw = this.mapScope(p, range, today, occurrences, deliveries, periodSequence);
-        out.set(
-          p.id,
-          this.summaryOf(
+        if (!range) continue;
+        const raw = this.mapScope(
+          p,
+          range,
+          today,
+          occurrences,
+          deliveries,
+          periodSequence,
+          // D1 floor: the plan's creation day in school time (#2036 review 1).
+          p.created_at ? localDate(new Date(p.created_at), tz) : undefined,
+        );
+        out.set(p.id, {
+          range,
+          today,
+          periods: raw.periods,
+          lessons: raw.lessons,
+          summary: this.summaryOf(
             raw,
             last.get(`${p.section_id}|${p.subject_id}`) ?? null,
             !routineByYear.get(p.academic_year_id) || occurrences.length === 0,
           ),
-        );
+          raw,
+        });
       }
     }
     return out;
@@ -638,12 +644,14 @@ export class PlanScheduleService {
       rows = res.data;
       total = res.total;
     } else {
-      rows = [];
-      for (let p = 1; ; p++) {
-        const res = await this.plans.findAll({ ...base, page: p, limit: 100 }, tenantId, caller);
-        rows.push(...res.data);
-        if (p >= res.totalPages) break;
-      }
+      // One unpaged call: a teacher's visibility scan runs once, not once per 100-row page.
+      rows = (
+        await this.plans.findAll(
+          { ...base, page: 1, limit: Number.MAX_SAFE_INTEGER },
+          tenantId,
+          caller,
+        )
+      ).data;
       total = rows.length;
     }
 

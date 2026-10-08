@@ -291,9 +291,19 @@ export class LessonDeliveriesService {
         .orUpdate(
           ['status', 'reason', 'note', 'auto', 'recorded_by_user_id', 'updated_at'],
           ['tenant_id', 'section_id', 'date', 'period_slot_id'],
+          // A row another subject wrote after the check above (an extra, D40) is never overwritten.
+          { overwriteCondition: { where: 'lesson_deliveries.subject_id = EXCLUDED.subject_id' } },
         )
         .returning('*')
         .execute();
+      if (!(res.raw as unknown[]).length) {
+        throw new ConflictException(
+          code(
+            'That period already has a record for another subject.',
+            'LESSON_DELIVERY_SLOT_TAKEN',
+          ),
+        );
+      }
       const row = m.getRepository(LessonDelivery).create(res.raw[0] as Partial<LessonDelivery>);
       const fresh = (await this.existing(tenantId, dto, m)) ?? row;
       await this.auditRow(
@@ -386,14 +396,17 @@ export class LessonDeliveriesService {
 
   // ---------------------------------------------------------------- today's periods
 
-  /** The caller's own + covering periods for a date, breaks out (resolver already drops them). */
+  /**
+   * The caller's own + covering periods for a date, breaks out (resolver already drops them).
+   * PUBLISHED routines only, as PUT and the schedule: a TEACHER caller would also get REVIEW slots.
+   */
   private async myPeriods(caller: StudyPlanCaller, date: string) {
     if (caller.role !== UserRole.TEACHER) throw outOfScope('Only teachers have a day view.');
     const me = await this.teacherIdOf(caller);
     if (!me) return [];
     return this.resolver.resolveRoutine({ teacher_id: me, from: date, to: date }, caller.tenantId, {
-      role: caller.role,
-      userId: caller.userId,
+      role: UserRole.STUDENT,
+      userId: '',
     });
   }
 
@@ -465,7 +478,7 @@ export class LessonDeliveriesService {
     tenantId: string,
     caller: StudyPlanCaller,
   ): Promise<LessonDeliveriesDayDto> {
-    const { escalateAfter } = await this.settings(tenantId);
+    const { escalateAfter, today } = await this.settings(tenantId);
     const periods = await this.myPeriods(caller, date);
     const sectionIds = [...new Set(periods.map((p) => p.section_id))];
     const [rows, sections, slots] = await Promise.all([
@@ -498,7 +511,6 @@ export class LessonDeliveriesService {
     }
 
     const me = await this.teacherIdOf(caller);
-    const { today } = await this.settings(tenantId);
     const inWindow = date <= today && daysBetween(date, today) <= STUDY_PLAN_LIMITS.teacherEditDays;
     const out: LessonDeliveryPeriodDto[] = periods
       .map((p) => {

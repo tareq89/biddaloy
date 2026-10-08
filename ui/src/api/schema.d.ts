@@ -5195,7 +5195,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Read one template with its lessons. */
+        /** Read one template with its lessons (no notes for families, D20). */
         get: operations["StudyPlanTemplatesController_get_v1"];
         put?: never;
         post?: never;
@@ -11739,6 +11739,77 @@ export interface components {
             warnings: components["schemas"]["BulkImportErrorDto"][];
             hard_error_count: number;
         };
+        StudyPlanSectionRefDto: {
+            id: string;
+            name: string;
+            class_id: string;
+            class_name: string;
+        };
+        StudyPlanSubjectRefDto: {
+            id: string;
+            name_en: string;
+            name_bn: string | null;
+            code: string;
+        };
+        StudyPlanTermRefDto: {
+            id: string;
+            name: string;
+        };
+        StudyPlanOwnerDto: {
+            teacher_id: string;
+            full_name: string;
+        };
+        StudyPlanLessonItemDto: {
+            id: string;
+            title: string;
+            periods: number;
+            topic_id?: string;
+            /** @description Teacher notes; never sent to families (D20). */
+            notes?: string;
+        };
+        StudyPlanExamMarkerDetailDto: {
+            exam_id: string;
+            up_to_lesson_id: string;
+            exam_name: string;
+        };
+        StudyPlanExamMarkerItemDto: {
+            exam_id: string;
+            up_to_lesson_id: string;
+        };
+        StudyPlanDetailDto: {
+            id: string;
+            academic_year_id: string;
+            section: components["schemas"]["StudyPlanSectionRefDto"];
+            subject: components["schemas"]["StudyPlanSubjectRefDto"];
+            term: components["schemas"]["StudyPlanTermRefDto"] | null;
+            lesson_count: number;
+            owners: components["schemas"]["StudyPlanOwnerDto"][];
+            owner_override_teacher_id: string | null;
+            can_edit: boolean;
+            lessons: components["schemas"]["StudyPlanLessonItemDto"][];
+            exam_markers: components["schemas"]["StudyPlanExamMarkerDetailDto"][];
+            /** @description Only on a lesson replace: markers dropped because their lesson was removed. */
+            dropped_markers?: components["schemas"]["StudyPlanExamMarkerItemDto"][];
+        };
+        StudyPlanTemplateLessonItemDto: {
+            id: string;
+            title: string;
+            periods: number;
+            /** @description Left out for PARENT and STUDENT callers (D20). */
+            notes?: string;
+        };
+        StudyPlanTemplateDetailDto: {
+            id: string;
+            name: string;
+            class_grade: number;
+            subject_code: string;
+            subject_name: string | null;
+            lesson_count: number;
+            total_periods: number;
+            /** Format: date-time */
+            updated_at: string;
+            lessons: components["schemas"]["StudyPlanTemplateLessonItemDto"][];
+        };
         ImportPlanScopeDto: {
             /** Format: uuid */
             section_id: string;
@@ -11934,6 +12005,24 @@ export interface components {
             /** Format: uuid */
             period_slot_id: string;
             note?: string;
+        };
+        StudyPlanTemplateSummaryDto: {
+            id: string;
+            name: string;
+            class_grade: number;
+            subject_code: string;
+            subject_name: string | null;
+            lesson_count: number;
+            total_periods: number;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        StudyPlanTemplateListDto: {
+            data: components["schemas"]["StudyPlanTemplateSummaryDto"][];
+            total: number;
+            page: number;
+            limit: number;
+            totalPages: number;
         };
         StudyPlanTemplateLessonDto: {
             id?: string;
@@ -26493,7 +26582,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["StudyPlanDetailDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
@@ -26628,12 +26717,13 @@ export interface operations {
             };
         };
         responses: {
+            /** @description The plan (plan_id / plan target) or the new template (template target). */
             201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["StudyPlanDetailDto"] | components["schemas"]["StudyPlanTemplateDetailDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
@@ -26666,7 +26756,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["StudyPlanDetailDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
@@ -26734,7 +26824,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["StudyPlanDetailDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
@@ -26868,7 +26958,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["StudyPlanDetailDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
@@ -26905,7 +26995,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["StudyPlanDetailDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
@@ -26942,7 +27032,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["StudyPlanDetailDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
@@ -27114,7 +27204,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["StudyPlanTemplateListDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
@@ -27149,7 +27239,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["StudyPlanTemplateDetailDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
@@ -27186,7 +27276,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["StudyPlanTemplateDetailDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
@@ -27219,7 +27309,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["StudyPlanTemplateDetailDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
@@ -27287,7 +27377,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["StudyPlanTemplateDetailDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
@@ -27324,7 +27414,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["StudyPlanDetailDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */

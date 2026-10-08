@@ -26,7 +26,7 @@ import { ClassSubject } from '../academics/entities/class-subject.entity';
 import { PeriodSlot } from '../routines/entities/period-slot.entity';
 import { ResolveRoutineService } from '../routines/resolve-routine.service';
 import { SchoolsService } from '../schools/schools.service';
-import { localToday } from '../attendance/attendance-policy.util';
+import { daysBetween, localToday } from '../attendance/attendance-policy.util';
 import { LessonDelivery } from './entities/lesson-delivery.entity';
 import type { StudyPlan } from './entities/study-plan.entity';
 import { StudyPlansService } from './study-plans.service';
@@ -41,11 +41,6 @@ import { lessonAt, subjectBlock, type FamilyExamInfo } from './family-study-plan
 
 /** No unbounded scans: `lessons?date=` stays within this many days of today. */
 const MAX_DAYS_FROM_TODAY = 31;
-const DAY_MS = 86_400_000;
-
-function daysApart(a: string, b: string): number {
-  return Math.abs(Date.parse(`${a}T00:00:00Z`) - Date.parse(`${b}T00:00:00Z`)) / DAY_MS;
-}
 
 /**
  * [66.2/#2013] What a family sees of the study plans: progress per subject and the
@@ -167,19 +162,31 @@ export class FamilyStudyPlansController {
     const subjects: FamilyStudyPlansResponseDto['subjects'] = [];
     const without: FamilySubjectRefDto[] = [];
     let term: FamilyStudyPlansResponseDto['term'] = null;
+    const planOf = new Map<string, StudyPlan | null>();
+    for (const cs of offered) {
+      planOf.set(
+        cs.subject_id,
+        await this.plans.currentPlanFor(tenant.id, section.id, cs.subject_id, today),
+      );
+    }
+    // One resolver call for the whole section, not one per subject.
+    const scheds = await this.schedules.schedulesFor(
+      [...planOf.values()].filter((p): p is StudyPlan => !!p),
+      tenant.id,
+    );
     for (const cs of offered) {
       const ref = {
         id: cs.subject_id,
         name_en: cs.subject?.name_en ?? null,
         name_bn: cs.subject?.name_bn ?? null,
       };
-      const plan = await this.plans.currentPlanFor(tenant.id, section.id, cs.subject_id, today);
-      if (!plan) {
+      const plan = planOf.get(cs.subject_id);
+      const schedule = plan ? scheds.get(plan.id) : undefined;
+      if (!plan || !schedule) {
         without.push(ref);
         continue;
       }
-      const [schedule, teacherNames, exams] = await Promise.all([
-        this.schedules.scheduleFor(plan, tenant.id),
+      const [teacherNames, exams] = await Promise.all([
         this.teacherNames(tenant.id, plan),
         this.examInfo(tenant.id, cs.subject_id, plan),
       ]);
@@ -227,10 +234,7 @@ export class FamilyStudyPlansController {
     await this.familyAccess.assertLinked(tenant.role, user.sub, studentId, tenant.id);
     const { section } = await this.studentSection(studentId, tenant.id);
     const { date } = query;
-    if (new Date(`${date}T00:00:00Z`).toISOString().slice(0, 10) !== date) {
-      throw new BadRequestException('date must be a real calendar date (YYYY-MM-DD)');
-    }
-    if (daysApart(date, await this.today(tenant.id)) > MAX_DAYS_FROM_TODAY) {
+    if (Math.abs(daysBetween(date, await this.today(tenant.id))) > MAX_DAYS_FROM_TODAY) {
       throw new BadRequestException(`date must be within ${MAX_DAYS_FROM_TODAY} days of today`);
     }
 
@@ -257,14 +261,15 @@ export class FamilyStudyPlansController {
     const slotAt = new Map(periodSlots.map((p) => [p.id, p]));
     const seq = new Map(periodSlots.map((p) => [p.id, p.sequence]));
 
-    const schedules = new Map<
-      string,
-      Awaited<ReturnType<PlanScheduleService['scheduleFor']>> | null
-    >();
+    const planOf = new Map<string, StudyPlan>();
     for (const sid of new Set(slots.map((s) => s.subject_id))) {
       const plan = await this.plans.currentPlanFor(tenant.id, section.id, sid, date);
-      schedules.set(sid, plan ? await this.schedules.scheduleFor(plan, tenant.id) : null);
+      if (plan) planOf.set(sid, plan);
     }
+    const byPlan = await this.schedules.schedulesFor([...planOf.values()], tenant.id);
+    const schedules = new Map(
+      [...planOf].map(([sid, plan]) => [sid, byPlan.get(plan.id) ?? null] as const),
+    );
 
     return slots
       .map((s) => {

@@ -49,7 +49,7 @@ export class SyllabusService {
    * study plan links it (`sections_planned`) and in how many of those every
    * linked lesson is DONE (`sections_taught`). Derived only; topic status is
    * never touched. A section with several plans (year + terms) counts once.
-   * ponytail: one schedule per plan (a class has few sections); cache if lists get slow.
+   * One resolver pass per section (`schedulesFor`).
    */
   async coverageFor(
     classId: string,
@@ -69,15 +69,13 @@ export class SyllabusService {
 
     // section -> topic -> "every linked lesson so far is DONE"
     const bySection = new Map<string, Map<string, boolean>>();
-    for (const plan of plans) {
-      if (!plan.lessons.some((l) => l.topic_id)) continue;
-      let done = new Map<string, string>();
-      try {
-        const { raw } = await this.planSchedule.scheduleFor(plan, tenantId);
-        done = new Map(raw.lessons.map((l) => [l.id, l.status]));
-      } catch (err) {
-        if (!(err instanceof NotFoundException)) throw err; // term/year gone: nothing counts as done
-      }
+    const linked = plans.filter((p) => p.lessons.some((l) => l.topic_id));
+    // One resolver pass per section; term/year gone = no schedule = nothing counts as done.
+    const scheds = await this.planSchedule.schedulesFor(linked, tenantId);
+    for (const plan of linked) {
+      const done = new Map(
+        (scheds.get(plan.id)?.raw.lessons ?? []).map((l) => [l.id, l.status] as const),
+      );
       const topics = bySection.get(plan.section_id) ?? new Map<string, boolean>();
       for (const lesson of plan.lessons) {
         if (!lesson.topic_id) continue;

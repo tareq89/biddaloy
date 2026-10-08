@@ -20,7 +20,16 @@ import {
 import { Throttle } from '@nestjs/throttler';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiBody, ApiConsumes, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBody,
+  ApiConsumes,
+  ApiCreatedResponse,
+  ApiExtraModels,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+  getSchemaPath,
+} from '@nestjs/swagger';
 import { Request, Response } from 'express';
 import { Readable } from 'stream';
 import { JwtPayload, Permission } from '@biddaloy/shared';
@@ -46,8 +55,10 @@ import {
   CreateStudyPlanDto,
   ReplaceLessonsDto,
   SetExamMarkersDto,
+  StudyPlanDetailDto,
   UpdateStudyPlanDto,
 } from './dto/study-plan.dto';
+import { StudyPlanTemplateDetailDto } from './dto/study-plan-template.dto';
 import {
   CarryOverResponseDto,
   ListStudyPlansWithSummaryQueryDto,
@@ -172,6 +183,16 @@ export class StudyPlansController {
   @ApiOperation({
     summary: 'Commit a validated import into a plan, a new plan or a new template (once).',
   })
+  @ApiExtraModels(StudyPlanDetailDto, StudyPlanTemplateDetailDto)
+  @ApiCreatedResponse({
+    description: 'The plan (plan_id / plan target) or the new template (template target).',
+    schema: {
+      oneOf: [
+        { $ref: getSchemaPath(StudyPlanDetailDto) },
+        { $ref: getSchemaPath(StudyPlanTemplateDetailDto) },
+      ],
+    },
+  })
   importCommit(
     @Body() dto: CommitStudyPlanImportDto,
     @CurrentTenant() tenant: Tenant,
@@ -184,6 +205,7 @@ export class StudyPlansController {
   @Post()
   @RequirePermissions(Permission.SYLLABUS_MANAGE)
   @ApiOperation({ summary: 'Create a study plan for a section and subject.' })
+  @ApiCreatedResponse({ type: StudyPlanDetailDto })
   create(
     @Body() dto: CreateStudyPlanDto,
     @CurrentTenant() tenant: Tenant,
@@ -196,6 +218,7 @@ export class StudyPlansController {
   @Get(':id')
   @RequirePermissions(Permission.SYLLABUS_READ)
   @ApiOperation({ summary: 'Read one study plan with owners and exam markers.' })
+  @ApiOkResponse({ type: StudyPlanDetailDto })
   findOne(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentTenant() tenant: Tenant,
@@ -250,6 +273,7 @@ export class StudyPlansController {
   @Patch(':id')
   @RequirePermissions(Permission.SYLLABUS_MANAGE)
   @ApiOperation({ summary: 'Reassign the plan owner (administrator only).' })
+  @ApiOkResponse({ type: StudyPlanDetailDto })
   update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateStudyPlanDto,
@@ -281,6 +305,7 @@ export class StudyPlansController {
   @Put(':id/lessons')
   @RequirePermissions(Permission.SYLLABUS_MANAGE)
   @ApiOperation({ summary: 'Replace the whole ordered lesson list.' })
+  @ApiOkResponse({ type: StudyPlanDetailDto })
   replaceLessons(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: ReplaceLessonsDto,
@@ -299,6 +324,7 @@ export class StudyPlansController {
   @Put(':id/exam-markers')
   @RequirePermissions(Permission.SYLLABUS_MANAGE)
   @ApiOperation({ summary: 'Set the exam markers (one per exam).' })
+  @ApiOkResponse({ type: StudyPlanDetailDto })
   setExamMarkers(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: SetExamMarkersDto,
@@ -317,6 +343,7 @@ export class StudyPlansController {
   @Post(':id/copy-to-section')
   @RequirePermissions(Permission.SYLLABUS_MANAGE)
   @ApiOperation({ summary: 'Copy this plan to another section of the same year.' })
+  @ApiCreatedResponse({ type: StudyPlanDetailDto })
   copyToSection(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: CopyToSectionDto,

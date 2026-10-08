@@ -210,6 +210,18 @@ describe('Study plan templates E2E (66.2.06)', () => {
       });
     }
 
+    it('lesson notes reach staff but never PARENT or STUDENT (D20)', async () => {
+      const res = await as('post', '/study-plan-templates', 'ADMIN')
+        .send(body({ lessons: [{ title: 'One', periods: 1, notes: 'teacher only' }] }))
+        .expect(201);
+      const staff = await as('get', `/study-plan-templates/${res.body.id}`, 'T').expect(200);
+      expect(staff.body.lessons[0].notes).toBe('teacher only');
+      for (const who of READ_ONLY) {
+        const fam = await as('get', `/study-plan-templates/${res.body.id}`, who).expect(200);
+        expect(fam.body.lessons[0]).not.toHaveProperty('notes');
+      }
+    });
+
     for (const who of NO_ACCESS) {
       it(`${who} gets 403 on list and detail`, async () => {
         const id = await createTemplate();

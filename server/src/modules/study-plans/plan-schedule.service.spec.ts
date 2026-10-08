@@ -63,6 +63,24 @@ const run = (
 const lesson = (r: ReturnType<typeof run>, id: string) => r.lessons.find((l) => l.id === id)!;
 
 describe('mapLessonsToPeriods', () => {
+  it('a plan created mid-term owes nothing before its creation day; recorded periods still count', () => {
+    const r = mapLessonsToPeriods({
+      lessons: [L('L1', 1), L('L2', 1)],
+      subjectId: SUBJECT,
+      occurrences: ['2026-10-04', '2026-10-06', '2026-10-11', '2026-10-13'].map((d) => occ(d)),
+      deliveries: [del('2026-10-06', 'TAUGHT')],
+      periodSequence: SEQ,
+      today: TODAY,
+      rangeEnd: END,
+      planStart: '2026-10-11',
+    });
+    // 10-04 (unrecorded, before the plan) is gone; 10-06 was taught and stays.
+    expect(r.periods.map((p) => p.date)).toEqual(['2026-10-06', '2026-10-11', '2026-10-13']);
+    expect(r.owed_by_today).toBe(3);
+    expect(r.periods_behind).toBe(2);
+    expect(r.unreported).toEqual({ periods: 2, school_days: 2, oldest_date: '2026-10-11' });
+  });
+
   it('worked example: 3 periods behind, today is L1 second period, then L2, L3', () => {
     // Holiday Wed 08 is simply absent from the occurrences (the resolver omits it).
     const r = run(

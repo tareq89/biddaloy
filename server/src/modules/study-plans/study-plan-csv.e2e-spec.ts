@@ -304,6 +304,36 @@ describe('Study plan CSV E2E (66.2.07)', () => {
       await as('post', '/study-plans/import/commit', 'T').send(body).expect(404);
     });
 
+    it('a refused write keeps the staging id for a retry', async () => {
+      const id = await createPlan('ADMIN');
+      const v = await validate('ADMIN', planFields()).expect(201);
+      // A new plan for the same scope already exists: 409, the upload is not used up.
+      await as('post', '/study-plans/import/commit', 'ADMIN')
+        .send({
+          staging_id: v.body.staging_id,
+          plan: { section_id: SEED_SECTION_1_ID, subject_id: subjectId, academic_term_id: null },
+        })
+        .expect(409);
+      await as('post', '/study-plans/import/commit', 'ADMIN')
+        .send({ staging_id: v.body.staging_id, plan_id: id })
+        .expect(201);
+    });
+
+    it('re-importing keeps lesson ids whose titles match, so exam markers survive', async () => {
+      const id = await createPlan('T');
+      const first = await validate('T', planFields()).expect(201);
+      const c1 = await as('post', '/study-plans/import/commit', 'T')
+        .send({ staging_id: first.body.staging_id, plan_id: id })
+        .expect(201);
+      const again = await validate('T', planFields()).expect(201);
+      const c2 = await as('post', '/study-plans/import/commit', 'T')
+        .send({ staging_id: again.body.staging_id, plan_id: id })
+        .expect(201);
+      expect(c2.body.lessons.map((l: { id: string }) => l.id)).toEqual(
+        c1.body.lessons.map((l: { id: string }) => l.id),
+      );
+    });
+
     it('a non-owner teacher can validate but is refused at commit (403)', async () => {
       const id = await createPlan('T');
       const v = await validate('U', planFields()).expect(201);

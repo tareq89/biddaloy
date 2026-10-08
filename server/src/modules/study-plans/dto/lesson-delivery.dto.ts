@@ -3,8 +3,15 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsEnum, IsIn, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
 import { LessonDeliveryReason, LessonDeliveryStatus, STUDY_PLAN_LIMITS } from '@biddaloy/shared';
 
+/** Plain `YYYY-MM-DD` that is a real calendar day; never throws (`2026-13-01` is false). */
+export function isCalendarDate(v: unknown): v is string {
+  if (typeof v !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(v)) return false;
+  const d = new Date(`${v}T00:00:00Z`);
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === v;
+}
+
 /** Plain `YYYY-MM-DD` that is a real calendar day (date-time strings are rejected). */
-function IsCalendarDate() {
+export function IsCalendarDate() {
   return (target: object, key: string) =>
     registerDecorator({
       name: 'isCalendarDate',
@@ -12,10 +19,7 @@ function IsCalendarDate() {
       propertyName: key,
       options: { message: `${key} must be a YYYY-MM-DD date` },
       validator: {
-        validate: (v: unknown) =>
-          typeof v === 'string' &&
-          /^\d{4}-\d{2}-\d{2}$/.test(v) &&
-          new Date(`${v}T00:00:00Z`).toISOString().slice(0, 10) === v,
+        validate: isCalendarDate,
       },
     });
 }
