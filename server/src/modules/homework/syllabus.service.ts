@@ -6,6 +6,8 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
+import { StudyPlan } from '../study-plans/entities/study-plan.entity';
+import { PlanScheduleService } from '../study-plans/plan-schedule.service';
 import {
   AuditAction,
   Permission,
@@ -37,7 +39,65 @@ export class SyllabusService {
     private readonly subjectRepo: Repository<Subject>,
     private readonly auditService: AuditService,
     private readonly teacherScope: TeacherScopeService,
+    @InjectRepository(StudyPlan)
+    private readonly planRepo: Repository<StudyPlan>,
+    private readonly planSchedule: PlanScheduleService,
   ) {}
+
+  /**
+   * [66.2.07/D31] Per topic of one class x subject: in how many sections a live
+   * study plan links it (`sections_planned`) and in how many of those every
+   * linked lesson is DONE (`sections_taught`). Derived only; topic status is
+   * never touched. A section with several plans (year + terms) counts once.
+   * ponytail: one schedule per plan (a class has few sections); cache if lists get slow.
+   */
+  async coverageFor(
+    classId: string,
+    subjectId: string,
+    tenantId: string,
+  ): Promise<Map<string, { sections_planned: number; sections_taught: number }>> {
+    const plans = await this.planRepo
+      .createQueryBuilder('p')
+      .innerJoin(
+        'class_sections',
+        'cs',
+        'cs.id = p.section_id AND cs.tenant_id = :tenantId AND cs.class_id = :classId AND cs.deleted_at IS NULL',
+        { tenantId, classId },
+      )
+      .where('p.tenant_id = :tenantId AND p.subject_id = :subjectId', { tenantId, subjectId })
+      .getMany();
+
+    // section -> topic -> "every linked lesson so far is DONE"
+    const bySection = new Map<string, Map<string, boolean>>();
+    for (const plan of plans) {
+      if (!plan.lessons.some((l) => l.topic_id)) continue;
+      let done = new Map<string, string>();
+      try {
+        const { raw } = await this.planSchedule.scheduleFor(plan, tenantId);
+        done = new Map(raw.lessons.map((l) => [l.id, l.status]));
+      } catch (err) {
+        if (!(err instanceof NotFoundException)) throw err; // term/year gone: nothing counts as done
+      }
+      const topics = bySection.get(plan.section_id) ?? new Map<string, boolean>();
+      for (const lesson of plan.lessons) {
+        if (!lesson.topic_id) continue;
+        const isDone = done.get(lesson.id) === 'DONE';
+        topics.set(lesson.topic_id, (topics.get(lesson.topic_id) ?? true) && isDone);
+      }
+      bySection.set(plan.section_id, topics);
+    }
+
+    const out = new Map<string, { sections_planned: number; sections_taught: number }>();
+    for (const topics of bySection.values()) {
+      for (const [topicId, allDone] of topics) {
+        const c = out.get(topicId) ?? { sections_planned: 0, sections_taught: 0 };
+        c.sections_planned += 1;
+        if (allDone) c.sections_taught += 1;
+        out.set(topicId, c);
+      }
+    }
+    return out;
+  }
 
   /** IDOR guard: class_id/subject_id must belong to the caller's own
    * tenant — mirrors ExamComponentsService.assertSubjectBelongsToTenant. */
