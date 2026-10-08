@@ -127,24 +127,35 @@ export function usePrintRun({
   const [confirmed, setConfirmed] = React.useState(0);
   const [pending, setPending] = React.useState<PendingJob | null>(null);
   const [printing, setPrinting] = React.useState(false);
-  const [serials, setSerials] = React.useState<string[]>([]);
+  // Every card the server made (item -> serial), and the items the person marked as not printed.
+  const [made, setMade] = React.useState<Array<{ itemId: string; serial: string }>>([]);
+  const [failed, setFailed] = React.useState<ReadonlySet<string>>(new Set());
   const running = React.useRef(false);
   // Not while a reprint of failed items is running or its answer is pending.
   const done = confirmed > 0 && batches.length === 0 && pending === null && !printing;
 
   // Inject the certificate functions; keep the serials the server gave (first/last on the result view).
-  const deps = React.useMemo(
-    () => ({
+  const deps = React.useMemo(() => {
+    const keep = (job: CreatePrintJobResult) => {
+      setMade((m) => [
+        ...m,
+        ...job.items.flatMap((i) =>
+          i.serial_no ? [{ itemId: i.item_id, serial: i.serial_no }] : [],
+        ),
+      ]);
+      return job;
+    };
+    return {
       ...defaultRunPrintDeps,
-      createPrintJob: async (input: Parameters<typeof createCertificateJob>[0]) => {
-        const job: CreatePrintJobResult = await createCertificateJob(input);
-        setSerials((s) => [...s, ...job.items.flatMap((i) => (i.serial_no ? [i.serial_no] : []))]);
-        return job;
-      },
-      reprintPrintJob: (jobId: string, itemIds: string[]) => reprintCertificateJob(jobId, itemIds),
-    }),
-    [],
-  );
+      createPrintJob: async (input: Parameters<typeof createCertificateJob>[0]) =>
+        keep(await createCertificateJob(input)),
+      // A reprint is the same serial, new copy: it counts once that copy prints.
+      reprintPrintJob: async (jobId: string, itemIds: string[]) =>
+        keep(await reprintCertificateJob(jobId, itemIds)),
+    };
+  }, []);
+  // Serials with at least one copy that printed, in issue order (a FAILED-only serial is left out).
+  const serials = [...new Set(made.filter((m) => !failed.has(m.itemId)).map((m) => m.serial))];
 
   async function startRun(request: PrintRequest, isReprint: boolean) {
     if (!printer || running.current) return;
@@ -209,6 +220,7 @@ export function usePrintRun({
       items={pending.items}
       onConfirm={async (failedItemIds) => {
         await confirmJob.mutateAsync({ jobId: pending.jobId, failedItemIds });
+        setFailed((prev) => new Set([...prev, ...failedItemIds]));
       }}
       onReprintFailed={(failedItemIds) => {
         // The batch stays uncounted until a job for it is answered and the person moves on.

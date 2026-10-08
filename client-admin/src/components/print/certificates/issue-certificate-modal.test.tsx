@@ -490,7 +490,12 @@ describe('IssueCertificateModal', () => {
     server.use(
       http.post('/api/v1/certificates/jobs/job-1/reprint', () => {
         posts.push({ url: '/certificates/jobs/job-1/reprint', body: null });
-        return HttpResponse.json(jobBody('job-2', ['s-1']));
+        // A reprint is a new item (new copy) of the same serial.
+        const body = jobBody('job-2', ['s-1']);
+        return HttpResponse.json({
+          ...body,
+          items: body.items.map((i) => ({ ...i, item_id: 'i-s-1-copy2', copy_number: 2 })),
+        });
       }),
       http.patch('/api/v1/certificates/jobs/job-2/confirm', () =>
         HttpResponse.json({ job_id: 'job-2', status: 'CONFIRMED', failed_item_ids: [] }),
@@ -514,6 +519,24 @@ describe('IssueCertificateModal', () => {
     await user.click(await screen.findByRole('button', { name: /^continue$/i }));
     expect(await screen.findByText(/1 certificate issued/i)).toBeTruthy();
     expect(posts.filter((p) => p.url === '/certificates').length).toBe(1);
+  });
+
+  it('the result view leaves out a certificate marked as not printed', async () => {
+    serve();
+    const { user } = setup();
+    await next(user, /^next$/i);
+    await user.type(await screen.findByLabelText(/conduct/i), 'Good');
+    await user.click(await screen.findByRole('button', { name: /for all of class 10/i }));
+    await screen.findByText(/3 students/i);
+    await next(user, /see preview/i);
+    await next(user, /^next$/i);
+    await next(user, /^print$/i);
+    await user.click(await screen.findByRole('button', { name: /some failed/i }));
+    await user.click(await screen.findByRole('checkbox', { name: /student s-3/i }));
+    await user.click(screen.getByRole('button', { name: /^confirm$/i }));
+    await user.click(await screen.findByRole('button', { name: /^continue$/i }));
+    expect(await screen.findByText(/2 certificates issued/i)).toBeTruthy();
+    expect(screen.getByText(/TSM-2026-00011 – TSM-2026-00012/)).toBeTruthy();
   });
 
   it('a 409 after finished batches never re-sends their ids', async () => {
