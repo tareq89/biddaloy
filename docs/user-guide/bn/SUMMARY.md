@@ -7,3 +7,5 @@
   - [ডিজাইনারের গাইড](printing/designer-guide.md)
   - [প্রিন্টার ও ক্যালিব্রেশন](printing/printers-and-calibration.md)
   - [আইডি কার্ড ছাপা](printing/printing-id-cards.md)
+  - [পরীক্ষার কাগজপত্র](printing/exam-documents.md)
+  - [সনদ](printing/certificates.md)
