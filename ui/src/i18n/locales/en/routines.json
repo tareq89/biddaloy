@@ -436,6 +436,7 @@
       "autoCancelled": "Not taught · cancelled",
       "autoLeave": "Not taught · on leave"
     },
+    "lessonLine": "Lesson {{no}}: {{title}}",
     "todaysLesson": "Today's lesson",
     "lessonPeriods": "{{done}}/{{total}} periods",
     "lessonFinished": "lesson finished",

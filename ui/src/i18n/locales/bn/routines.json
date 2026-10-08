@@ -436,6 +436,7 @@
       "autoCancelled": "হয়নি · বাতিল",
       "autoLeave": "হয়নি · ছুটিতে"
     },
+    "lessonLine": "পাঠ {{no}}: {{title}}",
     "todaysLesson": "আজকের পাঠ",
     "lessonPeriods": "{{done}}/{{total}} পিরিয়ড",
     "lessonFinished": "পাঠ শেষ",
