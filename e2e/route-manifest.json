@@ -457,6 +457,7 @@
       "archetype": "bespoke"
     },
     { "path": "/print/preview", "role": "admin", "archetype": "bespoke" },
+    { "path": "/print/document", "role": "admin", "archetype": "bespoke" },
     { "path": "/reports/printables", "role": "admin", "archetype": "list" },
     {
       "path": "/i/$token",
