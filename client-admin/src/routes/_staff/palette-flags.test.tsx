@@ -55,6 +55,21 @@ describe('palette landing flags', () => {
     await waitFor(() => expect(router.state.location.search).not.toHaveProperty(flag));
   });
 
+  it('closes the dialog when Back drops the flag', async () => {
+    const { router } = renderWithRouter(routeTree, {
+      initialEntries: ['/academic-years', '/academic-years?new=1'],
+      initialIndex: 1,
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+    await screen.findByRole('dialog');
+
+    router.history.back();
+    await waitFor(() => expect(router.state.location.search).not.toHaveProperty('new'));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
+
   it('opens nothing for a role without the gate', async () => {
     renderWithRouter(routeTree, {
       initialEntries: ['/guardians?invite=1'],
