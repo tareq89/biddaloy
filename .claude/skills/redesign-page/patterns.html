@@ -1426,6 +1426,44 @@
           <!-- /PATTERN -->
         </section>
 
+        <section class="space-y-4" id="p18">
+          <div>
+            <h2 class="text-h2">18 · Lesson plans (Epic 66.0, D33)</h2>
+            <p class="mt-0.5 text-text-secondary">Stepper, ReorderButtons, ExamMarkerRow. LessonStatusGroup, RadioRows and ChoiceCards are listed in patterns.md §13. Sample data.</p>
+          </div>
+
+          <!-- PATTERN: Stepper — phone: label + step name + segments; desktop: numbered circles, aria-current="step" -->
+          <nav aria-label="ধাপ" class="rounded-lg border border-border-subtle bg-surface shadow-e1 p-4 md:p-5">
+            <div class="flex flex-col gap-2 sm:hidden">
+              <p class="text-label text-text-secondary">ধাপ ২/৪</p>
+              <p class="text-h3 text-text-primary">পাঠ বাছাই</p>
+              <div aria-hidden="true" class="flex gap-1"><span class="h-1 flex-1 rounded-full bg-primary"></span><span class="h-1 flex-1 rounded-full bg-primary"></span><span class="h-1 flex-1 rounded-full bg-muted"></span><span class="h-1 flex-1 rounded-full bg-muted"></span></div>
+            </div>
+            <ol class="hidden items-center gap-2 sm:flex">
+              <li class="flex items-center gap-2 text-body text-text-secondary"><span class="flex size-7 items-center justify-center rounded-full border border-primary text-label text-primary"><i data-lucide="check" class="size-3.5"></i></span>বিষয়</li>
+              <li aria-hidden="true" class="h-px w-6 bg-border-subtle"></li>
+              <li aria-current="step" class="flex items-center gap-2 text-body font-medium text-text-primary"><span class="flex size-7 items-center justify-center rounded-full border border-primary bg-primary text-label text-primary-foreground">২</span>পাঠ বাছাই</li>
+              <li aria-hidden="true" class="h-px w-6 bg-border-subtle"></li>
+              <li class="flex items-center gap-2 text-body text-text-secondary"><span class="flex size-7 items-center justify-center rounded-full border border-border-subtle text-label">৩</span>সময়সূচি</li>
+              <li aria-hidden="true" class="h-px w-6 bg-border-subtle"></li>
+              <li class="flex items-center gap-2 text-body text-text-secondary"><span class="flex size-7 items-center justify-center rounded-full border border-border-subtle text-label">৪</span>পর্যালোচনা</li>
+            </ol>
+          </nav>
+          <!-- /PATTERN -->
+
+          <!-- PATTERN: ReorderButtons + ExamMarkerRow — ↑ ↓ in the actions cell; full-width marker row between lessons -->
+          <div class="overflow-x-auto rounded-lg border border-border-subtle bg-surface shadow-e1">
+            <table class="w-full text-body">
+              <tbody>
+                <tr class="border-b border-border-subtle"><td class="p-3">পাঠ ১৫</td><td class="p-3 text-end"><div class="flex items-center justify-end"><button type="button" aria-label="পাঠ ১৫ উপরে সরান" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-muted md:size-8"><i data-lucide="arrow-up" class="size-4"></i></button><button type="button" aria-label="পাঠ ১৫ নিচে সরান" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-muted md:size-8"><i data-lucide="arrow-down" class="size-4"></i></button></div></td></tr>
+                <tr class="border-b border-border-subtle"><td class="p-3">পাঠ ১৬</td><td class="p-3 text-end"><div class="flex items-center justify-end"><button type="button" aria-label="পাঠ ১৬ উপরে সরান" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-muted md:size-8"><i data-lucide="arrow-up" class="size-4"></i></button><button type="button" aria-label="পাঠ ১৬ নিচে সরান" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-muted md:size-8"><i data-lucide="arrow-down" class="size-4"></i></button></div></td></tr>
+                <tr><td colspan="2" class="p-3"><div class="flex items-center gap-3 text-primary"><i data-lucide="flag" class="size-4 shrink-0"></i><span class="text-label">অর্ধবার্ষিক পরীক্ষার সিলেবাস এই পর্যন্ত</span><span aria-hidden="true" class="flex-1 border-t-2 border-dashed border-primary"></span><span class="text-caption text-text-secondary">পাঠ ১–২৪ · ১৮টি পড়ানো হয়েছে</span><button type="button" aria-label="চিহ্ন সম্পাদনা" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-muted md:size-8"><i data-lucide="pencil" class="size-4"></i></button></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <!-- /PATTERN -->
+        </section>
+
       </div>
     </main>
 </div>

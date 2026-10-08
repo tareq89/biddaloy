@@ -27,7 +27,7 @@ export function ProgressBar({ done, total, label }: ProgressBarProps) {
       >
         <div className="h-full rounded-full bg-primary" style={{ width: `${percent}%` }} />
       </div>
-      <span className="text-xs text-muted-foreground">{label}</span>
+      <span className="text-caption text-text-secondary">{label}</span>
     </div>
   );
 }
