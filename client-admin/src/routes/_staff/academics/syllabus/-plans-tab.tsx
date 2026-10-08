@@ -36,7 +36,7 @@ import {
   type PageAction,
 } from '@biddaloy/ui/shells';
 import { formatDate, formatNumber, toIsoDate } from '@biddaloy/ui/utils';
-import { DownloadIcon, TriangleAlertIcon } from 'lucide-react';
+import { DownloadIcon, PlusIcon, TriangleAlertIcon } from 'lucide-react';
 import * as React from 'react';
 
 import { subjectName } from '../homework/-subject-name';
@@ -89,9 +89,27 @@ function usePlansScope() {
 
 /** The page header for the plans tab: subtitle + "Progress CSV". Mounted only on that tab, so the
  * Topics tab makes no plan requests. */
-export function PlansPageHeader({ title }: { title: string }) {
+export function PlansPageHeader({
+  title,
+  onCreate,
+}: {
+  title: string;
+  onCreate?: (() => void) | undefined;
+}) {
+  const { t } = useTranslation('studyPlans');
   const { subtitle, actions } = usePlansHeader();
-  return <PageHeader title={title} subtitle={subtitle} actions={actions} />;
+  const create: PageAction[] = onCreate
+    ? [
+        {
+          id: 'newPlan',
+          label: t('list.newPlan'),
+          icon: <PlusIcon />,
+          priority: 'primary',
+          onClick: onCreate,
+        },
+      ]
+    : [];
+  return <PageHeader title={title} subtitle={subtitle} actions={[...create, ...actions]} />;
 }
 
 function usePlansHeader(): {
@@ -135,7 +153,7 @@ function usePlansHeader(): {
   };
 }
 
-export function PlansTab() {
+export function PlansTab({ onCreate }: { onCreate?: (() => void) | undefined }) {
   const { t, i18n } = useTranslation('studyPlans');
   const { t: tCommon } = useTranslation('common');
   const regionConfig = useTenantRegionConfig();
@@ -363,6 +381,7 @@ export function PlansTab() {
             emptyState={{
               title: t('list.emptyTitle'),
               explanation: t('list.emptyExplanation'),
+              ...(onCreate ? { action: { label: t('list.newPlan'), onClick: onCreate } } : {}),
             }}
           />
           {sorting.id === 'behind_periods' && sorting.desc && (

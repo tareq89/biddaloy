@@ -15,6 +15,7 @@ import { z } from 'zod';
 
 import { loadRouteNamespaces } from '../../../../route-loaders';
 
+import { CreatePlanWizard } from './-create-plan/create-plan-wizard';
 import { PlansPageHeader, PlansTab } from './-plans-tab';
 import { TopicsTab, useTopicsSelection } from './-topics-tab';
 
@@ -38,6 +39,11 @@ const syllabusSearchSchema = z.object({
   // `?behind=1` parses to a number, so accept both.
   behind: z.union([z.string(), z.number()]).transform(String).optional().catch(undefined),
   q: optionalString,
+  // One-shot flags: `?new=1` opens the create wizard (TanStack parses it to a number);
+  // `?template=<id>` opens it on that library template.
+  new: z.union([z.string(), z.number()]).optional().catch(undefined),
+  template: optionalString,
+  step: optionalString,
 });
 
 export const Route = createFileRoute('/_staff/academics/syllabus/')({
@@ -55,6 +61,24 @@ function SyllabusPage() {
   const canManage = useHasPermission(Permission.SYLLABUS_MANAGE);
   const [createOpen, setCreateOpen] = React.useState(false);
   const { hasSelection } = useTopicsSelection(search);
+
+  const wizardOpen = tab === 'plans' && search.new !== undefined && canManage;
+  // A user without SYLLABUS_MANAGE gets no wizard and no stray `new`.
+  React.useEffect(() => {
+    if (search.new === undefined || canManage) return;
+    void navigate({
+      search: (prev) => ({ ...prev, new: undefined, template: undefined, step: undefined }),
+      replace: true,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per flag
+  }, [search.new, canManage]);
+
+  const openWizard = () => void navigate({ search: (prev) => ({ ...prev, tab: 'plans', new: 1 }) });
+  const closeWizard = () =>
+    void navigate({
+      search: (prev) => ({ ...prev, new: undefined, template: undefined, step: undefined }),
+      replace: true,
+    });
 
   function pick(key: 'class_id' | 'subject_id', value: string) {
     void navigate({ search: (prev) => ({ ...prev, [key]: value }), replace: true });
@@ -74,7 +98,7 @@ function SyllabusPage() {
   return (
     <PageContainer>
       {tab === 'plans' ? (
-        <PlansPageHeader title={t('list.title')} />
+        <PlansPageHeader title={t('list.title')} onCreate={canManage ? openWizard : undefined} />
       ) : (
         <PageHeader title={t('list.title')} subtitle={t('list.subtitle')} actions={topicsActions} />
       )}
@@ -101,9 +125,20 @@ function SyllabusPage() {
           />
         </TabsContent>
         <TabsContent value="plans" className="space-y-4 pt-4 md:pt-6">
-          <PlansTab />
+          <PlansTab onCreate={canManage ? openWizard : undefined} />
         </TabsContent>
       </Tabs>
+      {wizardOpen && (
+        <CreatePlanWizard
+          onCloseFallback={closeWizard}
+          template={search.template}
+          prefill={{
+            classId: search.plan_class,
+            subjectId: search.plan_subject,
+            termId: search.plan_term,
+          }}
+        />
+      )}
     </PageContainer>
   );
 }
