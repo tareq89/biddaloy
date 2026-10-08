@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 import {
   CommunicationMedium,
   CommunicationStatus,
@@ -41,7 +41,8 @@ export class AdminNoticeService {
     const { subject, body } = renderNotice(key, locale, { ...vars, school: school.name });
 
     const admins = await this.memberships.find({
-      where: { tenant_id: schoolId, role: UserRole.ADMIN },
+      // Explicit: a joined relation's soft-delete is not filtered on every TypeORM 0.3.x.
+      where: { tenant_id: schoolId, role: UserRole.ADMIN, user: { deleted_at: IsNull() } },
       relations: ['user'],
     });
 
