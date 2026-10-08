@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type {
   ApprovalMode,
+  DocumentsSettings,
   OrganisationSettings,
   PresetSettings,
   RoutineSettings,
@@ -61,5 +62,12 @@ export class SchoolSettingsReader {
     // Always present on a resolved `TenantSettings` — same invariant as
     // `feesApprovalMode`/`organisationVocabulary` above.
     return settings.routine!;
+  }
+
+  /** [48.1.03] The tenant's `settings.documents` — always present on a resolved
+   * `TenantSettings` (defaults via `DEFAULT_DOCUMENTS_SETTINGS`). */
+  async documentsSettings(tenantId: string): Promise<DocumentsSettings> {
+    const settings = await this.schoolsService.getResolvedSettings(tenantId);
+    return settings.documents!;
   }
 }

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { TENANT_SETTINGS_SCHEMA_VERSION } from '../dto/tenant-settings.dto';
 import {
+  DEFAULT_DOCUMENTS_SETTINGS,
   DEFAULT_ORGANISATION_SETTINGS,
   DEFAULT_ROUTINE_SETTINGS,
   DEFAULT_TENANT_SETTINGS,
@@ -21,6 +22,13 @@ describe('DEFAULT_ROUTINE_SETTINGS', () => {
     expect(DEFAULT_ROUTINE_SETTINGS).toEqual({
       defaultChangeoverMinutes: 5,
     });
+  });
+});
+
+describe('DEFAULT_DOCUMENTS_SETTINGS', () => {
+  it('never withholds the admit card by default, and is part of DEFAULT_TENANT_SETTINGS (48.1.03)', () => {
+    expect(DEFAULT_DOCUMENTS_SETTINGS).toEqual({ withholdAdmitCardForDues: false });
+    expect(DEFAULT_TENANT_SETTINGS.documents).toBe(DEFAULT_DOCUMENTS_SETTINGS);
   });
 });
 

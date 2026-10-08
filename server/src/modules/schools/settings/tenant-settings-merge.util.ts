@@ -51,6 +51,9 @@ function deepMergeOmittingUnset(existing: unknown, patch: unknown): unknown {
  * `region` is one dashboard section and is replaced wholesale when
  * present — the form that produces it always submits every field.
  *
+ * `routine`, `fees`, `evaluations` and `documents` are replaced wholesale when
+ * present (the forms always send the whole block).
+ *
  * `attendance` is shallow-merged: keys the patch omits (e.g. `shiftTimes`,
  * `periodAttendance`, which the older attendance form never sends) survive;
  * keys the patch sends replace the stored value whole.
@@ -84,6 +87,9 @@ export function mergeTenantSettings(
   if (patch.region !== undefined) {
     merged.region = patch.region;
   }
+
+  // [1811] Missing branch: a `routine` PATCH returned 200 and stored nothing.
+  if (patch.routine !== undefined) merged.routine = patch.routine;
 
   if (patch.attendance !== undefined) {
     merged.attendance = {
@@ -126,6 +132,9 @@ export function mergeTenantSettings(
   if (patch.evaluations !== undefined) {
     merged.evaluations = patch.evaluations;
   }
+
+  // [48.1.03] Wholesale replace, like `fees`/`evaluations`.
+  if (patch.documents !== undefined) merged.documents = patch.documents;
 
   return merged;
 }

@@ -3,13 +3,19 @@ import {
   DEFAULT_ATTENDANCE_SETTINGS,
   DEFAULT_AUTH_SETTINGS,
   DEFAULT_BACKUP_SETTINGS,
+  DEFAULT_DOCUMENTS_SETTINGS,
   DEFAULT_FEES_SETTINGS,
   DEFAULT_ORGANISATION_SETTINGS,
   DEFAULT_REGION_SETTINGS,
   DEFAULT_ROUTINE_SETTINGS,
 } from './tenant-settings-defaults';
-import { ApprovalMode } from '@biddaloy/shared';
-import type { EvaluationsSettings, RoutineSettings, TenantSettings } from '@biddaloy/shared';
+import { ApprovalMode, SERIAL_PREFIX_PATTERN } from '@biddaloy/shared';
+import type {
+  DocumentsSettings,
+  EvaluationsSettings,
+  RoutineSettings,
+  TenantSettings,
+} from '@biddaloy/shared';
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -176,6 +182,20 @@ export function resolveTenantSettings(stored: Record<string, unknown> | null): T
       ? { incidentSmsEnabled: storedEvaluations.incidentSmsEnabled }
       : undefined;
 
+  // [48.1.03] Always present. A hand-edited or restored row must not put junk
+  // on a printed certificate, so each field passes only if well-formed.
+  const storedDocuments = isPlainObject(stored?.documents) ? stored.documents : undefined;
+  const documents: DocumentsSettings = {
+    withholdAdmitCardForDues:
+      typeof storedDocuments?.withholdAdmitCardForDues === 'boolean'
+        ? storedDocuments.withholdAdmitCardForDues
+        : DEFAULT_DOCUMENTS_SETTINGS.withholdAdmitCardForDues,
+    ...(typeof storedDocuments?.serialPrefix === 'string' &&
+    SERIAL_PREFIX_PATTERN.test(storedDocuments.serialPrefix)
+      ? { serialPrefix: storedDocuments.serialPrefix }
+      : {}),
+  };
+
   return {
     version: TENANT_SETTINGS_SCHEMA_VERSION,
     region,
@@ -185,6 +205,7 @@ export function resolveTenantSettings(stored: Record<string, unknown> | null): T
     auth,
     backup,
     fees,
+    documents,
     ...(communications ? { communications } : {}),
     ...(preset ? { preset } : {}),
     ...(evaluations ? { evaluations } : {}),

@@ -188,6 +188,28 @@ describe('resolveTenantSettings', () => {
     });
   });
 
+  describe('documents (48.1.03)', () => {
+    it('is always present, defaulting withholdAdmitCardForDues to false', () => {
+      expect(resolveTenantSettings({}).documents).toEqual({ withholdAdmitCardForDues: false });
+    });
+
+    it('keeps a valid stored prefix and boolean', () => {
+      expect(
+        resolveTenantSettings({
+          documents: { withholdAdmitCardForDues: true, serialPrefix: 'DAHS' },
+        }).documents,
+      ).toEqual({ withholdAdmitCardForDues: true, serialPrefix: 'DAHS' });
+    });
+
+    it('drops a malformed prefix and a non-boolean flag', () => {
+      expect(
+        resolveTenantSettings({
+          documents: { withholdAdmitCardForDues: 'true', serialPrefix: 'bad prefix' },
+        }).documents,
+      ).toEqual({ withholdAdmitCardForDues: false });
+    });
+  });
+
   describe('fees.approvalMode (16.2.1)', () => {
     it('stored {} resolves to the default OTP', () => {
       expect(resolveTenantSettings({}).fees?.approvalMode).toBe('OTP');

@@ -13,6 +13,20 @@ function buildReader(feesApprovalMode: string) {
   return { reader: new SchoolSettingsReader(schoolsService), schoolsService };
 }
 
+describe('SchoolSettingsReader.documentsSettings [48.1.03]', () => {
+  it('returns the resolved settings.documents block', async () => {
+    const documents = { withholdAdmitCardForDues: true, serialPrefix: 'DAHS' };
+    const schoolsService = {
+      getResolvedSettings: vi.fn().mockResolvedValue({ version: 1, documents }),
+    } as unknown as SchoolsService;
+
+    expect(await new SchoolSettingsReader(schoolsService).documentsSettings('tenant-1')).toEqual(
+      documents,
+    );
+    expect(schoolsService.getResolvedSettings).toHaveBeenCalledWith('tenant-1');
+  });
+});
+
 describe('SchoolSettingsReader.feesApprovalMode [16.2.1]', () => {
   it('returns the tenant’s resolved settings.fees.approvalMode', async () => {
     const { reader, schoolsService } = buildReader('OTP_OR_PASSWORD');
