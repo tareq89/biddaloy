@@ -340,7 +340,8 @@ export function PrintPreview({
       title={t('title')}
       size="wide"
       onClose={onClose}
-      dirty={started && confirmed < batches.length}
+      // A pending reprint (after the last batch was confirmed) still needs its answer.
+      dirty={pending !== null || (started && confirmed < batches.length)}
       {...(onBack
         ? {
             secondary: {
