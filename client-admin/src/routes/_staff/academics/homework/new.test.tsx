@@ -284,6 +284,8 @@ describe('/academics/homework/new', () => {
     await user.click(screen.getByRole('button', { name: 'Give homework' }));
 
     expect(await screen.findByText(/Due date must be on or after/i)).toBeTruthy();
+    // The only error is the date's, so focus moves to its picker, not left on the button.
+    expect(document.activeElement?.id).toBe('homework-form-due');
     expect(assignCount).toBe(0);
   });
 
