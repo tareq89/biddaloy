@@ -1363,6 +1363,7 @@ describe('SchoolsService', () => {
     function buildService(school: {
       id: string;
       status: 'ACTIVE' | 'SUSPENDED';
+      status_reason?: string | null;
       trial_ends_at?: Date | null;
       seat_limit?: number | null;
     }) {
