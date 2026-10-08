@@ -119,6 +119,39 @@ export const Bangla: Story = {
   },
 };
 
+/** A fixed sentence with {{field}} placeholders filled from the values (D43). */
+export const CertificateSentence: Story = {
+  args: {
+    ...common,
+    values: {
+      ...VALUES,
+      'student.name_bn': 'মোহাম্মদ আব্দুর রহমান আল-মাহমুদুর রশিদ চৌধুরী',
+      'student.father_name': 'মোহাম্মদ আব্দুল করিম আল-মাহমুদ চৌধুরী',
+    },
+    definition: {
+      page: { widthMm: 210, heightMm: 297, sides: ['front'] },
+      front: {
+        elements: [
+          {
+            ...text(
+              's',
+              undefined as unknown as string,
+              20,
+              40,
+              170,
+              40,
+              'WRAP',
+              'Noto Serif Bengali',
+            ),
+            field: undefined,
+            text: 'এই মর্মে প্রত্যয়ন করা যাচ্ছে যে, {{student.name_bn}}, পিতা {{student.father_name}} আমাদের প্রতিষ্ঠানের একজন নিয়মিত শিক্ষার্থী।',
+          },
+        ],
+      },
+    },
+  },
+};
+
 /** 10 CR80 cards on one A4 sheet with crop marks. */
 export const A4Imposition: Story = {
   render: () => {

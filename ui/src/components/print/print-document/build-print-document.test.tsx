@@ -174,4 +174,22 @@ describe('printShell hardening', () => {
     expect(html).toContain('translate(0mm,1mm) scale(0)');
     expect(html).not.toMatch(/NaN|Infinity/);
   });
+
+  it('prints filled placeholders, never raw braces', async () => {
+    const def = {
+      ...definition,
+      front: {
+        elements: [text('s', { text: 'Dear {{student.name}}, welcome', overflow: 'WRAP' })],
+      },
+    } as unknown as TemplateDefinition;
+    const html = await buildPrintDocument(
+      make({
+        definition: def,
+        cards: [cards[0]!],
+        sheets: layoutPages(def.page, { type: PrinterType.CARD }, 1, ['front', 'back']),
+      }),
+    );
+    expect(html).toContain('Dear Alice, welcome');
+    expect(html).not.toContain('{{');
+  });
 });
