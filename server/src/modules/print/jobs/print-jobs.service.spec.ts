@@ -288,15 +288,36 @@ describe('PrintJobsService', () => {
   });
 
   it('family create: job CONFIRMED, items OK, no role check', async () => {
-    template.document_kind = 'TESTIMONIAL';
-    const { svc, manager } = setup('TESTIMONIAL');
+    template.document_kind = 'EXAM_ADMIT_CARD';
+    const { svc, manager } = setup('EXAM_ADMIT_CARD');
     // A parent has no staff role at all; assertLinked already vouched for them.
-    const res = await svc.create({ ...caller, role: 'PARENT' }, dto([A]), { family: true });
+    const res = await svc.create(
+      { ...caller, role: 'PARENT' },
+      { ...dto([A]), context_type: 'EXAM', context_id: B },
+      { family: true },
+    );
     const saved = manager.save.mock.calls.map((c) => c[0] as any);
     expect(saved.find((x) => x.status)).toMatchObject({ status: 'CONFIRMED' });
     expect(saved.find((x) => x.status).confirmed_at).toBeInstanceOf(Date);
     expect(saved.find((x) => x.job_id)).toMatchObject({ outcome: 'OK' });
     expect(res.items).toHaveLength(1);
+  });
+
+  // Security: `family: true` skips the staff permission check, so only the allow-listed kind
+  // may pass. A crafted template_id for any other kind must be refused before any job row exists.
+  it.each([
+    ['STUDENT_ID_CARD', 'STUDENT'],
+    ['STAFF_ID_CARD', 'STAFF'],
+    ['ACR_ASSESSMENT', 'ACR'],
+    ['TESTIMONIAL', 'STUDENT'],
+    ['TRANSFER_CERTIFICATE', 'STUDENT'],
+  ])('family create of a %s template is 403 and writes nothing', async (kind, type) => {
+    template.document_kind = kind;
+    const { svc, manager } = setup(kind as keyof typeof RESOLVERS);
+    await expect(
+      svc.create({ ...caller, role: 'PARENT' }, dto([A], type as any), { family: true }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(manager.save).not.toHaveBeenCalled();
   });
 
   describe('issue_values (D3, D43)', () => {
