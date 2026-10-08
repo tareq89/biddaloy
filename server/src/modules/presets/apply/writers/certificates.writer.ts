@@ -3,8 +3,11 @@ import { readFile } from 'node:fs/promises';
 import { Logger } from '@nestjs/common';
 import { IsNull } from 'typeorm';
 import { DocumentKind, PrintAssetKind, validateTemplateDefinition } from '@biddaloy/shared';
-import type { PresetCertificateKind, TemplateDefinition } from '@biddaloy/shared';
+import type { PresetCertificateKind, PresetPack, TemplateDefinition } from '@biddaloy/shared';
 import { tenantObjectKey } from '../../../storage/storage-key';
+import type { StorageService } from '../../../storage/storage.service';
+import { School } from '../../../schools/entities/school.entity';
+import { DEFAULT_REGION_SETTINGS } from '../../../schools/settings/tenant-settings-defaults';
 import { PrintAsset } from '../../../print/entities/print-asset.entity';
 import { PrintTemplate } from '../../../print/entities/print-template.entity';
 import { PrintTemplateVersion } from '../../../print/entities/print-template-version.entity';
@@ -13,7 +16,7 @@ import {
   PRINT_SUGGESTIONS,
   type ArtworkSide,
 } from '../../../print/suggestions/suggestions';
-import type { ApplyWriter } from '../apply-context';
+import type { ApplyWriter, CertificateArtwork } from '../apply-context';
 
 type Lang = 'bn' | 'en';
 
@@ -39,19 +42,70 @@ const CERTS: Partial<
 };
 
 const SIDES: ArtworkSide[] = ['front', 'back'];
+const LANGS = ['bn', 'en'] as const;
 const logger = new Logger('PresetCertificatesWriter');
 
+const artworkKey = (suggestionKey: string, side: ArtworkSide) => `${suggestionKey}/${side}`;
+
+function suggestionFor(slug: string, lang: Lang) {
+  const suggestion = PRINT_SUGGESTIONS.find((s) => s.key === `${slug}-a4-${lang}`);
+  if (!suggestion) throw new Error(`Missing print suggestion ${slug}-a4-${lang}`);
+  return suggestion;
+}
+
 /**
- * Published bn + en print templates for each certificate kind the pack lists; the pack's language is the default.
- * Artwork goes to storage before the rows (same rule as PrintTemplatesService.create): a rolled-back apply leaves
- * only unreferenced objects. Reset leaves templates alone; a kind that already has a live template is skipped.
+ * Uploads every artwork file the pack's certificates need. PresetApplyService calls it BEFORE its transaction
+ * (same rule as PrintTemplatesService.create), so no storage round-trip runs under the school row lock and a
+ * rolled-back apply leaves only unreferenced objects.
+ * ponytail: also uploads for kinds the writer then skips (already have a live template, e.g. re-apply after
+ * reset) -> a few orphaned SVGs; pre-check live kinds here if that ever matters.
+ */
+export async function uploadCertificateArtwork(
+  pack: PresetPack,
+  tenantId: string,
+  storage: Pick<StorageService, 'put'>,
+): Promise<Map<string, CertificateArtwork>> {
+  const out = new Map<string, CertificateArtwork>();
+  for (const packKind of pack.certificates) {
+    const cert = CERTS[packKind];
+    if (!cert) continue;
+    for (const lang of LANGS) {
+      const suggestion = suggestionFor(cert.slug, lang);
+      for (const side of SIDES) {
+        const file = suggestion.artwork[side];
+        if (!file) continue;
+        const body = await readFile(join(ARTWORK_DIR, file));
+        const storage_key = tenantObjectKey(tenantId, 'print-artwork', 'svg');
+        await storage.put(storage_key, body, 'image/svg+xml');
+        out.set(artworkKey(suggestion.key, side), {
+          storage_key,
+          byte_size: body.length,
+          original_name: file,
+        });
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * Published bn + en print templates for each certificate kind the pack lists; the school's language is the
+ * default. Artwork is already in storage (`ctx.artwork`, see uploadCertificateArtwork). Reset leaves templates
+ * alone; a kind that already has a live template is skipped.
  */
 export const writeCertificates: ApplyWriter = async (ctx) => {
   const { manager, tenantId, userId } = ctx;
   const templates = manager.getRepository(PrintTemplate);
   const assets = manager.getRepository(PrintAsset);
   const versions = manager.getRepository(PrintTemplateVersion);
-  const defaultLang: Lang = ctx.pack.region?.locale?.startsWith('bn') ? 'bn' : 'en';
+  // Same merge as the settings writer: a pack without a locale (Alia, Qawmi) keeps the school's / default bn-BD.
+  const school = await manager.getRepository(School).findOne({ where: { id: tenantId } });
+  const { locale } = {
+    ...DEFAULT_REGION_SETTINGS,
+    ...(school?.settings?.region ?? {}),
+    ...(ctx.pack.region ?? {}),
+  };
+  const defaultLang: Lang = locale.startsWith('bn') ? 'bn' : 'en';
   let created = 0;
 
   for (const packKind of ctx.pack.certificates) {
@@ -65,27 +119,22 @@ export const writeCertificates: ApplyWriter = async (ctx) => {
       continue;
     }
 
-    for (const lang of ['bn', 'en'] as const) {
-      const suggestion = PRINT_SUGGESTIONS.find((s) => s.key === `${cert.slug}-a4-${lang}`);
-      if (!suggestion) throw new Error(`Missing print suggestion ${cert.slug}-a4-${lang}`);
+    for (const lang of LANGS) {
+      const suggestion = suggestionFor(cert.slug, lang);
 
       const saved: PrintAsset[] = [];
       for (const side of SIDES) {
-        const file = suggestion.artwork[side];
-        if (!file) continue;
-        const body = await readFile(join(ARTWORK_DIR, file));
-        const storage_key = tenantObjectKey(tenantId, 'print-artwork', 'svg');
-        await ctx.storage.put(storage_key, body, 'image/svg+xml');
+        if (!suggestion.artwork[side]) continue;
+        const art = ctx.artwork.get(artworkKey(suggestion.key, side));
+        if (!art) throw new Error(`Artwork ${suggestion.key}/${side} was not uploaded`);
         saved.push(
           await assets.save(
             assets.create({
               tenant_id: tenantId,
               asset_kind: PrintAssetKind.ARTWORK,
-              storage_key,
               content_type: 'image/svg+xml',
-              byte_size: body.length,
-              original_name: file,
               uploaded_by: userId,
+              ...art,
             }),
           ),
         );
