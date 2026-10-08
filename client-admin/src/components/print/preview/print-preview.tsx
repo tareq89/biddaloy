@@ -570,14 +570,26 @@ export function PrintPreview({
           open
           items={pending.items}
           onConfirm={async (failedItemIds) => {
-            await confirmJob.mutateAsync({ jobId: pending.jobId, failedItemIds });
+            await confirmJob.mutateAsync({
+              jobId: pending.jobId,
+              failedItemIds,
+              ...(template ? { kind: template.document_kind } : {}),
+            });
             // Only the batch's own job unlocks the next batch; a reprint of failures doesn't.
             if (!pending.isReprint) setConfirmed((n) => n + 1);
           }}
           onReprintFailed={(failedItemIds) => {
             const jobId = pending.jobId;
             setPending(null);
-            void startRun({ kind: 'reprint', jobId, itemIds: failedItemIds }, true);
+            void startRun(
+              {
+                kind: 'reprint',
+                jobId,
+                itemIds: failedItemIds,
+                ...(template ? { documentKind: template.document_kind } : {}),
+              },
+              true,
+            );
           }}
           onContinue={() => {
             setPending(null);
