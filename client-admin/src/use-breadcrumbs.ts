@@ -20,11 +20,12 @@ import {
   schoolsKeys,
   seatPlanDetailQueryOptions,
   studentQueryOptions,
+  studyPlanQueryOptions,
   surveyKeys,
   useEntityLabel,
   userQueryOptions,
 } from '@biddaloy/ui/hooks';
-import { useRegionConfig, useTranslation, type RegionConfig } from '@biddaloy/ui/i18n';
+import { i18n, useRegionConfig, useTranslation, type RegionConfig } from '@biddaloy/ui/i18n';
 import { formatDate, renderDigits } from '@biddaloy/ui/utils';
 import { useQueryClient, type QueryKey } from '@tanstack/react-query';
 import { useMatches } from '@tanstack/react-router';
@@ -34,6 +35,7 @@ import { applicantQueryOptions } from './features/admission/hooks/useApplicants'
 import { intakeQueryOptions } from './features/admission/hooks/useIntakes';
 import { STAFF_NAV_ITEMS, type StaffNavLabel } from './nav-tree';
 import { ROUTE_CRUMBS, type RouteCrumbs } from './route-crumbs';
+import { studyPlanTitle } from './routes/_staff/academics/study-plans/-detail/plan-title';
 import { examTemplateQueryOptions } from './routes/_staff/exams/-use-exam-templates';
 
 /**
@@ -148,6 +150,19 @@ export const ENTITY_RESOLVERS: Record<string, EntityResolver> = {
   homeworkDetail: {
     queryKeys: (id) => [homeworkQueryOptions(id).queryKey],
     getName: byField('title'),
+  },
+  // [66.2] Same "<section> · <subject> · <term>" string as the page's h1.
+  studyPlanDetail: {
+    queryKeys: (id) => [studyPlanQueryOptions(id).queryKey],
+    getName: (data, _id, ctx) => {
+      const plan = data as Parameters<typeof studyPlanTitle>[0] | undefined;
+      if (!plan?.section || !plan.subject) return undefined;
+      return studyPlanTitle(
+        plan,
+        ctx.language,
+        i18n.t('list.filters.wholeYear', { ns: 'studyPlans', lng: ctx.language }),
+      );
+    },
   },
   gradingScaleDetail: {
     queryKeys: (id) => [gradingScaleQueryOptions(id).queryKey],

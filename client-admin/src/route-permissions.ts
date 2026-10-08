@@ -107,6 +107,7 @@ export const STAFF_ROUTE_PERMISSIONS: Record<string, Permission> = {
   '/_staff/academics/homework/$homeworkId': Permission.HOMEWORK_READ,
   '/_staff/academics/homework/import': Permission.HOMEWORK_IMPORT,
   '/_staff/academics/syllabus/': Permission.SYLLABUS_READ,
+  '/_staff/academics/study-plans/$planId': Permission.SYLLABUS_READ,
   '/_staff/grading-scales/': Permission.GRADING_SCALE_MANAGE,
   '/_staff/grading-scales/$scaleId': Permission.GRADING_SCALE_MANAGE,
   // [27.9] Staff intakes screen — blanket-gated on ADMISSION_REVIEW, same

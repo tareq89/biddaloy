@@ -64,6 +64,7 @@ export const NOT_IN_NAV: Record<string, string> = {
   '/_staff/academics/homework/new':
     'action reached from the homework list and the command palette, not its own nav item',
   '/_staff/academics/homework/$homeworkId': 'detail route reached from the homework list',
+  '/_staff/academics/study-plans/$planId': 'detail route reached from the study plans tab',
   '/_staff/academics/homework/import':
     'action reached from the homework list and the command palette, not its own nav item',
   '/_staff/exams/$examId': 'detail route reached from the exams list',
