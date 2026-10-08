@@ -1,6 +1,11 @@
 import type { EntityManager } from 'typeorm';
-import type { StorageService } from '../../storage/storage.service';
 import type { PresetApplyOptions, PresetPack } from '@biddaloy/shared';
+
+export interface CertificateArtwork {
+  storage_key: string;
+  byte_size: number;
+  original_name: string;
+}
 
 export interface ApplyContext {
   manager: EntityManager;
@@ -8,8 +13,8 @@ export interface ApplyContext {
   userId: string;
   pack: PresetPack;
   options: PresetApplyOptions;
-  /** Object storage; only the certificates writer uses it. */
-  storage: Pick<StorageService, 'put'>;
+  /** Certificate artwork uploaded before the transaction, keyed `<suggestion key>/<side>`. */
+  artwork: Map<string, CertificateArtwork>;
   ids: {
     yearId?: string;
     /** keyed by `keyOf(numericGrade, version)` */

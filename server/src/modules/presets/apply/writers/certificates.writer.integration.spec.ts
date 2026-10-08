@@ -13,7 +13,8 @@ import { School } from '../../../schools/entities/school.entity';
 import { User } from '../../../users/entities/user.entity';
 import { PrintTemplate } from '../../../print/entities/print-template.entity';
 import { PrintTemplateVersion } from '../../../print/entities/print-template-version.entity';
-import { writeCertificates } from './certificates.writer';
+import { ALIA_PACK } from '../../packs/bd/alia-madrasa';
+import { uploadCertificateArtwork, writeCertificates } from './certificates.writer';
 
 describe('writeCertificates (integration)', () => {
   let ds: DataSource;
@@ -48,6 +49,12 @@ describe('writeCertificates (integration)', () => {
     const tenantId = await newSchool();
     await before?.(tenantId);
     const puts: string[] = [];
+    const storage = {
+      put: async (key: string) => {
+        puts.push(key);
+      },
+    } as never;
+    const artwork = await uploadCertificateArtwork(pack, tenantId, storage);
     const counts = await ds.transaction((manager) => {
       const ctx: ApplyContext = {
         manager,
@@ -55,11 +62,7 @@ describe('writeCertificates (integration)', () => {
         userId,
         pack,
         options: { presetId: pack.id, startYear: 2026, stages: [], versions: [] },
-        storage: {
-          put: async (key: string) => {
-            puts.push(key);
-          },
-        } as never,
+        artwork,
         ids: {
           classIdByKey: new Map(),
           subjectIdByCode: new Map(),
@@ -109,6 +112,17 @@ describe('writeCertificates (integration)', () => {
     expect(counts).toEqual({ print_templates: 2 });
     const rows = await live(tenantId);
     expect(rows.filter((r) => r.is_default).map((r) => r.name)).toEqual(['Testimonial (English)']);
+  });
+
+  it('Alia (pack has no locale): the Bangla template is the default (#1984)', async () => {
+    const { tenantId } = await run(ALIA_PACK);
+    const rows = await live(tenantId);
+    expect(
+      rows
+        .filter((r) => r.is_default)
+        .map((r) => r.name)
+        .sort(),
+    ).toEqual(['চারিত্রিক সনদপত্র (বাংলা)', 'প্রশংসাপত্র (বাংলা)', 'ছাড়পত্র (বাংলা)'].sort());
   });
 
   it('TRANSCRIPT only: nothing created, no storage call', async () => {

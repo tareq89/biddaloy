@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, Injectable } from '@nestjs/common';
-import { DataSource } from 'typeorm';
+import { DataSource, type EntityManager } from 'typeorm';
 import { AuditAction } from '@biddaloy/shared';
 import type { PresetApplyOptions, PresetApplyResult } from '@biddaloy/shared';
 import { StorageService } from '../storage/storage.service';
@@ -9,7 +9,7 @@ import { School } from '../schools/entities/school.entity';
 import { TenantSettingsCache } from '../schools/settings/tenant-settings-cache.service';
 import { PresetRegistryService } from './preset-registry.service';
 import { countRows, FRESH_TENANT_ENTITIES } from './preset-blockers';
-import { writeCertificates } from './apply/writers/certificates.writer';
+import { uploadCertificateArtwork, writeCertificates } from './apply/writers/certificates.writer';
 import type { ApplyContext, ApplyWriter } from './apply/apply-context';
 import { writeSettings } from './apply/writers/settings.writer';
 import { writeYear } from './apply/writers/year.writer';
@@ -31,7 +31,7 @@ const WRITERS: ApplyWriter[] = [
   writeGradingScale,
   writeTerms,
   writeExamTemplates,
-  writeCertificates, // last: a storage hiccup then costs the least work
+  writeCertificates,
 ];
 
 /** The exact keys `created` always carries (writers that create nothing report 0). */
@@ -96,29 +96,13 @@ export class PresetApplyService {
       versions,
     };
 
-    const created = await this.dataSource.transaction(async (manager) => {
-      // Lock the school row FIRST so two concurrent applies serialise here.
-      // ponytail: manual creates (classes, subjects...) take no school lock, so an apply racing
-      // one of them is not fully serialised; add the lock to those paths if it ever matters.
-      const school = await manager
-        .getRepository(School)
-        .createQueryBuilder('school')
-        .where('school.id = :id', { id: tenantId })
-        .setLock('pessimistic_write')
-        .getOne();
-      if (!school) throw new BadRequestException('School not found');
+    // Fast-fail before uploading anything, so a refused apply leaves no stray artwork in storage.
+    await this.dataSource.transaction((manager) => this.assertFresh(manager, tenantId));
+    // Storage round-trips stay outside the transaction (no I/O under the school row lock).
+    const artwork = await uploadCertificateArtwork(pack, tenantId, this.storage);
 
-      // Stored preset read from the LOCKED row, never the cached settings reader.
-      const stored = (school.settings as { preset?: unknown } | null)?.preset;
-      const blockers = (await countRows(manager, tenantId, FRESH_TENANT_ENTITIES)).filter(
-        (c) => c.count > 0,
-      );
-      if (stored || blockers.length) {
-        throw new ConflictException({
-          message: 'A curriculum preset can only be applied to a fresh school',
-          details: { code: 'PRESET_NOT_FRESH', blockers },
-        });
-      }
+    const created = await this.dataSource.transaction(async (manager) => {
+      await this.assertFresh(manager, tenantId);
 
       const ctx: ApplyContext = {
         manager,
@@ -126,7 +110,7 @@ export class PresetApplyService {
         userId,
         pack,
         options,
-        storage: this.storage,
+        artwork,
         ids: {
           classIdByKey: new Map(),
           subjectIdByCode: new Map(),
@@ -159,5 +143,31 @@ export class PresetApplyService {
     // After commit only: a rolled-back apply must not evict a still-valid cache entry.
     this.settingsCache.invalidate(tenantId);
     return { created };
+  }
+
+  /** Refuses a school that already has a preset or academic rows. Call inside a transaction. */
+  private async assertFresh(manager: EntityManager, tenantId: string): Promise<void> {
+    // Lock the school row FIRST so two concurrent applies serialise here.
+    // ponytail: manual creates (classes, subjects...) take no school lock, so an apply racing
+    // one of them is not fully serialised; add the lock to those paths if it ever matters.
+    const school = await manager
+      .getRepository(School)
+      .createQueryBuilder('school')
+      .where('school.id = :id', { id: tenantId })
+      .setLock('pessimistic_write')
+      .getOne();
+    if (!school) throw new BadRequestException('School not found');
+
+    // Stored preset read from the LOCKED row, never the cached settings reader.
+    const stored = (school.settings as { preset?: unknown } | null)?.preset;
+    const blockers = (await countRows(manager, tenantId, FRESH_TENANT_ENTITIES)).filter(
+      (c) => c.count > 0,
+    );
+    if (stored || blockers.length) {
+      throw new ConflictException({
+        message: 'A curriculum preset can only be applied to a fresh school',
+        details: { code: 'PRESET_NOT_FRESH', blockers },
+      });
+    }
   }
 }

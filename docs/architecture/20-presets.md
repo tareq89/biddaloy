@@ -549,10 +549,15 @@ fix the data, delete the list, and change the flag in the same PR.
 - **Certificates become real print templates.** The pack lists kinds
   (`TESTIMONIAL`, `TRANSCRIPT`, `CHARACTER`, `TRANSFER`). Apply creates a
   published Bangla and a published English template for each kind that has a
-  ready-made design. The one matching the pack's language is the default; the
-  issuer picks the other at issue time. Reset leaves the templates in place, and
-  a re-apply skips any kind that already has a live template, so nothing is
-  duplicated.
+  ready-made design. The one matching the school's language is the default;
+  the issuer picks the other at issue time. "The school's language" is the
+  same merged locale the settings step writes: the pack's `region.locale`, else
+  the school's stored locale, else `bn-BD`. So Alia and Qawmi (no `locale` in
+  the pack) default to Bangla. Reset leaves the templates in place, and a
+  re-apply skips any kind that already has a live template, so nothing is
+  duplicated. The artwork files are uploaded to storage **before** the apply
+  transaction opens (no storage calls while the school row is locked); a
+  rolled-back apply leaves only unreferenced files.
 
   | Pack value    | Print kind              | Templates created                        |
   | ------------- | ----------------------- | ---------------------------------------- |

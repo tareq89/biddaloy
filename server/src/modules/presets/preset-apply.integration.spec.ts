@@ -17,6 +17,7 @@ import { GradingScale } from '../grading/entities/grading-scale.entity';
 import { ExamTemplate } from '../exams/entities/exam-template.entity';
 import { StorageService } from '../storage/storage.service';
 import { PrintTemplate } from '../print/entities/print-template.entity';
+import { PrintAsset } from '../print/entities/print-asset.entity';
 import * as shared from '@biddaloy/shared';
 import { PresetApplyService } from './preset-apply.service';
 import { PresetRegistryService } from './preset-registry.service';
@@ -112,7 +113,7 @@ describe('PresetApplyService (integration)', () => {
       gradingBands: 3,
       examTemplates: 1,
       examTemplateComponents: 1,
-      printTemplates: 0, // the fixture pack lists no certificates
+      printTemplates: 2, // the fixture pack lists TESTIMONIAL -> bn + en
     });
     expect((await presetOf(a)).id).toBe('test/pack');
     expect(await rows(a)).toMatchObject({ classes: 3, years: 1, audits: 1 });
@@ -198,26 +199,32 @@ describe('PresetApplyService (integration)', () => {
     expect(await rows(t)).toMatchObject({ classes: 3, years: 1, audits: 1 });
   });
 
-  it('certificates: NCTB creates 6 templates; a broken ready-made design rolls the whole apply back', async () => {
+  it('certificates: all four kinds create 6 templates; a broken ready-made design rolls the whole apply back', async () => {
+    const packs = registry.packs;
     registry.packs = [
       { ...makeTestPack(), certificates: ['TESTIMONIAL', 'TRANSCRIPT', 'CHARACTER', 'TRANSFER'] },
     ];
-    const a = await newSchool();
-    const { created } = await svc.apply(a, uid, dto);
-    expect(created.printTemplates).toBe(6);
-    expect(await ds.getRepository(PrintTemplate).countBy({ tenant_id: a })).toBe(6);
-
-    // Writer is last, so make validation fail for the second template: everything must roll back.
-    const t = await newSchool();
     const real = shared.validateTemplateDefinition;
-    let calls = 0;
-    const spy = vi.spyOn(shared, 'validateTemplateDefinition').mockImplementation((...args) => {
-      calls += 1;
-      return calls === 2 ? { success: false, errors: ['boom'] } : real(...args);
-    });
-    await expect(svc.apply(t, uid, dto)).rejects.toThrow('boom');
-    spy.mockRestore();
-    expect(await ds.getRepository(PrintTemplate).countBy({ tenant_id: t })).toBe(0);
-    expect(await rows(t)).toMatchObject({ classes: 0, years: 0, audits: 0 });
+    try {
+      const a = await newSchool();
+      const { created } = await svc.apply(a, uid, dto);
+      expect(created.printTemplates).toBe(6);
+      expect(await ds.getRepository(PrintTemplate).countBy({ tenant_id: a })).toBe(6);
+
+      // Writer is last, so make validation fail for the second template: everything must roll back.
+      const t = await newSchool();
+      let calls = 0;
+      vi.spyOn(shared, 'validateTemplateDefinition').mockImplementation((...args) => {
+        calls += 1;
+        return calls === 2 ? { success: false, errors: ['boom'] } : real(...args);
+      });
+      await expect(svc.apply(t, uid, dto)).rejects.toThrow('boom');
+      expect(await ds.getRepository(PrintTemplate).countBy({ tenant_id: t })).toBe(0);
+      expect(await ds.getRepository(PrintAsset).countBy({ tenant_id: t })).toBe(0);
+      expect(await rows(t)).toMatchObject({ classes: 0, years: 0, audits: 0 });
+    } finally {
+      vi.restoreAllMocks();
+      registry.packs = packs;
+    }
   });
 });
