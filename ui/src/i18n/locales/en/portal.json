@@ -76,7 +76,8 @@
     "subjectsCaption": "{{name}} — marks by subject",
     "emptyTitle": "No results yet",
     "emptyExplanation": "Results appear here once the school publishes them.",
-    "printError": "Could not load this report card to print. Try again."
+    "printError": "Could not load this report card to print. Try again.",
+    "printLogError": "Could not record this print, so it was not printed. Try again."
   },
   "programs": {
     "title": "Programs",
