@@ -1,4 +1,12 @@
 export {
+  BlankMarksSheet,
+  ExamRoutineNotice,
+  type BlankMarksSheetProps,
+  type ExamRoutineNoticeProps,
+  type MarksSheetPage,
+  type RoutineRow,
+} from './exam-sheets';
+export {
   InvigilatorSheet,
   SeatListSheet,
   SeatStickerSheet,
