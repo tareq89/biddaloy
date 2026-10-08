@@ -22,6 +22,8 @@ export interface KindStepProps {
   onChange: (kind: DocumentKind) => void;
   availability: Record<string, KindAvailability>;
   canManageTemplates: boolean;
+  /** STUDENT_LIFECYCLE_MANAGE: only then is "Record leaving" offered (it opens the Leave dialog). */
+  canManageLifecycle: boolean;
   onRecordLeaving: () => void;
 }
 
@@ -30,6 +32,7 @@ export function KindStep({
   onChange,
   availability,
   canManageTemplates,
+  canManageLifecycle,
   onRecordLeaving,
 }: KindStepProps) {
   const { t } = useTranslation('certificates');
@@ -59,7 +62,7 @@ export function KindStep({
       <ul className="flex flex-col gap-1">
         {STUDENT_CERTIFICATE_KINDS.map((kind) => {
           const reason = blocked(kind);
-          if (reason === 'NO_LEAVING_EVENT') {
+          if (reason === 'NO_LEAVING_EVENT' && canManageLifecycle) {
             return (
               <li key={kind}>
                 <Button type="button" variant="link" onClick={onRecordLeaving}>
