@@ -6,10 +6,11 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { Permission } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
@@ -41,9 +42,13 @@ export class SeatPlansController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'List seat plans for the current tenant.' })
-  async findAll(@CurrentTenant() tenant: { id: string }) {
-    return this.seatPlans.findAll(tenant.id);
+  @ApiOperation({ summary: 'List seat plans for the current tenant, optionally of one exam.' })
+  @ApiQuery({ name: 'exam_id', required: false })
+  async findAll(
+    @CurrentTenant() tenant: { id: string },
+    @Query('exam_id', new ParseUUIDPipe({ optional: true })) examId?: string,
+  ) {
+    return this.seatPlans.findAll(tenant.id, { examId });
   }
 
   @Get(':id')

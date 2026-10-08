@@ -39,7 +39,13 @@ describe('FamilyAdmitCardService (integration)', () => {
       { record: async () => undefined } as any,
       settings,
     );
-    service = new FamilyAdmitCardService(ds, jobs, { getDueSnapshots } as any, settings);
+    const assets: any = {
+      getFile: async (id: string) => ({
+        asset: { content_type: 'image/svg+xml' },
+        object: { body: id },
+      }),
+    };
+    service = new FamilyAdmitCardService(ds, jobs, { getDueSnapshots } as any, settings, assets);
   });
 
   afterAll(async () => {
@@ -47,7 +53,7 @@ describe('FamilyAdmitCardService (integration)', () => {
   });
 
   /** A published default EXAM_ADMIT_CARD template (kind configurable, to prove lookup is by kind). */
-  const template = async (kind = 'EXAM_ADMIT_CARD', isDefault = true) => {
+  const template = async (kind = 'EXAM_ADMIT_CARD', isDefault = true, definition: object = {}) => {
     const id = await q(
       `INSERT INTO print_templates (tenant_id, document_kind, name, batch_size, draft, is_default)
        VALUES ($1, $2, $3, 10, '{}'::jsonb, $4) RETURNING id`,
@@ -55,8 +61,8 @@ describe('FamilyAdmitCardService (integration)', () => {
     );
     const v = await q(
       `INSERT INTO print_template_versions (tenant_id, template_id, version, definition)
-       VALUES ($1, $2, 1, '{}'::jsonb) RETURNING id`,
-      [tenantId, id],
+       VALUES ($1, $2, 1, $3::jsonb) RETURNING id`,
+      [tenantId, id, JSON.stringify(definition)],
     );
     await ds.query(`UPDATE print_templates SET current_version_id = $1 WHERE id = $2`, [v, id]);
     return id;
@@ -235,5 +241,54 @@ describe('FamilyAdmitCardService (integration)', () => {
       service.print({ id: other, role: 'PARENT' }, userId, studentId, examId),
     ).rejects.toBeInstanceOf(NotFoundException);
     expect(await itemCount()).toBe(0);
+  });
+
+  describe('assetFile', () => {
+    const art = randomUUID();
+    const font = randomUUID();
+    const definition = {
+      pages: [{ background: { assetId: art } }, { text: { style: { fontAssetId: font } } }],
+    };
+
+    it('a linked family gets artwork and font of the default admit card', async () => {
+      await template('EXAM_ADMIT_CARD', true, definition);
+      for (const id of [art, font]) {
+        const res = await service.assetFile(parent(), studentId, examId, id);
+        expect(res.asset.content_type).toBe('image/svg+xml');
+      }
+    });
+
+    it("404 for an asset the template does not use (another template's or tenant's)", async () => {
+      await template('EXAM_ADMIT_CARD', true, definition);
+      await template('STUDENT_ID_CARD', true, { background: { assetId: randomUUID() } });
+      await expect(
+        service.assetFile(parent(), studentId, examId, randomUUID()),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      const other = await seed();
+      await expect(
+        service.assetFile({ id: other, role: 'PARENT' }, studentId, examId, art),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('404 when there is no default admit-card template', async () => {
+      await expect(service.assetFile(parent(), studentId, examId, art)).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+    });
+
+    it('403 FAMILY_ONLY for staff', async () => {
+      await template('EXAM_ADMIT_CARD', true, definition);
+      await expect(
+        service.assetFile({ id: tenantId, role: 'TEACHER' }, studentId, examId, art),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('does not apply the dues block', async () => {
+      await template('EXAM_ADMIT_CARD', true, definition);
+      withhold = true;
+      getDueSnapshots.mockResolvedValue(new Map([[studentId, { total_due: 500 }]]));
+      await service.assetFile(parent(), studentId, examId, art);
+      expect(getDueSnapshots).not.toHaveBeenCalled();
+    });
   });
 });

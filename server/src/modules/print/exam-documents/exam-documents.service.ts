@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { FeeDuesService } from '../../fees/fee-dues.service';
 import { SchoolSettingsReader } from '../../schools/settings/school-settings-reader.service';
@@ -6,6 +6,7 @@ import {
   AdmitCardRosterDto,
   MeritCandidateDto,
   MeritCandidatesQueryDto,
+  TabulationDto,
 } from './dto/exam-documents.dto';
 
 /** [48.2.05] Read-only feeds for the exam "Print" tab. Every query is tenant-scoped in SQL. */
@@ -19,12 +20,18 @@ export class ExamDocumentsService {
 
   private async getExam(tenantId: string, examId: string) {
     const [exam] = await this.ds.query(
-      `SELECT id, class_id, academic_year_id FROM exams
+      `SELECT id, name, class_id, academic_year_id, published_at FROM exams
        WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL`,
       [examId, tenantId],
     );
     if (!exam) throw new NotFoundException('Exam not found');
-    return exam as { id: string; class_id: string; academic_year_id: string };
+    return exam as {
+      id: string;
+      name: string;
+      class_id: string;
+      academic_year_id: string;
+      published_at: Date | null;
+    };
   }
 
   async admitCardRoster(tenantId: string, examId: string): Promise<AdmitCardRosterDto> {
@@ -117,5 +124,92 @@ export class ExamDocumentsService {
       section_position: r.section_position,
       gpa: Number(r.gpa),
     }));
+  }
+
+  /** [48.3.gS-01] Whole-section tabulation in one call (replaces N per-student result reads). */
+  async tabulation(tenantId: string, examId: string, sectionId: string): Promise<TabulationDto> {
+    const exam = await this.getExam(tenantId, examId);
+    const [section] = await this.ds.query(
+      `SELECT cs.id, cs.section_name, c.name AS class_name
+       FROM class_sections cs JOIN classes c ON c.id = cs.class_id AND c.tenant_id = cs.tenant_id
+       WHERE cs.id = $1 AND cs.tenant_id = $2 AND cs.class_id = $3 AND cs.deleted_at IS NULL`,
+      [sectionId, tenantId, exam.class_id],
+    );
+    if (!section) throw new NotFoundException('Section not found');
+
+    const results = await this.ds.query(
+      `SELECT r.id, r.student_id, s.roll_number, s.full_name, r.total_marks, r.gpa, r.grade,
+              r.section_position, r.is_fail
+       FROM results r
+       JOIN students s ON s.id = r.student_id AND s.tenant_id = r.tenant_id AND s.deleted_at IS NULL
+       WHERE r.tenant_id = $1 AND r.exam_id = $2 AND r.section_id = $3 AND r.deleted_at IS NULL
+       ORDER BY s.roll_number, s.full_name`,
+      [tenantId, examId, sectionId],
+    );
+    if (results.length === 0) {
+      throw new ConflictException({
+        message: 'Results are not processed yet',
+        details: { code: 'RESULTS_NOT_PROCESSED' },
+      });
+    }
+
+    const lines = await this.ds.query(
+      `SELECT rs.result_id, rs.subject_id, rs.obtained, rs.grade, rs.is_fail
+       FROM result_subjects rs
+       WHERE rs.tenant_id = $1 AND rs.deleted_at IS NULL AND rs.result_id = ANY($2::uuid[])`,
+      [tenantId, results.map((r: any) => r.id)],
+    );
+    // Subjects in report-card order: compulsory before optional, then by name.
+    const subjects = await this.ds.query(
+      `SELECT sub.id AS subject_id, sub.name_en, sub.name_bn,
+              COALESCE((SELECT SUM(ec.full_marks) FROM exam_components ec
+                        WHERE ec.tenant_id = $1 AND ec.exam_id = $2 AND ec.subject_id = sub.id
+                          AND ec.deleted_at IS NULL), 0) AS full_marks
+       FROM subjects sub
+       LEFT JOIN class_subjects cls ON cls.subject_id = sub.id AND cls.tenant_id = sub.tenant_id
+         AND cls.class_id = $3 AND cls.academic_year_id = $4 AND cls.deleted_at IS NULL
+       WHERE sub.tenant_id = $1 AND sub.id = ANY($5::uuid[])
+       ORDER BY COALESCE(cls.is_optional, false), sub.name_en`,
+      [
+        tenantId,
+        examId,
+        exam.class_id,
+        exam.academic_year_id,
+        [...new Set(lines.map((l: any) => l.subject_id))],
+      ],
+    );
+
+    const cellsByResult = new Map<string, Record<string, any>>();
+    for (const l of lines) {
+      const cells = cellsByResult.get(l.result_id) ?? {};
+      cells[l.subject_id] = { obtained: Number(l.obtained), grade: l.grade, is_fail: l.is_fail };
+      cellsByResult.set(l.result_id, cells);
+    }
+
+    return {
+      exam: {
+        id: exam.id,
+        name: exam.name,
+        published_at: exam.published_at ? new Date(exam.published_at).toISOString() : null,
+      },
+      section: { id: section.id, name: section.section_name, class_name: section.class_name },
+      subjects: subjects.map((s: any) => ({
+        subject_id: s.subject_id,
+        name_en: s.name_en,
+        name_bn: s.name_bn,
+        full_marks: Number(s.full_marks),
+      })),
+      rows: results.map((r: any) => ({
+        student_id: r.student_id,
+        roll_number: r.roll_number,
+        full_name: r.full_name,
+        cells: cellsByResult.get(r.id) ?? {},
+        total_marks: Number(r.total_marks),
+        gpa: Number(r.gpa),
+        grade: r.grade,
+        section_position: r.section_position,
+        is_fail: r.is_fail,
+      })),
+    };
   }
 }

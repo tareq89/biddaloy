@@ -8,8 +8,21 @@ import { DataSource } from 'typeorm';
 import { DocumentKind, isGuardianRole } from '@biddaloy/shared';
 import { FeeDuesService } from '../../fees/fee-dues.service';
 import { SchoolSettingsReader } from '../../schools/settings/school-settings-reader.service';
+import { PrintAssetsService } from '../assets/print-assets.service';
 import { PrintJobsService } from '../jobs/print-jobs.service';
 import { CreatePrintJobDto } from '../jobs/dto/print-job.dto';
+
+/** Every string under `key` in a (JSON) template definition; same walk as the client's print preview. */
+function collectValues(value: unknown, key: string, into = new Set<string>()): Set<string> {
+  if (Array.isArray(value)) value.forEach((v) => collectValues(v, key, into));
+  else if (value !== null && typeof value === 'object') {
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      if (k === key && typeof v === 'string') into.add(v);
+      else collectValues(v, key, into);
+    }
+  }
+  return into;
+}
 
 /** [48.2.09] A linked PARENT/STUDENT prints their own admit card. Every query is tenant-scoped. */
 @Injectable()
@@ -19,12 +32,12 @@ export class FamilyAdmitCardService {
     private readonly jobs: PrintJobsService,
     private readonly feeDues: FeeDuesService,
     private readonly settings: SchoolSettingsReader,
+    private readonly assets: PrintAssetsService,
   ) {}
 
-  /** Caller must already have passed `FamilyAccessService.assertLinked`. */
-  async print(
+  /** Guardian role + the student sits this exam with a published seat. Shared by print and file reads. */
+  private async assertAvailable(
     tenant: { id: string; role: string },
-    userId: string,
     studentId: string,
     examId: string,
   ) {
@@ -50,6 +63,50 @@ export class FamilyAdmitCardService {
       [tenant.id, studentId, examId],
     );
     if (!seat) throw new NotFoundException('Admit card not available');
+  }
+
+  /** The default admit-card template's current version definition, or null. */
+  private async defaultDefinition(tenantId: string): Promise<unknown | null> {
+    const [row] = await this.ds.query(
+      `SELECT v.definition FROM print_templates t
+       JOIN print_template_versions v ON v.id = t.current_version_id AND v.tenant_id = t.tenant_id
+       WHERE t.tenant_id = $1 AND t.document_kind = $2 AND t.is_default = true
+         AND t.archived_at IS NULL
+       LIMIT 1`,
+      [tenantId, DocumentKind.EXAM_ADMIT_CARD],
+    );
+    return row?.definition ?? null;
+  }
+
+  /** Artwork/font bytes of the default admit card; only ids its current version uses (else 404). */
+  async assetFile(
+    tenant: { id: string; role: string },
+    studentId: string,
+    examId: string,
+    assetId: string,
+  ) {
+    await this.assertAvailable(tenant, studentId, examId);
+    const definition = await this.defaultDefinition(tenant.id);
+    if (
+      !definition ||
+      !(
+        collectValues(definition, 'assetId').has(assetId) ||
+        collectValues(definition, 'fontAssetId').has(assetId)
+      )
+    ) {
+      throw new NotFoundException('Print asset not found');
+    }
+    return this.assets.getFile(assetId, tenant.id);
+  }
+
+  /** Caller must already have passed `FamilyAccessService.assertLinked`. */
+  async print(
+    tenant: { id: string; role: string },
+    userId: string,
+    studentId: string,
+    examId: string,
+  ) {
+    await this.assertAvailable(tenant, studentId, examId);
 
     // D9: the dues check only runs (and fee data is only read) when the school withholds.
     if ((await this.settings.documentsSettings(tenant.id)).withholdAdmitCardForDues === true) {

@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsIn, IsInt, IsOptional, Max, Min } from 'class-validator';
+import { IsIn, IsInt, IsOptional, IsUUID, Max, Min } from 'class-validator';
 
 export const MERIT_SCOPES = ['CLASS', 'SECTION'] as const;
 export type MeritScope = (typeof MERIT_SCOPES)[number];
@@ -45,4 +45,47 @@ export class MeritCandidateDto {
   @ApiProperty() position: number;
   @ApiProperty({ nullable: true, type: Number }) section_position: number | null;
   @ApiProperty() gpa: number;
+}
+
+/** [48.3.gS-01] One section's tabulation sheet. */
+export class TabulationQueryDto {
+  @ApiProperty({ format: 'uuid' })
+  @IsUUID()
+  section_id: string;
+}
+
+export class TabulationSubjectDto {
+  @ApiProperty() subject_id: string;
+  @ApiProperty() name_en: string;
+  @ApiProperty({ nullable: true, type: String }) name_bn: string | null;
+  @ApiProperty() full_marks: number;
+}
+
+export class TabulationCellDto {
+  @ApiProperty() obtained: number;
+  @ApiProperty() grade: string;
+  @ApiProperty() is_fail: boolean;
+}
+
+export class TabulationRowDto {
+  @ApiProperty() student_id: string;
+  @ApiProperty() roll_number: number;
+  @ApiProperty() full_name: string;
+  @ApiProperty({
+    type: 'object',
+    additionalProperties: { $ref: '#/components/schemas/TabulationCellDto' },
+  })
+  cells: Record<string, TabulationCellDto>;
+  @ApiProperty() total_marks: number;
+  @ApiProperty() gpa: number;
+  @ApiProperty() grade: string;
+  @ApiProperty({ nullable: true, type: Number }) section_position: number | null;
+  @ApiProperty() is_fail: boolean;
+}
+
+export class TabulationDto {
+  @ApiProperty() exam: { id: string; name: string; published_at: string | null };
+  @ApiProperty() section: { id: string; name: string; class_name: string };
+  @ApiProperty({ type: [TabulationSubjectDto] }) subjects: TabulationSubjectDto[];
+  @ApiProperty({ type: [TabulationRowDto] }) rows: TabulationRowDto[];
 }

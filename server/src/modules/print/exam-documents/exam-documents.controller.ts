@@ -12,6 +12,8 @@ import {
   AdmitCardRosterDto,
   MeritCandidateDto,
   MeritCandidatesQueryDto,
+  TabulationDto,
+  TabulationQueryDto,
 } from './dto/exam-documents.dto';
 
 /** [48.2.05] Feeds for the exam "Print" tab. */
@@ -43,5 +45,17 @@ export class ExamDocumentsController {
     @CurrentTenant() tenant: { id: string },
   ): Promise<MeritCandidateDto[]> {
     return this.service.meritCandidates(tenant.id, examId, query);
+  }
+
+  @Get('tabulation')
+  @RequirePermissions(Permission.DOCUMENT_PRINT)
+  @ApiOperation({ summary: 'Per-subject marks of every student in one section.' })
+  @ApiOkResponse({ type: TabulationDto })
+  tabulation(
+    @Param('examId', ParseUUIDPipe) examId: string,
+    @Query() query: TabulationQueryDto,
+    @CurrentTenant() tenant: { id: string },
+  ): Promise<TabulationDto> {
+    return this.service.tabulation(tenant.id, examId, query.section_id);
   }
 }
