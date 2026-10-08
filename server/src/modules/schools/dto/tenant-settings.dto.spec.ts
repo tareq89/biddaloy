@@ -718,6 +718,32 @@ describe('TenantSettingsDto', () => {
     });
   });
 
+  describe('documents (48.1.03)', () => {
+    const errorsFor = async (documents: unknown) => {
+      const errors = await validate(
+        toDto({ version: TENANT_SETTINGS_SCHEMA_VERSION, documents }),
+        VALIDATION_OPTIONS,
+      );
+      return errors.find((e) => e.property === 'documents');
+    };
+
+    it('accepts a valid serialPrefix and flag', async () => {
+      expect(
+        await errorsFor({ serialPrefix: 'DAHS', withholdAdmitCardForDues: true }),
+      ).toBeUndefined();
+    });
+
+    it('rejects a malformed serialPrefix', async () => {
+      for (const serialPrefix of ['da', 'A', 'DAHS-1']) {
+        expect(await errorsFor({ serialPrefix })).toBeDefined();
+      }
+    });
+
+    it('rejects a non-boolean withholdAdmitCardForDues', async () => {
+      expect(await errorsFor({ withholdAdmitCardForDues: 'yes' })).toBeDefined();
+    });
+  });
+
   describe('evaluations', () => {
     const withEvaluations = (evaluations: unknown) =>
       toDto({ version: TENANT_SETTINGS_SCHEMA_VERSION, evaluations });
