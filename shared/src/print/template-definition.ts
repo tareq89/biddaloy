@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 import { DocumentKind, ImageFit, OverflowPolicy, ShapeKind } from '../enums/print';
-import { FIELD_CATALOG } from './field-catalog';
+import { FIELD_CATALOG, type FieldDef } from './field-catalog';
 
 const hex = z.string().regex(/^#[0-9a-fA-F]{6}$/, 'must be #rrggbb');
 const mm = z.number().min(0);
@@ -14,6 +14,19 @@ const base = {
   h: mm,
 };
 
+/** `{{key}}` inside a fixed text (D43). Double braces, so the copy label's `{n}` is untouched. */
+export const PLACEHOLDER_PATTERN = /\{\{\s*([A-Za-z0-9_.]+)\s*\}\}/g;
+
+/** Placeholder keys in order of appearance, de-duplicated. */
+export function textPlaceholders(text: string): string[] {
+  return [...new Set([...text.matchAll(PLACEHOLDER_PATTERN)].map((m) => m[1] as string))];
+}
+
+/** Replace every placeholder with `lookup(key)`; unknown keys are the lookup's call (return ''). */
+export function fillPlaceholders(text: string, lookup: (key: string) => string): string {
+  return text.replace(PLACEHOLDER_PATTERN, (_, key: string) => lookup(key));
+}
+
 /** Exactly one of `a` / `b` must be set. */
 const xor = (a: string, b: string) => (e: Record<string, unknown>) =>
   (e[a] !== undefined) !== (e[b] !== undefined);
@@ -22,7 +35,7 @@ const textElement = z
   .object({
     ...base,
     type: z.literal('TEXT'),
-    text: z.string().optional(),
+    text: z.string().max(2000).optional(),
     field: z.string().optional(),
     fontFamily: z.string().min(1),
     fontAssetId: z.uuid().optional(),
@@ -128,6 +141,13 @@ export function validateTemplateDefinition(
   const errors: string[] = [];
   for (const name of ['front', 'back'] as const) {
     parsed.data[name]?.elements.forEach((el, i) => {
+      if (el.type === 'TEXT' && el.text !== undefined) {
+        for (const key of textPlaceholders(el.text)) {
+          if (catalog.find((c) => c.key === key)?.type !== 'text') {
+            errors.push(`${name}.elements.${i}.text: {{${key}}} is not a text field of ${kind}`);
+          }
+        }
+      }
       if ((el.type !== 'TEXT' && el.type !== 'IMAGE') || el.field === undefined) return;
       const def = catalog.find((c) => c.key === el.field);
       const want = el.type === 'TEXT' ? 'text' : 'image';
@@ -137,4 +157,39 @@ export function validateTemplateDefinition(
     });
   }
   return errors.length ? { success: false, errors } : { success: true, data: parsed.data };
+}
+
+/** Catalog `issueTime` fields any TEXT element binds, as `field` or as a `{{placeholder}}`, in catalog order (D3, D43). */
+export function boundIssueFields(def: TemplateDefinition, kind: DocumentKind): FieldDef[] {
+  const bound = new Set<string>();
+  for (const name of ['front', 'back'] as const) {
+    for (const el of def[name]?.elements ?? []) {
+      if (el.type !== 'TEXT') continue;
+      if (el.field !== undefined) bound.add(el.field);
+      if (el.text !== undefined) textPlaceholders(el.text).forEach((k) => bound.add(k));
+    }
+  }
+  return (FIELD_CATALOG[kind] ?? []).filter((c) => c.issueTime && bound.has(c.key));
+}
+
+/** Errors for typed issue-time values; empty = valid. Shared by server and wizard. */
+export function validateIssueValues(
+  def: TemplateDefinition,
+  kind: DocumentKind,
+  values: Record<string, string>,
+): string[] {
+  const fields = boundIssueFields(def, kind);
+  const errors: string[] = [];
+  for (const key of Object.keys(values)) {
+    if (!fields.some((f) => f.key === key))
+      errors.push(`${key}: not an issue field of this template`);
+  }
+  for (const f of fields) {
+    const v = values[f.key];
+    if (v === undefined || v.trim() === '') errors.push(`${f.key}: required`);
+    else if (v.length > (f.issueTime?.maxLength ?? 0)) {
+      errors.push(`${f.key}: longer than ${f.issueTime?.maxLength} characters`);
+    }
+  }
+  return errors;
 }
