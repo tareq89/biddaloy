@@ -376,7 +376,7 @@ describe('StepUpService', () => {
 
       await service.requestOtp('admin@example.com', TENANT_ID);
 
-      expect(otpService.request).toHaveBeenCalledWith('STEP_UP', 'admin@example.com');
+      expect(otpService.request).toHaveBeenCalledWith('STEP_UP', `${TENANT_ID}:admin@example.com`);
 
       otpService.request.mockClear();
       await service.requestOtp('unknown@example.com', TENANT_ID);

@@ -664,12 +664,12 @@ describe('AuthService', () => {
 
       const result = await service.changePassword(
         'user-1',
-        { current_password: 'password123', new_password: 'new-password' },
+        { current_password: 'password123', new_password: 'New-password1!' },
         context,
       );
 
       // The new hash is what gets persisted — cost 10, matching UsersService.create.
-      expect(bcrypt.hash).toHaveBeenCalledWith('new-password', 10);
+      expect(bcrypt.hash).toHaveBeenCalledWith('New-password1!', 10);
       expect(mockUserRepo.update).toHaveBeenCalledWith(
         { id: 'user-1' },
         expect.objectContaining({ password_hash: '$2b$10$brand-new-hash' }),
@@ -703,7 +703,7 @@ describe('AuthService', () => {
 
       await service.changePassword(
         'user-1',
-        { current_password: 'password123', new_password: 'new-password' },
+        { current_password: 'password123', new_password: 'New-password1!' },
         context,
       );
 
@@ -717,7 +717,7 @@ describe('AuthService', () => {
 
       await service.changePassword(
         'user-1',
-        { current_password: 'password123', new_password: 'new-password' },
+        { current_password: 'password123', new_password: 'New-password1!' },
         context,
       );
 
@@ -736,7 +736,7 @@ describe('AuthService', () => {
       // Business-critical: no password, old or new, plain or hashed, may
       // ever be written to an audit row.
       const recorded = JSON.stringify(mockAuditService.record.mock.calls);
-      expect(recorded).not.toContain('new-password');
+      expect(recorded).not.toContain('New-password1!');
       expect(recorded).not.toContain('password123');
       expect(recorded).not.toContain('brand-new-hash');
     });
@@ -749,7 +749,7 @@ describe('AuthService', () => {
       const thrown = await service
         .changePassword(
           'user-1',
-          { current_password: 'wrong', new_password: 'new-password' },
+          { current_password: 'wrong', new_password: 'New-password1!' },
           context,
         )
         .then(
@@ -781,7 +781,7 @@ describe('AuthService', () => {
       await expect(
         service.changePassword(
           'user-1',
-          { current_password: 'anything', new_password: 'new-password' },
+          { current_password: 'anything', new_password: 'New-password1!' },
           context,
         ),
       ).rejects.toThrow(ForbiddenException);
@@ -796,7 +796,7 @@ describe('AuthService', () => {
       await expect(
         service.changePassword(
           'user-1',
-          { current_password: 'password123', new_password: 'new-password' },
+          { current_password: 'password123', new_password: 'New-password1!' },
           context,
         ),
       ).rejects.toThrow(UnauthorizedException);
@@ -809,7 +809,7 @@ describe('AuthService', () => {
       await expect(
         service.changePassword(
           'ghost',
-          { current_password: 'password123', new_password: 'new-password' },
+          { current_password: 'password123', new_password: 'New-password1!' },
           context,
         ),
       ).rejects.toThrow(UnauthorizedException);
@@ -829,7 +829,7 @@ describe('AuthService', () => {
 
       await service.changePassword(
         'user-1',
-        { current_password: 'password123', new_password: 'new-password' },
+        { current_password: 'password123', new_password: 'New-password1!' },
         context,
       );
 
@@ -846,7 +846,7 @@ describe('AuthService', () => {
 
       await service.changePassword(
         'user-1',
-        { current_password: 'password123', new_password: 'new-password' },
+        { current_password: 'password123', new_password: 'New-password1!' },
         context,
       );
 
@@ -861,7 +861,7 @@ describe('AuthService', () => {
       await expect(
         service.changePassword(
           'user-1',
-          { current_password: 'wrong', new_password: 'new-password' },
+          { current_password: 'wrong', new_password: 'New-password1!' },
           context,
         ),
       ).rejects.toThrow(ForbiddenException);

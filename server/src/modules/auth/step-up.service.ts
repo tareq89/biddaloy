@@ -46,6 +46,16 @@ export const STEP_UP_REDIS = 'STEP_UP_REDIS';
  */
 const STEP_UP_OTP_PURPOSE = 'STEP_UP' as OtpPurpose;
 
+/**
+ * The OtpService identifier for a step-up code: tenant first. OtpService
+ * counts wrong guesses (and locks) per identifier with no tenant, so an
+ * unscoped id let a user in any school lock another school's approver out
+ * of step-up. Same scope as the `step-up-attempts:approver:` rate limit.
+ */
+function stepUpOtpId(tenantId: string, normalizedIdentifier: string): string {
+  return `${tenantId}:${normalizedIdentifier}`;
+}
+
 const FEE_APPROVE_PERMISSION = Permission.FEE_APPROVE;
 
 const APPROVAL_TOKEN_TTL_SECONDS = 300;
@@ -123,7 +133,7 @@ export class StepUpService {
     try {
       const { code } = await this.otpService.request(
         STEP_UP_OTP_PURPOSE,
-        normalizeLoginIdentifier(identifier),
+        stepUpOtpId(actorTenantId, normalizeLoginIdentifier(identifier)),
       );
       return isSecretEchoEnabled(this.config) ? { debug: { otp: code } } : {};
     } catch {
@@ -172,7 +182,11 @@ export class StepUpService {
     // DUMMY_PASSWORD_HASH above. Using `&&` short-circuit here would skip
     // bcrypt entirely for an unknown identifier, and that latency
     // difference is itself a signal despite the uniform 401 body.
-    const verified = await this.verifyCredential(dto, approver, identifier);
+    const verified = await this.verifyCredential(
+      dto,
+      approver,
+      stepUpOtpId(actorTenantId, identifier),
+    );
 
     if (!approver || !verified) {
       await this.auditService.record({
@@ -261,15 +275,11 @@ export class StepUpService {
   private async verifyCredential(
     dto: StepUpVerifyDto,
     approver: User | null,
-    normalizedIdentifier: string,
+    otpId: string,
   ): Promise<boolean> {
     if (dto.method === 'OTP') {
       if (!dto.otp) return false;
-      const result = await this.otpService.verify(
-        STEP_UP_OTP_PURPOSE,
-        normalizedIdentifier,
-        dto.otp,
-      );
+      const result = await this.otpService.verify(STEP_UP_OTP_PURPOSE, otpId, dto.otp);
       return approver !== null && result === 'ok';
     }
 

@@ -2,8 +2,11 @@ import { Injectable, BadRequestException, Inject } from '@nestjs/common';
 import { InjectRepository, InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, IsNull, Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
-import { AuditAction, AuthTokenPurpose, UserStatus } from '@biddaloy/shared';
+import { AuditAction, AuthTokenPurpose, UserStatus, audienceForRoles } from '@biddaloy/shared';
+import type { PasswordAudience } from '@biddaloy/shared';
 import { User } from '../users/entities/user.entity';
+import { UserTenant } from '../auth/entities/user-tenant.entity';
+import { assertPasswordAllowedForUser } from '../auth/password-policy';
 import { School } from '../schools/entities/school.entity';
 import { AuditService } from '../audit/audit.service';
 import { AuthService, AuthResult } from '../auth/auth.service';
@@ -15,7 +18,12 @@ import { InvitationService } from './invitation.service';
 const BCRYPT_COST = 10;
 
 export type ActivateVerifyResult =
-  | { status: 'valid'; full_name: string; school_name: string | null }
+  | {
+      status: 'valid';
+      full_name: string;
+      school_name: string | null;
+      password_audience: PasswordAudience;
+    }
   | { status: 'expired' | 'consumed' | 'revoked' | 'unknown' };
 
 /**
@@ -29,6 +37,8 @@ export class ActivationService {
   constructor(
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
+    @InjectRepository(UserTenant)
+    private readonly userTenantRepo: Repository<UserTenant>,
     @InjectRepository(School)
     private readonly schoolRepo: Repository<School>,
     @InjectDataSource()
@@ -61,7 +71,13 @@ export class ActivationService {
       ? await this.schoolRepo.findOne({ where: { id: result.row.tenant_id } })
       : null;
 
-    return { status: 'valid', full_name: user.full_name, school_name: school?.name ?? null };
+    const memberships = await this.userTenantRepo.find({ where: { user_id: user.id } });
+    return {
+      status: 'valid',
+      full_name: user.full_name,
+      school_name: school?.name ?? null,
+      password_audience: audienceForRoles(memberships.map((m) => m.role)),
+    };
   }
 
   /**
@@ -86,6 +102,7 @@ export class ActivationService {
       throw new BadRequestException('suspended');
     }
 
+    await assertPasswordAllowedForUser(this.userTenantRepo, user.id, password);
     const password_hash = await bcrypt.hash(password, BCRYPT_COST);
 
     // [12.7] Activating an invite proves the invitee controls whichever

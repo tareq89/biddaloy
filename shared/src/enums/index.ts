@@ -413,3 +413,8 @@ export * from './seat-plan';
 export * from './programs';
 export * from './student-lifecycle';
 export * from './evaluations';
+
+export enum SocialProvider {
+  GOOGLE = 'google',
+  FACEBOOK = 'facebook',
+}

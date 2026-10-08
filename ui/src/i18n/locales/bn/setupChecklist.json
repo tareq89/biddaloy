@@ -1,0 +1,16 @@
+{
+  "title": "স্কুল সাজানো শেষ করুন",
+  "progress": "{{total}}টির মধ্যে {{done}}টি শেষ",
+  "items": {
+    "profile": "স্কুলের পরিচয়",
+    "structure": "ক্লাস",
+    "sections": "সেকশন",
+    "students": "শিক্ষার্থী",
+    "staff": "কর্মী",
+    "feeStructures": "ফি",
+    "guardianInvites": "অভিভাবকদের ডাকুন",
+    "messageSettings": "বার্তার সেটিং"
+  },
+  "hide": "লুকান",
+  "continueSetup": "স্কুল সাজানো চালিয়ে যান"
+}

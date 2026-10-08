@@ -1,0 +1,19 @@
+{
+  "bar": "Trial: {{days}} days left · {{used}} of {{limit}} students",
+  "barLastDay": "Trial ends today",
+  "seePlans": "See plans",
+  "details": {
+    "title": "About your trial",
+    "body": "The trial lets you try everything with a limited number of students.",
+    "kept": "Everything you add now is kept when you continue."
+  },
+  "ended": {
+    "title": "Your trial has ended",
+    "body": "Your data is safe. Contact us to continue.",
+    "contact": "Contact us"
+  },
+  "seatLimit": {
+    "title": "Student limit reached",
+    "body": "You have {{used}} of {{limit}} students. {{requested}} more will not fit."
+  }
+}

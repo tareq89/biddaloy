@@ -15,3 +15,5 @@ export * from './sms/segments';
 export * from './dto/designation.dto';
 export * from './dto/staff-hr-record.dto';
 export * from './dto/evaluations';
+export * from './auth/password-rules';
+export * from './types/onboarding';

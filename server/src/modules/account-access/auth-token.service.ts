@@ -129,6 +129,20 @@ export class AuthTokenService {
     }
   }
 
+  /** Marks every still-live token of `purpose` for the user consumed (e.g. an invite accepted by code sign-in). */
+  async consumeLive(userId: string, purpose: AuthTokenPurpose): Promise<void> {
+    await this.repo
+      .createQueryBuilder()
+      .update(AuthToken)
+      .set({ consumed_at: new Date() })
+      .where('user_id = :userId', { userId })
+      .andWhere('purpose = :purpose', { purpose })
+      .andWhere('consumed_at IS NULL')
+      .andWhere('revoked_at IS NULL')
+      .andWhere('expires_at > NOW()')
+      .execute();
+  }
+
   /**
    * `tenantId` is optional only because `PASSWORD_RESET`/`EMAIL_VERIFY`
    * tokens aren't always issued against a single tenant. `INVITE` tokens

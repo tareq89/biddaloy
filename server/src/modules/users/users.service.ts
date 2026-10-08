@@ -16,6 +16,7 @@ import { normalizeSearchTerm } from '../../common/utils/normalize-search-term.ut
 import { BN_COLLATION } from '../../common/constants/collation';
 import { normalizeEmail } from '../auth/normalize-identifier';
 import { EMPLOYEE_ROLES, UserRole } from '@biddaloy/shared';
+import { assertPasswordAllowed } from '../auth/password-policy';
 import { StaffProfilesService } from '../staff-profiles/staff-profiles.service';
 import {
   CreateUserDto,
@@ -77,6 +78,8 @@ export class UserService {
 
     let password_hash: string | null = null;
     if (dto.password) {
+      // D10: same strength rules as every other password path.
+      assertPasswordAllowed(dto.password, [dto.role]);
       password_hash = await bcrypt.hash(dto.password, 10);
     }
 

@@ -1,4 +1,4 @@
-import { adminApiSession, createInvitedStaffUser } from '../api';
+import { adminApiSession, createInvitedStaffUser, E2E_PASSWORD } from '../api';
 import { guest, test, expect } from '../fixtures/test';
 import { ActivatePage } from '../pages/activate-page';
 
@@ -26,7 +26,7 @@ test('admin creates a user, the invite link activates the account, and a second 
   await test.step('activate the account', async () => {
     await activate.goto(invitee.token);
     await activate.expectWelcome('Rahima Activation E2E');
-    await activate.setPassword('a-strong-new-password');
+    await activate.setPassword(E2E_PASSWORD);
   });
 
   await test.step('auto signed-in, lands in the staff shell', async () => {

@@ -390,7 +390,7 @@ describe('Auth E2E', () => {
     const CHANGER_ID = '00000000-0000-4000-8000-0000000003c4';
     const CHANGER_EMAIL = 'change-password@testschool.com';
     const ORIGINAL_PASSWORD = SEED_ADMIN_PASSWORD; // same plaintext, own row
-    const NEW_PASSWORD = 'brand-new-password-1';
+    const NEW_PASSWORD = 'Brand-new-password-1!';
 
     async function loginAsChanger(password: string): Promise<supertest.Response> {
       return supertest(app.getHttpServer())
@@ -437,6 +437,21 @@ describe('Auth E2E', () => {
         SEED_ADMIN_PASSWORD_HASH,
         CHANGER_ID,
       ]);
+    });
+
+    // [13.2.2] D10: rules apply on change only. The old password ('password123'
+    // breaks every staff rule) keeps signing in; the weak NEW one is refused.
+    it('old weak password still signs in, but a weak new password is refused with PASSWORD_TOO_WEAK', async () => {
+      const loginRes = await loginAsChanger(ORIGINAL_PASSWORD);
+
+      const res = await supertest(app.getHttpServer())
+        .post('/api/v1/auth/change-password')
+        .set('Authorization', `Bearer ${loginRes.body.access_token}`)
+        .send({ current_password: ORIGINAL_PASSWORD, new_password: 'allletters' })
+        .expect(400);
+      expect(res.body.details).toMatchObject({ code: 'PASSWORD_TOO_WEAK' });
+
+      await loginAsChanger(ORIGINAL_PASSWORD);
     });
 
     it('requires authentication', async () => {

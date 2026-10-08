@@ -212,6 +212,44 @@ class EnvironmentVariables {
     message: 'PUBLIC_HOLIDAY_FETCH_TIMEOUT_MS must be a positive integer',
   })
   PUBLIC_HOLIDAY_FETCH_TIMEOUT_MS?: string;
+
+  // Onboarding / trial [13.1.2]. All optional; defaults live where they are read.
+  @IsOptional()
+  @Matches(POSITIVE_INTEGER, { message: 'TRIAL_DAYS must be a positive integer' })
+  TRIAL_DAYS?: string;
+
+  @IsOptional()
+  @Matches(POSITIVE_INTEGER, { message: 'TRIAL_SEAT_LIMIT must be a positive integer' })
+  TRIAL_SEAT_LIMIT?: string;
+
+  // Comma-separated phone prefixes OTP SMS may go to; default "+880".
+  @IsOptional()
+  @IsString()
+  OTP_SMS_ALLOWED_PREFIXES?: string;
+
+  @IsOptional()
+  @IsString()
+  TURNSTILE_SECRET_KEY?: string;
+
+  @IsOptional()
+  @IsString()
+  GOOGLE_OAUTH_CLIENT_ID?: string;
+
+  @IsOptional()
+  @IsString()
+  GOOGLE_OAUTH_CLIENT_SECRET?: string;
+
+  @IsOptional()
+  @IsString()
+  FACEBOOK_OAUTH_CLIENT_ID?: string;
+
+  @IsOptional()
+  @IsString()
+  FACEBOOK_OAUTH_CLIENT_SECRET?: string;
+
+  @IsOptional()
+  @IsString()
+  SUPPORT_CONTACT_URL?: string;
 }
 
 /** The fixed id `seed.ts` gives its "Default School" row when it has to

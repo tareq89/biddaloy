@@ -11,7 +11,7 @@ import { toLatinDigits } from '../../common/utils/bengali-digits.util';
 
 export const OTP_REDIS = 'OTP_REDIS';
 
-export type OtpPurpose = 'PASSWORD_RESET' | 'LOGIN' | 'PHONE_VERIFY';
+export type OtpPurpose = 'PASSWORD_RESET' | 'LOGIN' | 'PHONE_VERIFY' | 'REGISTER';
 export type OtpVerifyResult = 'ok' | 'invalid' | 'expired' | 'locked';
 
 const CODE_TTL_MS = 5 * 60_000;
@@ -21,7 +21,6 @@ const MAX_ATTEMPTS = 5;
 
 interface OtpRecord {
   hash: string;
-  attempts: number;
 }
 
 // Claims the cooldown key with `SET NX` and, only if that succeeds, writes
@@ -40,37 +39,38 @@ return 1
 `;
 
 // One Lua script for the whole read-check-increment-or-clear sequence — a
-// separate GET/SET pair (the previous shape) let two concurrent guesses
-// both read the same `attempts` count and both write it back incremented
-// by exactly one, silently losing an attempt and letting a guesser outlast
-// the 5-attempt lockout. Runs entirely inside Redis, so no other client can
+// separate GET/SET pair let two concurrent guesses both read the same count
+// and lose an attempt. Runs entirely inside Redis, so no other client can
 // observe or mutate these keys mid-sequence.
+//
+// Wrong guesses are counted per identifier in their own key (KEYS[4]),
+// whether or not a code exists. Counting only when a code existed meant a
+// known account locked after 5 tries while an unknown one never did, which
+// told anyone which identifiers have accounts. A new code does not reset the
+// count either: callers only issue codes to real accounts, so a reset would
+// leak the same thing.
 const VERIFY_SCRIPT = `
 if redis.call('GET', KEYS[3]) then
   return 'locked'
 end
 local raw = redis.call('GET', KEYS[1])
-if not raw then
-  return 'expired'
-end
-local record = cjson.decode(raw)
-if record.hash == ARGV[1] then
-  redis.call('DEL', KEYS[1])
-  redis.call('DEL', KEYS[2])
+if raw and cjson.decode(raw).hash == ARGV[1] then
+  redis.call('DEL', KEYS[1], KEYS[2], KEYS[4])
   return 'ok'
 end
-local attempts = record.attempts + 1
+local attempts = redis.call('INCR', KEYS[4])
+if attempts == 1 then
+  redis.call('PEXPIRE', KEYS[4], ARGV[4])
+end
 if attempts >= tonumber(ARGV[2]) then
   redis.call('SET', KEYS[3], '1', 'PX', ARGV[3])
-  redis.call('DEL', KEYS[1])
+  redis.call('DEL', KEYS[1], KEYS[4])
   return 'locked'
 end
-local ttl = redis.call('PTTL', KEYS[1])
-if ttl <= 0 then
-  ttl = tonumber(ARGV[4])
+if raw then
+  return 'invalid'
 end
-redis.call('SET', KEYS[1], cjson.encode({ hash = record.hash, attempts = attempts }), 'PX', ttl)
-return 'invalid'
+return 'expired'
 `;
 
 function otpKey(purpose: OtpPurpose, identifier: string): string {
@@ -82,8 +82,14 @@ function cooldownKey(purpose: OtpPurpose, identifier: string): string {
 function lockKey(purpose: OtpPurpose, identifier: string): string {
   return `otp-lock:${purpose}:${identifier}`;
 }
-function hashCode(code: string): string {
-  return createHash('sha256').update(code, 'utf8').digest('hex');
+function attemptsKey(purpose: OtpPurpose, identifier: string): string {
+  return `otp-attempts:${purpose}:${identifier}`;
+}
+/** `bind` ties the code to where it was sent: verifying with any other value fails. */
+function hashCode(code: string, bind: string): string {
+  return createHash('sha256')
+    .update(bind ? `${bind}\n${code}` : code, 'utf8')
+    .digest('hex');
 }
 
 /**
@@ -113,10 +119,14 @@ export class TooManyRequestsException extends HttpException {
 export class OtpService {
   constructor(@Inject(OTP_REDIS) private readonly redis: Redis) {}
 
-  async request(purpose: OtpPurpose, identifier: string): Promise<{ code: string }> {
+  /**
+   * `bind` (optional) is the address the code goes to; `verify` must pass the
+   * same value, so a code stops working if that address changes meanwhile.
+   */
+  async request(purpose: OtpPurpose, identifier: string, bind = ''): Promise<{ code: string }> {
     try {
       const code = randomInt(0, 1_000_000).toString().padStart(6, '0');
-      const record: OtpRecord = { hash: hashCode(code), attempts: 0 };
+      const record: OtpRecord = { hash: hashCode(code, bind) };
 
       const claimed = await this.redis.eval(
         REQUEST_SCRIPT,
@@ -137,16 +147,22 @@ export class OtpService {
     }
   }
 
-  async verify(purpose: OtpPurpose, identifier: string, rawCode: string): Promise<OtpVerifyResult> {
+  async verify(
+    purpose: OtpPurpose,
+    identifier: string,
+    rawCode: string,
+    bind = '',
+  ): Promise<OtpVerifyResult> {
     const code = toLatinDigits(rawCode);
     try {
       const result = await this.redis.eval(
         VERIFY_SCRIPT,
-        3,
+        4,
         otpKey(purpose, identifier),
         cooldownKey(purpose, identifier),
         lockKey(purpose, identifier),
-        hashCode(code),
+        attemptsKey(purpose, identifier),
+        hashCode(code, bind),
         MAX_ATTEMPTS,
         LOCK_TTL_MS,
         CODE_TTL_MS,
