@@ -29,7 +29,10 @@ test('keyboard-only: pick exam and section, arrow to Defaulted, toggle by compon
   request,
 }) => {
   const session = await adminApiSession(request);
-  const { academicYearId, classId, sectionId } = await createClassSection(request, session);
+  const { academicYearId, classId, sectionId, className } = await createClassSection(
+    request,
+    session,
+  );
   await ensureGradingScale(request, session, academicYearId);
 
   const student = await post<{ id: string; roll_number: number; full_name: string }>(
@@ -140,7 +143,11 @@ test('keyboard-only: pick exam and section, arrow to Defaulted, toggle by compon
 
   await test.step('pick the seeded exam and section', async () => {
     await page.getByRole('combobox', { name: t('exams.resultsRoute.examLabel') }).focus();
-    await selectByTypeahead(page, examName);
+    // Options read "<exam> · <class>".
+    await selectByTypeahead(
+      page,
+      t('grading.marksEntry.examOption', { exam: examName, class: className }),
+    );
 
     // Only one section ("A") exists on this fresh class.
     await page.getByRole('combobox', { name: t('exams.analysis.sectionFilter') }).focus();

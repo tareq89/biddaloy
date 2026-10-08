@@ -33,7 +33,7 @@ test.describe('teacher: My routine, phone viewport', () => {
   }) => {
     await page.goto('/routines/my');
 
-    const daySwitcher = page.getByRole('group', { name: t('routines.agenda.daySwitcherLabel') });
+    const daySwitcher = page.getByRole('tablist', { name: t('routines.agenda.daySwitcherLabel') });
     await expect(daySwitcher).toBeVisible();
 
     // Today's tab is one of the seven, marked with the today label —

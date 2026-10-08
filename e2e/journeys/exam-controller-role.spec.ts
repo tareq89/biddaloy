@@ -94,13 +94,14 @@ test('runs an exam: create, seat plan, read-only marks, publish result', async (
   let subjectId: string;
   let subjectName: string;
   try {
-    const subject = await post<{ id: string; name_en: string }>(ctx, session, '/subjects', {
+    const subject = await post<{ id: string; name_bn: string }>(ctx, session, '/subjects', {
       code: `E2EXC-${suffix}`,
       name_en: `E2E Controller Subject ${suffix}`,
       name_bn: `ই২ই নিয়ন্ত্রক ${suffix}`,
     });
     subjectId = subject.id;
-    subjectName = subject.name_en;
+    // bn screens label the seat-plan picker with `name_bn`.
+    subjectName = subject.name_bn;
     await post(ctx, session, `/exams/${exam.id}/schedule`, {
       subject_id: subjectId,
       date: scheduleDate.toISOString().slice(0, 10),
