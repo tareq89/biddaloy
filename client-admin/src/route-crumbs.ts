@@ -123,7 +123,7 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
   // "Exams & Results" segment; that's the nav group label, not part of
   // any sibling route's own crumb trail either.
   '/_staff/exams/templates/': [{ label: { key: 'examTemplates' } }],
-    '/_staff/exams/templates/$templateId': [
+  '/_staff/exams/templates/$templateId': [
     { label: { key: 'examTemplates' } },
     { label: { key: 'examTemplateDetail' }, dynamic: 'entity' },
   ],
@@ -196,6 +196,7 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
     { label: { key: 'printTemplateEdit' }, dynamic: 'entity' },
   ],
   '/_staff/print/preview': [{ label: { key: 'printPreview' } }],
+  '/_staff/print/document': [{ label: { key: 'printDocument' } }],
   '/_staff/reports/printables': [{ label: { key: 'printables' } }],
   '/_staff/communications/send': [{ label: { key: 'sendMessage' } }],
   '/_staff/communications/reminders': [{ label: { key: 'feeReminders' } }],

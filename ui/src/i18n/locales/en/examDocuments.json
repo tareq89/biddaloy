@@ -112,7 +112,8 @@
     "fromSeatPlan": "Made from the seat plan",
     "pageOf": "Page {{n}} / {{total}}",
     "logError": "The print could not be recorded, so it was not printed. Try again.",
-    "empty": "Nothing to print."
+    "empty": "Nothing to print.",
+    "emptyHint": "Open this from the exam, or check the link."
   },
   "doc": {
     "seatList": "Seat list",

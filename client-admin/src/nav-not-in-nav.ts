@@ -67,6 +67,8 @@ export const NOT_IN_NAV: Record<string, string> = {
   '/_staff/print-templates/$templateId/edit':
     '[32.4.1] full-screen editor, reached from the print templates library',
   '/_staff/print/preview': "[32.4.1] full-screen print preview, reached from a list's Print action",
+  '/_staff/print/document':
+    "[48.3.08] chromeless print page, reached from the exam Print tab and a student's Documents tab",
   '/_staff/exams/templates/$templateId': 'detail route reached from the exam templates list',
   '/_staff/exams/seat-plans/$planId': 'detail route reached from the seat plans list',
   '/_staff/marks/$examId/$sectionId/$subjectId':
@@ -82,7 +84,8 @@ export const NOT_IN_NAV: Record<string, string> = {
     'detail route reached from the My class section picker (or its single-section redirect)',
   '/_staff/routines/$sectionId': 'detail route reached from the routine builder section list',
   '/_staff/invoices/$invoiceId': 'detail route reached from the invoices list',
-  '/_staff/fees/': '[31.0] D40 — a placeholder today; will redirect to /fees/dues (Student dues, own item), pending fees-1',
+  '/_staff/fees/':
+    '[31.0] D40 — a placeholder today; will redirect to /fees/dues (Student dues, own item), pending fees-1',
   '/_staff/payments/$id': 'detail route reached from the payments list',
   '/_staff/staff/$userId': 'detail route reached from the staff list',
   '/_staff/staff/$userId_/acr/$assessmentId':
