@@ -2,7 +2,13 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { Job } from 'bullmq';
 import { InvitationBatchProcessor } from './invitation-batch.processor';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
+import { reviveMembership } from '../users/users.service';
 import type { InvitationBatchJobData } from './guardian-provisioning.service';
+
+vi.mock('../users/users.service', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../users/users.service')>()),
+  reviveMembership: vi.fn(async () => 1),
+}));
 
 function fakeManagerQueryBuilder(result: { one?: unknown | null }) {
   const qb: any = {
@@ -159,10 +165,10 @@ describe('InvitationBatchProcessor', () => {
     const membershipRepo = {
       // No active membership, but a soft-deleted PARENT row exists.
       findOne: vi.fn().mockResolvedValueOnce(null).mockResolvedValueOnce({ id: 'ut-old' }),
-      restore: vi.fn(),
       save: vi.fn(),
       create: vi.fn((v: unknown) => v),
     };
+    let txManager: unknown;
     dataSource.transaction = vi.fn(async (cb: (manager: any) => Promise<unknown>) => {
       const manager = {
         getRepository: (entity: unknown) =>
@@ -175,13 +181,14 @@ describe('InvitationBatchProcessor', () => {
                 save: vi.fn(),
               },
       };
+      txManager = manager;
       return cb(manager);
     });
 
     await processor.process(job());
 
     // The unique index ignores soft-deletion, so an insert would fail with 23505.
-    expect(membershipRepo.restore).toHaveBeenCalledWith('ut-old');
+    expect(reviveMembership).toHaveBeenCalledWith(txManager, 'ut-old');
     expect(membershipRepo.save).not.toHaveBeenCalled();
   });
 });

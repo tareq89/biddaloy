@@ -1,13 +1,14 @@
 import { ConflictException, Inject, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
-import { DataSource, EntityManager, IsNull, Not, QueryFailedError, Repository } from 'typeorm';
+import { DataSource, EntityManager, QueryFailedError, Repository } from 'typeorm';
 import Redis from 'ioredis';
 import { randomUUID } from 'crypto';
 import { AuditAction, AuthTokenPurpose, SchoolStatus, UserRole } from '@biddaloy/shared';
 import { School } from '../entities/school.entity';
 import { User } from '../../users/entities/user.entity';
 import { UserTenant } from '../../auth/entities/user-tenant.entity';
+import { reviveMembership } from '../../users/users.service';
 import { AuthToken } from '../../account-access/entities/auth-token.entity';
 import { INVITE_TTL_MS } from '../../account-access/auth-token.service';
 import {
@@ -318,11 +319,7 @@ export class ProvisioningService {
       if (existingMembership) {
         // Only a soft-deleted (former) admin reaches here: the unique index
         // ignores soft-deletion, so bring that row back instead of inserting.
-        const restored = await userTenantRepo.restore({
-          id: existingMembership.id,
-          deleted_at: Not(IsNull()),
-        });
-        if (!restored.affected) {
+        if (!(await reviveMembership(manager, existingMembership.id))) {
           throw new ConflictException(`User "${user.id}" is already an ADMIN of this school`);
         }
       } else {

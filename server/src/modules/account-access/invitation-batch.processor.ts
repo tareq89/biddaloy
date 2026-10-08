@@ -7,6 +7,7 @@ import { AuthTokenPurpose, UserRole } from '@biddaloy/shared';
 import { Guardian } from '../students/entities/guardian.entity';
 import { User } from '../users/entities/user.entity';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
+import { reviveMembership } from '../users/users.service';
 import { AuthTokenService } from './auth-token.service';
 import { InvitationService } from './invitation.service';
 import { INVITATION_BATCH_QUEUE } from './invitation-batch.constants';
@@ -148,7 +149,7 @@ export class InvitationBatchProcessor extends WorkerHost {
           withDeleted: true,
         });
         if (former) {
-          await userTenantRepo.restore(former.id);
+          await reviveMembership(manager, former.id);
         } else {
           await userTenantRepo.save(
             userTenantRepo.create({ user_id: user.id, tenant_id: tenantId, role: UserRole.PARENT }),

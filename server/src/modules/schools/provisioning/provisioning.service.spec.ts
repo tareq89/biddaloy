@@ -4,8 +4,14 @@ import { ConflictException, ForbiddenException } from '@nestjs/common';
 import { QueryFailedError } from 'typeorm';
 import { SchoolStatus, UserRole } from '@biddaloy/shared';
 import { ProvisioningService } from './provisioning.service';
+import { reviveMembership } from '../../users/users.service';
 import { ProvisioningController } from './provisioning.controller';
 import { RolesGuard } from '../../auth/guards/context.guard';
+
+vi.mock('../../users/users.service', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../users/users.service')>()),
+  reviveMembership: vi.fn(async () => 1),
+}));
 
 /** A minimal fluent stub matching the `createQueryBuilder` subset this
  * service chains — same shape as `GuardianProvisioningService`'s spec. */
@@ -277,14 +283,12 @@ describe('ProvisioningService', () => {
       role: UserRole.ADMIN,
       deleted_at: new Date(),
     });
-    userTenantRepo.restore = vi.fn(async () => ({ affected: 1 }));
+    vi.mocked(reviveMembership).mockResolvedValueOnce(1);
 
     await service.provisionAdminForSchool('school-1', dto.admin, ACTOR, manager);
 
     // The unique index ignores soft-deletion, so an insert would 23505.
-    expect(userTenantRepo.restore).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'old-membership' }),
-    );
+    expect(reviveMembership).toHaveBeenCalledWith(manager, 'old-membership');
     expect(userTenantRepo.save).not.toHaveBeenCalled();
   });
 

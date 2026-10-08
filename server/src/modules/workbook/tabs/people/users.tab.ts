@@ -3,7 +3,7 @@ import { In, Not } from 'typeorm';
 import { UserRole } from '@biddaloy/shared';
 import { User } from '../../../users/entities/user.entity';
 import { UserTenant } from '../../../auth/entities/user-tenant.entity';
-import { ROLE_SWAP_ENDED } from '../../../users/users.service';
+import { ROLE_SWAP_ENDED, reviveMembership } from '../../../users/users.service';
 import { fromCell } from '../../codec/cell-format';
 import type {
   ColumnSpec,
@@ -109,7 +109,7 @@ const MAX_LENGTHS: Record<string, number> = {
 /**
  * Soft-deletes the rows a role swap replaces, tagged `ended_by: ROLE_SWAP`: the
  * user never left, so `UserService` must not list them as former or restore
- * these rows (r2-m1). `revive` drops the tag, so a later real removal counts.
+ * these rows (r2-m1). `reviveMembership` drops the tag, so a later real removal counts.
  */
 async function endSwapped(m: EntityManager, ids: string[]): Promise<void> {
   if (ids.length === 0) return;
@@ -122,15 +122,6 @@ async function endSwapped(m: EntityManager, ids: string[]): Promise<void> {
         `COALESCE(metadata, '{}'::jsonb) || '{"ended_by":"${ROLE_SWAP_ENDED}"}'::jsonb`,
     })
     .where('id IN (:...ids)', { ids })
-    .execute();
-}
-
-async function revive(m: EntityManager, id: string): Promise<void> {
-  await m
-    .createQueryBuilder()
-    .update(UserTenant)
-    .set({ deleted_at: null, metadata: () => `metadata - 'ended_by'` })
-    .where('id = :id', { id })
     .execute();
 }
 
@@ -381,7 +372,7 @@ export const usersTab: TabSpec<User, UserRow> = {
             withDeleted: true,
           });
           if (formerTarget) {
-            await revive(m, formerTarget.id);
+            await reviveMembership(m, formerTarget.id);
             await endSwapped(m, [memberships[0].id]);
           } else {
             memberships[0].role = row.role;
@@ -402,7 +393,7 @@ export const usersTab: TabSpec<User, UserRow> = {
             withDeleted: true,
           });
           if (former) {
-            await revive(m, former.id);
+            await reviveMembership(m, former.id);
           } else {
             await m.save(
               UserTenant,

@@ -6,7 +6,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull, Not, In, QueryFailedError } from 'typeorm';
+import { Repository, IsNull, Not, In, QueryFailedError, type EntityManager } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { User } from './entities/user.entity';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
@@ -52,6 +52,22 @@ export interface SectionTeacherAssignmentWithClass extends SectionTeacherAssignm
  */
 export const ROLE_SWAP_ENDED = 'ROLE_SWAP';
 const NOT_SWAPPED_SQL = `(b.metadata->>'ended_by') IS DISTINCT FROM '${ROLE_SWAP_ENDED}'`;
+
+/**
+ * Brings a soft-deleted membership back and drops its `ended_by` tag, so a
+ * later real removal of it counts as a departure again. Every path that
+ * revives a `user_tenants` row goes through here. Returns 0 when the row was
+ * not deleted (someone else revived it first).
+ */
+export async function reviveMembership(m: EntityManager, id: string): Promise<number> {
+  const result = await m
+    .createQueryBuilder()
+    .update(UserTenant)
+    .set({ deleted_at: null, metadata: () => `metadata - 'ended_by'` })
+    .where('id = :id AND deleted_at IS NOT NULL', { id })
+    .execute();
+  return result.affected ?? 0;
+}
 
 /** A soft-deleted row from the user's latest end-of-membership batch in `:tenantId`. */
 const LATEST_ENDED_SQL = `ut.deleted_at = (SELECT max(b.deleted_at) FROM user_tenants b

@@ -11,7 +11,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { UserRole } from '@biddaloy/shared';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
-import { UserService, TeacherService } from './users.service';
+import { UserService, TeacherService, reviveMembership, ROLE_SWAP_ENDED } from './users.service';
 import { StaffProfilesService } from '../staff-profiles/staff-profiles.service';
 import { AuditService } from '../audit/audit.service';
 import { AuditLog } from '../audit/entities/audit-log.entity';
@@ -463,5 +463,29 @@ describe('UserService membership leave / remove / restore (integration)', () => 
       .catch((e) => e);
     expect(err).toBeInstanceOf(BadRequestException);
     expect(err.getResponse().details.code).toBe('PASSWORD_TOO_WEAK');
+  });
+
+  it('reviveMembership drops the role-swap tag, so a later removal can be restored', async () => {
+    const tenant = await newSchool();
+    await addMember(tenant, UserRole.ADMIN);
+    const id = await addMember(tenant, UserRole.TEACHER);
+    const [row] = await dataSource.query(
+      `UPDATE user_tenants
+          SET deleted_at = NOW(), metadata = jsonb_build_object('ended_by', $3::text)
+        WHERE user_id = $1 AND tenant_id = $2 RETURNING id`,
+      [id, tenant, ROLE_SWAP_ENDED],
+    );
+    const rowId = (row as { id: string }[])[0].id;
+
+    expect(await reviveMembership(dataSource.manager, rowId)).toBe(1);
+    // Already active: a second revive is a no-op, which is what callers' 409 relies on.
+    expect(await reviveMembership(dataSource.manager, rowId)).toBe(0);
+    const revived = await userTenantRepo.findOneByOrFail({ id: rowId });
+    expect(revived.metadata).not.toHaveProperty('ended_by');
+
+    await service.remove(id, tenant, ADMIN_ACTOR);
+    await service.restore(id, tenant, ADMIN_ACTOR);
+    const active = await userTenantRepo.find({ where: { user_id: id, tenant_id: tenant } });
+    expect(active.map((r) => r.role)).toEqual([UserRole.TEACHER]);
   });
 });
