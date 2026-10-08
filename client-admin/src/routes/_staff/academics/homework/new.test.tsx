@@ -8,7 +8,7 @@ import {
   studentFactory,
   subjectFactory,
 } from '@biddaloy/ui/test';
-import { screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -44,11 +44,11 @@ describe('/academics/homework/new', () => {
   }
 
   async function fillCreateBasics(user: ReturnType<typeof userEvent.setup>, className: string) {
-    await user.click(screen.getByLabelText('Class'));
+    await user.click(screen.getByRole('combobox', { name: /^Class/ }));
     await user.click(await screen.findByRole('option', { name: className }));
-    await user.click(screen.getByLabelText('Subject'));
+    await user.click(screen.getByRole('combobox', { name: /^Subject/ }));
     await user.click(await screen.findByRole('option', { name: 'Mathematics' }));
-    await user.type(screen.getByLabelText('Title'), 'Algebra worksheet');
+    await user.type(screen.getByRole('textbox', { name: /^Title/ }), 'Algebra worksheet');
   }
 
   it('happy path: section target creates then assigns with section_id only', async () => {
@@ -109,9 +109,9 @@ describe('/academics/homework/new', () => {
     const user = userEvent.setup();
     await screen.findByRole('heading', { name: 'Create homework' });
     await fillCreateBasics(user, klass.name);
-    await user.click(screen.getByLabelText('Section'));
+    await user.click(screen.getByRole('combobox', { name: /^Section/ }));
     await user.click(await screen.findByRole('option', { name: section.section_name }));
-    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await user.click(screen.getByRole('button', { name: 'Give homework' }));
 
     await waitFor(() => expect(assignBody).toBeDefined());
     expect(createCount).toBe(1);
@@ -176,12 +176,12 @@ describe('/academics/homework/new', () => {
     const user = userEvent.setup();
     await screen.findByRole('heading', { name: 'Create homework' });
     await fillCreateBasics(user, klass.name);
-    await user.click(screen.getByLabelText('Section'));
+    await user.click(screen.getByRole('combobox', { name: /^Section/ }));
     await user.click(await screen.findByRole('option', { name: section.section_name }));
-    await user.click(screen.getByLabelText('Assign to: Student'));
-    await user.click(screen.getByLabelText('Student'));
+    await user.click(screen.getByRole('radio', { name: 'Student' }));
+    await user.click(screen.getByRole('combobox', { name: /^Student/ }));
     await user.click(await screen.findByRole('option', { name: /Karim Ahmed/ }));
-    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await user.click(screen.getByRole('button', { name: 'Give homework' }));
 
     await waitFor(() => expect(assignBody).toBeDefined());
     expect(assignBody?.student_id).toBe(student.id);
@@ -226,14 +226,14 @@ describe('/academics/homework/new', () => {
     const user = userEvent.setup();
     await screen.findByRole('heading', { name: 'Create homework' });
     await fillCreateBasics(user, klass.name);
-    await user.click(screen.getByLabelText('Section'));
+    await user.click(screen.getByRole('combobox', { name: /^Section/ }));
     await user.click(await screen.findByRole('option', { name: section.section_name }));
-    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await user.click(screen.getByRole('button', { name: 'Give homework' }));
 
     await screen.findByRole('alert');
     expect(createCount).toBe(1);
 
-    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await user.click(screen.getByRole('button', { name: 'Give homework' }));
     await waitFor(() => expect(assignCount).toBe(2));
     expect(createCount).toBe(1);
   });
@@ -249,8 +249,12 @@ describe('/academics/homework/new', () => {
     });
 
     await screen.findByRole('heading', { name: 'Create homework' });
-    await waitFor(() => within(screen.getByLabelText('Class')).getByText(klass.name));
-    await waitFor(() => within(screen.getByLabelText('Section')).getByText(section.section_name));
+    await waitFor(() =>
+      within(screen.getByRole('combobox', { name: /^Class/ })).getByText(klass.name),
+    );
+    await waitFor(() =>
+      within(screen.getByRole('combobox', { name: /^Section/ })).getByText(section.section_name),
+    );
   });
 
   it('due date before assigned date shows an inline error and sends no request', async () => {
@@ -273,13 +277,93 @@ describe('/academics/homework/new', () => {
     const user = userEvent.setup();
     await screen.findByRole('heading', { name: 'Create homework' });
     await fillCreateBasics(user, klass.name);
-    await user.click(screen.getByLabelText('Section'));
+    await user.click(screen.getByRole('combobox', { name: /^Section/ }));
     await user.click(await screen.findByRole('option', { name: section.section_name }));
 
     await pickDate(user, 'Due date', '2020-01-01');
-    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await user.click(screen.getByRole('button', { name: 'Give homework' }));
 
     expect(await screen.findByText(/Due date must be on or after/i)).toBeTruthy();
+    // The only error is the date's, so focus moves to its picker, not left on the button.
+    expect(document.activeElement?.id).toBe('homework-form-due');
     expect(assignCount).toBe(0);
+  });
+
+  it('a missing title shows its own message under the field and sends no request', async () => {
+    const { klass, section } = setUpPickers();
+    let createCount = 0;
+    server.use(
+      http.post('/api/v1/homework', () => {
+        createCount += 1;
+        return HttpResponse.json({}, { status: 201 });
+      }),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/academics/homework/new'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await screen.findByRole('heading', { name: 'Create homework' });
+    await user.click(screen.getByRole('combobox', { name: /^Class/ }));
+    await user.click(await screen.findByRole('option', { name: klass.name }));
+    await user.click(screen.getByRole('combobox', { name: /^Section/ }));
+    await user.click(await screen.findByRole('option', { name: section.section_name }));
+    await user.click(screen.getByRole('button', { name: 'Give homework' }));
+
+    expect(await screen.findByText('Write a title.')).toBeTruthy();
+    expect(screen.getByText('Pick a subject.')).toBeTruthy();
+    expect(createCount).toBe(0);
+  });
+
+  it('Cancel with typed text asks before leaving', async () => {
+    setUpPickers();
+    renderWithRouter(routeTree, {
+      initialEntries: ['/academics/homework/new'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await screen.findByRole('heading', { name: 'Create homework' });
+    await user.type(screen.getByRole('textbox', { name: /^Title/ }), 'Algebra');
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(await screen.findByText('Discard your changes?')).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Create homework', hidden: true })).toBeTruthy();
+  });
+
+  it('submitting the form twice in a row creates one homework', async () => {
+    const { klass, section } = setUpPickers();
+    let createCount = 0;
+    server.use(
+      http.post('/api/v1/homework', async () => {
+        createCount += 1;
+        await new Promise((resolve) => setTimeout(resolve, 200));
+        return HttpResponse.json({ id: 'hw-1' }, { status: 201 });
+      }),
+      http.post('/api/v1/homework/:id/assign', () => HttpResponse.json({}, { status: 400 })),
+    );
+    renderWithRouter(routeTree, {
+      initialEntries: ['/academics/homework/new'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+    const user = userEvent.setup();
+    await screen.findByRole('heading', { name: 'Create homework' });
+    await fillCreateBasics(user, klass.name);
+    await user.click(screen.getByRole('combobox', { name: /^Section/ }));
+    await user.click(await screen.findByRole('option', { name: section.section_name }));
+    const form = document.getElementById('homework-create-form') as HTMLFormElement;
+    fireEvent.submit(form);
+    fireEvent.submit(form);
+    await waitFor(() => expect(createCount).toBe(1));
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    expect(createCount).toBe(1);
   });
 });

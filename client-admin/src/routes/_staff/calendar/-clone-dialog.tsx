@@ -8,7 +8,6 @@
  */
 import {
   Button,
-  Checkbox,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -46,11 +45,6 @@ export function CloneDialog({
   const { t } = useTranslation('calendarImport');
   const [sourceYearId, setSourceYearId] = React.useState<string | undefined>(undefined);
   const [targetYearId, setTargetYearId] = React.useState<string | undefined>(undefined);
-  // `include_holidays` isn't wired to the request — `CloneCalendarDto`
-  // has no such field (server-side decision: cloning always skips
-  // HOLIDAY events). Rendered as a disabled, permanently-unchecked control
-  // so the UI states the actual behaviour rather than promising a toggle
-  // the API can't honour.
 
   React.useEffect(() => {
     if (!open) {
@@ -62,8 +56,9 @@ export function CloneDialog({
   const canSubmit = Boolean(sourceYearId && targetYearId && sourceYearId !== targetYearId);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+    // A pending clone request must not be abandoned by Esc / X / outside click.
+    <Dialog open={open} onOpenChange={(next) => !isPending && onOpenChange(next)}>
+      <DialogContent size="md">
         <DialogHeader>
           <DialogTitle>{t('clone.title')}</DialogTitle>
           <DialogDescription>{t('clone.description')}</DialogDescription>
@@ -77,7 +72,7 @@ export function CloneDialog({
               onValueChange={setSourceYearId}
             >
               <SelectTrigger id="clone-source-year">
-                <SelectValue />
+                <SelectValue placeholder={t('clone.placeholder')} />
               </SelectTrigger>
               <SelectContent>
                 {academicYears.map((year) => (
@@ -96,7 +91,7 @@ export function CloneDialog({
               onValueChange={setTargetYearId}
             >
               <SelectTrigger id="clone-target-year">
-                <SelectValue />
+                <SelectValue placeholder={t('clone.placeholder')} />
               </SelectTrigger>
               <SelectContent>
                 {academicYears.map((year) => (
@@ -108,22 +103,20 @@ export function CloneDialog({
             </Select>
           </div>
 
-          <div className="flex items-center gap-2">
-            <Checkbox id="clone-include-holidays" checked={false} disabled />
-            <Label htmlFor="clone-include-holidays" className="text-muted-foreground">
-              {t('clone.includeHolidays')}
-            </Label>
-          </div>
-
-          {error !== undefined && (
-            <p className="text-sm text-destructive" role="alert">
+          {error != null && (
+            <p className="text-destructive" role="alert">
               {t('clone.cloneFailed')}
             </p>
           )}
         </div>
 
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={isPending}
+            onClick={() => onOpenChange(false)}
+          >
             {t('clone.cancel')}
           </Button>
           <Button

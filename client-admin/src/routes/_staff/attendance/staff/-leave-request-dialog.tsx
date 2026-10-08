@@ -8,17 +8,25 @@ import { LeaveType } from '@biddaloy/shared';
 import { ApiError } from '@biddaloy/ui/api';
 import {
   Button,
+  DatePicker,
+  ConfirmDialog,
   Dialog,
-  DialogClose,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  Input,
+  Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Textarea,
 } from '@biddaloy/ui/components';
 import { useCreateLeaveRequest } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { parseDate, toIsoDate } from '@biddaloy/ui/utils';
 import * as React from 'react';
 
 export interface LeaveRequestDialogProps {
@@ -35,12 +43,15 @@ export function LeaveRequestDialog({
   staffProfileId,
 }: LeaveRequestDialogProps) {
   const { t } = useTranslation('leave');
+  const regionConfig = useTenantRegionConfig();
   const createRequest = useCreateLeaveRequest();
 
   const [leaveType, setLeaveType] = React.useState<LeaveType>(LeaveType.CASUAL);
+  // ISO `YYYY-MM-DD` strings (the API shape); the pickers show formatted dates.
   const [startDate, setStartDate] = React.useState('');
   const [endDate, setEndDate] = React.useState('');
   const [reason, setReason] = React.useState('');
+  const [confirmDiscardOpen, setConfirmDiscardOpen] = React.useState(false);
   const [validationError, setValidationError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
@@ -50,6 +61,7 @@ export function LeaveRequestDialog({
     setEndDate('');
     setReason('');
     setValidationError(null);
+    setConfirmDiscardOpen(false);
     createRequest.reset();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only on open/close
   }, [open]);
@@ -77,96 +89,130 @@ export function LeaveRequestDialog({
     );
   }
 
+  // Never the server's own text: a translated sentence, with the balance case spelled out.
   const serverErrorMessage =
-    createRequest.error instanceof ApiError
-      ? createRequest.error.message
+    createRequest.error instanceof ApiError &&
+    (createRequest.error.details as { code?: string } | undefined)?.code ===
+      'LEAVE_BALANCE_EXCEEDED'
+      ? t('request.errorBalance')
       : t('request.errorMessage');
 
+  const dirty =
+    leaveType !== LeaveType.CASUAL || startDate !== '' || endDate !== '' || reason !== '';
+
+  // Esc / X / Cancel: never while sending; ask first when something was typed.
+  function requestClose(next: boolean) {
+    if (next) return onOpenChange(true);
+    if (createRequest.isPending) return;
+    if (dirty) return setConfirmDiscardOpen(true);
+    onOpenChange(false);
+  }
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <DialogHeader>
-            <DialogTitle>{t('request.title')}</DialogTitle>
-            <DialogDescription>{t('request.description')}</DialogDescription>
-          </DialogHeader>
+    <>
+      <Dialog open={open} onOpenChange={requestClose}>
+        <DialogContent size="md" closeLabel={t('actions.close', { ns: 'common' })}>
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            <DialogHeader>
+              <DialogTitle>{t('request.title')}</DialogTitle>
+              <DialogDescription>{t('request.description')}</DialogDescription>
+            </DialogHeader>
 
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="leave-request-type" className="text-sm font-medium">
-              {t('request.typeLabel')}
-            </label>
-            <select
-              id="leave-request-type"
-              className="h-8 rounded-md border border-input bg-card px-2.5 text-sm"
-              value={leaveType}
-              onChange={(event) => setLeaveType(event.target.value as LeaveType)}
-            >
-              {LEAVE_TYPES.map((type) => (
-                <option key={type} value={type}>
-                  {t(`type.${type}`)}
-                </option>
-              ))}
-            </select>
-          </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="leave-request-type">{t('request.typeLabel')}</Label>
+              <Select value={leaveType} onValueChange={(value) => setLeaveType(value as LeaveType)}>
+                <SelectTrigger id="leave-request-type">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {LEAVE_TYPES.map((type) => (
+                    <SelectItem key={type} value={type}>
+                      {t(`type.${type}`)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="leave-request-start" className="text-sm font-medium">
-              {t('request.startDateLabel')}
-            </label>
-            <Input
-              id="leave-request-start"
-              type="date"
-              value={startDate}
-              onChange={(event) => setStartDate(event.target.value)}
-            />
-          </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="leave-request-start">{t('request.startDateLabel')}</Label>
+              <DatePicker
+                id="leave-request-start"
+                aria-label={t('request.startDateLabel')}
+                config={regionConfig}
+                value={startDate === '' ? undefined : parseDate(startDate)}
+                onValueChange={(next) => {
+                  const start = next ? toIsoDate(next) : '';
+                  setStartDate(start);
+                  // A start after the chosen end makes that end meaningless: clear it.
+                  if (start !== '' && endDate !== '' && start > endDate) setEndDate('');
+                }}
+              />
+            </div>
 
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="leave-request-end" className="text-sm font-medium">
-              {t('request.endDateLabel')}
-            </label>
-            <Input
-              id="leave-request-end"
-              type="date"
-              value={endDate}
-              onChange={(event) => setEndDate(event.target.value)}
-            />
-          </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="leave-request-end">{t('request.endDateLabel')}</Label>
+              <DatePicker
+                id="leave-request-end"
+                aria-label={t('request.endDateLabel')}
+                config={regionConfig}
+                value={endDate === '' ? undefined : parseDate(endDate)}
+                min={startDate === '' ? undefined : parseDate(startDate)}
+                onValueChange={(next) => setEndDate(next ? toIsoDate(next) : '')}
+              />
+            </div>
 
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="leave-request-reason" className="text-sm font-medium">
-              {t('request.reasonLabel')}
-            </label>
-            <Input
-              id="leave-request-reason"
-              value={reason}
-              onChange={(event) => setReason(event.target.value)}
-            />
-          </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="leave-request-reason">{t('request.reasonLabel')}</Label>
+              <Textarea
+                id="leave-request-reason"
+                rows={3}
+                placeholder={t('request.reasonPlaceholder')}
+                value={reason}
+                onChange={(event) => setReason(event.target.value)}
+              />
+            </div>
 
-          {validationError && (
-            <p role="alert" className="text-sm text-destructive">
-              {validationError}
-            </p>
-          )}
-          {createRequest.isError && (
-            <p role="alert" className="text-sm text-destructive">
-              {serverErrorMessage}
-            </p>
-          )}
+            {validationError && (
+              <p role="alert" className="text-sm text-destructive">
+                {validationError}
+              </p>
+            )}
+            {createRequest.isError && (
+              <p role="alert" className="text-sm text-destructive">
+                {serverErrorMessage}
+              </p>
+            )}
 
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button type="button" variant="outline">
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={createRequest.isPending}
+                onClick={() => requestClose(false)}
+              >
                 {t('actions.cancel', { ns: 'common' })}
               </Button>
-            </DialogClose>
-            <Button type="submit" loading={createRequest.isPending}>
-              {createRequest.isPending ? t('request.submitting') : t('request.submit')}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+              <Button type="submit" loading={createRequest.isPending}>
+                {createRequest.isPending ? t('request.submitting') : t('request.submit')}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+      <ConfirmDialog
+        open={confirmDiscardOpen}
+        onOpenChange={setConfirmDiscardOpen}
+        title={t('request.discardTitle')}
+        description={t('request.discardBody')}
+        confirmLabel={t('request.discardConfirm')}
+        cancelLabel={t('request.discardKeep')}
+        tone="danger"
+        onConfirm={() => {
+          setConfirmDiscardOpen(false);
+          onOpenChange(false);
+        }}
+      />
+    </>
   );
 }

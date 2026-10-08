@@ -101,7 +101,7 @@ export function ConflictDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent size="lg">
         <DialogHeader>
           <DialogTitle>{t('conflict.title')}</DialogTitle>
           <DialogDescription>{t('conflict.explanation')}</DialogDescription>

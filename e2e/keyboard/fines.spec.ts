@@ -192,7 +192,10 @@ test.describe('(b) Rules: tab -> n -> create an ABSENT rule -> save', () => {
 
     await test.step('"n" opens the create-rule dialog', async () => {
       // The route is lazy: the URL changes before the hotkey listener exists.
-      await expect(page.getByRole('button', { name: t('fees.fines.rules.addRule') })).toBeVisible();
+      // [31.4] With no rules yet the empty state repeats the button; `.first()` is the header one.
+      await expect(
+        page.getByRole('button', { name: t('fees.fines.rules.addRule') }).first(),
+      ).toBeVisible();
       await page.keyboard.press('n');
       await expect(
         page.getByRole('dialog', { name: t('fees.fines.rules.form.createTitle') }),

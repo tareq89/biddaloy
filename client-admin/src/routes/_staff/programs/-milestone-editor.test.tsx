@@ -65,7 +65,7 @@ describe('MilestoneEditor', () => {
     );
     await renderEditor();
 
-    const input = (await screen.findAllByLabelText('Add milestone'))[0]!;
+    const input = await screen.findByLabelText('New milestone name');
     await user.type(input, 'Third');
     await user.click(screen.getByRole('button', { name: 'Add milestone' }));
 
@@ -83,8 +83,8 @@ describe('MilestoneEditor', () => {
     );
     await renderEditor();
 
-    await user.click((await screen.findAllByText('Edit milestone'))[0]!);
-    const editInput = screen.getAllByLabelText('Add milestone')[0]!;
+    await user.click((await screen.findAllByRole('button', { name: 'Edit milestone' }))[0]!);
+    const editInput = screen.getByLabelText(/^Name/);
     await user.clear(editInput);
     await user.type(editInput, 'First (renamed)');
     await user.click(screen.getByRole('button', { name: 'Save' }));
@@ -103,11 +103,11 @@ describe('MilestoneEditor', () => {
     );
     await renderEditor();
 
-    const removeButtons = await screen.findAllByText('Remove milestone');
+    const removeButtons = await screen.findAllByRole('button', { name: 'Remove milestone' });
     await user.click(removeButtons[1]!); // m-2 has achievement_count: 3
     const confirm = await screen.findByRole('alertdialog');
-    await screen.findByText(
-      'This milestone has 3 recorded achievements. Removing them will delete those records too.',
+    await within(confirm).findByText(
+      /This milestone has (3|৩) recorded achievements. Removing them will delete those records too./,
     );
     await user.click(within(confirm).getByRole('button', { name: 'Remove milestone' }));
 
@@ -131,13 +131,34 @@ describe('MilestoneEditor', () => {
     await waitFor(() => expect(requestBody).toMatchObject({ milestone_ids: ['m-2', 'm-1'] }));
   });
 
+  it('drops the failure alert once a later change succeeds', async () => {
+    const user = userEvent.setup();
+    server.use(
+      http.post('/api/v1/programs/:id/milestones', () =>
+        HttpResponse.json(
+          { statusCode: 500, message: 'boom', requestId: 'r', path: '/', timestamp: '' },
+          { status: 500 },
+        ),
+      ),
+      http.put('/api/v1/programs/:id/milestones/order', () => HttpResponse.json(MILESTONES)),
+    );
+    await renderEditor();
+
+    await user.type(await screen.findByLabelText('New milestone name'), 'Third');
+    await user.click(screen.getByRole('button', { name: 'Add milestone' }));
+    expect(await screen.findByRole('alert')).toBeTruthy();
+
+    await user.click(screen.getAllByRole('button', { name: 'Move milestone down' })[0]!);
+    await waitFor(() => expect(screen.queryByRole('alert')).toBeNull());
+  });
+
   it('hides add/edit/remove/reorder controls when canManage is false', async () => {
     await renderEditor({ canManage: false });
     await screen.findByText('First');
 
-    expect(screen.queryByLabelText('Add milestone')).toBeNull();
-    expect(screen.queryByText('Edit milestone')).toBeNull();
-    expect(screen.queryByText('Remove milestone')).toBeNull();
+    expect(screen.queryByLabelText('New milestone name')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Edit milestone' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Remove milestone' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Move milestone up' })).toBeNull();
   });
 });

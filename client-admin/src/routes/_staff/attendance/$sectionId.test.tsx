@@ -1,8 +1,9 @@
+import { toast } from '@biddaloy/ui/components';
 import { cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { routeTree } from '../../../routeTree.gen';
 
@@ -62,6 +63,7 @@ function registerBody(overrides: Partial<Record<string, unknown>> = {}) {
 
 describe('/attendance/$sectionId', () => {
   afterEach(async () => {
+    vi.restoreAllMocks();
     await cleanupTestState();
     window.localStorage.clear();
   });
@@ -84,10 +86,180 @@ describe('/attendance/$sectionId', () => {
     const user = userEvent.setup();
     await user.click(row);
 
-    expect(await screen.findByText(/Present 1 ·/)).toBeTruthy();
+    expect(await screen.findByText('Present 1')).toBeTruthy();
 
     await user.click(row);
-    expect(await screen.findByText(/Absent 1 ·/)).toBeTruthy();
+    expect(await screen.findByText('Absent 1')).toBeTruthy();
+  });
+
+  it('shows one h1 and a labelled date field, and writes an ISO date when a day is picked', async () => {
+    const requestedDates: Array<string | null> = [];
+    server.use(
+      http.get('/api/v1/attendance/sections/section-1/register', ({ request }) => {
+        requestedDates.push(new URL(request.url).searchParams.get('date'));
+        return HttpResponse.json(registerBody());
+      }),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/attendance/section-1?date=2026-09-04'],
+      tenantId: 'tenant-1',
+      role: 'TEACHER',
+      locale: 'en',
+    });
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Class 5 – A' })).toBeTruthy();
+    const user = userEvent.setup();
+    // Visible label and accessible name are both "Date" (not "Attendance").
+    expect(screen.getByText('Date')).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Date' }));
+    await user.click(document.querySelector('[data-date="2026-09-10"]') as HTMLElement);
+
+    await waitFor(() => expect(requestedDates).toContain('2026-09-10'));
+  });
+
+  it('shows five count badges including Leave, and the Submitted badge for a finalized register', async () => {
+    server.use(
+      http.get('/api/v1/attendance/sections/section-1/register', () =>
+        HttpResponse.json(
+          registerBody({
+            session: {
+              id: 'session-1',
+              date: '2026-09-04',
+              period_no: null,
+              state: 'FINALIZED',
+              version: 2,
+              marked_by_user_id: 'user-2',
+              marked_at: '2026-09-04T00:00:00.000Z',
+              finalized_at: '2026-09-04T01:00:00.000Z',
+            },
+            students: [
+              {
+                student_id: 'student-1',
+                roll_number: 1,
+                full_name: 'Rafi Ahmed',
+                record_id: 'record-1',
+                status: 'LEAVE',
+                minutes_late: null,
+                remarks: null,
+                source: 'TEACHER',
+                correction_count: 0,
+              },
+              {
+                student_id: 'student-2',
+                roll_number: 2,
+                full_name: 'Nusrat Jahan',
+                record_id: null,
+                status: null,
+                minutes_late: null,
+                remarks: null,
+                source: null,
+                correction_count: 0,
+              },
+            ],
+          }),
+        ),
+      ),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/attendance/section-1?date=2026-09-04'],
+      tenantId: 'tenant-1',
+      role: 'TEACHER',
+      locale: 'en',
+    });
+
+    expect(await screen.findByText('Leave 1')).toBeTruthy();
+    expect(screen.getByText('Present 0')).toBeTruthy();
+    expect(screen.getByText('Absent 0')).toBeTruthy();
+    expect(screen.getByText('Late 0')).toBeTruthy();
+    expect(screen.getByText('Unmarked 1')).toBeTruthy();
+    expect(screen.getByText('Submitted')).toBeTruthy();
+  });
+
+  it('keeps the submit bar in the content column (not fixed) and offers one primary', async () => {
+    server.use(
+      http.get('/api/v1/attendance/sections/section-1/register', () =>
+        HttpResponse.json(registerBody()),
+      ),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/attendance/section-1?date=2026-09-04'],
+      tenantId: 'tenant-1',
+      role: 'TEACHER',
+      locale: 'en',
+    });
+
+    const submit = await screen.findByRole('button', { name: 'Submit attendance' });
+    const bar = submit.parentElement as HTMLElement;
+    expect(bar.className).toContain('sticky');
+    expect(bar.className).not.toContain('fixed');
+    expect(within(bar).getByText('2 unmarked')).toBeTruthy();
+  });
+
+  it('toasts the translated sentence, never the server message, when submit fails with a 500', async () => {
+    const toastSpy = vi.spyOn(toast, 'error').mockImplementation(() => '');
+    server.use(
+      http.get('/api/v1/attendance/sections/section-1/register', () =>
+        HttpResponse.json(registerBody()),
+      ),
+      http.put('/api/v1/attendance/sections/section-1/register', () =>
+        HttpResponse.json(
+          {
+            statusCode: 500,
+            message: 'relation "attendance_sessions" does not exist',
+            timestamp: new Date().toISOString(),
+            path: '/attendance/sections/section-1/register',
+            requestId: 'req-1',
+          },
+          { status: 500 },
+        ),
+      ),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/attendance/section-1?date=2026-09-04'],
+      tenantId: 'tenant-1',
+      role: 'TEACHER',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByText('Rafi Ahmed'));
+    await user.click(screen.getByText('Nusrat Jahan'));
+    await user.click(screen.getByRole('button', { name: 'Submit attendance' }));
+
+    await waitFor(() => expect(toastSpy).toHaveBeenCalledWith('Could not save attendance'));
+    expect(toastSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows an error state with Retry when the register fails to load', async () => {
+    server.use(
+      http.get('/api/v1/attendance/sections/section-1/register', () =>
+        HttpResponse.json(
+          {
+            statusCode: 403,
+            message: 'forbidden',
+            timestamp: new Date().toISOString(),
+            path: '/attendance/sections/section-1/register',
+            requestId: 'req-1',
+          },
+          { status: 403 },
+        ),
+      ),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/attendance/section-1?date=2026-09-04'],
+      tenantId: 'tenant-1',
+      role: 'TEACHER',
+      locale: 'en',
+    });
+
+    expect(await screen.findByText("Could not load this section's attendance.")).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeTruthy();
+    expect(screen.queryByText('forbidden')).toBeNull();
   });
 
   it('ArrowDown moves roving focus to the next row', async () => {
@@ -132,7 +304,7 @@ describe('/attendance/$sectionId', () => {
 
     await screen.findByText('Rafi Ahmed');
     const user = userEvent.setup();
-    await user.click(screen.getByRole('button', { name: 'Submit register' }));
+    await user.click(screen.getByRole('button', { name: 'Submit attendance' }));
 
     expect(await screen.findByText('2 students unmarked')).toBeTruthy();
   });
@@ -208,9 +380,9 @@ describe('/attendance/$sectionId', () => {
     await user.click(row); // marks student-1 PRESENT locally
     await user.click(screen.getByText('Nusrat Jahan')); // marks student-2 PRESENT locally
 
-    expect(await screen.findByText(/Present 2 ·/)).toBeTruthy();
+    expect(await screen.findByText('Present 2')).toBeTruthy();
 
-    await user.click(screen.getByRole('button', { name: 'Submit register' }));
+    await user.click(screen.getByRole('button', { name: 'Submit attendance' }));
 
     expect(
       await screen.findByRole('heading', { name: 'This register changed since you loaded it' }),
@@ -294,17 +466,17 @@ describe('/attendance/$sectionId', () => {
     const user = userEvent.setup();
     await user.click(row); // marks student-1 PRESENT locally
     await user.click(screen.getByText('Nusrat Jahan')); // marks student-2 PRESENT locally
-    expect(await screen.findByText(/Present 2 ·/)).toBeTruthy();
+    expect(await screen.findByText('Present 2')).toBeTruthy();
 
-    await user.click(screen.getByRole('button', { name: 'Submit register' }));
+    await user.click(screen.getByRole('button', { name: 'Submit attendance' }));
     await screen.findByRole('heading', { name: 'This register changed since you loaded it' });
     await user.click(screen.getByRole('button', { name: 'Take theirs' }));
 
     // The draft now reflects `serverRegister` (Rafi Absent, Nusrat
     // unmarked) — not the two locally-clicked PRESENT marks, and not
     // the stale first-load register either.
-    await waitFor(() => expect(screen.getByText(/Absent 1 ·/)).toBeTruthy());
-    expect(screen.queryByText(/Present 2 ·/)).toBeNull();
+    await waitFor(() => expect(screen.getByText('Absent 1')).toBeTruthy());
+    expect(screen.queryByText('Present 2')).toBeNull();
   });
 
   // [9.7]

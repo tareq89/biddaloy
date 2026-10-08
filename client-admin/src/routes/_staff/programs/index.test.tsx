@@ -15,7 +15,7 @@
  */
 import { cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
 import { createRootRoute } from '@tanstack/react-router';
-import { screen } from '@testing-library/react';
+import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -92,7 +92,117 @@ describe('/programs', () => {
     });
 
     expect(screen.queryByText('Old Club')).toBeNull();
-    await user.click(await screen.findByRole('checkbox', { name: 'Show archived' }));
+    await user.click(await screen.findByRole('checkbox', { name: 'Also show archived programs' }));
     await screen.findByText('Old Club');
+  });
+
+  it('shows subtitle, yes/no report card, total instead of a pager, and no status column by default', async () => {
+    const rows = [
+      program({ id: 'p-1', name: 'Hifz', description: 'Quran', show_on_report_card: true }),
+      program({ id: 'p-2', name: 'Chess', show_on_report_card: false }),
+    ];
+    server.use(http.get('/api/v1/programs', () => HttpResponse.json(rows)));
+
+    renderWithRouter(buildRouteTree(), {
+      initialEntries: ['/'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    await screen.findByText('Hifz');
+    expect(screen.getByText("Track students' progress milestone by milestone.")).toBeTruthy();
+    expect(screen.getByText('Quran')).toBeTruthy();
+    const hifz = screen.getByRole('row', { name: /Hifz/ });
+    expect(within(hifz).getByText('Yes')).toBeTruthy();
+    const chess = screen.getByRole('row', { name: /Chess/ });
+    expect(within(chess).getByText('No')).toBeTruthy();
+    expect(screen.queryByText('✓')).toBeNull();
+    expect(screen.queryByRole('columnheader', { name: 'Status' })).toBeNull();
+    expect(screen.queryByText(/Rows per page/i)).toBeNull();
+    expect(screen.getByText(/Total/i)).toBeTruthy();
+  });
+
+  it('adds the status column once archived programs are shown', async () => {
+    const user = userEvent.setup();
+    server.use(
+      http.get('/api/v1/programs', () =>
+        HttpResponse.json([program({ id: 'p-2', name: 'Old Club', is_active: false })]),
+      ),
+    );
+
+    renderWithRouter(buildRouteTree(), {
+      initialEntries: ['/'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    await user.click(await screen.findByRole('checkbox', { name: 'Also show archived programs' }));
+    expect(await screen.findByRole('columnheader', { name: 'Status' })).toBeTruthy();
+    expect(screen.getByText('Archived')).toBeTruthy();
+  });
+
+  it('shows the edit action for ADMIN and opens the edit dialog', async () => {
+    const user = userEvent.setup();
+    server.use(
+      http.get('/api/v1/programs', () => HttpResponse.json([program({ id: 'p-1', name: 'Hifz' })])),
+    );
+
+    renderWithRouter(buildRouteTree(), {
+      initialEntries: ['/'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    await screen.findByText('Hifz');
+    await user.click(screen.getByRole('button', { name: 'Edit program' }));
+    await screen.findByRole('heading', { name: 'Edit program' });
+  });
+
+  it('renders an empty state with an add action', async () => {
+    server.use(http.get('/api/v1/programs', () => HttpResponse.json([])));
+
+    renderWithRouter(buildRouteTree(), {
+      initialEntries: ['/'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    await screen.findByText('No programs yet');
+    expect(screen.getAllByRole('button', { name: 'Add program' }).length).toBeGreaterThan(1);
+  });
+
+  it('hides the edit action without PROGRAM_MANAGE and keeps view', async () => {
+    server.use(
+      http.get('/api/v1/programs', () => HttpResponse.json([program({ id: 'p-1', name: 'Hifz' })])),
+    );
+    renderWithRouter(buildRouteTree(), {
+      initialEntries: ['/'],
+      tenantId: 'tenant-1',
+      role: 'TEACHER',
+      locale: 'en',
+    });
+    await screen.findByText('Hifz');
+    expect(screen.getByRole('link', { name: 'View' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Edit program' })).toBeNull();
+  });
+
+  it('renders counts in Bangla digits under bn', async () => {
+    server.use(
+      http.get('/api/v1/programs', () =>
+        HttpResponse.json([program({ name: 'Hifz', milestone_count: 30 })]),
+      ),
+    );
+    renderWithRouter(buildRouteTree(), {
+      initialEntries: ['/'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'bn',
+    });
+    await screen.findByText('Hifz');
+    expect((await screen.findAllByText(/৩০/)).length).toBeGreaterThan(0);
   });
 });

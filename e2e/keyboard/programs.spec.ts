@@ -158,7 +158,7 @@ test.describe('admin', () => {
     const second = `Second ${Date.now()}`;
 
     async function addMilestone(milestoneName: string) {
-      const input = page.getByRole('textbox', { name: t('programs.milestones.add') });
+      const input = page.getByRole('textbox', { name: t('programs.milestones.nameLabel') });
       await input.focus();
       await page.keyboard.type(milestoneName);
       await page.keyboard.press('Enter');

@@ -105,8 +105,13 @@ test.describe.serial('programs: admin enrols -> teacher records -> guardian sees
 
       // No `programId` in context from the student page — the dialog shows
       // a Program select; the student itself is already prefilled/checked.
-      await page.getByRole('combobox', { name: t('programs.list.title') }).click();
+      await page.getByRole('combobox', { name: t('programs.dialogs.program') }).click();
       await page.getByRole('option', { name: SEED_PROGRAM_NAME }).click();
+
+      // [31.4] The enrol page lists students only once a class is chosen; the
+      // prefilled student stays ticked once their class's list loads.
+      await page.getByRole('combobox', { name: t('programs.dialogs.enrol.class') }).click();
+      await page.getByRole('option', { name: SEEDED_CLASS_NAME }).first().click();
 
       // Scoped to the dialog: its submit button has the same accessible
       // name ("Enrol") as the page's own trigger button, which stays in the
@@ -136,8 +141,11 @@ test.describe.serial('programs: admin enrols -> teacher records -> guardian sees
       await page.getByRole('tab', { name: t('programs.detail.tabs.students') }).click();
 
       const row = page.getByRole('listitem').filter({ hasText: studentName });
-      await row.locator('button[aria-expanded]').click();
-      await expect(row.locator('button[aria-expanded]')).toHaveAttribute('aria-expanded', 'true');
+      await row.locator('button[aria-expanded]').first().click();
+      await expect(row.locator('button[aria-expanded]').first()).toHaveAttribute(
+        'aria-expanded',
+        'true',
+      );
 
       const firstUnticked = row.locator('[role="checkbox"][aria-checked="false"]').first();
       const milestoneId = await firstUnticked.getAttribute('data-milestone-id');
