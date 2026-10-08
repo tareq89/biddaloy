@@ -3,7 +3,12 @@
  * history. A revoked row stays in the list with its reason under the student (no strike-through, D39).
  * The route owns `validateSearch` and passes `search` in (D60).
  */
-import { isSerialKind, isStudentCertificateKind, Permission } from '@biddaloy/shared';
+import {
+  type DocumentKind,
+  isSerialKind,
+  isStudentCertificateKind,
+  Permission,
+} from '@biddaloy/shared';
 import { StatusBadge, type DataTableColumn } from '@biddaloy/ui/components';
 import {
   downloadCertificateRegisterCsv,
@@ -66,8 +71,9 @@ export function CertificateRegister({ search, onSearchChange, tabs }: Certificat
   const [revoke, setRevoke] = React.useState<{ id: string; label: string } | undefined>(undefined);
   const [exporting, setExporting] = React.useState(false);
 
-  const mayReprint = (kind: RegisterRow['document_kind']) =>
-    isStudentCertificateKind(kind) ? canIssue : canPrint;
+  // The row type is the certificate subset; the view dialog hands over any DocumentKind.
+  const mayReprint = (kind: string) =>
+    isStudentCertificateKind(kind as DocumentKind) ? canIssue : canPrint;
   const year = (y: number) => renderDigits(String(y), region.numerals);
   const heading =
     search.year !== undefined

@@ -49,7 +49,8 @@ export function DocumentsTab({ studentId }: { studentId: string }) {
             type="button"
             onClick={() =>
               void navigate({
-                search: ((p: Record<string, unknown>) => ({ ...p, issue: 'pick' })) as never,
+                to: '.',
+                search: (p: Record<string, unknown>) => ({ ...p, issue: 'pick' as const }),
               })
             }
           >
