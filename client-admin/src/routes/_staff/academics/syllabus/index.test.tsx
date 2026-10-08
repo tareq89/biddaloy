@@ -432,6 +432,27 @@ describe('/academics/syllabus', () => {
       expect(planRequests).toBe(0);
     });
 
+    it('?tab=library on load shows the library panel', async () => {
+      server.use(
+        ...classesAndSubjectsHandlers(),
+        http.get('/api/v1/study-plan-templates', () =>
+          HttpResponse.json({ data: [], total: 0, page: 1, limit: 25, totalPages: 0 }),
+        ),
+      );
+      renderWithRouter(routeTree, {
+        initialEntries: ['/academics/syllabus?tab=library'],
+        tenantId: 'tenant-1',
+        role: 'ADMIN',
+        locale: 'en',
+      });
+      expect(await screen.findByText('No templates yet')).toBeTruthy();
+      expect(
+        (await screen.findByRole('tab', { name: 'Template library' })).getAttribute(
+          'aria-selected',
+        ),
+      ).toBe('true');
+    });
+
     it('?tab=plans on load shows the plans panel', async () => {
       server.use(...classesAndSubjectsHandlers(), ...plansHandlers());
       renderWithRouter(routeTree, {
