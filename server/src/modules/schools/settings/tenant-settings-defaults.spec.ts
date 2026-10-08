@@ -3,6 +3,7 @@ import { TENANT_SETTINGS_SCHEMA_VERSION } from '../dto/tenant-settings.dto';
 import {
   DEFAULT_ORGANISATION_SETTINGS,
   DEFAULT_ROUTINE_SETTINGS,
+  DEFAULT_STUDY_PLANS_SETTINGS,
   DEFAULT_TENANT_SETTINGS,
 } from './tenant-settings-defaults';
 
@@ -21,6 +22,19 @@ describe('DEFAULT_ROUTINE_SETTINGS', () => {
     expect(DEFAULT_ROUTINE_SETTINGS).toEqual({
       defaultChangeoverMinutes: 5,
     });
+  });
+});
+
+describe('DEFAULT_STUDY_PLANS_SETTINGS', () => {
+  it('matches D25/D26', () => {
+    expect(DEFAULT_STUDY_PLANS_SETTINGS).toEqual({
+      statusDeadline: '18:00',
+      reminderTime: '08:00',
+      escalateAfterSchoolDays: 2,
+      weeklyDigestTime: '17:00',
+      guardianDigestSms: false,
+    });
+    expect(DEFAULT_TENANT_SETTINGS.studyPlans).toBe(DEFAULT_STUDY_PLANS_SETTINGS);
   });
 });
 

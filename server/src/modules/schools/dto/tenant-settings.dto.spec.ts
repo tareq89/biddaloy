@@ -718,6 +718,48 @@ describe('TenantSettingsDto', () => {
     });
   });
 
+  describe('studyPlans [66.1.04]', () => {
+    const withPlans = (studyPlans: unknown) =>
+      toDto({ version: TENANT_SETTINGS_SCHEMA_VERSION, studyPlans });
+    const planErr = async (studyPlans: unknown) =>
+      (await validate(withPlans(studyPlans), VALIDATION_OPTIONS)).find(
+        (e) => e.property === 'studyPlans',
+      );
+
+    it('accepts a full block and each field alone', async () => {
+      const full = {
+        statusDeadline: '17:30',
+        reminderTime: '08:15',
+        escalateAfterSchoolDays: 3,
+        weeklyDigestTime: '16:00',
+        guardianDigestSms: true,
+      };
+      expect(await planErr(full)).toBeUndefined();
+      for (const [k, v] of Object.entries(full)) {
+        expect(await planErr({ [k]: v })).toBeUndefined();
+      }
+    });
+
+    it('rejects bad HH:mm on each time field', async () => {
+      for (const field of ['statusDeadline', 'reminderTime', 'weeklyDigestTime']) {
+        for (const bad of ['25:00', '6pm']) {
+          expect(await planErr({ [field]: bad })).toBeDefined();
+        }
+      }
+    });
+
+    it('rejects escalateAfterSchoolDays outside 1..10 or non-integer', async () => {
+      for (const bad of [0, 11, 1.5]) {
+        expect(await planErr({ escalateAfterSchoolDays: bad })).toBeDefined();
+      }
+    });
+
+    it('rejects a non-boolean guardianDigestSms and unknown keys', async () => {
+      expect(await planErr({ guardianDigestSms: 'yes' })).toBeDefined();
+      expect(await planErr({ bogus: 1 })).toBeDefined();
+    });
+  });
+
   describe('evaluations', () => {
     const withEvaluations = (evaluations: unknown) =>
       toDto({ version: TENANT_SETTINGS_SCHEMA_VERSION, evaluations });

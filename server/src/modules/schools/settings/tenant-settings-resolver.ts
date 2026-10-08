@@ -7,9 +7,15 @@ import {
   DEFAULT_ORGANISATION_SETTINGS,
   DEFAULT_REGION_SETTINGS,
   DEFAULT_ROUTINE_SETTINGS,
+  DEFAULT_STUDY_PLANS_SETTINGS,
 } from './tenant-settings-defaults';
 import { ApprovalMode } from '@biddaloy/shared';
-import type { EvaluationsSettings, RoutineSettings, TenantSettings } from '@biddaloy/shared';
+import type {
+  EvaluationsSettings,
+  RoutineSettings,
+  StudyPlansSettings,
+  TenantSettings,
+} from '@biddaloy/shared';
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -63,6 +69,28 @@ function overlayRoutineSettings(stored: unknown): RoutineSettings {
     }
   }
 
+  return result;
+}
+
+const HH_MM = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+/** [66.1.04] Read-side guard mirroring `StudyPlansSettingsDto`: a bad stored
+ * field falls back to its default, good siblings survive, unknown keys drop. */
+function overlayStudyPlansSettings(stored: unknown): StudyPlansSettings {
+  const result: StudyPlansSettings = { ...DEFAULT_STUDY_PLANS_SETTINGS };
+  if (!isPlainObject(stored)) return result;
+
+  for (const key of ['statusDeadline', 'reminderTime', 'weeklyDigestTime'] as const) {
+    const value = stored[key];
+    if (typeof value === 'string' && HH_MM.test(value)) result[key] = value;
+  }
+  const days = stored.escalateAfterSchoolDays;
+  if (typeof days === 'number' && Number.isInteger(days) && days >= 1 && days <= 10) {
+    result.escalateAfterSchoolDays = days;
+  }
+  if (typeof stored.guardianDigestSms === 'boolean') {
+    result.guardianDigestSms = stored.guardianDigestSms;
+  }
   return result;
 }
 
@@ -185,6 +213,7 @@ export function resolveTenantSettings(stored: Record<string, unknown> | null): T
     auth,
     backup,
     fees,
+    studyPlans: overlayStudyPlansSettings(stored?.studyPlans),
     ...(communications ? { communications } : {}),
     ...(preset ? { preset } : {}),
     ...(evaluations ? { evaluations } : {}),

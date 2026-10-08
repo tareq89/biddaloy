@@ -4,6 +4,7 @@ import type {
   OrganisationSettings,
   PresetSettings,
   RoutineSettings,
+  StudyPlansSettings,
 } from '@biddaloy/shared';
 import { SchoolsService } from '../schools.service';
 
@@ -61,5 +62,12 @@ export class SchoolSettingsReader {
     // Always present on a resolved `TenantSettings` — same invariant as
     // `feesApprovalMode`/`organisationVocabulary` above.
     return settings.routine!;
+  }
+
+  /** [66.1.04] The tenant's `settings.studyPlans` (reminder/digest timing),
+   * always resolved with defaults. Read by the wave-2 study-plan jobs. */
+  async studyPlansSettings(tenantId: string): Promise<StudyPlansSettings> {
+    const settings = await this.schoolsService.getResolvedSettings(tenantId);
+    return settings.studyPlans!;
   }
 }

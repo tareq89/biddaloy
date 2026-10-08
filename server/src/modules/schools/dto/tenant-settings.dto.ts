@@ -35,6 +35,7 @@ import type {
   SmsGatewayName,
   SmsMeteringMode,
   BackupScheduleMode,
+  StudyPlansSettings,
 } from '@biddaloy/shared';
 
 /**
@@ -642,6 +643,39 @@ export class EvaluationsSettingsDto {
   incidentSmsEnabled?: boolean;
 }
 
+/** [66.1.04] `settings.studyPlans` — reminder and digest timing (D25, D26). */
+export class StudyPlansSettingsDto implements Partial<StudyPlansSettings> {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Matches(HH_MM_PATTERN)
+  statusDeadline?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Matches(HH_MM_PATTERN)
+  reminderTime?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(10)
+  escalateAfterSchoolDays?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Matches(HH_MM_PATTERN)
+  weeklyDigestTime?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  guardianDigestSms?: boolean;
+}
+
 /**
  * [33.3.1] An explicit rename instruction for one `organisation` vocabulary
  * list, carried alongside a settings PATCH rather than inferred from the
@@ -714,4 +748,8 @@ export class TenantSettingsDto {
   @OptionalSetting()
   @NestedSettings(() => EvaluationsSettingsDto)
   evaluations?: EvaluationsSettingsDto;
+
+  @OptionalSetting()
+  @NestedSettings(() => StudyPlansSettingsDto)
+  studyPlans?: StudyPlansSettingsDto;
 }
