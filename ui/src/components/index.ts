@@ -105,6 +105,7 @@ export {
   type RadioGroupProps,
   type RadioGroupItemProps,
 } from './radio';
+export { ChoiceCards, type ChoiceCardsProps, type ChoiceCardOption } from './choice-cards';
 export { SchoolPicker, type SchoolPickerOption, type SchoolPickerProps } from './school-picker';
 export { TenantBar } from './tenant-bar';
 export {

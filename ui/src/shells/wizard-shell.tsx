@@ -21,6 +21,7 @@ import { useTranslation } from '../i18n';
 
 import { PageContainer } from './page-container';
 import { PageHeader } from './page-header';
+import { StepIndicator } from './step-indicator';
 
 export interface WizardStep {
   id: string;
@@ -128,40 +129,7 @@ export function WizardShell({
     <PageContainer size="narrow">
       <PageHeader title={title} />
 
-      <ol className="flex flex-wrap items-center gap-2 text-sm">
-        {allSteps.map((step, index) => {
-          const isCurrent = step.id === currentStepId;
-          // Recomputed from the *current* position every render, not
-          // "ever visited" — jumping back to an earlier step un-completes
-          // everything after it, so a later step can't be clicked back
-          // into without going through its own validation again.
-          const isCompleted = index < currentIndex;
-          return (
-            <li key={step.id} aria-current={isCurrent ? 'step' : undefined}>
-              {isCompleted ? (
-                <button
-                  type="button"
-                  className="text-primary underline-offset-2 hover:underline"
-                  onClick={() => onStepChange(step.id)}
-                >
-                  {step.label}
-                </button>
-              ) : (
-                <span
-                  className={isCurrent ? 'font-medium text-foreground' : 'text-muted-foreground'}
-                >
-                  {step.label}
-                </span>
-              )}
-              {index < allSteps.length - 1 && (
-                <span aria-hidden="true" className="ms-2 text-muted-foreground">
-                  ›
-                </span>
-              )}
-            </li>
-          );
-        })}
-      </ol>
+      <StepIndicator steps={allSteps} currentStepId={currentStepId} onStepChange={onStepChange} />
       <div ref={stepAnnouncementRef} tabIndex={-1} aria-live="polite" className="sr-only">
         {t('wizard.stepAnnouncement', {
           current: currentIndex + 1,
