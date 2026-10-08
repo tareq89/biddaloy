@@ -11,14 +11,22 @@ import {
   RoutePending,
   Skeleton,
   StatusBadge,
+  toast,
   type ReportCardData,
 } from '@biddaloy/ui/components';
-import { useExam, useGradingScale, useResultDetail, useSchoolProfile } from '@biddaloy/ui/hooks';
+import {
+  logDocumentPrint,
+  useExam,
+  useGradingScale,
+  useResultDetail,
+  useSchoolProfile,
+} from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { DetailShell, PageContainer } from '@biddaloy/ui/shells';
 import { formatNumber } from '@biddaloy/ui/utils';
 import { createFileRoute } from '@tanstack/react-router';
 import { PrinterIcon } from 'lucide-react';
+import * as React from 'react';
 
 import { loadRouteNamespaces } from '../../../route-loaders';
 
@@ -33,10 +41,24 @@ function ReportCardPage() {
   const { t, i18n } = useTranslation('exams');
   const { t: tg } = useTranslation('grading');
   const config = useRegionConfig();
+  const [printing, setPrinting] = React.useState(false);
   const examQuery = useExam(examId);
   const detailQuery = useResultDetail(examId, studentId);
   const scaleQuery = useGradingScale(detailQuery.data?.result.grading_scale_id);
   const profileQuery = useSchoolProfile();
+
+  async function handlePrint() {
+    setPrinting(true);
+    try {
+      // Log first, print second (D17/D25): no entry, no print.
+      await logDocumentPrint(studentId, { document: 'REPORT_CARD', exam_id: examId });
+      window.print();
+    } catch {
+      toast.error(t('reportCard.logError'));
+    } finally {
+      setPrinting(false);
+    }
+  }
 
   const isLoading = examQuery.isPending || detailQuery.isPending || profileQuery.isPending;
   const isError = examQuery.isError || detailQuery.isError || profileQuery.isError;
@@ -120,7 +142,8 @@ function ReportCardPage() {
               label: t('reportCard.print'),
               priority: 'primary',
               icon: <PrinterIcon />,
-              onClick: () => window.print(),
+              busy: printing,
+              onClick: () => void handlePrint(),
             },
           ]}
         />

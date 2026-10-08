@@ -93,12 +93,15 @@ describe('/portal/results', () => {
 
   const cardRequests: string[] = [];
 
+  const printLogs: unknown[] = [];
+
   function mockResults(options: {
     students: unknown[];
     results: Record<string, unknown[]>;
     cards?: Record<string, unknown>;
   }) {
     cardRequests.length = 0;
+    printLogs.length = 0;
     server.use(
       http.get('/api/v1/students/mine', () => HttpResponse.json(options.students)),
       http.get('/api/v1/students/:studentId/results', ({ params }) => {
@@ -111,6 +114,10 @@ describe('/portal/results', () => {
         const found = options.cards?.[key];
         if (!found) return HttpResponse.json({ message: 'Not found' }, { status: 404 });
         return HttpResponse.json(found);
+      }),
+      http.post('/api/v1/students/:studentId/document-prints', async ({ request }) => {
+        printLogs.push(await request.json());
+        return new HttpResponse(null, { status: 204 });
       }),
     );
   }
@@ -192,6 +199,8 @@ describe('/portal/results', () => {
     await userEvent.click(printButton);
 
     await waitFor(() => expect(printSpy).toHaveBeenCalled());
+    // The audit entry was posted before the browser printed.
+    expect(printLogs).toEqual([{ document: 'REPORT_CARD', exam_id: 'exam-1' }]);
     // `ReportCard` rendered with this exam/student's data.
     expect(bodyTextAtPrintTime).toContain('Mathematics');
     expect(printTargetHiddenInPrint).toBe(false);
@@ -222,6 +231,34 @@ describe('/portal/results', () => {
       await waitFor(() => expect(button.getAttribute('aria-busy')).not.toBe('true'));
       await userEvent.click(button);
       await waitFor(() => expect(toastSpy).toHaveBeenCalledTimes(2));
+    } finally {
+      toastSpy.mockRestore();
+    }
+  });
+
+  it('shows the print error and does not print when the print log fails', async () => {
+    mockResults({
+      students: [fatima],
+      results: { 'student-1': [resultRow('exam-1', 'First Term Exam', true)] },
+      cards: { 'student-1:exam-1': card('First Term Exam') },
+    });
+    server.use(
+      http.post('/api/v1/students/:studentId/document-prints', () =>
+        HttpResponse.json({ message: 'Boom' }, { status: 500 }),
+      ),
+    );
+    const toastSpy = vi.spyOn(toast, 'error').mockImplementation(() => '');
+    const printSpy = vi.fn();
+    vi.stubGlobal('print', printSpy);
+    try {
+      renderResults();
+      await userEvent.click(await screen.findByRole('button', { name: 'Print First Term Exam' }));
+      await waitFor(() =>
+        expect(toastSpy).toHaveBeenCalledWith(
+          'Could not load this report card to print. Try again.',
+        ),
+      );
+      expect(printSpy).not.toHaveBeenCalled();
     } finally {
       toastSpy.mockRestore();
     }

@@ -4,6 +4,7 @@
  * (header). Same `renderWithRouter` + real route tree pattern as
  * `grading-scales/$scaleId.test.tsx`.
  */
+import { toast } from '@biddaloy/ui/components';
 import { REGION_BD_BN } from '@biddaloy/ui/i18n';
 import { apiErrorBody, cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
 import { formatNumber } from '@biddaloy/ui/utils';
@@ -166,16 +167,53 @@ describe('/results/$examId/$studentId', () => {
     expect(header.getByText('—')).toBeTruthy();
   });
 
-  it('opens the browser print dialog when Print is clicked', async () => {
-    const print = vi.fn();
+  it('logs the print first, then opens the browser print dialog', async () => {
+    const order: string[] = [];
+    let body: unknown;
+    const print = vi.fn(() => order.push('print'));
     vi.stubGlobal('print', print);
     mockReportCard();
+    server.use(
+      http.post('/api/v1/students/student-1/document-prints', async ({ request }) => {
+        body = await request.json();
+        order.push('log');
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
     const user = userEvent.setup();
     renderReportCard();
 
     await user.click(await screen.findByRole('button', { name: 'Print' }));
 
-    expect(print).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(print).toHaveBeenCalledTimes(1));
+    expect(order).toEqual(['log', 'print']);
+    expect(body).toEqual({ document: 'REPORT_CARD', exam_id: 'exam-1' });
+  });
+
+  it('shows an error and does not print when the print log fails', async () => {
+    const print = vi.fn();
+    vi.stubGlobal('print', print);
+    const toastSpy = vi.spyOn(toast, 'error').mockImplementation(() => '');
+    mockReportCard();
+    server.use(
+      http.post('/api/v1/students/student-1/document-prints', () =>
+        HttpResponse.json(apiErrorBody(500, 'Boom', '/'), { status: 500 }),
+      ),
+    );
+    const user = userEvent.setup();
+    renderReportCard();
+
+    try {
+      await user.click(await screen.findByRole('button', { name: 'Print' }));
+      await waitFor(() =>
+        expect(toastSpy).toHaveBeenCalledWith(
+          'The print could not be recorded, so it was not printed. Try again.',
+        ),
+      );
+      expect(print).not.toHaveBeenCalled();
+    } finally {
+      toastSpy.mockRestore();
+    }
   });
 
   it('shows no logo when the school has not uploaded one', async () => {
