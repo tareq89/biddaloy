@@ -81,6 +81,13 @@ export const STAFF_NAV_ITEMS = {
     permission: Permission.USER_READ,
     label: { entity: 'staff' },
   },
+  // [13.6.1] People > Staff > Import from Excel — gated like the route.
+  'people.staffImport': {
+    id: 'people.staffImport',
+    to: '/staff/import',
+    permission: Permission.USER_CREATE,
+    label: { key: 'importFromExcel' },
+  },
   // [34.4.2] `PROGRAM_READ` — same "match the route's own gate" rule
   // this file follows throughout; `/programs`'s list route is gated on
   // `PROGRAM_READ` (`route-permissions.ts`).
@@ -450,6 +457,7 @@ export const STAFF_NAV_GROUPS: readonly StaffNavGroupDef[] = [
       STAFF_NAV_ITEMS['people.guardians'],
       STAFF_NAV_ITEMS['people.calendar'],
       STAFF_NAV_ITEMS['people.staff'],
+      STAFF_NAV_ITEMS['people.staffImport'],
       STAFF_NAV_ITEMS['people.programs'],
       STAFF_NAV_ITEMS['people.admissionIntakes'],
       STAFF_NAV_ITEMS['people.admissionApplicants'],

@@ -34,6 +34,7 @@
       "guardians": "Invite guardians",
       "messages": "Set up messages"
     },
+    "saveError": "Could not mark setup as finished. You can still go to the dashboard.",
     "goToDashboard": "Go to dashboard"
   }
 }

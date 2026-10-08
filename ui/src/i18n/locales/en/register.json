@@ -51,7 +51,9 @@
     "generic": "Something went wrong. Please try again.",
     "contactInUse": "This number or email is already used for another school. Sign in instead.",
     "signInRequired": "You already have an account. Sign in to continue.",
-    "resendLimit": "You have asked for too many codes. Please go back and start again."
+    "resendLimit": "You have asked for too many codes. Please go back and start again.",
+    "socialFailed": "Signing up with that account did not work. Try again, or fill in the form below.",
+    "socialCancelled": "Sign-up with that account was cancelled. You can fill in the form below instead."
   },
   "progress": "Step {{current}} of {{total}}",
   "validation": {

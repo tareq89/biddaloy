@@ -19,6 +19,8 @@ export const NOT_IN_NAV: Record<string, string> = {
   '/login': 'auth route, precedes any signed-in nav',
   '/reset-password': 'auth route reached via an email link, not signed-in nav',
   '/verify-email': 'auth route reached via an email link, not signed-in nav',
+  '/register': '[13.6.1] public sign-up card, opened signed-out',
+  '/auth/social/done': '[13.6.1] social sign-in landing, redirects at once, no UI',
   '/select-school': 'tenant/role switcher, reached before the staff sidebar itself renders',
   '/i/$token': 'invitation-accept route reached via a tokenized email link, not signed-in nav',
   '/v/$token': "[32.3.9] public verify page opened by scanning an ID card's QR code, signed-out",
@@ -50,6 +52,8 @@ export const NOT_IN_NAV: Record<string, string> = {
 
   // Staff routes reached from elsewhere in the UI, not their own sidebar item.
   '/_staff/notifications': 'reached from the header notification bell, not the sidebar',
+  '/_staff/welcome':
+    '[13.6.1] first-run setup wizard, reached by redirect or the palette, not the sidebar',
   '/_staff/security': 'reached from the account menu, not the sidebar',
   '/_staff/academic-years/$academicYearId': 'detail route reached from the academic years list',
   '/_staff/attendance/$sectionId': 'detail route reached from the attendance list',
@@ -82,7 +86,8 @@ export const NOT_IN_NAV: Record<string, string> = {
     'detail route reached from the My class section picker (or its single-section redirect)',
   '/_staff/routines/$sectionId': 'detail route reached from the routine builder section list',
   '/_staff/invoices/$invoiceId': 'detail route reached from the invoices list',
-  '/_staff/fees/': '[31.0] D40 — a placeholder today; will redirect to /fees/dues (Student dues, own item), pending fees-1',
+  '/_staff/fees/':
+    '[31.0] D40 — a placeholder today; will redirect to /fees/dues (Student dues, own item), pending fees-1',
   '/_staff/payments/$id': 'detail route reached from the payments list',
   '/_staff/staff/$userId': 'detail route reached from the staff list',
   '/_staff/staff/$userId_/acr/$assessmentId':

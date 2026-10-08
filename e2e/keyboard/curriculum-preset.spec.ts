@@ -4,6 +4,7 @@ import {
   activateInvite,
   applyPreset,
   get,
+  patch,
   presetState,
   provisionSchool,
   resendSchoolAdminInvitation,
@@ -66,6 +67,9 @@ async function freshSchool(
       provisioned.adminUserId,
     );
     const admin = await activateInvite(setupRequest, inviteToken, 'A-strong-preset-pw-1');
+    // [13.5.1] A fresh school's admin is sent from /dashboard to the setup
+    // wizard once; this journey is about the palette, so mark it seen.
+    await patch(setupRequest, admin, '/onboarding', { seen: true });
     const state = await setupRequest.storageState();
     const adminContext = await browser.newContext({
       storageState: {

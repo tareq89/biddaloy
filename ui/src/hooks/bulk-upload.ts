@@ -27,6 +27,8 @@ export interface StudentUploadPreviewRow {
 export interface StudentUploadSummary {
   rows_to_create: number;
   preview: StudentUploadPreviewRow[];
+  /** Trial seat usage; absent when the school has no seat limit to report. */
+  seats?: { used: number; limit: number | null; new_rows: number };
 }
 
 /** Mirrors `BulkUploadResultDto` — unchanged in shape by [14.9.1], just
@@ -91,6 +93,7 @@ export function useValidateStudentUpload() {
           // with a null column and a blank message.
           errors: BulkImportError[];
           hard_error_count: number;
+          seats?: { used: number; limit: number | null; new_rows: number };
         }>('/students/bulk-upload/validate', formData, {
           onUploadProgress: (event) => {
             if (onProgress && event.total) {
@@ -104,7 +107,11 @@ export function useValidateStudentUpload() {
           expires_at: body.expires_at,
           errors: body.errors,
           hard_error_count: body.hard_error_count,
-          summary: { rows_to_create: body.rows_to_create, preview: body.preview },
+          summary: {
+            rows_to_create: body.rows_to_create,
+            preview: body.preview,
+            ...(body.seats ? { seats: body.seats } : {}),
+          },
         };
       } catch (error) {
         throw withHttpStatusShape(error);

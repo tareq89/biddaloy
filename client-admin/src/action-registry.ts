@@ -233,6 +233,30 @@ export const ACTIONS: readonly PaletteAction[] = [
     kind: 'navigate',
     run: (ctx) => ctx.navigate({ to: '/students/new' }),
   },
+  // [13.6.1] Permissions copied from `route-permissions.ts`. "Continue setting
+  // up" shows for every ADMIN, finished or not (the palette has no per-action
+  // predicate); `/welcome` is harmless once setup is done.
+  {
+    id: 'onboarding.continue',
+    label: { en: 'Continue setting up your school', bn: 'স্কুলের সেটআপ চালিয়ে যান' },
+    permission: Permission.SETTINGS_MANAGE,
+    kind: 'navigate',
+    run: (ctx) => ctx.navigate({ to: '/welcome' }),
+  },
+  {
+    id: 'staff.import',
+    label: { en: 'Import staff from Excel', bn: 'এক্সেল থেকে কর্মী আমদানি করুন' },
+    permission: Permission.USER_CREATE,
+    kind: 'navigate',
+    run: (ctx) => ctx.navigate({ to: '/staff/import' }),
+  },
+  {
+    id: 'account.sign-in-methods',
+    label: { en: 'Sign-in methods', bn: 'সাইন-ইন পদ্ধতি' },
+    permission: Permission.DASHBOARD_VIEW,
+    kind: 'navigate',
+    run: (ctx) => ctx.navigate({ to: '/security' }),
+  },
   {
     id: 'students.import',
     label: { en: 'Import students', bn: 'শিক্ষার্থী আমদানি করুন' },

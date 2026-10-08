@@ -75,6 +75,31 @@ data protection**, and the tests in `ui/src/api/sentry.test.ts` assert
 the allow-list rather than trying to detect PII, because "no addresses"
 is not something a regex can check.
 
+## Sign-up values and the Turnstile CSP (Epic 13.0)
+
+The public `/register` form needs a few values. Two are baked into the client
+bundle when it is built, so they are Docker build args, not runtime env.
+
+| Variable | Read by | Missing means |
+| --- | --- | --- |
+| `TURNSTILE_SECRET_KEY` | server, at runtime | dev/test skip the captcha; **production refuses every sign-up with 503** |
+| `VITE_TURNSTILE_SITE_KEY` | client, build arg in the `Dockerfile` | no captcha widget is drawn |
+| `SUPPORT_CONTACT_URL` | server, at runtime | no support link from the API |
+| `VITE_SUPPORT_URL` | client, build arg (Compose fills it from `SUPPORT_CONTACT_URL`) | no "Contact us" on the trial-ended screen |
+| `TRIAL_DAYS`, `TRIAL_SEAT_LIMIT` | server | 30 days, 10 students |
+| `OTP_SMS_ALLOWED_PREFIXES` | server | `+880` |
+| `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` | server | Google is not offered |
+
+Set `TURNSTILE_SECRET_KEY` and `VITE_TURNSTILE_SITE_KEY` together or not at
+all: a secret with no site key rejects every sign-up. A plain `docker build`
+needs `--build-arg VITE_TURNSTILE_SITE_KEY=...` and `--build-arg VITE_SUPPORT_URL=...`.
+Examples are in [`.env.example`](../../.env.example).
+
+The content-security-policy (`server/src/security-headers.ts`) allows one
+outside origin, `https://challenges.cloudflare.com`, in `script-src` and
+`frame-src`. Turnstile loads a script and draws its challenge in an iframe.
+Everything else stays `'self'`. See [22-onboarding.md](22-onboarding.md).
+
 ## How a request is served
 
 ```mermaid

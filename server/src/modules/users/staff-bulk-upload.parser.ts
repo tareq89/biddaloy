@@ -156,7 +156,11 @@ export async function parseStaffSpreadsheet(
   for (let rowNumber = 2; rowNumber <= ws.rowCount; rowNumber++) {
     const row = ws.getRow(rowNumber);
     const values = {} as Record<StaffHeader, string>;
-    for (const h of HEADERS) values[h] = cellToString(row.getCell(col.get(h) as number).value);
+    // One leading `'` is a text marker, not data: the app's own CSV formula guard writes it
+    // (`'+8801…` in the sample file), and people type it to keep a leading 0.
+    for (const h of HEADERS) {
+      values[h] = cellToString(row.getCell(col.get(h) as number).value).replace(/^'/, '');
+    }
     if (HEADERS.every((h) => values[h] === '')) continue;
     const numericMobile = typeof row.getCell(col.get('mobile') as number).value === 'number';
     // Spaces, dots, dashes and brackets are not part of the identifier.

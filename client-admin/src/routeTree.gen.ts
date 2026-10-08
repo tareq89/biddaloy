@@ -16,6 +16,7 @@ import { Route as ActivateRouteImport } from './routes/activate'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as PortalRouteImport } from './routes/portal'
+import { Route as RegisterRouteImport } from './routes/register'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as SelectSchoolRouteImport } from './routes/select-school'
 import { Route as VerifyEmailRouteImport } from './routes/verify-email'
@@ -25,6 +26,7 @@ import { Route as StaffFeesRouteImport } from './routes/_staff/fees'
 import { Route as StaffNotificationsRouteImport } from './routes/_staff/notifications'
 import { Route as StaffSecurityRouteImport } from './routes/_staff/security'
 import { Route as StaffSettingsRouteImport } from './routes/_staff/settings'
+import { Route as StaffWelcomeRouteImport } from './routes/_staff/welcome'
 import { Route as ITokenRouteImport } from './routes/i/$token'
 import { Route as PortalIndexRouteImport } from './routes/portal/index'
 import { Route as PortalAccountRouteImport } from './routes/portal/account'
@@ -95,6 +97,7 @@ import { Route as StaffRoutinesSubstitutionsRouteImport } from './routes/_staff/
 import { Route as StaffStaffIndexRouteImport } from './routes/_staff/staff/index'
 import { Route as StaffStaffUserIdRouteImport } from './routes/_staff/staff/$userId'
 import { Route as StaffStaffEvaluationsRouteImport } from './routes/_staff/staff/evaluations'
+import { Route as StaffStaffImportRouteImport } from './routes/_staff/staff/import'
 import { Route as StaffStaffTeachingAssignmentsRouteImport } from './routes/_staff/staff/teaching-assignments'
 import { Route as StaffStudentsIndexRouteImport } from './routes/_staff/students/index'
 import { Route as StaffStudentsStudentIdRouteImport } from './routes/_staff/students/$studentId'
@@ -102,6 +105,7 @@ import { Route as StaffStudentsImportRouteImport } from './routes/_staff/student
 import { Route as StaffStudentsNewRouteImport } from './routes/_staff/students/new'
 import { Route as AdmissionSlugIndexRouteImport } from './routes/admission/$slug/index'
 import { Route as AdmissionSlugStatusRouteImport } from './routes/admission/$slug/status'
+import { Route as AuthSocialDoneRouteImport } from './routes/auth.social.done'
 import { Route as StaffAcademicsHomeworkIndexRouteImport } from './routes/_staff/academics/homework/index'
 import { Route as StaffAcademicsHomeworkHomeworkIdRouteImport } from './routes/_staff/academics/homework/$homeworkId'
 import { Route as StaffAcademicsHomeworkImportRouteImport } from './routes/_staff/academics/homework/import'
@@ -164,6 +168,11 @@ const PortalRoute = PortalRouteImport.update({
   path: '/portal',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RegisterRoute = RegisterRouteImport.update({
+  id: '/register',
+  path: '/register',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
   id: '/reset-password',
   path: '/reset-password',
@@ -207,6 +216,11 @@ const StaffSecurityRoute = StaffSecurityRouteImport.update({
 const StaffSettingsRoute = StaffSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => StaffRoute,
+} as any)
+const StaffWelcomeRoute = StaffWelcomeRouteImport.update({
+  id: '/welcome',
+  path: '/welcome',
   getParentRoute: () => StaffRoute,
 } as any)
 const ITokenRoute = ITokenRouteImport.update({
@@ -568,6 +582,11 @@ const StaffStaffEvaluationsRoute = StaffStaffEvaluationsRouteImport.update({
   path: '/staff/evaluations',
   getParentRoute: () => StaffRoute,
 } as any)
+const StaffStaffImportRoute = StaffStaffImportRouteImport.update({
+  id: '/staff/import',
+  path: '/staff/import',
+  getParentRoute: () => StaffRoute,
+} as any)
 const StaffStaffTeachingAssignmentsRoute =
   StaffStaffTeachingAssignmentsRouteImport.update({
     id: '/staff/teaching-assignments',
@@ -602,6 +621,11 @@ const AdmissionSlugIndexRoute = AdmissionSlugIndexRouteImport.update({
 const AdmissionSlugStatusRoute = AdmissionSlugStatusRouteImport.update({
   id: '/admission/$slug/status',
   path: '/admission/$slug/status',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthSocialDoneRoute = AuthSocialDoneRouteImport.update({
+  id: '/auth/social/done',
+  path: '/auth/social/done',
   getParentRoute: () => rootRouteImport,
 } as any)
 const StaffAcademicsHomeworkIndexRoute =
@@ -775,6 +799,7 @@ export interface FileRoutesByFullPath {
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/portal': typeof PortalRouteWithChildren
+  '/register': typeof RegisterRoute
   '/reset-password': typeof ResetPasswordRoute
   '/select-school': typeof SelectSchoolRoute
   '/verify-email': typeof VerifyEmailRoute
@@ -784,6 +809,7 @@ export interface FileRoutesByFullPath {
   '/notifications': typeof StaffNotificationsRoute
   '/security': typeof StaffSecurityRoute
   '/settings': typeof StaffSettingsRoute
+  '/welcome': typeof StaffWelcomeRoute
   '/i/$token': typeof ITokenRoute
   '/portal/account': typeof PortalAccountRoute
   '/portal/attendance': typeof PortalAttendanceRoute
@@ -830,11 +856,13 @@ export interface FileRoutesByFullPath {
   '/routines/substitutions': typeof StaffRoutinesSubstitutionsRoute
   '/staff/$userId': typeof StaffStaffUserIdRoute
   '/staff/evaluations': typeof StaffStaffEvaluationsRoute
+  '/staff/import': typeof StaffStaffImportRoute
   '/staff/teaching-assignments': typeof StaffStaffTeachingAssignmentsRoute
   '/students/$studentId': typeof StaffStudentsStudentIdRoute
   '/students/import': typeof StaffStudentsImportRoute
   '/students/new': typeof StaffStudentsNewRoute
   '/admission/$slug/status': typeof AdmissionSlugStatusRoute
+  '/auth/social/done': typeof AuthSocialDoneRoute
   '/holiday-sets/': typeof PlatformHolidaySetsIndexRoute
   '/schools/': typeof PlatformSchoolsIndexRoute
   '/academic-years/': typeof StaffAcademicYearsIndexRoute
@@ -895,6 +923,7 @@ export interface FileRoutesByTo {
   '/activate': typeof ActivateRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
+  '/register': typeof RegisterRoute
   '/reset-password': typeof ResetPasswordRoute
   '/select-school': typeof SelectSchoolRoute
   '/verify-email': typeof VerifyEmailRoute
@@ -903,6 +932,7 @@ export interface FileRoutesByTo {
   '/notifications': typeof StaffNotificationsRoute
   '/security': typeof StaffSecurityRoute
   '/settings': typeof StaffSettingsRoute
+  '/welcome': typeof StaffWelcomeRoute
   '/i/$token': typeof ITokenRoute
   '/portal/account': typeof PortalAccountRoute
   '/portal/attendance': typeof PortalAttendanceRoute
@@ -949,11 +979,13 @@ export interface FileRoutesByTo {
   '/routines/substitutions': typeof StaffRoutinesSubstitutionsRoute
   '/staff/$userId': typeof StaffStaffUserIdRoute
   '/staff/evaluations': typeof StaffStaffEvaluationsRoute
+  '/staff/import': typeof StaffStaffImportRoute
   '/staff/teaching-assignments': typeof StaffStaffTeachingAssignmentsRoute
   '/students/$studentId': typeof StaffStudentsStudentIdRoute
   '/students/import': typeof StaffStudentsImportRoute
   '/students/new': typeof StaffStudentsNewRoute
   '/admission/$slug/status': typeof AdmissionSlugStatusRoute
+  '/auth/social/done': typeof AuthSocialDoneRoute
   '/holiday-sets': typeof PlatformHolidaySetsIndexRoute
   '/schools': typeof PlatformSchoolsIndexRoute
   '/academic-years': typeof StaffAcademicYearsIndexRoute
@@ -1018,6 +1050,7 @@ export interface FileRoutesById {
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/portal': typeof PortalRouteWithChildren
+  '/register': typeof RegisterRoute
   '/reset-password': typeof ResetPasswordRoute
   '/select-school': typeof SelectSchoolRoute
   '/verify-email': typeof VerifyEmailRoute
@@ -1027,6 +1060,7 @@ export interface FileRoutesById {
   '/_staff/notifications': typeof StaffNotificationsRoute
   '/_staff/security': typeof StaffSecurityRoute
   '/_staff/settings': typeof StaffSettingsRoute
+  '/_staff/welcome': typeof StaffWelcomeRoute
   '/i/$token': typeof ITokenRoute
   '/portal/account': typeof PortalAccountRoute
   '/portal/attendance': typeof PortalAttendanceRoute
@@ -1073,11 +1107,13 @@ export interface FileRoutesById {
   '/_staff/routines/substitutions': typeof StaffRoutinesSubstitutionsRoute
   '/_staff/staff/$userId': typeof StaffStaffUserIdRoute
   '/_staff/staff/evaluations': typeof StaffStaffEvaluationsRoute
+  '/_staff/staff/import': typeof StaffStaffImportRoute
   '/_staff/staff/teaching-assignments': typeof StaffStaffTeachingAssignmentsRoute
   '/_staff/students/$studentId': typeof StaffStudentsStudentIdRoute
   '/_staff/students/import': typeof StaffStudentsImportRoute
   '/_staff/students/new': typeof StaffStudentsNewRoute
   '/admission/$slug/status': typeof AdmissionSlugStatusRoute
+  '/auth/social/done': typeof AuthSocialDoneRoute
   '/_platform/holiday-sets/': typeof PlatformHolidaySetsIndexRoute
   '/_platform/schools/': typeof PlatformSchoolsIndexRoute
   '/_staff/academic-years/': typeof StaffAcademicYearsIndexRoute
@@ -1141,6 +1177,7 @@ export interface FileRouteTypes {
     | '/forgot-password'
     | '/login'
     | '/portal'
+    | '/register'
     | '/reset-password'
     | '/select-school'
     | '/verify-email'
@@ -1150,6 +1187,7 @@ export interface FileRouteTypes {
     | '/notifications'
     | '/security'
     | '/settings'
+    | '/welcome'
     | '/i/$token'
     | '/portal/account'
     | '/portal/attendance'
@@ -1196,11 +1234,13 @@ export interface FileRouteTypes {
     | '/routines/substitutions'
     | '/staff/$userId'
     | '/staff/evaluations'
+    | '/staff/import'
     | '/staff/teaching-assignments'
     | '/students/$studentId'
     | '/students/import'
     | '/students/new'
     | '/admission/$slug/status'
+    | '/auth/social/done'
     | '/holiday-sets/'
     | '/schools/'
     | '/academic-years/'
@@ -1261,6 +1301,7 @@ export interface FileRouteTypes {
     | '/activate'
     | '/forgot-password'
     | '/login'
+    | '/register'
     | '/reset-password'
     | '/select-school'
     | '/verify-email'
@@ -1269,6 +1310,7 @@ export interface FileRouteTypes {
     | '/notifications'
     | '/security'
     | '/settings'
+    | '/welcome'
     | '/i/$token'
     | '/portal/account'
     | '/portal/attendance'
@@ -1315,11 +1357,13 @@ export interface FileRouteTypes {
     | '/routines/substitutions'
     | '/staff/$userId'
     | '/staff/evaluations'
+    | '/staff/import'
     | '/staff/teaching-assignments'
     | '/students/$studentId'
     | '/students/import'
     | '/students/new'
     | '/admission/$slug/status'
+    | '/auth/social/done'
     | '/holiday-sets'
     | '/schools'
     | '/academic-years'
@@ -1383,6 +1427,7 @@ export interface FileRouteTypes {
     | '/forgot-password'
     | '/login'
     | '/portal'
+    | '/register'
     | '/reset-password'
     | '/select-school'
     | '/verify-email'
@@ -1392,6 +1437,7 @@ export interface FileRouteTypes {
     | '/_staff/notifications'
     | '/_staff/security'
     | '/_staff/settings'
+    | '/_staff/welcome'
     | '/i/$token'
     | '/portal/account'
     | '/portal/attendance'
@@ -1438,11 +1484,13 @@ export interface FileRouteTypes {
     | '/_staff/routines/substitutions'
     | '/_staff/staff/$userId'
     | '/_staff/staff/evaluations'
+    | '/_staff/staff/import'
     | '/_staff/staff/teaching-assignments'
     | '/_staff/students/$studentId'
     | '/_staff/students/import'
     | '/_staff/students/new'
     | '/admission/$slug/status'
+    | '/auth/social/done'
     | '/_platform/holiday-sets/'
     | '/_platform/schools/'
     | '/_staff/academic-years/'
@@ -1507,12 +1555,14 @@ export interface RootRouteChildren {
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   LoginRoute: typeof LoginRoute
   PortalRoute: typeof PortalRouteWithChildren
+  RegisterRoute: typeof RegisterRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   SelectSchoolRoute: typeof SelectSchoolRoute
   VerifyEmailRoute: typeof VerifyEmailRoute
   ITokenRoute: typeof ITokenRoute
   VTokenRoute: typeof VTokenRoute
   AdmissionSlugStatusRoute: typeof AdmissionSlugStatusRoute
+  AuthSocialDoneRoute: typeof AuthSocialDoneRoute
   AdmissionSlugIndexRoute: typeof AdmissionSlugIndexRoute
 }
 
@@ -1565,6 +1615,13 @@ declare module '@tanstack/react-router' {
       path: '/portal'
       fullPath: '/portal'
       preLoaderRoute: typeof PortalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/register': {
+      id: '/register'
+      path: '/register'
+      fullPath: '/register'
+      preLoaderRoute: typeof RegisterRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/reset-password': {
@@ -1628,6 +1685,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof StaffSettingsRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/welcome': {
+      id: '/_staff/welcome'
+      path: '/welcome'
+      fullPath: '/welcome'
+      preLoaderRoute: typeof StaffWelcomeRouteImport
       parentRoute: typeof StaffRoute
     }
     '/i/$token': {
@@ -2120,6 +2184,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StaffStaffEvaluationsRouteImport
       parentRoute: typeof StaffRoute
     }
+    '/_staff/staff/import': {
+      id: '/_staff/staff/import'
+      path: '/staff/import'
+      fullPath: '/staff/import'
+      preLoaderRoute: typeof StaffStaffImportRouteImport
+      parentRoute: typeof StaffRoute
+    }
     '/_staff/staff/teaching-assignments': {
       id: '/_staff/staff/teaching-assignments'
       path: '/staff/teaching-assignments'
@@ -2167,6 +2238,13 @@ declare module '@tanstack/react-router' {
       path: '/admission/$slug/status'
       fullPath: '/admission/$slug/status'
       preLoaderRoute: typeof AdmissionSlugStatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/social/done': {
+      id: '/auth/social/done'
+      path: '/auth/social/done'
+      fullPath: '/auth/social/done'
+      preLoaderRoute: typeof AuthSocialDoneRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_staff/academics/homework/': {
@@ -2419,6 +2497,7 @@ interface StaffRouteChildren {
   StaffNotificationsRoute: typeof StaffNotificationsRoute
   StaffSecurityRoute: typeof StaffSecurityRoute
   StaffSettingsRoute: typeof StaffSettingsRoute
+  StaffWelcomeRoute: typeof StaffWelcomeRoute
   StaffAcademicYearsAcademicYearIdRoute: typeof StaffAcademicYearsAcademicYearIdRoute
   StaffAttendanceSectionIdRoute: typeof StaffAttendanceSectionIdRoute
   StaffAttendanceRegisterRoute: typeof StaffAttendanceRegisterRoute
@@ -2447,6 +2526,7 @@ interface StaffRouteChildren {
   StaffRoutinesSubstitutionsRoute: typeof StaffRoutinesSubstitutionsRoute
   StaffStaffUserIdRoute: typeof StaffStaffUserIdRoute
   StaffStaffEvaluationsRoute: typeof StaffStaffEvaluationsRoute
+  StaffStaffImportRoute: typeof StaffStaffImportRoute
   StaffStaffTeachingAssignmentsRoute: typeof StaffStaffTeachingAssignmentsRoute
   StaffStudentsStudentIdRoute: typeof StaffStudentsStudentIdRoute
   StaffStudentsImportRoute: typeof StaffStudentsImportRoute
@@ -2506,6 +2586,7 @@ const StaffRouteChildren: StaffRouteChildren = {
   StaffNotificationsRoute: StaffNotificationsRoute,
   StaffSecurityRoute: StaffSecurityRoute,
   StaffSettingsRoute: StaffSettingsRoute,
+  StaffWelcomeRoute: StaffWelcomeRoute,
   StaffAcademicYearsAcademicYearIdRoute: StaffAcademicYearsAcademicYearIdRoute,
   StaffAttendanceSectionIdRoute: StaffAttendanceSectionIdRoute,
   StaffAttendanceRegisterRoute: StaffAttendanceRegisterRoute,
@@ -2534,6 +2615,7 @@ const StaffRouteChildren: StaffRouteChildren = {
   StaffRoutinesSubstitutionsRoute: StaffRoutinesSubstitutionsRoute,
   StaffStaffUserIdRoute: StaffStaffUserIdRoute,
   StaffStaffEvaluationsRoute: StaffStaffEvaluationsRoute,
+  StaffStaffImportRoute: StaffStaffImportRoute,
   StaffStaffTeachingAssignmentsRoute: StaffStaffTeachingAssignmentsRoute,
   StaffStudentsStudentIdRoute: StaffStudentsStudentIdRoute,
   StaffStudentsImportRoute: StaffStudentsImportRoute,
@@ -2632,12 +2714,14 @@ const rootRouteChildren: RootRouteChildren = {
   ForgotPasswordRoute: ForgotPasswordRoute,
   LoginRoute: LoginRoute,
   PortalRoute: PortalRouteWithChildren,
+  RegisterRoute: RegisterRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   SelectSchoolRoute: SelectSchoolRoute,
   VerifyEmailRoute: VerifyEmailRoute,
   ITokenRoute: ITokenRoute,
   VTokenRoute: VTokenRoute,
   AdmissionSlugStatusRoute: AdmissionSlugStatusRoute,
+  AuthSocialDoneRoute: AuthSocialDoneRoute,
   AdmissionSlugIndexRoute: AdmissionSlugIndexRoute,
 }
 export const routeTree = rootRouteImport

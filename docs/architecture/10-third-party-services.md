@@ -3,6 +3,22 @@
 What SchoolManager talks to outside its own containers, and what it deliberately
 doesn't.
 
+## Sign-up and sign-in services (Epic 13.0)
+
+```mermaid
+flowchart LR
+    B[Browser] --> T[Cloudflare Turnstile]
+    B --> G[Google OAuth]
+    API[NestJS app] -- "siteverify" --> T
+    API -- "code exchange" --> G
+```
+
+| Service | What it is for | Env values |
+| --- | --- | --- |
+| Cloudflare Turnstile | Captcha on the public `/register` form. The widget loads from `https://challenges.cloudflare.com` (allowed in the CSP, see [07-deployment.md](07-deployment.md)). | `TURNSTILE_SECRET_KEY` (server). `VITE_TURNSTILE_SITE_KEY` (build arg; no key means the widget is hidden). Set both or neither. |
+| Google sign-in | "Continue with Google" at login and register, and "connect" on the security page. | `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`. A provider with no credentials is not listed. |
+| Facebook sign-in | **Planned (#1647), not built.** No provider exists yet. | `FACEBOOK_OAUTH_CLIENT_ID`, `FACEBOOK_OAUTH_CLIENT_SECRET` are reserved in `.env.example` only. |
+
 ## Self-hosted infrastructure
 
 Runs as containers in [`docker-compose.yml`](../../docker-compose.yml) — not

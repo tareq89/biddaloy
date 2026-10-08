@@ -2,6 +2,7 @@ import type { BrowserContext, Page } from '@playwright/test';
 
 import {
   activateInvite,
+  patch,
   post,
   provisionSchool,
   resendSchoolAdminInvitation,
@@ -64,6 +65,9 @@ test.describe('organisation structure', () => {
       );
       const activated = await activateInvite(setupRequest, inviteToken, 'A-strong-org-pw-1');
       const adminSession = { token: activated.token, tenantId: activated.tenantId };
+      // [13.5.1] A fresh school's admin is sent from /dashboard to the setup
+      // wizard once; this journey starts on the dashboard, so mark it seen.
+      await patch(setupRequest, adminSession, '/onboarding', { seen: true });
 
       // The class form needs an academic year to attach to (`academicYearId`
       // is a required field) — creating one is bookkeeping, not the feature

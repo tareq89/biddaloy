@@ -25,7 +25,7 @@ import {
 } from '@biddaloy/ui/i18n';
 import { FullPageShell } from '@biddaloy/ui/shells';
 import { formatPhone } from '@biddaloy/ui/utils';
-import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
+import { createFileRoute, Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { ChevronDownIcon, DownloadIcon } from 'lucide-react';
 import * as React from 'react';
 
@@ -51,7 +51,7 @@ const PREVIEW_ROW_LIMIT = 20;
  */
 export const Route = createFileRoute('/_staff/students/import')({
   staticData: { chromeless: true },
-  loader: () => loadRouteNamespaces('studentImport', 'guardians', 'bulkImport', 'backup'),
+  loader: () => loadRouteNamespaces('studentImport', 'guardians', 'bulkImport', 'backup', 'trial'),
   pendingComponent: ImportStudentsPending,
   component: ImportStudentsPage,
 });
@@ -85,19 +85,41 @@ function ImportStudentsContent() {
   const { mutateAsync: validateAsync } = validateMutation;
   const { mutateAsync: commitAsync } = commitMutation;
 
+  const { t: tTrial } = useTranslation('trial');
   const validate = React.useCallback(
     (file: File, onProgress: (percent: number) => void) =>
-      validateAsync({ file, onProgress }).catch((err: unknown) => {
-        // The inline failure Card is the primary signal, but a user who
-        // navigated away mid-validate would otherwise get none at all.
-        notifyOutcome({
-          tenantId: captureNotificationTenant(),
-          variant: 'error',
-          message: t('notifications.failed'),
-        });
-        throw err;
-      }),
-    [validateAsync, t],
+      validateAsync({ file, onProgress }).then(
+        (result) => {
+          // [13.2.3] The file does not fit the trial's seats: the server adds one
+          // row-0 error in English. Show the translated message instead.
+          const seats = result.summary.seats;
+          if (!seats || seats.limit === null) return result;
+          const message = `${tTrial('seatLimit.body', {
+            used: seats.used,
+            limit: seats.limit,
+            requested: seats.new_rows,
+          })} ${tTrial('seatLimit.hint')}`;
+          return {
+            ...result,
+            errors: result.errors.map((error) =>
+              error.row === 0 && error.message.startsWith('Seat limit reached')
+                ? { ...error, message }
+                : error,
+            ),
+          };
+        },
+        (err: unknown) => {
+          // The inline failure Card is the primary signal, but a user who
+          // navigated away mid-validate would otherwise get none at all.
+          notifyOutcome({
+            tenantId: captureNotificationTenant(),
+            variant: 'error',
+            message: t('notifications.failed'),
+          });
+          throw err;
+        },
+      ),
+    [validateAsync, t, tTrial],
   );
 
   const commit = React.useCallback(
@@ -114,6 +136,7 @@ function ImportStudentsContent() {
   );
 
   const navigate = useNavigate();
+  const fromWelcome = useSearch({ strict: false }).from === 'welcome';
   const [upload, setUpload] = React.useState<
     BulkUploadPreviewController<StudentUploadSummary, BulkUploadResult> | undefined
   >(undefined);
@@ -147,6 +170,16 @@ function ImportStudentsContent() {
       secondary={secondary}
     >
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 p-4 md:p-6">
+        {/* [13.5.1]: the welcome wizard's people step links here with `?from=welcome`. */}
+        {fromWelcome && (
+          <Link
+            to="/welcome"
+            search={{ step: 'people' }}
+            className="inline-flex min-h-11 items-center text-primary underline underline-offset-2 md:min-h-8"
+          >
+            {tTrial('import.backToSetup')}
+          </Link>
+        )}
         <Card padded asChild>
           <section aria-labelledby="import-template-heading">
             <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between md:gap-6">
@@ -259,6 +292,8 @@ function ImportStudentsContent() {
  */
 export function ImportPreviewSummary({ result }: { result: PreviewResult<StudentUploadSummary> }) {
   const { t } = useTranslation('studentImport');
+  const { t: tTrial } = useTranslation('trial');
+  const seats = result.summary.seats;
   const clean = result.hard_error_count === 0 && result.errors.length === 0;
   return (
     <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
@@ -268,6 +303,9 @@ export function ImportPreviewSummary({ result }: { result: PreviewResult<Student
           {t('preview.willCreate', { count: result.summary.rows_to_create })}
         </span>
       </div>
+      {seats && seats.limit !== null && (
+        <span className="text-text-secondary">{tTrial('import.seats', seats)}</span>
+      )}
     </div>
   );
 }

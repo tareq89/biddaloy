@@ -9,6 +9,8 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import * as React from 'react';
 import { z } from 'zod';
 
+import { isSameAppRedirect } from '../same-app-redirect';
+
 /**
  * [8.9.5]'s picker — reached chrome-free, like `/login`, whenever
  * `__root.tsx`'s guard finds an authenticated visitor with no active
@@ -18,21 +20,8 @@ import { z } from 'zod';
  * this reads it straight off `decodeAccessTokenMemberships`, no request.
  *
  * Same `redirect` search-param passthrough and same-app-only validation
- * as `login.tsx` (`isSameAppRedirect`) — duplicated rather than shared,
- * matching this repo's existing per-route-schema convention (see
- * `students/index.tsx`'s own `validateSearch`).
+ * (`isSameAppRedirect`) as `login.tsx`.
  */
-const REDIRECT_PROBE_ORIGIN = 'http://redirect-probe.invalid';
-
-function isSameAppRedirect(value: string): boolean {
-  if (!value.startsWith('/')) return false;
-  try {
-    return new URL(value, REDIRECT_PROBE_ORIGIN).origin === REDIRECT_PROBE_ORIGIN;
-  } catch {
-    return false;
-  }
-}
-
 const selectSchoolSearchSchema = z.object({
   redirect: z.string().refine(isSameAppRedirect).optional().catch(undefined),
 });

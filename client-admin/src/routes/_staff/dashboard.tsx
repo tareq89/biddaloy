@@ -3,6 +3,8 @@ import { useTranslation } from '@biddaloy/ui/i18n';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 
 import { UpcomingCalendarCard } from '../../components/upcoming-calendar-card';
+import { ConnectHintCard } from '../../features/onboarding/connect-hint-card';
+import { SetupChecklistCard } from '../../features/onboarding/setup-checklist-card';
 import { loadRouteNamespaces } from '../../route-loaders';
 
 /**
@@ -17,7 +19,7 @@ export const Route = createFileRoute('/_staff/dashboard')({
   // `nav` strings (already warm from `_staff.tsx`'s own loader, but
   // listed again here per the plan's per-route table so this route is
   // self-sufficient if ever moved out from under that layout).
-  loader: () => loadRouteNamespaces('nav', 'calendar'),
+  loader: () => loadRouteNamespaces('nav', 'calendar', 'setupChecklist'),
   pendingComponent: DashboardPending,
   component: DashboardPage,
 });
@@ -28,6 +30,9 @@ function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-3">
+      {/* [13.5.1]: each hides itself (ADMIN only / dismissed / nothing to show). */}
+      <SetupChecklistCard />
+      <ConnectHintCard />
       {/* [17.5.4]: hides itself without CALENDAR_READ. */}
       <UpcomingCalendarCard calendarPath="/calendar" requirePermission />
       <EmptyState

@@ -139,6 +139,7 @@ export const PALETTE_ALLOW_LIST: readonly PaletteAllowListEntry[] = [
   { file: `${R}_staff/staff/-edit-teacher-dialog.tsx`, reason: 'Edits one row' },
   { file: `${R}_staff/staff/-edit-user-dialog.tsx`, reason: 'Edits one row' },
   { file: `${R}_staff/staff/-remove-member-dialog.tsx`, reason: 'Confirm dialog for one row' },
+  { file: `${R}_staff/staff/-restore-member-dialog.tsx`, reason: 'Confirm dialog for one row' },
   {
     file: `${R}_staff/students/-detail/-records/public-exams-section.tsx`,
     reason: 'Records of one student',

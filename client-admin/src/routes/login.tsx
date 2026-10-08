@@ -36,30 +36,14 @@ import * as React from 'react';
 import { z } from 'zod';
 
 import { FirstPasswordStep } from '../features/first-password/first-password-step';
+import { isSameAppRedirect } from '../same-app-redirect';
 
 /**
  * The protected-route guard (`__root.tsx`'s `beforeLoad`) redirects every
  * unauthenticated visit here, with `?redirect=` set to the page they were
  * actually trying to reach — validated same-app below so a login form can
- * navigate back to it safely.
+ * navigate back to it safely (`isSameAppRedirect`).
  */
-/** A fixed, non-routable base for probing where `value` resolves to — not
- * `window.location.origin`, so this stays a pure function testable without
- * a browser. `value.startsWith('/')` alone isn't enough: browsers resolve
- * a leading `\` the same as `/` (WHATWG URL spec), so `/\evil.com` and
- * `//evil.com` both resolve off-origin despite starting with a single
- * `/` — checking the *resolved* origin against the probe catches both. */
-const REDIRECT_PROBE_ORIGIN = 'http://redirect-probe.invalid';
-
-function isSameAppRedirect(value: string): boolean {
-  if (!value.startsWith('/')) return false;
-  try {
-    return new URL(value, REDIRECT_PROBE_ORIGIN).origin === REDIRECT_PROBE_ORIGIN;
-  } catch {
-    return false;
-  }
-}
-
 const loginSearchSchema = z.object({
   // Same-app relative path only — anything that resolves off-origin
   // (`//evil.com`, `/\evil.com`, and the equivalent percent-encoded form

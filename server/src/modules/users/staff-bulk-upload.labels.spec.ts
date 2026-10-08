@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import ExcelJS from 'exceljs';
-import { TeacherDesignation, UserRole } from '@biddaloy/shared';
+import { TeacherDesignation, toCsvContent, UserRole } from '@biddaloy/shared';
 import { parseDesignation, parseRole, parseStaffSpreadsheet } from './staff-bulk-upload.parser';
 
 const locale = (lang: string) =>
@@ -63,4 +63,45 @@ describe('app labels and text hygiene', () => {
     expect(row.values.name).toBe('Rina Akter');
     expect(row.values.mobile).toBe('01711000101');
   });
+});
+
+/**
+ * #1706 F1/F2: the sample file the app hands out (`client-admin/src/features/staff-import/template.ts`)
+ * must import cleanly. Mirrors it exactly: header = `staffImport:columns.<key>.label` in the
+ * person's language, role = `staff:roles.<ROLE>`, written through the same `toCsvContent`
+ * (BOM + formula guard, which turns `+880…` into `'+880…`).
+ */
+describe('the app sample file round-trips', () => {
+  const staffImport = (lang: string) =>
+    JSON.parse(
+      readFileSync(
+        join(__dirname, `../../../../ui/src/i18n/locales/${lang}/staffImport.json`),
+        'utf8',
+      ),
+    );
+
+  for (const lang of ['en', 'bn']) {
+    it(`parses the ${lang} sample with every column found and the sample mobile intact`, async () => {
+      const { columns } = staffImport(lang);
+      const { roles } = locale(lang);
+      const header = ['name', 'phone', 'email', 'role', 'designation'].map(
+        (c) => columns[c].label as string,
+      );
+      const csv = toCsvContent([
+        header,
+        ['Rahim Uddin', '+8801712345678', '', roles.TEACHER, 'Assistant Teacher'],
+        ['Karim Hossain', '', 'karim@example.com', roles.ACCOUNTANT, ''],
+      ]);
+
+      const rows = await parseStaffSpreadsheet(Buffer.from(csv, 'utf8'), 'sample.csv');
+
+      expect(rows).toHaveLength(2);
+      // The guard's `'` is gone, so the server sees a valid mobile number.
+      expect(rows[0].values.mobile).toBe('+8801712345678');
+      expect(rows[0].numericMobile).toBe(false);
+      expect(parseRole(rows[0].values.role)).toBe(UserRole.TEACHER);
+      expect(rows[1].values.email).toBe('karim@example.com');
+      expect(parseRole(rows[1].values.role)).toBe(UserRole.ACCOUNTANT);
+    });
+  }
 });
