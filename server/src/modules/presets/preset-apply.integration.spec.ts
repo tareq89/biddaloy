@@ -15,6 +15,9 @@ import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { Subject } from '../academics/entities/subject.entity';
 import { GradingScale } from '../grading/entities/grading-scale.entity';
 import { ExamTemplate } from '../exams/entities/exam-template.entity';
+import { StorageService } from '../storage/storage.service';
+import { PrintTemplate } from '../print/entities/print-template.entity';
+import * as shared from '@biddaloy/shared';
 import { PresetApplyService } from './preset-apply.service';
 import { PresetRegistryService } from './preset-registry.service';
 import { makeTestPack } from './__fixtures__/test-pack';
@@ -28,6 +31,7 @@ const RESULT_KEYS = [
   'examTemplates',
   'gradingBands',
   'gradingScales',
+  'printTemplates',
   'settings',
   'subjects',
 ];
@@ -46,6 +50,7 @@ describe('PresetApplyService (integration)', () => {
       PresetRegistryService,
       AuditService,
       { provide: TenantSettingsCache, useValue: cache },
+      { provide: StorageService, useValue: { put: async () => undefined } },
     ]);
     ds = module.get<DataSource>(getDataSourceToken());
     svc = module.get(PresetApplyService);
@@ -190,5 +195,28 @@ describe('PresetApplyService (integration)', () => {
     const lost = results.find((r) => r.status === 'rejected') as PromiseRejectedResult;
     expect(lost.reason).toBeInstanceOf(ConflictException);
     expect(await rows(t)).toMatchObject({ classes: 3, years: 1, audits: 1 });
+  });
+
+  it('certificates: NCTB creates 6 templates; a broken ready-made design rolls the whole apply back', async () => {
+    registry.packs = [
+      { ...makeTestPack(), certificates: ['TESTIMONIAL', 'TRANSCRIPT', 'CHARACTER', 'TRANSFER'] },
+    ];
+    const a = await newSchool();
+    const { created } = await svc.apply(a, uid, dto);
+    expect(created.printTemplates).toBe(6);
+    expect(await ds.getRepository(PrintTemplate).countBy({ tenant_id: a })).toBe(6);
+
+    // Writer is last, so make validation fail for the second template: everything must roll back.
+    const t = await newSchool();
+    const real = shared.validateTemplateDefinition;
+    let calls = 0;
+    const spy = vi.spyOn(shared, 'validateTemplateDefinition').mockImplementation((...args) => {
+      calls += 1;
+      return calls === 2 ? { success: false, errors: ['boom'] } : real(...args);
+    });
+    await expect(svc.apply(t, uid, dto)).rejects.toThrow('boom');
+    spy.mockRestore();
+    expect(await ds.getRepository(PrintTemplate).countBy({ tenant_id: t })).toBe(0);
+    expect(await rows(t)).toMatchObject({ classes: 0, years: 0, audits: 0 });
   });
 });

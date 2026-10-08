@@ -2,12 +2,14 @@ import { BadRequestException, ConflictException, Injectable } from '@nestjs/comm
 import { DataSource } from 'typeorm';
 import { AuditAction } from '@biddaloy/shared';
 import type { PresetApplyOptions, PresetApplyResult } from '@biddaloy/shared';
+import { StorageService } from '../storage/storage.service';
 import { AuditService } from '../audit/audit.service';
 import type { RequestContext } from '../../common/request-context.util';
 import { School } from '../schools/entities/school.entity';
 import { TenantSettingsCache } from '../schools/settings/tenant-settings-cache.service';
 import { PresetRegistryService } from './preset-registry.service';
 import { countRows, FRESH_TENANT_ENTITIES } from './preset-blockers';
+import { writeCertificates } from './apply/writers/certificates.writer';
 import type { ApplyContext, ApplyWriter } from './apply/apply-context';
 import { writeSettings } from './apply/writers/settings.writer';
 import { writeYear } from './apply/writers/year.writer';
@@ -29,6 +31,7 @@ const WRITERS: ApplyWriter[] = [
   writeGradingScale,
   writeTerms,
   writeExamTemplates,
+  writeCertificates, // last: a storage hiccup then costs the least work
 ];
 
 /** The exact keys `created` always carries (writers that create nothing report 0). */
@@ -45,6 +48,7 @@ const RESULT_KEYS: Record<string, string> = {
   grading_bands: 'gradingBands',
   exam_templates: 'examTemplates',
   exam_template_components: 'examTemplateComponents',
+  print_templates: 'printTemplates',
 };
 
 const emptyCreated = (): Record<string, number> =>
@@ -57,6 +61,7 @@ export class PresetApplyService {
     private readonly registry: PresetRegistryService,
     private readonly audit: AuditService,
     private readonly settingsCache: TenantSettingsCache,
+    private readonly storage: StorageService,
   ) {}
 
   async apply(
@@ -121,6 +126,7 @@ export class PresetApplyService {
         userId,
         pack,
         options,
+        storage: this.storage,
         ids: {
           classIdByKey: new Map(),
           subjectIdByCode: new Map(),

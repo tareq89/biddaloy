@@ -53,6 +53,7 @@ describe('exam preset writers (integration)', () => {
         userId: randomUUID(),
         pack,
         options: { presetId: pack.id, startYear: 2026, stages: opts.stages, versions: [] },
+        storage: { put: async () => undefined },
         ids: {
           classIdByKey: new Map(),
           subjectIdByCode: new Map(),

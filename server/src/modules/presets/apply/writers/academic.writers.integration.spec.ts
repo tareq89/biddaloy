@@ -65,6 +65,7 @@ describe('academic preset writers (integration)', () => {
           stages: opts.stages,
           versions: opts.versions ?? [],
         },
+        storage: { put: async () => undefined },
         ids: {
           classIdByKey: new Map(),
           subjectIdByCode: new Map(),

@@ -78,7 +78,8 @@
       "gradingScales": "Grading scales",
       "gradingBands": "Grading bands",
       "examTemplates": "Exam templates",
-      "examTemplateComponents": "Exam template parts"
+      "examTemplateComponents": "Exam template parts",
+      "printTemplates": "Certificate templates"
     },
     "versionOnly": "Version {{version}}"
   },

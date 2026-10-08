@@ -24,7 +24,13 @@ function make(opts: { storedPreset?: unknown; counts?: Map<unknown, number> } = 
           },
   };
   const ds = { transaction: async (fn: (m: unknown) => unknown) => fn(manager) };
-  const svc = new PresetApplyService(ds as never, registry, audit as never, cache as never);
+  const svc = new PresetApplyService(
+    ds as never,
+    registry,
+    audit as never,
+    cache as never,
+    { put: vi.fn() } as never,
+  );
   return { svc, audit, cache };
 }
 
