@@ -1,15 +1,17 @@
+import type { FineRule } from '@biddaloy/ui/hooks';
+import { REGION_BD_BN } from '@biddaloy/ui/i18n';
 /**
  * [38.4a] Rules tab list — #1120's own Tests list: rules render, a null
  * `class_id` shows "Whole school", an ACCOUNTANT without delete
  * permission sees no delete action, and the empty state.
  */
-import type { FineRule } from '@biddaloy/ui/hooks';
 import {
   academicYearFactory,
   cleanupTestState,
   renderWithProviders,
   server,
 } from '@biddaloy/ui/test';
+import { formatNumber } from '@biddaloy/ui/utils';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -148,7 +150,7 @@ describe('fees/fines/-rules/rules-panel', () => {
     expect(screen.getAllByRole('button', { name: 'Edit' }).length).toBe(2);
     expect(screen.getByRole('button', { name: 'Deactivate' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Activate' })).toBeTruthy();
-    expect(screen.getByText(/Total\s+2/)).toBeTruthy();
+    expect(screen.getByText(new RegExp(`Total\\s+${formatNumber(2, REGION_BD_BN)}`))).toBeTruthy();
   });
 
   it('asks before deleting, and only the confirm calls DELETE', async () => {

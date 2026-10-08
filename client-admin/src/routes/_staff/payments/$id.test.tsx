@@ -1,4 +1,6 @@
+import { REGION_BD_BN } from '@biddaloy/ui/i18n';
 import { cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
+import { formatNumber } from '@biddaloy/ui/utils';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -184,7 +186,7 @@ describe('/payments/$id', () => {
 
     expect(await screen.findByText('Paid at the counter')).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Where the money went' })).toBeTruthy();
-    expect(screen.getByText('Total 1')).toBeTruthy();
+    expect(screen.getByText(`Total ${formatNumber(1, REGION_BD_BN)}`)).toBeTruthy();
   });
 
   it('shows an error state with retry when the payment fails to load', async () => {
