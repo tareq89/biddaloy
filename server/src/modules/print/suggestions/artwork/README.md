@@ -1,6 +1,6 @@
 # Suggestion artwork
 
-Sixteen background-only SVG cards (8 designs x front/back) on the CR80 card. 1 user unit = 1 mm.
+Sixteen background-only SVG cards (8 designs x front/back) on the CR80 card, plus the A4 ACR page, the admit card and two A4 certificate frames (sections at the end). 1 user unit = 1 mm.
 Portrait 54 x 85.6 mm, landscape 85.6 x 54 mm. Keep essential shapes 3 mm inside the edge (safe zone); artwork may bleed.
 Zones are `[x, y, width, height]` in mm and are drawn (or left clear) in the SVGs. They hold no data: fields are placed by the template.
 
@@ -147,3 +147,25 @@ flowchart LR
 | back  | QR square                | [52, 12, 28, 28] |
 | back  | Return-address band      | [17, 12, 30, 15] |
 | back  | Validity band            | [17, 30, 30, 10] |
+
+## Admit card
+
+- Use: exam admit card, 200 x 140 mm, two per A4 sheet. Palette: primary `#0B3A6B`, gold `#C9A227`, paper `#FBFDFE`, light `#E6F1F5`.
+- Files: `admit-card-front.svg`
+
+| Side  | Zone                       | Rect mm           |
+| ----- | -------------------------- | ----------------- |
+| front | Header band                | [3, 3, 194, 25]   |
+| front | Student block (5 rows)     | [6, 32, 56, 25]   |
+| front | Sitting grid (header + 15) | [66, 36, 128, 72] |
+| front | Seal / QR corner           | [6, 116, 18, 18]  |
+| front | Signature line             | [140, 129, 54, 0] |
+
+## Certificate A4 portrait / landscape
+
+- Use: certificates (48.2.12, 48.2.13). Double border (primary + gold), corner ornaments, clear centre.
+- Files: `certificate-a4-portrait-front.svg` (210 x 297 mm), `certificate-a4-landscape-front.svg` (297 x 210 mm)
+
+| Side  | Zone         | Rect mm (portrait) | Rect mm (landscape) |
+| ----- | ------------ | ------------------ | ------------------- |
+| front | Clear centre | [14, 14, 182, 269] | [14, 14, 269, 182]  |
