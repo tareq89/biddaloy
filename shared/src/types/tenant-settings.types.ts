@@ -256,6 +256,14 @@ export interface EvaluationsSettings {
   incidentSmsEnabled?: boolean;
 }
 
+/** `documents.*` (48.1.01) — student document options. */
+export interface DocumentsSettings {
+  /** Refuse an admit card while the student has dues (D9). Default off. */
+  withholdAdmitCardForDues?: boolean;
+  /** Short code in front of certificate serials, `SERIAL_PREFIX_PATTERN` (D24). */
+  serialPrefix?: string;
+}
+
 export interface TenantSettings {
   version: typeof TENANT_SETTINGS_SCHEMA_VERSION;
   region?: RegionSettings;
@@ -268,4 +276,5 @@ export interface TenantSettings {
   backup?: BackupSettings;
   fees?: FeesSettings;
   evaluations?: EvaluationsSettings;
+  documents?: DocumentsSettings;
 }

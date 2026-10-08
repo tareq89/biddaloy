@@ -20,7 +20,7 @@ import { PrintTemplateVersion } from '../entities/print-template-version.entity'
 import { PrintJob } from '../entities/print-job.entity';
 import { PrintJobItem } from '../entities/print-job-item.entity';
 import { PrinterProfile } from '../entities/printer-profile.entity';
-import { RESOLVERS, ResolvedSubject } from '../catalog/field-resolver';
+import { RESOLVERS, ResolvedSubject, resolverFor } from '../catalog/field-resolver';
 import { generateSecret, hashSecret } from '../../auth/token-hash.util';
 import { AuditService } from '../../audit/audit.service';
 import { StorageService } from '../../storage/storage.service';
@@ -257,7 +257,7 @@ export class PrintJobsService {
       // ACR: re-check the subject now (own ACR -> 404, reopened -> 409); a snapshot never outlives that.
       if (original.document_kind === DocumentKind.ACR_ASSESSMENT) {
         const subjectIds = originals.map((i) => i.subject_id as string);
-        const found = await RESOLVERS[original.document_kind].resolve(
+        const found = await resolverFor(original.document_kind).resolve(
           caller.tenantId,
           subjectIds,
           manager,
@@ -421,7 +421,7 @@ export class PrintJobsService {
     if (!key.startsWith(`tenants/${caller.tenantId}/`) || key.includes('..')) {
       throw new ForbiddenException('Invalid photo key');
     }
-    const found = await RESOLVERS[kind].resolve(caller.tenantId, [subjectId], this.ds.manager);
+    const found = await resolverFor(kind).resolve(caller.tenantId, [subjectId], this.ds.manager);
     const subject = found.get(subjectId);
     if (!subject) throw new NotFoundException('Subject not found');
     // The key must be the subject's current photo, or one a job snapshot froze for them.

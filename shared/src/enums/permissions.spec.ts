@@ -792,6 +792,25 @@ describe('print permission grants [32.1.1]', () => {
   });
 });
 
+describe('CERTIFICATE_ISSUE [48.1.01]', () => {
+  it.each([UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.EXECUTIVE, UserRole.OFFICE_STAFF])(
+    'is held by %s',
+    (r) => expect(ROLE_PERMISSIONS[r]).toContain(Permission.CERTIFICATE_ISSUE),
+  );
+
+  // ACCOUNTANT holds DOCUMENT_PRINT and must still not issue a TC (D6).
+  it.each([
+    UserRole.ACCOUNTANT,
+    UserRole.EXAM_CONTROLLER,
+    UserRole.TEACHER,
+    UserRole.COMMITTEE,
+    UserRole.PARENT,
+    UserRole.STUDENT,
+  ])('is not held by %s', (r) =>
+    expect(ROLE_PERMISSIONS[r]).not.toContain(Permission.CERTIFICATE_ISSUE),
+  );
+});
+
 describe('CURRICULUM_PRESET_APPLY [35.1.1]', () => {
   it('is held by ADMIN and SUPER_ADMIN only', () => {
     expect(roleHasPermission(UserRole.ADMIN, Permission.CURRICULUM_PRESET_APPLY)).toBe(true);
@@ -836,6 +855,7 @@ describe('new role grants [#1358]', () => {
   // drops REPORT_COLLECTIONS_READ, as D16 allows: that report names students.
   const D16: Record<(typeof NEW_ROLES)[number], Permission[]> = {
     [UserRole.OFFICE_STAFF]: [
+      Permission.CERTIFICATE_ISSUE, // [48.1.01] D6
       Permission.STUDENT_CREATE,
       Permission.STUDENT_READ,
       Permission.STUDENT_UPDATE,
