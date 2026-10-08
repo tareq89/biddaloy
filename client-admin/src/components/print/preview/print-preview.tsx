@@ -181,15 +181,19 @@ export function PrintPreview({
   // --- the preview -----------------------------------------------------------
   const { mutate: loadPreview } = preview;
   const templateId = template?.id;
+  // The caller builds `context` inline (a new object every render): depend on its values,
+  // or every re-render would POST the preview again.
+  const contextType = context?.type;
+  const contextId = context?.id;
   React.useEffect(() => {
     if (!templateId || batchKey === '') return;
     loadPreview({
       template_id: templateId,
       subject_type: subjectType,
       subject_ids: batchKey.split(','),
-      ...(context ? { context_type: context.type, context_id: context.id } : {}),
+      ...(contextType && contextId ? { context_type: contextType, context_id: contextId } : {}),
     });
-  }, [templateId, batchKey, subjectType, context, loadPreview]);
+  }, [templateId, batchKey, subjectType, contextType, contextId, loadPreview]);
 
   const data = preview.data;
   const definition = data?.template.version.definition;
