@@ -298,4 +298,104 @@ describe('PrintJobsService', () => {
     expect(saved.find((x) => x.job_id)).toMatchObject({ outcome: 'OK' });
     expect(res.items).toHaveLength(1);
   });
+
+  describe('issue_values (D3, D43)', () => {
+    const text = (extra: object) => ({ type: 'TEXT', x: 0, y: 0, w: 10, h: 5, ...extra });
+    const withDef = (manager: any, elements: object[]) =>
+      manager.findOneByOrFail.mockResolvedValue({
+        id: 'v1',
+        version: 1,
+        definition: { front: { elements } },
+      });
+    const cert = { ...caller, channel: 'CERTIFICATE' as const };
+    const issueDto = (issue_values?: Record<string, string>) => ({
+      ...dto([A]),
+      issue_values,
+    });
+    const setupTestimonial = (elements: object[]) => {
+      template.document_kind = 'TESTIMONIAL';
+      const s = setup('TESTIMONIAL');
+      withDef(s.manager, elements);
+      return s;
+    };
+    const bound = [text({ field: 'issue.conduct' })];
+
+    it('create stores the trimmed text in the item values', async () => {
+      const { svc } = setupTestimonial(bound);
+      const res = await svc.create(cert, issueDto({ 'issue.conduct': '  Satisfactory ' }));
+      expect((res.items[0] as any).values['issue.conduct']).toBe('Satisfactory');
+    });
+
+    it('a {{placeholder}}-only binding also requires the value and carries it', async () => {
+      const { svc } = setupTestimonial([text({ text: 'He is of {{issue.conduct}} conduct.' })]);
+      await expect(svc.create(cert, issueDto())).rejects.toMatchObject({
+        response: { message: ['issue.conduct: required'] },
+      });
+      const res = await svc.create(cert, issueDto({ 'issue.conduct': 'good' }));
+      expect((res.items[0] as any).values['issue.conduct']).toBe('good');
+    });
+
+    it('create without the value is a 400 naming the field', async () => {
+      const { svc } = setupTestimonial(bound);
+      const err = await svc.create(cert, issueDto()).catch((e) => e);
+      expect(err).toBeInstanceOf(BadRequestException);
+      expect(err.getResponse().message).toEqual(['issue.conduct: required']);
+    });
+
+    it('create with a blank value is a 400', async () => {
+      const { svc } = setupTestimonial(bound);
+      await expect(svc.create(cert, issueDto({ 'issue.conduct': '   ' }))).rejects.toMatchObject({
+        response: { message: ['issue.conduct: required'] },
+      });
+    });
+
+    it('create with a key the template does not place is a 400', async () => {
+      const { svc } = setupTestimonial(bound);
+      await expect(
+        svc.create(cert, issueDto({ 'issue.conduct': 'ok', 'issue.event_name': 'x' })),
+      ).rejects.toMatchObject({
+        response: { message: ['issue.event_name: not an issue field of this template'] },
+      });
+    });
+
+    it('create with 121 characters is a 400', async () => {
+      const { svc } = setupTestimonial(bound);
+      await expect(
+        svc.create(cert, issueDto({ 'issue.conduct': 'a'.repeat(121) })),
+      ).rejects.toMatchObject({
+        response: { message: ['issue.conduct: longer than 120 characters'] },
+      });
+    });
+
+    it('preview without values is 200 and leaves the sample to the catalog', async () => {
+      const { svc } = setupTestimonial(bound);
+      const res = await svc.preview(cert, issueDto());
+      expect((res.items[0] as any).values['issue.conduct']).toBeUndefined();
+    });
+
+    it('preview echoes typed values; an unknown key is still a 400', async () => {
+      const { svc } = setupTestimonial(bound);
+      const res = await svc.preview(cert, issueDto({ 'issue.conduct': 'typed' }));
+      expect((res.items[0] as any).values['issue.conduct']).toBe('typed');
+      await expect(svc.preview(cert, issueDto({ 'issue.nope': 'x' }))).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+    });
+
+    it('audit records the keys, not the text', async () => {
+      const { svc } = setupTestimonial(bound);
+      const audit = (svc as any).audit.record as ReturnType<typeof vi.fn>;
+      await svc.create(cert, issueDto({ 'issue.conduct': 'secret words' }));
+      const nv = (audit.mock.calls.at(-1)![0] as any).new_values;
+      expect(nv.issue_keys).toEqual(['issue.conduct']);
+      expect(JSON.stringify(nv)).not.toContain('secret words');
+    });
+
+    it('a template with no issue field refuses any key', async () => {
+      const { svc } = setupTestimonial([text({ field: 'student.name' })]);
+      await expect(svc.create(cert, issueDto({ 'issue.conduct': 'x' }))).rejects.toMatchObject({
+        response: { message: ['issue.conduct: not an issue field of this template'] },
+      });
+    });
+  });
 });
