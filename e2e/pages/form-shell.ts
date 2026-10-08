@@ -1,6 +1,7 @@
 import { expect, type Page } from '@playwright/test';
 
 import { t } from '../i18n';
+import { escapeRegExp } from '../regex';
 
 /**
  * Drives any route built on `ui/src/shells/form-shell.tsx`: label-based
@@ -12,9 +13,12 @@ export class FormShellPage {
 
   /** `fillField('students.form.fields.fullName', 'Rahim')` — labels only,
    * which is what keeps this an a11y canary: an unlabeled input fails
-   * the suite before it fails a screen-reader user. */
+   * the suite before it fails a screen-reader user. A required field's
+   * name ends in the screen-reader-only "(required)" suffix. */
   async fillField(labelKey: string, value: string): Promise<void> {
-    await this.page.getByLabel(t(labelKey), { exact: true }).fill(value);
+    const required = escapeRegExp(t('common.form.required'));
+    const name = new RegExp(`^${escapeRegExp(t(labelKey))}\\s*(${required})?$`);
+    await this.page.getByLabel(name).fill(value);
   }
 
   async submit(labelKey: string): Promise<void> {
