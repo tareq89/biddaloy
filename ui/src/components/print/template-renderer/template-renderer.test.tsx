@@ -2,6 +2,8 @@ import type { TemplateDefinition } from '@biddaloy/shared';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
+import { i18n } from '../../../i18n/i18n';
+
 import { TemplateRenderer } from './template-renderer';
 
 const ASSET = '11111111-1111-4111-8111-111111111111';
@@ -95,5 +97,101 @@ describe('TemplateRenderer', () => {
     const { container } = render(<TemplateRenderer {...base} mode="print" />);
     await screen.findByRole('img', { name: 'QR code' });
     expect(container.querySelector('svg')).toBeTruthy();
+  });
+
+  describe('placeholders in fixed text', () => {
+    const sentence = (
+      text: string,
+      over: Partial<TemplateDefinition> = {},
+    ): TemplateDefinition => ({
+      page: { widthMm: 85.6, heightMm: 54, sides: ['front'] },
+      ...over,
+      front: {
+        elements: [
+          {
+            id: 's',
+            type: 'TEXT',
+            x: 1,
+            y: 1,
+            w: 60,
+            h: 20,
+            text,
+            fontFamily: 'Biddaloy Sans',
+            sizePt: 10,
+            weight: 400,
+            color: '#000000',
+            align: 'left',
+            overflow: 'WRAP',
+          },
+        ],
+      },
+    });
+    const draw = (text: string, values: Record<string, string>, over = {}) =>
+      render(
+        <TemplateRenderer
+          {...base}
+          definition={sentence(text, over)}
+          values={values}
+          mode="preview"
+        />,
+      ).container.querySelector('[data-element-id="s"]')!.textContent;
+
+    it('fills fields inside the sentence', () => {
+      expect(
+        draw('{{student.name}} of {{student.class}}', {
+          'student.name': 'Rahim',
+          'student.class': 'Eight',
+        }),
+      ).toBe('Rahim of Eight');
+    });
+
+    it('renders an unknown placeholder as nothing', () => {
+      expect(draw('a{{nope}}b', {})).toBe('ab');
+    });
+
+    it('uses Bangla digits for ISO dates when the language is bn', async () => {
+      const prev = i18n.language;
+      await i18n.changeLanguage('bn');
+      try {
+        expect(draw('{{student.date_of_birth}}', { 'student.date_of_birth': '2013-05-05' })).toBe(
+          '২০১৩-০৫-০৫',
+        );
+      } finally {
+        await i18n.changeLanguage(prev);
+      }
+    });
+
+    it('leaves text without braces and single braces alone', () => {
+      expect(draw('plain', {})).toBe('plain');
+      expect(draw('Copy {n}', {})).toBe('Copy {n}');
+    });
+  });
+
+  describe('copy label (D44)', () => {
+    const label = (
+      copy: number,
+      over: Partial<TemplateDefinition>,
+      values: Record<string, string>,
+    ) =>
+      render(
+        <TemplateRenderer
+          {...base}
+          definition={{ ...definition, ...over }}
+          values={values}
+          copy={copy}
+          mode="preview"
+        />,
+      ).container.querySelector('[data-element-id="copy"]')!.textContent;
+    const server = { 'print.copyLabel': 'প্রতিলিপি / DUPLICATE (copy 2)' };
+
+    it('falls back to the server label when the template has none', () => {
+      expect(label(2, { copyLabel: undefined }, server)).toBe('প্রতিলিপি / DUPLICATE (copy 2)');
+    });
+    it('is empty on copy 1', () => {
+      expect(label(1, { copyLabel: undefined }, server)).toBe('');
+    });
+    it('prefers the template label', () => {
+      expect(label(2, {}, server)).toBe('Copy 2');
+    });
   });
 });
