@@ -1,4 +1,4 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiExtraModels, ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsIn, IsInt, IsOptional, IsUUID, Max, Min } from 'class-validator';
 
@@ -67,6 +67,7 @@ export class TabulationCellDto {
   @ApiProperty() is_fail: boolean;
 }
 
+@ApiExtraModels(TabulationCellDto)
 export class TabulationRowDto {
   @ApiProperty() student_id: string;
   @ApiProperty() roll_number: number;
