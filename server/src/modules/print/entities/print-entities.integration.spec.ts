@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterAll, afterEach } from 'vitest';
 import { DataSource } from 'typeorm';
 import { randomUUID } from 'crypto';
 import { createTestModule } from '@test/helpers/module.helper';
@@ -92,6 +92,141 @@ describe('PrintModule migration (integration)', () => {
       );
     await insertItem();
     await expect(insertItem()).rejects.toThrow(/UQ_print_job_items_copy/);
+  });
+
+  describe('print_job_items serials and exam context (Epic 48 D7, D24, D41)', () => {
+    let jobId: string;
+    let otherTenantId: string;
+    let otherJobId: string;
+
+    // Rebuilt per test: test/setup.ts truncates the print tables between tests.
+    beforeEach(async () => {
+      const versionId = await insertVersion(await insertTemplate());
+      [{ id: jobId }] = await ds.query(
+        `INSERT INTO print_jobs (tenant_id, template_version_id, document_kind, item_count)
+         VALUES ($1, $2, 'STUDENT_ID_CARD', 1) RETURNING id`,
+        [tenantId, versionId],
+      );
+      [{ id: otherTenantId }] = await ds.query(
+        `INSERT INTO schools (name, slug) VALUES ($1, $2) RETURNING id`,
+        [`Other ${randomUUID()}`, `other-${randomUUID()}`],
+      );
+      const [tpl] = await ds.query(
+        `INSERT INTO print_templates (tenant_id, document_kind, name, batch_size, draft)
+         VALUES ($1, 'STUDENT_ID_CARD', 'x', 50, '{}'::jsonb) RETURNING id`,
+        [otherTenantId],
+      );
+      const [ver] = await ds.query(
+        `INSERT INTO print_template_versions (tenant_id, template_id, version, definition)
+         VALUES ($1, $2, 1, '{}'::jsonb) RETURNING id`,
+        [otherTenantId, tpl.id],
+      );
+      [{ id: otherJobId }] = await ds.query(
+        `INSERT INTO print_jobs (tenant_id, template_version_id, document_kind, item_count)
+         VALUES ($1, $2, 'STUDENT_ID_CARD', 1) RETURNING id`,
+        [otherTenantId, ver.id],
+      );
+    });
+
+    afterEach(async () => {
+      await ds.query(`DELETE FROM print_job_items WHERE tenant_id = $1`, [otherTenantId]);
+      await ds.query(`DELETE FROM print_jobs WHERE tenant_id = $1`, [otherTenantId]);
+      await ds.query(`DELETE FROM print_template_versions WHERE tenant_id = $1`, [otherTenantId]);
+      await ds.query(`DELETE FROM print_templates WHERE tenant_id = $1`, [otherTenantId]);
+      await ds.query(`DELETE FROM schools WHERE id = $1`, [otherTenantId]);
+    });
+
+    const item = (o: {
+      kind: string;
+      subjectId: string;
+      copy?: number;
+      serialNo?: number | null;
+      serialYear?: number | null;
+      contextId?: string | null;
+      contextType?: string | null;
+      tenant?: string;
+      job?: string;
+    }) =>
+      ds.query(
+        `INSERT INTO print_job_items
+           (tenant_id, job_id, document_kind, subject_type, subject_id, subject_label,
+            copy_number, serial_no, serial_year, context_type, context_id,
+            data_snapshot, verify_token_hash)
+         VALUES ($1, $2, $3, 'STUDENT', $4, 'Someone', $5, $6, $7, $8, $9, '{}'::jsonb, $10)`,
+        [
+          o.tenant ?? tenantId,
+          o.job ?? jobId,
+          o.kind,
+          o.subjectId,
+          o.copy ?? 1,
+          o.serialNo ?? null,
+          o.serialYear ?? null,
+          o.contextType === undefined ? (o.contextId ? 'EXAM' : null) : o.contextType,
+          o.contextId ?? null,
+          randomUUID().replace(/-/g, '').padEnd(64, '0'),
+        ],
+      );
+
+    it('still rejects a duplicate copy 1 for the same student and kind without context', async () => {
+      const subjectId = randomUUID();
+      await item({ kind: 'STUDENT_ID_CARD', subjectId });
+      await expect(item({ kind: 'STUDENT_ID_CARD', subjectId })).rejects.toThrow(
+        /UQ_print_job_items_copy/,
+      );
+    });
+
+    it('accepts copy 1 of an admit card for two different exams', async () => {
+      const subjectId = randomUUID();
+      await item({ kind: 'EXAM_ADMIT_CARD', subjectId, contextId: randomUUID() });
+      await item({ kind: 'EXAM_ADMIT_CARD', subjectId, contextId: randomUUID() });
+    });
+
+    it('rejects copy 1 twice for the same student, kind and exam', async () => {
+      const subjectId = randomUUID();
+      const contextId = randomUUID();
+      await item({ kind: 'EXAM_ADMIT_CARD', subjectId, contextId });
+      await expect(item({ kind: 'EXAM_ADMIT_CARD', subjectId, contextId })).rejects.toThrow(
+        /UQ_print_job_items_copy/,
+      );
+    });
+
+    it('accepts two study certificates for one student with different serials', async () => {
+      const subjectId = randomUUID();
+      await item({ kind: 'STUDY_CERTIFICATE', subjectId, serialNo: 1, serialYear: 2026 });
+      await item({ kind: 'STUDY_CERTIFICATE', subjectId, serialNo: 2, serialYear: 2026 });
+    });
+
+    it('rejects the same serial as copy 1 for a different student, accepts a reprint, a new year and another tenant', async () => {
+      const serial = { kind: 'TESTIMONIAL', serialNo: 7, serialYear: 2026 };
+      await item({ ...serial, subjectId: randomUUID() });
+      // D7: a serial can never be issued twice as copy 1, even for someone else.
+      await expect(item({ ...serial, subjectId: randomUUID() })).rejects.toThrow(
+        /UQ_print_job_items_serial_copy/,
+      );
+      // A reprint of the same serial takes the next copy number.
+      await item({ ...serial, subjectId: randomUUID(), copy: 2 });
+      // D24: the sequence resets yearly and per tenant.
+      await item({ ...serial, serialYear: 2027, subjectId: randomUUID() });
+      await item({
+        ...serial,
+        subjectId: randomUUID(),
+        tenant: otherTenantId,
+        job: otherJobId,
+      });
+    });
+
+    it('rejects half-filled pairs and an out-of-range serial', async () => {
+      const subjectId = randomUUID();
+      await expect(item({ kind: 'TESTIMONIAL', subjectId, serialNo: 1 })).rejects.toThrow(
+        /CK_print_job_items_serial_pair/,
+      );
+      await expect(
+        item({ kind: 'EXAM_ADMIT_CARD', subjectId, contextId: randomUUID(), contextType: null }),
+      ).rejects.toThrow(/CK_print_job_items_context_pair/);
+      await expect(
+        item({ kind: 'TESTIMONIAL', subjectId, serialNo: 100000, serialYear: 2026 }),
+      ).rejects.toThrow(/CK_print_job_items_serial_range/);
+    });
   });
 
   it('rejects deleting a template that has a version (RESTRICT)', async () => {
