@@ -21,6 +21,7 @@ describe('PrintJobsService (integration)', () => {
       ds,
       { get: async (k: string) => ({ body: k }) } as any,
       { record: async () => undefined } as any,
+      { documentsSettings: async () => ({}) } as any,
     );
   });
 

@@ -126,6 +126,7 @@ describe('PrintJobsService.confirm / reprint access', () => {
       { transaction: (fn: any) => fn(manager) } as any,
       {} as any,
       {} as any,
+      {} as any,
     );
   };
 
