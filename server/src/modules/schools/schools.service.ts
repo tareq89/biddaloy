@@ -7,10 +7,15 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { EntityManager, MoreThanOrEqual, QueryFailedError, Repository } from 'typeorm';
+import { EntityManager, MoreThan, MoreThanOrEqual, QueryFailedError, Repository } from 'typeorm';
 import Redis from 'ioredis';
 import type { TenantSettings, OrganisationSettings } from '@biddaloy/shared';
-import { AuditAction, CommunicationStatus, UserStatus } from '@biddaloy/shared';
+import {
+  AuditAction,
+  CommunicationStatus,
+  TRIAL_EXPIRED_REASON,
+  UserStatus,
+} from '@biddaloy/shared';
 import { School } from './entities/school.entity';
 import { TenantSettingsDto, OrganisationRenameDto } from './dto/tenant-settings.dto';
 import { resolveTenantSettings } from './settings/tenant-settings-resolver';
@@ -93,9 +98,40 @@ export class SchoolsService {
    * `SUPER_ADMIN` only — an ADMIN already knows their one school from
    * `tenant.id`, no picker involved.
    */
-  async findAll(): Promise<Pick<School, 'id' | 'name' | 'slug' | 'status' | 'created_at'>[]> {
+  async findAll(
+    trial?: 'active' | 'expired',
+  ): Promise<
+    Pick<
+      School,
+      | 'id'
+      | 'name'
+      | 'slug'
+      | 'status'
+      | 'created_at'
+      | 'country_code'
+      | 'trial_ends_at'
+      | 'seat_limit'
+      | 'status_reason'
+    >[]
+  > {
     return this.repo.find({
-      select: ['id', 'name', 'slug', 'status', 'created_at'],
+      select: [
+        'id',
+        'name',
+        'slug',
+        'status',
+        'created_at',
+        'country_code',
+        'trial_ends_at',
+        'seat_limit',
+        'status_reason',
+      ],
+      where:
+        trial === 'active'
+          ? { trial_ends_at: MoreThan(new Date()) }
+          : trial === 'expired'
+            ? { status_reason: TRIAL_EXPIRED_REASON }
+            : undefined,
       order: { name: 'ASC' },
     });
   }
@@ -626,6 +662,23 @@ export class SchoolsService {
             status_changed_at: school.status_changed_at,
           },
         };
+      }
+
+      // A manual reactivate of a school whose trial already ended would be undone by the next
+      // daily trial job, so the trial must be extended first. Extend lifts only the trial's own
+      // suspension; a school suspended for another reason still needs this call afterwards.
+      if (
+        dto.status === 'ACTIVE' &&
+        school.trial_ends_at &&
+        school.trial_ends_at.getTime() <= now.getTime()
+      ) {
+        throw new ConflictException({
+          message:
+            school.status_reason === TRIAL_EXPIRED_REASON
+              ? "This school's trial has ended — extend the trial (PATCH /schools/:id/trial) to reactivate it"
+              : "This school's trial has ended — extend the trial (PATCH /schools/:id/trial) first, then reactivate it",
+          details: { code: 'TRIAL_EXPIRED' },
+        });
       }
 
       await schoolRepo.update(schoolId, {

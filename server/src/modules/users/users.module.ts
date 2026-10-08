@@ -7,6 +7,8 @@ import { TeacherClassSection } from '../academics/entities/teacher-class-section
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { UserService, TeacherService } from './users.service';
 import { UserController } from './users.controller';
+import { StaffBulkUploadController } from './staff-bulk-upload.controller';
+import { StaffBulkUploadService } from './staff-bulk-upload.service';
 import { AccountAccessModule } from '../account-access/account-access.module';
 import { AuditModule } from '../audit/audit.module';
 import { StaffProfilesModule } from '../staff-profiles/staff-profiles.module';
@@ -18,8 +20,9 @@ import { StaffProfilesModule } from '../staff-profiles/staff-profiles.module';
     StaffProfilesModule,
     AuditModule,
   ],
-  providers: [UserService, TeacherService],
-  controllers: [UserController],
+  // `ImportStagingService` comes from the @Global() BulkImportModule.
+  providers: [UserService, TeacherService, StaffBulkUploadService],
+  controllers: [UserController, StaffBulkUploadController],
   exports: [UserService, TeacherService],
 })
 export class UserModule {}

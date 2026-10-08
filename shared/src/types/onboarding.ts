@@ -17,7 +17,11 @@ export interface OnboardingStatus {
   setup_path: OnboardingSetupPath | null;
   items: { id: OnboardingItemId; done: boolean }[];
   counts: { classes: number; sections: number; students: number; staff: number };
-  trial: { ends_at: string; days_left: number; seats: { used: number; limit: number } } | null;
+  trial: {
+    ends_at: string;
+    days_left: number;
+    seats: { used: number; limit: number | null };
+  } | null;
   support_url: string | null;
 }
 

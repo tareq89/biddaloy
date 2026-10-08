@@ -72,6 +72,7 @@ describe('schoolTab (integration)', () => {
       phone: null,
       email: null,
       registration_id: 'REG-A-999',
+      country_code: null,
       settings: null,
       ...overrides,
     };

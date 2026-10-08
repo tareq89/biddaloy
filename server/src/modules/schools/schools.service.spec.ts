@@ -261,7 +261,18 @@ describe('SchoolsService', () => {
       const schools = await service.findAll();
 
       expect(repo.find).toHaveBeenCalledWith({
-        select: ['id', 'name', 'slug', 'status', 'created_at'],
+        select: [
+          'id',
+          'name',
+          'slug',
+          'status',
+          'created_at',
+          'country_code',
+          'trial_ends_at',
+          'seat_limit',
+          'status_reason',
+        ],
+        where: undefined,
         order: { name: 'ASC' },
       });
       expect(schools).toEqual([
@@ -1349,7 +1360,13 @@ describe('SchoolsService', () => {
   });
 
   describe('updateStatus', () => {
-    function buildService(school: { id: string; status: 'ACTIVE' | 'SUSPENDED' }) {
+    function buildService(school: {
+      id: string;
+      status: 'ACTIVE' | 'SUSPENDED';
+      status_reason?: string | null;
+      trial_ends_at?: Date | null;
+      seat_limit?: number | null;
+    }) {
       const repo = fakeRepo(school as any);
       const service = new SchoolsService(
         repo as any,
@@ -1378,6 +1395,55 @@ describe('SchoolsService', () => {
       );
       return { service, repo };
     }
+
+    // The daily trial job would re-suspend a reactivated school whose trial is over, so the
+    // manual route refuses until the trial is extended (PATCH :id/trial).
+    it('refuses to reactivate a school whose trial already ended', async () => {
+      const { service, repo } = buildService({
+        id: 's1',
+        status: 'SUSPENDED',
+        trial_ends_at: new Date(Date.now() - 1000),
+      });
+
+      await expect(
+        service.updateStatus('s1', { status: 'ACTIVE', reason: 'Paid up again' }, 'admin-1'),
+      ).rejects.toMatchObject({ response: { details: { code: 'TRIAL_EXPIRED' } } });
+      expect(repo.schoolRepo.update).not.toHaveBeenCalled();
+    });
+
+    it('still reactivates a school whose trial runs into the future', async () => {
+      const { service } = buildService({
+        id: 's1',
+        status: 'SUSPENDED',
+        trial_ends_at: new Date(Date.now() + 86_400_000),
+      });
+
+      const res = await service.updateStatus(
+        's1',
+        { status: 'ACTIVE', reason: 'Paid up again' },
+        'admin-1',
+      );
+      expect(res.status).toBe('ACTIVE');
+    });
+
+    it('the 409 names the second step when the suspension was not the trial one', async () => {
+      const ended = new Date(Date.now() - 1000);
+      const refuse = (status_reason: string) =>
+        buildService({ id: 's1', status: 'SUSPENDED', status_reason, trial_ends_at: ended })
+          .service.updateStatus('s1', { status: 'ACTIVE', reason: 'Paid up again' }, 'admin-1')
+          .catch((e) => e.getResponse().message);
+
+      expect(await refuse('TRIAL_EXPIRED')).toMatch(/to reactivate it$/);
+      expect(await refuse('Non-payment')).toMatch(/first, then reactivate it$/);
+    });
+
+    it('findAll filters: active = trial_ends_at in the future, expired = TRIAL_EXPIRED reason', async () => {
+      const { service, repo } = buildService({ id: 's1', status: 'ACTIVE' });
+      await service.findAll('expired');
+      expect((repo as any).find.mock.calls[0][0].where).toEqual({ status_reason: 'TRIAL_EXPIRED' });
+      await service.findAll('active');
+      expect(Object.keys((repo as any).find.mock.calls[1][0].where)).toEqual(['trial_ends_at']);
+    });
 
     it('suspends an active school: writes status columns, audits SUSPEND with the reason, invalidates the tenant status cache', async () => {
       const { service, repo } = buildService({ id: 's1', status: 'ACTIVE' });

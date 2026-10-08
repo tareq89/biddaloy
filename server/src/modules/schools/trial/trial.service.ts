@@ -9,6 +9,7 @@ import { School } from '../entities/school.entity';
 import { TenantStatusService } from '../tenant-status.service';
 import { AuditService } from '../../audit/audit.service';
 import { AdminNoticeService } from './admin-notice.service';
+import { getSeatUsage } from './seat-limit.service';
 import {
   DAY_MS,
   DEFAULT_TRIAL_DAYS,
@@ -75,6 +76,18 @@ export class TrialService {
           message: 'School has no trial to extend',
           details: { code: 'NO_TRIAL' },
         });
+      }
+      // Counted under the lock every student add takes, so `seat_limit` is never below the
+      // ACTIVE students. ponytail: a school that is unlimited right now (seat_limit NULL) adds
+      // without that lock, so an extend that sets its first limit can still race one add.
+      if (input.seat_limit != null) {
+        const { used } = await getSeatUsage(m, schoolId);
+        if (input.seat_limit < used) {
+          throw new ConflictException({
+            message: `Seat limit ${input.seat_limit} is below the ${used} active students`,
+            details: { code: 'SEAT_LIMIT_BELOW_USAGE', used, requested: input.seat_limit },
+          });
+        }
       }
 
       const base = Math.max(now.getTime(), school.trial_ends_at.getTime());

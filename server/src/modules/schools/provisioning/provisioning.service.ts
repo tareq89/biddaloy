@@ -65,6 +65,14 @@ export interface ProvisionResult {
   invitation: { id: string; status: string };
 }
 
+/** Extra hooks for a caller that provisions on its own behalf (public registration). */
+export interface ProvisionOptions {
+  /** Default true. Public registration passes false: the admin already proved their contact. Internal only — never part of the HTTP DTO. */
+  sendInvitation?: boolean;
+  /** Runs inside the provisioning transaction, after school + admin exist; a throw rolls everything back. */
+  inTransaction?: (manager: EntityManager, result: ProvisionResult) => Promise<void>;
+}
+
 export interface AdminInput {
   name: string;
   email?: string | null;
@@ -103,7 +111,9 @@ export class ProvisioningService {
 
   async provision(
     dto: ProvisionSchoolDto,
-    actorUserId: string,
+    /** `null` when the admin does not exist yet (public registration). */
+    actorUserId: string | null,
+    options: ProvisionOptions = {},
   ): Promise<{ result: ProvisionResult; replayed: boolean }> {
     const key = idempotencyKey(dto.idempotency_key);
 
@@ -140,6 +150,8 @@ export class ProvisioningService {
             name: dto.name,
             slug: dto.slug,
             status: SchoolStatus.ACTIVE,
+            country_code: dto.country_code ?? null,
+            address: dto.address ?? null,
           }),
         );
 
@@ -149,6 +161,7 @@ export class ProvisioningService {
           actorUserId,
           manager,
           true,
+          options.sendInvitation !== false,
         );
 
         await this.audit.record(
@@ -168,11 +181,13 @@ export class ProvisioningService {
         // message.
         deliverAfterCommit = admin.deliverAfterCommit;
 
-        return {
+        const provisioned: ProvisionResult = {
           school: { id: school.id, slug: school.slug, status: school.status as SchoolStatus },
           admin: admin.result.admin,
           invitation: admin.result.invitation,
         };
+        await options.inTransaction?.(manager, provisioned);
+        return provisioned;
       });
     } catch (err) {
       clearInterval(renewal);
@@ -189,9 +204,15 @@ export class ProvisioningService {
       });
       // Only the school insert can still raise a raw unique-violation here —
       // `provisionAdminForSchool` maps the membership one to its own 409.
+      // Only the slug index maps to the slug message; any other unique clash (e.g. a contact
+      // already on another user row) is not a slug problem and is rethrown as it is.
       if (
         err instanceof QueryFailedError &&
-        (err as unknown as { code?: string }).code === '23505'
+        (err as unknown as { code?: string }).code === '23505' &&
+        /slug/i.test(
+          (err as unknown as { driverError?: { constraint?: string } }).driverError?.constraint ??
+            '',
+        )
       ) {
         throw new ConflictException(`School with slug "${dto.slug}" already exists`);
       }
@@ -283,7 +304,7 @@ export class ProvisioningService {
   async provisionAdminForSchool(
     schoolId: string,
     admin: AdminInput,
-    actorUserId: string,
+    actorUserId: string | null,
     manager: EntityManager,
     /** Only `provision()` passes `true`. Tags the membership as the one
      * created *with* the school, which `users.tab.ts` then refuses to
@@ -293,6 +314,8 @@ export class ProvisioningService {
      * otherwise every admin ever added would silently become
      * restore-immune, well beyond the narrow protection intended. */
     isInitialSchoolAdmin = false,
+    /** `false` (public registration): the admin just proved their contact by OTP, so no invitation is created or sent. */
+    sendInvitation = true,
   ): Promise<{
     result: ProvisionAdminResult;
     deliverAfterCommit: (() => Promise<void>) | null;
@@ -349,6 +372,16 @@ export class ProvisioningService {
         throw new ConflictException(`User "${user.id}" is already an ADMIN of this school`);
       }
       throw err;
+    }
+
+    if (!sendInvitation) {
+      return {
+        result: {
+          admin: { user_id: user.id, existed },
+          invitation: { id: '', status: 'NOT_SENT' },
+        },
+        deliverAfterCommit: null,
+      };
     }
 
     const raw = generateSecret();

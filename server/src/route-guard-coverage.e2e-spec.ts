@@ -305,6 +305,27 @@ const ALLOWLIST: AllowlistEntry[] = [
     reason:
       "[13.2.4] Bearer-authenticated but tenant-agnostic — starts connecting a provider to the caller's own account, identified solely by user.sub (AuthGuard(jwt) only).",
   },
+  {
+    controller: 'RegistrationController',
+    method: 'POST',
+    path: '/auth/register/start',
+    reason:
+      '[13.3.1] Public, unauthenticated — stages the registrant details and sends a code; Turnstile-checked, STRICT throttle, same response for known and unknown contacts.',
+  },
+  {
+    controller: 'RegistrationController',
+    method: 'POST',
+    path: '/auth/register/resend',
+    reason:
+      '[13.3.1] Public, unauthenticated — resends the code for a staged registration_id; STRICT throttle and a per-registration resend cap.',
+  },
+  {
+    controller: 'RegistrationController',
+    method: 'POST',
+    path: '/auth/register/verify',
+    reason:
+      '[13.3.1] Public, unauthenticated — checks the code and creates the school in trial; STRICT throttle, 5-attempt lock, single-use stage.',
+  },
 ];
 
 function findAllowlistEntry(
