@@ -5,7 +5,8 @@
     "inHall": "In the exam hall",
     "inHallHint": "{{rooms}} rooms · {{sittings}} sittings",
     "after": "After results",
-    "afterHint": "These open once results are processed and published"
+    "afterHint": "These open once results are processed and published",
+    "beforeHintPlain": "Admit cards and the exam routine"
   },
   "admitCard": {
     "title": "Admit cards",
@@ -14,17 +15,19 @@
     "examinees": "Examinees",
     "printed": "Printed",
     "remaining": "Remaining",
-    "dues": "{{count}} students owe fees. They are marked in the list; you can still print.",
+    "dues": "{{n}} students owe fees. They are marked in the list; you can still print.",
     "duesLink": "See who",
     "action": "Print admit cards"
   },
   "admitPicker": {
     "title": "Which admit cards?",
-    "all": "Everyone ({{count}})",
-    "remaining": "Not printed yet ({{count}})",
+    "all": "Everyone ({{n}})",
+    "remaining": "Not printed yet ({{n}})",
     "section": "One section",
     "sectionLabel": "Section",
-    "next": "Preview"
+    "next": "Preview",
+    "sectionPlaceholder": "Choose a section",
+    "groupLabel": "Which admit cards"
   },
   "routine": {
     "title": "Exam routine notice",
@@ -83,23 +86,27 @@
     "scopeClass": "Class position",
     "scopeSection": "Section position",
     "top": "Top",
-    "count_other": "{{count}} students",
-    "count_one": "{{count}} student",
-    "continue": "Continue"
+    "count_other": "{{n}} students",
+    "count_one": "{{n}} student",
+    "continue": "Continue",
+    "topLabel": "How many top students (1–50)",
+    "none": "No students found."
   },
   "unavailable": {
     "noSeatPlan": "No published seat plan yet.",
     "noSchedule": "The exam has no schedule yet.",
     "notProcessed": "Results are not processed yet.",
     "notPublished": "Results are not published yet.",
-    "noTemplate": "No published template for this document."
+    "noTemplate": "No published template for this document.",
+    "noComponents": "No marks parts are set up yet."
   },
   "fix": {
     "makeSeatPlan": "Make a seat plan",
     "addSchedule": "Add the schedule",
     "seeProgress": "See progress",
     "goToResults": "Go to Results",
-    "createTemplate": "Create one"
+    "createTemplate": "Create one",
+    "addComponents": "Set up marks"
   },
   "page": {
     "print": "Print",
@@ -153,5 +160,7 @@
     "examController": "Exam controller",
     "headTeacher": "Head teacher",
     "invigilator": "Invigilator"
-  }
+  },
+  "sectionLabel": "Section",
+  "sectionPlaceholder": "Choose a section"
 }

@@ -521,4 +521,80 @@ describe('PrintPreview', () => {
     expect((await screen.findAllByText(/Missing: Name/)).length).toBeGreaterThan(0);
     expect(screen.queryByText(/staff\.name/)).toBeNull();
   });
+
+  describe('exam context and extra issues', () => {
+    const EXAM = '11111111-1111-4111-8111-111111111111';
+
+    function renderWithContext(
+      extraIssues: Array<{ subjectId: string; label: string; reasons: string[] }>,
+    ) {
+      return renderWithProviders(
+        en(
+          <PrintPreview
+            documentKind="EXAM_ADMIT_CARD"
+            subjectType="STUDENT"
+            subjectIds={['s-1']}
+            context={{ type: 'EXAM', id: EXAM }}
+            extraIssues={extraIssues}
+            onCreateTemplate={vi.fn()}
+            onAddPrinter={vi.fn()}
+            onDone={vi.fn()}
+            onClose={vi.fn()}
+          />,
+        ),
+        { locale: 'en', role: 'ADMIN', tenantId: 'school-1' },
+      );
+    }
+
+    it('sends the exam context with the preview and create requests', async () => {
+      serveLists([template({ document_kind: 'EXAM_ADMIT_CARD' })], [printer()]);
+      const bodies: Array<Record<string, unknown>> = [];
+      server.use(
+        http.post('/api/v1/print-jobs/preview', async ({ request }) => {
+          bodies.push((await request.json()) as Record<string, unknown>);
+          return HttpResponse.json({
+            template: {
+              id: 't-1',
+              batch_size: 50,
+              version: {
+                id: 'v-1',
+                version: 1,
+                definition: definition([element({ field: 'student.name' })]),
+              },
+            },
+            items: [
+              { subject_id: 's-1', label: 'S1', values: { 'student.name': 'S1' }, photo_url: null },
+            ],
+          });
+        }),
+      );
+      vi.mocked(runPrint).mockResolvedValue(printResult(1));
+      const { user } = renderWithContext([]);
+      await waitFor(() => expect(bodies.length).toBeGreaterThan(0));
+      expect(bodies[0]).toMatchObject({ context_type: 'EXAM', context_id: EXAM });
+      await waitFor(() =>
+        expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Print' }).disabled).toBe(
+          false,
+        ),
+      );
+      await user.click(screen.getByRole('button', { name: 'Print' }));
+      await waitFor(() => expect(vi.mocked(runPrint)).toHaveBeenCalled());
+      expect(vi.mocked(runPrint).mock.calls[0]?.[0].request).toMatchObject({
+        kind: 'create',
+        body: { context_type: 'EXAM', context_id: EXAM },
+      });
+    });
+
+    it('an extra issue shows in the pre-flight panel and needs "Print anyway"', async () => {
+      serveLists([template({ document_kind: 'EXAM_ADMIT_CARD' })], [printer()]);
+      servePreview();
+      const { user } = renderWithContext([
+        { subjectId: 's-1', label: 'Student s-1', reasons: ['Owes fees'] },
+      ]);
+      expect((await screen.findAllByText(/Owes fees/)).length).toBeGreaterThan(0);
+      expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Print' }).disabled).toBe(true);
+      await user.click(screen.getByRole('checkbox'));
+      expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Print' }).disabled).toBe(false);
+    });
+  });
 });

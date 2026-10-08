@@ -8,7 +8,7 @@
  */
 import { DocumentKind, PrintSubjectType } from '@biddaloy/shared';
 import { EmptyState, Skeleton } from '@biddaloy/ui/components';
-import { studentIdsQueryOptions } from '@biddaloy/ui/hooks';
+import { studentIdsQueryOptions, useAdmitCardRoster } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { FullPageShell, useCloseFullPage } from '@biddaloy/ui/shells';
 import { useQuery } from '@tanstack/react-query';
@@ -16,6 +16,7 @@ import { createFileRoute, useRouter } from '@tanstack/react-router';
 import { MonitorIcon } from 'lucide-react';
 import { z } from 'zod';
 
+import { AdmitCardPicker } from '../../../components/print/admit-card-picker';
 import { copyPageLink, useIsWide } from '../../../components/print/desktop-only-gate';
 import { PrintPreview } from '../../../components/print/preview/print-preview';
 import { PrintIdCardModal } from '../../../components/print/print-id-card-modal';
@@ -27,6 +28,9 @@ const searchSchema = z.object({
   subject_type: z.enum(PrintSubjectType).catch(PrintSubjectType.STUDENT),
   ids: z.string().optional().catch(undefined),
   class_section_id: z.string().uuid().optional().catch(undefined),
+  // The exam an admit card, result or merit certificate belongs to.
+  context_type: z.enum(['EXAM']).optional().catch(undefined),
+  context_id: z.string().uuid().optional().catch(undefined),
   // Set when the preview was reached from the picker (so "Back" has somewhere to go).
   pick: z.literal('1').optional().catch(undefined),
   // An in-app path only: never navigate to an address typed into the URL.
@@ -40,13 +44,21 @@ const searchSchema = z.object({
 export const Route = createFileRoute('/_staff/print/preview')({
   staticData: { chromeless: true },
   validateSearch: searchSchema,
-  loader: () => loadRouteNamespaces('printPreview', 'printTemplates', 'common'),
+  loader: () =>
+    loadRouteNamespaces(
+      'printPreview',
+      'printTemplates',
+      'common',
+      'examDocuments',
+      'printHistory',
+    ),
   component: PrintPreviewPage,
 });
 
 function PrintPreviewPage() {
   const { t } = useTranslation('printPreview');
   const { t: tT } = useTranslation('printTemplates');
+  const { t: tHist } = useTranslation('printHistory');
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
   const router = useRouter();
@@ -64,6 +76,17 @@ function PrintPreviewPage() {
   const explicit = search.ids ? search.ids.split(',').filter(Boolean) : [];
   const ids = search.class_section_id !== undefined ? (bySection.data?.ids ?? []) : explicit;
   const picking = search.ids === undefined && search.class_section_id === undefined;
+  const contextExam = search.context_type === 'EXAM' ? search.context_id : undefined;
+  const admitExam = search.kind === DocumentKind.EXAM_ADMIT_CARD ? contextExam : undefined;
+  // D9: a student who owes fees is flagged in the pre-flight; staff can still print.
+  const admitRoster = useAdmitCardRoster(admitExam);
+  const extraIssues = (admitRoster.data?.students ?? [])
+    .filter((s) => s.has_dues === true && explicit.includes(s.student_id))
+    .map((s) => ({
+      subjectId: s.student_id,
+      label: s.full_name,
+      reasons: [tHist('toPrint.hasDues')],
+    }));
 
   // Printing needs a big screen and a printer: on a phone the frame says so, with the same Close.
   if (!wide) {
@@ -79,6 +102,18 @@ function PrintPreviewPage() {
           explanation={tT('gate.body')}
         />
       </FullPageShell>
+    );
+  }
+
+  if (picking && admitExam !== undefined) {
+    return (
+      <AdmitCardPicker
+        examId={admitExam}
+        onClose={close}
+        onConfirm={(ids) =>
+          void navigate({ replace: true, search: (prev) => ({ ...prev, pick: '1', ids }) })
+        }
+      />
     );
   }
 
@@ -124,6 +159,10 @@ function PrintPreviewPage() {
       documentKind={search.kind}
       subjectType={search.subject_type}
       subjectIds={ids}
+      {...(contextExam !== undefined
+        ? { context: { type: 'EXAM' as const, id: contextExam } }
+        : {})}
+      extraIssues={extraIssues}
       onCreateTemplate={() => void navigate({ to: '/print-templates', search: { new: '1' } })}
       onAddPrinter={() => void navigate({ to: '/settings', hash: 'printers-section' })}
       onDone={() => router.history.push(search.from ?? '/')}
