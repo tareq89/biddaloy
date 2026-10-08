@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="bn">
+<head>
+<!-- app:head -->
+<title>Mockup — committee dashboard</title>
+<script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+</head>
+<body class="flex min-h-screen flex-col bg-bg text-body text-text-primary">
+
+<!-- SHELL — from starter.html. Role chip says কমিটি; COMMITTEE sees only Dashboard + Calendar (nav-icons.md). -->
+<header class="sticky top-0 z-30 flex h-14 items-center gap-1 border-b border-border-subtle bg-surface px-1 md:gap-2 md:px-6">
+  <button type="button" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-muted hover:text-text-primary md:size-9 md:hidden" aria-label="মেনু খুলুন"><i data-lucide="menu"></i></button>
+  <span class="min-w-0 truncate text-h3">নমুনা আদর্শ বিদ্যালয়</span>
+  <span class="hidden shrink-0 rounded-full bg-muted px-2 py-0.5 text-caption text-text-secondary md:inline">কমিটি</span>
+  <button type="button" class="hidden md:inline-flex size-11 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-muted hover:text-text-primary md:size-9" aria-label="স্কুল বা ভূমিকা পরিবর্তন করুন"><i data-lucide="arrow-left-right"></i></button>
+  <div class="ml-auto flex shrink-0 items-center md:gap-1">
+    <button type="button" class="hidden h-9 w-64 items-center gap-2 rounded-md border border-border-functional bg-surface px-3 text-text-secondary md:flex" aria-label="খুঁজুন (Ctrl+K)"><i data-lucide="search"></i><span>অনুসন্ধান…</span><kbd class="ml-auto font-sans text-caption">Ctrl+K</kbd></button>
+    <button type="button" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-muted hover:text-text-primary md:size-9 md:hidden" aria-label="খুঁজুন"><i data-lucide="search"></i></button>
+    <button type="button" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-muted hover:text-text-primary md:size-9 relative" aria-label="বিজ্ঞপ্তি, ৩টি অপঠিত"><i data-lucide="bell"></i><span class="absolute top-0.5 left-1/2 ml-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1 text-caption font-medium text-primary-foreground md:-top-0.5">৩</span></button>
+    <button type="button" class="hidden md:inline-flex size-11 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-muted hover:text-text-primary md:size-9" aria-label="ভাষা পরিবর্তন করুন"><i data-lucide="languages"></i></button>
+    <button type="button" class="hidden md:inline-flex size-11 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-muted hover:text-text-primary md:size-9" aria-label="থিম"><i data-lucide="moon"></i></button>
+    <button type="button" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-muted hover:text-text-primary md:size-9" aria-label="অ্যাকাউন্ট মেনু"><i data-lucide="circle-user-round"></i></button>
+  </div>
+</header>
+
+<div class="flex flex-1">
+    <nav class="hidden w-60 shrink-0 border-r border-border-subtle bg-surface px-3 py-4 md:block" aria-label="প্রধান">
+      <p class="px-3 pb-3 text-label text-text-secondary">SchoolManager</p>
+      <ul class="space-y-0.5 pb-2">
+          <li><a href="#" data-nav="dashboard" aria-current="page" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="layout-dashboard"></i><span class="truncate">ড্যাশবোর্ড</span></a></li>
+      </ul>
+      <details class="group/nav" open>
+        <summary class="flex h-9 cursor-pointer list-none items-center justify-between rounded-md px-3 text-label text-text-secondary hover:bg-muted hover:text-text-primary">ব্যক্তিবর্গ<i data-lucide="chevron-right" class="size-4 group-open/nav:rotate-90"></i></summary>
+        <ul class="space-y-0.5 pb-2">
+          <li><a href="#" data-nav="people.calendar" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="calendar-days"></i><span class="truncate">ক্যালেন্ডার</span></a></li>
+        </ul>
+      </details>
+    </nav>
+
+    <main id="main-content" class="min-w-0 flex-1">
+      <div class="mx-auto w-full max-w-screen-xl space-y-4 px-4 md:space-y-6 py-4 md:px-6 md:py-6">
+
+        <!-- PageHeader -->
+        <header class="flex flex-col gap-3 md:flex-row md:items-end md:justify-between md:gap-6">
+          <div class="min-w-0">
+            <h1 class="text-h1">ড্যাশবোর্ড</h1>
+            <p class="mt-0.5 text-text-secondary">অক্টোবর ২০২৬ · শিক্ষাবর্ষ ২০২৬</p>
+            <p class="mt-2 flex items-center gap-1.5 text-caption text-text-secondary"><i data-lucide="shield-check" class="size-4 shrink-0"></i>কমিটির জন্য: শুধু মোট হিসাব, কোনো ব্যক্তিগত তথ্য নয়</p>
+          </div>
+          <div class="flex shrink-0 items-center gap-2">
+            <button type="button" class="hidden md:inline-flex h-11 items-center justify-center gap-2 rounded-md px-4 font-medium md:h-8 md:px-3 border border-border-functional bg-surface text-text-primary hover:bg-muted"><i data-lucide="layout-grid"></i>সাজান</button>
+            <button type="button" class="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-md px-4 font-medium md:h-8 md:flex-none md:px-3 bg-primary text-primary-foreground"><i data-lucide="printer"></i>মাসিক সভার রিপোর্ট প্রিন্ট</button>
+          </div>
+        </header>
+
+        <!-- Briefing — one sentence the committee can read aloud at the meeting -->
+        <section class="flex items-start gap-3 rounded-lg bg-secondary p-3 md:items-center md:p-5" aria-label="এক নজরে">
+          <span class="hidden size-10 shrink-0 items-center justify-center rounded-full bg-surface text-primary md:flex"><i data-lucide="lightbulb"></i></span>
+          <div class="min-w-0">
+            <p class="text-h3 text-secondary-foreground md:text-h2">এ মাসে হাজিরা ও আদায় দুটোই লক্ষ্যের কাছাকাছি — আদায় গত বছরের এই সময়ের চেয়ে ৮% বেশি।</p>
+            <p class="mt-0.5 hidden text-caption text-text-secondary md:block">আজ সকাল ৯টায় আপডেট</p>
+          </div>
+        </section>
+
+        <!-- KPI row -->
+        <section aria-label="মূল সংখ্যা" class="grid grid-cols-2 gap-3 md:gap-6 lg:grid-cols-4">
+          <div class="flex min-w-0 flex-col rounded-lg border border-border-subtle bg-surface p-3 shadow-e1 md:p-5">
+            <p class="truncate text-label text-text-secondary">মোট শিক্ষার্থী</p>
+            <p class="mt-1 text-display">১,২৪৮</p>
+            <p class="mt-0.5 flex items-start gap-1 text-caption text-status-paid-fg"><i data-lucide="trending-up" class="mt-0.5 size-3.5 shrink-0"></i><span class="md:hidden">৩৪ জন বেশি</span><span class="hidden md:inline">গত বছরের চেয়ে ৩৪ জন বেশি</span></p>
+            <div class="mt-auto hidden pt-3 md:block" aria-hidden="true"><div class="relative h-8">
+              <svg class="h-full w-full overflow-visible" viewBox="0 0 100 32" preserveAspectRatio="none"><polyline points="0,29.3 25,20.9 50,14.7 75,8.7 100,2.4" fill="none" class="stroke-text-secondary/50" stroke-width="1.5" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round"/></svg>
+              <span class="absolute right-0 size-2 translate-x-1/2 -translate-y-1/2 rounded-full bg-primary ring-2 ring-surface" style="top:7.5%"></span></div>
+                          </div>
+          </div>
+          <div class="flex min-w-0 flex-col rounded-lg border border-border-subtle bg-surface p-3 shadow-e1 md:p-5">
+            <p class="truncate text-label text-text-secondary">গড় হাজিরা, এ মাসে</p>
+            <p class="mt-1 text-display">৮৯%</p>
+            <p class="mt-0.5 flex items-start gap-1 text-caption text-text-secondary"><i data-lucide="target" class="mt-0.5 size-3.5 shrink-0"></i><span class="md:hidden">লক্ষ্য ৯০%</span><span class="hidden md:inline">লক্ষ্য ৯০%, মাত্র ১% দূরে</span></p>
+            <div class="mt-auto hidden pt-3 md:block" aria-hidden="true"><div class="relative h-8">
+              <svg class="h-full w-full overflow-visible" viewBox="0 0 100 32" preserveAspectRatio="none"><polyline points="0,5.1 11.1,8.2 22.2,14.4 33.3,20.7 44.4,26.9 55.6,23.8 66.7,17.6 77.8,14.4 88.9,8.2 100,11.3" fill="none" class="stroke-text-secondary/50" stroke-width="1.5" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round"/></svg>
+              <span class="absolute right-0 size-2 translate-x-1/2 -translate-y-1/2 rounded-full bg-primary ring-2 ring-surface" style="top:35.3%"></span></div>
+            </div>
+          </div>
+          <div class="flex min-w-0 flex-col rounded-lg border border-border-subtle bg-surface p-3 shadow-e1 md:p-5">
+            <p class="truncate text-label text-text-secondary">এ মাসের আদায়</p>
+            <p class="mt-1 text-display">৭০%</p>
+            <p class="mt-0.5 flex items-start gap-1 text-caption text-status-paid-fg"><i data-lucide="trending-up" class="mt-0.5 size-3.5 shrink-0"></i><span class="md:hidden">+৮% গত বছরের চেয়ে</span><span class="hidden md:inline">গত বছরের এই সময়ের চেয়ে ৮% বেশি</span></p>
+            <div class="mt-auto hidden pt-3 md:block" aria-hidden="true">
+              <div class="flex h-2 overflow-hidden rounded-full bg-primary/15"><div class="rounded-full bg-primary" style="width:70%"></div></div>
+              <p class="mt-1 text-caption text-text-secondary">৳৯.৮ লাখ বিলের মধ্যে ৳৬.৮৬ লাখ</p>
+            </div>
+          </div>
+          <div class="flex min-w-0 flex-col rounded-lg border border-border-subtle bg-surface p-3 shadow-e1 md:p-5">
+            <p class="truncate text-label text-text-secondary">শেষ পরীক্ষায় পাসের হার</p>
+            <p class="mt-1 text-display">৯৩%</p>
+            <p class="mt-0.5 flex items-start gap-1 text-caption text-status-paid-fg"><i data-lucide="trending-up" class="mt-0.5 size-3.5 shrink-0"></i><span class="md:hidden">আগের চেয়ে ২% বেশি</span><span class="hidden md:inline">আগের পরীক্ষার চেয়ে ২% বেশি</span></p>
+            <div class="mt-auto hidden pt-3 md:block" aria-hidden="true"><div class="relative h-8">
+              <svg class="h-full w-full overflow-visible" viewBox="0 0 100 32" preserveAspectRatio="none"><polyline points="0,25.3 33.3,20.7 66.7,16 100,6.7" fill="none" class="stroke-text-secondary/50" stroke-width="1.5" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round"/></svg>
+              <span class="absolute right-0 size-2 translate-x-1/2 -translate-y-1/2 rounded-full bg-primary ring-2 ring-surface" style="top:21%"></span></div>
+            </div>
+          </div>
+        </section>
+
+        <div class="grid gap-4 md:gap-6 lg:grid-cols-3">
+
+          <!-- L: আদায় বনাম বকেয়া -->
+          <!-- PHONE · expanded example (D16): tapping a compact card opens it in place; phone shows the last 3 months only -->
+          <section class="relative flex flex-col rounded-lg border border-border-subtle bg-surface px-4 pt-2 pb-4 shadow-e1 md:hidden" aria-labelledby="c-collect">
+            <h2 id="c-collect" class="text-h3"><button type="button" aria-expanded="true" aria-controls="c-collect-body" class="flex min-h-11 w-full items-center justify-between gap-3 text-left">আদায় বনাম বকেয়া<i data-lucide="chevron-up" class="shrink-0 text-text-secondary"></i></button></h2>
+            <p class="flex flex-wrap items-baseline gap-x-2"><span class="text-display">৳১০,৪৫,০০০</span><span class="text-label text-text-secondary">এ বছরের মোট বকেয়া</span></p>
+            <p class="mt-1 text-text-secondary">বছরের বিলের ৮৯% আদায় হয়েছে; বকেয়ার প্রায় অর্ধেকই গত দুই মাসের।</p>
+            <div id="c-collect-body" class="mt-4 border-t border-border-subtle pt-3">
+              <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-label">
+                <span class="text-text-secondary">শেষ ৩ মাস</span>
+                <span class="flex items-center gap-1.5"><span class="size-3 rounded-sm bg-primary"></span>আদায়</span>
+                <span class="flex items-center gap-1.5"><span class="size-3 rounded-sm bg-status-due-fg"></span>বকেয়া<i data-lucide="clock" class="size-3.5 text-text-secondary"></i></span>
+              </div>
+              <div class="mt-3 space-y-2.5" role="img" aria-label="শেষ তিন মাসের আদায় ও বকেয়া: আগস্টে আদায় ৮.৪৫ লাখ, বকেয়া ১.১৫ লাখ; সেপ্টেম্বরে আদায় ৮.২৩ লাখ, বকেয়া ১.৫৭ লাখ; অক্টোবরে আদায় ৬.৮৬ লাখ, বকেয়া ২.৯৪ লাখ।">
+                <div class="flex items-center gap-3"><span class="w-12 shrink-0 text-label text-text-secondary">আগস্ট</span><div class="flex h-5 flex-1 gap-0.5"><div class="bg-primary" style="width:86.2%"></div><div class="rounded-r-sm bg-status-due-fg" style="width:11.7%"></div></div></div>
+                <div class="flex items-center gap-3"><span class="w-12 shrink-0 text-label text-text-secondary">সেপ্টে</span><div class="flex h-5 flex-1 gap-0.5"><div class="bg-primary" style="width:84%"></div><div class="rounded-r-sm bg-status-due-fg" style="width:16%"></div></div></div>
+                <div class="flex items-center gap-3"><span class="w-12 shrink-0 text-label font-semibold text-text-primary">অক্টো</span><div class="flex h-5 flex-1 gap-0.5"><div class="bg-primary" style="width:70%"></div><div class="rounded-r-sm bg-status-due-fg" style="width:30%"></div></div></div>
+                <p class="pl-15 text-caption"><span class="font-semibold">আদায়</span> ৳৬.৮৬ লাখ · <span class="font-semibold">বকেয়া</span> ৳২.৯৪ লাখ</p>
+              </div>
+              <div class="mt-3 flex items-center justify-between gap-3">
+                <p class="text-caption text-text-secondary">আজ সকাল ৯টায় আপডেট</p>
+                <button type="button" aria-pressed="false" class="-mr-2 inline-flex h-11 shrink-0 items-center gap-1.5 rounded-md px-2 text-label text-text-secondary hover:bg-muted"><i data-lucide="table-2" class="size-4"></i>টেবিল দেখুন</button>
+              </div>
+            </div>
+          </section>
+
+          <!-- DESKTOP · full -->
+          <section class="hidden flex-col rounded-lg border border-border-subtle bg-surface p-4 shadow-e1 md:flex md:p-5 lg:col-span-3" aria-labelledby="w-collect">
+            <div class="flex items-start justify-between gap-3">
+              <h2 id="w-collect" class="text-h3">আদায় বনাম বকেয়া</h2>
+              <button type="button" aria-pressed="false" class="-mt-2 -mr-2 inline-flex h-11 shrink-0 items-center gap-1.5 rounded-md px-2 text-label text-text-secondary hover:bg-muted md:-mt-1 md:h-8"><i data-lucide="table-2" class="size-4"></i>টেবিল দেখুন</button>
+            </div>
+            <div class="mt-1 grid gap-6 lg:grid-cols-3 lg:gap-8">
+              <div class="flex flex-col">
+                <p class="flex flex-wrap items-baseline gap-x-2"><span class="text-display">৳১০,৪৫,০০০</span><span class="text-label text-text-secondary">এ বছরের মোট বকেয়া</span></p>
+                <p class="mt-1 max-w-prose text-text-secondary">বছরের বিলের ৮৯% আদায় হয়েছে; বকেয়ার প্রায় অর্ধেকই গত দুই মাসের।</p>
+                <ul class="mt-4 space-y-2" aria-label="লেজেন্ড">
+                  <li class="flex items-center gap-2"><span class="size-3 shrink-0 rounded-sm bg-primary"></span><span>আদায়</span><span class="ml-auto tabular-nums text-text-secondary">অক্টোবরে ৳৬.৮৬ লাখ</span></li>
+                  <li class="flex items-center gap-2"><span class="size-3 shrink-0 rounded-sm bg-status-due-fg"></span><span class="flex items-center gap-1">বকেয়া<i data-lucide="clock" class="size-3.5 text-text-secondary"></i></span><span class="ml-auto tabular-nums text-text-secondary">অক্টোবরে ৳২.৯৪ লাখ</span></li>
+                </ul>
+              </div>
+              <div class="min-w-0 lg:col-span-2">
+                <div class="flex gap-2 pt-2" role="img" aria-label="মাসওয়ারি আদায় ও বকেয়া, জানুয়ারি থেকে অক্টোবর ২০২৬, লাখ টাকায়। অক্টোবরে বকেয়া সবচেয়ে বেশি, ২.৯৪ লাখ।">
+                  <div class="relative h-44 w-12 shrink-0 text-right text-caption text-text-secondary tabular-nums" aria-hidden="true">
+                    <span class="absolute right-0 translate-y-1/2" style="bottom:100%">১২ লাখ</span>
+                    <span class="absolute right-0 translate-y-1/2" style="bottom:66.67%">৮ লাখ</span>
+                    <span class="absolute right-0 translate-y-1/2" style="bottom:33.33%">৪ লাখ</span>
+                    <span class="absolute right-0 translate-y-1/2" style="bottom:0%">০</span>
+                  </div>
+                  <div class="min-w-0 flex-1 md:pr-32" aria-hidden="true">
+                    <div class="relative h-44">
+                      <div class="absolute inset-x-0 border-t border-border-subtle" style="bottom:100%"></div>
+                      <div class="absolute inset-x-0 border-t border-border-subtle" style="bottom:66.67%"></div>
+                      <div class="absolute inset-x-0 border-t border-border-subtle" style="bottom:33.33%"></div>
+                      <div class="absolute inset-x-0 bottom-0 border-t border-border-functional"></div>
+                      <div class="absolute inset-0 flex items-end justify-around">
+                        <div class="flex h-full w-4 flex-col justify-end gap-0.5 md:w-6"><div class="rounded-t-sm bg-status-due-fg" style="height:3.75%"></div><div class="bg-primary" style="height:89.6%"></div></div>
+                        <div class="flex h-full w-4 flex-col justify-end gap-0.5 md:w-6"><div class="rounded-t-sm bg-status-due-fg" style="height:4%"></div><div class="bg-primary" style="height:76%"></div></div>
+                        <div class="flex h-full w-4 flex-col justify-end gap-0.5 md:w-6"><div class="rounded-t-sm bg-status-due-fg" style="height:4.8%"></div><div class="bg-primary" style="height:75.2%"></div></div>
+                        <div class="flex h-full w-4 flex-col justify-end gap-0.5 md:w-6"><div class="rounded-t-sm bg-status-due-fg" style="height:5.6%"></div><div class="bg-primary" style="height:74.4%"></div></div>
+                        <div class="flex h-full w-4 flex-col justify-end gap-0.5 md:w-6"><div class="rounded-t-sm bg-status-due-fg" style="height:6.4%"></div><div class="bg-primary" style="height:73.6%"></div></div>
+                        <div class="flex h-full w-4 flex-col justify-end gap-0.5 md:w-6"><div class="rounded-t-sm bg-status-due-fg" style="height:7.3%"></div><div class="bg-primary" style="height:84.3%"></div></div>
+                        <div class="flex h-full w-4 flex-col justify-end gap-0.5 md:w-6"><div class="rounded-t-sm bg-status-due-fg" style="height:8%"></div><div class="bg-primary" style="height:72%"></div></div>
+                        <div class="flex h-full w-4 flex-col justify-end gap-0.5 md:w-6"><div class="rounded-t-sm bg-status-due-fg" style="height:9.6%"></div><div class="bg-primary" style="height:70.4%"></div></div>
+                        <div class="flex h-full w-4 flex-col justify-end gap-0.5 md:w-6"><div class="rounded-t-sm bg-status-due-fg" style="height:13.1%"></div><div class="bg-primary" style="height:68.6%"></div></div>
+                        <div class="relative flex h-full w-4 flex-col justify-end gap-0.5 md:w-6">
+                          <div class="rounded-t-sm bg-status-due-fg" style="height:24.5%"></div><div class="bg-primary" style="height:57.2%"></div>
+                          <span class="absolute left-full ml-2 hidden translate-y-1/2 whitespace-nowrap text-caption md:block" style="bottom:69.5%"><span class="font-semibold">বকেয়া</span> ৳২.৯৪ লাখ</span>
+                          <span class="absolute left-full ml-2 hidden translate-y-1/2 whitespace-nowrap text-caption md:block" style="bottom:28.6%"><span class="font-semibold">আদায়</span> ৳৬.৮৬ লাখ</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="mt-1.5 flex justify-around text-caption text-text-secondary">
+                      <span class="flex w-4 justify-center whitespace-nowrap md:w-6">জানু</span>
+                      <span class="invisible flex w-4 justify-center whitespace-nowrap md:visible md:w-6">ফেব্রু</span>
+                      <span class="invisible flex w-4 justify-center whitespace-nowrap md:visible md:w-6">মার্চ</span>
+                      <span class="flex w-4 justify-center whitespace-nowrap md:w-6">এপ্রি</span>
+                      <span class="invisible flex w-4 justify-center whitespace-nowrap md:visible md:w-6">মে</span>
+                      <span class="invisible flex w-4 justify-center whitespace-nowrap md:visible md:w-6">জুন</span>
+                      <span class="flex w-4 justify-center whitespace-nowrap md:w-6">জুলা</span>
+                      <span class="invisible flex w-4 justify-center whitespace-nowrap md:visible md:w-6">আগ</span>
+                      <span class="invisible flex w-4 justify-center whitespace-nowrap md:visible md:w-6">সেপ্টে</span>
+                      <span class="flex w-4 justify-center whitespace-nowrap font-semibold text-text-primary md:w-6">অক্টো</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="mt-4 flex flex-wrap items-center justify-between gap-x-3 border-t border-border-subtle pt-1">
+              <p class="flex min-h-8 items-center text-caption text-text-secondary">আজ সকাল ৯টায় আপডেট</p>
+            </div>
+          </section>
+
+          <!-- M: ভর্তির ধারা -->
+          <!-- PHONE · compact (D16): whole card is the tap target; expands in place -->
+          <section class="relative flex flex-col rounded-lg border border-border-subtle bg-surface px-4 pt-2 pb-4 shadow-e1 md:hidden" aria-labelledby="c-enrol">
+            <h2 id="c-enrol" class="text-h3"><button type="button" aria-expanded="false" class="flex min-h-11 w-full items-center justify-between gap-3 text-left after:absolute after:inset-0 after:rounded-lg">ভর্তির ধারা<i data-lucide="chevron-down" class="shrink-0 text-text-secondary"></i></button></h2>
+            <div class="flex items-end justify-between gap-4">
+              <p class="flex flex-wrap items-baseline gap-x-2"><span class="text-display">+১৩%</span><span class="text-label text-text-secondary">৫ বছরে</span></p>
+              <div class="relative mb-2 h-8 w-24 shrink-0" aria-hidden="true"><svg class="h-full w-full overflow-visible" viewBox="0 0 100 32" preserveAspectRatio="none"><polyline points="0,29.3 25,20.9 50,14.7 75,8.7 100,2.4" fill="none" class="stroke-text-secondary/50" stroke-width="1.5" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round"/></svg><span class="absolute right-0 size-2 translate-x-1/2 -translate-y-1/2 rounded-full bg-primary ring-2 ring-surface" style="top:7.5%"></span></div>
+            </div>
+            <p class="mt-1 text-text-secondary">পাঁচ বছরে শিক্ষার্থী ১,১০৪ থেকে বেড়ে ১,২৪৮ জন হয়েছে।</p>
+          </section>
+
+          
+          <section class="hidden flex-col rounded-lg border border-border-subtle bg-surface p-4 shadow-e1 md:flex md:p-5" aria-labelledby="w-enrol">
+            <div class="flex items-start justify-between gap-3">
+              <h2 id="w-enrol" class="text-h3">ভর্তির ধারা</h2>
+              <button type="button" aria-pressed="false" class="-mt-2 -mr-2 inline-flex h-11 shrink-0 items-center gap-1.5 rounded-md px-2 text-label text-text-secondary hover:bg-muted md:-mt-1 md:h-8"><i data-lucide="table-2" class="size-4"></i>টেবিল দেখুন</button>
+            </div>
+            <p class="mt-1 flex flex-wrap items-baseline gap-x-2"><span class="text-display">+১৩%</span><span class="text-label text-text-secondary">৫ বছরে</span></p>
+            <p class="mt-1 text-text-secondary">পাঁচ বছরে শিক্ষার্থী ১,১০৪ থেকে বেড়ে ১,২৪৮ জন হয়েছে।</p>
+            <div class="mt-6 flex gap-2" role="img" aria-label="প্রতি বছরের মোট শিক্ষার্থী: ২০২২ সালে ১,১০৪, ২০২৩ সালে ১,১৪৯, ২০২৪ সালে ১,১৮২, ২০২৫ সালে ১,২১৪, ২০২৬ সালে ১,২৪৮।">
+              <div class="relative h-36 w-10 shrink-0 text-right text-caption text-text-secondary tabular-nums" aria-hidden="true">
+                <span class="absolute right-0 translate-y-1/2" style="bottom:100%">১,৫০০</span>
+                <span class="absolute right-0 translate-y-1/2" style="bottom:66.67%">১,০০০</span>
+                <span class="absolute right-0 translate-y-1/2" style="bottom:33.33%">৫০০</span>
+                <span class="absolute right-0 translate-y-1/2" style="bottom:0%">০</span>
+              </div>
+              <div class="min-w-0 flex-1" aria-hidden="true">
+                <div class="relative h-36">
+                  <div class="absolute inset-x-0 border-t border-border-subtle" style="bottom:100%"></div>
+                  <div class="absolute inset-x-0 border-t border-border-subtle" style="bottom:66.67%"></div>
+                  <div class="absolute inset-x-0 border-t border-border-subtle" style="bottom:33.33%"></div>
+                  <div class="absolute inset-x-0 bottom-0 border-t border-border-functional"></div>
+                  <div class="absolute inset-0 flex items-end justify-around">
+                    <div class="relative w-6 rounded-t-sm bg-text-secondary/40" style="height:73.6%"><span class="absolute bottom-full left-1/2 mb-1 -translate-x-1/2 whitespace-nowrap text-caption text-text-secondary">১,১০৪</span></div>
+                    <div class="w-6 rounded-t-sm bg-text-secondary/40" style="height:76.6%"></div>
+                    <div class="w-6 rounded-t-sm bg-text-secondary/40" style="height:78.8%"></div>
+                    <div class="w-6 rounded-t-sm bg-text-secondary/40" style="height:80.9%"></div>
+                    <div class="relative w-6 rounded-t-sm bg-primary" style="height:83.2%"><span class="absolute bottom-full left-1/2 mb-1 -translate-x-1/2 whitespace-nowrap text-caption font-semibold">১,২৪৮</span></div>
+                  </div>
+                </div>
+                <div class="mt-1.5 flex justify-around text-caption text-text-secondary">
+                  <span class="flex w-6 justify-center">২০২২</span><span class="flex w-6 justify-center">২০২৩</span><span class="flex w-6 justify-center">২০২৪</span><span class="flex w-6 justify-center">২০২৫</span><span class="flex w-6 justify-center font-semibold text-text-primary">২০২৬</span>
+                </div>
+              </div>
+            </div>
+            <div class="mt-auto pt-4">
+              <div class="flex flex-wrap items-center justify-between gap-x-3 border-t border-border-subtle pt-1">
+                <p class="flex min-h-8 items-center text-caption text-text-secondary">আজ সকাল ৯টায় আপডেট</p>
+              </div>
+            </div>
+          </section>
+
+          <!-- M: মাসওয়ারি হাজিরা -->
+          <!-- PHONE · compact (D16): whole card is the tap target; expands in place -->
+          <section class="relative flex flex-col rounded-lg border border-border-subtle bg-surface px-4 pt-2 pb-4 shadow-e1 md:hidden" aria-labelledby="c-attend">
+            <h2 id="c-attend" class="text-h3"><button type="button" aria-expanded="false" class="flex min-h-11 w-full items-center justify-between gap-3 text-left after:absolute after:inset-0 after:rounded-lg">মাসওয়ারি হাজিরা<i data-lucide="chevron-down" class="shrink-0 text-text-secondary"></i></button></h2>
+            <div class="flex items-end justify-between gap-4">
+              <p class="flex flex-wrap items-baseline gap-x-2"><span class="text-display">৮৮%</span><span class="text-label text-text-secondary">এ বছরের গড়</span></p>
+              <div class="relative mb-2 h-8 w-24 shrink-0" aria-hidden="true"><svg class="h-full w-full overflow-visible" viewBox="0 0 100 32" preserveAspectRatio="none"><polyline points="0,5.1 11.1,8.2 22.2,14.4 33.3,20.7 44.4,26.9 55.6,23.8 66.7,17.6 77.8,14.4 88.9,8.2 100,11.3" fill="none" class="stroke-text-secondary/50" stroke-width="1.5" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round"/></svg><span class="absolute right-0 size-2 translate-x-1/2 -translate-y-1/2 rounded-full bg-primary ring-2 ring-surface" style="top:35.3%"></span></div>
+            </div>
+            <p class="mt-1 text-text-secondary">গরমে মে মাসে হাজিরা ৮৪%-এ নেমেছিল, এখন আবার লক্ষ্যের কাছে।</p>
+          </section>
+
+          
+          <section class="hidden flex-col rounded-lg border border-border-subtle bg-surface p-4 shadow-e1 md:flex md:p-5" aria-labelledby="w-attend">
+            <div class="flex items-start justify-between gap-3">
+              <h2 id="w-attend" class="text-h3">মাসওয়ারি হাজিরা</h2>
+              <button type="button" aria-pressed="false" class="-mt-2 -mr-2 inline-flex h-11 shrink-0 items-center gap-1.5 rounded-md px-2 text-label text-text-secondary hover:bg-muted md:-mt-1 md:h-8"><i data-lucide="table-2" class="size-4"></i>টেবিল দেখুন</button>
+            </div>
+            <p class="mt-1 flex flex-wrap items-baseline gap-x-2"><span class="text-display">৮৮%</span><span class="text-label text-text-secondary">এ বছরের গড়</span></p>
+            <p class="mt-1 text-text-secondary">গরমে মে মাসে হাজিরা ৮৪%-এ নেমেছিল, এখন আবার লক্ষ্যের কাছে।</p>
+            <div class="mt-6 flex gap-2" role="img" aria-label="মাসওয়ারি গড় হাজিরা, জানুয়ারি থেকে অক্টোবর: ৯১, ৯০, ৮৮, ৮৬, ৮৪, ৮৫, ৮৭, ৮৮, ৯০, ৮৯ শতাংশ। লক্ষ্য ৯০ শতাংশ।">
+              <div class="relative h-36 w-8 shrink-0 text-right text-caption text-text-secondary tabular-nums" aria-hidden="true">
+                <span class="absolute right-0 -translate-y-1/2" style="top:0%">৯৫%</span>
+                <span class="absolute right-0 -translate-y-1/2" style="top:33.33%">৯০%</span>
+                <span class="absolute right-0 -translate-y-1/2" style="top:66.67%">৮৫%</span>
+                <span class="absolute right-0 -translate-y-1/2" style="top:100%">৮০%</span>
+              </div>
+              <div class="min-w-0 flex-1 pr-10" aria-hidden="true">
+                <div class="relative h-36">
+                  <div class="absolute inset-x-0 border-t border-border-subtle" style="top:0%"></div>
+                  <div class="absolute inset-x-0 border-t border-border-subtle" style="top:66.67%"></div>
+                  <div class="absolute inset-x-0 border-t border-border-subtle" style="top:100%"></div>
+                  <div class="absolute inset-x-0 border-t border-dashed border-text-secondary" style="top:33.33%"></div>
+                  <span class="absolute -translate-x-1/2 -translate-y-full pb-0.5 text-caption text-text-secondary" style="left:61%;top:33.33%">লক্ষ্য ৯০%</span>
+                  <svg class="absolute inset-0 h-full w-full overflow-visible" viewBox="0 0 100 100" preserveAspectRatio="none"><polyline points="0,26.67 11.11,33.33 22.22,46.67 33.33,60 44.44,73.33 55.56,66.67 66.67,53.33 77.78,46.67 88.89,33.33 100,40" fill="none" class="stroke-primary" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round"/></svg>
+                  <span class="absolute size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary ring-2 ring-surface" style="left:44.44%;top:73.33%"></span>
+                  <span class="absolute mt-2 -translate-x-1/2 whitespace-nowrap text-caption text-text-secondary" style="left:44.44%;top:73.33%">মে ৮৪%</span>
+                  <span class="absolute size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary ring-2 ring-surface" style="left:100%;top:40%"></span>
+                  <span class="absolute ml-2.5 -translate-y-1/2 whitespace-nowrap text-caption font-semibold" style="left:100%;top:40%">৮৯%</span>
+                </div>
+                <div class="relative mt-3 h-5 text-caption text-text-secondary">
+                  <span class="absolute -translate-x-1/2 whitespace-nowrap" style="left:0%">জানু</span>
+                  <span class="absolute -translate-x-1/2 whitespace-nowrap" style="left:33.33%">এপ্রিল</span>
+                  <span class="absolute -translate-x-1/2 whitespace-nowrap" style="left:66.67%">জুলাই</span>
+                  <span class="absolute -translate-x-1/2 whitespace-nowrap font-semibold text-text-primary" style="left:100%">অক্টো</span>
+                </div>
+              </div>
+            </div>
+            <div class="mt-auto pt-4">
+              <div class="flex flex-wrap items-center justify-between gap-x-3 border-t border-border-subtle pt-1">
+                <p class="flex min-h-8 items-center text-caption text-text-secondary">আজ সকাল ৯টায় আপডেট</p>
+              </div>
+            </div>
+          </section>
+
+          <!-- M: শ্রেণিভিত্তিক পাসের হার -->
+          <!-- PHONE · compact (D16): whole card is the tap target; expands in place -->
+          <section class="relative flex flex-col rounded-lg border border-border-subtle bg-surface px-4 pt-2 pb-4 shadow-e1 md:hidden" aria-labelledby="c-pass">
+            <h2 id="c-pass" class="text-h3"><button type="button" aria-expanded="false" class="flex min-h-11 w-full items-center justify-between gap-3 text-left after:absolute after:inset-0 after:rounded-lg">শ্রেণিভিত্তিক পাসের হার<i data-lucide="chevron-down" class="shrink-0 text-text-secondary"></i></button></h2>
+            <div class="flex items-end justify-between gap-4">
+              <p class="flex flex-wrap items-baseline gap-x-2"><span class="text-display">৮৭%</span><span class="text-label text-text-secondary">৯ম শ্রেণি, সবচেয়ে কম</span></p>
+              
+            </div>
+            <p class="mt-1 text-text-secondary">অর্ধবার্ষিকে ৯ম শ্রেণি স্কুলের গড়ের চেয়ে ৬% পিছিয়ে, বাকিরা গড়ের কাছাকাছি।</p>
+          </section>
+
+          
+          <section class="hidden flex-col rounded-lg border border-border-subtle bg-surface p-4 shadow-e1 md:flex md:p-5" aria-labelledby="w-pass">
+            <div class="flex items-start justify-between gap-3">
+              <h2 id="w-pass" class="text-h3">শ্রেণিভিত্তিক পাসের হার</h2>
+              <button type="button" aria-pressed="false" class="-mt-2 -mr-2 inline-flex h-11 shrink-0 items-center gap-1.5 rounded-md px-2 text-label text-text-secondary hover:bg-muted md:-mt-1 md:h-8"><i data-lucide="table-2" class="size-4"></i>টেবিল দেখুন</button>
+            </div>
+            <p class="mt-1 flex flex-wrap items-baseline gap-x-2"><span class="text-display">৮৭%</span><span class="text-label text-text-secondary">৯ম শ্রেণি, সবচেয়ে কম</span></p>
+            <p class="mt-1 text-text-secondary">অর্ধবার্ষিকে ৯ম শ্রেণি স্কুলের গড়ের চেয়ে ৬% পিছিয়ে, বাকিরা গড়ের কাছাকাছি।</p>
+            <div class="mt-6" role="img" aria-label="অর্ধবার্ষিক পরীক্ষায় পাসের হার: ৬ষ্ঠ ৯৬%, ৭ম ৯৫%, ৮ম ৯৪%, ৯ম ৮৭%, ১০ম ৯৩%। স্কুলের গড় ৯৩%।">
+              <div aria-hidden="true">
+                <div class="relative ml-12 mr-12 h-6">
+                  <span class="absolute bottom-1.5 -translate-x-1/2 whitespace-nowrap text-caption text-text-secondary" style="left:93%">গড় ৯৩%</span>
+                </div>
+                <ul class="space-y-2">
+                  <li class="flex items-center gap-2"><span class="w-10 shrink-0 text-label text-text-secondary">৬ষ্ঠ</span><div class="relative h-5 flex-1"><div class="h-full rounded-r-sm bg-text-secondary/40" style="width:96%"></div><span class="absolute -inset-y-1 w-px bg-text-primary" style="left:93%"></span></div><span class="w-10 shrink-0 text-right text-label tabular-nums text-text-secondary">৯৬%</span></li>
+                  <li class="flex items-center gap-2"><span class="w-10 shrink-0 text-label text-text-secondary">৭ম</span><div class="relative h-5 flex-1"><div class="h-full rounded-r-sm bg-text-secondary/40" style="width:95%"></div><span class="absolute -inset-y-1 w-px bg-text-primary" style="left:93%"></span></div><span class="w-10 shrink-0 text-right text-label tabular-nums text-text-secondary">৯৫%</span></li>
+                  <li class="flex items-center gap-2"><span class="w-10 shrink-0 text-label text-text-secondary">৮ম</span><div class="relative h-5 flex-1"><div class="h-full rounded-r-sm bg-text-secondary/40" style="width:94%"></div><span class="absolute -inset-y-1 w-px bg-text-primary" style="left:93%"></span></div><span class="w-10 shrink-0 text-right text-label tabular-nums text-text-secondary">৯৪%</span></li>
+                  <li class="flex items-center gap-2"><span class="w-10 shrink-0 text-label font-semibold text-text-primary">৯ম</span><div class="relative h-5 flex-1"><div class="h-full rounded-r-sm bg-primary" style="width:87%"></div><span class="absolute -inset-y-1 w-px bg-text-primary" style="left:93%"></span></div><span class="w-10 shrink-0 text-right text-label font-semibold tabular-nums text-text-primary">৮৭%</span></li>
+                  <li class="flex items-center gap-2"><span class="w-10 shrink-0 text-label text-text-secondary">১০ম</span><div class="relative h-5 flex-1"><div class="h-full rounded-r-sm bg-text-secondary/40" style="width:93%"></div><span class="absolute -inset-y-1 w-px bg-text-primary" style="left:93%"></span></div><span class="w-10 shrink-0 text-right text-label tabular-nums text-text-secondary">৯৩%</span></li>
+                </ul>
+              </div>
+            </div>
+            <div class="mt-auto pt-4">
+              <div class="flex flex-wrap items-center justify-between gap-x-3 border-t border-border-subtle pt-1">
+                <p class="flex min-h-8 items-center text-caption text-text-secondary">আজ সকাল ৯টায় আপডেট</p>
+              </div>
+            </div>
+          </section>
+
+        </div>
+      </div>
+    </main>
+</div>
+
+<nav class="flex border-t border-border-subtle bg-surface md:hidden" aria-label="দ্রুত নেভিগেশন">
+  <a href="#" data-nav="dashboard" aria-current="page" class="group flex h-16 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 text-caption text-text-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground data-[active=true]:font-semibold data-[active=true]:text-secondary-foreground"><span class="flex h-7 w-14 items-center justify-center rounded-full group-aria-[current=page]:bg-secondary group-data-[active=true]:bg-secondary"><i data-lucide="layout-dashboard"></i></span><span class="max-w-full truncate px-1">ড্যাশবোর্ড</span></a>
+  <a href="#" data-nav="people.calendar" class="group flex h-16 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 text-caption text-text-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground data-[active=true]:font-semibold data-[active=true]:text-secondary-foreground"><span class="flex h-7 w-14 items-center justify-center rounded-full group-aria-[current=page]:bg-secondary group-data-[active=true]:bg-secondary"><i data-lucide="calendar-days"></i></span><span class="max-w-full truncate px-1">ক্যালেন্ডার</span></a>
+  <button type="button" data-active="false" aria-haspopup="dialog" class="group flex h-16 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 text-caption text-text-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground data-[active=true]:font-semibold data-[active=true]:text-secondary-foreground"><span class="flex h-7 w-14 items-center justify-center rounded-full group-aria-[current=page]:bg-secondary group-data-[active=true]:bg-secondary"><i data-lucide="ellipsis"></i></span><span class="max-w-full truncate px-1">আরও</span></button>
+</nav>
+
+<script>lucide.createIcons({ attrs: { width: 18, height: 18, "stroke-width": 1.75, "aria-hidden": "true" } });</script>
+</body>
+</html>
