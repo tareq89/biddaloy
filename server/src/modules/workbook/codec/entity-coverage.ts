@@ -100,7 +100,7 @@ export const ENTITY_COVERAGE_EXEMPT: ReadonlyMap<EntityTarget<unknown>, string> 
   ],
   [
     PrintJobItem,
-    'print audit trail (Epic 32 D44): like audit_logs; verify tokens must not travel to another tenant',
+    'print audit trail + certificate register (Epic 32 D44, Epic 48 D33): verify tokens and serial numbers must not travel to another tenant',
   ],
 
   // Epic 19.0's exams/marks/results spine got a workbook tab in [19.10.1]
