@@ -52,6 +52,8 @@ export interface PaletteAction {
   readonly id: string;
   readonly label: { readonly en: string; readonly bn: string };
   readonly permission: Permission;
+  /** Extra permissions the action needs on top of the route's `permission` (all must hold). */
+  readonly alsoRequires?: readonly Permission[];
   readonly kind: ActionKind;
   /** Palette Action-tab section = the nav group of the page `run()` lands on
    * (`administration`/`reports` for the few targets outside the nav tree). */
@@ -753,6 +755,8 @@ export const ACTIONS: readonly PaletteAction[] = [
     id: 'exams.printAdmitCards',
     label: { en: 'Print admit cards', bn: 'প্রবেশপত্র প্রিন্ট করুন' },
     permission: Permission.EXAM_MANAGE,
+    // Printing itself is DOCUMENT_PRINT: without it the action would land on a tab that cannot print.
+    alsoRequires: [Permission.DOCUMENT_PRINT],
     kind: 'navigate',
     group: 'examsResults',
     context: ['exam'],

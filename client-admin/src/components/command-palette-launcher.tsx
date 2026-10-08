@@ -289,6 +289,7 @@ export function CommandPaletteLauncher({
           (action) =>
             action.group === group.id &&
             hasPermission(activeRole, action.permission) &&
+            (action.alsoRequires ?? []).every((p) => hasPermission(activeRole, p)) &&
             action.label[locale].toLowerCase().includes(trimmedQuery),
         ).map((action) => {
           // `context: []` means "needs no entity" (ACR / incident actions), same as omitted.
