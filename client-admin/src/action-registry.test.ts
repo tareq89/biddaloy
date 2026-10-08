@@ -6,7 +6,13 @@ import { STAFF_ROUTE_PERMISSIONS } from './route-permissions';
 import { UNREGISTERED_ACTIONS } from './unregistered-actions';
 
 const VALID_KINDS = new Set(['modal', 'navigate', 'inline']);
-const VALID_CONTEXTS = new Set<ActionContext>(['student', 'guardian', 'invoice', 'gradingScale']);
+const VALID_CONTEXTS = new Set<ActionContext>([
+  'student',
+  'guardian',
+  'invoice',
+  'gradingScale',
+  'exam',
+]);
 const PERMISSION_VALUES = new Set(Object.values(Permission));
 
 /** `action.run()`'s `navigate({ to })` target is a real URL path (no
@@ -33,6 +39,9 @@ const NAV_PATH_TO_ROUTE_ID: Record<string, string> = {
   '/print/preview?kind=STAFF_ID_CARD&subject_type=STAFF': '/_staff/print/preview',
   '/print-templates?new=1': '/_staff/print-templates/',
   '/reports/printables': '/_staff/reports/printables',
+  '/reports/printables?tab=register': '/_staff/reports/printables',
+  '/reports/printables?tab=to-print': '/_staff/reports/printables',
+  '/students': '/_staff/students/',
   '/settings#printers-section': '/_staff/settings',
   '/communications/send': '/_staff/communications/send',
   '/communications/reminders': '/_staff/communications/reminders',
@@ -208,6 +217,11 @@ describe('action-registry.ts', () => {
     'fines.log',
     'fines.generate',
     'fines.waive',
+    // [48.3.15] CERTIFICATE_ISSUE is stricter than `/_staff/students/`'s STUDENT_READ gate, and
+    // DOCUMENT_PRINT is stricter than the printables page's PRINT_HISTORY_READ (the To print
+    // tab needs it): the palette must not offer what the person cannot finish.
+    'certificates.issue',
+    'print.toPrint',
     // [28.3.2] ACR_WRITE is stricter than `/staff`'s USER_READ gate — see
     // `action-registry.ts`'s comment on `acr.start`.
     'acr.start',
@@ -288,6 +302,27 @@ describe('action-registry.ts', () => {
         isShapeValid(action),
         `${action.id} should be rejected: unknown context entity "teacher"`,
       ).toBe(false);
+    });
+  });
+
+  describe('[48.3.15] route ids reach run()', () => {
+    const target = (id: string, params?: { studentId?: string; examId?: string }) => {
+      let to = '';
+      ACTIONS.find((a) => a.id === id)!.run({
+        navigate: (o) => (to = o.to),
+        ...(params ? { params } : {}),
+      });
+      return to;
+    };
+    it('exams.printAdmitCards opens that exam’s Print tab', () => {
+      expect(target('exams.printAdmitCards', { examId: 'e1' })).toBe('/exams/e1?tab=print');
+      expect(target('exams.printAdmitCards')).toBe('/exams');
+    });
+    it('certificates.issue opens the issue modal for that student', () => {
+      expect(target('certificates.issue', { studentId: 's1' })).toBe(
+        '/students/s1?tab=documents&issue=pick',
+      );
+      expect(target('certificates.issue')).toBe('/students');
     });
   });
 
