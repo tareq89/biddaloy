@@ -122,6 +122,12 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
     { label: { key: 'import' } },
   ],
   '/_staff/academics/syllabus/': [{ label: { key: 'syllabus' } }],
+  // [66.2] D46: the trail starts at Syllabus, there is no nav-group crumb in this repo.
+  '/_staff/academics/study-plans/$planId': [
+    { label: { key: 'syllabus' }, to: '/academics/syllabus' },
+    { label: { key: 'studyPlans' }, to: '/academics/syllabus?tab=plans' },
+    { label: { key: 'studyPlanDetail' }, dynamic: 'entity' },
+  ],
   '/_staff/exams/': [{ label: { entity: 'exam' } }],
   // [25.6] Single-level, same as `/_staff/exams/` above — no separate
   // "Exams & Results" segment; that's the nav group label, not part of
