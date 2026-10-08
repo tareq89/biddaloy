@@ -80,7 +80,8 @@
       "periods": "Periods",
       "fromTerm": "From {{term}}",
       "summary": "{{lessons}} lessons · {{periods}} periods",
-      "emptyStart": "You will add lessons on the plan page."
+      "emptyStart": "You will add lessons on the plan page.",
+      "firstOf": "Showing the first {{shown}} of {{total}} lessons"
     },
     "next": "Next",
     "back": "Back",
@@ -90,7 +91,8 @@
       "openExisting": "Open it",
       "notYourSubject": "You don't teach {{subject}} in {{section}}.",
       "notOffered": "{{class}} does not study {{subject}}.",
-      "generic": "Couldn't save. Try again."
+      "generic": "Couldn't save. Try again.",
+      "partial": "The plan was created, but its lessons could not be applied. Open the plan to add them."
     }
   },
   "library": {
