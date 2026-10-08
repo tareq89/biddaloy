@@ -7,6 +7,16 @@ export {
   type RoutineRow,
 } from './exam-sheets';
 export {
+  TabulationSheet,
+  YearlyTranscript,
+  type TabulationCell,
+  type TabulationRow,
+  type TabulationSheetProps,
+  type TabulationSubject,
+  type TranscriptExam,
+  type YearlyTranscriptProps,
+} from './result-sheets';
+export {
   InvigilatorSheet,
   SeatListSheet,
   SeatStickerSheet,
