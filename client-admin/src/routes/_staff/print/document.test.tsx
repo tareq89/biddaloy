@@ -127,17 +127,18 @@ describe('/print/document', () => {
     const print = vi.spyOn(window, 'print').mockImplementation(() => undefined);
     const errorToast = vi.spyOn(toast, 'error').mockImplementation(() => '');
     let n = 0;
+    const logged: string[] = [];
     server.use(
       ...STUDENTS.map((id, i) =>
         http.get(`${API}/exams/${EXAM_ID}/results/${id}`, () =>
           HttpResponse.json(detail(id, i + 1)),
         ),
       ),
-      http.post(`${API}/students/:id/document-prints`, () =>
-        ++n === 2
-          ? HttpResponse.json(apiErrorBody(500, 'boom', '/x'), { status: 500 })
-          : new HttpResponse(null, { status: 204 }),
-      ),
+      http.post(`${API}/students/:id/document-prints`, ({ params }) => {
+        if (++n === 2) return HttpResponse.json(apiErrorBody(500, 'boom', '/x'), { status: 500 });
+        logged.push(params.id as string);
+        return new HttpResponse(null, { status: 204 });
+      }),
     );
     render(`doc=report-cards&exam_id=${EXAM_ID}&section_id=${SECTION_ID}`);
 
@@ -147,6 +148,14 @@ describe('/print/document', () => {
     await waitFor(() => expect(errorToast).toHaveBeenCalled());
     expect(errorToast.mock.calls[0]?.[0]).toMatch(/could not be recorded/);
     expect(print).not.toHaveBeenCalled();
+    // Sequential: the failure stopped the rest, so s-3 has no row for a print that never happened.
+    expect(logged).toEqual(['s-1']);
+
+    // The retry logs only what is missing, then prints.
+    await waitFor(() => expect((button as HTMLButtonElement).disabled).toBe(false));
+    await userEvent.click(button);
+    await waitFor(() => expect(print).toHaveBeenCalled());
+    expect(logged).toEqual(['s-1', 's-2', 's-3']);
   });
 
   it('renders the tabulation with a Print button', async () => {

@@ -420,6 +420,9 @@ function PrintDocumentPage() {
 
   const close = () => router.history.push(search.from ?? '/exams');
   const [printing, setPrinting] = React.useState(false);
+  // Report cards already logged by an attempt that failed part-way: a retry skips them, so one
+  // print never gets two log rows. Cleared once the whole set is logged and printed.
+  const logged = React.useRef(new Set<string>());
   const print = async () => {
     setPrinting(true);
     try {
@@ -429,9 +432,13 @@ function PrintDocumentPage() {
           academic_year_id: academicYearId,
         });
       } else if (doc === 'report-cards' && examId) {
-        await Promise.all(
-          logIds.map((id) => logDocumentPrint(id, { document: 'REPORT_CARD', exam_id: examId })),
-        );
+        // One at a time: a failure stops the rest instead of leaving rows for cards never printed.
+        for (const id of logIds) {
+          if (logged.current.has(id)) continue;
+          await logDocumentPrint(id, { document: 'REPORT_CARD', exam_id: examId });
+          logged.current.add(id);
+        }
+        logged.current = new Set();
       }
     } catch {
       // No print without its log row (Epic 32 D9).
