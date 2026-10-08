@@ -336,10 +336,7 @@ export {
   type InvoiceReceiptProps,
   type InvoiceReceiptStudent,
 } from './print/invoice-receipt';
-export {
-  A4Document,
-  type A4DocumentProps,
-} from './print/a4-document';
+export { A4Document, type A4DocumentProps } from './print/a4-document';
 export { DocumentCard, type DocumentCardProps } from './document-card';
 export {
   ReportCard,
@@ -349,6 +346,7 @@ export {
   type ReportCardProps,
   type ReportCardSubject,
 } from './print/report-card';
+export * from './print/exam-documents';
 export { EventTypeBadge, type EventTypeBadgeProps } from './calendar/event-type-badge';
 export {
   MonthGrid,
