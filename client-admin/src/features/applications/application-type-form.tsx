@@ -36,7 +36,22 @@ export interface ApplicationTypeFormProps {
   error?: unknown;
 }
 
-const KNOWN_CODES = ['LEAVE_OVERLAP', 'LEAVE_NO_WORKING_DAYS', 'APPLICATION_ADDRESSEE_INVALID'];
+/**
+ * Codes `POST /applications` answers that this form's user can act on
+ * (`server/src/modules/applications/applications.service.ts` `prepare()`). Approve-time codes
+ * (`LEAVE_OVERLAP`, `SECTION_UNCHANGED`, ...) belong to the decision UI; tag / on-behalf codes
+ * to the host page that owns those fields.
+ */
+const KNOWN_CODES = [
+  'APPLICATION_SUBJECT_ACTIVE',
+  'APPLICATION_SUBJECT_MISMATCH',
+  'APPLICATION_SUBJECT_NOT_FOUND',
+  'APPLICATION_STUDENT_NOT_LINKED',
+  'APPLICATION_NOT_YOUR_PROFILE',
+  'APPLICATION_NO_CLASS_TEACHER',
+  'APPLICATION_REFERENCE_NOT_FOUND',
+  'APPLICATION_ADDRESSEE_INVALID',
+];
 
 /** A translated sentence, never the server's own text. */
 function useServerMessage(error: unknown): string | undefined {

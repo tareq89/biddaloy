@@ -128,15 +128,19 @@ const serverError = (code: string) =>
     requestId: 'story',
   });
 
-export const ServerErrorLeaveOverlap: Story = {
-  ...form(ApplicationType.STAFF_LEAVE, STAFF),
-  args: { ...form(ApplicationType.STAFF_LEAVE, STAFF).args, error: serverError('LEAVE_OVERLAP') },
-};
-export const ServerErrorLeaveNoWorkingDays: Story = {
-  ...form(ApplicationType.STUDENT_LEAVE, STUDENT),
+/** Readmission of a student who is still active (`POST /applications` 422). */
+export const ServerErrorSubjectActive: Story = {
+  ...form(ApplicationType.READMISSION, STUDENT),
   args: {
-    ...form(ApplicationType.STUDENT_LEAVE, STUDENT).args,
-    error: serverError('LEAVE_NO_WORKING_DAYS'),
+    ...form(ApplicationType.READMISSION, STUDENT).args,
+    error: serverError('APPLICATION_SUBJECT_ACTIVE'),
+  },
+};
+export const ServerErrorNoClassTeacher: Story = {
+  ...form(ApplicationType.FEE_WAIVER, STUDENT),
+  args: {
+    ...form(ApplicationType.FEE_WAIVER, STUDENT).args,
+    error: serverError('APPLICATION_NO_CLASS_TEACHER'),
   },
 };
 export const ServerErrorAddresseeInvalid: Story = {
@@ -144,6 +148,38 @@ export const ServerErrorAddresseeInvalid: Story = {
   args: {
     ...form(ApplicationType.GENERAL, STUDENT).args,
     error: serverError('APPLICATION_ADDRESSEE_INVALID'),
+  },
+};
+
+/** The class has only the student's own section: the picker says so instead of opening empty. */
+export const SectionChangeNoOtherSection: Story = {
+  ...form(ApplicationType.SECTION_CHANGE, STUDENT),
+  parameters: {
+    msw: {
+      handlers: [
+        http.get('/api/v1/classes/c1/sections', () =>
+          HttpResponse.json([
+            { id: 'sec-a', section_name: 'A', class_id: 'c1', enrolled_count: 30 },
+          ]),
+        ),
+        ...lookups,
+      ],
+    },
+  },
+};
+
+/** The exam list failed (e.g. 403 for a role without exam access): error + Try again. */
+export const ScriptRecheckExamsFailed: Story = {
+  ...form(ApplicationType.SCRIPT_RECHECK, STUDENT),
+  parameters: {
+    msw: {
+      handlers: [
+        http.get('/api/v1/exams', () =>
+          HttpResponse.json({ statusCode: 403, message: 'Forbidden' }, { status: 403 }),
+        ),
+        ...lookups,
+      ],
+    },
   },
 };
 

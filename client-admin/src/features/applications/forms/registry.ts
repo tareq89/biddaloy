@@ -8,11 +8,13 @@ import {
   DiscountKind,
   FeeType,
   LeaveType,
+  Permission,
+  roleHasPermission,
   StudentLeaveReason,
   type ApplicationType,
 } from '@biddaloy/shared';
 import type { RegionConfig } from '@biddaloy/ui/i18n';
-import { tenantTodayIso } from '@biddaloy/ui/utils';
+import { formatNumber, tenantTodayIso, toLatinDigits } from '@biddaloy/ui/utils';
 import type { TFunction } from 'i18next';
 import type * as React from 'react';
 import { z } from 'zod';
@@ -105,6 +107,11 @@ export interface FormDef {
     prior?: Record<string, unknown>,
   ) => Record<string, unknown>;
   Fields: React.ComponentType<{ subject: ApplicationSubject }>;
+  /**
+   * Read permissions its pickers load with (`/classes`, `/exams`). A role without them would
+   * get empty pickers, so hosts offer the type only when `canFillApplicationType` says so.
+   */
+  pickerPermissions?: Permission[];
 }
 
 // ---- Schema building blocks ----
@@ -120,15 +127,18 @@ const optionalDate = (t: TFunction) =>
     z.string().regex(ISO_DATE, t('errors.dateRequired', { ns: 'applicationForms' })),
   ]);
 
-const text = (t: TFunction, max: number, requiredKey = 'required') =>
+const tooLong = (t: TFunction, rc: RegionConfig, max: number) =>
+  t('errors.tooLong', { ns: 'applicationForms', max: formatNumber(max, rc) });
+
+const text = (t: TFunction, rc: RegionConfig, max: number, requiredKey = 'required') =>
   z
     .string()
     .trim()
     .min(1, t(`errors.${requiredKey}`, { ns: 'applicationForms' }))
     .min(3, t('errors.tooShort', { ns: 'applicationForms' }))
-    .max(max, t('errors.tooLong', { ns: 'applicationForms', max }));
+    .max(max, tooLong(t, rc, max));
 
-const reason = (t: TFunction) => text(t, 1000, 'reasonRequired');
+const reason = (t: TFunction, rc: RegionConfig) => text(t, rc, 1000, 'reasonRequired');
 
 const pick = (t: TFunction) => z.string().min(1, t('errors.pick', { ns: 'applicationForms' }));
 
@@ -149,47 +159,58 @@ const endMessage = (t: TFunction) => ({
   message: t('errors.endBeforeStart', { ns: 'applicationForms' }),
 });
 
+/**
+ * A number typed in either digit system ("২০" or "20"), or the number a prior `onSubmit`
+ * handed back when the host re-feeds the payload on back-navigation.
+ */
+const amount = (t: TFunction) =>
+  z
+    .union([z.string(), z.number()])
+    .transform((v) => toLatinDigits(String(v)).trim())
+    .pipe(
+      z
+        .string()
+        .min(1, t('errors.required', { ns: 'applicationForms' }))
+        .regex(/^\d+(\.\d{1,2})?$/, t('errors.number', { ns: 'applicationForms' })),
+    );
+
 export const APPLICATION_FORMS: Record<ApplicationType, FormDef> = {
   STAFF_LEAVE: {
-    schema: (t) =>
+    schema: (t, rc) =>
       z
         .object({
           leave_type: pick(t),
           start_date: date(t),
           end_date: date(t),
-          reason: reason(t),
+          reason: reason(t, rc),
         })
         .refine(endAfterStart, endMessage(t)),
     defaults: () => ({ leave_type: LeaveType.CASUAL, start_date: '', end_date: '', reason: '' }),
     Fields: StaffLeaveFields,
   },
   STUDENT_LEAVE: {
-    schema: (t) =>
+    schema: (t, rc) =>
       z
         .object({
           reason_kind: pick(t),
           start_date: date(t),
           end_date: date(t),
-          details: text(t, 1000, 'required'),
+          details: text(t, rc, 1000, 'required'),
         })
         .refine(endAfterStart, endMessage(t)),
     defaults: () => ({ reason_kind: '', start_date: '', end_date: '', details: '' }),
     Fields: StudentLeaveFields,
   },
   FEE_WAIVER: {
-    schema: (t) =>
+    schema: (t, rc) =>
       z
         .object({
           kind: z.enum([DiscountKind.PERCENT, DiscountKind.FLAT]),
-          value: z
-            .string()
-            .trim()
-            .min(1, t('errors.required', { ns: 'applicationForms' }))
-            .regex(/^\d+(\.\d{1,2})?$/, t('errors.number', { ns: 'applicationForms' })),
+          value: amount(t),
           fee_types: z.array(z.string()).max(20),
           start_date: optionalDate(t),
           end_date: optionalDate(t),
-          reason: reason(t),
+          reason: reason(t, rc),
         })
         .refine(endAfterStart, endMessage(t))
         .superRefine((d, ctx) => {
@@ -220,20 +241,20 @@ export const APPLICATION_FORMS: Record<ApplicationType, FormDef> = {
     Fields: FeeWaiverFields,
   },
   TESTIMONIAL: {
-    schema: (t) => z.object({ purpose: text(t, 300) }),
+    schema: (t, rc) => z.object({ purpose: text(t, rc, 300) }),
     defaults: () => ({ purpose: '' }),
     Fields: TestimonialFields,
   },
   TRANSFER_CERTIFICATE: {
-    schema: (t) =>
+    schema: (t, rc) =>
       z
         .object({
           leaving_date: date(t),
           destination: z
             .string()
             .trim()
-            .max(200, t('errors.tooLong', { ns: 'applicationForms', max: 200 })),
-          reason: reason(t),
+            .max(200, tooLong(t, rc, 200)),
+          reason: reason(t, rc),
         })
         .transform(stripEmpty),
     defaults: () => ({ leaving_date: '', destination: '', reason: '' }),
@@ -245,7 +266,7 @@ export const APPLICATION_FORMS: Record<ApplicationType, FormDef> = {
         .object({
           class_section_id: pick(t),
           occurred_on: date(t),
-          reason: reason(t),
+          reason: reason(t, regionConfig),
         })
         .refine((d) => d.occurred_on <= tenantTodayIso(regionConfig), {
           path: ['occurred_on'],
@@ -266,25 +287,37 @@ export const APPLICATION_FORMS: Record<ApplicationType, FormDef> = {
       reason: '',
     }),
     Fields: ReadmissionFields,
+    pickerPermissions: [Permission.ACADEMIC_STRUCTURE_READ],
   },
   SECTION_CHANGE: {
-    schema: (t) => z.object({ to_section_id: pick(t), reason: reason(t) }),
+    schema: (t, rc) => z.object({ to_section_id: pick(t), reason: reason(t, rc) }),
     defaults: () => ({ to_section_id: '', reason: '' }),
     Fields: SectionChangeFields,
+    pickerPermissions: [Permission.ACADEMIC_STRUCTURE_READ],
   },
   SCRIPT_RECHECK: {
-    schema: (t) => z.object({ exam_id: pick(t), subject_id: pick(t), reason: reason(t) }),
+    schema: (t, rc) => z.object({ exam_id: pick(t), subject_id: pick(t), reason: reason(t, rc) }),
     defaults: () => ({ exam_id: '', subject_id: '', reason: '' }),
     Fields: ScriptRecheckFields,
+    pickerPermissions: [Permission.MARK_VIEW, Permission.ACADEMIC_STRUCTURE_READ],
   },
   ID_CARD_REPRINT: {
-    schema: (t) => z.object({ reason: reason(t) }),
+    schema: (t, rc) => z.object({ reason: reason(t, rc) }),
     defaults: () => ({ reason: '' }),
     Fields: IdCardReprintFields,
   },
   GENERAL: {
-    schema: (t) => z.object({ subject_line: text(t, 200), body: text(t, 5000) }),
+    schema: (t, rc) => z.object({ subject_line: text(t, rc, 200), body: text(t, rc, 5000) }),
     defaults: () => ({ subject_line: '', body: '' }),
     Fields: GeneralFields,
   },
 };
+
+/**
+ * Whether `role` can load every picker the type's form needs. Hosts (52.5.3 new page,
+ * 52.6.1 portal) offer only these types: PARENT / STUDENT lack `/classes` and `/exams`,
+ * ACCOUNTANT / OFFICE_STAFF lack `/exams`. Read access is not widened server-side for this.
+ */
+export function canFillApplicationType(type: ApplicationType, role: string | null): boolean {
+  return (APPLICATION_FORMS[type].pickerPermissions ?? []).every((p) => roleHasPermission(role, p));
+}

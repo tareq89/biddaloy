@@ -38,6 +38,16 @@
     "backdate": "You can also apply for leave on past dates.",
     "feeTypesAll": "Leave empty to cover all fees."
   },
+  "pickers": {
+    "loading": "Loading the list…",
+    "loadError": "The list could not be loaded.",
+    "retry": "Try again",
+    "noClasses": "No classes found.",
+    "noSections": "This class has no sections.",
+    "noOtherSection": "There is no other section in this class.",
+    "noExams": "No exams for this class this year.",
+    "noSubjects": "No subjects for this exam's year."
+  },
   "errors": {
     "required": "Fill in this field.",
     "reasonRequired": "Write a reason.",
@@ -50,8 +60,13 @@
     "flatPositive": "Enter an amount greater than zero.",
     "number": "Enter a number, up to 2 decimal places.",
     "futureDate": "A future date is not allowed.",
-    "LEAVE_OVERLAP": "You already have leave on some of these dates. Choose different dates.",
-    "LEAVE_NO_WORKING_DAYS": "These dates have no working days. Choose dates that include a working day.",
+    "APPLICATION_SUBJECT_ACTIVE": "This student is already active, so a readmission is not needed.",
+    "APPLICATION_SUBJECT_MISMATCH": "This kind of application is not for this person.",
+    "APPLICATION_SUBJECT_NOT_FOUND": "This student or staff member could not be found. They may have been removed.",
+    "APPLICATION_STUDENT_NOT_LINKED": "Your account is not linked to this student.",
+    "APPLICATION_NOT_YOUR_PROFILE": "You can only apply for yourself.",
+    "APPLICATION_NO_CLASS_TEACHER": "This student has no class teacher right now. Ask the office to assign one, then try again.",
+    "APPLICATION_REFERENCE_NOT_FOUND": "Something you chose no longer exists. Choose it again.",
     "APPLICATION_ADDRESSEE_INVALID": "The person this application is addressed to is not available. Choose someone else.",
     "server": "The application could not be saved. Try again."
   },

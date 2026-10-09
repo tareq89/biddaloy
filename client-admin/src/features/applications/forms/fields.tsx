@@ -3,6 +3,7 @@
  * through `useFormContext()`, so a `Fields` component is just a list of these.
  */
 import {
+  Button,
   DatePicker,
   FormControl,
   FormDescription,
@@ -100,6 +101,7 @@ export function DateField({
               max={max ? parseDate(max) : undefined}
               onValueChange={(next) => field.onChange(next ? toIsoDate(next) : '')}
               onBlur={field.onBlur}
+              clearable={!required}
             />
           </FormControl>
           {hint && <FormDescription>{hint}</FormDescription>}
@@ -115,6 +117,13 @@ export interface SelectOption {
   label: string;
 }
 
+/** The query behind a picker's options, so it can say "loading" / "failed" instead of going blank. */
+export interface OptionsSource {
+  isLoading: boolean;
+  isError: boolean;
+  refetch: () => unknown;
+}
+
 export function SelectField({
   name,
   label,
@@ -124,14 +133,23 @@ export function SelectField({
   options,
   disabled,
   onChange,
+  source,
+  emptyHint,
 }: BaseProps & {
   options: SelectOption[];
   disabled?: boolean | undefined;
+  source?: OptionsSource | undefined;
+  /** Shown when the options loaded and there are none. */
+  emptyHint?: string | undefined;
   /** Runs after the value is set (to reset a dependent field). */
   onChange?: (value: string) => void;
 }) {
   const { control } = useFormContext();
   const { t } = useTranslation('applicationForms');
+  const loading = source?.isLoading ?? false;
+  const failed = source?.isError ?? false;
+  const empty = !loading && !failed && !disabled && options.length === 0;
+  const note = failed ? undefined : empty && emptyHint ? emptyHint : hint;
   return (
     <FormField
       control={control}
@@ -145,11 +163,11 @@ export function SelectField({
               field.onChange(value);
               onChange?.(value);
             }}
-            disabled={disabled ?? false}
+            disabled={(disabled ?? false) || loading || failed || empty}
           >
             <FormControl>
-              <SelectTrigger onBlur={field.onBlur}>
-                <SelectValue placeholder={t('placeholders.pick')} />
+              <SelectTrigger onBlur={field.onBlur} aria-busy={loading || undefined}>
+                <SelectValue placeholder={t(loading ? 'pickers.loading' : 'placeholders.pick')} />
               </SelectTrigger>
             </FormControl>
             <SelectContent>
@@ -160,7 +178,15 @@ export function SelectField({
               ))}
             </SelectContent>
           </Select>
-          {hint && <FormDescription>{hint}</FormDescription>}
+          {failed && (
+            <div role="alert" className="flex flex-wrap items-center gap-2 text-caption">
+              <span className="text-destructive">{t('pickers.loadError')}</span>
+              <Button type="button" variant="link" onClick={() => void source?.refetch()}>
+                {t('pickers.retry')}
+              </Button>
+            </div>
+          )}
+          {note && <FormDescription>{note}</FormDescription>}
           <FormMessage />
         </FormItem>
       )}
