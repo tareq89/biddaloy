@@ -6,6 +6,7 @@ import {
   guardianFactory,
   renderWithRouter,
   server,
+  studentAlertFactory,
   studentFactory,
 } from '@biddaloy/ui/test';
 import { formatNumber } from '@biddaloy/ui/utils';
@@ -778,5 +779,51 @@ describe('/students/$studentId', () => {
     await dialog.findByRole('status');
 
     await expect(container).toHaveNoViolations();
+  });
+
+  describe('open-alerts strip [67.2.08]', () => {
+    function renderStudent() {
+      server.use(
+        http.get('/api/v1/students/:id', () =>
+          HttpResponse.json(studentFactory({ id: 'student-1', full_name: 'Rahim Uddin' })),
+        ),
+      );
+      renderWithRouter(routeTree, {
+        initialEntries: ['/students/student-1'],
+        tenantId: 'tenant-1',
+        role: 'ADMIN',
+        locale: 'en',
+      });
+    }
+
+    it('shows the strip with the seen count, and Details opens a dialog', async () => {
+      const user = userEvent.setup();
+      server.use(
+        http.get('*/attention/students/:id', () =>
+          HttpResponse.json([
+            studentAlertFactory({ title: 'Absent 3 days', seenCount: 3, recipientCount: 4 }),
+          ]),
+        ),
+      );
+      renderStudent();
+
+      const strip = await screen.findByRole('region', { name: 'Alerts about this student' });
+      expect(within(strip).getByText(/Absent 3 days/)).toBeTruthy();
+      expect(within(strip).getByText('Seen by 3 of 4')).toBeTruthy();
+
+      await user.click(within(strip).getByRole('button', { name: 'Details' }));
+      expect(await screen.findByRole('dialog')).toBeTruthy();
+    });
+
+    it.each([
+      ['no alerts', () => HttpResponse.json([])],
+      ['a 403', () => new HttpResponse(null, { status: 403 })],
+    ])('renders no strip on %s and the page still loads', async (_name, respond) => {
+      server.use(http.get('*/attention/students/:id', respond));
+      renderStudent();
+
+      expect(await screen.findByRole('tab', { name: 'Overview' })).toBeTruthy();
+      expect(screen.queryByRole('region', { name: 'Alerts about this student' })).toBeNull();
+    });
   });
 });
