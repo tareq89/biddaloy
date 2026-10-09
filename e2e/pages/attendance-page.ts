@@ -82,7 +82,13 @@ export class AttendancePage {
   }
 
   async markAllPresent(): Promise<void> {
-    await this.page.getByRole('button', { name: this.t('attendance.mark.allPresent') }).click();
+    const allPresent = this.t('attendance.mark.allPresent');
+    await this.page.getByRole('button', { name: allPresent }).click();
+    // The undo toast can sit over the Submit button, and a hovered toast never
+    // times out, so a later pointer click on Submit would wait forever. Close it.
+    const toast = this.page.locator('[data-sonner-toast]').filter({ hasText: allPresent });
+    await toast.getByRole('button', { name: 'Close toast' }).click();
+    await expect(toast).toBeHidden();
   }
 
   async submit(): Promise<void> {
