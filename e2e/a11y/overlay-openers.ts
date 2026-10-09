@@ -141,6 +141,12 @@ export const overlayOpeners: Record<string, (page: Page, locale: Locale) => Prom
     await page.keyboard.press('ControlOrMeta+k');
     await expectDialogOpen(page);
   },
+  // #1733: the Action tab renders grouped headers and `aria-disabled` rows.
+  '$global::command-palette-actions': async (page) => {
+    await page.keyboard.press('ControlOrMeta+k');
+    await expectDialogOpen(page);
+    await page.keyboard.press('Control+3');
+  },
 };
 
 /** Keys in `overlayOpeners` that open a route-agnostic overlay rather

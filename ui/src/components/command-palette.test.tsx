@@ -1,7 +1,7 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   CommandPalette,
@@ -48,7 +48,10 @@ const ACTION_TAB: CommandPaletteTab = {
     {
       id: 'actions',
       label: 'Actions',
-      results: [{ id: 'a1', label: 'Record payment' }],
+      results: [
+        { id: 'a1', label: 'Record payment' },
+        { id: 'a2', label: 'Waive fine', disabled: true, description: 'Open a student first' },
+      ],
     },
   ],
 };
@@ -57,10 +60,12 @@ function Controlled({
   tabs = [PEOPLE_TAB, PAGE_TAB, ACTION_TAB],
   onSelect = () => {},
   initialTab,
+  footerHint,
 }: {
   tabs?: readonly [CommandPaletteTab, ...CommandPaletteTab[]];
   onSelect?: (tabId: CommandPaletteTabId, groupId: string, resultId: string) => void;
   initialTab?: CommandPaletteTabId;
+  footerHint?: string;
 }) {
   const [open, setOpen] = useState(true);
   const [query, setQuery] = useState('');
@@ -74,6 +79,7 @@ function Controlled({
       tabs={tabs}
       onSelect={onSelect}
       {...(initialTab !== undefined && { initialTab })}
+      {...(footerHint !== undefined && { footerHint })}
     />
   );
 }
@@ -109,14 +115,14 @@ describe('CommandPalette', () => {
     await waitFor(() => expect(screen.getByText(/No matches for "zzz"/)).toBeTruthy());
   });
 
-  it('Enter selects the first result when nothing has been walked', async () => {
+  it('row 1 is active by default and Enter opens it', async () => {
     const onSelect = vi.fn();
     const user = userEvent.setup();
     render(<Controlled onSelect={onSelect} />);
     const input = screen.getByRole('combobox', { name: 'Command palette' });
     await user.type(input, 'ah');
     await screen.findByRole('option', { name: /Ahmed Khan/ });
-    expect(input.getAttribute('aria-activedescendant')).toBeNull();
+    expect(input.getAttribute('aria-activedescendant')).toBe(screen.getAllByRole('option')[0]?.id);
 
     await user.keyboard('{Enter}');
 
@@ -132,9 +138,189 @@ describe('CommandPalette', () => {
     await user.type(input, 'ah');
     await screen.findByRole('option', { name: /Ahmed Khan/ });
 
-    await user.keyboard('{ArrowDown}{ArrowDown}{ArrowDown}{Enter}');
+    await user.keyboard('{ArrowDown}{ArrowDown}{Enter}');
 
     expect(onSelect).toHaveBeenCalledWith('people', 'guardians', 'g1');
+  });
+
+  it('ArrowDown / ArrowUp wrap around', async () => {
+    const user = userEvent.setup();
+    render(<Controlled />);
+    await user.type(screen.getByRole('combobox', { name: 'Command palette' }), 'ah');
+    const options = await screen.findAllByRole('option');
+
+    await user.keyboard('{ArrowDown}{ArrowDown}{ArrowDown}');
+    expect(options[0]?.getAttribute('aria-selected')).toBe('true');
+
+    await user.keyboard('{ArrowUp}');
+    expect(options[2]?.getAttribute('aria-selected')).toBe('true');
+    expect(options[2]?.textContent).toContain('Karim Khan');
+  });
+
+  it('a disabled row is reachable but neither Enter nor click selects it', async () => {
+    const onSelect = vi.fn();
+    const user = userEvent.setup();
+    render(<Controlled onSelect={onSelect} initialTab="action" />);
+    const input = screen.getByRole('combobox', { name: 'Command palette' });
+    const row = screen.getByRole('option', { name: /Waive fine/ });
+    expect(row.getAttribute('aria-disabled')).toBe('true');
+    expect(row.textContent).toContain('Open a student first');
+
+    await user.keyboard('{ArrowDown}');
+    expect(input.getAttribute('aria-activedescendant')).toBe(row.id);
+    await user.keyboard('{Enter}');
+    await user.click(row);
+
+    expect(onSelect).not.toHaveBeenCalled();
+    expect(screen.getByRole('combobox', { name: 'Command palette' })).toBeTruthy();
+  });
+
+  it('keeps one fixed-height results area in every state', async () => {
+    const user = userEvent.setup();
+    render(<Controlled />);
+    const cls = 'h-[min(60dvh,28rem)]';
+    expect(screen.getByRole('tabpanel').className).toContain(cls);
+    await user.type(screen.getByRole('combobox', { name: 'Command palette' }), 'ah');
+    expect(screen.getByRole('tabpanel').className).toContain(cls);
+  });
+
+  it('no-results state keeps the fixed height', async () => {
+    const user = userEvent.setup();
+    render(<Controlled tabs={[{ ...PEOPLE_TAB, groups: [] }, PAGE_TAB]} />);
+    await user.type(screen.getByRole('combobox', { name: 'Command palette' }), 'zzz');
+    expect(screen.getByRole('tabpanel').className).toContain('h-[min(60dvh,28rem)]');
+    expect(screen.getByText(/No matches/)).toBeTruthy();
+  });
+
+  it('hover moves the highlight only on real mouse movement', async () => {
+    const user = userEvent.setup();
+    render(<Controlled />);
+    const input = screen.getByRole('combobox', { name: 'Command palette' });
+    await user.type(input, 'ah');
+    const options = await screen.findAllByRole('option');
+    const first = options[0]?.id;
+
+    fireEvent.mouseEnter(options[1] as HTMLElement);
+    expect(input.getAttribute('aria-activedescendant')).toBe(first);
+    fireEvent.mouseMove(options[1] as HTMLElement, { clientX: 5, clientY: 5 });
+    expect(input.getAttribute('aria-activedescendant')).toBe(options[1]?.id);
+
+    // Same coordinates (synthetic move after a scroll) must not steal the highlight.
+    await user.keyboard('{ArrowDown}');
+    const moved = input.getAttribute('aria-activedescendant');
+    fireEvent.mouseMove(options[0] as HTMLElement, { clientX: 5, clientY: 5 });
+    expect(input.getAttribute('aria-activedescendant')).toBe(moved);
+  });
+
+  describe('scrollIntoView', () => {
+    // jsdom does not implement it, so remove the stub afterwards.
+    afterEach(() => {
+      delete (Element.prototype as Partial<Element>).scrollIntoView;
+    });
+
+    it('keyboard moves scroll the row into view', async () => {
+      const scroll = vi.fn();
+      Element.prototype.scrollIntoView = scroll;
+      const user = userEvent.setup();
+      render(<Controlled />);
+      await user.type(screen.getByRole('combobox', { name: 'Command palette' }), 'ah');
+      await screen.findAllByRole('option');
+      await user.keyboard('{ArrowDown}');
+      expect(scroll).toHaveBeenCalledWith({ block: 'nearest' });
+    });
+  });
+
+  it('renders the footer hint only when given', () => {
+    const { unmount } = render(<Controlled footerHint="↑↓ move" />);
+    expect(screen.getByText('↑↓ move')).toBeTruthy();
+    unmount();
+    render(<Controlled />);
+    expect(screen.queryByText('↑↓ move')).toBeNull();
+  });
+
+  it('lists the full Page tab on an empty query with row 1 active', async () => {
+    const user = userEvent.setup();
+    render(<Controlled />);
+    screen.getByRole('combobox', { name: 'Command palette' }).focus();
+    await user.keyboard('{Control>}2{/Control}');
+    const option = screen.getByRole('option', { name: /Fee dues/ });
+    expect(option.getAttribute('aria-selected')).toBe('true');
+  });
+
+  it('Page recents: remembered per tab, People key untouched', async () => {
+    const user = userEvent.setup();
+    const { unmount } = render(<Controlled />);
+    screen.getByRole('combobox', { name: 'Command palette' }).focus();
+    await user.keyboard('{Control>}2{/Control}{Enter}');
+    unmount();
+
+    render(<Controlled />);
+    screen.getByRole('combobox', { name: 'Command palette' }).focus();
+    await user.keyboard('{Control>}2{/Control}');
+    expect(screen.getByText('Recent')).toBeTruthy();
+    expect(screen.getAllByRole('option', { name: /Fee dues/ })).toHaveLength(2);
+    expect(
+      window.localStorage.getItem('command-palette:recent-items:v1:anon:anon:page'),
+    ).not.toBeNull();
+    // The People hook only ever writes its own (empty) buffer.
+    expect(window.localStorage.getItem('command-palette:recent-items:v1:anon:anon') ?? '[]').toBe(
+      '[]',
+    );
+  });
+
+  it('drops a stale Page recent that no longer exists', async () => {
+    window.localStorage.setItem(
+      'command-palette:recent-items:v1:anon:anon:page',
+      JSON.stringify([{ id: 'pages:gone', groupId: 'pages', resultId: 'gone', label: 'Gone' }]),
+    );
+    const user = userEvent.setup();
+    render(<Controlled />);
+    screen.getByRole('combobox', { name: 'Command palette' }).focus();
+    await user.keyboard('{Control>}2{/Control}');
+    expect(screen.queryByText('Recent')).toBeNull();
+  });
+
+  it('announces distinct rows, not Recent duplicates', async () => {
+    window.localStorage.setItem(
+      'command-palette:recent-items:v1:anon:anon:page',
+      JSON.stringify([{ id: 'pages:p1', groupId: 'pages', resultId: 'p1', label: 'Fee dues' }]),
+    );
+    const user = userEvent.setup();
+    render(<Controlled />);
+    screen.getByRole('combobox', { name: 'Command palette' }).focus();
+    await user.keyboard('{Control>}2{/Control}');
+    expect(screen.getAllByRole('option')).toHaveLength(2);
+    expect(screen.getByText('1 result')).toBeTruthy();
+  });
+
+  it('keeps a leading "/" in the query when there is no Page tab to jump to', async () => {
+    const user = userEvent.setup();
+    render(<Controlled tabs={[PEOPLE_TAB]} />);
+    const input = screen.getByRole('combobox', { name: 'Command palette' });
+    await user.type(input, '/');
+    expect((input as HTMLInputElement).value).toBe('/');
+  });
+
+  it('highlights correctly when lower-casing changes the label length', () => {
+    const tab: CommandPaletteTab = {
+      id: 'page',
+      label: 'Page',
+      groups: [{ id: 'g', label: 'G', results: [{ id: 'x', label: 'İİ Fee dues' }] }],
+    };
+    render(<Controlled tabs={[tab]} initialTab="page" />);
+    const input = screen.getByRole('combobox', { name: 'Command palette' });
+    fireEvent.change(input, { target: { value: 'fee' } });
+    expect(document.querySelector('mark')?.textContent).toBe('Fee');
+  });
+
+  it('bolds the matched text', async () => {
+    const user = userEvent.setup();
+    const { container } = render(<Controlled />);
+    const input = screen.getByRole('combobox', { name: 'Command palette' });
+    input.focus();
+    await user.keyboard('{Control>}2{/Control}');
+    await user.type(input, 'fee');
+    expect(container.ownerDocument.querySelector('mark')?.textContent).toBe('Fee');
   });
 
   it('clicking a result selects it', async () => {
@@ -295,6 +481,6 @@ describe('CommandPalette', () => {
     await user.type(input, 'pay');
     await screen.findByRole('option', { name: /Record payment/ });
 
-    expect(screen.getByText('1 result')).toBeTruthy();
+    expect(screen.getByText('2 results')).toBeTruthy();
   });
 });

@@ -128,4 +128,32 @@ describe('useRecentItems', () => {
 
     setItemSpy.mockRestore();
   });
+
+  it('scopes Page recents to their own key and caps at 5', () => {
+    const { result } = renderHook(() => useRecentItems('page'));
+    for (let index = 0; index < 7; index += 1) {
+      act(() =>
+        result.current.addRecentItem({
+          id: `pages:p${index}`,
+          groupId: 'pages',
+          resultId: `p${index}`,
+          label: `Page ${index}`,
+        }),
+      );
+    }
+    expect(result.current.recentItems).toHaveLength(5);
+    expect(
+      window.localStorage.getItem('command-palette:recent-items:v1:anon:anon:page'),
+    ).not.toBeNull();
+    expect(window.localStorage.getItem('command-palette:recent-items:v1:anon:anon')).toBeNull();
+  });
+
+  it('keeps the unscoped key and cap of 8 for People', () => {
+    const { result } = renderHook(() => useRecentItems());
+    act(() => result.current.addRecentItem(ITEM_A));
+    expect(window.localStorage.getItem('command-palette:recent-items:v1:anon:anon')).not.toBeNull();
+    expect(
+      window.localStorage.getItem('command-palette:recent-items:v1:anon:anon:page'),
+    ).toBeNull();
+  });
 });

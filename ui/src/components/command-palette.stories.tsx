@@ -61,6 +61,8 @@ const ACTION_TAB: CommandPaletteTab = {
   ],
 };
 
+const FOOTER_HINT = '↑↓ move · Enter open · ←→ / Ctrl+1–3 tabs · Esc close';
+
 function Demo({
   tabs = [PEOPLE_TAB, PAGE_TAB, ACTION_TAB],
   initialQuery = '',
@@ -79,6 +81,7 @@ function Demo({
       onQueryChange={setQuery}
       tabs={tabs}
       onSelect={() => {}}
+      footerHint={FOOTER_HINT}
     />
   );
 }
@@ -155,4 +158,92 @@ export const RightToLeft: Story = {
     />
   ),
   decorators: [rtlDecorator],
+};
+
+const LONG_PAGE_TAB: CommandPaletteTab = {
+  id: 'page',
+  label: 'Page',
+  groups: [
+    {
+      id: 'dashboard',
+      label: '',
+      results: [{ id: 'dashboard', label: 'Dashboard', description: '/dashboard' }],
+    },
+    ...['People', 'Academics', 'Attendance', 'Finance', 'Reports'].map((group) => ({
+      id: group.toLowerCase(),
+      label: group,
+      results: Array.from({ length: 8 }, (_, index) => ({
+        id: `${group.toLowerCase()}-${index}`,
+        label: `${group} page ${index + 1}`,
+        description: `/${group.toLowerCase()}/${index + 1}`,
+      })),
+    })),
+  ],
+};
+
+const LONG_ACTION_TAB: CommandPaletteTab = {
+  ...ACTION_TAB,
+  groups: [
+    {
+      id: 'finance',
+      label: 'Finance',
+      results: [
+        { id: 'a1', label: 'Generate fines' },
+        { id: 'a2', label: 'Log fine', disabled: true, description: 'Open a student first' },
+      ],
+    },
+  ],
+};
+
+/** 41 Page rows in a fixed-height panel: scroll with the keyboard (row stays
+ * in view, wraps at both ends) or the mouse. Two seeded recents on top. */
+export const LongList: Story = {
+  beforeEach: () => {
+    const key = 'command-palette:recent-items:v1:anon:anon:page';
+    try {
+      window.localStorage.setItem(
+        key,
+        JSON.stringify([
+          {
+            id: 'finance:finance-1',
+            groupId: 'finance',
+            resultId: 'finance-1',
+            label: 'Finance page 2',
+          },
+          {
+            id: 'people:people-0',
+            groupId: 'people',
+            resultId: 'people-0',
+            label: 'People page 1',
+          },
+        ]),
+      );
+    } catch {
+      // Storage blocked: the story just renders without recents.
+    }
+    return () => {
+      try {
+        window.localStorage.removeItem(key);
+      } catch {
+        // Nothing to clean up.
+      }
+    };
+  },
+  render: () => {
+    const [open, setOpen] = useState(true);
+    const [query, setQuery] = useState('');
+    return (
+      <CommandPalette
+        aria-label="Command palette"
+        open={open}
+        onOpenChange={setOpen}
+        query={query}
+        onQueryChange={setQuery}
+        tabs={[PEOPLE_TAB, LONG_PAGE_TAB, LONG_ACTION_TAB]}
+        onSelect={() => {}}
+        initialTab="page"
+        footerHint={FOOTER_HINT}
+      />
+    );
+  },
 };

@@ -5,6 +5,7 @@ import { Permission } from '@biddaloy/shared';
 import { describe, expect, it } from 'vitest';
 
 import { ACTIONS, type ActionContext, type PaletteAction } from './action-registry';
+import { isPathUnder, STAFF_NAV_GROUPS } from './nav-tree';
 import { STAFF_ROUTE_PERMISSIONS } from './route-permissions';
 import { PALETTE_ALLOW_LIST, UNREGISTERED_ACTIONS } from './unregistered-actions';
 
@@ -173,6 +174,7 @@ function validAction(overrides: Partial<PaletteAction> = {}): PaletteAction {
     label: { en: 'Valid action', bn: 'বৈধ কাজ' },
     permission: Permission.STUDENT_CREATE,
     kind: 'navigate',
+    group: 'people',
     run: () => {},
     ...overrides,
   };
@@ -424,4 +426,20 @@ describe('action-registry.ts', () => {
       }
     });
   });
+
+  it.each(ACTIONS.map((action) => [action.id, action] as const))(
+    '%s: group matches the nav group of the page run() lands on',
+    (id, action) => {
+      const calls: string[] = [];
+      action.run({ navigate: (opts) => calls.push(opts.to) });
+      const target = (calls[0] ?? '').replace(/[?#].*$/, '');
+      for (const group of STAFF_NAV_GROUPS) {
+        for (const item of [...(group.pinnedItems ?? []), ...group.items]) {
+          if (isPathUnder(target, item.to)) {
+            expect(group.id, `${id} lands under ${item.to} (${group.id})`).toBe(action.group);
+          }
+        }
+      }
+    },
+  );
 });

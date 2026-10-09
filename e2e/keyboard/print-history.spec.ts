@@ -45,7 +45,9 @@ test('keyboard-only: find a printed card by name and read its details', async ({
     await page.keyboard.press('Control+2');
     await page.keyboard.type(t('nav.items.printables'));
     await expect(page.getByRole('option').first()).toBeVisible();
-    await page.keyboard.press('ArrowDown');
+    await expect(
+      page.getByRole('option', { name: t('nav.items.printables') }).first(),
+    ).toHaveAttribute('aria-selected', 'true');
     await page.keyboard.press('Enter');
     await expect(page.getByRole('heading', { name: t('printHistory.title') })).toBeVisible();
   });

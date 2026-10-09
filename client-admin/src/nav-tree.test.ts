@@ -8,6 +8,7 @@ import { NOT_IN_NAV } from './nav-not-in-nav';
 import {
   isPathUnder,
   matchesNavSearch,
+  rankByMatch,
   STAFF_BOTTOM_NAV,
   STAFF_NAV_GROUPS,
   STAFF_NAV_ITEMS,
@@ -218,9 +219,9 @@ describe('matchesNavSearch — CommandPalette Page tab (30.5.1)', () => {
     expect(matchesNavSearch('Attendance', undefined, 'ATTEND')).toBe(true);
   });
 
-  it('never matches an empty query', () => {
-    expect(matchesNavSearch('Attendance', ['routine'], '')).toBe(false);
-    expect(matchesNavSearch('Attendance', ['routine'], '   ')).toBe(false);
+  it('an empty query matches every item', () => {
+    expect(matchesNavSearch('Attendance', ['routine'], '')).toBe(true);
+    expect(matchesNavSearch('Attendance', ['routine'], '   ')).toBe(true);
   });
 
   it('does not match an unrelated term', () => {
@@ -235,5 +236,38 @@ describe('[28.4.1] Evaluations nav item', () => {
     expect(hasPermission(UserRole.TEACHER, item.permission)).toBe(false);
     expect(hasPermission(UserRole.ADMIN, item.permission)).toBe(true);
     expect(allGroupItems()).toContain(item);
+  });
+});
+
+describe('rankByMatch', () => {
+  const r = (label: string, disabled?: boolean) => ({ label, ...(disabled && { disabled }) });
+
+  it('puts starts-with before contains', () => {
+    expect(rankByMatch([r('Unpaid fees'), r('Fees')], 'fee').map((x) => x.label)).toEqual([
+      'Fees',
+      'Unpaid fees',
+    ]);
+  });
+
+  it('keeps input order when keys are equal', () => {
+    expect(rankByMatch([r('b fee'), r('a fee')], 'fee').map((x) => x.label)).toEqual([
+      'b fee',
+      'a fee',
+    ]);
+  });
+
+  it('sinks disabled rows even when they start with the query', () => {
+    expect(rankByMatch([r('Fee x', true), r('My fee')], 'fee').map((x) => x.label)).toEqual([
+      'My fee',
+      'Fee x',
+    ]);
+  });
+
+  it('keeps input order for an empty query, disabled last', () => {
+    expect(rankByMatch([r('B', true), r('C'), r('A')], '').map((x) => x.label)).toEqual([
+      'C',
+      'A',
+      'B',
+    ]);
   });
 });

@@ -30,7 +30,9 @@ test('keyboard-only: new template -> editor -> nudge a layer -> publish -> libra
     await page.keyboard.press('Control+2');
     await page.keyboard.type(t('nav.items.printTemplates'));
     await expect(page.getByRole('option').first()).toBeVisible();
-    await page.keyboard.press('ArrowDown');
+    await expect(
+      page.getByRole('option', { name: t('nav.items.printTemplates') }).first(),
+    ).toHaveAttribute('aria-selected', 'true');
     await page.keyboard.press('Enter');
     await expect(page.getByRole('heading', { name: t('printTemplates.title') })).toBeVisible();
   });

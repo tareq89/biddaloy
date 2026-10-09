@@ -239,11 +239,17 @@ sequenceDiagram
   R-->>U: opens the SAME payment form as /payments/record, student preselected
 ```
 
-| Tab        | Matches on                                                                                                | Empty query shows                          | Result row                                                |
-| ---------- | --------------------------------------------------------------------------------------------------------- | ------------------------------------------ | --------------------------------------------------------- |
-| **People** | name en/bn, student/employee ID, roll, class/section, **phone (a guardian's phone finds their students)** | recently opened records                    | type chip · name · secondary line (class/section or role) |
-| **Page**   | nav tree labels en/bn, route paths, synonyms ("routine" → Timetable & routines)                           | most-visited pages                         | group › item breadcrumb                                   |
-| **Action** | action labels en/bn, synonyms                                                                             | actions valid for the current page context | label · kind icon · shortcut hint                         |
+| Tab        | Matches on                                                                                                | Empty query shows                                                                                                                                                                 | Result row                                                |
+| ---------- | --------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| **People** | name en/bn, student/employee ID, roll, class/section, **phone (a guardian's phone finds their students)** | recently opened records                                                                                                                                                           | type chip · name · secondary line (class/section or role) |
+| **Page**   | nav tree labels en/bn, route paths, synonyms ("routine" → Timetable & routines)                           | every permitted page, grouped by sidebar section in sidebar order (Dashboard first, no header); **Recent** (last 5) on top                                                        | group › item breadcrumb                                   |
+| **Action** | action labels en/bn, synonyms                                                                             | every permitted action, grouped by the same sections; actions whose context is missing are shown disabled with a reason, at the bottom of their group; **Recent** (last 5) on top | label · kind icon · shortcut hint                         |
+
+The results area has one fixed height (`min(60dvh, 28rem)`) in every state, so
+the dialog never jumps. Row 1 is always highlighted, so Enter opens what you
+see. ↑/↓ wrap around and scroll the highlighted row into view. Hover only moves
+the highlight on real mouse movement, so it never fights the keyboard. The
+matched text is bold, and a footer bar lists the shortcuts.
 
 **Action registry contract** — the only way an operation becomes invocable:
 

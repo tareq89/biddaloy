@@ -49,7 +49,9 @@ test.describe('teacher', () => {
       ).toHaveAttribute('aria-selected', 'true');
       await page.keyboard.type('prog');
       await expect(page.getByRole('option').first()).toBeVisible();
-      await page.keyboard.press('ArrowDown');
+      await expect(
+        page.getByRole('option', { name: t('nav.items.programs') }).first(),
+      ).toHaveAttribute('aria-selected', 'true');
       await page.keyboard.press('Enter');
       await expect(
         page.getByRole('heading', { level: 1, name: t('programs.list.title') }),

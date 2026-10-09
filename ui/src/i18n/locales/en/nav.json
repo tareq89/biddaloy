@@ -190,7 +190,17 @@
       "invoices": "Invoices",
       "payments": "Receipts",
       "pages": "Pages",
-      "actions": "Actions"
+      "actions": "Actions",
+      "recent": "Recent"
+    },
+    "footerHint": "↑↓ move · Enter open · ←→ / Ctrl+1–3 tabs · Esc close",
+    "footerHintPageOnly": "↑↓ move · Enter open · Esc close",
+    "needsContext": "Open {{things}} first",
+    "contextNouns": {
+      "student": "a student",
+      "guardian": "a guardian",
+      "invoice": "an invoice",
+      "gradingScale": "a grading scale"
     },
     "shortcutHint": "Ctrl+K",
     "launcherPlaceholder": "Search…"

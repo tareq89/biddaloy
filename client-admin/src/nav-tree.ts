@@ -35,12 +35,22 @@ export interface StaffNavItemDef {
   readonly synonyms?: readonly string[];
 }
 
+export type StaffNavGroupId =
+  | 'people'
+  | 'academics'
+  | 'attendance'
+  | 'examsResults'
+  | 'finance'
+  | 'reports'
+  | 'communications'
+  | 'administration';
+
 export interface StaffNavGroupDef {
   /** Stable id — kept identical to the pre-30.1.3 groups (`people`,
    * `finance`, `communications`, `administration`) where the group
    * survives this restructure, so a user's saved collapse preference for
    * it survives too. */
-  readonly id: string;
+  readonly id: StaffNavGroupId;
   readonly label: StaffNavLabel;
   readonly items: readonly StaffNavItemDef[];
   readonly pinnedItems?: readonly StaffNavItemDef[];
@@ -435,17 +445,29 @@ export const STAFF_NAV_ITEMS = {
  * appear in the item's already-resolved display `label`, or in one of
  * its `synonyms`? Pure and React-free so it is unit-testable directly,
  * without rendering the palette — `command-palette-launcher.tsx` is the
- * only caller. An empty `query` never matches anything: the Page tab
- * shows a searchable hint for an empty query rather than every item. */
+ * only caller. An empty `query` matches every item — the Page tab lists
+ * everything when nothing is typed (#1733 D2). */
 export function matchesNavSearch(
   label: string,
   synonyms: readonly string[] | undefined,
   query: string,
 ): boolean {
   const trimmed = query.trim().toLowerCase();
-  if (trimmed === '') return false;
   if (label.toLowerCase().includes(trimmed)) return true;
   return (synonyms ?? []).some((synonym) => synonym.toLowerCase().includes(trimmed));
+}
+
+/** #1733 D11 + D4: within one group, enabled before disabled, then
+ * "label starts with query" before "contains / synonym-only", otherwise
+ * input order (Array.prototype.sort is stable). */
+export function rankByMatch<T extends { label: string; disabled?: boolean }>(
+  results: readonly T[],
+  query: string,
+): T[] {
+  const q = query.trim().toLowerCase();
+  const key = (r: T) =>
+    (r.disabled ? 2 : 0) + (q !== '' && r.label.toLowerCase().startsWith(q) ? 0 : 1);
+  return [...results].sort((a, b) => key(a) - key(b));
 }
 
 export const STAFF_NAV_GROUPS: readonly StaffNavGroupDef[] = [
