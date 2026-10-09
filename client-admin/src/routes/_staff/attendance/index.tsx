@@ -184,7 +184,7 @@ function AttendanceListPage() {
             className="w-full"
             config={regionConfig}
             value={parseDate(date)}
-            max={new Date()}
+            max={parseDate(today)}
             clearable={false}
             onValueChange={(next) =>
               void navigate({
