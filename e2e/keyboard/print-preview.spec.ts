@@ -45,7 +45,9 @@ test('keyboard-only: palette -> pick a student -> preview -> print -> all printe
     // The palette label is en/bn data in `action-registry.ts`, not an i18n key.
     await page.keyboard.type('শিক্ষার্থীর আইডি কার্ড');
     await expect(page.getByRole('option').first()).toBeVisible();
-    await page.keyboard.press('ArrowDown');
+    await expect(
+      page.getByRole('option', { name: 'শিক্ষার্থীর আইডি কার্ড' }).first(),
+    ).toHaveAttribute('aria-selected', 'true');
     await page.keyboard.press('Enter');
     await expect(
       page.getByRole('heading', { level: 1, name: t('printPreview.picker.title') }),

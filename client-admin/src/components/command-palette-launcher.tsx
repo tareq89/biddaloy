@@ -22,10 +22,11 @@
  *   ticket's territory (`server/`) can fix; selecting a payment result
  *   closes the palette without navigating, like staff.
  *
- * Action tab: an `ACTIONS` entry is offered only when the signed-in
- * role holds its `permission` *and*, if it declares a `context`, the
- * current route supplies at least one of those context types (a
- * `studentId`/`guardianId`/`invoiceId` route param) — see
+ * Action tab: an `ACTIONS` entry is listed (grouped by nav group) only when
+ * the signed-in role holds its `permission`. If it declares a `context` the
+ * current route does not supply (a `studentId`/`guardianId`/`invoiceId`/
+ * `scaleId` route param), it is still listed but disabled, with the reason
+ * shown; the permission alone still hides it. See
  * `action-registry.ts`'s own header comment for why the permission
  * check alone is not enough to gate a shortcut the sidebar wouldn't
  * already show.
@@ -53,7 +54,9 @@ import * as React from 'react';
 import { ACTIONS, type ActionContext } from '../action-registry';
 import {
   matchesNavSearch,
+  rankByMatch,
   STAFF_NAV_GROUPS,
+  STAFF_NAV_ITEMS,
   type StaffNavItemDef,
   type StaffNavLabel,
 } from '../nav-tree';
@@ -113,8 +116,9 @@ export function CommandPaletteLauncher({
     if (params.studentId) contexts.add('student');
     if (params.guardianId) contexts.add('guardian');
     if (params.invoiceId) contexts.add('invoice');
+    if (params.scaleId) contexts.add('gradingScale');
     return contexts;
-  }, [params.studentId, params.guardianId, params.invoiceId]);
+  }, [params.studentId, params.guardianId, params.invoiceId, params.scaleId]);
 
   // Global `Ctrl/Cmd+K` (opens the palette) and `?` (opens the
   // shortcuts sheet) — [8.9.9]/[30.4.1]'s "opens from anywhere" ACs.
@@ -216,62 +220,92 @@ export function CommandPaletteLauncher({
     },
   ];
 
-  // Page tab — [30.1.4]'s `STAFF_NAV_GROUPS`, flattened (items +
-  // pinnedItems), filtered by the item's own declared permission, then
-  // matched against the query on the item's *currently rendered*
-  // locale label plus its `synonyms`. Only searched once `query` is
-  // non-empty — `CommandPalette` itself renders the searchable hint for
-  // an empty query on this tab, so an empty `results` array here is
-  // never shown.
+  // Page tab — [30.1.4]'s `STAFF_NAV_GROUPS`, one section per sidebar group
+  // in sidebar order (pinned items first, Dashboard as a header-less leading
+  // row), filtered by each item's declared permission and matched against the
+  // query on the item's *currently rendered* locale label plus `synonyms`.
+  // An empty query lists everything permitted (#1733 D2).
   const trimmedQuery = query.trim().toLowerCase();
-  const pageResults = React.useMemo(() => {
-    if (trimmedQuery === '') return [];
+  const pageGroups = React.useMemo<GlobalSearchGroup[]>(() => {
     if (pages) {
-      return pages
-        .filter((page) => matchesNavSearch(page.label, page.synonyms, trimmedQuery))
-        .map((page) => ({ id: page.id, label: page.label, description: page.to }));
+      return [
+        {
+          id: 'pages',
+          label: t('commandPalette.groups.pages'),
+          results: rankByMatch(
+            pages
+              .filter((page) => matchesNavSearch(page.label, page.synonyms, trimmedQuery))
+              .map((page) => ({ id: page.id, label: page.label, description: page.to })),
+            trimmedQuery,
+          ),
+        },
+      ];
     }
-    const seen = new Set<string>();
-    const items: StaffNavItemDef[] = [];
-    for (const group of STAFF_NAV_GROUPS) {
-      for (const item of [...group.items, ...(group.pinnedItems ?? [])]) {
-        if (seen.has(item.id)) continue;
-        seen.add(item.id);
-        items.push(item);
-      }
-    }
-    return items
-      .filter((item) => item.permission === undefined || hasPermission(activeRole, item.permission))
-      .map((item) => ({ item, label: resolveNavLabel(item.label, 'items') }))
-      .filter(({ item, label }) => matchesNavSearch(label, item.synonyms, trimmedQuery))
-      .map(({ item, label }) => ({ id: item.id, label, description: item.to }));
+    const toRows = (items: readonly StaffNavItemDef[]) =>
+      rankByMatch(
+        items
+          .filter(
+            (item) => item.permission === undefined || hasPermission(activeRole, item.permission),
+          )
+          .map((item) => ({ item, label: resolveNavLabel(item.label, 'items') }))
+          .filter(({ item, label }) => matchesNavSearch(label, item.synonyms, trimmedQuery))
+          .map(({ item, label }) => ({ id: item.id, label, description: item.to })),
+        trimmedQuery,
+      );
+    return [
+      { id: 'dashboard', label: '', results: toRows([STAFF_NAV_ITEMS.dashboard]) },
+      ...STAFF_NAV_GROUPS.map((group) => ({
+        id: group.id,
+        label: resolveNavLabel(group.label, 'groups'),
+        results: toRows([...(group.pinnedItems ?? []), ...group.items]),
+      })),
+    ];
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trimmedQuery, activeRole, i18n.language, pages]);
 
-  const pageGroups: GlobalSearchGroup[] = [
-    { id: 'pages', label: t('commandPalette.groups.pages'), results: pageResults },
-  ];
-
-  // Action tab — `ACTIONS` (30.4.2), filtered by permission and by
-  // whether the current route satisfies the action's declared context.
-  const actionResults = React.useMemo(() => {
-    if (trimmedQuery === '') return [];
+  // Action tab — `ACTIONS` (30.4.2), one section per nav group. Hidden when
+  // the role lacks the permission; *disabled with a reason* (not hidden) when
+  // the route lacks the action's context (#1733 D4).
+  const contextNoun: Record<ActionContext, string> = {
+    student: t('commandPalette.contextNouns.student'),
+    guardian: t('commandPalette.contextNouns.guardian'),
+    invoice: t('commandPalette.contextNouns.invoice'),
+    gradingScale: t('commandPalette.contextNouns.gradingScale'),
+  };
+  const needsContext = (ctx: readonly ActionContext[]) =>
+    t('commandPalette.needsContext', {
+      things: new Intl.ListFormat(i18n.language, { type: 'disjunction' }).format(
+        ctx.map((c) => contextNoun[c]),
+      ),
+    });
+  const actionGroups = React.useMemo<GlobalSearchGroup[]>(() => {
     const locale = i18n.language.startsWith('bn') ? 'bn' : 'en';
-    return ACTIONS.filter((action) => hasPermission(activeRole, action.permission))
-      .filter(
-        // `context: []` means "needs no entity" (ACR / incident actions), same as omitted.
-        (action) =>
-          !action.context ||
-          action.context.length === 0 ||
-          action.context.some((ctx) => availableContexts.has(ctx)),
-      )
-      .filter((action) => action.label[locale].toLowerCase().includes(trimmedQuery))
-      .map((action) => ({ id: action.id, label: action.label[locale] }));
+    return STAFF_NAV_GROUPS.map((group) => ({
+      id: group.id,
+      label: resolveNavLabel(group.label, 'groups'),
+      results: rankByMatch(
+        ACTIONS.filter(
+          (action) =>
+            action.group === group.id &&
+            hasPermission(activeRole, action.permission) &&
+            action.label[locale].toLowerCase().includes(trimmedQuery),
+        ).map((action) => {
+          // `context: []` means "needs no entity" (ACR / incident actions), same as omitted.
+          const ctx = action.context;
+          return ctx?.length && !ctx.some((c) => availableContexts.has(c))
+            ? {
+                id: action.id,
+                label: action.label[locale],
+                disabled: true,
+                description: needsContext(ctx),
+              }
+            : { id: action.id, label: action.label[locale] };
+        }),
+        trimmedQuery,
+      ),
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trimmedQuery, activeRole, availableContexts, i18n.language]);
-
-  const actionGroups: GlobalSearchGroup[] = [
-    { id: 'actions', label: t('commandPalette.groups.actions'), results: actionResults },
-  ];
 
   const peopleTab: CommandPaletteTab = {
     id: 'people',
@@ -315,7 +349,7 @@ export function CommandPaletteLauncher({
       return;
     }
     if (tabId === 'page') {
-      const item = pageResults.find((result) => result.id === resultId);
+      const item = pageGroups.flatMap((g) => g.results).find((result) => result.id === resultId);
       if (item?.description) void navigate({ to: item.description });
       return;
     }
@@ -363,6 +397,8 @@ export function CommandPaletteLauncher({
             : t('commandPalette.placeholderNoPeople')
         }
         description={t('commandPalette.description')}
+        footerHint={pages ? t('commandPalette.footerHintPageOnly') : t('commandPalette.footerHint')}
+        recentLabel={t('commandPalette.groups.recent')}
         announceResults={(count) =>
           count === 1
             ? t('commandPalette.resultCount', { count })

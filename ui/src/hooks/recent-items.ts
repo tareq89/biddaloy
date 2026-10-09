@@ -1,6 +1,7 @@
 /**
  * [30.4.1] Local-only "recently opened" ring buffer for `CommandPalette`'s
- * People tab (D10). This is a convenience for the current device, not
+ * People/Page/Action tabs (D10; #1733 D12 gave Page and Action their own
+ * keys, capped at 5). This is a convenience for the current device, not
  * synced data: it stores just enough to render a result row (`groupId` +
  * `resultId` the caller's own `onSelect` already understands, plus the
  * label/description already shown once when the item was picked) — never
@@ -79,10 +80,11 @@ interface RecentItemsState {
   items: RecentItem[];
 }
 
-export function useRecentItems(): UseRecentItemsResult {
+export function useRecentItems(scope?: 'page' | 'action'): UseRecentItemsResult {
   const tenantId = useActiveTenant();
   const userId = useCurrentUserId();
-  const key = storageKey(tenantId, userId);
+  const key = storageKey(tenantId, userId) + (scope ? `:${scope}` : '');
+  const maxItems = scope ? 5 : MAX_ITEMS;
 
   // `key` and `items` move together in one state value, not two separate
   // ones — that's load-bearing, not style. With a ref-tracked key and a
@@ -124,10 +126,10 @@ export function useRecentItems(): UseRecentItemsResult {
       setState((previous) => {
         if (previous.key !== key) return previous;
         const deduped = previous.items.filter((existing) => existing.id !== item.id);
-        return { key, items: [item, ...deduped].slice(0, MAX_ITEMS) };
+        return { key, items: [item, ...deduped].slice(0, maxItems) };
       });
     },
-    [key],
+    [key, maxItems],
   );
 
   // Never return a previous viewer's items — even for the one render where

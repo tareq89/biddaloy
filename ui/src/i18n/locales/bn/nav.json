@@ -235,7 +235,17 @@
       "invoices": "চালান",
       "payments": "রসিদ",
       "pages": "পাতা",
-      "actions": "কাজ"
+      "actions": "কাজ",
+      "recent": "সাম্প্রতিক"
+    },
+    "footerHint": "↑↓ সরান · Enter খুলুন · ←→ / Ctrl+1–3 ট্যাব · Esc বন্ধ",
+    "footerHintPageOnly": "↑↓ সরান · Enter খুলুন · Esc বন্ধ",
+    "needsContext": "প্রথমে {{things}} খুলুন",
+    "contextNouns": {
+      "student": "একজন শিক্ষার্থী",
+      "guardian": "একজন অভিভাবক",
+      "invoice": "একটি চালান",
+      "gradingScale": "একটি গ্রেডিং স্কেল"
     },
     "shortcutHint": "Ctrl+K",
     "launcherPlaceholder": "অনুসন্ধান…"

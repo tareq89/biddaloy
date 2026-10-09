@@ -1,5 +1,7 @@
 import { Permission } from '@biddaloy/shared';
 
+import type { StaffNavGroupId } from './nav-tree';
+
 /**
  * [30.4.2] The command-palette action registry.
  *
@@ -46,6 +48,9 @@ export interface PaletteAction {
   readonly label: { readonly en: string; readonly bn: string };
   readonly permission: Permission;
   readonly kind: ActionKind;
+  /** Palette Action-tab section = the nav group of the page `run()` lands on
+   * (`administration`/`reports` for the few targets outside the nav tree). */
+  readonly group: StaffNavGroupId;
   readonly context?: readonly ActionContext[];
   readonly run: (ctx: ActionRunContext) => void;
 }
@@ -62,6 +67,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     label: { en: 'Record payment', bn: 'পেমেন্ট রেকর্ড করুন' },
     permission: Permission.PAYMENT_RECORD,
     kind: 'navigate',
+    group: 'finance',
     context: ['student', 'invoice'],
     run: (ctx) => ctx.navigate({ to: '/payments/record' }),
   },
@@ -72,6 +78,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     label: { en: 'Use a ready-made curriculum', bn: 'তৈরি শিক্ষাক্রম ব্যবহার করুন' },
     permission: Permission.CURRICULUM_PRESET_APPLY,
     kind: 'navigate',
+    group: 'administration',
     run: (ctx) => ctx.navigate({ to: '/curriculum-preset' }),
   },
   {
@@ -79,6 +86,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     label: { en: 'Roles & access', bn: 'ভূমিকা ও অনুমতি' },
     permission: Permission.USER_READ,
     kind: 'navigate',
+    group: 'administration',
     run: (ctx) => ctx.navigate({ to: '/roles' }),
   },
   {
@@ -86,6 +94,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     label: { en: 'Create exam from template', bn: 'টেমপ্লেট থেকে পরীক্ষা তৈরি করুন' },
     permission: Permission.EXAM_MANAGE,
     kind: 'modal',
+    group: 'examsResults',
     run: (ctx) => ctx.navigate({ to: '/exams?create=1' }),
   },
   {
@@ -93,6 +102,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     label: { en: 'Generate seat plan', bn: 'সিট প্ল্যান তৈরি করুন' },
     permission: Permission.SEAT_PLAN_MANAGE,
     kind: 'navigate',
+    group: 'examsResults',
     run: (ctx) => ctx.navigate({ to: '/exams/seat-plans?generate=1' }),
   },
   {
@@ -100,6 +110,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     label: { en: 'Publish seat plan', bn: 'সিট প্ল্যান প্রকাশ করুন' },
     permission: Permission.SEAT_PLAN_MANAGE,
     kind: 'modal',
+    group: 'examsResults',
     // Same "no entity id" limitation as `results.publish`/`grading.copyScale`
     // above — `ActionRunContext` carries no plan id, so this lands on the
     // seat plans list, one click from a specific plan's own Publish button.
@@ -110,6 +121,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     label: { en: 'Send message', bn: 'বার্তা পাঠান' },
     permission: Permission.COMMUNICATION_SEND,
     kind: 'navigate',
+    group: 'communications',
     context: ['student', 'guardian'],
     run: (ctx) => ctx.navigate({ to: '/communications/send' }),
   },
@@ -118,6 +130,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     label: { en: 'Send fee reminder', bn: 'ফি রিমাইন্ডার পাঠান' },
     permission: Permission.COMMUNICATION_BULK_SEND,
     kind: 'navigate',
+    group: 'communications',
     run: (ctx) => ctx.navigate({ to: '/communications/reminders' }),
   },
   {
@@ -125,6 +138,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     label: { en: 'Take attendance', bn: 'উপস্থিতি নিন' },
     permission: Permission.ATTENDANCE_READ,
     kind: 'navigate',
+    group: 'attendance',
     run: (ctx) => ctx.navigate({ to: '/attendance' }),
   },
   // [36.4] Mirrors `attendance.take` above — permission copied verbatim
@@ -134,6 +148,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     label: { en: 'Mark staff attendance', bn: 'কর্মীর উপস্থিতি নিন' },
     permission: Permission.STAFF_ATTENDANCE_READ,
     kind: 'navigate',
+    group: 'attendance',
     run: (ctx) => ctx.navigate({ to: '/attendance/staff' }),
   },
   {
@@ -141,6 +156,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     label: { en: 'Record leave', bn: 'ছুটি রেকর্ড করুন' },
     permission: Permission.STAFF_ATTENDANCE_READ,
     kind: 'modal',
+    group: 'attendance',
     run: (ctx) => ctx.navigate({ to: '/attendance/staff/leave' }),
   },
   {
@@ -148,6 +164,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     label: { en: 'Create fee bills', bn: 'ফির বিল তৈরি করুন' },
     permission: Permission.FEE_GENERATE,
     kind: 'navigate',
+    group: 'finance',
     run: (ctx) => ctx.navigate({ to: '/fees/generate?generate=1' }),
   },
   // [38.4.3] `/_staff/fees/fines/` itself only requires FEE_READ (its
@@ -165,6 +182,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     label: { en: 'Log fine', bn: 'জরিমানা যোগ করুন' },
     permission: Permission.FEE_GENERATE,
     kind: 'navigate',
+    group: 'finance',
     context: ['student'],
     run: (ctx) => ctx.navigate({ to: '/fees/fines?logFine=1' }),
   },
@@ -173,6 +191,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     label: { en: 'Generate fines', bn: 'জরিমানা তৈরি করুন' },
     permission: Permission.FEE_GENERATE,
     kind: 'navigate',
+    group: 'finance',
     run: (ctx) => ctx.navigate({ to: '/fees/fines?generateFines=1' }),
   },
   {
@@ -180,6 +199,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     label: { en: 'Waive fine', bn: 'জরিমানা মাফ করুন' },
     permission: Permission.FEE_APPROVE,
     kind: 'modal',
+    group: 'finance',
     context: ['student'],
     run: (ctx) => ctx.navigate({ to: '/fees/fines' }),
   },
@@ -194,6 +214,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     label: { en: 'Start ACR', bn: 'এসিআর শুরু করুন' },
     permission: Permission.ACR_WRITE,
     kind: 'modal',
+    group: 'people',
     context: [],
     run: (ctx) => ctx.navigate({ to: '/staff/evaluations?startAcr=1' }),
   },
@@ -202,6 +223,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     label: { en: 'Report an incident', bn: 'ঘটনা জানান' },
     permission: Permission.ACR_WRITE,
     kind: 'modal',
+    group: 'people',
     context: [],
     run: (ctx) => ctx.navigate({ to: '/staff/evaluations?reportIncident=1' }),
   },
@@ -213,6 +235,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     label: { en: 'Publish teacher survey', bn: 'শিক্ষক জরিপ চালু করুন' },
     permission: Permission.ACR_WRITE,
     kind: 'navigate',
+    group: 'people',
     context: [],
     run: (ctx) => ctx.navigate({ to: '/staff/evaluations?tab=surveys&publishSurvey=1' }),
   },
@@ -223,6 +246,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     label: { en: 'Open performance', bn: 'পারফরম্যান্স দেখুন' },
     permission: Permission.MARK_VIEW,
     kind: 'navigate',
+    group: 'people',
     context: ['student'],
     run: (ctx) => ctx.navigate({ to: '/students?openPerformance=1' }),
   },
@@ -231,6 +255,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     label: { en: 'Add student', bn: 'শিক্ষার্থী যোগ করুন' },
     permission: Permission.STUDENT_CREATE,
     kind: 'navigate',
+    group: 'people',
     run: (ctx) => ctx.navigate({ to: '/students/new' }),
   },
   // [13.6.1] Permissions copied from `route-permissions.ts`. "Continue setting
@@ -241,6 +266,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     label: { en: 'Continue setting up your school', bn: 'স্কুলের সেটআপ চালিয়ে যান' },
     permission: Permission.SETTINGS_MANAGE,
     kind: 'navigate',
+    group: 'administration',
     run: (ctx) => ctx.navigate({ to: '/welcome' }),
   },
   {
@@ -248,6 +274,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     label: { en: 'Import staff from Excel', bn: 'এক্সেল থেকে কর্মী আমদানি করুন' },
     permission: Permission.USER_CREATE,
     kind: 'navigate',
+    group: 'people',
     run: (ctx) => ctx.navigate({ to: '/staff/import' }),
   },
   {
@@ -255,6 +282,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     label: { en: 'Sign-in methods', bn: 'সাইন-ইন পদ্ধতি' },
     permission: Permission.DASHBOARD_VIEW,
     kind: 'navigate',
+    group: 'administration',
     run: (ctx) => ctx.navigate({ to: '/security' }),
   },
   {
@@ -262,6 +290,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     label: { en: 'Import students', bn: 'শিক্ষার্থী আমদানি করুন' },
     permission: Permission.STUDENT_BULK_UPLOAD,
     kind: 'navigate',
+    group: 'people',
     run: (ctx) => ctx.navigate({ to: '/students/import' }),
   },
   {
@@ -269,6 +298,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     label: { en: 'Copy grading scale', bn: 'গ্রেডিং স্কেল কপি করুন' },
     permission: Permission.GRADING_SCALE_MANAGE,
     kind: 'modal',
+    group: 'examsResults',
     context: ['gradingScale'],
     // `ActionRunContext` carries no entity id — lands on the scales list instead of
     // a specific scale's editor; its own Copy button opens
@@ -281,6 +311,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     label: { en: 'Add program', bn: 'প্রোগ্রাম যোগ করুন' },
     permission: Permission.PROGRAM_MANAGE,
     kind: 'modal',
+    group: 'people',
     run: (ctx) => ctx.navigate({ to: '/programs?new=1' }),
   },
   {
@@ -288,6 +319,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     label: { en: 'Enrol students', bn: 'শিক্ষার্থী তালিকাভুক্ত করুন' },
     permission: Permission.PROGRAM_MANAGE,
     kind: 'modal',
+    group: 'people',
     context: ['student'],
     // Same "no entity id" limitation as `grading.copyScale` above —
     // `ActionRunContext` carries no student id, so this lands on
@@ -300,6 +332,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     label: { en: 'Record achievement', bn: 'অর্জন রেকর্ড করুন' },
     permission: Permission.PROGRAM_READ,
     kind: 'modal',
+    group: 'people',
     context: ['student'],
     // Same "no entity id" limitation as `programs.enrol` above.
     run: (ctx) => ctx.navigate({ to: '/programs?record=1' }),
@@ -319,6 +352,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     label: { en: 'Open my class', bn: 'আমার শ্রেণি খুলুন' },
     permission: Permission.MY_CLASS_VIEW,
     kind: 'navigate',
+    group: 'academics',
     run: (ctx) => ctx.navigate({ to: '/my-class' }),
   },
   {
@@ -326,6 +360,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     label: { en: "Take my class's attendance", bn: 'আমার শ্রেণির উপস্থিতি নিন' },
     permission: Permission.MY_CLASS_VIEW,
     kind: 'navigate',
+    group: 'academics',
     run: (ctx) => ctx.navigate({ to: '/my-class?then=attendance' }),
   },
   {
@@ -333,6 +368,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     label: { en: 'Open my routine', bn: 'আমার রুটিন খুলুন' },
     permission: Permission.ROUTINE_READ,
     kind: 'navigate',
+    group: 'academics',
     run: (ctx) => ctx.navigate({ to: '/routines/my' }),
   },
   {
@@ -340,6 +376,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     label: { en: 'Add substitute teacher', bn: 'বদলি শিক্ষক যোগ করুন' },
     permission: Permission.ROUTINE_MANAGE,
     kind: 'modal',
+    group: 'academics',
     run: (ctx) => ctx.navigate({ to: '/routines/substitutions' }),
   },
   {
@@ -352,6 +389,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     // *route's* gate, not the narrower in-page control.
     permission: Permission.ROUTINE_READ,
     kind: 'modal',
+    group: 'academics',
     run: (ctx) => ctx.navigate({ to: '/routines/review' }),
   },
   {
@@ -359,6 +397,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     label: { en: 'Enter marks', bn: 'নম্বর প্রবেশ করান' },
     permission: Permission.MARK_VIEW,
     kind: 'navigate',
+    group: 'examsResults',
     run: (ctx) => ctx.navigate({ to: '/marks' }),
   },
   {
@@ -366,6 +405,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     label: { en: 'Process result', bn: 'ফলাফল প্রক্রিয়া করুন' },
     permission: Permission.RESULT_PROCESS,
     kind: 'modal',
+    group: 'examsResults',
     // Same "no entity id" pattern as `grading.copyScale` above — lands on
     // the exam picker (`/results`) rather than a specific exam's dialog.
     run: (ctx) => ctx.navigate({ to: '/results' }),
@@ -378,6 +418,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     // whole route shares one permission.
     permission: Permission.RESULT_PROCESS,
     kind: 'modal',
+    group: 'examsResults',
     run: (ctx) => ctx.navigate({ to: '/results' }),
   },
   {
@@ -385,6 +426,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     label: { en: 'Send result SMS', bn: 'ফলাফল এসএমএস পাঠান' },
     permission: Permission.RESULT_PROCESS,
     kind: 'modal',
+    group: 'examsResults',
     run: (ctx) => ctx.navigate({ to: '/results' }),
   },
   {
@@ -392,6 +434,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     label: { en: 'Review applicant', bn: 'আবেদনকারী পর্যালোচনা করুন' },
     permission: Permission.ADMISSION_REVIEW,
     kind: 'navigate',
+    group: 'people',
     // No entity id in `ActionRunContext` — lands on the applicants list, same "no entity id"
     // pattern as `grading.copyScale`/`results.process` above.
     run: (ctx) => ctx.navigate({ to: '/admissions/applicants' }),
@@ -401,6 +444,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     label: { en: 'Admit applicant', bn: 'আবেদনকারী ভর্তি করুন' },
     permission: Permission.ADMISSION_REVIEW,
     kind: 'modal',
+    group: 'people',
     // Same "no entity id" pattern — lands on the applicants list, whose own
     // row opens the detail screen where `AdmitApplicantModal` actually
     // lives (#27.10, `ApplicantDetail.tsx`).
@@ -411,6 +455,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     label: { en: 'Analysis: merit list', bn: 'বিশ্লেষণ: মেধা তালিকা' },
     permission: Permission.MARK_VIEW,
     kind: 'navigate',
+    group: 'examsResults',
     // Same "no entity id" pattern as `results.process` above — lands on
     // the exam/section picker rather than a specific exam (the palette's
     // `ActionRunContext` carries no exam id to prefill, D12).
@@ -421,6 +466,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     label: { en: 'Analysis: defaulters', bn: 'বিশ্লেষণ: অকৃতকার্য/অনুপস্থিত' },
     permission: Permission.MARK_VIEW,
     kind: 'navigate',
+    group: 'examsResults',
     run: (ctx) => ctx.navigate({ to: '/analysis' }),
   },
   {
@@ -430,6 +476,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     // (`route-permissions.ts`).
     permission: Permission.CLASS_MANAGE,
     kind: 'modal',
+    group: 'people',
     // No entity id in `ActionRunContext` — same "land on the list/picker, no prefill"
     // pattern as `grading.copyScale`/`results.process` above. Lands on the
     // teaching-assignments list; its own row action opens
@@ -442,6 +489,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     label: { en: 'Copy exam components', bn: 'পরীক্ষার উপাদান কপি করুন' },
     permission: Permission.EXAM_MANAGE,
     kind: 'modal',
+    group: 'examsResults',
     // The dialog itself (`-copy-components-dialog.tsx`) shipped with
     // #902 on the exam Setup tab; this only registers the palette entry.
     run: (ctx) => ctx.navigate({ to: '/exams' }),
@@ -451,6 +499,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     label: { en: 'Assign homework', bn: 'বাড়ির কাজ দিন' },
     permission: Permission.HOMEWORK_ASSIGN,
     kind: 'navigate',
+    group: 'academics',
     run: (ctx) => ctx.navigate({ to: '/academics/homework/new' }),
   },
   {
@@ -458,6 +507,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     label: { en: 'Upload homework (CSV)', bn: 'বাড়ির কাজ আপলোড করুন (CSV)' },
     permission: Permission.HOMEWORK_IMPORT,
     kind: 'navigate',
+    group: 'academics',
     run: (ctx) => ctx.navigate({ to: '/academics/homework/import' }),
   },
   {
@@ -470,6 +520,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     label: { en: 'Open syllabus', bn: 'সিলেবাস খুলুন' },
     permission: Permission.SYLLABUS_READ,
     kind: 'inline',
+    group: 'academics',
     // No standalone route for one topic's status change — same reasoning
     // this file's header gives for the five actions kept out of
     // `ACTIONS` entirely, except this one DOES have a route to land on:
@@ -482,6 +533,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     label: { en: 'Promote students', bn: 'শিক্ষার্থী প্রমোশন দিন' },
     permission: Permission.PROMOTION_MANAGE,
     kind: 'navigate',
+    group: 'examsResults',
     // Same "no entity id" pattern as `analysis.meritList` above — lands on
     // the empty new-run form; the user picks the source class there.
     // `/promotions/new?classId=` prefill exists for direct links, but
@@ -496,6 +548,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     label: { en: 'Print student ID card', bn: 'শিক্ষার্থীর আইডি কার্ড প্রিন্ট' },
     permission: Permission.DOCUMENT_PRINT,
     kind: 'navigate',
+    group: 'reports',
     run: (ctx) => ctx.navigate({ to: '/print/preview?kind=STUDENT_ID_CARD&subject_type=STUDENT' }),
   },
   {
@@ -503,6 +556,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     label: { en: 'Print staff ID card', bn: 'কর্মীর আইডি কার্ড প্রিন্ট' },
     permission: Permission.DOCUMENT_PRINT,
     kind: 'navigate',
+    group: 'reports',
     run: (ctx) => ctx.navigate({ to: '/print/preview?kind=STAFF_ID_CARD&subject_type=STAFF' }),
   },
   {
@@ -510,6 +564,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     label: { en: 'New print template', bn: 'নতুন প্রিন্ট টেমপ্লেট' },
     permission: Permission.PRINT_TEMPLATE_MANAGE,
     kind: 'modal',
+    group: 'administration',
     run: (ctx) => ctx.navigate({ to: '/print-templates?new=1' }),
   },
   {
@@ -517,6 +572,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     label: { en: 'Print history', bn: 'প্রিন্টের ইতিহাস' },
     permission: Permission.PRINT_HISTORY_READ,
     kind: 'navigate',
+    group: 'reports',
     run: (ctx) => ctx.navigate({ to: '/reports/printables' }),
   },
   // Gated like the Settings page it opens (`SETTINGS_MANAGE`), not `PRINT_TEMPLATE_MANAGE`: the
@@ -526,6 +582,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     label: { en: 'Printers', bn: 'প্রিন্টার' },
     permission: Permission.SETTINGS_MANAGE,
     kind: 'navigate',
+    group: 'administration',
     run: (ctx) => ctx.navigate({ to: '/settings#printers-section' }),
   },
   // [31.5.1b] Create/record shortcuts. Each target is the one-shot flag its page opens on.
@@ -534,6 +591,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     label: { en: 'Add academic year', bn: 'শিক্ষাবর্ষ যোগ করুন' },
     permission: Permission.ACADEMIC_YEAR_MANAGE,
     kind: 'modal',
+    group: 'academics',
     run: (ctx) => ctx.navigate({ to: '/academic-years?new=1' }),
   },
   {
@@ -541,6 +599,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     label: { en: 'Add class', bn: 'শ্রেণি যোগ করুন' },
     permission: Permission.CLASS_MANAGE,
     kind: 'modal',
+    group: 'academics',
     run: (ctx) => ctx.navigate({ to: '/classes?new=1' }),
   },
   {
@@ -548,6 +607,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     label: { en: 'Add calendar event', bn: 'ক্যালেন্ডারে ইভেন্ট যোগ করুন' },
     permission: Permission.CALENDAR_MANAGE,
     kind: 'navigate',
+    group: 'people',
     run: (ctx) => ctx.navigate({ to: '/calendar?panel=new-event' }),
   },
   {
@@ -555,6 +615,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     label: { en: 'Add government holidays', bn: 'সরকারি ছুটি যোগ করুন' },
     permission: Permission.CALENDAR_MANAGE,
     kind: 'navigate',
+    group: 'people',
     run: (ctx) => ctx.navigate({ to: '/calendar?panel=holidays' }),
   },
   {
@@ -562,6 +623,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     label: { en: 'Copy calendar from another year', bn: 'অন্য বছরের ক্যালেন্ডার কপি করুন' },
     permission: Permission.CALENDAR_MANAGE,
     kind: 'modal',
+    group: 'people',
     run: (ctx) => ctx.navigate({ to: '/calendar?panel=clone' }),
   },
   {
@@ -569,6 +631,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     label: { en: 'Import calendar', bn: 'ক্যালেন্ডার আমদানি করুন' },
     permission: Permission.CALENDAR_MANAGE,
     kind: 'navigate',
+    group: 'people',
     run: (ctx) => ctx.navigate({ to: '/calendar/import' }),
   },
   {
@@ -576,6 +639,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     label: { en: 'Add fee structure', bn: 'ফি কাঠামো যোগ করুন' },
     permission: Permission.FEE_STRUCTURE_CREATE,
     kind: 'modal',
+    group: 'finance',
     run: (ctx) => ctx.navigate({ to: '/fee-structures?new=1' }),
   },
   {
@@ -583,6 +647,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     label: { en: 'Add automatic billing rule', bn: 'স্বয়ংক্রিয় বিলের নিয়ম যোগ করুন' },
     permission: Permission.SCHEDULE_MANAGE,
     kind: 'navigate',
+    group: 'finance',
     run: (ctx) => ctx.navigate({ to: '/fees/schedules?new=1' }),
   },
   {
@@ -590,6 +655,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     label: { en: 'Invite guardians', bn: 'অভিভাবকদের আমন্ত্রণ জানান' },
     permission: Permission.USER_CREATE,
     kind: 'modal',
+    group: 'people',
     run: (ctx) => ctx.navigate({ to: '/guardians?invite=1' }),
   },
   {
@@ -597,6 +663,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     label: { en: 'Add staff member', bn: 'কর্মী যোগ করুন' },
     permission: Permission.USER_CREATE,
     kind: 'modal',
+    group: 'people',
     run: (ctx) => ctx.navigate({ to: '/staff?new=1' }),
   },
   {
@@ -604,6 +671,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     label: { en: 'Make a staff member a teacher', bn: 'কর্মীকে শিক্ষক করুন' },
     permission: Permission.USER_CREATE,
     kind: 'modal',
+    group: 'people',
     run: (ctx) => ctx.navigate({ to: '/staff?promote=1' }),
   },
   {
@@ -611,6 +679,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     label: { en: 'Add grading scale', bn: 'গ্রেডিং পদ্ধতি যোগ করুন' },
     permission: Permission.GRADING_SCALE_MANAGE,
     kind: 'modal',
+    group: 'examsResults',
     run: (ctx) => ctx.navigate({ to: '/grading-scales?new=1' }),
   },
   {
@@ -618,6 +687,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     label: { en: 'Add exam structure', bn: 'পরীক্ষার কাঠামো যোগ করুন' },
     permission: Permission.EXAM_MANAGE,
     kind: 'modal',
+    group: 'examsResults',
     run: (ctx) => ctx.navigate({ to: '/exams/templates?new=1' }),
   },
   {
@@ -625,6 +695,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     label: { en: 'Upload student photos', bn: 'শিক্ষার্থীর ছবি আপলোড করুন' },
     permission: Permission.STUDENT_UPDATE,
     kind: 'modal',
+    group: 'people',
     run: (ctx) => ctx.navigate({ to: '/students?photos=1' }),
   },
   {
@@ -632,6 +703,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     label: { en: 'SMS and messaging settings', bn: 'এসএমএস ও বার্তার সেটিংস' },
     permission: Permission.SETTINGS_MANAGE,
     kind: 'navigate',
+    group: 'administration',
     run: (ctx) => ctx.navigate({ to: '/settings?section=communication' }),
   },
   {
@@ -639,6 +711,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     label: { en: 'Fee settings', bn: 'ফির সেটিংস' },
     permission: Permission.SETTINGS_MANAGE,
     kind: 'navigate',
+    group: 'administration',
     run: (ctx) => ctx.navigate({ to: '/settings?section=finance' }),
   },
   {
@@ -646,6 +719,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     label: { en: 'Backup and restore', bn: 'ব্যাকআপ ও রিস্টোর' },
     permission: Permission.SETTINGS_MANAGE,
     kind: 'navigate',
+    group: 'administration',
     run: (ctx) => ctx.navigate({ to: '/settings?section=backup' }),
   },
 ];

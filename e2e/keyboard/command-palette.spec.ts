@@ -29,10 +29,9 @@ test('command palette is fully keyboard-drivable: People tab search and pick', a
     ).toBeFocused();
   });
 
-  await test.step('query, arrow down, Enter', async () => {
+  await test.step('query, Enter opens the highlighted row 1', async () => {
     await page.keyboard.type(name);
     await expect(page.getByRole('option', { name }).first()).toBeVisible();
-    await page.keyboard.press('ArrowDown');
     await page.keyboard.press('Enter');
   });
 
@@ -124,4 +123,33 @@ test('Tab moves focus out of the palette input, switching tabs does not trap it 
   // `role="tab"` triggers.
   await page.keyboard.press('Tab');
   await expect(input).not.toBeFocused();
+});
+
+test('Page tab lists every page; ArrowDown walks to the last row, keeps it visible, wraps, Enter opens', async ({
+  page,
+}) => {
+  await page.goto('/students');
+  await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible();
+  await page.keyboard.press('ControlOrMeta+k');
+  await expect(
+    page.getByRole('combobox', { name: t('nav.commandPalette.ariaLabel') }),
+  ).toBeFocused();
+  await page.keyboard.press('Control+2');
+
+  const options = page.getByRole('listbox').getByRole('option');
+  await expect(options.first()).toHaveAttribute('aria-selected', 'true');
+  const count = await options.count();
+  expect(count).toBeGreaterThan(20);
+
+  for (let i = 0; i < count - 1; i += 1) await page.keyboard.press('ArrowDown');
+  await expect(options.last()).toHaveAttribute('aria-selected', 'true');
+  await expect(options.last()).toBeInViewport();
+
+  await page.keyboard.press('ArrowDown');
+  await expect(options.first()).toHaveAttribute('aria-selected', 'true');
+  await expect(options.first()).toBeInViewport();
+
+  // Dashboard is row 1 and a fresh context has no recents.
+  await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(/\/dashboard$/);
 });

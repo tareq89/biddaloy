@@ -1,6 +1,6 @@
 import { cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
 import { createRootRoute, createRoute } from '@tanstack/react-router';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -21,6 +21,7 @@ import { CommandPaletteLauncher } from './command-palette-launcher';
  */
 describe('CommandPaletteLauncher', () => {
   afterEach(async () => {
+    window.localStorage.clear(); // palette recents persist per device
     await cleanupTestState();
   });
 
@@ -230,5 +231,90 @@ describe('CommandPaletteLauncher', () => {
     // Wait past the 300 ms search debounce, or a late /search call would be missed.
     await new Promise((resolve) => setTimeout(resolve, 400));
     expect(searchCalls).toBe(0);
+  });
+
+  async function openPalette() {
+    renderWithRouter(routeTree, {
+      initialEntries: ['/students'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+    const user = userEvent.setup();
+    await user.click((await screen.findAllByRole('button', { name: 'Search (Ctrl+K)' }))[0]!);
+    return { user, input: screen.getByRole('combobox', { name: 'Search' }) };
+  }
+
+  it('Page tab lists every permitted page on an empty query: Dashboard first, sidebar order, pinned first', async () => {
+    const { user } = await openPalette();
+    await user.keyboard('{Control>}2{/Control}');
+
+    const listbox = await screen.findByRole('listbox', { name: 'Search' });
+    const rows = within(listbox).getAllByRole('option');
+    expect(rows[0]?.textContent).toMatch(/Dashboard/);
+    const text = listbox.textContent ?? '';
+    const order = ['People', 'Academics', 'Finance', 'Administration'].map((g) => text.indexOf(g));
+    expect(order.every((at) => at >= 0)).toBe(true);
+    expect([...order].sort((a, b) => a - b)).toEqual(order);
+    expect(text.indexOf('Student dues')).toBeLessThan(text.indexOf('Fee structures'));
+  });
+
+  it('Action tab shows context actions disabled with a reason; click does nothing', async () => {
+    const { user } = await openPalette();
+    await user.keyboard('{Control>}3{/Control}');
+
+    const row = await screen.findByRole('option', { name: /Record payment/ });
+    expect(row.getAttribute('aria-disabled')).toBe('true');
+    expect(row.textContent).toContain('Open a student or an invoice first');
+    await user.click(row);
+
+    expect(screen.getByRole('combobox', { name: 'Search' })).toBeTruthy();
+  });
+
+  it('Enter on a disabled first row leaves the palette open', async () => {
+    const { user, input } = await openPalette();
+    await user.keyboard('{Control>}3{/Control}');
+    await user.type(input, 'waive');
+    const row = await screen.findByRole('option', { name: /Waive fine/ });
+    expect(row.getAttribute('aria-selected')).toBe('true');
+
+    await user.keyboard('{Enter}');
+
+    expect(screen.getByRole('combobox', { name: 'Search' })).toBeTruthy();
+  });
+
+  it('ranks enabled actions before disabled ones within a group', async () => {
+    const { user, input } = await openPalette();
+    await user.keyboard('{Control>}3{/Control}');
+    await user.type(input, 'fine');
+
+    const names = (await screen.findAllByRole('option')).map((o) => o.textContent ?? '');
+    const generate = names.findIndex((n) => n.startsWith('Generate fines'));
+    const log = names.findIndex((n) => n.startsWith('Log fine'));
+    expect(generate).toBeGreaterThanOrEqual(0);
+    expect(generate).toBeLessThan(log);
+  });
+
+  it('with `pages`, an empty query lists every page and the footer drops the tab shortcuts', async () => {
+    const rootRoute = createRootRoute();
+    const pages = [
+      { id: 'results', label: 'Results page', to: '/portal/results' },
+      { id: 'fees', label: 'Fees page', to: '/portal/fees' },
+    ];
+    const tree = rootRoute.addChildren([
+      createRoute({
+        getParentRoute: () => rootRoute,
+        path: '/',
+        component: () => <CommandPaletteLauncher pages={pages} />,
+      }),
+    ]);
+    renderWithRouter(tree, { tenantId: 'tenant-1', role: 'ADMIN', locale: 'en' });
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Search (Ctrl+K)' }));
+
+    expect(await screen.findByRole('option', { name: /Results page/ })).toBeTruthy();
+    expect(screen.getByRole('option', { name: /Fees page/ })).toBeTruthy();
+    expect(screen.getByText('↑↓ move · Enter open · Esc close')).toBeTruthy();
   });
 });
