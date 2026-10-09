@@ -286,6 +286,10 @@
     "results_one": "{{count}} result",
     "results_other": "{{count}} results"
   },
+  "multiCombobox": {
+    "remove": "Remove {{label}}",
+    "selected": "Selected"
+  },
   "fullPage": {
     "discardTitle": "Discard your changes?",
     "discardDescription": "You have changes that are not saved. If you close now, they will be lost.",

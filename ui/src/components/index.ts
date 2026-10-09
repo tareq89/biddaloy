@@ -47,6 +47,8 @@ export { MoneyInput, type MoneyInputProps } from './money-input';
 export { PhoneInput, formatValidPhone, type PhoneInputProps } from './phone-input';
 export { DatePicker, Calendar, type DatePickerProps } from './date-picker';
 export { Combobox, type ComboboxOption, type ComboboxProps } from './combobox';
+export { MultiCombobox, type MultiComboboxOption, type MultiComboboxProps } from './multi-combobox';
+export { Timeline, type TimelineItem, type TimelineProps } from './timeline';
 export {
   RoutineGrid,
   routineCellKey,
