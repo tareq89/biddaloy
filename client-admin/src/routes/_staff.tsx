@@ -35,7 +35,8 @@ import * as React from 'react';
 
 import { CommandPaletteLauncher } from '../components/command-palette-launcher';
 import { StaffUserMenu } from '../components/staff-user-menu';
-import { TrialBar } from '../features/onboarding/trial-bar';
+import { useAttentionCenter } from '../features/attention/attention-center';
+import { TrialDetailsLanding } from '../features/onboarding/trial-details-landing';
 import { useWelcomeGate } from '../features/onboarding/welcome-gate';
 import { MORE_ICON, PLATFORM_NAV_ICONS, STAFF_NAV_ICONS } from '../nav-icons';
 import {
@@ -96,7 +97,7 @@ export const Route = createFileRoute('/_staff')({
   // (brand, nav groups, sidebar item labels) render on every navigation,
   // not just the first, so preloading `nav` here means it's warm before
   // any leaf route's own loader even runs.
-  loader: () => loadRouteNamespaces('nav', 'trial'),
+  loader: () => loadRouteNamespaces('nav', 'trial', 'attention'),
   component: StaffLayout,
 });
 
@@ -107,6 +108,7 @@ export const Route = createFileRoute('/_staff')({
  * separate re-render trigger needed.
  */
 function StaffLayout() {
+  const attention = useAttentionCenter({ todoTo: '/notifications' });
   const { t } = useTranslation('nav');
   // #533: the platform-admin nav item is gated on the active *role*
   // (SUPER_ADMIN), not a `Permission` — `AppShellNavItem.permission` is
@@ -286,7 +288,9 @@ function StaffLayout() {
   // independently maintained copies of the same five props.
   // [8.14.11]: collapses further now that `NotificationBell` resolves its
   // own strings — see that component's header comment.
-  const notificationBell = <NotificationBell viewAllTo="/notifications" />;
+  const notificationBell = (
+    <NotificationBell viewAllTo="/notifications" attention={attention.bell} />
+  );
 
   const permissionGate = (
     <>
@@ -378,7 +382,9 @@ function StaffLayout() {
             navLabel={t('navLabel')}
             skipLinkLabel={t('skipToContent')}
           >
-            <TrialBar className="mb-4 rounded-md" />
+            {attention.bar}
+            {attention.modal}
+            <TrialDetailsLanding />
             {breadcrumbItems.length > 0 && (
               <Breadcrumbs
                 items={breadcrumbItems}

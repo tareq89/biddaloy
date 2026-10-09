@@ -238,7 +238,11 @@ export {
   type PopoverTitleProps,
   type PopoverTriggerProps,
 } from './popover';
-export { NotificationBell, type NotificationBellProps } from './notification-bell';
+export {
+  NotificationBell,
+  type NotificationBellAttention,
+  type NotificationBellProps,
+} from './notification-bell';
 export { NotificationList, type NotificationListProps } from './notification-list';
 export {
   isOfflineRouteError,

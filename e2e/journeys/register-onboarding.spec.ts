@@ -75,9 +75,8 @@ test.describe('register and set up a school', () => {
         await page.getByRole('button', { name: t('onboardingSetup.footer.finish') }).click();
       });
 
-      await test.step('dashboard shows the trial bar and the checklist', async () => {
+      await test.step('dashboard shows the checklist', async () => {
         await expect(page).toHaveURL(/\/dashboard/);
-        await expect(page.getByRole('button', { name: t('trial.details.open') })).toBeVisible();
         await expect(page.getByRole('heading', { name: t('setupChecklist.title') })).toBeVisible();
       });
     });
