@@ -148,7 +148,8 @@
       "teachingAssignments": "Teacher assignments",
       "hrRecord": "HR record",
       "loginHistory": "Login history",
-      "documents": "Documents"
+      "documents": "Documents",
+      "applications": "Applications"
     },
     "teachingAssignments": {
       "caption": "Classes and sections this teacher is assigned to",
@@ -230,6 +231,19 @@
       "todayTitle": "Today's attendance",
       "monthTitle": "This month",
       "leaveTitle": "Leave balance"
+    },
+    "applicationsTab": {
+      "title": "Applications",
+      "subtitle": "All applications filed for {{name}}, newest first.",
+      "newPaper": "Enter a paper application",
+      "empty": "No applications yet",
+      "emptyExplanation": "They will show up here when a parent or student applies.",
+      "error": "Couldn't load applications.",
+      "seeAll": "See all",
+      "paper": "Filed on paper",
+      "loading": "Loading applications…",
+      "typeAndSubject": "Type and subject",
+      "viewLabel": "View — {{type}} {{serial}}"
     }
   },
   "hrRecord": {

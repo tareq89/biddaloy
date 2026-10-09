@@ -1,33 +1,16 @@
-import type { Page } from '@playwright/test';
-
-import { adminApiSession, get, post } from './api';
+import { adminApiSession, get } from './api';
 import { expect, loggedIn, test } from './fixtures/test';
 import { t } from './i18n';
 
 /**
- * [36.4.5/#1102] Epic 36's two client screens (`Attendance → Staff` and
- * `Leave`), KEYBOARD ONLY — no `page.mouse`, no `.click(` (bar the kit DatePicker). Marks one staff
- * member present via the command palette + Tab/Enter, then submits a leave
- * request via the same keyboard model, and finally proves the balance
- * actually moves once the request is approved.
+ * [36.4.5/#1102] Epic 36's staff attendance screen, KEYBOARD ONLY — no `page.mouse`, no
+ * `.click(`. Marks one staff member present via the command palette + Tab/Enter.
  *
- * The leave-approve list in the UI is a disclosed placeholder (no
- * `GET /leave/requests` list endpoint exists yet — see
- * `-leave-approve-list.tsx`'s own comment), so "approve it" here goes
- * through the API directly (`POST /leave/requests/:id/decide`) rather than
- * a UI panel that cannot exist until that endpoint ships.
+ * The leave half moved to the applications flow (D20, [52.5.2]); its end-to-end journey is
+ * covered by the applications specs.
  */
 
 test.use(loggedIn('admin'));
-
-async function pickDate(page: Page, label: string, iso: string) {
-  await page.getByLabel(label).click();
-  const cell = page.locator(`[role="grid"] [data-date="${iso}"]`);
-  for (let i = 0; i < 24 && !(await cell.isVisible()); i++) {
-    await page.getByRole('button', { name: t('common.date.previousMonth') }).click();
-  }
-  await cell.click();
-}
 
 // [36.4] `action-registry.ts`'s `attendance.markStaff` action label is a
 // hardcoded `{ en, bn }` pair, not a `t()` catalog key — the default e2e
@@ -35,24 +18,9 @@ async function pickDate(page: Page, label: string, iso: string) {
 // literal Bangla string exactly, not a translation lookup.
 const MARK_STAFF_ATTENDANCE_ACTION_LABEL = 'কর্মীর উপস্থিতি নিন';
 
-test('staff attendance + leave request/approval, keyboard only', async ({ page, request }) => {
+test('staff attendance, keyboard only', async ({ page, request }) => {
   const session = await adminApiSession(request);
-  const me = await get<{ id: string; full_name: string; staff_profile_id: string | null }>(
-    request,
-    session,
-    '/users/me',
-  );
-  if (!me.staff_profile_id) {
-    throw new Error('seeded admin has no staff_profile_id — seed.util.ts ensureStaffHrSeed gap');
-  }
-
-  const balanceBefore = await get<{ leave_type: string; balance: number }[]>(
-    request,
-    session,
-    `/leave/balance?staff_profile_id=${me.staff_profile_id}`,
-  );
-  const casualBefore = balanceBefore.find((row) => row.leave_type === 'CASUAL');
-  if (!casualBefore) throw new Error('no CASUAL leave policy seeded for this tenant');
+  const me = await get<{ id: string; full_name: string }>(request, session, '/users/me');
 
   await page.goto('/dashboard');
   await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible();
@@ -102,65 +70,5 @@ test('staff attendance + leave request/approval, keyboard only', async ({ page, 
     ]);
     expect(markResponse.ok()).toBe(true);
     await expect(page.getByText(t('staffAttendance.grid.saved'))).toBeVisible();
-  });
-
-  let leaveRecordId = '';
-
-  await test.step('reach the leave screen via keyboard', async () => {
-    const leaveLink = page.getByRole('link', { name: t('nav.items.leave') });
-    await leaveLink.focus();
-    await page.keyboard.press('Enter');
-    await expect(page.getByRole('heading', { name: t('leave.myLeave.title') })).toBeVisible();
-  });
-
-  await test.step('open the request dialog and submit a leave request', async () => {
-    const requestButton = page.getByRole('button', { name: t('leave.myLeave.requestButton') });
-    await requestButton.focus();
-    await page.keyboard.press('Enter');
-    await expect(page.getByRole('heading', { name: t('leave.request.title') })).toBeVisible();
-
-    // Leave type stays the default (CASUAL) — the ticket only asks for a
-    // request to exist, not to exercise the type dropdown.
-    //
-    // Dates go through the kit `DatePicker`: open it, step back to the target
-    // month (capped), then click the day cell. Real clicks on purpose — this
-    // control has no text input to `.fill()`.
-    await pickDate(page, t('leave.request.startDateLabel'), '2026-03-10');
-    await pickDate(page, t('leave.request.endDateLabel'), '2026-03-11');
-
-    const reasonInput = page.getByLabel(t('leave.request.reasonLabel'));
-    await reasonInput.focus();
-    await page.keyboard.type('Keyboard e2e leave request');
-
-    const submitButton = page.getByRole('button', { name: t('leave.request.submit') });
-    await submitButton.focus();
-    const [requestResponse] = await Promise.all([
-      page.waitForResponse(
-        (r) => r.url().includes('/leave/requests') && r.request().method() === 'POST',
-      ),
-      page.keyboard.press('Enter'),
-    ]);
-    expect(requestResponse.ok()).toBe(true);
-    const created = (await requestResponse.json()) as { id: string };
-    leaveRecordId = created.id;
-    // The dialog closes on success (`onSuccess: () => onOpenChange(false)`).
-    await expect(page.getByRole('heading', { name: t('leave.request.title') })).toBeHidden();
-  });
-
-  await test.step('approve it via the API (no approve-list UI exists yet), then assert the balance decreased', async () => {
-    if (!leaveRecordId) throw new Error('leave request never returned an id');
-    await post(request, session, `/leave/requests/${leaveRecordId}/decide`, { approve: true });
-
-    await page.reload();
-    await expect(page.getByRole('heading', { name: t('leave.myLeave.title') })).toBeVisible();
-
-    const balanceAfter = await get<{ leave_type: string; balance: number }[]>(
-      request,
-      session,
-      `/leave/balance?staff_profile_id=${me.staff_profile_id}`,
-    );
-    const casualAfter = balanceAfter.find((row) => row.leave_type === 'CASUAL');
-    if (!casualAfter) throw new Error('CASUAL policy disappeared after approval');
-    expect(casualAfter.balance).toBeLessThan(casualBefore.balance);
   });
 });

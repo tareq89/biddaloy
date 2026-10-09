@@ -97,7 +97,8 @@
       "homework": "বাড়ির কাজ",
       "records": "রেকর্ড",
       "notes": "নোট",
-      "documents": "কাগজপত্র"
+      "documents": "কাগজপত্র",
+      "applications": "আবেদন"
     },
     "overview": {
       "dateOfBirth": "জন্ম তারিখ",
@@ -288,6 +289,19 @@
       "view": "ফলাফল দেখুন",
       "cardSubtitle": "গ্রেড {{grade}} · জিপিএ {{gpa}}",
       "emptyExplanation": "কোনো পরীক্ষার নম্বর দেওয়া হলে ফলাফল এখানে দেখা যাবে।"
+    },
+    "applicationsTab": {
+      "title": "আবেদন",
+      "subtitle": "{{name}}-এর জন্য জমা পড়া সব আবেদন, নতুনটি আগে।",
+      "newPaper": "কাগজের আবেদন লিখুন",
+      "empty": "এখনো কোনো আবেদন নেই",
+      "emptyExplanation": "অভিভাবক বা শিক্ষার্থী আবেদন করলে এখানে দেখা যাবে।",
+      "error": "আবেদন লোড করা যায়নি।",
+      "seeAll": "সব দেখুন",
+      "paper": "কাগজে জমা",
+      "loading": "আবেদন লোড হচ্ছে…",
+      "typeAndSubject": "ধরন ও বিষয়",
+      "viewLabel": "দেখুন — {{type}} {{serial}}"
     }
   },
   "new": {

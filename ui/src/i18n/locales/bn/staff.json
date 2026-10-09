@@ -148,7 +148,8 @@
       "teachingAssignments": "শিক্ষকের দায়িত্ব",
       "hrRecord": "এইচআর রেকর্ড",
       "loginHistory": "লগইন ইতিহাস",
-      "documents": "ডকুমেন্ট"
+      "documents": "ডকুমেন্ট",
+      "applications": "আবেদন"
     },
     "teachingAssignments": {
       "caption": "এই শিক্ষককে যেসব শ্রেণি ও শাখায় নিয়োগ দেওয়া হয়েছে",
@@ -230,6 +231,19 @@
       "todayTitle": "আজকের উপস্থিতি",
       "monthTitle": "এই মাসের সারসংক্ষেপ",
       "leaveTitle": "ছুটির ব্যালেন্স"
+    },
+    "applicationsTab": {
+      "title": "আবেদন",
+      "subtitle": "{{name}}-এর জন্য জমা পড়া সব আবেদন, নতুনটি আগে।",
+      "newPaper": "কাগজের আবেদন লিখুন",
+      "empty": "এখনো কোনো আবেদন নেই",
+      "emptyExplanation": "অভিভাবক বা শিক্ষার্থী আবেদন করলে এখানে দেখা যাবে।",
+      "error": "আবেদন লোড করা যায়নি।",
+      "seeAll": "সব দেখুন",
+      "paper": "কাগজে জমা",
+      "loading": "আবেদন লোড হচ্ছে…",
+      "typeAndSubject": "ধরন ও বিষয়",
+      "viewLabel": "দেখুন — {{type}} {{serial}}"
     }
   },
   "hrRecord": {
