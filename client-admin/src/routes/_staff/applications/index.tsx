@@ -12,9 +12,17 @@ const applicationsSearchSchema = z.object({
   view: z.enum(['inbox', 'mine', 'all']).optional().catch(undefined),
   type: z.nativeEnum(ApplicationType).optional().catch(undefined),
   status: z.nativeEnum(ApplicationStatus).optional().catch(undefined),
-  from: z.string().optional().catch(undefined),
-  to: z.string().optional().catch(undefined),
-  class_id: z.string().optional().catch(undefined),
+  from: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional()
+    .catch(undefined),
+  to: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional()
+    .catch(undefined),
+  class_id: z.string().uuid().optional().catch(undefined),
   q: z.string().optional().catch(undefined),
   page: z.number().int().positive().optional().catch(undefined),
   limit: z.number().int().positive().optional().catch(undefined),

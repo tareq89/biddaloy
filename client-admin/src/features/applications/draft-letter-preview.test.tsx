@@ -1,7 +1,7 @@
 /** [52.4.2] `DraftLetterPreview` (MSW) and `LetterPreview` (text safety, decision block). */
 import type { LetterPreviewDto } from '@biddaloy/ui/hooks';
 import { cleanupTestState, renderWithProviders, server } from '@biddaloy/ui/test';
-import { screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -53,6 +53,34 @@ describe('DraftLetterPreview', () => {
     expect(document.querySelector('[data-slot="skeleton"]')).toBeTruthy();
   });
 
+  it('keeps the last letter (marked busy) while a changed input loads, no skeleton flash', async () => {
+    let release: () => void = () => {};
+    server.use(
+      http.post('/api/v1/applications/letter-preview', async ({ request }) => {
+        const { payload } = (await request.json()) as { payload: { purpose: string } };
+        if (payload.purpose === 'second') await new Promise<void>((r) => (release = r));
+        return HttpResponse.json({
+          letter_text: `Letter: ${payload.purpose}`,
+          letter_locale: 'en',
+        });
+      }),
+    );
+    const { rerender, localeReady } = renderWithProviders(<DraftLetterPreview input={INPUT} />, {
+      locale: 'en',
+      tenantId: 'tenant-1',
+    });
+    await localeReady;
+    expect(await screen.findByText('Letter: For college admission')).toBeTruthy();
+
+    rerender(<DraftLetterPreview input={{ ...INPUT, payload: { purpose: 'second' } }} />);
+    await waitFor(() => expect(document.querySelector('[aria-busy="true"]')).toBeTruthy());
+    expect(screen.getByText('Letter: For college admission')).toBeTruthy();
+    expect(document.querySelector('[data-slot="skeleton"]')).toBeNull();
+
+    release();
+    expect(await screen.findByText('Letter: second')).toBeTruthy();
+  });
+
   // A 500 is retried twice with backoff (~3 s) before the error shows.
   it('shows ErrorState on a 500 and Retry asks again', { timeout: 20_000 }, async () => {
     let failing = true;
@@ -83,6 +111,13 @@ describe('LetterPreview', () => {
 
   it('splits on blank lines into paragraphs and keeps single newlines as breaks', async () => {
     await render(<LetterPreview text={'one\ntwo\n\nthree'} />, 'en');
+    const paragraphs = document.querySelectorAll('article p');
+    expect(paragraphs).toHaveLength(2);
+    expect(paragraphs[0]?.querySelector('br')).toBeTruthy();
+  });
+
+  it('treats Windows line endings the same way', async () => {
+    await render(<LetterPreview text={'one\r\ntwo\r\n\r\nthree'} />, 'en');
     const paragraphs = document.querySelectorAll('article p');
     expect(paragraphs).toHaveLength(2);
     expect(paragraphs[0]?.querySelector('br')).toBeTruthy();

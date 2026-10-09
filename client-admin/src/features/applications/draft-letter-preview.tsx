@@ -28,5 +28,11 @@ export function DraftLetterPreview({ input }: { input: LetterPreviewDto }) {
       </div>
     );
   }
-  return <LetterPreview draft text={preview.data.letter_text} />;
+  // A new input keeps the last letter on screen (`keepPreviousData`), marked busy, instead of
+  // flashing the skeleton. The host passes a settled input, not every keystroke.
+  return (
+    <div aria-busy={preview.isPlaceholderData || undefined}>
+      <LetterPreview draft text={preview.data.letter_text} />
+    </div>
+  );
 }

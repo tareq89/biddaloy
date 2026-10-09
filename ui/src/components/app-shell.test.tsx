@@ -192,7 +192,10 @@ describe('AppShell', () => {
 
     const link = await screen.findByRole('link', { name: /Applications/ });
     expect(within(link).getByText('5').getAttribute('aria-hidden')).toBe('true');
-    expect(within(link).getByText('5 waiting').className).toContain('sr-only');
+    const srLabel = within(link).getByText('5 waiting');
+    expect(srLabel.className).toContain('sr-only');
+    // Leading space: the name reads "Applications 5 waiting", not "Applications5 waiting".
+    expect(srLabel.textContent).toBe(' 5 waiting');
     expect(within(screen.getByRole('link', { name: 'Dashboard' })).queryByText('5')).toBeNull();
   });
 
