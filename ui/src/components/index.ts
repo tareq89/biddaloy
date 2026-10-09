@@ -32,6 +32,7 @@ export {
 } from './table';
 export { Label, type LabelProps } from './label';
 export { Checkbox, type CheckboxProps } from './checkbox';
+export { Switch, type SwitchProps } from './switch';
 export {
   Form,
   FormControl,
@@ -198,6 +199,7 @@ export {
   type StatusBadgeProps,
   type StatusTone,
   type AttendanceLowStatus,
+  ALERT_SEVERITY_ICON,
 } from './status-badge';
 export {
   AttendanceStatusControl,

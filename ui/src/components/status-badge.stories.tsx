@@ -1,4 +1,5 @@
 import {
+  AlertSeverity,
   CommunicationStatus,
   EnrollmentStatus,
   FeeStatus,
@@ -147,6 +148,20 @@ export const Greyscale: Story = {
     <div className="flex flex-wrap gap-2" style={{ filter: 'grayscale(1)' }}>
       {Object.values(FeeStatus).map((status) => (
         <StatusBadge key={status} domain="fee" status={status} />
+      ))}
+      {Object.values(AlertSeverity).map((status) => (
+        <StatusBadge key={status} domain="alertSeverity" status={status} />
+      ))}
+    </div>
+  ),
+};
+
+/** [67.2.11] Alert severity: three tones, three icon shapes. */
+export const AlertSeverityBadges: Story = {
+  render: () => (
+    <div className="flex flex-wrap gap-2">
+      {Object.values(AlertSeverity).map((status) => (
+        <StatusBadge key={status} domain="alertSeverity" status={status} />
       ))}
     </div>
   ),
