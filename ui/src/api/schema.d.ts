@@ -7507,6 +7507,108 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/attention/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The caller's attention bar counts and top item. */
+        get: operations["AttentionController_summary_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/attention/items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The caller's alert worklist (tab=active) or history. */
+        get: operations["AttentionController_items_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/attention/items/seen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark the caller's own items as seen. */
+        post: operations["AttentionController_seen_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/attention/items/{recipientId}/hide": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Close (hide) one of the caller's non-critical items. */
+        post: operations["AttentionController_hide_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/attention/items/{recipientId}/snooze": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Snooze one of the caller's non-critical items. */
+        post: operations["AttentionController_snooze_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/attention/students/{studentId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Open alerts about one student (staff with student scope). */
+        get: operations["AttentionController_student_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/surveys/mine": {
         parameters: {
             query?: never;
@@ -13784,6 +13886,84 @@ export interface components {
             occurredOn: string;
             description: string;
             createdAt: string;
+        };
+        /** @enum {string} */
+        UserRole: "SUPER_ADMIN" | "ADMIN" | "ACCOUNTANT" | "TEACHER" | "PARENT" | "STUDENT" | "EXECUTIVE" | "OFFICE_STAFF" | "EXAM_CONTROLLER" | "COMMITTEE";
+        /** @enum {string} */
+        AlertSource: "RULE" | "MANUAL";
+        /** @enum {string} */
+        AlertSeverity: "CRITICAL" | "WARNING" | "REMINDER";
+        /** @enum {string} */
+        AlertCategory: "SETUP" | "SYSTEM" | "STRUCTURE" | "ATTENDANCE" | "PERIOD" | "HOMEWORK" | "CLASS" | "STUDY_PLAN" | "FEES" | "EXAMS" | "OFFICE" | "FAMILY" | "COMMON" | "PLATFORM" | "BILLING" | "MANUAL";
+        /** @enum {string} */
+        AlertRecipientState: "OPEN" | "HIDDEN" | "RESOLVED" | "EXPIRED";
+        AlertItemDto: {
+            /** Format: uuid */
+            recipientId: string;
+            /** Format: uuid */
+            alertId: string;
+            ruleKey: string;
+            source: components["schemas"]["AlertSource"];
+            severity: components["schemas"]["AlertSeverity"];
+            category: components["schemas"]["AlertCategory"];
+            state: components["schemas"]["AlertRecipientState"];
+            title: string;
+            why: string;
+            steps: string[];
+            actionLabel?: string;
+            actionUrl?: string;
+            closable: boolean;
+            /** Format: date-time */
+            raisedAt: string;
+            /** Format: date-time */
+            expiresAt?: string;
+            /** Format: date-time */
+            snoozedUntil?: string;
+            studentName?: string;
+            sectionLabel?: string;
+            /** Format: date-time */
+            resolvedAt?: string;
+            resolvedByName?: string;
+        };
+        AttentionSummaryDto: {
+            critical: number;
+            warning: number;
+            reminder: number;
+            /** @description OPEN + HIDDEN active items: bell badge / To-do count (D19). */
+            activeTotal: number;
+            top: components["schemas"]["AlertItemDto"] | null;
+            /** Format: date-time */
+            updatedAt: string | null;
+            staleMinutes: number;
+        };
+        AlertItemsPageDto: {
+            items: components["schemas"]["AlertItemDto"][];
+            total: number;
+        };
+        SeenDto: {
+            recipientIds: string[];
+        };
+        SeenResultDto: {
+            updated: number;
+        };
+        SnoozeDto: {
+            /** @enum {string} */
+            choice: "TWO_HOURS" | "TOMORROW_MORNING" | "NEXT_SCHOOL_DAY" | "DATE";
+            /** @description YYYY-MM-DD, required when choice is DATE. */
+            date?: string;
+        };
+        StudentAlertDto: {
+            /** Format: uuid */
+            alertId: string;
+            ruleKey: string;
+            severity: components["schemas"]["AlertSeverity"];
+            category: components["schemas"]["AlertCategory"];
+            title: string;
+            why: string;
+            /** Format: date-time */
+            raisedAt: string;
+            seenCount: number;
+            recipientCount: number;
         };
         PendingSurveyQuestionDto: {
             id: string;
@@ -33599,6 +33779,224 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["IncidentResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AttentionController_summary_v1: {
+        parameters: {
+            query?: {
+                locale?: "bn" | "en";
+                role?: components["schemas"]["UserRole"];
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttentionSummaryDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AttentionController_items_v1: {
+        parameters: {
+            query?: {
+                locale?: "bn" | "en";
+                role?: components["schemas"]["UserRole"];
+                tab?: "active" | "history";
+                category?: components["schemas"]["AlertCategory"];
+                sectionId?: string;
+                studentId?: string;
+                page?: components["schemas"]["Object"];
+                pageSize?: components["schemas"]["Object"];
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlertItemsPageDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AttentionController_seen_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SeenDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeenResultDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AttentionController_hide_v1: {
+        parameters: {
+            query?: {
+                locale?: "bn" | "en";
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                recipientId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlertItemDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AttentionController_snooze_v1: {
+        parameters: {
+            query?: {
+                locale?: "bn" | "en";
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                recipientId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SnoozeDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlertItemDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AttentionController_student_v1: {
+        parameters: {
+            query?: {
+                locale?: "bn" | "en";
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                studentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudentAlertDto"][];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */

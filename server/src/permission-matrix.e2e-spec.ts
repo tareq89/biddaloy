@@ -160,6 +160,41 @@ export const IDENTITY_SCOPED: IdentityScopedEntry[] = [
       "[13.3.3] self-service: writes only schools.onboarding of the caller's own active tenant (ADMIN only), never a path id.",
   },
   {
+    controller: 'AttentionController',
+    method: 'GET',
+    path: '/attention/summary',
+    reason:
+      "[67.1.07] self-service: only the caller's own alert_recipients rows (user_id from the JWT) in the active tenant.",
+  },
+  {
+    controller: 'AttentionController',
+    method: 'GET',
+    path: '/attention/items',
+    reason:
+      "[67.1.07] self-service: only the caller's own alert_recipients rows (user_id from the JWT) in the active tenant.",
+  },
+  {
+    controller: 'AttentionController',
+    method: 'POST',
+    path: '/attention/items/seen',
+    reason:
+      "[67.1.07] self-service: only the caller's own alert_recipients rows (user_id from the JWT) in the active tenant.",
+  },
+  {
+    controller: 'AttentionController',
+    method: 'POST',
+    path: '/attention/items/:recipientId/hide',
+    reason:
+      "[67.1.07] self-service: only the caller's own alert_recipients rows (user_id from the JWT) in the active tenant.",
+  },
+  {
+    controller: 'AttentionController',
+    method: 'POST',
+    path: '/attention/items/:recipientId/snooze',
+    reason:
+      "[67.1.07] self-service: only the caller's own alert_recipients rows (user_id from the JWT) in the active tenant.",
+  },
+  {
     controller: 'SchoolProfileController',
     method: 'GET',
     path: '/schools/me/profile',

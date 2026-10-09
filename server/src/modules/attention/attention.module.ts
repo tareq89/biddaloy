@@ -7,6 +7,9 @@ import { ATTENTION_QUEUE } from './attention.constants';
 import { AttentionScheduler } from './engine/attention-scheduler';
 import { SchoolsModule } from '../schools/schools.module';
 import { CalendarModule } from '../calendar/calendar.module';
+import { ClassModule } from '../classes/classes.module';
+import { AttentionController } from './api/attention.controller';
+import { AttentionQueryService } from './api/attention-query.service';
 import { Alert } from './entities/alert.entity';
 import { AlertRecipient } from './entities/alert-recipient.entity';
 import { RuleRegistryService } from './rules/rule-registry.service';
@@ -39,6 +42,7 @@ import { BillingRulesModule } from './rules/billing/billing-rules.module';
     DiscoveryModule,
     SchoolsModule,
     CalendarModule,
+    ClassModule,
     SetupRulesModule,
     SystemRulesModule,
     StructureRulesModule,
@@ -55,7 +59,14 @@ import { BillingRulesModule } from './rules/billing/billing-rules.module';
     PlatformRulesModule,
     BillingRulesModule,
   ],
-  providers: [RuleRegistryService, RuleContextService, AlertWriterService, AttentionScheduler],
-  exports: [RuleRegistryService, RuleContextService, AlertWriterService],
+  controllers: [AttentionController],
+  providers: [
+    RuleRegistryService,
+    RuleContextService,
+    AlertWriterService,
+    AttentionScheduler,
+    AttentionQueryService,
+  ],
+  exports: [RuleRegistryService, RuleContextService, AlertWriterService, AttentionQueryService],
 })
 export class AttentionModule {}
