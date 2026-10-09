@@ -1195,6 +1195,8 @@ export interface StudyPlanScene {
   classId: string;
   className: string;
   academicYearId: string;
+  /** `YYYY-MM-DD` the academic year starts (a routine slot is valid from then). */
+  yearStart: string;
   /** Two fresh sections of the seeded Class 6: a spec's own, so no earlier run's deliveries get in the way. */
   sectionAId: string;
   sectionAName: string;
@@ -1239,6 +1241,12 @@ export async function createStudyPlanScene(
       subject_id: subject.id,
     });
   }
+  const calendarSettings = await get<{ currentAcademicYear?: { start_date: string } | null }>(
+    request,
+    admin,
+    '/calendar-settings',
+  );
+  const calendarYearStart = calendarSettings.currentAcademicYear?.start_date ?? '2026-01-01';
   const routines = await get<{ id: string; academic_year_id: string; state: string }[]>(
     request,
     admin,
@@ -1258,6 +1266,7 @@ export async function createStudyPlanScene(
     classId: sectionA.classId,
     className: sectionA.className,
     academicYearId: sectionA.academicYearId,
+    yearStart: calendarYearStart,
     sectionAId: sectionOne.id,
     sectionAName: sectionOne.name,
     sectionBId: sectionTwo.id,
@@ -1288,7 +1297,7 @@ export async function addRoutineSlot(
       weekday: slot.weekday,
       subject_id: slot.subjectId ?? scene.subject.id,
       recurrence: 'WEEKLY',
-      valid_from: '2026-01-01',
+      valid_from: scene.yearStart,
       teacher_ids: [scene.teacher.teacherId],
     },
   );
