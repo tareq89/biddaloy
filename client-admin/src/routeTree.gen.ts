@@ -111,6 +111,7 @@ import { Route as StaffAcademicsHomeworkIndexRouteImport } from './routes/_staff
 import { Route as StaffAcademicsHomeworkHomeworkIdRouteImport } from './routes/_staff/academics/homework/$homeworkId'
 import { Route as StaffAcademicsHomeworkImportRouteImport } from './routes/_staff/academics/homework/import'
 import { Route as StaffAcademicsHomeworkNewRouteImport } from './routes/_staff/academics/homework/new'
+import { Route as StaffAcademicsStudyPlansPlanIdRouteImport } from './routes/_staff/academics/study-plans/$planId'
 import { Route as StaffAcademicsSyllabusIndexRouteImport } from './routes/_staff/academics/syllabus/index'
 import { Route as StaffAdmissionsApplicantsIndexRouteImport } from './routes/_staff/admissions/applicants/index'
 import { Route as StaffAdmissionsApplicantsApplicantIdRouteImport } from './routes/_staff/admissions/applicants/$applicantId'
@@ -658,6 +659,12 @@ const StaffAcademicsHomeworkNewRoute =
     path: '/academics/homework/new',
     getParentRoute: () => StaffRoute,
   } as any)
+const StaffAcademicsStudyPlansPlanIdRoute =
+  StaffAcademicsStudyPlansPlanIdRouteImport.update({
+    id: '/academics/study-plans/$planId',
+    path: '/academics/study-plans/$planId',
+    getParentRoute: () => StaffRoute,
+  } as any)
 const StaffAcademicsSyllabusIndexRoute =
   StaffAcademicsSyllabusIndexRouteImport.update({
     id: '/academics/syllabus/',
@@ -899,6 +906,7 @@ export interface FileRoutesByFullPath {
   '/academics/homework/$homeworkId': typeof StaffAcademicsHomeworkHomeworkIdRoute
   '/academics/homework/import': typeof StaffAcademicsHomeworkImportRoute
   '/academics/homework/new': typeof StaffAcademicsHomeworkNewRoute
+  '/academics/study-plans/$planId': typeof StaffAcademicsStudyPlansPlanIdRoute
   '/admissions/applicants/$applicantId': typeof StaffAdmissionsApplicantsApplicantIdRoute
   '/admissions/intakes/$intakeId': typeof StaffAdmissionsIntakesIntakeIdRoute
   '/attendance/staff/leave': typeof StaffAttendanceStaffLeaveRoute
@@ -1023,6 +1031,7 @@ export interface FileRoutesByTo {
   '/academics/homework/$homeworkId': typeof StaffAcademicsHomeworkHomeworkIdRoute
   '/academics/homework/import': typeof StaffAcademicsHomeworkImportRoute
   '/academics/homework/new': typeof StaffAcademicsHomeworkNewRoute
+  '/academics/study-plans/$planId': typeof StaffAcademicsStudyPlansPlanIdRoute
   '/admissions/applicants/$applicantId': typeof StaffAdmissionsApplicantsApplicantIdRoute
   '/admissions/intakes/$intakeId': typeof StaffAdmissionsIntakesIntakeIdRoute
   '/attendance/staff/leave': typeof StaffAttendanceStaffLeaveRoute
@@ -1152,6 +1161,7 @@ export interface FileRoutesById {
   '/_staff/academics/homework/$homeworkId': typeof StaffAcademicsHomeworkHomeworkIdRoute
   '/_staff/academics/homework/import': typeof StaffAcademicsHomeworkImportRoute
   '/_staff/academics/homework/new': typeof StaffAcademicsHomeworkNewRoute
+  '/_staff/academics/study-plans/$planId': typeof StaffAcademicsStudyPlansPlanIdRoute
   '/_staff/admissions/applicants/$applicantId': typeof StaffAdmissionsApplicantsApplicantIdRoute
   '/_staff/admissions/intakes/$intakeId': typeof StaffAdmissionsIntakesIntakeIdRoute
   '/_staff/attendance/staff/leave': typeof StaffAttendanceStaffLeaveRoute
@@ -1280,6 +1290,7 @@ export interface FileRouteTypes {
     | '/academics/homework/$homeworkId'
     | '/academics/homework/import'
     | '/academics/homework/new'
+    | '/academics/study-plans/$planId'
     | '/admissions/applicants/$applicantId'
     | '/admissions/intakes/$intakeId'
     | '/attendance/staff/leave'
@@ -1404,6 +1415,7 @@ export interface FileRouteTypes {
     | '/academics/homework/$homeworkId'
     | '/academics/homework/import'
     | '/academics/homework/new'
+    | '/academics/study-plans/$planId'
     | '/admissions/applicants/$applicantId'
     | '/admissions/intakes/$intakeId'
     | '/attendance/staff/leave'
@@ -1532,6 +1544,7 @@ export interface FileRouteTypes {
     | '/_staff/academics/homework/$homeworkId'
     | '/_staff/academics/homework/import'
     | '/_staff/academics/homework/new'
+    | '/_staff/academics/study-plans/$planId'
     | '/_staff/admissions/applicants/$applicantId'
     | '/_staff/admissions/intakes/$intakeId'
     | '/_staff/attendance/staff/leave'
@@ -2294,6 +2307,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StaffAcademicsHomeworkNewRouteImport
       parentRoute: typeof StaffRoute
     }
+    '/_staff/academics/study-plans/$planId': {
+      id: '/_staff/academics/study-plans/$planId'
+      path: '/academics/study-plans/$planId'
+      fullPath: '/academics/study-plans/$planId'
+      preLoaderRoute: typeof StaffAcademicsStudyPlansPlanIdRouteImport
+      parentRoute: typeof StaffRoute
+    }
     '/_staff/academics/syllabus/': {
       id: '/_staff/academics/syllabus/'
       path: '/academics/syllabus'
@@ -2576,6 +2596,7 @@ interface StaffRouteChildren {
   StaffAcademicsHomeworkHomeworkIdRoute: typeof StaffAcademicsHomeworkHomeworkIdRoute
   StaffAcademicsHomeworkImportRoute: typeof StaffAcademicsHomeworkImportRoute
   StaffAcademicsHomeworkNewRoute: typeof StaffAcademicsHomeworkNewRoute
+  StaffAcademicsStudyPlansPlanIdRoute: typeof StaffAcademicsStudyPlansPlanIdRoute
   StaffAdmissionsApplicantsApplicantIdRoute: typeof StaffAdmissionsApplicantsApplicantIdRoute
   StaffAdmissionsIntakesIntakeIdRoute: typeof StaffAdmissionsIntakesIntakeIdRoute
   StaffAttendanceStaffLeaveRoute: typeof StaffAttendanceStaffLeaveRoute
@@ -2666,6 +2687,7 @@ const StaffRouteChildren: StaffRouteChildren = {
   StaffAcademicsHomeworkHomeworkIdRoute: StaffAcademicsHomeworkHomeworkIdRoute,
   StaffAcademicsHomeworkImportRoute: StaffAcademicsHomeworkImportRoute,
   StaffAcademicsHomeworkNewRoute: StaffAcademicsHomeworkNewRoute,
+  StaffAcademicsStudyPlansPlanIdRoute: StaffAcademicsStudyPlansPlanIdRoute,
   StaffAdmissionsApplicantsApplicantIdRoute:
     StaffAdmissionsApplicantsApplicantIdRoute,
   StaffAdmissionsIntakesIntakeIdRoute: StaffAdmissionsIntakesIntakeIdRoute,
