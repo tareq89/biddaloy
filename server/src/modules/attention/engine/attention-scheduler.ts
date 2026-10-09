@@ -191,7 +191,10 @@ export class AttentionScheduler extends WorkerHost implements OnModuleInit, OnMo
         if (ctx.localTime < slot) continue;
         if (!(await this.claimDaily(tenantId, key, ctx.localDate))) continue;
       }
-      await this.runRule(ctx, rule);
+      const ok = await this.runRule(ctx, rule);
+      // A failed DAILY run must be retried on the next tick, not skipped until tomorrow.
+      if (!ok && cadence === AlertCadence.DAILY)
+        await this.releaseDaily(tenantId, key, ctx.localDate);
     }
     if (
       cadence === AlertCadence.DAILY &&
@@ -218,20 +221,30 @@ export class AttentionScheduler extends WorkerHost implements OnModuleInit, OnMo
     }
   }
 
+  private async releaseDaily(tenantId: string, key: string, localDate: string): Promise<void> {
+    try {
+      await this.redis.del(attentionKeys.dailyMarker(tenantId, key, localDate));
+    } catch (e) {
+      this.logger.error(`daily marker release failed: ${String(e)}`);
+    }
+  }
+
   private async prune(tenantId: string, now: Date): Promise<void> {
     const cutoff = new Date(now);
     cutoff.setMonth(cutoff.getMonth() - ATTENTION_RETENTION_MONTHS);
     await this.dataSource.query(
-      `DELETE FROM alerts WHERE tenant_id = $1 AND status <> 'ACTIVE' AND raised_at < $2`,
+      `DELETE FROM alerts WHERE tenant_id = $1 AND status <> 'ACTIVE' AND COALESCE(resolved_at, raised_at) < $2`,
       [tenantId, cutoff],
     );
   }
 
-  async runRule(ctx: RuleContext, rule: AttentionRule): Promise<void> {
+  /** Returns false when the rule failed (recorded, never thrown). */
+  async runRule(ctx: RuleContext, rule: AttentionRule): Promise<boolean> {
     try {
       // ponytail: the losing evaluate keeps running in the background; cancel via AbortSignal if it ever matters.
       const findings = await withBudget(rule.evaluate(ctx), ATTENTION_RULE_BUDGET_MS);
       await this.writer.apply(ctx, rule, findings);
+      return true;
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       this.logger.error(`Rule ${rule.meta.key} failed for tenant ${ctx.tenantId}: ${message}`);
@@ -249,6 +262,7 @@ export class AttentionScheduler extends WorkerHost implements OnModuleInit, OnMo
       } catch (re) {
         this.logger.error(`failing-rule record failed: ${String(re)}`);
       }
+      return false;
     }
   }
 
