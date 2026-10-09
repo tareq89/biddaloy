@@ -21,30 +21,28 @@ export function addDaysIso(dateIso: string, n: number): string {
   return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10);
 }
 
-/**
- * Wall-clock `dateIso hhmm` in `tz` -> UTC instant.
- * ponytail: one correction pass; exact for fixed-offset zones (Asia/Dhaka), may be an
- * hour off across a DST jump. Loop the correction if a DST tenant ever appears.
- */
+/** Wall-clock `dateIso hhmm` in `tz` -> UTC instant. Second pass: right across a DST jump. */
 export function localDateTimeToUtc(dateIso: string, hhmm: string, tz: string): Date {
   const [y, m, d] = dateIso.split('-').map(Number);
   const [h, min] = hhmm.split(':').map(Number);
-  const guess = Date.UTC(y, m - 1, d, h, min);
-  const p = Object.fromEntries(
-    new Intl.DateTimeFormat('en-US', {
-      timeZone: tz,
-      hourCycle: 'h23',
-      year: 'numeric',
-      month: 'numeric',
-      day: 'numeric',
-      hour: 'numeric',
-      minute: 'numeric',
-    })
-      .formatToParts(new Date(guess))
-      .map((x) => [x.type, Number(x.value)]),
-  );
-  const offsetMs = Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute) - guess;
-  return new Date(guess - offsetMs);
+  const wall = Date.UTC(y, m - 1, d, h, min);
+  const fmt = new Intl.DateTimeFormat('en-US', {
+    timeZone: tz,
+    hourCycle: 'h23',
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: 'numeric',
+  });
+  const offsetAt = (ms: number) => {
+    const p = Object.fromEntries(
+      fmt.formatToParts(new Date(ms)).map((x) => [x.type, Number(x.value)]),
+    );
+    return Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute) - ms;
+  };
+  // first guess uses the offset at the wall time read as UTC; re-take it at the corrected instant
+  return new Date(wall - offsetAt(wall - offsetAt(wall)));
 }
 
 export function endOfLocalDay(dateIso: string, tz: string): Date {
