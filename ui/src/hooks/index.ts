@@ -1263,6 +1263,26 @@ export {
   type IncidentType,
 } from './incidents';
 export {
+  attentionKeys,
+  useAttentionItems,
+  useAttentionSummary,
+  usePlatformAttentionHealth,
+  useStudentAttention,
+} from './attention/use-attention-queries';
+export {
+  useHideAttentionItem,
+  useMarkAttentionSeen,
+  useSnoozeAttentionItem,
+} from './attention/use-attention-mutations';
+export type {
+  AlertItem,
+  AlertItemsPage,
+  AttentionItemsQuery,
+  AttentionSummary,
+  PlatformAttentionHealth,
+  StudentAlert,
+} from '../api/attention';
+export {
   classPerformanceQueryOptions,
   staffPerformanceQueryOptions,
   studentPerformanceQueryOptions,

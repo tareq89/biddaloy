@@ -1,5 +1,6 @@
 import type {
   BackupScheduleMode,
+  AttentionSettings,
   DocumentsSettings,
   EvaluationsSettings,
   InvitationStatus,
@@ -175,6 +176,8 @@ export interface MaskedTenantSettings {
   fees?: FeesSettings;
   /** [28.4.3] Not secret data. */
   evaluations?: EvaluationsSettings;
+  /** [67.2.01] Not secret data. */
+  attention?: AttentionSettings;
   /** [48.3.C-02] Not secret data. */
   documents?: DocumentsSettings;
   organisation?: OrganisationSettings;

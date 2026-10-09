@@ -30,3 +30,9 @@ export { communicationFactory, type Communication } from './communication.factor
 export { auditEntryFactory, type AuditEntry } from './audit-log.factory';
 export { examFactory, type Exam } from './exam.factory';
 export { examComponentFactory, type ExamComponent } from './exam-component.factory';
+export {
+  alertItemFactory,
+  attentionSummaryFactory,
+  platformAttentionHealthFactory,
+  studentAlertFactory,
+} from './attention.factory';
