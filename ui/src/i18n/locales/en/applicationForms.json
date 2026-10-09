@@ -33,7 +33,7 @@
     "pick": "Choose"
   },
   "help": {
-    "balanceLeft": "Left this year: {{count}} days",
+    "balanceLeft": "Left this year: {{balance}} days",
     "unlimited": "No limit",
     "backdate": "You can also apply for leave on past dates.",
     "feeTypesAll": "Leave empty to cover all fees."
