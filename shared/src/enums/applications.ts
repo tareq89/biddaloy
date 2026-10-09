@@ -19,10 +19,12 @@ export enum ApplicationType {
 
 export enum ApplicationStatus {
   PENDING = 'PENDING',
+  /** D15: any decider may park it; the step does not advance. */
+  UNDER_CONSIDERATION = 'UNDER_CONSIDERATION',
   APPROVED = 'APPROVED',
   REJECTED = 'REJECTED',
-  FULFILLED = 'FULFILLED',
   WITHDRAWN = 'WITHDRAWN',
+  /** D31: approved leave only. */
   CANCELLED = 'CANCELLED',
 }
 
@@ -33,14 +35,15 @@ export enum ApplicationSource {
 
 export enum ApplicationEventKind {
   SUBMITTED = 'SUBMITTED',
-  FORWARDED = 'FORWARDED',
+  /** A non-final step approved; the application moves to the next step. */
+  STEP_APPROVED = 'STEP_APPROVED',
   APPROVED = 'APPROVED',
   REJECTED = 'REJECTED',
+  UNDER_CONSIDERATION = 'UNDER_CONSIDERATION',
   WITHDRAWN = 'WITHDRAWN',
   CANCELLED = 'CANCELLED',
-  FULFILLED = 'FULFILLED',
-  COMMENTED = 'COMMENTED',
-  OVERRIDDEN = 'OVERRIDDEN',
+  COMMENT = 'COMMENT',
+  TAGGED = 'TAGGED',
 }
 
 /** D30 */
