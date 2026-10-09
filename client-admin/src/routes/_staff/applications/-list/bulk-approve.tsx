@@ -100,7 +100,7 @@ export function BulkApproveButton({
         })}
         description={
           excluded > 0
-            ? `${t('bulk.confirmBody')} ${t('bulk.feeWaiverExcluded', { n: formatNumber(excluded, config) })}`
+            ? t('bulk.confirmBodyExcluded', { n: formatNumber(excluded, config) })
             : t('bulk.confirmBody')
         }
         confirmLabel={t('bulk.confirm')}

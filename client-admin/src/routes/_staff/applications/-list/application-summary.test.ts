@@ -23,7 +23,7 @@ const cases: [ApplicationType, Partial<Row>, { en: string; bn: string }][] = [
   [
     ApplicationType.STUDENT_LEAVE,
     { start_date: '2026-10-08', end_date: '2026-10-08' },
-    { en: '1 days', bn: '১ দিন' },
+    { en: '1 day', bn: '১ দিন' },
   ],
   [
     ApplicationType.FEE_WAIVER,
