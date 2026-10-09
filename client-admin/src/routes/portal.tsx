@@ -18,6 +18,7 @@ import * as React from 'react';
 
 import { CommandPaletteLauncher } from '../components/command-palette-launcher';
 import { StaffUserMenu } from '../components/staff-user-menu';
+import { useAttentionCenter } from '../features/attention/attention-center';
 import { MORE_ICON, PORTAL_NAV_ICONS } from '../nav-icons';
 import { isPathUnder } from '../nav-tree';
 import { loadRouteNamespaces } from '../route-loaders';
@@ -55,7 +56,7 @@ export const Route = createFileRoute('/portal')({
   // [8.14.5]: same reasoning as `_staff.tsx`'s own loader — this
   // layout's chrome renders `nav` strings on every navigation, and
   // `portal` covers the guardian-facing leaf routes underneath it.
-  loader: () => loadRouteNamespaces('nav', 'portal'),
+  loader: () => loadRouteNamespaces('nav', 'portal', 'attention'),
   component: PortalLayout,
 });
 
@@ -204,6 +205,7 @@ function PortalLayout() {
     i.to === '/portal' ? pathname === '/portal' : isPathUnder(pathname, i.to),
   );
   const schoolName = useActiveSchoolName();
+  const attention = useAttentionCenter({ todoTo: '/portal/notifications' });
 
   return (
     <RequireRole allow={GUARDIAN_ROLES} redirectTo="/dashboard">
@@ -220,7 +222,7 @@ function PortalLayout() {
                 <>
                   <SyncStatusIndicator />
                   <CommandPaletteLauncher pages={portalPages} />
-                  <NotificationBell />
+                  <NotificationBell viewAllTo="/portal/notifications" attention={attention.bell} />
                   <LocaleSwitcher />
                   <ThemeToggle />
                   <StaffUserMenu securityTo="/portal/account" />
@@ -242,7 +244,7 @@ function PortalLayout() {
         mobileActions={
           <>
             <CommandPaletteLauncher pages={portalPages} />
-            <NotificationBell />
+            <NotificationBell viewAllTo="/portal/notifications" attention={attention.bell} />
             <StaffUserMenu securityTo="/portal/account" />
           </>
         }
@@ -258,6 +260,8 @@ function PortalLayout() {
           />
         }
       >
+        {attention.bar}
+        {attention.modal}
         {breadcrumbItems.length > 0 && (
           <Breadcrumbs
             items={breadcrumbItems}

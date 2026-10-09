@@ -640,6 +640,11 @@
       "archetype": "list"
     },
     {
+      "path": "/portal/notifications",
+      "role": "parent",
+      "archetype": "list"
+    },
+    {
       "path": "/portal/surveys",
       "role": "parent",
       "archetype": "list"
