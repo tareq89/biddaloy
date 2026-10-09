@@ -5,6 +5,7 @@ import {
   addRoutineSlot,
   adminApiSession,
   createOfferedSubject,
+  detachOfferedSubjects,
   createStudyPlan,
   createStudyPlanScene,
   get,
@@ -55,11 +56,15 @@ function markingDay(cal: SchoolCalendar): string {
 
 let slotIds: string[] = [];
 let planIds: string[] = [];
+/** Subjects offered to the seeded class by a test (see `detachOfferedSubjects`). */
+let offered: { classId: string; academicYearId: string; subjectIds: string[] } | null = null;
 test.afterEach(async ({ request }) => {
-  if (slotIds.length === 0 && planIds.length === 0) return;
+  if (slotIds.length === 0 && planIds.length === 0 && !offered) return;
   const admin = await adminApiSession(request);
   for (const id of planIds) await rawRequest(request, admin, 'DELETE', `/study-plans/${id}`);
   await removeRoutineSlots(request, admin, slotIds);
+  if (offered) await detachOfferedSubjects(request, admin, offered, offered.subjectIds);
+  offered = null;
   slotIds = [];
   planIds = [];
 });
@@ -133,6 +138,7 @@ test('teacher reports taught and not taught, a no-plan period has no buttons, th
   const suffix = crypto.randomUUID().slice(0, 6);
   const scene = await createStudyPlanScene(ctx, admin, `Mark ${suffix}`);
   const noPlanSubject = await createOfferedSubject(ctx, admin, scene, `Mark ${suffix} Extra`);
+  offered = { ...scene, subjectIds: [scene.subject.id, noPlanSubject.id] };
   const cal = await schoolCalendar(ctx, admin);
   const day = markingDay(cal);
   const yesterday = addDaysIso(day, -1);
@@ -183,9 +189,14 @@ test('teacher reports taught and not taught, a no-plan period has no buttons, th
     });
 
     await test.step('period 1 taught -> Reported', async () => {
-      await expect(card(page, 1)).toContainText(
-        t('routines.marking.lessonLine', { no: 1, title: 'Marking lesson 1' }),
-      );
+      // A period from before the plan existed has no lesson to show (it is not owed): only today does.
+      if (day === cal.today) {
+        await expect(card(page, 1)).toContainText(
+          t('routines.marking.lessonLine', { no: 1, title: 'Marking lesson 1' }),
+        );
+      } else {
+        await expect(card(page, 1)).not.toContainText(t('routines.marking.todaysLesson'));
+      }
       await mark(page, 1, 'taught');
       await expect(card(page, 1).getByText(t('routines.marking.badge.reported'))).toBeVisible();
     });
@@ -259,6 +270,7 @@ test.describe('needs today to be a school day (the server records against its ow
     const suffix = crypto.randomUUID().slice(0, 6);
     const scene = await createStudyPlanScene(ctx, admin, `Move ${suffix}`);
     const noPlanSubject = await createOfferedSubject(ctx, admin, scene, `Move ${suffix} Extra`);
+    offered = { ...scene, subjectIds: [scene.subject.id, noPlanSubject.id] };
     const w = weekdayOf(today);
     // Periods 1-3 of today are the plan's subject, period 5 has no plan; the same slots repeat weekly,
     // so the lessons that do not fit today land on later weeks.
