@@ -133,6 +133,11 @@ export function mergeTenantSettings(
     merged.evaluations = patch.evaluations;
   }
 
+  // [52.2.6] Wholesale replace, like `evaluations`; the DTO validates the one boolean.
+  if (patch.applications !== undefined) {
+    merged.applications = patch.applications;
+  }
+
   // [48.1.03] Shallow-merged like `attendance`: both fields are optional, so a
   // partial PATCH must not reset `withholdAdmitCardForDues`. `serialPrefix: null` clears it.
   if (patch.documents !== undefined) {

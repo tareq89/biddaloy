@@ -765,6 +765,24 @@ describe('TenantSettingsDto', () => {
     });
   });
 
+  describe('applications', () => {
+    const withApplications = (applications: unknown) =>
+      toDto({ version: TENANT_SETTINGS_SCHEMA_VERSION, applications });
+
+    it('[52.2.6] accepts smsOnDecision true/false and an omitted value', async () => {
+      for (const applications of [{ smsOnDecision: true }, { smsOnDecision: false }, {}]) {
+        const errors = await validate(withApplications(applications), VALIDATION_OPTIONS);
+        expect(errors.find((e) => e.property === 'applications')).toBeUndefined();
+      }
+    });
+
+    it('[52.2.6] rejects a non-boolean smsOnDecision', async () => {
+      const errors = await validate(withApplications({ smsOnDecision: 'yes' }), VALIDATION_OPTIONS);
+      const err = errors.find((e) => e.property === 'applications');
+      expect(err?.children?.some((e) => e.property === 'smsOnDecision')).toBe(true);
+    });
+  });
+
   // `organisation.{shifts,versions,groups}` (33.1.1) — a tenant's own
   // vocabulary for shift/version/group. Same validation on all three lists.
   it('rejects a body containing preset (35.1.2, D37)', async () => {
