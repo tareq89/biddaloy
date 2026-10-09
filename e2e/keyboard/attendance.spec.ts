@@ -94,24 +94,22 @@ test('teacher marks and submits a whole section without touching the mouse', asy
     ).toBeVisible();
   });
 
-  await test.step('open the only mapped section', async () => {
-    await tabUntilFocused(page, chain.className);
-    await page.keyboard.press('Enter');
-    await expect(
-      page.getByRole('heading', { name: `${chain.className} – A`, exact: false }),
-    ).toBeVisible();
-  });
-
   const markDate = markableDateIso();
 
-  await test.step('move to a date the register accepts', async () => {
-    // The section link lands on today's register. On the tenant's weekly
-    // off day that register is read-only — every roster button is
-    // disabled, so Tab can never reach one. `?date=` is the same seam
-    // `journeys/attendance.spec.ts` uses; the date field isn't an option
-    // here because it writes the tenant's numerals into the URL, which the
-    // route's search schema rejects (falling back to today).
-    await page.goto(`/attendance/${chain.sectionId}?date=${markDate}`);
+  await test.step('open the only mapped section, on a date the register accepts', async () => {
+    // [41.4.1]: on the tenant's weekly off day the check-list shows "school
+    // is closed" instead of the sections, and the register is read-only, so
+    // Tab could never reach a section link or a roster button. `?date=` is the
+    // same seam `journeys/attendance-ops.spec.ts` uses; the date field isn't
+    // an option here because it writes the tenant's numerals into the URL,
+    // which the route's search schema rejects (falling back to today). The
+    // section link carries the list's date on to the register.
+    await page.goto(`/attendance?date=${markDate}`);
+    await expect(
+      page.getByRole('heading', { level: 1, name: t('attendance.list.title') }),
+    ).toBeVisible();
+    await tabUntilFocused(page, chain.className);
+    await page.keyboard.press('Enter');
     await expect(
       page.getByRole('heading', { name: `${chain.className} – A`, exact: false }),
     ).toBeVisible();
