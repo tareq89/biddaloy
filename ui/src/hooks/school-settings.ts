@@ -1,4 +1,5 @@
 import type {
+  ApplicationsSettings,
   BackupScheduleMode,
   DocumentsSettings,
   EvaluationsSettings,
@@ -178,6 +179,8 @@ export interface MaskedTenantSettings {
   evaluations?: EvaluationsSettings;
   /** [48.3.C-02] Not secret data. */
   documents?: DocumentsSettings;
+  /** [52.5.7] Not secret data. */
+  applications?: ApplicationsSettings;
   organisation?: OrganisationSettings;
   /** [21.7.1] Not secret data, same reasoning as `attendance` above. */
   routine?: RoutineSettingsInput;
