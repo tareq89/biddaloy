@@ -150,6 +150,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     label: { en: "Today's pending attendance", bn: 'আজকের বাকি উপস্থিতি' },
     permission: Permission.ATTENDANCE_READ,
     kind: 'navigate',
+    group: 'attendance',
     run: (ctx) => ctx.navigate({ to: '/attendance?status=pending' }),
   },
   {
@@ -157,6 +158,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     label: { en: 'Edit monthly register', bn: 'মাসিক খাতা সম্পাদনা' },
     permission: Permission.ATTENDANCE_MARK,
     kind: 'navigate',
+    group: 'attendance',
     run: (ctx) => ctx.navigate({ to: '/attendance/register?edit=true' }),
   },
   // [36.4] Mirrors `attendance.take` above — permission copied verbatim
