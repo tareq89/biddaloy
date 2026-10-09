@@ -55,6 +55,7 @@ export interface ApplicationsSeedRepositories {
 const PARENT_EMAIL = 'parent@biddaloy.test';
 const TEACHER_EMAIL = 'teacher@biddaloy.test';
 const OFFICE_EMAIL = 'office@biddaloy.test';
+const STUDENT_EMAIL = 'student@biddaloy.test';
 
 /**
  * [52.2.7] One PENDING application per type (all but READMISSION, which needs a non-active
@@ -72,6 +73,7 @@ export async function ensureApplicationsSeed(
     console.log('Applications already seeded — skipping.');
     await ensureDecidedApplicationsSeed(repos, tenantId, adminUserId);
     await ensureScreenApplicationsSeed(repos, tenantId);
+    await ensurePortalApplicationsSeed(repos, tenantId, adminUserId);
     return;
   }
   // The staff filer is the demo teacher, not "the first profile" (that one is the admin).
@@ -207,6 +209,7 @@ export async function ensureApplicationsSeed(
   await ports.comment(tenantId, admin, studentLeave.id, 'অভিভাবকের সাথে যোগাযোগ করা হয়েছে।');
   await ensureDecidedApplicationsSeed(repos, tenantId, adminUserId);
   await ensureScreenApplicationsSeed(repos, tenantId);
+  await ensurePortalApplicationsSeed(repos, tenantId, adminUserId);
 }
 
 type SeedStudent = { id: string; class_section_id: string };
@@ -688,4 +691,147 @@ export async function ensureScreenApplicationsSeed(
     );
   });
   console.log('Screen applications seeded (6 rows).');
+}
+
+const PORTAL_SEED_MARK = 'Demo portal application.';
+
+/**
+ * [52.6.4] What the guardian/student portal screens need beyond the staff seeds, for the
+ * guardian's first child (the one `parent@biddaloy.test` is linked to): `student@biddaloy.test`
+ * becomes that child's own login (no seed linked it before), one APPROVED STUDENT_LEAVE the
+ * student filed themself (D43: the guardian still sees it), and one REJECTED TESTIMONIAL with a
+ * reason. The PENDING leave and the PAPER entry come from `ensureApplicationsSeed`. Written as
+ * rows like the decided seed. Idempotent: `letter_text` carries a mark. Leave on Thu 12 March:
+ * clear of every other seeded leave and of the BD holidays (17, 20-22, 26 March).
+ */
+export async function ensurePortalApplicationsSeed(
+  repos: ApplicationsSeedRepositories,
+  tenantId: string,
+  adminUserId: string,
+): Promise<void> {
+  const m = repos.applicationRepository.manager;
+  const [done] = await m.query(
+    `SELECT 1 FROM applications WHERE tenant_id = $1 AND letter_text = $2 LIMIT 1`,
+    [tenantId, PORTAL_SEED_MARK],
+  );
+  if (done) return;
+  const [child]: { id: string; class_section_id: string; user_id: string | null }[] = await m.query(
+    `SELECT s.id, s.class_section_id, s.user_id FROM students s
+         JOIN student_guardians sg ON sg.student_id = s.id
+         JOIN guardians g ON g.id = sg.guardian_id AND g.tenant_id = s.tenant_id
+         JOIN users u ON u.id = g.user_id
+        WHERE s.tenant_id = $1 AND u.email = $2 AND s.deleted_at IS NULL
+        ORDER BY s.registration_number LIMIT 1`,
+    [tenantId, PARENT_EMAIL],
+  );
+  const [studentUser] = await m.query(`SELECT id FROM users WHERE email = $1`, [STUDENT_EMAIL]);
+  const [parentUser] = await m.query(`SELECT id FROM users WHERE email = $1`, [PARENT_EMAIL]);
+  if (!child || !studentUser || !parentUser) {
+    console.warn('Parent child / student login not found — skipping portal applications seed.');
+    return;
+  }
+  const [teacherRow] = await m.query(
+    `SELECT t.user_id FROM teacher_class_sections tcs
+       JOIN teachers t ON t.id = tcs.teacher_id AND t.tenant_id = tcs.tenant_id
+      WHERE tcs.tenant_id = $1 AND tcs.section_id = $2 AND tcs.assignment_type = 'CLASS_TEACHER'
+      ORDER BY t.user_id LIMIT 1`,
+    [tenantId, child.class_section_id],
+  );
+  const decider: string = teacherRow?.user_id ?? adminUserId;
+  const [year] = await m.query(`SELECT id FROM academic_years WHERE tenant_id = $1 AND name = $2`, [
+    tenantId,
+    DEMO_ACADEMIC_YEAR.name,
+  ]);
+
+  await m.transaction(async (tx) => {
+    // One login per student: only link if neither side is taken.
+    await tx.query(
+      `UPDATE students SET user_id = $2 WHERE id = $1 AND user_id IS NULL
+          AND NOT EXISTS (SELECT 1 FROM students WHERE user_id = $2)`,
+      [child.id, studentUser.id],
+    );
+    const [{ y, n }] = await tx.query(
+      `SELECT y, coalesce((SELECT max(serial_no) FROM applications
+                            WHERE tenant_id = $1 AND serial_year = y), 0) AS n
+         FROM (SELECT coalesce(max(serial_year), 2026) AS y FROM applications WHERE tenant_id = $1) t`,
+      [tenantId],
+    );
+    let serialNo = Number(n);
+    const insert = async (r: {
+      type: ApplicationType;
+      status: ApplicationStatus;
+      applicant: string;
+      payload: Record<string, unknown>;
+      day?: string;
+      effect?: Record<string, unknown>;
+      events: { kind: ApplicationEventKind; actor: string; note?: string }[];
+    }): Promise<void> => {
+      serialNo += 1;
+      const [{ id }] = await tx.query(
+        `INSERT INTO applications (tenant_id, type, status, source, serial_year, serial_no,
+           academic_year_id, applicant_user_id, subject_student_id, payload, start_date, end_date,
+           current_step, letter_text, letter_locale, effect_result, decided_by_user_id, decided_at)
+         VALUES ($1,$2,$3,'APP',$4,$5,$6,$7,$8,$9::jsonb,$10,$10,0,$11,'bn',$12::jsonb,$13,now())
+         RETURNING id`,
+        [
+          tenantId,
+          r.type,
+          r.status,
+          Number(y),
+          serialNo,
+          year?.id ?? null,
+          r.applicant,
+          child.id,
+          JSON.stringify(r.payload),
+          r.day ?? null,
+          PORTAL_SEED_MARK,
+          r.effect ? JSON.stringify(r.effect) : null,
+          decider,
+        ],
+      );
+      for (const e of r.events) {
+        await tx.query(
+          `INSERT INTO application_events (tenant_id, application_id, actor_user_id, kind, step, note)
+           VALUES ($1,$2,$3,$4,$5,$6)`,
+          [
+            tenantId,
+            id,
+            e.actor,
+            e.kind,
+            e.kind === ApplicationEventKind.SUBMITTED ? null : 0,
+            e.note ?? null,
+          ],
+        );
+      }
+    };
+    const day = '2026-03-12';
+    await insert({
+      type: ApplicationType.STUDENT_LEAVE,
+      status: ApplicationStatus.APPROVED,
+      applicant: studentUser.id,
+      payload: { reason_kind: 'SICK', start_date: day, end_date: day, details: 'মাথাব্যথা' },
+      day,
+      effect: { days: 1, attendance_dates: [day] },
+      events: [
+        { kind: ApplicationEventKind.SUBMITTED, actor: studentUser.id },
+        { kind: ApplicationEventKind.APPROVED, actor: decider },
+      ],
+    });
+    await markStudentLeave(tx, tenantId, child, day, decider);
+    await insert({
+      type: ApplicationType.TESTIMONIAL,
+      status: ApplicationStatus.REJECTED,
+      applicant: parentUser.id,
+      payload: { purpose: 'ভিসার আবেদন' },
+      events: [
+        { kind: ApplicationEventKind.SUBMITTED, actor: parentUser.id },
+        {
+          kind: ApplicationEventKind.REJECTED,
+          actor: decider,
+          note: 'প্রয়োজনীয় কাগজপত্র জমা দেওয়া হয়নি।',
+        },
+      ],
+    });
+  });
+  console.log('Portal applications seeded (2 rows).');
 }
