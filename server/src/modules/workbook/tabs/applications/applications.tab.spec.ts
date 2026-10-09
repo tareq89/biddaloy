@@ -3,6 +3,7 @@ import type { EntityManager } from 'typeorm';
 import type { ImportContext } from '../../codec/tab-spec';
 import { applicationAttachmentsTab, applicationTagsTab } from './application-children.tab';
 import { applicationsTab } from './applications.tab';
+import { ApplicationTag } from '../../../applications/entities/application-tag.entity';
 
 const TENANT = 'tenant-b';
 const ctx = (warnings: unknown[] = []): ImportContext => ({
@@ -117,6 +118,23 @@ describe('application_tags tab upsert', () => {
       applicationTagsTab.upsert(row, null, TENANT, m as unknown as EntityManager),
     ).rejects.toThrow('is not staff of this school');
     expect(m.save).not.toHaveBeenCalled();
+  });
+
+  it('restores an existing tag unchanged even if its user is no longer staff', async () => {
+    const m = { exists: vi.fn().mockResolvedValue(false), save: vi.fn((_e, x) => x) };
+    const existing = Object.assign(new ApplicationTag(), { user_id: 'guardian-1' });
+    await applicationTagsTab.upsert(row, existing, TENANT, m as unknown as EntityManager);
+    expect(m.exists).not.toHaveBeenCalled();
+    expect(m.save).toHaveBeenCalledOnce();
+  });
+
+  it('checks staff membership in the importing school only', async () => {
+    const m = { exists: vi.fn().mockResolvedValue(true), save: vi.fn((_e, x) => x) };
+    await applicationTagsTab.upsert(row, null, TENANT, m as unknown as EntityManager);
+    expect(m.exists.mock.calls[0][1].where).toMatchObject({
+      user_id: 'guardian-1',
+      tenant_id: TENANT,
+    });
   });
 
   it('saves a user tag naming a staff member', async () => {

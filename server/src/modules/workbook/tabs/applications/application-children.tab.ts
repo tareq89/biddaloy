@@ -268,7 +268,9 @@ export const applicationTagsTab: TabSpec<ApplicationTag, Rec> = {
   async upsert(row: Rec, existing: ApplicationTag | null, tenantId: string, m: EntityManager) {
     // D50: a user tag grants read access, so it must name this school's staff, never a
     // guardian or student login. Checked here because fromRow has no database access.
-    if (row.user_id) {
+    // Only for a new tag or a changed user: an existing tag whose user has since left
+    // the staff must not stop the school's own backup from restoring.
+    if (row.user_id && existing?.user_id !== row.user_id) {
       const isStaff = await m.exists(UserTenant, {
         where: {
           user_id: row.user_id as string,
