@@ -170,7 +170,9 @@ export class Applications1791500000000 implements MigrationInterface {
     );
     await queryRunner.query(`ALTER TABLE "leave_records" ADD "application_id" uuid`);
     await queryRunner.query(
-      `ALTER TABLE "leave_records" ADD CONSTRAINT "FK_leave_records_application" FOREIGN KEY ("application_id") REFERENCES "applications"("id") ON DELETE SET NULL`,
+      // Composite tenant FK like the child tables. SET NULL names its column (PG 15+, as in
+      // PrintModule) so deleting an application nulls only application_id, never tenant_id.
+      `ALTER TABLE "leave_records" ADD CONSTRAINT "FK_leave_records_application" FOREIGN KEY ("tenant_id", "application_id") REFERENCES "applications"("tenant_id", "id") ON DELETE SET NULL ("application_id")`,
     );
     // TypeORM runs a whole deploy batch in one transaction, and PG refuses a new enum value
     // in the transaction that added it. A later migration that WRITES 'CANCELLED' must run
