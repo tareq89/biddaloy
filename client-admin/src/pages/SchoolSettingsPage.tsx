@@ -28,6 +28,7 @@ import * as React from 'react';
 
 import { AcrCriteriaSection } from './settings/AcrCriteriaSection';
 import { ApplicationsSection } from './settings/ApplicationsSection';
+import { AlertsSection } from './settings/AlertsSection';
 import { AttendanceSection } from './settings/AttendanceSection';
 import { BackupSection } from './settings/backup-section';
 import { CalendarSection } from './settings/CalendarSection';
@@ -214,6 +215,17 @@ export function SchoolSettingsPage({ backupJobId }: SchoolSettingsPageProps = {}
               />
               <EmailSection schoolId={loaded.schoolId} email={loaded.data.communications?.email} />
             </>
+          )
+        );
+      case 'alerts':
+        return (
+          loaded &&
+          loaded.data.attention && (
+            <AlertsSection
+              key={loaded.schoolId}
+              schoolId={loaded.schoolId}
+              attention={loaded.data.attention}
+            />
           )
         );
       case 'printing':

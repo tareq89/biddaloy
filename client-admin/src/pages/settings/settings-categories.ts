@@ -5,6 +5,7 @@
  */
 import type { LucideIcon } from 'lucide-react';
 import {
+  BellDotIcon,
   Building2Icon,
   DatabaseIcon,
   GraduationCapIcon,
@@ -19,6 +20,7 @@ export const SETTINGS_CATEGORY_IDS = [
   'academics',
   'finance',
   'communication',
+  'alerts',
   'printing',
   'security',
   'backup',
@@ -37,6 +39,7 @@ export const SETTINGS_CATEGORIES: readonly SettingsCategory[] = [
   { id: 'academics', icon: GraduationCapIcon, anchors: ['attendance-section'] },
   { id: 'finance', icon: WalletIcon, anchors: [] },
   { id: 'communication', icon: MessageSquareIcon, anchors: [] },
+  { id: 'alerts', icon: BellDotIcon, anchors: ['alerts-section'] },
   { id: 'printing', icon: PrinterIcon, anchors: ['printers-section'] },
   { id: 'security', icon: LockIcon, anchors: [] },
   { id: 'backup', icon: DatabaseIcon, anchors: [] },
