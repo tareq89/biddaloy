@@ -75,6 +75,9 @@ import {
 import { ensureStudentLifecycleSeed } from './seed.lifecycle';
 import { ensureDocumentsSeed, type DocumentsSeedPorts } from './seed.documents';
 import { ensureEvaluationsSeed } from './seed.evaluations';
+import { ensureAttentionSeed } from './seed.attention';
+import { Alert } from '../modules/attention/entities/alert.entity';
+import { AlertRecipient } from '../modules/attention/entities/alert-recipient.entity';
 import { ensureStudyPlansSeed } from './seed.study-plans';
 import { StudyPlan } from '../modules/study-plans/entities/study-plan.entity';
 import { StudyPlanTemplate } from '../modules/study-plans/entities/study-plan-template.entity';
@@ -330,6 +333,17 @@ export async function seed() {
       },
       school.id,
       lifecycleAdmin.id,
+    );
+
+    // [67.1.10] Demo alerts per role (Epic 67 W1).
+    await ensureAttentionSeed(
+      {
+        userRepository,
+        userTenantRepository,
+        alertRepository: dataSource.getRepository(Alert),
+        alertRecipientRepository: dataSource.getRepository(AlertRecipient),
+      },
+      school.id,
     );
 
     // [66.1.07] Demo study-plan template, two plans and four lesson deliveries.
