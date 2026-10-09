@@ -36,6 +36,7 @@ at hand instead of loading the whole set.
 | [20-presets.md](20-presets.md) | Working on `modules/presets` — curriculum packs (NCTB, Alia, Qawmi, Cambridge, Blank), applying or resetting a school's preset, subject choice groups, exam templates from a pack, or adding a new board or country |
 | [21-ui-patterns.md](21-ui-patterns.md) | Designing, planning or building any screen: page shapes, page vs full-page modal vs dialog, table / filter / form rules, date-number-money formats, phone rules, wording, the component catalogue, and how to mock a screen up from the kit |
 | [22-onboarding.md](22-onboarding.md) | Working on `/register`, the welcome wizard and setup checklist, the free trial and seat limit, first-password, or Google sign-in |
+| [23-study-plans.md](23-study-plans.md) | Working on `modules/study-plans` — lesson plans per section and subject, marking periods taught, how expected dates are computed, the study-plan template library and CSV, or the late-marking escalation |
 
 For practical "how do I run/develop/test this" instructions, see the root
 [`README.md`](../../README.md) — these docs cover the *why* behind the
