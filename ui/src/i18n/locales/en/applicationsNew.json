@@ -65,7 +65,7 @@
   },
   "attachments": {
     "heading": "Attachments (optional)",
-    "hint": "Up to {{count}} files, {{size}} MB each. PDF, JPG or PNG.",
+    "hint": "Optional. Up to {{count}} files, {{size}} MB each. PDF, JPG or PNG.",
     "label": "Attach files",
     "tooMany": "At most {{count}} files",
     "tooLarge": "Files over {{size}} MB cannot be added: {{name}}",
