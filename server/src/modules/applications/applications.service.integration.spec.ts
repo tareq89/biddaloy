@@ -707,6 +707,28 @@ describe('ApplicationsService (integration)', () => {
       expect(await inboxIds(callers.exec)).toContain(ids[1]);
     });
 
+    it('a GENERAL addressed to the class teacher whose section lost its class teacher is in the override inbox, and canDecide agrees', async () => {
+      const app = await submit(
+        callers.parent,
+        general({ subject_student_id: studentA, addressee: ApplicationAddressee.CLASS_TEACHER }),
+      );
+      // A live class teacher still owns it.
+      for (const caller of [callers.admin, callers.exec]) {
+        expect(await inboxIds(caller)).not.toContain(app.id);
+      }
+      await dataSource.query(
+        `DELETE FROM teacher_class_sections WHERE section_id = $1 AND assignment_type = 'CLASS_TEACHER'`,
+        [SEED_SECTION_1_ID],
+      );
+      for (const caller of [callers.admin, callers.exec]) {
+        expect(await inboxIds(caller)).toContain(app.id);
+        expect(await reviewer.canDecide(dataSource.manager, caller, await entity(app.id))).toBe(
+          'OVERRIDE',
+        );
+      }
+      expect(await inboxIds(callers.other)).not.toContain(app.id);
+    });
+
     it('currentDeciderUserIds lists the class teacher, and falls back to override roles when there is none', async () => {
       const withTeacher = await submit(callers.parent, studentLeave(studentA));
       expect(
