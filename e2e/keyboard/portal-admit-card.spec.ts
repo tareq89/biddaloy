@@ -27,14 +27,25 @@ import { tabUntilFocused } from './keyboard-utils';
 
 test.describe.configure({ mode: 'serial' });
 
-/** Other journeys link more children to the shared parent: pick the seeded one with the exam. */
-async function openSeededChild(page: Page) {
-  await page.goto('/portal/exam-schedule');
-  const picker = page.getByRole('link', { name: /Nusrat Jahan.*Class 6 A/ });
-  if (await picker.count()) {
-    await picker.first().focus();
-    await page.keyboard.press('Enter');
-  }
+/** The seeded child on the First Term Exam roster: the one every test here prints for. */
+const SEEDED_CHILD_REG = '2026-2027-0006';
+
+async function seededChild(request: APIRequestContext, session: ApiSession) {
+  const list = await get<{
+    data: { id: string; registration_number: string; class_section: { class_id: string } }[];
+  }>(request, session, `/students?search=${SEEDED_CHILD_REG}`);
+  const child = list.data.find((x) => x.registration_number === SEEDED_CHILD_REG);
+  if (!child) throw new Error(`seeded child ${SEEDED_CHILD_REG} not found`);
+  return child;
+}
+
+/**
+ * Other journeys link more children to the shared parent, so the default child may have no exam
+ * (or not be the one `giveChildADue` bills): open the seeded child by id.
+ */
+async function openSeededChild(page: Page, request: APIRequestContext) {
+  const child = await seededChild(request, await adminApiSession(request));
+  await page.goto(`/portal/exam-schedule?student=${child.id}`);
 }
 
 /** `window.open` is stubbed; the printed HTML lands on `window.__printHtml`. */
@@ -72,11 +83,7 @@ async function withholdForDues(request: APIRequestContext, session: ApiSession, 
  * current academic year. Returns what to delete afterwards.
  */
 async function giveChildADue(request: APIRequestContext, session: ApiSession) {
-  const list = await get<{
-    data: { id: string; registration_number: string; class_section: { class_id: string } }[];
-  }>(request, session, '/students?search=2026-2027-0006');
-  const child = list.data.find((x) => x.registration_number === '2026-2027-0006');
-  if (!child) throw new Error('seeded child 2026-2027-0006 not found');
+  const child = await seededChild(request, session);
   const year = await currentAcademicYear(request, session);
   const structure = await post<{ id: string }>(request, session, '/fee-structures', {
     fee_type: 'MONTHLY_TUITION',
@@ -115,18 +122,18 @@ test.describe('Parent prints the admit card', () => {
     }
   });
 
-  test('the print button is there and at least 44px tall on a phone', async ({ page }) => {
+  test('the print button is there and at least 44px tall on a phone', async ({ page, request }) => {
     await page.setViewportSize({ width: 390, height: 844 });
-    await openSeededChild(page);
+    await openSeededChild(page, request);
     const print = page.getByRole('button', { name: t('portal.examSchedule.admitCard.print') });
     await expect(print.first()).toBeVisible();
     const box = await print.first().boundingBox();
     expect(box!.height).toBeGreaterThanOrEqual(44);
   });
 
-  test('Tab to the button, Enter prints a page that carries a name', async ({ page }) => {
+  test('Tab to the button, Enter prints a page that carries a name', async ({ page, request }) => {
     await stubPrintWindow(page);
-    await openSeededChild(page);
+    await openSeededChild(page, request);
     const print = page.getByRole('button', { name: t('portal.examSchedule.admitCard.print') });
     await expect(print.first()).toBeVisible();
 
@@ -158,7 +165,7 @@ test.describe('Parent prints the admit card', () => {
     due = await giveChildADue(request, admin);
     await withholdForDues(request, admin, true);
     await stubPrintWindow(page);
-    await openSeededChild(page);
+    await openSeededChild(page, request);
     await expect(
       page.getByRole('button', { name: t('portal.examSchedule.admitCard.print') }).first(),
     ).toBeVisible();
