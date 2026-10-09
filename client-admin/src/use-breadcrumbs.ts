@@ -1,6 +1,7 @@
 import type { BreadcrumbItem } from '@biddaloy/ui/components';
 import {
   academicYearQueryOptions,
+  applicationQueryOptions,
   attendanceKeys,
   classKeys,
   classQueryOptions,
@@ -88,6 +89,17 @@ export const ENTITY_RESOLVERS: Record<string, EntityResolver> = {
   academicYear: {
     queryKeys: (id) => [academicYearQueryOptions(id).queryKey],
     getName: byField('name'),
+  },
+  // [52.4.1] "ফি মওকুফ — রহিম উদ্দিন": type label plus applicant, from the detail the route warmed.
+  applicationDetail: {
+    queryKeys: (id) => [applicationQueryOptions(id).queryKey],
+    getName: (data, _id, ctx) => {
+      const name = field(data, 'applicant_name');
+      const type = field(data, 'type');
+      if (!name || !type) return undefined;
+      const typeLabel = i18n.getFixedT(ctx.language, 'applications')(`types.${type}`);
+      return `${typeLabel} — ${name}`;
+    },
   },
   // [32.4.1] Keyed by the crumb's own label key: "template" has no `EntityLabel` noun.
   printTemplateEdit: {

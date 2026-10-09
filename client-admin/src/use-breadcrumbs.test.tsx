@@ -88,6 +88,41 @@ describe('useBreadcrumbs (wired into _staff.tsx)', () => {
     expect(within(nav).queryByText('student-1')).toBeNull();
   });
 
+  it('[52.4.1] application detail: cached detail names the crumb "type — applicant" and the tab title', async () => {
+    server.use(
+      http.get('/api/v1/applications/:id', () =>
+        HttpResponse.json({ id: 'app-1', type: 'FEE_WAIVER', applicant_name: 'Rahim Uddin' }),
+      ),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/applications/app-1'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const nav = await screen.findByRole('navigation', { name: 'You are here' });
+    await waitFor(() => expect(within(nav).getByText('Fee waiver — Rahim Uddin')).toBeTruthy());
+    expect(document.title).toBe('Fee waiver — Rahim Uddin · Applications · SchoolManager');
+  });
+
+  it('[52.4.1] application detail: uncached shows a loading bar + the generic noun, never the id', async () => {
+    server.use(http.get('/api/v1/applications/:id', () => new HttpResponse(null, { status: 404 })));
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/applications/app-1'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const nav = await screen.findByRole('navigation', { name: 'You are here' });
+    expect(within(nav).getByText('Application').className).toContain('sr-only');
+    expect(within(nav).queryByText('app-1')).toBeNull();
+    expect(nav.querySelector('[aria-hidden="true"].bg-muted')).not.toBeNull();
+  });
+
   describe('cache-prefix resolvers', () => {
     /** Mirrors `useCachedEntityName`'s read without rendering a page. */
     function nameFor(
@@ -139,7 +174,9 @@ describe('useBreadcrumbs (wired into _staff.tsx)', () => {
 
     it('report card: keyed by (examId, studentId) and named from the result detail', () => {
       const queryClient = createTestQueryClient();
-      queryClient.setQueryData(resultDetailKey('e1', 's1'), { student: { full_name: 'Rafi Ahmed' } });
+      queryClient.setQueryData(resultDetailKey('e1', 's1'), {
+        student: { full_name: 'Rafi Ahmed' },
+      });
       expect(nameFor(queryClient, 'reportCard', { examId: 'e1', studentId: 's1' })).toBe(
         'Rafi Ahmed',
       );
@@ -151,7 +188,10 @@ describe('useBreadcrumbs (wired into _staff.tsx)', () => {
         student: { full_name: 'Rahim Uddin' },
         payment_date: '2026-09-09',
       });
-      queryClient.setQueryData(paymentKeys.detail('p2'), { student: null, payment_date: '2026-09-09' });
+      queryClient.setQueryData(paymentKeys.detail('p2'), {
+        student: null,
+        payment_date: '2026-09-09',
+      });
       expect(nameFor(queryClient, 'paymentDetail', { id: 'p1' })).toMatch(/^Rahim Uddin — .*2026/);
       const dateOnly = nameFor(queryClient, 'paymentDetail', { id: 'p2' });
       expect(dateOnly).toMatch(/2026/);
@@ -183,10 +223,13 @@ describe('useBreadcrumbs (wired into _staff.tsx)', () => {
 
     it('school: picks the row whose id matches from the schools list cache', async () => {
       const queryClient = createTestQueryClient();
-      queryClient.setQueryData([...schoolsKeys.lists(), {}], [
-        { id: 'sc1', name: 'Alpha School' },
-        { id: 'sc2', name: 'Beta School' },
-      ]);
+      queryClient.setQueryData(
+        [...schoolsKeys.lists(), {}],
+        [
+          { id: 'sc1', name: 'Alpha School' },
+          { id: 'sc2', name: 'Beta School' },
+        ],
+      );
       renderWithRouter(routeTree, {
         ...base,
         role: 'SUPER_ADMIN',

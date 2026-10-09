@@ -39,6 +39,10 @@ export const NOT_IN_NAV: Record<string, string> = {
   '/portal/fees': 'guardian portal page, has its own portal nav, not the staff sidebar',
   '/portal/programs': 'guardian portal page, has its own portal nav, not the staff sidebar',
   '/portal/routine': 'guardian portal page, has its own portal nav, not the staff sidebar',
+  '/portal/applications/': 'guardian portal page, has its own portal nav, not the staff sidebar',
+  '/portal/applications/new': 'guardian portal page, has its own portal nav, not the staff sidebar',
+  '/portal/applications/$applicationId':
+    'guardian portal page, has its own portal nav, not the staff sidebar',
   '/portal/surveys': 'guardian portal page, has its own portal nav, not the staff sidebar',
   '/portal/results': 'guardian portal page, has its own portal nav, not the staff sidebar',
   '/portal/syllabus': 'guardian portal page, has its own portal nav, not the staff sidebar',
@@ -67,6 +71,9 @@ export const NOT_IN_NAV: Record<string, string> = {
   '/_staff/academics/study-plans/$planId': 'detail route reached from the study plans tab',
   '/_staff/academics/homework/import':
     'action reached from the homework list and the command palette, not its own nav item',
+  '/_staff/applications/new':
+    'full-page task opened from the Applications page and the palette, not its own nav item',
+  '/_staff/applications/$applicationId': 'detail page reached from a list row',
   '/_staff/exams/$examId': 'detail route reached from the exams list',
   '/_staff/promotions/$runId': 'detail route reached from the promotions list',
   '/_staff/print-templates/$templateId/edit':

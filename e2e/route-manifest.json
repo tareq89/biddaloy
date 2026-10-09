@@ -651,6 +651,48 @@
       "archetype": "list"
     },
     {
+      "path": "/applications",
+      "role": "admin",
+      "archetype": "list",
+      "overlays": []
+    },
+    {
+      "path": "/applications/new",
+      "role": "admin",
+      "archetype": "form"
+    },
+    {
+      "path": "/applications/$applicationId",
+      "params": {
+        "applicationId": "seeded"
+      },
+      "role": "admin",
+      "archetype": "detail"
+    },
+    {
+      "path": "/applications/reports",
+      "role": "admin",
+      "archetype": "list"
+    },
+    {
+      "path": "/portal/applications",
+      "role": "parent",
+      "archetype": "list"
+    },
+    {
+      "path": "/portal/applications/new",
+      "role": "parent",
+      "archetype": "form"
+    },
+    {
+      "path": "/portal/applications/$applicationId",
+      "params": {
+        "applicationId": "seeded"
+      },
+      "role": "parent",
+      "archetype": "detail"
+    },
+    {
       "path": "/portal/surveys",
       "role": "parent",
       "archetype": "list"
