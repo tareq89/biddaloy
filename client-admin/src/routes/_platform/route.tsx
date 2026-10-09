@@ -10,16 +10,12 @@ import {
 } from '@biddaloy/ui/components';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { RequireRole } from '@biddaloy/ui/routes';
-import {
-  createFileRoute,
-  Outlet,
-  useMatches,
-  useRouterState,
-} from '@tanstack/react-router';
+import { createFileRoute, Outlet, useMatches, useRouterState } from '@tanstack/react-router';
 import * as React from 'react';
 
 import { CommandPaletteLauncher } from '../../components/command-palette-launcher';
 import { StaffUserMenu } from '../../components/staff-user-menu';
+import { useAttentionCenter } from '../../features/attention/attention-center';
 import { MORE_ICON, PLATFORM_NAV_ICONS, STAFF_NAV_ICONS } from '../../nav-icons';
 import { isPathUnder } from '../../nav-tree';
 import { loadRouteNamespaces } from '../../route-loaders';
@@ -51,7 +47,7 @@ import { useBreadcrumbs } from '../../use-breadcrumbs';
  * Holidays · Dashboard (back to the school app) plus More (C8).
  */
 export const Route = createFileRoute('/_platform')({
-  loader: () => loadRouteNamespaces('nav', 'platform', 'auth'),
+  loader: () => loadRouteNamespaces('nav', 'platform', 'auth', 'attention'),
   component: PlatformLayout,
 });
 
@@ -60,6 +56,7 @@ function PlatformLayout() {
   const { t } = useTranslation('nav');
   const { t: tPlatform } = useTranslation('platform');
   const { t: tAuth } = useTranslation('auth');
+  const attention = useAttentionCenter({ todoTo: '/notifications' });
   const SchoolsIcon = PLATFORM_NAV_ICONS['/schools'];
   const HolidaySetsIcon = PLATFORM_NAV_ICONS['/holiday-sets'];
   const DashboardIcon = STAFF_NAV_ICONS.dashboard;
@@ -99,7 +96,9 @@ function PlatformLayout() {
     },
   ];
   const consoleTitle = tPlatform('breadcrumb.platformAdmin');
-  const notificationBell = <NotificationBell viewAllTo="/notifications" />;
+  const notificationBell = (
+    <NotificationBell viewAllTo="/notifications" attention={attention.bell} />
+  );
 
   return (
     <RequireRole allow={[UserRole.SUPER_ADMIN]} redirectTo="/dashboard">
@@ -156,6 +155,8 @@ function PlatformLayout() {
           navLabel={t('navLabel')}
           skipLinkLabel={t('skipToContent')}
         >
+          {attention.bar}
+          {attention.modal}
           {breadcrumbItems.length > 0 && (
             <Breadcrumbs
               items={breadcrumbItems}
