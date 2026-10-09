@@ -10,6 +10,16 @@ import { ReadmissionHandler } from './handlers/readmission.handler';
 import { SectionChangeHandler } from './handlers/section-change.handler';
 import { TransferCertificateHandler } from './handlers/transfer-certificate.handler';
 import { ManualHandler } from './handlers/manual.handler';
+import { StaffLeavePayloadDto } from './dto/payloads/staff-leave.dto';
+import { StudentLeavePayloadDto } from './dto/payloads/student-leave.dto';
+import { FeeWaiverPayloadDto } from './dto/payloads/fee-waiver.dto';
+import { TestimonialPayloadDto } from './dto/payloads/testimonial.dto';
+import { TransferCertificatePayloadDto } from './dto/payloads/transfer-certificate.dto';
+import { ReadmissionPayloadDto } from './dto/payloads/readmission.dto';
+import { SectionChangePayloadDto } from './dto/payloads/section-change.dto';
+import { ScriptRecheckPayloadDto } from './dto/payloads/script-recheck.dto';
+import { IdCardReprintPayloadDto } from './dto/payloads/id-card-reprint.dto';
+import { GeneralPayloadDto } from './dto/payloads/general.dto';
 
 export interface ApplicationEffectContext {
   tenantId: string;
@@ -42,4 +52,18 @@ export const APPLICATION_HANDLERS: Record<ApplicationType, Type<EffectHandler> |
   [ApplicationType.ID_CARD_REPRINT]: ManualHandler,
   [ApplicationType.SCRIPT_RECHECK]: ManualHandler,
   [ApplicationType.GENERAL]: null, // D11: no effect
+};
+
+/** The class-validator class that validates each type's `payload` (D3: forms fixed in code). */
+export const APPLICATION_PAYLOAD_DTOS: Record<ApplicationType, Type<object>> = {
+  [ApplicationType.STAFF_LEAVE]: StaffLeavePayloadDto,
+  [ApplicationType.STUDENT_LEAVE]: StudentLeavePayloadDto,
+  [ApplicationType.FEE_WAIVER]: FeeWaiverPayloadDto,
+  [ApplicationType.TESTIMONIAL]: TestimonialPayloadDto,
+  [ApplicationType.TRANSFER_CERTIFICATE]: TransferCertificatePayloadDto,
+  [ApplicationType.READMISSION]: ReadmissionPayloadDto,
+  [ApplicationType.SECTION_CHANGE]: SectionChangePayloadDto,
+  [ApplicationType.SCRIPT_RECHECK]: ScriptRecheckPayloadDto,
+  [ApplicationType.ID_CARD_REPRINT]: IdCardReprintPayloadDto,
+  [ApplicationType.GENERAL]: GeneralPayloadDto,
 };
