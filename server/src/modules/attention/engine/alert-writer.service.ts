@@ -61,6 +61,21 @@ async function run(em: EntityManager, sql: string, params: unknown[]): Promise<R
   return r.length === 2 && Array.isArray(r[0]) && typeof r[1] === 'number' ? r[0] : r;
 }
 
+/** First key of the two-key advisory lock: keeps attention locks out of every other lock's keyspace. */
+export const ATTENTION_RULE_LOCK_NAMESPACE = 670104;
+
+/**
+ * Serializes every writer of one tenant+rule's alerts (apply, expire, withdraw),
+ * so OPEN recipients can't land on a closed alert. Transaction-scoped. Take it
+ * before any row lock; a caller needing several takes them in rule_key order.
+ */
+export function lockRule(em: EntityManager, tenantId: string, ruleKey: string): Promise<unknown> {
+  return em.query('SELECT pg_advisory_xact_lock($1, hashtext($2))', [
+    ATTENTION_RULE_LOCK_NAMESPACE,
+    `${tenantId}:${ruleKey}`,
+  ]);
+}
+
 const ALERT_COLS = `id, dedupe_key, severity, escalation_level, params, action_url, expires_at`;
 const LIVE_RECIPIENTS = `SELECT id, alert_id, user_id, student_id, state FROM alert_recipients
   WHERE tenant_id = $1 AND alert_id = ANY($2::uuid[]) AND state IN ('OPEN','HIDDEN')`;
@@ -93,8 +108,7 @@ export class AlertWriterService {
     let resolved = 0;
 
     await this.dataSource.transaction(async (em) => {
-      // serialize concurrent runs of the same tenant+rule (else OPEN recipients can land on a RESOLVED alert)
-      await em.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`${tenantId}:${ruleKey}`]);
+      await lockRule(em, tenantId, ruleKey);
       const loadActive = (dedupeKey?: string) =>
         run(
           em,
@@ -173,10 +187,13 @@ export class AlertWriterService {
           set('expires_at', defaultExpiry);
         }
         if (sets.length) {
-          await em.query(
-            `UPDATE alerts SET ${sets.join(', ')}, updated_at = now() WHERE tenant_id = $1 AND id = $2`,
+          const rows = await run(
+            em,
+            `UPDATE alerts SET ${sets.join(', ')}, updated_at = now()
+              WHERE tenant_id = $1 AND id = $2 AND status = 'ACTIVE' RETURNING id`,
             vals,
           );
+          if (!rows.length) continue; // closed under us; the rule lock should make this unreachable
           updated++;
         }
 
@@ -269,6 +286,7 @@ export class AlertWriterService {
       'WITHDRAWN',
       `status = 'ACTIVE' AND source = 'RULE' AND rule_key = $2`,
       [ruleKey],
+      [ruleKey], // lock even with no row yet: an in-flight apply's insert is then withdrawn too
     );
   }
 
@@ -386,15 +404,30 @@ export class AlertWriterService {
     status: 'EXPIRED' | 'WITHDRAWN',
     where: string,
     extra: unknown[],
+    ruleKeys?: string[],
   ): Promise<number> {
     const users: string[] = [];
     let n = 0;
     await this.dataSource.transaction(async (em) => {
+      const params = [tenantId, ...extra];
+      const keys =
+        ruleKeys ??
+        (
+          await run(
+            em,
+            `SELECT DISTINCT rule_key FROM alerts WHERE tenant_id = $1 AND ${where} ORDER BY rule_key`,
+            params,
+          )
+        ).map((r) => r.rule_key as string);
+      // Same per-rule lock as apply, all before any row lock and in one order: no deadlock cycle.
+      for (const k of keys) await lockRule(em, tenantId, k);
+      if (!keys.length) return;
+      // Only rows of the rules we hold: a rule that became due after the SELECT waits for the next sweep.
       const alerts = await run(
         em,
         `UPDATE alerts SET status = '${status}', updated_at = now()
-          WHERE tenant_id = $1 AND ${where} RETURNING id`,
-        [tenantId, ...extra],
+          WHERE tenant_id = $1 AND ${where} AND rule_key = ANY($${params.length + 1}::text[]) RETURNING id`,
+        [...params, keys],
       );
       n = alerts.length;
       if (!n) return;

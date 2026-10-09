@@ -14,7 +14,7 @@ import {
 } from '../attention.constants';
 import { endOfLocalDay } from '../rules/rule-context.service';
 import type { AttentionRule, RuleContext, RuleFinding } from '../rules/rule.types';
-import { AlertWriterService } from './alert-writer.service';
+import { AlertWriterService, lockRule } from './alert-writer.service';
 
 const RULE_KEY = 'attendance.not_taken';
 const msg = { title: 't', why: 'w', steps: [] };
@@ -242,6 +242,57 @@ describe('AlertWriterService (integration)', () => {
     const bad = await ds.query(
       `SELECT 1 FROM alert_recipients r JOIN alerts a ON a.id = r.alert_id
         WHERE r.tenant_id = $1 AND r.state = 'OPEN' AND a.status <> 'ACTIVE'`,
+      [SEED_TENANT_ID],
+    );
+    expect(bad).toHaveLength(0);
+  });
+
+  it('expireDue and withdrawRule wait for an in-flight apply of the same rule (shared rule lock)', async () => {
+    await writer.apply(ctx(NOW), rule, [finding({ expiresAt: new Date('2026-10-02T00:00:00Z') })]);
+    const closers = [
+      () => writer.expireDue(SEED_TENANT_ID, new Date('2026-10-03T00:00:00Z')),
+      () => writer.withdrawRule(SEED_TENANT_ID, RULE_KEY),
+    ];
+    for (const close of closers) {
+      // Stands in for an apply that holds the rule lock mid-transaction.
+      const qr = ds.createQueryRunner();
+      await qr.connect();
+      await qr.startTransaction();
+      try {
+        await lockRule(qr.manager, SEED_TENANT_ID, RULE_KEY);
+        let done = false;
+        const closing = close().then(() => (done = true));
+        await new Promise((r) => setTimeout(r, 300));
+        // Without the lock the close would already have rewritten the rows under apply.
+        expect(done).toBe(false);
+        await qr.commitTransaction();
+        await closing;
+      } finally {
+        await qr.release();
+      }
+    }
+    expect((await alerts())[0].status).toBe('EXPIRED');
+  });
+
+  it('apply racing expireDue and withdrawRule never leaves OPEN recipients on a closed alert', async () => {
+    await writer.apply(ctx('2026-09-30T00:00:00Z'), rule, [
+      finding({ expiresAt: new Date('2026-10-01T00:00:00Z') }),
+    ]);
+    await Promise.all([
+      writer.apply(ctx(NOW), rule, [
+        finding({
+          recipients: [
+            { userId: u1, role: null },
+            { userId: u3, role: null },
+          ],
+        }),
+      ]),
+      writer.expireDue(SEED_TENANT_ID, new Date(NOW)),
+      writer.withdrawRule(SEED_TENANT_ID, RULE_KEY),
+    ]);
+    const bad = await ds.query(
+      `SELECT 1 FROM alert_recipients r JOIN alerts a ON a.id = r.alert_id
+        WHERE r.tenant_id = $1 AND r.state IN ('OPEN','HIDDEN') AND a.status <> 'ACTIVE'`,
       [SEED_TENANT_ID],
     );
     expect(bad).toHaveLength(0);
