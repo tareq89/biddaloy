@@ -8,7 +8,15 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { DataSource, EntityManager, In, IsNull, QueryFailedError, Repository } from 'typeorm';
+import {
+  Between,
+  DataSource,
+  EntityManager,
+  In,
+  IsNull,
+  QueryFailedError,
+  Repository,
+} from 'typeorm';
 import {
   AttendanceSessionState,
   AttendanceSource,
@@ -372,6 +380,197 @@ export class AttendanceService {
     }
 
     return result;
+  }
+
+  /**
+   * An approved student leave's effect on the whole-day registers: LEAVE for
+   * every working day of the student's class in `[from, to]`. Runs inside the
+   * caller's transaction and never opens one. Not a teacher edit, so no
+   * future-date / correction-window / FINALIZED checks and no absence notice.
+   * PRESENT / LATE marks are never overwritten; ABSENT becomes LEAVE (audited).
+   */
+  async markLeaveRange(
+    manager: EntityManager,
+    input: {
+      tenantId: string;
+      studentId: string;
+      from: string;
+      to: string;
+      actorUserId: string;
+      applicationId: string;
+    },
+  ): Promise<{ dates: string[] }> {
+    const { tenantId, studentId, from, to, actorUserId, applicationId } = input;
+    const student = await manager
+      .getRepository(Student)
+      .findOne({ where: { id: studentId, tenant_id: tenantId } });
+    if (!student) {
+      throw new NotFoundException('Student not found');
+    }
+    const section = await manager
+      .getRepository(ClassSection)
+      .findOne({ where: { id: student.class_section_id, tenant_id: tenantId } });
+    if (!section) {
+      throw new NotFoundException('Class section not found');
+    }
+    const { dates } = await this.schoolCalendarService.getWorkingDays({
+      tenantId,
+      from,
+      to,
+      classId: section.class_id,
+    });
+
+    const sessionRepo = manager.getRepository(AttendanceSession);
+    const recordRepo = manager.getRepository(AttendanceRecord);
+    for (const date of dates) {
+      // INSERT .. ON CONFLICT DO NOTHING: a unique violation would abort the
+      // caller's transaction, so a racing creator must not raise one.
+      await manager
+        .createQueryBuilder()
+        .insert()
+        .into(AttendanceSession)
+        .values({
+          tenant_id: tenantId,
+          section_id: section.id,
+          date,
+          period_no: null,
+          subject_id: null,
+          source: AttendanceSource.SYSTEM,
+          state: AttendanceSessionState.DRAFT,
+        })
+        .orIgnore()
+        .execute();
+      const session = await sessionRepo.findOneOrFail({
+        where: { tenant_id: tenantId, section_id: section.id, date, period_no: IsNull() },
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      const existing = await recordRepo.findOne({
+        where: { session_id: session.id, student_id: studentId, tenant_id: tenantId },
+      });
+      let changed = false;
+      if (!existing) {
+        const created = await recordRepo.save(
+          recordRepo.create({
+            tenant_id: tenantId,
+            session_id: session.id,
+            student_id: studentId,
+            date: session.date,
+            status: AttendanceStatus.LEAVE,
+            minutes_late: null,
+            remarks: null,
+            source: AttendanceSource.SYSTEM,
+            recorded_by_user_id: actorUserId,
+          }),
+        );
+        await this.auditService.record(
+          {
+            action: AuditAction.CREATE,
+            entity_type: 'AttendanceRecord',
+            entity_id: created.id,
+            tenant_id: tenantId,
+            performed_by_user_id: actorUserId,
+            old_values: null,
+            new_values: { status: AttendanceStatus.LEAVE, application_id: applicationId },
+          },
+          manager,
+        );
+        changed = true;
+      } else if (existing.status === AttendanceStatus.ABSENT) {
+        existing.status = AttendanceStatus.LEAVE;
+        existing.source = AttendanceSource.SYSTEM;
+        existing.recorded_by_user_id = actorUserId;
+        await recordRepo.save(existing);
+        await this.auditService.record(
+          {
+            action: AuditAction.UPDATE,
+            entity_type: 'AttendanceRecord',
+            entity_id: existing.id,
+            tenant_id: tenantId,
+            performed_by_user_id: actorUserId,
+            old_values: { status: AttendanceStatus.ABSENT },
+            new_values: { status: AttendanceStatus.LEAVE, application_id: applicationId },
+          },
+          manager,
+        );
+        changed = true;
+      }
+      if (changed) {
+        await sessionRepo.increment({ id: session.id }, 'version', 1);
+      }
+    }
+    return { dates };
+  }
+
+  /**
+   * A cancelled leave takes its future SYSTEM LEAVE marks back out (D31).
+   * Past days and TEACHER-source marks stay. Caller's transaction.
+   */
+  async revertLeaveRange(
+    manager: EntityManager,
+    input: {
+      tenantId: string;
+      studentId: string;
+      from: string;
+      to: string;
+      actorUserId: string;
+      applicationId: string;
+    },
+  ): Promise<{ dates: string[] }> {
+    const { tenantId, studentId, from, to, actorUserId, applicationId } = input;
+    const settings = await this.schoolsService.getResolvedSettings(tenantId);
+    const today = localToday(settings.region?.timezone ?? 'UTC');
+    const tomorrow = new Date(`${today}T00:00:00Z`);
+    tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+    const start = [from, tomorrow.toISOString().slice(0, 10)].sort()[1];
+    if (start > to) {
+      return { dates: [] };
+    }
+    const sessionRepo = manager.getRepository(AttendanceSession);
+    const recordRepo = manager.getRepository(AttendanceRecord);
+    const found = await recordRepo.find({
+      where: {
+        tenant_id: tenantId,
+        student_id: studentId,
+        date: Between(start, to),
+        status: AttendanceStatus.LEAVE,
+        source: AttendanceSource.SYSTEM,
+      },
+    });
+    // Lock only this student's own whole-day sessions, in id order (no tenant-wide lock).
+    const sessions = found.length
+      ? await sessionRepo.find({
+          where: {
+            tenant_id: tenantId,
+            period_no: IsNull(),
+            id: In([...new Set(found.map((r) => r.session_id))]),
+          },
+          order: { id: 'ASC' },
+          lock: { mode: 'pessimistic_write' },
+        })
+      : [];
+    const sessionById = new Map(sessions.map((s) => [s.id, s]));
+    const records = found.filter((r) => sessionById.has(r.session_id));
+    const dates: string[] = [];
+    for (const record of records) {
+      const session = sessionById.get(record.session_id)!;
+      await recordRepo.delete({ id: record.id, tenant_id: tenantId });
+      await sessionRepo.increment({ id: session.id }, 'version', 1);
+      await this.auditService.record(
+        {
+          action: AuditAction.DELETE,
+          entity_type: 'AttendanceRecord',
+          entity_id: record.id,
+          tenant_id: tenantId,
+          performed_by_user_id: actorUserId,
+          old_values: { status: AttendanceStatus.LEAVE },
+          new_values: { application_id: applicationId },
+        },
+        manager,
+      );
+      dates.push(session.date);
+    }
+    return { dates: dates.sort() };
   }
 
   /**
