@@ -298,6 +298,14 @@ describe('AlertWriterService (integration)', () => {
     expect(bad).toHaveLength(0);
   });
 
+  it('an already-expired finding is treated as gone: no raise, and a live alert resolves', async () => {
+    await writer.apply(ctx(NOW), rule, [finding()]);
+    // else: FAST sweep expires it, next run re-raises and re-pushes, every cycle
+    const res = await writer.apply(ctx(NOW), rule, [finding({ expiresAt: new Date(NOW) })]);
+    expect(res).toMatchObject({ created: 0, resolved: 1 });
+    expect((await alerts()).map((a: any) => a.status)).toEqual(['RESOLVED']);
+  });
+
   it('expires at the Asia/Dhaka midnight boundary to the second', async () => {
     const expiresAt = endOfLocalDay('2026-10-09', 'Asia/Dhaka');
     expect(expiresAt.toISOString()).toBe('2026-10-09T18:00:00.000Z');
@@ -347,7 +355,9 @@ describe('AlertWriterService (integration)', () => {
   it('withdrawRule marks the alert WITHDRAWN and expires its recipients', async () => {
     await writer.apply(ctx(NOW), rule, [finding()]);
     expect(await writer.withdrawRule(SEED_TENANT_ID, RULE_KEY)).toBe(1);
-    expect((await alerts())[0].status).toBe('WITHDRAWN');
+    const [a] = await alerts();
+    expect(a.status).toBe('WITHDRAWN');
+    expect(a.resolved_at).not.toBeNull(); // close time: prune ages by it
     expect((await recipients()).map((r: any) => r.state)).toEqual(['EXPIRED', 'EXPIRED']);
     expect(await writer.withdrawRule(SEED_TENANT_ID, RULE_KEY)).toBe(0);
   });

@@ -20,6 +20,7 @@ describe('AttentionScheduler prune (integration)', () => {
   let ds: DataSource;
   let redis: Redis;
   let sched: AttentionScheduler;
+  let writer: AlertWriterService;
   let tenantB: string;
   let userId: string;
   const localDate = '2026-10-10';
@@ -31,7 +32,7 @@ describe('AttentionScheduler prune (integration)', () => {
       { provide: TENANT_STATUS_REDIS, useValue: redis },
     ]);
     ds = module.get(DataSource);
-    const writer = module.get(AlertWriterService);
+    writer = module.get(AlertWriterService);
     // No rules: the DAILY sweep then only exercises the prune path.
     const registry = { forCadence: () => [] };
     const context = {
@@ -129,6 +130,29 @@ describe('AttentionScheduler prune (integration)', () => {
     const remaining = await ids(SEED_TENANT_ID);
     expect(remaining).toContain(keep);
     expect(remaining).not.toContain(drop);
+  });
+
+  it('EXPIRED and WITHDRAWN alerts are aged by their close time too, not raised_at', async () => {
+    // Both raised 13 months ago and closed now by the real close paths.
+    const expired = await alert(SEED_TENANT_ID, 'ACTIVE', monthsAgo(13), 'e');
+    await ds.query(`UPDATE alerts SET expires_at = $2 WHERE id = $1`, [expired, monthsAgo(0)]);
+    await writer.expireDue(SEED_TENANT_ID, NOW);
+    const withdrawn = await alert(SEED_TENANT_ID, 'ACTIVE', monthsAgo(13), 'w');
+    await writer.withdrawRule(SEED_TENANT_ID, 'attendance.not_taken');
+    const statuses = await ds.query(`SELECT id, status FROM alerts WHERE tenant_id = $1`, [
+      SEED_TENANT_ID,
+    ]);
+    expect(
+      Object.fromEntries(statuses.map((r: { id: string; status: string }) => [r.id, r.status])),
+    ).toEqual({
+      [expired]: 'EXPIRED',
+      [withdrawn]: 'WITHDRAWN',
+    });
+
+    await sched.sweepTenant(SEED_TENANT_ID, AlertCadence.DAILY, NOW);
+
+    // Just closed: the history must survive this prune.
+    expect(await ids(SEED_TENANT_ID)).toEqual(expect.arrayContaining([expired, withdrawn]));
   });
 
   it('a second DAILY tick on the same local day does not prune again', async () => {

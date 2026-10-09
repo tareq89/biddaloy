@@ -16,7 +16,7 @@ import { SchoolsService } from '../../schools/schools.service';
 import { SchoolCalendarService } from '../../calendar/school-calendar.service';
 import { TeacherScopeService } from '../../classes/teacher-scope.service';
 import { ATTENTION_SUMMARY_TTL_SECONDS, attentionKeys } from '../attention.constants';
-import { AlertWriterService } from '../engine/alert-writer.service';
+import { AlertWriterService, run } from '../engine/alert-writer.service';
 import { RuleRegistryService } from '../rules/rule-registry.service';
 import { RuleContextService, addDaysIso, localDateTimeToUtc } from '../rules/rule-context.service';
 import { AttentionLocale, render, resolveLocale } from '../rules/messages';
@@ -129,7 +129,6 @@ export class AttentionQueryService {
     query: SummaryQueryDto,
   ): Promise<AttentionSummaryDto> {
     const role = this.assertOwnRole(activeRole, query.role);
-    const locale = await this.localeFor(tenantId, query.locale);
     const key = attentionKeys.summary(tenantId, userId, role);
 
     let cached: CachedSummary | null = null;
@@ -154,7 +153,10 @@ export class AttentionQueryService {
       warning: cached.warning,
       reminder: cached.reminder,
       activeTotal: cached.activeTotal,
-      top: cached.top ? this.toItem(cached.top, locale) : null,
+      // locale only when there is text to render: a cache hit with no top costs no settings read
+      top: cached.top
+        ? this.toItem(cached.top, await this.localeFor(tenantId, query.locale))
+        : null,
       updatedAt,
       staleMinutes,
     };
@@ -229,15 +231,19 @@ export class AttentionQueryService {
       where += ` AND (r.student_id = ${s} OR (a.subject_type = 'student' AND a.subject_id = ${s}))`;
     }
     const order = history ? `COALESCE(r.resolved_at, r.updated_at) DESC` : BY_SEVERITY;
-    const [{ total }] = await this.dataSource.query(
-      `SELECT count(*)::int AS total ${ITEM_FROM} WHERE ${where}`,
-      params,
-    );
-    const rows: Row[] = await this.dataSource.query(
-      `SELECT ${ITEM_COLS} ${ITEM_FROM} WHERE ${where} ORDER BY ${order}, r.id
-       LIMIT ${arg(query.pageSize)} OFFSET ${arg((query.page - 1) * query.pageSize)}`,
-      params,
-    );
+    const countParams = [...params];
+    const page = `LIMIT ${arg(query.pageSize)} OFFSET ${arg((query.page - 1) * query.pageSize)}`;
+    const [[{ total }], rows] = await Promise.all([
+      this.dataSource.query(
+        `SELECT count(*)::int AS total FROM alert_recipients r
+         JOIN alerts a ON a.id = r.alert_id AND a.tenant_id = r.tenant_id WHERE ${where}`,
+        countParams,
+      ),
+      this.dataSource.query(
+        `SELECT ${ITEM_COLS} ${ITEM_FROM} WHERE ${where} ORDER BY ${order}, r.id ${page}`,
+        params,
+      ) as Promise<Row[]>,
+    ]);
     return { items: rows.map((r) => this.toItem(r, locale)), total };
   }
 
@@ -263,14 +269,14 @@ export class AttentionQueryService {
     snoozedUntil: Date | null,
     locale: AttentionLocale,
   ): Promise<AlertItemDto> {
-    const res = await this.dataSource.query(
+    const rows = await run(
+      this.dataSource.manager,
       `UPDATE alert_recipients SET state = 'HIDDEN', hidden_at = $4, snoozed_until = $5, updated_at = now()
        WHERE id = $1 AND tenant_id = $2 AND user_id = $3 AND state IN ('OPEN','HIDDEN')
        RETURNING id`,
       [row.recipient_id, tenantId, userId, now, snoozedUntil],
     );
-    // TypeORM returns [rows, count] for UPDATE ... RETURNING; 0 rows = resolver/expirer won the race
-    const rows: unknown[] = res.length === 2 && Array.isArray(res[0]) ? res[0] : res;
+    // 0 rows = resolver/expirer won the race
     if (!rows.length) throw new ConflictException('Alert is already closed');
     await this.writer.invalidateSummary(tenantId, [userId]);
     return this.toItem({ ...row, state: 'HIDDEN', snoozed_until: snoozedUntil }, locale);
@@ -307,7 +313,10 @@ export class AttentionQueryService {
         until = new Date(now.getTime() + 2 * 3_600_000);
         break;
       case 'TOMORROW_MORNING':
-        until = at(addDaysIso(ctx.localDate, 1));
+        // after midnight but before dailyAt, "tomorrow morning" is this coming morning
+        until = at(
+          ctx.localTime < ctx.settings.dailyAt ? ctx.localDate : addDaysIso(ctx.localDate, 1),
+        );
         break;
       case 'NEXT_SCHOOL_DAY': {
         let found: string | null = null;
@@ -332,14 +341,13 @@ export class AttentionQueryService {
 
   async markSeen(tenantId: string, userId: string, ids: string[]): Promise<{ updated: number }> {
     if (!ids.length) return { updated: 0 };
-    const res = await this.dataSource.query(
+    const rows = await run(
+      this.dataSource.manager,
       `UPDATE alert_recipients SET seen_at = now()
        WHERE tenant_id = $1 AND user_id = $2 AND id = ANY($3::uuid[]) AND seen_at IS NULL
        RETURNING id`,
       [tenantId, userId, ids],
     );
-    // TypeORM returns [rows, count] for UPDATE ... RETURNING
-    const rows: unknown[] = res.length === 2 && Array.isArray(res[0]) ? res[0] : res;
     return { updated: rows.length };
   }
 
@@ -359,28 +367,31 @@ export class AttentionQueryService {
     if (!student) throw new NotFoundException('Student not found');
 
     if (!hasTenantDataScope(caller.role)) {
-      const [enrollment] = await this.dataSource.query(
+      // One ACTIVE enrollment per academic year, so a rollover can leave two: any taught section passes.
+      const enrollments: Row[] = await this.dataSource.query(
         `SELECT section_id FROM enrollments
          WHERE tenant_id = $1 AND student_id = $2 AND enrollment_status = 'ACTIVE'`,
         [tenantId, studentId],
       );
-      const scope = enrollment?.section_id
-        ? await this.teacherScope.rolesInSection({
-            userId: caller.userId,
-            tenantId,
-            sectionId: enrollment.section_id,
-          })
-        : null;
-      if (!scope || (!scope.homeroom && scope.subjectIds.length === 0)) {
-        throw new ForbiddenException('You do not teach this student');
+      let teaches = false;
+      for (const { section_id } of enrollments) {
+        if (!section_id || teaches) continue;
+        const scope = await this.teacherScope.rolesInSection({
+          userId: caller.userId,
+          tenantId,
+          sectionId: section_id,
+        });
+        teaches = !!scope.homeroom || scope.subjectIds.length > 0;
       }
+      if (!teaches) throw new ForbiddenException('You do not teach this student');
     }
 
     const loc = await this.localeFor(tenantId, locale);
     const rows: Row[] = await this.dataSource.query(
       `SELECT a.id AS alert_id, a.rule_key, a.source, a.severity, a.category, a.params,
               a.raised_at, a.manual_title, a.manual_body,
-              count(r.id)::int AS recipient_count, count(r.seen_at)::int AS seen_count
+              count(r.id) FILTER (WHERE r.state IN ('OPEN','HIDDEN'))::int AS recipient_count,
+              count(r.seen_at) FILTER (WHERE r.state IN ('OPEN','HIDDEN'))::int AS seen_count
        FROM alerts a
        LEFT JOIN alert_recipients r ON r.alert_id = a.id AND r.tenant_id = a.tenant_id
        WHERE a.tenant_id = $1 AND a.status = 'ACTIVE'

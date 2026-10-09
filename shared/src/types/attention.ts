@@ -68,6 +68,8 @@ export interface AttentionSummary {
   critical: number;
   warning: number;
   reminder: number;
+  /** OPEN + HIDDEN live items (the bar counts only OPEN). */
+  activeTotal: number;
   top: AlertItem | null;
   updatedAt: string | null;
   staleMinutes: number;

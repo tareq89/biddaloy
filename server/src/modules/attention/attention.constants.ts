@@ -22,6 +22,8 @@ export const ATTENTION_RETENTION_MONTHS = 12; // D31
 export const ATTENTION_TENANT_CONCURRENCY = 4;
 export const ATTENTION_JITTER_MS = 1000;
 export const DAILY_MARKER_TTL_SECONDS = 3 * 86_400;
+/** A failing DAILY rule runs at most this many times a local day (no 15-min retry storm). */
+export const DAILY_MAX_ATTEMPTS = 3;
 
 /** DAILY rules that run at `eveningAt` instead of `dailyAt`. */
 export const EVENING_RULE_KEYS: ReadonlySet<AlertRuleKey> = new Set<AlertRuleKey>([

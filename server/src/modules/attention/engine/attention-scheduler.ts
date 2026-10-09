@@ -16,6 +16,7 @@ import {
   ATTENTION_SWEEP_DONE,
   ATTENTION_TENANT_CONCURRENCY,
   DAILY_MARKER_TTL_SECONDS,
+  DAILY_MAX_ATTEMPTS,
   DAILY_TICK_MS,
   EVENING_RULE_KEYS,
   FAST_INTERVAL_MS,
@@ -192,7 +193,7 @@ export class AttentionScheduler extends WorkerHost implements OnModuleInit, OnMo
         if (!(await this.claimDaily(tenantId, key, ctx.localDate))) continue;
       }
       const ok = await this.runRule(ctx, rule);
-      // A failed DAILY run must be retried on the next tick, not skipped until tomorrow.
+      // A failed DAILY run is retried on the next tick (capped), not skipped until tomorrow.
       if (!ok && cadence === AlertCadence.DAILY)
         await this.releaseDaily(tenantId, key, ctx.localDate);
     }
@@ -221,9 +222,13 @@ export class AttentionScheduler extends WorkerHost implements OnModuleInit, OnMo
     }
   }
 
+  /** Frees the marker so the next tick retries, until DAILY_MAX_ATTEMPTS failures that day. */
   private async releaseDaily(tenantId: string, key: string, localDate: string): Promise<void> {
+    const marker = attentionKeys.dailyMarker(tenantId, key, localDate);
     try {
-      await this.redis.del(attentionKeys.dailyMarker(tenantId, key, localDate));
+      const failures = await this.redis.incr(`${marker}:failures`);
+      await this.redis.expire(`${marker}:failures`, DAILY_MARKER_TTL_SECONDS);
+      if (failures < DAILY_MAX_ATTEMPTS) await this.redis.del(marker);
     } catch (e) {
       this.logger.error(`daily marker release failed: ${String(e)}`);
     }

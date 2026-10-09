@@ -177,7 +177,8 @@ describe('AlertDeliveryService (integration)', () => {
     expect(queueAdd).toHaveBeenCalledWith(
       JOB_DELIVER_PUSH,
       { tenantId: SEED_TENANT_ID, recipientId: id },
-      expect.objectContaining({ jobId: `push-${id}`, delay: 9 * 3600 * 1000 }),
+      // removeOnFail: a failed job kept under the fixed jobId would swallow the next push
+      expect.objectContaining({ jobId: `push-${id}`, delay: 9 * 3600 * 1000, removeOnFail: true }),
     );
     const job = { name: JOB_DELIVER_PUSH, data: { tenantId: SEED_TENANT_ID, recipientId: id } };
 
@@ -210,7 +211,7 @@ describe('AlertDeliveryService (integration)', () => {
   it('PARENT without action_url falls back to the portal inbox', async () => {
     const id = await add({ role: 'PARENT', actionUrl: null });
     await svc.deliver(SEED_TENANT_ID, [id], new Date(DAY));
-    expect(sendToUser.mock.calls[0][2].url).toBe('/portal/notifications');
+    expect(sendToUser.mock.calls[0][2].url).toBe('/portal');
   });
 
   it('renders with the tenant locale (bn-BD -> Bangla digits)', async () => {

@@ -117,8 +117,12 @@ export class AlertDeliveryService extends WorkerHost implements OnModuleInit, On
           {
             jobId: `push-${row.id}`,
             delay: quietHoursEnd(now, tz, quiet).getTime() - now.getTime(),
+            // Retries are safe (deliver re-checks pushed_at and claims atomically). A failed job
+            // must not linger: under the fixed jobId it would swallow this recipient's next push.
+            attempts: 3,
+            backoff: { type: 'exponential', delay: 30_000 },
             removeOnComplete: true,
-            removeOnFail: 100,
+            removeOnFail: true,
           },
         );
         continue;
@@ -142,7 +146,7 @@ export class AlertDeliveryService extends WorkerHost implements OnModuleInit, On
           url:
             row.action_url ??
             (row.role === 'PARENT' || row.role === 'STUDENT'
-              ? '/portal/notifications'
+              ? '/portal' // no portal notifications page yet (wave 2)
               : '/notifications'),
         })
         .catch((e) => this.logger.warn(`attention push failed: ${String(e)}`));

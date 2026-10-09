@@ -56,7 +56,7 @@ const stable = (o: Record<string, unknown>) =>
 const rcpKey = (userId: string, studentId?: string | null) => `${userId}|${studentId ?? ''}`;
 
 /** TypeORM returns `[rows, count]` for UPDATE ... RETURNING; normalise to rows. */
-async function run(em: EntityManager, sql: string, params: unknown[]): Promise<Row[]> {
+export async function run(em: EntityManager, sql: string, params: unknown[]): Promise<Row[]> {
   const r = await em.query(sql, params);
   return r.length === 2 && Array.isArray(r[0]) && typeof r[1] === 'number' ? r[0] : r;
 }
@@ -100,7 +100,14 @@ export class AlertWriterService {
   ): Promise<ApplyResult> {
     const { tenantId, now } = ctx;
     const { key: ruleKey, severity: metaSeverity, category } = rule.meta;
-    const byKey = new Map(findings.map((f) => [f.dedupeKey, f])); // last wins
+    // An already-expired finding would be expired by the next FAST sweep and re-raised
+    // (and re-pushed) by the next run, forever: treat it as gone instead.
+    const live = findings.filter((f) => !f.expiresAt || f.expiresAt > now);
+    if (live.length < findings.length)
+      this.logger.warn(
+        `Rule ${ruleKey} returned ${findings.length - live.length} already-expired finding(s) for tenant ${tenantId}`,
+      );
+    const byKey = new Map(live.map((f) => [f.dedupeKey, f])); // last wins
     const opened: string[] = [];
     const touched = new Set<string>();
     let created = 0;
@@ -368,7 +375,8 @@ export class AlertWriterService {
       `INSERT INTO alert_recipients (tenant_id, alert_id, user_id, role, student_id)
        SELECT $1, $2, t.u, t.r, t.s FROM unnest($3::uuid[], $4::text[], $5::uuid[]) AS t(u, r, s)
        ON CONFLICT (alert_id, user_id, student_id) DO UPDATE
-         SET state = 'OPEN', resolved_at = NULL, hidden_at = NULL, snoozed_until = NULL, pushed_at = NULL, updated_at = now()
+         SET state = 'OPEN', role = EXCLUDED.role, resolved_at = NULL, hidden_at = NULL, snoozed_until = NULL,
+             pushed_at = NULL, updated_at = now()
          WHERE alert_recipients.state IN ('RESOLVED','EXPIRED')
        RETURNING id, user_id`,
       [
@@ -425,9 +433,10 @@ export class AlertWriterService {
       // Only rows of the rules we hold: a rule that became due after the SELECT waits for the next sweep.
       const alerts = await run(
         em,
-        `UPDATE alerts SET status = '${status}', updated_at = now()
+        // resolved_at = close time for every non-ACTIVE alert: prune ages by it (D31).
+        `UPDATE alerts SET status = '${status}', resolved_at = $${params.length + 2}, updated_at = now()
           WHERE tenant_id = $1 AND ${where} AND rule_key = ANY($${params.length + 1}::text[]) RETURNING id`,
-        [...params, keys],
+        [...params, keys, now],
       );
       n = alerts.length;
       if (!n) return;

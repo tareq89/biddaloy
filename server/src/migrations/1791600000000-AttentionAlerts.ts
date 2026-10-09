@@ -106,6 +106,10 @@ export class AttentionAlerts1791600000000 implements MigrationInterface {
     await q.query(
       `CREATE INDEX "IDX_alert_recipients_tenant_user_created" ON "alert_recipients" ("tenant_id", "user_id", "created_at")`,
     );
+    // The FAST wakeSnoozed sweep: tenant's HIDDEN rows whose snooze has elapsed.
+    await q.query(
+      `CREATE INDEX "IDX_alert_recipients_tenant_snoozed" ON "alert_recipients" ("tenant_id", "snoozed_until") WHERE "state" = 'HIDDEN' AND "snoozed_until" IS NOT NULL`,
+    );
   }
 
   public async down(q: QueryRunner): Promise<void> {
