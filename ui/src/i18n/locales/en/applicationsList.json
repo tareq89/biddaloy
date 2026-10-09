@@ -1,0 +1,81 @@
+{
+  "tabs": {
+    "inbox": "Awaiting decision",
+    "mine": "My applications",
+    "all": "All applications"
+  },
+  "subtitle_one": "{{n}} application waiting for your decision · oldest {{age}} old",
+  "subtitle_other": "{{n}} applications waiting for your decision · oldest {{age}} old",
+  "subtitleNone": "No applications are waiting for your decision right now",
+  "days": "{{n}} days",
+  "actions": {
+    "new": "New application",
+    "reports": "Reports"
+  },
+  "columns": {
+    "serial": "Number",
+    "applicant": "Applicant",
+    "type": "Type",
+    "forWhom": "For",
+    "subject": "Subject",
+    "step": "Step",
+    "status": "Status"
+  },
+  "paper": "Guardian · submitted on paper",
+  "stepShort": "{{current}}/{{total}} · {{label}}",
+  "rowActions": {
+    "view": "Open application {{serial}}",
+    "approve": "Approve application {{serial}}",
+    "reject": "Reject application {{serial}}"
+  },
+  "filters": {
+    "search": "Name or application number",
+    "searchLabel": "Search",
+    "type": "Type",
+    "allTypes": "All types",
+    "status": "Status",
+    "allStatuses": "All statuses",
+    "class": "Class",
+    "allClasses": "All classes",
+    "date": "Submitted on",
+    "from": "From",
+    "to": "To"
+  },
+  "bulk": {
+    "approve": "Approve selected",
+    "limit": "At most 50 at a time",
+    "clear": "Clear selection",
+    "confirmTitle_one": "Approve {{n}} application?",
+    "confirmTitle_other": "Approve {{n}} applications?",
+    "confirmBody": "Each selected application is approved at its current step.",
+    "feeWaiverExcluded": "{{n}} fee waiver application(s) cannot be approved together. Open them one by one.",
+    "confirm": "Approve",
+    "resultTitle": "{{ok}} of {{total}} approved",
+    "failedLine": "{{name}} · {{serial}} — {{reason}}",
+    "dismiss": "OK"
+  },
+  "errors": {
+    "NOT_BULK_APPROVABLE": "This kind of application cannot be approved in bulk.",
+    "NOT_A_DECIDER": "You do not decide this application at its current step.",
+    "APPLICATION_NOT_OPEN": "This application has already been decided or withdrawn.",
+    "APPLICATION_CHANGED": "This application changed while you were approving. Open it and check.",
+    "LEAVE_BALANCE_EXCEEDED": "Not enough leave balance left.",
+    "EFFECT_PERMISSION_REQUIRED": "You do not have the permission needed to approve this application.",
+    "NOT_FOUND": "This application no longer exists.",
+    "unknown": "Could not be approved."
+  },
+  "empty": {
+    "inboxTitle": "Every application has been decided",
+    "inboxBody": "New applications will show up here.",
+    "mineTitle": "You have not made any application yet",
+    "mineBody": "Applications you submit will be listed here.",
+    "allTitle": "No applications yet",
+    "allBody": "Applications from your school will be listed here.",
+    "noResultsTitle": "No application matches these filters",
+    "noResultsBody": "Try different filters.",
+    "clearFilters": "Clear all filters"
+  },
+  "loadError": "Could not load applications.",
+  "loading": "Loading applications…",
+  "retry": "Retry"
+}
