@@ -6,7 +6,7 @@ import { ApplicationType } from '@biddaloy/shared';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { i18n } from '../i18n/i18n';
 import { REGION_BD_BN } from '../i18n/region-config';
@@ -16,6 +16,7 @@ import { cleanupTestState, renderWithProviders } from '../test/render-with-provi
 
 import {
   applicationKeys,
+  downloadApplicationAttachment,
   stepLabel,
   useApplicationLetterPreview,
   useApplicationPendingCount,
@@ -122,7 +123,7 @@ describe('useApplicationLetterPreview', () => {
 });
 
 describe('decision mutations', () => {
-  it('reject writes the detail cache and invalidates the whole applications prefix', async () => {
+  it('reject seeds the detail and refreshes lists + badge, not the seeded detail', async () => {
     const dto = { id: 'a1', status: 'REJECTED' };
     server.use(http.post('/api/v1/applications/a1/reject', () => HttpResponse.json(dto)));
 
@@ -130,12 +131,17 @@ describe('decision mutations', () => {
       tenantId: 'tenant-1',
     });
     queryClient.setQueryData(applicationKeys.list({}), { data: [] });
+    queryClient.setQueryData(applicationKeys.pendingCount(), { total: 1 });
+    queryClient.setQueryData(applicationKeys.reports({}), {});
 
     result.current.mutate({ id: 'a1', reason: 'no' });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(queryClient.getQueryData(applicationKeys.detail('a1'))).toEqual(dto);
+    expect(queryClient.getQueryState(applicationKeys.detail('a1'))?.isInvalidated).toBe(false);
     expect(queryClient.getQueryState(applicationKeys.list({}))?.isInvalidated).toBe(true);
+    expect(queryClient.getQueryState(applicationKeys.pendingCount())?.isInvalidated).toBe(true);
+    expect(queryClient.getQueryState(applicationKeys.reports({}))?.isInvalidated).toBe(false);
   });
 
   function Harness() {
@@ -190,6 +196,37 @@ describe('decision mutations', () => {
 
     await screen.findByText('APPROVED', { selector: '[data-testid="result"]' });
     expect(attempt).toBe(2);
+  });
+});
+
+describe('downloadApplicationAttachment', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('fetches through apiClient (auth headers) and saves under the attachment file name', async () => {
+    let auth: string | null = null;
+    server.use(
+      http.get('/api/v1/applications/a1/attachments/f1', ({ request }) => {
+        auth = request.headers.get('X-Tenant-ID');
+        return new HttpResponse('%PDF', { headers: { 'Content-Type': 'application/pdf' } });
+      }),
+    );
+    const createObjectURL = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:x');
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    let saved: string | undefined;
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (
+      this: HTMLAnchorElement,
+    ) {
+      saved = this.download;
+    });
+
+    renderHookWithProviders(() => null, { tenantId: 'tenant-1' });
+    await downloadApplicationAttachment('a1', { id: 'f1', file_name: 'note.pdf' });
+
+    expect(auth).toBe('tenant-1');
+    expect(createObjectURL).toHaveBeenCalledTimes(1);
+    expect(saved).toBe('note.pdf');
   });
 });
 

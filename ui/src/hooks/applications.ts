@@ -4,7 +4,13 @@ import {
   ApprovalScope,
   type ApplicationType,
 } from '@biddaloy/shared';
-import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  keepPreviousData,
+  queryOptions,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 
 import { apiClient } from '../api/client';
 import type { components } from '../api/schema';
@@ -110,6 +116,8 @@ export function useApplicationPendingCount({ enabled = true }: { enabled?: boole
     enabled,
     staleTime: 60_000,
     refetchOnWindowFocus: true,
+    // New applications arrive from other users: poll while the tab is visible.
+    refetchInterval: 60_000,
     retry: shouldRetryQuery,
   });
 }
@@ -157,7 +165,11 @@ export function useApplicationReports(filters: ApplicationReportFilters = {}) {
   });
 }
 
-/** D48: the server is the only letter renderer; this just asks it. */
+/**
+ * D48: the server is the only letter renderer; this just asks it. The key is the whole input,
+ * so the host passes a settled (step-committed or debounced) input, not every keystroke.
+ * The previous letter stays up while a new one loads.
+ */
 export function useApplicationLetterPreview(
   input: LetterPreviewDto,
   { enabled = true }: { enabled?: boolean } = {},
@@ -171,23 +183,46 @@ export function useApplicationLetterPreview(
         })
       ).data,
     enabled,
+    placeholderData: keepPreviousData,
     retry: shouldRetryQuery,
   });
 }
 
-/** `GET` URL for one attachment download. */
-export function applicationAttachmentUrl(appId: string, attachmentId: string): string {
-  return `${apiClient.defaults.baseURL ?? ''}/applications/${appId}/attachments/${attachmentId}`;
+/**
+ * Saves one attachment. The route needs the bearer token and `X-Tenant-ID`, which a bare
+ * `<a href>` can't send, so it goes through `apiClient` as a blob (like `backup.ts`'s downloads).
+ */
+export async function downloadApplicationAttachment(
+  appId: string,
+  attachment: Pick<ApplicationAttachmentDto, 'id' | 'file_name'>,
+): Promise<void> {
+  const res = await apiClient.get<Blob>(`/applications/${appId}/attachments/${attachment.id}`, {
+    responseType: 'blob',
+  });
+  const url = URL.createObjectURL(res.data);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = attachment.file_name;
+  anchor.style.display = 'none';
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  // A later tick: Safari aborts the download if it is revoked in the same one.
+  setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
 // ---- Mutations ----
 
-/** Decision mutations answer with the fresh dto: seed the detail, refresh list + badge. */
+/**
+ * Decision mutations answer with the fresh dto: seed the detail, refresh lists + badge only
+ * (not the detail just seeded, nor letter-preview / reports / tag-options).
+ */
 function useDecisionCache() {
   const queryClient = useQueryClient();
   return (dto: ApplicationDto) => {
     queryClient.setQueryData(applicationKeys.detail(dto.id), dto);
-    void queryClient.invalidateQueries({ queryKey: applicationKeys.all });
+    void queryClient.invalidateQueries({ queryKey: applicationKeys.lists() });
+    void queryClient.invalidateQueries({ queryKey: applicationKeys.pendingCount() });
   };
 }
 

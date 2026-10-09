@@ -17,7 +17,7 @@ import {
   type ApplicationPayload,
   type ApplicationSubject,
 } from './application-type-form';
-import { APPLICATION_FORMS } from './forms/registry';
+import { APPLICATION_FORMS, canFillApplicationType } from './forms/registry';
 
 type User = ReturnType<typeof userEvent.setup>;
 
@@ -306,6 +306,26 @@ describe('ApplicationTypeForm', () => {
     });
   });
 
+  it('FEE_WAIVER: back-navigation re-feeds the submitted payload (value is a number) and it submits again', async () => {
+    const first = { kind: 'PERCENT', value: 20, reason: 'Father lost his job' };
+    const { onSubmit } = await renderForm(ApplicationType.FEE_WAIVER, STUDENT, {
+      defaultValues: first as never,
+    });
+    expect((await screen.findByLabelText<HTMLInputElement>(/^Percent \(/)).value).toBe('20');
+    submit(userEvent.setup());
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    expect(onSubmit.mock.calls[0]?.[0]).toEqual(first);
+  });
+
+  it('FEE_WAIVER: a value typed in Bangla digits is accepted', async () => {
+    const { user, onSubmit } = await renderForm(ApplicationType.FEE_WAIVER, STUDENT);
+    await typeInto(user, 'Percent \\(', '২০');
+    await typeInto(user, 'Reason', 'Father lost his job');
+    submit(user);
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    expect(onSubmit.mock.calls[0]?.[0]).toMatchObject({ value: 20 });
+  });
+
   it('READMISSION: a future date is rejected by the schema', () => {
     const t = ((k: string) => k) as never;
     const base = { class_section_id: 'sec-b', reason: 'abc' };
@@ -325,6 +345,78 @@ describe('ApplicationTypeForm', () => {
     expect(d(STUDENT, { class_section_id: 'sec-a' }).class_id).toBe('c1');
     expect(d(STUDENT, { class_id: 'c2', class_section_id: 'sec-x' }).class_id).toBe('c2');
     expect(d(STUDENT).class_id).toBe('c1');
+  });
+
+  it('READMISSION: a re-fed section that is not in the shown class is dropped, not submitted unseen', async () => {
+    const { user, onSubmit } = await renderForm(ApplicationType.READMISSION, STUDENT, {
+      defaultValues: { class_section_id: 'sec-of-another-class' } as never,
+    });
+    await pickDate(user, 'Date of readmission', 1);
+    await typeInto(user, 'Reason', 'Came back after illness');
+    // The class's sections have loaded once the section picker is enabled.
+    await waitFor(() =>
+      expect(screen.getByLabelText<HTMLButtonElement>(/^Section/).disabled).toBe(false),
+    );
+    submit(user);
+    expect(await screen.findByText('Choose one.')).toBeTruthy();
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it('SECTION_CHANGE: a class with no other section says so instead of an empty list', async () => {
+    server.use(
+      http.get('/api/v1/classes/c1/sections', () =>
+        HttpResponse.json([{ id: 'sec-a', section_name: 'A', class_id: 'c1', enrolled_count: 10 }]),
+      ),
+    );
+    await renderForm(ApplicationType.SECTION_CHANGE, STUDENT);
+    expect(await screen.findByText('There is no other section in this class.')).toBeTruthy();
+    expect(screen.getByLabelText<HTMLButtonElement>(/^Move to section/).disabled).toBe(true);
+  });
+
+  it('SCRIPT_RECHECK: a failed exam list shows an error with Try again, which reloads it', async () => {
+    let fail = true;
+    server.use(
+      http.get('/api/v1/exams', () =>
+        fail
+          ? HttpResponse.json({ statusCode: 403, message: 'Forbidden' }, { status: 403 })
+          : HttpResponse.json(page([{ id: 'ex-1', name: 'Half yearly', academic_year_id: 'y1' }])),
+      ),
+    );
+    const { user } = await renderForm(ApplicationType.SCRIPT_RECHECK, STUDENT);
+    expect(await screen.findByText('The list could not be loaded.')).toBeTruthy();
+    fail = false;
+    await user.click(screen.getByRole('button', { name: 'Try again' }));
+    await pickOption(user, 'Exam', 'Half yearly');
+  });
+
+  it('SCRIPT_RECHECK: exams are scoped to the current academic year', async () => {
+    let yearParam: string | null = null;
+    server.use(
+      http.get('/api/v1/academic-years', () =>
+        HttpResponse.json(
+          page([
+            { id: 'y0', name: '2025', is_current: false },
+            { id: 'y1', name: '2026', is_current: true },
+          ]),
+        ),
+      ),
+      http.get('/api/v1/exams', ({ request }) => {
+        yearParam = new URL(request.url).searchParams.get('academic_year_id');
+        return HttpResponse.json(page([]));
+      }),
+    );
+    await renderForm(ApplicationType.SCRIPT_RECHECK, STUDENT);
+    expect(await screen.findByText('No exams for this class this year.')).toBeTruthy();
+    expect(yearParam).toBe('y1');
+  });
+
+  it('canFillApplicationType: types whose pickers a role cannot load are not offered', () => {
+    expect(canFillApplicationType(ApplicationType.STUDENT_LEAVE, 'PARENT')).toBe(true);
+    expect(canFillApplicationType(ApplicationType.READMISSION, 'PARENT')).toBe(false);
+    expect(canFillApplicationType(ApplicationType.SECTION_CHANGE, 'STUDENT')).toBe(false);
+    expect(canFillApplicationType(ApplicationType.SCRIPT_RECHECK, 'OFFICE_STAFF')).toBe(false);
+    expect(canFillApplicationType(ApplicationType.SCRIPT_RECHECK, 'TEACHER')).toBe(true);
+    expect(canFillApplicationType(ApplicationType.READMISSION, 'OFFICE_STAFF')).toBe(true);
   });
 
   it('SECTION_CHANGE: the current section is not offered', async () => {
@@ -356,11 +448,17 @@ describe('ApplicationTypeForm', () => {
   });
 
   it.each([
-    ['LEAVE_OVERLAP', 'You already have leave on some of these dates. Choose different dates.'],
     [
-      'LEAVE_NO_WORKING_DAYS',
-      'These dates have no working days. Choose dates that include a working day.',
+      'APPLICATION_SUBJECT_ACTIVE',
+      'This student is already active, so a readmission is not needed.',
     ],
+    [
+      'APPLICATION_NO_CLASS_TEACHER',
+      'This student has no class teacher right now. Ask the office to assign one, then try again.',
+    ],
+    ['APPLICATION_REFERENCE_NOT_FOUND', 'Something you chose no longer exists. Choose it again.'],
+    ['APPLICATION_SUBJECT_MISMATCH', 'This kind of application is not for this person.'],
+    ['LEAVE_OVERLAP', 'The application could not be saved. Try again.'],
     [
       'APPLICATION_ADDRESSEE_INVALID',
       'The person this application is addressed to is not available. Choose someone else.',
