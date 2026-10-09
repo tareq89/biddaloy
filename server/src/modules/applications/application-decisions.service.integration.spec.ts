@@ -285,6 +285,24 @@ describe('ApplicationDecisionsService (integration)', () => {
       applicant_name: 'Abdul Karim',
       payload,
     });
+  /** A paper STAFF_LEAVE the ADMIN enters about their own profile: no applicant user id. */
+  const paperOwnLeave = async () => {
+    const [{ id }] = await dataSource.query(
+      `SELECT id FROM staff_profiles WHERE tenant_id = $1 AND user_id = $2`,
+      [SEED_TENANT_ID, SEED_ADMIN_USER_ID],
+    );
+    return submit(callers.admin, {
+      type: ApplicationType.STAFF_LEAVE,
+      applicant_name: 'Paper',
+      subject_staff_profile_id: id,
+      payload: {
+        leave_type: 'CASUAL',
+        start_date: '2026-10-12',
+        end_date: '2026-10-13',
+        reason: 'Family event',
+      },
+    });
+  };
   const testimonial = (student: string) =>
     onBehalf(ApplicationType.TESTIMONIAL, student, { purpose: 'Scholarship application' });
   const feeWaiver = (student: string) =>
@@ -405,6 +423,17 @@ describe('ApplicationDecisionsService (integration)', () => {
       expect(code(err).details.code).toBe('NOT_A_DECIDER');
     });
 
+    it("D49: a paper entry about the ADMIN's own staff profile cannot be approved by that ADMIN", async () => {
+      const app = await paperOwnLeave();
+      expect((await row(app.id)).applicant_user_id).toBeNull();
+      const err = await approve(callers.admin, app.id).catch((e) => e);
+      expect(err).toBeInstanceOf(ForbiddenException);
+      expect(code(err).details.code).toBe('NOT_A_DECIDER');
+      expect(handlers.staffLeave.apply).not.toHaveBeenCalled();
+      // Another LEAVE_APPROVE holder still can.
+      expect((await approve(callers.exec, app.id)).status).toBe(ApplicationStatus.APPROVED);
+    });
+
     it('STUDENT_LEAVE final approval by its class teacher needs no effectPermission (D44)', async () => {
       const app = await studentLeave(studentA);
       const done = await approve(callers.ct, app.id);
@@ -476,13 +505,26 @@ describe('ApplicationDecisionsService (integration)', () => {
       expect(handlers.feeWaiver.apply).not.toHaveBeenCalled();
     });
 
-    it('FEE_WAIVER final approval stores granted, records it on the event and hands it to the handler', async () => {
-      const app = await feeWaiver(studentA);
+    it('FEE_WAIVER final approval stores the merged grant, records it on the event and hands it to the handler', async () => {
+      const app = await onBehalf(ApplicationType.FEE_WAIVER, studentA, {
+        kind: 'PERCENT',
+        value: 25,
+        fee_types: ['MONTHLY_TUITION'],
+        start_date: '2026-11-01',
+        reason: 'Hardship in the family',
+      });
       await approve(callers.ct, app.id);
-      const granted = { kind: 'PERCENT', value: 50, fee_types: ['TUITION'] };
-      const done = await approve(callers.admin, app.id, { granted });
+      // The approver changes only the amount: the requested fee types and dates still apply (D39).
+      const done = await approve(callers.admin, app.id, { granted: { kind: 'FLAT', value: 300 } });
       expect(done.status).toBe(ApplicationStatus.APPROVED);
 
+      const granted = {
+        kind: 'FLAT',
+        value: 300,
+        fee_types: ['MONTHLY_TUITION'],
+        start_date: '2026-11-01',
+        end_date: null,
+      };
       const saved = await row(app.id);
       expect(saved.granted).toEqual(granted);
       expect(saved.effect_result).toEqual({ discount_rule_id: 'd1' });
@@ -592,6 +634,18 @@ describe('ApplicationDecisionsService (integration)', () => {
       const manual = await cancel(callers.admin, cert.id).catch((e) => e);
       expect(manual).toBeInstanceOf(ConflictException);
       expect(code(manual).details.code).toBe('NOT_CANCELLABLE');
+    });
+
+    it('D49: the ADMIN cannot cancel an approved paper leave about their own profile', async () => {
+      const app = await paperOwnLeave();
+      await approve(callers.exec, app.id);
+      const err = await cancel(callers.admin, app.id).catch((e) => e);
+      expect(err).toBeInstanceOf(ForbiddenException);
+      expect(code(err).details.code).toBe('APPLICANT_CANNOT_CANCEL');
+      expect(handlers.staffLeave.cancel).not.toHaveBeenCalled();
+      expect((await row(app.id)).status).toBe(ApplicationStatus.APPROVED);
+      const listed = await applications.get(SEED_TENANT_ID, callers.admin, app.id);
+      expect(listed.can.cancel).toBe(false);
     });
 
     it('approved STUDENT_LEAVE: class teacher cancels, handler.cancel runs, CANCELLED + event', async () => {

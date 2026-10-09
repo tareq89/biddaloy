@@ -463,6 +463,16 @@ describe('ApplicationsService (integration)', () => {
       );
     });
 
+    it('leave dates must be date-only: a datetime string is a 400 for both leave types', async () => {
+      const iso = { start_date: '2026-10-12T00:00:00.000Z', end_date: '2026-10-13' };
+      await expect(
+        submit(callers.acct, staffLeave({ payload: { ...staffLeave().payload, ...iso } })),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      await expect(
+        submit(callers.parent, studentLeave(studentA, { payload: { ...leavePayload, ...iso } })),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
     it('GENERAL with no addressee is a 422, for staff and for family', async () => {
       await expect(submit(callers.acct, general())).rejects.toMatchObject({
         response: { details: { code: 'APPLICATION_ADDRESSEE_INVALID' } },
@@ -654,6 +664,25 @@ describe('ApplicationsService (integration)', () => {
       expect(
         await reviewer.canDecide(dataSource.manager, callers.exec, await entity(own.id)),
       ).toBeTruthy();
+    });
+
+    it('D49 holds for a paper entry about the caller: no applicant user, but the subject is theirs', async () => {
+      const [{ id: adminProfile }] = await dataSource.query(
+        `SELECT id FROM staff_profiles WHERE tenant_id = $1 AND user_id = $2`,
+        [SEED_TENANT_ID, SEED_ADMIN_USER_ID],
+      );
+      const paper = await submit(
+        callers.admin,
+        staffLeave({ applicant_name: 'Paper', subject_staff_profile_id: adminProfile }),
+      );
+      expect(paper.applicant_user_id).toBeNull();
+      const row = await entity(paper.id);
+      expect(await reviewer.canDecide(dataSource.manager, callers.admin, row)).toBe(false);
+      expect(await inboxIds(callers.admin)).not.toContain(paper.id);
+      expect(await reviewer.currentDeciderUserIds(dataSource.manager, row)).not.toContain(
+        SEED_ADMIN_USER_ID,
+      );
+      expect(await reviewer.canDecide(dataSource.manager, callers.exec, row)).toBeTruthy();
     });
 
     it('applyInbox and canDecide agree for every row and every non-override caller; override inboxes are a subset (D49)', async () => {
