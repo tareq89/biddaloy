@@ -186,8 +186,8 @@ export function SeatListSheet({
                   </caption>
                   <Head cols={cols} />
                   <tbody>
-                    {rows.map((r) => (
-                      <tr key={r.seat}>
+                    {rows.map((r, idx) => (
+                      <tr key={`${r.seat}-${idx}`}>
                         <td className={td}>{seat(r.seat)}</td>
                         <td className={td}>{num(r.roll)}</td>
                         <th scope="row" className={rowTh}>
@@ -252,8 +252,8 @@ export function InvigilatorSheet({
               extra={[labels.present, labels.scriptNo, labels.signature]}
             />
             <tbody>
-              {p.rows.map((r) => (
-                <tr key={r.seat} className="h-[9mm] print:break-inside-avoid">
+              {p.rows.map((r, idx) => (
+                <tr key={`${r.seat}-${idx}`} className="h-[9mm] print:break-inside-avoid">
                   <td className={td}>{seat(r.seat)}</td>
                   <td className={td}>{num(r.roll)}</td>
                   <th scope="row" className={rowTh}>

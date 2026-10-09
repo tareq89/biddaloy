@@ -153,9 +153,9 @@ export function TabulationSheet({
                 {labels.fullMarks} {num(s.fullMarks)}
               </th>
             ))}
-            {[labels.total, labels.gpa, labels.grade, labels.merit].map((h) => (
-              <th key={h} scope="col" rowSpan={2} className={th}>
-                {h}
+            {(['total', 'gpa', 'grade', 'merit'] as const).map((k) => (
+              <th key={k} scope="col" rowSpan={2} className={th}>
+                {labels[k]}
               </th>
             ))}
           </tr>
@@ -277,9 +277,9 @@ export function YearlyTranscript({
         <caption className="sr-only">{labels.title}</caption>
         <thead>
           <tr>
-            {[labels.exam, labels.total, labels.gpa, labels.grade, labels.position].map((x) => (
-              <th key={x} scope="col" className={h}>
-                {x}
+            {(['exam', 'total', 'gpa', 'grade', 'position'] as const).map((k) => (
+              <th key={k} scope="col" className={h}>
+                {labels[k]}
               </th>
             ))}
           </tr>
