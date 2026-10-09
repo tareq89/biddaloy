@@ -1,5 +1,6 @@
 import type { EntityManager } from 'typeorm';
 import {
+  APPLICATION_TYPES,
   ApplicationAddressee,
   ApplicationSource,
   ApplicationStatus,
@@ -86,8 +87,9 @@ const SCALARS: readonly ColumnSpec[] = [
   { key: 'letter_text', type: 'string', required: true, label: { en: 'Letter', bn: 'চিঠি' } },
   {
     key: 'letter_locale',
-    type: 'string',
+    type: 'enum',
     required: true,
+    enumValues: ['bn', 'en'],
     label: { en: 'Letter language', bn: 'চিঠির ভাষা' },
   },
   { key: 'granted', type: 'json', label: { en: 'Granted', bn: 'মঞ্জুর' } },
@@ -106,7 +108,7 @@ const columns: readonly ColumnSpec[] = [
   })),
 ];
 
-const MAX_LENGTHS: Record<string, number> = { applicant_name: 150, letter_locale: 8 };
+const MAX_LENGTHS: Record<string, number> = { applicant_name: 150 };
 
 const excluded: readonly string[] = [
   ...REFS.map(([, fk]) => fk), // exported instead as the matching ref column, keyed by the referenced tab's natural key
@@ -219,6 +221,19 @@ export const applicationsTab: TabSpec<Application, Rec> = {
           rowNo,
           'applicant',
           'An application needs an "applicant", unless its source is PAPER and "applicant_name" is filled.',
+        ),
+      );
+    }
+    // D31: only an approved leave can be cancelled.
+    if (
+      out.status === ApplicationStatus.CANCELLED &&
+      !APPLICATION_TYPES[out.type as ApplicationType].cancellable
+    ) {
+      errors.push(
+        rowError(
+          rowNo,
+          'status',
+          `Column "status": a ${String(out.type)} application cannot be CANCELLED.`,
         ),
       );
     }

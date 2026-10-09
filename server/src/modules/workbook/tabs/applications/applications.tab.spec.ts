@@ -53,6 +53,22 @@ describe('applications tab fromRow', () => {
     );
     expect('row' in paper).toBe(true);
   });
+
+  it('accepts only bn/en as the letter language', () => {
+    const r = applicationsTab.fromRow({ ...base, letter_locale: 'fr' }, 2, ctx());
+    expect('errors' in r).toBe(true);
+  });
+
+  it('accepts CANCELLED only on a cancellable (leave) type (D31)', () => {
+    const general = applicationsTab.fromRow({ ...base, status: 'CANCELLED' }, 2, ctx());
+    expect(messages(general)).toContain('cannot be CANCELLED');
+    const leave = applicationsTab.fromRow(
+      { ...base, type: 'STUDENT_LEAVE', status: 'CANCELLED' },
+      2,
+      ctx(),
+    );
+    expect('row' in leave).toBe(true);
+  });
 });
 
 describe('application_tags tab fromRow', () => {
@@ -64,6 +80,11 @@ describe('application_tags tab fromRow', () => {
   });
   it('accepts a role-only tag', () => {
     expect('row' in applicationTagsTab.fromRow({ ...tag, role: 'ADMIN' }, 2, ctx())).toBe(true);
+  });
+  it('rejects a role that is not a tenant staff role (D50)', () => {
+    for (const role of ['Admin', 'SUPER_ADMIN', 'PARENT']) {
+      expect('errors' in applicationTagsTab.fromRow({ ...tag, role }, 2, ctx())).toBe(true);
+    }
   });
 });
 
@@ -95,6 +116,22 @@ describe('application_attachments tab fromRow', () => {
       ctx(),
     );
     expect('errors' in r).toBe(true);
+  });
+
+  it('rejects a file type or size outside ATTACHMENT_LIMITS (D10)', () => {
+    const key = `tenants/${TENANT}/applications/f.pdf`;
+    const html = applicationAttachmentsTab.fromRow(
+      { ...att, storage_key: key, mime_type: 'text/html' },
+      2,
+      ctx(),
+    );
+    const huge = applicationAttachmentsTab.fromRow(
+      { ...att, storage_key: key, size_bytes: String(5 * 1024 * 1024 + 1) },
+      2,
+      ctx(),
+    );
+    expect('errors' in html && html.errors[0]?.column).toBe('mime_type');
+    expect('errors' in huge && huge.errors[0]?.column).toBe('size_bytes');
   });
 
   it('rejects a key outside tenants/', () => {

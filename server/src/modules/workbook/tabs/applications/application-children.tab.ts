@@ -1,5 +1,5 @@
 import type { EntityManager } from 'typeorm';
-import { ApplicationEventKind } from '@biddaloy/shared';
+import { APPLICATION_TAG_ROLES, ATTACHMENT_LIMITS, ApplicationEventKind } from '@biddaloy/shared';
 import { ApplicationAttachment } from '../../../applications/entities/application-attachment.entity';
 import { ApplicationEvent } from '../../../applications/entities/application-event.entity';
 import { ApplicationTag } from '../../../applications/entities/application-tag.entity';
@@ -203,13 +203,14 @@ export const applicationTagsTab: TabSpec<ApplicationTag, Rec> = {
     if (errors.length > 0) return { errors };
     const role = (v.role as string | null) ?? '';
     const userKey = (v.user as string | null) ?? '';
-    if (role.length > 32) {
+    // Same list as the DB CHECK `CHK_application_tags_role` (tenant staff only, D50).
+    if (role && !(APPLICATION_TAG_ROLES as readonly string[]).includes(role)) {
       errors.push(
         error(
           TAGS,
           rowNo,
           'role',
-          'Column "role": is longer than the 32 characters allowed.',
+          `Column "role": must be one of ${APPLICATION_TAG_ROLES.join(', ')}.`,
           role,
         ),
       );
@@ -369,6 +370,31 @@ export const applicationAttachmentsTab: TabSpec<ApplicationAttachment, Rec> = {
           ),
         );
       }
+    }
+    // D10: the stored type is what the file is served as, so an edited sheet must not relabel it.
+    const mime = v.mime_type as string;
+    if (!(ATTACHMENT_LIMITS.mime as readonly string[]).includes(mime)) {
+      errors.push(
+        error(
+          ATT,
+          rowNo,
+          'mime_type',
+          `Column "mime_type": must be one of ${ATTACHMENT_LIMITS.mime.join(', ')}.`,
+          mime,
+        ),
+      );
+    }
+    const size = v.size_bytes as number;
+    if (size < 0 || size > ATTACHMENT_LIMITS.maxBytes) {
+      errors.push(
+        error(
+          ATT,
+          rowNo,
+          'size_bytes',
+          `Column "size_bytes": must be between 0 and ${ATTACHMENT_LIMITS.maxBytes}.`,
+          String(size),
+        ),
+      );
     }
     // A key from another school must never survive: it would let this school stream that file.
     const rawKey = v.storage_key as string;

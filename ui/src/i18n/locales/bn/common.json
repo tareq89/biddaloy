@@ -287,7 +287,9 @@
     "results_other": "{{count}}টি ফলাফল"
   },
   "multiCombobox": {
+    "added": "{{label}} যোগ হয়েছে",
     "remove": "{{label}} সরান",
+    "removed": "{{label}} সরানো হয়েছে",
     "selected": "বাছাই করা"
   },
   "fullPage": {

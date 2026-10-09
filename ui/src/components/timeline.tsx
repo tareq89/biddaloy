@@ -1,8 +1,8 @@
 /** Vertical event list, caller-ordered. Lifted from the student lifecycle timeline. */
 import type { ReactNode } from 'react';
 
-import { useRegionConfig } from '../i18n';
-import { formatDateTime, parseServerDate } from '../utils';
+import { useRegionConfig, useTranslation } from '../i18n';
+import { formatDateTime } from '../utils';
 
 import { StatusBadge, type StatusTone } from './status-badge';
 
@@ -23,7 +23,9 @@ export interface TimelineProps {
 }
 
 export function Timeline({ items, emptyText, ...props }: TimelineProps) {
+  const { t } = useTranslation();
   const regionConfig = useRegionConfig();
+  emptyText ??= t('table.empty');
   if (items.length === 0) return <p className="text-text-secondary">{emptyText}</p>;
   return (
     <ol aria-label={props['aria-label']} className="divide-y divide-border-subtle">
@@ -34,7 +36,7 @@ export function Timeline({ items, emptyText, ...props }: TimelineProps) {
             <span className="font-medium">{item.title}</span>
           </div>
           <time className="text-text-secondary" dateTime={item.time}>
-            {formatDateTime(parseServerDate(item.time), regionConfig)}
+            {formatDateTime(item.time, regionConfig)}
           </time>
           {item.body && <div>{item.body}</div>}
         </li>

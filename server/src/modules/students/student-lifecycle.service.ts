@@ -164,6 +164,8 @@ export class StudentLifecycleService {
     context: RequestContext,
     manager?: EntityManager,
   ): Promise<StudentLifecycleEvent> {
+    // A caller's `manager` must be inside an open transaction (the FOR UPDATE locks below
+    // need one), and must not already hold this student's row lock: the order is school, then student.
     const run = <T>(fn: (m: EntityManager) => Promise<T>) =>
       manager ? fn(manager) : this.eventRepo.manager.transaction(fn);
     return run(async (manager) => {

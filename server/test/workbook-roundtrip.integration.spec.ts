@@ -570,12 +570,12 @@ describe('workbook round trip (integration)', () => {
     );
 
     // [52.1.6] One application with a SUBMITTED event, a role tag and an
-    // attachment; the leave record below points at it.
+    // attachment; the APPROVED leave record below points at it.
     const application = await dataSource.getRepository(Application).save(
       dataSource.getRepository(Application).create({
         tenant_id: TENANT_A,
         type: ApplicationType.STAFF_LEAVE,
-        status: ApplicationStatus.PENDING,
+        status: ApplicationStatus.APPROVED,
         source: ApplicationSource.APP,
         serial_year: 2026,
         serial_no: 1,
@@ -635,6 +635,38 @@ describe('workbook round trip (integration)', () => {
         approved_by: USER_ID,
         application_id: application.id,
         decided_at: new Date('2026-03-05'),
+      }),
+    );
+    // D31: an earlier, CANCELLED leave for the very same dates stays in the ledger. The two
+    // rows must not collide on the leave_records natural key.
+    const cancelledApplication = await dataSource.getRepository(Application).save(
+      dataSource.getRepository(Application).create({
+        tenant_id: TENANT_A,
+        type: ApplicationType.STAFF_LEAVE,
+        status: ApplicationStatus.CANCELLED,
+        source: ApplicationSource.APP,
+        serial_year: 2026,
+        serial_no: 2,
+        subject_staff_profile_id: staffProfile.id,
+        applicant_user_id: USER_ID,
+        payload: { leave_type: 'CASUAL', start_date: '2026-03-10', end_date: '2026-03-11' },
+        letter_text: 'Roundtrip cancelled letter',
+        letter_locale: 'en',
+      }),
+    );
+    await dataSource.getRepository(LeaveRecord).save(
+      dataSource.getRepository(LeaveRecord).create({
+        tenant_id: TENANT_A,
+        staff_profile_id: staffProfile.id,
+        leave_type: LeaveType.CASUAL,
+        start_date: '2026-03-10',
+        end_date: '2026-03-11',
+        days: 2,
+        status: LeaveStatus.CANCELLED,
+        reason: 'Roundtrip fixture cancelled leave',
+        approved_by: USER_ID,
+        application_id: cancelledApplication.id,
+        decided_at: new Date('2026-03-04'),
       }),
     );
 

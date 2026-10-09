@@ -37,6 +37,20 @@ describe('Timeline', () => {
     expect(time?.textContent).not.toBe('2026-03-01T09:30:00Z');
   });
 
+  it('keeps the time of day (two times on one date read differently)', () => {
+    const { container } = render(
+      <Timeline
+        aria-label="History"
+        items={[
+          { id: 'a', title: 'A', time: '2026-03-01T03:30:00Z' },
+          { id: 'b', title: 'B', time: '2026-03-01T09:45:00Z' },
+        ]}
+      />,
+    );
+    const [first, second] = Array.from(container.querySelectorAll('time'));
+    expect(first?.textContent).not.toBe(second?.textContent);
+  });
+
   it('shows the badge only when given', () => {
     render(<Timeline aria-label="History" items={ITEMS} />);
     expect(screen.getByText('Pending')).toBeTruthy();
@@ -49,5 +63,10 @@ describe('Timeline', () => {
     render(<Timeline aria-label="History" items={[]} emptyText="No history yet" />);
     expect(screen.getByText('No history yet')).toBeTruthy();
     expect(screen.queryByRole('list')).toBeNull();
+  });
+
+  it('falls back to the shared empty text', () => {
+    render(<Timeline aria-label="History" items={[]} />);
+    expect(screen.getByText(i18n.t('table.empty'))).toBeTruthy();
   });
 });
