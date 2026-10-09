@@ -281,7 +281,7 @@ function NavLink({
             >
               {item.badge}
             </span>
-            {item.badgeLabel !== undefined && <span className="sr-only">{item.badgeLabel}</span>}
+            {item.badgeLabel !== undefined && <span className="sr-only"> {item.badgeLabel}</span>}
           </>
         )}
       </Link>

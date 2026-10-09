@@ -9,8 +9,16 @@ import { loadRouteNamespaces } from '../../../route-loaders';
 /** [52.4.1] Stub: the W5 reports ticket replaces the body and relies on these exact search keys. */
 const reportsSearchSchema = z.object({
   academic_year_id: z.string().uuid().optional().catch(undefined),
-  from: z.string().optional().catch(undefined),
-  to: z.string().optional().catch(undefined),
+  from: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional()
+    .catch(undefined),
+  to: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional()
+    .catch(undefined),
 });
 
 export const Route = createFileRoute('/_staff/applications/reports')({

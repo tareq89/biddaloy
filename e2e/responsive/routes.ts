@@ -371,8 +371,9 @@ export async function resolvePath(
       );
       id = list.data[0]?.id;
     }
-    if (!id) test.skip(true, 'no application seeded');
-    return route.path.replace('$applicationId', id!);
+    // The seed always creates applications: none means the seed broke, so fail, never skip.
+    if (!id) throw new Error('no application seeded (server/src/scripts/seed.applications.ts)');
+    return route.path.replace('$applicationId', id);
   }
   throw new Error(`no resolver for ${route.path}`);
 }

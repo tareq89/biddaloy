@@ -19,7 +19,7 @@ export function LetterPreview({ text, draft = false, decision }: LetterPreviewPr
   const { t } = useTranslation('applicationForms');
   const { t: tApp } = useTranslation('applications');
   const regionConfig = useRegionConfig();
-  const paragraphs = text.split(/\n{2,}/);
+  const paragraphs = text.split(/(?:\r?\n){2,}/);
 
   return (
     <article
@@ -34,7 +34,7 @@ export function LetterPreview({ text, draft = false, decision }: LetterPreviewPr
       )}
       {paragraphs.map((paragraph, i) => (
         <p key={i} className="text-body">
-          {paragraph.split('\n').map((line, j) => (
+          {paragraph.split(/\r?\n/).map((line, j) => (
             <React.Fragment key={j}>
               {j > 0 && <br />}
               {line}

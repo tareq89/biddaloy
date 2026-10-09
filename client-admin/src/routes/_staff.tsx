@@ -235,15 +235,15 @@ function StaffLayout() {
   const pendingTotal = pending.data?.total ?? 0;
   const navItems = STAFF_TOP_NAV_ITEMS.map((def) => {
     const item = toNavItem(def);
-    return def.id === 'applications' && pendingTotal > 0
-      ? {
-          ...item,
-          badge:
-            formatNumber(Math.min(pendingTotal, 9999), regionConfig) +
-            (pendingTotal > 9999 ? '+' : ''),
-          badgeLabel: t('items.applicationsPending', { count: pendingTotal }),
-        }
-      : item;
+    if (def.id !== 'applications' || pendingTotal === 0) return item;
+    const badge =
+      formatNumber(Math.min(pendingTotal, 9999), regionConfig) + (pendingTotal > 9999 ? '+' : '');
+    // `count` picks the plural form; `n` is the same number in the locale's digits.
+    return {
+      ...item,
+      badge,
+      badgeLabel: t('items.applicationsPending', { count: pendingTotal, n: badge }),
+    };
   });
 
   // [30.1.3]'s restructured §3 groups — `nav-tree.ts` is the single
