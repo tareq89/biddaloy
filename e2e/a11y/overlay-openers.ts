@@ -1,9 +1,13 @@
 import type { Page } from '@playwright/test';
-import { expect } from '@playwright/test';
+import { expect, request } from '@playwright/test';
 
+import { adminApiSession, findSeedSectionA, get, rawRequest } from '../api';
 import { makeT, type Locale } from '../i18n';
 import { DetailShellPage } from '../pages/detail-shell';
 import { ListShellPage } from '../pages/list-shell';
+
+// Duplicated from `server/src/scripts/seed.study-plans.ts` (seed-contract.ts is outside this lane).
+const SEED_TEMPLATE_NAME = 'বোর্ডের বইয়ের ক্রমে';
 
 /**
  * [8.5.5] One opener per named overlay in `e2e/route-manifest.json` —
@@ -79,6 +83,117 @@ export const overlayOpeners: Record<string, (page: Page, locale: Locale) => Prom
   },
   '/students/$studentId::delete-student': async (page, locale) => {
     await new DetailShellPage(page, locale).clickAction('students.detail.actions.delete');
+    await expectDialogOpen(page);
+  },
+  // [66.4.99] Epic 66 screens. The syllabus page keeps its states in `?tab=` / `?new=`, so those
+  // openers navigate rather than click; the dialogs open from a button or a row's actions.
+  '/academics/syllabus::plans-tab': async (page, locale) => {
+    await page.goto('/academics/syllabus?tab=plans');
+    await expect(
+      page.getByRole('button', { name: makeT(locale)('studyPlans.list.newPlan') }).first(),
+    ).toBeVisible();
+  },
+  '/academics/syllabus::library-tab': async (page, locale) => {
+    await page.goto('/academics/syllabus?tab=library');
+    await expect(
+      page.getByRole('button', { name: makeT(locale)('studyPlans.library.add') }).first(),
+    ).toBeVisible();
+  },
+  '/academics/syllabus::template-lessons': async (page, locale) => {
+    const t = makeT(locale);
+    await page.goto('/academics/syllabus?tab=library');
+    // The seed's template (bn name, locale-independent): other runs' templates share the list.
+    await page.getByPlaceholder(t('studyPlans.library.searchPlaceholder')).fill(SEED_TEMPLATE_NAME);
+    await page
+      .getByRole('button', {
+        name: t('studyPlans.library.actions.view', { name: SEED_TEMPLATE_NAME }),
+      })
+      .click();
+    await expectDialogOpen(page);
+  },
+  '/academics/syllabus::create-plan': async (page, locale) => {
+    await page.goto('/academics/syllabus?tab=plans&new=1');
+    await expect(
+      page
+        .getByRole('dialog')
+        .getByRole('button', { name: makeT(locale)('studyPlans.create.next') }),
+    ).toBeVisible();
+    await expectDialogOpen(page);
+  },
+  '/academics/study-plans/$planId::lesson-form': async (page, locale) => {
+    await page
+      .getByRole('button', { name: makeT(locale)('studyPlans.detail.addLesson') })
+      .first()
+      .click();
+    await expectDialogOpen(page);
+  },
+  '/academics/study-plans/$planId::exam-markers': async (page, locale) => {
+    const t = makeT(locale);
+    await page
+      .getByRole('button', { name: t('common.actions.moreActions') })
+      .first()
+      .click();
+    await page.getByRole('menuitem', { name: t('studyPlans.actions.examMarker') }).click();
+    await expectDialogOpen(page);
+  },
+  '/academics/study-plans/$planId::extra-class': async (page, locale) => {
+    // A header action (not in the More menu).
+    await page
+      .getByRole('button', { name: makeT(locale)('studyPlans.actions.extraClass') })
+      .first()
+      .click();
+    await expectDialogOpen(page);
+  },
+  // The seed teacher has a weekly Monday period (`seed.study-plans.ts`), but the seeded math plan sits in a term
+  // that is over, so today's agenda says "no plan". Give the same section x subject a whole-year plan once, then
+  // open the latest Monday on or before today (school time) and pick "not taught": that only opens the reason
+  // dialog, it records nothing.
+  '/routines/my::not-taught': async (page, locale) => {
+    const t = makeT(locale);
+    // Its own request context: logging in through the page's would swap the teacher's cookies for the admin's.
+    const api = await request.newContext({ baseURL: new URL(page.url()).origin });
+    try {
+      const admin = await adminApiSession(api);
+      const seed = await findSeedSectionA(api, admin);
+      const { data: plans } = await get<{
+        data: { subject: { id: string; code: string }; term: { id: string } | null }[];
+      }>(api, admin, `/study-plans?section_id=${seed.sectionId}&limit=100`);
+      const math = plans.find((p) => p.subject.code === 'MATH');
+      if (!math) throw new Error('no seeded MATH study plan on Class 6 A: run the seed script');
+      if (!plans.some((p) => p.subject.id === math.subject.id && p.term === null)) {
+        // The seed wrote its plan straight to the table; the API only accepts a subject the class offers.
+        await rawRequest(api, admin, 'POST', `/classes/${seed.classId}/subjects`, {
+          subject_id: math.subject.id,
+          academic_year_id: seed.academicYearId,
+        });
+        const created = await rawRequest(api, admin, 'POST', '/study-plans', {
+          section_id: seed.sectionId,
+          subject_id: math.subject.id,
+          academic_term_id: null,
+          lessons: [1, 2, 3].map((n) => ({ title: `A11y lesson ${n}`, periods: 1 })),
+        });
+        // A parallel variant may win the race (409): fine. Anything else is a real failure.
+        if (created.status >= 400 && created.status !== 409) {
+          throw new Error(
+            `could not create the whole-year plan: ${created.status} ${JSON.stringify(created.body)}`,
+          );
+        }
+      }
+    } finally {
+      await api.dispose();
+    }
+    const monday = await page.evaluate(() => {
+      const fmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Dhaka' });
+      const d = new Date(`${fmt.format(new Date())}T00:00:00Z`);
+      d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
+      return d.toISOString().slice(0, 10);
+    });
+    await page.goto(`/routines/my?date=${monday}`);
+    await page
+      .getByRole('main')
+      .getByRole('radio', { name: t('routines.marking.status.notTaught') })
+      .first()
+      .click();
     await expectDialogOpen(page);
   },
   // [30.4.1] `ShortcutsSheet` (`ui/src/components/shortcuts-sheet.tsx`) —

@@ -154,7 +154,8 @@
     {
       "path": "/academics/syllabus",
       "role": "admin",
-      "archetype": "list"
+      "archetype": "list",
+      "overlays": ["plans-tab", "library-tab", "template-lessons", "create-plan"]
     },
     {
       "path": "/academics/study-plans/$planId",
@@ -162,7 +163,8 @@
         "planId": "seeded"
       },
       "role": "admin",
-      "archetype": "detail"
+      "archetype": "detail",
+      "overlays": ["lesson-form", "exam-markers", "extra-class"]
     },
     {
       "path": "/exams",
@@ -330,8 +332,9 @@
     },
     {
       "path": "/routines/my",
-      "role": "admin",
-      "archetype": "list"
+      "role": "teacher",
+      "archetype": "list",
+      "overlays": ["not-taught"]
     },
     {
       "path": "/audit-logs",

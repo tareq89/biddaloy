@@ -99,7 +99,9 @@ for (const { locale, theme } of VARIANTS) {
               const opener = overlayOpeners[`${route.path}::${overlay}`];
               if (!opener) throw new Error(`no opener for ${route.path}::${overlay}`);
               await opener(page, locale);
-              await expectNoAxeViolations(page, '[role="dialog"]');
+              // [66.4.99] A tab state (no dialog) is scanned whole; axe throws on an `include` that matches nothing.
+              const hasDialog = (await page.locator('[role="dialog"]').count()) > 0;
+              await expectNoAxeViolations(page, hasDialog ? '[role="dialog"]' : undefined);
               await page.keyboard.press('Escape');
             });
           }
