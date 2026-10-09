@@ -1,6 +1,18 @@
 import { join } from 'node:path';
 import { ACR_CRITERIA_SLOTS, CR80, DocumentKind } from '@biddaloy/shared';
 import type { PrintElement, TemplateDefinition } from '@biddaloy/shared';
+import {
+  NAVY,
+  PLACEHOLDER_ASSET,
+  SANS,
+  SERIF_BN,
+  WHITE,
+  ids,
+  split,
+  text,
+  type Rect,
+  type TextOpts,
+} from './suggestion-helpers';
 
 export type SuggestionOrientation = 'portrait' | 'landscape';
 export type SuggestionStyle = 'classic' | 'modern';
@@ -18,8 +30,6 @@ export interface PrintSuggestion {
 }
 
 export const ARTWORK_DIR = join(__dirname, 'artwork');
-
-type Rect = [x: number, y: number, w: number, h: number];
 
 /** Zones in mm, copied from `artwork/README.md`. Student and staff share them. */
 interface Zones {
@@ -83,62 +93,18 @@ const ZONES: Record<`${SuggestionOrientation}-${SuggestionStyle}`, Zones> = {
   },
 };
 
-const PRIMARY: Record<DocumentKind, string> = {
+const PRIMARY: Partial<Record<DocumentKind, string>> = {
   [DocumentKind.STUDENT_ID_CARD]: '#0B3A6B',
   [DocumentKind.STAFF_ID_CARD]: '#2B2F36',
   [DocumentKind.ACR_ASSESSMENT]: '#0B3A6B',
 };
-const WHITE = '#FFFFFF';
-const SANS = 'Biddaloy Sans';
-const SERIF_BN = 'Noto Serif Bengali';
-/** Replaced with a real, tenant-owned asset id when a school instantiates the suggestion. */
-const PLACEHOLDER_ASSET = '00000000-0000-4000-8000-000000000000';
-
-/** Split a rect into `n` equal rows (or columns when `cols`). */
-function split([x, y, w, h]: Rect, n: number, cols = false): Rect[] {
-  return Array.from({ length: n }, (_, i) =>
-    cols ? [x + (w / n) * i, y, w / n, h] : [x, y + (h / n) * i, w, h / n],
-  );
-}
-
-interface TextOpts {
-  field?: string;
-  text?: string;
-  font?: string;
-  pt: number;
-  color: string;
-  weight?: 400 | 500 | 600 | 700;
-  align: 'left' | 'center' | 'right';
-}
-
-function text([x, y, w, h]: Rect, o: TextOpts): PrintElement {
-  return {
-    id: '',
-    type: 'TEXT',
-    x,
-    y,
-    w,
-    h,
-    ...(o.field !== undefined ? { field: o.field } : { text: o.text ?? '' }),
-    fontFamily: o.font ?? SANS,
-    sizePt: o.pt,
-    minSizePt: Math.max(4, o.pt - 3),
-    weight: o.weight ?? 400,
-    color: o.color,
-    align: o.align,
-    overflow: 'SHRINK',
-  };
-}
-
-const ids = (side: string, els: PrintElement[]): PrintElement[] =>
-  els.map((e, i) => ({ ...e, id: `${side}-${i + 1}` }));
 
 function build(kind: DocumentKind, o: SuggestionOrientation, s: SuggestionStyle): PrintSuggestion {
   const student = kind === DocumentKind.STUDENT_ID_CARD;
   const p = student ? 'student' : 'staff';
   const key = `${p}-${o}-${s}`;
   const z = ZONES[`${o}-${s}`];
-  const c = PRIMARY[kind];
+  const c = PRIMARY[kind] ?? NAVY;
   const portrait = o === 'portrait';
   const align = portrait ? 'center' : 'left';
   const nameFont = s === 'classic' ? SERIF_BN : SANS;
@@ -240,7 +206,7 @@ function build(kind: DocumentKind, o: SuggestionOrientation, s: SuggestionStyle)
 
 /** A4 portrait, front only: header, one row per criterion slot (EN, BN, score), total. */
 function buildAcr(): PrintSuggestion {
-  const c = PRIMARY[DocumentKind.ACR_ASSESSMENT];
+  const c = PRIMARY[DocumentKind.ACR_ASSESSMENT] ?? NAVY;
   const rows: PrintElement[] = Array.from({ length: ACR_CRITERIA_SLOTS }, (_, i) => {
     const y = 44 + 7.5 * i;
     const n = i + 1;

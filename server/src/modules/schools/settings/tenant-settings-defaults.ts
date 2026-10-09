@@ -4,6 +4,7 @@ import type {
   AttendancePolicySettings,
   AuthSettings,
   BackupSettings,
+  DocumentsSettings,
   FeesSettings,
   OrganisationSettings,
   RegionSettings,
@@ -114,6 +115,9 @@ export const DEFAULT_ROUTINE_SETTINGS: RoutineSettings = {
   defaultChangeoverMinutes: 5,
 };
 
+/** [48.1.03] D9: admit cards are never withheld unless a school opts in. */
+export const DEFAULT_DOCUMENTS_SETTINGS: DocumentsSettings = { withholdAdmitCardForDues: false };
+
 export const DEFAULT_TENANT_SETTINGS: TenantSettings = {
   version: TENANT_SETTINGS_SCHEMA_VERSION,
   region: DEFAULT_REGION_SETTINGS,
@@ -123,4 +127,5 @@ export const DEFAULT_TENANT_SETTINGS: TenantSettings = {
   auth: DEFAULT_AUTH_SETTINGS,
   backup: DEFAULT_BACKUP_SETTINGS,
   fees: DEFAULT_FEES_SETTINGS,
+  documents: DEFAULT_DOCUMENTS_SETTINGS,
 };

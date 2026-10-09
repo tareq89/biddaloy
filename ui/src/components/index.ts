@@ -105,6 +105,7 @@ export {
   type RadioGroupProps,
   type RadioGroupItemProps,
 } from './radio';
+export { ChoiceCards, type ChoiceCardsProps, type ChoiceCardOption } from './choice-cards';
 export { SchoolPicker, type SchoolPickerOption, type SchoolPickerProps } from './school-picker';
 export { TenantBar } from './tenant-bar';
 export {
@@ -341,6 +342,11 @@ export {
   type InvoiceReceiptProps,
   type InvoiceReceiptStudent,
 } from './print/invoice-receipt';
+export {
+  A4Document,
+  type A4DocumentProps,
+} from './print/a4-document';
+export { DocumentCard, type DocumentCardProps } from './document-card';
 export {
   ReportCard,
   type ReportCardComponent,

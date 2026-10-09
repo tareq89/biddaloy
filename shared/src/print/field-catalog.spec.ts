@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { DocumentKind } from '../enums/print';
+import { ADMIT_CARD_SITTING_SLOTS, DocumentKind, isSerialKind } from '../enums/print';
 import { FIELD_CATALOG } from './field-catalog';
 
 describe('FIELD_CATALOG', () => {
@@ -24,9 +24,32 @@ describe('FIELD_CATALOG', () => {
         },
       );
 
+      it('has a serial number iff it is a serial kind', () => {
+        expect(fields.some((x) => x.key === 'print.serial_no')).toBe(isSerialKind(kind));
+      });
+
+      it('only marks issue.* fields as issue-time, with a positive maxLength', () => {
+        for (const x of fields) {
+          expect(x.key.startsWith('issue.'), x.key).toBe(x.issueTime !== undefined);
+          if (x.issueTime) expect(x.issueTime.maxLength, x.key).toBeGreaterThan(0);
+        }
+      });
+
+      // D43: otherwise a field could never be written as {{key}}.
+      it('has keys usable as placeholders', () => {
+        for (const x of fields) expect(x.key, x.key).toMatch(/^[A-Za-z0-9_.]+$/);
+      });
+
       it('gives every field a sample', () => {
         for (const x of fields) expect(x.sample, x.key).not.toBe('');
       });
     });
   }
+
+  it('gives the admit card exactly 15 x 5 sitting fields, other kinds none', () => {
+    const n = (k: DocumentKind) =>
+      FIELD_CATALOG[k].filter((x) => x.key.startsWith('exam.sitting.')).length;
+    expect(n(DocumentKind.EXAM_ADMIT_CARD)).toBe(ADMIT_CARD_SITTING_SLOTS * 5);
+    expect(n(DocumentKind.TRANSFER_CERTIFICATE)).toBe(0);
+  });
 });

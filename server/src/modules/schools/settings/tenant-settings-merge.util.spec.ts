@@ -188,6 +188,65 @@ describe('mergeTenantSettings', () => {
     ).toEqual({ incidentSmsEnabled: true });
   });
 
+  it('stores documents on PATCH and leaves fees untouched (48.1.03)', () => {
+    const fees = { approvalMode: 'OTP' };
+    const merged = mergeTenantSettings(
+      { version: 1, fees },
+      toPatch({ version: 1, documents: { withholdAdmitCardForDues: true, serialPrefix: 'DAHS' } }),
+    );
+    expect(merged.documents).toEqual({ withholdAdmitCardForDues: true, serialPrefix: 'DAHS' });
+    expect(merged.fees).toEqual(fees);
+  });
+
+  it('shallow-merges documents: a partial PATCH keeps the other key, null clears serialPrefix (48.1.03)', () => {
+    const stored = {
+      version: 1,
+      documents: { withholdAdmitCardForDues: true, serialPrefix: 'DAHS' },
+    };
+    expect(
+      mergeTenantSettings(stored, toPatch({ version: 1, documents: { serialPrefix: 'ABC' } }))
+        .documents,
+    ).toEqual({ withholdAdmitCardForDues: true, serialPrefix: 'ABC' });
+    expect(
+      mergeTenantSettings(stored, toPatch({ version: 1, documents: { serialPrefix: null } }))
+        .documents,
+    ).toEqual({ withholdAdmitCardForDues: true, serialPrefix: null });
+  });
+
+  it('leaves documents untouched when the patch omits it (48.1.03)', () => {
+    const documents = { withholdAdmitCardForDues: true, serialPrefix: 'DAHS' };
+    expect(
+      mergeTenantSettings({ version: 1, documents }, toPatch({ version: 1 })).documents,
+    ).toEqual(documents);
+  });
+
+  // [1811] A typed object, so a new DTO section without an entry is a compile
+  // error, and one without a merge branch fails the `it` below. Excluded:
+  // `organisationRenames` is a write instruction, not stored; `preset` is
+  // never PATCHed (Epic 35 D37) and is not on the DTO at all.
+  const EVERY_SECTION: Record<
+    Exclude<keyof TenantSettingsDto, 'version' | 'organisationRenames'>,
+    { marker: string }
+  > = {
+    region: { marker: 'region' },
+    communications: { marker: 'communications' },
+    attendance: { marker: 'attendance' },
+    routine: { marker: 'routine' },
+    organisation: { marker: 'organisation' },
+    auth: { marker: 'auth' },
+    backup: { marker: 'backup' },
+    fees: { marker: 'fees' },
+    evaluations: { marker: 'evaluations' },
+    documents: { marker: 'documents' },
+  };
+
+  it('every DTO section survives a merge (#1811 guard)', () => {
+    const merged = mergeTenantSettings({}, { version: 1, ...EVERY_SECTION });
+    for (const [key, value] of Object.entries(EVERY_SECTION)) {
+      expect(merged[key], key).toMatchObject(value);
+    }
+  });
+
   it('replaces organisation wholesale when present, and leaves it untouched when the patch omits it (33.1.1)', () => {
     const existing = {
       version: 1,

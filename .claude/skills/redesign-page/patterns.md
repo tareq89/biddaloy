@@ -458,6 +458,26 @@ Busy: same button, `loader-circle` (spinning) before the label, `aria-busy="true
 
 `<section class="rounded-lg border border-border-subtle bg-surface p-4 shadow-e1 md:p-5">`, title `text-h2`, text under it `mt-1 text-text-secondary`. A card that holds a table or a grid uses `overflow-hidden` and no padding. Don't nest cards; don't draw a border around something spacing already separates.
 
+### DocumentCard (new) — Epic 48 D15/D16/D34
+
+The Card above with one action. `<section aria-labelledby>`, title `text-h2`, description `mt-1 text-text-secondary`, optional meta `mt-1 text-caption text-text-secondary`, button `mt-4 min-h-11 md:min-h-0`. Filled button only when `primary` (D34), outline otherwise. Unavailable (D15): the button is `disabled` with `aria-describedby` on the reason line `text-caption text-text-secondary`, followed by ` · ` and a real link `font-medium text-primary underline underline-offset-2` that fixes it ("No seat plan yet · Make a seat plan").
+
+### StepIndicator (new) — Epic 48 D37
+
+Use `StepIndicator` from `@biddaloy/ui`. `WizardShell` renders it; use it alone inside `FullPageShell`. `<ol class="flex flex-wrap items-center gap-2 text-sm">`, steps separated by `›`. Current step `font-medium text-foreground` + `aria-current="step"`; later steps `text-muted-foreground`; completed steps are `text-primary` buttons only when `onStepChange` is given. Props: `steps`, `currentStepId`, `onStepChange?`, `label?` (wraps in `<nav aria-label>`).
+
+### ChoiceCards (new) — Epic 48 D10/D12/D13/D15/D37
+
+Use `ChoiceCards` from `@biddaloy/ui` to pick one kind or language. A radio group where each option is a Card (`rounded-lg border border-border-subtle bg-surface p-4 shadow-e1`, `min-h-11`): title `font-semibold`, one line `text-caption text-text-secondary`. Selected = `border-primary bg-secondary`. Arrow keys move focus, Space selects. Disabled (D15): `bg-muted`, the line under the title becomes the reason (linked by `aria-describedby`). Props: `label`, `value`, `onValueChange`, `options[{value,title,description?,disabled?,disabledReason?}]`, `columns?` (1/2/3 from `md`; phone is 1).
+
+### StudentPicker (existing) — portal child picker
+
+Use `StudentPicker` from `@biddaloy/ui` (already used by the portal exam schedule). A `<nav aria-label>` of chips: `flex min-h-11 flex-col justify-center gap-0.5 rounded-lg border px-3 py-1.5`; active `border-primary bg-secondary`, others `border-border-subtle bg-surface hover:bg-muted`; name `font-semibold`, meta `text-caption text-text-secondary`. Hidden when there are fewer than two children. Props: `label`, `items[{id,name,meta}]`, `selectedId`, `to`.
+
+### Print type sizes — D38
+
+`text-print-title` (28pt/34pt, 700) and `text-print-door` (72pt/80pt, 700) are for printed documents only (certificate title, door sign). Never on screen; the screen ramp is unchanged.
+
 ### NotificationBell — D31
 
 Badge: `absolute start-1/2 top-0.5 ms-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1 text-caption font-medium text-destructive-foreground md:-top-0.5` on a `relative size-11 md:size-9` icon button. Text: the count in the tenant's numerals up to `৯৯৯৯` (no grouping comma), then the overflow label. It starts just right of the bell's centre and grows to the right. `--color-destructive-foreground` is a real token (31.1.1).

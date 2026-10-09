@@ -46,7 +46,8 @@ export function PublishButton({ templateId, kind, draft, saveStatus }: PublishBu
   const [offerDefault, setOfferDefault] = React.useState(false);
 
   const next = Math.max(0, ...(versions.data ?? []).map((v) => v.version)) + 1;
-  const validation = validateTemplateDefinition(draft, kind);
+  // Same baseline as the server's publish: the saved draft grandfathers its own texts.
+  const validation = validateTemplateDefinition(draft, kind, draft);
   const problems = validation.success ? [] : validation.errors;
   const blocked = saveStatus !== 'saved' || problems.length > 0;
 

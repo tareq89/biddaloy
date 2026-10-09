@@ -197,7 +197,7 @@ function commit(
   selectedId = state.selectedId,
 ): EditorState {
   if (next === state.draft) return state;
-  if (!validateTemplateDefinition(next, state.kind).success) return state;
+  if (!validateTemplateDefinition(next, state.kind, state.draft).success) return state;
   return {
     ...state,
     draft: next,

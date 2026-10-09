@@ -130,6 +130,29 @@ describe('SchoolsService (integration)', () => {
     expect(logs[0].created_at).toBeInstanceOf(Date);
   });
 
+  it('[48.1.03] stores settings.documents as sent and a later fees-only update leaves it', async () => {
+    const school = await createSchool();
+    const documents = { withholdAdmitCardForDues: true, serialPrefix: 'DAHS' };
+
+    await service.updateSettings(
+      school.id,
+      plainToInstance(TenantSettingsDto, { version: 1, documents }),
+      SEED_ADMIN_USER_ID,
+    );
+    expect((await schoolRepo.findOneByOrFail({ id: school.id })).settings?.documents).toEqual(
+      documents,
+    );
+
+    await service.updateSettings(
+      school.id,
+      plainToInstance(TenantSettingsDto, { version: 1, fees: { approvalMode: 'OTP' } }),
+      SEED_ADMIN_USER_ID,
+    );
+    expect((await schoolRepo.findOneByOrFail({ id: school.id })).settings?.documents).toEqual(
+      documents,
+    );
+  });
+
   it('never stores the secret value in the audit diff, asserted against the raw stored row', async () => {
     const school = await createSchool();
     const patch = plainToInstance(TenantSettingsDto, {

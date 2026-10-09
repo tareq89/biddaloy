@@ -51,7 +51,10 @@ function deepMergeOmittingUnset(existing: unknown, patch: unknown): unknown {
  * `region` is one dashboard section and is replaced wholesale when
  * present — the form that produces it always submits every field.
  *
- * `attendance` is shallow-merged: keys the patch omits (e.g. `shiftTimes`,
+ * `routine`, `fees` and `evaluations` are replaced wholesale when
+ * present (the forms always send the whole block).
+ *
+ * `attendance` and `documents` are shallow-merged: keys the patch omits (e.g. `shiftTimes`,
  * `periodAttendance`, which the older attendance form never sends) survive;
  * keys the patch sends replace the stored value whole.
  *
@@ -84,6 +87,9 @@ export function mergeTenantSettings(
   if (patch.region !== undefined) {
     merged.region = patch.region;
   }
+
+  // [1811] Missing branch: a `routine` PATCH returned 200 and stored nothing.
+  if (patch.routine !== undefined) merged.routine = patch.routine;
 
   if (patch.attendance !== undefined) {
     merged.attendance = {
@@ -125,6 +131,15 @@ export function mergeTenantSettings(
   // [28.4.7] Wholesale replace, like `fees`; the DTO validates the one boolean.
   if (patch.evaluations !== undefined) {
     merged.evaluations = patch.evaluations;
+  }
+
+  // [48.1.03] Shallow-merged like `attendance`: both fields are optional, so a
+  // partial PATCH must not reset `withholdAdmitCardForDues`. `serialPrefix: null` clears it.
+  if (patch.documents !== undefined) {
+    merged.documents = {
+      ...(isPlainObject(merged.documents) ? merged.documents : {}),
+      ...(patch.documents as Record<string, unknown>),
+    };
   }
 
   return merged;

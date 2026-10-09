@@ -189,6 +189,8 @@ export enum Permission {
   PRINT_HISTORY_READ = 'PRINT_HISTORY_READ',
   // [32.1.1] Epic 32 D18/D47 — revoke an issued document (e.g. a lost card).
   DOCUMENT_REVOKE = 'DOCUMENT_REVOKE',
+  // [48.1.01] D6 — issue a student certificate (TC, testimonial, ...). Not held by ACCOUNTANT / EXAM_CONTROLLER.
+  CERTIFICATE_ISSUE = 'CERTIFICATE_ISSUE',
   // [26.1.1] Create/edit/run a PromotionRun (D22). ADMIN only — no separate
   // analysis permission; analysis reuses MARK_VIEW.
   PROMOTION_MANAGE = 'PROMOTION_MANAGE',
@@ -344,6 +346,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.DOCUMENT_PRINT,
     Permission.PRINT_HISTORY_READ,
     Permission.DOCUMENT_REVOKE,
+    // [48.1.01] D6
+    Permission.CERTIFICATE_ISSUE,
     // [26.1.1] Promotion runs — ADMIN only (D22).
     Permission.PROMOTION_MANAGE,
     Permission.PROMOTION_OVERRIDE,
@@ -586,6 +590,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.STUDENT_RECORDS_WRITE,
     // [32.1.1] Read-only print history (D18/D47).
     Permission.PRINT_HISTORY_READ,
+    // [48.1.01] D6 — executives issue certificates.
+    Permission.CERTIFICATE_ISSUE,
   ],
   // #1358 office clerk / computer operator: intake, records, communication,
   // printing. No money-moving, no delete, no lifecycle, no settings.
@@ -610,6 +616,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.COMMUNICATION_BULK_SEND,
     Permission.COMMUNICATION_LOG_READ,
     Permission.DOCUMENT_PRINT,
+    // [48.1.01] D6 — front office issues certificates.
+    Permission.CERTIFICATE_ISSUE,
     Permission.PRINT_HISTORY_READ,
     Permission.DASHBOARD_VIEW,
     Permission.RESULT_READ,

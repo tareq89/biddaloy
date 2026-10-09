@@ -8,6 +8,14 @@ export const DocumentKind = {
   STUDENT_ID_CARD: 'STUDENT_ID_CARD',
   STAFF_ID_CARD: 'STAFF_ID_CARD',
   ACR_ASSESSMENT: 'ACR_ASSESSMENT',
+  EXAM_ADMIT_CARD: 'EXAM_ADMIT_CARD',
+  TRANSFER_CERTIFICATE: 'TRANSFER_CERTIFICATE',
+  TESTIMONIAL: 'TESTIMONIAL',
+  CHARACTER_CERTIFICATE: 'CHARACTER_CERTIFICATE',
+  STUDY_CERTIFICATE: 'STUDY_CERTIFICATE',
+  PARTICIPATION_CERTIFICATE: 'PARTICIPATION_CERTIFICATE',
+  RESULT_CERTIFICATE: 'RESULT_CERTIFICATE',
+  MERIT_CERTIFICATE: 'MERIT_CERTIFICATE',
 } as const;
 export type DocumentKind = (typeof DocumentKind)[keyof typeof DocumentKind];
 
@@ -63,3 +71,66 @@ export const CR80 = { widthMm: 85.6, heightMm: 54 } as const;
 
 /** Fixed criterion slots an ACR template can bind (`acr.criterion.N.*`); a form with more is refused. */
 export const ACR_CRITERIA_SLOTS = 30;
+
+/** Fixed sitting slots an admit-card template can bind (`exam.sitting.N.*`, D28). */
+export const ADMIT_CARD_SITTING_SLOTS = 15;
+
+/** What a document kind is printed for, besides a student/staff subject. */
+export const PrintContextType = { EXAM: 'EXAM' } as const;
+export type PrintContextType = (typeof PrintContextType)[keyof typeof PrintContextType];
+
+export const KIND_CONTEXT: Partial<Record<DocumentKind, PrintContextType>> = {
+  [DocumentKind.EXAM_ADMIT_CARD]: PrintContextType.EXAM,
+  [DocumentKind.RESULT_CERTIFICATE]: PrintContextType.EXAM,
+  [DocumentKind.MERIT_CERTIFICATE]: PrintContextType.EXAM,
+};
+
+/** Kinds that get a `<CODE>-<YYYY>-<NNNNN>` serial (D7, D24). */
+export const CERTIFICATE_SERIAL_CODE: Partial<Record<DocumentKind, string>> = {
+  [DocumentKind.TRANSFER_CERTIFICATE]: 'TC',
+  [DocumentKind.TESTIMONIAL]: 'TSM',
+  [DocumentKind.CHARACTER_CERTIFICATE]: 'CHR',
+  [DocumentKind.STUDY_CERTIFICATE]: 'STD',
+  [DocumentKind.PARTICIPATION_CERTIFICATE]: 'PRT',
+  [DocumentKind.RESULT_CERTIFICATE]: 'RES',
+  [DocumentKind.MERIT_CERTIFICATE]: 'MRT',
+};
+export const isSerialKind = (kind: DocumentKind): boolean =>
+  Object.hasOwn(CERTIFICATE_SERIAL_CODE, kind);
+
+/** Kinds that need `CERTIFICATE_ISSUE` (D6). Result/merit are exam documents and stay on DOCUMENT_PRINT. */
+export const STUDENT_CERTIFICATE_KINDS = [
+  DocumentKind.TRANSFER_CERTIFICATE,
+  DocumentKind.TESTIMONIAL,
+  DocumentKind.CHARACTER_CERTIFICATE,
+  DocumentKind.STUDY_CERTIFICATE,
+  DocumentKind.PARTICIPATION_CERTIFICATE,
+] as const;
+export type StudentCertificateKind = (typeof STUDENT_CERTIFICATE_KINDS)[number];
+export const isStudentCertificateKind = (kind: DocumentKind): kind is StudentCertificateKind =>
+  (STUDENT_CERTIFICATE_KINDS as readonly string[]).includes(kind);
+
+/** Optional school short code in front of a serial (D24). */
+export const SERIAL_PREFIX_PATTERN = /^[A-Z0-9]{2,8}$/;
+
+/** `DAHS-TC-2026-00007`, or `TSM-2026-00009` without a prefix. */
+export function formatSerial(a: {
+  prefix?: string | undefined;
+  kind: DocumentKind;
+  year: number;
+  n: number;
+}): string {
+  const code = CERTIFICATE_SERIAL_CODE[a.kind];
+  if (!code) throw new RangeError(`${a.kind} has no serial code`);
+  if (a.prefix && !SERIAL_PREFIX_PATTERN.test(a.prefix)) {
+    throw new RangeError(`bad serial prefix: ${a.prefix}`);
+  }
+  if (!Number.isInteger(a.year) || a.year < 1000 || a.year > 9999) {
+    throw new RangeError(`serial year must be 4 digits: ${a.year}`);
+  }
+  if (!Number.isInteger(a.n) || a.n < 1 || a.n > 99999) {
+    throw new RangeError(`serial number out of range: ${a.n}`);
+  }
+  const num = String(a.n).padStart(5, '0');
+  return [a.prefix, code, a.year, num].filter((x) => x !== undefined && x !== '').join('-');
+}

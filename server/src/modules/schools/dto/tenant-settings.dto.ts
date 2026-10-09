@@ -27,7 +27,13 @@ import { OptionalSetting } from '../settings/optional-setting.decorator';
 import { IsRegexSourceConstraint } from '../settings/regex-source.validator';
 import { SmsProviderIsConfiguredConstraint } from '../settings/sms-provider-config.validator';
 import { UniqueLabelListConstraint } from '../settings/unique-labels.validator';
-import { ApprovalMode, DiscountKind, FeeType, TermLabel } from '@biddaloy/shared';
+import {
+  ApprovalMode,
+  DiscountKind,
+  FeeType,
+  SERIAL_PREFIX_PATTERN,
+  TermLabel,
+} from '@biddaloy/shared';
 import type {
   NumeralSystem,
   CurrencyGrouping,
@@ -642,6 +648,21 @@ export class EvaluationsSettingsDto {
   incidentSmsEnabled?: boolean;
 }
 
+/** [48.1.03] `settings.documents` — Epic 48 D9 / D24. */
+export class DocumentsSettingsDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  withholdAdmitCardForDues?: boolean;
+
+  /** `null` clears a stored prefix (the block is shallow-merged). */
+  @ApiPropertyOptional({ example: 'DAHS', nullable: true })
+  @IsOptional()
+  @IsString()
+  @Matches(SERIAL_PREFIX_PATTERN)
+  serialPrefix?: string | null;
+}
+
 /**
  * [33.3.1] An explicit rename instruction for one `organisation` vocabulary
  * list, carried alongside a settings PATCH rather than inferred from the
@@ -714,4 +735,8 @@ export class TenantSettingsDto {
   @OptionalSetting()
   @NestedSettings(() => EvaluationsSettingsDto)
   evaluations?: EvaluationsSettingsDto;
+
+  @OptionalSetting()
+  @NestedSettings(() => DocumentsSettingsDto)
+  documents?: DocumentsSettingsDto;
 }

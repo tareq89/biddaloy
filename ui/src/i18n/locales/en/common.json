@@ -11,7 +11,8 @@
     "back": "Back",
     "next": "Next",
     "submit": "Submit",
-    "stepAnnouncement": "Step {{current}} of {{total}}: {{label}}"
+    "stepAnnouncement": "Step {{current}} of {{total}}: {{label}}",
+    "stepDone": "(done)"
   },
   "status": {
     "loading": "Loading…",
