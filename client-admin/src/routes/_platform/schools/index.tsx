@@ -1,4 +1,8 @@
-import { usePlatformBackupHealth, useSchools } from '@biddaloy/ui/hooks';
+import {
+  usePlatformAttentionHealth,
+  usePlatformBackupHealth,
+  useSchools,
+} from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import * as React from 'react';
@@ -7,6 +11,7 @@ import { z } from 'zod';
 import { loadRouteNamespaces } from '../../../route-loaders';
 
 import { BackupHealthTable } from './-backup-health';
+import { EngineHealthCard } from './-engine-health';
 import { SchoolsListView } from './-schools-list-view';
 
 /**
@@ -38,7 +43,7 @@ export const Route = createFileRoute('/_platform/schools/')({
   // [14.12.3/#617] `backup` too — `BackupHealthTable`'s "Never" fallback
   // and per-job status labels (`status.DONE`/`FAILED`/...) reuse that
   // namespace rather than duplicating its `status.*` tree here.
-  loader: () => loadRouteNamespaces('platform', 'backup'),
+  loader: () => loadRouteNamespaces('platform', 'backup', 'attention'),
   component: SchoolsListPage,
 });
 
@@ -48,6 +53,7 @@ function SchoolsListPage() {
   const { trial } = Route.useSearch();
   const schoolsQuery = useSchools(trial ? { trial } : {});
   const backupHealthQuery = usePlatformBackupHealth();
+  const engineHealth = usePlatformAttentionHealth();
   const [search, setSearch] = React.useState('');
 
   const filteredSchools = React.useMemo(() => {
@@ -74,6 +80,13 @@ function SchoolsListPage() {
           void navigate({ to: '/schools', search: next ? { trial: next } : {}, replace: true })
         }
         onNew={() => void navigate({ to: '/schools/new' })}
+      />
+
+      <EngineHealthCard
+        health={engineHealth.data}
+        loading={engineHealth.isLoading}
+        error={engineHealth.isError}
+        onRetry={() => void engineHealth.refetch()}
       />
 
       <section aria-labelledby="backup-health-title" className="space-y-3">
