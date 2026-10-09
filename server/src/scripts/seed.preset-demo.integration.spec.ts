@@ -10,6 +10,7 @@ import { UserTenant } from '../modules/auth/entities/user-tenant.entity';
 import { TenantSettingsCache } from '../modules/schools/settings/tenant-settings-cache.service';
 import { PresetApplyService } from '../modules/presets/preset-apply.service';
 import { PresetRegistryService } from '../modules/presets/preset-registry.service';
+import { StorageService } from '../modules/storage/storage.service';
 import { makeTestPack } from '../modules/presets/__fixtures__/test-pack';
 import { ensurePresetDemoSeed, FRESH_DEMO_SCHOOL } from './seed.util';
 
@@ -26,6 +27,7 @@ describe('ensurePresetDemoSeed (integration)', () => {
       PresetRegistryService,
       AuditService,
       { provide: TenantSettingsCache, useValue: { invalidate: vi.fn() } },
+      { provide: StorageService, useValue: { put: async () => undefined } },
     ]);
     ds = module.get<DataSource>(getDataSourceToken());
     apply = module.get(PresetApplyService);
