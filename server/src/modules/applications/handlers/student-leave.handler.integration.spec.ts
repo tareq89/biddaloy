@@ -303,6 +303,15 @@ describe('StudentLeaveHandler (integration)', () => {
     expect(dates).toEqual([day(-2), day(-1), day(0)]);
   });
 
+  it('cancel reads the date columns, not the payload', async () => {
+    const app = await makeApp(day(5), day(6));
+    await apply(app);
+    // Payload dates now point elsewhere; only the columns may drive the revert.
+    app.payload = { ...app.payload, start_date: day(30), end_date: day(31) };
+    await cancel(app);
+    expect(await recordsOf()).toHaveLength(0);
+  });
+
   it('D7: cancelling one of two leaves keeps the other leave marks', async () => {
     const a = await makeApp(day(10), day(11));
     const b = await makeApp(day(20), day(21));
