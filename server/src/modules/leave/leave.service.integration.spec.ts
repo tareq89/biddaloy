@@ -12,6 +12,8 @@ import { ALL_ENTITIES } from '@test/all-entities';
 import { SEED_TENANT_ID, SEED_ADMIN_USER_ID } from '@test/constants';
 import { LeaveService } from './leave.service';
 import { LeaveModule } from './leave.module';
+import { SchoolsService } from '../schools/schools.service';
+import { localToday } from '../attendance/attendance-policy.util';
 import { AuthModule } from '../auth/auth.module';
 import { School } from '../schools/entities/school.entity';
 import { User } from '../users/entities/user.entity';
@@ -33,6 +35,7 @@ import { AuditAction, LeaveStatus, LeaveType, UserRole } from '@biddaloy/shared'
  */
 describe('LeaveService (integration)', () => {
   let service: LeaveService;
+  let schoolsService: SchoolsService;
   let dataSource: DataSource;
 
   const TENANT_ID = SEED_TENANT_ID;
@@ -50,6 +53,7 @@ describe('LeaveService (integration)', () => {
       [ConfigModule.forRoot({ isGlobal: true }), LeaveModule, AuthModule],
     );
     service = module.get<LeaveService>(LeaveService);
+    schoolsService = module.get(SchoolsService, { strict: false });
     dataSource = module.get<DataSource>(getDataSourceToken());
   }, 60000);
 
@@ -618,6 +622,86 @@ describe('LeaveService (integration)', () => {
 
       await expect(cancel()).rejects.toMatchObject({
         response: { details: { code: 'LEAVE_NOT_CANCELLABLE' } },
+      });
+    });
+
+    describe('cancelling a leave that has already started', () => {
+      // Dates are relative to the school's own "today" (its region timezone,
+      // the same one `revertLeaveRange` uses), so these run on any date.
+      async function schoolToday() {
+        const settings = await schoolsService.getResolvedSettings(TENANT_ID);
+        return localToday(settings.region?.timezone ?? 'UTC');
+      }
+      function addDays(iso: string, n: number) {
+        return new Date(Date.parse(`${iso}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
+      }
+      function cancel(applicationId: string) {
+        return dataSource.transaction((manager) =>
+          service.cancelApprovedLeave(manager, {
+            tenantId: TENANT_ID,
+            applicationId,
+            actorUserId: ADMIN_USER_ID,
+            reason: 'back early',
+          }),
+        );
+      }
+      // The quota is the sum of APPROVED `days` (D31). Read it straight from
+      // the table so a leave crossing 1 January does not trip the UTC-year filter.
+      async function approvedDays() {
+        const [row] = await dataSource.query(
+          `SELECT COALESCE(SUM(days), 0)::int AS sum FROM leave_records
+           WHERE tenant_id = $1 AND staff_profile_id = $2 AND status = 'APPROVED'`,
+          [TENANT_ID, staffProfileId],
+        );
+        return row.sum as number;
+      }
+
+      beforeEach(async () => {
+        await setWeeklyOff([]); // every day is a working day unless the calendar says otherwise
+      });
+
+      it('under way: cut to end today; today stays counted, tomorrow onward comes back', async () => {
+        const today = await schoolToday();
+        const start = addDays(today, -2);
+        const end = addDays(today, 2);
+        const appId = await newApplication(TENANT_ID, staffProfileId, staffUserId);
+        const created = await record(appId, start, end);
+
+        const result = await cancel(appId);
+
+        const row = await dataSource
+          .getRepository(LeaveRecord)
+          .findOneOrFail({ where: { id: created.leave_record_id } });
+        // Still APPROVED: the days already taken stay used.
+        expect(row.status).toBe(LeaveStatus.APPROVED);
+        expect(row.end_date).toBe(today);
+        expect(row.days).toBe(await service.countWorkingDays(TENANT_ID, start, today));
+        expect(row.days).toBeGreaterThan(0);
+        // Only dates after today come back; today keeps its LEAVE mark.
+        expect(result.reverted_dates).toEqual(created.attendance_dates.filter((d) => d > today));
+        expect(result.reverted_dates.length).toBeGreaterThan(0);
+        expect(await approvedDays()).toBe(row.days);
+      });
+
+      it('fully ended (ends today): 409 LEAVE_ALREADY_ENDED, record and quota untouched', async () => {
+        const today = await schoolToday();
+        const start = addDays(today, -2);
+        const appId = await newApplication(TENANT_ID, staffProfileId, staffUserId);
+        const created = await record(appId, start, today);
+
+        await expect(cancel(appId)).rejects.toMatchObject({
+          status: 409,
+          response: { details: { code: 'LEAVE_ALREADY_ENDED' } },
+        });
+
+        const row = await dataSource
+          .getRepository(LeaveRecord)
+          .findOneOrFail({ where: { id: created.leave_record_id } });
+        // `days` is not recounted against today's calendar.
+        expect(row.status).toBe(LeaveStatus.APPROVED);
+        expect(row.end_date).toBe(today);
+        expect(row.days).toBe(created.days);
+        expect(await approvedDays()).toBe(created.days);
       });
     });
 
