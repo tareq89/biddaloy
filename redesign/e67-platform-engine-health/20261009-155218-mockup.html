@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="bn">
+<head>
+<!-- app:head -->
+<title>স্কুল — সতর্কতা ইঞ্জিন</title>
+<script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+</head>
+<body class="flex min-h-screen flex-col bg-bg text-body text-text-primary">
+
+<!-- ============================================================================
+     SHELL — copied from the kit. It is NOT part of a page proposal: change only
+     the three marked spots (sidebar active link, open group, bottom-bar cell).
+     ============================================================================ -->
+<!-- TOP BAR. Desktop (D11): school + role · search · bell · language · theme · account.
+     Phone (D12): one sticky 56px row — menu + school name · search · bell · account.
+     Language, theme, security, switch school and sign out live in the account menu on phone. -->
+<header class="sticky top-0 z-30 flex h-14 items-center gap-1 border-b border-border-subtle bg-surface px-1 md:gap-2 md:px-6">
+  <button type="button" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-muted hover:text-text-primary md:size-9 md:hidden" aria-label="মেনু খুলুন"><i data-lucide="menu"></i></button>
+  <span class="min-w-0 truncate text-h3">প্ল্যাটফর্ম অ্যাডমিন</span>
+  <span class="hidden shrink-0 rounded-full bg-muted px-2 py-0.5 text-caption text-text-secondary md:inline">সুপার অ্যাডমিন</span>
+  <button type="button" class="hidden md:inline-flex size-11 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-muted hover:text-text-primary md:size-9" aria-label="স্কুল বা ভূমিকা পরিবর্তন করুন"><i data-lucide="arrow-left-right"></i></button>
+  <div class="ml-auto flex shrink-0 items-center md:gap-1">
+    <button type="button" class="hidden h-9 w-64 items-center gap-2 rounded-md border border-border-functional bg-surface px-3 text-text-secondary md:flex" aria-label="খুঁজুন (Ctrl+K)"><i data-lucide="search"></i><span>অনুসন্ধান…</span><kbd class="ml-auto font-sans text-caption">Ctrl+K</kbd></button>
+    <button type="button" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-muted hover:text-text-primary md:size-9 md:hidden" aria-label="খুঁজুন"><i data-lucide="search"></i></button>
+    <button type="button" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-muted hover:text-text-primary md:size-9 relative" aria-label="বিজ্ঞপ্তি, ৩টি অপঠিত"><i data-lucide="bell"></i><span class="absolute top-0.5 left-1/2 ml-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1 text-caption font-medium text-primary-foreground md:-top-0.5">৩</span></button>
+    <button type="button" class="hidden md:inline-flex size-11 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-muted hover:text-text-primary md:size-9" aria-label="ভাষা পরিবর্তন করুন"><i data-lucide="languages"></i></button>
+    <button type="button" class="hidden md:inline-flex size-11 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-muted hover:text-text-primary md:size-9" aria-label="থিম"><i data-lucide="moon"></i></button>
+    <button type="button" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-muted hover:text-text-primary md:size-9" aria-label="অ্যাকাউন্ট মেনু"><i data-lucide="circle-user-round"></i></button>
+  </div>
+</header>
+
+<div class="flex flex-1">
+    <!-- SIDEBAR (desktop only). Platform console (D33): Schools, Holiday sets.
+         To adapt: move to the ONE link of this page. -->
+    <nav class="hidden w-60 shrink-0 border-r border-border-subtle bg-surface px-3 py-4 md:block" aria-label="প্রধান">
+      <p class="px-3 pb-3 text-label text-text-secondary">SchoolManager</p>
+      <ul class="space-y-0.5">
+          <li><a href="#" data-nav="platform.schools" aria-current="page" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="building-2"></i><span class="truncate">স্কুল</span></a></li>
+          <li><a href="#" data-nav="platform.holidaySets" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="tree-palm"></i><span class="truncate">ছুটির তালিকা</span></a></li>
+      </ul>
+    </nav>
+
+    <!-- PROPOSAL — everything inside <main> is the page design. -->
+    <main id="main-content" class="min-w-0 flex-1">
+      <div class="mx-auto w-full max-w-screen-xl space-y-6 px-4 py-4 md:px-6 md:py-6">
+
+        <header class="flex flex-col gap-3 md:flex-row md:items-end md:justify-between md:gap-6">
+          <div class="min-w-0">
+            <h1 class="text-h1">স্কুল</h1>
+            <p class="mt-0.5 text-text-secondary">প্ল্যাটফর্মের সব স্কুল · মোট ২৪টি</p>
+          </div>
+          <div class="flex shrink-0 items-center gap-2">
+            <button type="button" class="inline-flex h-11 items-center justify-center gap-2 rounded-md px-4 font-medium md:h-8 md:px-3 bg-primary text-primary-foreground flex-1 md:flex-none"><i data-lucide="plus"></i>স্কুল যোগ করুন</button>
+          </div>
+        </header>
+
+        <section class="rounded-lg border border-border-subtle bg-surface shadow-e1 p-4 md:p-5" aria-labelledby="eng-title">
+          <div class="flex flex-wrap items-center gap-2"><h2 id="eng-title" class="text-h2">সতর্কতা ইঞ্জিন</h2><span class="inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2 text-label whitespace-nowrap bg-status-overdue-bg text-status-overdue-fg"><i data-lucide="triangle-alert" class="size-3.5"></i>২টি নিয়ম ব্যর্থ</span></div>
+          <p class="mt-0.5 text-text-secondary">প্রতি ৫ মিনিটে সব স্কুলের নিয়ম যাচাই করে সতর্কতা তৈরি করে।</p>
+          <dl class="mt-4 grid grid-cols-2 gap-x-6 gap-y-3 md:flex md:flex-wrap md:gap-x-10">
+            <div><dt class="text-caption text-text-secondary">শেষ যাচাই</dt><dd class="font-medium">২ মিনিট আগে <span class="text-text-secondary">(দুপুর ১২:৪৮)</span></dd></div>
+            <div><dt class="text-caption text-text-secondary">সময় লেগেছে</dt><dd class="font-medium">৪.২ সেকেন্ড</dd></div>
+            <div><dt class="text-caption text-text-secondary">যাচাই হয়েছে</dt><dd class="font-medium">২৪টি স্কুল · ১১টি নিয়ম</dd></div>
+            <div><dt class="text-caption text-text-secondary">ব্যর্থ নিয়ম</dt><dd class="font-medium">২টি</dd></div>
+          </dl>
+          <h3 class="mt-5 text-h3">ব্যর্থ নিয়ম</h3>
+          <ul class="divide-y divide-border-subtle">
+
+              <li class="flex flex-col gap-3 py-4 md:flex-row md:items-center md:gap-4">
+                <div class="min-w-0 flex-1">
+                  <div class="flex flex-wrap items-center gap-2"><span class="font-medium">হাজিরা নেওয়া হয়নি</span><span class="inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2 text-label whitespace-nowrap bg-status-overdue-bg text-status-overdue-fg"><i data-lucide="triangle-alert" class="size-3.5"></i>ব্যর্থ</span></div>
+                  <p class="mt-0.5 text-text-secondary">নমুনা উচ্চ বিদ্যালয় · সকাল ১১:৩০ থেকে, ৩ বার</p>
+                  <p class="mt-0.5">রুটিন পাওয়া যায়নি, তাই কোন পিরিয়ড কখন শুরু তা জানা যায়নি।</p>
+                </div>
+                <button type="button" class="inline-flex h-11 items-center justify-center gap-2 rounded-md px-4 font-medium md:h-8 md:px-3 border border-border-functional bg-surface text-text-primary hover:bg-muted shrink-0"><i data-lucide="rotate-ccw"></i>আবার চালান</button>
+              </li>
+
+              <li class="flex flex-col gap-3 py-4 md:flex-row md:items-center md:gap-4">
+                <div class="min-w-0 flex-1">
+                  <div class="flex flex-wrap items-center gap-2"><span class="font-medium">ফি বকেয়া</span><span class="inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2 text-label whitespace-nowrap bg-status-overdue-bg text-status-overdue-fg"><i data-lucide="triangle-alert" class="size-3.5"></i>ব্যর্থ</span></div>
+                  <p class="mt-0.5 text-text-secondary">আদর্শ বালিকা বিদ্যালয় · দুপুর ১২:৩৮ থেকে, ২ বার</p>
+                  <p class="mt-0.5">যাচাই ৩০ সেকেন্ডে শেষ হয়নি, তাই মাঝপথে থামানো হয়েছে।</p>
+                </div>
+                <button type="button" class="inline-flex h-11 items-center justify-center gap-2 rounded-md px-4 font-medium md:h-8 md:px-3 border border-border-functional bg-surface text-text-primary hover:bg-muted shrink-0"><i data-lucide="rotate-ccw"></i>আবার চালান</button>
+              </li>
+          </ul>
+        </section>
+
+        <div class="rounded-lg border border-border-subtle bg-surface shadow-e1 overflow-hidden">
+          <div class="hidden overflow-x-auto md:block">
+            <table class="w-full text-left">
+              <caption class="sr-only">স্কুলের তালিকা</caption>
+              <thead class="border-b border-border-subtle bg-muted text-label text-text-secondary">
+                <tr><th scope="col" class="h-10 px-4 font-medium">স্কুল</th><th scope="col" class="h-10 px-4 font-medium">কোড</th><th scope="col" class="h-10 px-4 font-medium text-right">শিক্ষার্থী</th><th scope="col" class="h-10 px-4 font-medium">অবস্থা</th><th scope="col" class="h-10 px-4 font-medium">সতর্কতা ইঞ্জিন</th><th scope="col" class="h-10 px-4 font-medium text-right">কাজ</th></tr>
+              </thead>
+              <tbody class="divide-y divide-border-subtle"><tr class="hover:bg-muted"><td class="h-10 px-4 py-1 font-medium">নমুনা আদর্শ বিদ্যালয়</td><td class="h-10 px-4 py-1">NAB-001</td><td class="h-10 px-4 py-1 text-right tabular-nums">৬১২</td><td class="h-10 px-4 py-1"><span class="inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2 text-label whitespace-nowrap bg-status-paid-bg text-status-paid-fg"><i data-lucide="circle-check" class="size-3.5"></i>সক্রিয়</span></td><td class="h-10 px-4 py-1"><span class="inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2 text-label whitespace-nowrap bg-status-paid-bg text-status-paid-fg"><i data-lucide="circle-check" class="size-3.5"></i>ঠিক আছে</span></td><td class="h-10 px-2 py-1"><div class="flex justify-end"><button type="button" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md hover:bg-muted md:size-8 text-text-secondary" aria-label="দেখুন — নমুনা আদর্শ বিদ্যালয়"><i data-lucide="eye"></i></button><button type="button" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md hover:bg-muted md:size-8 text-primary" aria-label="সম্পাদনা — নমুনা আদর্শ বিদ্যালয়"><i data-lucide="pencil"></i></button></div></td></tr><tr class="hover:bg-muted"><td class="h-10 px-4 py-1 font-medium">নমুনা উচ্চ বিদ্যালয়</td><td class="h-10 px-4 py-1">NUB-002</td><td class="h-10 px-4 py-1 text-right tabular-nums">৮৪৫</td><td class="h-10 px-4 py-1"><span class="inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2 text-label whitespace-nowrap bg-status-paid-bg text-status-paid-fg"><i data-lucide="circle-check" class="size-3.5"></i>সক্রিয়</span></td><td class="h-10 px-4 py-1"><span class="inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2 text-label whitespace-nowrap bg-status-overdue-bg text-status-overdue-fg"><i data-lucide="triangle-alert" class="size-3.5"></i>১টি নিয়ম ব্যর্থ</span></td><td class="h-10 px-2 py-1"><div class="flex justify-end"><button type="button" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md hover:bg-muted md:size-8 text-text-secondary" aria-label="দেখুন — নমুনা উচ্চ বিদ্যালয়"><i data-lucide="eye"></i></button><button type="button" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md hover:bg-muted md:size-8 text-primary" aria-label="সম্পাদনা — নমুনা উচ্চ বিদ্যালয়"><i data-lucide="pencil"></i></button></div></td></tr><tr class="hover:bg-muted"><td class="h-10 px-4 py-1 font-medium">আদর্শ বালিকা বিদ্যালয়</td><td class="h-10 px-4 py-1">ABB-003</td><td class="h-10 px-4 py-1 text-right tabular-nums">৪৩০</td><td class="h-10 px-4 py-1"><span class="inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2 text-label whitespace-nowrap bg-status-paid-bg text-status-paid-fg"><i data-lucide="circle-check" class="size-3.5"></i>সক্রিয়</span></td><td class="h-10 px-4 py-1"><span class="inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2 text-label whitespace-nowrap bg-status-overdue-bg text-status-overdue-fg"><i data-lucide="triangle-alert" class="size-3.5"></i>১টি নিয়ম ব্যর্থ</span></td><td class="h-10 px-2 py-1"><div class="flex justify-end"><button type="button" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md hover:bg-muted md:size-8 text-text-secondary" aria-label="দেখুন — আদর্শ বালিকা বিদ্যালয়"><i data-lucide="eye"></i></button><button type="button" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md hover:bg-muted md:size-8 text-primary" aria-label="সম্পাদনা — আদর্শ বালিকা বিদ্যালয়"><i data-lucide="pencil"></i></button></div></td></tr><tr class="hover:bg-muted"><td class="h-10 px-4 py-1 font-medium">নমুনা কিন্ডারগার্টেন</td><td class="h-10 px-4 py-1">NKG-004</td><td class="h-10 px-4 py-1 text-right tabular-nums">১২০</td><td class="h-10 px-4 py-1"><span class="inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2 text-label whitespace-nowrap bg-status-paid-bg text-status-paid-fg"><i data-lucide="circle-check" class="size-3.5"></i>সক্রিয়</span></td><td class="h-10 px-4 py-1"><span class="inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2 text-label whitespace-nowrap bg-status-paid-bg text-status-paid-fg"><i data-lucide="circle-check" class="size-3.5"></i>ঠিক আছে</span></td><td class="h-10 px-2 py-1"><div class="flex justify-end"><button type="button" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md hover:bg-muted md:size-8 text-text-secondary" aria-label="দেখুন — নমুনা কিন্ডারগার্টেন"><i data-lucide="eye"></i></button><button type="button" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md hover:bg-muted md:size-8 text-primary" aria-label="সম্পাদনা — নমুনা কিন্ডারগার্টেন"><i data-lucide="pencil"></i></button></div></td></tr><tr class="hover:bg-muted"><td class="h-10 px-4 py-1 font-medium">পূর্বপাড়া মাদ্রাসা</td><td class="h-10 px-4 py-1">PPM-005</td><td class="h-10 px-4 py-1 text-right tabular-nums">২৯০</td><td class="h-10 px-4 py-1"><span class="inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2 text-label whitespace-nowrap bg-muted text-text-secondary"><i data-lucide="circle-minus" class="size-3.5"></i>স্থগিত</span></td><td class="h-10 px-4 py-1"><span class="inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2 text-label whitespace-nowrap bg-muted text-text-secondary"><i data-lucide="circle-minus" class="size-3.5"></i>চলছে না</span></td><td class="h-10 px-2 py-1"><div class="flex justify-end"><button type="button" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md hover:bg-muted md:size-8 text-text-secondary" aria-label="দেখুন — পূর্বপাড়া মাদ্রাসা"><i data-lucide="eye"></i></button><button type="button" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md hover:bg-muted md:size-8 text-primary" aria-label="সম্পাদনা — পূর্বপাড়া মাদ্রাসা"><i data-lucide="pencil"></i></button></div></td></tr></tbody>
+            </table>
+          </div>
+          <ul class="divide-y divide-border-subtle md:hidden"><li class="px-4 py-3"><div class="flex items-start justify-between gap-3"><span class="font-medium">নমুনা আদর্শ বিদ্যালয়</span><span class="inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2 text-label whitespace-nowrap bg-status-paid-bg text-status-paid-fg"><i data-lucide="circle-check" class="size-3.5"></i>সক্রিয়</span></div><div class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1"><span class="text-caption text-text-secondary">NAB-001 · ৬১২ জন শিক্ষার্থী</span><span class="inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2 text-label whitespace-nowrap bg-status-paid-bg text-status-paid-fg"><i data-lucide="circle-check" class="size-3.5"></i>ঠিক আছে</span></div></li><li class="px-4 py-3"><div class="flex items-start justify-between gap-3"><span class="font-medium">নমুনা উচ্চ বিদ্যালয়</span><span class="inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2 text-label whitespace-nowrap bg-status-paid-bg text-status-paid-fg"><i data-lucide="circle-check" class="size-3.5"></i>সক্রিয়</span></div><div class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1"><span class="text-caption text-text-secondary">NUB-002 · ৮৪৫ জন শিক্ষার্থী</span><span class="inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2 text-label whitespace-nowrap bg-status-overdue-bg text-status-overdue-fg"><i data-lucide="triangle-alert" class="size-3.5"></i>১টি নিয়ম ব্যর্থ</span></div></li><li class="px-4 py-3"><div class="flex items-start justify-between gap-3"><span class="font-medium">আদর্শ বালিকা বিদ্যালয়</span><span class="inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2 text-label whitespace-nowrap bg-status-paid-bg text-status-paid-fg"><i data-lucide="circle-check" class="size-3.5"></i>সক্রিয়</span></div><div class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1"><span class="text-caption text-text-secondary">ABB-003 · ৪৩০ জন শিক্ষার্থী</span><span class="inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2 text-label whitespace-nowrap bg-status-overdue-bg text-status-overdue-fg"><i data-lucide="triangle-alert" class="size-3.5"></i>১টি নিয়ম ব্যর্থ</span></div></li><li class="px-4 py-3"><div class="flex items-start justify-between gap-3"><span class="font-medium">নমুনা কিন্ডারগার্টেন</span><span class="inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2 text-label whitespace-nowrap bg-status-paid-bg text-status-paid-fg"><i data-lucide="circle-check" class="size-3.5"></i>সক্রিয়</span></div><div class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1"><span class="text-caption text-text-secondary">NKG-004 · ১২০ জন শিক্ষার্থী</span><span class="inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2 text-label whitespace-nowrap bg-status-paid-bg text-status-paid-fg"><i data-lucide="circle-check" class="size-3.5"></i>ঠিক আছে</span></div></li><li class="px-4 py-3"><div class="flex items-start justify-between gap-3"><span class="font-medium">পূর্বপাড়া মাদ্রাসা</span><span class="inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2 text-label whitespace-nowrap bg-muted text-text-secondary"><i data-lucide="circle-minus" class="size-3.5"></i>স্থগিত</span></div><div class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1"><span class="text-caption text-text-secondary">PPM-005 · ২৯০ জন শিক্ষার্থী</span><span class="inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2 text-label whitespace-nowrap bg-muted text-text-secondary"><i data-lucide="circle-minus" class="size-3.5"></i>চলছে না</span></div></li></ul>
+          <div class="border-t border-border-subtle px-4 py-3"><p class="text-text-secondary">১–৫ দেখানো হচ্ছে, মোট ২৪</p></div>
+        </div>
+
+      </div>
+    </main>
+</div>
+
+<!-- BOTTOM BAR (phone only, D14). To adapt: goes on the ONE cell of this page;
+     if the page is not one of the cells, remove it and set data-active="true" on the "আরও" button instead.
+     IN THE APP this bar is "fixed inset-x-0 bottom-0 z-30" and the content wrapper reserves its height with
+     "pb-16 md:pb-0". IN A MOCKUP it stays in normal flow as the last child of <body>: the screenshot tool
+     captures the whole page as one tall frame, and a fixed bar would be painted across the middle of it.
+     Do not add "fixed" or "sticky bottom-0" to anything in a mockup. -->
+<nav class="flex border-t border-border-subtle bg-surface md:hidden" aria-label="দ্রুত নেভিগেশন">
+  <a href="#" data-nav="platform.schools" aria-current="page" class="group flex h-16 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 text-caption text-text-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground data-[active=true]:font-semibold data-[active=true]:text-secondary-foreground"><span class="flex h-7 w-14 items-center justify-center rounded-full group-aria-[current=page]:bg-secondary group-data-[active=true]:bg-secondary"><i data-lucide="building-2"></i></span><span class="max-w-full truncate px-1">স্কুল</span></a>
+  <a href="#" data-nav="platform.holidaySets" class="group flex h-16 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 text-caption text-text-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground data-[active=true]:font-semibold data-[active=true]:text-secondary-foreground"><span class="flex h-7 w-14 items-center justify-center rounded-full group-aria-[current=page]:bg-secondary group-data-[active=true]:bg-secondary"><i data-lucide="tree-palm"></i></span><span class="max-w-full truncate px-1">ছুটি</span></a>
+  <a href="#" data-nav="dashboard" class="group flex h-16 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 text-caption text-text-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground data-[active=true]:font-semibold data-[active=true]:text-secondary-foreground"><span class="flex h-7 w-14 items-center justify-center rounded-full group-aria-[current=page]:bg-secondary group-data-[active=true]:bg-secondary"><i data-lucide="layout-dashboard"></i></span><span class="max-w-full truncate px-1">ড্যাশবোর্ড</span></a>
+  <button type="button" data-active="false" aria-haspopup="dialog" class="group flex h-16 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 text-caption text-text-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground data-[active=true]:font-semibold data-[active=true]:text-secondary-foreground"><span class="flex h-7 w-14 items-center justify-center rounded-full group-aria-[current=page]:bg-secondary group-data-[active=true]:bg-secondary"><i data-lucide="ellipsis"></i></span><span class="max-w-full truncate px-1">আরও</span></button>
+</nav>
+
+<script>lucide.createIcons({ attrs: { width: 18, height: 18, "stroke-width": 1.75, "aria-hidden": "true" } });</script>
+</body>
+</html>
