@@ -3,9 +3,14 @@ import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Queue } from 'bullmq';
 import { Repository } from 'typeorm';
-import { HomeworkAssignmentStatus, HomeworkSubmissionStatus } from '@biddaloy/shared';
+import {
+  EnrollmentStatus,
+  HomeworkAssignmentStatus,
+  HomeworkSubmissionStatus,
+} from '@biddaloy/shared';
 import { HomeworkAssignment } from './entities/homework-assignment.entity';
 import { HomeworkSubmission } from './entities/homework-submission.entity';
+import { Student } from '../students/entities/student.entity';
 import { HomeworkNoticeService } from './homework-notice.service';
 import { SchoolsService } from '../schools/schools.service';
 import { localToday } from '../attendance/attendance-policy.util';
@@ -42,6 +47,8 @@ export class HomeworkDefaulterScheduler extends WorkerHost implements OnModuleIn
     private readonly assignmentRepo: Repository<HomeworkAssignment>,
     @InjectRepository(HomeworkSubmission)
     private readonly submissionRepo: Repository<HomeworkSubmission>,
+    @InjectRepository(Student)
+    private readonly studentRepo: Repository<Student>,
     private readonly schoolsService: SchoolsService,
     private readonly homeworkNoticeService: HomeworkNoticeService,
   ) {
@@ -90,20 +97,33 @@ export class HomeworkDefaulterScheduler extends WorkerHost implements OnModuleIn
 
     for (const assignment of assignments) {
       try {
-        const submissions = await this.submissionRepo.find({
+        // No submission row means the student never uploaded: that is a
+        // defaulter too. Targets minus anyone whose row is not NOT_SUBMITTED.
+        const targets = await this.studentRepo.find({
           where: {
             tenant_id: tenantId,
-            assignment_id: assignment.id,
-            status: HomeworkSubmissionStatus.NOT_SUBMITTED,
+            enrollment_status: EnrollmentStatus.ACTIVE,
+            ...(assignment.section_id
+              ? { class_section_id: assignment.section_id }
+              : { id: assignment.student_id as string }),
           },
-          relations: ['student', 'student.guardians'],
+          relations: ['guardians'],
         });
-        if (submissions.length === 0) continue;
+        const rows = await this.submissionRepo.find({
+          where: { tenant_id: tenantId, assignment_id: assignment.id },
+        });
+        const handled = new Set(
+          rows
+            .filter((r) => r.status !== HomeworkSubmissionStatus.NOT_SUBMITTED)
+            .map((r) => r.student_id),
+        );
+        const defaulters = targets.filter((st) => !handled.has(st.id));
+        if (defaulters.length === 0) continue;
 
         await this.homeworkNoticeService.notifyDefaulters(
           assignment,
           assignment.homework,
-          submissions.map((s) => s.student),
+          defaulters,
         );
       } catch (error) {
         this.logger.error(
