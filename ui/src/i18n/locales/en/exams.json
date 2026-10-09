@@ -60,7 +60,8 @@
       "setup": "Marks breakdown",
       "schedule": "Schedule",
       "results": "Results",
-      "fourthSubject": "Subject choices"
+      "fourthSubject": "Subject choices",
+      "print": "Print"
     },
     "edit": "Edit",
     "facts": {
@@ -310,7 +311,8 @@
     "programs": "Programs",
     "progress": "Progress",
     "latestMilestone": "Latest milestone",
-    "scoreGrade": "Score/Grade"
+    "scoreGrade": "Score/Grade",
+    "logError": "The print could not be recorded, so it was not printed. Try again."
   },
   "analysis": {
     "tabs": {

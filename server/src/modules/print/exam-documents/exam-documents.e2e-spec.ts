@@ -164,6 +164,69 @@ describe('Exam documents E2E (48.2.05)', () => {
     }
   });
 
+  // [48.3.gS-01] tabulation: a section of the exam's class, no results yet -> 409 for allowed roles.
+  async function seedSection(tenantId: string, classId: string) {
+    return (
+      await ds.query(
+        `INSERT INTO class_sections (class_id, section_name, tenant_id, created_at, updated_at)
+         VALUES ($1, $3, $2, NOW(), NOW()) RETURNING id`,
+        [classId, tenantId, `Tab-${randomUUID().slice(0, 8)}`],
+      )
+    )[0].id as string;
+  }
+
+  for (const role of ALLOWED) {
+    it(`${role} reaches tabulation (409 RESULTS_NOT_PROCESSED, not 403)`, async () => {
+      const section = await seedSection(SEED_TENANT_ID, SEED_CLASS_1_ID);
+      const res = await http()
+        .get(`${API}/exams/${examId}/documents/tabulation?section_id=${section}`)
+        .set(asRole(role));
+      expect(res.status, JSON.stringify(res.body)).toBe(409);
+    });
+  }
+
+  for (const role of DENIED) {
+    it(`${role} is refused on tabulation (403)`, async () => {
+      await http()
+        .get(`${API}/exams/${examId}/documents/tabulation?section_id=${randomUUID()}`)
+        .set(asRole(role))
+        .expect(403);
+    });
+  }
+
+  it('tabulation: section_id is required (400)', async () => {
+    await http()
+      .get(`${API}/exams/${examId}/documents/tabulation`)
+      .set(asRole('ADMIN'))
+      .expect(400);
+  });
+
+  it("tabulation: tenant 2's ADMIN gets 404 on tenant 1's exam; tenant 1's exam with tenant 2's section is 404", async () => {
+    const section = await seedSection(SEED_TENANT_ID, SEED_CLASS_1_ID);
+    await http()
+      .get(`${API}/exams/${examId}/documents/tabulation?section_id=${section}`)
+      .set({ Authorization: `Bearer ${otherTenantAdminToken}`, 'X-Tenant-ID': otherTenantId })
+      .expect(404);
+    const t2Year = (
+      await ds.query(
+        `INSERT INTO academic_years (name, start_date, end_date, tenant_id)
+         VALUES ('2027', '2027-01-01', '2027-12-31', $1) RETURNING id`,
+        [otherTenantId],
+      )
+    )[0].id;
+    const t2Class = (
+      await ds.query(
+        `INSERT INTO classes (name, academic_year_id, tenant_id) VALUES ('C', $1, $2) RETURNING id`,
+        [t2Year, otherTenantId],
+      )
+    )[0].id;
+    const t2Section = await seedSection(otherTenantId, t2Class);
+    await http()
+      .get(`${API}/exams/${examId}/documents/tabulation?section_id=${t2Section}`)
+      .set(asRole('ADMIN'))
+      .expect(404);
+  });
+
   it('a missing X-Tenant-ID is 401', async () => {
     for (const url of routes(examId)) {
       await http()
@@ -171,5 +234,9 @@ describe('Exam documents E2E (48.2.05)', () => {
         .set({ Authorization: `Bearer ${tokens.get('ADMIN')}` })
         .expect(401);
     }
+    await http()
+      .get(`${API}/exams/${examId}/documents/tabulation?section_id=${randomUUID()}`)
+      .set({ Authorization: `Bearer ${tokens.get('ADMIN')}` })
+      .expect(401);
   });
 });

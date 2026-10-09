@@ -1,5 +1,5 @@
 {
-  "title": "প্রিন্ট ও কাগজপত্র",
+  "title": "প্রিন্ট ও ডকুমেন্ট",
   "caption": "এ পর্যন্ত যা ছাপা হয়েছে, নতুনগুলো আগে।",
   "empty": "এখনও কিছু ছাপা হয়নি",
   "loadError": "ছাপার ইতিহাস আনা যায়নি।",
@@ -104,5 +104,69 @@
   },
   "printIdCards": "আইডি কার্ড প্রিন্ট করুন",
   "versionValue": "সংস্করণ {{version}}",
-  "emptyExplanation": "ছাপা কার্ড এখানে দেখা যাবে।"
+  "emptyExplanation": "ছাপা কার্ড এখানে দেখা যাবে।",
+  "subtitle": "যা ছাপা হয়েছে, যে সনদ ইস্যু হয়েছে, আর যা ছাপা বাকি।",
+  "tabs": {
+    "history": "ছাপার ইতিহাস",
+    "register": "সনদ রেজিস্টার",
+    "toPrint": "প্রিন্ট বাকি"
+  },
+  "register": {
+    "heading_other": "{{year}} সালের {{count}}টি সনদ",
+    "heading_one": "{{year}} সালের {{count}}টি সনদ",
+    "headingAll_other": "{{count}}টি সনদ",
+    "headingAll_one": "{{count}}টি সনদ",
+    "export": "Excel-এ নামান",
+    "searchPlaceholder": "নাম বা ক্রমিক নম্বর",
+    "year": "বছর",
+    "allYears": "সব বছর",
+    "status": "অবস্থা",
+    "allStatus": "বৈধ ও বাতিল",
+    "valid": "বৈধ",
+    "revoked": "বাতিল",
+    "col": {
+      "serial": "ক্রমিক",
+      "kind": "ধরন",
+      "student": "শিক্ষার্থী",
+      "issuedOn": "ইস্যুর তারিখ",
+      "issuedBy": "ইস্যুকারী",
+      "copy": "কপি"
+    },
+    "duplicate": "{{n}} · প্রতিলিপি",
+    "revokeReason": "বাতিলের কারণ:",
+    "empty": "এখনো কোনো সনদ ইস্যু হয়নি।",
+    "emptyExplanation": "শিক্ষার্থীর কাগজপত্র ট্যাব থেকে সনদ ইস্যু করুন।",
+    "announce": "মোট {{total}}টির মধ্যে {{visible}}টি দেখানো হচ্ছে"
+  },
+  "toPrint": {
+    "summary_other": "মোট {{count}}টি কাগজ ছাপা বাকি, পরীক্ষার তারিখ যত কাছে তত আগে",
+    "summary_one": "মোট {{count}}টি কাগজ ছাপা বাকি, পরীক্ষার তারিখ যত কাছে তত আগে",
+    "admitCards": "প্রবেশপত্র",
+    "idCards": "পরিচয়পত্র",
+    "waiting_other": "{{count}} জন বাকি",
+    "waiting_one": "{{count}} জন বাকি",
+    "examLine": "{{exam}} · {{className}}",
+    "printAdmit_other": "{{count}}টি প্রবেশপত্র প্রিন্ট করুন",
+    "printAdmit_one": "{{count}}টি প্রবেশপত্র প্রিন্ট করুন",
+    "duesNote": "{{count}} জনের বকেয়া আছে। তবুও প্রিন্ট হবে, কার্ডের তালিকায় চিহ্ন থাকবে।",
+    "hasDues": "বকেয়া আছে",
+    "neverIssued": "কখনো পরিচয়পত্র পায়নি",
+    "neverIssuedHelp": "এ বছর ভর্তি হওয়া বা আগে কখনো ছাপা হয়নি এমন শিক্ষার্থী",
+    "noPhoto_other": "{{count}} জনের ছবি নেই, তাদের বাদ দিয়ে প্রিন্ট হবে।",
+    "noPhoto_one": "{{count}} জনের ছবি নেই, তাদের বাদ দিয়ে প্রিন্ট হবে।",
+    "printId_other": "{{count}}টি পরিচয়পত্র প্রিন্ট করুন",
+    "printId_one": "{{count}}টি পরিচয়পত্র প্রিন্ট করুন",
+    "photo": "ছবি",
+    "photoYes": "ছবি আছে",
+    "photoNo": "ছবি নেই",
+    "addPhoto": "যোগ করুন",
+    "showRest_other": "বাকি {{count}} জন দেখুন",
+    "showRest_one": "বাকি {{count}} জন দেখুন",
+    "col": {
+      "registration": "রেজিস্ট্রেশন",
+      "admitted": "ভর্তির তারিখ",
+      "dues": "বকেয়া"
+    },
+    "empty": "ছাপার জন্য কিছু বাকি নেই।"
+  }
 }

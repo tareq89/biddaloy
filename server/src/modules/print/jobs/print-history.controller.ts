@@ -15,7 +15,7 @@ import {
 } from '@nestjs/common';
 import { Readable } from 'stream';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtPayload, Permission, toCsvContent } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../../auth/guards/context.guard';
 import { PermissionsGuard } from '../../auth/guards/permissions.guard';
@@ -28,8 +28,12 @@ import { PrintJobsService } from './print-jobs.service';
 import { PrintHistoryService } from './print-history.service';
 import {
   ConfirmPrintJobDto,
+  IdCardQueuePageDto,
+  PrintQueueDto,
+  QueryIdCardQueueDto,
   QueryPrintHistoryDto,
   QueryRegisterDto,
+  RegisterPageDto,
   ReprintPrintJobDto,
   RevokePrintItemDto,
   SubjectHistoryQueryDto,
@@ -143,8 +147,20 @@ export class PrintHistoryController {
   @ApiOperation({
     summary: 'What is still to print: counts per kind and exams with missing admit cards.',
   })
+  @ApiOkResponse({ type: PrintQueueDto })
   queue(@CurrentTenant() tenant: Tenant, @CurrentUser() user: JwtPayload) {
     return this.history.queue(caller(tenant, user));
+  }
+
+  // Declared before `items/:id`.
+  @Get('queue/id-cards')
+  @RequirePermissions(Permission.DOCUMENT_PRINT)
+  @ApiOperation({
+    summary: 'Active students still waiting for an ID card (matches the queue count).',
+  })
+  @ApiOkResponse({ type: IdCardQueuePageDto })
+  idCardQueue(@Query() q: QueryIdCardQueueDto, @CurrentTenant() tenant: Tenant) {
+    return this.history.idCardQueue(tenant.id, q);
   }
 
   // Declared before `items/:id`.
@@ -153,6 +169,7 @@ export class PrintHistoryController {
   @ApiOperation({
     summary: 'Certificate register: every serial-numbered copy, revoked ones included.',
   })
+  @ApiOkResponse({ type: RegisterPageDto })
   register(
     @Query() q: QueryRegisterDto,
     @CurrentTenant() tenant: Tenant,

@@ -79,7 +79,8 @@
       "recordLeaving": "ছাড়ার তথ্য লিখুন",
       "readmit": "পুনরায় ভর্তি",
       "delete": "মুছে ফেলুন",
-      "printIdCard": "আইডি কার্ড প্রিন্ট"
+      "printIdCard": "আইডি কার্ড প্রিন্ট",
+      "issueCertificate": "সনদ ইস্যু করুন"
     },
     "tabs": {
       "overview": "সংক্ষিপ্ত বিবরণ",

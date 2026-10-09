@@ -90,7 +90,7 @@ describe('runPrint — other paths', () => {
   it('a reprint asks the reprint endpoint, not create', async () => {
     const d = deps();
     const result = await runPrint(args(), d);
-    expect(d.reprintPrintJob).toHaveBeenCalledWith('job-1', ['i']);
+    expect(d.reprintPrintJob).toHaveBeenCalledWith('job-1', ['i'], undefined);
     expect(d.createPrintJob).not.toHaveBeenCalled();
     expect(result?.jobId).toBe('job-9');
   });

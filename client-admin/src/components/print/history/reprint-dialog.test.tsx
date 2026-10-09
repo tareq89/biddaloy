@@ -33,6 +33,7 @@ const row = {
   job_id: 'j-1',
   subject_label: 'Rahim',
   subject_type: 'STUDENT' as const,
+  document_kind: 'STUDENT_ID_CARD' as const,
 };
 const done = { jobId: 'j-2', items: [{ itemId: 'i-2', subjectId: 's-1', label: 'Rahim' }] };
 
@@ -97,7 +98,7 @@ describe('ReprintDialog', () => {
 
     expect(runPrint).toHaveBeenCalledOnce();
     const args = vi.mocked(runPrint).mock.calls[0]![0];
-    expect(args.request).toEqual({ kind: 'reprint', jobId: 'j-1', itemIds: ['i-1'] });
+    expect(args.request).toMatchObject({ kind: 'reprint', jobId: 'j-1', itemIds: ['i-1'] });
     expect(args.printer.id).toBe('p-1');
     expect(args.subjectType).toBe('STUDENT');
 
@@ -105,6 +106,32 @@ describe('ReprintDialog', () => {
     await waitFor(() => expect(confirms).toEqual([{ failed_item_ids: [] }]));
     await user.click(await screen.findByRole('button', { name: 'Continue' }));
     expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it('a certificate copy is reprinted and confirmed on the /certificates channel, not /print-jobs', async () => {
+    serve([printer('p-1', 'Front office')]);
+    const certificateConfirms: unknown[] = [];
+    server.use(
+      http.patch('/api/v1/certificates/jobs/:id/confirm', async ({ request }) => {
+        certificateConfirms.push(await request.json());
+        return HttpResponse.json({ ok: true });
+      }),
+    );
+    vi.mocked(runPrint).mockResolvedValue(done);
+    const { user } = renderWithProviders(
+      <ReprintDialog open onOpenChange={vi.fn()} row={{ ...row, document_kind: 'TESTIMONIAL' }} />,
+      { locale: 'en', role: 'ADMIN', tenantId: 'tenant-1' },
+    );
+    await waitFor(() =>
+      expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Print' }).disabled).toBe(false),
+    );
+    await user.click(screen.getByRole('button', { name: 'Print' }));
+    expect(vi.mocked(runPrint).mock.calls[0]![0].request).toMatchObject({
+      documentKind: 'TESTIMONIAL',
+    });
+    await user.click(await screen.findByRole('button', { name: /Yes, all printed/ }));
+    await waitFor(() => expect(certificateConfirms).toEqual([{ failed_item_ids: [] }]));
+    expect(confirms).toEqual([]);
   });
 
   it('stays on the form when nothing was printed (the job failed)', async () => {

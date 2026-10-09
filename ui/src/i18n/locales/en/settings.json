@@ -392,5 +392,15 @@
   "mutationError": {
     "generic": "Couldn't save. Try again.",
     "forbidden": "You don't have permission to do this."
+  },
+  "documents": {
+    "legend": "Documents and certificates",
+    "description": "Rules for admit cards and certificate serial numbers.",
+    "withholdLabel": "Withhold admit cards when fees are due",
+    "withholdHint": "Families cannot print the admit card from the portal while fees are due. Staff still can, with a warning.",
+    "prefixLabel": "School short code (optional)",
+    "prefixHint": "2–8 capital letters or digits, printed before every serial.",
+    "prefixExample": "Example: {{serial}}",
+    "prefixInvalid": "Use 2–8 capital letters or digits."
   }
 }

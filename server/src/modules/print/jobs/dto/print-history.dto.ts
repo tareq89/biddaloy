@@ -16,7 +16,13 @@ import {
   Min,
   MinLength,
 } from 'class-validator';
-import { CERTIFICATE_SERIAL_CODE, PRINT_BATCH_CEILING } from '@biddaloy/shared';
+import {
+  CERTIFICATE_SERIAL_CODE,
+  DocumentKind,
+  PRINT_BATCH_CEILING,
+  STUDENT_CERTIFICATE_KINDS,
+  type StudentCertificateKind,
+} from '@biddaloy/shared';
 
 export class ConfirmPrintJobDto {
   @ApiProperty({
@@ -125,6 +131,10 @@ export class QueryRegisterDto {
   @Min(2000)
   @Max(2100)
   year?: number;
+  @ApiPropertyOptional({ description: 'Only copies issued to this student' })
+  @IsOptional()
+  @IsUUID()
+  subject_id?: string;
   @ApiPropertyOptional({ enum: ['VALID', 'REVOKED'] })
   @IsOptional()
   @IsIn(['VALID', 'REVOKED'])
@@ -149,4 +159,96 @@ export class QueryRegisterDto {
   @Min(1)
   @Max(100)
   limit?: number;
+}
+
+export class QueryIdCardQueueDto {
+  @ApiPropertyOptional({ default: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number;
+  @ApiPropertyOptional({ default: 50 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit?: number;
+}
+
+export class CertificateTemplatesQueryDto {
+  @ApiProperty({ enum: STUDENT_CERTIFICATE_KINDS })
+  @IsIn([...STUDENT_CERTIFICATE_KINDS])
+  document_kind: StudentCertificateKind;
+}
+
+/* ------------------------------------------------------------ responses */
+
+export class CertificateTemplateRowDto {
+  @ApiProperty() id: string;
+  @ApiProperty() name: string;
+  @ApiProperty() is_default: boolean;
+  @ApiProperty() current_version_id: string;
+}
+
+export class QueueKindCountDto {
+  @ApiProperty({ enum: ['EXAM_ADMIT_CARD', 'STUDENT_ID_CARD'] })
+  kind: 'EXAM_ADMIT_CARD' | 'STUDENT_ID_CARD';
+  @ApiProperty() count: number;
+}
+
+export class QueueExamDto {
+  @ApiProperty() exam_id: string;
+  @ApiProperty() exam_name: string;
+  @ApiProperty() class_name: string;
+  @ApiProperty() missing: number;
+}
+
+export class PrintQueueDto {
+  @ApiProperty() total: number;
+  @ApiProperty({ type: [QueueKindCountDto] }) by_kind: QueueKindCountDto[];
+  @ApiProperty({ type: [QueueExamDto] }) exams: QueueExamDto[];
+}
+
+export class IdCardQueueRowDto {
+  @ApiProperty() student_id: string;
+  @ApiProperty() full_name: string;
+  @ApiProperty() registration_number: string;
+  @ApiProperty() class_name: string;
+  @ApiProperty() section_name: string;
+  @ApiProperty({ description: 'YYYY-MM-DD' }) admitted_on: string;
+  @ApiProperty() has_photo: boolean;
+}
+
+export class IdCardQueuePageDto {
+  @ApiProperty({ type: [IdCardQueueRowDto] }) data: IdCardQueueRowDto[];
+  @ApiProperty() total: number;
+  @ApiProperty() page: number;
+  @ApiProperty() limit: number;
+  @ApiProperty() totalPages: number;
+}
+
+export class RegisterRowDto {
+  @ApiProperty() item_id: string;
+  @ApiProperty({ enum: SERIAL_KINDS }) document_kind: DocumentKind;
+  @ApiProperty() serial: string;
+  @ApiProperty() serial_year: number;
+  @ApiProperty() serial_no: number;
+  @ApiProperty() copy_number: number;
+  @ApiProperty() subject_id: string;
+  @ApiProperty() subject_label: string;
+  @ApiProperty({ nullable: true, type: String }) class_name: string | null;
+  @ApiProperty() issued_at: string;
+  @ApiProperty({ nullable: true, type: String }) printed_by_name: string | null;
+  @ApiProperty({ nullable: true, type: String }) revoked_at: string | null;
+  @ApiProperty({ nullable: true, type: String }) revoke_reason: string | null;
+}
+
+export class RegisterPageDto {
+  @ApiProperty({ type: [RegisterRowDto] }) data: RegisterRowDto[];
+  @ApiProperty() total: number;
+  @ApiProperty() page: number;
+  @ApiProperty() limit: number;
+  @ApiProperty() totalPages: number;
 }

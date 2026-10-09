@@ -350,4 +350,42 @@ describe('SeatPlansService (integration)', () => {
       }),
     });
   });
+
+  it('findAll({ examId }) returns only plans with a sitting of that exam; no examId returns all', async () => {
+    const plan = (name: string, schedule: string) =>
+      service.generate(SEED_TENANT_ID, {
+        name,
+        exam_schedule_ids: [schedule],
+        room_ids: [ROOM_1_ID, ROOM_2_ID],
+        seat_order_mode: SeatOrderMode.SEQUENTIAL,
+      });
+    await plan('Plan A', SCHEDULE_1_ID);
+    await plan('Plan B', SCHEDULE_2_ID);
+
+    const forExam1 = await service.findAll(SEED_TENANT_ID, { examId: EXAM_1_ID });
+    expect(forExam1.map((p) => p.name)).toEqual(['Plan A']);
+    expect(await service.findAll(SEED_TENANT_ID)).toHaveLength(2);
+    // Another tenant never sees these plans, with or without the filter.
+    const other = '00000000-0000-4000-8000-0000000000ff';
+    expect(await service.findAll(other, { examId: EXAM_1_ID })).toEqual([]);
+  });
+
+  it('findAll({ examId }) skips a plan whose sitting of that exam was soft-deleted', async () => {
+    const created = await service.generate(SEED_TENANT_ID, {
+      name: 'Plan A',
+      exam_schedule_ids: [SCHEDULE_1_ID],
+      room_ids: [ROOM_1_ID, ROOM_2_ID],
+      seat_order_mode: SeatOrderMode.SEQUENTIAL,
+    });
+    expect(await service.findAll(SEED_TENANT_ID, { examId: EXAM_1_ID })).toHaveLength(1);
+
+    await seatPlanScheduleRepo.softDelete({ seat_plan_id: created.plan.id });
+    expect(await service.findAll(SEED_TENANT_ID, { examId: EXAM_1_ID })).toEqual([]);
+
+    await seatPlanScheduleRepo.restore({ seat_plan_id: created.plan.id });
+    await dataSource.query(`UPDATE exam_schedules SET deleted_at = now() WHERE id = $1`, [
+      SCHEDULE_1_ID,
+    ]);
+    expect(await service.findAll(SEED_TENANT_ID, { examId: EXAM_1_ID })).toEqual([]);
+  });
 });

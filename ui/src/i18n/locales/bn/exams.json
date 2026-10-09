@@ -60,7 +60,8 @@
       "setup": "নম্বর বিভাজন",
       "schedule": "সময়সূচি",
       "results": "ফলাফল",
-      "fourthSubject": "বিষয় নির্বাচন"
+      "fourthSubject": "বিষয় নির্বাচন",
+      "print": "প্রিন্ট"
     },
     "edit": "সম্পাদনা",
     "facts": {
@@ -310,7 +311,8 @@
     "programs": "প্রোগ্রাম",
     "progress": "অগ্রগতি",
     "latestMilestone": "সর্বশেষ মাইলফলক",
-    "scoreGrade": "নম্বর/গ্রেড"
+    "scoreGrade": "নম্বর/গ্রেড",
+    "logError": "প্রিন্টের রেকর্ড রাখা যায়নি, তাই প্রিন্ট হয়নি। আবার চেষ্টা করুন।"
   },
   "analysis": {
     "tabs": {
