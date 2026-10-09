@@ -152,7 +152,7 @@ describe('Syllabus › Study plans tab', () => {
     const rows = screen.getAllByRole('row');
     const cell = (i: number) => rows[i + 1]?.textContent ?? '';
     expect(cell(0)).toContain('1 day not reported');
-    expect(cell(1)).toContain('2 day not reported');
+    expect(cell(1)).toContain('2 days not reported');
     expect(cell(2)).toContain('Today');
     expect(cell(3)).toContain('Yesterday');
     expect(cell(4)).not.toMatch(/Today|Yesterday|—/);
