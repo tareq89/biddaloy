@@ -1,5 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { BellIcon } from 'lucide-react';
+import { createRef } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { NoticeBar } from './notice-bar';
@@ -51,5 +53,32 @@ describe('NoticeBar', () => {
   it('has no button without onOpenDetails', () => {
     render(<NoticeBar tone="info">Trial</NoticeBar>);
     expect(screen.queryByRole('button')).toBeNull();
+  });
+
+  it('[67.2.02] icon overrides the tone icon', () => {
+    const { container } = render(
+      <NoticeBar tone="danger" icon={BellIcon}>
+        Alert
+      </NoticeBar>,
+    );
+    expect(container.querySelector('svg.lucide-bell')).toBeTruthy();
+    expect(container.querySelector('svg.lucide-circle-alert')).toBeNull();
+  });
+
+  it('[67.2.02] detailsButtonRef points at the details button', () => {
+    const ref = createRef<HTMLButtonElement>();
+    render(
+      <NoticeBar
+        tone="info"
+        onOpenDetails={() => {}}
+        detailsButtonRef={ref}
+        detailsHasPopup="dialog"
+      >
+        Trial
+      </NoticeBar>,
+    );
+    const button = screen.getByRole('button', { name: 'Trial' });
+    expect(ref.current).toBe(button);
+    expect(button.getAttribute('aria-haspopup')).toBe('dialog');
   });
 });
