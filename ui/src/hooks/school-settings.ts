@@ -1,4 +1,9 @@
-import type { BackupScheduleMode, EvaluationsSettings, InvitationStatus } from '@biddaloy/shared';
+import type {
+  ApplicationsSettings,
+  BackupScheduleMode,
+  EvaluationsSettings,
+  InvitationStatus,
+} from '@biddaloy/shared';
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { apiClient } from '../api/client';
@@ -170,6 +175,8 @@ export interface MaskedTenantSettings {
   fees?: FeesSettings;
   /** [28.4.3] Not secret data. */
   evaluations?: EvaluationsSettings;
+  /** [52.5.7] Not secret data. */
+  applications?: ApplicationsSettings;
   organisation?: OrganisationSettings;
   /** [21.7.1] Not secret data, same reasoning as `attendance` above. */
   routine?: RoutineSettingsInput;

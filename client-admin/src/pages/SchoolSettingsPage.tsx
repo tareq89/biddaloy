@@ -27,6 +27,7 @@ import { ChevronLeftIcon } from 'lucide-react';
 import * as React from 'react';
 
 import { AcrCriteriaSection } from './settings/AcrCriteriaSection';
+import { ApplicationsSection } from './settings/ApplicationsSection';
 import { AttendanceSection } from './settings/AttendanceSection';
 import { BackupSection } from './settings/backup-section';
 import { CalendarSection } from './settings/CalendarSection';
@@ -165,6 +166,12 @@ export function SchoolSettingsPage({ backupJobId }: SchoolSettingsPageProps = {}
                   key={loaded.schoolId}
                   schoolId={loaded.schoolId}
                   evaluations={loaded.data.evaluations}
+                  smsConfigured={isSmsReady(loaded.data.communications?.sms)}
+                />
+                <ApplicationsSection
+                  key={loaded.schoolId}
+                  schoolId={loaded.schoolId}
+                  applications={loaded.data.applications}
                   smsConfigured={isSmsReady(loaded.data.communications?.sms)}
                 />
               </>
