@@ -290,6 +290,7 @@ describe('mergeTenantSettings', () => {
     evaluations: { marker: 'evaluations' },
     documents: { marker: 'documents' },
     studyPlans: { marker: 'studyPlans' },
+    attention: { marker: 'attention' },
   };
 
   it('every DTO section survives a merge (#1811 guard)', () => {
@@ -405,6 +406,29 @@ describe('mergeTenantSettings', () => {
       expect(whatsapp.phoneNumberId).toBe('111');
       expect('accessToken' in whatsapp).toBe(false);
     });
+  });
+});
+
+describe('mergeTenantSettings attention [67.1.06]', () => {
+  it('merges one field and one rule without losing the others', () => {
+    const merged = mergeTenantSettings(
+      { attention: { dailyAt: '06:30', rules: { 'class.starting': { enabled: false } } } },
+      toPatch({
+        version: 1,
+        attention: { rules: { 'homework.due_today': { enabled: false } } },
+      }),
+    );
+    expect(merged.attention).toEqual({
+      dailyAt: '06:30',
+      rules: { 'class.starting': { enabled: false }, 'homework.due_today': { enabled: false } },
+    });
+  });
+
+  it('leaves attention untouched when the patch has none', () => {
+    const stored = { attention: { dailyAt: '06:30', rules: {} } };
+    expect(mergeTenantSettings(stored, toPatch({ version: 1 })).attention).toEqual(
+      stored.attention,
+    );
   });
 });
 

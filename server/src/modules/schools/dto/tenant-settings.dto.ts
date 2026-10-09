@@ -7,6 +7,7 @@ import {
   IsString,
   IsArray,
   IsBoolean,
+  IsObject,
   ArrayNotEmpty,
   IsISO31661Alpha2,
   IsNotEmpty,
@@ -26,6 +27,7 @@ import { NestedSettings } from '../settings/nested-settings.decorator';
 import { OptionalSetting } from '../settings/optional-setting.decorator';
 import { IsRegexSourceConstraint } from '../settings/regex-source.validator';
 import { SmsProviderIsConfiguredConstraint } from '../settings/sms-provider-config.validator';
+import { AttentionRulesConstraint } from '../settings/attention-rules.validator';
 import { UniqueLabelListConstraint } from '../settings/unique-labels.validator';
 import {
   ApprovalMode,
@@ -649,6 +651,89 @@ export class EvaluationsSettingsDto {
   incidentSmsEnabled?: boolean;
 }
 
+export class AttentionQuietHoursDto {
+  @ApiProperty({ example: '21:00' })
+  @IsString()
+  @Matches(HH_MM_PATTERN)
+  start: string;
+
+  @ApiProperty({ example: '07:00' })
+  @IsString()
+  @Matches(HH_MM_PATTERN)
+  end: string;
+}
+
+/** [67.1.06] `settings.attention` — every field optional so a PATCH may send one. */
+export class AttentionSettingsDto {
+  /** Per-rule `{ enabled }`; CRITICAL rules cannot be switched off (D34). */
+  @ApiPropertyOptional({ type: 'object', additionalProperties: true })
+  @IsOptional()
+  @IsObject()
+  @Validate(AttentionRulesConstraint)
+  rules?: Record<string, { enabled: boolean }>;
+
+  @ApiPropertyOptional({ example: 15 })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(120)
+  attendanceGraceMinutes?: number;
+
+  @ApiPropertyOptional({ example: 10 })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(60)
+  classStartingLeadMinutes?: number;
+
+  @ApiPropertyOptional({ example: '07:00' })
+  @IsOptional()
+  @Matches(HH_MM_PATTERN)
+  dailyAt?: string;
+
+  @ApiPropertyOptional({ example: '17:00' })
+  @IsOptional()
+  @Matches(HH_MM_PATTERN)
+  eveningAt?: string;
+
+  @ApiPropertyOptional({ type: () => AttentionQuietHoursDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => AttentionQuietHoursDto)
+  quietHours?: AttentionQuietHoursDto;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  guardianSmsFallback?: boolean;
+
+  @ApiPropertyOptional({ example: 2 })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(10)
+  guardianSmsDailyCap?: number;
+
+  @ApiPropertyOptional({ example: 200 })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(100000)
+  smsCreditLowThreshold?: number;
+
+  @ApiPropertyOptional({ example: 10 })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(1000)
+  failedMessagesThreshold?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  escalateAttendanceToHeads?: boolean;
+}
+
 /** [48.1.03] `settings.documents` — Epic 48 D9 / D24. */
 export class DocumentsSettingsDto {
   @ApiPropertyOptional()
@@ -779,4 +864,8 @@ export class TenantSettingsDto {
   @OptionalSetting()
   @NestedSettings(() => StudyPlansSettingsDto)
   studyPlans?: StudyPlansSettingsDto;
+
+  @OptionalSetting()
+  @NestedSettings(() => AttentionSettingsDto)
+  attention?: AttentionSettingsDto;
 }

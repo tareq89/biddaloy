@@ -9430,6 +9430,34 @@ export interface components {
             weeklyDigestTime?: string;
             guardianDigestSms?: boolean;
         };
+        AttentionQuietHoursDto: {
+            /** @example 21:00 */
+            start: string;
+            /** @example 07:00 */
+            end: string;
+        };
+        AttentionSettingsDto: {
+            rules?: {
+                [key: string]: unknown;
+            };
+            /** @example 15 */
+            attendanceGraceMinutes?: number;
+            /** @example 10 */
+            classStartingLeadMinutes?: number;
+            /** @example 07:00 */
+            dailyAt?: string;
+            /** @example 17:00 */
+            eveningAt?: string;
+            quietHours?: components["schemas"]["AttentionQuietHoursDto"];
+            guardianSmsFallback?: boolean;
+            /** @example 2 */
+            guardianSmsDailyCap?: number;
+            /** @example 200 */
+            smsCreditLowThreshold?: number;
+            /** @example 10 */
+            failedMessagesThreshold?: number;
+            escalateAttendanceToHeads?: boolean;
+        };
         TenantSettingsDto: {
             organisationRenames?: components["schemas"]["OrganisationRenameDto"][];
             /** @enum {number} */
@@ -9445,6 +9473,7 @@ export interface components {
             evaluations?: components["schemas"]["EvaluationsSettingsDto"];
             documents?: components["schemas"]["DocumentsSettingsDto"];
             studyPlans?: components["schemas"]["StudyPlansSettingsDto"];
+            attention?: components["schemas"]["AttentionSettingsDto"];
         };
         UpdateSchoolProfileDto: {
             name?: string;

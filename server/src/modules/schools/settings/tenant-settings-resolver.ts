@@ -1,6 +1,7 @@
 import { TENANT_SETTINGS_SCHEMA_VERSION } from '../dto/tenant-settings.dto';
 import {
   DEFAULT_ATTENDANCE_SETTINGS,
+  DEFAULT_ATTENTION_SETTINGS,
   DEFAULT_AUTH_SETTINGS,
   DEFAULT_BACKUP_SETTINGS,
   DEFAULT_DOCUMENTS_SETTINGS,
@@ -10,8 +11,14 @@ import {
   DEFAULT_ROUTINE_SETTINGS,
   DEFAULT_STUDY_PLANS_SETTINGS,
 } from './tenant-settings-defaults';
-import { ApprovalMode, SERIAL_PREFIX_PATTERN } from '@biddaloy/shared';
+import {
+  alertRuleMeta,
+  ApprovalMode,
+  isAlertRuleKey,
+  SERIAL_PREFIX_PATTERN,
+} from '@biddaloy/shared';
 import type {
+  AttentionSettings,
   DocumentsSettings,
   EvaluationsSettings,
   RoutineSettings,
@@ -29,6 +36,60 @@ function isNonNegativeInteger(value: unknown): value is number {
 
 function isPositiveInteger(value: unknown): value is number {
   return isNonNegativeInteger(value) && value > 0;
+}
+
+const isHhMm = (v: unknown): v is string => typeof v === 'string' && HH_MM.test(v);
+const intIn = (v: unknown, min: number, max: number): v is number =>
+  typeof v === 'number' && Number.isInteger(v) && v >= min && v <= max;
+
+/**
+ * [67.1.06] Always a full object: the attention engine reads it every sweep, so a
+ * partial/absent/junk stored block falls back field by field (ranges mirror
+ * `AttentionSettingsDto`). `rules` keeps only known keys with a boolean `enabled`
+ * and drops `enabled: false` on non-disableable rules (D34 read-side guard).
+ */
+function overlayAttentionSettings(stored: unknown): AttentionSettings {
+  const d = DEFAULT_ATTENTION_SETTINGS;
+  const s = isPlainObject(stored) ? stored : {};
+  const q = isPlainObject(s.quietHours) ? s.quietHours : {};
+  const rules: AttentionSettings['rules'] = {};
+  if (isPlainObject(s.rules)) {
+    for (const [key, entry] of Object.entries(s.rules)) {
+      if (!isAlertRuleKey(key) || !isPlainObject(entry) || typeof entry.enabled !== 'boolean') {
+        continue;
+      }
+      if (!entry.enabled && !alertRuleMeta(key).canDisable) continue;
+      rules[key] = { enabled: entry.enabled };
+    }
+  }
+  return {
+    rules,
+    attendanceGraceMinutes: intIn(s.attendanceGraceMinutes, 0, 120)
+      ? s.attendanceGraceMinutes
+      : d.attendanceGraceMinutes,
+    classStartingLeadMinutes: intIn(s.classStartingLeadMinutes, 0, 60)
+      ? s.classStartingLeadMinutes
+      : d.classStartingLeadMinutes,
+    dailyAt: isHhMm(s.dailyAt) ? s.dailyAt : d.dailyAt,
+    eveningAt: isHhMm(s.eveningAt) ? s.eveningAt : d.eveningAt,
+    quietHours:
+      isHhMm(q.start) && isHhMm(q.end) ? { start: q.start, end: q.end } : { ...d.quietHours },
+    guardianSmsFallback:
+      typeof s.guardianSmsFallback === 'boolean' ? s.guardianSmsFallback : d.guardianSmsFallback,
+    guardianSmsDailyCap: intIn(s.guardianSmsDailyCap, 0, 10)
+      ? s.guardianSmsDailyCap
+      : d.guardianSmsDailyCap,
+    smsCreditLowThreshold: intIn(s.smsCreditLowThreshold, 0, 100000)
+      ? s.smsCreditLowThreshold
+      : d.smsCreditLowThreshold,
+    failedMessagesThreshold: intIn(s.failedMessagesThreshold, 1, 1000)
+      ? s.failedMessagesThreshold
+      : d.failedMessagesThreshold,
+    escalateAttendanceToHeads:
+      typeof s.escalateAttendanceToHeads === 'boolean'
+        ? s.escalateAttendanceToHeads
+        : d.escalateAttendanceToHeads,
+  };
 }
 
 /**
@@ -231,6 +292,7 @@ export function resolveTenantSettings(stored: Record<string, unknown> | null): T
     fees,
     documents,
     studyPlans: overlayStudyPlansSettings(stored?.studyPlans),
+    attention: overlayAttentionSettings(stored?.attention),
     ...(communications ? { communications } : {}),
     ...(preset ? { preset } : {}),
     ...(evaluations ? { evaluations } : {}),

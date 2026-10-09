@@ -155,6 +155,21 @@ export function mergeTenantSettings(
     };
   }
 
+  // [67.1.06] Shallow merge so a PATCH may send one field; `rules` merged one level deeper
+  // so switching one rule off keeps the others.
+  if (patch.attention !== undefined) {
+    const prev = isPlainObject(current.attention) ? current.attention : {};
+    const next = patch.attention as Record<string, unknown>;
+    merged.attention = {
+      ...prev,
+      ...next,
+      rules: {
+        ...(isPlainObject(prev.rules) ? prev.rules : {}),
+        ...(isPlainObject(next.rules) ? next.rules : {}),
+      },
+    };
+  }
+
   return merged;
 }
 
