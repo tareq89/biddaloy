@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { resolveTenantSettings } from './tenant-settings-resolver';
 import {
   DEFAULT_ATTENDANCE_SETTINGS,
+  DEFAULT_ATTENTION_SETTINGS,
   DEFAULT_AUTH_SETTINGS,
   DEFAULT_BACKUP_SETTINGS,
   DEFAULT_FEES_SETTINGS,
@@ -225,6 +226,51 @@ describe('resolveTenantSettings', () => {
       expect(
         resolveTenantSettings({ evaluations: { incidentSmsEnabled: 'yes' } }),
       ).not.toHaveProperty('evaluations');
+    });
+  });
+
+  describe('attention (67.1.06 (#2049))', () => {
+    it('is the full defaults when nothing is stored (never undefined)', () => {
+      expect(resolveTenantSettings({}).attention).toEqual(DEFAULT_ATTENTION_SETTINGS);
+      expect(resolveTenantSettings(null).attention).toEqual(DEFAULT_ATTENTION_SETTINGS);
+      expect(resolveTenantSettings({ attention: 'junk' }).attention).toEqual(
+        DEFAULT_ATTENTION_SETTINGS,
+      );
+    });
+
+    it('keeps one stored field and defaults every other', () => {
+      expect(resolveTenantSettings({ attention: { dailyAt: '06:30' } }).attention).toEqual({
+        ...DEFAULT_ATTENTION_SETTINGS,
+        dailyAt: '06:30',
+      });
+    });
+
+    it('falls back to the default for malformed / out-of-range values, no NaN', () => {
+      const a = resolveTenantSettings({
+        attention: {
+          dailyAt: 'nonsense',
+          attendanceGraceMinutes: -5,
+          classStartingLeadMinutes: 1.5,
+          guardianSmsDailyCap: NaN,
+          failedMessagesThreshold: 0,
+          quietHours: { start: '21:00' },
+          guardianSmsFallback: 'yes',
+        },
+      }).attention!;
+      expect(a).toEqual(DEFAULT_ATTENTION_SETTINGS);
+    });
+
+    it('drops unknown rules and enabled:false on non-disableable rules (D34)', () => {
+      const { rules } = resolveTenantSettings({
+        attention: {
+          rules: {
+            'class.starting': { enabled: false },
+            'system.backup_failed': { enabled: false },
+            'nope.rule': { enabled: false },
+          },
+        },
+      }).attention!;
+      expect(rules).toEqual({ 'class.starting': { enabled: false } });
     });
   });
 

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { TENANT_SETTINGS_SCHEMA_VERSION } from '../dto/tenant-settings.dto';
 import {
+  DEFAULT_ATTENTION_SETTINGS,
   DEFAULT_DOCUMENTS_SETTINGS,
   DEFAULT_ORGANISATION_SETTINGS,
   DEFAULT_ROUTINE_SETTINGS,
@@ -57,6 +58,23 @@ describe('DEFAULT_TENANT_SETTINGS', () => {
 
   it('includes the routine defaults', () => {
     expect(DEFAULT_TENANT_SETTINGS.routine).toBe(DEFAULT_ROUTINE_SETTINGS);
+  });
+
+  it('[67.1.06] includes the attention defaults (D3, D10, D23, D29, D34)', () => {
+    expect(DEFAULT_TENANT_SETTINGS.attention).toBe(DEFAULT_ATTENTION_SETTINGS);
+    expect(DEFAULT_ATTENTION_SETTINGS).toEqual({
+      rules: {},
+      attendanceGraceMinutes: 15,
+      classStartingLeadMinutes: 10,
+      dailyAt: '07:00',
+      eveningAt: '17:00',
+      quietHours: { start: '21:00', end: '07:00' },
+      guardianSmsFallback: false,
+      guardianSmsDailyCap: 2,
+      smsCreditLowThreshold: 200,
+      failedMessagesThreshold: 10,
+      escalateAttendanceToHeads: true,
+    });
   });
 
   it('carries the current schema version', () => {
