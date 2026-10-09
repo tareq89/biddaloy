@@ -140,6 +140,16 @@ describe('placeholders and issue fields [48.1.01] D43', () => {
     expect(validateTemplateDefinition(edited, TC, stored).success).toBe(false);
   });
 
+  it('does not grandfather a second element that reuses a stored id', () => {
+    const legacy = t('{{old.key}}');
+    const stored = {
+      page: { widthMm: 210, heightMm: 297, sides: ['front'] },
+      front: { elements: [legacy] },
+    };
+    const dup = { ...stored, front: { elements: [legacy, { ...legacy, y: 50 }] } };
+    expect(validateTemplateDefinition(dup, TC, stored).success).toBe(false);
+  });
+
   it('keeps PLACEHOLDER_PATTERN stateless for .test()', () => {
     expect(PLACEHOLDER_PATTERN.test('{{a}}')).toBe(true);
     expect(PLACEHOLDER_PATTERN.test('{{a}}')).toBe(true);

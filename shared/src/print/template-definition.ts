@@ -155,7 +155,11 @@ export function validateTemplateDefinition(
   const before = previousTexts(previous);
   for (const name of ['front', 'back'] as const) {
     parsed.data[name]?.elements.forEach((el, i) => {
-      if (el.type === 'TEXT' && el.text !== undefined && before.get(el.id) !== el.text) {
+      // One stored element exempts one submitted element: a second TEXT reusing the id is checked.
+      const unchanged =
+        el.type === 'TEXT' && el.text !== undefined && before.get(el.id) === el.text;
+      if (unchanged) before.delete(el.id);
+      if (el.type === 'TEXT' && el.text !== undefined && !unchanged) {
         if (el.text.length > TEXT_MAX_LENGTH) {
           errors.push(`${name}.elements.${i}.text: longer than ${TEXT_MAX_LENGTH} characters`);
         }
