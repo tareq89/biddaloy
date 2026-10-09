@@ -24,7 +24,10 @@ test.describe('sticky header scroll contract', () => {
     page,
   }) => {
     await page.goto('/students');
-    await expect(page.getByRole('heading', { name: t('students.list.title') })).toBeVisible();
+    // A cold app boot on a busy runner can outlast the 5s default.
+    await expect(page.getByRole('heading', { name: t('students.list.title') })).toBeVisible({
+      timeout: 15_000,
+    });
 
     // Scroll the page down first — the whole point of the contract is
     // that a *scrolled* page still lands its jump target below the
@@ -69,7 +72,10 @@ test.describe('sticky header scroll contract', () => {
     page,
   }) => {
     await page.goto('/students');
-    await expect(page.getByRole('heading', { name: t('students.list.title') })).toBeVisible();
+    // A cold app boot on a busy runner can outlast the 5s default.
+    await expect(page.getByRole('heading', { name: t('students.list.title') })).toBeVisible({
+      timeout: 15_000,
+    });
 
     await page.mouse.wheel(0, 800);
     await page.getByRole('link', { name: t('nav.items.dashboard'), exact: true }).click();
