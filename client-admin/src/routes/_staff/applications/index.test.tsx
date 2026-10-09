@@ -124,15 +124,17 @@ describe('/applications', () => {
     );
   });
 
+  const CLASS_ID = 'c1c1c1c1-0000-4000-8000-000000000001';
+
   it('a class filter writes class_id to the URL and refetches with it', async () => {
     const urls: URL[] = [];
     mockApi({ pending: 1, rows: [row(A1)], onList: (u) => urls.push(u) });
-    const { router } = mount('?view=inbox&class_id=c1');
+    const { router } = mount(`?view=inbox&class_id=${CLASS_ID}`);
     await screen.findByText('2026/0045');
     await waitFor(() =>
-      expect(urls.some((u) => u.searchParams.get('class_id') === 'c1')).toBe(true),
+      expect(urls.some((u) => u.searchParams.get('class_id') === CLASS_ID)).toBe(true),
     );
-    expect(router.state.location.search).toMatchObject({ class_id: 'c1' });
+    expect(router.state.location.search).toMatchObject({ class_id: CLASS_ID });
   });
 
   it('bulk approve drops FEE_WAIVER, sends 2 ids and lists the failed row in plain words', async () => {
