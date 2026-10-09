@@ -38,7 +38,9 @@ function Field({
   options: { value: string; label: string }[];
   disabled?: boolean;
 }) {
-  const { t } = useTranslation('common');
+  // No ns arg = default namespace. check:i18n resolves one namespace per file (the first
+  // explicit one), so naming it here would mis-resolve the studyPlans keys further down.
+  const { t } = useTranslation();
   return (
     <div className="flex flex-col gap-1.5">
       <label htmlFor={id} className="text-label text-text-primary">
@@ -46,7 +48,7 @@ function Field({
       </label>
       <Select value={value} onValueChange={onChange} disabled={disabled ?? false}>
         <SelectTrigger id={id}>
-          <SelectValue placeholder={t('form.selectPlaceholder')} />
+          <SelectValue placeholder={t('form.selectPlaceholder', { ns: 'common' })} />
         </SelectTrigger>
         <SelectContent>
           {options.map((o) => (
