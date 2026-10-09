@@ -3,6 +3,7 @@ import {
   addRoutineSlot,
   adminApiSession,
   createGuardian,
+  detachOfferedSubjects,
   createStudyPlan,
   createStudyPlanScene,
   get,
@@ -175,5 +176,7 @@ test('a guardian sees their own childâ€™s plan and lesson line; another familyâ€
     // The seeded parent's account is shared: leave it with its own children only.
     for (const id of studentIds) await rawRequest(request, admin, 'DELETE', `/students/${id}`);
     await removeRoutineSlots(request, admin, slotIds);
+    // The class's subject list is read by the portal syllabus and other journeys: leave it as found.
+    await detachOfferedSubjects(request, admin, scene, [scene.subject.id]);
   }
 });

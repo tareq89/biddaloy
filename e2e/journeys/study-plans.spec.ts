@@ -8,6 +8,7 @@ import {
   createStudyPlan,
   createStudyPlanScene,
   createStudyPlanTemplate,
+  detachOfferedSubjects,
   createTeacher,
   get,
   lastWeekdayOnOrBefore,
@@ -47,14 +48,19 @@ let slotIds: string[] = [];
  * (the behind list in particular). The fresh subject, sections and teachers have no delete endpoint. */
 let planIds: string[] = [];
 let templateIds: string[] = [];
+/** Subjects offered to the seeded class by a test (see `detachOfferedSubjects`). */
+let offered: { classId: string; academicYearId: string; subjectIds: string[] } | null = null;
 test.afterEach(async ({ request }) => {
-  if (slotIds.length + planIds.length + templateIds.length === 0) return;
+  if (slotIds.length + planIds.length + templateIds.length === 0 && !offered) return;
   const admin = await adminApiSession(request);
   for (const id of planIds) await rawRequest(request, admin, 'DELETE', `/study-plans/${id}`);
   for (const id of templateIds) {
     await rawRequest(request, admin, 'DELETE', `/study-plan-templates/${id}`);
   }
   await removeRoutineSlots(request, admin, slotIds);
+  // Templates reference the subject by code only; the offering can go once plans and slots are gone.
+  if (offered) await detachOfferedSubjects(request, admin, offered, offered.subjectIds);
+  offered = null;
   slotIds = [];
   planIds = [];
   templateIds = [];
@@ -102,6 +108,7 @@ test.describe('teacher: build, edit, reorder, copy; another teacher is fenced ou
     const admin = await adminApiSession(ctx);
     const suffix = crypto.randomUUID().slice(0, 6);
     const scene = await createStudyPlanScene(ctx, admin, `Plans ${suffix}`);
+    offered = { ...scene, subjectIds: [scene.subject.id] };
     const weekday = openWeekday((await schoolCalendar(ctx, admin)).weeklyOffDays);
     // A weekly period 1 in section A, so the plan's lessons get dates from the routine.
     slotIds.push(
@@ -200,6 +207,8 @@ test.describe('teacher: build, edit, reorder, copy; another teacher is fenced ou
           page.getByRole('option', { name: `${scene.className}-${scene.sectionBName}` }),
         ).toBeVisible();
         await page.keyboard.press('Enter');
+        // Close the option list (it can cover the button) by clicking the dialog's own title.
+        await page.getByRole('heading', { name: t('studyPlans.copy.title') }).click();
         await page.getByRole('button', { name: t('studyPlans.copy.save') }).click();
         await page.waitForURL((url) => url.pathname !== planUrl);
         await expect(page).toHaveURL(new RegExp(`/academics/study-plans/${UUID}$`));
@@ -259,13 +268,14 @@ test.describe('teacher: build, edit, reorder, copy; another teacher is fenced ou
 test.describe('admin: behind plans, progress CSV, template library', () => {
   test.use(loggedIn('admin'));
 
-  test('behind filter lists the behind plan first; CSV downloads; library add and delete', async ({
+  test('behind filter lists the behind plan; CSV downloads; library add and delete', async ({
     page,
     request,
   }) => {
     const admin: ApiSession = await adminApiSession(request);
     const suffix = crypto.randomUUID().slice(0, 6);
     const scene: StudyPlanScene = await createStudyPlanScene(request, admin, `Behind ${suffix}`);
+    offered = { ...scene, subjectIds: [scene.subject.id] };
     const terms = await get<{ id: string; start_date: string; end_date: string }[]>(
       request,
       admin,
@@ -344,6 +354,8 @@ test.describe('admin: behind plans, progress CSV, template library', () => {
       // Earlier runs leave templates behind (paged list): find ours by name.
       await page.getByPlaceholder(t('studyPlans.library.searchPlaceholder')).fill(name);
       await expect(page.getByRole('cell', { name, exact: true })).toBeVisible();
+      // Wait for the search to settle on our one row (header + row): the menu detaches while the list refetches.
+      await expect(page.getByRole('row')).toHaveCount(2);
       const row = page.getByRole('row').filter({ hasText: name });
       await row.getByRole('button', { name: t('common.actions.moreActions') }).click();
       await page

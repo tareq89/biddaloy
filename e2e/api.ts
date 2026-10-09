@@ -1371,3 +1371,23 @@ export async function secondSchoolAdminSession(request: APIRequestContext): Prom
   if (!membership) throw new Error('the seed admin has no Rose Valley School membership');
   return { token: body.access_token, tenantId: membership.tenantId };
 }
+
+/** Takes subjects a spec made off the seeded Class 6 again and deletes them. Left behind they pile up: the
+ * class's subject list is read by the portal syllabus and other journeys, and the create-plan wizard only
+ * lists the first 100 subjects by name. (Fresh sections and teachers have no delete endpoint.) Best effort:
+ * a failure here must not mask the test's own result. */
+export async function detachOfferedSubjects(
+  request: APIRequestContext,
+  admin: ApiSession,
+  scope: { classId: string; academicYearId: string },
+  subjectIds: string[],
+): Promise<void> {
+  const headers = { Authorization: `Bearer ${admin.token}`, 'X-Tenant-ID': admin.tenantId };
+  for (const id of subjectIds) {
+    await request.delete(
+      `/api/v1/classes/${scope.classId}/subjects/${id}?academic_year_id=${scope.academicYearId}`,
+      { headers },
+    );
+    await request.delete(`/api/v1/subjects/${id}`, { headers });
+  }
+}
