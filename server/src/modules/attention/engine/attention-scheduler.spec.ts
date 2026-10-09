@@ -73,6 +73,7 @@ function make(rules: AttentionRule[], opts: { ctx?: Partial<RuleContext>; within
       }
       return 'OK';
     }),
+    del: vi.fn(async (k: string) => seen.delete(k)),
     hincrby: vi.fn().mockResolvedValue(1),
     hset: vi.fn().mockResolvedValue(1),
     expire: vi.fn().mockResolvedValue(1),
@@ -145,6 +146,17 @@ describe('AttentionScheduler', () => {
     expect(rule.evaluate).toHaveBeenCalledTimes(1);
     await sched.sweepTenant('t1', AlertCadence.DAILY, new Date('2026-10-09T01:15:00Z')); // 07:15, marker set
     expect(rule.evaluate).toHaveBeenCalledTimes(1);
+  });
+
+  it('DAILY rule that failed is retried on the next tick (marker released)', async () => {
+    const evaluate = vi.fn().mockRejectedValueOnce(new Error('boom')).mockResolvedValue([]);
+    const rule = fakeRule('homework.due_today', evaluate);
+    const { sched } = make([rule]);
+    await sched.sweepTenant('t1', AlertCadence.DAILY, new Date('2026-10-09T01:00:00Z'));
+    await sched.sweepTenant('t1', AlertCadence.DAILY, new Date('2026-10-09T01:15:00Z'));
+    expect(evaluate).toHaveBeenCalledTimes(2);
+    await sched.sweepTenant('t1', AlertCadence.DAILY, new Date('2026-10-09T01:30:00Z'));
+    expect(evaluate).toHaveBeenCalledTimes(2); // success keeps the marker
   });
 
   it('DAILY evening rule waits for eveningAt', async () => {

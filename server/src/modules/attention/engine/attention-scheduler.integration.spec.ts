@@ -82,11 +82,17 @@ describe('AttentionScheduler prune (integration)', () => {
   }
   beforeEach(wipe);
 
-  async function alert(tenantId: string, status: string, raisedAt: Date, key: string) {
+  async function alert(
+    tenantId: string,
+    status: string,
+    raisedAt: Date,
+    key: string,
+    resolvedAt: Date | null = null,
+  ) {
     const [a] = await ds.query(
-      `INSERT INTO alerts (tenant_id, rule_key, source, severity, category, status, dedupe_key, raised_at)
-       VALUES ($1, 'attendance.not_taken', 'RULE', 'WARNING', 'ATTENDANCE', $2, $3, $4) RETURNING id`,
-      [tenantId, status, key, raisedAt],
+      `INSERT INTO alerts (tenant_id, rule_key, source, severity, category, status, dedupe_key, raised_at, resolved_at)
+       VALUES ($1, 'attendance.not_taken', 'RULE', 'WARNING', 'ATTENDANCE', $2, $3, $4, $5) RETURNING id`,
+      [tenantId, status, key, raisedAt, resolvedAt],
     );
     await ds.query(
       `INSERT INTO alert_recipients (tenant_id, alert_id, user_id) VALUES ($1, $2, $3)`,
@@ -114,6 +120,15 @@ describe('AttentionScheduler prune (integration)', () => {
     expect(await ids(tenantB)).toEqual([otherTenant]);
     const rcp = await ds.query(`SELECT 1 FROM alert_recipients WHERE alert_id = $1`, [oldResolved]);
     expect(rcp).toHaveLength(0);
+  });
+
+  it('ages by close time: old alert resolved recently is kept', async () => {
+    const keep = await alert(SEED_TENANT_ID, 'RESOLVED', monthsAgo(13), 'k', monthsAgo(0));
+    const drop = await alert(SEED_TENANT_ID, 'RESOLVED', monthsAgo(14), 'x', monthsAgo(13));
+    await sched.sweepTenant(SEED_TENANT_ID, AlertCadence.DAILY, NOW);
+    const remaining = await ids(SEED_TENANT_ID);
+    expect(remaining).toContain(keep);
+    expect(remaining).not.toContain(drop);
   });
 
   it('a second DAILY tick on the same local day does not prune again', async () => {
