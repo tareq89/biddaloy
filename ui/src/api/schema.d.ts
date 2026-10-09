@@ -6988,6 +6988,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/platform/attention/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Attention engine last sweeps, durations and failing rules. SUPER_ADMIN only. */
+        get: operations["PlatformAttentionHealthController_health_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/surveys/mine": {
         parameters: {
             query?: never;
@@ -12576,6 +12593,26 @@ export interface components {
             raisedAt: string;
             seenCount: number;
             recipientCount: number;
+        };
+        AttentionCadenceStringsDto: {
+            FAST: string | null;
+            HOURLY: string | null;
+            DAILY: string | null;
+        };
+        AttentionCadenceNumbersDto: {
+            FAST: number | null;
+            HOURLY: number | null;
+            DAILY: number | null;
+        };
+        FailingRuleDto: {
+            key: string;
+            lastError: string;
+            count: number;
+        };
+        PlatformAttentionHealthDto: {
+            lastSweep: components["schemas"]["AttentionCadenceStringsDto"];
+            durationsMs: components["schemas"]["AttentionCadenceNumbersDto"];
+            failingRules: components["schemas"]["FailingRuleDto"][];
         };
         PendingSurveyQuestionDto: {
             id: string;
@@ -31041,6 +31078,25 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    PlatformAttentionHealthController_health_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformAttentionHealthDto"];
+                };
             };
         };
     };

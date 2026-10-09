@@ -49,7 +49,7 @@ export class HealthController {
     }
 
     const result = await this.healthService.readiness();
-    res.status(result.status === 'ok' ? HttpStatus.OK : HttpStatus.SERVICE_UNAVAILABLE);
+    res.status(result.status === 'fail' ? HttpStatus.SERVICE_UNAVAILABLE : HttpStatus.OK);
     return result;
   }
 }
