@@ -14,6 +14,7 @@
  * (D29). Unchecking has no such side effect and stays a direct toggle.
  */
 import {
+  Button,
   Checkbox,
   ConfirmDialog,
   Form,
@@ -441,48 +442,71 @@ export function AttendanceSection({ schoolId, attendance }: AttendanceSectionPro
               {t('attendance.shiftTimesHelp')}
             </p>
             <div className="mt-4 grid gap-4">
-              {shifts.map((shift) => (
-                <div
-                  key={shift.id}
-                  role="group"
-                  aria-label={shift.name}
-                  className="grid gap-2 md:grid-cols-3 md:items-start md:gap-4"
-                >
-                  <p className="text-label text-text-primary md:pt-2">{shift.name}</p>
-                  {(['lateAfter', 'absentAfter'] as const).map((key) => (
-                    <FormField
-                      key={key}
-                      control={form.control}
-                      name={`shiftTimes.${shift.id}.${key}`}
-                      render={({ field }) => {
-                        const label = t(
-                          key === 'lateAfter'
-                            ? 'attendance.shiftLateAfter'
-                            : 'attendance.shiftAbsentAfter',
-                        );
-                        return (
-                          <FormItem>
-                            <FormLabel htmlFor={`attendance-shift-${shift.id}-${key}`}>
-                              {label}
-                            </FormLabel>
-                            <TimeInput
-                              id={`attendance-shift-${shift.id}-${key}`}
-                              aria-label={`${shift.name} — ${label}`}
-                              value={field.value || undefined}
-                              onValueChange={field.onChange}
-                            />
-                            {form.formState.errors.shiftTimes?.[shift.id]?.[key] && (
-                              <p role="alert" className="text-caption text-destructive">
-                                {t('attendance.shiftBothRequired')}
-                              </p>
-                            )}
-                          </FormItem>
-                        );
-                      }}
-                    />
-                  ))}
-                </div>
-              ))}
+              {shifts.map((shift) => {
+                const row = form.watch(`shiftTimes.${shift.id}`);
+                return (
+                  <div
+                    key={shift.id}
+                    role="group"
+                    aria-label={shift.name}
+                    className="grid gap-2 md:grid-cols-3 md:items-start md:gap-4"
+                  >
+                    <div className="md:pt-2">
+                      <p className="text-label text-text-primary">{shift.name}</p>
+                      {/* TimeInput can't be emptied; this drops the override (an
+                        empty pair sends no row) so the school times apply again. */}
+                      {(row?.lateAfter || row?.absentAfter) && (
+                        <Button
+                          type="button"
+                          variant="link"
+                          className="h-auto px-0"
+                          onClick={() =>
+                            form.setValue(
+                              `shiftTimes.${shift.id}`,
+                              { lateAfter: '', absentAfter: '' },
+                              { shouldDirty: true, shouldValidate: true },
+                            )
+                          }
+                        >
+                          {t('attendance.shiftUseSchoolTimes')}
+                        </Button>
+                      )}
+                    </div>
+                    {(['lateAfter', 'absentAfter'] as const).map((key) => (
+                      <FormField
+                        key={key}
+                        control={form.control}
+                        name={`shiftTimes.${shift.id}.${key}`}
+                        render={({ field }) => {
+                          const label = t(
+                            key === 'lateAfter'
+                              ? 'attendance.shiftLateAfter'
+                              : 'attendance.shiftAbsentAfter',
+                          );
+                          return (
+                            <FormItem>
+                              <FormLabel htmlFor={`attendance-shift-${shift.id}-${key}`}>
+                                {label}
+                              </FormLabel>
+                              <TimeInput
+                                id={`attendance-shift-${shift.id}-${key}`}
+                                aria-label={`${shift.name} — ${label}`}
+                                value={field.value || undefined}
+                                onValueChange={field.onChange}
+                              />
+                              {form.formState.errors.shiftTimes?.[shift.id]?.[key] && (
+                                <p role="alert" className="text-caption text-destructive">
+                                  {t('attendance.shiftBothRequired')}
+                                </p>
+                              )}
+                            </FormItem>
+                          );
+                        }}
+                      />
+                    ))}
+                  </div>
+                );
+              })}
             </div>
           </fieldset>
         )}

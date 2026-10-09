@@ -186,6 +186,7 @@
     "shiftLateAfter": "Late after",
     "shiftAbsentAfter": "Absent after",
     "shiftBothRequired": "Fill both times or leave both empty.",
+    "shiftUseSchoolTimes": "Use school times",
     "periodLegend": "Period attendance",
     "periodEnabled": "Take attendance in each period",
     "periodHelp": "Teachers can mark each period of the routine. The daily percentage, fines and messages still use the whole-day register."

@@ -271,6 +271,25 @@ describe('AttendanceSection', () => {
       expect(patchBody).not.toHaveBeenCalled();
     });
 
+    it('"Use school times" clears a saved pair, and the save sends no row for that shift', async () => {
+      mockShifts();
+      const patchBody = capturePatch();
+      const { user } = renderSection({
+        ...ATTENDANCE,
+        shiftTimes: [{ shiftId: 'sh-1', lateAfter: '08:00', absentAfter: '08:30' }],
+      } as typeof ATTENDANCE);
+
+      // Only the shift with saved times offers it.
+      await user.click(await screen.findByRole('button', { name: 'Use school times' }));
+      expect(inputValue(screen.getByLabelText('Morning — Late after'))).toBe('');
+      expect(inputValue(screen.getByLabelText('Morning — Absent after'))).toBe('');
+      expect(screen.queryByRole('button', { name: 'Use school times' })).toBeNull();
+
+      await user.click(screen.getByRole('button', { name: 'Save' }));
+      await waitFor(() => expect(patchBody).toHaveBeenCalled());
+      expect(patchBody.mock.calls[0]![0].attendance.shiftTimes).toEqual([]);
+    });
+
     it('sends periodAttendance.enabled when the switch is toggled', async () => {
       mockShifts([]);
       const patchBody = capturePatch();
