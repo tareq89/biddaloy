@@ -11,7 +11,8 @@ import {
   StudentLeaveReason,
   type ApplicationType,
 } from '@biddaloy/shared';
-import { toIsoDate } from '@biddaloy/ui/utils';
+import type { RegionConfig } from '@biddaloy/ui/i18n';
+import { tenantTodayIso } from '@biddaloy/ui/utils';
 import type { TFunction } from 'i18next';
 import type * as React from 'react';
 import { z } from 'zod';
@@ -95,8 +96,14 @@ export type ApplicationPayload =
   | GeneralPayload;
 
 export interface FormDef {
-  schema: (t: TFunction) => z.ZodType<Record<string, unknown>, Record<string, unknown>>;
-  defaults: (subject: ApplicationSubject) => Record<string, unknown>;
+  schema: (
+    t: TFunction,
+    regionConfig: RegionConfig,
+  ) => z.ZodType<Record<string, unknown>, Record<string, unknown>>;
+  defaults: (
+    subject: ApplicationSubject,
+    prior?: Record<string, unknown>,
+  ) => Record<string, unknown>;
   Fields: React.ComponentType<{ subject: ApplicationSubject }>;
 }
 
@@ -233,19 +240,27 @@ export const APPLICATION_FORMS: Record<ApplicationType, FormDef> = {
     Fields: TransferCertificateFields,
   },
   READMISSION: {
-    schema: (t) =>
+    schema: (t, regionConfig) =>
       z
         .object({
           class_section_id: pick(t),
           occurred_on: date(t),
           reason: reason(t),
         })
-        .refine((d) => d.occurred_on <= toIsoDate(new Date()), {
+        .refine((d) => d.occurred_on <= tenantTodayIso(regionConfig), {
           path: ['occurred_on'],
           message: t('errors.futureDate', { ns: 'applicationForms' }),
         }),
-    defaults: (s) => ({
-      class_id: s.kind === 'STUDENT' ? s.classId : '',
+    // Back-navigation passes the prior values: the class follows the picked
+    // section (the subject's own section is the only mapping known here),
+    // else keeps the prior class, else the subject's class.
+    defaults: (s, prior) => ({
+      class_id:
+        s.kind !== 'STUDENT'
+          ? ''
+          : prior?.class_section_id === s.sectionId
+            ? s.classId
+            : (prior?.class_id ?? s.classId),
       class_section_id: '',
       occurred_on: '',
       reason: '',
