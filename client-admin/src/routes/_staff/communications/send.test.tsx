@@ -20,7 +20,7 @@ import {
 import { formatNumber, formatPhone } from '@biddaloy/ui/utils';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { delay, http, HttpResponse } from 'msw';
+import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { routeTree } from '../../../routeTree.gen';
@@ -359,10 +359,14 @@ describe('/communications/send', () => {
 
   it('cannot be closed while the send is in flight, so it cannot be sent twice', async () => {
     let posts = 0;
+    // The response waits for the test, not a timer: on a busy runner a fixed
+    // delay can elapse before the Escape check, closing the dialog first.
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => (release = resolve));
     server.use(
       http.post('/api/v1/communications/send', async () => {
         posts += 1;
-        await delay(400);
+        await held;
         return HttpResponse.json(communicationFactory({ status: 'QUEUED' }), { status: 201 });
       }),
     );
@@ -378,6 +382,7 @@ describe('/communications/send', () => {
     await user.keyboard('{Escape}');
     expect(screen.getByRole('dialog')).toBeTruthy();
 
+    release();
     await screen.findByText('Message on its way');
     expect(posts).toBe(1);
   });
