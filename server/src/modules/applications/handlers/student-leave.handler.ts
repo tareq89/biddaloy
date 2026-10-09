@@ -8,7 +8,6 @@ import type { EntityManager } from 'typeorm';
 import { ApplicationStatus, ApplicationType } from '@biddaloy/shared';
 import { Application } from '../entities/application.entity';
 import type { ApplicationEffectContext } from '../application-types';
-import type { StudentLeavePayloadDto } from '../dto/payloads/student-leave.dto';
 import { AttendanceService } from '../../attendance/attendance.service';
 import { Student } from '../../students/entities/student.entity';
 
@@ -22,7 +21,7 @@ export class StudentLeaveHandler {
     app: Application,
     ctx: ApplicationEffectContext,
   ): Promise<Record<string, unknown> | null> {
-    const p = app.payload as unknown as StudentLeavePayloadDto;
+    const { start, end } = this.range(app);
     const studentId = app.subject_student_id;
     if (!studentId) {
       throw new NotFoundException('Student not found');
@@ -46,8 +45,8 @@ export class StudentLeaveHandler {
       .andWhere('a.subject_student_id = :s', { s: studentId })
       .andWhere('a.id != :id', { id: app.id })
       .andWhere('a.start_date <= :end AND a.end_date >= :start', {
-        start: p.start_date,
-        end: p.end_date,
+        start,
+        end,
       })
       .getCount();
     if (overlap > 0) {
@@ -60,8 +59,8 @@ export class StudentLeaveHandler {
     const { dates } = await this.attendanceService.markLeaveRange(manager, {
       tenantId: ctx.tenantId,
       studentId,
-      from: p.start_date,
-      to: p.end_date,
+      from: start,
+      to: end,
       actorUserId: ctx.actorUserId,
       applicationId: app.id,
     });
@@ -80,17 +79,25 @@ export class StudentLeaveHandler {
     app: Application,
     ctx: ApplicationEffectContext,
   ): Promise<void> {
-    const p = app.payload as unknown as StudentLeavePayloadDto;
+    const { start, end } = this.range(app);
     if (!app.subject_student_id) {
       throw new NotFoundException('Student not found');
     }
     await this.attendanceService.revertLeaveRange(manager, {
       tenantId: ctx.tenantId,
       studentId: app.subject_student_id,
-      from: p.start_date,
-      to: p.end_date,
+      from: start,
+      to: end,
       actorUserId: ctx.actorUserId,
       applicationId: app.id,
     });
+  }
+
+  /** The leave range is the application's own columns (set at submit), never the payload. */
+  private range(app: Application): { start: string; end: string } {
+    if (!app.start_date || !app.end_date) {
+      throw new UnprocessableEntityException('Leave application has no date range');
+    }
+    return { start: app.start_date, end: app.end_date };
   }
 }
