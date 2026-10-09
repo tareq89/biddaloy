@@ -1,0 +1,55 @@
+import { Module } from '@nestjs/common';
+import { DiscoveryModule } from '@nestjs/core';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { SchoolsModule } from '../schools/schools.module';
+import { CalendarModule } from '../calendar/calendar.module';
+import { Alert } from './entities/alert.entity';
+import { AlertRecipient } from './entities/alert-recipient.entity';
+import { RuleRegistryService } from './rules/rule-registry.service';
+import { RuleContextService } from './rules/rule-context.service';
+import { SetupRulesModule } from './rules/setup/setup-rules.module';
+import { SystemRulesModule } from './rules/system/system-rules.module';
+import { StructureRulesModule } from './rules/structure/structure-rules.module';
+import { AttendanceRulesModule } from './rules/attendance/attendance-rules.module';
+import { PeriodRulesModule } from './rules/period/period-rules.module';
+import { HomeworkRulesModule } from './rules/homework/homework-rules.module';
+import { ClassRulesModule } from './rules/class/class-rules.module';
+import { StudyPlanRulesModule } from './rules/study-plan/study-plan-rules.module';
+import { FeesRulesModule } from './rules/fees/fees-rules.module';
+import { ExamsRulesModule } from './rules/exams/exams-rules.module';
+import { OfficeRulesModule } from './rules/office/office-rules.module';
+import { FamilyRulesModule } from './rules/family/family-rules.module';
+import { CommonRulesModule } from './rules/common/common-rules.module';
+import { PlatformRulesModule } from './rules/platform/platform-rules.module';
+import { BillingRulesModule } from './rules/billing/billing-rules.module';
+
+/**
+ * Attention engine (Epic 67, D11: runs in the API process).
+ * attention.module.ts is edited in chain by 67.1.04 (#2047) -> .05 -> .07 -> .08 -> .09.
+ */
+@Module({
+  imports: [
+    TypeOrmModule.forFeature([Alert, AlertRecipient]),
+    DiscoveryModule,
+    SchoolsModule,
+    CalendarModule,
+    SetupRulesModule,
+    SystemRulesModule,
+    StructureRulesModule,
+    AttendanceRulesModule,
+    PeriodRulesModule,
+    HomeworkRulesModule,
+    ClassRulesModule,
+    StudyPlanRulesModule,
+    FeesRulesModule,
+    ExamsRulesModule,
+    OfficeRulesModule,
+    FamilyRulesModule,
+    CommonRulesModule,
+    PlatformRulesModule,
+    BillingRulesModule,
+  ],
+  providers: [RuleRegistryService, RuleContextService],
+  exports: [RuleRegistryService, RuleContextService],
+})
+export class AttentionModule {}

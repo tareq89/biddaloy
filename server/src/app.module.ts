@@ -58,6 +58,7 @@ import { LeaveRecord } from './modules/leave/entities/leave-record.entity';
 import { LeavePolicy } from './modules/leave/entities/leave-policy.entity';
 import { AcrModule } from './modules/acr/acr.module';
 import { IncidentsModule } from './modules/incidents/incidents.module';
+import { AttentionModule } from './modules/attention/attention.module';
 import { SurveysModule } from './modules/surveys/surveys.module';
 import { RegistrationModule } from './modules/registration/registration.module';
 import { OnboardingModule } from './modules/onboarding/onboarding.module';
@@ -444,6 +445,7 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
     LeaveModule,
     AcrModule,
     IncidentsModule,
+    AttentionModule,
     SurveysModule,
     PerformanceModule,
     RegistrationModule,
