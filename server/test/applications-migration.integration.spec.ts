@@ -256,6 +256,14 @@ describe('Applications migration (integration)', () => {
         [other, applicationId, userId],
         /FK_application_attachments_application/,
       );
+      // leave_records too: a leave row in the other school cannot link this school's application.
+      const otherStaff = await staff(other);
+      const otherLeave = await leave(other, otherStaff.profileId, 'APPROVED');
+      await rejects(
+        `UPDATE leave_records SET application_id = $1 WHERE id = $2`,
+        [applicationId, otherLeave],
+        /FK_leave_records_application/,
+      );
     });
 
     it('deleting an application cascades events, tags, attachments and NULLs leave_records.application_id', async () => {
@@ -291,10 +299,13 @@ describe('Applications migration (integration)', () => {
         );
         expect(n).toBe(0);
       }
-      const [lr] = await ds.query(`SELECT application_id FROM leave_records WHERE id = $1`, [
-        leaveId,
-      ]);
+      const [lr] = await ds.query(
+        `SELECT application_id, tenant_id FROM leave_records WHERE id = $1`,
+        [leaveId],
+      );
       expect(lr.application_id).toBeNull();
+      // SET NULL ("application_id") nulls only that column; the row keeps its school.
+      expect(lr.tenant_id).toBe(SEED_TENANT_ID);
     });
 
     it('leave_policies.annual_quota_days accepts NULL; leave_records.status accepts CANCELLED', async () => {
