@@ -41,7 +41,7 @@ describe('HealthController.ready', () => {
     const healthService = {
       readiness: vi.fn().mockResolvedValue({
         status: 'ok',
-        checks: { db: 'ok', redis: 'ok', queue: 'ok' },
+        checks: { db: 'ok', redis: 'ok', queue: 'ok', attention: 'ok' },
       }),
     } as unknown as HealthService;
     const controller = new HealthController(healthService);
@@ -50,7 +50,10 @@ describe('HealthController.ready', () => {
     const body = await controller.ready('correct-token', res);
 
     expect(res.status).toHaveBeenCalledWith(200);
-    expect(body).toEqual({ status: 'ok', checks: { db: 'ok', redis: 'ok', queue: 'ok' } });
+    expect(body).toEqual({
+      status: 'ok',
+      checks: { db: 'ok', redis: 'ok', queue: 'ok', attention: 'ok' },
+    });
   });
 
   it('returns 503 when a dependency fails, and the body carries no error text', async () => {
@@ -58,7 +61,7 @@ describe('HealthController.ready', () => {
     const healthService = {
       readiness: vi.fn().mockResolvedValue({
         status: 'fail',
-        checks: { db: 'ok', redis: 'fail', queue: 'ok' },
+        checks: { db: 'ok', redis: 'fail', queue: 'ok', attention: 'ok' },
       }),
     } as unknown as HealthService;
     const controller = new HealthController(healthService);
@@ -67,6 +70,25 @@ describe('HealthController.ready', () => {
     const body = await controller.ready('correct-token', res);
 
     expect(res.status).toHaveBeenCalledWith(503);
-    expect(body).toEqual({ status: 'fail', checks: { db: 'ok', redis: 'fail', queue: 'ok' } });
+    expect(body).toEqual({
+      status: 'fail',
+      checks: { db: 'ok', redis: 'fail', queue: 'ok', attention: 'ok' },
+    });
+  });
+
+  it('returns 200 (not 503) when only the engine is degraded, so the API stays in the load balancer', async () => {
+    process.env.HEALTH_TOKEN = 'correct-token';
+    const healthService = {
+      readiness: vi.fn().mockResolvedValue({
+        status: 'degraded',
+        checks: { db: 'ok', redis: 'ok', queue: 'ok', attention: 'stale' },
+      }),
+    } as unknown as HealthService;
+    const controller = new HealthController(healthService);
+    const res = fakeResponse();
+
+    await controller.ready('correct-token', res);
+
+    expect(res.status).toHaveBeenCalledWith(200);
   });
 });
