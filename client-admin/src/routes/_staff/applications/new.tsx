@@ -205,10 +205,12 @@ function NewApplicationPage() {
   };
 
   function goBack() {
+    submitter.reset();
     setShowErrors(false);
     setStepIndex((i) => Math.max(0, i - 1));
   }
   function goNext() {
+    submitter.reset();
     setShowErrors(false);
     setStepIndex((i) => Math.min(STEPS.length - 1, i + 1));
   }
@@ -303,7 +305,7 @@ function NewApplicationPage() {
             </p>
           )}
 
-          {step === 'type' && (
+          {step === 'type' && !meQuery.isLoading && (
             <TypeStep
               value={type}
               onChange={(next) => {

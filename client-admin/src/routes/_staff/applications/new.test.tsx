@@ -39,7 +39,7 @@ interface Captured {
 
 function render(
   role: string,
-  { profile = 'sp-me', search = '', uploadFails = false } = {},
+  { profile = 'sp-me', search = '', uploadFails = false, locale = 'en' } = {},
 ): Captured & { router: ReturnType<typeof renderWithRouter>['router'] } {
   const seen: Captured = { create: [], upload: 0, preview: [] };
   server.use(
@@ -55,7 +55,31 @@ function render(
     http.get('/api/v1/students', () => HttpResponse.json(page([STUDENT]))),
     http.get('/api/v1/students/:id', () => HttpResponse.json(STUDENT)),
     http.get('/api/v1/users', () =>
-      HttpResponse.json(page([{ id: 'u-t', full_name: 'Teacher Tina', staff_profile_id: 'sp-t' }])),
+      HttpResponse.json(
+        page([
+          {
+            id: '7a000000-0000-4000-8000-0000000000aa',
+            full_name: 'Teacher Tina',
+            staff_profile_id: 'sp-t',
+          },
+          { id: 'u-np', full_name: 'No Profile Pat', staff_profile_id: null },
+        ]),
+      ),
+    ),
+    http.get('/api/v1/users/7a000000-0000-4000-8000-0000000000aa', () =>
+      HttpResponse.json(
+        userResponseFactory({
+          id: '7a000000-0000-4000-8000-0000000000aa',
+          full_name: 'Teacher Tina',
+          staff_profile_id: 'sp-t',
+        }),
+      ),
+    ),
+    http.get('/api/v1/applications/tag-options', () =>
+      HttpResponse.json({
+        users: [{ id: 'u-acc', full_name: 'Acc Ann', role: 'ACCOUNTANT' }],
+        roles: [],
+      }),
     ),
     http.get('/api/v1/applications/addressees', () =>
       HttpResponse.json([
@@ -95,7 +119,7 @@ function render(
     initialEntries: [`/applications/new${search}`],
     tenantId: 'tenant-1',
     role,
-    locale: 'en',
+    locale,
   });
   return Object.assign(seen, { router: r.router });
 }
@@ -148,7 +172,7 @@ describe('/applications/new', () => {
       type: 'GENERAL',
       subject_staff_profile_id: 'sp-me',
       addressee: 'STAFF_USER',
-      addressee_user_id: 'u-t',
+      addressee_user_id: '7a000000-0000-4000-8000-0000000000aa',
       payload: { subject_line: 'Leave of absence', body: 'Please allow me.' },
     });
     expect(seen.create[0]).not.toHaveProperty('on_behalf_of_user_id');
@@ -260,5 +284,70 @@ describe('/applications/new', () => {
     await next(user);
     const heading = await screen.findByRole('heading', { name: 'Addressee' });
     await waitFor(() => expect(document.activeElement).toBe(heading));
+  });
+
+  it('?student= pre-selects the student for a manager', async () => {
+    render('OFFICE_STAFF', { search: `?type=TESTIMONIAL&student=${STUDENT.id}` });
+    expect(await screen.findByText(/Rahim Uddin · Six · A/)).toBeTruthy();
+    expect(screen.getByRole('combobox', { name: 'Applicant' })).toBeTruthy();
+  });
+
+  it('?staff= pre-selects the staff member; the paper request carries both ids and tags', async () => {
+    const seen = render('OFFICE_STAFF', {
+      search: '?type=ID_CARD_REPRINT&staff=7a000000-0000-4000-8000-0000000000aa',
+    });
+    const user = userEvent.setup();
+    await screen.findByText('Step 2 of 5');
+    expect(await screen.findByRole('combobox', { name: 'Staff member' })).toHaveProperty(
+      'value',
+      'Teacher Tina',
+    );
+    await user.type(await screen.findByLabelText(/^Reason/), 'Lost it');
+    await next(user);
+    await user.type(screen.getByRole('combobox', { name: 'Tags (optional)' }), 'Ann');
+    await user.click(await screen.findByRole('option', { name: /Acc Ann/ }));
+    await next(user);
+    await next(user);
+    await user.click(await screen.findByRole('button', { name: 'Submit application' }));
+    await waitFor(() => expect(seen.create).toHaveLength(1));
+    expect(seen.create[0]).toMatchObject({
+      type: 'ID_CARD_REPRINT',
+      subject_staff_profile_id: 'sp-t',
+      on_behalf_of_user_id: '7a000000-0000-4000-8000-0000000000aa',
+      tags: [{ user_id: 'u-acc' }],
+    });
+  });
+
+  it('the staff picker lists only users with a staff profile', async () => {
+    render('OFFICE_STAFF', { search: '?type=ID_CARD_REPRINT' });
+    const user = userEvent.setup();
+    await screen.findByText('Step 2 of 5');
+    await user.click(
+      await screen.findByLabelText("I am writing another staff member's paper application"),
+    );
+    await user.click(await screen.findByRole('combobox', { name: 'Staff member' }));
+    expect(await screen.findByRole('option', { name: 'Teacher Tina' })).toBeTruthy();
+    expect(screen.queryByRole('option', { name: 'No Profile Pat' })).toBeNull();
+  });
+
+  it('refused files show the exact 4th-file and 6 MB messages', async () => {
+    render('TEACHER', { search: '?type=ID_CARD_REPRINT' });
+    const user = userEvent.setup();
+    await user.type(await screen.findByLabelText(/^Reason/), 'Lost it');
+    await next(user);
+    await next(user);
+    const input = await screen.findByLabelText('Attach files');
+    const pdf = (name: string, size = 10) =>
+      new File([new Uint8Array(size)], name, { type: 'application/pdf' });
+    await user.upload(input, [pdf('a.pdf'), pdf('b.pdf'), pdf('c.pdf'), pdf('d.pdf')]);
+    expect(await screen.findByText('At most 3 files')).toBeTruthy();
+    await user.upload(input, pdf('big.pdf', 6 * 1024 * 1024));
+    expect(await screen.findByText('Files over 5 MB cannot be added: big.pdf')).toBeTruthy();
+  });
+
+  it('renders in Bangla with the page title', async () => {
+    render('TEACHER', { locale: 'bn' });
+    expect(await screen.findByText('ধরন')).toBeTruthy();
+    await waitFor(() => expect(document.title.startsWith('নতুন আবেদন')).toBe(true));
   });
 });

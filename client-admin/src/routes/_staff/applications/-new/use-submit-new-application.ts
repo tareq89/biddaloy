@@ -50,5 +50,5 @@ export function useSubmitNewApplication() {
       })
     : undefined;
 
-  return { run, created, pending, message };
+  return { run, created, pending, message, reset: () => setError(undefined) };
 }
