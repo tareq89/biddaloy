@@ -1,9 +1,14 @@
-import { EnrollmentStatus, Permission } from '@biddaloy/shared';
+import { EnrollmentStatus, Permission, STUDENT_CERTIFICATE_KINDS } from '@biddaloy/shared';
 import { ApiError } from '@biddaloy/ui/api';
 import { ErrorState, RoutePending, StatusBadge } from '@biddaloy/ui/components';
 import { studentQueryOptions, useHasPermission, useStudent } from '@biddaloy/ui/hooks';
 import { RegionConfigProvider, useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
-import { DetailShell, PageContainer, useDetailShellTab } from '@biddaloy/ui/shells';
+import {
+  DetailShell,
+  PageContainer,
+  useCloseFullPage,
+  useDetailShellTab,
+} from '@biddaloy/ui/shells';
 import { formatNumber, formatPhone } from '@biddaloy/ui/utils';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import {
@@ -18,6 +23,7 @@ import {
 import * as React from 'react';
 import { z } from 'zod';
 
+import { IssueCertificateModal } from '../../../components/print/certificates/issue-certificate-modal';
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 
 import { ActivityTab } from './-detail/activity-tab';
@@ -55,6 +61,14 @@ const studentDetailSearchSchema = z.object({
   enrolProgram: z.coerce.string().optional().catch(undefined),
   // Enrolment id of the programme row whose milestone is being recorded.
   recordMilestone: z.string().uuid().optional().catch(undefined),
+  /** [48.3.B-01] The issue-certificate overlay: a kind, or `pick` to choose one. */
+  issue: z
+    .enum([...STUDENT_CERTIFICATE_KINDS, 'pick'])
+    .optional()
+    .catch(undefined),
+  step: z.string().optional(),
+  /** Opens the Leave dialog (the TC card's fix link); removed again on open. */
+  leave: z.literal('1').optional().catch(undefined),
 });
 
 /**
@@ -160,6 +174,7 @@ function StudentDetailPage() {
       search: (prev) => ({ ...prev, [key]: value }),
       replace: value === undefined,
     });
+  const navigateSearch = Route.useNavigate();
   const studentQuery = useStudent(studentId);
   const [activeTab, setActiveTab] = useDetailShellTab(TAB_IDS);
 
@@ -178,6 +193,25 @@ function StudentDetailPage() {
   const canCollectFees = useHasPermission(Permission.FEE_COLLECT);
   const canSendReminder = useHasPermission(Permission.COMMUNICATION_BULK_SEND);
   const canPrint = useHasPermission(Permission.DOCUMENT_PRINT);
+  const canIssueCertificate = useHasPermission(Permission.CERTIFICATE_ISSUE);
+  const canReadRegister = useHasPermission(Permission.PRINT_HISTORY_READ);
+  const closeIssue = useCloseFullPage(
+    React.useCallback(
+      () =>
+        void navigateSearch({
+          search: (p) => ({ ...p, issue: undefined, step: undefined }),
+          replace: true,
+        }),
+      [navigateSearch],
+    ),
+  );
+  // `?leave=1` opens the Leave dialog once (only for someone who may record leaving), then the
+  // param goes away.
+  React.useEffect(() => {
+    if (search.leave !== '1') return;
+    if (canManageLifecycle) setLeaveDialogOpen(true);
+    void navigateSearch({ search: (p) => ({ ...p, leave: undefined }), replace: true });
+  }, [search.leave, navigateSearch, canManageLifecycle]);
   // The Fees/Payments/Invoices tabs format currency — same reasoning as
   // `/settings`'s own `RegionConfigProvider` wrap: `useRegionConfig()`
   // has no ambient provider above the route tree, so without this every
@@ -465,7 +499,7 @@ function StudentDetailPage() {
                     },
                   ]
                 : []),
-              ...(canPrint
+              ...(canPrint || canIssueCertificate || canReadRegister
                 ? [
                     {
                       id: 'documents',
@@ -492,6 +526,19 @@ function StudentDetailPage() {
               // clear the way the list page's bulk send does.
             }}
           />
+          {search.issue !== undefined && canIssueCertificate ? (
+            <IssueCertificateModal
+              studentId={studentId}
+              initialKind={search.issue === 'pick' ? undefined : search.issue}
+              onClose={closeIssue}
+              onRecordLeaving={() =>
+                void navigateSearch({
+                  search: (p) => ({ ...p, issue: undefined, step: undefined, leave: '1' as const }),
+                  replace: true,
+                })
+              }
+            />
+          ) : null}
           <LeaveDialog
             open={leaveDialogOpen}
             onOpenChange={setLeaveDialogOpen}

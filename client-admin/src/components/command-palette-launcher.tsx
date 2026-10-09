@@ -117,8 +117,9 @@ export function CommandPaletteLauncher({
     if (params.guardianId) contexts.add('guardian');
     if (params.invoiceId) contexts.add('invoice');
     if (params.scaleId) contexts.add('gradingScale');
+    if (params.examId) contexts.add('exam');
     return contexts;
-  }, [params.studentId, params.guardianId, params.invoiceId, params.scaleId]);
+  }, [params.studentId, params.guardianId, params.invoiceId, params.scaleId, params.examId]);
 
   // Global `Ctrl/Cmd+K` (opens the palette) and `?` (opens the
   // shortcuts sheet) — [8.9.9]/[30.4.1]'s "opens from anywhere" ACs.
@@ -271,6 +272,7 @@ export function CommandPaletteLauncher({
     guardian: t('commandPalette.contextNouns.guardian'),
     invoice: t('commandPalette.contextNouns.invoice'),
     gradingScale: t('commandPalette.contextNouns.gradingScale'),
+    exam: t('commandPalette.contextNouns.exam'),
   };
   const needsContext = (ctx: readonly ActionContext[]) =>
     t('commandPalette.needsContext', {
@@ -288,6 +290,7 @@ export function CommandPaletteLauncher({
           (action) =>
             action.group === group.id &&
             hasPermission(activeRole, action.permission) &&
+            (action.alsoRequires ?? []).every((p) => hasPermission(activeRole, p)) &&
             action.label[locale].toLowerCase().includes(trimmedQuery),
         ).map((action) => {
           // `context: []` means "needs no entity" (ACR / incident actions), same as omitted.
@@ -355,7 +358,10 @@ export function CommandPaletteLauncher({
     }
     if (tabId === 'action') {
       const action = ACTIONS.find((candidate) => candidate.id === resultId);
-      action?.run({ navigate: (opts) => void navigate({ to: opts.to }) });
+      action?.run({
+        navigate: (opts) => void navigate({ to: opts.to }),
+        params: { studentId: params.studentId, examId: params.examId },
+      });
     }
   }
 

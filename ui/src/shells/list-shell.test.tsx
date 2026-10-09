@@ -103,6 +103,38 @@ describe('ListShell', () => {
     expect(screen.getByRole('heading', { name: 'Students' })).toBeTruthy();
   });
 
+  it('renders `tabs` after the h1 and before the filter bar; omitted → no tabs element', async () => {
+    const props = {
+      title: 'Students',
+      tableId: 'students-shell-tabs',
+      caption: 'Students',
+      columns: COLUMNS,
+      data: STUDENTS,
+      getRowId: (row: Student) => row.id,
+      sorting: null,
+      onSortingChange: vi.fn(),
+      page: 1,
+      pageSize: 20,
+      totalCount: STUDENTS.length,
+      onPageChange: vi.fn(),
+    };
+    const { unmount } = await renderInEnglish(
+      <ListShell
+        {...props}
+        tabs={<nav aria-label="Sections">tabs</nav>}
+        filterBar={<Input aria-label="Search" />}
+      />,
+    );
+    const h1 = screen.getByRole('heading', { level: 1 });
+    const tabs = screen.getByRole('navigation', { name: 'Sections' });
+    const search = screen.getByRole('textbox', { name: 'Search' });
+    expect(h1.compareDocumentPosition(tabs) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(tabs.compareDocumentPosition(search) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    unmount();
+    await renderInEnglish(<ListShell {...props} />);
+    expect(screen.queryByRole('navigation', { name: 'Sections' })).toBeNull();
+  });
+
   it('is axe clean', async () => {
     const { container } = await renderInEnglish(<Demo />);
     await expect(container).toHaveNoViolations();

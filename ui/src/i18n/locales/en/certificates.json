@@ -17,7 +17,8 @@
     "recordLeaving": "Record leaving",
     "notCurrent": "Only for current students.",
     "notCurrentOrGraduated": "Only for current or graduated students.",
-    "noTemplate": "No published template yet."
+    "noTemplate": "No published template yet.",
+    "createTemplate": "Create a template"
   },
   "language": {
     "title": "Certificate language",
@@ -42,19 +43,20 @@
     "title": "Serial number",
     "next": "Next",
     "help": "The number belongs to this certificate once you confirm the print. Closing before that uses no number.",
-    "issuedThisYear_other": "{{count}} issued in {{year}} so far",
-    "issuedThisYear_one": "{{count}} issued in {{year}} so far",
+    "issuedThisYear_other": "{{n}} issued in {{year}} so far",
+    "issuedThisYear_one": "{{n}} issued in {{year}} so far",
     "openRegister": "Open the register"
   },
   "bulk": {
     "title": "The whole class at once?",
     "help": "Everyone gets the same details, with consecutive serial numbers.",
     "action": "For all of {{className}}",
-    "count_other": "{{count}} students",
-    "count_one": "{{count}} student",
-    "ineligible_other": "{{count}} students cannot get this certificate and were left out:",
-    "ineligible_one": "{{count}} student cannot get this certificate and was left out:",
-    "single": "Only {{name}}"
+    "count_other": "{{n}} students",
+    "count_one": "{{n}} student",
+    "ineligible_other": "{{n}} students cannot get this certificate and were left out:",
+    "ineligible_one": "{{n}} student cannot get this certificate and was left out:",
+    "single": "Only {{name}}",
+    "tooMany": "This class is too big to issue at once. Issue in smaller groups."
   },
   "actions": {
     "back": "Back",
@@ -65,18 +67,32 @@
   },
   "printer": {
     "label": "Printer",
-    "none": "Add a printer in Settings first."
+    "none": "Add a printer in Settings first.",
+    "settings": "Open printing settings"
   },
   "done": {
-    "title_other": "{{count}} certificates issued",
-    "title_one": "{{count}} certificate issued",
+    "title_other": "{{n}} certificates issued",
+    "title_one": "{{n}} certificate issued",
     "serials": "Serials {{first}} – {{last}}"
   },
   "documentsTab": {
     "issue": "Issue certificate",
     "issuedTitle": "Issued certificates",
     "empty": "No certificate issued yet.",
+    "loadError": "Could not load the issued certificates.",
     "transcript": "Print transcript",
-    "transcriptYear": "Year"
+    "transcriptYear": "Year",
+    "revokedReason": "Reason: {{reason}}",
+    "copy": "Copy {{n}}",
+    "cols": {
+      "serial": "Serial",
+      "kind": "Kind",
+      "issuedOn": "Issued on",
+      "status": "Status"
+    },
+    "valid": "Valid"
+  },
+  "header": {
+    "line": "{{class}} · Section {{section}} · Roll {{roll}} · {{reg}}"
   }
 }

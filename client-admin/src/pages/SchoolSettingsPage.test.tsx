@@ -230,6 +230,18 @@ describe('SchoolSettingsPage', () => {
     expect(scrollIntoView).toHaveBeenCalledTimes(1);
   });
 
+  it('the printing category renders both the printers and the documents sections', async () => {
+    renderWithProviders(<PageWithRouter url="/settings?section=printing" />, {
+      locale: 'en',
+      role: 'ADMIN',
+      tenantId: 'tenant-1',
+      accessToken: fakeJwtWithMemberships(adminOwnSchool),
+    });
+
+    await waitFor(() => expect(document.getElementById('documents-section')).not.toBeNull());
+    expect(document.getElementById('printers-section')).not.toBeNull();
+  });
+
   it('a SUPER_ADMIN with no school picked is told to pick one', async () => {
     renderWithProviders(<PageWithRouter url="/settings?section=finance" />, {
       locale: 'en',

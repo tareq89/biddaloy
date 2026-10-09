@@ -36,6 +36,7 @@ import {
   type ReportCardData,
 } from '@biddaloy/ui/components';
 import {
+  logDocumentPrint,
   myStudentsQueryOptions,
   useMyStudents,
   useStudentResultCard,
@@ -425,8 +426,11 @@ function PrintTarget({
 
   React.useEffect(() => {
     if (!cardQuery.data) return;
-    window.print();
-    onDone();
+    // Log first, print second (D17/D25): no entry, no print.
+    logDocumentPrint(studentId, { document: 'REPORT_CARD', exam_id: examId })
+      .then(() => window.print())
+      .catch(() => toast.error(t('results.printLogError', { ns: 'portal' })))
+      .finally(onDone);
     // Fires once, right after the data this print needs has arrived.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cardQuery.data]);

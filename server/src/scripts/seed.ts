@@ -830,5 +830,6 @@ function documentsPorts(
       return { job_id: job.job_id };
     },
     confirmJob: (jobId, failed) => jobs.confirm(caller, jobId, failed),
+    revokeItem: (itemId, reason) => app.get(PrintHistoryService).revoke(caller, itemId, reason),
   };
 }

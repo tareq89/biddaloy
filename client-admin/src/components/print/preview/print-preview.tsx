@@ -62,6 +62,10 @@ export interface PrintPreviewProps {
   onClose: () => void;
   /** "Back" to the picker; only passed when the preview was reached from it. */
   onBack?: () => void;
+  /** The exam these documents belong to; sent with the preview and create calls. */
+  context?: { type: 'EXAM'; id: string };
+  /** Extra pre-flight problems (e.g. a student who owes fees); each needs "Print anyway". */
+  extraIssues?: PreflightIssue[];
 }
 
 interface PendingJob {
@@ -122,6 +126,8 @@ export function PrintPreview({
   onDone,
   onClose,
   onBack,
+  context,
+  extraIssues = [],
 }: PrintPreviewProps) {
   const { t, i18n } = useTranslation('printPreview');
   const { t: tEditor } = useTranslation('printEditor');
@@ -175,14 +181,19 @@ export function PrintPreview({
   // --- the preview -----------------------------------------------------------
   const { mutate: loadPreview } = preview;
   const templateId = template?.id;
+  // The caller builds `context` inline (a new object every render): depend on its values,
+  // or every re-render would POST the preview again.
+  const contextType = context?.type;
+  const contextId = context?.id;
   React.useEffect(() => {
     if (!templateId || batchKey === '') return;
     loadPreview({
       template_id: templateId,
       subject_type: subjectType,
       subject_ids: batchKey.split(','),
+      ...(contextType && contextId ? { context_type: contextType, context_id: contextId } : {}),
     });
-  }, [templateId, batchKey, subjectType, loadPreview]);
+  }, [templateId, batchKey, subjectType, contextType, contextId, loadPreview]);
 
   const data = preview.data;
   const definition = data?.template.version.definition;
@@ -230,7 +241,7 @@ export function PrintPreview({
   const fieldLabel = (field: string) =>
     slotLabel(tEditor, field) ?? tEditor(`fields.${field}`, { defaultValue: field });
   const usesPhoto = definition ? JSON.stringify(definition).includes(`${prefix}.photo`) : false;
-  const issues: PreflightIssue[] = definition
+  const ownIssues: PreflightIssue[] = definition
     ? items.flatMap((item) => {
         const reasons: string[] = [];
         const fields = (overflow[item.subject_id] ?? []).map((id) =>
@@ -247,6 +258,18 @@ export function PrintPreview({
           : [];
       })
     : [];
+  // Fold the caller's issues (only for students in this batch) into the same per-student entry.
+  const issues: PreflightIssue[] = [
+    ...ownIssues.map((i) => {
+      const more = extraIssues.filter((e) => e.subjectId === i.subjectId);
+      return more.length > 0
+        ? { ...i, reasons: [...i.reasons, ...more.flatMap((e) => e.reasons)] }
+        : i;
+    }),
+    ...extraIssues.filter(
+      (e) => batchIds.includes(e.subjectId) && !ownIssues.some((i) => i.subjectId === e.subjectId),
+    ),
+  ];
   const [printAnyway, setPrintAnyway] = React.useState(false);
   const anywayFor = React.useRef('');
   if (anywayFor.current !== batchKey) {
@@ -300,6 +323,7 @@ export function PrintPreview({
           template_id: template.id,
           subject_type: subjectType,
           subject_ids: batchIds,
+          ...(context ? { context_type: context.type, context_id: context.id } : {}),
           ...(printer ? { printer_profile_id: printer.id } : {}),
           batch_label: `${confirmed + 1}/${batches.length}`,
         },
@@ -489,6 +513,7 @@ export function PrintPreview({
               template_id: template.id,
               subject_type: subjectType,
               subject_ids: batchIds,
+              ...(context ? { context_type: context.type, context_id: context.id } : {}),
             })
           }
         />

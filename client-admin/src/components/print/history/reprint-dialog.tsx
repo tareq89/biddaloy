@@ -24,6 +24,8 @@ import {
   toast,
 } from '@biddaloy/ui/components';
 import {
+  useCertificateAssets,
+  useCertificatePrinters,
   useConfirmPrintJob,
   usePrinters,
   usePrintAssets,
@@ -43,18 +45,35 @@ export interface ReprintDialogProps {
     PrintHistoryRow,
     'item_id' | 'job_id' | 'subject_label' | 'subject_type' | 'document_kind'
   >;
+  /**
+   * Student certificates reprint through `/certificates/*` (`CERTIFICATE_ISSUE`), everything else
+   * through `/print-jobs/*` (`DOCUMENT_PRINT`). Fixed for the dialog's life: it picks which hooks run.
+   */
+  channel?: 'document' | 'certificate';
 }
+
+const useFontAssets = () => usePrintAssets('FONT');
 
 interface PendingJob {
   jobId: string;
   items: DidAllPrintItem[];
 }
 
-export function ReprintDialog({ open, onOpenChange, row }: ReprintDialogProps) {
+export function ReprintDialog({
+  open,
+  onOpenChange,
+  row,
+  channel = 'document',
+}: ReprintDialogProps) {
   const { t, i18n } = useTranslation('printHistory');
   const tenantId = getActiveTenant() ?? '';
-  const printersQuery = usePrinters();
-  const fontAssets = usePrintAssets('FONT');
+  const isCertificate = channel === 'certificate';
+  // `channel` never changes while the dialog is mounted, so the same hooks run every render.
+  const usePrinterList = isCertificate ? useCertificatePrinters : usePrinters;
+  const useAssetList = isCertificate ? useCertificateAssets : useFontAssets;
+  const assetPath = isCertificate ? '/certificates/assets' : undefined;
+  const printersQuery = usePrinterList();
+  const fontAssets = useAssetList();
   const confirmJob = useConfirmPrintJob();
   const [rememberedId, remember] = useRememberedPrinter(tenantId);
   const [pickedId, setPickedId] = React.useState<string | undefined>(undefined);
@@ -80,6 +99,7 @@ export function ReprintDialog({ open, onOpenChange, row }: ReprintDialogProps) {
       },
       printer,
       assets: fontAssets.data ?? [],
+      ...(assetPath ? { assetPath } : {}),
       subjectType: row.subject_type,
       tenantId,
       lang: i18n.language,
@@ -123,6 +143,7 @@ export function ReprintDialog({ open, onOpenChange, row }: ReprintDialogProps) {
             },
             printer: printer as NonNullable<typeof printer>,
             assets: fontAssets.data ?? [],
+            ...(assetPath ? { assetPath } : {}),
             subjectType: row.subject_type,
             tenantId,
             lang: i18n.language,

@@ -82,6 +82,7 @@
     "printables": "Print & documents",
     "printTemplateEdit": "Edit design",
     "printPreview": "Print preview",
+    "printDocument": "Print document",
     "myClass": "My class",
     "new": "New",
     "import": "Import from file",
@@ -201,7 +202,8 @@
       "student": "a student",
       "guardian": "a guardian",
       "invoice": "an invoice",
-      "gradingScale": "a grading scale"
+      "gradingScale": "a grading scale",
+      "exam": "an exam"
     },
     "shortcutHint": "Ctrl+K",
     "launcherPlaceholder": "Search…"

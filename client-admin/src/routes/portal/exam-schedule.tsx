@@ -14,6 +14,7 @@
  * phone, in the right column on desktop. Region config comes from a
  * value-less `RegionConfigProvider` (same reasoning as `fees.tsx`).
  */
+import { ApiError, getActiveTenant } from '@biddaloy/ui/api';
 import {
   Card,
   DataTable,
@@ -23,11 +24,14 @@ import {
   Skeleton,
   StatusBadge,
   StudentPicker,
+  toast,
   type DataTableColumn,
 } from '@biddaloy/ui/components';
 import {
   myStudentsQueryOptions,
+  useFeeDues,
   useMyStudents,
+  useSchoolProfile,
   useStudentExamSchedule,
   type Student,
   type StudentExamScheduleRow,
@@ -43,16 +47,20 @@ import {
   formatDate,
   formatDateRange,
   formatNumber,
+  formatServerAmount,
   formatTime,
   formatWeekday,
   toIsoDate,
 } from '@biddaloy/ui/utils';
 import { createFileRoute } from '@tanstack/react-router';
 import { CalendarDaysIcon, ClockIcon, FileClockIcon, MapPinIcon } from 'lucide-react';
-import type * as React from 'react';
+import * as React from 'react';
 import { z } from 'zod';
 
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../route-loaders';
+
+import { AdmitCardPanel, type AdmitCardState } from './-admit-card-panel';
+import { printAdmitCard } from './-admit-card-print';
 
 const examScheduleSearchSchema = z.object({
   student: z.string().optional().catch(undefined),
@@ -129,6 +137,8 @@ function PortalExamSchedule() {
     students.find((student) => student.id === search.student) ?? students[0] ?? undefined;
 
   const scheduleQuery = useStudentExamSchedule(selected?.id);
+  // Keyed by child + exam, so switching child starts every exam back at `ready`.
+  const [cardStates, setCardStates] = React.useState<Record<string, AdmitCardState>>({});
 
   if (studentsQuery.isPending) return <ExamScheduleSkeleton label={t('examSchedule.loading')} />;
 
@@ -266,6 +276,11 @@ function PortalExamSchedule() {
                 dateLabel={dateLabel}
                 timeLabel={timeLabel}
                 subjectLabel={subjectLabel}
+                student={selected}
+                cardStates={cardStates}
+                setCardState={(examId, state) =>
+                  setCardStates((prev) => ({ ...prev, [`${selected.id}:${examId}`]: state }))
+                }
               />
             ))}
           </div>
@@ -303,7 +318,13 @@ function ExamTableCard({
   dateLabel,
   timeLabel,
   subjectLabel,
+  student,
+  cardStates,
+  setCardState,
 }: {
+  student: Student;
+  cardStates: Record<string, AdmitCardState>;
+  setCardState: (examId: string, state: AdmitCardState) => void;
   group: ExamGroup;
   todayIso: string;
   isFinished: (row: StudentExamScheduleRow) => boolean;
@@ -312,8 +333,9 @@ function ExamTableCard({
   timeLabel: (row: StudentExamScheduleRow) => string;
   subjectLabel: (row: StudentExamScheduleRow) => string;
 }) {
-  const { t } = useTranslation('portal');
+  const { t, i18n } = useTranslation('portal');
   const { t: tCommon } = useTranslation('common');
+  const [busy, setBusy] = React.useState(false);
   const first = group.rows[0]!;
   const last = group.rows[group.rows.length - 1]!;
   // Past sittings read muted; the badge carries the state as text too.
@@ -325,6 +347,33 @@ function ExamTableCard({
       : row.date === todayIso
         ? 'rounded bg-secondary px-1'
         : '';
+
+  const examId = group.exam.id;
+  const cardState = cardStates[`${student.id}:${examId}`] ?? 'ready';
+  const upcoming = group.rows.some((row) => !isFinished(row));
+
+  // Called synchronously from the click: `printAdmitCard` opens the tab first (popup blockers).
+  const print = () => {
+    setBusy(true);
+    void printAdmitCard({
+      studentId: student.id,
+      examId,
+      tenantId: getActiveTenant() ?? '',
+      lang: i18n.language,
+      title: group.exam.name,
+      onError: (error) => {
+        if (error instanceof ApiError && error.details?.['code'] === 'ADMIT_CARD_WITHHELD') {
+          setCardState(examId, 'withheld');
+        } else if (error instanceof ApiError && error.statusCode === 404) {
+          setCardState(examId, 'not-ready');
+        } else if (error.message === 'POPUP_BLOCKED') {
+          toast.error(t('examSchedule.admitCard.popupBlocked'));
+        } else {
+          toast.error(t('examSchedule.admitCard.error'));
+        }
+      },
+    }).finally(() => setBusy(false));
+  };
 
   const columns: DataTableColumn<StudentExamScheduleRow>[] = [
     {
@@ -370,6 +419,22 @@ function ExamTableCard({
         <h2 className="text-h2">{group.exam.name}</h2>
         <p className="text-text-secondary">{formatDateRange(first.date, last.date, config)}</p>
       </div>
+      {upcoming &&
+        (cardState === 'withheld' ? (
+          <WithheldPanel
+            student={student}
+            config={config}
+            onRetry={() => setCardState(examId, 'ready')}
+          />
+        ) : (
+          <AdmitCardPanel
+            state={cardState}
+            studentName={student.full_name}
+            onPrint={print}
+            busy={busy}
+            feesHref={`/portal/fees?student=${student.id}`}
+          />
+        ))}
       <DataTable
         tableId={`portal-exam-${group.exam.id}`}
         caption={group.exam.name}
@@ -382,6 +447,32 @@ function ExamTableCard({
         totalCount={group.rows.length}
       />
     </Card>
+  );
+}
+
+/** Reads the dues and office phone only once the card is actually withheld. */
+function WithheldPanel({
+  student,
+  config,
+  onRetry,
+}: {
+  student: Student;
+  config: RegionConfig;
+  onRetry: () => void;
+}) {
+  const dues = useFeeDues({ limit: 50 });
+  const profile = useSchoolProfile();
+  const row = dues.data?.data.find((d) => d.student_id === student.id);
+  return (
+    <AdmitCardPanel
+      state="withheld"
+      studentName={student.full_name}
+      onPrint={noop}
+      feesHref={`/portal/fees?student=${student.id}`}
+      amount={row ? formatServerAmount(row.total_due, config) : undefined}
+      officePhone={profile.data?.phone}
+      onRetry={onRetry}
+    />
   );
 }
 

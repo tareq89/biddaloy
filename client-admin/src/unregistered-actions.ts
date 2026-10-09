@@ -85,6 +85,7 @@ export const PALETTE_ALLOW_LIST: readonly PaletteAllowListEntry[] = [
   { file: `${R}_staff/classes/-delete-class-dialog.tsx`, reason: 'Confirm dialog for one class' },
   { file: `${R}_staff/classes/-section-form-dialog.tsx`, reason: 'Needs one class' },
   { file: `${R}_staff/communications/batches/$batchId.tsx`, reason: 'Retry confirm for one batch' },
+  { file: `${R}_staff/exams/-detail/merit-dialog.tsx`, reason: 'Needs one exam (its Print tab)' },
   { file: `${R}_staff/exams/seat-plans/-reseat-dialog.tsx`, reason: 'Needs one plan and one seat' },
   {
     file: `${R}_staff/fees/-generations/batch-actions.tsx`,

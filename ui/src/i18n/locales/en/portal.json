@@ -76,7 +76,8 @@
     "subjectsCaption": "{{name}} — marks by subject",
     "emptyTitle": "No results yet",
     "emptyExplanation": "Results appear here once the school publishes them.",
-    "printError": "Could not load this report card to print. Try again."
+    "printError": "Could not load this report card to print. Try again.",
+    "printLogError": "Could not record this print, so it was not printed. Try again."
   },
   "programs": {
     "title": "Programs",
@@ -128,7 +129,8 @@
       "callOffice": "Call the office ({{phone}})",
       "notReady": "The admit card is not ready yet.",
       "error": "The admit card could not be printed. Try again.",
-      "popupBlocked": "Allow pop-ups for this site, then try again."
+      "popupBlocked": "Allow pop-ups for this site, then try again.",
+      "tryAgain": "Try again"
     }
   },
   "attendance": {

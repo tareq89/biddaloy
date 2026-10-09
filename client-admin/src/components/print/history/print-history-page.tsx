@@ -5,7 +5,7 @@
  * owns `validateSearch` and passes `search` + `onSearchChange` in, so this
  * component imports no route (D60).
  */
-import { Permission } from '@biddaloy/shared';
+import { isStudentCertificateKind, Permission } from '@biddaloy/shared';
 import { StatusBadge, type DataTableColumn, type StatusTone } from '@biddaloy/ui/components';
 import {
   printTemplatesQueryOptions,
@@ -20,6 +20,7 @@ import { formatDateTime, formatNumber } from '@biddaloy/ui/utils';
 import { useQuery } from '@tanstack/react-query';
 import { IdCardIcon, PrinterIcon } from 'lucide-react';
 import * as React from 'react';
+import type { ReactNode } from 'react';
 
 import { PRINT_KIND_ORDER } from '../library/suggestion-card';
 
@@ -34,6 +35,8 @@ export interface PrintHistoryPageProps {
   onSearchChange: (patch: Record<string, string | number | null>) => void;
   /** Starts an ID-card print; the primary action shows only with `DOCUMENT_PRINT`. */
   onPrintIdCards?: () => void;
+  /** The page's tab row, shown under the title. */
+  tabs?: ReactNode;
 }
 
 /** One badge answering "is this card good?": revoked wins, then the print outcome. */
@@ -51,10 +54,15 @@ export function PrintHistoryPage({
   search,
   onSearchChange,
   onPrintIdCards,
+  tabs,
 }: PrintHistoryPageProps) {
   const { t } = useTranslation('printHistory');
   const region = useRegionConfig();
   const canPrint = useHasPermission(Permission.DOCUMENT_PRINT);
+  const canIssue = useHasPermission(Permission.CERTIFICATE_ISSUE);
+  // Student certificates reprint on their own channel, with its own permission.
+  const canReprint = (kind: PrintHistoryRow['document_kind']) =>
+    isStudentCertificateKind(kind) ? canIssue : canPrint;
   const canRevoke = useHasPermission(Permission.DOCUMENT_REVOKE);
   // ACR rows are confidential: the server hides them without ACR_READ, so don't offer the filter.
   const canReadAcr = useHasPermission(Permission.ACR_READ);
@@ -219,6 +227,7 @@ export function PrintHistoryPage({
               ]
             : []
         }
+        {...(tabs ? { tabs } : {})}
         filters={{
           fields: filterFields,
           values: filterValues(effectiveSearch),
@@ -251,7 +260,7 @@ export function PrintHistoryPage({
             intent: 'print',
             label: t('actions.reprint'),
             onClick: () => setReprintRow(row),
-            allowed: canPrint && !row.revoked_at,
+            allowed: canReprint(row.document_kind) && !row.revoked_at,
           },
           {
             intent: 'reject',
@@ -275,14 +284,11 @@ export function PrintHistoryPage({
         open={viewId !== undefined}
         onOpenChange={(open) => !open && setViewId(undefined)}
         itemId={viewId}
-        {...(canPrint
-          ? {
-              onReprint: (item) => {
-                setViewId(undefined);
-                setReprintRow(item);
-              },
-            }
-          : {})}
+        canReprint={(item) => canReprint(item.document_kind)}
+        onReprint={(item) => {
+          setViewId(undefined);
+          setReprintRow(item);
+        }}
         {...(canRevoke
           ? {
               onRevoke: (item) => {
@@ -294,9 +300,11 @@ export function PrintHistoryPage({
       />
       {reprintRow ? (
         <ReprintDialog
+          key={reprintRow.item_id}
           open
           onOpenChange={(open) => !open && setReprintRow(undefined)}
           row={reprintRow}
+          channel={isStudentCertificateKind(reprintRow.document_kind) ? 'certificate' : 'document'}
         />
       ) : null}
       {revokeRow ? (
