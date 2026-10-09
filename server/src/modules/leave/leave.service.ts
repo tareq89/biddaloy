@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -550,7 +551,8 @@ export class LeaveService {
    * Cancels the APPROVED record created for an application. The balance sums
    * only APPROVED rows, so the days come back by themselves (D31). Only days
    * after today come back, matching the register: a leave already under way is
-   * cut to end today and stays APPROVED for the days taken. Runs only on the
+   * cut to end today and stays APPROVED for the days taken; a leave that has
+   * already ended is refused (409 LEAVE_ALREADY_ENDED). Runs only on the
    * caller's `manager`.
    */
   async cancelApprovedLeave(
@@ -579,11 +581,22 @@ export class LeaveService {
       applicationId,
     });
 
+    // Fully taken (ends today or earlier): nothing comes back, so refuse rather
+    // than report a cancellation that changed nothing. `revertLeaveRange`
+    // deleted nothing here (its range starts tomorrow), and the throw rolls
+    // back the caller's transaction, so the application stays APPROVED.
+    if (record.end_date <= today) {
+      throw new ConflictException({
+        message: 'This leave has already been taken in full',
+        details: { code: 'LEAVE_ALREADY_ENDED' },
+      });
+    }
+
     const old = { status: record.status, end_date: record.end_date, days: record.days };
     if (record.start_date <= today) {
       // Under way: the days up to today were taken and keep their LEAVE marks.
-      if (record.end_date > today) record.end_date = today;
-      record.days = await this.countWorkingDays(tenantId, record.start_date, record.end_date);
+      record.end_date = today;
+      record.days = await this.countWorkingDays(tenantId, record.start_date, today);
     }
     if (record.start_date > today || record.days === 0) record.status = LeaveStatus.CANCELLED;
     await recordRepo.save(record);
