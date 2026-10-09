@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="bn">
+<head>
+<!-- app:head -->
+<title>সতর্কতা পাঠান</title>
+<script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+</head>
+<body class="flex min-h-screen flex-col bg-bg text-body text-text-primary">
+
+<!-- ============================================================================
+     FullPageShell (D22) — a full-page modal. It covers the app chrome: no top bar,
+     no sidebar, no bottom bar. Used for the tasks listed in D23.
+     Body width: forms → max-w-3xl · a table, list or preview → max-w-5xl.
+     The footer's inner width must be the SAME max-w-* as the body's.
+     ============================================================================ -->
+
+<!-- Sticky header: title on the left, a very visible Close (X + word, 44px) on the right. -->
+<header class="sticky top-0 z-30 border-b border-border-subtle bg-surface">
+  <div class="flex h-14 items-center justify-between gap-4 px-4 md:h-16 md:px-6">
+    <h1 class="min-w-0 truncate text-h2 md:text-h1">সতর্কতা পাঠান</h1>
+    <button type="button" class="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-md border border-border-functional bg-surface px-4 font-medium text-text-primary hover:bg-muted"><i data-lucide="x"></i>বন্ধ করুন</button>
+  </div>
+</header>
+
+<!-- PROPOSAL — everything inside <main> is the page design. -->
+<main id="main-content" class="flex-1">
+  <div class="mx-auto w-full max-w-3xl space-y-6 px-4 py-4 md:px-6 md:py-6">
+
+    <section class="rounded-lg border border-border-subtle bg-surface shadow-e1 p-4 md:p-5">
+      <h2 class="text-h2">কী পাঠাবেন</h2>
+      <p class="mt-0.5 text-text-secondary">প্রাপকেরা এটি পাতার ওপরের বারে আর বিজ্ঞপ্তিতে দেখবেন।</p>
+      <div class="mt-4 grid gap-4">
+        <div class="flex flex-col gap-1.5" role="radiogroup" aria-labelledby="sv-lbl">
+          <span id="sv-lbl" class="text-label text-text-primary">ধরন <span class="text-destructive" aria-hidden="true">*</span><span class="sr-only">(আবশ্যক)</span></span>
+          <div class="grid gap-2 md:grid-cols-2">
+            <button type="button" role="radio" aria-checked="true" class="flex min-h-11 items-start gap-3 rounded-md border p-3 text-left border-primary bg-secondary"><span class="flex size-5 shrink-0 items-center justify-center rounded-full border-2 border-primary"><span class="size-2.5 rounded-full bg-primary"></span></span><span class="min-w-0"><span class="block"><span class="inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2 text-label whitespace-nowrap bg-status-due-bg text-status-due-fg"><i data-lucide="clock" class="size-3.5"></i>সতর্কতা</span></span><span class="mt-1 block text-caption text-text-secondary">গুরুত্বপূর্ণ। প্রাপক বন্ধ করতে বা পরে মনে করাতে পারেন।</span></span></button>
+            <button type="button" role="radio" aria-checked="false" class="flex min-h-11 items-start gap-3 rounded-md border p-3 text-left border-border-functional bg-surface"><span class="size-5 shrink-0 rounded-full border-2 border-border-functional"></span><span class="min-w-0"><span class="block"><span class="inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2 text-label whitespace-nowrap bg-status-partial-bg text-status-partial-fg"><i data-lucide="circle-dashed" class="size-3.5"></i>রিমাইন্ডার</span></span><span class="mt-1 block text-caption text-text-secondary">শুধু জানানোর জন্য।</span></span></button>
+          </div>
+          <p class="text-caption text-text-secondary">জরুরি সতর্কতা হাতে পাঠানো যায় না — সেগুলো স্কুলের নিয়ম থেকে নিজে আসে।</p>
+        </div>
+        <div class="flex flex-col gap-1.5">
+          <label for="sa-title" class="text-label text-text-primary">শিরোনাম <span class="text-destructive" aria-hidden="true">*</span><span class="sr-only">(আবশ্যক)</span></label>
+          <input id="sa-title" type="text" value="কাল ক্লাস সকাল ৯:০০-এ শুরু হবে" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary placeholder:text-text-secondary md:h-8 md:text-body">
+        </div>
+        <div class="flex flex-col gap-1.5">
+          <label for="sa-msg" class="text-label text-text-primary">বার্তা <span class="text-destructive" aria-hidden="true">*</span><span class="sr-only">(আবশ্যক)</span></label>
+          <textarea id="sa-msg" rows="4" aria-describedby="sa-msg-help" class="w-full rounded-md border border-border-functional bg-surface px-3 py-2 text-body-lg text-text-primary md:text-body">বৃষ্টির কারণে কাল প্রথম পিরিয়ড এক ঘণ্টা দেরিতে শুরু হবে। শিক্ষার্থীদের সকাল ৮:৪৫-এর মধ্যে স্কুলে আসতে বলুন।</textarea>
+          <p id="sa-msg-help" class="text-right text-caption text-text-secondary">১১৮ / ৫০০</p>
+        </div>
+        <div class="flex flex-col gap-1.5 "><label for="sa-link" class="text-label text-text-primary">কোন পাতা খুলবে (ঐচ্ছিক)</label><button type="button" id="sa-link" aria-haspopup="listbox" class="flex items-center justify-between gap-2 text-left h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body"><span class="truncate">টাইমটেবিল ও রুটিন</span><i data-lucide="chevron-down" class="size-4 shrink-0 text-text-secondary"></i></button></div>
+      </div>
+    </section>
+
+    <section class="rounded-lg border border-border-subtle bg-surface shadow-e1 p-4 md:p-5">
+      <h2 class="text-h2">কারা পাবেন</h2>
+      <p class="mt-0.5 text-text-secondary">এক বা একাধিক দল বাছুন।</p>
+      <div class="mt-3 divide-y divide-border-subtle">
+        <div class="py-2"><button type="button" role="checkbox" aria-checked="true" class="flex min-h-11 items-center gap-3 text-left font-medium md:min-h-8"><span class="flex size-5 shrink-0 items-center justify-center rounded-sm bg-primary text-primary-foreground"><i data-lucide="check" class="size-3.5"></i></span>রোল অনুযায়ী</button><div class="flex flex-wrap items-center gap-x-2 pl-8"><button type="button" class="inline-flex h-11 items-center md:h-7" aria-label="সরান — শিক্ষক"><span class="inline-flex h-7 items-center gap-1 rounded-full bg-secondary pr-2 pl-3 text-label text-secondary-foreground">শিক্ষক<i data-lucide="x" class="size-3.5"></i></span></button><button type="button" class="inline-flex h-11 items-center md:h-7" aria-label="সরান — অফিস সহকারী"><span class="inline-flex h-7 items-center gap-1 rounded-full bg-secondary pr-2 pl-3 text-label text-secondary-foreground">অফিস সহকারী<i data-lucide="x" class="size-3.5"></i></span></button><button type="button" aria-haspopup="listbox" class="inline-flex h-11 items-center gap-1 rounded-md px-2 text-label font-medium text-primary hover:bg-muted md:h-7"><i data-lucide="plus" class="size-4"></i>রোল যোগ করুন</button></div></div>
+        <div class="py-2"><button type="button" role="checkbox" aria-checked="false" class="flex min-h-11 items-center gap-3 text-left font-medium md:min-h-8"><span class="size-5 shrink-0 rounded-sm border border-border-functional bg-surface"></span>শাখার শিক্ষার্থী</button></div>
+        <div class="py-2"><button type="button" role="checkbox" aria-checked="true" class="flex min-h-11 items-center gap-3 text-left font-medium md:min-h-8"><span class="flex size-5 shrink-0 items-center justify-center rounded-sm bg-primary text-primary-foreground"><i data-lucide="check" class="size-3.5"></i></span>শাখার অভিভাবক</button><div class="flex flex-wrap items-center gap-x-2 pl-8"><button type="button" class="inline-flex h-11 items-center md:h-7" aria-label="সরান — ৭ম-ক"><span class="inline-flex h-7 items-center gap-1 rounded-full bg-secondary pr-2 pl-3 text-label text-secondary-foreground">৭ম-ক<i data-lucide="x" class="size-3.5"></i></span></button><button type="button" class="inline-flex h-11 items-center md:h-7" aria-label="সরান — ৭ম-খ"><span class="inline-flex h-7 items-center gap-1 rounded-full bg-secondary pr-2 pl-3 text-label text-secondary-foreground">৭ম-খ<i data-lucide="x" class="size-3.5"></i></span></button><button type="button" class="inline-flex h-11 items-center md:h-7" aria-label="সরান — ৮ম-ক"><span class="inline-flex h-7 items-center gap-1 rounded-full bg-secondary pr-2 pl-3 text-label text-secondary-foreground">৮ম-ক<i data-lucide="x" class="size-3.5"></i></span></button><button type="button" aria-haspopup="listbox" class="inline-flex h-11 items-center gap-1 rounded-md px-2 text-label font-medium text-primary hover:bg-muted md:h-7"><i data-lucide="plus" class="size-4"></i>শাখা যোগ করুন</button></div></div>
+        <div class="py-2"><button type="button" role="checkbox" aria-checked="true" class="flex min-h-11 items-center gap-3 text-left font-medium md:min-h-8"><span class="flex size-5 shrink-0 items-center justify-center rounded-sm bg-primary text-primary-foreground"><i data-lucide="check" class="size-3.5"></i></span>নির্দিষ্ট ব্যক্তি</button><div class="flex flex-wrap items-center gap-x-2 pl-8"><button type="button" class="inline-flex h-11 items-center md:h-7" aria-label="সরান — নাসির আহমেদ"><span class="inline-flex h-7 items-center gap-1 rounded-full bg-secondary pr-2 pl-3 text-label text-secondary-foreground">নাসির আহমেদ · শিক্ষক<i data-lucide="x" class="size-3.5"></i></span></button><button type="button" aria-haspopup="listbox" class="inline-flex h-11 items-center gap-1 rounded-md px-2 text-label font-medium text-primary hover:bg-muted md:h-7"><i data-lucide="plus" class="size-4"></i>নাম বা ফোন দিয়ে খুঁজুন</button></div></div>
+      </div>
+      <div class="mt-3 flex items-start gap-3 rounded-md bg-muted p-3" aria-live="polite">
+        <i data-lucide="users" class="mt-0.5 shrink-0 text-text-secondary"></i>
+        <div>
+          <p class="font-semibold">মোট প্রাপক: ১৪৮ জন</p>
+          <p class="text-text-secondary">শিক্ষক ১৮ · অফিস সহকারী ৪ · অভিভাবক ১২৫ · নির্দিষ্ট ১</p>
+          <p class="mt-0.5 text-caption text-text-secondary">কেউ একাধিক দলে থাকলেও একবারই পাবেন।</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="rounded-lg border border-border-subtle bg-surface shadow-e1 p-4 md:p-5">
+      <h2 class="text-h2">কত দিন দেখাবে</h2>
+      <div class="mt-4 grid gap-4 md:grid-cols-2">
+        <div class="flex flex-col gap-1.5">
+          <label for="sa-exp" class="text-label text-text-primary">মেয়াদ শেষ <span class="text-destructive" aria-hidden="true">*</span><span class="sr-only">(আবশ্যক)</span></label>
+          <button type="button" id="sa-exp" aria-haspopup="dialog" aria-describedby="sa-exp-help" class="flex items-center justify-between gap-2 text-left h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body"><span class="truncate">১০ই অক্টোবর, ২০২৬</span><i data-lucide="calendar" class="size-4 shrink-0 text-text-secondary"></i></button>
+          <p id="sa-exp-help" class="text-caption text-text-secondary">এই দিনের পর বার থেকে সরে যাবে, ইতিহাসে থাকবে।</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="rounded-lg border border-border-subtle bg-surface shadow-e1 p-4 md:p-5">
+      <h2 class="text-h2">প্রাপকেরা যেমন দেখবেন</h2>
+      <div class="mt-3 overflow-hidden rounded-md border border-border-subtle" aria-hidden="true">
+        <div class="flex h-11 items-center gap-2 bg-status-due-bg px-4 text-status-due-fg">
+          <i data-lucide="clock" class="shrink-0"></i><span class="shrink-0 font-semibold">সতর্কতা</span>
+          <span class="min-w-0 flex-1 truncate">কাল ক্লাস সকাল ৯:০০-এ শুরু হবে</span>
+          <span class="inline-flex shrink-0 items-center gap-0.5 font-medium underline underline-offset-2">বিস্তারিত<i data-lucide="chevron-right" class="size-4"></i></span>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</main>
+
+<!-- Footer: secondary action on the left, the ONE primary on the right. 44px at every width.
+     IN THE APP it is "sticky bottom-0 z-30". IN A MOCKUP it stays in normal flow (last child of <body>):
+     the screenshot tool captures the whole page as one tall frame, and a sticky footer would be painted
+     across the middle of it. Do not add "sticky bottom-0" or "fixed" here. -->
+<footer class="border-t border-border-subtle bg-surface">
+  <div class="mx-auto flex w-full max-w-3xl items-center justify-between gap-2 px-4 py-3 md:px-6">
+    <button type="button" class="inline-flex h-11 items-center justify-center gap-2 rounded-md px-4 font-medium border border-border-functional bg-surface text-text-primary hover:bg-muted">বাতিল করুন</button>
+    <button type="submit" class="inline-flex h-11 items-center justify-center gap-2 rounded-md px-4 font-medium bg-primary text-primary-foreground"><i data-lucide="send"></i>পাঠান</button>
+  </div>
+</footer>
+
+<script>lucide.createIcons({ attrs: { width: 18, height: 18, "stroke-width": 1.75, "aria-hidden": "true" } });</script>
+</body>
+</html>
