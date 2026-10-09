@@ -1464,6 +1464,43 @@
           <!-- /PATTERN -->
         </section>
 
+        <section class="space-y-4" id="p19">
+          <div>
+            <h2 class="text-h2">19 · MultiCombobox · Timeline (Epic 52)</h2>
+            <p class="mt-0.5 text-text-secondary">Pick several people or roles as chips; show an event history as a vertical list.</p>
+          </div>
+          <!-- PATTERN: MultiCombobox — chips above the input (ul), 44px on phone / 32px from md, X button with aria-label, options with an optional muted second line -->
+          <div class="flex max-w-md flex-col gap-2">
+            <label for="mc-people" class="text-label text-text-primary">প্রাপক</label>
+            <ul aria-label="বাছাই করা" class="flex flex-wrap gap-2">
+              <li class="inline-flex min-h-11 items-center gap-1 rounded-full border border-border-subtle bg-muted px-3 text-body md:min-h-8">রহিম উদ্দিন<button type="button" aria-label="রহিম উদ্দিন সরান" class="inline-flex size-11 items-center justify-center rounded-full text-text-secondary hover:text-text-primary md:size-8"><i data-lucide="x" class="size-4"></i></button></li>
+              <li class="inline-flex min-h-11 items-center gap-1 rounded-full border border-border-subtle bg-muted px-3 text-body md:min-h-8">সব প্রধান শিক্ষক<button type="button" aria-label="সব প্রধান শিক্ষক সরান" class="inline-flex size-11 items-center justify-center rounded-full text-text-secondary hover:text-text-primary md:size-8"><i data-lucide="x" class="size-4"></i></button></li>
+            </ul>
+            <input id="mc-people" type="text" role="combobox" aria-expanded="false" placeholder="খুঁজুন…" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body placeholder:text-text-secondary">
+            <div role="listbox" aria-multiselectable="true" aria-label="প্রাপক" class="rounded-lg border border-border-subtle bg-surface p-1 shadow-e2">
+              <div role="option" aria-selected="true" class="flex min-h-11 flex-col justify-center rounded-md bg-accent px-2 py-1.5 text-sm font-semibold md:min-h-8">রহিম উদ্দিন<span class="text-caption font-normal text-text-secondary">শিক্ষক</span></div>
+              <div role="option" aria-selected="false" class="flex min-h-11 flex-col justify-center rounded-md px-2 py-1.5 text-sm md:min-h-8">করিম আহমেদ<span class="text-caption font-normal text-text-secondary">হিসাবরক্ষক</span></div>
+            </div>
+          </div>
+          <!-- /PATTERN -->
+          <!-- PATTERN: Timeline — ol with divided rows; optional StatusBadge, title, time, body -->
+          <ol aria-label="ইতিহাস" class="max-w-xl divide-y divide-border-subtle">
+            <li class="flex flex-col gap-1 py-3">
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2 text-label whitespace-nowrap bg-status-paid-bg text-status-paid-fg"><i data-lucide="circle-check" class="size-3.5"></i>অনুমোদিত</span>
+                <span class="font-medium">আবেদন অনুমোদিত হয়েছে</span>
+              </div>
+              <time datetime="2026-03-03T08:00:00Z" class="text-text-secondary">৩ মার্চ ২০২৬, ১৪:০০</time>
+            </li>
+            <li class="flex flex-col gap-1 py-3">
+              <div class="flex flex-wrap items-center gap-2"><span class="font-medium">নাসরিন আক্তারের মন্তব্য</span></div>
+              <time datetime="2026-03-02T14:15:00Z" class="text-text-secondary">২ মার্চ ২০২৬, ২০:১৫</time>
+              <div>অনুগ্রহ করে রসিদ সংযুক্ত করুন।</div>
+            </li>
+          </ol>
+          <!-- /PATTERN -->
+        </section>
+
       </div>
     </main>
 </div>
