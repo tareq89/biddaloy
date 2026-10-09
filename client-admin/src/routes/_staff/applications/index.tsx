@@ -110,7 +110,7 @@ function ApplicationsPage() {
           // Filters and selection belong to a tab: switching drops them.
           onValueChange={(next) => void navigate({ search: { view: next as ApplicationsView } })}
         >
-          <TabsList variant="line" aria-label={tNav('items.applications')}>
+          <TabsList variant="line" className="flex-wrap" aria-label={tNav('items.applications')}>
             {tabs.map((key) => (
               <TabsTrigger key={key} value={key}>
                 {t(`tabs.${key}`)}
