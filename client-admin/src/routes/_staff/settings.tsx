@@ -37,8 +37,17 @@ export const Route = createFileRoute('/_staff/settings')({
   // [613]: `bulkImport` too — `RestoreWizard` mounts the shared
   // `BulkUploadPreview`, whose own copy (file picker, expiry countdown,
   // confirm/upload-another buttons) lives in that namespace.
+  // `curriculumPreset`: Academics' `PresetLinkCard`; without it opening
+  // that category suspends the whole page.
   loader: () =>
-    loadRouteNamespaces('settings', 'backup', 'bulkImport', 'evaluations', 'feeStructures'),
+    loadRouteNamespaces(
+      'settings',
+      'backup',
+      'bulkImport',
+      'evaluations',
+      'feeStructures',
+      'curriculumPreset',
+    ),
   pendingComponent: SettingsPending,
   component: SettingsRoute,
 });

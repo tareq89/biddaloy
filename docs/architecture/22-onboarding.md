@@ -263,6 +263,106 @@ flowchart LR
 The membership row is soft-deleted, never removed. Details in
 [02-auth-and-multitenancy.md](02-auth-and-multitenancy.md).
 
+## Facebook sign-in
+
+Same flow as Google (server-side code + PKCE + `state`, see
+[02-auth-and-multitenancy.md](02-auth-and-multitenancy.md)). Differences:
+
+- Provider: `server/src/modules/auth/social/providers/facebook.provider.ts`.
+  No id_token, so the identity is the Graph API `id` from `/me`. `email` is
+  often missing (phone-only accounts); that is fine.
+- `GRAPH_VERSION` (`v24.0`) is the one place the Graph API version lives.
+  Bump it before Meta retires the version.
+- Env: `FACEBOOK_OAUTH_CLIENT_ID`, `FACEBOOK_OAUTH_CLIENT_SECRET`. Both or the
+  provider is not listed. The data-deletion callback needs only the secret, so
+  removing the client id turns sign-in off but Meta's deletion requests still
+  work. Keep the secret set while any Facebook identities exist.
+- Meta requires a **data-deletion callback**. `POST /api/v1/auth/social/facebook/data-deletion`
+  takes Meta's `signed_request`, checks the HMAC and its age (24 h), and removes
+  only the Facebook identity (the user account stays). It answers
+  `{ url, confirmation_code }`; the `url` is the public status page
+  `GET /api/v1/auth/social/facebook/data-deletion/status?code=<uuid>`
+  (plain HTML, English and Bangla).
+
+```mermaid
+sequenceDiagram
+    participant P as Person
+    participant M as Meta
+    participant S as Server
+    P->>M: removes the app in Facebook settings
+    M->>S: POST /api/v1/auth/social/facebook/data-deletion (signed_request)
+    S->>S: check HMAC + age, delete the facebook row in user_identities, audit
+    S-->>M: { url, confirmation_code }
+    M-->>P: shows the confirmation code and link
+    P->>S: GET .../data-deletion/status?code=...
+    S-->>P: static "deleted" page (en + bn)
+```
+
+Example response:
+
+```json
+{
+  "url": "https://app.example.com/api/v1/auth/social/facebook/data-deletion/status?code=3f2b8c1e-6a4d-4e8f-9b1a-2c7d5e0f4a91",
+  "confirmation_code": "3f2b8c1e-6a4d-4e8f-9b1a-2c7d5e0f4a91"
+}
+```
+
+## Owner checklist
+
+Things only the owner can do, outside the code. Tick as done.
+
+**Base URL**
+
+- [ ] Set `APP_BASE_URL` to the public `https://` origin that serves both the app
+  and `/api`, for example `https://app.example.com`. The sign-in redirect URIs
+  and the data-deletion status URL below are built from it. In production the
+  server refuses social sign-in and data deletion without it.
+
+**Google sign-in**
+
+- [ ] Create a Google OAuth client. Redirect URI: `<APP_BASE_URL>/api/v1/auth/social/google/callback`.
+- [ ] Set `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`.
+
+**Facebook sign-in**
+
+- [ ] Create a Meta app with Facebook Login. Redirect URI: `<APP_BASE_URL>/api/v1/auth/social/facebook/callback`.
+- [ ] Set the data-deletion callback URL to `<APP_BASE_URL>/api/v1/auth/social/facebook/data-deletion`.
+- [ ] Set `FACEBOOK_OAUTH_CLIENT_ID`, `FACEBOOK_OAUTH_CLIENT_SECRET`. To turn Facebook sign-in off later, remove only the client id; keep the secret while any Facebook identities exist, or Meta's deletion requests get a 404.
+- [ ] Submit app review. Until it passes, only app testers can sign in; the button still works for them.
+- [ ] Product call, #1705: a person who signed up with Facebook only and has no phone or email Facebook shares can be locked out. Decide the fix.
+
+**Captcha**
+
+- [ ] Create a Cloudflare Turnstile site. Set `VITE_TURNSTILE_SITE_KEY` (build arg) and `TURNSTILE_SECRET_KEY` (server). Set both or neither.
+  No site key: the widget is hidden. No secret in production: every register route returns 503.
+
+**Other settings**
+
+- [ ] `SUPPORT_CONTACT_URL` and `VITE_SUPPORT_URL` (same value; `https:` or `mailto:`). Shown on the "trial ended" screen.
+- [ ] Optional: `OTP_SMS_ALLOWED_PREFIXES` (default `+880`), `TRIAL_DAYS` (default 30), `TRIAL_SEAT_LIMIT` (default 10).
+  `docker-compose.yml` passes these through with the same defaults, so setting them in `.env` is enough.
+
+**Legal pages and copy**
+
+- [ ] Publish the terms and privacy pages. The URLs are not decided yet, and the
+  register form's checkbox ("I agree to the terms and privacy policy") does not
+  link to either. Once the URLs exist, link them from the label.
+- [ ] A native Bangla speaker reads the new Bangla copy (register, welcome, import, security, the data-deletion page).
+
+**Screen-reader pass** (needs a person; not automated)
+
+Use VoiceOver (macOS/iOS) or NVDA (Windows). For each screen, check that every
+control has a spoken name, errors are announced, focus lands somewhere sensible
+after each step, and the order matches the visual order.
+
+- [ ] `/register`: details, code, password
+- [ ] `/login` in code mode
+- [ ] `/welcome`: doors, guided, Excel, people, summary
+- [ ] `/staff/import`
+- [ ] `/security`
+
+File each finding as its own issue and link it on #1648.
+
 ## Where the plan and the code differ
 
 | Plan said | What was built | Why |
@@ -270,7 +370,7 @@ The membership row is soft-deleted, never removed. Details in
 | Ended trial is stored as `deleted_at` | `SUSPENDED` + `TRIAL_EXPIRED` (D39) | suspension is already enforced everywhere and is reversible |
 | Country from an IP lookup | `?country=`, else browser time zone (D35) | no IP service to depend on |
 | Three guarded seat paths | four: readmit checks too | a readmit takes a seat |
-| Google and Facebook at sign-up | Google only. Facebook (#1647) is **planned, not built**: no provider class exists | Meta review must not block (D9) |
+| Google and Facebook at sign-up | Both are built (Facebook in #1647). Neither is required: a provider with no credentials is simply not listed | Meta app review must not block launch (D9) |
 
 ## Open follow-ups
 

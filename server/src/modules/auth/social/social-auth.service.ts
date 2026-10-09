@@ -1,7 +1,7 @@
 import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { createHash } from 'crypto';
+import { createHash, randomUUID } from 'crypto';
 import { Repository } from 'typeorm';
 import { AuditAction, SocialProvider, UserStatus } from '@biddaloy/shared';
 import { User } from '../../users/entities/user.entity';
@@ -9,6 +9,7 @@ import { AuditService } from '../../audit/audit.service';
 import { resolveAppBaseUrl } from '../../account-access/app-base-url.util';
 import { AuthService, AuthResult } from '../auth.service';
 import type { RequestContext } from '../../../common/request-context.util';
+import { verifySignedRequest } from './providers/facebook.provider';
 import { SOCIAL_PROVIDERS, type SocialProviderClient } from './providers/social-provider';
 import { SocialIdentityService } from './social-identity.service';
 import { SocialIntent, SocialState, SocialStateService } from './social-state.service';
@@ -64,6 +65,27 @@ export class SocialAuthService {
     const found = this.providers.find((p) => p.name === name && p.isConfigured());
     if (!found) throw new NotFoundException('Unknown sign-in provider');
     return found;
+  }
+
+  /** Answers Meta's data-deletion callback: `{ url, confirmation_code }`. */
+  async facebookDataDeletion(
+    signedRequest: string,
+    context: RequestContext,
+  ): Promise<{ url: string; confirmation_code: string }> {
+    // Only the secret is needed to check Meta's signature. Not the sign-in
+    // "configured" rule (id + secret): with the client id removed, sign-in is
+    // off, but Meta's deletion requests for existing identities must still work.
+    const secret = this.config.get<string>('FACEBOOK_OAUTH_CLIENT_SECRET');
+    if (!secret) throw new NotFoundException('Unknown sign-in provider');
+    const fbUserId = verifySignedRequest(signedRequest, secret);
+    const code = randomUUID();
+    // Built before the delete: a missing or bad APP_BASE_URL must fail while
+    // nothing has been removed yet, not after (Meta would retry a 500 and
+    // every retry would audit a code nobody ever received).
+    // Deletion is immediate, so the status page only ever says "done".
+    const url = this.appUrl(`/api/v1/auth/social/facebook/data-deletion/status?code=${code}`);
+    await this.identities.deleteBySubject(SocialProvider.FACEBOOK, fbUserId, code, context);
+    return { url, confirmation_code: code };
   }
 
   private appUrl(path: string): string {

@@ -52,7 +52,7 @@ export function RegisterCodeStep({
         if (otp.length === 6) onVerify(otp);
       }}
     >
-      <p className="text-text-secondary">
+      <p id="register-otp-sent-to" className="text-text-secondary">
         {channel === 'sms'
           ? t('otp.sentToPhone', { phone: sentTo })
           : t('otp.sentToEmail', { email: sentTo })}
@@ -60,6 +60,7 @@ export function RegisterCodeStep({
       <OtpInput
         id="register-otp"
         aria-label={t('otp.title')}
+        aria-describedby="register-otp-sent-to"
         value={otp}
         onValueChange={setOtp}
         disabled={loading}

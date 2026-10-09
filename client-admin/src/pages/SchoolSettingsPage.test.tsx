@@ -1,5 +1,6 @@
 import '@biddaloy/ui/test';
 
+import { i18n } from '@biddaloy/ui/i18n';
 import { cleanupTestState, renderWithProviders, server } from '@biddaloy/ui/test';
 import {
   createMemoryHistory,
@@ -9,7 +10,7 @@ import {
   Outlet,
   RouterProvider,
 } from '@tanstack/react-router';
-import { screen, waitFor } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import * as React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -165,10 +166,12 @@ describe('SchoolSettingsPage', () => {
     expect(nav.className).not.toContain('hidden md:block');
     expect(screen.queryByRole('link', { name: 'Settings' })).toBeNull();
 
+    // The real route's loader preloads Academics' namespaces; this harness has
+    // no loader, and a cold load after the click suspends the page past 5s on
+    // a busy CI shard.
+    await act(() => i18n.loadNamespaces(['evaluations', 'curriculumPreset']));
     await user.click(screen.getByRole('link', { name: 'Academics' }));
-    // The first visit to a category suspends the page while its i18n
-    // namespaces load (`useSuspense: true`); on a busy CI shard that outlasts 1s.
-    const back = await screen.findByRole('link', { name: 'Settings' }, { timeout: 5000 });
+    const back = await screen.findByRole('link', { name: 'Settings' });
     expect(back.getAttribute('href')).toBe('/settings');
     expect(screen.getByRole('navigation', { name: 'Settings categories' }).className).toContain(
       'hidden',

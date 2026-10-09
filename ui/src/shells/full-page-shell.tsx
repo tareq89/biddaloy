@@ -20,6 +20,7 @@ import * as React from 'react';
 
 import { Button } from '../components/button';
 import { ConfirmDialog } from '../components/confirm-dialog';
+import { RoutePending } from '../components/route-pending';
 import { useTranslation } from '../i18n';
 import { cn } from '../primitives/lib/utils';
 
@@ -60,6 +61,7 @@ export function FullPageShell({
   useWarnUnsavedChanges(dirty === true);
   const requestClose = () => (dirty ? setConfirming(true) : onClose());
   const width = size === 'wide' ? 'max-w-5xl' : 'max-w-3xl';
+  const bodyClass = cn('mx-auto w-full flex-1 space-y-6 px-4 py-4 md:px-6 md:py-6', width);
   return (
     <DialogPrimitive.Root
       open
@@ -93,42 +95,54 @@ export function FullPageShell({
               </Button>
             </div>
           </header>
-          <div className={cn('mx-auto w-full flex-1 space-y-6 px-4 py-4 md:px-6 md:py-6', width)}>
-            {children}
-          </div>
-          {primary && (
-            <footer className="sticky bottom-0 z-30 border-t border-border-subtle bg-surface">
-              <div
-                className={cn(
-                  'mx-auto flex w-full items-center justify-between gap-2 px-4 py-3 md:px-6',
-                  width,
-                )}
-              >
-                {secondary ? (
+          {/* Content that suspends (a lazily loaded i18n namespace) must not hide this
+           * dialog: hiding detaches its focus trap and Radix drops the trap from its
+           * stack, so a dialog opened inside can't pause it and focus keeps being pulled
+           * back (e.g. the curriculum preset confirm inside /welcome). The footer is
+           * inside the boundary too, so its primary button can't act on a body that
+           * hasn't mounted. */}
+          <React.Suspense
+            fallback={
+              <div className={bodyClass}>
+                <RoutePending variant="form" label={t('status.loading')} />
+              </div>
+            }
+          >
+            <div className={bodyClass}>{children}</div>
+            {primary && (
+              <footer className="sticky bottom-0 z-30 border-t border-border-subtle bg-surface">
+                <div
+                  className={cn(
+                    'mx-auto flex w-full items-center justify-between gap-2 px-4 py-3 md:px-6',
+                    width,
+                  )}
+                >
+                  {secondary ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-11"
+                      disabled={secondary.disabled ?? false}
+                      onClick={secondary.onClick}
+                    >
+                      {secondary.label}
+                    </Button>
+                  ) : (
+                    <span />
+                  )}
                   <Button
                     type="button"
-                    variant="outline"
                     className="h-11"
-                    disabled={secondary.disabled ?? false}
-                    onClick={secondary.onClick}
+                    loading={primary.busy ?? false}
+                    disabled={primary.disabled ?? false}
+                    onClick={primary.onClick}
                   >
-                    {secondary.label}
+                    {primary.label}
                   </Button>
-                ) : (
-                  <span />
-                )}
-                <Button
-                  type="button"
-                  className="h-11"
-                  loading={primary.busy ?? false}
-                  disabled={primary.disabled ?? false}
-                  onClick={primary.onClick}
-                >
-                  {primary.label}
-                </Button>
-              </div>
-            </footer>
-          )}
+                </div>
+              </footer>
+            )}
+          </React.Suspense>
           <ConfirmDialog
             open={confirming}
             onOpenChange={setConfirming}

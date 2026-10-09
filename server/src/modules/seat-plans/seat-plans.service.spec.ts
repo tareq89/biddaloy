@@ -661,6 +661,7 @@ describe('SeatPlansService', () => {
       const saved: any[] = [];
       dataSource.transaction = vi.fn(async (cb: any) =>
         cb({
+          update: vi.fn(),
           save: vi.fn(async (_entity: any, value: any) => {
             saved.push({ ...value });
             return value;
@@ -706,6 +707,7 @@ describe('SeatPlansService', () => {
       const saved: any[] = [];
       dataSource.transaction = vi.fn(async (cb: any) =>
         cb({
+          update: vi.fn(),
           save: vi.fn(async (_entity: any, value: any) => {
             saved.push({ ...value });
             return value;
@@ -718,6 +720,61 @@ describe('SeatPlansService', () => {
       // a2 (no enrollment match) must never be reassigned — it keeps its
       // existing seat rather than getting fabricated section/roll data.
       expect(saved.some((s) => s.id === 'a2')).toBe(false);
+    });
+
+    it('swaps two seats without tripping the (room, sitting, seat) unique index', async () => {
+      seatPlanRepo.findOne.mockResolvedValue({
+        id: 'plan-1',
+        tenant_id: TENANT,
+        status: SeatPlanStatus.DRAFT,
+        seat_order_mode: SeatOrderMode.SEQUENTIAL,
+      });
+      // Roll order says s1 -> seat 1, s2 -> seat 2: the opposite of today.
+      allocationRepo.find.mockResolvedValue([
+        {
+          id: 'a1',
+          room_id: ROOM_1,
+          exam_schedule_id: SCHEDULE_A,
+          student_id: 's1',
+          seat_number: '2',
+        },
+        {
+          id: 'a2',
+          room_id: ROOM_1,
+          exam_schedule_id: SCHEDULE_A,
+          student_id: 's2',
+          seat_number: '1',
+        },
+      ]);
+      allocationRepo.createQueryBuilder.mockReturnValue(
+        qb([
+          { id: 'a1', section_id: SECTION_1, roll_number: 1 },
+          { id: 'a2', section_id: SECTION_1, roll_number: 2 },
+        ]),
+      );
+      // Stands in for IDX_seat_allocations_room_seat: one row per seat.
+      const seats = new Map([
+        ['a1', '2'],
+        ['a2', '1'],
+      ]);
+      dataSource.transaction = vi.fn(async (cb: any) =>
+        cb({
+          update: vi.fn(async (_entity: any, where: any) => {
+            for (const id of where.id.value) seats.set(id, `~${id}`);
+          }),
+          save: vi.fn(async (_entity: any, value: any) => {
+            for (const [id, seat] of seats) {
+              if (id !== value.id && seat === value.seat_number) throw new Error('23505');
+            }
+            seats.set(value.id, value.seat_number);
+            return value;
+          }),
+        }),
+      );
+
+      await service.reshuffleRoom(TENANT, 'plan-1', ROOM_1);
+
+      expect(Object.fromEntries(seats)).toEqual({ a1: '1', a2: '2' });
     });
 
     it('rejects reshuffle once the plan is published', async () => {

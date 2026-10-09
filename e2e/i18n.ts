@@ -115,10 +115,31 @@ import enStudentRecords from '../ui/src/i18n/locales/en/student-records.json';
 import enStudents from '../ui/src/i18n/locales/en/students.json';
 import enSyllabus from '../ui/src/i18n/locales/en/syllabus.json';
 import enTeacherAssignments from '../ui/src/i18n/locales/en/teacherAssignments.json';
+import bnRegister from '../ui/src/i18n/locales/bn/register.json';
+import bnOnboardingSetup from '../ui/src/i18n/locales/bn/onboardingSetup.json';
+import bnOnboardingPeople from '../ui/src/i18n/locales/bn/onboardingPeople.json';
+import bnSetupChecklist from '../ui/src/i18n/locales/bn/setupChecklist.json';
+import bnSignInMethods from '../ui/src/i18n/locales/bn/signInMethods.json';
+import bnStaffImport from '../ui/src/i18n/locales/bn/staffImport.json';
+import bnTrial from '../ui/src/i18n/locales/bn/trial.json';
+import enRegister from '../ui/src/i18n/locales/en/register.json';
+import enOnboardingSetup from '../ui/src/i18n/locales/en/onboardingSetup.json';
+import enOnboardingPeople from '../ui/src/i18n/locales/en/onboardingPeople.json';
+import enSetupChecklist from '../ui/src/i18n/locales/en/setupChecklist.json';
+import enSignInMethods from '../ui/src/i18n/locales/en/signInMethods.json';
+import enStaffImport from '../ui/src/i18n/locales/en/staffImport.json';
+import enTrial from '../ui/src/i18n/locales/en/trial.json';
 
 const catalogs = {
   bn: {
     academicYears: bnAcademicYears,
+    register: bnRegister,
+    onboardingSetup: bnOnboardingSetup,
+    onboardingPeople: bnOnboardingPeople,
+    setupChecklist: bnSetupChecklist,
+    signInMethods: bnSignInMethods,
+    staffImport: bnStaffImport,
+    trial: bnTrial,
     'admission-public': bnAdmissionPublic,
     'admission-reports': bnAdmissionReports,
     'admission-staff-applicants': bnAdmissionStaffApplicants,
@@ -175,6 +196,13 @@ const catalogs = {
   },
   en: {
     academicYears: enAcademicYears,
+    register: enRegister,
+    onboardingSetup: enOnboardingSetup,
+    onboardingPeople: enOnboardingPeople,
+    setupChecklist: enSetupChecklist,
+    signInMethods: enSignInMethods,
+    staffImport: enStaffImport,
+    trial: enTrial,
     'admission-public': enAdmissionPublic,
     'admission-reports': enAdmissionReports,
     'admission-staff-applicants': enAdmissionStaffApplicants,

@@ -6817,6 +6817,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/social/facebook/data-deletion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Meta's data-deletion callback: removes the Facebook identity only. */
+        post: operations["SocialAuthController_facebookDataDeletion_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/social/facebook/data-deletion/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Plain HTML page confirming a Facebook data deletion. */
+        get: operations["SocialAuthController_facebookDataDeletionStatus_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/social/{provider}/start": {
         parameters: {
             query?: never;
@@ -12120,6 +12154,13 @@ export interface components {
             email: string | null;
             /** Format: date-time */
             created_at: string;
+        };
+        FacebookDataDeletionDto: {
+            signed_request: string;
+        };
+        FacebookDataDeletionResponseDto: {
+            url: string;
+            confirmation_code: string;
         };
         SocialLinkStartDto: {
             /** @description Provider authorization URL to send the browser to. */
@@ -29927,6 +29968,56 @@ export interface operations {
         requestBody?: never;
         responses: {
             204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SocialAuthController_facebookDataDeletion_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/x-www-form-urlencoded": components["schemas"]["FacebookDataDeletionDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FacebookDataDeletionResponseDto"];
+                };
+            };
+            /** @description Bad signed_request. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SocialAuthController_facebookDataDeletionStatus_v1: {
+        parameters: {
+            query: {
+                code: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Bilingual (en + bn) confirmation page. */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };

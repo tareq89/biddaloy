@@ -151,6 +151,24 @@ describe('RegisterFlow', () => {
     await waitFor(() => expect(onDone).toHaveBeenCalled());
   });
 
+  it('focuses the code field on the code step, and the heading back on the details', async () => {
+    useServer();
+    const { user } = setup();
+    await fillDetails(user);
+    await user.click(screen.getByRole('button', { name: 'Continue' }));
+
+    // The heading must not steal focus from the field: the code is the next thing to type.
+    const field = await screen.findByLabelText('Enter the code we sent');
+    await waitFor(() => expect(document.activeElement).toBe(field));
+    // Focus skips the "we sent a code to …" line, so the field points a screen reader at it.
+    expect(field.getAttribute('aria-describedby')).toBe('register-otp-sent-to');
+    expect(document.getElementById('register-otp-sent-to')?.textContent).toBeTruthy();
+
+    await user.click(screen.getByRole('button', { name: 'Change number' }));
+    const heading = await screen.findByRole('heading', { name: 'Create your school' });
+    await waitFor(() => expect(document.activeElement).toBe(heading));
+  });
+
   it('counts down before a resend, and Change number keeps the values', async () => {
     useServer({ start: () => HttpResponse.json(START_FAST) });
     const { user } = setup();

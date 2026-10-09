@@ -119,8 +119,10 @@ export function RegisterFlow({
   const providers = useQuery(socialProvidersQueryOptions());
 
   // Move focus to the new step's heading (the password step's own <h1> is inside SetPasswordForm).
+  // The code step is the exception: `RegisterCodeStep` focuses the code field, whose label
+  // is the same text as the heading, so typing the code is the next keystroke.
   React.useEffect(() => {
-    headingRef.current?.focus();
+    if (step !== 'code') headingRef.current?.focus();
   }, [step]);
 
   const start = useMutation({

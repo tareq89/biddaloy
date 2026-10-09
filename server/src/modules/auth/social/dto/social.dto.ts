@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsIn, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
 import { SocialProvider } from '@biddaloy/shared';
 
 export class SocialProvidersDto {
@@ -50,4 +50,25 @@ export class SocialCallbackQueryDto {
   @IsString()
   @MaxLength(200)
   error?: string;
+}
+
+/** Meta posts this form body to the data-deletion callback. */
+export class FacebookDataDeletionDto {
+  @IsString()
+  @MaxLength(4000)
+  signed_request: string;
+}
+
+export class FacebookDataDeletionResponseDto {
+  @ApiProperty()
+  url: string;
+
+  @ApiProperty()
+  confirmation_code: string;
+}
+
+export class FacebookDataDeletionStatusQueryDto {
+  @ApiProperty({ format: 'uuid' })
+  @IsUUID()
+  code: string;
 }

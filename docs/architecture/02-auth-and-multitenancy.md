@@ -409,11 +409,13 @@ flowchart TD
     B -- "code" --> C["POST /auth/otp/request<br/>{ phone } or { email }"]
     C --> V["POST /auth/otp/verify"]
     B -- "Google" --> G["GET /auth/social/google/start"]
+    B -- "Facebook" --> FB["GET /auth/social/facebook/start"]
     V --> N{"needs_password?"}
     N -- yes --> F["First password step<br/>POST /account/first-password"]
     N -- no --> S["Signed in"]
     F --> S
     G --> S
+    FB --> S
 ```
 
 - **Code sign-in works by phone or email.** The identifier is either one.
@@ -430,7 +432,7 @@ flowchart TD
   | Any staff role, or mixed | 8+ characters, upper, lower, digit, special |
   | Only PARENT / STUDENT | 8+ characters, a digit |
 
-- **Google (Facebook is planned: #1647, not built).** The server lists the
+- **Google and Facebook.** The server lists the
   configured providers (`GET /auth/social/providers`) and the UI draws one
   button each. The flow is server-side authorization code with PKCE and
   `state`. Identities live in `user_identities`. **Connecting is always

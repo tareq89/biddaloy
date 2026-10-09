@@ -81,6 +81,50 @@ export const overlayOpeners: Record<string, (page: Page, locale: Locale) => Prom
     await new DetailShellPage(page, locale).clickAction('students.detail.actions.delete');
     await expectDialogOpen(page);
   },
+  // [13.7.1] The trial bar's details dialog. The seeded admin's school is not
+  // in a trial, so the onboarding status is patched on the way in to look like
+  // one (4 of 10 students, a support link so the contact button is scanned too).
+  '/dashboard::trial-details': async (page, locale) => {
+    await page.route('**/api/v1/onboarding/status', async (route) => {
+      const response = await route.fetch();
+      const body = (await response.json()) as object;
+      await route.fulfill({
+        response,
+        json: {
+          ...body,
+          trial: {
+            ends_at: new Date(Date.now() + 23 * 86_400_000).toISOString(),
+            days_left: 23,
+            seats: { used: 4, limit: 10 },
+          },
+          support_url: 'https://example.com/help',
+        },
+      });
+    });
+    await page.reload();
+    await page.getByRole('button', { name: makeT(locale)('trial.details.open') }).click();
+    await expectDialogOpen(page);
+  },
+  // `$schoolId` resolves to the seeded trial school (`responsive/routes.ts`),
+  // the only seeded school whose page has a trial card.
+  '/schools/$schoolId::extend-trial': async (page, locale) => {
+    await page
+      .getByRole('button', { name: makeT(locale)('platform.trial.card.extendAction') })
+      .click();
+    await expectDialogOpen(page);
+  },
+  '/security::leave-school': async (page, locale) => {
+    await page.getByRole('button', { name: makeT(locale)('signInMethods.leave.title') }).click();
+    await expectDialogOpen(page);
+  },
+  // Needs a former member: `routes.a11y.spec.ts` leaves one behind first.
+  '/staff::restore-member': async (page, locale) => {
+    await page.goto('/staff?membership=former');
+    const list = new ListShellPage(page, { titleKey: 'staff.list.title' }, locale);
+    await list.expectLoaded();
+    await list.clickRowAction('', 'staff.former.bringBack');
+    await expectDialogOpen(page);
+  },
   // [30.4.1] `ShortcutsSheet` (`ui/src/components/shortcuts-sheet.tsx`) —
   // the `?` keyboard-shortcuts help. It is global, not tied to any one
   // route, so it is deliberately NOT in `route-manifest.json` — that file

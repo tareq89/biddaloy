@@ -7,6 +7,7 @@ import { AuthModule } from '../auth.module';
 import { AccountAccessModule } from '../../account-access/account-access.module';
 import { OTP_REDIS } from '../../account-access/otp.service';
 import { UserIdentity } from '../entities/user-identity.entity';
+import { FacebookProvider } from './providers/facebook.provider';
 import { GoogleProvider } from './providers/google.provider';
 import { SOCIAL_PROVIDERS } from './providers/social-provider';
 import { SocialAuthController } from './social-auth.controller';
@@ -29,10 +30,11 @@ import { SocialTicketService } from './social-ticket.service';
   controllers: [SocialAuthController],
   providers: [
     GoogleProvider,
+    FacebookProvider,
     {
       provide: SOCIAL_PROVIDERS,
-      useFactory: (google: GoogleProvider) => [google],
-      inject: [GoogleProvider],
+      useFactory: (google: GoogleProvider, facebook: FacebookProvider) => [google, facebook],
+      inject: [GoogleProvider, FacebookProvider],
     },
     // The OTP client: same fail-fast settings, one connection instead of two.
     { provide: SOCIAL_REDIS, useExisting: OTP_REDIS },

@@ -595,14 +595,28 @@ export class SeatPlansService {
         .filter((a) => a.room_id === roomId)
         .map((a) => [`${a.exam_schedule_id}:${a.student_id}`, a] as const),
     );
+    const updates = reassigned.flatMap((assignment) => {
+      if (assignment.room_id !== roomId) return [];
+      const existing = byExamAndStudent.get(
+        `${assignment.exam_schedule_id}:${assignment.student_id}`,
+      );
+      return existing ? [{ existing, seat_number: assignment.seat_number }] : [];
+    });
     return this.dataSource.transaction(async (manager) => {
-      for (const assignment of reassigned) {
-        if (assignment.room_id !== roomId) continue;
-        const existing = byExamAndStudent.get(
-          `${assignment.exam_schedule_id}:${assignment.student_id}`,
+      // A reshuffle permutes seats inside the room, so writing row by row hits
+      // IDX_seat_allocations_room_seat (not deferrable) whenever a student
+      // takes a seat another student hasn't left yet. Park the rows being
+      // rewritten on '~' + the start of their own id first: unique per row,
+      // never a seat anyone typed, and within the column's 20 characters.
+      if (updates.length) {
+        await manager.update(
+          SeatAllocation,
+          { id: In(updates.map((u) => u.existing.id)) },
+          { seat_number: () => `'~' || left("id"::text, 19)` },
         );
-        if (!existing) continue;
-        existing.seat_number = assignment.seat_number;
+      }
+      for (const { existing, seat_number } of updates) {
+        existing.seat_number = seat_number;
         await manager.save(SeatAllocation, existing);
       }
       return this.findOne(tenantId, planId);
