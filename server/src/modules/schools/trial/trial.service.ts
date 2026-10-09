@@ -8,6 +8,8 @@ import { AuditAction, SchoolStatus, TRIAL_EXPIRED_REASON } from '@biddaloy/share
 import { School } from '../entities/school.entity';
 import { TenantStatusService } from '../tenant-status.service';
 import { AuditService } from '../../audit/audit.service';
+import { attentionEvents } from '../../attention/attention.constants';
+import { emitRecheck } from '../../attention/engine/attention-events';
 import { AdminNoticeService } from './admin-notice.service';
 import { getSeatUsage } from './seat-limit.service';
 import {
@@ -53,6 +55,8 @@ export class TrialService {
       trial_ends_at: new Date(now.getTime() + days * DAY_MS),
       seat_limit: envPositiveInt(this.config, 'TRIAL_SEAT_LIMIT', DEFAULT_TRIAL_SEAT_LIMIT),
     });
+    // The recheck job is delayed 5 s, long after the caller's commit; the daily run is the backstop.
+    emitRecheck(attentionEvents, { tenantId: schoolId, ruleKey: 'trial.ending' });
   }
 
   /** Pushes the end date out, and reactivates a school the trial had suspended. */
@@ -125,6 +129,11 @@ export class TrialService {
       );
     });
     await this.tenantStatus.invalidate(schoolId);
+    emitRecheck(attentionEvents, {
+      tenantId: schoolId,
+      ruleKey: 'trial.ending',
+      actorUserId: actor.userId ?? undefined,
+    });
     return this.schools.findOneOrFail({ where: { id: schoolId } });
   }
 
