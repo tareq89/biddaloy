@@ -95,7 +95,7 @@ export function useAttentionCenter({ todoTo }: { todoTo: string }) {
       onRetry={() => void items.refetch()}
       onPrimary={(item: AlertItem) => {
         setOpen(false);
-        if (item.actionUrl) void navigate(splitUrl(item.actionUrl) as never);
+        if (item.actionUrl) void navigate({ to: item.actionUrl } as never);
       }}
       onHide={(item) => hide.mutate(item.recipientId)}
       onSnooze={(item, choice, date) =>
