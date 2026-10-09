@@ -33870,8 +33870,8 @@ export interface operations {
                 category?: components["schemas"]["AlertCategory"];
                 sectionId?: string;
                 studentId?: string;
-                page?: components["schemas"]["Object"];
-                pageSize?: components["schemas"]["Object"];
+                page?: number;
+                pageSize?: number;
             };
             header: {
                 /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */

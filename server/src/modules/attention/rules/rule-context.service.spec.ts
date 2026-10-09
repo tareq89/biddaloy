@@ -40,6 +40,16 @@ describe('time helpers', () => {
     expect(endOfLocalDay('2026-10-09', TZ).toISOString()).toBe('2026-10-09T18:00:00.000Z');
     expect(addDaysIso('2026-12-31', 1)).toBe('2027-01-01');
   });
+
+  it('localDateTimeToUtc is right on a DST-start day (New York springs forward at 02:00)', () => {
+    // 03:00 EDT (UTC-4); one correction pass would land on 04:00 EDT.
+    expect(localDateTimeToUtc('2026-03-08', '03:00', 'America/New_York').toISOString()).toBe(
+      '2026-03-08T07:00:00.000Z',
+    );
+    expect(localDateTimeToUtc('2026-03-07', '07:00', 'America/New_York').toISOString()).toBe(
+      '2026-03-07T12:00:00.000Z',
+    );
+  });
 });
 
 describe('RuleContextService.build', () => {
