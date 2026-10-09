@@ -20,6 +20,7 @@ import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { ROUTE_CRUMBS, type RouteCrumbs } from './route-crumbs';
+import { applicationDto } from './routes/_staff/applications/-detail/-application-fixture';
 import { routeTree } from './routeTree.gen';
 import { ENTITY_RESOLVERS } from './use-breadcrumbs';
 
@@ -91,7 +92,9 @@ describe('useBreadcrumbs (wired into _staff.tsx)', () => {
   it('[52.4.1] application detail: cached detail names the crumb "type — applicant" and the tab title', async () => {
     server.use(
       http.get('/api/v1/applications/:id', () =>
-        HttpResponse.json({ id: 'app-1', type: 'FEE_WAIVER', applicant_name: 'Rahim Uddin' }),
+        HttpResponse.json(
+          applicationDto({ id: 'app-1', type: 'FEE_WAIVER', applicant_name: 'Rahim Uddin' }),
+        ),
       ),
     );
 
