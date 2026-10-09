@@ -106,6 +106,30 @@ describe('RegisterEditGrid', () => {
     expect(document.activeElement).toBe(cell(/Rina, .*3.*: Not marked/));
   });
 
+  it('keeps one cell in the tab order when a reload drops the focused row', async () => {
+    // A same-month reload keeps the grid mounted; here Rina has left the section.
+    const grid = (m: RegisterMatrix) => (
+      <RegionConfigProvider value={REGION_BD_EN}>
+        <RegisterEditGrid
+          matrix={m}
+          draft={new Map()}
+          onDraftChange={() => {}}
+          today="2026-01-03"
+          caption="Register"
+          onCancel={() => {}}
+        />
+      </RegionConfigProvider>
+    );
+    const { rerender } = renderWithProviders(grid(matrix), { tenantId: 'tenant-1', locale: 'en' });
+    (await screen.findByRole('gridcell', { name: /Rina, .*3.*: Not marked/ })).focus();
+    rerender(grid({ ...matrix, rows: [matrix.rows[0]!] }));
+
+    const stops = screen
+      .getAllByRole('gridcell')
+      .filter((el) => el.getAttribute('tabindex') === '0');
+    expect(stops).toEqual([cell(/Karim, .*3.*: Not marked/)]);
+  });
+
   it('P / A / L / E set the status and mark the cell changed', async () => {
     const user = userEvent.setup();
     renderGrid();

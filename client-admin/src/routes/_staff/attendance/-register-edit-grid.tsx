@@ -135,6 +135,13 @@ export function RegisterEditGrid({
     r: 0,
     c: Math.max(firstEditable, 0),
   });
+  // A same-month reload keeps this grid mounted but can drop a row (a student
+  // left) or a column's editability, so clamp the tab stop to what's rendered:
+  // without one cell at tabIndex 0, Tab can't reach the grid at all.
+  const tabStop = {
+    r: Math.min(active.r, rows.length - 1),
+    c: editable[active.c] ? active.c : Math.max(firstEditable, 0),
+  };
   const gridRef = React.useRef<HTMLTableElement>(null);
 
   const focusCell = (r: number, c: number) => {
@@ -279,7 +286,7 @@ export function RegisterEditGrid({
                     data-pos={`${r},${c}`}
                     data-changed={changed || undefined}
                     aria-label={label}
-                    tabIndex={active.r === r && active.c === c ? 0 : -1}
+                    tabIndex={tabStop.r === r && tabStop.c === c ? 0 : -1}
                     onFocus={() => setActive({ r, c })}
                     onKeyDown={(e) => onCellKeyDown(e, r, c)}
                     onClick={() => onCellClick(r, c)}
