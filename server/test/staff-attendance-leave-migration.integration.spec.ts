@@ -204,6 +204,12 @@ describe('StaffAttendanceLeave1789800014000 (integration)', () => {
     await queryRunner.startTransaction();
     try {
       const migration = new StaffAttendanceLeave1789800014000();
+      // [52.1.2] The applications tables (a later migration) reference
+      // staff_profiles, so drop them first. The whole transaction is rolled
+      // back below, so this never touches the shared schema.
+      await queryRunner.query(
+        `DROP TABLE "application_attachments", "application_tags", "application_events", "applications" CASCADE`,
+      );
       // Roll back to pre-migration shape: no staff_profiles table, no
       // teachers.staff_profile_id column.
       await migration.down(queryRunner);
