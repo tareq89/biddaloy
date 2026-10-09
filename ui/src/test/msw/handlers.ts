@@ -3,6 +3,7 @@ import type { HttpHandler } from 'msw';
 import { academicYearDefaultHandlers } from './handlers/academic-years';
 import { acrDefaultHandlers } from './handlers/acr';
 import { applicationDefaultHandlers } from './handlers/applications';
+import { attentionDefaultHandlers } from './handlers/attention';
 import { auditLogDefaultHandlers } from './handlers/audit-logs';
 import { authDefaultHandlers } from './handlers/auth';
 import { backupDefaultHandlers } from './handlers/backup';
@@ -76,6 +77,7 @@ export const handlers: readonly HttpHandler[] = [
   ...publicHolidaySetsDefaultHandlers,
   ...acrDefaultHandlers,
   ...incidentDefaultHandlers,
+  ...attentionDefaultHandlers,
   ...surveyDefaultHandlers,
   ...performanceDefaultHandlers,
   ...applicationDefaultHandlers,
