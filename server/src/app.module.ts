@@ -69,6 +69,8 @@ import { AcrCriterion } from './modules/acr/entities/acr-criterion.entity';
 import { AcrAssessment } from './modules/acr/entities/acr-assessment.entity';
 import { AcrScore } from './modules/acr/entities/acr-score.entity';
 import { StaffIncident } from './modules/incidents/entities/staff-incident.entity';
+import { Alert } from './modules/attention/entities/alert.entity';
+import { AlertRecipient } from './modules/attention/entities/alert-recipient.entity';
 import { Survey } from './modules/surveys/entities/survey.entity';
 import { SurveyQuestion } from './modules/surveys/entities/survey-question.entity';
 import { SurveyTarget } from './modules/surveys/entities/survey-target.entity';
@@ -340,6 +342,8 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
             AcrAssessment,
             AcrScore,
             StaffIncident,
+            Alert,
+            AlertRecipient,
             Survey,
             SurveyQuestion,
             SurveyTarget,
