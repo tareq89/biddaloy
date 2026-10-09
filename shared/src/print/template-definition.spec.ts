@@ -183,4 +183,13 @@ describe('placeholders and issue fields [48.1.01] D43', () => {
     ).toHaveLength(1);
     expect(validateIssueValues(d, K, { 'issue.conduct': 'Good' })).toEqual([]);
   });
+
+  it('partial (preview) lets a missing value through but still refuses bad ones', () => {
+    const d = parse([text({ field: 'issue.conduct' })]);
+    expect(validateIssueValues(d, K, {}, { partial: true })).toEqual([]);
+    expect(
+      validateIssueValues(d, K, { 'issue.conduct': 'x'.repeat(121) }, { partial: true }),
+    ).toHaveLength(1);
+    expect(validateIssueValues(d, K, { 'issue.other': 'x' }, { partial: true })).toHaveLength(1);
+  });
 });

@@ -25,7 +25,7 @@ import { ApiTenantAuth } from '../../../common/decorators/api-tenant-auth.decora
 import { PrintJobsService } from './print-jobs.service';
 import { CreatePrintJobDto, PreviewPrintJobDto } from './dto/print-job.dto';
 
-class PhotoQueryDto {
+export class PhotoQueryDto {
   @IsIn(['STUDENT', 'STAFF'])
   subject_type: 'STUDENT' | 'STAFF';
 

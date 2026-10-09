@@ -127,6 +127,7 @@ function VerifiedDocument({
     [t('rows.issuedOn'), formatDate(data.issued_at, region)],
     [t('rows.copy'), formatNumber(data.copy_number, region)],
   ];
+  if (data.serial) rows.push([t('rows.serial'), data.serial]);
   const StatusIcon = valid ? CircleCheck : TriangleAlert;
 
   return (

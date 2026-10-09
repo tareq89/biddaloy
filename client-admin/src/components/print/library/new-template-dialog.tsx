@@ -22,13 +22,14 @@ import { useCreatePrintTemplate, usePrintSuggestions } from '@biddaloy/ui/hooks'
 import { useTranslation } from '@biddaloy/ui/i18n';
 import * as React from 'react';
 
-import { SuggestionCard } from './suggestion-card';
+import {
+  PRINT_KIND_ORDER,
+  SuggestionCard,
+  isIdCardSuggestion,
+  suggestionNameKey,
+} from './suggestion-card';
 
-const KINDS = [
-  DocumentKind.STUDENT_ID_CARD,
-  DocumentKind.STAFF_ID_CARD,
-  DocumentKind.ACR_ASSESSMENT,
-] as const;
+const KINDS = PRINT_KIND_ORDER;
 
 export interface NewTemplateDialogProps {
   open: boolean;
@@ -61,10 +62,12 @@ export function NewTemplateDialog({
   const defaultName = selected
     ? selected.documentKind === DocumentKind.ACR_ASSESSMENT
       ? t('defaultNameAcr')
-      : t('defaultName', {
-          style: t(`style.${selected.style}`),
-          orientation: t(`orientation.${selected.orientation}`),
-        })
+      : isIdCardSuggestion(selected)
+        ? t('defaultName', {
+            style: t(`style.${selected.style}`),
+            orientation: t(`orientation.${selected.orientation}`),
+          })
+        : t(suggestionNameKey(selected))
     : '';
   const name = typedName ?? defaultName;
   const canCreate = Boolean(selected) && name.trim() !== '' && !create.isPending;
@@ -106,7 +109,7 @@ export function NewTemplateDialog({
             setTypedName(undefined);
           }}
         >
-          <TabsList variant="line" aria-label={t('new_dialog.kind')}>
+          <TabsList variant="line" className="flex-wrap" aria-label={t('new_dialog.kind')}>
             {KINDS.map((value) => (
               <TabsTrigger key={value} value={value}>
                 {t(`kind.${value}`)}

@@ -15,6 +15,7 @@ export const PUBLIC_VERIFY_FIELDS = [
   'school_name_bn',
   'issued_at',
   'copy_number',
+  'serial',
   'status',
 ] as const;
 
@@ -25,6 +26,7 @@ export interface PublicVerifyResult {
   school_name_bn: string | null;
   issued_at: string;
   copy_number: number;
+  serial: string | null;
   status: 'VALID' | 'REVOKED';
   revoked_at?: string;
 }
@@ -41,6 +43,7 @@ export class PublicVerifyService {
     const rows = await this.ds.query(
       `SELECT i.document_kind, i.subject_label, i.copy_number, i.revoked_at,
               coalesce(i.data_snapshot->>'issuedAt', i.created_at::text) AS issued_at,
+              i.data_snapshot->'values'->>'print.serial_no' AS serial,
               s.name AS school_name, s.name_bn AS school_name_bn
          FROM print_job_items i
          JOIN schools s ON s.id = i.tenant_id
@@ -56,6 +59,7 @@ export class PublicVerifyService {
       school_name_bn: r.school_name_bn ?? null,
       issued_at: new Date(r.issued_at).toISOString(),
       copy_number: r.copy_number,
+      serial: r.serial || null,
       status: r.revoked_at ? 'REVOKED' : 'VALID',
     };
     if (r.revoked_at) result.revoked_at = new Date(r.revoked_at).toISOString();

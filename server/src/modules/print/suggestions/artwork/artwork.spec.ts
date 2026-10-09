@@ -10,6 +10,8 @@ const FILES = readdirSync(DIR)
 const BOX = {
   portrait: { width: '54mm', height: '85.6mm', viewBox: '0 0 54 85.6' },
   landscape: { width: '85.6mm', height: '54mm', viewBox: '0 0 85.6 54' },
+  admit: { width: '200mm', height: '140mm', viewBox: '0 0 200 140' },
+  a4land: { width: '297mm', height: '210mm', viewBox: '0 0 297 210' },
   a4: { width: '210mm', height: '297mm', viewBox: '0 0 210 297' },
 };
 // The allowlist 32.2.2 enforces (Epic 32.0 #1134).
@@ -21,8 +23,8 @@ const ALLOWED = new Set(
 );
 
 describe('suggestion artwork', () => {
-  it('ships all 17 files (8 card designs x front/back + 1 A4 ACR page)', () => {
-    expect(FILES).toHaveLength(17);
+  it('ships all 20 files (8 card designs x front/back + ACR, admit card and 2 certificate pages)', () => {
+    expect(FILES).toHaveLength(20);
   });
 
   it.each(FILES)('%s is clean, correctly sized background artwork', (file) => {
@@ -32,11 +34,15 @@ describe('suggestion artwork', () => {
     const root = doc.documentElement;
 
     expect(root.localName).toBe('svg');
-    const box = file.startsWith('acr-')
-      ? BOX.a4
-      : file.includes('-landscape-')
-        ? BOX.landscape
-        : BOX.portrait;
+    const box = file.startsWith('admit-card-')
+      ? BOX.admit
+      : file.startsWith('certificate-a4-landscape-')
+        ? BOX.a4land
+        : file.startsWith('certificate-a4-portrait-') || file.startsWith('acr-')
+          ? BOX.a4
+          : file.includes('-landscape-')
+            ? BOX.landscape
+            : BOX.portrait;
     expect(root.getAttribute('viewBox')).toBe(box.viewBox);
     expect(root.getAttribute('width')).toBe(box.width);
     expect(root.getAttribute('height')).toBe(box.height);

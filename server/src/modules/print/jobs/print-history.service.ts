@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -9,7 +10,8 @@ import { DataSource, IsNull } from 'typeorm';
 import { AuditAction, Permission, roleHasPermission } from '@biddaloy/shared';
 import { PrintJobItem } from '../entities/print-job-item.entity';
 import { AuditService } from '../../audit/audit.service';
-import { QueryPrintHistoryDto } from './dto/print-history.dto';
+import { QueryPrintHistoryDto, QueryRegisterDto } from './dto/print-history.dto';
+import { todayInSchoolTz } from '../../../common/time';
 import type { PrintCaller } from './print-jobs.service';
 
 /**
@@ -41,6 +43,18 @@ const acrGate = (role: string, n: string) =>
        SELECT 1 FROM acr_assessments a
         WHERE a.id = i.subject_id AND a.tenant_id = i.tenant_id AND a.user_id = ${n}::uuid)))`;
 
+const SERIAL_TEXT = `i.data_snapshot->'values'->>'print.serial_no'`;
+const REGISTER_MAX_ROWS = 10_000;
+// A register row never carries the snapshot itself, only the two text values read out of it.
+const REGISTER_SELECT = `
+  i.id AS item_id, i.document_kind, ${SERIAL_TEXT} AS serial, i.serial_year, i.serial_no,
+  i.copy_number, i.subject_id, i.subject_label,
+  i.data_snapshot->'values'->>'student.class' AS class_name,
+  i.created_at AS issued_at, u.full_name AS printed_by_name, i.revoked_at, i.revoke_reason`;
+const REGISTER_ORDER = `ORDER BY i.serial_year DESC, i.document_kind, i.serial_no DESC, i.copy_number DESC`;
+
+type QueueExam = { exam_id: string; exam_name: string; class_name: string; missing: number };
+
 const escapeLike = (v: string) => v.replace(/[\\%_]/g, (c) => `\\${c}`);
 
 @Injectable()
@@ -49,6 +63,72 @@ export class PrintHistoryService {
     @InjectDataSource() private readonly ds: DataSource,
     private readonly audit: AuditService,
   ) {}
+
+  /**
+   * D5 / D42: what is still to print, derived (no table) as "should exist" minus "was printed".
+   * A copy counts as printed unless it is revoked or its outcome is FAILED. Also called by the dashboard.
+   */
+  async queueCounts(tenantId: string): Promise<{
+    total: number;
+    by_kind: { kind: string; count: number }[];
+    exams: QueueExam[];
+  }> {
+    const printed = (kind: string, subject: string, context: string) => `
+      EXISTS (SELECT 1 FROM print_job_items i
+               WHERE i.tenant_id = $1 AND i.document_kind = '${kind}' AND i.subject_id = ${subject}
+                 ${context} AND i.revoked_at IS NULL AND i.outcome <> 'FAILED')`;
+    const [exams, idCards]: [QueueExam[], { n: number }[]] = await Promise.all([
+      // Exams with a PUBLISHED seat-plan sitting that are not over yet; missing = ACTIVE students with no good card.
+      this.ds.query(
+        `SELECT q.exam_id, q.exam_name, q.class_name, q.missing FROM (
+           SELECT ex.id AS exam_id, ex.name AS exam_name, c.name AS class_name, ex.first_date,
+                  (SELECT count(*)::int
+                     FROM enrollments en
+                     JOIN students s ON s.id = en.student_id AND s.tenant_id = $1 AND s.deleted_at IS NULL
+                    WHERE en.tenant_id = $1 AND en.class_id = ex.class_id
+                      AND en.academic_year_id = ex.academic_year_id AND en.enrollment_status = 'ACTIVE'
+                      AND NOT ${printed('EXAM_ADMIT_CARD', 's.id', 'AND i.context_id = ex.id')}) AS missing
+             FROM (
+               SELECT e.id, e.name, e.class_id, e.academic_year_id, min(es.date) AS first_date
+                 FROM exams e
+                 JOIN exam_schedules es ON es.exam_id = e.id AND es.tenant_id = $1 AND es.deleted_at IS NULL
+                WHERE e.tenant_id = $1 AND e.deleted_at IS NULL
+                GROUP BY e.id
+               HAVING max(es.date) >= $2::date
+                  AND EXISTS (
+                    SELECT 1 FROM exam_schedules x
+                      JOIN seat_plan_schedules sps ON sps.exam_schedule_id = x.id AND sps.tenant_id = $1 AND sps.deleted_at IS NULL
+                      JOIN seat_plans sp ON sp.id = sps.seat_plan_id AND sp.tenant_id = $1
+                       AND sp.status = 'PUBLISHED' AND sp.deleted_at IS NULL
+                     WHERE x.exam_id = e.id AND x.tenant_id = $1 AND x.deleted_at IS NULL)
+             ) ex
+             JOIN classes c ON c.id = ex.class_id AND c.tenant_id = $1
+         ) q WHERE q.missing > 0 ORDER BY q.first_date, q.exam_name, q.exam_id`,
+        [tenantId, todayInSchoolTz()],
+      ),
+      this.ds.query(
+        `SELECT count(*)::int AS n FROM students s
+          WHERE s.tenant_id = $1 AND s.deleted_at IS NULL AND s.enrollment_status = 'ACTIVE'
+            AND NOT ${printed('STUDENT_ID_CARD', 's.id', '')}`,
+        [tenantId],
+      ),
+    ]);
+    const admit = exams.reduce((n, e) => n + e.missing, 0);
+    const id = idCards[0].n;
+    const by_kind = [
+      { kind: 'EXAM_ADMIT_CARD', count: admit },
+      { kind: 'STUDENT_ID_CARD', count: id },
+    ].filter((k) => k.count > 0);
+    return {
+      total: admit + id,
+      by_kind,
+      exams,
+    };
+  }
+
+  queue(caller: PrintCaller) {
+    return this.queueCounts(caller.tenantId);
+  }
 
   /** Builds the WHERE for the list. Every value is a bound parameter. */
   private where(caller: PrintCaller, q: QueryPrintHistoryDto) {
@@ -78,6 +158,58 @@ export class PrintHistoryService {
     if (q.revoked === false) clauses.push('i.revoked_at IS NULL');
     if (q.q) add((n) => `i.subject_label ILIKE ${n} ESCAPE '\\'`, `%${escapeLike(q.q as string)}%`);
     return { sql: clauses.join(' AND '), params };
+  }
+
+  /** Register WHERE: only serial rows; every value is a bound parameter. */
+  private registerWhere(caller: PrintCaller, q: QueryRegisterDto) {
+    // No ACR gate: only certificates carry a serial, so an ACR row can never be here.
+    const params: unknown[] = [caller.tenantId];
+    const clauses = ['i.tenant_id = $1', 'i.serial_no IS NOT NULL'];
+    const add = (sql: (n: string) => string, value: unknown) => {
+      params.push(value);
+      clauses.push(sql(`$${params.length}`));
+    };
+    if (q.document_kind) add((n) => `i.document_kind = ${n}`, q.document_kind);
+    if (q.year) add((n) => `i.serial_year = ${n}`, q.year);
+    if (q.status === 'VALID') clauses.push('i.revoked_at IS NULL');
+    if (q.status === 'REVOKED') clauses.push('i.revoked_at IS NOT NULL');
+    if (q.q) {
+      add(
+        (n) => `(i.subject_label ILIKE ${n} ESCAPE '\\' OR ${SERIAL_TEXT} ILIKE ${n} ESCAPE '\\')`,
+        `%${escapeLike(q.q as string)}%`,
+      );
+    }
+    return { sql: clauses.join(' AND '), params };
+  }
+
+  /** D33: every issued certificate copy, by serial. Revoked copies stay in the list. */
+  async register(caller: PrintCaller, q: QueryRegisterDto) {
+    const page = q.page || 1;
+    const limit = q.limit || 20;
+    const { sql, params } = this.registerWhere(caller, q);
+    const [data, count] = await Promise.all([
+      this.ds.query(
+        `SELECT ${REGISTER_SELECT} ${ROW_FROM} WHERE ${sql} ${REGISTER_ORDER}
+          LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+        [...params, limit, (page - 1) * limit],
+      ),
+      this.ds.query(`SELECT count(*)::int AS n ${ROW_FROM} WHERE ${sql}`, params),
+    ]);
+    const total = count[0].n as number;
+    return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
+  }
+
+  /** Same rows as `register()`, unpaged, capped so an export can't exhaust memory. */
+  async registerCsvRows(caller: PrintCaller, q: QueryRegisterDto) {
+    const { sql, params } = this.registerWhere(caller, q);
+    const rows = await this.ds.query(
+      `SELECT ${REGISTER_SELECT} ${ROW_FROM} WHERE ${sql} ${REGISTER_ORDER} LIMIT ${REGISTER_MAX_ROWS + 1}`,
+      params,
+    );
+    if (rows.length > REGISTER_MAX_ROWS) {
+      throw new BadRequestException('Too many rows — narrow the filter');
+    }
+    return rows;
   }
 
   async list(caller: PrintCaller, q: QueryPrintHistoryDto) {
