@@ -76,6 +76,11 @@ export function AttentionModal({
   const cards = () =>
     Array.from(listRef.current?.querySelectorAll<HTMLElement>('[data-alert-item]') ?? []);
 
+  // The cards may arrive after the dialog opens (onOpenAutoFocus finds none): focus the first once they do.
+  React.useEffect(() => {
+    if (open && !loading && !listRef.current?.contains(document.activeElement)) cards()[0]?.focus();
+  }, [open, loading]);
+
   function handleKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
     const target = event.target as HTMLElement;
     // React bubbles events out of portals (the snooze menu and date dialog); only handle our own DOM.
