@@ -1376,4 +1376,49 @@ describe('EnrollmentService (integration)', () => {
       expect(logs).toHaveLength(1);
     });
   });
+
+  describe('with a caller-supplied manager [52.1.4]', () => {
+    async function seedEnrollment() {
+      const student = await buildStudent();
+      const enrollment = await service.create(
+        {
+          student_id: student.id,
+          class_id: SEED_CLASS_1_ID,
+          section_id: SEED_SECTION_1_ID,
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+        },
+        TENANT_ID,
+      );
+      return { student, enrollment };
+    }
+    const move = { class_id: SEED_CLASS_2_ID, section_id: SEED_CLASS_2_SECTION_ID };
+    const ctx = { ip: null, userAgent: null };
+
+    it('returns the updated row while still inside the transaction', async () => {
+      const { enrollment } = await seedEnrollment();
+      await dataSource.transaction(async (m) => {
+        const updated = await service.update(enrollment.id, move, TENANT_ID, null, ctx, m);
+        expect(updated.section_id).toBe(SEED_CLASS_2_SECTION_ID);
+      });
+    });
+
+    it('rolls enrollment, student and audit back when the caller throws', async () => {
+      const { student, enrollment } = await seedEnrollment();
+      await expect(
+        dataSource.transaction(async (m) => {
+          await service.update(enrollment.id, move, TENANT_ID, null, ctx, m);
+          throw new Error('rollback');
+        }),
+      ).rejects.toThrow('rollback');
+      const reloaded = await enrollmentRepo.findOneByOrFail({ id: enrollment.id });
+      expect(reloaded.section_id).toBe(SEED_SECTION_1_ID);
+      const stu = await studentRepo.findOneByOrFail({ id: student.id });
+      expect(stu.class_section_id).toBe(SEED_SECTION_1_ID);
+      const audits = await dataSource.query(
+        `SELECT id FROM audit_logs WHERE entity_id = $1 AND action = 'UPDATE'`,
+        [enrollment.id],
+      );
+      expect(audits).toHaveLength(0);
+    });
+  });
 });

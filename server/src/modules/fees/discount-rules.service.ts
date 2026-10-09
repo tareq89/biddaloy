@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { DataSource, In, Repository } from 'typeorm';
+import { DataSource, EntityManager, In, Repository } from 'typeorm';
 import { ApprovalScope, AuditAction, DiscountKind, FeeType } from '@biddaloy/shared';
 import { DiscountRule } from './entities/discount-rule.entity';
 import { FeeStructure } from './entities/fee-structure.entity';
@@ -67,8 +67,13 @@ export class DiscountRulesService implements DiscountResolver {
    * and every other tenant-scoped write in this module — e.g.
    * `FeeGenerationService` — validates the same way, in the service, not
    * the schema). */
-  private async assertStudentInTenant(tenantId: string, studentId: string): Promise<void> {
-    const student = await this.studentRepo.findOne({
+  private async assertStudentInTenant(
+    tenantId: string,
+    studentId: string,
+    manager?: EntityManager,
+  ): Promise<void> {
+    const studentRepo = manager ? manager.getRepository(Student) : this.studentRepo;
+    const student = await studentRepo.findOne({
       where: { id: studentId, tenant_id: tenantId },
     });
     if (!student) {
@@ -205,10 +210,13 @@ export class DiscountRulesService implements DiscountResolver {
     userId: string,
     approverUserId: string,
     dto: CreateDiscountRuleDto,
+    manager?: EntityManager,
   ): Promise<DiscountRule> {
-    await this.assertStudentInTenant(tenantId, dto.student_id);
+    await this.assertStudentInTenant(tenantId, dto.student_id, manager);
     this.assertWindowNotReversed(dto.starts_on ?? null, dto.ends_on ?? null);
-    return this.dataSource.transaction(async (manager) => {
+    const run = <T>(fn: (m: EntityManager) => Promise<T>) =>
+      manager ? fn(manager) : this.dataSource.transaction(fn);
+    return run(async (manager) => {
       const repo = manager.getRepository(DiscountRule);
       const rule = repo.create({
         tenant_id: tenantId,

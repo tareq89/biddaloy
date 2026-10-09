@@ -595,4 +595,52 @@ describe('DiscountRulesService (integration)', () => {
       expect(resultA.amount).toBe(100); // never picks up SECOND_STUDENT_ID's 999
     });
   });
+
+  describe('with a caller-supplied manager [52.1.4]', () => {
+    const dto = {
+      student_id: STUDENT_ID,
+      kind: DiscountKind.FLAT,
+      value: 100,
+      reason: 'Approved application',
+    };
+    const auditRows = (entityId: string) =>
+      ds.query(`SELECT id FROM audit_logs WHERE entity_id = $1`, [entityId]);
+
+    it('rolls the rule and its audit row back with the caller transaction', async () => {
+      let ruleId = '';
+      await expect(
+        ds.transaction(async (m) => {
+          const rule = await service.create(SEED_TENANT_ID, APPROVER_ID, APPROVER_ID, dto, m);
+          ruleId = rule.id;
+          throw new Error('rollback');
+        }),
+      ).rejects.toThrow('rollback');
+      expect(ruleId).not.toBe('');
+      expect(await ruleRepo.count({ where: { id: ruleId } })).toBe(0);
+      expect(await auditRows(ruleId)).toHaveLength(0);
+    });
+
+    it('commits the rule and audit row with the caller transaction', async () => {
+      const rule = await ds.transaction((m) =>
+        service.create(SEED_TENANT_ID, APPROVER_ID, APPROVER_ID, dto, m),
+      );
+      const saved = await ruleRepo.findOneByOrFail({ id: rule.id });
+      expect(saved.approved_by_user_id).toBe(APPROVER_ID);
+      expect(await auditRows(rule.id)).toHaveLength(1);
+    });
+
+    it('still rejects a student from another tenant', async () => {
+      await expect(
+        ds.transaction((m) =>
+          service.create(
+            SEED_TENANT_ID,
+            APPROVER_ID,
+            APPROVER_ID,
+            { ...dto, student_id: OTHER_STUDENT_ID },
+            m,
+          ),
+        ),
+      ).rejects.toThrow('Student not found in this tenant');
+    });
+  });
 });
