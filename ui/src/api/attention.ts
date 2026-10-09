@@ -1,8 +1,4 @@
-import type {
-  AlertCategory,
-  AlertItem,
-  AttentionSummary as SharedAttentionSummary,
-} from '@biddaloy/shared';
+import type { AlertCategory, AlertItem, AttentionSummary } from '@biddaloy/shared';
 
 import { apiClient } from './client';
 import type { components } from './schema';
@@ -12,9 +8,7 @@ import type { components } from './schema';
  * Plain functions, no React — hooks live in `hooks/attention/`.
  */
 
-export type { AlertItem };
-/** The shared type predates D19's `activeTotal` (bell badge count); the wire has it. */
-export type AttentionSummary = SharedAttentionSummary & { activeTotal: number };
+export type { AlertItem, AttentionSummary };
 export type AlertItemsPage = components['schemas']['AlertItemsPageDto'];
 export type StudentAlert = components['schemas']['StudentAlertDto'];
 export type PlatformAttentionHealth = components['schemas']['PlatformAttentionHealthDto'];

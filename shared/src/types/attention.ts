@@ -68,6 +68,8 @@ export interface AttentionSummary {
   critical: number;
   warning: number;
   reminder: number;
+  /** Open + hidden alerts for the bell badge (D19); the bar counts only open. */
+  activeTotal: number;
   top: AlertItem | null;
   updatedAt: string | null;
   staleMinutes: number;
