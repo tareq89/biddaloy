@@ -169,6 +169,7 @@ import { FinesController } from './fines/fines.controller';
     RecurringSchedulesService,
     WalletService,
     CheckoutCartService,
+    DiscountRulesService,
   ],
 })
 export class FeeModule {}

@@ -241,8 +241,12 @@ export class EnrollmentService {
     tenantId: string,
     userId: string | null = null,
     context: RequestContext = { ip: null, userAgent: null },
+    manager?: EntityManager,
   ): Promise<Enrollment> {
-    const enrollment = await this.repo.findOne({
+    const repo = manager ? manager.getRepository(Enrollment) : this.repo;
+    const classRepo = manager ? manager.getRepository(Class) : this.classRepo;
+    const sectionRepo = manager ? manager.getRepository(ClassSection) : this.sectionRepo;
+    const enrollment = await repo.findOne({
       where: { id, tenant_id: tenantId },
       relations: ['class', 'section'],
     });
@@ -265,7 +269,7 @@ export class EnrollmentService {
     // year would leave `class_id` and `academic_year_id` pointing at two
     // different years on the same row.
     if (classChanging) {
-      const cls = await this.classRepo.findOne({
+      const cls = await classRepo.findOne({
         where: { id: dto.class_id, tenant_id: tenantId, deleted_at: IsNull() },
       });
       if (!cls) {
@@ -288,7 +292,7 @@ export class EnrollmentService {
     // Validate section_id against the *target* class (the new one if
     // changing, otherwise the enrollment's current class).
     if (dto.section_id) {
-      const section = await this.sectionRepo.findOne({
+      const section = await sectionRepo.findOne({
         where: {
           id: dto.section_id,
           class_id: dto.class_id ?? enrollment.class_id,
@@ -311,8 +315,9 @@ export class EnrollmentService {
     // index) already rejects this at the database level. Pre-checking
     // here just turns that into a clean 409 instead of a raw DB error.
     if (targetStatus === EnrollmentStatus.ACTIVE) {
-      const conflictingActive = await this.repo.findOne({
+      const conflictingActive = await repo.findOne({
         where: {
+          tenant_id: tenantId,
           student_id: enrollment.student_id,
           academic_year_id: enrollment.academic_year_id,
           enrollment_status: EnrollmentStatus.ACTIVE,
@@ -340,7 +345,9 @@ export class EnrollmentService {
     const changedKeys = Object.keys(dto);
     const oldValues = Object.fromEntries(changedKeys.map((key) => [key, (enrollment as any)[key]]));
 
-    await this.repo.manager.transaction(async (manager) => {
+    const run = <T>(fn: (m: EntityManager) => Promise<T>) =>
+      manager ? fn(manager) : this.repo.manager.transaction(fn);
+    await run(async (manager) => {
       await manager.getRepository(Enrollment).update({ id, tenant_id: tenantId }, dto);
 
       if (shouldSyncStudent) {
@@ -365,8 +372,8 @@ export class EnrollmentService {
       }
     });
 
-    return this.repo.findOne({
-      where: { id },
+    return repo.findOne({
+      where: { id, tenant_id: tenantId },
       relations: ['class', 'section', 'academic_year'],
     }) as Promise<Enrollment>;
   }

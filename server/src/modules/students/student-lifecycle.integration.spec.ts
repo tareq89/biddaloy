@@ -400,4 +400,53 @@ describe('StudentLifecycleService (integration)', () => {
     const events = await service.listEvents(studentId, SEED_TENANT_ID);
     expect(events.map((e) => e.event_type)).toEqual(['READMITTED', 'WITHDRAWN']);
   });
+
+  describe('with a caller-supplied manager [52.1.4]', () => {
+    it('leave(..., m) then throw leaves enrollment, student and events untouched', async () => {
+      const { studentId, enrollmentId } = await seedStudent();
+      await expect(
+        ds.transaction(async (m) => {
+          await service.leave(studentId, leaveDto(), SEED_TENANT_ID, USER, CTX, m);
+          throw new Error('rollback');
+        }),
+      ).rejects.toThrow('rollback');
+      const [enr] = await q(`SELECT enrollment_status FROM enrollments WHERE id = $1`, [
+        enrollmentId,
+      ]);
+      expect(enr.enrollment_status).toBe('ACTIVE');
+      const [stu] = await q(`SELECT enrollment_status FROM students WHERE id = $1`, [studentId]);
+      expect(stu.enrollment_status).toBe('ACTIVE');
+      expect(
+        await q(`SELECT id FROM student_lifecycle_events WHERE student_id = $1`, [studentId]),
+      ).toHaveLength(0);
+    });
+
+    it('readmit(..., m) then throw writes no READMITTED event and does not reactivate', async () => {
+      const { studentId, enrollmentId } = await seedStudent();
+      await service.leave(studentId, leaveDto(), SEED_TENANT_ID, USER, CTX);
+      await expect(
+        ds.transaction(async (m) => {
+          await service.readmit(
+            studentId,
+            readmitDto(SEED_SECTION_1_ID),
+            SEED_TENANT_ID,
+            USER,
+            CTX,
+            m,
+          );
+          throw new Error('rollback');
+        }),
+      ).rejects.toThrow('rollback');
+      const [enr] = await q(`SELECT enrollment_status FROM enrollments WHERE id = $1`, [
+        enrollmentId,
+      ]);
+      expect(enr.enrollment_status).toBe('INACTIVE');
+      expect(
+        await q(
+          `SELECT id FROM student_lifecycle_events WHERE student_id = $1 AND event_type = 'READMITTED'`,
+          [studentId],
+        ),
+      ).toHaveLength(0);
+    });
+  });
 });
