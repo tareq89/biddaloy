@@ -14,15 +14,17 @@ const options = [
   },
 ];
 
+function Controlled(args: React.ComponentProps<typeof ChoiceCards>) {
+  const [value, setValue] = React.useState(args.value);
+  return <ChoiceCards {...args} value={value} onValueChange={setValue} />;
+}
+
 const meta: Meta<typeof ChoiceCards> = {
   title: 'Components/ChoiceCards',
   component: ChoiceCards,
   tags: ['autodocs'],
   args: { label: 'Certificate kind', options, value: 'testimonial', onValueChange: () => {} },
-  render: (args) => {
-    const [value, setValue] = React.useState(args.value);
-    return <ChoiceCards {...args} value={value} onValueChange={setValue} />;
-  },
+  render: (args) => <Controlled {...args} />,
 };
 export default meta;
 type Story = StoryObj<typeof ChoiceCards>;
