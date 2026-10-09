@@ -1,31 +1,34 @@
 /**
- * `/notifications` — [8.14.11]'s full-height view of the bell's history.
- * That history is stored per user + school in the browser (D4) and
- * `NotificationList` renders it a step at a time as the user scrolls.
+ * `/notifications` — "Alerts & notifications" (67.2.05). A To-do tab (default)
+ * and a History tab, both rendered by the shared `AttentionWorklist`. The tab
+ * and the filters live in the URL.
  *
- * No `RequireRole`/`RequirePermission` of its own: `_staff.tsx` already
- * gates the whole layout on `STAFF_ROLES`, and this content is the
- * signed-in user's own history, not tenant data that needs a
- * finer-grained check.
- *
- * Not built on `ListShell` — that shell wraps a `DataTable`, and this is a
- * feed, not a table. An empty history gets the kit `EmptyState` here
- * instead of `NotificationList`'s own bare paragraph.
+ * No `RequireRole`/`RequirePermission` of its own: `_staff.tsx` already gates
+ * the whole layout on `STAFF_ROLES`, and the list is the signed-in user's own.
  */
-import { markAllNotificationsRead, markNotificationRead } from '@biddaloy/ui/api';
-import { Card, EmptyState, NotificationList, RoutePending } from '@biddaloy/ui/components';
-import { useNotifications, useUnreadNotificationCount } from '@biddaloy/ui/hooks';
-import { useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
-import { PageContainer, PageHeader } from '@biddaloy/ui/shells';
-import { formatNumber } from '@biddaloy/ui/utils';
+import { RoutePending } from '@biddaloy/ui/components';
+import { useTranslation } from '@biddaloy/ui/i18n';
 import { createFileRoute } from '@tanstack/react-router';
-import { Bell, CheckCheck } from 'lucide-react';
-import * as React from 'react';
+import { z } from 'zod';
 
+import { AttentionWorklist } from '../../features/attention/attention-worklist';
 import { loadRouteNamespaces } from '../../route-loaders';
 
+const searchSchema = z.object({
+  tab: z.enum(['active', 'history']).optional().catch(undefined),
+  // Landing flag from the palette: the shell opens the to-do modal on it (67.2.04).
+  alerts: z.literal(1).optional().catch(undefined),
+  category: z.string().optional().catch(undefined),
+  class_id: z.string().optional().catch(undefined),
+  section_id: z.string().optional().catch(undefined),
+  page: z.number().int().positive().optional().catch(undefined),
+  limit: z.number().int().positive().optional().catch(undefined),
+  selected: z.string().optional().catch(undefined),
+});
+
 export const Route = createFileRoute('/_staff/notifications')({
-  loader: () => loadRouteNamespaces('nav'),
+  validateSearch: searchSchema,
+  loader: () => loadRouteNamespaces('nav', 'attention'),
   pendingComponent: NotificationsPending,
   component: NotificationsPage,
 });
@@ -36,69 +39,14 @@ function NotificationsPending() {
 }
 
 function NotificationsPage() {
-  const { t } = useTranslation('nav');
-  const notifications = useNotifications();
-  const unreadCount = useUnreadNotificationCount();
-  const config = useTenantRegionConfig();
-  const feedRef = React.useRef<HTMLDivElement>(null);
-
-  const description = t('notifications.pageDescription');
-  // The count leads: `PageHeader` truncates the subtitle on narrow screens.
-  const subtitle =
-    unreadCount > 0
-      ? [
-          // `count` only picks the plural form; `n` is the tenant-formatted number.
-          t('notifications.unreadCount', {
-            count: unreadCount,
-            n: formatNumber(unreadCount, config),
-          }),
-          description,
-        ].join(' · ')
-      : description;
-
+  const { tab = 'active' } = Route.useSearch();
+  const navigate = Route.useNavigate();
   return (
-    <PageContainer size="narrow">
-      <PageHeader
-        title={t('notifications.pageTitle')}
-        subtitle={subtitle}
-        actions={[
-          {
-            id: 'mark-all-read',
-            label: t('notifications.markAllRead'),
-            priority: 'primary',
-            icon: <CheckCheck />,
-            // Hidden, not disabled, when there is nothing unread.
-            allowed: unreadCount > 0,
-            onClick: () => {
-              markAllNotificationsRead();
-              // The button unmounts now; keep keyboard focus on the page.
-              feedRef.current?.focus();
-            },
-          },
-        ]}
-      />
-      {/* Focused after "Mark all read" unmounts: a keyboard user sees where focus went. */}
-      <div
-        ref={feedRef}
-        tabIndex={-1}
-        className="space-y-6 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-      >
-        {notifications.length === 0 ? (
-          <EmptyState
-            icon={<Bell />}
-            title={t('notifications.emptyTitle')}
-            explanation={t('notifications.emptyDescription')}
-          />
-        ) : (
-          <Card className="p-2">
-            <NotificationList
-              notifications={notifications}
-              onMarkRead={markNotificationRead}
-              emptyLabel={t('notifications.empty')}
-            />
-          </Card>
-        )}
-      </div>
-    </PageContainer>
+    <AttentionWorklist
+      scope="staff"
+      tab={tab}
+      // Filters belong to a tab: drop them when switching.
+      onTabChange={(next) => void navigate({ search: { tab: next } })}
+    />
   );
 }
