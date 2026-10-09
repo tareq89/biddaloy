@@ -176,6 +176,21 @@ describe('resolveTenantSettings', () => {
     );
   });
 
+  describe('applications.smsOnDecision (52.2.6)', () => {
+    it('is absent by default and passes a stored boolean through', () => {
+      expect(resolveTenantSettings({})).not.toHaveProperty('applications');
+      expect(resolveTenantSettings({ applications: { smsOnDecision: true } })).toMatchObject({
+        applications: { smsOnDecision: true },
+      });
+    });
+
+    it('drops a non-boolean value', () => {
+      expect(resolveTenantSettings({ applications: { smsOnDecision: 'yes' } })).not.toHaveProperty(
+        'applications',
+      );
+    });
+  });
+
   describe('evaluations.incidentSmsEnabled (28.4.7)', () => {
     it('is absent by default, passes a stored boolean through, drops junk', () => {
       expect(resolveTenantSettings({})).not.toHaveProperty('evaluations');
