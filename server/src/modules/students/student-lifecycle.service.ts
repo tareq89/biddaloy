@@ -74,8 +74,11 @@ export class StudentLifecycleService {
     tenantId: string,
     userId: string | null,
     context: RequestContext,
+    manager?: EntityManager,
   ): Promise<StudentLifecycleEvent> {
-    return this.eventRepo.manager.transaction(async (manager) => {
+    const run = <T>(fn: (m: EntityManager) => Promise<T>) =>
+      manager ? fn(manager) : this.eventRepo.manager.transaction(fn);
+    return run(async (manager) => {
       const student = await this.lockStudent(manager, studentId, tenantId);
 
       const enrollmentRepo = manager.getRepository(Enrollment);
@@ -159,8 +162,11 @@ export class StudentLifecycleService {
     tenantId: string,
     userId: string | null,
     context: RequestContext,
+    manager?: EntityManager,
   ): Promise<StudentLifecycleEvent> {
-    return this.eventRepo.manager.transaction(async (manager) => {
+    const run = <T>(fn: (m: EntityManager) => Promise<T>) =>
+      manager ? fn(manager) : this.eventRepo.manager.transaction(fn);
+    return run(async (manager) => {
       // [13.2.3] Re-activating takes a seat. School lock first, then the student row: the same
       // order StudentService.create uses, so the two can never deadlock. The seat check runs
       // after "already active": that student already holds a seat.
