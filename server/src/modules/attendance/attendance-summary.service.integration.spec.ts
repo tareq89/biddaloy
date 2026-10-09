@@ -504,7 +504,7 @@ describe('AttendanceSummaryService (integration)', () => {
         [absent, A, 3, '2026-09-02'],
         [late, L, 3, '2026-09-02'],
       ]);
-      expect(queryCount).toBeLessThanOrEqual(3);
+      expect(queryCount).toBeLessThanOrEqual(4);
     });
 
     it('ignores period-level sessions', async () => {
@@ -524,6 +524,41 @@ describe('AttendanceSummaryService (integration)', () => {
       const result = await service.getSectionStreaks({ tenantId: TENANT_ID, sectionId: sec });
       expect(result.as_of_date).toBe('2026-09-03');
       expect(result.items).toHaveLength(1);
+    });
+
+    it('ignores a future register written early by an approved leave', async () => {
+      const sec = await freshSection();
+      const s1 = await student(sec, 1);
+      const s2 = await student(sec, 2);
+      for (const d of ['2026-09-01', '2026-09-02', '2026-09-03']) {
+        await day(sec, d, [
+          [s1, AttendanceStatus.ABSENT],
+          [s2, AttendanceStatus.ABSENT],
+        ]);
+      }
+      // What `markLeaveRange` leaves behind for a leave approved ahead of time: a DRAFT whole-day
+      // register on the leave date holding only that student's LEAVE mark. Before today's bound
+      // it became the "newest" session and wiped s1's run (no mark there) along with s2's.
+      const future = await dataSource.getRepository(AttendanceSession).save({
+        tenant_id: TENANT_ID,
+        section_id: sec,
+        date: '2099-01-05',
+        period_no: null,
+        state: AttendanceSessionState.DRAFT,
+      });
+      await dataSource.getRepository(AttendanceRecord).save({
+        tenant_id: TENANT_ID,
+        session_id: future.id,
+        student_id: s2,
+        date: '2099-01-05',
+        status: AttendanceStatus.LEAVE,
+      });
+      const result = await service.getSectionStreaks({ tenantId: TENANT_ID, sectionId: sec });
+      expect(result.as_of_date).toBe('2026-09-03');
+      expect(result.items.map((i) => [i.student_id, i.status, i.length])).toEqual([
+        [s1, AttendanceStatus.ABSENT, 3],
+        [s2, AttendanceStatus.ABSENT, 3],
+      ]);
     });
 
     it("never returns another tenant's data (cross-tenant section id)", async () => {

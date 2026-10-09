@@ -5,7 +5,7 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, IsNull, Repository } from 'typeorm';
+import { In, IsNull, LessThanOrEqual, Repository } from 'typeorm';
 import { AttendancePolicySettings, AttendanceStatus } from '@biddaloy/shared';
 import { AttendanceRecord } from './entities/attendance-record.entity';
 import { AttendanceSession } from './entities/attendance-session.entity';
@@ -14,7 +14,7 @@ import { Student } from '../students/entities/student.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { SchoolCalendarService } from '../calendar/school-calendar.service';
 import { SchoolsService } from '../schools/schools.service';
-import { resolveAttendancePolicy } from './attendance-policy.util';
+import { localToday, resolveAttendancePolicy } from './attendance-policy.util';
 
 /** Same UTC-epoch-day arithmetic as `school-calendar.service.ts` —
  * duplicated rather than imported for the same reason that file's own
@@ -697,8 +697,12 @@ export class AttendanceSummaryService {
 
   /**
    * Current ABSENT / LATE / PRESENT runs for a section ([47.2.4], D22).
-   * Three queries regardless of roster size: sessions, records, students.
+   * Four queries regardless of roster size: settings, sessions, records, students.
    * The caller has already passed `assertCanAccessSection`.
+   *
+   * Sessions dated after the tenant's today are ignored: approving a future
+   * student leave writes that day's register early (`markLeaveRange`), holding
+   * one student's mark, and as the "newest" session it would end every other run.
    */
   async getSectionStreaks(input: { tenantId: string; sectionId: string }): Promise<{
     items: Array<{
@@ -712,9 +716,16 @@ export class AttendanceSummaryService {
     as_of_date: string | null;
   }> {
     const { tenantId, sectionId } = input;
-    // Whole-day registers only (period_no IS NULL), newest first.
+    const settings = await this.schoolsService.getResolvedSettings(tenantId);
+    const today = localToday(settings.region?.timezone ?? 'UTC');
+    // Whole-day registers only (period_no IS NULL), up to today, newest first.
     const sessions = await this.sessionRepo.find({
-      where: { tenant_id: tenantId, section_id: sectionId, period_no: IsNull() },
+      where: {
+        tenant_id: tenantId,
+        section_id: sectionId,
+        period_no: IsNull(),
+        date: LessThanOrEqual(today),
+      },
       order: { date: 'DESC' },
       take: MAX_STREAK_SESSIONS,
       select: { id: true, date: true },
