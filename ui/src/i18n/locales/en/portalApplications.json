@@ -1,0 +1,67 @@
+{
+  "title": "Applications",
+  "loading": "Loading applications",
+  "newApplication": "New application",
+  "error": {
+    "message": "Could not load applications. Check your connection and try again.",
+    "retry": "Try again"
+  },
+  "empty": {
+    "title": "No applications yet",
+    "explanation": "Apply to the school for leave, a certificate or anything else."
+  },
+  "state": {
+    "open": "Now with: {{step}}",
+    "decided": "Decided on {{date}}"
+  },
+  "filed": {
+    "date": "Submitted {{date}}",
+    "self": "You submitted this",
+    "other": "{{name}} submitted this",
+    "paper": "Submitted on paper at school"
+  },
+  "pager": { "previous": "Previous", "next": "Next" },
+  "back": "Applications",
+  "detail": {
+    "notFound": "This application could not be found.",
+    "toList": "Back to applications"
+  },
+  "new": {
+    "title": "New application",
+    "progress": "Step {{current}} of {{total}}",
+    "steps": {
+      "type": "Type",
+      "details": "Details",
+      "attachments": "Attachments",
+      "preview": "Review letter"
+    },
+    "typeHeading": "What do you want to apply for?",
+    "typeLabel": "Type of application",
+    "typeHelp": {
+      "STUDENT_LEAVE": "Leave: when your child cannot come to school because of illness or a family reason",
+      "FEE_WAIVER": "Fee waiver: ask the school to reduce or waive some fees",
+      "TESTIMONIAL": "Testimonial: a letter from the school about your child",
+      "TRANSFER_CERTIFICATE": "Transfer certificate: when your child is leaving the school",
+      "ID_CARD_REPRINT": "ID card: a new card after it is lost or damaged",
+      "GENERAL": "Other: any other letter to the school"
+    },
+    "addresseeLabel": "Who should get this letter?",
+    "addresseeRequired": "Choose who the letter is for",
+    "loadError": "Could not load. Try again.",
+    "actions": {
+      "next": "Next",
+      "back": "Back",
+      "cancel": "Cancel",
+      "submit": "Submit application"
+    },
+    "summary": "Summary",
+    "type": "Type",
+    "for": "Child",
+    "to": "To",
+    "files": "Files",
+    "none": "None",
+    "success": "Application submitted · {{serial}}",
+    "partial": "Your application was submitted, but a file did not upload.",
+    "view": "Open the application"
+  }
+}

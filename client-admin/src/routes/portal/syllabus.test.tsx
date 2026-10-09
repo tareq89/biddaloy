@@ -270,7 +270,7 @@ describe('/portal/syllabus', () => {
     expect(cells.length).toBeLessThanOrEqual(5);
 
     const sidebar = screen.getByRole('navigation', { name: 'Main' });
-    expect(within(sidebar).getAllByRole('link')).toHaveLength(11);
+    expect(within(sidebar).getAllByRole('link')).toHaveLength(12);
     expect(within(sidebar).getByRole('link', { name: 'Syllabus' })).toBeTruthy();
   });
 
