@@ -1,0 +1,107 @@
+{
+  "title": "New application",
+  "steps": {
+    "type": "Type",
+    "details": "Details",
+    "addressee": "Addressee",
+    "attachments": "Attachments",
+    "preview": "Review letter"
+  },
+  "progress": "Step {{current}} of {{total}}",
+  "actions": { "next": "Next", "back": "Back", "cancel": "Cancel", "submit": "Submit application" },
+  "type": {
+    "label": "Type of application",
+    "heading": "What do you want to apply for?",
+    "disabledStudent": "Applications on behalf of a student are recorded by the office",
+    "disabledNoProfile": "Your account has no staff profile",
+    "typeHelp": {
+      "STAFF_LEAVE": "Casual, sick or other leave for a staff member",
+      "STUDENT_LEAVE": "Leave for a student, entered from a guardian's paper letter",
+      "FEE_WAIVER": "Ask for a discount or waiver on a student's fees",
+      "TESTIMONIAL": "A testimonial letter for a student",
+      "TRANSFER_CERTIFICATE": "Transfer certificate when a student leaves the school",
+      "READMISSION": "Bring a student who left back into a class",
+      "SECTION_CHANGE": "Move a student to another section",
+      "SCRIPT_RECHECK": "Ask for an exam answer script to be rechecked",
+      "ID_CARD_REPRINT": "A new ID card after loss or damage",
+      "GENERAL": "Any other letter to the school"
+    }
+  },
+  "subject": {
+    "heading": "Who is this for?",
+    "forStudent": "I am writing a student's paper application",
+    "self": "For myself",
+    "student": "Student",
+    "studentSearch": "Search by name or roll",
+    "studentChange": "Change student",
+    "studentRequired": "Choose a student",
+    "applicant": "Applicant",
+    "applicantRequired": "Choose who is applying",
+    "applicantNoLogin": "No login: type the name",
+    "applicantName": "Applicant's name",
+    "applicantNameRequired": "Enter the applicant's name",
+    "applicantNameTooLong": "At most 150 characters",
+    "studentThemselves": "{{name}} (student)",
+    "paperNote": "This will be recorded as a paper application.",
+    "paperStaff": "I am writing another staff member's paper application",
+    "staff": "Staff member",
+    "staffRequired": "Choose a staff member",
+    "noProfile": "This person has no staff profile",
+    "loading": "Loading",
+    "loadError": "Could not load. Try again."
+  },
+  "addressee": {
+    "heading": "To and tags",
+    "choose": "Addressed to",
+    "required": "Choose who the letter is addressed to",
+    "staff": "A specific staff member",
+    "staffRequired": "Choose a staff member",
+    "fixed": "Addressed to: {{title}}",
+    "route": "Steps: {{route}}",
+    "tags": "Tags (optional)",
+    "tagsHelp": "Tagged people can view and comment, but cannot decide.",
+    "tagsPlaceholder": "Search people or roles",
+    "tagRole": "Role"
+  },
+  "attachments": {
+    "heading": "Attachments (optional)",
+    "hint": "Up to {{count}} files, {{size}} MB each. PDF, JPG or PNG.",
+    "label": "Attach files",
+    "tooMany": "At most {{count}} files",
+    "tooLarge": "Files over {{size}} MB cannot be added: {{name}}",
+    "wrongType": "Only PDF, JPG or PNG files: {{name}}"
+  },
+  "preview": {
+    "heading": "Review the letter",
+    "summary": "Summary",
+    "type": "Type",
+    "for": "For",
+    "to": "Addressed to",
+    "tags": "Tags",
+    "files": "Files",
+    "none": "None"
+  },
+  "submit": {
+    "success": "Application submitted · {{serial}}",
+    "partial": "The application was submitted, but the files could not be attached.",
+    "view": "View the application"
+  },
+  "errors": {
+    "generic": "Could not submit the application. Try again.",
+    "APPLICATION_ATTACHMENT_LIMIT": "Too many or too large files. Up to 3 files, 5 MB each.",
+    "APPLICATION_ADDRESSEE_INVALID": "This addressee is not available. Choose another.",
+    "APPLICATION_APPLICANT_INVALID": "The applicant is not valid for this student.",
+    "APPLICATION_APPLICANT_NOT_LINKED": "The applicant is not a guardian of this student.",
+    "APPLICATION_NO_CLASS_TEACHER": "This student's section has no class teacher yet. Choose another addressee or ask the office.",
+    "APPLICATION_ON_BEHALF_BOTH": "Choose either a login applicant or type a name, not both.",
+    "APPLICATION_ON_BEHALF_FORBIDDEN": "You cannot enter an application on someone else's behalf.",
+    "APPLICATION_TAG_INVALID": "One of the tags is not valid.",
+    "APPLICATION_TAGS_STAFF_ONLY": "Only staff can be tagged.",
+    "APPLICATION_SUBJECT_ACTIVE": "This person already has an open application of this kind.",
+    "APPLICATION_SUBJECT_MISMATCH": "The person does not match this type of application.",
+    "APPLICATION_SUBJECT_NOT_FOUND": "The person was not found.",
+    "APPLICATION_STUDENT_NOT_LINKED": "This student is not linked to your account.",
+    "APPLICATION_NOT_YOUR_PROFILE": "You can only apply for your own staff profile.",
+    "APPLICATION_REFERENCE_NOT_FOUND": "A class, section or exam you chose was not found."
+  }
+}
