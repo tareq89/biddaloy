@@ -1,0 +1,150 @@
+{
+  "facts": {
+    "number": "Number",
+    "applicant": "Applicant",
+    "student": "Student",
+    "staff": "Staff member",
+    "submitted": "Submitted",
+    "step": "Step",
+    "decision": "Decision",
+    "paper": "{{name}} · on paper, written by {{enteredBy}}",
+    "withRole": "{{name}} · {{role}}",
+    "classLine": "{{class}} · {{section}} · Roll {{roll}}",
+    "decisionValue": "{{status}} · {{by}} · {{date}}"
+  },
+  "roles": {
+    "SUPER_ADMIN": "Super admin",
+    "ADMIN": "Headmaster",
+    "ACCOUNTANT": "Accountant",
+    "TEACHER": "Teacher",
+    "PARENT": "Parent",
+    "STUDENT": "Student",
+    "EXECUTIVE": "Executive",
+    "OFFICE_STAFF": "Office staff",
+    "EXAM_CONTROLLER": "Exam controller",
+    "COMMITTEE": "Committee"
+  },
+  "actions": {
+    "approve": "Approve",
+    "reject": "Reject",
+    "consider": "Keep under consideration",
+    "withdraw": "Withdraw",
+    "cancel": "Cancel leave",
+    "print": "Print"
+  },
+  "followUp": {
+    "print": "Print {{document}}",
+    "marks": "View marks",
+    "substitute": "Arrange a substitute"
+  },
+  "body": {
+    "letterTitle": "Application letter",
+    "letterCaption": "Created when the application was submitted",
+    "fieldsTitle": "Application details",
+    "grantedAmount": "Approved amount",
+    "value": "Amount",
+    "percent": "{{n}}%",
+    "flat": "{{n}} taka",
+    "attachments": "Attachments",
+    "sizeKb": "{{n}} KB",
+    "download": "Download — {{file}}",
+    "delete": "Delete — {{file}}",
+    "downloadFailed": "The file could not be downloaded. Try again.",
+    "deleteTitle": "Delete this file?",
+    "deleteDescription": "The file will be removed from the application.",
+    "deleteConfirm": "Delete",
+    "deleteCancel": "Keep it"
+  },
+  "activity": {
+    "title": "Activity",
+    "timelineLabel": "Application history",
+    "empty": "Nothing has happened yet.",
+    "tagged": "Tagged: {{names}}",
+    "tagHelp": "Tagged people can see and comment, but cannot decide.",
+    "addTags": "Add more people",
+    "tagLabel": "Tag people",
+    "tagFailed": "The tags could not be saved. Try again.",
+    "commentLabel": "Write a comment",
+    "commentPlaceholder": "Tagged people will get a notification",
+    "commentSend": "Send comment",
+    "commentFailed": "The comment could not be sent. Try again.",
+    "reason": "Reason: {{note}}"
+  },
+  "events": {
+    "SUBMITTED": "{{actor}} submitted the application",
+    "STEP_APPROVED": "{{actor}} approved step {{n}}",
+    "stepSkipped": "The class teacher's step was skipped",
+    "APPROVED": "{{actor}} approved",
+    "REJECTED": "{{actor}} rejected",
+    "UNDER_CONSIDERATION": "{{actor}} kept it under consideration",
+    "WITHDRAWN": "{{actor}} withdrew the application",
+    "CANCELLED": "{{actor}} cancelled the leave",
+    "COMMENT": "{{actor}} commented",
+    "TAGGED": "{{actor}} tagged: {{names}}"
+  },
+  "dialogs": {
+    "close": "Close",
+    "noteLabel": "Note (optional)",
+    "approve": {
+      "title": "Approve this application?",
+      "description": "The applicant will be told.",
+      "grantedHint": "Check the waiver below. This is the final approval.",
+      "submit": "Approve"
+    },
+    "reject": {
+      "title": "Reject this application?",
+      "description": "The applicant will be told why.",
+      "reasonLabel": "Reason for rejecting",
+      "reasonRequired": "Write a reason.",
+      "reasonTooLong": "Keep it within 500 characters.",
+      "submit": "Reject"
+    },
+    "consider": {
+      "title": "Keep under consideration?",
+      "description": "The applicant will see that it is being looked at.",
+      "submit": "Keep under consideration"
+    },
+    "cancel": {
+      "title": "Cancel this leave?",
+      "description": "Leave on the days after today will be removed and those days returned to the balance.",
+      "reasonLabel": "Reason for cancelling",
+      "reasonRequired": "Write a reason.",
+      "reasonTooLong": "Keep it within 500 characters.",
+      "submit": "Cancel leave"
+    },
+    "withdraw": {
+      "title": "Withdraw this application?",
+      "description": "It will no longer be looked at. You can submit a new one later.",
+      "confirm": "Withdraw",
+      "keep": "Keep it"
+    }
+  },
+  "errors": {
+    "NOT_A_DECIDER": "You cannot decide on this application.",
+    "EFFECT_PERMISSION_REQUIRED": "You do not have permission to complete this approval.",
+    "APPLICATION_NOT_OPEN": "This application has already been decided.",
+    "APPLICATION_CHANGED": "Someone else has already decided. The page has been refreshed.",
+    "GRANTED_NOT_ALLOWED": "The approved amount is not allowed for this application.",
+    "INVALID_GRANTED": "The approved amount is not valid. Check it and try again.",
+    "ALREADY_UNDER_CONSIDERATION": "It is already under consideration.",
+    "NOT_CANCELLABLE": "This application cannot be cancelled.",
+    "APPLICANT_CANNOT_CANCEL": "The applicant cannot cancel their own approved leave.",
+    "APPLICATION_NOT_PENDING": "Only a waiting application can be withdrawn.",
+    "LEAVE_BALANCE_EXCEEDED": "The leave balance is not enough for these days.",
+    "LEAVE_NO_WORKING_DAYS": "These dates have no working days.",
+    "LEAVE_NOT_CANCELLABLE": "This leave can no longer be cancelled.",
+    "LEAVE_OVERLAP": "This overlaps with leave that is already approved.",
+    "LEAVE_POLICY_MISSING": "No leave policy is set up for this leave type. Ask the office to set it up.",
+    "LEAVE_ALREADY_ENDED": "This leave has already ended.",
+    "DATE_IN_FUTURE": "A future date is not allowed.",
+    "NO_ACTIVE_ENROLLMENT": "This student has no active enrolment.",
+    "SECTION_UNCHANGED": "The student is already in that section.",
+    "NOT_FOUND": "This application could not be found.",
+    "fallback": "The decision could not be saved. Try again."
+  },
+  "states": {
+    "notFound": "This application could not be found",
+    "loadError": "The application could not be loaded.",
+    "forbidden": "You cannot view this application."
+  }
+}

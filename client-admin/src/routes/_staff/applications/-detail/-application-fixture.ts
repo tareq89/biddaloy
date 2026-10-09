@@ -1,0 +1,63 @@
+import type { ApplicationDto } from '@biddaloy/ui/hooks';
+
+/** Test fixture: one open FEE_WAIVER application at step 1 of 2, as its decider sees it. */
+const ID = '7c1e0000-0000-4000-8000-000000000001';
+
+export function applicationDto(over: Partial<ApplicationDto> = {}): ApplicationDto {
+  return {
+    id: ID,
+    serial: '2026/0045',
+    serial_year: 2026,
+    serial_no: 45,
+    type: 'FEE_WAIVER',
+    status: 'PENDING',
+    source: 'APP',
+    academic_year_id: null,
+    applicant_user_id: 'u-1',
+    applicant_name: 'Rahim Uddin',
+    applicant_role: 'PARENT',
+    entered_by_user_id: null,
+    entered_by_name: null,
+    subject_kind: 'STUDENT',
+    subject_student_id: 's-1',
+    subject_staff_profile_id: null,
+    subject_name: 'Karim Uddin',
+    subject_class_name: 'Class 7',
+    subject_section_name: 'B',
+    subject_roll: '12',
+    subject_designation: null,
+    payload: { kind: 'PERCENT', value: 25, fee_types: ['MONTHLY_TUITION'], reason: 'Hardship' },
+    ref_names: {},
+    start_date: null,
+    end_date: null,
+    addressee: 'CLASS_TEACHER',
+    addressee_user_id: null,
+    addressee_name: null,
+    current_step: 0,
+    step_count: 2,
+    decided_by_user_id: null,
+    decided_by_name: null,
+    decided_at: null,
+    created_at: '2026-10-01T04:00:00.000Z',
+    can: { decide: true, consider: true, withdraw: false, cancel: false, comment: true },
+    letter_text: 'Dear Sir,\n\nPlease waive the fee.',
+    letter_locale: 'en',
+    granted: null,
+    effect_result: null,
+    events: [
+      {
+        id: 'e-1',
+        kind: 'SUBMITTED',
+        step: null,
+        actor_user_id: 'u-1',
+        actor_name: 'Rahim Uddin',
+        note: null,
+        data: null,
+        created_at: '2026-10-01T04:00:00.000Z',
+      },
+    ],
+    tags: [],
+    attachments: [],
+    ...over,
+  };
+}

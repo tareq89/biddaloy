@@ -150,6 +150,10 @@ export const PALETTE_ALLOW_LIST: readonly PaletteAllowListEntry[] = [
   { file: `${R}_staff/invoices/$invoiceId.tsx`, reason: 'Share/send on one invoice' },
   { file: `${R}_staff/marks/-submit-dialog.tsx`, reason: 'Submits one marks grid' },
   {
+    file: `${R}_staff/applications/-detail/decision-dialogs.tsx`,
+    reason: 'Acts on one open application; opened from its detail page or a list row icon',
+  },
+  {
     file: `${R}_staff/payments/-record/checkout-success.tsx`,
     reason: 'Result sheet after a payment, not a task',
   },
