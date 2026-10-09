@@ -145,6 +145,20 @@ export class ReviewerScopeService {
     return ids.includes(user.userId);
   }
 
+  /**
+   * D49 "own": the caller filed it, or is the subject staff member. A paper entry
+   * (`applicant_name`, no `applicant_user_id`) for the caller's own staff profile is still theirs.
+   */
+  async isOwn(manager: EntityManager, user: ApplicationCaller, app: Application): Promise<boolean> {
+    if (app.applicant_user_id === user.userId) return true;
+    if (!app.subject_staff_profile_id) return false;
+    const rows = await manager.query(
+      `SELECT 1 FROM staff_profiles WHERE id = $1 AND tenant_id = $2 AND user_id = $3`,
+      [app.subject_staff_profile_id, app.tenant_id, user.userId],
+    );
+    return rows.length > 0;
+  }
+
   /** `'STEP'` = the caller passes the current step's rule; `'OVERRIDE'` = ADMIN/EXECUTIVE (D7). */
   async canDecide(
     manager: EntityManager,
@@ -152,7 +166,7 @@ export class ReviewerScopeService {
     app: Application,
   ): Promise<false | 'STEP' | 'OVERRIDE'> {
     if (!isOpenApplication(app)) return false;
-    if (app.applicant_user_id === user.userId) return false; // D49: nobody decides their own
+    if (await this.isOwn(manager, user, app)) return false; // D49: nobody decides their own
     const step = APPLICATION_TYPES[app.type].steps[app.current_step];
     if (step && (await this.stepMatches(manager, user, app, step))) return 'STEP';
     return isOverrideRole(user.role) ? 'OVERRIDE' : false;
@@ -267,7 +281,10 @@ export class ReviewerScopeService {
 
     qb.andWhere(
       `a.tenant_id = :tenantId AND a.status IN (:...openStatuses)
-       AND a.applicant_user_id IS DISTINCT FROM :me`,
+       AND a.applicant_user_id IS DISTINCT FROM :me
+       AND NOT EXISTS (SELECT 1 FROM staff_profiles osp
+                        WHERE osp.id = a.subject_staff_profile_id AND osp.tenant_id = a.tenant_id
+                          AND osp.user_id = :me)`,
     ).andWhere(clauses.length > 0 ? `(${clauses.join(' OR ')})` : 'FALSE');
     return qb.setParameters(params);
   }
@@ -316,7 +333,13 @@ export class ReviewerScopeService {
         }
         break;
     }
-    return ids.filter((id) => id !== app.applicant_user_id);
+    const [subject] = app.subject_staff_profile_id
+      ? await manager.query(`SELECT user_id FROM staff_profiles WHERE id = $1 AND tenant_id = $2`, [
+          app.subject_staff_profile_id,
+          app.tenant_id,
+        ])
+      : [];
+    return ids.filter((id) => id !== app.applicant_user_id && id !== subject?.user_id);
   }
 
   private async activeUserIdsWithRoles(

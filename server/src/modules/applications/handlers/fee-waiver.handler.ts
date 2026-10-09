@@ -27,6 +27,27 @@ const dateOnly = (v: unknown): string | null => {
 };
 
 /**
+ * D39 per field: the approver's granted fields win; an omitted one keeps the requested value.
+ * The full term set, so `applications.granted` records what the rule was built from (a
+ * `fee_types: null` means all fees). Dates keep only their date part; the handler validates.
+ */
+export function feeWaiverTerms(
+  payload: Record<string, unknown>,
+  granted?: object | null,
+): Record<string, unknown> {
+  const picked = Object.entries(granted ?? {}).filter(([, v]) => v !== undefined);
+  const t: Record<string, unknown> = { ...payload, ...Object.fromEntries(picked) };
+  const day = (v: unknown) => (typeof v === 'string' ? v.slice(0, 10) : (v ?? null));
+  return {
+    kind: t.kind,
+    value: t.value,
+    fee_types: t.fee_types ?? null,
+    start_date: day(t.start_date),
+    end_date: day(t.end_date),
+  };
+}
+
+/**
  * [52.3.4] Final approval of FEE_WAIVER spends a fresh step-up token and creates the
  * student's discount rule on the decision's transaction (D39: granted terms win).
  * Runs only on the caller's manager; no own transaction, no locks.
@@ -52,11 +73,7 @@ export class FeeWaiverHandler {
       ApprovalScope.DISCOUNT_RULES_MANAGE,
     );
 
-    // D39 per field: the approver's granted fields win; an omitted one keeps the requested value.
-    const granted = Object.fromEntries(
-      Object.entries(ctx.granted ?? {}).filter(([, v]) => v !== undefined),
-    );
-    const terms: Record<string, unknown> = { ...app.payload, ...granted };
+    const terms = feeWaiverTerms(app.payload, ctx.granted);
     const { kind, value } = terms;
     if (kind !== DiscountKind.PERCENT && kind !== DiscountKind.FLAT) {
       throw invalid('Invalid discount kind');
@@ -105,6 +122,9 @@ export class FeeWaiverHandler {
       discount_rule_id: rule.id,
       kind: rule.kind,
       value: Number(rule.value),
+      fee_types: rule.fee_types,
+      starts_on: rule.starts_on,
+      ends_on: rule.ends_on,
       approved_by_user_id: approval.approverId,
     };
   }

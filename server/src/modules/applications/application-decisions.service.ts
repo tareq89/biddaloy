@@ -28,6 +28,7 @@ import { AuditService } from '../audit/audit.service';
 import { ApplicationsService, assertDateOrderAndPercent } from './applications.service';
 import { ApplicationNotifyService } from './application-notify.service';
 import { APPLICATION_HANDLERS } from './application-types';
+import { feeWaiverTerms } from './handlers/fee-waiver.handler';
 import {
   isOpenApplication,
   isOverrideRole,
@@ -140,12 +141,13 @@ export class ApplicationDecisionsService {
         data.override = true;
         data.skipped_steps = this.skippedSteps(def.steps, oldStep, user.role);
       }
-      if (dto.granted) data.granted = dto.granted;
+      // D39: record the merged terms the discount rule is built from, not the partial input.
+      app.granted = dto.granted ? feeWaiverTerms(app.payload, dto.granted) : null;
+      if (app.granted) data.granted = app.granted;
 
       app.status = ApplicationStatus.APPROVED;
       app.decided_by_user_id = user.userId;
       app.decided_at = new Date();
-      app.granted = (dto.granted as unknown as Record<string, unknown>) ?? null;
 
       const event = await this.addEvent(manager, app, user.userId, {
         kind: ApplicationEventKind.APPROVED,
@@ -267,7 +269,7 @@ export class ApplicationDecisionsService {
           details: { code: 'NOT_CANCELLABLE' },
         });
       }
-      if (app.applicant_user_id === user.userId) {
+      if (await this.reviewerScope.isOwn(manager, user, app)) {
         throw new ForbiddenException({
           message: 'You cannot cancel your own application',
           details: { code: 'APPLICANT_CANNOT_CANCEL' },
