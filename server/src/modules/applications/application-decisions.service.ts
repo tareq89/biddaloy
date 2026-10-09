@@ -330,11 +330,10 @@ export class ApplicationDecisionsService {
     // Sequential on purpose: each approval is its own locked transaction (D35).
     for (const id of dto.ids) {
       try {
-        const app = await this.dataSource.manager.findOne(Application, {
-          where: { id, tenant_id: tenantId },
-          select: { id: true, type: true },
-        });
-        if (!app) {
+        const manager = this.dataSource.manager;
+        const app = await manager.findOne(Application, { where: { id, tenant_id: tenantId } });
+        // A non-viewer gets NOT_FOUND, never "exists and is a FEE_WAIVER" (same as the 404 routes).
+        if (!app || !(await this.reviewerScope.canView(manager, user, app))) {
           results.push({ id, ok: false, error_code: 'NOT_FOUND' });
         } else if (!APPLICATION_TYPES[app.type].bulkApprovable) {
           results.push({ id, ok: false, error_code: 'NOT_BULK_APPROVABLE' });

@@ -442,8 +442,8 @@ describe('Application decisions E2E', () => {
       await call('post', `${API}/bulk-approve`, adminToken).send({ ids: many }).expect(400);
     });
 
-    it('a final approval whose handler fails rolls back: READMISSION of an ACTIVE student is a 409', async () => {
-      const filed = await call('post', API, tokens[ids.parent])
+    it('READMISSION of an ACTIVE student is refused at submit (422), not after a step', async () => {
+      const res = await call('post', API, tokens[ids.parent])
         .send({
           type: 'READMISSION',
           subject_student_id: childId,
@@ -453,8 +453,19 @@ describe('Application decisions E2E', () => {
             reason: 'Please re-admit',
           },
         })
+        .expect(422);
+      expect(codeOf(res.body)).toBe('APPLICATION_SUBJECT_ACTIVE');
+    });
+
+    it('a final approval whose handler fails rolls back: a TC dated in the future is a 422', async () => {
+      const filed = await call('post', API, tokens[ids.parent])
+        .send({
+          type: 'TRANSFER_CERTIFICATE',
+          subject_student_id: childId,
+          payload: { leaving_date: day(30), reason: 'Moving to another district' },
+        })
         .expect(201);
-      await approve(filed.body.id, adminToken).expect(409);
+      await approve(filed.body.id, adminToken).expect(422);
       expect((await row(filed.body.id)).status).toBe('PENDING');
       expect(await eventsOf(filed.body.id, 'APPROVED')).toHaveLength(0);
     });

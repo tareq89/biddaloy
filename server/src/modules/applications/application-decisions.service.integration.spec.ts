@@ -756,6 +756,17 @@ describe('ApplicationDecisionsService (integration)', () => {
       expect((await row(waiver.id)).status).toBe(ApplicationStatus.PENDING);
     });
 
+    it('a same-tenant non-viewer gets NOT_FOUND, never NOT_BULK_APPROVABLE', async () => {
+      const waiver = await feeWaiver(studentA);
+      const out = await service.bulkApprove(
+        SEED_TENANT_ID,
+        callers.other,
+        { ids: [waiver.id] },
+        req,
+      );
+      expect(out).toEqual([{ id: waiver.id, ok: false, error_code: 'NOT_FOUND' }]);
+    });
+
     it('51 ids, duplicates and non-UUIDs fail DTO validation', async () => {
       const bad = async (ids: unknown) =>
         (await validate(plainToInstance(BulkApproveDto, { ids }))).length;

@@ -562,6 +562,18 @@ describe('LeaveService (integration)', () => {
       expect(marks).toHaveLength(0);
     });
 
+    it('no policy for the type: 422 LEAVE_POLICY_MISSING (a 404 would read as "no such application")', async () => {
+      await dataSource.query(
+        `DELETE FROM leave_policies WHERE tenant_id = $1 AND leave_type = 'CASUAL'`,
+        [TENANT_ID],
+      );
+      const appId = await newApplication(TENANT_ID, staffProfileId, staffUserId);
+      await expect(record(appId, THU, SUN)).rejects.toMatchObject({
+        status: 422,
+        response: { details: { code: 'LEAVE_POLICY_MISSING' } },
+      });
+    });
+
     it('null quota (unlimited) writes the APPROVED row', async () => {
       await setQuota(null);
       const appId = await newApplication(TENANT_ID, staffProfileId, staffUserId);

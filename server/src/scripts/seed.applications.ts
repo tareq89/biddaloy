@@ -57,8 +57,8 @@ const TEACHER_EMAIL = 'teacher@biddaloy.test';
 const OFFICE_EMAIL = 'office@biddaloy.test';
 
 /**
- * [52.2.7] One PENDING application per type (10), two PAPER ones, two tags and a comment, all
- * filed through the real service. Dates are fixed inside `DEMO_ACADEMIC_YEAR`, never "today",
+ * [52.2.7] One PENDING application per type (all but READMISSION, which needs a non-active
+ * student), two PAPER ones, two tags and a comment, all filed through the real service. Dates are fixed inside `DEMO_ACADEMIC_YEAR`, never "today",
  * and the staff leave (24-25 March) must not overlap the approved demo leave of 10-11 March.
  * Idempotent: skips when the tenant already has any application.
  */
@@ -148,19 +148,12 @@ export async function ensureApplicationsSeed(
   await file(
     parent,
     forStudent(ApplicationType.TRANSFER_CERTIFICATE, {
-      leaving_date: '2026-12-15',
+      leaving_date: '2026-09-30', // past, so the demo TC can be approved (no DATE_IN_FUTURE)
       destination: 'ঢাকা',
       reason: 'বদলি',
     }),
   );
-  await file(
-    parent,
-    forStudent(ApplicationType.READMISSION, {
-      class_section_id: student.class_section_id,
-      occurred_on: '2026-06-01',
-      reason: 'পুনরায় ভর্তি হতে চাই',
-    }),
-  );
+  // No READMISSION: every demo student is ACTIVE, and submit refuses that (APPLICATION_SUBJECT_ACTIVE).
   await file(
     parent,
     forStudent(ApplicationType.SECTION_CHANGE, {
@@ -323,12 +316,17 @@ export async function ensureDecidedApplicationsSeed(
     };
     const insert = async (r: Row): Promise<string> => {
       serialNo += 1;
+      // created_at, then each event, then decided_at: in that order on the demo clock, so the
+      // reports' decision hours and by-month counts come out right.
+      const createdAt = at();
+      const eventTimes = r.events.map(() => at());
+      const decidedAt = r.decidedBy ? (eventTimes.at(-1) ?? at()) : null;
       const [{ id }] = await tx.query(
         `INSERT INTO applications (tenant_id, type, status, source, serial_year, serial_no,
            academic_year_id, applicant_user_id, subject_student_id, subject_staff_profile_id,
            payload, start_date, end_date, current_step, letter_text, letter_locale,
-           effect_result, decided_by_user_id, decided_at)
-         VALUES ($1,$2,$3,'APP',$4,$5,$6,$7,$8,$9,$10::jsonb,$11,$12,$13,$14,'bn',$15::jsonb,$16,$17)
+           effect_result, decided_by_user_id, decided_at, created_at)
+         VALUES ($1,$2,$3,'APP',$4,$5,$6,$7,$8,$9,$10::jsonb,$11,$12,$13,$14,'bn',$15::jsonb,$16,$17,$18)
          RETURNING id`,
         [
           tenantId,
@@ -347,10 +345,11 @@ export async function ensureDecidedApplicationsSeed(
           `Demo ${r.type} application.`,
           r.effect ? JSON.stringify(r.effect) : null,
           r.decidedBy ?? null,
-          r.decidedBy ? at() : null,
+          decidedAt,
+          createdAt,
         ],
       );
-      for (const e of r.events) {
+      for (const [i, e] of r.events.entries()) {
         await tx.query(
           `INSERT INTO application_events
              (tenant_id, application_id, actor_user_id, kind, step, note, data, created_at)
@@ -363,7 +362,7 @@ export async function ensureDecidedApplicationsSeed(
             e.step,
             e.note ?? null,
             e.data ? JSON.stringify(e.data) : null,
-            at(),
+            eventTimes[i],
           ],
         );
       }
@@ -408,13 +407,27 @@ export async function ensureDecidedApplicationsSeed(
         [tenantId, date, staff.id],
       );
     }
+    // Same shape as StaffLeaveHandler: follow_up only for a teacher, naming that teacher.
+    const [teacherRow] = await tx.query(
+      `SELECT id FROM teachers WHERE tenant_id = $1 AND user_id = $2 AND deleted_at IS NULL`,
+      [tenantId, staff.user_id],
+    );
     await tx.query(`UPDATE applications SET effect_result = $2::jsonb WHERE id = $1`, [
       staffAppId,
       JSON.stringify({
         leave_record_id: leaveRecordId,
         days: 3,
         attendance_dates: leaveDates,
-        follow_up: { kind: 'SUBSTITUTE', from: leave.start_date, to: leave.end_date },
+        ...(teacherRow
+          ? {
+              follow_up: {
+                kind: 'SUBSTITUTE',
+                from: leave.start_date,
+                to: leave.end_date,
+                covered_for_teacher_id: teacherRow.id,
+              },
+            }
+          : {}),
       }),
     ]);
 

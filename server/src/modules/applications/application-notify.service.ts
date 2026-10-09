@@ -266,7 +266,7 @@ export class ApplicationNotifyService {
     const studentName =
       locale === 'bn' ? (student.full_name_bn ?? student.full_name) : student.full_name;
     const message = DECISION_SMS[event.kind as 'APPROVED' | 'REJECTED'][locale](
-      school.name,
+      (locale === 'bn' ? school.name_bn : null) ?? school.name,
       serial,
       studentName,
     );
