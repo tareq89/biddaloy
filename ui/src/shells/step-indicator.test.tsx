@@ -31,7 +31,9 @@ describe('StepIndicator', () => {
       />,
     );
     expect(screen.getAllByText('(done)')).toHaveLength(2);
-    expect(screen.getByRole('button', { name: 'First' })).toBeTruthy();
+    const first = screen.getByRole('button', { name: 'First' });
+    const describedBy = first.getAttribute('aria-describedby');
+    expect(describedBy && document.getElementById(describedBy)?.textContent?.trim()).toBe('(done)');
     expect(screen.getByText('Third').closest('li')?.textContent).not.toContain('(done)');
   });
 

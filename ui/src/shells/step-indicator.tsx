@@ -1,3 +1,5 @@
+import * as React from 'react';
+
 /**
  * The "Step 1 › Step 2 › Step 3" row, lifted out of `WizardShell` so a
  * `FullPageShell` (which brings its own header) can show steps too.
@@ -12,7 +14,8 @@ export interface StepIndicatorProps {
   /** Accessible name, e.g. "ধাপ". When given, the list is wrapped in `<nav aria-label>`. */
   label?: string;
   /** Screen-reader-only suffix on completed steps, e.g. "(সম্পন্ন)". Outside the
-   * button, so the button's name stays the step label. */
+   * button, so the button's name stays the step label; the button points at it
+   * with `aria-describedby`, so it is still heard on focus. */
   doneLabel?: string;
 }
 
@@ -23,6 +26,7 @@ export function StepIndicator({
   label,
   doneLabel,
 }: StepIndicatorProps) {
+  const baseId = React.useId();
   const currentIndex = Math.max(
     0,
     steps.findIndex((step) => step.id === currentStepId),
@@ -36,12 +40,14 @@ export function StepIndicator({
         // everything after it, so a later step can't be clicked back
         // into without going through its own validation again.
         const isCompleted = index < currentIndex;
+        const doneId = isCompleted && doneLabel ? `${baseId}-${step.id}-done` : undefined;
         return (
           <li key={step.id} aria-current={isCurrent ? 'step' : undefined}>
             {isCompleted && onStepChange ? (
               <button
                 type="button"
                 className="text-primary underline-offset-2 hover:underline"
+                aria-describedby={doneId}
                 onClick={() => onStepChange(step.id)}
               >
                 {step.label}
@@ -51,7 +57,12 @@ export function StepIndicator({
                 {step.label}
               </span>
             )}
-            {isCompleted && doneLabel ? <span className="sr-only"> {doneLabel}</span> : null}
+            {doneId ? (
+              <span id={doneId} className="sr-only">
+                {' '}
+                {doneLabel}
+              </span>
+            ) : null}
             {index < steps.length - 1 && (
               <span aria-hidden="true" className="ms-2 text-muted-foreground">
                 ›
