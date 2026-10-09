@@ -75,6 +75,7 @@ function ApplicationDetailPage() {
   const query = useApplication(applicationId);
   const app = query.data;
   const [dialog, setDialog] = React.useState<DecisionKind | null>(null);
+  const [notice, setNotice] = React.useState<string | undefined>();
 
   const canPrint = useHasPermission(Permission.DOCUMENT_PRINT);
   const canMarks = useHasPermission(Permission.MARK_VIEW);
@@ -132,6 +133,7 @@ function ApplicationDetailPage() {
 
   const onDone = (kind: DecisionKind) => {
     setDialog(null);
+    setNotice(undefined);
     void queryClient.invalidateQueries({ queryKey: applicationKeys.all });
     if (from === 'inbox' && (kind === 'approve' || kind === 'reject')) {
       void navigate({ to: '/applications', search: { view: 'inbox', decided: app.id } });
@@ -203,6 +205,11 @@ function ApplicationDetailPage() {
 
   return (
     <>
+      {notice && (
+        <p role="alert" className="mx-4 mt-3 text-destructive">
+          {notice}
+        </p>
+      )}
       <DetailShell
         name={`${tApp(`types.${app.type}`)} — ${app.applicant_name}`}
         statusBadge={
@@ -254,7 +261,13 @@ function ApplicationDetailPage() {
           <ActivityPanel app={app} />
         </div>
       </DetailShell>
-      <DecisionDialogs kind={dialog} app={app} onClose={() => setDialog(null)} onDone={onDone} />
+      <DecisionDialogs
+        kind={dialog}
+        app={app}
+        onClose={() => setDialog(null)}
+        onDone={onDone}
+        onNotice={setNotice}
+      />
     </>
   );
 }

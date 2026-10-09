@@ -38,6 +38,8 @@ import { useForm, type FieldValues } from 'react-hook-form';
 
 import { APPLICATION_FORMS } from '../../../../features/applications/forms/registry';
 
+import { GrantedFields } from './granted-fields';
+
 export type DecisionKind = 'approve' | 'reject' | 'consider' | 'cancel' | 'withdraw';
 
 const KNOWN_CODES = new Set([
@@ -64,7 +66,7 @@ const KNOWN_CODES = new Set([
 ]);
 
 /** The translated sentence for a failed decision; a cancelled step-up shows nothing. */
-function useDecisionError(app: Pick<ApplicationDto, 'id'>) {
+function useDecisionError(app: Pick<ApplicationDto, 'id'>, report?: (message: string) => void) {
   const { t } = useTranslation('applicationsDetail');
   const queryClient = useQueryClient();
   const [error, setError] = React.useState<string | undefined>();
@@ -72,7 +74,9 @@ function useDecisionError(app: Pick<ApplicationDto, 'id'>) {
     if (e instanceof ApprovalCancelledError) return;
     const code = e instanceof ApiError ? (e.details as { code?: string } | undefined)?.code : '';
     const known = code !== undefined && KNOWN_CODES.has(code);
-    setError(t(known ? `errors.${code}` : 'errors.fallback'));
+    const message = t(known ? `errors.${code}` : 'errors.fallback');
+    setError(message);
+    report?.(message);
     // Someone else decided first: show what is true now.
     if (code === 'APPLICATION_CHANGED') {
       void queryClient.invalidateQueries({ queryKey: applicationKeys.detail(app.id) });
@@ -95,6 +99,8 @@ interface DialogProps {
   app: ApplicationDto;
   onClose: () => void;
   onDone: (kind: DecisionKind) => void;
+  /** A failure the dialog cannot show itself (the withdraw confirm). */
+  onNotice: (message: string) => void;
 }
 
 /** Enter submits: the single-line field sits inside this form (D25). */
@@ -174,9 +180,8 @@ function ApproveDialog({ app, onClose, onDone }: DialogProps) {
             }}
           >
             {grantsAmount && (
-              // The shared fields end with the applicant's `reason` box: not for the approver to edit.
-              <div className="grid gap-4 md:grid-cols-2 [&>:last-child]:hidden">
-                <def.Fields subject={{ kind: 'STAFF', staffProfileId: '' }} />
+              <div className="grid gap-4 md:grid-cols-2">
+                <GrantedFields />
               </div>
             )}
             <div className="space-y-1">
@@ -333,22 +338,25 @@ function ConsiderDialog({ app, onClose, onDone }: DialogProps) {
   );
 }
 
-function WithdrawDialog({ app, onClose, onDone }: DialogProps) {
+/** `ConfirmDialog` has one description slot, so a failure closes it and surfaces on the page (`onNotice`). */
+function WithdrawDialog({ app, onClose, onDone, onNotice }: DialogProps) {
   const { t } = useTranslation('applicationsDetail');
   const withdraw = useWithdrawApplication();
-  const { error, fail, clear } = useDecisionError(app);
+  const { fail } = useDecisionError(app, (message) => {
+    onNotice(message);
+    onClose();
+  });
 
   return (
     <ConfirmDialog
       open
       onOpenChange={(open) => !open && onClose()}
       title={t('dialogs.withdraw.title')}
-      description={error ?? t('dialogs.withdraw.description')}
+      description={t('dialogs.withdraw.description')}
       confirmLabel={t('dialogs.withdraw.confirm')}
       cancelLabel={t('dialogs.withdraw.keep')}
       busy={withdraw.isPending}
       onConfirm={() => {
-        clear();
         withdraw.mutate(app.id, { onSuccess: () => onDone('withdraw'), onError: fail });
       }}
     />

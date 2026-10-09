@@ -231,4 +231,126 @@ describe('/applications/$applicationId', () => {
     });
     expect(await screen.findByText('This application could not be found')).toBeTruthy();
   });
+
+  it('shows the crumb and document title as "<type> — <applicant>"', async () => {
+    render(applicationDto());
+    await screen.findByRole('heading', { level: 1, name: 'Fee waiver — Rahim Uddin' });
+    await waitFor(() => expect(document.title).toContain('Fee waiver — Rahim Uddin'));
+    const crumbs = document.querySelector<HTMLElement>('[data-slot="breadcrumbs"]');
+    expect(crumbs).not.toBeNull();
+    expect(await within(crumbs as HTMLElement).findByText('Fee waiver — Rahim Uddin')).toBeTruthy();
+  });
+
+  it('puts Cancel leave under More actions, not in the header row', async () => {
+    render(
+      applicationDto({
+        type: 'STAFF_LEAVE',
+        status: 'APPROVED',
+        payload: { leave_type: 'CASUAL' },
+        can: { decide: false, consider: false, withdraw: false, cancel: true, comment: false },
+      }),
+    );
+    const more = await screen.findByRole('button', { name: /more actions/i });
+    expect(screen.queryByRole('button', { name: 'Cancel leave' })).toBeNull();
+    await userEvent.setup().click(more);
+    expect(await screen.findByRole('menuitem', { name: 'Cancel leave' })).toBeTruthy();
+  });
+
+  const file = {
+    id: 'f-1',
+    file_name: 'proof.pdf',
+    mime_type: 'application/pdf',
+    size_bytes: 2048,
+    uploaded_by_user_id: 'u-1',
+    created_at: '2026-10-01T04:00:00.000Z',
+  };
+
+  it('the applicant deletes an attachment while PENDING, after confirming', async () => {
+    let deleted = false;
+    server.use(
+      http.delete('/api/v1/applications/:id/attachments/:fileId', () => {
+        deleted = true;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    render(
+      applicationDto({
+        attachments: [file],
+        can: { decide: false, consider: false, withdraw: true, cancel: false, comment: false },
+      }),
+    );
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Delete — proof.pdf' }));
+    const dialog = await screen.findByRole('alertdialog');
+    await user.click(within(dialog).getByRole('button', { name: 'Delete' }));
+    await waitFor(() => expect(deleted).toBe(true));
+  });
+
+  it('no delete icon for a decider, or once the application is decided', async () => {
+    const { unmount } = render(applicationDto({ attachments: [file] }));
+    await screen.findByRole('button', { name: 'Download — proof.pdf' });
+    expect(screen.queryByRole('button', { name: 'Delete — proof.pdf' })).toBeNull();
+    unmount();
+    render(
+      applicationDto({
+        attachments: [file],
+        status: 'APPROVED',
+        can: { decide: false, consider: false, withdraw: true, cancel: false, comment: false },
+      }),
+    );
+    await screen.findByRole('button', { name: 'Download — proof.pdf' });
+    expect(screen.queryByRole('button', { name: 'Delete — proof.pdf' })).toBeNull();
+  });
+
+  async function pickPerson(user: ReturnType<typeof userEvent.setup>) {
+    server.use(
+      http.get('/api/v1/applications/tag-options', () =>
+        HttpResponse.json({
+          users: [{ id: 'u-9', full_name: 'Salma Khatun', role: 'ACCOUNTANT' }],
+          roles: [],
+        }),
+      ),
+    );
+    await user.click(await screen.findByRole('button', { name: 'Add more people' }));
+    await user.type(screen.getByRole('combobox', { name: 'Tag people' }), 'Sal');
+    await user.click(await screen.findByRole('option', { name: /Salma Khatun/ }));
+  }
+
+  it('tags a person and sends the user id', async () => {
+    let body: unknown;
+    server.use(
+      http.post('/api/v1/applications/:id/tags', async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json(applicationDto());
+      }),
+    );
+    render(applicationDto());
+    const user = userEvent.setup();
+    await pickPerson(user);
+    await user.click(screen.getByRole('button', { name: 'Add more people' }));
+    await waitFor(() => expect(body).toEqual({ tags: [{ user_id: 'u-9' }] }));
+  });
+
+  it('a tag the server refuses shows the specific translated sentence', async () => {
+    server.use(
+      http.post('/api/v1/applications/:id/tags', () =>
+        HttpResponse.json(
+          {
+            statusCode: 422,
+            message: 'raw',
+            details: { code: 'APPLICATION_TAGS_STAFF_ONLY' },
+            timestamp: new Date().toISOString(),
+            path: '/x',
+            requestId: 'r',
+          },
+          { status: 422 },
+        ),
+      ),
+    );
+    render(applicationDto());
+    const user = userEvent.setup();
+    await pickPerson(user);
+    await user.click(screen.getByRole('button', { name: 'Add more people' }));
+    expect(await screen.findByText('Only staff members can be tagged.')).toBeTruthy();
+  });
 });
