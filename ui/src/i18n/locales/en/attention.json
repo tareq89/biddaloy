@@ -1,0 +1,596 @@
+{
+  "severity": {
+    "CRITICAL": "Urgent",
+    "WARNING": "Warning",
+    "REMINDER": "Reminder"
+  },
+  "groupHeading": "{{label}} · {{n}}",
+  "bar": {
+    "critical_one": "{{n}} urgent",
+    "critical_other": "{{n}} urgent",
+    "warning_one": "{{n}} warning",
+    "warning_other": "{{n}} warnings",
+    "reminder_one": "{{n}} reminder",
+    "reminder_other": "{{n}} reminders",
+    "mostUrgent": "most urgent: {{title}}",
+    "openLabel": "Open your to-do list"
+  },
+  "modal": {
+    "title": "Your to-do",
+    "updated": "Updated {{age}}",
+    "stale": "Not updated for {{n}} minutes. The list may be out of date.",
+    "keyboardHint": "Use the up and down arrow keys to move between items. Enter does the main action. X closes an item.",
+    "seeAll": "See all to-do ({{n}})",
+    "empty": "Nothing needs you right now.",
+    "loadError": "Could not load your to-do list.",
+    "retry": "Try again"
+  },
+  "item": {
+    "close": "Close",
+    "closeNamed": "Close: {{title}}",
+    "snooze": "Remind me later",
+    "snoozeNamed": "Remind me later: {{title}}",
+    "locked": "Stays until the work is done",
+    "snoozedUntil": "Snoozed until {{time}}",
+    "fixedBy": "Fixed by {{name}}, {{time}}",
+    "fixedAt": "Fixed {{time}}",
+    "actionFailed": "That did not work. Try again.",
+    "about": "{{student}} · {{section}}"
+  },
+  "snooze": {
+    "TWO_HOURS": "In 2 hours",
+    "TOMORROW_MORNING": "Tomorrow morning",
+    "NEXT_SCHOOL_DAY": "Next school day",
+    "DATE": "Pick a date…",
+    "dateTitle": "Remind me on",
+    "dateLabel": "Date",
+    "dateSave": "Remind me",
+    "cancel": "Cancel"
+  },
+  "category": {
+    "SETUP": "Setup",
+    "SYSTEM": "System",
+    "STRUCTURE": "School structure",
+    "ATTENDANCE": "Attendance",
+    "PERIOD": "Periods",
+    "HOMEWORK": "Homework",
+    "CLASS": "My class",
+    "STUDY_PLAN": "Study plan",
+    "FEES": "Fees",
+    "EXAMS": "Exams",
+    "OFFICE": "Office",
+    "FAMILY": "Family",
+    "COMMON": "General",
+    "PLATFORM": "Platform",
+    "BILLING": "Billing",
+    "MANUAL": "Sent by the school"
+  },
+  "state": {
+    "OPEN": "Open",
+    "HIDDEN": "Closed for now",
+    "RESOLVED": "Fixed",
+    "EXPIRED": "Expired"
+  },
+  "worklist": {
+    "title": "Alerts & notifications",
+    "subtitle": "Your to-do and past alerts in one place.",
+    "portalSubtitle": "What you need to know and do about your children.",
+    "tabsLabel": "Alerts & notifications",
+    "tabActive": "To-do ({{n}})",
+    "tabActiveNoCount": "To-do",
+    "tabHistory": "History",
+    "filterCategory": "Type",
+    "allCategories": "All types",
+    "filterClass": "Class",
+    "allClasses": "All classes",
+    "filterSection": "Section",
+    "allSections": "All sections",
+    "filterChild": "Child",
+    "allChildren": "All children",
+    "colSeverity": "Type",
+    "colTitle": "About",
+    "colWho": "Student / section",
+    "colWhen": "When",
+    "colState": "Status",
+    "colActions": "Actions",
+    "hiddenHint": "\"Closed for now\" means you hid it. The work is still open.",
+    "emptyActiveTitle": "Nothing to do",
+    "emptyActiveBody": "Nothing needs you right now. New alerts and reminders show here.",
+    "emptyHistoryTitle": "No history yet",
+    "emptyHistoryBody": "Fixed and expired alerts stay here for 12 months.",
+    "loadError": "Could not load alerts.",
+    "deviceTitle": "Recent messages on this device",
+    "deviceBody": "Short messages shown on this device, like an import finishing. They are not saved for other devices.",
+    "deviceEmpty": "No messages on this device.",
+    "markAllRead": "Mark all read",
+    "documentTitle": "Alerts · {{school}}"
+  },
+  "roles": {
+    "SUPER_ADMIN": "Super admin",
+    "ADMIN": "Admin",
+    "ACCOUNTANT": "Accountant",
+    "TEACHER": "Teacher",
+    "PARENT": "Parent",
+    "STUDENT": "Student",
+    "EXECUTIVE": "Academic coordinator",
+    "OFFICE_STAFF": "Office staff",
+    "EXAM_CONTROLLER": "Exam controller",
+    "COMMITTEE": "Committee member",
+    "everyone": "Everyone"
+  },
+  "settings": {
+    "title": "Alerts & reminders",
+    "description": "Who is told about what, and when. Urgent rules cannot be switched off.",
+    "locked": "Can't be switched off",
+    "graceMinutes": "Grace time after the first period starts",
+    "escalate": "Also tell the academic coordinator and admin when attendance is very late",
+    "classStartingLead": "Remind teachers this long before a period",
+    "smsCreditLow": "Warn when SMS credit falls below",
+    "failedMessages": "Warn when failed messages in 24 hours reach",
+    "timesTitle": "When reminders go out",
+    "dailyAt": "Morning reminders at",
+    "eveningAt": "Evening reminders (about tomorrow) at",
+    "quietTitle": "Quiet hours for push messages",
+    "quietHelp": "In this time only urgent alerts make a sound. The rest arrive when it ends.",
+    "quietStart": "Quiet hours start",
+    "quietEnd": "Quiet hours end",
+    "guardianTitle": "Guardians without the app",
+    "smsFallback": "Send an SMS when the app can't reach a guardian",
+    "smsFallbackHelp": "Each SMS uses credit. Off: guardians see alerts in the app only.",
+    "smsDailyCap": "Most SMS per guardian per day",
+    "unitMinutes": "minutes",
+    "unitMessages": "messages",
+    "unitSms": "SMS",
+    "invalidNumber": "Enter a whole number from {{min}} to {{max}}",
+    "save": "Save",
+    "saved": "Saved"
+  },
+  "rules": {
+    "setup": {
+      "incomplete": {
+        "name": "School setup not finished",
+        "help": "Shows until every setup step is done."
+      }
+    },
+    "trial": {
+      "ending": {
+        "name": "Free trial ending",
+        "help": "Warns 7 days before the trial ends; urgent in the last 2 days."
+      }
+    },
+    "comms": {
+      "provider_missing": {
+        "name": "SMS or email not set up",
+        "help": "Warns when the school can't send SMS or email."
+      },
+      "sms_credit_low": {
+        "name": "SMS credit low",
+        "help": "Warns when SMS credit falls below your limit."
+      },
+      "failed_messages": {
+        "name": "Messages failing",
+        "help": "Warns when many messages fail in 24 hours."
+      }
+    },
+    "staff": {
+      "invite_pending": {
+        "name": "Staff invitation not accepted",
+        "help": "Reminds you about staff who haven't joined yet."
+      }
+    },
+    "year": {
+      "next_missing": {
+        "name": "Next academic year not created",
+        "help": "Warns near year end when next year isn't set up."
+      }
+    },
+    "system": {
+      "backup_failed": {
+        "name": "Backup failed",
+        "help": "Urgent when the last backup failed or is too old."
+      }
+    },
+    "routine": {
+      "not_published": {
+        "name": "Routine not published",
+        "help": "Warns when this year's routine isn't published."
+      },
+      "subject_no_teacher": {
+        "name": "Routine period without a teacher",
+        "help": "Warns about routine periods with no teacher."
+      },
+      "substitution_today": {
+        "name": "Substitute period today",
+        "help": "Tells a teacher which periods they cover today."
+      },
+      "uncovered_periods": {
+        "name": "Periods without a teacher today",
+        "help": "Warns when a teacher on leave has no substitute."
+      },
+      "changed_today": {
+        "name": "Routine changed today",
+        "help": "Tells the student and guardians about today's changes."
+      }
+    },
+    "section": {
+      "no_class_teacher": {
+        "name": "Section without a class teacher",
+        "help": "Warns about sections with no class teacher."
+      }
+    },
+    "guardian": {
+      "contact_missing": {
+        "name": "Guardians without a mobile number",
+        "help": "Warns when guardians have no phone number."
+      },
+      "profile_incomplete": {
+        "name": "My contact details incomplete",
+        "help": "Asks guardians to add missing contact details."
+      }
+    },
+    "attendance": {
+      "not_taken": {
+        "name": "Attendance not taken",
+        "help": "Reminds at the first period, warns after the grace time, urgent after the cut-off."
+      }
+    },
+    "class": {
+      "starting": {
+        "name": "Period starting soon",
+        "help": "Reminds the teacher a few minutes before each period."
+      },
+      "absent_streak": {
+        "name": "Absent several days in a row",
+        "help": "Tells the class teacher about students absent day after day."
+      },
+      "guardian_contact_missing": {
+        "name": "Guardian contact missing in my class",
+        "help": "Tells the class teacher which guardians have no phone number."
+      }
+    },
+    "homework": {
+      "not_submitted": {
+        "name": "Homework not submitted",
+        "help": "Tells the student, guardians and teacher when the period starts."
+      },
+      "due_today": {
+        "name": "Homework due today",
+        "help": "Reminds the student in the morning."
+      },
+      "due_tomorrow": {
+        "name": "Homework due tomorrow",
+        "help": "Reminds the student and guardians in the evening."
+      },
+      "to_grade": {
+        "name": "Homework to mark",
+        "help": "Reminds the teacher about submitted work to mark."
+      }
+    },
+    "fees": {
+      "overdue_rising": {
+        "name": "Overdue fees",
+        "help": "A daily note of the overdue total."
+      },
+      "reminders_pending": {
+        "name": "Fee reminders to send",
+        "help": "Reminds you about dues with no reminder sent."
+      },
+      "unassigned_students": {
+        "name": "Students without fees this month",
+        "help": "Warns about students with no fee assigned."
+      },
+      "structure_missing_new_year": {
+        "name": "Fee structure missing for the new year",
+        "help": "Warns before the new year when fees aren't set up."
+      },
+      "due_soon": {
+        "name": "Fee due soon",
+        "help": "Reminds guardians before a fee's due date."
+      },
+      "overdue_family": {
+        "name": "Fee overdue",
+        "help": "Warns guardians about overdue fees."
+      }
+    },
+    "exams": {
+      "marks_overdue": {
+        "name": "Marks overdue",
+        "help": "Warns about sections whose marks are late; urgent after the deadline."
+      },
+      "my_marks_due": {
+        "name": "My marks due",
+        "help": "Reminds a teacher to submit marks before the deadline."
+      },
+      "results_unpublished": {
+        "name": "Results not published",
+        "help": "Reminds you about processed results not yet published."
+      },
+      "schedule_unpublished": {
+        "name": "Exam schedule not published",
+        "help": "Warns before an exam when its schedule isn't published."
+      },
+      "seat_plan_missing": {
+        "name": "Seat plan missing",
+        "help": "Warns before an exam when there is no seat plan."
+      },
+      "tomorrow": {
+        "name": "Exam tomorrow",
+        "help": "Reminds the student and guardians the evening before."
+      }
+    },
+    "admission": {
+      "applications_pending": {
+        "name": "Admission applications waiting",
+        "help": "Reminds you about applications to review."
+      },
+      "intake_window": {
+        "name": "Admission opens or closes soon",
+        "help": "Reminds you before an intake opens or closes."
+      }
+    },
+    "students": {
+      "records_incomplete": {
+        "name": "Student records incomplete",
+        "help": "Reminds you about missing photos or birth registration numbers."
+      },
+      "at_risk": {
+        "name": "Students at risk",
+        "help": "Lists students whose attendance or marks are slipping."
+      }
+    },
+    "leave": {
+      "staff_pending": {
+        "name": "Staff leave waiting",
+        "help": "Warns about leave requests nobody has decided."
+      },
+      "my_request_decided": {
+        "name": "My leave decided",
+        "help": "Tells you when your leave is approved or turned down."
+      }
+    },
+    "acr": {
+      "incomplete": {
+        "name": "ACR not finished",
+        "help": "Warns evaluators about unfinished ACRs."
+      }
+    },
+    "child": {
+      "absent_today": {
+        "name": "Child absent today",
+        "help": "Tells guardians when their child is marked absent."
+      }
+    },
+    "results": {
+      "published": {
+        "name": "Result published",
+        "help": "Tells the student and guardians when a result is out."
+      }
+    },
+    "calendar": {
+      "holiday_tomorrow": {
+        "name": "Holiday tomorrow",
+        "help": "Reminds everyone the evening before a holiday."
+      }
+    },
+    "surveys": {
+      "pending": {
+        "name": "Survey to answer",
+        "help": "Reminds you about open surveys."
+      }
+    },
+    "platform": {
+      "backup_failing": {
+        "name": "School backups failing",
+        "help": "Urgent when a school's backups keep failing."
+      },
+      "trials_ending": {
+        "name": "Trials ending",
+        "help": "Lists schools whose trial ends soon."
+      },
+      "provider_failures": {
+        "name": "Message services failing",
+        "help": "Warns when SMS or email services keep failing."
+      }
+    },
+    "manual": {
+      "alert": {
+        "name": "Alert sent by the school",
+        "help": "An alert written by an admin or coordinator."
+      }
+    },
+    "study_plan": {
+      "unreported": {
+        "name": "Study plan progress not reported",
+        "help": "Warns a teacher who hasn't updated the study plan."
+      },
+      "behind": {
+        "name": "Study plan behind",
+        "help": "A weekly note when a class is behind its study plan."
+      }
+    },
+    "admin": {
+      "mfa_missing": {
+        "name": "Two-step sign-in not set up",
+        "help": "Warns admins who haven't turned on two-step sign-in."
+      }
+    },
+    "approvals": {
+      "pending": {
+        "name": "Approvals waiting",
+        "help": "Warns about requests waiting for your decision."
+      }
+    },
+    "print": {
+      "queue_pending": {
+        "name": "Documents to print",
+        "help": "Reminds office staff about documents waiting to print."
+      }
+    },
+    "billing": {
+      "renewal_due": {
+        "name": "Subscription renewal due",
+        "help": "Warns before the subscription must be renewed."
+      }
+    },
+    "committee": {
+      "monthly_report_ready": {
+        "name": "Monthly report ready",
+        "help": "Tells committee members the monthly report is ready."
+      }
+    }
+  },
+  "strip": {
+    "label": "Alerts about this student",
+    "more_one": "+{{n}} more",
+    "more_other": "+{{n}} more",
+    "seen": "Seen by {{seen}} of {{total}}",
+    "details": "Details",
+    "dialogTitle": "Alerts about {{name}}"
+  },
+  "health": {
+    "title": "Alert engine",
+    "caption": "Checks every school's rules every 5 minutes and raises alerts.",
+    "ok": "Running",
+    "late": "Late",
+    "failing_one": "{{n}} rule failing",
+    "failing_other": "{{n}} rules failing",
+    "lastFast": "Last check",
+    "lastHourly": "Last hourly check",
+    "lastDaily": "Last daily check",
+    "duration": "Took",
+    "seconds": "{{n}} s",
+    "never": "Not run yet",
+    "failingTitle": "Failing rules",
+    "none": "No rule is failing.",
+    "failedTimes_one": "Failed {{n}} time",
+    "failedTimes_other": "Failed {{n}} times",
+    "lastError": "Last error (technical)",
+    "loadError": "Could not load the engine status."
+  },
+  "composer": {
+    "title": "Send an alert",
+    "whatTitle": "What to send",
+    "whatHelp": "People see it in the bar at the top and in their notifications.",
+    "severityLabel": "Type",
+    "warningHelp": "Important. People can close it or be reminded later.",
+    "reminderHelp": "Just to let people know.",
+    "criticalNote": "Urgent alerts can't be sent by hand. They come from the school's rules.",
+    "titleLabel": "Title",
+    "messageLabel": "Message",
+    "counter": "{{used}} / {{max}}",
+    "linkLabel": "Page to open (optional)",
+    "linkNone": "No page",
+    "linkMixed": "A link only works when everyone uses the same app.",
+    "whoTitle": "Who gets it",
+    "whoHelp": "Pick one or more groups.",
+    "byRole": "By role",
+    "addRole": "Add a role",
+    "studentsOfSections": "Students of sections",
+    "guardiansOfSections": "Guardians of sections",
+    "addSection": "Add a section",
+    "namedPeople": "Named people",
+    "findPerson": "Search by name or phone",
+    "removeChip": "Remove {{label}}",
+    "recipients_one": "{{n}} person in total",
+    "recipients_other": "{{n}} people in total",
+    "onceNote": "Someone in two groups gets it once.",
+    "nobody": "Nobody matches these groups.",
+    "untilTitle": "How long to show it",
+    "expiresLabel": "Show until",
+    "expiresHelp": "After this date it leaves the bar. It stays in history.",
+    "previewTitle": "How people will see it",
+    "send": "Send",
+    "cancel": "Cancel",
+    "sent_one": "Sent to {{n}} person",
+    "sent_other": "Sent to {{n}} people",
+    "dailyLimit": "Daily limit of {{n}} alerts reached. Try again tomorrow.",
+    "discardTitle": "Discard this alert?",
+    "discardBody": "What you wrote will be lost.",
+    "discard": "Discard",
+    "sentTitle": "Sent alerts",
+    "colTitle": "Title",
+    "colType": "Type",
+    "colSent": "Sent",
+    "colExpires": "Until",
+    "colSeen": "Seen",
+    "colStatus": "Status",
+    "seenValue": "{{seen}} / {{total}}",
+    "statusACTIVE": "Active",
+    "statusWITHDRAWN": "Withdrawn",
+    "statusEXPIRED": "Expired",
+    "withdraw": "Withdraw",
+    "withdrawNamed": "Withdraw: {{title}}",
+    "withdrawTitle": "Withdraw this alert?",
+    "withdrawBody_one": "It disappears from {{n}} person's bar.",
+    "withdrawBody_other": "It disappears from {{n}} people's bars.",
+    "withdrawn": "Alert withdrawn",
+    "emptyTitle": "No alerts sent yet",
+    "emptyBody": "Alerts you send show here.",
+    "needTitle": "Write a title first.",
+    "needMessage": "Write a message first.",
+    "needAudience": "Pick who gets it first.",
+    "sendHint": "Ctrl+Enter sends",
+    "previewBadge": "Preview",
+    "loadError": "Could not load sent alerts.",
+    "retry": "Try again"
+  },
+  "report": {
+    "title": "Alerts report",
+    "subtitle": "Which rule fired in which section, and how fast it was fixed.",
+    "downloadCsv": "Download CSV",
+    "month": "Month",
+    "rule": "Rule",
+    "allRules": "All rules",
+    "section": "Section",
+    "allSections": "All sections",
+    "factTotal": "Total alerts",
+    "fewerThan": "{{n}} fewer than {{month}}",
+    "moreThan": "{{n}} more than {{month}}",
+    "sameAs": "Same as {{month}}",
+    "factFixed": "Fixed",
+    "fixedShare": "{{pct}}%",
+    "factAvgFix": "Average time to fix",
+    "minutes": "{{n}} min",
+    "hours": "{{n}} h",
+    "factOpen": "Still open",
+    "openUrgent": "{{n}} urgent",
+    "byRuleTitle": "By rule and section",
+    "colRule": "Rule",
+    "colType": "Type",
+    "colTotal": "Total",
+    "noSection": "No section",
+    "totalRules_one": "Total {{n}} rule",
+    "totalRules_other": "Total {{n}} rules",
+    "emptyTitle": "No alerts in {{month}}",
+    "emptyBody": "Nothing was raised this month.",
+    "loadError": "Could not load the report."
+  },
+  "account": {
+    "title": "Which alerts push to me",
+    "subtitle": "Muted alerts still show in the bell in the app.",
+    "urgentAlways": "Always on",
+    "urgentHelp": "Urgent alerts always push until they are fixed.",
+    "categoryHelp": {
+      "SETUP": "School setup and trial",
+      "SYSTEM": "SMS credit, failed messages, backups",
+      "STRUCTURE": "Routine, class teachers, contacts",
+      "ATTENDANCE": "Attendance not taken",
+      "PERIOD": "Periods starting, substitutes",
+      "HOMEWORK": "Homework due or not submitted",
+      "CLASS": "Absent streaks in my class",
+      "STUDY_PLAN": "Study plan progress",
+      "FEES": "Dues and fee setup",
+      "EXAMS": "Marks, results, exam schedule",
+      "OFFICE": "Admissions, leave, records",
+      "FAMILY": "My child's attendance, fees, exams",
+      "COMMON": "Holidays and surveys",
+      "PLATFORM": "Platform health",
+      "BILLING": "Subscription",
+      "MANUAL": "Alerts sent by the school"
+    },
+    "quietNote": "Quiet hours: {{start}} – {{end}}. Only urgent alerts make a sound then; the rest arrive together afterwards. Your school sets this.",
+    "save": "Save",
+    "saved": "Saved",
+    "loadError": "Could not load your choices."
+  }
+}

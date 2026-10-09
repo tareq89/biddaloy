@@ -89,6 +89,11 @@
       "PLANNED": "পরিকল্পিত",
       "IN_PROGRESS": "চলমান",
       "DONE": "সম্পন্ন"
+    },
+    "alertSeverity": {
+      "CRITICAL": "জরুরি",
+      "WARNING": "সতর্কতা",
+      "REMINDER": "রিমাইন্ডার"
     }
   },
   "walletTransactionKind": {
