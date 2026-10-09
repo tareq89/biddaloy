@@ -1,6 +1,7 @@
 import { LeaveType, StudentLeaveReason } from '@biddaloy/shared';
 import { useLeaveBalance } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { formatNumber } from '@biddaloy/ui/utils';
 import { useWatch } from 'react-hook-form';
 
 import { DateField, SelectField, TextField } from './fields';
@@ -8,6 +9,7 @@ import type { ApplicationSubject } from './registry';
 
 export function StaffLeaveFields({ subject }: { subject: ApplicationSubject }) {
   const { t } = useTranslation('applicationForms');
+  const regionConfig = useRegionConfig();
   const { t: tLeave } = useTranslation('leave');
   const staffProfileId = subject.kind === 'STAFF' ? subject.staffProfileId : '';
   const balances = useLeaveBalance(staffProfileId);
@@ -18,7 +20,7 @@ export function StaffLeaveFields({ subject }: { subject: ApplicationSubject }) {
   const hint = row
     ? row.balance === null
       ? t('help.unlimited')
-      : t('help.balanceLeft', { count: row.balance })
+      : t('help.balanceLeft', { balance: formatNumber(row.balance, regionConfig) })
     : undefined;
 
   return (

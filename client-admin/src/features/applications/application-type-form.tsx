@@ -7,7 +7,7 @@
 import type { ApplicationType } from '@biddaloy/shared';
 import { ApiError } from '@biddaloy/ui/api';
 import { Card, Form } from '@biddaloy/ui/components';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as React from 'react';
 import { useForm, type FieldValues } from 'react-hook-form';
@@ -63,11 +63,12 @@ function TypeForm({
 }: ApplicationTypeFormProps) {
   const { t } = useTranslation('applicationForms');
   const { t: tApp } = useTranslation('applications');
+  const regionConfig = useRegionConfig();
   const def = APPLICATION_FORMS[type];
-  const schema = React.useMemo(() => def.schema(t), [def, t]);
+  const schema = React.useMemo(() => def.schema(t, regionConfig), [def, t, regionConfig]);
   const form = useForm<FieldValues>({
     resolver: zodResolver(schema),
-    defaultValues: { ...def.defaults(subject), ...defaultValues },
+    defaultValues: { ...def.defaults(subject, defaultValues), ...defaultValues },
   });
   const serverMessage = useServerMessage(error);
 

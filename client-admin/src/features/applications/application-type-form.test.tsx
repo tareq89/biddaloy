@@ -4,7 +4,9 @@
  */
 import { ApplicationType } from '@biddaloy/shared';
 import { ApiError } from '@biddaloy/ui/api';
+import { REGION_BD_EN } from '@biddaloy/ui/i18n';
 import { cleanupTestState, renderWithProviders, server } from '@biddaloy/ui/test';
+import { tenantTodayIso } from '@biddaloy/ui/utils';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -256,7 +258,10 @@ describe('ApplicationTypeForm', () => {
   );
 
   it('STAFF_LEAVE: end before start fails on end_date (the picker also disables those days)', async () => {
-    const bad = APPLICATION_FORMS.STAFF_LEAVE.schema(((k: string) => k) as never).safeParse({
+    const bad = APPLICATION_FORMS.STAFF_LEAVE.schema(
+      ((k: string) => k) as never,
+      REGION_BD_EN,
+    ).safeParse({
       leave_type: 'CASUAL',
       start_date: ymd(12),
       end_date: ymd(10),
@@ -277,7 +282,7 @@ describe('ApplicationTypeForm', () => {
     const { user } = await renderForm(ApplicationType.STAFF_LEAVE, STAFF);
     expect(await screen.findByText('No limit')).toBeTruthy();
     await pickOption(user, 'Leave type', 'Sick');
-    expect(await screen.findByText('Left this year: 8 days')).toBeTruthy();
+    expect(await screen.findByText('Left this year: ৮ days')).toBeTruthy();
   });
 
   it('FEE_WAIVER: PERCENT 120 is rejected, FLAT 500 is accepted', async () => {
@@ -304,12 +309,22 @@ describe('ApplicationTypeForm', () => {
   it('READMISSION: a future date is rejected by the schema', () => {
     const t = ((k: string) => k) as never;
     const base = { class_section_id: 'sec-b', reason: 'abc' };
-    const future = new Date();
-    future.setDate(future.getDate() + 3);
-    const iso = `${future.getFullYear()}-${String(future.getMonth() + 1).padStart(2, '0')}-${String(future.getDate()).padStart(2, '0')}`;
-    const schema = APPLICATION_FORMS.READMISSION.schema(t);
-    expect(schema.safeParse({ ...base, occurred_on: iso }).success).toBe(false);
+    const schema = APPLICATION_FORMS.READMISSION.schema(t, REGION_BD_EN);
+    const today = tenantTodayIso(REGION_BD_EN);
+    const tomorrow = new Date(`${today}T00:00:00Z`);
+    tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+    expect(schema.safeParse({ ...base, occurred_on: today }).success).toBe(true);
+    expect(
+      schema.safeParse({ ...base, occurred_on: tomorrow.toISOString().slice(0, 10) }).success,
+    ).toBe(false);
     expect(schema.safeParse({ ...base, occurred_on: '2020-01-01' }).success).toBe(true);
+  });
+
+  it('READMISSION: defaults derive class_id from the section default', () => {
+    const d = APPLICATION_FORMS.READMISSION.defaults;
+    expect(d(STUDENT, { class_section_id: 'sec-a' }).class_id).toBe('c1');
+    expect(d(STUDENT, { class_id: 'c2', class_section_id: 'sec-x' }).class_id).toBe('c2');
+    expect(d(STUDENT).class_id).toBe('c1');
   });
 
   it('SECTION_CHANGE: the current section is not offered', async () => {
