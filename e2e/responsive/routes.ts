@@ -20,6 +20,7 @@ import {
   findSchoolIdBySlug,
   findSeedSectionA,
   get,
+  parentApiSession,
   post,
   seededFirstTermExamId,
   superAdminApiSession,
@@ -178,6 +179,20 @@ export async function resolvePath(
   request: APIRequestContext,
   route: ManifestRoute,
 ): Promise<string> {
+  if (route.path === '/portal/applications/new') {
+    // [52.6.4] Without ?student= a parent with several children is sent back to
+    // the list, so the sweep would scan the list, not the form.
+    const parent = await parentApiSession(request);
+    const mine = await get<{ data: { subject_student_id: string | null }[] }>(
+      request,
+      parent,
+      '/applications?view=mine&limit=100',
+    );
+    const child = mine.data.find((a) => a.subject_student_id)?.subject_student_id;
+    if (!child)
+      throw new Error('no student application seeded for the parent (seed.applications.ts)');
+    return `${route.path}?student=${child}`;
+  }
   if (!route.path.includes('$')) return route.path;
   if (route.path.includes('$schoolId')) {
     // SUPER_ADMIN platform console (#535) — `GET /schools` is SUPER_ADMIN
@@ -444,23 +459,15 @@ export async function resolvePath(
     const isPortal = route.path.startsWith('/portal/');
     let id: string | undefined;
     if (isPortal) {
-      const password = process.env[SEED_PASSWORD_ENV];
-      if (!password) throw new Error(`${SEED_PASSWORD_ENV} is not set`);
-      const login = await request.post('/api/v1/auth/login', {
-        data: { email: SEED_ROLE_EMAILS.parent, password },
-      });
-      if (!login.ok()) throw new Error(`parent login failed: ${login.status()}`);
-      const body = (await login.json()) as {
-        access_token: string;
-        memberships: { tenantId: string; role: string }[];
-      };
-      const tenantId = body.memberships.find((m) => m.role === 'PARENT')?.tenantId;
-      if (!tenantId) throw new Error('no PARENT membership for seed parent');
-      const list = await request.get('/api/v1/applications?view=mine', {
-        headers: { Authorization: `Bearer ${body.access_token}`, 'X-Tenant-ID': tenantId },
-      });
-      if (!list.ok()) throw new Error(`GET /applications failed: ${list.status()}`);
-      id = ((await list.json()) as { data: { id: string }[] }).data[0]?.id;
+      // [52.6.4] The withdraw overlay needs one the parent can still withdraw;
+      // the newest row may already be decided or a paper entry.
+      const parent = await parentApiSession(request);
+      const mine = await get<{ data: { id: string; can?: { withdraw?: boolean } }[] }>(
+        request,
+        parent,
+        '/applications?view=mine&limit=100',
+      );
+      id = (mine.data.find((a) => a.can?.withdraw) ?? mine.data[0])?.id;
     } else {
       // [52.5.8] The overlays (approve / reject / consider) need a row the admin can decide.
       id = await ensureDecidableApplications(request, session, 1);
