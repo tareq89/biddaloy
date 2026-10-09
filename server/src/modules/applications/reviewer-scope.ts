@@ -13,6 +13,14 @@ import type { ApplicationStep, ApplicationType } from '@biddaloy/shared';
 import { FamilyAccessService } from '../students/family-access.service';
 import type { Application } from './entities/application.entity';
 
+/** SQL: the subject student's section has no class teacher now (orphan rule, D49). Needs `a`, `s`. */
+const NO_CLASS_TEACHER = `s.class_section_id IS NOT NULL AND NOT EXISTS (
+  SELECT 1 FROM teacher_class_sections otcs
+    JOIN teachers ot ON ot.id = otcs.teacher_id AND ot.tenant_id = otcs.tenant_id
+     AND ot.deleted_at IS NULL
+   WHERE otcs.tenant_id = a.tenant_id AND otcs.section_id = s.class_section_id
+     AND otcs.assignment_type = 'CLASS_TEACHER')`;
+
 export type ApplicationCaller = { userId: string; role: UserRole };
 
 const OPEN_STATUSES = [ApplicationStatus.PENDING, ApplicationStatus.UNDER_CONSIDERATION];
@@ -232,20 +240,16 @@ export class ReviewerScopeService {
           case 'CLASS_TEACHER':
             if (ctSections.length > 0) add(type, i, 's.class_section_id IN (:...ctSections)');
             if (override) {
-              add(
-                type,
-                i,
-                `s.class_section_id IS NOT NULL AND NOT EXISTS (
-                   SELECT 1 FROM teacher_class_sections otcs
-                     JOIN teachers ot ON ot.id = otcs.teacher_id AND ot.tenant_id = otcs.tenant_id
-                      AND ot.deleted_at IS NULL
-                    WHERE otcs.tenant_id = a.tenant_id AND otcs.section_id = s.class_section_id
-                      AND otcs.assignment_type = 'CLASS_TEACHER')`,
-              );
+              add(type, i, NO_CLASS_TEACHER);
             }
             break;
           case 'ADDRESSEE': {
             const parts = [`(a.addressee = 'STAFF_USER' AND a.addressee_user_id = :me)`];
+            if (override) {
+              // canDecide gives override roles a class-teacher-addressed application whose
+              // section has no class teacher now, so the inbox must too.
+              parts.push(`(a.addressee = 'CLASS_TEACHER' AND ${NO_CLASS_TEACHER})`);
+            }
             if (user.role === UserRole.ADMIN) parts.push(`a.addressee = 'HEADMASTER'`);
             if (user.role === UserRole.OFFICE_STAFF) parts.push(`a.addressee = 'OFFICE'`);
             if (ctSections.length > 0) {
