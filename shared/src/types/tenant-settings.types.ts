@@ -256,6 +256,12 @@ export interface EvaluationsSettings {
   incidentSmsEnabled?: boolean;
 }
 
+/** `applications.*` (52.1.1). */
+export interface ApplicationsSettings {
+  /** Guardian SMS on a final decision (D18). Default false. */
+  smsOnDecision?: boolean;
+}
+
 /** `documents.*` (48.1.01) — student document options. */
 export interface DocumentsSettings {
   /** Refuse an admit card while the student has dues (D9). Default off. */
@@ -276,5 +282,6 @@ export interface TenantSettings {
   backup?: BackupSettings;
   fees?: FeesSettings;
   evaluations?: EvaluationsSettings;
+  applications?: ApplicationsSettings;
   documents?: DocumentsSettings;
 }

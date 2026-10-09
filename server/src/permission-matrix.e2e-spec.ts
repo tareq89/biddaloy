@@ -818,6 +818,10 @@ export const UI_ONLY_PERMISSIONS: Permission[] = [
   // [34.2.1] PROGRAM_RECORD now gates POST /programs/:id/achievements and
   // DELETE /milestone-achievements/:id — no longer UI-only, removed from
   // this list.
+  // [52.1.1] Plumbing ahead of the /applications routes (52.2.1+). Remove
+  // APPLICATION_SUBMIT when POST /applications requires it.
+  Permission.APPLICATION_SUBMIT,
+  Permission.APPLICATION_MANAGE,
 ];
 
 describe('Permission matrix (regression)', () => {

@@ -115,6 +115,8 @@ describe('family read grants [5.1]', () => {
     Permission.SYLLABUS_READ,
     // [34.1.1] D4 — families get only PROGRAM_READ.
     Permission.PROGRAM_READ,
+    // [52.1.1] D22/D45 — families may submit (own) applications.
+    Permission.APPLICATION_SUBMIT,
   ] as const;
 
   for (const role of FAMILY_ROLES) {
@@ -855,6 +857,8 @@ describe('new role grants [#1358]', () => {
   // drops REPORT_COLLECTIONS_READ, as D16 allows: that report names students.
   const D16: Record<(typeof NEW_ROLES)[number], Permission[]> = {
     [UserRole.OFFICE_STAFF]: [
+      Permission.APPLICATION_SUBMIT, // [52.1.1] D22
+      Permission.APPLICATION_MANAGE,
       Permission.CERTIFICATE_ISSUE, // [48.1.01] D6
       Permission.STUDENT_CREATE,
       Permission.STUDENT_READ,
@@ -883,6 +887,7 @@ describe('new role grants [#1358]', () => {
       Permission.STAFF_ATTENDANCE_MARK,
     ],
     [UserRole.EXAM_CONTROLLER]: [
+      Permission.APPLICATION_SUBMIT, // [52.1.1] D22
       Permission.EXAM_MANAGE,
       Permission.SEAT_PLAN_MANAGE,
       Permission.MARK_VIEW,
@@ -931,5 +936,24 @@ describe('MY_CLASS_VIEW [47.1.1] D11', () => {
       (r) => r !== UserRole.SUPER_ADMIN && ROLE_PERMISSIONS[r]?.includes(Permission.MY_CLASS_VIEW),
     );
     expect(holders).toEqual([UserRole.TEACHER]);
+  });
+});
+
+describe('applications grants [52.1.1]', () => {
+  const holders = (p: Permission) =>
+    Object.values(UserRole).filter((r) => ROLE_PERMISSIONS[r]?.includes(p));
+
+  it('every role except COMMITTEE holds APPLICATION_SUBMIT (D45)', () => {
+    expect(holders(Permission.APPLICATION_SUBMIT).sort()).toEqual(
+      Object.values(UserRole)
+        .filter((r) => r !== UserRole.COMMITTEE)
+        .sort(),
+    );
+  });
+
+  it('APPLICATION_MANAGE is held by ADMIN, EXECUTIVE, OFFICE_STAFF, SUPER_ADMIN only', () => {
+    expect(holders(Permission.APPLICATION_MANAGE).sort()).toEqual(
+      [UserRole.ADMIN, UserRole.EXECUTIVE, UserRole.OFFICE_STAFF, UserRole.SUPER_ADMIN].sort(),
+    );
   });
 });

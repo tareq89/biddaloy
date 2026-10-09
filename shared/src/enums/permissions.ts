@@ -252,6 +252,9 @@ export enum Permission {
   STAFF_ATTENDANCE_MARK = 'STAFF_ATTENDANCE_MARK',
   // [36.1.1] Approve/reject a LeaveRecord. ADMIN/EXECUTIVE only.
   LEAVE_APPROVE = 'LEAVE_APPROVE',
+  // [52.1.1] Applications (D22)
+  APPLICATION_SUBMIT = 'APPLICATION_SUBMIT',
+  APPLICATION_MANAGE = 'APPLICATION_MANAGE',
 }
 
 import { UserRole } from './index';
@@ -260,6 +263,9 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   [UserRole.SUPER_ADMIN]: Object.values(Permission),
 
   [UserRole.ADMIN]: [
+    // [52.1.1] Applications (D22/D45)
+    Permission.APPLICATION_SUBMIT,
+    Permission.APPLICATION_MANAGE,
     Permission.USER_CREATE,
     Permission.USER_READ,
     Permission.USER_UPDATE,
@@ -386,6 +392,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   ],
 
   [UserRole.ACCOUNTANT]: [
+    // [52.1.1] Applications (D22/D45)
+    Permission.APPLICATION_SUBMIT,
     Permission.STUDENT_READ,
     // `POST /students/bulk-upload/{validate,commit}` require this permission
     // (PermissionsGuard). Without it the "Import students" button is hidden
@@ -444,6 +452,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   ],
 
   [UserRole.TEACHER]: [
+    // [52.1.1] Applications (D22/D45)
+    Permission.APPLICATION_SUBMIT,
     Permission.MY_CLASS_VIEW,
     Permission.STUDENT_READ,
     Permission.GUARDIAN_READ,
@@ -502,6 +512,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   // register a PARENT/STUDENT can see, via FamilyAccessService — same
   // reasoning as STUDENT_READ above.
   [UserRole.PARENT]: [
+    // [52.1.1] Applications (D22/D45)
+    Permission.APPLICATION_SUBMIT,
     Permission.STUDENT_READ,
     Permission.FEE_READ,
     Permission.INVOICE_READ,
@@ -520,6 +532,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   ],
 
   [UserRole.STUDENT]: [
+    // [52.1.1] Applications (D22/D45)
+    Permission.APPLICATION_SUBMIT,
     Permission.STUDENT_READ,
     Permission.FEE_READ,
     Permission.INVOICE_READ,
@@ -538,6 +552,9 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   ],
 
   [UserRole.EXECUTIVE]: [
+    // [52.1.1] Applications (D22/D45)
+    Permission.APPLICATION_SUBMIT,
+    Permission.APPLICATION_MANAGE,
     Permission.STUDENT_READ,
     // Same reasoning as ACCOUNTANT above — the server route already admits
     // EXECUTIVE, so the UI gate matches it rather than being stricter.
@@ -596,6 +613,9 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   // #1358 office clerk / computer operator: intake, records, communication,
   // printing. No money-moving, no delete, no lifecycle, no settings.
   [UserRole.OFFICE_STAFF]: [
+    // [52.1.1] Applications (D22/D45)
+    Permission.APPLICATION_SUBMIT,
+    Permission.APPLICATION_MANAGE,
     Permission.STUDENT_CREATE,
     Permission.STUDENT_READ,
     Permission.STUDENT_UPDATE,
@@ -628,6 +648,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   // #1358 exam controller: runs exams, seat plans and results; reads marks
   // but never enters them; prints documents but never edits templates.
   [UserRole.EXAM_CONTROLLER]: [
+    // [52.1.1] Applications (D22/D45)
+    Permission.APPLICATION_SUBMIT,
     Permission.EXAM_MANAGE,
     Permission.SEAT_PLAN_MANAGE,
     Permission.MARK_VIEW,
