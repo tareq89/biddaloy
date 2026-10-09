@@ -32,8 +32,9 @@ export class LeavePolicy {
   @Column({ type: 'enum', enum: LeaveType })
   leave_type: LeaveType;
 
-  @Column({ type: 'int' })
-  annual_quota_days: number;
+  /** null = unlimited, tracked only (D19). */
+  @Column({ type: 'int', nullable: true })
+  annual_quota_days: number | null;
 
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;

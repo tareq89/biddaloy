@@ -32,6 +32,10 @@ import { PrinterProfile } from '../../print/entities/printer-profile.entity';
 import { PrintJob } from '../../print/entities/print-job.entity';
 import { PrintJobItem } from '../../print/entities/print-job-item.entity';
 import { WorkbookJob } from '../jobs/workbook-job.entity';
+import { Application } from '../../applications/entities/application.entity';
+import { ApplicationEvent } from '../../applications/entities/application-event.entity';
+import { ApplicationTag } from '../../applications/entities/application-tag.entity';
+import { ApplicationAttachment } from '../../applications/entities/application-attachment.entity';
 
 /**
  * Entities that `registry.completeness.spec.ts` allows to have no workbook
@@ -107,6 +111,12 @@ export const ENTITY_COVERAGE_EXEMPT: ReadonlyMap<EntityTarget<unknown>, string> 
     PrintJobItem,
     'print audit trail + certificate register (Epic 32 D44, Epic 48 D33): verify tokens and serial numbers must not travel to another tenant',
   ],
+
+  // --- Epic 52 applications: tabs land in 52.1.6 (same lane), which deletes these ---
+  [Application, '[52.1.2] Tab lands in 52.1.6 (same lane).'],
+  [ApplicationEvent, '[52.1.2] Tab lands in 52.1.6 (same lane).'],
+  [ApplicationTag, '[52.1.2] Tab lands in 52.1.6 (same lane).'],
+  [ApplicationAttachment, '[52.1.2] Tab lands in 52.1.6 (same lane).'],
 
   // Epic 19.0's exams/marks/results spine got a workbook tab in [19.10.1]
   // (#906). No exemption entries left for them.
