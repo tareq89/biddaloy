@@ -55,6 +55,7 @@ import { StaffAttendanceModule } from './modules/staff-attendance/staff-attendan
 import { StaffAttendanceSession } from './modules/staff-attendance/entities/staff-attendance-session.entity';
 import { StaffAttendanceRecord } from './modules/staff-attendance/entities/staff-attendance-record.entity';
 import { LeaveModule } from './modules/leave/leave.module';
+import { ApplicationsModule } from './modules/applications/applications.module';
 import { LeaveRecord } from './modules/leave/entities/leave-record.entity';
 import { LeavePolicy } from './modules/leave/entities/leave-policy.entity';
 import { Application } from './modules/applications/entities/application.entity';
@@ -448,6 +449,7 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
     StaffProfilesModule,
     StaffAttendanceModule,
     LeaveModule,
+    ApplicationsModule,
     AcrModule,
     IncidentsModule,
     SurveysModule,
