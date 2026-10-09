@@ -9,6 +9,7 @@
  * `ui/README.md`'s "Hooks" section for the full pattern write-up.
  */
 export { ApprovalCancelledError, ApprovalModalHostProvider } from './approval';
+export * from './applications';
 export { createEntityKeys, type EntityKeys } from './query-keys';
 export { shouldRetryQuery } from './retry';
 export { useOnline } from './use-online';

@@ -22,6 +22,9 @@ const PERMISSION_VALUES = new Set(Object.values(Permission));
  * small subset here, only the routes seeded actions actually target. */
 const NAV_PATH_TO_ROUTE_ID: Record<string, string> = {
   '/payments/record': '/_staff/payments/record',
+  '/applications/new': '/_staff/applications/new',
+  '/applications?view=inbox': '/_staff/applications/',
+  '/applications/new?type=STAFF_LEAVE': '/_staff/applications/new',
   '/staff/evaluations?startAcr=1': '/_staff/staff/evaluations',
   '/staff/evaluations?reportIncident=1': '/_staff/staff/evaluations',
   '/staff/evaluations?tab=surveys&publishSurvey=1': '/_staff/staff/evaluations',
@@ -109,6 +112,8 @@ const REGISTERED_ACTION_FILES: Record<string, string> = {
   'attendance.take': 'client-admin/src/routes/_staff/attendance/index.tsx',
   'attendance.register.edit': 'client-admin/src/routes/_staff/attendance/register.tsx',
   'attendance.markStaff': 'client-admin/src/routes/_staff/attendance/staff/index.tsx',
+  // Holds <FullPageShell after 52.5.3; registered in advance so the palette-coverage test is satisfied.
+  'applications.new': `${R}_staff/applications/new.tsx`,
   'leave.record': `${R}_staff/attendance/staff/-leave-request-dialog.tsx`,
   'fees.generate': `${R}_staff/fees/-generate/generate-fees-modal.tsx`,
   'fines.log': `${R}_staff/fees/fines/-modals/log-fine-modal.tsx`,

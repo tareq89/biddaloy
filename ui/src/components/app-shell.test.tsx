@@ -173,6 +173,29 @@ describe('AppShell', () => {
     expect(screen.queryByText('Greenview School')).toBeNull();
   });
 
+  it('[52.4.1] shows a nav item badge with its screen-reader label, and nothing extra without one', async () => {
+    const rootRoute = createRootRoute();
+    const items: AppShellNavItem[] = [
+      { to: '/', label: 'Dashboard' },
+      { to: '/apps', label: 'Applications', badge: '5', badgeLabel: '5 waiting' },
+    ];
+    const indexRoute = createRoute({
+      getParentRoute: () => rootRoute,
+      path: '/',
+      component: () => (
+        <AppShell navItems={items} brand="SchoolManager">
+          <p>Content</p>
+        </AppShell>
+      ),
+    });
+    renderWithRouter(rootRoute.addChildren([indexRoute]), { initialEntries: ['/'] });
+
+    const link = await screen.findByRole('link', { name: /Applications/ });
+    expect(within(link).getByText('5').getAttribute('aria-hidden')).toBe('true');
+    expect(within(link).getByText('5 waiting').className).toContain('sr-only');
+    expect(within(screen.getByRole('link', { name: 'Dashboard' })).queryByText('5')).toBeNull();
+  });
+
   describe('[8.14.2] --app-header-h contract', () => {
     afterEach(() => {
       document.documentElement.style.removeProperty(APP_HEADER_HEIGHT_VAR);

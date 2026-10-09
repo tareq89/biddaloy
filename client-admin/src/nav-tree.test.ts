@@ -12,6 +12,7 @@ import {
   STAFF_BOTTOM_NAV,
   STAFF_NAV_GROUPS,
   STAFF_NAV_ITEMS,
+  STAFF_TOP_NAV_ITEMS,
 } from './nav-tree';
 import { routeTree } from './routeTree.gen';
 
@@ -146,7 +147,7 @@ describe('nav-tree', () => {
 describe('nav-tree completeness against routeTree.gen.ts', () => {
   it('Direction A: every leaf route is reachable from the sidebar, or listed in NOT_IN_NAV', () => {
     const navRouteIds = new Set(
-      [STAFF_NAV_ITEMS.dashboard, ...allGroupItems()]
+      [...STAFF_TOP_NAV_ITEMS, ...allGroupItems()]
         .map((item) => navTargetRouteId(item.to))
         .filter((id): id is string => id !== undefined),
     );
@@ -161,7 +162,7 @@ describe('nav-tree completeness against routeTree.gen.ts', () => {
   });
 
   it("Direction B: every nav item's `to` resolves to a real route", () => {
-    const broken = [STAFF_NAV_ITEMS.dashboard, ...allGroupItems()]
+    const broken = [...STAFF_TOP_NAV_ITEMS, ...allGroupItems()]
       .filter((item) => navTargetRouteId(item.to) === undefined)
       .map((item) => `${item.id} -> ${item.to}`);
 
@@ -183,7 +184,7 @@ describe('nav-tree completeness against routeTree.gen.ts', () => {
 
   it('NOT_IN_NAV entries do not overlap a route reachable from the sidebar', () => {
     const navRouteIds = new Set(
-      [STAFF_NAV_ITEMS.dashboard, ...allGroupItems()]
+      [...STAFF_TOP_NAV_ITEMS, ...allGroupItems()]
         .map((item) => navTargetRouteId(item.to))
         .filter((id): id is string => id !== undefined),
     );
