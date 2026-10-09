@@ -168,9 +168,13 @@ test('teacher reports taught and not taught, a no-plan period has no buttons, th
     await expect(main.getByRole('article').first()).toBeVisible({ timeout: 60_000 });
 
     await test.step('the day card shows the deadline and the counts', async () => {
-      await expect(
-        main.getByText(t('routines.marking.deadline', { time: '@@' }).split('@@')[1]!.trim()),
-      ).toBeVisible();
+      // The whole sentence with the time as a wildcard, so it checks the deadline in any locale.
+      const deadline = new RegExp(
+        t('routines.marking.deadline', { time: '@@' })
+          .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+          .replace('@@', '\\S+'),
+      );
+      await expect(main.getByText(deadline)).toBeVisible();
       await expect(
         main.getByText(
           t('routines.marking.counts', { left: 2, reported: 0, cancelled: 0, noPlan: 1 }),
@@ -246,9 +250,10 @@ test.describe('needs today to be a school day (the server records against its ow
   }) => {
     const ctx = await playwright.request.newContext({ baseURL: baseURL ?? '' });
     const admin = await adminApiSession(ctx);
-    const today = (await schoolCalendar(ctx, admin)).today;
+    const cal = await schoolCalendar(ctx, admin);
+    const today = cal.today;
     test.skip(
-      !(await schoolCalendar(ctx, admin)).isSchoolDay(today),
+      !cal.isSchoolDay(today),
       'today is a weekly-off day: the server has no periods to record against its own date',
     );
     const suffix = crypto.randomUUID().slice(0, 6);

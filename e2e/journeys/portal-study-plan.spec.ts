@@ -143,24 +143,21 @@ test('a guardian sees their own childâ€™s plan and lesson line; another familyâ€
       ).toBe(200);
       // Not linked: the family endpoints answer 401 (FamilyAccessService's long-standing convention);
       // another school's token cannot see the row at all (404) or is fenced (403). Never a 200.
-      const refused = (status: number) => {
-        expect([401, 403, 404]).toContain(status);
-        return true;
-      };
+      const expectRefused = (status: number) => expect([401, 403, 404]).toContain(status);
       const strangerPlans = await rawRequest(
         request,
         parent,
         'GET',
         `/students/${stranger.id}/study-plans`,
       );
-      expect(refused(strangerPlans.status)).toBe(true);
+      expectRefused(strangerPlans.status);
       const strangerLessons = await rawRequest(
         request,
         parent,
         'GET',
         `/students/${stranger.id}/lessons?date=${cal.today}`,
       );
-      expect(refused(strangerLessons.status)).toBe(true);
+      expectRefused(strangerLessons.status);
 
       const otherSchool = await secondSchoolAdminSession(request);
       const crossTenant = await rawRequest(
@@ -169,9 +166,9 @@ test('a guardian sees their own childâ€™s plan and lesson line; another familyâ€
         'GET',
         `/students/${own.id}/study-plans`,
       );
-      expect(refused(crossTenant.status)).toBe(true);
+      expectRefused(crossTenant.status);
       const crossPlan = await rawRequest(request, otherSchool, 'GET', `/study-plans/${plan.id}`);
-      expect(refused(crossPlan.status)).toBe(true);
+      expectRefused(crossPlan.status);
     });
   } finally {
     for (const id of planIds) await rawRequest(request, admin, 'DELETE', `/study-plans/${id}`);
