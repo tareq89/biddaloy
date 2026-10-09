@@ -23,7 +23,7 @@ import type {
 export interface LeavePolicyRow {
   id: string;
   leave_type: LeaveType;
-  annual_quota_days: number;
+  annual_quota_days: number | null; // null = unlimited (D19)
 }
 
 const columns: readonly ColumnSpec[] = [
@@ -38,7 +38,6 @@ const columns: readonly ColumnSpec[] = [
   {
     key: 'annual_quota_days',
     type: 'int',
-    required: true,
     label: { en: 'Annual quota (days)', bn: 'বার্ষিক কোটা (দিন)' },
   },
 ];
@@ -64,7 +63,7 @@ export const leavePolicyTab: TabSpec<LeavePolicy, LeavePolicyRow> = {
     return {
       id: entity.id,
       leave_type: entity.leave_type,
-      annual_quota_days: entity.annual_quota_days ?? 0, // ponytail: null quota handled by 52.1.6 / 52.2.4
+      annual_quota_days: entity.annual_quota_days,
     };
   },
 
@@ -92,7 +91,7 @@ export const leavePolicyTab: TabSpec<LeavePolicy, LeavePolicyRow> = {
       row: {
         id: values.id as string,
         leave_type: values.leave_type as LeaveType,
-        annual_quota_days: values.annual_quota_days as number,
+        annual_quota_days: (values.annual_quota_days as number | null) ?? null,
       },
     };
   },

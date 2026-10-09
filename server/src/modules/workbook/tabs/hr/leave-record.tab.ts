@@ -1,5 +1,6 @@
 import type { EntityManager } from 'typeorm';
-import { LeaveType, LeaveStatus } from '@biddaloy/shared';
+import { LeaveType, LeaveStatus, ApplicationType } from '@biddaloy/shared';
+import { Application } from '../../../applications/entities/application.entity';
 import { LeaveRecord } from '../../../leave/entities/leave-record.entity';
 import { fromCell } from '../../codec/cell-format';
 import type {
@@ -33,9 +34,11 @@ export interface LeaveRecordRow {
   status: LeaveStatus;
   reason: string | null;
   approved_by: string | null;
+  application_id: string | null;
   decided_at: string | null;
   staff_profile_key: string;
   approved_by_key: string | null;
+  application_key: string | null;
 }
 
 const columns: readonly ColumnSpec[] = [
@@ -77,6 +80,12 @@ const columns: readonly ColumnSpec[] = [
     ref: 'users',
     label: { en: 'Approved by', bn: 'অনুমোদনকারী' },
   },
+  {
+    key: 'application',
+    type: 'ref',
+    ref: 'applications',
+    label: { en: 'Application', bn: 'আবেদন' },
+  },
   { key: 'decided_at', type: 'datetime', label: { en: 'Decided at', bn: 'সিদ্ধান্তের সময়' } },
 ];
 
@@ -90,14 +99,14 @@ const excluded: readonly string[] = [
   // share the same key (unlike `student_id` → `student`), so it appears
   // only in `columns`, and the completeness gate treats that as covered.
   'tenant_id', // implicit: every row is scoped to the workbook's own tenant
-  'application_id', // [52.1.2] exported as a ref column by 52.1.6
+  'application_id', // exported instead as the `application` ref column
 ];
 
 export const leaveRecordTab: TabSpec<LeaveRecord, LeaveRecordRow> = {
   name: 'leave_records',
   entity: LeaveRecord,
   excluded,
-  dependsOn: ['staff_profiles', 'users'],
+  dependsOn: ['staff_profiles', 'users', 'applications'],
   columns,
   naturalKey: ['staff_profile', 'start_date', 'end_date'],
   deleteByAbsence: true,
@@ -123,6 +132,7 @@ export const leaveRecordTab: TabSpec<LeaveRecord, LeaveRecordRow> = {
       status: entity.status,
       reason: entity.reason,
       approved_by: entity.approved_by ? ctx.keyOf('users', entity.approved_by) : null,
+      application: entity.application_id ? ctx.keyOf('applications', entity.application_id) : null,
       decided_at: entity.decided_at,
     };
   },
@@ -194,6 +204,25 @@ export const leaveRecordTab: TabSpec<LeaveRecord, LeaveRecordRow> = {
       }
     }
 
+    // `application` is optional: only leave granted from an application has one.
+    const applicationKey = (values.application as string | null) ?? '';
+    let applicationId: string | null = null;
+    if (applicationKey) {
+      const resolved = ctx.ref('applications', applicationKey);
+      if (!resolved) {
+        errors.push({
+          tab: 'leave_records',
+          row: rowNo,
+          column: 'application',
+          message: `Column "application": no application with the key "${applicationKey}" was found.`,
+          severity: 'error',
+          value: applicationKey,
+        });
+      } else {
+        applicationId = resolved;
+      }
+    }
+
     if (errors.length > 0) return { errors };
 
     return {
@@ -207,9 +236,11 @@ export const leaveRecordTab: TabSpec<LeaveRecord, LeaveRecordRow> = {
         status: (values.status as LeaveStatus | null) ?? LeaveStatus.PENDING,
         reason: (values.reason as string | null) ?? null,
         approved_by: approvedById,
+        application_id: applicationId,
         decided_at: (values.decided_at as string | null) ?? null,
         staff_profile_key: staffProfileKey,
         approved_by_key: approvedByKey ? approvedByKey : null,
+        application_key: applicationKey ? applicationKey : null,
       },
     };
   },
@@ -230,6 +261,7 @@ export const leaveRecordTab: TabSpec<LeaveRecord, LeaveRecordRow> = {
     if (row.status !== existing.status) changed.push('status');
     if (row.reason !== existing.reason) changed.push('reason');
     if (row.approved_by !== existing.approved_by) changed.push('approved_by');
+    if (row.application_id !== existing.application_id) changed.push('application');
     const rowDecidedAt = row.decided_at;
     const existingDecidedAt = existing.decided_at ? existing.decided_at.toISOString() : null;
     if (rowDecidedAt !== existingDecidedAt) changed.push('decided_at');
@@ -255,6 +287,21 @@ export const leaveRecordTab: TabSpec<LeaveRecord, LeaveRecordRow> = {
       new LeaveRecord();
 
     record.tenant_id = tenantId;
+    if (row.application_id) {
+      // Tenant-scoped: the linked application must be this staff member's own leave application.
+      const app = await m.findOne(Application, {
+        where: { id: row.application_id, tenant_id: tenantId },
+      });
+      if (
+        !app ||
+        app.type !== ApplicationType.STAFF_LEAVE ||
+        app.subject_staff_profile_id !== row.staff_profile_id
+      ) {
+        throw new Error(
+          `Leave record ${row.staff_profile_key}|${row.start_date}: "application" must be a STAFF_LEAVE application for the same staff member.`,
+        );
+      }
+    }
     record.staff_profile_id = row.staff_profile_id;
     record.leave_type = row.leave_type;
     record.start_date = row.start_date;
@@ -263,6 +310,7 @@ export const leaveRecordTab: TabSpec<LeaveRecord, LeaveRecordRow> = {
     record.status = row.status;
     record.reason = row.reason;
     record.approved_by = row.approved_by;
+    record.application_id = row.application_id;
     record.decided_at = row.decided_at ? new Date(row.decided_at) : null;
 
     return m.save(LeaveRecord, record);
