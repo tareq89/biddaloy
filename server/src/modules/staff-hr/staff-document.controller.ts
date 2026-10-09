@@ -50,7 +50,7 @@ async function assertUserInTenant(
  * so browsers still show the real UTF-8 name (e.g. a Bangla original
  * filename) instead of the fallback.
  */
-function buildContentDisposition(originalFilename: string): string {
+export function buildContentDisposition(originalFilename: string): string {
   // eslint-disable-next-line no-control-regex
   const asciiFallback = originalFilename.replace(/[^\x20-\x7e]|["\\]/g, '_') || 'document';
   const encoded = encodeURIComponent(originalFilename);
