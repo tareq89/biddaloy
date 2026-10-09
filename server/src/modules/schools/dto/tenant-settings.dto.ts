@@ -649,6 +649,15 @@ export class EvaluationsSettingsDto {
   incidentSmsEnabled?: boolean;
 }
 
+/** [52.2.6] `settings.applications`. Absent = off. */
+export class ApplicationsSettingsDto {
+  /** Guardian SMS on a final decision (D18). Default off. */
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  smsOnDecision?: boolean;
+}
+
 /** [48.1.03] `settings.documents` — Epic 48 D9 / D24. */
 export class DocumentsSettingsDto {
   @ApiPropertyOptional()
@@ -771,6 +780,10 @@ export class TenantSettingsDto {
   @OptionalSetting()
   @NestedSettings(() => EvaluationsSettingsDto)
   evaluations?: EvaluationsSettingsDto;
+
+  @OptionalSetting()
+  @NestedSettings(() => ApplicationsSettingsDto)
+  applications?: ApplicationsSettingsDto;
 
   @OptionalSetting()
   @NestedSettings(() => DocumentsSettingsDto)

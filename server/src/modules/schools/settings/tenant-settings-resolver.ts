@@ -13,6 +13,7 @@ import {
 import { ApprovalMode, SERIAL_PREFIX_PATTERN } from '@biddaloy/shared';
 import type {
   DocumentsSettings,
+  ApplicationsSettings,
   EvaluationsSettings,
   RoutineSettings,
   StudyPlansSettings,
@@ -206,6 +207,13 @@ export function resolveTenantSettings(stored: Record<string, unknown> | null): T
       ? { incidentSmsEnabled: storedEvaluations.incidentSmsEnabled }
       : undefined;
 
+  // [52.2.6] Only the known boolean passes through; absent = off.
+  const storedApplications = isPlainObject(stored?.applications) ? stored.applications : undefined;
+  const applications: ApplicationsSettings | undefined =
+    typeof storedApplications?.smsOnDecision === 'boolean'
+      ? { smsOnDecision: storedApplications.smsOnDecision }
+      : undefined;
+
   // [48.1.03] Always present. A hand-edited or restored row must not put junk
   // on a printed certificate, so each field passes only if well-formed.
   const storedDocuments = isPlainObject(stored?.documents) ? stored.documents : undefined;
@@ -234,5 +242,6 @@ export function resolveTenantSettings(stored: Record<string, unknown> | null): T
     ...(communications ? { communications } : {}),
     ...(preset ? { preset } : {}),
     ...(evaluations ? { evaluations } : {}),
+    ...(applications ? { applications } : {}),
   };
 }
