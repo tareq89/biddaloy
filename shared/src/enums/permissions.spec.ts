@@ -968,3 +968,28 @@ describe('applications grants [52.1.1]', () => {
     );
   });
 });
+
+describe('[67.1.01] alert permissions', () => {
+  const alertPerms = [Permission.ALERT_SEND, Permission.ALERT_REPORT_READ];
+
+  it('ADMIN and EXECUTIVE hold both', () => {
+    for (const role of [UserRole.ADMIN, UserRole.EXECUTIVE]) {
+      for (const p of alertPerms) expect(roleHasPermission(role, p), `${role} ${p}`).toBe(true);
+    }
+  });
+
+  it('no other tenant role holds either', () => {
+    const others = [
+      UserRole.ACCOUNTANT,
+      UserRole.TEACHER,
+      UserRole.PARENT,
+      UserRole.STUDENT,
+      UserRole.OFFICE_STAFF,
+      UserRole.EXAM_CONTROLLER,
+      UserRole.COMMITTEE,
+    ];
+    for (const role of others) {
+      for (const p of alertPerms) expect(roleHasPermission(role, p), `${role} ${p}`).toBe(false);
+    }
+  });
+});

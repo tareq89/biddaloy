@@ -78,6 +78,7 @@ export const PERMISSION_GROUPS: readonly { id: string; permissions: readonly Per
       Permission.COMMUNICATION_BULK_SEND,
       Permission.COMMUNICATION_LOG_READ,
       Permission.COMMUNICATION_CREDIT_READ,
+      Permission.ALERT_SEND,
     ],
   },
   {
@@ -86,6 +87,7 @@ export const PERMISSION_GROUPS: readonly { id: string; permissions: readonly Per
       Permission.REPORTS_VIEW,
       Permission.REPORTS_EXPORT,
       Permission.REPORT_COLLECTIONS_READ,
+      Permission.ALERT_REPORT_READ,
       Permission.DASHBOARD_VIEW,
       Permission.DASHBOARD_ADMIN,
     ],

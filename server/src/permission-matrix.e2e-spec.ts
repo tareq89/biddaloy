@@ -822,6 +822,9 @@ export const UI_ONLY_PERMISSIONS: Permission[] = [
   // [52.1.1] Plumbing ahead of the /applications routes. [52.2.1]
   // APPLICATION_SUBMIT now gates POST /applications — removed from this list.
   // [52.3.5] APPLICATION_MANAGE now gates GET /applications/reports — removed.
+  // [67.1.01] Plumbing ahead of Epic 67 W5 routes (manual alerts, alerts report) — remove from this list when those routes land.
+  Permission.ALERT_SEND,
+  Permission.ALERT_REPORT_READ,
 ];
 
 describe('Permission matrix (regression)', () => {
