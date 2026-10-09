@@ -78,7 +78,8 @@
       "gradingScales": "গ্রেডিং স্কেল",
       "gradingBands": "গ্রেডিং ব্যান্ড",
       "examTemplates": "পরীক্ষার টেমপ্লেট",
-      "examTemplateComponents": "পরীক্ষার টেমপ্লেটের অংশ"
+      "examTemplateComponents": "পরীক্ষার টেমপ্লেটের অংশ",
+      "printTemplates": "সনদের টেমপ্লেট"
     },
     "versionOnly": "ভার্সন {{version}}"
   },

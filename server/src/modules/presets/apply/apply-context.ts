@@ -1,12 +1,20 @@
 import type { EntityManager } from 'typeorm';
 import type { PresetApplyOptions, PresetPack } from '@biddaloy/shared';
 
+export interface CertificateArtwork {
+  storage_key: string;
+  byte_size: number;
+  original_name: string;
+}
+
 export interface ApplyContext {
   manager: EntityManager;
   tenantId: string;
   userId: string;
   pack: PresetPack;
   options: PresetApplyOptions;
+  /** Certificate artwork uploaded before the transaction, keyed `<suggestion key>/<side>`. */
+  artwork: Map<string, CertificateArtwork>;
   ids: {
     yearId?: string;
     /** keyed by `keyOf(numericGrade, version)` */

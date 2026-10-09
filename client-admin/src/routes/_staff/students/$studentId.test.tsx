@@ -697,6 +697,33 @@ describe('/students/$studentId', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   });
 
+  it('[48.3.B-01] Close on the issue-certificate modal closes it from a later step and returns focus to the button', async () => {
+    const student = studentFactory({ id: 'student-1', full_name: 'Rahim Uddin' });
+    server.use(
+      http.get('/api/v1/students/:id', () => HttpResponse.json(student)),
+      http.get('/api/v1/certificates/templates', () => HttpResponse.json([])),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/students/student-1?tab=documents&issue=pick&step=details'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    // The modal is a full-page dialog: its own Close button, not history back one step.
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: 'Close' }));
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    await waitFor(() =>
+      expect(document.activeElement).toBe(
+        screen.getByRole('button', { name: 'Issue certificate' }),
+      ),
+    );
+  });
+
   it('is axe clean', async () => {
     const student = studentFactory({ id: 'student-1' });
     server.use(http.get('/api/v1/students/:id', () => HttpResponse.json(student)));

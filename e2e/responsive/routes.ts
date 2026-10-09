@@ -18,6 +18,7 @@ import {
   findSchoolIdBySlug,
   get,
   post,
+  seededFirstTermExamId,
   superAdminApiSession,
   type ApiSession,
 } from '../api';
@@ -91,6 +92,11 @@ export async function resolvePath(
   }
   const session: ApiSession = await sharedAdminSession(request);
   const stamp = Date.now();
+  if (route.path === '/exams/$examId') {
+    // [48.4.03] The Print tab overlay needs a real exam with a schedule and a published seat
+    // plan: the demo school's seeded "First Term Exam" (`ensureSeatPlanDemoSeed`).
+    return route.path.replace('$examId', await seededFirstTermExamId(request, session));
+  }
   if (route.path.startsWith('/exams/templates/')) {
     // [35.5.3] Must precede the print-template branch below: an exam-template
     // detail needs an EXAM template id, not a print-template one.

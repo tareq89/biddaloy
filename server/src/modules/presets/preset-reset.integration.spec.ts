@@ -20,6 +20,8 @@ import { ExamTemplateComponent } from '../exams/entities/exam-template-component
 import { AcademicTerm } from '../calendar/entities/academic-term.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { Student } from '../students/entities/student.entity';
+import { StorageService } from '../storage/storage.service';
+import { PrintTemplate } from '../print/entities/print-template.entity';
 import { PresetApplyService } from './preset-apply.service';
 import { PresetResetService } from './preset-reset.service';
 import { PresetRegistryService } from './preset-registry.service';
@@ -42,6 +44,7 @@ describe('PresetResetService (integration)', () => {
       PresetRegistryService,
       AuditService,
       { provide: TenantSettingsCache, useValue: cache },
+      { provide: StorageService, useValue: { put: async () => undefined } },
     ]);
     ds = module.get<DataSource>(getDataSourceToken());
     apply = module.get(PresetApplyService);
@@ -91,6 +94,28 @@ describe('PresetResetService (integration)', () => {
   });
   const settingsOf = async (id: string) =>
     (await ds.getRepository(School).findOneByOrFail({ id })).settings as any;
+
+  it('reset leaves certificate templates in place; re-apply skips them (no duplicates)', async () => {
+    registry.packs = [
+      { ...makeTestPack(), certificates: ['TESTIMONIAL', 'CHARACTER', 'TRANSFER'] },
+    ];
+    try {
+      const a = await appliedSchool();
+      const repo = ds.getRepository(PrintTemplate);
+      expect(await repo.countBy({ tenant_id: a })).toBe(6);
+
+      await reset.reset(a, uid, why);
+      expect(await repo.countBy({ tenant_id: a })).toBe(6);
+
+      const { created } = await apply.apply(a, uid, dto);
+      expect(created.printTemplates).toBe(0);
+      const names = (await repo.findBy({ tenant_id: a })).map((t) => t.name.toLowerCase());
+      expect(names).toHaveLength(6);
+      expect(new Set(names).size).toBe(6);
+    } finally {
+      registry.packs = [makeTestPack()];
+    }
+  });
 
   it('reset wipes the tenant, clears preset, audits with the reason; tenant B untouched; re-apply works', async () => {
     const a = await appliedSchool();

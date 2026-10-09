@@ -21,12 +21,17 @@ function Probe() {
   );
 }
 
-function buildRouteTree() {
+function ReplaceProbe() {
+  const [currentStepId, setStep] = useWizardShellStep(STEPS, { replace: true });
+  return <button onClick={() => setStep('method')}>{`replace from ${currentStepId}`}</button>;
+}
+
+function buildRouteTree(component: typeof Probe = Probe) {
   const rootRoute = createRootRoute();
   const paymentsNewRoute = createRoute({
     getParentRoute: () => rootRoute,
     path: '/payments/new',
-    component: Probe,
+    component,
   });
   return rootRoute.addChildren([paymentsNewRoute]);
 }
@@ -100,5 +105,20 @@ describe('useWizardShellStep', () => {
     expect(router.state.location.searchStr).toContain('step=method');
     expect(router.state.location.searchStr).not.toContain('nonexistent');
     expect(screen.getByText('current: method')).toBeTruthy();
+  });
+
+  it('pushes a history entry per step by default, and none with { replace: true }', async () => {
+    const user = userEvent.setup();
+    const pushed = renderWithRouter(buildRouteTree(), { initialEntries: ['/payments/new'] });
+    await user.click(await screen.findByRole('button', { name: 'Go to method' }));
+    expect(pushed.router.history.length).toBe(2);
+    pushed.unmount();
+
+    const replaced = renderWithRouter(buildRouteTree(ReplaceProbe), {
+      initialEntries: ['/payments/new'],
+    });
+    await user.click(await screen.findByRole('button', { name: 'replace from amount' }));
+    expect(replaced.router.state.location.searchStr).toContain('step=method');
+    expect(replaced.router.history.length).toBe(1);
   });
 });

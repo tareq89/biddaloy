@@ -65,7 +65,8 @@ export function IssueCertificateModal({
   const studentQuery = useStudent(studentId);
   const student = studentQuery.data;
   const events = useLifecycleEvents(studentId);
-  const [stepId, setStepId] = useWizardShellStep(STEP_IDS);
+  // Replace, not push: Close drops ?issue, and Back must not reopen the wizard on its last step.
+  const [stepId, setStepId] = useWizardShellStep(STEP_IDS, { replace: true });
 
   // --- step 1: which kind ---------------------------------------------------------------
   const [kind, setKind] = React.useState<DocumentKind | undefined>(initialKind);
@@ -222,6 +223,20 @@ export function IssueCertificateModal({
       ? (student?.full_name ?? id)
       : (classmates.find((s) => s.id === id)?.full_name ?? id);
 
+  // --- step 4: print ---------------------------------------------------------------------------
+  const run = usePrintRun({
+    templateId,
+    subjectIds,
+    issueValues: values,
+    batchSize: detailsPreview.data?.template.batch_size ?? 1,
+    title: kind ? tKind(`kind.${kind}`) : t('issue.titleNoKind'),
+    onIneligible: (students) => {
+      setIneligible(students);
+      setExcluded((prev) => new Set([...prev, ...students.map((s) => s.id)]));
+      setStepId('details');
+    },
+  });
+
   // --- step 3: the preview with the typed values -----------------------------------------------
   const renderPreview = useCertificatePreview();
   const { mutate: loadRender } = renderPreview;
@@ -231,7 +246,9 @@ export function IssueCertificateModal({
     valid && Boolean(definition) && subjectIds.length > 0 && !bulkLoading && !bulkTooMany;
   const requestedStepId: StepId =
     kind && kindOk ? ((STEP_IDS.includes(stepId as StepId) ? stepId : 'kind') as StepId) : 'kind';
-  const blockedAhead = STEP_IDS.indexOf(requestedStepId) > 1 && !detailsOk;
+  // Once everything is issued there is nothing left to print, so a finished run must not bounce
+  // back to Details (that re-wrote the URL right after Close and kept the modal open).
+  const blockedAhead = !run.done && STEP_IDS.indexOf(requestedStepId) > 1 && !detailsOk;
   const currentStepId: StepId = blockedAhead ? 'details' : requestedStepId;
   const currentIndex = STEP_IDS.indexOf(currentStepId);
   // Move the URL back too, so the wizard does not jump ahead the moment the details become valid.
@@ -247,20 +264,6 @@ export function IssueCertificateModal({
       issue_values: JSON.parse(valuesKey) as Record<string, string>,
     });
   }, [currentStepId, templateId, studentId, valuesKey, loadRender]);
-
-  // --- step 4: print ---------------------------------------------------------------------------
-  const run = usePrintRun({
-    templateId,
-    subjectIds,
-    issueValues: values,
-    batchSize: detailsPreview.data?.template.batch_size ?? 1,
-    title: kind ? tKind(`kind.${kind}`) : t('issue.titleNoKind'),
-    onIneligible: (students) => {
-      setIneligible(students);
-      setExcluded((prev) => new Set([...prev, ...students.map((s) => s.id)]));
-      setStepId('details');
-    },
-  });
 
   // --- shell -----------------------------------------------------------------------------------
   const announcementRef = React.useRef<HTMLHeadingElement>(null);

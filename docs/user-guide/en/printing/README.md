@@ -1,8 +1,10 @@
 # Printing and ID cards
 
-SchoolManager can print **ID cards** for students and staff. You design a card
-once, then print it for one person, a few people, or a whole class. Every card
-you print is remembered, so you can reprint it later or cancel a lost card.
+SchoolManager can print **ID cards** for students and staff, **exam documents**
+(admit cards, seat lists, mark sheets) and **certificates** (TC, testimonial,
+character and more). You design a card once, then print it for one person, a few
+people, or a whole class. Every template print is remembered, so you can reprint
+it later or cancel a lost one.
 
 ## Who can do what
 
@@ -10,7 +12,9 @@ you print is remembered, so you can reprint it later or cancel a lost card.
 | ---------- | ------------------------------------------------------------- |
 | Admin      | Everything: design cards, add printers, print, see history, cancel a card |
 | Accountant | Print and reprint cards                                       |
-| Executive  | See the print history                                         |
+| Executive  | See the print history and the certificate register; issue certificates |
+| Office staff | Print ID cards, issue certificates, print exam documents    |
+| Exam controller | Print exam documents                                      |
 
 Printing a **staff** card also needs permission to see staff HR records.
 
@@ -32,3 +36,5 @@ Printing a **staff** card also needs permission to see staff HR records.
 - [Designer guide](designer-guide.md) — for the person who draws the artwork.
 - [Printers and calibration](printers-and-calibration.md) — getting the print in the right place.
 - [Printing ID cards](printing-id-cards.md) — one card, many cards, reprints and history.
+- [Exam documents](exam-documents.md) — admit cards, seat lists, mark sheets and more, from the exam's Print tab.
+- [Certificates](certificates.md) — TC, testimonial and more, with serial numbers, the register and revoking.

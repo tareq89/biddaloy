@@ -7,3 +7,5 @@
   - [Designer guide](printing/designer-guide.md)
   - [Printers and calibration](printing/printers-and-calibration.md)
   - [Printing ID cards](printing/printing-id-cards.md)
+  - [Exam documents](printing/exam-documents.md)
+  - [Certificates](printing/certificates.md)

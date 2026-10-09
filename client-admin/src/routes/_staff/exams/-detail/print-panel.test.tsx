@@ -106,6 +106,8 @@ describe('exams/$examId Print tab', () => {
     const seat = within(card('Seat list')).getByRole('link', { name: 'Print seat list' });
     expect(seat.getAttribute('href')).toContain('doc=seat-list');
     expect(seat.getAttribute('href')).toContain('exam_id=exam-1');
+    // Close on the document page returns to this tab.
+    expect(seat.getAttribute('href')).toContain('from=%2Fexams%2Fexam-1%3Ftab%3Dprint');
   });
 
   it('mark sheet link carries the doc and the preselected section', async () => {

@@ -43,7 +43,7 @@ export function AdmitCardPanel({
         role="alert"
         className="mx-4 mb-3 rounded-lg bg-status-due-bg p-4 text-status-due-fg md:mx-5"
       >
-        <p className="text-label font-semibold">{t('examSchedule.admitCard.withheldTitle')}</p>
+        <h3 className="text-label font-semibold">{t('examSchedule.admitCard.withheldTitle')}</h3>
         <p className="mt-1">
           {amount === undefined
             ? t('examSchedule.admitCard.withheldBodyNoAmount', { name: studentName })

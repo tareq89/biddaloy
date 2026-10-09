@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 
-import { adminApiSession, apiSession, get } from '../api';
+import { adminApiSession, apiSession, get, seededFirstTermExamId } from '../api';
 import { expect, loggedIn, test } from '../fixtures/test';
 import { t } from '../i18n';
 
@@ -69,11 +69,9 @@ test.describe('Printables and exam documents', () => {
 
   test('the exam Print tab shows three phases; the seat list opens', async ({ page, request }) => {
     const session = await adminApiSession(request);
-    const exams = await get<{ data: { id: string; name: string }[] }>(request, session, '/exams');
-    const exam = exams.data.find((e) => e.name === 'First Term Exam');
-    expect(exam, 'seeded First Term Exam').toBeTruthy();
+    const examId = await seededFirstTermExamId(request, session);
 
-    await page.goto(`/exams/${exam!.id}?tab=print`);
+    await page.goto(`/exams/${examId}?tab=print`);
     for (const key of ['before', 'inHall', 'after'] as const) {
       await expect(
         page.getByRole('heading', { name: t(`examDocuments.phase.${key}`) }),
@@ -81,7 +79,7 @@ test.describe('Printables and exam documents', () => {
     }
 
     await stubWindowPrint(page);
-    await page.goto(`/print/document?doc=seat-list&exam_id=${exam!.id}`);
+    await page.goto(`/print/document?doc=seat-list&exam_id=${examId}`);
     await expect(
       page.getByRole('heading', { name: t('examDocuments.seatList.title') }).first(),
     ).toBeVisible();

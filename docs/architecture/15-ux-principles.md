@@ -137,7 +137,7 @@ Exams & Results
   Analysis [have] · Merit list · Defaulted list · Pass/fail (+ by component)
   Promotion [have] · Draft run · Grid override · Commit                   A E
   Segregation [26.0, not yet shipped]
-  Seat plans [25.0] · Exam printables [Print module — follow-up epic]
+  Seat plans [25.0] · Exam printables [48.0] — Exams › exam › Print tab
 
 Finance
   Fees · Student dues · Fee structures · Generate fees · Payments (+ Student statement [8.15]) · Record payment · Invoices   [all have]
@@ -152,7 +152,7 @@ Communications
 
 Reports [8.15] — a hub that LINKS to screens that live with their data; no copies
   Communications · Collections [have] · Student dues [have] · Attendance [have]
-  Student lists [8.15] · Student count [8.15] · Printables & documents [have, 32.0] · Exports [8.15]
+  Student lists [8.15] · Student count [8.15] · Printables & documents [have, 32.0] · Certificate register · To print [48.0] · Exports [8.15]
 
 Administration
   Print templates [have, 32.0] — library, then the full-screen editor

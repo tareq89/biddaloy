@@ -546,8 +546,29 @@ fix the data, delete the list, and change the flag in the same PR.
   `PresetPreview` in `presets.controller.ts`.
 - **Weekly off is not in a pack.** Friday is the tenant default; apply never
   touches attendance (section 5).
-- **Certificates are a list of kinds only** (`TESTIMONIAL`, `TRANSCRIPT`,
-  `CHARACTER`, `TRANSFER`). They suggest print templates; they are not templates.
+- **Certificates become real print templates.** The pack lists kinds
+  (`TESTIMONIAL`, `TRANSCRIPT`, `CHARACTER`, `TRANSFER`). Apply creates a
+  published Bangla and a published English template for each kind that has a
+  ready-made design. The one matching the school's language is the default;
+  the issuer picks the other at issue time. "The school's language" is the
+  same merged locale the settings step writes: the pack's `region.locale`, else
+  the school's stored locale, else `bn-BD`. So Alia and Qawmi (no `locale` in
+  the pack) default to Bangla. Reset leaves the templates in place, and a
+  re-apply skips any kind that already has a live template, so nothing is
+  duplicated. The artwork files are uploaded to storage **before** the apply
+  transaction opens (no storage calls while the school row is locked); a
+  rolled-back apply leaves only unreferenced files.
+
+  | Pack value    | Print kind              | Templates created                        |
+  | ------------- | ----------------------- | ---------------------------------------- |
+  | `TRANSFER`    | `TRANSFER_CERTIFICATE`  | `tc-a4-bn`, `tc-a4-en`                   |
+  | `TESTIMONIAL` | `TESTIMONIAL`           | `testimonial-a4-bn`, `testimonial-a4-en` |
+  | `CHARACTER`   | `CHARACTER_CERTIFICATE` | `character-a4-bn`, `character-a4-en`     |
+  | `TRANSCRIPT`  | code-rendered           | none (no template needed)                |
+
+  Example: NCTB (`bn-BD`) lists all four, so apply returns
+  `created.printTemplates = 6` with the three Bangla ones as defaults.
+
 - **Not patchable.** `settings.preset` cannot be set through the settings API.
   Only apply and reset write it.
 

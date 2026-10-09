@@ -3,12 +3,7 @@ import { ApiError } from '@biddaloy/ui/api';
 import { ErrorState, RoutePending, StatusBadge } from '@biddaloy/ui/components';
 import { studentQueryOptions, useHasPermission, useStudent } from '@biddaloy/ui/hooks';
 import { RegionConfigProvider, useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
-import {
-  DetailShell,
-  PageContainer,
-  useCloseFullPage,
-  useDetailShellTab,
-} from '@biddaloy/ui/shells';
+import { DetailShell, PageContainer, useDetailShellTab } from '@biddaloy/ui/shells';
 import { formatNumber, formatPhone } from '@biddaloy/ui/utils';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import {
@@ -30,7 +25,7 @@ import { ActivityTab } from './-detail/activity-tab';
 import { AttendanceTab } from './-detail/attendance-tab';
 import { CommunicationTab } from './-detail/communication-tab';
 import { DeleteStudentDialog } from './-detail/delete-student-dialog';
-import { DocumentsTab } from './-detail/documents-tab';
+import { DocumentsTab, ISSUE_TRIGGER_ID } from './-detail/documents-tab';
 import { EnrollmentTab } from './-detail/enrollment-tab';
 import { FeesTab } from './-detail/fees-tab';
 import { FinesTab } from './-detail/fines-tab';
@@ -131,6 +126,12 @@ export const Route = createFileRoute('/_staff/students/$studentId')({
         'performance',
         'student-lifecycle',
         'printHistory',
+        // [48] The Documents tab reads 'certificates'; the issue-certificate
+        // modal (`?issue=`) also reads 'printPreview' and 'printEditor'. Same
+        // suspend-the-whole-page reasoning as 'fees'.
+        'certificates',
+        'printPreview',
+        'printEditor',
         // students-7a's Activity tab reads `auditLogs:actions.*`; same
         // suspend-the-whole-page reasoning as 'fees'.
         'auditLogs',
@@ -195,16 +196,27 @@ function StudentDetailPage() {
   const canPrint = useHasPermission(Permission.DOCUMENT_PRINT);
   const canIssueCertificate = useHasPermission(Permission.CERTIFICATE_ISSUE);
   const canReadRegister = useHasPermission(Permission.PRINT_HISTORY_READ);
-  const closeIssue = useCloseFullPage(
-    React.useCallback(
-      () =>
-        void navigateSearch({
-          search: (p) => ({ ...p, issue: undefined, step: undefined }),
-          replace: true,
-        }),
-      [navigateSearch],
-    ),
-  );
+  // Not `useCloseFullPage` ("history back"): the wizard may have been opened by a link, so Close
+  // drops `?issue`/`?step` in place. The wizard replaces its step changes, so Back stays closed.
+  const issueFocusPending = React.useRef(false);
+  const closeIssue = React.useCallback(() => {
+    issueFocusPending.current = true;
+    void navigateSearch({
+      search: (p) => ({ ...p, issue: undefined, step: undefined }),
+      replace: true,
+    });
+  }, [navigateSearch]);
+  // The modal is unmounted, not closed in place, so give focus back to the button that opened it
+  // once `?issue` is gone — a frame later, after the dialog's own focus restore (a 0ms timer that
+  // would land on <body>).
+  React.useEffect(() => {
+    if (search.issue !== undefined || !issueFocusPending.current) return;
+    issueFocusPending.current = false;
+    const frame = window.requestAnimationFrame(() =>
+      document.getElementById(ISSUE_TRIGGER_ID)?.focus(),
+    );
+    return () => window.cancelAnimationFrame(frame);
+  }, [search.issue]);
   // `?leave=1` opens the Leave dialog once (only for someone who may record leaving), then the
   // param goes away.
   React.useEffect(() => {

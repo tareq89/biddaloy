@@ -97,7 +97,8 @@ export function PrintPanel({ examId }: PrintPanelProps) {
           fixHref: `${here}?tab=results`,
         };
   const doc = (name: string, extra: Record<string, string> = {}) =>
-    `/print/document?${q({ doc: name, exam_id: examId, ...extra })}`;
+    // `from` makes the page's Close button return here, not to the exams list.
+    `/print/document?${q({ doc: name, exam_id: examId, from: `${here}?tab=print`, ...extra })}`;
 
   const rows = roster.data?.students ?? [];
   const printed = rows.filter((s) => s.printed_copies > 0).length;
