@@ -126,6 +126,12 @@ export const Route = createFileRoute('/_staff/students/$studentId')({
         'performance',
         'student-lifecycle',
         'printHistory',
+        // [48] The Documents tab reads 'certificates'; the issue-certificate
+        // modal (`?issue=`) also reads 'printPreview' and 'printEditor'. Same
+        // suspend-the-whole-page reasoning as 'fees'.
+        'certificates',
+        'printPreview',
+        'printEditor',
         // students-7a's Activity tab reads `auditLogs:actions.*`; same
         // suspend-the-whole-page reasoning as 'fees'.
         'auditLogs',
