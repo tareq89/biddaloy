@@ -226,8 +226,10 @@ export class AttentionScheduler extends WorkerHost implements OnModuleInit, OnMo
   private async releaseDaily(tenantId: string, key: string, localDate: string): Promise<void> {
     const marker = attentionKeys.dailyMarker(tenantId, key, localDate);
     try {
-      const failures = await this.redis.incr(`${marker}:failures`);
-      await this.redis.expire(`${marker}:failures`, DAILY_MARKER_TTL_SECONDS);
+      const k = `${marker}:failures`;
+      // TTL is set before INCR (which keeps it), so a failed second call can't leave a key with no expiry.
+      await this.redis.set(k, 0, 'EX', DAILY_MARKER_TTL_SECONDS, 'NX');
+      const failures = await this.redis.incr(k);
       if (failures < DAILY_MAX_ATTEMPTS) await this.redis.del(marker);
     } catch (e) {
       this.logger.error(`daily marker release failed: ${String(e)}`);

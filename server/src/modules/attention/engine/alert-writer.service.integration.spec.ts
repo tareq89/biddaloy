@@ -274,6 +274,8 @@ describe('AlertWriterService (integration)', () => {
     expect((await alerts())[0].status).toBe('EXPIRED');
   });
 
+  // Smoke test only: Promise.all rarely hits apply's read/write window. The deterministic
+  // guard for the rule lock is the 'wait for an in-flight apply' test above; keep that one.
   it('apply racing expireDue and withdrawRule never leaves OPEN recipients on a closed alert', async () => {
     await writer.apply(ctx('2026-09-30T00:00:00Z'), rule, [
       finding({ expiresAt: new Date('2026-10-01T00:00:00Z') }),
@@ -350,6 +352,32 @@ describe('AlertWriterService (integration)', () => {
     expect(await stateOf(u1)).toBe('OPEN');
     expect(await stateOf(u2)).toBe('HIDDEN');
     expect(events).toHaveLength(0);
+  });
+
+  it('wakeSnoozed skips a recipient row another writer holds instead of waiting on it (no deadlock)', async () => {
+    await writer.apply(ctx(NOW), rule, [finding()]);
+    await ds.query(
+      `UPDATE alert_recipients SET state = 'HIDDEN', hidden_at = now(), snoozed_until = '2026-10-01T00:00:00Z'
+        WHERE tenant_id = $1`,
+      [SEED_TENANT_ID],
+    );
+    // Stands in for apply/closeAlerts holding u1's row mid-transaction.
+    const qr = ds.createQueryRunner();
+    await qr.connect();
+    await qr.startTransaction();
+    try {
+      await qr.query(
+        `SELECT 1 FROM alert_recipients WHERE tenant_id = $1 AND user_id = $2 FOR UPDATE`,
+        [SEED_TENANT_ID, u1],
+      );
+      // Returns without blocking: only u2 is woken, u1 waits for the next tick.
+      expect(await writer.wakeSnoozed(SEED_TENANT_ID, new Date(NOW))).toBe(1);
+      await qr.commitTransaction();
+    } finally {
+      await qr.release();
+    }
+    expect(await writer.wakeSnoozed(SEED_TENANT_ID, new Date(NOW))).toBe(1);
+    expect((await recipients()).map((r: any) => r.state)).toEqual(['OPEN', 'OPEN']);
   });
 
   it('withdrawRule marks the alert WITHDRAWN and expires its recipients', async () => {

@@ -65,7 +65,7 @@ export async function run(em: EntityManager, sql: string, params: unknown[]): Pr
 export const ATTENTION_RULE_LOCK_NAMESPACE = 670104;
 
 /**
- * Serializes every writer of one tenant+rule's alerts (apply, expire, withdraw),
+ * Serializes every writer of one tenant+rule's alert status (apply, expire, withdraw),
  * so OPEN recipients can't land on a closed alert. Transaction-scoped. Take it
  * before any row lock; a caller needing several takes them in rule_key order.
  */
@@ -301,8 +301,11 @@ export class AlertWriterService {
   async wakeSnoozed(tenantId: string, now: Date): Promise<number> {
     const rows = await run(
       this.dataSource.manager,
+      // SKIP LOCKED: rows held by apply/closeAlerts wake on the next tick instead of deadlocking (40P01).
       `UPDATE alert_recipients SET state = 'OPEN', snoozed_until = NULL, hidden_at = NULL, updated_at = now()
-        WHERE tenant_id = $1 AND state = 'HIDDEN' AND snoozed_until IS NOT NULL AND snoozed_until <= $2
+        WHERE id IN (SELECT id FROM alert_recipients
+                      WHERE tenant_id = $1 AND state = 'HIDDEN' AND snoozed_until IS NOT NULL AND snoozed_until <= $2
+                      FOR UPDATE SKIP LOCKED)
         RETURNING user_id`,
       [tenantId, now],
     );
