@@ -7,6 +7,7 @@ import { Alert } from './entities/alert.entity';
 import { AlertRecipient } from './entities/alert-recipient.entity';
 import { RuleRegistryService } from './rules/rule-registry.service';
 import { RuleContextService } from './rules/rule-context.service';
+import { AlertWriterService } from './engine/alert-writer.service';
 import { SetupRulesModule } from './rules/setup/setup-rules.module';
 import { SystemRulesModule } from './rules/system/system-rules.module';
 import { StructureRulesModule } from './rules/structure/structure-rules.module';
@@ -49,7 +50,7 @@ import { BillingRulesModule } from './rules/billing/billing-rules.module';
     PlatformRulesModule,
     BillingRulesModule,
   ],
-  providers: [RuleRegistryService, RuleContextService],
-  exports: [RuleRegistryService, RuleContextService],
+  providers: [RuleRegistryService, RuleContextService, AlertWriterService],
+  exports: [RuleRegistryService, RuleContextService, AlertWriterService],
 })
 export class AttentionModule {}
