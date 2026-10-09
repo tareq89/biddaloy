@@ -5,6 +5,7 @@ import { adminApiSession, findSeedSectionA, get, rawRequest } from '../api';
 import { makeT, type Locale } from '../i18n';
 import { DetailShellPage } from '../pages/detail-shell';
 import { ListShellPage } from '../pages/list-shell';
+import { ensureDecidableApplications } from '../responsive/routes';
 
 // Duplicated from `server/src/scripts/seed.study-plans.ts` (seed-contract.ts is outside this lane).
 const SEED_TEMPLATE_NAME = 'বোর্ডের বইয়ের ক্রমে';
@@ -267,6 +268,46 @@ export const overlayOpeners: Record<string, (page: Page, locale: Locale) => Prom
       .getByRole('radio', { name: t('routines.marking.status.notTaught') })
       .first()
       .click();
+    await expectDialogOpen(page);
+  },
+  // [52.5.8] The admin's inbox: two rows selected, then the bulk bar's Approve button.
+  '/applications::bulk-approve-confirm': async (page, locale) => {
+    const t = makeT(locale);
+    // The bar needs two selected rows: top the admin's inbox up if it is running low.
+    await ensureDecidableApplications(page.request, await adminApiSession(page.request), 2);
+    await page.goto('/applications?view=inbox');
+    const rows = page.getByRole('row').filter({ has: page.getByRole('checkbox') });
+    await expect(rows.nth(1)).toBeVisible();
+    await rows.nth(0).getByRole('checkbox').check();
+    await rows.nth(1).getByRole('checkbox').check();
+    await page.getByRole('button', { name: t('applicationsList.bulk.approve') }).click();
+    await expectDialogOpen(page);
+  },
+  // The detail route resolves to an application the admin can decide (`responsive/routes.ts`).
+  '/applications/$applicationId::approve': async (page, locale) => {
+    await page
+      .getByRole('button', { name: makeT(locale)('applicationsDetail.actions.approve') })
+      .click();
+    await expectDialogOpen(page);
+  },
+  '/applications/$applicationId::reject': async (page, locale) => {
+    await page
+      .getByRole('button', { name: makeT(locale)('applicationsDetail.actions.reject') })
+      .click();
+    await expectDialogOpen(page);
+  },
+  '/applications/$applicationId::consider': async (page, locale) => {
+    const t = makeT(locale);
+    // "Consider" is a tertiary action, so it lives in the header's More menu.
+    await page.getByRole('button', { name: t('common.actions.moreActions') }).click();
+    await page.getByRole('menuitem', { name: t('applicationsDetail.actions.consider') }).click();
+    await expectDialogOpen(page);
+  },
+  // Picking a type makes the form dirty, so Cancel asks before discarding.
+  '/applications/new::discard': async (page, locale) => {
+    const t = makeT(locale);
+    await page.getByRole('radio').first().check();
+    await page.getByRole('button', { name: t('applicationsNew.actions.cancel') }).click();
     await expectDialogOpen(page);
   },
   // [30.4.1] `ShortcutsSheet` (`ui/src/components/shortcuts-sheet.tsx`) —

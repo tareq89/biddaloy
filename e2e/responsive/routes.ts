@@ -27,6 +27,63 @@ import {
 } from '../api';
 import { acrBody, surveyBody } from '../fixtures/evaluations';
 import { test } from '../fixtures/test';
+
+/**
+ * [52.5.8] A working day (Mon-Wed) in the demo year, random over ~40 weeks so parallel specs and
+ * reruns on a reused database do not overlap each other's approved leaves.
+ */
+export function uniqueLeaveDay(): string {
+  const monday = Date.UTC(2026, 0, 5 + 7 * Math.floor(Math.random() * 40));
+  return new Date(monday + Math.floor(Math.random() * 3) * 86_400_000).toISOString().slice(0, 10);
+}
+
+/** Files a paper STUDENT_LEAVE (as the admin session) for `studentId` on a fresh day. */
+export async function fileStudentLeave(
+  request: APIRequestContext,
+  session: ApiSession,
+  studentId: string,
+  day = uniqueLeaveDay(),
+): Promise<{ id: string; serial: string }> {
+  return post<{ id: string; serial: string }>(request, session, '/applications', {
+    type: 'STUDENT_LEAVE',
+    subject_student_id: studentId,
+    applicant_name: 'E2E অভিভাবক',
+    payload: { reason_kind: 'SICK', start_date: day, end_date: day, details: 'E2E' },
+  });
+}
+
+/** Makes sure the admin's inbox holds at least `count` rows the admin can decide; returns the first. */
+export async function ensureDecidableApplications(
+  request: APIRequestContext,
+  session: ApiSession,
+  count: number,
+): Promise<string> {
+  const decidable = async () =>
+    (
+      await get<{ data: { id: string; can: { decide: boolean } }[] }>(
+        request,
+        session,
+        '/applications?view=inbox&limit=100',
+      )
+    ).data.filter((a) => a.can.decide);
+  let rows = await decidable();
+  if (rows.length < count) {
+    const all = await get<{ data: { subject_student_id: string | null }[] }>(
+      request,
+      session,
+      '/applications?view=all',
+    );
+    const studentId = all.data.find((a) => a.subject_student_id)?.subject_student_id;
+    if (!studentId) throw new Error('no student application seeded (seed.applications.ts)');
+    for (let i = rows.length; i < count; i += 1) {
+      await fileStudentLeave(request, session, studentId);
+    }
+    rows = await decidable();
+  }
+  const first = rows[0];
+  if (!first) throw new Error('admin has no decidable application');
+  return first.id;
+}
 import manifest from '../route-manifest.json';
 import { SEED_PASSWORD_ENV, SEED_ROLE_EMAILS, SEED_TRIAL_SCHOOL } from '../seed-contract';
 
@@ -364,12 +421,8 @@ export async function resolvePath(
       if (!list.ok()) throw new Error(`GET /applications failed: ${list.status()}`);
       id = ((await list.json()) as { data: { id: string }[] }).data[0]?.id;
     } else {
-      const list = await get<{ data: { id: string }[] }>(
-        request,
-        session,
-        '/applications?view=all',
-      );
-      id = list.data[0]?.id;
+      // [52.5.8] The overlays (approve / reject / consider) need a row the admin can decide.
+      id = await ensureDecidableApplications(request, session, 1);
     }
     // The seed always creates applications: none means the seed broke, so fail, never skip.
     if (!id) throw new Error('no application seeded (server/src/scripts/seed.applications.ts)');

@@ -654,12 +654,13 @@
       "path": "/applications",
       "role": "admin",
       "archetype": "list",
-      "overlays": []
+      "overlays": ["bulk-approve-confirm"]
     },
     {
       "path": "/applications/new",
       "role": "admin",
-      "archetype": "form"
+      "archetype": "form",
+      "overlays": ["discard"]
     },
     {
       "path": "/applications/$applicationId",
@@ -667,7 +668,8 @@
         "applicationId": "seeded"
       },
       "role": "admin",
-      "archetype": "detail"
+      "archetype": "detail",
+      "overlays": ["approve", "reject", "consider"]
     },
     {
       "path": "/applications/reports",

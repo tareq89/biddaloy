@@ -12,6 +12,12 @@ import bnAdmissionPublic from '../ui/src/i18n/locales/bn/admission-public.json';
 import bnAdmissionReports from '../ui/src/i18n/locales/bn/admission-reports.json';
 import bnAdmissionStaffApplicants from '../ui/src/i18n/locales/bn/admission-staff-applicants.json';
 import bnAdmissionStaffIntakes from '../ui/src/i18n/locales/bn/admission-staff-intakes.json';
+import bnApplications from '../ui/src/i18n/locales/bn/applications.json';
+import bnApplicationsDetail from '../ui/src/i18n/locales/bn/applicationsDetail.json';
+import bnApplicationsList from '../ui/src/i18n/locales/bn/applicationsList.json';
+import bnApplicationsNew from '../ui/src/i18n/locales/bn/applicationsNew.json';
+import bnApplicationsReports from '../ui/src/i18n/locales/bn/applicationsReports.json';
+import bnApplicationForms from '../ui/src/i18n/locales/bn/applicationForms.json';
 import bnApproval from '../ui/src/i18n/locales/bn/approval.json';
 import bnAttendance from '../ui/src/i18n/locales/bn/attendance.json';
 import bnAuth from '../ui/src/i18n/locales/bn/auth.json';
@@ -69,6 +75,12 @@ import enAdmissionPublic from '../ui/src/i18n/locales/en/admission-public.json';
 import enAdmissionReports from '../ui/src/i18n/locales/en/admission-reports.json';
 import enAdmissionStaffApplicants from '../ui/src/i18n/locales/en/admission-staff-applicants.json';
 import enAdmissionStaffIntakes from '../ui/src/i18n/locales/en/admission-staff-intakes.json';
+import enApplications from '../ui/src/i18n/locales/en/applications.json';
+import enApplicationsDetail from '../ui/src/i18n/locales/en/applicationsDetail.json';
+import enApplicationsList from '../ui/src/i18n/locales/en/applicationsList.json';
+import enApplicationsNew from '../ui/src/i18n/locales/en/applicationsNew.json';
+import enApplicationsReports from '../ui/src/i18n/locales/en/applicationsReports.json';
+import enApplicationForms from '../ui/src/i18n/locales/en/applicationForms.json';
 import enApproval from '../ui/src/i18n/locales/en/approval.json';
 import enAttendance from '../ui/src/i18n/locales/en/attendance.json';
 import enAuth from '../ui/src/i18n/locales/en/auth.json';
@@ -175,6 +187,12 @@ const catalogs = {
     grading: bnGrading,
     guardians: bnGuardians,
     homework: bnHomework,
+    applicationForms: bnApplicationForms,
+    applications: bnApplications,
+    applicationsDetail: bnApplicationsDetail,
+    applicationsList: bnApplicationsList,
+    applicationsNew: bnApplicationsNew,
+    applicationsReports: bnApplicationsReports,
     leave: bnLeave,
     myClass: bnMyClass,
     nav: bnNav,
@@ -241,6 +259,12 @@ const catalogs = {
     grading: enGrading,
     guardians: enGuardians,
     homework: enHomework,
+    applicationForms: enApplicationForms,
+    applications: enApplications,
+    applicationsDetail: enApplicationsDetail,
+    applicationsList: enApplicationsList,
+    applicationsNew: enApplicationsNew,
+    applicationsReports: enApplicationsReports,
     leave: enLeave,
     myClass: enMyClass,
     nav: enNav,
