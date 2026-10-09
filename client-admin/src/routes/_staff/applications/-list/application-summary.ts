@@ -32,8 +32,8 @@ export function summarize(
     case ApplicationType.STAFF_LEAVE:
     case ApplicationType.STUDENT_LEAVE: {
       if (!app.start_date || !app.end_date) return str(p.reason);
-      const days = formatNumber(daysBetween(app.start_date, app.end_date), config);
-      return `${formatDateRange(app.start_date, app.end_date, config)} · ${t('days', { ns: 'applicationsList', n: days })}`;
+      const count = daysBetween(app.start_date, app.end_date);
+      return `${formatDateRange(app.start_date, app.end_date, config)} · ${t('days', { ns: 'applicationsList', count, n: formatNumber(count, config) })}`;
     }
     case ApplicationType.FEE_WAIVER: {
       const fees = Array.isArray(p.fee_types)
