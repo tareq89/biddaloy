@@ -195,6 +195,100 @@ Things worth knowing:
   sends back as each day's next `base_version`. `GET .../register-matrix`
   returns the same `versions` map.
 
+## 3a. The check-list and the month edit screens
+
+### The pending check-list
+
+"Pending" means: **a section with students, on a school day for its class,
+whose register for the day is not `FINALIZED`**. That includes a section nobody
+has touched ("Not started") and a `DRAFT` one (marks saved, not finalized).
+Left out of the list and the count:
+
+- a section with no students;
+- a section whose **class** has no school that day (`is_working_day` is per
+  class: an exam break, a class-level holiday). It cannot be marked, so it
+  must not sit in "pending" all day.
+
+When no class has school, the list shows "School is closed" and no count.
+
+```mermaid
+flowchart LR
+    P["Ctrl+K → Today's pending attendance"] --> L["/attendance?status=pending"]
+    D["Dashboard card<br/>'3 of 8 pending'"] --> L
+    L --> R["/attendance/:sectionId<br/>(the register)"]
+```
+
+Both entry points show the **same number**, because both read
+`GET /attendance/my-sections` (an admin sees every section, a teacher only
+their own). Example: with 8 sections, 5 finalized and 1 draft, the header reads
+"3 of 8 sections pending" and the filtered list has 3 rows.
+
+### Editing a month from the grid
+
+`/attendance/register?edit=true` turns the month register into an editable grid
+(desktop only). The grid only remembers the cells you changed. Save sends
+**only the changed days**, in one request.
+
+**Who can save what.** Opening the grid needs `ATTENDANCE_MARK`. Saving a day
+is a different question, answered per day by the server:
+
+| The changed day                                                 | Needs                                              |
+| --------------------------------------------------------------- | -------------------------------------------------- |
+| has no register yet                                             | nothing extra (a past one is born `FINALIZED`)     |
+| has a `DRAFT` register inside the correction window             | nothing extra                                      |
+| has a register that is `FINALIZED` **or** older than the window | `ATTENDANCE_CORRECT` **and** a reason (3+ letters) |
+
+So a teacher (`ATTENDANCE_MARK` only) can fill gaps and fix this week's drafts,
+but gets `403 ATTENDANCE_WINDOW_CLOSED` for almost any older day, because
+teachers finalize every day and back-filled days are born finalized.
+
+**The reason field.** Whatever the user types (3+ letters) is always sent. It
+is marked required up front only when the page can see it is needed: a changed
+day that already has a register and is older than the window. (The window is
+the tenant's own for `SETTINGS_MANAGE`, else the 2-day default.) A finalized
+day inside the window looks the same as a draft in the matrix, so for that one
+the server's 422 turns the field red.
+
+```mermaid
+sequenceDiagram
+    participant U as Admin
+    participant G as Edit grid
+    participant A as API
+    U->>G: A on Roll 1, 6 Oct · L on Roll 2, 5 Oct
+    Note over G: "2 cells changed"<br/>reason typed: "Copied from paper"
+    U->>G: Ctrl+S (anywhere on the page)
+    G->>A: PUT register-matrix {days: [5 Oct, 6 Oct], reason}
+    alt every day still matches what was loaded
+        A-->>G: 200 saved_dates, new versions
+        G-->>U: "Saved 2 days", back to read-only
+    else someone saved 6 Oct meanwhile
+        A-->>G: 409 ATTENDANCE_MATRIX_CONFLICT {dates: [6 Oct]}
+        G-->>U: "Nothing was saved. Someone changed 6 Oct" · Reload
+    else 6 Oct is a future day or has no school
+        A-->>G: 422 ATTENDANCE_MATRIX_LOCKED_DATE {dates: [6 Oct]}
+        G-->>U: "6 Oct cannot be marked" · Remove these days from my changes
+    else 5 Oct is finalized and the user lacks ATTENDANCE_CORRECT
+        A-->>G: 403 ATTENDANCE_WINDOW_CLOSED {dates: [5 Oct]}
+        G-->>U: "5 Oct can only be changed by someone who can correct attendance"<br/>· Remove these days from my changes
+    else 5 Oct needs a reason and none was sent
+        A-->>G: 422 ATTENDANCE_REASON_REQUIRED {dates: [5 Oct]}
+        G-->>U: reason field turns red and required
+    end
+```
+
+The save is all-or-nothing (see the API section above), so after any refusal
+**no** day is written. Closing the "someone changed" (409) dialog any way (Esc,
+outside click) also reloads the month, so a stale draft cannot fail the next
+Save again. The "cannot be marked" and "only someone who can correct" dialogs
+just close and keep the draft: only the listed days are the problem, so the
+user removes those days or keeps editing. A reason of 1–2 letters is refused
+even when none is required, rather than dropped from the save without a word.
+
+Keyboard: arrows move, `P` / `A` / `L` / `E` set the status, `Space` flips
+present/absent, `Home` / `End` jump to the first / last open day, `Esc`
+cancels. `Ctrl+S` saves from anywhere on the page while editing, the reason
+field included, but not while one of these dialogs is open. The palette reaches it with **Edit monthly register**.
+
 ## 4. The correction rules
 
 | Situation                                                                 | Who                                                            | Requires                              |
@@ -286,6 +380,37 @@ It uses the school's `lateCountsAsPresent`. Denominator = `held`
 minus leave unless `leaveCountsAsWorkingDay`. A range over 400 days is refused
 (`422 SCHOOL_CALENDAR_RANGE_TOO_WIDE`), and a switched-off school gets
 `403 ATTENDANCE_PERIOD_DISABLED`.
+
+### The period switcher and the subject-wise report
+
+With the period switch on, the register screen shows a tab row above the
+roster: **Whole day** plus one tab per period of that date's routine
+(`Period 1 · Mathematics  8:00`). A period that already has a register carries
+a badge, with the same words as the check-list: **Draft** or **Submitted**
+(Submitted = `FINALIZED`). A substitute teacher sees only the tab of the period
+they cover, no Whole day tab, and lands on the first period even from a link
+without `?period=`. Pick a tab and the same roster now saves a period
+register; if the day register has absentees, the roster opens with them
+pre-marked and says so ("Students absent or on leave today are already filled
+in").
+
+`/attendance/reports` gets a **By subject** tab, shown when the switch is on.
+**Known limitation:** the page reads the switch from the school settings, which
+only `SETTINGS_MANAGE` (admins) may read. So today only admins ever see the tab;
+a teacher's settings read is refused and the tab stays hidden. Tracked in
+[#1686](https://github.com/tareq89/biddaloy/issues/1686).
+One column per subject, headed `Mathematics (8)` where 8 is `held`. Each cell is
+`attended/held`, with the percentage under it.
+
+```text
+Roll  Student   Mathematics (8)
+ 3    Rahim     7/8
+                87.5 %
+```
+
+Worked example: 8 Mathematics periods were held this month. Rahim was `PRESENT`
+in 6, `LATE` in 1 and `ABSENT` in 1. With `lateCountsAsPresent` on, he attended
+6 + 1 = 7 of 8, so 7 / 8 = **87.5 %**.
 
 ## 5. Working days and the percentage
 
@@ -666,9 +791,14 @@ The service loads at most the 15 newest sessions (the longest threshold).
 
 ## 11. What this epic deliberately did not build
 
-- **Period-level attendance UI** — API only for now. The routes, the rules in
-  [§4a](#4a-period-attendance) and the subject summary all work; no screen
-  uses them yet.
+- **A period check-list** — "Pending" ([§3a](#3a-the-check-list-and-the-month-edit-screens))
+  looks at whole-day registers only; there is no "which periods are still
+  unmarked today" list.
+- **A portal / student-detail subject view** — the subject-wise report is a staff
+  screen under `/attendance/reports`. Guardians and the student page do not
+  show per-subject attendance.
+- **Remind a teacher** — the check-list shows which sections are pending but
+  has no "nudge the teacher" action.
 - **Half-day and "excused" statuses** — only `PRESENT` / `ABSENT` / `LATE` /
   `LEAVE` exist. `LEAVE` is the only "not a plain absence" state.
 - **Approval workflows for corrections** — a correction with a reason is

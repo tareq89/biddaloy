@@ -34,6 +34,7 @@ import {
   useActiveTenant,
   useHasPermission,
   useOnline,
+  useSchoolSettings,
   useSectionRegister,
   useSubmitRegister,
   type PutRegisterInput,
@@ -42,7 +43,7 @@ import {
 } from '@biddaloy/ui/hooks';
 import { useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { PageContainer } from '@biddaloy/ui/shells';
-import { parseDate, toIsoDate } from '@biddaloy/ui/utils';
+import { parseDate, tenantTodayIso, toIsoDate } from '@biddaloy/ui/utils';
 import { createFileRoute } from '@tanstack/react-router';
 import { CalendarClock, CheckCheck, Info, MoreVertical, RotateCcw, Send } from 'lucide-react';
 import * as React from 'react';
@@ -52,13 +53,15 @@ import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loader
 
 import { ConflictDialog } from './-conflict-dialog';
 import { CorrectionDialog } from './-correction-dialog';
+import { PeriodSwitcher } from './-period-switcher';
 import { RecordHistoryPanel } from './-record-history-panel';
 import { RosterMarker, type Draft } from './-roster-marker';
 
-// `.toISOString()` is UTC — see `index.tsx`'s identical fix. This
-// function is what decides the search-schema default AND the future-date
-// gate (`date > todayIso()`), so a UTC skew here doesn't just link to the
-// wrong day, it can wrongly deny or allow the LEAVE-only future-date path.
+// Browser-local, not `.toISOString()` (UTC), for the search-schema default
+// only: `validateSearch` runs outside React, before the tenant's timezone is
+// known. The future-date gate below uses `tenantTodayIso` — the server's own
+// "today" — because a skew there would wrongly allow or deny the LEAVE-only
+// future-date path.
 function todayIso(): string {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
@@ -69,7 +72,7 @@ const searchSchema = z.object({
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/)
     .catch(() => todayIso()),
-  period: z.coerce.number().int().min(1).max(12).optional().catch(undefined),
+  period: z.coerce.number().int().min(1).max(30).optional().catch(undefined),
 });
 
 export const Route = createFileRoute('/_staff/attendance/$sectionId')({
@@ -85,8 +88,14 @@ export const Route = createFileRoute('/_staff/attendance/$sectionId')({
   component: SectionRegisterPage,
 });
 
-function draftKey(tenantId: string | null, sectionId: string, date: string): string {
-  return `attendance-draft:${tenantId ?? 'no-tenant'}:${sectionId}:${date}`;
+function draftKey(
+  tenantId: string | null,
+  sectionId: string,
+  date: string,
+  period?: number,
+): string {
+  // The period suffix keeps a day draft and a period draft from overwriting each other.
+  return `attendance-draft:${tenantId ?? 'no-tenant'}:${sectionId}:${date}${period === undefined ? '' : `:${period}`}`;
 }
 
 function readDraft(key: string): Draft | null {
@@ -115,7 +124,7 @@ function clearDraft(key: string): void {
   }
 }
 
-function seedDraft(register: Register): Draft {
+function seedDraft(register: Register, prefill = false): Draft {
   const draft: Draft = {};
   for (const student of register.students) {
     draft[student.student_id] = {
@@ -123,7 +132,8 @@ function seedDraft(register: Register): Draft {
       // string-literal union (`openapi-typescript` doesn't reference
       // `@biddaloy/shared`'s enum), not `AttendanceStatus` itself —
       // structurally identical, so the cast is safe.
-      status: student.status as AttendanceStatus | null,
+      status: (student.status ??
+        (prefill ? student.suggested_status : null)) as AttendanceStatus | null,
       minutes_late: student.minutes_late,
     };
   }
@@ -154,13 +164,37 @@ function SectionRegisterPage() {
   const [correctionStudentId, setCorrectionStudentId] = React.useState<string | null>(null);
   const [historyStudentId, setHistoryStudentId] = React.useState<string | null>(null);
 
-  const storageKey = draftKey(tenantId, sectionId, date);
-  const [draft, setDraft] = React.useState<Draft>({});
+  const storageKey = draftKey(tenantId, sectionId, date, period);
+  const canManageRoutines = useHasPermission(Permission.ROUTINE_MANAGE);
+  // Hint only: the settings read needs SETTINGS_MANAGE server-side, so a caller without it
+  // simply gets no hint. `''` keeps the query disabled for everyone else.
+  const settingsQuery = useSchoolSettings(canManageRoutines ? (tenantId ?? '') : '');
+  const periodsEnabled = settingsQuery.data?.attendance?.periodAttendance?.enabled === true;
+  // The draft carries the storage key it was seeded for, so it is only ever
+  // persisted under that key. A ref here was not enough: React can re-mount
+  // this page keeping refs but resetting state (seen in the production build),
+  // and the empty initial draft was then written over the real one.
+  const [draftState, setDraftState] = React.useState<{ key: string | null; draft: Draft }>({
+    key: null,
+    draft: {},
+  });
+  const draft = draftState.draft;
+  const setDraft = (next: React.SetStateAction<Draft>) =>
+    setDraftState((current) => ({
+      key: current.key,
+      draft: typeof next === 'function' ? next(current.draft) : next,
+    }));
   const [confirmUnmarkedOpen, setConfirmUnmarkedOpen] = React.useState(false);
   const [conflict, setConflict] = React.useState<{
     currentRegister: Register | undefined;
     currentVersion: number | undefined;
   } | null>(null);
+
+  React.useEffect(() => {
+    // A tab switch renders the previous tab's draft once under the new key: skip it.
+    if (registerQuery.data && draftState.key === storageKey) writeDraft(storageKey, draft);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- persist on every draft change, key derived above
+  }, [draftState, storageKey]);
 
   // Seeds from a saved local draft first (survives a reload while
   // offline), falling back to the server's register — see the plan's
@@ -168,14 +202,24 @@ function SectionRegisterPage() {
   React.useEffect(() => {
     if (!registerQuery.data) return;
     const saved = readDraft(storageKey);
-    setDraft(saved ?? seedDraft(registerQuery.data));
+    // D8: a fresh period register (no session yet, no local draft) starts from the suggestions.
+    const prefill = !saved && period !== undefined && !registerQuery.data.session.id;
+    setDraftState({ key: storageKey, draft: saved ?? seedDraft(registerQuery.data, prefill) });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- re-seed only on section/date/period change, not every draft edit
   }, [sectionId, date, period, registerQuery.data]);
 
+  // Stale tab after the tenant switch was turned off: fall back to the day register.
+  const loadError = registerQuery.error;
   React.useEffect(() => {
-    if (registerQuery.data) writeDraft(storageKey, draft);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- persist on every draft change, key derived above
-  }, [draft, storageKey]);
+    if (
+      period !== undefined &&
+      loadError instanceof ApiError &&
+      loadError.statusCode === 403 &&
+      (loadError.details as { code?: string } | undefined)?.code === 'ATTENDANCE_PERIOD_DISABLED'
+    ) {
+      void navigate({ search: (prev) => ({ ...prev, period: undefined }), replace: true });
+    }
+  }, [loadError, period, navigate]);
 
   function handleUndo(previous: Draft) {
     setDraft(previous);
@@ -228,6 +272,17 @@ function SectionRegisterPage() {
   }
 
   const students = registerQuery.data?.students ?? [];
+  // Derived, not stored: an unsaved period register whose roster still holds a
+  // day-register suggestion. Survives a re-seed from the local draft.
+  const prefilledCount =
+    period !== undefined && registerQuery.data && !registerQuery.data.session.id
+      ? students.filter(
+          // Same structural cast as `seedDraft`'s: the generated union vs the shared enum.
+          (s) =>
+            s.suggested_status &&
+            draft[s.student_id]?.status === (s.suggested_status as AttendanceStatus),
+        ).length
+      : 0;
   const counts = students.reduce(
     (acc, student) => {
       const status = draft[student.student_id]?.status ?? null;
@@ -365,7 +420,8 @@ function SectionRegisterPage() {
   // can only ever be true for a caller who holds ATTENDANCE_CORRECT but
   // whose `register.editable` still came back `false`.
   const canCorrectOutsideWindow = !register.editable && canCorrect;
-  const futureDateLeaveOnly = date > todayIso() && register.policy.allow_future_dates;
+  const futureDateLeaveOnly =
+    date > tenantTodayIso(regionConfig) && register.policy.allow_future_dates;
   const allowedStatuses = futureDateLeaveOnly ? [AttendanceStatus.LEAVE] : undefined;
   const correctionStudent = students.find((s) => s.student_id === correctionStudentId) ?? null;
   const historyStudent = students.find((s) => s.student_id === historyStudentId) ?? null;
@@ -463,6 +519,26 @@ function SectionRegisterPage() {
           />
         </div>
       </header>
+
+      <PeriodSwitcher
+        sectionId={sectionId}
+        date={date}
+        period={period}
+        showRoutineHint={canManageRoutines && periodsEnabled}
+        onChange={(next, opts) =>
+          void navigate({
+            search: (prev) => ({ ...prev, period: next }),
+            replace: opts?.replace ?? false,
+          })
+        }
+      />
+
+      {prefilledCount > 0 && (
+        <p className="flex items-start gap-2 rounded-lg border border-border-subtle bg-muted p-4 text-text-secondary">
+          <Info aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+          {t('period.prefilledNotice')}
+        </p>
+      )}
 
       {!register.editable && (
         <p className="flex items-start gap-2 rounded-lg border border-border-subtle bg-muted p-4 text-text-secondary">
