@@ -3,7 +3,9 @@ import { DiscoveryModule } from '@nestjs/core';
 import { BullModule } from '@nestjs/bullmq';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { School } from '../schools/entities/school.entity';
-import { ATTENTION_QUEUE } from './attention.constants';
+import { ATTENTION_DELIVERY_QUEUE, ATTENTION_QUEUE } from './attention.constants';
+import { PushModule } from '../push/push.module';
+import { AlertDeliveryService } from './delivery/alert-delivery.service';
 import { AttentionScheduler } from './engine/attention-scheduler';
 import { SchoolsModule } from '../schools/schools.module';
 import { CalendarModule } from '../calendar/calendar.module';
@@ -39,6 +41,8 @@ import { BillingRulesModule } from './rules/billing/billing-rules.module';
   imports: [
     TypeOrmModule.forFeature([Alert, AlertRecipient, School]),
     BullModule.registerQueue({ name: ATTENTION_QUEUE }),
+    BullModule.registerQueue({ name: ATTENTION_DELIVERY_QUEUE }),
+    PushModule,
     DiscoveryModule,
     SchoolsModule,
     CalendarModule,
@@ -66,6 +70,7 @@ import { BillingRulesModule } from './rules/billing/billing-rules.module';
     AlertWriterService,
     AttentionScheduler,
     AttentionQueryService,
+    AlertDeliveryService,
   ],
   exports: [RuleRegistryService, RuleContextService, AlertWriterService, AttentionQueryService],
 })
