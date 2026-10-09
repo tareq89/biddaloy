@@ -7,6 +7,7 @@ import { School } from '../../../schools/entities/school.entity';
 import { User } from '../../../users/entities/user.entity';
 import { Guardian } from '../../../students/entities/guardian.entity';
 import { Student } from '../../../students/entities/student.entity';
+import { Enrollment } from '../../../students/entities/enrollment.entity';
 import { AcademicYear } from '../../../academics/entities/academic-year.entity';
 import { Class } from '../../../academics/entities/class.entity';
 import { ClassSection } from '../../../academics/entities/class-section.entity';
@@ -35,6 +36,7 @@ describe('studentsTab (integration)', () => {
   let userRepo: Repository<User>;
   let guardianRepo: Repository<Guardian>;
   let studentRepo: Repository<Student>;
+  let enrollmentRepo: Repository<Enrollment>;
   let yearRepo: Repository<AcademicYear>;
   let classRepo: Repository<Class>;
   let sectionRepo: Repository<ClassSection>;
@@ -49,6 +51,7 @@ describe('studentsTab (integration)', () => {
     userRepo = module.get<Repository<User>>(getRepositoryToken(User));
     guardianRepo = module.get<Repository<Guardian>>(getRepositoryToken(Guardian));
     studentRepo = module.get<Repository<Student>>(getRepositoryToken(Student));
+    enrollmentRepo = module.get<Repository<Enrollment>>(getRepositoryToken(Enrollment));
     yearRepo = module.get<Repository<AcademicYear>>(getRepositoryToken(AcademicYear));
     classRepo = module.get<Repository<Class>>(getRepositoryToken(Class));
     sectionRepo = module.get<Repository<ClassSection>>(getRepositoryToken(ClassSection));
@@ -156,11 +159,19 @@ describe('studentsTab (integration)', () => {
       id: '00000000-0000-4000-8000-000000000000',
       registration_number: 'STU-001',
       full_name: 'Karim Uddin',
+      full_name_bn: null,
+      blood_group: null,
+      photo_key: null,
       roll_number: 1,
       class_section_id: chain.section.id,
       date_of_birth: null,
       gender: null,
       home_address: null,
+      religion: null,
+      birth_reg_no: null,
+      health_notes: null,
+      father_name: null,
+      mother_name: null,
       preferred_communication: CommunicationMedium.SMS,
       enrollment_status: EnrollmentStatus.ACTIVE,
       guardian_ids: [],
@@ -175,6 +186,98 @@ describe('studentsTab (integration)', () => {
   }
 
   describe('upsert', () => {
+    describe('seat limit [13.2.3]', () => {
+      const ctx = async (limit: number | null) => {
+        await schoolRepo.update(TENANT_A, { seat_limit: limit });
+        return seedChain(TENANT_A, 'seat');
+      };
+
+      it('refuses a NEW active student past the limit and writes nothing', async () => {
+        const chain = await ctx(1);
+        await studentsTab.upsert(rowFor(chain), null, TENANT_A, dataSource.manager);
+
+        await expect(
+          studentsTab.upsert(
+            rowFor(chain, { registration_number: 'STU-002', roll_number: 2 }),
+            null,
+            TENANT_A,
+            dataSource.manager,
+          ),
+        ).rejects.toMatchObject({ response: { details: { code: 'SEAT_LIMIT_REACHED' } } });
+        expect(await studentRepo.count({ where: { tenant_id: TENANT_A } })).toBe(1);
+      });
+
+      it('updating an already-active student never needs a new seat', async () => {
+        const chain = await ctx(1);
+        const first = await studentsTab.upsert(rowFor(chain), null, TENANT_A, dataSource.manager);
+        await expect(
+          studentsTab.upsert(
+            rowFor(chain, { full_name: 'Renamed' }),
+            first,
+            TENANT_A,
+            dataSource.manager,
+          ),
+        ).resolves.toBeDefined();
+      });
+
+      it('a non-ACTIVE row takes no seat, but re-activating one does', async () => {
+        const chain = await ctx(1);
+        await studentsTab.upsert(rowFor(chain), null, TENANT_A, dataSource.manager);
+        const left = await studentsTab.upsert(
+          rowFor(chain, {
+            registration_number: 'STU-002',
+            roll_number: 2,
+            enrollment_status: EnrollmentStatus.INACTIVE,
+          }),
+          null,
+          TENANT_A,
+          dataSource.manager,
+        );
+        await expect(
+          studentsTab.upsert(
+            rowFor(chain, {
+              registration_number: 'STU-002',
+              roll_number: 2,
+              enrollment_status: EnrollmentStatus.ACTIVE,
+            }),
+            left,
+            TENANT_A,
+            dataSource.manager,
+          ),
+        ).rejects.toMatchObject({ response: { details: { code: 'SEAT_LIMIT_REACHED' } } });
+      });
+
+      it('inside one restore transaction the running total refuses the row past the limit and rolls back', async () => {
+        const chain = await ctx(2);
+        await expect(
+          dataSource.transaction(async (m) => {
+            for (const n of [1, 2, 3]) {
+              await studentsTab.upsert(
+                rowFor(chain, { registration_number: `STU-00${n}`, roll_number: n }),
+                null,
+                TENANT_A,
+                m,
+              );
+            }
+          }),
+        ).rejects.toMatchObject({ response: { details: { code: 'SEAT_LIMIT_REACHED' } } });
+        expect(await studentRepo.count({ where: { tenant_id: TENANT_A } })).toBe(0);
+      });
+
+      it('null limit is unlimited', async () => {
+        const chain = await ctx(null);
+        await studentsTab.upsert(rowFor(chain), null, TENANT_A, dataSource.manager);
+        await expect(
+          studentsTab.upsert(
+            rowFor(chain, { registration_number: 'STU-002', roll_number: 2 }),
+            null,
+            TENANT_A,
+            dataSource.manager,
+          ),
+        ).resolves.toBeDefined();
+      });
+    });
+
     it('creates a new student with the right class_section_id and join rows', async () => {
       const chain = await seedChain(TENANT_A, 'cws');
       const g1 = await makeGuardian(TENANT_A, { phone: '01711111111' });
@@ -332,6 +435,151 @@ describe('studentsTab (integration)', () => {
           dataSource.manager,
         ),
       ).rejects.toThrow(new RegExp(TENANT_A));
+    });
+  });
+
+  describe('Enrollment sync (#1020)', () => {
+    it('creates a matching ACTIVE Enrollment when a student is first restored', async () => {
+      const chain = await seedChain(TENANT_A, 'enr1');
+
+      const created = await studentsTab.upsert(
+        rowFor(chain, { registration_number: 'STU-ENR1' }),
+        null,
+        TENANT_A,
+        dataSource.manager,
+      );
+
+      const enrollment = await enrollmentRepo.findOne({
+        where: {
+          student_id: created.id,
+          tenant_id: TENANT_A,
+          enrollment_status: EnrollmentStatus.ACTIVE,
+        },
+      });
+      expect(enrollment).not.toBeNull();
+      expect(enrollment?.class_id).toBe(chain.klass.id);
+      expect(enrollment?.section_id).toBe(chain.section.id);
+      expect(enrollment?.academic_year_id).toBe(chain.year.id);
+    });
+
+    it('updates the Enrollment class_id/section_id when a restore row changes section', async () => {
+      const chain = await seedChain(TENANT_A, 'enr2');
+      const otherSection = await sectionRepo.save(
+        sectionRepo.create({
+          class_id: chain.klass.id,
+          section_name: 'B',
+          capacity: null,
+          tenant_id: TENANT_A,
+        }),
+      );
+
+      const existing = await studentsTab.upsert(
+        rowFor(chain, { registration_number: 'STU-ENR2' }),
+        null,
+        TENANT_A,
+        dataSource.manager,
+      );
+      const before = await enrollmentRepo.findOneOrFail({
+        where: { student_id: existing.id, tenant_id: TENANT_A },
+      });
+      expect(before.section_id).toBe(chain.section.id);
+
+      await studentsTab.upsert(
+        rowFor(chain, {
+          id: existing.id,
+          registration_number: 'STU-ENR2',
+          class_section_id: otherSection.id,
+        }),
+        existing,
+        TENANT_A,
+        dataSource.manager,
+      );
+
+      const enrollments = await enrollmentRepo.find({
+        where: { student_id: existing.id, tenant_id: TENANT_A },
+      });
+      // Same row updated in place, not a second row.
+      expect(enrollments).toHaveLength(1);
+      expect(enrollments[0].id).toBe(before.id);
+      expect(enrollments[0].section_id).toBe(otherSection.id);
+      expect(enrollments[0].class_id).toBe(chain.klass.id);
+    });
+
+    it('round-trip: export then restore preserves Enrollment state', async () => {
+      const chain = await seedChain(TENANT_A, 'enr3');
+      const created = await studentsTab.upsert(
+        rowFor(chain, { registration_number: 'STU-ENR3' }),
+        null,
+        TENANT_A,
+        dataSource.manager,
+      );
+      const before = await enrollmentRepo.findOneOrFail({
+        where: { student_id: created.id, tenant_id: TENANT_A },
+      });
+
+      const [loaded] = await studentsTab.load(TENANT_A, dataSource.manager);
+      // Re-upsert the same unchanged row, simulating an export → restore
+      // round trip with no edits.
+      await studentsTab.upsert(
+        rowFor(chain, { id: created.id, registration_number: 'STU-ENR3' }),
+        loaded,
+        TENANT_A,
+        dataSource.manager,
+      );
+
+      const after = await enrollmentRepo.findOneOrFail({
+        where: { student_id: created.id, tenant_id: TENANT_A },
+      });
+      expect(after.id).toBe(before.id);
+      expect(after.section_id).toBe(chain.section.id);
+      expect(after.class_id).toBe(chain.klass.id);
+    });
+
+    it('does not sync Enrollment to another tenant`s section even if the row`s class_section_id collides', async () => {
+      const chainA = await seedChain(TENANT_A, 'enrx-a');
+      const chainB = await seedChain(TENANT_B, 'enrx-b');
+
+      // A restore row for tenant A whose class_section_id happens to name
+      // tenant B's section id — the ClassSection lookup must not resolve
+      // it (no tenant_id filter would let this leak the student into
+      // tenant B's class/section).
+      const created = await studentsTab.upsert(
+        rowFor(chainA, {
+          registration_number: 'STU-ENRX',
+          class_section_id: chainB.section.id,
+        }),
+        null,
+        TENANT_A,
+        dataSource.manager,
+      );
+
+      const enrollment = await enrollmentRepo.findOne({
+        where: { student_id: created.id, tenant_id: TENANT_A },
+      });
+      expect(enrollment).toBeNull();
+    });
+
+    it('does not create or update an ACTIVE Enrollment for a restored row whose enrollment_status is not ACTIVE', async () => {
+      const chain = await seedChain(TENANT_A, 'enrna');
+
+      const created = await studentsTab.upsert(
+        rowFor(chain, {
+          registration_number: 'STU-ENRNA',
+          enrollment_status: EnrollmentStatus.GRADUATED,
+        }),
+        null,
+        TENANT_A,
+        dataSource.manager,
+      );
+
+      const enrollment = await enrollmentRepo.findOne({
+        where: {
+          student_id: created.id,
+          tenant_id: TENANT_A,
+          enrollment_status: EnrollmentStatus.ACTIVE,
+        },
+      });
+      expect(enrollment).toBeNull();
     });
   });
 

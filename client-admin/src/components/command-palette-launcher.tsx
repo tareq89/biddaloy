@@ -30,6 +30,7 @@
  * check alone is not enough to gate a shortcut the sidebar wouldn't
  * already show.
  */
+import { Permission } from '@biddaloy/shared';
 import {
   Button,
   CommandPalette,
@@ -59,7 +60,23 @@ import {
 
 const SEARCH_DEBOUNCE_MS = 300;
 
-export function CommandPaletteLauncher() {
+/** [31.3.1] Page-only mode for the portal and platform shells: their own pages, no People/Action tab, no `/search` call. */
+export interface PaletteLauncherPage {
+  id: string;
+  label: string;
+  to: string;
+  synonyms?: readonly string[];
+}
+
+export function CommandPaletteLauncher({
+  pages,
+}: {
+  /**
+   * Page-only mode (portal / platform shells). The caller must pre-filter this
+   * list by the user's role: it is shown as-is, with no permission check here.
+   */
+  pages?: readonly PaletteLauncherPage[];
+} = {}) {
   const { t, i18n } = useTranslation('nav');
   const navigate = useNavigate();
   const activeRole = useActiveRole();
@@ -67,7 +84,7 @@ export function CommandPaletteLauncher() {
   const [shortcutsOpen, setShortcutsOpen] = React.useState(false);
   const [query, setQuery] = React.useState('');
   const debouncedQuery = useDebouncedValue(query, SEARCH_DEBOUNCE_MS);
-  const peopleResults = usePaletteSearch(debouncedQuery);
+  const peopleResults = usePaletteSearch(pages ? '' : debouncedQuery);
   const triggerRef = React.useRef<HTMLButtonElement>(null);
 
   // [30.1.3]'s `nav-tree.ts` uses `useEntityLabel` for the same fixed,
@@ -209,6 +226,11 @@ export function CommandPaletteLauncher() {
   const trimmedQuery = query.trim().toLowerCase();
   const pageResults = React.useMemo(() => {
     if (trimmedQuery === '') return [];
+    if (pages) {
+      return pages
+        .filter((page) => matchesNavSearch(page.label, page.synonyms, trimmedQuery))
+        .map((page) => ({ id: page.id, label: page.label, description: page.to }));
+    }
     const seen = new Set<string>();
     const items: StaffNavItemDef[] = [];
     for (const group of STAFF_NAV_GROUPS) {
@@ -224,7 +246,7 @@ export function CommandPaletteLauncher() {
       .filter(({ item, label }) => matchesNavSearch(label, item.synonyms, trimmedQuery))
       .map(({ item, label }) => ({ id: item.id, label, description: item.to }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [trimmedQuery, activeRole, i18n.language]);
+  }, [trimmedQuery, activeRole, i18n.language, pages]);
 
   const pageGroups: GlobalSearchGroup[] = [
     { id: 'pages', label: t('commandPalette.groups.pages'), results: pageResults },
@@ -237,7 +259,11 @@ export function CommandPaletteLauncher() {
     const locale = i18n.language.startsWith('bn') ? 'bn' : 'en';
     return ACTIONS.filter((action) => hasPermission(activeRole, action.permission))
       .filter(
-        (action) => !action.context || action.context.some((ctx) => availableContexts.has(ctx)),
+        // `context: []` means "needs no entity" (ACR / incident actions), same as omitted.
+        (action) =>
+          !action.context ||
+          action.context.length === 0 ||
+          action.context.some((ctx) => availableContexts.has(ctx)),
       )
       .filter((action) => action.label[locale].toLowerCase().includes(trimmedQuery))
       .map((action) => ({ id: action.id, label: action.label[locale] }));
@@ -247,29 +273,33 @@ export function CommandPaletteLauncher() {
     { id: 'actions', label: t('commandPalette.groups.actions'), results: actionResults },
   ];
 
-  const tabs: readonly [CommandPaletteTab, CommandPaletteTab, CommandPaletteTab] = [
-    {
-      id: 'people',
-      label: t('commandPalette.tabs.people'),
-      groups: peopleGroups,
-      searchableHint: t('commandPalette.searchableHint'),
-      noResultsText: (searchQuery) => t('commandPalette.noResults', { query: searchQuery }),
-    },
-    {
-      id: 'page',
-      label: t('commandPalette.tabs.page'),
-      groups: pageGroups,
-      searchableHint: t('commandPalette.pageSearchableHint'),
-      noResultsText: (searchQuery) => t('commandPalette.noResults', { query: searchQuery }),
-    },
-    {
-      id: 'action',
-      label: t('commandPalette.tabs.action'),
-      groups: actionGroups,
-      searchableHint: t('commandPalette.actionSearchableHint'),
-      noResultsText: (searchQuery) => t('commandPalette.noResults', { query: searchQuery }),
-    },
-  ];
+  const peopleTab: CommandPaletteTab = {
+    id: 'people',
+    label: t('commandPalette.tabs.people'),
+    groups: peopleGroups,
+    searchableHint: t('commandPalette.searchableHint'),
+    noResultsText: (searchQuery) => t('commandPalette.noResults', { query: searchQuery }),
+  };
+  const pageTab: CommandPaletteTab = {
+    id: 'page',
+    label: t('commandPalette.tabs.page'),
+    groups: pageGroups,
+    searchableHint: t('commandPalette.pageSearchableHint'),
+    noResultsText: (searchQuery) => t('commandPalette.noResults', { query: searchQuery }),
+  };
+  const actionTab: CommandPaletteTab = {
+    id: 'action',
+    label: t('commandPalette.tabs.action'),
+    groups: actionGroups,
+    searchableHint: t('commandPalette.actionSearchableHint'),
+    noResultsText: (searchQuery) => t('commandPalette.noResults', { query: searchQuery }),
+  };
+  // No STUDENT_READ → no People tab at all (and `usePaletteSearch` makes no /search call).
+  const tabs: readonly [CommandPaletteTab, ...CommandPaletteTab[]] = pages
+    ? [pageTab]
+    : hasPermission(activeRole, Permission.STUDENT_READ)
+      ? [peopleTab, pageTab, actionTab]
+      : [pageTab, actionTab];
 
   function handleSelect(tabId: (typeof tabs)[number]['id'], groupId: string, resultId: string) {
     if (tabId === 'people') {
@@ -327,7 +357,11 @@ export function CommandPaletteLauncher() {
         onSelect={handleSelect}
         aria-label={t('commandPalette.ariaLabel')}
         title={t('commandPalette.title')}
-        placeholder={t('commandPalette.placeholder')}
+        placeholder={
+          tabs[0].id === 'people'
+            ? t('commandPalette.placeholder')
+            : t('commandPalette.placeholderNoPeople')
+        }
         description={t('commandPalette.description')}
         announceResults={(count) =>
           count === 1

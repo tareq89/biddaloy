@@ -1,7 +1,10 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render as rtlRender, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { ReactElement } from 'react';
 import { useState } from 'react';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
+
+import { I18nProvider, i18n, whenReady } from '../i18n';
 
 import { Combobox, type ComboboxOption } from './combobox';
 
@@ -23,6 +26,13 @@ function Controlled() {
     />
   );
 }
+
+const render = (ui: ReactElement) => rtlRender(ui, { wrapper: I18nProvider });
+
+beforeEach(async () => {
+  await whenReady(i18n);
+  await i18n.changeLanguage('en');
+});
 
 describe('Combobox', () => {
   it('carries the WAI-ARIA combobox role and wiring on the input', () => {
@@ -49,6 +59,24 @@ describe('Combobox', () => {
     await waitFor(() => expect(screen.getByRole('option', { name: 'Seven' })).toBeTruthy());
     expect(screen.queryByRole('option', { name: 'Six' })).toBeNull();
     expect(screen.queryByRole('option', { name: 'Eight' })).toBeNull();
+  });
+
+  it('Latin digits typed find a Bangla-digit label', async () => {
+    const user = userEvent.setup();
+    render(
+      <Combobox
+        aria-label="Time"
+        options={[
+          { value: '08:00', label: 'সকাল ৮:০০' },
+          { value: '09:00', label: 'সকাল ৯:০০' },
+        ]}
+        value={null}
+        onValueChange={() => {}}
+      />,
+    );
+    await user.type(screen.getByRole('combobox', { name: 'Time' }), '8:00');
+    await waitFor(() => expect(screen.getByRole('option', { name: 'সকাল ৮:০০' })).toBeTruthy());
+    expect(screen.queryByRole('option', { name: 'সকাল ৯:০০' })).toBeNull();
   });
 
   it('sets aria-activedescendant to the highlighted option as ArrowDown moves through the list', async () => {
@@ -110,6 +138,25 @@ describe('Combobox', () => {
     render(<Controlled />);
     await user.type(screen.getByRole('combobox', { name: 'Class' }), 'zzz');
     await waitFor(() => expect(screen.getByText('No results')).toBeTruthy());
+  });
+
+  it('announces zero results in the live region when nothing matches', async () => {
+    const user = userEvent.setup();
+    render(<Controlled />);
+    await user.type(screen.getByRole('combobox', { name: 'Class' }), 'zzz');
+    await waitFor(() => expect(screen.getByText('0 results')).toBeTruthy());
+  });
+
+  it('default placeholder is the translated Select', async () => {
+    render(
+      <Combobox
+        options={[{ value: 'six', label: 'Six' }]}
+        value={null}
+        onValueChange={() => {}}
+        aria-label="Class"
+      />,
+    );
+    expect(await screen.findByPlaceholderText('Select')).toBeTruthy();
   });
 
   it('ArrowUp moves the active index back up, floored at the first option', async () => {

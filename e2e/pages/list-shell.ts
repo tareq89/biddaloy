@@ -108,7 +108,8 @@ export class ListShellPage {
     if (!this.config.searchLabelKey) {
       throw new Error(`No searchLabelKey configured for ${this.config.titleKey}`);
     }
-    await this.page.getByLabel(this.t(this.config.searchLabelKey)).fill(query);
+    // `exact`: the header's palette button is labelled "<search> (Ctrl+K)".
+    await this.page.getByLabel(this.t(this.config.searchLabelKey), { exact: true }).fill(query);
   }
 
   row(text: string): Locator {
@@ -122,6 +123,24 @@ export class ListShellPage {
       ? row.getByRole('link', { name: this.t(this.config.openLabelKey) })
       : row.getByRole('link').first();
     await link.click();
+  }
+
+  /** A row action by its label key — works for an icon button (aria-label), a link, and an item in the row's More menu. */
+  async clickRowAction(rowText: string, labelKey: string): Promise<void> {
+    const row = this.row(rowText).first();
+    const name = this.t(labelKey);
+    const direct = row
+      .getByRole('button', { name, exact: true })
+      .or(row.getByRole('link', { name, exact: true }));
+    const more = row.getByRole('button', { name: this.t('common.actions.moreActions') });
+    // Wait for either control, then decide (same shape as DetailShellPage.clickAction).
+    await expect(direct.or(more).first()).toBeVisible();
+    if ((await direct.count()) > 0) {
+      await direct.first().click();
+      return;
+    }
+    await more.click();
+    await this.page.getByRole('menuitem', { name }).click();
   }
 
   async filterBySelect(labelKey: string, optionText: string): Promise<void> {

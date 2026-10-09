@@ -1,5 +1,6 @@
 import '@biddaloy/ui/test';
 
+import { REGION_BD_EN, RegionConfigProvider } from '@biddaloy/ui/i18n';
 import {
   cleanupTestState,
   errorHandler,
@@ -9,10 +10,25 @@ import {
   slowHandler,
 } from '@biddaloy/ui/test';
 import { screen, waitFor, within } from '@testing-library/react';
-import { HttpResponse } from 'msw';
+import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { SchoolProfileSection } from './school-profile-section';
+
+const SERVER_TEXT = 'SERVER_SECRET_TEXT';
+const failing = (path: string, method: 'patch' | 'put' | 'post' = 'patch') =>
+  http[method](path, () =>
+    HttpResponse.json(
+      {
+        statusCode: 400,
+        message: SERVER_TEXT,
+        timestamp: new Date().toISOString(),
+        path,
+        requestId: 'r',
+      },
+      { status: 400 },
+    ),
+  );
 
 describe('SchoolProfileSection', () => {
   afterEach(async () => {
@@ -106,6 +122,30 @@ describe('SchoolProfileSection', () => {
     expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
   });
 
+  it('shows the phone in the display form in the read-only view', async () => {
+    server.use(
+      http.get('/api/v1/schools/me/profile', () =>
+        HttpResponse.json({
+          name: 'Ananta School',
+          name_bn: null,
+          address: null,
+          phone: '01711000000',
+          email: null,
+          registration_id: null,
+          logo_url: null,
+        }),
+      ),
+    );
+    renderWithProviders(
+      <RegionConfigProvider value={REGION_BD_EN}>
+        <SchoolProfileSection />
+      </RegionConfigProvider>,
+      { locale: 'en', role: 'TEACHER', tenantId: 'school-1' },
+    );
+
+    expect(await screen.findByText('01711-000000')).toBeTruthy();
+  });
+
   it('surfaces an upload error inline under the upload control', async () => {
     server.use(errorHandler('post', '/api/v1/schools/me/logo', 400));
 
@@ -161,14 +201,38 @@ describe('SchoolProfileSection', () => {
 
     const removeButton = await screen.findByRole('button', { name: 'Remove logo' });
     await user.click(removeButton);
-    expect(screen.getByText('Remove the school logo?')).toBeTruthy();
-
-    const dialog = screen.getByText('Remove the school logo?').closest('div')!;
+    // D29: the confirm is a dialog; no red button sits in the card itself.
+    const dialog = screen.getByRole('alertdialog');
+    expect(within(dialog).getByText('Remove the school logo?')).toBeTruthy();
     await user.click(within(dialog).getByRole('button', { name: 'Remove' }));
 
     await waitFor(() => {
       expect(screen.getByLabelText('No logo')).toBeTruthy();
     });
+  });
+
+  it('shows a translated error and closes the dialog when removing the logo fails', async () => {
+    server.use(schoolsHandlers.uploadLogo, errorHandler('delete', '/api/v1/schools/me/logo', 400));
+    const { user } = renderWithProviders(<SchoolProfileSection />, {
+      locale: 'en',
+      role: 'ADMIN',
+      tenantId: 'school-1',
+    });
+
+    await screen.findByLabelText('Name');
+    await user.upload(
+      screen.getByLabelText('Upload logo'),
+      new File(['bytes'], 'logo.png', { type: 'image/png' }),
+    );
+    await user.click(await screen.findByRole('button', { name: 'Remove logo' }));
+    await user.click(
+      within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Remove' }),
+    );
+
+    expect((await screen.findByRole('alert')).textContent).toBe(
+      "Couldn't remove the logo. Try again.",
+    );
+    expect(screen.queryByRole('alertdialog')).toBeNull();
   });
 
   it('blocks a new upload while a removal is still in flight', async () => {
@@ -193,14 +257,17 @@ describe('SchoolProfileSection', () => {
       new File(['bytes'], 'logo.png', { type: 'image/png' }),
     );
     await user.click(await screen.findByRole('button', { name: 'Remove logo' }));
-    const dialog = screen.getByText('Remove the school logo?').closest('div')!;
+    const dialog = screen.getByRole('alertdialog');
     await user.click(within(dialog).getByRole('button', { name: 'Remove' }));
 
     // Both the picker button and its hidden input are disabled until the
     // DELETE settles — the two mutations target the same logo.
-    const chooseButton = screen.getByRole('button', { name: 'Upload logo' });
+    // The open confirm dialog hides the page from the a11y tree: find by text.
+    const chooseButton = screen.getByText('Upload logo', { selector: 'button' });
     expect(chooseButton.hasAttribute('disabled')).toBe(true);
-    expect(screen.getByLabelText<HTMLInputElement>('Upload logo').disabled).toBe(true);
+    expect(
+      screen.getByLabelText<HTMLInputElement>('Upload logo', { selector: 'input' }).disabled,
+    ).toBe(true);
 
     // The slow DELETE above returns a bare 204 (it doesn't update the
     // stateful MSW handlers' logo), so the observable "settled" signal here
@@ -208,5 +275,21 @@ describe('SchoolProfileSection', () => {
     await waitFor(() => {
       expect(chooseButton.hasAttribute('disabled')).toBe(false);
     });
+  });
+
+  it('shows a translated error, never the server text, when the save fails', async () => {
+    server.use(failing('/api/v1/schools/me/profile'));
+    const { user } = renderWithProviders(<SchoolProfileSection />, {
+      locale: 'en',
+      role: 'ADMIN',
+      tenantId: 'school-1',
+    });
+
+    const name = await screen.findByLabelText('Name');
+    await user.type(name, ' 2');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    expect((await screen.findByRole('alert')).textContent).toBe("Couldn't save. Try again.");
+    expect(screen.queryByText(SERVER_TEXT)).toBeNull();
   });
 });

@@ -1,82 +1,29 @@
-/**
- * [16.6.4] Collections report — `GET /reports/collections` (JSON summary)
- * and `GET /reports/collections.csv` (same query, CSV download).
- *
- * HAND-TYPED CONTRACT — pending #671 (w6-g2) merge + `schema.d.ts` regen.
- * `CollectionsReportResponse` below is typed by hand against the
- * dispatch-provided shape rather than `components['schemas'][...]`
- * because `schema.d.ts` doesn't carry these routes yet. Diff this against
- * the generated types once #671 lands and fold it into `schema.d.ts`'s
- * `components['schemas']` the same way every other hook in this
- * directory does — do not leave it hand-typed longer than necessary.
- */
+/** Collections report — `GET /reports/collections` (JSON) and `.csv` (same query). Types come from `schema.d.ts`. */
 import { queryOptions, useQuery } from '@tanstack/react-query';
 
 import { apiClient } from '../api/client';
+import type { components, operations } from '../api/schema';
 
 import { createEntityKeys } from './query-keys';
 import { shouldRetryQuery } from './retry';
 
-export interface CollectionsReportFilters {
-  from: string;
-  to: string;
-  method?: string;
-  collector_id?: string;
-}
+type S = components['schemas'];
+export type CollectionsReportResponse = S['CollectionsReportDto'];
+export type CollectionsReportTotals = S['CollectionsReportTotals'];
+export type CollectionsByMethod = S['CollectionsByMethod'];
+export type CollectionsByCollector = S['CollectionsByCollector'];
+export type CollectionsByFeeType = S['CollectionsByFeeType'];
+export type CollectionsByDay = S['CollectionsByDay'];
+export type CollectionsReportFilters =
+  operations['ReportsController_getCollections_v1']['parameters']['query'];
 
-export interface CollectionsReportTotals {
-  collected: number;
-  reversed: number;
-  net: number;
-  standing_discount: number;
-  one_off_discount: number;
-  wallet_used: number;
-  wallet_added: number;
-  change_returned: number;
-}
-
-export interface CollectionsByMethod {
-  method: string;
-  amount: number;
-  count: number;
-}
-
-export interface CollectionsByCollector {
-  collector_id: string;
-  collector_name: string;
-  amount: number;
-  count: number;
-}
-
-export interface CollectionsByFeeType {
-  fee_type: string;
-  amount: number;
-  count: number;
-}
-
-export interface CollectionsByDay {
-  date: string;
-  amount: number;
-}
-
-export interface CollectionsReportResponse {
-  range: { from: string; to: string };
-  totals: CollectionsReportTotals;
-  by_method: CollectionsByMethod[];
-  by_collector: CollectionsByCollector[];
-  by_fee_type: CollectionsByFeeType[];
-  by_day: CollectionsByDay[];
-}
-
-export const collectionsReportKeys = createEntityKeys<CollectionsReportFilters>(
-  'reports-collections',
-);
+export const collectionsReportKeys =
+  createEntityKeys<CollectionsReportFilters>('reports-collections');
 
 function toParams(filters: CollectionsReportFilters): Record<string, string> {
-  const params: Record<string, string> = { from: filters.from, to: filters.to };
-  if (filters.method !== undefined) params.method = filters.method;
-  if (filters.collector_id !== undefined) params.collector_id = filters.collector_id;
-  return params;
+  return Object.fromEntries(
+    Object.entries(filters).filter((entry): entry is [string, string] => entry[1] !== undefined),
+  );
 }
 
 export function collectionsReportQueryOptions(filters: CollectionsReportFilters) {

@@ -15,21 +15,60 @@ import {
   MaxLength,
   ValidateIf,
 } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import { applyDecorators } from '@nestjs/common';
+import { ApiProperty, PickType } from '@nestjs/swagger';
 import { Type, Transform } from 'class-transformer';
 import { CommunicationMedium, EnrollmentStatus } from '@biddaloy/shared';
 import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
 import type { BulkImportErrorDto } from '../../bulk-import/dto/bulk-import.dto';
 
+/** [32.2.5] Allowed blood groups on a student (D43). */
+export const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+
 // Matches "01712345678", "+8801712345678", or "8801712345678" — Bangladesh
 // mobile numbers (operator prefixes 13-19).
 export const BD_PHONE_REGEX = /^(?:\+?880|0)1[3-9]\d{8}$/;
+
+/** [39.2.1] The five student-profile fields. Writing any needs STUDENT_RECORDS_WRITE
+ * (enforced in the controller); `null` on update clears the column. */
+export const STUDENT_PROFILE_FIELDS = [
+  'religion',
+  'birth_reg_no',
+  'health_notes',
+  'father_name',
+  'mother_name',
+] as const;
+
+const trimmed = ({ value }: { value: unknown }) =>
+  typeof value === 'string' ? value.trim() : value;
+
+const ProfileText = (max: number) =>
+  applyDecorators(IsOptional(), Transform(trimmed), IsString(), SanitizeText(), MaxLength(max));
+
+/** Birth registration numbers are 10-17 digits (BD BRN is 17, older ones 10+). */
+const BirthRegNo = () =>
+  applyDecorators(
+    IsOptional(),
+    Transform(trimmed),
+    IsString(),
+    Matches(/^\d{10,17}$/, { message: 'birth_reg_no must be 10 to 17 digits' }),
+  );
 
 export class CreateStudentDto {
   @IsString()
   @IsNotEmpty()
   @SanitizeText()
   full_name: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  @SanitizeText()
+  full_name_bn?: string;
+
+  @IsOptional()
+  @IsIn(BLOOD_GROUPS)
+  blood_group?: string;
 
   @IsOptional()
   @IsEmail()
@@ -69,6 +108,21 @@ export class CreateStudentDto {
   @IsArray()
   @IsUUID('4', { each: true })
   guardian_ids?: string[];
+
+  @BirthRegNo()
+  birth_reg_no?: string;
+
+  @ProfileText(200)
+  religion?: string;
+
+  @ProfileText(2000)
+  health_notes?: string;
+
+  @ProfileText(200)
+  father_name?: string;
+
+  @ProfileText(200)
+  mother_name?: string;
 }
 
 export class UpdateStudentDto {
@@ -76,6 +130,16 @@ export class UpdateStudentDto {
   @IsString()
   @SanitizeText()
   full_name?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  @SanitizeText()
+  full_name_bn?: string | null;
+
+  @IsOptional()
+  @IsIn(BLOOD_GROUPS)
+  blood_group?: string | null;
 
   @IsOptional()
   @IsUUID()
@@ -112,15 +176,43 @@ export class UpdateStudentDto {
   @IsEnum(CommunicationMedium)
   preferred_communication?: CommunicationMedium;
 
-  @IsOptional()
-  @IsEnum(EnrollmentStatus)
-  enrollment_status?: EnrollmentStatus;
-
+  // [39.2.1] No `enrollment_status` here on purpose. A status change must go through
+  // POST /students/:id/leave or /readmit (STUDENT_LIFECYCLE_MANAGE, mandatory reason and date,
+  // a lifecycle event, one transaction). With `forbidNonWhitelisted` a body that still sends it
+  // is rejected with a 400 instead of writing `students.enrollment_status` directly.
   @IsOptional()
   @IsArray()
   @IsUUID('4', { each: true })
   guardian_ids?: string[];
+
+  @BirthRegNo()
+  birth_reg_no?: string | null;
+
+  @ProfileText(200)
+  religion?: string | null;
+
+  @ProfileText(2000)
+  health_notes?: string | null;
+
+  @ProfileText(200)
+  father_name?: string | null;
+
+  @ProfileText(200)
+  mother_name?: string | null;
 }
+
+/**
+ * [39.2.4] Body of `PATCH /students/:id/records`: the five profile fields only. A separate route
+ * (ADMIN + EXECUTIVE, STUDENT_RECORDS_WRITE) so an EXECUTIVE can edit records without being
+ * granted general student updates.
+ */
+export class UpdateStudentRecordsDto extends PickType(UpdateStudentDto, [
+  'birth_reg_no',
+  'religion',
+  'health_notes',
+  'father_name',
+  'mother_name',
+] as const) {}
 
 export class QueryStudentDto {
   @IsOptional()
@@ -506,6 +598,18 @@ export class BulkUploadValidateResultDto {
   preview: BulkUploadPreviewRowDto[];
   errors: BulkImportErrorDto[];
   hard_error_count: number;
+
+  /** [13.2.3] Seats in use vs the school's limit (`null` = unlimited) and what this file adds. */
+  @ApiProperty({
+    type: 'object',
+    properties: {
+      used: { type: 'number' },
+      limit: { type: 'number', nullable: true },
+      new_rows: { type: 'number' },
+    },
+    required: ['used', 'limit', 'new_rows'],
+  })
+  seats: { used: number; limit: number | null; new_rows: number };
 }
 
 /** Body of `POST /students/bulk-upload/commit`. */

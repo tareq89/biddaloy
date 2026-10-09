@@ -206,7 +206,7 @@ describe('Attendance Devices E2E', () => {
       .post(`${API}/attendance/devices`)
       .set(teacherHeaders())
       .send({ name: 'Teacher Attempt', kind: AttendanceDeviceKind.RFID })
-      .expect(401);
+      .expect(403);
   });
 
   it('401s a management route with a missing X-Tenant-ID header', async () => {

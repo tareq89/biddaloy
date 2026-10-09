@@ -142,7 +142,7 @@ describe('Subjects E2E', () => {
       expect(res.body.message).toContain('not a member');
     });
 
-    it('returns 401 for STUDENT role', async () => {
+    it('returns 403 for STUDENT role', async () => {
       const token = await studentToken();
       await supertest(app.getHttpServer())
         .post('/api/v1/subjects')
@@ -150,7 +150,7 @@ describe('Subjects E2E', () => {
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.STUDENT)
         .send({ name_en: 'Mathematics', code: 'MATH3' })
-        .expect(401);
+        .expect(403);
     });
 
     it('returns 400 on missing required fields', async () => {
@@ -220,7 +220,7 @@ describe('Subjects E2E', () => {
       expect(res.body.name_en).toBe('Physics (updated)');
     });
 
-    it('returns 401 for STUDENT role', async () => {
+    it('returns 403 for STUDENT role', async () => {
       const createRes = await supertest(app.getHttpServer())
         .post('/api/v1/subjects')
         .set('Authorization', `Bearer ${adminToken}`)
@@ -235,7 +235,7 @@ describe('Subjects E2E', () => {
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.STUDENT)
         .send({ name_en: 'Changed' })
-        .expect(401);
+        .expect(403);
     });
   });
 
@@ -261,7 +261,7 @@ describe('Subjects E2E', () => {
         .expect(404);
     });
 
-    it('returns 401 for STUDENT role', async () => {
+    it('returns 403 for STUDENT role', async () => {
       const createRes = await supertest(app.getHttpServer())
         .post('/api/v1/subjects')
         .set('Authorization', `Bearer ${adminToken}`)
@@ -275,7 +275,7 @@ describe('Subjects E2E', () => {
         .set('Authorization', `Bearer ${token}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.STUDENT)
-        .expect(401);
+        .expect(403);
     });
   });
 
@@ -329,7 +329,7 @@ describe('Subjects E2E', () => {
       expect(detachedRow.deleted_at).not.toBeNull();
     });
 
-    it('returns 401 attaching a subject as STUDENT', async () => {
+    it('returns 403 attaching a subject as STUDENT', async () => {
       const subjectRes = await supertest(app.getHttpServer())
         .post('/api/v1/subjects')
         .set('Authorization', `Bearer ${adminToken}`)
@@ -344,7 +344,7 @@ describe('Subjects E2E', () => {
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.STUDENT)
         .send({ subject_id: subjectRes.body.id, academic_year_id: SEED_ACADEMIC_YEAR_ID })
-        .expect(401);
+        .expect(403);
     });
 
     it('returns 404 attaching a subject from another tenant', async () => {

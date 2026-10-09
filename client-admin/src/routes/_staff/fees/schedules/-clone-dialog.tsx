@@ -2,8 +2,8 @@
  * [16.7.5] "Clone for next year" — copies a schedule's fees/audience/
  * rule into a new schedule under a different academic year, per issue
  * #679's row action. Small Tier B dialog, same shape as
- * `-schedule-form-dialog.tsx` but with only the two fields cloning
- * actually needs (target year, optional rename).
+ * `-schedule-form-dialog.tsx` but with only the one field copying
+ * actually needs (the target year).
  */
 import {
   Button,
@@ -14,6 +14,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  Label,
   Select,
   SelectContent,
   SelectItem,
@@ -67,7 +68,7 @@ export function CloneScheduleDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent size="sm">
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <DialogHeader>
             <DialogTitle>{t('schedules.cloneDialog.title')}</DialogTitle>
@@ -75,14 +76,11 @@ export function CloneScheduleDialog({
           </DialogHeader>
 
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="clone-schedule-year" className="text-sm font-medium">
+            <Label htmlFor="clone-schedule-year">
               {t('schedules.cloneDialog.academicYearLabel')}
-            </label>
+            </Label>
             <Select value={academicYearId} onValueChange={setAcademicYearId}>
-              <SelectTrigger
-                id="clone-schedule-year"
-                aria-label={t('schedules.cloneDialog.academicYearLabel')}
-              >
+              <SelectTrigger id="clone-schedule-year">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -98,7 +96,7 @@ export function CloneScheduleDialog({
           </div>
 
           {cloneSchedule.isError && (
-            <p role="alert" className="text-sm text-destructive">
+            <p role="alert" className="text-caption text-destructive">
               {t('schedules.cloneDialog.errorMessage')}
             </p>
           )}
@@ -106,7 +104,7 @@ export function CloneScheduleDialog({
           <DialogFooter>
             <DialogClose asChild>
               <Button type="button" variant="outline">
-                {t('schedules.form.cancel')}
+                {t('actions.cancel', { ns: 'common' })}
               </Button>
             </DialogClose>
             <Button

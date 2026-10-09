@@ -31,6 +31,14 @@ export enum Permission {
   STUDENT_UPDATE = 'STUDENT_UPDATE',
   STUDENT_DELETE = 'STUDENT_DELETE',
   STUDENT_BULK_UPLOAD = 'STUDENT_BULK_UPLOAD',
+  // Student lifecycle (39.x) — D22.
+  STUDENT_LIFECYCLE_MANAGE = 'STUDENT_LIFECYCLE_MANAGE',
+  STUDENT_NOTES_READ = 'STUDENT_NOTES_READ',
+  /** [47.1.1] D11 — the "My Class" view; TEACHER only. */
+  MY_CLASS_VIEW = 'MY_CLASS_VIEW',
+  STUDENT_NOTES_WRITE = 'STUDENT_NOTES_WRITE',
+  STUDENT_RECORDS_READ = 'STUDENT_RECORDS_READ',
+  STUDENT_RECORDS_WRITE = 'STUDENT_RECORDS_WRITE',
 
   // Guardian Management
   GUARDIAN_CREATE = 'GUARDIAN_CREATE',
@@ -115,6 +123,8 @@ export enum Permission {
 
   // Settings
   SETTINGS_MANAGE = 'SETTINGS_MANAGE',
+  // [35.1.1] Apply a curriculum preset to a fresh tenant — ADMIN only.
+  CURRICULUM_PRESET_APPLY = 'CURRICULUM_PRESET_APPLY',
   // [16.2.1] Manage a recurring fee-generation `RecurringSchedule` (16.x).
   SCHEDULE_MANAGE = 'SCHEDULE_MANAGE',
   // [16.2.1] Manage a `DiscountRule` (16.x) — who qualifies for what
@@ -169,6 +179,22 @@ export enum Permission {
   RESULT_PUBLISH = 'RESULT_PUBLISH',
   // [19.1.1] Read a published (or, for staff, processed) result.
   RESULT_READ = 'RESULT_READ',
+  // [25.1.1] Create/edit/publish a SeatPlan and its seat allocations.
+  SEAT_PLAN_MANAGE = 'SEAT_PLAN_MANAGE',
+  // [32.1.1] Epic 32 D18/D47 — create/edit print templates, assets and printer profiles.
+  PRINT_TEMPLATE_MANAGE = 'PRINT_TEMPLATE_MANAGE',
+  // [32.1.1] Epic 32 D18/D47 — create and run print jobs (ID cards etc.).
+  DOCUMENT_PRINT = 'DOCUMENT_PRINT',
+  // [32.1.1] Epic 32 D18/D47 — read print-job history.
+  PRINT_HISTORY_READ = 'PRINT_HISTORY_READ',
+  // [32.1.1] Epic 32 D18/D47 — revoke an issued document (e.g. a lost card).
+  DOCUMENT_REVOKE = 'DOCUMENT_REVOKE',
+  // [26.1.1] Create/edit/run a PromotionRun (D22). ADMIN only — no separate
+  // analysis permission; analysis reuses MARK_VIEW.
+  PROMOTION_MANAGE = 'PROMOTION_MANAGE',
+  // [26.1.1] Commit a run that overrides the suggested outcome for at least
+  // one student (D11, D22) — gated behind ApprovalScope.PROMOTION_OVERRIDE.
+  PROMOTION_OVERRIDE = 'PROMOTION_OVERRIDE',
   // Routine (class timetable)
   // [21.1.1] Read is granted to every tenant role that has a stake in a
   // published routine (admin, executive, teacher, guardian, student);
@@ -176,6 +202,54 @@ export enum Permission {
   // is ADMIN only.
   ROUTINE_READ = 'ROUTINE_READ',
   ROUTINE_MANAGE = 'ROUTINE_MANAGE',
+
+  // Homework/Syllabus (22.x)
+  // [22.1.1] D26 — read a Homework/HomeworkAssignment/HomeworkSubmission.
+  HOMEWORK_READ = 'HOMEWORK_READ',
+  // [22.1.1] Create/reassign a HomeworkAssignment.
+  HOMEWORK_ASSIGN = 'HOMEWORK_ASSIGN',
+  // [22.1.1] Grade a HomeworkSubmission.
+  HOMEWORK_GRADE = 'HOMEWORK_GRADE',
+  // [22.1.1] CSV bulk-create of HomeworkAssignment rows (D21).
+  HOMEWORK_IMPORT = 'HOMEWORK_IMPORT',
+  // [22.1.1] Read a SyllabusTopic.
+  SYLLABUS_READ = 'SYLLABUS_READ',
+  // [22.1.1] Create/edit/mark a SyllabusTopic's status.
+  SYLLABUS_MANAGE = 'SYLLABUS_MANAGE',
+
+  // Programs (34.x)
+  // [34.1.1] D4 — read a Program/ProgramMilestone/ProgramEnrollment.
+  PROGRAM_READ = 'PROGRAM_READ',
+  // [34.1.1] D4 — create/edit a Program/ProgramMilestone.
+  PROGRAM_MANAGE = 'PROGRAM_MANAGE',
+  // [34.1.1] D4 — record a student's progress against a ProgramMilestone.
+  PROGRAM_RECORD = 'PROGRAM_RECORD',
+
+  // Admission (27.x)
+  // [27.1] Review an AdmissionApplicant — shortlist/admit/reject and read
+  // the intake/applicant/evaluation rows. ADMIN and OFFICE_STAFF (D16).
+  ADMISSION_REVIEW = 'ADMISSION_REVIEW',
+  // Staff HR (23.x)
+  // [23.2.1] Read a Designation/StaffHrRecord/StaffDesignationHistory.
+  STAFF_HR_READ = 'STAFF_HR_READ',
+  // [23.2.1] Create/edit a Designation/StaffHrRecord and promote a staff
+  // member's designation — ADMIN only (D9).
+  STAFF_HR_MANAGE = 'STAFF_HR_MANAGE',
+  // [28.1.1] Read / write ACR assessments, incidents, surveys and the
+  // Performance views. ADMIN writes (D6, D8); COMMITTEE also reads (#1358 D16).
+  ACR_READ = 'ACR_READ',
+  ACR_WRITE = 'ACR_WRITE',
+
+  // Staff Attendance & Leave (36.x)
+  // [36.1.1] Read a StaffAttendanceRecord. Every tenant role holds it for
+  // their own record; ADMIN/EXECUTIVE additionally get it for all staff
+  // (object scope enforced server-side, same split as PAYMENT_READ).
+  STAFF_ATTENDANCE_READ = 'STAFF_ATTENDANCE_READ',
+  // [36.1.1] Mark a StaffAttendanceRecord. Every tenant role holds it for
+  // their own record.
+  STAFF_ATTENDANCE_MARK = 'STAFF_ATTENDANCE_MARK',
+  // [36.1.1] Approve/reject a LeaveRecord. ADMIN/EXECUTIVE only.
+  LEAVE_APPROVE = 'LEAVE_APPROVE',
 }
 
 import { UserRole } from './index';
@@ -241,6 +315,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     // [10.4] G6 — per-entity Activity tab; see enum comment.
     Permission.AUDIT_ENTITY_HISTORY_READ,
     Permission.SETTINGS_MANAGE,
+    Permission.CURRICULUM_PRESET_APPLY,
     // [16.2.1] Recurring fee-generation schedules and discount rules.
     Permission.SCHEDULE_MANAGE,
     Permission.DISCOUNT_RULE_MANAGE,
@@ -262,17 +337,55 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.RESULT_PROCESS,
     Permission.RESULT_PUBLISH,
     Permission.RESULT_READ,
+    // [25.1.1] Seat plans — ADMIN only.
+    Permission.SEAT_PLAN_MANAGE,
+    // [32.1.1] Print module — ADMIN holds all four (D18/D47).
+    Permission.PRINT_TEMPLATE_MANAGE,
+    Permission.DOCUMENT_PRINT,
+    Permission.PRINT_HISTORY_READ,
+    Permission.DOCUMENT_REVOKE,
+    // [26.1.1] Promotion runs — ADMIN only (D22).
+    Permission.PROMOTION_MANAGE,
+    Permission.PROMOTION_OVERRIDE,
     // [21.1.1] Class routine — ADMIN builds/publishes, everyone else reads.
     Permission.ROUTINE_READ,
     Permission.ROUTINE_MANAGE,
+    // [22.1.1] D26 — ADMIN holds all six homework/syllabus permissions.
+    Permission.HOMEWORK_READ,
+    Permission.HOMEWORK_ASSIGN,
+    Permission.HOMEWORK_GRADE,
+    Permission.HOMEWORK_IMPORT,
+    Permission.SYLLABUS_READ,
+    Permission.SYLLABUS_MANAGE,
+    // [34.1.1] D4 — ADMIN holds all three program permissions.
+    Permission.PROGRAM_READ,
+    Permission.PROGRAM_MANAGE,
+    Permission.PROGRAM_RECORD,
+    // [27.1] Admission review — also held by OFFICE_STAFF (#1358 D16).
+    Permission.ADMISSION_REVIEW,
+    // [23.2.1] Staff HR — ADMIN only (D9).
+    Permission.STAFF_HR_READ,
+    Permission.STAFF_HR_MANAGE,
+    // [28.1.1] ACR — ADMIN writes (D6, D8); COMMITTEE also reads (#1358 D16).
+    Permission.ACR_READ,
+    Permission.ACR_WRITE,
+    // [36.1.1] Own record + all-staff read, mark own record, approve leave.
+    Permission.STAFF_ATTENDANCE_READ,
+    Permission.STAFF_ATTENDANCE_MARK,
+    Permission.LEAVE_APPROVE,
+    // [39.1.1] D22 — student lifecycle, notes, records.
+    Permission.STUDENT_LIFECYCLE_MANAGE,
+    Permission.STUDENT_NOTES_READ,
+    Permission.STUDENT_NOTES_WRITE,
+    Permission.STUDENT_RECORDS_READ,
+    Permission.STUDENT_RECORDS_WRITE,
   ],
 
   [UserRole.ACCOUNTANT]: [
     Permission.STUDENT_READ,
-    // Matches `@Roles(ADMIN, ACCOUNTANT, EXECUTIVE)` on
-    // `POST /students/bulk-upload`. Without it the endpoint is callable but
-    // the "Import students" button is hidden, which reads as a broken
-    // feature rather than a deliberate restriction.
+    // `POST /students/bulk-upload/{validate,commit}` require this permission
+    // (PermissionsGuard). Without it the "Import students" button is hidden
+    // and the endpoint 403s.
     Permission.STUDENT_BULK_UPLOAD,
     // [10.4] G3 — resolves the "can import 500 but cannot add one by hand"
     // contradiction the map used to flag. ACCOUNTANT is the front-office
@@ -319,15 +432,21 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.ATTENDANCE_READ,
     // [17.1.1] School calendar read.
     Permission.CALENDAR_READ,
+    // [36.1.1] Own record only — no LEAVE_APPROVE (ADMIN/EXECUTIVE only).
+    Permission.STAFF_ATTENDANCE_READ,
+    Permission.STAFF_ATTENDANCE_MARK,
+    // [32.1.1] Front office prints cards (D18/D47).
+    Permission.DOCUMENT_PRINT,
   ],
 
   [UserRole.TEACHER]: [
+    Permission.MY_CLASS_VIEW,
     Permission.STUDENT_READ,
     Permission.GUARDIAN_READ,
-    // Deliberately no FEE_STRUCTURE_READ, even though the controller's
-    // `@Roles` lets a TEACHER call the fee-structure GETs: granting it here
-    // would surface the whole Finance nav group to teachers, which is a
-    // product decision well outside [8.11.5]. Flagged rather than fixed.
+    // Deliberately no FEE_STRUCTURE_READ: the fee-structure GETs only need
+    // FEE_READ, and granting FEE_STRUCTURE_READ here would surface the whole
+    // Finance nav group to teachers — a product decision well outside
+    // [8.11.5].
     Permission.FEE_READ,
     Permission.COMMUNICATION_SEND,
     // [10.4] G5 — per-student Communications tab; see ACCOUNTANT comment.
@@ -348,6 +467,24 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.RESULT_READ,
     // [21.1.1] Class routine read.
     Permission.ROUTINE_READ,
+    // [22.1.1] D26 — TEACHER is the relevant teacher role, holds all six.
+    Permission.HOMEWORK_READ,
+    Permission.HOMEWORK_ASSIGN,
+    Permission.HOMEWORK_GRADE,
+    Permission.HOMEWORK_IMPORT,
+    Permission.SYLLABUS_READ,
+    Permission.SYLLABUS_MANAGE,
+    // [34.1.1] D4 — TEACHER records milestone progress but doesn't manage
+    // programs/milestones themselves.
+    Permission.PROGRAM_READ,
+    Permission.PROGRAM_RECORD,
+    // [36.1.1] Own record only — no LEAVE_APPROVE (ADMIN/EXECUTIVE only).
+    Permission.STAFF_ATTENDANCE_READ,
+    Permission.STAFF_ATTENDANCE_MARK,
+    // [39.1.1] D22 — teachers read/write notes, read records.
+    Permission.STUDENT_NOTES_READ,
+    Permission.STUDENT_NOTES_WRITE,
+    Permission.STUDENT_RECORDS_READ,
   ],
 
   // [5.1] added no permissions to either family role. The widened server
@@ -371,6 +508,11 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.RESULT_READ,
     // [21.1.1] Class routine read.
     Permission.ROUTINE_READ,
+    // [22.1.1] D26 — PARENT/STUDENT get only the two _READ permissions.
+    Permission.HOMEWORK_READ,
+    Permission.SYLLABUS_READ,
+    // [34.1.1] D4 — PARENT/STUDENT get only PROGRAM_READ.
+    Permission.PROGRAM_READ,
   ],
 
   [UserRole.STUDENT]: [
@@ -384,6 +526,11 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.RESULT_READ,
     // [21.1.1] Class routine read.
     Permission.ROUTINE_READ,
+    // [22.1.1] D26 — PARENT/STUDENT get only the two _READ permissions.
+    Permission.HOMEWORK_READ,
+    Permission.SYLLABUS_READ,
+    // [34.1.1] D4 — PARENT/STUDENT get only PROGRAM_READ.
+    Permission.PROGRAM_READ,
   ],
 
   [UserRole.EXECUTIVE]: [
@@ -397,8 +544,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     // (EXECUTIVE removed from `@Roles`) rather than granting an unused read.
     Permission.STUDENT_BULK_UPLOAD,
     // Deliberately no FEE_STRUCTURE_* — same call as TEACHER above. The
-    // controller's `@Roles` does let an EXECUTIVE hit these endpoints, but
-    // `/fees` and `/fee-structures` are both gated on FEE_STRUCTURE_READ,
+    // fee-structure GETs only need FEE_READ, but the `/fees` and
+    // `/fee-structures` pages are both gated on FEE_STRUCTURE_READ,
     // so granting it here surfaces the whole Finance group to a role whose
     // navigation is deliberately scoped to Students
     // (`e2e/journeys/permissions.spec.ts`'s CASES pin that). Widening it is
@@ -423,6 +570,83 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.RESULT_READ,
     // [21.1.1] Class routine read.
     Permission.ROUTINE_READ,
+    // [34.1.1] D4/D24 — EXECUTIVE holds all three program permissions.
+    Permission.PROGRAM_READ,
+    Permission.PROGRAM_MANAGE,
+    Permission.PROGRAM_RECORD,
+    // [36.1.1] Own record + all-staff read, mark own record, approve leave.
+    Permission.STAFF_ATTENDANCE_READ,
+    Permission.STAFF_ATTENDANCE_MARK,
+    Permission.LEAVE_APPROVE,
+    // [39.1.1] D22 — student lifecycle, notes, records.
+    Permission.STUDENT_LIFECYCLE_MANAGE,
+    Permission.STUDENT_NOTES_READ,
+    Permission.STUDENT_NOTES_WRITE,
+    Permission.STUDENT_RECORDS_READ,
+    Permission.STUDENT_RECORDS_WRITE,
+    // [32.1.1] Read-only print history (D18/D47).
+    Permission.PRINT_HISTORY_READ,
+  ],
+  // #1358 office clerk / computer operator: intake, records, communication,
+  // printing. No money-moving, no delete, no lifecycle, no settings.
+  [UserRole.OFFICE_STAFF]: [
+    Permission.STUDENT_CREATE,
+    Permission.STUDENT_READ,
+    Permission.STUDENT_UPDATE,
+    Permission.STUDENT_BULK_UPLOAD,
+    Permission.STUDENT_RECORDS_READ,
+    Permission.STUDENT_RECORDS_WRITE,
+    Permission.GUARDIAN_CREATE,
+    Permission.GUARDIAN_READ,
+    Permission.GUARDIAN_UPDATE,
+    Permission.ADMISSION_REVIEW,
+    Permission.ACADEMIC_STRUCTURE_READ,
+    Permission.ATTENDANCE_READ,
+    Permission.CALENDAR_READ,
+    Permission.ROUTINE_READ,
+    Permission.FEE_READ,
+    Permission.INVOICE_READ,
+    Permission.COMMUNICATION_SEND,
+    Permission.COMMUNICATION_BULK_SEND,
+    Permission.COMMUNICATION_LOG_READ,
+    Permission.DOCUMENT_PRINT,
+    Permission.PRINT_HISTORY_READ,
+    Permission.DASHBOARD_VIEW,
+    Permission.RESULT_READ,
+    Permission.STAFF_ATTENDANCE_READ,
+    Permission.STAFF_ATTENDANCE_MARK,
+  ],
+
+  // #1358 exam controller: runs exams, seat plans and results; reads marks
+  // but never enters them; prints documents but never edits templates.
+  [UserRole.EXAM_CONTROLLER]: [
+    Permission.EXAM_MANAGE,
+    Permission.SEAT_PLAN_MANAGE,
+    Permission.MARK_VIEW,
+    Permission.RESULT_PROCESS,
+    Permission.RESULT_PUBLISH,
+    Permission.RESULT_READ,
+    Permission.DOCUMENT_PRINT,
+    Permission.PRINT_HISTORY_READ,
+    Permission.STUDENT_READ,
+    Permission.ACADEMIC_STRUCTURE_READ,
+    Permission.ATTENDANCE_READ,
+    Permission.ROUTINE_READ,
+    Permission.CALENDAR_READ,
+    Permission.DASHBOARD_VIEW,
+    Permission.STAFF_ATTENDANCE_READ,
+    Permission.STAFF_ATTENDANCE_MARK,
+  ],
+
+  // #1358 school management committee: read-only, no student PII (D9).
+  // No REPORT_COLLECTIONS_READ (D16): the collections report and its CSV list
+  // a student_name per payment. An aggregate-only report would need its own
+  // permission.
+  [UserRole.COMMITTEE]: [
+    Permission.DASHBOARD_VIEW,
+    Permission.ACR_READ,
+    Permission.ACADEMIC_STRUCTURE_READ,
+    Permission.CALENDAR_READ,
   ],
 };
 

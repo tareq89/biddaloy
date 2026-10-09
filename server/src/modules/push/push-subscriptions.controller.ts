@@ -14,7 +14,7 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
-import { UserRole } from '@biddaloy/shared';
+import { GUARDIAN_ROLES, STAFF_ROLES } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -30,14 +30,7 @@ import {
   PushSubscriptionResponseDto,
 } from './dto/push-subscription.dto';
 
-const ALL_ROLES = [
-  UserRole.ADMIN,
-  UserRole.ACCOUNTANT,
-  UserRole.EXECUTIVE,
-  UserRole.TEACHER,
-  UserRole.PARENT,
-  UserRole.STUDENT,
-];
+const ALL_ROLES = [...STAFF_ROLES, ...GUARDIAN_ROLES];
 
 function toResponse(row: {
   id: string;

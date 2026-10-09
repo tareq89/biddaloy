@@ -33,7 +33,7 @@ fi
 
 # S3_ENDPOINT must be HTTPS unless the operator explicitly opts into
 # cleartext (S3_ALLOW_INSECURE_HTTP=true) — set by docker-compose.yml for
-# the bundled MinIO service, which shares a Docker network with no TLS
+# the bundled SeaweedFS service, which shares a Docker network with no TLS
 # termination today (see "Known gap" in docs/architecture/08-security.md).
 if [[ "$S3_ENDPOINT" == http://* && "${S3_ALLOW_INSECURE_HTTP:-}" != "true" ]]; then
   echo "backup.sh: S3_ENDPOINT uses http:// — set S3_ALLOW_INSECURE_HTTP=true only for an approved local/dev endpoint, or use https://" >&2
@@ -82,7 +82,7 @@ echo "backup.sh: upload complete"
 
 # Retention: delete objects older than BACKUP_RETENTION_DAYS. This is a
 # fallback — prefer a bucket lifecycle rule where the provider supports
-# one — but MinIO/dev and some S3-compatible providers don't, so the
+# one — but SeaweedFS/dev and some S3-compatible providers don't, so the
 # script enforces it itself rather than assuming one exists.
 #
 # Uses plain arithmetic on epoch seconds rather than `date -d "-N days"`

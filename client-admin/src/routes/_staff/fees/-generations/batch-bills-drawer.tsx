@@ -1,20 +1,18 @@
 /**
- * [16.3.5] The drill-down opened by clicking a batch row in `BatchTable` —
- * lists every bill (`student_fees` row) that batch created.
+ * [16.3.5] The drill-down opened by a batch's "View bills" action in
+ * `BatchTable` — lists every bill (`student_fees` row) that batch created.
  *
- * No dedicated "drawer"/"sheet" side-panel primitive exists in
- * `@biddaloy/ui/components` today (only `Dialog`, `Card`) — this uses
- * `Dialog` at a wide `max-w-3xl`, the closest existing design-system
- * primitive, rather than introducing a new one. Flagged in the PR body as
- * a design-system gap: a true slide-in side panel is a `dialog.tsx`-sized
- * addition of its own, out of scope for this ticket.
+ * A `Dialog` `lg` by design: a read-only view, not a form (D21).
  */
+import { FeeStatus } from '@biddaloy/shared';
 import {
   DataTable,
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
+  StatusBadge,
   type DataTableColumn,
 } from '@biddaloy/ui/components';
 import {
@@ -23,8 +21,10 @@ import {
   type FeeGenerationBill,
 } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
-import { formatServerAmount } from '@biddaloy/ui/utils';
+import { formatMonth, formatNumber, formatServerAmount } from '@biddaloy/ui/utils';
 import * as React from 'react';
+
+import { formatBatchPeriod } from './batch-table';
 
 export interface BatchBillsDrawerProps {
   /** The batch to show bills for, or `null` when the drawer is closed —
@@ -35,11 +35,17 @@ export interface BatchBillsDrawerProps {
   onOpenChange: (open: boolean) => void;
 }
 
+/** `"3/2026"` → `"2026-03"`. */
+function toMonthKey(occurrence: string): string {
+  const [month = '', year = ''] = occurrence.split('/');
+  return `${year}-${month.padStart(2, '0')}`;
+}
+
 export function BatchBillsDrawer({ batch, onOpenChange }: BatchBillsDrawerProps) {
   const { t } = useTranslation('fees');
   const regionConfig = useRegionConfig();
   const [page, setPage] = React.useState(1);
-  const limit = 10;
+  const limit = 25;
 
   // Resets back to page 1 whenever a different batch opens — otherwise a
   // drawer left on page 3 for one batch would open the next batch already
@@ -55,7 +61,16 @@ export function BatchBillsDrawer({ batch, onOpenChange }: BatchBillsDrawerProps)
     {
       id: 'student',
       header: t('generations.bills.columnStudent'),
-      accessorFn: (row) => row.student_full_name,
+      accessorFn: (row) => (
+        <span className="flex flex-col">
+          <span>{row.student_full_name}</span>
+          {row.student_registration_number && (
+            <span className="text-caption text-text-secondary">
+              {row.student_registration_number}
+            </span>
+          )}
+        </span>
+      ),
       card: 'title',
     },
     {
@@ -66,11 +81,9 @@ export function BatchBillsDrawer({ batch, onOpenChange }: BatchBillsDrawerProps)
     {
       id: 'fee',
       header: t('generations.bills.columnFee'),
-      // `occurrence` is `"<month>/<year>"` (`FeeGenerationBillItemDto`'s
-      // own shape) — rendered as "(2)" per the issue's own spec by
-      // showing the month number in parens next to the fee name, e.g.
-      // "Monthly tuition (9)".
-      accessorFn: (row) => `${row.fee_name} (${row.occurrence.split('/')[0]})`,
+      // `occurrence` is `"<month>/<year>"` (`FeeGenerationBillItemDto`'s own shape).
+      accessorFn: (row) =>
+        `${row.fee_name} · ${formatMonth(toMonthKey(row.occurrence), regionConfig)}`,
     },
     {
       id: 'amount',
@@ -87,20 +100,36 @@ export function BatchBillsDrawer({ batch, onOpenChange }: BatchBillsDrawerProps)
     {
       id: 'status',
       header: t('generations.bills.columnStatus'),
-      accessorFn: (row) => row.status,
+      accessorFn: (row) =>
+        Object.values(FeeStatus).includes(row.status as FeeStatus) ? (
+          <StatusBadge domain="fee" status={row.status as FeeStatus} />
+        ) : (
+          '—'
+        ),
+      card: 'badge',
     },
   ];
 
+  const period = batch ? formatBatchPeriod(batch, regionConfig) : '';
+
   return (
     <Dialog open={batch !== null} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent size="lg">
         <DialogHeader>
-          <DialogTitle>{t('generations.bills.title')}</DialogTitle>
+          <DialogTitle>{t('generations.bills.titleWithPeriod', { period })}</DialogTitle>
+          {batch && (
+            <DialogDescription>
+              {t('generations.bills.summary', {
+                students: formatNumber(batch.student_count, regionConfig),
+                amount: formatServerAmount(batch.billed_amount, regionConfig),
+              })}
+            </DialogDescription>
+          )}
         </DialogHeader>
         {batch && (
           <DataTable
             tableId="fee-generation-bills"
-            caption={t('generations.bills.title')}
+            caption={t('generations.bills.titleWithPeriod', { period })}
             columns={columns}
             data={rows}
             getRowId={(row) => row.id}
@@ -113,7 +142,10 @@ export function BatchBillsDrawer({ batch, onOpenChange }: BatchBillsDrawerProps)
             loading={billsQuery.isLoading}
             isFetching={billsQuery.isFetching}
             {...(billsQuery.isError ? { error: t('generations.bills.errorMessage') } : {})}
-            emptyMessage={t('generations.bills.emptyMessage')}
+            emptyState={{
+              title: t('generations.bills.emptyMessage'),
+              explanation: t('generations.bills.emptyExplanation'),
+            }}
           />
         )}
       </DialogContent>

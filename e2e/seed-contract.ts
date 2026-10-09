@@ -18,6 +18,9 @@ export const SEED_ROLE_EMAILS = {
   executive: 'executive@biddaloy.test',
   parent: 'parent@biddaloy.test',
   student: 'student@biddaloy.test',
+  office_staff: 'office@biddaloy.test',
+  exam_controller: 'exam@biddaloy.test',
+  committee: 'committee@biddaloy.test',
 } as const;
 
 export type SeedRole = keyof typeof SEED_ROLE_EMAILS;
@@ -73,4 +76,47 @@ export const SEED_CALENDAR_EVENT_NAMES = {
   meeting: 'Staff Planning Meeting',
   deadline: 'Annual Report Submission Deadline',
   draftEvent: 'Winter Fair (Draft)',
+} as const;
+
+/** [34.2.4] `ensureProgramsDemoSeed`/`ensureProgramParticipationDemoSeed` in
+ * `seed.util.ts` seed a "Hifz" program (and a "Debate club" one) with real
+ * `id`s — generated, not fixed, so unlike `SEED_DEVICE_KEY` above there is
+ * no id to duplicate here. Name only, the same "expose what's stable, look
+ * up the rest at runtime" convention `ensureGradingScale` in `e2e/api.ts`
+ * uses for the seeded grading scale. `programs.spec.ts` finds the program
+ * by this name via the command palette / UI, not by id. */
+export const SEED_PROGRAM_NAME = 'Hifz';
+
+/** [39.1.4] Demo students `ensureStudentLifecycleSeed` (`seed.ts`) gives
+ * lifecycle history, addressed by registration number. Duplicated from
+ * `seed.ts`; `seed.spec.ts` asserts the seeded rows match. */
+export const SEED_LIFECYCLE_STUDENTS = {
+  withdrawnThenReadmitted: '2026-2027-0001',
+  transferredOut: '2026-2027-0002',
+  graduated: '2026-2027-0003',
+} as const;
+
+/** [39.1.4] Destination text on the TRANSFERRED_OUT event. */
+export const SEED_TRANSFER_DESTINATION = 'Dhaka Residential Model College';
+
+/** [47.2.5] The ASSISTANT_CLASS_TEACHER of `teacher@biddaloy.test`'s section
+ * (a real TEACHER login, same password as every seed account). Duplicated
+ * from `seed.util.ts`'s `ASSISTANT_TEACHER_EMAIL`; `seed.util.spec.ts`
+ * asserts the two match. Deliberately not in `SEED_ROLE_EMAILS`: that map is
+ * one account per role. */
+export const SEED_ASSISTANT_TEACHER_EMAIL = 'assistant-teacher@biddaloy.test';
+
+/** [13.1.4] A school mid-trial (23 days left, 4 of 10 seats used) that has not
+ * finished onboarding, with its ADMIN and a TEACHER who was invited but never
+ * set a password (no `password_hash`; log in via the invite token). Duplicated
+ * from `TRIAL_DEMO` in `seed.accounts.ts`; `seed.trial-demo.integration.spec.ts` asserts they match. */
+export const SEED_TRIAL_SCHOOL = {
+  slug: 'trial-demo-school',
+  name: 'Trial Demo School',
+  adminEmail: 'trial-admin@biddaloy.test',
+  teacherEmail: 'trial-teacher@biddaloy.test',
+  inviteToken: 'seed-trial-teacher-invite-token-0000000000',
+  trialDays: 23,
+  seatLimit: 10,
+  studentCount: 4,
 } as const;

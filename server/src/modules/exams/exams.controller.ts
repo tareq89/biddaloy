@@ -12,19 +12,18 @@ import {
   Req,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiCreatedResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
 import { requestContext } from '../../common/request-context.util';
 import { ExamsService } from './exams.service';
-import { CreateExamDto, UpdateExamDto, QueryExamDto } from './dto/exams.dto';
-import { Permission, UserRole, JwtPayload } from '@biddaloy/shared';
+import { CreateExamDto, CreateExamResponseDto, UpdateExamDto, QueryExamDto } from './dto/exams.dto';
+import { Permission, JwtPayload } from '@biddaloy/shared';
 
 @ApiTags('exams')
 @ApiTenantAuth()
@@ -34,9 +33,9 @@ export class ExamsController {
   constructor(private readonly examsService: ExamsService) {}
 
   @Post()
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.EXAM_MANAGE)
-  @ApiOperation({ summary: 'Create an exam.' })
+  @ApiOperation({ summary: 'Create an exam, optionally building its components from a template.' })
+  @ApiCreatedResponse({ type: CreateExamResponseDto })
   create(
     @Body() dto: CreateExamDto,
     @CurrentTenant() tenant: { id: string; role: string },
@@ -46,16 +45,20 @@ export class ExamsController {
     return this.examsService.create(dto, tenant.id, user.sub, requestContext(request));
   }
 
+  // Read-only list on MARK_VIEW, not EXAM_MANAGE: the marks-entry and
+  // analysis screens (both MARK_VIEW routes) use it as their exam picker,
+  // and those serve teachers and executives too. Tenant-scoped exam
+  // metadata only — those roles can already read marks/progress/analysis
+  // for any exam id in the tenant. `findOne` and every write stay
+  // ADMIN + EXAM_MANAGE.
   @Get()
-  @Roles(UserRole.ADMIN)
-  @RequirePermissions(Permission.EXAM_MANAGE)
+  @RequirePermissions(Permission.MARK_VIEW)
   @ApiOperation({ summary: 'List exams for the current tenant.' })
   findAll(@Query() query: QueryExamDto, @CurrentTenant() tenant: { id: string; role: string }) {
     return this.examsService.findAll(query, tenant.id);
   }
 
   @Get(':id')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.EXAM_MANAGE)
   @ApiOperation({ summary: 'Get a single exam by ID.' })
   findOne(
@@ -66,7 +69,6 @@ export class ExamsController {
   }
 
   @Patch(':id')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.EXAM_MANAGE)
   @ApiOperation({ summary: 'Update an exam.' })
   update(
@@ -80,7 +82,6 @@ export class ExamsController {
   }
 
   @Delete(':id')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.EXAM_MANAGE)
   @ApiOperation({ summary: 'Delete an exam.' })
   remove(

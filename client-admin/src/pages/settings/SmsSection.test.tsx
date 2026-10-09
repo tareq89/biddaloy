@@ -57,12 +57,13 @@ describe('SmsSection', () => {
       { locale: 'en', role: 'ADMIN', tenantId: SCHOOL_ID },
     );
 
-    await user.click(await screen.findByRole('button', { name: 'Replace' }));
-    await user.type(await screen.findByLabelText('Greenweb API key'), 'gw-typed-key');
+    await user.click(await screen.findByRole('button', { name: 'Change' }));
+    await user.type(await screen.findByLabelText('API key'), 'gw-typed-key');
 
-    const providerSelect = screen.getByLabelText('Provider');
-    await user.selectOptions(providerSelect, 'MimSMS');
-    await user.selectOptions(providerSelect, 'Greenweb');
+    await user.click(screen.getByLabelText('SMS company'));
+    await user.click(await screen.findByRole('option', { name: 'MimSMS' }));
+    await user.click(screen.getByLabelText('SMS company'));
+    await user.click(await screen.findByRole('option', { name: 'Greenweb' }));
 
     await user.click(screen.getByRole('button', { name: 'Save' }));
 
@@ -70,5 +71,29 @@ describe('SmsSection', () => {
     const sms = patchBody.mock.calls[0]![0].communications.sms;
     expect(sms.provider).toBe('greenweb');
     expect(sms.greenweb.apiKey).toBe('gw-typed-key');
+  });
+
+  it('shows the set-up badge from the saved settings, and the API address only under Advanced', async () => {
+    const { container } = renderWithProviders(
+      <SmsSection
+        schoolId={SCHOOL_ID}
+        sms={{ provider: 'greenweb', greenweb: { apiKey: { configured: true, hint: '••••key1' } } }}
+      />,
+      { locale: 'en', role: 'ADMIN', tenantId: SCHOOL_ID },
+    );
+
+    expect(await screen.findByText('Set up')).toBeTruthy();
+    const details = container.querySelector('details')!;
+    expect(details.open).toBe(false);
+    expect(details.contains(screen.getByLabelText('API address (optional)'))).toBe(true);
+  });
+
+  it('shows "Not set up" when no key is saved', async () => {
+    renderWithProviders(<SmsSection schoolId={SCHOOL_ID} sms={undefined} />, {
+      locale: 'en',
+      role: 'ADMIN',
+      tenantId: SCHOOL_ID,
+    });
+    expect(await screen.findByText('Not set up')).toBeTruthy();
   });
 });

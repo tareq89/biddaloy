@@ -144,7 +144,7 @@ describe('Calendar Events E2E', () => {
         end_date: '2031-02-03',
         audience: CalendarAudience.ALL,
       })
-      .expect(401);
+      .expect(403);
   });
 
   it('STUDENT can list events (holds CALENDAR_READ)', async () => {
@@ -202,21 +202,21 @@ describe('Calendar Events E2E', () => {
       .set('X-Tenant-ID', TENANT_ID)
       .set('X-Role', UserRole.STUDENT)
       .send({ name: 'Denied patch' })
-      .expect(401);
+      .expect(403);
 
     await supertest(app.getHttpServer())
       .post(`/api/v1/calendar/events/${createRes.body.id}/publish`)
       .set('Authorization', `Bearer ${studentToken}`)
       .set('X-Tenant-ID', TENANT_ID)
       .set('X-Role', UserRole.STUDENT)
-      .expect(401);
+      .expect(403);
 
     await supertest(app.getHttpServer())
       .delete(`/api/v1/calendar/events/${createRes.body.id}`)
       .set('Authorization', `Bearer ${studentToken}`)
       .set('X-Tenant-ID', TENANT_ID)
       .set('X-Role', UserRole.STUDENT)
-      .expect(401);
+      .expect(403);
 
     // STUDENT (no CALENDAR_MANAGE) must not see this draft by id either —
     // matches `list()`'s draft rule (D9).

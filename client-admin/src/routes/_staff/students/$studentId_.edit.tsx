@@ -2,6 +2,7 @@ import { ApiError } from '@biddaloy/ui/api';
 import { ErrorState, RoutePending, Skeleton } from '@biddaloy/ui/components';
 import { studentQueryOptions, useStudent, useUpdateStudent } from '@biddaloy/ui/hooks';
 import { RegionConfigProvider, useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { FullPageShell } from '@biddaloy/ui/shells';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
@@ -20,6 +21,7 @@ import { buildUpdatePayload, studentToFormValues } from './-student-form-schema'
  * here first, with nothing upstream to have warmed the cache.
  */
 export const Route = createFileRoute('/_staff/students/$studentId_/edit')({
+  staticData: { chromeless: true },
   loader: ({ context: { queryClient }, params }) =>
     Promise.all([
       // [8.14.5]: swallowed — see `academic-years/$academicYearId.tsx`'s
@@ -40,34 +42,48 @@ function EditStudentPage() {
   const config = useTenantRegionConfig();
   const studentQuery = useStudent(studentId);
   const mutation = useUpdateStudent(studentId);
+  const toDetail = () => void navigate({ to: '/students/$studentId', params: { studentId } });
 
   return (
     <RegionConfigProvider value={config}>
-      <div className="mx-auto max-w-xl p-6">
-        <h1 className="mb-6 text-lg font-semibold">{t('edit.title')}</h1>
-        {studentQuery.isPending ? (
-          <Skeleton className="h-7 w-64" />
-        ) : studentQuery.isError ? (
-          <ErrorState
-            message={
-              studentQuery.error instanceof ApiError && studentQuery.error.statusCode === 403
-                ? t('detail.forbidden')
-                : t('detail.loadError')
-            }
-            onRetry={() => void studentQuery.refetch()}
-          />
-        ) : (
-          <StudentForm
-            initialValues={studentToFormValues(studentQuery.data)}
-            initialGuardians={studentQuery.data.guardians}
-            autosaveKey={studentId}
-            submitLabel={t('edit.submitAction')}
-            mutation={mutation}
-            buildPayload={buildUpdatePayload}
-            onSuccess={() => void navigate({ to: '/students/$studentId', params: { studentId } })}
-          />
-        )}
-      </div>
+      {studentQuery.isPending || studentQuery.isError ? (
+        <FullPageShell
+          title={t('edit.title')}
+          onClose={toDetail}
+          primary={{ label: t('edit.submitAction'), onClick: () => {}, disabled: true }}
+        >
+          {studentQuery.isPending ? (
+            <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 p-4">
+              <Skeleton className="h-11 w-full" />
+              <Skeleton className="h-11 w-full" />
+              <Skeleton className="h-11 w-full" />
+            </div>
+          ) : (
+            <div className="mx-auto w-full max-w-3xl p-4">
+              <ErrorState
+                message={
+                  studentQuery.error instanceof ApiError && studentQuery.error.statusCode === 403
+                    ? t('detail.forbidden')
+                    : t('detail.loadError')
+                }
+                onRetry={() => void studentQuery.refetch()}
+              />
+            </div>
+          )}
+        </FullPageShell>
+      ) : (
+        <StudentForm
+          title={t('edit.title')}
+          onClose={toDetail}
+          initialValues={studentToFormValues(studentQuery.data)}
+          initialGuardians={studentQuery.data.guardians}
+          autosaveKey={studentId}
+          submitLabel={t('edit.submitAction')}
+          mutation={mutation}
+          buildPayload={buildUpdatePayload}
+          onSuccess={toDetail}
+        />
+      )}
     </RegionConfigProvider>
   );
 }

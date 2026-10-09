@@ -39,21 +39,16 @@ describe('FeesSection', () => {
       tenantId: SCHOOL_ID,
     });
 
-    expect(inputValue(await screen.findByLabelText('Approval method'))).toBe('OTP');
+    expect((await screen.findByLabelText('Approval method')).textContent).toBe('OTP only');
     expect(isChecked(screen.getByLabelText('Notify by default for scheduled fee generation'))).toBe(
       true,
     );
     expect(isChecked(screen.getByLabelText('Notify by default for manual fee generation'))).toBe(
       false,
     );
-    expect(isChecked(screen.getByLabelText('MONTHLY_TUITION'))).toBe(true);
-    expect(
-      inputValue(
-        screen.getByLabelText('Grace days', {
-          selector: '#fees-lateFee-MONTHLY_TUITION-graceDays',
-        }),
-      ),
-    ).toBe('5');
+    expect(isChecked(screen.getByLabelText('Monthly tuition'))).toBe(true);
+    expect(screen.queryByText('MONTHLY_TUITION')).toBeNull();
+    expect(inputValue(screen.getByLabelText('Monthly tuition: Grace days'))).toBe('5');
   });
 
   it('sends only the fees slice, with grace days and value coerced to numbers', async () => {
@@ -106,6 +101,45 @@ describe('FeesSection', () => {
 
     await user.click(await screen.findByRole('button', { name: 'Save' }));
 
-    await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy());
+    expect((await screen.findByRole('alert')).textContent).toBe("Couldn't save. Try again.");
+    expect(screen.queryByText('Approval required')).toBeNull();
+  });
+
+  it('shows late-fee inputs only for ticked fee types', async () => {
+    const { user, container } = renderWithProviders(
+      <FeesSection schoolId={SCHOOL_ID} fees={FEES} />,
+      { locale: 'en', role: 'ADMIN', tenantId: SCHOOL_ID },
+    );
+
+    await screen.findByLabelText('Monthly tuition');
+    expect(container.querySelector('#fees-lateFee-EXAM_FEE-graceDays')).toBeNull();
+    await user.click(screen.getByLabelText('Exam fee'));
+    expect(screen.getByLabelText('Exam fee: Grace days')).toBeTruthy();
+  });
+
+  it('on a phone shows visible-labelled late-fee fields only for a ticked fee', async () => {
+    vi.stubGlobal('matchMedia', () => ({
+      matches: true,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+    }));
+    try {
+      const { user } = renderWithProviders(<FeesSection schoolId={SCHOOL_ID} fees={FEES} />, {
+        locale: 'en',
+        role: 'ADMIN',
+        tenantId: SCHOOL_ID,
+      });
+
+      await screen.findByLabelText('Monthly tuition');
+      expect(screen.queryByRole('table')).toBeNull();
+      // Ticked row: the three fields carry their own visible labels.
+      expect(screen.getByLabelText('Grace days')).toBeTruthy();
+      expect(screen.getByLabelText('Kind')).toBeTruthy();
+      expect(screen.getByLabelText('Value')).toBeTruthy();
+      await user.click(screen.getByLabelText('Exam fee'));
+      expect(screen.getAllByLabelText('Grace days')).toHaveLength(2);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });

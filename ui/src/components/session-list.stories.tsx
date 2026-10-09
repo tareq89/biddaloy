@@ -58,6 +58,14 @@ export const Populated: Story = {
   },
 };
 
+/** Inside the host's own card (`/portal/account` Devices). */
+export const Compact: Story = {
+  args: {
+    sessions: [CURRENT_SESSION, OTHER_SESSION, UNKNOWN_DEVICE_SESSION],
+    variant: 'compact',
+  },
+};
+
 export const OnlyCurrentDevice: Story = {
   args: {
     sessions: [CURRENT_SESSION],

@@ -2,10 +2,11 @@ import {
   Injectable,
   NotFoundException,
   ConflictException,
+  ForbiddenException,
   PayloadTooLargeException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull, In, Brackets, EntityManager } from 'typeorm';
+import { Repository, IsNull, In, Brackets, EntityManager, QueryFailedError } from 'typeorm';
 import { Student } from './entities/student.entity';
 import { Guardian } from './entities/guardian.entity';
 import { Enrollment } from './entities/enrollment.entity';
@@ -16,6 +17,7 @@ import {
   UpdateStudentDto,
   QueryStudentDto,
   QueryStudentIdsDto,
+  STUDENT_PROFILE_FIELDS,
 } from './dto/students.dto';
 import {
   CreateGuardianDto,
@@ -23,16 +25,65 @@ import {
   UpdateOwnGuardianDto,
   QueryGuardianDto,
 } from './dto/students.dto';
-import { CommunicationMedium, AuditAction } from '@biddaloy/shared';
+import { CommunicationMedium, AuditAction, EnrollmentStatus } from '@biddaloy/shared';
 import { nextRollNumber } from './roll-number.util';
 import { normalizeSearchTerm } from '../../common/utils/normalize-search-term.util';
 import { BN_COLLATION } from '../../common/constants/collation';
 import { AuditService } from '../audit/audit.service';
 import { RequestContext } from '../../common/request-context.util';
+import { assertSeatsAvailable } from '../schools/trial/seat-limit.service';
 
 // [16.3.3] Caps the audience picker's "select all matching" id list — bounds
 // both the query cost and the response size for a single selection.
 const MAX_STUDENT_IDS_RESULT = 5000;
+
+const BIRTH_REG_NO_INDEX = 'IDX_students_tenant_birth_reg_no';
+
+/** [39.2.1] Turns the partial-unique violation on (tenant, birth_reg_no) into a 409. */
+function rethrowBirthRegNoConflict(err: unknown): never {
+  if (
+    err instanceof QueryFailedError &&
+    (err as unknown as { code?: string; constraint?: string }).code === '23505' &&
+    (err as unknown as { constraint?: string }).constraint === BIRTH_REG_NO_INDEX
+  ) {
+    throw new ConflictException('A student with this birth registration number already exists');
+  }
+  throw err;
+}
+
+/** [39.2.1] Writing any profile field needs STUDENT_RECORDS_WRITE (403 otherwise),
+ * even though the route itself only needs STUDENT_UPDATE / STUDENT_CREATE. */
+export function assertCanWriteProfileFields(
+  dto: CreateStudentDto | UpdateStudentDto,
+  canWriteRecords: boolean,
+): void {
+  if (canWriteRecords) return;
+  const touched = STUDENT_PROFILE_FIELDS.filter((f) => dto[f] !== undefined);
+  if (touched.length > 0) {
+    throw new ForbiddenException(
+      `Requires permission STUDENT_RECORDS_WRITE to set: ${touched.join(', ')}`,
+    );
+  }
+}
+
+/** [39.2.1] `health_notes` is only visible with STUDENT_RECORDS_READ (D14). Works on
+ * one student or guardian, an array, or a paginated `{ data }` page (children included);
+ * mutates and returns the input. */
+export function redactHealthNotes<T>(result: T, canReadRecords: boolean): T {
+  if (canReadRecords || result == null) return result;
+  // Recurses into `students` so a Guardian (or a page of them) with children attached is safe too.
+  const strip = (s: unknown) => {
+    if (!s || typeof s !== 'object') return;
+    delete (s as { health_notes?: unknown }).health_notes;
+    const kids = (s as { students?: unknown }).students;
+    if (Array.isArray(kids)) kids.forEach(strip);
+  };
+  const page = (result as { data?: unknown }).data;
+  if (Array.isArray(result)) result.forEach(strip);
+  else if (Array.isArray(page)) page.forEach(strip);
+  else strip(result);
+  return result;
+}
 
 @Injectable()
 export class StudentService {
@@ -45,6 +96,7 @@ export class StudentService {
     private readonly sectionRepo: Repository<ClassSection>,
     @InjectRepository(Class)
     private readonly classRepo: Repository<Class>,
+    private readonly auditService: AuditService,
   ) {}
 
   /**
@@ -82,6 +134,10 @@ export class StudentService {
     // Atomically generate reg number, determine roll number, and persist
     const generateAndSave = async (txManager: EntityManager) => {
       const txStudentRepo = txManager.getRepository(Student);
+
+      // [13.2.3] A new student is ACTIVE, so it takes a seat. Locks the School row until this
+      // transaction ends, which is what makes two concurrent creates at limit-1 admit only one.
+      await assertSeatsAvailable(txManager, tenantId, 1);
 
       // Locking the "last matching row" only serializes concurrent creates
       // when such a row already exists — the very first student of a new
@@ -121,6 +177,8 @@ export class StudentService {
       // Create and save student
       const student = txStudentRepo.create({
         full_name: dto.full_name,
+        full_name_bn: dto.full_name_bn ?? null,
+        blood_group: dto.blood_group ?? null,
         registration_number: regNumber,
         roll_number: rollNumber,
         class_section_id: dto.class_section_id,
@@ -128,6 +186,11 @@ export class StudentService {
         gender: dto.gender ?? null,
         home_address: dto.home_address ?? null,
         preferred_communication: dto.preferred_communication as CommunicationMedium,
+        religion: dto.religion ?? null,
+        birth_reg_no: dto.birth_reg_no ?? null,
+        health_notes: dto.health_notes ?? null,
+        father_name: dto.father_name ?? null,
+        mother_name: dto.mother_name ?? null,
         tenant_id: tenantId,
       });
 
@@ -155,9 +218,14 @@ export class StudentService {
       return savedStudent;
     };
 
-    const savedStudent = manager
-      ? await generateAndSave(manager)
-      : await this.repo.manager.transaction(generateAndSave);
+    let savedStudent: Student;
+    try {
+      savedStudent = manager
+        ? await generateAndSave(manager)
+        : await this.repo.manager.transaction(generateAndSave);
+    } catch (err) {
+      rethrowBirthRegNoConflict(err);
+    }
 
     // Link guardians
     if (dto.guardian_ids?.length) {
@@ -402,13 +470,21 @@ export class StudentService {
     });
   }
 
-  async update(id: string, dto: UpdateStudentDto, tenantId: string): Promise<Student> {
-    await this.findOne(id, tenantId);
+  async update(
+    id: string,
+    dto: UpdateStudentDto,
+    tenantId: string,
+    userId: string | null = null,
+    context: RequestContext = { ip: null, userAgent: null },
+  ): Promise<Student> {
+    const existingStudent = await this.findOne(id, tenantId);
 
     // Validate class_section_id belongs to tenant if provided
+    let section: ClassSection | null = null;
     if (dto.class_section_id) {
-      const section = await this.sectionRepo.findOne({
+      section = await this.sectionRepo.findOne({
         where: { id: dto.class_section_id, tenant_id: tenantId, deleted_at: IsNull() },
+        relations: ['class'],
       });
       if (!section) {
         throw new NotFoundException(`Class section with ID "${dto.class_section_id}" not found`);
@@ -423,7 +499,118 @@ export class StudentService {
       delete updateData.guardian_ids;
     }
 
-    await this.repo.update({ id, tenant_id: tenantId }, updateData);
+    // [#1020] `class_section_id` changing has to keep the student's
+    // current-year `Enrollment` row in sync, or exam cohort resolution
+    // (which reads `Enrollment`, not `Student`) silently uses the stale
+    // section (#994's reviewer finding). Both writes go through one
+    // transaction so a failure on either side rolls back the whole update.
+    const sectionChanged =
+      !!dto.class_section_id && dto.class_section_id !== existingStudent.class_section_id;
+
+    // [39.2.1] A section move on a student who has left would create a fresh ACTIVE enrollment
+    // below (the "no ACTIVE enrollment for that year" branch), quietly reactivating them: no
+    // permission check, no reason or date, no event, and `students.enrollment_status` left
+    // disagreeing with the new row. Bringing a student back is POST /students/:id/readmit.
+    if (sectionChanged && existingStudent.enrollment_status !== EnrollmentStatus.ACTIVE) {
+      throw new ConflictException(
+        'This student is not currently enrolled. Use "Readmit" to bring them back; moving them to a section cannot reactivate them.',
+      );
+    }
+
+    await this.repo.manager.transaction(async (manager) => {
+      const txStudentRepo = manager.getRepository(Student);
+      const txEnrollmentRepo = manager.getRepository(Enrollment);
+
+      // The validated DTO instance carries every declared property, `undefined` when the caller
+      // did not send it. Only what was actually supplied counts: for the empty-body guard below
+      // and for the audit diff (otherwise every unsent field looked like a change).
+      const supplied = Object.keys(updateData).filter((k) => updateData[k] !== undefined);
+
+      // An empty body (`{}`) would make TypeORM throw UpdateValuesMissingError, a 500.
+      if (supplied.length > 0) {
+        try {
+          await txStudentRepo.update({ id, tenant_id: tenantId }, updateData);
+        } catch (err) {
+          rethrowBirthRegNoConflict(err);
+        }
+      }
+
+      // Every write goes to the audit log (epic 39 invariant). Only fields that actually
+      // changed; health_notes is recorded as changed but never copied into the log.
+      const masked = (key: string, value: unknown) =>
+        key === 'health_notes' ? '[redacted]' : value;
+      // `date_of_birth` is a DATE column (read back as "YYYY-MM-DD") but `updateData` holds a
+      // Date, so compare the date part only; otherwise every save that re-sends the same
+      // birthday would log a change that did not happen.
+      const comparable = (key: string, value: unknown) =>
+        key === 'date_of_birth' && value != null
+          ? value instanceof Date
+            ? value.toISOString().slice(0, 10)
+            : String(value).slice(0, 10)
+          : value;
+      const changed = supplied.filter(
+        (k) =>
+          JSON.stringify(
+            comparable(k, (existingStudent as unknown as Record<string, unknown>)[k]),
+          ) !== JSON.stringify(comparable(k, updateData[k])),
+      );
+      if (changed.length > 0) {
+        await this.auditService.record(
+          {
+            action: AuditAction.UPDATE,
+            entity_type: 'Student',
+            entity_id: id,
+            tenant_id: tenantId,
+            performed_by_user_id: userId,
+            ip_address: context.ip,
+            user_agent: context.userAgent,
+            old_values: Object.fromEntries(
+              changed.map((k) => [
+                k,
+                masked(k, (existingStudent as unknown as Record<string, unknown>)[k]),
+              ]),
+            ),
+            new_values: Object.fromEntries(changed.map((k) => [k, masked(k, updateData[k])])),
+          },
+          manager,
+        );
+      }
+
+      if (sectionChanged && section) {
+        // Keyed on the *new* section's own academic year — not "whichever
+        // ACTIVE row is newest" — so a move across academic years updates
+        // the enrollment for that year rather than silently repointing a
+        // different year's row (leaves both years' exam cohorts wrong).
+        const currentEnrollment = await txEnrollmentRepo.findOne({
+          where: {
+            student_id: id,
+            tenant_id: tenantId,
+            academic_year_id: section.class.academic_year_id,
+            enrollment_status: EnrollmentStatus.ACTIVE,
+          },
+        });
+
+        if (currentEnrollment) {
+          await txEnrollmentRepo.update(
+            { id: currentEnrollment.id },
+            { class_id: section.class_id, section_id: section.id },
+          );
+        } else {
+          // No ACTIVE enrollment for that year at all (e.g. the backfill
+          // missed this student) — create one, same shape as
+          // `create()`/the migration.
+          await txEnrollmentRepo.save(
+            txEnrollmentRepo.create({
+              student_id: id,
+              class_id: section.class_id,
+              section_id: section.id,
+              academic_year_id: section.class.academic_year_id,
+              tenant_id: tenantId,
+            }),
+          );
+        }
+      }
+    });
 
     // Replace guardian links if provided
     if (dto.guardian_ids !== undefined) {
@@ -569,7 +756,8 @@ export class GuardianService {
         );
       }
       if (query.relationship) {
-        qb.andWhere('guardian.relationship = :relationship', {
+        // Column holds mixed case (`Father` from forms, `OTHER` default) — match any case.
+        qb.andWhere('LOWER(guardian.relationship) = LOWER(:relationship)', {
           relationship: query.relationship,
         });
       }

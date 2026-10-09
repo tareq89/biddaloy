@@ -1,6 +1,6 @@
 import { Permission } from '@biddaloy/shared';
-import { createRootRoute, createRoute } from '@tanstack/react-router';
-import { screen, waitFor, within } from '@testing-library/react';
+import { createRootRoute, createRoute, Outlet } from '@tanstack/react-router';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HomeIcon, SettingsIcon, UsersRoundIcon, WalletIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
@@ -14,6 +14,7 @@ import {
   APP_SHELL_MAIN_ID,
   AppShell,
   type AppShellNavGroup,
+  type AppShellNavItem,
 } from './app-shell';
 import { BottomNav } from './bottom-nav';
 
@@ -334,17 +335,30 @@ describe('AppShell', () => {
       expect(screen.queryByRole('button', { name: 'Open menu' })).toBeNull();
     });
 
-    it('pads <main> below the bar so content can scroll clear of it', async () => {
+    it('reserves exactly the fixed bar height on the root, not on <main>', async () => {
       renderWithRouter(buildBottomNavTree(portalBar), { initialEntries: ['/'], role: 'PARENT' });
 
       await screen.findByText('Portal content');
-      const main = document.getElementById(APP_SHELL_MAIN_ID);
-      // [8.14.3]: the fixed 'pb-24' became a safe-area-aware calc() so this
-      // bar (and the staff one sharing the same slot) clears the gesture-nav
-      // home indicator in an installed PWA; 'env()' resolves to 0px outside
-      // that one context, so this is a superset of the old fixed value.
-      expect(main?.className).toContain('pb-[calc(6rem+var(--safe-area-bottom))]');
-      expect(main?.className).toContain('md:pb-6');
+      const root = document.querySelector('[data-app-bottom-nav]')?.parentElement;
+      // [31.2.10, B4] 4rem = the `h-16` cell; `--safe-area-bottom` is the
+      // bar's own bottom padding. A short page ends at the bar's top edge.
+      expect(root?.className).toContain('min-h-dvh');
+      expect(root?.className).toContain('pb-[calc(4rem+var(--safe-area-bottom))]');
+      expect(root?.className).toContain('md:pb-0');
+      expect(document.getElementById(APP_SHELL_MAIN_ID)?.className).toBe(
+        'min-w-0 flex-1 p-4 md:p-6',
+      );
+    });
+
+    it('pins the bar to the viewport bottom on phones only', async () => {
+      renderWithRouter(buildBottomNavTree(portalBar), { initialEntries: ['/'], role: 'PARENT' });
+
+      await screen.findByText('Portal content');
+      const bar = document.querySelector('[data-app-bottom-nav]');
+      for (const cls of ['fixed', 'bottom-0', 'inset-x-0', 'md:hidden']) {
+        expect(bar?.className).toContain(cls);
+      }
+      expect(bar?.className).not.toContain('sticky');
     });
 
     it('is axe clean with a bottom bar', async () => {
@@ -362,7 +376,7 @@ describe('AppShell', () => {
       await screen.findByText('Students content');
       expect(screen.getByRole('button', { name: 'Open menu' })).toBeTruthy();
       const main = document.getElementById(APP_SHELL_MAIN_ID);
-      expect(main?.className).toBe('min-w-0 flex-1 p-6');
+      expect(main?.className).toBe('min-w-0 flex-1 p-4 md:p-6');
       expect(screen.queryByRole('navigation', { name: 'Portal' })).toBeNull();
     });
 
@@ -379,7 +393,9 @@ describe('AppShell', () => {
 
       await screen.findByText('Portal content');
       expect(screen.getByRole('button', { name: 'Open menu' })).toBeTruthy();
-      expect(document.getElementById(APP_SHELL_MAIN_ID)?.className).toBe('min-w-0 flex-1 p-6');
+      expect(document.getElementById(APP_SHELL_MAIN_ID)?.className).toBe(
+        'min-w-0 flex-1 p-4 md:p-6',
+      );
     });
   });
 
@@ -392,28 +408,28 @@ describe('AppShell', () => {
 
       // Mirrors `bottom-nav.test.tsx`'s own assertion shape on the
       // active/inactive `className` split (`bottom-nav.test.tsx:63`).
-      expect(activeLink.className).toContain('text-primary');
-      expect(activeLink.className).toContain('bg-primary/10');
+      expect(activeLink.className).toContain('bg-secondary');
+      expect(activeLink.className).toContain('text-secondary-foreground');
       expect(activeLink.className).toContain('font-semibold');
       expect(activeLink.getAttribute('aria-current')).toBe('page');
 
-      expect(inactiveLink.className).not.toContain('text-primary');
-      expect(inactiveLink.className).not.toContain('bg-primary/10');
-      expect(inactiveLink.className).toContain('hover:bg-accent');
+      expect(inactiveLink.className).not.toContain('bg-secondary');
+      expect(inactiveLink.className).toContain('hover:bg-muted');
       expect(inactiveLink.getAttribute('aria-current')).toBeNull();
 
       // The regression this ticket exists for: before 8.14.1 the active item
       // was `bg-accent`, i.e. pixel-identical to any hovered inactive one.
       // The active item must therefore NOT carry the hover treatment.
-      expect(activeLink.className).not.toContain('hover:bg-accent');
+      expect(activeLink.className).not.toContain('hover:bg-muted');
     });
 
-    it('keeps a visible focus-visible outline — no outline-none anywhere on nav links', async () => {
+    it('uses the canonical focus ring — never a bare outline-none', async () => {
       renderWithRouter(buildRouteTree(), { initialEntries: ['/students'], role: 'SUPER_ADMIN' });
 
       const link = await screen.findByRole('link', { name: 'Dashboard' });
-      expect(link.className).toContain('focus-visible:outline');
-      expect(link.className).not.toContain('outline-none');
+      expect(link.className).toContain('focus-visible:ring-2');
+      // `outline-none` is only acceptable because the ring replaces it.
+      expect(link.className).toContain('focus-visible:ring-ring');
     });
 
     it('renders every nav icon aria-hidden, leaving accessible link names unchanged', async () => {
@@ -534,8 +550,8 @@ describe('AppShell', () => {
             navItems={navItems}
             navGroups={navGroups}
             brand="SchoolManager"
-            mobileHeaderActions={<button type="button">Search</button>}
-            drawerHeader={<div data-testid="drawer-header">Tenant switcher</div>}
+            mobileTitle="SchoolManager"
+            mobileActions={<button type="button">Search</button>}
             bottomNav={
               <BottomNav items={navItems} label="Quick navigation" more={{ label: 'More' }} />
             }
@@ -547,14 +563,16 @@ describe('AppShell', () => {
       return rootRoute.addChildren([indexRoute]);
     }
 
-    it('keeps the mobile header row (brand, actions, menu trigger) when mobileHeaderActions is passed alongside bottomNav', async () => {
+    it('keeps the mobile header row (brand, actions, menu trigger) when mobileTitle/mobileActions are passed alongside bottomNav', async () => {
       renderWithRouter(buildStaffMobileTree(), { initialEntries: ['/'], role: 'SUPER_ADMIN' });
 
       await screen.findByText('Dashboard content');
       // 'SchoolManager' also appears in the always-present desktop `<aside>`
       // sidebar (`hidden md:flex`) below; jsdom does no layout, so both
       // are 'visible' to a query — scope to the mobile header row itself.
-      const header = screen.getByRole('button', { name: 'Open menu' }).closest('div')!;
+      const header = screen
+        .getByRole('button', { name: 'Open menu' })
+        .closest('[data-app-mobile-header]') as HTMLElement;
       expect(within(header).getByText('SchoolManager')).toBeTruthy();
       expect(within(header).getByRole('button', { name: 'Search' })).toBeTruthy();
       expect(within(header).getByRole('button', { name: 'Open menu' })).toBeTruthy();
@@ -587,56 +605,13 @@ describe('AppShell', () => {
       expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Open menu' }));
     });
 
-    it('renders drawerHeader content inside the dialog, above the nav landmark', async () => {
-      const user = userEvent.setup();
+    it('reserves the safe-area-aware bar height on the root when bottomNav is set alongside the phone top bar', async () => {
       renderWithRouter(buildStaffMobileTree(), { initialEntries: ['/'], role: 'SUPER_ADMIN' });
 
       await screen.findByText('Dashboard content');
-      await user.click(await screen.findByRole('button', { name: 'Open menu' }));
-      const dialog = await screen.findByRole('dialog');
-
-      const header = within(dialog).getByTestId('drawer-header');
-      const nav = within(dialog).getByRole('navigation', { name: 'Main' });
-      // `compareDocumentPosition` is the DOM-native way to assert relative
-      // order without depending on either node's own class names.
-      expect(header.compareDocumentPosition(nav) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    });
-
-    it('pads <main> with the safe-area-aware bottom offset when bottomNav is set alongside mobileHeaderActions', async () => {
-      renderWithRouter(buildStaffMobileTree(), { initialEntries: ['/'], role: 'SUPER_ADMIN' });
-
-      await screen.findByText('Dashboard content');
-      const main = document.getElementById(APP_SHELL_MAIN_ID);
-      expect(main?.className).toContain('pb-[calc(6rem+var(--safe-area-bottom))]');
-      expect(main?.className).toContain('md:pb-6');
-    });
-
-    // The `[5.2] optional bottomNav slot` block above already
-    // regression-locks the portal shape (bottomNav-only, drawer dropped
-    // entirely); this pins the other half — mobileHeaderActions content
-    // itself must not render anywhere when the caller never passes it.
-    it('does not render mobileHeaderActions content when the prop is omitted', async () => {
-      const rootRoute = createRootRoute();
-      const indexRoute = createRoute({
-        getParentRoute: () => rootRoute,
-        path: '/',
-        component: () => (
-          <AppShell
-            navItems={navItems}
-            brand="SchoolManager"
-            bottomNav={<nav aria-label="Portal">Bottom bar</nav>}
-          >
-            <p>Portal content</p>
-          </AppShell>
-        ),
-      });
-      renderWithRouter(rootRoute.addChildren([indexRoute]), {
-        initialEntries: ['/'],
-        role: 'PARENT',
-      });
-
-      await screen.findByText('Portal content');
-      expect(screen.queryByRole('button', { name: 'Search' })).toBeNull();
+      const root = document.querySelector('[data-app-bottom-nav]')?.parentElement;
+      expect(root?.className).toContain('pb-[calc(4rem+var(--safe-area-bottom))]');
+      expect(root?.className).toContain('md:pb-0');
     });
   });
 
@@ -690,6 +665,138 @@ describe('AppShell', () => {
       } finally {
         getItem.mockRestore();
       }
+    });
+  });
+
+  describe('[31.2.9a] one active item, re-opening groups, phone top bar, drawer', () => {
+    /** One persistent AppShell over child routes, so navigation does not remount it. */
+    function layoutTree(
+      items: readonly AppShellNavItem[],
+      groups: AppShellNavGroup[],
+      shellProps = {},
+    ) {
+      const rootRoute = createRootRoute({
+        component: () => (
+          <AppShell navItems={items} navGroups={groups} brand="SchoolManager" {...shellProps}>
+            <Outlet />
+          </AppShell>
+        ),
+      });
+      const paths = [...items.map((i) => i.to), ...groups.flatMap((g) => g.items.map((i) => i.to))];
+      const routes = [...new Set(paths)].map((path) =>
+        createRoute({ getParentRoute: () => rootRoute, path, component: () => <p>{path}</p> }),
+      );
+      const extra = createRoute({
+        getParentRoute: () => rootRoute,
+        path: '/exams/$id',
+        component: () => <p>exam detail</p>,
+      });
+      return rootRoute.addChildren([...routes, extra]);
+    }
+
+    const examItems = [
+      { to: '/exams', label: 'Exams' },
+      { to: '/exams/templates', label: 'Exam templates' },
+    ];
+
+    it('lights only the most specific item on a nested path', async () => {
+      renderWithRouter(layoutTree(examItems, []), {
+        initialEntries: ['/exams/templates'],
+        role: 'SUPER_ADMIN',
+      });
+      await screen.findByRole('link', { name: 'Exam templates' });
+      const current = screen.getAllByRole('link').filter((l) => l.getAttribute('aria-current'));
+      expect(current.map((l) => l.textContent)).toEqual(['Exam templates']);
+    });
+
+    it('keeps a detail page on its parent item', async () => {
+      renderWithRouter(layoutTree(examItems, []), {
+        initialEntries: ['/exams/abc'],
+        role: 'SUPER_ADMIN',
+      });
+      const exams = await screen.findByRole('link', { name: 'Exams' });
+      expect(exams.getAttribute('aria-current')).toBe('page');
+      expect(
+        screen.getByRole('link', { name: 'Exam templates' }).getAttribute('aria-current'),
+      ).toBeNull();
+    });
+
+    it('lights the root item only on `/`, not on an unmatched path', async () => {
+      const items = [
+        { to: '/', label: 'Dashboard' },
+        { to: '/exams/templates', label: 'Exam templates' },
+      ];
+      renderWithRouter(layoutTree(items, []), {
+        initialEntries: ['/exams/abc'],
+        role: 'SUPER_ADMIN',
+      });
+      await screen.findByText('exam detail');
+      const current = screen.getAllByRole('link').filter((l) => l.getAttribute('aria-current'));
+      expect(current).toEqual([]);
+    });
+
+    it('lights one of several same-path items, picked by its search values', async () => {
+      const items = [
+        { to: '/exams', search: { tab: 'dues' }, label: 'Dues' },
+        { to: '/exams', search: { tab: 'payment' }, label: 'Payment' },
+      ];
+      renderWithRouter(layoutTree(items, []), {
+        initialEntries: ['/exams?tab=payment'],
+        role: 'SUPER_ADMIN',
+      });
+      await screen.findByRole('link', { name: 'Payment' });
+      const current = screen.getAllByRole('link').filter((l) => l.getAttribute('aria-current'));
+      expect(current.map((l) => l.textContent)).toEqual(['Payment']);
+    });
+
+    it('re-opens a collapsed group on client navigation without persisting (#879)', async () => {
+      const { router } = renderWithRouter(layoutTree(navItems, navGroups), {
+        initialEntries: ['/students'],
+        role: 'SUPER_ADMIN',
+      });
+      const finance = await screen.findByRole('button', { name: 'Finance' });
+      expect(finance.getAttribute('aria-expanded')).toBe('false');
+
+      await act(() => router.navigate({ to: '/fees' }));
+      await waitFor(() =>
+        expect(screen.getByRole('button', { name: 'Finance' }).getAttribute('aria-expanded')).toBe(
+          'true',
+        ),
+      );
+      expect(window.localStorage.getItem('nav-group-collapsed-v2:finance')).toBeNull();
+    });
+
+    it('renders the phone top bar with title, actions and menu button', async () => {
+      renderWithRouter(
+        layoutTree(navItems, [], {
+          mobileTitle: 'Sample School',
+          mobileActions: <button type="button">Bell</button>,
+        }),
+        { initialEntries: ['/'], role: 'SUPER_ADMIN' },
+      );
+      const bar = await screen.findByText('Sample School');
+      const wrapper = bar.closest('[data-app-header]') as HTMLElement;
+      expect(wrapper).not.toBeNull();
+      expect(within(wrapper).getByRole('button', { name: 'Bell' })).toBeTruthy();
+      expect(within(wrapper).getByRole('button', { name: 'Open menu' })).toBeTruthy();
+      expect(document.documentElement.style.getPropertyValue(APP_HEADER_HEIGHT_VAR)).not.toBe('');
+    });
+
+    it('drawer close sits in a sticky header and returns focus to the trigger', async () => {
+      const user = userEvent.setup();
+      renderWithRouter(layoutTree(navItems, [], { mobileTitle: 'Sample School' }), {
+        initialEntries: ['/'],
+        role: 'SUPER_ADMIN',
+      });
+      const trigger = await screen.findByRole('button', { name: 'Open menu' });
+      await user.click(trigger);
+      const dialog = await screen.findByRole('dialog');
+      const close = within(dialog).getByRole('button', { name: 'Close menu' });
+      expect(close.parentElement?.className).toContain('sticky');
+      expect(close.parentElement?.className).toContain('top-0');
+      await user.click(close);
+      await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+      expect(document.activeElement).toBe(trigger);
     });
   });
 });

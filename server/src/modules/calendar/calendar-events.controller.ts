@@ -11,11 +11,10 @@ import {
 } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
-import { Permission, UserRole } from '@biddaloy/shared';
+import { Permission, hasTenantScope } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
-import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
@@ -30,22 +29,16 @@ import {
 } from './dto/calendar-events.dto';
 import { CalendarEventWithClassIds } from './calendar-events.service';
 
-/** Roles that see the allow-list `FamilyCalendarEventDto` rather than the
- * full staff response (D4, D9) — see `FamilyCalendarEventDto`'s doc. */
-const FAMILY_ROLES: ReadonlySet<string> = new Set([
-  UserRole.PARENT,
-  UserRole.STUDENT,
-  UserRole.TEACHER,
-]);
+/** Every non-tenant-scoped role (PARENT, STUDENT, TEACHER) sees the allow-list
+ * `FamilyCalendarEventDto` rather than the full staff response (D4, D9) — see
+ * `FamilyCalendarEventDto`'s doc. Fails closed for an unknown role. */
+const seesFamilyDto = (role: string) => !hasTenantScope(role);
 
 /**
  * `/calendar/events` — the CRUD surface for `CalendarEvent` (17.x), on top
  * of the visibility, past-lock, academic-year, and attendance-guard rules
- * `CalendarEventsService` owns. Enforcement is `@RequirePermissions` — the
- * `@Roles` on each route below is a redundant, spec-checked mirror of
- * `ROLE_PERMISSIONS`'s current CALENDAR_READ/CALENDAR_MANAGE holders
- * (`permission-matrix.e2e-spec.ts`'s "documents every deliberate @Roles
- * narrowing" check), not an independent decision (D16, D19).
+ * `CalendarEventsService` owns. Enforcement is `@RequirePermissions`
+ * alone (D16, D19) — the old redundant `@Roles` mirror is retired.
  */
 @ApiTags('calendar-events')
 @ApiTenantAuth()
@@ -55,14 +48,6 @@ export class CalendarEventsController {
   constructor(private readonly service: CalendarEventsService) {}
 
   @Get('events')
-  @Roles(
-    UserRole.ADMIN,
-    UserRole.ACCOUNTANT,
-    UserRole.TEACHER,
-    UserRole.PARENT,
-    UserRole.STUDENT,
-    UserRole.EXECUTIVE,
-  )
   @RequirePermissions(Permission.CALENDAR_READ)
   @ApiOperation({ summary: 'List calendar events visible to the caller, paginated.' })
   @ApiResponse({ status: 200, type: CalendarEventListResponseDto })
@@ -80,14 +65,6 @@ export class CalendarEventsController {
   }
 
   @Get('events/:id')
-  @Roles(
-    UserRole.ADMIN,
-    UserRole.ACCOUNTANT,
-    UserRole.TEACHER,
-    UserRole.PARENT,
-    UserRole.STUDENT,
-    UserRole.EXECUTIVE,
-  )
   @RequirePermissions(Permission.CALENDAR_READ)
   @ApiOperation({ summary: 'Fetch one calendar event, if visible to the caller.' })
   @ApiResponse({ status: 200, type: CalendarEventResponseDto })
@@ -102,7 +79,6 @@ export class CalendarEventsController {
   }
 
   @Post('events')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.CALENDAR_MANAGE)
   @ApiOperation({ summary: 'Create a calendar event.' })
   @ApiResponse({ status: 201, type: CalendarEventResponseDto })
@@ -115,7 +91,6 @@ export class CalendarEventsController {
   }
 
   @Patch('events/:id')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.CALENDAR_MANAGE)
   @ApiOperation({ summary: 'Update a calendar event.' })
   @ApiResponse({ status: 200, type: CalendarEventResponseDto })
@@ -129,7 +104,6 @@ export class CalendarEventsController {
   }
 
   @Delete('events/:id')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.CALENDAR_MANAGE)
   @ApiOperation({ summary: 'Delete a calendar event.' })
   async remove(
@@ -141,20 +115,19 @@ export class CalendarEventsController {
     return { success: true };
   }
 
-  /** PARENT/STUDENT/TEACHER get the allow-list DTO; every other role
-   * (ADMIN, EXECUTIVE, ACCOUNTANT) keeps the full staff response. */
+  /** PARENT/STUDENT/TEACHER get the allow-list DTO; every tenant-scoped role
+   * keeps the full staff response. */
   private serializeForRole(
     events: CalendarEventWithClassIds[],
     role: string,
   ): Array<CalendarEventWithClassIds | FamilyCalendarEventDto> {
-    if (!FAMILY_ROLES.has(role)) {
+    if (!seesFamilyDto(role)) {
       return events;
     }
     return events.map((event) => FamilyCalendarEventDto.fromEvent(event));
   }
 
   @Post('events/:id/publish')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.CALENDAR_MANAGE)
   @ApiOperation({ summary: 'Publish a draft calendar event.' })
   @ApiResponse({ status: 200, type: CalendarEventResponseDto })

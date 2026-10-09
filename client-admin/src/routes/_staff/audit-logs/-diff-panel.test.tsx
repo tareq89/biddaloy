@@ -1,9 +1,10 @@
 import { RegionConfigProvider, REGION_BD_BN, REGION_BD_EN } from '@biddaloy/ui/i18n';
 import { cleanupTestState, renderWithProviders } from '@biddaloy/ui/test';
+import { formatDate } from '@biddaloy/ui/utils';
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactElement } from 'react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { DiffPanel, type DiffPanelProps } from './-diff-panel';
 
@@ -124,8 +125,8 @@ describe('DiffPanel', () => {
     await screen.findByRole('cell', { name: /^Active/ });
     expect(screen.getByRole('cell', { name: 'Yes' })).toBeTruthy();
     expect(screen.getByRole('cell', { name: 'No' })).toBeTruthy();
-    expect(screen.getByRole('cell', { name: '2026-01-05' })).toBeTruthy();
-    expect(screen.getByRole('cell', { name: '2026-02-06' })).toBeTruthy();
+    expect(screen.getByRole('cell', { name: formatDate('2026-01-05', REGION_BD_EN) })).toBeTruthy();
+    expect(screen.getByRole('cell', { name: formatDate('2026-02-06', REGION_BD_EN) })).toBeTruthy();
   });
 
   it('flattens a one-level nested object into labelled lines instead of JSON', async () => {
@@ -149,6 +150,30 @@ describe('DiffPanel', () => {
     expect(screen.getByText('পরিবর্তিত')).toBeTruthy();
     expect(screen.getByRole('cell', { name: 'হ্যাঁ' })).toBeTruthy();
     expect(screen.getByRole('cell', { name: 'না' })).toBeTruthy();
+  });
+
+  it('stacks each changed field as Before / After lines on a phone, with no table', async () => {
+    const spy = vi.spyOn(window, 'matchMedia').mockImplementation(
+      (query: string) =>
+        ({
+          matches: true,
+          media: query,
+          addEventListener: () => undefined,
+          removeEventListener: () => undefined,
+        }) as unknown as MediaQueryList,
+    );
+    try {
+      renderPanel({
+        oldValues: { full_name: 'Rahim' },
+        newValues: { full_name: 'Rahim Uddin' },
+      });
+
+      expect(await screen.findByText('Before: Rahim')).toBeTruthy();
+      expect(screen.getByText('After: Rahim Uddin')).toBeTruthy();
+      expect(screen.queryByRole('table')).toBeNull();
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   it('is axe clean', async () => {

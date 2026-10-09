@@ -21,6 +21,7 @@
  * so the mobile trail never starts with a stray separator).
  */
 import { Link } from '@tanstack/react-router';
+import { ChevronRightIcon } from 'lucide-react';
 
 import { cn } from '../primitives/lib/utils';
 
@@ -32,6 +33,9 @@ export interface BreadcrumbItem {
    * `AppShellNavItem.to`'s own comment on staying route-tree-agnostic).
    * Omitted for a crumb that has no destination of its own. */
   to?: string;
+  /** The name is still loading: a skeleton bar shows in place of the text
+   * (the label stays as screen-reader text) and the crumb is never a link. */
+  loading?: boolean;
 }
 
 export interface BreadcrumbsProps {
@@ -53,7 +57,7 @@ export function Breadcrumbs({ items, 'aria-label': ariaLabel, className }: Bread
 
   return (
     <nav aria-label={ariaLabel} data-slot="breadcrumbs" className={className}>
-      <ol className="flex flex-wrap items-center gap-1 text-sm">
+      <ol className="flex flex-wrap items-center gap-1 text-label text-text-secondary">
         {items.map((item, index) => {
           const isLast = index === lastIndex;
           // Below `md`, only the last two crumbs show — everything
@@ -67,20 +71,34 @@ export function Breadcrumbs({ items, 'aria-label': ariaLabel, className }: Bread
               className={cn('flex items-center gap-1', truncatedOnMobile && 'hidden md:flex')}
             >
               {index > 0 && (
-                <span aria-hidden="true" className="text-muted-foreground">
-                  /
-                </span>
+                // B17: the first crumb visible on a phone must not start the
+                // trail with a separator.
+                <ChevronRightIcon
+                  aria-hidden="true"
+                  className={cn(
+                    'size-3.5 shrink-0',
+                    index === lastIndex - 1 && 'hidden md:inline-flex',
+                  )}
+                />
               )}
-              {isLast ? (
-                <span aria-current="page" className="font-medium text-foreground">
+              {item.loading ? (
+                <span aria-current={isLast ? 'page' : undefined}>
+                  <span aria-hidden="true" className="inline-block h-3 w-24 rounded-sm bg-muted" />
+                  <span className="sr-only">{item.label}</span>
+                </span>
+              ) : isLast ? (
+                <span aria-current="page" className="text-text-primary">
                   {item.label}
                 </span>
               ) : item.to !== undefined ? (
-                <Link to={item.to} className="text-muted-foreground hover:text-foreground">
+                <Link
+                  to={item.to}
+                  className="inline-flex min-h-11 min-w-11 items-center hover:text-text-primary md:min-h-6 md:min-w-6"
+                >
                   {item.label}
                 </Link>
               ) : (
-                <span className="text-muted-foreground">{item.label}</span>
+                <span>{item.label}</span>
               )}
             </li>
           );

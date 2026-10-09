@@ -24,13 +24,19 @@ function run(viewer: CalendarViewer): FakeQueryBuilder {
 }
 
 describe('visibilityWhere', () => {
-  it.each([UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.EXECUTIVE, UserRole.ACCOUNTANT])(
-    '%s sees every event — no filter applied',
-    (role) => {
-      const qb = run({ role, userId: 'u1', classIds: [] });
-      expect(qb.calls).toHaveLength(0);
-    },
-  );
+  it.each([
+    UserRole.SUPER_ADMIN,
+    UserRole.ADMIN,
+    UserRole.EXECUTIVE,
+    UserRole.ACCOUNTANT,
+    // New in #1362 (ROLE_SCOPE = TENANT)
+    UserRole.OFFICE_STAFF,
+    UserRole.EXAM_CONTROLLER,
+    UserRole.COMMITTEE,
+  ])('%s sees every event — no filter applied', (role) => {
+    const qb = run({ role, userId: 'u1', classIds: [] });
+    expect(qb.calls).toHaveLength(0);
+  });
 
   it('TEACHER with no classes only sees ALL/STAFF-audience events', () => {
     const qb = run({ role: UserRole.TEACHER, userId: 'u1', classIds: [] });

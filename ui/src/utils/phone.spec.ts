@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { REGION_BD_EN } from '../i18n/region-config';
+import { REGION_BD_BN, REGION_BD_EN } from '../i18n/region-config';
 
 import { formatPhone, parsePhone } from './phone';
 
@@ -36,12 +36,21 @@ describe('parsePhone', () => {
 });
 
 describe('formatPhone', () => {
-  it('formats a valid national number as +880 1XXX-XXXXXX', () => {
-    expect(formatPhone('01712345678', REGION_BD_EN)).toBe('+880 1712-345678');
+  it('formats a valid national number as 01XXX-XXXXXX', () => {
+    expect(formatPhone('01712345678', REGION_BD_EN)).toBe('01712-345678');
   });
 
-  it('throws on an invalid number rather than returning a mangled string', () => {
-    expect(() => formatPhone('123', REGION_BD_EN)).toThrow(RangeError);
+  it('shows an invalid number as typed', () => {
+    expect(formatPhone('123', REGION_BD_EN)).toBe('123');
+  });
+
+  it.each(['', null, undefined, '   '])('shows the none value for %j', (value) => {
+    expect(formatPhone(value, REGION_BD_EN)).toBe('—');
+  });
+
+  it('formats an international number and Bengali digits to Latin', () => {
+    expect(formatPhone('+8801711000004', REGION_BD_EN)).toBe('01711-000004');
+    expect(formatPhone('০১৭১১-০০০০০৪', REGION_BD_BN)).toBe('01711-000004');
   });
 
   it('drops a mask placeholder that has no digit left for it, rather than throwing', () => {
@@ -54,7 +63,7 @@ describe('formatPhone', () => {
       phone: { ...REGION_BD_EN.phone, displayFormat: 'XXXX-XXXXXXX' },
     };
 
-    expect(formatPhone('01712345678', tooManyPlaceholders)).toBe('+880 1712-345678');
+    expect(formatPhone('01712345678', tooManyPlaceholders)).toBe('1712-345678');
   });
 
   it('appends digits the mask has no placeholder left for, rather than dropping them', () => {
@@ -67,6 +76,6 @@ describe('formatPhone', () => {
       phone: { ...REGION_BD_EN.phone, displayFormat: 'XXX-XXXX' },
     };
 
-    expect(formatPhone('01712345678', tooFewPlaceholders)).toBe('+880 171-2345678');
+    expect(formatPhone('01712345678', tooFewPlaceholders)).toBe('171-2345678');
   });
 });

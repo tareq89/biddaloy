@@ -17,6 +17,16 @@
       "archetype": "bespoke"
     },
     {
+      "path": "/register",
+      "role": "guest",
+      "archetype": "bespoke"
+    },
+    {
+      "path": "/auth/social/done",
+      "role": "guest",
+      "archetype": "redirect"
+    },
+    {
       "path": "/forgot-password",
       "role": "guest",
       "archetype": "bespoke"
@@ -39,7 +49,8 @@
     {
       "path": "/dashboard",
       "role": "admin",
-      "archetype": "bespoke"
+      "archetype": "bespoke",
+      "overlays": ["trial-details"]
     },
     {
       "path": "/notifications",
@@ -49,7 +60,8 @@
     {
       "path": "/security",
       "role": "admin",
-      "archetype": "bespoke"
+      "archetype": "bespoke",
+      "overlays": ["leave-school"]
     },
     {
       "path": "/schools",
@@ -62,7 +74,8 @@
         "schoolId": "seeded"
       },
       "role": "super_admin",
-      "archetype": "detail"
+      "archetype": "detail",
+      "overlays": ["extend-trial"]
     },
     {
       "path": "/schools/new",
@@ -81,6 +94,11 @@
       },
       "role": "super_admin",
       "archetype": "detail"
+    },
+    {
+      "path": "/curriculum-preset",
+      "role": "admin",
+      "archetype": "bespoke"
     },
     {
       "path": "/settings",
@@ -114,6 +132,126 @@
       "archetype": "detail"
     },
     {
+      "path": "/academics/homework",
+      "role": "admin",
+      "archetype": "list"
+    },
+    {
+      "path": "/academics/homework/new",
+      "role": "admin",
+      "archetype": "form"
+    },
+    {
+      "path": "/academics/homework/$homeworkId",
+      "params": {
+        "homeworkId": "seeded"
+      },
+      "role": "admin",
+      "archetype": "detail"
+    },
+    {
+      "path": "/academics/homework/import",
+      "role": "admin",
+      "archetype": "bespoke"
+    },
+    {
+      "path": "/academics/syllabus",
+      "role": "admin",
+      "archetype": "list"
+    },
+    {
+      "path": "/exams",
+      "role": "admin",
+      "archetype": "list"
+    },
+    {
+      "path": "/exams/$examId",
+      "params": {
+        "examId": "seeded"
+      },
+      "role": "admin",
+      "archetype": "detail"
+    },
+    {
+      "path": "/exams/templates",
+      "role": "admin",
+      "archetype": "list"
+    },
+    {
+      "path": "/exams/templates/$templateId",
+      "params": {
+        "templateId": "seeded"
+      },
+      "role": "admin",
+      "archetype": "detail"
+    },
+    {
+      "path": "/exams/seat-plans",
+      "role": "admin",
+      "archetype": "list"
+    },
+    {
+      "path": "/exams/seat-plans/$planId",
+      "params": {
+        "planId": "seeded"
+      },
+      "role": "admin",
+      "archetype": "detail"
+    },
+    {
+      "path": "/marks",
+      "role": "admin",
+      "archetype": "list"
+    },
+    {
+      "path": "/marks/$examId/$sectionId/$subjectId",
+      "params": {
+        "examId": "seeded",
+        "sectionId": "seeded",
+        "subjectId": "seeded"
+      },
+      "role": "admin",
+      "archetype": "detail"
+    },
+    {
+      "path": "/results",
+      "role": "admin",
+      "archetype": "list"
+    },
+    {
+      "path": "/results/$examId/$studentId",
+      "params": {
+        "examId": "seeded",
+        "studentId": "seeded"
+      },
+      "role": "admin",
+      "archetype": "detail"
+    },
+    {
+      "path": "/analysis",
+      "role": "admin",
+      "archetype": "list"
+    },
+    {
+      "path": "/promotions",
+      "role": "admin",
+      "archetype": "list"
+    },
+    {
+      "path": "/promotions/new",
+      "role": "admin",
+      "archetype": "form"
+    },
+    {
+      "path": "/promotions/$runId",
+      "params": {
+        "runId": "seeded"
+      },
+      "role": "admin",
+      "archetype": "detail",
+      "overlays": ["commit"]
+    },
+    {
       "path": "/grading-scales",
       "role": "admin",
       "archetype": "list"
@@ -127,9 +265,78 @@
       "archetype": "detail"
     },
     {
+      "path": "/admissions/intakes",
+      "role": "admin",
+      "archetype": "list"
+    },
+    {
+      "path": "/admissions/intakes/$intakeId",
+      "params": {
+        "intakeId": "seeded"
+      },
+      "role": "admin",
+      "archetype": "detail"
+    },
+    {
+      "path": "/admissions/applicants",
+      "role": "admin",
+      "archetype": "list"
+    },
+    {
+      "path": "/admissions/reports",
+      "role": "admin",
+      "archetype": "list"
+    },
+    {
+      "path": "/admissions/applicants/$applicantId",
+      "params": {
+        "applicantId": "seeded"
+      },
+      "role": "admin",
+      "archetype": "detail"
+    },
+    {
+      "path": "/routines/setup",
+      "role": "admin",
+      "archetype": "form"
+    },
+    {
+      "path": "/routines",
+      "role": "admin",
+      "archetype": "list"
+    },
+    {
+      "path": "/routines/$sectionId",
+      "params": {
+        "sectionId": "seeded"
+      },
+      "role": "admin",
+      "archetype": "form"
+    },
+    {
+      "path": "/routines/review",
+      "role": "admin",
+      "archetype": "form"
+    },
+    {
+      "path": "/routines/substitutions",
+      "role": "admin",
+      "archetype": "list"
+    },
+    {
+      "path": "/routines/my",
+      "role": "admin",
+      "archetype": "list"
+    },
+    {
       "path": "/audit-logs",
       "role": "admin",
       "archetype": "list"
+    },
+    {
+      "path": "/roles",
+      "role": "admin",
+      "archetype": "bespoke"
     },
     {
       "path": "/calendar",
@@ -144,7 +351,7 @@
     {
       "path": "/fees",
       "role": "accountant",
-      "archetype": "list"
+      "archetype": "redirect"
     },
     {
       "path": "/fees/dues",
@@ -172,6 +379,16 @@
       "archetype": "detail"
     },
     {
+      "path": "/fees/fines",
+      "role": "accountant",
+      "archetype": "list"
+    },
+    {
+      "path": "/fees/fines/rules",
+      "role": "accountant",
+      "archetype": "list"
+    },
+    {
       "path": "/guardians",
       "role": "admin",
       "archetype": "list"
@@ -193,7 +410,36 @@
     {
       "path": "/staff",
       "role": "admin",
+      "archetype": "list",
+      "overlays": ["restore-member"]
+    },
+    {
+      "path": "/staff/import",
+      "role": "admin",
+      "archetype": "bespoke"
+    },
+    {
+      "path": "/welcome",
+      "role": "admin",
+      "archetype": "bespoke"
+    },
+    {
+      "path": "/staff/teaching-assignments",
+      "role": "admin",
       "archetype": "list"
+    },
+    {
+      "path": "/staff/evaluations",
+      "role": "admin",
+      "archetype": "list"
+    },
+    {
+      "path": "/staff/evaluations/surveys/$surveyId",
+      "params": {
+        "surveyId": "seeded"
+      },
+      "role": "admin",
+      "archetype": "detail"
     },
     {
       "path": "/staff/$userId",
@@ -204,9 +450,66 @@
       "archetype": "detail"
     },
     {
+      "path": "/staff/$userId/acr/$assessmentId",
+      "params": {
+        "userId": "seeded",
+        "assessmentId": "seeded"
+      },
+      "role": "admin",
+      "archetype": "wizard"
+    },
+    {
+      "path": "/programs",
+      "role": "admin",
+      "archetype": "list",
+      "overlays": ["programForm", "enrol", "record"]
+    },
+    {
+      "path": "/programs/$programId",
+      "params": {
+        "programId": "seeded"
+      },
+      "role": "admin",
+      "archetype": "detail",
+      "overlays": ["milestoneRemove"]
+    },
+    { "path": "/print-templates", "role": "admin", "archetype": "list" },
+    {
+      "path": "/print-templates/$templateId/edit",
+      "params": { "templateId": "seeded" },
+      "role": "admin",
+      "archetype": "bespoke"
+    },
+    { "path": "/print/preview", "role": "admin", "archetype": "bespoke" },
+    { "path": "/reports/printables", "role": "admin", "archetype": "list" },
+    {
       "path": "/i/$token",
       "params": {
         "token": "seeded"
+      },
+      "role": "guest",
+      "archetype": "bespoke"
+    },
+    {
+      "path": "/v/$token",
+      "params": {
+        "token": "seeded"
+      },
+      "role": "guest",
+      "archetype": "bespoke"
+    },
+    {
+      "path": "/admission/$slug",
+      "params": {
+        "slug": "seeded"
+      },
+      "role": "guest",
+      "archetype": "bespoke"
+    },
+    {
+      "path": "/admission/$slug/status",
+      "params": {
+        "slug": "seeded"
       },
       "role": "guest",
       "archetype": "bespoke"
@@ -240,7 +543,7 @@
     {
       "path": "/payments/record",
       "role": "accountant",
-      "archetype": "redirect"
+      "archetype": "form"
     },
     {
       "path": "/communications/send",
@@ -289,7 +592,7 @@
       },
       "role": "admin",
       "archetype": "detail",
-      "overlays": ["send-reminder", "delete-student", "transfer-status"]
+      "overlays": ["send-reminder", "delete-student"]
     },
     {
       "path": "/students/$studentId/edit",
@@ -310,6 +613,11 @@
       "archetype": "list"
     },
     {
+      "path": "/portal/routine",
+      "role": "parent",
+      "archetype": "list"
+    },
+    {
       "path": "/portal/attendance",
       "role": "parent",
       "archetype": "list"
@@ -320,9 +628,47 @@
       "archetype": "list"
     },
     {
+      "path": "/portal/results",
+      "role": "parent",
+      "archetype": "list"
+    },
+    {
+      "path": "/portal/surveys",
+      "role": "parent",
+      "archetype": "list"
+    },
+    {
+      "path": "/portal/exam-schedule",
+      "role": "parent",
+      "archetype": "list"
+    },
+    {
+      "path": "/portal/syllabus",
+      "role": "parent",
+      "archetype": "list"
+    },
+    {
       "path": "/portal/account",
       "role": "parent",
       "archetype": "form"
+    },
+    {
+      "path": "/portal/programs",
+      "role": "parent",
+      "archetype": "list"
+    },
+    {
+      "path": "/my-class",
+      "role": "teacher",
+      "archetype": "redirect"
+    },
+    {
+      "path": "/my-class/$sectionId",
+      "params": {
+        "sectionId": "seeded"
+      },
+      "role": "teacher",
+      "archetype": "detail"
     },
     {
       "path": "/attendance",
@@ -344,6 +690,16 @@
     },
     {
       "path": "/attendance/register",
+      "role": "admin",
+      "archetype": "list"
+    },
+    {
+      "path": "/attendance/staff",
+      "role": "admin",
+      "archetype": "list"
+    },
+    {
+      "path": "/attendance/staff/leave",
       "role": "admin",
       "archetype": "list"
     },

@@ -20,15 +20,28 @@ import {
 } from '@biddaloy/ui/hooks';
 import { RegionConfigProvider, useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { ListShell, useListShellState, type FilterFieldDescriptor } from '@biddaloy/ui/shells';
-import { downloadCsv } from '@biddaloy/ui/utils';
+import { downloadCsv, formatDate, formatNumber } from '@biddaloy/ui/utils';
 import { useQueryClient } from '@tanstack/react-query';
-import { createFileRoute, Link } from '@tanstack/react-router';
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
+import {
+  DownloadIcon,
+  IdCardIcon,
+  ImageUpIcon,
+  PlusIcon,
+  SendIcon,
+  UploadIcon,
+  XIcon,
+} from 'lucide-react';
 import * as React from 'react';
 import { z } from 'zod';
 
+import { useLandingFlag } from '../-use-landing-flag';
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 
+import { BulkPhotoDialog } from './-bulk-photo-dialog';
+import { DEFAULT_PAGE_SIZE } from './-constants';
 import { SendReminderDialog } from './-send-reminder-dialog';
+import { GENDER_VALUES } from './-student-form-schema';
 
 /** `DataTableSort.id` values that map onto a server-sortable field —
  * `StudentSortField`'s own allowlist, keyed by this page's column ids
@@ -59,6 +72,7 @@ interface StudentFilters {
 
 const studentsSearchSchema = z.object({
   page: z.number().int().positive().optional().catch(undefined),
+  photos: z.coerce.string().optional().catch(undefined),
   limit: z.number().int().positive().optional().catch(undefined),
   sort: z.string().optional().catch(undefined),
   order: z.enum(['asc', 'desc']).optional().catch(undefined),
@@ -76,6 +90,9 @@ const studentsSearchSchema = z.object({
   // Router's `validateSearch` strips it from the URL on every navigation,
   // since a plain `z.object` drops any key it doesn't know about.
   selected: z.string().optional().catch(undefined),
+  // [28.4.5/D22] Palette "Open performance" flag: row "View" links open the
+  // student's Performance tab. TanStack parses `?x=1` as a number, so coerce.
+  openPerformance: z.coerce.string().optional().catch(undefined),
 });
 
 function toStudentListFilters(filters: StudentFilters, sortColumnId: string | undefined) {
@@ -108,7 +125,7 @@ export const Route = createFileRoute('/_staff/students/')({
   // a filter change to actually trigger a refetch.
   loaderDeps: ({ search }) => ({
     page: search.page ?? 1,
-    limit: search.limit ?? 10,
+    limit: search.limit ?? DEFAULT_PAGE_SIZE,
     sort: search.sort,
     order: search.order,
     search: search.search,
@@ -161,8 +178,9 @@ function StudentsListPage() {
   const { t } = useTranslation('students');
   const { t: tBackup } = useTranslation('backup');
   const queryClient = useQueryClient();
-  const [state, actions] = useListShellState({ limit: 10 });
+  const [state, actions] = useListShellState();
   const filters = state.filters as StudentFilters;
+  const { openPerformance } = Route.useSearch();
 
   const vocabularyQuery = useOrganisationVocabulary();
   // [D5] A shift/version filter field only exists once the tenant has 2+
@@ -207,11 +225,38 @@ function StudentsListPage() {
   const canSendReminder = useHasPermission(Permission.COMMUNICATION_BULK_SEND);
   const canAddStudent = useHasPermission(Permission.STUDENT_CREATE);
   const canBulkImport = useHasPermission(Permission.STUDENT_BULK_UPLOAD);
+  const canUpdateStudent = useHasPermission(Permission.STUDENT_UPDATE);
   const canManageBackup = useHasPermission(Permission.BACKUP_MANAGE);
+  const canPrint = useHasPermission(Permission.DOCUMENT_PRINT);
+  const navigate = useNavigate();
   const isEmpty =
     !studentsQuery.isLoading && !studentsQuery.isError && (studentsQuery.data?.total ?? 0) === 0;
 
+  // A class AND a section chosen: offer to print the whole section without selecting rows.
+  const wholeClass =
+    filters.class_id !== undefined && filters.section_id !== undefined
+      ? {
+          sectionId: filters.section_id,
+          label: `${classesQuery.data?.data.find((k) => k.id === filters.class_id)?.name ?? ''}-${
+            sectionsQuery.data?.find((x) => x.id === filters.section_id)?.section_name ?? ''
+          }`,
+        }
+      : undefined;
+
+  function printPreview(search: { ids: string } | { class_section_id: string }) {
+    void navigate({
+      to: '/print/preview',
+      search: {
+        kind: 'STUDENT_ID_CARD',
+        subject_type: 'STUDENT',
+        from: '/students',
+        ...search,
+      },
+    });
+  }
+
   const [reminderDialogOpen, setReminderDialogOpen] = React.useState(false);
+  const [photosDialogOpen, setPhotosDialogOpen] = useLandingFlag('photos', canUpdateStudent);
 
   // FilterBar's `onChange` patches one key at a time — intercept `class_id`
   // changes to also clear `section_id`, since a section chosen under the
@@ -226,7 +271,7 @@ function StudentsListPage() {
       kind: 'text',
       key: 'search',
       label: t('list.searchLabel'),
-      placeholder: t('list.searchLabel'),
+      placeholder: t('list.searchPlaceholder'),
       primary: true,
     },
     {
@@ -254,13 +299,20 @@ function StudentsListPage() {
       key: 'enrollment_status',
       label: t('list.statusLabel'),
       allLabel: t('list.allStatuses'),
-      options: Object.values(EnrollmentStatus).map((status) => ({ value: status, label: status })),
+      options: Object.values(EnrollmentStatus).map((status) => ({
+        value: status,
+        label: t(`status.enrollment.${status}`, { ns: 'common' }),
+      })),
     },
     {
-      kind: 'text',
+      kind: 'select',
       key: 'gender',
       label: t('list.genderFilterLabel'),
-      placeholder: t('list.genderFilterLabel'),
+      allLabel: t('list.allGenders'),
+      options: GENDER_VALUES.map((value) => ({
+        value,
+        label: t(`form.fields.genderOptions.${value}`),
+      })),
     },
     ...(showShiftFilter
       ? [
@@ -318,11 +370,22 @@ function StudentsListPage() {
     downloadCsv('students.csv', [header, ...lines]);
   }
 
+  const regionConfig = useTenantRegionConfig();
+
+  // Known values get a translated label; legacy free text is shown as typed.
+  function genderLabel(gender: string | null | undefined): string {
+    if (!gender) return t('list.emptyValue');
+    return (GENDER_VALUES as readonly string[]).includes(gender)
+      ? t(`form.fields.genderOptions.${gender}`)
+      : gender;
+  }
+
   const columns: DataTableColumn<Student>[] = [
     {
       id: 'roll',
       header: t('list.columnRoll'),
-      accessorFn: (row) => row.roll_number,
+      accessorFn: (row) => formatNumber(row.roll_number, regionConfig),
+      align: 'end',
     },
     {
       id: 'registration',
@@ -341,16 +404,8 @@ function StudentsListPage() {
     {
       id: 'class',
       header: t('list.columnClass'),
-      accessorFn: (row) => row.class_section.class.name,
-      // [8.14.7] Class alone (not class + section) is the closest thing
-      // this row has to a subtitle — short enough to sit under the name
-      // without repeating what `section` already spells out in the `dl`.
+      accessorFn: (row) => `${row.class_section.class.name} · ${row.class_section.section_name}`,
       card: 'subtitle',
-    },
-    {
-      id: 'section',
-      header: t('list.columnSection'),
-      accessorFn: (row) => row.class_section.section_name,
     },
     {
       id: 'guardian',
@@ -370,12 +425,13 @@ function StudentsListPage() {
     {
       id: 'dateOfBirth',
       header: t('list.columnDateOfBirth'),
-      accessorFn: (row) => row.date_of_birth ?? t('list.emptyValue'),
+      accessorFn: (row) =>
+        row.date_of_birth ? formatDate(row.date_of_birth, regionConfig) : t('list.emptyValue'),
     },
     {
       id: 'gender',
       header: t('list.columnGender'),
-      accessorFn: (row) => row.gender ?? t('list.emptyValue'),
+      accessorFn: (row) => genderLabel(row.gender),
     },
     {
       id: 'address',
@@ -385,66 +441,76 @@ function StudentsListPage() {
     {
       id: 'preferredCommunication',
       header: t('list.columnPreferredCommunication'),
-      accessorFn: (row) => row.preferred_communication,
-    },
-    {
-      id: 'actions',
-      header: t('list.columnActions'),
-      pinned: true,
-      // Already `pinned: true`, which `DataTable`'s default card-role
-      // resolution would assign to `'actions'` on its own — declared
-      // explicitly anyway so this stays correct if a future column also
-      // becomes `pinned`.
-      card: 'actions',
-      accessorFn: (row) => (
-        <div className="flex justify-end gap-3">
-          {canCollectFees && (
-            <Link
-              to="/payments/record"
-              search={{ student_id: row.id }}
-              className="text-sm font-medium text-primary underline"
-            >
-              {t('list.collectFees')}
-            </Link>
-          )}
-          <Link
-            to="/students/$studentId"
-            params={{ studentId: row.id }}
-            data-focus-anchor={row.id}
-            className="text-sm text-muted-foreground underline"
-          >
-            {t('list.view')}
-          </Link>
-        </div>
-      ),
+      accessorFn: (row) =>
+        row.preferred_communication
+          ? t(`form.preferredCommunicationOptions.${row.preferred_communication}`)
+          : t('list.emptyValue'),
     },
   ];
-
-  const regionConfig = useTenantRegionConfig();
 
   return (
     <RegionConfigProvider value={regionConfig}>
       <CachedDataNotice queryKey={studentsQueryOptions(studentListFilters).queryKey} />
       <ListShell
         title={t('list.title')}
-        primaryAction={
-          <div className="flex items-center gap-2">
-            {canBulkImport && (
-              <Button asChild variant="outline">
-                <Link to="/students/import">{t('list.importStudents')}</Link>
-              </Button>
-            )}
-            {canAddStudent && (
-              <Button asChild>
-                <Link to="/students/new">{t('list.addStudent')}</Link>
-              </Button>
-            )}
-          </div>
-        }
+        actions={[
+          {
+            id: 'import',
+            label: t('list.importStudents'),
+            icon: <UploadIcon className="size-4" aria-hidden />,
+            priority: 'secondary',
+            allowed: canBulkImport,
+            to: '/students/import',
+          },
+          {
+            id: 'print-section',
+            label: t('list.printWholeClass', { name: wholeClass?.label ?? '' }),
+            icon: <IdCardIcon className="size-4" aria-hidden />,
+            priority: 'secondary',
+            allowed: canPrint && wholeClass !== undefined,
+            onClick: () => wholeClass && printPreview({ class_section_id: wholeClass.sectionId }),
+          },
+          {
+            id: 'add',
+            label: t('list.addStudent'),
+            icon: <PlusIcon className="size-4" aria-hidden />,
+            priority: 'primary',
+            allowed: canAddStudent,
+            to: '/students/new',
+          },
+          {
+            id: 'photos',
+            label: t('bulkPhotos.action'),
+            icon: <ImageUpIcon className="size-4" aria-hidden />,
+            priority: 'tertiary',
+            allowed: canUpdateStudent,
+            onClick: () => setPhotosDialogOpen(true),
+          },
+        ]}
         filters={{ fields: filterFields, values: state.filters, onChange: handleFiltersChange }}
         tableId="students-list"
         caption={t('list.caption')}
         columns={columns}
+        rowActions={(row) => [
+          {
+            intent: 'view',
+            label: t('list.view'),
+            to: `/students/${row.id}${openPerformance ? '?tab=performance' : ''}`,
+            'data-focus-anchor': row.id,
+          },
+          {
+            intent: 'edit',
+            label: t('list.edit'),
+            to: `/students/${row.id}/edit`,
+            allowed: canUpdateStudent,
+          },
+          {
+            intent: 'pay',
+            label: t('list.collectFees'),
+            to: `/payments/record?student_id=${row.id}`,
+            allowed: canCollectFees,
+          },
+        ]}
         data={studentsQuery.data?.data ?? []}
         getRowId={(row) => row.id}
         sorting={state.sorting}
@@ -476,31 +542,45 @@ function StudentsListPage() {
         loading={studentsQuery.isLoading}
         isFetching={studentsQuery.isFetching}
         {...(studentsQuery.isError ? { error: t('list.errorMessage') } : {})}
-        emptyMessage={t('list.emptyMessage')}
+        emptyState={{
+          title: t('list.emptyMessage'),
+          explanation: t('list.emptyExplanation'),
+          ...(canAddStudent
+            ? {
+                action: {
+                  label: t('list.addStudent'),
+                  onClick: () => void navigate({ to: '/students/new' }),
+                },
+              }
+            : {}),
+        }}
         announceResults={(count, total) =>
           t('list.announceResults', { visible: count, total, count: total })
         }
         bulkActions={
           <>
             {canSendReminder && (
-              <Button type="button" size="sm" onClick={() => setReminderDialogOpen(true)}>
+              <Button type="button" variant="outline" onClick={() => setReminderDialogOpen(true)}>
+                <SendIcon className="size-4" aria-hidden />
                 {t('list.sendReminder')}
               </Button>
             )}
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={() => void exportSelectedToCsv()}
-            >
+            {canPrint && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => printPreview({ ids: Array.from(state.selectedIds).join(',') })}
+              >
+                <IdCardIcon className="size-4" aria-hidden />
+                {t('list.printIdCards', { count: state.selectedIds.size })}
+              </Button>
+            )}
+            <Button type="button" variant="outline" onClick={() => void exportSelectedToCsv()}>
+              <DownloadIcon className="size-4" aria-hidden />
               {t('list.exportCsv')}
             </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              onClick={() => actions.setSelectedIds(new Set())}
-            >
+            <Button type="button" variant="ghost" onClick={() => actions.setSelectedIds(new Set())}>
+              <XIcon className="size-4" aria-hidden />
               {t('list.clearSelection')}
             </Button>
           </>
@@ -511,13 +591,14 @@ function StudentsListPage() {
           same permission-gated one-liner `students/import.tsx` links back
           from. */}
       {isEmpty && canManageBackup && (
-        <p className="mt-2 text-sm text-muted-foreground">
+        <p className="mt-2 text-muted-foreground">
           {tBackup('migrateWholeSchool')}{' '}
-          <Link to="/settings" className="text-primary underline">
+          <Link to="/settings" className="text-primary">
             {tBackup('migrateWholeSchoolLink')}
           </Link>
         </p>
       )}
+      <BulkPhotoDialog open={photosDialogOpen} onOpenChange={setPhotosDialogOpen} />
       <SendReminderDialog
         open={reminderDialogOpen}
         onOpenChange={setReminderDialogOpen}

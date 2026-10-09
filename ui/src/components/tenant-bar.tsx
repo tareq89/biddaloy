@@ -27,6 +27,7 @@
  */
 import type { UserRole } from '@biddaloy/shared';
 import { useQueryClient } from '@tanstack/react-query';
+import { ArrowLeftRightIcon } from 'lucide-react';
 import * as React from 'react';
 
 import { decodeAccessTokenMemberships } from '../api';
@@ -61,7 +62,11 @@ function membershipKey(m: SchoolOption): string {
   return `${m.tenantId}:${m.role}`;
 }
 
-export function TenantBar() {
+/** The whole switch flow (memberships, other schools/roles, the confirm dialog and its
+ * announcer), shared by `TenantBar` and `UserMenu`'s "Switch school or role" sub-menu.
+ * `overlay` must be rendered once by the caller, outside any portalled menu (a closing
+ * menu would unmount the dialog with it). `active === undefined` = render nothing. */
+export function useTenantSwitch() {
   const { t } = useTranslation('nav');
   // Role names live in `auth.json` (`schoolPicker.roles.*`) because
   // `school-picker.tsx` translated them first; [8.9.11] makes them
@@ -91,10 +96,24 @@ export function TenantBar() {
       m.tenantId === activeTenantId && (activeRole === null || (m.role as string) === activeRole),
   );
 
+  const roleLabel = (role: string): string => tAuth(`schoolPicker.roles.${role}`);
+
   // Nothing to show before a tenant is chosen, or if the decoded token
   // and the active tenant briefly disagree (a stale render mid-navigation)
   // — never render a half-correct chip.
-  if (!active) return null;
+  if (!active) {
+    return {
+      active: undefined,
+      activeName: '',
+      roleLabel,
+      schoolLabel: (): string => '',
+      otherSchools: [] as SchoolOption[],
+      rolesHere: [] as SchoolOption[],
+      canSwitch: false,
+      request: setPendingSwitch,
+      overlay: null as React.ReactNode,
+    };
+  }
 
   // A stale token from before `JwtMembership.name` existed (or issued just
   // before a rename propagated) can still be valid for up to its remaining
@@ -112,7 +131,6 @@ export function TenantBar() {
     (m) => m.tenantId === activeTenantId && membershipKey(m) !== activeKey,
   );
 
-  const roleLabel = (role: string): string => tAuth(`schoolPicker.roles.${role}`);
   /** Another school is normally named by its name alone. If the user holds
    * more than one role *there* too, the name alone would render the same
    * text twice — an ambiguous accessible name for two menu items that do
@@ -142,47 +160,8 @@ export function TenantBar() {
 
   const canSwitch = otherSchools.length > 0 || rolesHere.length > 0;
 
-  return (
-    <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-      <span className="truncate font-semibold text-foreground">{activeName}</span>
-      <span className="text-muted-foreground">{roleLabel(active.role)}</span>
-      {canSwitch && (
-        <Menu>
-          <MenuTrigger asChild>
-            <Button variant="outline" size="sm">
-              {rolesHere.length > 0
-                ? t('tenantBar.switchSchoolOrRole')
-                : t('tenantBar.switchSchool')}
-            </Button>
-          </MenuTrigger>
-          <MenuContent align="end">
-            {otherSchools.length > 0 && (
-              <>
-                <MenuLabel>{t('tenantBar.switchSchool')}</MenuLabel>
-                {otherSchools.map((school) => (
-                  <MenuItem key={membershipKey(school)} onSelect={() => setPendingSwitch(school)}>
-                    {schoolLabel(school)}
-                  </MenuItem>
-                ))}
-              </>
-            )}
-            {rolesHere.length > 0 && (
-              <>
-                <MenuLabel>{t('tenantBar.switchRole')}</MenuLabel>
-                {rolesHere.map((membership) => (
-                  <MenuItem
-                    key={membershipKey(membership)}
-                    onSelect={() => setPendingSwitch(membership)}
-                  >
-                    {roleLabel(membership.role)}
-                  </MenuItem>
-                ))}
-              </>
-            )}
-          </MenuContent>
-        </Menu>
-      )}
-
+  const overlay = (
+    <>
       <Dialog
         open={pendingSwitch !== null}
         onOpenChange={(open) => {
@@ -216,6 +195,86 @@ export function TenantBar() {
       <span className="sr-only" aria-live="polite">
         {announcement}
       </span>
+    </>
+  );
+
+  return {
+    active,
+    activeName,
+    roleLabel,
+    schoolLabel,
+    otherSchools,
+    rolesHere,
+    canSwitch,
+    request: setPendingSwitch,
+    overlay,
+  };
+}
+
+export function TenantBar() {
+  const { t } = useTranslation('nav');
+  const {
+    active,
+    activeName,
+    roleLabel,
+    schoolLabel,
+    otherSchools,
+    rolesHere,
+    canSwitch,
+    request,
+    overlay,
+  } = useTenantSwitch();
+
+  if (!active) return null;
+
+  return (
+    <div className="flex min-w-0 items-center gap-2">
+      <span className="min-w-0 truncate text-h3">{activeName}</span>
+      <span className="hidden shrink-0 rounded-full bg-muted px-2 py-0.5 text-caption text-text-secondary md:inline">
+        {roleLabel(active.role)}
+      </span>
+      {canSwitch && (
+        <Menu>
+          <MenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              iconOnly
+              className="size-11 shrink-0 text-text-secondary md:size-9"
+              aria-label={
+                rolesHere.length > 0
+                  ? t('tenantBar.switchSchoolOrRole')
+                  : t('tenantBar.switchSchool')
+              }
+            >
+              <ArrowLeftRightIcon />
+            </Button>
+          </MenuTrigger>
+          <MenuContent align="end">
+            {otherSchools.length > 0 && (
+              <>
+                <MenuLabel>{t('tenantBar.switchSchool')}</MenuLabel>
+                {otherSchools.map((school) => (
+                  <MenuItem key={membershipKey(school)} onSelect={() => request(school)}>
+                    {schoolLabel(school)}
+                  </MenuItem>
+                ))}
+              </>
+            )}
+            {rolesHere.length > 0 && (
+              <>
+                <MenuLabel>{t('tenantBar.switchRole')}</MenuLabel>
+                {rolesHere.map((membership) => (
+                  <MenuItem key={membershipKey(membership)} onSelect={() => request(membership)}>
+                    {roleLabel(membership.role)}
+                  </MenuItem>
+                ))}
+              </>
+            )}
+          </MenuContent>
+        </Menu>
+      )}
+      {overlay}
     </div>
   );
 }

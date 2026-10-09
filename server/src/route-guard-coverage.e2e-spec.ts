@@ -222,11 +222,123 @@ const ALLOWLIST: AllowlistEntry[] = [
       '[#666] the share token itself is the credential and carries its own tenant scope (InvoiceShareService.validatePublicToken) — there is no JWT, no user, and no X-Tenant-ID on this path at all, same no-guards rationale as /auth/activate*. Throttled instead via PUBLIC_INVOICE_RATE_LIMIT.',
   },
   {
+    controller: 'PublicVerifyController',
+    method: 'GET',
+    path: '/public/verify/:token',
+    reason:
+      '[32.2.5] D22 — the printed QR token is the credential; the tenant is resolved from the token row (PublicVerifyService hashes it and looks it up), so there is no JWT, user or X-Tenant-ID. Returns only the allowlisted fields (spec-enforced) and is throttled via PUBLIC_VERIFY_RATE_LIMIT.',
+  },
+  {
     controller: 'CalendarFeedPublicController',
     method: 'GET',
     path: '/calendar/feed/:token.ics',
     reason:
       '[17.4.1] D13 — per-user feed token itself is the credential and carries its own tenant scope (CalendarFeedService.render resolves tenant + user from the token row, 404s on unknown/revoked/deactivated); the link is opened by a phone calendar app with no login, so there is no JWT, no user and no X-Tenant-ID on this path at all — same no-guards rationale as /public/invoices/:token. Throttled instead via CALENDAR_FEED_RATE_LIMIT.',
+  },
+  {
+    controller: 'PublicAdmissionController',
+    method: 'GET',
+    path: '/public/admission/:slug',
+    reason:
+      "[27.2] Anyone can view a school's open admission intakes without logging in — the `:slug` in the URL is the sole tenant signal (AdmissionApplicantService.listOpenIntakes resolves and scopes by it), same no-guards rationale as /public/invoices/:token.",
+  },
+  {
+    controller: 'PublicAdmissionController',
+    method: 'POST',
+    path: '/public/admission/:slug/applicants',
+    reason:
+      '[27.2] D9/D14 — public unauthenticated admission submission, tenant resolved from `:slug` inside AdmissionApplicantService.submit, same no-guards rationale as GET /public/admission/:slug. Throttled via STRICT_RATE_LIMIT (5/min).',
+  },
+  {
+    controller: 'PublicAdmissionController',
+    method: 'POST',
+    path: '/public/admission/:slug/status',
+    reason:
+      '[27.7] Reference number + guardian phone is the credential; tenant resolved from `:slug`. Wrong or unknown either one 404s identically. Throttled via ADMISSION_STATUS_RATE_LIMIT.',
+  },
+  {
+    controller: 'FirstPasswordController',
+    method: 'POST',
+    path: '/account/first-password',
+    reason:
+      "[13.2.2] Bearer-authenticated but tenant-agnostic — sets only the caller's own first password, identified solely by user.sub (AuthGuard(jwt) only, same rationale as /auth/change-password).",
+  },
+  {
+    controller: 'SocialAuthController',
+    method: 'GET',
+    path: '/auth/social/providers',
+    reason:
+      '[13.2.4] Public, read-only list of configured sign-in providers — no user or tenant data (D41).',
+  },
+  {
+    controller: 'SocialAuthController',
+    method: 'GET',
+    path: '/auth/social/:provider/start',
+    reason:
+      '[13.2.4] Public start of the OAuth authorization-code flow — nothing to authenticate yet; state + PKCE stored server-side and bound to an httpOnly cookie. Throttled via STRICT_RATE_LIMIT.',
+  },
+  {
+    controller: 'SocialAuthController',
+    method: 'GET',
+    path: '/auth/social/:provider/callback',
+    reason:
+      '[13.2.4] Public OAuth redirect target — the single-use state (Redis GETDEL + cookie + provider) is the credential, same rationale as /auth/login. Throttled via STRICT_RATE_LIMIT.',
+  },
+  {
+    controller: 'SocialAuthController',
+    method: 'GET',
+    path: '/auth/social/identities',
+    reason:
+      "[13.2.4] Bearer-authenticated but tenant-agnostic — lists the caller's own sign-in identities, identified solely by user.sub (AuthGuard(jwt) only, same rationale as /auth/sessions).",
+  },
+  {
+    controller: 'SocialAuthController',
+    method: 'DELETE',
+    path: '/auth/social/identities/:provider',
+    reason:
+      "[13.2.4] Bearer-authenticated but tenant-agnostic — disconnects one of the caller's own identities, identified solely by user.sub; the last sign-in method is refused with 409 (AuthGuard(jwt) only).",
+  },
+  {
+    controller: 'SocialAuthController',
+    method: 'POST',
+    path: '/auth/social/:provider/link-start',
+    reason:
+      "[13.2.4] Bearer-authenticated but tenant-agnostic — starts connecting a provider to the caller's own account, identified solely by user.sub (AuthGuard(jwt) only).",
+  },
+  {
+    controller: 'SocialAuthController',
+    method: 'POST',
+    path: '/auth/social/facebook/data-deletion',
+    reason:
+      "[13.7.1] Meta's server-to-server data-deletion callback — the HMAC-signed signed_request (app secret) is the credential; deletes only the matching Facebook identity row. Default throttle tier so Meta is not turned away.",
+  },
+  {
+    controller: 'SocialAuthController',
+    method: 'GET',
+    path: '/auth/social/facebook/data-deletion/status',
+    reason:
+      '[13.7.1] Public static confirmation page Meta links the person to — echoes the UUID-validated code, no lookup, no user or tenant data, strict CSP.',
+  },
+  {
+    controller: 'RegistrationController',
+    method: 'POST',
+    path: '/auth/register/start',
+    reason:
+      '[13.3.1] Public, unauthenticated — stages the registrant details and sends a code; Turnstile-checked, STRICT throttle, same response for known and unknown contacts.',
+  },
+  {
+    controller: 'RegistrationController',
+    method: 'POST',
+    path: '/auth/register/resend',
+    reason:
+      '[13.3.1] Public, unauthenticated — resends the code for a staged registration_id; STRICT throttle and a per-registration resend cap.',
+  },
+  {
+    controller: 'RegistrationController',
+    method: 'POST',
+    path: '/auth/register/verify',
+    reason:
+      '[13.3.1] Public, unauthenticated — checks the code and creates the school in trial; STRICT throttle, 5-attempt lock, single-use stage.',
   },
 ];
 

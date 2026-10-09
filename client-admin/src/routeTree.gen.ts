@@ -16,20 +16,30 @@ import { Route as ActivateRouteImport } from './routes/activate'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as PortalRouteImport } from './routes/portal'
+import { Route as RegisterRouteImport } from './routes/register'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as SelectSchoolRouteImport } from './routes/select-school'
 import { Route as VerifyEmailRouteImport } from './routes/verify-email'
+import { Route as StaffCurriculumPresetRouteImport } from './routes/_staff/curriculum-preset'
 import { Route as StaffDashboardRouteImport } from './routes/_staff/dashboard'
 import { Route as StaffFeesRouteImport } from './routes/_staff/fees'
 import { Route as StaffNotificationsRouteImport } from './routes/_staff/notifications'
 import { Route as StaffSecurityRouteImport } from './routes/_staff/security'
 import { Route as StaffSettingsRouteImport } from './routes/_staff/settings'
+import { Route as StaffWelcomeRouteImport } from './routes/_staff/welcome'
 import { Route as ITokenRouteImport } from './routes/i/$token'
 import { Route as PortalIndexRouteImport } from './routes/portal/index'
 import { Route as PortalAccountRouteImport } from './routes/portal/account'
 import { Route as PortalAttendanceRouteImport } from './routes/portal/attendance'
 import { Route as PortalCalendarRouteImport } from './routes/portal/calendar'
+import { Route as PortalExamScheduleRouteImport } from './routes/portal/exam-schedule'
 import { Route as PortalFeesRouteImport } from './routes/portal/fees'
+import { Route as PortalProgramsRouteImport } from './routes/portal/programs'
+import { Route as PortalResultsRouteImport } from './routes/portal/results'
+import { Route as PortalRoutineRouteImport } from './routes/portal/routine'
+import { Route as PortalSurveysRouteImport } from './routes/portal/surveys'
+import { Route as PortalSyllabusRouteImport } from './routes/portal/syllabus'
+import { Route as VTokenRouteImport } from './routes/v/$token'
 import { Route as PlatformHolidaySetsIndexRouteImport } from './routes/_platform/holiday-sets/index'
 import { Route as PlatformHolidaySetsSetIdRouteImport } from './routes/_platform/holiday-sets/$setId'
 import { Route as PlatformSchoolsIndexRouteImport } from './routes/_platform/schools/index'
@@ -37,6 +47,7 @@ import { Route as PlatformSchoolsSchoolIdRouteImport } from './routes/_platform/
 import { Route as PlatformSchoolsNewRouteImport } from './routes/_platform/schools/new'
 import { Route as StaffAcademicYearsIndexRouteImport } from './routes/_staff/academic-years/index'
 import { Route as StaffAcademicYearsAcademicYearIdRouteImport } from './routes/_staff/academic-years/$academicYearId'
+import { Route as StaffAnalysisIndexRouteImport } from './routes/_staff/analysis/index'
 import { Route as StaffAttendanceIndexRouteImport } from './routes/_staff/attendance/index'
 import { Route as StaffAttendanceSectionIdRouteImport } from './routes/_staff/attendance/$sectionId'
 import { Route as StaffAttendanceRegisterRouteImport } from './routes/_staff/attendance/register'
@@ -48,6 +59,8 @@ import { Route as StaffClassesIndexRouteImport } from './routes/_staff/classes/i
 import { Route as StaffClassesClassIdRouteImport } from './routes/_staff/classes/$classId'
 import { Route as StaffCommunicationsRemindersRouteImport } from './routes/_staff/communications/reminders'
 import { Route as StaffCommunicationsSendRouteImport } from './routes/_staff/communications/send'
+import { Route as StaffExamsIndexRouteImport } from './routes/_staff/exams/index'
+import { Route as StaffExamsExamIdRouteImport } from './routes/_staff/exams/$examId'
 import { Route as StaffFeeStructuresIndexRouteImport } from './routes/_staff/fee-structures/index'
 import { Route as StaffFeesIndexRouteImport } from './routes/_staff/fees/index'
 import { Route as StaffFeesDuesRouteImport } from './routes/_staff/fees/dues'
@@ -58,21 +71,69 @@ import { Route as StaffGuardiansIndexRouteImport } from './routes/_staff/guardia
 import { Route as StaffGuardiansGuardianIdRouteImport } from './routes/_staff/guardians/$guardianId'
 import { Route as StaffInvoicesIndexRouteImport } from './routes/_staff/invoices/index'
 import { Route as StaffInvoicesInvoiceIdRouteImport } from './routes/_staff/invoices/$invoiceId'
+import { Route as StaffMarksIndexRouteImport } from './routes/_staff/marks/index'
+import { Route as StaffMyClassIndexRouteImport } from './routes/_staff/my-class/index'
+import { Route as StaffMyClassSectionIdRouteImport } from './routes/_staff/my-class/$sectionId'
 import { Route as StaffPaymentsIndexRouteImport } from './routes/_staff/payments/index'
 import { Route as StaffPaymentsIdRouteImport } from './routes/_staff/payments/$id'
 import { Route as StaffPaymentsRecordRouteImport } from './routes/_staff/payments/record'
+import { Route as StaffPrintTemplatesIndexRouteImport } from './routes/_staff/print-templates/index'
+import { Route as StaffPrintPreviewRouteImport } from './routes/_staff/print/preview'
+import { Route as StaffProgramsIndexRouteImport } from './routes/_staff/programs/index'
+import { Route as StaffProgramsProgramIdRouteImport } from './routes/_staff/programs/$programId'
+import { Route as StaffPromotionsIndexRouteImport } from './routes/_staff/promotions/index'
+import { Route as StaffPromotionsRunIdRouteImport } from './routes/_staff/promotions/$runId'
+import { Route as StaffPromotionsNewRouteImport } from './routes/_staff/promotions/new'
 import { Route as StaffReportsCollectionsRouteImport } from './routes/_staff/reports/collections'
+import { Route as StaffReportsPrintablesRouteImport } from './routes/_staff/reports/printables'
+import { Route as StaffResultsIndexRouteImport } from './routes/_staff/results/index'
+import { Route as StaffRolesIndexRouteImport } from './routes/_staff/roles/index'
+import { Route as StaffRoutinesIndexRouteImport } from './routes/_staff/routines/index'
+import { Route as StaffRoutinesSectionIdRouteImport } from './routes/_staff/routines/$sectionId'
+import { Route as StaffRoutinesMyRouteImport } from './routes/_staff/routines/my'
+import { Route as StaffRoutinesReviewRouteImport } from './routes/_staff/routines/review'
+import { Route as StaffRoutinesSetupRouteImport } from './routes/_staff/routines/setup'
+import { Route as StaffRoutinesSubstitutionsRouteImport } from './routes/_staff/routines/substitutions'
 import { Route as StaffStaffIndexRouteImport } from './routes/_staff/staff/index'
 import { Route as StaffStaffUserIdRouteImport } from './routes/_staff/staff/$userId'
+import { Route as StaffStaffEvaluationsRouteImport } from './routes/_staff/staff/evaluations'
+import { Route as StaffStaffImportRouteImport } from './routes/_staff/staff/import'
+import { Route as StaffStaffTeachingAssignmentsRouteImport } from './routes/_staff/staff/teaching-assignments'
 import { Route as StaffStudentsIndexRouteImport } from './routes/_staff/students/index'
 import { Route as StaffStudentsStudentIdRouteImport } from './routes/_staff/students/$studentId'
 import { Route as StaffStudentsImportRouteImport } from './routes/_staff/students/import'
 import { Route as StaffStudentsNewRouteImport } from './routes/_staff/students/new'
+import { Route as AdmissionSlugIndexRouteImport } from './routes/admission/$slug/index'
+import { Route as AdmissionSlugStatusRouteImport } from './routes/admission/$slug/status'
+import { Route as AuthSocialDoneRouteImport } from './routes/auth.social.done'
+import { Route as StaffAcademicsHomeworkIndexRouteImport } from './routes/_staff/academics/homework/index'
+import { Route as StaffAcademicsHomeworkHomeworkIdRouteImport } from './routes/_staff/academics/homework/$homeworkId'
+import { Route as StaffAcademicsHomeworkImportRouteImport } from './routes/_staff/academics/homework/import'
+import { Route as StaffAcademicsHomeworkNewRouteImport } from './routes/_staff/academics/homework/new'
+import { Route as StaffAcademicsSyllabusIndexRouteImport } from './routes/_staff/academics/syllabus/index'
+import { Route as StaffAdmissionsApplicantsIndexRouteImport } from './routes/_staff/admissions/applicants/index'
+import { Route as StaffAdmissionsApplicantsApplicantIdRouteImport } from './routes/_staff/admissions/applicants/$applicantId'
+import { Route as StaffAdmissionsIntakesIndexRouteImport } from './routes/_staff/admissions/intakes/index'
+import { Route as StaffAdmissionsIntakesIntakeIdRouteImport } from './routes/_staff/admissions/intakes/$intakeId'
+import { Route as StaffAdmissionsReportsIndexRouteImport } from './routes/_staff/admissions/reports/index'
+import { Route as StaffAttendanceStaffIndexRouteImport } from './routes/_staff/attendance/staff/index'
+import { Route as StaffAttendanceStaffLeaveRouteImport } from './routes/_staff/attendance/staff/leave'
 import { Route as StaffCommunicationsBatchesIndexRouteImport } from './routes/_staff/communications/batches/index'
 import { Route as StaffCommunicationsBatchesBatchIdRouteImport } from './routes/_staff/communications/batches/$batchId'
+import { Route as StaffExamsSeatPlansIndexRouteImport } from './routes/_staff/exams/seat-plans/index'
+import { Route as StaffExamsSeatPlansPlanIdRouteImport } from './routes/_staff/exams/seat-plans/$planId'
+import { Route as StaffExamsTemplatesIndexRouteImport } from './routes/_staff/exams/templates/index'
+import { Route as StaffExamsTemplatesTemplateIdRouteImport } from './routes/_staff/exams/templates/$templateId'
+import { Route as StaffFeesFinesIndexRouteImport } from './routes/_staff/fees/fines/index'
+import { Route as StaffFeesFinesRulesRouteImport } from './routes/_staff/fees/fines/rules'
 import { Route as StaffFeesSchedulesIndexRouteImport } from './routes/_staff/fees/schedules/index'
 import { Route as StaffFeesSchedulesIdRouteImport } from './routes/_staff/fees/schedules/$id'
+import { Route as StaffPrintTemplatesTemplateIdEditRouteImport } from './routes/_staff/print-templates/$templateId.edit'
+import { Route as StaffResultsExamIdStudentIdRouteImport } from './routes/_staff/results/$examId.$studentId'
 import { Route as StaffStudentsStudentIdEditRouteImport } from './routes/_staff/students/$studentId_.edit'
+import { Route as StaffMarksExamIdSectionIdSubjectIdRouteImport } from './routes/_staff/marks/$examId.$sectionId.$subjectId'
+import { Route as StaffStaffUserIdAcrAssessmentIdRouteImport } from './routes/_staff/staff/$userId_.acr.$assessmentId'
+import { Route as StaffStaffEvaluationsSurveysSurveyIdRouteImport } from './routes/_staff/staff/evaluations_.surveys.$surveyId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -107,6 +168,11 @@ const PortalRoute = PortalRouteImport.update({
   path: '/portal',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RegisterRoute = RegisterRouteImport.update({
+  id: '/register',
+  path: '/register',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
   id: '/reset-password',
   path: '/reset-password',
@@ -121,6 +187,11 @@ const VerifyEmailRoute = VerifyEmailRouteImport.update({
   id: '/verify-email',
   path: '/verify-email',
   getParentRoute: () => rootRouteImport,
+} as any)
+const StaffCurriculumPresetRoute = StaffCurriculumPresetRouteImport.update({
+  id: '/curriculum-preset',
+  path: '/curriculum-preset',
+  getParentRoute: () => StaffRoute,
 } as any)
 const StaffDashboardRoute = StaffDashboardRouteImport.update({
   id: '/dashboard',
@@ -145,6 +216,11 @@ const StaffSecurityRoute = StaffSecurityRouteImport.update({
 const StaffSettingsRoute = StaffSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => StaffRoute,
+} as any)
+const StaffWelcomeRoute = StaffWelcomeRouteImport.update({
+  id: '/welcome',
+  path: '/welcome',
   getParentRoute: () => StaffRoute,
 } as any)
 const ITokenRoute = ITokenRouteImport.update({
@@ -172,10 +248,45 @@ const PortalCalendarRoute = PortalCalendarRouteImport.update({
   path: '/calendar',
   getParentRoute: () => PortalRoute,
 } as any)
+const PortalExamScheduleRoute = PortalExamScheduleRouteImport.update({
+  id: '/exam-schedule',
+  path: '/exam-schedule',
+  getParentRoute: () => PortalRoute,
+} as any)
 const PortalFeesRoute = PortalFeesRouteImport.update({
   id: '/fees',
   path: '/fees',
   getParentRoute: () => PortalRoute,
+} as any)
+const PortalProgramsRoute = PortalProgramsRouteImport.update({
+  id: '/programs',
+  path: '/programs',
+  getParentRoute: () => PortalRoute,
+} as any)
+const PortalResultsRoute = PortalResultsRouteImport.update({
+  id: '/results',
+  path: '/results',
+  getParentRoute: () => PortalRoute,
+} as any)
+const PortalRoutineRoute = PortalRoutineRouteImport.update({
+  id: '/routine',
+  path: '/routine',
+  getParentRoute: () => PortalRoute,
+} as any)
+const PortalSurveysRoute = PortalSurveysRouteImport.update({
+  id: '/surveys',
+  path: '/surveys',
+  getParentRoute: () => PortalRoute,
+} as any)
+const PortalSyllabusRoute = PortalSyllabusRouteImport.update({
+  id: '/syllabus',
+  path: '/syllabus',
+  getParentRoute: () => PortalRoute,
+} as any)
+const VTokenRoute = VTokenRouteImport.update({
+  id: '/v/$token',
+  path: '/v/$token',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const PlatformHolidaySetsIndexRoute =
   PlatformHolidaySetsIndexRouteImport.update({
@@ -215,6 +326,11 @@ const StaffAcademicYearsAcademicYearIdRoute =
     path: '/academic-years/$academicYearId',
     getParentRoute: () => StaffRoute,
   } as any)
+const StaffAnalysisIndexRoute = StaffAnalysisIndexRouteImport.update({
+  id: '/analysis/',
+  path: '/analysis/',
+  getParentRoute: () => StaffRoute,
+} as any)
 const StaffAttendanceIndexRoute = StaffAttendanceIndexRouteImport.update({
   id: '/attendance/',
   path: '/attendance/',
@@ -272,6 +388,16 @@ const StaffCommunicationsSendRoute = StaffCommunicationsSendRouteImport.update({
   path: '/communications/send',
   getParentRoute: () => StaffRoute,
 } as any)
+const StaffExamsIndexRoute = StaffExamsIndexRouteImport.update({
+  id: '/exams/',
+  path: '/exams/',
+  getParentRoute: () => StaffRoute,
+} as any)
+const StaffExamsExamIdRoute = StaffExamsExamIdRouteImport.update({
+  id: '/exams/$examId',
+  path: '/exams/$examId',
+  getParentRoute: () => StaffRoute,
+} as any)
 const StaffFeeStructuresIndexRoute = StaffFeeStructuresIndexRouteImport.update({
   id: '/fee-structures/',
   path: '/fee-structures/',
@@ -324,6 +450,21 @@ const StaffInvoicesInvoiceIdRoute = StaffInvoicesInvoiceIdRouteImport.update({
   path: '/invoices/$invoiceId',
   getParentRoute: () => StaffRoute,
 } as any)
+const StaffMarksIndexRoute = StaffMarksIndexRouteImport.update({
+  id: '/marks/',
+  path: '/marks/',
+  getParentRoute: () => StaffRoute,
+} as any)
+const StaffMyClassIndexRoute = StaffMyClassIndexRouteImport.update({
+  id: '/my-class/',
+  path: '/my-class/',
+  getParentRoute: () => StaffRoute,
+} as any)
+const StaffMyClassSectionIdRoute = StaffMyClassSectionIdRouteImport.update({
+  id: '/my-class/$sectionId',
+  path: '/my-class/$sectionId',
+  getParentRoute: () => StaffRoute,
+} as any)
 const StaffPaymentsIndexRoute = StaffPaymentsIndexRouteImport.update({
   id: '/payments/',
   path: '/payments/',
@@ -339,11 +480,93 @@ const StaffPaymentsRecordRoute = StaffPaymentsRecordRouteImport.update({
   path: '/payments/record',
   getParentRoute: () => StaffRoute,
 } as any)
+const StaffPrintTemplatesIndexRoute =
+  StaffPrintTemplatesIndexRouteImport.update({
+    id: '/print-templates/',
+    path: '/print-templates/',
+    getParentRoute: () => StaffRoute,
+  } as any)
+const StaffPrintPreviewRoute = StaffPrintPreviewRouteImport.update({
+  id: '/print/preview',
+  path: '/print/preview',
+  getParentRoute: () => StaffRoute,
+} as any)
+const StaffProgramsIndexRoute = StaffProgramsIndexRouteImport.update({
+  id: '/programs/',
+  path: '/programs/',
+  getParentRoute: () => StaffRoute,
+} as any)
+const StaffProgramsProgramIdRoute = StaffProgramsProgramIdRouteImport.update({
+  id: '/programs/$programId',
+  path: '/programs/$programId',
+  getParentRoute: () => StaffRoute,
+} as any)
+const StaffPromotionsIndexRoute = StaffPromotionsIndexRouteImport.update({
+  id: '/promotions/',
+  path: '/promotions/',
+  getParentRoute: () => StaffRoute,
+} as any)
+const StaffPromotionsRunIdRoute = StaffPromotionsRunIdRouteImport.update({
+  id: '/promotions/$runId',
+  path: '/promotions/$runId',
+  getParentRoute: () => StaffRoute,
+} as any)
+const StaffPromotionsNewRoute = StaffPromotionsNewRouteImport.update({
+  id: '/promotions/new',
+  path: '/promotions/new',
+  getParentRoute: () => StaffRoute,
+} as any)
 const StaffReportsCollectionsRoute = StaffReportsCollectionsRouteImport.update({
   id: '/reports/collections',
   path: '/reports/collections',
   getParentRoute: () => StaffRoute,
 } as any)
+const StaffReportsPrintablesRoute = StaffReportsPrintablesRouteImport.update({
+  id: '/reports/printables',
+  path: '/reports/printables',
+  getParentRoute: () => StaffRoute,
+} as any)
+const StaffResultsIndexRoute = StaffResultsIndexRouteImport.update({
+  id: '/results/',
+  path: '/results/',
+  getParentRoute: () => StaffRoute,
+} as any)
+const StaffRolesIndexRoute = StaffRolesIndexRouteImport.update({
+  id: '/roles/',
+  path: '/roles/',
+  getParentRoute: () => StaffRoute,
+} as any)
+const StaffRoutinesIndexRoute = StaffRoutinesIndexRouteImport.update({
+  id: '/routines/',
+  path: '/routines/',
+  getParentRoute: () => StaffRoute,
+} as any)
+const StaffRoutinesSectionIdRoute = StaffRoutinesSectionIdRouteImport.update({
+  id: '/routines/$sectionId',
+  path: '/routines/$sectionId',
+  getParentRoute: () => StaffRoute,
+} as any)
+const StaffRoutinesMyRoute = StaffRoutinesMyRouteImport.update({
+  id: '/routines/my',
+  path: '/routines/my',
+  getParentRoute: () => StaffRoute,
+} as any)
+const StaffRoutinesReviewRoute = StaffRoutinesReviewRouteImport.update({
+  id: '/routines/review',
+  path: '/routines/review',
+  getParentRoute: () => StaffRoute,
+} as any)
+const StaffRoutinesSetupRoute = StaffRoutinesSetupRouteImport.update({
+  id: '/routines/setup',
+  path: '/routines/setup',
+  getParentRoute: () => StaffRoute,
+} as any)
+const StaffRoutinesSubstitutionsRoute =
+  StaffRoutinesSubstitutionsRouteImport.update({
+    id: '/routines/substitutions',
+    path: '/routines/substitutions',
+    getParentRoute: () => StaffRoute,
+  } as any)
 const StaffStaffIndexRoute = StaffStaffIndexRouteImport.update({
   id: '/staff/',
   path: '/staff/',
@@ -354,6 +577,22 @@ const StaffStaffUserIdRoute = StaffStaffUserIdRouteImport.update({
   path: '/staff/$userId',
   getParentRoute: () => StaffRoute,
 } as any)
+const StaffStaffEvaluationsRoute = StaffStaffEvaluationsRouteImport.update({
+  id: '/staff/evaluations',
+  path: '/staff/evaluations',
+  getParentRoute: () => StaffRoute,
+} as any)
+const StaffStaffImportRoute = StaffStaffImportRouteImport.update({
+  id: '/staff/import',
+  path: '/staff/import',
+  getParentRoute: () => StaffRoute,
+} as any)
+const StaffStaffTeachingAssignmentsRoute =
+  StaffStaffTeachingAssignmentsRouteImport.update({
+    id: '/staff/teaching-assignments',
+    path: '/staff/teaching-assignments',
+    getParentRoute: () => StaffRoute,
+  } as any)
 const StaffStudentsIndexRoute = StaffStudentsIndexRouteImport.update({
   id: '/students/',
   path: '/students/',
@@ -374,6 +613,93 @@ const StaffStudentsNewRoute = StaffStudentsNewRouteImport.update({
   path: '/students/new',
   getParentRoute: () => StaffRoute,
 } as any)
+const AdmissionSlugIndexRoute = AdmissionSlugIndexRouteImport.update({
+  id: '/admission/$slug/',
+  path: '/admission/$slug/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdmissionSlugStatusRoute = AdmissionSlugStatusRouteImport.update({
+  id: '/admission/$slug/status',
+  path: '/admission/$slug/status',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthSocialDoneRoute = AuthSocialDoneRouteImport.update({
+  id: '/auth/social/done',
+  path: '/auth/social/done',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StaffAcademicsHomeworkIndexRoute =
+  StaffAcademicsHomeworkIndexRouteImport.update({
+    id: '/academics/homework/',
+    path: '/academics/homework/',
+    getParentRoute: () => StaffRoute,
+  } as any)
+const StaffAcademicsHomeworkHomeworkIdRoute =
+  StaffAcademicsHomeworkHomeworkIdRouteImport.update({
+    id: '/academics/homework/$homeworkId',
+    path: '/academics/homework/$homeworkId',
+    getParentRoute: () => StaffRoute,
+  } as any)
+const StaffAcademicsHomeworkImportRoute =
+  StaffAcademicsHomeworkImportRouteImport.update({
+    id: '/academics/homework/import',
+    path: '/academics/homework/import',
+    getParentRoute: () => StaffRoute,
+  } as any)
+const StaffAcademicsHomeworkNewRoute =
+  StaffAcademicsHomeworkNewRouteImport.update({
+    id: '/academics/homework/new',
+    path: '/academics/homework/new',
+    getParentRoute: () => StaffRoute,
+  } as any)
+const StaffAcademicsSyllabusIndexRoute =
+  StaffAcademicsSyllabusIndexRouteImport.update({
+    id: '/academics/syllabus/',
+    path: '/academics/syllabus/',
+    getParentRoute: () => StaffRoute,
+  } as any)
+const StaffAdmissionsApplicantsIndexRoute =
+  StaffAdmissionsApplicantsIndexRouteImport.update({
+    id: '/admissions/applicants/',
+    path: '/admissions/applicants/',
+    getParentRoute: () => StaffRoute,
+  } as any)
+const StaffAdmissionsApplicantsApplicantIdRoute =
+  StaffAdmissionsApplicantsApplicantIdRouteImport.update({
+    id: '/admissions/applicants/$applicantId',
+    path: '/admissions/applicants/$applicantId',
+    getParentRoute: () => StaffRoute,
+  } as any)
+const StaffAdmissionsIntakesIndexRoute =
+  StaffAdmissionsIntakesIndexRouteImport.update({
+    id: '/admissions/intakes/',
+    path: '/admissions/intakes/',
+    getParentRoute: () => StaffRoute,
+  } as any)
+const StaffAdmissionsIntakesIntakeIdRoute =
+  StaffAdmissionsIntakesIntakeIdRouteImport.update({
+    id: '/admissions/intakes/$intakeId',
+    path: '/admissions/intakes/$intakeId',
+    getParentRoute: () => StaffRoute,
+  } as any)
+const StaffAdmissionsReportsIndexRoute =
+  StaffAdmissionsReportsIndexRouteImport.update({
+    id: '/admissions/reports/',
+    path: '/admissions/reports/',
+    getParentRoute: () => StaffRoute,
+  } as any)
+const StaffAttendanceStaffIndexRoute =
+  StaffAttendanceStaffIndexRouteImport.update({
+    id: '/attendance/staff/',
+    path: '/attendance/staff/',
+    getParentRoute: () => StaffRoute,
+  } as any)
+const StaffAttendanceStaffLeaveRoute =
+  StaffAttendanceStaffLeaveRouteImport.update({
+    id: '/attendance/staff/leave',
+    path: '/attendance/staff/leave',
+    getParentRoute: () => StaffRoute,
+  } as any)
 const StaffCommunicationsBatchesIndexRoute =
   StaffCommunicationsBatchesIndexRouteImport.update({
     id: '/communications/batches/',
@@ -386,6 +712,40 @@ const StaffCommunicationsBatchesBatchIdRoute =
     path: '/communications/batches/$batchId',
     getParentRoute: () => StaffRoute,
   } as any)
+const StaffExamsSeatPlansIndexRoute =
+  StaffExamsSeatPlansIndexRouteImport.update({
+    id: '/exams/seat-plans/',
+    path: '/exams/seat-plans/',
+    getParentRoute: () => StaffRoute,
+  } as any)
+const StaffExamsSeatPlansPlanIdRoute =
+  StaffExamsSeatPlansPlanIdRouteImport.update({
+    id: '/exams/seat-plans/$planId',
+    path: '/exams/seat-plans/$planId',
+    getParentRoute: () => StaffRoute,
+  } as any)
+const StaffExamsTemplatesIndexRoute =
+  StaffExamsTemplatesIndexRouteImport.update({
+    id: '/exams/templates/',
+    path: '/exams/templates/',
+    getParentRoute: () => StaffRoute,
+  } as any)
+const StaffExamsTemplatesTemplateIdRoute =
+  StaffExamsTemplatesTemplateIdRouteImport.update({
+    id: '/exams/templates/$templateId',
+    path: '/exams/templates/$templateId',
+    getParentRoute: () => StaffRoute,
+  } as any)
+const StaffFeesFinesIndexRoute = StaffFeesFinesIndexRouteImport.update({
+  id: '/fines/',
+  path: '/fines/',
+  getParentRoute: () => StaffFeesRoute,
+} as any)
+const StaffFeesFinesRulesRoute = StaffFeesFinesRulesRouteImport.update({
+  id: '/fines/rules',
+  path: '/fines/rules',
+  getParentRoute: () => StaffFeesRoute,
+} as any)
 const StaffFeesSchedulesIndexRoute = StaffFeesSchedulesIndexRouteImport.update({
   id: '/schedules/',
   path: '/schedules/',
@@ -396,10 +756,40 @@ const StaffFeesSchedulesIdRoute = StaffFeesSchedulesIdRouteImport.update({
   path: '/schedules/$id',
   getParentRoute: () => StaffFeesRoute,
 } as any)
+const StaffPrintTemplatesTemplateIdEditRoute =
+  StaffPrintTemplatesTemplateIdEditRouteImport.update({
+    id: '/print-templates/$templateId/edit',
+    path: '/print-templates/$templateId/edit',
+    getParentRoute: () => StaffRoute,
+  } as any)
+const StaffResultsExamIdStudentIdRoute =
+  StaffResultsExamIdStudentIdRouteImport.update({
+    id: '/results/$examId/$studentId',
+    path: '/results/$examId/$studentId',
+    getParentRoute: () => StaffRoute,
+  } as any)
 const StaffStudentsStudentIdEditRoute =
   StaffStudentsStudentIdEditRouteImport.update({
     id: '/students/$studentId_/edit',
     path: '/students/$studentId/edit',
+    getParentRoute: () => StaffRoute,
+  } as any)
+const StaffMarksExamIdSectionIdSubjectIdRoute =
+  StaffMarksExamIdSectionIdSubjectIdRouteImport.update({
+    id: '/marks/$examId/$sectionId/$subjectId',
+    path: '/marks/$examId/$sectionId/$subjectId',
+    getParentRoute: () => StaffRoute,
+  } as any)
+const StaffStaffUserIdAcrAssessmentIdRoute =
+  StaffStaffUserIdAcrAssessmentIdRouteImport.update({
+    id: '/staff/$userId_/acr/$assessmentId',
+    path: '/staff/$userId/acr/$assessmentId',
+    getParentRoute: () => StaffRoute,
+  } as any)
+const StaffStaffEvaluationsSurveysSurveyIdRoute =
+  StaffStaffEvaluationsSurveysSurveyIdRouteImport.update({
+    id: '/staff/evaluations_/surveys/$surveyId',
+    path: '/staff/evaluations/surveys/$surveyId',
     getParentRoute: () => StaffRoute,
   } as any)
 
@@ -409,19 +799,29 @@ export interface FileRoutesByFullPath {
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/portal': typeof PortalRouteWithChildren
+  '/register': typeof RegisterRoute
   '/reset-password': typeof ResetPasswordRoute
   '/select-school': typeof SelectSchoolRoute
   '/verify-email': typeof VerifyEmailRoute
+  '/curriculum-preset': typeof StaffCurriculumPresetRoute
   '/dashboard': typeof StaffDashboardRoute
   '/fees': typeof StaffFeesRouteWithChildren
   '/notifications': typeof StaffNotificationsRoute
   '/security': typeof StaffSecurityRoute
   '/settings': typeof StaffSettingsRoute
+  '/welcome': typeof StaffWelcomeRoute
   '/i/$token': typeof ITokenRoute
   '/portal/account': typeof PortalAccountRoute
   '/portal/attendance': typeof PortalAttendanceRoute
   '/portal/calendar': typeof PortalCalendarRoute
+  '/portal/exam-schedule': typeof PortalExamScheduleRoute
   '/portal/fees': typeof PortalFeesRoute
+  '/portal/programs': typeof PortalProgramsRoute
+  '/portal/results': typeof PortalResultsRoute
+  '/portal/routine': typeof PortalRoutineRoute
+  '/portal/surveys': typeof PortalSurveysRoute
+  '/portal/syllabus': typeof PortalSyllabusRoute
+  '/v/$token': typeof VTokenRoute
   '/portal/': typeof PortalIndexRoute
   '/holiday-sets/$setId': typeof PlatformHolidaySetsSetIdRoute
   '/schools/$schoolId': typeof PlatformSchoolsSchoolIdRoute
@@ -434,56 +834,117 @@ export interface FileRoutesByFullPath {
   '/classes/$classId': typeof StaffClassesClassIdRoute
   '/communications/reminders': typeof StaffCommunicationsRemindersRoute
   '/communications/send': typeof StaffCommunicationsSendRoute
+  '/exams/$examId': typeof StaffExamsExamIdRoute
   '/fees/dues': typeof StaffFeesDuesRoute
   '/fees/generate': typeof StaffFeesGenerateRoute
   '/grading-scales/$scaleId': typeof StaffGradingScalesScaleIdRoute
   '/guardians/$guardianId': typeof StaffGuardiansGuardianIdRoute
   '/invoices/$invoiceId': typeof StaffInvoicesInvoiceIdRoute
+  '/my-class/$sectionId': typeof StaffMyClassSectionIdRoute
   '/payments/$id': typeof StaffPaymentsIdRoute
   '/payments/record': typeof StaffPaymentsRecordRoute
+  '/print/preview': typeof StaffPrintPreviewRoute
+  '/programs/$programId': typeof StaffProgramsProgramIdRoute
+  '/promotions/$runId': typeof StaffPromotionsRunIdRoute
+  '/promotions/new': typeof StaffPromotionsNewRoute
   '/reports/collections': typeof StaffReportsCollectionsRoute
+  '/reports/printables': typeof StaffReportsPrintablesRoute
+  '/routines/$sectionId': typeof StaffRoutinesSectionIdRoute
+  '/routines/my': typeof StaffRoutinesMyRoute
+  '/routines/review': typeof StaffRoutinesReviewRoute
+  '/routines/setup': typeof StaffRoutinesSetupRoute
+  '/routines/substitutions': typeof StaffRoutinesSubstitutionsRoute
   '/staff/$userId': typeof StaffStaffUserIdRoute
+  '/staff/evaluations': typeof StaffStaffEvaluationsRoute
+  '/staff/import': typeof StaffStaffImportRoute
+  '/staff/teaching-assignments': typeof StaffStaffTeachingAssignmentsRoute
   '/students/$studentId': typeof StaffStudentsStudentIdRoute
   '/students/import': typeof StaffStudentsImportRoute
   '/students/new': typeof StaffStudentsNewRoute
+  '/admission/$slug/status': typeof AdmissionSlugStatusRoute
+  '/auth/social/done': typeof AuthSocialDoneRoute
   '/holiday-sets/': typeof PlatformHolidaySetsIndexRoute
   '/schools/': typeof PlatformSchoolsIndexRoute
   '/academic-years/': typeof StaffAcademicYearsIndexRoute
+  '/analysis/': typeof StaffAnalysisIndexRoute
   '/attendance/': typeof StaffAttendanceIndexRoute
   '/audit-logs/': typeof StaffAuditLogsIndexRoute
   '/calendar/': typeof StaffCalendarIndexRoute
   '/classes/': typeof StaffClassesIndexRoute
+  '/exams/': typeof StaffExamsIndexRoute
   '/fee-structures/': typeof StaffFeeStructuresIndexRoute
   '/fees/': typeof StaffFeesIndexRoute
   '/grading-scales/': typeof StaffGradingScalesIndexRoute
   '/guardians/': typeof StaffGuardiansIndexRoute
   '/invoices/': typeof StaffInvoicesIndexRoute
+  '/marks/': typeof StaffMarksIndexRoute
+  '/my-class/': typeof StaffMyClassIndexRoute
   '/payments/': typeof StaffPaymentsIndexRoute
+  '/print-templates/': typeof StaffPrintTemplatesIndexRoute
+  '/programs/': typeof StaffProgramsIndexRoute
+  '/promotions/': typeof StaffPromotionsIndexRoute
+  '/results/': typeof StaffResultsIndexRoute
+  '/roles/': typeof StaffRolesIndexRoute
+  '/routines/': typeof StaffRoutinesIndexRoute
   '/staff/': typeof StaffStaffIndexRoute
   '/students/': typeof StaffStudentsIndexRoute
+  '/admission/$slug/': typeof AdmissionSlugIndexRoute
+  '/academics/homework/$homeworkId': typeof StaffAcademicsHomeworkHomeworkIdRoute
+  '/academics/homework/import': typeof StaffAcademicsHomeworkImportRoute
+  '/academics/homework/new': typeof StaffAcademicsHomeworkNewRoute
+  '/admissions/applicants/$applicantId': typeof StaffAdmissionsApplicantsApplicantIdRoute
+  '/admissions/intakes/$intakeId': typeof StaffAdmissionsIntakesIntakeIdRoute
+  '/attendance/staff/leave': typeof StaffAttendanceStaffLeaveRoute
   '/communications/batches/$batchId': typeof StaffCommunicationsBatchesBatchIdRoute
+  '/exams/seat-plans/$planId': typeof StaffExamsSeatPlansPlanIdRoute
+  '/exams/templates/$templateId': typeof StaffExamsTemplatesTemplateIdRoute
+  '/fees/fines/rules': typeof StaffFeesFinesRulesRoute
   '/fees/schedules/$id': typeof StaffFeesSchedulesIdRoute
+  '/print-templates/$templateId/edit': typeof StaffPrintTemplatesTemplateIdEditRoute
+  '/results/$examId/$studentId': typeof StaffResultsExamIdStudentIdRoute
   '/students/$studentId/edit': typeof StaffStudentsStudentIdEditRoute
+  '/academics/homework/': typeof StaffAcademicsHomeworkIndexRoute
+  '/academics/syllabus/': typeof StaffAcademicsSyllabusIndexRoute
+  '/admissions/applicants/': typeof StaffAdmissionsApplicantsIndexRoute
+  '/admissions/intakes/': typeof StaffAdmissionsIntakesIndexRoute
+  '/admissions/reports/': typeof StaffAdmissionsReportsIndexRoute
+  '/attendance/staff/': typeof StaffAttendanceStaffIndexRoute
   '/communications/batches/': typeof StaffCommunicationsBatchesIndexRoute
+  '/exams/seat-plans/': typeof StaffExamsSeatPlansIndexRoute
+  '/exams/templates/': typeof StaffExamsTemplatesIndexRoute
+  '/fees/fines/': typeof StaffFeesFinesIndexRoute
   '/fees/schedules/': typeof StaffFeesSchedulesIndexRoute
+  '/marks/$examId/$sectionId/$subjectId': typeof StaffMarksExamIdSectionIdSubjectIdRoute
+  '/staff/$userId/acr/$assessmentId': typeof StaffStaffUserIdAcrAssessmentIdRoute
+  '/staff/evaluations/surveys/$surveyId': typeof StaffStaffEvaluationsSurveysSurveyIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/activate': typeof ActivateRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
+  '/register': typeof RegisterRoute
   '/reset-password': typeof ResetPasswordRoute
   '/select-school': typeof SelectSchoolRoute
   '/verify-email': typeof VerifyEmailRoute
+  '/curriculum-preset': typeof StaffCurriculumPresetRoute
   '/dashboard': typeof StaffDashboardRoute
   '/notifications': typeof StaffNotificationsRoute
   '/security': typeof StaffSecurityRoute
   '/settings': typeof StaffSettingsRoute
+  '/welcome': typeof StaffWelcomeRoute
   '/i/$token': typeof ITokenRoute
   '/portal/account': typeof PortalAccountRoute
   '/portal/attendance': typeof PortalAttendanceRoute
   '/portal/calendar': typeof PortalCalendarRoute
+  '/portal/exam-schedule': typeof PortalExamScheduleRoute
   '/portal/fees': typeof PortalFeesRoute
+  '/portal/programs': typeof PortalProgramsRoute
+  '/portal/results': typeof PortalResultsRoute
+  '/portal/routine': typeof PortalRoutineRoute
+  '/portal/surveys': typeof PortalSurveysRoute
+  '/portal/syllabus': typeof PortalSyllabusRoute
+  '/v/$token': typeof VTokenRoute
   '/portal': typeof PortalIndexRoute
   '/holiday-sets/$setId': typeof PlatformHolidaySetsSetIdRoute
   '/schools/$schoolId': typeof PlatformSchoolsSchoolIdRoute
@@ -496,38 +957,89 @@ export interface FileRoutesByTo {
   '/classes/$classId': typeof StaffClassesClassIdRoute
   '/communications/reminders': typeof StaffCommunicationsRemindersRoute
   '/communications/send': typeof StaffCommunicationsSendRoute
+  '/exams/$examId': typeof StaffExamsExamIdRoute
   '/fees/dues': typeof StaffFeesDuesRoute
   '/fees/generate': typeof StaffFeesGenerateRoute
   '/grading-scales/$scaleId': typeof StaffGradingScalesScaleIdRoute
   '/guardians/$guardianId': typeof StaffGuardiansGuardianIdRoute
   '/invoices/$invoiceId': typeof StaffInvoicesInvoiceIdRoute
+  '/my-class/$sectionId': typeof StaffMyClassSectionIdRoute
   '/payments/$id': typeof StaffPaymentsIdRoute
   '/payments/record': typeof StaffPaymentsRecordRoute
+  '/print/preview': typeof StaffPrintPreviewRoute
+  '/programs/$programId': typeof StaffProgramsProgramIdRoute
+  '/promotions/$runId': typeof StaffPromotionsRunIdRoute
+  '/promotions/new': typeof StaffPromotionsNewRoute
   '/reports/collections': typeof StaffReportsCollectionsRoute
+  '/reports/printables': typeof StaffReportsPrintablesRoute
+  '/routines/$sectionId': typeof StaffRoutinesSectionIdRoute
+  '/routines/my': typeof StaffRoutinesMyRoute
+  '/routines/review': typeof StaffRoutinesReviewRoute
+  '/routines/setup': typeof StaffRoutinesSetupRoute
+  '/routines/substitutions': typeof StaffRoutinesSubstitutionsRoute
   '/staff/$userId': typeof StaffStaffUserIdRoute
+  '/staff/evaluations': typeof StaffStaffEvaluationsRoute
+  '/staff/import': typeof StaffStaffImportRoute
+  '/staff/teaching-assignments': typeof StaffStaffTeachingAssignmentsRoute
   '/students/$studentId': typeof StaffStudentsStudentIdRoute
   '/students/import': typeof StaffStudentsImportRoute
   '/students/new': typeof StaffStudentsNewRoute
+  '/admission/$slug/status': typeof AdmissionSlugStatusRoute
+  '/auth/social/done': typeof AuthSocialDoneRoute
   '/holiday-sets': typeof PlatformHolidaySetsIndexRoute
   '/schools': typeof PlatformSchoolsIndexRoute
   '/academic-years': typeof StaffAcademicYearsIndexRoute
+  '/analysis': typeof StaffAnalysisIndexRoute
   '/attendance': typeof StaffAttendanceIndexRoute
   '/audit-logs': typeof StaffAuditLogsIndexRoute
   '/calendar': typeof StaffCalendarIndexRoute
   '/classes': typeof StaffClassesIndexRoute
+  '/exams': typeof StaffExamsIndexRoute
   '/fee-structures': typeof StaffFeeStructuresIndexRoute
   '/fees': typeof StaffFeesIndexRoute
   '/grading-scales': typeof StaffGradingScalesIndexRoute
   '/guardians': typeof StaffGuardiansIndexRoute
   '/invoices': typeof StaffInvoicesIndexRoute
+  '/marks': typeof StaffMarksIndexRoute
+  '/my-class': typeof StaffMyClassIndexRoute
   '/payments': typeof StaffPaymentsIndexRoute
+  '/print-templates': typeof StaffPrintTemplatesIndexRoute
+  '/programs': typeof StaffProgramsIndexRoute
+  '/promotions': typeof StaffPromotionsIndexRoute
+  '/results': typeof StaffResultsIndexRoute
+  '/roles': typeof StaffRolesIndexRoute
+  '/routines': typeof StaffRoutinesIndexRoute
   '/staff': typeof StaffStaffIndexRoute
   '/students': typeof StaffStudentsIndexRoute
+  '/admission/$slug': typeof AdmissionSlugIndexRoute
+  '/academics/homework/$homeworkId': typeof StaffAcademicsHomeworkHomeworkIdRoute
+  '/academics/homework/import': typeof StaffAcademicsHomeworkImportRoute
+  '/academics/homework/new': typeof StaffAcademicsHomeworkNewRoute
+  '/admissions/applicants/$applicantId': typeof StaffAdmissionsApplicantsApplicantIdRoute
+  '/admissions/intakes/$intakeId': typeof StaffAdmissionsIntakesIntakeIdRoute
+  '/attendance/staff/leave': typeof StaffAttendanceStaffLeaveRoute
   '/communications/batches/$batchId': typeof StaffCommunicationsBatchesBatchIdRoute
+  '/exams/seat-plans/$planId': typeof StaffExamsSeatPlansPlanIdRoute
+  '/exams/templates/$templateId': typeof StaffExamsTemplatesTemplateIdRoute
+  '/fees/fines/rules': typeof StaffFeesFinesRulesRoute
   '/fees/schedules/$id': typeof StaffFeesSchedulesIdRoute
+  '/print-templates/$templateId/edit': typeof StaffPrintTemplatesTemplateIdEditRoute
+  '/results/$examId/$studentId': typeof StaffResultsExamIdStudentIdRoute
   '/students/$studentId/edit': typeof StaffStudentsStudentIdEditRoute
+  '/academics/homework': typeof StaffAcademicsHomeworkIndexRoute
+  '/academics/syllabus': typeof StaffAcademicsSyllabusIndexRoute
+  '/admissions/applicants': typeof StaffAdmissionsApplicantsIndexRoute
+  '/admissions/intakes': typeof StaffAdmissionsIntakesIndexRoute
+  '/admissions/reports': typeof StaffAdmissionsReportsIndexRoute
+  '/attendance/staff': typeof StaffAttendanceStaffIndexRoute
   '/communications/batches': typeof StaffCommunicationsBatchesIndexRoute
+  '/exams/seat-plans': typeof StaffExamsSeatPlansIndexRoute
+  '/exams/templates': typeof StaffExamsTemplatesIndexRoute
+  '/fees/fines': typeof StaffFeesFinesIndexRoute
   '/fees/schedules': typeof StaffFeesSchedulesIndexRoute
+  '/marks/$examId/$sectionId/$subjectId': typeof StaffMarksExamIdSectionIdSubjectIdRoute
+  '/staff/$userId/acr/$assessmentId': typeof StaffStaffUserIdAcrAssessmentIdRoute
+  '/staff/evaluations/surveys/$surveyId': typeof StaffStaffEvaluationsSurveysSurveyIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -538,19 +1050,29 @@ export interface FileRoutesById {
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/portal': typeof PortalRouteWithChildren
+  '/register': typeof RegisterRoute
   '/reset-password': typeof ResetPasswordRoute
   '/select-school': typeof SelectSchoolRoute
   '/verify-email': typeof VerifyEmailRoute
+  '/_staff/curriculum-preset': typeof StaffCurriculumPresetRoute
   '/_staff/dashboard': typeof StaffDashboardRoute
   '/_staff/fees': typeof StaffFeesRouteWithChildren
   '/_staff/notifications': typeof StaffNotificationsRoute
   '/_staff/security': typeof StaffSecurityRoute
   '/_staff/settings': typeof StaffSettingsRoute
+  '/_staff/welcome': typeof StaffWelcomeRoute
   '/i/$token': typeof ITokenRoute
   '/portal/account': typeof PortalAccountRoute
   '/portal/attendance': typeof PortalAttendanceRoute
   '/portal/calendar': typeof PortalCalendarRoute
+  '/portal/exam-schedule': typeof PortalExamScheduleRoute
   '/portal/fees': typeof PortalFeesRoute
+  '/portal/programs': typeof PortalProgramsRoute
+  '/portal/results': typeof PortalResultsRoute
+  '/portal/routine': typeof PortalRoutineRoute
+  '/portal/surveys': typeof PortalSurveysRoute
+  '/portal/syllabus': typeof PortalSyllabusRoute
+  '/v/$token': typeof VTokenRoute
   '/portal/': typeof PortalIndexRoute
   '/_platform/holiday-sets/$setId': typeof PlatformHolidaySetsSetIdRoute
   '/_platform/schools/$schoolId': typeof PlatformSchoolsSchoolIdRoute
@@ -563,38 +1085,89 @@ export interface FileRoutesById {
   '/_staff/classes/$classId': typeof StaffClassesClassIdRoute
   '/_staff/communications/reminders': typeof StaffCommunicationsRemindersRoute
   '/_staff/communications/send': typeof StaffCommunicationsSendRoute
+  '/_staff/exams/$examId': typeof StaffExamsExamIdRoute
   '/_staff/fees/dues': typeof StaffFeesDuesRoute
   '/_staff/fees/generate': typeof StaffFeesGenerateRoute
   '/_staff/grading-scales/$scaleId': typeof StaffGradingScalesScaleIdRoute
   '/_staff/guardians/$guardianId': typeof StaffGuardiansGuardianIdRoute
   '/_staff/invoices/$invoiceId': typeof StaffInvoicesInvoiceIdRoute
+  '/_staff/my-class/$sectionId': typeof StaffMyClassSectionIdRoute
   '/_staff/payments/$id': typeof StaffPaymentsIdRoute
   '/_staff/payments/record': typeof StaffPaymentsRecordRoute
+  '/_staff/print/preview': typeof StaffPrintPreviewRoute
+  '/_staff/programs/$programId': typeof StaffProgramsProgramIdRoute
+  '/_staff/promotions/$runId': typeof StaffPromotionsRunIdRoute
+  '/_staff/promotions/new': typeof StaffPromotionsNewRoute
   '/_staff/reports/collections': typeof StaffReportsCollectionsRoute
+  '/_staff/reports/printables': typeof StaffReportsPrintablesRoute
+  '/_staff/routines/$sectionId': typeof StaffRoutinesSectionIdRoute
+  '/_staff/routines/my': typeof StaffRoutinesMyRoute
+  '/_staff/routines/review': typeof StaffRoutinesReviewRoute
+  '/_staff/routines/setup': typeof StaffRoutinesSetupRoute
+  '/_staff/routines/substitutions': typeof StaffRoutinesSubstitutionsRoute
   '/_staff/staff/$userId': typeof StaffStaffUserIdRoute
+  '/_staff/staff/evaluations': typeof StaffStaffEvaluationsRoute
+  '/_staff/staff/import': typeof StaffStaffImportRoute
+  '/_staff/staff/teaching-assignments': typeof StaffStaffTeachingAssignmentsRoute
   '/_staff/students/$studentId': typeof StaffStudentsStudentIdRoute
   '/_staff/students/import': typeof StaffStudentsImportRoute
   '/_staff/students/new': typeof StaffStudentsNewRoute
+  '/admission/$slug/status': typeof AdmissionSlugStatusRoute
+  '/auth/social/done': typeof AuthSocialDoneRoute
   '/_platform/holiday-sets/': typeof PlatformHolidaySetsIndexRoute
   '/_platform/schools/': typeof PlatformSchoolsIndexRoute
   '/_staff/academic-years/': typeof StaffAcademicYearsIndexRoute
+  '/_staff/analysis/': typeof StaffAnalysisIndexRoute
   '/_staff/attendance/': typeof StaffAttendanceIndexRoute
   '/_staff/audit-logs/': typeof StaffAuditLogsIndexRoute
   '/_staff/calendar/': typeof StaffCalendarIndexRoute
   '/_staff/classes/': typeof StaffClassesIndexRoute
+  '/_staff/exams/': typeof StaffExamsIndexRoute
   '/_staff/fee-structures/': typeof StaffFeeStructuresIndexRoute
   '/_staff/fees/': typeof StaffFeesIndexRoute
   '/_staff/grading-scales/': typeof StaffGradingScalesIndexRoute
   '/_staff/guardians/': typeof StaffGuardiansIndexRoute
   '/_staff/invoices/': typeof StaffInvoicesIndexRoute
+  '/_staff/marks/': typeof StaffMarksIndexRoute
+  '/_staff/my-class/': typeof StaffMyClassIndexRoute
   '/_staff/payments/': typeof StaffPaymentsIndexRoute
+  '/_staff/print-templates/': typeof StaffPrintTemplatesIndexRoute
+  '/_staff/programs/': typeof StaffProgramsIndexRoute
+  '/_staff/promotions/': typeof StaffPromotionsIndexRoute
+  '/_staff/results/': typeof StaffResultsIndexRoute
+  '/_staff/roles/': typeof StaffRolesIndexRoute
+  '/_staff/routines/': typeof StaffRoutinesIndexRoute
   '/_staff/staff/': typeof StaffStaffIndexRoute
   '/_staff/students/': typeof StaffStudentsIndexRoute
+  '/admission/$slug/': typeof AdmissionSlugIndexRoute
+  '/_staff/academics/homework/$homeworkId': typeof StaffAcademicsHomeworkHomeworkIdRoute
+  '/_staff/academics/homework/import': typeof StaffAcademicsHomeworkImportRoute
+  '/_staff/academics/homework/new': typeof StaffAcademicsHomeworkNewRoute
+  '/_staff/admissions/applicants/$applicantId': typeof StaffAdmissionsApplicantsApplicantIdRoute
+  '/_staff/admissions/intakes/$intakeId': typeof StaffAdmissionsIntakesIntakeIdRoute
+  '/_staff/attendance/staff/leave': typeof StaffAttendanceStaffLeaveRoute
   '/_staff/communications/batches/$batchId': typeof StaffCommunicationsBatchesBatchIdRoute
+  '/_staff/exams/seat-plans/$planId': typeof StaffExamsSeatPlansPlanIdRoute
+  '/_staff/exams/templates/$templateId': typeof StaffExamsTemplatesTemplateIdRoute
+  '/_staff/fees/fines/rules': typeof StaffFeesFinesRulesRoute
   '/_staff/fees/schedules/$id': typeof StaffFeesSchedulesIdRoute
+  '/_staff/print-templates/$templateId/edit': typeof StaffPrintTemplatesTemplateIdEditRoute
+  '/_staff/results/$examId/$studentId': typeof StaffResultsExamIdStudentIdRoute
   '/_staff/students/$studentId_/edit': typeof StaffStudentsStudentIdEditRoute
+  '/_staff/academics/homework/': typeof StaffAcademicsHomeworkIndexRoute
+  '/_staff/academics/syllabus/': typeof StaffAcademicsSyllabusIndexRoute
+  '/_staff/admissions/applicants/': typeof StaffAdmissionsApplicantsIndexRoute
+  '/_staff/admissions/intakes/': typeof StaffAdmissionsIntakesIndexRoute
+  '/_staff/admissions/reports/': typeof StaffAdmissionsReportsIndexRoute
+  '/_staff/attendance/staff/': typeof StaffAttendanceStaffIndexRoute
   '/_staff/communications/batches/': typeof StaffCommunicationsBatchesIndexRoute
+  '/_staff/exams/seat-plans/': typeof StaffExamsSeatPlansIndexRoute
+  '/_staff/exams/templates/': typeof StaffExamsTemplatesIndexRoute
+  '/_staff/fees/fines/': typeof StaffFeesFinesIndexRoute
   '/_staff/fees/schedules/': typeof StaffFeesSchedulesIndexRoute
+  '/_staff/marks/$examId/$sectionId/$subjectId': typeof StaffMarksExamIdSectionIdSubjectIdRoute
+  '/_staff/staff/$userId_/acr/$assessmentId': typeof StaffStaffUserIdAcrAssessmentIdRoute
+  '/_staff/staff/evaluations_/surveys/$surveyId': typeof StaffStaffEvaluationsSurveysSurveyIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -604,19 +1177,29 @@ export interface FileRouteTypes {
     | '/forgot-password'
     | '/login'
     | '/portal'
+    | '/register'
     | '/reset-password'
     | '/select-school'
     | '/verify-email'
+    | '/curriculum-preset'
     | '/dashboard'
     | '/fees'
     | '/notifications'
     | '/security'
     | '/settings'
+    | '/welcome'
     | '/i/$token'
     | '/portal/account'
     | '/portal/attendance'
     | '/portal/calendar'
+    | '/portal/exam-schedule'
     | '/portal/fees'
+    | '/portal/programs'
+    | '/portal/results'
+    | '/portal/routine'
+    | '/portal/surveys'
+    | '/portal/syllabus'
+    | '/v/$token'
     | '/portal/'
     | '/holiday-sets/$setId'
     | '/schools/$schoolId'
@@ -629,56 +1212,117 @@ export interface FileRouteTypes {
     | '/classes/$classId'
     | '/communications/reminders'
     | '/communications/send'
+    | '/exams/$examId'
     | '/fees/dues'
     | '/fees/generate'
     | '/grading-scales/$scaleId'
     | '/guardians/$guardianId'
     | '/invoices/$invoiceId'
+    | '/my-class/$sectionId'
     | '/payments/$id'
     | '/payments/record'
+    | '/print/preview'
+    | '/programs/$programId'
+    | '/promotions/$runId'
+    | '/promotions/new'
     | '/reports/collections'
+    | '/reports/printables'
+    | '/routines/$sectionId'
+    | '/routines/my'
+    | '/routines/review'
+    | '/routines/setup'
+    | '/routines/substitutions'
     | '/staff/$userId'
+    | '/staff/evaluations'
+    | '/staff/import'
+    | '/staff/teaching-assignments'
     | '/students/$studentId'
     | '/students/import'
     | '/students/new'
+    | '/admission/$slug/status'
+    | '/auth/social/done'
     | '/holiday-sets/'
     | '/schools/'
     | '/academic-years/'
+    | '/analysis/'
     | '/attendance/'
     | '/audit-logs/'
     | '/calendar/'
     | '/classes/'
+    | '/exams/'
     | '/fee-structures/'
     | '/fees/'
     | '/grading-scales/'
     | '/guardians/'
     | '/invoices/'
+    | '/marks/'
+    | '/my-class/'
     | '/payments/'
+    | '/print-templates/'
+    | '/programs/'
+    | '/promotions/'
+    | '/results/'
+    | '/roles/'
+    | '/routines/'
     | '/staff/'
     | '/students/'
+    | '/admission/$slug/'
+    | '/academics/homework/$homeworkId'
+    | '/academics/homework/import'
+    | '/academics/homework/new'
+    | '/admissions/applicants/$applicantId'
+    | '/admissions/intakes/$intakeId'
+    | '/attendance/staff/leave'
     | '/communications/batches/$batchId'
+    | '/exams/seat-plans/$planId'
+    | '/exams/templates/$templateId'
+    | '/fees/fines/rules'
     | '/fees/schedules/$id'
+    | '/print-templates/$templateId/edit'
+    | '/results/$examId/$studentId'
     | '/students/$studentId/edit'
+    | '/academics/homework/'
+    | '/academics/syllabus/'
+    | '/admissions/applicants/'
+    | '/admissions/intakes/'
+    | '/admissions/reports/'
+    | '/attendance/staff/'
     | '/communications/batches/'
+    | '/exams/seat-plans/'
+    | '/exams/templates/'
+    | '/fees/fines/'
     | '/fees/schedules/'
+    | '/marks/$examId/$sectionId/$subjectId'
+    | '/staff/$userId/acr/$assessmentId'
+    | '/staff/evaluations/surveys/$surveyId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/activate'
     | '/forgot-password'
     | '/login'
+    | '/register'
     | '/reset-password'
     | '/select-school'
     | '/verify-email'
+    | '/curriculum-preset'
     | '/dashboard'
     | '/notifications'
     | '/security'
     | '/settings'
+    | '/welcome'
     | '/i/$token'
     | '/portal/account'
     | '/portal/attendance'
     | '/portal/calendar'
+    | '/portal/exam-schedule'
     | '/portal/fees'
+    | '/portal/programs'
+    | '/portal/results'
+    | '/portal/routine'
+    | '/portal/surveys'
+    | '/portal/syllabus'
+    | '/v/$token'
     | '/portal'
     | '/holiday-sets/$setId'
     | '/schools/$schoolId'
@@ -691,38 +1335,89 @@ export interface FileRouteTypes {
     | '/classes/$classId'
     | '/communications/reminders'
     | '/communications/send'
+    | '/exams/$examId'
     | '/fees/dues'
     | '/fees/generate'
     | '/grading-scales/$scaleId'
     | '/guardians/$guardianId'
     | '/invoices/$invoiceId'
+    | '/my-class/$sectionId'
     | '/payments/$id'
     | '/payments/record'
+    | '/print/preview'
+    | '/programs/$programId'
+    | '/promotions/$runId'
+    | '/promotions/new'
     | '/reports/collections'
+    | '/reports/printables'
+    | '/routines/$sectionId'
+    | '/routines/my'
+    | '/routines/review'
+    | '/routines/setup'
+    | '/routines/substitutions'
     | '/staff/$userId'
+    | '/staff/evaluations'
+    | '/staff/import'
+    | '/staff/teaching-assignments'
     | '/students/$studentId'
     | '/students/import'
     | '/students/new'
+    | '/admission/$slug/status'
+    | '/auth/social/done'
     | '/holiday-sets'
     | '/schools'
     | '/academic-years'
+    | '/analysis'
     | '/attendance'
     | '/audit-logs'
     | '/calendar'
     | '/classes'
+    | '/exams'
     | '/fee-structures'
     | '/fees'
     | '/grading-scales'
     | '/guardians'
     | '/invoices'
+    | '/marks'
+    | '/my-class'
     | '/payments'
+    | '/print-templates'
+    | '/programs'
+    | '/promotions'
+    | '/results'
+    | '/roles'
+    | '/routines'
     | '/staff'
     | '/students'
+    | '/admission/$slug'
+    | '/academics/homework/$homeworkId'
+    | '/academics/homework/import'
+    | '/academics/homework/new'
+    | '/admissions/applicants/$applicantId'
+    | '/admissions/intakes/$intakeId'
+    | '/attendance/staff/leave'
     | '/communications/batches/$batchId'
+    | '/exams/seat-plans/$planId'
+    | '/exams/templates/$templateId'
+    | '/fees/fines/rules'
     | '/fees/schedules/$id'
+    | '/print-templates/$templateId/edit'
+    | '/results/$examId/$studentId'
     | '/students/$studentId/edit'
+    | '/academics/homework'
+    | '/academics/syllabus'
+    | '/admissions/applicants'
+    | '/admissions/intakes'
+    | '/admissions/reports'
+    | '/attendance/staff'
     | '/communications/batches'
+    | '/exams/seat-plans'
+    | '/exams/templates'
+    | '/fees/fines'
     | '/fees/schedules'
+    | '/marks/$examId/$sectionId/$subjectId'
+    | '/staff/$userId/acr/$assessmentId'
+    | '/staff/evaluations/surveys/$surveyId'
   id:
     | '__root__'
     | '/'
@@ -732,19 +1427,29 @@ export interface FileRouteTypes {
     | '/forgot-password'
     | '/login'
     | '/portal'
+    | '/register'
     | '/reset-password'
     | '/select-school'
     | '/verify-email'
+    | '/_staff/curriculum-preset'
     | '/_staff/dashboard'
     | '/_staff/fees'
     | '/_staff/notifications'
     | '/_staff/security'
     | '/_staff/settings'
+    | '/_staff/welcome'
     | '/i/$token'
     | '/portal/account'
     | '/portal/attendance'
     | '/portal/calendar'
+    | '/portal/exam-schedule'
     | '/portal/fees'
+    | '/portal/programs'
+    | '/portal/results'
+    | '/portal/routine'
+    | '/portal/surveys'
+    | '/portal/syllabus'
+    | '/v/$token'
     | '/portal/'
     | '/_platform/holiday-sets/$setId'
     | '/_platform/schools/$schoolId'
@@ -757,38 +1462,89 @@ export interface FileRouteTypes {
     | '/_staff/classes/$classId'
     | '/_staff/communications/reminders'
     | '/_staff/communications/send'
+    | '/_staff/exams/$examId'
     | '/_staff/fees/dues'
     | '/_staff/fees/generate'
     | '/_staff/grading-scales/$scaleId'
     | '/_staff/guardians/$guardianId'
     | '/_staff/invoices/$invoiceId'
+    | '/_staff/my-class/$sectionId'
     | '/_staff/payments/$id'
     | '/_staff/payments/record'
+    | '/_staff/print/preview'
+    | '/_staff/programs/$programId'
+    | '/_staff/promotions/$runId'
+    | '/_staff/promotions/new'
     | '/_staff/reports/collections'
+    | '/_staff/reports/printables'
+    | '/_staff/routines/$sectionId'
+    | '/_staff/routines/my'
+    | '/_staff/routines/review'
+    | '/_staff/routines/setup'
+    | '/_staff/routines/substitutions'
     | '/_staff/staff/$userId'
+    | '/_staff/staff/evaluations'
+    | '/_staff/staff/import'
+    | '/_staff/staff/teaching-assignments'
     | '/_staff/students/$studentId'
     | '/_staff/students/import'
     | '/_staff/students/new'
+    | '/admission/$slug/status'
+    | '/auth/social/done'
     | '/_platform/holiday-sets/'
     | '/_platform/schools/'
     | '/_staff/academic-years/'
+    | '/_staff/analysis/'
     | '/_staff/attendance/'
     | '/_staff/audit-logs/'
     | '/_staff/calendar/'
     | '/_staff/classes/'
+    | '/_staff/exams/'
     | '/_staff/fee-structures/'
     | '/_staff/fees/'
     | '/_staff/grading-scales/'
     | '/_staff/guardians/'
     | '/_staff/invoices/'
+    | '/_staff/marks/'
+    | '/_staff/my-class/'
     | '/_staff/payments/'
+    | '/_staff/print-templates/'
+    | '/_staff/programs/'
+    | '/_staff/promotions/'
+    | '/_staff/results/'
+    | '/_staff/roles/'
+    | '/_staff/routines/'
     | '/_staff/staff/'
     | '/_staff/students/'
+    | '/admission/$slug/'
+    | '/_staff/academics/homework/$homeworkId'
+    | '/_staff/academics/homework/import'
+    | '/_staff/academics/homework/new'
+    | '/_staff/admissions/applicants/$applicantId'
+    | '/_staff/admissions/intakes/$intakeId'
+    | '/_staff/attendance/staff/leave'
     | '/_staff/communications/batches/$batchId'
+    | '/_staff/exams/seat-plans/$planId'
+    | '/_staff/exams/templates/$templateId'
+    | '/_staff/fees/fines/rules'
     | '/_staff/fees/schedules/$id'
+    | '/_staff/print-templates/$templateId/edit'
+    | '/_staff/results/$examId/$studentId'
     | '/_staff/students/$studentId_/edit'
+    | '/_staff/academics/homework/'
+    | '/_staff/academics/syllabus/'
+    | '/_staff/admissions/applicants/'
+    | '/_staff/admissions/intakes/'
+    | '/_staff/admissions/reports/'
+    | '/_staff/attendance/staff/'
     | '/_staff/communications/batches/'
+    | '/_staff/exams/seat-plans/'
+    | '/_staff/exams/templates/'
+    | '/_staff/fees/fines/'
     | '/_staff/fees/schedules/'
+    | '/_staff/marks/$examId/$sectionId/$subjectId'
+    | '/_staff/staff/$userId_/acr/$assessmentId'
+    | '/_staff/staff/evaluations_/surveys/$surveyId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -799,10 +1555,15 @@ export interface RootRouteChildren {
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   LoginRoute: typeof LoginRoute
   PortalRoute: typeof PortalRouteWithChildren
+  RegisterRoute: typeof RegisterRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   SelectSchoolRoute: typeof SelectSchoolRoute
   VerifyEmailRoute: typeof VerifyEmailRoute
   ITokenRoute: typeof ITokenRoute
+  VTokenRoute: typeof VTokenRoute
+  AdmissionSlugStatusRoute: typeof AdmissionSlugStatusRoute
+  AuthSocialDoneRoute: typeof AuthSocialDoneRoute
+  AdmissionSlugIndexRoute: typeof AdmissionSlugIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -856,6 +1617,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PortalRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/register': {
+      id: '/register'
+      path: '/register'
+      fullPath: '/register'
+      preLoaderRoute: typeof RegisterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/reset-password': {
       id: '/reset-password'
       path: '/reset-password'
@@ -876,6 +1644,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/verify-email'
       preLoaderRoute: typeof VerifyEmailRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_staff/curriculum-preset': {
+      id: '/_staff/curriculum-preset'
+      path: '/curriculum-preset'
+      fullPath: '/curriculum-preset'
+      preLoaderRoute: typeof StaffCurriculumPresetRouteImport
+      parentRoute: typeof StaffRoute
     }
     '/_staff/dashboard': {
       id: '/_staff/dashboard'
@@ -910,6 +1685,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof StaffSettingsRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/welcome': {
+      id: '/_staff/welcome'
+      path: '/welcome'
+      fullPath: '/welcome'
+      preLoaderRoute: typeof StaffWelcomeRouteImport
       parentRoute: typeof StaffRoute
     }
     '/i/$token': {
@@ -947,12 +1729,61 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PortalCalendarRouteImport
       parentRoute: typeof PortalRoute
     }
+    '/portal/exam-schedule': {
+      id: '/portal/exam-schedule'
+      path: '/exam-schedule'
+      fullPath: '/portal/exam-schedule'
+      preLoaderRoute: typeof PortalExamScheduleRouteImport
+      parentRoute: typeof PortalRoute
+    }
     '/portal/fees': {
       id: '/portal/fees'
       path: '/fees'
       fullPath: '/portal/fees'
       preLoaderRoute: typeof PortalFeesRouteImport
       parentRoute: typeof PortalRoute
+    }
+    '/portal/programs': {
+      id: '/portal/programs'
+      path: '/programs'
+      fullPath: '/portal/programs'
+      preLoaderRoute: typeof PortalProgramsRouteImport
+      parentRoute: typeof PortalRoute
+    }
+    '/portal/results': {
+      id: '/portal/results'
+      path: '/results'
+      fullPath: '/portal/results'
+      preLoaderRoute: typeof PortalResultsRouteImport
+      parentRoute: typeof PortalRoute
+    }
+    '/portal/routine': {
+      id: '/portal/routine'
+      path: '/routine'
+      fullPath: '/portal/routine'
+      preLoaderRoute: typeof PortalRoutineRouteImport
+      parentRoute: typeof PortalRoute
+    }
+    '/portal/surveys': {
+      id: '/portal/surveys'
+      path: '/surveys'
+      fullPath: '/portal/surveys'
+      preLoaderRoute: typeof PortalSurveysRouteImport
+      parentRoute: typeof PortalRoute
+    }
+    '/portal/syllabus': {
+      id: '/portal/syllabus'
+      path: '/syllabus'
+      fullPath: '/portal/syllabus'
+      preLoaderRoute: typeof PortalSyllabusRouteImport
+      parentRoute: typeof PortalRoute
+    }
+    '/v/$token': {
+      id: '/v/$token'
+      path: '/v/$token'
+      fullPath: '/v/$token'
+      preLoaderRoute: typeof VTokenRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_platform/holiday-sets/': {
       id: '/_platform/holiday-sets/'
@@ -1001,6 +1832,13 @@ declare module '@tanstack/react-router' {
       path: '/academic-years/$academicYearId'
       fullPath: '/academic-years/$academicYearId'
       preLoaderRoute: typeof StaffAcademicYearsAcademicYearIdRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/analysis/': {
+      id: '/_staff/analysis/'
+      path: '/analysis'
+      fullPath: '/analysis/'
+      preLoaderRoute: typeof StaffAnalysisIndexRouteImport
       parentRoute: typeof StaffRoute
     }
     '/_staff/attendance/': {
@@ -1080,6 +1918,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StaffCommunicationsSendRouteImport
       parentRoute: typeof StaffRoute
     }
+    '/_staff/exams/': {
+      id: '/_staff/exams/'
+      path: '/exams'
+      fullPath: '/exams/'
+      preLoaderRoute: typeof StaffExamsIndexRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/exams/$examId': {
+      id: '/_staff/exams/$examId'
+      path: '/exams/$examId'
+      fullPath: '/exams/$examId'
+      preLoaderRoute: typeof StaffExamsExamIdRouteImport
+      parentRoute: typeof StaffRoute
+    }
     '/_staff/fee-structures/': {
       id: '/_staff/fee-structures/'
       path: '/fee-structures'
@@ -1150,6 +2002,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StaffInvoicesInvoiceIdRouteImport
       parentRoute: typeof StaffRoute
     }
+    '/_staff/marks/': {
+      id: '/_staff/marks/'
+      path: '/marks'
+      fullPath: '/marks/'
+      preLoaderRoute: typeof StaffMarksIndexRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/my-class/': {
+      id: '/_staff/my-class/'
+      path: '/my-class'
+      fullPath: '/my-class/'
+      preLoaderRoute: typeof StaffMyClassIndexRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/my-class/$sectionId': {
+      id: '/_staff/my-class/$sectionId'
+      path: '/my-class/$sectionId'
+      fullPath: '/my-class/$sectionId'
+      preLoaderRoute: typeof StaffMyClassSectionIdRouteImport
+      parentRoute: typeof StaffRoute
+    }
     '/_staff/payments/': {
       id: '/_staff/payments/'
       path: '/payments'
@@ -1171,11 +2044,123 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StaffPaymentsRecordRouteImport
       parentRoute: typeof StaffRoute
     }
+    '/_staff/print-templates/': {
+      id: '/_staff/print-templates/'
+      path: '/print-templates'
+      fullPath: '/print-templates/'
+      preLoaderRoute: typeof StaffPrintTemplatesIndexRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/print/preview': {
+      id: '/_staff/print/preview'
+      path: '/print/preview'
+      fullPath: '/print/preview'
+      preLoaderRoute: typeof StaffPrintPreviewRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/programs/': {
+      id: '/_staff/programs/'
+      path: '/programs'
+      fullPath: '/programs/'
+      preLoaderRoute: typeof StaffProgramsIndexRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/programs/$programId': {
+      id: '/_staff/programs/$programId'
+      path: '/programs/$programId'
+      fullPath: '/programs/$programId'
+      preLoaderRoute: typeof StaffProgramsProgramIdRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/promotions/': {
+      id: '/_staff/promotions/'
+      path: '/promotions'
+      fullPath: '/promotions/'
+      preLoaderRoute: typeof StaffPromotionsIndexRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/promotions/$runId': {
+      id: '/_staff/promotions/$runId'
+      path: '/promotions/$runId'
+      fullPath: '/promotions/$runId'
+      preLoaderRoute: typeof StaffPromotionsRunIdRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/promotions/new': {
+      id: '/_staff/promotions/new'
+      path: '/promotions/new'
+      fullPath: '/promotions/new'
+      preLoaderRoute: typeof StaffPromotionsNewRouteImport
+      parentRoute: typeof StaffRoute
+    }
     '/_staff/reports/collections': {
       id: '/_staff/reports/collections'
       path: '/reports/collections'
       fullPath: '/reports/collections'
       preLoaderRoute: typeof StaffReportsCollectionsRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/reports/printables': {
+      id: '/_staff/reports/printables'
+      path: '/reports/printables'
+      fullPath: '/reports/printables'
+      preLoaderRoute: typeof StaffReportsPrintablesRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/results/': {
+      id: '/_staff/results/'
+      path: '/results'
+      fullPath: '/results/'
+      preLoaderRoute: typeof StaffResultsIndexRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/roles/': {
+      id: '/_staff/roles/'
+      path: '/roles'
+      fullPath: '/roles/'
+      preLoaderRoute: typeof StaffRolesIndexRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/routines/': {
+      id: '/_staff/routines/'
+      path: '/routines'
+      fullPath: '/routines/'
+      preLoaderRoute: typeof StaffRoutinesIndexRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/routines/$sectionId': {
+      id: '/_staff/routines/$sectionId'
+      path: '/routines/$sectionId'
+      fullPath: '/routines/$sectionId'
+      preLoaderRoute: typeof StaffRoutinesSectionIdRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/routines/my': {
+      id: '/_staff/routines/my'
+      path: '/routines/my'
+      fullPath: '/routines/my'
+      preLoaderRoute: typeof StaffRoutinesMyRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/routines/review': {
+      id: '/_staff/routines/review'
+      path: '/routines/review'
+      fullPath: '/routines/review'
+      preLoaderRoute: typeof StaffRoutinesReviewRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/routines/setup': {
+      id: '/_staff/routines/setup'
+      path: '/routines/setup'
+      fullPath: '/routines/setup'
+      preLoaderRoute: typeof StaffRoutinesSetupRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/routines/substitutions': {
+      id: '/_staff/routines/substitutions'
+      path: '/routines/substitutions'
+      fullPath: '/routines/substitutions'
+      preLoaderRoute: typeof StaffRoutinesSubstitutionsRouteImport
       parentRoute: typeof StaffRoute
     }
     '/_staff/staff/': {
@@ -1190,6 +2175,27 @@ declare module '@tanstack/react-router' {
       path: '/staff/$userId'
       fullPath: '/staff/$userId'
       preLoaderRoute: typeof StaffStaffUserIdRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/staff/evaluations': {
+      id: '/_staff/staff/evaluations'
+      path: '/staff/evaluations'
+      fullPath: '/staff/evaluations'
+      preLoaderRoute: typeof StaffStaffEvaluationsRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/staff/import': {
+      id: '/_staff/staff/import'
+      path: '/staff/import'
+      fullPath: '/staff/import'
+      preLoaderRoute: typeof StaffStaffImportRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/staff/teaching-assignments': {
+      id: '/_staff/staff/teaching-assignments'
+      path: '/staff/teaching-assignments'
+      fullPath: '/staff/teaching-assignments'
+      preLoaderRoute: typeof StaffStaffTeachingAssignmentsRouteImport
       parentRoute: typeof StaffRoute
     }
     '/_staff/students/': {
@@ -1220,6 +2226,111 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StaffStudentsNewRouteImport
       parentRoute: typeof StaffRoute
     }
+    '/admission/$slug/': {
+      id: '/admission/$slug/'
+      path: '/admission/$slug'
+      fullPath: '/admission/$slug/'
+      preLoaderRoute: typeof AdmissionSlugIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admission/$slug/status': {
+      id: '/admission/$slug/status'
+      path: '/admission/$slug/status'
+      fullPath: '/admission/$slug/status'
+      preLoaderRoute: typeof AdmissionSlugStatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/social/done': {
+      id: '/auth/social/done'
+      path: '/auth/social/done'
+      fullPath: '/auth/social/done'
+      preLoaderRoute: typeof AuthSocialDoneRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_staff/academics/homework/': {
+      id: '/_staff/academics/homework/'
+      path: '/academics/homework'
+      fullPath: '/academics/homework/'
+      preLoaderRoute: typeof StaffAcademicsHomeworkIndexRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/academics/homework/$homeworkId': {
+      id: '/_staff/academics/homework/$homeworkId'
+      path: '/academics/homework/$homeworkId'
+      fullPath: '/academics/homework/$homeworkId'
+      preLoaderRoute: typeof StaffAcademicsHomeworkHomeworkIdRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/academics/homework/import': {
+      id: '/_staff/academics/homework/import'
+      path: '/academics/homework/import'
+      fullPath: '/academics/homework/import'
+      preLoaderRoute: typeof StaffAcademicsHomeworkImportRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/academics/homework/new': {
+      id: '/_staff/academics/homework/new'
+      path: '/academics/homework/new'
+      fullPath: '/academics/homework/new'
+      preLoaderRoute: typeof StaffAcademicsHomeworkNewRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/academics/syllabus/': {
+      id: '/_staff/academics/syllabus/'
+      path: '/academics/syllabus'
+      fullPath: '/academics/syllabus/'
+      preLoaderRoute: typeof StaffAcademicsSyllabusIndexRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/admissions/applicants/': {
+      id: '/_staff/admissions/applicants/'
+      path: '/admissions/applicants'
+      fullPath: '/admissions/applicants/'
+      preLoaderRoute: typeof StaffAdmissionsApplicantsIndexRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/admissions/applicants/$applicantId': {
+      id: '/_staff/admissions/applicants/$applicantId'
+      path: '/admissions/applicants/$applicantId'
+      fullPath: '/admissions/applicants/$applicantId'
+      preLoaderRoute: typeof StaffAdmissionsApplicantsApplicantIdRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/admissions/intakes/': {
+      id: '/_staff/admissions/intakes/'
+      path: '/admissions/intakes'
+      fullPath: '/admissions/intakes/'
+      preLoaderRoute: typeof StaffAdmissionsIntakesIndexRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/admissions/intakes/$intakeId': {
+      id: '/_staff/admissions/intakes/$intakeId'
+      path: '/admissions/intakes/$intakeId'
+      fullPath: '/admissions/intakes/$intakeId'
+      preLoaderRoute: typeof StaffAdmissionsIntakesIntakeIdRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/admissions/reports/': {
+      id: '/_staff/admissions/reports/'
+      path: '/admissions/reports'
+      fullPath: '/admissions/reports/'
+      preLoaderRoute: typeof StaffAdmissionsReportsIndexRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/attendance/staff/': {
+      id: '/_staff/attendance/staff/'
+      path: '/attendance/staff'
+      fullPath: '/attendance/staff/'
+      preLoaderRoute: typeof StaffAttendanceStaffIndexRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/attendance/staff/leave': {
+      id: '/_staff/attendance/staff/leave'
+      path: '/attendance/staff/leave'
+      fullPath: '/attendance/staff/leave'
+      preLoaderRoute: typeof StaffAttendanceStaffLeaveRouteImport
+      parentRoute: typeof StaffRoute
+    }
     '/_staff/communications/batches/': {
       id: '/_staff/communications/batches/'
       path: '/communications/batches'
@@ -1233,6 +2344,48 @@ declare module '@tanstack/react-router' {
       fullPath: '/communications/batches/$batchId'
       preLoaderRoute: typeof StaffCommunicationsBatchesBatchIdRouteImport
       parentRoute: typeof StaffRoute
+    }
+    '/_staff/exams/seat-plans/': {
+      id: '/_staff/exams/seat-plans/'
+      path: '/exams/seat-plans'
+      fullPath: '/exams/seat-plans/'
+      preLoaderRoute: typeof StaffExamsSeatPlansIndexRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/exams/seat-plans/$planId': {
+      id: '/_staff/exams/seat-plans/$planId'
+      path: '/exams/seat-plans/$planId'
+      fullPath: '/exams/seat-plans/$planId'
+      preLoaderRoute: typeof StaffExamsSeatPlansPlanIdRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/exams/templates/': {
+      id: '/_staff/exams/templates/'
+      path: '/exams/templates'
+      fullPath: '/exams/templates/'
+      preLoaderRoute: typeof StaffExamsTemplatesIndexRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/exams/templates/$templateId': {
+      id: '/_staff/exams/templates/$templateId'
+      path: '/exams/templates/$templateId'
+      fullPath: '/exams/templates/$templateId'
+      preLoaderRoute: typeof StaffExamsTemplatesTemplateIdRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/fees/fines/': {
+      id: '/_staff/fees/fines/'
+      path: '/fines'
+      fullPath: '/fees/fines/'
+      preLoaderRoute: typeof StaffFeesFinesIndexRouteImport
+      parentRoute: typeof StaffFeesRoute
+    }
+    '/_staff/fees/fines/rules': {
+      id: '/_staff/fees/fines/rules'
+      path: '/fines/rules'
+      fullPath: '/fees/fines/rules'
+      preLoaderRoute: typeof StaffFeesFinesRulesRouteImport
+      parentRoute: typeof StaffFeesRoute
     }
     '/_staff/fees/schedules/': {
       id: '/_staff/fees/schedules/'
@@ -1248,11 +2401,46 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StaffFeesSchedulesIdRouteImport
       parentRoute: typeof StaffFeesRoute
     }
+    '/_staff/print-templates/$templateId/edit': {
+      id: '/_staff/print-templates/$templateId/edit'
+      path: '/print-templates/$templateId/edit'
+      fullPath: '/print-templates/$templateId/edit'
+      preLoaderRoute: typeof StaffPrintTemplatesTemplateIdEditRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/results/$examId/$studentId': {
+      id: '/_staff/results/$examId/$studentId'
+      path: '/results/$examId/$studentId'
+      fullPath: '/results/$examId/$studentId'
+      preLoaderRoute: typeof StaffResultsExamIdStudentIdRouteImport
+      parentRoute: typeof StaffRoute
+    }
     '/_staff/students/$studentId_/edit': {
       id: '/_staff/students/$studentId_/edit'
       path: '/students/$studentId/edit'
       fullPath: '/students/$studentId/edit'
       preLoaderRoute: typeof StaffStudentsStudentIdEditRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/marks/$examId/$sectionId/$subjectId': {
+      id: '/_staff/marks/$examId/$sectionId/$subjectId'
+      path: '/marks/$examId/$sectionId/$subjectId'
+      fullPath: '/marks/$examId/$sectionId/$subjectId'
+      preLoaderRoute: typeof StaffMarksExamIdSectionIdSubjectIdRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/staff/$userId_/acr/$assessmentId': {
+      id: '/_staff/staff/$userId_/acr/$assessmentId'
+      path: '/staff/$userId/acr/$assessmentId'
+      fullPath: '/staff/$userId/acr/$assessmentId'
+      preLoaderRoute: typeof StaffStaffUserIdAcrAssessmentIdRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/staff/evaluations_/surveys/$surveyId': {
+      id: '/_staff/staff/evaluations_/surveys/$surveyId'
+      path: '/staff/evaluations/surveys/$surveyId'
+      fullPath: '/staff/evaluations/surveys/$surveyId'
+      preLoaderRoute: typeof StaffStaffEvaluationsSurveysSurveyIdRouteImport
       parentRoute: typeof StaffRoute
     }
   }
@@ -1282,7 +2470,9 @@ interface StaffFeesRouteChildren {
   StaffFeesDuesRoute: typeof StaffFeesDuesRoute
   StaffFeesGenerateRoute: typeof StaffFeesGenerateRoute
   StaffFeesIndexRoute: typeof StaffFeesIndexRoute
+  StaffFeesFinesRulesRoute: typeof StaffFeesFinesRulesRoute
   StaffFeesSchedulesIdRoute: typeof StaffFeesSchedulesIdRoute
+  StaffFeesFinesIndexRoute: typeof StaffFeesFinesIndexRoute
   StaffFeesSchedulesIndexRoute: typeof StaffFeesSchedulesIndexRoute
 }
 
@@ -1290,7 +2480,9 @@ const StaffFeesRouteChildren: StaffFeesRouteChildren = {
   StaffFeesDuesRoute: StaffFeesDuesRoute,
   StaffFeesGenerateRoute: StaffFeesGenerateRoute,
   StaffFeesIndexRoute: StaffFeesIndexRoute,
+  StaffFeesFinesRulesRoute: StaffFeesFinesRulesRoute,
   StaffFeesSchedulesIdRoute: StaffFeesSchedulesIdRoute,
+  StaffFeesFinesIndexRoute: StaffFeesFinesIndexRoute,
   StaffFeesSchedulesIndexRoute: StaffFeesSchedulesIndexRoute,
 }
 
@@ -1299,11 +2491,13 @@ const StaffFeesRouteWithChildren = StaffFeesRoute._addFileChildren(
 )
 
 interface StaffRouteChildren {
+  StaffCurriculumPresetRoute: typeof StaffCurriculumPresetRoute
   StaffDashboardRoute: typeof StaffDashboardRoute
   StaffFeesRoute: typeof StaffFeesRouteWithChildren
   StaffNotificationsRoute: typeof StaffNotificationsRoute
   StaffSecurityRoute: typeof StaffSecurityRoute
   StaffSettingsRoute: typeof StaffSettingsRoute
+  StaffWelcomeRoute: typeof StaffWelcomeRoute
   StaffAcademicYearsAcademicYearIdRoute: typeof StaffAcademicYearsAcademicYearIdRoute
   StaffAttendanceSectionIdRoute: typeof StaffAttendanceSectionIdRoute
   StaffAttendanceRegisterRoute: typeof StaffAttendanceRegisterRoute
@@ -1312,39 +2506,87 @@ interface StaffRouteChildren {
   StaffClassesClassIdRoute: typeof StaffClassesClassIdRoute
   StaffCommunicationsRemindersRoute: typeof StaffCommunicationsRemindersRoute
   StaffCommunicationsSendRoute: typeof StaffCommunicationsSendRoute
+  StaffExamsExamIdRoute: typeof StaffExamsExamIdRoute
   StaffGradingScalesScaleIdRoute: typeof StaffGradingScalesScaleIdRoute
   StaffGuardiansGuardianIdRoute: typeof StaffGuardiansGuardianIdRoute
   StaffInvoicesInvoiceIdRoute: typeof StaffInvoicesInvoiceIdRoute
+  StaffMyClassSectionIdRoute: typeof StaffMyClassSectionIdRoute
   StaffPaymentsIdRoute: typeof StaffPaymentsIdRoute
   StaffPaymentsRecordRoute: typeof StaffPaymentsRecordRoute
+  StaffPrintPreviewRoute: typeof StaffPrintPreviewRoute
+  StaffProgramsProgramIdRoute: typeof StaffProgramsProgramIdRoute
+  StaffPromotionsRunIdRoute: typeof StaffPromotionsRunIdRoute
+  StaffPromotionsNewRoute: typeof StaffPromotionsNewRoute
   StaffReportsCollectionsRoute: typeof StaffReportsCollectionsRoute
+  StaffReportsPrintablesRoute: typeof StaffReportsPrintablesRoute
+  StaffRoutinesSectionIdRoute: typeof StaffRoutinesSectionIdRoute
+  StaffRoutinesMyRoute: typeof StaffRoutinesMyRoute
+  StaffRoutinesReviewRoute: typeof StaffRoutinesReviewRoute
+  StaffRoutinesSetupRoute: typeof StaffRoutinesSetupRoute
+  StaffRoutinesSubstitutionsRoute: typeof StaffRoutinesSubstitutionsRoute
   StaffStaffUserIdRoute: typeof StaffStaffUserIdRoute
+  StaffStaffEvaluationsRoute: typeof StaffStaffEvaluationsRoute
+  StaffStaffImportRoute: typeof StaffStaffImportRoute
+  StaffStaffTeachingAssignmentsRoute: typeof StaffStaffTeachingAssignmentsRoute
   StaffStudentsStudentIdRoute: typeof StaffStudentsStudentIdRoute
   StaffStudentsImportRoute: typeof StaffStudentsImportRoute
   StaffStudentsNewRoute: typeof StaffStudentsNewRoute
   StaffAcademicYearsIndexRoute: typeof StaffAcademicYearsIndexRoute
+  StaffAnalysisIndexRoute: typeof StaffAnalysisIndexRoute
   StaffAttendanceIndexRoute: typeof StaffAttendanceIndexRoute
   StaffAuditLogsIndexRoute: typeof StaffAuditLogsIndexRoute
   StaffCalendarIndexRoute: typeof StaffCalendarIndexRoute
   StaffClassesIndexRoute: typeof StaffClassesIndexRoute
+  StaffExamsIndexRoute: typeof StaffExamsIndexRoute
   StaffFeeStructuresIndexRoute: typeof StaffFeeStructuresIndexRoute
   StaffGradingScalesIndexRoute: typeof StaffGradingScalesIndexRoute
   StaffGuardiansIndexRoute: typeof StaffGuardiansIndexRoute
   StaffInvoicesIndexRoute: typeof StaffInvoicesIndexRoute
+  StaffMarksIndexRoute: typeof StaffMarksIndexRoute
+  StaffMyClassIndexRoute: typeof StaffMyClassIndexRoute
   StaffPaymentsIndexRoute: typeof StaffPaymentsIndexRoute
+  StaffPrintTemplatesIndexRoute: typeof StaffPrintTemplatesIndexRoute
+  StaffProgramsIndexRoute: typeof StaffProgramsIndexRoute
+  StaffPromotionsIndexRoute: typeof StaffPromotionsIndexRoute
+  StaffResultsIndexRoute: typeof StaffResultsIndexRoute
+  StaffRolesIndexRoute: typeof StaffRolesIndexRoute
+  StaffRoutinesIndexRoute: typeof StaffRoutinesIndexRoute
   StaffStaffIndexRoute: typeof StaffStaffIndexRoute
   StaffStudentsIndexRoute: typeof StaffStudentsIndexRoute
+  StaffAcademicsHomeworkHomeworkIdRoute: typeof StaffAcademicsHomeworkHomeworkIdRoute
+  StaffAcademicsHomeworkImportRoute: typeof StaffAcademicsHomeworkImportRoute
+  StaffAcademicsHomeworkNewRoute: typeof StaffAcademicsHomeworkNewRoute
+  StaffAdmissionsApplicantsApplicantIdRoute: typeof StaffAdmissionsApplicantsApplicantIdRoute
+  StaffAdmissionsIntakesIntakeIdRoute: typeof StaffAdmissionsIntakesIntakeIdRoute
+  StaffAttendanceStaffLeaveRoute: typeof StaffAttendanceStaffLeaveRoute
   StaffCommunicationsBatchesBatchIdRoute: typeof StaffCommunicationsBatchesBatchIdRoute
+  StaffExamsSeatPlansPlanIdRoute: typeof StaffExamsSeatPlansPlanIdRoute
+  StaffExamsTemplatesTemplateIdRoute: typeof StaffExamsTemplatesTemplateIdRoute
+  StaffPrintTemplatesTemplateIdEditRoute: typeof StaffPrintTemplatesTemplateIdEditRoute
+  StaffResultsExamIdStudentIdRoute: typeof StaffResultsExamIdStudentIdRoute
   StaffStudentsStudentIdEditRoute: typeof StaffStudentsStudentIdEditRoute
+  StaffAcademicsHomeworkIndexRoute: typeof StaffAcademicsHomeworkIndexRoute
+  StaffAcademicsSyllabusIndexRoute: typeof StaffAcademicsSyllabusIndexRoute
+  StaffAdmissionsApplicantsIndexRoute: typeof StaffAdmissionsApplicantsIndexRoute
+  StaffAdmissionsIntakesIndexRoute: typeof StaffAdmissionsIntakesIndexRoute
+  StaffAdmissionsReportsIndexRoute: typeof StaffAdmissionsReportsIndexRoute
+  StaffAttendanceStaffIndexRoute: typeof StaffAttendanceStaffIndexRoute
   StaffCommunicationsBatchesIndexRoute: typeof StaffCommunicationsBatchesIndexRoute
+  StaffExamsSeatPlansIndexRoute: typeof StaffExamsSeatPlansIndexRoute
+  StaffExamsTemplatesIndexRoute: typeof StaffExamsTemplatesIndexRoute
+  StaffMarksExamIdSectionIdSubjectIdRoute: typeof StaffMarksExamIdSectionIdSubjectIdRoute
+  StaffStaffUserIdAcrAssessmentIdRoute: typeof StaffStaffUserIdAcrAssessmentIdRoute
+  StaffStaffEvaluationsSurveysSurveyIdRoute: typeof StaffStaffEvaluationsSurveysSurveyIdRoute
 }
 
 const StaffRouteChildren: StaffRouteChildren = {
+  StaffCurriculumPresetRoute: StaffCurriculumPresetRoute,
   StaffDashboardRoute: StaffDashboardRoute,
   StaffFeesRoute: StaffFeesRouteWithChildren,
   StaffNotificationsRoute: StaffNotificationsRoute,
   StaffSecurityRoute: StaffSecurityRoute,
   StaffSettingsRoute: StaffSettingsRoute,
+  StaffWelcomeRoute: StaffWelcomeRoute,
   StaffAcademicYearsAcademicYearIdRoute: StaffAcademicYearsAcademicYearIdRoute,
   StaffAttendanceSectionIdRoute: StaffAttendanceSectionIdRoute,
   StaffAttendanceRegisterRoute: StaffAttendanceRegisterRoute,
@@ -1353,32 +2595,82 @@ const StaffRouteChildren: StaffRouteChildren = {
   StaffClassesClassIdRoute: StaffClassesClassIdRoute,
   StaffCommunicationsRemindersRoute: StaffCommunicationsRemindersRoute,
   StaffCommunicationsSendRoute: StaffCommunicationsSendRoute,
+  StaffExamsExamIdRoute: StaffExamsExamIdRoute,
   StaffGradingScalesScaleIdRoute: StaffGradingScalesScaleIdRoute,
   StaffGuardiansGuardianIdRoute: StaffGuardiansGuardianIdRoute,
   StaffInvoicesInvoiceIdRoute: StaffInvoicesInvoiceIdRoute,
+  StaffMyClassSectionIdRoute: StaffMyClassSectionIdRoute,
   StaffPaymentsIdRoute: StaffPaymentsIdRoute,
   StaffPaymentsRecordRoute: StaffPaymentsRecordRoute,
+  StaffPrintPreviewRoute: StaffPrintPreviewRoute,
+  StaffProgramsProgramIdRoute: StaffProgramsProgramIdRoute,
+  StaffPromotionsRunIdRoute: StaffPromotionsRunIdRoute,
+  StaffPromotionsNewRoute: StaffPromotionsNewRoute,
   StaffReportsCollectionsRoute: StaffReportsCollectionsRoute,
+  StaffReportsPrintablesRoute: StaffReportsPrintablesRoute,
+  StaffRoutinesSectionIdRoute: StaffRoutinesSectionIdRoute,
+  StaffRoutinesMyRoute: StaffRoutinesMyRoute,
+  StaffRoutinesReviewRoute: StaffRoutinesReviewRoute,
+  StaffRoutinesSetupRoute: StaffRoutinesSetupRoute,
+  StaffRoutinesSubstitutionsRoute: StaffRoutinesSubstitutionsRoute,
   StaffStaffUserIdRoute: StaffStaffUserIdRoute,
+  StaffStaffEvaluationsRoute: StaffStaffEvaluationsRoute,
+  StaffStaffImportRoute: StaffStaffImportRoute,
+  StaffStaffTeachingAssignmentsRoute: StaffStaffTeachingAssignmentsRoute,
   StaffStudentsStudentIdRoute: StaffStudentsStudentIdRoute,
   StaffStudentsImportRoute: StaffStudentsImportRoute,
   StaffStudentsNewRoute: StaffStudentsNewRoute,
   StaffAcademicYearsIndexRoute: StaffAcademicYearsIndexRoute,
+  StaffAnalysisIndexRoute: StaffAnalysisIndexRoute,
   StaffAttendanceIndexRoute: StaffAttendanceIndexRoute,
   StaffAuditLogsIndexRoute: StaffAuditLogsIndexRoute,
   StaffCalendarIndexRoute: StaffCalendarIndexRoute,
   StaffClassesIndexRoute: StaffClassesIndexRoute,
+  StaffExamsIndexRoute: StaffExamsIndexRoute,
   StaffFeeStructuresIndexRoute: StaffFeeStructuresIndexRoute,
   StaffGradingScalesIndexRoute: StaffGradingScalesIndexRoute,
   StaffGuardiansIndexRoute: StaffGuardiansIndexRoute,
   StaffInvoicesIndexRoute: StaffInvoicesIndexRoute,
+  StaffMarksIndexRoute: StaffMarksIndexRoute,
+  StaffMyClassIndexRoute: StaffMyClassIndexRoute,
   StaffPaymentsIndexRoute: StaffPaymentsIndexRoute,
+  StaffPrintTemplatesIndexRoute: StaffPrintTemplatesIndexRoute,
+  StaffProgramsIndexRoute: StaffProgramsIndexRoute,
+  StaffPromotionsIndexRoute: StaffPromotionsIndexRoute,
+  StaffResultsIndexRoute: StaffResultsIndexRoute,
+  StaffRolesIndexRoute: StaffRolesIndexRoute,
+  StaffRoutinesIndexRoute: StaffRoutinesIndexRoute,
   StaffStaffIndexRoute: StaffStaffIndexRoute,
   StaffStudentsIndexRoute: StaffStudentsIndexRoute,
+  StaffAcademicsHomeworkHomeworkIdRoute: StaffAcademicsHomeworkHomeworkIdRoute,
+  StaffAcademicsHomeworkImportRoute: StaffAcademicsHomeworkImportRoute,
+  StaffAcademicsHomeworkNewRoute: StaffAcademicsHomeworkNewRoute,
+  StaffAdmissionsApplicantsApplicantIdRoute:
+    StaffAdmissionsApplicantsApplicantIdRoute,
+  StaffAdmissionsIntakesIntakeIdRoute: StaffAdmissionsIntakesIntakeIdRoute,
+  StaffAttendanceStaffLeaveRoute: StaffAttendanceStaffLeaveRoute,
   StaffCommunicationsBatchesBatchIdRoute:
     StaffCommunicationsBatchesBatchIdRoute,
+  StaffExamsSeatPlansPlanIdRoute: StaffExamsSeatPlansPlanIdRoute,
+  StaffExamsTemplatesTemplateIdRoute: StaffExamsTemplatesTemplateIdRoute,
+  StaffPrintTemplatesTemplateIdEditRoute:
+    StaffPrintTemplatesTemplateIdEditRoute,
+  StaffResultsExamIdStudentIdRoute: StaffResultsExamIdStudentIdRoute,
   StaffStudentsStudentIdEditRoute: StaffStudentsStudentIdEditRoute,
+  StaffAcademicsHomeworkIndexRoute: StaffAcademicsHomeworkIndexRoute,
+  StaffAcademicsSyllabusIndexRoute: StaffAcademicsSyllabusIndexRoute,
+  StaffAdmissionsApplicantsIndexRoute: StaffAdmissionsApplicantsIndexRoute,
+  StaffAdmissionsIntakesIndexRoute: StaffAdmissionsIntakesIndexRoute,
+  StaffAdmissionsReportsIndexRoute: StaffAdmissionsReportsIndexRoute,
+  StaffAttendanceStaffIndexRoute: StaffAttendanceStaffIndexRoute,
   StaffCommunicationsBatchesIndexRoute: StaffCommunicationsBatchesIndexRoute,
+  StaffExamsSeatPlansIndexRoute: StaffExamsSeatPlansIndexRoute,
+  StaffExamsTemplatesIndexRoute: StaffExamsTemplatesIndexRoute,
+  StaffMarksExamIdSectionIdSubjectIdRoute:
+    StaffMarksExamIdSectionIdSubjectIdRoute,
+  StaffStaffUserIdAcrAssessmentIdRoute: StaffStaffUserIdAcrAssessmentIdRoute,
+  StaffStaffEvaluationsSurveysSurveyIdRoute:
+    StaffStaffEvaluationsSurveysSurveyIdRoute,
 }
 
 const StaffRouteWithChildren = StaffRoute._addFileChildren(StaffRouteChildren)
@@ -1387,7 +2679,13 @@ interface PortalRouteChildren {
   PortalAccountRoute: typeof PortalAccountRoute
   PortalAttendanceRoute: typeof PortalAttendanceRoute
   PortalCalendarRoute: typeof PortalCalendarRoute
+  PortalExamScheduleRoute: typeof PortalExamScheduleRoute
   PortalFeesRoute: typeof PortalFeesRoute
+  PortalProgramsRoute: typeof PortalProgramsRoute
+  PortalResultsRoute: typeof PortalResultsRoute
+  PortalRoutineRoute: typeof PortalRoutineRoute
+  PortalSurveysRoute: typeof PortalSurveysRoute
+  PortalSyllabusRoute: typeof PortalSyllabusRoute
   PortalIndexRoute: typeof PortalIndexRoute
 }
 
@@ -1395,7 +2693,13 @@ const PortalRouteChildren: PortalRouteChildren = {
   PortalAccountRoute: PortalAccountRoute,
   PortalAttendanceRoute: PortalAttendanceRoute,
   PortalCalendarRoute: PortalCalendarRoute,
+  PortalExamScheduleRoute: PortalExamScheduleRoute,
   PortalFeesRoute: PortalFeesRoute,
+  PortalProgramsRoute: PortalProgramsRoute,
+  PortalResultsRoute: PortalResultsRoute,
+  PortalRoutineRoute: PortalRoutineRoute,
+  PortalSurveysRoute: PortalSurveysRoute,
+  PortalSyllabusRoute: PortalSyllabusRoute,
   PortalIndexRoute: PortalIndexRoute,
 }
 
@@ -1410,10 +2714,15 @@ const rootRouteChildren: RootRouteChildren = {
   ForgotPasswordRoute: ForgotPasswordRoute,
   LoginRoute: LoginRoute,
   PortalRoute: PortalRouteWithChildren,
+  RegisterRoute: RegisterRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   SelectSchoolRoute: SelectSchoolRoute,
   VerifyEmailRoute: VerifyEmailRoute,
   ITokenRoute: ITokenRoute,
+  VTokenRoute: VTokenRoute,
+  AdmissionSlugStatusRoute: AdmissionSlugStatusRoute,
+  AuthSocialDoneRoute: AuthSocialDoneRoute,
+  AdmissionSlugIndexRoute: AdmissionSlugIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

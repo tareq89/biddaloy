@@ -1,0 +1,39 @@
+{
+  "list": {
+    "title": "Teacher assignments",
+    "caption": "Section-teacher assignments for the selected class",
+    "classLabel": "Class",
+    "classPlaceholder": "Select a class",
+    "sectionLabel": "Section to assign",
+    "selectClassPrompt": "Select a class to see its teaching assignments.",
+    "columnTeacher": "Teacher",
+    "columnSection": "Section",
+    "columnRole": "Role",
+    "columnSubject": "Subject",
+    "columnActions": "Actions",
+    "roleClassTeacher": "Class teacher",
+    "roleSubjectTeacher": "Subject teacher",
+    "assign": "Add teacher",
+    "unassign": "Remove from section",
+    "emptyMessage": "No teacher has been given this section yet.",
+    "errorMessage": "Couldn't load this section's teachers.",
+    "classListErrorMessage": "Failed to load the class list.",
+    "announceResults": "{{count}} of {{total}} assignments",
+    "subtitle": "Who is class teacher and who teaches what, section by section",
+    "sectionTitle": "Section {{name}}",
+    "sectionCaption": "Teachers of section {{name}}",
+    "columnDuty": "Duty",
+    "emptyTitle": "No one yet",
+    "noClassesTitle": "No classes yet",
+    "noClassesExplanation": "Add a class and its sections and teachers show up here.",
+    "addClass": "Add class"
+  },
+  "unassignDialog": {
+    "title": "Remove this teacher?",
+    "description": "{{teacherName}} will be removed from section {{sectionName}}.",
+    "confirm": "Remove",
+    "cancel": "Cancel",
+    "unassigning": "Removing…",
+    "errorMessage": "Couldn't remove. Try again."
+  }
+}

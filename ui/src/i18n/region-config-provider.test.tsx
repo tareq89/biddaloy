@@ -1,5 +1,8 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
+import { useTranslation } from 'react-i18next';
 import { describe, it, expect } from 'vitest';
+
+import { formatServerAmount } from '../utils/currency';
 
 import { createI18nInstance } from './i18n';
 import { I18nProvider } from './locale-provider';
@@ -15,7 +18,65 @@ function Numerals() {
   return <p>numerals: {useRegionConfig().numerals}</p>;
 }
 
+// Fixture key in a constant: check:i18n only reads literal string keys in t calls.
+const COUNT_KEY = 'n';
+
+function Count() {
+  const { t } = useTranslation();
+  return <p>{t(COUNT_KEY, { count: 312 })}</p>;
+}
+
+function Amount() {
+  return <p>{formatServerAmount('0.00', useRegionConfig())}</p>;
+}
+
 describe('RegionConfigProvider', () => {
+  it('a value-less provider under bn renders Bengali amounts', async () => {
+    const instance = createI18nInstance();
+    render(
+      <I18nProvider i18n={instance}>
+        <RegionConfigProvider>
+          <Amount />
+        </RegionConfigProvider>
+      </I18nProvider>,
+    );
+    await waitFor(() => expect(screen.getByText('৳০.০০')).toBeTruthy());
+  });
+
+  it('pushes the tenant numerals into {{count}} interpolation', async () => {
+    const instance = createI18nInstance();
+    await instance.changeLanguage('bn');
+    instance.addResourceBundle('bn', 'common', { n: 'মোট {{count}}টি' }, true, true);
+    render(
+      <I18nProvider i18n={instance}>
+        <RegionConfigProvider value={{ ...REGION_BD_BN, numerals: 'latin' }}>
+          <Count />
+        </RegionConfigProvider>
+      </I18nProvider>,
+    );
+    await waitFor(() => expect(screen.getByText('মোট 312টি')).toBeTruthy());
+  });
+
+  it('keeps the tenant numerals when one provider unmounts after another mounts (route switch)', async () => {
+    const instance = createI18nInstance();
+    await instance.changeLanguage('bn');
+    instance.addResourceBundle('bn', 'common', { n: 'মোট {{count}}টি' }, true, true);
+    const latinBn = { ...REGION_BD_BN, numerals: 'latin' } as const;
+    const route = (name: string) => (
+      <I18nProvider i18n={instance}>
+        <RegionConfigProvider key={name} value={latinBn}>
+          <p>{name}</p>
+        </RegionConfigProvider>
+      </I18nProvider>
+    );
+    const { rerender } = render(route('a'));
+    await screen.findByText('a');
+    rerender(route('b'));
+    await screen.findByText('b');
+    // Before: route a's unmount cleanup ran after b rendered and reset to the bn default (৩১২).
+    expect(instance.t(COUNT_KEY, { count: 312 })).toBe('মোট 312টি');
+  });
+
   it('defaults to the BD region matching the active locale, and follows it when the locale switches', async () => {
     const instance = createI18nInstance();
 

@@ -12,25 +12,41 @@
  * toast">` per toast — keyboard-dismissible via Tab + Enter, on top of
  * sonner's own Escape-to-dismiss-the-focused-toast handling.
  *
- * [8.14.3]: `mobileOffset` (sonner 2.x) pushes the toast stack clear of the
- * gesture-nav home indicator on a narrow viewport, the same
- * `--safe-area-bottom` token (`ui/src/styles/globals.css`) `BottomNav` uses.
- * `env()` resolves to `0px` outside an installed, `viewport-fit=cover` PWA,
- * so the `1rem` base offset is all a normal browser tab ever sees. This is
- * a *default*, not a forced value — `{...props}` is applied last so a
- * caller-supplied `mobileOffset` still wins. Scope note: this clears the
- * home indicator only; toasts can still overlap the bottom nav bar itself,
- * which is a deliberate non-goal for [8.14.3].
+ * [8.14.3]/[31.2.8b]: toasts sit clear of the gesture-nav home indicator
+ * (`--safe-area-bottom`, `ui/src/styles/globals.css`) and, below `md`, above
+ * the fixed 4rem bottom bar (5rem = bar + 1rem gap). Sonner's own "mobile"
+ * switch is 600px but the bar shows below 768px, so the breakpoint is read
+ * here. ponytail: guest pages below `md` (no bar) get the same lift; key it
+ * off a real "bar mounted" signal only if that looks wrong. These are
+ * defaults: `{...props}` is applied last so a caller-supplied offset wins.
  */
 import type { ComponentProps } from 'react';
+import * as React from 'react';
 import { Toaster as SonnerToaster, toast } from 'sonner';
 
+const BELOW_MD = '(max-width: 47.99rem)';
+
+function subscribe(cb: () => void) {
+  if (typeof matchMedia !== 'function') return () => {};
+  const m = matchMedia(BELOW_MD);
+  m.addEventListener('change', cb);
+  return () => m.removeEventListener('change', cb);
+}
+
 export function Toaster(props: ComponentProps<typeof SonnerToaster>) {
+  const belowMd = React.useSyncExternalStore(
+    subscribe,
+    () => typeof matchMedia === 'function' && matchMedia(BELOW_MD).matches,
+    () => false,
+  );
+  const bottom = belowMd ? 'calc(5rem + var(--safe-area-bottom, 0px))' : undefined;
+
   return (
     <SonnerToaster
       richColors
       closeButton
-      mobileOffset={{ bottom: 'calc(1rem + var(--safe-area-bottom, 0px))' }}
+      {...(bottom ? { offset: { bottom } } : {})}
+      mobileOffset={{ bottom: bottom ?? 'calc(1rem + var(--safe-area-bottom, 0px))' }}
       {...props}
     />
   );

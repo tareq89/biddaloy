@@ -9,6 +9,7 @@
  */
 import * as React from 'react';
 
+import { cn } from '../primitives/lib/utils';
 import {
   Tooltip as TooltipPrimitive,
   TooltipContent as TooltipContentPrimitive,
@@ -33,6 +34,12 @@ export function TooltipTrigger(props: TooltipTriggerProps) {
   return <TooltipTriggerPrimitive {...props} />;
 }
 
-export function TooltipContent(props: TooltipContentProps) {
-  return <TooltipContentPrimitive {...props} />;
+export function TooltipContent({ className, sideOffset = 4, ...props }: TooltipContentProps) {
+  return (
+    <TooltipContentPrimitive
+      sideOffset={sideOffset}
+      className={cn('rounded-md px-2 py-1 text-caption whitespace-nowrap shadow-e2', className)}
+      {...props}
+    />
+  );
 }

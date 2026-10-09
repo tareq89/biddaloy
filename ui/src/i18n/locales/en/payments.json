@@ -1,25 +1,48 @@
 {
   "title": "Payments",
-  "explanation": "Record a payment from this page or from a student's or guardian's Payments tab.",
+  "subtitle": "Every payment the school received, newest first.",
   "recordAction": "Record payment",
+  "list": {
+    "caption": "Payments",
+    "searchLabel": "Search",
+    "searchPlaceholder": "Name, registration number or reference",
+    "methodLabel": "Payment method",
+    "allMethods": "All methods",
+    "dateLabel": "Payment date",
+    "dateFromLabel": "From",
+    "dateToLabel": "To",
+    "includeReversed": "Show reversed too",
+    "columnDate": "Date",
+    "columnStudent": "Student",
+    "columnMethod": "Method",
+    "columnReference": "Transaction reference",
+    "columnAmount": "Amount",
+    "columnStatus": "Status",
+    "reversed": "Reversed",
+    "reversal": "Reversal entry",
+    "deletedStudent": "Deleted student",
+    "view": "View",
+    "emptyTitle": "No payments yet",
+    "emptyText": "Payments you record appear here.",
+    "error": "Payments could not be loaded."
+  },
   "record": {
     "title": "Record a payment",
-    "description": "Search or pick a student, allocate the amount received across their open bills, then take tender.",
     "submitAction": "Record payment",
     "cancel": "Cancel",
     "students": {
-      "label": "Students",
       "searchLabel": "Search for a student",
       "searchPlaceholder": "Search by name or roll number",
       "noResults": "No students match that search.",
       "rollAndClass": "Roll {{roll}} · {{className}} {{sectionName}}",
       "addSibling": "+ add sibling",
       "removeStudent": "Remove {{name}}",
-      "maxReached": "Up to 10 students can be paid for in one checkout."
+      "maxReached": "Up to 10 students can be paid for in one checkout.",
+      "addAnotherLabel": "Add another student",
+      "chip": "{{name}} · {{className}} {{sectionName}}"
     },
     "amountReceived": {
-      "label": "Amount received",
-      "hint": "Distributed oldest-due-date first across the open bills below."
+      "label": "Amount received"
     },
     "cart": {
       "columnFee": "Fee",
@@ -28,23 +51,24 @@
       "columnBalance": "Balance",
       "columnPay": "Pay",
       "columnDiscount": "Discount",
-      "columnTotal": "Total",
       "overdue": "Overdue",
       "lateFee": "Late fee",
       "empty": "This student has no open bills.",
       "loading": "Loading open bills…",
       "error": "Couldn't load open bills.",
       "subtotal": "Subtotal",
-      "walletCredit": "Use wallet credit ({{amount}} available)",
+      "walletCredit": "Use credit balance ({{amount}} available)",
       "walletAvailable": "{{amount}} available",
-      "amountDue": "Amount due"
+      "amountDue": "Amount due",
+      "pickStudent": "Pick a student first to see the bills due.",
+      "columnStatus": "Status"
     },
     "discount": {
       "label": "Discount",
-      "unlock": "Unlock to edit discount",
       "discountTheRest": "Discount the rest",
       "needsApproval": "This discount needs admin approval to submit.",
-      "exceedsBalance": "Pay plus discount can't exceed the balance."
+      "exceedsBalance": "Pay plus discount can't exceed the balance.",
+      "give": "Give discount"
     },
     "method": {
       "label": "Payment method",
@@ -61,11 +85,12 @@
       }
     },
     "tender": {
-      "tenderedLabel": "Tendered",
-      "changeLabel": "Change",
+      "tenderedLabel": "Cash handed over",
+      "changeLabel": "Change to give back",
       "changeReturn": "Return change",
-      "changeToWallet": "Credit change to wallet",
-      "tenderTooLow": "Tendered amount plus wallet credit doesn't cover the amount due."
+      "changeToWallet": "Keep the change as credit",
+      "tenderTooLow": "Tendered amount plus credit balance doesn't cover the amount due.",
+      "hint": "Only to work out the change; you can leave it empty."
     },
     "notifications": {
       "recorded": "{{amount}} recorded.",
@@ -80,10 +105,18 @@
       "invoiceNumber": "Invoice",
       "recordAnother": "Record another",
       "viewInvoice": "View invoice"
-    }
+    },
+    "sections": {
+      "students": "1. Student",
+      "studentsHelp": "Find the student you are taking money from. Add siblings to take it together (up to 10).",
+      "bills": "2. Bills due",
+      "billsHelp": "Type the amount received and it is split from the oldest bill. You can change any line.",
+      "money": "3. Take the money"
+    },
+    "submitWithAmount": "Record {{amount}}",
+    "changeHandlingLabel": "Change"
   },
   "detail": {
-    "back": "Back to payments",
     "loadError": "Couldn't load this payment.",
     "retry": "Retry",
     "amount": "Amount",
@@ -93,26 +126,92 @@
     "invoice": "Invoice",
     "noInvoice": "No invoice",
     "unknown": "Unknown",
-    "reversalOf": "Reversal of #{{id}}",
     "reversedBanner": "This payment has been reversed.",
     "reverseAction": "Reverse payment",
     "allocations": {
-      "title": "Allocations",
+      "title": "Where the money went",
       "columnFee": "Fee",
       "columnPeriod": "Period",
       "columnAmount": "Amount",
-      "columnDiscount": "Discount"
+      "columnDiscount": "Discount",
+      "help": "The bills this payment was put against.",
+      "phoneLine": "{{period}} · Discount {{discount}}"
     },
     "reverseDialog": {
       "title": "Reverse this payment?",
       "description": "This reverses the full payment. Give a reason before confirming.",
-      "consequenceWallet": "Any wallet credit this payment created will be unwound.",
+      "consequenceWallet": "Any credit balance this payment created will be unwound.",
       "consequenceCreditNote": "A credit note is issued against the linked invoice.",
       "consequenceIrreversible": "This cannot be undone once confirmed.",
       "reasonLabel": "Reason",
       "confirm": "Reverse payment",
       "errorMessage": "Reversing this payment failed.",
-      "errorLaterPayments": "Later payments must be reversed first:"
-    }
+      "errorLaterPayments": "Later payments must be reversed first:",
+      "laterPaymentLink": "Later payment {{n}}"
+    },
+    "reference": "Transaction reference",
+    "approver": "Discount approved by",
+    "printReceipt": "Print receipt",
+    "printError": "The receipt could not be opened for printing.",
+    "viewInvoice": "View invoice",
+    "viewStudent": "Student page",
+    "remarks": "Remarks",
+    "reversalEntry": "This is a reversal entry.",
+    "viewOriginal": "View original payment",
+    "reversedStatus": "Reversed",
+    "viewReversal": "View reversal entry"
+  },
+  "printFormat": {
+    "label": "Paper size",
+    "a4": "A4 page",
+    "pos80": "Receipt printer — 80 mm",
+    "pos58": "Receipt printer — 58 mm"
+  },
+  "invoices": {
+    "subtitle": "Every payment's receipt and credit note, newest first.",
+    "view": "View",
+    "creditNote": "Credit note",
+    "emptyText": "When you record a payment its invoice appears here.",
+    "amountRangeLabel": "Amount (৳)",
+    "minAmount": "Minimum",
+    "maxAmount": "Maximum"
+  },
+  "invoiceDetail": {
+    "student": "Student",
+    "payment": "Payment",
+    "paymentValue": "{{method}} · {{date}}",
+    "originalInvoice": "Original invoice",
+    "creditNote": "Credit note",
+    "lines": {
+      "caption": "Bills for {{name}}",
+      "fee": "Fee",
+      "period": "Period",
+      "billed": "Bill",
+      "discount": "Discount",
+      "paidNow": "Paid now",
+      "balance": "Left to pay",
+      "phoneLine": "{{period}} · Bill {{billed}}"
+    },
+    "totals": {
+      "billed": "Total billed",
+      "discount": "Discount",
+      "tax": "Tax",
+      "wallet": "From wallet",
+      "paid": "Paid",
+      "change": "Change given"
+    },
+    "notes": "Notes",
+    "printTitle": "Print",
+    "printAction": "Print",
+    "sendTitle": "Send to guardian",
+    "sendWhatsapp": "WhatsApp",
+    "sendSms": "SMS",
+    "shareTitle": "Share link",
+    "shareHelp": "Anyone with the link can see this receipt without signing in.",
+    "shareCreate": "Create link",
+    "shareRevoke": "Turn off link",
+    "shareRevokeTitle": "Turn off this link?",
+    "shareFailed": "The share link couldn't be created.",
+    "revokeFailed": "The link couldn't be turned off."
   }
 }

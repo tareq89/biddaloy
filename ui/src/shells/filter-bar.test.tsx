@@ -1,11 +1,11 @@
-import { act, fireEvent, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type * as React from 'react';
 import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { renderWithProviders } from '../test';
-import { expectKeyboardOperable, expectTabOrder } from '../test/a11y/keyboard';
+import { expectTabOrder } from '../test/a11y/keyboard';
 
 import type { FilterFieldDescriptor } from './filter-bar';
 import { FilterBar } from './filter-bar';
@@ -86,8 +86,8 @@ describe('FilterBar', () => {
 
     expect(screen.getByRole('textbox', { name: 'Search' })).toBeTruthy();
     expect(screen.getByRole('combobox', { name: 'Status' })).toBeTruthy();
-    expect(screen.getByRole('textbox', { name: 'From date' })).toBeTruthy();
-    expect(screen.getByRole('textbox', { name: 'To date' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'From date' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'To date' })).toBeTruthy();
     expect(screen.getByRole('checkbox', { name: 'Flagged' })).toBeTruthy();
     expect(screen.getByRole('textbox', { name: 'Min amount' })).toBeTruthy();
     expect(screen.getByRole('textbox', { name: 'Max amount' })).toBeTruthy();
@@ -98,7 +98,7 @@ describe('FilterBar', () => {
     await expect(container).toHaveNoViolations();
   });
 
-  it('is axe clean with the mobile panel expanded and chips showing', async () => {
+  it('is axe clean with the phone sheet open and chips showing', async () => {
     const user = userEvent.setup();
     const { container } = await renderInEnglish(
       <FilterBarDemo initialValues={{ status: 'active' }} />,
@@ -167,25 +167,33 @@ describe('FilterBar', () => {
     expect(onChangeSpy).toHaveBeenLastCalledWith({ flagged: null });
   });
 
-  it('typing a full date commits ASCII YYYY-MM-DD, even though the default region config is bn', async () => {
+  // [31.2.2] the date fields are DatePicker buttons now: pick the 15th of the
+  // month the calendar opens on instead of typing into a text input.
+  const pickedIso = () => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-15`;
+  };
+
+  it('picking a date commits ASCII YYYY-MM-DD, even though the default region config is bn', async () => {
     const user = userEvent.setup();
     const onChangeSpy = vi.fn();
     await renderInEnglish(<FilterBarDemo onChangeSpy={onChangeSpy} />);
 
-    const fromInput = screen.getByRole('textbox', { name: 'From date' });
-    await user.type(fromInput, '2024-01-05');
+    await user.click(screen.getByRole('button', { name: 'From date' }));
+    await user.click(document.querySelector<HTMLElement>(`[data-date="${pickedIso()}"]`)!);
 
-    expect(onChangeSpy).toHaveBeenLastCalledWith({ from_date: '2024-01-05' });
+    expect(onChangeSpy).toHaveBeenLastCalledWith({ from_date: pickedIso() });
   });
 
-  it('typing the second date of a range commits its own key independently', async () => {
+  it('picking the second date of a range commits its own key independently', async () => {
+    const user = userEvent.setup();
     const onChangeSpy = vi.fn();
     await renderInEnglish(<FilterBarDemo onChangeSpy={onChangeSpy} />);
 
-    const toInput = screen.getByRole('textbox', { name: 'To date' });
-    await userEvent.setup().type(toInput, '2024-02-20');
+    await user.click(screen.getByRole('button', { name: 'To date' }));
+    await user.click(document.querySelector<HTMLElement>(`[data-date="${pickedIso()}"]`)!);
 
-    expect(onChangeSpy).toHaveBeenLastCalledWith({ to_date: '2024-02-20' });
+    expect(onChangeSpy).toHaveBeenLastCalledWith({ to_date: pickedIso() });
   });
 
   it('committing min/max number-range inputs calls onChange with each key independently', async () => {
@@ -203,64 +211,98 @@ describe('FilterBar', () => {
     await waitFor(() => expect(onChangeSpy).toHaveBeenLastCalledWith({ max_amount: '500' }));
   });
 
-  it('shows the mobile disclosure trigger with an accurate active-filter count', async () => {
+  it('finds every select and text field by its visible label', async () => {
+    await renderInEnglish(<FilterBarDemo />);
+    expect(screen.getByLabelText('Search')).toBeTruthy();
+    expect(screen.getByLabelText('Status')).toBeTruthy();
+    expect(screen.getByLabelText('Flagged')).toBeTruthy();
+    expect(screen.getByLabelText('Date range')).toBeTruthy();
+  });
+
+  it('the phone button counts the active collapsible filters and opens a dialog with the same fields', async () => {
+    const user = userEvent.setup();
     await renderInEnglish(<FilterBarDemo initialValues={{ status: 'active', flagged: 'true' }} />);
     const trigger = screen.getByRole('button', { name: 'Filters (2)' });
-    expect(trigger.getAttribute('aria-expanded')).toBe('false');
-    expect(trigger.getAttribute('aria-controls')).toBeTruthy();
-  });
-
-  it('shows "Filters" with no count when nothing is active, and flips to "Hide filters" when expanded', async () => {
-    const user = userEvent.setup();
-    await renderInEnglish(<FilterBarDemo />);
-    const trigger = screen.getByRole('button', { name: 'Filters' });
+    expect(trigger.getAttribute('aria-haspopup')).toBe('dialog');
 
     await user.click(trigger);
-    expect(screen.getByRole('button', { name: 'Hide filters' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Hide filters' }).getAttribute('aria-expanded')).toBe(
-      'true',
-    );
+    const dialog = await screen.findByRole('dialog', { name: 'Filters' });
+    expect(within(dialog).getByLabelText('Status')).toBeTruthy();
+    expect(within(dialog).getByLabelText('From date')).toBeTruthy();
+    expect(within(dialog).getByLabelText('Min amount')).toBeTruthy();
+    expect(within(dialog).getByRole('checkbox', { name: 'Flagged' })).toBeTruthy();
   });
 
-  it('the disclosure trigger aria-controls points at the collapsible panel id', async () => {
+  it('shows "Filters" with no count when nothing is active, and the button is keyboard-operable', async () => {
     await renderInEnglish(<FilterBarDemo />);
-    const trigger = screen.getByRole('button', { name: 'Filters' });
-    const panelId = trigger.getAttribute('aria-controls');
-    expect(panelId).toBeTruthy();
-    expect(document.getElementById(panelId!)).toBeTruthy();
-  });
-
-  it('the mobile disclosure trigger is keyboard-operable (Tab-reachable, Enter/Space activate it)', async () => {
-    await renderInEnglish(<FilterBarDemo />);
-    const trigger = screen.getByRole('button', { name: 'Filters' });
-    await expectKeyboardOperable(trigger);
-  });
-
-  it('Tab visits every control in descriptor order — primary field, disclosure trigger, then each collapsible control', async () => {
-    await renderInEnglish(<FilterBarDemo />);
-
-    // The date-range pair's own internal tab stops (each `DatePicker`'s
-    // "Open calendar" icon-button, between its text input and the next
-    // field) are that component's own contract, not `FilterBar`'s — this
-    // only proves descriptor order holds across field *kinds*, using one
-    // representative stop (`From date`) from the date-range pair rather
-    // than enumerating every stop inside it.
-    await expectTabOrder([
-      screen.getByRole('textbox', { name: 'Search' }),
-      screen.getByRole('button', { name: 'Filters' }),
-      screen.getByRole('combobox', { name: 'Status' }),
-      screen.getByRole('textbox', { name: 'From date' }),
-    ]);
-
     const user = userEvent.setup();
-    // Skip past the two `DatePicker` internals (the `To date` input's own
-    // "Open calendar" button, plus `To date` itself) to resume asserting
-    // order for the remaining descriptor-declared controls.
-    await user.tab();
-    await user.tab();
-    await user.tab();
+    screen.getByRole('button', { name: 'Filters' }).focus();
+    await user.keyboard('{Enter}');
+    expect(await screen.findByRole('dialog', { name: 'Filters' })).toBeTruthy();
+  });
+
+  it('the sheet footer shows the result count and closes the sheet', async () => {
+    const user = userEvent.setup();
+    await renderInEnglish(
+      <FilterBar fields={FIELDS} values={{}} onChange={vi.fn()} resultCount={48} />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Filters' }));
+    await user.click(await screen.findByRole('button', { name: 'Show 48 results' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('has no duplicate ids with the sheet open', async () => {
+    const user = userEvent.setup();
+    await renderInEnglish(<FilterBarDemo />);
+    await user.click(screen.getByRole('button', { name: 'Filters' }));
+    await screen.findByRole('dialog');
+    const ids = [...document.querySelectorAll('[id]')].map((el) => el.id);
+    expect(ids.filter((id, i) => ids.indexOf(id) !== i)).toEqual([]);
+  });
+
+  it('a date-range chip shows the formatted date while onChange gets the ISO date', async () => {
+    const onChangeSpy = vi.fn();
+    await renderInEnglish(
+      <FilterBarDemo initialValues={{ from_date: '2026-10-01' }} onChangeSpy={onChangeSpy} />,
+    );
+    // Default region is bn: the long form, never the raw ISO value.
+    expect(screen.getByText('From date: ১লা অক্টোবর, ২০২৬')).toBeTruthy();
+    expect(screen.queryByText(/2026-10-01/)).toBeNull();
+  });
+
+  it('a chip keeps decimals and shows a value it cannot format as typed', async () => {
+    await renderInEnglish(
+      <FilterBarDemo
+        initialValues={{ min_amount: '100.5', max_amount: 'abc', from_date: 'not-a-date' }}
+      />,
+    );
+    expect(screen.getByText('Min amount: ১০০.৫')).toBeTruthy();
+    expect(screen.getByText('Max amount: abc')).toBeTruthy();
+    expect(screen.getByText('From date: not-a-date')).toBeTruthy();
+  });
+
+  it('removing a chip by its button name clears that key', async () => {
+    const user = userEvent.setup();
+    const onChangeSpy = vi.fn();
+    await renderInEnglish(
+      <FilterBarDemo initialValues={{ status: 'active' }} onChangeSpy={onChangeSpy} />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Remove filter: Status: Active' }));
+    expect(onChangeSpy).toHaveBeenCalledWith({ status: null });
+  });
+
+  it('Tab visits every control in descriptor order — primary field, Filters button, then each collapsible control', async () => {
+    await renderInEnglish(<FilterBarDemo />);
+
+    // [31.2.2] each date is one DatePicker button (no separate calendar icon).
+    const user = userEvent.setup();
     await expectTabOrder(
       [
+        screen.getByRole('textbox', { name: 'Search' }),
+        screen.getByRole('button', { name: 'Filters' }),
+        screen.getByRole('combobox', { name: 'Status' }),
+        screen.getByRole('button', { name: 'From date' }),
+        screen.getByRole('button', { name: 'To date' }),
         screen.getByRole('checkbox', { name: 'Flagged' }),
         screen.getByRole('textbox', { name: 'Min amount' }),
         screen.getByRole('textbox', { name: 'Max amount' }),
@@ -311,7 +353,7 @@ describe('FilterBar', () => {
   it('shows a malformed date value as an empty field instead of crashing', async () => {
     await renderInEnglish(<FilterBarDemo initialValues={{ from_date: 'not-a-date' }} />);
 
-    expect(screen.getByRole<HTMLInputElement>('textbox', { name: 'From date' }).value).toBe('');
+    expect(screen.getByRole('button', { name: 'From date' }).textContent).toContain('Pick a date');
   });
 
   it('warns in dev when more than one field declares `primary: true`, without crashing', async () => {

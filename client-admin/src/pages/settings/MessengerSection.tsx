@@ -1,6 +1,6 @@
 import {
-  Button,
   Form,
+  FormDescription,
   FormControl,
   FormField,
   FormItem,
@@ -15,21 +15,16 @@ import {
   type TenantSettingsInput,
 } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
-import {
-  FormSection,
-  FormShell,
-  buildFormShellErrors,
-  useFormShellMode,
-  useWarnUnsavedChanges,
-} from '@biddaloy/ui/shells';
+import { useFormShellMode, useWarnUnsavedChanges } from '@biddaloy/ui/shells';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
-import { ConnectionTestResultMessage } from '../../components/ConnectionTestResultMessage';
-import { MutationErrorMessage } from '../../components/MutationErrorMessage';
 import { SecretField } from '../../components/SecretField';
+
+import { ChannelFooter, ChannelStatusBadge } from './connection-test-status';
+import { SettingsSection } from './settings-layout';
 
 const messengerSchema = z.object({
   pageId: z.string().min(1),
@@ -85,61 +80,54 @@ export function MessengerSection({ schoolId, messenger }: MessengerSectionProps)
     testConnection.mutate({ medium: 'MESSENGER', config: buildConfig(form.getValues()) });
   }
 
-  const summaryErrors = buildFormShellErrors(
-    form.formState.errors,
-    (field) => `messenger-${field}`,
-  );
+  const ready = Boolean(messenger?.pageId && messenger.accessToken?.configured);
 
   return (
     <Form {...form}>
-      <FormShell
-        errors={summaryErrors}
-        submitCount={form.formState.submitCount}
+      <SettingsSection
+        id="messenger-section"
+        title={t('messenger.legend')}
+        description={t('messenger.description')}
+        badge={<ChannelStatusBadge ready={ready} />}
         onSubmit={(event) => void form.handleSubmit(handleSave)(event)}
+        saving={updateSettings.isPending}
+        footerStart={
+          <ChannelFooter
+            onTest={handleTestConnection}
+            test={testConnection}
+            update={updateSettings}
+          />
+        }
       >
-        <FormSection legend={t('messenger.legend')}>
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
           <FormField
             control={form.control}
             name="pageId"
             render={({ field }) => (
               <FormItem>
-                <FormLabel htmlFor="messenger-pageId">{t('messenger.pageId')}</FormLabel>
+                <FormLabel htmlFor="messenger-pageId" required>
+                  {t('messenger.pageId')}
+                </FormLabel>
                 <FormControl>
-                  <Input id="messenger-pageId" {...field} />
+                  <Input id="messenger-pageId" inputMode="numeric" {...field} />
                 </FormControl>
+                <FormDescription>{t('messenger.pageIdHelp')}</FormDescription>
                 <FormMessage />
               </FormItem>
             )}
           />
-          <SecretField
-            id="messenger-accessToken"
-            label={t('messenger.accessToken')}
-            masked={messenger?.accessToken}
-            value={accessToken}
-            onChange={setAccessToken}
-          />
-        </FormSection>
-        <div className="flex items-center gap-2">
-          <Button type="submit" loading={updateSettings.isPending}>
-            {t('save.action')}
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            loading={testConnection.isPending}
-            onClick={handleTestConnection}
-          >
-            {t('testConnection.action')}
-          </Button>
+          <div className="md:col-span-2">
+            <SecretField
+              id="messenger-accessToken"
+              label={t('messenger.accessToken')}
+              masked={messenger?.accessToken}
+              value={accessToken}
+              onChange={setAccessToken}
+              description={t('secret.metaTokenHelp')}
+            />
+          </div>
         </div>
-        <ConnectionTestResultMessage
-          data={testConnection.data}
-          isError={testConnection.isError}
-          error={testConnection.error}
-        />
-        {updateSettings.isSuccess && <p role="status">{t('save.success')}</p>}
-        {updateSettings.isError && <MutationErrorMessage error={updateSettings.error} />}
-      </FormShell>
+      </SettingsSection>
     </Form>
   );
 }

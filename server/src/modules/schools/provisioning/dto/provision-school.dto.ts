@@ -2,6 +2,7 @@ import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   IsDefined,
+  IsISO31661Alpha2,
   IsEmail,
   IsNotEmpty,
   IsOptional,
@@ -90,4 +91,15 @@ export class ProvisionSchoolDto {
   @ApiProperty()
   @IsUUID()
   idempotency_key: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsISO31661Alpha2()
+  country_code?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  address?: string;
 }

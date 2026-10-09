@@ -1,6 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import { plainToInstance } from 'class-transformer';
-import { mergeTenantSettings, toPlainSettingsPatch } from './tenant-settings-merge.util';
+import {
+  clearPresetSettings,
+  mergeApplySettings,
+  mergeTenantSettings,
+  toPlainSettingsPatch,
+} from './tenant-settings-merge.util';
 import { TenantSettingsDto } from '../dto/tenant-settings.dto';
 import { DEFAULT_REGION_SETTINGS } from './tenant-settings-defaults';
 
@@ -9,6 +14,51 @@ function toPatch(plain: Record<string, unknown>): Record<string, unknown> {
 }
 
 describe('mergeTenantSettings', () => {
+  it('shallow-merges attendance: omitted keys survive, sent keys replace', () => {
+    const MORNING = '0b6f8a52-3c1e-4d7a-9f20-5e8c1a2b3c4d';
+    const DAY = '7d2e9c41-8a5b-4f3e-b1c6-2a9d8e7f6b5a';
+    const existing = {
+      version: 1,
+      attendance: {
+        lateAfter: '09:00',
+        absentAfter: '10:00',
+        shiftTimes: [{ shiftId: MORNING, lateAfter: '08:15', absentAfter: '10:00' }],
+        periodAttendance: { enabled: true },
+      },
+    };
+
+    const kept = mergeTenantSettings(
+      existing,
+      toPatch({ version: 1, attendance: { lateAfter: '09:30', absentAfter: '10:30' } }),
+    );
+    expect(kept.attendance).toEqual({
+      lateAfter: '09:30',
+      absentAfter: '10:30',
+      shiftTimes: [{ shiftId: MORNING, lateAfter: '08:15', absentAfter: '10:00' }],
+      periodAttendance: { enabled: true },
+    });
+
+    const replaced = mergeTenantSettings(
+      existing,
+      toPatch({
+        version: 1,
+        attendance: { shiftTimes: [{ shiftId: DAY, lateAfter: '09:15', absentAfter: '11:00' }] },
+      }),
+    );
+    expect((replaced.attendance as Record<string, unknown>).shiftTimes).toEqual([
+      { shiftId: DAY, lateAfter: '09:15', absentAfter: '11:00' },
+    ]);
+  });
+
+  it('ignores a non-object stored attendance instead of spreading it', () => {
+    const patch = toPatch({ version: 1, attendance: { lateAfter: '09:30', absentAfter: '10:30' } });
+
+    for (const stored of ['garbage', [1, 2]]) {
+      const merged = mergeTenantSettings({ version: 1, attendance: stored }, patch);
+      expect(merged.attendance).toEqual({ lateAfter: '09:30', absentAfter: '10:30' });
+    }
+  });
+
   it('starts from an empty object when nothing was stored yet', () => {
     const patch = toPatch({ version: 1, region: DEFAULT_REGION_SETTINGS });
 
@@ -109,6 +159,33 @@ describe('mergeTenantSettings', () => {
       notifyOnManualGenerationDefault: true,
       notifyOnScheduleDefault: false,
     });
+  });
+
+  it('ignores a patched preset and keeps the stored one (35.1.2)', () => {
+    const preset = { id: 'bd-national', version: 1 };
+    const withPreset = { version: 1, preset };
+    // A PATCH carrying `preset` must not overwrite it.
+    expect(mergeTenantSettings(withPreset, { version: 1, preset: { id: 'x' } }).preset).toEqual(
+      preset,
+    );
+    // An unrelated patch leaves it alone.
+    expect(mergeTenantSettings(withPreset, { version: 1, region: {} }).preset).toEqual(preset);
+    // A PATCH can't create one either.
+    expect(mergeTenantSettings({ version: 1 }, { version: 1, preset }).preset).toBeUndefined();
+  });
+
+  it('stores evaluations on PATCH and preserves it when the patch omits it (28.4.7)', () => {
+    const existing = { version: 1, evaluations: { incidentSmsEnabled: true } };
+
+    expect(mergeTenantSettings(existing, toPatch({ version: 1 })).evaluations).toEqual({
+      incidentSmsEnabled: true,
+    });
+    expect(
+      mergeTenantSettings(
+        { version: 1 },
+        toPatch({ version: 1, evaluations: { incidentSmsEnabled: true } }),
+      ).evaluations,
+    ).toEqual({ incidentSmsEnabled: true });
   });
 
   it('replaces organisation wholesale when present, and leaves it untouched when the patch omits it (33.1.1)', () => {
@@ -217,5 +294,35 @@ describe('mergeTenantSettings', () => {
       expect(whatsapp.phoneNumberId).toBe('111');
       expect('accessToken' in whatsapp).toBe(false);
     });
+  });
+});
+
+describe('mergeApplySettings / clearPresetSettings', () => {
+  const preset = {
+    id: 'p',
+    version: '1',
+    appliedAt: '2026-01-01T00:00:00.000Z',
+    appliedByUserId: 'u',
+  };
+  const organisation = { shifts: [], versions: ['BN'], groups: ['SCIENCE'] };
+
+  it('sets organisation, region and preset, keeping other blocks', () => {
+    const out = mergeApplySettings(
+      { version: 1, fees: { x: 1 } },
+      { organisation, region: DEFAULT_REGION_SETTINGS, preset },
+    );
+    expect(out).toMatchObject({
+      organisation,
+      region: DEFAULT_REGION_SETTINGS,
+      preset,
+      fees: { x: 1 },
+    });
+  });
+
+  it('clear removes preset, resets organisation, keeps the rest', () => {
+    const out = clearPresetSettings({ version: 1, organisation, preset, fees: { x: 1 } });
+    expect(out.preset).toBeUndefined();
+    expect(out.organisation).toEqual({ shifts: [], versions: [], groups: [] });
+    expect(out.fees).toEqual({ x: 1 });
   });
 });

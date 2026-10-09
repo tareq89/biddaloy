@@ -56,7 +56,12 @@ export class PublicHolidaysService {
   // -------------------------------------------------------------------
 
   async listSets(): Promise<PublicHolidaySet[]> {
-    return this.setRepo.find({ order: { country: 'ASC', year: 'DESC' } });
+    // ponytail: loads every entry to count them (~25 per set, a handful of sets);
+    // switch to loadRelationCountAndMap + a list DTO if sets ever grow large.
+    return this.setRepo.find({
+      relations: ['entries'],
+      order: { country: 'ASC', year: 'DESC' },
+    });
   }
 
   async getSet(id: string): Promise<PublicHolidaySet> {

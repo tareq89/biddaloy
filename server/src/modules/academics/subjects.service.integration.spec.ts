@@ -3,6 +3,7 @@ import { NotFoundException, ConflictException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { getDataSourceToken } from '@nestjs/typeorm';
 import { SubjectService } from './subjects.service';
+import { SchoolSettingsReader } from '../schools/settings/school-settings-reader.service';
 import { School } from '../schools/entities/school.entity';
 import { AcademicYear } from './entities/academic-year.entity';
 import { Class } from './entities/class.entity';
@@ -28,10 +29,23 @@ describe('SubjectService (integration)', () => {
   let otherTenantClassId: string;
 
   beforeAll(async () => {
-    const module = await createTestModule(ALL_ENTITIES, [SubjectService], [], {
-      synchronize: true,
-      dropSchema: true,
-    });
+    const module = await createTestModule(
+      ALL_ENTITIES,
+      [
+        SubjectService,
+        {
+          provide: SchoolSettingsReader,
+          useValue: {
+            organisationVocabulary: async () => ({ shifts: [], versions: [], groups: [] }),
+          },
+        },
+      ],
+      [],
+      {
+        synchronize: true,
+        dropSchema: true,
+      },
+    );
 
     service = module.get<SubjectService>(SubjectService);
     dataSource = module.get<DataSource>(getDataSourceToken());

@@ -1,12 +1,18 @@
 /**
- * [16.3.5] `BatchTable` — column rendering (actions, status badge, source,
- * period type, "System" generated-by fallback), row click, and the
- * loading/error/empty states it forwards to `ListShell`/`DataTable`.
+ * [16.3.5] `BatchTable` — column rendering (view-bills action, status badge, source,
+ * period, "System" generated-by fallback), and the error/empty states it forwards to
+ * `ListShell`/`DataTable`.
  */
 import { cleanupTestState, renderWithProviders } from '@biddaloy/ui/test';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+
+// The default test RegionConfig is Bangla; pin REGION_BD_EN so assertions read in Latin digits.
+vi.mock('@biddaloy/ui/i18n', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@biddaloy/ui/i18n')>();
+  return { ...actual, useRegionConfig: () => actual.REGION_BD_EN };
+});
 
 import { BatchTable, type FeeGeneration } from './batch-table';
 
@@ -46,8 +52,9 @@ function baseProps(overrides: Partial<React.ComponentProps<typeof BatchTable>> =
     data: [generationFactory()],
     loading: false,
     emptyMessage: 'No batches found',
+    emptyExplanation: 'Create the first round.',
     page: 1,
-    pageSize: 20,
+    pageSize: 25,
     totalCount: 1,
     onPageChange: () => {},
     onPageSizeChange: () => {},
@@ -65,19 +72,17 @@ function render(overrides: Partial<React.ComponentProps<typeof BatchTable>> = {}
 }
 
 describe('BatchTable', () => {
-  it('renders an actions cell when renderActions is provided', async () => {
-    const { localeReady } = render({
-      renderActions: (row) => <button>{`Actions for ${row.id}`}</button>,
-    });
+  it('has one View bills action per row and fires onRowClick with the batch', async () => {
+    const onRowClick = vi.fn();
+    const user = userEvent.setup();
+    const { localeReady } = render({ onRowClick });
     await localeReady;
-    expect(await screen.findByRole('button', { name: 'Actions for gen-1' })).toBeTruthy();
-  });
 
-  it('renders no actions cell content when renderActions is omitted', async () => {
-    const { localeReady } = render();
-    await localeReady;
-    await screen.findByText('Period');
-    expect(screen.queryByRole('button', { name: /Actions for/ })).toBeNull();
+    const buttons = await screen.findAllByRole('button', { name: 'View bills' });
+    expect(buttons).toHaveLength(1);
+    await user.click(buttons[0]!);
+
+    expect(onRowClick).toHaveBeenCalledWith(expect.objectContaining({ id: 'gen-1' }));
   });
 
   it('shows the error state when error is set', async () => {
@@ -89,39 +94,32 @@ describe('BatchTable', () => {
     );
   });
 
-  it('shows the empty message when data is empty', async () => {
+  it('shows the empty title and explanation when data is empty', async () => {
     const { localeReady } = render({ data: [] });
     await localeReady;
     expect(await screen.findByText('No batches found')).toBeTruthy();
+    expect(screen.getByText('Create the first round.')).toBeTruthy();
   });
 
-  it('fires onRowClick with the clicked batch', async () => {
-    const onRowClick = vi.fn();
-    const user = userEvent.setup();
-    const { localeReady } = render({ onRowClick });
-    await localeReady;
-
-    await user.click(await screen.findByRole('button', { name: /Month/ }));
-
-    expect(onRowClick).toHaveBeenCalledWith(expect.objectContaining({ id: 'gen-1' }));
-  });
-
-  it('labels generated_by: null rows as System', async () => {
+  it('labels generated_by: null rows as System, under the source', async () => {
     const { localeReady } = render({ data: [generationFactory({ generated_by: null })] });
     await localeReady;
     expect(await screen.findByText('System')).toBeTruthy();
   });
 
-  it('renders the fee-structure chips when structures are present', async () => {
+  it('joins the fee-structure names with commas', async () => {
     const { localeReady } = render({
       data: [
         generationFactory({
-          structures: [{ id: 'fs-1', name: 'Monthly Tuition', fee_type: 'TUITION', amount: 4200 }],
+          structures: [
+            { id: 'fs-1', name: 'Monthly Tuition', fee_type: 'TUITION', amount: 4200 },
+            { id: 'fs-2', name: 'Exam fee', fee_type: 'EXAM_FEE', amount: 500 },
+          ],
         }),
       ],
     });
     await localeReady;
-    expect(await screen.findByText('Monthly Tuition')).toBeTruthy();
+    expect(await screen.findByText('Monthly Tuition, Exam fee')).toBeTruthy();
   });
 
   it('labels a named generator with their full name', async () => {
@@ -131,9 +129,9 @@ describe('BatchTable', () => {
   });
 
   it.each([
-    ['NONE', 'None'],
-    ['PARTIAL', 'Partial'],
-    ['FULL', 'Full'],
+    ['NONE', 'Not collected'],
+    ['PARTIAL', 'Partly collected'],
+    ['FULL', 'Fully collected'],
   ] as const)('renders the %s collection status badge as %s', async (status, label) => {
     const { localeReady } = render({ data: [generationFactory({ collection_status: status })] });
     await localeReady;
@@ -142,31 +140,33 @@ describe('BatchTable', () => {
 
   it.each([
     ['MANUAL', 'Manual'],
-    ['SCHEDULE', 'Schedule'],
+    ['SCHEDULE', 'Automatic billing'],
+    ['FINE_RULE', 'Fine rule'],
   ] as const)('renders the %s source as %s', async (source, label) => {
     const { localeReady } = render({ data: [generationFactory({ source })] });
     await localeReady;
     expect(await screen.findByText(label)).toBeTruthy();
   });
 
-  it.each([
-    ['MONTH', 'Month'],
-    ['WEEK', 'Week'],
-  ] as const)('renders the %s period type as %s', async (periodType, label) => {
-    const { localeReady } = render({ data: [generationFactory({ period_type: periodType })] });
+  it('renders a month round as a month name, not an ISO date', async () => {
+    const { localeReady } = render();
     await localeReady;
-    expect(await screen.findByText(new RegExp(label))).toBeTruthy();
+    expect(await screen.findByText('September 2026')).toBeTruthy();
+    expect(screen.queryByText(/2026-09-01/)).toBeNull();
+  });
+
+  it('renders a week round as a date range', async () => {
+    const { localeReady } = render({
+      data: [generationFactory({ period_type: 'WEEK', period_start: '2026-09-07T00:00:00.000Z' })],
+    });
+    await localeReady;
+    expect(await screen.findByText('7th – 13th September')).toBeTruthy();
   });
 
   it('renders the students column as a plain number, not currency', async () => {
-    // Region config in this test setup renders digits in Bengali numerals
-    // regardless of the `locale` prop (that only controls translated text),
-    // so "40" renders as "৪০" — the assertion that matters is that it is
-    // NOT prefixed with the currency symbol `formatServerAmount` would add.
     const { localeReady } = render();
     await localeReady;
-    // `findByText` does an exact match by default — this only passes if the
-    // cell's whole text content is the bare digits, not "৳ ৪০" or similar.
-    expect(await screen.findByText('৪০')).toBeTruthy();
+    // `findByText` is an exact match, so this only passes when the cell is the bare number.
+    expect(await screen.findByText('40')).toBeTruthy();
   });
 });

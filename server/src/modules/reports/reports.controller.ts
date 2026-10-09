@@ -2,10 +2,9 @@ import { Controller, Get, Header, Query, StreamableFile, UseGuards } from '@nest
 import { AuthGuard } from '@nestjs/passport';
 import { Readable } from 'stream';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Permission, UserRole, toCsvContent } from '@biddaloy/shared';
+import { Permission, toCsvContent } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
@@ -54,7 +53,8 @@ function toCsv(rows: CollectionsCsvRow[]): string {
  * `Permission.REPORT_COLLECTIONS_READ`, granted to ADMIN, ACCOUNTANT and
  * EXECUTIVE (see `@biddaloy/shared` `ROLE_PERMISSIONS` —
  * `permissions.spec.ts` documents EXECUTIVE's grant as existing
- * specifically for this report).
+ * specifically for this report). Never COMMITTEE (#1358 D16): the CSV has a
+ * `student_name` column.
  */
 @ApiTags('reports')
 @ApiTenantAuth()
@@ -64,7 +64,6 @@ export class ReportsController {
   constructor(private readonly collectionsReport: CollectionsReportService) {}
 
   @Get('collections')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
   @RequirePermissions(Permission.REPORT_COLLECTIONS_READ)
   @ApiOperation({ summary: 'Collections report: totals, by method/collector/fee-type/day.' })
   @ApiOkResponse({ type: CollectionsReportDto })
@@ -76,7 +75,6 @@ export class ReportsController {
   }
 
   @Get('collections.csv')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
   @RequirePermissions(Permission.REPORT_COLLECTIONS_READ)
   @Header('Content-Type', 'text/csv; charset=utf-8')
   @Header('Content-Disposition', 'attachment; filename="collections-report.csv"')

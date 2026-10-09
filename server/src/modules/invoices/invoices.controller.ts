@@ -14,6 +14,7 @@ import {
   ConflictException,
   BadRequestException,
 } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
 import {
@@ -116,8 +117,6 @@ export class InvoicesController {
   ) {}
 
   @Post()
-  // [10.4] G1 — E tightened off: lacks INVOICE_CREATE.
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
   @RequirePermissions(Permission.INVOICE_CREATE)
   @Throttle({ default: STRICT_RATE_LIMIT })
   @UseInterceptors(AuditInterceptor)
@@ -137,7 +136,6 @@ export class InvoicesController {
   @Get()
   // [10.4] G9 — E, T tightened off: `/invoices` nav is hidden from them,
   // and student-detail uses `payments/invoices/student/:id` instead.
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.PARENT, UserRole.STUDENT)
   @RequirePermissions(Permission.INVOICE_READ)
   @ApiOperation({
     summary:
@@ -186,7 +184,6 @@ export class InvoicesController {
 
   @Get(':id')
   // [10.4] G9 — E, T tightened off; see findAll() above.
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.PARENT, UserRole.STUDENT)
   @RequirePermissions(Permission.INVOICE_READ)
   @ApiOperation({
     summary:
@@ -242,7 +239,6 @@ export class InvoicesController {
   // [10.4] G11 — E, T removed (no INVOICE_READ); printing an invoice you may
   // read is a read, so this requires INVOICE_READ, not INVOICE_PRINT.
   // INVOICE_PRINT stays the UI's staff print-button gate.
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.PARENT, UserRole.STUDENT)
   @RequirePermissions(Permission.INVOICE_READ)
   @Header('Content-Type', 'text/html; charset=utf-8')
   @ApiOperation({
@@ -362,12 +358,15 @@ export class InvoicesController {
       const metered = await this.smsCreditService.isMetered(tenant.id);
       if (metered) {
         const segments = countSmsSegments(message).segments;
-        const reservationKey = `invoice-send:${id}:${guardian.id}`;
+        // Key convention (#1317): reserve `batch:<batchId>`, pass the bare batchId.
+        // Per-send id: a re-send must reserve (and be capped) on its own.
+        const sendId = randomUUID();
+        const batchId = `invoice-send:${id}:${guardian.id}:${sendId}`;
         const reservation = await this.smsCreditService.reserve(
           tenant.id,
           segments,
-          reservationKey,
-          { type: 'manual', id },
+          `batch:${batchId}`,
+          { type: 'batch', id: sendId },
         );
         if (!reservation.ok) {
           throw new ConflictException({
@@ -379,7 +378,7 @@ export class InvoicesController {
             },
           });
         }
-        smsCreditReservation = { batchId: reservationKey, segments };
+        smsCreditReservation = { batchId, segments };
       }
     }
 

@@ -8,6 +8,7 @@ import { AuditAction, AuthTokenPurpose, SchoolStatus, UserRole } from '@biddaloy
 import { School } from '../entities/school.entity';
 import { User } from '../../users/entities/user.entity';
 import { UserTenant } from '../../auth/entities/user-tenant.entity';
+import { reviveMembership } from '../../users/users.service';
 import { AuthToken } from '../../account-access/entities/auth-token.entity';
 import { INVITE_TTL_MS } from '../../account-access/auth-token.service';
 import {
@@ -64,6 +65,14 @@ export interface ProvisionResult {
   invitation: { id: string; status: string };
 }
 
+/** Extra hooks for a caller that provisions on its own behalf (public registration). */
+export interface ProvisionOptions {
+  /** Default true. Public registration passes false: the admin already proved their contact. Internal only — never part of the HTTP DTO. */
+  sendInvitation?: boolean;
+  /** Runs inside the provisioning transaction, after school + admin exist; a throw rolls everything back. */
+  inTransaction?: (manager: EntityManager, result: ProvisionResult) => Promise<void>;
+}
+
 export interface AdminInput {
   name: string;
   email?: string | null;
@@ -102,7 +111,9 @@ export class ProvisioningService {
 
   async provision(
     dto: ProvisionSchoolDto,
-    actorUserId: string,
+    /** `null` when the admin does not exist yet (public registration). */
+    actorUserId: string | null,
+    options: ProvisionOptions = {},
   ): Promise<{ result: ProvisionResult; replayed: boolean }> {
     const key = idempotencyKey(dto.idempotency_key);
 
@@ -139,6 +150,8 @@ export class ProvisioningService {
             name: dto.name,
             slug: dto.slug,
             status: SchoolStatus.ACTIVE,
+            country_code: dto.country_code ?? null,
+            address: dto.address ?? null,
           }),
         );
 
@@ -148,6 +161,7 @@ export class ProvisioningService {
           actorUserId,
           manager,
           true,
+          options.sendInvitation !== false,
         );
 
         await this.audit.record(
@@ -167,11 +181,13 @@ export class ProvisioningService {
         // message.
         deliverAfterCommit = admin.deliverAfterCommit;
 
-        return {
+        const provisioned: ProvisionResult = {
           school: { id: school.id, slug: school.slug, status: school.status as SchoolStatus },
           admin: admin.result.admin,
           invitation: admin.result.invitation,
         };
+        await options.inTransaction?.(manager, provisioned);
+        return provisioned;
       });
     } catch (err) {
       clearInterval(renewal);
@@ -188,9 +204,15 @@ export class ProvisioningService {
       });
       // Only the school insert can still raise a raw unique-violation here —
       // `provisionAdminForSchool` maps the membership one to its own 409.
+      // Only the slug index maps to the slug message; any other unique clash (e.g. a contact
+      // already on another user row) is not a slug problem and is rethrown as it is.
       if (
         err instanceof QueryFailedError &&
-        (err as unknown as { code?: string }).code === '23505'
+        (err as unknown as { code?: string }).code === '23505' &&
+        /slug/i.test(
+          (err as unknown as { driverError?: { constraint?: string } }).driverError?.constraint ??
+            '',
+        )
       ) {
         throw new ConflictException(`School with slug "${dto.slug}" already exists`);
       }
@@ -282,7 +304,7 @@ export class ProvisioningService {
   async provisionAdminForSchool(
     schoolId: string,
     admin: AdminInput,
-    actorUserId: string,
+    actorUserId: string | null,
     manager: EntityManager,
     /** Only `provision()` passes `true`. Tags the membership as the one
      * created *with* the school, which `users.tab.ts` then refuses to
@@ -292,6 +314,8 @@ export class ProvisioningService {
      * otherwise every admin ever added would silently become
      * restore-immune, well beyond the narrow protection intended. */
     isInitialSchoolAdmin = false,
+    /** `false` (public registration): the admin just proved their contact by OTP, so no invitation is created or sent. */
+    sendInvitation = true,
   ): Promise<{
     result: ProvisionAdminResult;
     deliverAfterCommit: (() => Promise<void>) | null;
@@ -308,26 +332,35 @@ export class ProvisioningService {
     // answer with a defined 409 instead, without issuing another invitation.
     const existingMembership = await userTenantRepo.findOne({
       where: { user_id: user.id, tenant_id: schoolId, role: UserRole.ADMIN },
+      withDeleted: true,
     });
-    if (existingMembership) {
+    if (existingMembership && !existingMembership.deleted_at) {
       throw new ConflictException(`User "${user.id}" is already an ADMIN of this school`);
     }
 
     try {
-      await userTenantRepo.save(
-        userTenantRepo.create({
-          user_id: user.id,
-          tenant_id: schoolId,
-          role: UserRole.ADMIN,
-          // Marks this as the membership `provision()` itself created, so a
-          // later "restore from workbook" into this same school (whose
-          // `deleteByAbsence` on the `users` tab hard-deletes any UserTenant
-          // absent from the imported workbook) never removes the new
-          // school's own admin — see `users.tab.ts`'s `remove()`. Only the
-          // initial admin gets this; see the parameter's own comment.
-          metadata: isInitialSchoolAdmin ? { provisioned: true } : null,
-        }),
-      );
+      if (existingMembership) {
+        // Only a soft-deleted (former) admin reaches here: the unique index
+        // ignores soft-deletion, so bring that row back instead of inserting.
+        if (!(await reviveMembership(manager, existingMembership.id))) {
+          throw new ConflictException(`User "${user.id}" is already an ADMIN of this school`);
+        }
+      } else {
+        await userTenantRepo.save(
+          userTenantRepo.create({
+            user_id: user.id,
+            tenant_id: schoolId,
+            role: UserRole.ADMIN,
+            // Marks this as the membership `provision()` itself created, so a
+            // later "restore from workbook" into this same school (whose
+            // `deleteByAbsence` on the `users` tab hard-deletes any UserTenant
+            // absent from the imported workbook) never removes the new
+            // school's own admin — see `users.tab.ts`'s `remove()`. Only the
+            // initial admin gets this; see the parameter's own comment.
+            metadata: isInitialSchoolAdmin ? { provisioned: true } : null,
+          }),
+        );
+      }
     } catch (err) {
       // Two concurrent requests can both pass the pre-check above; the
       // unique index then rejects the second insert. Same 409 as the
@@ -339,6 +372,16 @@ export class ProvisioningService {
         throw new ConflictException(`User "${user.id}" is already an ADMIN of this school`);
       }
       throw err;
+    }
+
+    if (!sendInvitation) {
+      return {
+        result: {
+          admin: { user_id: user.id, existed },
+          invitation: { id: '', status: 'NOT_SENT' },
+        },
+        deliverAfterCommit: null,
+      };
     }
 
     const raw = generateSecret();

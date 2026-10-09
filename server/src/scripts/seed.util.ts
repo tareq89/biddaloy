@@ -6,13 +6,30 @@ import {
   AttendanceStatus,
   CalendarAudience,
   CalendarEventType,
+  ExamComponentKind,
+  ExamComponentSource,
+  ExamKind,
+  ExamStatus,
+  FeeType,
+  FineTrigger,
+  MarkGridState,
+  MarkStatus,
+  PeriodType,
+  ProgramEnrollmentStatus,
   PublicHolidaySource,
+  SeatOrderMode,
+  SeatPlanStatus,
+  StaffEmploymentStatus,
+  TeacherAssignmentType,
   TeacherDesignation,
   UserRole,
   UserStatus,
+  LeaveType,
+  LeaveStatus,
 } from '@biddaloy/shared';
 import type { OrganisationSettings } from '@biddaloy/shared';
-import { FindOptionsWhere, IsNull, ObjectLiteral, Repository } from 'typeorm';
+import { EnrollmentStatus } from '@biddaloy/shared';
+import { EntityManager, FindOptionsWhere, IsNull, ObjectLiteral, Repository } from 'typeorm';
 import { School } from '../modules/schools/entities/school.entity';
 import { User } from '../modules/users/entities/user.entity';
 import { UserTenant } from '../modules/auth/entities/user-tenant.entity';
@@ -21,10 +38,18 @@ import { Class } from '../modules/academics/entities/class.entity';
 import { ClassSection } from '../modules/academics/entities/class-section.entity';
 import { Student } from '../modules/students/entities/student.entity';
 import { Guardian } from '../modules/students/entities/guardian.entity';
+import { Enrollment } from '../modules/students/entities/enrollment.entity';
 import { Subject } from '../modules/academics/entities/subject.entity';
 import { ClassSubject } from '../modules/academics/entities/class-subject.entity';
 import { GradingScale } from '../modules/grading/entities/grading-scale.entity';
 import { GradingBand } from '../modules/grading/entities/grading-band.entity';
+import { Exam } from '../modules/exams/entities/exam.entity';
+import { ExamComponent } from '../modules/exams/entities/exam-component.entity';
+import { Mark } from '../modules/exams/entities/mark.entity';
+import { MarkGrid } from '../modules/exams/entities/mark-grid.entity';
+import { Result } from '../modules/exams/entities/result.entity';
+import { ResultSubject } from '../modules/exams/entities/result-subject.entity';
+import { ExamSchedule } from '../modules/exams/entities/exam-schedule.entity';
 import { CalendarEvent } from '../modules/calendar/entities/calendar-event.entity';
 import { CalendarEventClass } from '../modules/calendar/entities/calendar-event-class.entity';
 import { AcademicTerm } from '../modules/calendar/entities/academic-term.entity';
@@ -37,6 +62,64 @@ import { AttendanceRecord } from '../modules/attendance/entities/attendance-reco
 import { AttendanceDevice } from '../modules/attendance/entities/attendance-device.entity';
 import { hashDeviceKey } from '../modules/attendance/devices/device.service';
 import { SeedPublicHolidayEntry } from './seed-data/public-holidays-bd';
+import { Shift } from '../modules/routines/entities/shift.entity';
+import { PeriodSlot } from '../modules/routines/entities/period-slot.entity';
+import { Room } from '../modules/routines/entities/room.entity';
+import { Routine } from '../modules/routines/entities/routine.entity';
+import { RoutineSlot } from '../modules/routines/entities/routine-slot.entity';
+import { RoutineSlotTeacher } from '../modules/routines/entities/routine-slot-teacher.entity';
+import { RoutineSubstitution } from '../modules/routines/entities/routine-substitution.entity';
+import { RoutineChangeRequest } from '../modules/routines/entities/routine-change-request.entity';
+import { SeatPlan } from '../modules/seat-plans/entities/seat-plan.entity';
+import { SeatPlanSchedule } from '../modules/seat-plans/entities/seat-plan-schedule.entity';
+import { SeatAllocation } from '../modules/seat-plans/entities/seat-allocation.entity';
+import {
+  PeriodSlotKind,
+  SlotRecurrence,
+  RoutineState,
+  ChangeRequestState,
+  HomeworkGradingMode,
+  HomeworkAssignmentStatus,
+  HomeworkSubmissionStatus,
+  SyllabusTopicStatus,
+  PromotionRunStatus,
+  PlacementAlgorithm,
+  PromotionOutcome,
+} from '@biddaloy/shared';
+import { Homework } from '../modules/homework/entities/homework.entity';
+import { HomeworkAssignment } from '../modules/homework/entities/homework-assignment.entity';
+import { HomeworkSubmission } from '../modules/homework/entities/homework-submission.entity';
+import { SyllabusTopic } from '../modules/homework/entities/syllabus-topic.entity';
+import { PromotionRun } from '../modules/promotions/entities/promotion-run.entity';
+import { PromotionEntry } from '../modules/promotions/entities/promotion-entry.entity';
+import { Program } from '../modules/programs/entities/program.entity';
+import { ProgramMilestone } from '../modules/programs/entities/program-milestone.entity';
+import { ProgramEnrollment } from '../modules/programs/entities/program-enrollment.entity';
+import { MilestoneAchievement } from '../modules/programs/entities/milestone-achievement.entity';
+import { FeeStructure } from '../modules/fees/entities/fee-structure.entity';
+import { FineRule } from '../modules/fees/entities/fine-rule.entity';
+import { RecurringSchedule } from '../modules/fees/entities/recurring-schedule.entity';
+import { RecurringScheduleStructure } from '../modules/fees/entities/recurring-schedule-structure.entity';
+import { Designation } from '../modules/staff-hr/entities/designation.entity';
+import { StaffHrRecord } from '../modules/staff-hr/entities/staff-hr-record.entity';
+import { StaffDesignationHistory } from '../modules/staff-hr/entities/staff-designation-history.entity';
+import { StaffFamilyMember } from '../modules/staff-hr/entities/staff-family-member.entity';
+import { StaffAddress } from '../modules/staff-hr/entities/staff-address.entity';
+import { StaffExperience } from '../modules/staff-hr/entities/staff-experience.entity';
+import { StaffEducation } from '../modules/staff-hr/entities/staff-education.entity';
+import { StaffTraining } from '../modules/staff-hr/entities/staff-training.entity';
+import { StaffAchievement } from '../modules/staff-hr/entities/staff-achievement.entity';
+import { StaffLanguage } from '../modules/staff-hr/entities/staff-language.entity';
+import { StaffProfile } from '../modules/staff-profiles/entities/staff-profile.entity';
+import { StaffAttendanceSession } from '../modules/staff-attendance/entities/staff-attendance-session.entity';
+import { StaffAttendanceRecord } from '../modules/staff-attendance/entities/staff-attendance-record.entity';
+import { LeavePolicy } from '../modules/leave/entities/leave-policy.entity';
+import { LeaveRecord } from '../modules/leave/entities/leave-record.entity';
+import { PrinterProfile } from '../modules/print/entities/printer-profile.entity';
+import { PrintTemplate } from '../modules/print/entities/print-template.entity';
+import { PrintJob } from '../modules/print/entities/print-job.entity';
+import { tenantObjectKey } from '../modules/storage/storage-key';
+import sharp from 'sharp';
 
 /** [8.9.5] manual-testing aid: gives the seed admin a *second* school
  * membership so `/select-school`'s picker actually has something to show
@@ -78,11 +161,56 @@ export async function ensureSecondSchoolMembership(
   }
 }
 
+export const FRESH_DEMO_SCHOOL = {
+  name: 'Fresh Demo School',
+  slug: 'fresh-demo-school',
+  adminEmail: 'fresh-admin@biddaloy.test',
+} as const;
+
+/** [35.5.5] One extra, deliberately EMPTY tenant (no classes, no preset, no
+ * organisation vocabulary) so QA can walk the whole Curriculum-preset apply
+ * flow. Existing demo tenants are running schools and stay untouched
+ * (D8, D26). Idempotent on slug / email. */
+export async function ensurePresetDemoSeed(
+  manager: EntityManager,
+  passwordHash: string,
+): Promise<School> {
+  const schools = manager.getRepository(School);
+  let school = await schools.findOne({ where: { slug: FRESH_DEMO_SCHOOL.slug } });
+  if (!school) {
+    school = await schools.save(
+      schools.create({ name: FRESH_DEMO_SCHOOL.name, slug: FRESH_DEMO_SCHOOL.slug }),
+    );
+    console.log(`  School: ${school.name} (${school.id}) — no preset applied`);
+  }
+  const users = manager.getRepository(User);
+  let user = await users.findOne({ where: { email: FRESH_DEMO_SCHOOL.adminEmail } });
+  if (!user) {
+    user = await users.save(
+      users.create({
+        email: FRESH_DEMO_SCHOOL.adminEmail,
+        password_hash: passwordHash,
+        status: UserStatus.ACTIVE,
+        full_name: 'Fresh School Admin',
+      }),
+    );
+  }
+  const memberships = manager.getRepository(UserTenant);
+  const where = { user_id: user.id, tenant_id: school.id };
+  if (!(await memberships.findOne({ where }))) {
+    await memberships.save(memberships.create({ ...where, role: UserRole.ADMIN }));
+  }
+  return school;
+}
+
 export interface RoleTestUserSeed {
   email: string;
   role: UserRole;
   fullName: string;
 }
+
+/** `e2e/seed-contract.ts` duplicates this literal; `seed.util.spec.ts` asserts they match. */
+export const ASSISTANT_TEACHER_EMAIL = 'assistant-teacher@biddaloy.test';
 
 /** One test account per role, for manual role-based UI checks and the
  * E2E auth fixtures. */
@@ -94,13 +222,19 @@ export const ROLE_TEST_USERS: readonly RoleTestUserSeed[] = [
   { email: 'parent@biddaloy.test', role: UserRole.PARENT, fullName: 'Parent User' },
   { email: 'student@biddaloy.test', role: UserRole.STUDENT, fullName: 'Student User' },
   { email: 'executive@biddaloy.test', role: UserRole.EXECUTIVE, fullName: 'Executive User' },
+  { email: 'office@biddaloy.test', role: UserRole.OFFICE_STAFF, fullName: 'Office Staff User' },
+  { email: 'exam@biddaloy.test', role: UserRole.EXAM_CONTROLLER, fullName: 'Exam Controller User' },
+  { email: 'committee@biddaloy.test', role: UserRole.COMMITTEE, fullName: 'Committee User' },
+  // [47.2.5] A second TEACHER login: the ASSISTANT_CLASS_TEACHER of
+  // teacher@biddaloy.test's section (`ensureRoutineSeed` attaches it).
+  { email: ASSISTANT_TEACHER_EMAIL, role: UserRole.TEACHER, fullName: 'Assistant Teacher User' },
 ];
 
 /** Idempotent, same shape as `ensureSecondSchoolMembership`: find-or-
  * create (restoring a soft-deleted account with a fresh password rather
- * than erroring) then find-or-create the membership. All six share
+ * than erroring) then find-or-create the membership. All of them share
  * `passwordHash` — one already-required `SEED_ADMIN_PASSWORD` env var,
- * not six new ones, for local/dev seed accounts that exist to be logged
+ * not one per role, for local/dev seed accounts that exist to be logged
  * into by hand. */
 export async function ensureRoleTestUsers(
   userRepository: Repository<User>,
@@ -592,12 +726,51 @@ export async function ensureDemoStudents(
         const guardian = guardians[rosterIndex % guardians.length];
         rosterIndex += 1;
 
+        // [#1020] `Enrollment` is a separate table (not derived from
+        // `Student`), so it needs its own find-or-create beside the
+        // student's — a repo obtained off `studentRepository`'s own
+        // manager rather than threading a new repository through
+        // `DemoStudentRepositories`/every caller. A real injected
+        // TypeORM `Repository` always has `.manager`; only a fake repo
+        // stub built for a test unrelated to `Enrollment` (e.g.
+        // `seed.spec.ts`'s `seedAccounts` fixtures) wouldn't — skip
+        // rather than throw in that case.
+        // Plain find-or-create, keyed on (student, year, ACTIVE) — this
+        // never rewrites an existing row's class_id/section_id. Seeding
+        // doesn't move an existing student's `class_section_id` either, so
+        // resyncing here would only pull the Enrollment away from wherever
+        // a real write path (PATCH, workbook restore) has since moved the
+        // student, reintroducing the drift this ticket closes.
+        const ensureEnrollment = async (studentId: string) => {
+          if (!studentRepository.manager) return;
+          const enrollmentRepository = studentRepository.manager.getRepository(Enrollment);
+          const existingEnrollment = await enrollmentRepository.findOne({
+            where: {
+              student_id: studentId,
+              academic_year_id: year.id,
+              tenant_id: schoolId,
+              enrollment_status: EnrollmentStatus.ACTIVE,
+            },
+          });
+          if (existingEnrollment) return;
+          await enrollmentRepository.save(
+            enrollmentRepository.create({
+              student_id: studentId,
+              class_id: klass.id,
+              section_id: section.id,
+              academic_year_id: year.id,
+              tenant_id: schoolId,
+            }),
+          );
+        };
+
         const existing = await studentRepository.findOne({
           where: { registration_number: registrationNumber, tenant_id: schoolId },
           withDeleted: true,
         });
         if (existing) {
           if (existing.deleted_at) await studentRepository.save(undelete(existing));
+          await ensureEnrollment(existing.id);
           continue;
         }
 
@@ -619,6 +792,7 @@ export async function ensureDemoStudents(
         });
         await studentRepository.save(student);
         result.students += 1;
+        await ensureEnrollment(student.id);
       }
     }
   }
@@ -780,11 +954,17 @@ function statusForDay(studentIndex: number, dayIndex: number): AttendanceStatus 
     // than a roster where the only linked child is always PRESENT.
     return dayIndex === 7 ? AttendanceStatus.ABSENT : AttendanceStatus.PRESENT;
   }
+  // [47.2.5] The newest 3 days end each of these students' run on a streak
+  // threshold (STREAK_THRESHOLDS 3/3/15): student 0's PRESENT run is the 18
+  // days after the one ABSENT day; student 1 ends on 3 LATE; student 2 on 3 ABSENT.
+  const inLastThree = dayIndex >= ATTENDANCE_SEED_WORKING_DAYS.length - 3;
   if (studentIndex === 1) {
+    if (inLastThree) return AttendanceStatus.LATE;
     if (dayIndex === 3 || dayIndex === 9) return AttendanceStatus.LATE;
     if (dayIndex === 12) return AttendanceStatus.LEAVE;
     return AttendanceStatus.PRESENT;
   }
+  if (inLastThree) return AttendanceStatus.ABSENT;
   // studentIndex === 2: present roughly one day in three — comfortably
   // below the 75% threshold regardless of exactly how many working days
   // the month turns out to have.
@@ -910,7 +1090,11 @@ export async function ensureAttendanceSeed(
   }
 
   const existingMapping = await repos.teacherClassSectionRepository.findOne({
-    where: { teacher_id: teacher.id, section_id: sectionId, subject_id: IsNull() },
+    where: {
+      teacher_id: teacher.id,
+      section_id: sectionId,
+      assignment_type: TeacherAssignmentType.CLASS_TEACHER,
+    },
   });
   if (!existingMapping) {
     await repos.teacherClassSectionRepository.save(
@@ -919,6 +1103,7 @@ export async function ensureAttendanceSeed(
         section_id: sectionId,
         tenant_id: schoolId,
         subject_id: null,
+        assignment_type: TeacherAssignmentType.CLASS_TEACHER,
       }),
     );
   }
@@ -1465,4 +1650,2883 @@ export async function ensureGradingDemoSeed(
     );
   }
   return result;
+}
+
+export interface RoutineSeedRepositories {
+  userRepository: Repository<User>;
+  teacherRepository: Repository<Teacher>;
+  teacherClassSectionRepository: Repository<TeacherClassSection>;
+  subjectRepository: Repository<Subject>;
+  classRepository: Repository<Class>;
+  shiftRepository: Repository<Shift>;
+  periodSlotRepository: Repository<PeriodSlot>;
+  roomRepository: Repository<Room>;
+  routineRepository: Repository<Routine>;
+  routineSlotRepository: Repository<RoutineSlot>;
+  routineSlotTeacherRepository: Repository<RoutineSlotTeacher>;
+  routineSubstitutionRepository: Repository<RoutineSubstitution>;
+  routineChangeRequestRepository: Repository<RoutineChangeRequest>;
+}
+
+export interface RoutineSeedParams {
+  schoolId: string;
+  academicYearId: string;
+  classId: string; // the class both sections belong to — its shift_id is set here (D8's promotion column)
+  sectionAId: string;
+  sectionBId: string;
+  primaryTeacherId: string; // an existing Teacher row (e.g. `ensureAttendanceSeed`'s teacher@biddaloy.test)
+  requestedByUserId: string; // whoever "files" the substitution and change request
+}
+
+export interface RoutineSeedResult {
+  shifts: number;
+  periodSlots: number;
+  rooms: number;
+  teachers: number;
+  routines: number;
+  slots: number;
+  substitutions: number;
+  changeRequests: number;
+}
+
+/** Six period slots for the seeded "Morning" shift, sequence 1..6 — five
+ * class periods and one `BREAK` ("Lunch") between periods 3 and 4. */
+const ROUTINE_SEED_PERIODS: readonly {
+  sequence: number;
+  kind: PeriodSlotKind;
+  name: string | null;
+  starts_at: string;
+  ends_at: string;
+}[] = [
+  {
+    sequence: 1,
+    kind: PeriodSlotKind.CLASS,
+    name: null,
+    starts_at: '08:00:00',
+    ends_at: '08:40:00',
+  },
+  {
+    sequence: 2,
+    kind: PeriodSlotKind.CLASS,
+    name: null,
+    starts_at: '08:40:00',
+    ends_at: '09:20:00',
+  },
+  {
+    sequence: 3,
+    kind: PeriodSlotKind.CLASS,
+    name: null,
+    starts_at: '09:20:00',
+    ends_at: '10:00:00',
+  },
+  {
+    sequence: 4,
+    kind: PeriodSlotKind.BREAK,
+    name: 'Lunch',
+    starts_at: '10:00:00',
+    ends_at: '10:30:00',
+  },
+  {
+    sequence: 5,
+    kind: PeriodSlotKind.CLASS,
+    name: null,
+    starts_at: '10:30:00',
+    ends_at: '11:10:00',
+  },
+  {
+    sequence: 6,
+    kind: PeriodSlotKind.CLASS,
+    name: null,
+    starts_at: '11:10:00',
+    ends_at: '11:50:00',
+  },
+];
+
+/**
+ * [21.11.1]: a published routine spanning two sections, deterministic
+ * enough for `/routines` demo screens and for the workbook round-trip
+ * fixture to exercise the same shapes real tenants hit — a co-taught
+ * slot (two teachers on one `RoutineSlot`), a biweekly slot, a
+ * cancellation substitution with no substitute, and one open change
+ * request.
+ *
+ * Idempotent like every other `ensure*` helper here: every entity is
+ * found-or-created by its own natural key before being written.
+ *
+ * Bails out entirely if the academic year already has a *live* routine
+ * this helper didn't create (identified by name, `SEED_ROUTINE_NAME`
+ * below) — `Routine`'s unique `(tenant_id, academic_year_id)` index means
+ * there is at most one, so grafting fixture slots/teachers/substitutions/
+ * change-requests onto someone else's real routine would silently
+ * corrupt it rather than seed a fixture.
+ */
+const SEED_ROUTINE_NAME = 'Main routine';
+
+export async function ensureRoutineSeed(
+  repos: RoutineSeedRepositories,
+  params: RoutineSeedParams,
+): Promise<RoutineSeedResult> {
+  const {
+    schoolId,
+    academicYearId,
+    classId,
+    sectionAId,
+    sectionBId,
+    primaryTeacherId,
+    requestedByUserId,
+  } = params;
+  const result: RoutineSeedResult = {
+    shifts: 0,
+    periodSlots: 0,
+    rooms: 0,
+    teachers: 0,
+    routines: 0,
+    slots: 0,
+    substitutions: 0,
+    changeRequests: 0,
+  };
+
+  const liveRoutine = await repos.routineRepository.findOne({
+    where: { tenant_id: schoolId, academic_year_id: academicYearId },
+  });
+  if (liveRoutine && liveRoutine.name !== SEED_ROUTINE_NAME) {
+    console.warn(
+      `  Routine seed: academic year already has a non-seed routine "${liveRoutine.name}", skipping.`,
+    );
+    return result;
+  }
+
+  // --- shift + period slots ------------------------------------------
+  let shift = await findLivePreferred(repos.shiftRepository, {
+    tenant_id: schoolId,
+    name: 'Morning',
+  });
+  if (!shift) {
+    shift = repos.shiftRepository.create({
+      tenant_id: schoolId,
+      name: 'Morning',
+      day_starts_at: '08:00:00',
+      day_ends_at: '13:00:00',
+      sequence: 1,
+    });
+    await repos.shiftRepository.save(shift);
+    result.shifts += 1;
+  } else if (shift.deleted_at) {
+    await repos.shiftRepository.save(undelete(shift));
+  }
+
+  // The client's grid builder (`/routines/$sectionId`) gates on
+  // `section.class.shift_id` being set — without this, [21.2.1]'s
+  // `classes.shift_id` promotion column stays null for every demo class
+  // and the builder shows "no shift" instead of the seeded grid.
+  const routineClass = await repos.classRepository.findOne({ where: { id: classId } });
+  if (routineClass && routineClass.shift_id !== shift.id) {
+    routineClass.shift_id = shift.id;
+    await repos.classRepository.save(routineClass);
+  }
+
+  const periodSlots: PeriodSlot[] = [];
+  for (const p of ROUTINE_SEED_PERIODS) {
+    let slot = await repos.periodSlotRepository.findOne({
+      where: { tenant_id: schoolId, shift_id: shift.id, sequence: p.sequence },
+    });
+    if (!slot) {
+      slot = repos.periodSlotRepository.create({ ...p, shift_id: shift.id, tenant_id: schoolId });
+      await repos.periodSlotRepository.save(slot);
+      result.periodSlots += 1;
+    }
+    periodSlots.push(slot);
+  }
+
+  // --- rooms -----------------------------------------------------------
+  const roomSeeds: readonly { building: string; room_no: string; capacity: number }[] = [
+    { building: 'Building A', room_no: '101', capacity: 35 },
+    { building: 'Building A', room_no: '102', capacity: 35 },
+  ];
+  const rooms: Room[] = [];
+  for (const r of roomSeeds) {
+    let room = await findLivePreferred(repos.roomRepository, {
+      tenant_id: schoolId,
+      building: r.building,
+      room_no: r.room_no,
+    });
+    if (!room) {
+      room = repos.roomRepository.create({ ...r, tenant_id: schoolId });
+      await repos.roomRepository.save(room);
+      result.rooms += 1;
+    } else if (room.deleted_at) {
+      await repos.roomRepository.save(undelete(room));
+    }
+    rooms.push(room);
+  }
+
+  // --- a second teacher, for the co-taught slot -------------------------
+  // [47.2.5] The login itself is `ensureRoleTestUsers`' job (it runs first
+  // and restores a soft-deleted account); this only attaches the Teacher row.
+  const secondTeacherUser = await repos.userRepository.findOne({
+    where: { email: ASSISTANT_TEACHER_EMAIL },
+  });
+  if (!secondTeacherUser) {
+    throw new Error(`${ASSISTANT_TEACHER_EMAIL} missing — run ensureRoleTestUsers first`);
+  }
+  // Looked up by employee_id, not user_id: a database seeded before 47.2.5
+  // holds SEED-TEACHER-0002 (globally unique) under the old
+  // `routine-teacher2@biddaloy.test` user, so re-point it rather than insert.
+  let secondTeacher = await repos.teacherRepository.findOne({
+    where: { employee_id: 'SEED-TEACHER-0002' },
+    withDeleted: true,
+  });
+  if (secondTeacher && secondTeacher.user_id !== secondTeacherUser.id) {
+    secondTeacher.user_id = secondTeacherUser.id;
+    await repos.teacherRepository.save(secondTeacher);
+  }
+  if (!secondTeacher) {
+    secondTeacher = repos.teacherRepository.create({
+      user_id: secondTeacherUser.id,
+      employee_id: 'SEED-TEACHER-0002',
+      designations: [TeacherDesignation.SUBJECT_TEACHER],
+      tenant_id: schoolId,
+    });
+    await repos.teacherRepository.save(secondTeacher);
+    result.teachers += 1;
+  } else if (secondTeacher.deleted_at) {
+    await repos.teacherRepository.save(undelete(secondTeacher));
+  }
+
+  // [47.2.5] Assistant class teacher of section A, alongside
+  // teacher@biddaloy.test's CLASS_TEACHER row.
+  const assistantMapping = await repos.teacherClassSectionRepository.findOne({
+    where: { teacher_id: secondTeacher.id, section_id: sectionAId },
+  });
+  if (!assistantMapping) {
+    await repos.teacherClassSectionRepository.save(
+      repos.teacherClassSectionRepository.create({
+        teacher_id: secondTeacher.id,
+        section_id: sectionAId,
+        tenant_id: schoolId,
+        subject_id: null,
+        assignment_type: TeacherAssignmentType.ASSISTANT_CLASS_TEACHER,
+      }),
+    );
+  }
+
+  const mathSubject = await repos.subjectRepository.findOne({
+    where: { tenant_id: schoolId, code: 'MATH' },
+  });
+  if (!mathSubject) {
+    // No subject to hang slots off — `ensureAttendanceSeed` (which seeds
+    // MATH) must run before this helper. Same "caller's job to sequence
+    // this" contract as `ensureAttendanceSeed` itself has with
+    // `ensureDemoStudents`.
+    console.warn(
+      '  Routine seed: no "MATH" subject found, skipping (run ensureAttendanceSeed first).',
+    );
+    return result;
+  }
+
+  // --- routine -----------------------------------------------------------
+  // Keyed by name too, not just (tenant, year) — the early guard above
+  // already ensures any live routine here is either absent or ours, but
+  // a *soft-deleted* row for this year could still belong to someone
+  // else, and `findLivePreferred`'s withDeleted fallback must not
+  // undelete a stranger's routine into our fixture's identity.
+  let routine = await findLivePreferred(repos.routineRepository, {
+    tenant_id: schoolId,
+    academic_year_id: academicYearId,
+    name: SEED_ROUTINE_NAME,
+  });
+  if (!routine) {
+    routine = repos.routineRepository.create({
+      tenant_id: schoolId,
+      academic_year_id: academicYearId,
+      name: SEED_ROUTINE_NAME,
+      state: RoutineState.PUBLISHED,
+      published_at: new Date(),
+    });
+    await repos.routineRepository.save(routine);
+    result.routines += 1;
+  } else if (routine.deleted_at) {
+    await repos.routineRepository.save(undelete(routine));
+  }
+
+  async function ensureSlot(spec: {
+    section_id: string;
+    period_slot_id: string;
+    weekday: number;
+    room_id: string | null;
+    recurrence: SlotRecurrence;
+    recurrence_offset: number;
+    valid_from: string;
+    valid_to: string | null;
+  }): Promise<RoutineSlot> {
+    let slot = await repos.routineSlotRepository.findOne({
+      where: {
+        tenant_id: schoolId,
+        routine_id: routine!.id,
+        section_id: spec.section_id,
+        period_slot_id: spec.period_slot_id,
+        weekday: spec.weekday,
+        valid_from: spec.valid_from,
+      },
+    });
+    if (!slot) {
+      slot = repos.routineSlotRepository.create({
+        ...spec,
+        routine_id: routine!.id,
+        subject_id: mathSubject!.id,
+        tenant_id: schoolId,
+      });
+      await repos.routineSlotRepository.save(slot);
+      result.slots += 1;
+    }
+    return slot;
+  }
+
+  async function ensureSlotTeacher(routineSlotId: string, teacherId: string): Promise<void> {
+    const existing = await repos.routineSlotTeacherRepository.findOne({
+      where: { routine_slot_id: routineSlotId, teacher_id: teacherId },
+    });
+    if (!existing) {
+      await repos.routineSlotTeacherRepository.save(
+        repos.routineSlotTeacherRepository.create({
+          routine_slot_id: routineSlotId,
+          teacher_id: teacherId,
+          tenant_id: schoolId,
+        }),
+      );
+    }
+  }
+
+  // A plain weekly slot, section A, period 1, Monday (weekday = 1) —
+  // this is the one the substitution and change request below attach to.
+  const mainSlot = await ensureSlot({
+    section_id: sectionAId,
+    period_slot_id: periodSlots[0]!.id,
+    weekday: 1,
+    room_id: rooms[0]!.id,
+    recurrence: SlotRecurrence.WEEKLY,
+    recurrence_offset: 0,
+    valid_from: '2026-01-01',
+    valid_to: null,
+  });
+  await ensureSlotTeacher(mainSlot.id, primaryTeacherId);
+
+  // A biweekly slot, section A, period 2, Tuesday, second week of the cycle.
+  const biweeklySlot = await ensureSlot({
+    section_id: sectionAId,
+    period_slot_id: periodSlots[1]!.id,
+    weekday: 2,
+    room_id: null,
+    recurrence: SlotRecurrence.BIWEEKLY,
+    recurrence_offset: 1,
+    valid_from: '2026-01-01',
+    valid_to: null,
+  });
+  await ensureSlotTeacher(biweeklySlot.id, primaryTeacherId);
+
+  // Co-taught slot, section B, period 5, Monday: two teachers on one slot.
+  const coTaughtSlot = await ensureSlot({
+    section_id: sectionBId,
+    period_slot_id: periodSlots[4]!.id,
+    weekday: 1,
+    room_id: rooms[1]!.id,
+    recurrence: SlotRecurrence.WEEKLY,
+    recurrence_offset: 0,
+    valid_from: '2026-01-01',
+    valid_to: null,
+  });
+  await ensureSlotTeacher(coTaughtSlot.id, primaryTeacherId);
+  await ensureSlotTeacher(coTaughtSlot.id, secondTeacher.id);
+
+  // --- one substitution: a cancellation, no substitute teacher ----------
+  const existingSub = await repos.routineSubstitutionRepository.findOne({
+    where: { routine_slot_id: mainSlot.id, date: '2026-02-09' },
+  });
+  if (!existingSub) {
+    await repos.routineSubstitutionRepository.save(
+      repos.routineSubstitutionRepository.create({
+        routine_slot_id: mainSlot.id,
+        date: '2026-02-09',
+        substitute_teacher_id: null,
+        is_cancelled: true,
+        reason: 'Teacher on leave, period cancelled outright',
+        created_by: requestedByUserId,
+        tenant_id: schoolId,
+      }),
+    );
+    result.substitutions += 1;
+  }
+
+  // --- one open change request -------------------------------------------
+  // No `state` filter — once an admin resolves this seeded request, a
+  // rerun must still recognize it as "already seeded" rather than
+  // creating a duplicate OPEN one for the same slot/requester.
+  const existingRequest = await repos.routineChangeRequestRepository.findOne({
+    where: {
+      routine_slot_id: mainSlot.id,
+      requested_by: requestedByUserId,
+    },
+  });
+  if (!existingRequest) {
+    await repos.routineChangeRequestRepository.save(
+      repos.routineChangeRequestRepository.create({
+        routine_slot_id: mainSlot.id,
+        requested_by: requestedByUserId,
+        note: 'Requesting a swap with the next free period',
+        state: ChangeRequestState.OPEN,
+        tenant_id: schoolId,
+      }),
+    );
+    result.changeRequests += 1;
+  }
+
+  const total =
+    result.shifts +
+    result.periodSlots +
+    result.rooms +
+    result.teachers +
+    result.routines +
+    result.slots;
+  if (total > 0) {
+    console.log(
+      `  Routine seed: +${result.shifts} shifts, +${result.periodSlots} period slots, ` +
+        `+${result.rooms} rooms, +${result.slots} slots, +${result.substitutions} substitutions, ` +
+        `+${result.changeRequests} change requests`,
+    );
+  }
+  return result;
+}
+
+/** [41.2.c] Settings the attendance-ops demo needs: the period switch on.
+ * Only flips the default (absent) — a hand-set value survives a re-run,
+ * like `ensureDemoOrganisation`. Returns whether it changed anything so
+ * the caller only `save()`s when needed. No `shiftTimes` entry: the demo
+ * has one `Shift` row ("Morning"); the second shift in `DEMO_ORGANISATION`
+ * is vocabulary only, so there is no later shift to give its own times. */
+export function ensureAttendancePeriodSetting(school: School): boolean {
+  const attendance = school.settings?.attendance;
+  if (attendance?.periodAttendance !== undefined) return false;
+  school.settings = {
+    ...(school.settings ?? {}),
+    attendance: { ...attendance, periodAttendance: { enabled: true } },
+  } as School['settings'];
+  return true;
+}
+
+export interface AttendanceOpsSeedRepositories {
+  teacherRepository: Repository<Teacher>;
+  teacherClassSectionRepository: Repository<TeacherClassSection>;
+  routineSlotRepository: Repository<RoutineSlot>;
+  periodSlotRepository: Repository<PeriodSlot>;
+  attendanceSessionRepository: Repository<AttendanceSession>;
+  attendanceRecordRepository: Repository<AttendanceRecord>;
+}
+
+export interface AttendanceOpsSeedParams {
+  schoolId: string;
+  /** The school's local today, `'YYYY-MM-DD'`. A parameter so tests pin it. */
+  today: string;
+  /** "Class 6" A and B, with each section's students in roll order. */
+  sections: readonly [
+    { id: string; studentIds: readonly string[] },
+    { id: string; studentIds: readonly string[] },
+  ];
+  teacherUserId: string;
+  subjectId: string;
+}
+
+export interface AttendanceOpsSeedResult {
+  daySessions: number;
+  periodSessions: number;
+  records: number;
+}
+
+const OPS_DAYS = 5;
+const OPS_PERIOD_DAYS = 2;
+
+function addDays(dateIso: string, delta: number): string {
+  return new Date((epochDay(dateIso) + delta) * 86_400_000).toISOString().slice(0, 10);
+}
+
+const { PRESENT: P, ABSENT: A, LATE: L, LEAVE: V } = AttendanceStatus;
+/** One row per student (section A's three, then B's three), one column per
+ * day, oldest first. A is streak-friendly — the "My class" streak cards
+ * read the newest registers: roll 1 stays PRESENT, roll 2 ends on LATE,
+ * roll 3 on ABSENT. B is mostly PRESENT with one of each. */
+const OPS_STATUSES: readonly (readonly AttendanceStatus[])[] = [
+  [P, P, P, P, P],
+  [V, P, L, L, L],
+  [P, P, A, A, A],
+  [P, P, P, P, P],
+  [P, A, P, P, P],
+  [P, P, L, P, V],
+];
+
+/**
+ * [41.2.c] Attendance-ops demo data, relative to the school's `today`:
+ *
+ * - sections A and B: whole-day FINALIZED registers on the last
+ *   {@link OPS_DAYS} working days before today;
+ * - today: A has no register ("not started"), B a DRAFT — so `my-sections`
+ *   shows both pending states;
+ * - section A: period registers (with `subject_id`) on the two most recent
+ *   working days its weekly routine slot falls on.
+ *
+ * ABSENT/LATE only land in today's month: the attendance-fine seed sweeps
+ * *last* month and must not meet extra marks there. Idempotent: every
+ * session/record is found-or-created by its natural key.
+ */
+export async function ensureAttendanceOpsSeed(
+  repos: AttendanceOpsSeedRepositories,
+  params: AttendanceOpsSeedParams,
+): Promise<AttendanceOpsSeedResult> {
+  const { schoolId, today, sections, teacherUserId, subjectId } = params;
+  const result: AttendanceOpsSeedResult = { daySessions: 0, periodSessions: 0, records: 0 };
+  const isWorkingDay = (d: string) =>
+    weekdayOf(d) !== WEEKLY_OFF_WEEKDAY && !isHoliday(d, ATTENDANCE_SEED_HOLIDAYS);
+  // The e2e "teacher marks the register" journey writes `markableDateIso()`
+  // (today, or Thursday on a Friday) into section A — keep that day free.
+  const reserved = weekdayOf(today) === WEEKLY_OFF_WEEKDAY ? addDays(today, -1) : today;
+  const isUsable = (d: string) => isWorkingDay(d) && d !== reserved;
+
+  const days: string[] = []; // oldest first, once reversed below
+  for (
+    let d = addDays(today, -1), n = 0;
+    days.length < OPS_DAYS && n < 60;
+    d = addDays(d, -1), n++
+  ) {
+    if (isUsable(d)) days.push(d);
+  }
+  days.reverse();
+
+  async function ensureSession(
+    sectionId: string,
+    date: string,
+    periodNo: number | null,
+    state: AttendanceSessionState,
+    subject: string | null,
+  ): Promise<AttendanceSession> {
+    let session = await repos.attendanceSessionRepository.findOne({
+      where: {
+        tenant_id: schoolId,
+        section_id: sectionId,
+        date,
+        period_no: periodNo === null ? IsNull() : periodNo,
+      },
+    });
+    if (!session) {
+      const at = new Date(`${date}T12:00:00Z`);
+      session = await repos.attendanceSessionRepository.save(
+        repos.attendanceSessionRepository.create({
+          tenant_id: schoolId,
+          section_id: sectionId,
+          date,
+          period_no: periodNo,
+          subject_id: subject,
+          source: AttendanceSource.TEACHER,
+          state,
+          marked_by_user_id: teacherUserId,
+          marked_at: at,
+          finalized_at: state === AttendanceSessionState.FINALIZED ? at : null,
+        }),
+      );
+      if (periodNo === null) result.daySessions += 1;
+      else result.periodSessions += 1;
+    }
+    return session;
+  }
+
+  async function ensureRecord(
+    session: AttendanceSession,
+    studentId: string,
+    date: string,
+    status: AttendanceStatus,
+  ): Promise<void> {
+    const existing = await repos.attendanceRecordRepository.findOne({
+      where: { session_id: session.id, student_id: studentId },
+    });
+    if (existing) return;
+    await repos.attendanceRecordRepository.save(
+      repos.attendanceRecordRepository.create({
+        tenant_id: schoolId,
+        session_id: session.id,
+        student_id: studentId,
+        date,
+        status,
+        minutes_late: status === AttendanceStatus.LATE ? 10 : null,
+        source: AttendanceSource.TEACHER,
+        recorded_by_user_id: teacherUserId,
+      }),
+    );
+    result.records += 1;
+  }
+
+  const month = today.slice(0, 7);
+  const statusFor = (row: number, dayIdx: number, date: string): AttendanceStatus => {
+    const status = OPS_STATUSES[row]![dayIdx]!;
+    const fineBearing = status === AttendanceStatus.ABSENT || status === AttendanceStatus.LATE;
+    return fineBearing && !date.startsWith(month) ? AttendanceStatus.PRESENT : status;
+  };
+
+  for (const [sectionIdx, section] of sections.entries()) {
+    for (const [dayIdx, date] of days.entries()) {
+      const session = await ensureSession(
+        section.id,
+        date,
+        null,
+        AttendanceSessionState.FINALIZED,
+        null,
+      );
+      for (const [studentIdx, studentId] of section.studentIds.entries()) {
+        await ensureRecord(
+          session,
+          studentId,
+          date,
+          statusFor(sectionIdx * 3 + studentIdx, dayIdx, date),
+        );
+      }
+    }
+  }
+
+  // Today: A untouched (not started), B a DRAFT with every student marked.
+  const draft = await ensureSession(
+    sections[1].id,
+    today,
+    null,
+    AttendanceSessionState.DRAFT,
+    null,
+  );
+  for (const [studentIdx, studentId] of sections[1].studentIds.entries()) {
+    await ensureRecord(draft, studentId, today, studentIdx === 1 ? A : P);
+  }
+
+  // Section B needs a teacher mapping, or `my-sections` for
+  // teacher@biddaloy.test shows only A.
+  const teacher = await repos.teacherRepository.findOne({
+    where: { user_id: teacherUserId, tenant_id: schoolId },
+  });
+  if (teacher) {
+    const mapped = await repos.teacherClassSectionRepository.findOne({
+      where: { teacher_id: teacher.id, section_id: sections[1].id, tenant_id: schoolId },
+    });
+    if (!mapped) {
+      await repos.teacherClassSectionRepository.save(
+        repos.teacherClassSectionRepository.create({
+          teacher_id: teacher.id,
+          section_id: sections[1].id,
+          tenant_id: schoolId,
+          subject_id: subjectId,
+          assignment_type: TeacherAssignmentType.SUBJECT_TEACHER,
+        }),
+      );
+    }
+  }
+
+  // Period registers: A's weekly routine slots, on the two newest usable
+  // days (looking up to 60 back, so a weekly slot always yields two).
+  const slots = await repos.routineSlotRepository.find({
+    where: { tenant_id: schoolId, section_id: sections[0].id, recurrence: SlotRecurrence.WEEKLY },
+  });
+  const sequenceOf = new Map(
+    (await repos.periodSlotRepository.find({ where: { tenant_id: schoolId } })).map((p) => [
+      p.id,
+      p.sequence,
+    ]),
+  );
+  let periodDays = 0;
+  for (
+    let d = addDays(today, -1), n = 0;
+    periodDays < OPS_PERIOD_DAYS && n < 60;
+    d = addDays(d, -1), n++
+  ) {
+    const slot = slots.find((s) => s.weekday === weekdayOf(d) && s.subject_id && s.valid_from <= d);
+    const periodNo = slot && sequenceOf.get(slot.period_slot_id);
+    if (!slot || periodNo === undefined || !isUsable(d)) continue;
+    const session = await ensureSession(
+      sections[0].id,
+      d,
+      periodNo,
+      AttendanceSessionState.FINALIZED,
+      slot.subject_id,
+    );
+    for (const [studentIdx, studentId] of sections[0].studentIds.entries()) {
+      const absent = studentIdx === 2 && periodDays === 0 && d.startsWith(month);
+      await ensureRecord(session, studentId, d, absent ? A : P);
+    }
+    periodDays += 1;
+  }
+  return result;
+}
+
+/** [19.10.1] Demo exams/marks/results data so the marks-entry grid, the
+ * progress screen and the guardian portal all have something real to
+ * render — see the ticket's step 3:
+ *
+ * - one exam on the demo year's "Class 6", components across MATH and ENG
+ *   (both MANUAL) plus one DERIVED `ATTENDANCE` component on MATH, so the
+ *   marks grid shows a mix of enterable and read-only columns;
+ * - marks entered for two sections ("A" and "B"), so grids/results are not
+ *   confined to a single section;
+ * - section A's grid left `SUBMITTED`, section B's left `DRAFT` — the
+ *   progress screen needs at least one grid still outstanding to show
+ *   anything;
+ * - one `PUBLISHED` result (section A's roll 1), pinned against the demo
+ *   BD NCTB scale `ensureGradingDemoSeed` already seeded, so the portal is
+ *   not empty for `parent@biddaloy.test`'s linked child.
+ */
+export interface ExamsDemoSeedRepositories {
+  subjectRepository: Repository<Subject>;
+  examRepository: Repository<Exam>;
+  examComponentRepository: Repository<ExamComponent>;
+  markGridRepository: Repository<MarkGrid>;
+  markRepository: Repository<Mark>;
+  resultRepository: Repository<Result>;
+  resultSubjectRepository: Repository<ResultSubject>;
+  examScheduleRepository: Repository<ExamSchedule>;
+}
+
+export interface ExamsDemoSeedParams {
+  schoolId: string;
+  academicYearId: string;
+  classId: string;
+  /** "Class 6" section "A" and "B" ids, in that order. */
+  sectionIds: readonly [string, string];
+  /** Each section's students, in roll-number order — index 0 is roll 1. */
+  sectionStudentIds: readonly [readonly string[], readonly string[]];
+  gradingScaleId: string;
+  gradingScaleRevision: number;
+}
+
+export interface ExamsDemoSeedResult {
+  exams: number;
+  components: number;
+  grids: number;
+  marks: number;
+  results: number;
+  schedules: number;
+}
+
+/** Idempotent, same find-or-create shape as every other `ensure*` in this
+ * file. Everything is scoped to `params.schoolId`. */
+export async function ensureExamsDemoSeed(
+  repos: ExamsDemoSeedRepositories,
+  params: ExamsDemoSeedParams,
+): Promise<ExamsDemoSeedResult> {
+  const { schoolId, academicYearId, classId, sectionIds, sectionStudentIds } = params;
+  const result: ExamsDemoSeedResult = {
+    exams: 0,
+    components: 0,
+    grids: 0,
+    marks: 0,
+    results: 0,
+    schedules: 0,
+  };
+
+  // --- subjects (reuse the attendance seed's MATH/ENG if present) -------
+  async function ensureSubject(code: string, nameEn: string, nameBn: string): Promise<Subject> {
+    let subject = await findLivePreferred(repos.subjectRepository, { tenant_id: schoolId, code });
+    if (!subject) {
+      subject = repos.subjectRepository.create({
+        tenant_id: schoolId,
+        code,
+        name_en: nameEn,
+        name_bn: nameBn,
+      });
+      await repos.subjectRepository.save(subject);
+    } else if (subject.deleted_at) {
+      await repos.subjectRepository.save(undelete(subject));
+    }
+    return subject;
+  }
+  const math = await ensureSubject('MATH', 'Mathematics', 'গণিত');
+  const english = await ensureSubject('ENG', 'English', 'ইংরেজি');
+
+  // --- exam ---------------------------------------------------------------
+  let exam = await repos.examRepository.findOne({
+    where: {
+      tenant_id: schoolId,
+      academic_year_id: academicYearId,
+      class_id: classId,
+      name: 'First Term Exam',
+    },
+    withDeleted: true,
+  });
+  if (!exam) {
+    exam = repos.examRepository.create({
+      tenant_id: schoolId,
+      academic_year_id: academicYearId,
+      class_id: classId,
+      academic_term_id: null,
+      name: 'First Term Exam',
+      kind: ExamKind.TERM,
+      status: ExamStatus.PROCESSED,
+      published_at: null,
+    });
+    await repos.examRepository.save(exam);
+    result.exams += 1;
+  } else if (exam.deleted_at) {
+    await repos.examRepository.save(undelete(exam));
+  }
+
+  // --- components: MATH written, ENG written, MATH attendance (DERIVED) -
+  const componentSpecs: {
+    subject: Subject;
+    name: string;
+    kind: ExamComponentKind;
+    source: ExamComponentSource;
+    fullMarks: string;
+    sequence: number;
+  }[] = [
+    {
+      subject: math,
+      name: 'Written',
+      kind: ExamComponentKind.WRITTEN,
+      source: ExamComponentSource.MANUAL,
+      fullMarks: '100.00',
+      sequence: 1,
+    },
+    {
+      subject: english,
+      name: 'Written',
+      kind: ExamComponentKind.WRITTEN,
+      source: ExamComponentSource.MANUAL,
+      fullMarks: '100.00',
+      sequence: 1,
+    },
+    {
+      subject: math,
+      name: 'Attendance',
+      kind: ExamComponentKind.ATTENDANCE,
+      source: ExamComponentSource.DERIVED,
+      fullMarks: '10.00',
+      sequence: 2,
+    },
+  ];
+  const components: ExamComponent[] = [];
+  for (const spec of componentSpecs) {
+    let component = await repos.examComponentRepository.findOne({
+      where: { exam_id: exam.id, subject_id: spec.subject.id, name: spec.name },
+      withDeleted: true,
+    });
+    if (!component) {
+      component = repos.examComponentRepository.create({
+        tenant_id: schoolId,
+        exam_id: exam.id,
+        subject_id: spec.subject.id,
+        name: spec.name,
+        kind: spec.kind,
+        source: spec.source,
+        full_marks: spec.fullMarks,
+        pass_marks: spec.source === ExamComponentSource.MANUAL ? '33.00' : null,
+        sequence: spec.sequence,
+      });
+      await repos.examComponentRepository.save(component);
+      result.components += 1;
+    } else if (component.deleted_at) {
+      await repos.examComponentRepository.save(undelete(component));
+    }
+    components.push(component);
+  }
+
+  // --- grids: section A submitted, section B left DRAFT -----------------
+  const gridStates: readonly MarkGridState[] = [MarkGridState.SUBMITTED, MarkGridState.DRAFT];
+  for (const [index, sectionId] of sectionIds.entries()) {
+    for (const subject of [math, english]) {
+      let grid = await repos.markGridRepository.findOne({
+        where: { exam_id: exam.id, section_id: sectionId, subject_id: subject.id },
+      });
+      if (!grid) {
+        grid = repos.markGridRepository.create({
+          tenant_id: schoolId,
+          exam_id: exam.id,
+          section_id: sectionId,
+          subject_id: subject.id,
+          state: gridStates[index],
+          submitted_by: null,
+          submitted_at:
+            gridStates[index] === MarkGridState.SUBMITTED
+              ? new Date('2026-02-01T00:00:00.000Z')
+              : null,
+        });
+        await repos.markGridRepository.save(grid);
+        result.grids += 1;
+      }
+    }
+  }
+
+  // --- marks: every student, MATH written + ENG written; roll 1 of
+  // section A's roll 2 is deliberately ABSENT (D10) --------------------
+  for (const [sectionIndex, studentIds] of sectionStudentIds.entries()) {
+    for (const [studentIndex, studentId] of studentIds.entries()) {
+      for (const component of [components[0], components[1]]) {
+        const isAbsent = sectionIndex === 0 && studentIndex === 1;
+        const existing = await repos.markRepository.findOne({
+          where: { exam_id: exam.id, student_id: studentId, component_id: component.id },
+        });
+        if (existing) continue;
+        await repos.markRepository.save(
+          repos.markRepository.create({
+            tenant_id: schoolId,
+            exam_id: exam.id,
+            student_id: studentId,
+            subject_id: component.subject_id,
+            component_id: component.id,
+            value: isAbsent ? null : '78.50',
+            status: isAbsent ? MarkStatus.ABSENT : MarkStatus.PRESENT,
+            entered_by: null,
+          }),
+        );
+        result.marks += 1;
+      }
+    }
+  }
+
+  // --- one published result: section A, roll 1 --------------------------
+  const publishedStudentId = sectionStudentIds[0][0];
+  if (publishedStudentId) {
+    let publishedResult = await repos.resultRepository.findOne({
+      where: { exam_id: exam.id, student_id: publishedStudentId },
+      withDeleted: true,
+    });
+    if (!publishedResult) {
+      publishedResult = repos.resultRepository.create({
+        tenant_id: schoolId,
+        exam_id: exam.id,
+        student_id: publishedStudentId,
+        total_marks: '167.00',
+        gpa: '4.50',
+        grade: 'A',
+        position: 1,
+        section_id: sectionIds[0],
+        section_position: 1,
+        is_fail: false,
+        grading_scale_id: params.gradingScaleId,
+        grading_scale_revision: params.gradingScaleRevision,
+        rule_version: 'nctb-2026.1',
+        computed_at: new Date('2026-02-10T00:00:00.000Z'),
+        published_at: new Date('2026-02-11T00:00:00.000Z'),
+      });
+      await repos.resultRepository.save(publishedResult);
+      result.results += 1;
+
+      for (const [subject, obtained] of [
+        [math, '89.00'],
+        [english, '78.00'],
+      ] as const) {
+        const existingLine = await repos.resultSubjectRepository.findOne({
+          where: { result_id: publishedResult.id, subject_id: subject.id },
+        });
+        if (!existingLine) {
+          await repos.resultSubjectRepository.save(
+            repos.resultSubjectRepository.create({
+              tenant_id: schoolId,
+              result_id: publishedResult.id,
+              subject_id: subject.id,
+              obtained,
+              grade: 'A',
+              gpa: '4.50',
+              is_fail: false,
+              is_fourth_subject: false,
+            }),
+          );
+        }
+      }
+    } else if (publishedResult.deleted_at) {
+      await repos.resultRepository.save(undelete(publishedResult));
+    }
+  }
+
+  // --- [19.11.1] schedule: MATH and ENG both have components above, so
+  // scheduling both makes this exam's schedule COMPLETE — the demo needs
+  // at least one complete exam for the portal's family visibility rule to
+  // have anything to show.
+  const scheduleSpecs: { subject: Subject; date: string; venue: string | null }[] = [
+    { subject: math, date: '2026-02-05', venue: 'Main Hall' },
+    { subject: english, date: '2026-02-06', venue: null },
+  ];
+  for (const spec of scheduleSpecs) {
+    let schedule = await repos.examScheduleRepository.findOne({
+      where: { exam_id: exam.id, subject_id: spec.subject.id },
+      withDeleted: true,
+    });
+    if (!schedule) {
+      schedule = repos.examScheduleRepository.create({
+        tenant_id: schoolId,
+        exam_id: exam.id,
+        subject_id: spec.subject.id,
+        date: spec.date,
+        starts_at: '09:00:00',
+        ends_at: '11:00:00',
+        venue: spec.venue,
+      });
+      await repos.examScheduleRepository.save(schedule);
+      result.schedules += 1;
+    } else if (schedule.deleted_at) {
+      await repos.examScheduleRepository.save(undelete(schedule));
+    }
+  }
+
+  if (
+    result.exams +
+      result.components +
+      result.grids +
+      result.marks +
+      result.results +
+      result.schedules >
+    0
+  ) {
+    console.log(
+      `  Exams demo seed: +${result.exams} exams, +${result.components} components, ` +
+        `+${result.grids} grids, +${result.marks} marks, +${result.results} results, ` +
+        `+${result.schedules} schedules`,
+    );
+  }
+  return result;
+}
+
+// ===========================================================================
+// [25.8] Seat-plan demo data
+// ===========================================================================
+
+export interface SeatPlanDemoSeedRepositories {
+  roomRepository: Repository<Room>;
+  examRepository: Repository<Exam>;
+  examScheduleRepository: Repository<ExamSchedule>;
+  seatPlanRepository: Repository<SeatPlan>;
+  seatPlanScheduleRepository: Repository<SeatPlanSchedule>;
+  seatAllocationRepository: Repository<SeatAllocation>;
+}
+
+export interface SeatPlanDemoSeedParams {
+  schoolId: string;
+  academicYearId: string;
+  classId: string;
+  mathSubjectId: string;
+  mathScheduleId: string;
+  englishScheduleId: string;
+  /** Every student in the class (both sections), roll-number order. */
+  studentIds: readonly string[];
+}
+
+export interface SeatPlanDemoSeedResult {
+  rooms: number;
+  seatPlans: number;
+}
+
+/** Splits `items` across `n` rooms round-robin and returns one
+ * `{ room_id, seat_number }` per item, in item order. */
+function assignSeats<T>(
+  items: readonly T[],
+  roomIds: readonly string[],
+): { item: T; room_id: string; seat_number: string }[] {
+  const seatCounters = new Map<string, number>();
+  return items.map((item, index) => {
+    const room_id = roomIds[index % roomIds.length];
+    const next = (seatCounters.get(room_id) ?? 0) + 1;
+    seatCounters.set(room_id, next);
+    return { item, room_id, seat_number: String(next) };
+  });
+}
+
+/** [25.8] Idempotent: a couple of exam rooms, `room_id` set on the seeded
+ * exam's MATH/ENG schedules, one PUBLISHED seat plan covering both (so the
+ * workbook/invigilator screens have real allocations to show), and one
+ * DRAFT seat plan on a second, later "Half Yearly Exam" so the generate ->
+ * edit -> publish e2e journey has an unpublished plan to work against. */
+export async function ensureSeatPlanDemoSeed(
+  repos: SeatPlanDemoSeedRepositories,
+  params: SeatPlanDemoSeedParams,
+): Promise<SeatPlanDemoSeedResult> {
+  const { schoolId, academicYearId, classId, mathSubjectId, mathScheduleId, englishScheduleId } =
+    params;
+  const result: SeatPlanDemoSeedResult = { rooms: 0, seatPlans: 0 };
+
+  // --- rooms ----------------------------------------------------------------
+  async function ensureRoom(roomNo: string, capacity: number): Promise<Room> {
+    let room = await findLivePreferred(repos.roomRepository, {
+      tenant_id: schoolId,
+      room_no: roomNo,
+    } as FindOptionsWhere<Room>);
+    if (!room) {
+      room = repos.roomRepository.create({
+        tenant_id: schoolId,
+        room_no: roomNo,
+        building: 'Main Building',
+        capacity,
+      });
+      await repos.roomRepository.save(room);
+      result.rooms += 1;
+    } else if (room.deleted_at) {
+      room = await repos.roomRepository.save(undelete(room));
+    }
+    return room;
+  }
+  const roomA = await ensureRoom('Exam Hall 1', 30);
+  const roomB = await ensureRoom('Exam Hall 2', 30);
+  const roomC = await ensureRoom('Exam Hall 3', 30);
+
+  // room_id on the existing MATH/ENG schedules — [25.8]'s `## Files` asks
+  // for "exam schedules with room_id set" explicitly.
+  const mathSchedule = await repos.examScheduleRepository.findOne({
+    where: { id: mathScheduleId },
+  });
+  if (mathSchedule && mathSchedule.room_id !== roomA.id) {
+    mathSchedule.room_id = roomA.id;
+    await repos.examScheduleRepository.save(mathSchedule);
+  }
+  const englishSchedule = await repos.examScheduleRepository.findOne({
+    where: { id: englishScheduleId },
+  });
+  if (englishSchedule && englishSchedule.room_id !== roomB.id) {
+    englishSchedule.room_id = roomB.id;
+    await repos.examScheduleRepository.save(englishSchedule);
+  }
+
+  // --- one PUBLISHED plan covering both subject-sittings ---------------------
+  let publishedPlan = await repos.seatPlanRepository.findOne({
+    where: { tenant_id: schoolId, name: 'Term Exam Seating (Seeded)' },
+  });
+  if (!publishedPlan) {
+    publishedPlan = await repos.seatPlanRepository.save(
+      repos.seatPlanRepository.create({
+        tenant_id: schoolId,
+        name: 'Term Exam Seating (Seeded)',
+        status: SeatPlanStatus.PUBLISHED,
+        seat_order_mode: SeatOrderMode.SEQUENTIAL,
+        published_at: new Date('2026-02-01T00:00:00.000Z'),
+      }),
+    );
+    await repos.seatPlanScheduleRepository.save(
+      [mathScheduleId, englishScheduleId].map((exam_schedule_id) =>
+        repos.seatPlanScheduleRepository.create({
+          tenant_id: schoolId,
+          seat_plan_id: publishedPlan!.id,
+          exam_schedule_id,
+        }),
+      ),
+    );
+    const rooms = [roomA.id, roomB.id];
+    for (const exam_schedule_id of [mathScheduleId, englishScheduleId]) {
+      const seats = assignSeats(params.studentIds, rooms);
+      await repos.seatAllocationRepository.save(
+        seats.map(({ item: student_id, room_id, seat_number }) =>
+          repos.seatAllocationRepository.create({
+            tenant_id: schoolId,
+            seat_plan_id: publishedPlan!.id,
+            exam_schedule_id,
+            student_id,
+            room_id,
+            seat_number,
+          }),
+        ),
+      );
+    }
+    result.seatPlans += 1;
+  }
+
+  // --- a second exam + one DRAFT plan ----------------------------------------
+  let halfYearlyExam = await repos.examRepository.findOne({
+    where: {
+      tenant_id: schoolId,
+      academic_year_id: academicYearId,
+      class_id: classId,
+      name: 'Half Yearly Exam',
+    },
+    withDeleted: true,
+  });
+  if (!halfYearlyExam) {
+    halfYearlyExam = await repos.examRepository.save(
+      repos.examRepository.create({
+        tenant_id: schoolId,
+        academic_year_id: academicYearId,
+        class_id: classId,
+        academic_term_id: null,
+        name: 'Half Yearly Exam',
+        kind: ExamKind.TERM,
+        status: ExamStatus.DRAFT,
+        published_at: null,
+      }),
+    );
+  } else if (halfYearlyExam.deleted_at) {
+    await repos.examRepository.save(undelete(halfYearlyExam));
+  }
+
+  let halfYearlySchedule = await repos.examScheduleRepository.findOne({
+    where: { exam_id: halfYearlyExam.id, subject_id: mathSubjectId },
+    withDeleted: true,
+  });
+  if (!halfYearlySchedule) {
+    halfYearlySchedule = repos.examScheduleRepository.create({
+      tenant_id: schoolId,
+      exam_id: halfYearlyExam.id,
+      subject_id: mathSubjectId,
+      date: '2026-06-05',
+      starts_at: '09:00:00',
+      ends_at: '11:00:00',
+      venue: 'Main Hall',
+      room_id: roomC.id,
+    });
+    await repos.examScheduleRepository.save(halfYearlySchedule);
+  } else if (halfYearlySchedule.room_id !== roomC.id) {
+    halfYearlySchedule.room_id = roomC.id;
+    await repos.examScheduleRepository.save(halfYearlySchedule);
+  }
+
+  let draftPlan = await repos.seatPlanRepository.findOne({
+    where: { tenant_id: schoolId, name: 'Half Yearly Exam Seating (Seeded)' },
+  });
+  if (!draftPlan) {
+    draftPlan = await repos.seatPlanRepository.save(
+      repos.seatPlanRepository.create({
+        tenant_id: schoolId,
+        name: 'Half Yearly Exam Seating (Seeded)',
+        status: SeatPlanStatus.DRAFT,
+        seat_order_mode: SeatOrderMode.SEQUENTIAL,
+        published_at: null,
+      }),
+    );
+    await repos.seatPlanScheduleRepository.save(
+      repos.seatPlanScheduleRepository.create({
+        tenant_id: schoolId,
+        seat_plan_id: draftPlan.id,
+        exam_schedule_id: halfYearlySchedule.id,
+      }),
+    );
+    const seats = assignSeats(params.studentIds, [roomC.id]);
+    await repos.seatAllocationRepository.save(
+      seats.map(({ item: student_id, room_id, seat_number }) =>
+        repos.seatAllocationRepository.create({
+          tenant_id: schoolId,
+          seat_plan_id: draftPlan!.id,
+          exam_schedule_id: halfYearlySchedule!.id,
+          student_id,
+          room_id,
+          seat_number,
+        }),
+      ),
+    );
+    result.seatPlans += 1;
+  }
+
+  if (result.rooms + result.seatPlans > 0) {
+    console.log(`  Seat plan demo seed: +${result.rooms} rooms, +${result.seatPlans} seat plans`);
+  }
+  return result;
+}
+
+// ===========================================================================
+// [22.3.6] Homework/syllabus demo data
+// ===========================================================================
+
+export interface HomeworkDemoSeedRepositories {
+  homeworkRepository: Repository<Homework>;
+  homeworkAssignmentRepository: Repository<HomeworkAssignment>;
+  homeworkSubmissionRepository: Repository<HomeworkSubmission>;
+  syllabusTopicRepository: Repository<SyllabusTopic>;
+}
+
+export interface HomeworkDemoSeedParams {
+  schoolId: string;
+  classId: string;
+  subjectId: string;
+  sectionId: string;
+  /** Exactly {@link DEMO_STUDENTS_PER_SECTION} ids, roll-number order — same
+   * roster `ensureAttendanceSeed` attaches to. Index 0/1 get a completed
+   * submission, index 2 is left `NOT_SUBMITTED` against a past due date —
+   * the fixture `homework-analytics.service.spec.ts`'s own "2 submitted, 1
+   * defaulter -> 66%" example is drawn from. */
+  studentIds: readonly string[];
+}
+
+export interface HomeworkDemoSeedResult {
+  homework: number;
+  assignments: number;
+  submissions: number;
+  syllabusTopics: number;
+}
+
+/** A fixed, safely-past due date (same "real 2026 date" convention as
+ * `ATTENDANCE_SEED_MONTH`/`DEMO_ACADEMIC_YEAR`) — every seeded assignment is
+ * already overdue, so the one `NOT_SUBMITTED` submission always reads as a
+ * defaulter regardless of when the seed script actually runs. */
+const HOMEWORK_SEED_DUE_DATE = '2026-01-20';
+const HOMEWORK_SEED_ASSIGNED_DATE = '2026-01-10';
+
+/** Idempotent, same find-or-create shape as every other `ensure*` in this
+ * file: one `Homework`, one section-wide `HomeworkAssignment`, one
+ * `HomeworkSubmission` per student (in every status a demo/CI database
+ * should show: DONE, SUBMITTED, NOT_SUBMITTED-past-due), and a small
+ * sample syllabus (DONE/DONE/PLANNED) for the same class/subject. */
+export async function ensureHomeworkDemoSeed(
+  repos: HomeworkDemoSeedRepositories,
+  params: HomeworkDemoSeedParams,
+): Promise<HomeworkDemoSeedResult> {
+  const { schoolId, classId, subjectId, sectionId, studentIds } = params;
+  const result: HomeworkDemoSeedResult = {
+    homework: 0,
+    assignments: 0,
+    submissions: 0,
+    syllabusTopics: 0,
+  };
+
+  const title = 'Chapter 3 Exercises';
+  let homework = await repos.homeworkRepository.findOne({
+    where: { tenant_id: schoolId, class_id: classId, subject_id: subjectId, title },
+  });
+  if (!homework) {
+    homework = repos.homeworkRepository.create({
+      tenant_id: schoolId,
+      class_id: classId,
+      subject_id: subjectId,
+      title,
+      description: 'Complete the odd-numbered problems and show your work.',
+      grading_mode: HomeworkGradingMode.TICK,
+      attachments: [],
+    });
+    await repos.homeworkRepository.save(homework);
+    result.homework += 1;
+  }
+
+  let assignment = await repos.homeworkAssignmentRepository.findOne({
+    where: { tenant_id: schoolId, homework_id: homework.id, section_id: sectionId },
+  });
+  if (!assignment) {
+    assignment = repos.homeworkAssignmentRepository.create({
+      tenant_id: schoolId,
+      homework_id: homework.id,
+      section_id: sectionId,
+      student_id: null,
+      assigned_date: HOMEWORK_SEED_ASSIGNED_DATE,
+      due_date: HOMEWORK_SEED_DUE_DATE,
+      status: HomeworkAssignmentStatus.ACTIVE,
+    });
+    await repos.homeworkAssignmentRepository.save(assignment);
+    result.assignments += 1;
+  }
+
+  // index 0 -> DONE, index 1 -> SUBMITTED, index 2 (and anyone past it) ->
+  // NOT_SUBMITTED (a defaulter, since HOMEWORK_SEED_DUE_DATE is in the past).
+  const statusForSlot = (slot: number): HomeworkSubmissionStatus =>
+    slot === 0
+      ? HomeworkSubmissionStatus.DONE
+      : slot === 1
+        ? HomeworkSubmissionStatus.SUBMITTED
+        : HomeworkSubmissionStatus.NOT_SUBMITTED;
+
+  for (const [slot, studentId] of studentIds.entries()) {
+    const existing = await repos.homeworkSubmissionRepository.findOne({
+      where: { tenant_id: schoolId, assignment_id: assignment.id, student_id: studentId },
+    });
+    if (existing) continue;
+
+    const status = statusForSlot(slot);
+    await repos.homeworkSubmissionRepository.save(
+      repos.homeworkSubmissionRepository.create({
+        tenant_id: schoolId,
+        assignment_id: assignment.id,
+        student_id: studentId,
+        status,
+        marks: null,
+        attachments: [],
+      }),
+    );
+    result.submissions += 1;
+  }
+
+  const topicSeeds: readonly { name: string; sequence: number; status: SyllabusTopicStatus }[] = [
+    { name: 'Introduction', sequence: 1, status: SyllabusTopicStatus.DONE },
+    { name: 'Core Concepts', sequence: 2, status: SyllabusTopicStatus.DONE },
+    { name: 'Advanced Problems', sequence: 3, status: SyllabusTopicStatus.PLANNED },
+  ];
+  for (const topicSeed of topicSeeds) {
+    const existing = await repos.syllabusTopicRepository.findOne({
+      where: {
+        tenant_id: schoolId,
+        class_id: classId,
+        subject_id: subjectId,
+        sequence: topicSeed.sequence,
+      },
+    });
+    if (existing) continue;
+
+    await repos.syllabusTopicRepository.save(
+      repos.syllabusTopicRepository.create({
+        tenant_id: schoolId,
+        class_id: classId,
+        subject_id: subjectId,
+        name: topicSeed.name,
+        description: null,
+        sequence: topicSeed.sequence,
+        status: topicSeed.status,
+      }),
+    );
+    result.syllabusTopics += 1;
+  }
+
+  if (
+    result.homework > 0 ||
+    result.assignments > 0 ||
+    result.submissions > 0 ||
+    result.syllabusTopics > 0
+  ) {
+    console.log(
+      `  Homework demo seed: +${result.homework} homework, +${result.assignments} assignments, ` +
+        `+${result.submissions} submissions, +${result.syllabusTopics} syllabus topics`,
+    );
+  }
+  return result;
+}
+
+// ===========================================================================
+// [34.1.4] Programs demo data
+// ===========================================================================
+
+export interface ProgramsDemoSeedRepositories {
+  programRepository: Repository<Program>;
+  programMilestoneRepository: Repository<ProgramMilestone>;
+}
+
+export interface ProgramsDemoSeedParams {
+  schoolId: string;
+}
+
+export interface ProgramsDemoSeedResult {
+  programs: number;
+  milestones: number;
+}
+
+/** Idempotent, same find-or-create shape as `ensureHomeworkDemoSeed`: two
+ * `Program`s that show off the two shapes a program can take — "Hifz" with
+ * 30 milestones ("Para 1".."Para 30") and `show_on_report_card: true`, and
+ * "Debate club" with zero milestones and `show_on_report_card: false` (D6).
+ * Enrolment/achievement/fee-schedule rows need a student roster this
+ * function's call site doesn't have — see `ensureProgramParticipationDemoSeed`
+ * below, called separately once Class 6's roster is resolved. */
+export async function ensureProgramsDemoSeed(
+  repos: ProgramsDemoSeedRepositories,
+  params: ProgramsDemoSeedParams,
+): Promise<ProgramsDemoSeedResult> {
+  const { schoolId } = params;
+  const result: ProgramsDemoSeedResult = { programs: 0, milestones: 0 };
+
+  let hifz = await repos.programRepository.findOne({
+    where: { tenant_id: schoolId, name: 'Hifz' },
+  });
+  if (!hifz) {
+    hifz = repos.programRepository.create({
+      tenant_id: schoolId,
+      name: 'Hifz',
+      description: null,
+      is_active: true,
+      show_on_report_card: true,
+    });
+    await repos.programRepository.save(hifz);
+    result.programs += 1;
+  }
+
+  for (let sequence = 1; sequence <= 30; sequence += 1) {
+    const existing = await repos.programMilestoneRepository.findOne({
+      where: { tenant_id: schoolId, program_id: hifz.id, sequence },
+    });
+    if (existing) continue;
+
+    await repos.programMilestoneRepository.save(
+      repos.programMilestoneRepository.create({
+        tenant_id: schoolId,
+        program_id: hifz.id,
+        name: `Para ${sequence}`,
+        description: null,
+        sequence,
+      }),
+    );
+    result.milestones += 1;
+  }
+
+  const debateClub = await repos.programRepository.findOne({
+    where: { tenant_id: schoolId, name: 'Debate club' },
+  });
+  if (!debateClub) {
+    await repos.programRepository.save(
+      repos.programRepository.create({
+        tenant_id: schoolId,
+        name: 'Debate club',
+        description: null,
+        is_active: true,
+        show_on_report_card: false,
+      }),
+    );
+    result.programs += 1;
+  }
+
+  if (result.programs > 0 || result.milestones > 0) {
+    console.log(
+      `  Programs demo seed: +${result.programs} programs, +${result.milestones} milestones`,
+    );
+  }
+  return result;
+}
+
+// [34.2.4] Hifz/Debate enrolments, Hifz achievements and a program-targeted
+// recurring fee schedule.
+
+export interface ProgramParticipationDemoSeedRepositories {
+  programRepository: Repository<Program>;
+  programMilestoneRepository: Repository<ProgramMilestone>;
+  programEnrollmentRepository: Repository<ProgramEnrollment>;
+  milestoneAchievementRepository: Repository<MilestoneAchievement>;
+  feeStructureRepository: Repository<FeeStructure>;
+  recurringScheduleRepository: Repository<RecurringSchedule>;
+  recurringScheduleStructureRepository: Repository<RecurringScheduleStructure>;
+}
+
+export interface ProgramParticipationDemoSeedParams {
+  schoolId: string;
+  academicYearId: string;
+  /** Class 6 section A (roll order) then section B (roll order) — 6 ids. */
+  studentIds: readonly string[];
+  recordedByUserId: string | null;
+}
+
+export interface ProgramParticipationDemoSeedResult {
+  enrollments: number;
+  achievements: number;
+  feeStructures: number;
+  schedules: number;
+  scheduleStructures: number;
+}
+
+const HIFZ_ACHIEVEMENT_SEED: ReadonlyArray<{ studentIndex: number; paras: number[] }> = [
+  { studentIndex: 0, paras: [1, 2, 3, 4, 5, 6, 7, 8] },
+  { studentIndex: 1, paras: [1, 2, 3, 5, 6, 30] },
+  { studentIndex: 2, paras: [1, 2, 4] },
+  { studentIndex: 3, paras: [30, 29, 28, 1] },
+  { studentIndex: 5, paras: [1, 2, 3, 4] },
+];
+
+/** Enrolments/achievements/a fee schedule on top of `ensureProgramsDemoSeed`'s
+ * two programs, laid over the Class 6 A+B roster `ensureExamsDemoSeed` above
+ * already resolved — kept a separate function (rather than folded into
+ * `ensureProgramsDemoSeed`) because that function's call site runs before any
+ * roster lookup exists. Idempotent, same find-or-create shape as the rest of
+ * this file. Billing behaviour itself (who a `program_id` audience bills, and
+ * that WITHDRAWN stops it) is proven by
+ * `fees-daily.scheduler.integration.spec.ts`, not here — this only has to
+ * prove the rows are shaped right. */
+export async function ensureProgramParticipationDemoSeed(
+  repos: ProgramParticipationDemoSeedRepositories,
+  params: ProgramParticipationDemoSeedParams,
+): Promise<ProgramParticipationDemoSeedResult> {
+  const { schoolId, academicYearId, studentIds, recordedByUserId } = params;
+  const result: ProgramParticipationDemoSeedResult = {
+    enrollments: 0,
+    achievements: 0,
+    feeStructures: 0,
+    schedules: 0,
+    scheduleStructures: 0,
+  };
+
+  if (studentIds.length < 6) {
+    throw new Error(
+      `ensureProgramParticipationDemoSeed needs 6 Class 6 A+B student ids, got ${studentIds.length}`,
+    );
+  }
+
+  const hifz = await repos.programRepository.findOne({
+    where: { tenant_id: schoolId, name: 'Hifz' },
+  });
+  const debateClub = await repos.programRepository.findOne({
+    where: { tenant_id: schoolId, name: 'Debate club' },
+  });
+  if (!hifz || !debateClub) {
+    throw new Error(
+      'ensureProgramParticipationDemoSeed requires ensureProgramsDemoSeed to have run first',
+    );
+  }
+
+  async function ensureEnrollment(
+    programId: string,
+    studentId: string,
+    status: ProgramEnrollmentStatus,
+    endedOn: string | null,
+  ): Promise<ProgramEnrollment> {
+    const existing = await repos.programEnrollmentRepository.findOne({
+      where: { tenant_id: schoolId, program_id: programId, student_id: studentId },
+    });
+    if (existing) return existing;
+    const created = await repos.programEnrollmentRepository.save(
+      repos.programEnrollmentRepository.create({
+        tenant_id: schoolId,
+        program_id: programId,
+        student_id: studentId,
+        started_on: '2026-01-10',
+        ended_on: endedOn,
+        status,
+      }),
+    );
+    result.enrollments += 1;
+    return created;
+  }
+
+  const hifzEnrollments: ProgramEnrollment[] = [];
+  for (let i = 0; i < 6; i += 1) {
+    const isWithdrawn = i === 5;
+    hifzEnrollments.push(
+      await ensureEnrollment(
+        hifz.id,
+        studentIds[i],
+        isWithdrawn ? ProgramEnrollmentStatus.WITHDRAWN : ProgramEnrollmentStatus.ACTIVE,
+        isWithdrawn ? '2026-06-30' : null,
+      ),
+    );
+  }
+  for (const i of [0, 1, 3, 4]) {
+    await ensureEnrollment(debateClub.id, studentIds[i], ProgramEnrollmentStatus.ACTIVE, null);
+  }
+
+  for (const { studentIndex, paras } of HIFZ_ACHIEVEMENT_SEED) {
+    const enrollment = hifzEnrollments[studentIndex];
+    for (let i = 0; i < paras.length; i += 1) {
+      const sequence = paras[i];
+      const milestone = await repos.programMilestoneRepository.findOne({
+        where: { tenant_id: schoolId, program_id: hifz.id, sequence },
+      });
+      if (!milestone) {
+        throw new Error(
+          `ensureProgramParticipationDemoSeed: no Hifz milestone at para ${sequence}`,
+        );
+      }
+      const existing = await repos.milestoneAchievementRepository.findOne({
+        where: { enrollment_id: enrollment.id, milestone_id: milestone.id },
+      });
+      if (existing) continue;
+
+      const isScored = i === 0 && [0, 1, 3].includes(studentIndex);
+      await repos.milestoneAchievementRepository.save(
+        repos.milestoneAchievementRepository.create({
+          tenant_id: schoolId,
+          program_id: hifz.id,
+          enrollment_id: enrollment.id,
+          milestone_id: milestone.id,
+          achieved_on: `2026-03-${String(i + 1).padStart(2, '0')}`,
+          recorded_by: recordedByUserId,
+          score: isScored ? '95.00' : null,
+          grade: isScored ? 'A+' : null,
+          remark: isScored ? 'Recited without error' : null,
+        }),
+      );
+      result.achievements += 1;
+    }
+  }
+
+  let feeStructure = await repos.feeStructureRepository.findOne({
+    where: { tenant_id: schoolId, academic_year_id: academicYearId, name: 'Hifz monthly fee' },
+  });
+  if (!feeStructure) {
+    feeStructure = await repos.feeStructureRepository.save(
+      repos.feeStructureRepository.create({
+        tenant_id: schoolId,
+        academic_year_id: academicYearId,
+        name: 'Hifz monthly fee',
+        fee_type: FeeType.OTHER,
+        amount: 800,
+        class_id: null,
+        section_id: null,
+      }),
+    );
+    result.feeStructures += 1;
+  }
+
+  let schedule = await repos.recurringScheduleRepository.findOne({
+    where: { tenant_id: schoolId, academic_year_id: academicYearId, name: 'Hifz monthly fee' },
+  });
+  if (!schedule) {
+    schedule = await repos.recurringScheduleRepository.save(
+      repos.recurringScheduleRepository.create({
+        tenant_id: schoolId,
+        academic_year_id: academicYearId,
+        name: 'Hifz monthly fee',
+        audience: { program_id: hifz.id, enrollment_status: 'ACTIVE' },
+        rule: { kind: 'MONTHLY', day_of_month: 1 },
+        period_type: PeriodType.MONTH,
+        due_days_after_period_start: 9,
+        starts_on: DEMO_ACADEMIC_YEAR.start_date,
+        ends_on: DEMO_ACADEMIC_YEAR.end_date,
+        notify_families: false,
+        is_active: true,
+        last_run_period: null,
+        created_by_user_id: recordedByUserId,
+      }),
+    );
+    result.schedules += 1;
+  }
+
+  const existingLink = await repos.recurringScheduleStructureRepository.findOne({
+    where: { schedule_id: schedule.id, fee_structure_id: feeStructure.id },
+  });
+  if (!existingLink) {
+    await repos.recurringScheduleStructureRepository.save(
+      repos.recurringScheduleStructureRepository.create({
+        schedule_id: schedule.id,
+        fee_structure_id: feeStructure.id,
+      }),
+    );
+    result.scheduleStructures += 1;
+  }
+
+  if (
+    result.enrollments > 0 ||
+    result.achievements > 0 ||
+    result.feeStructures > 0 ||
+    result.schedules > 0 ||
+    result.scheduleStructures > 0
+  ) {
+    console.log(
+      `  Program participation demo seed: +${result.enrollments} enrollments, ` +
+        `+${result.achievements} achievements, +${result.feeStructures} fee structures, ` +
+        `+${result.schedules} schedules, +${result.scheduleStructures} schedule structures`,
+    );
+  }
+  return result;
+}
+
+// ===========================================================================
+// [38.1.4] Fines demo data
+// ===========================================================================
+
+export interface FineSeedRepositories {
+  feeStructureRepository: Repository<FeeStructure>;
+  fineRuleRepository: Repository<FineRule>;
+}
+
+export interface FineSeedParams {
+  schoolId: string;
+  academicYearId: string;
+  /** First seeded class — the class-specific ATTENDANCE_LATE rule targets it. */
+  classId: string;
+}
+
+/**
+ * [38.1.4] Five FINE fee structures (Absent, Late, Property damage, ID
+ * card replacement, Uniform) plus one school-default `ATTENDANCE_ABSENT`
+ * rule and one class-specific `ATTENDANCE_LATE` rule, so the Fee
+ * structures page and (once 38.2.x lands) the fine rules page have real
+ * data on a fresh seed. Idempotent — looked up by name/trigger+class
+ * before insert, same convention as every other `ensure*DemoSeed` here.
+ */
+export async function ensureFineSeedData(
+  repos: FineSeedRepositories,
+  params: FineSeedParams,
+): Promise<{ structures: number; rules: number }> {
+  const { schoolId, academicYearId, classId } = params;
+  const result = { structures: 0, rules: 0 };
+
+  const structureSpecs: { name: string; amount: number }[] = [
+    { name: 'Absent fine', amount: 20 },
+    { name: 'Late fine', amount: 10 },
+    { name: 'Property damage', amount: 500 },
+    { name: 'ID card replacement', amount: 100 },
+    { name: 'Uniform', amount: 50 },
+  ];
+
+  const structuresByName = new Map<string, FeeStructure>();
+  for (const spec of structureSpecs) {
+    let structure = await repos.feeStructureRepository.findOne({
+      where: { tenant_id: schoolId, academic_year_id: academicYearId, name: spec.name },
+    });
+    if (!structure) {
+      structure = await repos.feeStructureRepository.save(
+        repos.feeStructureRepository.create({
+          tenant_id: schoolId,
+          academic_year_id: academicYearId,
+          name: spec.name,
+          fee_type: FeeType.FINE,
+          amount: spec.amount,
+          class_id: null,
+          section_id: null,
+        }),
+      );
+      result.structures += 1;
+    }
+    structuresByName.set(spec.name, structure);
+  }
+
+  const absentFine = structuresByName.get('Absent fine')!;
+  const existingAbsentRule = await repos.fineRuleRepository.findOne({
+    where: {
+      tenant_id: schoolId,
+      academic_year_id: academicYearId,
+      trigger: FineTrigger.ATTENDANCE_ABSENT,
+      class_id: IsNull(),
+    },
+  });
+  if (!existingAbsentRule) {
+    await repos.fineRuleRepository.save(
+      repos.fineRuleRepository.create({
+        tenant_id: schoolId,
+        academic_year_id: academicYearId,
+        trigger: FineTrigger.ATTENDANCE_ABSENT,
+        fee_structure_id: absentFine.id,
+        class_id: null,
+        free_per_period: 1,
+        cap_per_period: 200,
+        conditions: {},
+        is_active: true,
+      }),
+    );
+    result.rules += 1;
+  }
+
+  const lateFine = structuresByName.get('Late fine')!;
+  const existingLateRule = await repos.fineRuleRepository.findOne({
+    where: {
+      tenant_id: schoolId,
+      academic_year_id: academicYearId,
+      trigger: FineTrigger.ATTENDANCE_LATE,
+      class_id: classId,
+    },
+  });
+  if (!existingLateRule) {
+    await repos.fineRuleRepository.save(
+      repos.fineRuleRepository.create({
+        tenant_id: schoolId,
+        academic_year_id: academicYearId,
+        trigger: FineTrigger.ATTENDANCE_LATE,
+        fee_structure_id: lateFine.id,
+        class_id: classId,
+        free_per_period: 0,
+        conditions: { min_minutes_late: 10 },
+        is_active: true,
+      }),
+    );
+    result.rules += 1;
+  }
+
+  if (result.structures > 0 || result.rules > 0) {
+    console.log(`  Fine seed: +${result.structures} fine structures, +${result.rules} fine rules`);
+  }
+  return result;
+}
+
+// ===========================================================================
+// [36.4.5] Staff attendance/leave demo data
+// ===========================================================================
+
+/** D9 default annual quota (days) per `LeaveType`, matching the values the
+ * migration (`1789800014000-StaffAttendanceLeave.ts`) seeds for every
+ * tenant that already existed at migration time. A tenant created after
+ * that migration ran (e.g. a fresh dev database's `default-school`) gets
+ * none of that, so this seed writes the same defaults, idempotently. */
+const LEAVE_POLICY_DEFAULTS: readonly { leaveType: LeaveType; quota: number }[] = [
+  { leaveType: LeaveType.CASUAL, quota: 10 },
+  { leaveType: LeaveType.SICK, quota: 14 },
+  { leaveType: LeaveType.EARNED, quota: 15 },
+  { leaveType: LeaveType.MATERNITY, quota: 112 },
+  { leaveType: LeaveType.PATERNITY, quota: 7 },
+];
+
+export interface StaffHrSeedRepositories {
+  staffProfileRepository: Repository<StaffProfile>;
+  leavePolicyRepository: Repository<LeavePolicy>;
+  staffAttendanceSessionRepository: Repository<StaffAttendanceSession>;
+  staffAttendanceRecordRepository: Repository<StaffAttendanceRecord>;
+  leaveRecordRepository: Repository<LeaveRecord>;
+}
+
+export interface StaffHrSeedResult {
+  staffProfiles: number;
+  leavePolicies: number;
+  attendanceRecords: number;
+  leaveRecords: number;
+}
+
+/** [36.4.5] Epic 36's demo data: a `staff_profiles` row for each seeded
+ * non-teacher-role staff user, the D9 leave policy defaults for the
+ * tenant, one sample staff-attendance day/mark, and one sample leave
+ * request — so `Attendance → Staff` and the leave screens have something
+ * to show on first run. Idempotent, same find-or-create shape as every
+ * other `ensure*` helper in this file. */
+export async function ensureStaffHrSeed(
+  repos: StaffHrSeedRepositories,
+  schoolId: string,
+  staffUserIds: readonly { userId: string; employeeId: string }[],
+): Promise<StaffHrSeedResult> {
+  const result: StaffHrSeedResult = {
+    staffProfiles: 0,
+    leavePolicies: 0,
+    attendanceRecords: 0,
+    leaveRecords: 0,
+  };
+
+  const profiles: StaffProfile[] = [];
+  for (const { userId, employeeId } of staffUserIds) {
+    // `staff_profiles.user_id` is unique across ALL tenants (one profile per
+    // user — same rule `StaffProfilesService.createFor` enforces), so look
+    // up by that key alone. A tenant-scoped lookup misses a profile that
+    // lives in another tenant (e.g. the user is also staff at the second
+    // school) and the insert below fails `UQ_staff_profiles_user`.
+    let profile = await repos.staffProfileRepository.findOne({
+      where: { user_id: userId },
+    });
+    if (profile && profile.tenant_id !== schoolId) {
+      // Don't reuse it: the sample attendance/leave rows below are written
+      // under `schoolId`, and pointing them at another tenant's profile
+      // would cross tenants.
+      console.warn(
+        `Seed: user ${userId} already has a staff profile in tenant ${profile.tenant_id}; skipping its staff HR seed.`,
+      );
+      continue;
+    }
+    if (!profile) {
+      profile = await repos.staffProfileRepository.save(
+        repos.staffProfileRepository.create({
+          tenant_id: schoolId,
+          user_id: userId,
+          employee_id: employeeId,
+          joining_date: new Date('2024-01-10'),
+        }),
+      );
+      result.staffProfiles += 1;
+    }
+    profiles.push(profile);
+  }
+
+  for (const { leaveType, quota } of LEAVE_POLICY_DEFAULTS) {
+    const existing = await repos.leavePolicyRepository.findOne({
+      where: { tenant_id: schoolId, leave_type: leaveType },
+    });
+    if (existing) continue;
+    await repos.leavePolicyRepository.save(
+      repos.leavePolicyRepository.create({
+        tenant_id: schoolId,
+        leave_type: leaveType,
+        annual_quota_days: quota,
+      }),
+    );
+    result.leavePolicies += 1;
+  }
+
+  const firstProfile = profiles[0];
+  if (firstProfile) {
+    const attendanceDate = '2026-03-01';
+    let session = await repos.staffAttendanceSessionRepository.findOne({
+      where: { tenant_id: schoolId, date: attendanceDate },
+    });
+    if (!session) {
+      session = await repos.staffAttendanceSessionRepository.save(
+        repos.staffAttendanceSessionRepository.create({
+          tenant_id: schoolId,
+          date: attendanceDate,
+        }),
+      );
+    }
+
+    const existingRecord = await repos.staffAttendanceRecordRepository.findOne({
+      where: { session_id: session.id, staff_profile_id: firstProfile.id },
+    });
+    if (!existingRecord) {
+      await repos.staffAttendanceRecordRepository.save(
+        repos.staffAttendanceRecordRepository.create({
+          tenant_id: schoolId,
+          session_id: session.id,
+          staff_profile_id: firstProfile.id,
+          status: AttendanceStatus.PRESENT,
+          source: AttendanceSource.TEACHER,
+        }),
+      );
+      result.attendanceRecords += 1;
+    }
+
+    const existingLeaveRecord = await repos.leaveRecordRepository.findOne({
+      where: {
+        tenant_id: schoolId,
+        staff_profile_id: firstProfile.id,
+        start_date: '2026-03-10',
+        end_date: '2026-03-11',
+      },
+    });
+    if (!existingLeaveRecord) {
+      await repos.leaveRecordRepository.save(
+        repos.leaveRecordRepository.create({
+          tenant_id: schoolId,
+          staff_profile_id: firstProfile.id,
+          leave_type: LeaveType.CASUAL,
+          start_date: '2026-03-10',
+          end_date: '2026-03-11',
+          days: 2,
+          status: LeaveStatus.APPROVED,
+          reason: 'Demo leave request',
+          approved_by: firstProfile.user_id,
+          decided_at: new Date('2026-03-05'),
+        }),
+      );
+      result.leaveRecords += 1;
+    }
+  }
+
+  if (
+    result.staffProfiles > 0 ||
+    result.leavePolicies > 0 ||
+    result.attendanceRecords > 0 ||
+    result.leaveRecords > 0
+  ) {
+    console.log(
+      `  Staff HR seed: +${result.staffProfiles} staff profiles, +${result.leavePolicies} ` +
+        `leave policies, +${result.attendanceRecords} attendance records, ` +
+        `+${result.leaveRecords} leave records`,
+    );
+  }
+  return result;
+}
+
+// ===========================================================================
+// [788] Promotion demo data
+// ===========================================================================
+
+/** [788] The year the demo's one promotion run promotes students *into* —
+ * one year after `DEMO_ACADEMIC_YEAR`, same "real 2027 date" convention. */
+export const DEMO_NEXT_ACADEMIC_YEAR = {
+  name: '2027-2028',
+  start_date: '2027-01-01',
+  end_date: '2027-12-31',
+} as const;
+
+/** The class the demo's promotion run moves "Class 6" students into, seeded
+ * under `DEMO_NEXT_ACADEMIC_YEAR` rather than reusing the current year's own
+ * "Class 7" (a different physical class, in a different academic year). */
+const DEMO_NEXT_CLASS_NAME = 'Class 7';
+
+export interface PromotionDemoSeedRepositories {
+  academicYearRepository: Repository<AcademicYear>;
+  classRepository: Repository<Class>;
+  classSectionRepository: Repository<ClassSection>;
+  enrollmentRepository: Repository<Enrollment>;
+  promotionRunRepository: Repository<PromotionRun>;
+  promotionEntryRepository: Repository<PromotionEntry>;
+}
+
+export interface PromotionDemoSeedParams {
+  schoolId: string;
+  sourceClassId: string;
+  sourceAcademicYearId: string;
+  examIds: readonly string[];
+  createdByUserId: string;
+  /** Section-order lists of student ids — same shape as
+   * `ExamsDemoSeedParams.sectionStudentIds` (section A first, section B
+   * second), reused here so the promoted-with-override student is the same
+   * "section A, roll 1" the exams seed already published a `Result` for. */
+  sectionStudentIds: readonly (readonly string[])[];
+}
+
+export interface PromotionDemoSeedResult {
+  runs: number;
+  entries: number;
+}
+
+/** Idempotent, same find-or-create shape as every other `ensure*` in this
+ * file: one next academic year, one target class with two sections, one
+ * COMMITTED `PromotionRun` from `params.sourceClassId`, and one
+ * `PromotionEntry` per seeded student — section A roll 1 carries the one
+ * override (D6/D11), matching the ticket's own note text exactly.
+ *
+ * No DRAFT run: the demo only ever seeds one class's exam
+ * (`ensureExamsDemoSeed`), so there is no second class with a published exam
+ * to build a draft against (see this ticket's plan comment). */
+export async function ensurePromotionDemoSeed(
+  repos: PromotionDemoSeedRepositories,
+  params: PromotionDemoSeedParams,
+): Promise<PromotionDemoSeedResult> {
+  const {
+    schoolId,
+    sourceClassId,
+    sourceAcademicYearId,
+    examIds,
+    createdByUserId,
+    sectionStudentIds,
+  } = params;
+  const result: PromotionDemoSeedResult = { runs: 0, entries: 0 };
+
+  // --- next academic year ------------------------------------------------
+  let nextYear = await findLivePreferred(repos.academicYearRepository, {
+    name: DEMO_NEXT_ACADEMIC_YEAR.name,
+    tenant_id: schoolId,
+  });
+  if (!nextYear) {
+    nextYear = repos.academicYearRepository.create({
+      name: DEMO_NEXT_ACADEMIC_YEAR.name,
+      start_date: new Date(DEMO_NEXT_ACADEMIC_YEAR.start_date),
+      end_date: new Date(DEMO_NEXT_ACADEMIC_YEAR.end_date),
+      is_current: false,
+      tenant_id: schoolId,
+    });
+    await repos.academicYearRepository.save(nextYear);
+  } else if (nextYear.deleted_at) {
+    await repos.academicYearRepository.save(undelete(nextYear));
+  }
+
+  // --- target class + two sections ---------------------------------------
+  let targetClass = await repos.classRepository.findOne({
+    where: { name: DEMO_NEXT_CLASS_NAME, tenant_id: schoolId, academic_year_id: nextYear.id },
+    withDeleted: true,
+  });
+  if (!targetClass) {
+    targetClass = repos.classRepository.create({
+      name: DEMO_NEXT_CLASS_NAME,
+      numeric_grade: 7,
+      shift: null,
+      version: null,
+      academic_year_id: nextYear.id,
+      tenant_id: schoolId,
+    });
+    await repos.classRepository.save(targetClass);
+  } else if (targetClass.deleted_at) {
+    await repos.classRepository.save(undelete(targetClass));
+  }
+
+  const targetSections: ClassSection[] = [];
+  for (const sectionName of ['A', 'B']) {
+    let section = await repos.classSectionRepository.findOne({
+      where: { class_id: targetClass.id, section_name: sectionName, tenant_id: schoolId },
+      withDeleted: true,
+    });
+    if (!section) {
+      section = repos.classSectionRepository.create({
+        class_id: targetClass.id,
+        section_name: sectionName,
+        capacity: 30,
+        group_name: null,
+        tenant_id: schoolId,
+      });
+      await repos.classSectionRepository.save(section);
+    } else if (section.deleted_at) {
+      await repos.classSectionRepository.save(undelete(section));
+    }
+    targetSections.push(section);
+  }
+
+  // --- one COMMITTED run --------------------------------------------------
+  let run = await repos.promotionRunRepository.findOne({
+    where: {
+      tenant_id: schoolId,
+      source_class_id: sourceClassId,
+      target_academic_year_id: nextYear.id,
+      status: PromotionRunStatus.COMMITTED,
+    },
+  });
+  if (!run) {
+    run = repos.promotionRunRepository.create({
+      tenant_id: schoolId,
+      source_class_id: sourceClassId,
+      source_academic_year_id: sourceAcademicYearId,
+      target_academic_year_id: nextYear.id,
+      target_class_id: targetClass.id,
+      exam_ids: [...examIds],
+      algorithm: PlacementAlgorithm.BLOCK,
+      status: PromotionRunStatus.COMMITTED,
+      refreshed_at: new Date('2026-03-01T00:00:00.000Z'),
+      committed_at: new Date('2026-03-02T00:00:00.000Z'),
+      committed_by_user_id: createdByUserId,
+      approved_by_user_id: createdByUserId,
+      override_count: 1,
+      created_by_user_id: createdByUserId,
+    });
+    await repos.promotionRunRepository.save(run);
+    result.runs += 1;
+
+    // --- one entry per seeded student, section A roll 1 overridden -------
+    let studentIndex = 0;
+    for (const [sectionIndex, studentIds] of sectionStudentIds.entries()) {
+      for (const [rollIndex, studentId] of studentIds.entries()) {
+        const enrollment = await repos.enrollmentRepository.findOne({
+          where: {
+            student_id: studentId,
+            academic_year_id: sourceAcademicYearId,
+            tenant_id: schoolId,
+            enrollment_status: EnrollmentStatus.ACTIVE,
+          },
+        });
+        if (!enrollment) continue;
+
+        const isOverride = sectionIndex === 0 && rollIndex === 0;
+        await repos.promotionEntryRepository.save(
+          repos.promotionEntryRepository.create({
+            tenant_id: schoolId,
+            run_id: run.id,
+            student_id: studentId,
+            source_enrollment_id: enrollment.id,
+            source_section_id: enrollment.section_id,
+            merit_rank: studentIndex + 1,
+            mean_gpa: '4.50',
+            total_marks_sum: '167.00',
+            passed_all: true,
+            suggested_outcome: PromotionOutcome.PROMOTE,
+            final_outcome: isOverride ? PromotionOutcome.RETAIN : PromotionOutcome.PROMOTE,
+            is_override: isOverride,
+            override_note: isOverride
+              ? 'Medical absence during annual exam — approved by head teacher'
+              : null,
+            overridden_by_user_id: isOverride ? createdByUserId : null,
+            group_name: null,
+            target_class_id: isOverride ? null : targetClass.id,
+            target_section_id: isOverride ? null : targetSections[sectionIndex].id,
+            new_roll_number: isOverride ? null : rollIndex + 1,
+            placement_error: null,
+            target_enrollment_id: null,
+          }),
+        );
+        result.entries += 1;
+        studentIndex += 1;
+      }
+    }
+  }
+
+  if (result.runs > 0 || result.entries > 0) {
+    console.log(`  Promotion demo seed: +${result.runs} runs, +${result.entries} entries`);
+  }
+  return result;
+}
+
+// ===========================================================================
+// [23.5] Wave-1 staff-HR demo data
+// ===========================================================================
+
+export interface StaffHrDemoSeedRepositories {
+  userRepository: Repository<User>;
+  userTenantRepository: Repository<UserTenant>;
+  designationRepository: Repository<Designation>;
+  staffHrRecordRepository: Repository<StaffHrRecord>;
+  staffDesignationHistoryRepository: Repository<StaffDesignationHistory>;
+  staffFamilyMemberRepository: Repository<StaffFamilyMember>;
+  staffAddressRepository: Repository<StaffAddress>;
+  staffExperienceRepository: Repository<StaffExperience>;
+  staffEducationRepository: Repository<StaffEducation>;
+  staffTrainingRepository: Repository<StaffTraining>;
+  staffAchievementRepository: Repository<StaffAchievement>;
+  staffLanguageRepository: Repository<StaffLanguage>;
+}
+
+export interface StaffHrDemoSeedParams {
+  schoolId: string;
+}
+
+export interface StaffHrDemoSeedResult {
+  designations: number;
+  staffUsers: number;
+  hrRecords: number;
+  designationHistory: number;
+  familyMembers: number;
+  addresses: number;
+  experience: number;
+  education: number;
+  training: number;
+  achievements: number;
+  languages: number;
+}
+
+/** The demo's one non-teaching staff member — an accountant, so 23.5's AC
+ * ("a non-teaching staff member with a populated HR record") has a real row
+ * to point at rather than reusing one of the seed's teachers. */
+const STAFF_HR_DEMO_EMAIL = 'accounts.officer@demoschool.example';
+
+/**
+ * Idempotent, same find-or-create shape as every other `ensure*` in this
+ * file: two designations (one teaching, one not), one non-teaching staff
+ * user with a full HR record — job info, designation history, family,
+ * both address types, experience, education, training, an achievement and
+ * a language — proving D1 (HR applies to any staff role, not just
+ * teachers) end to end.
+ */
+export async function ensureStaffHrDemoSeed(
+  repos: StaffHrDemoSeedRepositories,
+  params: StaffHrDemoSeedParams,
+): Promise<StaffHrDemoSeedResult> {
+  const { schoolId } = params;
+  const result: StaffHrDemoSeedResult = {
+    designations: 0,
+    staffUsers: 0,
+    hrRecords: 0,
+    designationHistory: 0,
+    familyMembers: 0,
+    addresses: 0,
+    experience: 0,
+    education: 0,
+    training: 0,
+    achievements: 0,
+    languages: 0,
+  };
+
+  let teacherDesignation = await repos.designationRepository.findOne({
+    where: { tenant_id: schoolId, title_en: 'Assistant Teacher' },
+  });
+  if (!teacherDesignation) {
+    teacherDesignation = await repos.designationRepository.save(
+      repos.designationRepository.create({
+        tenant_id: schoolId,
+        title_en: 'Assistant Teacher',
+        title_bn: 'সহকারী শিক্ষক',
+        is_teaching: true,
+      }),
+    );
+    result.designations += 1;
+  }
+
+  let accountantDesignation = await repos.designationRepository.findOne({
+    where: { tenant_id: schoolId, title_en: 'Accountant' },
+  });
+  if (!accountantDesignation) {
+    accountantDesignation = await repos.designationRepository.save(
+      repos.designationRepository.create({
+        tenant_id: schoolId,
+        title_en: 'Accountant',
+        title_bn: 'হিসাবরক্ষক',
+        is_teaching: false,
+      }),
+    );
+    result.designations += 1;
+  }
+
+  let staffUser = await repos.userRepository.findOne({
+    where: { email: STAFF_HR_DEMO_EMAIL },
+    withDeleted: true,
+  });
+  if (!staffUser) {
+    staffUser = await repos.userRepository.save(
+      repos.userRepository.create({
+        email: STAFF_HR_DEMO_EMAIL,
+        full_name: 'Accounts Officer',
+        password_hash: 'not-a-real-hash-demo-seed-only',
+        status: UserStatus.ACTIVE,
+      }),
+    );
+    result.staffUsers += 1;
+  } else if (staffUser.deleted_at) {
+    staffUser.deleted_at = null;
+    staffUser.status = UserStatus.ACTIVE;
+    await repos.userRepository.save(staffUser);
+  }
+  const membership = await repos.userTenantRepository.findOne({
+    where: { user_id: staffUser.id, tenant_id: schoolId, role: UserRole.ACCOUNTANT },
+  });
+  if (!membership) {
+    await repos.userTenantRepository.save(
+      repos.userTenantRepository.create({
+        user_id: staffUser.id,
+        tenant_id: schoolId,
+        role: UserRole.ACCOUNTANT,
+      }),
+    );
+  }
+
+  const hrRecord = await repos.staffHrRecordRepository.findOne({
+    where: { tenant_id: schoolId, user_id: staffUser.id },
+  });
+  if (!hrRecord) {
+    await repos.staffHrRecordRepository.save(
+      repos.staffHrRecordRepository.create({
+        tenant_id: schoolId,
+        user_id: staffUser.id,
+        index_no: 'IDX-2001',
+        salary_code: 'SC-14',
+        mpo_date: '2020-01-01',
+        salary_scale: 'Scale-14',
+        department: 'Accounts',
+        blood_group: 'B+',
+        religion: 'Islam',
+      }),
+    );
+    result.hrRecords += 1;
+  }
+
+  const openHistory = await repos.staffDesignationHistoryRepository.findOne({
+    where: { tenant_id: schoolId, user_id: staffUser.id, end_date: IsNull() },
+  });
+  if (!openHistory) {
+    await repos.staffDesignationHistoryRepository.save(
+      repos.staffDesignationHistoryRepository.create({
+        tenant_id: schoolId,
+        user_id: staffUser.id,
+        designation_id: accountantDesignation.id,
+        effective_date: '2020-01-01',
+        end_date: null,
+        status: StaffEmploymentStatus.REGULAR,
+        notes: 'Demo seed — 23.5',
+      }),
+    );
+    result.designationHistory += 1;
+  }
+
+  const familySeeds = [
+    { relation: 'Spouse', name: 'Nasrin Akter', occupation: 'Homemaker', contact: '01700000001' },
+    { relation: 'Father', name: 'Abdul Karim', occupation: 'Retired', contact: null },
+  ];
+  for (const seed of familySeeds) {
+    const existing = await repos.staffFamilyMemberRepository.findOne({
+      where: {
+        tenant_id: schoolId,
+        staff_user_id: staffUser.id,
+        relation: seed.relation,
+        name: seed.name,
+      },
+    });
+    if (existing) continue;
+    await repos.staffFamilyMemberRepository.save(
+      repos.staffFamilyMemberRepository.create({
+        tenant_id: schoolId,
+        staff_user_id: staffUser.id,
+        ...seed,
+      }),
+    );
+    result.familyMembers += 1;
+  }
+
+  const addressSeeds: { type: 'PRESENT' | 'PERMANENT' }[] = [
+    { type: 'PRESENT' },
+    { type: 'PERMANENT' },
+  ];
+  for (const seed of addressSeeds) {
+    const existing = await repos.staffAddressRepository.findOne({
+      where: { tenant_id: schoolId, staff_user_id: staffUser.id, type: seed.type },
+    });
+    if (existing) continue;
+    await repos.staffAddressRepository.save(
+      repos.staffAddressRepository.create({
+        tenant_id: schoolId,
+        staff_user_id: staffUser.id,
+        type: seed.type,
+        village_street: seed.type === 'PRESENT' ? 'House 12, Road 3' : 'Village Sonargaon',
+        post_office: 'Sonargaon',
+        upazila: 'Sonargaon',
+        district: 'Narayanganj',
+      }),
+    );
+    result.addresses += 1;
+  }
+
+  const experienceSeeds = [
+    {
+      institution: 'City Model School',
+      designation: 'Junior Accountant',
+      from_date: '2015-01-01',
+      to_date: '2019-12-31',
+      description: 'Handled fee collection and payroll.',
+    },
+  ];
+  for (const seed of experienceSeeds) {
+    const existing = await repos.staffExperienceRepository.findOne({
+      where: {
+        tenant_id: schoolId,
+        staff_user_id: staffUser.id,
+        institution: seed.institution,
+        from_date: seed.from_date as unknown as Date,
+      },
+    });
+    if (existing) continue;
+    await repos.staffExperienceRepository.save(
+      repos.staffExperienceRepository.create({
+        tenant_id: schoolId,
+        staff_user_id: staffUser.id,
+        ...seed,
+      }),
+    );
+    result.experience += 1;
+  }
+
+  const educationSeeds = [
+    {
+      degree: 'B.Com (Honors)',
+      institution: 'National University',
+      board_university: 'National University',
+      result: 'First Class',
+      passing_year: '2014',
+    },
+  ];
+  for (const seed of educationSeeds) {
+    const existing = await repos.staffEducationRepository.findOne({
+      where: {
+        tenant_id: schoolId,
+        staff_user_id: staffUser.id,
+        degree: seed.degree,
+        institution: seed.institution,
+      },
+    });
+    if (existing) continue;
+    await repos.staffEducationRepository.save(
+      repos.staffEducationRepository.create({
+        tenant_id: schoolId,
+        staff_user_id: staffUser.id,
+        ...seed,
+      }),
+    );
+    result.education += 1;
+  }
+
+  const trainingSeeds = [
+    {
+      title: 'Financial Accounting Software',
+      institution: 'BITAC',
+      from_date: '2019-06-01',
+      to_date: '2019-06-10',
+      certificate_no: 'CERT-4471',
+    },
+  ];
+  for (const seed of trainingSeeds) {
+    const existing = await repos.staffTrainingRepository.findOne({
+      where: {
+        tenant_id: schoolId,
+        staff_user_id: staffUser.id,
+        title: seed.title,
+        institution: seed.institution,
+      },
+    });
+    if (existing) continue;
+    await repos.staffTrainingRepository.save(
+      repos.staffTrainingRepository.create({
+        tenant_id: schoolId,
+        staff_user_id: staffUser.id,
+        ...seed,
+      }),
+    );
+    result.training += 1;
+  }
+
+  const achievementSeeds = [
+    {
+      title: 'Employee of the Year',
+      description: 'Recognised for accuracy in fee reconciliation.',
+      date: '2022-12-20',
+      issued_by: 'School Management Committee',
+    },
+  ];
+  for (const seed of achievementSeeds) {
+    const existing = await repos.staffAchievementRepository.findOne({
+      where: { tenant_id: schoolId, staff_user_id: staffUser.id, title: seed.title },
+    });
+    if (existing) continue;
+    await repos.staffAchievementRepository.save(
+      repos.staffAchievementRepository.create({
+        tenant_id: schoolId,
+        staff_user_id: staffUser.id,
+        ...seed,
+      }),
+    );
+    result.achievements += 1;
+  }
+
+  const languageSeeds = [
+    { language_name: 'Bengali', proficiency: 'Native' },
+    { language_name: 'English', proficiency: 'Fluent' },
+  ];
+  for (const seed of languageSeeds) {
+    const existing = await repos.staffLanguageRepository.findOne({
+      where: {
+        tenant_id: schoolId,
+        staff_user_id: staffUser.id,
+        language_name: seed.language_name,
+      },
+    });
+    if (existing) continue;
+    await repos.staffLanguageRepository.save(
+      repos.staffLanguageRepository.create({
+        tenant_id: schoolId,
+        staff_user_id: staffUser.id,
+        ...seed,
+      }),
+    );
+    result.languages += 1;
+  }
+
+  const total = Object.values(result).reduce((sum, n) => sum + n, 0);
+  if (total > 0) {
+    console.log(
+      `  Staff HR demo seed: +${result.designations} designations, +${result.staffUsers} staff users, ` +
+        `+${result.hrRecords} HR records, +${result.designationHistory} designation history, ` +
+        `+${result.familyMembers} family members, +${result.addresses} addresses, ` +
+        `+${result.experience} experience, +${result.education} education, +${result.training} training, ` +
+        `+${result.achievements} achievements, +${result.languages} languages`,
+    );
+  }
+  return result;
+}
+
+// ===========================================================================
+// [32.1.4] Print-profile demo data (Bangla names + blood groups)
+// ===========================================================================
+
+const DEMO_BANGLA_NAMES = [
+  'মোহাম্মদ রহিম উদ্দিন',
+  'ফাতেমা খাতুন',
+  'আব্দুল করিম',
+  'নাসরিন আক্তার',
+  'মো. সাকিব হাসান',
+  'সুমাইয়া ইসলাম',
+  'তানভীর আহমেদ',
+  'রুবিনা ইয়াসমিন',
+  'মাহমুদুল হাসান',
+  'জান্নাতুল ফেরদৌস',
+  'ইমরান হোসেন',
+  'আয়েশা সিদ্দিকা',
+  'শাহরিয়ার কবির',
+  'নুসরাত জাহান',
+  'আরিফ চৌধুরী',
+  'তাহমিনা বেগম',
+  'রাকিবুল ইসলাম',
+  'সাবরিনা সুলতানা',
+  'ফারুক আলম',
+  'মৌসুমী রহমান',
+];
+const DEMO_BLOOD_GROUPS = ['A+', 'B+', 'O+', 'AB+', 'A-', 'B-', 'O-', 'AB-'];
+
+export interface PrintProfileDemoSeedRepositories {
+  studentRepository: Repository<Student>;
+  /** Optional: the plain `yarn seed` does not create HR records today. */
+  staffHrRecordRepository?: Repository<StaffHrRecord>;
+}
+
+export interface PrintProfileDemoSeedResult {
+  students: number;
+  staff: number;
+}
+
+/** [32.1.4] Idempotent: fills `full_name_bn`/`blood_group` on the tenant's
+ * students and `name_bn`/`blood_group` on its staff HR records by position.
+ * Values already set are never overwritten. `photo_key` is left alone. */
+export async function ensurePrintProfileDemoSeed(
+  repos: PrintProfileDemoSeedRepositories,
+  params: { schoolId: string },
+): Promise<PrintProfileDemoSeedResult> {
+  const { schoolId } = params;
+  const result: PrintProfileDemoSeedResult = { students: 0, staff: 0 };
+
+  const students = await repos.studentRepository.find({
+    where: { tenant_id: schoolId },
+    order: { created_at: 'ASC', id: 'ASC' },
+  });
+  for (const [i, student] of students.entries()) {
+    let changed = false;
+    if (!student.full_name_bn) {
+      student.full_name_bn = DEMO_BANGLA_NAMES[i % DEMO_BANGLA_NAMES.length];
+      changed = true;
+    }
+    if (!student.blood_group) {
+      student.blood_group = DEMO_BLOOD_GROUPS[i % DEMO_BLOOD_GROUPS.length];
+      changed = true;
+    }
+    if (changed) {
+      await repos.studentRepository.save(student);
+      result.students += 1;
+    }
+  }
+
+  const hrRepo = repos.staffHrRecordRepository;
+  const hrRecords = hrRepo
+    ? await hrRepo.find({ where: { tenant_id: schoolId }, order: { created_at: 'ASC', id: 'ASC' } })
+    : [];
+  for (const [i, record] of hrRecords.entries()) {
+    let changed = false;
+    if (!record.name_bn) {
+      // Offset so staff names differ from the first students' names.
+      record.name_bn = DEMO_BANGLA_NAMES[(i + 10) % DEMO_BANGLA_NAMES.length];
+      changed = true;
+    }
+    if (!record.blood_group) {
+      record.blood_group = DEMO_BLOOD_GROUPS[i % DEMO_BLOOD_GROUPS.length];
+      changed = true;
+    }
+    if (changed) {
+      await hrRepo!.save(record);
+      result.staff += 1;
+    }
+  }
+  return result;
+}
+
+/**
+ * What the print demo needs from the running app. The seed helpers here stay free of Nest,
+ * so `seed.ts` hands in the real service calls: templates go through the same code paths
+ * as the API (artwork copied into storage, asset rows, publish, default), not a copy of the SQL.
+ */
+export interface PrintDemoSeedPorts {
+  createTemplate(suggestionKey: string, name: string): Promise<{ id: string }>;
+  publishTemplate(id: string): Promise<unknown>;
+  setDefaultTemplate(id: string): Promise<unknown>;
+  putObject(key: string, body: Buffer, contentType: string): Promise<void>;
+}
+
+export interface PrintDemoSeedRepositories {
+  printerRepository: Repository<PrinterProfile>;
+  printTemplateRepository: Repository<PrintTemplate>;
+  studentRepository: Repository<Student>;
+}
+
+export interface PrintDemoSeedResult {
+  printers: number;
+  templates: number;
+  photos: number;
+}
+
+const DEMO_PHOTO_TINTS = ['#cfe3f5', '#f5dfcf', '#d9f0d3', '#efd3f0', '#f5f0c8', '#d3eef0'];
+const DEMO_PHOTO_COUNT = 10;
+
+/** A neutral head-and-shoulders silhouette, 600x800, on a per-student tint. */
+async function demoPhotoJpeg(tint: string): Promise<Buffer> {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="600" height="800">
+    <rect width="600" height="800" fill="${tint}"/>
+    <circle cx="300" cy="300" r="120" fill="#8a94a3"/>
+    <path d="M60 800 C60 560 180 500 300 500 C420 500 540 560 540 800 Z" fill="#8a94a3"/>
+  </svg>`;
+  return sharp(Buffer.from(svg)).jpeg({ quality: 85 }).toBuffer();
+}
+
+/**
+ * [32.3.11] Idempotent: two printers, a published + default student ID template, a published
+ * staff ID template, and silhouette photos for the first ~10 students, so a fresh `yarn seed`
+ * school can print ID cards straight away.
+ */
+export async function ensurePrintDemoSeed(
+  repos: PrintDemoSeedRepositories,
+  ports: PrintDemoSeedPorts,
+  params: { schoolId: string },
+): Promise<PrintDemoSeedResult> {
+  const { schoolId } = params;
+  const result: PrintDemoSeedResult = { printers: 0, templates: 0, photos: 0 };
+
+  // --- printers -------------------------------------------------------------
+  const ensurePrinter = async (name: string, type: 'CARD' | 'OFFICE', margin: string) => {
+    if (await repos.printerRepository.findOne({ where: { tenant_id: schoolId, name } })) return;
+    await repos.printerRepository.save(
+      repos.printerRepository.create({
+        tenant_id: schoolId,
+        name,
+        printer_type: type,
+        margin_top_mm: margin,
+        margin_right_mm: margin,
+        margin_bottom_mm: margin,
+        margin_left_mm: margin,
+      }),
+    );
+    result.printers += 1;
+  };
+  await ensurePrinter('Office printer (A4)', 'OFFICE', '5');
+  await ensurePrinter('Card printer', 'CARD', '0');
+
+  // --- templates ------------------------------------------------------------
+  const ensureTemplate = async (name: string, suggestionKey: string, makeDefault: boolean) => {
+    const existing = await repos.printTemplateRepository.findOne({
+      where: { tenant_id: schoolId, name },
+    });
+    // Published or archived: leave it alone. A draft that a failed publish stranded is resumed
+    // rather than deleted — deleting would orphan its artwork assets and storage objects.
+    if (existing?.current_version_id || existing?.archived_at) return;
+    const id = existing?.id ?? (await ports.createTemplate(suggestionKey, name)).id;
+    await ports.publishTemplate(id);
+    if (makeDefault) await ports.setDefaultTemplate(id);
+    result.templates += 1;
+  };
+  await ensureTemplate('Student ID card', 'student-portrait-classic', true);
+  await ensureTemplate('Staff ID card', 'staff-portrait-modern', true);
+
+  // --- student photos (same key scheme as the upload endpoint) ----------------
+  const students = await repos.studentRepository.find({
+    where: { tenant_id: schoolId },
+    order: { created_at: 'ASC', id: 'ASC' },
+    take: DEMO_PHOTO_COUNT,
+  });
+  for (const [i, student] of students.entries()) {
+    if (student.photo_key) continue;
+    const key = tenantObjectKey(schoolId, 'student-photo', 'jpg');
+    await ports.putObject(
+      key,
+      await demoPhotoJpeg(DEMO_PHOTO_TINTS[i % DEMO_PHOTO_TINTS.length]!),
+      'image/jpeg',
+    );
+    student.photo_key = key;
+    await repos.studentRepository.save(student);
+    result.photos += 1;
+  }
+  return result;
+}
+
+/** What the print-history demo needs: the real job / history service calls (D9, D25). */
+export interface PrintHistoryDemoSeedPorts {
+  createJob(input: {
+    templateId: string;
+    subjectIds: string[];
+    printerProfileId: string;
+    batchLabel: string;
+  }): Promise<{ job_id: string; items: Array<{ item_id: string; subject_id: string }> }>;
+  confirmJob(jobId: string, failedItemIds: string[]): Promise<unknown>;
+  reprintJob(jobId: string, itemIds: string[]): Promise<{ job_id: string }>;
+  revokeItem(itemId: string, reason: string): Promise<unknown>;
+}
+
+export interface PrintHistoryDemoSeedRepositories {
+  printJobRepository: Repository<PrintJob>;
+  printTemplateRepository: Repository<PrintTemplate>;
+  printerRepository: Repository<PrinterProfile>;
+  studentRepository: Repository<Student>;
+}
+
+/** Marks the demo jobs, so a second run can tell they exist. */
+export const PRINT_DEMO_BATCH_LABEL = 'Demo';
+export const PRINT_DEMO_REVOKE_REASON = 'Card lost — replaced';
+
+/**
+ * [32.4.4] Idempotent: three demo jobs on the student template from `ensurePrintDemoSeed`,
+ * made through the real services so the history looks like real use:
+ *
+ *   job 1  5 students, all printed OK; one of them is later REVOKED ("Card lost — replaced")
+ *   job 2  2 students, the first one FAILED
+ *   job 3  the reprint of that failed card (copy 2), confirmed OK
+ *
+ * Skipped when a job labelled "Demo" already exists.
+ */
+export async function ensurePrintHistoryDemoSeed(
+  repos: PrintHistoryDemoSeedRepositories,
+  ports: PrintHistoryDemoSeedPorts,
+  params: { schoolId: string },
+): Promise<{ jobs: number; revoked: number }> {
+  const { schoolId } = params;
+  const none = { jobs: 0, revoked: 0 };
+
+  if (
+    await repos.printJobRepository.findOne({
+      where: { tenant_id: schoolId, batch_label: PRINT_DEMO_BATCH_LABEL },
+    })
+  ) {
+    return none;
+  }
+  const template = await repos.printTemplateRepository.findOne({
+    where: { tenant_id: schoolId, name: 'Student ID card' },
+  });
+  const printer = await repos.printerRepository.findOne({
+    where: { tenant_id: schoolId, name: 'Card printer' },
+  });
+  // Nothing to print with: the print demo itself did not run (e.g. no storage configured).
+  if (!template?.current_version_id || !printer) return none;
+
+  const students = await repos.studentRepository.find({
+    where: { tenant_id: schoolId },
+    order: { created_at: 'ASC', id: 'ASC' },
+    take: 7,
+  });
+  if (students.length < 7) return none;
+  const ids = students.map((s) => s.id);
+  const base = {
+    templateId: template.id,
+    printerProfileId: printer.id,
+    batchLabel: PRINT_DEMO_BATCH_LABEL,
+  };
+
+  // Job 1: all good, then one card is revoked.
+  const good = await ports.createJob({ ...base, subjectIds: ids.slice(0, 5) });
+  await ports.confirmJob(good.job_id, []);
+  await ports.revokeItem(good.items[0]!.item_id, PRINT_DEMO_REVOKE_REASON);
+
+  // Job 2: the first card failed; job 3 reprints just that one (copy 2).
+  const flawed = await ports.createJob({ ...base, subjectIds: ids.slice(5, 7) });
+  const failedItem = flawed.items[0]!;
+  await ports.confirmJob(flawed.job_id, [failedItem.item_id]);
+  const again = await ports.reprintJob(flawed.job_id, [failedItem.item_id]);
+  await ports.confirmJob(again.job_id, []);
+
+  return { jobs: 3, revoked: 1 };
 }

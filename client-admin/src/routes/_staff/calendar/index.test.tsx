@@ -9,12 +9,14 @@ import {
   type MonthGridEvent,
 } from '@biddaloy/ui/components';
 import type { CalendarEvent, PublicHolidayEntry } from '@biddaloy/ui/hooks';
+import { REGION_BD_BN } from '@biddaloy/ui/i18n';
 import { cleanupTestState, renderWithProviders } from '@biddaloy/ui/test';
-import { fireEvent, screen, within } from '@testing-library/react';
+import { formatDate } from '@biddaloy/ui/utils';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { EventDetailsSheet } from './-event-details-sheet';
-import { EventFormDialog } from './-event-form-dialog';
+import { EventFormPage } from './-event-form-dialog';
 import { GovernmentHolidaysDialog } from './-government-holidays-dialog';
 
 import { calendarSearchSchema } from './index';
@@ -205,7 +207,7 @@ describe('MonthGrid', () => {
     expect(screen.getByTestId('term-bands')).toBeTruthy();
     expect(screen.getByText('Term 1')).toBeTruthy();
     expect(screen.getByTestId('day-cell-2026-09-10').getAttribute('aria-label')).toBe(
-      '2026-09-10 (Term 1)',
+      `${formatDate('2026-09-10', REGION_BD_BN)} (Term 1)`,
     );
   });
 });
@@ -324,9 +326,93 @@ describe('EventDetailsSheet', () => {
     expect(await screen.findByRole('button', { name: 'Edit' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Delete' })).toBeTruthy();
   });
+
+  it('asks before deleting and only deletes on confirm', async () => {
+    const onDelete = vi.fn();
+    const { user } = renderWithProviders(
+      <EventDetailsSheet
+        open
+        onOpenChange={() => {}}
+        event={baseEvent()}
+        canManage
+        onEdit={() => {}}
+        onDelete={onDelete}
+        onPublish={() => {}}
+      />,
+      { locale: 'en' },
+    );
+
+    await user.click(await screen.findByRole('button', { name: 'Delete' }));
+    expect(onDelete).not.toHaveBeenCalled();
+
+    const confirm = await screen.findByRole('alertdialog');
+    expect(within(confirm).getByText('Delete this event?')).toBeTruthy();
+    await user.click(within(confirm).getByRole('button', { name: 'Delete' }));
+
+    expect(onDelete).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the confirm open while the delete runs, then closes it when the delete fails', async () => {
+    const sheet = (props: { deleting: boolean; actionFailed: boolean }) => (
+      <EventDetailsSheet
+        open
+        onOpenChange={() => {}}
+        event={baseEvent()}
+        canManage
+        onEdit={() => {}}
+        onDelete={() => {}}
+        onPublish={() => {}}
+        {...props}
+      />
+    );
+    const { user, rerender } = renderWithProviders(
+      sheet({ deleting: false, actionFailed: false }),
+      {
+        locale: 'en',
+      },
+    );
+
+    await user.click(await screen.findByRole('button', { name: 'Delete' }));
+    await user.click(
+      within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Delete' }),
+    );
+
+    // The request is in flight: the confirm stays, its Cancel is disabled.
+    rerender(sheet({ deleting: true, actionFailed: false }));
+    const confirm = screen.getByRole('alertdialog');
+    expect(within(confirm).getByRole('button', { name: 'Cancel' }).hasAttribute('disabled')).toBe(
+      true,
+    );
+
+    // It failed: the confirm closes and the sheet's alert explains.
+    rerender(sheet({ deleting: false, actionFailed: true }));
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+    expect(screen.getByRole('alert')).toBeTruthy();
+  });
+
+  it('shows a neutral Draft badge for an unpublished event and a translated failure alert', async () => {
+    renderWithProviders(
+      <EventDetailsSheet
+        open
+        onOpenChange={() => {}}
+        event={baseEvent({ published: false })}
+        canManage
+        actionFailed
+        onEdit={() => {}}
+        onDelete={() => {}}
+        onPublish={() => {}}
+      />,
+      { locale: 'en' },
+    );
+
+    expect(await screen.findByText('Draft')).toBeTruthy();
+    expect((await screen.findByRole('alert')).textContent).toBe(
+      "Couldn't complete that. Try again.",
+    );
+  });
 });
 
-describe('EventFormDialog', () => {
+describe('EventFormPage', () => {
   afterEach(async () => {
     await cleanupTestState();
   });
@@ -335,7 +421,7 @@ describe('EventFormDialog', () => {
     ['CALENDAR_EVENT_LOCKED', 'This event is in the past and can no longer be changed.'],
     ['CALENDAR_OUTSIDE_ACADEMIC_YEAR', 'These dates fall outside the current academic year.'],
     ['CALENDAR_DAY_HAS_ATTENDANCE', 'Attendance has already been recorded for one of these days.'],
-    ['CALENDAR_INVALID_CLASS', 'One of the selected classes is invalid.'],
+    ['CALENDAR_INVALID_CLASS', 'One of the selected classes is not valid.'],
   ])('maps the %s 422 code to its message', async (code, expectedMessage) => {
     const body: ApiErrorBody = {
       statusCode: 422,
@@ -348,9 +434,8 @@ describe('EventFormDialog', () => {
     const error = new ApiError(body);
 
     renderWithProviders(
-      <EventFormDialog
-        open
-        onOpenChange={() => {}}
+      <EventFormPage
+        onClose={() => {}}
         mode="create"
         isPending={false}
         error={error}
@@ -375,9 +460,8 @@ describe('EventFormDialog', () => {
     const error = new ApiError(body);
 
     renderWithProviders(
-      <EventFormDialog
-        open
-        onOpenChange={() => {}}
+      <EventFormPage
+        onClose={() => {}}
         mode="create"
         isPending={false}
         error={error}
@@ -393,9 +477,8 @@ describe('EventFormDialog', () => {
   it('shows a validation error and does not submit when the name is blank', async () => {
     const onSubmit = vi.fn();
     renderWithProviders(
-      <EventFormDialog
-        open
-        onOpenChange={() => {}}
+      <EventFormPage
+        onClose={() => {}}
         mode="create"
         isPending={false}
         error={null}
@@ -414,9 +497,8 @@ describe('EventFormDialog', () => {
   it('shows the invalid-range message when a name is set but dates are missing', async () => {
     const onSubmit = vi.fn();
     renderWithProviders(
-      <EventFormDialog
-        open
-        onOpenChange={() => {}}
+      <EventFormPage
+        onClose={() => {}}
         mode="create"
         isPending={false}
         error={null}
@@ -452,9 +534,8 @@ describe('EventFormDialog', () => {
       published: true,
     };
     renderWithProviders(
-      <EventFormDialog
-        open
-        onOpenChange={() => {}}
+      <EventFormPage
+        onClose={() => {}}
         mode="edit"
         initialValues={initialValues}
         isPending={false}
@@ -476,11 +557,60 @@ describe('EventFormDialog', () => {
     );
   });
 
+  it('offers "publish immediately" only when creating', async () => {
+    const view = renderWithProviders(
+      <EventFormPage
+        mode="create"
+        isPending={false}
+        error={null}
+        onClose={() => {}}
+        onSubmit={() => {}}
+      />,
+      { locale: 'en' },
+    );
+    expect(await screen.findByRole('checkbox', { name: 'Publish immediately' })).toBeTruthy();
+    view.unmount();
+
+    renderWithProviders(
+      <EventFormPage
+        mode="edit"
+        initialValues={baseEvent()}
+        isPending={false}
+        error={null}
+        onClose={() => {}}
+        onSubmit={() => {}}
+      />,
+      { locale: 'en' },
+    );
+    await screen.findByText('Edit event');
+    expect(screen.queryByRole('checkbox', { name: 'Publish immediately' })).toBeNull();
+  });
+
+  it('asks before discarding when Cancel is pressed with unsaved edits', async () => {
+    const onClose = vi.fn();
+    const { user } = renderWithProviders(
+      <EventFormPage
+        mode="create"
+        isPending={false}
+        error={null}
+        onClose={onClose}
+        onSubmit={() => {}}
+      />,
+      { locale: 'en' },
+    );
+
+    await user.type(await screen.findByLabelText('Name'), 'Draft');
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(onClose).not.toHaveBeenCalled();
+    await user.click(await screen.findByRole('button', { name: /Discard/ }));
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
   it('keeps "notify by SMS" disabled until "notify" is checked', async () => {
     renderWithProviders(
-      <EventFormDialog
-        open
-        onOpenChange={() => {}}
+      <EventFormPage
+        onClose={() => {}}
         mode="create"
         isPending={false}
         error={null}
@@ -545,8 +675,31 @@ describe('GovernmentHolidaysDialog', () => {
 
     const notAddedCheckbox = screen.getByRole('checkbox', { name: /Independence Day/ });
     await user.click(notAddedCheckbox);
-    await user.click(screen.getByRole('button', { name: 'Add selected' }));
+    expect(screen.getByText('Already added')).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: /^Add [1১] holiday$/ }));
 
     expect(onAdd).toHaveBeenCalledWith(['h-2']);
+  });
+
+  it('asks before discarding ticked rows when Cancel is pressed', async () => {
+    const onOpenChange = vi.fn();
+    const { user } = renderWithProviders(
+      <GovernmentHolidaysDialog
+        open
+        onOpenChange={onOpenChange}
+        suggestions={[suggestion({ id: 'h-2', name: 'Independence Day', date: '2026-03-26' })]}
+        existingEvents={[]}
+        isPending={false}
+        onAdd={() => {}}
+      />,
+      { locale: 'en' },
+    );
+
+    await user.click(screen.getByRole('checkbox', { name: /Independence Day/ }));
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(onOpenChange).not.toHaveBeenCalled();
+
+    await user.click(await screen.findByRole('button', { name: /Discard/ }));
+    expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 });

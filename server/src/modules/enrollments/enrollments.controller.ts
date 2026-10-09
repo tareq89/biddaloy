@@ -26,7 +26,6 @@ export class EnrollmentController {
   @Post()
   // [10.4] G3 grants AC STUDENT_UPDATE (front-office intake); G1 tightens E
   // off (no STUDENT_UPDATE, no write surface).
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
   @RequirePermissions(Permission.STUDENT_UPDATE)
   create(
     @Body() dto: CreateEnrollmentDto,
@@ -38,7 +37,14 @@ export class EnrollmentController {
   }
 
   @Get('student/:studentId')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
+  @Roles(
+    UserRole.ADMIN,
+    UserRole.ACCOUNTANT,
+    UserRole.EXECUTIVE,
+    UserRole.TEACHER,
+    UserRole.OFFICE_STAFF,
+    UserRole.EXAM_CONTROLLER,
+  )
   @RequirePermissions(Permission.STUDENT_READ)
   findByStudent(
     @Param('studentId') studentId: string,
@@ -59,7 +65,14 @@ export class EnrollmentController {
   // `Enrollment | null`. Replying explicitly keeps the wire response
   // matching that documented type.
   @Get(':studentId/current')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
+  @Roles(
+    UserRole.ADMIN,
+    UserRole.ACCOUNTANT,
+    UserRole.EXECUTIVE,
+    UserRole.TEACHER,
+    UserRole.OFFICE_STAFF,
+    UserRole.EXAM_CONTROLLER,
+  )
   @RequirePermissions(Permission.STUDENT_READ)
   @ApiOkResponse({
     description:
@@ -77,7 +90,6 @@ export class EnrollmentController {
 
   @Patch(':id')
   // [10.4] G3, G1 — same reasoning as create() above.
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
   @RequirePermissions(Permission.STUDENT_UPDATE)
   update(
     @Param('id') id: string,

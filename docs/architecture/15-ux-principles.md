@@ -3,20 +3,22 @@
 Decided 2026-09-17 while planning the academics epics (19.0–29.0) from the
 reference-ERP analysis. This doc is the **interaction** contract; the
 **visual** contract (type, colour, elevation, motion, focus vocabulary,
-table→card grammar) stays in [09-design-direction.md](09-design-direction.md).
-Read both before planning any screen.
+table→card grammar) stays in [09-design-direction.md](09-design-direction.md);
+the **pattern** contract (which component, page shape, container, format and
+wording a screen uses) is [21-ui-patterns.md](21-ui-patterns.md).
+Read all three before planning any screen.
 
 ## 1. The rules in one screen
 
-| #   | Rule                                            | What it means in practice                                                                                                                                                                                          |
-| --- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| U1  | **Every feature has one natural place.**        | Each screen is placed in the nav tree below (§3). Sub-features nest under their parent; nothing new is a top-level item unless a user job needs it. Every epic states _where each screen lives_ against this tree. |
-| U2  | **No silent gaps.**                             | Every registry that enumerates screens, entities or actions has a guard that **fails CI** when a new thing isn't registered (§2). A new screen may be wrong; it can never be _unchecked_.                          |
-| U3  | **Keyboard and accessibility are first-class.** | Every screen is fully keyboard-operable; the axe gate stays blocking; a keyboard-journey e2e ships with every new screen; a manual screen-reader pass closes every epic (§6).                                      |
-| U4  | **One palette, `Ctrl/Cmd+K`.**                  | Three tabs — _People · Page · Action_ — switchable by keyboard. Actions come from a registry, not from ad-hoc buttons (§4).                                                                                        |
-| U5  | **Breadcrumbs mirror the URL.**                 | Derived from the route tree, entity names when loaded, clickable, identical on every screen (§5).                                                                                                                  |
-| U6  | **Nothing new is unrecoverable.**               | Any epic that adds an entity ships its workbook tab (export + restore + round-trip test) and seed coverage in its wave-close ticket (§7).                                                                          |
-| U7  | **Reuse the shell, reuse the form.**            | New screens use `ui/src/shells/*` (list / detail / form / wizard). A palette action that opens a modal renders the _same_ form component as the page — never a second copy.                                        |
+| #   | Rule                                            | What it means in practice                                                                                                                                                                                                 |
+| --- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| U1  | **Every feature has one natural place.**        | Each screen is placed in the nav tree below (§3). Sub-features nest under their parent; nothing new is a top-level item unless a user job needs it. Every epic states _where each screen lives_ against this tree.        |
+| U2  | **No silent gaps.**                             | Every registry that enumerates screens, entities or actions has a guard that **fails CI** when a new thing isn't registered (§2). A new screen may be wrong; it can never be _unchecked_.                                 |
+| U3  | **Keyboard and accessibility are first-class.** | Every screen is fully keyboard-operable; the axe gate stays blocking; every nav group has one keyboard-journey spec and a new screen adds a test to its group's spec; a manual screen-reader pass closes every epic (§6). |
+| U4  | **One palette, `Ctrl/Cmd+K`.**                  | Three tabs — _People · Page · Action_ — switchable by keyboard. Actions come from a registry, not from ad-hoc buttons (§4).                                                                                               |
+| U5  | **Breadcrumbs mirror the URL.**                 | Derived from the route tree, entity names when loaded (a skeleton bar, never an id, while loading), clickable, shown only from 2 levels, identical on every screen (§5).                                                  |
+| U6  | **Nothing new is unrecoverable.**               | Any epic that adds an entity ships its workbook tab (export + restore + round-trip test) and seed coverage in its wave-close ticket (§7).                                                                                 |
+| U7  | **Reuse the shell, reuse the form.**            | New screens use `ui/src/shells/*` (list / detail / form / wizard). A palette action that opens a modal renders the _same_ form component as the page — never a second copy.                                               |
 
 ## 2. No silent gaps — the registries and their guards
 
@@ -34,18 +36,34 @@ flowchart LR
   T[Nav tree<br/>this doc §3] -->|every route has a home| N[navGroups / navItems]
   P[Palette action registry] -->|every action declares permission, kind, prefill| K[Ctrl+K › Action]
   I[i18n keys en/bn] -->|no missing key on any route| L[locale completeness]
+  U[UI source files] -->|no native picker, raw date, page max-width, bare actions column| X[ESLint ux-guards<br/>ui/eslint-rules/ux-guards.mjs]
+  D[Dialog files under client-admin/src/routes] -->|registered, allow-listed or deferred| P2[action-registry.test.ts]
 ```
 
-| Registry                                                                                    | Enumerates                                           | Guard today                                                                                                                                                                                                                                     | Guard required                                                                                                                                                                                                           | Owner     |
-| ------------------------------------------------------------------------------------------- | ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- |
-| `e2e/route-manifest.json`                                                                   | Routes + overlays for the a11y and responsive suites | `client-admin/src/route-manifest.test.ts` — bidirectional diff between the manifest and the router's own route tree                                                                                                                             | fails on any route missing from the manifest, or any manifest entry with no matching route                                                                                                                               | Epic 30.0 |
-| `client-admin/src/route-permissions.ts` (`STAFF_ROUTE_PERMISSIONS`)                         | Which permission gates each staff route              | `client-admin/src/route-permissions.test.ts` — bidirectional diff between the map's keys and the router's route tree                                                                                                                            | fails closed: a route with no entry is refused to everyone, and the test still flags it so it's caught before merge                                                                                                      | Epic 30.0 |
-| Workbook tab registry (`server/src/modules/workbook/codec/registry.ts`)                     | Which entities export/restore                        | `registry.completeness.spec.ts` checks every entity in `ALL_ENTITIES` has a tab or sits in `entity-coverage.ts`'s explicit allowlist, with a reason                                                                                             | entity-level check: same as today                                                                                                                                                                                        | Epic 30.0 |
-| Nav tree (§3) → `navGroups`/`navItems`                                                      | Where every screen lives                             | `client-admin/src/nav-tree.test.ts` + `nav-not-in-nav.ts` — every route is either in the nav tree or on the explicit `NOT_IN_NAV` allowlist (auth pages, framework plumbing)                                                                    | fails if a route is reachable but appears in neither list                                                                                                                                                                | Epic 30.0 |
-| Palette action registry (`client-admin/src/action-registry.ts` + `unregistered-actions.ts`) | Every user-invocable palette action                  | **in review** — the Epic 30.4.2 PR adds `ACTIONS` (registered actions, each with a `run()` and a matching `STAFF_ROUTE_PERMISSIONS` entry) and `UNREGISTERED_ACTIONS` (dialogs not yet wired in, each tagged with the epic that owns wiring it) | once merged: a route-and-permission check on every `ACTIONS` entry, plus a stale-epic check on every `UNREGISTERED_ACTIONS` entry (see the registry table in [06-frontend-architecture.md](06-frontend-architecture.md)) | Epic 30.4 |
-| i18n locale files (`en`/`bn`)                                                               | Every user-visible string                            | `ui/scripts/check-i18n-keys.mjs`, blocking in CI ("UI missing-translation-key check", `.github/workflows/ci.yml:220`)                                                                                                                           | fails on a key present in one locale but not the other, or a `t()` call with no matching key in either locale                                                                                                            | Epic 8.7  |
-| Route breadcrumbs (`client-admin/src/route-crumbs.ts`)                                      | Breadcrumb label per route                           | **planned, not yet merged** — PR [#873](https://github.com/tareq89/biddaloy/pull/873) adds `route-crumbs.test.ts`, same bidirectional-diff shape as the two guards above                                                                        | once merged: fails if a route has no crumb entry, or an entry points at a route that no longer exists                                                                                                                    | Epic 30.0 |
-| Seed data                                                                                   | Demo/dev rows for every entity                       | wave-close convention                                                                                                                                                                                                                           | wave-close ticket checklist item; entity without seed fails the seed smoke test                                                                                                                                          | each epic |
+| Registry                                                                                    | Enumerates                                                                                 | Guard today                                                                                                                                                                                                                                                                                                                                                                       | Guard required                                                                                                      | Owner             |
+| ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- | ----------------- |
+| `e2e/route-manifest.json`                                                                   | Routes + overlays for the a11y and responsive suites                                       | `client-admin/src/route-manifest.test.ts` — bidirectional diff between the manifest and the router's own route tree                                                                                                                                                                                                                                                               | fails on any route missing from the manifest, or any manifest entry with no matching route                          | Epic 30.0         |
+| `client-admin/src/route-permissions.ts` (`STAFF_ROUTE_PERMISSIONS`)                         | Which permission gates each staff route                                                    | `client-admin/src/route-permissions.test.ts` — bidirectional diff between the map's keys and the router's route tree                                                                                                                                                                                                                                                              | fails closed: a route with no entry is refused to everyone, and the test still flags it so it's caught before merge | Epic 30.0         |
+| Workbook tab registry (`server/src/modules/workbook/codec/registry.ts`)                     | Which entities export/restore                                                              | `registry.completeness.spec.ts` checks every entity in `ALL_ENTITIES` has a tab or sits in `entity-coverage.ts`'s explicit allowlist, with a reason                                                                                                                                                                                                                               | entity-level check: same as today                                                                                   | Epic 30.0         |
+| Nav tree (§3) → `navGroups`/`navItems`                                                      | Where every screen lives                                                                   | `client-admin/src/nav-tree.test.ts` + `nav-not-in-nav.ts` — every route is either in the nav tree or on the explicit `NOT_IN_NAV` allowlist (auth pages, framework plumbing)                                                                                                                                                                                                      | fails if a route is reachable but appears in neither list                                                           | Epic 30.0         |
+| Palette action registry (`client-admin/src/action-registry.ts` + `unregistered-actions.ts`) | Every user-invocable palette action, and every dialog file under `client-admin/src/routes` | `action-registry.test.ts`: every `ACTIONS` entry has a `run()`, a permission matching `STAFF_ROUTE_PERMISSIONS` (or a listed stricter exception) and a unique id; **every dialog file is in exactly one of three lists** (below); the page a `?flag=1` action lands on declares that flag. `unregistered-actions.test.ts` checks each deferred file exists and names an open epic | the three lists below                                                                                               | Epic 30.4, 31.5.1 |
+| i18n locale files (`en`/`bn`)                                                               | Every user-visible string                                                                  | `ui/scripts/check-i18n-keys.mjs`, blocking in CI ("UI missing-translation-key check", `.github/workflows/ci.yml:220`)                                                                                                                                                                                                                                                             | fails on a key present in one locale but not the other, or a `t()` call with no matching key in either locale       | Epic 8.7          |
+| Route breadcrumbs (`client-admin/src/route-crumbs.ts`)                                      | Breadcrumb label per route                                                                 | `client-admin/src/route-crumbs.test.ts` — same bidirectional-diff shape as the two guards above                                                                                                                                                                                                                                                                                   | fails if a route has no crumb entry, or an entry points at a route that no longer exists                            | Epic 30.0         |
+| UX lint guards (D37)                                                                        | Four mechanical UX rules on UI source                                                      | `ui/eslint-rules/ux-guards.mjs` — `no-native-picker`, `no-raw-date-display`, `no-page-max-width`, `row-actions-column`; the allow-list is each config block's `ignores` (`ui/eslint.config.mjs`, `client-admin/eslint.config.mjs`), one comment per entry; runs in CI lint (`yarn lint`), in pre-commit (`lint-staged`) and in pre-push (`yarn run check --affected`)             | a new violation fails lint; an entry leaves the allow-list only when its file is fixed                              | Epic 31.5.3       |
+| UI pattern contract                                                                         | Which component, page shape, format and wording a screen uses                              | [21-ui-patterns.md](21-ui-patterns.md) (the contract) and its "Known gaps" section                                                                                                                                                                                                                                                                                                | reviewed per ticket; the lint guards above enforce part of it                                                       | Epic 31.0         |
+| Seed data                                                                                   | Demo/dev rows for every entity                                                             | wave-close convention                                                                                                                                                                                                                                                                                                                                                             | wave-close ticket checklist item; entity without seed fails the seed smoke test                                     | each epic         |
+
+**The three palette lists** (every dialog file under `client-admin/src/routes` that holds `<Dialog`, `DialogContent`, `<Sheet`, `SheetContent` or `<FullPageShell` must be in exactly one):
+
+```mermaid
+flowchart LR
+  F["A dialog file in routes/"] --> Q{"Is it in the palette?"}
+  Q -->|"yes"| A["ACTIONS<br/>(registered: run() + permission;<br/>its file is in REGISTERED_ACTION_FILES)"]
+  Q -->|"no, on purpose"| W["PALETTE_ALLOW_LIST<br/>(one reason each)"]
+  Q -->|"no, not yet"| U["UNREGISTERED_ACTIONS<br/>(owed by an open epic; empty today)"]
+```
+
+If a file is in none of them, `action-registry.test.ts` fails with: `Dialog file(s) with no palette decision: client-admin/src/routes/_staff/x/-new-dialog.tsx. Fix: (1) register an action in ACTIONS and add its id to REGISTERED_ACTION_FILES, (2) add it to PALETTE_ALLOW_LIST with a reason, or (3) add it to UNREGISTERED_ACTIONS with an owning epic.`
 
 Concrete example of the rule applied: Epic 21.0 adds `/routines/class`.
 The wave-close ticket must (a) add it to the route manifest, (b) add it to
@@ -76,16 +94,22 @@ People
   Students [have]                                                   A Ac E T
     New student · Import from Excel                                 A E
     Student detail — tabs today: Overview, Enrollment, Guardians, Attendance, Fees, Invoices, Payments, Communication, Activity
-      + Results [19.0] · Homework [22.0] · Programs & milestones [N2] · Notes [N11] · Records [N11]
-      + Subjects (optional/4th) [19.0] · Fines [N8] · Documents [Print module]
+      + Results [19.0] · Homework [22.0] · Programs & milestones [34.0] · Notes [N11] · Records [N11]
+      + Performance [28.0, have — MARK_VIEW]
+      + Subjects (optional/4th) [19.0] · Fines [N8] · Documents [have, 32.0]
   Guardians [have] → detail: Information, Linked students, Payments, Communication
   Staff [partial] — ONE register (teachers, employees, administration, principal/VP as designations)
+    Import from Excel [13.0, /staff/import]                         A
+    "Former" filter [13.0] — people who left or were removed        A
     Staff detail — tabs today: Profile, Memberships, Permissions, Login history, Invitation
-      + HR record [23.0] · Teaching assignments [29.0+23.0] · Attendance & leave [N5] · ACR [28.0]
-      + Documents [Print module] · Website profile [N13]
+      + HR record [23.0] · Teaching assignments [29.0+23.0] · Attendance & leave [N5]
+      + ACR · Incidents · Performance [28.0, have — ACR_READ, admin only]
+      + Documents [have, 32.0] · Website profile [N13]
     Teaching assignments (bulk view) [29.0+23.0]                    A E
+    Evaluations [28.0, have] — tabs ACR · Surveys · Incidents         A
+      Survey detail (results sealed until closed)
   Admissions [27.0] · Admission reports [27.0+N11]                  A E
-  Programs & milestones [N2]                                        A E T
+  Programs & milestones [34.0]                                      A E T
 
 Academics
   Academic years & terms [have, 17.0 adds terms]                    A E
@@ -94,6 +118,7 @@ Academics
   Subjects [partial → own page; flags: order, unit, effect, merge-with, grade-subject]
   Timetable & routines [21.0]  ("Routines")                         A Ac E T
     Class routine · Auto-generate · Routine setup · Substitutions · Exam routine · My routine (T)
+  My class [47.0]  T  — the section(s) where the teacher is class teacher or assistant (`MY_CLASS_VIEW`)
   Homework [22.0] · Defaulters · Homework report                    A E T
   Syllabus [22.0]                                                   A E T
   Online learning [N6] · Online classes · Online exams              A E T
@@ -102,40 +127,43 @@ Attendance
   Students [have] · Monthly grid [partial] · Upload device file [partial] · Period/subject-wise [N15]
   Staff [N5] · Leave · Report for payroll                           A E (Ac)
   Reports [have] · Yearly summary [partial] · Defaulters [have] · Submission check-list [N15]
-  Printable register [have] · Sheet layout [Print module]
-  Fines [N8] — generate, waive, lists, fine SMS (money side reuses Finance › Payments)
+  Printable register [have] · Sheet layout [Print module — follow-up epic]
 
 Exams & Results
   Exams [19.0]                                                      A E T
   Exam setup [19.0] · Types & heads · Marks distribution · Report-card templates
   Marks entry [19.0+29.0] · Marks view [19.0] · Grading scales [20.0]
   Results [19.0] · Result by student ID
-  Analysis [26.0] · Merit list · Defaulted list · Pass/fail · Segregation & promotion
-  Seat plans [25.0] · Exam printables [Print module]
+  Analysis [have] · Merit list · Defaulted list · Pass/fail (+ by component)
+  Promotion [have] · Draft run · Grid override · Commit                   A E
+  Segregation [26.0, not yet shipped]
+  Seat plans [25.0] · Exam printables [Print module — follow-up epic]
 
 Finance
   Fees · Student dues · Fee structures · Generate fees · Payments (+ Student statement [8.15]) · Record payment · Invoices   [all have]
+  Fines · Fine rules [38.0]
   Online payments [3.0] · Unmatched receipts [16.0]                 A Ac
 
 Communications
   Send message [have] (+ to staff, role-wise [partial])             A E T
   Fee reminders [have] · Reminder history [have]                    A Ac E
   Notices [have]                                                    A E T
-  Automatic notices [partial: absent ✓ · fine N8 · result/marks 19.0 · homework 22.0 · receipt 3.0]
+  Automatic notices [partial: absent ✓ · fine ✓ (38.0) · result/marks 19.0 · homework 22.0 · receipt 3.0]
 
 Reports [8.15] — a hub that LINKS to screens that live with their data; no copies
   Communications · Collections [have] · Student dues [have] · Attendance [have]
-  Student lists [8.15] · Student count [8.15] · Printables & documents [Print module] · Exports [8.15]
+  Student lists [8.15] · Student count [8.15] · Printables & documents [have, 32.0] · Exports [8.15]
 
 Administration
+  Print templates [have, 32.0] — library, then the full-screen editor
   Settings [have] → sub-pages:
-    Attendance policy & times [partial → N15] · Fine rules [N8] · Communication providers [have]
-    School profile & logo [have] · Region & locale [17.0] · Presets & feature toggles [N3]
+    Attendance policy & times [partial → N15] · Communication providers [have]
+    Printers [have, 32.0] (calibration, margins) · School profile & logo [have] · Region & locale [17.0] · Presets & feature toggles [N3]
     Organisation structure [have, 33.0 — Settings section, no new route; a
     shift/version/group field only shows once the tenant has 2+ entries in
     it] · Result templates library [19.0] · Backup & restore [have] · Website sync [N13]
-  Users [have, kept here for now — revisit in Epic 24.0]
-  Roles & access [24.0] · Audit logs [have] · Security [have]
+  (Users merged into People › Staff — Epic 24.0; "Add user" is a dialog there)
+  Roles & access [have, 24.0 — read-only] · Audit logs [have] · Security [have]
 
 User menu → My account (profile, password, switch school/role, language, theme, sign out)
 ```
@@ -144,11 +172,11 @@ User menu → My account (profile, password, switch school/role, language, theme
 
 ```text
 Overview [have]
-Fees & invoices [have] · Pay online [3.0] · Statement [8.15]
-Attendance [have] · Absent fines [N8]
+Fees & invoices [have] · Pay online [3.0] · Statement [8.15] · Fines [38.0]
+Attendance [have]
 Results [19.0] · Homework [22.0] · Syllabus [22.0] · Routine [21.0]
 Calendar & notices [17.0; notices have]
-Online exam & class [N6] · Programs [N2] · Documents [Print module]
+Online exam & class [N6] · Programs [34.0] · Documents [Print module — follow-up epic]
 Account [have]
 ```
 
@@ -156,23 +184,32 @@ Account [have]
 
 ```text
 Schools [have] · Public holiday sets [17.0] · Preset library [N3]
+  Schools list: Trial column, ?trial filter · School detail: Trial card + "Extend trial" [13.0]
 ```
+
+Not in the nav on purpose (reached by a redirect, a link or a button):
+`/welcome` (the setup wizard, opens once for an admin of an unfinished school),
+`/register` and `/auth/social/done`. (`/staff/import` is in the nav, under
+People, as shown above.)
+The setup checklist is a card on the Dashboard, and the trial bar sits under
+the top bar for admins only. See [22-onboarding.md](22-onboarding.md).
 
 ### 3.4 Placement decisions (final)
 
-| #   | Decision                                                                                                                                                                     |
-| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| P1  | Academic years & terms live under **Academics**, next to Calendar.                                                                                                           |
-| P2  | Staff is **one register** with a staff-type filter and designations — not five registers.                                                                                    |
-| P3  | Subjects get their **own page** under Academics; the class detail keeps a per-class offering tab.                                                                            |
-| P4  | Exam setup (types/heads/sub-heads, marks distribution, report-card templates) lives under **Exams & Results**, not Settings.                                                 |
-| P5  | Reports is a **hub of links**; a report lives once, where its data lives.                                                                                                    |
-| P6  | Notices live under **Communications**.                                                                                                                                       |
-| P7  | Fines: generation/waive/lists under **Attendance**; money reuses **Finance › Payments**.                                                                                     |
-| P8  | Online learning is **one item** so a tenant toggle (N3) can hide it whole.                                                                                                   |
-| P9  | Teaching assignments bulk view lives under **People › Staff**; also a tab on staff detail and class detail.                                                                  |
-| P10 | **Users stays under Administration for now**; whether it merges into Staff is decided in Epic 24.0.                                                                          |
-| P11 | Coaching centres reuse Class/Section, relabelled Course/Batch via tenant label overrides — not Programs. Programs are supplementary tracks (hifz, trades, labs, attachment). |
+| #   | Decision                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| P1  | Academic years & terms live under **Academics**, next to Calendar.                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| P2  | Staff is **one register** with a staff-type filter and designations — not five registers.                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| P3  | Subjects get their **own page** under Academics; the class detail keeps a per-class offering tab.                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| P4  | Exam setup (types/heads/sub-heads, marks distribution, report-card templates) lives under **Exams & Results**, not Settings.                                                                                                                                                                                                                                                                                                                                                                                            |
+| P5  | Reports is a **hub of links**; a report lives once, where its data lives.                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| P6  | Notices live under **Communications**.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| P7  | Fines live under **Finance › Fines** (list + Rules tab); money reuses Finance › Payments. Replaced the Attendance placement in Epic 38 because fines are generic, not attendance-only.                                                                                                                                                                                                                                                                                                                                  |
+| P8  | Online learning is **one item** so a tenant toggle (N3) can hide it whole.                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| P9  | Teaching assignments bulk view lives under **People › Staff**; also a tab on staff detail and class detail.                                                                                                                                                                                                                                                                                                                                                                                                             |
+| P10 | **Resolved (Epic 24.0):** Users merged into **People › Staff**. "Add user" is a dialog (`client-admin/src/routes/_staff/staff/-add-user-dialog.tsx`); there is no `administration.users` item.                                                                                                                                                                                                                                                                                                                          |
+| P11 | Coaching centres reuse Class/Section, relabelled Course/Batch via tenant label overrides — not Programs. Programs are supplementary tracks (hifz, trades, labs, attachment).                                                                                                                                                                                                                                                                                                                                            |
+| P12 | **My class** (Epic 47.0) lives under **Academics**, next to My routine. TEACHER only (`MY_CLASS_VIEW`). Routes `/my-class` and `/my-class/$sectionId`; palette actions `my-class.open` and `my-class.take-attendance` (`/my-class?then=attendance`). One section redirects straight to its page. A teacher with no class-teacher or assistant section sees "You are not a class teacher of any section yet — ask an admin." A section card shows a role badge (class teacher or assistant). Current academic year only. |
 
 ## 4. Command palette — `Ctrl/Cmd+K`
 
@@ -184,12 +221,9 @@ browser meaning** rather than switching tabs — the palette's search input
 is a `role="combobox"` that must keep focus for the whole interaction, and
 binding `Tab` inside it would break the browser's own focus-trap-escape
 that keyboard users rely on (`ui/src/components/command-palette.tsx`'s own
-comment block spells this out — **in review**, PR
-[epic/30/w4-g1-01-command-palette](https://github.com/tareq89/biddaloy/tree/epic/30/w4-g1-01-command-palette),
-not yet merged). The existing
-`ui/src/components/global-search.tsx` + `client-admin/src/components/global-search-launcher.tsx`
-is the base to generalise — it already has the keyboard model, role
-gating and per-entity capped requests.
+comment block spells this out). It is the whole palette:
+`CommandPaletteLauncher` (`client-admin/src/components/command-palette-launcher.tsx`)
+opens it from the top bar, and the old `global-search` files no longer exist.
 
 ```mermaid
 sequenceDiagram
@@ -227,31 +261,46 @@ sequenceDiagram
 Rules: no field-count restriction on modal actions — a modal may hold a
 whole flow (pick person → see applied fees → record). Modal actions render
 the same form component as the page (U7). Every action carries i18n labels
-in both locales. The actual seed list lives in
-`client-admin/src/action-registry.ts` (`ACTIONS` — actions already wired
-into the palette) and `client-admin/src/unregistered-actions.ts`
-(`UNREGISTERED_ACTIONS` — dialogs that exist in the app but aren't in the
-palette yet, each tagged with the epic that owns wiring it in); there is
-no separately-persisted "first 34 actions" list — that count was never
-more than a plan-time estimate.
+in both locales. The actual list lives in
+`client-admin/src/action-registry.ts` (`ACTIONS` — registered actions, each with
+a `run()` and a permission that matches `STAFF_ROUTE_PERMISSIONS` or a listed
+stricter exception) and `client-admin/src/unregistered-actions.ts`
+(`PALETTE_ALLOW_LIST` — dialog files deliberately not in the palette, one reason
+each — and `UNREGISTERED_ACTIONS` — dialogs deferred to an open epic). See the
+three-list diagram in §2.
+
+`run()` can land on a page with a one-shot search flag. Example: `classes.create`
+runs `navigate({ to: '/classes?new=1' })`; the Classes page opens its create
+dialog through the shared `useLandingFlag` hook, and closing the dialog clears
+only `new`, so list filters survive.
 
 ## 5. Breadcrumbs
 
 - Derived from the TanStack route tree, never hand-written per page.
-- Entity segments show the entity name once loaded (`Students › Rahim Uddin › Fees`), the ID as fallback while loading.
+- Entity segments show the entity name once loaded. While it loads, the crumb is a
+  skeleton bar (`h-3 w-24 rounded-sm bg-muted`) — **never an id** (D9). The tab
+  title (`document.title`) uses the parent label meanwhile.
+- The crumb row renders only when the trail has **2 or more crumbs**. A top-level
+  page starts at its `h1`.
 - Every crumb but the last is a link. The trail also feeds `document.title` (`Fees · Rahim Uddin · SchoolManager`).
 - Sits **above** the page title inside the shell header; on phones only the last two crumbs show.
-- Identical placement and behaviour on every screen — staff and portal.
+- Identical placement and behaviour on every screen — staff, portal and platform.
+
+```mermaid
+flowchart LR
+  A["/students"] --> B["1 crumb → no crumb row<br/>h1 'শিক্ষার্থী'"]
+  C["/students/&lt;id&gt;/fees"] --> D["শিক্ষার্থী › রহিম উদ্দিন › ফি<br/>(grey bar instead of the name while it loads)"]
+```
 
 ## 6. Accessibility and keyboard gates
 
-| Gate                                          | Today                                     | Rule                                                                                                 |
-| --------------------------------------------- | ----------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| axe per route × locale × theme, plus overlays | blocking (`e2e/a11y/routes.a11y.spec.ts`) | stays blocking; manifest guard (§2) makes it complete                                                |
-| Keyboard journey per screen                   | some (`e2e/keyboard/*`)                   | one per new screen, in the wave-close ticket: open from nav, do the primary task, leave — mouse-free |
-| Focus vocabulary                              | 09-design-direction §12                   | unchanged                                                                                            |
-| Screen reader                                 | none                                      | manual VoiceOver/NVDA pass at every epic close, findings filed as issues                             |
-| Target size / reflow                          | blocking (`e2e/responsive/*`)             | unchanged                                                                                            |
+| Gate                                          | Today                                                                                                                                                       | Rule                                                                                                                                                                                                                    |
+| --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| axe per route × locale × theme, plus overlays | blocking (`e2e/a11y/routes.a11y.spec.ts`)                                                                                                                   | stays blocking; manifest guard (§2) makes it complete                                                                                                                                                                   |
+| Keyboard journey per nav group                | one spec per nav group (`e2e/keyboard/nav-<group>.spec.ts`: academics, administration, attendance, communications, exams-results, finance, people, reports) | one test per nav route: open it from the sidebar by keyboard, then open and close the page's primary task (or, where a page has none, check it is reachable) — mouse-free. A new screen adds a test to its group's spec |
+| Focus vocabulary                              | 09-design-direction §12                                                                                                                                     | unchanged                                                                                                                                                                                                               |
+| Screen reader                                 | none                                                                                                                                                        | manual VoiceOver/NVDA pass at every epic close, findings filed as issues                                                                                                                                                |
+| Target size / reflow                          | blocking (`e2e/responsive/*`)                                                                                                                               | unchanged                                                                                                                                                                                                               |
 
 ## 7. Backup and restore coverage
 

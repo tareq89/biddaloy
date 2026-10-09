@@ -2,7 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { DataSource, Repository } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import type { TestingModule } from '@nestjs/testing';
-import { TeacherDesignation } from '@biddaloy/shared';
+import { TeacherAssignmentType, TeacherDesignation } from '@biddaloy/shared';
 import { School } from '../../../schools/entities/school.entity';
 import { User } from '../../../users/entities/user.entity';
 import { Teacher } from '../../../academics/entities/teacher.entity';
@@ -166,11 +166,16 @@ describe('teacherAssignmentsTab (integration)', () => {
     chain: Chain,
     overrides: Partial<TeacherAssignmentRow> = {},
   ): TeacherAssignmentRow {
+    const subjectId = 'subject_id' in overrides ? overrides.subject_id! : chain.subject.id;
     return {
       id: '00000000-0000-4000-8000-000000000000',
       teacher_id: chain.teacher.id,
       section_id: chain.section.id,
-      subject_id: chain.subject.id,
+      subject_id: subjectId,
+      // Same D20 inference the tab's `fromRow` applies to a blank role.
+      assignment_type: subjectId
+        ? TeacherAssignmentType.SUBJECT_TEACHER
+        : TeacherAssignmentType.CLASS_TEACHER,
       teacher_key: chain.teacher.employee_id,
       class_key: `${chain.klass.name}|${chain.year.name}`,
       academic_year_key: chain.year.name,
@@ -235,6 +240,222 @@ describe('teacherAssignmentsTab (integration)', () => {
         where: { teacher_id: chain.teacher.id, section_id: chain.section.id },
       });
       expect(all).toHaveLength(1);
+    });
+  });
+
+  describe('upsert roles (47.x)', () => {
+    const HOMEROOM = { subject_id: null, subject_key: '' };
+    const ASSISTANT = TeacherAssignmentType.ASSISTANT_CLASS_TEACHER;
+
+    // A second teacher in the same tenant as `chain`.
+    async function addTeacher(tenantId: string, tag: string): Promise<Teacher> {
+      const user = await userRepo.save(
+        userRepo.create({
+          email: `teacher-${tag}@assignments.test`,
+          phone: null,
+          full_name: `Teacher ${tag}`,
+          password_hash: null,
+        }),
+      );
+      return teacherRepo.save(
+        teacherRepo.create({
+          user_id: user.id,
+          employee_id: `EMP-${tag}`,
+          designations: [TeacherDesignation.SUBJECT_TEACHER],
+          subject_specialization: null,
+          joining_date: null,
+          tenant_id: tenantId,
+        }),
+      );
+    }
+
+    const typesInSection = async (sectionId: string) =>
+      (await assignmentRepo.find({ where: { section_id: sectionId } }))
+        .map((r) => `${r.teacher_id}:${r.assignment_type}`)
+        .sort();
+
+    it('keeps an existing ASSISTANT as ASSISTANT when the row says ASSISTANT', async () => {
+      const chain = await seedChain(TENANT_A, 'ka');
+      const row = rowFor(chain, { ...HOMEROOM, assignment_type: ASSISTANT });
+      const first = await teacherAssignmentsTab.upsert(row, null, TENANT_A, dataSource.manager);
+      // Re-run against the loaded entity (the restore path): must stay ASSISTANT.
+      const [loaded] = await teacherAssignmentsTab.load(TENANT_A, dataSource.manager);
+      await teacherAssignmentsTab.upsert(row, loaded, TENANT_A, dataSource.manager);
+
+      const saved = await assignmentRepo.findOneByOrFail({ id: first.id });
+      expect(saved.assignment_type).toBe(ASSISTANT);
+    });
+
+    it('promotes an ASSISTANT to CLASS in place when the row says CLASS', async () => {
+      const chain = await seedChain(TENANT_A, 'pa');
+      const m = dataSource.manager;
+      const asst = await teacherAssignmentsTab.upsert(
+        rowFor(chain, { ...HOMEROOM, assignment_type: ASSISTANT }),
+        null,
+        TENANT_A,
+        m,
+      );
+      await teacherAssignmentsTab.upsert(rowFor(chain, { ...HOMEROOM }), null, TENANT_A, m);
+
+      const all = await assignmentRepo.find({ where: { section_id: chain.section.id } });
+      expect(all).toHaveLength(1);
+      expect(all[0].id).toBe(asst.id);
+      expect(all[0].assignment_type).toBe(TeacherAssignmentType.CLASS_TEACHER);
+    });
+
+    it('restores CLASS + two ASSISTANTs + SUBJECT on one section without a unique violation', async () => {
+      const chain = await seedChain(TENANT_A, 'mix');
+      const t2 = await addTeacher(TENANT_A, 'mix2');
+      const t3 = await addTeacher(TENANT_A, 'mix3');
+      const m = dataSource.manager;
+      await teacherAssignmentsTab.upsert(rowFor(chain, { ...HOMEROOM }), null, TENANT_A, m);
+      await teacherAssignmentsTab.upsert(
+        rowFor(chain, { ...HOMEROOM, teacher_id: t2.id, assignment_type: ASSISTANT }),
+        null,
+        TENANT_A,
+        m,
+      );
+      await teacherAssignmentsTab.upsert(
+        rowFor(chain, { ...HOMEROOM, teacher_id: t3.id, assignment_type: ASSISTANT }),
+        null,
+        TENANT_A,
+        m,
+      );
+      await teacherAssignmentsTab.upsert(rowFor(chain), null, TENANT_A, m);
+
+      expect(await typesInSection(chain.section.id)).toEqual(
+        [
+          `${chain.teacher.id}:CLASS_TEACHER`,
+          `${chain.teacher.id}:SUBJECT_TEACHER`,
+          `${t2.id}:ASSISTANT_CLASS_TEACHER`,
+          `${t3.id}:ASSISTANT_CLASS_TEACHER`,
+        ].sort(),
+      );
+    });
+
+    it('class-teacher swap A -> B replaces A, no unique violation (#1048)', async () => {
+      const chain = await seedChain(TENANT_A, 'sw');
+      const b = await addTeacher(TENANT_A, 'swb');
+      const m = dataSource.manager;
+      await teacherAssignmentsTab.upsert(rowFor(chain, { ...HOMEROOM }), null, TENANT_A, m);
+
+      await teacherAssignmentsTab.upsert(
+        rowFor(chain, { ...HOMEROOM, teacher_id: b.id }),
+        null,
+        TENANT_A,
+        m,
+      );
+
+      expect(await typesInSection(chain.section.id)).toEqual([`${b.id}:CLASS_TEACHER`]);
+    });
+
+    it('swap where the old class teacher stays as ASSISTANT, B processed first (stale existing row)', async () => {
+      const chain = await seedChain(TENANT_A, 'st');
+      const b = await addTeacher(TENANT_A, 'stb');
+      const m = dataSource.manager;
+      await teacherAssignmentsTab.upsert(rowFor(chain, { ...HOMEROOM }), null, TENANT_A, m);
+      const [staleA] = await teacherAssignmentsTab.load(TENANT_A, m);
+
+      // B -> CLASS deletes A's CLASS row; A's own row then arrives as ASSISTANT with the
+      // already-deleted entity as `existing`, exactly as restore.processor loaded it.
+      await teacherAssignmentsTab.upsert(
+        rowFor(chain, { ...HOMEROOM, teacher_id: b.id }),
+        null,
+        TENANT_A,
+        m,
+      );
+      await teacherAssignmentsTab.upsert(
+        rowFor(chain, { ...HOMEROOM, assignment_type: ASSISTANT }),
+        staleA,
+        TENANT_A,
+        m,
+      );
+
+      expect(await typesInSection(chain.section.id)).toEqual(
+        [`${b.id}:CLASS_TEACHER`, `${chain.teacher.id}:ASSISTANT_CLASS_TEACHER`].sort(),
+      );
+    });
+
+    it('id-matched swap: the teacher cell changed but the id kept, B becomes CLASS and A has none', async () => {
+      const chain = await seedChain(TENANT_A, 'im');
+      const b = await addTeacher(TENANT_A, 'imb');
+      const m = dataSource.manager;
+      await teacherAssignmentsTab.upsert(rowFor(chain, { ...HOMEROOM }), null, TENANT_A, m);
+      // Loaded the way restore loads it: with teacher/section relations attached.
+      const [existing] = await teacherAssignmentsTab.load(TENANT_A, m);
+
+      await teacherAssignmentsTab.upsert(
+        rowFor(chain, { ...HOMEROOM, id: existing.id, teacher_id: b.id }),
+        existing,
+        TENANT_A,
+        m,
+      );
+
+      expect(await typesInSection(chain.section.id)).toEqual([`${b.id}:CLASS_TEACHER`]);
+    });
+
+    it("does not delete another tenant's CLASS row even when it sits on the same section_id", async () => {
+      const chainA = await seedChain(TENANT_A, 'xa');
+      const chainB = await seedChain(TENANT_B, 'xb');
+      const newTeacher = await addTeacher(TENANT_A, 'xa2');
+      const m = dataSource.manager;
+      // Tenant B's row deliberately points at tenant A's section.
+      const foreign = await assignmentRepo.save(
+        assignmentRepo.create({
+          tenant_id: TENANT_B,
+          teacher_id: chainB.teacher.id,
+          section_id: chainA.section.id,
+          subject_id: null,
+          assignment_type: TeacherAssignmentType.CLASS_TEACHER,
+        }),
+      );
+      // The unique index is global, so the insert must fail: the delete is
+      // tenant-scoped and does not remove the other tenant's row to make room.
+      await expect(
+        teacherAssignmentsTab.upsert(
+          rowFor(chainA, { ...HOMEROOM, teacher_id: newTeacher.id }),
+          null,
+          TENANT_A,
+          m,
+        ),
+      ).rejects.toThrow(/UQ_tcs_section_class_teacher/);
+      expect(await assignmentRepo.findOneBy({ id: foreign.id })).not.toBeNull();
+    });
+
+    it('swap never touches another tenant, another section, or SUBJECT rows', async () => {
+      const chainA = await seedChain(TENANT_A, 'ia');
+      const chainB = await seedChain(TENANT_B, 'ib');
+      const otherSection = await sectionRepo.save(
+        sectionRepo.create({
+          class_id: chainA.klass.id,
+          section_name: 'B',
+          capacity: null,
+          tenant_id: TENANT_A,
+        }),
+      );
+      const newTeacher = await addTeacher(TENANT_A, 'ia2');
+      const m = dataSource.manager;
+      await teacherAssignmentsTab.upsert(rowFor(chainB, { ...HOMEROOM }), null, TENANT_B, m);
+      await teacherAssignmentsTab.upsert(
+        rowFor(chainA, { ...HOMEROOM, section_id: otherSection.id }),
+        null,
+        TENANT_A,
+        m,
+      );
+      await teacherAssignmentsTab.upsert(rowFor(chainA), null, TENANT_A, m); // SUBJECT row
+
+      await teacherAssignmentsTab.upsert(
+        rowFor(chainA, { ...HOMEROOM, teacher_id: newTeacher.id }),
+        null,
+        TENANT_A,
+        m,
+      );
+
+      expect(await assignmentRepo.count({ where: { tenant_id: TENANT_B } })).toBe(1);
+      expect(await typesInSection(otherSection.id)).toEqual([`${chainA.teacher.id}:CLASS_TEACHER`]);
+      expect(await typesInSection(chainA.section.id)).toEqual(
+        [`${chainA.teacher.id}:SUBJECT_TEACHER`, `${newTeacher.id}:CLASS_TEACHER`].sort(),
+      );
     });
   });
 

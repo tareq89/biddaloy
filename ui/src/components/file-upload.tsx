@@ -1,12 +1,17 @@
 /**
- * A polite live region announces selection count, per-file progress and
+ * All copy comes from the `common` namespace (`fileUpload.*`), so it follows
+ * the active locale. A polite live region announces selection count, per-file progress and
  * per-file errors — the three states the issue calls out. Progress and
  * errors are per-`FileUploadItem`, driven by the caller (the actual
  * upload happens outside this component, in whatever hook/mutation the
  * consuming SPA wires up); this owns presentation and announcement, not
  * the upload itself.
  */
+import { UploadIcon, XIcon } from 'lucide-react';
 import * as React from 'react';
+
+import { useRegionConfig, useTranslation } from '../i18n';
+import { formatNumber } from '../utils/number';
 
 import { Button } from './button';
 
@@ -46,6 +51,8 @@ export function FileUpload({
   disabled = false,
   ...props
 }: FileUploadProps) {
+  const { t } = useTranslation('common');
+  const config = useRegionConfig();
   const inputRef = React.useRef<HTMLInputElement>(null);
   const [announcement, setAnnouncement] = React.useState('');
 
@@ -53,7 +60,7 @@ export function FileUpload({
     if (!fileList || fileList.length === 0) return;
     const files = Array.from(fileList);
     onFilesSelected(files);
-    setAnnouncement(`${files.length} file${files.length === 1 ? '' : 's'} selected`);
+    setAnnouncement(t('fileUpload.selected', { count: files.length }));
   }
 
   return (
@@ -79,38 +86,40 @@ export function FileUpload({
         type="button"
         variant="outline"
         disabled={disabled}
+        className="w-full md:w-auto"
         onClick={() => inputRef.current?.click()}
       >
-        {chooseLabel ?? (multiple ? 'Choose files' : 'Choose file')}
+        <UploadIcon aria-hidden="true" />
+        {chooseLabel ?? (multiple ? t('fileUpload.chooseFiles') : t('fileUpload.chooseFile'))}
       </Button>
       <div aria-live="polite" className="sr-only">
         {announcement}
       </div>
       {items.length > 0 && (
-        <ul className="mt-2 space-y-1">
+        <ul className="mt-2 divide-y divide-border-subtle">
           {items.map((item) => (
-            <li key={item.id} className="flex items-center gap-2 text-sm">
+            <li key={item.id} className="flex items-center gap-2 py-1">
               <span className="flex-1 truncate">{item.file.name}</span>
               {item.error ? (
-                <span role="alert" className="text-destructive">
+                <span role="alert" className="text-caption text-destructive">
                   {item.error}
                 </span>
               ) : item.progress !== undefined && item.progress < 100 ? (
-                <span aria-live="polite">{item.progress}%</span>
+                <span aria-live="polite">{formatNumber(item.progress, config)}%</span>
               ) : (
-                <span className="text-muted-foreground">Done</span>
+                <span className="text-text-secondary">{t('fileUpload.done')}</span>
               )}
               {onRemove && (
                 <Button
                   type="button"
                   iconOnly
-                  aria-label={`Remove ${item.file.name}`}
+                  aria-label={t('fileUpload.remove', { name: item.file.name })}
                   variant="ghost"
-                  size="icon-sm"
+                  size="icon"
                   disabled={disabled}
                   onClick={() => onRemove(item.file)}
                 >
-                  <span aria-hidden="true">×</span>
+                  <XIcon aria-hidden="true" />
                 </Button>
               )}
             </li>

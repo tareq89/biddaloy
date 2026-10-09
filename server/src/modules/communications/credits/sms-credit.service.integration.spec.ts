@@ -200,6 +200,17 @@ describe('SmsCreditService (integration)', () => {
     expect(ledger.total).toBe(0);
   });
 
+  it('settlePart persists the optional reason on the settlement row', async () => {
+    const batchKey = `batch:reason-${tenantA}`;
+    await service.grant(tenantA, 10, { idempotencyKey: `g-reason-${tenantA}` });
+    await service.reserve(tenantA, 2, batchKey, { type: 'batch', id: tenantA });
+    await service.settlePart(tenantA, batchKey, `log-r-${tenantA}`, 2, 'DEBIT', 'reconcile #1317');
+
+    const rows = await service.listLedger(tenantA, 1, 50);
+    const debit = rows.data.find((r) => r.kind === 'DEBIT');
+    expect(debit?.reason).toBe('reconcile #1317');
+  });
+
   it('getBalance returns zeros when no balance row exists yet', async () => {
     const balance = await service.getBalance(tenantA);
     expect(balance).toEqual({ available: 0, reserved: 0 });

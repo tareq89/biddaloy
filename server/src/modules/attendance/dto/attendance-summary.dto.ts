@@ -1,5 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiExtraModels, ApiProperty, getSchemaPath } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsInt, IsOptional, IsString, IsUUID, Matches, Max, Min } from 'class-validator';
 import { AttendanceStatus } from '@biddaloy/shared';
@@ -198,7 +198,33 @@ export class RegisterMatrixRowDto {
 
 export class RegisterMatrixDto {
   @ApiProperty({ type: RegisterMatrixDateDto, isArray: true }) dates: RegisterMatrixDateDto[];
+  /** date -> version of that date's whole-day session; only marked dates. */
+  @ApiProperty({ type: Object }) versions: Record<string, number>;
   @ApiProperty({ type: RegisterMatrixRowDto, isArray: true }) rows: RegisterMatrixRowDto[];
+}
+
+export class AttendanceStreakDto {
+  @ApiProperty() student_id: string;
+  @ApiProperty() student_name: string;
+  @ApiProperty() roll_number: number;
+  @ApiProperty({ enum: [AttendanceStatus.ABSENT, AttendanceStatus.LATE, AttendanceStatus.PRESENT] })
+  status: AttendanceStatus.ABSENT | AttendanceStatus.LATE | AttendanceStatus.PRESENT;
+  @ApiProperty() length: number;
+  @ApiProperty({
+    description:
+      'Oldest day-session of the run within the last 15 sessions (YYYY-MM-DD); length is therefore capped at 15.',
+  })
+  since_date: string;
+}
+
+export class AttendanceStreaksDto {
+  @ApiProperty({ type: AttendanceStreakDto, isArray: true }) items: AttendanceStreakDto[];
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    description: "The section's latest day-session date; null when it has none.",
+  })
+  as_of_date: string | null;
 }
 
 export class LowAttendanceFlagDto extends AttendanceSummaryDto {
@@ -215,4 +241,38 @@ export class LowAttendanceListResponseDto {
   @ApiProperty() page: number;
   @ApiProperty() limit: number;
   @ApiProperty() totalPages: number;
+}
+
+export class SubjectCountsDto {
+  @ApiProperty() present: number;
+  @ApiProperty() late: number;
+  @ApiProperty() absent: number;
+  @ApiProperty() leave: number;
+  @ApiProperty() attended: number;
+  @ApiProperty({ type: Number, nullable: true }) percentage: number | null;
+}
+
+export class SubjectSummarySubjectDto {
+  @ApiProperty() subject_id: string;
+  @ApiProperty() name: string;
+  @ApiProperty() held: number;
+}
+
+@ApiExtraModels(SubjectCountsDto)
+export class SubjectSummaryRowDto {
+  @ApiProperty() student_id: string;
+  @ApiProperty() roll_number: number;
+  @ApiProperty() full_name: string;
+  /** Keyed by `subject_id`. */
+  @ApiProperty({
+    type: 'object',
+    additionalProperties: { $ref: getSchemaPath(SubjectCountsDto) },
+  })
+  by_subject: Record<string, SubjectCountsDto>;
+}
+
+export class SubjectSummaryDto {
+  @ApiProperty({ type: SubjectSummarySubjectDto, isArray: true })
+  subjects: SubjectSummarySubjectDto[];
+  @ApiProperty({ type: SubjectSummaryRowDto, isArray: true }) rows: SubjectSummaryRowDto[];
 }

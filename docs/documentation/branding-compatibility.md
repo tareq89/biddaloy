@@ -8,7 +8,7 @@ The repository still contains the former name in compatibility-sensitive
 identifiers. These are deliberately unchanged:
 
 - `@biddaloy/*` workspace package scopes and TypeScript import aliases.
-- Database, S3/MinIO bucket, Docker image, volume, and test-resource names.
+- Database, S3 bucket, Docker image, volume, and test-resource names.
 - Local-storage and IndexedDB keys used by existing browsers.
 - Seeded test email addresses and external test URLs.
 - Migration history, historical GitHub URLs, and generated identifiers that

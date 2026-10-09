@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { REGION_BD_BN, REGION_BD_EN } from '../i18n/region-config';
 
-import { formatNumber, parseNumber } from './number';
+import { formatNumber, formatScore, parseNumber } from './number';
 
 describe('formatNumber', () => {
   it('groups with thousand separators by default', () => {
@@ -54,5 +54,29 @@ describe('parseNumber', () => {
   it('round-trips through formatNumber', () => {
     expect(parseNumber(formatNumber(1234567, REGION_BD_EN))).toBe(1234567);
     expect(parseNumber(formatNumber(1234567, REGION_BD_BN))).toBe(1234567);
+  });
+
+  it.each([null, undefined, Number.NaN])('shows the none value for %s', (value) => {
+    expect(formatNumber(value, REGION_BD_EN)).toBe('—');
+  });
+});
+
+describe('formatScore', () => {
+  it.each([
+    [88, '88'],
+    [87.5, '87.5'],
+    [87.25, '87.25'],
+    [0.3, '0.3'],
+    [100, '100'],
+  ])('shows %s as %s', (value, expected) => {
+    expect(formatScore(value, REGION_BD_EN)).toBe(expected);
+  });
+
+  it('uses the region numerals', () => {
+    expect(formatScore(89.5, REGION_BD_BN)).toBe('৮৯.৫');
+  });
+
+  it('shows the none value for a missing score', () => {
+    expect(formatScore(null, REGION_BD_EN)).toBe('—');
   });
 });

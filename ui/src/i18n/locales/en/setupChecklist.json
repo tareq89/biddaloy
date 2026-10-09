@@ -1,0 +1,26 @@
+{
+  "title": "Finish setting up your school",
+  "progress": "{{done}} of {{total}} done",
+  "items": {
+    "profile": "School profile",
+    "structure": "Classes",
+    "sections": "Sections",
+    "students": "Students",
+    "staff": "Staff",
+    "feeStructures": "Fees",
+    "guardianInvites": "Invite guardians",
+    "messageSettings": "Message settings"
+  },
+  "hide": "Hide",
+  "continueSetup": "Continue school setup",
+  "done": "Done",
+  "todo": "To do",
+  "hint": {
+    "title": "Sign in faster next time",
+    "body": "Connect your Google account and skip the code.",
+    "google": "Connect Google",
+    "facebook": "Connect Facebook",
+    "dismiss": "Dismiss",
+    "failed": "We could not connect that account. Please try again."
+  }
+}

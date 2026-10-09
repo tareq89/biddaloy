@@ -1,10 +1,22 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
+import { ModuleRef } from '@nestjs/core';
 import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
 import { ApiForbiddenResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
 import { JwtPayload, Permission, UserRole } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
+import { PlatformSuperAdminGuard } from '../auth/guards/platform-super-admin.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
@@ -13,10 +25,12 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
 import { SETTINGS_RATE_LIMIT } from '../../rate-limit';
 import { requestContext } from '../../common/request-context.util';
+import { TrialService } from './trial/trial.service';
 import { SchoolsService } from './schools.service';
 import { TenantSettingsDto } from './dto/tenant-settings.dto';
 import { assertCanManageSchool } from './assert-can-manage-school.util';
-import { SchoolListItemDto } from './dto/school-list-item.dto';
+import { ExtendTrialDto } from './dto/extend-trial.dto';
+import { ListSchoolsQueryDto, SchoolListItemDto } from './dto/school-list-item.dto';
 import { TenantSettingsResponseDto } from './dto/school-settings-response.dto';
 import { UpdateSchoolStatusDto } from './dto/update-school-status.dto';
 
@@ -25,21 +39,26 @@ import { UpdateSchoolStatusDto } from './dto/update-school-status.dto';
 @Controller('schools')
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 export class SchoolsController {
-  constructor(private readonly schools: SchoolsService) {}
+  constructor(
+    private readonly schools: SchoolsService,
+    private readonly moduleRef: ModuleRef,
+  ) {}
 
   @Get()
   @Roles(UserRole.SUPER_ADMIN)
+  @UseGuards(PlatformSuperAdminGuard)
   @ApiOperation({
     summary:
       "List every school (id, name, slug, status, created_at) — #8.7.13's super-admin school picker, extended by #533's platform schools list. An ADMIN doesn't get this route at all; they already know their one school from their own tenant context.",
   })
   @ApiOkResponse({ type: SchoolListItemDto, isArray: true })
-  async findAll() {
-    return this.schools.findAll();
+  async findAll(@Query() query: ListSchoolsQueryDto) {
+    return this.schools.findAll(query.trial);
   }
 
   @Get(':id/stats')
   @Roles(UserRole.SUPER_ADMIN)
+  @UseGuards(PlatformSuperAdminGuard)
   @ApiOperation({
     summary:
       'Five cheap platform metrics for a school (#532) — active users, students, queued/recently-failed communications, and last activity. SUPER_ADMIN only.',
@@ -50,6 +69,7 @@ export class SchoolsController {
 
   @Patch(':id/status')
   @Roles(UserRole.SUPER_ADMIN)
+  @UseGuards(PlatformSuperAdminGuard)
   @ApiOperation({
     summary:
       "Suspend or reactivate a school (#530). SUPER_ADMIN only. A mandatory reason is audited (SUSPEND/REACTIVATE), and the tenant status cache is invalidated so the change takes effect on the school's very next request.",
@@ -63,8 +83,25 @@ export class SchoolsController {
     return this.schools.updateStatus(id, dto, user.sub, requestContext(request));
   }
 
+  @Patch(':id/trial')
+  @Roles(UserRole.SUPER_ADMIN)
+  @UseGuards(PlatformSuperAdminGuard)
+  @ApiOperation({
+    summary:
+      'Extend a school trial by N days and optionally raise its seat limit (#1625). Platform SUPER_ADMIN only. An expired trial reactivates the school. Audited with the reason.',
+  })
+  async extendTrial(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ExtendTrialDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    // Looked up lazily: TrialModule -> CommunicationsModule -> SchoolsModule is a file-level import
+    // cycle, so SchoolsModule can't import TrialModule. TrialModule is registered in AppModule.
+    const trial = this.moduleRef.get(TrialService, { strict: false });
+    return trial.extend(id, dto, { userId: user.sub });
+  }
+
   @Get(':id/settings')
-  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
   @RequirePermissions(Permission.SETTINGS_MANAGE)
   // Credential-bearing read: every secret's masked hint is still
   // information about that school's provider accounts, worth a stricter
@@ -89,7 +126,6 @@ export class SchoolsController {
   }
 
   @Patch(':id/settings')
-  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
   @RequirePermissions(Permission.SETTINGS_MANAGE)
   @Throttle({ default: SETTINGS_RATE_LIMIT })
   @ApiOperation({

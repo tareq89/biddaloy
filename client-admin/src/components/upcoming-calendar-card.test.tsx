@@ -3,6 +3,7 @@ import '@biddaloy/ui/test';
 import { cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
 import { createRootRoute, createRoute } from '@tanstack/react-router';
 import { screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -200,5 +201,28 @@ describe('UpcomingCalendarCard', () => {
 
     await Promise.resolve();
     expect(container.innerHTML).toBe('');
+  });
+
+  it('shows a translated error with a Retry that refetches', async () => {
+    server.use(
+      http.get('/api/v1/calendar/events', () =>
+        HttpResponse.json({ message: 'boom' }, { status: 500 }),
+      ),
+    );
+
+    renderCard({ calendarPath: '/calendar' });
+    const user = userEvent.setup();
+
+    await screen.findByText("Couldn't load the calendar. Try again.");
+    expect(screen.queryByText('boom')).toBeNull();
+
+    server.use(
+      http.get('/api/v1/calendar/events', () =>
+        eventsResponse([makeEvent({ id: 'evt-1', name: 'Sports day' })]),
+      ),
+    );
+    await user.click(screen.getByRole('button', { name: 'Retry' }));
+
+    expect(await screen.findByText('Sports day')).toBeTruthy();
   });
 });

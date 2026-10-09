@@ -6,6 +6,9 @@ export enum UserRole {
   PARENT = 'PARENT',
   STUDENT = 'STUDENT',
   EXECUTIVE = 'EXECUTIVE',
+  OFFICE_STAFF = 'OFFICE_STAFF',
+  EXAM_CONTROLLER = 'EXAM_CONTROLLER',
+  COMMITTEE = 'COMMITTEE',
 }
 
 export enum UserStatus {
@@ -29,6 +32,17 @@ export enum CommunicationMedium {
   MESSENGER = 'MESSENGER',
 }
 
+/**
+ * A teacher's role on one `teacher_class_sections` row. Designations
+ * (`TeacherDesignation`) are HR labels; class-teacher-ness comes only from
+ * this enum (47.0 D2).
+ */
+export enum TeacherAssignmentType {
+  CLASS_TEACHER = 'CLASS_TEACHER',
+  ASSISTANT_CLASS_TEACHER = 'ASSISTANT_CLASS_TEACHER',
+  SUBJECT_TEACHER = 'SUBJECT_TEACHER',
+}
+
 export enum TeacherDesignation {
   CLASS_TEACHER = 'CLASS_TEACHER',
   SUBJECT_TEACHER = 'SUBJECT_TEACHER',
@@ -37,6 +51,21 @@ export enum TeacherDesignation {
   PRINCIPAL = 'PRINCIPAL',
   VICE_PRINCIPAL = 'VICE_PRINCIPAL',
   COORDINATOR = 'COORDINATOR',
+}
+
+/** Employment status of a staff HR record (23.1, D2 — unrelated to `TeacherDesignation`). */
+export enum StaffEmploymentStatus {
+  REGULAR = 'REGULAR',
+  IRREGULAR = 'IRREGULAR',
+  RESIGNED = 'RESIGNED',
+}
+
+/** Kind of a `StaffDocument` upload (23.6). */
+export enum StaffDocumentType {
+  NID = 'NID',
+  BIRTH_CERTIFICATE = 'BIRTH_CERTIFICATE',
+  PHOTO = 'PHOTO',
+  OTHER = 'OTHER',
 }
 
 export enum FeeType {
@@ -50,7 +79,17 @@ export enum FeeType {
   ANNUAL_FEE = 'ANNUAL_FEE',
   ADMISSION_FEE = 'ADMISSION_FEE',
   LATE_FEE = 'LATE_FEE',
+  FINE = 'FINE',
   OTHER = 'OTHER',
+}
+
+/**
+ * What makes a fine rule fire. Adding a trigger = a value here + one
+ * evaluator in server/src/modules/fees/fines/triggers (Epic 38 D6).
+ */
+export enum FineTrigger {
+  ATTENDANCE_ABSENT = 'ATTENDANCE_ABSENT',
+  ATTENDANCE_LATE = 'ATTENDANCE_LATE',
 }
 
 export enum FeeStatus {
@@ -112,6 +151,8 @@ export enum CommunicationTrigger {
    * with `••••••`); see `AccountAccessDeliveryService`.
    */
   ACCOUNT_ACCESS = 'ACCOUNT_ACCESS',
+  /** [19.5.1] A published exam result sent to a guardian by SMS. */
+  RESULT_SMS = 'RESULT_SMS',
 }
 
 /** Purpose of a row in `auth_tokens` (12.1's D2). */
@@ -207,6 +248,29 @@ export enum AttendanceSessionState {
   FINALIZED = 'FINALIZED',
 }
 
+/** [36.1.1] Which kind of attendance a device-events payload (or session) is
+ * for — student roll call vs staff check-in/out. */
+export enum AttendanceSubjectType {
+  STUDENT = 'STUDENT',
+  STAFF = 'STAFF',
+}
+
+/** [36.1.1] D9 — the leave types a `leave_policies` row can carry a quota for. */
+export enum LeaveType {
+  CASUAL = 'CASUAL',
+  SICK = 'SICK',
+  MATERNITY = 'MATERNITY',
+  PATERNITY = 'PATERNITY',
+  EARNED = 'EARNED',
+}
+
+/** [36.1.1] A `leave_records` row's approval state. */
+export enum LeaveStatus {
+  PENDING = 'PENDING',
+  APPROVED = 'APPROVED',
+  REJECTED = 'REJECTED',
+}
+
 export enum AttendanceDeviceKind {
   BIOMETRIC = 'BIOMETRIC',
   FACE = 'FACE',
@@ -234,6 +298,7 @@ export enum PeriodType {
 export enum FeeGenerationSource {
   MANUAL = 'MANUAL',
   SCHEDULE = 'SCHEDULE',
+  FINE_RULE = 'FINE_RULE',
 }
 
 /** What a fee-generation run does when it finds a duplicate fee already exists (16.x). */
@@ -280,6 +345,14 @@ export enum ApprovalScope {
   // computed against it changes those GPAs — money-tier, same as a
   // discount rule or a payment reversal.
   GRADING_SCALE_MANAGE = 'grading_scale.manage',
+  // [19.5.1] Reopening a PUBLISHED result (back to PROCESSED, so marks
+  // can be corrected) rewrites a grade a guardian may already have seen
+  // — same step-up bar as a grading-scale recompute.
+  RESULTS_REOPEN = 'results.reopen',
+  // [26.1.1] Committing a run that overrides the suggested outcome moves
+  // students against their results (D11) — same step-up bar as a result
+  // reopen.
+  PROMOTION_OVERRIDE = 'promotion.override',
 }
 
 /** How an `ApprovalToken` is verified (16.x). */
@@ -334,3 +407,14 @@ export enum CalendarImportRowStatus {
 export * from './entity-label';
 export * from './exams';
 export * from './routines';
+export * from './homework';
+export * from './admission';
+export * from './seat-plan';
+export * from './programs';
+export * from './student-lifecycle';
+export * from './evaluations';
+
+export enum SocialProvider {
+  GOOGLE = 'google',
+  FACEBOOK = 'facebook',
+}

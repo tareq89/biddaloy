@@ -88,6 +88,7 @@ const columns: readonly ColumnSpec[] = [
  */
 const excluded: readonly string[] = [
   'user_id', // exported instead as the `user` ref column, keyed by the referenced tab's natural key
+  'staff_profile_id', // [36.1.1] derived FK set by the staff-profiles backfill/module code, not user-editable workbook data
 ];
 
 const MAX_LENGTHS: Record<string, number> = {
@@ -289,6 +290,10 @@ export const teachersTab: TabSpec<Teacher, TeacherRow> = {
     teacher.designations = row.designations;
     teacher.subject_specialization = row.subject_specialization;
     teacher.joining_date = row.joining_date ? new Date(row.joining_date) : null;
+
+    // `teachers.staff_profile_id` (NOT NULL since [36.1.1]) is filled in by
+    // `TeacherStaffProfileSubscriber`'s `beforeInsert` hook, not here — see
+    // that subscriber for why this is centralized rather than per-caller.
 
     return m.save(Teacher, teacher);
   },

@@ -64,7 +64,7 @@ export function useCurrentEnrollment(studentId: string) {
  * `null`) gets a fresh one POSTed instead of an existing one PATCHed —
  * same end state (`EnrollmentService.create`'s sync-on-ACTIVE side
  * effect moves `Student.class_section_id` exactly like `update`'s does).
- * Not optimistic — same reasoning as `useUpdateStudentEnrollmentStatus`: a
+ * Not optimistic: a
  * real class move is a deliberate form-submit the staff member is
  * already waiting on, not a background preference flip; a rolled-back
  * transfer must never show the student in a class they didn't actually

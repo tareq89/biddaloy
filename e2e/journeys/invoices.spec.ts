@@ -28,6 +28,7 @@ test('an issued invoice shows on /invoices and its detail renders', async ({ pag
   const invoices = new ListShellPage(page, {
     titleKey: 'fees.invoices.title',
     searchLabelKey: 'fees.invoices.searchLabel',
+    openLabelKey: 'payments.invoices.view',
   });
   await page.goto('/invoices');
   await invoices.expectLoaded();

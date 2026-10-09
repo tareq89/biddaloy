@@ -1,3 +1,4 @@
+import { REGION_BD_EN } from '@biddaloy/ui/i18n';
 import {
   apiErrorBody,
   cleanupTestState,
@@ -6,12 +7,14 @@ import {
   renderWithRouter,
   server,
 } from '@biddaloy/ui/test';
+import { formatDate, formatPhone } from '@biddaloy/ui/utils';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { routeTree } from '../../../routeTree.gen';
+import { pickDate } from '../../../test/pick-date';
 
 /** A structurally valid (unsigned) JWT whose `sub` is the given user id —
  * what `useCurrentUserId` decodes for the self-removal guard. */
@@ -29,6 +32,14 @@ function paginated<T>(data: T[]) {
  * `guardians/index.test.tsx`'s own header comment.
  */
 describe('/staff', () => {
+  // [23.12] The designation filter's options come from `GET /designations`
+  // (23.2) on every render of this page — a default handler here, same as
+  // every other test's own `server.use` for `/schools/:id/settings`, keeps
+  // that from having to be repeated in every single test below.
+  beforeEach(() => {
+    server.use(http.get('/api/v1/designations', () => HttpResponse.json([])));
+  });
+
   afterEach(async () => {
     await cleanupTestState();
   });
@@ -59,11 +70,13 @@ describe('/staff', () => {
 
     await waitFor(() => expect(screen.getByText('Abdul Karim')).toBeTruthy());
     expect(screen.getByText('karim@example.com')).toBeTruthy();
-    expect(screen.getByText('+880 1712-345678')).toBeTruthy();
+    expect(screen.getByText(formatPhone('+8801712345678', REGION_BD_EN))).toBeTruthy();
     expect(screen.getByText('Accountant')).toBeTruthy();
     // Status is conveyed by label text, not colour alone (StatusBadge).
     expect(screen.getByText('Active')).toBeTruthy();
-    expect(screen.getByText('2025-04-10')).toBeTruthy();
+    expect(
+      screen.getByText(formatDate(new Date('2025-04-10T00:00:00.000Z'), REGION_BD_EN)),
+    ).toBeTruthy();
   });
 
   it('filters by role using the shared UserRole enum as a query param', async () => {
@@ -85,6 +98,83 @@ describe('/staff', () => {
     await waitFor(() => expect(requestedRole).toBe('TEACHER'));
   });
 
+  it('filters by designation using a Designation id as a query param, independent of role', async () => {
+    let requestedDesignationId: string | null = null;
+    let requestedRole: string | null = null;
+    server.use(
+      http.get('/api/v1/designations', () =>
+        HttpResponse.json([
+          {
+            id: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+            title_en: 'Assistant Teacher',
+            title_bn: null,
+            is_teaching: true,
+          },
+        ]),
+      ),
+      http.get('/api/v1/users', ({ request }) => {
+        const url = new URL(request.url);
+        requestedDesignationId = url.searchParams.get('designation_id');
+        requestedRole = url.searchParams.get('role');
+        return HttpResponse.json(paginated([]));
+      }),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/staff?role=TEACHER&designation_id=3fa85f64-5717-4562-b3fc-2c963f66afa6'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    // Both filters are active at once — the designation filter narrows
+    // further, it doesn't replace the role filter.
+    await waitFor(() => {
+      expect(requestedDesignationId).toBe('3fa85f64-5717-4562-b3fc-2c963f66afa6');
+      expect(requestedRole).toBe('TEACHER');
+    });
+    expect(await screen.findByRole('combobox', { name: 'Designation' })).toBeTruthy();
+  });
+
+  it('clears the designation filter back to unfiltered', async () => {
+    const requestedDesignationIds: (string | null)[] = [];
+    server.use(
+      http.get('/api/v1/designations', () =>
+        HttpResponse.json([
+          {
+            id: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+            title_en: 'Assistant Teacher',
+            title_bn: null,
+            is_teaching: true,
+          },
+        ]),
+      ),
+      http.get('/api/v1/users', ({ request }) => {
+        requestedDesignationIds.push(new URL(request.url).searchParams.get('designation_id'));
+        return HttpResponse.json(paginated([]));
+      }),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/staff?designation_id=3fa85f64-5717-4562-b3fc-2c963f66afa6'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    await waitFor(() =>
+      expect(requestedDesignationIds).toContain('3fa85f64-5717-4562-b3fc-2c963f66afa6'),
+    );
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('combobox', { name: 'Designation' }));
+    await user.click(await screen.findByRole('option', { name: 'All designations' }));
+
+    await waitFor(() =>
+      expect(requestedDesignationIds[requestedDesignationIds.length - 1]).toBeNull(),
+    );
+  });
+
   it('debounces the search box before it changes the request', async () => {
     let requestedSearch: string | null = null;
     server.use(
@@ -102,7 +192,7 @@ describe('/staff', () => {
     });
 
     const user = userEvent.setup();
-    const searchBox = await screen.findByRole('textbox', { name: 'Search by name or email' });
+    const searchBox = await screen.findByRole('textbox', { name: 'Search' });
     await user.type(searchBox, 'Karim');
 
     expect(requestedSearch).toBeNull();
@@ -159,13 +249,13 @@ describe('/staff', () => {
     });
 
     const user = userEvent.setup();
-    const openButton = await screen.findByRole('button', { name: 'Promote to teacher' });
+    const openButton = await screen.findByRole('button', { name: 'Give teacher profile' });
     openButton.focus();
     await user.keyboard('{Enter}');
 
     // The member Combobox's own popover also carries role="dialog" (and the
     // dialog's autofocus can open it) — select the outer dialog by name.
-    const dialog = await screen.findByRole('dialog', { name: 'Promote a member to teacher' });
+    const dialog = await screen.findByRole('dialog', { name: 'Give a teacher profile' });
 
     // Keyboard-only: type into the combobox, pick the first option.
     const picker = within(dialog).getByRole('combobox', { name: 'Member' });
@@ -181,7 +271,7 @@ describe('/staff', () => {
     await user.click(within(dialog).getByLabelText('Class teacher'));
     await user.type(within(dialog).getByLabelText('Subject specialization'), 'Mathematics');
 
-    await user.click(within(dialog).getByRole('button', { name: 'Promote to teacher' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Give teacher profile' }));
 
     await waitFor(() =>
       expect(postBody).toEqual({
@@ -211,14 +301,14 @@ describe('/staff', () => {
     });
 
     const user = userEvent.setup();
-    await user.click(await screen.findByRole('button', { name: 'Promote to teacher' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Promote a member to teacher' });
+    await user.click(await screen.findByRole('button', { name: 'Give teacher profile' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Give a teacher profile' });
     const picker = within(dialog).getByRole('combobox', { name: 'Member' });
     await user.click(picker);
     await user.type(picker, 'Abdul');
     await user.keyboard('{ArrowDown}{Enter}');
     await user.type(within(dialog).getByLabelText('Employee ID'), 'EMP-42');
-    await user.click(within(dialog).getByRole('button', { name: 'Promote to teacher' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Give teacher profile' }));
 
     // employee_id is globally unique — the copy must not say "in this school".
     const alert = await within(dialog).findByText(
@@ -229,7 +319,7 @@ describe('/staff', () => {
 
   it('add-user dialog surfaces a 409 duplicate email inline', async () => {
     server.use(
-      http.get('/api/v1/users', () => HttpResponse.json(paginated([]))),
+      http.get('/api/v1/users', () => HttpResponse.json(paginated([userResponseFactory()]))),
       http.post('/api/v1/users', () =>
         HttpResponse.json(apiErrorBody(409, 'duplicate', '/api/v1/users'), { status: 409 }),
       ),
@@ -243,14 +333,43 @@ describe('/staff', () => {
     });
 
     const user = userEvent.setup();
-    await user.click(await screen.findByRole('button', { name: 'Add user' }));
+    await user.click(await screen.findByRole('button', { name: 'Add staff member' }));
     const dialog = await screen.findByRole('dialog');
-    await user.type(within(dialog).getByLabelText('Full name'), 'New Person');
-    await user.click(within(dialog).getByRole('combobox', { name: 'Role' }));
-    await user.click(await screen.findByRole('option', { name: 'Accountant' }));
-    await user.click(within(dialog).getByRole('button', { name: 'Add user' }));
+    await user.type(within(dialog).getByLabelText(/^Full name/), 'New Person');
+    await user.click(within(dialog).getByRole('combobox', { name: /^Role/ }));
+    await user.click(await screen.findByRole('option', { name: /^Accountant/ }));
+    await user.click(within(dialog).getByRole('button', { name: 'Add staff member' }));
 
     expect(await within(dialog).findByText('A user with this email already exists.')).toBeTruthy();
+  });
+
+  it('add-user dialog shows a description under each role, including EXAM_CONTROLLER', async () => {
+    server.use(
+      http.get('/api/v1/users', () => HttpResponse.json(paginated([userResponseFactory()]))),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/staff'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Add staff member' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('combobox', { name: /^Role/ }));
+    const option = await screen.findByRole('option', { name: /^Exam controller/ });
+    // SUPER_ADMIN is platform-only and POST /users always refuses it (#731).
+    expect(screen.queryByRole('option', { name: /^Super admin/ })).toBeNull();
+    expect(
+      within(option).getByText('Exams, marks, results and seat plans for the whole school.'),
+    ).toBeTruthy();
+    await user.click(option);
+    // The trigger shows the label only, not the description.
+    expect(within(dialog).getByRole('combobox', { name: /^Role/ }).textContent).toBe(
+      'Exam controller',
+    );
   });
 
   it('self-removal is prevented: the confirm stays disabled with an explanation for your own row', async () => {
@@ -324,7 +443,10 @@ describe('/staff', () => {
   // [8.14.10]: FilterBar migration — the rows-per-page control changes
   // `limit` and resets `page` in one URL update.
   it('changing rows per page writes limit and resets page', async () => {
-    server.use(http.get('/api/v1/users', () => HttpResponse.json(paginated([]))));
+    // The footer (and its page-size select) only exists while there are rows.
+    server.use(
+      http.get('/api/v1/users', () => HttpResponse.json(paginated([userResponseFactory()]))),
+    );
 
     const { router } = renderWithRouter(routeTree, {
       initialEntries: ['/staff?page=2'],
@@ -338,16 +460,18 @@ describe('/staff', () => {
     await user.click(screen.getByRole('combobox', { name: 'Rows per page' }));
     // Option labels render in the tenant's own region digits (Bengali
     // numerals here), independent of the `en` UI locale.
-    await user.click(await screen.findByRole('option', { name: '২০' }));
+    await user.click(await screen.findByRole('option', { name: '৫০' }));
 
-    await waitFor(() => expect(router.state.location.search).toMatchObject({ limit: 20, page: 1 }));
+    await waitFor(() => expect(router.state.location.search).toMatchObject({ limit: 50, page: 1 }));
   });
 
   // [8.14.10]: `GET /users` now accepts a `sort`/`order` param — clicking
   // the sortable "Name" column header writes it, replacing the old no-op
   // `onSortingChange`.
   it('clicking the Name column header writes sort/order to the URL', async () => {
-    server.use(http.get('/api/v1/users', () => HttpResponse.json(paginated([]))));
+    server.use(
+      http.get('/api/v1/users', () => HttpResponse.json(paginated([userResponseFactory()]))),
+    );
 
     const { router } = renderWithRouter(routeTree, {
       initialEntries: ['/staff'],
@@ -374,7 +498,7 @@ describe('/staff', () => {
     server.use(
       http.get('/api/v1/users', ({ request }) => {
         requestedRole = new URL(request.url).searchParams.get('role');
-        return HttpResponse.json(paginated([]));
+        return HttpResponse.json(paginated([userResponseFactory()]));
       }),
     );
 
@@ -387,7 +511,7 @@ describe('/staff', () => {
 
     const user = userEvent.setup();
     await screen.findByRole('region', { name: 'Users with access to this school' });
-    await user.click(screen.getByRole('combobox', { name: 'Filter by role' }));
+    await user.click(screen.getByRole('combobox', { name: 'Role' }));
     await user.click(await screen.findByRole('option', { name: 'Teacher' }));
 
     await waitFor(() => expect(router.state.location.search).toMatchObject({ role: 'TEACHER' }));
@@ -402,7 +526,7 @@ describe('/staff', () => {
     server.use(
       http.get('/api/v1/users', ({ request }) => {
         lastQuery = Object.fromEntries(new URL(request.url).searchParams);
-        return HttpResponse.json(paginated([]));
+        return HttpResponse.json(paginated([userResponseFactory()]));
       }),
     );
 
@@ -417,7 +541,7 @@ describe('/staff', () => {
     await screen.findByRole('region', { name: 'Users with access to this school' });
     await user.click(screen.getByRole('combobox', { name: 'Status' }));
     await user.click(await screen.findByRole('option', { name: 'Active' }));
-    await user.type(screen.getByRole('textbox', { name: 'Joined from' }), '2026-01-01');
+    await pickDate(user, 'Joined from', '2026-01-01');
 
     await waitFor(() =>
       expect(router.state.location.search).toMatchObject({
@@ -428,5 +552,186 @@ describe('/staff', () => {
     await waitFor(() =>
       expect(lastQuery).toMatchObject({ status: 'ACTIVE', joined_from: '2026-01-01' }),
     );
+  });
+
+  // [31.4.staff-1] One status column, three icon actions, one primary button, 25 rows.
+  it('merges invitation into the status cell, shows row actions and requests 25 rows', async () => {
+    let requestedLimit: string | null = null;
+    const open = userResponseFactory({
+      id: 'user-1',
+      full_name: 'Open Invite',
+      invitation_status: 'PENDING',
+    });
+    const done = userResponseFactory({
+      id: 'user-2',
+      full_name: 'Done Person',
+      invitation_status: 'ACTIVATED',
+    });
+    server.use(
+      http.get('/api/v1/users', ({ request }) => {
+        requestedLimit ??= new URL(request.url).searchParams.get('limit');
+        return HttpResponse.json(paginated([open, done]));
+      }),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/staff'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    await screen.findByText('Open Invite');
+    expect(requestedLimit).toBe('25');
+    expect(screen.queryByRole('columnheader', { name: 'Email' })).toBeNull();
+    expect(screen.queryByRole('columnheader', { name: 'Invitation' })).toBeNull();
+    const openRow = screen.getByText('Open Invite').closest('tr') as HTMLElement;
+    const doneRow = screen.getByText('Done Person').closest('tr') as HTMLElement;
+    expect(within(openRow).getByText('Invitation pending')).toBeTruthy();
+    expect(within(doneRow).queryByText('Invitation pending')).toBeNull();
+    expect(within(openRow).getByRole('link', { name: 'View' })).toBeTruthy();
+    expect(within(openRow).getByRole('button', { name: 'Edit' })).toBeTruthy();
+    expect(within(openRow).getByRole('button', { name: 'Remove from school' })).toBeTruthy();
+    expect(screen.getAllByRole('button', { name: 'Add staff member' })).toHaveLength(1);
+  });
+
+  it('the Edit row action opens the edit dialog for that row', async () => {
+    const person = userResponseFactory({ id: 'user-1', full_name: 'Abdul Karim' });
+    server.use(http.get('/api/v1/users', () => HttpResponse.json(paginated([person]))));
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/staff'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Edit' }));
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByDisplayValue('Abdul Karim')).toBeTruthy();
+  });
+
+  it('add-user dialog puts the name and role errors under their own fields', async () => {
+    server.use(
+      http.get('/api/v1/users', () => HttpResponse.json(paginated([userResponseFactory()]))),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/staff'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Add staff member' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: 'Add staff member' }));
+
+    const nameField = within(dialog).getByLabelText(/^Full name/);
+    expect(nameField.getAttribute('aria-invalid')).toBe('true');
+    expect(
+      within(dialog).getByRole('combobox', { name: /^Role/ }).getAttribute('aria-invalid'),
+    ).toBe('true');
+    expect(within(dialog).getAllByRole('alert')).toHaveLength(2);
+  });
+
+  // [13.5.9] Former members.
+  it('former view: filter in the URL, left date shown, only Bring back, restore refetches', async () => {
+    const params: (string | null)[] = [];
+    let restored = false;
+    const former = userResponseFactory({
+      id: 'user-9',
+      full_name: 'Gone Person',
+      left_at: '2025-06-01T00:00:00.000Z',
+    });
+    server.use(
+      http.get('/api/v1/users', ({ request }) => {
+        params.push(new URL(request.url).searchParams.get('membership'));
+        return HttpResponse.json(paginated(restored ? [] : [former]));
+      }),
+      http.post('/api/v1/users/user-9/restore', () => {
+        restored = true;
+        return new HttpResponse(null, { status: 204 });
+      }),
+      http.get('/api/v1/schools/:id/settings', () => HttpResponse.json({ version: 1 })),
+    );
+
+    const { router } = renderWithRouter(routeTree, {
+      initialEntries: ['/staff?membership=former'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    await screen.findByText('Gone Person');
+    expect(router.state.location.search).toMatchObject({ membership: 'former' });
+    expect(params[0]).toBe('former');
+    expect(
+      screen.getByText(`Left on ${formatDate(new Date('2025-06-01T00:00:00.000Z'), REGION_BD_EN)}`),
+    ).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Remove from school' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Edit' })).toBeNull();
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Bring back' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: 'Bring back' }));
+
+    await waitFor(() => expect(restored).toBe(true));
+    await waitFor(() => expect(screen.queryByText('Gone Person')).toBeNull());
+    // An empty Former list has its own words, and no "add someone" pitch.
+    expect(await screen.findByText('No former staff')).toBeTruthy();
+    expect(screen.queryByText('Add someone and they will show up here.')).toBeNull();
+  });
+
+  it('default list sends no membership param', async () => {
+    let seen: string | null = 'unset';
+    server.use(
+      http.get('/api/v1/users', ({ request }) => {
+        seen = new URL(request.url).searchParams.get('membership');
+        return HttpResponse.json(paginated([]));
+      }),
+    );
+    renderWithRouter(routeTree, {
+      initialEntries: ['/staff'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+    await waitFor(() => expect(seen).toBeNull());
+  });
+
+  it('remove dialog shows the last-admin sentence on 409 LAST_ADMIN', async () => {
+    const other = userResponseFactory({ id: 'user-2', full_name: 'Other Admin' });
+    server.use(
+      http.get('/api/v1/users', () => HttpResponse.json(paginated([other]))),
+      http.delete('/api/v1/users/:id', () =>
+        HttpResponse.json(
+          {
+            ...apiErrorBody(409, 'Cannot remove the last admin', '/api/v1/users/user-2'),
+            details: { code: 'LAST_ADMIN' },
+          },
+          { status: 409 },
+        ),
+      ),
+    );
+    renderWithRouter(routeTree, {
+      initialEntries: ['/staff'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+      accessToken: fakeToken('me'),
+    });
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Remove from school' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: 'Remove access' }));
+    expect(
+      await within(dialog).findByText(
+        'You are the only admin here. Make someone else an admin first.',
+      ),
+    ).toBeTruthy();
   });
 });

@@ -1,6 +1,6 @@
 import {
-  Button,
   Form,
+  FormDescription,
   FormControl,
   FormField,
   FormItem,
@@ -15,22 +15,17 @@ import {
   type TenantSettingsInput,
 } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
-import {
-  FormSection,
-  FormShell,
-  buildFormShellErrors,
-  useFormShellMode,
-  useWarnUnsavedChanges,
-} from '@biddaloy/ui/shells';
-import { boundedNumericString } from '@biddaloy/ui/utils';
+import { useFormShellMode, useWarnUnsavedChanges } from '@biddaloy/ui/shells';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
-import { ConnectionTestResultMessage } from '../../components/ConnectionTestResultMessage';
-import { MutationErrorMessage } from '../../components/MutationErrorMessage';
 import { SecretField } from '../../components/SecretField';
+
+import { ChannelFooter, ChannelStatusBadge } from './connection-test-status';
+import { latinBounded } from './latin-digits';
+import { SettingsSection } from './settings-layout';
 
 const emailSchema = z.object({
   host: z.string().min(1),
@@ -39,7 +34,7 @@ const emailSchema = z.object({
   // resolver's post-validation "output" shape, and a coerced field needs
   // `useForm`'s three type parameters wired to match; simpler to keep the
   // field a string end to end and parse it once in `buildConfig` below.
-  port: boundedNumericString(1, 65535),
+  port: latinBounded(1, 65535),
   user: z.string().min(1),
   from: z.email(),
 });
@@ -108,68 +103,75 @@ export function EmailSection({ schoolId, email }: EmailSectionProps) {
     })();
   }
 
-  const summaryErrors = buildFormShellErrors(form.formState.errors, (field) => `email-${field}`);
+  const ready = Boolean(email?.host && email.password?.configured);
+
+  const field = (
+    name: 'from' | 'host' | 'user',
+    label: string,
+    options: { type?: string; mono?: boolean } = {},
+  ) => (
+    <FormField
+      control={form.control}
+      name={name}
+      render={({ field: f }) => (
+        <FormItem>
+          <FormLabel htmlFor={`email-${name}`} required>
+            {label}
+          </FormLabel>
+          <FormControl>
+            <Input
+              id={`email-${name}`}
+              type={options.type}
+              className={options.mono ? 'font-mono' : undefined}
+              {...f}
+            />
+          </FormControl>
+          <FormMessage />
+        </FormItem>
+      )}
+    />
+  );
 
   return (
     <Form {...form}>
-      <FormShell
-        errors={summaryErrors}
-        submitCount={form.formState.submitCount}
+      <SettingsSection
+        id="email-section"
+        title={t('email.legend')}
+        description={t('email.description')}
+        badge={<ChannelStatusBadge ready={ready} />}
         onSubmit={(event) => void form.handleSubmit(handleSave)(event)}
+        saving={updateSettings.isPending}
+        advancedOpen={!!form.formState.errors.port}
+        advanced={
+          <div className="mt-2 grid gap-4 md:grid-cols-2">
+            <FormField
+              control={form.control}
+              name="port"
+              render={({ field: f }) => (
+                <FormItem>
+                  <FormLabel htmlFor="email-port">{t('email.port')}</FormLabel>
+                  <FormControl>
+                    <Input id="email-port" inputMode="numeric" {...f} />
+                  </FormControl>
+                  <FormDescription>{t('email.portHelp')}</FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+        }
+        footerStart={
+          <ChannelFooter
+            onTest={handleTestConnection}
+            test={testConnection}
+            update={updateSettings}
+          />
+        }
       >
-        <FormSection legend={t('email.legend')}>
-          <FormField
-            control={form.control}
-            name="host"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel htmlFor="email-host">{t('email.host')}</FormLabel>
-                <FormControl>
-                  <Input id="email-host" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="port"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel htmlFor="email-port">{t('email.port')}</FormLabel>
-                <FormControl>
-                  <Input id="email-port" type="number" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="user"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel htmlFor="email-user">{t('email.user')}</FormLabel>
-                <FormControl>
-                  <Input id="email-user" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="from"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel htmlFor="email-from">{t('email.from')}</FormLabel>
-                <FormControl>
-                  <Input id="email-from" type="email" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
+          {field('from', t('email.from'), { type: 'email' })}
+          {field('host', t('email.host'), { mono: true })}
+          {field('user', t('email.user'))}
           <SecretField
             id="email-password"
             label={t('email.password')}
@@ -177,28 +179,8 @@ export function EmailSection({ schoolId, email }: EmailSectionProps) {
             value={password}
             onChange={setPassword}
           />
-        </FormSection>
-        <div className="flex items-center gap-2">
-          <Button type="submit" loading={updateSettings.isPending}>
-            {t('save.action')}
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            loading={testConnection.isPending}
-            onClick={handleTestConnection}
-          >
-            {t('testConnection.action')}
-          </Button>
         </div>
-        <ConnectionTestResultMessage
-          data={testConnection.data}
-          isError={testConnection.isError}
-          error={testConnection.error}
-        />
-        {updateSettings.isSuccess && <p role="status">{t('save.success')}</p>}
-        {updateSettings.isError && <MutationErrorMessage error={updateSettings.error} />}
-      </FormShell>
+      </SettingsSection>
     </Form>
   );
 }

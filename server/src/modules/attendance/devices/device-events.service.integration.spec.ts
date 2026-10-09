@@ -10,6 +10,7 @@ import {
   AttendanceEventDirection,
   AttendanceSource,
   AttendanceStatus,
+  AttendanceSubjectType,
 } from '@biddaloy/shared';
 import { DeviceEventsService } from './device-events.service';
 import { DeviceService } from './device.service';
@@ -19,12 +20,16 @@ import { School } from '../../schools/entities/school.entity';
 import { AcademicYear } from '../../academics/entities/academic-year.entity';
 import { Class } from '../../academics/entities/class.entity';
 import { ClassSection } from '../../academics/entities/class-section.entity';
+import { Shift } from '../../routines/entities/shift.entity';
 import { Student } from '../../students/entities/student.entity';
 import { AttendanceDevice } from '../entities/attendance-device.entity';
 import { AttendanceDeviceEvent } from '../entities/attendance-device-event.entity';
 import { AttendanceRecord } from '../entities/attendance-record.entity';
 import { AttendanceSession } from '../entities/attendance-session.entity';
 import { DeviceEventDto } from '../dto/device.dto';
+import { StaffProfile } from '../../staff-profiles/entities/staff-profile.entity';
+import { StaffAttendanceRecord } from '../../staff-attendance/entities/staff-attendance-record.entity';
+import { User } from '../../users/entities/user.entity';
 
 describe('DeviceEventsService (integration)', () => {
   let service: DeviceEventsService;
@@ -257,6 +262,154 @@ describe('DeviceEventsService (integration)', () => {
     expect(updated.check_in_at).not.toBeNull(); // filled
   });
 
+  describe('shift-aware lateness [41.0]', () => {
+    // Tenant pair 08:15 / 10:00; the day shift overrides it to 12:15 / 14:00.
+    async function setup(withShiftTimes = true) {
+      // Unique names per call: shifts/classes/sections are not truncated between tests.
+      const uniq = `${Date.now()}-${Math.floor(Math.random() * 100000)}`;
+      const dayShift = await dataSource.getRepository(Shift).save({
+        tenant_id: TENANT_ID,
+        name: `Day shift ${uniq}`,
+        day_starts_at: '12:00',
+        day_ends_at: '17:00',
+        sequence: 2,
+      });
+      await setTenantSettings(TENANT_ID, {
+        weeklyOffDays: [],
+        lateAfter: '08:15',
+        absentAfter: '10:00',
+        correctionWindowDays: 2,
+        allowFutureDates: false,
+        shiftTimes: withShiftTimes
+          ? [{ shiftId: dayShift.id, lateAfter: '12:15', absentAfter: '14:00' }]
+          : [],
+      });
+      const classRepo = dataSource.getRepository(Class);
+      const base = await classRepo.findOneOrFail({ where: { name: 'Device Events Test Class' } });
+      const dayClass = await classRepo.save({
+        name: `Day Class ${uniq}`,
+        academic_year_id: base.academic_year_id,
+        tenant_id: TENANT_ID,
+        shift_id: dayShift.id,
+      });
+      const daySection = await dataSource.getRepository(ClassSection).save({
+        section_name: `Day ${uniq}`.slice(0, 20),
+        class_id: dayClass.id,
+        tenant_id: TENANT_ID,
+      });
+      const dayStudent = await dataSource.getRepository(Student).save({
+        full_name: 'Day Student',
+        registration_number: `DAY-${uniq}`,
+        roll_number: 1,
+        class_section_id: daySection.id,
+        tenant_id: TENANT_ID,
+      });
+      return dayStudent.id;
+    }
+
+    it('judges a day-shift student against the shift times', async () => {
+      const dayStudentId = await setup();
+      const device = await createActiveDevice();
+
+      const late = await service.ingest(device, [
+        inEvent({ student_id: dayStudentId, occurred_at: `${TODAY()}T12:20:00Z` }),
+      ]);
+      expect(late.results[0].status).toBe(AttendanceStatus.LATE);
+      expect(late.results[0].minutes_late).toBe(5);
+    });
+
+    it('marks a day-shift student at 12:00 PRESENT (before the shift pair)', async () => {
+      const dayStudentId = await setup();
+      const device = await createActiveDevice();
+
+      const r = await service.ingest(device, [
+        inEvent({ student_id: dayStudentId, occurred_at: `${TODAY()}T12:00:00Z` }),
+      ]);
+      expect(r.results[0].status).toBe(AttendanceStatus.PRESENT);
+    });
+
+    it('keeps the tenant pair for a class with a shift_id but no shiftTimes entry', async () => {
+      const dayStudentId = await setup(false);
+      const device = await createActiveDevice();
+
+      const r = await service.ingest(device, [
+        inEvent({ student_id: dayStudentId, occurred_at: `${TODAY()}T08:30:00Z` }),
+      ]);
+      expect(r.results[0].status).toBe(AttendanceStatus.LATE);
+      expect(r.results[0].minutes_late).toBe(15);
+    });
+
+    it('keeps the tenant pair for a class with no shift_id', async () => {
+      await setup();
+      const device = await createActiveDevice();
+
+      const r = await service.ingest(device, [
+        inEvent({ student_id: studentId, occurred_at: `${TODAY()}T08:30:00Z` }),
+      ]);
+      expect(r.results[0].status).toBe(AttendanceStatus.LATE);
+      expect(r.results[0].minutes_late).toBe(15);
+    });
+  });
+
+  describe('check-out targets the day register only [41.0 carry-forward]', () => {
+    async function periodRecord() {
+      const session = await dataSource.getRepository(AttendanceSession).save({
+        tenant_id: TENANT_ID,
+        section_id: sectionId,
+        date: TODAY(),
+        period_no: 1,
+        source: AttendanceSource.TEACHER,
+      });
+      return dataSource.getRepository(AttendanceRecord).save({
+        tenant_id: TENANT_ID,
+        session_id: session.id,
+        student_id: studentId,
+        date: TODAY(),
+        status: AttendanceStatus.PRESENT,
+        source: AttendanceSource.TEACHER,
+      });
+    }
+
+    it('rejects OUT when only a period record exists (old code wrote onto it)', async () => {
+      const period = await periodRecord();
+      const device = await createActiveDevice();
+
+      const r = await service.ingest(device, [
+        inEvent({
+          student_id: studentId,
+          direction: AttendanceEventDirection.OUT,
+          occurred_at: `${TODAY()}T16:00:00Z`,
+        }),
+      ]);
+
+      expect(r.results[0].reason).toBe('no_check_in');
+      const after = await dataSource
+        .getRepository(AttendanceRecord)
+        .findOneOrFail({ where: { id: period.id } });
+      expect(after.check_out_at).toBeNull();
+    });
+
+    it('writes check_out_at onto the day record, not the period record', async () => {
+      const device = await createActiveDevice();
+      await service.ingest(device, [inEvent({ student_id: studentId })]);
+      const period = await periodRecord();
+
+      await service.ingest(device, [
+        inEvent({
+          student_id: studentId,
+          direction: AttendanceEventDirection.OUT,
+          occurred_at: `${TODAY()}T16:00:00Z`,
+        }),
+      ]);
+
+      const records = await dataSource
+        .getRepository(AttendanceRecord)
+        .find({ where: { student_id: studentId } });
+      expect(records.find((x) => x.id === period.id)?.check_out_at).toBeNull();
+      expect(records.find((x) => x.id !== period.id)?.check_out_at).not.toBeNull();
+    });
+  });
+
   it('rejects an OUT event with no prior IN as "no_check_in"', async () => {
     const device = await createActiveDevice();
 
@@ -340,5 +493,118 @@ describe('DeviceEventsService (integration)', () => {
       .getRepository(AttendanceRecord)
       .find({ where: { student_id: deletedStudent.id } });
     expect(records).toHaveLength(0);
+  });
+
+  describe('subject_type: STAFF', () => {
+    let staffProfileId: string;
+
+    beforeEach(async () => {
+      const user = await dataSource.getRepository(User).save({
+        full_name: 'Device Test Staff',
+        email: `device-staff-${Date.now()}-${Math.floor(Math.random() * 100000)}@example.com`,
+        password_hash: 'x',
+      });
+      const profile = await dataSource.getRepository(StaffProfile).save({
+        user_id: user.id,
+        tenant_id: TENANT_ID,
+        employee_id: `EMP-DEV-${Date.now()}`,
+      });
+      staffProfileId = profile.id;
+    });
+
+    it('creates a StaffAttendanceRecord for a subject_type: STAFF event with a valid employee_id external_ref', async () => {
+      const device = await createActiveDevice();
+
+      const result = await service.ingest(device, [
+        inEvent({
+          subject_type: AttendanceSubjectType.STAFF,
+          external_ref: (
+            await dataSource.getRepository(StaffProfile).findOneOrFail({
+              where: { id: staffProfileId },
+            })
+          ).employee_id,
+        }),
+      ]);
+
+      expect(result.results[0].outcome).toBe('accepted');
+      const records = await dataSource
+        .getRepository(StaffAttendanceRecord)
+        .find({ where: { staff_profile_id: staffProfileId } });
+      expect(records).toHaveLength(1);
+    });
+
+    it('reports unknown_staff for an external_ref with no matching employee_id', async () => {
+      const device = await createActiveDevice();
+
+      const result = await service.ingest(device, [
+        inEvent({ subject_type: AttendanceSubjectType.STAFF, external_ref: 'NO-SUCH-EMPLOYEE' }),
+      ]);
+
+      expect(result.results[0].outcome).toBe('unknown_staff');
+    });
+
+    it('never overwrites a manually-marked staff record, but fills a null check_in_at', async () => {
+      const device = await createActiveDevice();
+      const employeeId = (
+        await dataSource
+          .getRepository(StaffProfile)
+          .findOneOrFail({ where: { id: staffProfileId } })
+      ).employee_id;
+
+      // Seed a manual (TEACHER-sourced, i.e. admin/self-marked) record first.
+      const first = await service.ingest(device, [
+        inEvent({ subject_type: AttendanceSubjectType.STAFF, external_ref: employeeId }),
+      ]);
+      expect(first.results[0].outcome).toBe('accepted');
+      await dataSource
+        .getRepository(StaffAttendanceRecord)
+        .update(
+          { staff_profile_id: staffProfileId },
+          { source: AttendanceSource.TEACHER, check_in_at: null },
+        );
+
+      const second = await service.ingest(device, [
+        inEvent({
+          subject_type: AttendanceSubjectType.STAFF,
+          external_ref: employeeId,
+          occurred_at: `${TODAY()}T09:00:00Z`,
+        }),
+      ]);
+
+      expect(second.results[0].outcome).toBe('skipped_teacher_marked');
+      const updated = await dataSource
+        .getRepository(StaffAttendanceRecord)
+        .findOneOrFail({ where: { staff_profile_id: staffProfileId } });
+      expect(updated.check_in_at).not.toBeNull(); // filled
+    });
+
+    it('keeps STUDENT-path behavior unchanged when subject_type is omitted', async () => {
+      const device = await createActiveDevice();
+
+      const result = await service.ingest(device, [inEvent({ student_id: studentId })]);
+
+      expect(result.results[0].outcome).toBe('accepted');
+    });
+
+    it("reports unknown_staff for another tenant's employee_id (tenant isolation)", async () => {
+      const device = await createActiveDevice(); // bound to TENANT_ID
+      const otherUser = await dataSource.getRepository(User).save({
+        full_name: 'Other Tenant Staff',
+        email: `other-tenant-staff-${Date.now()}@example.com`,
+        password_hash: 'x',
+      });
+      const sameEmployeeId = `EMP-CROSS-${Date.now()}`;
+      await dataSource.getRepository(StaffProfile).save({
+        user_id: otherUser.id,
+        tenant_id: OTHER_TENANT,
+        employee_id: sameEmployeeId,
+      });
+
+      const result = await service.ingest(device, [
+        inEvent({ subject_type: AttendanceSubjectType.STAFF, external_ref: sameEmployeeId }),
+      ]);
+
+      expect(result.results[0].outcome).toBe('unknown_staff');
+    });
   });
 });

@@ -28,9 +28,13 @@ import { QueryAuditLogDto } from '../audit/dto/audit-log.dto';
 import {
   CorrectRecordDto,
   FinalizeRegisterDto,
+  MatrixSaveResponseDto,
   MySectionDto,
+  PeriodDto,
   PutRegisterDto,
+  PutRegisterMatrixDto,
   QueryMySectionsDto,
+  QueryPeriodsDto,
   QueryRegisterDto,
   RecordHistoryResponseDto,
   RegisterResponseDto,
@@ -52,7 +56,14 @@ export class AttendanceController {
   constructor(private readonly attendanceService: AttendanceService) {}
 
   @Get('my-sections')
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE, UserRole.ACCOUNTANT, UserRole.TEACHER)
+  @Roles(
+    UserRole.ADMIN,
+    UserRole.EXECUTIVE,
+    UserRole.ACCOUNTANT,
+    UserRole.TEACHER,
+    UserRole.OFFICE_STAFF,
+    UserRole.EXAM_CONTROLLER,
+  )
   @RequirePermissions(Permission.ATTENDANCE_READ)
   @ApiOperation({
     summary:
@@ -73,7 +84,14 @@ export class AttendanceController {
   }
 
   @Get('sections/:sectionId/register')
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE, UserRole.ACCOUNTANT, UserRole.TEACHER)
+  @Roles(
+    UserRole.ADMIN,
+    UserRole.EXECUTIVE,
+    UserRole.ACCOUNTANT,
+    UserRole.TEACHER,
+    UserRole.OFFICE_STAFF,
+    UserRole.EXAM_CONTROLLER,
+  )
   @RequirePermissions(Permission.ATTENDANCE_READ)
   @ApiOperation({ summary: "A section's register for one day (and optionally one period)." })
   @ApiOkResponse({ type: RegisterResponseDto })
@@ -93,9 +111,39 @@ export class AttendanceController {
     });
   }
 
+  @Get('sections/:sectionId/periods')
+  @Roles(
+    UserRole.ADMIN,
+    UserRole.EXECUTIVE,
+    UserRole.ACCOUNTANT,
+    UserRole.TEACHER,
+    UserRole.OFFICE_STAFF,
+    UserRole.EXAM_CONTROLLER,
+  )
+  @RequirePermissions(Permission.ATTENDANCE_READ)
+  @ApiOperation({
+    summary:
+      "A section's scheduled periods for one date, with each period's register state. " +
+      '`[]` when period attendance is off or no routine is published. A substitute teacher ' +
+      'sees only the period they cover.',
+  })
+  @ApiOkResponse({ type: PeriodDto, isArray: true })
+  async listPeriods(
+    @Param('sectionId') sectionId: string,
+    @Query() query: QueryPeriodsDto,
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: { sub: string },
+  ) {
+    return this.attendanceService.listPeriods({
+      sectionId,
+      date: query.date,
+      tenantId: tenant.id,
+      role: tenant.role,
+      userId: user.sub,
+    });
+  }
+
   @Put('sections/:sectionId/register')
-  // [10.4] G1 — E tightened off: lacks ATTENDANCE_MARK.
-  @Roles(UserRole.ADMIN, UserRole.TEACHER)
   @RequirePermissions(Permission.ATTENDANCE_MARK)
   @ApiOperation({
     summary:
@@ -143,10 +191,35 @@ export class AttendanceController {
     });
   }
 
+  @Put('sections/:sectionId/register-matrix')
+  @RequirePermissions(Permission.ATTENDANCE_MARK)
+  @ApiOperation({
+    summary:
+      "Saves many days of one section's whole-day register in one transaction. All-or-nothing: " +
+      'a locked date (422), a stale day (409), a closed day (403) or a partly-replayed ' +
+      'client_request_id (409 ATTENDANCE_MATRIX_REQUEST_REUSED) rejects the whole request.',
+  })
+  @ApiOkResponse({ type: MatrixSaveResponseDto })
+  async putRegisterMatrix(
+    @Param('sectionId') sectionId: string,
+    @Body() dto: PutRegisterMatrixDto,
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: { sub: string },
+    @Req() req: Request,
+  ) {
+    return this.attendanceService.putRegisterMatrix({
+      sectionId,
+      dto,
+      tenantId: tenant.id,
+      role: tenant.role,
+      userId: user.sub,
+      ip: req.ip ?? null,
+      userAgent: req.headers['user-agent'] ?? null,
+    });
+  }
+
   @Post('sections/:sectionId/register/finalize')
   @HttpCode(HttpStatus.OK)
-  // [10.4] G1 — E tightened off.
-  @Roles(UserRole.ADMIN, UserRole.TEACHER)
   @RequirePermissions(Permission.ATTENDANCE_MARK)
   @ApiOperation({
     summary:
@@ -174,8 +247,6 @@ export class AttendanceController {
   }
 
   @Patch('records/:recordId')
-  // [10.4] G1 — E tightened off.
-  @Roles(UserRole.ADMIN, UserRole.TEACHER)
   @RequirePermissions(Permission.ATTENDANCE_MARK)
   @ApiOperation({
     summary:
@@ -203,7 +274,14 @@ export class AttendanceController {
   }
 
   @Get('records/:recordId/history')
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE, UserRole.ACCOUNTANT, UserRole.TEACHER)
+  @Roles(
+    UserRole.ADMIN,
+    UserRole.EXECUTIVE,
+    UserRole.ACCOUNTANT,
+    UserRole.TEACHER,
+    UserRole.OFFICE_STAFF,
+    UserRole.EXAM_CONTROLLER,
+  )
   @RequirePermissions(Permission.ATTENDANCE_READ)
   @ApiOperation({
     summary:

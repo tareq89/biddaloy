@@ -1,4 +1,5 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsIn, IsOptional } from 'class-validator';
 
 /** Swagger-only shape for `GET /schools` — matching `SchoolsService
  * .findAll`'s actual return value. See `school-settings-response.dto.ts`'s
@@ -25,4 +26,26 @@ export class SchoolListItemDto {
 
   @ApiProperty()
   created_at: Date;
+
+  @ApiProperty({ nullable: true, type: String })
+  country_code: string | null;
+
+  /** NULL = no trial. */
+  @ApiProperty({ nullable: true, type: Date })
+  trial_ends_at: Date | null;
+
+  /** NULL = unlimited. */
+  @ApiProperty({ nullable: true, type: Number })
+  seat_limit: number | null;
+
+  @ApiProperty({ nullable: true, type: String })
+  status_reason: string | null;
+}
+
+/** Query for `GET /schools` [13.3.4]: `active` = trial still running, `expired` = suspended by the trial job. */
+export class ListSchoolsQueryDto {
+  @ApiPropertyOptional({ enum: ['active', 'expired'] })
+  @IsOptional()
+  @IsIn(['active', 'expired'])
+  trial?: 'active' | 'expired';
 }

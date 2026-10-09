@@ -192,14 +192,11 @@ describe('GET /payments/cart (16.4.1)', () => {
   // permission gate.
   //
   // It cannot be replaced with an equivalent real-membership denial:
-  // - every role this route's @Roles() allows (ADMIN/ACCOUNTANT/EXECUTIVE/
-  //   TEACHER/PARENT/STUDENT) also holds FEE_READ in ROLE_PERMISSIONS, so
-  //   PermissionsGuard's 403 branch is unreachable through this route by
-  //   design.
-  // - SUPER_ADMIN, the one role @Roles() excludes, bypasses RolesGuard
-  //   entirely (`context.guard.ts` RolesGuard: "SUPER_ADMIN bypasses all
-  //   role checks") — verified manually while fixing this test: a real
-  //   SUPER_ADMIN membership still gets 200, not 403, on this route.
+  // - every tenant role (ADMIN/ACCOUNTANT/EXECUTIVE/TEACHER/PARENT/STUDENT)
+  //   holds FEE_READ in ROLE_PERMISSIONS, so PermissionsGuard's 403 branch
+  //   is unreachable through this route by design.
+  // - SUPER_ADMIN holds every permission, so it gets 200, not 403, on this
+  //   route.
   // So there is no role/permission combination left to test a denial with
   // on this specific endpoint. What server/CLAUDE.md does mandate and this
   // file was missing — missing/invalid X-Tenant-ID — is added below.
@@ -389,12 +386,9 @@ describe('POST /payments/checkout (16.4.2)', () => {
     expect(res.body.payment.total_amount).toBe('750.00');
   });
 
-  // RolesGuard (not PermissionsGuard) is what rejects PARENT here — this
-  // route's @Roles() is ADMIN/ACCOUNTANT only, so a PARENT never reaches
-  // the PAYMENT_RECORD check. RolesGuard throws `UnauthorizedException`
-  // (401), matching every other role-gated route in this codebase — see
-  // `context.guard.ts`'s `RolesGuard`.
-  it('denies a PARENT (not ADMIN/ACCOUNTANT) from recording a checkout (401)', async () => {
+  // PermissionsGuard rejects PARENT here: only ADMIN/ACCOUNTANT hold
+  // PAYMENT_RECORD, and the route has no `@Roles`.
+  it('denies a PARENT (not ADMIN/ACCOUNTANT) from recording a checkout (403)', async () => {
     const student = await createStudent();
     const bill = await createFee(student, 500);
 
@@ -408,7 +402,7 @@ describe('POST /payments/checkout (16.4.2)', () => {
       .set('Authorization', `Bearer ${parentToken}`)
       .set('X-Tenant-ID', SEED_TENANT_ID)
       .set('X-Role', UserRole.PARENT)
-      .expect(401);
+      .expect(403);
   });
 });
 
@@ -416,6 +410,13 @@ describe('POST /payments/checkout (16.4.2)', () => {
 // call site beyond the first — `OtpService`'s 60s per-identifier resend
 // cooldown means SEED_ADMIN_EMAIL alone can't back more than one call in
 // this file's runtime.
+//
+// This diversifies the approver-keyed rate limit only. StepUpService.verify()
+// also keeps a limiter keyed solely by the acting seeded admin
+// (`step-up-attempts:actor:<userId>`), shared by every e2e file that
+// authenticates as that admin — `test/setup.ts` flushing the worker's Redis
+// db once per spec file is what actually prevents that one from
+// accumulating across files.
 const APPROVER_IDENTITIES: [string, string][] = [
   ['00000000-0000-4000-8000-0000006d0031', 'checkout-reverse-approver-1@e2e.example'],
   ['00000000-0000-4000-8000-0000006d0032', 'checkout-reverse-approver-2@e2e.example'],
@@ -663,13 +664,8 @@ describe('POST /payments/:id/reverse (16.6.1)', () => {
       .expect(409);
   });
 
-  // The route is `@Roles(ADMIN)` only (`permission-matrix.e2e-spec.ts`'s
-  // "never tightens" check requires every role admitted by `@Roles` to
-  // hold every `@RequirePermissions` permission — ACCOUNTANT doesn't hold
-  // PAYMENT_REVERSE, ADMIN-only per [16.2.1], so it can't be added to
-  // `@Roles` here). RolesGuard rejects ACCOUNTANT with 401 before
-  // PermissionsGuard ever runs, same as any other ADMIN-only route.
-  it('denies ACCOUNTANT (lacks the ADMIN role) from reversing a payment (401)', async () => {
+  // PAYMENT_REVERSE is ADMIN-only ([16.2.1]); PermissionsGuard rejects ACCOUNTANT.
+  it('denies ACCOUNTANT (lacks PAYMENT_REVERSE) from reversing a payment (403)', async () => {
     const student = await createStudent();
     const fee = await createFee(student, 500);
     const paymentId = await recordPayment(student, fee, 500);
@@ -682,6 +678,6 @@ describe('POST /payments/:id/reverse (16.6.1)', () => {
       .set('X-Tenant-ID', SEED_TENANT_ID)
       .set('X-Role', UserRole.ACCOUNTANT)
       .set('X-Approval-Token', approvalToken)
-      .expect(401);
+      .expect(403);
   });
 });

@@ -1,5 +1,5 @@
 /**
- * "Move class" dialog — [8.11.3]. Distinct from `transfer-status-dialog.tsx`
+ * "Move class" dialog — [8.11.3]. Distinct from the retired status dialog
  * (an [8.10.2] feature): that dialog only changes `Student.enrollment_status`
  * (ACTIVE/INACTIVE/TRANSFERRED/GRADUATED); this one moves the student's
  * actual class/section by writing an `Enrollment` row, which is what
@@ -27,7 +27,7 @@
  *
  * Not optimistic — a rolled-back move must never show the student in a
  * class they didn't actually move to (the issue's own acceptance
- * criterion, shared with `transfer-status-dialog.tsx`'s identical
+ * criterion, shared with the retired status dialog's identical
  * reasoning).
  */
 import {
@@ -137,7 +137,7 @@ export function TransferDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent size="sm" closeLabel={t('actions.close', { ns: 'common' })}>
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle>{t('detail.moveClassDialog.title')}</DialogTitle>
@@ -148,7 +148,7 @@ export function TransferDialog({
 
           <div className="flex flex-col gap-4 py-2">
             <div className="flex flex-col gap-1.5">
-              <label htmlFor={fieldId('class')} className="text-sm font-medium">
+              <label htmlFor={fieldId('class')} className="font-medium">
                 {t('detail.moveClassDialog.classLabel')}
               </label>
               <Select
@@ -175,7 +175,7 @@ export function TransferDialog({
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label htmlFor={fieldId('section')} className="text-sm font-medium">
+              <label htmlFor={fieldId('section')} className="font-medium">
                 {t('detail.moveClassDialog.sectionLabel')}
               </label>
               <Select value={sectionId} onValueChange={setSectionId} disabled={!classId}>
@@ -198,7 +198,7 @@ export function TransferDialog({
             {atCapacity && selectedSection && (
               <div
                 role="status"
-                className="flex items-start gap-2.5 rounded-md bg-status-due-bg p-3 text-sm text-status-due-fg"
+                className="flex items-start gap-2 rounded-md bg-status-due-bg p-3 text-status-due-fg"
               >
                 <AlertTriangle className="mt-0.5 size-4 shrink-0" />
                 <span>
@@ -211,13 +211,13 @@ export function TransferDialog({
             )}
 
             {currentEnrollmentQuery.isError && (
-              <p role="alert" className="text-sm text-destructive">
+              <p role="alert" className="text-destructive">
                 {t('detail.moveClassDialog.loadError')}
               </p>
             )}
 
             {mutation.isError && (
-              <p role="alert" className="text-sm text-destructive">
+              <p role="alert" className="text-destructive">
                 {t('detail.moveClassDialog.errorMessage')}
               </p>
             )}

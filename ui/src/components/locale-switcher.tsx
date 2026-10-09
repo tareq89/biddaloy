@@ -22,7 +22,7 @@
  * languages, same reasoning `tenant-bar.tsx`'s `LOCALE_LABELS`-style
  * constants never route through `t()`.
  */
-import { LanguagesIcon } from 'lucide-react';
+import { ChevronDownIcon, LanguagesIcon } from 'lucide-react';
 import * as React from 'react';
 
 import { useTranslation } from '../i18n';
@@ -41,31 +41,62 @@ export interface LocaleSwitcherProps {
    * `MenuContent`'s `align`. Defaults to `'end'`, the natural fit for an
    * account-menu-style trigger. */
   align?: React.ComponentProps<typeof MenuContent>['align'];
+  /** `'icon'` = top-bar icon button; `'labelled'` = outline button showing the
+   * current language name (guest pages, `AuthLayout`). */
+  trigger?: 'icon' | 'labelled';
 }
 
-export function LocaleSwitcher({ align = 'end' }: LocaleSwitcherProps) {
+/** State + announcement for the language choice, shared by `LocaleSwitcher` and
+ * `UserMenu`'s Language sub-menu. */
+export function useLocaleSwitch() {
   const { t } = useTranslation('nav');
   const { locale, setLocale } = useLocale();
   const [announcement, setAnnouncement] = React.useState('');
 
-  function handleValueChange(value: string): void {
+  function choose(value: string): void {
     const next = value as Locale;
     if (next === locale) return;
     setLocale(next);
     setAnnouncement(t('language.announce', { language: LOCALE_LABELS[next] }));
   }
 
+  return { locale, choose, announcement, label: (l: Locale): string => LOCALE_LABELS[l] };
+}
+
+export function LocaleSwitcher({ align = 'end', trigger = 'icon' }: LocaleSwitcherProps) {
+  const { t } = useTranslation('nav');
+  const { locale, choose, announcement } = useLocaleSwitch();
+
   return (
     <>
       <Menu>
         <MenuTrigger asChild>
-          <Button variant="ghost" size="icon" iconOnly aria-label={t('language.label')}>
-            <LanguagesIcon />
-          </Button>
+          {trigger === 'labelled' ? (
+            // Visible text sits inside the accessible name (WCAG 2.5.3).
+            <Button
+              variant="outline"
+              className="h-11 gap-2 px-4"
+              aria-label={`${t('language.label')}: ${LOCALE_LABELS[locale]}`}
+            >
+              <LanguagesIcon />
+              {LOCALE_LABELS[locale]}
+              <ChevronDownIcon className="size-4 text-text-secondary" />
+            </Button>
+          ) : (
+            <Button
+              variant="ghost"
+              size="icon"
+              iconOnly
+              className="size-11 md:size-9"
+              aria-label={t('language.label')}
+            >
+              <LanguagesIcon />
+            </Button>
+          )}
         </MenuTrigger>
         <MenuContent align={align}>
           <MenuLabel>{t('language.groupLabel')}</MenuLabel>
-          <MenuRadioGroup value={locale} onValueChange={handleValueChange}>
+          <MenuRadioGroup value={locale} onValueChange={choose}>
             {SUPPORTED_LOCALES.map((code) => (
               <MenuRadioItem key={code} value={code}>
                 {LOCALE_LABELS[code]}

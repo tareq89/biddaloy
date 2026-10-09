@@ -12,9 +12,8 @@
  *   - 400 → the picked user isn't a member of this tenant (can only
  *     happen via a stale cache; surfaced honestly rather than swallowed).
  *
- * `assigned_section_ids` is deliberately not part of this dialog —
- * section assignment lives with the class pages, and `PATCH /teachers`
- * replaces the whole set, which a promote flow has no set to replace yet.
+ * Section assignment lives with the class pages; `POST /teachers` no longer
+ * accepts section ids.
  */
 import { TeacherDesignation } from '@biddaloy/shared';
 import { ApiError } from '@biddaloy/ui/api';

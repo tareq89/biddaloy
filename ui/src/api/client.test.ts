@@ -3,7 +3,7 @@ import MockAdapter from 'axios-mock-adapter';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { clearAuthState, setAccessToken } from './auth-state';
-import { deleteAuthSession, getAuthSessions } from './client';
+import { deleteAuthSession, fetchPublicVerification, getAuthSessions } from './client';
 import { ApiError } from './errors';
 
 /**
@@ -92,5 +92,56 @@ describe('deleteAuthSession', () => {
       .replyOnce(401, { statusCode: 401, message: 'expired', requestId: 'req-3' });
 
     await expect(deleteAuthSession('s-1')).rejects.toBeInstanceOf(ApiError);
+  });
+});
+
+describe('fetchPublicVerification', () => {
+  const body = {
+    document_kind: 'STUDENT_ID_CARD',
+    holder_name: 'Amina Rahman',
+    school_name: 'Biddaloy High',
+    school_name_bn: null,
+    issued_at: '2026-09-01T00:00:00.000Z',
+    copy_number: 1,
+    status: 'VALID',
+  };
+
+  it('returns the public verification for a token, without an abort signal', async () => {
+    mock.onGet('/api/v1/public/verify/tok-1').reply(200, body);
+
+    await expect(fetchPublicVerification('tok-1')).resolves.toEqual(body);
+  });
+
+  it('passes an abort signal through to the request', async () => {
+    mock.onGet('/api/v1/public/verify/tok-1').reply(200, body);
+    const controller = new AbortController();
+
+    await fetchPublicVerification('tok-1', controller.signal);
+
+    expect(mock.history.get[0]?.signal).toBe(controller.signal);
+  });
+
+  it('URL-encodes the token so it cannot alter the path', async () => {
+    mock.onGet('/api/v1/public/verify/a%2Fb%3Fc').reply(200, body);
+
+    await expect(fetchPublicVerification('a/b?c')).resolves.toEqual(body);
+  });
+
+  it('normalizes an unknown token (404) into an ApiError', async () => {
+    mock.onGet('/api/v1/public/verify/nope').reply(404, {
+      statusCode: 404,
+      message: 'Not found',
+      requestId: 'req-404',
+    });
+
+    await expect(fetchPublicVerification('nope')).rejects.toBeInstanceOf(ApiError);
+  });
+
+  it('does not send the session token: anyone scanning a printed QR code is logged out', async () => {
+    mock.onGet('/api/v1/public/verify/tok-1').reply(200, body);
+
+    await fetchPublicVerification('tok-1');
+
+    expect(mock.history.get[0]?.headers?.Authorization).toBeUndefined();
   });
 });

@@ -15,12 +15,14 @@ import {
   AttendanceStatus,
   AuditAction,
   Permission,
+  TeacherAssignmentType,
   roleHasPermission,
 } from '@biddaloy/shared';
 import { AttendanceSession } from './entities/attendance-session.entity';
 import { AttendanceRecord } from './entities/attendance-record.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { Student } from '../students/entities/student.entity';
+import { TeacherClassSection } from '../academics/entities/teacher-class-section.entity';
 import { SchoolCalendarService } from '../calendar/school-calendar.service';
 import { AttendanceAccessService } from './attendance-access.service';
 import { AuditService, RecordAuditEntryInput } from '../audit/audit.service';
@@ -31,9 +33,19 @@ import {
   daysBetween,
   isWeeklyOff,
   localToday,
+  policyForShift,
   resolveAttendancePolicy,
 } from './attendance-policy.util';
-import { CorrectRecordDto, PutRegisterDto, RegisterResponseDto } from './dto/attendance.dto';
+import {
+  CorrectRecordDto,
+  MatrixSaveResponseDto,
+  PeriodDto,
+  PutRegisterDto,
+  PutRegisterMatrixDto,
+  RegisterResponseDto,
+} from './dto/attendance.dto';
+import { Subject } from '../academics/entities/subject.entity';
+import { Teacher } from '../academics/entities/teacher.entity';
 import { AbsenceNoticeService } from './absence-notice.service';
 
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
@@ -93,6 +105,10 @@ export class AttendanceService {
     private readonly sectionRepo: Repository<ClassSection>,
     @InjectRepository(Student)
     private readonly studentRepo: Repository<Student>,
+    @InjectRepository(Subject)
+    private readonly subjectRepo: Repository<Subject>,
+    @InjectRepository(Teacher)
+    private readonly teacherRepo: Repository<Teacher>,
     @InjectDataSource()
     private readonly dataSource: DataSource,
     private readonly attendanceAccessService: AttendanceAccessService,
@@ -108,21 +124,28 @@ export class AttendanceService {
 
   async listMySections(params: { role: string; userId: string; tenantId: string; date?: string }) {
     const { role, userId, tenantId } = params;
+
+    // `date` defaults to the tenant's local today (not the server's UTC
+    // day) when the caller doesn't supply one — this is the teacher's
+    // landing screen, so "today" must mean the school's today.
+    const settings = await this.schoolsService.getResolvedSettings(tenantId);
+    const tenantToday = localToday(settings.region?.timezone ?? 'UTC');
+    const date = params.date ?? tenantToday;
+    // Same rule and status as `writeRegisterDay`: a tenant that allows future
+    // dates (leave marked ahead) may also list them.
+    if (date > tenantToday && !resolveAttendancePolicy(settings).allowFutureDates) {
+      throw new UnprocessableEntityException({
+        message: 'Cannot list attendance for a future date',
+        details: { code: 'ATTENDANCE_FUTURE_DATE' },
+      });
+    }
+
     const sections = await this.attendanceAccessService.listMarkableSections(
       role,
       userId,
       tenantId,
     );
     if (sections.length === 0) return [];
-
-    // `date` defaults to the tenant's local today (not the server's UTC
-    // day) when the caller doesn't supply one — this is the teacher's
-    // landing screen, so "today" must mean the school's today.
-    const date =
-      params.date ??
-      localToday(
-        (await this.schoolsService.getResolvedSettings(tenantId)).region?.timezone ?? 'UTC',
-      );
 
     const sectionIds = sections.map((s) => s.id);
 
@@ -139,8 +162,10 @@ export class AttendanceService {
     const studentCounts = new Map(studentCountRows.map((r) => [r.section_id, Number(r.count)]));
 
     // One query for every section's session on this date, not one per section.
+    // Whole-day registers only: a period register on the same date must not
+    // overwrite the day register in the per-section map below.
     const sessions = await this.sessionRepo.find({
-      where: { tenant_id: tenantId, section_id: In(sectionIds), date },
+      where: { tenant_id: tenantId, section_id: In(sectionIds), date, period_no: IsNull() },
     });
     const sessionBySectionId = new Map(sessions.map((s) => [s.section_id, s]));
     const sessionIds = sessions.map((s) => s.id);
@@ -169,6 +194,38 @@ export class AttendanceService {
       }
     }
 
+    // One grouped query for every section's class teacher (never per section).
+    // Only CLASS_TEACHER rows count: assistants and subject teachers are not
+    // the class teacher. If a section somehow has two, the first by name wins.
+    const classTeacherRows = await this.dataSource
+      .getRepository(TeacherClassSection)
+      .createQueryBuilder('tcs')
+      .innerJoin('tcs.teacher', 'teacher')
+      .innerJoin('teacher.user', 'user')
+      .select('tcs.section_id', 'section_id')
+      .addSelect('user.full_name', 'full_name')
+      .where('tcs.tenant_id = :tenantId', { tenantId })
+      .andWhere('tcs.section_id IN (:...sectionIds)', { sectionIds })
+      .andWhere('tcs.assignment_type = :type', { type: TeacherAssignmentType.CLASS_TEACHER })
+      .orderBy('user.full_name', 'ASC')
+      .getRawMany<{ section_id: string; full_name: string }>();
+    const classTeacherBySectionId = new Map<string, string>();
+    for (const row of classTeacherRows) {
+      if (!classTeacherBySectionId.has(row.section_id)) {
+        classTeacherBySectionId.set(row.section_id, row.full_name);
+      }
+    }
+
+    // Working-day check once per distinct class (a holiday can be class-scoped).
+    const classIds = [...new Set(sections.map((s) => s.class_id))];
+    const workingByClassId = new Map<string, boolean>();
+    for (const classId of classIds) {
+      workingByClassId.set(
+        classId,
+        !(await this.schoolCalendarService.isNonWorkingDay({ tenantId, date, classId })),
+      );
+    }
+
     return sections.map((section) => {
       const session = sessionBySectionId.get(section.id);
       const studentCount = studentCounts.get(section.id) ?? 0;
@@ -192,8 +249,11 @@ export class AttendanceService {
       return {
         section_id: section.id,
         section_name: section.section_name,
+        class_id: section.class_id,
         class_name: className,
         student_count: studentCount,
+        class_teacher_name: classTeacherBySectionId.get(section.id) ?? null,
+        is_working_day: workingByClassId.get(section.class_id) ?? true,
         today,
       };
     });
@@ -212,7 +272,7 @@ export class AttendanceService {
     userId: string;
   }): Promise<RegisterResponseDto> {
     const { sectionId, date, periodNo, tenantId, role, userId } = params;
-    await this.attendanceAccessService.assertCanAccessSection(role, userId, sectionId, tenantId);
+    await this.assertRegisterAccess(role, userId, sectionId, tenantId, date, periodNo);
     return this.loadRegister(this.dataSource.manager, {
       sectionId,
       date,
@@ -237,15 +297,15 @@ export class AttendanceService {
   }): Promise<RegisterResponseDto> {
     const { sectionId, tenantId, role, userId, dto, ip, userAgent } = params;
 
-    // 1. Object-level access.
-    await this.attendanceAccessService.assertCanAccessSection(role, userId, sectionId, tenantId);
+    const periodNo = dto.period_no ?? null;
+
+    // 1. Object-level access (and the period switch, for a period register).
+    await this.assertRegisterAccess(role, userId, sectionId, tenantId, dto.date, periodNo);
 
     // 3. Date sanity.
     if (!DATE_ONLY.test(dto.date)) {
       throw new BadRequestException('date must be YYYY-MM-DD');
     }
-
-    const periodNo = dto.period_no ?? null;
 
     // 8 (part). Duplicate student_id is a 400 (malformed request), checked
     // before anything transactional.
@@ -261,286 +321,13 @@ export class AttendanceService {
     // mapped to the same 409 the version check above already returns.
     let result: RegisterResponseDto;
     try {
-      result = await this.dataSource.transaction(async (manager) => {
-        const sessionRepo = manager.getRepository(AttendanceSession);
-        const recordRepo = manager.getRepository(AttendanceRecord);
-        const studentRepo = manager.getRepository(Student);
-
-        const settings = await this.schoolsService.getResolvedSettings(tenantId);
-        const policy = resolveAttendancePolicy(settings);
-        const timezone = settings.region?.timezone ?? 'UTC';
-        const today = localToday(timezone);
-
-        // Pessimistic lock: two concurrent PUTs for the same session must serialize,
-        // not both read the same version and race to overwrite each other.
-        let session = await sessionRepo.findOne({
-          where: {
-            tenant_id: tenantId,
-            section_id: sectionId,
-            date: dto.date,
-            period_no: periodNo === null ? IsNull() : periodNo,
-          },
-          lock: { mode: 'pessimistic_write' },
-        });
-
-        // 2. Idempotency — checked before the version check, so a replay of an
-        // already-accepted write reads as a 200, never as a conflict.
-        if (session && session.last_client_request_id === dto.client_request_id) {
-          return this.loadRegister(manager, {
-            sectionId,
-            date: dto.date,
-            periodNo,
-            tenantId,
-            role,
-          });
-        }
-
-        // 4. Future date.
-        if (dto.date > today) {
-          if (!policy.allowFutureDates) {
-            throw new UnprocessableEntityException({
-              message: 'Cannot mark attendance for a future date',
-              details: { code: 'ATTENDANCE_FUTURE_DATE' },
-            });
-          }
-          const hasNonLeaveEntry = dto.entries.some((e) => e.status !== AttendanceStatus.LEAVE);
-          if (hasNonLeaveEntry) {
-            throw new UnprocessableEntityException({
-              message: 'Only LEAVE may be marked for a future date',
-              details: { code: 'ATTENDANCE_FUTURE_NOT_LEAVE' },
-            });
-          }
-        }
-
-        // 5. Non-working day, per the shared calendar service.
-        const hasCorrect = roleHasPermission(role, Permission.ATTENDANCE_CORRECT);
-        const nonWorkingDay = await this.schoolCalendarService.isNonWorkingDay({
-          tenantId,
-          date: dto.date,
-        });
-        if (nonWorkingDay && !(dto.force_non_working_day === true && hasCorrect)) {
-          throw new UnprocessableEntityException({
-            message: 'Cannot mark attendance on a non-working day',
-            details: { code: 'ATTENDANCE_NON_WORKING_DAY' },
-          });
-        }
-
-        // 6. Correction window — only applies when correcting an *existing*
-        // register; the first-ever submission for a day is never "outside
-        // the window".
-        const age = daysBetween(dto.date, today);
-        if (session && age > policy.correctionWindowDays) {
-          if (!hasCorrect) {
-            throw new ForbiddenException({
-              message: 'This register is outside the correction window',
-              details: { code: 'ATTENDANCE_WINDOW_CLOSED' },
-            });
-          }
-          if (isReasonTooShort(dto.reason)) {
-            throw new UnprocessableEntityException({
-              message: `A reason of at least ${MIN_REASON_LENGTH} characters is required to correct this register`,
-              details: { code: 'ATTENDANCE_REASON_REQUIRED' },
-            });
-          }
-        }
-
-        // 6a. Finalized registers are locked against routine edits. Only a
-        // caller holding ATTENDANCE_CORRECT may reopen one, and only with a
-        // reason — otherwise a same-section caller could silently overwrite a
-        // finalized register just by matching its base_version.
-        if (session && session.state === AttendanceSessionState.FINALIZED) {
-          if (!hasCorrect) {
-            throw new ForbiddenException({
-              message: 'This register has been finalized',
-              details: { code: 'ATTENDANCE_FINALIZED' },
-            });
-          }
-          if (isReasonTooShort(dto.reason)) {
-            throw new UnprocessableEntityException({
-              message: `A reason of at least ${MIN_REASON_LENGTH} characters is required to edit a finalized register`,
-              details: { code: 'ATTENDANCE_REASON_REQUIRED' },
-            });
-          }
-        }
-
-        // 7. Version — a mismatch carries the full current register, which is
-        // the payload [8.12.5]'s conflict dialog renders.
-        const currentVersion = session?.version ?? 0;
-        if (dto.base_version !== currentVersion) {
-          const currentRegister = await this.loadRegister(manager, {
-            sectionId,
-            date: dto.date,
-            periodNo,
-            tenantId,
-            role,
-          });
-          throw new ConflictException({
-            message: 'This register has changed since you last loaded it',
-            details: {
-              code: 'ATTENDANCE_VERSION_CONFLICT',
-              current_version: currentVersion,
-              register: currentRegister,
-            },
-          });
-        }
-
-        // 8. Roster membership.
-        const uniqueStudentIds = [...new Set(studentIds)];
-        const roster =
-          uniqueStudentIds.length > 0
-            ? await studentRepo.find({
-                where: {
-                  id: In(uniqueStudentIds),
-                  class_section_id: sectionId,
-                  tenant_id: tenantId,
-                },
-              })
-            : [];
-        const rosterIds = new Set(roster.map((s) => s.id));
-        const unknownStudentIds = uniqueStudentIds.filter((id) => !rosterIds.has(id));
-        if (unknownStudentIds.length > 0) {
-          throw new UnprocessableEntityException({
-            message: 'One or more students are not enrolled in this section',
-            details: { code: 'ATTENDANCE_UNKNOWN_STUDENTS', student_ids: unknownStudentIds },
-          });
-        }
-
-        // --- Write ---------------------------------------------------------
-        const isNewSession = !session;
-        if (!session) {
-          // `state`'s DB default only applies when the column is omitted from
-          // the INSERT — set it explicitly so the in-memory entity (and this
-          // request's audit/response payload) isn't left with `undefined`
-          // rather than the row's real value.
-          session = sessionRepo.create({
-            tenant_id: tenantId,
-            section_id: sectionId,
-            date: dto.date,
-            period_no: periodNo,
-            source: AttendanceSource.TEACHER,
-            state: AttendanceSessionState.DRAFT,
-          });
-        }
-        session.state = dto.finalize ? AttendanceSessionState.FINALIZED : session.state;
-        session.marked_by_user_id = userId;
-        session.marked_at = new Date();
-        session.last_client_request_id = dto.client_request_id;
-        if (dto.finalize) {
-          session.finalized_at = new Date();
-        }
-        session = await sessionRepo.save(session);
-
-        const existingRecords = await recordRepo.find({
-          where: { session_id: session.id, tenant_id: tenantId },
-        });
-        const existingByStudentId = new Map(existingRecords.map((r) => [r.student_id, r]));
-
-        const recordAudits: RecordAuditEntryInput[] = [];
-        const counts = emptyCounts();
-
-        for (const entry of dto.entries) {
-          tallyStatus(counts, entry.status);
-          const minutesLate =
-            entry.status === AttendanceStatus.LATE ? (entry.minutes_late ?? null) : null;
-          const remarks = entry.remarks ?? null;
-          const existing = existingByStudentId.get(entry.student_id);
-
-          if (!existing) {
-            const created = await recordRepo.save(
-              recordRepo.create({
-                tenant_id: tenantId,
-                session_id: session.id,
-                student_id: entry.student_id,
-                date: session.date,
-                status: entry.status,
-                minutes_late: minutesLate,
-                remarks,
-                source: AttendanceSource.TEACHER,
-                recorded_by_user_id: userId,
-              }),
-            );
-            recordAudits.push({
-              action: AuditAction.CREATE,
-              entity_type: 'AttendanceRecord',
-              entity_id: created.id,
-              tenant_id: tenantId,
-              performed_by_user_id: userId,
-              ip_address: ip,
-              user_agent: userAgent,
-              old_values: null,
-              new_values: {
-                status: created.status,
-                minutes_late: created.minutes_late,
-                remarks: created.remarks,
-              },
-            });
-            continue;
-          }
-
-          const changed =
-            existing.status !== entry.status ||
-            existing.minutes_late !== minutesLate ||
-            existing.remarks !== remarks;
-          // Unchanged records get no audit row — a register submitted twice
-          // with the same marks must not produce a wall of audit noise.
-          if (!changed) continue;
-
-          const oldValues = {
-            status: existing.status,
-            minutes_late: existing.minutes_late,
-            remarks: existing.remarks,
-          };
-          existing.status = entry.status;
-          existing.minutes_late = minutesLate;
-          existing.remarks = remarks;
-          existing.recorded_by_user_id = userId;
-          await recordRepo.save(existing);
-
-          recordAudits.push({
-            action: AuditAction.UPDATE,
-            entity_type: 'AttendanceRecord',
-            entity_id: existing.id,
-            tenant_id: tenantId,
-            performed_by_user_id: userId,
-            ip_address: ip,
-            user_agent: userAgent,
-            old_values: oldValues,
-            new_values: {
-              status: existing.status,
-              minutes_late: existing.minutes_late,
-              remarks: existing.remarks,
-              reason: dto.reason ?? null,
-            },
-          });
-        }
-
-        await this.auditService.record(
-          {
-            action: isNewSession ? AuditAction.CREATE : AuditAction.UPDATE,
-            entity_type: 'AttendanceSession',
-            entity_id: session.id,
-            tenant_id: tenantId,
-            performed_by_user_id: userId,
-            ip_address: ip,
-            user_agent: userAgent,
-            old_values: null,
-            new_values: {
-              date: session.date,
-              period_no: session.period_no,
-              state: session.state,
-              version: session.version,
-              counts,
-            },
-          },
+      result = await this.dataSource.transaction((manager) =>
+        this.writeRegisterDay(
           manager,
-        );
-
-        for (const entry of recordAudits) {
-          await this.auditService.record(entry, manager);
-        }
-
-        return this.loadRegister(manager, { sectionId, date: dto.date, periodNo, tenantId, role });
-      });
+          { sectionId, tenantId, role, userId, ip, userAgent, matrix: false },
+          dto,
+        ),
+      );
     } catch (err) {
       if (
         err instanceof QueryFailedError &&
@@ -587,6 +374,545 @@ export class AttendanceService {
     return result;
   }
 
+  /**
+   * The write of one section-day, run inside the caller's transaction: the
+   * idempotency / future-date / non-working-day / window / finalized / version
+   * / roster checks, then the session, records and audit rows. Shared by
+   * `putRegister` (one day) and `putRegisterMatrix` (many days, one
+   * transaction). `ctx.matrix` only changes how an entry without
+   * `minutes_late` / `remarks` is treated: the matrix has no such fields, so it
+   * keeps what is stored instead of wiping it.
+   */
+  private async writeRegisterDay(
+    manager: EntityManager,
+    ctx: {
+      sectionId: string;
+      tenantId: string;
+      role: string;
+      userId: string;
+      ip: string | null;
+      userAgent: string | null;
+      matrix: boolean;
+    },
+    dto: PutRegisterDto,
+  ): Promise<RegisterResponseDto> {
+    const { sectionId, tenantId, role, userId, ip, userAgent } = ctx;
+    const periodNo = dto.period_no ?? null;
+    const studentIds = dto.entries.map((e) => e.student_id);
+    const sessionRepo = manager.getRepository(AttendanceSession);
+    const recordRepo = manager.getRepository(AttendanceRecord);
+    const studentRepo = manager.getRepository(Student);
+
+    const settings = await this.schoolsService.getResolvedSettings(tenantId);
+    const policy = resolveAttendancePolicy(settings);
+    const timezone = settings.region?.timezone ?? 'UTC';
+    const today = localToday(timezone);
+
+    // Pessimistic lock: two concurrent PUTs for the same session must serialize,
+    // not both read the same version and race to overwrite each other.
+    let session = await sessionRepo.findOne({
+      where: {
+        tenant_id: tenantId,
+        section_id: sectionId,
+        date: dto.date,
+        period_no: periodNo === null ? IsNull() : periodNo,
+      },
+      lock: { mode: 'pessimistic_write' },
+    });
+
+    // A NEW period register must be one the routine schedules that day; its
+    // subject is snapshotted onto the session now (D21). An existing one is
+    // never re-checked: a slot cancelled or a routine unpublished later must
+    // not lock a teacher (or a queued offline replay) out of their own draft.
+    let periodSubjectId: string | null = null;
+    if (!session && periodNo !== null) {
+      const period = (
+        await this.attendanceAccessService.resolvePeriods(tenantId, sectionId, dto.date)
+      ).find((p) => p.period_no === periodNo);
+      if (!period) {
+        throw new BadRequestException({
+          message: 'That period is not scheduled for this section on this date',
+          details: { code: 'ATTENDANCE_PERIOD_NOT_SCHEDULED' },
+        });
+      }
+      periodSubjectId = period.subject_id;
+    }
+
+    // 2. Idempotency — checked before the version check, so a replay of an
+    // already-accepted write reads as a 200, never as a conflict.
+    // The matrix checks its own replay over all its days (`putRegisterMatrix`),
+    // so a per-day early return here would silently skip a day.
+    if (!ctx.matrix && session && session.last_client_request_id === dto.client_request_id) {
+      return this.loadRegister(manager, {
+        sectionId,
+        date: dto.date,
+        periodNo,
+        tenantId,
+        role,
+      });
+    }
+
+    // 4. Future date.
+    if (dto.date > today) {
+      if (!policy.allowFutureDates) {
+        throw new UnprocessableEntityException({
+          message: 'Cannot mark attendance for a future date',
+          details: { code: 'ATTENDANCE_FUTURE_DATE' },
+        });
+      }
+      const hasNonLeaveEntry = dto.entries.some((e) => e.status !== AttendanceStatus.LEAVE);
+      if (hasNonLeaveEntry) {
+        throw new UnprocessableEntityException({
+          message: 'Only LEAVE may be marked for a future date',
+          details: { code: 'ATTENDANCE_FUTURE_NOT_LEAVE' },
+        });
+      }
+    }
+
+    // 5. Non-working day, per the shared calendar service.
+    const hasCorrect = roleHasPermission(role, Permission.ATTENDANCE_CORRECT);
+    // Class-scoped holidays block only that class (#1585), so look up the
+    // section's class — tenant-filtered, the access gate already passed. Fails
+    // closed: no row must never fall back to the tenant-wide check.
+    const sectionRow = await manager
+      .getRepository(ClassSection)
+      .findOne({ where: { id: sectionId, tenant_id: tenantId } });
+    if (!sectionRow) {
+      throw new NotFoundException('Class section not found');
+    }
+    const nonWorkingDay = await this.schoolCalendarService.isNonWorkingDay({
+      tenantId,
+      date: dto.date,
+      classId: sectionRow.class_id,
+    });
+    if (nonWorkingDay && !(dto.force_non_working_day === true && hasCorrect)) {
+      throw new UnprocessableEntityException({
+        message: 'Cannot mark attendance on a non-working day',
+        details: { code: 'ATTENDANCE_NON_WORKING_DAY' },
+      });
+    }
+
+    // 6. Correction window — only applies when correcting an *existing*
+    // register; the first-ever submission for a day is never "outside
+    // the window".
+    const age = daysBetween(dto.date, today);
+    if (session && age > policy.correctionWindowDays) {
+      if (!hasCorrect) {
+        throw new ForbiddenException({
+          message: 'This register is outside the correction window',
+          details: { code: 'ATTENDANCE_WINDOW_CLOSED' },
+        });
+      }
+      if (isReasonTooShort(dto.reason)) {
+        throw new UnprocessableEntityException({
+          message: `A reason of at least ${MIN_REASON_LENGTH} characters is required to correct this register`,
+          details: { code: 'ATTENDANCE_REASON_REQUIRED' },
+        });
+      }
+    }
+
+    // 6a. Finalized registers are locked against routine edits. Only a
+    // caller holding ATTENDANCE_CORRECT may reopen one, and only with a
+    // reason — otherwise a same-section caller could silently overwrite a
+    // finalized register just by matching its base_version.
+    if (session && session.state === AttendanceSessionState.FINALIZED) {
+      if (!hasCorrect) {
+        throw new ForbiddenException({
+          message: 'This register has been finalized',
+          details: { code: 'ATTENDANCE_FINALIZED' },
+        });
+      }
+      if (isReasonTooShort(dto.reason)) {
+        throw new UnprocessableEntityException({
+          message: `A reason of at least ${MIN_REASON_LENGTH} characters is required to edit a finalized register`,
+          details: { code: 'ATTENDANCE_REASON_REQUIRED' },
+        });
+      }
+    }
+
+    // 7. Version — a mismatch carries the full current register, which is
+    // the payload [8.12.5]'s conflict dialog renders.
+    const currentVersion = session?.version ?? 0;
+    if (dto.base_version !== currentVersion) {
+      const currentRegister = await this.loadRegister(manager, {
+        sectionId,
+        date: dto.date,
+        periodNo,
+        tenantId,
+        role,
+      });
+      throw new ConflictException({
+        message: 'This register has changed since you last loaded it',
+        details: {
+          code: 'ATTENDANCE_VERSION_CONFLICT',
+          current_version: currentVersion,
+          register: currentRegister,
+        },
+      });
+    }
+
+    // 8. Roster membership.
+    const uniqueStudentIds = [...new Set(studentIds)];
+    const roster =
+      uniqueStudentIds.length > 0
+        ? await studentRepo.find({
+            where: {
+              id: In(uniqueStudentIds),
+              class_section_id: sectionId,
+              tenant_id: tenantId,
+            },
+          })
+        : [];
+    const rosterIds = new Set(roster.map((s) => s.id));
+    const unknownStudentIds = uniqueStudentIds.filter((id) => !rosterIds.has(id));
+    if (unknownStudentIds.length > 0) {
+      throw new UnprocessableEntityException({
+        message: 'One or more students are not enrolled in this section',
+        details: { code: 'ATTENDANCE_UNKNOWN_STUDENTS', student_ids: unknownStudentIds },
+      });
+    }
+
+    // --- Write ---------------------------------------------------------
+    const isNewSession = !session;
+    if (!session) {
+      // `state`'s DB default only applies when the column is omitted from
+      // the INSERT — set it explicitly so the in-memory entity (and this
+      // request's audit/response payload) isn't left with `undefined`
+      // rather than the row's real value.
+      session = sessionRepo.create({
+        tenant_id: tenantId,
+        section_id: sectionId,
+        date: dto.date,
+        period_no: periodNo,
+        // Snapshot, never updated afterwards (D21).
+        subject_id: periodSubjectId,
+        source: AttendanceSource.TEACHER,
+        state: AttendanceSessionState.DRAFT,
+      });
+    }
+    session.state = dto.finalize ? AttendanceSessionState.FINALIZED : session.state;
+    session.marked_by_user_id = userId;
+    session.marked_at = new Date();
+    session.last_client_request_id = dto.client_request_id;
+    if (dto.finalize) {
+      session.finalized_at = new Date();
+    }
+    session = await sessionRepo.save(session);
+
+    const existingRecords = await recordRepo.find({
+      where: { session_id: session.id, tenant_id: tenantId },
+    });
+    const existingByStudentId = new Map(existingRecords.map((r) => [r.student_id, r]));
+
+    const recordAudits: RecordAuditEntryInput[] = [];
+    const counts = emptyCounts();
+
+    for (const entry of dto.entries) {
+      tallyStatus(counts, entry.status);
+      const existing = existingByStudentId.get(entry.student_id);
+      // The matrix sends only a status, so it keeps what is stored: a mark that
+      // stays LATE keeps its minutes, anything else clears them; remarks stay.
+      const keptMinutes = existing?.status === AttendanceStatus.LATE ? existing.minutes_late : null;
+      const minutesLate =
+        entry.status === AttendanceStatus.LATE
+          ? (entry.minutes_late ?? (ctx.matrix ? keptMinutes : null))
+          : null;
+      const remarks = entry.remarks ?? (ctx.matrix ? (existing?.remarks ?? null) : null);
+
+      if (!existing) {
+        const created = await recordRepo.save(
+          recordRepo.create({
+            tenant_id: tenantId,
+            session_id: session.id,
+            student_id: entry.student_id,
+            date: session.date,
+            status: entry.status,
+            minutes_late: minutesLate,
+            remarks,
+            source: AttendanceSource.TEACHER,
+            recorded_by_user_id: userId,
+          }),
+        );
+        recordAudits.push({
+          action: AuditAction.CREATE,
+          entity_type: 'AttendanceRecord',
+          entity_id: created.id,
+          tenant_id: tenantId,
+          performed_by_user_id: userId,
+          ip_address: ip,
+          user_agent: userAgent,
+          old_values: null,
+          new_values: {
+            status: created.status,
+            minutes_late: created.minutes_late,
+            remarks: created.remarks,
+          },
+        });
+        continue;
+      }
+
+      const changed =
+        existing.status !== entry.status ||
+        existing.minutes_late !== minutesLate ||
+        existing.remarks !== remarks;
+      // Unchanged records get no audit row — a register submitted twice
+      // with the same marks must not produce a wall of audit noise.
+      if (!changed) continue;
+
+      const oldValues = {
+        status: existing.status,
+        minutes_late: existing.minutes_late,
+        remarks: existing.remarks,
+      };
+      existing.status = entry.status;
+      existing.minutes_late = minutesLate;
+      existing.remarks = remarks;
+      existing.recorded_by_user_id = userId;
+      await recordRepo.save(existing);
+
+      recordAudits.push({
+        action: AuditAction.UPDATE,
+        entity_type: 'AttendanceRecord',
+        entity_id: existing.id,
+        tenant_id: tenantId,
+        performed_by_user_id: userId,
+        ip_address: ip,
+        user_agent: userAgent,
+        old_values: oldValues,
+        new_values: {
+          status: existing.status,
+          minutes_late: existing.minutes_late,
+          remarks: existing.remarks,
+          reason: dto.reason ?? null,
+        },
+      });
+    }
+
+    await this.auditService.record(
+      {
+        action: isNewSession ? AuditAction.CREATE : AuditAction.UPDATE,
+        entity_type: 'AttendanceSession',
+        entity_id: session.id,
+        tenant_id: tenantId,
+        performed_by_user_id: userId,
+        ip_address: ip,
+        user_agent: userAgent,
+        old_values: null,
+        new_values: {
+          date: session.date,
+          period_no: session.period_no,
+          state: session.state,
+          version: session.version,
+          counts,
+        },
+      },
+      manager,
+    );
+
+    for (const entry of recordAudits) {
+      await this.auditService.record(entry, manager);
+    }
+
+    return this.loadRegister(manager, { sectionId, date: dto.date, periodNo, tenantId, role });
+  }
+
+  // ---------------------------------------------------------------------
+  // PUT /attendance/sections/:sectionId/register-matrix
+  // ---------------------------------------------------------------------
+
+  /**
+   * Many days of one section's whole-day register in ONE transaction — every
+   * day is checked before any is written, and any failure rejects them all.
+   * Each day is then written by the same `writeRegisterDay` as `putRegister`.
+   * Never touches period registers, never queues a guardian notification.
+   * `ponytail:` per-day writes, all in one transaction: one save + one audit
+   * insert per changed record, plus `loadRegister` (~8 queries) per day — a
+   * 26-day month for 60 students is ~3.5k queries. Batch the inserts and
+   * reads if a month save is ever measurably slow.
+   */
+  async putRegisterMatrix(params: {
+    sectionId: string;
+    tenantId: string;
+    role: string;
+    userId: string;
+    dto: PutRegisterMatrixDto;
+    ip: string | null;
+    userAgent: string | null;
+  }): Promise<MatrixSaveResponseDto> {
+    const { sectionId, tenantId, role, userId, dto, ip, userAgent } = params;
+    const section = await this.attendanceAccessService.assertCanAccessSection(
+      role,
+      userId,
+      sectionId,
+      tenantId,
+    );
+
+    const dates = dto.days.map((d) => d.date);
+    if (new Set(dates).size !== dates.length) {
+      throw new BadRequestException('days contains a duplicate date');
+    }
+    if (new Set(dates.map((d) => d.slice(0, 7))).size !== 1) {
+      throw new BadRequestException('All days must be in the same calendar month');
+    }
+    for (const day of dto.days) {
+      const ids = day.entries.map((e) => e.student_id);
+      if (new Set(ids).size !== ids.length) {
+        throw new BadRequestException(`entries for ${day.date} contain a duplicate student_id`);
+      }
+    }
+
+    try {
+      return await this.dataSource.transaction(async (manager) => {
+        const settings = await this.schoolsService.getResolvedSettings(tenantId);
+        const policy = resolveAttendancePolicy(settings);
+        const today = localToday(settings.region?.timezone ?? 'UTC');
+        const hasCorrect = roleHasPermission(role, Permission.ATTENDANCE_CORRECT);
+
+        // Lock the existing day sessions so two matrix saves serialize.
+        const sessions = await manager.getRepository(AttendanceSession).find({
+          where: {
+            tenant_id: tenantId,
+            section_id: sectionId,
+            date: In(dates),
+            period_no: IsNull(),
+          },
+          lock: { mode: 'pessimistic_write' },
+        });
+        const sessionByDate = new Map(sessions.map((s) => [s.date, s]));
+        const sortedDates = [...dates].sort();
+
+        // Replay: every day already carries this request id -> same 200, no writes.
+        // Only some days carrying it means either the id was reused for a
+        // different request, or someone else saved some of these days since
+        // (a legit retry): reject it rather than skip those days.
+        const replayed = sortedDates.filter(
+          (d) => sessionByDate.get(d)?.last_client_request_id === dto.client_request_id,
+        );
+        if (replayed.length === sortedDates.length) {
+          return {
+            saved_dates: sortedDates,
+            versions: Object.fromEntries(
+              sortedDates.map((d) => [d, sessionByDate.get(d)!.version]),
+            ),
+          };
+        }
+        if (replayed.length > 0) {
+          throw new ConflictException({
+            message:
+              'This client_request_id was already used, or some of these days changed since. ' +
+              'Reload the month and try again',
+            details: { code: 'ATTENDANCE_MATRIX_REQUEST_REUSED', dates: replayed },
+          });
+        }
+
+        // 1. Locked dates: the future, or not a school day for this class.
+        const { dates: workingDates } = await this.schoolCalendarService.getWorkingDays({
+          tenantId,
+          from: sortedDates[0],
+          to: sortedDates[sortedDates.length - 1],
+          classId: section.class_id,
+        });
+        const working = new Set(workingDates);
+        const locked = sortedDates.filter((d) => d > today || !working.has(d));
+        if (locked.length > 0) {
+          throw new UnprocessableEntityException({
+            message: 'Some days cannot be marked (future date or non-working day)',
+            details: { code: 'ATTENDANCE_MATRIX_LOCKED_DATE', dates: locked },
+          });
+        }
+
+        // 2. Stale days: the client saw a different version (null = "no register").
+        const stale = dto.days
+          .filter((d) => d.base_version !== (sessionByDate.get(d.date)?.version ?? null))
+          .map((d) => d.date)
+          .sort();
+        if (stale.length > 0) {
+          throw new ConflictException({
+            message: 'Some days changed since you opened the month',
+            details: { code: 'ATTENDANCE_MATRIX_CONFLICT', dates: stale },
+          });
+        }
+
+        // 2a. A new register needs at least one mark: a back-filled past day is
+        // born FINALIZED (D22), so an empty one could only be fixed with
+        // ATTENDANCE_CORRECT.
+        const empty = dto.days
+          .filter((d) => !sessionByDate.has(d.date) && d.entries.length === 0)
+          .map((d) => d.date)
+          .sort();
+        if (empty.length > 0) {
+          throw new UnprocessableEntityException({
+            message: 'A day with no register yet needs at least one mark',
+            details: { code: 'ATTENDANCE_MATRIX_EMPTY_DAY', dates: empty },
+          });
+        }
+
+        // 3. Closed days (outside the window, or FINALIZED) need ATTENDANCE_CORRECT + a reason.
+        const closed = sortedDates.filter((d) => {
+          const s = sessionByDate.get(d);
+          return (
+            !!s &&
+            (daysBetween(d, today) > policy.correctionWindowDays ||
+              s.state === AttendanceSessionState.FINALIZED)
+          );
+        });
+        if (closed.length > 0) {
+          if (!hasCorrect) {
+            throw new ForbiddenException({
+              message: 'Some of these registers are outside the correction window or finalized',
+              details: { code: 'ATTENDANCE_WINDOW_CLOSED', dates: closed },
+            });
+          }
+          if (isReasonTooShort(dto.reason)) {
+            throw new UnprocessableEntityException({
+              message: `A reason of at least ${MIN_REASON_LENGTH} characters is required to correct these registers`,
+              details: { code: 'ATTENDANCE_REASON_REQUIRED', dates: closed },
+            });
+          }
+        }
+
+        // Write every day with the same manager — one transaction.
+        const ctx = {
+          sectionId,
+          tenantId,
+          role,
+          userId,
+          ip,
+          userAgent,
+          matrix: true,
+        };
+        const versions: Record<string, number> = {};
+        for (const day of [...dto.days].sort((a, b) => a.date.localeCompare(b.date))) {
+          const existing = sessionByDate.get(day.date);
+          const register = await this.writeRegisterDay(manager, ctx, {
+            date: day.date,
+            period_no: null,
+            base_version: existing?.version ?? 0,
+            client_request_id: dto.client_request_id,
+            // D22: a back-filled past day is born FINALIZED, today stays DRAFT;
+            // an existing register keeps its state.
+            finalize: !existing && day.date < today,
+            reason: dto.reason,
+            entries: day.entries,
+          });
+          versions[day.date] = register.session.version;
+        }
+        return { saved_dates: sortedDates, versions };
+      });
+    } catch (err) {
+      if (
+        err instanceof QueryFailedError &&
+        (err as unknown as { code?: string }).code === '23505'
+      ) {
+        throw new ConflictException({
+          message: 'A register was just created by another request',
+          details: { code: 'ATTENDANCE_SESSION_RACE' },
+        });
+      }
+      throw err;
+    }
+  }
+
   // ---------------------------------------------------------------------
   // POST /attendance/sections/:sectionId/register/finalize
   // ---------------------------------------------------------------------
@@ -602,7 +928,7 @@ export class AttendanceService {
     userAgent: string | null;
   }): Promise<RegisterResponseDto> {
     const { sectionId, tenantId, role, userId, date, periodNo, ip, userAgent } = params;
-    await this.attendanceAccessService.assertCanAccessSection(role, userId, sectionId, tenantId);
+    await this.assertRegisterAccess(role, userId, sectionId, tenantId, date, periodNo);
 
     return this.dataSource.transaction(async (manager) => {
       const sessionRepo = manager.getRepository(AttendanceSession);
@@ -687,11 +1013,13 @@ export class AttendanceService {
         throw new NotFoundException('Attendance session not found');
       }
 
-      await this.attendanceAccessService.assertCanAccessSection(
+      await this.assertRegisterAccess(
         role,
         userId,
         session.section_id,
         tenantId,
+        session.date,
+        session.period_no,
       );
 
       const settings = await this.schoolsService.getResolvedSettings(tenantId);
@@ -785,11 +1113,15 @@ export class AttendanceService {
       throw new NotFoundException('Attendance session not found');
     }
 
-    await this.attendanceAccessService.assertCanAccessSection(
+    // Same gate as the register itself: the period switch (D18) and that
+    // period's substitute apply to a period record's history too.
+    await this.assertRegisterAccess(
       role,
       userId,
       session.section_id,
       tenantId,
+      session.date,
+      session.period_no,
     );
 
     const result = await this.auditService.findByEntity(
@@ -802,8 +1134,105 @@ export class AttendanceService {
   }
 
   // ---------------------------------------------------------------------
+  // GET /attendance/sections/:sectionId/periods
+  // ---------------------------------------------------------------------
+
+  async listPeriods(params: {
+    sectionId: string;
+    date: string;
+    tenantId: string;
+    role: string;
+    userId: string;
+  }): Promise<PeriodDto[]> {
+    const { sectionId, date, tenantId, role, userId } = params;
+    if (!(await this.periodAttendanceEnabled(tenantId))) return [];
+    const periods = await this.attendanceAccessService.listAccessiblePeriods(
+      role,
+      userId,
+      sectionId,
+      tenantId,
+      date,
+    );
+    if (periods.length === 0) return [];
+
+    // One query each for subjects, teachers and sessions — not per period.
+    const subjectIds = [...new Set(periods.map((p) => p.subject_id))];
+    const teacherIds = [...new Set(periods.flatMap((p) => p.teacher_ids))];
+    const [subjects, teachers, sessions] = await Promise.all([
+      this.subjectRepo.find({ where: { id: In(subjectIds), tenant_id: tenantId } }),
+      teacherIds.length
+        ? this.teacherRepo.find({
+            where: { id: In(teacherIds), tenant_id: tenantId },
+            relations: ['user'],
+          })
+        : Promise.resolve([] as Teacher[]),
+      this.sessionRepo.find({
+        where: {
+          tenant_id: tenantId,
+          section_id: sectionId,
+          date,
+          period_no: In(periods.map((p) => p.period_no)),
+        },
+      }),
+    ]);
+    const subjectName = new Map(subjects.map((s) => [s.id, s.name_en]));
+    const teacherName = new Map(teachers.map((t) => [t.id, t.user?.full_name ?? '']));
+    const stateByPeriod = new Map(sessions.map((s) => [s.period_no, s.state]));
+
+    return periods.map((p) => ({
+      period_no: p.period_no,
+      name: p.name,
+      starts_at: p.starts_at,
+      ends_at: p.ends_at,
+      subject_id: p.subject_id,
+      subject_name: subjectName.get(p.subject_id) ?? null,
+      teacher_names: p.teacher_ids.map((id) => teacherName.get(id)).filter((n): n is string => !!n),
+      state: stateByPeriod.get(p.period_no) ?? null,
+    }));
+  }
+
+  // ---------------------------------------------------------------------
   // Internals
   // ---------------------------------------------------------------------
+
+  private async periodAttendanceEnabled(tenantId: string): Promise<boolean> {
+    const settings = await this.schoolsService.getResolvedSettings(tenantId);
+    return resolveAttendancePolicy(settings).periodAttendance?.enabled === true;
+  }
+
+  /**
+   * The one access gate for a register route. A period register is refused
+   * outright when the tenant's period switch is off (D18), then checked with
+   * the period gate (section access, or that date's substitute for that
+   * period); the day register keeps the plain section gate.
+   */
+  private async assertRegisterAccess(
+    role: string,
+    userId: string,
+    sectionId: string,
+    tenantId: string,
+    date: string,
+    periodNo: number | null,
+  ): Promise<void> {
+    if (periodNo === null) {
+      await this.attendanceAccessService.assertCanAccessSection(role, userId, sectionId, tenantId);
+      return;
+    }
+    if (!(await this.periodAttendanceEnabled(tenantId))) {
+      throw new ForbiddenException({
+        message: 'Period attendance is not enabled for this school',
+        details: { code: 'ATTENDANCE_PERIOD_DISABLED' },
+      });
+    }
+    await this.attendanceAccessService.assertCanAccessPeriod(
+      role,
+      userId,
+      sectionId,
+      tenantId,
+      date,
+      periodNo,
+    );
+  }
 
   /** See the class docstring for why this is derived rather than a column. */
   private async getCorrectionCounts(
@@ -890,8 +1319,31 @@ export class AttendanceService {
       records.map((r) => r.id),
     );
 
+    // D8: a period register not yet saved suggests ABSENT/LEAVE from that day's
+    // whole-day register. Read-only — nothing is written until the PUT.
+    const suggestedByStudentId = new Map<string, AttendanceStatus>();
+    if (periodNo !== null && !session) {
+      const daySession = await manager.getRepository(AttendanceSession).findOne({
+        where: { tenant_id: tenantId, section_id: sectionId, date, period_no: IsNull() },
+      });
+      if (daySession) {
+        const dayRecords = await manager.getRepository(AttendanceRecord).find({
+          where: { session_id: daySession.id, tenant_id: tenantId },
+        });
+        for (const r of dayRecords) {
+          if (r.status === AttendanceStatus.ABSENT || r.status === AttendanceStatus.LEAVE) {
+            suggestedByStudentId.set(r.student_id, r.status);
+          }
+        }
+      }
+    }
+
     const hasCorrect = roleHasPermission(role, Permission.ATTENDANCE_CORRECT);
-    const nonWorkingDay = await this.schoolCalendarService.isNonWorkingDay({ tenantId, date });
+    const nonWorkingDay = await this.schoolCalendarService.isNonWorkingDay({
+      tenantId,
+      date,
+      classId: section.class_id,
+    });
     const today = localToday(timezone);
     const reasonRequired = !!session && daysBetween(date, today) > policy.correctionWindowDays;
     const finalized = session?.state === AttendanceSessionState.FINALIZED;
@@ -931,7 +1383,7 @@ export class AttendanceService {
       reason_required: reasonRequired,
       non_working_day: nonWorkingDay,
       policy: {
-        late_after: policy.lateAfter,
+        late_after: policyForShift(policy, section.class?.shift_id).lateAfter,
         correction_window_days: policy.correctionWindowDays,
         allow_future_dates: policy.allowFutureDates,
       },
@@ -947,6 +1399,7 @@ export class AttendanceService {
           remarks: record?.remarks ?? null,
           source: record?.source ?? null,
           correction_count: record ? (correctionCounts.get(record.id) ?? 0) : 0,
+          suggested_status: suggestedByStudentId.get(s.id) ?? null,
         };
       }),
     };

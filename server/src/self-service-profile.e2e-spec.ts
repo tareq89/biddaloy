@@ -48,12 +48,13 @@ import {
 const API = '/api/v1';
 
 /**
- * SchoolManager's RolesGuard answers a role refusal with `UnauthorizedException`
- * (`context.guard.ts:139`), so a role-denied route is a **401**, not a 403.
- * Named here so the refusal assertions below read as intent rather than as
- * a typo.
+ * RolesGuard answers a role refusal with `ForbiddenException`, so a
+ * role-denied route is a **403** (it was 401 before #1360 / #729). Named here
+ * so the refusal assertions below read as intent.
  */
-const ROLE_DENIED = 401;
+const ROLE_DENIED = 403;
+/** A route whose redundant `@Roles` was retired (Epic 24): `PermissionsGuard` refuses with 403. */
+const PERMISSION_DENIED = 403;
 
 const TENANT_B = '00000000-0000-4000-8000-0000054a0001';
 
@@ -343,7 +344,7 @@ describe('[5.4a] Self-service profile', () => {
         .get(`${API}/users/${SEED_ADMIN_USER_ID}`)
         .set('Authorization', `Bearer ${parentToken}`)
         .set('X-Tenant-ID', SEED_TENANT_ID)
-        .expect(ROLE_DENIED);
+        .expect(PERMISSION_DENIED);
     });
 
     it('PARENT cannot GET /users/:id even for their OWN id (staff route stays staff)', async () => {
@@ -351,7 +352,7 @@ describe('[5.4a] Self-service profile', () => {
         .get(`${API}/users/${PARENT_USER_ID}`)
         .set('Authorization', `Bearer ${parentToken}`)
         .set('X-Tenant-ID', SEED_TENANT_ID)
-        .expect(ROLE_DENIED);
+        .expect(PERMISSION_DENIED);
     });
 
     it('PARENT cannot PATCH /users/:id for another user', async () => {
@@ -360,7 +361,7 @@ describe('[5.4a] Self-service profile', () => {
         .set('Authorization', `Bearer ${parentToken}`)
         .set('X-Tenant-ID', SEED_TENANT_ID)
         .send({ full_name: 'Owned' })
-        .expect(ROLE_DENIED);
+        .expect(PERMISSION_DENIED);
 
       const rows = await dataSource.query(`SELECT full_name FROM users WHERE id = $1`, [
         SEED_ADMIN_USER_ID,
@@ -552,7 +553,7 @@ describe('[5.4a] Self-service profile', () => {
         .set('Authorization', `Bearer ${parentToken}`)
         .set('X-Tenant-ID', SEED_TENANT_ID)
         .send({ full_name: 'Owned' })
-        .expect(ROLE_DENIED);
+        .expect(PERMISSION_DENIED);
     });
   });
 

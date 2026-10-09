@@ -68,6 +68,50 @@ describe('/students/$studentId/edit', () => {
     expect(patchBody).toMatchObject({ full_name: 'Rahim Uddin Khan' });
   });
 
+  it('keeps an old free-text gender selected so saving does not lose it', async () => {
+    const student = studentFactory({
+      id: 'student-1',
+      full_name: 'Rahim Uddin',
+      gender: 'Male (legacy)',
+      guardians: [],
+    });
+    let patchBody: Record<string, unknown> = {};
+    server.use(
+      http.get('/api/v1/students/:id', () => HttpResponse.json(student)),
+      http.patch('/api/v1/students/:id', async ({ request }) => {
+        patchBody = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json(student);
+      }),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/students/student-1/edit'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const gender = await screen.findByRole('combobox', { name: 'Gender' });
+    expect(gender.textContent).toContain('Male (legacy)');
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    await waitFor(() => expect(patchBody).toMatchObject({ gender: 'Male (legacy)' }));
+  });
+
+  it('renders the error state inside the full-page frame', async () => {
+    server.use(http.get('/api/v1/students/:id', () => new HttpResponse(null, { status: 404 })));
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/students/student-1/edit'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    expect(await screen.findByRole('heading', { name: 'Edit student' })).toBeTruthy();
+    expect(await screen.findByRole('button', { name: 'Close' })).toBeTruthy();
+  });
+
   it('is axe clean', async () => {
     const student = studentFactory({ id: 'student-1', guardians: [] });
     server.use(http.get('/api/v1/students/:id', () => HttpResponse.json(student)));

@@ -1,0 +1,88 @@
+{
+  "title": "Print designs",
+  "caption": "Your school's print designs",
+  "new": "New design",
+  "empty": {
+    "heading": "Start from a design",
+    "explanation": "Pick a design to begin. You can change everything in the editor."
+  },
+  "loadError": "Couldn't load the designs.",
+  "columns": {
+    "name": "Name",
+    "type": "Type",
+    "status": "Status",
+    "batch": "Cards per round",
+    "updated": "Last updated",
+    "actions": "Actions"
+  },
+  "kind": {
+    "STUDENT_ID_CARD": "Student ID card",
+    "STAFF_ID_CARD": "Staff ID card",
+    "ACR_ASSESSMENT": "ACR (confidential report)"
+  },
+  "status": {
+    "published": "Published",
+    "draft": "Draft only"
+  },
+  "default": "Default",
+  "filters": {
+    "kind": "Document type",
+    "allKinds": "All documents"
+  },
+  "actions": {
+    "edit": "Edit design",
+    "makeDefault": "Make default",
+    "archive": "Archive"
+  },
+  "archive": {
+    "title": "Archive {{name}}?",
+    "explain": "It will no longer be offered when printing. Past prints keep their record.",
+    "confirm": "Archive",
+    "cancel": "Cancel",
+    "failed": "Couldn't archive the design.",
+    "failedIsDefault": "This is the default design. Make another design the default first."
+  },
+  "makeDefaultFailed": "Could not make this the default.",
+  "new_dialog": {
+    "title": "New design",
+    "kind": "Document type",
+    "designs": "Choose a design",
+    "name": "Name",
+    "nameHelp": "You can rename it later.",
+    "create": "Create and open editor",
+    "creating": "Creating…",
+    "cancel": "Cancel",
+    "noSuggestions": "There are no designs for this document type yet.",
+    "createFailed": "Couldn't create the design.",
+    "nameTaken": "A design with this name already exists."
+  },
+  "style": {
+    "classic": "Classic",
+    "modern": "Modern"
+  },
+  "orientation": {
+    "portrait": "portrait",
+    "landscape": "landscape"
+  },
+  "defaultName": "{{style}} {{orientation}} ID card",
+  "suggestion": {
+    "alt": "{{style}} {{orientation}} design",
+    "loading": "Loading the design…",
+    "acrLabel": "ACR assessment · A4",
+    "acrHelp": "A4 page, front only, up to 30 criteria."
+  },
+  "gate": {
+    "title": "Open this on a computer",
+    "body": "Designing and printing need a big screen. Copy the link and open it on a computer.",
+    "copy": "Copy link",
+    "copied": "Link copied",
+    "copyFailed": "Could not copy the link",
+    "back": "Go back"
+  },
+  "defaultNameAcr": "ACR A4 page",
+  "subtitle": "ID card and ACR page designs.",
+  "makeDefaultConfirm": {
+    "title": "Make {{name}} the default?",
+    "explain": "It will be picked first when printing this document type."
+  }
+}

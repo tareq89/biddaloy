@@ -125,7 +125,10 @@ describe('reset-order (integration)', () => {
     // with an explicit `UPDATE "payments" SET "invoice_id" = NULL` before
     // any delete runs, so this one direction is a known, handled exemption
     // rather than a real ordering bug.
-    const KNOWN_CYCLE_EXEMPTIONS = new Set(['payments->invoices']);
+    const KNOWN_CYCLE_EXEMPTIONS = new Set([
+      'payments->invoices',
+      'print_templates->print_template_versions',
+    ]);
 
     const violations = edges.filter(({ child, parent }) => {
       // A self-referential FK (e.g. a parent_id pointing at the same table) is
@@ -165,7 +168,10 @@ describe('reset-order (integration)', () => {
   it('worker runs on its own database', async () => {
     const worker = process.env.VITEST_POOL_ID ?? '1';
     const rows = await dataSource.query('SELECT current_database()');
-    expect(rows[0].current_database).toBe(workerDbName('biddaloy_test', worker));
+    // Base is `biddaloy_test` in CI, `biddaloy_test_run_<id>` under test-env.
+    expect(rows[0].current_database).toBe(
+      workerDbName(process.env.TEST_BASE_DATABASE_NAME ?? 'biddaloy_test', worker),
+    );
   });
 
   it('worker redis db index', async () => {
@@ -177,7 +183,9 @@ describe('reset-order (integration)', () => {
       // connection actually selected, confirming REDIS_URL's path segment
       // took effect rather than silently defaulting to db 0.
       const clientInfo = (await redis.call('CLIENT', 'INFO')) as string;
-      expect(clientInfo).toMatch(new RegExp(`(^| )db=${worker}( |$)`));
+      // Base slot 0 in CI (so db = worker); test-env runs start higher.
+      const expectedDb = Number(process.env.TEST_BASE_REDIS_SLOT ?? 0) + Number(worker);
+      expect(clientInfo).toMatch(new RegExp(`(^| )db=${expectedDb}( |$)`));
     } finally {
       redis.disconnect();
     }

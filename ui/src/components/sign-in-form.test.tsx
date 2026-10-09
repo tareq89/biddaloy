@@ -4,10 +4,32 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { cleanupTestState, renderWithProviders } from '../test/render-with-providers';
 
+import { AuthLayout } from './auth-layout';
 import { SignInForm } from './sign-in-form';
 
 afterEach(async () => {
   await cleanupTestState();
+});
+
+describe('SignInForm framing', () => {
+  it('keeps its own logo and card outside AuthLayout, drops both inside it', async () => {
+    const outside = renderWithProviders(<SignInForm onSubmit={vi.fn()} />, { locale: 'en' });
+    await screen.findByRole('heading', { level: 1 });
+    expect(outside.container.querySelector('form')?.className).toContain('p-8');
+    expect(screen.getAllByText('SchoolManager')).toHaveLength(1);
+    outside.unmount();
+
+    const { container } = renderWithProviders(
+      <AuthLayout>
+        <SignInForm onSubmit={vi.fn()} />
+      </AuthLayout>,
+      { locale: 'en' },
+    );
+    await screen.findByRole('heading', { level: 1 });
+    expect(container.querySelector('form')?.className).not.toContain('p-8');
+    // The brand now comes from the layout, once.
+    expect(screen.getAllByText('SchoolManager')).toHaveLength(1);
+  });
 });
 
 describe('SignInForm', () => {

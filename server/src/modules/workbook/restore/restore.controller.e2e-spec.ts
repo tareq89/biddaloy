@@ -33,7 +33,7 @@ const FRESH_SCHOOL_NAME = 'Restore E2E Fresh School';
 const FRESH_ADMIN_USER_ID = '00000000-0000-4000-8000-000000060903';
 const FRESH_ADMIN_EMAIL = 'admin@restore-e2e-fresh.example';
 
-/** In-memory stand-in for `StorageService` — no S3/MinIO is guaranteed
+/** In-memory stand-in for `StorageService` — no S3 is guaranteed
  * reachable in this e2e environment (same reasoning as
  * `workbook.controller.e2e-spec.ts`), and the restore round trip actually
  * needs a working `put`/`get`/`delete` (the snapshot write, the staged
@@ -206,13 +206,13 @@ describe('POST /backup/restore E2E', () => {
     await app.close();
   });
 
-  it('rejects TEACHER with 401 (role guard, before permission check)', async () => {
+  it('rejects TEACHER with 403 (permission guard)', async () => {
     await supertest(app.getHttpServer())
       .post('/api/v1/backup/restore')
       .set('Authorization', `Bearer ${teacherToken}`)
       .set('X-Tenant-ID', TENANT_ID)
       .send({ staging_id: randomUUID(), confirmation: 'anything' })
-      .expect(401);
+      .expect(403);
   });
 
   it('returns 400 and creates no job when the confirmation phrase is wrong', async () => {

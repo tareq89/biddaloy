@@ -18,7 +18,7 @@ import * as React from 'react';
 
 import { SmsCreditSectionView } from './SmsCreditSectionView';
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 25; // D19
 
 export interface SmsCreditSectionProps {
   schoolId: string;

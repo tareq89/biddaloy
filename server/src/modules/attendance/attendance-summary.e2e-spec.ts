@@ -121,9 +121,20 @@ describe('Attendance Summary E2E', () => {
     // `teachers`/`teacher_class_sections`/`students`/`guardians` are
     // "transactional" tables — reseed every test.
     const teacherId = randomUUID();
+    // `teachers.staff_profile_id` is NOT NULL ([36.1.1]) — this raw insert
+    // bypasses TypeORM (so `TeacherStaffProfileSubscriber` doesn't fire),
+    // hence the `staff_profiles` CTE. `SEED_ADMIN_USER_ID` is reused across
+    // many e2e specs, so `ON CONFLICT (user_id)` reuses its profile instead
+    // of erroring on the second file to run.
     await dataSource.query(
-      `INSERT INTO teachers (id, user_id, employee_id, designations, tenant_id, created_at, updated_at)
-       VALUES ($1, $2, 'E2E-SUMMARY-TEACHER', '{}', $3, NOW(), NOW())`,
+      `WITH sp AS (
+         INSERT INTO staff_profiles (id, user_id, tenant_id, employee_id, created_at, updated_at)
+         VALUES (gen_random_uuid(), $2::uuid, $3::uuid, 'EMP-E2E-' || $1, NOW(), NOW())
+         ON CONFLICT (user_id) DO UPDATE SET updated_at = NOW()
+         RETURNING id
+       )
+       INSERT INTO teachers (id, user_id, employee_id, designations, tenant_id, staff_profile_id, created_at, updated_at)
+       SELECT $1::uuid, $2::uuid, 'E2E-SUMMARY-TEACHER', '{}', $3::uuid, sp.id, NOW(), NOW() FROM sp`,
       [teacherId, SEED_ADMIN_USER_ID, TENANT_ID],
     );
     await dataSource.query(
@@ -241,14 +252,148 @@ describe('Attendance Summary E2E', () => {
         .expect(200);
     });
 
-    it("returns 401 for a role not in this route's @Roles list (TEACHER)", async () => {
+    it("returns 403 for a role not in this route's @Roles list (TEACHER)", async () => {
       await supertest(app.getHttpServer())
         .get(`${API}/attendance/flags/low`)
         .query({ from: '2026-09-01', to: '2026-09-05' })
         .set('Authorization', `Bearer ${teacherToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.TEACHER)
-        .expect(401);
+        .expect(403);
+    });
+  });
+
+  describe('GET /attendance/sections/:sectionId/streaks', () => {
+    it('returns 200 for a TEACHER with a row on the section', async () => {
+      await supertest(app.getHttpServer())
+        .get(`${API}/attendance/sections/${MAPPED_SECTION_ID}/streaks`)
+        .set('Authorization', `Bearer ${teacherToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.TEACHER)
+        .expect(200);
+    });
+
+    it('returns 403 for a TEACHER with no row on the section', async () => {
+      await supertest(app.getHttpServer())
+        .get(`${API}/attendance/sections/${UNMAPPED_SECTION_ID}/streaks`)
+        .set('Authorization', `Bearer ${teacherToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.TEACHER)
+        .expect(403);
+    });
+
+    it('returns 200 for ADMIN', async () => {
+      await supertest(app.getHttpServer())
+        .get(`${API}/attendance/sections/${UNMAPPED_SECTION_ID}/streaks`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .expect(200);
+    });
+
+    it('returns 403 for a PARENT (role not allowed)', async () => {
+      await supertest(app.getHttpServer())
+        .get(`${API}/attendance/sections/${MAPPED_SECTION_ID}/streaks`)
+        .set('Authorization', `Bearer ${parentToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.PARENT)
+        .expect(403);
+    });
+
+    it('returns 403 for a section id that does not exist in this tenant', async () => {
+      await supertest(app.getHttpServer())
+        .get(`${API}/attendance/sections/${randomUUID()}/streaks`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .expect(403);
+    });
+    // register-matrix has the same @Roles and uses the same access service;
+    // OFFICE_STAFF / EXAM_CONTROLLER are tenant-wide there, so here too.
+    for (const role of [UserRole.OFFICE_STAFF, UserRole.EXAM_CONTROLLER]) {
+      it(`returns 200 for ${role} (tenant-wide, same as register-matrix)`, async () => {
+        await dataSource.query(
+          `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
+           VALUES ($1, $2, $3, NOW(), NOW()) ON CONFLICT DO NOTHING`,
+          [SEED_ADMIN_USER_ID, TENANT_ID, role],
+        );
+        // Re-login so the token's memberships include the new role.
+        const token = await login(SEED_ADMIN_EMAIL);
+        await supertest(app.getHttpServer())
+          .get(`${API}/attendance/sections/${UNMAPPED_SECTION_ID}/streaks`)
+          .set('Authorization', `Bearer ${token}`)
+          .set('X-Tenant-ID', TENANT_ID)
+          .set('X-Role', role)
+          .expect(200);
+        await supertest(app.getHttpServer())
+          .get(`${API}/attendance/sections/${UNMAPPED_SECTION_ID}/register-matrix`)
+          .query({ month: '2026-09' })
+          .set('Authorization', `Bearer ${token}`)
+          .set('X-Tenant-ID', TENANT_ID)
+          .set('X-Role', role)
+          .expect(200);
+      });
+    }
+  });
+
+  describe('GET /attendance/sections/:sectionId/subject-summary (#1591)', () => {
+    const range = 'from=2026-09-01&to=2026-09-30';
+    const url = (sectionId: string) =>
+      `${API}/attendance/sections/${sectionId}/subject-summary?${range}`;
+    let originalSettings: unknown;
+
+    async function setPeriods(enabled: boolean) {
+      await dataSource.query(`UPDATE schools SET settings = $1 WHERE id = $2`, [
+        JSON.stringify({ version: 1, attendance: { periodAttendance: { enabled } } }),
+        TENANT_ID,
+      ]);
+    }
+    beforeAll(async () => {
+      const [row] = await dataSource.query(`SELECT settings FROM schools WHERE id = $1`, [
+        TENANT_ID,
+      ]);
+      originalSettings = row.settings;
+    });
+    afterAll(async () => {
+      await dataSource.query(`UPDATE schools SET settings = $1 WHERE id = $2`, [
+        JSON.stringify(originalSettings),
+        TENANT_ID,
+      ]);
+    });
+
+    it('returns 200 for ADMIN and for the mapped TEACHER', async () => {
+      await setPeriods(true);
+      await supertest(app.getHttpServer())
+        .get(url(MAPPED_SECTION_ID))
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .expect(200);
+      const res = await supertest(app.getHttpServer())
+        .get(url(MAPPED_SECTION_ID))
+        .set('Authorization', `Bearer ${teacherToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.TEACHER)
+        .expect(200);
+      expect(res.body).toHaveProperty('subjects');
+      expect(res.body).toHaveProperty('rows');
+    });
+
+    it('returns 403 for a TEACHER not mapped to the section', async () => {
+      await setPeriods(true);
+      await supertest(app.getHttpServer())
+        .get(url(UNMAPPED_SECTION_ID))
+        .set('Authorization', `Bearer ${teacherToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.TEACHER)
+        .expect(403);
+    });
+
+    it('returns 403 ATTENDANCE_PERIOD_DISABLED when the period switch is off', async () => {
+      await setPeriods(false);
+      const res = await supertest(app.getHttpServer())
+        .get(url(MAPPED_SECTION_ID))
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .expect(403);
+      expect(JSON.stringify(res.body)).toContain('ATTENDANCE_PERIOD_DISABLED');
     });
   });
 });

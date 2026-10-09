@@ -19,14 +19,14 @@ const CASES = [
       'nav.items.guardians',
       'nav.items.studentDues',
       'nav.items.recordPayment',
-      'nav.items.fees',
+      'nav.items.payments',
       'nav.items.feeStructures',
       'nav.items.invoices',
     ],
     hidden: ['nav.items.academicYears', 'nav.items.classes', 'nav.items.settings'],
     // ACCOUNTANT holds neither SETTINGS_MANAGE nor AUDIT_LOG_READ — both
     // ADMIN-only in `ROLE_PERMISSIONS`.
-    deniedRoutes: ['/settings', '/audit-logs'],
+    deniedRoutes: ['/settings', '/audit-logs', '/roles'],
   },
   {
     // Dues/record-payment are gated on FEE_COLLECT/PAYMENT_RECORD, not
@@ -38,6 +38,7 @@ const CASES = [
       'nav.items.studentDues',
       'nav.items.recordPayment',
       'nav.items.fees',
+      'nav.items.payments',
       'nav.items.feeStructures',
       'nav.items.invoices',
       'nav.items.settings',
@@ -57,6 +58,7 @@ const CASES = [
       'nav.items.studentDues',
       'nav.items.recordPayment',
       'nav.items.fees',
+      'nav.items.payments',
       'nav.items.feeStructures',
       'nav.items.invoices',
       'nav.items.settings',

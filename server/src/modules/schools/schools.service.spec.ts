@@ -261,7 +261,18 @@ describe('SchoolsService', () => {
       const schools = await service.findAll();
 
       expect(repo.find).toHaveBeenCalledWith({
-        select: ['id', 'name', 'slug', 'status', 'created_at'],
+        select: [
+          'id',
+          'name',
+          'slug',
+          'status',
+          'created_at',
+          'country_code',
+          'trial_ends_at',
+          'seat_limit',
+          'status_reason',
+        ],
+        where: undefined,
         order: { name: 'ASC' },
       });
       expect(schools).toEqual([
@@ -280,6 +291,116 @@ describe('SchoolsService', () => {
           created_at: anantaCreatedAt,
         },
       ]);
+    });
+  });
+
+  describe('findBySlug', () => {
+    it('returns the matching school', async () => {
+      const repo = fakeRepo({ id: 's1', settings: null } as any);
+      repo.findOne.mockResolvedValue({ id: 's1', slug: 'test-school' } as any);
+      const service = new SchoolsService(
+        repo as any,
+        {
+          createQueryBuilder: vi.fn(() => ({
+            innerJoin: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            andWhere: vi.fn().mockReturnThis(),
+            getCount: vi.fn(async () => 0),
+          })),
+        } as any,
+        { count: vi.fn(async () => 0) } as any,
+        { count: vi.fn(async () => 0) } as any,
+        {
+          createQueryBuilder: vi.fn(() => ({
+            select: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            getRawOne: vi.fn(async () => ({ max_created_at: null })),
+          })),
+        } as any,
+        { get: vi.fn(async () => null), set: vi.fn(async () => 'OK') } as any,
+        encryption,
+        settingsCache,
+        auditService as any,
+        tenantStatus as any,
+      );
+
+      const school = await service.findBySlug('test-school');
+
+      expect(repo.findOne).toHaveBeenCalledWith({
+        where: { slug: 'test-school', status: 'ACTIVE' },
+      });
+      expect(school).toEqual({ id: 's1', slug: 'test-school' });
+    });
+
+    it('returns null for a SUSPENDED school even with a matching slug', async () => {
+      const repo = fakeRepo(null);
+      repo.findOne.mockResolvedValue(null); // the ACTIVE filter excludes it at the query level
+      const service = new SchoolsService(
+        repo as any,
+        {
+          createQueryBuilder: vi.fn(() => ({
+            innerJoin: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            andWhere: vi.fn().mockReturnThis(),
+            getCount: vi.fn(async () => 0),
+          })),
+        } as any,
+        { count: vi.fn(async () => 0) } as any,
+        { count: vi.fn(async () => 0) } as any,
+        {
+          createQueryBuilder: vi.fn(() => ({
+            select: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            getRawOne: vi.fn(async () => ({ max_created_at: null })),
+          })),
+        } as any,
+        { get: vi.fn(async () => null), set: vi.fn(async () => 'OK') } as any,
+        encryption,
+        settingsCache,
+        auditService as any,
+        tenantStatus as any,
+      );
+
+      const school = await service.findBySlug('suspended-school');
+
+      expect(repo.findOne).toHaveBeenCalledWith({
+        where: { slug: 'suspended-school', status: 'ACTIVE' },
+      });
+      expect(school).toBeNull();
+    });
+
+    it('returns null for an unknown slug, rather than throwing', async () => {
+      const repo = fakeRepo(null);
+      repo.findOne.mockResolvedValue(null);
+      const service = new SchoolsService(
+        repo as any,
+        {
+          createQueryBuilder: vi.fn(() => ({
+            innerJoin: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            andWhere: vi.fn().mockReturnThis(),
+            getCount: vi.fn(async () => 0),
+          })),
+        } as any,
+        { count: vi.fn(async () => 0) } as any,
+        { count: vi.fn(async () => 0) } as any,
+        {
+          createQueryBuilder: vi.fn(() => ({
+            select: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            getRawOne: vi.fn(async () => ({ max_created_at: null })),
+          })),
+        } as any,
+        { get: vi.fn(async () => null), set: vi.fn(async () => 'OK') } as any,
+        encryption,
+        settingsCache,
+        auditService as any,
+        tenantStatus as any,
+      );
+
+      const school = await service.findBySlug('no-such-slug');
+
+      expect(school).toBeNull();
     });
   });
 
@@ -1239,7 +1360,13 @@ describe('SchoolsService', () => {
   });
 
   describe('updateStatus', () => {
-    function buildService(school: { id: string; status: 'ACTIVE' | 'SUSPENDED' }) {
+    function buildService(school: {
+      id: string;
+      status: 'ACTIVE' | 'SUSPENDED';
+      status_reason?: string | null;
+      trial_ends_at?: Date | null;
+      seat_limit?: number | null;
+    }) {
       const repo = fakeRepo(school as any);
       const service = new SchoolsService(
         repo as any,
@@ -1268,6 +1395,55 @@ describe('SchoolsService', () => {
       );
       return { service, repo };
     }
+
+    // The daily trial job would re-suspend a reactivated school whose trial is over, so the
+    // manual route refuses until the trial is extended (PATCH :id/trial).
+    it('refuses to reactivate a school whose trial already ended', async () => {
+      const { service, repo } = buildService({
+        id: 's1',
+        status: 'SUSPENDED',
+        trial_ends_at: new Date(Date.now() - 1000),
+      });
+
+      await expect(
+        service.updateStatus('s1', { status: 'ACTIVE', reason: 'Paid up again' }, 'admin-1'),
+      ).rejects.toMatchObject({ response: { details: { code: 'TRIAL_EXPIRED' } } });
+      expect(repo.schoolRepo.update).not.toHaveBeenCalled();
+    });
+
+    it('still reactivates a school whose trial runs into the future', async () => {
+      const { service } = buildService({
+        id: 's1',
+        status: 'SUSPENDED',
+        trial_ends_at: new Date(Date.now() + 86_400_000),
+      });
+
+      const res = await service.updateStatus(
+        's1',
+        { status: 'ACTIVE', reason: 'Paid up again' },
+        'admin-1',
+      );
+      expect(res.status).toBe('ACTIVE');
+    });
+
+    it('the 409 names the second step when the suspension was not the trial one', async () => {
+      const ended = new Date(Date.now() - 1000);
+      const refuse = (status_reason: string) =>
+        buildService({ id: 's1', status: 'SUSPENDED', status_reason, trial_ends_at: ended })
+          .service.updateStatus('s1', { status: 'ACTIVE', reason: 'Paid up again' }, 'admin-1')
+          .catch((e) => e.getResponse().message);
+
+      expect(await refuse('TRIAL_EXPIRED')).toMatch(/to reactivate it$/);
+      expect(await refuse('Non-payment')).toMatch(/first, then reactivate it$/);
+    });
+
+    it('findAll filters: active = trial_ends_at in the future, expired = TRIAL_EXPIRED reason', async () => {
+      const { service, repo } = buildService({ id: 's1', status: 'ACTIVE' });
+      await service.findAll('expired');
+      expect((repo as any).find.mock.calls[0][0].where).toEqual({ status_reason: 'TRIAL_EXPIRED' });
+      await service.findAll('active');
+      expect(Object.keys((repo as any).find.mock.calls[1][0].where)).toEqual(['trial_ends_at']);
+    });
 
     it('suspends an active school: writes status columns, audits SUSPEND with the reason, invalidates the tenant status cache', async () => {
       const { service, repo } = buildService({ id: 's1', status: 'ACTIVE' });

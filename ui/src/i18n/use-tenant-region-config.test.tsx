@@ -3,7 +3,7 @@ import { waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 
-import { setActiveTenant } from '../api/auth-state';
+import { setActiveRole, setActiveTenant } from '../api/auth-state';
 import { isTenantSuspendedError } from '../api/errors';
 import { server } from '../test/msw/server';
 import { renderHookWithProviders } from '../test/render-hook-with-providers';
@@ -55,6 +55,7 @@ describe('useTenantRegionConfig', () => {
 
     const { result } = renderHookWithProviders(() => useTenantRegionConfig(), {
       tenantId: 'tenant-1',
+      role: 'ADMIN',
     });
 
     await waitFor(() => {
@@ -73,6 +74,7 @@ describe('useTenantRegionConfig', () => {
 
     const { result } = renderHookWithProviders(() => useTenantRegionConfig(), {
       tenantId: 'tenant-1',
+      role: 'ADMIN',
     });
 
     // Some real, complete RegionConfig — never `undefined`/partial —
@@ -93,6 +95,7 @@ describe('useTenantRegionConfig', () => {
 
     const { result, rerender } = renderHookWithProviders(() => useTenantRegionConfig(), {
       tenantId: 'tenant-a',
+      role: 'ADMIN',
     });
 
     await waitFor(() => {
@@ -136,6 +139,7 @@ describe('useTenantRegionConfig', () => {
 
     const { result } = renderHookWithProviders(() => useTenantRegionConfig(), {
       tenantId: 'tenant-1',
+      role: 'ADMIN',
       queryClient,
     });
 
@@ -159,6 +163,7 @@ describe('useTenantRegionConfig', () => {
 
     const { result } = renderHookWithProviders(() => useTenantRegionConfig(), {
       tenantId: 'tenant-1',
+      role: 'ADMIN',
     });
 
     await waitFor(() => {
@@ -167,5 +172,47 @@ describe('useTenantRegionConfig', () => {
     expect(result.current.currency.code).toBeTruthy();
     expect(result.current.address.fields.length).toBeGreaterThan(0);
     expect(result.current).toEqual(expect.objectContaining({ locale: expect.any(String) }));
+  });
+
+  it('makes no settings request for a role without SETTINGS_MANAGE and returns the locale default', async () => {
+    let called = 0;
+    server.use(
+      http.get('/api/v1/schools/:id/settings', () => {
+        called += 1;
+        return HttpResponse.json(settingsResponse('CAD'));
+      }),
+    );
+
+    const { result } = renderHookWithProviders(() => useTenantRegionConfig(), {
+      tenantId: 'tenant-1',
+      role: 'ACCOUNTANT',
+    });
+
+    await new Promise((r) => setTimeout(r, 50));
+    expect(called).toBe(0);
+    expect(result.current.currency.code).not.toBe('CAD');
+    expect(result.current.currency.code).toBeTruthy();
+  });
+
+  it('ignores settings cached under an earlier role once the role loses SETTINGS_MANAGE', async () => {
+    server.use(
+      http.get('/api/v1/schools/:id/settings', () => HttpResponse.json(settingsResponse('CAD'))),
+    );
+
+    const { result, rerender } = renderHookWithProviders(() => useTenantRegionConfig(), {
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+    });
+    await waitFor(() => {
+      expect(result.current.currency.code).toBe('CAD');
+    });
+
+    // Same tenant, same query client: only the role changes.
+    setActiveRole('ACCOUNTANT');
+    rerender();
+
+    await waitFor(() => {
+      expect(result.current.currency.code).not.toBe('CAD');
+    });
   });
 });

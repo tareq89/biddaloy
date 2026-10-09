@@ -5,7 +5,7 @@ import {
   server,
   studentFactory,
 } from '@biddaloy/ui/test';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -47,7 +47,7 @@ describe('/guardians', () => {
 
     await waitFor(() => expect(screen.getByText('Abdul Karim')).toBeTruthy());
     expect(screen.getByText('Father')).toBeTruthy();
-    expect(screen.getByText('+880 1712-345678')).toBeTruthy();
+    expect(screen.getByText('01712-345678')).toBeTruthy();
     expect(screen.getByText('SMS')).toBeTruthy();
     expect(screen.getByText('Karim Rahman')).toBeTruthy();
     expect(screen.getByText('Primary')).toBeTruthy();
@@ -92,7 +92,7 @@ describe('/guardians', () => {
 
     const user = userEvent.setup();
     const searchBox = await screen.findByRole('textbox', {
-      name: 'Search by name, phone, or email',
+      name: 'Search',
     });
     await user.type(searchBox, 'Karim');
 
@@ -161,6 +161,75 @@ describe('/guardians', () => {
     await waitFor(() => expect(router.state.location.pathname).toBe('/guardians/guardian-1'));
   });
 
+  it('has one filled invite button, a labelled relationship select and 25 rows by default', async () => {
+    let requestedLimit: string | null = null;
+    server.use(
+      http.get('/api/v1/guardians', ({ request }) => {
+        requestedLimit = new URL(request.url).searchParams.get('limit');
+        return HttpResponse.json({ data: [], total: 0, page: 1, limit: 25, totalPages: 1 });
+      }),
+    );
+    renderWithRouter(routeTree, {
+      initialEntries: ['/guardians'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const invite = await screen.findAllByRole('button', { name: 'Invite guardians' });
+    // Header primary is filled; the empty-state action is the outline twin.
+    expect(invite.filter((b) => b.getAttribute('data-variant') === 'default')).toHaveLength(1);
+    await waitFor(() => expect(requestedLimit).toBe('25'));
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('combobox', { name: 'Relationship' }));
+    // 9 relationships plus the "All relationships" option.
+    expect((await screen.findAllByRole('option')).length).toBe(10);
+    expect(screen.getByRole('option', { name: 'Grandfather' })).toBeTruthy();
+  });
+
+  it('shows a translated relationship, free text as typed, two students plus a count, and a View link', async () => {
+    const students = [1, 2, 3, 4].map((n) =>
+      studentFactory({ id: `student-${n}`, full_name: `Child ${n}` }),
+    );
+    const father = guardianFactory({
+      id: 'guardian-1',
+      full_name: 'Abdul Karim',
+      relationship: 'FATHER',
+      phone: '+8801711000001',
+      students,
+    });
+    const other = guardianFactory({
+      id: 'guardian-2',
+      full_name: 'Salma Begum',
+      relationship: 'Step-father',
+      students: [],
+    });
+    server.use(
+      http.get('/api/v1/guardians', () =>
+        HttpResponse.json({ data: [father, other], total: 2, page: 1, limit: 25, totalPages: 1 }),
+      ),
+    );
+    renderWithRouter(routeTree, {
+      initialEntries: ['/guardians'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const row1 = (await screen.findByText('Abdul Karim')).closest('tr') as HTMLElement;
+    expect(within(row1).getByText('Father')).toBeTruthy();
+    expect(within(row1).getByText('01711-000001')).toBeTruthy();
+    expect(within(row1).getByText(/Child 1, Child 2/)).toBeTruthy();
+    expect(within(row1).queryByText(/Child 3/)).toBeNull();
+    expect(within(row1).getByText(/^\+(2|২) more$/)).toBeTruthy();
+    expect(within(row1).getByRole('link', { name: 'View' }).getAttribute('href')).toBe(
+      '/guardians/guardian-1',
+    );
+    const row2 = screen.getByText('Salma Begum').closest('tr') as HTMLElement;
+    expect(within(row2).getByText('Step-father')).toBeTruthy();
+  });
+
   it('is axe clean', async () => {
     const guardian = guardianFactory({ id: 'guardian-1', full_name: 'Abdul Karim' });
     server.use(
@@ -183,9 +252,16 @@ describe('/guardians', () => {
   // [8.14.10]: FilterBar migration — the rows-per-page control changes
   // `limit` and resets `page` in one URL update.
   it('changing rows per page writes limit and resets page', async () => {
+    // The page-size select lives in the footer, which only shows while there are rows.
     server.use(
       http.get('/api/v1/guardians', () =>
-        HttpResponse.json({ data: [], total: 0, page: 2, limit: 10, totalPages: 1 }),
+        HttpResponse.json({
+          data: [guardianFactory()],
+          total: 1,
+          page: 2,
+          limit: 10,
+          totalPages: 1,
+        }),
       ),
     );
 
@@ -198,13 +274,13 @@ describe('/guardians', () => {
 
     const user = userEvent.setup();
     await screen.findByRole('region', { name: 'Guardians' });
-    await user.click(screen.getByRole('combobox', { name: 'Rows per page' }));
+    await user.click(await screen.findByRole('combobox', { name: 'Rows per page' }));
     // Option labels render in the tenant's own region digits (Bengali
     // numerals here), independent of the `en` UI locale — see
     // `data-table.tsx`'s pager `formatNumber` comment.
-    await user.click(await screen.findByRole('option', { name: '২০' }));
+    await user.click(await screen.findByRole('option', { name: /^(50|৫০)$/ }));
 
-    await waitFor(() => expect(router.state.location.search).toMatchObject({ limit: 20, page: 1 }));
+    await waitFor(() => expect(router.state.location.search).toMatchObject({ limit: 50, page: 1 }));
   });
 
   // [8.14.10]: server now accepts a `sort`/`order` param — clicking the
@@ -213,7 +289,13 @@ describe('/guardians', () => {
   it('clicking the Name column header writes sort/order to the URL', async () => {
     server.use(
       http.get('/api/v1/guardians', () =>
-        HttpResponse.json({ data: [], total: 0, page: 1, limit: 10, totalPages: 1 }),
+        HttpResponse.json({
+          data: [guardianFactory()],
+          total: 1,
+          page: 1,
+          limit: 10,
+          totalPages: 1,
+        }),
       ),
     );
 
@@ -244,7 +326,13 @@ describe('/guardians', () => {
   it('an active relationship filter renders as a chip whose clear button removes it', async () => {
     server.use(
       http.get('/api/v1/guardians', () =>
-        HttpResponse.json({ data: [], total: 0, page: 1, limit: 10, totalPages: 1 }),
+        HttpResponse.json({
+          data: [guardianFactory()],
+          total: 1,
+          page: 1,
+          limit: 10,
+          totalPages: 1,
+        }),
       ),
     );
 

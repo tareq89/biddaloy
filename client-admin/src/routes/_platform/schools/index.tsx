@@ -1,7 +1,8 @@
 import { usePlatformBackupHealth, useSchools } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
-import { createFileRoute, Link } from '@tanstack/react-router';
+import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import * as React from 'react';
+import { z } from 'zod';
 
 import { loadRouteNamespaces } from '../../../route-loaders';
 
@@ -19,12 +20,15 @@ import { SchoolsListView } from './-schools-list-view';
  * Client-side search only (`filteredSchools` below) — there's no
  * server-side filter on `GET /schools` and none is needed at this scale.
  *
- * Row click navigates to `/schools/$schoolId`, a placeholder today —
- * #535 (15.4.10) fills in the real detail page. `-schools-list-view.tsx`
- * carries the actual table markup so it can be storied on its own; this
- * file only wires the live query and the router link.
+ * `-schools-list-view.tsx` carries the actual table markup so it can be
+ * storied on its own; this file only wires the live query and navigation.
  */
+const searchSchema = z.object({
+  trial: z.enum(['active', 'expired']).optional().catch(undefined),
+});
+
 export const Route = createFileRoute('/_platform/schools/')({
+  validateSearch: searchSchema,
   // No `ensureQueryData` prefetch — `useSchools()`
   // (`ui/src/hooks/school-settings.ts`) has no `queryOptions` factory to
   // share with a loader (it's a plain `useQuery` call, same shape
@@ -40,7 +44,9 @@ export const Route = createFileRoute('/_platform/schools/')({
 
 function SchoolsListPage() {
   const { t } = useTranslation('platform');
-  const schoolsQuery = useSchools();
+  const navigate = useNavigate();
+  const { trial } = Route.useSearch();
+  const schoolsQuery = useSchools(trial ? { trial } : {});
   const backupHealthQuery = usePlatformBackupHealth();
   const [search, setSearch] = React.useState('');
 
@@ -55,7 +61,7 @@ function SchoolsListPage() {
   }, [schoolsQuery.data, search]);
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="space-y-6">
       <SchoolsListView
         schools={filteredSchools}
         loading={schoolsQuery.isLoading}
@@ -63,26 +69,27 @@ function SchoolsListPage() {
         {...(schoolsQuery.isError ? { error: t('schools.errorMessage') } : {})}
         search={search}
         onSearchChange={setSearch}
-        renderName={(school) => (
-          <Link
-            to="/schools/$schoolId"
-            params={{ schoolId: school.id }}
-            className="font-medium text-primary underline"
-          >
-            {school.name}
-          </Link>
-        )}
+        {...(trial ? { trial } : {})}
+        onTrialChange={(next) =>
+          void navigate({ to: '/schools', search: next ? { trial: next } : {}, replace: true })
+        }
+        onNew={() => void navigate({ to: '/schools/new' })}
       />
 
-      <div className="flex flex-col gap-2">
-        <h2 className="text-base font-semibold">{t('backupHealth.title')}</h2>
+      <section aria-labelledby="backup-health-title" className="space-y-3">
+        <div>
+          <h2 id="backup-health-title" className="text-h2">
+            {t('backupHealth.title')}
+          </h2>
+          <p className="mt-0.5 text-text-secondary">{t('backupHealth.caption')}</p>
+        </div>
         <BackupHealthTable
           rows={backupHealthQuery.data ?? []}
           loading={backupHealthQuery.isLoading}
           isFetching={backupHealthQuery.isFetching}
           {...(backupHealthQuery.isError ? { error: t('backupHealth.errorMessage') } : {})}
         />
-      </div>
+      </section>
     </div>
   );
 }

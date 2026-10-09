@@ -12,9 +12,12 @@ export function normalizeBdPhoneNumber(phone: string): string {
     digits = digits.slice(2);
   }
 
-  if (digits.startsWith('0')) {
-    digits = `88${digits}`;
-  } else if (!digits.startsWith('880')) {
+  // A local BD number always starts with 0 (01x mobile, 02-09 area codes),
+  // so anything already starting with 88 is country-coded — leave it. That
+  // makes this a fixed point on its own output, which matters because
+  // admission-applicant.service.ts stores this function's result and later
+  // re-normalizes it for comparison.
+  if (!digits.startsWith('88')) {
     digits = `88${digits}`;
   }
 

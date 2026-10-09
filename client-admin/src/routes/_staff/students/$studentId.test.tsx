@@ -1,11 +1,14 @@
+import { REGION_BD_BN } from '@biddaloy/ui/i18n';
 import {
   cleanupTestState,
   classFactory,
   classSectionFactory,
+  guardianFactory,
   renderWithRouter,
   server,
   studentFactory,
 } from '@biddaloy/ui/test';
+import { formatNumber } from '@biddaloy/ui/utils';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -95,6 +98,32 @@ describe('/students/$studentId', () => {
     expect(enrollmentCalls).toBe(1);
   });
 
+  it('Programs tab is present and its data stays unfetched until activated', async () => {
+    const student = studentFactory({ id: 'student-1' });
+    let programsCalls = 0;
+    server.use(
+      http.get('/api/v1/students/:id', () => HttpResponse.json(student)),
+      http.get('/api/v1/students/:studentId/programs', () => {
+        programsCalls += 1;
+        return HttpResponse.json([]);
+      }),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/students/student-1'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await waitFor(() => expect(screen.getByRole('tab', { name: 'Programs' })).toBeTruthy());
+    expect(programsCalls).toBe(0);
+
+    await user.click(screen.getByRole('tab', { name: 'Programs' }));
+    await waitFor(() => expect(programsCalls).toBe(1));
+  });
+
   it('Fees tab shows outstanding and paid balance clearly', async () => {
     const student = studentFactory({ id: 'student-1' });
     server.use(
@@ -128,6 +157,66 @@ describe('/students/$studentId', () => {
     expect(screen.getByText('৳2,000.00')).toBeTruthy();
   });
 
+  it('shows facts (registration, class, roll, primary guardian), no back link, and the people-study-money tab order', async () => {
+    const guardian = guardianFactory({
+      id: 'g-1',
+      full_name: 'Karim Uddin',
+      phone: '+8801711000004',
+      is_primary_contact: true,
+    });
+    const student = studentFactory({
+      id: 'student-1',
+      full_name: 'Rahim Uddin',
+      roll_number: 7,
+      guardians: [guardian],
+      gender: 'MALE',
+      preferred_communication: 'SMS',
+    });
+    server.use(http.get('/api/v1/students/:id', () => HttpResponse.json(student)));
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/students/student-1'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    await screen.findByRole('heading', { name: 'Rahim Uddin' });
+    expect(screen.queryByRole('link', { name: 'Back to students' })).toBeNull();
+    expect(screen.getByText(student.registration_number)).toBeTruthy();
+    expect(screen.getByText('Primary guardian')).toBeTruthy();
+    expect(screen.getByText(/Karim Uddin · /)).toBeTruthy();
+    expect(screen.queryByText('+8801711000004')).toBeNull();
+
+    const tabNames = screen.getAllByRole('tab').map((tab) => tab.textContent);
+    expect(tabNames.slice(0, 3)).toEqual(['Overview', 'Guardians', 'Enrollment']);
+    expect(tabNames).toContain('Automatic billing');
+    expect(tabNames).toContain('Documents');
+    expect(tabNames).not.toContain('Recurring fees');
+
+    // Overview shows translated labels, never the raw enum.
+    expect(screen.getByText('Male')).toBeTruthy();
+    expect(screen.queryByText('MALE')).toBeNull();
+  });
+
+  it('keeps typed Records input when switching to another tab and back', async () => {
+    const student = studentFactory({ id: 'student-1', full_name: 'Rahim Uddin' });
+    server.use(http.get('/api/v1/students/:id', () => HttpResponse.json(student)));
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/students/student-1?tab=records'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await user.type(await screen.findByLabelText('Religion'), 'Islam');
+    await user.click(screen.getByRole('tab', { name: 'Overview' }));
+    await user.click(screen.getByRole('tab', { name: 'Records' }));
+    expect(screen.getByDisplayValue('Islam')).toBe(screen.getByLabelText('Religion'));
+  });
+
   it('gates page actions by permission — ADMIN sees all five, ACCOUNTANT sees Collect fees, Edit and Send reminder', async () => {
     const student = studentFactory({ id: 'student-1' });
     server.use(http.get('/api/v1/students/:id', () => HttpResponse.json(student)));
@@ -145,7 +234,6 @@ describe('/students/$studentId', () => {
     expect(screen.getByRole('button', { name: 'Edit' })).toBeTruthy();
     await adminUser.click(screen.getByRole('button', { name: 'More actions' }));
     expect(await screen.findByRole('menuitem', { name: 'Send reminder' })).toBeTruthy();
-    expect(screen.getByRole('menuitem', { name: 'Transfer / change status' })).toBeTruthy();
     expect(screen.getByRole('menuitem', { name: 'Delete' })).toBeTruthy();
     unmount();
 
@@ -164,9 +252,6 @@ describe('/students/$studentId', () => {
     expect(screen.getByRole('button', { name: 'Edit' })).toBeTruthy();
     await accountantUser.click(screen.getByRole('button', { name: 'More actions' }));
     expect(await screen.findByRole('menuitem', { name: 'Send reminder' })).toBeTruthy();
-    // [10.4] G3 — "Transfer / change status" (enrollment update) is gated on
-    // STUDENT_UPDATE, which ACCOUNTANT now also holds.
-    expect(screen.getByRole('menuitem', { name: 'Transfer / change status' })).toBeTruthy();
     expect(screen.queryByRole('menuitem', { name: 'Delete' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Delete' })).toBeNull();
   });
@@ -238,48 +323,78 @@ describe('/students/$studentId', () => {
     const user = userEvent.setup();
     await user.click(await screen.findByRole('button', { name: 'More actions' }));
     await user.click(await screen.findByRole('menuitem', { name: 'Delete' }));
-    const dialog = within(await screen.findByRole('dialog'));
+    // ConfirmDialog is an alertdialog.
+    const dialog = within(await screen.findByRole('alertdialog'));
     await user.click(dialog.getByRole('button', { name: 'Delete' }));
 
     await waitFor(() => expect(router.state.location.pathname).toBe('/students'));
   });
 
-  it('changing the enrollment status via the Transfer / change status dialog updates the badge', async () => {
-    // A mutable fixture, not a fixed response — `onSuccess` invalidates
-    // the detail query, which refetches via `GET`; if that handler kept
-    // returning the original `ACTIVE` student, the mutation's own
-    // (correct) response would get immediately overwritten by the
-    // refetch, same reasoning as `index.test.tsx`'s `useCreateStudent` fixture.
-    let currentStudent = studentFactory({ id: 'student-1', enrollment_status: 'ACTIVE' });
+  it('header actions follow status: ACTIVE shows Record leaving, non-ACTIVE shows Readmit; the status dropdown is gone', async () => {
     server.use(
-      http.get('/api/v1/students/:id', () => HttpResponse.json(currentStudent)),
-      http.patch('/api/v1/students/:id', async ({ request }) => {
-        const body = (await request.json()) as { enrollment_status: string };
-        currentStudent = {
-          ...currentStudent,
-          enrollment_status: body.enrollment_status as typeof currentStudent.enrollment_status,
-        };
-        return HttpResponse.json(currentStudent);
-      }),
+      http.get('/api/v1/students/:id', () =>
+        HttpResponse.json(studentFactory({ id: 'student-1', enrollment_status: 'ACTIVE' })),
+      ),
     );
+    const { unmount } = renderWithRouter(routeTree, {
+      initialEntries: ['/students/student-1'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+    const user = userEvent.setup();
+    const leave = await screen.findByRole('button', { name: 'Record leaving' });
+    expect(screen.queryByRole('button', { name: 'Readmit' })).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'More actions' }));
+    expect(screen.queryByRole('menuitem', { name: 'Transfer / change status' })).toBeNull();
+    await user.keyboard('{Escape}');
+    await user.click(leave);
+    expect(await screen.findByRole('dialog')).toBeTruthy();
+    unmount();
 
+    server.use(
+      http.get('/api/v1/students/:id', () =>
+        HttpResponse.json(studentFactory({ id: 'student-1', enrollment_status: 'TRANSFERRED' })),
+      ),
+    );
     renderWithRouter(routeTree, {
       initialEntries: ['/students/student-1'],
       tenantId: 'tenant-1',
       role: 'ADMIN',
       locale: 'en',
     });
+    await userEvent.setup().click(await screen.findByRole('button', { name: 'Readmit' }));
+    expect(await screen.findByRole('dialog')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Record leaving' })).toBeNull();
+  });
 
-    const user = userEvent.setup();
-    await user.click(await screen.findByRole('button', { name: 'More actions' }));
-    await user.click(await screen.findByRole('menuitem', { name: 'Transfer / change status' }));
-    const dialog = within(await screen.findByRole('dialog'));
-    await user.click(dialog.getByRole('combobox'));
-    await user.click(await screen.findByRole('option', { name: 'Transferred' }));
-    await user.click(dialog.getByRole('button', { name: 'Save' }));
+  it('Records and Notes tabs show only with STUDENT_RECORDS_READ / STUDENT_NOTES_READ; lifecycle actions need STUDENT_LIFECYCLE_MANAGE', async () => {
+    server.use(
+      http.get('/api/v1/students/:id', () =>
+        HttpResponse.json(studentFactory({ id: 'student-1' })),
+      ),
+    );
+    const { unmount } = renderWithRouter(routeTree, {
+      initialEntries: ['/students/student-1'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+    expect(await screen.findByRole('tab', { name: 'Records' })).toBeTruthy();
+    expect(screen.getByRole('tab', { name: 'Notes' })).toBeTruthy();
+    unmount();
 
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-    expect(await screen.findByText('Transferred')).toBeTruthy();
+    // ACCOUNTANT holds none of the three (permissions.ts) — see server matrix.
+    renderWithRouter(routeTree, {
+      initialEntries: ['/students/student-1'],
+      tenantId: 'tenant-1',
+      role: 'ACCOUNTANT',
+      locale: 'en',
+    });
+    await screen.findByRole('tab', { name: 'Overview' });
+    expect(screen.queryByRole('tab', { name: 'Records' })).toBeNull();
+    expect(screen.queryByRole('tab', { name: 'Notes' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Record leaving' })).toBeNull();
   });
 
   it('[8.11.3] Move class dialog PATCHes the current enrollment when one already exists', async () => {
@@ -340,6 +455,62 @@ describe('/students/$studentId', () => {
 
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(patchBody).toEqual({ class_id: 'class-2', section_id: 'section-2' });
+  });
+
+  it('[8.11.3] Move class dialog shows a translated line, never the server text, and stays open on 409 and 422', async () => {
+    const student = studentFactory({ id: 'student-1', full_name: 'Rahim Uddin' });
+    const targetClass = classFactory({ id: 'class-2', name: 'Class Two' });
+    const targetSection = classSectionFactory({
+      id: 'section-2',
+      class: targetClass,
+      section_name: 'B',
+      capacity: 40,
+    });
+    let status = 409;
+    server.use(
+      http.get('/api/v1/students/:id', () => HttpResponse.json(student)),
+      http.get('/api/v1/enrollments/student/:studentId', () => HttpResponse.json([])),
+      http.get('/api/v1/enrollments/:studentId/current', () =>
+        HttpResponse.json({
+          id: 'enrollment-1',
+          student_id: 'student-1',
+          class_id: 'class-1',
+          section_id: 'section-1',
+          academic_year_id: 'ay-1',
+          enrollment_status: 'ACTIVE',
+        }),
+      ),
+      http.get('/api/v1/classes', () =>
+        HttpResponse.json({ data: [targetClass], total: 1, page: 1, limit: 100, totalPages: 1 }),
+      ),
+      http.get('/api/v1/classes/:classId/sections', () => HttpResponse.json([targetSection])),
+      http.patch('/api/v1/enrollments/:id', () =>
+        HttpResponse.json({ message: 'raw server text' }, { status }),
+      ),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/students/student-1?tab=enrollment'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Move class' }));
+    const dialog = within(await screen.findByRole('dialog'));
+    await user.click(dialog.getByRole('combobox', { name: 'Class' }));
+    await user.click(await screen.findByRole('option', { name: 'Class Two' }));
+    await user.click(dialog.getByRole('combobox', { name: 'Section' }));
+    await user.click(await screen.findByRole('option', { name: 'B' }));
+
+    for (const code of [409, 422]) {
+      status = code;
+      await user.click(dialog.getByRole('button', { name: 'Move' }));
+      expect(await dialog.findByText("Couldn't move the student. Try again.")).toBeTruthy();
+      expect(screen.queryByText('raw server text')).toBeNull();
+      expect(screen.getByRole('dialog')).toBeTruthy();
+    }
   });
 
   it('[8.11.3] Move class dialog blocks submission and shows an error when the current-enrollment lookup fails', async () => {
@@ -517,7 +688,9 @@ describe('/students/$studentId', () => {
     await user.click(dialog.getByRole('combobox', { name: 'Section' }));
     await user.click(await screen.findByRole('option', { name: 'B' }));
 
-    expect((await dialog.findByRole('status')).textContent).toContain('5/5');
+    expect((await dialog.findByRole('status')).textContent).toContain(
+      `${formatNumber(5, REGION_BD_BN)}/${formatNumber(5, REGION_BD_BN)}`,
+    );
 
     // Warns, does not block — submit still succeeds.
     await user.click(dialog.getByRole('button', { name: 'Move' }));

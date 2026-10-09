@@ -20,6 +20,8 @@
  * spread below forwards it straight through to `DataTable`. Pages just pass
  * `isFetching={xQuery.isFetching}` alongside their existing `loading` prop.
  *
+ * [31.2.5c] `emptyState` / `paginated` (31.2.4b) reach DataTable through the same spread.
+ *
  * [8.14.7] Card mode is the same story: `layout`, a column's `card` role,
  * and a column's `align` are all just more `DataTableProps` fields, so
  * they reach `DataTable` through the same `...dataTableProps` spread with
@@ -36,9 +38,14 @@ import type { ReactNode } from 'react';
 import { DataTable, type DataTableProps } from '../components/data-table';
 
 import { FilterBar, type FilterBarProps } from './filter-bar';
+import { PageContainer } from './page-container';
+import { PageHeader, type PageAction } from './page-header';
 
 export interface ListShellProps<TData extends RowData> extends DataTableProps<TData> {
   title: string;
+  subtitle?: string;
+  actions?: readonly PageAction[];
+  /** @deprecated Pass `actions`; removed after wave 4. */
   primaryAction?: ReactNode;
   /** @deprecated Untyped escape hatch, kept only until [8.14.10] migrates
    * the last page off it — a page hand-rolls its own markup here, with no
@@ -58,6 +65,8 @@ export interface ListShellProps<TData extends RowData> extends DataTableProps<TD
 
 export function ListShell<TData extends RowData>({
   title,
+  subtitle,
+  actions,
   primaryAction,
   filterBar,
   filters,
@@ -69,16 +78,35 @@ export function ListShell<TData extends RowData>({
         'one above the other. Pass only `filters` (the typed `FilterBar`) for a new page.',
     );
   }
+  if (process.env.NODE_ENV !== 'production' && primaryAction && actions?.length) {
+    console.warn('[ListShell] `primaryAction` (deprecated) wins; `actions` are not rendered.');
+  }
+
+  // The phone filter sheet's "Show N results"; a page's own `resultCount` wins,
+  // and while loading it stays unknown so the sheet never shows a stale number.
+  const resultCount =
+    filters?.resultCount ?? (dataTableProps.loading ? undefined : dataTableProps.totalCount);
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-lg font-semibold">{title}</h1>
-        {primaryAction}
-      </div>
-      {filters && <FilterBar {...filters} />}
+    <PageContainer size="wide">
+      {primaryAction ? (
+        <header className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between md:gap-6">
+          <div className="min-w-0">
+            <h1 className="text-h1">{title}</h1>
+            {subtitle && <p className="mt-0.5 truncate text-text-secondary">{subtitle}</p>}
+          </div>
+          <div className="flex w-full items-center gap-2 md:w-auto md:shrink-0">
+            {primaryAction}
+          </div>
+        </header>
+      ) : (
+        <PageHeader title={title} subtitle={subtitle} actions={actions} />
+      )}
+      {filters && (
+        <FilterBar {...filters} {...(resultCount !== undefined ? { resultCount } : {})} />
+      )}
       {filterBar && <div className="flex flex-wrap items-center gap-2">{filterBar}</div>}
       <DataTable {...dataTableProps} />
-    </div>
+    </PageContainer>
   );
 }

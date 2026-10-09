@@ -18,13 +18,18 @@
  * `calendar-settings.controller.ts`).
  */
 import {
-  Button,
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from '@biddaloy/ui/components';
 import {
   useCalendarSettings,
@@ -33,24 +38,21 @@ import {
   type TenantSettingsInput,
 } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
-import {
-  FormSection,
-  FormShell,
-  buildFormShellErrors,
-  useFormShellMode,
-  useWarnUnsavedChanges,
-} from '@biddaloy/ui/shells';
+import { useFormShellMode, useWarnUnsavedChanges } from '@biddaloy/ui/shells';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { Link } from '@tanstack/react-router';
+import { ArrowRightIcon, ArrowUpIcon } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
-import { MutationErrorMessage } from '../../components/MutationErrorMessage';
+import { SettingsSaved, SettingsSection } from './settings-layout';
+import { SettingsMutationError } from './settings-mutation-error';
 
 /** A short, curated list rather than the full ISO 3166-1 set — every
  * tenant this app has today is either Bangladeshi or a near neighbour;
  * `BD` is the default and first in the list. Extend this list rather than
  * pull in a country-data package for a single settings dropdown. */
-const COUNTRIES: Array<{ code: string; en: string; bn: string }> = [
+export const COUNTRIES: Array<{ code: string; en: string; bn: string }> = [
   { code: 'BD', en: 'Bangladesh', bn: 'বাংলাদেশ' },
   { code: 'IN', en: 'India', bn: 'ভারত' },
   { code: 'PK', en: 'Pakistan', bn: 'পাকিস্তান' },
@@ -61,7 +63,7 @@ const COUNTRIES: Array<{ code: string; en: string; bn: string }> = [
   { code: 'GB', en: 'United Kingdom', bn: 'যুক্তরাজ্য' },
 ];
 
-const WEEKDAY_KEYS = [
+export const WEEKDAY_KEYS = [
   'sunday',
   'monday',
   'tuesday',
@@ -96,7 +98,9 @@ export function CalendarSection({ schoolId, region }: CalendarSectionProps) {
     ...useFormShellMode(),
   });
 
-  useWarnUnsavedChanges(form.formState.isDirty && !form.formState.isSubmitSuccessful);
+  // `isDirty` alone: `.mutate()` is not awaited, so `isSubmitSuccessful` would silence the
+  // warning after a failed save. `onSuccess` resets the form, which clears `isDirty`.
+  useWarnUnsavedChanges(form.formState.isDirty);
 
   const updateSettings = useUpdateSchoolSettings(schoolId);
 
@@ -112,11 +116,6 @@ export function CalendarSection({ schoolId, region }: CalendarSectionProps) {
     );
   }
 
-  const summaryErrors = buildFormShellErrors(
-    form.formState.errors,
-    (field) => `calendar-${field.replace(/\./g, '-')}`,
-  );
-
   const weekendLabel = calendarSettingsQuery.data
     ? calendarSettingsQuery.data.weeklyOffDays
         .map((day) => t(`calendar.weekday.${WEEKDAY_KEYS[day]}`))
@@ -126,31 +125,43 @@ export function CalendarSection({ schoolId, region }: CalendarSectionProps) {
     ? t(`calendar.weekday.${WEEKDAY_KEYS[calendarSettingsQuery.data.firstDayOfWeek]}`)
     : undefined;
 
+  const linkClass =
+    'inline-flex h-11 items-center gap-1 rounded-md px-2 font-medium text-primary hover:bg-surface md:h-8';
+
   return (
     <Form {...form}>
-      <FormShell
-        errors={summaryErrors}
-        submitCount={form.formState.submitCount}
+      <SettingsSection
+        id="calendar-section"
+        title={t('calendar.legend')}
+        description={t('calendar.description')}
         onSubmit={(event) => void form.handleSubmit(handleSave)(event)}
+        saving={updateSettings.isPending}
+        footerStart={
+          <>
+            {updateSettings.isSuccess && <SettingsSaved />}
+            {updateSettings.isError && <SettingsMutationError error={updateSettings.error} />}
+          </>
+        }
       >
-        <FormSection legend={t('calendar.legend')}>
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
           <FormField
             control={form.control}
             name="termLabel"
             render={({ field }) => (
               <FormItem>
                 <FormLabel htmlFor="calendar-termLabel">{t('calendar.termLabel')}</FormLabel>
-                <FormControl>
-                  <select
-                    id="calendar-termLabel"
-                    className="h-8 rounded-md border border-input bg-card px-2.5 text-sm"
-                    {...field}
-                  >
-                    <option value="TERM">{t('calendar.termLabelTerm')}</option>
-                    <option value="SEMESTER">{t('calendar.termLabelSemester')}</option>
-                    <option value="TRIMESTER">{t('calendar.termLabelTrimester')}</option>
-                  </select>
-                </FormControl>
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <FormControl>
+                    <SelectTrigger id="calendar-termLabel">
+                      <SelectValue />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="TERM">{t('calendar.termLabelTerm')}</SelectItem>
+                    <SelectItem value="SEMESTER">{t('calendar.termLabelSemester')}</SelectItem>
+                    <SelectItem value="TRIMESTER">{t('calendar.termLabelTrimester')}</SelectItem>
+                  </SelectContent>
+                </Select>
                 <FormMessage />
               </FormItem>
             )}
@@ -161,61 +172,67 @@ export function CalendarSection({ schoolId, region }: CalendarSectionProps) {
             render={({ field }) => (
               <FormItem>
                 <FormLabel htmlFor="calendar-country">{t('calendar.country')}</FormLabel>
-                <FormControl>
-                  <select
-                    id="calendar-country"
-                    className="h-8 rounded-md border border-input bg-card px-2.5 text-sm"
-                    {...field}
-                  >
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <FormControl>
+                    <SelectTrigger id="calendar-country">
+                      <SelectValue />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
                     {COUNTRIES.map((country) => (
-                      <option key={country.code} value={country.code}>
+                      <SelectItem key={country.code} value={country.code}>
                         {i18n.language === 'bn' ? country.bn : country.en}
-                      </option>
+                      </SelectItem>
                     ))}
-                  </select>
-                </FormControl>
+                  </SelectContent>
+                </Select>
+                <FormDescription>{t('calendar.countryHelp')}</FormDescription>
                 <FormMessage />
               </FormItem>
             )}
           />
 
-          <div className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium">{t('calendar.weekShapeLabel')}</span>
+          <div className="flex flex-col gap-2 rounded-md bg-muted p-3 md:col-span-2">
+            <span className="font-medium">{t('calendar.weekShapeLabel')}</span>
             {calendarSettingsQuery.isPending && (
-              <p className="text-sm text-muted-foreground">{t('calendar.weekShapeLoading')}</p>
+              <p className="text-text-secondary">{t('calendar.weekShapeLoading')}</p>
             )}
             {calendarSettingsQuery.isError && (
-              <p role="alert" className="text-sm text-destructive">
+              <p role="alert" className="text-destructive">
                 {t('calendar.weekShapeError')}
               </p>
             )}
             {calendarSettingsQuery.data && (
-              <p className="text-sm text-muted-foreground">
+              <p className="text-text-secondary">
                 {t('calendar.weekShapeValue', {
                   weekStart: weekStartLabel,
                   weekend: weekendLabel,
-                  timezone: calendarSettingsQuery.data.timezone,
                 })}
               </p>
             )}
-            <p className="text-sm text-muted-foreground">
-              <a href="#regional-section" className="underline underline-offset-2">
+            <div className="flex flex-col gap-1 md:flex-row md:gap-2">
+              <Link
+                to="/settings"
+                hash="regional-section"
+                search={{ section: 'school' }}
+                className={linkClass}
+              >
+                <ArrowUpIcon aria-hidden="true" className="size-4" />
                 {t('calendar.changeInRegional')}
-              </a>
-              {' / '}
-              <a href="#attendance-section" className="underline underline-offset-2">
+              </Link>
+              <Link
+                to="/settings"
+                hash="attendance-section"
+                search={{ section: 'academics' }}
+                className={linkClass}
+              >
+                <ArrowRightIcon aria-hidden="true" className="size-4" />
                 {t('calendar.changeInAttendance')}
-              </a>
-            </p>
+              </Link>
+            </div>
           </div>
-        </FormSection>
-
-        <Button type="submit" loading={updateSettings.isPending}>
-          {t('save.action')}
-        </Button>
-        {updateSettings.isSuccess && <p role="status">{t('save.success')}</p>}
-        {updateSettings.isError && <MutationErrorMessage error={updateSettings.error} />}
-      </FormShell>
+        </div>
+      </SettingsSection>
     </Form>
   );
 }

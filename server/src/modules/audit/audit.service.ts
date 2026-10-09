@@ -1,10 +1,18 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { EntityManager, Repository } from 'typeorm';
+import { EntityManager, EntityTarget, Repository, SelectQueryBuilder } from 'typeorm';
 import { AuditLog } from './entities/audit-log.entity';
 import { ApprovalScope, AuditAction, AuditEntityType } from '@biddaloy/shared';
 import { redactSensitiveFields } from './redact.util';
 import { QueryAuditLogDto } from './dto/audit-log.dto';
+import { Student } from '../students/entities/student.entity';
+import { Guardian } from '../students/entities/guardian.entity';
+import { Class } from '../academics/entities/class.entity';
+import { ClassSection } from '../academics/entities/class-section.entity';
+import { Exam } from '../exams/entities/exam.entity';
+import { FeeStructure } from '../fees/entities/fee-structure.entity';
+import { Invoice } from '../invoices/entities/invoice.entity';
+import { User } from '../users/entities/user.entity';
 
 export interface RecordAuditEntryInput {
   action: AuditAction;
@@ -116,7 +124,7 @@ export class AuditService {
     await this.repo.save(this.repo.create(sanitized));
   }
 
-  async findAll(query: QueryAuditLogDto, tenantId: string) {
+  async findAll(query: QueryAuditLogDto, tenantId: string, callerId?: string) {
     const page = query.page || 1;
     const limit = query.limit || 10;
     const skip = (page - 1) * limit;
@@ -143,6 +151,8 @@ export class AuditService {
       .addSelect(['performed_by.id', 'performed_by.full_name'])
       .where('audit_log.tenant_id = :tenantId', { tenantId })
       .orderBy('audit_log.created_at', 'DESC');
+
+    this.hideCallersAcr(qb, callerId);
 
     if (query.action) {
       qb.andWhere('audit_log.action = :action', { action: query.action });
@@ -175,22 +185,104 @@ export class AuditService {
     }
 
     const [data, total] = await qb.skip(skip).take(limit).getManyAndCount();
+    const entityLabels = await this.resolveEntityLabels(data, tenantId);
 
-    return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
+    return { data, total, page, limit, totalPages: Math.ceil(total / limit), entityLabels };
+  }
+
+  /**
+   * [31.3.7a] Display names for the page's audited records, keyed
+   * `${entity_type}:${entity_id}`. Whitelisted types only (one small query
+   * each); every query is tenant-scoped by hand and includes soft-deleted
+   * records so a deleted student is still named. Unknown types get no entry.
+   */
+  private async resolveEntityLabels(
+    rows: AuditLog[],
+    tenantId: string,
+  ): Promise<Map<string, string>> {
+    const labels = new Map<string, string>();
+    const idsByType = new Map<string, Set<string>>();
+    for (const r of rows) {
+      if (!r.entity_id) continue;
+      const set = idsByType.get(r.entity_type) ?? new Set<string>();
+      set.add(r.entity_id);
+      idsByType.set(r.entity_type, set);
+    }
+
+    await Promise.all(
+      [...idsByType].map(async ([type, idSet]) => {
+        const qb = this.labelQuery(type, [...idSet], tenantId);
+        if (!qb) return;
+        const found: { id: string; label: string | null }[] = await qb.getRawMany();
+        for (const f of found) {
+          if (f.label) labels.set(`${type}:${f.id}`, f.label);
+        }
+      }),
+    );
+    return labels;
+  }
+
+  private labelQuery(type: string, ids: string[], tenantId: string) {
+    const base = (entity: EntityTarget<object>, label: string) =>
+      this.repo.manager
+        .createQueryBuilder(entity, 'e')
+        .withDeleted()
+        .select('e.id', 'id')
+        .addSelect(label, 'label')
+        .where('e.id IN (:...ids)', { ids });
+    const scoped = (entity: EntityTarget<object>, label: string) =>
+      base(entity, label).andWhere('e.tenant_id = :tenantId', { tenantId });
+
+    switch (type) {
+      case 'Student':
+        return scoped(Student, 'e.full_name');
+      case 'Guardian':
+        return scoped(Guardian, 'e.full_name');
+      case 'Class':
+        return scoped(Class, 'e.name');
+      case 'ClassSection':
+        // The class is tenant-scoped too, so a cross-tenant link never leaks its name.
+        return scoped(ClassSection, "c.name || ' – ' || e.section_name").leftJoin(
+          'e.class',
+          'c',
+          'c.tenant_id = :tenantId',
+          { tenantId },
+        );
+      case 'Exam':
+        return scoped(Exam, 'e.name');
+      case 'FeeStructure':
+        return scoped(FeeStructure, 'e.name');
+      case 'Invoice':
+        // no tenant_id column — scope through the student
+        return base(Invoice, 'e.invoice_number')
+          .innerJoin('e.student', 's')
+          .andWhere('s.tenant_id = :tenantId', { tenantId });
+      case 'User':
+        // global table — only users who belong to this tenant
+        return base(User, 'e.full_name').andWhere(
+          'EXISTS (SELECT 1 FROM user_tenants ut WHERE ut.user_id = e.id AND ut.tenant_id = :tenantId)',
+          { tenantId },
+        );
+      default:
+        return null;
+    }
   }
 
   /**
    * A narrower, separately-authorized sibling of `findAll` — scoped to one
    * entity (e.g. a single student's activity tab) rather than the tenant's
    * whole audit trail, so it can be granted to roles (ACCOUNTANT, EXECUTIVE,
-   * TEACHER) that must never see `findAll`'s unscoped dump. See
-   * `AuditController`'s `@Roles` on each route for the actual boundary.
+   * TEACHER) that must never see `findAll`'s unscoped dump. The boundary
+   * is the permission each `AuditController` route requires:
+   * `AUDIT_LOG_READ` (ADMIN only) for `findAll` vs
+   * `AUDIT_ENTITY_HISTORY_READ` for this one, per `ROLE_PERMISSIONS`.
    */
   async findByEntity(
     entityType: string,
     entityId: string,
     query: QueryAuditLogDto,
     tenantId: string,
+    callerId?: string,
   ) {
     const page = query.page || 1;
     const limit = query.limit || 10;
@@ -202,6 +294,8 @@ export class AuditService {
       .andWhere('audit_log.entity_type = :entityType', { entityType })
       .andWhere('audit_log.entity_id = :entityId', { entityId })
       .orderBy('audit_log.created_at', 'DESC');
+
+    this.hideCallersAcr(qb, callerId);
 
     if (query.action) {
       qb.andWhere('audit_log.action = :action', { action: query.action });
@@ -221,5 +315,22 @@ export class AuditService {
     const [data, total] = await qb.skip(skip).take(limit).getManyAndCount();
 
     return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
+  }
+
+  /**
+   * [28.0] ACR privacy (D2): the subject must never see audit rows about their
+   * own ACR — the row's existence/timing is itself the leak. AcrFormVersion has
+   * no subject, so only AcrAssessment rows are filtered.
+   */
+  private hideCallersAcr(qb: SelectQueryBuilder<AuditLog>, callerId?: string) {
+    if (!callerId) return;
+    qb.andWhere(
+      `NOT (audit_log.entity_type = 'AcrAssessment' AND EXISTS (
+        SELECT 1 FROM acr_assessments acr
+        WHERE acr.id::text = audit_log.entity_id::text
+          AND acr.tenant_id = audit_log.tenant_id
+          AND acr.user_id = :acrCallerId))`,
+      { acrCallerId: callerId },
+    );
   }
 }

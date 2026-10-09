@@ -26,7 +26,7 @@ import { ApiError, type ApiErrorBody, NoActiveTenantError, RateLimitedError } fr
  * ("v1"). Relative, not absolute: Vite's dev proxy forwards /api to the
  * local Nest server, and production serves everything same-origin — see
  * client-admin's vite.config.ts and server/src/main.ts's static-serving. */
-const API_BASE_URL = '/api/v1';
+export const API_BASE_URL = '/api/v1';
 
 /** [14.13.3, hardened per money-tier review item 7] A caller wanting to
  * target a tenant other than the ambient active one (e.g. a SUPER_ADMIN
@@ -178,22 +178,15 @@ function sessionAuthHeader(token: string | null): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-export async function getAuthSessions(): Promise<SessionListResponse> {
+/** Sends a tenant-agnostic bearer request (cookie included), retrying once
+ * with a refreshed token on a 401; every failure comes out as `toApiError`. */
+async function withSession<T>(send: (headers: Record<string, string>) => Promise<T>): Promise<T> {
   try {
-    const response = await axios.get<SessionListResponse>(`${API_BASE_URL}/auth/sessions`, {
-      withCredentials: true,
-      headers: sessionAuthHeader(getAccessToken()),
-    });
-    return response.data;
+    return await send(sessionAuthHeader(getAccessToken()));
   } catch (error) {
     if (axios.isAxiosError(error) && error.response?.status === 401) {
       try {
-        const token = await refreshAccessToken();
-        const response = await axios.get<SessionListResponse>(`${API_BASE_URL}/auth/sessions`, {
-          withCredentials: true,
-          headers: sessionAuthHeader(token),
-        });
-        return response.data;
+        return await send(sessionAuthHeader(await refreshAccessToken()));
       } catch (retryError) {
         throw toApiError(retryError);
       }
@@ -202,27 +195,32 @@ export async function getAuthSessions(): Promise<SessionListResponse> {
   }
 }
 
-export async function deleteAuthSession(id: string): Promise<void> {
-  try {
-    await axios.delete(`${API_BASE_URL}/auth/sessions/${id}`, {
-      withCredentials: true,
-      headers: sessionAuthHeader(getAccessToken()),
-    });
-  } catch (error) {
-    if (axios.isAxiosError(error) && error.response?.status === 401) {
-      try {
-        const token = await refreshAccessToken();
-        await axios.delete(`${API_BASE_URL}/auth/sessions/${id}`, {
+export async function getAuthSessions(): Promise<SessionListResponse> {
+  return withSession(
+    async (headers) =>
+      (
+        await axios.get<SessionListResponse>(`${API_BASE_URL}/auth/sessions`, {
           withCredentials: true,
-          headers: sessionAuthHeader(token),
-        });
-        return;
-      } catch (retryError) {
-        throw toApiError(retryError);
-      }
-    }
-    throw toApiError(error);
-  }
+          headers,
+        })
+      ).data,
+  );
+}
+
+export async function deleteAuthSession(id: string): Promise<void> {
+  await withSession((headers) =>
+    axios.delete(`${API_BASE_URL}/auth/sessions/${id}`, { withCredentials: true, headers }),
+  );
+}
+
+/** `POST /account/first-password` (bearer, tenant-agnostic): 204, or 409 when a
+ * password already exists. Not `apiClient`: right after a first code sign-in an
+ * account with 2+ schools has no active school yet, and `apiClient` would refuse
+ * to send the request at all (`NoActiveTenantError`). */
+export async function postFirstPassword(password: string): Promise<void> {
+  await withSession((headers) =>
+    axios.post(`${API_BASE_URL}/account/first-password`, { password }, { headers }),
+  );
 }
 
 /** `POST /auth/login`, bypassing `apiClient` for the same reason
@@ -379,37 +377,14 @@ export interface OtpRequestResponse {
   debug?: { otp?: string };
 }
 
-/** `POST /auth/otp/request` — always resolves, even for an unknown phone
- * (enumeration-safe, see `OtpLoginService.request`'s own comment). `debug`
- * is only ever populated with D6's `ACCOUNT_ACCESS_ECHO_SECRETS` flag on
- * (never in production) — for e2e/Playwright, not for any real UI. */
-export async function postAuthOtpRequest(phone: string): Promise<OtpRequestResponse> {
+/**
+ * Bare-axios POST for the public (pre-session) auth routes (sign-in by code,
+ * register): 429 becomes `RateLimitedError`, anything else `toApiError`.
+ * `withCredentials` so the refresh cookie a session-issuing route sets is stored.
+ */
+export async function publicPost<T>(path: string, body: unknown): Promise<T> {
   try {
-    const response = await axios.post<OtpRequestResponse>(`${API_BASE_URL}/auth/otp/request`, {
-      phone,
-    });
-    return response.data;
-  } catch (error) {
-    if (axios.isAxiosError(error) && error.response?.status === 429) {
-      const header: unknown = error.response.headers['retry-after'];
-      const parsed = typeof header === 'string' ? Number.parseInt(header, 10) : NaN;
-      throw new RateLimitedError(Number.isFinite(parsed) ? parsed : null);
-    }
-    throw toApiError(error);
-  }
-}
-
-/** `POST /auth/otp/verify` — sets the refresh cookie via `withCredentials`
- * and returns a `LoginResponse`, identical in shape to `postAuthLogin`. */
-export async function postAuthOtpVerify(input: {
-  phone: string;
-  otp: string;
-}): Promise<LoginResponse> {
-  try {
-    const response = await axios.post<LoginResponse>(`${API_BASE_URL}/auth/otp/verify`, input, {
-      withCredentials: true,
-    });
-    return response.data;
+    return (await axios.post<T>(`${API_BASE_URL}${path}`, body, { withCredentials: true })).data;
   } catch (error) {
     if (axios.isAxiosError(error) && error.response?.status === 429) {
       const header: unknown = error.response.headers['retry-after'];
@@ -507,6 +482,37 @@ export async function getPublicInvoice(
   try {
     const response = await axios.get<PublicInvoiceReceipt>(
       `${API_BASE_URL}/public/invoices/${token}`,
+      signal !== undefined ? { signal } : {},
+    );
+    return response.data;
+  } catch (error) {
+    throw toApiError(error);
+  }
+}
+
+/** [32.2.10] What the public page shows for a printed document (D22) — nothing
+ * beyond this: no ids, photo, class or phone. */
+export interface PublicVerification {
+  document_kind: string;
+  holder_name: string;
+  school_name: string;
+  school_name_bn: string | null;
+  issued_at: string;
+  copy_number: number;
+  status: 'VALID' | 'REVOKED';
+  revoked_at?: string;
+}
+
+/** `GET /public/verify/:token` — bare axios, no tenant header and no login, exactly
+ * like `getPublicInvoice`: whoever scans a printed card's QR code has neither. The
+ * server resolves the tenant from the token. 404 = unknown token; 429 = throttled. */
+export async function fetchPublicVerification(
+  token: string,
+  signal?: AbortSignal,
+): Promise<PublicVerification> {
+  try {
+    const response = await axios.get<PublicVerification>(
+      `${API_BASE_URL}/public/verify/${encodeURIComponent(token)}`,
       signal !== undefined ? { signal } : {},
     );
     return response.data;

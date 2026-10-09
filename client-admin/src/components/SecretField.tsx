@@ -1,6 +1,7 @@
 import { Button } from '@biddaloy/ui/components';
 import type { MaskedSecret } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
+import { KeyRoundIcon } from 'lucide-react';
 import * as React from 'react';
 
 /**
@@ -49,13 +50,26 @@ export interface SecretFieldProps {
   value: string | null | undefined;
   onChange: (value: string | null | undefined) => void;
   onBlur?: () => void;
+  /** Help line under the control; announced via `aria-describedby`. */
+  description?: string;
 }
 
-export function SecretField({ id, label, masked, value, onChange, onBlur }: SecretFieldProps) {
+export function SecretField({
+  id,
+  label,
+  masked,
+  value,
+  onChange,
+  onBlur,
+  description,
+}: SecretFieldProps) {
   const { t } = useTranslation('settings');
   const [isEditing, setIsEditing] = React.useState(false);
   const isCleared = value === null;
   const statusId = `${id}-status`;
+  const helpId = `${id}-help`;
+  const describedBy = description ? helpId : undefined;
+  const configured = !isCleared && !!masked?.configured;
 
   function startEditing() {
     setIsEditing(true);
@@ -74,11 +88,11 @@ export function SecretField({ id, label, masked, value, onChange, onBlur }: Secr
 
   return (
     <div className="grid gap-1.5">
-      <label htmlFor={isEditing ? id : statusId} className="text-sm font-medium">
+      <label htmlFor={isEditing ? id : statusId} className="text-label text-text-primary">
         {label}
       </label>
       {isEditing ? (
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col gap-2 md:flex-row md:items-center">
           <input
             id={id}
             type="password"
@@ -86,18 +100,32 @@ export function SecretField({ id, label, masked, value, onChange, onBlur }: Secr
             // [8.14.14]: focus ring aligned to the shared two-tone offset
             // treatment used across @biddaloy/ui, replacing the old
             // brand-on-brand `border-ring`/`ring-3`/`ring-ring/50` combo.
-            className="h-8 flex-1 rounded-md border border-input bg-card px-2.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            className="h-11 w-full min-w-0 rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background md:h-8 md:flex-1 md:text-body"
+            aria-describedby={describedBy}
             value={value ?? ''}
             onChange={handleChange}
             onBlur={onBlur}
           />
-          <Button type="button" variant="ghost" size="sm" onClick={cancelEditing}>
+          <Button
+            type="button"
+            variant="ghost"
+            className="flex-1 md:flex-none"
+            onClick={cancelEditing}
+          >
             {t('secret.cancel')}
           </Button>
         </div>
       ) : (
-        <div className="flex items-center gap-2">
-          <span id={statusId} className="flex-1 text-sm text-muted-foreground">
+        <div className="flex flex-col gap-2 md:flex-row md:items-center">
+          <span
+            id={statusId}
+            aria-describedby={describedBy}
+            className="flex min-h-11 flex-1 items-center gap-2 rounded-md bg-muted px-3 text-text-secondary md:min-h-8"
+          >
+            <KeyRoundIcon
+              className={`size-4 shrink-0 ${configured ? 'text-status-paid-fg' : 'text-text-secondary'}`}
+              aria-hidden="true"
+            />
             {isCleared || !masked?.configured
               ? t('secret.notConfigured')
               : masked.hint
@@ -110,15 +138,32 @@ export function SecretField({ id, label, masked, value, onChange, onBlur }: Secr
               replaces its accessible name with the label's text instead
               of its own ("Access token" instead of "Replace"). This
               button's own visible text is its name. */}
-          <Button type="button" variant="outline" size="sm" onClick={startEditing}>
-            {isCleared || !masked?.configured ? t('secret.set') : t('secret.replace')}
-          </Button>
-          {!isCleared && masked?.configured && (
-            <Button type="button" variant="ghost" size="sm" onClick={() => onChange(null)}>
-              {t('secret.clear')}
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              className="flex-1 md:flex-none"
+              onClick={startEditing}
+            >
+              {isCleared || !masked?.configured ? t('secret.set') : t('secret.replace')}
             </Button>
-          )}
+            {configured && (
+              <Button
+                type="button"
+                variant="ghost"
+                className="flex-1 md:flex-none"
+                onClick={() => onChange(null)}
+              >
+                {t('secret.clear')}
+              </Button>
+            )}
+          </div>
         </div>
+      )}
+      {description && (
+        <p id={helpId} className="text-caption text-text-secondary">
+          {description}
+        </p>
       )}
     </div>
   );

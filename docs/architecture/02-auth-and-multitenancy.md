@@ -20,7 +20,7 @@ erDiagram
     UserTenant {
         uuid user_id
         uuid tenant_id
-        enum role "SUPER_ADMIN | ADMIN | ACCOUNTANT | TEACHER | PARENT | STUDENT | EXECUTIVE"
+        enum role "SUPER_ADMIN | ADMIN | ACCOUNTANT | TEACHER | PARENT | STUDENT | EXECUTIVE | OFFICE_STAFF | EXAM_CONTROLLER | COMMITTEE"
     }
 ```
 
@@ -137,7 +137,7 @@ Roles are fixed and defined once in `shared/src/enums/index.ts`
 (`UserRole`), shared by server and every client so they can never drift:
 
 ```
-SUPER_ADMIN → ADMIN → ACCOUNTANT ≈ EXECUTIVE → TEACHER → PARENT / STUDENT
+SUPER_ADMIN → ADMIN → ACCOUNTANT → EXECUTIVE → TEACHER → EXAM_CONTROLLER → OFFICE_STAFF → COMMITTEE → PARENT / STUDENT
 ```
 
 (highest to lowest priority — see `ROLE_PRIORITY` in `context.guard.ts`,
@@ -145,6 +145,30 @@ used as a tiebreak when a caller has multiple roles in one tenant and omits
 `X-Role`). Routes declare required roles with the `@Roles(...)` decorator;
 `RolesGuard` enforces it after `ContextGuard` has resolved which role the
 caller is acting as.
+
+| Role              | Who it is for                           | Data scope (`ROLE_SCOPE`) |
+| ----------------- | --------------------------------------- | ------------------------- |
+| `SUPER_ADMIN`     | Platform operator                       | `TENANT`                  |
+| `ADMIN`           | School head / IT admin                  | `TENANT`                  |
+| `ACCOUNTANT`      | Fees and payments                       | `TENANT`                  |
+| `EXECUTIVE`       | Principal / management, read-mostly     | `TENANT`                  |
+| `OFFICE_STAFF`    | Front-office clerk: admissions, records | `TENANT`                  |
+| `EXAM_CONTROLLER` | Runs exams, marks and results           | `TENANT`                  |
+| `COMMITTEE`       | Governing / admission committee member  | `TENANT`                  |
+| `TEACHER`         | Classroom teacher                       | `ASSIGNED_SECTIONS`       |
+| `PARENT`          | Guardian                                | `FAMILY`                  |
+| `STUDENT`         | Learner                                 | `SELF`                    |
+
+`SUPER_ADMIN`'s `TENANT` scope does not open a school's own data (marks,
+attendance, homework, performance): `hasTenantDataScope` in
+`shared/src/enums/audiences.ts` holds it out until product decides (#1362
+D-N). Tenant scope is always paired with the route's permission.
+
+These are code roles, not runtime-editable ones: each role is wired into
+guards, menus and data scope at build time, so a school cannot invent one
+(decision D1 of [Epic #786](https://github.com/tareq89/biddaloy/issues/786)).
+Demo accounts for every role live in `ROLE_TEST_USERS`
+(`server/src/scripts/seed.util.ts`), e.g. `office@biddaloy.test`.
 
 This was a deliberate choice over attribute-based access control (ABAC):
 school roles map cleanly onto real staff titles, and finer-grained rules
@@ -166,13 +190,39 @@ flowchart LR
 which capability from `ROLE_PERMISSIONS` (`shared/src/enums/permissions.ts`)
 the route exercises. Both run today.
 
-After [10.4] every tenant route declares `@RequirePermissions` and
-`ROLE_PERMISSIONS` agrees with every `@Roles` list. `@Roles` now carries only
-the narrowings listed in `ROLE_NARROWINGS` (`permission-matrix.e2e-spec.ts`).
-It can retire route-by-route: give a narrowed route its own permission (e.g.
-`STUDENT_LIST` for the roster), grant that to the roles in `@Roles`, delete
-the `@Roles` line, delete the `ROLE_NARROWINGS` entry. When the list is
-empty, delete `RolesGuard`. Tracked as a follow-up, not part of Epic 10.0.
+On a tenant route with `@RequirePermissions`, the permission is the real
+gate. `@Roles` now exists only on routes listed in `ROLE_NARROWINGS` or
+`IDENTITY_SCOPED` (`permission-matrix.e2e-spec.ts`). Everywhere else it was
+redundant and was deleted (Epic 24.0).
+
+`IDENTITY_SCOPED` routes are the exception: some carry no
+`@RequirePermissions` at all, and `PermissionsGuard` lets a route with no
+permission metadata through. There the `@Roles` list plus the service's own
+identity check are the gate. Example: `POST /leave/requests` and
+`GET /leave/balance` act only on the caller's own staff profile.
+
+Which status a refused request gets depends on which guard refuses it:
+
+| Request                                                                                      | Refused by         | Status                                                  |
+| -------------------------------------------------------------------------------------------- | ------------------ | ------------------------------------------------------- |
+| Valid token, wrong role, route has **no** `@Roles` (most routes)                             | `PermissionsGuard` | **403** `Requires permission(s): …`                     |
+| Valid token, wrong role, route **still has** `@Roles` (a narrowing or identity-scoped route) | `RolesGuard`       | **403** `Requires one of roles: …` (since #1360 / #729) |
+| `X-Role` names a role the user does not hold in this tenant                                  | `ContextGuard`     | **401**                                                 |
+| Missing or bad token                                                                         | `AuthGuard('jwt')` | **401**                                                 |
+
+Example, with a PARENT token for the same school:
+
+- `GET /guardians` (no `@Roles`; PARENT lacks `GUARDIAN_READ`) → `403`.
+- `GET /homework` (keeps `@Roles(ADMIN, TEACHER)`, see below) → `403`.
+
+Example of a narrowing: `GET /homework`. PARENT and STUDENT hold
+`HOMEWORK_READ` (for their own child's view). This route is the teacher/admin
+list across all students, so it keeps `@Roles(ADMIN, TEACHER)` to keep
+families out.
+
+A narrowing can retire later: give the route its own permission, grant it to
+the roles in `@Roles`, delete the `@Roles` line and the `ROLE_NARROWINGS`
+entry. When the list is empty, delete `RolesGuard`.
 
 ### Step-up approval (16.2) — a second person's OK for a risky action
 
@@ -349,6 +399,54 @@ Key points:
   a `User` is loaded, not recreated; a guardian matching an existing
   `User` by phone/email is linked, not duplicated; a `23505` race between
   two concurrent batches is retried as "found".
+
+## Sign-in methods, first password, leaving (Epic 13.0)
+
+```mermaid
+flowchart TD
+    A["/login"] --> B{"Method"}
+    B -- "password" --> P["POST /auth/login"]
+    B -- "code" --> C["POST /auth/otp/request<br/>{ phone } or { email }"]
+    C --> V["POST /auth/otp/verify"]
+    B -- "Google" --> G["GET /auth/social/google/start"]
+    B -- "Facebook" --> FB["GET /auth/social/facebook/start"]
+    V --> N{"needs_password?"}
+    N -- yes --> F["First password step<br/>POST /account/first-password"]
+    N -- no --> S["Signed in"]
+    F --> S
+    G --> S
+    FB --> S
+```
+
+- **Code sign-in works by phone or email.** The identifier is either one.
+  `/otp/verify` also returns `needs_password` and `password_required`
+  (no password + staff role + no linked social account). The gate is
+  client-side, stored per account and cleared on logout or when a password is
+  set. Server enforcement is open: #1697. See
+  [22-onboarding.md](22-onboarding.md).
+- **Password rules depend on the role**, checked only when a password is set
+  or changed (never at sign-in). Strictest role across all memberships wins.
+
+  | Roles | Rules |
+  | --- | --- |
+  | Any staff role, or mixed | 8+ characters, upper, lower, digit, special |
+  | Only PARENT / STUDENT | 8+ characters, a digit |
+
+- **Google and Facebook.** The server lists the
+  configured providers (`GET /auth/social/providers`) and the UI draws one
+  button each. The flow is server-side authorization code with PKCE and
+  `state`. Identities live in `user_identities`. **Connecting is always
+  explicit** (`POST /auth/social/:provider/link-start` from a signed-in
+  session). An identity is never attached by matching email. Example: a Google
+  account with `rahim@example.com` does not sign in to a user who has that
+  email unless it was connected first.
+- **Leaving and former members.** Staff leave with `POST /users/me/leave`.
+  An admin removes with `DELETE /users/:id`. Both soft-delete the
+  `user_tenants` row (`deleted_at`); the user account and their other schools
+  stay. The last admin cannot leave or be removed. Guardians and students
+  have no "leave". `POST /users/:id/restore` (needs `MEMBER_REMOVE`, ADMIN and SUPER_ADMIN only today) brings back the rows
+  ended by the latest event. A person with no active staff role is a
+  "Former" member.
 
 ## Why this deviated from the original plan
 

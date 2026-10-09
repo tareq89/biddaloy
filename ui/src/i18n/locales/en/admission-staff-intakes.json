@@ -1,0 +1,50 @@
+{
+  "list": {
+    "title": "Admission rounds",
+    "caption": "Admission rounds",
+    "addIntake": "Add admission round",
+    "columnTitle": "Title",
+    "columnClassSection": "Class / Section",
+    "columnSeatCount": "Seats",
+    "columnStatus": "Status",
+    "statusOpen": "Open",
+    "statusClosed": "Closed",
+    "errorMessage": "Failed to load admission rounds",
+    "subtitle": "Which class, how many seats, and when guardians can apply online.",
+    "columnWindow": "Application window",
+    "viewApplicants": "View applicants",
+    "edit": "Edit",
+    "emptyTitle": "No admission rounds yet",
+    "emptyText": "Add a round so guardians can apply online."
+  },
+  "createDialog": {
+    "title": "Add admission round",
+    "errorMessage": "Failed to create admission round",
+    "save": "Create",
+    "saving": "Creating…"
+  },
+  "form": {
+    "titleLabel": "Title",
+    "classSectionLabel": "Class / Section",
+    "seatCountLabel": "Seat count",
+    "openDateLabel": "Open date",
+    "closeDateLabel": "Close date",
+    "requiredDocumentsLabel": "Required documents",
+    "documentPhoto": "Photo",
+    "documentBirthCertificate": "Birth certificate",
+    "documentTranscript": "Transcript",
+    "dateRangeError": "Close date must not be before open date.",
+    "datesHelp": "Guardians can apply online between these two dates.",
+    "documentsHelp": "Guardians must upload these when applying."
+  },
+  "detail": {
+    "save": "Save",
+    "saving": "Saving…",
+    "errorMessage": "Failed to save admission round",
+    "sectionTitle": "Round details",
+    "applicantCount_one": "{{formatted}} application received",
+    "applicantCount_other": "{{formatted}} applications received",
+    "saved": "Saved",
+    "loadError": "Failed to load this round"
+  }
+}

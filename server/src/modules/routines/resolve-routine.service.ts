@@ -9,6 +9,7 @@ import { PeriodSlot } from './entities/period-slot.entity';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { Enrollment } from '../students/entities/enrollment.entity';
 import { Teacher } from '../academics/entities/teacher.entity';
+import { Subject } from '../academics/entities/subject.entity';
 import { SchoolCalendarService } from '../calendar/school-calendar.service';
 import { occursOn } from './recurrence';
 import { ResolveRoutineQueryDto, ResolvedSlot } from './dto/resolve.dto';
@@ -47,6 +48,7 @@ export class ResolveRoutineService {
     @InjectRepository(AcademicYear) private readonly yearRepo: Repository<AcademicYear>,
     @InjectRepository(Enrollment) private readonly enrollmentRepo: Repository<Enrollment>,
     @InjectRepository(Teacher) private readonly teacherRepo: Repository<Teacher>,
+    @InjectRepository(Subject) private readonly subjectRepo: Repository<Subject>,
     private readonly calendarService: SchoolCalendarService,
   ) {}
 
@@ -135,7 +137,9 @@ export class ResolveRoutineService {
     const slotIds = slots.map((s) => s.id);
     const periodSlotIds = Array.from(new Set(slots.map((s) => s.period_slot_id)));
 
-    const [periodSlots, teacherRows, substitutions] = await Promise.all([
+    const subjectIds = Array.from(new Set(slots.map((s) => s.subject_id)));
+
+    const [periodSlots, teacherRows, substitutions, subjects] = await Promise.all([
       this.periodSlotRepo.find({ where: { id: In(periodSlotIds), tenant_id: tenantId } }),
       this.slotTeacherRepo.find({ where: { routine_slot_id: In(slotIds), tenant_id: tenantId } }),
       this.substitutionRepo.find({
@@ -145,8 +149,15 @@ export class ResolveRoutineService {
           date: Between(query.from, query.to),
         },
       }),
+      // Families cannot call `GET /subjects`, so the names ride on the slot.
+      this.subjectRepo.find({
+        where: { id: In(subjectIds), tenant_id: tenantId },
+        withDeleted: true, // a slot of a since-deleted subject still names it
+        select: { id: true, name_en: true, name_bn: true },
+      }),
     ]);
 
+    const subjectById = new Map(subjects.map((sub) => [sub.id, sub]));
     const kindBySlot = new Map(periodSlots.map((p) => [p.id, p.kind]));
     const teachersBySlot = new Map<string, string[]>();
     for (const row of teacherRows) {
@@ -188,6 +199,8 @@ export class ResolveRoutineService {
           period_slot_id: slot.period_slot_id,
           weekday: slot.weekday,
           subject_id: slot.subject_id,
+          subject_name_en: subjectById.get(slot.subject_id)?.name_en ?? null,
+          subject_name_bn: subjectById.get(slot.subject_id)?.name_bn ?? null,
           room_id: slot.room_id,
           kind,
           teacher_ids: substituted ? [sub!.substitute_teacher_id as string] : ownTeacherIds,

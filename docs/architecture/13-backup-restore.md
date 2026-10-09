@@ -155,12 +155,12 @@ disaster recovery":
 
 | Var                           | Ticket | Purpose                                                                           |
 | ----------------------------- | ------ | --------------------------------------------------------------------------------- |
-| `S3_ENDPOINT`                 | 15.3.1 | Bucket endpoint (MinIO in dev, your provider in prod)                             |
+| `S3_ENDPOINT`                 | 15.3.1 | Bucket endpoint (SeaweedFS in dev, your provider in prod)                         |
 | `S3_REGION`                   | 15.3.1 | Bucket region                                                                     |
 | `S3_BUCKET`                   | 15.3.1 | Bucket name                                                                       |
 | `S3_ACCESS_KEY_ID`            | 15.3.1 | Bucket credentials                                                                |
 | `S3_SECRET_ACCESS_KEY`        | 15.3.1 | Bucket credentials                                                                |
-| `S3_FORCE_PATH_STYLE`         | 15.3.1 | `true` for MinIO/self-hosted, unset for AWS S3                                    |
+| `S3_FORCE_PATH_STYLE`         | 15.3.1 | `true` for SeaweedFS/self-hosted, unset for AWS S3                                |
 | `BACKUP_AGE_PUBLIC_KEY`       | 15.3.2 | Encrypts new backups                                                              |
 | `BACKUP_SCHEDULE`             | 15.3.2 | Cron schedule the `backup` service runs on (default `0 2 * * *`, `TZ=Asia/Dhaka`) |
 | `BACKUP_RETENTION_DAYS`       | 15.3.2 | Backups older than this are deleted (default 30)                                  |

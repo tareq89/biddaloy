@@ -65,4 +65,16 @@ describe('Card', () => {
 
     expect(screen.getByLabelText('Summary')).toBeTruthy();
   });
+
+  it('[31.2.8b] padded adds the kit padding; default has none', () => {
+    render(
+      <>
+        <Card padded>Yes</Card>
+        <Card>No</Card>
+      </>,
+    );
+    expect(screen.getByText('Yes').className).toContain('p-4');
+    expect(screen.getByText('Yes').className).toContain('md:p-5');
+    expect(screen.getByText('No').className).not.toMatch(/\bp-4\b|md:p-5/);
+  });
 });

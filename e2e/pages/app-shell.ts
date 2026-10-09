@@ -22,7 +22,8 @@ export class AppShellPage {
 
   /** The tenant bar shows the active school's name. */
   async expectCurrentSchool(name: string): Promise<void> {
-    await expect(this.page.getByText(name).first()).toBeVisible();
+    // Visible match only: the phone top bar carries the school name too (hidden on desktop).
+    await expect(this.page.getByText(name).filter({ visible: true }).first()).toBeVisible();
   }
 
   async openSchoolSwitcher(): Promise<void> {

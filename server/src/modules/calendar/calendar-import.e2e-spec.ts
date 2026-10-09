@@ -79,17 +79,14 @@ describe('Calendar import E2E (17.3.1)', () => {
     expect(res.text).toContain('"type","name","start_date"');
   });
 
-  // RolesGuard throws 401 (not 403) for a role that isn't in the route's
-  // `@Roles` list — same convention every other `@Roles(UserRole.ADMIN)`
-  // route in this codebase follows (see `context.guard.ts`'s
-  // `RolesGuard.canActivate`).
+  // A role without CALENDAR_MANAGE is rejected by PermissionsGuard (403).
   it('denies TEACHER (lacks CALENDAR_MANAGE)', async () => {
     await supertest(app.getHttpServer())
       .get(`${API}/calendar-import/template`)
       .set('Authorization', `Bearer ${adminToken}`)
       .set('X-Tenant-ID', TENANT_ID)
       .set('X-Role', UserRole.TEACHER)
-      .expect(401);
+      .expect(403);
 
     await supertest(app.getHttpServer())
       .post(`${API}/calendar-import/commit`)
@@ -97,7 +94,7 @@ describe('Calendar import E2E (17.3.1)', () => {
       .set('X-Tenant-ID', TENANT_ID)
       .set('X-Role', UserRole.TEACHER)
       .send({ staging_id: '00000000-0000-4000-8000-000000000000' })
-      .expect(401);
+      .expect(403);
   });
 
   it('rejects a validate call with no file', async () => {

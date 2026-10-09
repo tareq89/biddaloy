@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { Repository, DataSource } from 'typeorm';
+import { ConfigModule } from '@nestjs/config';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -24,16 +25,38 @@ import { StudentFee } from './entities/student-fee.entity';
 import { FeeGeneration } from './entities/fee-generation.entity';
 import { Student } from '../students/entities/student.entity';
 import { School } from '../schools/entities/school.entity';
+import { Program } from '../programs/entities/program.entity';
+import { ProgramEnrollment } from '../programs/entities/program-enrollment.entity';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
 import {
   SEED_TENANT_ID,
   SEED_ACADEMIC_YEAR_ID,
   SEED_SECTION_1_ID,
+  SEED_SECTION_2_ID,
   SEED_ADMIN_USER_ID,
 } from '@test/constants';
-import { FeeGenerationSource, FeeType } from '@biddaloy/shared';
+import {
+  AttendanceSessionState,
+  AttendanceStatus,
+  CommunicationMedium,
+  EnrollmentStatus,
+  FeeGenerationSource,
+  FeeType,
+  FineTrigger,
+  ProgramEnrollmentStatus,
+} from '@biddaloy/shared';
 import { SCHOOL_TZ, todayInSchoolTz } from '../../common/time';
+import { CalendarModule } from '../calendar/calendar.module';
+import { AuthModule } from '../auth/auth.module';
+import { AttendanceSession } from '../attendance/entities/attendance-session.entity';
+import { AttendanceRecord } from '../attendance/entities/attendance-record.entity';
+import { FineRule } from './entities/fine-rule.entity';
+import { FineSweepService } from './fines/fine-sweep.service';
+import { FeeModule } from './fees.module';
+import { AcademicYear } from '../academics/entities/academic-year.entity';
+import { Class } from '../academics/entities/class.entity';
+import { ClassSection } from '../academics/entities/class-section.entity';
 
 /**
  * [16.7.2] Real-DB coverage for `FeesDailyScheduler`. #675 ([16.7.1])
@@ -65,6 +88,8 @@ describe('FeesDailyScheduler (integration)', () => {
   let studentFeeRepo: Repository<StudentFee>;
   let structureRepo: Repository<FeeStructure>;
   let studentRepo: Repository<Student>;
+  let programRepo: Repository<Program>;
+  let programEnrollmentRepo: Repository<ProgramEnrollment>;
 
   const TENANT_ID = SEED_TENANT_ID;
   const JWT_SECRET = 'test-fees-daily-scheduler-secret';
@@ -174,6 +199,8 @@ describe('FeesDailyScheduler (integration)', () => {
     studentFeeRepo = module.get(getRepositoryToken(StudentFee));
     structureRepo = module.get(getRepositoryToken(FeeStructure));
     studentRepo = module.get(getRepositoryToken(Student));
+    programRepo = module.get(getRepositoryToken(Program));
+    programEnrollmentRepo = module.get(getRepositoryToken(ProgramEnrollment));
     dataSource = module.get(DataSource);
 
     // Baseline school row for SEED_TENANT_ID already exists via
@@ -197,8 +224,29 @@ describe('FeesDailyScheduler (integration)', () => {
     await dataSource.query('DELETE FROM student_fees');
     await dataSource.query('DELETE FROM fee_generations');
     await dataSource.query('DELETE FROM fee_structures');
+    await dataSource.query('DELETE FROM program_enrollments');
+    await dataSource.query('DELETE FROM programs');
     await dataSource.query('DELETE FROM students');
   });
+
+  /** [34.2.2] A tenant-owned program plus one ACTIVE ProgramEnrollment for
+   * `studentId` — the "program audience" fixture every program test below
+   * builds on. */
+  async function enrollInNewProgram(studentId: string, status = ProgramEnrollmentStatus.ACTIVE) {
+    const program = await programRepo.save(
+      programRepo.create({ tenant_id: TENANT_ID, name: `Program ${Date.now()}-${Math.random()}` }),
+    );
+    await programEnrollmentRepo.save(
+      programEnrollmentRepo.create({
+        tenant_id: TENANT_ID,
+        program_id: program.id,
+        student_id: studentId,
+        started_on: '2026-01-01',
+        status,
+      }),
+    );
+    return program;
+  }
 
   /** Builds a scheduler wired to the real DataSource/FeeGenerationService,
    * but a stub queue/schoolsService — `runNow`/`onModuleInit` aren't under
@@ -396,5 +444,343 @@ describe('FeesDailyScheduler (integration)', () => {
       [schedule.id],
     );
     expect(row.last_run_period).not.toBeNull();
+  });
+
+  // [34.2.2] Program-audience targeting — D7/D17/D26.
+  describe('program audience', () => {
+    it('bills only students with an ACTIVE program enrolment', async () => {
+      const structure = await structureRepo.save(makeStructure());
+      const enrolled = await studentRepo.save(makeStudent());
+      const notEnrolled = await studentRepo.save(makeStudent());
+      const program = await enrollInNewProgram(enrolled.id);
+
+      const schedule = await recurringSchedulesService.create(
+        {
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          name: `Program schedule ${Date.now()}`,
+          audience: { program_id: program.id, enrollment_status: 'ACTIVE' },
+          rule: dueRuleToday(),
+          fee_structure_ids: [structure.id],
+          starts_on: '2026-01-01',
+        } as any,
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+
+      const scheduler = buildScheduler();
+      await scheduler.process({ data: { tenantId: TENANT_ID } } as any);
+
+      const bills = await studentFeeRepo.find();
+      expect(bills).toHaveLength(1);
+      expect(bills[0].student_id).toBe(enrolled.id);
+      void notEnrolled;
+      void schedule;
+    });
+
+    it('stops billing once the program enrolment goes WITHDRAWN, leaving the earlier bill untouched', async () => {
+      const structure = await structureRepo.save(makeStructure());
+      const student = await studentRepo.save(makeStudent());
+      const program = await enrollInNewProgram(student.id);
+
+      const schedule = await recurringSchedulesService.create(
+        {
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          name: `Program schedule ${Date.now()}`,
+          audience: { program_id: program.id, enrollment_status: 'ACTIVE' },
+          rule: dueRuleToday(),
+          fee_structure_ids: [structure.id],
+          starts_on: '2026-01-01',
+        } as any,
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+
+      await buildScheduler().process({ data: { tenantId: TENANT_ID } } as any);
+      const firstRunBills = await studentFeeRepo.find();
+      expect(firstRunBills).toHaveLength(1);
+      const firstBillId = firstRunBills[0].id;
+
+      await programEnrollmentRepo.update(
+        { student_id: student.id, program_id: program.id },
+        { status: ProgramEnrollmentStatus.WITHDRAWN, ended_on: '2026-02-01' },
+      );
+      // Swap in a second fee structure for the re-run: DuplicateStrategy.SKIP
+      // would silently suppress a second bill against the *same* structure
+      // regardless of whether the WITHDRAWN filter works, making this
+      // assertion pass even if `pe.status = ACTIVE` were dropped from
+      // `applyProgramAudience`. A distinct structure means "no new bill" can
+      // only happen because the audience query actually excluded the student.
+      const structure2 = await structureRepo.save(makeStructure());
+      await dataSource.query(
+        `UPDATE recurring_schedule_structures SET fee_structure_id = $1 WHERE schedule_id = $2`,
+        [structure2.id, schedule.id],
+      );
+      // Force a re-run for a later period: reset last_run_period so the
+      // scheduler's idempotency check doesn't skip a same-day sweep.
+      await dataSource.query(
+        `UPDATE recurring_schedules SET last_run_period = NULL WHERE id = $1`,
+        [schedule.id],
+      );
+
+      await buildScheduler().process({ data: { tenantId: TENANT_ID } } as any);
+
+      const billsAfter = await studentFeeRepo.find();
+      // No new bill for the now-WITHDRAWN student; the first bill stands.
+      expect(billsAfter.map((b) => b.id)).toEqual([firstBillId]);
+    });
+
+    it('skips a student with an ACTIVE program enrolment but no ACTIVE class enrollment (D17: class-enrollment-in-year condition is not relaxed for program audiences)', async () => {
+      const structure = await structureRepo.save(makeStructure());
+      // `enrollment_status: INACTIVE` — no longer counts as an ACTIVE class
+      // enrollment, even though `class_section_id` (a required column) is
+      // still set to some section.
+      const noActiveClassEnrollment = await studentRepo.save(
+        makeStudent({ enrollment_status: 'INACTIVE' } as Partial<Student>),
+      );
+      const program = await enrollInNewProgram(noActiveClassEnrollment.id);
+
+      await recurringSchedulesService.create(
+        {
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          name: `Program schedule ${Date.now()}`,
+          audience: { program_id: program.id, enrollment_status: 'ACTIVE' },
+          rule: dueRuleToday(),
+          fee_structure_ids: [structure.id],
+          starts_on: '2026-01-01',
+        } as any,
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+
+      await buildScheduler().process({ data: { tenantId: TENANT_ID } } as any);
+
+      const bills = await studentFeeRepo.find();
+      expect(bills).toHaveLength(0);
+    });
+
+    it('program + section combined intersects — only students in both are billed', async () => {
+      const structure = await structureRepo.save(makeStructure());
+      const inBoth = await studentRepo.save(makeStudent({ class_section_id: SEED_SECTION_1_ID }));
+      const programOnlyOtherSection = await studentRepo.save(
+        makeStudent({ class_section_id: SEED_SECTION_2_ID }),
+      );
+      const program = await enrollInNewProgram(inBoth.id);
+      await programEnrollmentRepo.save(
+        programEnrollmentRepo.create({
+          tenant_id: TENANT_ID,
+          program_id: program.id,
+          student_id: programOnlyOtherSection.id,
+          started_on: '2026-01-01',
+          status: ProgramEnrollmentStatus.ACTIVE,
+        }),
+      );
+
+      await recurringSchedulesService.create(
+        {
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          name: `Program+section schedule ${Date.now()}`,
+          audience: {
+            section_id: SEED_SECTION_1_ID,
+            program_id: program.id,
+            enrollment_status: 'ACTIVE',
+          },
+          rule: dueRuleToday(),
+          fee_structure_ids: [structure.id],
+          starts_on: '2026-01-01',
+        } as any,
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+
+      await buildScheduler().process({ data: { tenantId: TENANT_ID } } as any);
+
+      const bills = await studentFeeRepo.find();
+      expect(bills).toHaveLength(1);
+      expect(bills[0].student_id).toBe(inBoth.id);
+    });
+  });
+
+  // [38.2.5] `FineSweepService` threading through `FeesDailyScheduler`'s
+  // `@Optional() fineSweepService?` seam. `FineSweepService`'s own
+  // correction-window/month math is already covered by
+  // `fine-sweep.service.integration.spec.ts` — this only proves the
+  // scheduler actually calls it, once per tenant, isolated from other
+  // tenants' failures.
+  describe('fine-sweep threading', () => {
+    let fineSweepModule: Awaited<ReturnType<typeof createTestModule>>;
+    let fineSweepService: FineSweepService;
+    let fineSweepDataSource: DataSource;
+
+    beforeAll(async () => {
+      fineSweepModule = await createTestModule(
+        ALL_ENTITIES,
+        [FineSweepService],
+        [ConfigModule.forRoot({ isGlobal: true }), FeeModule, CalendarModule, AuthModule],
+      );
+      fineSweepService = fineSweepModule.get(FineSweepService);
+      fineSweepDataSource = fineSweepModule.get(DataSource);
+    }, 60000);
+
+    afterAll(async () => {
+      if (fineSweepDataSource) {
+        await fineSweepDataSource.destroy();
+      }
+    });
+
+    /** A fresh tenant + academic year + class + section, with
+     * `correctionWindowDays: 0` so `runDue` always bills regardless of what
+     * day this suite happens to run on (rather than depending on the real
+     * system clock landing on day 3+ of a month). */
+    async function setupFineSweepTenant() {
+      const school = await fineSweepDataSource.getRepository(School).save({
+        name: `Fine Sweep Threading ${Date.now()}-${Math.random()}`,
+        slug: `fine-sweep-threading-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        settings: {
+          version: 1,
+          attendance: { weeklyOffDays: [], correctionWindowDays: 0 },
+        } as any,
+        status: 'ACTIVE',
+      });
+      // `todayInSchoolTz()` (Dhaka, UTC+6), not `new Date()`/UTC — the
+      // scheduler itself derives `today` (and so "previous month") from the
+      // school timezone, so building the fixture off UTC would disagree
+      // with it for a few hours around the 1st of the month.
+      const now = new Date(`${todayInSchoolTz()}T00:00:00.000Z`);
+      const yearStart = `${now.getUTCFullYear() - 1}-01-01`;
+      const yearEnd = `${now.getUTCFullYear() + 1}-12-31`;
+      const year = await fineSweepDataSource.getRepository(AcademicYear).save({
+        name: 'Fine Sweep Threading Year',
+        start_date: yearStart,
+        end_date: yearEnd,
+        tenant_id: school.id,
+      });
+      const klass = await fineSweepDataSource
+        .getRepository(Class)
+        .save({
+          name: 'Fine Sweep Threading Class',
+          academic_year_id: year.id,
+          tenant_id: school.id,
+        });
+      const section = await fineSweepDataSource
+        .getRepository(ClassSection)
+        .save({ section_name: 'FST Section', class_id: klass.id, tenant_id: school.id });
+      const structure = await fineSweepDataSource.getRepository(FeeStructure).save({
+        tenant_id: school.id,
+        academic_year_id: year.id,
+        fee_type: FeeType.FINE,
+        name: 'Threading Attendance Fine',
+        amount: 20,
+      });
+      await fineSweepDataSource.getRepository(FineRule).save({
+        tenant_id: school.id,
+        academic_year_id: year.id,
+        trigger: FineTrigger.ATTENDANCE_ABSENT,
+        fee_structure_id: structure.id,
+        class_id: null,
+        free_per_period: 0,
+        cap_per_period: null,
+        conditions: {},
+        is_active: true,
+      });
+      const student = await fineSweepDataSource.getRepository(Student).save({
+        full_name: 'Fine Sweep Threading Student',
+        registration_number: `RFST${Date.now().toString(36)}`,
+        roll_number: Math.floor(Math.random() * 100000),
+        class_section_id: section.id,
+        tenant_id: school.id,
+        date_of_birth: new Date('2015-01-01'),
+        preferred_communication: CommunicationMedium.SMS,
+        enrollment_status: EnrollmentStatus.ACTIVE,
+      });
+
+      // Previous calendar month (UTC), matching `runDue`'s own month math —
+      // absences land here so a real "today", whatever day it is, bills them.
+      const prevMonthDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 15));
+      const absentDate = prevMonthDate.toISOString().slice(0, 10);
+
+      const session = await fineSweepDataSource.getRepository(AttendanceSession).save({
+        tenant_id: school.id,
+        section_id: section.id,
+        date: absentDate,
+        period_no: null,
+        state: AttendanceSessionState.FINALIZED,
+      });
+      await fineSweepDataSource.getRepository(AttendanceRecord).save({
+        tenant_id: school.id,
+        session_id: session.id,
+        student_id: student.id,
+        date: absentDate,
+        status: AttendanceStatus.ABSENT,
+      });
+
+      return { tenantId: school.id, structureId: structure.id, studentId: student.id };
+    }
+
+    function buildSchedulerWithFineSweep(sweep: FineSweepService): FeesDailyScheduler {
+      const queue = {
+        upsertJobScheduler: async () => undefined,
+        add: async () => undefined,
+      } as any;
+      const schoolsService = { findAll: async () => [] } as any;
+      return new FeesDailyScheduler(
+        queue,
+        fineSweepDataSource,
+        schoolsService,
+        // This describe block's own module doesn't wire FeeGenerationService
+        // for real generation through the scheduler's other sweeps — only
+        // the fine sweep is under test here, so a stub is enough.
+        {} as any,
+        undefined,
+        sweep,
+      );
+    }
+
+    it("bills last month's absences once, and a same-day second run creates no more", async () => {
+      const { tenantId, structureId } = await setupFineSweepTenant();
+      const scheduler = buildSchedulerWithFineSweep(fineSweepService);
+
+      await scheduler.process({ data: { tenantId } } as any);
+      const firstBills = await fineSweepDataSource
+        .getRepository(StudentFee)
+        .find({ where: { fee_structure_id: structureId } });
+      expect(firstBills).toHaveLength(1);
+
+      await scheduler.process({ data: { tenantId } } as any);
+      const secondBills = await fineSweepDataSource
+        .getRepository(StudentFee)
+        .find({ where: { fee_structure_id: structureId } });
+      expect(secondBills).toHaveLength(1);
+    });
+
+    it('a fine sweep throwing for tenant A does not stop tenant B', async () => {
+      const tenantA = await setupFineSweepTenant();
+      const tenantB = await setupFineSweepTenant();
+
+      const throwingForA: FineSweepService = {
+        runDue: (tenantId: string, today: string) => {
+          if (tenantId === tenantA.tenantId) {
+            return Promise.reject(new Error('boom'));
+          }
+          return fineSweepService.runDue(tenantId, today);
+        },
+      } as any;
+
+      const scheduler = buildSchedulerWithFineSweep(throwingForA);
+
+      await expect(
+        scheduler.process({ data: { tenantId: tenantA.tenantId } } as any),
+      ).resolves.toBeUndefined();
+      await scheduler.process({ data: { tenantId: tenantB.tenantId } } as any);
+
+      const billsA = await fineSweepDataSource
+        .getRepository(StudentFee)
+        .find({ where: { fee_structure_id: tenantA.structureId } });
+      expect(billsA).toHaveLength(0);
+
+      const billsB = await fineSweepDataSource
+        .getRepository(StudentFee)
+        .find({ where: { fee_structure_id: tenantB.structureId } });
+      expect(billsB).toHaveLength(1);
+    });
   });
 });

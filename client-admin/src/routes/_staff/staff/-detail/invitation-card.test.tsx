@@ -36,6 +36,23 @@ describe('InvitationCard', () => {
     expect(screen.getByRole('button', { name: 'Revoke invitation' })).toBeTruthy();
   });
 
+  it('uses the danger tone and the expired sentence for an EXPIRED invitation', async () => {
+    const user = userResponseFactory({ id: 'user-4', invitation_status: 'EXPIRED' });
+    const { localeReady } = renderWithProviders(<InvitationCard user={user} />, {
+      locale: 'en',
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+    });
+    await localeReady;
+
+    expect(
+      await screen.findByText('The invitation link has expired. Send a new one.'),
+    ).toBeTruthy();
+    expect(screen.getByRole('region', { name: 'Invitation' }).className).toContain(
+      'bg-status-overdue-bg',
+    );
+  });
+
   it('offers no revoke action once an invitation is REVOKED already', async () => {
     const user = userResponseFactory({ id: 'user-2', invitation_status: 'REVOKED' });
     const { localeReady } = renderWithProviders(<InvitationCard user={user} />, {

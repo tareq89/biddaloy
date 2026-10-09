@@ -1,0 +1,50 @@
+{
+  "myLeave": {
+    "title": "My leave",
+    "requestButton": "Request leave",
+    "columnType": "Type",
+    "columnQuota": "Annual quota (days)",
+    "columnUsed": "Used (days)",
+    "columnBalance": "Remaining (days)",
+    "loading": "Loading balance…",
+    "errorMessage": "Couldn't load leave balance.",
+    "empty": "No leave policy configured yet.",
+    "daysLeft_one": "{{n}} day left",
+    "daysLeft_other": "{{n}} days left",
+    "emptyTitle": "No leave rules yet",
+    "noProfileTitle": "You have no staff profile",
+    "noProfileMessage": "Leave is tracked for staff only. Ask an admin to create your staff profile if you need one."
+  },
+  "request": {
+    "title": "Request leave",
+    "description": "Requests are checked against the remaining balance for the leave type's year.",
+    "typeLabel": "Leave type",
+    "startDateLabel": "Start date",
+    "endDateLabel": "End date",
+    "reasonLabel": "Reason",
+    "submit": "Submit request",
+    "submitting": "Submitting…",
+    "errorDateRange": "End date must be on or after the start date.",
+    "errorMessage": "Couldn't submit the leave request.",
+    "reasonPlaceholder": "e.g. family matter",
+    "errorBalance": "Not enough days of this leave type left. Pick fewer days or another type.",
+    "discardTitle": "Discard this request?",
+    "discardBody": "What you entered will be lost.",
+    "discardConfirm": "Discard",
+    "discardKeep": "Keep editing"
+  },
+  "type": {
+    "CASUAL": "Casual",
+    "SICK": "Sick",
+    "MATERNITY": "Maternity",
+    "PATERNITY": "Paternity",
+    "EARNED": "Earned"
+  },
+  "approve": {
+    "title": "Pending requests",
+    "notAvailableMessage": "Approving staff leave requests here is not available yet."
+  },
+  "page": {
+    "subtitle": "How many days of each kind of leave you have left this year"
+  }
+}

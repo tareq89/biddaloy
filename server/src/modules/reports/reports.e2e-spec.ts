@@ -71,15 +71,12 @@ describe('GET /reports/collections (16.6.2)', () => {
   });
 
   it('refuses TEACHER (lacks REPORT_COLLECTIONS_READ)', async () => {
-    // Codebase convention (see wallet.e2e-spec.ts, RolesGuard): a role not
-    // listed in @Roles() fails before PermissionsGuard even runs, so this
-    // is 401 (unauthorized), not 403 (forbidden) — consistent everywhere
-    // else `@Roles` + `@RequirePermissions` are combined.
+    // A valid token whose role lacks the permission is 403 (forbidden).
     await supertest(app.getHttpServer())
       .get(`${API}/reports/collections?from=2026-01-01&to=2026-01-31`)
       .set('Authorization', `Bearer ${teacherToken}`)
       .set('X-Tenant-ID', SEED_TENANT_ID)
-      .expect(401);
+      .expect(403);
   });
 
   it('allows ADMIN and returns the report shape', async () => {
@@ -102,7 +99,7 @@ describe('GET /reports/collections (16.6.2)', () => {
       .get(`${API}/reports/collections.csv?from=2026-01-01&to=2026-01-31`)
       .set('Authorization', `Bearer ${teacherToken}`)
       .set('X-Tenant-ID', SEED_TENANT_ID)
-      .expect(401);
+      .expect(403);
   });
 
   it('CSV export has a header row and UTF-8 BOM', async () => {

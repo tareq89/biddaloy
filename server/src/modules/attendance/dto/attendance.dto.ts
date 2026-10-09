@@ -2,6 +2,7 @@ import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
+  ArrayMinSize,
   IsArray,
   IsBoolean,
   IsEnum,
@@ -14,11 +15,13 @@ import {
   MaxLength,
   Min,
   MinLength,
+  ValidateIf,
   ValidateNested,
 } from 'class-validator';
 import { AttendanceSessionState, AttendanceSource, AttendanceStatus } from '@biddaloy/shared';
 import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
 import { AuditLogListResponseDto } from '../../audit/dto/audit-log-response.dto';
+import { SMALLINT_MAX } from '../../routines/dto/setup.dto';
 
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -44,7 +47,16 @@ export class QueryRegisterDto {
   @IsOptional()
   @Type(() => Number)
   @IsInt()
+  @Min(0)
+  @Max(SMALLINT_MAX) // PeriodSlot.sequence is a smallint
   period_no?: number;
+}
+
+/** Query params for `GET /attendance/sections/:sectionId/periods`. */
+export class QueryPeriodsDto {
+  @IsString()
+  @Matches(DATE_ONLY, { message: 'date must be YYYY-MM-DD' })
+  date: string;
 }
 
 /** One student's mark within a `PUT .../register` payload. */
@@ -79,6 +91,8 @@ export class PutRegisterDto {
 
   @IsOptional()
   @IsInt()
+  @Min(0)
+  @Max(SMALLINT_MAX) // PeriodSlot.sequence is a smallint
   period_no?: number | null;
 
   /** The `session.version` this write was based on — `0` when no session
@@ -117,6 +131,73 @@ export class PutRegisterDto {
   entries: RegisterEntryDto[];
 }
 
+/** One student's mark for one day in `PUT .../register-matrix`. Deliberately
+ * only a status: no minutes late, remarks, period or force flag. */
+export class MatrixEntryDto {
+  @IsUUID()
+  student_id: string;
+
+  @IsEnum(AttendanceStatus)
+  status: AttendanceStatus;
+}
+
+export class MatrixDayDto {
+  @IsString()
+  @Matches(DATE_ONLY, { message: 'date must be YYYY-MM-DD' })
+  date: string;
+
+  /** The `session.version` the client saw for this day; `null` = "I saw no
+   * register for this day". A saved register's version starts at 1. */
+  @ValidateIf((_, v) => v !== null)
+  @IsInt()
+  @Min(1)
+  base_version: number | null;
+
+  @IsArray()
+  @ArrayMaxSize(300)
+  @ValidateNested({ each: true })
+  @Type(() => MatrixEntryDto)
+  entries: MatrixEntryDto[];
+}
+
+/** `PUT /attendance/sections/:sectionId/register-matrix` — many days of one
+ * section's whole-day register, all-or-nothing. All days share one calendar
+ * month (checked in the service). */
+export class PutRegisterMatrixDto {
+  @ApiProperty({
+    description:
+      'One replay key for the whole request. On every sent day already = replay (200, nothing ' +
+      'written). On only some = 409 ATTENDANCE_MATRIX_REQUEST_REUSED: the id was already used, ' +
+      'or some of these days changed since. Treat it like ATTENDANCE_MATRIX_CONFLICT and reload ' +
+      'the month.',
+  })
+  @IsUUID()
+  client_request_id: string;
+
+  /** Written to every audit row; required when any day needs a correction. */
+  @IsOptional()
+  @IsString()
+  @MinLength(3)
+  @SanitizeText()
+  reason?: string;
+
+  @ApiProperty({
+    type: MatrixDayDto,
+    isArray: true,
+    description:
+      'Every sent day is checked as a correction, even if its marks are unchanged. A FINALIZED ' +
+      'or out-of-window day needs ATTENDANCE_CORRECT (else 403 ATTENDANCE_WINDOW_CLOSED) and a ' +
+      'reason (else 422 ATTENDANCE_REASON_REQUIRED); send only the days you changed. A new LATE mark is saved with minutes_late = null, ' +
+      'and a fine rule with a minimum-minutes condition still counts it.',
+  })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(31)
+  @ValidateNested({ each: true })
+  @Type(() => MatrixDayDto)
+  days: MatrixDayDto[];
+}
+
 /** `POST /attendance/sections/:sectionId/register/finalize` — finalizes an
  * already-submitted register without resubmitting marks. Exists separately
  * from `PUT { finalize: true }` because [9.8]'s cut-off sweep needs to
@@ -128,6 +209,8 @@ export class FinalizeRegisterDto {
 
   @IsOptional()
   @IsInt()
+  @Min(0)
+  @Max(SMALLINT_MAX) // PeriodSlot.sequence is a smallint
   period_no?: number | null;
 }
 
@@ -199,6 +282,10 @@ export class RegisterStudentDto {
   @ApiProperty({ type: String, nullable: true }) remarks: string | null;
   @ApiProperty({ enum: AttendanceSource, nullable: true }) source: AttendanceSource | null;
   @ApiProperty() correction_count: number;
+  /** Period registers only, before the first save: `ABSENT` or `LEAVE` when
+   * the day register says so, otherwise `null` (D8). Never persisted. */
+  @ApiProperty({ enum: AttendanceStatus, nullable: true })
+  suggested_status: AttendanceStatus | null;
 }
 
 /** The shape returned by `GET .../register`, `PUT .../register` (200, both
@@ -228,9 +315,33 @@ export class MySectionTodayDto {
 export class MySectionDto {
   @ApiProperty() section_id: string;
   @ApiProperty() section_name: string;
+  @ApiProperty() class_id: string;
   @ApiProperty() class_name: string;
   @ApiProperty() student_count: number;
+  @ApiProperty({ type: String, nullable: true }) class_teacher_name: string | null;
+  @ApiProperty() is_working_day: boolean;
   @ApiProperty({ type: MySectionTodayDto, nullable: true }) today: MySectionTodayDto | null;
+}
+
+/** Response of `PUT .../register-matrix`; the client refetches the matrix. */
+export class MatrixSaveResponseDto {
+  @ApiProperty({ type: String, isArray: true }) saved_dates: string[];
+  @ApiProperty({ type: 'object', additionalProperties: { type: 'number' } })
+  versions: Record<string, number>;
+}
+
+/** One period of a section's day, `GET /attendance/sections/:sectionId/periods`.
+ * `state: null` means no register exists yet for that period. */
+export class PeriodDto {
+  @ApiProperty() period_no: number;
+  @ApiProperty({ type: String, nullable: true }) name: string | null;
+  @ApiProperty() starts_at: string;
+  @ApiProperty() ends_at: string;
+  @ApiProperty() subject_id: string;
+  @ApiProperty({ type: String, nullable: true }) subject_name: string | null;
+  @ApiProperty({ type: String, isArray: true }) teacher_names: string[];
+  @ApiProperty({ enum: AttendanceSessionState, nullable: true })
+  state: AttendanceSessionState | null;
 }
 
 /** `GET /attendance/records/:recordId/history` — same list shape as

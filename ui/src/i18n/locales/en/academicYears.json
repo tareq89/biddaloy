@@ -2,21 +2,21 @@
   "list": {
     "title": "Academic Years",
     "caption": "Academic years",
-    "addYear": "Add year",
-    "columnYear": "Year",
-    "columnStartDate": "Start date",
-    "columnEndDate": "End date",
-    "columnCurrent": "Current",
+    "addYear": "Add academic year",
+    "columnYear": "Academic year",
+    "columnCurrent": "Status",
     "columnClasses": "Classes",
     "columnStudents": "Students",
-    "columnActions": "Actions",
     "edit": "Edit",
     "delete": "Delete",
     "setCurrent": "Set as current",
-    "emptyMessage": "No academic years found",
+    "emptyMessage": "No academic years yet",
     "errorMessage": "Failed to load academic years",
-    "announceResults_one": "{{visible}} of {{total}} academic year",
-    "announceResults_other": "{{visible}} of {{total}} academic years"
+    "subtitle": "One year is current at a time.",
+    "columnPeriod": "Period",
+    "view": "View",
+    "emptyExplanation": "Classes, fee structures and admissions belong to a year — add one first.",
+    "emptyAction": "Add the first academic year"
   },
   "form": {
     "createTitle": "Add academic year",
@@ -41,27 +41,26 @@
     "title": "Delete academic year",
     "description": "Delete \"{{name}}\"? This cannot be undone.",
     "confirm": "Delete",
-    "deleting": "Deleting…",
     "errorMessage": "Failed to delete academic year"
   },
   "setCurrentDialog": {
     "title": "Set as current academic year",
     "description": "Set \"{{name}}\" as the current academic year? This unsets every other academic year currently marked current — only one year can be current at a time.",
     "confirm": "Set as current",
-    "confirming": "Setting…",
     "errorMessage": "Failed to set the current academic year"
   },
   "detail": {
     "tabClasses": "Classes",
     "tabFeeStructures": "Fee Structures",
-    "tabStatistics": "Statistics",
     "tabTerms": "Terms",
     "forbidden": "You don't have permission to view this.",
     "classes": {
       "columnName": "Name",
       "columnGrade": "Grade",
       "emptyMessage": "No classes in this academic year",
-      "errorMessage": "Failed to load classes"
+      "errorMessage": "Failed to load classes",
+      "view": "View",
+      "emptyExplanation": "Classes created for this year will appear here."
     },
     "feeStructures": {
       "columnName": "Name",
@@ -70,23 +69,21 @@
       "columnAmount": "Amount",
       "wholeSchool": "Whole school",
       "emptyMessage": "No fee structures in this academic year",
-      "errorMessage": "Failed to load fee structures"
+      "errorMessage": "Failed to load fee structures",
+      "emptyExplanation": "Fee structures for this year will appear here."
     },
     "statistics": {
       "classes": "Classes",
       "students": "Students",
-      "feeStructures": "Fee structures",
-      "errorMessage": "Failed to load statistics"
+      "feeStructures": "Fee structures"
     },
     "terms": {
       "labelTerm": "Terms",
       "labelSemester": "Semesters",
       "labelTrimester": "Trimesters",
       "addTerm": "Add term",
-      "columnSeq": "#",
+      "columnSeq": "No.",
       "columnName": "Name",
-      "columnStartDate": "Start date",
-      "columnEndDate": "End date",
       "columnLength": "Length",
       "columnActions": "Actions",
       "weekCount_one": "{{count}} week",
@@ -116,9 +113,20 @@
         "title": "Delete term",
         "description": "Delete \"{{name}}\"? This cannot be undone.",
         "confirm": "Delete",
-        "deleting": "Deleting…",
         "errorMessage": "Failed to delete term"
-      }
-    }
+      },
+      "subtitle": "Exams and results are grouped by these periods.",
+      "columnPeriod": "Period",
+      "emptyExplanation": "Add a term to group exams and results by period.",
+      "reorderError": "Could not change the order"
+    },
+    "factPeriod": "Period",
+    "classCount_one": "{{count}} class",
+    "classCount_other": "{{count}} classes",
+    "studentCount_one": "{{count}} student",
+    "studentCount_other": "{{count}} students",
+    "feeStructureCount_one": "{{count}} fee structure",
+    "feeStructureCount_other": "{{count}} fee structures",
+    "statsUnavailable": "Couldn't load"
   }
 }

@@ -1,13 +1,4 @@
-import {
-  Button,
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@biddaloy/ui/components';
+import { ConfirmDialog, toast } from '@biddaloy/ui/components';
 import { useDeleteStudent } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import * as React from 'react';
@@ -36,41 +27,23 @@ export function DeleteStudentDialog({
   }, [open]);
 
   function handleConfirm() {
-    deleteStudent.mutate(studentId, { onSuccess: onDeleted });
+    // A failed delete toasts and keeps the dialog open so the user can retry.
+    deleteStudent.mutate(studentId, {
+      onSuccess: onDeleted,
+      onError: () => toast.error(t('detail.deleteDialog.errorMessage')),
+    });
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{t('detail.deleteDialog.title')}</DialogTitle>
-          <DialogDescription>
-            {t('detail.deleteDialog.description', { name: studentName })}
-          </DialogDescription>
-        </DialogHeader>
-        {deleteStudent.isError && (
-          <p role="alert" className="text-sm text-destructive">
-            {t('detail.deleteDialog.errorMessage')}
-          </p>
-        )}
-        <DialogFooter>
-          <DialogClose asChild>
-            <Button type="button" variant="outline">
-              {t('actions.cancel', { ns: 'common' })}
-            </Button>
-          </DialogClose>
-          <Button
-            type="button"
-            variant="destructive"
-            loading={deleteStudent.isPending}
-            onClick={handleConfirm}
-          >
-            {deleteStudent.isPending
-              ? t('detail.deleteDialog.deleting')
-              : t('detail.deleteDialog.confirm')}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <ConfirmDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      tone="danger"
+      title={t('detail.deleteDialog.title')}
+      description={t('detail.deleteDialog.description', { name: studentName })}
+      confirmLabel={t('detail.deleteDialog.confirm')}
+      busy={deleteStudent.isPending}
+      onConfirm={handleConfirm}
+    />
   );
 }

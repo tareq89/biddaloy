@@ -10,35 +10,33 @@ import {
 import { Teacher } from '../../academics/entities/teacher.entity';
 import { ClassSection } from '../../academics/entities/class-section.entity';
 import { School } from '../../schools/entities/school.entity';
+import { TeacherAssignmentType } from '@biddaloy/shared';
 import { Subject } from './subject.entity';
 
 /**
  * Junction table linking a Teacher to the ClassSections they are assigned
- * to. A teacher can be assigned to multiple sections, and a section can
- * have multiple teachers (e.g., subject teachers).
+ * to. Each row has an `assignment_type`:
+ * - CLASS_TEACHER: at most one per section (`UQ_tcs_section_class_teacher`)
+ * - ASSISTANT_CLASS_TEACHER: any number per section
+ * - SUBJECT_TEACHER: requires `subject_id` (`CK_tcs_subject_matches_type`)
+ * A teacher holds at most one homeroom (class/assistant) row per section
+ * (`UQ_tcs_teacher_section_homeroom`).
  *
- * `subject_id IS NULL` means a class-teacher / whole-day assignment;
- * a non-null `subject_id` means this row is that teacher's assignment as
- * the subject teacher for that section.
- *
- * The `(teacher_id, section_id, subject_id)` unique index below does not
- * by itself prevent a teacher being attached twice to the same section
- * with `subject_id = NULL` — Postgres treats NULLs as distinct values in a
- * unique index. A second, partial unique index
- * (`UQ_tcs_teacher_section_no_subject`) enforcing that case lives in the
- * `AddSubjectsAndClassSubjects` migration (raw SQL, since TypeORM's
- * `@Index` decorator cannot express a `WHERE subject_id IS NULL` partial
- * index alongside a non-partial one on overlapping columns).
+ * A BEFORE INSERT trigger (`tcs_default_assignment_type`) infers the type
+ * when an insert omits it: `subject_id` set -> SUBJECT_TEACHER, else
+ * CLASS_TEACHER. Those partial indexes and the check are raw SQL in the
+ * `TeacherAssignmentType` migration; `@Index` cannot express them.
  *
  * Relations:
- * - @ManyToOne → Teacher: the teacher
- * - @ManyToOne → ClassSection: the section they teach
- * - @ManyToOne → School: the tenant this assignment belongs to
- * - @ManyToOne → Subject: the subject taught, when this is a subject-teacher
- *   assignment
+ * - @ManyToOne -> Teacher: the teacher
+ * - @ManyToOne -> ClassSection: the section they teach
+ * - @ManyToOne -> School: the tenant this assignment belongs to
+ * - @ManyToOne -> Subject: the subject taught, for SUBJECT_TEACHER rows
  */
 @Entity('teacher_class_sections')
-@Index(['teacher_id', 'section_id', 'subject_id'], { unique: true })
+@Index('IDX_tcs_teacher_section_subject', ['teacher_id', 'section_id', 'subject_id'], {
+  unique: true,
+})
 export class TeacherClassSection {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -70,6 +68,13 @@ export class TeacherClassSection {
 
   @Column({ type: 'uuid', nullable: true })
   subject_id: string | null;
+
+  @Column({
+    type: 'enum',
+    enum: TeacherAssignmentType,
+    enumName: 'teacher_assignment_type',
+  })
+  assignment_type: TeacherAssignmentType;
 
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;

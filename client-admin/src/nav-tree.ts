@@ -1,5 +1,5 @@
 import type { EntityLabel } from '@biddaloy/shared';
-import { Permission } from '@biddaloy/shared';
+import { Permission, type STAFF_ROLES } from '@biddaloy/shared';
 
 /**
  * [30.1.3]'s staff nav as plain, serialisable data — no JSX, no hooks, so
@@ -81,6 +81,65 @@ export const STAFF_NAV_ITEMS = {
     permission: Permission.USER_READ,
     label: { entity: 'staff' },
   },
+  // [13.6.1] People > Staff > Import from Excel — gated like the route.
+  'people.staffImport': {
+    id: 'people.staffImport',
+    to: '/staff/import',
+    permission: Permission.USER_CREATE,
+    label: { key: 'importFromExcel' },
+  },
+  // [34.4.2] `PROGRAM_READ` — same "match the route's own gate" rule
+  // this file follows throughout; `/programs`'s list route is gated on
+  // `PROGRAM_READ` (`route-permissions.ts`).
+  'people.programs': {
+    id: 'people.programs',
+    to: '/programs',
+    permission: Permission.PROGRAM_READ,
+    label: { key: 'programs' },
+    synonyms: ['program', 'programs', 'hifz', 'club', 'milestone', 'track'],
+  },
+  // [27.9] Staff admission intakes list — gated same as the route itself
+  // (`route-permissions.ts`), `admission:review`.
+  'people.admissionIntakes': {
+    id: 'people.admissionIntakes',
+    to: '/admissions/intakes',
+    permission: Permission.ADMISSION_REVIEW,
+    label: { key: 'admissionIntakes' },
+  },
+  // [27.10] Staff admission applicants list — same gate as the intakes
+  // nav item above.
+  'people.admissionApplicants': {
+    id: 'people.admissionApplicants',
+    to: '/admissions/applicants',
+    permission: Permission.ADMISSION_REVIEW,
+    label: { key: 'admissionApplicants' },
+  },
+  // [39.4.2] Admission lifecycle report — gated like the route itself.
+  'people.admissionReports': {
+    id: 'people.admissionReports',
+    to: '/admissions/reports',
+    permission: Permission.STUDENT_LIFECYCLE_MANAGE,
+    label: { key: 'admissionReports' },
+  },
+  // [29.0] Class/subject-teacher assignments, bulk-view across a class's
+  // sections — `15-ux-principles.md` §3.1's "Teaching assignments (bulk
+  // view)" line, gated on `CLASS_MANAGE` per D5 (same gate the class
+  // detail page's Teachers tab already uses for the same mutation).
+  'people.teachingAssignments': {
+    id: 'people.teachingAssignments',
+    to: '/staff/teaching-assignments',
+    permission: Permission.CLASS_MANAGE,
+    label: { key: 'teachingAssignments' },
+  },
+  // [28.4.1] People > Staff > Evaluations (D20) — ACR, survey results and
+  // incidents in one place; `ACR_READ` is ADMIN-only today, so a teacher
+  // never sees it.
+  'people.evaluations': {
+    id: 'people.evaluations',
+    to: '/staff/evaluations',
+    permission: Permission.ACR_READ,
+    label: { key: 'evaluations' },
+  },
   'academics.academicYears': {
     id: 'academics.academicYears',
     to: '/academic-years',
@@ -93,11 +152,100 @@ export const STAFF_NAV_ITEMS = {
     permission: Permission.CLASS_MANAGE,
     label: { entity: 'class' },
   },
+  'academics.homework': {
+    id: 'academics.homework',
+    to: '/academics/homework',
+    permission: Permission.HOMEWORK_READ,
+    label: { key: 'homework' },
+    synonyms: ['assignment', 'classwork'],
+  },
+  'academics.syllabus': {
+    id: 'academics.syllabus',
+    to: '/academics/syllabus',
+    permission: Permission.SYLLABUS_READ,
+    label: { key: 'syllabus' },
+  },
   'examsResults.gradingScales': {
     id: 'examsResults.gradingScales',
     to: '/grading-scales',
     permission: Permission.GRADING_SCALE_MANAGE,
     label: { key: 'gradingScales' },
+  },
+  // [19.6.1] `EXAM_MANAGE` — `/exams` is the exam management page, and
+  // opening an exam's detail (`ExamsController.findOne`) plus every write
+  // are `@Roles(ADMIN)` + `@RequirePermissions(EXAM_MANAGE)` server-side.
+  // Only the bare list (`findAll`) is looser, on `MARK_VIEW`, so the
+  // marks/analysis exam pickers load for teachers and executives.
+  'examsResults.exams': {
+    id: 'examsResults.exams',
+    to: '/exams',
+    permission: Permission.EXAM_MANAGE,
+    label: { entity: 'exam' },
+  },
+  // [35.5.1] `EXAM_MANAGE` — same gate as `examsResults.exams` (D36).
+  'examsResults.examTemplates': {
+    id: 'examsResults.examTemplates',
+    to: '/exams/templates',
+    permission: Permission.EXAM_MANAGE,
+    label: { key: 'examTemplates' },
+  },
+  // [26.5.1] `MARK_VIEW` — same "seeing is weaker than editing" gate
+  // `/marks` already uses; analysis is a read-only view over processed
+  // results, not a write action like `/results`'s `RESULT_PROCESS`.
+  'examsResults.analysis': {
+    id: 'examsResults.analysis',
+    to: '/analysis',
+    permission: Permission.MARK_VIEW,
+    label: { key: 'analysis' },
+  },
+  // [26.6.1] D22: PROMOTION_MANAGE (admin).
+  'examsResults.promotion': {
+    id: 'examsResults.promotion',
+    to: '/promotions',
+    permission: Permission.PROMOTION_MANAGE,
+    label: { key: 'promotion' },
+  },
+  // [25.6] `SEAT_PLAN_MANAGE` — `SeatPlansController`'s own gate, same
+  // "match the controller's real requirement" reasoning `examsResults.exams`
+  // gives above.
+  'examsResults.seatPlans': {
+    id: 'examsResults.seatPlans',
+    to: '/exams/seat-plans',
+    permission: Permission.SEAT_PLAN_MANAGE,
+    label: { key: 'seatPlans' },
+  },
+  'academics.routineSetup': {
+    id: 'academics.routineSetup',
+    to: '/routines/setup',
+    permission: Permission.ROUTINE_MANAGE,
+    label: { key: 'routineSetup' },
+  },
+  'academics.routineBuilder': {
+    id: 'academics.routineBuilder',
+    to: '/routines',
+    permission: Permission.ROUTINE_MANAGE,
+    label: { key: 'routineBuilder' },
+    synonyms: ['routine', 'timetable', 'grid'],
+  },
+  // [21.10.1] A teacher's own phone-first agenda — `ROUTINE_READ`
+  // (`READ_ROLES` on `ResolveRoutineController`), not `ROUTINE_MANAGE`,
+  // so every staff role that can see a routine at all sees this link,
+  // not just the builder.
+  'academics.myRoutine': {
+    id: 'academics.myRoutine',
+    to: '/routines/my',
+    permission: Permission.ROUTINE_READ,
+    label: { key: 'myRoutine' },
+    synonyms: ['routine', 'timetable', 'agenda'],
+  },
+  // [47.4.2] TEACHER-only (`MY_CLASS_VIEW`): the class teacher's one-screen
+  // view of their own homeroom section(s).
+  'academics.myClass': {
+    id: 'academics.myClass',
+    to: '/my-class',
+    permission: Permission.MY_CLASS_VIEW,
+    label: { key: 'myClass' },
+    synonyms: ['class teacher', 'form master', 'homeroom', 'my section'],
   },
   'attendance.attendance': {
     id: 'attendance.attendance',
@@ -118,6 +266,15 @@ export const STAFF_NAV_ITEMS = {
     permission: Permission.ATTENDANCE_READ,
     label: { key: 'attendanceRegister' },
   },
+  // [36.4] Sibling entry, same style as `attendance.attendanceReports`
+  // above — a distinct route/permission from the student register, not a
+  // switcher on the existing `attendance.attendance` item.
+  'attendance.staffAttendance': {
+    id: 'attendance.staffAttendance',
+    to: '/attendance/staff',
+    permission: Permission.STAFF_ATTENDANCE_READ,
+    label: { key: 'staffAttendance' },
+  },
   'finance.dues': {
     id: 'finance.dues',
     to: '/fees/dues',
@@ -129,12 +286,6 @@ export const STAFF_NAV_ITEMS = {
     to: '/payments/record',
     permission: Permission.PAYMENT_RECORD,
     label: { key: 'recordPayment' },
-  },
-  'finance.fees': {
-    id: 'finance.fees',
-    to: '/fees',
-    permission: Permission.FEE_STRUCTURE_READ,
-    label: { key: 'fees' },
   },
   'finance.feeStructures': {
     id: 'finance.feeStructures',
@@ -154,11 +305,52 @@ export const STAFF_NAV_ITEMS = {
     permission: Permission.SCHEDULE_MANAGE,
     label: { key: 'recurringSchedules' },
   },
+  // [38.4.3] FEE_READ — same "blanket refusal matching nav visibility"
+  // gate `route-permissions.ts` uses for this route.
+  'finance.fines': {
+    id: 'finance.fines',
+    to: '/fees/fines',
+    permission: Permission.FEE_READ,
+    label: { key: 'fines' },
+  },
+  // [31.3.1] The payments list — same gate as its route (`PAYMENT_READ`).
+  'finance.payments': {
+    id: 'finance.payments',
+    to: '/payments',
+    permission: Permission.PAYMENT_READ,
+    label: { key: 'payments' },
+  },
   'finance.invoices': {
     id: 'finance.invoices',
     to: '/invoices',
     permission: Permission.INVOICE_READ,
     label: { entity: 'invoice' },
+  },
+  // [31.3.1] Pages that existed but had no sidebar item; each permission
+  // equals its route's `STAFF_ROUTE_PERMISSIONS` entry.
+  'examsResults.marksEntry': {
+    id: 'examsResults.marksEntry',
+    to: '/marks',
+    permission: Permission.MARK_VIEW,
+    label: { key: 'marksEntry' },
+  },
+  'examsResults.results': {
+    id: 'examsResults.results',
+    to: '/results',
+    permission: Permission.RESULT_PROCESS,
+    label: { key: 'results' },
+  },
+  'academics.routineReview': {
+    id: 'academics.routineReview',
+    to: '/routines/review',
+    permission: Permission.ROUTINE_READ,
+    label: { key: 'routineReview' },
+  },
+  'academics.routineSubstitutions': {
+    id: 'academics.routineSubstitutions',
+    to: '/routines/substitutions',
+    permission: Permission.ROUTINE_MANAGE,
+    label: { key: 'routineSubstitutions' },
   },
   'reports.collectionsReport': {
     id: 'reports.collectionsReport',
@@ -184,6 +376,29 @@ export const STAFF_NAV_ITEMS = {
     permission: Permission.COMMUNICATION_BULK_SEND,
     label: { key: 'reminderHistory' },
   },
+  // [32.4.1] Template design + the library. `PRINT_TEMPLATE_MANAGE` is the templates controller's gate.
+  'administration.printTemplates': {
+    id: 'administration.printTemplates',
+    to: '/print-templates',
+    permission: Permission.PRINT_TEMPLATE_MANAGE,
+    label: { key: 'printTemplates' },
+    synonyms: ['ID card', 'certificate', 'design', 'template'],
+  },
+  'reports.printables': {
+    id: 'reports.printables',
+    to: '/reports/printables',
+    permission: Permission.PRINT_HISTORY_READ,
+    label: { key: 'printables' },
+    synonyms: ['ID card', 'printed', 'reprint', 'history'],
+  },
+  // [24.3.5] Read-only role comparison (D25: gated on USER_READ).
+  'administration.roles': {
+    id: 'administration.roles',
+    to: '/roles',
+    permission: Permission.USER_READ,
+    label: { key: 'rolesAccess' },
+    synonyms: ['role', 'permission', 'access', 'রোল'],
+  },
   'administration.auditLogs': {
     id: 'administration.auditLogs',
     to: '/audit-logs',
@@ -196,6 +411,13 @@ export const STAFF_NAV_ITEMS = {
     permission: Permission.SETTINGS_MANAGE,
     label: { key: 'settings' },
   },
+  // [35.5.1] Settings › Curriculum preset (D12), gated like its route.
+  'administration.curriculumPreset': {
+    id: 'administration.curriculumPreset',
+    to: '/curriculum-preset',
+    permission: Permission.CURRICULUM_PRESET_APPLY,
+    label: { key: 'curriculumPreset' },
+  },
 } as const satisfies Record<string, StaffNavItemDef>;
 
 /**
@@ -204,9 +426,10 @@ export const STAFF_NAV_ITEMS = {
  * group `id`s (so saved collapse preferences survive) but shed the items
  * the three new domain groups now own; **Academics**, **Attendance** and
  * **Reports** are new groups carved out of Administration/People/Finance;
- * **Exams & Results** is declared with zero items on purpose — `AppShell`
- * already auto-hides an empty group (`app-shell.tsx`'s
- * `NavGroupSection`), so it renders nothing until [19.0] gives it a route.
+ * **Exams & Results** started with zero items ([30.1.3]) — `AppShell`
+ * auto-hides an empty group (`app-shell.tsx`'s `NavGroupSection`) — and
+ * gained its first two, `examsResults.gradingScales` and (19.6.1)
+ * `examsResults.exams`, as Epic 19.0 landed routes for it.
  */
 /** [30.5.1] `CommandPalette`'s Page-tab match predicate: does `query`
  * appear in the item's already-resolved display `label`, or in one of
@@ -234,12 +457,30 @@ export const STAFF_NAV_GROUPS: readonly StaffNavGroupDef[] = [
       STAFF_NAV_ITEMS['people.guardians'],
       STAFF_NAV_ITEMS['people.calendar'],
       STAFF_NAV_ITEMS['people.staff'],
+      STAFF_NAV_ITEMS['people.staffImport'],
+      STAFF_NAV_ITEMS['people.programs'],
+      STAFF_NAV_ITEMS['people.admissionIntakes'],
+      STAFF_NAV_ITEMS['people.admissionApplicants'],
+      STAFF_NAV_ITEMS['people.admissionReports'],
+      STAFF_NAV_ITEMS['people.teachingAssignments'],
+      STAFF_NAV_ITEMS['people.evaluations'],
     ],
   },
   {
     id: 'academics',
     label: { key: 'academics' },
-    items: [STAFF_NAV_ITEMS['academics.academicYears'], STAFF_NAV_ITEMS['academics.classes']],
+    items: [
+      STAFF_NAV_ITEMS['academics.academicYears'],
+      STAFF_NAV_ITEMS['academics.classes'],
+      STAFF_NAV_ITEMS['academics.routineSetup'],
+      STAFF_NAV_ITEMS['academics.routineBuilder'],
+      STAFF_NAV_ITEMS['academics.routineReview'],
+      STAFF_NAV_ITEMS['academics.routineSubstitutions'],
+      STAFF_NAV_ITEMS['academics.myRoutine'],
+      STAFF_NAV_ITEMS['academics.myClass'],
+      STAFF_NAV_ITEMS['academics.homework'],
+      STAFF_NAV_ITEMS['academics.syllabus'],
+    ],
   },
   {
     id: 'attendance',
@@ -248,12 +489,22 @@ export const STAFF_NAV_GROUPS: readonly StaffNavGroupDef[] = [
       STAFF_NAV_ITEMS['attendance.attendance'],
       STAFF_NAV_ITEMS['attendance.attendanceReports'],
       STAFF_NAV_ITEMS['attendance.attendanceRegister'],
+      STAFF_NAV_ITEMS['attendance.staffAttendance'],
     ],
   },
   {
     id: 'examsResults',
     label: { key: 'examsResults' },
-    items: [STAFF_NAV_ITEMS['examsResults.gradingScales']],
+    items: [
+      STAFF_NAV_ITEMS['examsResults.exams'],
+      STAFF_NAV_ITEMS['examsResults.examTemplates'],
+      STAFF_NAV_ITEMS['examsResults.marksEntry'],
+      STAFF_NAV_ITEMS['examsResults.seatPlans'],
+      STAFF_NAV_ITEMS['examsResults.gradingScales'],
+      STAFF_NAV_ITEMS['examsResults.results'],
+      STAFF_NAV_ITEMS['examsResults.analysis'],
+      STAFF_NAV_ITEMS['examsResults.promotion'],
+    ],
   },
   {
     id: 'finance',
@@ -261,17 +512,18 @@ export const STAFF_NAV_GROUPS: readonly StaffNavGroupDef[] = [
     pinnedLabel: { key: 'quickActions' },
     pinnedItems: [STAFF_NAV_ITEMS['finance.dues'], STAFF_NAV_ITEMS['finance.recordPayment']],
     items: [
-      STAFF_NAV_ITEMS['finance.fees'],
       STAFF_NAV_ITEMS['finance.feeStructures'],
       STAFF_NAV_ITEMS['finance.generateFees'],
       STAFF_NAV_ITEMS['finance.recurringSchedules'],
+      STAFF_NAV_ITEMS['finance.fines'],
+      STAFF_NAV_ITEMS['finance.payments'],
       STAFF_NAV_ITEMS['finance.invoices'],
     ],
   },
   {
     id: 'reports',
     label: { key: 'reports' },
-    items: [STAFF_NAV_ITEMS['reports.collectionsReport']],
+    items: [STAFF_NAV_ITEMS['reports.collectionsReport'], STAFF_NAV_ITEMS['reports.printables']],
   },
   {
     id: 'communications',
@@ -286,8 +538,79 @@ export const STAFF_NAV_GROUPS: readonly StaffNavGroupDef[] = [
     id: 'administration',
     label: { key: 'administration' },
     items: [
+      STAFF_NAV_ITEMS['administration.printTemplates'],
+      STAFF_NAV_ITEMS['administration.roles'],
       STAFF_NAV_ITEMS['administration.auditLogs'],
       STAFF_NAV_ITEMS['administration.settings'],
+      STAFF_NAV_ITEMS['administration.curriculumPreset'],
     ],
   },
 ];
+
+export type StaffNavItemId = keyof typeof STAFF_NAV_ITEMS;
+export type StaffRole = (typeof STAFF_ROLES)[number];
+
+/** One phone bottom-bar cell: a nav item plus the `nav:bottomNavCells.*` short label key. */
+export interface BottomNavCellDef {
+  readonly id: StaffNavItemId;
+  readonly shortLabelKey: string;
+}
+
+const cell = (id: StaffNavItemId, shortLabelKey: string): BottomNavCellDef => ({
+  id,
+  shortLabelKey,
+});
+
+/** [31.3.1] Each role's own bottom-bar cells (nav-icons.md "Bottom-bar cells per role"). */
+export const STAFF_BOTTOM_NAV: Record<StaffRole, readonly BottomNavCellDef[]> = {
+  SUPER_ADMIN: [
+    cell('dashboard', 'dashboard'),
+    cell('people.students', 'students'),
+    cell('attendance.attendance', 'attendance'),
+    cell('finance.dues', 'dues'),
+  ],
+  ADMIN: [
+    cell('dashboard', 'dashboard'),
+    cell('people.students', 'students'),
+    cell('attendance.attendance', 'attendance'),
+    cell('finance.dues', 'dues'),
+  ],
+  ACCOUNTANT: [
+    cell('dashboard', 'dashboard'),
+    cell('finance.dues', 'dues'),
+    cell('finance.recordPayment', 'payment'),
+    cell('finance.invoices', 'invoices'),
+  ],
+  EXECUTIVE: [
+    cell('dashboard', 'dashboard'),
+    cell('people.students', 'students'),
+    cell('attendance.attendance', 'attendance'),
+    cell('reports.collectionsReport', 'reports'),
+  ],
+  // My class replaces the dashboard placeholder as the teacher's home.
+  TEACHER: [
+    cell('academics.myClass', 'myClass'),
+    cell('attendance.attendance', 'attendance'),
+    cell('academics.myRoutine', 'routine'),
+    cell('academics.homework', 'homework'),
+  ],
+  OFFICE_STAFF: [
+    cell('dashboard', 'dashboard'),
+    cell('people.students', 'students'),
+    cell('people.admissionApplicants', 'applicants'),
+    cell('attendance.attendance', 'attendance'),
+  ],
+  EXAM_CONTROLLER: [
+    cell('dashboard', 'dashboard'),
+    cell('examsResults.exams', 'exams'),
+    cell('examsResults.analysis', 'analysis'),
+    cell('people.students', 'students'),
+  ],
+  // Two cells: "up to 4, never empty or duplicate" (C8).
+  COMMITTEE: [cell('dashboard', 'dashboard'), cell('people.calendar', 'calendar')],
+};
+
+/** true when `pathname` is `to` or under it on whole segments ("/fees" does not own "/feesx"). */
+export function isPathUnder(pathname: string, to: string): boolean {
+  return pathname === to || pathname.startsWith(`${to}/`);
+}

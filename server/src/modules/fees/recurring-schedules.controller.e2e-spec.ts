@@ -91,7 +91,7 @@ describe('Recurring Schedules E2E', () => {
   });
 
   describe('permissions', () => {
-    it('denies POST /fees/schedules to a TEACHER (401 — role not in @Roles list)', async () => {
+    it('denies POST /fees/schedules to a TEACHER (403 — lacks SCHEDULE_MANAGE)', async () => {
       const feeStructureId = await createFeeStructure();
 
       await supertest(app.getHttpServer())
@@ -107,16 +107,16 @@ describe('Recurring Schedules E2E', () => {
           fee_structure_ids: [feeStructureId],
           starts_on: '2026-01-01',
         })
-        .expect(401);
+        .expect(403);
     });
 
-    it('denies a TEACHER GET /fees/schedules (401 — role not in @Roles list; unlike FeeGenerationsController, a schedule read exposes tenant-wide audience data, not a class-scoped list)', async () => {
+    it('denies a TEACHER GET /fees/schedules (403 — role not in @Roles list; unlike FeeGenerationsController, a schedule read exposes tenant-wide audience data, not a class-scoped list)', async () => {
       await supertest(app.getHttpServer())
         .get('/api/v1/fees/schedules')
         .set('Authorization', `Bearer ${teacherToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.TEACHER)
-        .expect(401);
+        .expect(403);
     });
   });
 
@@ -169,6 +169,54 @@ describe('Recurring Schedules E2E', () => {
       expect(res.body).toHaveProperty('total_count');
       expect(res.body).toHaveProperty('students');
       expect(Array.isArray(res.body.students)).toBe(true);
+    });
+  });
+
+  // [34.2.2] audience.program_id validation.
+  describe('POST /fees/schedules audience.program_id', () => {
+    it('rejects a non-UUID program_id with 400', async () => {
+      const feeStructureId = await createFeeStructure();
+
+      await supertest(app.getHttpServer())
+        .post('/api/v1/fees/schedules')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.ADMIN)
+        .send({
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          name: `E2E bad program_id ${Date.now()}`,
+          audience: { program_id: 'not-a-uuid', enrollment_status: 'ACTIVE' },
+          rule: { kind: 'MONTHLY', day_of_month: 1 },
+          fee_structure_ids: [feeStructureId],
+          starts_on: '2026-01-01',
+        })
+        .expect(400);
+    });
+
+    it("rejects a program_id belonging to another tenant with 404 (a well-formed UUID that just isn't this tenant's)", async () => {
+      const feeStructureId = await createFeeStructure();
+
+      await supertest(app.getHttpServer())
+        .post('/api/v1/fees/schedules')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.ADMIN)
+        .send({
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          name: `E2E cross-tenant program_id ${Date.now()}`,
+          // Well-formed UUID that doesn't exist for this (or any) tenant —
+          // the service's tenant-ownership lookup 404s the same way a real
+          // cross-tenant id would, without this suite needing to seed a
+          // second tenant's Program row.
+          audience: {
+            program_id: '00000000-0000-4000-8000-00000000ffff',
+            enrollment_status: 'ACTIVE',
+          },
+          rule: { kind: 'MONTHLY', day_of_month: 1 },
+          fee_structure_ids: [feeStructureId],
+          starts_on: '2026-01-01',
+        })
+        .expect(404);
     });
   });
 });

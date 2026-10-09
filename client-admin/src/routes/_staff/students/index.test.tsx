@@ -78,10 +78,10 @@ describe('/students', () => {
     const user = userEvent.setup();
     await user.click(await screen.findByRole('link', { name: 'Collect fees' }));
 
-    // [16.4.4]: `/payments/record` now redirects to `/payments?record=1`,
-    // preserving `student_id` so the modal opens with that student pre-selected.
-    await waitFor(() => expect(router.state.location.pathname).toBe('/payments'));
-    expect(router.state.location.search).toEqual({ record: '1', student_id: 'student-1' });
+    // [31.4]: `/payments/record` is the Record Payment full page again (no redirect),
+    // keeping `student_id` so the form opens with that student pre-selected.
+    await waitFor(() => expect(router.state.location.pathname).toBe('/payments/record'));
+    expect(router.state.location.search).toEqual({ student_id: 'student-1' });
   });
 
   it('gates Collect fees by permission — a TEACHER sees View but not Collect fees', async () => {
@@ -99,7 +99,9 @@ describe('/students', () => {
       locale: 'en',
     });
 
-    await screen.findByRole('link', { name: 'View' });
+    // A cold route-tree render loads lazy routes and i18n namespaces first;
+    // on a busy CI shard that outlasts the 1s default.
+    await screen.findByRole('link', { name: 'View' }, { timeout: 5000 });
     expect(screen.queryByRole('link', { name: 'Collect fees' })).toBeNull();
   });
 
@@ -127,7 +129,7 @@ describe('/students', () => {
     expect(await screen.findByRole('button', { name: 'Send reminder' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Export CSV' })).toBeTruthy();
 
-    await user.click(screen.getByRole('button', { name: 'Clear' }));
+    await user.click(screen.getByRole('button', { name: 'Clear selection' }));
 
     await waitFor(() => expect(screen.queryByRole('button', { name: 'Send reminder' })).toBeNull());
   });
@@ -204,12 +206,9 @@ describe('/students', () => {
     });
 
     const user = userEvent.setup();
-    await screen.findByRole('region', { name: 'Students' });
+    const search = await screen.findByRole('textbox', { name: 'Search' });
 
-    await user.type(
-      screen.getByRole('textbox', { name: 'Search by name, roll, or registration no.' }),
-      'Rahim',
-    );
+    await user.type(search, 'Rahim');
     await user.click(screen.getByRole('combobox', { name: 'Class' }));
     await user.click(await screen.findByRole('option', { name: 'Class 9' }));
 
@@ -338,9 +337,16 @@ describe('/students', () => {
   // [8.14.10]: FilterBar migration — the rows-per-page control changes
   // `limit` and resets `page` in one URL update.
   it('changing rows per page writes limit and resets page', async () => {
+    // The page-size select lives in the footer, which only shows while there are rows.
     server.use(
       http.get('/api/v1/students', () =>
-        HttpResponse.json({ data: [], total: 0, page: 2, limit: 10, totalPages: 1 }),
+        HttpResponse.json({
+          data: [studentFactory()],
+          total: 1,
+          page: 2,
+          limit: 10,
+          totalPages: 1,
+        }),
       ),
     );
 
@@ -353,23 +359,21 @@ describe('/students', () => {
 
     const user = userEvent.setup();
     await screen.findByRole('region', { name: 'Students' });
-    await user.click(screen.getByRole('combobox', { name: 'Rows per page' }));
+    await user.click(await screen.findByRole('combobox', { name: 'Rows per page' }));
     // Option labels render in the tenant's own region digits (Bengali
     // numerals here), independent of the `en` UI locale.
-    await user.click(await screen.findByRole('option', { name: '২০' }));
+    await user.click(await screen.findByRole('option', { name: /^(50|৫০)$/ }));
 
-    await waitFor(() => expect(router.state.location.search).toMatchObject({ limit: 20, page: 1 }));
+    await waitFor(() => expect(router.state.location.search).toMatchObject({ limit: 50, page: 1 }));
   });
 
-  // [8.14.10]: `gender`/`date_of_birth_from`/`date_of_birth_to` are new
-  // filter keys #373 added server-side; this page exposes them via
-  // `FilterBar` descriptors for the first time.
-  it('a gender filter reaches the request', async () => {
+  // [31.4.students-1]: gender is a select of 3 values, not free text.
+  it('a gender filter is a select of three options and reaches the request', async () => {
     let lastGender: string | null = null;
     server.use(
       http.get('/api/v1/students', ({ request }) => {
         lastGender = new URL(request.url).searchParams.get('gender');
-        return HttpResponse.json({ data: [], total: 0, page: 1, limit: 10, totalPages: 1 });
+        return HttpResponse.json({ data: [], total: 0, page: 1, limit: 25, totalPages: 1 });
       }),
     );
 
@@ -381,10 +385,104 @@ describe('/students', () => {
     });
 
     const user = userEvent.setup();
-    await screen.findByRole('region', { name: 'Students' });
-    await user.type(screen.getByRole('textbox', { name: 'Gender' }), 'Female');
+    await user.click(await screen.findByRole('combobox', { name: 'Gender' }));
+    expect(screen.getAllByRole('option').map((option) => option.textContent)).toEqual([
+      'All genders',
+      'Male',
+      'Female',
+      'Other',
+    ]);
+    await user.click(screen.getByRole('option', { name: 'Female' }));
 
-    await waitFor(() => expect(lastGender).toBe('Female'), { timeout: 1000 });
+    await waitFor(() => expect(lastGender).toBe('FEMALE'));
+  });
+
+  it('status filter shows translated labels, never the raw enum', async () => {
+    renderWithRouter(routeTree, {
+      initialEntries: ['/students'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('combobox', { name: 'Status' }));
+    expect(screen.getByRole('option', { name: 'Active' })).toBeTruthy();
+    expect(screen.queryByRole('option', { name: 'ACTIVE' })).toBeNull();
+  });
+
+  it('merges class and section into one column, with view/edit/pay row actions and one primary header button', async () => {
+    const student = studentFactory({ id: 'student-1', full_name: 'Rahim Uddin' });
+    server.use(
+      http.get('/api/v1/students', () =>
+        HttpResponse.json({ data: [student], total: 1, page: 1, limit: 25, totalPages: 1 }),
+      ),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/students'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const table = await screen.findByRole('region', { name: 'Students' });
+    expect(within(table).queryByRole('columnheader', { name: 'Section' })).toBeNull();
+    expect(
+      within(table).getByText(
+        `${student.class_section.class.name} · ${student.class_section.section_name}`,
+      ),
+    ).toBeTruthy();
+    for (const name of ['View', 'Edit', 'Collect fees']) {
+      expect(within(table).getByRole('link', { name })).toBeTruthy();
+    }
+    // Exactly one filled button in the header: Add student.
+    const filled = screen
+      .getAllByRole('button')
+      .concat(screen.getAllByRole('link'))
+      .filter((el) => el.getAttribute('data-variant') === 'default');
+    expect(filled.map((el) => el.textContent)).toEqual(['Add student']);
+  });
+
+  it('hides Edit and Collect fees without the permission, and keeps photo upload in the More menu', async () => {
+    const student = studentFactory({ id: 'student-1' });
+    server.use(
+      http.get('/api/v1/students', () =>
+        HttpResponse.json({ data: [student], total: 1, page: 1, limit: 25, totalPages: 1 }),
+      ),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/students'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await screen.findByRole('link', { name: 'Edit' });
+    expect(screen.queryByRole('button', { name: 'Upload photos' })).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'More actions' }));
+    expect(await screen.findByRole('menuitem', { name: 'Upload photos' })).toBeTruthy();
+  });
+
+  it('requests 25 rows by default', async () => {
+    let limit: string | null = null;
+    server.use(
+      http.get('/api/v1/students', ({ request }) => {
+        limit = new URL(request.url).searchParams.get('limit');
+        return HttpResponse.json({ data: [], total: 0, page: 1, limit: 25, totalPages: 1 });
+      }),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/students'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    await waitFor(() => expect(limit).toBe('25'));
   });
 
   // [14.13.2]: an empty list is where a newcomer migrating a whole school

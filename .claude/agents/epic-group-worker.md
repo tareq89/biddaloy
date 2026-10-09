@@ -22,6 +22,54 @@ and theirs merge cleanly at the end.
   from each body's `## Files` and given to you in the queue. Decides who
   pre-flights (step 1) and who reviews (step 5). Pass it on verbatim to every
   agent you dispatch for that ticket.
+- **Dependency map** — which tickets in your queue depend on which (and on
+  tickets in other lanes). You need it to skip correctly when one fails.
+- **Recommended mode** — whether the run has `--recommended`. If yes, when
+  you or an agent you dispatch faces a choice that would otherwise go back to
+  the parent or the user (two valid designs, an ambiguous AC, a fix
+  approach): list 2–4 options, flag one **(recommended)** with a one-line
+  reason, take it, and keep going. Return every such decision (options +
+  chosen) in your report so the parent can log it. Pass this rule on in every
+  dispatch prompt. It never covers the hard stops below: a territory
+  violation, a `blocked-on`, an alarming plan drift — those you still report.
+
+## Network outages
+
+Two kinds of call can fail because the network dropped. **Wait, don't fail.**
+
+- **Tool network call** (`git fetch/push`, `gh`, `yarn install`, `curl`):
+  `Could not resolve host`, `ENOTFOUND`, `ECONNREFUSED`, `ETIMEDOUT`,
+  `Network is unreachable`, an SSH connect timeout.
+- **LLM call** — an agent you dispatched returns an API error instead of a
+  report: `API Error`, `Connection error`, `Request timed out`,
+  `fetch failed`, `overloaded` / 529, any 5xx.
+
+A **usage limit** (`usage limit reached`, `rate_limit_error`, 429 from the
+LLM API) is handled the same way, but the probe can't see it: wait 5
+minutes, retry, repeat until it goes through. Auth errors and 4xx responses
+from GitHub are not outages.
+
+1. Wait, probing every 5 minutes until both GitHub and the LLM API answer.
+   Use the Monitor tool with this loop, or run it as a background Bash
+   command and wait for it to exit:
+
+   ```bash
+   until curl -sI --max-time 10 https://api.github.com >/dev/null \
+     && curl -sI --max-time 10 https://api.anthropic.com >/dev/null; do sleep 300; done; echo online
+   ```
+
+2. Meanwhile keep doing local work (edits, tests, lint).
+3. When it prints `online`, resume:
+   - tool call → re-run the exact command that failed.
+   - dispatched agent → `SendMessage` that same agent to continue where it
+     stopped (it keeps its transcript and worktree). Only if that fails,
+     dispatch a fresh one for the same ticket and step.
+
+Never mark a ticket blocked, skip a step, or burn a review-fix round because
+of an outage. If **your own** LLM call fails, the parent sees it and resumes
+you the same way — your committed chain and pushed branches are what it
+resumes from. Paste this section into every agent you dispatch — they don't
+inherit it.
 
 ## The territory rule
 
@@ -103,6 +151,11 @@ step 1, then confirm it returned a published comment URL before reviewing.
 When it returns, **verify rather than trust**: read the diff, re-run the
 tests touched, created, or modified for this ticket, and lint yourself.
 "Tests pass" is a claim until you have seen the output. Never proceed on red.
+Tests that need Postgres, Redis or S3 run through `yarn test-env run --
+<cmd>` (this worktree's own database / Redis slots / bucket on the shared
+stack, removed afterwards); never start a Docker container yourself. If you
+used `yarn test-env up` for several steps, run `yarn test-env down` right
+after the ticket's commit.
 The full suite runs once, at integration (step 6), after every lane finishes —
 not per ticket here.
 
@@ -137,7 +190,9 @@ would it look out of place next to the screens already shipped? Storybook
 stories for the meaningful states are part of that answer, not an extra.
 
 Cap at **2 review-fix rounds**. After that, commit what you have and report the
-unresolved findings upward rather than looping.
+unresolved findings upward rather than looping — each with file:line, what is
+wrong, and the suggested fix, so the parent can file it as an issue (see
+[Problems you find](#problems-you-find-along-the-way)).
 
 If agent nesting is unavailable in this runtime, do the second pass yourself and
 say so in your report — do not silently skip it.
@@ -149,6 +204,19 @@ git add -A
 git commit -m "..."
 git push -u origin <branch>
 ```
+
+If `git commit` or `git push` fails **because a git hook failed** (husky
+pre-commit / pre-push), retry once with `--no-verify`:
+
+```bash
+git commit --no-verify -m "..."
+git push --no-verify -u origin <branch>
+```
+
+Report every `--no-verify` commit or push, with the hook's error output — the
+parent lists them in the PR, and integration's full `yarn ci:local` re-runs
+those checks. A network failure is not a hook failure — follow
+[Network outages](#network-outages) instead.
 
 Run `graphify update .` freely whenever you want current research —
 `graphify-out/` is gitignored, so it never enters a commit and never conflicts
@@ -171,18 +239,58 @@ leave them unstaged; the parent regenerates them once at integration.
 
 ## When a ticket fails
 
-Stop your lane, mark the ticket blocked with the reason, and report immediately.
-Do not skip it and continue — later tickets in your queue branch from it.
+Mark the ticket blocked with the reason and report it immediately. Then
+**keep going**: using the dependency map, skip every later ticket in your
+queue that depends on it, and carry on with the ones that don't.
 
-**Never commit a blocked ticket's partial work.** A half-finished ticket sitting
-in a commit looks done to everyone downstream, and its branch would become the
-base of the next ticket in the chain. Leave the changes uncommitted in your
-worktree and report the worktree path, so a human can inspect or discard them.
-The last *committed* state of your chain must always be the last ticket that
-actually finished.
+**Never commit a blocked ticket's partial work onto your chain.** A
+half-finished ticket sitting in a commit looks done to everyone downstream,
+and its branch would become the base of the next ticket in the chain. What
+happens to the code depends on why it failed:
+
+| Why it failed | The code |
+|---|---|
+| Needs files outside your territory | **Keep** — side branch |
+| Tests stay red | **Keep** — side branch |
+| Blocked on missing work (`blocked-on: #N`) | Usually none was written. If some was, **keep** — side branch |
+| Plan was wrong | **Discard** — it carries the wrong plan forward |
+
+Keep = commit it to a side branch off your chain, push it, then come back:
+
+```bash
+git switch -c epic/<slug>/<group>-blocked-<n>
+git add -A && git commit --no-verify -m "WIP #<n> (blocked): <reason>"
+git push -u origin epic/<slug>/<group>-blocked-<n>
+git switch <last-finished-ticket-branch>
+```
+
+Discard = `git restore --staged --worktree . && git clean -fd` — only
+after you've written down what was wrong with the plan, for the report.
+
+Don't use `git stash`: every worktree of a repo shares one stash list, so
+parallel lanes would mix their entries up.
+
+Either way, the next ticket branches from the last ticket that actually
+finished — your chain's last *committed* state is always a finished ticket.
+Report the side branch (or "discarded" + why) with the failure.
 
 Report failures as they happen rather than at the end. The parent may be able to
 re-partition around you while other lanes are still running.
+
+## Problems you find along the way
+
+Anything wrong you notice while working — a bug next to your code, a flaky
+test, a wrong comment in the issue body, a review finding you couldn't fix —
+gets one of two outcomes. Never just mention it and move on.
+
+1. **Fix it now and commit it**, if it's inside your territory and small
+   enough not to derail the ticket. Separate commit if it's unrelated to the
+   ticket, so it reads clearly in the PR.
+2. **Otherwise report it to the parent with full detail**: file:line, what is
+   wrong, how you saw it (command + output), why you didn't fix it (outside
+   territory, too big, needs a product call), and a suggested fix. The parent
+   either fixes it or files a GitHub issue from your report — so write it so
+   someone with no context could act on it.
 
 ## What you return
 
@@ -191,8 +299,11 @@ re-partition around you while other lanes are still running.
 - The full branch chain in order, and which branch is the chain head.
 - Any territory violation you hit, and the file that caused it.
 - Any ticket where reality diverged from the published plan.
-- Design-system additions made, and unrelated problems you noticed but left
-  alone — the parent puts these in PR descriptions.
+- Design-system additions made.
+- Problems you fixed along the way (commit SHAs), and problems you couldn't
+  fix, in the detailed form above.
+- Tickets you skipped, the side branch (or "discarded" + why) for each
+  failed one, and every `--no-verify` commit or push with the hook's error.
 - Which model ran the second review pass for each ticket (Opus for money tier,
   Sonnet for standard) — or in-agent, if nesting was unavailable — and whether
   the plan came from `issue-preflight`, `issue-planner`, or the implementer's

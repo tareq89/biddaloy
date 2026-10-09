@@ -48,7 +48,9 @@ test('reversing a payment restores dues, cancels the invoice, and nets out of co
 
   await page.goto(`/payments/${payment.id}`);
   await expect(page.getByText(t('payments.detail.amount')).first()).toBeVisible();
-  await page.getByRole('button', { name: t('payments.detail.reverseAction') }).click();
+  // [31.4] Reverse is the last item of the header's More menu.
+  await page.getByRole('button', { name: t('common.actions.moreActions') }).click();
+  await page.getByRole('menuitem', { name: t('payments.detail.reverseAction') }).click();
 
   await page
     .getByLabel(t('payments.detail.reverseDialog.reasonLabel'))
@@ -61,7 +63,7 @@ test('reversing a payment restores dues, cancels the invoice, and nets out of co
 
   await test.step('dues are restored', async () => {
     await page.goto('/fees/dues');
-    await page.getByLabel(t('fees.dues.searchLabel')).fill(name);
+    await page.getByLabel(t('fees.dues.searchLabel'), { exact: true }).fill(name);
     await expect(page.getByText(name).first()).toBeVisible();
     // This journey runs in `bn` (this app's real market locale, per the
     // suite's default) — `formatCurrency` renders Bangla digits

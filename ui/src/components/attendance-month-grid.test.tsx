@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { i18n, REGION_BD_EN, RegionConfigProvider } from '../i18n';
 import { renderWithProviders } from '../test';
+import { formatDate, formatMonth, parseServerDate } from '../utils/date';
 
 import { AttendanceMonthGrid, type AttendanceDayCell } from './attendance-month-grid';
 
@@ -55,6 +56,10 @@ const SEPTEMBER_2026 = '2026-09';
 // while the other was broken.
 const FEBRUARY_2027 = '2027-02';
 
+// Accessible names start with the long-form date; build them from the formatter.
+const label = (iso: string, rest: string): string =>
+  `${formatDate(parseServerDate(iso), REGION_BD_EN)} — ${rest}`;
+
 describe('AttendanceMonthGrid', () => {
   it('renders all six visual states, each with an icon and a word', async () => {
     const days: AttendanceDayCell[] = [
@@ -69,25 +74,67 @@ describe('AttendanceMonthGrid', () => {
       <AttendanceMonthGrid month={SEPTEMBER_2026} days={days} onSelectDay={() => {}} />,
     );
 
-    expect(screen.getByRole('button', { name: '2026-09-01 — Present' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: '2026-09-02 — Late by 12 minutes' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: '2026-09-03 — Absent' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: '2026-09-04 — Leave' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: label('2026-09-01', 'Present') })).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: label('2026-09-02', 'Late by 12 minutes') }),
+    ).toBeTruthy();
+    expect(screen.getByRole('button', { name: label('2026-09-03', 'Absent') })).toBeTruthy();
+    expect(screen.getByRole('button', { name: label('2026-09-04', 'Leave') })).toBeTruthy();
     expect(
       screen.getByRole('button', {
-        name: '2026-09-05 — Not a school day — Independence Day',
+        name: label('2026-09-05', 'Not a school day — Independence Day'),
       }),
     ).toBeTruthy();
-    expect(screen.getByRole('button', { name: '2026-09-06 — Not marked' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: label('2026-09-06', 'Not marked') })).toBeTruthy();
 
     // The legend lists all six, always visible (not behind a disclosure).
-    const legend = screen.getByText('Legend').closest('div') as HTMLElement;
+    const legend = screen.getByRole('list', { name: 'Legend' });
     expect(within(legend).getByText('Present')).toBeTruthy();
     expect(within(legend).getByText('Late')).toBeTruthy();
     expect(within(legend).getByText('Absent')).toBeTruthy();
     expect(within(legend).getByText('Leave')).toBeTruthy();
     expect(within(legend).getByText('Not a school day')).toBeTruthy();
     expect(within(legend).getByText('Not marked')).toBeTruthy();
+  });
+
+  it('captions the month with the formatter and shows no header without onMonthChange', async () => {
+    await renderInEnglish(<AttendanceMonthGrid month={SEPTEMBER_2026} days={[]} />);
+    expect(screen.getByText(formatMonth('2026-09', REGION_BD_EN))).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Today' })).toBeNull();
+  });
+
+  it('renders a MonthHeader with next/previous/Today when onMonthChange is given', async () => {
+    const onMonthChange = vi.fn();
+    const { user } = await renderInEnglish(
+      <AttendanceMonthGrid
+        month={SEPTEMBER_2026}
+        days={[]}
+        today="2026-09-04"
+        onMonthChange={onMonthChange}
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Next month' }));
+    expect(onMonthChange).toHaveBeenLastCalledWith('2026-10');
+    await user.click(screen.getByRole('button', { name: 'Previous month' }));
+    expect(onMonthChange).toHaveBeenLastCalledWith('2026-08');
+    await user.click(screen.getByRole('button', { name: 'Today' }));
+    expect(onMonthChange).toHaveBeenLastCalledWith('2026-09');
+  });
+
+  it('marks today with aria-current and the selected day with a selected ground', async () => {
+    await renderInEnglish(
+      <AttendanceMonthGrid
+        month={SEPTEMBER_2026}
+        days={[]}
+        today="2026-09-04"
+        selectedDate="2026-09-10"
+      />,
+    );
+    const current = document.querySelectorAll('[aria-current="date"]');
+    expect(current).toHaveLength(1);
+    expect(current[0]?.textContent).toContain('4');
+    const selected = document.querySelector('[data-selected]') as HTMLElement;
+    expect(selected.className).toContain('bg-secondary');
   });
 
   it('renders a missing day (short/incomplete `days` array) as Not marked instead of crashing', async () => {
@@ -99,9 +146,9 @@ describe('AttendanceMonthGrid', () => {
       />,
     );
 
-    expect(screen.getByRole('button', { name: '2026-09-01 — Present' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: label('2026-09-01', 'Present') })).toBeTruthy();
     // The 30th of September was never in the array at all.
-    expect(screen.getByRole('button', { name: '2026-09-30 — Not marked' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: label('2026-09-30', 'Not marked') })).toBeTruthy();
   });
 
   it('tolerates a completely empty `days` array', async () => {
@@ -109,8 +156,8 @@ describe('AttendanceMonthGrid', () => {
       <AttendanceMonthGrid month={SEPTEMBER_2026} days={[]} onSelectDay={() => {}} />,
     );
 
-    expect(screen.getByRole('button', { name: '2026-09-01 — Not marked' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: '2026-09-30 — Not marked' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: label('2026-09-01', 'Not marked') })).toBeTruthy();
+    expect(screen.getByRole('button', { name: label('2026-09-30', 'Not marked') })).toBeTruthy();
   });
 
   it('calls onSelectDay with the clicked day', async () => {
@@ -123,7 +170,7 @@ describe('AttendanceMonthGrid', () => {
       />,
     );
 
-    await user.click(screen.getByRole('button', { name: '2026-09-03 — Absent' }));
+    await user.click(screen.getByRole('button', { name: label('2026-09-03', 'Absent') }));
 
     expect(onSelectDay).toHaveBeenCalledWith(
       expect.objectContaining({ date: '2026-09-03', status: AttendanceStatus.ABSENT }),
@@ -138,8 +185,8 @@ describe('AttendanceMonthGrid', () => {
       />,
     );
 
-    expect(screen.queryByRole('button', { name: /2026-09-01/ })).toBeNull();
-    expect(screen.getByLabelText('2026-09-01 — Present')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /September, 2026/ })).toBeNull();
+    expect(screen.getByLabelText(label('2026-09-01', 'Present'))).toBeTruthy();
   });
 
   describe('firstDayOfWeek rotates the header AND the leading-blank count together', () => {
@@ -182,8 +229,8 @@ describe('AttendanceMonthGrid', () => {
       // 1 leading blank, and 28 real days fill exactly 4 full weeks after
       // it — 29 cells total, rounded up to 35 (5 rows), so 6 trailing.
       expect(blanks).toHaveLength(1 + 6);
-      expect(screen.getByRole('button', { name: '2027-02-01 — Not marked' })).toBeTruthy();
-      expect(screen.getByRole('button', { name: '2027-02-28 — Not marked' })).toBeTruthy();
+      expect(screen.getByRole('button', { name: label('2027-02-01', 'Not marked') })).toBeTruthy();
+      expect(screen.getByRole('button', { name: label('2027-02-28', 'Not marked') })).toBeTruthy();
     });
 
     it('February 2027 (28 days, starts Monday): 0 leading blanks at firstDayOfWeek=1', async () => {

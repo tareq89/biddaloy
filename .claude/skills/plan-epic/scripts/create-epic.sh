@@ -36,12 +36,21 @@ create_issue() { # title bodyfile → number
   gh issue create --repo "$repo" --title "$1" --body-file "$2" | grep -oE '[0-9]+$'
 }
 
+# Tolerant on purpose: the project's auto-add workflow usually adds new issues
+# before we do, and `gh project item-add` then fails with "Content already
+# exists in this project" — under `set -e` that aborted the run mid-epic (#814).
+add_to_project() { # url
+  [[ -n "$project" ]] || return 0
+  gh project item-add "$project" --owner "$owner" --url "$1" >/dev/null 2>&1 \
+    || echo "note: $1 not added to project $project (already there?)" >&2
+}
+
 tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
 
 body_of "$dir/epic.md" > "$tmp/epic.body"
 epic_no="$(create_issue "$(title_of "$dir/epic.md")" "$tmp/epic.body")"
 echo "${epic_no}|$(title_of "$dir/epic.md")|https://github.com/$repo/issues/$epic_no"
-[[ -n "$project" ]] && gh project item-add "$project" --owner "$owner" --url "https://github.com/$repo/issues/$epic_no" >/dev/null
+add_to_project "https://github.com/$repo/issues/$epic_no"
 
 for f in "$dir"/*.md; do
   [[ "$(basename "$f")" == "epic.md" ]] && continue
@@ -50,6 +59,6 @@ for f in "$dir"/*.md; do
   no="$(create_issue "$t" "$tmp/sub.body")"
   id="$(gh api "repos/$repo/issues/$no" --jq .id)"
   gh api -X POST "repos/$repo/issues/$epic_no/sub_issues" -F sub_issue_id="$id" >/dev/null
-  [[ -n "$project" ]] && gh project item-add "$project" --owner "$owner" --url "https://github.com/$repo/issues/$no" >/dev/null
+  add_to_project "https://github.com/$repo/issues/$no"
   echo "${no}|${t}|https://github.com/$repo/issues/$no"
 done

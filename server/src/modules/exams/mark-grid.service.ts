@@ -5,9 +5,10 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull, In } from 'typeorm';
+import { EntityManager, Repository, IsNull, In } from 'typeorm';
 import {
   AuditAction,
+  EnrollmentStatus,
   ExamComponentSource,
   ExamStatus,
   MarkGridState,
@@ -19,11 +20,47 @@ import { Mark } from './entities/mark.entity';
 import { MarkGrid } from './entities/mark-grid.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { Student } from '../students/entities/student.entity';
+import { Enrollment } from '../students/entities/enrollment.entity';
 import { GridStateActionDto } from './dto/marks.dto';
 import { AttendanceComponentService } from './attendance-component.service';
 import { MarksAuthorizationService } from './marks-authorization.util';
 import { AuditService } from '../audit/audit.service';
 import { RequestContext } from '../../common/request-context.util';
+
+/**
+ * [pr-fix #945] The single serialization point for one grid's marks and
+ * state (D12). Creates the grid row as DRAFT if it doesn't exist yet
+ * (ON CONFLICT DO NOTHING — a missing row already reads as DRAFT
+ * everywhere, so this changes nothing visible), then re-reads it under a
+ * row lock. Every mark write, submit and reopen for this
+ * exam-section-subject goes through here inside its own transaction, so:
+ * - an autosave can't write marks after a concurrent submit commits
+ *   SUBMITTED (the old check ran before the transaction, unlocked);
+ * - two concurrent first submits can't both insert (unique-index 500);
+ * - two concurrent first-writes of the same mark cell serialize too — a
+ *   cell's student is pinned to this section and its component to this
+ *   subject, so the same cell always maps to this same grid row.
+ */
+export async function lockGrid(
+  manager: EntityManager,
+  key: { tenantId: string; examId: string; sectionId: string; subjectId: string },
+): Promise<MarkGrid> {
+  const where = {
+    exam_id: key.examId,
+    section_id: key.sectionId,
+    subject_id: key.subjectId,
+    tenant_id: key.tenantId,
+  };
+  const repo = manager.getRepository(MarkGrid);
+  await repo
+    .createQueryBuilder()
+    .insert()
+    .into(MarkGrid)
+    .values({ ...where, state: MarkGridState.DRAFT })
+    .orIgnore()
+    .execute();
+  return repo.findOneOrFail({ where, lock: { mode: 'pessimistic_write' } });
+}
 
 export interface GridResponse {
   exam_id: string;
@@ -48,9 +85,8 @@ export interface GridResponse {
 
 /**
  * [19.4.1] D12 — the grid's DRAFT/SUBMITTED state machine, and the
- * composed GET that fills the whole entry grid in one request. This is
- * the service `MarksService` also queries (via `MarkGrid` directly) to
- * refuse writes to a SUBMITTED grid.
+ * composed GET that fills the whole entry grid in one request.
+ * `MarksService` refuses writes to a SUBMITTED grid via `lockGrid`.
  */
 @Injectable()
 export class MarkGridService {
@@ -67,6 +103,8 @@ export class MarkGridService {
     private readonly sectionRepo: Repository<ClassSection>,
     @InjectRepository(Student)
     private readonly studentRepo: Repository<Student>,
+    @InjectRepository(Enrollment)
+    private readonly enrollmentRepo: Repository<Enrollment>,
     private readonly attendanceComponentService: AttendanceComponentService,
     private readonly authz: MarksAuthorizationService,
     private readonly auditService: AuditService,
@@ -97,15 +135,36 @@ export class MarkGridService {
     sectionId: string,
     subjectId: string,
     tenantId: string,
+    role: string,
+    userId: string,
   ): Promise<GridResponse> {
-    await this.findExam(examId, tenantId);
+    const exam = await this.findExam(examId, tenantId);
     await this.findSection(sectionId, tenantId);
+    await this.authz.assertCanRead({ role, userId, tenantId, sectionId, subjectId });
 
-    const [students, components, marks, grid] = await Promise.all([
-      this.studentRepo.find({
-        where: { class_section_id: sectionId, tenant_id: tenantId, deleted_at: IsNull() },
-        order: { roll_number: 'ASC' },
-      }),
+    // D17: the grid's roster is whoever holds an ACTIVE enrollment for this
+    // exam's own (academic_year_id, class_id) with section_id = sectionId —
+    // not `Student.class_section_id`, which is the student's CURRENT
+    // placement and can point elsewhere for an old exam after promotion.
+    const enrollments = await this.enrollmentRepo.find({
+      where: {
+        tenant_id: tenantId,
+        academic_year_id: exam.academic_year_id,
+        class_id: exam.class_id,
+        section_id: sectionId,
+        enrollment_status: EnrollmentStatus.ACTIVE,
+      },
+    });
+    const [studentsUnsorted, components, marks, grid] = await Promise.all([
+      enrollments.length === 0
+        ? Promise.resolve([])
+        : this.studentRepo.find({
+            where: {
+              id: In(enrollments.map((e) => e.student_id)),
+              tenant_id: tenantId,
+              deleted_at: IsNull(),
+            },
+          }),
       this.componentRepo.find({
         where: {
           exam_id: examId,
@@ -127,6 +186,14 @@ export class MarkGridService {
         },
       }),
     ]);
+    const students = [...studentsUnsorted].sort((a, b) => a.roll_number - b.roll_number);
+
+    // Mark has no section column, so the query above pulls every mark
+    // ever entered for this exam+subject across ALL sections — filter to
+    // this section's own students or a cross-section leak reaches the
+    // response (a data leak, not just noisy cells the UI can't place).
+    const sectionStudentIds = new Set(students.map((s) => s.id));
+    const sectionMarks = marks.filter((m) => sectionStudentIds.has(m.student_id));
 
     const derivedComponents = components.filter((c) => c.source === ExamComponentSource.DERIVED);
     const derived: GridResponse['derived'] = {};
@@ -164,7 +231,7 @@ export class MarkGridService {
         pass_marks: c.pass_marks,
         sequence: c.sequence,
       })),
-      cells: marks.map((m) => ({
+      cells: sectionMarks.map((m) => ({
         student_id: m.student_id,
         component_id: m.component_id,
         value: m.value,
@@ -197,47 +264,32 @@ export class MarkGridService {
       subjectId: dto.subject_id,
     });
 
-    const existing = await this.gridRepo.findOne({
-      where: {
-        exam_id: examId,
-        section_id: dto.section_id,
-        subject_id: dto.subject_id,
-        tenant_id: tenantId,
-      },
-    });
-    if (existing?.state === MarkGridState.SUBMITTED) {
-      throw new ConflictException(
-        `This grid was already submitted (by user "${existing.submitted_by}" at ${existing.submitted_at?.toISOString()}).`,
-      );
-    }
-
     return this.gridRepo.manager.transaction(async (manager) => {
-      const repo = manager.getRepository(MarkGrid);
+      const existing = await lockGrid(manager, {
+        tenantId,
+        examId,
+        sectionId: dto.section_id,
+        subjectId: dto.subject_id,
+      });
+      if (existing.state === MarkGridState.SUBMITTED) {
+        throw new ConflictException(
+          `This grid was already submitted (by user "${existing.submitted_by}" at ${existing.submitted_at?.toISOString()}).`,
+        );
+      }
+
       const submittedAt = new Date();
-      let saved: MarkGrid;
-      if (existing) {
-        await repo.update(
+      await manager
+        .getRepository(MarkGrid)
+        .update(
           { id: existing.id },
           { state: MarkGridState.SUBMITTED, submitted_by: userId, submitted_at: submittedAt },
         );
-        saved = {
-          ...existing,
-          state: MarkGridState.SUBMITTED,
-          submitted_by: userId,
-          submitted_at: submittedAt,
-        };
-      } else {
-        const entity = repo.create({
-          exam_id: examId,
-          section_id: dto.section_id,
-          subject_id: dto.subject_id,
-          state: MarkGridState.SUBMITTED,
-          submitted_by: userId,
-          submitted_at: submittedAt,
-          tenant_id: tenantId,
-        });
-        saved = await repo.save(entity);
-      }
+      const saved: MarkGrid = {
+        ...existing,
+        state: MarkGridState.SUBMITTED,
+        submitted_by: userId,
+        submitted_at: submittedAt,
+      };
 
       await this.auditService.record(
         {
@@ -248,7 +300,7 @@ export class MarkGridService {
           performed_by_user_id: userId,
           ip_address: context.ip,
           user_agent: context.userAgent,
-          old_values: { state: existing?.state ?? MarkGridState.DRAFT },
+          old_values: { state: existing.state },
           new_values: { state: MarkGridState.SUBMITTED },
         },
         manager,
@@ -269,21 +321,25 @@ export class MarkGridService {
     if (role !== UserRole.ADMIN) {
       throw new ForbiddenException('Only an admin may reopen a submitted grid.');
     }
-    await this.findExam(examId, tenantId);
-
-    const existing = await this.gridRepo.findOne({
-      where: {
-        exam_id: examId,
-        section_id: dto.section_id,
-        subject_id: dto.subject_id,
-        tenant_id: tenantId,
-      },
-    });
-    if (!existing || existing.state !== MarkGridState.SUBMITTED) {
-      throw new NotFoundException('No submitted grid found for this exam-section-subject.');
+    const exam = await this.findExam(examId, tenantId);
+    if (exam.status === ExamStatus.PUBLISHED) {
+      throw new ConflictException(
+        'This exam is already published — reopen its result instead of a grid.',
+      );
     }
 
     return this.gridRepo.manager.transaction(async (manager) => {
+      // A DRAFT row this creates for a never-touched grid rolls back with
+      // the 404 below — nothing is left behind.
+      const existing = await lockGrid(manager, {
+        tenantId,
+        examId,
+        sectionId: dto.section_id,
+        subjectId: dto.subject_id,
+      });
+      if (existing.state !== MarkGridState.SUBMITTED) {
+        throw new NotFoundException('No submitted grid found for this exam-section-subject.');
+      }
       const repo = manager.getRepository(MarkGrid);
       await repo.update(
         { id: existing.id },
@@ -323,6 +379,8 @@ export class MarkGridService {
       section_id: string;
       section_name: string;
       subject_id: string;
+      subject_name: string | null;
+      subject_name_bn: string | null;
       state: MarkGridState;
     }>;
   }> {
@@ -335,11 +393,23 @@ export class MarkGridService {
       }),
       this.componentRepo.find({
         where: { exam_id: examId, tenant_id: tenantId, deleted_at: IsNull() },
+        relations: { subject: true },
+        // a soft-deleted subject still names its outstanding grid; the
+        // component's own deleted_at stays filtered above
+        withDeleted: true,
       }),
       this.gridRepo.find({ where: { exam_id: examId, tenant_id: tenantId } }),
     ]);
 
     const subjectIds = [...new Set(components.map((c) => c.subject_id))];
+    // Names only from this tenant's own subjects (multi-tenancy rule) — a
+    // foreign-tenant subject is filtered here rather than in the query's
+    // `where`, which would drop the component and silently shrink the counts.
+    const subjectById = new Map(
+      components
+        .filter((c) => c.subject?.tenant_id === tenantId)
+        .map((c) => [c.subject_id, c.subject]),
+    );
     const gridByKey = new Map(grids.map((g) => [`${g.section_id}:${g.subject_id}`, g]));
 
     const counts: Record<MarkGridState, number> = {
@@ -350,6 +420,8 @@ export class MarkGridService {
       section_id: string;
       section_name: string;
       subject_id: string;
+      subject_name: string | null;
+      subject_name_bn: string | null;
       state: MarkGridState;
     }> = [];
 
@@ -364,6 +436,8 @@ export class MarkGridService {
             section_id: section.id,
             section_name: section.section_name,
             subject_id: subjectId,
+            subject_name: subjectById.get(subjectId)?.name_en ?? null,
+            subject_name_bn: subjectById.get(subjectId)?.name_bn ?? null,
             state,
           });
         }

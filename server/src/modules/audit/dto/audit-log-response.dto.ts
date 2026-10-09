@@ -41,6 +41,14 @@ export class AuditLogResponseDto {
   @ApiProperty({ nullable: true, type: String })
   performed_by_name: string | null;
 
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    description:
+      'Display name of the record (student name, invoice number…), when it can be resolved; null otherwise.',
+  })
+  entity_label: string | null;
+
   @ApiProperty({ nullable: true, type: Object })
   old_values: Record<string, unknown> | null;
 
@@ -65,6 +73,9 @@ export class AuditLogResponseDto {
     dto.entity_id = log.entity_id;
     dto.performed_by_user_id = log.performed_by_user_id;
     dto.performed_by_name = log.performed_by?.full_name ?? null;
+    // Only `findAll` resolves labels; it sets this after mapping (see AuditController).
+    // Kept single-arg because callers pass this to `.map(...)` directly.
+    dto.entity_label = null;
     dto.old_values = log.old_values;
     dto.new_values = log.new_values;
     dto.ip_address = log.ip_address;

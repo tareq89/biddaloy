@@ -91,3 +91,12 @@ export const RightToLeft: Story = {
     ],
   },
 };
+
+export const Long: Story = {
+  args: {
+    notifications: Array.from({ length: 300 }, (_, i) =>
+      record({ message: `Payment recorded #${i + 1}`, read: i > 5 }),
+    ),
+    className: 'max-h-80',
+  },
+};

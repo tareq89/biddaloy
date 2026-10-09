@@ -3,6 +3,7 @@ import {
   apiSession,
   createInvitedParentUser,
   createStudentWithDues,
+  E2E_PASSWORD,
 } from '../api';
 import { expect, guest, loggedIn, test } from '../fixtures/test';
 import { ActivatePage } from '../pages/activate-page';
@@ -267,7 +268,7 @@ test.describe('contact change', () => {
     // password-change journey above runs as `student`. The contact-change
     // card itself is role-agnostic.
     const account = await createInvitedParentUser(request, admin, 'Contact Change E2E', 'STUDENT');
-    const password = 'an-original-password';
+    const password = E2E_PASSWORD;
     const newPhone = `017${Math.floor(10_000_000 + Math.random() * 89_999_999)}`;
     const changeLabel = t('portal.account.contact.change');
 
@@ -323,7 +324,9 @@ test.describe('contact change', () => {
 
     await test.step('navigate to /portal/account and open "Change" on the phone row', async () => {
       await page.goto('/portal/account');
-      await rowFor(account.phone).getByRole('button', { name: changeLabel }).click();
+      // The page shows the phone formatted (a hyphen after the fifth digit), so
+      // match the last six digits, which stay contiguous.
+      await rowFor(account.phone.slice(-6)).getByRole('button', { name: changeLabel }).click();
       await expect(dialog).toBeVisible();
     });
 
@@ -360,11 +363,13 @@ test.describe('contact change', () => {
         .getByRole('button', { name: t('portal.account.contact.otpStep.confirm') })
         .click();
 
-      // The label interpolates a locale-formatted date, so match the stem
-      // ahead of `{{date}}` rather than a string that depends on today.
-      const verifiedStem = t('portal.account.contact.verified').replace('{{date}}', '').trim();
-      await expect(rowFor(newPhone).getByText(verifiedStem, { exact: false })).toBeVisible();
-      await expect(page.getByText(account.phone)).not.toBeVisible();
+      // The row shows a "Verified" badge; the full dated sentence is its title.
+      await expect(
+        rowFor(newPhone.slice(-6)).getByText(t('portal.account.contact.verifiedShort'), {
+          exact: true,
+        }),
+      ).toBeVisible();
+      await expect(page.getByText(account.phone.slice(-6))).not.toBeVisible();
     });
   });
 });

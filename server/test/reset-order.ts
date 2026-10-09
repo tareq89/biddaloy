@@ -23,17 +23,98 @@ import {
  * why they need their own cadence.
  */
 export const TRANSACTIONAL_TABLES_CHILD_FIRST = [
+  // [28.1.2] ACR / incidents / surveys. Child-first within each group; all
+  // FK (RESTRICT) to users/teachers/subjects/academic_years, so they clear
+  // before those tables.
+  'survey_answers',
+  'survey_responses',
+  'survey_targets',
+  'survey_questions',
+  'surveys',
+  'staff_incidents',
+  'acr_scores',
+  'acr_assessments',
+  'acr_criteria',
+  'acr_form_versions',
+  // [39.1.2] FK (RESTRICT) to `students` and `enrollments`, so all three
+  // clear before either of those.
+  'student_lifecycle_events',
+  'student_notes',
+  'student_public_exams',
+  // [25.5, #1054] `seat_allocations` FKs to `seat_plans`, `exam_schedules`,
+  // `students`, and `rooms` (all `ON DELETE CASCADE`); `seat_plan_schedules`
+  // FKs to `seat_plans` and `exam_schedules`. All three appear before every
+  // one of those tables below to keep this list child-first.
+  'seat_allocations',
+  'seat_plan_schedules',
+  'seat_plans',
   'workbook_jobs',
+  // [32.1.2] print tables: items -> jobs -> versions -> templates (versions
+  // RESTRICT their template; templates' current_version_id is SET NULL).
+  'print_job_items',
+  'print_jobs',
+  'print_template_versions',
+  'print_templates',
+  'printer_profiles',
+  'print_assets',
+  // [23.0] the 7 staff-child tables (documents/languages/achievements/
+  // training/education/experience/addresses) and family_members have no FK
+  // to each other or to staff_hr_records; staff_designation_history FKs to
+  // designations (`ON DELETE CASCADE`), so it must clear before designations.
+  'staff_documents',
+  'staff_languages',
+  'staff_achievements',
+  'staff_training',
+  'staff_education',
+  'staff_experience',
+  'staff_addresses',
+  'staff_family_members',
+  'staff_designation_history',
+  'staff_hr_records',
+  'designations',
+  // [34.1.4] milestone_achievements references program_enrollments+
+  // program_milestones; program_enrollments references programs+students;
+  // program_milestones references programs. All must clear before
+  // `students` below, and programs has no other incoming FK here.
+  'milestone_achievements',
+  'program_enrollments',
+  'program_milestones',
+  'programs',
+  // [27.1] admission_evaluations references admission_applicants;
+  // admission_applicants references admission_intakes; admission_intakes
+  // references class_sections. All must clear before class_sections below.
+  'admission_evaluations',
+  'admission_applicants',
+  'admission_intakes',
+  // [788] promotion_entries references promotion_runs (`ON DELETE CASCADE`);
+  // promotion_runs references classes/schools. Neither has an incoming FK
+  // from anything else here, so this pair only needs to clear before
+  // `classes`/`schools` — reset separately, per-file, by
+  // `buildReferenceResetSql()` below — and entries before its own run.
+  'promotion_entries',
+  'promotion_runs',
+  // [22.2.1] homework_submissions/homework_assignments reference
+  // homework+students+class_sections; homework references subjects+classes;
+  // syllabus_topics references subjects+classes. All must clear before
+  // their parents below.
+  'homework_submissions',
+  'homework_assignments',
+  'homework',
+  'syllabus_topics',
   // [19.2.1] result_subjects/results reference exams+students+grading_scales;
   // marks/mark_grids/exam_components reference exams+students+subjects;
-  // student_subject_choices references students+class_subjects. All must
-  // clear before their parents below.
+  // student_subject_choices references students+class_subjects;
+  // [19.11.1] exam_schedules references exams+subjects. All must clear
+  // before their parents below.
   'result_subjects',
   'results',
   'mark_grids',
   'marks',
   'student_subject_choices',
   'exam_components',
+  'exam_template_components',
+  'exam_templates',
+  'exam_schedules',
   'exams',
   'grading_bands',
   'grading_scales',
@@ -56,6 +137,10 @@ export const TRANSACTIONAL_TABLES_CHILD_FIRST = [
   'payments',
   'discount_rules',
   'student_fees',
+  // [38.1.2] `fine_rules` is referenced by `student_fees.fine_rule_id` (must
+  // truncate after student_fees) and itself references `fee_structures`
+  // (must truncate before it).
+  'fine_rules',
   'recurring_schedule_exclusions',
   'recurring_schedule_structures',
   'fee_generations',
@@ -84,9 +169,21 @@ export const TRANSACTIONAL_TABLES_CHILD_FIRST = [
   'rooms',
   'period_slots',
   'teachers',
+  // [36.1.1] Staff attendance/leave — child-first: `leave_records` and
+  // `staff_attendance_records` both FK `staff_profiles` (and
+  // `staff_attendance_records` also FKs `staff_attendance_sessions`), and
+  // `teachers.staff_profile_id` FKs `staff_profiles` too, so `staff_profiles`
+  // must clear last of this group (after `teachers`, above).
+  'leave_records',
+  'staff_attendance_records',
+  'staff_attendance_sessions',
+  'leave_policies',
+  'staff_profiles',
   'subjects',
   'audit_logs',
   'students',
+  // [13.1.2] only FK is to `users` (reset later, per-file).
+  'user_identities',
 ] as const;
 
 /**
@@ -130,7 +227,13 @@ export function buildResetSql(): string {
   // `payments.invoice_id` first breaks the cycle without touching
   // production's `RESTRICT` semantics — this only runs against the test
   // database's transactional-table reset.
-  return [`UPDATE "payments" SET "invoice_id" = NULL`, ...deletes].join('; ');
+  // [32.1.2] Same for `print_templates.current_version_id` <->
+  // `print_template_versions.template_id` (RESTRICT).
+  return [
+    `UPDATE "payments" SET "invoice_id" = NULL`,
+    `UPDATE "print_templates" SET "current_version_id" = NULL`,
+    ...deletes,
+  ].join('; ');
 }
 
 /** Child-first delete order for the six reference tables below. */

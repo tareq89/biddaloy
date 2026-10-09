@@ -3,7 +3,7 @@ import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/r
 import { apiClient } from '../api/client';
 import type { components } from '../api/schema';
 
-import { createEntityKeys } from './query-keys';
+import { createEntityKeys, fetchAllPages } from './query-keys';
 import { shouldRetryQuery } from './retry';
 
 export type Teacher = components['schemas']['TeacherResponseDto'];
@@ -22,13 +22,21 @@ export interface TeacherListFilters {
 
 export const teacherKeys = createEntityKeys<TeacherListFilters>('teachers');
 
+// ponytail: same "no wire pagination needed" reasoning as `subjects.ts`'s
+// `SUBJECT_FILTER_LIMIT` — a school's whole teacher list comfortably fits
+// one page, so a dropdown/lookup caller can default to a generous limit
+// rather than silently missing a teacher past the server's own default of
+// 10. Ceiling is 100 teachers; page explicitly if a caller ever needs more.
+const TEACHER_FILTER_LIMIT = 100;
+
 /** [8.11.8]'s promote-teacher flow — mirrors `guardians.ts`'s shape. */
 export function teachersQueryOptions(filters: TeacherListFilters) {
+  const params = { limit: TEACHER_FILTER_LIMIT, ...filters };
   return queryOptions({
-    queryKey: teacherKeys.list(filters),
+    queryKey: teacherKeys.list(params),
     queryFn: async ({ signal }) => {
       const res = await apiClient.get<PaginatedTeachers>('/teachers', {
-        params: filters,
+        params,
         signal,
       });
       return res.data;
@@ -41,10 +49,75 @@ export function useTeachers(filters: TeacherListFilters) {
   return useQuery(teachersQueryOptions(filters));
 }
 
+/** [pr-fix #1035] `TEACHER_FILTER_LIMIT`'s "whole list fits one page"
+ * assumption breaks for a large school — this fetches every page instead
+ * of relying on a single 100-row request. For reference-list pickers
+ * (`-assign-teacher-dialog.tsx`'s Combobox), not for a paged list screen.
+ * Keyed under `teacherKeys.lists()` so the create/update mutations'
+ * `lists()` invalidation refreshes this picker too. */
+export function allTeachersQueryOptions() {
+  return queryOptions({
+    queryKey: [...teacherKeys.lists(), 'all-pages'] as const,
+    queryFn: ({ signal }) =>
+      fetchAllPages((page) =>
+        apiClient
+          .get<PaginatedTeachers>('/teachers', {
+            params: { limit: TEACHER_FILTER_LIMIT, page },
+            signal,
+          })
+          .then((res) => res.data),
+      ),
+    retry: shouldRetryQuery,
+  });
+}
+
+export function useAllTeachers(options: { enabled?: boolean } = {}) {
+  return useQuery({ ...allTeachersQueryOptions(), ...options });
+}
+
+/** [29.0] `UserService.getTeacherAssignments`'s response shape, mirrored
+ * from `users.service.ts`'s `SectionTeacherAssignmentWithClass` shape,
+ * which extends `classes.ts`'s `SectionTeacherAssignment` with class
+ * fields (no `@ApiResponse` decoration on this list endpoint either). */
+export interface TeacherAssignment {
+  id: string;
+  teacher_id: string;
+  employee_id: string;
+  full_name: string;
+  section_id: string;
+  section_name: string;
+  /** [#1026 gap fix] Not on `classes.ts`'s `SectionTeacherAssignment` — a
+   * teacher-centric row has no fixed class in scope, so the DataTable
+   * needs its own class column. */
+  class_id: string;
+  class_name: string;
+  subject_id: string | null;
+  subject_name: string | null;
+  assignment_type: 'CLASS_TEACHER' | 'ASSISTANT_CLASS_TEACHER' | 'SUBJECT_TEACHER';
+}
+
+export function teacherAssignmentsQueryOptions(teacherId: string | undefined) {
+  return queryOptions({
+    queryKey: [...teacherKeys.all, 'assignments', teacherId] as const,
+    queryFn: async ({ signal }) => {
+      const res = await apiClient.get<TeacherAssignment[]>(`/teachers/${teacherId}/assignments`, {
+        signal,
+      });
+      return res.data;
+    },
+    enabled: teacherId !== undefined,
+    retry: shouldRetryQuery,
+  });
+}
+
+export function useTeacherAssignments(teacherId: string | undefined) {
+  return useQuery(teacherAssignmentsQueryOptions(teacherId));
+}
+
 /** "Promote an existing tenant member to a teacher profile" — the server's
  * own framing of `POST /teachers`. 400 = user isn't a member of this
  * tenant; 409 = `employee_id` already exists (globally unique, across
- * every school); 404 = unknown `assigned_section_ids`. */
+ * every school). */
 export function useCreateTeacher() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -58,8 +131,7 @@ export function useCreateTeacher() {
   });
 }
 
-/** `assigned_section_ids` **replaces** the teacher's whole set — a caller
- * editing one section must resend every id it wants kept. */
+/** Teaching assignments are not editable here — use the section-teacher assign endpoint. */
 export function useUpdateTeacher(id: string) {
   const queryClient = useQueryClient();
   return useMutation({

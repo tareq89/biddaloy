@@ -1,8 +1,15 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { In, IsNull, Repository } from 'typeorm';
 import { AttendancePolicySettings, AttendanceStatus } from '@biddaloy/shared';
 import { AttendanceRecord } from './entities/attendance-record.entity';
+import { AttendanceSession } from './entities/attendance-session.entity';
+import { currentStreaks, MAX_STREAK_SESSIONS, StreakStatus } from './attendance-streaks.util';
 import { Student } from '../students/entities/student.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { SchoolCalendarService } from '../calendar/school-calendar.service';
@@ -72,6 +79,15 @@ interface StatusCounts {
   leave_days: number;
 }
 
+export interface SubjectCounts {
+  present: number;
+  late: number;
+  absent: number;
+  leave: number;
+  attended: number;
+  percentage: number | null;
+}
+
 function emptyStatusCounts(): StatusCounts {
   return { present_days: 0, late_days: 0, absent_days: 0, leave_days: 0 };
 }
@@ -117,6 +133,8 @@ export class AttendanceSummaryService {
   constructor(
     @InjectRepository(AttendanceRecord)
     private readonly recordRepo: Repository<AttendanceRecord>,
+    @InjectRepository(AttendanceSession)
+    private readonly sessionRepo: Repository<AttendanceSession>,
     @InjectRepository(Student)
     private readonly studentRepo: Repository<Student>,
     @InjectRepository(ClassSection)
@@ -131,28 +149,85 @@ export class AttendanceSummaryService {
   }
 
   /**
-   * Bulk building block every method below composes on. Issues exactly
-   * **two** grouped queries regardless of how many student ids are passed
-   * — never loop this per student. A 60-student section summary is O(1)
-   * queries, not O(n); a reviewer who "simplifies" this into a per-student
-   * loop is reintroducing the N+1 this ticket exists to prevent.
+   * Bulk building block every method below composes on. Issues two grouped
+   * record queries **per class** (plus one working-day call per class)
+   * regardless of how many student ids are passed — never loop this per
+   * student. A 60-student section summary is O(1) queries, not O(n); a
+   * reviewer who "simplifies" this into a per-student loop is reintroducing
+   * the N+1 this ticket exists to prevent.
+   *
+   * `sectionId` is only used when the roster is empty, to still resolve the
+   * section's class so class-scoped holidays apply to its working days.
    */
   private async computeSummaries(
     tenantId: string,
     studentIds: string[],
     from: string,
     to: string,
+    sectionId?: string,
   ): Promise<{
     summaries: Map<string, AttendanceSummary>;
     workingDays: string[];
     workingDaysCount: number;
   }> {
     const policy = await this.getPolicy(tenantId);
-    const workingDays = await this.schoolCalendarService.getWorkingDays({ tenantId, from, to });
-
     const summaries = new Map<string, AttendanceSummary>();
+
+    // D25: working days depend on the student's class. One lookup, then one
+    // working-day call and two record queries per class, never per student.
+    const classByStudent = new Map<string, string | undefined>();
+    if (studentIds.length > 0) {
+      const rows = await this.studentRepo
+        .createQueryBuilder('st')
+        .innerJoin('st.class_section', 'cs')
+        .select('st.id', 'id')
+        .addSelect('cs.class_id', 'class_id')
+        .where('st.tenant_id = :tenantId', { tenantId })
+        .andWhere('st.id IN (:...studentIds)', { studentIds })
+        .getRawMany<{ id: string; class_id: string }>();
+      for (const r of rows) classByStudent.set(r.id, r.class_id);
+    }
+    const groups = new Map<string | undefined, string[]>();
+    for (const id of studentIds) {
+      const key = classByStudent.get(id);
+      const ids = groups.get(key);
+      if (ids) ids.push(id);
+      else groups.set(key, [id]);
+    }
+    // A section (or an empty roster) has one class, or none: that group's
+    // days are what the section-level callers report.
+    if (groups.size === 0) {
+      const section = sectionId
+        ? await this.sectionRepo.findOne({ where: { id: sectionId, tenant_id: tenantId } })
+        : null;
+      groups.set(section?.class_id, []);
+    }
+
+    let first: { dates: string[]; count: number } | undefined;
+    for (const [classId, ids] of groups) {
+      const workingDays = await this.schoolCalendarService.getWorkingDays({
+        tenantId,
+        from,
+        to,
+        classId,
+      });
+      first ??= workingDays;
+      await this.summariseGroup(summaries, policy, tenantId, ids, from, to, workingDays);
+    }
+    return { summaries, workingDays: first!.dates, workingDaysCount: first!.count };
+  }
+
+  private async summariseGroup(
+    summaries: Map<string, AttendanceSummary>,
+    policy: AttendancePolicySettings,
+    tenantId: string,
+    studentIds: string[],
+    from: string,
+    to: string,
+    workingDays: { dates: string[]; count: number },
+  ): Promise<void> {
     if (studentIds.length === 0) {
-      return { summaries, workingDays: workingDays.dates, workingDaysCount: workingDays.count };
+      return;
     }
 
     // Query 1: per-status counts, restricted to working days. This is the
@@ -170,7 +245,9 @@ export class AttendanceSummaryService {
             .select('r.student_id', 'student_id')
             .addSelect('r.status', 'status')
             .addSelect('COUNT(*)', 'count')
+            .innerJoin('r.session', 's')
             .where('r.tenant_id = :tenantId', { tenantId })
+            .andWhere('s.period_no IS NULL')
             .andWhere('r.date = ANY(:workingDates)', { workingDates: workingDays.dates })
             .andWhere('r.student_id IN (:...studentIds)', { studentIds })
             .groupBy('r.student_id')
@@ -187,7 +264,9 @@ export class AttendanceSummaryService {
             .createQueryBuilder('r')
             .select('r.student_id', 'student_id')
             .addSelect('COUNT(DISTINCT r.date)', 'marked_days')
+            .innerJoin('r.session', 's')
             .where('r.tenant_id = :tenantId', { tenantId })
+            .andWhere('s.period_no IS NULL')
             .andWhere('r.date = ANY(:workingDates)', { workingDates: workingDays.dates })
             .andWhere('r.student_id IN (:...studentIds)', { studentIds })
             .groupBy('r.student_id')
@@ -249,8 +328,6 @@ export class AttendanceSummaryService {
         },
       });
     }
-
-    return { summaries, workingDays: workingDays.dates, workingDaysCount: workingDays.count };
   }
 
   private async assertStudentExists(tenantId: string, studentId: string): Promise<void> {
@@ -288,13 +365,28 @@ export class AttendanceSummaryService {
     }>
   > {
     const { tenantId, studentId, from, to } = input;
-    await this.assertStudentExists(tenantId, studentId);
-
-    const workingDays = await this.schoolCalendarService.getWorkingDays({ tenantId, from, to });
+    const student = await this.studentRepo.findOne({
+      where: { id: studentId, tenant_id: tenantId },
+      relations: { class_section: true },
+    });
+    if (!student) {
+      throw new NotFoundException('Student not found');
+    }
+    const workingDays = await this.schoolCalendarService.getWorkingDays({
+      tenantId,
+      from,
+      to,
+      classId: student.class_section?.class_id,
+    });
     const workingDaySet = new Set(workingDays.dates);
 
     const records = await this.recordRepo.find({
-      where: { tenant_id: tenantId, student_id: studentId, date: In(everyDateInRange(from, to)) },
+      where: {
+        tenant_id: tenantId,
+        student_id: studentId,
+        date: In(everyDateInRange(from, to)),
+        session: { period_no: IsNull() },
+      },
     });
     const recordByDate = new Map(records.map((r) => [r.date, r]));
 
@@ -351,6 +443,7 @@ export class AttendanceSummaryService {
       studentIds,
       from,
       to,
+      sectionId,
     );
     const studentSummaries = students.map((s) => summaries.get(s.id)!);
 
@@ -381,6 +474,7 @@ export class AttendanceSummaryService {
     to: string;
   }): Promise<{
     dates: Array<{ date: string; is_working_day: boolean }>;
+    versions: Record<string, number>;
     rows: Array<{
       student_id: string;
       roll_number: number;
@@ -396,7 +490,13 @@ export class AttendanceSummaryService {
     });
     const studentIds = students.map((s) => s.id);
 
-    const { summaries, workingDays } = await this.computeSummaries(tenantId, studentIds, from, to);
+    const { summaries, workingDays } = await this.computeSummaries(
+      tenantId,
+      studentIds,
+      from,
+      to,
+      sectionId,
+    );
     const workingDaySet = new Set(workingDays);
     const dates = everyDateInRange(from, to).map((date) => ({
       date,
@@ -411,6 +511,7 @@ export class AttendanceSummaryService {
               tenant_id: tenantId,
               student_id: In(studentIds),
               date: In(everyDateInRange(from, to)),
+              session: { period_no: IsNull() },
             },
           });
     const marksByStudent = new Map<string, Map<string, AttendanceStatus>>();
@@ -436,7 +537,228 @@ export class AttendanceSummaryService {
       };
     });
 
-    return { dates, rows };
+    // date -> version of that date's whole-day session (the monthly save's
+    // `base_version`); only dates that have a session appear.
+    const daySessions = await this.sessionRepo.find({
+      where: {
+        tenant_id: tenantId,
+        section_id: sectionId,
+        date: In(dates.map((d) => d.date)),
+        period_no: IsNull(),
+      },
+      select: { date: true, version: true },
+    });
+    const versions: Record<string, number> = {};
+    for (const session of daySessions) versions[session.date] = session.version;
+
+    return { dates, versions, rows };
+  }
+
+  /**
+   * Per-student, per-subject period attendance over a range ([41.0] D24):
+   * `held` = period sessions for the subject, counted from PERIOD registers
+   * only (`period_no IS NOT NULL`). Queries: students, sessions, records —
+   * independent of roster size. Refused when period attendance is off (D18).
+   */
+  async getSectionSubjectSummary(input: {
+    tenantId: string;
+    sectionId: string;
+    from: string;
+    to: string;
+  }): Promise<{
+    subjects: Array<{ subject_id: string; name: string; held: number }>;
+    rows: Array<{
+      student_id: string;
+      roll_number: number;
+      full_name: string;
+      by_subject: Record<string, SubjectCounts>;
+    }>;
+  }> {
+    const { tenantId, sectionId, from, to } = input;
+    const settings = await this.schoolsService.getResolvedSettings(tenantId);
+    if (!settings.attendance?.periodAttendance?.enabled) {
+      throw new ForbiddenException({
+        message: 'Period attendance is switched off for this school',
+        details: { code: 'ATTENDANCE_PERIOD_DISABLED' },
+      });
+    }
+    const days = toEpochDay(to) - toEpochDay(from) + 1;
+    if (days < 1) {
+      throw new UnprocessableEntityException({
+        message: '"to" must not be earlier than "from"',
+        details: { code: 'SCHOOL_CALENDAR_INVALID_RANGE' },
+      });
+    }
+    if (days > 400) {
+      throw new UnprocessableEntityException({
+        message: 'Range must not exceed 400 days',
+        details: { code: 'SCHOOL_CALENDAR_RANGE_TOO_WIDE' },
+      });
+    }
+    const policy = resolveAttendancePolicy(settings);
+
+    const students = await this.studentRepo.find({
+      where: { tenant_id: tenantId, class_section_id: sectionId },
+      order: { roll_number: 'ASC' },
+    });
+
+    // withDeleted: a soft-deleted subject still shows by name if it has registers.
+    const subjectRows = await this.sessionRepo
+      .createQueryBuilder('s')
+      .withDeleted()
+      .innerJoin('s.subject', 'sub')
+      .select('s.subject_id', 'subject_id')
+      .addSelect('sub.name_en', 'name')
+      .addSelect('COUNT(*)', 'held')
+      .where('s.tenant_id = :tenantId', { tenantId })
+      .andWhere('s.section_id = :sectionId', { sectionId })
+      .andWhere('s.date BETWEEN :from AND :to', { from, to })
+      .andWhere('s.period_no IS NOT NULL')
+      .andWhere('s.subject_id IS NOT NULL')
+      .groupBy('s.subject_id')
+      .addGroupBy('sub.name_en')
+      .orderBy('sub.name_en', 'ASC')
+      .getRawMany<{ subject_id: string; name: string; held: string }>();
+    const subjects = subjectRows.map((r) => ({
+      subject_id: r.subject_id,
+      name: r.name,
+      held: Number(r.held),
+    }));
+
+    const recordRows =
+      subjects.length === 0 || students.length === 0
+        ? []
+        : await this.recordRepo
+            .createQueryBuilder('r')
+            .innerJoin('r.session', 's')
+            .select('r.student_id', 'student_id')
+            .addSelect('s.subject_id', 'subject_id')
+            .addSelect('r.status', 'status')
+            .addSelect('COUNT(*)', 'n')
+            .where('r.tenant_id = :tenantId', { tenantId })
+            .andWhere('s.tenant_id = :tenantId', { tenantId })
+            .andWhere('s.section_id = :sectionId', { sectionId })
+            .andWhere('s.date BETWEEN :from AND :to', { from, to })
+            .andWhere('s.period_no IS NOT NULL')
+            .andWhere('s.subject_id IS NOT NULL')
+            .groupBy('r.student_id')
+            .addGroupBy('s.subject_id')
+            .addGroupBy('r.status')
+            .getRawMany<{
+              student_id: string;
+              subject_id: string;
+              status: AttendanceStatus;
+              n: string;
+            }>();
+
+    const countsByStudent = new Map<string, Map<string, StatusCounts>>();
+    for (const r of recordRows) {
+      const bySubject = countsByStudent.get(r.student_id) ?? new Map<string, StatusCounts>();
+      countsByStudent.set(r.student_id, bySubject);
+      const c = bySubject.get(r.subject_id) ?? emptyStatusCounts();
+      bySubject.set(r.subject_id, c);
+      const n = Number(r.n);
+      if (r.status === AttendanceStatus.PRESENT) c.present_days += n;
+      else if (r.status === AttendanceStatus.LATE) c.late_days += n;
+      else if (r.status === AttendanceStatus.ABSENT) c.absent_days += n;
+      else if (r.status === AttendanceStatus.LEAVE) c.leave_days += n;
+    }
+
+    const rows = students.map((student) => {
+      const by_subject: Record<string, SubjectCounts> = {};
+      for (const { subject_id, held } of subjects) {
+        const c = countsByStudent.get(student.id)?.get(subject_id) ?? emptyStatusCounts();
+        const marked = c.present_days + c.late_days + c.absent_days + c.leave_days;
+        by_subject[subject_id] = {
+          present: c.present_days,
+          late: c.late_days,
+          absent: c.absent_days,
+          leave: c.leave_days,
+          attended: c.present_days + (policy.lateCountsAsPresent ? c.late_days : 0),
+          // no record for the subject -> null, not 0%
+          percentage:
+            marked === 0
+              ? null
+              : computeAttendancePercentage(
+                  { ...c, working_days: held, marked_days: marked },
+                  policy,
+                ),
+        };
+      }
+      return {
+        student_id: student.id,
+        roll_number: student.roll_number,
+        full_name: student.full_name,
+        by_subject,
+      };
+    });
+    return { subjects, rows };
+  }
+
+  /**
+   * Current ABSENT / LATE / PRESENT runs for a section ([47.2.4], D22).
+   * Three queries regardless of roster size: sessions, records, students.
+   * The caller has already passed `assertCanAccessSection`.
+   */
+  async getSectionStreaks(input: { tenantId: string; sectionId: string }): Promise<{
+    items: Array<{
+      student_id: string;
+      student_name: string;
+      roll_number: number;
+      status: StreakStatus;
+      length: number;
+      since_date: string;
+    }>;
+    as_of_date: string | null;
+  }> {
+    const { tenantId, sectionId } = input;
+    // Whole-day registers only (period_no IS NULL), newest first.
+    const sessions = await this.sessionRepo.find({
+      where: { tenant_id: tenantId, section_id: sectionId, period_no: IsNull() },
+      order: { date: 'DESC' },
+      take: MAX_STREAK_SESSIONS,
+      select: { id: true, date: true },
+    });
+    if (sessions.length === 0) return { items: [], as_of_date: null };
+
+    const students = await this.studentRepo.find({
+      where: { tenant_id: tenantId, class_section_id: sectionId },
+    });
+    const records =
+      students.length === 0
+        ? []
+        : await this.recordRepo.find({
+            where: {
+              tenant_id: tenantId,
+              session_id: In(sessions.map((s) => s.id)),
+              student_id: In(students.map((s) => s.id)),
+            },
+            select: { student_id: true, session_id: true, status: true },
+          });
+    const statusBySession = new Map<string, Map<string, AttendanceStatus>>();
+    for (const r of records) {
+      if (!statusBySession.has(r.student_id)) statusBySession.set(r.student_id, new Map());
+      statusBySession.get(r.student_id)!.set(r.session_id, r.status);
+    }
+
+    const byId = new Map(students.map((s) => [s.id, s]));
+    const order: Record<string, number> = {
+      [AttendanceStatus.ABSENT]: 0,
+      [AttendanceStatus.LATE]: 1,
+      [AttendanceStatus.PRESENT]: 2,
+    };
+    const items = currentStreaks(sessions, [...byId.keys()], statusBySession)
+      .map((s) => ({
+        ...s,
+        student_name: byId.get(s.student_id)!.full_name,
+        roll_number: byId.get(s.student_id)!.roll_number,
+      }))
+      // Deterministic: status ABSENT, LATE, PRESENT, then longest first, then roll.
+      .sort(
+        (a, b) =>
+          order[a.status] - order[b.status] || b.length - a.length || a.roll_number - b.roll_number,
+      );
+    return { items, as_of_date: sessions[0].date };
   }
 
   async getLowAttendanceFlags(input: {
@@ -484,7 +806,7 @@ export class AttendanceSummaryService {
     }
     const students = await qb.orderBy('student.roll_number', 'ASC').getMany();
 
-    // One grouped query for the whole matched roster, however large — see
+    // One grouped query per class for the whole matched roster — see
     // `computeSummaries`'s own docstring for why this must never become a
     // per-student loop.
     const { summaries } = await this.computeSummaries(

@@ -1,0 +1,39 @@
+{
+  "list": {
+    "title": "শিক্ষকের দায়িত্ব",
+    "caption": "নির্বাচিত শ্রেণির শাখা-শিক্ষক নিয়োগ",
+    "classLabel": "শ্রেণি",
+    "classPlaceholder": "একটি শ্রেণি নির্বাচন করুন",
+    "sectionLabel": "নিয়োগের শাখা",
+    "selectClassPrompt": "শিক্ষক নিয়োগ দেখতে একটি শ্রেণি নির্বাচন করুন।",
+    "columnTeacher": "শিক্ষক",
+    "columnSection": "শাখা",
+    "columnRole": "ভূমিকা",
+    "columnSubject": "বিষয়",
+    "columnActions": "কার্যক্রম",
+    "roleClassTeacher": "শ্রেণি শিক্ষক",
+    "roleSubjectTeacher": "বিষয় শিক্ষক",
+    "assign": "শিক্ষক দিন",
+    "unassign": "দায়িত্ব থেকে সরান",
+    "emptyMessage": "এই শাখায় এখনও কোনো শিক্ষককে দায়িত্ব দেওয়া হয়নি।",
+    "errorMessage": "এই শাখার শিক্ষকদের তালিকা আনা যায়নি।",
+    "classListErrorMessage": "শ্রেণির তালিকা লোড করতে ব্যর্থ হয়েছে।",
+    "announceResults": "{{total}}টির মধ্যে {{count}}টি নিয়োগ",
+    "subtitle": "কোন শাখায় কে শ্রেণি শিক্ষক, কে কোন বিষয় পড়ান",
+    "sectionTitle": "শাখা {{name}}",
+    "sectionCaption": "শাখা {{name}}-এর শিক্ষক",
+    "columnDuty": "দায়িত্ব",
+    "emptyTitle": "এখনও কেউ নেই",
+    "noClassesTitle": "এখনও কোনো শ্রেণি নেই",
+    "noClassesExplanation": "শ্রেণি যোগ করলে এখানে শাখা ও শিক্ষক দেখা যাবে।",
+    "addClass": "শ্রেণি যোগ করুন"
+  },
+  "unassignDialog": {
+    "title": "দায়িত্ব থেকে সরাবেন?",
+    "description": "{{teacherName}}-কে শাখা {{sectionName}}-এর দায়িত্ব থেকে সরানো হবে।",
+    "confirm": "সরান",
+    "cancel": "বাতিল",
+    "unassigning": "সরানো হচ্ছে…",
+    "errorMessage": "সরানো যায়নি। আবার চেষ্টা করুন।"
+  }
+}

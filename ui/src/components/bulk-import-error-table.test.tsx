@@ -82,7 +82,7 @@ describe('BulkImportErrorTable', () => {
     try {
       const { user } = await renderTable([error({ value: 'John' })], { csvFileName: 'errors.csv' });
 
-      await user.click(screen.getByRole('button', { name: 'Export errors as CSV' }));
+      await user.click(screen.getByRole('button', { name: 'Download problem rows (CSV)' }));
 
       expect(createObjectURL).toHaveBeenCalledTimes(1);
       expect(clickSpy).toHaveBeenCalledTimes(1);

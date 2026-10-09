@@ -20,6 +20,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  Label,
   Select,
   SelectContent,
   SelectItem,
@@ -35,8 +36,10 @@ import {
   type GradingBand,
   type GradingScale,
 } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { formatNumber } from '@biddaloy/ui/utils';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { CircleAlertIcon } from 'lucide-react';
 import * as React from 'react';
 
 const NO_CLASS_VALUE = '__year_default__';
@@ -55,20 +58,20 @@ export function CopyScaleDialog({
   onCopied,
 }: CopyScaleDialogProps) {
   const { t } = useTranslation('grading');
-  const academicYearsQuery = useAcademicYears();
+  const config = useRegionConfig();
+  // B13: the server caps the page size at 100.
+  const academicYearsQuery = useAcademicYears({ limit: 100 });
   const classesQuery = useClasses();
   const scalesQuery = useGradingScales();
 
   const [academicYearId, setAcademicYearId] = React.useState('');
   const [classId, setClassId] = React.useState(NO_CLASS_VALUE);
-  const [occupiedError, setOccupiedError] = React.useState(false);
   const createScale = useCreateGradingScale();
 
   React.useEffect(() => {
     if (!open) return;
     setAcademicYearId(sourceScale.academic_year_id);
     setClassId(sourceScale.class_id ?? NO_CLASS_VALUE);
-    setOccupiedError(false);
   }, [open, sourceScale]);
 
   const targetScale = scalesQuery.data?.find(
@@ -77,6 +80,13 @@ export function CopyScaleDialog({
       (scale.class_id ?? NO_CLASS_VALUE) === classId &&
       scale.id !== sourceScale.id,
   );
+
+  // Checked as soon as a target is picked (not after clicking Copy).
+  // Copying a scale onto itself (same year and class) is not a copy.
+  const sameAsSource =
+    academicYearId === sourceScale.academic_year_id &&
+    classId === (sourceScale.class_id ?? NO_CLASS_VALUE);
+  const occupied = targetScale !== undefined && targetScale.bands.length > 0;
 
   const queryClient = useQueryClient();
   // The target scale's id isn't known until it's (possibly) created
@@ -98,22 +108,22 @@ export function CopyScaleDialog({
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
-    setOccupiedError(false);
+    if (occupied || sameAsSource || !academicYearId) return;
 
-    if (targetScale && targetScale.bands.length > 0) {
-      setOccupiedError(true);
-      return;
+    let targetId = targetScale?.id;
+    if (!targetId) {
+      try {
+        targetId = (
+          await createScale.mutateAsync({
+            academic_year_id: academicYearId,
+            class_id: classId === NO_CLASS_VALUE ? null : classId,
+            name: sourceScale.name,
+          })
+        ).id;
+      } catch {
+        return; // shown below from `createScale.isError`
+      }
     }
-
-    const targetId =
-      targetScale?.id ??
-      (
-        await createScale.mutateAsync({
-          academic_year_id: academicYearId,
-          class_id: classId === NO_CLASS_VALUE ? null : classId,
-          name: sourceScale.name,
-        })
-      ).id;
 
     copyScale.mutate({ targetId }, { onSuccess: onCopied });
   }
@@ -123,7 +133,7 @@ export function CopyScaleDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent size="sm" closeLabel={t('actions.close', { ns: 'common' })}>
         <form onSubmit={(event) => void handleSubmit(event)} className="flex flex-col gap-4">
           <DialogHeader>
             <DialogTitle>{t('copyDialog.title')}</DialogTitle>
@@ -133,9 +143,9 @@ export function CopyScaleDialog({
           </DialogHeader>
 
           <div className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium">{t('copyDialog.academicYearLabel')}</span>
+            <Label htmlFor="copy-year">{t('copyDialog.academicYearLabel')}</Label>
             <Select value={academicYearId} onValueChange={setAcademicYearId}>
-              <SelectTrigger aria-label={t('copyDialog.academicYearLabel')}>
+              <SelectTrigger id="copy-year" className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -149,9 +159,9 @@ export function CopyScaleDialog({
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium">{t('copyDialog.classLabel')}</span>
+            <Label htmlFor="copy-class">{t('copyDialog.classLabel')}</Label>
             <Select value={classId} onValueChange={setClassId}>
-              <SelectTrigger aria-label={t('copyDialog.classLabel')}>
+              <SelectTrigger id="copy-class" className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -165,17 +175,22 @@ export function CopyScaleDialog({
             </Select>
           </div>
 
-          <p className="text-sm text-muted-foreground">
-            {t('copyDialog.willCreate', { count: sourceScale.bands.length })}
+          <p className="text-text-secondary">
+            {t('copyDialog.willCreate', {
+              count: sourceScale.bands.length,
+              n: formatNumber(sourceScale.bands.length, config),
+            })}
           </p>
 
-          {occupiedError && (
-            <p role="alert" className="text-sm text-destructive">
+          {occupied && (
+            <p role="alert" className="flex items-center gap-1 text-caption text-destructive">
+              <CircleAlertIcon aria-hidden="true" className="size-3.5" />
               {t('copyDialog.occupiedError')}
             </p>
           )}
           {isError && (
-            <p role="alert" className="text-sm text-destructive">
+            <p role="alert" className="flex items-center gap-1 text-caption text-destructive">
+              <CircleAlertIcon aria-hidden="true" className="size-3.5" />
               {t('copyDialog.errorMessage')}
             </p>
           )}
@@ -186,7 +201,11 @@ export function CopyScaleDialog({
                 {t('actions.cancel', { ns: 'common' })}
               </Button>
             </DialogClose>
-            <Button type="submit" loading={isPending}>
+            <Button
+              type="submit"
+              loading={isPending}
+              disabled={occupied || sameAsSource || !academicYearId}
+            >
               {isPending ? t('copyDialog.copying') : t('copyDialog.copy')}
             </Button>
           </DialogFooter>

@@ -2,7 +2,7 @@
   "title": "Import students",
   "template": {
     "title": "1. Download the template",
-    "explanation": "Fill in the template with one student per row, then upload it below. Keep the first row of headers exactly as it is. Row 2 is a filled-in example — delete it before you upload, or that student will be imported too.",
+    "explanation": "Fill in the template with one student per row. Keep the header row as it is and delete the example in row 2.",
     "download": "Download template"
   },
   "reference": {
@@ -26,6 +26,25 @@
       "guardian2_email": "An email address for guardian 2. Leave empty to skip.",
       "home_address": "The student's home address. Leave empty to skip.",
       "preferred_communication": "One of SMS, WHATSAPP, EMAIL, PHONE_CALL, MESSENGER. Leave empty to skip."
+    },
+    "toggle": "What goes in each column",
+    "count_one": "{{count}} column",
+    "count_other": "{{count}} columns",
+    "headerName": "Column header:",
+    "labels": {
+      "student_name": "Student name",
+      "class": "Class",
+      "section": "Section",
+      "roll": "Roll",
+      "registration_number": "Registration number",
+      "guardian1_name": "Main guardian's name",
+      "guardian1_phone": "Main guardian's phone",
+      "guardian1_email": "Main guardian's email",
+      "guardian2_name": "Second guardian's name",
+      "guardian2_phone": "Second guardian's phone",
+      "guardian2_email": "Second guardian's email",
+      "home_address": "Home address",
+      "preferred_communication": "Preferred contact"
     }
   },
   "upload": {
@@ -42,13 +61,18 @@
       "class": "Class",
       "section": "Section",
       "guardianPhone": "Guardian phone"
-    }
+    },
+    "title": "Preview",
+    "subtitle": "The first {{count}} rows of your file will be added like this.",
+    "shownOf": "Showing the first {{shown}} of {{total}}",
+    "noProblems": "No problems"
   },
   "result": {
     "title": "3. Result",
     "allImported": "All {{count}} students were imported.",
     "partialSummary": "{{success}} of {{total}} students imported. {{errors}} rows had problems.",
-    "importAnother": "Import another file"
+    "importAnother": "Import another file",
+    "goToList": "Go to the student list"
   },
   "notifications": {
     "imported": "{{success}} of {{total}} students imported.",
@@ -57,5 +81,9 @@
   },
   "inviteGuardians": {
     "checkboxLabel": "Invite the imported students' guardians now"
-  }
+  },
+  "confirmAction_one": "Import {{count}} student",
+  "confirmAction_other": "Import {{count}} students",
+  "confirmActionIdle": "Import",
+  "cancelAction": "Cancel"
 }

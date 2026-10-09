@@ -25,6 +25,10 @@ describe('DEFAULT_ROUTINE_SETTINGS', () => {
 });
 
 describe('DEFAULT_TENANT_SETTINGS', () => {
+  it('has no default preset (absent until applied)', () => {
+    expect(DEFAULT_TENANT_SETTINGS.preset).toBeUndefined();
+  });
+
   it('includes the organisation defaults', () => {
     expect(DEFAULT_TENANT_SETTINGS.organisation).toBe(DEFAULT_ORGANISATION_SETTINGS);
   });

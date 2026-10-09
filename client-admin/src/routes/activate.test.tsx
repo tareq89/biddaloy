@@ -1,14 +1,15 @@
 import { authHandlers, cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { routeTree } from '../routeTree.gen';
 
 async function setPassword(): Promise<void> {
   const user = userEvent.setup();
-  await user.type(await screen.findByLabelText('New password'), 'a-strong-password');
-  await user.type(screen.getByLabelText('Confirm password'), 'a-strong-password');
+  await user.type(await screen.findByLabelText('New password'), 'A-strong-pass1!');
+  await user.type(screen.getByLabelText('Confirm password'), 'A-strong-pass1!');
   await user.click(screen.getByRole('button', { name: 'Set password' }));
 }
 
@@ -22,7 +23,33 @@ describe('/activate', () => {
 
     renderWithRouter(routeTree, { initialEntries: ['/activate'], locale: 'en' });
 
-    await waitFor(() => expect(screen.getByText('This link is missing its token.')).toBeTruthy());
+    await waitFor(() =>
+      expect(screen.getByText('This link is incomplete — ask for a new one.')).toBeTruthy(),
+    );
+    expect(screen.getByLabelText('Email or phone number')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Send a new link' })).toBeTruthy();
+  });
+
+  it('a failed verify offers a retry that checks the link again, not sign in', async () => {
+    let calls = 0;
+    server.use(
+      authHandlers.refreshFailure,
+      http.post('/api/v1/auth/activate/verify', () => {
+        calls += 1;
+        return new HttpResponse(null, { status: 500 });
+      }),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/activate?token=a-valid-invite-token-value'],
+      locale: 'en',
+    });
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('button', { name: 'Retry' }));
+
+    await waitFor(() => expect(calls).toBe(2));
+    expect(screen.queryByRole('button', { name: 'Sign in' })).toBeNull();
   });
 
   it('renders the welcome heading and set-password form for a valid token', async () => {
@@ -50,7 +77,7 @@ describe('/activate', () => {
     });
 
     await waitFor(() => expect(screen.getByText('This link has expired.')).toBeTruthy());
-    expect(screen.getByPlaceholderText('Email or phone number')).toBeTruthy();
+    expect(screen.getByLabelText('Email or phone number')).toBeTruthy();
   });
 
   it('the resend form always shows the done copy, regardless of the identifier', async () => {
@@ -66,7 +93,7 @@ describe('/activate', () => {
     });
 
     const user = userEvent.setup();
-    const input = await screen.findByPlaceholderText('Email or phone number');
+    const input = await screen.findByLabelText('Email or phone number');
     await user.type(input, 'someone@example.com');
     await user.click(screen.getByRole('button', { name: 'Send a new link' }));
 
@@ -90,6 +117,7 @@ describe('/activate', () => {
     await setPassword();
 
     await waitFor(() => expect(screen.getByText('This account has been suspended.')).toBeTruthy());
+    expect(screen.getByText('Contact your school office.')).toBeTruthy();
   });
 
   it('a successful activation navigates to the dashboard, same as a single-membership login', async () => {
@@ -103,5 +131,39 @@ describe('/activate', () => {
     await setPassword();
 
     await waitFor(() => expect(router.state.location.pathname).toBe('/dashboard'));
+  });
+
+  describe('13.5: password rules follow the account audience', () => {
+    const verifyAs = (password_audience: 'family' | 'staff') =>
+      http.post('/api/v1/auth/activate/verify', () =>
+        HttpResponse.json({
+          status: 'valid',
+          full_name: 'Rahima',
+          school_name: 'Dhanmondi High School',
+          password_audience,
+        }),
+      );
+
+    it('a family account sees two rules', async () => {
+      server.use(authHandlers.refreshFailure, verifyAs('family'));
+      renderWithRouter(routeTree, {
+        initialEntries: ['/activate?token=a-valid-invite-token-value'],
+        locale: 'en',
+      });
+
+      await screen.findByLabelText('New password');
+      expect(screen.getAllByRole('listitem')).toHaveLength(2);
+    });
+
+    it('a staff account sees five rules', async () => {
+      server.use(authHandlers.refreshFailure, verifyAs('staff'));
+      renderWithRouter(routeTree, {
+        initialEntries: ['/activate?token=a-valid-invite-token-value'],
+        locale: 'en',
+      });
+
+      await screen.findByLabelText('New password');
+      expect(screen.getAllByRole('listitem')).toHaveLength(5);
+    });
   });
 });

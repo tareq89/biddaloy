@@ -91,6 +91,18 @@ describe('AddRoutines1789800011000 (integration)', () => {
       shift: 'Morning',
     });
 
+    // [25.1] `exam_schedules.room_id` and `seat_allocations.room_id` are
+    // FKs onto `rooms`, added by a later migration this test predates —
+    // drop them first so `down()` can drop `rooms` itself, then restore
+    // them in `finally` alongside `up()` so later integration files still
+    // see the full schema.
+    await queryRunner.query(
+      `ALTER TABLE "exam_schedules" DROP CONSTRAINT IF EXISTS "FK_exam_schedules_room"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "seat_allocations" DROP CONSTRAINT IF EXISTS "FK_seat_allocations_room"`,
+    );
+
     await migration.down(queryRunner);
     // Restore the schema in `finally` — if an assertion below throws, the
     // shared test database must not stay stuck without the routine
@@ -107,6 +119,12 @@ describe('AddRoutines1789800011000 (integration)', () => {
       expect(shift).toBe('Morning');
     } finally {
       await migration.up(queryRunner);
+      await queryRunner.query(
+        `ALTER TABLE "exam_schedules" ADD CONSTRAINT "FK_exam_schedules_room" FOREIGN KEY ("room_id") REFERENCES "rooms"("id") ON DELETE SET NULL ON UPDATE NO ACTION`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "seat_allocations" ADD CONSTRAINT "FK_seat_allocations_room" FOREIGN KEY ("room_id") REFERENCES "rooms"("id") ON DELETE CASCADE ON UPDATE NO ACTION`,
+      );
     }
 
     expect(await existingRoutineTables()).toEqual(TABLES);

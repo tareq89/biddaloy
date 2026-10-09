@@ -9,7 +9,6 @@ import {
 } from '@nestjs/swagger';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -19,7 +18,7 @@ import { WalletService } from './wallet.service';
 import { StudentWalletResponseDto } from './dto/wallet.dto';
 // [16.8.2] Family-facing shapes live in the one allow-list module.
 import { FamilyStudentWalletResponseDto, toFamilyWalletTransaction } from './dto/family.dto';
-import { Permission, UserRole, isGuardianRole } from '@biddaloy/shared';
+import { Permission, isGuardianRole } from '@biddaloy/shared';
 import { JwtPayload } from '@biddaloy/shared';
 
 /** Default page size for the wallet ledger shown on `GET /students/:id/wallet`. */
@@ -42,14 +41,6 @@ export class WalletController {
   ) {}
 
   @Get('students/:id/wallet')
-  @Roles(
-    UserRole.ADMIN,
-    UserRole.ACCOUNTANT,
-    UserRole.EXECUTIVE,
-    UserRole.TEACHER,
-    UserRole.PARENT,
-    UserRole.STUDENT,
-  )
   @RequirePermissions(Permission.FEE_READ)
   @ApiOperation({
     summary:

@@ -56,6 +56,16 @@ export class Teacher {
   @Column({ type: 'date', nullable: true })
   joining_date: Date | null;
 
+  /**
+   * [36.1.1] Every teacher's generic staff profile row (attendance/leave
+   * live there, not here). Not `nullable: true` in TypeORM metadata even
+   * though the column starts nullable mid-migration: the migration
+   * backfills every existing row and sets it `NOT NULL` before the schema
+   * settles, so by the time the app boots the invariant already holds.
+   */
+  @Column({ type: 'uuid' })
+  staff_profile_id: string;
+
   @ManyToOne(() => School, { nullable: false, onDelete: 'CASCADE' })
   @JoinColumn({ name: 'tenant_id' })
   tenant: School;

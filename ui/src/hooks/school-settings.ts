@@ -1,4 +1,4 @@
-import type { BackupScheduleMode, InvitationStatus } from '@biddaloy/shared';
+import type { BackupScheduleMode, EvaluationsSettings, InvitationStatus } from '@biddaloy/shared';
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { apiClient } from '../api/client';
@@ -34,7 +34,14 @@ export interface SchoolSummary {
   slug: string;
   status: 'ACTIVE' | 'SUSPENDED';
   created_at: string;
+  /** [13.3.4] Trial fields — `SchoolListItemDto`. `trial_ends_at` null = no trial. */
+  country_code: string | null;
+  trial_ends_at: string | null;
+  seat_limit: number | null;
+  status_reason: string | null;
 }
+
+export type ExtendTrialInput = components['schemas']['ExtendTrialDto'];
 
 /** Mirrors `server/src/modules/schools/settings/settings-mask.util.ts`'s
  * `MaskedSecret` — not generated into `schema.d.ts` (the settings GET/PATCH
@@ -101,6 +108,11 @@ export interface MaskedCommunicationsSettings {
  * ['attendance']` exactly rather than needing its own `Masked*` shape. */
 export type AttendancePolicySettings = NonNullable<TenantSettingsInput['attendance']>;
 
+/** [21.7.1] Not secret data either — `RoutineSettingsDto` has no
+ * `Secret()`-decorated fields, same reasoning as `AttendancePolicySettings`
+ * above. */
+export type RoutineSettingsInput = NonNullable<TenantSettingsInput['routine']>;
+
 /** [12.5] Not secret data either — `AuthSettingsDto` has no `Secret()`-decorated
  * fields, same reasoning as `AttendancePolicySettings` above. */
 export type AuthSettings = NonNullable<TenantSettingsInput['auth']>;
@@ -156,7 +168,11 @@ export interface MaskedTenantSettings {
   auth?: AuthSettings;
   backup?: BackupSettings;
   fees?: FeesSettings;
+  /** [28.4.3] Not secret data. */
+  evaluations?: EvaluationsSettings;
   organisation?: OrganisationSettings;
+  /** [21.7.1] Not secret data, same reasoning as `attendance` above. */
+  routine?: RoutineSettingsInput;
 }
 
 export interface ConnectionTestResult {
@@ -194,12 +210,32 @@ export interface ProvisionSchoolResult {
  * who isn't a SUPER_ADMIN (see `schools.controller.ts`), so callers should
  * pass `enabled: false` rather than firing this for an ADMIN, who has no
  * use for a picker anyway (they only ever configure their own school). */
-export function useSchools(options: { enabled?: boolean } = {}) {
+export function useSchools(options: { enabled?: boolean; trial?: 'active' | 'expired' } = {}) {
   return useQuery({
-    queryKey: schoolsKeys.lists(),
-    queryFn: async () => (await apiClient.get<SchoolSummary[]>('/schools')).data,
+    // Always under `lists()` so every mutation's `lists()` invalidation hits it.
+    queryKey: options.trial ? schoolsKeys.list({ trial: options.trial }) : schoolsKeys.lists(),
+    queryFn: async () =>
+      (
+        await apiClient.get<SchoolSummary[]>('/schools', {
+          params: options.trial ? { trial: options.trial } : undefined,
+        })
+      ).data,
     enabled: options.enabled ?? true,
     retry: shouldRetryQuery,
+  });
+}
+
+/** [13.3.4] `PATCH /schools/:id/trial` — platform super admin only. */
+export function useExtendTrial(schoolId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: ExtendTrialInput) =>
+      (await apiClient.patch<components['schemas']['School']>(`/schools/${schoolId}/trial`, input))
+        .data,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: schoolsKeys.lists() });
+      void queryClient.invalidateQueries({ queryKey: schoolsKeys.detail(schoolId) });
+    },
   });
 }
 

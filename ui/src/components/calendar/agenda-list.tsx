@@ -1,7 +1,11 @@
 import type { CalendarEventType } from '@biddaloy/shared';
 import * as React from 'react';
 
-import { EventTypeBadge } from './event-type-badge';
+import { useRegionConfig } from '../../i18n';
+import { cn } from '../../primitives/lib/utils';
+import { formatDate } from '../../utils/date';
+
+import { EVENT_DOT_CLASSES } from './event-type-badge';
 import { eventCoversDay } from './month-grid';
 
 export interface AgendaEvent {
@@ -15,7 +19,8 @@ export interface AgendaEvent {
 
 export interface AgendaListProps {
   events: AgendaEvent[];
-  formatDayHeading: (isoDate: string) => string;
+  /** Default `formatDate(day, regionConfig)`. */
+  formatDayHeading?: (isoDate: string) => string;
   emptyLabel: string;
   onEventClick?: (eventId: string) => void;
 }
@@ -29,10 +34,12 @@ export interface AgendaListProps {
  */
 export function AgendaList({
   events,
-  formatDayHeading,
+  formatDayHeading: formatDayHeadingProp,
   emptyLabel,
   onEventClick,
 }: AgendaListProps) {
+  const config = useRegionConfig();
+  const formatDayHeading = formatDayHeadingProp ?? ((day: string) => formatDate(day, config));
   const grouped = React.useMemo(() => {
     if (events.length === 0) return [];
 
@@ -68,17 +75,26 @@ export function AgendaList({
     <div data-testid="agenda-list" className="flex flex-col gap-4">
       {grouped.map(([day, dayEvents]) => (
         <section key={day} aria-label={formatDayHeading(day)}>
-          <h3 className="mb-1 text-sm font-semibold">{formatDayHeading(day)}</h3>
+          <h3 className="mb-1 text-h3">{formatDayHeading(day)}</h3>
           <ul className="flex flex-col gap-1">
             {dayEvents.map((event) => (
               <li key={event.id}>
                 <button
                   type="button"
                   onClick={() => onEventClick?.(event.id)}
-                  className="flex w-full items-center gap-2 rounded p-1 text-start hover:bg-muted"
+                  className="flex w-full items-start gap-3 rounded p-1 text-start hover:bg-muted"
                 >
-                  <EventTypeBadge type={event.type} label={event.typeLabel} />
-                  <span className="text-sm">{event.name}</span>
+                  <span
+                    aria-hidden="true"
+                    className={cn(
+                      'mt-2 size-2 shrink-0 rounded-full',
+                      EVENT_DOT_CLASSES[event.type],
+                    )}
+                  />
+                  <span className="min-w-0">
+                    <span className="block font-medium">{event.name}</span>
+                    <span className="block text-text-secondary">{event.typeLabel}</span>
+                  </span>
                 </button>
               </li>
             ))}

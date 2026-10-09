@@ -3,14 +3,13 @@ import { AuthGuard } from '@nestjs/passport';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
 import { SubstitutionsService } from './substitutions.service';
 import { UpsertSubstitutionDto, QuerySubstitutionsDto } from './dto/substitution.dto';
-import { Permission, UserRole } from '@biddaloy/shared';
+import { Permission } from '@biddaloy/shared';
 
 /** [21.5.1] Substitutions CRUD + log. D12: never touches `routine_slots`. */
 @ApiTags('routines')
@@ -23,7 +22,6 @@ export class SubstitutionsController {
   ) {}
 
   @Post()
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.ROUTINE_MANAGE)
   @ApiOperation({ summary: 'Record a cover or a cancellation for one slot on one date.' })
   record(
@@ -35,7 +33,6 @@ export class SubstitutionsController {
   }
 
   @Get()
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.ROUTINE_MANAGE)
   @ApiOperation({ summary: 'Substitution log, filtered by date range, teacher or section.' })
   list(

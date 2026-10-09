@@ -46,10 +46,23 @@ const routeTree = buildRouteTree(() => <Probe />);
 // has matched and later same-render assertions can use the synchronous
 // `getBy*` queries as usual.
 describe('useListUrlState', () => {
-  it('falls back to limit 10 when no default and no URL value are given', async () => {
+  it('falls back to limit 25 when no default and no URL value are given', async () => {
     renderWithRouter(routeTree, { initialEntries: ['/students'] });
 
-    expect(await screen.findByText('limit: 10')).toBeTruthy();
+    expect(await screen.findByText('limit: 25')).toBeTruthy();
+  });
+
+  it('accepts allow-listed limits, rejects others, accepts the caller default', async () => {
+    renderWithRouter(routeTree, { initialEntries: ['/students?limit=7'] });
+    expect(await screen.findByText('limit: 25')).toBeTruthy();
+    renderWithRouter(routeTree, { initialEntries: ['/students?limit=50'] });
+    expect((await screen.findAllByText('limit: 50')).length).toBeGreaterThan(0);
+  });
+
+  it("accepts the caller's own default limit even when off the allow-list", async () => {
+    const tree = buildRouteTree(() => <Probe defaults={{ limit: 20 }} />);
+    renderWithRouter(tree, { initialEntries: ['/students?limit=20'] });
+    expect(await screen.findByText('limit: 20')).toBeTruthy();
   });
 
   it('defaults order to asc when absent from the URL', async () => {

@@ -110,10 +110,15 @@ describe('family read grants [5.1]', () => {
     Permission.RESULT_READ,
     // [21.1.1] Routine read — families need to see the published timetable.
     Permission.ROUTINE_READ,
+    // [22.1.1] D26 — families get only the two homework/syllabus reads.
+    Permission.HOMEWORK_READ,
+    Permission.SYLLABUS_READ,
+    // [34.1.1] D4 — families get only PROGRAM_READ.
+    Permission.PROGRAM_READ,
   ] as const;
 
   for (const role of FAMILY_ROLES) {
-    it(`grants ${role} exactly STUDENT_READ, FEE_READ, INVOICE_READ, ATTENDANCE_READ, CALENDAR_READ, RESULT_READ and ROUTINE_READ`, () => {
+    it(`grants ${role} exactly STUDENT_READ, FEE_READ, INVOICE_READ, ATTENDANCE_READ, CALENDAR_READ, RESULT_READ, ROUTINE_READ, HOMEWORK_READ, SYLLABUS_READ and PROGRAM_READ`, () => {
       expect([...ROLE_PERMISSIONS[role]].sort()).toEqual([...FAMILY_PERMISSIONS].sort());
     });
   }
@@ -153,6 +158,116 @@ describe('family read grants [5.1]', () => {
       expect([...actual].sort()).toEqual([...expected].sort());
     });
   }
+
+  /**
+   * [26.1.1] D11/D22 — promotion permissions are ADMIN-only. No other role
+   * picks up PROMOTION_MANAGE or PROMOTION_OVERRIDE.
+   */
+  const PROMOTION_PERMISSIONS = [
+    Permission.PROMOTION_MANAGE,
+    Permission.PROMOTION_OVERRIDE,
+  ] as const;
+
+  const PROMOTION_EXPECTATIONS: ReadonlyArray<readonly [UserRole, readonly Permission[]]> = [
+    [UserRole.ADMIN, [...PROMOTION_PERMISSIONS]],
+    [UserRole.EXECUTIVE, []],
+    [UserRole.TEACHER, []],
+    [UserRole.ACCOUNTANT, []],
+    [UserRole.PARENT, []],
+    [UserRole.STUDENT, []],
+  ];
+
+  for (const [role, expected] of PROMOTION_EXPECTATIONS) {
+    it(`grants ${role} exactly the D22 promotion permission set`, () => {
+      const actual = PROMOTION_PERMISSIONS.filter((permission) =>
+        ROLE_PERMISSIONS[role].includes(permission),
+      );
+      expect([...actual].sort()).toEqual([...expected].sort());
+    });
+  }
+
+  /**
+   * [22.1.1] D26's role table, pinned exactly — ADMIN and TEACHER hold all
+   * six homework/syllabus permissions; STUDENT/PARENT hold exactly the two
+   * `_READ` permissions and nothing else in this group.
+   */
+  const HOMEWORK_PERMISSIONS = [
+    Permission.HOMEWORK_READ,
+    Permission.HOMEWORK_ASSIGN,
+    Permission.HOMEWORK_GRADE,
+    Permission.HOMEWORK_IMPORT,
+    Permission.SYLLABUS_READ,
+    Permission.SYLLABUS_MANAGE,
+  ] as const;
+
+  const STAFF_HOMEWORK_EXPECTATIONS: ReadonlyArray<readonly [UserRole, readonly Permission[]]> = [
+    [UserRole.ADMIN, [...HOMEWORK_PERMISSIONS]],
+    [UserRole.ACCOUNTANT, []],
+    [UserRole.EXECUTIVE, []],
+    [UserRole.TEACHER, [...HOMEWORK_PERMISSIONS]],
+    [UserRole.STUDENT, [Permission.HOMEWORK_READ, Permission.SYLLABUS_READ]],
+    [UserRole.PARENT, [Permission.HOMEWORK_READ, Permission.SYLLABUS_READ]],
+  ];
+
+  for (const [role, expected] of STAFF_HOMEWORK_EXPECTATIONS) {
+    it(`grants ${role} exactly the D26 homework/syllabus permission set`, () => {
+      const actual = HOMEWORK_PERMISSIONS.filter((permission) =>
+        ROLE_PERMISSIONS[role].includes(permission),
+      );
+      expect([...actual].sort()).toEqual([...expected].sort());
+    });
+  }
+
+  /**
+   * [34.1.1] D4's role table, pinned exactly — ADMIN and EXECUTIVE hold all
+   * three program permissions; TEACHER holds READ+RECORD; STUDENT/PARENT
+   * hold exactly PROGRAM_READ; ACCOUNTANT holds none.
+   */
+  const PROGRAM_PERMISSIONS = [
+    Permission.PROGRAM_READ,
+    Permission.PROGRAM_MANAGE,
+    Permission.PROGRAM_RECORD,
+  ] as const;
+
+  const STAFF_PROGRAM_EXPECTATIONS: ReadonlyArray<readonly [UserRole, readonly Permission[]]> = [
+    [UserRole.ADMIN, [...PROGRAM_PERMISSIONS]],
+    [UserRole.EXECUTIVE, [...PROGRAM_PERMISSIONS]],
+    [UserRole.ACCOUNTANT, []],
+    [UserRole.TEACHER, [Permission.PROGRAM_READ, Permission.PROGRAM_RECORD]],
+    [UserRole.STUDENT, [Permission.PROGRAM_READ]],
+    [UserRole.PARENT, [Permission.PROGRAM_READ]],
+  ];
+
+  for (const [role, expected] of STAFF_PROGRAM_EXPECTATIONS) {
+    it(`grants ${role} exactly the D4 program permission set`, () => {
+      const actual = PROGRAM_PERMISSIONS.filter((permission) =>
+        ROLE_PERMISSIONS[role].includes(permission),
+      );
+      expect([...actual].sort()).toEqual([...expected].sort());
+    });
+  }
+
+  it('grants ACR_WRITE to ADMIN only, ACR_READ also to COMMITTEE [28.1.1, #1358]', () => {
+    for (const role of Object.values(UserRole)) {
+      const expected = role === UserRole.ADMIN || role === UserRole.SUPER_ADMIN;
+      expect(ROLE_PERMISSIONS[role].includes(Permission.ACR_READ)).toBe(
+        expected || role === UserRole.COMMITTEE,
+      );
+      expect(ROLE_PERMISSIONS[role].includes(Permission.ACR_WRITE)).toBe(expected);
+    }
+  });
+
+  /**
+   * [27.1] ADMISSION_REVIEW opens the applicant review routes. Pinned to
+   * ADMIN and OFFICE_STAFF (#1358 D16) so another role can't silently gain it.
+   */
+  it('grants ADMISSION_REVIEW to ADMIN and OFFICE_STAFF only [#1358]', () => {
+    for (const role of Object.values(UserRole)) {
+      const expected =
+        role === UserRole.ADMIN || role === UserRole.SUPER_ADMIN || role === UserRole.OFFICE_STAFF;
+      expect(ROLE_PERMISSIONS[role].includes(Permission.ADMISSION_REVIEW)).toBe(expected);
+    }
+  });
 
   /**
    * `GET /payments/student/{studentId}` admits PARENT and STUDENT since
@@ -220,6 +335,10 @@ describe('family read grants [5.1]', () => {
       Permission.ATTENDANCE_MARK,
       Permission.ATTENDANCE_CORRECT,
       Permission.ATTENDANCE_DEVICE_MANAGE,
+      // [36.1.1] Staff attendance/leave — no family-role stake in these.
+      Permission.STAFF_ATTENDANCE_READ,
+      Permission.STAFF_ATTENDANCE_MARK,
+      Permission.LEAVE_APPROVE,
     ] as const;
 
     for (const role of FAMILY_ROLES) {
@@ -257,6 +376,43 @@ describe('attendance role grants [9.2]', () => {
       expect(ROLE_PERMISSIONS[role]).not.toContain(Permission.ATTENDANCE_CORRECT);
     }
     expect(ROLE_PERMISSIONS[UserRole.ADMIN]).toContain(Permission.ATTENDANCE_CORRECT);
+  });
+});
+
+describe('staff attendance & leave role grants [36.1.1]', () => {
+  const TENANT_STAFF_ROLES = [
+    UserRole.ADMIN,
+    UserRole.ACCOUNTANT,
+    UserRole.EXECUTIVE,
+    UserRole.TEACHER,
+  ] as const;
+
+  for (const role of TENANT_STAFF_ROLES) {
+    it(`grants STAFF_ATTENDANCE_READ and STAFF_ATTENDANCE_MARK to ${role}`, () => {
+      expect(ROLE_PERMISSIONS[role]).toContain(Permission.STAFF_ATTENDANCE_READ);
+      expect(ROLE_PERMISSIONS[role]).toContain(Permission.STAFF_ATTENDANCE_MARK);
+    });
+  }
+
+  it('withholds STAFF_ATTENDANCE_READ and STAFF_ATTENDANCE_MARK from PARENT and STUDENT', () => {
+    for (const role of [UserRole.PARENT, UserRole.STUDENT]) {
+      expect(ROLE_PERMISSIONS[role]).not.toContain(Permission.STAFF_ATTENDANCE_READ);
+      expect(ROLE_PERMISSIONS[role]).not.toContain(Permission.STAFF_ATTENDANCE_MARK);
+    }
+  });
+
+  it('grants LEAVE_APPROVE to ADMIN and EXECUTIVE only', () => {
+    expect(ROLE_PERMISSIONS[UserRole.ADMIN]).toContain(Permission.LEAVE_APPROVE);
+    expect(ROLE_PERMISSIONS[UserRole.EXECUTIVE]).toContain(Permission.LEAVE_APPROVE);
+  });
+
+  it('withholds LEAVE_APPROVE from TEACHER and ACCOUNTANT', () => {
+    expect(ROLE_PERMISSIONS[UserRole.TEACHER]).not.toContain(Permission.LEAVE_APPROVE);
+    expect(ROLE_PERMISSIONS[UserRole.ACCOUNTANT]).not.toContain(Permission.LEAVE_APPROVE);
+  });
+
+  it('grants LEAVE_APPROVE to SUPER_ADMIN, which holds every permission', () => {
+    expect(ROLE_PERMISSIONS[UserRole.SUPER_ADMIN]).toContain(Permission.LEAVE_APPROVE);
   });
 });
 
@@ -574,4 +730,186 @@ describe('routine role grants [21.1.1]', () => {
       expect(ROLE_PERMISSIONS[role]).not.toContain(Permission.ROUTINE_MANAGE);
     });
   }
+});
+
+describe('student lifecycle grants [39.1.1] D22', () => {
+  const ALL_FIVE = [
+    Permission.STUDENT_LIFECYCLE_MANAGE,
+    Permission.STUDENT_NOTES_READ,
+    Permission.STUDENT_NOTES_WRITE,
+    Permission.STUDENT_RECORDS_READ,
+    Permission.STUDENT_RECORDS_WRITE,
+  ];
+
+  for (const role of [UserRole.ADMIN, UserRole.EXECUTIVE]) {
+    it(`grants all five to ${role}`, () => {
+      for (const p of ALL_FIVE) expect(ROLE_PERMISSIONS[role]).toContain(p);
+    });
+  }
+
+  it('gives TEACHER notes r/w and records read only', () => {
+    const t = ROLE_PERMISSIONS[UserRole.TEACHER];
+    expect(t).toContain(Permission.STUDENT_NOTES_READ);
+    expect(t).toContain(Permission.STUDENT_NOTES_WRITE);
+    expect(t).toContain(Permission.STUDENT_RECORDS_READ);
+    expect(t).not.toContain(Permission.STUDENT_LIFECYCLE_MANAGE);
+    expect(t).not.toContain(Permission.STUDENT_RECORDS_WRITE);
+  });
+
+  for (const role of [UserRole.ACCOUNTANT, UserRole.PARENT, UserRole.STUDENT]) {
+    it(`gives ${role} none of the five`, () => {
+      for (const p of ALL_FIVE) expect(ROLE_PERMISSIONS[role]).not.toContain(p);
+    });
+  }
+});
+
+describe('print permission grants [32.1.1]', () => {
+  const PRINT: Permission[] = [
+    Permission.PRINT_TEMPLATE_MANAGE,
+    Permission.DOCUMENT_PRINT,
+    Permission.PRINT_HISTORY_READ,
+    Permission.DOCUMENT_REVOKE,
+  ];
+  const held = (role: UserRole) => ROLE_PERMISSIONS[role].filter((p) => PRINT.includes(p));
+
+  it('ADMIN and SUPER_ADMIN hold all four', () => {
+    expect(new Set(held(UserRole.ADMIN))).toEqual(new Set(PRINT));
+    expect(new Set(held(UserRole.SUPER_ADMIN))).toEqual(new Set(PRINT));
+  });
+
+  it('ACCOUNTANT has DOCUMENT_PRINT only', () => {
+    expect(held(UserRole.ACCOUNTANT)).toEqual([Permission.DOCUMENT_PRINT]);
+  });
+
+  it('EXECUTIVE has PRINT_HISTORY_READ only', () => {
+    expect(held(UserRole.EXECUTIVE)).toEqual([Permission.PRINT_HISTORY_READ]);
+  });
+
+  it('TEACHER, PARENT and STUDENT have none', () => {
+    for (const r of [UserRole.TEACHER, UserRole.PARENT, UserRole.STUDENT]) {
+      expect(held(r)).toEqual([]);
+    }
+  });
+});
+
+describe('CURRICULUM_PRESET_APPLY [35.1.1]', () => {
+  it('is held by ADMIN and SUPER_ADMIN only', () => {
+    expect(roleHasPermission(UserRole.ADMIN, Permission.CURRICULUM_PRESET_APPLY)).toBe(true);
+    expect(roleHasPermission(UserRole.SUPER_ADMIN, Permission.CURRICULUM_PRESET_APPLY)).toBe(true);
+    for (const r of [UserRole.ACCOUNTANT, UserRole.TEACHER, UserRole.EXECUTIVE]) {
+      expect(roleHasPermission(r, Permission.CURRICULUM_PRESET_APPLY)).toBe(false);
+    }
+  });
+});
+
+describe('new role grants [#1358]', () => {
+  const NEW_ROLES = [UserRole.OFFICE_STAFF, UserRole.EXAM_CONTROLLER, UserRole.COMMITTEE] as const;
+  const has = (r: UserRole, p: Permission) => ROLE_PERMISSIONS[r].includes(p);
+
+  it('COMMITTEE is read-only and sees no student data', () => {
+    for (const p of ROLE_PERMISSIONS[UserRole.COMMITTEE]) {
+      expect(p, `COMMITTEE must not hold ${p}`).not.toMatch(
+        /_(CREATE|UPDATE|DELETE|WRITE|MANAGE)$/,
+      );
+    }
+    expect(has(UserRole.COMMITTEE, Permission.STUDENT_READ)).toBe(false);
+    // D16: the collections report lists student_name per payment.
+    expect(has(UserRole.COMMITTEE, Permission.REPORT_COLLECTIONS_READ)).toBe(false);
+  });
+
+  it('no new role can move money or change settings', () => {
+    const forbidden = [
+      Permission.FEE_COLLECT,
+      Permission.PAYMENT_RECORD,
+      Permission.PAYMENT_REFUND,
+      Permission.PAYMENT_REVERSE,
+      Permission.FEE_APPROVE,
+      Permission.SETTINGS_MANAGE,
+      Permission.BACKUP_MANAGE,
+    ];
+    for (const r of NEW_ROLES) {
+      for (const p of forbidden) expect(has(r, p), `${r} must not hold ${p}`).toBe(false);
+    }
+  });
+
+  // D16 "exact lists": pin each whole row, so a stray grant fails. COMMITTEE
+  // drops REPORT_COLLECTIONS_READ, as D16 allows: that report names students.
+  const D16: Record<(typeof NEW_ROLES)[number], Permission[]> = {
+    [UserRole.OFFICE_STAFF]: [
+      Permission.STUDENT_CREATE,
+      Permission.STUDENT_READ,
+      Permission.STUDENT_UPDATE,
+      Permission.STUDENT_BULK_UPLOAD,
+      Permission.STUDENT_RECORDS_READ,
+      Permission.STUDENT_RECORDS_WRITE,
+      Permission.GUARDIAN_CREATE,
+      Permission.GUARDIAN_READ,
+      Permission.GUARDIAN_UPDATE,
+      Permission.ADMISSION_REVIEW,
+      Permission.ACADEMIC_STRUCTURE_READ,
+      Permission.ATTENDANCE_READ,
+      Permission.CALENDAR_READ,
+      Permission.ROUTINE_READ,
+      Permission.FEE_READ,
+      Permission.INVOICE_READ,
+      Permission.COMMUNICATION_SEND,
+      Permission.COMMUNICATION_BULK_SEND,
+      Permission.COMMUNICATION_LOG_READ,
+      Permission.DOCUMENT_PRINT,
+      Permission.PRINT_HISTORY_READ,
+      Permission.DASHBOARD_VIEW,
+      Permission.RESULT_READ,
+      Permission.STAFF_ATTENDANCE_READ,
+      Permission.STAFF_ATTENDANCE_MARK,
+    ],
+    [UserRole.EXAM_CONTROLLER]: [
+      Permission.EXAM_MANAGE,
+      Permission.SEAT_PLAN_MANAGE,
+      Permission.MARK_VIEW,
+      Permission.RESULT_PROCESS,
+      Permission.RESULT_PUBLISH,
+      Permission.RESULT_READ,
+      Permission.DOCUMENT_PRINT,
+      Permission.PRINT_HISTORY_READ,
+      Permission.STUDENT_READ,
+      Permission.ACADEMIC_STRUCTURE_READ,
+      Permission.ATTENDANCE_READ,
+      Permission.ROUTINE_READ,
+      Permission.CALENDAR_READ,
+      Permission.DASHBOARD_VIEW,
+      Permission.STAFF_ATTENDANCE_READ,
+      Permission.STAFF_ATTENDANCE_MARK,
+    ],
+    [UserRole.COMMITTEE]: [
+      Permission.DASHBOARD_VIEW,
+      Permission.ACR_READ,
+      Permission.ACADEMIC_STRUCTURE_READ,
+      Permission.CALENDAR_READ,
+    ],
+  };
+
+  for (const role of NEW_ROLES) {
+    it(`grants ${role} exactly its D16 list`, () => {
+      expect([...ROLE_PERMISSIONS[role]].sort()).toEqual([...D16[role]].sort());
+    });
+  }
+
+  it('EXAM_CONTROLLER cannot enter marks or edit print templates', () => {
+    expect(has(UserRole.EXAM_CONTROLLER, Permission.MARK_ENTER)).toBe(false);
+    expect(has(UserRole.EXAM_CONTROLLER, Permission.PRINT_TEMPLATE_MANAGE)).toBe(false);
+  });
+
+  it('OFFICE_STAFF cannot delete students or run lifecycle changes', () => {
+    expect(has(UserRole.OFFICE_STAFF, Permission.STUDENT_DELETE)).toBe(false);
+    expect(has(UserRole.OFFICE_STAFF, Permission.STUDENT_LIFECYCLE_MANAGE)).toBe(false);
+  });
+});
+
+describe('MY_CLASS_VIEW [47.1.1] D11', () => {
+  it('is held by TEACHER and no other tenant role (SUPER_ADMIN holds every permission)', () => {
+    const holders = Object.values(UserRole).filter(
+      (r) => r !== UserRole.SUPER_ADMIN && ROLE_PERMISSIONS[r]?.includes(Permission.MY_CLASS_VIEW),
+    );
+    expect(holders).toEqual([UserRole.TEACHER]);
+  });
 });

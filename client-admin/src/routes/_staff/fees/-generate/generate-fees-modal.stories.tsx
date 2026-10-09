@@ -4,7 +4,7 @@ import { http, HttpResponse } from 'msw';
 import { GenerateFeesModal } from './generate-fees-modal';
 
 /**
- * [16.3.6]'s single-modal replacement for the old wizard — empty (no
+ * [16.3.6]'s full-page replacement for the old wizard — empty (no
  * duplicates, nothing selected yet) and the duplicates step it shows
  * inline once a preview finds a clash.
  *

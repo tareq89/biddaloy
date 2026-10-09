@@ -1,0 +1,170 @@
+import { Permission } from '@biddaloy/shared';
+
+/** Display grouping for the read-only permission lists (staff Permissions tab, Roles & access).
+ * Every `Permission` belongs to exactly one group (see the test). */
+export const PERMISSION_GROUPS: readonly { id: string; permissions: readonly Permission[] }[] = [
+  {
+    id: 'users',
+    permissions: [
+      Permission.USER_CREATE,
+      Permission.USER_READ,
+      Permission.USER_UPDATE,
+      Permission.USER_DELETE,
+      Permission.MEMBER_REMOVE,
+      Permission.STAFF_HR_READ,
+      Permission.STAFF_HR_MANAGE,
+    ],
+  },
+  {
+    id: 'students',
+    permissions: [
+      Permission.STUDENT_CREATE,
+      Permission.STUDENT_READ,
+      Permission.STUDENT_UPDATE,
+      Permission.STUDENT_DELETE,
+      Permission.STUDENT_BULK_UPLOAD,
+      Permission.STUDENT_LIFECYCLE_MANAGE,
+      Permission.STUDENT_NOTES_READ,
+      Permission.STUDENT_NOTES_WRITE,
+      Permission.STUDENT_RECORDS_READ,
+      Permission.STUDENT_RECORDS_WRITE,
+    ],
+  },
+  {
+    id: 'guardians',
+    permissions: [
+      Permission.GUARDIAN_CREATE,
+      Permission.GUARDIAN_READ,
+      Permission.GUARDIAN_UPDATE,
+      Permission.GUARDIAN_DELETE,
+    ],
+  },
+  {
+    id: 'admissions',
+    permissions: [Permission.ADMISSION_REVIEW],
+  },
+  {
+    id: 'fees',
+    permissions: [
+      Permission.FEE_STRUCTURE_CREATE,
+      Permission.FEE_STRUCTURE_READ,
+      Permission.FEE_STRUCTURE_UPDATE,
+      Permission.FEE_STRUCTURE_DELETE,
+      Permission.FEE_GENERATE,
+      Permission.FEE_READ,
+      Permission.FEE_COLLECT,
+      Permission.FEE_APPROVE,
+      Permission.DISCOUNT_RULE_MANAGE,
+      Permission.SCHEDULE_MANAGE,
+    ],
+  },
+  {
+    id: 'invoicesPayments',
+    permissions: [
+      Permission.INVOICE_CREATE,
+      Permission.INVOICE_READ,
+      Permission.INVOICE_PRINT,
+      Permission.INVOICE_DELETE,
+      Permission.PAYMENT_RECORD,
+      Permission.PAYMENT_READ,
+      Permission.PAYMENT_REFUND,
+      Permission.PAYMENT_REVERSE,
+    ],
+  },
+  {
+    id: 'communication',
+    permissions: [
+      Permission.COMMUNICATION_SEND,
+      Permission.COMMUNICATION_BULK_SEND,
+      Permission.COMMUNICATION_LOG_READ,
+      Permission.COMMUNICATION_CREDIT_READ,
+    ],
+  },
+  {
+    id: 'reports',
+    permissions: [
+      Permission.REPORTS_VIEW,
+      Permission.REPORTS_EXPORT,
+      Permission.REPORT_COLLECTIONS_READ,
+      Permission.DASHBOARD_VIEW,
+      Permission.DASHBOARD_ADMIN,
+    ],
+  },
+  {
+    id: 'academics',
+    permissions: [
+      Permission.ACADEMIC_YEAR_MANAGE,
+      Permission.CLASS_MANAGE,
+      Permission.MY_CLASS_VIEW,
+      Permission.ACADEMIC_STRUCTURE_READ,
+      Permission.CURRICULUM_PRESET_APPLY,
+      Permission.CALENDAR_READ,
+      Permission.CALENDAR_MANAGE,
+      Permission.ROUTINE_READ,
+      Permission.ROUTINE_MANAGE,
+      Permission.SYLLABUS_READ,
+      Permission.SYLLABUS_MANAGE,
+      Permission.PROGRAM_READ,
+      Permission.PROGRAM_MANAGE,
+      Permission.PROGRAM_RECORD,
+    ],
+  },
+  {
+    id: 'homework',
+    permissions: [
+      Permission.HOMEWORK_READ,
+      Permission.HOMEWORK_ASSIGN,
+      Permission.HOMEWORK_GRADE,
+      Permission.HOMEWORK_IMPORT,
+    ],
+  },
+  {
+    id: 'attendance',
+    permissions: [
+      Permission.ATTENDANCE_READ,
+      Permission.ATTENDANCE_MARK,
+      Permission.ATTENDANCE_CORRECT,
+      Permission.ATTENDANCE_DEVICE_MANAGE,
+      Permission.STAFF_ATTENDANCE_READ,
+      Permission.STAFF_ATTENDANCE_MARK,
+      Permission.LEAVE_APPROVE,
+    ],
+  },
+  {
+    id: 'exams',
+    permissions: [
+      Permission.EXAM_MANAGE,
+      Permission.GRADING_SCALE_MANAGE,
+      Permission.MARK_ENTER,
+      Permission.MARK_VIEW,
+      Permission.RESULT_PROCESS,
+      Permission.RESULT_PUBLISH,
+      Permission.RESULT_READ,
+      Permission.SEAT_PLAN_MANAGE,
+      Permission.PROMOTION_MANAGE,
+      Permission.PROMOTION_OVERRIDE,
+    ],
+  },
+  {
+    id: 'evaluations',
+    permissions: [Permission.ACR_READ, Permission.ACR_WRITE],
+  },
+  {
+    id: 'printing',
+    permissions: [
+      Permission.PRINT_TEMPLATE_MANAGE,
+      Permission.DOCUMENT_PRINT,
+      Permission.PRINT_HISTORY_READ,
+      Permission.DOCUMENT_REVOKE,
+    ],
+  },
+  {
+    id: 'administration',
+    permissions: [
+      Permission.AUDIT_LOG_READ,
+      Permission.AUDIT_ENTITY_HISTORY_READ,
+      Permission.SETTINGS_MANAGE,
+      Permission.BACKUP_MANAGE,
+    ],
+  },
+];

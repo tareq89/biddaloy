@@ -11,6 +11,12 @@ export {
 export {
   formatDate,
   formatDateTime,
+  formatDateRange,
+  formatMonth,
+  formatMonthName,
+  formatTime,
+  formatWeekday,
+  toIsoDate,
   formatRelativeAge,
   parseDate,
   parseServerDate,
@@ -29,10 +35,12 @@ export { groupDigits } from './grouping';
 export { csvCell, downloadCsv, toCsvContent } from './csv';
 export { detectLoginIdentifier, type LoginIdentifier } from './login-identifier';
 export { formatName } from './name';
-export { formatNumber, parseNumber } from './number';
+export { formatNumber, formatScore, parseNumber } from './number';
+export { PAGE_SIZE_OPTIONS } from './page-size';
 export { formatPhone, parsePhone, type PhoneParseResult } from './phone';
 export { parseValidationFieldErrors } from './server-validation-errors';
 export { countSmsSegments, type SmsEncoding, type SmsSegmentInfo } from './sms';
 export { boundedNumericString } from './zod-helpers';
 export { VIEW_TRANSITION_FOCUS_TIMEOUT_MS, waitForViewTransition } from './view-transition';
 export { describeUserAgent, type DeviceDescription } from './user-agent';
+export { isSafeSupportUrl } from './support-url';

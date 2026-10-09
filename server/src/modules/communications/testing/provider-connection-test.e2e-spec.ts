@@ -157,17 +157,14 @@ describe('Provider connection test E2E', () => {
   });
 
   // Distinct from the unauthenticated case above: a real, valid session
-  // for a role RolesGuard doesn't allow on this route. context.guard.ts's
-  // RolesGuard throws UnauthorizedException (401) for a disallowed role,
-  // not ForbiddenException (403) — see that file's own comment — so this
-  // pins the documented behavior rather than assuming 403.
-  it('rejects an authenticated caller whose role is not ADMIN/SUPER_ADMIN', async () => {
+  // for a role without SETTINGS_MANAGE. PermissionsGuard answers 403.
+  it('rejects an authenticated caller whose role lacks SETTINGS_MANAGE', async () => {
     await supertest(app.getHttpServer())
       .post(`/api/v1/schools/${TENANT_ID}/settings/test`)
       .set('Authorization', `Bearer ${teacherToken}`)
       .set('X-Tenant-ID', TENANT_ID)
       .send({ medium: 'WHATSAPP', config: { accessToken: 'x' } })
-      .expect(401);
+      .expect(403);
   });
 
   it('rejects an admin of one school testing another school outside their membership', async () => {

@@ -1,7 +1,8 @@
 import { authHandlers, cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, describe, expect, it } from 'vitest';
+import { http, HttpResponse } from 'msw';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { routeTree } from '../routeTree.gen';
 
@@ -66,13 +67,62 @@ describe('/select-school', () => {
     expect(screen.queryByRole('heading', { name: 'Choose a school' })).toBeNull();
   });
 
-  it('logs out and redirects to /login for zero memberships, rather than looping', async () => {
-    server.use(authHandlers.logout);
-    const { router } = renderWithRouter(routeTree, {
+  it('zero memberships: shows an empty state with a way out, and the way out signs out', async () => {
+    const user = userEvent.setup();
+    let logouts = 0;
+    server.use(
+      http.post('/api/v1/auth/logout', () => {
+        logouts += 1;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const { router, container } = renderWithRouter(routeTree, {
       initialEntries: ['/select-school'],
       accessToken: fakeJwtWithMemberships([]),
       locale: 'en',
     });
+
+    expect(
+      await screen.findByRole('heading', { name: 'You are not in any school yet' }),
+    ).toBeTruthy();
+    // Revoked server-side on arrival, in case the tab is just closed.
+    await waitFor(() => expect(logouts).toBeGreaterThan(0));
+    expect(screen.getByText("Ask your school's admin to add you.")).toBeTruthy();
+    await expect(container).toHaveNoViolations();
+
+    await user.click(screen.getByRole('button', { name: 'Sign out' }));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/login'));
+  });
+
+  it('zero memberships: links "Contact us" to VITE_SUPPORT_URL when it is set', async () => {
+    vi.stubEnv('VITE_SUPPORT_URL', 'https://example.com/help');
+    server.use(http.post('/api/v1/auth/logout', () => new HttpResponse(null, { status: 204 })));
+    try {
+      renderWithRouter(routeTree, {
+        initialEntries: ['/select-school'],
+        accessToken: fakeJwtWithMemberships([]),
+        locale: 'en',
+      });
+
+      expect(
+        (await screen.findByRole('link', { name: 'Contact us' })).getAttribute('href'),
+      ).toBe('https://example.com/help');
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it('"Sign in with another account" signs out and lands on /login', async () => {
+    const user = userEvent.setup();
+    server.use(authHandlers.logout);
+    const { router } = renderWithRouter(routeTree, {
+      initialEntries: ['/select-school'],
+      accessToken: fakeJwtWithMemberships(twoSchools),
+      locale: 'en',
+    });
+    await screen.findByRole('heading', { name: 'Choose a school' });
+
+    await user.click(screen.getByRole('button', { name: 'Sign in with another account' }));
 
     await waitFor(() => expect(router.state.location.pathname).toBe('/login'));
   });

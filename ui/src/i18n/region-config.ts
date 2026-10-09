@@ -24,10 +24,8 @@ export interface RegionConfig {
   };
   numerals: NumeralSystem;
   date: {
-    /** `formatDate`'s token order — currently always numeric ISO shape
-     * (`ui/src/utils/date.ts` doesn't localize month names; that needs
-     * real translated strings, i18next's job, not a formatter's), kept
-     * here so the shape exists for a locale that later does need it. */
+    /** Unused: `formatDate` is long-form now (D5, `9th September, 2026`) and ignores this field;
+     * kept so the shape exists for a locale that later needs it. */
     format: string;
     /** 0 (Sunday) – 6 (Saturday). */
     firstDayOfWeek: number;
@@ -42,8 +40,8 @@ export interface RegionConfig {
     pattern: RegExp;
     example: string;
     /** Mask for `formatPhone`'s national-number portion — `X` is a digit
-     * placeholder, everything else is a literal. `'XXXX-XXXXXX'` turns
-     * `1712345678` into `1712-345678`; a region with a different grouping
+     * placeholder, everything else is a literal. `'0XXXX-XXXXXX'` turns
+     * `1712345678` into `01712-345678` (the trunk `0` is data in the mask); a region with a different grouping
      * (say `XXX XXX XXXX`) is a mask change, not a `formatPhone` change. */
     displayFormat: string;
   };
@@ -84,8 +82,8 @@ export const REGION_BD_BN: RegionConfig = {
   phone: {
     country: '880',
     pattern: /^1\d{9}$/,
-    example: '1712-345678',
-    displayFormat: 'XXXX-XXXXXX',
+    example: '01712-345678',
+    displayFormat: '0XXXX-XXXXXX',
   },
   address: {
     fields: ['village_or_area', 'post_office', 'upazila', 'district', 'division'],

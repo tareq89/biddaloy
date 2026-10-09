@@ -58,7 +58,7 @@ function Controlled({
   onSelect = () => {},
   initialTab,
 }: {
-  tabs?: readonly [CommandPaletteTab, CommandPaletteTab, CommandPaletteTab];
+  tabs?: readonly [CommandPaletteTab, ...CommandPaletteTab[]];
   onSelect?: (tabId: CommandPaletteTabId, groupId: string, resultId: string) => void;
   initialTab?: CommandPaletteTabId;
 }) {
@@ -167,6 +167,12 @@ describe('CommandPalette', () => {
     render(<Controlled initialTab="page" />);
     expect(screen.getByRole('tab', { name: 'Page' }).getAttribute('aria-selected')).toBe('true');
     expect(screen.getByRole('tab', { name: 'People' }).getAttribute('aria-selected')).toBe('false');
+  });
+
+  it('an initialTab missing from tabs selects the first tab, and aria-selected agrees', () => {
+    render(<Controlled tabs={[PAGE_TAB, ACTION_TAB]} initialTab="people" />);
+    expect(screen.getByRole('tab', { name: 'Page' }).getAttribute('aria-selected')).toBe('true');
+    expect(screen.getByRole('tab', { name: 'Action' }).getAttribute('aria-selected')).toBe('false');
   });
 
   it('Ctrl+2 and Ctrl+3 jump directly to Page and Action', async () => {

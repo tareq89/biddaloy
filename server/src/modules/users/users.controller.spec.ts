@@ -31,6 +31,7 @@ describe('UserController', () => {
   let invitationService: Record<string, ReturnType<typeof vi.fn>>;
   let recoveryService: Record<string, ReturnType<typeof vi.fn>>;
   let guardianProvisioningService: Record<string, ReturnType<typeof vi.fn>>;
+  let staffProfilesService: Record<string, ReturnType<typeof vi.fn>>;
 
   const TENANT = { id: 'tenant-1', role: UserRole.ADMIN };
   const JWT = { sub: 'admin-1', email: null, phone: null, memberships: [], jti: 'jti-1' };
@@ -68,12 +69,18 @@ describe('UserController', () => {
       dispatch: vi.fn(),
       batchStatus: vi.fn(),
     };
+    staffProfilesService = {
+      findIdByUserId: vi.fn().mockResolvedValue(null),
+      findIdsByUserIds: vi.fn().mockResolvedValue(new Map()),
+    };
     controller = new UserController(
       userService as unknown as UserService,
       teacherService as unknown as TeacherService,
       invitationService as any,
       recoveryService as any,
       guardianProvisioningService as any,
+      undefined as any,
+      staffProfilesService as any,
     );
   });
 
@@ -140,7 +147,7 @@ describe('UserController', () => {
       // The created entity has no user_tenants relation loaded, so the
       // controller copies the role from the membership it just created.
       expect(result).toEqual({
-        user: { id: 'u1', role: UserRole.TEACHER, invitation_status: 'NONE' },
+        user: { id: 'u1', role: UserRole.TEACHER, left_at: null, invitation_status: 'NONE' },
         membership: { id: 'm1', role: UserRole.TEACHER },
         invitation: null,
       });
@@ -244,6 +251,7 @@ describe('UserController', () => {
         ...expected,
         role: null,
         member_since: null,
+        left_at: null,
         invitation_status: 'NONE',
       });
     });
@@ -265,6 +273,7 @@ describe('UserController', () => {
         ...expected,
         role: null,
         member_since: null,
+        left_at: null,
         invitation_status: 'NONE',
       });
     });

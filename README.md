@@ -103,10 +103,63 @@ locally, not the safety net itself.
 
 ## Development
 
-Bring up Postgres and Redis first — the server won't boot without them:
+### One command
+
+After `yarn install` and `cp .env.example .env`, set `SEED_ADMIN_PASSWORD`
+in `.env`, then:
+
+```bash
+yarn dev
+```
+
+That runs `scripts/start-dev.sh`, which does this:
+
+```mermaid
+flowchart LR
+    D["yarn dev<br/>scripts/start-dev.sh"] --> S["yarn setup<br/>scripts/setup.sh"]
+    S --> S1["docker compose up<br/>db, redis, seaweedfs"]
+    S1 --> S2["build @biddaloy/shared"]
+    S2 --> S3["migration:run"]
+    S3 --> S4["seed<br/>admin@school.com"]
+    S4 --> R["server :3000<br/>+ client-admin :5174<br/>(Ctrl+C stops both)"]
+```
+
+Log in at <http://localhost:5174> as `admin@school.com` with your
+`SEED_ADMIN_PASSWORD`.
+
+What to know:
+
+- **Safe to re-run.** Migrations skip what's already applied, and the seed
+  only creates what's missing. Run `yarn setup` alone after pulling new
+  migrations.
+- **Always development mode.** `.env.example` says `NODE_ENV=production`
+  because it doubles as the deploy template. Both scripts override it to
+  `development`, because the seed refuses to run in production.
+- **`POSTGRES_*` comes from `DATABASE_URL`.** The `db` container is created
+  from `POSTGRES_USER`/`PASSWORD`/`DB`, but the server connects with
+  `DATABASE_URL`. `setup.sh` derives the first from the second so the two
+  can't disagree. Example: `postgres://postgres:secret@localhost:5432/school`
+  gives user `postgres`, password `secret`, database `school`.
+- **Changes to `shared/` need a rebuild.** `yarn dev` builds `shared/` once,
+  at startup. If you edit it while the app is running, run
+  `yarn workspace @biddaloy/shared build:watch` in another terminal.
+- **Production is different.** `scripts/start.sh` is the deploy launcher. It
+  does none of the above.
+
+### Step by step
+
+To run the pieces yourself, bring up Postgres and Redis first. The server
+won't boot without them:
 
 ```bash
 docker compose up -d db redis
+```
+
+On a fresh database, create the tables and the admin user once:
+
+```bash
+yarn workspace @biddaloy/server migration:run
+SEED_ADMIN_PASSWORD=<pick-one> yarn workspace @biddaloy/server seed
 ```
 
 Then run the server and whichever client(s) you're working on, each in its own
@@ -497,17 +550,54 @@ has drifted.
 yarn run check
 
 # Full server suite (unit + integration + e2e) against real Postgres,
-# Redis and MinIO — only Docker required
-yarn db:test:up      # start postgres/redis/minio via docker-compose.test.yml
-yarn test:server      # runs db:test:up itself, then unit/integration/e2e
-yarn db:test:down    # tear the stack down when done
+# Redis and SeaweedFS — only Docker required
+yarn test:server
 
 # Only the e2e specs affected by files changed since origin/main
 yarn e2e:changed
 ```
 
-First-time setup: `cp server/.env.test.example server/.env.test` (values
-match `docker-compose.test.yml`'s ports, no edits needed).
+### Test infrastructure: one Docker stack, a slice per run
+
+Every command that needs Postgres, Redis or S3 for **tests** — `yarn
+test:server`, `yarn ci:local`, and anything the `implement-epic` / `pr-fix`
+agents run in their worktrees — goes through
+[`scripts/test-env.sh`](scripts/test-env.sh). It never starts new containers.
+It reuses your one `biddaloy` stack (the same `db`, `redis`, `seaweedfs` that
+`yarn dev` starts) and gives each run its own slice, removed when the run ends:
+
+```mermaid
+flowchart LR
+    subgraph stack["one Docker stack: biddaloy"]
+      DB[("db<br/>dev DB + biddaloy_test_run_&lt;id&gt;")]
+      R[("redis<br/>slot 0 = dev, blocks of 5 slots per run")]
+      S[("seaweedfs<br/>bucket biddaloy-test-run-&lt;id&gt;")]
+    end
+    A["worktree agent-a1b2"] -->|"test-env.sh run -- …"| stack
+    B["worktree pr-1377-fix"] -->|"test-env.sh run -- …"| stack
+```
+
+```bash
+# Wrap one command: create the slice, run it with the env loaded, remove the slice
+yarn test-env run -- yarn workspace @biddaloy/server test:file src/x.e2e-spec.ts
+
+# Several steps (shell env doesn't carry over, so re-source each time)
+ENV_FILE=$(yarn --silent test-env up)
+set -a; . "$ENV_FILE"; set +a; yarn workspace @biddaloy/server migration:run
+yarn test-env down
+
+# Remove slices a crashed or killed run left behind (default: older than 6 hours)
+yarn test-env sweep
+```
+
+`<id>` is the checkout's folder name, so each worktree gets its own slice;
+set `TEST_ENV_RUN_ID` to override it. The slice's env (`DATABASE_URL`,
+`REDIS_URL`, `S3_*` and CI's throwaway test secrets) wins over
+`server/.env.test` while a run is active.
+
+Without `test-env`, plain `yarn test:integration` still works the old way:
+`cp server/.env.test.example server/.env.test` and point it at a database
+whose name contains `test`.
 
 `.husky/pre-push` runs `yarn run check --affected` automatically, budgeted at
 **60s warm** on a one-file change. It's a no-op on `main`, and can be

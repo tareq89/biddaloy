@@ -111,9 +111,16 @@ export class AcademicYearService {
     const limit = query.limit || 10;
     const skip = (page - 1) * limit;
 
+    // `is_current` first: several callers (routine agenda, the class
+    // list's year filter, subject-choices, generate-fees) pass no
+    // limit/page and read `data[0]`/scan page 1 for the current year. A
+    // tenant with more years than one page — every e2e spec calling
+    // `POST /academic-years` adds one — pushed the current year past
+    // page 1 under a pure `created_at DESC` sort, so those callers found
+    // nothing and treated the tenant as having no current year at all.
     const [data, total] = await this.repo.findAndCount({
       where: { tenant_id: tenantId, deleted_at: IsNull() },
-      order: { created_at: 'DESC' },
+      order: { is_current: 'DESC', created_at: 'DESC' },
       skip,
       take: limit,
     });

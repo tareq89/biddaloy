@@ -81,6 +81,16 @@ describe('PublicHolidaysService (integration)', () => {
     expect(set.entries[0].name).toBe('New Year');
   });
 
+  it('listSets returns each set with its entries', async () => {
+    mockFetch([{ date: '2030-01-01', end_date: '2030-01-01', name: 'New Year' }]);
+    await service.fetchIntoSet('BD', 2030, SEED_ADMIN_USER_ID);
+
+    const sets = await service.listSets();
+
+    expect(sets).toHaveLength(1);
+    expect(sets[0].entries.length).toBeGreaterThan(0);
+  });
+
   it('re-fetching an already-published set replaces entries but keeps published_at', async () => {
     mockFetch([{ date: '2030-01-01', end_date: '2030-01-01', name: 'New Year' }]);
     const first = await service.fetchIntoSet('BD', 2030, SEED_ADMIN_USER_ID);

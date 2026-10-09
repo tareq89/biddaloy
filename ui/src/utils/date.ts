@@ -2,30 +2,25 @@ import type { RegionConfig } from '../i18n/region-config';
 
 import { renderDigits, toLatinDigits } from './digits';
 
-/**
- * Numeric ISO-shaped date (`YYYY-MM-DD`), digits rendered per
- * `config.numerals` — deliberately not a localized month-name format
- * (`"৫ জানুয়ারি ২০২৪"`), since that needs real translated month names,
- * which is [8.7.1]'s i18next job, not a formatter's. A locale-aware
- * calendar UI ([8.6.3]'s `DatePicker`) composes this with real i18n later.
- */
-export function formatDate(date: Date, config: RegionConfig): string {
-  const year = String(date.getFullYear()).padStart(4, '0');
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return renderDigits(`${year}-${month}-${day}`, config.numerals);
+const NONE = '—';
+
+type Mode = 'date' | 'clock';
+interface Parts {
+  y: number;
+  m: number;
+  d: number;
+  hh: number;
+  mm: number;
 }
 
-/**
- * `formatDate` plus wall-clock time (`YYYY-MM-DD HH:mm`), for rows where
- * the time of day matters — e.g. login history, where three same-day
- * logins must stay distinguishable. Same digit-rendering rules as
- * `formatDate`.
- */
-export function formatDateTime(date: Date, config: RegionConfig): string {
-  // Rendered in the tenant's own time zone (`config.timezone`), not the
-  // viewer's — an administrator abroad must see logins on the school's
-  // clock, and a timestamp near midnight must not shift date.
+const isBangla = (config: RegionConfig): boolean => config.locale.startsWith('bn');
+
+function isRealDate(y: number, m: number, d: number): boolean {
+  const date = new Date(y, m - 1, d);
+  return date.getFullYear() === y && date.getMonth() === m - 1 && date.getDate() === d;
+}
+
+function tenantClock(date: Date, config: RegionConfig): Parts {
   const parts = new Intl.DateTimeFormat('en-CA', {
     timeZone: config.timezone,
     year: 'numeric',
@@ -35,15 +30,180 @@ export function formatDateTime(date: Date, config: RegionConfig): string {
     minute: '2-digit',
     hourCycle: 'h23',
   }).formatToParts(date);
-  const part = (type: Intl.DateTimeFormatPartTypes): string =>
-    parts.find((p) => p.type === type)?.value ?? '';
-  return renderDigits(
-    `${part('year')}-${part('month')}-${part('day')} ${part('hour')}:${part('minute')}`,
+  const n = (type: Intl.DateTimeFormatPartTypes): number =>
+    Number(parts.find((p) => p.type === type)?.value ?? 0);
+  return { y: n('year'), m: n('month'), d: n('day'), hh: n('hour'), mm: n('minute') };
+}
+
+/**
+ * Never throws; `null` means "show —". `date` mode = calendar date: local fields of a `Date`,
+ * or the digits of `YYYY-MM-DD` / a serialised Postgres `date` (`YYYY-MM-DDT00:00:00.000Z`), so
+ * it never shifts a day; any other instant string is read on the tenant clock. `clock` mode =
+ * the tenant's wall clock for instants; a bare `YYYY-MM-DD` has no time, so it is `null`.
+ */
+function toParts(
+  value: Date | string | null | undefined,
+  config: RegionConfig,
+  mode: Mode,
+  allow: { month?: boolean; time?: boolean } = {},
+): Parts | null {
+  if (value === null || value === undefined || value === '') return null;
+  const blank = { y: 0, m: 1, d: 1, hh: 0, mm: 0 };
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) return null;
+    if (mode === 'clock') return tenantClock(value, config);
+    return { ...blank, y: value.getFullYear(), m: value.getMonth() + 1, d: value.getDate() };
+  }
+  const s = toLatinDigits(value).trim();
+  if (allow.time) {
+    const t = /^(\d{1,2}):(\d{2})(?::\d{2})?$/.exec(s);
+    if (t) {
+      const hh = Number(t[1]);
+      const mm = Number(t[2]);
+      return hh > 23 || mm > 59 ? null : { ...blank, hh, mm };
+    }
+  }
+  if (allow.month) {
+    const ym = /^(\d{4})-(\d{2})$/.exec(s);
+    if (ym) {
+      const m = Number(ym[2]);
+      return m < 1 || m > 12 ? null : { ...blank, y: Number(ym[1]), m };
+    }
+  }
+  if (!/^\d{4}-\d{2}-\d{2}/.test(s)) return null;
+  const calendarDate = /^\d{4}-\d{2}-\d{2}(?:T00:00:00(?:\.0+)?Z)?$/.test(s);
+  if (mode === 'clock' && s.length === 10) return null;
+  if (mode === 'clock' || !calendarDate) {
+    const instant = new Date(s);
+    return Number.isNaN(instant.getTime()) ? null : tenantClock(instant, config);
+  }
+  const y = Number(s.slice(0, 4));
+  const m = Number(s.slice(5, 7));
+  const d = Number(s.slice(8, 10));
+  return isRealDate(y, m, d) ? { ...blank, y, m, d } : null;
+}
+
+function dayOrdinal(day: number, config: RegionConfig): string {
+  const n = renderDigits(String(day), config.numerals);
+  if (isBangla(config)) {
+    if (day === 1) return `${n}লা`;
+    if (day === 2 || day === 3) return `${n}রা`;
+    if (day === 4) return `${n}ঠা`;
+    return `${n}${day <= 18 ? 'ই' : 'শে'}`;
+  }
+  const last = day % 10;
+  if (day >= 11 && day <= 13) return `${n}th`;
+  return `${n}${last === 1 ? 'st' : last === 2 ? 'nd' : last === 3 ? 'rd' : 'th'}`;
+}
+
+const longDate = (p: Parts, config: RegionConfig): string =>
+  `${dayOrdinal(p.d, config)} ${formatMonthName(p.m, config)}, ${renderDigits(String(p.y), config.numerals)}`;
+
+// patterns.md §11 day-parts by 24-hour clock (not Intl, which says "অপরাহ্ণ").
+const DAY_PARTS: ReadonlyArray<readonly [untilHour: number, word: string]> = [
+  [4, 'রাত'],
+  [6, 'ভোর'],
+  [12, 'সকাল'],
+  [15, 'দুপুর'],
+  [18, 'বিকাল'],
+  [20, 'সন্ধ্যা'],
+  [24, 'রাত'],
+];
+
+function timeText(p: Parts, config: RegionConfig): string {
+  const clock = renderDigits(
+    `${p.hh % 12 || 12}:${String(p.mm).padStart(2, '0')}`,
     config.numerals,
+  );
+  if (!isBangla(config)) return `${clock} ${p.hh < 12 ? 'AM' : 'PM'}`;
+  const word = DAY_PARTS.find(([until]) => p.hh < until)?.[1] ?? 'রাত';
+  return `${word} ${clock}`;
+}
+
+/**
+ * Long display date (D5): en `9th September, 2026`, bn `৯ই সেপ্টেম্বর, ২০২৬`. Takes a `Date` or
+ * the API's strings; empty or bad input is `—`. ISO for data is `toIsoDate`.
+ */
+export function formatDate(value: Date | string | null | undefined, config: RegionConfig): string {
+  const p = toParts(value, config, 'date');
+  return p ? longDate(p, config) : NONE;
+}
+
+/** `formatDate` plus 12-hour time, on the tenant's clock (`config.timezone`), not the viewer's —
+ * an administrator abroad must see logins on the school's clock, and a timestamp near midnight
+ * must not shift date. */
+export function formatDateTime(
+  value: Date | string | null | undefined,
+  config: RegionConfig,
+): string {
+  const p = toParts(value, config, 'clock');
+  // A bare `YYYY-MM-DD` has no time to show: just the date.
+  return p ? `${longDate(p, config)}, ${timeText(p, config)}` : formatDate(value, config);
+}
+
+/** `YYYY-MM-DD` from the date's local calendar fields, Latin digits always — for URLs, search
+ * params, API bodies and exports (D5). Never for display; use `formatDate`. */
+export function toIsoDate(date: Date): string {
+  const y = String(date.getFullYear()).padStart(4, '0');
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+/** `October 2026` / `অক্টোবর ২০২৬`. Accepts `YYYY-MM`, `YYYY-MM-DD…` or a `Date`. */
+export function formatMonth(value: Date | string | null | undefined, config: RegionConfig): string {
+  const p = toParts(value, config, 'date', { month: true });
+  return p ? `${formatMonthName(p.m, config)} ${renderDigits(String(p.y), config.numerals)}` : NONE;
+}
+
+/** Long month name for `month` 1–12 in the config locale. */
+export function formatMonthName(month: number, config: RegionConfig): string {
+  if (!Number.isInteger(month) || month < 1 || month > 12) return NONE;
+  return new Intl.DateTimeFormat(config.locale, { month: 'long', timeZone: 'UTC' }).format(
+    Date.UTC(2000, month - 1, 1),
   );
 }
 
-/** Inverse of `formatDate`. Throws `RangeError` on anything that isn't a
+/** 12-hour time, no seconds (D7): en `8:00 AM`, bn `সকাল ৮:০০`. A `Date` is read on the tenant
+ * clock; `HH:mm[:ss]` is wall-clock and used as is. */
+export function formatTime(value: Date | string | null | undefined, config: RegionConfig): string {
+  const p = toParts(value, config, 'clock', { time: true });
+  return p ? timeText(p, config) : NONE;
+}
+
+/** Long weekday name of a `Date` (local) or a `YYYY-MM-DD…` string. */
+export function formatWeekday(
+  value: Date | string | null | undefined,
+  config: RegionConfig,
+): string {
+  // Same parsing as formatDate, so an impossible date is `—` here too.
+  const p = toParts(value, config, 'date');
+  if (!p) return NONE;
+  return new Intl.DateTimeFormat(config.locale, { weekday: 'long', timeZone: 'UTC' }).format(
+    Date.UTC(p.y, p.m - 1, p.d),
+  );
+}
+
+/** Compact range (patterns.md §11): same month `8th – 10th October`, same year
+ * `28th September – 3rd October, 2026`, else two full dates. */
+export function formatDateRange(
+  from: Date | string | null | undefined,
+  to: Date | string | null | undefined,
+  config: RegionConfig,
+): string {
+  const a = toParts(from, config, 'date');
+  const b = toParts(to, config, 'date');
+  if (!a || !b) return NONE;
+  if (a.y !== b.y) return `${longDate(a, config)} – ${longDate(b, config)}`;
+  if (a.m === b.m) {
+    if (a.d === b.d) return longDate(a, config);
+    return `${dayOrdinal(a.d, config)} – ${dayOrdinal(b.d, config)} ${formatMonthName(a.m, config)}`;
+  }
+  const year = renderDigits(String(a.y), config.numerals);
+  return `${dayOrdinal(a.d, config)} ${formatMonthName(a.m, config)} – ${dayOrdinal(b.d, config)} ${formatMonthName(b.m, config)}, ${year}`;
+}
+
+/** Inverse of `toIsoDate`. Throws `RangeError` on anything that isn't a
  * `YYYY-MM-DD` shape in either digit system, or a calendar date that
  * doesn't exist (`2024-02-30`) — `new Date(...)` silently rolls invalid
  * dates forward instead of rejecting them, which is exactly the "mangles

@@ -8,6 +8,7 @@
  */
 import * as React from 'react';
 
+import { useTranslation } from '../i18n';
 import {
   Select as SelectPrimitive,
   SelectContent as SelectContentPrimitive,
@@ -44,8 +45,11 @@ export function SelectItem(props: SelectItemProps) {
   return <SelectItemPrimitive {...props} />;
 }
 
-export function SelectValue(props: SelectValueProps) {
-  return <SelectValuePrimitive {...props} />;
+export function SelectValue({ placeholder, ...props }: SelectValueProps) {
+  const { t } = useTranslation();
+  return (
+    <SelectValuePrimitive placeholder={placeholder ?? t('form.selectPlaceholder')} {...props} />
+  );
 }
 
 export function SelectGroup(props: SelectGroupProps) {

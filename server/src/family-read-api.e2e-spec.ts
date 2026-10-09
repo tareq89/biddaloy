@@ -131,6 +131,12 @@ describe('[5.1] Family-facing read API', () => {
       name: 'GET /students/:id/schedules',
       path: (id: string) => `${API}/students/${id}/schedules`,
     },
+    // [19.9.1] The portal results route — inherits every cross-family,
+    // cross-tenant and soft-delete case this table already drives.
+    {
+      name: 'GET /students/:id/results',
+      path: (id: string) => `${API}/students/${id}/results`,
+    },
   ];
 
   beforeAll(async () => {
@@ -551,17 +557,14 @@ describe('[5.1] Family-facing read API', () => {
       }
     });
 
-    // 401, not the conventional 403: `RolesGuard` throws
-    // `UnauthorizedException` for a role mismatch (its own docstring says
-    // 403, but the code has always thrown 401). Pinned as-is — changing the
-    // status code is a breaking API change well outside [5.1].
+    // 403: `RolesGuard` throws `ForbiddenException` for a role mismatch (#729).
     it('refuses a staff caller — this is the family discovery route, not a roster', async () => {
       for (const token of [adminToken, teacherToken]) {
         await http()
           .get(`${API}/students/mine`)
           .set('Authorization', `Bearer ${token}`)
           .set('X-Tenant-ID', SEED_TENANT_ID)
-          .expect(401);
+          .expect(403);
       }
     });
 
@@ -743,7 +746,7 @@ describe('[5.1] Family-facing read API', () => {
         .get(`${API}/invoices`)
         .set('Authorization', `Bearer ${teacherToken}`)
         .set('X-Tenant-ID', SEED_TENANT_ID)
-        .expect(401);
+        .expect(403);
     });
   });
 
@@ -1185,16 +1188,16 @@ describe('[5.1] Family-facing read API', () => {
   // ─────────────────── Role guards, both directions ───────────────────
 
   /**
-   * Every refusal here is a 401 rather than a 403: `RolesGuard` throws
-   * `UnauthorizedException` on a role mismatch. Unconventional, pre-existing,
-   * and deliberately left alone by [5.1].
+   * A route that still carries a narrowing `@Roles` refuses with 403
+   * (`RolesGuard` throws `ForbiddenException`). A route whose redundant
+   * `@Roles` was retired in Epic 24 refuses with 403 from `PermissionsGuard`.
    */
   describe('role guards — routes [5.1] deliberately did not widen', () => {
     const STAFF_ONLY_GETS = [
-      { name: 'GET /students (roster)', path: `${API}/students` },
-      { name: 'GET /payments (ledger)', path: `${API}/payments` },
-      { name: 'GET /fees/dues/flagged', path: `${API}/fees/dues/flagged` },
-      { name: 'GET /guardians', path: `${API}/guardians` },
+      { name: 'GET /students (roster)', path: `${API}/students`, status: 403 },
+      { name: 'GET /payments (ledger)', path: `${API}/payments`, status: 403 },
+      { name: 'GET /fees/dues/flagged', path: `${API}/fees/dues/flagged`, status: 403 },
+      { name: 'GET /guardians', path: `${API}/guardians`, status: 403 },
     ];
 
     for (const route of STAFF_ONLY_GETS) {
@@ -1204,7 +1207,7 @@ describe('[5.1] Family-facing read API', () => {
             .get(route.path)
             .set('Authorization', `Bearer ${token}`)
             .set('X-Tenant-ID', SEED_TENANT_ID)
-            .expect(401);
+            .expect(route.status);
         }
       });
     }
@@ -1216,7 +1219,7 @@ describe('[5.1] Family-facing read API', () => {
         .get(`${API}/payments/guardian/${NONEXISTENT_UUID}`)
         .set('Authorization', `Bearer ${parentToken}`)
         .set('X-Tenant-ID', SEED_TENANT_ID)
-        .expect(401);
+        .expect(403);
     });
 
     it('POST /invoices still refuses a family caller', async () => {
@@ -1225,7 +1228,7 @@ describe('[5.1] Family-facing read API', () => {
         .set('Authorization', `Bearer ${parentToken}`)
         .set('X-Tenant-ID', SEED_TENANT_ID)
         .send({ payment_id: NONEXISTENT_UUID })
-        .expect(401);
+        .expect(403);
     });
 
     it('PATCH and DELETE /students/:id still refuse a family caller', async () => {
@@ -1234,13 +1237,13 @@ describe('[5.1] Family-facing read API', () => {
         .set('Authorization', `Bearer ${parentToken}`)
         .set('X-Tenant-ID', SEED_TENANT_ID)
         .send({ full_name: 'Renamed By Parent' })
-        .expect(401);
+        .expect(403);
 
       await http()
         .delete(`${API}/students/${childOneId}`)
         .set('Authorization', `Bearer ${parentToken}`)
         .set('X-Tenant-ID', SEED_TENANT_ID)
-        .expect(401);
+        .expect(403);
     });
   });
 
@@ -1282,7 +1285,7 @@ describe('[5.1] Family-facing read API', () => {
           .get(route.path)
           .set('Authorization', `Bearer ${teacherToken}`)
           .set('X-Tenant-ID', SEED_TENANT_ID)
-          .expect(401);
+          .expect(403);
       }
     });
 

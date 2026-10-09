@@ -13,6 +13,7 @@ import { AttendanceSummaryService } from './attendance-summary.service';
 import { AttendanceAccessService } from './attendance-access.service';
 import { FamilyAccessService } from '../students/family-access.service';
 import {
+  AttendanceStreaksDto,
   AttendanceSummaryDto,
   LowAttendanceListResponseDto,
   QueryLowAttendanceDto,
@@ -22,6 +23,7 @@ import {
   QueryStudentSummaryDto,
   RegisterMatrixDto,
   SectionSummaryDto,
+  SubjectSummaryDto,
   resolveDateRange,
 } from './dto/attendance-summary.dto';
 
@@ -46,14 +48,6 @@ export class AttendanceSummaryController {
   ) {}
 
   @Get('students/:studentId/summary')
-  @Roles(
-    UserRole.ADMIN,
-    UserRole.EXECUTIVE,
-    UserRole.ACCOUNTANT,
-    UserRole.TEACHER,
-    UserRole.PARENT,
-    UserRole.STUDENT,
-  )
   @RequirePermissions(Permission.ATTENDANCE_READ)
   @ApiOperation({
     summary:
@@ -73,14 +67,6 @@ export class AttendanceSummaryController {
   }
 
   @Get('students/:studentId/days')
-  @Roles(
-    UserRole.ADMIN,
-    UserRole.EXECUTIVE,
-    UserRole.ACCOUNTANT,
-    UserRole.TEACHER,
-    UserRole.PARENT,
-    UserRole.STUDENT,
-  )
   @RequirePermissions(Permission.ATTENDANCE_READ)
   @ApiOperation({
     summary: "One student's day-by-day marks for one month — drives the portal month grid.",
@@ -97,7 +83,14 @@ export class AttendanceSummaryController {
   }
 
   @Get('sections/:sectionId/summary')
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE, UserRole.ACCOUNTANT, UserRole.TEACHER)
+  @Roles(
+    UserRole.ADMIN,
+    UserRole.EXECUTIVE,
+    UserRole.ACCOUNTANT,
+    UserRole.TEACHER,
+    UserRole.OFFICE_STAFF,
+    UserRole.EXAM_CONTROLLER,
+  )
   @RequirePermissions(Permission.ATTENDANCE_READ)
   @ApiOperation({
     summary: "A whole section's roster attendance over a range, one row per student.",
@@ -124,7 +117,14 @@ export class AttendanceSummaryController {
   }
 
   @Get('sections/:sectionId/register-matrix')
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE, UserRole.ACCOUNTANT, UserRole.TEACHER)
+  @Roles(
+    UserRole.ADMIN,
+    UserRole.EXECUTIVE,
+    UserRole.ACCOUNTANT,
+    UserRole.TEACHER,
+    UserRole.OFFICE_STAFF,
+    UserRole.EXAM_CONTROLLER,
+  )
   @RequirePermissions(Permission.ATTENDANCE_READ)
   @ApiOperation({
     summary:
@@ -153,8 +153,80 @@ export class AttendanceSummaryController {
     });
   }
 
+  @Get('sections/:sectionId/subject-summary')
+  @Roles(
+    UserRole.ADMIN,
+    UserRole.EXECUTIVE,
+    UserRole.ACCOUNTANT,
+    UserRole.TEACHER,
+    UserRole.OFFICE_STAFF,
+    UserRole.EXAM_CONTROLLER,
+  )
+  @RequirePermissions(Permission.ATTENDANCE_READ)
+  @ApiOperation({
+    summary:
+      'Per student and subject: period classes held and attended over a range. ' +
+      '403 ATTENDANCE_PERIOD_DISABLED when period attendance is off.',
+  })
+  @ApiOkResponse({ type: SubjectSummaryDto })
+  async getSectionSubjectSummary(
+    @Param('sectionId') sectionId: string,
+    @Query() query: QuerySectionSummaryDto,
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: { sub: string },
+  ) {
+    await this.attendanceAccessService.assertCanAccessSection(
+      tenant.role,
+      user.sub,
+      sectionId,
+      tenant.id,
+    );
+    return this.summaryService.getSectionSubjectSummary({
+      tenantId: tenant.id,
+      sectionId,
+      from: query.from,
+      to: query.to,
+    });
+  }
+
+  @Get('sections/:sectionId/streaks')
+  @Roles(
+    UserRole.ADMIN,
+    UserRole.EXECUTIVE,
+    UserRole.ACCOUNTANT,
+    UserRole.TEACHER,
+    UserRole.OFFICE_STAFF,
+    UserRole.EXAM_CONTROLLER,
+  )
+  @RequirePermissions(Permission.ATTENDANCE_READ)
+  @ApiOperation({
+    summary:
+      'Students on a current run of 3+ ABSENT, 3+ LATE or 15+ PRESENT day-sessions ' +
+      '(LEAVE and unmarked days end a run).',
+  })
+  @ApiOkResponse({ type: AttendanceStreaksDto })
+  async getSectionStreaks(
+    @Param('sectionId') sectionId: string,
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: { sub: string },
+  ) {
+    await this.attendanceAccessService.assertCanAccessSection(
+      tenant.role,
+      user.sub,
+      sectionId,
+      tenant.id,
+    );
+    return this.summaryService.getSectionStreaks({ tenantId: tenant.id, sectionId });
+  }
+
   @Get('flags/low')
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE, UserRole.ACCOUNTANT)
+  @Roles(
+    UserRole.ADMIN,
+    UserRole.EXECUTIVE,
+    UserRole.ACCOUNTANT,
+    UserRole.OFFICE_STAFF,
+    UserRole.EXAM_CONTROLLER,
+  )
   @RequirePermissions(Permission.ATTENDANCE_READ)
   @ApiOperation({
     summary:

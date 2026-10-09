@@ -1,39 +1,9 @@
-import { EmptyState, RoutePending } from '@biddaloy/ui/components';
-import { useTranslation } from '@biddaloy/ui/i18n';
-import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import { createFileRoute, redirect } from '@tanstack/react-router';
 
-import { loadRouteNamespaces } from '../../../route-loaders';
-
-/**
- * `/fees` — placeholder, same reasoning `/` (`index.tsx`): the real
- * fee-management module (fee structures, generation) is a later
- * feature-module ticket, not [8.9.1]'s. `/fees/dues` ([8.10.4]) is the
- * first real leaf under `_staff/fees` — this moved here (from
- * `_staff/fees.tsx`) once that leaf needed `_staff/fees.tsx` to become a
- * plain `<Outlet />` layout instead, so `/fees/dues` isn't swallowed by
- * this placeholder's own component.
- */
+// `/fees` → `/fees/dues` (D40)
 export const Route = createFileRoute('/_staff/fees/')({
-  // No data query — this placeholder renders no server-backed content.
-  loader: () => loadRouteNamespaces('fees'),
-  pendingComponent: FeesPending,
-  component: FeesPage,
+  beforeLoad: () => {
+    // eslint-disable-next-line @typescript-eslint/only-throw-error -- same as every `throw redirect(...)`
+    throw redirect({ to: '/fees/dues', replace: true });
+  },
 });
-
-function FeesPage() {
-  const { t } = useTranslation('fees');
-  const navigate = useNavigate();
-
-  return (
-    <EmptyState
-      title={t('title')}
-      explanation={t('explanation')}
-      action={{ label: t('action'), onClick: () => void navigate({ to: '/settings' }) }}
-    />
-  );
-}
-
-function FeesPending() {
-  const { t } = useTranslation('nav');
-  return <RoutePending variant="list" label={t('routePending.label', { ns: 'nav' })} />;
-}

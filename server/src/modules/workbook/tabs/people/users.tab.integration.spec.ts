@@ -267,6 +267,48 @@ describe('usersTab (integration)', () => {
       expect(memberships).toHaveLength(1);
     });
 
+    it('[13.2.1] restores a former (soft-deleted) membership instead of hitting the unique index', async () => {
+      const user = await makeUser({ email: 'former@tenant-a.test', full_name: 'Former User' });
+      const membership = await makeMembership(user.id, TENANT_A, UserRole.TEACHER);
+      await userTenantRepo.softDelete({ id: membership.id });
+
+      const row = rowFor({ email: 'former@tenant-a.test', role: UserRole.TEACHER });
+      await usersTab.upsert(row, null, TENANT_A, dataSource.manager);
+
+      const rows = await userTenantRepo.find({ where: { user_id: user.id, tenant_id: TENANT_A } });
+      expect(rows.map((r) => r.id)).toEqual([membership.id]);
+      expect(rows[0].deleted_at).toBeNull();
+    });
+
+    it('[13.2.1] a role change onto a role with a soft-deleted row revives that row (no 23505)', async () => {
+      const user = await makeUser({ email: 'swap@tenant-a.test', full_name: 'Swap User' });
+      const old = await makeMembership(user.id, TENANT_A, UserRole.ADMIN);
+      await userTenantRepo.softDelete({ id: old.id });
+      const current = await makeMembership(user.id, TENANT_A, UserRole.TEACHER);
+
+      const row = rowFor({ email: 'swap@tenant-a.test', role: UserRole.ADMIN });
+      await usersTab.upsert(row, null, TENANT_A, dataSource.manager);
+
+      const active = await userTenantRepo.find({
+        where: { user_id: user.id, tenant_id: TENANT_A },
+      });
+      expect(active.map((r) => r.id)).toEqual([old.id]);
+      const gone = await userTenantRepo.findOne({ where: { id: current.id }, withDeleted: true });
+      expect(gone?.deleted_at).not.toBeNull();
+    });
+
+    it('[13.2.1] a stale extra role is soft-deleted, never hard-deleted', async () => {
+      const user = await makeUser({ email: 'stale@tenant-a.test', full_name: 'Stale User' });
+      await makeMembership(user.id, TENANT_A, UserRole.TEACHER);
+      const extra = await makeMembership(user.id, TENANT_A, UserRole.OFFICE_STAFF);
+
+      const row = rowFor({ email: 'stale@tenant-a.test', role: UserRole.TEACHER });
+      await usersTab.upsert(row, null, TENANT_A, dataSource.manager);
+
+      const kept = await userTenantRepo.findOne({ where: { id: extra.id }, withDeleted: true });
+      expect(kept?.deleted_at).not.toBeNull();
+    });
+
     it('updates the membership role in place rather than adding a second row', async () => {
       const user = await makeUser({ email: 'rerole@tenant-a.test', full_name: 'Rerole User' });
       await makeMembership(user.id, TENANT_A, UserRole.TEACHER);
@@ -361,6 +403,13 @@ describe('usersTab (integration)', () => {
         where: { user_id: shared.id, tenant_id: TENANT_A },
       });
       expect(membershipsA).toHaveLength(0);
+      // Soft-deleted, not gone: the member is now a restorable former member.
+      const formerA = await userTenantRepo.find({
+        where: { user_id: shared.id, tenant_id: TENANT_A },
+        withDeleted: true,
+      });
+      expect(formerA).toHaveLength(1);
+      expect(formerA[0].deleted_at).not.toBeNull();
 
       const stillB = await userTenantRepo.findOneByOrFail({ id: membershipB.id });
       expect(stillB.tenant_id).toBe(TENANT_B);

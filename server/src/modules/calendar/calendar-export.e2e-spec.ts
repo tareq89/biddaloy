@@ -120,7 +120,7 @@ describe('Calendar export/clone E2E (17.3.2)', () => {
       .set('X-Tenant-ID', TENANT_ID)
       .set('X-Role', UserRole.TEACHER)
       .send({ source_year_id: academicYearId, target_year_id: academicYearId })
-      .expect(401);
+      .expect(403);
   });
 
   it('rejects a clone whose target_year_id belongs to another tenant', async () => {

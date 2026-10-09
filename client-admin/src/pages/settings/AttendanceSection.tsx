@@ -2,48 +2,46 @@
  * [9.10] The "Attendance" settings section — a UI over [9.2]'s already-
  * shipped `AttendancePolicyDto` (no schema change here, plan's own
  * scoping note). Same partial-save shape as every other section on this
- * page (`RegionalSection.tsx`, `SmsSection.tsx`, ...): its own `FormShell`
- * that PATCHes `{ version: 1, attendance: {...} }` only, never the whole
+ * page (`RegionalSection.tsx`, `SmsSection.tsx`, ...): its own
+ * `SettingsSection` card that PATCHes `{ version: 1, attendance: {...} }` only, never the whole
  * `TenantSettingsInput` — a save here can't clobber `communications`/
  * `region`, which is what "changed fields only" means at this page's
  * granularity (per-section, not per-field within a section — matching
  * every existing section here, which all resubmit their whole own slice).
  *
  * `autoAbsentNotification.enabled` gets an explicit confirm step before it
- * can be checked ([9.10]'s own acceptance criterion) — same inline
- * confirm-panel pattern `academic-years/-year-form-dialog.tsx` already
- * uses for `is_current` (a side-effecting checkbox), reused rather than a
- * second confirmation idiom. Unchecking has no such side effect and stays
- * a direct toggle, same asymmetry as that dialog's own comment explains.
+ * can be checked ([9.10]'s own acceptance criterion): a `ConfirmDialog`
+ * (D29). Unchecking has no such side effect and stays a direct toggle.
  */
 import {
-  Button,
   Checkbox,
+  ConfirmDialog,
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
   Input,
-  Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  TimeInput,
 } from '@biddaloy/ui/components';
 import { useUpdateSchoolSettings, type AttendancePolicySettings } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
-import {
-  FormSection,
-  FormShell,
-  buildFormShellErrors,
-  useFormShellMode,
-  useWarnUnsavedChanges,
-} from '@biddaloy/ui/shells';
-import { boundedNumericString } from '@biddaloy/ui/utils';
+import { useFormShellMode, useWarnUnsavedChanges } from '@biddaloy/ui/shells';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
-import { MutationErrorMessage } from '../../components/MutationErrorMessage';
+import { latinBounded } from './latin-digits';
+import { SettingsSaved, SettingsSection } from './settings-layout';
+import { SettingsMutationError } from './settings-mutation-error';
 
 const HH_MM_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
 const WEEKDAYS = [0, 1, 2, 3, 4, 5, 6] as const;
@@ -71,8 +69,8 @@ const attendanceSchema = z.object({
   weeklyOff6: z.boolean(),
   lateAfter: z.string().regex(HH_MM_PATTERN),
   absentAfter: z.string().regex(HH_MM_PATTERN),
-  correctionWindowDays: boundedNumericString(0, 365),
-  lowAttendanceThresholdPercent: boundedNumericString(0, 100),
+  correctionWindowDays: latinBounded(0, 365),
+  lowAttendanceThresholdPercent: latinBounded(0, 100),
   lateCountsAsPresent: z.boolean(),
   leaveCountsAsWorkingDay: z.boolean(),
   allowFutureDates: z.boolean(),
@@ -196,206 +194,171 @@ export function AttendanceSection({ schoolId, attendance }: AttendanceSectionPro
     );
   }
 
-  const summaryErrors = buildFormShellErrors(
-    form.formState.errors,
-    (field) => `attendance-${field.replace(/\./g, '-')}`,
+  const weekdayField = (day: (typeof WEEKDAYS)[number]) => (
+    <FormField
+      key={day}
+      control={form.control}
+      name={WEEKDAY_FIELD[day]}
+      render={({ field }) => (
+        <FormItem className="flex min-h-11 flex-row items-center gap-3 md:min-h-8">
+          <FormControl>
+            <Checkbox
+              id={`attendance-weekly-off-${day}`}
+              checked={field.value}
+              onCheckedChange={(checked) => field.onChange(checked === true)}
+            />
+          </FormControl>
+          <FormLabel htmlFor={`attendance-weekly-off-${day}`} className="flex-1 self-stretch">
+            {t(WEEKDAY_LABEL_KEYS[day])}
+          </FormLabel>
+        </FormItem>
+      )}
+    />
+  );
+
+  const timeField = (name: 'lateAfter' | 'absentAfter' | 'autoAbsentCutoffTime', label: string) => (
+    <FormField
+      control={form.control}
+      name={name}
+      render={({ field }) => (
+        <FormItem>
+          <FormLabel htmlFor={`attendance-${name}`}>{label}</FormLabel>
+          <TimeInput
+            id={`attendance-${name}`}
+            aria-label={label}
+            value={field.value}
+            onValueChange={field.onChange}
+          />
+          <FormMessage />
+        </FormItem>
+      )}
+    />
+  );
+
+  const numberField = (
+    name: 'correctionWindowDays' | 'lowAttendanceThresholdPercent',
+    label: string,
+    help: string,
+  ) => (
+    <FormField
+      control={form.control}
+      name={name}
+      render={({ field }) => (
+        <FormItem>
+          <FormLabel htmlFor={`attendance-${name}`}>{label}</FormLabel>
+          <FormControl>
+            <Input id={`attendance-${name}`} inputMode="numeric" {...field} />
+          </FormControl>
+          <FormDescription>{help}</FormDescription>
+          <FormMessage />
+        </FormItem>
+      )}
+    />
+  );
+
+  const checkboxField = (
+    name: 'lateCountsAsPresent' | 'leaveCountsAsWorkingDay' | 'allowFutureDates',
+    label: string,
+  ) => (
+    <FormField
+      control={form.control}
+      name={name}
+      render={({ field }) => (
+        <FormItem className="flex min-h-11 flex-row items-center gap-3 md:col-span-2 md:min-h-8">
+          <FormControl>
+            <Checkbox
+              id={`attendance-${name}`}
+              checked={field.value}
+              onCheckedChange={(checked) => field.onChange(checked === true)}
+            />
+          </FormControl>
+          <FormLabel htmlFor={`attendance-${name}`} className="flex-1 self-stretch">
+            {label}
+          </FormLabel>
+        </FormItem>
+      )}
+    />
   );
 
   return (
     <Form {...form}>
-      <FormShell
-        errors={summaryErrors}
-        submitCount={form.formState.submitCount}
+      <SettingsSection
+        id="attendance-section"
+        title={t('attendance.legend')}
+        description={t('attendance.description')}
         onSubmit={(event) => void form.handleSubmit(handleSave)(event)}
+        saving={updateSettings.isPending}
+        footerStart={
+          <>
+            {updateSettings.isSuccess && <SettingsSaved />}
+            {updateSettings.isError && <SettingsMutationError error={updateSettings.error} />}
+          </>
+        }
       >
-        <FormSection legend={t('attendance.legend')}>
-          <fieldset className="grid gap-1.5">
-            <legend className="text-sm font-medium">{t('attendance.weeklyOffLegend')}</legend>
-            <div className="flex flex-wrap gap-3">
-              {WEEKDAYS.map((day) => (
-                <FormField
-                  key={day}
-                  control={form.control}
-                  name={WEEKDAY_FIELD[day]}
-                  render={({ field }) => (
-                    <FormItem className="flex items-center gap-1.5">
-                      <FormControl>
-                        <Checkbox
-                          id={`attendance-weekly-off-${day}`}
-                          checked={field.value}
-                          onCheckedChange={(checked) => field.onChange(checked === true)}
-                        />
-                      </FormControl>
-                      <FormLabel htmlFor={`attendance-weekly-off-${day}`} className="text-sm">
-                        {t(WEEKDAY_LABEL_KEYS[day])}
-                      </FormLabel>
-                    </FormItem>
-                  )}
-                />
-              ))}
-            </div>
-          </fieldset>
+        <fieldset className="mt-4">
+          <legend className="text-label text-text-primary">
+            {t('attendance.weeklyOffLegend')}
+          </legend>
+          <div className="mt-1.5 grid grid-cols-2 gap-x-4 md:flex md:flex-wrap md:gap-x-6">
+            {WEEKDAYS.map((day) => weekdayField(day))}
+          </div>
+        </fieldset>
 
-          <FormField
-            control={form.control}
-            name="lateAfter"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel htmlFor="attendance-lateAfter">{t('attendance.lateAfter')}</FormLabel>
-                <FormControl>
-                  <Input id="attendance-lateAfter" type="time" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="absentAfter"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel htmlFor="attendance-absentAfter">
-                  {t('attendance.absentAfter')}
-                </FormLabel>
-                <FormControl>
-                  <Input id="attendance-absentAfter" type="time" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="correctionWindowDays"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel htmlFor="attendance-correctionWindowDays">
-                  {t('attendance.correctionWindowDays')}
-                </FormLabel>
-                <FormControl>
-                  <Input
-                    id="attendance-correctionWindowDays"
-                    type="number"
-                    min={0}
-                    max={365}
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="lowAttendanceThresholdPercent"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel htmlFor="attendance-lowAttendanceThresholdPercent">
-                  {t('attendance.lowAttendanceThresholdPercent')}
-                </FormLabel>
-                <FormControl>
-                  <Input
-                    id="attendance-lowAttendanceThresholdPercent"
-                    type="number"
-                    min={0}
-                    max={100}
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
+          {timeField('lateAfter', t('attendance.lateAfter'))}
+          {timeField('absentAfter', t('attendance.absentAfter'))}
+          {numberField(
+            'correctionWindowDays',
+            t('attendance.correctionWindowDays'),
+            t('attendance.correctionWindowHelp'),
+          )}
+          {numberField(
+            'lowAttendanceThresholdPercent',
+            t('attendance.lowAttendanceThresholdPercent'),
+            t('attendance.lowAttendanceHelp'),
+          )}
           <FormField
             control={form.control}
             name="percentageDenominator"
             render={({ field }) => (
-              <FormItem>
+              <FormItem className="md:col-span-2">
                 <FormLabel htmlFor="attendance-percentageDenominator">
                   {t('attendance.percentageDenominator')}
                 </FormLabel>
-                <FormControl>
-                  <select
-                    id="attendance-percentageDenominator"
-                    className="h-8 rounded-md border border-input bg-card px-2.5 text-sm"
-                    {...field}
-                  >
-                    <option value="WORKING_DAYS">
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <FormControl>
+                    <SelectTrigger id="attendance-percentageDenominator">
+                      <SelectValue />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="WORKING_DAYS">
                       {t('attendance.percentageDenominatorWorkingDays')}
-                    </option>
-                    <option value="MARKED_DAYS">
+                    </SelectItem>
+                    <SelectItem value="MARKED_DAYS">
                       {t('attendance.percentageDenominatorMarkedDays')}
-                    </option>
-                  </select>
-                </FormControl>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
                 <FormMessage />
               </FormItem>
             )}
           />
+          {checkboxField('lateCountsAsPresent', t('attendance.lateCountsAsPresent'))}
+          {checkboxField('leaveCountsAsWorkingDay', t('attendance.leaveCountsAsWorkingDay'))}
+          {checkboxField('allowFutureDates', t('attendance.allowFutureDates'))}
+        </div>
 
-          <FormField
-            control={form.control}
-            name="lateCountsAsPresent"
-            render={({ field }) => (
-              <FormItem className="flex items-center gap-2">
-                <FormControl>
-                  <Checkbox
-                    id="attendance-lateCountsAsPresent"
-                    checked={field.value}
-                    onCheckedChange={(checked) => field.onChange(checked === true)}
-                  />
-                </FormControl>
-                <FormLabel htmlFor="attendance-lateCountsAsPresent">
-                  {t('attendance.lateCountsAsPresent')}
-                </FormLabel>
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="leaveCountsAsWorkingDay"
-            render={({ field }) => (
-              <FormItem className="flex items-center gap-2">
-                <FormControl>
-                  <Checkbox
-                    id="attendance-leaveCountsAsWorkingDay"
-                    checked={field.value}
-                    onCheckedChange={(checked) => field.onChange(checked === true)}
-                  />
-                </FormControl>
-                <FormLabel htmlFor="attendance-leaveCountsAsWorkingDay">
-                  {t('attendance.leaveCountsAsWorkingDay')}
-                </FormLabel>
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="allowFutureDates"
-            render={({ field }) => (
-              <FormItem className="flex items-center gap-2">
-                <FormControl>
-                  <Checkbox
-                    id="attendance-allowFutureDates"
-                    checked={field.value}
-                    onCheckedChange={(checked) => field.onChange(checked === true)}
-                  />
-                </FormControl>
-                <FormLabel htmlFor="attendance-allowFutureDates">
-                  {t('attendance.allowFutureDates')}
-                </FormLabel>
-              </FormItem>
-            )}
-          />
-        </FormSection>
-
-        <FormSection legend={t('attendance.autoAbsentLegend')}>
+        <h3 className="mt-6 border-t border-border-subtle pt-4 text-h3">
+          {t('attendance.autoAbsentLegend')}
+        </h3>
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
           <FormField
             control={form.control}
             name="autoAbsentEnabled"
             render={({ field }) => (
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center gap-2">
+              <FormItem className="flex min-h-11 flex-row items-center gap-3 md:col-span-2 md:min-h-8">
+                <FormControl>
                   <Checkbox
                     id="attendance-autoAbsentEnabled"
                     checked={field.value}
@@ -403,58 +366,26 @@ export function AttendanceSection({ schoolId, attendance }: AttendanceSectionPro
                       handleAutoAbsentChange(checked === true, field.onChange)
                     }
                   />
-                  <Label htmlFor="attendance-autoAbsentEnabled">
-                    {t('attendance.autoAbsentEnabled')}
-                  </Label>
-                </div>
-                {confirmingAutoAbsent && (
-                  <div className="rounded-md border border-border-subtle bg-muted p-3 text-sm">
-                    <p>{t('attendance.confirmEnableNotificationDescription')}</p>
-                    <div className="mt-2 flex gap-2">
-                      <Button
-                        type="button"
-                        size="sm"
-                        onClick={() => handleConfirmAutoAbsent(field.onChange)}
-                      >
-                        {t('attendance.confirmEnableNotificationConfirm')}
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setConfirmingAutoAbsent(false)}
-                      >
-                        {t('attendance.confirmEnableNotificationCancel')}
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="autoAbsentCutoffTime"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel htmlFor="attendance-autoAbsentCutoffTime">
-                  {t('attendance.autoAbsentCutoffTime')}
-                </FormLabel>
-                <FormControl>
-                  <Input id="attendance-autoAbsentCutoffTime" type="time" {...field} />
                 </FormControl>
-                <FormMessage />
+                <FormLabel htmlFor="attendance-autoAbsentEnabled" className="flex-1 self-stretch">
+                  {t('attendance.autoAbsentEnabled')}
+                </FormLabel>
+                <ConfirmDialog
+                  open={confirmingAutoAbsent}
+                  onOpenChange={setConfirmingAutoAbsent}
+                  title={t('attendance.confirmEnableNotificationTitle')}
+                  description={t('attendance.confirmEnableNotificationDescription')}
+                  confirmLabel={t('attendance.confirmEnableNotificationConfirm')}
+                  cancelLabel={t('attendance.confirmEnableNotificationCancel')}
+                  tone="default"
+                  onConfirm={() => handleConfirmAutoAbsent(field.onChange)}
+                />
               </FormItem>
             )}
           />
-        </FormSection>
-
-        <Button type="submit" loading={updateSettings.isPending}>
-          {t('save.action')}
-        </Button>
-        {updateSettings.isSuccess && <p role="status">{t('save.success')}</p>}
-        {updateSettings.isError && <MutationErrorMessage error={updateSettings.error} />}
-      </FormShell>
+          {timeField('autoAbsentCutoffTime', t('attendance.autoAbsentCutoffTime'))}
+        </div>
+      </SettingsSection>
     </Form>
   );
 }

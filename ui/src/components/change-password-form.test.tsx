@@ -11,20 +11,30 @@ afterEach(async () => {
 });
 
 describe('ChangePasswordForm', () => {
+  it('[31.2.14a] titles the card with an h2 and a right-aligned auto-width submit', async () => {
+    renderWithProviders(<ChangePasswordForm onSubmit={vi.fn()} />, { locale: 'en' });
+    expect(
+      (await screen.findByRole('heading', { level: 2, name: 'Change password' })).tagName,
+    ).toBe('H2');
+    expect(screen.getByRole('button', { name: 'Change password' }).className).toContain(
+      'md:w-auto',
+    );
+  });
+
   it('submits { current_password, new_password } only — never the confirm field', async () => {
     const onSubmit = vi.fn();
     const user = userEvent.setup();
     renderWithProviders(<ChangePasswordForm onSubmit={onSubmit} />, { locale: 'en' });
 
     await user.type(await screen.findByLabelText('Current password'), 'old-pass');
-    await user.type(screen.getByLabelText('New password'), 'new-pass');
-    await user.type(screen.getByLabelText('Confirm new password'), 'new-pass');
+    await user.type(screen.getByLabelText('New password'), 'New-pass1!');
+    await user.type(screen.getByLabelText('Confirm new password'), 'New-pass1!');
     await user.click(screen.getByRole('button', { name: 'Change password' }));
 
     await waitFor(() =>
       expect(onSubmit).toHaveBeenCalledWith({
         current_password: 'old-pass',
-        new_password: 'new-pass',
+        new_password: 'New-pass1!',
       }),
     );
   });
@@ -35,12 +45,25 @@ describe('ChangePasswordForm', () => {
     renderWithProviders(<ChangePasswordForm onSubmit={onSubmit} />, { locale: 'en' });
 
     await user.type(await screen.findByLabelText('Current password'), 'old-pass');
-    await user.type(screen.getByLabelText('New password'), 'new-pass');
+    await user.type(screen.getByLabelText('New password'), 'New-pass1!');
     await user.type(screen.getByLabelText('Confirm new password'), 'different');
     await user.click(screen.getByRole('button', { name: 'Change password' }));
 
     expect(await screen.findByText('Passwords do not match')).toBeTruthy();
     expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it('reports match / mismatch live, in a polite region, as the confirm field changes', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<ChangePasswordForm onSubmit={vi.fn()} />, { locale: 'en' });
+
+    await user.type(await screen.findByLabelText('New password'), 'New-pass1!');
+    await user.type(screen.getByLabelText('Confirm new password'), 'New-pass');
+    const status = screen.getByText('Passwords do not match.').closest('[aria-live]');
+    expect(status?.getAttribute('aria-live')).toBe('polite');
+
+    await user.type(screen.getByLabelText('Confirm new password'), '1!');
+    expect(status?.textContent).toBe('Passwords match');
   });
 
   it('shows required-field errors on an empty submit, and does not invent a strength policy', async () => {
@@ -54,6 +77,22 @@ describe('ChangePasswordForm', () => {
       expect(screen.getByText('Enter your current password')).toBeTruthy();
       expect(screen.getByText('Enter a new password')).toBeTruthy();
     });
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it('shows the live rules under the new password and blocks a weak one', async () => {
+    const onSubmit = vi.fn();
+    const user = userEvent.setup();
+    renderWithProviders(<ChangePasswordForm onSubmit={onSubmit} />, { locale: 'en' });
+
+    await user.type(await screen.findByLabelText('Current password'), 'old-pass');
+    await user.type(screen.getByLabelText('New password'), 'weak');
+    expect(screen.getByText('At least 8 characters')).toBeTruthy();
+    expect(screen.getAllByRole('listitem')).toHaveLength(5);
+    await user.type(screen.getByLabelText('Confirm new password'), 'weak');
+    await user.click(screen.getByRole('button', { name: 'Change password' }));
+
+    await waitFor(() => expect(screen.getAllByText('At least 8 characters').length).toBe(2));
     expect(onSubmit).not.toHaveBeenCalled();
   });
 

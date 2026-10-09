@@ -13,10 +13,9 @@ import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
 import { ApiForbiddenResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
-import { AuditAction, JwtPayload, Permission, UserRole } from '@biddaloy/shared';
+import { AuditAction, JwtPayload, Permission } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../../auth/guards/context.guard';
 import { PermissionsGuard } from '../../auth/guards/permissions.guard';
-import { Roles } from '../../auth/decorators/roles.decorator';
 import { RequirePermissions } from '../../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
@@ -52,7 +51,6 @@ export class ProviderConnectionTestController {
 
   @Post(':id/settings/test')
   @HttpCode(HttpStatus.OK)
-  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
   @RequirePermissions(Permission.SETTINGS_MANAGE)
   // Tighter than settings GET/PATCH's STRICT_RATE_LIMIT — this is the one
   // endpoint that makes a real outbound call to a third party per request.

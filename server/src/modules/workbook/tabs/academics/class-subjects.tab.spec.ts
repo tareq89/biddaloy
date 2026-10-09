@@ -74,6 +74,8 @@ function makeClassSubject(overrides: Partial<ClassSubject> = {}): ClassSubject {
     subject: makeSubject(),
     is_optional: false,
     is_graded_only: false,
+    group_name: null,
+    choice_group: null,
     tenant_id: TENANT_ID,
     ...overrides,
   } satisfies Partial<ClassSubject>);
@@ -141,6 +143,8 @@ describe('round trip', () => {
         subject_id: SUBJECT_ID,
         is_optional: false,
         is_graded_only: false,
+        group_name: null,
+        choice_group: null,
         class_key: 'Class 10|2026-2027',
         academic_year_key: '2026-2027',
         subject_key: 'MATH',
@@ -200,6 +204,8 @@ describe('diffFields', () => {
       subject_id: SUBJECT_ID,
       is_optional: false,
       is_graded_only: false,
+      group_name: null,
+      choice_group: null,
       class_key: 'unused',
       academic_year_key: 'unused',
       subject_key: 'unused',
@@ -217,6 +223,8 @@ describe('diffFields', () => {
       subject_id: SUBJECT_ID,
       is_optional: true,
       is_graded_only: false,
+      group_name: null,
+      choice_group: null,
       class_key: 'unused',
       academic_year_key: 'unused',
       subject_key: 'unused',
@@ -234,11 +242,92 @@ describe('diffFields', () => {
       subject_id: SUBJECT_ID,
       is_optional: false,
       is_graded_only: true,
+      group_name: null,
+      choice_group: null,
       class_key: 'unused',
       academic_year_key: 'unused',
       subject_key: 'unused',
     };
 
     expect(classSubjectsTab.diffFields(row, classSubject)).toEqual(['is_graded_only']);
+  });
+
+  it('reports a changed group_name', () => {
+    const classSubject = makeClassSubject({ group_name: 'Science' });
+    const row: ClassSubjectRow = {
+      id: CLASS_SUBJECT_ID,
+      class_id: CLASS_ID,
+      academic_year_id: YEAR_ID,
+      subject_id: SUBJECT_ID,
+      is_optional: false,
+      is_graded_only: false,
+      group_name: null,
+      choice_group: null,
+      class_key: 'unused',
+      academic_year_key: 'unused',
+      subject_key: 'unused',
+    };
+
+    expect(classSubjectsTab.diffFields(row, classSubject)).toEqual(['group_name']);
+  });
+
+  it('round-trips group_name, and a blank cell restores as null', () => {
+    const withGroup = classSubjectsTab.fromRow(
+      toCells(makeClassSubject({ group_name: 'Science' })),
+      2,
+      makeImportCtx(),
+    );
+    expect(withGroup).toMatchObject({ row: { group_name: 'Science' } });
+
+    const blank = classSubjectsTab.fromRow(toCells(makeClassSubject()), 2, makeImportCtx());
+    expect(blank).toMatchObject({ row: { group_name: null } });
+  });
+
+  it('rejects a row that is both group-specific and optional', () => {
+    const cells = toCells(makeClassSubject({ group_name: 'Science', is_optional: true }));
+    const result = classSubjectsTab.fromRow(cells, 7, makeImportCtx());
+    expect(result).toMatchObject({
+      errors: [{ row: 7, column: 'group_name', severity: 'error' }],
+    });
+  });
+
+  it('round-trips choice_group, and a blank cell restores as null', () => {
+    const withChoice = classSubjectsTab.fromRow(
+      toCells(makeClassSubject({ choice_group: 'Religion' })),
+      2,
+      makeImportCtx(),
+    );
+    expect(withChoice).toMatchObject({ row: { choice_group: 'Religion' } });
+
+    const blank = classSubjectsTab.fromRow(toCells(makeClassSubject()), 2, makeImportCtx());
+    expect(blank).toMatchObject({ row: { choice_group: null } });
+
+    const oldBackup = toCells(makeClassSubject());
+    delete oldBackup.choice_group;
+    expect(classSubjectsTab.fromRow(oldBackup, 2, makeImportCtx())).toMatchObject({
+      row: { choice_group: null },
+    });
+  });
+
+  it('rejects a choice group combined with is_optional or group_name', () => {
+    for (const overrides of [{ is_optional: true }, { group_name: 'Science' }]) {
+      const result = classSubjectsTab.fromRow(
+        toCells(makeClassSubject({ choice_group: 'Religion', ...overrides })),
+        2,
+        makeImportCtx(),
+      );
+      expect(result).toMatchObject({ errors: [{ column: 'choice_group', severity: 'error' }] });
+    }
+  });
+
+  it('reports a changed choice_group', () => {
+    const row = classSubjectsTab.fromRow(
+      toCells(makeClassSubject({ choice_group: 'Religion' })),
+      2,
+      makeImportCtx(),
+    );
+    expect('row' in row && classSubjectsTab.diffFields(row.row, makeClassSubject())).toEqual([
+      'choice_group',
+    ]);
   });
 });

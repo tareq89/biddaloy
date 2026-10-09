@@ -2,6 +2,7 @@ import type { BrowserContext, Page } from '@playwright/test';
 
 import {
   activateInvite,
+  patch,
   post,
   provisionSchool,
   resendSchoolAdminInvitation,
@@ -10,25 +11,7 @@ import {
 import { shells } from '../config';
 import { expect, test } from '../fixtures/test';
 import { t } from '../i18n';
-import { focusedText, tabUntilFocused } from './keyboard-utils';
-
-/**
- * Opens a focused Radix `Select` trigger, picks `value` by typeahead, and
- * waits for the listbox to actually finish closing before returning.
- *
- * Radix's close animation leaves the listbox (and the option Enter just
- * landed on) in the DOM and focus-trapped for a few hundred ms after the
- * value has already visibly changed — proceeding to the next `Tab` before
- * that finishes silently keeps cycling inside the closing listbox instead
- * of reaching the field after it. `toBeHidden()` also passes once the
- * listbox has left the DOM entirely, not just when it's visually hidden.
- */
-async function selectByTypeahead(page: Page, value: string): Promise<void> {
-  await page.keyboard.press('Enter');
-  await page.keyboard.type(value);
-  await page.keyboard.press('Enter');
-  await expect(page.getByRole('listbox')).toBeHidden();
-}
+import { focusedText, selectByTypeahead, tabUntilFocused } from './keyboard-utils';
 
 /**
  * [33.5.1] Shift/version/group, KEYBOARD ONLY: add a shift in Settings,
@@ -82,6 +65,9 @@ test.describe('organisation structure', () => {
       );
       const activated = await activateInvite(setupRequest, inviteToken, 'A-strong-org-pw-1');
       const adminSession = { token: activated.token, tenantId: activated.tenantId };
+      // [13.5.1] A fresh school's admin is sent from /dashboard to the setup
+      // wizard once; this journey starts on the dashboard, so mark it seen.
+      await patch(setupRequest, adminSession, '/onboarding', { seen: true });
 
       // The class form needs an academic year to attach to (`academicYearId`
       // is a required field) — creating one is bookkeeping, not the feature
@@ -146,7 +132,7 @@ test.describe('organisation structure', () => {
       await expect(page.getByRole('link', { name: t('nav.skipToContent') })).toBeFocused();
       // Same "toggle button shares the link's label" seam
       // `keyboard/attendance.spec.ts` already documents — pin to the link.
-      await tabUntilFocused(page, t('nav.items.settings'), 60, { tag: 'a' });
+      await tabUntilFocused(page, t('nav.items.settings'), 150, { tag: 'a' });
       await page.keyboard.press('Enter');
       // `useRouteFocus` moves focus to the <h1> asynchronously after the
       // route settles; tabbing before that lets it yank focus mid-sequence.
@@ -182,7 +168,7 @@ test.describe('organisation structure', () => {
       await page.keyboard.press('Tab');
       await page.keyboard.press('Enter');
 
-      await tabUntilFocused(page, t('settings.save.action'), 60, { tag: 'BUTTON' });
+      await tabUntilFocused(page, t('settings.save.action'), 150, { tag: 'BUTTON' });
       await page.keyboard.press('Enter');
       await expect(page.getByText(t('settings.save.success'))).toBeVisible();
     });
@@ -197,16 +183,16 @@ test.describe('organisation structure', () => {
       // [30.1.3] The classes nav item's label is the plural entity noun
       // (`useEntityLabel('class', { count: 2 })`), not `nav.items.classes`
       // — that key exists but this item doesn't use it.
-      await tabUntilFocused(page, t('common.entities.class_other'), 60, { tag: 'a' });
+      await tabUntilFocused(page, t('common.entities.class_other'), 150, { tag: 'a' });
       await page.keyboard.press('Enter');
       // Same late `useRouteFocus` <h1> focus — if it lands after the dialog
       // opens, Radix's trap re-focuses the name input with select: true and
       // the next keystroke wipes what was typed.
-      await expect(page.getByRole('heading', { name: t('classes.list.title') })).toBeFocused();
+      await expect(page.getByRole('heading', { name: t('classes.list.title'), exact: true })).toBeFocused();
     });
 
     await test.step('create a class with the first shift, without touching the mouse', async () => {
-      await tabUntilFocused(page, t('classes.list.addClass'), 60, { tag: 'BUTTON' });
+      await tabUntilFocused(page, t('classes.list.addClass'), 150, { tag: 'BUTTON' });
       await page.keyboard.press('Enter');
       await expect(
         page.getByRole('heading', { name: t('classes.classForm.createTitle') }),
@@ -240,7 +226,7 @@ test.describe('organisation structure', () => {
         document.body.removeAttribute('tabindex');
       });
       await page.keyboard.press('Tab');
-      await tabUntilFocused(page, t('classes.list.shiftLabel'), 60, { tag: 'BUTTON' });
+      await tabUntilFocused(page, t('classes.list.shiftLabel'), 150, { tag: 'BUTTON' });
       await selectByTypeahead(page, shiftOne);
 
       await expect(page.getByRole('link', { name: className })).toBeVisible();

@@ -32,7 +32,7 @@ describe('SmsCreditSection', () => {
       tenantId: SCHOOL_ID,
     });
 
-    expect(await screen.findByText('Own provider / unmetered')).toBeTruthy();
+    expect(await screen.findByText("School's own SMS company — no credit needed")).toBeTruthy();
     expect(screen.queryByText('Available')).toBeNull();
   });
 
@@ -54,7 +54,7 @@ describe('SmsCreditSection', () => {
       tenantId: SCHOOL_ID,
     });
 
-    expect(await screen.findByText('Platform credits')).toBeTruthy();
+    expect(await screen.findByText('Platform credit')).toBeTruthy();
     // Region defaults to Bengali numerals regardless of UI locale — this
     // is the exact behavior #570 fixed (raw Latin digits before).
     await waitFor(() => expect(screen.getByText('২৫০')).toBeTruthy());
@@ -92,5 +92,42 @@ describe('SmsCreditSection', () => {
 
     await waitFor(() => expect(screen.getByText('৪০')).toBeTruthy());
     expect(hitTenantRoute).toBe(false);
+  });
+
+  it('shows the reference type and never the record id in the ledger', async () => {
+    server.use(
+      http.get('/api/v1/communications/sms-credits', () =>
+        HttpResponse.json({
+          metering: 'PLATFORM',
+          available: 10,
+          reserved: 0,
+          ledger: {
+            data: [
+              {
+                id: 'l1',
+                kind: 'RESERVE',
+                units: -3,
+                reference_type: 'batch',
+                reference_id: '11111111-2222-4333-8444-555555555555',
+                reason: null,
+                created_at: '2026-01-15T00:00:00.000Z',
+              },
+            ],
+            total: 1,
+            page: 1,
+            limit: 25,
+            totalPages: 1,
+          },
+        }),
+      ),
+    );
+    renderWithProviders(<SmsCreditSection schoolId={SCHOOL_ID} />, {
+      locale: 'en',
+      role: 'ADMIN',
+      tenantId: SCHOOL_ID,
+    });
+
+    expect(await screen.findByText('Reminder round')).toBeTruthy();
+    expect(screen.queryByText(/11111111-2222/)).toBeNull();
   });
 });

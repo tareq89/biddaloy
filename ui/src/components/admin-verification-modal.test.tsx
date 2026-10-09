@@ -30,7 +30,7 @@ describe('AdminVerificationModal', () => {
     expect(screen.queryByLabelText('Password')).toBeNull();
   });
 
-  it('falls back to a generic label for a scope it doesn\'t know', async () => {
+  it("falls back to a generic label for a scope it doesn't know", async () => {
     renderWithProviders(
       <AdminVerificationModal
         open
@@ -150,5 +150,28 @@ describe('AdminVerificationModal', () => {
 
     await user.click(await screen.findByRole('button', { name: 'Cancel' }));
     expect(onCancel).toHaveBeenCalled();
+  });
+
+  it('uses the scope label when its approval.json entry exists, the fallback for an unknown scope', async () => {
+    const props = {
+      open: true,
+      scope: 'fees.discount',
+      onRequestOtp: vi.fn(),
+      onVerify: vi.fn(),
+      onSuccess: vi.fn(),
+      onCancel: vi.fn(),
+    };
+    // [31.4] The payments lane shipped the fees.discount / payments.reverse entries, so the
+    // "entry missing yet" half of this test now uses a scope the modal does not know.
+    const { unmount } = renderWithProviders(<AdminVerificationModal {...props} />, {
+      locale: 'en',
+    });
+    await screen.findByText('Approve: discount on a payment');
+    unmount();
+
+    renderWithProviders(<AdminVerificationModal {...props} scope="not.a_known_scope" />, {
+      locale: 'en',
+    });
+    await screen.findByText('Approve: not.a_known_scope');
   });
 });

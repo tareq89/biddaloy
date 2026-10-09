@@ -353,6 +353,32 @@ describe('SearchService', () => {
     expect(result.students).toBeDefined();
   });
 
+  // [#1362] Per-role table: which roles get the staff group. Empty q => present-but-empty.
+  describe('staff group per role', () => {
+    const TABLE: Array<[UserRole, boolean]> = [
+      [UserRole.ADMIN, true],
+      [UserRole.ACCOUNTANT, true],
+      [UserRole.EXECUTIVE, true],
+      [UserRole.TEACHER, true],
+      [UserRole.OFFICE_STAFF, true], // new in #1362
+      [UserRole.EXAM_CONTROLLER, true], // new in #1362
+      [UserRole.COMMITTEE, false], // D9: never
+      [UserRole.PARENT, false],
+      [UserRole.STUDENT, false],
+    ];
+    it.each(TABLE)('%s: staff group=%s', async (role, has) => {
+      const result = await service.search(SEED_TENANT_ID, role, {});
+      expect(result.staff !== undefined).toBe(has);
+    });
+  });
+
+  it('COMMITTEE gets no student/guardian/staff group (D9: no student PII)', async () => {
+    const result = await service.search(SEED_TENANT_ID, UserRole.COMMITTEE, { q: 'anything' });
+    expect(result.students).toBeUndefined();
+    expect(result.guardians).toBeUndefined();
+    expect(result.staff).toBeUndefined();
+  });
+
   describe('tenant isolation', () => {
     it('guardians branch: does not return a same-named/phoned guardian from another tenant', async () => {
       await makeGuardian({

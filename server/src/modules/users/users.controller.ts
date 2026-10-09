@@ -10,6 +10,7 @@ import {
   UseGuards,
   HttpCode,
   Req,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
@@ -50,11 +51,17 @@ import {
   InvitePreviewResponseDto,
 } from '../account-access/dto/batch-invite.dto';
 import { TeacherListResponseDto, TeacherResponseDto } from './dto/teacher-response.dto';
-import { UserRole, JwtPayload, Permission } from '@biddaloy/shared';
+import { JwtPayload, Permission, STAFF_ROLES, GUARDIAN_ROLES } from '@biddaloy/shared';
 import { SETTINGS_RATE_LIMIT, STRICT_RATE_LIMIT } from '../../rate-limit';
 import { InvitationService } from '../account-access/invitation.service';
 import { GuardianProvisioningService } from '../account-access/guardian-provisioning.service';
 import { BatchInviteDto } from '../account-access/dto/batch-invite.dto';
+import { StaffProfilesService } from '../staff-profiles/staff-profiles.service';
+
+/** The `users/me` routes act on the caller's own record (id from the JWT), so
+ * every tenant role belongs on them. Derived, not hand-listed, so a new role
+ * cannot be shut out of its own profile again (#1379 F2). */
+const SELF_SERVICE_ROLES = [...STAFF_ROLES, ...GUARDIAN_ROLES];
 
 @ApiTags('users')
 @ApiTenantAuth()
@@ -68,13 +75,13 @@ export class UserController {
     private readonly recoveryService: RecoveryService,
     private readonly guardianProvisioningService: GuardianProvisioningService,
     private readonly contactChangeService: ContactChangeService,
+    private readonly staffProfilesService: StaffProfilesService,
   ) {}
 
   // --- User endpoints ---
 
   @Post('users')
   // [10.4] G1 — E tightened off: lacks USER_CREATE.
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.USER_CREATE)
   async createUser(
     @Body() dto: CreateUserDto,
@@ -112,7 +119,6 @@ export class UserController {
   @Post('users/:id/invitation/resend')
   // [10.4] G16 — resending an invite is part of creating a member; G1
   // tightens E off.
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.USER_CREATE)
   @HttpCode(200)
   @Throttle({ default: STRICT_RATE_LIMIT })
@@ -132,7 +138,6 @@ export class UserController {
   }
 
   @Post('users/:id/reset-password')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.USER_UPDATE)
   @HttpCode(200)
   @Throttle({ default: STRICT_RATE_LIMIT })
@@ -161,7 +166,6 @@ export class UserController {
   @Delete('users/:id/invitation')
   // [10.4] G16 — revoking an invite is part of creating a member; G1
   // tightens E off.
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.USER_CREATE)
   @ApiOperation({ summary: 'Revoke any live invitation link for this user.' })
   async revokeInvitation(
@@ -175,7 +179,6 @@ export class UserController {
   @Get('users')
   // [10.4] G7 — AC, E, T tightened off: `/staff` is hidden from them, and no
   // other page calls this route for those roles.
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.USER_READ)
   async findAllUsers(
     @Query() query: QueryUserDto,
@@ -183,11 +186,15 @@ export class UserController {
   ) {
     const result = await this.userService.findAll(query, tenant.id);
     const statusByUserId = await this.invitationService.statusForMany(result.data, tenant.id);
+    const staffProfileIdByUserId = await this.staffProfilesService.findIdsByUserIds(
+      result.data.map((u) => u.id),
+    );
     return {
       ...result,
       data: result.data.map((u) => {
         const dto = UserResponseDto.fromEntity(u, tenant.id);
         dto.invitation_status = statusByUserId.get(u.id) ?? 'NONE';
+        dto.staff_profile_id = staffProfileIdByUserId.get(u.id) ?? null;
         return dto;
       }),
     };
@@ -200,7 +207,6 @@ export class UserController {
    * `GET users/me` below. [12.6]
    */
   @Post('users/invitations/preview')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.USER_CREATE)
   @ApiOperation({
     summary:
@@ -215,7 +221,6 @@ export class UserController {
   }
 
   @Post('users/invitations/batch')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.USER_CREATE)
   @HttpCode(202)
   @Throttle({ default: STRICT_RATE_LIMIT })
@@ -237,7 +242,6 @@ export class UserController {
   }
 
   @Get('users/invitations/batch/:batchId')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.USER_CREATE)
   @ApiOperation({ summary: 'Progress of a previously dispatched invitation batch.' })
   @ApiOkResponse({ type: InviteBatchStatusResponseDto })
@@ -254,14 +258,7 @@ export class UserController {
    * in declaration order) would otherwise capture `me` as a user id. [5.4a]
    */
   @Get('users/me')
-  @Roles(
-    UserRole.ADMIN,
-    UserRole.ACCOUNTANT,
-    UserRole.EXECUTIVE,
-    UserRole.TEACHER,
-    UserRole.PARENT,
-    UserRole.STUDENT,
-  )
+  @Roles(...SELF_SERVICE_ROLES)
   @ApiOperation({
     summary:
       "Read the calling user's own record. The id comes from the JWT, never the path — a caller can only ever read themselves.",
@@ -274,6 +271,7 @@ export class UserController {
     const user = await this.userService.findOne(jwt.sub, tenant.id);
     const dto = UserResponseDto.fromEntity(user, tenant.id);
     dto.invitation_status = await this.invitationService.statusFor(user, tenant.id);
+    dto.staff_profile_id = await this.staffProfilesService.findIdByUserId(user.id);
     return dto;
   }
 
@@ -296,14 +294,7 @@ export class UserController {
    */
   @Patch('users/me')
   @Throttle({ default: SETTINGS_RATE_LIMIT })
-  @Roles(
-    UserRole.ADMIN,
-    UserRole.ACCOUNTANT,
-    UserRole.EXECUTIVE,
-    UserRole.TEACHER,
-    UserRole.PARENT,
-    UserRole.STUDENT,
-  )
+  @Roles(...SELF_SERVICE_ROLES)
   @ApiOperation({
     summary:
       "Update the calling user's own record. Only full_name/profile_picture_url are accepted — email/phone are rejected with 400 by forbidNonWhitelisted; use POST /users/me/contact-change to change either. [12.7]",
@@ -329,14 +320,7 @@ export class UserController {
   @Post('users/me/contact-change')
   @HttpCode(202)
   @Throttle({ default: SETTINGS_RATE_LIMIT })
-  @Roles(
-    UserRole.ADMIN,
-    UserRole.ACCOUNTANT,
-    UserRole.EXECUTIVE,
-    UserRole.TEACHER,
-    UserRole.PARENT,
-    UserRole.STUDENT,
-  )
+  @Roles(...SELF_SERVICE_ROLES)
   @ApiOperation({
     summary:
       'Requests a change to the caller own email or phone. Sends an OTP (phone) or a confirm link (email) to the NEW value; nothing is written to the account until confirmed.',
@@ -353,14 +337,7 @@ export class UserController {
   @Post('users/me/contact-change/confirm-phone')
   @HttpCode(200)
   @Throttle({ default: STRICT_RATE_LIMIT })
-  @Roles(
-    UserRole.ADMIN,
-    UserRole.ACCOUNTANT,
-    UserRole.EXECUTIVE,
-    UserRole.TEACHER,
-    UserRole.PARENT,
-    UserRole.STUDENT,
-  )
+  @Roles(...SELF_SERVICE_ROLES)
   @ApiOperation({
     summary: 'Confirms a pending phone change with the OTP sent to the new number.',
   })
@@ -372,9 +349,23 @@ export class UserController {
     await this.contactChangeService.confirmPhone(jwt.sub, dto.otp, requestContext(request));
   }
 
+  /** [13.2.1, D16] Staff leave a school themselves. Declared above `users/:id`. */
+  @Post('users/me/leave')
+  @HttpCode(204)
+  @Roles(...SELF_SERVICE_ROLES)
+  @ApiOperation({
+    summary:
+      "Leave this school (staff only). Soft-deletes the caller's membership; the last admin cannot leave.",
+  })
+  async leaveSchool(
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() jwt: JwtPayload,
+  ): Promise<void> {
+    await this.userService.leave(jwt.sub, tenant.id);
+  }
+
   @Get('users/:id')
   // [10.4] G7 — AC, E, T tightened off; see findAllUsers() above.
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.USER_READ)
   @ApiResponse({ status: 200, type: UserResponseDto })
   async findOneUser(
@@ -389,7 +380,6 @@ export class UserController {
 
   @Patch('users/:id')
   // [10.4] G1 — E tightened off: lacks USER_UPDATE.
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.USER_UPDATE)
   async updateUser(
     @Param('id') id: string,
@@ -403,10 +393,10 @@ export class UserController {
   }
 
   @Delete('users/:id')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.MEMBER_REMOVE)
   @ApiOperation({
-    summary: "Remove a member's access to this school (deletes the membership, not the account).",
+    summary:
+      "Remove a member's access to this school (soft-deletes the membership, not the account; the last admin cannot be removed).",
   })
   removeUser(
     @Param('id') id: string,
@@ -416,11 +406,22 @@ export class UserController {
     return this.userService.remove(id, tenant.id, user.sub);
   }
 
+  @Post('users/:id/restore')
+  @HttpCode(204)
+  @RequirePermissions(Permission.MEMBER_REMOVE)
+  @ApiOperation({ summary: 'Bring a former member (left or removed) back into this school.' })
+  restoreUser(
+    @Param('id') id: string,
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.userService.restore(id, tenant.id, user.sub);
+  }
+
   // --- Teacher endpoints ---
 
   @Post('teachers')
   // [10.4] G1 — E tightened off: lacks USER_CREATE.
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.USER_CREATE)
   @ApiOperation({ summary: 'Promote an existing tenant member to a teacher profile.' })
   @ApiResponse({ status: 201, type: TeacherResponseDto })
@@ -435,7 +436,6 @@ export class UserController {
   @Get('teachers')
   // [10.4] G7 — reference data (class form, section teacher assignment,
   // global search), same bucket as G4's academic-structure reads.
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
   @RequirePermissions(Permission.ACADEMIC_STRUCTURE_READ)
   @ApiResponse({ status: 200, type: TeacherListResponseDto })
   async findAllTeachers(
@@ -448,7 +448,6 @@ export class UserController {
 
   @Patch('teachers/:id')
   // [10.4] G1 — E tightened off: lacks USER_UPDATE.
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.USER_UPDATE)
   @ApiResponse({ status: 200, type: TeacherResponseDto })
   async updateTeacher(
@@ -458,5 +457,16 @@ export class UserController {
   ) {
     const teacher = await this.teacherService.update(id, dto, tenant.id);
     return TeacherResponseDto.fromEntity(teacher);
+  }
+
+  @Get('teachers/:teacherId/assignments')
+  // [29.0] Same guard stack as `GET('teachers')` above (D5).
+  @RequirePermissions(Permission.ACADEMIC_STRUCTURE_READ)
+  @ApiOperation({ summary: "List a teacher's section/subject assignments." })
+  getTeacherAssignments(
+    @Param('teacherId', ParseUUIDPipe) teacherId: string,
+    @CurrentTenant() tenant: { id: string; role: string },
+  ) {
+    return this.teacherService.getTeacherAssignments(teacherId, tenant.id);
   }
 }

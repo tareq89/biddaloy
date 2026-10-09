@@ -13,6 +13,7 @@ import { School } from '../../schools/entities/school.entity';
 import { Exam } from './exam.entity';
 import { Student } from '../../students/entities/student.entity';
 import { GradingScale } from '../../grading/entities/grading-scale.entity';
+import { ClassSection } from '../../academics/entities/class-section.entity';
 
 /**
  * [19.2.1] One student's computed result for one exam — the row a report
@@ -36,11 +37,14 @@ import { GradingScale } from '../../grading/entities/grading-scale.entity';
  * - @ManyToOne → Exam: the exam this result was computed for
  * - @ManyToOne → Student: whose result this is
  * - @ManyToOne → GradingScale: the scale this result was graded against
+ * - @ManyToOne → ClassSection (optional): the section the student sat the
+ *   exam in, snapshotted at compute (D2)
  * - Referenced-by → ResultSubject: this result's per-subject breakdown
  */
 @Entity('results')
 @Index(['tenant_id', 'exam_id'])
 @Index(['exam_id', 'student_id'], { unique: true, where: '"deleted_at" IS NULL' })
+@Index(['exam_id', 'section_id'])
 export class Result {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -77,6 +81,23 @@ export class Result {
 
   @Column({ type: 'int', nullable: true })
   position: number | null;
+
+  /**
+   * The section the student sat this exam in, snapshotted at compute (D2)
+   * — not a live lookup of the student's current section. `SET NULL` on
+   * section delete rather than blocking it: losing the snapshot is
+   * preferable to a section never being deletable once exams exist.
+   */
+  @ManyToOne(() => ClassSection, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'section_id' })
+  section: ClassSection | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  section_id: string | null;
+
+  /** Merit rank within `(exam_id, section_id)`; null for fails or no section. */
+  @Column({ type: 'int', nullable: true })
+  section_position: number | null;
 
   @Column({ type: 'boolean', default: false })
   is_fail: boolean;

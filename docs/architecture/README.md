@@ -21,13 +21,21 @@ at hand instead of loading the whole set.
 | [07-deployment.md](07-deployment.md) | Working on Docker, nginx, CI, or production deploys |
 | [08-security.md](08-security.md) | Working on login, tokens, CSRF, audit logging, or PII/data-protection handling |
 | [09-design-direction.md](09-design-direction.md) | Touching design tokens — type, colour, elevation, borders, density, motion — or the interaction contract built on top of them: focus vocabulary, action hierarchy, table→card responsive grammar, `ui/` i18n defaults, access states. Decided in 8.13 (#343–#354), recorded from 8.14 (#365–#377, #457–#461) |
-| [10-third-party-services.md](10-third-party-services.md) | Need to know what external services/APIs SchoolManager depends on (Postgres, Redis, BullMQ, S3/MinIO object storage, SMS/WhatsApp/email providers, Sentry) — and what it deliberately doesn't use (no payment gateway) |
+| [10-third-party-services.md](10-third-party-services.md) | Need to know what external services/APIs SchoolManager depends on (Postgres, Redis, BullMQ, S3/SeaweedFS object storage, SMS/WhatsApp/email providers, Sentry) — and what it deliberately doesn't use (no payment gateway) |
 | [11-attendance.md](11-attendance.md) | Working on attendance, registers, the teacher marking flow, or integrating a scanner |
 | [12-operations.md](12-operations.md) | On call, debugging a production incident, or need alert thresholds / runbooks for 5xx spikes, readiness failures, or failed communication jobs |
-| [13-backup-restore.md](13-backup-restore.md) | Working on backups, restores, disaster recovery, object storage retention, or the `backup`/`minio` docker-compose services |
+| [13-backup-restore.md](13-backup-restore.md) | Working on backups, restores, disaster recovery, object storage retention, or the `backup`/`seaweedfs` docker-compose services |
 | [14-school-workbook.md](14-school-workbook.md) | Working on per-school workbook export/import, the `/backup/*` routes, the tab registry, or restore/retention semantics for one tenant's data |
 | [15-ux-principles.md](15-ux-principles.md) | Planning or building any screen: where it lives in the nav tree, the `Ctrl+K` palette and its action registry, breadcrumbs, keyboard/a11y gates, the "no silent gaps" registry guards, and the three sections every epic must carry |
 | [16-academic-calendar.md](16-academic-calendar.md) | Working on `modules/calendar` — calendar events, terms, import/export, the ICS feed, public holidays, or reminders for a calendar event |
+| [17-programs.md](17-programs.md) | Working on `modules/programs` — a program's milestones, student enrolment/progress, the program fee audience, or the report-card Programs block |
+| [18-staff-attendance-leave.md](18-staff-attendance-leave.md) | Working on staff attendance, staff profiles, leave policies/requests, or the live leave-balance formula |
+| [19-student-lifecycle.md](19-student-lifecycle.md) | Working on a student leaving, graduating or being readmitted, student profile records / health notes / staff notes / public-exam results, or the admission and leaving report |
+| [17-evaluations-and-performance.md](17-evaluations-and-performance.md) | Working on staff ACR, incident reports, teacher surveys (and the sealed-results rule), or the student/class/staff Performance tabs |
+| [19-print-module.md](19-print-module.md) | Working on `modules/print` or `print/` in shared/client — templates and the editor, printer profiles, print jobs and history, the public `/v/:token` verify page, or adding a new document kind (admit card, certificate) |
+| [20-presets.md](20-presets.md) | Working on `modules/presets` — curriculum packs (NCTB, Alia, Qawmi, Cambridge, Blank), applying or resetting a school's preset, subject choice groups, exam templates from a pack, or adding a new board or country |
+| [21-ui-patterns.md](21-ui-patterns.md) | Designing, planning or building any screen: page shapes, page vs full-page modal vs dialog, table / filter / form rules, date-number-money formats, phone rules, wording, the component catalogue, and how to mock a screen up from the kit |
+| [22-onboarding.md](22-onboarding.md) | Working on `/register`, the welcome wizard and setup checklist, the free trial and seat limit, first-password, or Google sign-in |
 
 For practical "how do I run/develop/test this" instructions, see the root
 [`README.md`](../../README.md) — these docs cover the *why* behind the

@@ -94,7 +94,6 @@ export class FeeGenerationsController {
   // than a `@RequireApproval` decorator here.
 
   @Patch(':id')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
   @RequirePermissions(Permission.FEE_GENERATE)
   @ApiOperation({
     summary:
@@ -124,7 +123,6 @@ export class FeeGenerationsController {
   }
 
   @Delete(':id')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
   @RequirePermissions(Permission.FEE_GENERATE)
   @ApiOperation({
     summary:
@@ -151,7 +149,6 @@ export class FeeGenerationsController {
   }
 
   @Delete(':id/students/:studentId')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
   @RequirePermissions(Permission.FEE_GENERATE)
   @ApiOperation({
     summary:
@@ -179,7 +176,6 @@ export class FeeGenerationsController {
   }
 
   @Post(':id/remove-uncollected')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
   @RequirePermissions(Permission.FEE_GENERATE)
   @ApiOperation({
     summary:

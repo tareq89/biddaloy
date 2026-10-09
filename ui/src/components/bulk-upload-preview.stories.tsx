@@ -1,11 +1,16 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import type * as React from 'react';
+import { useState, type ReactNode } from 'react';
 import { userEvent, within } from 'storybook/test';
 
 import { rtlDecorator } from '../../.storybook/rtl-decorator';
 import { type BulkImportError, type PreviewResult } from '../hooks/use-bulk-upload-preview';
 
-import { BulkUploadPreview, type BulkUploadPreviewProps } from './bulk-upload-preview';
+import {
+  BulkUploadPreview,
+  type BulkUploadPreviewController,
+  type BulkUploadPreviewProps,
+} from './bulk-upload-preview';
+import { Button } from './button';
 
 // `BulkUploadPreview` is generic in `<S, C>`, and Storybook's `Meta<typeof
 // Component>`/`StoryObj` helpers can't carry that through — they'd collapse
@@ -29,7 +34,7 @@ interface CommitResult {
   processedCount: number;
 }
 
-type Story = StoryObj<(props: BulkUploadPreviewProps<Summary, CommitResult>) => React.ReactNode>;
+type Story = StoryObj<(props: BulkUploadPreviewProps<Summary, CommitResult>) => ReactNode>;
 
 function renderSummary(result: PreviewResult<Summary>) {
   return (
@@ -229,4 +234,41 @@ export const RightToLeft: Story = {
   },
   render: (args) => <BulkUploadPreview<Summary, CommitResult> {...args} />,
   decorators: [rtlDecorator],
+};
+
+/** The host owns Confirm (e.g. in a `FullPageShell` footer): the preview
+ * hides its own buttons and Card frame and reports a controller instead. */
+export const HostOwnedConfirm: Story = {
+  args: {
+    accept: '.csv,.xlsx',
+    validate: () => Promise.resolve(CLEAN_RESULT),
+    commit: () => Promise.resolve({ processedCount: 142 }),
+    renderSummary,
+    renderDone,
+    hideConfirm: true,
+  },
+  render: function HostOwnedConfirmRender(args) {
+    const [controller, setController] =
+      useState<BulkUploadPreviewController<Summary, CommitResult>>();
+    return (
+      <div className="flex flex-col gap-4 rounded-lg border border-border-subtle bg-card p-4">
+        <BulkUploadPreview<Summary, CommitResult> {...args} onControllerChange={setController} />
+        <div className="flex justify-end border-t border-border-subtle pt-4">
+          <Button
+            type="button"
+            disabled={!controller || controller.confirmDisabled}
+            onClick={() => controller?.confirm()}
+          >
+            Confirm import
+          </Button>
+        </div>
+      </div>
+    );
+  },
+  play: async ({ canvasElement }) => {
+    await selectAFile(canvasElement);
+    const canvas = within(canvasElement);
+    await canvas.findByText('142 rows, 0 will be skipped');
+    await canvas.findByText('upload.csv');
+  },
 };

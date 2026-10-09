@@ -16,9 +16,6 @@
   "list": {
     "title": "Attendance",
     "caption": "Sections you mark attendance for",
-    "columnSection": "Section",
-    "columnStudents": "Students",
-    "columnToday": "Today",
     "notMarked": "Not marked",
     "draft": "Draft",
     "marked": "Marked {{present}}/{{total}}",
@@ -28,10 +25,15 @@
     "loadingLabel": "Loading your sections",
     "forbidden": "You do not have permission to view attendance.",
     "errorMessage": "Could not load your sections.",
-    "retry": "Retry"
+    "retry": "Retry",
+    "subtitle_one": "Today, {{date}} · {{count}} section left",
+    "subtitle_other": "Today, {{date}} · {{count}} sections left",
+    "subtitleDone": "Today, {{date}} · every section is submitted",
+    "studentCount_one": "{{count}} student",
+    "studentCount_other": "{{count}} students"
   },
   "mark": {
-    "title": "{{className}} {{sectionName}}",
+    "title": "{{className}} – {{sectionName}}",
     "presentCount": "Present {{n}}",
     "absentCount": "Absent {{n}}",
     "lateCount": "Late {{n}}",
@@ -41,7 +43,7 @@
     "undo": "Undo",
     "undoToast": "Attendance reset",
     "shortcutHint": "Shortcuts: P present · A absent · L late · V leave · Space toggle · Shift+P all present · Ctrl/Cmd+Enter submit",
-    "submitOnline": "Submit register",
+    "submitOnline": "Submit attendance",
     "submitOffline": "Save on device",
     "submitting": "Submitting…",
     "unmarkedRemaining": "{{n}} unmarked",
@@ -65,7 +67,12 @@
     "historyAction": "History",
     "editedBadge": "Edited",
     "editedBadgeTooltip_one": "Corrected {{count}} time",
-    "editedBadgeTooltip_other": "Corrected {{count}} times"
+    "editedBadgeTooltip_other": "Corrected {{count}} times",
+    "dateLabel": "Date",
+    "leaveCount": "Leave {{n}}",
+    "stateFinalized": "Submitted",
+    "rosterHeading": "Students",
+    "loadError": "Could not load this section's attendance."
   },
   "conflict": {
     "title": "This register changed since you loaded it",
@@ -103,7 +110,7 @@
     "retry": "Retry",
     "entryChange": "{{from}} → {{to}}",
     "entryActor": "Corrected by {{actor}}",
-    "entryActorUnknownName": "Corrected by user {{actorId}}",
+    "entryActorUnknownName": "Corrected by a user",
     "close": "Close"
   },
   "reports": {
@@ -119,32 +126,35 @@
     "columnAttendance": "Attendance",
     "columnClass": "Class",
     "columnSection": "Section",
-    "columnActions": "Actions",
-    "viewLabel": "View",
-    "viewSummary": "Summary",
-    "viewFlags": "Low attendance flags",
+    "viewLabel": "Report type",
+    "viewSummary": "Month summary",
+    "viewFlags": "Low attendance",
     "monthLabel": "Month",
     "classLabel": "Class",
     "allClasses": "All classes",
     "sectionLabel": "Section",
     "allSections": "All sections",
-    "thresholdLabel": "Threshold %",
+    "thresholdLabel": "Minimum attendance (%)",
     "thresholdPlaceholder": "e.g. 75",
     "viewStudent": "View",
     "sendReminder": "Send reminder",
     "selectSectionPrompt": "Pick a section to see its attendance report.",
     "emptyMessage": "No attendance records for this filter.",
     "errorMessage": "Could not load the attendance report.",
-    "announceResults": "Showing {{visible}} of {{total}} students"
+    "announceResults": "Showing {{visible}} of {{total}} students",
+    "subtitle": "A section's month at a glance, and who is falling behind.",
+    "selectSectionTitle": "Pick a section",
+    "emptyTitle": "Nothing to show",
+    "flagsEmptyTitle": "Nobody is below the minimum this month"
   },
   "register": {
-    "title": "Printable register",
+    "title": "Attendance register",
     "selectPrompt": "Pick a class, section and month to generate the register.",
     "classLabel": "Class",
     "sectionLabel": "Section",
     "monthLabel": "Month",
     "print": "Print",
-    "caption": "Attendance register — {{className}} {{sectionName}}, {{month}}",
+    "caption": "Attendance register — {{className}} – {{sectionName}}, {{month}}",
     "columnRoll": "Roll",
     "columnStudent": "Student",
     "notWorkingDay": "Not a school day",
@@ -156,6 +166,22 @@
     "totalAbsent": "Absent",
     "totalLate": "Late",
     "totalLeave": "Leave",
-    "totalPercentage": "Attendance %"
+    "totalPercentage": "Attendance %",
+    "subtitle": "One section's whole month, laid out like the paper register.",
+    "pickersLabel": "Which register",
+    "pickPlaceholder": "Select",
+    "pickTitle": "No section picked yet",
+    "cardTitle": "{{className}} – {{sectionName}} · {{month}}",
+    "abbrev": {
+      "PRESENT": "P",
+      "ABSENT": "A",
+      "LATE": "L",
+      "LEAVE": "V"
+    },
+    "legendClosed": "— = school closed",
+    "legendUnmarked": "· = not marked",
+    "scrollHint": "Swipe the table sideways to see the whole month.",
+    "emptyExplanation": "The register appears once students are enrolled.",
+    "unknownStatus": "Unknown"
   }
 }

@@ -19,6 +19,7 @@ import {
 import { Type } from 'class-transformer';
 import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
 import { ExamKind, ExamComponentKind, ExamComponentSource } from '@biddaloy/shared';
+import { Exam } from '../entities/exam.entity';
 
 /** `numeric(6,2)` column range — a value outside this overflows the
  * column and 500s instead of 400ing at the DTO. */
@@ -44,8 +45,8 @@ export class IsNonNegativeMarksStringConstraint implements ValidatorConstraintIn
     const n = Number(value);
     return typeof value === 'string' && Number.isFinite(n) && n >= 0 && n <= MAX_MARKS;
   }
-  defaultMessage(): string {
-    return `pass_marks must be between 0 and ${MAX_MARKS}`;
+  defaultMessage(args: ValidationArguments): string {
+    return `${args.property} must be between 0 and ${MAX_MARKS}`;
   }
 }
 
@@ -73,6 +74,16 @@ export class CreateExamDto {
   @IsOptional()
   @IsUUID()
   academic_term_id?: string | null;
+
+  /** Optional exam template: its components for this class are copied onto the new exam. */
+  @IsOptional()
+  @IsUUID()
+  template_id?: string;
+}
+
+/** POST /exams response: the created exam plus how many template components were copied. */
+export class CreateExamResponseDto extends Exam {
+  components_created: number;
 }
 
 export class UpdateExamDto {

@@ -3,6 +3,9 @@ import { expect, loggedIn, test } from '../fixtures/test';
 import { t } from '../i18n';
 import { ApprovalModalPage, DetailShellPage } from '../pages';
 
+// [31.4] The footer's primary reads "Record <amount>" (or "Record payment" before any amount), so match the verb.
+const RECORD_BUTTON = /রেকর্ড করুন|^Record/;
+
 /**
  * [16.4.6] Journey: Record Payment, through the real modal
  * (`record-payment-modal.tsx`) reached from the student detail page.
@@ -80,11 +83,13 @@ test('a partial checkout across two bills leaves a balance, then a CASH top-up c
   await detail.expectLoaded(name);
   await detail.openTab('students.detail.tabs.fees', 'fees');
   await page
-    .getByRole('button', { name: t('students.detail.fees.recordPayment') })
+    .getByRole('button', { name: t('students.detail.actions.collectFees') })
     .first()
     .click();
 
-  await expect(page.getByRole('dialog', { name: t('payments.record.title') })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { level: 1, name: t('payments.record.title') }),
+  ).toBeVisible();
   // 500 fully covers the first bill, 300 of it lands on the second.
   await page.getByLabel(t('payments.record.amountReceived.label')).fill('800');
   // Not `getByLabel`: the Bangla translation for "Cash" ("নগদ") is the
@@ -99,7 +104,7 @@ test('a partial checkout across two bills leaves a balance, then a CASH top-up c
   // until that lands, same reasoning `record-payment-modal.test.tsx`'s
   // own tests wait on the "Pay" input's value rather than clicking
   // straight through.
-  const submitButton = page.getByRole('button', { name: t('payments.record.submitAction') });
+  const submitButton = page.getByRole('button', { name: RECORD_BUTTON });
   await expect(submitButton).toBeEnabled({ timeout: 10_000 });
   await submitButton.click();
   await expect(page.getByText(t('payments.record.success.title'))).toBeVisible();
@@ -121,11 +126,13 @@ test('a partial checkout across two bills leaves a balance, then a CASH top-up c
   // the page's "Record payment" button sitting behind the still-open
   // dialog's overlay.
   await page.getByRole('button', { name: t('payments.record.success.recordAnother') }).click();
-  await expect(page.getByRole('dialog', { name: t('payments.record.title') })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { level: 1, name: t('payments.record.title') }),
+  ).toBeVisible();
   await page.getByLabel(t('payments.record.amountReceived.label')).fill('500');
   await page.getByLabel(t('payments.record.tender.tenderedLabel')).fill('600');
   await page.getByLabel(t('payments.record.tender.changeToWallet')).check();
-  const topUpSubmit = page.getByRole('button', { name: t('payments.record.submitAction') });
+  const topUpSubmit = page.getByRole('button', { name: RECORD_BUTTON });
   await expect(topUpSubmit).toBeEnabled({ timeout: 10_000 });
   await topUpSubmit.click();
   await expect(page.getByText(t('payments.record.success.title'))).toBeVisible();
@@ -197,46 +204,47 @@ test('a discounted bKash checkout needs step-up approval, then settles', async (
   await detail.expectLoaded(name);
   await detail.openTab('students.detail.tabs.fees', 'fees');
   await page
-    .getByRole('button', { name: t('students.detail.fees.recordPayment') })
+    .getByRole('button', { name: t('students.detail.actions.collectFees') })
     .first()
     .click();
-  await expect(page.getByRole('dialog', { name: t('payments.record.title') })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { level: 1, name: t('payments.record.title') }),
+  ).toBeVisible();
 
   // Unlock the discount cell and discount enough of the 1000 bill to
   // require approval, paying the rest (500) via bKash — the "Tendered"/
   // change-to-wallet fields (`TenderSection`) only render for CASH, so a
   // non-cash method here means no tender step, just a reference number.
   //
-  // Order matters: `DiscountCell.commit` clamps to `balance - pay`, and
-  // `pay` defaults to the full balance until "Amount received" is typed —
-  // discounting first would clamp straight to 0. Amount received has to
-  // land before the discount.
-  //
-  // Typing amount received debounces a `GET /payments/cart` refetch
-  // (`record-payment-modal.tsx`'s `debouncedAmountReceivedMinorUnits`)
-  // that re-seeds every line's pay/discount from the server's suggested
-  // split. `MoneyInput` fires `onValueChange` per keystroke, so a single
-  // `.fill('500')` triggers several debounce cycles in flight at once
-  // (amount 5, then 50, then 500) — editing the discount before the
-  // *last* one's response lands gets clobbered by that response's reseed
-  // the moment it arrives. Waiting for the "Pay" cell to reflect the
-  // final amount isn't enough on its own (an earlier cycle's stale
-  // response can still land after); wait for the network to go quiet too,
-  // so every in-flight cart refetch has resolved before touching discount.
+  // Order matters: `DiscountCell.commit` clamps to `balance - pay`, so the
+  // discount is typed once Pay shows the 500 split out of "Amount
+  // received". That split arrives with a debounced `GET /payments/cart`
+  // (`record-payment-modal.tsx`'s `debouncedAmountReceivedMinorUnits`):
+  // wait for that exact response, then for Pay to show it. MoneyInput
+  // renders the locale's own digits (e.g. "৳৫০০.০০" in Bangla), so the
+  // non-zero check accepts Bengali digits too.
+  const cartForAmount = page.waitForResponse(
+    (response) =>
+      response.url().includes('/payments/cart') &&
+      new URL(response.url()).searchParams.get('amount') === '500.00',
+  );
   await page.getByLabel(t('payments.record.amountReceived.label')).fill('500');
-  // MoneyInput renders in the locale's own digits/currency mark (e.g.
-  // "৳৫০০.০০" in Bangla) — match on the digit run showing up rather than
-  // pinning an exact formatted string.
-  await expect(page.getByLabel(t('payments.record.cart.columnPay'))).not.toHaveValue(/^.?0+\.0+$/);
-  await page.waitForLoadState('networkidle');
-  await page.getByRole('button', { name: t('payments.record.discount.unlock') }).click();
+  await cartForAmount;
+  await expect(page.getByLabel(t('payments.record.cart.columnPay'))).toHaveValue(/[1-9১-৯]/);
+  await page.getByRole('button', { name: t('payments.record.discount.give') }).click();
   await page.getByLabel(t('payments.record.discount.label')).fill('500');
   await page.getByLabel(t('payments.record.method.methods.BKASH')).check();
   await page.getByLabel(t('payments.record.method.referenceLabel')).fill('BKASH-TXN-1');
 
-  const discountSubmit = page.getByRole('button', { name: t('payments.record.submitAction') });
+  const discountSubmit = page.getByRole('button', { name: RECORD_BUTTON });
   await expect(discountSubmit).toBeEnabled({ timeout: 10_000 });
+  const checkoutRequest = page.waitForRequest(
+    (req) => req.method() === 'POST' && req.url().includes('/payments/checkout'),
+  );
   await discountSubmit.click();
+  expect((await checkoutRequest).postDataJSON().lines).toEqual([
+    expect.objectContaining({ amount: 500, one_off_discount: 500 }),
+  ]);
 
   // Discount above the threshold trips APPROVAL_REQUIRED — the step-up
   // modal appears mid-submit (`useApprovedMutation`, same contract

@@ -18,6 +18,7 @@ import {
   AttendanceDeviceKind,
   AttendanceDeviceStatus,
   AttendanceEventDirection,
+  AttendanceSubjectType,
 } from '@biddaloy/shared';
 import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
 
@@ -72,6 +73,15 @@ export class DeviceEventDto {
   @IsString()
   @MaxLength(100)
   external_ref?: string;
+
+  /** [36.2.3] Which kind of subject this scan is for — `student_id`
+   * resolves against `staff_profiles.id` and `external_ref` against
+   * `staff_profiles.employee_id` when this is `STAFF`. Defaults to
+   * `STUDENT` so every existing payload (which never sends this field)
+   * keeps its current behavior unchanged. */
+  @IsOptional()
+  @IsEnum(AttendanceSubjectType)
+  subject_type?: AttendanceSubjectType;
 }
 
 /** `POST /attendance/device-events`. A batch is not atomic — see
@@ -115,6 +125,7 @@ export class DeviceEventResultDto {
       'accepted',
       'duplicate',
       'unknown_student',
+      'unknown_staff',
       'skipped_teacher_marked',
       'out_of_window',
       'rejected',

@@ -17,16 +17,17 @@ import {
 const DEFAULT_LIMIT = 5;
 const MAX_LIMIT = 10;
 
-/** [8.9.9]'s `useGlobalSearch` gates the teacher/staff group on this exact
- * role list rather than a `Permission` (there is no dedicated one for
- * `GET /teachers` yet — see that hook's own doc comment). Mirrored here so
- * this endpoint's staff group opens to exactly the same roles the UI
- * already lets query it, not a wider or narrower set. */
+/** Not a scope question, so an explicit list rather than `ROLE_SCOPE`: the
+ * teacher/staff group has no dedicated `Permission` (see `useGlobalSearch`'s
+ * doc). The client only gates the whole call on `STUDENT_READ`; this list
+ * decides the staff group. COMMITTEE is deliberately absent (D9: no student/staff PII). */
 const STAFF_SEARCH_ROLES: readonly UserRole[] = [
   UserRole.ADMIN,
   UserRole.ACCOUNTANT,
   UserRole.EXECUTIVE,
   UserRole.TEACHER,
+  UserRole.OFFICE_STAFF,
+  UserRole.EXAM_CONTROLLER,
 ];
 
 /** [30.2.1] Unified, permission-filtered, tenant-scoped palette query

@@ -11,7 +11,8 @@ import { SEED_TENANT_ID, SEED_ADMIN_EMAIL, SEED_ADMIN_PASSWORD } from '@test/con
 
 /**
  * [15.5.3]/[15.5.4] `POST`/`DELETE /schools/me/logo` and
- * `GET /schools/:id/logo`, end-to-end against a real MinIO — proves the
+ * `GET /schools/:id/logo`, end-to-end against real S3-compatible storage
+ * (SeaweedFS in dev/CI) — proves the
  * whole "validate real bytes, ignore the declared MIME, re-encode, store,
  * clean up the old object, then serve it back tenant-scoped" pipeline
  * actually works over HTTP, not just against mocked `sharp`/

@@ -28,7 +28,9 @@ import {
   TableRow,
 } from '@biddaloy/ui/components';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { formatNumber } from '@biddaloy/ui/utils';
 import { Link } from '@tanstack/react-router';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import * as React from 'react';
 
 import {
@@ -39,6 +41,25 @@ import {
   type DiffField,
   type HumanizeOptions,
 } from './-humanize';
+
+const PHONE_QUERY = '(max-width: 767px)';
+
+/** Below `md` the 3-column table squeezes every value; the phone layout
+ * stacks "Before / After" lines instead. Only one layout is mounted, so
+ * the two never share accessible names. */
+function subscribePhone(onChange: () => void) {
+  if (typeof matchMedia !== 'function') return () => undefined;
+  const mql = matchMedia(PHONE_QUERY);
+  mql.addEventListener('change', onChange);
+  return () => mql.removeEventListener('change', onChange);
+}
+function usePhone(): boolean {
+  return React.useSyncExternalStore(
+    subscribePhone,
+    () => typeof matchMedia === 'function' && matchMedia(PHONE_QUERY).matches,
+    () => false,
+  );
+}
 
 export interface DiffPanelProps {
   oldValues: Record<string, unknown> | null;
@@ -96,9 +117,31 @@ function ValueLines({ lines, link }: { lines: string[]; link: FieldLink | null }
   );
 }
 
+/** One "Before: x" / "After: x" line on phone. A linked value keeps its link. */
+function InlineValue({
+  label,
+  inline,
+  lines,
+  link,
+}: {
+  label: string;
+  inline: string;
+  lines: string[];
+  link: FieldLink | null;
+}) {
+  if (!link) return <>{inline}</>;
+  return (
+    <>
+      <span>{label}: </span>
+      <ValueLines lines={lines} link={link} />
+    </>
+  );
+}
+
 export function DiffPanel({ oldValues, newValues, entityType }: DiffPanelProps) {
   const { t } = useTranslation('auditLogs');
   const config = useRegionConfig();
+  const phone = usePhone();
   const [showUnchanged, setShowUnchanged] = React.useState(false);
 
   const fields = diffFields(oldValues, newValues);
@@ -124,60 +167,106 @@ export function DiffPanel({ oldValues, newValues, entityType }: DiffPanelProps) 
   };
 
   if (isEventOnly(oldValues, newValues)) {
-    return <p className="text-sm text-muted-foreground">{t('diff.noChanges')}</p>;
+    return <p className="text-body text-text-secondary">{t('diff.noChanges')}</p>;
   }
 
   const visible: DiffField[] = showUnchanged ? [...changed, ...unchanged] : changed;
+  // Text marker first, colour second — the "never colour alone" rule.
+  const marker = (field: DiffField) => (
+    <span
+      className={
+        field.changed
+          ? 'text-caption font-semibold text-primary'
+          : 'text-caption text-text-secondary'
+      }
+    >
+      {field.changed ? t('diff.changed') : t('diff.unchanged')}
+    </span>
+  );
 
   return (
     <div className="flex flex-col gap-2">
-      <Table>
-        <TableCaption>{t('diff.title')}</TableCaption>
-        <TableHeader>
-          <TableRow>
-            <TableHead>{t('diff.columnField')}</TableHead>
-            <TableHead>{t('diff.columnBefore')}</TableHead>
-            <TableHead>{t('diff.columnAfter')}</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {visible.map((field) => (
-            <TableRow key={field.key}>
-              <TableCell>
-                <span className="font-medium">{fieldLabel(field.key)}</span>{' '}
-                {/* Text marker first, colour second — the AC's "never
-                    colour alone" requirement. */}
-                <span
-                  className={
-                    field.changed
-                      ? 'text-xs font-semibold text-primary'
-                      : 'text-xs text-muted-foreground'
-                  }
-                >
-                  {field.changed ? t('diff.changed') : t('diff.unchanged')}
-                </span>
-              </TableCell>
-              <TableCell className={field.changed ? 'text-muted-foreground' : undefined}>
-                <ValueLines
-                  lines={humanizeValue(field.before, humanizeOptions)}
-                  link={linkFor(entityType, field.key, field.before)}
-                />
-              </TableCell>
-              <TableCell className={field.changed ? 'font-semibold text-primary' : undefined}>
-                <ValueLines
-                  lines={humanizeValue(field.after, humanizeOptions)}
-                  link={linkFor(entityType, field.key, field.after)}
-                />
-              </TableCell>
+      {phone ? (
+        <>
+          <p className="text-label text-text-secondary">{t('diff.title')}</p>
+          <dl className="space-y-3">
+            {visible.map((field) => {
+              const beforeLines = humanizeValue(field.before, humanizeOptions);
+              const afterLines = humanizeValue(field.after, humanizeOptions);
+              return (
+                <div key={field.key}>
+                  <dt className="font-medium">
+                    {fieldLabel(field.key)} {marker(field)}
+                  </dt>
+                  <dd className="text-text-secondary">
+                    <InlineValue
+                      label={t('diff.columnBefore')}
+                      inline={t('diff.beforeInline', { value: beforeLines.join(', ') })}
+                      lines={beforeLines}
+                      link={linkFor(entityType, field.key, field.before)}
+                    />
+                  </dd>
+                  <dd className={field.changed ? 'font-semibold text-primary' : undefined}>
+                    <InlineValue
+                      label={t('diff.columnAfter')}
+                      inline={t('diff.afterInline', { value: afterLines.join(', ') })}
+                      lines={afterLines}
+                      link={linkFor(entityType, field.key, field.after)}
+                    />
+                  </dd>
+                </div>
+              );
+            })}
+          </dl>
+        </>
+      ) : (
+        <Table>
+          <TableCaption className="pb-2 text-start text-label text-text-secondary">
+            {t('diff.title')}
+          </TableCaption>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="h-8 text-caption font-medium text-text-secondary">
+                {t('diff.columnField')}
+              </TableHead>
+              <TableHead className="h-8 text-caption font-medium text-text-secondary">
+                {t('diff.columnBefore')}
+              </TableHead>
+              <TableHead className="h-8 text-caption font-medium text-text-secondary">
+                {t('diff.columnAfter')}
+              </TableHead>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          </TableHeader>
+          <TableBody className="divide-y divide-border-subtle">
+            {visible.map((field) => (
+              <TableRow key={field.key}>
+                <TableCell className="h-9 pe-4">
+                  <span className="font-medium">{fieldLabel(field.key)}</span> {marker(field)}
+                </TableCell>
+                <TableCell className={field.changed ? 'h-9 pe-4 text-text-secondary' : 'h-9 pe-4'}>
+                  <ValueLines
+                    lines={humanizeValue(field.before, humanizeOptions)}
+                    link={linkFor(entityType, field.key, field.before)}
+                  />
+                </TableCell>
+                <TableCell
+                  className={field.changed ? 'h-9 pe-4 font-semibold text-primary' : 'h-9 pe-4'}
+                >
+                  <ValueLines
+                    lines={humanizeValue(field.after, humanizeOptions)}
+                    link={linkFor(entityType, field.key, field.after)}
+                  />
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      )}
 
-      {/* An UPDATE whose snapshots turn out identical — rare, but a
-          header-only table with no rows reads as broken. */}
+      {/* An UPDATE whose snapshots turn out identical: a header-only table
+          with no rows reads as broken. */}
       {visible.length === 0 && (
-        <p className="text-sm text-muted-foreground">{t('diff.noFieldsChanged')}</p>
+        <p className="text-body text-text-secondary">{t('diff.noFieldsChanged')}</p>
       )}
 
       {unchanged.length > 0 && (
@@ -185,13 +274,24 @@ export function DiffPanel({ oldValues, newValues, entityType }: DiffPanelProps) 
           type="button"
           variant="ghost"
           size="sm"
-          className="self-start"
+          className="inline-flex h-11 items-center gap-1 self-start rounded-md px-2 text-label font-medium text-primary md:h-8"
           aria-expanded={showUnchanged}
           onClick={() => setShowUnchanged((previous) => !previous)}
         >
+          {showUnchanged ? (
+            <ChevronUp aria-hidden className="size-4" />
+          ) : (
+            <ChevronDown aria-hidden className="size-4" />
+          )}
           {showUnchanged
-            ? t('diff.hideUnchanged', { count: unchanged.length })
-            : t('diff.showUnchanged', { count: unchanged.length })}
+            ? t('diff.hideUnchanged', {
+                count: unchanged.length,
+                n: formatNumber(unchanged.length, config),
+              })
+            : t('diff.showUnchanged', {
+                count: unchanged.length,
+                n: formatNumber(unchanged.length, config),
+              })}
         </Button>
       )}
     </div>

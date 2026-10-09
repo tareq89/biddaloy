@@ -7,15 +7,23 @@
     "title": "Schools",
     "caption": "Every school on the platform, with lifecycle status and creation date.",
     "columnName": "Name",
-    "columnSlug": "Slug",
+    "columnSlug": "Link name",
     "columnStatus": "Status",
     "columnCreated": "Created",
-    "searchPlaceholder": "Search by name or slug",
+    "searchPlaceholder": "Search by name or link name",
     "searchLabel": "Search schools",
     "emptyMessage": "No schools match your search.",
     "errorMessage": "Could not load schools.",
     "announceResults_one": "Showing {{count}} of {{total}} school",
-    "announceResults_other": "Showing {{count}} of {{total}} schools"
+    "announceResults_other": "Showing {{count}} of {{total}} schools",
+    "newAction": "New school",
+    "viewAction": "View {{name}}",
+    "status": {
+      "ACTIVE": "Active",
+      "SUSPENDED": "Suspended"
+    },
+    "emptyExplanation": "Try another name or link name.",
+    "tableCaption": "Table of all schools on the platform"
   },
   "schoolDetail": {
     "title": "School details",
@@ -26,12 +34,12 @@
       "overview": "Overview"
     },
     "actions": {
-      "suspend": "Suspend",
+      "suspend": "Suspend school",
       "reactivate": "Reactivate",
-      "restoreFromWorkbook": "Restore from workbook"
+      "restoreFromWorkbook": "Restore data from a backup file"
     },
     "restoreWorkbookDialog": {
-      "title": "Restore {{name}} from a workbook"
+      "title": "{{name}} — restore data from a backup file"
     },
     "statusDialog": {
       "reasonLabel": "Reason",
@@ -51,9 +59,9 @@
       "title": "Stats",
       "activeUsers": "Active users",
       "students": "Students",
-      "communicationsQueued": "Communications queued",
-      "communicationsFailed7d": "Communications failed (7d)",
-      "lastActivity": "Last activity",
+      "communicationsQueued": "Messages waiting to send",
+      "communicationsFailed7d": "Failed messages (last 7 days)",
+      "lastActivity": "Last used",
       "never": "Never",
       "loadError": "Could not load stats."
     },
@@ -67,14 +75,28 @@
       "nameLabel": "Name",
       "emailLabel": "Email",
       "phoneLabel": "Phone",
-      "resend": "Resend invitation",
+      "resend": "Send invitation again",
       "resending": "Resending…",
       "resendError": "Could not resend the invitation.",
-      "revoke": "Revoke invitation",
-      "revoking": "Revoking…",
-      "revokeError": "Could not revoke the invitation.",
-      "revokeConfirmTitle": "Revoke invitation",
-      "revokeConfirmDescription": "This revokes the pending invitation for {{name}}. They will need a new one to sign in."
+      "revoke": "Cancel invitation",
+      "revoking": "Cancelling…",
+      "revokeError": "Could not cancel the invitation.",
+      "revokeConfirmTitle": "Cancel this invitation?",
+      "revokeConfirmDescription": "This cancels the pending invitation for {{name}}. They will need a new one to sign in.",
+      "help": "People who can see and manage everything in this school.",
+      "emptyExplanation": "Invite the first admin so they can set the school up.",
+      "addDescription": "A sign-in invitation goes to this address.",
+      "contactHelp": "Give an email or a phone — at least one.",
+      "addSuccess": "Invitation sent.",
+      "resendSuccess": "Invitation sent again.",
+      "contactColumn": "Email or phone",
+      "invitationColumn": "Invitation",
+      "nameColumn": "Name",
+      "tableCaption": "Table of this school's admins",
+      "discardTitle": "Discard your changes?",
+      "discardDescription": "What you typed will not be saved.",
+      "discardConfirm": "Discard",
+      "discardKeep": "Keep editing"
     },
     "smsCredit": {
       "title": "SMS credits",
@@ -82,34 +104,43 @@
       "loadError": "Couldn't load this school's SMS credit balance.",
       "unmetered": "This school isn't on platform SMS credits.",
       "available": "Available",
-      "reserved": "Reserved",
-      "grantTitle": "Grant or adjust credit",
-      "unitsLabel": "Units (positive to grant, negative to adjust down)",
+      "reserved": "Held for sending",
+      "grantTitle": "Add or remove SMS credits",
+      "unitsLabel": "Number of SMS",
       "reasonLabel": "Reason",
-      "grantAction": "Grant / adjust",
+      "grantAction": "Add or remove credits",
       "grantSuccess": "Balance updated.",
-      "grantError": "Could not update the SMS credit balance."
+      "grantError": "Could not update the SMS credit balance.",
+      "help": "SMS the platform has given this school.",
+      "grantSubmit": "Save",
+      "unitsHelp": "A positive number adds (e.g. 500); a minus number removes (e.g. -100).",
+      "errors": {
+        "wholeNumber": "Enter a whole number.",
+        "notZero": "Enter a number other than zero.",
+        "reasonLength": "Write the reason in at least 5 characters."
+      }
     }
   },
   "backupHealth": {
-    "title": "Backup health",
-    "caption": "Every school's backup schedule, most recent result and storage usage.",
+    "title": "Backup status",
+    "caption": "How often each school is backed up, how the last attempt went and how much space it uses.",
     "columnSchool": "School",
-    "columnSchedule": "Schedule",
+    "columnSchedule": "How often",
     "columnLastStatus": "Last attempt",
-    "columnLastSuccess": "Last success",
-    "columnStorage": "Storage used",
+    "columnLastSuccess": "Last successful backup",
+    "columnStorage": "Space used",
     "never": "Never",
     "scheduleOff": "Off",
     "scheduleWeekly": "Weekly",
     "scheduleDaily": "Daily",
     "emptyMessage": "No schools to show.",
-    "errorMessage": "Could not load backup health."
+    "errorMessage": "Could not load backup health.",
+    "tableCaption": "Table of backup status per school"
   },
   "createWizard": {
-    "schoolStepTitle": "New school",
+    "schoolStepTitle": "School details",
     "nameLabel": "School name",
-    "slugLabel": "Slug",
+    "slugLabel": "Link name",
     "nextAction": "Next",
     "adminStepTitle": "First admin",
     "adminNameLabel": "Admin name",
@@ -117,12 +148,25 @@
     "adminPhoneLabel": "Phone",
     "backAction": "Back",
     "submitAction": "Create school",
-    "slugConflict": "This slug is already taken.",
+    "slugConflict": "This link name is already taken.",
     "successTitle": "School created",
     "successInvitation": "Admin invitation status: {{status}}.",
     "viewSchool": "View school",
     "importWorkbookToggle": "Import data from a workbook (optional)",
-    "importWorkbookWarning": "This replaces this school's data with the workbook's — the admin you just invited stays, but everything else follows the file."
+    "importWorkbookWarning": "This replaces this school's data with the workbook's — the admin you just invited stays, but everything else follows the file.",
+    "title": "New school",
+    "stepsLabel": "Steps",
+    "schoolStepHelp": "Give the school's name and the short name used in its web address.",
+    "slugHelp": "Only lowercase English letters, numbers and hyphens (-). It fills in by itself when the name is typed in English.",
+    "adminStepHelp": "Give an email or a phone — at least one. The invitation goes there.",
+    "errors": {
+      "required": "Fill this in.",
+      "slugPattern": "Use only lowercase English letters, numbers and single hyphens.",
+      "contactRequired": "Give an email or a phone number.",
+      "emailInvalid": "Enter a valid email address."
+    },
+    "submitError": "The school could not be created. Try again.",
+    "successInvitationLabel": "Admin invitation:"
   },
   "holidaySets": {
     "title": "Holiday sets",
@@ -130,21 +174,24 @@
     "columnCountry": "Country",
     "columnYear": "Year",
     "columnSource": "Source",
-    "columnEntries": "Entries",
-    "columnPublished": "Published",
-    "emptyMessage": "No holiday sets yet. Fetch one to get started.",
+    "columnEntries": "Holidays",
+    "columnPublished": "Status",
+    "emptyMessage": "Fetch a country's public holidays for a year and the list shows here.",
     "errorMessage": "Could not load holiday sets.",
     "published": "Published",
     "draft": "Draft",
     "fetchAction": "Fetch a set",
     "fetchDialog": {
       "title": "Fetch a holiday set",
-      "countryLabel": "Country (ISO alpha-2, e.g. BD)",
+      "countryLabel": "Country code",
       "yearLabel": "Year",
       "submitAction": "Fetch",
       "fetching": "Fetching…",
       "countryRequiredError": "Enter a 2-letter country code.",
-      "errorMessage": "Could not fetch this set from either source."
+      "errorMessage": "Could not fetch this set from either source.",
+      "countryHelp": "Two letters, e.g. Bangladesh = BD",
+      "yearError": "Enter a year between 2000 and 2100.",
+      "description": "Choose the country and year to fetch public holidays for."
     },
     "detail": {
       "back": "Back to holiday sets",
@@ -153,12 +200,12 @@
       "fetchedAtLabel": "Fetched",
       "columnDate": "Start date",
       "columnEndDate": "End date",
-      "columnName": "Name",
+      "columnName": "Name (English)",
       "columnNameBn": "Name (Bengali)",
       "columnActions": "Actions",
       "addRow": "Add holiday",
       "removeRow": "Remove",
-      "emptyMessage": "No entries yet — add one below.",
+      "emptyMessage": "Add the first holiday and save.",
       "saveAction": "Save",
       "saving": "Saving…",
       "saveSuccess": "Entries saved.",
@@ -183,6 +230,65 @@
         "description": "Your entry changes haven't been saved yet.",
         "stayAction": "Keep editing",
         "leaveAction": "Leave"
+      },
+      "optional": "Optional",
+      "entriesTitle": "Holidays",
+      "entriesHelp": "For a one-day holiday the start and end are the same date. Without a Bangla name, schools see the English one.",
+      "removeRowNamed": "Remove {{name}}",
+      "unnamed": "Unnamed",
+      "emptyTitle": "This list has no holidays",
+      "unsavedNotice": "You have unsaved changes",
+      "publishSuccess": "The list is published.",
+      "unpublishSuccess": "The list is unpublished."
+    },
+    "setName": "{{country}} {{year}}",
+    "source": {
+      "NAGER_DATE": "Nager.Date (online list)",
+      "GOOGLE_ICS": "Google Calendar",
+      "MANUAL": "Entered by hand"
+    },
+    "columnName": "List",
+    "entryCount_one": "{{count}} holiday",
+    "entryCount_other": "{{count}} holidays",
+    "editAction": "Edit {{name}}",
+    "emptyTitle": "No holiday lists yet",
+    "tableCaption": "Table of holiday lists"
+  },
+  "trial": {
+    "column": "Trial",
+    "daysLeft_one": "{{days}} day left",
+    "daysLeft_other": "{{days}} days left",
+    "ended": "Ended",
+    "filterLabel": "Trial",
+    "filterAll": "Any",
+    "filterActive": "In trial",
+    "filterEnded": "Ended",
+    "card": {
+      "title": "Trial",
+      "endsOn": "Trial ends",
+      "endedOn": "Trial ended",
+      "students": "Students used / limit",
+      "unlimited": "no limit",
+      "extendAction": "Extend trial"
+    },
+    "dialog": {
+      "title": "Extend trial",
+      "description": "Add days to the trial of {{name}}. An ended trial becomes active again.",
+      "daysLabel": "Days to add",
+      "daysHelp": "A whole number from 1 to 365.",
+      "seatLimitLabel": "Student limit (optional)",
+      "seatLimitHelp": "Leave empty to keep the current limit.",
+      "reasonLabel": "Reason",
+      "submit": "Extend trial",
+      "success": "Trial extended.",
+      "errors": {
+        "days": "Enter a whole number from 1 to 365.",
+        "seatLimit": "Enter a whole number, 0 or more.",
+        "reasonLength": "Write at least 10 characters.",
+        "reasonTooLong": "Keep the reason under 500 characters.",
+        "notInTrial": "This school never had a trial.",
+        "seatBelowUsage": "The limit cannot be below the {{used}} students already enrolled.",
+        "generic": "Could not extend the trial. Try again."
       }
     }
   }

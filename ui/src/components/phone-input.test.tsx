@@ -24,7 +24,7 @@ describe('PhoneInput', () => {
     render(<Controlled />);
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion -- tsc disagrees with eslint's type resolution here; the cast is required for `.placeholder` to typecheck under `tsc --noEmit`.
     const input = screen.getByRole('textbox', { name: 'Phone' }) as HTMLInputElement;
-    expect(input.placeholder).toBe('1712-345678');
+    expect(input.placeholder).toBe('01712-345678');
   });
 
   it('is not marked invalid while empty', () => {
@@ -50,6 +50,21 @@ describe('PhoneInput', () => {
     expect(input.getAttribute('aria-invalid')).toBe('true');
   });
 
+  it("keeps the host's own aria-invalid (e.g. a required error on an empty field)", () => {
+    render(
+      <PhoneInput
+        aria-label="Phone"
+        aria-invalid
+        value=""
+        onValueChange={() => {}}
+        config={REGION_BD_EN}
+      />,
+    );
+    expect(screen.getByRole('textbox', { name: 'Phone' }).getAttribute('aria-invalid')).toBe(
+      'true',
+    );
+  });
+
   it('is axe clean with a labelled, currently-valid value', async () => {
     const user = userEvent.setup();
     const { container } = render(<Controlled />);
@@ -60,10 +75,10 @@ describe('PhoneInput', () => {
 
 describe('formatValidPhone', () => {
   it('formats a valid national number for read-only display', () => {
-    expect(formatValidPhone('1712345678', REGION_BD_EN)).toBe('+880 1712-345678');
+    expect(formatValidPhone('1712345678', REGION_BD_EN)).toBe('01712-345678');
   });
 
-  it('throws on an invalid number rather than silently mangling it', () => {
-    expect(() => formatValidPhone('123', REGION_BD_EN)).toThrow(RangeError);
+  it('returns an invalid number as typed rather than throwing', () => {
+    expect(formatValidPhone('123', REGION_BD_EN)).toBe('123');
   });
 });

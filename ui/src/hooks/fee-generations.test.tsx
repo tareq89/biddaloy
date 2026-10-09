@@ -60,6 +60,15 @@ describe('feeGenerationsQueryOptions', () => {
   });
 });
 
+describe('FINE_RULE source', () => {
+  it('is admitted by the row and filter types', () => {
+    expect(generationFactory({ source: 'FINE_RULE' }).source).toBe('FINE_RULE');
+    expect(feeGenerationsQueryOptions({ source: 'FINE_RULE' }).queryKey).toEqual(
+      feeGenerationsKeys.list({ source: 'FINE_RULE' }),
+    );
+  });
+});
+
 describe('useFeeGenerations', () => {
   it('resolves the page of batches the handler returns', async () => {
     const body: PaginatedFeeGenerations = {

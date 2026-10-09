@@ -36,7 +36,7 @@ export function Skeleton({ className, ...props }: React.ComponentProps<'div'>) {
   return (
     <div
       data-slot="skeleton"
-      className={cn('animate-pulse rounded-md bg-muted motion-reduce:animate-none', className)}
+      className={cn('animate-pulse rounded-sm bg-muted motion-reduce:animate-none', className)}
       {...props}
     />
   );
@@ -79,9 +79,9 @@ export interface SkeletonTableProps extends React.ComponentProps<'table'> {
  * A table-shaped placeholder.
  *
  * Built from this package's own `Table` parts rather than from divs with
- * hand-copied padding: the header is `h-10 px-2` and each cell is `p-2`
- * around `text-sm` *because `table.tsx` says so*, so a row here is exactly
- * as tall as the row that replaces it. That identity is the whole point —
+ * hand-copied padding: the header and body cells are `h-10 px-4` (the same geometry as the real
+ * `DataTable` rows), so a row here is exactly as tall as the row that
+ * replaces it. That identity is the whole point —
  * a placeholder whose rows are 4px short of the real ones is a CLS
  * regression dressed up as a loading state (design contract's ≤ 0.1
  * budget).
@@ -91,10 +91,10 @@ export function SkeletonTable({ rows = 4, columns = 4, ...props }: SkeletonTable
   return (
     <Table aria-hidden="true" {...props}>
       <TableHeader>
-        <TableRow>
+        <TableRow className="bg-muted">
           {columnIndexes.map((column) => (
-            <TableHead key={column}>
-              <Skeleton className="h-4 w-20" />
+            <TableHead key={column} className="h-10 px-4">
+              <Skeleton className="h-3 w-20" />
             </TableHead>
           ))}
         </TableRow>
@@ -103,10 +103,8 @@ export function SkeletonTable({ rows = 4, columns = 4, ...props }: SkeletonTable
         {Array.from({ length: rows }, (_, row) => (
           <TableRow key={row}>
             {columnIndexes.map((column) => (
-              <TableCell key={column}>
-                {/* `h-5`, not `h-4` — `TableCell` renders at `text-sm`,
-                    whose line-height is 1.25rem. */}
-                <Skeleton className="h-5 w-full" />
+              <TableCell key={column} className="h-10 px-4 py-1">
+                <Skeleton className="h-3 w-full" />
               </TableCell>
             ))}
           </TableRow>

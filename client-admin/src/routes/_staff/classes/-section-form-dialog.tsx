@@ -10,7 +10,6 @@
 import {
   Button,
   Dialog,
-  DialogClose,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -25,7 +24,10 @@ import {
 } from '@biddaloy/ui/components';
 import { useCreateSection, useOrganisationVocabulary, useUpdateSection } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
+import { toLatinDigits } from '@biddaloy/ui/utils';
 import * as React from 'react';
+
+import { ErrorText, Field, useCloseGuard } from './-dialog-kit';
 
 export interface SectionFormInitialValues {
   sectionName: string;
@@ -72,23 +74,20 @@ export function SectionFormDialog({
   const updateSection = useUpdateSection(classId, sectionId ?? '');
   const mutation = mode === 'create' ? createSection : updateSection;
 
-  const [sectionName, setSectionName] = React.useState(initialValues?.sectionName ?? '');
-  const [capacity, setCapacity] = React.useState(
-    initialValues?.capacity !== undefined ? String(initialValues.capacity) : '',
-  );
-  const [groupName, setGroupName] = React.useState(initialValues?.groupName ?? NONE_VALUE);
+  // Snapshot once: a background refetch changing the props must not read as an edit.
+  const [initial] = React.useState(() => initialValues ?? EMPTY_VALUES);
+  const initialCapacity = initial.capacity !== undefined ? String(initial.capacity) : '';
+  const initialGroup = initial.groupName ?? NONE_VALUE;
+  // Callers mount this dialog only while it is open (fresh state each open).
+  const [sectionName, setSectionName] = React.useState(initial.sectionName);
+  const [capacity, setCapacity] = React.useState(initialCapacity);
+  const [groupName, setGroupName] = React.useState(initialGroup);
   const [validationError, setValidationError] = React.useState<string | null>(null);
-
-  React.useEffect(() => {
-    if (!open) return;
-    const values = initialValues ?? EMPTY_VALUES;
-    setSectionName(values.sectionName);
-    setCapacity(values.capacity !== undefined ? String(values.capacity) : '');
-    setGroupName(values.groupName ?? NONE_VALUE);
-    setValidationError(null);
-    mutation.reset();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only on open/close transitions
-  }, [open]);
+  const isDirty =
+    sectionName !== initial.sectionName ||
+    capacity !== initialCapacity ||
+    groupName !== initialGroup;
+  const { requestClose, discardDialog } = useCloseGuard(isDirty, mutation.isPending, onOpenChange);
 
   // [D5] Only rendered once the tenant has 2+ groups configured.
   const groups = vocabularyQuery.data?.groups ?? [];
@@ -96,12 +95,14 @@ export function SectionFormDialog({
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
+    if (mutation.isPending) return;
 
     if (!sectionName.trim()) {
       setValidationError(t('sectionForm.errorNameRequired'));
       return;
     }
-    const parsedCapacity = capacity.trim() === '' ? undefined : Number(capacity);
+    const parsedCapacity =
+      capacity.trim() === '' ? undefined : Number(toLatinDigits(capacity.trim()));
     if (
       parsedCapacity !== undefined &&
       (!Number.isInteger(parsedCapacity) || parsedCapacity <= 0)
@@ -144,83 +145,72 @@ export function SectionFormDialog({
   const title = mode === 'create' ? t('sectionForm.createTitle') : t('sectionForm.editTitle');
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <DialogHeader>
-            <DialogTitle>{title}</DialogTitle>
-            <DialogDescription>{t('sectionForm.description')}</DialogDescription>
-          </DialogHeader>
+    <>
+      <Dialog open={open} onOpenChange={(next) => (next ? onOpenChange(true) : requestClose())}>
+        <DialogContent size="md" onInteractOutside={(e) => e.preventDefault()}>
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            <DialogHeader>
+              <DialogTitle>{title}</DialogTitle>
+              <DialogDescription>{t('sectionForm.description')}</DialogDescription>
+            </DialogHeader>
 
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="section-form-name" className="text-sm font-medium">
-              {t('sectionForm.nameLabel')}
-            </label>
-            <Input
-              id="section-form-name"
-              value={sectionName}
-              onChange={(event) => setSectionName(event.target.value)}
-              placeholder={t('sectionForm.namePlaceholder')}
-            />
-          </div>
+            <Field id="section-form-name" label={t('sectionForm.nameLabel')} required>
+              <Input
+                id="section-form-name"
+                value={sectionName}
+                onChange={(event) => setSectionName(event.target.value)}
+                placeholder={t('sectionForm.namePlaceholder')}
+              />
+            </Field>
 
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="section-form-capacity" className="text-sm font-medium">
-              {t('sectionForm.capacityLabel')}
-            </label>
-            <Input
-              id="section-form-capacity"
-              type="number"
-              value={capacity}
-              onChange={(event) => setCapacity(event.target.value)}
-              placeholder={t('sectionForm.capacityPlaceholder')}
-            />
-          </div>
+            <Field id="section-form-capacity" label={t('sectionForm.capacityLabel')}>
+              <Input
+                id="section-form-capacity"
+                inputMode="numeric"
+                value={capacity}
+                onChange={(event) => setCapacity(event.target.value)}
+                placeholder={t('sectionForm.capacityPlaceholder')}
+              />
+            </Field>
 
-          {showGroup && (
-            <div className="flex flex-col gap-1.5">
-              <span className="text-sm font-medium">{t('sectionForm.groupLabel')}</span>
-              <Select value={groupName} onValueChange={setGroupName}>
-                <SelectTrigger aria-label={t('sectionForm.groupLabel')}>
-                  <SelectValue placeholder={t('sectionForm.groupPlaceholder')} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NONE_VALUE}>{t('sectionForm.groupPlaceholder')}</SelectItem>
-                  {groups.map((value) => (
-                    <SelectItem key={value} value={value}>
-                      {value}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
+            {showGroup && (
+              <Field id="section-form-group" label={t('sectionForm.groupLabel')}>
+                <Select value={groupName} onValueChange={setGroupName}>
+                  <SelectTrigger id="section-form-group">
+                    <SelectValue placeholder={t('sectionForm.groupPlaceholder')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NONE_VALUE}>{t('classForm.noneOption')}</SelectItem>
+                    {groups.map((value) => (
+                      <SelectItem key={value} value={value}>
+                        {value}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+            )}
 
-          {validationError && (
-            <p role="alert" className="text-sm text-destructive">
-              {validationError}
-            </p>
-          )}
-          {mutation.isError && (
-            <p role="alert" className="text-sm text-destructive">
-              {mutation.error instanceof Error
-                ? mutation.error.message
-                : t('sectionForm.errorMessage')}
-            </p>
-          )}
+            {validationError && <ErrorText>{validationError}</ErrorText>}
+            {mutation.isError && <ErrorText>{t('sectionForm.errorMessage')}</ErrorText>}
 
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button type="button" variant="outline">
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={mutation.isPending}
+                onClick={requestClose}
+              >
                 {t('actions.cancel', { ns: 'common' })}
               </Button>
-            </DialogClose>
-            <Button type="submit" loading={mutation.isPending}>
-              {mutation.isPending ? t('sectionForm.saving') : t('sectionForm.save')}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+              <Button type="submit" loading={mutation.isPending}>
+                {mutation.isPending ? t('sectionForm.saving') : t('sectionForm.save')}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+      {discardDialog}
+    </>
   );
 }

@@ -136,6 +136,71 @@ describe('useFilterBarState', () => {
     expect(result.current.localValues.search).toBe('০১২');
   });
 
+  it('keeps a keystroke typed between its own commit and the URL echo landing (dropped-keystroke regression)', async () => {
+    vi.useFakeTimers();
+    try {
+      const onChange = vi.fn();
+      const { result, rerender } = setup({}, onChange);
+
+      act(() => result.current.setLocalValue('search', 'abc'));
+      await vi.advanceTimersByTimeAsync(300);
+      expect(onChange).toHaveBeenCalledWith({ search: 'abc' });
+
+      // The router has not applied the commit yet; the user types one more character.
+      act(() => result.current.setLocalValue('search', 'abcd'));
+      // Now the (older) committed value lands. It is our own write, not an external change.
+      rerender({ values: { search: 'abc' } });
+      expect(result.current.localValues.search).toBe('abcd');
+
+      await vi.advanceTimersByTimeAsync(300);
+      rerender({ values: { search: 'abcd' } });
+      expect(result.current.localValues.search).toBe('abcd');
+
+      // A genuine external change (Back press) afterwards still resyncs.
+      rerender({ values: { search: 'abc' } });
+      expect(result.current.localValues.search).toBe('abc');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('uses formatValue for date and number chips, and the raw value without it', () => {
+    const fields: FilterFieldDescriptor[] = [
+      {
+        kind: 'date-range',
+        fromKey: 'from',
+        toKey: 'to',
+        label: 'Date',
+        fromLabel: 'From',
+        toLabel: 'To',
+      },
+      ...FIELDS,
+    ];
+    const values = { from: '2026-10-01', min_amount: '5' };
+    const formatValue = (kind: 'date' | 'number', v: string) => `${kind}:${v}!`;
+    const withFmt = renderHookWithProviders(() =>
+      useFilterBarState({ fields, values, onChange: vi.fn(), formatValue }),
+    );
+    expect(withFmt.result.current.chips.map((c) => c.label)).toEqual([
+      'From: date:2026-10-01!',
+      'Min: number:5!',
+    ]);
+    const raw = renderHookWithProviders(() =>
+      useFilterBarState({ fields, values, onChange: vi.fn() }),
+    );
+    expect(raw.result.current.chips.map((c) => c.label)).toEqual(['From: 2026-10-01', 'Min: 5']);
+  });
+
+  it('a text field formatChip changes the chip text only', () => {
+    const fields: FilterFieldDescriptor[] = [
+      { kind: 'text', key: 'ref', label: 'Ref', formatChip: (v) => `#${v}` },
+    ];
+    const { result } = renderHookWithProviders(() =>
+      useFilterBarState({ fields, values: { ref: '75' }, onChange: vi.fn() }),
+    );
+    expect(result.current.chips[0]).toEqual({ key: 'ref', value: '75', label: 'Ref: #75' });
+  });
+
   it('includes a chip for a `values` key no descriptor covers (the invisible-active-filter bug class)', () => {
     const { result } = setup({ student_id: 'stu-1' });
     expect(result.current.chips).toEqual([{ key: 'student_id', value: 'stu-1', label: null }]);

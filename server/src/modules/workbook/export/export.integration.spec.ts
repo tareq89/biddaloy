@@ -28,7 +28,7 @@ vi.mock('@sentry/node', () => ({
   captureException: vi.fn(),
 }));
 
-/** In-memory stand-in for `StorageService` — no S3/MinIO needed. Captures
+/** In-memory stand-in for `StorageService` — no S3 needed. Captures
  * every `put` so the test can read the bytes back with `readWorkbook`. */
 class FakeStorageService {
   readonly objects = new Map<string, Buffer>();

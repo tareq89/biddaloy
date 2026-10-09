@@ -1,11 +1,15 @@
 import type { UserRole } from '@biddaloy/shared';
-import { decodeAccessTokenMemberships, getAccessToken } from '@biddaloy/ui/api';
-import { LocaleSwitcher, SchoolPicker, ThemeToggle } from '@biddaloy/ui/components';
-import { logout, switchActiveTenant, useDensity } from '@biddaloy/ui/hooks';
+import { decodeAccessTokenMemberships, getAccessToken, postAuthLogout } from '@biddaloy/ui/api';
+import { AuthLayout, Button, EmptyState, SchoolPicker } from '@biddaloy/ui/components';
+import { logout, switchActiveTenant } from '@biddaloy/ui/hooks';
+import { useTranslation } from '@biddaloy/ui/i18n';
+import { isSafeSupportUrl } from '@biddaloy/ui/utils';
 import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import * as React from 'react';
 import { z } from 'zod';
+
+import { isSameAppRedirect } from '../same-app-redirect';
 
 /**
  * [8.9.5]'s picker — reached chrome-free, like `/login`, whenever
@@ -16,21 +20,8 @@ import { z } from 'zod';
  * this reads it straight off `decodeAccessTokenMemberships`, no request.
  *
  * Same `redirect` search-param passthrough and same-app-only validation
- * as `login.tsx` (`isSameAppRedirect`) — duplicated rather than shared,
- * matching this repo's existing per-route-schema convention (see
- * `students/index.tsx`'s own `validateSearch`).
+ * (`isSameAppRedirect`) as `login.tsx`.
  */
-const REDIRECT_PROBE_ORIGIN = 'http://redirect-probe.invalid';
-
-function isSameAppRedirect(value: string): boolean {
-  if (!value.startsWith('/')) return false;
-  try {
-    return new URL(value, REDIRECT_PROBE_ORIGIN).origin === REDIRECT_PROBE_ORIGIN;
-  } catch {
-    return false;
-  }
-}
-
 const selectSchoolSearchSchema = z.object({
   redirect: z.string().refine(isSameAppRedirect).optional().catch(undefined),
 });
@@ -41,24 +32,13 @@ export const Route = createFileRoute('/select-school')({
 });
 
 function SelectSchoolPage() {
+  const { t } = useTranslation('auth');
   const search = Route.useSearch();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
   const token = getAccessToken();
   const memberships = token ? decodeAccessTokenMemberships(token) : [];
-
-  // [8.13.8] Comfortable density (contract section 6). Auth screens sit with
-  // `/portal` rather than with the staff routes because they are
-  // PRE-authentication: at this point nobody knows whether the visitor is a
-  // guardian on a 360 px phone or an administrator on a desktop, so the
-  // accessible 44 px target is the safe default for the unknown user.
-  //
-  // Called ABOVE the `memberships.length < 2` early return — a hook cannot
-  // sit behind a conditional — and set on `document.documentElement` rather
-  // than on the wrapper below, so the portalled `LocaleSwitcher` menu
-  // inherits it too. See `useDensity`.
-  useDensity('comfortable');
 
   // Both branches below are real, reachable edge cases — not just
   // defensive filler — but neither is the common path: `login()`/
@@ -70,10 +50,9 @@ function SelectSchoolPage() {
   // e.g. a user removed from every school since their token was issued.
   React.useEffect(() => {
     if (memberships.length === 0) {
-      // A memberless account has nowhere useful to go — revoke the
-      // session server-side too, the same reasoning `login()`'s own
-      // zero-memberships branch documents.
-      void logout(queryClient).finally(() => void navigate({ to: '/login' }));
+      // The empty state below stays up, but the refresh cookie is revoked now: on a
+      // shared office PC people close the tab rather than press "Sign out".
+      void postAuthLogout('/auth/logout').catch(() => {});
     } else if (memberships.length === 1) {
       const [only] = memberships;
       if (only) {
@@ -92,19 +71,37 @@ function SelectSchoolPage() {
     void navigate({ to: search.redirect ?? '/' });
   }
 
+  function handleSignOut(): void {
+    void logout(queryClient).finally(() => void navigate({ to: '/login' }));
+  }
+
+  if (memberships.length === 0) {
+    const supportUrl = import.meta.env.VITE_SUPPORT_URL;
+    return (
+      <AuthLayout>
+        <EmptyState
+          headingLevel={1}
+          title={t('selectSchool.none.title')}
+          explanation={t('selectSchool.none.body')}
+          action={{ label: t('selectSchool.none.signOut'), onClick: handleSignOut }}
+        />
+        {isSafeSupportUrl(supportUrl) && (
+          <Button asChild variant="ghost" className="mt-2 w-full text-primary">
+            <a href={supportUrl}>{t('selectSchool.none.contact')}</a>
+          </Button>
+        )}
+      </AuthLayout>
+    );
+  }
+
   if (memberships.length < 2) return null; // the effect above is already navigating away
 
   return (
-    <div className="flex min-h-screen flex-col bg-muted/20">
-      <div className="flex justify-end gap-2 p-4">
-        <ThemeToggle />
-        <LocaleSwitcher />
-      </div>
-      <div className="flex flex-1 items-center justify-center p-8">
-        <div className="w-full max-w-md">
-          <SchoolPicker schools={memberships} onSelect={handleSelect} />
-        </div>
-      </div>
-    </div>
+    <AuthLayout>
+      <SchoolPicker schools={memberships} onSelect={handleSelect} />
+      <Button variant="ghost" className="mt-2 w-full text-primary" onClick={handleSignOut}>
+        {t('schoolPicker.signOut')}
+      </Button>
+    </AuthLayout>
   );
 }

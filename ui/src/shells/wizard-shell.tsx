@@ -17,6 +17,10 @@
 import * as React from 'react';
 
 import { Button } from '../components/button';
+import { useTranslation } from '../i18n';
+
+import { PageContainer } from './page-container';
+import { PageHeader } from './page-header';
 
 export interface WizardStep {
   id: string;
@@ -59,11 +63,12 @@ export function WizardShell({
   currentStepId,
   onStepChange,
   onSubmit,
-  submitLabel = 'Submit',
+  submitLabel,
   submitting = false,
   result,
   reviewStep,
 }: WizardShellProps) {
+  const { t } = useTranslation();
   const allSteps = reviewStep ? [...steps, reviewStep] : steps;
   const currentIndex = Math.max(
     0,
@@ -112,16 +117,16 @@ export function WizardShell({
 
   if (result) {
     return (
-      <div className="flex flex-col gap-4">
-        <h1 className="text-lg font-semibold">{title}</h1>
+      <PageContainer size="narrow">
+        <PageHeader title={title} />
         {result}
-      </div>
+      </PageContainer>
     );
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <h1 className="text-lg font-semibold">{title}</h1>
+    <PageContainer size="narrow">
+      <PageHeader title={title} />
 
       <ol className="flex flex-wrap items-center gap-2 text-sm">
         {allSteps.map((step, index) => {
@@ -158,7 +163,11 @@ export function WizardShell({
         })}
       </ol>
       <div ref={stepAnnouncementRef} tabIndex={-1} aria-live="polite" className="sr-only">
-        Step {currentIndex + 1} of {allSteps.length}: {currentStep?.label}
+        {t('wizard.stepAnnouncement', {
+          current: currentIndex + 1,
+          total: allSteps.length,
+          label: currentStep?.label ?? '',
+        })}
       </div>
 
       {/* `hidden` alone already removes an inactive panel from the
@@ -179,18 +188,18 @@ export function WizardShell({
 
       <div className="flex justify-between gap-2">
         <Button type="button" variant="outline" onClick={goBack} disabled={currentIndex === 0}>
-          Back
+          {t('wizard.back')}
         </Button>
         {isLastStep ? (
           <Button type="button" loading={submitting} onClick={onSubmit} disabled={!isValid}>
-            {submitLabel}
+            {submitLabel ?? t('wizard.submit')}
           </Button>
         ) : (
           <Button type="button" onClick={goNext} disabled={!isValid}>
-            Next
+            {t('wizard.next')}
           </Button>
         )}
       </div>
-    </div>
+    </PageContainer>
   );
 }

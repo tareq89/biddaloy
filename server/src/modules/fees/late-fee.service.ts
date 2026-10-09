@@ -65,6 +65,10 @@ export class LateFeeService {
       // A late-fee bill never generates a late fee itself — belt-and-braces
       // even though `settings.fees.lateFees` should never carry this key.
       if (feeType === FeeType.LATE_FEE) continue;
+      // [Epic 38 D10] Nor does a FINE bill ever get a late fee —
+      // belt-and-braces alongside `LateFeesMapConstraint` rejecting
+      // `lateFees.FINE` at the settings-validation layer.
+      if (feeType === FeeType.FINE) continue;
       if (!rule?.enabled) continue;
 
       try {

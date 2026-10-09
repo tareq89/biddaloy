@@ -3,9 +3,11 @@ import supertest = require('supertest');
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+import type Redis from 'ioredis';
 import { AppModule } from '../../app.module';
 import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { buildValidationPipeOptions } from '../../validation-pipe';
+import { STEP_UP_REDIS } from './step-up.service';
 import {
   SEED_TENANT_ID,
   SEED_ADMIN_EMAIL,
@@ -208,5 +210,74 @@ describe('StepUpController (e2e)', () => {
       .send({ identifier: SEED_ADMIN_EMAIL });
 
     expect(res.status).toBe(401);
+  });
+
+  it('5 wrong OTPs from another school do not lock the same approver out of step-up in their own school', async () => {
+    // The approver belongs to school B only. The attacker is ACTOR, signed in
+    // to the seed school (A), guessing that approver's identifier.
+    const TENANT_B = '00000000-0000-4000-8000-0000000005c1';
+    const APPROVER_B_ID = '00000000-0000-4000-8000-0000000005c2';
+    const APPROVER_B_EMAIL = 'step-up-approver-b@testschool.com';
+    await dataSource.query(
+      `INSERT INTO schools (id, name, slug, created_at, updated_at)
+       VALUES ($1, 'Step-up School B', 'step-up-tenant-b', NOW(), NOW())
+       ON CONFLICT DO NOTHING`,
+      [TENANT_B],
+    );
+    await dataSource.query(
+      `INSERT INTO users (id, email, password_hash, full_name, status)
+       VALUES ($1, $2, $3, 'Step-up Approver B', 'ACTIVE')
+       ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email, status = 'ACTIVE'`,
+      [APPROVER_B_ID, APPROVER_B_EMAIL, SEED_ADMIN_PASSWORD_HASH],
+    );
+    await dataSource.query(
+      `INSERT INTO user_tenants (user_id, tenant_id, role) VALUES ($1, $2, 'ADMIN')
+       ON CONFLICT DO NOTHING`,
+      [APPROVER_B_ID, TENANT_B],
+    );
+
+    // Earlier tests in this file already spent part of ACTOR's step-up
+    // budget (5 per 15 minutes by default). Start from a clean count so the
+    // 5 guesses below all reach the OTP check instead of the rate limit.
+    await app
+      .get<Redis>(STEP_UP_REDIS)
+      .del(
+        `step-up-attempts:actor:${ACTOR_ID}`,
+        `step-up-attempts:approver:${SEED_TENANT_ID}:${APPROVER_B_EMAIL}`,
+      );
+
+    try {
+      for (let i = 0; i < 5; i++) {
+        const res = await authed(supertest(app.getHttpServer()).post('/api/v1/auth/step-up')).send({
+          identifier: APPROVER_B_EMAIL,
+          method: 'OTP',
+          otp: '000000',
+          scope: 'fees.discount',
+        });
+        expect(res.status).toBe(401);
+      }
+
+      const login = await supertest(app.getHttpServer())
+        .post('/api/v1/auth/login')
+        .send({ email: APPROVER_B_EMAIL, password: SEED_ADMIN_PASSWORD })
+        .expect(200);
+      const inB = (req: supertest.Test) =>
+        req.set('Authorization', `Bearer ${login.body.access_token}`).set('X-Tenant-ID', TENANT_B);
+
+      const requestRes = await inB(
+        supertest(app.getHttpServer()).post('/api/v1/auth/step-up/otp/request'),
+      ).send({ identifier: APPROVER_B_EMAIL });
+      const otp = requestRes.body.debug?.otp;
+      expect(otp).toMatch(/^\d{6}$/);
+
+      const verifyRes = await inB(supertest(app.getHttpServer()).post('/api/v1/auth/step-up')).send(
+        { identifier: APPROVER_B_EMAIL, method: 'OTP', otp, scope: 'fees.discount' },
+      );
+      expect(verifyRes.status).toBe(200);
+    } finally {
+      await dataSource.query(`DELETE FROM refresh_tokens WHERE user_id = $1`, [APPROVER_B_ID]);
+      await dataSource.query(`DELETE FROM user_tenants WHERE user_id = $1`, [APPROVER_B_ID]);
+      await dataSource.query(`UPDATE users SET status = 'INACTIVE' WHERE id = $1`, [APPROVER_B_ID]);
+    }
   });
 });

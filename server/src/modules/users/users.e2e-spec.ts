@@ -300,12 +300,13 @@ describe('Users & Teachers E2E [8.11.8]', () => {
         .set('X-Tenant-ID', TENANT_A)
         .expect(200);
 
-      // Membership row gone…
+      // Membership row soft-deleted (a former member, restorable) [13.2.1]…
       const memberships = await dataSource.query(
-        'SELECT 1 FROM user_tenants WHERE user_id = $1 AND tenant_id = $2',
+        'SELECT deleted_at FROM user_tenants WHERE user_id = $1 AND tenant_id = $2',
         [MEMBER_A_ID, TENANT_A],
       );
-      expect(memberships).toEqual([]);
+      expect(memberships).toHaveLength(1);
+      expect(memberships[0].deleted_at).not.toBeNull();
 
       // …but the global account survives, undeleted.
       const [row] = await dataSource.query('SELECT deleted_at FROM users WHERE id = $1', [
@@ -404,11 +405,59 @@ describe('Users & Teachers E2E [8.11.8]', () => {
          ON CONFLICT DO NOTHING`,
         [MEMBER_A_ID, TENANT_A, UserRole.TEACHER],
       );
+      // [13.2.1] removal is a soft delete, so the insert above conflicts with
+      // the former row; bring that row back.
+      await dataSource.query(
+        'UPDATE user_tenants SET deleted_at = NULL WHERE user_id = $1 AND tenant_id = $2',
+        [MEMBER_A_ID, TENANT_A],
+      );
       const res = await request()
         .post('/api/v1/auth/login')
         .send({ email: 'staff-a@example.com', password: SEED_ADMIN_PASSWORD })
         .expect(200);
       teacherToken = res.body.access_token;
+    });
+
+    it('[#731] rejects an ADMIN minting a SUPER_ADMIN membership with 400', async () => {
+      const email = 'escalate-731@example.com';
+      const res = await request()
+        .post('/api/v1/users')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_A)
+        .send({ email, tenantId: TENANT_A, full_name: 'Escalator', role: UserRole.SUPER_ADMIN })
+        .expect(400);
+      expect(res.body.message).toContain('SUPER_ADMIN');
+      const rows = await dataSource.query('SELECT id FROM users WHERE email = $1', [email]);
+      expect(rows).toHaveLength(0);
+    });
+
+    it('[#731] PATCH /users/:id cannot carry a role (400 forbidNonWhitelisted)', async () => {
+      await request()
+        .patch(`/api/v1/users/${MEMBER_A_ID}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_A)
+        .send({ role: UserRole.SUPER_ADMIN })
+        .expect(400);
+      const rows = await dataSource.query(
+        'SELECT 1 FROM user_tenants WHERE user_id = $1 AND role = $2',
+        [MEMBER_A_ID, UserRole.SUPER_ADMIN],
+      );
+      expect(rows).toHaveLength(0);
+    });
+
+    it('[#731] still creates a normal-role user', async () => {
+      const email = 'ok-731@example.com';
+      const res = await request()
+        .post('/api/v1/users')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_A)
+        .send({ email, tenantId: TENANT_A, full_name: 'Fine Teacher', role: UserRole.TEACHER })
+        .expect(201);
+      expect(res.body.user.role).toBe(UserRole.TEACHER);
+      const id = res.body.user.id;
+      await dataSource.query('DELETE FROM auth_tokens WHERE user_id = $1', [id]).catch(() => {});
+      await dataSource.query('DELETE FROM user_tenants WHERE user_id = $1', [id]);
+      await dataSource.query('DELETE FROM users WHERE id = $1', [id]);
     });
 
     it('denies a TEACHER creating a user (ADMIN/EXECUTIVE only)', async () => {
@@ -417,8 +466,8 @@ describe('Users & Teachers E2E [8.11.8]', () => {
         .set('Authorization', `Bearer ${teacherToken}`)
         .set('X-Tenant-ID', TENANT_A)
         .send({ full_name: 'Should Not Exist', role: UserRole.TEACHER })
-        .expect(401);
-      expect(res.body.message).toContain('Requires one of roles');
+        .expect(403);
+      expect(res.body.message).toContain('Requires permission(s)');
     });
 
     it('denies a TEACHER removing a member (ADMIN only)', async () => {
@@ -426,8 +475,8 @@ describe('Users & Teachers E2E [8.11.8]', () => {
         .delete(`/api/v1/users/${MEMBER_A_ID}`)
         .set('Authorization', `Bearer ${teacherToken}`)
         .set('X-Tenant-ID', TENANT_A)
-        .expect(401);
-      expect(res.body.message).toContain('Requires one of roles');
+        .expect(403);
+      expect(res.body.message).toContain('Requires permission(s)');
     });
 
     it('denies a TEACHER reading audit logs (ADMIN only)', async () => {
@@ -435,8 +484,8 @@ describe('Users & Teachers E2E [8.11.8]', () => {
         .get('/api/v1/audit-logs')
         .set('Authorization', `Bearer ${teacherToken}`)
         .set('X-Tenant-ID', TENANT_A)
-        .expect(401);
-      expect(res.body.message).toContain('Requires one of roles');
+        .expect(403);
+      expect(res.body.message).toContain('Requires permission(s)');
     });
 
     it('rejects a request with no X-Tenant-ID header', async () => {
@@ -488,10 +537,7 @@ describe('Users & Teachers E2E [8.11.8]', () => {
       await dataSource.query('DELETE FROM users WHERE id = $1', [res.body.user.id]);
     });
 
-    // 401, not 403 — RolesGuard (context.guard.ts) throws UnauthorizedException
-    // for every role mismatch app-wide, not just here; that's an existing,
-    // systemic convention this test isn't the place to change.
-    it('a TEACHER cannot resend an invitation (401)', async () => {
+    it('a TEACHER cannot resend an invitation (403)', async () => {
       // Reuse the teacher token minted in the boundaries suite above.
       const loginRes = await request()
         .post('/api/v1/auth/login')
@@ -502,7 +548,7 @@ describe('Users & Teachers E2E [8.11.8]', () => {
         .post(`/api/v1/users/${MEMBER_A_ID}/invitation/resend`)
         .set('Authorization', `Bearer ${loginRes.body.access_token}`)
         .set('X-Tenant-ID', TENANT_A)
-        .expect(401);
+        .expect(403);
     });
 
     it('resending an invitation for a tenant-B user from tenant A returns 404', async () => {

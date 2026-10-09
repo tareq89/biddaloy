@@ -7,6 +7,7 @@ import { ALL_TABS, EXPECTED_TABS } from '../codec/registry';
 import { META_SHEET } from '../codec/meta';
 import { README_SHEET } from '../codec/workbook-codec';
 import { TemplateService } from './template.service';
+import { STARTER_TABS } from './template.constants';
 
 const TENANT_ID = '11111111-1111-4111-8111-111111111111';
 
@@ -96,6 +97,7 @@ describe('TemplateService', () => {
       }
     });
 
+    // Builds every registered tab (10 added by Epic 28); >5s on slow CI runners.
     it('gives every enum or bool column a list data validation on rows 2-1000', async () => {
       const service = new TemplateService(makeRepo(fakeSchool()));
       const { buffer } = await service.build(TENANT_ID, 'en');
@@ -153,7 +155,7 @@ describe('TemplateService', () => {
           expect(validations[address].type).toBe('list');
         }
       }
-    });
+    }, 30_000);
 
     it('gives every header cell a comment naming the column and its requirement', async () => {
       const service = new TemplateService(makeRepo(fakeSchool()));
@@ -182,6 +184,31 @@ describe('TemplateService', () => {
       for (const tabName of EXPECTED_TABS) {
         expect(joined).toContain(tabName);
       }
+    });
+  });
+
+  describe('starter variant [13.3.3]', () => {
+    it('has exactly the STARTER_TABS sheets, each with an example row and a first-cell note', async () => {
+      const service = new TemplateService(makeRepo(fakeSchool()));
+      const { buffer } = await service.build(TENANT_ID, 'en', 'starter');
+
+      const workbook = new ExcelJS.Workbook();
+      await workbook.xlsx.load(buffer as unknown as ArrayBuffer);
+
+      const tabSheets = workbook.worksheets
+        .map((ws) => ws.name)
+        .filter((n) => (EXPECTED_TABS as readonly string[]).includes(n));
+      expect(tabSheets).toEqual([...STARTER_TABS]);
+
+      for (const name of STARTER_TABS) {
+        const sheet = workbook.getWorksheet(name)!;
+        expect(String(sheet.getRow(2).getCell(1).value)).toBe('SAMPLE');
+        expect(JSON.stringify(sheet.getRow(1).getCell(1).note)).toContain('SAMPLE');
+      }
+    });
+
+    it('STARTER_TABS are all real EXPECTED_TABS names', () => {
+      for (const name of STARTER_TABS) expect(EXPECTED_TABS).toContain(name);
     });
   });
 });

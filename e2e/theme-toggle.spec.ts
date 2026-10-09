@@ -1,4 +1,4 @@
-import { expect, guest, test } from './fixtures/test';
+import { expect, loggedIn, test } from './fixtures/test';
 import { t } from './i18n';
 
 /**
@@ -11,8 +11,8 @@ import { t } from './i18n';
  * first-paint guarantee; this file is only about the click path a real
  * user takes.
  *
- * `/login` is used because it is reachable signed-out and — per
- * `login.tsx` — renders `<ThemeToggle />` next to `<LocaleSwitcher />`.
+ * Signed in on `/dashboard`: guest pages dropped `<ThemeToggle />` (D34,
+ * see `auth-layout.tsx`), so the staff top bar is where the menu lives.
  *
  * Names resolve through `e2e/i18n.ts`, never as English literals:
  * `ThemeToggle` labels itself from the `nav` namespace (`theme.label`,
@@ -32,11 +32,11 @@ async function chooseTheme(page: import('@playwright/test').Page, choice: ThemeC
 }
 
 test.describe('choosing a theme from the menu', () => {
-  test.use(guest);
+  test.use(loggedIn('admin'));
 
   test('Light -> data-theme absent, persisted', async ({ page }) => {
     await page.emulateMedia({ colorScheme: 'dark' });
-    await page.goto('/login');
+    await page.goto('/dashboard');
 
     // No stored choice yet + dark OS preference -> starts dark, per
     // `color-scheme.spec.ts`'s "no stored choice" contract.
@@ -62,7 +62,7 @@ test.describe('choosing a theme from the menu', () => {
 
   test('Dark -> data-theme="dark", persisted', async ({ page }) => {
     await page.emulateMedia({ colorScheme: 'light' });
-    await page.goto('/login');
+    await page.goto('/dashboard');
 
     await chooseTheme(page, 'dark');
 
@@ -82,7 +82,7 @@ test.describe('choosing a theme from the menu', () => {
     page,
   }) => {
     await page.emulateMedia({ colorScheme: 'light' });
-    await page.goto('/login');
+    await page.goto('/dashboard');
 
     // Pick an explicit choice first so there is something for "System" to
     // clear — otherwise this test can't tell "cleared" from "never set".

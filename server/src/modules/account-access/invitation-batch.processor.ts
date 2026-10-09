@@ -7,6 +7,7 @@ import { AuthTokenPurpose, UserRole } from '@biddaloy/shared';
 import { Guardian } from '../students/entities/guardian.entity';
 import { User } from '../users/entities/user.entity';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
+import { reviveMembership } from '../users/users.service';
 import { AuthTokenService } from './auth-token.service';
 import { InvitationService } from './invitation.service';
 import { INVITATION_BATCH_QUEUE } from './invitation-batch.constants';
@@ -141,9 +142,19 @@ export class InvitationBatchProcessor extends WorkerHost {
         where: { user_id: user.id, tenant_id: tenantId },
       });
       if (!membership) {
-        await userTenantRepo.save(
-          userTenantRepo.create({ user_id: user.id, tenant_id: tenantId, role: UserRole.PARENT }),
-        );
+        // The unique index ignores soft-deletion, so a guardian who was
+        // removed earlier is restored rather than re-inserted (23505).
+        const former = await userTenantRepo.findOne({
+          where: { user_id: user.id, tenant_id: tenantId, role: UserRole.PARENT },
+          withDeleted: true,
+        });
+        if (former) {
+          await reviveMembership(manager, former.id);
+        } else {
+          await userTenantRepo.save(
+            userTenantRepo.create({ user_id: user.id, tenant_id: tenantId, role: UserRole.PARENT }),
+          );
+        }
       }
 
       return user;

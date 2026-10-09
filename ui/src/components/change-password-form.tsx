@@ -4,10 +4,9 @@
  * only, same split `profile-form.tsx` documents: the route owns
  * `changePassword()` (`ui/src/hooks/auth.ts`).
  *
- * The server has **no** password-strength policy (`ChangePasswordDto`'s own
- * header comment) — this form does not invent one. The only client-side
- * rule is "non-empty, and the confirm field matches"; everything else is
- * the server's call, surfaced back through `serverError`.
+ * The new-password rules are the shared `checkPassword(…, audience)` ones —
+ * the same functions the server enforces — shown live by `PasswordChecklist`.
+ * Everything else is the server's call, surfaced back through `serverError`.
  *
  * `current_password`/`new_password` use `autoComplete="current-password"`/
  * `"new-password"` respectively, same as `sign-in-form.tsx`'s single
@@ -15,18 +14,22 @@
  * offers to save/suggest a strong replacement here, not anything this form
  * renders itself.
  */
+import { checkPassword, type PasswordAudience, type PasswordRuleId } from '@biddaloy/shared';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { CircleAlertIcon, InfoIcon } from 'lucide-react';
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
 import { useTranslation } from '../i18n';
+import { cn } from '../primitives/lib/utils';
 
 import { Button } from './button';
 import { Card } from './card';
 import { Checkbox } from './checkbox';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from './form-field';
 import { Input } from './input';
+import { FormPasswordChecklist, RuleIcon } from './password-checklist';
 
 export interface ChangePasswordFormValues {
   current_password: string;
@@ -46,14 +49,21 @@ export interface ChangePasswordFormProps {
   onSubmit: (values: { current_password: string; new_password: string }) => void;
   submitting?: boolean;
   serverError?: ChangePasswordFormServerError | null;
+  /** Which rules apply; must match what the server enforces for this user. */
+  audience?: PasswordAudience;
+  /** Server-rejected rules for the last submitted password (`weakPasswordRules`). */
+  failedRules?: PasswordRuleId[] | undefined;
 }
 
 export function ChangePasswordForm({
   onSubmit,
   submitting = false,
   serverError = null,
+  audience = 'staff',
+  failedRules,
 }: ChangePasswordFormProps) {
   const { t } = useTranslation('portal');
+  const { t: tAuth } = useTranslation('auth');
   const [showPasswords, setShowPasswords] = React.useState(false);
 
   const schema = React.useMemo(
@@ -64,11 +74,24 @@ export function ChangePasswordForm({
           new_password: z.string().min(1, t('account.password.errors.newRequired')),
           confirm_password: z.string().min(1, t('account.password.errors.confirmRequired')),
         })
-        .refine((data) => data.new_password === data.confirm_password, {
-          message: t('account.password.errors.mismatch'),
-          path: ['confirm_password'],
+        .superRefine((data, ctx) => {
+          const failed = checkPassword(data.new_password, audience).find((rule) => !rule.ok);
+          if (data.new_password !== '' && failed) {
+            ctx.addIssue({
+              code: 'custom',
+              path: ['new_password'],
+              message: tAuth(`passwordRules.${failed.id}`),
+            });
+          }
+          if (data.new_password !== data.confirm_password) {
+            ctx.addIssue({
+              code: 'custom',
+              path: ['confirm_password'],
+              message: t('account.password.errors.mismatch'),
+            });
+          }
         }),
-    [t],
+    [t, tAuth, audience],
   );
 
   const form = useForm<ChangePasswordFormValues>({
@@ -87,118 +110,148 @@ export function ChangePasswordForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- see profile-form.tsx's identical comment
   }, [serverError]);
 
+  const submitted = React.useRef('');
+
   function handleValidSubmit(values: ChangePasswordFormValues): void {
+    submitted.current = values.new_password;
     onSubmit({ current_password: values.current_password, new_password: values.new_password });
   }
 
   const passwordType = showPasswords ? 'text' : 'password';
+  const [newPassword, confirmPassword] = form.watch(['new_password', 'confirm_password']);
+  const matches = newPassword === confirmPassword;
 
   return (
-    <Card className="flex flex-col gap-4 p-4">
-      <h2 className="text-sm font-semibold">{t('account.password.title')}</h2>
+    <Card padded>
+      <h2 className="text-h2">{t('account.password.title')}</h2>
       {serverError?.message && (
-        <p role="alert" className="text-sm text-destructive">
+        <p role="alert" className="mt-3 flex items-center gap-1 text-caption text-destructive">
+          <CircleAlertIcon className="size-4" aria-hidden="true" />
           {serverError.message}
         </p>
       )}
       <Form {...form}>
-        <form
-          onSubmit={(event) => void form.handleSubmit(handleValidSubmit)(event)}
-          noValidate
-          className="flex flex-col gap-4"
-        >
-          <FormField
-            control={form.control}
-            name="current_password"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel htmlFor="account-change-current-password">
-                  {t('account.password.fields.current')}
-                </FormLabel>
-                <FormControl>
-                  <Input
-                    {...field}
-                    id="account-change-current-password"
-                    type={passwordType}
-                    autoComplete="current-password"
-                    disabled={submitting}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="new_password"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel htmlFor="account-change-new-password">
-                  {t('account.password.fields.new')}
-                </FormLabel>
-                <FormControl>
-                  <Input
-                    {...field}
-                    id="account-change-new-password"
-                    type={passwordType}
-                    autoComplete="new-password"
-                    disabled={submitting}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="confirm_password"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel htmlFor="account-change-confirm-password">
-                  {t('account.password.fields.confirm')}
-                </FormLabel>
-                <FormControl>
-                  <Input
-                    {...field}
-                    id="account-change-confirm-password"
-                    type={passwordType}
-                    autoComplete="new-password"
-                    disabled={submitting}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <div className="flex items-center gap-2">
-            <Checkbox
-              id="account-change-show-passwords"
-              checked={showPasswords}
-              onCheckedChange={(checked) => setShowPasswords(checked === true)}
-              disabled={submitting}
+        <form onSubmit={(event) => void form.handleSubmit(handleValidSubmit)(event)} noValidate>
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <FormField
+              control={form.control}
+              name="current_password"
+              render={({ field }) => (
+                <FormItem className="md:col-span-2">
+                  <FormLabel htmlFor="account-change-current-password">
+                    {t('account.password.fields.current')}
+                  </FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      id="account-change-current-password"
+                      type={passwordType}
+                      autoComplete="current-password"
+                      disabled={submitting}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-            <label
-              htmlFor="account-change-show-passwords"
-              className="text-xs text-muted-foreground"
-            >
-              {showPasswords ? t('account.password.hide') : t('account.password.show')}
-            </label>
-          </div>
 
-          {/* [8.14.4] plan's "persistent, non-dismissible consequence
+            <FormField
+              control={form.control}
+              name="new_password"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel htmlFor="account-change-new-password">
+                    {t('account.password.fields.new')}
+                  </FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      id="account-change-new-password"
+                      type={passwordType}
+                      autoComplete="new-password"
+                      disabled={submitting}
+                    />
+                  </FormControl>
+                  <FormPasswordChecklist
+                    password={field.value}
+                    audience={audience}
+                    failed={field.value === submitted.current ? failedRules : undefined}
+                  />
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="confirm_password"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel htmlFor="account-change-confirm-password">
+                    {t('account.password.fields.confirm')}
+                  </FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      id="account-change-confirm-password"
+                      type={passwordType}
+                      autoComplete="new-password"
+                      disabled={submitting}
+                    />
+                  </FormControl>
+                  {/* Live as you type, same as `SetPasswordForm`; always mounted so it is announced. */}
+                  <p
+                    aria-live="polite"
+                    className={cn(
+                      'flex items-center gap-2 text-xs empty:hidden',
+                      matches ? 'text-status-paid-fg' : 'text-status-overdue-fg',
+                    )}
+                  >
+                    {confirmPassword !== '' && (
+                      <>
+                        {matches ? (
+                          <RuleIcon ok />
+                        ) : (
+                          <CircleAlertIcon className="size-4 shrink-0" aria-hidden="true" />
+                        )}
+                        <span>
+                          {matches ? tAuth('setPassword.match') : tAuth('setPassword.mismatch')}
+                        </span>
+                      </>
+                    )}
+                  </p>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <div className="flex min-h-11 items-center gap-3 md:col-span-2">
+              <Checkbox
+                id="account-change-show-passwords"
+                checked={showPasswords}
+                onCheckedChange={(checked) => setShowPasswords(checked === true)}
+                disabled={submitting}
+              />
+              <label htmlFor="account-change-show-passwords" className="text-text-primary">
+                {showPasswords ? t('account.password.hide') : t('account.password.show')}
+              </label>
+            </div>
+
+            {/* [8.14.4] plan's "persistent, non-dismissible consequence
               notice" — every other device is signed out the moment this
               succeeds, so it says so before the button is even pressed,
               not only after. */}
-          <p className="rounded-md bg-status-due-bg p-3 text-xs text-status-due-fg">
-            {t('account.password.consequenceNotice')}
-          </p>
+            <p className="flex items-start gap-2 rounded-md bg-status-due-bg px-3 py-2 text-status-due-fg md:col-span-2">
+              <InfoIcon className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+              {t('account.password.consequenceNotice')}
+            </p>
+          </div>
 
-          <Button type="submit" loading={submitting} className="self-start">
-            {submitting ? t('account.password.saving') : t('account.password.save')}
-          </Button>
+          <div className="mt-4 flex justify-end border-t border-border-subtle pt-4">
+            <Button type="submit" loading={submitting} className="w-full md:w-auto">
+              {submitting ? t('account.password.saving') : t('account.password.save')}
+            </Button>
+          </div>
         </form>
       </Form>
     </Card>

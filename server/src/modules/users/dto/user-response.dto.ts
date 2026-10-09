@@ -59,6 +59,11 @@ export class UserResponseDto {
   @ApiProperty({ nullable: true, type: Date })
   member_since: Date | null;
 
+  /** When the member left or was removed (`user_tenants.deleted_at`). Null for a
+   * current member; set only in the `membership=former` list. */
+  @ApiProperty({ nullable: true, type: Date })
+  left_at: Date | null;
+
   @ApiProperty({ nullable: true, type: String })
   profile_picture_url: string | null;
 
@@ -81,6 +86,13 @@ export class UserResponseDto {
   @ApiProperty({ enum: INVITATION_STATUS_VALUES })
   invitation_status: InvitationStatus;
 
+  /** [36.2.1] `staff_profiles.id` for this user, or `null` if they have no
+   * staff profile (e.g. PARENT/STUDENT roles). Not populated by `fromEntity`
+   * itself — callers that need it fetch it separately via
+   * `StaffProfilesService` and assign it, same pattern as `invitation_status`. */
+  @ApiProperty({ nullable: true, type: String })
+  staff_profile_id: string | null;
+
   static fromEntity(user: User, tenantId?: string): UserResponseDto {
     const dto = new UserResponseDto();
     dto.id = user.id;
@@ -94,6 +106,7 @@ export class UserResponseDto {
       : undefined;
     dto.role = membership?.role ?? null;
     dto.member_since = membership?.created_at ?? null;
+    dto.left_at = membership?.deleted_at ?? null;
     dto.full_name = user.full_name;
     dto.profile_picture_url = user.profile_picture_url;
     dto.preferences = user.preferences;

@@ -47,8 +47,39 @@ export { MoneyInput, type MoneyInputProps } from './money-input';
 export { PhoneInput, formatValidPhone, type PhoneInputProps } from './phone-input';
 export { DatePicker, Calendar, type DatePickerProps } from './date-picker';
 export { Combobox, type ComboboxOption, type ComboboxProps } from './combobox';
+export {
+  RoutineGrid,
+  routineCellKey,
+  type RoutineGridProps,
+  type RoutineGridPeriodRow,
+  type RoutineGridCell,
+} from './routine-grid';
+export {
+  RoutineAgenda,
+  type RoutineAgendaProps,
+  type RoutineAgendaDay,
+  type RoutineAgendaItem,
+} from './routine-agenda';
 export { FileUpload, type FileUploadItem, type FileUploadProps } from './file-upload';
-export { BulkUploadPreview, type BulkUploadPreviewProps } from './bulk-upload-preview';
+export {
+  BulkUploadPreview,
+  type BulkUploadPreviewProps,
+  type BulkUploadPreviewController,
+} from './bulk-upload-preview';
+export { ConfirmDialog, type ConfirmDialogProps } from './confirm-dialog';
+export {
+  RowActions,
+  type RowAction,
+  type RowActionIntent,
+  type RowActionsProps,
+} from './row-actions';
+export { TableCount, type TableCountProps } from './table-count';
+export { FilterSheet, type FilterSheetProps } from './filter-sheet';
+export { MonthHeader, type MonthHeaderProps } from './month-header';
+export { MonthPicker, type MonthPickerProps } from './month-picker';
+export { TimeInput, type TimeInputProps } from './time-input';
+export { DayPanel, type DayPanelProps } from './calendar/day-panel';
+export { AuthLayout, type AuthLayoutProps } from './auth-layout';
 export { BulkImportErrorTable, type BulkImportErrorTableProps } from './bulk-import-error-table';
 export {
   DataTable,
@@ -57,6 +88,17 @@ export {
   type DataTableProps,
   type DataTableSort,
 } from './data-table';
+export {
+  MarksGrid,
+  cellKey,
+  type MarksGridCell,
+  type MarksGridCellValue,
+  type MarksGridComponent,
+  type MarksGridProps,
+  type MarksGridStatus,
+  type MarksGridStudent,
+} from './marks-grid';
+export { MarksStepper, type MarksStepperProps } from './marks-stepper';
 export {
   RadioGroup,
   RadioGroupItem,
@@ -247,6 +289,12 @@ export {
   type SignInFormError,
   type SignInFormProps,
 } from './sign-in-form';
+export {
+  FormPasswordChecklist,
+  PasswordChecklist,
+  type PasswordChecklistProps,
+  weakPasswordRules,
+} from './password-checklist';
 export { SetPasswordForm, type SetPasswordFormProps } from './set-password-form';
 export { OtpInput, type OtpInputProps } from './otp-input';
 export {
@@ -293,6 +341,14 @@ export {
   type InvoiceReceiptProps,
   type InvoiceReceiptStudent,
 } from './print/invoice-receipt';
+export {
+  ReportCard,
+  type ReportCardComponent,
+  type ReportCardData,
+  type ReportCardLegendRow,
+  type ReportCardProps,
+  type ReportCardSubject,
+} from './print/report-card';
 export { EventTypeBadge, type EventTypeBadgeProps } from './calendar/event-type-badge';
 export {
   MonthGrid,
@@ -301,3 +357,45 @@ export {
   type MonthGridTermBand,
 } from './calendar/month-grid';
 export { AgendaList, type AgendaEvent, type AgendaListProps } from './calendar/agenda-list';
+export {
+  MilestoneChecklist,
+  type MilestoneChecklistItem,
+  type MilestoneChecklistProps,
+} from './programs/milestone-checklist';
+export { ProgressBar, type ProgressBarProps } from './programs/progress-bar';
+export {
+  SummaryCard,
+  type SummaryCardFigure,
+  type SummaryCardProps,
+} from './performance/summary-card';
+export { BarWidget, type BarWidgetBar, type BarWidgetProps } from './performance/bar-widget';
+export { SwipeRow, type SwipeRowProps } from './performance/swipe-row';
+export {
+  BUNDLED_PRINT_FONTS,
+  layoutPages,
+  orderSides,
+  TemplateRenderer,
+  type PrintFont,
+  type PrinterSetup,
+  type Sheet,
+  type TemplateRendererProps,
+} from './print/template-renderer';
+export {
+  buildCalibrationDocument,
+  buildPrintDocument,
+  fetchAsDataUrl,
+  openPrintWindow,
+  type BlobFetcher,
+  type BuildPrintDocumentInput,
+  type PrintCalibration,
+} from './print/print-document';
+export {
+  RepeatableRowForm,
+  type RepeatableRowField,
+  type RepeatableRowFieldType,
+  type RepeatableRowFormProps,
+  type RepeatableRowValue,
+} from './repeatable-row-form/repeatable-row-form';
+export { SocialButtons, type SocialButtonsProps } from './social-buttons';
+export { NoticeBar, type NoticeBarProps, type NoticeBarTone } from './notice-bar';
+export { StepIndicator, type StepIndicatorProps } from './step-indicator';

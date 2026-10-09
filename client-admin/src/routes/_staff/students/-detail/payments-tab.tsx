@@ -1,20 +1,11 @@
 import { Permission } from '@biddaloy/shared';
-import {
-  Button,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@biddaloy/ui/components';
+import { Button, DataTable, type DataTableColumn } from '@biddaloy/ui/components';
 import { useHasPermission, usePaymentsByStudent } from '@biddaloy/ui/hooks';
 import type { FamilyPayment, Payment } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
-import { formatCurrency, parseCurrency } from '@biddaloy/ui/utils';
-import * as React from 'react';
-
-import { RecordPaymentModal } from '../../payments/-record/record-payment-modal';
+import { formatCurrency, formatDate, parseCurrency, parseServerDate } from '@biddaloy/ui/utils';
+import { useNavigate } from '@tanstack/react-router';
+import { PlusIcon, WalletIcon } from 'lucide-react';
 
 import { TabQueryState } from './tab-query-state';
 
@@ -36,22 +27,25 @@ export function PaymentsTab({ studentId }: PaymentsTabProps) {
   const { t } = useTranslation('students');
   const { t: tPayments } = useTranslation('payments');
   const regionConfig = useRegionConfig();
+  const navigate = useNavigate();
   const query = usePaymentsByStudent(studentId);
   const canRecord = useHasPermission(Permission.PAYMENT_RECORD);
-  const [recordOpen, setRecordOpen] = React.useState(false);
 
   return (
     <div className="flex flex-col gap-3">
       {canRecord && (
-        <div>
-          <Button type="button" size="sm" onClick={() => setRecordOpen(true)}>
+        <div className="flex justify-end">
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full md:w-auto"
+            onClick={() =>
+              void navigate({ to: '/payments/record', search: { student_id: studentId } })
+            }
+          >
+            <PlusIcon className="size-4" aria-hidden />
             {tPayments('recordAction')}
           </Button>
-          <RecordPaymentModal
-            open={recordOpen}
-            onOpenChange={setRecordOpen}
-            studentId={studentId}
-          />
         </div>
       )}
       <TabQueryState
@@ -59,39 +53,70 @@ export function PaymentsTab({ studentId }: PaymentsTabProps) {
         forbiddenMessage={t('detail.forbidden')}
         errorMessage={t('detail.payments.errorMessage')}
       >
-        {(payments) =>
-          payments.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{t('detail.payments.emptyMessage')}</p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{t('detail.payments.columnDate')}</TableHead>
-                  <TableHead>{t('detail.payments.columnAmount')}</TableHead>
-                  <TableHead>{t('detail.payments.columnMethod')}</TableHead>
-                  <TableHead>{t('detail.payments.columnReference')}</TableHead>
-                  <TableHead>{t('detail.payments.columnReceivedBy')}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {payments.map((payment) => (
-                  <TableRow key={payment.id}>
-                    <TableCell>{payment.payment_date}</TableCell>
-                    <TableCell>
-                      {formatCurrency(
-                        parseCurrency(String(payment.total_amount), regionConfig),
-                        regionConfig,
-                      )}
-                    </TableCell>
-                    <TableCell>{payment.payment_method}</TableCell>
-                    <TableCell>{payment.transaction_reference ?? t('list.emptyValue')}</TableCell>
-                    <TableCell>{receivedByName(payment) ?? t('list.emptyValue')}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )
-        }
+        {(payments) => {
+          const dateOf = (payment: Payment | FamilyPayment) =>
+            formatDate(parseServerDate(payment.payment_date), regionConfig);
+          const methodOf = (payment: Payment | FamilyPayment) =>
+            t(`enums.paymentMethod.${payment.payment_method}`, {
+              ns: 'common',
+              defaultValue: payment.payment_method,
+            });
+          const columns: DataTableColumn<Payment | FamilyPayment>[] = [
+            { id: 'date', header: t('detail.payments.columnDate'), accessorFn: dateOf },
+            {
+              id: 'amount',
+              header: t('detail.payments.columnAmount'),
+              align: 'end',
+              accessorFn: (payment) =>
+                formatCurrency(
+                  parseCurrency(String(payment.total_amount), regionConfig),
+                  regionConfig,
+                ),
+              card: 'title',
+            },
+            {
+              id: 'method',
+              header: t('detail.payments.columnMethod'),
+              accessorFn: methodOf,
+              card: 'subtitle',
+            },
+            {
+              id: 'reference',
+              header: t('detail.payments.columnReference'),
+              accessorFn: (payment) => payment.transaction_reference ?? t('list.emptyValue'),
+            },
+            {
+              id: 'receivedBy',
+              header: t('detail.payments.columnReceivedBy'),
+              accessorFn: (payment) => receivedByName(payment) ?? t('list.emptyValue'),
+            },
+          ];
+          return (
+            <DataTable
+              tableId="student-payments"
+              caption={t('detail.tabs.payments')}
+              paginated={false}
+              sorting={null}
+              onSortingChange={() => {}}
+              columns={columns}
+              data={payments}
+              getRowId={(payment) => payment.id}
+              totalCount={payments.length}
+              rowActions={(payment) => [
+                {
+                  intent: 'view',
+                  label: t('detail.payments.view'),
+                  to: `/payments/${payment.id}`,
+                },
+              ]}
+              emptyState={{
+                title: t('detail.payments.emptyMessage'),
+                explanation: t('detail.payments.emptyExplanation'),
+                icon: <WalletIcon aria-hidden="true" />,
+              }}
+            />
+          );
+        }}
       </TabQueryState>
     </div>
   );

@@ -4,10 +4,18 @@
  * #822 review pass (see `$id.tsx`'s own doc comment on
  * `recurring_schedule_id` scoping).
  */
-import { cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
+import { apiErrorBody, cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
 import { screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+// The default test RegionConfig is Bangla; pin REGION_BD_EN for this page so assertions read in
+// Latin digits.
+vi.mock('@biddaloy/ui/i18n', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@biddaloy/ui/i18n')>();
+  return { ...actual, useRegionConfig: () => actual.REGION_BD_EN };
+});
 
 import { routeTree } from '../../../../routeTree.gen';
 
@@ -46,7 +54,10 @@ function renderScheduleDetail(options: {
   server.use(
     http.get('/api/v1/fees/schedules/:id', () => {
       if (options.scheduleStatus) {
-        return HttpResponse.json({ message: 'Not found' }, { status: options.scheduleStatus });
+        return HttpResponse.json(
+          apiErrorBody(options.scheduleStatus, 'Not found', '/api/v1/fees/schedules/x'),
+          { status: options.scheduleStatus },
+        );
       }
       return HttpResponse.json(schedule);
     }),
@@ -55,6 +66,8 @@ function renderScheduleDetail(options: {
       // Confirms $id.tsx actually sends the schedule-scoping filter added
       // alongside the run-history fix, not just a source: 'SCHEDULE' filter.
       expect(url.searchParams.get('recurring_schedule_id')).toBe(schedule.id as string);
+      expect(url.searchParams.get('source')).toBe('SCHEDULE');
+      expect(url.searchParams.get('limit')).toBe('25');
       return HttpResponse.json(paginatedGenerations(options.generations ?? []));
     }),
   );
@@ -75,9 +88,73 @@ describe('fees/schedules/$id', () => {
   it('shows the schedule name, exclusions section and an empty run-history state', async () => {
     renderScheduleDetail({});
 
-    expect(await screen.findByRole('heading', { name: 'Monthly tuition' })).toBeTruthy();
-    expect(screen.getByText('Exclusions')).toBeTruthy();
+    // One h1 — the rule name — and no back link.
+    expect(await screen.findByRole('heading', { level: 1, name: 'Monthly tuition' })).toBeTruthy();
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+    expect(screen.queryByRole('link', { name: /Back to schedules/ })).toBeNull();
+    expect(screen.getByRole('heading', { level: 2, name: 'Excluded students' })).toBeTruthy();
+    expect(screen.getByRole('heading', { level: 2, name: 'Billing history' })).toBeTruthy();
     expect(await screen.findByText("This schedule hasn't generated any fees yet")).toBeTruthy();
+  });
+
+  it('says what the rule does in the header facts', async () => {
+    server.use(
+      http.get('/api/v1/academic-years', () =>
+        HttpResponse.json({
+          data: [
+            { id: 'year-1', name: '2026-2027', start_date: '2026-01-01', end_date: '2026-12-31' },
+          ],
+          total: 1,
+          page: 1,
+          limit: 100,
+          totalPages: 1,
+        }),
+      ),
+      http.get('/api/v1/fee-structures', () =>
+        HttpResponse.json({
+          data: [{ id: 'fee-1', name: 'Tuition', amount: '1500', class_id: null }],
+          total: 1,
+          page: 1,
+          limit: 100,
+          totalPages: 1,
+        }),
+      ),
+    );
+    renderScheduleDetail({});
+
+    await screen.findByRole('heading', { level: 1, name: 'Monthly tuition' });
+    expect(await screen.findByText('2026-2027')).toBeTruthy();
+    expect(screen.getByText('Every month on day 1')).toBeTruthy();
+    expect(screen.getByText('7 days after the period starts')).toBeTruthy();
+    expect(screen.getByText('From 1st January, 2026')).toBeTruthy();
+    expect(await screen.findByText('Tuition (৳1,500.00)')).toBeTruthy();
+  });
+
+  it('opens the rule form through ?edit=1 from the single primary Edit button', async () => {
+    const { router } = renderScheduleDetail({});
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('button', { name: 'Edit' }));
+
+    await waitFor(() => expect(router.state.location.search).toMatchObject({ edit: 1 }));
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Edit automatic billing rule' }),
+    ).toBeTruthy();
+  });
+
+  it('shows no Edit button for a role that cannot manage schedules', async () => {
+    renderScheduleDetail({ role: 'EXECUTIVE' });
+
+    // EXECUTIVE cannot reach the route at all; the page shows the refusal, never an Edit button.
+    await screen.findByText("You don't have access to this page.");
+    expect(screen.queryByRole('button', { name: 'Edit' })).toBeNull();
+  });
+
+  it('shows a Retry button when the schedule fails to load', async () => {
+    renderScheduleDetail({ scheduleStatus: 404 });
+
+    expect(await screen.findByText("Couldn't load automatic billing rules")).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeTruthy();
   });
 
   it('scopes run-history to this schedule and renders a returned batch', async () => {
@@ -107,6 +184,8 @@ describe('fees/schedules/$id', () => {
     });
 
     await screen.findByRole('heading', { name: 'Monthly tuition' });
+    // The history is a month name (the round's own period), never an ISO date.
+    expect(await screen.findByText('July 2026')).toBeTruthy();
     // Proves the recurring_schedule_id filter round-trips end to end: this
     // only passes once the msw handler's own assertion (that the request
     // actually carried the filter) has passed, and the empty-state message

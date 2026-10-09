@@ -72,7 +72,7 @@ describe('Role resolution (regression)', () => {
       .expect(200);
   });
 
-  it('honors an explicit X-Role that lowers the effective role below what RolesGuard requires', async () => {
+  it('honors an explicit X-Role that lowers the effective role below what the route requires', async () => {
     // Forcing TEACHER even though ADMIN is also held and would otherwise
     // win by priority — proves X-Role actually takes effect, not just that
     // omitting it happens to pick the right role by luck.
@@ -81,9 +81,9 @@ describe('Role resolution (regression)', () => {
       .set('Authorization', `Bearer ${token}`)
       .set('X-Tenant-ID', TENANT_ID)
       .set('X-Role', UserRole.TEACHER)
-      .expect(401);
+      .expect(403);
 
-    expect(res.body.message).toContain('Requires one of roles');
+    expect(res.body.message).toContain('Requires permission(s)');
   });
 
   it('rejects an explicit X-Role naming a role the user does not hold in that tenant', async () => {

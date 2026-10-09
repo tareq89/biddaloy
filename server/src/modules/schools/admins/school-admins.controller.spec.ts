@@ -1,13 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import { Reflector } from '@nestjs/core';
-import { UnauthorizedException } from '@nestjs/common';
+import { ForbiddenException } from '@nestjs/common';
 import { UserRole } from '@biddaloy/shared';
 import { RolesGuard } from '../../auth/guards/context.guard';
 import { SchoolAdminsController } from './school-admins.controller';
 
 /**
- * Contract: "Non-SUPER_ADMIN caller → 401 on all four routes" (`RolesGuard`
- * throws `UnauthorizedException` on a role mismatch, the same status the
+ * Contract: "Non-SUPER_ADMIN caller → 403 on all four routes" (`RolesGuard`
+ * throws `ForbiddenException` on a role mismatch, the same status the
  * repo's E2E suites assert for this path). The class
  * carries `@Roles(SUPER_ADMIN)` (rather than repeating it per-method, as
  * `ProvisioningController` does) — same `RolesGuard`, reading
@@ -24,7 +24,7 @@ describe('SchoolAdminsController — SUPER_ADMIN only', () => {
     SchoolAdminsController.prototype.revokeInvitation,
   ];
 
-  it.each(handlers)('denies a non-SUPER_ADMIN caller with 401 at the RolesGuard', (handler) => {
+  it.each(handlers)('denies a non-SUPER_ADMIN caller with 403 at the RolesGuard', (handler) => {
     const context: any = {
       getHandler: () => handler,
       getClass: () => SchoolAdminsController,
@@ -32,7 +32,7 @@ describe('SchoolAdminsController — SUPER_ADMIN only', () => {
         getRequest: () => ({ currentTenant: { id: 'tenant-x', role: UserRole.ADMIN } }),
       }),
     };
-    expect(() => guard.canActivate(context)).toThrow(UnauthorizedException);
+    expect(() => guard.canActivate(context)).toThrow(ForbiddenException);
   });
 
   it.each(handlers)('allows a SUPER_ADMIN caller', (handler) => {

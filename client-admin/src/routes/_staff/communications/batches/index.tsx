@@ -13,7 +13,6 @@
  */
 import { ReminderBatchStatus } from '@biddaloy/shared';
 import {
-  Button,
   RoutePending,
   StatusBadge,
   statusLabelKey,
@@ -33,7 +32,8 @@ import {
 } from '@biddaloy/ui/i18n';
 import { ListShell, useListShellState, type FilterFieldDescriptor } from '@biddaloy/ui/shells';
 import { formatDate, formatNumber } from '@biddaloy/ui/utils';
-import { createFileRoute, Link } from '@tanstack/react-router';
+import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import { SendIcon } from 'lucide-react';
 import { z } from 'zod';
 
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../../route-loaders';
@@ -57,7 +57,7 @@ export const Route = createFileRoute('/_staff/communications/batches/')({
   validateSearch: batchesSearchSchema,
   loaderDeps: ({ search }) => ({
     page: search.page ?? 1,
-    limit: search.limit ?? 10,
+    limit: search.limit ?? 25,
     sort: search.sort,
     order: search.order,
     search: search.search,
@@ -121,7 +121,10 @@ function ReminderHistoryPage() {
 function ReminderHistoryList() {
   const { t } = useTranslation('communications');
   const config = useRegionConfig();
-  const [state, actions] = useListShellState({ limit: 20 });
+  const navigate = useNavigate();
+  const [state, actions] = useListShellState();
+  const openBulk = () =>
+    void navigate({ to: '/communications/reminders', search: { mode: 'bulk' } });
 
   const filters = state.filters as {
     search?: string;
@@ -174,20 +177,12 @@ function ReminderHistoryList() {
     {
       id: 'name',
       header: t('batches.nameHeader'),
-      accessorFn: (row) => (
-        <Link
-          to="/communications/batches/$batchId"
-          params={{ batchId: row.id }}
-          className="font-medium text-primary underline-offset-2 hover:underline"
-        >
-          {row.batch_name}
-        </Link>
-      ),
+      accessorFn: (row) => <span className="font-medium">{row.batch_name}</span>,
       pinned: true,
       sortable: true,
       // [8.14.10] `pinned` alone would default this to card role
       // `'actions'` (see `DataTableCardRole`'s doc comment) — wrong for a
-      // column that's actually the row's title link, not an action.
+      // column that's the row's title, not an action.
       card: 'title',
     },
     {
@@ -228,36 +223,49 @@ function ReminderHistoryList() {
   ];
 
   return (
-    <div className="p-4">
-      <ListShell
-        title={t('batches.title')}
-        primaryAction={
-          <Button asChild variant="outline">
-            <Link to="/communications/reminders" search={{ mode: 'bulk' }}>
-              {t('bulk.entryAction')}
-            </Link>
-          </Button>
-        }
-        filters={{ fields: filterFields, values: state.filters, onChange: actions.setFilters }}
-        tableId="reminder-batches"
-        caption={t('batches.tableCaption')}
-        columns={columns}
-        data={batchesQuery.data?.data ?? []}
-        getRowId={(row) => row.id}
-        sorting={state.sorting}
-        onSortingChange={actions.setSorting}
-        page={state.page}
-        pageSize={state.limit}
-        totalCount={batchesQuery.data?.total ?? 0}
-        onPageChange={actions.setPage}
-        onPageSizeChange={actions.setLimit}
-        pageSizeLabel={t('pagination.rowsPerPage', { ns: 'common' })}
-        loading={batchesQuery.isPending}
-        isFetching={batchesQuery.isFetching}
-        {...(batchesQuery.isError ? { error: t('batches.error') } : {})}
-        emptyMessage={t('batches.empty')}
-      />
-    </div>
+    <ListShell
+      title={t('batches.title')}
+      subtitle={t('batches.subtitle')}
+      actions={[
+        {
+          id: 'bulk',
+          label: t('bulk.entryAction'),
+          icon: <SendIcon aria-hidden />,
+          priority: 'primary',
+          onClick: openBulk,
+        },
+      ]}
+      filters={{ fields: filterFields, values: state.filters, onChange: actions.setFilters }}
+      tableId="reminder-batches"
+      caption={t('batches.tableCaption')}
+      columns={columns}
+      rowActions={(row) => [
+        {
+          intent: 'view',
+          label: t('batches.viewAction'),
+          to: `/communications/batches/${row.id}`,
+          'data-focus-anchor': row.id,
+        },
+      ]}
+      data={batchesQuery.data?.data ?? []}
+      getRowId={(row) => row.id}
+      sorting={state.sorting}
+      onSortingChange={actions.setSorting}
+      page={state.page}
+      pageSize={state.limit}
+      totalCount={batchesQuery.data?.total ?? 0}
+      onPageChange={actions.setPage}
+      onPageSizeChange={actions.setLimit}
+      pageSizeLabel={t('pagination.rowsPerPage', { ns: 'common' })}
+      loading={batchesQuery.isPending}
+      isFetching={batchesQuery.isFetching}
+      {...(batchesQuery.isError ? { error: t('batches.error') } : {})}
+      emptyState={{
+        icon: <SendIcon aria-hidden />,
+        title: t('batches.empty'),
+        explanation: t('batches.emptyHelp'),
+      }}
+    />
   );
 }
 

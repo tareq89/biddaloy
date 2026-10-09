@@ -86,6 +86,8 @@ const SCOPE_LABEL_KEYS: Record<string, string> = {
   'fees.waiver_apply': 'scopes.fees.waiver_apply',
   'payments.refund_issue': 'scopes.payments.refund_issue',
   'invoices.void': 'scopes.invoices.void',
+  'fees.discount': 'scopes.fees.discount',
+  'payments.reverse': 'scopes.payments.reverse',
 };
 
 export function AdminVerificationModal({
@@ -100,7 +102,7 @@ export function AdminVerificationModal({
   requestingOtp = false,
   error = null,
 }: AdminVerificationModalProps) {
-  const { t } = useTranslation('approval');
+  const { t, i18n } = useTranslation('approval');
   const [method, setMethod] = React.useState<ApprovalMethod>('otp');
   const [identifier, setIdentifier] = React.useState('');
   const [code, setCode] = React.useState('');
@@ -124,7 +126,12 @@ export function AdminVerificationModal({
     return () => clearInterval(interval);
   }, [secondsLeft]);
 
-  const scopeLabel = SCOPE_LABEL_KEYS[scope] ? t(SCOPE_LABEL_KEYS[scope]) : t('scopeFallback', { scope });
+  // A label that has no `approval.json` entry yet falls back, never a raw key.
+  const scopeKey = SCOPE_LABEL_KEYS[scope];
+  const scopeLabel =
+    scopeKey && i18n.exists(scopeKey, { ns: 'approval' })
+      ? t(scopeKey)
+      : t('scopeFallback', { scope });
 
   const errorMessage = React.useMemo(() => {
     if (!error) return null;

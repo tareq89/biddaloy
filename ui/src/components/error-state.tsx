@@ -8,24 +8,22 @@
  *
  * ---
  *
- * [8.13.11]: this is the one member of the empty/loading/error family that
- * reports a *fault*, and its solid border + `shadow-e1` are what say so —
- * see `EmptyState`'s file comment for the full border/elevation table
- * across all three states and why only this one is elevated.
- *
- * The icon well is `bg-destructive/10 text-destructive`: not a new colour,
- * the exact pairing `button.tsx`'s `destructive` variant already ships, so
- * "danger" looks the same on a state as it does on a button. It is an
- * alpha tint of an existing token rather than a new solid, so like every
- * other `/10` blend in the package it has no `CONTRAST_PAIRS` row of its
- * own; the text that has to be legible (`message`) is
- * `text-muted-foreground` on `bg-card`, which is verified.
+ * Shares the card look of the empty/error/route-status family (table in
+ * `empty-state.tsx`); what says "fault" is `role="alert"` and the
+ * `bg-status-overdue-bg text-status-overdue-fg` icon well, the same pair
+ * the overdue status uses elsewhere. Default labels are translated here
+ * (`actions.retry`, `routeError.home`) so a caller never has to pass them.
  */
+import { RotateCcwIcon, TriangleAlertIcon } from 'lucide-react';
 import * as React from 'react';
+
+import { useTranslation } from '../i18n';
 
 import { Button } from './button';
 
 export interface ErrorStateProps {
+  /** Optional heading above the message, rendered as an `<h2>`. */
+  title?: string;
   message: string;
   onRetry: () => void;
   retryLabel?: string;
@@ -40,32 +38,34 @@ export interface ErrorStateProps {
 }
 
 export function ErrorState({
+  title,
   message,
   onRetry,
-  retryLabel = 'Try again',
+  retryLabel,
   icon,
   onHome,
-  homeLabel = 'Go home',
+  homeLabel,
 }: ErrorStateProps) {
+  const { t } = useTranslation('common');
   return (
     <div
       role="alert"
       data-slot="error-state"
-      className="flex flex-col items-center gap-2 rounded-lg border border-border-subtle bg-card p-8 text-center shadow-e1"
+      className="flex flex-col items-center gap-2 rounded-lg border border-border-subtle bg-surface px-4 py-10 text-center shadow-e1"
     >
-      {icon && (
-        <div className="mb-1 flex size-14 items-center justify-center rounded-full bg-destructive/10 text-destructive [&_svg]:size-8">
-          {icon}
-        </div>
-      )}
-      <p className="max-w-prose text-sm text-muted-foreground">{message}</p>
+      <div className="flex size-12 items-center justify-center rounded-full bg-status-overdue-bg text-status-overdue-fg [&_svg]:size-6">
+        {icon ?? <TriangleAlertIcon aria-hidden="true" />}
+      </div>
+      {title && <h2 className="text-h3">{title}</h2>}
+      <p className="max-w-prose text-text-secondary">{message}</p>
       <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
         <Button type="button" variant="outline" onClick={onRetry}>
-          {retryLabel}
+          <RotateCcwIcon aria-hidden="true" />
+          {retryLabel ?? t('actions.retry')}
         </Button>
         {onHome && (
           <Button type="button" variant="ghost" onClick={onHome}>
-            {homeLabel}
+            {homeLabel ?? t('routeError.home')}
           </Button>
         )}
       </div>

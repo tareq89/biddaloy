@@ -10,6 +10,7 @@ import { AttendanceDevice } from '../../attendance/entities/attendance-device.en
 import { AttendanceDeviceEvent } from '../../attendance/entities/attendance-device-event.entity';
 import { AuditLog } from '../../audit/entities/audit-log.entity';
 import { UserTenant } from '../../auth/entities/user-tenant.entity';
+import { UserIdentity } from '../../auth/entities/user-identity.entity';
 import { AuthToken } from '../../account-access/entities/auth-token.entity';
 import { CommunicationLog } from '../../communications/entities/communication-log.entity';
 import { ReminderBatch } from '../../communications/entities/reminder-batch.entity';
@@ -24,22 +25,13 @@ import { StudentWallet } from '../../fees/entities/student-wallet.entity';
 import { WalletTransaction } from '../../fees/entities/wallet-transaction.entity';
 import { InvoiceShareToken } from '../../invoices/entities/invoice-share-token.entity';
 import { PushSubscription } from '../../push/entities/push-subscription.entity';
+import { PrintTemplate } from '../../print/entities/print-template.entity';
+import { PrintTemplateVersion } from '../../print/entities/print-template-version.entity';
+import { PrintAsset } from '../../print/entities/print-asset.entity';
+import { PrinterProfile } from '../../print/entities/printer-profile.entity';
+import { PrintJob } from '../../print/entities/print-job.entity';
+import { PrintJobItem } from '../../print/entities/print-job-item.entity';
 import { WorkbookJob } from '../jobs/workbook-job.entity';
-import { Exam } from '../../exams/entities/exam.entity';
-import { ExamComponent } from '../../exams/entities/exam-component.entity';
-import { Mark } from '../../exams/entities/mark.entity';
-import { MarkGrid } from '../../exams/entities/mark-grid.entity';
-import { Result } from '../../exams/entities/result.entity';
-import { ResultSubject } from '../../exams/entities/result-subject.entity';
-import { StudentSubjectChoice } from '../../students/entities/student-subject-choice.entity';
-import { Shift } from '../../routines/entities/shift.entity';
-import { PeriodSlot } from '../../routines/entities/period-slot.entity';
-import { Room } from '../../routines/entities/room.entity';
-import { Routine } from '../../routines/entities/routine.entity';
-import { RoutineSlot } from '../../routines/entities/routine-slot.entity';
-import { RoutineSlotTeacher } from '../../routines/entities/routine-slot-teacher.entity';
-import { RoutineSubstitution } from '../../routines/entities/routine-substitution.entity';
-import { RoutineChangeRequest } from '../../routines/entities/routine-change-request.entity';
 
 /**
  * Entities that `registry.completeness.spec.ts` allows to have no workbook
@@ -66,6 +58,10 @@ export const ENTITY_COVERAGE_EXEMPT: ReadonlyMap<EntityTarget<unknown>, string> 
   ],
   [AuditLog, 'Append-only audit trail, not tenant content to restore.'],
   [AuthToken, 'Password-reset / email-verification / refresh token — a regenerable credential.'],
+  [
+    UserIdentity,
+    'A sign-in credential of a person, not school data — restoring it from a workbook would let a file grant sign-in.',
+  ],
   [CalendarFeedToken, 'Regenerable calendar-feed credential, not user content.'],
   [PushSubscription, 'Regenerable browser push-subscription endpoint, not user content.'],
   [InvoiceShareToken, 'Regenerable share-link token, not user content.'],
@@ -102,48 +98,30 @@ export const ENTITY_COVERAGE_EXEMPT: ReadonlyMap<EntityTarget<unknown>, string> 
   [StudentWallet, 'Tenant-scoped student wallet balance, no tab yet — tracked in #856.'],
   [WalletTransaction, 'Tenant-scoped wallet transaction history, no tab yet — tracked in #856.'],
 
-  // [19.2.1] Epic 19.0's exams/marks/results spine — workbook tabs are
-  // 19.10.1's job (#906) by design, per the epic's "Backup & restore
-  // coverage" section, so these land here until that ticket adds them.
-  [Exam, 'Tenant-scoped exam sitting, workbook tab lands in 19.10.1 — tracked in #906.'],
+  // --- Epic 32 print module ---
   [
-    ExamComponent,
-    'Tenant-scoped exam-subject component, workbook tab lands in 19.10.1 — tracked in #906.',
-  ],
-  [Mark, 'Tenant-scoped student mark, workbook tab lands in 19.10.1 — tracked in #906.'],
-  [
-    MarkGrid,
-    'Tenant-scoped marks-entry grid state, workbook tab lands in 19.10.1 — tracked in #906.',
-  ],
-  [Result, 'Tenant-scoped computed result, workbook tab lands in 19.10.1 — tracked in #906.'],
-  [
-    ResultSubject,
-    'Tenant-scoped per-subject result line, workbook tab lands in 19.10.1 — tracked in #906.',
+    PrintJob,
+    'print audit trail (Epic 32 D44): like audit_logs; verify tokens must not travel to another tenant',
   ],
   [
-    StudentSubjectChoice,
-    'Tenant-scoped fourth-subject choice, workbook tab lands in 19.10.1 — tracked in #906.',
+    PrintJobItem,
+    'print audit trail (Epic 32 D44): like audit_logs; verify tokens must not travel to another tenant',
   ],
-  // --- Epic 21.0 (class routine/timetable): entities land wave-by-wave,
-  // the workbook tab lands in [21.11.1]. Same deferral pattern as #856 above.
-  [Shift, 'Tenant-scoped shift definition, no tab yet — tracked in Epic 21.0 [21.11.1].'],
-  [
-    PeriodSlot,
-    'Tenant-scoped period-slot definition, no tab yet — tracked in Epic 21.0 [21.11.1].',
-  ],
-  [Room, 'Tenant-scoped room definition, no tab yet — tracked in Epic 21.0 [21.11.1].'],
-  [Routine, 'Tenant-scoped routine document, no tab yet — tracked in Epic 21.0 [21.11.1].'],
-  [RoutineSlot, 'Tenant-scoped routine slot, no tab yet — tracked in Epic 21.0 [21.11.1].'],
-  [
-    RoutineSlotTeacher,
-    'Tenant-scoped routine-slot teacher assignment, no tab yet — tracked in Epic 21.0 [21.11.1].',
-  ],
-  [
-    RoutineSubstitution,
-    'Tenant-scoped routine substitution record, no tab yet — tracked in Epic 21.0 [21.11.1].',
-  ],
-  [
-    RoutineChangeRequest,
-    'Tenant-scoped routine change request, no tab yet — tracked in Epic 21.0 [21.11.1].',
-  ],
+
+  // Epic 19.0's exams/marks/results spine got a workbook tab in [19.10.1]
+  // (#906). No exemption entries left for them.
+  // Epic 21.0 (class routine/timetable)'s eight entities — shifts,
+  // period_slots, rooms, routines, routine_slots, routine_slot_teachers,
+  // routine_substitutions, routine_change_requests — all got a workbook
+  // tab in [21.11.1]. No exemption entries left for them.
+  // Epic 787's seat-plan entities (SeatPlan, SeatPlanSchedule,
+  // SeatAllocation) got a workbook tab in [25.5] (#1054). No exemption
+  // entries left for them.
+  // Epic 34.0's programs spine — Program, ProgramMilestone,
+  // ProgramEnrollment, MilestoneAchievement — got a workbook tab in
+  // [34.1.4]. No exemption entries left for them.
+  // Epic 36.0's staff attendance/leave entities — StaffProfile,
+  // StaffAttendanceSession, StaffAttendanceRecord, LeaveRecord,
+  // LeavePolicy — got a workbook tab in [36.5.1]. No exemption entries
+  // left for them.
 ]);

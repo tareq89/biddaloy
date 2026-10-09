@@ -192,10 +192,10 @@ export function useCreateStudent() {
 }
 
 /** [8.10.3]'s Edit Student form — the general-purpose counterpart to
- * `useUpdateStudentPreferredCommunication`/`useUpdateStudentEnrollmentStatus`
- * above. Not optimistic, same reasoning as `useUpdateStudentEnrollmentStatus`:
- * a full edit is a deliberate, form-submit action a staff member is already
- * waiting on, not a background preference flip. Invalidates both the detail
+ * `useUpdateStudentPreferredCommunication` above. Not optimistic: a full edit
+ * is a deliberate, form-submit action a staff member is already waiting on,
+ * not a background preference flip. It cannot change a status: that goes
+ * through `useLeaveStudent` / `useReadmitStudent` ([39.2.1]). Invalidates both the detail
  * (fields shown on the student page) and every list variant (name, roll
  * number and class/section — all list-column values — can all change here). */
 export function useUpdateStudent(id: string) {
@@ -276,27 +276,6 @@ export function useUpdateStudentPreferredCommunication(id: string) {
     },
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: studentKeys.detail(id) });
-    },
-  });
-}
-
-/** [8.10.2]'s Transfer/Change Status action. Deliberately **not**
- * optimistic like `useUpdateStudentPreferredCommunication` above —
- * transferring or graduating a student is a consequential change a staff
- * member is actively confirming through a dialog, not a background
- * preference flip, so there's no UX cost to waiting for the server the
- * way there would be for a dropdown. */
-export function useUpdateStudentEnrollmentStatus(id: string) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (enrollment_status: EnrollmentStatus) => {
-      const res = await apiClient.patch<Student>(`/students/${id}`, { enrollment_status });
-      return res.data;
-    },
-    retry: shouldRetryQuery,
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: studentKeys.detail(id) });
-      void queryClient.invalidateQueries({ queryKey: studentKeys.lists() });
     },
   });
 }
@@ -409,4 +388,73 @@ export function useDeleteStudent() {
       queryClient.removeQueries({ queryKey: studentKeys.detail(id) });
     },
   });
+}
+
+/* ------------------------------------------------------- [32.2.10] photos */
+
+/** Server cap per bulk request (`FilesInterceptor('files', 25)`); D57. */
+export const STUDENT_PHOTO_CHUNK_SIZE = 25;
+
+export interface BulkStudentPhotoResult {
+  matched: Array<{ file: string; student_id: string; full_name: string }>;
+  unmatched: string[];
+  invalid: Array<{ file: string; reason: string }>;
+}
+
+/** Replaces one student's photo. The old object is never deleted (D48). */
+export function useUploadStudentPhoto(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      return (await apiClient.post<{ photo: true }>(`/students/${id}/photo`, formData)).data;
+    },
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: studentKeys.detail(id) }),
+  });
+}
+
+/**
+ * D57: a multi-file / folder pick, sent in chunks of 25, one request at a time,
+ * with the per-chunk reports merged. Files are matched to students by
+ * registration number (the file name), server-side. `onProgress` reports the
+ * share of files sent, 0-100.
+ */
+export function useBulkUploadStudentPhotos() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      files,
+      onProgress,
+    }: {
+      files: File[];
+      onProgress?: (percent: number) => void;
+    }): Promise<BulkStudentPhotoResult> => {
+      const merged: BulkStudentPhotoResult = { matched: [], unmatched: [], invalid: [] };
+      for (let start = 0; start < files.length; start += STUDENT_PHOTO_CHUNK_SIZE) {
+        const chunk = files.slice(start, start + STUDENT_PHOTO_CHUNK_SIZE);
+        const formData = new FormData();
+        for (const file of chunk) formData.append('files', file);
+        const res = await apiClient.post<BulkStudentPhotoResult>('/students/photos/bulk', formData);
+        merged.matched.push(...res.data.matched);
+        merged.unmatched.push(...res.data.unmatched);
+        merged.invalid.push(...res.data.invalid);
+        onProgress?.(
+          Math.round((Math.min(start + chunk.length, files.length) / files.length) * 100),
+        );
+      }
+      return merged;
+    },
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: studentKeys.all }),
+  });
+}
+
+/**
+ * The photo route needs the bearer token, so it can't go straight into an
+ * `<img src>`. This fetches it through `apiClient` and returns an object URL.
+ * The caller owns it: call `URL.revokeObjectURL` when the image is unmounted.
+ */
+export async function studentPhotoUrl(id: string): Promise<string> {
+  const res = await apiClient.get<Blob>(`/students/${id}/photo`, { responseType: 'blob' });
+  return URL.createObjectURL(res.data);
 }

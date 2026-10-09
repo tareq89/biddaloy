@@ -36,6 +36,15 @@ export const EntityLabel = {
   // 35.0's tenant label-override table the same way the entries above are.
   room: 'room',
   routine: 'routine',
+  // [22.1.1] Epic 22.0's homework/syllabus vocabulary.
+  homework: 'homework',
+  homeworkAssignment: 'homeworkAssignment',
+  homeworkSubmission: 'homeworkSubmission',
+  syllabusTopic: 'syllabusTopic',
+  // [34.1.1] Epic 34.0's programs/milestones vocabulary.
+  program: 'program',
+  programMilestone: 'programMilestone',
+  programEnrollment: 'programEnrollment',
 } as const;
 
 export type EntityLabel = (typeof EntityLabel)[keyof typeof EntityLabel];

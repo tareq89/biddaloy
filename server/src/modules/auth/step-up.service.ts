@@ -46,10 +46,20 @@ export const STEP_UP_REDIS = 'STEP_UP_REDIS';
  */
 const STEP_UP_OTP_PURPOSE = 'STEP_UP' as OtpPurpose;
 
+/**
+ * The OtpService identifier for a step-up code: tenant first. OtpService
+ * counts wrong guesses (and locks) per identifier with no tenant, so an
+ * unscoped id let a user in any school lock another school's approver out
+ * of step-up. Same scope as the `step-up-attempts:approver:` rate limit.
+ */
+function stepUpOtpId(tenantId: string, normalizedIdentifier: string): string {
+  return `${tenantId}:${normalizedIdentifier}`;
+}
+
 const FEE_APPROVE_PERMISSION = Permission.FEE_APPROVE;
 
 const APPROVAL_TOKEN_TTL_SECONDS = 300;
-const RATE_LIMIT_MAX_ATTEMPTS = 5;
+const DEFAULT_RATE_LIMIT_MAX_ATTEMPTS = 5;
 const RATE_LIMIT_WINDOW_MS = 15 * 60_000;
 // bcrypt.compare against a hash that never matches — same shape as
 // auth.service.ts's DUMMY_PASSWORD_HASH, run for every step-up verify so a
@@ -123,7 +133,7 @@ export class StepUpService {
     try {
       const { code } = await this.otpService.request(
         STEP_UP_OTP_PURPOSE,
-        normalizeLoginIdentifier(identifier),
+        stepUpOtpId(actorTenantId, normalizeLoginIdentifier(identifier)),
       );
       return isSecretEchoEnabled(this.config) ? { debug: { otp: code } } : {};
     } catch {
@@ -172,7 +182,11 @@ export class StepUpService {
     // DUMMY_PASSWORD_HASH above. Using `&&` short-circuit here would skip
     // bcrypt entirely for an unknown identifier, and that latency
     // difference is itself a signal despite the uniform 401 body.
-    const verified = await this.verifyCredential(dto, approver, identifier);
+    const verified = await this.verifyCredential(
+      dto,
+      approver,
+      stepUpOtpId(actorTenantId, identifier),
+    );
 
     if (!approver || !verified) {
       await this.auditService.record({
@@ -261,15 +275,11 @@ export class StepUpService {
   private async verifyCredential(
     dto: StepUpVerifyDto,
     approver: User | null,
-    normalizedIdentifier: string,
+    otpId: string,
   ): Promise<boolean> {
     if (dto.method === 'OTP') {
       if (!dto.otp) return false;
-      const result = await this.otpService.verify(
-        STEP_UP_OTP_PURPOSE,
-        normalizedIdentifier,
-        dto.otp,
-      );
+      const result = await this.otpService.verify(STEP_UP_OTP_PURPOSE, otpId, dto.otp);
       return approver !== null && result === 'ok';
     }
 
@@ -289,6 +299,13 @@ export class StepUpService {
     return raw === ApprovalMode.OTP_OR_PASSWORD ? ApprovalMode.OTP_OR_PASSWORD : ApprovalMode.OTP;
   }
 
+  /** `STEP_UP_RATE_LIMIT_MAX_ATTEMPTS` when it is a positive integer, else the
+   * strict default — a malformed value must never loosen the brute-force gate. */
+  private rateLimitMaxAttempts(): number {
+    const parsed = Number(this.config.get<string>('STEP_UP_RATE_LIMIT_MAX_ATTEMPTS'));
+    return Number.isInteger(parsed) && parsed > 0 ? parsed : DEFAULT_RATE_LIMIT_MAX_ATTEMPTS;
+  }
+
   /** Fails CLOSED on a Redis error — this is the brute-force gate in front
    * of admin-approval issuance, so an outage must not silently disable it
    * (same call OtpService itself makes, unlike LoginAttemptService's
@@ -299,7 +316,7 @@ export class StepUpService {
       if (count === 1) {
         await this.redis.pexpire(key, RATE_LIMIT_WINDOW_MS);
       }
-      return count <= RATE_LIMIT_MAX_ATTEMPTS;
+      return count <= this.rateLimitMaxAttempts();
     } catch (error) {
       this.logger.error(
         `Step-up rate-limit check failed for key, failing closed: ${error instanceof Error ? error.message : String(error)}`,

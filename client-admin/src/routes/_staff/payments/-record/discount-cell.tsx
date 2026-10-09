@@ -6,10 +6,11 @@
  * that it shouldn't be one accidental keystroke away from the Pay column
  * next to it.
  */
-import { MoneyInput } from '@biddaloy/ui/components';
+import { Button, MoneyInput } from '@biddaloy/ui/components';
 import type { RegionConfig } from '@biddaloy/ui/i18n';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { formatCurrency } from '@biddaloy/ui/utils';
+import { Lock } from 'lucide-react';
 import * as React from 'react';
 
 export interface DiscountCellProps {
@@ -25,6 +26,8 @@ export interface DiscountCellProps {
    * flips this to `false` even though `commit`'s own clamp only runs when
    * the discount field itself changes. */
   isValid: boolean;
+  /** Row identity (fee + period) appended to the accessible names so every row is unique. */
+  rowName?: string;
 }
 
 export function DiscountCell({
@@ -34,8 +37,10 @@ export function DiscountCell({
   config,
   onDiscountChange,
   isValid,
+  rowName,
 }: DiscountCellProps) {
   const { t } = useTranslation('payments');
+  const suffix = rowName ? ` — ${rowName}` : '';
   const [unlocked, setUnlocked] = React.useState(value > 0);
 
   function commit(discount: number | undefined) {
@@ -46,52 +51,38 @@ export function DiscountCell({
 
   if (!unlocked) {
     return (
-      <button
+      <Button
         type="button"
-        className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+        variant="ghost"
+        className="h-11 justify-start gap-1.5 px-2 text-label font-medium text-text-secondary md:h-8"
+        aria-label={`${value > 0 ? formatCurrency(value, config) : t('record.discount.give')}${suffix}`}
         onClick={() => setUnlocked(true)}
       >
-        <LockIcon />
-        {value > 0 ? formatCurrency(value, config) : t('record.discount.unlock')}
-      </button>
+        <Lock className="size-4" aria-hidden="true" />
+        {value > 0 ? formatCurrency(value, config) : t('record.discount.give')}
+      </Button>
     );
   }
 
   return (
     <div className="flex flex-col gap-1">
       <MoneyInput
-        aria-label={t('record.discount.label')}
+        aria-label={`${t('record.discount.label')}${suffix}`}
         config={config}
         value={value}
         onValueChange={commit}
       />
-      <button
+      <Button
         type="button"
-        className="text-start text-xs text-primary underline"
+        variant="ghost"
+        className="h-11 justify-start px-2 text-label text-primary md:h-8"
         onClick={() => commit(balance - pay)}
       >
         {t('record.discount.discountTheRest')}
-      </button>
+      </Button>
       {!isValid && (
         <p className="text-xs text-destructive">{t('record.discount.exceedsBalance')}</p>
       )}
     </div>
-  );
-}
-
-function LockIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 16 16"
-      width="14"
-      height="14"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-    >
-      <rect x="3" y="7" width="10" height="7" rx="1.5" />
-      <path d="M5 7V5a3 3 0 0 1 6 0v2" />
-    </svg>
   );
 }

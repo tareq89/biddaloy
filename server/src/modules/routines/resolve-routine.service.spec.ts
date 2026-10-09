@@ -36,6 +36,7 @@ function buildService(
     workingDays?: string[];
     teacher?: any;
     routine?: any;
+    subjects?: any[];
   } = {},
 ) {
   const yearQb: any = {
@@ -59,6 +60,12 @@ function buildService(
       async () => overrides.periodSlots ?? [{ id: 'period-1', kind: PeriodSlotKind.CLASS }],
     ),
   };
+  const subjectRepo: any = {
+    find: vi.fn(
+      async () =>
+        overrides.subjects ?? [{ id: 'subject-1', name_en: 'Mathematics', name_bn: 'গণিত' }],
+    ),
+  };
   const enrollmentRepo: any = { findOne: vi.fn(async () => overrides.enrollment ?? null) };
   const teacherRepo: any = {
     findOne: vi.fn(async () => ('teacher' in overrides ? overrides.teacher : { id: 't-1' })),
@@ -78,9 +85,18 @@ function buildService(
     yearRepo,
     enrollmentRepo,
     teacherRepo,
+    subjectRepo,
     calendarService,
   );
-  return { service, calendarService, enrollmentRepo, substitutionRepo, teacherRepo, routineRepo };
+  return {
+    service,
+    calendarService,
+    enrollmentRepo,
+    substitutionRepo,
+    teacherRepo,
+    routineRepo,
+    subjectRepo,
+  };
 }
 
 describe('ResolveRoutineService [21.5.1]', () => {
@@ -117,6 +133,31 @@ describe('ResolveRoutineService [21.5.1]', () => {
     );
     expect(result).toHaveLength(1);
     expect(result[0]).toMatchObject({ date: '2026-01-05', substituted: false, cancelled: false });
+  });
+
+  it('names each slot subject in English and Bangla via a tenant-scoped lookup', async () => {
+    const result = await ctx.service.resolveRoutine(
+      { section_id: 'section-1', from: '2026-01-05', to: '2026-01-06' } as any,
+      TENANT_ID,
+      { role: 'ADMIN', userId: 'user-1' },
+    );
+    expect(result[0]).toMatchObject({ subject_name_en: 'Mathematics', subject_name_bn: 'গণিত' });
+    expect(ctx.subjectRepo.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ tenant_id: TENANT_ID }),
+        withDeleted: true,
+      }),
+    );
+  });
+
+  it('gives null names when the subject is not returned (e.g. another tenant)', async () => {
+    const ctx2 = buildService({ subjects: [] });
+    const result = await ctx2.service.resolveRoutine(
+      { section_id: 'section-1', from: '2026-01-05', to: '2026-01-06' } as any,
+      TENANT_ID,
+      { role: 'ADMIN', userId: 'user-1' },
+    );
+    expect(result[0]).toMatchObject({ subject_name_en: null, subject_name_bn: null });
   });
 
   it('excludes BREAK slots from teaching results by default', async () => {

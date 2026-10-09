@@ -1,6 +1,9 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { i18n } from '../i18n';
+import { cleanupTestState } from '../test';
 
 import { RouteStatusState } from './route-status-state';
 
@@ -16,6 +19,13 @@ const offlineProps = {
 };
 
 describe('RouteStatusState', () => {
+  beforeEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+  afterEach(async () => {
+    await cleanupTestState();
+  });
+
   it('says the user is offline and what to do about it', () => {
     render(<RouteStatusState {...offlineProps} onRetry={() => {}} />);
 
@@ -71,6 +81,12 @@ describe('RouteStatusState', () => {
 
     expect(screen.getByRole('heading', { level: 1, name: 'আপনি অফলাইনে আছেন' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'আবার চেষ্টা করুন' })).toBeTruthy();
+  });
+
+  it('translates the default home label under bn', async () => {
+    await i18n.changeLanguage('bn');
+    render(<RouteStatusState {...offlineProps} onRetry={() => {}} onHome={() => {}} />);
+    expect(screen.getByRole('button', { name: 'হোমে ফিরুন' })).toBeTruthy();
   });
 
   it('is axe clean', async () => {

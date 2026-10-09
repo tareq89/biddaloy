@@ -109,14 +109,14 @@ describe('Absence Notice E2E', () => {
       expect(res.body).toHaveProperty('message_preview');
     });
 
-    it('returns 401 for TEACHER', async () => {
+    it('returns 403 for TEACHER', async () => {
       await supertest(app.getHttpServer())
         .post(`/api/v1/attendance/sections/${SECTION_ID}/absence-notice/preview`)
         .set('Authorization', `Bearer ${teacherToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.TEACHER)
         .send({ date: todayIso() })
-        .expect(401);
+        .expect(403);
     });
 
     it('returns 401 for an invalid/non-member X-Tenant-ID', async () => {
@@ -164,14 +164,14 @@ describe('Absence Notice E2E', () => {
       expect(res.body.skipped_reason).toBe('no_session');
     });
 
-    it('returns 401 for TEACHER', async () => {
+    it('returns 403 for TEACHER', async () => {
       await supertest(app.getHttpServer())
         .post(`/api/v1/attendance/sections/${SECTION_ID}/absence-notice/send`)
         .set('Authorization', `Bearer ${teacherToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.TEACHER)
         .send({ date: todayIso() })
-        .expect(401);
+        .expect(403);
     });
 
     it('returns 401 when X-Tenant-ID is missing', async () => {

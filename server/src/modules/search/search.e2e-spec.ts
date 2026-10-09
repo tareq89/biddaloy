@@ -175,10 +175,10 @@ describe('GET /search (30.2.1)', () => {
       .query({ q: 'anything' })
       .set('Authorization', `Bearer ${parentToken}`)
       .set('X-Tenant-ID', TENANT_A)
-      .expect(401);
+      .expect(403);
 
     // Prove RolesGuard's role-narrowing fired specifically, not some other
-    // 401 path (e.g. a missing/invalid X-Tenant-ID) that also returns 401.
+    // 403 path (e.g. a missing/invalid X-Tenant-ID) that also returns 403.
     expect(res.body.message).toContain('Requires one of roles');
   });
 

@@ -1,6 +1,7 @@
 import { screen } from '@testing-library/react';
+import { act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { NotificationRecord } from '../api/notification-state';
 import { renderWithProviders } from '../test/render-with-providers';
@@ -123,5 +124,70 @@ describe('NotificationList', () => {
     );
 
     await expect(container).toHaveNoViolations();
+  });
+
+  describe('incremental rendering', () => {
+    const many = (n: number) =>
+      Array.from({ length: n }, (_, i) => makeNotification({ id: `n-${i}`, message: `Row ${i}` }));
+    afterEach(() => vi.unstubAllGlobals());
+
+    it('shows 20 rows, then appends as the sentinel intersects', async () => {
+      let fire: (entries: { isIntersecting: boolean }[]) => void = () => undefined;
+      vi.stubGlobal(
+        'IntersectionObserver',
+        class {
+          constructor(cb: typeof fire) {
+            fire = cb;
+          }
+          observe() {}
+          disconnect() {}
+        },
+      );
+      await renderInEnglish(
+        <NotificationList
+          notifications={many(45)}
+          onMarkRead={() => undefined}
+          emptyLabel="none"
+        />,
+      );
+      expect(screen.getAllByRole('button')).toHaveLength(20);
+      expect(screen.getByText('Loading more…')).toBeTruthy();
+      act(() => fire([{ isIntersecting: true }]));
+      expect(screen.getAllByRole('button')).toHaveLength(40);
+      act(() => fire([{ isIntersecting: true }]));
+      expect(screen.getAllByRole('button')).toHaveLength(45);
+      expect(screen.queryByText('Loading more…')).toBeNull();
+      expect(screen.getByText("That's everything.")).toBeTruthy();
+    });
+
+    it('shows no status line for a short list', async () => {
+      await renderInEnglish(
+        <NotificationList notifications={many(5)} onMarkRead={() => undefined} emptyLabel="none" />,
+      );
+      expect(screen.getAllByRole('button')).toHaveLength(5);
+      expect(screen.queryByText('Loading more…')).toBeNull();
+      expect(screen.queryByText("That's everything.")).toBeNull();
+    });
+
+    it('renders everything without IntersectionObserver', async () => {
+      vi.stubGlobal('IntersectionObserver', undefined);
+      await renderInEnglish(
+        <NotificationList
+          notifications={many(45)}
+          onMarkRead={() => undefined}
+          emptyLabel="none"
+        />,
+      );
+      expect(screen.getAllByRole('button')).toHaveLength(45);
+    });
+
+    it('aligns the unread dot to the first line of the message', async () => {
+      await renderInEnglish(
+        <NotificationList notifications={many(1)} onMarkRead={() => undefined} emptyLabel="none" />,
+      );
+      const dot = document.querySelector('span[aria-hidden="true"].bg-primary')!;
+      expect(dot.className).toContain('mt-2');
+      expect(dot.parentElement!.className).toContain('items-start');
+    });
   });
 });

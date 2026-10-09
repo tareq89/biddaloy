@@ -5,16 +5,7 @@
  * say so explicitly, not just ask "Are you sure?" — `setCurrentDialog.description`'s
  * wording does exactly that.
  */
-import {
-  Button,
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@biddaloy/ui/components';
+import { ConfirmDialog } from '@biddaloy/ui/components';
 import { useSetCurrentAcademicYear } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import * as React from 'react';
@@ -42,37 +33,23 @@ export function SetCurrentDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only on open/close transitions
   }, [open]);
 
-  function handleConfirm() {
-    setCurrent.mutate(academicYearId, { onSuccess: onConfirmed });
-  }
+  const description = t('setCurrentDialog.description', { name: academicYearName });
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{t('setCurrentDialog.title')}</DialogTitle>
-          <DialogDescription>
-            {t('setCurrentDialog.description', { name: academicYearName })}
-          </DialogDescription>
-        </DialogHeader>
-        {setCurrent.isError && (
-          <p role="alert" className="text-sm text-destructive">
-            {t('setCurrentDialog.errorMessage')}
-          </p>
-        )}
-        <DialogFooter>
-          <DialogClose asChild>
-            <Button type="button" variant="outline">
-              {t('actions.cancel', { ns: 'common' })}
-            </Button>
-          </DialogClose>
-          <Button type="button" loading={setCurrent.isPending} onClick={handleConfirm}>
-            {setCurrent.isPending
-              ? t('setCurrentDialog.confirming')
-              : t('setCurrentDialog.confirm')}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <ConfirmDialog
+      open={open}
+      // A request in flight must not be abandoned by Esc / Cancel / Back.
+      onOpenChange={(next) => {
+        if (!setCurrent.isPending) onOpenChange(next);
+      }}
+      tone="default"
+      title={t('setCurrentDialog.title')}
+      description={
+        setCurrent.isError ? `${description} ${t('setCurrentDialog.errorMessage')}` : description
+      }
+      confirmLabel={t('setCurrentDialog.confirm')}
+      busy={setCurrent.isPending}
+      onConfirm={() => setCurrent.mutate(academicYearId, { onSuccess: onConfirmed })}
+    />
   );
 }

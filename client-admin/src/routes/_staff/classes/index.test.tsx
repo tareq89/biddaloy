@@ -2,7 +2,6 @@ import {
   academicYearFactory,
   classFactory,
   classHandlers,
-  classSectionFactory,
   cleanupTestState,
   renderWithRouter,
   server,
@@ -32,6 +31,8 @@ describe('/classes', () => {
         id: 'class-1',
         name: 'Class 6',
         numeric_grade: 6,
+        shift: 'Morning',
+        version: 'Bangla',
         academic_year: year,
         academic_year_id: year.id,
       }),
@@ -41,13 +42,16 @@ describe('/classes', () => {
       section_count: 1,
       student_count: 5,
     };
+    let requestedLimit: string | null = null;
     server.use(
+      classHandlers.vocabularyPopulated,
       http.get('/api/v1/academic-years', () =>
         HttpResponse.json({ data: [year], total: 1, page: 1, limit: 100, totalPages: 1 }),
       ),
-      http.get('/api/v1/classes', () =>
-        HttpResponse.json({ data: [klass], total: 1, page: 1, limit: 10, totalPages: 1 }),
-      ),
+      http.get('/api/v1/classes', ({ request }) => {
+        requestedLimit = new URL(request.url).searchParams.get('limit');
+        return HttpResponse.json({ data: [klass], total: 1, page: 1, limit: 25, totalPages: 1 });
+      }),
     );
 
     renderWithRouter(routeTree, {
@@ -58,6 +62,10 @@ describe('/classes', () => {
     });
 
     await screen.findByRole('heading', { name: 'Classes' });
+    // Every filter has a visible label (not just an aria-label).
+    expect(await screen.findByText('Academic year', { selector: 'label' })).toBeTruthy();
+    expect(await screen.findByText('Shift', { selector: 'label' })).toBeTruthy();
+    expect(await screen.findByText('Version', { selector: 'label' })).toBeTruthy();
     // `getAllByRole('row')` alone can't distinguish "loaded, one data row"
     // from "still loading" — the loading placeholder is its own `<tr>`,
     // so both states report the same row count (header + one row).
@@ -65,8 +73,17 @@ describe('/classes', () => {
     await screen.findByText('Class 6');
     const row = screen.getAllByRole('row')[1] as HTMLElement;
     expect(within(row).getByText('Class 6')).toBeTruthy();
-    expect(within(row).getByText('6')).toBeTruthy();
-    // Sections column reads `section_count` straight off the list
+    // Grade goes through `formatNumber` (tenant numerals; default region is Bangla).
+    expect(within(row).getByText(/^(6|৬)$/)).toBeTruthy();
+    // Same-named classes are told apart by the shift · version line.
+    expect(within(row).getByText('Morning · Bangla')).toBeTruthy();
+    // Row actions: view / edit / delete, no underlined text links, no expander.
+    expect(within(row).getByRole('link', { name: 'View' })).toBeTruthy();
+    expect(within(row).getByRole('button', { name: 'Edit' })).toBeTruthy();
+    expect(within(row).getByRole('button', { name: 'Delete' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Sections for/ })).toBeNull();
+    // Default page size is 25.
+    expect(requestedLimit).toBe('25'); // Sections column reads `section_count` straight off the list
     // payload — no `sections` relation loaded on this endpoint anymore.
     // [8.14.10]: rendered through `formatNumber`, so it picks up the
     // tenant's region numerals (Bengali by default here) — same fix as
@@ -87,7 +104,7 @@ describe('/classes', () => {
     const klass = classFactory({ id: 'class-1', name: 'Class 6' });
     server.use(
       http.get('/api/v1/classes', () =>
-        HttpResponse.json({ data: [klass], total: 1, page: 1, limit: 10, totalPages: 1 }),
+        HttpResponse.json({ data: [klass], total: 1, page: 1, limit: 25, totalPages: 1 }),
       ),
     );
 
@@ -100,121 +117,6 @@ describe('/classes', () => {
 
     expect(await screen.findByText("You don't have access to this page.")).toBeTruthy();
     expect(screen.queryByRole('heading', { name: 'Classes' })).toBeNull();
-  });
-
-  it('expanding a row reveals its sections inline, keyboard-operable with correct aria-expanded', async () => {
-    const klass = {
-      ...classFactory({ id: 'class-1', name: 'Class 6' }),
-      section_count: 1,
-      student_count: 12,
-    };
-    server.use(
-      http.get('/api/v1/classes', () =>
-        HttpResponse.json({ data: [klass], total: 1, page: 1, limit: 10, totalPages: 1 }),
-      ),
-      http.get('/api/v1/classes/:classId/sections', () =>
-        HttpResponse.json([
-          {
-            ...classSectionFactory({ section_name: 'A', class_id: 'class-1' }),
-            enrolled_count: 12,
-          },
-        ]),
-      ),
-    );
-
-    renderWithRouter(routeTree, {
-      initialEntries: ['/classes'],
-      tenantId: 'tenant-1',
-      role: 'ADMIN',
-      locale: 'en',
-    });
-
-    const toggle = await screen.findByRole('button', { name: 'Sections for Class 6' });
-    expect(toggle.getAttribute('aria-expanded')).toBe('false');
-    // `aria-controls` is only set once expanded — the panel `<tr>` it
-    // would name doesn't exist in the DOM at all while collapsed, so
-    // pointing at it beforehand would name an element assistive tech can
-    // never find.
-    expect(toggle.getAttribute('aria-controls')).toBeNull();
-
-    const user = userEvent.setup();
-    await user.click(toggle);
-
-    await waitFor(() => expect(toggle.getAttribute('aria-expanded')).toBe('true'));
-    await screen.findByText('A');
-    // Once expanded, `aria-controls` resolves to the panel it names — the
-    // exact wiring `data-table.test.tsx`'s own unit tests cover in
-    // isolation; keyboard-operability (Enter/Space activate a native
-    // `<button>`) is covered there too, at the component level rather
-    // than through this route's full tree.
-    expect(toggle.getAttribute('aria-controls')).toBeTruthy();
-    // "12" legitimately appears twice once expanded — the section row's
-    // own enrolled count, and the Students column's server-computed
-    // `student_count` on the class row itself (this fixture sets both to
-    // the same value, matching what a real single-section class would
-    // report) — so this asserts presence, not uniqueness.
-    expect(screen.getAllByText('12').length).toBeGreaterThanOrEqual(1);
-  });
-
-  it("clearing a section's Capacity and saving sends an explicit null, not an omitted key", async () => {
-    // Same "cleared numeric field silently keeps its old value" defect as
-    // the class form — `SectionService.update` also passes the PATCH
-    // body straight into `repo.update()`.
-    const klass = {
-      ...classFactory({ id: 'class-1', name: 'Class 6' }),
-      section_count: 1,
-      student_count: 0,
-    };
-    let patchBody: unknown;
-    server.use(
-      http.get('/api/v1/classes', () =>
-        HttpResponse.json({ data: [klass], total: 1, page: 1, limit: 10, totalPages: 1 }),
-      ),
-      http.get('/api/v1/classes/:classId/sections', () =>
-        HttpResponse.json([
-          {
-            ...classSectionFactory({ id: 'section-1', section_name: 'A', class_id: 'class-1' }),
-            capacity: 40,
-            enrolled_count: 0,
-          },
-        ]),
-      ),
-      http.patch('/api/v1/classes/:classId/sections/:sectionId', async ({ request, params }) => {
-        patchBody = await request.json();
-        return HttpResponse.json({
-          ...classSectionFactory({
-            id: params.sectionId as string,
-            class_id: params.classId as string,
-          }),
-          section_name: 'A',
-          capacity: null,
-          enrolled_count: 0,
-        });
-      }),
-    );
-
-    renderWithRouter(routeTree, {
-      initialEntries: ['/classes'],
-      tenantId: 'tenant-1',
-      role: 'ADMIN',
-      locale: 'en',
-    });
-
-    const user = userEvent.setup();
-    await user.click(await screen.findByRole('button', { name: 'Sections for Class 6' }));
-    const sectionNameCell = await screen.findByText('A');
-    // Scoped to the section's own row — the class row above it also has
-    // an "Edit" button, so an unscoped query would be ambiguous.
-    const sectionRow = sectionNameCell.closest('tr') as HTMLElement;
-    await user.click(within(sectionRow).getByRole('button', { name: 'Edit' }));
-
-    const dialog = within(await screen.findByRole('dialog'));
-    const capacityInput = dialog.getByLabelText('Capacity');
-    await user.clear(capacityInput);
-    await user.click(dialog.getByRole('button', { name: 'Save' }));
-
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-    expect(patchBody).toEqual({ section_name: 'A', capacity: null });
   });
 
   it('creating a class shows up in the list once the dialog is submitted', async () => {
@@ -256,8 +158,8 @@ describe('/classes', () => {
     await user.click(await screen.findByRole('button', { name: 'Add class' }));
 
     const dialog = within(await screen.findByRole('dialog'));
-    await user.type(dialog.getByLabelText('Name'), 'Class 9');
-    await user.click(dialog.getByRole('combobox', { name: 'Academic year' }));
+    await user.type(dialog.getByLabelText(/^Name/), 'Class 9');
+    await user.click(dialog.getByRole('combobox', { name: /^Academic year/ }));
     await user.click(await screen.findByRole('option', { name: '2026-2027' }));
     await user.click(dialog.getByRole('button', { name: 'Save' }));
 
@@ -273,7 +175,7 @@ describe('/classes', () => {
         HttpResponse.json({ data: [year], total: 1, page: 1, limit: 100, totalPages: 1 }),
       ),
       http.get('/api/v1/classes', () =>
-        HttpResponse.json({ data: [], total: 0, page: 1, limit: 10, totalPages: 1 }),
+        HttpResponse.json({ data: [], total: 0, page: 1, limit: 25, totalPages: 1 }),
       ),
     );
 
@@ -300,7 +202,7 @@ describe('/classes', () => {
         HttpResponse.json({ data: [year], total: 1, page: 1, limit: 100, totalPages: 1 }),
       ),
       http.get('/api/v1/classes', () =>
-        HttpResponse.json({ data: [], total: 0, page: 1, limit: 10, totalPages: 1 }),
+        HttpResponse.json({ data: [], total: 0, page: 1, limit: 25, totalPages: 1 }),
       ),
       http.post('/api/v1/classes', async ({ request }) => {
         postedBody = (await request.json()) as Record<string, unknown>;
@@ -318,8 +220,8 @@ describe('/classes', () => {
 
     await user.click(await screen.findByRole('button', { name: 'Add class' }));
     const dialog = within(await screen.findByRole('dialog'));
-    await user.type(dialog.getByLabelText('Name'), 'Class 9');
-    await user.click(dialog.getByRole('combobox', { name: 'Academic year' }));
+    await user.type(dialog.getByLabelText(/^Name/), 'Class 9');
+    await user.click(dialog.getByRole('combobox', { name: /^Academic year/ }));
     await user.click(await screen.findByRole('option', { name: '2026-2027' }));
 
     await user.click(dialog.getByRole('combobox', { name: 'Shift' }));
@@ -334,11 +236,11 @@ describe('/classes', () => {
     expect(postedBody?.version).toBe('Bangla');
   });
 
-  it('deleting a class blocked by enrolled students shows the server message, not a generic toast', async () => {
+  it('deleting a class blocked by enrolled students shows the translated sentence, never the server text or UUID', async () => {
     const klass = classFactory({ id: 'class-1', name: 'Class 6' });
     server.use(
       http.get('/api/v1/classes', () =>
-        HttpResponse.json({ data: [klass], total: 1, page: 1, limit: 10, totalPages: 1 }),
+        HttpResponse.json({ data: [klass], total: 1, page: 1, limit: 25, totalPages: 1 }),
       ),
       http.delete('/api/v1/classes/:id', () =>
         HttpResponse.json(
@@ -364,12 +266,13 @@ describe('/classes', () => {
 
     const user = userEvent.setup();
     await user.click(await screen.findByRole('button', { name: 'Delete' }));
-    const dialog = within(await screen.findByRole('dialog'));
+    const dialog = within(await screen.findByRole('alertdialog'));
     await user.click(dialog.getByRole('button', { name: 'Delete' }));
 
-    // The AC's own "explanation why" — the server's own message, naming
-    // the count, not a generic failure toast.
-    await dialog.findByText(/5 student\(s\) are still enrolled/);
+    await dialog.findByText(/still has students or sections/);
+    // The server sentence (English, embeds the class id) is never shown.
+    expect(dialog.queryByText(/class-1/)).toBeNull();
+    expect(dialog.queryByText(/unenroll/)).toBeNull();
     expect(dialog.getByRole('link', { name: 'Move students' })).toBeTruthy();
     expect(dialog.queryByRole('button', { name: 'Delete' })).toBeNull();
   });
@@ -378,7 +281,7 @@ describe('/classes', () => {
     const klass = classFactory({ id: 'class-1', name: 'Class 6' });
     server.use(
       http.get('/api/v1/classes', () =>
-        HttpResponse.json({ data: [klass], total: 1, page: 1, limit: 10, totalPages: 1 }),
+        HttpResponse.json({ data: [klass], total: 1, page: 1, limit: 25, totalPages: 1 }),
       ),
       // 403, not 500 — `useDeleteClass` sets its own `retry: shouldRetryQuery`
       // (`ui/src/hooks/retry.ts`), which retries any *5xx* a couple of
@@ -407,7 +310,7 @@ describe('/classes', () => {
 
     const user = userEvent.setup();
     await user.click(await screen.findByRole('button', { name: 'Delete' }));
-    const dialog = within(await screen.findByRole('dialog'));
+    const dialog = within(await screen.findByRole('alertdialog'));
     await user.click(dialog.getByRole('button', { name: 'Delete' }));
 
     // Not the "blocked" state — a non-409 failure is not necessarily
@@ -434,7 +337,7 @@ describe('/classes', () => {
       ),
       http.get('/api/v1/classes', ({ request }) => {
         requestedAcademicYearId = new URL(request.url).searchParams.get('academic_year_id');
-        return HttpResponse.json({ data: [], total: 0, page: 1, limit: 10, totalPages: 1 });
+        return HttpResponse.json({ data: [], total: 0, page: 1, limit: 25, totalPages: 1 });
       }),
     );
 
@@ -449,7 +352,7 @@ describe('/classes', () => {
     await waitFor(() => expect(requestedAcademicYearId).toBe('year-1'));
 
     const user = userEvent.setup();
-    await user.click(screen.getByRole('combobox', { name: 'Academic year' }));
+    await user.click(screen.getByRole('combobox', { name: /^Academic year/ }));
     await user.click(await screen.findByRole('option', { name: '2025-2026' }));
 
     await waitFor(() => expect(requestedAcademicYearId).toBe('year-2'));
@@ -466,7 +369,7 @@ describe('/classes', () => {
         HttpResponse.json({ data: [], total: 0, page: 1, limit: 100, totalPages: 1 }),
       ),
       http.get('/api/v1/classes', () =>
-        HttpResponse.json({ data: [], total: 0, page: 1, limit: 10, totalPages: 1 }),
+        HttpResponse.json({ data: [], total: 0, page: 1, limit: 25, totalPages: 1 }),
       ),
     );
 
@@ -477,10 +380,55 @@ describe('/classes', () => {
       locale: 'en',
     });
 
-    await screen.findByText('No classes found');
-    expect(await screen.findByText('Migrating a whole school?')).toBeTruthy();
-    const link = screen.getByRole('link', { name: 'Use the full workbook template' });
-    expect(link.getAttribute('href')).toBe('/settings');
+    await screen.findByText('No classes yet');
+    // The empty state's ghost action replaces the old inline link.
+    expect(
+      await screen.findByRole('button', { name: 'Use the full workbook template' }),
+    ).toBeTruthy();
+  });
+
+  it('a failed class save shows the translated message, not the server text', async () => {
+    const year = academicYearFactory({ id: 'year-1', name: '2026-2027', is_current: true });
+    const klass = classFactory({ id: 'class-1', name: 'Class 6', academic_year_id: year.id });
+    let patched = false;
+    server.use(
+      http.get('/api/v1/academic-years', () =>
+        HttpResponse.json({ data: [year], total: 1, page: 1, limit: 100, totalPages: 1 }),
+      ),
+      http.get('/api/v1/classes', () =>
+        HttpResponse.json({ data: [klass], total: 1, page: 1, limit: 25, totalPages: 1 }),
+      ),
+      // 4xx, not 5xx: the mutation retries 5xx with backoff.
+      http.patch('/api/v1/classes/:id', () => {
+        patched = true;
+        return HttpResponse.json(
+          {
+            statusCode: 403,
+            message: 'Raw server sentence',
+            timestamp: new Date().toISOString(),
+            path: '/api/v1/classes/class-1',
+            requestId: 'req-1',
+          },
+          { status: 403 },
+        );
+      }),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/classes'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Edit' }));
+    const dialog = within(await screen.findByRole('dialog'));
+    await user.click(dialog.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(patched).toBe(true));
+    expect(await dialog.findByText('Failed to save class')).toBeTruthy();
+    expect(dialog.queryByText('Raw server sentence')).toBeNull();
   });
 
   it('is axe clean with data loaded', async () => {
@@ -491,7 +439,7 @@ describe('/classes', () => {
         HttpResponse.json({ data: [year], total: 1, page: 1, limit: 100, totalPages: 1 }),
       ),
       http.get('/api/v1/classes', () =>
-        HttpResponse.json({ data: [klass], total: 1, page: 1, limit: 10, totalPages: 1 }),
+        HttpResponse.json({ data: [klass], total: 1, page: 1, limit: 25, totalPages: 1 }),
       ),
     );
 
@@ -513,7 +461,7 @@ describe('/classes', () => {
     const klass = classFactory({ id: 'class-1', name: 'Class 6' });
     server.use(
       http.get('/api/v1/classes', () =>
-        HttpResponse.json({ data: [klass], total: 1, page: 1, limit: 10, totalPages: 1 }),
+        HttpResponse.json({ data: [klass], total: 1, page: 1, limit: 25, totalPages: 1 }),
       ),
     );
 
@@ -539,7 +487,7 @@ describe('/classes', () => {
         const data = shift
           ? [morningClass, dayClass].filter((c) => c.shift === shift)
           : [morningClass, dayClass];
-        return HttpResponse.json({ data, total: data.length, page: 1, limit: 10, totalPages: 1 });
+        return HttpResponse.json({ data, total: data.length, page: 1, limit: 25, totalPages: 1 });
       }),
     );
 
@@ -562,6 +510,31 @@ describe('/classes', () => {
     expect(screen.getByText('Class 6 Morning')).toBeTruthy();
   });
 
+  // A shift filter that matches nothing is not "no classes yet".
+  it('shows "no classes match" and no migrate link when a filter yields zero rows', async () => {
+    const morningClass = classFactory({ id: 'class-1', name: 'Class 6 Morning', shift: 'Morning' });
+    server.use(
+      classHandlers.vocabularyPopulated,
+      http.get('/api/v1/classes', ({ request }) => {
+        const data = new URL(request.url).searchParams.get('shift') ? [] : [morningClass];
+        return HttpResponse.json({ data, total: data.length, page: 1, limit: 25, totalPages: 1 });
+      }),
+    );
+    const user = userEvent.setup();
+    renderWithRouter(routeTree, {
+      initialEntries: ['/classes'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+    await screen.findByText('Class 6 Morning');
+    await user.click(await screen.findByLabelText('Shift'));
+    await user.click(await screen.findByRole('option', { name: 'Day' }));
+    await screen.findByText('No classes match these filters');
+    expect(screen.queryByText('No classes yet')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Use the full workbook template' })).toBeNull();
+  });
+
   // [CodeRabbit, PR #916] A shift genuinely named the same text as the
   // "All shifts"/"no shift" sentinel must stay selectable as itself, not
   // get swallowed into "All"/"unset" — proven behaviourally (not just by
@@ -576,7 +549,7 @@ describe('/classes', () => {
       http.get('/api/v1/classes', ({ request }) => {
         const shift = new URL(request.url).searchParams.get('shift');
         const data = shift === '__all__' || shift === null ? [klass] : [];
-        return HttpResponse.json({ data, total: data.length, page: 1, limit: 10, totalPages: 1 });
+        return HttpResponse.json({ data, total: data.length, page: 1, limit: 25, totalPages: 1 });
       }),
     );
 
@@ -611,7 +584,7 @@ describe('/classes', () => {
         HttpResponse.json({ data: [year], total: 1, page: 1, limit: 100, totalPages: 1 }),
       ),
       http.get('/api/v1/classes', () =>
-        HttpResponse.json({ data: [], total: 0, page: 1, limit: 10, totalPages: 1 }),
+        HttpResponse.json({ data: [], total: 0, page: 1, limit: 25, totalPages: 1 }),
       ),
       http.post('/api/v1/classes', async ({ request }) => {
         postedBody = (await request.json()) as Record<string, unknown>;
@@ -629,8 +602,8 @@ describe('/classes', () => {
 
     await user.click(await screen.findByRole('button', { name: 'Add class' }));
     const dialog = within(await screen.findByRole('dialog'));
-    await user.type(dialog.getByLabelText('Name'), 'Class 9');
-    await user.click(dialog.getByRole('combobox', { name: 'Academic year' }));
+    await user.type(dialog.getByLabelText(/^Name/), 'Class 9');
+    await user.click(dialog.getByRole('combobox', { name: /^Academic year/ }));
     await user.click(await screen.findByRole('option', { name: '2026-2027' }));
 
     await user.click(dialog.getByRole('combobox', { name: 'Shift' }));
@@ -643,43 +616,5 @@ describe('/classes', () => {
 
     await waitFor(() => expect(postedBody).toBeDefined());
     expect(postedBody?.shift).toBe('__none__');
-  });
-
-  it('a group literally named "__none__" reaches the section create payload', async () => {
-    const klass = { ...classFactory({ id: 'class-1', name: 'Class 6' }), section_count: 0 };
-    let postedBody: Record<string, unknown> | undefined;
-    server.use(
-      http.get('/api/v1/classes/vocabulary', () =>
-        HttpResponse.json({ shifts: [], versions: [], groups: ['__none__', 'Commerce'] }),
-      ),
-      http.get('/api/v1/classes', () =>
-        HttpResponse.json({ data: [klass], total: 1, page: 1, limit: 10, totalPages: 1 }),
-      ),
-      http.get('/api/v1/classes/:classId/sections', () => HttpResponse.json([])),
-      http.post('/api/v1/classes/:classId/sections', async ({ request }) => {
-        postedBody = (await request.json()) as Record<string, unknown>;
-        return HttpResponse.json(classSectionFactory({ id: 'new-section' }), { status: 201 });
-      }),
-    );
-
-    const user = userEvent.setup();
-    renderWithRouter(routeTree, {
-      initialEntries: ['/classes'],
-      tenantId: 'tenant-1',
-      role: 'ADMIN',
-      locale: 'en',
-    });
-
-    await user.click(await screen.findByRole('button', { name: 'Sections for Class 6' }));
-    await user.click(await screen.findByRole('button', { name: '+ Section' }));
-
-    const dialog = within(await screen.findByRole('dialog'));
-    await user.type(dialog.getByLabelText('Section name'), 'A');
-    await user.click(dialog.getByRole('combobox', { name: 'Group' }));
-    await user.click(await screen.findByRole('option', { name: '__none__' }));
-    await user.click(dialog.getByRole('button', { name: 'Save' }));
-
-    await waitFor(() => expect(postedBody).toBeDefined());
-    expect(postedBody?.group_name).toBe('__none__');
   });
 });

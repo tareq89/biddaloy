@@ -103,14 +103,6 @@ export class FeeController {
   // --- Fee Dues endpoints ---
 
   @Get('fees/dues')
-  @Roles(
-    UserRole.ADMIN,
-    UserRole.ACCOUNTANT,
-    UserRole.EXECUTIVE,
-    UserRole.TEACHER,
-    UserRole.PARENT,
-    UserRole.STUDENT,
-  )
   @RequirePermissions(Permission.FEE_READ)
   @ApiOperation({
     summary:
@@ -149,7 +141,13 @@ export class FeeController {
   }
 
   @Get('fees/dues/flagged')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
+  @Roles(
+    UserRole.ADMIN,
+    UserRole.ACCOUNTANT,
+    UserRole.EXECUTIVE,
+    UserRole.TEACHER,
+    UserRole.OFFICE_STAFF,
+  )
   @RequirePermissions(Permission.FEE_READ)
   @ApiOperation({ summary: 'List dues flagged for follow-up (e.g. overdue past a threshold).' })
   getFlaggedDues(
@@ -162,7 +160,6 @@ export class FeeController {
   // --- Fee Generation endpoints [16.3.1] ---
 
   @Post('fees/generate/preview')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
   @RequirePermissions(Permission.FEE_GENERATE)
   @Throttle({ default: STRICT_RATE_LIMIT })
   @ApiOperation({
@@ -178,7 +175,6 @@ export class FeeController {
   }
 
   @Post('fees/generate')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
   @RequirePermissions(Permission.FEE_GENERATE)
   @Throttle({ default: STRICT_RATE_LIMIT })
   @ApiOperation({
@@ -229,8 +225,6 @@ export class FeeController {
   // --- Fee Structure endpoints ---
 
   @Post('fee-structures')
-  // [10.4] G1 — E tightened off: lacks FEE_STRUCTURE_CREATE.
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
   @RequirePermissions(Permission.FEE_STRUCTURE_CREATE)
   createFeeStructure(
     @Body() dto: CreateFeeStructureDto,
@@ -240,14 +234,6 @@ export class FeeController {
   }
 
   @Get('fee-structures')
-  @Roles(
-    UserRole.ADMIN,
-    UserRole.ACCOUNTANT,
-    UserRole.EXECUTIVE,
-    UserRole.TEACHER,
-    UserRole.PARENT,
-    UserRole.STUDENT,
-  )
   // [10.4] G8, FEE_READ, not FEE_STRUCTURE_READ — object-scoped read, see
   // permissions.ts. FEE_STRUCTURE_READ stays the management-page gate.
   @RequirePermissions(Permission.FEE_READ)
@@ -275,14 +261,6 @@ export class FeeController {
   }
 
   @Get('fee-structures/:id')
-  @Roles(
-    UserRole.ADMIN,
-    UserRole.ACCOUNTANT,
-    UserRole.EXECUTIVE,
-    UserRole.TEACHER,
-    UserRole.PARENT,
-    UserRole.STUDENT,
-  )
   // [10.4] G8, FEE_READ, not FEE_STRUCTURE_READ — object-scoped read, see
   // permissions.ts.
   @RequirePermissions(Permission.FEE_READ)
@@ -313,8 +291,6 @@ export class FeeController {
   }
 
   @Patch('fee-structures/:id')
-  // [10.4] G1 — E tightened off: lacks FEE_STRUCTURE_UPDATE.
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
   @RequirePermissions(Permission.FEE_STRUCTURE_UPDATE)
   updateFeeStructure(
     @Param('id') id: string,
@@ -327,7 +303,6 @@ export class FeeController {
   }
 
   @Delete('fee-structures/:id')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.FEE_STRUCTURE_DELETE)
   removeFeeStructure(
     @Param('id') id: string,
@@ -344,7 +319,6 @@ export class FeeController {
   // for recording a payment from here on.
 
   @Get('payments')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
   @RequirePermissions(Permission.PAYMENT_READ)
   @ApiOperation({
     summary:
@@ -355,7 +329,6 @@ export class FeeController {
   }
 
   @Get('payments/:id')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
   @RequirePermissions(Permission.PAYMENT_READ)
   @ApiOperation({
     summary:
@@ -370,14 +343,6 @@ export class FeeController {
   }
 
   @Get('payments/student/:studentId')
-  @Roles(
-    UserRole.ADMIN,
-    UserRole.ACCOUNTANT,
-    UserRole.EXECUTIVE,
-    UserRole.TEACHER,
-    UserRole.PARENT,
-    UserRole.STUDENT,
-  )
   @RequirePermissions(Permission.FEE_READ)
   @ApiOperation({
     summary:
@@ -404,6 +369,7 @@ export class FeeController {
   }
 
   @Get('payments/guardian/:guardianId')
+  // #1379 F8: OFFICE_STAFF holds FEE_READ but deliberately not PAYMENT_READ (D16).
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
   @RequirePermissions(Permission.FEE_READ)
   @ApiOperation({ summary: "Get every payment recorded for a guardian's linked students." })
@@ -415,14 +381,6 @@ export class FeeController {
   }
 
   @Get('payments/invoices/student/:studentId')
-  @Roles(
-    UserRole.ADMIN,
-    UserRole.ACCOUNTANT,
-    UserRole.EXECUTIVE,
-    UserRole.TEACHER,
-    UserRole.PARENT,
-    UserRole.STUDENT,
-  )
   // [10.4] G10, FEE_READ — same reasoning as `payments/student/:studentId`:
   // per-student history rides on the relationship, not the ledger permission.
   @RequirePermissions(Permission.FEE_READ)

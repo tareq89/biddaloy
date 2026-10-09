@@ -7,7 +7,7 @@ import {
 } from '@tanstack/react-router';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { clearNotifications, pushNotification } from '../api/notification-state';
 import { i18n } from '../i18n/i18n';
@@ -16,6 +16,20 @@ import { createTestQueryClient, renderWithProviders } from '../test/render-with-
 
 import { NotificationBell } from './notification-bell';
 import type { NotificationBellProps } from './notification-bell';
+
+/** [31.2.10] The store caps at 50 (1000 after 31.2.11), so a 4-digit or
+ * overflowing count can only be reached by overriding the hook's result. */
+let forcedUnread: number | null = null;
+vi.mock('../hooks/notifications', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../hooks/notifications')>();
+  return {
+    ...actual,
+    useUnreadNotificationCount: () => {
+      const real = actual.useUnreadNotificationCount();
+      return forcedUnread ?? real;
+    },
+  };
+});
 
 /** Forces English and waits for the bundle, since the app's default
  * locale is Bengali — same pattern `access-denied-state.test.tsx` uses. */
@@ -56,6 +70,7 @@ async function renderWithRouterInEnglish(props: NotificationBellProps = {}) {
 describe('NotificationBell', () => {
   afterEach(() => {
     clearNotifications();
+    forcedUnread = null;
   });
 
   it('has no unread badge and shows the empty state when there is no history', async () => {
@@ -132,13 +147,33 @@ describe('NotificationBell', () => {
     expect(await screen.findByText('১')).toBeTruthy();
   });
 
-  it('renders a "9+" style overflow badge when there are more than nine unread', async () => {
-    for (let i = 0; i < 10; i += 1) {
-      pushNotification({ tenantId: null, message: `Notification ${i}`, variant: 'info' });
-    }
+  it.each([
+    [1234, '1234'],
+    [9999, '9999'],
+    [12000, '9999+'],
+  ])('shows %i unread as "%s" (4 digits, no grouping, then overflow)', async (count, text) => {
+    forcedUnread = count;
     await renderInEnglish(<NotificationBell />);
 
-    expect(await screen.findByText('9+')).toBeTruthy();
+    expect(await screen.findByText(text)).toBeTruthy();
+  });
+
+  it('draws the badge as a pill with the destructive foreground token', async () => {
+    forcedUnread = 3;
+    await renderInEnglish(<NotificationBell />);
+
+    const badge = (await screen.findByText('3')).closest('span');
+    for (const cls of ['h-5', 'min-w-5', 'text-destructive-foreground']) {
+      expect(badge?.className).toContain(cls);
+    }
+  });
+
+  it('renders four digits in Bengali under the bn locale', async () => {
+    forcedUnread = 1234;
+    const result = renderWithProviders(<NotificationBell />, { locale: 'bn' });
+    await result.localeReady;
+
+    expect(await screen.findByText('১২৩৪')).toBeTruthy();
   });
 
   it('gives the trigger a translated accessible name that includes the unread count', async () => {

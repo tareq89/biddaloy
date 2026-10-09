@@ -1,7 +1,7 @@
 import { createRootRoute, createRoute, Link, Outlet } from '@tanstack/react-router';
 import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { describe, expect, it } from 'vitest';
 
 import { RouteAnnouncer } from '../components/route-announcer';
@@ -78,6 +78,21 @@ function StuckPendingPage() {
   );
 }
 
+// A page that puts focus on one of its own fields as it mounts — the same
+// state as a user who reached a field before the route's focus move landed.
+function FormPage() {
+  const inputRef = useRef<HTMLInputElement>(null);
+  // Layout effect: focuses in the same commit that mounts the page, before
+  // the hook's MutationObserver callback runs.
+  useLayoutEffect(() => inputRef.current?.focus(), []);
+  return (
+    <div>
+      <h1>Form</h1>
+      <input ref={inputRef} aria-label="Note" />
+    </div>
+  );
+}
+
 const rootRoute = createRootRoute({ component: RootLayout });
 const listRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -109,7 +124,13 @@ const stuckPendingRoute = createRoute({
   path: '/stuck-pending',
   component: StuckPendingPage,
 });
+const formRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/form',
+  component: FormPage,
+});
 const routeTree = rootRoute.addChildren([
+  formRoute,
   listRoute,
   otherListRoute,
   detailRoute,
@@ -140,6 +161,24 @@ describe('useRouteFocus', () => {
     const heading = await screen.findByRole('heading', { name: 'Detail' });
     await waitFor(() => expect(document.activeElement).toBe(heading));
     expect(container.querySelector('[data-slot="route-announcer"]')?.textContent).toBe('Detail');
+  });
+
+  it('leaves focus on a field inside the new page instead of pulling it to the <h1>', async () => {
+    const { router } = renderWithRouter(routeTree, {
+      initialEntries: ['/list'],
+      tenantId: 'tenant-1',
+    });
+    await waitFor(() => screen.getByRole('heading', { name: 'List' }));
+
+    act(() => {
+      void router.navigate({ to: '/form' });
+    });
+
+    const field = await screen.findByLabelText('Note');
+    await waitFor(() => expect(document.title).toBe('Form · TestApp'));
+    // Give any deferred focus move time to land before asserting it didn't.
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(document.activeElement).toBe(field);
   });
 
   it('falls back to focusing the main landmark when the new route has no <h1>', async () => {

@@ -45,6 +45,9 @@ const PUBLIC_PATHS = new Set([
   // [12.7] The emailed contact-change confirm link is clicked from the
   // inbox, possibly logged out.
   '/verify-email',
+  // [13.6.1] Sign-up and the social sign-in landing are reached signed out.
+  '/register',
+  '/auth/social/done',
 ]);
 
 /**
@@ -58,8 +61,15 @@ const PUBLIC_PATHS = new Set([
  * still fire a cold-boot `POST /auth/refresh`
  * (`ui/src/api/session.ts:196-200`) for nothing before this guard ever
  * got to redirect-or-not.
+ *
+ * [27.8] `/admission/` added the same way: `/admission/<slug>` and
+ * `/admission/<slug>/status` are a family of public routes, one per
+ * school, with no session and no auth call — same shape as `/i/<token>`.
+ *
+ * [32.3.9] `/v/` added the same way: `/v/<token>` is the page a printed ID
+ * card's QR code opens, so a phone reading it has no session either.
  */
-const PUBLIC_PATH_PREFIXES = ['/i/'];
+const PUBLIC_PATH_PREFIXES = ['/i/', '/admission/', '/v/'];
 
 export const Route = createRootRouteWithContext<RouterContext>()({
   // Protected-route guard, runs before every route in the tree including
@@ -198,6 +208,7 @@ function NotFoundPage() {
 
   return (
     <EmptyState
+      headingLevel={1}
       title={t('notFound.title')}
       explanation={t('notFound.explanation')}
       action={{ label: t('notFound.action'), onClick: () => void navigate({ to: '/' }) }}

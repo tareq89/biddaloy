@@ -17,6 +17,7 @@
 import { VisuallyHidden as VisuallyHiddenPrimitive } from 'radix-ui';
 import * as React from 'react';
 
+import { useTranslation } from '../i18n';
 import {
   Dialog as DialogPrimitive,
   DialogClose as DialogClosePrimitive,
@@ -46,7 +47,8 @@ export function DialogTrigger(props: DialogTriggerProps) {
 }
 
 export function DialogContent(props: DialogContentProps) {
-  return <DialogContentPrimitive {...props} />;
+  const { t } = useTranslation('common');
+  return <DialogContentPrimitive {...props} closeLabel={props.closeLabel ?? t('actions.close')} />;
 }
 
 export function DialogHeader(props: DialogHeaderProps) {
@@ -54,7 +56,8 @@ export function DialogHeader(props: DialogHeaderProps) {
 }
 
 export function DialogFooter(props: DialogFooterProps) {
-  return <DialogFooterPrimitive {...props} />;
+  const { t } = useTranslation('common');
+  return <DialogFooterPrimitive {...props} closeLabel={props.closeLabel ?? t('actions.close')} />;
 }
 
 export function DialogTitle(props: DialogTitleProps) {

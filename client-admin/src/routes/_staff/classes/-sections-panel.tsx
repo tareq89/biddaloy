@@ -1,16 +1,12 @@
 /**
- * A class's sections — name, capacity, enrolled count — with inline
- * create/edit/delete. Shared by two call sites, not duplicated:
- * `index.tsx`'s `renderExpandedRow` (the inline expansion panel the
- * issue's own AC asks for) and `$classId.tsx`'s Sections tab
- * (`-detail/sections-tab.tsx`) — same data, same actions, only the
- * surrounding chrome differs.
+ * A class's sections — name, group, capacity, enrolled count — with inline
+ * create/edit/delete, shown in the class detail page's Sections tab
+ * (`-detail/sections-tab.tsx`). A class has a handful of sections, so the
+ * table is unpaginated (the list page no longer expands rows into this).
  *
  * Renders through `DataTable` rather than the raw `Table` primitive so
  * this list gets the same card-mode fallback at narrow container widths
  * as every other list — see `StudentsTab`'s identical comment on why.
- * `useClassSections` returns the whole roster unpaginated, so `DataTable`
- * gets a local page slice — same pattern as `TeachersTab`.
  */
 import { Permission } from '@biddaloy/shared';
 import { ApiError } from '@biddaloy/ui/api';
@@ -26,42 +22,36 @@ import {
   classSectionsQueryOptions,
   useClassSections,
   useHasPermission,
+  useOrganisationVocabulary,
   type ClassSectionWithCount,
 } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { formatNumber } from '@biddaloy/ui/utils';
+import { LayoutGridIcon, PlusIcon } from 'lucide-react';
 import * as React from 'react';
 
 import { DeleteSectionDialog } from './-delete-section-dialog';
 import { SectionFormDialog } from './-section-form-dialog';
 
-const PAGE_SIZE = 20;
-
 export interface SectionsPanelProps {
   classId: string;
-  className: string;
-  /** `index.tsx`'s inline expansion panel needs its own padding (the
-   * `<td>` it sits in is `p-0`); `$classId.tsx`'s Sections tab sits inside
-   * `DetailShell`'s already-unpadded `TabsContent` (same as every other
-   * tab in this route — see `-detail/*-tab.tsx`), so it opts out.
-   * Defaults `true` for the expansion-panel call site, the more common
-   * one today. */
-  padded?: boolean;
 }
 
-export function SectionsPanel({ classId, className, padded = true }: SectionsPanelProps) {
+export function SectionsPanel({ classId }: SectionsPanelProps) {
   const { t } = useTranslation('classes');
   const { t: tCommon } = useTranslation('common');
+  const regionConfig = useTenantRegionConfig();
   const canManage = useHasPermission(Permission.CLASS_MANAGE);
   const query = useClassSections(classId);
+  const vocabularyQuery = useOrganisationVocabulary();
 
   const [createOpen, setCreateOpen] = React.useState(false);
   const [editing, setEditing] = React.useState<ClassSectionWithCount | null>(null);
   const [deleting, setDeleting] = React.useState<ClassSectionWithCount | null>(null);
-  const [page, setPage] = React.useState(1);
 
   if (query.isPending) {
     return (
-      <div className={`flex flex-col gap-2 ${padded ? 'p-4' : ''}`} aria-hidden="true">
+      <div className="flex flex-col gap-2" aria-hidden="true">
         <Skeleton className="h-6 w-full" />
         <Skeleton className="h-6 w-full" />
       </div>
@@ -71,74 +61,62 @@ export function SectionsPanel({ classId, className, padded = true }: SectionsPan
   if (query.isError) {
     const forbidden = query.error instanceof ApiError && query.error.statusCode === 403;
     return (
-      <div className={padded ? 'p-4' : undefined}>
-        <ErrorState
-          message={forbidden ? t('detail.forbidden') : t('sections.errorMessage')}
-          retryLabel={tCommon('actions.retry')}
-          onRetry={() => void query.refetch()}
-        />
-      </div>
+      <ErrorState
+        message={forbidden ? t('detail.forbidden') : t('sections.errorMessage')}
+        retryLabel={tCommon('actions.retry')}
+        onRetry={() => void query.refetch()}
+      />
     );
   }
 
   const sections = query.data ?? [];
+  // [D5] Same rule as the section form: only when the tenant has 2+ groups.
+  const showGroup = (vocabularyQuery.data?.groups ?? []).length >= 2;
 
   const columns: DataTableColumn<ClassSectionWithCount>[] = [
     {
       id: 'name',
       header: t('sections.columnName'),
-      accessorFn: (section) => section.section_name,
+      accessorFn: (section) => <span className="font-medium">{section.section_name}</span>,
     },
+    ...(showGroup
+      ? [
+          {
+            id: 'group',
+            header: t('sectionForm.groupLabel'),
+            accessorFn: (section: ClassSectionWithCount) => section.group_name ?? '—',
+          },
+        ]
+      : []),
     {
       id: 'capacity',
       header: t('sections.columnCapacity'),
-      accessorFn: (section) => section.capacity ?? t('sections.noCapacity'),
+      accessorFn: (section) =>
+        section.capacity == null
+          ? t('sections.noCapacity')
+          : formatNumber(section.capacity, regionConfig),
+      align: 'end',
     },
     {
       id: 'enrolled',
       header: t('sections.columnEnrolled'),
-      accessorFn: (section) => section.enrolled_count,
+      accessorFn: (section) => formatNumber(section.enrolled_count, regionConfig),
+      align: 'end',
     },
-    ...(canManage
-      ? [
-          {
-            id: 'actions',
-            header: t('sections.columnActions'),
-            pinned: true,
-            accessorFn: (section: ClassSectionWithCount) => (
-              <div className="flex gap-3">
-                <button
-                  type="button"
-                  className="inline-flex min-h-6 min-w-6 items-center justify-center text-sm font-medium text-primary underline"
-                  onClick={() => setEditing(section)}
-                >
-                  {t('sections.edit')}
-                </button>
-                <button
-                  type="button"
-                  className="inline-flex min-h-6 min-w-6 items-center justify-center text-sm font-medium text-destructive underline"
-                  onClick={() => setDeleting(section)}
-                >
-                  {t('sections.delete')}
-                </button>
-              </div>
-            ),
-          } satisfies DataTableColumn<ClassSectionWithCount>,
-        ]
-      : []),
   ];
 
   return (
-    <div className={`flex flex-col gap-3 ${padded ? 'p-4' : ''}`}>
-      {/* [8.12.3]: lives here rather than in `$classId.tsx` so both
-          consumers of this panel — the class detail page's Sections tab
-          and the list page's inline expansion — label stale sections,
-          not just one of them. */}
+    <div className="flex flex-col gap-4">
+      {/* [8.12.3]: labels stale sections. */}
       <CachedDataNotice queryKey={classSectionsQueryOptions(classId).queryKey} />
-      <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold">{t('sections.heading', { className })}</h2>
+      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+        <div>
+          <h2 className="text-h2">{t('sections.heading')}</h2>
+          <p className="mt-0.5 text-text-secondary">{t('sectionForm.description')}</p>
+        </div>
         {canManage && (
-          <Button type="button" size="sm" variant="outline" onClick={() => setCreateOpen(true)}>
+          <Button type="button" className="w-full md:w-auto" onClick={() => setCreateOpen(true)}>
+            <PlusIcon aria-hidden="true" />
             {t('sections.addSection')}
           </Button>
         )}
@@ -146,22 +124,38 @@ export function SectionsPanel({ classId, className, padded = true }: SectionsPan
 
       <DataTable
         tableId="class-detail-sections"
-        caption={t('sections.columnName')}
+        caption={t('sections.caption')}
         columns={columns}
-        data={sections.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)}
+        data={sections}
         getRowId={(section) => section.id}
         sorting={null}
         onSortingChange={() => {}}
-        page={page}
-        pageSize={PAGE_SIZE}
+        paginated={false}
         totalCount={sections.length}
-        onPageChange={setPage}
-        emptyMessage={t('sections.emptyMessage')}
+        rowActions={(section) => [
+          {
+            intent: 'edit',
+            label: t('sections.edit'),
+            onClick: () => setEditing(section),
+            allowed: canManage,
+          },
+          {
+            intent: 'delete',
+            label: t('sections.delete'),
+            onClick: () => setDeleting(section),
+            allowed: canManage,
+          },
+        ]}
+        emptyState={{
+          icon: <LayoutGridIcon aria-hidden="true" />,
+          title: t('sections.emptyMessage'),
+          explanation: t('sections.emptyExplanation'),
+        }}
       />
 
-      {canManage && (
+      {canManage && createOpen && (
         <SectionFormDialog
-          open={createOpen}
+          open
           onOpenChange={setCreateOpen}
           mode="create"
           classId={classId}
@@ -171,7 +165,7 @@ export function SectionsPanel({ classId, className, padded = true }: SectionsPan
 
       {canManage && editing && (
         <SectionFormDialog
-          open={editing !== null}
+          open
           onOpenChange={(open) => !open && setEditing(null)}
           mode="edit"
           classId={classId}
@@ -187,7 +181,7 @@ export function SectionsPanel({ classId, className, padded = true }: SectionsPan
 
       {canManage && deleting && (
         <DeleteSectionDialog
-          open={deleting !== null}
+          open
           onOpenChange={(open) => !open && setDeleting(null)}
           classId={classId}
           sectionId={deleting.id}

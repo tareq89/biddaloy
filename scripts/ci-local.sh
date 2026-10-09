@@ -265,43 +265,23 @@ section_done() {
   SUMMARY+=("$1: $(($(date +%s) - SECTION_START))s")
 }
 
-# Dedicated DB name so this never clobbers a dev database. Env values
-# mirror ci.yml's throwaway CI-only secrets — safe in a checked-in script.
+# This run's own database / Redis slots / S3 bucket on the shared `biddaloy`
+# Docker stack — never new containers, and never a fixed DB name another
+# worktree's ci:local could be using at the same time. See scripts/test-env.sh.
+# Env values mirror ci.yml's throwaway CI-only secrets.
+TEST_ENV_UP=""
+test_env_down() {
+  [ -n "$TEST_ENV_UP" ] && bash scripts/test-env.sh down || true
+}
+trap test_env_down EXIT
 provision_stack() {
-  # [15.5] `minio`/`minio-init` too — `StorageModule` is a boot-time
-  # dependency of `AppModule` now (`docs:generate`/`seed` below both boot
-  # it), and the logo e2e spec needs real object storage, same reasoning
-  # as ci.yml's "integration" job.
-  docker compose up -d db redis minio
-  # `minio-init` is a one-shot `mc mb --ignore-existing`. Run it in the
-  # foreground rather than via `up -d`, which returns once it has *started*,
-  # not finished: `run` waits for `minio` to be healthy (its `depends_on`),
-  # blocks until `mc` exits, and propagates a non-zero exit through `set -e`,
-  # so the bucket exists before anything uploads to it. (Not `docker compose
-  # wait` — on Compose v2.20 that reports "no containers for project" and
-  # exits 1 when the one-shot container has already finished, a false
-  # negative on every fast machine.)
-  docker compose run --rm minio-init
-  until docker compose exec -T db pg_isready -U postgres >/dev/null 2>&1; do sleep 1; done
-  docker compose exec -T db psql -U postgres -tc \
-    "SELECT 1 FROM pg_database WHERE datname = 'biddaloy_ci_local'" | grep -q 1 ||
-    docker compose exec -T db psql -U postgres -c "CREATE DATABASE biddaloy_ci_local"
-  export DATABASE_URL=postgres://postgres:postgres@localhost:5432/biddaloy_ci_local
-  export REDIS_URL=redis://localhost:6379
-  export JWT_SECRET=ci-integration-jwt-secret-do-not-use-in-production-1234567890
-  export NODE_ENV=test
-  export SEED_ADMIN_PASSWORD=ci-integration-seed-password-123
-  export SETTINGS_ENCRYPTION_KEY=YmSqNpwxzusjAF12JSD+JNe+3LXrbNJiQza2yTnQyR0=
-  # docker-compose.yml's own S3_* — the compose `minio` service listens on
-  # the compose network as `minio:9000`, exposed to the host at
-  # localhost:9000 (see that file's own port mapping comment).
-  export S3_ENDPOINT=http://localhost:9000
-  export S3_REGION=us-east-1
-  export S3_BUCKET=${S3_BUCKET:-biddaloy}
-  export S3_ACCESS_KEY_ID=${S3_ACCESS_KEY_ID:-change-me}
-  export S3_SECRET_ACCESS_KEY=${S3_SECRET_ACCESS_KEY:-change-me}
-  export S3_FORCE_PATH_STYLE=true
-  export S3_ALLOW_INSECURE_HTTP=true
+  if [ -z "$TEST_ENV_UP" ]; then
+    TEST_ENV_UP="$(bash scripts/test-env.sh up)"
+  fi
+  set -a
+  # shellcheck disable=SC1090
+  . "$TEST_ENV_UP"
+  set +a
 }
 
 if should_run "verify"; then
@@ -379,7 +359,7 @@ if should_run "e2e"; then
   # CI=1 mirrors the pipeline and stops playwright.config.ts's
   # reuseExistingServer from grabbing an already-running dev server wired
   # to the dev database — that mismatch fails login against the freshly
-  # seeded biddaloy_ci_local. If dev servers hold ports 3000/5174,
+  # seeded test-env database. If dev servers hold ports 3000/5174,
   # Playwright now fails fast with a clear port-in-use message instead.
   # Mirrors ci.yml's "e2e" job (18.2.3): chromium project plus the PWA
   # suite, no sharding.
@@ -411,7 +391,7 @@ if should_run "lighthouse"; then
       kill "$LH_PREVIEW_PID" 2>/dev/null || true
     fi
   }
-  trap cleanup_lighthouse EXIT
+  trap 'cleanup_lighthouse; test_env_down' EXIT
   yarn build:client-admin
   yarn workspace @biddaloy/client-admin preview --port 5174 &
   LH_PREVIEW_PID=$!
@@ -422,7 +402,7 @@ if should_run "lighthouse"; then
     --collect.url=http://localhost:5174/fees/dues \
     --collect.url="$STUDENT_URL"
   cleanup_lighthouse
-  trap - EXIT
+  trap test_env_down EXIT
   section_done "lighthouse"
 fi
 

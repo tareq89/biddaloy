@@ -21,6 +21,10 @@ export interface DueEntry {
   occurrence: number;
   /** `late_fee_for_student_fee_id IS NOT NULL` — this bill IS a late fee. */
   is_late_fee: boolean;
+  /** [Epic 38 D17] `fee_structure.fee_type === 'FINE'`. */
+  is_fine: boolean;
+  /** [Epic 38 D17] Set on FINE bills (the incident note); null otherwise. */
+  note: string | null;
   total_amount: number;
   paid_amount: number;
   discount_amount: number;
@@ -433,6 +437,8 @@ export class FeeDuesService {
         period_type: fee.period_type,
         occurrence: fee.occurrence,
         is_late_fee: fee.late_fee_for_student_fee_id !== null,
+        is_fine: fee.fee_structure.fee_type === FeeType.FINE,
+        note: fee.note,
         total_amount: totalAmount,
         paid_amount: paidAmount,
         discount_amount: discountAmount,

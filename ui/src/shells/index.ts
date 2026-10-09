@@ -40,6 +40,14 @@ export {
   type FormShellError,
   type FormSectionProps,
 } from './form-shell';
+export { PageContainer, type PageContainerProps } from './page-container';
+export { PageHeader, type PageHeaderProps, type PageAction } from './page-header';
+export {
+  FullPageShell,
+  useCloseFullPage,
+  type FullPageShellProps,
+  type FullPageShellAction,
+} from './full-page-shell';
 export { buildFormShellErrors } from './form-shell-errors';
 export {
   useFormShellMode,

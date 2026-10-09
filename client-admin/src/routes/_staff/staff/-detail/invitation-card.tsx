@@ -17,7 +17,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  StatusBadge,
 } from '@biddaloy/ui/components';
 import {
   useHasPermission,
@@ -26,6 +25,7 @@ import {
   type StaffUser,
 } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
+import { MailWarningIcon, SendIcon, XIcon } from 'lucide-react';
 import * as React from 'react';
 
 export interface InvitationCardProps {
@@ -42,14 +42,30 @@ export function InvitationCard({ user }: InvitationCardProps) {
 
   if (user.invitation_status === 'ACTIVATED') return null;
 
+  const status = user.invitation_status;
+  const danger = status === 'EXPIRED' || status === 'REVOKED';
+
   return (
     <section
       aria-label={t('detail.profile.columnInvitation')}
-      className="flex flex-col gap-3 rounded-lg border p-4"
+      className={`flex flex-col gap-3 rounded-lg border border-border-subtle p-4 md:p-5 ${
+        danger ? 'bg-status-overdue-bg' : 'bg-status-due-bg'
+      }`}
     >
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <StatusBadge domain="invitation" status={user.invitation_status} />
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div className="flex items-start gap-3">
+          <MailWarningIcon
+            className={`mt-0.5 size-5 shrink-0 ${
+              danger ? 'text-status-overdue-fg' : 'text-status-due-fg'
+            }`}
+            aria-hidden="true"
+          />
+          <div>
+            <h2 className="text-h3">{t(`status.invitation.${status}`, { ns: 'common' })}</h2>
+            <p className="text-text-secondary">
+              {t(`detail.invitation.explain.${status}`, { name: user.full_name })}
+            </p>
+          </div>
         </div>
 
         {canUpdate && (
@@ -57,16 +73,17 @@ export function InvitationCard({ user }: InvitationCardProps) {
             <Button
               type="button"
               variant="outline"
-              size="sm"
               loading={resendInvitation.isPending}
               onClick={() => resendInvitation.mutate()}
             >
+              <SendIcon aria-hidden="true" />
               {resendInvitation.isPending
                 ? t('detail.invitation.resending')
                 : t('detail.invitation.resend')}
             </Button>
-            {(user.invitation_status === 'PENDING' || user.invitation_status === 'EXPIRED') && (
-              <Button type="button" variant="ghost" size="sm" onClick={() => setRevokeOpen(true)}>
+            {(status === 'PENDING' || status === 'EXPIRED') && (
+              <Button type="button" variant="ghost" onClick={() => setRevokeOpen(true)}>
+                <XIcon aria-hidden="true" />
                 {t('detail.invitation.revoke')}
               </Button>
             )}
@@ -75,22 +92,22 @@ export function InvitationCard({ user }: InvitationCardProps) {
       </div>
 
       {resendInvitation.isError && (
-        <p role="alert" className="text-sm text-destructive">
+        <p role="alert" className="text-caption text-destructive">
           {t('detail.invitation.resendError')}
         </p>
       )}
       {resendInvitation.isSuccess && (
-        <p className="text-sm text-muted-foreground">
+        <p className="text-caption text-text-secondary">
           {t('detail.invitation.resendSuccess', { name: user.full_name })}
         </p>
       )}
       {revokeInvitation.isError && (
-        <p role="alert" className="text-sm text-destructive">
+        <p role="alert" className="text-caption text-destructive">
           {t('detail.invitation.revokeError')}
         </p>
       )}
       {revokeInvitation.isSuccess && (
-        <p className="text-sm text-muted-foreground">
+        <p className="text-caption text-text-secondary">
           {t('detail.invitation.revokeSuccess', { name: user.full_name })}
         </p>
       )}

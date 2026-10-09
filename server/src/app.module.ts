@@ -3,6 +3,7 @@ import { resolve } from 'path';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bullmq';
+import { queueWorkers } from './common/queue-workers';
 import { APP_GUARD } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
@@ -13,6 +14,7 @@ import { AppController } from './app.controller';
 import { resolveDefaultRateLimit } from './rate-limit';
 import { buildDatabaseSsl } from './db-ssl';
 import { RedactingTypeOrmLogger } from './db-logger';
+import { TeacherStaffProfileSubscriber } from './modules/staff-profiles/teacher-staff-profile.subscriber';
 import { buildRateLimitTracker } from './common/rate-limit/rate-limit-tracker';
 import { FailOpenThrottlerStorage } from './common/rate-limit/fail-open-throttler-storage';
 import { HealthModule } from './modules/health/health.module';
@@ -39,9 +41,73 @@ import { RestoreModule } from './modules/workbook/restore/restore.module';
 import { ImportModule } from './modules/workbook/import/import.module';
 import { TemplateModule } from './modules/workbook/template/template.module';
 import { ReportsModule } from './modules/reports/reports.module';
+import { StaffHrModule } from './modules/staff-hr/staff-hr.module';
 import { SearchModule } from './modules/search/search.module';
 import { GradingModule } from './modules/grading/grading.module';
 import { ExamsModule } from './modules/exams/exams.module';
+import { PromotionsModule } from './modules/promotions/promotions.module';
+import { HomeworkModule } from './modules/homework/homework.module';
+import { AdmissionModule } from './modules/admission/admission.module';
+import { StaffProfilesModule } from './modules/staff-profiles/staff-profiles.module';
+import { StaffProfile } from './modules/staff-profiles/entities/staff-profile.entity';
+import { StaffAttendanceModule } from './modules/staff-attendance/staff-attendance.module';
+import { StaffAttendanceSession } from './modules/staff-attendance/entities/staff-attendance-session.entity';
+import { StaffAttendanceRecord } from './modules/staff-attendance/entities/staff-attendance-record.entity';
+import { LeaveModule } from './modules/leave/leave.module';
+import { LeaveRecord } from './modules/leave/entities/leave-record.entity';
+import { LeavePolicy } from './modules/leave/entities/leave-policy.entity';
+import { AcrModule } from './modules/acr/acr.module';
+import { IncidentsModule } from './modules/incidents/incidents.module';
+import { SurveysModule } from './modules/surveys/surveys.module';
+import { RegistrationModule } from './modules/registration/registration.module';
+import { OnboardingModule } from './modules/onboarding/onboarding.module';
+import { SocialAuthModule } from './modules/auth/social/social-auth.module';
+import { TrialModule } from './modules/schools/trial/trial.module';
+import { PerformanceModule } from './modules/performance/performance.module';
+import { AcrFormVersion } from './modules/acr/entities/acr-form-version.entity';
+import { AcrCriterion } from './modules/acr/entities/acr-criterion.entity';
+import { AcrAssessment } from './modules/acr/entities/acr-assessment.entity';
+import { AcrScore } from './modules/acr/entities/acr-score.entity';
+import { StaffIncident } from './modules/incidents/entities/staff-incident.entity';
+import { Survey } from './modules/surveys/entities/survey.entity';
+import { SurveyQuestion } from './modules/surveys/entities/survey-question.entity';
+import { SurveyTarget } from './modules/surveys/entities/survey-target.entity';
+import { SurveyResponse } from './modules/surveys/entities/survey-response.entity';
+import { SurveyAnswer } from './modules/surveys/entities/survey-answer.entity';
+import { Homework } from './modules/homework/entities/homework.entity';
+import { HomeworkAssignment } from './modules/homework/entities/homework-assignment.entity';
+import { HomeworkSubmission } from './modules/homework/entities/homework-submission.entity';
+import { SeatPlansModule } from './modules/seat-plans/seat-plans.module';
+import { PresetsModule } from './modules/presets/presets.module';
+import { PrintModule } from './modules/print/print.module';
+import { SeatPlan } from './modules/seat-plans/entities/seat-plan.entity';
+import { SeatPlanSchedule } from './modules/seat-plans/entities/seat-plan-schedule.entity';
+import { SeatAllocation } from './modules/seat-plans/entities/seat-allocation.entity';
+import { SyllabusTopic } from './modules/homework/entities/syllabus-topic.entity';
+import { ProgramsModule } from './modules/programs/programs.module';
+import { Program } from './modules/programs/entities/program.entity';
+import { ProgramMilestone } from './modules/programs/entities/program-milestone.entity';
+import { ProgramEnrollment } from './modules/programs/entities/program-enrollment.entity';
+import { MilestoneAchievement } from './modules/programs/entities/milestone-achievement.entity';
+import { Designation } from './modules/staff-hr/entities/designation.entity';
+import { StaffHrRecord } from './modules/staff-hr/entities/staff-hr-record.entity';
+import { StaffDesignationHistory } from './modules/staff-hr/entities/staff-designation-history.entity';
+import { StaffFamilyMember } from './modules/staff-hr/entities/staff-family-member.entity';
+import { StaffAddress } from './modules/staff-hr/entities/staff-address.entity';
+import { StaffExperience } from './modules/staff-hr/entities/staff-experience.entity';
+import { StaffEducation } from './modules/staff-hr/entities/staff-education.entity';
+import { StaffTraining } from './modules/staff-hr/entities/staff-training.entity';
+import { StaffAchievement } from './modules/staff-hr/entities/staff-achievement.entity';
+import { StaffLanguage } from './modules/staff-hr/entities/staff-language.entity';
+import { StaffDocument } from './modules/staff-hr/entities/staff-document.entity';
+import { ExamTemplate } from './modules/exams/entities/exam-template.entity';
+import { ExamTemplateComponent } from './modules/exams/entities/exam-template-component.entity';
+import { PrintTemplate } from './modules/print/entities/print-template.entity';
+import { PrintTemplateVersion } from './modules/print/entities/print-template-version.entity';
+import { PrintAsset } from './modules/print/entities/print-asset.entity';
+import { PrinterProfile } from './modules/print/entities/printer-profile.entity';
+import { PrintJob } from './modules/print/entities/print-job.entity';
+import { PrintJobItem } from './modules/print/entities/print-job-item.entity';
 import { validate } from './config/env.validation';
 
 // Entities for auto-loading
@@ -55,6 +121,7 @@ import { ClassSection } from './modules/academics/entities/class-section.entity'
 import { Student } from './modules/students/entities/student.entity';
 import { Guardian } from './modules/students/entities/guardian.entity';
 import { FeeStructure } from './modules/fees/entities/fee-structure.entity';
+import { FineRule } from './modules/fees/entities/fine-rule.entity';
 import { DiscountRule } from './modules/fees/entities/discount-rule.entity';
 import { StudentFee } from './modules/fees/entities/student-fee.entity';
 import { FeeGeneration } from './modules/fees/entities/fee-generation.entity';
@@ -93,17 +160,27 @@ import { RoutineSlot } from './modules/routines/entities/routine-slot.entity';
 import { RoutineSlotTeacher } from './modules/routines/entities/routine-slot-teacher.entity';
 import { RoutineSubstitution } from './modules/routines/entities/routine-substitution.entity';
 import { RoutineChangeRequest } from './modules/routines/entities/routine-change-request.entity';
+import { UserIdentity } from './modules/auth/entities/user-identity.entity';
 import { AuthToken } from './modules/account-access/entities/auth-token.entity';
 import { WorkbookJob } from './modules/workbook/jobs/workbook-job.entity';
 import { GradingScale } from './modules/grading/entities/grading-scale.entity';
 import { GradingBand } from './modules/grading/entities/grading-band.entity';
 import { Exam } from './modules/exams/entities/exam.entity';
 import { ExamComponent } from './modules/exams/entities/exam-component.entity';
+import { ExamSchedule } from './modules/exams/entities/exam-schedule.entity';
 import { Mark } from './modules/exams/entities/mark.entity';
 import { MarkGrid } from './modules/exams/entities/mark-grid.entity';
 import { Result } from './modules/exams/entities/result.entity';
 import { ResultSubject } from './modules/exams/entities/result-subject.entity';
 import { StudentSubjectChoice } from './modules/students/entities/student-subject-choice.entity';
+import { StudentLifecycleEvent } from './modules/students/entities/student-lifecycle-event.entity';
+import { StudentNote } from './modules/students/entities/student-note.entity';
+import { StudentPublicExam } from './modules/students/entities/student-public-exam.entity';
+import { AdmissionIntake } from './modules/admission/entities/admission-intake.entity';
+import { AdmissionApplicant } from './modules/admission/entities/admission-applicant.entity';
+import { AdmissionEvaluation } from './modules/admission/entities/admission-evaluation.entity';
+import { PromotionRun } from './modules/promotions/entities/promotion-run.entity';
+import { PromotionEntry } from './modules/promotions/entities/promotion-entry.entity';
 
 @Module({
   imports: [
@@ -137,6 +214,7 @@ import { StudentSubjectChoice } from './modules/students/entities/student-subjec
           // rather than a preset name (see LoggerFactory.create). The
           // instance's own constructor argument is what gates output.
           logger: new RedactingTypeOrmLogger(config.get<string>('NODE_ENV') !== 'production'),
+          subscribers: [TeacherStaffProfileSubscriber],
           entities: [
             User,
             School,
@@ -148,6 +226,7 @@ import { StudentSubjectChoice } from './modules/students/entities/student-subjec
             Student,
             Guardian,
             FeeStructure,
+            FineRule,
             DiscountRule,
             StudentFee,
             FeeGeneration,
@@ -179,6 +258,7 @@ import { StudentSubjectChoice } from './modules/students/entities/student-subjec
             AttendanceDevice,
             AttendanceDeviceEvent,
             AuthToken,
+            UserIdentity,
             WorkbookJob,
             GradingScale,
             GradingBand,
@@ -188,7 +268,13 @@ import { StudentSubjectChoice } from './modules/students/entities/student-subjec
             MarkGrid,
             Result,
             ResultSubject,
+            ExamSchedule,
             StudentSubjectChoice,
+            StudentLifecycleEvent,
+            StudentNote,
+            StudentPublicExam,
+            PromotionRun,
+            PromotionEntry,
             Shift,
             PeriodSlot,
             Room,
@@ -197,6 +283,62 @@ import { StudentSubjectChoice } from './modules/students/entities/student-subjec
             RoutineSlotTeacher,
             RoutineSubstitution,
             RoutineChangeRequest,
+            Homework,
+            HomeworkAssignment,
+            HomeworkSubmission,
+            SyllabusTopic,
+            AdmissionIntake,
+            AdmissionApplicant,
+            AdmissionEvaluation,
+            SeatPlan,
+            SeatPlanSchedule,
+            SeatAllocation,
+            Program,
+            ProgramMilestone,
+            ProgramEnrollment,
+            MilestoneAchievement,
+            Designation,
+            StaffHrRecord,
+            StaffDesignationHistory,
+            StaffFamilyMember,
+            StaffAddress,
+            StaffExperience,
+            StaffEducation,
+            StaffTraining,
+            StaffAchievement,
+            StaffLanguage,
+            StaffDocument,
+            ExamTemplate,
+            ExamTemplateComponent,
+            PrintTemplate,
+            PrintTemplateVersion,
+            PrintAsset,
+            PrinterProfile,
+            PrintJob,
+            PrintJobItem,
+            // [36.1.1] StaffProfile was missing from this list — the
+            // TypeORM connection built here only knows the entities named
+            // in this array, so `StaffProfilesService` (and anything else
+            // that queries `StaffProfile` through the app's real
+            // `DataSource`, e.g. the e2e suite) hit
+            // `EntityMetadataNotFoundError` despite `StaffProfilesModule`
+            // registering it via `forFeature`. Fixed here as part of
+            // [36.2.2] since it blocked this ticket's own e2e test.
+            StaffProfile,
+            StaffAttendanceSession,
+            StaffAttendanceRecord,
+            LeaveRecord,
+            LeavePolicy,
+            AcrFormVersion,
+            AcrCriterion,
+            AcrAssessment,
+            AcrScore,
+            StaffIncident,
+            Survey,
+            SurveyQuestion,
+            SurveyTarget,
+            SurveyResponse,
+            SurveyAnswer,
           ],
           synchronize: config.get<string>('DB_SYNCHRONIZE') === 'true',
           migrations: ['dist/migrations/*.js'],
@@ -212,6 +354,11 @@ import { StudentSubjectChoice } from './modules/students/entities/student-subjec
           url: config.get<string>('REDIS_URL') ?? 'redis://127.0.0.1:6379',
         },
       }),
+      // One-off scripts boot AppModule for its services but must not start
+      // BullMQ workers (they'd consume jobs from a possibly-shared Redis).
+      // Read at import time, so scripts flip it first — see
+      // common/queue-workers.ts and scripts/script-app-context.ts.
+      extraOptions: { manualRegistration: !queueWorkers.enabled },
     }),
     ThrottlerModule.forRootAsync({
       imports: [ConfigModule],
@@ -274,6 +421,25 @@ import { StudentSubjectChoice } from './modules/students/entities/student-subjec
     SearchModule,
     GradingModule,
     ExamsModule,
+    HomeworkModule,
+    AdmissionModule,
+    SeatPlansModule,
+    PresetsModule,
+    PrintModule,
+    ProgramsModule,
+    PromotionsModule,
+    StaffHrModule,
+    StaffProfilesModule,
+    StaffAttendanceModule,
+    LeaveModule,
+    AcrModule,
+    IncidentsModule,
+    SurveysModule,
+    PerformanceModule,
+    RegistrationModule,
+    OnboardingModule,
+    SocialAuthModule,
+    TrialModule,
   ],
   controllers: [AppController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

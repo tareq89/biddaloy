@@ -9,7 +9,6 @@ import {
   Checkbox,
   Combobox,
   Dialog,
-  DialogClose,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -19,6 +18,8 @@ import {
 import { useAttachClassSubject, useSubjects } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import * as React from 'react';
+
+import { ErrorText, Field, useCloseGuard } from './-dialog-kit';
 
 export interface AttachSubjectDialogProps {
   open: boolean;
@@ -39,7 +40,7 @@ export function AttachSubjectDialog({
   excludeSubjectIds,
   onSaved,
 }: AttachSubjectDialogProps) {
-  const { t } = useTranslation('classes');
+  const { t, i18n } = useTranslation('classes');
   const subjectsQuery = useSubjects({ is_active: true, limit: 100 });
   const attachSubject = useAttachClassSubject(classId, academicYearId);
 
@@ -47,22 +48,24 @@ export function AttachSubjectDialog({
   const [isOptional, setIsOptional] = React.useState(false);
   const [validationError, setValidationError] = React.useState<string | null>(null);
 
-  React.useEffect(() => {
-    if (!open) return;
-    setSubjectId(null);
-    setIsOptional(false);
-    setValidationError(null);
-    attachSubject.reset();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only on open/close transitions
-  }, [open]);
+  // Callers mount this dialog only while it is open (fresh state each open).
+  const { requestClose, discardDialog } = useCloseGuard(
+    subjectId !== null || isOptional,
+    attachSubject.isPending,
+    onOpenChange,
+  );
 
   const excluded = new Set(excludeSubjectIds);
   const subjectOptions = (subjectsQuery.data?.data ?? [])
     .filter((subject) => !excluded.has(subject.id))
-    .map((subject) => ({ value: subject.id, label: `${subject.name_en} (${subject.code})` }));
+    .map((subject) => ({
+      value: subject.id,
+      label: `${i18n.language === 'bn' && subject.name_bn ? subject.name_bn : subject.name_en} (${subject.code})`,
+    }));
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
+    if (attachSubject.isPending) return;
 
     if (!subjectId) {
       setValidationError(t('subjectAttachForm.errorSubjectRequired'));
@@ -77,63 +80,59 @@ export function AttachSubjectDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <DialogHeader>
-            <DialogTitle>{t('subjectAttachForm.title')}</DialogTitle>
-            <DialogDescription>{t('subjectAttachForm.description')}</DialogDescription>
-          </DialogHeader>
+    <>
+      <Dialog open={open} onOpenChange={(next) => (next ? onOpenChange(true) : requestClose())}>
+        <DialogContent size="sm" onInteractOutside={(e) => e.preventDefault()}>
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            <DialogHeader>
+              <DialogTitle>{t('subjectAttachForm.title')}</DialogTitle>
+              <DialogDescription>{t('subjectAttachForm.description')}</DialogDescription>
+            </DialogHeader>
 
-          <div className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium">{t('subjectAttachForm.subjectLabel')}</span>
-            <Combobox
-              aria-label={t('subjectAttachForm.subjectLabel')}
-              options={subjectOptions}
-              value={subjectId}
-              onValueChange={setSubjectId}
-              placeholder={t('subjectAttachForm.subjectPlaceholder')}
-            />
-          </div>
+            <Field id="attach-subject-subject" label={t('subjectAttachForm.subjectLabel')} required>
+              <Combobox
+                id="attach-subject-subject"
+                aria-label={t('subjectAttachForm.subjectLabel')}
+                options={subjectOptions}
+                value={subjectId}
+                onValueChange={setSubjectId}
+                placeholder={t('subjectAttachForm.subjectPlaceholder')}
+              />
+            </Field>
 
-          <div className="flex items-center gap-2">
-            <Checkbox
-              id="attach-subject-optional"
-              checked={isOptional}
-              onCheckedChange={(checked) => setIsOptional(checked === true)}
-            />
-            <label htmlFor="attach-subject-optional" className="text-sm">
-              {t('subjectAttachForm.optionalLabel')}
-            </label>
-          </div>
+            <div className="flex min-h-11 items-center gap-2 md:min-h-8">
+              <Checkbox
+                id="attach-subject-optional"
+                checked={isOptional}
+                onCheckedChange={(checked) => setIsOptional(checked === true)}
+              />
+              <label htmlFor="attach-subject-optional" className="flex-1 cursor-pointer">
+                {t('subjectAttachForm.optionalLabel')}
+              </label>
+            </div>
 
-          {validationError && (
-            <p role="alert" className="text-sm text-destructive">
-              {validationError}
-            </p>
-          )}
-          {attachSubject.isError && (
-            <p role="alert" className="text-sm text-destructive">
-              {attachSubject.error instanceof Error
-                ? attachSubject.error.message
-                : t('subjectAttachForm.errorMessage')}
-            </p>
-          )}
+            {validationError && <ErrorText>{validationError}</ErrorText>}
+            {attachSubject.isError && <ErrorText>{t('subjectAttachForm.errorMessage')}</ErrorText>}
 
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button type="button" variant="outline">
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={attachSubject.isPending}
+                onClick={requestClose}
+              >
                 {t('actions.cancel', { ns: 'common' })}
               </Button>
-            </DialogClose>
-            <Button type="submit" loading={attachSubject.isPending}>
-              {attachSubject.isPending
-                ? t('subjectAttachForm.saving')
-                : t('subjectAttachForm.save')}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+              <Button type="submit" loading={attachSubject.isPending}>
+                {attachSubject.isPending
+                  ? t('subjectAttachForm.saving')
+                  : t('subjectAttachForm.save')}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+      {discardDialog}
+    </>
   );
 }

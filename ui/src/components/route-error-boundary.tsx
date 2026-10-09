@@ -28,9 +28,15 @@ import { useNavigate, type ErrorComponentProps } from '@tanstack/react-router';
 import { Lock, RefreshCw, WifiOff } from 'lucide-react';
 import * as React from 'react';
 
+import { getAccessToken, getActiveTenant, setActiveRole, setActiveTenant } from '../api/auth-state';
 import { isTenantSuspendedError } from '../api/errors';
 import { captureRouteError, recordRouteChunkFallback } from '../api/sentry';
+import { decodeAccessTokenMemberships } from '../api/session';
+import { clearPersistedTenant } from '../api/tenant-storage';
+import { useTranslation } from '../i18n';
+import { isSafeSupportUrl } from '../utils/support-url';
 
+import { Button } from './button';
 import { ErrorState } from './error-state';
 import { RouteStatusState } from './route-status-state';
 
@@ -61,6 +67,9 @@ export interface RouteErrorFallbackProps extends ErrorComponentProps {
    * available action differ. */
   suspendedTitle?: string;
   suspendedMessage?: string;
+  /** [13.5] "Contact us" target for the trial-ended state, supplied by the app
+   * (client-admin: build-time `VITE_SUPPORT_URL`). Hidden when unset or unsafe. */
+  supportUrl?: string | null;
 }
 
 /**
@@ -108,7 +117,7 @@ export interface RouteErrorFallbackProps extends ErrorComponentProps {
 const CHUNK_LOAD_FAILURE =
   /failed to fetch dynamically imported module|error loading dynamically imported module|importing a module script failed|loading chunk \S+ failed/i;
 
-type RouteErrorKind = 'offline' | 'update' | 'suspended' | 'error';
+type RouteErrorKind = 'offline' | 'update' | 'suspended' | 'trial-ended' | 'error';
 
 /** True for exactly the errors this boundary would render as its offline
  * fork. Exported so a route `loader` deciding whether to swallow a
@@ -126,7 +135,10 @@ function classifyRouteError(error: unknown): RouteErrorKind {
   }
 
   if (isTenantSuspendedError(error)) {
-    return 'suspended';
+    // The 403 carries `details.reason` only when the trial ran out.
+    return (error as { details?: { reason?: unknown } }).details?.reason === 'TRIAL_EXPIRED'
+      ? 'trial-ended'
+      : 'suspended';
   }
 
   const message = error instanceof Error ? error.message : '';
@@ -149,19 +161,33 @@ function classifyRouteError(error: unknown): RouteErrorKind {
 export function RouteErrorFallback({
   error,
   reset,
-  message = 'Something went wrong loading this page.',
-  retryLabel = 'Try again',
-  homeLabel = 'Go home',
-  offlineTitle = "You're offline",
-  offlineMessage = 'This page needs a connection to load. Check your network and try again — anything already loaded is still available.',
-  updateTitle = 'A newer version is available',
-  updateMessage = 'This page is from an older version of the app. Reload to pick up the new one — anything you have already saved is safe.',
-  updateRetryLabel = 'Reload to update',
+  message,
+  retryLabel,
+  homeLabel,
+  offlineTitle,
+  offlineMessage,
+  updateTitle,
+  updateMessage,
+  updateRetryLabel,
   onReloadForUpdate = () => window.location.reload(),
-  suspendedTitle = 'This school has been suspended',
-  suspendedMessage = 'Access is paused for this school. Contact your platform administrator to reactivate it.',
+  suspendedTitle,
+  suspendedMessage,
+  supportUrl,
 }: RouteErrorFallbackProps) {
   const navigate = useNavigate();
+  const { t } = useTranslation('common');
+  // Props still override; the defaults are translated here so an app that
+  // passes no copy (or only some) is never stuck with English on a Bangla page.
+  message = message ?? t('routeError.message');
+  retryLabel = retryLabel ?? t('actions.retry');
+  homeLabel = homeLabel ?? t('routeError.home');
+  offlineTitle = offlineTitle ?? t('offline.pageTitle');
+  offlineMessage = offlineMessage ?? t('offline.pageExplanation');
+  updateTitle = updateTitle ?? t('update.pageTitle');
+  updateMessage = updateMessage ?? t('update.pageExplanation');
+  updateRetryLabel = updateRetryLabel ?? t('update.reload');
+  suspendedTitle = suspendedTitle ?? t('suspended.pageTitle');
+  suspendedMessage = suspendedMessage ?? t('suspended.pageExplanation');
 
   // Evaluated once per thrown error rather than on every render, so the
   // component cannot flip from offline to error styling mid-retry just
@@ -181,7 +207,8 @@ export function RouteErrorFallback({
     // See `recordRouteChunkFallback` for why an online chunk failure does
     // not deserve an issue of its own in this deployment.
     if (kind !== 'error') {
-      recordRouteChunkFallback(kind);
+      // A trial that ran out is a kind of suspension; same breadcrumb.
+      recordRouteChunkFallback(kind === 'trial-ended' ? 'suspended' : kind);
       return;
     }
     captureRouteError(error);
@@ -222,6 +249,18 @@ export function RouteErrorFallback({
     );
   }
 
+  if (kind === 'trial-ended') {
+    return (
+      <TrialEndedState
+        onRetry={reset}
+        retryLabel={retryLabel}
+        onHome={onHome}
+        homeLabel={homeLabel}
+        supportUrl={supportUrl}
+      />
+    );
+  }
+
   if (kind === 'suspended') {
     return (
       <RouteStatusState
@@ -244,5 +283,69 @@ export function RouteErrorFallback({
       onHome={onHome}
       homeLabel={homeLabel}
     />
+  );
+}
+
+/**
+ * The trial-ended fork, in its own component so only it loads the `trial` and
+ * `auth` namespaces: the offline / update / generic forks keep reading `common`
+ * alone, and never wait on two more chunks when the network is the problem.
+ */
+function TrialEndedState({
+  onRetry,
+  retryLabel,
+  onHome,
+  homeLabel,
+  supportUrl,
+}: {
+  onRetry: () => void;
+  retryLabel: string;
+  onHome: () => void;
+  homeLabel: string;
+  supportUrl: string | null | undefined;
+}) {
+  const navigate = useNavigate();
+  const { t: tTrial } = useTranslation('trial');
+  const { t: tAuth } = useTranslation('auth');
+  const token = getAccessToken();
+  // A membership is a (school, role) pair: two roles at the expired school is not another school.
+  const active = getActiveTenant();
+  const hasOtherSchools = token
+    ? decodeAccessTokenMemberships(token).some((m) => m.tenantId !== active)
+    : false;
+
+  // The expired school is still the active one, and the root guard sends anyone with an
+  // active school away from the picker. Leaving it first (here and in the reload hint)
+  // is what lets the picker open, and a reload lands on the picker too.
+  function chooseAnotherSchool(): void {
+    setActiveTenant(null);
+    setActiveRole(null);
+    clearPersistedTenant();
+    void navigate({ to: '/select-school' });
+  }
+  return (
+    <div className="flex flex-col items-center gap-2">
+      <RouteStatusState
+        title={tTrial('ended.title')}
+        explanation={tTrial('ended.body')}
+        onRetry={onRetry}
+        retryLabel={retryLabel}
+        onHome={onHome}
+        homeLabel={homeLabel}
+        icon={<Lock aria-hidden="true" />}
+      />
+      <div className="flex flex-wrap items-center justify-center gap-2">
+        {isSafeSupportUrl(supportUrl) && (
+          <Button asChild>
+            <a href={supportUrl}>{tTrial('ended.contact')}</a>
+          </Button>
+        )}
+        {hasOtherSchools && (
+          <Button variant="outline" onClick={chooseAnotherSchool}>
+            {tAuth('selectSchool.chooseAnother')}
+          </Button>
+        )}
+      </div>
+    </div>
   );
 }

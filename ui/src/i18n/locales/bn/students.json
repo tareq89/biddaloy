@@ -7,7 +7,7 @@
     "caption": "শিক্ষার্থী",
     "addStudent": "শিক্ষার্থী যোগ করুন",
     "importStudents": "শিক্ষার্থী আমদানি",
-    "searchLabel": "নাম, রোল বা রেজিস্ট্রেশন নম্বর দিয়ে খুঁজুন",
+    "searchLabel": "খুঁজুন",
     "classLabel": "শ্রেণি",
     "allClasses": "সকল শ্রেণি",
     "sectionLabel": "শাখা",
@@ -29,7 +29,7 @@
     "columnSection": "শাখা",
     "columnGuardian": "অভিভাবক",
     "columnStatus": "অবস্থা",
-    "columnActions": "কার্যক্রম",
+    "columnActions": "কাজ",
     "columnDateOfBirth": "জন্ম তারিখ",
     "columnGender": "লিঙ্গ",
     "columnAddress": "ঠিকানা",
@@ -38,7 +38,7 @@
     "view": "দেখুন",
     "sendReminder": "রিমাইন্ডার পাঠান",
     "exportCsv": "সিএসভি এক্সপোর্ট",
-    "clearSelection": "মুছুন",
+    "clearSelection": "নির্বাচন বাতিল",
     "emptyMessage": "কোনো শিক্ষার্থী পাওয়া যায়নি",
     "errorMessage": "শিক্ষার্থীদের তথ্য লোড করা যায়নি",
     "announceResults_one": "{{total}} জনের মধ্যে {{visible}} জন শিক্ষার্থী",
@@ -48,7 +48,14 @@
     "shiftLabel": "শিফট",
     "allShifts": "সকল শিফট",
     "versionLabel": "ভার্সন",
-    "allVersions": "সকল ভার্সন"
+    "allVersions": "সকল ভার্সন",
+    "printIdCards": "আইডি কার্ড প্রিন্ট ({{count}})",
+    "printWholeClass": "পুরো {{name}}-এর আইডি কার্ড প্রিন্ট",
+    "edit": "সম্পাদনা",
+    "allGenders": "সকল লিঙ্গ",
+    "searchPlaceholder": "নাম, রোল বা রেজিস্ট্রেশন নম্বর",
+    "cardSubtitle": "{{class}} · শাখা {{section}} · রোল {{roll}}",
+    "emptyExplanation": "প্রথম শিক্ষার্থী যোগ করলে তালিকা এখানে দেখা যাবে।"
   },
   "sendReminderDialog": {
     "title": "রিমাইন্ডার পাঠান",
@@ -63,44 +70,55 @@
     "errorMessage": "রিমাইন্ডার পাঠানো যায়নি। কিছুই পাঠানো হয়নি — আবার চেষ্টা করুন।"
   },
   "detail": {
-    "back": "শিক্ষার্থী তালিকায় ফিরুন",
-    "identifiers": "{{registrationNumber}} · শ্রেণি {{className}} · রোল {{roll}}",
     "forbidden": "এটি দেখার অনুমতি আপনার নেই।",
     "loadError": "শিক্ষার্থীর তথ্য লোড করা যায়নি।",
     "actions": {
       "edit": "সম্পাদনা",
       "collectFees": "ফি আদায়",
       "sendReminder": "রিমাইন্ডার পাঠান",
-      "transferStatus": "স্থানান্তর / অবস্থা পরিবর্তন",
-      "delete": "মুছে ফেলুন"
+      "recordLeaving": "ছাড়ার তথ্য লিখুন",
+      "readmit": "পুনরায় ভর্তি",
+      "delete": "মুছে ফেলুন",
+      "printIdCard": "আইডি কার্ড প্রিন্ট"
     },
     "tabs": {
       "overview": "সংক্ষিপ্ত বিবরণ",
       "enrollment": "ভর্তি তথ্য",
       "fees": "ফি",
-      "recurringFees": "পুনরাবৃত্ত ফি",
+      "fines": "জরিমানা",
+      "recurringFees": "স্বয়ংক্রিয় বিল",
       "payments": "পেমেন্ট",
       "invoices": "চালান",
       "guardians": "অভিভাবক",
       "communication": "যোগাযোগ",
       "activity": "কার্যক্রম",
-      "attendance": "উপস্থিতি"
+      "attendance": "উপস্থিতি",
+      "homework": "বাড়ির কাজ",
+      "records": "রেকর্ড",
+      "notes": "নোট",
+      "documents": "কাগজপত্র"
     },
     "overview": {
       "dateOfBirth": "জন্ম তারিখ",
       "gender": "লিঙ্গ",
-      "address": "ঠিকানা",
-      "preferredCommunication": "পছন্দের যোগাযোগ মাধ্যম"
+      "address": "বাড়ির ঠিকানা",
+      "preferredCommunication": "পছন্দের যোগাযোগ মাধ্যম",
+      "title": "ব্যক্তিগত তথ্য",
+      "fullNameBn": "নাম (বাংলা)",
+      "bloodGroup": "রক্তের গ্রুপ"
     },
     "enrollment": {
       "columnClass": "শ্রেণি",
-      "columnSection": "শাখা",
       "columnAcademicYear": "শিক্ষাবর্ষ",
       "columnStatus": "অবস্থা",
       "columnEnrolledAt": "ভর্তির তারিখ",
       "emptyMessage": "এখনো কোনো ভর্তির ইতিহাস নেই।",
       "errorMessage": "ভর্তির ইতিহাস লোড করা যায়নি।",
-      "moveClassAction": "শ্রেণি পরিবর্তন"
+      "moveClassAction": "শ্রেণি পরিবর্তন",
+      "title": "ভর্তির ইতিহাস",
+      "classValue": "{{class}} · শাখা {{section}}",
+      "cardSubtitle": "{{class}} · ভর্তি {{date}}",
+      "emptyExplanation": "শ্রেণি পরিবর্তন করলে বা নতুন বছরে ভর্তি হলে এখানে দেখা যাবে।"
     },
     "fees": {
       "totalBilled": "মোট বিল",
@@ -114,18 +132,15 @@
       "columnDiscount": "ছাড়",
       "columnBalance": "বকেয়া",
       "columnStatus": "অবস্থা",
-      "columnActions": "কার্যক্রম",
       "lateFeeBadge": "বিলম্ব ফি",
-      "recordPayment": "পেমেন্ট রেকর্ড করুন",
-      "recordPaymentSeamToast": "পেমেন্ট রেকর্ড — শীঘ্রই আসছে ({{feeCount}}টি ফি নির্বাচিত)",
       "emptyMessage": "কোনো খোলা বিল নেই।",
       "errorMessage": "ফি-এর তথ্য লোড করা যায়নি।",
       "openBillsTab": "খোলা বিল",
-      "walletTab": "ওয়ালেট",
+      "walletTab": "জমা টাকা",
       "historyTab": "ইতিহাস",
-      "walletBalance": "ওয়ালেট ব্যালেন্স",
-      "walletEmptyMessage": "এখনো কোনো ওয়ালেট লেনদেন নেই।",
-      "walletErrorMessage": "ওয়ালেট লোড করা যায়নি।",
+      "walletBalance": "জমা টাকা",
+      "walletEmptyMessage": "এখনো জমা টাকার কোনো লেনদেন নেই।",
+      "walletErrorMessage": "জমা টাকার হিসাব লোড করা যায়নি।",
       "walletColumnDate": "তারিখ",
       "walletColumnKind": "ধরন",
       "walletColumnAmount": "পরিমাণ",
@@ -134,7 +149,12 @@
       "previousPage": "পূর্ববর্তী",
       "nextPage": "পরবর্তী",
       "pageOf": "মোট {{totalPages}} পৃষ্ঠার মধ্যে {{page}} নম্বর পৃষ্ঠা",
-      "discountsTab": "ডিসকাউন্ট"
+      "discountsTab": "ডিসকাউন্ট",
+      "summaryLabel": "ফির সারসংক্ষেপ",
+      "cardSubtitle": "শেষ তারিখ {{due}} · বকেয়া {{balance}}",
+      "emptyExplanation": "এই শিক্ষার্থীর সব বিল পরিশোধ হয়ে গেছে।",
+      "historyEmptyExplanation": "কোনো বিল পরিশোধ হলে এখানে দেখা যাবে।",
+      "walletEmptyExplanation": "বেশি টাকা দিলে তা জমা টাকা হিসেবে এখানে থাকবে।"
     },
     "payments": {
       "columnDate": "তারিখ",
@@ -143,7 +163,9 @@
       "columnReference": "রেফারেন্স",
       "columnReceivedBy": "গ্রহণকারী",
       "emptyMessage": "এখনো কোনো পেমেন্ট নথিভুক্ত নেই।",
-      "errorMessage": "পেমেন্টের ইতিহাস লোড করা যায়নি।"
+      "errorMessage": "পেমেন্টের ইতিহাস লোড করা যায়নি।",
+      "view": "পেমেন্ট দেখুন",
+      "emptyExplanation": "টাকা জমা নিলে তা এখানে দেখা যাবে।"
     },
     "invoices": {
       "columnNumber": "চালান",
@@ -153,33 +175,48 @@
       "print": "প্রিন্ট",
       "emptyMessage": "এখনো কোনো চালান ইস্যু করা হয়নি।",
       "errorMessage": "চালান লোড করা যায়নি।",
-      "printError": "প্রিন্টযোগ্য চালান খোলা যায়নি।"
+      "printError": "প্রিন্টযোগ্য চালান খোলা যায়নি।",
+      "view": "চালান দেখুন",
+      "emptyExplanation": "বিল তৈরি হলে চালান এখানে দেখা যাবে।"
     },
     "guardians": {
       "columnName": "নাম",
       "columnRelationship": "সম্পর্ক",
-      "columnContact": "যোগাযোগ",
-      "primary": "প্রধান",
-      "emptyMessage": "কোনো অভিভাবকের তথ্য নেই।"
+      "primary": "প্রধান যোগাযোগ",
+      "emptyMessage": "কোনো অভিভাবকের তথ্য নেই।",
+      "caption": "{{name}}-এর অভিভাবক",
+      "columnPhone": "ফোন",
+      "columnEmail": "ইমেইল",
+      "columnPreferred": "পছন্দের মাধ্যম",
+      "cardSubtitle": "{{relationship}} · {{phone}}",
+      "view": "{{name}}-এর বিবরণ দেখুন",
+      "emptyExplanation": "শিক্ষার্থীর তথ্য সম্পাদনা করে অভিভাবক যোগ করুন।",
+      "editHintBefore": "অভিভাবক যোগ বা বদল করতে",
+      "editHintLink": "শিক্ষার্থীর তথ্য সম্পাদনা করুন",
+      "editHintAfter": "।"
     },
     "communication": {
-      "columnDate": "তারিখ",
+      "columnDate": "তারিখ ও সময়",
       "columnMedium": "মাধ্যম",
       "columnRecipient": "প্রাপক",
       "columnStatus": "অবস্থা",
       "emptyMessage": "এখনো কোনো বার্তা পাঠানো হয়নি।",
-      "errorMessage": "বার্তার ইতিহাস লোড করা যায়নি।"
+      "errorMessage": "বার্তার ইতিহাস লোড করা যায়নি।",
+      "emptyExplanation": "রিমাইন্ডার বা বার্তা পাঠালে এখানে দেখা যাবে।"
     },
     "activity": {
-      "columnDate": "তারিখ",
-      "columnAction": "কার্যক্রম",
+      "columnDate": "তারিখ ও সময়",
+      "columnAction": "কাজ",
       "emptyMessage": "এখনো কোনো কার্যক্রম নথিভুক্ত নেই।",
-      "errorMessage": "কার্যক্রম লোড করা যায়নি।"
+      "errorMessage": "কার্যক্রম লোড করা যায়নি।",
+      "columnBy": "করেছেন",
+      "emptyExplanation": "এই শিক্ষার্থীর তথ্য বদলালে এখানে লেখা থাকবে।"
     },
     "attendanceTab": {
       "monthStepper": {
         "previousLabel": "আগের মাস",
-        "nextLabel": "পরের মাস"
+        "nextLabel": "পরের মাস",
+        "thisMonth": "এই মাস"
       },
       "summary": {
         "percentage": "উপস্থিতি",
@@ -191,21 +228,18 @@
       },
       "loading": "উপস্থিতি লোড হচ্ছে",
       "errorMessage": "উপস্থিতি লোড করা যায়নি।",
-      "noRecordsThisMonth": "এই মাসে কোনো উপস্থিতি রেকর্ড নেই।"
+      "noRecordsThisMonth": "এই মাসে কোনো উপস্থিতি রেকর্ড নেই।",
+      "noRecordsExplanation": "এই মাসে উপস্থিতি নেওয়া হলে এখানে দেখা যাবে।"
     },
-    "transferDialog": {
-      "title": "স্থানান্তর / অবস্থা পরিবর্তন",
-      "description": "{{name}}-এর ভর্তির অবস্থা পরিবর্তন করুন।",
-      "statusLabel": "নতুন অবস্থা",
-      "status": {
-        "ACTIVE": "সক্রিয়",
-        "INACTIVE": "নিষ্ক্রিয়",
-        "TRANSFERRED": "স্থানান্তরিত",
-        "GRADUATED": "উত্তীর্ণ"
-      },
-      "confirm": "সংরক্ষণ",
-      "saving": "সংরক্ষণ হচ্ছে…",
-      "errorMessage": "অবস্থা পরিবর্তন করা যায়নি। আবার চেষ্টা করুন।"
+    "homeworkTab": {
+      "completionPercent": "সম্পন্নের হার",
+      "totalAssignments": "মোট বাড়ির কাজ",
+      "completed": "সম্পন্ন",
+      "defaulters": "বকেয়া",
+      "loading": "বাড়ির কাজ লোড হচ্ছে",
+      "errorMessage": "বাড়ির কাজ লোড করা যায়নি।",
+      "emptyMessage": "এখনো কোনো বাড়ির কাজ দেওয়া হয়নি।",
+      "emptyExplanation": "বাড়ির কাজ দেওয়া হলে অগ্রগতি এখানে দেখা যাবে।"
     },
     "deleteDialog": {
       "title": "শিক্ষার্থী মুছে ফেলুন",
@@ -218,14 +252,41 @@
       "title": "শ্রেণি পরিবর্তন",
       "description": "{{name}}-কে ভিন্ন শ্রেণি বা শাখায় স্থানান্তর করুন।",
       "classLabel": "শ্রেণি",
-      "classPlaceholder": "একটি শ্রেণি নির্বাচন করুন",
+      "classPlaceholder": "বাছুন",
       "sectionLabel": "শাখা",
-      "sectionPlaceholder": "একটি শাখা নির্বাচন করুন",
+      "sectionPlaceholder": "বাছুন",
       "capacityWarning": "এই শাখাটি পূর্ণ ({{enrolled}}/{{capacity}})। আপনি চাইলে এগিয়ে যেতে পারেন।",
       "confirm": "স্থানান্তর করুন",
       "moving": "স্থানান্তর হচ্ছে…",
       "errorMessage": "শিক্ষার্থীকে স্থানান্তর করা যায়নি। আবার চেষ্টা করুন।",
       "loadError": "শিক্ষার্থীর বর্তমান ভর্তির তথ্য লোড করা যায়নি। আবার চেষ্টা করুন।"
+    },
+    "facts": {
+      "registrationNumber": "রেজিস্ট্রেশন নম্বর",
+      "class": "শ্রেণি",
+      "classValue": "{{class}} · শাখা {{section}}",
+      "roll": "রোল",
+      "primaryGuardian": "প্রধান অভিভাবক"
+    },
+    "overrideBadge": {
+      "promote": "বিশেষ বিবেচনায় উত্তীর্ণ",
+      "retain": "বিশেষ বিবেচনায় একই শ্রেণিতে",
+      "graduate": "বিশেষ বিবেচনায় পাস সম্পন্ন"
+    },
+    "fines": {
+      "errorMessage": "জরিমানার তথ্য লোড করা যায়নি।"
+    },
+    "subjects": {
+      "emptyExplanation": "এই শ্রেণিতে বেছে নেওয়ার মতো কোনো বিষয় নেই।"
+    },
+    "programs": {
+      "emptyExplanation": "কোনো প্রোগ্রামে নথিভুক্ত করলে অগ্রগতি এখানে দেখা যাবে।",
+      "since": "{{date}} থেকে"
+    },
+    "results": {
+      "view": "ফলাফল দেখুন",
+      "cardSubtitle": "গ্রেড {{grade}} · জিপিএ {{gpa}}",
+      "emptyExplanation": "কোনো পরীক্ষার নম্বর দেওয়া হলে ফলাফল এখানে দেখা যাবে।"
     }
   },
   "new": {
@@ -241,7 +302,8 @@
       "identity": "পরিচিতি",
       "placement": "শ্রেণি বিন্যাস",
       "guardians": "অভিভাবক",
-      "preferences": "পছন্দসমূহ"
+      "preferences": "পছন্দসমূহ",
+      "guardiansHelp": "যিনি আগে থেকে আছেন তাঁকে খুঁজে যুক্ত করুন, না পেলে নতুন যোগ করুন।"
     },
     "fields": {
       "fullName": "পূর্ণ নাম",
@@ -253,7 +315,16 @@
       "sectionPlaceholder": "একটি শাখা নির্বাচন করুন",
       "rollNumber": "রোল নম্বর",
       "preferredCommunication": "পছন্দের যোগাযোগ মাধ্যম",
-      "address": "বাড়ির ঠিকানা"
+      "address": "বাড়ির ঠিকানা",
+      "fullNameBn": "নাম (বাংলা)",
+      "bloodGroup": "রক্তের গ্রুপ",
+      "genderOptions": {
+        "MALE": "পুরুষ",
+        "FEMALE": "নারী",
+        "OTHER": "অন্যান্য"
+      },
+      "rollNumberPlaceholder": "যেমন ১২",
+      "rollNumberHelp": "ফাঁকা রাখলে শাখার পরের রোল নম্বর নিজে থেকে বসবে।"
     },
     "preferredCommunicationOptions": {
       "SMS": "এসএমএস",
@@ -265,11 +336,13 @@
     "errors": {
       "fullNameRequired": "পূর্ণ নাম আবশ্যক।",
       "classSectionRequired": "একটি শ্রেণি ও শাখা নির্বাচন করুন।",
-      "rollNumberInvalid": "রোল নম্বর অবশ্যই একটি ধনাত্মক পূর্ণসংখ্যা হতে হবে।"
+      "rollNumberInvalid": "রোল নম্বর অবশ্যই একটি ধনাত্মক পূর্ণসংখ্যা হতে হবে।",
+      "fullNameBnTooLong": "বাংলা নাম সর্বোচ্চ ২০০ অক্ষরের হতে পারে।",
+      "bloodGroupInvalid": "তালিকা থেকে একটি রক্তের গ্রুপ বেছে নিন।"
     },
     "draftAvailable": "এই ফর্মের একটি অসংরক্ষিত খসড়া রয়েছে।",
     "restoreDraftAction": "খসড়া পুনরুদ্ধার করুন",
-    "discardDraftAction": "বাতিল করুন",
+    "discardDraftAction": "খসড়া ফেলে দিন",
     "unsavedChangesDialog": {
       "title": "সংরক্ষণ না করে ছেড়ে যাবেন?",
       "description": "আপনার অসংরক্ষিত পরিবর্তন রয়েছে। এখন ছেড়ে গেলে তা হারিয়ে যাবে।",
@@ -279,7 +352,6 @@
     "guardians": {
       "selectedLabel": "যুক্ত অভিভাবক",
       "removeAction": "{{name}}-কে সরান",
-      "removeAction_short": "সরান",
       "searchLabel": "অভিভাবক খুঁজুন",
       "searchPlaceholder": "নাম বা ফোন নম্বর দিয়ে খুঁজুন",
       "noResults": "কোনো অভিভাবক পাওয়া যায়নি।",
@@ -291,9 +363,13 @@
         "emailLabel": "অভিভাবকের ইমেইল",
         "nameRequired": "অভিভাবকের নাম আবশ্যক।",
         "saveAction": "অভিভাবক যোগ করুন",
-        "cancelAction": "বাতিল"
-      }
-    }
+        "cancelAction": "বাতিল",
+        "createError": "অভিভাবক যোগ করা যায়নি। তথ্য দেখে আবার চেষ্টা করুন।"
+      },
+      "unknownName": "অভিভাবক"
+    },
+    "bloodGroupNotSet": "দেওয়া নেই",
+    "cancelAction": "বাতিল করুন"
   },
   "discounts": {
     "addRule": "ডিসকাউন্ট নিয়ম যোগ করুন",
@@ -310,7 +386,7 @@
     "columnFeeTypes": "ফি ধরন",
     "columnRange": "কার্যকর সময়",
     "columnReason": "কারণ",
-    "columnActions": "কার্যক্রম",
+    "columnActions": "কাজ",
     "form": {
       "addTitle": "ডিসকাউন্ট নিয়ম যোগ করুন",
       "editTitle": "ডিসকাউন্ট নিয়ম সম্পাদনা করুন",
@@ -330,6 +406,46 @@
       "errorReason": "কারণ কমপক্ষে ৩ অক্ষরের হতে হবে।",
       "errorDateRange": "শেষের তারিখ অবশ্যই শুরুর তারিখের পরে বা সমান হতে হবে।",
       "errorSave": "ডিসকাউন্ট নিয়ম সংরক্ষণ করা যায়নি।"
-    }
+    },
+    "emptyExplanation": "নিয়ম যোগ করলে প্রতিটি মিলে যাওয়া বিলে ছাড় নিজে থেকে বসবে।",
+    "fromDate": "{{date}} থেকে",
+    "deleteConfirmDescriptionNamed": "{{rule}} নিয়মটি মুছে যাবে। এটি ফিরিয়ে আনা যাবে না; ভবিষ্যতের বিলে আর ছাড় বসবে না।"
+  },
+  "photo": {
+    "title": "ছবি",
+    "alt": "{{name}}-এর ছবি",
+    "upload": "ছবি আপলোড করুন",
+    "replace": "ছবি বদলান",
+    "uploading": "আপলোড হচ্ছে…",
+    "help": "পাসপোর্ট ছবির মতো পরিষ্কার ছবি দিন, মুখ মাঝখানে। বড় ছবি নিজে থেকেই ছোট হয়ে যাবে।",
+    "uploaded": "ছবি সংরক্ষণ হয়েছে",
+    "uploadFailed": "ছবি আপলোড করা যায়নি।",
+    "loadFailed": "ছবি আনা যায়নি।"
+  },
+  "bulkPhotos": {
+    "action": "ছবি আপলোড",
+    "title": "শিক্ষার্থীদের ছবি আপলোড",
+    "explainer": "প্রতিটি ছবির নাম শিক্ষার্থীর রেজিস্ট্রেশন নম্বর দিন, যেমন 2024-0153.jpg।",
+    "choosePhotos": "ছবি বাছুন",
+    "chooseFolder": "ফোল্ডার বাছুন",
+    "selected": "{{count}}টি ছবি বাছা হয়েছে",
+    "start": "{{count}}টি ছবি আপলোড করুন",
+    "progress": "আপলোড হচ্ছে… {{percent}}%",
+    "done": "শেষ হয়েছে",
+    "tabs": {
+      "matched": "মিলেছে ({{count}})",
+      "unmatched": "মেলে এমন শিক্ষার্থী নেই ({{count}})",
+      "invalid": "পড়া যায়নি ({{count}})"
+    },
+    "matchedRow": "{{file}} → {{name}}",
+    "invalidRow": "{{file}}: {{reason}}",
+    "noneInTab": "এখানে কিছু নেই।",
+    "copyList": "তালিকা কপি করুন",
+    "copied": "কপি হয়েছে",
+    "close": "বন্ধ করুন",
+    "failed": "আপলোড মাঝপথে থেমে গেছে। এ পর্যন্ত পাঠানো ছবিগুলো সংরক্ষিত আছে।"
+  },
+  "documents": {
+    "historyTitle": "প্রিন্ট করা ডকুমেন্ট"
   }
 }

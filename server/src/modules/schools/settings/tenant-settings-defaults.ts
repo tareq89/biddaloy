@@ -74,6 +74,8 @@ export const DEFAULT_ATTENDANCE_SETTINGS: AttendancePolicySettings = {
   percentageDenominator: 'WORKING_DAYS',
   allowFutureDates: false,
   autoAbsentNotification: { enabled: false, cutoffTime: '11:00' },
+  shiftTimes: [],
+  periodAttendance: { enabled: false },
 };
 
 /**
@@ -103,6 +105,7 @@ export const DEFAULT_FEES_SETTINGS: FeesSettings = {
   approvalMode: ApprovalMode.OTP,
   notifyOnManualGenerationDefault: false,
   notifyOnScheduleDefault: true,
+  fineDueDays: 7,
 };
 
 /** [21.1.1] D7 — 5-minute changeover between periods by default; no cap

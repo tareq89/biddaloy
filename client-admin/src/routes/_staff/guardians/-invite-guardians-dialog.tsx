@@ -96,7 +96,7 @@ export function InviteGuardiansDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent size="lg">
         {/* `WizardShell` renders its own visible `<h1>{title}</h1>` below —
             `DialogTitle` still needs to exist for Radix's `aria-labelledby`
             a11y contract, but rendered as a `<span>` (via `asChild`), not
@@ -125,7 +125,7 @@ export function InviteGuardiansDialog({
               label: t('invite.steps.select'),
               content: (
                 <div className="flex flex-col gap-3">
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-text-secondary">
                     {studentIds !== undefined
                       ? t('invite.select.importedCohort', { count: studentIds.length })
                       : t('invite.select.allGuardians')}
@@ -134,7 +134,7 @@ export function InviteGuardiansDialog({
                     {t('invite.select.runPreview')}
                   </Button>
                   {previewMutation.isError && (
-                    <p role="alert" className="text-sm text-destructive">
+                    <p role="alert" className="text-destructive">
                       {t('invite.errors.previewFailed')}
                     </p>
                   )}
@@ -151,30 +151,33 @@ export function InviteGuardiansDialog({
             content: (
               <div className="flex flex-col gap-4">
                 {preview === null ? (
-                  <p className="text-sm text-muted-foreground">{t('invite.preview.runFirst')}</p>
+                  <p className="text-text-secondary">{t('invite.preview.runFirst')}</p>
                 ) : (
                   <>
-                    <p className="text-sm">
+                    <p>
                       {t('invite.preview.summary', {
                         count: preview.to_invite.length,
                         skipped: preview.skipped.length,
                       })}
                     </p>
                     {preview.to_invite.length > 0 && (
-                      <ul className="max-h-48 list-inside list-disc overflow-auto text-sm">
+                      <ul className="max-h-48 list-inside list-disc overflow-auto">
                         {preview.to_invite.map((entry) => (
                           <li key={entry.guardian_id}>
-                            {entry.full_name} — {entry.channel}
+                            {entry.full_name} —{' '}
+                            {t(`preferredCommunicationOptions.${entry.channel}`, {
+                              defaultValue: entry.channel,
+                            })}
                           </li>
                         ))}
                       </ul>
                     )}
                     {preview.skipped.length > 0 && (
                       <details>
-                        <summary className="cursor-pointer text-sm text-muted-foreground">
+                        <summary className="cursor-pointer text-text-secondary">
                           {t('invite.preview.skippedSummary', { count: preview.skipped.length })}
                         </summary>
-                        <ul className="mt-2 max-h-48 list-inside list-disc overflow-auto text-sm">
+                        <ul className="mt-2 max-h-48 list-inside list-disc overflow-auto">
                           {preview.skipped.map((entry) => (
                             <li key={entry.guardian_id}>
                               {entry.full_name} — {skipReasonLabel(t, entry.reason)}
@@ -186,7 +189,7 @@ export function InviteGuardiansDialog({
                   </>
                 )}
                 {dispatchMutation.isError && (
-                  <p role="alert" className="text-sm text-destructive">
+                  <p role="alert" className="text-destructive">
                     {t('invite.errors.dispatchFailed')}
                   </p>
                 )}
@@ -196,7 +199,7 @@ export function InviteGuardiansDialog({
           result={
             batchId !== null ? (
               <div className="flex flex-col gap-3">
-                <p className="text-sm">
+                <p>
                   {done
                     ? t('invite.done.finished', {
                         sent: batch?.sent ?? 0,

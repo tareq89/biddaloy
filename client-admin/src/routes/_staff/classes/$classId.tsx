@@ -2,9 +2,11 @@ import { Permission } from '@biddaloy/shared';
 import { ApiError } from '@biddaloy/ui/api';
 import { ErrorState, RoutePending, Skeleton } from '@biddaloy/ui/components';
 import { classQueryOptions, useClass, useHasPermission } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { RegionConfigProvider, useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { DetailShell, useDetailShellTab } from '@biddaloy/ui/shells';
-import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
+import { formatNumber } from '@biddaloy/ui/utils';
+import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import { PencilIcon, Trash2Icon } from 'lucide-react';
 import * as React from 'react';
 
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
@@ -12,6 +14,8 @@ import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loader
 import { ClassFormDialog } from './-class-form-dialog';
 import { DeleteClassDialog } from './-delete-class-dialog';
 import { FeeStructuresTab } from './-detail/fee-structures-tab';
+import { HomeworkTab } from './-detail/homework-tab';
+import { PerformanceTab } from './-detail/performance-tab';
 import { SectionsTab } from './-detail/sections-tab';
 import { StudentsTab } from './-detail/students-tab';
 import { SubjectsTab } from './-detail/subjects-tab';
@@ -23,13 +27,27 @@ export const Route = createFileRoute('/_staff/classes/$classId')({
       // [8.14.5]: swallowed — see `academic-years/$academicYearId.tsx`'s
       // identical comment for why.
       queryClient.ensureQueryData(classQueryOptions(params.classId)).catch(swallowUnlessOffline),
-      loadRouteNamespaces('classes', 'common'),
+      // 'feeStructures' — `-detail/fee-structures-tab.tsx` reads its copy
+      // from that namespace; 'staff' — `-detail/teachers-tab.tsx` does the
+      // same. Without these, the first visit to either tab suspends the
+      // whole page (i18n's useSuspense: true) instead of just that tab,
+      // taking keyboard focus with it — same failure mode
+      // `students/$studentId.tsx`'s loader comment documents.
+      loadRouteNamespaces('classes', 'common', 'feeStructures', 'staff', 'performance'),
     ]),
   pendingComponent: ClassDetailPending,
   component: ClassDetailPage,
 });
 
-const TAB_IDS = ['sections', 'students', 'feeStructures', 'teachers', 'subjects'] as const;
+const TAB_IDS = [
+  'sections',
+  'students',
+  'feeStructures',
+  'teachers',
+  'subjects',
+  'homework',
+  'performance',
+] as const;
 
 function ClassDetailPage() {
   const { classId } = Route.useParams();
@@ -40,6 +58,9 @@ function ClassDetailPage() {
   const classQuery = useClass(classId);
   const [activeTab, setActiveTab] = useDetailShellTab(TAB_IDS);
   const canManage = useHasPermission(Permission.CLASS_MANAGE);
+  const canViewPerformance = useHasPermission(Permission.MARK_VIEW);
+  const { t: tPerformance } = useTranslation('performance');
+  const regionConfig = useTenantRegionConfig();
 
   const [editOpen, setEditOpen] = React.useState(false);
   const [deleteOpen, setDeleteOpen] = React.useState(false);
@@ -67,33 +88,40 @@ function ClassDetailPage() {
   const klass = classQuery.data;
 
   return (
-    <div className="flex flex-col gap-4">
-      <Link
-        to="/classes"
-        className="inline-flex min-h-6 min-w-6 items-center self-start text-sm text-primary underline"
-      >
-        {t('list.title')}
-      </Link>
-
+    <RegionConfigProvider value={regionConfig}>
       <DetailShell
         name={klass.name}
-        identifiers={
-          <>
-            {t('detail.grade', { grade: klass.numeric_grade ?? t('list.noGrade') })} ·{' '}
-            {klass.academic_year.name}
-          </>
-        }
+        facts={[
+          {
+            label: t('detail.factGrade'),
+            value:
+              klass.numeric_grade == null
+                ? t('list.noGrade')
+                : formatNumber(klass.numeric_grade, regionConfig),
+          },
+          { label: t('detail.factAcademicYear'), value: klass.academic_year.name },
+          ...(klass.shift ? [{ label: t('list.shiftLabel'), value: klass.shift }] : []),
+          ...(klass.version ? [{ label: t('list.versionLabel'), value: klass.version }] : []),
+          {
+            label: t('detail.factSections'),
+            value: t('detail.sectionCount', {
+              count: klass.sections.length,
+            }),
+          },
+        ]}
         actions={[
           {
             id: 'edit',
             label: t('list.edit'),
+            icon: <PencilIcon aria-hidden="true" />,
             onClick: () => setEditOpen(true),
             allowed: canManage,
-            priority: 'primary',
+            priority: 'secondary',
           },
           {
             id: 'delete',
             label: t('list.delete'),
+            icon: <Trash2Icon aria-hidden="true" />,
             onClick: () => setDeleteOpen(true),
             priority: 'destructive',
             allowed: canManage,
@@ -103,7 +131,7 @@ function ClassDetailPage() {
           {
             id: 'sections',
             label: t('detail.tabSections'),
-            content: <SectionsTab classId={klass.id} className={klass.name} />,
+            content: <SectionsTab classId={klass.id} />,
           },
           {
             id: 'students',
@@ -125,32 +153,59 @@ function ClassDetailPage() {
             label: t('detail.tabSubjects'),
             content: <SubjectsTab classId={klass.id} academicYearId={klass.academic_year.id} />,
           },
+          {
+            id: 'homework',
+            label: t('detail.tabHomework'),
+            content: <HomeworkTab classId={klass.id} />,
+          },
+          ...(canViewPerformance
+            ? [
+                {
+                  id: 'performance',
+                  label: tPerformance('title'),
+                  content: (
+                    <PerformanceTab
+                      classId={klass.id}
+                      className={klass.name}
+                      academicYearId={klass.academic_year.id}
+                    />
+                  ),
+                },
+              ]
+            : []),
         ]}
         activeTab={activeTab}
         onTabChange={setActiveTab}
       />
 
-      {canManage && (
+      {canManage && editOpen && (
         <ClassFormDialog
-          open={editOpen}
+          open
           onOpenChange={setEditOpen}
           mode="edit"
           classId={klass.id}
-          initialValues={{ name: klass.name, numericGrade: klass.numeric_grade ?? undefined }}
+          initialValues={{
+            name: klass.name,
+            numericGrade: klass.numeric_grade ?? undefined,
+            // Without these, saving from this page sent shift/version null
+            // and erased them.
+            shift: klass.shift ?? null,
+            version: klass.version ?? null,
+          }}
           onSaved={() => setEditOpen(false)}
         />
       )}
 
-      {canManage && (
+      {canManage && deleteOpen && (
         <DeleteClassDialog
-          open={deleteOpen}
+          open
           onOpenChange={setDeleteOpen}
           classId={klass.id}
           className={klass.name}
           onDeleted={() => void navigate({ to: '/classes' })}
         />
       )}
-    </div>
+    </RegionConfigProvider>
   );
 }
 

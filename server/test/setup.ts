@@ -24,6 +24,7 @@ import 'ts-node/register/transpile-only';
 import { join } from 'path';
 import { DataSource } from 'typeorm';
 import { config } from 'dotenv';
+import Redis from 'ioredis';
 import { buildResetSql, buildReferenceResetSql } from './reset-order';
 import { workerDbName } from './global-setup';
 
@@ -38,7 +39,12 @@ process.env.DB_SYNCHRONIZE = 'false';
 // this, dotenv's default "never overwrite an existing var" behavior means a
 // dev-shaped DATABASE_URL in the ambient shell silently wins, and every test
 // run fails assertTestDatabaseUrl() below with a confusing refusal.
-config({ path: join(__dirname, '..', '.env.test'), override: true });
+// Exception: inside `scripts/test-env.sh` (BIDDALOY_TEST_ENV set) the shell
+// already points at this run's own database/Redis/bucket — those must win.
+config({
+  path: join(__dirname, '..', '.env.test'),
+  override: !process.env.BIDDALOY_TEST_ENV,
+});
 
 // [18.2.1] Vitest sets VITEST_POOL_ID to a 1-based worker index (unset —
 // e.g. running a single file directly — means "worker 1", same DB the old
@@ -48,20 +54,24 @@ config({ path: join(__dirname, '..', '.env.test'), override: true });
 // each other's DELETEs against one shared database/Redis instance.
 const worker = process.env.VITEST_POOL_ID ?? '1';
 
+// The base values below are also left in TEST_BASE_* so
+// reset-order.integration.spec.ts can check the mapping itself
+// (base → base_wN, slot → slot + N) without hard-coding a base.
 if (process.env.DATABASE_URL) {
   const baseUrl = new URL(process.env.DATABASE_URL);
   const baseDbName = baseUrl.pathname.replace(/^\//, '');
+  process.env.TEST_BASE_DATABASE_NAME = baseDbName;
   baseUrl.pathname = `/${workerDbName(baseDbName, worker)}`;
   process.env.DATABASE_URL = baseUrl.toString();
 }
 
-if (process.env.REDIS_URL) {
-  const baseRedisUrl = new URL(process.env.REDIS_URL);
-  baseRedisUrl.pathname = `/${worker}`;
-  process.env.REDIS_URL = baseRedisUrl.toString();
-} else {
-  process.env.REDIS_URL = `redis://127.0.0.1:6379/${worker}`;
-}
+// Offset from the URL's own slot (0 when it has none, so a plain run still
+// lands on 1..N): scripts/test-env.sh hands each parallel run its own base.
+const baseRedisUrl = new URL(process.env.REDIS_URL ?? 'redis://127.0.0.1:6379');
+const baseSlot = Number(baseRedisUrl.pathname.replace(/^\//, '') || 0);
+process.env.TEST_BASE_REDIS_SLOT = String(baseSlot);
+baseRedisUrl.pathname = `/${baseSlot + Number(worker)}`;
+process.env.REDIS_URL = baseRedisUrl.toString();
 
 /** @type {import('typeorm').DataSource|null} */
 let dataSource = null;
@@ -209,11 +219,23 @@ async function clearTransactionalTables(): Promise<void> {
 
 // ─── Global Hooks ──────────────────────────────────────────────────
 
+let redis: Redis | undefined;
+
 beforeAll(async () => {
   await setupTestDatabase();
+  // Same per-file cadence as setupTestDatabase(), and for the same reason:
+  // Redis-backed state (StepUpService's `step-up-attempts:actor:<userId>`
+  // rate-limit counter, OtpService cooldowns, login-attempt counters) is
+  // never reset otherwise and accumulates across every spec file this
+  // worker runs within the same vitest invocation — REDIS_URL above
+  // already points at this worker's own db index, so this never touches
+  // another worker's data.
+  redis = new Redis(process.env.REDIS_URL!);
+  await redis.flushdb();
 }, 60000);
 
 afterAll(async () => {
+  redis?.disconnect();
   if (dataSource && dataSource.isInitialized) {
     await dataSource.destroy();
   }

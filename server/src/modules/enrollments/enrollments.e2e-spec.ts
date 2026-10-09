@@ -132,13 +132,13 @@ describe('Enrollments E2E — GET /enrollments/:studentId/current', () => {
     },
   );
 
-  it("returns 401 for STUDENT, a role not in the endpoint's allowlist", async () => {
+  it("returns 403 for STUDENT, a role not in the endpoint's allowlist", async () => {
     const res = await supertest(app.getHttpServer())
       .get(`/api/v1/enrollments/${studentId}/current`)
       .set('Authorization', `Bearer ${token}`)
       .set('X-Tenant-ID', TENANT_ID)
       .set('X-Role', UserRole.STUDENT)
-      .expect(401);
+      .expect(403);
 
     expect(res.body.message).toContain('Requires one of roles');
   });

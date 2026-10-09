@@ -13,6 +13,7 @@ export function auditEntryFactory(overrides: Partial<AuditEntry> = {}): AuditEnt
     action: AuditAction.UPDATE,
     entity_type: 'Student',
     entity_id: faker.string.uuid(),
+    entity_label: null,
     performed_by_user_id: faker.string.uuid(),
     // [8.11.10]: `GET /audit-logs` joins the acting user and flattens
     // their name onto the row. `null` here means "System" in the UI —

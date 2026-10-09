@@ -17,6 +17,11 @@ import { UserRole } from './index';
  * Both lists are written out rather than one being derived as "everything
  * else": a role added later must be placed deliberately, and
  * `audiences.spec.ts` fails if any `UserRole` is in neither list or both.
+ *
+ * `ROLE_SCOPE` answers a third question: how much *data* a role may see —
+ * the whole tenant, only its assigned sections, its family, or itself. It is
+ * the one role-to-data-scope map every consumer reads, instead of each
+ * module hard-coding role checks. An unknown role has no scope (fail closed).
  */
 export const GUARDIAN_ROLES = [UserRole.PARENT, UserRole.STUDENT] as const;
 
@@ -26,7 +31,17 @@ export const STAFF_ROLES = [
   UserRole.ACCOUNTANT,
   UserRole.TEACHER,
   UserRole.EXECUTIVE,
+  UserRole.OFFICE_STAFF,
+  UserRole.EXAM_CONTROLLER,
+  UserRole.COMMITTEE,
 ] as const;
+
+/** Staff who are employees of the school: they can be the subject of an ACR,
+ * an incident or a staff-performance page. COMMITTEE uses the staff shell
+ * but is not an employee (D17), so it is left out. */
+export const EMPLOYEE_ROLES: readonly UserRole[] = STAFF_ROLES.filter(
+  (role) => role !== UserRole.COMMITTEE,
+);
 
 /** Takes `string | null` — the shape `auth-state.ts`'s `getActiveRole()`
  * returns, since the active role is decoded from a JWT and is only as
@@ -38,4 +53,44 @@ export function isGuardianRole(role: string | null | undefined): boolean {
 
 export function isStaffRole(role: string | null | undefined): boolean {
   return (STAFF_ROLES as readonly string[]).includes(role as string);
+}
+
+export enum RoleScope {
+  TENANT = 'TENANT',
+  ASSIGNED_SECTIONS = 'ASSIGNED_SECTIONS',
+  FAMILY = 'FAMILY',
+  SELF = 'SELF',
+}
+
+export const ROLE_SCOPE: Record<UserRole, RoleScope> = {
+  [UserRole.SUPER_ADMIN]: RoleScope.TENANT,
+  [UserRole.ADMIN]: RoleScope.TENANT,
+  [UserRole.ACCOUNTANT]: RoleScope.TENANT,
+  [UserRole.EXECUTIVE]: RoleScope.TENANT,
+  [UserRole.OFFICE_STAFF]: RoleScope.TENANT,
+  [UserRole.EXAM_CONTROLLER]: RoleScope.TENANT,
+  [UserRole.COMMITTEE]: RoleScope.TENANT,
+  [UserRole.TEACHER]: RoleScope.ASSIGNED_SECTIONS,
+  [UserRole.PARENT]: RoleScope.FAMILY,
+  [UserRole.STUDENT]: RoleScope.SELF,
+};
+
+/** Null for an unknown or absent role — callers must treat that as "sees nothing". */
+export function roleScope(role: string | null | undefined): RoleScope | null {
+  if (!role || !Object.prototype.hasOwnProperty.call(ROLE_SCOPE, role)) return null;
+  return ROLE_SCOPE[role as UserRole];
+}
+
+export function hasTenantScope(role: string | null | undefined): boolean {
+  return roleScope(role) === RoleScope.TENANT;
+}
+
+/** Tenant scope over a school's own data (marks, attendance, homework,
+ * performance) — reads and writes alike. Callers still pair it with the
+ * permission their routes require.
+ * ponytail: #1362 D-N — SUPER_ADMIN is held out (as before Epic 24) until
+ * product decides whether a platform operator works inside a school's data.
+ * This is the single revert point: drop the check to widen it. */
+export function hasTenantDataScope(role: string | null | undefined): boolean {
+  return role !== UserRole.SUPER_ADMIN && hasTenantScope(role);
 }

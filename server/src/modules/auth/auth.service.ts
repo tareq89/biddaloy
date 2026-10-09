@@ -10,6 +10,7 @@ import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, FindOptionsOrder, Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
+import { assertPasswordAllowedForUser } from './password-policy';
 import { randomUUID } from 'crypto';
 import { User } from '../users/entities/user.entity';
 import { UserTenant } from './entities/user-tenant.entity';
@@ -422,6 +423,9 @@ export class AuthService {
       // what 403 is for. The client does not replay 403.
       throw new ForbiddenException('Current password is incorrect');
     }
+
+    // D10: the role's password rules apply on change (never at sign-in).
+    await assertPasswordAllowedForUser(this.userTenantRepository, userId, dto.new_password);
 
     // Write the new hash straight to the column rather than mutating the
     // loaded entity. `user` is reused below — to reset lockouts and to sign

@@ -1,8 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Reflector } from '@nestjs/core';
-import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
+import { ForbiddenException } from '@nestjs/common';
 import { UserRole, Permission } from '@biddaloy/shared';
-import { RolesGuard } from '../../auth/guards/context.guard';
 import { PermissionsGuard } from '../../auth/guards/permissions.guard';
 import { CreditsController } from './credits.controller';
 import { SmsCreditService } from './sms-credit.service';
@@ -140,7 +139,6 @@ describe('CreditsController', () => {
   });
 
   describe('guards', () => {
-    const rolesGuard = new RolesGuard(new Reflector());
     const permissionsGuard = new PermissionsGuard(new Reflector());
     const handler = CreditsController.prototype.getSmsCredits;
 
@@ -155,22 +153,14 @@ describe('CreditsController', () => {
     }
 
     it('allows ADMIN', () => {
-      expect(rolesGuard.canActivate(context(UserRole.ADMIN))).toBe(true);
       expect(permissionsGuard.canActivate(context(UserRole.ADMIN))).toBe(true);
     });
 
     it('allows ACCOUNTANT', () => {
-      expect(rolesGuard.canActivate(context(UserRole.ACCOUNTANT))).toBe(true);
       expect(permissionsGuard.canActivate(context(UserRole.ACCOUNTANT))).toBe(true);
     });
 
-    it('denies TEACHER at the RolesGuard', () => {
-      expect(() => rolesGuard.canActivate(context(UserRole.TEACHER))).toThrow(
-        UnauthorizedException,
-      );
-    });
-
-    it('would deny a role holding COMMUNICATION_LOG_READ but not COMMUNICATION_CREDIT_READ at the PermissionsGuard', () => {
+    it('denies a role holding COMMUNICATION_LOG_READ but not COMMUNICATION_CREDIT_READ at the PermissionsGuard', () => {
       // TEACHER holds COMMUNICATION_LOG_READ but not COMMUNICATION_CREDIT_READ —
       // proves the two are genuinely separate permissions, not aliases.
       expect(() => permissionsGuard.canActivate(context(UserRole.TEACHER))).toThrow(

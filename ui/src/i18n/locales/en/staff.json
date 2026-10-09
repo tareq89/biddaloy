@@ -2,13 +2,15 @@
   "list": {
     "title": "Staff",
     "caption": "Users with access to this school",
-    "searchLabel": "Search by name or email",
-    "roleFilterLabel": "Filter by role",
+    "searchLabel": "Search",
+    "roleFilterLabel": "Role",
     "roleFilterAll": "All roles",
     "statusFilterLabel": "Status",
     "statusFilterAll": "All statuses",
     "invitationFilterLabel": "Invitation",
     "invitationFilterAll": "All invitation states",
+    "designationFilterLabel": "Designation",
+    "designationFilterAll": "All designations",
     "joinedRangeLabel": "Joined date",
     "joinedFromLabel": "Joined from",
     "joinedToLabel": "Joined to",
@@ -25,20 +27,29 @@
     "emptyMessage": "No users found",
     "errorMessage": "Could not load users. Please try again.",
     "announceResults": "Showing {{count}} of {{total}} users",
-    "addUser": "Add user",
-    "promoteTeacher": "Promote to teacher"
+    "addUser": "Add staff member",
+    "promoteTeacher": "Give teacher profile",
+    "printIdCards": "Print ID cards ({{count}})",
+    "clearSelection": "Clear selection",
+    "searchPlaceholder": "Name or email",
+    "subtitle": "Everyone who can sign in to this school",
+    "edit": "Edit",
+    "emptyExplanation": "Add someone and they will show up here."
   },
   "roles": {
     "SUPER_ADMIN": "Super admin",
     "ADMIN": "Admin",
     "ACCOUNTANT": "Accountant",
     "TEACHER": "Teacher",
-    "EXECUTIVE": "Executive",
+    "EXECUTIVE": "Academic coordinator",
     "PARENT": "Parent",
-    "STUDENT": "Student"
+    "STUDENT": "Student",
+    "OFFICE_STAFF": "Office staff",
+    "EXAM_CONTROLLER": "Exam controller",
+    "COMMITTEE": "Committee member"
   },
   "addUser": {
-    "title": "Add user",
+    "title": "Add staff member",
     "description": "Create an account and give it access to this school.",
     "nameLabel": "Full name",
     "emailLabel": "Email",
@@ -49,11 +60,11 @@
     "errorRoleRequired": "Choose a role.",
     "errorDuplicateEmail": "A user with this email already exists.",
     "errorMessage": "Could not add the user. Please try again.",
-    "save": "Add user",
+    "save": "Add staff member",
     "saving": "Adding…"
   },
   "teacherForm": {
-    "promoteTitle": "Promote a member to teacher",
+    "promoteTitle": "Give a teacher profile",
     "promoteDescription": "Pick an existing member of this school and give them a teacher profile. This does not create a new person.",
     "editTitle": "Edit teacher profile",
     "editDescription": "Update this teacher's profile details.",
@@ -79,7 +90,7 @@
     "errorAlreadyTeacher": "This person already has a teacher profile.",
     "errorNotMember": "That person is not a member of this school.",
     "errorMessage": "Could not save the teacher profile. Please try again.",
-    "promoteSave": "Promote to teacher",
+    "promoteSave": "Give teacher profile",
     "editSave": "Save changes",
     "saving": "Saving…"
   },
@@ -98,11 +109,12 @@
   },
   "removeMember": {
     "title": "Remove from this school",
-    "description": "{{name}} will lose access to this school. Their account and history remain, and any memberships at other schools are unaffected.",
+    "description": "{{name}} will lose access to this school. Their account and history remain, and any memberships at other schools are unaffected. You can bring them back later from the Former filter.",
     "selfBlocked": "You cannot remove your own account from this school.",
     "confirm": "Remove access",
     "removing": "Removing…",
-    "errorMessage": "Could not remove this member. Please try again."
+    "errorMessage": "Could not remove this member. Please try again.",
+    "lastAdmin": "You are the only admin here. Make someone else an admin first."
   },
   "resetDialog": {
     "title": "Reset password?",
@@ -121,10 +133,11 @@
     "loadError": "Could not load this user. Please try again.",
     "contact": {
       "verified": "Verified {{date}}",
-      "unverified": "Unverified"
+      "unverified": "Not verified",
+      "verifiedBadge": "Verified"
     },
     "actions": {
-      "editUser": "Edit user",
+      "editUser": "Edit",
       "editTeacher": "Edit teacher profile",
       "resetPassword": "Reset password",
       "remove": "Remove from school"
@@ -132,8 +145,29 @@
     "tabs": {
       "profile": "Profile",
       "permissions": "Permissions",
-      "memberships": "Memberships",
-      "loginHistory": "Login history"
+      "teachingAssignments": "Teacher assignments",
+      "hrRecord": "HR record",
+      "loginHistory": "Login history",
+      "documents": "Documents"
+    },
+    "teachingAssignments": {
+      "caption": "Classes and sections this teacher is assigned to",
+      "columnClass": "Class & section",
+      "columnSection": "Section",
+      "columnRole": "Duty",
+      "columnSubject": "Subject",
+      "columnActions": "Actions",
+      "assign": "Assign",
+      "remove": "Remove assignment",
+      "removeError": "Couldn't remove the assignment. Try again.",
+      "emptyMessage": "No assignments yet",
+      "errorMessage": "Could not load teaching assignments. Please try again.",
+      "announceResults": "Showing {{count}} of {{total}} assignments",
+      "title": "Teacher assignments",
+      "emptyExplanation": "Classes and subjects given to this teacher show up here.",
+      "removeConfirmTitle": "Remove this assignment?",
+      "removeConfirmDescription": "The teacher will be removed from {{sectionName}}.",
+      "removeConfirm": "Remove"
     },
     "profile": {
       "columnEmail": "Email",
@@ -148,16 +182,14 @@
       "employeeId": "Employee ID",
       "designations": "Designations",
       "subject": "Subject specialization",
-      "joiningDate": "Joining date"
+      "joiningDate": "Joining date",
+      "contactHeading": "Contact",
+      "accountCreated": "Account created",
+      "editTeacher": "Edit"
     },
     "permissions": {
       "explainer": "Permissions follow the role — the server enforces this same list. They cannot be edited per person.",
       "unknownRole": "This user's role in this school could not be determined."
-    },
-    "memberships": {
-      "columnRole": "Role",
-      "columnJoined": "Member since",
-      "note": "Only this school's membership is shown. Memberships at other schools are not visible from here."
     },
     "loginHistory": {
       "columnWhen": "When",
@@ -165,7 +197,10 @@
       "columnDevice": "Device",
       "empty": "No logins recorded yet.",
       "emptyValue": "—",
-      "errorMessage": "Could not load the login history. Please try again."
+      "errorMessage": "Could not load the login history. Please try again.",
+      "caption": "Sign-in history",
+      "emptyExplanation": "Sign-ins will show up here.",
+      "unknownBrowser": "Unknown browser"
     },
     "invitation": {
       "resend": "Resend invitation",
@@ -177,7 +212,311 @@
       "revokeConfirmTitle": "Revoke this invitation?",
       "revokeConfirmDescription": "{{name}}'s current invitation link will stop working. They will need a new one to activate their account.",
       "revokeSuccess": "Invitation revoked for {{name}}.",
-      "revokeError": "Could not revoke the invitation. Please try again."
+      "revokeError": "Could not revoke the invitation. Please try again.",
+      "explain": {
+        "NONE": "{{name}} has not been invited yet.",
+        "PENDING": "{{name}} has not activated the account yet. With the link they set a password and sign in.",
+        "EXPIRED": "The invitation link has expired. Send a new one.",
+        "REVOKED": "The invitation was revoked. Resending sends a new link."
+      }
+    },
+    "facts": {
+      "role": "Role",
+      "memberSince": "Joined this school",
+      "lastSignIn": "Last sign-in",
+      "neverSignedIn": "Not yet"
+    },
+    "attendanceLeave": {
+      "todayTitle": "Today's attendance",
+      "monthTitle": "This month",
+      "leaveTitle": "Leave balance"
     }
+  },
+  "hrRecord": {
+    "comingSoon": "Coming soon",
+    "loadError": "Could not load this section. Please try again.",
+    "saveError": "Could not save this section. Please try again.",
+    "sections": {
+      "job": "Job info",
+      "promotion": "Promotions & posts",
+      "family": "Family members",
+      "address": "Addresses",
+      "experience": "Work experience",
+      "education": "Education",
+      "training": "Training",
+      "achievement": "Achievements",
+      "language": "Languages",
+      "documents": "Documents"
+    },
+    "job": {
+      "emptyTitle": "No HR record yet",
+      "emptyExplanation": "This staff member's job details have not been filled in yet.",
+      "addAction": "Add job details",
+      "editAction": "Edit job details",
+      "indexNoLabel": "Index no.",
+      "salaryCodeLabel": "Salary code",
+      "mpoDateLabel": "MPO date",
+      "salaryScaleLabel": "Salary scale",
+      "departmentLabel": "Department",
+      "bloodGroupLabel": "Blood group",
+      "religionLabel": "Religion",
+      "errorMessage": "Could not save job details. Please try again.",
+      "save": "Save",
+      "saving": "Saving…",
+      "nameBnLabel": "Name (Bangla)",
+      "editActionShort": "Edit"
+    },
+    "promotion": {
+      "promoteAction": "Promote",
+      "emptyTitle": "No promotions recorded yet",
+      "emptyExplanation": "This staff member has not been promoted or assigned a designation yet.",
+      "current": "Current",
+      "effectiveSince": "Effective since {{date}}",
+      "effectiveRange": "{{from}} – {{to}}"
+    },
+    "addRowAction": "Add row",
+    "saveAction": "Save",
+    "family": {
+      "relationLabel": "Relation",
+      "nameLabel": "Name",
+      "occupationLabel": "Occupation",
+      "contactLabel": "Contact",
+      "emptyExplanation": "No family members added yet."
+    },
+    "address": {
+      "typeLabel": "Type",
+      "typePresent": "Present",
+      "typePermanent": "Permanent",
+      "villageStreetLabel": "Village / street",
+      "postOfficeLabel": "Post office",
+      "upazilaLabel": "Upazila",
+      "districtLabel": "District",
+      "emptyExplanation": "No addresses added yet."
+    },
+    "experience": {
+      "institutionLabel": "Institution",
+      "designationLabel": "Designation",
+      "fromDateLabel": "From date",
+      "toDateLabel": "To date",
+      "descriptionLabel": "Description",
+      "emptyExplanation": "No work experience added yet."
+    },
+    "education": {
+      "degreeLabel": "Degree",
+      "institutionLabel": "Institution",
+      "boardUniversityLabel": "Board / university",
+      "resultLabel": "Result",
+      "passingYearLabel": "Passing year",
+      "emptyExplanation": "No education added yet."
+    },
+    "training": {
+      "titleLabel": "Title",
+      "institutionLabel": "Institution",
+      "fromDateLabel": "From date",
+      "toDateLabel": "To date",
+      "certificateNoLabel": "Certificate no.",
+      "emptyExplanation": "No training added yet."
+    },
+    "achievement": {
+      "titleLabel": "Title",
+      "descriptionLabel": "Description",
+      "dateLabel": "Date",
+      "issuedByLabel": "Issued by",
+      "emptyExplanation": "No achievements added yet."
+    },
+    "language": {
+      "languageNameLabel": "Language",
+      "proficiencyLabel": "Proficiency",
+      "emptyExplanation": "No languages added yet."
+    },
+    "documents": {
+      "notUploaded": "Not uploaded yet",
+      "uploadAction": "Upload",
+      "replaceAction": "Replace",
+      "uploadError": "Could not upload this file. Please try again.",
+      "downloadError": "Could not download this file. Please try again.",
+      "types": {
+        "NID": "National ID",
+        "BIRTH_CERTIFICATE": "Birth certificate",
+        "PHOTO": "Photo",
+        "OTHER": "Other document"
+      }
+    },
+    "promote": {
+      "title": "Promote staff member",
+      "description": "Assign a new designation, effective a given date. The current designation ends the day before.",
+      "designationLabel": "New designation",
+      "designationPlaceholder": "Select a designation",
+      "effectiveDateLabel": "Effective date",
+      "notesLabel": "Notes (optional)",
+      "errorDesignationRequired": "Please select a designation.",
+      "errorEffectiveDateRequired": "Please select an effective date.",
+      "errorConflict": "This staff member already has a designation change on or after that date.",
+      "errorMessage": "Could not save this promotion. Please try again.",
+      "save": "Promote",
+      "saving": "Saving…"
+    }
+  },
+  "documents": {
+    "photoTitle": "ID card photo",
+    "photoOnFile": "A photo is on file from the HR record.",
+    "photoMissing": "No photo yet. Add one in the HR record.",
+    "openHrRecord": "Open HR record",
+    "historyTitle": "Printed documents",
+    "printButton": "Print ID card"
+  },
+  "roleDescriptions": {
+    "SUPER_ADMIN": "Platform-level access across all schools.",
+    "ADMIN": "Full control of this school: people, fees, exams and settings.",
+    "ACCOUNTANT": "Fees, payments, invoices and finance reports.",
+    "TEACHER": "Own classes and sections: attendance, homework and marks.",
+    "EXECUTIVE": "Academic oversight: students, staff, results and reports. No money or settings.",
+    "OFFICE_STAFF": "Admissions, student records, printing and SMS. No money or settings.",
+    "EXAM_CONTROLLER": "Exams, marks, results and seat plans for the whole school.",
+    "COMMITTEE": "Read-only view of the dashboard, staff evaluations and the calendar. No student details."
+  },
+  "rolesAccess": {
+    "title": "Roles & access",
+    "subtitle": "What each role can see and do in this school. Read-only.",
+    "scopeLabel": "Data access",
+    "scope": {
+      "TENANT": "Whole school",
+      "ASSIGNED_SECTIONS": "Assigned sections only",
+      "FAMILY": "Own family",
+      "SELF": "Own records"
+    },
+    "permissionCount_one": "{{count}} permission",
+    "permissionCount_other": "{{count}} permissions"
+  },
+  "permissions": {
+    "groups": {
+      "users": "Staff & accounts",
+      "students": "Students",
+      "guardians": "Guardians",
+      "admissions": "Admissions",
+      "fees": "Fees",
+      "invoicesPayments": "Invoices & payments",
+      "communication": "Communication",
+      "reports": "Reports & dashboard",
+      "academics": "Academics",
+      "homework": "Homework",
+      "attendance": "Attendance & leave",
+      "exams": "Exams & results",
+      "evaluations": "Evaluations",
+      "printing": "Printing & documents",
+      "administration": "Administration"
+    },
+    "items": {
+      "USER_CREATE": "Add staff",
+      "USER_READ": "View staff",
+      "USER_UPDATE": "Edit staff",
+      "USER_DELETE": "Delete accounts",
+      "MEMBER_REMOVE": "Remove from school",
+      "STAFF_HR_READ": "View HR records",
+      "STAFF_HR_MANAGE": "Edit HR records",
+      "STUDENT_CREATE": "Add students",
+      "STUDENT_READ": "View students",
+      "STUDENT_UPDATE": "Edit students",
+      "STUDENT_DELETE": "Delete students",
+      "STUDENT_BULK_UPLOAD": "Import students",
+      "STUDENT_LIFECYCLE_MANAGE": "Leaving & re-admission",
+      "STUDENT_NOTES_READ": "View notes",
+      "STUDENT_NOTES_WRITE": "Write notes",
+      "STUDENT_RECORDS_READ": "View records",
+      "STUDENT_RECORDS_WRITE": "Write records",
+      "GUARDIAN_CREATE": "Add guardians",
+      "GUARDIAN_READ": "View guardians",
+      "GUARDIAN_UPDATE": "Edit guardians",
+      "GUARDIAN_DELETE": "Delete guardians",
+      "ADMISSION_REVIEW": "Review applications",
+      "FEE_STRUCTURE_CREATE": "Create fee structures",
+      "FEE_STRUCTURE_READ": "View fee structures",
+      "FEE_STRUCTURE_UPDATE": "Edit fee structures",
+      "FEE_STRUCTURE_DELETE": "Delete fee structures",
+      "FEE_GENERATE": "Generate fees",
+      "FEE_READ": "View fees",
+      "FEE_COLLECT": "Collect fees",
+      "FEE_APPROVE": "Approve fee actions",
+      "DISCOUNT_RULE_MANAGE": "Discount rules",
+      "SCHEDULE_MANAGE": "Automatic billing rules",
+      "INVOICE_CREATE": "Create invoices",
+      "INVOICE_READ": "View invoices",
+      "INVOICE_PRINT": "Print invoices",
+      "INVOICE_DELETE": "Delete invoices",
+      "PAYMENT_RECORD": "Record payments",
+      "PAYMENT_READ": "View all payments",
+      "PAYMENT_REFUND": "Refund payments",
+      "PAYMENT_REVERSE": "Reverse payments",
+      "COMMUNICATION_SEND": "Send messages",
+      "COMMUNICATION_BULK_SEND": "Send bulk messages",
+      "COMMUNICATION_LOG_READ": "View message log",
+      "COMMUNICATION_CREDIT_READ": "View SMS credit",
+      "REPORTS_VIEW": "View reports",
+      "REPORTS_EXPORT": "Export reports",
+      "REPORT_COLLECTIONS_READ": "View collections report",
+      "DASHBOARD_VIEW": "View dashboard",
+      "DASHBOARD_ADMIN": "School-wide dashboard",
+      "ACADEMIC_YEAR_MANAGE": "Manage academic years",
+      "CLASS_MANAGE": "Manage classes & sections",
+      "MY_CLASS_VIEW": "Open the class teacher’s “My class” page",
+      "ACADEMIC_STRUCTURE_READ": "View classes, sections & subjects",
+      "CURRICULUM_PRESET_APPLY": "Apply a ready-made curriculum",
+      "CALENDAR_READ": "View calendar",
+      "CALENDAR_MANAGE": "Manage calendar",
+      "ROUTINE_READ": "View routines",
+      "ROUTINE_MANAGE": "Manage routines",
+      "SYLLABUS_READ": "View syllabus",
+      "SYLLABUS_MANAGE": "Manage syllabus",
+      "PROGRAM_READ": "View programs",
+      "PROGRAM_MANAGE": "Manage programs",
+      "PROGRAM_RECORD": "Record milestones",
+      "HOMEWORK_READ": "View homework",
+      "HOMEWORK_ASSIGN": "Assign homework",
+      "HOMEWORK_GRADE": "Grade homework",
+      "HOMEWORK_IMPORT": "Import homework",
+      "ATTENDANCE_READ": "View attendance",
+      "ATTENDANCE_MARK": "Take attendance",
+      "ATTENDANCE_CORRECT": "Correct attendance",
+      "ATTENDANCE_DEVICE_MANAGE": "Manage attendance devices",
+      "STAFF_ATTENDANCE_READ": "View staff attendance",
+      "STAFF_ATTENDANCE_MARK": "Take staff attendance",
+      "LEAVE_APPROVE": "Approve leave",
+      "EXAM_MANAGE": "Manage exams",
+      "GRADING_SCALE_MANAGE": "Manage grading scales",
+      "MARK_ENTER": "Enter marks",
+      "MARK_VIEW": "View marks",
+      "RESULT_PROCESS": "Process results",
+      "RESULT_PUBLISH": "Publish results",
+      "RESULT_READ": "View results",
+      "SEAT_PLAN_MANAGE": "Manage seat plans",
+      "PROMOTION_MANAGE": "Manage promotions",
+      "PROMOTION_OVERRIDE": "Override promotions",
+      "ACR_READ": "View ACR",
+      "ACR_WRITE": "Write ACR & report incidents",
+      "PRINT_TEMPLATE_MANAGE": "Manage print templates",
+      "DOCUMENT_PRINT": "Print documents",
+      "PRINT_HISTORY_READ": "View print history",
+      "DOCUMENT_REVOKE": "Revoke documents",
+      "AUDIT_LOG_READ": "View audit log",
+      "AUDIT_ENTITY_HISTORY_READ": "View activity history",
+      "SETTINGS_MANAGE": "Manage settings",
+      "BACKUP_MANAGE": "Backup & restore"
+    }
+  },
+  "filters": {
+    "membership": {
+      "label": "Membership",
+      "current": "Current",
+      "former": "Former"
+    }
+  },
+  "former": {
+    "leftOn": "Left on {{date}}",
+    "bringBack": "Bring back",
+    "bringBackConfirm": "Bring {{name}} back to this school? They get their access again.",
+    "restored": "{{name}} is back.",
+    "errorMessage": "Could not bring this person back. Please try again.",
+    "emptyMessage": "No former staff",
+    "emptyExplanation": "People removed from your school show up here."
   }
 }

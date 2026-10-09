@@ -45,7 +45,7 @@ describe('TenderSection', () => {
   it('flags a negative computed change as invalid without going negative on screen', async () => {
     await renderTender({ subtotalMinorUnits: 500000, tenderedMinorUnits: 100000 });
 
-    const tenderedInput = await screen.findByLabelText('Tendered');
+    const tenderedInput = await screen.findByLabelText('Cash handed over');
     expect(tenderedInput.getAttribute('aria-invalid')).toBe('true');
     expect(await screen.findByText('৳0.00')).toBeTruthy();
   });
@@ -57,14 +57,14 @@ describe('TenderSection', () => {
       tenderedMinorUnits: 500000,
     });
 
-    await user.click(await screen.findByLabelText('Credit change to wallet'));
+    await user.click(await screen.findByLabelText('Keep the change as credit'));
     expect(onChangeHandlingChange).toHaveBeenCalledWith('TO_WALLET');
   });
 
   it('hides the RETURN/TO_WALLET choice when there is no change', async () => {
     await renderTender({ subtotalMinorUnits: 500000, tenderedMinorUnits: 500000 });
 
-    await screen.findByLabelText('Tendered');
+    await screen.findByLabelText('Cash handed over');
     expect(screen.queryByLabelText('Return change')).toBeNull();
   });
 });

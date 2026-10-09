@@ -180,6 +180,44 @@ describe('InvoiceNotificationsListener.handlePaymentRecorded', () => {
     expect(queue.add).toHaveBeenCalledWith('send', { logId: 'log-1' });
   });
 
+  it('metered SMS: reserves under batch:<id> while the job carries the bare id (#1317)', async () => {
+    const smsCreditService = {
+      isMetered: vi.fn().mockResolvedValue(true),
+      reserve: vi.fn().mockResolvedValue({ ok: true }),
+    };
+    const { listener, queue } = makeListener({
+      smsCreditService,
+      schoolsService: {
+        getResolvedSettings: vi.fn().mockResolvedValue({
+          region: { locale: 'en-US' },
+          communications: { sms: { provider: 'greenweb' } },
+        }),
+      },
+      paymentRepo: { findOne: vi.fn().mockResolvedValue(payment) },
+      invoiceRepo: { findOne: vi.fn().mockResolvedValue(invoice) },
+      studentRepo: { find: vi.fn().mockResolvedValue([{ id: 's1', guardians: [guardian()] }]) },
+    });
+
+    await listener.handlePaymentRecorded({
+      payment_id: paymentId,
+      tenant_id: tenantId,
+      student_ids: ['s1'],
+    });
+
+    const bare = `payment-notify:${paymentId}:g1`;
+    expect(smsCreditService.reserve).toHaveBeenCalledWith(
+      tenantId,
+      expect.any(Number),
+      `batch:${bare}`,
+      expect.anything(),
+    );
+    expect(queue.add).toHaveBeenCalledWith('send', {
+      logId: 'log-1',
+      batchId: bare,
+      segments: expect.any(Number),
+    });
+  });
+
   it('is idempotent: a replayed event with an already-logged reference_key sends nothing again', async () => {
     const { listener, logRepo, queue } = makeListener({
       paymentRepo: { findOne: vi.fn().mockResolvedValue(payment) },

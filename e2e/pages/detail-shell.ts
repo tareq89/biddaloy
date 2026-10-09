@@ -36,6 +36,13 @@ export class DetailShellPage {
     await expect(
       this.page.getByRole('tabpanel', { name: this.t(labelKey), exact: true }),
     ).toBeVisible();
+    // More than one visible *outer* panel means B1 is back. Panels nested in
+    // another panel (the fees tab has its own Tabs) are not the shell's.
+    await expect(
+      this.page
+        .locator('[role="tabpanel"]:not([role="tabpanel"] [role="tabpanel"])')
+        .filter({ visible: true }),
+    ).toHaveCount(1);
     await expectUrlParam(this.page, 'tab', tabId);
   }
 

@@ -160,6 +160,37 @@ describe('RoutineSlotsService [21.4.1]', () => {
     expect(ctx.slotRepo.save).not.toHaveBeenCalled();
   });
 
+  it('create() nests violations under `details` so the client can render them', async () => {
+    ctx.periodSlotRepo.findOne = vi.fn(async () => ({
+      id: 'period-1',
+      tenant_id: TENANT_ID,
+      kind: PeriodSlotKind.BREAK,
+      sequence: 0,
+    }));
+    await expect(ctx.service.create(ROUTINE_ID, baseDto as any, TENANT_ID)).rejects.toMatchObject({
+      response: { details: { violations: expect.any(Array) } },
+    });
+  });
+
+  it('update() nests violations under `details` so the client can render them', async () => {
+    const created = await ctx.service.create(ROUTINE_ID, baseDto as any, TENANT_ID);
+    ctx.periodSlotRepo.findOne = vi.fn(async () => ({
+      id: 'period-1',
+      tenant_id: TENANT_ID,
+      kind: PeriodSlotKind.BREAK,
+      sequence: 0,
+    }));
+    await expect(
+      ctx.service.update(
+        created.slot.id,
+        { ...baseDto, valid_from: '2026-06-01' } as any,
+        TENANT_ID,
+      ),
+    ).rejects.toMatchObject({
+      response: { details: { violations: expect.any(Array) } },
+    });
+  });
+
   it('remove() throws NotFoundException for a slot outside the tenant', async () => {
     await expect(ctx.service.remove('missing-slot', TENANT_ID)).rejects.toThrow(NotFoundException);
   });

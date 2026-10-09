@@ -16,7 +16,6 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -29,7 +28,7 @@ import {
   ReorderTermsDto,
   toTermResponseDto,
 } from './dto/academic-terms.dto';
-import { JwtPayload, Permission, UserRole } from '@biddaloy/shared';
+import { JwtPayload, Permission } from '@biddaloy/shared';
 
 /**
  * [17.2.2] `GET /calendar/terms` (`CALENDAR_READ`) and the write routes
@@ -47,17 +46,7 @@ export class AcademicTermsController {
   constructor(private readonly service: AcademicTermsService) {}
 
   @Get()
-  // Every role holds CALENDAR_READ (shared/src/enums/permissions.ts) — list
-  // them all here so PermissionsGuard, not this coarser RolesGuard, is what
-  // actually decides access.
-  @Roles(
-    UserRole.ADMIN,
-    UserRole.ACCOUNTANT,
-    UserRole.EXECUTIVE,
-    UserRole.TEACHER,
-    UserRole.PARENT,
-    UserRole.STUDENT,
-  )
+  // Every role holds CALENDAR_READ (shared/src/enums/permissions.ts).
   @RequirePermissions(Permission.CALENDAR_READ)
   @ApiOperation({ summary: 'List terms for an academic year, ordered by seq.' })
   async list(
@@ -69,7 +58,6 @@ export class AcademicTermsController {
   }
 
   @Post()
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.CALENDAR_MANAGE)
   @ApiOperation({ summary: 'Create a term. seq is assigned as max(seq) + 1 for the year.' })
   async create(
@@ -83,7 +71,6 @@ export class AcademicTermsController {
   }
 
   @Patch(':id')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.CALENDAR_MANAGE)
   @ApiOperation({ summary: 'Update a term (name and/or dates).' })
   async update(
@@ -98,7 +85,6 @@ export class AcademicTermsController {
   }
 
   @Delete(':id')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.CALENDAR_MANAGE)
   @ApiOperation({ summary: 'Soft-delete a term and resequence the remaining ones densely.' })
   async remove(
@@ -112,7 +98,6 @@ export class AcademicTermsController {
   }
 
   @Post('reorder')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.CALENDAR_MANAGE)
   @ApiOperation({ summary: "Rewrite a year's term seq densely to match the given id order." })
   async reorder(

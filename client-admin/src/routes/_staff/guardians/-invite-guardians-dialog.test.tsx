@@ -32,7 +32,7 @@ describe('InviteGuardiansDialog', () => {
     // Advancing straight to the review step without previewing first —
     // the mandatory gate lives on Submit, not on Next.
     await user.click(await screen.findByRole('button', { name: 'Next' }));
-    expect(await screen.findByText('Run the preview to see who will be invited.')).toBeTruthy();
+    expect(await screen.findByText('Check the preview to see who will be invited.')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Send invitations' }).hasAttribute('disabled')).toBe(
       true,
     );
@@ -45,6 +45,9 @@ describe('InviteGuardiansDialog', () => {
 
     expect(await screen.findByText('2 guardian(s) will be invited — 1 skipped.')).toBeTruthy();
     expect(screen.getByText('Rahim Uddin — SMS')).toBeTruthy();
+    // The channel is its translated label, not the raw `EMAIL` enum.
+    expect(screen.getByText('Karim Mia — Email')).toBeTruthy();
+    expect(screen.queryByText(/EMAIL/)).toBeNull();
     expect(screen.getByRole('button', { name: 'Send invitations' }).hasAttribute('disabled')).toBe(
       false,
     );

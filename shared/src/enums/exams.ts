@@ -66,3 +66,28 @@ export const MarkGridState = {
   SUBMITTED: 'SUBMITTED',
 } as const;
 export type MarkGridState = (typeof MarkGridState)[keyof typeof MarkGridState];
+
+/** What a `PromotionRun` decides for one student (26.x). */
+export const PromotionOutcome = {
+  PROMOTE: 'PROMOTE',
+  RETAIN: 'RETAIN',
+  GRADUATE: 'GRADUATE',
+} as const;
+export type PromotionOutcome = (typeof PromotionOutcome)[keyof typeof PromotionOutcome];
+
+/**
+ * A `PromotionRun`'s lifecycle state (26.x). DRAFT is editable/re-runnable;
+ * COMMITTED has moved students and is final.
+ */
+export const PromotionRunStatus = {
+  DRAFT: 'DRAFT',
+  COMMITTED: 'COMMITTED',
+} as const;
+export type PromotionRunStatus = (typeof PromotionRunStatus)[keyof typeof PromotionRunStatus];
+
+/** How a `PromotionRun` places promoted students into next-year sections. */
+export const PlacementAlgorithm = {
+  BLOCK: 'BLOCK',
+  SNAKE: 'SNAKE',
+} as const;
+export type PlacementAlgorithm = (typeof PlacementAlgorithm)[keyof typeof PlacementAlgorithm];

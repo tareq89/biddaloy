@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Integration test for backup.sh: runs the real script against a local
-# minio + db from docker-compose (started by this script if not already
+# seaweedfs + db from docker-compose (started by this script if not already
 # up), then asserts:
 #   1. exactly one new object lands under backups/db/ with a .dump.age suffix
 #   2. that object decrypts with the matching age private key
@@ -17,8 +17,8 @@ set -euo pipefail
 
 cd "$(dirname "$0")/../.."
 
-echo "backup.test.sh: bringing up db + minio"
-docker compose up -d db minio minio-init
+echo "backup.test.sh: bringing up db + seaweedfs"
+docker compose up -d --wait db seaweedfs
 docker compose exec -T db sh -c 'until pg_isready -U "$POSTGRES_USER"; do sleep 1; done' >/dev/null
 
 WORKDIR="$(mktemp -d)"
@@ -32,8 +32,8 @@ AGE_PRIVATE_KEY="$(grep -v '^#' "$WORKDIR/key.txt")"
 : "${POSTGRES_USER:=postgres}"
 : "${POSTGRES_PASSWORD:=change-me}"
 : "${POSTGRES_DB:=biddaloy}"
-: "${S3_ACCESS_KEY_ID:=minioadmin}"
-: "${S3_SECRET_ACCESS_KEY:=minioadmin}"
+: "${S3_ACCESS_KEY_ID:=change-me}"
+: "${S3_SECRET_ACCESS_KEY:=change-me}"
 : "${S3_BUCKET:=biddaloy}"
 
 echo "backup.test.sh: running backup.sh"

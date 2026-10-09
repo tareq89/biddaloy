@@ -1,8 +1,10 @@
+import { Permission } from '@biddaloy/shared';
 import { queryOptions, useQuery } from '@tanstack/react-query';
 
 import { apiClient } from '../api/client';
 import type { components } from '../api/schema';
 
+import { useHasPermission } from './permissions';
 import { createEntityKeys } from './query-keys';
 import { shouldRetryQuery } from './retry';
 
@@ -47,7 +49,11 @@ export interface PaletteSearchResults {
  */
 export function usePaletteSearch(query: string): PaletteSearchResults {
   const trimmed = query.trim();
-  const enabled = trimmed.length > 0;
+  // [24.3.5] `GET /search` needs `STUDENT_READ` (the controller's gate); a
+  // role without it (COMMITTEE) would only collect a 403, so never fire it.
+  // The per-group split (incl. the staff group's role list) stays the server's.
+  const canSearch = useHasPermission(Permission.STUDENT_READ);
+  const enabled = canSearch && trimmed.length > 0;
 
   const result = useQuery(
     queryOptions({

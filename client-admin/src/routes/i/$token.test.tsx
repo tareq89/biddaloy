@@ -47,6 +47,12 @@ describe('/i/$token public receipt page', () => {
 
     await waitFor(() => expect(screen.getByText('INV-2026-000123')).toBeTruthy());
     expect(screen.getByText('Rahim Ahmed')).toBeTruthy();
+    expect(screen.getByRole('heading', { level: 1, name: 'Invoice receipt' })).toBeTruthy();
+    // The payment method is a translated label, never the raw `CASH` value.
+    expect(screen.getByText('Cash')).toBeTruthy();
+    expect(screen.queryByText('CASH')).toBeNull();
+    const home = screen.getByRole('link', { name: 'Go to SchoolManager home' });
+    expect(home.getAttribute('href')).toBe('/');
   });
 
   it('shows a not-found state for an unknown or revoked token, without retrying', async () => {

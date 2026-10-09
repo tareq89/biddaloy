@@ -63,18 +63,52 @@ describe('EmailSection', () => {
       { locale: 'en', role: 'ADMIN', tenantId: SCHOOL_ID },
     );
 
-    const fromField = await screen.findByLabelText('From address');
+    const fromField = await screen.findByLabelText(/^Send emails from/);
     await user.clear(fromField);
     await user.type(fromField, 'not-an-email');
 
     await user.click(screen.getByRole('button', { name: 'Test connection' }));
 
-    // Both the FormShell error summary and the per-field FormMessage carry
-    // role="alert" — match on the summary's own heading text instead of
-    // querying the role alone. The heading text is split across sibling
-    // text nodes ("There is 1 problem" + " " + "with your submission"), so
-    // a regex substring match is needed rather than an exact string.
-    await waitFor(() => expect(screen.getByText(/There is 1 problem/)).toBeTruthy());
+    // The error shows under the field (the card has no summary).
+    await waitFor(() => expect(fromField.getAttribute('aria-invalid')).toBe('true'));
     expect(testBody).not.toHaveBeenCalled();
+  });
+
+  it('opens Advanced when the port is invalid', async () => {
+    const { user, container } = renderWithProviders(
+      <EmailSection schoolId={SCHOOL_ID} email={CONFIGURED_EMAIL} />,
+      { locale: 'en', role: 'ADMIN', tenantId: SCHOOL_ID },
+    );
+
+    const port = await screen.findByLabelText('Port');
+    const details = container.querySelector('details')!;
+    expect(details.open).toBe(false);
+    await user.clear(port);
+    await user.type(port, '99999');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(details.open).toBe(true));
+  });
+
+  it('accepts a port typed in Bangla digits', async () => {
+    const testBody = vi.fn();
+    server.use(
+      http.post('/api/v1/schools/:id/settings/test', async ({ request }) => {
+        testBody(await request.json());
+        return HttpResponse.json({ success: true, message: 'ok' });
+      }),
+    );
+    const { user } = renderWithProviders(
+      <EmailSection schoolId={SCHOOL_ID} email={CONFIGURED_EMAIL} />,
+      { locale: 'en', role: 'ADMIN', tenantId: SCHOOL_ID },
+    );
+
+    const port = await screen.findByLabelText('Port');
+    await user.clear(port);
+    await user.type(port, '৪৬৫');
+    await user.click(screen.getByRole('button', { name: 'Test connection' }));
+
+    await waitFor(() => expect(testBody).toHaveBeenCalled());
+    expect(testBody.mock.calls[0]![0].config.port).toBe(465);
   });
 });

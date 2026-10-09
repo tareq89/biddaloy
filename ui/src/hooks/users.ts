@@ -13,6 +13,8 @@ import type { components } from '../api/schema';
 import { createEntityKeys } from './query-keys';
 import { shouldRetryQuery } from './retry';
 
+// [36.4/#1102] `UserResponseDto` carries `staff_profile_id` for real now
+// that `schema.d.ts` is regenerated — no more hand-typed intersection.
 export type StaffUser = components['schemas']['UserResponseDto'];
 export type CreateUserInput = components['schemas']['CreateUserDto'];
 export type UpdateUserInput = components['schemas']['UpdateUserDto'];
@@ -33,8 +35,13 @@ export interface UserListFilters {
   /** [12.6] Filters on the derived invitation lifecycle — "who hasn't
    * activated yet?" from the staff list. */
   invitation_status?: InvitationStatus;
+  /** [23.12] The user's *current* designation (23.2's job title, not the
+   * `UserRole` enum) — independent of `role`. */
+  designation_id?: string;
   joined_from?: string;
   joined_to?: string;
+  /** [13.3] `former` lists members who left or were removed (restorable). */
+  membership?: 'current' | 'former';
   sort?: 'full_name' | 'email' | 'joined_at' | 'status';
   order?: 'asc' | 'desc';
   page?: number;
@@ -296,5 +303,29 @@ export function useRemoveMember() {
       void queryClient.invalidateQueries({ queryKey: userKeys.lists() });
       queryClient.removeQueries({ queryKey: userKeys.detail(id) });
     },
+  });
+}
+
+/** [13.3] `POST /users/me/leave` — the caller drops their own membership of
+ * the active school (204). The session's membership list is stale afterwards,
+ * so the caller is expected to sign out / re-pick a school. */
+export function useLeaveSchool() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      await apiClient.post('/users/me/leave');
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: userKeys.all }),
+  });
+}
+
+/** [13.3] `POST /users/:id/restore` — re-activates a former member (204). */
+export function useRestoreMember() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      await apiClient.post(`/users/${id}/restore`);
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: userKeys.all }),
   });
 }

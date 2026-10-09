@@ -2,10 +2,9 @@ import { Controller, Get, Post, Body, Query, Res, UseGuards } from '@nestjs/comm
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
-import { Permission, UserRole } from '@biddaloy/shared';
+import { Permission } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -32,14 +31,6 @@ export class CalendarExportController {
   ) {}
 
   @Get('export')
-  @Roles(
-    UserRole.ADMIN,
-    UserRole.ACCOUNTANT,
-    UserRole.TEACHER,
-    UserRole.PARENT,
-    UserRole.STUDENT,
-    UserRole.EXECUTIVE,
-  )
   @RequirePermissions(Permission.CALENDAR_READ)
   @ApiOperation({ summary: 'Export a tenant academic year calendar as .xlsx or .csv.' })
   async exportWorkbook(
@@ -62,7 +53,6 @@ export class CalendarExportController {
   }
 
   @Post('clone')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.CALENDAR_MANAGE)
   @ApiOperation({
     summary:

@@ -17,7 +17,6 @@ import { AuthGuard } from '@nestjs/passport';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -35,15 +34,7 @@ import {
   GreedyFillQueryDto,
 } from './dto/routine-slots.dto';
 import { CopyRoutineDto } from './dto/workflow.dto';
-import { JwtPayload, Permission, UserRole } from '@biddaloy/shared';
-
-const READ_ROLES = [
-  UserRole.ADMIN,
-  UserRole.EXECUTIVE,
-  UserRole.TEACHER,
-  UserRole.PARENT,
-  UserRole.STUDENT,
-];
+import { JwtPayload, Permission } from '@biddaloy/shared';
 
 /** [21.4.1] Routine document + its slots, plus the greedy-fill proposer. */
 @ApiTags('routines')
@@ -61,7 +52,6 @@ export class RoutineSlotsController {
   ) {}
 
   @Post()
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.ROUTINE_MANAGE)
   @ApiOperation({ summary: 'Create a draft routine for an academic year.' })
   create(@Body() dto: CreateRoutineDto, @CurrentTenant() tenant: { id: string; role: string }) {
@@ -69,7 +59,6 @@ export class RoutineSlotsController {
   }
 
   @Get()
-  @Roles(...READ_ROLES)
   @RequirePermissions(Permission.ROUTINE_READ)
   @ApiOperation({ summary: 'List routines.' })
   findAll(@CurrentTenant() tenant: { id: string; role: string }) {
@@ -77,7 +66,6 @@ export class RoutineSlotsController {
   }
 
   @Get(':id')
-  @Roles(...READ_ROLES)
   @RequirePermissions(Permission.ROUTINE_READ)
   @ApiOperation({ summary: 'Get a routine by ID.' })
   findOne(
@@ -88,7 +76,6 @@ export class RoutineSlotsController {
   }
 
   @Get(':id/slots')
-  @Roles(...READ_ROLES)
   @RequirePermissions(Permission.ROUTINE_READ)
   @ApiOperation({ summary: "List a routine's slots." })
   findSlots(
@@ -99,7 +86,6 @@ export class RoutineSlotsController {
   }
 
   @Post(':id/slots')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.ROUTINE_MANAGE)
   @ApiOperation({ summary: 'Create a routine slot (hard constraints enforced server-side).' })
   createSlot(
@@ -111,7 +97,6 @@ export class RoutineSlotsController {
   }
 
   @Patch('slots/:slotId')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.ROUTINE_MANAGE)
   @ApiOperation({
     summary: 'Effective-date an edit to a slot (D4: closes the old row, opens a new one).',
@@ -125,7 +110,6 @@ export class RoutineSlotsController {
   }
 
   @Delete('slots/:slotId')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.ROUTINE_MANAGE)
   @ApiOperation({ summary: 'Delete a routine slot.' })
   removeSlot(
@@ -136,7 +120,6 @@ export class RoutineSlotsController {
   }
 
   @Get(':id/greedy-fill')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.ROUTINE_MANAGE)
   @ApiOperation({ summary: 'Propose slots for empty grid cells — does not write anything.' })
   greedyFill(
@@ -148,7 +131,6 @@ export class RoutineSlotsController {
   }
 
   @Post(':id/submit-for-review')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.ROUTINE_MANAGE)
   @ApiOperation({ summary: 'D11: DRAFT -> REVIEW.' })
   submitForReview(
@@ -161,7 +143,6 @@ export class RoutineSlotsController {
   }
 
   @Post(':id/withdraw')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.ROUTINE_MANAGE)
   @ApiOperation({ summary: 'D11: REVIEW -> DRAFT.' })
   withdraw(
@@ -174,7 +155,6 @@ export class RoutineSlotsController {
   }
 
   @Post(':id/publish')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.ROUTINE_MANAGE)
   @ApiOperation({ summary: 'D11: REVIEW -> PUBLISHED. There is no transition back out.' })
   publish(
@@ -187,7 +167,6 @@ export class RoutineSlotsController {
   }
 
   @Post(':id/copy-year')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.ROUTINE_MANAGE)
   @ApiOperation({
     summary:
@@ -202,7 +181,6 @@ export class RoutineSlotsController {
   }
 
   @Get(':id/workload')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.ROUTINE_MANAGE)
   @ApiOperation({ summary: 'D19: read-only per-teacher periods-per-week/day for this routine.' })
   workload(

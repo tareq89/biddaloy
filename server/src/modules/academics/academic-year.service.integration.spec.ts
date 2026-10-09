@@ -141,6 +141,32 @@ describe('AcademicYearService (integration)', () => {
       expect(result.total).toBe(2);
     });
 
+    // Regression: several callers (routine agenda, class list's year
+    // filter, subject-choices, generate-fees) pass no limit/page and read
+    // data[0]/scan page 1 for the current year. A pure created_at DESC
+    // sort pushes an older current year off page 1 once enough newer
+    // years exist, making those callers treat the tenant as having no
+    // current year at all.
+    it('returns the current year first, even when it is older than a full page of other years', async () => {
+      const current = await service.create(
+        { name: '2020-2021', start_date: '2020-01-01', end_date: '2020-12-31' },
+        TENANT_ID,
+      );
+      await service.setCurrent(current.id, TENANT_ID);
+
+      for (let i = 0; i < 11; i += 1) {
+        await service.create(
+          { name: `Newer Year ${i}`, start_date: '2021-01-01', end_date: '2021-12-31' },
+          TENANT_ID,
+        );
+      }
+
+      const result = await service.findAll({ page: 1, limit: 10 }, TENANT_ID);
+
+      expect(result.data[0]?.id).toBe(current.id);
+      expect(result.data[0]?.is_current).toBe(true);
+    });
+
     it('should enforce tenant isolation', async () => {
       // Create for tenant-1
       await service.create(

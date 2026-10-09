@@ -10,10 +10,11 @@ import { groupDigits } from './grouping';
  * arithmetic error the way chained currency math would.
  */
 export function formatNumber(
-  value: number,
+  value: number | null | undefined,
   config: RegionConfig,
   options: { decimals?: number } = {},
 ): string {
+  if (value == null || !Number.isFinite(value)) return '—';
   const { decimals = 0 } = options;
   const negative = value < 0;
   const fixed = Math.abs(value).toFixed(decimals);
@@ -22,6 +23,16 @@ export function formatNumber(
   const plain = fractionPart ? `${grouped}.${fractionPart}` : grouped;
   const numeral = renderDigits(plain, config.numerals);
   return negative ? `-${numeral}` : numeral;
+}
+
+/** A mark or score stored as `numeric(…, 2)`: keeps the fraction it has
+ * (87.5, 87.25) and pads nothing (88, not 88.00). Worked in whole
+ * hundredths so float noise never adds a digit. */
+export function formatScore(value: number | null | undefined, config: RegionConfig): string {
+  if (value == null || !Number.isFinite(value)) return '—';
+  const hundredths = Math.round(value * 100);
+  const decimals = hundredths % 100 === 0 ? 0 : hundredths % 10 === 0 ? 1 : 2;
+  return formatNumber(hundredths / 100, config, { decimals });
 }
 
 /** Accepts either digit system and grouping separators; returns a plain

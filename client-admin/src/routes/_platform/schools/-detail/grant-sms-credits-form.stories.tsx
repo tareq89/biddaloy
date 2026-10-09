@@ -5,7 +5,7 @@ import { GrantSmsCreditsForm } from './grant-sms-credits-form';
 const meta: Meta<typeof GrantSmsCreditsForm> = {
   component: GrantSmsCreditsForm,
   args: {
-    submitting: false,
+    formId: 'grant-sms-credits-form',
     onFieldsChange: () => undefined,
     onSubmit: () => undefined,
   },
@@ -15,11 +15,3 @@ export default meta;
 type Story = StoryObj<typeof GrantSmsCreditsForm>;
 
 export const Default: Story = {};
-
-export const Submitting: Story = {
-  args: { submitting: true },
-};
-
-export const ErrorState: Story = {
-  args: { submitError: 'units must be a non-zero integer' },
-};

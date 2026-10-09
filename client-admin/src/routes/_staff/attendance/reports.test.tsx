@@ -130,6 +130,9 @@ describe('/attendance/reports', () => {
 
     await screen.findByText('Karim Rahman');
     expect(screen.getByText('90%')).toBeTruthy();
+    // Summary is one section, shown whole: a total, not a pager.
+    expect(screen.getByText('Total 1')).toBeTruthy();
+    expect(screen.queryByText(/Page \d+ of/)).toBeNull();
   });
 
   it('shows a prompt instead of a spinner when no section is picked in the summary view', async () => {
@@ -143,6 +146,9 @@ describe('/attendance/reports', () => {
     await waitFor(() =>
       expect(screen.getByText('Pick a section to see its attendance report.')).toBeTruthy(),
     );
+    expect(screen.getByRole('heading', { name: 'Pick a section' })).toBeTruthy();
+    expect(screen.queryByRole('table')).toBeNull();
+    expect(screen.queryByText(/Page \d+ of/)).toBeNull();
   });
 
   it('switches to the low-attendance flag list and shows the "Low" badge on every row', async () => {
@@ -160,12 +166,58 @@ describe('/attendance/reports', () => {
     });
     const user = userEvent.setup();
 
-    await user.click(await screen.findByRole('combobox', { name: 'View' }));
-    await user.click(screen.getByRole('option', { name: 'Low attendance flags' }));
+    await user.click(await screen.findByRole('tab', { name: 'Low attendance' }));
 
     await screen.findByText('Nadia Islam');
     expect(screen.getByText('30%')).toBeTruthy();
     expect(screen.getByText('Low')).toBeTruthy();
+  });
+
+  it('keeps the chosen view in the URL and sends 25 rows per page for the flags list', async () => {
+    let capturedLimit: string | null | undefined;
+    server.use(
+      http.get('/api/v1/attendance/flags/low', ({ request }) => {
+        capturedLimit = new URL(request.url).searchParams.get('limit');
+        return HttpResponse.json({
+          data: [flagRow()],
+          total: 1,
+          page: 1,
+          limit: 25,
+          totalPages: 1,
+        });
+      }),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/attendance/reports?view=flags'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    await screen.findByText('Nadia Islam');
+    expect(capturedLimit).toBe('25');
+    expect(screen.getByRole('tab', { name: 'Low attendance' }).getAttribute('aria-selected')).toBe(
+      'true',
+    );
+    expect(screen.getByRole('tab', { name: 'Month summary' }).getAttribute('aria-selected')).toBe(
+      'false',
+    );
+  });
+
+  it('labels the month filter with month names, not YYYY-MM', async () => {
+    renderWithRouter(routeTree, {
+      initialEntries: ['/attendance/reports'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('combobox', { name: 'Month' }));
+    const options = screen.getAllByRole('option').map((o) => o.textContent ?? '');
+    expect(options.some((label) => /^[A-Z][a-z]+ \d{4}$/.test(label))).toBe(true);
+    expect(options.some((label) => /^\d{4}-\d{2}$/.test(label))).toBe(false);
   });
 
   it('drops a non-numeric threshold instead of sending NaN to the server', async () => {
@@ -236,11 +288,52 @@ describe('/attendance/reports', () => {
     const user = userEvent.setup();
 
     await screen.findByText('Nadia Islam');
+    expect(screen.getByRole('link', { name: 'View' }).getAttribute('href')).toBe(
+      '/students/student-2',
+    );
     await user.click(screen.getByRole('button', { name: 'Send reminder' }));
 
     const dialog = await screen.findByRole('dialog');
     expect(
       within(dialog).getByText('This message will be sent to the guardians of 1 selected student.'),
     ).toBeTruthy();
+  });
+
+  it('shows the load error, not the empty state, when the flags request fails', async () => {
+    server.use(
+      http.get('/api/v1/attendance/flags/low', () =>
+        HttpResponse.json({ statusCode: 500, message: 'boom' }, { status: 500 }),
+      ),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/attendance/reports?view=flags'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    expect(await screen.findByText('Could not load the attendance report.')).toBeTruthy();
+    expect(screen.queryByText('Nobody is below the minimum this month')).toBeNull();
+  });
+
+  it('shows the bare roll number in the table cell, "Roll N" only for the card', async () => {
+    server.use(
+      http.get('/api/v1/attendance/sections/:sectionId/register-matrix', () =>
+        HttpResponse.json({ dates: [], rows: [registerMatrixRow()] }),
+      ),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/attendance/reports?section_id=section-1'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const row = (await screen.findByText('Karim Rahman')).closest('tr') as HTMLElement;
+    // By visible text, not class: the bare number for the table, "Roll N" for the card.
+    expect(within(row).getByText('3')).toBeTruthy();
+    expect(within(row).getByText(/^Roll\s/)).toBeTruthy();
   });
 });

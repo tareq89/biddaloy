@@ -3,11 +3,10 @@ import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Response } from 'express';
-import { Permission, UserRole } from '@biddaloy/shared';
+import { Permission } from '@biddaloy/shared';
 import { STRICT_RATE_LIMIT } from '../../../rate-limit';
 import { ContextGuard, RolesGuard } from '../../auth/guards/context.guard';
 import { PermissionsGuard } from '../../auth/guards/permissions.guard';
-import { Roles } from '../../auth/decorators/roles.decorator';
 import { RequirePermissions } from '../../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../../auth/decorators/current-tenant.decorator';
 import { ApiTenantAuth } from '../../../common/decorators/api-tenant-auth.decorator';
@@ -27,7 +26,6 @@ import { XLSX_MIME } from './template.constants';
 @ApiTenantAuth()
 @Controller('backup')
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
-@Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
 @RequirePermissions(Permission.BACKUP_MANAGE)
 export class TemplateController {
   constructor(private readonly templates: TemplateService) {}
@@ -54,10 +52,13 @@ export class TemplateController {
     @CurrentTenant() tenant: { id: string; role: string },
     @Res({ passthrough: true }) res: Response,
   ): Promise<StreamableFile> {
-    const { buffer, lang } = await this.templates.build(tenant.id, query.lang);
+    const { buffer, lang } = await this.templates.build(tenant.id, query.lang, query.variant);
 
     res.setHeader('Content-Type', XLSX_MIME);
-    res.setHeader('Content-Disposition', `attachment; filename="biddaloy-template-${lang}.xlsx"`);
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="biddaloy-template${query.variant === 'starter' ? '-starter' : ''}-${lang}.xlsx"`,
+    );
     res.setHeader('Content-Length', buffer.byteLength);
     return new StreamableFile(buffer);
   }

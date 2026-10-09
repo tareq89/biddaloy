@@ -102,15 +102,16 @@ test('invite guardians in bulk from the guardians list', async ({ page, request 
     await dialog.getByRole('button', { name: t('guardians.invite.select.runPreview') }).click();
     // Move from the "select" step to the "preview" review step — the
     // confirm button lives only there.
-    await dialog.getByRole('button', { name: 'Next' }).click();
+    await dialog.getByRole('button', { name: t('common.wizard.next') }).click();
 
     // The selection is "every guardian in this school" (`all: true`) — the
     // dialog has no row-selection UI yet — so other specs' guardians can
     // legitimately share this tenant and inflate the preview's total.
     // Assert this test's own two guardians are in the to-invite list rather
     // than asserting an exact global count.
-    await expect(dialog.getByText(`Shared Guardian ${suffix} — SMS`)).toBeVisible();
-    await expect(dialog.getByText(`Solo Guardian ${suffix} — SMS`)).toBeVisible();
+    const sms = t('guardians.preferredCommunicationOptions.SMS');
+    await expect(dialog.getByText(`Shared Guardian ${suffix} — ${sms}`)).toBeVisible();
+    await expect(dialog.getByText(`Solo Guardian ${suffix} — ${sms}`)).toBeVisible();
   });
 
   await test.step('confirm dispatch and poll the batch until it drains', async () => {

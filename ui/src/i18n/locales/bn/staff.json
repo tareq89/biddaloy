@@ -2,13 +2,15 @@
   "list": {
     "title": "কর্মী",
     "caption": "এই স্কুলে প্রবেশাধিকার আছে এমন ব্যবহারকারী",
-    "searchLabel": "নাম বা ইমেইল দিয়ে খুঁজুন",
-    "roleFilterLabel": "ভূমিকা দিয়ে ফিল্টার করুন",
+    "searchLabel": "খুঁজুন",
+    "roleFilterLabel": "ভূমিকা",
     "roleFilterAll": "সব ভূমিকা",
     "statusFilterLabel": "অবস্থা",
     "statusFilterAll": "সব অবস্থা",
     "invitationFilterLabel": "আমন্ত্রণ",
     "invitationFilterAll": "সব আমন্ত্রণ অবস্থা",
+    "designationFilterLabel": "পদবি",
+    "designationFilterAll": "সব পদবি",
     "joinedRangeLabel": "যোগদানের তারিখ",
     "joinedFromLabel": "যোগদান থেকে",
     "joinedToLabel": "যোগদান পর্যন্ত",
@@ -19,26 +21,35 @@
     "columnStatus": "অবস্থা",
     "columnInvitation": "আমন্ত্রণ",
     "columnJoined": "যোগদান",
-    "columnActions": "কার্যক্রম",
+    "columnActions": "কাজ",
     "view": "দেখুন",
     "emptyValue": "—",
     "emptyMessage": "কোনো ব্যবহারকারী পাওয়া যায়নি",
     "errorMessage": "ব্যবহারকারী লোড করা যায়নি। আবার চেষ্টা করুন।",
     "announceResults": "{{total}}টির মধ্যে {{count}}টি ব্যবহারকারী দেখানো হচ্ছে",
-    "addUser": "ব্যবহারকারী যোগ করুন",
-    "promoteTeacher": "শিক্ষক হিসেবে উন্নীত করুন"
+    "addUser": "কর্মী যোগ করুন",
+    "promoteTeacher": "শিক্ষক প্রোফাইল দিন",
+    "printIdCards": "আইডি কার্ড প্রিন্ট ({{count}})",
+    "clearSelection": "নির্বাচন বাতিল",
+    "searchPlaceholder": "নাম বা ইমেইল",
+    "subtitle": "এই স্কুলে যাঁরা সাইন ইন করতে পারেন",
+    "edit": "সম্পাদনা",
+    "emptyExplanation": "কাউকে যোগ করলে তিনি এখানে দেখা যাবেন।"
   },
   "roles": {
     "SUPER_ADMIN": "সুপার অ্যাডমিন",
     "ADMIN": "অ্যাডমিন",
     "ACCOUNTANT": "হিসাবরক্ষক",
     "TEACHER": "শিক্ষক",
-    "EXECUTIVE": "নির্বাহী",
+    "EXECUTIVE": "একাডেমিক কো-অর্ডিনেটর",
     "PARENT": "অভিভাবক",
-    "STUDENT": "শিক্ষার্থী"
+    "STUDENT": "শিক্ষার্থী",
+    "OFFICE_STAFF": "অফিস সহকারী",
+    "EXAM_CONTROLLER": "পরীক্ষা নিয়ন্ত্রক",
+    "COMMITTEE": "পরিচালনা পর্ষদ সদস্য"
   },
   "addUser": {
-    "title": "ব্যবহারকারী যোগ করুন",
+    "title": "কর্মী যোগ করুন",
     "description": "একটি অ্যাকাউন্ট তৈরি করুন এবং এই স্কুলে প্রবেশাধিকার দিন।",
     "nameLabel": "পূর্ণ নাম",
     "emailLabel": "ইমেইল",
@@ -49,18 +60,18 @@
     "errorRoleRequired": "একটি ভূমিকা বেছে নিন।",
     "errorDuplicateEmail": "এই ইমেইল দিয়ে ইতিমধ্যে একজন ব্যবহারকারী আছে।",
     "errorMessage": "ব্যবহারকারী যোগ করা যায়নি। আবার চেষ্টা করুন।",
-    "save": "ব্যবহারকারী যোগ করুন",
+    "save": "কর্মী যোগ করুন",
     "saving": "যোগ করা হচ্ছে…"
   },
   "teacherForm": {
-    "promoteTitle": "সদস্যকে শিক্ষক হিসেবে উন্নীত করুন",
+    "promoteTitle": "শিক্ষক প্রোফাইল দিন",
     "promoteDescription": "এই স্কুলের একজন বিদ্যমান সদস্য বেছে নিন এবং তাঁকে একটি শিক্ষক প্রোফাইল দিন। এতে নতুন কোনো ব্যক্তি তৈরি হয় না।",
     "editTitle": "শিক্ষক প্রোফাইল সম্পাদনা করুন",
     "editDescription": "এই শিক্ষকের প্রোফাইলের বিবরণ হালনাগাদ করুন।",
     "memberLabel": "সদস্য",
     "memberEmpty": "শিক্ষক প্রোফাইল নেই এমন কোনো সদস্য মেলেনি",
     "memberAnnounce": "{{count}} জন সদস্য পাওয়া গেছে",
-    "employeeIdLabel": "কর্মচারী আইডি",
+    "employeeIdLabel": "কর্মী আইডি",
     "designationsLabel": "পদবি",
     "subjectLabel": "বিষয়ের বিশেষত্ব",
     "joiningDateLabel": "যোগদানের তারিখ",
@@ -74,12 +85,12 @@
       "COORDINATOR": "সমন্বয়ক"
     },
     "errorMemberRequired": "যাঁকে উন্নীত করবেন সেই সদস্যকে বেছে নিন।",
-    "errorEmployeeIdRequired": "একটি কর্মচারী আইডি লিখুন।",
-    "errorDuplicateEmployeeId": "এই কর্মচারী আইডি ইতিমধ্যে ব্যবহৃত হচ্ছে। কর্মচারী আইডি সব স্কুল জুড়ে অনন্য।",
+    "errorEmployeeIdRequired": "একটি কর্মী আইডি লিখুন।",
+    "errorDuplicateEmployeeId": "এই কর্মী আইডি ইতিমধ্যে ব্যবহৃত হচ্ছে। কর্মী আইডি সব স্কুল জুড়ে অনন্য।",
     "errorAlreadyTeacher": "এই ব্যক্তির ইতিমধ্যে একটি শিক্ষক প্রোফাইল রয়েছে।",
     "errorNotMember": "এই ব্যক্তি এই স্কুলের সদস্য নন।",
     "errorMessage": "শিক্ষক প্রোফাইল সংরক্ষণ করা যায়নি। আবার চেষ্টা করুন।",
-    "promoteSave": "শিক্ষক হিসেবে উন্নীত করুন",
+    "promoteSave": "শিক্ষক প্রোফাইল দিন",
     "editSave": "পরিবর্তন সংরক্ষণ করুন",
     "saving": "সংরক্ষণ করা হচ্ছে…"
   },
@@ -98,11 +109,12 @@
   },
   "removeMember": {
     "title": "এই স্কুল থেকে সরান",
-    "description": "{{name}} এই স্কুলে প্রবেশাধিকার হারাবেন। তাঁর অ্যাকাউন্ট ও ইতিহাস থেকে যাবে, এবং অন্য স্কুলের সদস্যপদে কোনো প্রভাব পড়বে না।",
+    "description": "{{name}} এই স্কুলে প্রবেশাধিকার হারাবেন। তাঁর অ্যাকাউন্ট ও ইতিহাস থেকে যাবে, এবং অন্য স্কুলের সদস্যপদে কোনো প্রভাব পড়বে না। প্রয়োজনে পরে “প্রাক্তন” ফিল্টার থেকে ফিরিয়ে আনতে পারবেন।",
     "selfBlocked": "আপনি নিজের অ্যাকাউন্ট এই স্কুল থেকে সরাতে পারবেন না।",
     "confirm": "প্রবেশাধিকার সরান",
     "removing": "সরানো হচ্ছে…",
-    "errorMessage": "এই সদস্যকে সরানো যায়নি। আবার চেষ্টা করুন।"
+    "errorMessage": "এই সদস্যকে সরানো যায়নি। আবার চেষ্টা করুন।",
+    "lastAdmin": "এই স্কুলে আপনিই একমাত্র অ্যাডমিন। আগে অন্য কাউকে অ্যাডমিন করুন।"
   },
   "resetDialog": {
     "title": "পাসওয়ার্ড রিসেট করবেন?",
@@ -121,10 +133,11 @@
     "loadError": "এই ব্যবহারকারীকে লোড করা যায়নি। আবার চেষ্টা করুন।",
     "contact": {
       "verified": "যাচাইকৃত {{date}}",
-      "unverified": "অযাচাইকৃত"
+      "unverified": "যাচাই হয়নি",
+      "verifiedBadge": "যাচাইকৃত"
     },
     "actions": {
-      "editUser": "ব্যবহারকারী সম্পাদনা করুন",
+      "editUser": "সম্পাদনা করুন",
       "editTeacher": "শিক্ষক প্রোফাইল সম্পাদনা করুন",
       "resetPassword": "পাসওয়ার্ড রিসেট করুন",
       "remove": "স্কুল থেকে সরান"
@@ -132,8 +145,29 @@
     "tabs": {
       "profile": "প্রোফাইল",
       "permissions": "অনুমতি",
-      "memberships": "সদস্যপদ",
-      "loginHistory": "লগইন ইতিহাস"
+      "teachingAssignments": "শিক্ষকের দায়িত্ব",
+      "hrRecord": "এইচআর রেকর্ড",
+      "loginHistory": "লগইন ইতিহাস",
+      "documents": "ডকুমেন্ট"
+    },
+    "teachingAssignments": {
+      "caption": "এই শিক্ষককে যেসব শ্রেণি ও শাখায় নিয়োগ দেওয়া হয়েছে",
+      "columnClass": "শ্রেণি ও শাখা",
+      "columnSection": "শাখা",
+      "columnRole": "দায়িত্ব",
+      "columnSubject": "বিষয়",
+      "columnActions": "কার্যক্রম",
+      "assign": "শিক্ষক দায়িত্ব দিন",
+      "remove": "দায়িত্ব থেকে সরান",
+      "removeError": "দায়িত্বটি সরানো যায়নি। আবার চেষ্টা করুন।",
+      "emptyMessage": "এখনও কোনো দায়িত্ব নেই",
+      "errorMessage": "শিক্ষকতার নিয়োগ লোড করা যায়নি। আবার চেষ্টা করুন।",
+      "announceResults": "{{total}} টির মধ্যে {{count}} টি নিয়োগ দেখানো হচ্ছে",
+      "title": "শিক্ষকের দায়িত্ব",
+      "emptyExplanation": "এই শিক্ষককে কোনো শ্রেণি বা বিষয়ের দায়িত্ব দেওয়া হলে এখানে দেখা যাবে।",
+      "removeConfirmTitle": "দায়িত্ব থেকে সরাবেন?",
+      "removeConfirmDescription": "{{sectionName}}-এর দায়িত্ব থেকে এই শিক্ষককে সরানো হবে।",
+      "removeConfirm": "সরান"
     },
     "profile": {
       "columnEmail": "ইমেইল",
@@ -145,19 +179,17 @@
       "columnLastLogin": "সর্বশেষ লগইন",
       "emptyValue": "—",
       "teacherHeading": "শিক্ষক প্রোফাইল",
-      "employeeId": "কর্মচারী আইডি",
+      "employeeId": "কর্মী আইডি",
       "designations": "পদবি",
       "subject": "বিষয়ের বিশেষত্ব",
-      "joiningDate": "যোগদানের তারিখ"
+      "joiningDate": "যোগদানের তারিখ",
+      "contactHeading": "যোগাযোগ",
+      "accountCreated": "অ্যাকাউন্ট তৈরি",
+      "editTeacher": "সম্পাদনা"
     },
     "permissions": {
       "explainer": "অনুমতিগুলি ভূমিকা অনুসরণ করে — সার্ভার এই একই তালিকা প্রয়োগ করে। ব্যক্তি অনুযায়ী এগুলি সম্পাদনা করা যায় না।",
       "unknownRole": "এই স্কুলে এই ব্যবহারকারীর ভূমিকা নির্ধারণ করা যায়নি।"
-    },
-    "memberships": {
-      "columnRole": "ভূমিকা",
-      "columnJoined": "সদস্য হওয়ার তারিখ",
-      "note": "শুধু এই স্কুলের সদস্যপদ দেখানো হচ্ছে। অন্য স্কুলের সদস্যপদ এখান থেকে দেখা যায় না।"
     },
     "loginHistory": {
       "columnWhen": "কখন",
@@ -165,19 +197,326 @@
       "columnDevice": "ডিভাইস",
       "empty": "এখনও কোনো লগইন রেকর্ড হয়নি।",
       "emptyValue": "—",
-      "errorMessage": "লগইন ইতিহাস লোড করা যায়নি। আবার চেষ্টা করুন।"
+      "errorMessage": "লগইন ইতিহাস লোড করা যায়নি। আবার চেষ্টা করুন।",
+      "caption": "সাইন ইনের ইতিহাস",
+      "emptyExplanation": "এই ব্যক্তি সাইন ইন করলে এখানে দেখা যাবে।",
+      "unknownBrowser": "অজানা ব্রাউজার"
     },
     "invitation": {
-      "resend": "আমন্ত্রণ পুনরায় পাঠান",
+      "resend": "আমন্ত্রণ আবার পাঠান",
       "resending": "পুনরায় পাঠানো হচ্ছে…",
       "resendSuccess": "{{name}}-কে আমন্ত্রণ পুনরায় পাঠানো হয়েছে।",
       "resendError": "আমন্ত্রণ পুনরায় পাঠানো যায়নি। আবার চেষ্টা করুন।",
-      "revoke": "আমন্ত্রণ প্রত্যাহার করুন",
+      "revoke": "আমন্ত্রণ প্রত্যাহার",
       "revoking": "প্রত্যাহার করা হচ্ছে…",
       "revokeConfirmTitle": "এই আমন্ত্রণ প্রত্যাহার করবেন?",
       "revokeConfirmDescription": "{{name}}-এর বর্তমান আমন্ত্রণ লিংক কাজ করা বন্ধ হয়ে যাবে। অ্যাকাউন্ট সক্রিয় করতে তাঁর একটি নতুন লিংক প্রয়োজন হবে।",
       "revokeSuccess": "{{name}}-এর আমন্ত্রণ প্রত্যাহার করা হয়েছে।",
-      "revokeError": "আমন্ত্রণ প্রত্যাহার করা যায়নি। আবার চেষ্টা করুন।"
+      "revokeError": "আমন্ত্রণ প্রত্যাহার করা যায়নি। আবার চেষ্টা করুন।",
+      "explain": {
+        "NONE": "{{name}}-কে এখনও আমন্ত্রণ পাঠানো হয়নি।",
+        "PENDING": "{{name}} এখনও অ্যাকাউন্ট সক্রিয় করেননি। লিংক পাওয়ার পর তিনি নিজের পাসওয়ার্ড ঠিক করে সাইন ইন করতে পারবেন।",
+        "EXPIRED": "আমন্ত্রণ লিংকের মেয়াদ শেষ। নতুন লিংক পাঠান।",
+        "REVOKED": "আমন্ত্রণ প্রত্যাহার করা হয়েছে। আবার পাঠালে নতুন লিংক যাবে।"
+      }
+    },
+    "facts": {
+      "role": "ভূমিকা",
+      "memberSince": "এই স্কুলে যোগদান",
+      "lastSignIn": "সর্বশেষ সাইন ইন",
+      "neverSignedIn": "এখনও করেননি"
+    },
+    "attendanceLeave": {
+      "todayTitle": "আজকের উপস্থিতি",
+      "monthTitle": "এই মাসের সারসংক্ষেপ",
+      "leaveTitle": "ছুটির ব্যালেন্স"
     }
+  },
+  "hrRecord": {
+    "comingSoon": "শীঘ্রই আসছে",
+    "loadError": "এই অংশটি লোড করা যায়নি। আবার চেষ্টা করুন।",
+    "saveError": "এই অংশটি সংরক্ষণ করা যায়নি। আবার চেষ্টা করুন।",
+    "sections": {
+      "job": "চাকরির তথ্য",
+      "promotion": "পদোন্নতি ও পদের ইতিহাস",
+      "family": "পরিবারের সদস্য",
+      "address": "ঠিকানা",
+      "experience": "কর্ম অভিজ্ঞতা",
+      "education": "শিক্ষা",
+      "training": "প্রশিক্ষণ",
+      "achievement": "অর্জন",
+      "language": "ভাষা",
+      "documents": "ডকুমেন্ট"
+    },
+    "job": {
+      "emptyTitle": "এখনো কোনো এইচআর রেকর্ড নেই",
+      "emptyExplanation": "এই কর্মীর চাকরির তথ্য এখনো পূরণ করা হয়নি।",
+      "addAction": "চাকরির তথ্য যুক্ত করুন",
+      "editAction": "চাকরির তথ্য সম্পাদনা করুন",
+      "indexNoLabel": "ইনডেক্স নং",
+      "salaryCodeLabel": "বেতন কোড",
+      "mpoDateLabel": "এমপিও তারিখ",
+      "salaryScaleLabel": "বেতন স্কেল",
+      "departmentLabel": "বিভাগ",
+      "bloodGroupLabel": "রক্তের গ্রুপ",
+      "religionLabel": "ধর্ম",
+      "errorMessage": "চাকরির তথ্য সংরক্ষণ করা যায়নি। আবার চেষ্টা করুন।",
+      "save": "সংরক্ষণ করুন",
+      "saving": "সংরক্ষণ করা হচ্ছে…",
+      "nameBnLabel": "নাম (বাংলা)",
+      "editActionShort": "সম্পাদনা"
+    },
+    "promotion": {
+      "promoteAction": "পদোন্নতি দিন",
+      "emptyTitle": "এখনো কোনো পদোন্নতি রেকর্ড নেই",
+      "emptyExplanation": "এই কর্মীকে এখনো পদোন্নতি বা পদবি দেওয়া হয়নি।",
+      "current": "বর্তমান",
+      "effectiveSince": "{{date}} থেকে কার্যকর",
+      "effectiveRange": "{{from}} – {{to}}"
+    },
+    "addRowAction": "সারি যুক্ত করুন",
+    "saveAction": "সংরক্ষণ করুন",
+    "family": {
+      "relationLabel": "সম্পর্ক",
+      "nameLabel": "নাম",
+      "occupationLabel": "পেশা",
+      "contactLabel": "যোগাযোগ",
+      "emptyExplanation": "এখনো কোনো পরিবারের সদস্য যুক্ত করা হয়নি।"
+    },
+    "address": {
+      "typeLabel": "ধরন",
+      "typePresent": "বর্তমান",
+      "typePermanent": "স্থায়ী",
+      "villageStreetLabel": "গ্রাম / সড়ক",
+      "postOfficeLabel": "ডাকঘর",
+      "upazilaLabel": "উপজেলা",
+      "districtLabel": "জেলা",
+      "emptyExplanation": "এখনো কোনো ঠিকানা যুক্ত করা হয়নি।"
+    },
+    "experience": {
+      "institutionLabel": "প্রতিষ্ঠান",
+      "designationLabel": "পদবি",
+      "fromDateLabel": "শুরুর তারিখ",
+      "toDateLabel": "শেষের তারিখ",
+      "descriptionLabel": "বর্ণনা",
+      "emptyExplanation": "এখনো কোনো কর্ম অভিজ্ঞতা যুক্ত করা হয়নি।"
+    },
+    "education": {
+      "degreeLabel": "ডিগ্রি",
+      "institutionLabel": "প্রতিষ্ঠান",
+      "boardUniversityLabel": "বোর্ড / বিশ্ববিদ্যালয়",
+      "resultLabel": "ফলাফল",
+      "passingYearLabel": "পাসের সাল",
+      "emptyExplanation": "এখনো কোনো শিক্ষাগত তথ্য যুক্ত করা হয়নি।"
+    },
+    "training": {
+      "titleLabel": "শিরোনাম",
+      "institutionLabel": "প্রতিষ্ঠান",
+      "fromDateLabel": "শুরুর তারিখ",
+      "toDateLabel": "শেষের তারিখ",
+      "certificateNoLabel": "সনদ নম্বর",
+      "emptyExplanation": "এখনো কোনো প্রশিক্ষণ যুক্ত করা হয়নি।"
+    },
+    "achievement": {
+      "titleLabel": "শিরোনাম",
+      "descriptionLabel": "বর্ণনা",
+      "dateLabel": "তারিখ",
+      "issuedByLabel": "প্রদানকারী",
+      "emptyExplanation": "এখনো কোনো অর্জন যুক্ত করা হয়নি।"
+    },
+    "language": {
+      "languageNameLabel": "ভাষা",
+      "proficiencyLabel": "দক্ষতা",
+      "emptyExplanation": "এখনো কোনো ভাষা যুক্ত করা হয়নি।"
+    },
+    "documents": {
+      "notUploaded": "এখনো আপলোড করা হয়নি",
+      "uploadAction": "আপলোড করুন",
+      "replaceAction": "প্রতিস্থাপন করুন",
+      "uploadError": "এই ফাইলটি আপলোড করা যায়নি। আবার চেষ্টা করুন।",
+      "downloadError": "এই ফাইলটি ডাউনলোড করা যায়নি। আবার চেষ্টা করুন।",
+      "types": {
+        "NID": "জাতীয় পরিচয়পত্র",
+        "BIRTH_CERTIFICATE": "জন্ম সনদ",
+        "PHOTO": "ছবি",
+        "OTHER": "অন্যান্য ডকুমেন্ট"
+      }
+    },
+    "promote": {
+      "title": "কর্মীর পদোন্নতি দিন",
+      "description": "একটি নির্দিষ্ট তারিখ থেকে কার্যকর নতুন পদবি নির্ধারণ করুন। বর্তমান পদবি তার আগের দিন শেষ হবে।",
+      "designationLabel": "নতুন পদবি",
+      "designationPlaceholder": "একটি পদবি নির্বাচন করুন",
+      "effectiveDateLabel": "কার্যকরের তারিখ",
+      "notesLabel": "মন্তব্য (ঐচ্ছিক)",
+      "errorDesignationRequired": "একটি পদবি নির্বাচন করুন।",
+      "errorEffectiveDateRequired": "একটি কার্যকরের তারিখ নির্বাচন করুন।",
+      "errorConflict": "এই কর্মীর ইতিমধ্যে সেই তারিখে বা পরে একটি পদবি পরিবর্তন রয়েছে।",
+      "errorMessage": "এই পদোন্নতি সংরক্ষণ করা যায়নি। আবার চেষ্টা করুন।",
+      "save": "পদোন্নতি দিন",
+      "saving": "সংরক্ষণ করা হচ্ছে…"
+    }
+  },
+  "documents": {
+    "photoTitle": "আইডি কার্ডের ছবি",
+    "photoOnFile": "এইচআর রেকর্ডে ছবি আছে।",
+    "photoMissing": "এখনও ছবি নেই। এইচআর রেকর্ডে যোগ করুন।",
+    "openHrRecord": "এইচআর রেকর্ড খুলুন",
+    "historyTitle": "প্রিন্ট করা ডকুমেন্ট",
+    "printButton": "আইডি কার্ড প্রিন্ট"
+  },
+  "roleDescriptions": {
+    "SUPER_ADMIN": "সব স্কুলের উপর প্ল্যাটফর্ম পর্যায়ের অনুমতি।",
+    "ADMIN": "স্কুলের সবকিছু: মানুষ, ফি, পরীক্ষা আর সেটিংস।",
+    "ACCOUNTANT": "ফি, টাকা জমা, চালান আর হিসাবের প্রতিবেদন।",
+    "TEACHER": "নিজের শ্রেণি ও শাখা: উপস্থিতি, বাড়ির কাজ আর নম্বর।",
+    "EXECUTIVE": "একাডেমিক তদারকি: শিক্ষার্থী, কর্মী, ফলাফল আর প্রতিবেদন — টাকা বা সেটিংস নয়।",
+    "OFFICE_STAFF": "ভর্তি, ছাত্রের তথ্য, প্রিন্ট আর SMS — টাকা বা সেটিংস নয়।",
+    "EXAM_CONTROLLER": "পুরো স্কুলের পরীক্ষা, নম্বর, ফলাফল আর আসন পরিকল্পনা।",
+    "COMMITTEE": "ড্যাশবোর্ড, কর্মী মূল্যায়ন আর ক্যালেন্ডার শুধু দেখা যাবে — ছাত্রছাত্রীর তথ্য নয়।"
+  },
+  "rolesAccess": {
+    "title": "ভূমিকা ও অনুমতি",
+    "subtitle": "এই স্কুলে কোন ভূমিকা কী দেখতে ও করতে পারে। শুধু দেখার জন্য।",
+    "scopeLabel": "তথ্য দেখার সীমা",
+    "scope": {
+      "TENANT": "পুরো স্কুল",
+      "ASSIGNED_SECTIONS": "শুধু নিজের শাখা",
+      "FAMILY": "নিজের পরিবার",
+      "SELF": "শুধু নিজের তথ্য"
+    },
+    "permissionCount_one": "{{count}}টি অনুমতি",
+    "permissionCount_other": "{{count}}টি অনুমতি"
+  },
+  "permissions": {
+    "groups": {
+      "users": "কর্মী ও অ্যাকাউন্ট",
+      "students": "শিক্ষার্থী",
+      "guardians": "অভিভাবক",
+      "admissions": "ভর্তি",
+      "fees": "ফি",
+      "invoicesPayments": "চালান ও পেমেন্ট",
+      "communication": "যোগাযোগ",
+      "reports": "প্রতিবেদন ও ড্যাশবোর্ড",
+      "academics": "একাডেমিক",
+      "homework": "বাড়ির কাজ",
+      "attendance": "উপস্থিতি ও ছুটি",
+      "exams": "পরীক্ষা ও ফলাফল",
+      "evaluations": "মূল্যায়ন",
+      "printing": "প্রিন্ট ও ডকুমেন্ট",
+      "administration": "প্রশাসন"
+    },
+    "items": {
+      "USER_CREATE": "কর্মী যোগ",
+      "USER_READ": "কর্মী দেখা",
+      "USER_UPDATE": "কর্মীর তথ্য বদলানো",
+      "USER_DELETE": "অ্যাকাউন্ট মোছা",
+      "MEMBER_REMOVE": "স্কুল থেকে সরানো",
+      "STAFF_HR_READ": "এইচআর রেকর্ড দেখা",
+      "STAFF_HR_MANAGE": "এইচআর রেকর্ড বদলানো",
+      "STUDENT_CREATE": "শিক্ষার্থী যোগ",
+      "STUDENT_READ": "শিক্ষার্থী দেখা",
+      "STUDENT_UPDATE": "শিক্ষার্থীর তথ্য বদলানো",
+      "STUDENT_DELETE": "শিক্ষার্থী মোছা",
+      "STUDENT_BULK_UPLOAD": "একসাথে শিক্ষার্থী আমদানি",
+      "STUDENT_LIFECYCLE_MANAGE": "ছাড়পত্র ও পুনর্ভর্তি",
+      "STUDENT_NOTES_READ": "নোট দেখা",
+      "STUDENT_NOTES_WRITE": "নোট লেখা",
+      "STUDENT_RECORDS_READ": "রেকর্ড দেখা",
+      "STUDENT_RECORDS_WRITE": "রেকর্ড লেখা",
+      "GUARDIAN_CREATE": "অভিভাবক যোগ",
+      "GUARDIAN_READ": "অভিভাবক দেখা",
+      "GUARDIAN_UPDATE": "অভিভাবকের তথ্য বদলানো",
+      "GUARDIAN_DELETE": "অভিভাবক মোছা",
+      "ADMISSION_REVIEW": "ভর্তির আবেদন যাচাই",
+      "FEE_STRUCTURE_CREATE": "ফি কাঠামো তৈরি",
+      "FEE_STRUCTURE_READ": "ফি কাঠামো দেখা",
+      "FEE_STRUCTURE_UPDATE": "ফি কাঠামো বদলানো",
+      "FEE_STRUCTURE_DELETE": "ফি কাঠামো মোছা",
+      "FEE_GENERATE": "ফি তৈরি",
+      "FEE_READ": "ফি দেখা",
+      "FEE_COLLECT": "ফি আদায়",
+      "FEE_APPROVE": "ফি-সংক্রান্ত কাজ অনুমোদন",
+      "DISCOUNT_RULE_MANAGE": "ছাড়ের নিয়ম",
+      "SCHEDULE_MANAGE": "স্বয়ংক্রিয় বিলের নিয়ম",
+      "INVOICE_CREATE": "চালান তৈরি",
+      "INVOICE_READ": "চালান দেখা",
+      "INVOICE_PRINT": "চালান প্রিন্ট",
+      "INVOICE_DELETE": "চালান মোছা",
+      "PAYMENT_RECORD": "পেমেন্ট রেকর্ড",
+      "PAYMENT_READ": "সব পেমেন্ট দেখা",
+      "PAYMENT_REFUND": "টাকা ফেরত",
+      "PAYMENT_REVERSE": "পেমেন্ট বাতিল",
+      "COMMUNICATION_SEND": "বার্তা পাঠানো",
+      "COMMUNICATION_BULK_SEND": "একসাথে অনেককে বার্তা",
+      "COMMUNICATION_LOG_READ": "পাঠানো বার্তার তালিকা দেখা",
+      "COMMUNICATION_CREDIT_READ": "এসএমএস ক্রেডিট দেখা",
+      "REPORTS_VIEW": "প্রতিবেদন দেখা",
+      "REPORTS_EXPORT": "প্রতিবেদন এক্সপোর্ট",
+      "REPORT_COLLECTIONS_READ": "আদায় প্রতিবেদন দেখা",
+      "DASHBOARD_VIEW": "ড্যাশবোর্ড দেখা",
+      "DASHBOARD_ADMIN": "পুরো স্কুলের ড্যাশবোর্ড",
+      "ACADEMIC_YEAR_MANAGE": "শিক্ষাবর্ষ পরিচালনা",
+      "CLASS_MANAGE": "শ্রেণি ও শাখা পরিচালনা",
+      "MY_CLASS_VIEW": "শ্রেণি শিক্ষকের ‘আমার শ্রেণি’ পাতা দেখা",
+      "ACADEMIC_STRUCTURE_READ": "শ্রেণি, শাখা ও বিষয় দেখা",
+      "CURRICULUM_PRESET_APPLY": "তৈরি শিক্ষাক্রম চালু করা",
+      "CALENDAR_READ": "ক্যালেন্ডার দেখা",
+      "CALENDAR_MANAGE": "ক্যালেন্ডার পরিচালনা",
+      "ROUTINE_READ": "রুটিন দেখা",
+      "ROUTINE_MANAGE": "রুটিন পরিচালনা",
+      "SYLLABUS_READ": "সিলেবাস দেখা",
+      "SYLLABUS_MANAGE": "সিলেবাস পরিচালনা",
+      "PROGRAM_READ": "প্রোগ্রাম দেখা",
+      "PROGRAM_MANAGE": "প্রোগ্রাম পরিচালনা",
+      "PROGRAM_RECORD": "মাইলস্টোন রেকর্ড",
+      "HOMEWORK_READ": "বাড়ির কাজ দেখা",
+      "HOMEWORK_ASSIGN": "বাড়ির কাজ দেওয়া",
+      "HOMEWORK_GRADE": "বাড়ির কাজ মূল্যায়ন",
+      "HOMEWORK_IMPORT": "বাড়ির কাজ আমদানি",
+      "ATTENDANCE_READ": "উপস্থিতি দেখা",
+      "ATTENDANCE_MARK": "উপস্থিতি নেওয়া",
+      "ATTENDANCE_CORRECT": "উপস্থিতি সংশোধন",
+      "ATTENDANCE_DEVICE_MANAGE": "উপস্থিতির যন্ত্র পরিচালনা",
+      "STAFF_ATTENDANCE_READ": "কর্মীর উপস্থিতি দেখা",
+      "STAFF_ATTENDANCE_MARK": "কর্মীর উপস্থিতি নেওয়া",
+      "LEAVE_APPROVE": "ছুটি অনুমোদন",
+      "EXAM_MANAGE": "পরীক্ষা পরিচালনা",
+      "GRADING_SCALE_MANAGE": "গ্রেডিং স্কেল পরিচালনা",
+      "MARK_ENTER": "নম্বর দেওয়া",
+      "MARK_VIEW": "নম্বর দেখা",
+      "RESULT_PROCESS": "ফলাফল তৈরি",
+      "RESULT_PUBLISH": "ফলাফল প্রকাশ",
+      "RESULT_READ": "ফলাফল দেখা",
+      "SEAT_PLAN_MANAGE": "সিট প্ল্যান পরিচালনা",
+      "PROMOTION_MANAGE": "প্রমোশন পরিচালনা",
+      "PROMOTION_OVERRIDE": "প্রমোশনের সিদ্ধান্ত বদলানো",
+      "ACR_READ": "এসিআর দেখা",
+      "ACR_WRITE": "এসিআর লেখা ও ঘটনা জানানো",
+      "PRINT_TEMPLATE_MANAGE": "প্রিন্ট টেমপ্লেট পরিচালনা",
+      "DOCUMENT_PRINT": "ডকুমেন্ট প্রিন্ট",
+      "PRINT_HISTORY_READ": "প্রিন্টের ইতিহাস দেখা",
+      "DOCUMENT_REVOKE": "ডকুমেন্ট বাতিল",
+      "AUDIT_LOG_READ": "নিরীক্ষা লগ দেখা",
+      "AUDIT_ENTITY_HISTORY_READ": "কার্যক্রমের ইতিহাস দেখা",
+      "SETTINGS_MANAGE": "সেটিংস পরিচালনা",
+      "BACKUP_MANAGE": "ব্যাকআপ ও পুনরুদ্ধার"
+    }
+  },
+  "filters": {
+    "membership": {
+      "label": "সদস্যপদ",
+      "current": "বর্তমান",
+      "former": "প্রাক্তন"
+    }
+  },
+  "former": {
+    "leftOn": "{{date}} তারিখে ছেড়েছেন",
+    "bringBack": "ফিরিয়ে আনুন",
+    "bringBackConfirm": "{{name}}-কে কি এই স্কুলে ফিরিয়ে আনবেন? তিনি আবার প্রবেশাধিকার পাবেন।",
+    "restored": "{{name}} ফিরে এসেছেন।",
+    "errorMessage": "এঁকে ফিরিয়ে আনা যায়নি। আবার চেষ্টা করুন।",
+    "emptyMessage": "কোনো প্রাক্তন কর্মী নেই",
+    "emptyExplanation": "স্কুল থেকে সরানো মানুষেরা এখানে দেখাবেন।"
   }
 }

@@ -16,6 +16,11 @@
  */
 import * as React from 'react';
 
+import { useTranslation } from '../i18n';
+
+import { PageContainer } from './page-container';
+import { PageHeader } from './page-header';
+
 export interface FormShellError {
   /** Must match the target field's `id` — used both for the summary
    * link's `href="#id"` fallback and for `document.getElementById(id)
@@ -32,6 +37,7 @@ export interface FormShellError {
 
 export interface FormShellProps {
   title?: string;
+  subtitle?: string | undefined;
   errors: FormShellError[];
   /** `form.formState.submitCount` from react-hook-form — the trigger for
    * "focus moves to the summary on submit failure", distinct from the
@@ -41,7 +47,15 @@ export interface FormShellProps {
   children: React.ReactNode;
 }
 
-export function FormShell({ title, errors, submitCount, onSubmit, children }: FormShellProps) {
+export function FormShell({
+  title,
+  subtitle,
+  errors,
+  submitCount,
+  onSubmit,
+  children,
+}: FormShellProps) {
+  const { t } = useTranslation();
   const summaryRef = React.useRef<HTMLDivElement>(null);
   const lastSubmitCount = React.useRef(submitCount);
   // Generated, not a hardcoded string — more than one FormShell on a page
@@ -64,48 +78,49 @@ export function FormShell({ title, errors, submitCount, onSubmit, children }: Fo
   }, [errors.length, submitCount]);
 
   return (
-    <form onSubmit={onSubmit} noValidate className="flex max-w-xl flex-col gap-6">
-      {title && <h1 className="text-lg font-semibold">{title}</h1>}
-      {errors.length > 0 && (
-        <div
-          ref={summaryRef}
-          tabIndex={-1}
-          role="alert"
-          aria-labelledby={headingId}
-          className="rounded-lg border border-destructive/50 bg-destructive/5 p-4 focus:outline-none"
-        >
-          <p id={headingId} className="font-medium text-destructive">
-            {errors.length === 1 ? 'There is 1 problem' : `There are ${errors.length} problems`}{' '}
-            with your submission
-          </p>
-          <ul className="mt-2 list-disc ps-5">
-            {errors.map((error) => (
-              <li key={error.field}>
-                <a
-                  href={`#${error.field}`}
-                  className="text-destructive underline underline-offset-2"
-                  onClick={(event) => {
-                    event.preventDefault();
-                    // preventDefault above also cancels the browser's own
-                    // hash-navigation scroll, so this doesn't just rely on
-                    // focus() auto-scrolling a focused element into view
-                    // (real, but browser-dependent) — scrollIntoView makes
-                    // it explicit and centers the field rather than
-                    // leaving it flush against whichever edge.
-                    const target = document.getElementById(error.field);
-                    target?.focus();
-                    target?.scrollIntoView({ block: 'center' });
-                  }}
-                >
-                  {error.message}
-                </a>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-      {children}
-    </form>
+    <PageContainer size="narrow">
+      <form onSubmit={onSubmit} noValidate className="flex flex-col gap-6">
+        {title && <PageHeader title={title} subtitle={subtitle} />}
+        {errors.length > 0 && (
+          <div
+            ref={summaryRef}
+            tabIndex={-1}
+            role="alert"
+            aria-labelledby={headingId}
+            className="rounded-lg border border-destructive/50 bg-destructive/5 p-4 focus:outline-none"
+          >
+            <p id={headingId} className="font-medium text-destructive">
+              {t('formShell.summary', { count: errors.length })}
+            </p>
+            <ul className="mt-2 list-disc ps-5">
+              {errors.map((error) => (
+                <li key={error.field}>
+                  <a
+                    href={`#${error.field}`}
+                    className="text-destructive underline underline-offset-2"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      // preventDefault above also cancels the browser's own
+                      // hash-navigation scroll, so this doesn't just rely on
+                      // focus() auto-scrolling a focused element into view
+                      // (real, but browser-dependent) — scrollIntoView makes
+                      // it explicit and centers the field rather than
+                      // leaving it flush against whichever edge.
+                      const target = document.getElementById(error.field);
+                      target?.focus();
+                      target?.scrollIntoView({ block: 'center' });
+                    }}
+                  >
+                    {error.message}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {children}
+      </form>
+    </PageContainer>
   );
 }
 
@@ -120,7 +135,7 @@ export interface FormSectionProps {
 export function FormSection({ legend, children }: FormSectionProps) {
   return (
     <fieldset className="flex min-w-0 flex-col gap-4 rounded-lg border border-border-subtle p-4">
-      <legend className="px-1 text-sm font-medium">{legend}</legend>
+      <legend className="px-1 text-h3">{legend}</legend>
       {children}
     </fieldset>
   );

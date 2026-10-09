@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import { NotFoundException } from '@nestjs/common';
+import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Repository, DataSource } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { StudentService, GuardianService } from './students.service';
+import { StudentService, GuardianService, redactHealthNotes } from './students.service';
 import { QueryStudentIdsDto } from './dto/students.dto';
 import { Student } from './entities/student.entity';
 import { Guardian } from './entities/guardian.entity';
@@ -13,8 +13,20 @@ import { Class } from '../academics/entities/class.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { createTestModule } from '@test/helpers/module.helper';
-import { SEED_TENANT_ID, SEED_SECTION_1_ID, SEED_ACADEMIC_YEAR_ID } from '@test/constants';
-import { EnrollmentStatus, CommunicationMedium, AuditAction } from '@biddaloy/shared';
+import {
+  SEED_TENANT_ID,
+  SEED_SECTION_1_ID,
+  SEED_SECTION_2_ID,
+  SEED_ACADEMIC_YEAR_ID,
+} from '@test/constants';
+import {
+  EnrollmentStatus,
+  CommunicationMedium,
+  AuditAction,
+  Permission,
+  UserRole,
+  roleHasPermission,
+} from '@biddaloy/shared';
 import { AuditService } from '../audit/audit.service';
 import { AuditLog } from '../audit/entities/audit-log.entity';
 
@@ -84,6 +96,16 @@ async function seedReferenceData(ds: DataSource): Promise<void> {
     sectionRepo.create({
       id: SEED_SECTION_1_ID,
       section_name: 'Section A',
+      class_id: SEED_TENANT_ID,
+      tenant_id: SEED_TENANT_ID,
+    }),
+  );
+  // [#1020] A second section on the SAME class/year, purely so `update()`
+  // tests have somewhere to move a student's `class_section_id` to.
+  await sectionRepo.save(
+    sectionRepo.create({
+      id: SEED_SECTION_2_ID,
+      section_name: 'Section B',
       class_id: SEED_TENANT_ID,
       tenant_id: SEED_TENANT_ID,
     }),
@@ -174,6 +196,92 @@ describe('StudentService (integration)', () => {
       await dataSource.query('DELETE FROM guardians');
       await dataSource.query('DELETE FROM students');
     }
+  });
+
+  describe('profile fields [39.2.1]', () => {
+    const profile = {
+      religion: 'Islam',
+      birth_reg_no: '19900123456789012',
+      health_notes: 'Peanut allergy',
+      father_name: 'Karim',
+      mother_name: 'Rahima',
+    };
+
+    it('round-trips the five fields through create, read and update', async () => {
+      const created = await service.create(
+        { full_name: 'P One', class_section_id: SEED_SECTION_1_ID, ...profile },
+        TENANT_ID,
+      );
+      expect(created).toMatchObject(profile);
+      const updated = await service.update(
+        created.id,
+        { religion: 'Hindu', mother_name: null },
+        TENANT_ID,
+      );
+      expect(updated.religion).toBe('Hindu');
+      expect(updated.mother_name).toBeNull();
+      expect(updated.father_name).toBe('Karim');
+    });
+
+    it('ACCOUNTANT (no RECORDS_READ) and PARENT never see health_notes; ADMIN does', async () => {
+      const created = await service.create(
+        { full_name: 'P Two', class_section_id: SEED_SECTION_1_ID, ...profile },
+        TENANT_ID,
+      );
+      for (const role of [UserRole.ACCOUNTANT, UserRole.PARENT, UserRole.STUDENT]) {
+        const s = redactHealthNotes(
+          await service.findOne(created.id, TENANT_ID),
+          roleHasPermission(role, Permission.STUDENT_RECORDS_READ),
+        );
+        expect(s).not.toHaveProperty('health_notes');
+      }
+      const admin = redactHealthNotes(
+        await service.findOne(created.id, TENANT_ID),
+        roleHasPermission(UserRole.ADMIN, Permission.STUDENT_RECORDS_READ),
+      );
+      expect(admin.health_notes).toBe('Peanut allergy');
+    });
+
+    it('duplicate birth_reg_no in the same school is 409 (create and update); another school is fine', async () => {
+      await service.create(
+        {
+          full_name: 'D One',
+          class_section_id: SEED_SECTION_1_ID,
+          birth_reg_no: profile.birth_reg_no,
+        },
+        TENANT_ID,
+      );
+      await expect(
+        service.create(
+          {
+            full_name: 'D Two',
+            class_section_id: SEED_SECTION_1_ID,
+            birth_reg_no: profile.birth_reg_no,
+          },
+          TENANT_ID,
+        ),
+      ).rejects.toThrow(ConflictException);
+
+      const other = await service.create(
+        { full_name: 'D Three', class_section_id: SEED_SECTION_1_ID },
+        TENANT_ID,
+      );
+      await expect(
+        service.update(other.id, { birth_reg_no: profile.birth_reg_no }, TENANT_ID),
+      ).rejects.toThrow(ConflictException);
+
+      // Same number in another tenant: insert directly (no section there), index is per tenant.
+      await studentRepo.save(
+        studentRepo.create({
+          full_name: 'Other',
+          registration_number: 'REG-X-1',
+          roll_number: 1,
+          class_section_id: OTHER_SECTION_ID,
+          birth_reg_no: profile.birth_reg_no,
+          tenant_id: OTHER_TENANT,
+        } as any),
+      );
+    });
   });
 
   describe('create', () => {
@@ -1004,6 +1112,128 @@ describe('StudentService (integration)', () => {
     });
   });
 
+  describe('update — Enrollment sync (#1020)', () => {
+    it('updates the existing ACTIVE Enrollment class_id/section_id when class_section_id changes', async () => {
+      const created = await service.create(
+        { full_name: 'Moves Sections', class_section_id: SEED_SECTION_1_ID },
+        TENANT_ID,
+      );
+      const before = await enrollmentRepo.findOne({
+        where: {
+          student_id: created.id,
+          tenant_id: TENANT_ID,
+          enrollment_status: EnrollmentStatus.ACTIVE,
+        },
+      });
+      expect(before?.section_id).toBe(SEED_SECTION_1_ID);
+
+      await service.update(created.id, { class_section_id: SEED_SECTION_2_ID }, TENANT_ID);
+
+      const enrollments = await enrollmentRepo.find({
+        where: { student_id: created.id, tenant_id: TENANT_ID },
+      });
+      // Still exactly one ACTIVE enrollment row for the student — the
+      // existing one was updated in place, not duplicated.
+      expect(enrollments).toHaveLength(1);
+      expect(enrollments[0].section_id).toBe(SEED_SECTION_2_ID);
+      expect(enrollments[0].id).toBe(before?.id);
+    });
+
+    it('creates an Enrollment when the student has none and class_section_id changes', async () => {
+      const created = await service.create(
+        { full_name: 'No Enrollment Yet', class_section_id: SEED_SECTION_1_ID },
+        TENANT_ID,
+      );
+      // Simulate a pre-existing gap the migration would otherwise backfill.
+      await enrollmentRepo.delete({ student_id: created.id });
+      const noneBefore = await enrollmentRepo.findOne({ where: { student_id: created.id } });
+      expect(noneBefore).toBeNull();
+
+      await service.update(created.id, { class_section_id: SEED_SECTION_2_ID }, TENANT_ID);
+
+      const enrollment = await enrollmentRepo.findOne({
+        where: {
+          student_id: created.id,
+          tenant_id: TENANT_ID,
+          enrollment_status: EnrollmentStatus.ACTIVE,
+        },
+      });
+      expect(enrollment).not.toBeNull();
+      expect(enrollment?.section_id).toBe(SEED_SECTION_2_ID);
+    });
+
+    it('touches no Enrollment row when class_section_id is absent from the DTO', async () => {
+      const created = await service.create(
+        { full_name: 'Name Only Update', class_section_id: SEED_SECTION_1_ID },
+        TENANT_ID,
+      );
+      const before = await enrollmentRepo.findOne({ where: { student_id: created.id } });
+
+      await service.update(created.id, { full_name: 'Renamed' }, TENANT_ID);
+
+      const after = await enrollmentRepo.findOne({ where: { student_id: created.id } });
+      expect(after?.id).toBe(before?.id);
+      expect(after?.section_id).toBe(SEED_SECTION_1_ID);
+      expect(after?.updated_at).toEqual(before?.updated_at);
+    });
+
+    it('updates the *current year`s* Enrollment, not an older year`s, when moved to a section in a different academic year', async () => {
+      // A student's newest ACTIVE enrollment can be from a past year (e.g.
+      // seeded/backfilled data) while the section they're being moved to
+      // belongs to a different, current year — the enrollment picked and
+      // updated must be the one for the *target* year, or both years' exam
+      // cohorts end up wrong (#1020 review finding 1).
+      const nextYear = await dataSource.getRepository(AcademicYear).save(
+        dataSource.getRepository(AcademicYear).create({
+          name: '2027-2028',
+          start_date: new Date('2027-01-01'),
+          end_date: new Date('2027-12-31'),
+          is_current: false,
+          tenant_id: TENANT_ID,
+        }),
+      );
+      const nextYearClass = await dataSource.getRepository(Class).save(
+        dataSource.getRepository(Class).create({
+          name: 'Six',
+          numeric_grade: 6,
+          academic_year_id: nextYear.id,
+          tenant_id: TENANT_ID,
+        }),
+      );
+      const nextYearSection = await dataSource.getRepository(ClassSection).save(
+        dataSource.getRepository(ClassSection).create({
+          class_id: nextYearClass.id,
+          section_name: 'A',
+          tenant_id: TENANT_ID,
+        }),
+      );
+
+      const created = await service.create(
+        { full_name: 'Cross Year Move', class_section_id: SEED_SECTION_1_ID },
+        TENANT_ID,
+      );
+      const originalEnrollment = await enrollmentRepo.findOneOrFail({
+        where: { student_id: created.id, tenant_id: TENANT_ID },
+      });
+
+      await service.update(created.id, { class_section_id: nextYearSection.id }, TENANT_ID);
+
+      // The original year's enrollment is untouched...
+      const originalYearEnrollment = await enrollmentRepo.findOneOrFail({
+        where: { id: originalEnrollment.id },
+      });
+      expect(originalYearEnrollment.section_id).toBe(SEED_SECTION_1_ID);
+      expect(originalYearEnrollment.academic_year_id).toBe(SEED_ACADEMIC_YEAR_ID);
+
+      // ...and a separate, new enrollment row exists for the target year.
+      const newYearEnrollment = await enrollmentRepo.findOneOrFail({
+        where: { student_id: created.id, academic_year_id: nextYear.id },
+      });
+      expect(newYearEnrollment.section_id).toBe(nextYearSection.id);
+      expect(newYearEnrollment.class_id).toBe(nextYearClass.id);
+    });
+  });
+
   describe('remove (soft delete)', () => {
     it('should soft delete a student', async () => {
       const created = await service.create(
@@ -1167,6 +1397,30 @@ describe('GuardianService (integration)', () => {
 
       expect(result.data).toHaveLength(2);
       expect(result.total).toBe(2);
+    });
+
+    // [31.3.7d] The column holds mixed case (`Father` from forms, `OTHER` default).
+    it('filters by relationship in any letter case, tenant-scoped', async () => {
+      const make = (full_name: string, relationship: string, tenant_id: string) =>
+        guardianRepo.save(
+          guardianRepo.create({ full_name, relationship, phone: '+880****0009', tenant_id }),
+        );
+      await make('Mixed Father', 'Father', TENANT_ID);
+      await make('Lower Father', 'father', TENANT_ID);
+      await make('Other Guardian', 'OTHER', TENANT_ID);
+      await make('Foreign Father', 'Father', OTHER_TENANT);
+
+      const fathers = await service.findAll(
+        { relationship: 'Father', page: 1, limit: 10 } as never,
+        TENANT_ID,
+      );
+      expect(fathers.data.map((g) => g.full_name).sort()).toEqual(['Lower Father', 'Mixed Father']);
+
+      const others = await service.findAll(
+        { relationship: 'other', page: 1, limit: 10 } as never,
+        TENANT_ID,
+      );
+      expect(others.data.map((g) => g.full_name)).toEqual(['Other Guardian']);
     });
 
     it('should search guardians by name, phone, or email', async () => {

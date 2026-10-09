@@ -1,5 +1,6 @@
 import type { BandInput } from '@biddaloy/ui/hooks';
-import { I18nProvider, i18n } from '@biddaloy/ui/i18n';
+import { I18nProvider, REGION_BD_BN, i18n } from '@biddaloy/ui/i18n';
+import { formatNumber } from '@biddaloy/ui/utils';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import * as React from 'react';
@@ -32,18 +33,22 @@ const ONE_BAND: BandInput[] = [
   },
 ];
 
+const num = (n: number) => formatNumber(n, REGION_BD_BN);
+// Every cell is labelled "Row <n> — <column>"; these match a column across rows.
+const col = (name: string) => new RegExp(`— ${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`);
+
 describe('BandEditor', () => {
   it('Enter in the last row appends a band starting from the previous percent_to + 1', async () => {
     const user = userEvent.setup();
     render(<Controlled initial={ONE_BAND} />);
 
-    const gradeInputs = await screen.findAllByLabelText('Grade');
+    const gradeInputs = await screen.findAllByLabelText(col('Grade'));
     await user.click(gradeInputs[gradeInputs.length - 1]!);
     await user.keyboard('{Enter}');
 
-    const fromInputs = screen.getAllByLabelText<HTMLInputElement>('From %');
+    const fromInputs = screen.getAllByLabelText<HTMLInputElement>(col('From (%)'));
     expect(fromInputs).toHaveLength(2);
-    expect(fromInputs[1]!.value).toBe('90');
+    expect(fromInputs[1]!.value).toBe(num(90));
   });
 
   it('Enter on a row that is not last does not append a new band', async () => {
@@ -62,11 +67,11 @@ describe('BandEditor', () => {
     ];
     render(<Controlled initial={twoBands} />);
 
-    const gradeInputs = await screen.findAllByLabelText('Grade');
+    const gradeInputs = await screen.findAllByLabelText(col('Grade'));
     await user.click(gradeInputs[0]!);
     await user.keyboard('{Enter}');
 
-    expect(screen.getAllByLabelText('Grade')).toHaveLength(2);
+    expect(screen.getAllByLabelText(col('Grade'))).toHaveLength(2);
   });
 
   it('deleting a band leaves the resulting gap — does not renumber or re-close the range', async () => {
@@ -94,28 +99,28 @@ describe('BandEditor', () => {
     ];
     render(<Controlled initial={threeBands} />);
 
-    const deleteButtons = await screen.findAllByRole('button', { name: 'Delete' });
+    const deleteButtons = await screen.findAllByRole('button', { name: col('Delete row') });
     await user.click(deleteButtons[1]!);
 
-    const fromInputs = screen.getAllByLabelText<HTMLInputElement>('From %');
-    expect(fromInputs.map((input) => input.value)).toEqual(['80', '0']);
+    const fromInputs = screen.getAllByLabelText<HTMLInputElement>(col('From (%)'));
+    expect(fromInputs.map((input) => input.value)).toEqual([num(80), num(0)]);
   });
 
   it('Tab moves focus through a row in column order', async () => {
     const user = userEvent.setup();
     render(<Controlled initial={ONE_BAND} />);
 
-    const fromInput = (await screen.findAllByLabelText('From %'))[0]!;
+    const fromInput = (await screen.findAllByLabelText(col('From (%)')))[0]!;
     fromInput.focus();
     await user.tab();
-    expect(document.activeElement).toBe(screen.getAllByLabelText('To %')[0]);
+    expect(document.activeElement).toBe(screen.getAllByLabelText(col('To (%)'))[0]);
   });
 
   it('editing GPA updates the value, and clearing it stores null not a placeholder', async () => {
     const user = userEvent.setup();
     render(<Controlled initial={ONE_BAND} />);
 
-    const gpaInput = (await screen.findAllByLabelText<HTMLInputElement>('GPA'))[0]!;
+    const gpaInput = (await screen.findAllByLabelText<HTMLInputElement>(col('GPA')))[0]!;
     await user.clear(gpaInput);
     await user.type(gpaInput, '4.5');
     expect(gpaInput.value).toBe('4.5');
@@ -124,21 +129,45 @@ describe('BandEditor', () => {
     expect(gpaInput.value).toBe('');
   });
 
-  it('toggling "Fail" flips is_fail', async () => {
+  it('shows tenant numerals and accepts Bangla digits: typing ৮৫ stores 85', async () => {
+    const user = userEvent.setup();
+    const seen: BandInput[][] = [];
+    render(
+      <I18nProvider>
+        <BandEditor bands={ONE_BAND} onChange={(next) => seen.push(next)} />
+      </I18nProvider>,
+    );
+
+    const from = (await screen.findAllByLabelText<HTMLInputElement>(col('From (%)')))[0]!;
+    expect(from.value).toBe(num(80));
+    await user.clear(from);
+    await user.type(from, '৮৫');
+    expect(seen.at(-1)![0]!.percent_from).toBe(85);
+  });
+
+  it('ticking "Fail grade" clears the GPA and disables its input', async () => {
     const user = userEvent.setup();
     render(<Controlled initial={ONE_BAND} />);
 
-    const failCheckbox = (await screen.findAllByLabelText('Fail'))[0]!;
+    const failCheckbox = (await screen.findAllByLabelText(col('Fail grade')))[0]!;
     expect(failCheckbox.getAttribute('aria-checked')).toBe('false');
     await user.click(failCheckbox);
     expect(failCheckbox.getAttribute('aria-checked')).toBe('true');
+    const gpa = screen.getAllByLabelText<HTMLInputElement>(col('GPA'))[0]!;
+    expect(gpa.value).toBe('');
+    expect(gpa.disabled).toBe(true);
+
+    await user.click(failCheckbox);
+    expect(gpa.disabled).toBe(false);
   });
 
   it('editing the comment updates it, and clearing it stores null', async () => {
     const user = userEvent.setup();
     render(<Controlled initial={ONE_BAND} />);
 
-    const commentInput = (await screen.findAllByLabelText<HTMLInputElement>('Comment'))[0]!;
+    const commentInput = (
+      await screen.findAllByLabelText<HTMLInputElement>(col('Comment (optional)'))
+    )[0]!;
     await user.type(commentInput, 'Distinction');
     expect(commentInput.value).toBe('Distinction');
 
@@ -146,24 +175,29 @@ describe('BandEditor', () => {
     expect(commentInput.value).toBe('');
   });
 
-  it('editing To % updates the band', async () => {
+  it('editing To (%) updates the band', async () => {
     const user = userEvent.setup();
     render(<Controlled initial={ONE_BAND} />);
 
-    const toInput = (await screen.findAllByLabelText<HTMLInputElement>('To %'))[0]!;
+    const toInput = (await screen.findAllByLabelText<HTMLInputElement>(col('To (%)')))[0]!;
     await user.clear(toInput);
     await user.type(toInput, '95');
     expect(toInput.value).toBe('95');
   });
 
-  it('"Add band" appends a band continuing from the last one\'s percent_to', async () => {
+  it('"Add row" appends a band continuing from the last one\'s percent_to', async () => {
     const user = userEvent.setup();
     render(<Controlled initial={ONE_BAND} />);
 
-    await user.click(screen.getByRole('button', { name: 'Add band' }));
+    await user.click(screen.getByRole('button', { name: 'Add row' }));
 
-    const fromInputs = screen.getAllByLabelText<HTMLInputElement>('From %');
+    const fromInputs = screen.getAllByLabelText<HTMLInputElement>(col('From (%)'));
     expect(fromInputs).toHaveLength(2);
-    expect(fromInputs[1]!.value).toBe('90');
+    expect(fromInputs[1]!.value).toBe(num(90));
+  });
+
+  it('shows the Enter shortcut hint', async () => {
+    render(<Controlled initial={ONE_BAND} />);
+    expect(await screen.findByText('Enter')).toBeTruthy();
   });
 });

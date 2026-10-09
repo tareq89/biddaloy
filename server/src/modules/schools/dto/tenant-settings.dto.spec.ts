@@ -5,6 +5,7 @@ import { TenantSettingsDto, TENANT_SETTINGS_SCHEMA_VERSION } from './tenant-sett
 import {
   DEFAULT_ATTENDANCE_SETTINGS,
   DEFAULT_AUTH_SETTINGS,
+  DEFAULT_FEES_SETTINGS,
   DEFAULT_REGION_SETTINGS,
 } from '../settings/tenant-settings-defaults';
 
@@ -389,6 +390,41 @@ describe('TenantSettingsDto', () => {
       expect(errors.find((e) => e.property === 'attendance')).toBeUndefined();
     });
 
+    describe('shiftTimes / periodAttendance', () => {
+      const SHIFT = '6b1f3c1e-5d2a-4c8e-9a47-1f2e3d4c5b6a';
+      const entry = { shiftId: SHIFT, lateAfter: '12:15', absentAfter: '14:00' };
+      const run = async (patch: Record<string, unknown>) => {
+        const dto = toDto({
+          version: TENANT_SETTINGS_SCHEMA_VERSION,
+          attendance: { ...DEFAULT_ATTENDANCE_SETTINGS, ...patch },
+        });
+        const errors = await validate(dto, VALIDATION_OPTIONS);
+        return errors.find((e) => e.property === 'attendance');
+      };
+
+      it('accepts a valid entry and the period switch', async () => {
+        expect(
+          await run({ shiftTimes: [entry], periodAttendance: { enabled: true } }),
+        ).toBeUndefined();
+      });
+      it('rejects a bad time', async () => {
+        expect(await run({ shiftTimes: [{ ...entry, lateAfter: '25:00' }] })).toBeDefined();
+      });
+      it('rejects a non-uuid shiftId', async () => {
+        expect(await run({ shiftTimes: [{ ...entry, shiftId: 'nope' }] })).toBeDefined();
+      });
+      it('rejects a duplicate shiftId', async () => {
+        expect(await run({ shiftTimes: [entry, entry] })).toBeDefined();
+      });
+      it('rejects 21 entries', async () => {
+        const many = Array.from({ length: 21 }, (_, i) => ({
+          ...entry,
+          shiftId: `6b1f3c1e-5d2a-4c8e-9a47-1f2e3d4c5b${String(i).padStart(2, '0')}`,
+        }));
+        expect(await run({ shiftTimes: many })).toBeDefined();
+      });
+    });
+
     it('rejects a weeklyOffDays entry outside 0-6', async () => {
       const dto = toDto({
         version: TENANT_SETTINGS_SCHEMA_VERSION,
@@ -631,11 +667,86 @@ describe('TenantSettingsDto', () => {
         const feesError = errors.find((e) => e.property === 'fees');
         expect(feesError?.children?.some((e) => e.property === 'lateFees')).toBe(true);
       });
+
+      it('[Epic 38 D10] rejects a FINE key in lateFees — a fine never gets a late fee', async () => {
+        const dto = toDto(
+          feesWithLateFees({
+            FINE: { enabled: true, grace_days: 5, kind: 'FLAT', value: 100 },
+          }),
+        );
+
+        const errors = await validate(dto, VALIDATION_OPTIONS);
+
+        const feesError = errors.find((e) => e.property === 'fees');
+        expect(feesError?.children?.some((e) => e.property === 'lateFees')).toBe(true);
+      });
+    });
+
+    describe('fineDueDays', () => {
+      function feesWithFineDueDays(fineDueDays: unknown): Record<string, unknown> {
+        return {
+          version: TENANT_SETTINGS_SCHEMA_VERSION,
+          fees: {
+            approvalMode: 'OTP',
+            notifyOnManualGenerationDefault: false,
+            notifyOnScheduleDefault: false,
+            fineDueDays,
+          },
+        };
+      }
+
+      it('[Epic 38 D10] rejects fineDueDays: 0', async () => {
+        const dto = toDto(feesWithFineDueDays(0));
+
+        const errors = await validate(dto, VALIDATION_OPTIONS);
+
+        const feesError = errors.find((e) => e.property === 'fees');
+        expect(feesError?.children?.some((e) => e.property === 'fineDueDays')).toBe(true);
+      });
+
+      it('[Epic 38 D10] accepts a valid fineDueDays', async () => {
+        const dto = toDto(feesWithFineDueDays(14));
+
+        const errors = await validate(dto, VALIDATION_OPTIONS);
+
+        expect(errors.find((e) => e.property === 'fees')).toBeUndefined();
+      });
+
+      it('[Epic 38 D10] default resolves to 7 when omitted', () => {
+        expect(DEFAULT_FEES_SETTINGS.fineDueDays).toBe(7);
+      });
+    });
+  });
+
+  describe('evaluations', () => {
+    const withEvaluations = (evaluations: unknown) =>
+      toDto({ version: TENANT_SETTINGS_SCHEMA_VERSION, evaluations });
+
+    it('[28.2.1] accepts incidentSmsEnabled true/false and an omitted value', async () => {
+      for (const evaluations of [{ incidentSmsEnabled: true }, { incidentSmsEnabled: false }, {}]) {
+        const errors = await validate(withEvaluations(evaluations), VALIDATION_OPTIONS);
+        expect(errors.find((e) => e.property === 'evaluations')).toBeUndefined();
+      }
+    });
+
+    it('[28.2.1] rejects a non-boolean incidentSmsEnabled', async () => {
+      const errors = await validate(
+        withEvaluations({ incidentSmsEnabled: 'yes' }),
+        VALIDATION_OPTIONS,
+      );
+      const err = errors.find((e) => e.property === 'evaluations');
+      expect(err?.children?.some((e) => e.property === 'incidentSmsEnabled')).toBe(true);
     });
   });
 
   // `organisation.{shifts,versions,groups}` (33.1.1) — a tenant's own
   // vocabulary for shift/version/group. Same validation on all three lists.
+  it('rejects a body containing preset (35.1.2, D37)', async () => {
+    const dto = toDto({ version: TENANT_SETTINGS_SCHEMA_VERSION, preset: { id: 'x' } });
+    const errors = await validate(dto, VALIDATION_OPTIONS);
+    expect(errors.some((e) => e.property === 'preset')).toBe(true);
+  });
+
   describe('organisation', () => {
     it('accepts a fully-specified organisation block', async () => {
       const dto = toDto({

@@ -11,7 +11,9 @@
  */
 import * as React from 'react';
 
+import { useTranslation } from '../i18n';
 import { Popover, PopoverAnchor, PopoverContent } from '../primitives/popover';
+import { toLatinDigits } from '../utils/digits';
 
 import { Input } from './input';
 
@@ -36,8 +38,7 @@ export interface ComboboxProps extends Omit<
   'aria-label': string;
   emptyText?: string;
   /** Template for the polite live-region announcement on every filter
-   * change — defaults to English; a Bangla-locale caller passes its own
-   * translated template until FormField/i18next wiring exists. */
+   * change — defaults to the translated `combobox.results` key. */
   announceResults?: (count: number) => string;
 }
 
@@ -46,22 +47,27 @@ export function Combobox({
   value,
   onValueChange,
   placeholder,
-  emptyText = 'No results',
-  announceResults = (count) => `${count} result${count === 1 ? '' : 's'}`,
+  emptyText,
+  announceResults,
   onFocus,
   ...props
 }: ComboboxProps) {
+  const { t } = useTranslation();
+  placeholder ??= t('form.selectPlaceholder');
+  emptyText ??= t('table.empty');
+  announceResults ??= (count) => t('combobox.results', { count });
   const [open, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState('');
   const [activeIndex, setActiveIndex] = React.useState(-1);
   const listboxId = React.useId();
 
   const selectedOption = options.find((option) => option.value === value) ?? null;
-  const trimmed = query.trim().toLowerCase();
+  // Latin digits on both sides: `৮` typed on a Latin keyboard is `8`.
+  const trimmed = toLatinDigits(query.trim().toLowerCase());
   const filtered =
     trimmed === ''
       ? options
-      : options.filter((option) => option.label.toLowerCase().includes(trimmed));
+      : options.filter((option) => toLatinDigits(option.label.toLowerCase()).includes(trimmed));
 
   function optionId(index: number): string {
     return `${listboxId}-option-${index}`;

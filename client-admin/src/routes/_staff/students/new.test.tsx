@@ -56,6 +56,32 @@ describe('/students/new', () => {
     expect(document.activeElement).toBe(summary);
   });
 
+  it('renders the full-page frame: heading, Close, gender select, one primary, Close goes to the list', async () => {
+    const { router } = renderWithRouter(routeTree, {
+      initialEntries: ['/students/new'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    expect(await screen.findByRole('heading', { name: 'Add student' })).toBeTruthy();
+    await user.click(await screen.findByRole('combobox', { name: 'Gender' }));
+    expect(screen.getAllByRole('option').map((option) => option.textContent)).toEqual([
+      'Not set',
+      'Male',
+      'Female',
+      'Other',
+    ]);
+    await user.keyboard('{Escape}');
+    expect(
+      screen.getByText('Leave blank to use the next roll number in the section.'),
+    ).toBeTruthy();
+
+    await user.click(screen.getByRole('button', { name: 'Close' }));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/students'));
+  });
+
   it('choosing a class loads that class’s sections, and section resets when class changes', async () => {
     const classA = classFactory({ id: 'class-a', name: 'Class 5' });
     const classB = classFactory({ id: 'class-b', name: 'Class 6' });
@@ -165,7 +191,7 @@ describe('/students/new', () => {
     });
 
     const user = userEvent.setup();
-    await user.type(await screen.findByRole('textbox', { name: 'Full name' }), 'Rahim Uddin');
+    await user.type(await screen.findByRole('textbox', { name: /^Full name/ }), 'Rahim Uddin');
     await user.click(screen.getByRole('combobox', { name: 'Class' }));
     await user.click(await screen.findByRole('option', { name: 'Class 5' }));
     await user.click(screen.getByRole('combobox', { name: 'Section' }));
@@ -180,6 +206,12 @@ describe('/students/new', () => {
         0,
       ),
     );
+    // The input must point at its own error message, so a screen reader announces it.
+    const roll = screen.getByRole('textbox', { name: /^Roll number/ });
+    const describedBy = (roll.getAttribute('aria-describedby') ?? '')
+      .split(' ')
+      .map((id) => document.getElementById(id)?.textContent);
+    expect(describedBy).toContain('roll_number must be a positive number');
   });
 
   it('submits and navigates to the new student on success', async () => {
@@ -207,7 +239,7 @@ describe('/students/new', () => {
     });
 
     const user = userEvent.setup();
-    await user.type(await screen.findByRole('textbox', { name: 'Full name' }), 'Rahim Uddin');
+    await user.type(await screen.findByRole('textbox', { name: /^Full name/ }), 'Rahim Uddin');
     await user.click(screen.getByRole('combobox', { name: 'Class' }));
     await user.click(await screen.findByRole('option', { name: 'Class 5' }));
     await user.click(screen.getByRole('combobox', { name: 'Section' }));
@@ -232,7 +264,7 @@ describe('/students/new', () => {
       locale: 'en',
     });
 
-    await screen.findByRole('textbox', { name: 'Full name' });
+    await screen.findByRole('textbox', { name: /^Full name/ });
     await expect(container).toHaveNoViolations();
   });
 });

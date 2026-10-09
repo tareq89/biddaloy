@@ -1,7 +1,7 @@
 import { cleanupTestState, renderWithProviders, server } from '@biddaloy/ui/test';
-import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { http, HttpResponse } from 'msw';
+import { delay, http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { RecordPaymentModal } from './record-payment-modal';
@@ -109,6 +109,15 @@ describe('RecordPaymentModal', () => {
     expect(screen.queryByPlaceholderText('Search by name or roll number')).toBeNull();
   });
 
+  it('names a seeded student by name and class, never by id', async () => {
+    server.use(http.get('/api/v1/payments/cart', () => HttpResponse.json(cartResponse())));
+
+    await renderModal({ studentId: 'student-1' });
+
+    expect(await screen.findByText('Rahim Uddin · Six A')).toBeTruthy();
+    expect(screen.queryByText('student-1')).toBeNull();
+  });
+
   it('[16.4.4] pre-selects every linked child for a guardian entry point', async () => {
     server.use(
       http.get('/api/v1/guardians/:id', () =>
@@ -164,8 +173,198 @@ describe('RecordPaymentModal', () => {
     // typed into the `MoneyInput`. `1000` (major units, i.e. 1,000.00)
     // becomes minor units `100000`, which converts back to `'1000.00'`.
     await waitFor(() => expect(lastAmount).toBe('1000.00'));
-    const payInput = screen.getByLabelText<HTMLInputElement>('Pay');
+    const payInput = screen.getByLabelText<HTMLInputElement>(/^Pay — /);
     await waitFor(() => expect(payInput.value).not.toBe(''));
+  });
+
+  // Like the real server: `suggested` only comes back when `amount` is sent.
+  function cartFor(request: Request, studentIds: string[]) {
+    const amount = new URL(request.url).searchParams.get('amount');
+    return cartResponse({
+      students: studentIds.map((id, index) => ({
+        id,
+        full_name: id,
+        registration_number: id,
+        class_name: 'Six',
+        section_name: 'A',
+        wallet_balance: 0,
+        bills: [bill({ student_fee_id: `${id}-fee`, fee_name: `Tuition — ${index + 1}` })],
+      })),
+      suggested:
+        amount === null
+          ? undefined
+          : {
+              allocations: studentIds.map((id) => ({
+                student_fee_id: `${id}-fee`,
+                amount: Number(amount) / studentIds.length,
+              })),
+              wallet_used: 0,
+              remaining: 0,
+              to_wallet: 0,
+            },
+    });
+  }
+
+  it('keeps a discount typed while the new amount’s cart is still loading', async () => {
+    let checkoutBody: { lines: unknown[] } | undefined;
+    server.use(
+      http.get('/api/v1/payments/cart', async ({ request }) => {
+        if (new URL(request.url).searchParams.has('amount')) await delay(400);
+        return HttpResponse.json(cartFor(request, ['student-1']));
+      }),
+      http.post('/api/v1/payments/checkout', async ({ request }) => {
+        checkoutBody = (await request.json()) as { lines: unknown[] };
+        return HttpResponse.json(
+          {
+            payment: {
+              id: 'payment-1',
+              student: { id: 'student-1', full_name: 'Rahim' },
+              total_amount: 1000,
+            },
+            invoice_id: 'invoice-1',
+            invoice_number: 'INV-1',
+            change_amount: 0,
+            wallet_balance_after: 0,
+          },
+          { status: 201 },
+        );
+      }),
+    );
+
+    const user = userEvent.setup();
+    await renderModal({ studentId: 'student-1' });
+    await screen.findByText('Tuition — 1');
+
+    // Amount, then the discount straight away — inside the amount's 300 ms
+    // debounce and the cart request after it.
+    fireEvent.change(screen.getByLabelText('Amount received'), { target: { value: '1000' } });
+    await user.click(screen.getByRole('button', { name: /^Give discount/ }));
+    fireEvent.change(screen.getByLabelText(/^Discount/), { target: { value: '500' } });
+
+    const payInput = screen.getByLabelText<HTMLInputElement>(/^Pay — /);
+    await waitFor(() => expect(payInput.value).toMatch(/[1-9১-৯]/), { timeout: 2000 });
+    const submitButton = screen.getByRole<HTMLButtonElement>('button', { name: /^Record/ });
+    await waitFor(() => expect(submitButton.disabled).toBe(false));
+    await user.click(submitButton);
+
+    await waitFor(() => expect(checkoutBody).toBeDefined());
+    expect(checkoutBody?.lines).toEqual([
+      { student_fee_id: 'student-1-fee', amount: 1000, one_off_discount: 500 },
+    ]);
+  });
+
+  it('caps the reseeded Pay so it never pushes past the balance with a preserved discount', async () => {
+    // Balance 1,000: the server's suggestion (amount ÷ 1 student = 1,000)
+    // would otherwise land Pay at 1,000 on top of the 500 discount already
+    // typed — 1,500 against a 1,000 balance, an invalid line CodeRabbit
+    // flagged (4110809259).
+    server.use(
+      http.get('/api/v1/payments/cart', ({ request }) => {
+        const url = new URL(request.url);
+        const amount = url.searchParams.get('amount');
+        return HttpResponse.json(
+          cartResponse({
+            students: [
+              {
+                id: 'student-1',
+                full_name: 'student-1',
+                registration_number: 'student-1',
+                class_name: 'Six',
+                section_name: 'A',
+                wallet_balance: 0,
+                bills: [
+                  bill({ student_fee_id: 'student-1-fee', total_amount: 1000, balance: 1000 }),
+                ],
+              },
+            ],
+            suggested:
+              amount === null
+                ? undefined
+                : {
+                    allocations: [{ student_fee_id: 'student-1-fee', amount: Number(amount) }],
+                    wallet_used: 0,
+                    remaining: 0,
+                    to_wallet: 0,
+                  },
+          }),
+        );
+      }),
+    );
+
+    await renderModal({ studentId: 'student-1' });
+    await screen.findByText('Tuition — March');
+
+    await userEvent.click(screen.getByRole('button', { name: /^Give discount/ }));
+    fireEvent.change(screen.getByLabelText(/^Discount/), { target: { value: '500' } });
+    fireEvent.change(screen.getByLabelText('Amount received'), { target: { value: '1000' } });
+
+    const payInput = screen.getByLabelText<HTMLInputElement>(/^Pay — /);
+    await waitFor(() => expect(payInput.value).toMatch(/[1-9১-৯]/), { timeout: 2000 });
+    // Pay caps at 500 (balance 1,000 minus the 500 discount), not the raw
+    // 1,000 suggestion — "৫০০" (Bengali 500) as a substring rules out ১,০০০.
+    await waitFor(() => expect(payInput.value).toMatch(/৫০০|500/));
+    expect(payInput.value).not.toMatch(/১,?০০০|1,?000/);
+    const submitButton = screen.getByRole<HTMLButtonElement>('button', { name: /^Record/ });
+    await waitFor(() => expect(submitButton.disabled).toBe(false));
+  });
+
+  it('a sibling re-added after edits gets a suggested Pay and no old discount', async () => {
+    server.use(
+      http.get('/api/v1/guardians/:id', () =>
+        HttpResponse.json({
+          id: 'g-1',
+          full_name: 'Karim Ahmed',
+          students: [
+            { id: 'student-1', full_name: 'Rahim Uddin' },
+            { id: 'student-2', full_name: 'Fatema Begum' },
+          ],
+        }),
+      ),
+      http.get('/api/v1/payments/cart', ({ request }) => {
+        const ids = new URL(request.url).searchParams.get('student_ids') ?? '';
+        return HttpResponse.json(cartFor(request, ids.split(',')));
+      }),
+      http.get('/api/v1/students', () =>
+        HttpResponse.json({
+          data: [
+            {
+              id: 'student-2',
+              full_name: 'Fatema Begum',
+              roll_number: 2,
+              class_section: { section_name: 'A', class: { name: 'Six' } },
+            },
+          ],
+          total: 1,
+          page: 1,
+          limit: 20,
+          totalPages: 1,
+        }),
+      ),
+    );
+
+    const user = userEvent.setup();
+    await renderModal({ guardianId: 'g-1' });
+    await screen.findByText('Tuition — 2');
+
+    fireEvent.change(screen.getByLabelText('Amount received'), { target: { value: '1000' } });
+    await waitFor(() =>
+      expect(screen.getAllByLabelText<HTMLInputElement>(/^Pay — /)[1]?.value).toMatch(/[1-9১-৯]/),
+    );
+    await user.click(screen.getAllByRole('button', { name: /^Give discount/ })[1]!);
+    fireEvent.change(screen.getByLabelText(/^Discount/), { target: { value: '200' } });
+
+    await user.click(screen.getByRole('button', { name: 'Remove Fatema Begum' }));
+    await waitFor(() => expect(screen.queryByText('Tuition — 2')).toBeNull());
+
+    await user.type(screen.getByLabelText('Add another student'), 'Fat');
+    await user.click(await screen.findByRole('button', { name: /Fatema Begum/ }));
+
+    await screen.findByText('Tuition — 2');
+    await waitFor(() =>
+      expect(screen.getAllByLabelText<HTMLInputElement>(/^Pay — /)[1]?.value).toMatch(/[1-9১-৯]/),
+    );
+    expect(screen.getAllByRole('button', { name: /^Give discount/ })).toHaveLength(2);
+    expect(screen.queryByLabelText('Discount')).toBeNull();
   });
 
   it('[16.4.4] a 403 APPROVAL_REQUIRED → step-up → retry carries the same idempotency key', async () => {
@@ -214,7 +413,7 @@ describe('RecordPaymentModal', () => {
     await screen.findByText('Tuition — March');
 
     const submitButton = await screen.findByRole<HTMLButtonElement>('button', {
-      name: 'Record payment',
+      name: /^Record/,
     });
     await waitFor(() => expect(submitButton.disabled).toBe(false));
     await user.click(submitButton);
@@ -227,6 +426,142 @@ describe('RecordPaymentModal', () => {
     await waitFor(() => expect(secondKey).toBeDefined());
     expect(secondKey).toBe(firstKey);
     expect(approvalTokenSeen).toBe('token-1');
+  });
+
+  it('writes the amount being recorded on the primary button', async () => {
+    server.use(http.get('/api/v1/payments/cart', () => HttpResponse.json(cartResponse())));
+
+    await renderModal({ studentId: 'student-1' });
+    await screen.findByText('Tuition — March');
+    fireEvent.change(screen.getByLabelText('Amount received'), { target: { value: '5000' } });
+
+    expect(
+      await screen.findByRole('button', { name: /^Record .*[5৫],[0০]{3}/ }, { timeout: 3000 }),
+    ).toBeTruthy();
+  });
+
+  it('a failed checkout shows the translated sentence, never the server text', async () => {
+    server.use(
+      http.get('/api/v1/payments/cart', () => HttpResponse.json(cartResponse())),
+      http.post('/api/v1/payments/checkout', () =>
+        HttpResponse.json(
+          {
+            statusCode: 500,
+            message: 'SECRET backend detail',
+            timestamp: new Date().toISOString(),
+            path: '/payments/checkout',
+            requestId: 'req-2',
+          },
+          { status: 500 },
+        ),
+      ),
+    );
+
+    const user = userEvent.setup();
+    await renderModal({ studentId: 'student-1' });
+    await screen.findByText('Tuition — March');
+    fireEvent.change(screen.getByLabelText('Amount received'), { target: { value: '5000' } });
+    const submitButton = await screen.findByRole<HTMLButtonElement>(
+      'button',
+      { name: /^Record/ },
+      { timeout: 3000 },
+    );
+    await waitFor(() => expect(submitButton.disabled).toBe(false));
+    await user.click(submitButton);
+
+    expect((await screen.findByRole('alert')).textContent).toBe('Recording payment failed.');
+    expect(screen.queryByText(/SECRET/)).toBeNull();
+  });
+
+  it('Cancel with nothing typed closes at once, even for a deep-linked student', async () => {
+    server.use(http.get('/api/v1/payments/cart', () => HttpResponse.json(cartResponse())));
+    const user = userEvent.setup();
+    const { onOpenChange } = await renderModal({ studentId: 'student-1' });
+    await screen.findByText('Tuition — March');
+
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+  });
+
+  it('Cancel after typing asks before discarding, like Close', async () => {
+    server.use(http.get('/api/v1/payments/cart', () => HttpResponse.json(cartResponse())));
+    const user = userEvent.setup();
+    const { onOpenChange } = await renderModal({ studentId: 'student-1' });
+    await screen.findByText('Tuition — March');
+    fireEvent.change(screen.getByLabelText('Amount received'), { target: { value: '1000' } });
+
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    const dialog = await screen.findByRole('alertdialog');
+    expect(onOpenChange).not.toHaveBeenCalled();
+    await user.click(within(dialog).getByRole('button', { name: 'Discard changes' }));
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it.each([
+    [
+      'choosing another payment method',
+      async (user: ReturnType<typeof userEvent.setup>) => {
+        await user.click(screen.getByLabelText('Cheque'));
+      },
+    ],
+    [
+      'ticking the credit balance',
+      async (user: ReturnType<typeof userEvent.setup>) => {
+        await user.click(await screen.findByLabelText(/Use credit balance/));
+      },
+    ],
+  ])('%s makes the form dirty', async (_name, act) => {
+    server.use(
+      http.get('/api/v1/payments/cart', () =>
+        HttpResponse.json(
+          cartResponse({
+            students: [
+              {
+                id: 'student-1',
+                full_name: 'Rahim Uddin',
+                registration_number: 'R-1',
+                class_name: 'Six',
+                section_name: 'A',
+                wallet_balance: 3000,
+                bills: [bill()],
+              },
+            ],
+          }),
+        ),
+      ),
+    );
+    const user = userEvent.setup();
+    await renderModal({ studentId: 'student-1' });
+    await screen.findByText('Tuition — March');
+    await act(user);
+
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(await screen.findByRole('alertdialog')).toBeTruthy();
+  });
+
+  it('a Pay edit stays dirty after the amount is cleared back to empty', async () => {
+    server.use(http.get('/api/v1/payments/cart', () => HttpResponse.json(cartResponse())));
+    const user = userEvent.setup();
+    await renderModal({ studentId: 'student-1' });
+    await screen.findByText('Tuition — March');
+    fireEvent.change(await screen.findByLabelText(/^Pay — /), { target: { value: '100' } });
+    fireEvent.change(screen.getByLabelText('Amount received'), { target: { value: '' } });
+
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(await screen.findByRole('alertdialog')).toBeTruthy();
+  });
+
+  it('gives each row its own Pay and discount names', async () => {
+    server.use(http.get('/api/v1/payments/cart', () => HttpResponse.json(cartResponse())));
+    await renderModal({ studentId: 'student-1' });
+
+    expect((await screen.findByLabelText(/^Pay — Tuition — March /)).tagName).toBe('INPUT');
+    expect(screen.getByRole('button', { name: /^Give discount — Tuition — March / })).toBeTruthy();
   });
 
   it('[16.4.4] Enter inside the reference field does not submit the form', async () => {
@@ -279,7 +614,7 @@ describe('RecordPaymentModal', () => {
     await screen.findByText('Tuition — March');
 
     const submitButton = await screen.findByRole<HTMLButtonElement>('button', {
-      name: 'Record payment',
+      name: /^Record/,
     });
     await waitFor(() => expect(submitButton.disabled).toBe(false));
     await user.click(submitButton);
@@ -320,7 +655,7 @@ describe('RecordPaymentModal', () => {
     await screen.findByText('Tuition — March');
 
     const submitButton = await screen.findByRole<HTMLButtonElement>('button', {
-      name: 'Record payment',
+      name: /^Record/,
     });
     await waitFor(() => expect(submitButton.disabled).toBe(false));
     await user.click(submitButton);

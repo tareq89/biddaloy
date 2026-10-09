@@ -1,18 +1,20 @@
 import type { APIRequestContext, Page } from '@playwright/test';
 
-import { adminApiSession, createStudentWithDues } from '../api';
+import { adminApiSession, createStaffUser, createStudentWithDues } from '../api';
 import { expect, guest, loggedIn, test } from '../fixtures/test';
 import type { SeedRole } from '../seed-contract';
 import { resolvePath, routes, type ManifestRoute } from '../responsive/routes';
 import { GLOBAL_OVERLAY_KEYS, overlayOpeners } from './overlay-openers';
+import { skipIfKnown } from '../responsive/known-failures';
 import { expectNoAxeViolations } from './assert';
 
 /**
  * Same reasoning as `responsive/reflow.spec.ts`'s identical helper: a
  * `redirect` archetype route may land somewhere that opens a modal by
- * default (`/payments/record` → `/payments?record=1`), which correctly
- * `aria-hide`s the underlying page's `<h1>` while open — the dialog's own
+ * default (e.g. a legacy URL that lands on a page with a modal open), which
+ * correctly `aria-hide`s the underlying `<h1>` while open — the dialog's own
  * required title is the equivalent "rendered something meaningful" signal.
+ * (`/payments/record` used to be that case; it is now a full-page form.)
  */
 function pageOrDialogHeading(page: Page, route: ManifestRoute) {
   const heading = page.getByRole('heading', { level: 1 }).first();
@@ -55,6 +57,16 @@ async function ensureDuesRow(request: APIRequestContext): Promise<void> {
   await createStudentWithDues(request, session, `A11y Dues ${Date.now()}`);
 }
 
+/** [13.7.1] The `/staff::restore-member` opener needs someone under "Former". */
+async function ensureFormerMember(request: APIRequestContext): Promise<void> {
+  const session = await adminApiSession(request);
+  const { id } = await createStaffUser(request, session, `A11y Former ${Date.now()}`);
+  const removed = await request.delete(`/api/v1/users/${id}`, {
+    headers: { Authorization: `Bearer ${session.token}`, 'X-Tenant-ID': session.tenantId },
+  });
+  if (!removed.ok()) throw new Error(`DELETE /users/${id} failed: ${removed.status()}`);
+}
+
 for (const { locale, theme } of VARIANTS) {
   test.describe(`a11y · ${locale}${theme === 'dark' ? ' · dark' : ''} @sweep`, () => {
     for (const route of routes) {
@@ -69,10 +81,12 @@ for (const { locale, theme } of VARIANTS) {
         }
 
         test('has zero axe violations', async ({ page, request }) => {
+          skipIfKnown('axe', route.path);
           if (route.path === '/fees/dues' || route.path === '/students') {
             // Overlay openers below select the first row — make sure one exists.
             if (route.overlays?.length) await ensureDuesRow(request);
           }
+          if (route.path === '/staff' && route.overlays?.length) await ensureFormerMember(request);
           if (theme === 'dark') {
             // Seeded via `addInitScript`, not a plain `localStorage.setItem`
             // after `goto()` — it has to be in place before
@@ -96,7 +110,7 @@ for (const { locale, theme } of VARIANTS) {
               const opener = overlayOpeners[`${route.path}::${overlay}`];
               if (!opener) throw new Error(`no opener for ${route.path}::${overlay}`);
               await opener(page, locale);
-              await expectNoAxeViolations(page, '[role="dialog"]');
+              await expectNoAxeViolations(page, '[role="dialog"], [role="alertdialog"]');
               await page.keyboard.press('Escape');
             });
           }

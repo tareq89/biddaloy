@@ -67,6 +67,7 @@ function Controlled({
   layout,
   sortMenuLabel,
   sortOptionLabel,
+  rowActions,
 }: {
   data?: Student[];
   totalCount?: number;
@@ -83,6 +84,7 @@ function Controlled({
   layout?: DataTableProps<Student>['layout'];
   sortMenuLabel?: string;
   sortOptionLabel?: DataTableProps<Student>['sortOptionLabel'];
+  rowActions?: DataTableProps<Student>['rowActions'];
 }) {
   const [sorting, setSorting] = useState<DataTableSort | null>(null);
   const [page, setPage] = useState(1);
@@ -123,6 +125,7 @@ function Controlled({
       {...(layout !== undefined ? { layout } : {})}
       {...(sortMenuLabel !== undefined ? { sortMenuLabel } : {})}
       {...(sortOptionLabel !== undefined ? { sortOptionLabel } : {})}
+      {...(rowActions !== undefined ? { rowActions } : {})}
     />
   );
 }
@@ -598,6 +601,109 @@ describe('DataTable pagination', () => {
   });
 });
 
+describe('DataTable footer [31.2.4b]', () => {
+  const withoutPageHandler = {
+    tableId: 'footer-test',
+    caption: 'Students',
+    columns: COLUMNS,
+    getRowId: (row: Student) => row.id,
+    sorting: null,
+    onSortingChange: () => undefined,
+  };
+  const base = { ...withoutPageHandler, onPageChange: () => undefined };
+
+  it('shows the total only, with no pager, when there is no onPageChange', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    await renderInEnglish(
+      <DataTable {...withoutPageHandler} data={STUDENTS} page={1} pageSize={2} totalCount={10} />,
+    );
+    expect(screen.queryByRole('button', { name: 'Next' })).toBeNull();
+    expect(screen.getByText(/Total/)).toBeTruthy();
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('onPageChange'));
+    warn.mockRestore();
+  });
+
+  it('shows the range and total', async () => {
+    await renderInEnglish(
+      <DataTable {...base} data={STUDENTS} page={1} pageSize={2} totalCount={10} />,
+    );
+    expect(screen.getByText('Showing 1–2 of 10')).toBeTruthy();
+  });
+
+  it('clamps an out-of-range page in the label and the Next button', async () => {
+    await renderInEnglish(
+      <DataTable {...base} data={STUDENTS} page={99} pageSize={2} totalCount={10} />,
+    );
+    expect(screen.getByText('Page 5 of 5')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Next' }).hasAttribute('disabled')).toBe(true);
+  });
+
+  it('hides the pager and count when empty', async () => {
+    await renderInEnglish(<DataTable {...base} data={[]} totalCount={0} />);
+    expect(screen.queryByRole('button', { name: 'Previous' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Next' })).toBeNull();
+    expect(screen.queryByText(/Showing|Total/)).toBeNull();
+  });
+
+  it('hides the footer while loading', async () => {
+    await renderInEnglish(<DataTable {...base} data={[]} totalCount={10} loading />);
+    expect(screen.queryByText(/Showing/)).toBeNull();
+  });
+
+  it('keeps Previous after a later page fails, without the count', async () => {
+    const onPageChange = vi.fn();
+    await renderInEnglish(
+      <DataTable
+        {...base}
+        data={[]}
+        page={3}
+        pageSize={2}
+        totalCount={0}
+        error="Failed"
+        onPageChange={onPageChange}
+      />,
+    );
+    expect(screen.queryByText(/Showing/)).toBeNull();
+    expect(screen.getByRole('button', { name: 'Next' }).hasAttribute('disabled')).toBe(true);
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Previous' }));
+    expect(onPageChange).toHaveBeenCalledWith(2);
+  });
+
+  it('moves an out-of-range page to the last real page', async () => {
+    const onPageChange = vi.fn();
+    await renderInEnglish(
+      <DataTable
+        {...base}
+        data={[]}
+        page={3}
+        pageSize={2}
+        totalCount={4}
+        onPageChange={onPageChange}
+      />,
+    );
+    expect(onPageChange).toHaveBeenCalledWith(2);
+  });
+
+  it('paginated={false} shows only "Total n"', async () => {
+    await renderInEnglish(<DataTable {...base} data={STUDENTS} totalCount={3} paginated={false} />);
+    expect(screen.getByText('Total 3')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Next' })).toBeNull();
+  });
+
+  it('emptyState replaces the table', async () => {
+    await renderInEnglish(
+      <DataTable
+        {...base}
+        data={[]}
+        totalCount={0}
+        emptyState={{ title: 'No students yet', explanation: 'Add one.' }}
+      />,
+    );
+    expect(screen.getByText('No students yet')).toBeTruthy();
+    expect(screen.queryByRole('table')).toBeNull();
+  });
+});
+
 describe('DataTable page-size control [8.14.10]', () => {
   afterEach(() => window.localStorage.clear());
 
@@ -606,7 +712,7 @@ describe('DataTable page-size control [8.14.10]', () => {
     expect(screen.queryByRole('combobox', { name: 'Rows per page' })).toBeNull();
   });
 
-  it('renders a labelled combobox with 10/20/50 present, in Latin numerals under the en RegionConfig', async () => {
+  it('renders a labelled combobox with 25/50/100 present, in Latin numerals under the en RegionConfig', async () => {
     const user = userEvent.setup();
     await renderInEnglish(
       <RegionConfigProvider value={REGION_BD_EN}>
@@ -629,8 +735,8 @@ describe('DataTable page-size control [8.14.10]', () => {
     const trigger = screen.getByRole('combobox', { name: 'Rows per page' });
     expect(trigger).toBeTruthy();
     await user.click(trigger);
-    expect(await screen.findByRole('option', { name: '10' })).toBeTruthy();
-    expect(screen.getByRole('option', { name: '20' })).toBeTruthy();
+    expect(await screen.findByRole('option', { name: '25' })).toBeTruthy();
+    expect(screen.getByRole('option', { name: '100' })).toBeTruthy();
     expect(screen.getByRole('option', { name: '50' })).toBeTruthy();
   });
 
@@ -710,8 +816,8 @@ describe('DataTable page-size control [8.14.10]', () => {
       </RegionConfigProvider>,
     );
     await user.click(screen.getByRole('combobox', { name: 'Rows per page' }));
-    expect(await screen.findByRole('option', { name: '১০' })).toBeTruthy();
-    expect(screen.getByRole('option', { name: '২০' })).toBeTruthy();
+    expect(await screen.findByRole('option', { name: '২৫' })).toBeTruthy();
+    expect(screen.getByRole('option', { name: '১০০' })).toBeTruthy();
     expect(screen.getByRole('option', { name: '৫০' })).toBeTruthy();
   });
 
@@ -998,5 +1104,47 @@ describe('DataTable card mode alignment', () => {
     const dd = screen.getAllByText('Six')[0];
     expect(dd?.className).toContain('text-end');
     expect(dd?.className).toContain('tabular-nums');
+  });
+});
+
+describe('rowActions', () => {
+  const rowActions: DataTableProps<Student>['rowActions'] = (row) => [
+    { intent: 'view', label: `View ${row.name}`, onClick: vi.fn() },
+    { intent: 'edit', label: `Edit ${row.name}`, onClick: vi.fn() },
+  ];
+
+  it('appends an Actions column last, with icon buttons on every row', async () => {
+    await renderInEnglish(<Controlled rowActions={rowActions} />);
+    const headers = screen.getAllByRole('columnheader');
+    expect(headers[headers.length - 1]?.textContent).toBe('Actions');
+    expect(screen.getByRole('button', { name: 'View Rahim Uddin' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Edit Fatema Begum' })).toBeTruthy();
+  });
+
+  it('shows labelled buttons in card mode', async () => {
+    await renderInEnglish(<Controlled layout="cards" rowActions={rowActions} />);
+    expect(screen.getByText('Edit Rahim Uddin').tagName).toBe('SPAN');
+  });
+
+  it('Space on a row action button presses it, not the row selection', async () => {
+    const user = userEvent.setup();
+    const onClick = vi.fn();
+    await renderInEnglish(
+      <Controlled
+        selectable
+        rowActions={(row) => [{ intent: 'edit', label: `Edit ${row.name}`, onClick }]}
+      />,
+    );
+    screen.getByRole('button', { name: 'Edit Rahim Uddin' }).focus();
+    await user.keyboard(' ');
+    expect(onClick).toHaveBeenCalledOnce();
+    expect(
+      screen.getByRole('checkbox', { name: 'Select row 1' }).getAttribute('aria-checked'),
+    ).toBe('false');
+  });
+
+  it('adds no Actions header when rowActions is omitted', async () => {
+    await renderInEnglish(<Controlled />);
+    expect(screen.queryByRole('columnheader', { name: 'Actions' })).toBeNull();
   });
 });

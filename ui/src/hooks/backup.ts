@@ -439,17 +439,17 @@ export async function downloadBackup(
  */
 export async function downloadWorkbookTemplate(
   lang: 'bn' | 'en',
-  options: { tenantId?: string } = {},
+  options: { tenantId?: string; variant?: 'full' | 'starter' } = {},
 ): Promise<void> {
-  const { tenantId } = options;
+  const { tenantId, variant } = options;
   const res = await apiClient.get<Blob>('/backup/template', {
-    params: { lang },
+    params: { lang, ...(variant ? { variant } : {}) },
     responseType: 'blob',
     ...(tenantId ? { _tenantOverride: tenantId } : {}),
   });
   const filename = filenameFromContentDisposition(
     res.headers['content-disposition'] as string | undefined,
-    `biddaloy-template-${lang}.xlsx`,
+    `biddaloy-template-${variant === 'starter' ? 'starter-' : ''}${lang}.xlsx`,
   );
   const url = URL.createObjectURL(res.data);
   const anchor = document.createElement('a');

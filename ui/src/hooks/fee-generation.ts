@@ -35,7 +35,12 @@ export interface GenerateFeesScope {
   period_type: PeriodType;
   period_start: string;
   due_date?: string;
-  student_ids: string[];
+  // Omitted, not `[]`, for a program-only scope: `GenerateFeesDto`
+  // resolves `program_id` alone server-side, and an explicit empty array
+  // would mean "these specific zero students" rather than "no student
+  // filter". `program_id` and `student_ids` are additive when both are set.
+  student_ids?: string[];
+  program_id?: string;
   fee_structure_ids: string[];
 }
 

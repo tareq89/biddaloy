@@ -1,9 +1,12 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render as rtlRender, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { ReactElement } from 'react';
 import { useForm } from 'react-hook-form';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
+
+import { I18nProvider, i18n, whenReady } from '../i18n';
 
 import {
   Form,
@@ -20,7 +23,13 @@ const schema = z.object({
   studentName: z.string().min(1, 'Name is required'),
 });
 
-function NameForm({ onSubmit }: { onSubmit: (values: z.infer<typeof schema>) => void }) {
+function NameForm({
+  onSubmit,
+  required,
+}: {
+  onSubmit: (values: z.infer<typeof schema>) => void;
+  required?: boolean;
+}) {
   const form = useForm<z.infer<typeof schema>>({
     resolver: zodResolver(schema),
     defaultValues: { studentName: '' },
@@ -34,7 +43,7 @@ function NameForm({ onSubmit }: { onSubmit: (values: z.infer<typeof schema>) => 
           name="studentName"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Student name</FormLabel>
+              <FormLabel required={required}>Student name</FormLabel>
               <FormControl>
                 <Input {...field} />
               </FormControl>
@@ -49,12 +58,48 @@ function NameForm({ onSubmit }: { onSubmit: (values: z.infer<typeof schema>) => 
   );
 }
 
+const render = (ui: ReactElement) => rtlRender(ui, { wrapper: I18nProvider });
+
+beforeEach(async () => {
+  await whenReady(i18n);
+  await i18n.changeLanguage('en');
+});
+
 describe('FormField', () => {
   it('links the label to the control via a real association', async () => {
     const { container } = render(<NameForm onSubmit={vi.fn()} />);
     const input = screen.getByRole('textbox', { name: 'Student name' });
     expect(input).toBeTruthy();
     await expect(container).toHaveNoViolations();
+  });
+
+  it('required label shows an aria-hidden star and an sr-only "(required)" in the accessible name', () => {
+    render(<NameForm onSubmit={vi.fn()} required />);
+    const star = screen.getByText('*');
+    expect(star.getAttribute('aria-hidden')).toBe('true');
+    expect(screen.getByText('(required)').className).toContain('sr-only');
+    expect(screen.getByRole('textbox', { name: /\(required\)/ })).toBeTruthy();
+  });
+
+  it('has no star when not required', () => {
+    render(<NameForm onSubmit={vi.fn()} />);
+    expect(screen.queryByText('*')).toBeNull();
+  });
+
+  it('help text uses the caption ramp', () => {
+    render(<NameForm onSubmit={vi.fn()} />);
+    expect(screen.getByText('As it appears on the birth certificate.').className).toContain(
+      'text-caption',
+    );
+  });
+
+  it('error message renders the alert icon beside the text', async () => {
+    const user = userEvent.setup();
+    render(<NameForm onSubmit={vi.fn()} />);
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    const alert = await screen.findByRole('alert');
+    expect(alert.querySelector('svg[aria-hidden="true"]')).not.toBeNull();
+    expect(alert.textContent).toBe('Name is required');
   });
 
   it('has no aria-invalid and no error message before submit', () => {

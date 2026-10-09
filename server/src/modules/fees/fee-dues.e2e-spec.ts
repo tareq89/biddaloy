@@ -280,13 +280,13 @@ describe('Fee Dues E2E', () => {
       expect(res.body.data.some((d: any) => d.student_id === studentId)).toBe(false);
     });
 
-    it('returns 401 for STUDENT role', async () => {
+    it('returns 403 for STUDENT role', async () => {
       await supertest(app.getHttpServer())
         .get('/api/v1/fees/dues/flagged')
         .set('Authorization', `Bearer ${token}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.STUDENT)
-        .expect(401);
+        .expect(403);
     });
   });
 });

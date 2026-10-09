@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { ConflictException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { QueryFailedError } from 'typeorm';
@@ -26,6 +26,7 @@ function createChoiceRepoStub() {
     create: vi.fn((v: any) => v),
     save: vi.fn(async (v: any) => ({ id: 'choice-1', ...v })),
     update: vi.fn(async () => undefined),
+    delete: vi.fn(async () => undefined),
     find: vi.fn(async () => []),
     findOne: vi.fn(async () => null),
   };
@@ -85,19 +86,57 @@ describe('SubjectChoicesService.listOptions', () => {
     const options = await service.listOptions(STUDENT_ID, YEAR_ID, TENANT_ID);
 
     expect(options).toEqual([
-      { class_subject_id: 'cs-1', subject_id: 'subj-1', chosen: true, is_fourth: true },
-      { class_subject_id: 'cs-2', subject_id: 'subj-2', chosen: false, is_fourth: false },
+      {
+        class_subject_id: 'cs-1',
+        subject_id: 'subj-1',
+        chosen: true,
+        is_fourth: true,
+        choice_group: null,
+      },
+      {
+        class_subject_id: 'cs-2',
+        subject_id: 'subj-2',
+        chosen: false,
+        is_fourth: false,
+        choice_group: null,
+      },
     ]);
     expect(classSubjectRepo.find).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({
-          class_id: 'class-1',
-          academic_year_id: YEAR_ID,
-          is_optional: true,
-          tenant_id: TENANT_ID,
-        }),
+        where: [
+          expect.objectContaining({
+            class_id: 'class-1',
+            academic_year_id: YEAR_ID,
+            is_optional: true,
+            tenant_id: TENANT_ID,
+          }),
+          expect.objectContaining({
+            class_id: 'class-1',
+            academic_year_id: YEAR_ID,
+            tenant_id: TENANT_ID,
+          }),
+        ],
       }),
     );
+  });
+
+  it('returns choice-group members with their choice_group', async () => {
+    const { service, classSubjectRepo } = await buildService();
+    classSubjectRepo.find = vi.fn(async () => [
+      { id: 'cs-1', subject_id: 'subj-1', choice_group: 'Religion' },
+    ]);
+
+    const options = await service.listOptions(STUDENT_ID, YEAR_ID, TENANT_ID);
+
+    expect(options).toEqual([
+      {
+        class_subject_id: 'cs-1',
+        subject_id: 'subj-1',
+        chosen: false,
+        is_fourth: false,
+        choice_group: 'Religion',
+      },
+    ]);
   });
 
   it("a request for another tenant's student returns not-found", async () => {
@@ -162,7 +201,7 @@ describe('SubjectChoicesService.setChoice', () => {
     ).resolves.toMatchObject({ is_fourth: true });
   });
 
-  it('rejects a second is_fourth choice for the same student/year (enforced at the service, not just the DB index)', async () => {
+  it('replaces a different existing fourth-subject choice atomically, rather than rejecting the PUT', async () => {
     const { service, classSubjectRepo, choiceRepo } = await buildService();
     classSubjectRepo.findOne = vi.fn(async () => ({
       id: 'cs-2',
@@ -170,7 +209,9 @@ describe('SubjectChoicesService.setChoice', () => {
       academic_year_id: YEAR_ID,
       is_optional: true,
     }));
-    // An existing is_fourth choice already set on a *different* class_subject.
+    // An existing is_fourth choice already set on a *different* class_subject
+    // — this is the panel's normal "change your mind" path (re-PUT with a
+    // different class_subject_id), not a conflict to reject.
     choiceRepo.findOne = vi.fn(async (opts: any) => {
       if (opts?.where?.is_fourth) {
         return { id: 'choice-existing', class_subject_id: 'cs-1', is_fourth: true };
@@ -178,13 +219,15 @@ describe('SubjectChoicesService.setChoice', () => {
       return null;
     });
 
-    await expect(
-      service.setChoice(
-        STUDENT_ID,
-        { class_subject_id: 'cs-2', is_fourth: true } as any,
-        TENANT_ID,
-      ),
-    ).rejects.toThrow(ConflictException);
+    const result = await service.setChoice(
+      STUDENT_ID,
+      { class_subject_id: 'cs-2', is_fourth: true } as any,
+      TENANT_ID,
+    );
+
+    expect(result).toMatchObject({ class_subject_id: 'cs-2', is_fourth: true });
+    // The old fourth-subject row is demoted, not left dangling at is_fourth:true.
+    expect(choiceRepo.update).toHaveBeenCalledWith({ id: 'choice-existing' }, { is_fourth: false });
   });
 
   it('re-setting is_fourth on the same class_subject that already holds it is not a conflict', async () => {
@@ -258,5 +301,38 @@ describe('SubjectChoicesService.setChoice', () => {
         TENANT_ID,
       ),
     ).rejects.toThrow(ConflictException);
+  });
+});
+
+describe('SubjectChoicesService.setChoice - choice groups', () => {
+  const groupOffering = {
+    id: 'cs-hindu',
+    class_id: 'class-1',
+    academic_year_id: YEAR_ID,
+    choice_group: 'Religion',
+  };
+
+  it('rejects is_fourth for a choice-group subject (400)', async () => {
+    const { service, classSubjectRepo } = await buildService();
+    classSubjectRepo.findOne = vi.fn(async () => groupOffering);
+
+    await expect(
+      service.setChoice(STUDENT_ID, { class_subject_id: 'cs-hindu', is_fourth: true }, TENANT_ID),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('picking B deletes the previous pick A in the transaction and audits the old id', async () => {
+    const { service, classSubjectRepo, choiceRepo } = await buildService();
+    classSubjectRepo.findOne = vi.fn(async () => groupOffering);
+    choiceRepo.find = vi.fn(async () => [{ id: 'choice-islam', class_subject_id: 'cs-islam' }]);
+    const audit = (service as any).auditService.record;
+
+    await service.setChoice(STUDENT_ID, { class_subject_id: 'cs-hindu' }, TENANT_ID);
+
+    expect(choiceRepo.delete).toHaveBeenCalledWith({ id: expect.anything() });
+    expect(audit).toHaveBeenCalledWith(
+      expect.objectContaining({ old_values: { replaced_class_subject_id: 'cs-islam' } }),
+      expect.anything(),
+    );
   });
 });

@@ -62,6 +62,16 @@ class EnvironmentVariables {
   @Matches(POSITIVE_INTEGER, { message: 'RATE_LIMIT_DEFAULT_LIMIT must be a positive integer' })
   RATE_LIMIT_DEFAULT_LIMIT?: string;
 
+  // Step-up approval verifications allowed per approver / actor per 15 min
+  // (step-up.service.ts). Unset keeps the strict default of 5. Exists for the
+  // e2e job only: every spec approves as the one seeded admin, so the suite
+  // shares a single budget. Never raise it in a real deployment.
+  @IsOptional()
+  @Matches(POSITIVE_INTEGER, {
+    message: 'STEP_UP_RATE_LIMIT_MAX_ATTEMPTS must be a positive integer',
+  })
+  STEP_UP_RATE_LIMIT_MAX_ATTEMPTS?: string;
+
   @IsOptional()
   @Matches(POSITIVE_INTEGER, { message: 'RATE_LIMIT_DEFAULT_TTL_MS must be a positive integer' })
   RATE_LIMIT_DEFAULT_TTL_MS?: string;
@@ -202,6 +212,44 @@ class EnvironmentVariables {
     message: 'PUBLIC_HOLIDAY_FETCH_TIMEOUT_MS must be a positive integer',
   })
   PUBLIC_HOLIDAY_FETCH_TIMEOUT_MS?: string;
+
+  // Onboarding / trial [13.1.2]. All optional; defaults live where they are read.
+  @IsOptional()
+  @Matches(POSITIVE_INTEGER, { message: 'TRIAL_DAYS must be a positive integer' })
+  TRIAL_DAYS?: string;
+
+  @IsOptional()
+  @Matches(POSITIVE_INTEGER, { message: 'TRIAL_SEAT_LIMIT must be a positive integer' })
+  TRIAL_SEAT_LIMIT?: string;
+
+  // Comma-separated phone prefixes OTP SMS may go to; default "+880".
+  @IsOptional()
+  @IsString()
+  OTP_SMS_ALLOWED_PREFIXES?: string;
+
+  @IsOptional()
+  @IsString()
+  TURNSTILE_SECRET_KEY?: string;
+
+  @IsOptional()
+  @IsString()
+  GOOGLE_OAUTH_CLIENT_ID?: string;
+
+  @IsOptional()
+  @IsString()
+  GOOGLE_OAUTH_CLIENT_SECRET?: string;
+
+  @IsOptional()
+  @IsString()
+  FACEBOOK_OAUTH_CLIENT_ID?: string;
+
+  @IsOptional()
+  @IsString()
+  FACEBOOK_OAUTH_CLIENT_SECRET?: string;
+
+  @IsOptional()
+  @IsString()
+  SUPPORT_CONTACT_URL?: string;
 }
 
 /** The fixed id `seed.ts` gives its "Default School" row when it has to

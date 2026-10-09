@@ -91,8 +91,9 @@ describe('focus-ring vocabulary', () => {
     }
     render(<Controlled />);
 
-    await user.click(screen.getByRole('button', { name: 'Open calendar' }));
-    const day = await screen.findByRole('gridcell', { name: '5' });
+    await user.click(screen.getByRole('button', { name: 'Enrollment date' }));
+    await screen.findByRole('grid');
+    const day = document.querySelector<HTMLElement>('[data-date="2024-01-05"]')!;
 
     expectCanonicalRing(day.className, 'ring-offset-popover');
     expect(day.className).toContain('focus-visible:relative');

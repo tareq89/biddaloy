@@ -80,7 +80,7 @@ describe('a second region — proves adding a country is one config object, zero
   });
 
   it('formatDate ignores currency/phone entirely and still renders correctly', () => {
-    expect(formatDate(new Date(2024, 0, 5), REGION_FIXTURE)).toBe('2024-01-05');
+    expect(formatDate(new Date(2024, 0, 5), REGION_FIXTURE)).toBe('5th January, 2024');
   });
 
   it('formatAcademicYear straddles the calendar year for a September start', () => {
@@ -93,6 +93,6 @@ describe('a second region — proves adding a country is one config object, zero
   });
 
   it('formatPhone applies the fixture displayFormat mask, not BD’s', () => {
-    expect(formatPhone('5123456', REGION_FIXTURE)).toBe('+99 512-3456');
+    expect(formatPhone('5123456', REGION_FIXTURE)).toBe('512-3456');
   });
 });

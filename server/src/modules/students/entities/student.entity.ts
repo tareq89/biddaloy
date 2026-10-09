@@ -39,6 +39,10 @@ import { CommunicationMedium, EnrollmentStatus } from '@biddaloy/shared';
 @Entity('students')
 @Index(['class_section_id', 'roll_number'], { unique: true })
 @Index(['tenant_id', 'registration_number'], { unique: true })
+@Index('IDX_students_tenant_birth_reg_no', ['tenant_id', 'birth_reg_no'], {
+  unique: true,
+  where: '"birth_reg_no" IS NOT NULL AND "deleted_at" IS NULL',
+})
 export class Student {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -52,6 +56,19 @@ export class Student {
 
   @Column({ type: 'varchar', length: 100 })
   full_name: string;
+
+  @Column({ type: 'varchar', length: 200, nullable: true })
+  full_name_bn: string | null;
+
+  /**
+   * [32.1.2] (D15/D41/D48) Storage key of the student's photo. Replaced keys
+   * are never deleted — print snapshots reference them.
+   */
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  photo_key: string | null;
+
+  @Column({ type: 'varchar', length: 10, nullable: true })
+  blood_group: string | null;
 
   @Column({ type: 'varchar', length: 50 })
   registration_number: string;
@@ -77,6 +94,21 @@ export class Student {
 
   @Column({ type: 'enum', enum: CommunicationMedium, default: CommunicationMedium.SMS })
   preferred_communication: CommunicationMedium;
+
+  @Column({ type: 'varchar', nullable: true })
+  religion: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  birth_reg_no: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  health_notes: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  father_name: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  mother_name: string | null;
 
   @ManyToMany(() => Guardian, (guardian) => guardian.students, { cascade: ['insert'] })
   @JoinTable({

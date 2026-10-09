@@ -43,8 +43,10 @@ describe('16.1.1 fee/payment enums [#638]', () => {
     expect(Object.values(PeriodType).sort()).toEqual(['MONTH', 'WEEK'].sort());
   });
 
-  it('FeeGenerationSource has MANUAL and SCHEDULE', () => {
-    expect(Object.values(FeeGenerationSource).sort()).toEqual(['MANUAL', 'SCHEDULE'].sort());
+  it('FeeGenerationSource has MANUAL, SCHEDULE and FINE_RULE', () => {
+    expect(Object.values(FeeGenerationSource).sort()).toEqual(
+      ['MANUAL', 'SCHEDULE', 'FINE_RULE'].sort(),
+    );
   });
 
   it('DuplicateStrategy has SKIP, REMOVE_OLDER, CREATE_ANYWAY', () => {
@@ -73,7 +75,7 @@ describe('16.1.1 fee/payment enums [#638]', () => {
     expect(Object.values(InvoiceKind).sort()).toEqual(['INVOICE', 'CREDIT_NOTE'].sort());
   });
 
-  it('ApprovalScope has the 6 gated-action scope strings', () => {
+  it('ApprovalScope has the 8 gated-action scope strings', () => {
     expect(Object.values(ApprovalScope).sort()).toEqual(
       [
         'fees.duplicate_override',
@@ -82,6 +84,8 @@ describe('16.1.1 fee/payment enums [#638]', () => {
         'payments.reverse',
         'discount_rules.manage',
         'grading_scale.manage',
+        'results.reopen',
+        'promotion.override',
       ].sort(),
     );
   });

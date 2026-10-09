@@ -1,15 +1,25 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import { NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
+import {
+  NotFoundException,
+  ConflictException,
+  BadRequestException,
+  ValidationPipe,
+} from '@nestjs/common';
+import { buildValidationPipeOptions } from '../../validation-pipe';
 import { Repository, DataSource } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { UserService, TeacherService } from './users.service';
-import { CreateUserDto } from './dto/users.dto';
+import { AuditService } from '../audit/audit.service';
+import { StaffProfilesService } from '../staff-profiles/staff-profiles.service';
+import { StaffProfile } from '../staff-profiles/entities/staff-profile.entity';
+import { CreateUserDto, CreateTeacherDto, UpdateTeacherDto } from './dto/users.dto';
 import { User } from './entities/user.entity';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
 import { Teacher } from '../academics/entities/teacher.entity';
 import { TeacherClassSection } from '../academics/entities/teacher-class-section.entity';
 import { Class } from '../academics/entities/class.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
+import { Subject } from '../academics/entities/subject.entity';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { School } from '../schools/entities/school.entity';
 import { AuthToken } from '../account-access/entities/auth-token.entity';
@@ -136,10 +146,15 @@ describe('UserService (integration)', () => {
   const TENANT_ID = SEED_TENANT_ID;
 
   beforeAll(async () => {
-    const module = await createTestModule(ALL_ENTITIES, [UserService, TeacherService], [], {
-      synchronize: true,
-      dropSchema: true,
-    });
+    const module = await createTestModule(
+      ALL_ENTITIES,
+      [UserService, TeacherService, StaffProfilesService, AuditService],
+      [],
+      {
+        synchronize: true,
+        dropSchema: true,
+      },
+    );
 
     service = module.get<UserService>(UserService);
     userRepo = module.get<Repository<User>>(getRepositoryToken(User));
@@ -161,6 +176,12 @@ describe('UserService (integration)', () => {
       await dataSource.query('DELETE FROM teachers');
       await dataSource.query('DELETE FROM user_tenants');
       await dataSource.query('DELETE FROM users');
+      // remove() writes an audit row naming the actor, and that column is a FK.
+      await dataSource.query(
+        `INSERT INTO users (id, email, full_name, status, created_at, updated_at)
+         VALUES ($1, 'requesting-admin@example.com', 'Requesting Admin', 'ACTIVE', NOW(), NOW())`,
+        [REQUESTING_ADMIN_ID],
+      );
     }
   });
 
@@ -168,12 +189,22 @@ describe('UserService (integration)', () => {
   //  create()
   // ────────────────────────
   describe('create', () => {
+    it('[#731] rejects SUPER_ADMIN and writes no user or membership', async () => {
+      await expect(
+        service.create(
+          { full_name: 'Esc', email: 'esc731@example.com', role: UserRole.SUPER_ADMIN },
+          TENANT_ID,
+        ),
+      ).rejects.toThrow(BadRequestException);
+      expect(await userRepo.count({ where: { email: 'esc731@example.com' } })).toBe(0);
+    });
+
     it('should create a user with email, password, and role membership', async () => {
       const result = await service.create(
         {
           full_name: 'John Doe',
           email: 'john@example.com',
-          password: 'secret123',
+          password: 'Str0ng!Passw0rd',
           role: UserRole.TEACHER,
         },
         TENANT_ID,
@@ -182,7 +213,7 @@ describe('UserService (integration)', () => {
       expect(result.user).toBeDefined();
       expect(result.user.full_name).toBe('John Doe');
       expect(result.user.email).toBe('john@example.com');
-      expect(result.user.password_hash).not.toBe('secret123'); // bcrypt hash, not plaintext
+      expect(result.user.password_hash).not.toBe('Str0ng!Passw0rd'); // bcrypt hash, not plaintext
       expect(result.user.password_hash).toMatch(/^\$2b\$/); // bcrypt prefix
 
       expect(result.membership).toBeDefined();
@@ -207,15 +238,99 @@ describe('UserService (integration)', () => {
       expect(result.membership.role).toBe(UserRole.PARENT);
     });
 
+    it('[36.2.1] should create a staff_profiles row when creating an ADMIN user', async () => {
+      const result = await service.create(
+        {
+          full_name: 'Admin User',
+          email: 'admin@example.com',
+          password: 'Str0ng!Passw0rd',
+          role: UserRole.ADMIN,
+        },
+        TENANT_ID,
+      );
+
+      const staffProfileRepo = dataSource.getRepository(StaffProfile);
+      const profile = await staffProfileRepo.findOne({ where: { user_id: result.user.id } });
+      expect(profile).not.toBeNull();
+      expect(profile?.tenant_id).toBe(TENANT_ID);
+      expect(profile?.employee_id).toMatch(/^EMP-/);
+    });
+
+    it('[36.2.1] should NOT create a staff_profiles row when creating a TEACHER-role user (TeacherService.create makes it later)', async () => {
+      const result = await service.create(
+        {
+          full_name: 'Teacher User',
+          email: 'teacher-role@example.com',
+          password: 'Str0ng!Passw0rd',
+          role: UserRole.TEACHER,
+        },
+        TENANT_ID,
+      );
+
+      const staffProfileRepo = dataSource.getRepository(StaffProfile);
+      const profile = await staffProfileRepo.findOne({ where: { user_id: result.user.id } });
+      expect(profile).toBeNull();
+    });
+
+    it.each([
+      [UserRole.OFFICE_STAFF, true],
+      [UserRole.EXAM_CONTROLLER, true],
+      [UserRole.COMMITTEE, false],
+    ])('[24.3.2] role %s: membership created, staff profile = %s', async (role, hasProfile) => {
+      const result = await service.create(
+        {
+          full_name: `New ${role}`,
+          email: `${role.toLowerCase()}@example.com`,
+          password: 'Str0ng!Passw0rd',
+          role,
+        },
+        TENANT_ID,
+      );
+
+      expect(result.membership.role).toBe(role);
+      const profile = await dataSource
+        .getRepository(StaffProfile)
+        .findOne({ where: { user_id: result.user.id } });
+      expect(profile !== null).toBe(hasProfile);
+    });
+
+    it('refuses a password that fails the role rules (D10), creating nothing', async () => {
+      await expect(
+        service.create(
+          {
+            full_name: 'Weak',
+            email: 'weak@example.com',
+            password: 'password123',
+            role: UserRole.TEACHER,
+          },
+          TENANT_ID,
+        ),
+      ).rejects.toMatchObject({
+        status: 400,
+        response: { details: { code: 'PASSWORD_TOO_WEAK' } },
+      });
+      expect(await userRepo.count({ where: { email: 'weak@example.com' } })).toBe(0);
+    });
+
     it('should throw ConflictException when email already exists', async () => {
       await service.create(
-        { full_name: 'First', email: 'dup@example.com', password: 'pw', role: UserRole.TEACHER },
+        {
+          full_name: 'First',
+          email: 'dup@example.com',
+          password: 'Str0ng!Passw0rd',
+          role: UserRole.TEACHER,
+        },
         TENANT_ID,
       );
 
       await expect(
         service.create(
-          { full_name: 'Second', email: 'dup@example.com', password: 'pw', role: UserRole.ADMIN },
+          {
+            full_name: 'Second',
+            email: 'dup@example.com',
+            password: 'Str0ng!Passw0rd',
+            role: UserRole.ADMIN,
+          },
           TENANT_ID,
         ),
       ).rejects.toThrow(ConflictException);
@@ -226,7 +341,7 @@ describe('UserService (integration)', () => {
         {
           full_name: 'User A',
           email: 'shared@example.com',
-          password: 'pw',
+          password: 'Str0ng!Passw0rd',
           role: UserRole.TEACHER,
         },
         TENANT_ID,
@@ -238,7 +353,7 @@ describe('UserService (integration)', () => {
           {
             full_name: 'User B',
             email: 'shared@example.com',
-            password: 'pw',
+            password: 'Str0ng!Passw0rd',
             role: UserRole.ADMIN,
           },
           OTHER_TENANT,
@@ -1136,16 +1251,20 @@ describe('TeacherService (integration)', () => {
   let userTenantRepo: Repository<UserTenant>;
   let teacherRepo: Repository<Teacher>;
   let tcsRepo: Repository<TeacherClassSection>;
-  let sectionRepo: Repository<ClassSection>;
   let dataSource: DataSource;
 
   const TENANT_ID = SEED_TENANT_ID;
 
   beforeAll(async () => {
-    const module = await createTestModule(ALL_ENTITIES, [UserService, TeacherService], [], {
-      synchronize: true,
-      dropSchema: true,
-    });
+    const module = await createTestModule(
+      ALL_ENTITIES,
+      [UserService, TeacherService, StaffProfilesService, AuditService],
+      [],
+      {
+        synchronize: true,
+        dropSchema: true,
+      },
+    );
 
     userService = module.get<UserService>(UserService);
     teacherService = module.get<TeacherService>(TeacherService);
@@ -1153,7 +1272,6 @@ describe('TeacherService (integration)', () => {
     userTenantRepo = module.get<Repository<UserTenant>>(getRepositoryToken(UserTenant));
     teacherRepo = module.get<Repository<Teacher>>(getRepositoryToken(Teacher));
     tcsRepo = module.get<Repository<TeacherClassSection>>(getRepositoryToken(TeacherClassSection));
-    sectionRepo = module.get<Repository<ClassSection>>(getRepositoryToken(ClassSection));
     dataSource = module.get(DataSource);
 
     await seedReferenceData(dataSource);
@@ -1179,7 +1297,7 @@ describe('TeacherService (integration)', () => {
       {
         full_name: 'Teacher User',
         email: 'teacher@example.com',
-        password: 'pw',
+        password: 'Str0ng!Passw0rd',
         role: UserRole.TEACHER,
         ...overrides,
       },
@@ -1215,6 +1333,24 @@ describe('TeacherService (integration)', () => {
       expect(teacher.tenant_id).toBe(TENANT_ID);
       expect(teacher.user).toBeDefined();
       expect(teacher.user.id).toBe(user.id);
+    });
+
+    it('[36.2.1] should create a staff_profiles row linked by staff_profile_id', async () => {
+      const user = await createTenantUser({ email: 'teacher-profile@example.com' });
+
+      const teacher = await teacherService.create(
+        { user_id: user.id, employee_id: 'EMP-PROFILE-1', joining_date: '2026-02-01' },
+        TENANT_ID,
+      );
+
+      expect(teacher.staff_profile_id).toBeDefined();
+
+      const staffProfileRepo = dataSource.getRepository(StaffProfile);
+      const profile = await staffProfileRepo.findOne({ where: { id: teacher.staff_profile_id } });
+      expect(profile).not.toBeNull();
+      expect(profile?.user_id).toBe(user.id);
+      expect(profile?.tenant_id).toBe(TENANT_ID);
+      expect(profile?.employee_id).toBe('EMP-PROFILE-1');
     });
 
     it('should throw NotFoundException when user does not exist', async () => {
@@ -1257,39 +1393,6 @@ describe('TeacherService (integration)', () => {
       await expect(
         teacherService.create({ user_id: user.id, employee_id: 'EMP-B' }, TENANT_ID),
       ).rejects.toThrow('already has a teacher profile');
-    });
-
-    it('should assign sections when provided', async () => {
-      const user = await createTenantUser();
-
-      const teacher = await teacherService.create(
-        {
-          user_id: user.id,
-          employee_id: 'EMP-003',
-          assigned_section_ids: [SEED_SECTION_1_ID],
-        },
-        TENANT_ID,
-      );
-
-      // Verify the TCS entries were created
-      const tcsEntries = await tcsRepo.find({ where: { teacher_id: teacher.id } });
-      expect(tcsEntries).toHaveLength(1);
-      expect(tcsEntries[0].section_id).toBe(SEED_SECTION_1_ID);
-    });
-
-    it('should throw NotFoundException when assigned sections are from another tenant', async () => {
-      const user = await createTenantUser();
-
-      await expect(
-        teacherService.create(
-          {
-            user_id: user.id,
-            employee_id: 'EMP-004',
-            assigned_section_ids: ['00000000-0000-4000-8000-000000000000'],
-          },
-          TENANT_ID,
-        ),
-      ).rejects.toThrow(NotFoundException);
     });
 
     it('should create a teacher without designations or sections', async () => {
@@ -1416,6 +1519,49 @@ describe('TeacherService (integration)', () => {
       expect(result.user.full_name).toBe('Teacher User');
     });
 
+    it('leaves existing class-teacher and subject-teacher rows untouched', async () => {
+      const subjectRepo = dataSource.getRepository(Subject);
+      const subject = await subjectRepo.save(
+        subjectRepo.create({ tenant_id: TENANT_ID, name_en: 'Mathematics', code: 'MATH' }),
+      );
+      const user = await createTenantUser();
+      const teacher = await teacherService.create(
+        { user_id: user.id, employee_id: 'EMP-001' },
+        TENANT_ID,
+      );
+      await tcsRepo.save([
+        tcsRepo.create({
+          teacher_id: teacher.id,
+          section_id: SEED_SECTION_1_ID,
+          tenant_id: TENANT_ID,
+        }),
+        tcsRepo.create({
+          teacher_id: teacher.id,
+          section_id: SEED_SECTION_1_ID,
+          subject_id: subject.id,
+          tenant_id: TENANT_ID,
+        }),
+      ]);
+
+      await teacherService.update(teacher.id, { employee_id: 'EMP-002' }, TENANT_ID);
+
+      expect(await tcsRepo.count({ where: { teacher_id: teacher.id } })).toBe(2);
+    });
+
+    it('rejects assigned_section_ids on create and update DTOs (400)', async () => {
+      const pipe = new ValidationPipe(buildValidationPipeOptions());
+      const body = { assigned_section_ids: [SEED_SECTION_1_ID] };
+      await expect(
+        pipe.transform(
+          { user_id: SEED_SECTION_1_ID, employee_id: 'E', ...body },
+          { type: 'body', metatype: CreateTeacherDto },
+        ),
+      ).rejects.toThrow(BadRequestException);
+      await expect(
+        pipe.transform(body, { type: 'body', metatype: UpdateTeacherDto }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
     it('should throw NotFoundException when teacher does not exist', async () => {
       await expect(
         teacherService.findOne('00000000-0000-4000-8000-000000000000', TENANT_ID),
@@ -1467,48 +1613,6 @@ describe('TeacherService (integration)', () => {
       expect(updated.user).toBeDefined();
     });
 
-    it('should replace assigned sections', async () => {
-      const user = await createTenantUser();
-      const teacher = await teacherService.create(
-        { user_id: user.id, employee_id: 'EMP-001' },
-        TENANT_ID,
-      );
-
-      // Assign sections
-      await teacherService.update(
-        teacher.id,
-        { assigned_section_ids: [SEED_SECTION_1_ID] },
-        TENANT_ID,
-      );
-
-      let tcsEntries = await tcsRepo.find({ where: { teacher_id: teacher.id } });
-      expect(tcsEntries).toHaveLength(1);
-
-      // Replace with different sections (empty)
-      await teacherService.update(teacher.id, { assigned_section_ids: [] }, TENANT_ID);
-
-      tcsEntries = await tcsRepo.find({ where: { teacher_id: teacher.id } });
-      expect(tcsEntries).toHaveLength(0);
-    });
-
-    it('should clear sections when assigned_section_ids is empty array', async () => {
-      const user = await createTenantUser();
-      const teacher = await teacherService.create(
-        { user_id: user.id, employee_id: 'EMP-001', assigned_section_ids: [SEED_SECTION_1_ID] },
-        TENANT_ID,
-      );
-
-      // Verify sections were created
-      let tcsEntries = await tcsRepo.find({ where: { teacher_id: teacher.id } });
-      expect(tcsEntries).toHaveLength(1);
-
-      // Clear sections
-      await teacherService.update(teacher.id, { assigned_section_ids: [] }, TENANT_ID);
-
-      tcsEntries = await tcsRepo.find({ where: { teacher_id: teacher.id } });
-      expect(tcsEntries).toHaveLength(0);
-    });
-
     it('should throw NotFoundException when teacher does not exist', async () => {
       await expect(
         teacherService.update(
@@ -1518,20 +1622,71 @@ describe('TeacherService (integration)', () => {
         ),
       ).rejects.toThrow(NotFoundException);
     });
+  });
 
-    it('should throw NotFoundException when assigned section does not belong to tenant', async () => {
+  // ────────────────────────
+  //  getTeacherAssignments() [29.0]
+  // ────────────────────────
+  describe('getTeacherAssignments', () => {
+    it('returns both class-teacher and subject-teacher rows for a teacher, tenant-scoped', async () => {
+      const subjectRepo = dataSource.getRepository(Subject);
+      const subject = await subjectRepo.save(
+        subjectRepo.create({ tenant_id: TENANT_ID, name_en: 'Mathematics', code: 'MATH' }),
+      );
+
       const user = await createTenantUser();
       const teacher = await teacherService.create(
         { user_id: user.id, employee_id: 'EMP-001' },
         TENANT_ID,
       );
 
+      await tcsRepo.save(
+        tcsRepo.create({
+          teacher_id: teacher.id,
+          section_id: SEED_SECTION_1_ID,
+          tenant_id: TENANT_ID,
+        }),
+      );
+
+      const otherUser = await createTenantUser({ email: 'other-teacher@example.com' });
+      const otherTeacher = await teacherService.create(
+        { user_id: otherUser.id, employee_id: 'EMP-002' },
+        TENANT_ID,
+      );
+      await tcsRepo.save(
+        tcsRepo.create({
+          teacher_id: otherTeacher.id,
+          section_id: SEED_SECTION_1_ID,
+          subject_id: subject.id,
+          tenant_id: TENANT_ID,
+        }),
+      );
+
+      const rows = await teacherService.getTeacherAssignments(teacher.id, TENANT_ID);
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatchObject({
+        teacher_id: teacher.id,
+        section_id: SEED_SECTION_1_ID,
+        // [#1026 gap fix] class_id/class_name now come through the
+        // section→class join, for the Staff detail tab's class column.
+        class_id: SEED_CLASS_1_ID,
+        class_name: 'Class One',
+        subject_id: null,
+        subject_name: null,
+      });
+
+      const otherRows = await teacherService.getTeacherAssignments(otherTeacher.id, TENANT_ID);
+      expect(otherRows).toHaveLength(1);
+      expect(otherRows[0]).toMatchObject({
+        teacher_id: otherTeacher.id,
+        subject_id: subject.id,
+        subject_name: 'Mathematics',
+      });
+    });
+
+    it('throws NotFoundException for a teacher from another tenant', async () => {
       await expect(
-        teacherService.update(
-          teacher.id,
-          { assigned_section_ids: ['00000000-0000-4000-8000-000000000000'] },
-          TENANT_ID,
-        ),
+        teacherService.getTeacherAssignments('00000000-0000-4000-8000-000000000000', TENANT_ID),
       ).rejects.toThrow(NotFoundException);
     });
   });

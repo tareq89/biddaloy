@@ -13,13 +13,13 @@ import { ListShellPage } from '../pages/list-shell';
  * `ui/src/hooks/*.ts`.
  */
 
-/** TWO FULL PAGES, deliberately — not the 11 students
+/** TWO FULL PAGES, deliberately — not the 26 students
  * `journeys/url-state.spec.ts` uses to prove "page 2 exists". Assertion
  * (b) below compares the table's height across the transition, so page 2
  * has to hold as many rows as page 1: with a one-row page 2 the table
- * legitimately loses nine rows of height and that assertion measures the
+ * legitimately loses 24 rows of height and that assertion measures the
  * page size rather than the layout jump it exists to catch. */
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 25;
 const STUDENT_COUNT = PAGE_SIZE * 2;
 
 /** A row's worth of height — the jump a skeleton or a "Loading…" cell
@@ -42,7 +42,7 @@ test('paging keeps rows, scroll position and table height stable while busy', as
     openLabelKey: 'students.list.view',
   });
 
-  await page.goto('/students');
+  await page.goto('/students?limit=25');
   await list.expectLoaded();
   await list.search(prefix);
   // Wait for the debounced search (300ms — `use-filter-bar-state.ts`) to

@@ -1,6 +1,11 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull, QueryFailedError } from 'typeorm';
+import { Repository, IsNull, Not, In, QueryFailedError } from 'typeorm';
 import { AuditAction } from '@biddaloy/shared';
 
 const PG_UNIQUE_VIOLATION = '23505';
@@ -49,7 +54,13 @@ export class SubjectChoicesService {
     academicYearId: string,
     tenantId: string,
   ): Promise<
-    Array<{ class_subject_id: string; subject_id: string; chosen: boolean; is_fourth: boolean }>
+    Array<{
+      class_subject_id: string;
+      subject_id: string;
+      chosen: boolean;
+      is_fourth: boolean;
+      choice_group: string | null;
+    }>
   > {
     const student = await this.findStudent(studentId, tenantId);
     const section = await this.sectionRepo.findOne({
@@ -59,14 +70,17 @@ export class SubjectChoicesService {
       throw new NotFoundException(`Class section for student "${studentId}" not found`);
     }
 
+    const base = {
+      class_id: section.class_id,
+      academic_year_id: academicYearId,
+      tenant_id: tenantId,
+      deleted_at: IsNull(),
+    };
     const options = await this.classSubjectRepo.find({
-      where: {
-        class_id: section.class_id,
-        academic_year_id: academicYearId,
-        is_optional: true,
-        tenant_id: tenantId,
-        deleted_at: IsNull(),
-      },
+      where: [
+        { ...base, is_optional: true },
+        { ...base, choice_group: Not(IsNull()) },
+      ],
     });
 
     const choices = await this.choiceRepo.find({
@@ -81,6 +95,7 @@ export class SubjectChoicesService {
         subject_id: option.subject_id,
         chosen: !!choice,
         is_fourth: choice?.is_fourth ?? false,
+        choice_group: option.choice_group ?? null,
       };
     });
   }
@@ -108,12 +123,15 @@ export class SubjectChoicesService {
     }
 
     const classSubject = await this.classSubjectRepo.findOne({
-      where: {
-        id: dto.class_subject_id,
-        tenant_id: tenantId,
-        is_optional: true,
-        deleted_at: IsNull(),
-      },
+      where: [
+        { id: dto.class_subject_id, tenant_id: tenantId, is_optional: true, deleted_at: IsNull() },
+        {
+          id: dto.class_subject_id,
+          tenant_id: tenantId,
+          choice_group: Not(IsNull()),
+          deleted_at: IsNull(),
+        },
+      ],
     });
     if (!classSubject) {
       throw new NotFoundException(
@@ -131,35 +149,65 @@ export class SubjectChoicesService {
     }
 
     const isFourth = dto.is_fourth ?? false;
-    if (isFourth) {
-      const otherFourth = await this.choiceRepo.findOne({
-        where: {
-          student_id: studentId,
-          academic_year_id: classSubject.academic_year_id,
-          is_fourth: true,
-          tenant_id: tenantId,
-        },
-      });
-      if (otherFourth && otherFourth.class_subject_id !== dto.class_subject_id) {
-        throw new ConflictException(
-          `Student already has a fourth subject set for this academic year.`,
-        );
-      }
+    const group = classSubject.choice_group ?? null;
+    if (group !== null && isFourth) {
+      throw new BadRequestException('A choice-group subject cannot be the fourth subject');
     }
 
     const existing = await this.choiceRepo.findOne({
       where: { student_id: studentId, class_subject_id: dto.class_subject_id, tenant_id: tenantId },
     });
 
-    // The is_fourth pre-check and the `existing` lookup above run outside
-    // any lock, so two concurrent PUTs can both pass them and then race
-    // on the DB's own unique indexes (IDX_student_subject_choices_one_
-    // fourth_per_year, or the student_id+class_subject_id unique index).
-    // Whichever loses that race must surface as a clear 409, not a raw
-    // 23505-driven 500.
+    // The `existing` lookup above runs outside any lock, so two concurrent
+    // PUTs can both pass it and then race on the DB's own unique indexes
+    // (IDX_student_subject_choices_one_fourth_per_year, or the
+    // student_id+class_subject_id unique index). Whichever loses that
+    // race must surface as a clear 409, not a raw 23505-driven 500.
     try {
       return await this.choiceRepo.manager.transaction(async (manager) => {
         const repo = manager.getRepository(StudentSubjectChoice);
+
+        // [pr-fix #945] Replace, not reject: a PUT for a *different*
+        // fourth subject than the student's current one used to 409
+        // unconditionally, even though this is the panel's normal
+        // "change your mind" path (see subject-choices-panel.tsx —
+        // selecting a radio button just re-PUTs). Demote the old
+        // fourth-subject row to is_fourth:false first, inside this same
+        // transaction, before setting the new one — that keeps at most
+        // one is_fourth:true row committed at any statement boundary, so
+        // the partial unique index never sees two true rows at once.
+        if (isFourth) {
+          const otherFourth = await repo.findOne({
+            where: {
+              student_id: studentId,
+              academic_year_id: classSubject.academic_year_id,
+              is_fourth: true,
+              tenant_id: tenantId,
+            },
+          });
+          if (otherFourth && otherFourth.class_subject_id !== dto.class_subject_id) {
+            await repo.update({ id: otherFourth.id }, { is_fourth: false });
+          }
+        }
+
+        // One pick per group: switching replaces the sibling pick.
+        let replacedClassSubjectId: string | null = null;
+        if (group !== null) {
+          const siblings = await repo.find({
+            where: {
+              student_id: studentId,
+              academic_year_id: classSubject.academic_year_id,
+              tenant_id: tenantId,
+              choice_group: group,
+              class_subject_id: Not(dto.class_subject_id),
+            },
+          });
+          if (siblings.length > 0) {
+            replacedClassSubjectId = siblings[0].class_subject_id;
+            await repo.delete({ id: In(siblings.map((s) => s.id)) });
+          }
+        }
+
         let saved: StudentSubjectChoice;
         if (existing) {
           await repo.update({ id: existing.id }, { is_fourth: isFourth });
@@ -184,7 +232,11 @@ export class SubjectChoicesService {
             performed_by_user_id: userId,
             ip_address: context.ip,
             user_agent: context.userAgent,
-            old_values: existing ? { is_fourth: existing.is_fourth } : null,
+            old_values: existing
+              ? { is_fourth: existing.is_fourth }
+              : replacedClassSubjectId
+                ? { replaced_class_subject_id: replacedClassSubjectId }
+                : null,
             new_values: { class_subject_id: saved.class_subject_id, is_fourth: saved.is_fourth },
           },
           manager,
@@ -195,7 +247,7 @@ export class SubjectChoicesService {
     } catch (err) {
       if (isUniqueViolation(err)) {
         throw new ConflictException(
-          `Student already has a fourth subject set for this academic year, or this choice was just changed concurrently.`,
+          `Student already has a fourth subject set for this academic year, already picked from this choice group, or this choice was just changed concurrently.`,
         );
       }
       throw err;

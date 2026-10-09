@@ -17,7 +17,8 @@ import {
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { ListShell, useListShellState, type FilterFieldDescriptor } from '@biddaloy/ui/shells';
 import { formatDate, formatServerAmount, parseServerDate } from '@biddaloy/ui/utils';
-import { createFileRoute, Link } from '@tanstack/react-router';
+import { createFileRoute } from '@tanstack/react-router';
+import { Receipt } from 'lucide-react';
 import { z } from 'zod';
 
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
@@ -78,7 +79,8 @@ export const Route = createFileRoute('/_staff/invoices/')({
   validateSearch: invoicesSearchSchema,
   loaderDeps: ({ search }) => ({
     page: search.page ?? 1,
-    limit: search.limit ?? 10,
+    // Must equal `useListShellState()`'s default (25, `use-list-url-state.ts`; not exported), so the prefetch hits the page's own query.
+    limit: search.limit ?? 25,
     sort: search.sort,
     order: search.order,
     search: search.search,
@@ -113,7 +115,7 @@ export const Route = createFileRoute('/_staff/invoices/')({
           }),
         )
         .catch(swallowUnlessOffline),
-      loadRouteNamespaces('fees'),
+      loadRouteNamespaces('fees', 'payments'),
     ]);
   },
   pendingComponent: InvoicesListPending,
@@ -123,7 +125,7 @@ export const Route = createFileRoute('/_staff/invoices/')({
 function InvoicesListPage() {
   const { t } = useTranslation('fees');
   const regionConfig = useRegionConfig();
-  const [state, actions] = useListShellState({ limit: 10 });
+  const [state, actions] = useListShellState();
   // `student_id` round-trips through this generic `filters` bag same as
   // every other key — reading it from here (not a separate
   // `Route.useSearch()` call) is what keeps the FilterBar chip's "clear"
@@ -172,9 +174,9 @@ function InvoicesListPage() {
       kind: 'number-range',
       minKey: 'min_amount',
       maxKey: 'max_amount',
-      label: t('invoices.amountRangeLabel'),
-      minLabel: t('invoices.minAmountLabel'),
-      maxLabel: t('invoices.maxAmountLabel'),
+      label: t('invoices.amountRangeLabel', { ns: 'payments' }),
+      minLabel: t('invoices.minAmount', { ns: 'payments' }),
+      maxLabel: t('invoices.maxAmount', { ns: 'payments' }),
     },
   ];
 
@@ -183,13 +185,14 @@ function InvoicesListPage() {
       id: 'number',
       header: t('invoices.columnNumber'),
       accessorFn: (row) => (
-        <Link
-          to="/invoices/$invoiceId"
-          params={{ invoiceId: row.id }}
-          className="font-medium text-primary underline"
-        >
+        <span className="font-medium">
           {row.invoice_number}
-        </Link>
+          {row.kind === 'CREDIT_NOTE' && (
+            <span className="ms-1 inline-flex h-6 items-center rounded-full bg-muted px-2 text-label text-text-secondary">
+              {t('invoices.creditNote', { ns: 'payments' })}
+            </span>
+          )}
+        </span>
       ),
       sortable: true,
       // [8.14.10] The invoice number is the natural card title.
@@ -198,7 +201,10 @@ function InvoicesListPage() {
     {
       id: 'student',
       header: t('invoices.columnStudent'),
-      accessorFn: (row) => row.student.full_name,
+      accessorFn: (row) =>
+        row.kind === 'CREDIT_NOTE'
+          ? `${row.student.full_name} · ${t('invoices.creditNote', { ns: 'payments' })}`
+          : row.student.full_name,
       card: 'subtitle',
     },
     {
@@ -228,38 +234,33 @@ function InvoicesListPage() {
       id: 'dueDate',
       header: t('invoices.columnDueDate'),
       accessorFn: (row) => formatDate(parseServerDate(row.due_date), regionConfig),
+      // Shown on cards too: an issued or overdue invoice's due date differs from its issue date.
       sortable: true,
     },
-    ...(canPrint
-      ? [
-          {
-            id: 'actions',
-            header: t('invoices.columnActions'),
-            pinned: true,
-            card: 'actions',
-            accessorFn: (row: Invoice) => (
-              <button
-                type="button"
-                onClick={() =>
-                  void openPrintableInvoice(row.id, () => toast.error(t('invoices.printError')))
-                }
-                className="text-sm font-medium text-primary underline"
-              >
-                {t('invoices.print')}
-              </button>
-            ),
-          } satisfies DataTableColumn<Invoice>,
-        ]
-      : []),
   ];
 
   return (
     <ListShell
       title={t('invoices.title')}
+      subtitle={t('invoices.subtitle', { ns: 'payments' })}
       filters={{ fields: filterFields, values: state.filters, onChange: actions.setFilters }}
       tableId="invoices-list"
       caption={t('invoices.caption')}
       columns={columns}
+      rowActions={(row) => [
+        {
+          intent: 'view',
+          label: t('invoices.view', { ns: 'payments' }),
+          to: `/invoices/${row.id}`,
+        },
+        {
+          intent: 'print',
+          label: t('invoices.print'),
+          allowed: canPrint,
+          onClick: () =>
+            void openPrintableInvoice(row.id, () => toast.error(t('invoices.printError'))),
+        },
+      ]}
       data={invoicesQuery.data?.data ?? []}
       getRowId={(row) => row.id}
       sorting={state.sorting}
@@ -273,7 +274,11 @@ function InvoicesListPage() {
       loading={invoicesQuery.isLoading}
       isFetching={invoicesQuery.isFetching}
       {...(invoicesQuery.isError ? { error: t('invoices.errorMessage') } : {})}
-      emptyMessage={t('invoices.emptyMessage')}
+      emptyState={{
+        icon: <Receipt aria-hidden />,
+        title: t('invoices.emptyMessage'),
+        explanation: t('invoices.emptyText', { ns: 'payments' }),
+      }}
       announceResults={(count, total) =>
         t('invoices.announceResults', { visible: count, total, count: total })
       }

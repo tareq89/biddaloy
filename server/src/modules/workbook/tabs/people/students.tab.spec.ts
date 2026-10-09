@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { CommunicationMedium, EnrollmentStatus } from '@biddaloy/shared';
+import { BLOOD_GROUPS } from '../../../students/dto/students.dto';
 import { Student } from '../../../students/entities/student.entity';
 import type { Guardian } from '../../../students/entities/guardian.entity';
 import { cellText, toCell } from '../../codec/cell-format';
@@ -68,6 +69,9 @@ function makeStudent(overrides: Partial<Student> = {}): Student {
     user_id: USER_ID,
     registration_number: 'STU-001',
     full_name: 'Karim Uddin Jr.',
+    full_name_bn: 'করিম উদ্দিন',
+    blood_group: 'O+',
+    photo_key: 'students/karim.jpg',
     roll_number: 1,
     class_section_id: SECTION_ID,
     class_section: {
@@ -78,6 +82,11 @@ function makeStudent(overrides: Partial<Student> = {}): Student {
     date_of_birth: null,
     gender: null,
     home_address: null,
+    religion: null,
+    birth_reg_no: null,
+    health_notes: null,
+    father_name: null,
+    mother_name: null,
     preferred_communication: CommunicationMedium.SMS,
     enrollment_status: EnrollmentStatus.ACTIVE,
     tenant_id: TENANT_ID,
@@ -112,10 +121,18 @@ describe('studentsTab shape', () => {
   it('is registered through the people barrel, after guardians', () => {
     expect(peopleTabs).toContain(studentsTab);
     expect(peopleTabs.indexOf(guardiansTab)).toBeLessThan(peopleTabs.indexOf(studentsTab));
-    expect(peopleTabs.map((t) => t.name).slice(-3)).toEqual([
+    expect(peopleTabs.map((t) => t.name).slice(-9)).toEqual([
       'guardians',
       'students',
       'enrollments',
+      // [27.6] admission tabs appended after enrollments.
+      'admission_intakes',
+      'admission_applicants',
+      'admission_evaluations',
+      // [39.1.3] student child tabs appended after the admission tabs.
+      'student_lifecycle_events',
+      'student_notes',
+      'student_public_exams',
     ]);
   });
 
@@ -192,6 +209,28 @@ describe('keyOf', () => {
   });
 });
 
+describe('photo_key across schools (Epic 32)', () => {
+  it("rewrites another school's photo key to this school and warns", () => {
+    const ctx = importCtx();
+    const cells = toCells(makeStudent({ photo_key: 'tenants/other-school/student-photo/p.jpg' }));
+
+    const row = fromRowOrThrow(cells, ctx);
+
+    expect(row.photo_key).toBe(`tenants/${TENANT_ID}/student-photo/p.jpg`);
+    expect(ctx.warn).toHaveBeenCalledWith(
+      expect.objectContaining({ tab: 'students', column: 'photo_key', severity: 'warning' }),
+    );
+  });
+
+  it('keeps a photo key that already belongs to this school, without a warning', () => {
+    const ctx = importCtx();
+    const key = `tenants/${TENANT_ID}/student-photo/p.jpg`;
+
+    expect(fromRowOrThrow(toCells(makeStudent({ photo_key: key })), ctx).photo_key).toBe(key);
+    expect(ctx.warn).not.toHaveBeenCalled();
+  });
+});
+
 describe('round-trip', () => {
   it('fromRow(toRow(entity)) round-trips every field for a fully populated student', () => {
     const student = makeStudent();
@@ -202,11 +241,19 @@ describe('round-trip', () => {
       id: student.id,
       registration_number: 'STU-001',
       full_name: 'Karim Uddin Jr.',
+      full_name_bn: 'করিম উদ্দিন',
+      blood_group: 'O+',
+      photo_key: 'students/karim.jpg',
       roll_number: 1,
       class_section_id: SECTION_ID,
       date_of_birth: null,
       gender: null,
       home_address: null,
+      religion: null,
+      birth_reg_no: null,
+      health_notes: null,
+      father_name: null,
+      mother_name: null,
       preferred_communication: CommunicationMedium.SMS,
       enrollment_status: EnrollmentStatus.ACTIVE,
       guardian_ids: expect.arrayContaining([GUARDIAN_1, GUARDIAN_2]),
@@ -342,6 +389,21 @@ describe('fromRow validation', () => {
     const err = errors.find((e) => e.column === 'enrollment_status');
     expect(err).toBeDefined();
     for (const value of Object.values(EnrollmentStatus)) {
+      expect(err!.message).toContain(value);
+    }
+  });
+
+  it('a blood_group outside the allowlist yields a RowError listing the allowed values', () => {
+    const student = makeStudent();
+    const cells = toCells(student);
+    cells.blood_group = 'C+';
+
+    const result = studentsTab.fromRow(cells, 7, importCtx());
+    expect('errors' in result).toBe(true);
+    const errors = (result as { errors: RowError[] }).errors;
+    const err = errors.find((e) => e.column === 'blood_group');
+    expect(err).toBeDefined();
+    for (const value of BLOOD_GROUPS) {
       expect(err!.message).toContain(value);
     }
   });

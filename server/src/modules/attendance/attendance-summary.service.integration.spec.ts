@@ -15,6 +15,9 @@ import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { Class } from '../academics/entities/class.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { Student } from '../students/entities/student.entity';
+import { CalendarEvent } from '../calendar/entities/calendar-event.entity';
+import { CalendarEventClass } from '../calendar/entities/calendar-event-class.entity';
+import { Subject } from '../academics/entities/subject.entity';
 import { AttendanceSessionState, AttendanceStatus } from '@biddaloy/shared';
 
 /**
@@ -30,6 +33,7 @@ describe('AttendanceSummaryService (integration)', () => {
 
   const TENANT_ID = SEED_TENANT_ID;
   let sectionId: string;
+  let classIdOf: string;
 
   beforeAll(async () => {
     const module = await createTestModule(
@@ -61,6 +65,7 @@ describe('AttendanceSummaryService (integration)', () => {
       tenant_id: TENANT_ID,
     });
     sectionId = section.id;
+    classIdOf = klass.id;
   }, 60000);
 
   afterAll(async () => {
@@ -240,6 +245,519 @@ describe('AttendanceSummaryService (integration)', () => {
         thresholdPercent: 100,
       });
       expect(result.data.map((f) => f.student_id)).not.toContain(studentId);
+    });
+  });
+
+  describe('period registers are ignored (D1)', () => {
+    const DATE = '2026-10-06';
+    /** Day register `dayStatus` plus three period registers, all ABSENT. */
+    async function seed(
+      roll: number,
+      dayStatus: AttendanceStatus,
+      periodStatus: AttendanceStatus = AttendanceStatus.ABSENT,
+    ): Promise<string> {
+      const studentId = await makeStudent(roll);
+      await markDay(studentId, DATE, dayStatus);
+      for (const periodNo of [1, 2, 3]) {
+        const sessionRepo = dataSource.getRepository(AttendanceSession);
+        const where = {
+          tenant_id: TENANT_ID,
+          section_id: sectionId,
+          date: DATE,
+          period_no: periodNo,
+        };
+        const session =
+          (await sessionRepo.findOne({ where })) ??
+          (await sessionRepo.save({
+            tenant_id: TENANT_ID,
+            section_id: sectionId,
+            date: DATE,
+            period_no: periodNo,
+            state: AttendanceSessionState.FINALIZED,
+          }));
+        await dataSource.getRepository(AttendanceRecord).save({
+          tenant_id: TENANT_ID,
+          session_id: session.id,
+          student_id: studentId,
+          date: DATE,
+          status: periodStatus,
+        });
+      }
+      return studentId;
+    }
+
+    it('getStudentSummary counts one day, percentage <= 100', async () => {
+      const studentId = await seed(400, AttendanceStatus.PRESENT);
+      const summary = await service.getStudentSummary({
+        tenantId: TENANT_ID,
+        studentId,
+        from: DATE,
+        to: DATE,
+      });
+      expect(summary.present_days).toBe(1);
+      expect(summary.absent_days).toBe(0);
+      expect(summary.marked_days).toBe(1);
+      expect(summary.attendance_percentage).toBeLessThanOrEqual(100);
+    });
+
+    it('getStudentDays returns the day register status', async () => {
+      const studentId = await seed(401, AttendanceStatus.PRESENT);
+      const days = await service.getStudentDays({
+        tenantId: TENANT_ID,
+        studentId,
+        from: DATE,
+        to: DATE,
+      });
+      expect(days.find((d) => d.date === DATE)?.status).toBe(AttendanceStatus.PRESENT);
+    });
+
+    it('getSectionRegisterMatrix shows the day register status in the cell', async () => {
+      const studentId = await seed(402, AttendanceStatus.PRESENT);
+      const matrix = await service.getSectionRegisterMatrix({
+        tenantId: TENANT_ID,
+        sectionId,
+        from: DATE,
+        to: DATE,
+      });
+      const row = matrix.rows.find((r) => r.student_id === studentId)!;
+      expect(row.marks[DATE]).toBe(AttendanceStatus.PRESENT);
+    });
+
+    it('getLowAttendanceFlags flags a day-ABSENT student on the day register, ignoring PRESENT periods', async () => {
+      const studentId = await seed(403, AttendanceStatus.ABSENT, AttendanceStatus.PRESENT);
+      const result = await service.getLowAttendanceFlags({
+        tenantId: TENANT_ID,
+        from: DATE,
+        to: DATE,
+        thresholdPercent: 90,
+        limit: 1000,
+      });
+      const flag = result.data.find((f) => f.student_id === studentId);
+      expect(flag).toBeDefined();
+      expect(flag!.attendance_percentage).toBe(0);
+    });
+  });
+
+  describe('class-scoped holidays (D25)', () => {
+    it('two students in different classes get different working_days', async () => {
+      const yearId = (await dataSource.getRepository(Class).findOneByOrFail({ id: classIdOf }))
+        .academic_year_id;
+      const otherClass = await dataSource
+        .getRepository(Class)
+        .save({ name: 'Scoped Class B', academic_year_id: yearId, tenant_id: TENANT_ID });
+      const otherSection = await dataSource.getRepository(ClassSection).save({
+        section_name: 'Scoped Section B',
+        class_id: otherClass.id,
+        tenant_id: TENANT_ID,
+      });
+      const inScoped = await makeStudent(500);
+      const inOther = (
+        await dataSource.getRepository(Student).save({
+          full_name: 'Scoped Student B',
+          registration_number: `SCOPED-B-${Date.now()}`,
+          roll_number: 501,
+          class_section_id: otherSection.id,
+          tenant_id: TENANT_ID,
+        })
+      ).id;
+
+      const event = await dataSource.getRepository(CalendarEvent).save({
+        tenant_id: TENANT_ID,
+        academic_year_id: yearId,
+        start_date: '2026-09-10',
+        end_date: '2026-09-10',
+        name: 'Class A Only Break',
+        counts_as_working_day: false,
+        published_at: new Date(),
+      });
+      await dataSource
+        .getRepository(CalendarEventClass)
+        .save({ event_id: event.id, class_id: classIdOf, tenant_id: TENANT_ID });
+
+      try {
+        const range = { tenantId: TENANT_ID, from: '2026-09-08', to: '2026-09-12' };
+        const a = await service.getStudentSummary({ ...range, studentId: inScoped });
+        const b = await service.getStudentSummary({ ...range, studentId: inOther });
+        expect(a.working_days).toBe(4);
+        expect(b.working_days).toBe(5);
+
+        const flags = await service.getLowAttendanceFlags({ ...range, thresholdPercent: 101 });
+        const byId = new Map(flags.data.map((f) => [f.student_id, f.working_days]));
+        expect(byId.get(inScoped)).toBe(4);
+        expect(byId.get(inOther)).toBe(5);
+
+        const days = await service.getStudentDays({ ...range, studentId: inScoped });
+        expect(days.find((d) => d.date === '2026-09-10')?.is_working_day).toBe(false);
+
+        // Empty roster: the section's own class still drives working days.
+        const emptySection = await dataSource.getRepository(ClassSection).save({
+          section_name: 'Scoped Empty Section',
+          class_id: classIdOf,
+          tenant_id: TENANT_ID,
+        });
+        const empty = await service.getSectionSummary({ ...range, sectionId: emptySection.id });
+        expect(empty.working_days).toBe(4);
+      } finally {
+        await dataSource.getRepository(CalendarEvent).delete({ id: event.id });
+      }
+    });
+  });
+
+  describe('getSectionStreaks', () => {
+    async function freshSection(tenantId = TENANT_ID): Promise<string> {
+      const year = await dataSource.getRepository(AcademicYear).save({
+        name: `Streak Year ${Date.now()}-${Math.random()}`,
+        start_date: '2026-01-01',
+        end_date: '2026-12-31',
+        tenant_id: tenantId,
+      });
+      const klass = await dataSource
+        .getRepository(Class)
+        .save({ name: 'Streak Class', academic_year_id: year.id, tenant_id: tenantId });
+      const section = await dataSource
+        .getRepository(ClassSection)
+        .save({ section_name: 'Streak Section', class_id: klass.id, tenant_id: tenantId });
+      return section.id;
+    }
+    async function student(secId: string, roll: number, tenantId = TENANT_ID): Promise<string> {
+      const s = await dataSource.getRepository(Student).save({
+        full_name: `Streak Student ${roll}`,
+        registration_number: `STREAK-${roll}-${Date.now()}-${Math.random()}`,
+        roll_number: roll,
+        class_section_id: secId,
+        tenant_id: tenantId,
+      });
+      return s.id;
+    }
+    /** One whole-day session per date, one record per [studentId, status]. */
+    async function day(
+      secId: string,
+      date: string,
+      marks: Array<[string, AttendanceStatus]>,
+      tenantId = TENANT_ID,
+    ): Promise<void> {
+      const session = await dataSource.getRepository(AttendanceSession).save({
+        tenant_id: tenantId,
+        section_id: secId,
+        date,
+        period_no: null,
+        state: AttendanceSessionState.FINALIZED,
+      });
+      for (const [studentId, status] of marks) {
+        await dataSource.getRepository(AttendanceRecord).save({
+          tenant_id: tenantId,
+          session_id: session.id,
+          student_id: studentId,
+          date,
+          status,
+        });
+      }
+    }
+
+    it('flags runs, orders deterministically, and uses a bounded number of queries', async () => {
+      const sec = await freshSection();
+      const absent = await student(sec, 2);
+      const late = await student(sec, 1);
+      const broken = await student(sec, 3);
+      const P = AttendanceStatus.PRESENT;
+      const A = AttendanceStatus.ABSENT;
+      const L = AttendanceStatus.LATE;
+      await day(sec, '2026-09-01', [
+        [broken, A],
+        [absent, P],
+        [late, P],
+      ]);
+      await day(sec, '2026-09-02', [
+        [broken, AttendanceStatus.LEAVE],
+        [absent, A],
+        [late, L],
+      ]);
+      await day(sec, '2026-09-03', [
+        [broken, A],
+        [absent, A],
+        [late, L],
+      ]);
+      await day(sec, '2026-09-04', [
+        [broken, A],
+        [absent, A],
+        [late, L],
+      ]);
+
+      let queryCount = 0;
+      const originalQuery = dataSource.query.bind(dataSource);
+      (dataSource as unknown as { query: typeof dataSource.query }).query = ((
+        ...args: Parameters<typeof dataSource.query>
+      ) => {
+        if (/^\s*SELECT/i.test(String(args[0]))) queryCount++;
+        return originalQuery(...args);
+      }) as typeof dataSource.query;
+      let result;
+      try {
+        result = await service.getSectionStreaks({ tenantId: TENANT_ID, sectionId: sec });
+      } finally {
+        (dataSource as unknown as { query: typeof dataSource.query }).query = originalQuery;
+      }
+
+      // `broken` has only a 2-run (LEAVE ends it); absent=3 A; late=3 L.
+      expect(result.as_of_date).toBe('2026-09-04');
+      expect(result.items.map((i) => [i.student_id, i.status, i.length, i.since_date])).toEqual([
+        [absent, A, 3, '2026-09-02'],
+        [late, L, 3, '2026-09-02'],
+      ]);
+      expect(queryCount).toBeLessThanOrEqual(3);
+    });
+
+    it('ignores period-level sessions', async () => {
+      const sec = await freshSection();
+      const s1 = await student(sec, 1);
+      for (const d of ['2026-09-01', '2026-09-02', '2026-09-03']) {
+        await day(sec, d, [[s1, AttendanceStatus.ABSENT]]);
+      }
+      // A newer period-level register with no marks must not break/replace the run.
+      await dataSource.getRepository(AttendanceSession).save({
+        tenant_id: TENANT_ID,
+        section_id: sec,
+        date: '2026-09-05',
+        period_no: 2,
+        state: AttendanceSessionState.FINALIZED,
+      });
+      const result = await service.getSectionStreaks({ tenantId: TENANT_ID, sectionId: sec });
+      expect(result.as_of_date).toBe('2026-09-03');
+      expect(result.items).toHaveLength(1);
+    });
+
+    it("never returns another tenant's data (cross-tenant section id)", async () => {
+      const other = await dataSource
+        .getRepository(School)
+        .save({ name: 'Streak Other School', slug: `streak-${Date.now()}` } as any);
+      const otherSec = await freshSection(other.id);
+      const stu = await student(otherSec, 1, other.id);
+      for (const d of ['2026-09-01', '2026-09-02', '2026-09-03']) {
+        await day(otherSec, d, [[stu, AttendanceStatus.ABSENT]], other.id);
+      }
+      const own = await service.getSectionStreaks({ tenantId: TENANT_ID, sectionId: otherSec });
+      expect(own).toEqual({ items: [], as_of_date: null });
+      const theirs = await service.getSectionStreaks({ tenantId: other.id, sectionId: otherSec });
+      expect(theirs.items).toHaveLength(1);
+    });
+  });
+
+  describe('getSectionSubjectSummary + matrix versions (#1591)', () => {
+    async function setSettings(periodsOn: boolean, leaveCounts = true): Promise<void> {
+      await dataSource.getRepository(School).update(
+        { id: TENANT_ID },
+        {
+          settings: {
+            version: 1,
+            attendance: {
+              weeklyOffDays: [],
+              periodAttendance: { enabled: periodsOn },
+              leaveCountsAsWorkingDay: leaveCounts,
+            },
+          } as any,
+        },
+      );
+    }
+    async function freshSec(tenantId = TENANT_ID): Promise<string> {
+      const year = await dataSource.getRepository(AcademicYear).save({
+        name: `SubjSum Year ${Date.now()}-${Math.random()}`,
+        start_date: '2026-01-01',
+        end_date: '2026-12-31',
+        tenant_id: tenantId,
+      });
+      const klass = await dataSource
+        .getRepository(Class)
+        .save({ name: 'SubjSum Class', academic_year_id: year.id, tenant_id: tenantId });
+      const sec = await dataSource
+        .getRepository(ClassSection)
+        .save({ section_name: 'S', class_id: klass.id, tenant_id: tenantId });
+      return sec.id;
+    }
+    async function subject(name: string, tenantId = TENANT_ID): Promise<string> {
+      const s = await dataSource.getRepository(Subject).save({
+        name_en: name,
+        code: `${name}-${Math.random().toString(36).slice(2, 8)}`,
+        tenant_id: tenantId,
+      } as any);
+      return s.id;
+    }
+    async function stu(sec: string, roll: number, tenantId = TENANT_ID): Promise<string> {
+      const s = await dataSource.getRepository(Student).save({
+        full_name: `SS ${roll}`,
+        registration_number: `SS-${roll}-${Date.now()}-${Math.random()}`,
+        roll_number: roll,
+        class_section_id: sec,
+        tenant_id: tenantId,
+      });
+      return s.id;
+    }
+    async function reg(
+      sec: string,
+      date: string,
+      periodNo: number | null,
+      subjectId: string | null,
+      marks: Array<[string, AttendanceStatus]>,
+      tenantId = TENANT_ID,
+    ) {
+      const session = await dataSource.getRepository(AttendanceSession).save({
+        tenant_id: tenantId,
+        section_id: sec,
+        date,
+        period_no: periodNo,
+        subject_id: subjectId,
+        state: AttendanceSessionState.FINALIZED,
+      });
+      for (const [studentId, status] of marks) {
+        await dataSource.getRepository(AttendanceRecord).save({
+          tenant_id: tenantId,
+          session_id: session.id,
+          student_id: studentId,
+          date,
+          status,
+        });
+      }
+      return session;
+    }
+    const range = { from: '2026-09-01', to: '2026-09-30' };
+    const ask = (sectionId: string, tenantId = TENANT_ID) =>
+      service.getSectionSubjectSummary({ tenantId, sectionId, ...range });
+
+    it('counts period registers per subject; ignores day, other section, other tenant', async () => {
+      await setSettings(true);
+      const sec = await freshSec();
+      const bangla = await subject('Bangla');
+      const rahim = await stu(sec, 1);
+      const statuses = [
+        ...Array(6).fill(AttendanceStatus.PRESENT),
+        AttendanceStatus.LATE,
+        AttendanceStatus.ABSENT,
+      ];
+      for (let i = 0; i < statuses.length; i++) {
+        const date = `2026-09-${String(i + 1).padStart(2, '0')}`;
+        await reg(sec, date, 1, bangla, [[rahim, statuses[i]]]);
+      }
+      // A whole-day register is not a period class: ignored.
+      await reg(sec, '2026-09-20', null, null, [[rahim, AttendanceStatus.ABSENT]]);
+      const otherSec = await freshSec();
+      const otherStu = await stu(otherSec, 1);
+      await reg(otherSec, '2026-09-02', 1, bangla, [[otherStu, AttendanceStatus.PRESENT]]);
+      const other = await dataSource
+        .getRepository(School)
+        .save({ name: 'SubjSum Other', slug: `ss-${Date.now()}` } as any);
+      const oSec = await freshSec(other.id);
+      const oSub = await subject('Bangla', other.id);
+      const oStu = await stu(oSec, 1, other.id);
+      await reg(oSec, '2026-09-02', 1, oSub, [[oStu, AttendanceStatus.ABSENT]], other.id);
+
+      const res = await ask(sec);
+      expect(res.subjects).toEqual([{ subject_id: bangla, name: 'Bangla', held: 8 }]);
+      expect(res.rows).toHaveLength(1);
+      // 6 present + 1 late (counts as present) of 8 held -> 7 / 8 = 87.5
+      expect(res.rows[0].by_subject[bangla]).toEqual({
+        present: 6,
+        late: 1,
+        absent: 1,
+        leave: 0,
+        attended: 7,
+        percentage: 87.5,
+      });
+      // Tenant isolation: tenant A asking for tenant B's section sees nothing.
+      expect(await ask(oSec)).toEqual({ subjects: [], rows: [] });
+    });
+
+    it('removes LEAVE from the denominator when leaveCountsAsWorkingDay is false', async () => {
+      await setSettings(true, false);
+      const sec = await freshSec();
+      const sub = await subject('Math');
+      const s1 = await stu(sec, 1);
+      await reg(sec, '2026-09-01', 1, sub, [[s1, AttendanceStatus.PRESENT]]);
+      await reg(sec, '2026-09-02', 1, sub, [[s1, AttendanceStatus.LEAVE]]);
+      // 1 present of (2 held - 1 leave) = 100%
+      expect((await ask(sec)).rows[0].by_subject[sub].percentage).toBe(100);
+    });
+
+    it('MARKED_DAYS divides by the periods the student was marked in, not periods held', async () => {
+      await dataSource.getRepository(School).update(
+        { id: TENANT_ID },
+        {
+          settings: {
+            version: 1,
+            attendance: {
+              weeklyOffDays: [],
+              periodAttendance: { enabled: true },
+              percentageDenominator: 'MARKED_DAYS',
+            },
+          } as any,
+        },
+      );
+      const sec = await freshSec();
+      const sub = await subject('Sci');
+      const s1 = await stu(sec, 1);
+      const s2 = await stu(sec, 2);
+      // 4 periods held; s1 is in only 2 of them (1 present, 1 absent).
+      await reg(sec, '2026-09-01', 1, sub, [
+        [s1, AttendanceStatus.PRESENT],
+        [s2, AttendanceStatus.PRESENT],
+      ]);
+      await reg(sec, '2026-09-02', 1, sub, [
+        [s1, AttendanceStatus.ABSENT],
+        [s2, AttendanceStatus.PRESENT],
+      ]);
+      await reg(sec, '2026-09-03', 1, sub, [[s2, AttendanceStatus.PRESENT]]);
+      await reg(sec, '2026-09-04', 1, sub, [[s2, AttendanceStatus.PRESENT]]);
+      // 1 / 2 marked = 50% (WORKING_DAYS would give 1 / 4 = 25%).
+      const rows = (await ask(sec)).rows;
+      expect(rows.find((r) => r.student_id === s1)!.by_subject[sub].percentage).toBe(50);
+    });
+
+    it('no period registers -> empty subjects; student without records -> zeros + null', async () => {
+      await setSettings(true);
+      const sec = await freshSec();
+      await stu(sec, 1);
+      expect(await ask(sec)).toMatchObject({ subjects: [], rows: [{ by_subject: {} }] });
+      const sub = await subject('Eng');
+      const marked = await stu(sec, 2);
+      await reg(sec, '2026-09-01', 1, sub, [[marked, AttendanceStatus.PRESENT]]);
+      const res = await ask(sec);
+      expect(res.rows[0].by_subject[sub]).toMatchObject({
+        present: 0,
+        attended: 0,
+        percentage: null,
+      });
+    });
+
+    it('keeps a soft-deleted subject by name', async () => {
+      await setSettings(true);
+      const sec = await freshSec();
+      const sub = await subject('Gone');
+      await reg(sec, '2026-09-01', 1, sub, []);
+      await dataSource.getRepository(Subject).softDelete({ id: sub });
+      expect((await ask(sec)).subjects).toEqual([{ subject_id: sub, name: 'Gone', held: 1 }]);
+    });
+
+    it('refuses with ATTENDANCE_PERIOD_DISABLED when the switch is off', async () => {
+      await setSettings(false);
+      const sec = await freshSec();
+      await expect(ask(sec)).rejects.toMatchObject({
+        response: { details: { code: 'ATTENDANCE_PERIOD_DISABLED' } },
+      });
+    });
+
+    it('matrix returns versions for marked whole-day sessions only, and it grows on update', async () => {
+      await setSettings(true);
+      const sec = await freshSec();
+      const a = await stu(sec, 1);
+      const day = await reg(sec, '2026-09-03', null, null, [[a, AttendanceStatus.PRESENT]]);
+      await reg(sec, '2026-09-04', 1, null, []); // period session: not in versions
+      const m = { tenantId: TENANT_ID, sectionId: sec, ...range };
+      const before = await service.getSectionRegisterMatrix(m);
+      expect(Object.keys(before.versions)).toEqual(['2026-09-03']);
+      await dataSource
+        .getRepository(AttendanceSession)
+        .update({ id: day.id }, { state: AttendanceSessionState.DRAFT });
+      await dataSource.getRepository(AttendanceSession).increment({ id: day.id }, 'version', 1);
+      const after = await service.getSectionRegisterMatrix(m);
+      expect(after.versions['2026-09-03']).toBeGreaterThan(before.versions['2026-09-03']);
     });
   });
 });

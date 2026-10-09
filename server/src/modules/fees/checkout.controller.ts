@@ -28,7 +28,6 @@ import type { Request, Response } from 'express';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { ApprovalGuard, ApprovalContext } from '../auth/guards/approval.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { RequireApproval } from '../auth/decorators/require-approval.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
@@ -45,7 +44,7 @@ import {
   QueryCheckoutCartDto,
 } from './dto/checkout.dto';
 import { Payment } from './entities/payment.entity';
-import { ApprovalScope, JwtPayload, Permission, UserRole, isGuardianRole } from '@biddaloy/shared';
+import { ApprovalScope, JwtPayload, Permission, isGuardianRole } from '@biddaloy/shared';
 
 /** `POST /payments/:id/reverse` (16.6.1) body — just the audit-trail
  * reason, everything else about the reversal is derived server-side from
@@ -85,14 +84,6 @@ export class CheckoutController {
   ) {}
 
   @Get('payments/cart')
-  @Roles(
-    UserRole.ADMIN,
-    UserRole.ACCOUNTANT,
-    UserRole.EXECUTIVE,
-    UserRole.TEACHER,
-    UserRole.PARENT,
-    UserRole.STUDENT,
-  )
   @RequirePermissions(Permission.FEE_READ)
   @ApiOperation({
     summary:
@@ -123,7 +114,6 @@ export class CheckoutController {
   }
 
   @Post('payments/checkout')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
   @RequirePermissions(Permission.PAYMENT_RECORD)
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
@@ -161,7 +151,6 @@ export class CheckoutController {
   }
 
   @Post('payments/:id/reverse')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.PAYMENT_REVERSE)
   @RequireApproval(ApprovalScope.PAYMENTS_REVERSE)
   @HttpCode(HttpStatus.OK)

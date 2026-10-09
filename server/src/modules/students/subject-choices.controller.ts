@@ -14,7 +14,6 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -22,7 +21,7 @@ import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator
 import { requestContext } from '../../common/request-context.util';
 import { SubjectChoicesService } from './subject-choices.service';
 import { SetSubjectChoiceDto, QuerySubjectChoiceDto } from '../exams/dto/exams.dto';
-import { Permission, UserRole, JwtPayload } from '@biddaloy/shared';
+import { Permission, JwtPayload } from '@biddaloy/shared';
 
 @ApiTags('subject-choices')
 @ApiTenantAuth()
@@ -32,7 +31,6 @@ export class SubjectChoicesController {
   constructor(private readonly service: SubjectChoicesService) {}
 
   @Get()
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
   @RequirePermissions(Permission.STUDENT_UPDATE)
   @ApiOperation({ summary: "List a student's optional-subject choices for an academic year." })
   listOptions(
@@ -44,7 +42,6 @@ export class SubjectChoicesController {
   }
 
   @Put()
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
   @RequirePermissions(Permission.STUDENT_UPDATE)
   @ApiOperation({ summary: "Set (create or update) a student's optional-subject choice." })
   setChoice(

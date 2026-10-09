@@ -22,7 +22,7 @@ describe('buildHelmetOptions', () => {
     expect(devDirectives.directives.upgradeInsecureRequests).toBeUndefined();
   });
 
-  it('restricts the CSP to same-origin only, with no defaults merged in', () => {
+  it('restricts the CSP to same-origin plus Turnstile, with no defaults merged in', () => {
     const { contentSecurityPolicy } = buildHelmetOptions('production') as any;
 
     expect(contentSecurityPolicy.useDefaults).toBe(false);
@@ -31,10 +31,11 @@ describe('buildHelmetOptions', () => {
       baseUri: ["'self'"],
       fontSrc: ["'self'"],
       formAction: ["'self'"],
+      frameSrc: ['https://challenges.cloudflare.com'],
       frameAncestors: ["'none'"],
       imgSrc: ["'self'"],
       objectSrc: ["'none'"],
-      scriptSrc: ["'self'"],
+      scriptSrc: ["'self'", 'https://challenges.cloudflare.com'],
       styleSrc: ["'self'"],
     });
   });

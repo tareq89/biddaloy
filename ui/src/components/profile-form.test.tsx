@@ -15,6 +15,21 @@ const defaultValues = { full_name: 'Karim Rahman' };
 // [12.7] email/phone are gone from this form entirely — see this file's
 // own header for why. Its remaining job is just full_name.
 describe('ProfileForm', () => {
+  it('[31.2.14a] titles the card with an h2 and a right-aligned auto-width submit', async () => {
+    renderWithProviders(<ProfileForm defaultValues={defaultValues} onSubmit={vi.fn()} />, {
+      locale: 'en',
+    });
+    expect((await screen.findByRole('heading', { level: 2, name: 'Profile' })).tagName).toBe('H2');
+    expect(screen.getByRole('button', { name: 'Save changes' }).className).toContain('md:w-auto');
+  });
+
+  it('[31.2.14a] marks full name as required', async () => {
+    renderWithProviders(<ProfileForm defaultValues={defaultValues} onSubmit={vi.fn()} />, {
+      locale: 'en',
+    });
+    expect(await screen.findByText(/required/i)).toBeTruthy();
+  });
+
   it('submits the edited full_name', async () => {
     const onSubmit = vi.fn();
     const user = userEvent.setup();
@@ -22,7 +37,7 @@ describe('ProfileForm', () => {
       locale: 'en',
     });
 
-    const fullName = await screen.findByLabelText('Full name');
+    const fullName = await screen.findByLabelText(/Full name/);
     await user.clear(fullName);
     await user.type(fullName, 'Karim Renamed');
     await user.click(screen.getByRole('button', { name: 'Save changes' }));
@@ -37,7 +52,7 @@ describe('ProfileForm', () => {
       locale: 'en',
     });
 
-    const fullName = await screen.findByLabelText('Full name');
+    const fullName = await screen.findByLabelText(/Full name/);
     await user.clear(fullName);
     await user.click(screen.getByRole('button', { name: 'Save changes' }));
 

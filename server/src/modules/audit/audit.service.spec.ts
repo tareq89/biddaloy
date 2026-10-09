@@ -187,6 +187,7 @@ describe('AuditService', () => {
         page: 2,
         limit: 5,
         totalPages: 1,
+        entityLabels: expect.any(Map),
       });
     });
 

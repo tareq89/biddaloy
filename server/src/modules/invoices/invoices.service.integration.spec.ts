@@ -328,6 +328,8 @@ describe('InvoicesService (integration)', () => {
       expect(invoice.snapshot.students[0].id).toBe(student.id);
       expect(invoice.snapshot.students[0].lines).toHaveLength(1);
       expect(invoice.snapshot.students[0].lines[0].period_label).toBe('April 2026');
+      // [31.3.7d] machine-readable month the client formats itself.
+      expect(invoice.snapshot.students[0].lines[0].period_start).toBe('2026-04');
       expect(invoice.snapshot.students[0].lines[0].paid_this_time).toBe(1500);
       expect(invoice.snapshot.totals.paid).toBe(1500);
     });
@@ -598,6 +600,40 @@ describe('InvoicesService (integration)', () => {
   });
 
   describe('findOne', () => {
+    it('back-fills period_start on read for an invoice snapshotted before it existed, without writing it back', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const fee = await studentFeeRepo.save(makeFee(student.id, { month: 4, year: 2026 }));
+      const payment = await makePayment(student.id, [[fee, 1000]]);
+      const created = await createInvoice(payment.id);
+
+      // Fabricate the legacy snapshot (no `period_start`). Same
+      // replica-role trick as the issuer-snapshot fixture above: the [D21]
+      // trigger freezes `snapshot` once issued, so a real UPDATE can't.
+      const legacy = JSON.parse(JSON.stringify(created.snapshot));
+      for (const st of legacy.students) {
+        for (const line of st.lines) delete line.period_start;
+      }
+      const queryRunner = dataSource.createQueryRunner();
+      await queryRunner.connect();
+      try {
+        await queryRunner.query("SET session_replication_role = 'replica'");
+        await queryRunner.query('UPDATE invoices SET snapshot = $1 WHERE id = $2', [
+          JSON.stringify(legacy),
+          created.id,
+        ]);
+      } finally {
+        await queryRunner.query("SET session_replication_role = 'origin'");
+        await queryRunner.release();
+      }
+
+      const found = await service.findOne(created.id, TENANT_ID);
+      expect(found.snapshot.students[0].lines[0].period_start).toBe('2026-04');
+
+      // The stored row is still the immutable original.
+      const stored = await invoiceRepo.findOneOrFail({ where: { id: created.id } });
+      expect(stored.snapshot.students[0].lines[0].period_start).toBeUndefined();
+    });
+
     it('returns the invoice for the owning tenant', async () => {
       const student = await studentRepo.save(makeStudent());
       const fee = await studentFeeRepo.save(makeFee(student.id));

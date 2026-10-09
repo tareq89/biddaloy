@@ -75,6 +75,14 @@ export interface TabSpec<E, R> {
   columns: readonly ColumnSpec[]; // columns[0] is always { key: 'id', type: 'uuid' }
   naturalKey: readonly string[]; // column keys, joined with '|' by keyOf
   deleteByAbsence: boolean;
+  /** Opt-in only for a tab with no DB unique constraint on `naturalKey` and
+   * no other tab referencing it by that key ([23.0]'s 7 staff-child
+   * tables) — real data can carry two rows with the same natural key
+   * (e.g. two trainings titled the same). `ValidationService` normally
+   * hard-rejects a duplicate key; this lets it accept one instead, when
+   * each conflicting row is either already the destination's existing
+   * entity (by id) or the key doesn't exist in the destination at all. */
+  allowDuplicateKeys?: boolean;
   load(tenantId: string, m: EntityManager): Promise<E[]>;
   toRow(entity: E, ctx: ExportContext): Record<string, unknown>;
   fromRow(
@@ -83,6 +91,14 @@ export interface TabSpec<E, R> {
     ctx: ImportContext,
   ): { row: R } | { errors: RowError[] };
   keyOf(x: R | E): string;
+  /**
+   * Optional second uniqueness rule that the natural key cannot express (e.g.
+   * "one CLASS_TEACHER per section"). Return null when the rule does not
+   * apply. `ValidationService` rejects two rows of one file that share a
+   * non-null value, and, for a TEMPLATE workbook (which may never delete),
+   * a row whose value is already held by a different row in the destination.
+   */
+  secondaryKeyOf?(x: R | E): string | null;
   diffFields(row: R, existing: E): string[];
   upsert(row: R, existing: E | null, tenantId: string, m: EntityManager): Promise<E>;
   remove(entity: E, m: EntityManager): Promise<void>;

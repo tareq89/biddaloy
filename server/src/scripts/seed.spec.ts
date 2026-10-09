@@ -23,8 +23,51 @@ import type { AttendanceDevice } from '../modules/attendance/entities/attendance
 import type { ClassSubject } from '../modules/academics/entities/class-subject.entity';
 import type { GradingScale } from '../modules/grading/entities/grading-scale.entity';
 import type { GradingBand } from '../modules/grading/entities/grading-band.entity';
+import type { Shift } from '../modules/routines/entities/shift.entity';
+import type { PeriodSlot } from '../modules/routines/entities/period-slot.entity';
+import type { Room } from '../modules/routines/entities/room.entity';
+import type { Routine } from '../modules/routines/entities/routine.entity';
+import type { RoutineSlot } from '../modules/routines/entities/routine-slot.entity';
+import type { RoutineSlotTeacher } from '../modules/routines/entities/routine-slot-teacher.entity';
+import type { RoutineSubstitution } from '../modules/routines/entities/routine-substitution.entity';
+import type { RoutineChangeRequest } from '../modules/routines/entities/routine-change-request.entity';
+import type { Exam } from '../modules/exams/entities/exam.entity';
+import type { ExamComponent } from '../modules/exams/entities/exam-component.entity';
+import type { Mark } from '../modules/exams/entities/mark.entity';
+import type { MarkGrid } from '../modules/exams/entities/mark-grid.entity';
+import type { Result } from '../modules/exams/entities/result.entity';
+import type { ResultSubject } from '../modules/exams/entities/result-subject.entity';
+import type { ExamSchedule } from '../modules/exams/entities/exam-schedule.entity';
+import type { Homework } from '../modules/homework/entities/homework.entity';
+import type { HomeworkAssignment } from '../modules/homework/entities/homework-assignment.entity';
+import type { HomeworkSubmission } from '../modules/homework/entities/homework-submission.entity';
+import type { SyllabusTopic } from '../modules/homework/entities/syllabus-topic.entity';
+import type { Enrollment } from '../modules/students/entities/enrollment.entity';
+import type { PromotionRun } from '../modules/promotions/entities/promotion-run.entity';
+import type { PromotionEntry } from '../modules/promotions/entities/promotion-entry.entity';
+import type { SeatPlan } from '../modules/seat-plans/entities/seat-plan.entity';
+import type { SeatPlanSchedule } from '../modules/seat-plans/entities/seat-plan-schedule.entity';
+import type { SeatAllocation } from '../modules/seat-plans/entities/seat-allocation.entity';
+import type { Program } from '../modules/programs/entities/program.entity';
+import type { ProgramMilestone } from '../modules/programs/entities/program-milestone.entity';
+import type { ProgramEnrollment } from '../modules/programs/entities/program-enrollment.entity';
+import type { MilestoneAchievement } from '../modules/programs/entities/milestone-achievement.entity';
+import type { FeeStructure } from '../modules/fees/entities/fee-structure.entity';
+import type { FineRule } from '../modules/fees/entities/fine-rule.entity';
+import type { RecurringSchedule } from '../modules/fees/entities/recurring-schedule.entity';
+import type { RecurringScheduleStructure } from '../modules/fees/entities/recurring-schedule-structure.entity';
+import type { StaffProfile } from '../modules/staff-profiles/entities/staff-profile.entity';
+import type { StaffAttendanceSession } from '../modules/staff-attendance/entities/staff-attendance-session.entity';
+import type { StaffAttendanceRecord } from '../modules/staff-attendance/entities/staff-attendance-record.entity';
+import type { LeavePolicy } from '../modules/leave/entities/leave-policy.entity';
+import type { LeaveRecord } from '../modules/leave/entities/leave-record.entity';
 import { seedAccounts, type SeedAccountRepositories } from './seed.accounts';
 import { ensureDemoOrganisation } from './seed.util';
+import {
+  ensureStudentLifecycleSeed,
+  type StudentLifecycleSeedRepositories,
+} from './seed.lifecycle';
+import { SEED_LIFECYCLE_STUDENTS, SEED_TRANSFER_DESTINATION } from '../../../e2e/seed-contract';
 
 /**
  * A deliberately small in-memory stand-in for a TypeORM repository. It only
@@ -182,6 +225,158 @@ function makeRepos() {
       clock,
       'grading-band',
     ).asRepository() as unknown as Repository<GradingBand>,
+    shiftRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'shift',
+    ).asRepository() as unknown as Repository<Shift>,
+    periodSlotRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'period-slot',
+    ).asRepository() as unknown as Repository<PeriodSlot>,
+    roomRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'room',
+    ).asRepository() as unknown as Repository<Room>,
+    routineRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'routine',
+    ).asRepository() as unknown as Repository<Routine>,
+    routineSlotRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'routine-slot',
+    ).asRepository() as unknown as Repository<RoutineSlot>,
+    routineSlotTeacherRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'routine-slot-teacher',
+    ).asRepository() as unknown as Repository<RoutineSlotTeacher>,
+    routineSubstitutionRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'routine-substitution',
+    ).asRepository() as unknown as Repository<RoutineSubstitution>,
+    routineChangeRequestRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'routine-change-request',
+    ).asRepository() as unknown as Repository<RoutineChangeRequest>,
+    examRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'exam',
+    ).asRepository() as unknown as Repository<Exam>,
+    examComponentRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'exam-component',
+    ).asRepository() as unknown as Repository<ExamComponent>,
+    markGridRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'mark-grid',
+    ).asRepository() as unknown as Repository<MarkGrid>,
+    markRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'mark',
+    ).asRepository() as unknown as Repository<Mark>,
+    resultRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'result',
+    ).asRepository() as unknown as Repository<Result>,
+    resultSubjectRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'result-subject',
+    ).asRepository() as unknown as Repository<ResultSubject>,
+    examScheduleRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'exam-schedule',
+    ).asRepository() as unknown as Repository<ExamSchedule>,
+    homeworkRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'homework',
+    ).asRepository() as unknown as Repository<Homework>,
+    homeworkAssignmentRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'homework-assignment',
+    ).asRepository() as unknown as Repository<HomeworkAssignment>,
+    homeworkSubmissionRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'homework-submission',
+    ).asRepository() as unknown as Repository<HomeworkSubmission>,
+    syllabusTopicRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'syllabus-topic',
+    ).asRepository() as unknown as Repository<SyllabusTopic>,
+    enrollmentRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'enrollment',
+    ).asRepository() as unknown as Repository<Enrollment>,
+    promotionRunRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'promotion-run',
+    ).asRepository() as unknown as Repository<PromotionRun>,
+    promotionEntryRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'promotion-entry',
+    ).asRepository() as unknown as Repository<PromotionEntry>,
+    seatPlanRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'seat-plan',
+    ).asRepository() as unknown as Repository<SeatPlan>,
+    seatPlanScheduleRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'seat-plan-schedule',
+    ).asRepository() as unknown as Repository<SeatPlanSchedule>,
+    seatAllocationRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'seat-allocation',
+    ).asRepository() as unknown as Repository<SeatAllocation>,
+    programRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'program',
+    ).asRepository() as unknown as Repository<Program>,
+    programMilestoneRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'program-milestone',
+    ).asRepository() as unknown as Repository<ProgramMilestone>,
+    programEnrollmentRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'program-enrollment',
+    ).asRepository() as unknown as Repository<ProgramEnrollment>,
+    milestoneAchievementRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'milestone-achievement',
+    ).asRepository() as unknown as Repository<MilestoneAchievement>,
+    feeStructureRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'fee-structure',
+    ).asRepository() as unknown as Repository<FeeStructure>,
+    fineRuleRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'fine-rule',
+    ).asRepository() as unknown as Repository<FineRule>,
+    recurringScheduleRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'recurring-schedule',
+    ).asRepository() as unknown as Repository<RecurringSchedule>,
+    recurringScheduleStructureRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'recurring-schedule-structure',
+    ).asRepository() as unknown as Repository<RecurringScheduleStructure>,
+    staffProfileRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'staff-profile',
+    ).asRepository() as unknown as Repository<StaffProfile>,
+    leavePolicyRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'leave-policy',
+    ).asRepository() as unknown as Repository<LeavePolicy>,
+    staffAttendanceSessionRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'staff-attendance-session',
+    ).asRepository() as unknown as Repository<StaffAttendanceSession>,
+    staffAttendanceRecordRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'staff-attendance-record',
+    ).asRepository() as unknown as Repository<StaffAttendanceRecord>,
+    leaveRecordRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'leave-record',
+    ).asRepository() as unknown as Repository<LeaveRecord>,
   } satisfies SeedAccountRepositories;
   return { repos, users, schools, userTenants, students };
 }
@@ -301,5 +496,92 @@ describe('seedAccounts', () => {
     await expect(
       seedAccounts(repos, noVocabSchool as unknown as School, 'admin@school.com', 'hash'),
     ).rejects.toThrow(/Class 7.*shift "Morning"/);
+  });
+});
+
+describe('ensureStudentLifecycleSeed [39.1.4]', () => {
+  const TENANT = 'school-default';
+
+  function setup() {
+    let now = 0;
+    const clock = { tick: () => new Date(1_800_000_000_000 + (now += 1000)) };
+    const fake = (prefix: string) => new FakeRepo<Record<string, unknown>>(clock, prefix);
+    const students = fake('student');
+    const enrollments = fake('enrollment');
+    const years = fake('year');
+    const events = fake('event');
+    const notes = fake('note');
+    const exams = fake('exam');
+    const year1 = years.create({ tenant_id: TENANT, name: '2026-2027' });
+    void years.save(year1);
+    for (let n = 1; n <= 5; n += 1) {
+      const s = students.create({
+        tenant_id: TENANT,
+        registration_number: `2026-2027-000${n}`,
+        father_name: null,
+        mother_name: null,
+        religion: null,
+        birth_reg_no: null,
+        health_notes: null,
+      });
+      void students.save(s);
+      void enrollments.save(
+        enrollments.create({ tenant_id: TENANT, student_id: s.id, academic_year_id: year1.id }),
+      );
+    }
+    const repos = {
+      studentRepository: students.asRepository(),
+      enrollmentRepository: enrollments.asRepository(),
+      academicYearRepository: years.asRepository(),
+      lifecycleEventRepository: events.asRepository(),
+      noteRepository: notes.asRepository(),
+      publicExamRepository: exams.asRepository(),
+    } as unknown as StudentLifecycleSeedRepositories;
+    return { repos, students, enrollments, events, notes, exams };
+  }
+
+  it('seeds events, notes, exams and student columns, and matches the e2e contract', async () => {
+    const { repos, students, enrollments, events, notes, exams } = setup();
+
+    await ensureStudentLifecycleSeed(repos, TENANT, 'admin-1');
+
+    expect(events.rows.map((e) => e.event_type).sort()).toEqual([
+      'GRADUATED',
+      'READMITTED',
+      'TRANSFERRED_OUT',
+      'WITHDRAWN',
+    ]);
+    // Every event's year must equal the year of the enrollment it points at.
+    for (const e of events.rows) {
+      const enrollment = enrollments.rows.find((x) => x.id === e.enrollment_id);
+      expect(enrollment?.academic_year_id).toBe(e.academic_year_id);
+      expect(enrollment?.student_id).toBe(e.student_id);
+    }
+    expect(events.rows.every((e) => e.reason && e.recorded_by_user_id === 'admin-1')).toBe(true);
+    expect(events.rows.find((e) => e.event_type === 'TRANSFERRED_OUT')?.destination).toBe(
+      SEED_TRANSFER_DESTINATION,
+    );
+    expect(notes.rows).toHaveLength(2);
+    expect(exams.rows.map((e) => e.exam_type).sort()).toEqual(['JSC', 'SSC']);
+    expect(students.rows.filter((s) => s.father_name && s.birth_reg_no)).toHaveLength(3);
+    const byReg = (r: string) => students.rows.find((s) => s.registration_number === r)?.id;
+    expect(events.rows.find((e) => e.event_type === 'WITHDRAWN')?.student_id).toBe(
+      byReg(SEED_LIFECYCLE_STUDENTS.withdrawnThenReadmitted),
+    );
+    expect(events.rows.find((e) => e.event_type === 'TRANSFERRED_OUT')?.student_id).toBe(
+      byReg(SEED_LIFECYCLE_STUDENTS.transferredOut),
+    );
+    expect(events.rows.find((e) => e.event_type === 'GRADUATED')?.student_id).toBe(
+      byReg(SEED_LIFECYCLE_STUDENTS.graduated),
+    );
+  });
+
+  it('is idempotent: a second run adds no rows', async () => {
+    const { repos, events, notes, exams } = setup();
+
+    await ensureStudentLifecycleSeed(repos, TENANT, 'admin-1');
+    await ensureStudentLifecycleSeed(repos, TENANT, 'admin-1');
+
+    expect([events.rows.length, notes.rows.length, exams.rows.length]).toEqual([4, 2, 2]);
   });
 });

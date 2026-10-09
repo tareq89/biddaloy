@@ -261,19 +261,18 @@ describe('POST /backup/validate E2E', () => {
       .expect(400);
   });
 
-  it('refuses a TEACHER at the RolesGuard with the exact role message', async () => {
-    // Pinning the status and message, not `[401, 403]`: RolesGuard runs
-    // before PermissionsGuard here, so a guard-order or role-list regression
-    // would still satisfy the looser assertion.
+  it('refuses a TEACHER at the PermissionsGuard with the exact permission message', async () => {
+    // Pinning the status and message, not `[401, 403]`, so a guard regression
+    // cannot satisfy a looser assertion.
     await supertest(app.getHttpServer())
       .post('/api/v1/backup/validate')
       .set('Authorization', `Bearer ${token}`)
       .set('X-Tenant-ID', TENANT_ID)
       .set('X-Role', UserRole.TEACHER)
       .attach('file', VALID_XLSX, 'valid.xlsx')
-      .expect(401)
+      .expect(403)
       .expect(({ body }) => {
-        expect(body.message).toBe('Requires one of roles: ADMIN, SUPER_ADMIN');
+        expect(body.message).toBe('Requires permission(s): BACKUP_MANAGE');
       });
   });
 });

@@ -71,8 +71,11 @@ export class SchoolCalendarService {
     from: string;
     to: string;
     academicYearId?: string;
+    /** D25: with a class, an event counts when school-wide or scoped to it;
+     * without one, only school-wide events count. */
+    classId?: string;
   }): Promise<{ dates: string[]; count: number }> {
-    const { tenantId, from, to, academicYearId } = input;
+    const { tenantId, from, to, academicYearId, classId } = input;
     const fromDay = toEpochDay(from);
     const toDay = toEpochDay(to);
 
@@ -116,6 +119,13 @@ export class SchoolCalendarService {
     if (academicYearId) {
       qb.andWhere('h.academic_year_id = :academicYearId', { academicYearId });
     }
+    const scoped = (extra = '') =>
+      `EXISTS (SELECT 1 FROM calendar_event_classes ec WHERE ec.event_id = h.id AND ec.tenant_id = :tenantId${extra})`;
+    if (classId) {
+      qb.andWhere(`(NOT ${scoped()} OR ${scoped(' AND ec.class_id = :classId')})`, { classId });
+    } else {
+      qb.andWhere(`NOT ${scoped()}`);
+    }
     const holidays = await qb.getMany();
 
     const removedDays = new Set<string>();
@@ -136,9 +146,13 @@ export class SchoolCalendarService {
    * false`. Used by [9.3]'s write path. Delegates to `getWorkingDays` so
    * there is exactly one definition of "is this a school day", with a
    * single-day range checking only whether the candidate got removed. */
-  async isNonWorkingDay(input: { tenantId: string; date: string }): Promise<boolean> {
-    const { tenantId, date } = input;
-    const { count } = await this.getWorkingDays({ tenantId, from: date, to: date });
+  async isNonWorkingDay(input: {
+    tenantId: string;
+    date: string;
+    classId?: string;
+  }): Promise<boolean> {
+    const { tenantId, date, classId } = input;
+    const { count } = await this.getWorkingDays({ tenantId, from: date, to: date, classId });
     return count === 0;
   }
 

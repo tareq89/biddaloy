@@ -1,8 +1,10 @@
 import { EnrollmentStatus } from '@biddaloy/shared';
 import { DataTable, StatusBadge, type DataTableColumn } from '@biddaloy/ui/components';
 import { useStudents, type Student } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { formatNumber } from '@biddaloy/ui/utils';
 import { Link } from '@tanstack/react-router';
+import { GraduationCapIcon } from 'lucide-react';
 import * as React from 'react';
 
 import { TabQueryState } from './tab-query-state';
@@ -11,7 +13,7 @@ export interface StudentsTabProps {
   classId: string;
 }
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 25;
 
 /** Reuses `useStudents({ class_id })` — the same students endpoint
  * `students/index.tsx` filters through, not a class-scoped duplicate.
@@ -24,6 +26,7 @@ const PAGE_SIZE = 20;
  * full-page list). */
 export function StudentsTab({ classId }: StudentsTabProps) {
   const { t } = useTranslation('classes');
+  const regionConfig = useTenantRegionConfig();
   const [page, setPage] = React.useState(1);
   const query = useStudents({ class_id: classId, page, limit: PAGE_SIZE });
 
@@ -35,7 +38,7 @@ export function StudentsTab({ classId }: StudentsTabProps) {
         <Link
           to="/students/$studentId"
           params={{ studentId: student.id }}
-          className="font-medium text-primary underline"
+          className="font-medium text-text-primary hover:text-primary"
         >
           {student.full_name}
         </Link>
@@ -44,7 +47,9 @@ export function StudentsTab({ classId }: StudentsTabProps) {
     {
       id: 'roll',
       header: t('detail.students.columnRoll'),
-      accessorFn: (student) => student.roll_number,
+      accessorFn: (student) =>
+        student.roll_number == null ? '—' : formatNumber(student.roll_number, regionConfig),
+      align: 'end',
     },
     {
       id: 'section',
@@ -79,7 +84,14 @@ export function StudentsTab({ classId }: StudentsTabProps) {
           pageSize={PAGE_SIZE}
           totalCount={students.total}
           onPageChange={setPage}
-          emptyMessage={t('detail.students.emptyMessage')}
+          rowActions={(student) => [
+            { intent: 'view', label: t('detail.students.view'), to: `/students/${student.id}` },
+          ]}
+          emptyState={{
+            icon: <GraduationCapIcon aria-hidden="true" />,
+            title: t('detail.students.emptyMessage'),
+            explanation: t('detail.students.emptyExplanation'),
+          }}
         />
       )}
     </TabQueryState>

@@ -108,6 +108,11 @@ export interface AttendancePolicySettings {
    * enforces this). */
   allowFutureDates: boolean;
   autoAbsentNotification: { enabled: boolean; cutoffTime: string };
+  /** Per-shift override of `lateAfter`/`absentAfter` (local 'HH:mm'). A
+   * class whose shift has no entry uses the tenant pair above. */
+  shiftTimes?: Array<{ shiftId: string; lateAfter: string; absentAfter: string }>;
+  /** Period-by-period attendance on top of the daily register. */
+  periodAttendance?: { enabled: boolean };
 }
 
 /**
@@ -229,6 +234,26 @@ export interface FeesSettings {
   /** Default `true` — a scheduled/recurring generation run does notify
    * parents unless the school turns it off. */
   notifyOnScheduleDefault: boolean;
+  /** Days after creation a fine is due (Epic 38 D10). Default 7. */
+  fineDueDays: number;
+}
+
+/** Which curriculum preset (Epic 35.0) a tenant applied, and when. */
+export interface PresetSettings {
+  id: string;
+  version: string;
+  /** ISO timestamp. */
+  appliedAt: string;
+  appliedByUserId: string;
+}
+
+/**
+ * `evaluations.*` (28.2.1) — incident notification options. Absent = off.
+ * Push is always on; this only gates the SMS.
+ */
+export interface EvaluationsSettings {
+  /** SMS to ACR_WRITE holders on a new incident (fixed text, never the incident). */
+  incidentSmsEnabled?: boolean;
 }
 
 export interface TenantSettings {
@@ -238,7 +263,9 @@ export interface TenantSettings {
   attendance?: AttendancePolicySettings;
   routine?: RoutineSettings;
   organisation?: OrganisationSettings;
+  preset?: PresetSettings;
   auth?: AuthSettings;
   backup?: BackupSettings;
   fees?: FeesSettings;
+  evaluations?: EvaluationsSettings;
 }

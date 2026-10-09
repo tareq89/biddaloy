@@ -12,15 +12,23 @@ import { SEED_CALENDAR_EVENT_NAMES } from '../seed-contract';
  * grid but none of the admin-only controls, and the per-user ICS feed
  * actually serves a `text/calendar` body containing a just-created event.
  *
- * All dates are fixed 2026 values, inside the seeded 2026-01-01..
- * 2026-12-31 academic year (`seed.util.ts`) — see this file's own D-note
- * in the published plan (issue #720) about the "create" leg breaking once
- * the wall clock moves past 2026 and needing a seed refresh, not a patch
- * here.
+ * The past-locked date is a fixed 2026 value, inside the seeded 2026-01-01..
+ * 2026-12-31 academic year (`seed.util.ts`). The create date is derived
+ * ("tomorrow", school-local) rather than hardcoded — the server's past-lock
+ * (`assertNotPast` in `calendar-events.service.ts`) measures "today" in the
+ * tenant's timezone (Asia/Dhaka by default, `tenant-settings-defaults.ts`),
+ * so a fixed create date eventually becomes "yesterday" there and every
+ * create silently 422s. See this file's own D-note in the published plan
+ * (issue #720): this still breaks once "tomorrow" leaves the seeded 2026
+ * academic year (i.e. on 2026-12-31) and needs a seed refresh then, not a
+ * patch here.
  */
 
-const CREATE_MONTH = '2026-09';
-const CREATE_DATE = '2026-09-26';
+const SCHOOL_TIMEZONE = 'Asia/Dhaka';
+const CREATE_DATE = new Intl.DateTimeFormat('en-CA', { timeZone: SCHOOL_TIMEZONE }).format(
+  new Date(Date.now() + 24 * 60 * 60 * 1000),
+);
+const CREATE_MONTH = CREATE_DATE.slice(0, 7);
 const PAST_LOCKED_MONTH = '2026-06';
 const PAST_LOCKED_DATE = '2026-06-15'; // SEED_CALENDAR_EVENT_NAMES.exam start date
 
@@ -35,14 +43,29 @@ test.describe.serial('calendar: create -> grid, past-lock, teacher read-only, fe
       await expect(page.getByRole('heading', { name: t('calendar.page.title') })).toBeVisible();
 
       await page.getByRole('button', { name: t('calendar.page.addEvent') }).click();
+      await expect(
+        page.getByRole('heading', { name: t('calendar.eventForm.createTitle') }),
+      ).toBeVisible();
 
       await page.locator('#event-form-name').fill(eventName);
-      await page.getByLabel(t('calendar.eventForm.startDate')).fill(CREATE_DATE);
-      await page.getByLabel(t('calendar.eventForm.endDate')).fill(CREATE_DATE);
+      for (const label of [t('calendar.eventForm.startDate'), t('calendar.eventForm.endDate')]) {
+        await page.getByLabel(label).click();
+        // isVisible() does not wait: let the picker's grid paint first.
+        await expect(page.getByRole('grid', { name: t('common.date.calendar') })).toBeVisible();
+        const cell = page.locator(`[role="grid"] [data-date="${CREATE_DATE}"]`);
+        // tomorrow can be next month
+        if (!(await cell.isVisible())) {
+          await page.getByRole('button', { name: t('common.date.nextMonth') }).click();
+        }
+        await cell.click();
+        // let this picker finish closing, or the next one's grid matches twice
+        await expect(cell).toBeHidden();
+      }
       // Publish immediately is checked by default — leave it, so the
       // event is visible on the grid without an extra publish step.
       await page.getByRole('button', { name: t('calendar.eventForm.save') }).click();
 
+      // The full-page form closes on save, back to the month grid.
       const dayCell = page.getByTestId(`day-cell-${CREATE_DATE}`);
       await expect(dayCell.getByText(eventName)).toBeVisible();
     });

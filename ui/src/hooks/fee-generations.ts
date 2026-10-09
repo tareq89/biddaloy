@@ -29,7 +29,7 @@ export interface FeeGeneration {
   period_start: string;
   period_type: 'MONTH' | 'WEEK';
   due_date: string;
-  source: 'MANUAL' | 'SCHEDULE';
+  source: 'MANUAL' | 'SCHEDULE' | 'FINE_RULE';
   duplicate_strategy: 'SKIP' | 'REMOVE_OLDER' | 'CREATE_ANYWAY';
   notify_families: boolean;
   student_count: number;
@@ -60,7 +60,7 @@ export interface FeeGenerationsFilters {
   period_from?: string;
   period_to?: string;
   fee_type?: string;
-  source?: 'MANUAL' | 'SCHEDULE';
+  source?: 'MANUAL' | 'SCHEDULE' | 'FINE_RULE';
   generated_by_user_id?: string;
   recurring_schedule_id?: string;
   collection_status?: 'NONE' | 'PARTIAL' | 'FULL';

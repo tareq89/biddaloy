@@ -4,6 +4,15 @@
 // SPA sends (Bearer + X-Tenant-ID).
 import type { APIRequestContext } from '@playwright/test';
 
+import type {
+  AcrResponse,
+  CreateAcrBody,
+  CreateIncidentBody,
+  CreateSurveyBody,
+  IncidentResponse,
+  SaveAcrCriteriaBody,
+  SurveyResponse,
+} from './fixtures/evaluations';
 import { SEED_PASSWORD_ENV, SEED_ROLE_EMAILS } from './seed-contract';
 
 interface RefreshResponse {
@@ -58,6 +67,29 @@ export async function superAdminApiSession(request: APIRequestContext): Promise<
   return { token: body.access_token, tenantId: membership.tenantId };
 }
 
+/** Same shape as `adminApiSession`, but for the seeded PARENT account —
+ * a fresh login independent of whatever role the test's own browser
+ * `storageState` is on. [38.5.1]'s `journeys/fines.spec.ts` uses this to
+ * fetch the seeded parent's real `Guardian` id (`GET /guardians/mine`)
+ * from inside a test whose *browser* is signed in as accountant/admin, so
+ * the fine-bearing student it creates can be linked to a guardian that
+ * can actually log into the portal — `createGuardian` alone makes a
+ * `Guardian` row with no login. */
+export async function parentApiSession(request: APIRequestContext): Promise<ApiSession> {
+  const password = process.env[SEED_PASSWORD_ENV];
+  if (!password) throw new Error(`${SEED_PASSWORD_ENV} is not set`);
+  const response = await request.post('/api/v1/auth/login', {
+    data: { email: SEED_ROLE_EMAILS.parent, password },
+  });
+  if (!response.ok()) {
+    throw new Error(`parent login failed: ${response.status()} ${await response.text()}`);
+  }
+  const body = (await response.json()) as RefreshResponse;
+  const membership = body.memberships.find((m) => m.role === 'PARENT');
+  if (!membership) throw new Error('no PARENT membership for seed parent');
+  return { token: body.access_token, tenantId: membership.tenantId };
+}
+
 export async function apiSession(request: APIRequestContext, role: string): Promise<ApiSession> {
   const response = await request.post('/api/v1/auth/refresh');
   if (!response.ok()) {
@@ -73,7 +105,7 @@ export async function post<T>(
   request: APIRequestContext,
   session: ApiSession,
   path: string,
-  data: Record<string, unknown>,
+  data: object,
 ): Promise<T> {
   const response = await request.post(`/api/v1${path}`, {
     headers: {
@@ -135,6 +167,29 @@ export async function patch<T>(
   return (await response.json()) as T;
 }
 
+/** `PUT <path>` — same shape as `post`/`patch` above. [38.5.1]'s
+ * `markAbsentDaysInPreviousMonth` uses this for
+ * `PUT /attendance/sections/:sectionId/register`, the one write endpoint
+ * in this file that isn't POST or PATCH. */
+export async function put<T>(
+  request: APIRequestContext,
+  session: ApiSession,
+  path: string,
+  data: Record<string, unknown>,
+): Promise<T> {
+  const response = await request.put(`/api/v1${path}`, {
+    headers: {
+      Authorization: `Bearer ${session.token}`,
+      'X-Tenant-ID': session.tenantId,
+    },
+    data,
+  });
+  if (!response.ok()) {
+    throw new Error(`PUT ${path} failed: ${response.status()} ${await response.text()}`);
+  }
+  return (await response.json()) as T;
+}
+
 /** [9.11] `journeys/attendance.spec.ts`'s "server state" leg — asserts
  * through the API rather than re-reading the UI it just wrote, since a UI
  * that lies to itself would pass a UI-only assertion. */
@@ -166,17 +221,33 @@ export interface ClassSectionChain {
   className: string;
 }
 
+/** Inclusive `YYYY-MM-DD` bounds of a academic year. */
+export interface AcademicYearBounds {
+  start_date: string;
+  end_date: string;
+}
+
 export async function createClassSection(
   request: APIRequestContext,
   session: ApiSession,
+  academicYear: AcademicYearBounds & { id?: string } = {
+    start_date: '2026-01-01',
+    end_date: '2026-12-31',
+  },
 ): Promise<ClassSectionChain> {
   const suffix = `${Date.now()}-${Math.floor(Math.random() * 1_000_000)}`;
   const className = `E2E ${suffix}`.slice(0, 50);
-  const year = await post<{ id: string }>(request, session, '/academic-years', {
-    name: `E2E Year ${suffix}`,
-    start_date: '2026-01-01',
-    end_date: '2026-12-31',
-  });
+  // `id` reuses an existing year instead of creating one — needed when a spec
+  // depends on a date-based year lookup (e.g. the fine sweep), which is
+  // ambiguous while two years overlap.
+  const year =
+    academicYear.id !== undefined
+      ? { id: academicYear.id }
+      : await post<{ id: string }>(request, session, '/academic-years', {
+          name: `E2E Year ${suffix}`,
+          start_date: academicYear.start_date,
+          end_date: academicYear.end_date,
+        });
   const klass = await post<{ id: string }>(request, session, '/classes', {
     name: className,
     academic_year_id: year.id,
@@ -185,6 +256,70 @@ export async function createClassSection(
     section_name: 'A',
   });
   return { academicYearId: year.id, classId: klass.id, sectionId: section.id, className };
+}
+
+/** `createClassSection`'s fresh academic year has no grading scale, and
+ * processing exam results 409s without one ("No grading scale found").
+ * Gives the year a default scale with the seeded scale's bands. Copy is
+ * not approval-gated (only `bands/confirm` is), so no step-up is needed. */
+export async function ensureGradingScale(
+  request: APIRequestContext,
+  session: ApiSession,
+  academicYearId: string,
+): Promise<void> {
+  const scales = await get<{ id: string; bands: unknown[] }[]>(request, session, '/grading/scales');
+  const source = scales.find((scale) => scale.bands.length > 0);
+  if (!source) throw new Error('No seeded grading scale with bands to copy');
+  const scale = await post<{ id: string }>(request, session, '/grading/scales', {
+    academic_year_id: academicYearId,
+    name: `E2E Scale ${Date.now()}`,
+  });
+  await post(request, session, `/grading/scales/${scale.id}/copy`, { source_scale_id: source.id });
+}
+
+/** `POST /presets/apply` — applies a curriculum pack to a FRESH school
+ * (ADMIN). Returns the created-row counts per table. */
+export async function applyPreset(
+  request: APIRequestContext,
+  session: ApiSession,
+  options: { presetId: string; startYear: number; stages: string[]; versions?: string[] },
+): Promise<{ created: Record<string, number> }> {
+  return post(request, session, '/presets/apply', {
+    preset_id: options.presetId,
+    start_year: options.startYear,
+    stages: options.stages,
+    ...(options.versions ? { versions: options.versions } : {}),
+  });
+}
+
+/** `POST /platform/schools/:id/preset/reset` — SUPER_ADMIN only; `reason`
+ * must be 10-500 chars. 409s while the school holds operational data. */
+export async function resetPreset(
+  request: APIRequestContext,
+  superSession: ApiSession,
+  schoolId: string,
+  reason: string,
+): Promise<{ deleted: Record<string, number> }> {
+  return post(request, superSession, `/platform/schools/${schoolId}/preset/reset`, { reason });
+}
+
+/** `GET /presets/status` — `AVAILABLE` | `APPLIED` | `CUSTOM` (ADMIN). */
+export async function presetState(
+  request: APIRequestContext,
+  session: ApiSession,
+): Promise<string> {
+  return (await get<{ state: string }>(request, session, '/presets/status')).state;
+}
+
+/** `POST /exam-templates` (ADMIN) — an empty template; rows come from
+ * `PATCH /exam-templates/:id` or, in the keyboard spec, the grid. */
+export async function createExamTemplate(
+  request: APIRequestContext,
+  session: ApiSession,
+  name: string,
+  kind = 'TERM',
+): Promise<{ id: string }> {
+  return post<{ id: string }>(request, session, '/exam-templates', { name, kind });
 }
 
 export async function createGuardian(
@@ -269,7 +404,7 @@ export async function createInvitedParentUser(
   request: APIRequestContext,
   session: ApiSession,
   fullName: string,
-  role: 'PARENT' | 'STUDENT' = 'PARENT',
+  role: 'PARENT' | 'STUDENT' | 'TEACHER' = 'PARENT',
 ): Promise<{ id: string; phone: string; token: string }> {
   const phone = `017${Math.floor(10_000_000 + Math.random() * 89_999_999)}`;
   const created = await post<{ user: { id: string }; invitation: { debug?: { token: string } } }>(
@@ -297,13 +432,17 @@ export async function createInvitedParentUser(
  * `tenant-settings-defaults.ts`) — `PUT …/register` 422s and the UI
  * renders the roster read-only — so any spec that marks "today" goes red
  * every Friday. Falls back to Thursday (inside the default 2-day
- * correction window) rather than touching shared tenant settings. */
+ * correction window) rather than touching shared tenant settings.
+ *
+ * "Today" is the school's date (the default region timezone, Asia/Dhaka in
+ * `tenant-settings-defaults.ts`), as the server decides it — not the
+ * runner's clock. In UTC CI, 18:00–24:00 is already tomorrow in Dhaka, and
+ * the seed's FINALIZED past registers would sit on the runner's "today". */
 export function markableDateIso(): string {
-  const now = new Date();
-  if (now.getDay() === 5) now.setDate(now.getDate() - 1);
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(
-    now.getDate(),
-  ).padStart(2, '0')}`;
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Dhaka' }).format(new Date());
+  const d = new Date(`${today}T00:00:00Z`);
+  if (d.getUTCDay() === 5) d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString().slice(0, 10);
 }
 
 /** N students in one shared, freshly-created section — for pagination
@@ -425,6 +564,130 @@ export async function createStudentWithDues(
   return { studentId: student.id, chain };
 }
 
+/**
+ * [38.1.4] A school-wide FINE fee structure — the rule/fine-specific
+ * helpers (create a `FineRule`, log a manual fine) land in 38.2.5 once
+ * those endpoints exist; this is only the fee-structure half, cloned from
+ * `createStudentWithDues`'s own `/fee-structures` POST.
+ */
+export async function createFineStructure(
+  request: APIRequestContext,
+  session: ApiSession,
+  chain: ClassSectionChain,
+  name: string,
+  amount: number,
+): Promise<{ id: string }> {
+  return post<{ id: string }>(request, session, '/fee-structures', {
+    fee_type: 'FINE',
+    name,
+    amount,
+    academic_year_id: chain.academicYearId,
+  });
+}
+
+/** The school's current academic year — the one the Fines rules page and the
+ * Log fine / Add rule fee pickers default to. Fee structures made in a fresh
+ * `createClassSection` year never show up there, so specs that pick a fee
+ * through the UI (or sweep by month) work inside this year instead. */
+export async function currentAcademicYear(
+  request: APIRequestContext,
+  session: ApiSession,
+): Promise<AcademicYearBounds & { id: string }> {
+  // Paginated; same first page + `is_current ?? first` rule the rules panel uses.
+  const { data: years } = await get<{
+    data: { id: string; is_current: boolean; start_date: string; end_date: string }[];
+  }>(request, session, '/academic-years');
+  const year = years.find((y) => y.is_current) ?? years[0];
+  if (!year) throw new Error('no academic year seeded');
+  return { id: year.id, start_date: year.start_date, end_date: year.end_date };
+}
+
+export async function currentAcademicYearId(
+  request: APIRequestContext,
+  session: ApiSession,
+): Promise<string> {
+  return (await currentAcademicYear(request, session)).id;
+}
+
+/** [38.2.5] `POST /fees/fine-rules` — creates a `FineRule` targeting a
+ * `FineSweepService`-computed trigger (e.g. `ATTENDANCE_ABSENT`) against a
+ * `FeeType.FINE` fee structure such as `createFineStructure` above. */
+export async function createFineRule(
+  request: APIRequestContext,
+  session: ApiSession,
+  body: Record<string, unknown>,
+): Promise<{ id: string }> {
+  return post<{ id: string }>(request, session, '/fees/fine-rules', body);
+}
+
+/** [38.2.5] `POST /fees/fines` — logs a manual fine against one or more
+ * students for a `FeeType.FINE` fee structure. */
+export async function logFine(
+  request: APIRequestContext,
+  session: ApiSession,
+  body: Record<string, unknown>,
+): Promise<{ bill_ids: string[] }> {
+  return post<{ bill_ids: string[] }>(request, session, '/fees/fines', body);
+}
+
+/** [38.2.5] `POST /fees/fines/generate` — bills the attendance-fine sweep
+ * for one month from active `FineRule`s. */
+export async function generateFines(
+  request: APIRequestContext,
+  session: ApiSession,
+  body: Record<string, unknown>,
+): Promise<{ fee_generation_ids: string[]; generated_count: number; skipped_count: number }> {
+  return post(request, session, '/fees/fines/generate', body);
+}
+
+/** [38.5.1] Marks `count` non-Friday days in the previous calendar month
+ * ABSENT for one student, via one `PUT .../register` call per day — a
+ * register write doesn't need to cover the whole roster, just the entries
+ * it's given (`RegisterEntryDto[]`), so this writes only `studentId`'s own
+ * entry each time. Gives an `ATTENDANCE_ABSENT` `FineRule` something real
+ * to sweep in `journeys/fines.spec.ts`. Each day is a fresh session
+ * (`base_version: 0` — no prior write to conflict with). */
+export async function markAbsentDaysInPreviousMonth(
+  request: APIRequestContext,
+  session: ApiSession,
+  sectionId: string,
+  studentId: string,
+  count: number,
+  /** The section's academic year; days outside it are skipped (a register
+   * write outside the year 422s). */
+  academicYear?: AcademicYearBounds,
+): Promise<string[]> {
+  const now = new Date();
+  const previousMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const dates: string[] = [];
+  for (let day = 1; dates.length < count; day += 1) {
+    const candidate = new Date(previousMonth.getFullYear(), previousMonth.getMonth(), day);
+    if (candidate.getMonth() !== previousMonth.getMonth()) {
+      throw new Error(`Ran out of days in the previous month to mark ABSENT (${count} requested)`);
+    }
+    // Fridays are the seeded tenant's default weekly off — same reasoning
+    // `markableDateIso` above documents — a register write for one lands
+    // read-only / 422s.
+    const iso = `${candidate.getFullYear()}-${String(candidate.getMonth() + 1).padStart(2, '0')}-${String(
+      candidate.getDate(),
+    ).padStart(2, '0')}`;
+    const inYear =
+      !academicYear || (iso >= academicYear.start_date && iso <= academicYear.end_date);
+    if (candidate.getDay() !== 5 && inYear) {
+      dates.push(iso);
+    }
+  }
+  for (const date of dates) {
+    await put(request, session, `/attendance/sections/${sectionId}/register`, {
+      date,
+      base_version: 0,
+      client_request_id: crypto.randomUUID(),
+      entries: [{ student_id: studentId, status: 'ABSENT' }],
+    });
+  }
+  return dates;
+}
+
 export async function createStudent(
   request: APIRequestContext,
   session: ApiSession,
@@ -474,6 +737,19 @@ export async function createTeacherForSection(
   fullName: string,
   sectionId: string,
 ): Promise<FreshTeacher> {
+  return createTeacher(request, session, fullName, sectionId);
+}
+
+/** Creates a fresh TEACHER user + `Teacher` row. `sectionId` omitted =
+ * zero `TeacherClassSection` rows — for specs that need a teacher with no
+ * assignments at all (e.g. an empty-state assertion on the
+ * teaching-assignments screen). */
+export async function createTeacher(
+  request: APIRequestContext,
+  session: ApiSession,
+  fullName: string,
+  sectionId?: string,
+): Promise<FreshTeacher> {
   // `crypto.randomUUID()`, not `Math.random()` — CodeQL flags `Math.random()`
   // as insecure randomness wherever the value it seeds ends up in a field
   // named like a credential (`password` here), even in test-only code.
@@ -490,8 +766,27 @@ export async function createTeacherForSection(
   const teacher = await post<{ id: string }>(request, session, '/teachers', {
     user_id: created.user.id,
     employee_id: `E2E-${suffix}`,
-    assigned_section_ids: [sectionId],
   });
+  if (sectionId) {
+    // The assign endpoint is keyed by class too; callers only hold the section id.
+    const classes = await get<{ data: { id: string }[] }>(request, session, '/classes?limit=1000');
+    let assigned = false;
+    for (const { id: classId } of classes.data) {
+      const sections = await get<{ id: string }[]>(
+        request,
+        session,
+        `/classes/${classId}/sections`,
+      );
+      if (sections.some((s) => s.id === sectionId)) {
+        await post(request, session, `/classes/${classId}/sections/${sectionId}/teachers`, {
+          teacher_id: teacher.id,
+        });
+        assigned = true;
+        break;
+      }
+    }
+    if (!assigned) throw new Error(`createTeacher: no class contains section ${sectionId}`);
+  }
   return { email, password, userId: created.user.id, teacherId: teacher.id };
 }
 
@@ -633,6 +928,10 @@ export async function provisionSchool(
   return { schoolId: created.school.id, adminUserId: created.admin.user_id };
 }
 
+/** A password every D10 rule set accepts (staff: 8+ chars, upper, lower, digit,
+ * symbol; family: 8+ chars and a digit). Use it wherever a spec sets one. */
+export const E2E_PASSWORD = 'Strong-Pass-1';
+
 /** `POST /auth/activate` — consumes an invite token, sets a password, and
  * signs the caller in, all in one call. Used instead of driving
  * `/activate?token=…` through a browser (`ActivatePage`,
@@ -685,4 +984,186 @@ export async function requestStepUpOtp(
     'No debug.otp in step-up otp/request response after retrying past the 60s cooldown — ' +
       'ACCOUNT_ACCESS_ECHO_SECRETS=true set?',
   );
+}
+
+/** `PUT /acr/criteria` — saves a new ACR form version (copy-on-write). */
+export async function saveAcrCriteria(
+  request: APIRequestContext,
+  session: ApiSession,
+  body: SaveAcrCriteriaBody,
+): Promise<{ id: string | null; version: number }> {
+  return put(request, session, '/acr/criteria', body);
+}
+
+/** `POST /acr/assessments` — starts an INCOMPLETE ACR on the latest form version. */
+export async function createAcr(
+  request: APIRequestContext,
+  session: ApiSession,
+  body: CreateAcrBody,
+): Promise<AcrResponse> {
+  return post<AcrResponse>(request, session, '/acr/assessments', body);
+}
+
+/** `POST /acr/assessments/:id/complete` (assessor only, D7). */
+export async function completeAcr(
+  request: APIRequestContext,
+  session: ApiSession,
+  id: string,
+): Promise<AcrResponse> {
+  return post<AcrResponse>(request, session, `/acr/assessments/${id}/complete`, {});
+}
+
+/** `POST /incidents`. */
+export async function createIncident(
+  request: APIRequestContext,
+  session: ApiSession,
+  body: CreateIncidentBody,
+): Promise<IncidentResponse> {
+  return post<IncidentResponse>(request, session, '/incidents', body);
+}
+
+/** `POST /surveys` — a DRAFT; `publishSurvey`/`closeSurvey` move it on. */
+export async function createSurvey(
+  request: APIRequestContext,
+  session: ApiSession,
+  body: CreateSurveyBody,
+): Promise<SurveyResponse> {
+  return post<SurveyResponse>(request, session, '/surveys', body);
+}
+
+export async function publishSurvey(
+  request: APIRequestContext,
+  session: ApiSession,
+  id: string,
+): Promise<SurveyResponse> {
+  return post<SurveyResponse>(request, session, `/surveys/${id}/publish`, {});
+}
+
+export async function closeSurvey(
+  request: APIRequestContext,
+  session: ApiSession,
+  id: string,
+): Promise<SurveyResponse> {
+  return post<SurveyResponse>(request, session, `/surveys/${id}/close`, {});
+}
+
+/** [13.7.1] A trial school made the way a stranger makes one: `POST
+ * /auth/register/start` then `/verify` with the code echoed in `debug.otp`
+ * (`ACCOUNT_ACCESS_ECHO_SECRETS`). The contact details are unique per call
+ * (a second open trial for the same contact is a 409 `TRIAL_ALREADY_OPEN`).
+ * The refresh cookie lands on `request`, so `request.storageState()` builds a
+ * browser context signed in as this admin. */
+export interface RegisteredSchool {
+  session: ApiSession;
+  role: string;
+  adminName: string;
+  schoolName: string;
+  email: string;
+  phone: string;
+}
+
+export function uniqueRegistration(): Pick<
+  RegisteredSchool,
+  'adminName' | 'schoolName' | 'email' | 'phone'
+> {
+  const n = `${Date.now()}${Math.floor(Math.random() * 1000)}`;
+  return {
+    adminName: `Reg Admin ${n}`,
+    schoolName: `E2E Trial School ${n}`,
+    email: `reg-${n}@e2e.example.com`,
+    phone: `+88017${String(Math.floor(10_000_000 + Math.random() * 89_999_999))}`,
+  };
+}
+
+export async function registerTrialSchool(request: APIRequestContext): Promise<RegisteredSchool> {
+  const who = uniqueRegistration();
+  const started = await request.post('/api/v1/auth/register/start', {
+    data: {
+      admin_name: who.adminName,
+      school_name: who.schoolName,
+      country_code: 'BD',
+      address: '1 Test Road, Dhaka',
+      phone: who.phone,
+      email: who.email,
+      terms_accepted: true,
+      captcha_token: 'no-captcha',
+    },
+  });
+  if (!started.ok()) throw new Error(`register/start ${started.status()} ${await started.text()}`);
+  const start = (await started.json()) as { registration_id: string; debug?: { otp: string } };
+  if (!start.debug?.otp) throw new Error('register/start did not echo an OTP');
+  const verified = await request.post('/api/v1/auth/register/verify', {
+    data: { registration_id: start.registration_id, otp: start.debug.otp },
+  });
+  if (!verified.ok()) {
+    throw new Error(`register/verify ${verified.status()} ${await verified.text()}`);
+  }
+  const body = (await verified.json()) as RefreshResponse;
+  const membership = body.memberships.find((m) => m.role === 'ADMIN');
+  if (!membership) throw new Error('no ADMIN membership after register/verify');
+  return {
+    ...who,
+    session: { token: body.access_token, tenantId: membership.tenantId },
+    role: membership.role,
+  };
+}
+
+/** `GET /backup/template?variant=starter` — the real starter workbook, then
+ * `rows` appended under its header (row 1 holds the column keys; the SAMPLE
+ * row is ignored on import). `exceljs` is the server's own dependency. */
+export async function starterWorkbook(
+  request: APIRequestContext,
+  session: ApiSession,
+  rows: Record<string, Record<string, string | boolean>[]>,
+): Promise<Buffer> {
+  const res = await request.get('/api/v1/backup/template?variant=starter&lang=en', {
+    headers: { Authorization: `Bearer ${session.token}`, 'X-Tenant-ID': session.tenantId },
+  });
+  if (!res.ok()) throw new Error(`template ${res.status()} ${await res.text()}`);
+  // Lazy: only the specs that build a workbook pay for loading exceljs.
+  const { default: ExcelJS } = await import('exceljs');
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load((await res.body()) as unknown as ArrayBuffer);
+  for (const [sheetName, sheetRows] of Object.entries(rows)) {
+    const sheet = workbook.getWorksheet(sheetName);
+    if (!sheet) throw new Error(`starter has no sheet ${sheetName}`);
+    const keys = (sheet.getRow(1).values as (string | undefined)[]).slice(1);
+    for (const row of sheetRows) {
+      sheet.addRow(keys.map((key) => (key ? (row[key] ?? null) : null)));
+    }
+  }
+  return Buffer.from(await workbook.xlsx.writeBuffer());
+}
+
+/** Ends a trial the only way there is: the daily job is not reachable, so the
+ * row is set the way that job leaves it (suspended, reason TRIAL_EXPIRED).
+ * ponytail: raw SQL via the server's `pg`; swap for an endpoint if one appears.
+ * Limit: skips TrialService.expire (audit row, tenant-status cache invalidation). */
+export async function endTrial(schoolId: string): Promise<void> {
+  const url = process.env.DATABASE_URL;
+  if (!url) throw new Error('DATABASE_URL is not set — endTrial needs the e2e database');
+  // `pg` is hoisted from the server and has no types here. A typed shape instead of
+  // `@ts-expect-error`, which would break tsc the day `@types/pg` gets hoisted too.
+  const { Client } = (await import('pg' as string)) as {
+    Client: new (options: { connectionString: string }) => {
+      connect(): Promise<void>;
+      query(sql: string, params: unknown[]): Promise<{ rowCount: number | null }>;
+      end(): Promise<void>;
+    };
+  };
+  const client = new Client({ connectionString: url });
+  await client.connect();
+  try {
+    const { rowCount } = await client.query(
+      `UPDATE schools SET trial_ends_at = now() - interval '1 day', status = 'SUSPENDED',
+         status_reason = 'TRIAL_EXPIRED' WHERE id = $1`,
+      [schoolId],
+    );
+    // 0 rows means DATABASE_URL is not the database the server uses.
+    if (rowCount !== 1) {
+      throw new Error(`endTrial: school ${schoolId} not found in ${new URL(url).pathname}`);
+    }
+  } finally {
+    await client.end();
+  }
 }

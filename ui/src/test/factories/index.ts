@@ -15,7 +15,18 @@ export { studentFactory, type Student } from './student.factory';
 export { teacherFactory, type Teacher } from './teacher.factory';
 export { feeStructureFactory, type FeeStructure } from './fee-structure.factory';
 export { studentFeeFactory, type StudentFee } from './student-fee.factory';
+export { acrAssessmentFactory, acrCriterionFactory, incidentFactory } from './acr';
+export {
+  hiddenPairResultFactory,
+  pendingSurveyFactory,
+  surveyDetailFactory,
+  surveyFactory,
+  surveyResultsFactory,
+} from './surveys';
+export { fineFactory, type Fine } from './fine.factory';
 export { paymentFactory, type Payment } from './payment.factory';
 export { invoiceFactory, type Invoice } from './invoice.factory';
 export { communicationFactory, type Communication } from './communication.factory';
 export { auditEntryFactory, type AuditEntry } from './audit-log.factory';
+export { examFactory, type Exam } from './exam.factory';
+export { examComponentFactory, type ExamComponent } from './exam-component.factory';

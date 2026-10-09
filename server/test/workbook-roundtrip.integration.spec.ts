@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto';
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { DataSource } from 'typeorm';
 import JSZip from 'jszip';
+import ExcelJS from 'exceljs';
 import {
   FeeType,
   FeeStatus,
@@ -12,6 +13,25 @@ import {
   PaymentAllocationType,
   EnrollmentStatus,
   UserRole,
+  ExamKind,
+  ExamStatus,
+  ExamComponentKind,
+  ExamComponentSource,
+  MarkStatus,
+  MarkGridState,
+  HomeworkAssignmentStatus,
+  HomeworkGradingMode,
+  HomeworkSubmissionStatus,
+  SyllabusTopicStatus,
+  PromotionRunStatus,
+  PlacementAlgorithm,
+  PromotionOutcome,
+  ProgramEnrollmentStatus,
+  AttendanceStatus,
+  AttendanceSource,
+  LeaveType,
+  LeaveStatus,
+  TeacherAssignmentType,
 } from '@biddaloy/shared';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
@@ -35,7 +55,54 @@ import { Payment } from '../src/modules/fees/entities/payment.entity';
 import { PaymentAllocation } from '../src/modules/fees/entities/payment-allocation.entity';
 import { GradingScale } from '../src/modules/grading/entities/grading-scale.entity';
 import { GradingBand } from '../src/modules/grading/entities/grading-band.entity';
-import { DEMO_ORGANISATION, ensureDemoStudents, SEED_DEVICE_KEY } from '../src/scripts/seed.util';
+import { Subject } from '../src/modules/academics/entities/subject.entity';
+import { ClassSubject } from '../src/modules/academics/entities/class-subject.entity';
+import { Exam } from '../src/modules/exams/entities/exam.entity';
+import { ExamTemplate } from '../src/modules/exams/entities/exam-template.entity';
+import { ExamTemplateComponent } from '../src/modules/exams/entities/exam-template-component.entity';
+import { ExamComponent } from '../src/modules/exams/entities/exam-component.entity';
+import { ExamSchedule } from '../src/modules/exams/entities/exam-schedule.entity';
+import { Mark } from '../src/modules/exams/entities/mark.entity';
+import { MarkGrid } from '../src/modules/exams/entities/mark-grid.entity';
+import { Result } from '../src/modules/exams/entities/result.entity';
+import { ResultSubject } from '../src/modules/exams/entities/result-subject.entity';
+import { StudentSubjectChoice } from '../src/modules/students/entities/student-subject-choice.entity';
+import { Homework } from '../src/modules/homework/entities/homework.entity';
+import { HomeworkAssignment } from '../src/modules/homework/entities/homework-assignment.entity';
+import { HomeworkSubmission } from '../src/modules/homework/entities/homework-submission.entity';
+import { SyllabusTopic } from '../src/modules/homework/entities/syllabus-topic.entity';
+import { PromotionRun } from '../src/modules/promotions/entities/promotion-run.entity';
+import { PromotionEntry } from '../src/modules/promotions/entities/promotion-entry.entity';
+import { Program } from '../src/modules/programs/entities/program.entity';
+import { ProgramMilestone } from '../src/modules/programs/entities/program-milestone.entity';
+import { ProgramEnrollment } from '../src/modules/programs/entities/program-enrollment.entity';
+import { MilestoneAchievement } from '../src/modules/programs/entities/milestone-achievement.entity';
+import {
+  DEMO_ORGANISATION,
+  ensureDemoStudents,
+  ensureStaffHrDemoSeed,
+  SEED_DEVICE_KEY,
+} from '../src/scripts/seed.util';
+import { Designation } from '../src/modules/staff-hr/entities/designation.entity';
+import { StaffHrRecord } from '../src/modules/staff-hr/entities/staff-hr-record.entity';
+import { StaffDesignationHistory } from '../src/modules/staff-hr/entities/staff-designation-history.entity';
+import { StaffFamilyMember } from '../src/modules/staff-hr/entities/staff-family-member.entity';
+import { StaffAddress } from '../src/modules/staff-hr/entities/staff-address.entity';
+import { StaffExperience } from '../src/modules/staff-hr/entities/staff-experience.entity';
+import { StaffEducation } from '../src/modules/staff-hr/entities/staff-education.entity';
+import { StaffTraining } from '../src/modules/staff-hr/entities/staff-training.entity';
+import { StaffAchievement } from '../src/modules/staff-hr/entities/staff-achievement.entity';
+import { StaffLanguage } from '../src/modules/staff-hr/entities/staff-language.entity';
+import { StaffDocument } from '../src/modules/staff-hr/entities/staff-document.entity';
+import { PrintAsset } from '../src/modules/print/entities/print-asset.entity';
+import { PrinterProfile } from '../src/modules/print/entities/printer-profile.entity';
+import { PrintTemplate } from '../src/modules/print/entities/print-template.entity';
+import { PrintTemplateVersion } from '../src/modules/print/entities/print-template-version.entity';
+import { StaffProfile } from '../src/modules/staff-profiles/entities/staff-profile.entity';
+import { StaffAttendanceSession } from '../src/modules/staff-attendance/entities/staff-attendance-session.entity';
+import { StaffAttendanceRecord } from '../src/modules/staff-attendance/entities/staff-attendance-record.entity';
+import { LeavePolicy } from '../src/modules/leave/entities/leave-policy.entity';
+import { LeaveRecord } from '../src/modules/leave/entities/leave-record.entity';
 import { ImportStagingService } from '../src/modules/bulk-import/import-staging.service';
 import { ValidationService } from '../src/modules/workbook/import/validation.service';
 import { DiffService } from '../src/modules/workbook/import/diff.service';
@@ -55,6 +122,24 @@ import {
   WorkbookJobSource,
   WorkbookJobStatus,
 } from '../src/modules/workbook/jobs/workbook-job.entity';
+import { Teacher } from '../src/modules/academics/entities/teacher.entity';
+import { TeacherClassSection } from '../src/modules/academics/entities/teacher-class-section.entity';
+import { Shift } from '../src/modules/routines/entities/shift.entity';
+import { PeriodSlot } from '../src/modules/routines/entities/period-slot.entity';
+import { Room } from '../src/modules/routines/entities/room.entity';
+import { Routine } from '../src/modules/routines/entities/routine.entity';
+import { RoutineSlot } from '../src/modules/routines/entities/routine-slot.entity';
+import { RoutineSlotTeacher } from '../src/modules/routines/entities/routine-slot-teacher.entity';
+import { RoutineSubstitution } from '../src/modules/routines/entities/routine-substitution.entity';
+import { RoutineChangeRequest } from '../src/modules/routines/entities/routine-change-request.entity';
+import {
+  PeriodSlotKind,
+  SlotRecurrence,
+  RoutineState,
+  ChangeRequestState,
+  TeacherDesignation,
+  StaffDocumentType,
+} from '@biddaloy/shared';
 
 /**
  * The spine test (14.10.4): export a seeded tenant A, tear A's data down,
@@ -292,6 +377,8 @@ describe('workbook-normalize (unit)', () => {
   });
 });
 
+const NEW_ROLES = [UserRole.OFFICE_STAFF, UserRole.EXAM_CONTROLLER, UserRole.COMMITTEE];
+
 describe('workbook round trip (integration)', () => {
   let dataSource: DataSource;
   let auditService: AuditService;
@@ -386,6 +473,14 @@ describe('workbook round trip (integration)', () => {
         settings: {
           communications: { sms: { mimsms: { apiKey: PROVIDER_SECRET } } },
           organisation: DEMO_ORGANISATION,
+          // [35.1.5] `preset` is a plain (non-secret) settings key; the school
+          // tab exports it and deep-merges it back on restore.
+          preset: {
+            id: 'bd-national',
+            version: '1',
+            appliedAt: '2026-03-01T00:00:00.000Z',
+            appliedByUserId: USER_ID,
+          },
         } as any,
       }),
       dataSource.getRepository(School).create({
@@ -428,6 +523,59 @@ describe('workbook round trip (integration)', () => {
       }),
     );
 
+    // [36.4.5] Staff HR record for USER_ID (already a tenant-A ADMIN member
+    // above), so the new `staff_profiles` tab is exercised rather than
+    // exported empty, plus one attendance day/mark and one leave
+    // policy/request built on top of it.
+    const staffProfile = await dataSource.getRepository(StaffProfile).save(
+      dataSource.getRepository(StaffProfile).create({
+        user_id: USER_ID,
+        tenant_id: TENANT_A,
+        employee_id: 'RT-EMP-0001',
+        joining_date: new Date('2024-01-10'),
+      }),
+    );
+
+    const staffAttendanceSession = await dataSource.getRepository(StaffAttendanceSession).save(
+      dataSource.getRepository(StaffAttendanceSession).create({
+        tenant_id: TENANT_A,
+        date: '2026-03-01',
+      }),
+    );
+
+    await dataSource.getRepository(StaffAttendanceRecord).save(
+      dataSource.getRepository(StaffAttendanceRecord).create({
+        tenant_id: TENANT_A,
+        session_id: staffAttendanceSession.id,
+        staff_profile_id: staffProfile.id,
+        status: AttendanceStatus.PRESENT,
+        source: AttendanceSource.TEACHER,
+      }),
+    );
+
+    await dataSource.getRepository(LeavePolicy).save(
+      dataSource.getRepository(LeavePolicy).create({
+        tenant_id: TENANT_A,
+        leave_type: LeaveType.CASUAL,
+        annual_quota_days: 10,
+      }),
+    );
+
+    await dataSource.getRepository(LeaveRecord).save(
+      dataSource.getRepository(LeaveRecord).create({
+        tenant_id: TENANT_A,
+        staff_profile_id: staffProfile.id,
+        leave_type: LeaveType.CASUAL,
+        start_date: '2026-03-10',
+        end_date: '2026-03-11',
+        days: 2,
+        status: LeaveStatus.APPROVED,
+        reason: 'Roundtrip fixture leave request',
+        approved_by: USER_ID,
+        decided_at: new Date('2026-03-05'),
+      }),
+    );
+
     // Small, deterministic student roster (C2: ensureDemoStudents seeds
     // people/academics tabs only — no fee/payment helper exists to reuse).
     await ensureDemoStudents(
@@ -457,19 +605,10 @@ describe('workbook round trip (integration)', () => {
       .getRepository(Student)
       .findOneOrFail({ where: { tenant_id: TENANT_A } });
 
-    // One enrollment, so the `enrollments` tab (which resolves student,
-    // class, section and academic year purely by natural key) is exercised
-    // rather than exported empty.
-    await dataSource.getRepository(Enrollment).save(
-      dataSource.getRepository(Enrollment).create({
-        student_id: student.id,
-        class_id: klass.id,
-        section_id: section.id,
-        academic_year_id: year.id,
-        enrollment_status: EnrollmentStatus.ACTIVE,
-        tenant_id: TENANT_A,
-      }),
-    );
+    // `ensureDemoStudents` already creates an ACTIVE enrollment for this
+    // student (unique `IDX_enr_active_student_year`); the `enrollments` tab
+    // (which resolves student, class, section and academic year purely by
+    // natural key) is exercised through that one, no extra insert needed.
 
     // Minimal fee chain (C2): one FeeStructure -> one StudentFee -> one
     // Invoice -> one Payment -> one PaymentAllocation, enough to make
@@ -625,6 +764,1045 @@ describe('workbook round trip (integration)', () => {
         comment: null,
       }),
     ]);
+    // --- Epic 21.0 (class routine/timetable): [21.11.1] round-trip
+    // coverage. Exercises the naive-codec traps a plain flatten would miss:
+    // a biweekly slot (recurrence_offset = 1), a monthly slot on the last
+    // occurrence (offset = -1), a co-taught slot (two `routine_slot_teachers`
+    // rows), a superseded slot (`valid_to` set), and a cancellation
+    // substitution with a null substitute teacher.
+    const secondSection = await dataSource
+      .getRepository(ClassSection)
+      .findOneOrFail({ where: { tenant_id: TENANT_A, class_id: klass.id, section_name: 'B' } });
+
+    const routineSubject = await dataSource.getRepository(Subject).save(
+      dataSource.getRepository(Subject).create({
+        name_en: 'Mathematics',
+        code: 'MATH',
+        tenant_id: TENANT_A,
+      }),
+    );
+
+    const teacherUserOne = await dataSource.getRepository(User).save(
+      dataSource.getRepository(User).create({
+        email: `roundtrip-610-teacher1-${TENANT_A.slice(0, 8)}@test.com`,
+        full_name: 'Roundtrip Teacher One',
+        password_hash: 'not-the-asserted-hash',
+      }),
+    );
+    const teacherUserTwo = await dataSource.getRepository(User).save(
+      dataSource.getRepository(User).create({
+        email: `roundtrip-610-teacher2-${TENANT_A.slice(0, 8)}@test.com`,
+        full_name: 'Roundtrip Teacher Two',
+        password_hash: 'not-the-asserted-hash',
+      }),
+    );
+    // `users` tab loads members via `user_tenants` (see users.tab.ts's
+    // `load`) — a teacher's User needs the same membership row admin/
+    // operator got above, or it exports as zero rows.
+    await dataSource
+      .getRepository(UserTenant)
+      .save([
+        dataSource
+          .getRepository(UserTenant)
+          .create({ user_id: teacherUserOne.id, tenant_id: TENANT_A, role: UserRole.TEACHER }),
+        dataSource
+          .getRepository(UserTenant)
+          .create({ user_id: teacherUserTwo.id, tenant_id: TENANT_A, role: UserRole.TEACHER }),
+      ]);
+
+    // [24.4.1] One member per new built-in role: the `users` tab must carry
+    // each role through export -> restore (asserted after the re-export).
+    for (const role of NEW_ROLES) {
+      const u = await dataSource.getRepository(User).save(
+        dataSource.getRepository(User).create({
+          email: `roundtrip-2441-${role.toLowerCase()}-${TENANT_A.slice(0, 8)}@test.com`,
+          full_name: `Roundtrip ${role}`,
+          password_hash: 'not-the-asserted-hash',
+        }),
+      );
+      await dataSource
+        .getRepository(UserTenant)
+        .save(
+          dataSource.getRepository(UserTenant).create({ user_id: u.id, tenant_id: TENANT_A, role }),
+        );
+    }
+
+    const teacherOne = await dataSource.getRepository(Teacher).save(
+      dataSource.getRepository(Teacher).create({
+        user_id: teacherUserOne.id,
+        employee_id: `EMP-610-1-${TENANT_A.slice(0, 6)}`,
+        designations: [TeacherDesignation.SUBJECT_TEACHER],
+        tenant_id: TENANT_A,
+      }),
+    );
+    const teacherTwo = await dataSource.getRepository(Teacher).save(
+      dataSource.getRepository(Teacher).create({
+        user_id: teacherUserTwo.id,
+        employee_id: `EMP-610-2-${TENANT_A.slice(0, 6)}`,
+        designations: [TeacherDesignation.SUBJECT_TEACHER],
+        tenant_id: TENANT_A,
+      }),
+    );
+
+    // [47.x] teacher_assignments with all three roles: a CLASS_TEACHER, an
+    // ASSISTANT beside it, a SUBJECT_TEACHER row, and an ASSISTANT on a
+    // section that has no class teacher. Before the Role column an assistant
+    // came back as CLASS_TEACHER (or failed UQ_tcs_section_class_teacher).
+    const firstSection = await dataSource
+      .getRepository(ClassSection)
+      .findOneOrFail({ where: { tenant_id: TENANT_A, class_id: klass.id, section_name: 'A' } });
+    const tcsRepo = dataSource.getRepository(TeacherClassSection);
+    await tcsRepo.save([
+      tcsRepo.create({
+        tenant_id: TENANT_A,
+        teacher_id: teacherOne.id,
+        section_id: firstSection.id,
+        subject_id: null,
+        assignment_type: TeacherAssignmentType.CLASS_TEACHER,
+      }),
+      tcsRepo.create({
+        tenant_id: TENANT_A,
+        teacher_id: teacherTwo.id,
+        section_id: firstSection.id,
+        subject_id: null,
+        assignment_type: TeacherAssignmentType.ASSISTANT_CLASS_TEACHER,
+      }),
+      tcsRepo.create({
+        tenant_id: TENANT_A,
+        teacher_id: teacherOne.id,
+        section_id: firstSection.id,
+        subject_id: routineSubject.id,
+        assignment_type: TeacherAssignmentType.SUBJECT_TEACHER,
+      }),
+      tcsRepo.create({
+        tenant_id: TENANT_A,
+        teacher_id: teacherOne.id,
+        section_id: secondSection.id,
+        subject_id: null,
+        assignment_type: TeacherAssignmentType.ASSISTANT_CLASS_TEACHER,
+      }),
+    ]);
+
+    // [23.5] Wave-1 staff-HR tabs: reuses the real seed helper rather than
+    // re-deriving its fixture here, same call `ensureDemoStudents` above
+    // already makes for the student roster. Seeds one non-teaching staff
+    // member (an accountant) with a full HR record, proving D1 (HR applies
+    // to any staff role, not just teachers) round-trips.
+    await ensureStaffHrDemoSeed(
+      {
+        userRepository: dataSource.getRepository(User),
+        userTenantRepository: dataSource.getRepository(UserTenant),
+        designationRepository: dataSource.getRepository(Designation),
+        staffHrRecordRepository: dataSource.getRepository(StaffHrRecord),
+        staffDesignationHistoryRepository: dataSource.getRepository(StaffDesignationHistory),
+        staffFamilyMemberRepository: dataSource.getRepository(StaffFamilyMember),
+        staffAddressRepository: dataSource.getRepository(StaffAddress),
+        staffExperienceRepository: dataSource.getRepository(StaffExperience),
+        staffEducationRepository: dataSource.getRepository(StaffEducation),
+        staffTrainingRepository: dataSource.getRepository(StaffTraining),
+        staffAchievementRepository: dataSource.getRepository(StaffAchievement),
+        staffLanguageRepository: dataSource.getRepository(StaffLanguage),
+      },
+      { schoolId: TENANT_A },
+    );
+
+    // [23.7] `ensureStaffHrDemoSeed` no longer seeds a document row (a
+    // storage_key with no backing object can't be downloaded); insert one
+    // directly here instead, purely so `staff_documents` round-trips.
+    const staffHrDemoUser = await dataSource
+      .getRepository(User)
+      .findOneOrFail({ where: { email: 'accounts.officer@demoschool.example' } });
+    await dataSource.getRepository(StaffDocument).save(
+      dataSource.getRepository(StaffDocument).create({
+        tenant_id: TENANT_A,
+        staff_user_id: staffHrDemoUser.id,
+        document_type: StaffDocumentType.NID,
+        storage_key: `demo/staff-documents/${staffHrDemoUser.id}/nid.pdf`,
+        original_filename: 'nid-card.pdf',
+        content_type: 'application/pdf',
+      }),
+    );
+
+    // [32.3.10] Epic 32's print setup: one printer, two assets (artwork + font)
+    // and one template with two published versions and a draft. The version
+    // definitions and the draft point at the assets by id, which a restore
+    // re-mints, so this proves the ids are remapped and not merely copied.
+    const printer = await dataSource.getRepository(PrinterProfile).save(
+      dataSource.getRepository(PrinterProfile).create({
+        tenant_id: TENANT_A,
+        name: 'Front office',
+        printer_type: 'CARD',
+        margin_top_mm: '0',
+        margin_right_mm: '0',
+        margin_bottom_mm: '0',
+        margin_left_mm: '0',
+        offset_x_mm: '1.5',
+        offset_y_mm: '-0.5',
+        scale: '1.005',
+        duplex_order: 'INTERLEAVED',
+        sheet_gap_mm: '2',
+      }),
+    );
+    expect(printer.id).toBeTruthy();
+    const artwork = await dataSource.getRepository(PrintAsset).save(
+      dataSource.getRepository(PrintAsset).create({
+        tenant_id: TENANT_A,
+        asset_kind: 'ARTWORK',
+        storage_key: `tenants/${TENANT_A}/print-assets/${randomUUID()}.png`,
+        content_type: 'image/png',
+        byte_size: 4096,
+        width_px: 1011,
+        height_px: 638,
+        original_name: 'front.png',
+      }),
+    );
+    const font = await dataSource.getRepository(PrintAsset).save(
+      dataSource.getRepository(PrintAsset).create({
+        tenant_id: TENANT_A,
+        asset_kind: 'FONT',
+        storage_key: `tenants/${TENANT_A}/print-assets/${randomUUID()}.woff2`,
+        content_type: 'font/woff2',
+        byte_size: 2048,
+        font_family: 'Noto Sans Bengali',
+        original_name: 'noto.woff2',
+      }),
+    );
+    const printDefinition = (label: string) =>
+      ({
+        page: { widthMm: 85.6, heightMm: 54 },
+        label,
+        front: {
+          background: { assetId: artwork.id, print: true },
+          elements: [
+            { id: 'name', type: 'TEXT', field: 'student.name', fontAssetId: font.id },
+            { id: 'logo', type: 'IMAGE', assetId: artwork.id },
+          ],
+        },
+      }) as never;
+    const printTemplate = await dataSource.getRepository(PrintTemplate).save(
+      dataSource.getRepository(PrintTemplate).create({
+        tenant_id: TENANT_A,
+        document_kind: 'STUDENT_ID_CARD',
+        layout_kind: 'FIXED',
+        name: 'Classic',
+        is_default: true,
+        batch_size: 50,
+        draft: printDefinition('draft'),
+      }),
+    );
+    const versionRepo = dataSource.getRepository(PrintTemplateVersion);
+    await versionRepo.save(
+      versionRepo.create({
+        tenant_id: TENANT_A,
+        template_id: printTemplate.id,
+        version: 1,
+        definition: printDefinition('v1'),
+      }),
+    );
+    const secondVersion = await versionRepo.save(
+      versionRepo.create({
+        tenant_id: TENANT_A,
+        template_id: printTemplate.id,
+        version: 2,
+        definition: printDefinition('v2'),
+      }),
+    );
+    await dataSource
+      .getRepository(PrintTemplate)
+      .update({ id: printTemplate.id }, { current_version_id: secondVersion.id });
+
+    // [23.0, thread #5] Neither `staff_training` nor `staff_achievements`
+    // has a DB unique constraint on its natural key, so real data can carry
+    // two rows with the same one (e.g. two trainings with the same title
+    // at the same institution). Insert a genuine duplicate of each here,
+    // via repo (not `ensureStaffHrDemoSeed`, which de-dupes by title) so
+    // this round-trip proves ValidationService's `allowDuplicateKeys` path
+    // for real, not just in validation.service.spec.ts's fakes.
+    await dataSource.getRepository(StaffTraining).save([
+      dataSource.getRepository(StaffTraining).create({
+        tenant_id: TENANT_A,
+        staff_user_id: staffHrDemoUser.id,
+        title: 'First Aid',
+        institution: 'Red Crescent',
+        from_date: '2024-01-01',
+      }),
+      dataSource.getRepository(StaffTraining).create({
+        tenant_id: TENANT_A,
+        staff_user_id: staffHrDemoUser.id,
+        title: 'First Aid',
+        institution: 'Red Crescent',
+        from_date: '2025-01-01',
+      }),
+    ]);
+    await dataSource.getRepository(StaffAchievement).save([
+      dataSource.getRepository(StaffAchievement).create({
+        tenant_id: TENANT_A,
+        staff_user_id: staffHrDemoUser.id,
+        title: 'Best Employee',
+        date: '2024-06-01',
+      }),
+      dataSource.getRepository(StaffAchievement).create({
+        tenant_id: TENANT_A,
+        staff_user_id: staffHrDemoUser.id,
+        title: 'Best Employee',
+        date: '2025-06-01',
+      }),
+    ]);
+
+    const shift = await dataSource.getRepository(Shift).save(
+      dataSource.getRepository(Shift).create({
+        name: 'Morning',
+        day_starts_at: '08:00:00',
+        day_ends_at: '13:30:00',
+        sequence: 1,
+        tenant_id: TENANT_A,
+      }),
+    );
+
+    // Six period slots, including one BREAK ("Lunch") — the seed spec's own
+    // shape (D8/D10), reused here for the round-trip fixture.
+    const periodDefs: Array<{
+      sequence: number;
+      kind: PeriodSlotKind;
+      name: string | null;
+      starts_at: string;
+      ends_at: string;
+    }> = [
+      {
+        sequence: 1,
+        kind: PeriodSlotKind.CLASS,
+        name: null,
+        starts_at: '08:00:00',
+        ends_at: '08:40:00',
+      },
+      {
+        sequence: 2,
+        kind: PeriodSlotKind.CLASS,
+        name: null,
+        starts_at: '08:40:00',
+        ends_at: '09:20:00',
+      },
+      {
+        sequence: 3,
+        kind: PeriodSlotKind.CLASS,
+        name: null,
+        starts_at: '09:20:00',
+        ends_at: '10:00:00',
+      },
+      {
+        sequence: 4,
+        kind: PeriodSlotKind.BREAK,
+        name: 'Lunch',
+        starts_at: '10:00:00',
+        ends_at: '10:30:00',
+      },
+      {
+        sequence: 5,
+        kind: PeriodSlotKind.CLASS,
+        name: null,
+        starts_at: '10:30:00',
+        ends_at: '11:10:00',
+      },
+      {
+        sequence: 6,
+        kind: PeriodSlotKind.CLASS,
+        name: null,
+        starts_at: '11:10:00',
+        ends_at: '11:50:00',
+      },
+    ];
+    const periodSlots = await dataSource
+      .getRepository(PeriodSlot)
+      .save(
+        periodDefs.map((p) =>
+          dataSource
+            .getRepository(PeriodSlot)
+            .create({ ...p, shift_id: shift.id, tenant_id: TENANT_A }),
+        ),
+      );
+
+    const room = await dataSource.getRepository(Room).save(
+      dataSource.getRepository(Room).create({
+        building: 'Building A',
+        room_no: '204',
+        capacity: 40,
+        tenant_id: TENANT_A,
+      }),
+    );
+
+    const routine = await dataSource.getRepository(Routine).save(
+      dataSource.getRepository(Routine).create({
+        academic_year_id: year.id,
+        name: 'Main routine',
+        state: RoutineState.PUBLISHED,
+        published_at: new Date('2026-01-01T00:00:00.000Z'),
+        tenant_id: TENANT_A,
+      }),
+    );
+
+    // A superseded row: this slot ended, and a fresh row (created below)
+    // covers the same section/period/weekday from the day after.
+    const supersededSlot = await dataSource.getRepository(RoutineSlot).save(
+      dataSource.getRepository(RoutineSlot).create({
+        routine_id: routine.id,
+        section_id: section.id,
+        period_slot_id: periodSlots[0]!.id,
+        weekday: 1,
+        subject_id: routineSubject.id,
+        room_id: room.id,
+        recurrence: SlotRecurrence.WEEKLY,
+        recurrence_offset: 0,
+        valid_from: '2026-01-01',
+        valid_to: '2026-02-01',
+        tenant_id: TENANT_A,
+      }),
+    );
+
+    const currentSlot = await dataSource.getRepository(RoutineSlot).save(
+      dataSource.getRepository(RoutineSlot).create({
+        routine_id: routine.id,
+        section_id: section.id,
+        period_slot_id: periodSlots[0]!.id,
+        weekday: 1,
+        subject_id: routineSubject.id,
+        room_id: room.id,
+        recurrence: SlotRecurrence.WEEKLY,
+        recurrence_offset: 0,
+        valid_from: '2026-02-02',
+        valid_to: null,
+        tenant_id: TENANT_A,
+      }),
+    );
+
+    // Biweekly slot, occurring on the second week of the cycle.
+    const biweeklySlot = await dataSource.getRepository(RoutineSlot).save(
+      dataSource.getRepository(RoutineSlot).create({
+        routine_id: routine.id,
+        section_id: section.id,
+        period_slot_id: periodSlots[1]!.id,
+        weekday: 2,
+        subject_id: routineSubject.id,
+        room_id: null,
+        recurrence: SlotRecurrence.BIWEEKLY,
+        recurrence_offset: 1,
+        valid_from: '2026-01-01',
+        valid_to: null,
+        tenant_id: TENANT_A,
+      }),
+    );
+
+    // Monthly slot on the last occurrence of the cycle.
+    const monthlySlot = await dataSource.getRepository(RoutineSlot).save(
+      dataSource.getRepository(RoutineSlot).create({
+        routine_id: routine.id,
+        section_id: section.id,
+        period_slot_id: periodSlots[2]!.id,
+        weekday: 3,
+        subject_id: routineSubject.id,
+        room_id: null,
+        recurrence: SlotRecurrence.MONTHLY,
+        recurrence_offset: -1,
+        valid_from: '2026-01-01',
+        valid_to: null,
+        tenant_id: TENANT_A,
+      }),
+    );
+
+    // Co-taught slot, second section: two teachers on the same slot.
+    const coTaughtSlot = await dataSource.getRepository(RoutineSlot).save(
+      dataSource.getRepository(RoutineSlot).create({
+        routine_id: routine.id,
+        section_id: secondSection.id,
+        period_slot_id: periodSlots[4]!.id,
+        weekday: 1,
+        subject_id: routineSubject.id,
+        room_id: room.id,
+        recurrence: SlotRecurrence.WEEKLY,
+        recurrence_offset: 0,
+        valid_from: '2026-01-01',
+        valid_to: null,
+        tenant_id: TENANT_A,
+      }),
+    );
+
+    await dataSource.getRepository(RoutineSlotTeacher).save([
+      dataSource.getRepository(RoutineSlotTeacher).create({
+        routine_slot_id: currentSlot.id,
+        teacher_id: teacherOne.id,
+        tenant_id: TENANT_A,
+      }),
+      dataSource.getRepository(RoutineSlotTeacher).create({
+        routine_slot_id: coTaughtSlot.id,
+        teacher_id: teacherOne.id,
+        tenant_id: TENANT_A,
+      }),
+      dataSource.getRepository(RoutineSlotTeacher).create({
+        routine_slot_id: coTaughtSlot.id,
+        teacher_id: teacherTwo.id,
+        tenant_id: TENANT_A,
+      }),
+      dataSource.getRepository(RoutineSlotTeacher).create({
+        routine_slot_id: biweeklySlot.id,
+        teacher_id: teacherOne.id,
+        tenant_id: TENANT_A,
+      }),
+      dataSource.getRepository(RoutineSlotTeacher).create({
+        routine_slot_id: monthlySlot.id,
+        teacher_id: teacherOne.id,
+        tenant_id: TENANT_A,
+      }),
+      dataSource.getRepository(RoutineSlotTeacher).create({
+        routine_slot_id: supersededSlot.id,
+        teacher_id: teacherOne.id,
+        tenant_id: TENANT_A,
+      }),
+    ]);
+
+    // Cancellation: `is_cancelled = true`, `substitute_teacher_id = null`.
+    await dataSource.getRepository(RoutineSubstitution).save(
+      dataSource.getRepository(RoutineSubstitution).create({
+        routine_slot_id: currentSlot.id,
+        date: '2026-02-09',
+        substitute_teacher_id: null,
+        is_cancelled: true,
+        reason: 'Teacher on leave, period cancelled outright',
+        created_by: USER_ID,
+        tenant_id: TENANT_A,
+      }),
+    );
+
+    await dataSource.getRepository(RoutineChangeRequest).save(
+      dataSource.getRepository(RoutineChangeRequest).create({
+        routine_slot_id: currentSlot.id,
+        requested_by: USER_ID,
+        note: 'Requesting a swap with the next free period',
+        state: ChangeRequestState.OPEN,
+        resolved_by: null,
+        resolved_at: null,
+        resolution_note: null,
+        tenant_id: TENANT_A,
+      }),
+    );
+
+    // --- Exams/marks/results spine (19.10.1, #906) -----------------------
+    // Two students so `marks` carries two rows against the same component,
+    // one PRESENT and one ABSENT (D10).
+    const students = await dataSource
+      .getRepository(Student)
+      .find({ where: { tenant_id: TENANT_A }, take: 2 });
+    expect(
+      students.length,
+      'fixture needs at least 2 students for the marks case',
+    ).toBeGreaterThanOrEqual(2);
+    const [studentOne, studentTwo] = students;
+
+    const subject = await dataSource.getRepository(Subject).save(
+      dataSource.getRepository(Subject).create({
+        tenant_id: TENANT_A,
+        name_en: 'Mathematics',
+        name_bn: 'গণিত',
+        code: `MATH-${TENANT_A.slice(0, 8)}`,
+      }),
+    );
+
+    const classSubject = await dataSource.getRepository(ClassSubject).save(
+      dataSource.getRepository(ClassSubject).create({
+        tenant_id: TENANT_A,
+        class_id: klass.id,
+        subject_id: subject.id,
+        academic_year_id: year.id,
+        group_name: 'Science',
+      }),
+    );
+
+    // [35.1.10] Two class subjects in choice group 'Religion' + one pick
+    // (choice_group on the pick is trigger-filled and must round-trip).
+    const religionSubjects = await dataSource.getRepository(Subject).save(
+      ['ISL', 'HIN'].map((c) =>
+        dataSource.getRepository(Subject).create({
+          tenant_id: TENANT_A,
+          name_en: `Religion ${c}`,
+          name_bn: `ধর্ম ${c}`,
+          code: `REL-${c}-${TENANT_A.slice(0, 8)}`,
+        }),
+      ),
+    );
+    const religionClassSubjects = await dataSource.getRepository(ClassSubject).save(
+      religionSubjects.map((rs) =>
+        dataSource.getRepository(ClassSubject).create({
+          tenant_id: TENANT_A,
+          class_id: klass.id,
+          subject_id: rs.id,
+          academic_year_id: year.id,
+          choice_group: 'Religion',
+        }),
+      ),
+    );
+    await dataSource.getRepository(StudentSubjectChoice).save(
+      dataSource.getRepository(StudentSubjectChoice).create({
+        tenant_id: TENANT_A,
+        student_id: studentTwo.id,
+        class_subject_id: religionClassSubjects[0].id,
+        academic_year_id: year.id,
+        is_fourth: false,
+      }),
+    );
+
+    // [35.1.5] One template with two component lines (different subject
+    // codes, same class grade), exercising both new tabs.
+    const examTemplate = await dataSource.getRepository(ExamTemplate).save(
+      dataSource.getRepository(ExamTemplate).create({
+        tenant_id: TENANT_A,
+        name: 'Roundtrip Term Template',
+        kind: ExamKind.TERM,
+      }),
+    );
+    await dataSource.getRepository(ExamTemplateComponent).save([
+      dataSource.getRepository(ExamTemplateComponent).create({
+        tenant_id: TENANT_A,
+        template_id: examTemplate.id,
+        class_grade: 6,
+        subject_code: 'MATH',
+        sequence: 1,
+        name: 'Written',
+        kind: ExamComponentKind.WRITTEN,
+        full_marks: '70.00',
+        pass_marks: '23.00',
+      }),
+      dataSource.getRepository(ExamTemplateComponent).create({
+        tenant_id: TENANT_A,
+        template_id: examTemplate.id,
+        class_grade: 6,
+        subject_code: 'MATH',
+        sequence: 2,
+        name: 'MCQ',
+        kind: ExamComponentKind.MCQ,
+        full_marks: '30.00',
+        pass_marks: '10.00',
+      }),
+    ]);
+    // A deleted template whose line is still in the table: must be skipped,
+    // not crash the export (its template has no natural key to export).
+    const deletedTemplate = await dataSource.getRepository(ExamTemplate).save(
+      dataSource.getRepository(ExamTemplate).create({
+        tenant_id: TENANT_A,
+        name: 'Deleted Template',
+        kind: ExamKind.TERM,
+      }),
+    );
+    await dataSource.getRepository(ExamTemplateComponent).save(
+      dataSource.getRepository(ExamTemplateComponent).create({
+        tenant_id: TENANT_A,
+        template_id: deletedTemplate.id,
+        class_grade: 6,
+        subject_code: 'MATH',
+        sequence: 1,
+        name: 'Written',
+        kind: ExamComponentKind.WRITTEN,
+        full_marks: '70.00',
+        pass_marks: '23.00',
+      }),
+    );
+    await dataSource.getRepository(ExamTemplate).softDelete({ id: deletedTemplate.id });
+
+    const exam = await dataSource.getRepository(Exam).save(
+      dataSource.getRepository(Exam).create({
+        tenant_id: TENANT_A,
+        academic_year_id: year.id,
+        class_id: klass.id,
+        academic_term_id: null,
+        name: 'First Term Exam',
+        kind: ExamKind.TERM,
+        status: ExamStatus.PROCESSED,
+        published_at: null,
+      }),
+    );
+
+    const component = await dataSource.getRepository(ExamComponent).save(
+      dataSource.getRepository(ExamComponent).create({
+        tenant_id: TENANT_A,
+        exam_id: exam.id,
+        subject_id: subject.id,
+        name: 'Written',
+        kind: ExamComponentKind.WRITTEN,
+        source: ExamComponentSource.MANUAL,
+        full_marks: '100.00',
+        pass_marks: '33.00',
+        sequence: 1,
+      }),
+    );
+
+    await dataSource.getRepository(MarkGrid).save(
+      dataSource.getRepository(MarkGrid).create({
+        tenant_id: TENANT_A,
+        exam_id: exam.id,
+        section_id: section.id,
+        subject_id: subject.id,
+        state: MarkGridState.SUBMITTED,
+        submitted_by: USER_ID,
+        submitted_at: new Date('2026-02-01T00:00:00.000Z'),
+      }),
+    );
+
+    // D10: a PRESENT mark carries a value; an ABSENT mark's `value` must be
+    // (and must round-trip as) `null` — never a coerced zero.
+    await dataSource.getRepository(Mark).save([
+      dataSource.getRepository(Mark).create({
+        tenant_id: TENANT_A,
+        exam_id: exam.id,
+        student_id: studentOne.id,
+        subject_id: subject.id,
+        component_id: component.id,
+        value: '78.50',
+        status: MarkStatus.PRESENT,
+        entered_by: USER_ID,
+      }),
+      dataSource.getRepository(Mark).create({
+        tenant_id: TENANT_A,
+        exam_id: exam.id,
+        student_id: studentTwo.id,
+        subject_id: subject.id,
+        component_id: component.id,
+        value: null,
+        status: MarkStatus.ABSENT,
+        entered_by: USER_ID,
+      }),
+    ]);
+
+    // D19: a published result pins the scale's revision and the rule
+    // version that produced it — the round trip must preserve both exactly.
+    const result = await dataSource.getRepository(Result).save(
+      dataSource.getRepository(Result).create({
+        tenant_id: TENANT_A,
+        exam_id: exam.id,
+        student_id: studentOne.id,
+        total_marks: '78.50',
+        gpa: '4.50',
+        grade: 'A',
+        position: 1,
+        // [788] section snapshot at compute — round-trip coverage for
+        // `results.tab.ts`'s new `section`/`section_position` columns.
+        section_id: section.id,
+        section_position: 1,
+        is_fail: false,
+        grading_scale_id: scale.id,
+        grading_scale_revision: scale.revision,
+        rule_version: 'nctb-2026.1',
+        computed_at: new Date('2026-02-10T00:00:00.000Z'),
+        published_at: new Date('2026-02-11T00:00:00.000Z'),
+      }),
+    );
+
+    await dataSource.getRepository(ResultSubject).save(
+      dataSource.getRepository(ResultSubject).create({
+        tenant_id: TENANT_A,
+        result_id: result.id,
+        subject_id: subject.id,
+        obtained: '78.50',
+        grade: 'A',
+        gpa: '4.50',
+        is_fail: false,
+        is_fourth_subject: false,
+      }),
+    );
+
+    await dataSource.getRepository(StudentSubjectChoice).save(
+      dataSource.getRepository(StudentSubjectChoice).create({
+        tenant_id: TENANT_A,
+        student_id: studentOne.id,
+        class_subject_id: classSubject.id,
+        academic_year_id: year.id,
+        is_fourth: true,
+      }),
+    );
+
+    // [19.11.1] exam_schedules — one row with a venue, one with a null
+    // venue, so the round trip covers the nullable column explicitly.
+    await dataSource.getRepository(ExamSchedule).save([
+      dataSource.getRepository(ExamSchedule).create({
+        tenant_id: TENANT_A,
+        exam_id: exam.id,
+        subject_id: subject.id,
+        date: '2026-02-05',
+        starts_at: '09:00:00',
+        ends_at: '11:00:00',
+        venue: 'Main Hall',
+      }),
+    ]);
+    const secondSubject = await dataSource.getRepository(Subject).save(
+      dataSource.getRepository(Subject).create({
+        tenant_id: TENANT_A,
+        name_en: 'English',
+        name_bn: 'ইংরেজি',
+        code: `ENG-${TENANT_A.slice(0, 8)}`,
+      }),
+    );
+    await dataSource.getRepository(ExamSchedule).save([
+      dataSource.getRepository(ExamSchedule).create({
+        tenant_id: TENANT_A,
+        exam_id: exam.id,
+        subject_id: secondSubject.id,
+        date: '2026-02-06',
+        starts_at: '09:00:00',
+        ends_at: '11:00:00',
+        venue: null,
+      }),
+    ]);
+    // [22.3.6] Homework/syllabus fixture: one Subject, one Homework, one
+    // section-wide HomeworkAssignment, one HomeworkSubmission (DONE) and
+    // one SyllabusTopic — enough to make all four new workbook tabs
+    // non-empty rather than trivially-equal-because-empty.
+    const homeworkSubject = await dataSource.getRepository(Subject).save(
+      dataSource.getRepository(Subject).create({
+        tenant_id: TENANT_A,
+        code: `RT-${TENANT_A.slice(0, 6)}`,
+        name_en: 'Roundtrip Math',
+        name_bn: 'রাউন্ডট্রিপ গণিত',
+      }),
+    );
+
+    const homework = await dataSource.getRepository(Homework).save(
+      dataSource.getRepository(Homework).create({
+        tenant_id: TENANT_A,
+        title: 'Roundtrip Homework',
+        description: null,
+        subject_id: homeworkSubject.id,
+        class_id: klass.id,
+        grading_mode: HomeworkGradingMode.TICK,
+        attachments: [],
+      }),
+    );
+
+    const homeworkAssignment = await dataSource.getRepository(HomeworkAssignment).save(
+      dataSource.getRepository(HomeworkAssignment).create({
+        tenant_id: TENANT_A,
+        homework_id: homework.id,
+        section_id: section.id,
+        student_id: null,
+        assigned_date: '2026-01-10',
+        due_date: '2026-01-20',
+        status: HomeworkAssignmentStatus.ACTIVE,
+      }),
+    );
+
+    await dataSource.getRepository(HomeworkSubmission).save(
+      dataSource.getRepository(HomeworkSubmission).create({
+        tenant_id: TENANT_A,
+        assignment_id: homeworkAssignment.id,
+        student_id: student.id,
+        status: HomeworkSubmissionStatus.DONE,
+        marks: null,
+        attachments: [],
+      }),
+    );
+
+    await dataSource.getRepository(SyllabusTopic).save(
+      dataSource.getRepository(SyllabusTopic).create({
+        tenant_id: TENANT_A,
+        class_id: klass.id,
+        subject_id: homeworkSubject.id,
+        name: 'Roundtrip Topic',
+        description: null,
+        sequence: 1,
+        status: SyllabusTopicStatus.DONE,
+      }),
+    );
+
+    // [34.1.4] Programs fixture: one Program with two milestones, one
+    // ProgramEnrollment, and one MilestoneAchievement (with `recorded_by`
+    // set) — enough to make all four new workbook tabs non-empty.
+    const program = await dataSource.getRepository(Program).save(
+      dataSource.getRepository(Program).create({
+        tenant_id: TENANT_A,
+        name: 'Roundtrip Hifz',
+        description: null,
+        is_active: true,
+        show_on_report_card: true,
+      }),
+    );
+    const [milestoneOne, milestoneTwo] = await dataSource.getRepository(ProgramMilestone).save([
+      dataSource.getRepository(ProgramMilestone).create({
+        tenant_id: TENANT_A,
+        program_id: program.id,
+        name: 'Para 1',
+        description: null,
+        sequence: 1,
+      }),
+      dataSource.getRepository(ProgramMilestone).create({
+        tenant_id: TENANT_A,
+        program_id: program.id,
+        name: 'Para 2',
+        description: null,
+        sequence: 2,
+      }),
+    ]);
+    const programEnrollment = await dataSource.getRepository(ProgramEnrollment).save(
+      dataSource.getRepository(ProgramEnrollment).create({
+        tenant_id: TENANT_A,
+        program_id: program.id,
+        student_id: student.id,
+        started_on: '2026-01-05',
+        ended_on: null,
+        status: ProgramEnrollmentStatus.ACTIVE,
+      }),
+    );
+    await dataSource.getRepository(MilestoneAchievement).save(
+      dataSource.getRepository(MilestoneAchievement).create({
+        tenant_id: TENANT_A,
+        program_id: program.id,
+        enrollment_id: programEnrollment.id,
+        milestone_id: milestoneOne.id,
+        achieved_on: '2026-01-15',
+        recorded_by: USER_ID,
+        score: '95.00',
+        grade: 'A',
+        remark: 'Recited from memory',
+      }),
+    );
+    // A second milestone with no achievement recorded exercises the
+    // "milestone present, achievement absent" branch of `program_milestones`
+    // without also asserting anything about `milestoneTwo` — it just needs
+    // to exist so `program_milestones` has more than one row.
+    void milestoneTwo;
+
+    // --- [788] Promotion run/entries: one COMMITTED run with one override
+    // entry (note preserved through restore) -----------------------------
+    const nextYear = await dataSource.getRepository(AcademicYear).save(
+      dataSource.getRepository(AcademicYear).create({
+        tenant_id: TENANT_A,
+        name: '2027-2028',
+        start_date: new Date('2027-01-01'),
+        end_date: new Date('2027-12-31'),
+        is_current: false,
+      }),
+    );
+    const nextClass = await dataSource.getRepository(Class).save(
+      dataSource.getRepository(Class).create({
+        tenant_id: TENANT_A,
+        name: 'Class 7',
+        numeric_grade: 7,
+        shift: null,
+        version: null,
+        academic_year_id: nextYear.id,
+      }),
+    );
+    const nextSection = await dataSource.getRepository(ClassSection).save(
+      dataSource.getRepository(ClassSection).create({
+        tenant_id: TENANT_A,
+        class_id: nextClass.id,
+        section_name: 'A',
+        capacity: 30,
+        group_name: null,
+      }),
+    );
+
+    const promotionRun = await dataSource.getRepository(PromotionRun).save(
+      dataSource.getRepository(PromotionRun).create({
+        tenant_id: TENANT_A,
+        source_class_id: klass.id,
+        source_academic_year_id: year.id,
+        target_academic_year_id: nextYear.id,
+        target_class_id: nextClass.id,
+        exam_ids: [exam.id],
+        algorithm: PlacementAlgorithm.BLOCK,
+        status: PromotionRunStatus.COMMITTED,
+        refreshed_at: new Date('2026-03-01T00:00:00.000Z'),
+        committed_at: new Date('2026-03-02T00:00:00.000Z'),
+        committed_by_user_id: USER_ID,
+        approved_by_user_id: USER_ID,
+        override_count: 1,
+        created_by_user_id: USER_ID,
+      }),
+    );
+
+    // A second, DRAFT run for the *same* (source_class, target_academic_year)
+    // pair — the partial unique index only enforces uniqueness for
+    // status='COMMITTED', so this is a legal, realistic sibling of
+    // `promotionRun` above. Exercises `promotionRunsTab`'s id-based `keyOf`:
+    // the old (source_class, target_academic_year) natural key would have
+    // collided between these two rows and broken restore.
+    await dataSource.getRepository(PromotionRun).save(
+      dataSource.getRepository(PromotionRun).create({
+        tenant_id: TENANT_A,
+        source_class_id: klass.id,
+        source_academic_year_id: year.id,
+        target_academic_year_id: nextYear.id,
+        target_class_id: nextClass.id,
+        exam_ids: [exam.id],
+        algorithm: PlacementAlgorithm.BLOCK,
+        status: PromotionRunStatus.DRAFT,
+        refreshed_at: new Date('2026-03-03T00:00:00.000Z'),
+        committed_at: null,
+        committed_by_user_id: null,
+        approved_by_user_id: null,
+        override_count: 0,
+        created_by_user_id: USER_ID,
+      }),
+    );
+
+    const promotionEnrollment = await dataSource
+      .getRepository(Enrollment)
+      .findOneOrFail({ where: { student_id: student.id, academic_year_id: year.id } });
+
+    // One override entry — note preserved through restore (D6/D11).
+    await dataSource.getRepository(PromotionEntry).save(
+      dataSource.getRepository(PromotionEntry).create({
+        tenant_id: TENANT_A,
+        run_id: promotionRun.id,
+        student_id: student.id,
+        source_enrollment_id: promotionEnrollment.id,
+        source_section_id: section.id,
+        merit_rank: 1,
+        mean_gpa: '4.50',
+        total_marks_sum: '167.00',
+        passed_all: true,
+        suggested_outcome: PromotionOutcome.PROMOTE,
+        final_outcome: PromotionOutcome.RETAIN,
+        is_override: true,
+        override_note: 'Medical absence during annual exam — approved by head teacher',
+        overridden_by_user_id: USER_ID,
+        group_name: null,
+        target_class_id: null,
+        target_section_id: null,
+        new_roll_number: null,
+        placement_error: null,
+        target_enrollment_id: null,
+      }),
+    );
+
+    // A second, non-override entry for `studentTwo` — otherwise the
+    // "empty section cell"/"no override" branches of `promotionEntriesTab`
+    // never round-trip in this spine test. `ensureDemoStudents` (#1020)
+    // already gave every demo student an ACTIVE enrollment, so this looks
+    // it up rather than inserting a second one — that would violate
+    // `IDX_enr_active_student_year`.
+    const studentTwoEnrollment = await dataSource
+      .getRepository(Enrollment)
+      .findOneOrFail({ where: { student_id: studentTwo.id, academic_year_id: year.id } });
+    await dataSource.getRepository(PromotionEntry).save(
+      dataSource.getRepository(PromotionEntry).create({
+        tenant_id: TENANT_A,
+        run_id: promotionRun.id,
+        student_id: studentTwo.id,
+        source_enrollment_id: studentTwoEnrollment.id,
+        source_section_id: section.id,
+        merit_rank: 2,
+        mean_gpa: '3.80',
+        total_marks_sum: '140.00',
+        passed_all: true,
+        suggested_outcome: PromotionOutcome.PROMOTE,
+        final_outcome: PromotionOutcome.PROMOTE,
+        is_override: false,
+        override_note: null,
+        overridden_by_user_id: null,
+        group_name: null,
+        target_class_id: nextClass.id,
+        target_section_id: nextSection.id,
+        new_roll_number: 1,
+        placement_error: null,
+        target_enrollment_id: null,
+      }),
+    );
   }
 
   /**
@@ -635,8 +1813,8 @@ describe('workbook round trip (integration)', () => {
    * tabs the fixture is *supposed* to populate, so "the seed silently stopped
    * working" fails here with a readable message instead of passing as a green
    * round trip. Tabs the fixture deliberately does not cover
-   * (`subjects`, `class_subjects`, `holidays`, `teachers`,
-   * `teacher_assignments`) are listed as a known gap rather than asserted.
+   * (`subjects`, `class_subjects`, `holidays`, `teachers`) are listed as a
+   * known gap rather than asserted.
    */
   function assertFixtureIsMeaty(rowCounts: Record<string, number | undefined>): void {
     const mustBeNonEmpty = [
@@ -646,6 +1824,7 @@ describe('workbook round trip (integration)', () => {
       'sections',
       'users',
       'guardians',
+      'teacher_assignments',
       'students',
       'enrollments',
       'fee_structures',
@@ -655,6 +1834,58 @@ describe('workbook round trip (integration)', () => {
       'payment_allocations',
       'grading_scales',
       'grading_bands',
+      // Epic 21.0 (class routine/timetable), [21.11.1].
+      'shifts',
+      'period_slots',
+      'rooms',
+      'routines',
+      'routine_slots',
+      'routine_slot_teachers',
+      'routine_substitutions',
+      'routine_change_requests',
+      'exams',
+      'exam_templates',
+      'exam_template_components',
+      'exam_components',
+      'exam_schedules',
+      'mark_grids',
+      'marks',
+      'results',
+      'result_subjects',
+      'student_subject_choices',
+      'homework',
+      'homework_assignments',
+      'homework_submissions',
+      'syllabus_topics',
+      'promotion_runs',
+      'promotion_entries',
+      'programs',
+      'program_milestones',
+      'program_enrollments',
+      'milestone_achievements',
+      // [23.5] Wave-1 staff-HR tabs, seeded by `ensureStaffHrDemoSeed` above.
+      'designations',
+      'staff_hr_records',
+      'staff_designation_history',
+      'staff_family_members',
+      'staff_addresses',
+      'staff_experience',
+      'staff_education',
+      'staff_training',
+      'staff_achievements',
+      'staff_languages',
+      // [23.7] Wave 2 close.
+      'staff_documents',
+      'staff_profiles',
+      'staff_attendance_sessions',
+      'staff_attendance_records',
+      'leave_policies',
+      'leave_records',
+      // [32.3.10] Epic 32's print setup.
+      'printer_profiles',
+      'print_assets',
+      'print_templates',
+      'print_template_versions',
     ];
     const empty = mustBeNonEmpty.filter((tab) => !(rowCounts[tab] ?? 0));
     expect(empty, `fixture produced no rows for: ${empty.join(', ')}`).toEqual([]);
@@ -870,18 +2101,86 @@ describe('workbook round trip (integration)', () => {
     expect(organisationA).toEqual(DEMO_ORGANISATION);
     expect(organisationB).toEqual(DEMO_ORGANISATION);
 
+    // [35.1.5] `settings.preset` (D37) survives export -> strip -> merge into
+    // the clean tenant, and Wave 1's new data round-trips losslessly.
+    const presetOf = (w: typeof normalizedA) => JSON.parse(w.school?.[0]?.settings ?? '{}').preset;
+    expect(presetOf(normalizedA)).toMatchObject({ id: 'bd-national', version: '1' });
+    expect(presetOf(normalizedB)).toEqual(presetOf(normalizedA));
+    // [24.4.1] the three new built-in roles survive backup/restore.
+    for (const role of NEW_ROLES) {
+      expect(normalizedB.users?.filter((r) => r.role === role)).toHaveLength(1);
+    }
+    // [47.x] every role survives; none is silently promoted to CLASS_TEACHER.
+    expect(normalizedB.teacher_assignments?.map((r) => r.role).sort()).toEqual([
+      'ASSISTANT_CLASS_TEACHER',
+      'ASSISTANT_CLASS_TEACHER',
+      'CLASS_TEACHER',
+      'SUBJECT_TEACHER',
+    ]);
+    expect(normalizedB.exam_templates).toHaveLength(1);
+    expect(normalizedB.exam_template_components).toHaveLength(2);
+    expect(normalizedB.class_subjects?.some((r) => r.group_name === 'Science')).toBe(true);
+    // [35.1.10] choice groups + trigger-filled pick group round-trip.
+    expect(normalizedB.class_subjects?.filter((r) => r.choice_group === 'Religion')).toHaveLength(
+      2,
+    );
+    expect(normalizedB.student_subject_choices).toHaveLength(2);
+
+    // [32.3.10] `print_assets.storage_key` is the second deliberate exception.
+    // A restore into a DIFFERENT school must never keep the source school's
+    // `tenants/<id>/` prefix (it would let the new row stream the source
+    // school's file), so it rewrites the prefix to the destination. Assert
+    // that explicitly, then compare the keys with the school id removed.
+    const assetKeys = (w: typeof normalizedA, tenant: string) =>
+      (w.print_assets ?? []).map((row) => {
+        expect(row.storage_key).toMatch(new RegExp(`^tenants/${tenant}/print-assets/`));
+        return {
+          ...row,
+          storage_key: row.storage_key?.replace(`tenants/${tenant}/`, 'tenants/<school>/'),
+        };
+      });
+    const printAssetsA = assetKeys(normalizedA, TENANT_A);
+    const printAssetsB = assetKeys(normalizedB, TENANT_B);
+
     const normalizedANoName = {
       ...normalizedA,
       school: normalizedA.school?.map(({ name: _name, ...rest }) => rest),
+      print_assets: printAssetsA,
     };
     const normalizedBNoName = {
       ...normalizedB,
       school: normalizedB.school?.map(({ name: _name, ...rest }) => rest),
+      print_assets: printAssetsB,
     };
 
     const diffLines = diffNormalized(normalizedANoName, normalizedBNoName);
     expect(diffLines).toEqual([]);
     expect(normalizedBNoName).toEqual(normalizedANoName);
+
+    // [32.3.10] Beyond the generic diff: the restored template opens on the same
+    // current version, and every asset id inside it is a row of THIS school (B).
+    const restoredTemplate = await dataSource
+      .getRepository(PrintTemplate)
+      .findOneOrFail({ where: { tenant_id: TENANT_B, name: 'Classic' } });
+    expect(restoredTemplate.is_default).toBe(true);
+    const restoredVersions = await dataSource.getRepository(PrintTemplateVersion).find({
+      where: { tenant_id: TENANT_B, template_id: restoredTemplate.id },
+      order: { version: 'ASC' },
+    });
+    expect(restoredVersions.map((v) => v.version)).toEqual([1, 2]);
+    expect(restoredTemplate.current_version_id).toBe(restoredVersions[1]?.id);
+    const restoredAssetIds = new Set(
+      (await dataSource.getRepository(PrintAsset).find({ where: { tenant_id: TENANT_B } })).map(
+        (a) => a.id,
+      ),
+    );
+    const idsInJson = JSON.stringify([
+      restoredTemplate.draft,
+      ...restoredVersions.map((v) => v.definition),
+    ]).match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g);
+    expect(idsInJson?.length).toBeGreaterThan(0);
+    for (const id of idsInJson ?? [])
+      expect(restoredAssetIds.has(id), `asset ${id} is not in tenant B`).toBe(true);
 
     // (D6) explicit, beyond the generic diff above: restoring a scale whose
     // `revision` sat above the entity's `default: 1` must not silently reset
@@ -899,6 +2198,29 @@ describe('workbook round trip (integration)', () => {
       .getRepository(GradingBand)
       .findOneOrFail({ where: { scale_id: restoredScale.id, grade: 'F' } });
     expect(restoredFailBand.gpa).toBeNull();
+
+    // (D10) explicit, beyond the generic diff above: an ABSENT mark's
+    // `value` must restore as `null`, never a coerced zero — a real
+    // data-integrity bug the ticket calls out by name.
+    const restoredAbsentMark = await dataSource
+      .getRepository(Mark)
+      .findOneOrFail({ where: { tenant_id: TENANT_B, status: MarkStatus.ABSENT } });
+    expect(restoredAbsentMark.value).toBeNull();
+    const restoredPresentMark = await dataSource
+      .getRepository(Mark)
+      .findOneOrFail({ where: { tenant_id: TENANT_B, status: MarkStatus.PRESENT } });
+    expect(restoredPresentMark.value).toBe('78.50');
+
+    // (D19) explicit: a published result's pinned `grading_scale_revision`
+    // and `rule_version` must restore exactly, not re-derive from the
+    // referenced scale's current row — losing the pin would let a later
+    // grading-scale edit silently re-grade an already-printed result.
+    const restoredResult = await dataSource
+      .getRepository(Result)
+      .findOneOrFail({ where: { tenant_id: TENANT_B } });
+    expect(restoredResult.grading_scale_revision).toBe(3);
+    expect(restoredResult.rule_version).toBe('nctb-2026.1');
+    expect(restoredResult.published_at).not.toBeNull();
 
     // `_meta` is *expected* to differ — assert that explicitly rather
     // than ignoring it.
@@ -942,4 +2264,327 @@ describe('workbook round trip (integration)', () => {
     // eslint-disable-next-line no-console
     console.log(`workbook round trip took ${Date.now() - start}ms`);
   }, 90_000);
+
+  // ---- [47.x] teacher_assignments Role column: restore semantics ----------
+  //
+  // A small one-tenant fixture, restored back into the SAME tenant, so the
+  // restore runs through the update / delete-by-absence paths that the
+  // empty-tenant spine test above never reaches.
+  describe('teacher_assignments Role column', () => {
+    interface Fx {
+      tenantId: string;
+      sectionId: string;
+      teacherA: Teacher;
+      teacherB: Teacher;
+      subjectId: string;
+    }
+    const CLASS = TeacherAssignmentType.CLASS_TEACHER;
+    const ASSISTANT = TeacherAssignmentType.ASSISTANT_CLASS_TEACHER;
+    const SUBJECT = TeacherAssignmentType.SUBJECT_TEACHER;
+
+    async function seedSmall(): Promise<Fx> {
+      const tenantId = randomUUID();
+      const tag = tenantId.slice(0, 8);
+      await dataSource.getRepository(School).save(
+        dataSource.getRepository(School).create({
+          id: tenantId,
+          name: `Role Test School ${tag}`,
+          slug: `role-${tag}`,
+        }),
+      );
+      const year = await dataSource.getRepository(AcademicYear).save(
+        dataSource.getRepository(AcademicYear).create({
+          name: `2026-${tag}`,
+          start_date: new Date('2026-01-01'),
+          end_date: new Date('2026-12-31'),
+          is_current: true,
+          tenant_id: tenantId,
+        }),
+      );
+      const klass = await dataSource.getRepository(Class).save(
+        dataSource.getRepository(Class).create({
+          name: `Six-${tag}`,
+          numeric_grade: 6,
+          academic_year_id: year.id,
+          tenant_id: tenantId,
+        }),
+      );
+      const section = await dataSource.getRepository(ClassSection).save(
+        dataSource.getRepository(ClassSection).create({
+          class_id: klass.id,
+          section_name: 'A',
+          capacity: null,
+          tenant_id: tenantId,
+        }),
+      );
+      const subject = await dataSource.getRepository(Subject).save(
+        dataSource.getRepository(Subject).create({
+          name_en: 'Mathematics',
+          code: `MATH-${tag}`,
+          tenant_id: tenantId,
+        }),
+      );
+      const teachers: Teacher[] = [];
+      for (const n of ['a', 'b']) {
+        const user = await dataSource.getRepository(User).save(
+          dataSource.getRepository(User).create({
+            email: `role-${n}-${tag}@test.com`,
+            full_name: `Role Teacher ${n}`,
+            password_hash: 'not-the-asserted-hash',
+          }),
+        );
+        await dataSource
+          .getRepository(UserTenant)
+          .save(
+            dataSource
+              .getRepository(UserTenant)
+              .create({ user_id: user.id, tenant_id: tenantId, role: UserRole.TEACHER }),
+          );
+        teachers.push(
+          await dataSource.getRepository(Teacher).save(
+            dataSource.getRepository(Teacher).create({
+              user_id: user.id,
+              employee_id: `EMP-ROLE-${n}-${tag}`,
+              designations: [TeacherDesignation.SUBJECT_TEACHER],
+              tenant_id: tenantId,
+            }),
+          ),
+        );
+      }
+      return {
+        tenantId,
+        sectionId: section.id,
+        teacherA: teachers[0],
+        teacherB: teachers[1],
+        subjectId: subject.id,
+      };
+    }
+
+    async function setAssignments(
+      fx: Fx,
+      rows: Array<{ teacher: Teacher; type: TeacherAssignmentType; subject?: boolean }>,
+    ): Promise<void> {
+      const repo = dataSource.getRepository(TeacherClassSection);
+      await repo.delete({ tenant_id: fx.tenantId });
+      await repo.save(
+        rows.map((r) =>
+          repo.create({
+            tenant_id: fx.tenantId,
+            teacher_id: r.teacher.id,
+            section_id: fx.sectionId,
+            subject_id: r.subject ? fx.subjectId : null,
+            assignment_type: r.type,
+          }),
+        ),
+      );
+    }
+
+    async function exportOf(tenantId: string): Promise<Buffer> {
+      const job = await dataSource.getRepository(WorkbookJob).save(
+        dataSource.getRepository(WorkbookJob).create({
+          tenant_id: tenantId,
+          kind: WorkbookJobKind.EXPORT,
+          source: WorkbookJobSource.MANUAL,
+          status: WorkbookJobStatus.QUEUED,
+          requested_by_user_id: null,
+        }),
+      );
+      await exportProcessor.process(fakeExportJob(job.id, tenantId));
+      const done = await dataSource
+        .getRepository(WorkbookJob)
+        .findOneOrFail({ where: { id: job.id } });
+      expect(done.status).toBe(WorkbookJobStatus.DONE);
+      return storage.objects.get(done.storage_key as string) as Buffer;
+    }
+
+    async function restoreInto(tenantId: string, buffer: Buffer): Promise<WorkbookJob> {
+      const stagingKey = `staging/${randomUUID()}.xlsx`;
+      await storage.put(stagingKey, buffer);
+      const { stagingId } = await staging.stage(tenantId, OPERATOR_ID, {
+        workbook_storage_key: stagingKey,
+        meta: {},
+        tabs: [],
+        totals: { creates: 0, updates: 0, unchanged: 0, deletes: 0 },
+        hardErrorCount: 0,
+        isEmptyTenant: false,
+        errors: [],
+        warnings: [],
+      });
+      const snapshot = await dataSource.getRepository(WorkbookJob).save(
+        dataSource.getRepository(WorkbookJob).create({
+          tenant_id: tenantId,
+          kind: WorkbookJobKind.SNAPSHOT,
+          source: WorkbookJobSource.SNAPSHOT,
+          status: WorkbookJobStatus.DONE,
+          requested_by_user_id: OPERATOR_ID,
+        }),
+      );
+      const job = await dataSource.getRepository(WorkbookJob).save(
+        dataSource.getRepository(WorkbookJob).create({
+          tenant_id: tenantId,
+          kind: WorkbookJobKind.RESTORE,
+          source: WorkbookJobSource.MANUAL,
+          status: WorkbookJobStatus.QUEUED,
+          requested_by_user_id: OPERATOR_ID,
+          staging_id: stagingId,
+          snapshot_job_id: snapshot.id,
+        }),
+      );
+      await restoreProcessor.process(fakeRestoreJob(job.id));
+      return dataSource.getRepository(WorkbookJob).findOneOrFail({ where: { id: job.id } });
+    }
+
+    async function rolesIn(fx: Fx): Promise<string[]> {
+      const rows = await dataSource
+        .getRepository(TeacherClassSection)
+        .find({ where: { tenant_id: fx.tenantId } });
+      const name = (id: string) => (id === fx.teacherA.id ? 'A' : 'B');
+      return rows.map((r) => `${name(r.teacher_id)}:${r.assignment_type}`).sort();
+    }
+
+    /** Drops the `role` column from the teacher_assignments sheet, i.e. what a pre-47 backup looks like. */
+    async function stripRoleColumn(buffer: Buffer): Promise<Buffer> {
+      const wb = new ExcelJS.Workbook();
+      await wb.xlsx.load(buffer as any);
+      const sheet = wb.getWorksheet('teacher_assignments')!;
+      const header = (sheet.getRow(1).values as unknown[]).map((v) => String(v ?? ''));
+      const col = header.indexOf('role');
+      expect(col, 'export must carry the role column').toBeGreaterThan(0);
+      sheet.spliceColumns(col, 1);
+      return Buffer.from(await wb.xlsx.writeBuffer());
+    }
+
+    it('restores a pre-47 file (no Role column) with roles inferred', async () => {
+      const fx = await seedSmall();
+      await setAssignments(fx, [
+        { teacher: fx.teacherA, type: CLASS },
+        { teacher: fx.teacherA, type: SUBJECT, subject: true },
+      ]);
+      const old = await stripRoleColumn(await exportOf(fx.tenantId));
+      await dataSource.getRepository(TeacherClassSection).delete({ tenant_id: fx.tenantId });
+
+      const job = await restoreInto(fx.tenantId, old);
+
+      expect(job.status).toBe(WorkbookJobStatus.DONE);
+      expect(await rolesIn(fx)).toEqual(['A:CLASS_TEACHER', 'A:SUBJECT_TEACHER']);
+    }, 60_000);
+
+    it('class-teacher swap A -> B on restore succeeds (#1048): DB has A as CLASS, file has B', async () => {
+      const fx = await seedSmall();
+      await setAssignments(fx, [{ teacher: fx.teacherB, type: CLASS }]);
+      const file = await exportOf(fx.tenantId);
+      await setAssignments(fx, [{ teacher: fx.teacherA, type: CLASS }]);
+
+      const job = await restoreInto(fx.tenantId, file);
+
+      expect(job.status).toBe(WorkbookJobStatus.DONE);
+      expect(job.failed_tab).toBeNull();
+      // B is the class teacher, A has no homeroom row left.
+      expect(await rolesIn(fx)).toEqual(['B:CLASS_TEACHER']);
+    }, 60_000);
+
+    it('swap with the old class teacher kept as ASSISTANT: DB A=CLASS,B=ASSISTANT; file A=ASSISTANT,B=CLASS', async () => {
+      const fx = await seedSmall();
+      await setAssignments(fx, [
+        { teacher: fx.teacherA, type: ASSISTANT },
+        { teacher: fx.teacherB, type: CLASS },
+      ]);
+      const file = await exportOf(fx.tenantId);
+      await setAssignments(fx, [
+        { teacher: fx.teacherA, type: CLASS },
+        { teacher: fx.teacherB, type: ASSISTANT },
+      ]);
+
+      const job = await restoreInto(fx.tenantId, file);
+
+      expect(job.status).toBe(WorkbookJobStatus.DONE);
+      expect(await rolesIn(fx)).toEqual(['A:ASSISTANT_CLASS_TEACHER', 'B:CLASS_TEACHER']);
+    }, 60_000);
+
+    async function editWorkbook(
+      buffer: Buffer,
+      fn: (wb: ExcelJS.Workbook) => void,
+    ): Promise<Buffer> {
+      const wb = new ExcelJS.Workbook();
+      await wb.xlsx.load(buffer as any);
+      fn(wb);
+      return Buffer.from(await wb.xlsx.writeBuffer());
+    }
+
+    /** Column number (1-based) of a header in row 1 of a sheet. */
+    function colOf(sheet: ExcelJS.Worksheet, key: string): number {
+      const c = (sheet.getRow(1).values as unknown[]).map((v) => String(v ?? '')).indexOf(key);
+      expect(c, `column ${key}`).toBeGreaterThan(0);
+      return c;
+    }
+
+    async function hardErrors(tenantId: string, buffer: Buffer): Promise<string[]> {
+      const v = await validationService.validate(buffer, tenantId, dataSource.manager);
+      return v.errors.filter((e) => e.severity === 'error').map((e) => e.message);
+    }
+
+    it('id-matched swap on restore: teacher cell changed A -> B, id kept; B is CLASS, A has none', async () => {
+      const fx = await seedSmall();
+      await setAssignments(fx, [{ teacher: fx.teacherA, type: CLASS }]);
+      const file = await editWorkbook(await exportOf(fx.tenantId), (wb) => {
+        const sheet = wb.getWorksheet('teacher_assignments')!;
+        sheet.getRow(2).getCell(colOf(sheet, 'teacher')).value = fx.teacherB.employee_id;
+      });
+
+      const job = await restoreInto(fx.tenantId, file);
+
+      expect(job.status).toBe(WorkbookJobStatus.DONE);
+      expect(await rolesIn(fx)).toEqual(['B:CLASS_TEACHER']);
+    }, 60_000);
+
+    it('validation rejects two different teachers as CLASS for one section in one file', async () => {
+      const fx = await seedSmall();
+      await setAssignments(fx, [{ teacher: fx.teacherA, type: CLASS }]);
+      const file = await editWorkbook(await exportOf(fx.tenantId), (wb) => {
+        const sheet = wb.getWorksheet('teacher_assignments')!;
+        const copy = sheet.getRow(2).values as unknown[];
+        const row = [...copy];
+        row[colOf(sheet, 'id')] = randomUUID();
+        row[colOf(sheet, 'teacher')] = fx.teacherB.employee_id;
+        sheet.addRow(row.slice(1));
+      });
+
+      const errors = await hardErrors(fx.tenantId, file);
+
+      expect(errors.some((m) => m.includes('conflict'))).toBe(true);
+    }, 60_000);
+
+    it('validation rejects CLASS and ASSISTANT for the same teacher and section', async () => {
+      const fx = await seedSmall();
+      await setAssignments(fx, [{ teacher: fx.teacherA, type: CLASS }]);
+      const file = await editWorkbook(await exportOf(fx.tenantId), (wb) => {
+        const sheet = wb.getWorksheet('teacher_assignments')!;
+        const row = [...(sheet.getRow(2).values as unknown[])];
+        row[colOf(sheet, 'id')] = randomUUID();
+        row[colOf(sheet, 'role')] = 'ASSISTANT_CLASS_TEACHER';
+        sheet.addRow(row.slice(1));
+      });
+
+      const errors = await hardErrors(fx.tenantId, file);
+
+      expect(errors.some((m) => m.includes('Duplicate key'))).toBe(true);
+    }, 60_000);
+
+    it("a TEMPLATE workbook cannot displace the section's current class teacher", async () => {
+      const fx = await seedSmall();
+      await setAssignments(fx, [{ teacher: fx.teacherB, type: CLASS }]);
+      const file = await editWorkbook(await exportOf(fx.tenantId), (wb) => {
+        const meta = wb.getWorksheet('_meta')!;
+        meta.eachRow((row) => {
+          if (String(row.getCell(1).value) === 'kind') row.getCell(2).value = 'TEMPLATE';
+        });
+      });
+      await setAssignments(fx, [{ teacher: fx.teacherA, type: CLASS }]);
+
+      const errors = await hardErrors(fx.tenantId, file);
+
+      expect(errors.some((m) => m.includes('never deletes'))).toBe(true);
+      // Control: the same swap as a BACKUP is accepted (covered by the swap test above).
+    }, 60_000);
+  });
 });

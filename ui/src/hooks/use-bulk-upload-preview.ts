@@ -111,10 +111,9 @@ export function useBulkUploadPreview<S, C>({
   validate,
   commit,
 }: UseBulkUploadPreviewOptions<S, C>): UseBulkUploadPreviewResult<S, C> {
-  const [state, dispatch] = React.useReducer(
-    reducer<S, C>,
-    { status: 'idle' } as BulkUploadPreviewState<S, C>,
-  );
+  const [state, dispatch] = React.useReducer(reducer<S, C>, {
+    status: 'idle',
+  } as BulkUploadPreviewState<S, C>);
 
   // Bumped on every `selectFile`/`confirm`/`reset` — a settling promise
   // (or a late `onProgress`) compares its captured id against this ref and
@@ -160,10 +159,13 @@ export function useBulkUploadPreview<S, C>({
       });
   }, [commit, state]);
 
+  // No reset while committing: the server-side commit can't be cancelled, so
+  // leaving would hide its result and let a second commit start before it settles.
   const reset = React.useCallback(() => {
+    if (state.status === 'committing') return;
     ++attemptId.current;
     dispatch({ type: 'reset' });
-  }, []);
+  }, [state.status]);
 
   return { state, selectFile, confirm, reset };
 }

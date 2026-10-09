@@ -1,0 +1,63 @@
+{
+  "title": "My class",
+  "empty": "You are not a class teacher of any section yet — ask an admin.",
+  "pickerSubtitle": "Pick a section to open.",
+  "sectionsHeading": "Your sections",
+  "emptyTitle": "No section yet",
+  "loadError": "Could not load your sections.",
+  "loading": "Loading…",
+  "retry": "Try again",
+  "seeAll": "See all",
+  "roles": {
+    "CLASS_TEACHER": "Class teacher",
+    "ASSISTANT_CLASS_TEACHER": "Assistant class teacher"
+  },
+  "takeAttendance": "Take today's attendance",
+  "cards": {
+    "absentees": "Absent today",
+    "flags": "Attendance flags",
+    "dues": "Dues",
+    "homework": "Homework",
+    "results": "Results",
+    "roster": "Students"
+  },
+  "flagGroups": {
+    "ABSENT": "Absent 3 or more days in a row",
+    "LATE": "Late 3 or more days in a row",
+    "PRESENT": "Present 15 days in a row"
+  },
+  "cardEmpty": {
+    "attendanceNotTaken": "Attendance not taken yet.",
+    "absentees": "No one is absent today.",
+    "flags": "No flags right now.",
+    "dues": "No dues.",
+    "homework": "No homework yet.",
+    "results": "No results yet.",
+    "roster": "No students in this section."
+  },
+  "cardError": "Could not load this card.",
+  "roll": "Roll {{roll}}",
+  "homeworkCounts": {
+    "total": "Total",
+    "completed": "Completed",
+    "defaulters": "Defaulters"
+  },
+  "resultsSummary": {
+    "average": "Average marks",
+    "passRate": "Pass rate",
+    "failed": "Failed students"
+  },
+  "callGuardian": "Call guardian of {{name}}",
+  "noPhone": "No phone",
+  "subtitle": "{{role}} · Today, {{date}}",
+  "sectionLoadError": "Could not load this section.",
+  "notTakenBadge": "Not taken",
+  "absentCount_one": "{{n}} absent",
+  "absentCount_other": "{{n}} absent",
+  "flagDays_one": "{{n}} day",
+  "flagDays_other": "{{n}} days",
+  "duesTotal": "Total due",
+  "duesStudents": "Students",
+  "studentCount_one": "{{n}}",
+  "studentCount_other": "{{n}}"
+}

@@ -45,7 +45,7 @@ function fakeTab(overrides: Partial<TabSpec<unknown, unknown>> = {}): TabSpec<un
 }
 
 describe('EXPECTED_TABS', () => {
-  it('lists the 20 tab names in epic decision D2 order', () => {
+  it('lists the tab names in epic decision D2 order, plus Epics 19.0, 21.0, 22.0, 26.0, 27.0, 36.0 and 32.0 appended at the end', () => {
     expect(EXPECTED_TABS).toEqual([
       'school',
       'academic_years',
@@ -55,18 +55,101 @@ describe('EXPECTED_TABS', () => {
       'class_subjects',
       'calendar_events',
       'users',
+      'staff_profiles',
       'teachers',
       'teacher_assignments',
       'guardians',
       'students',
       'enrollments',
+      // [27.6] Epic 27.0's admission tabs.
+      'admission_intakes',
+      'admission_applicants',
+      'admission_evaluations',
+      'student_lifecycle_events',
+      'student_notes',
+      'student_public_exams',
       'fee_structures',
+      // [38.1.2] Epic 38.0's fine rules.
+      'fine_rules',
       'student_fees',
       'invoices',
       'payments',
       'payment_allocations',
       'grading_scales',
       'grading_bands',
+      // [35.1.5] Exam templates, ahead of `exams`.
+      'exam_templates',
+      'exam_template_components',
+      // [19.10.1] Epic 19.0's exams/marks/results spine (#906).
+      'exams',
+      'exam_components',
+      // [19.11.1] Exam routine — one subject's sitting within an exam (#928).
+      'exam_schedules',
+      'mark_grids',
+      'marks',
+      'results',
+      'result_subjects',
+      'student_subject_choices',
+      'shifts',
+      'period_slots',
+      'rooms',
+      'routines',
+      'routine_slots',
+      'routine_slot_teachers',
+      'routine_substitutions',
+      'routine_change_requests',
+      // [788] Promotion tabs — see EXPECTED_TABS's own comment in registry.ts.
+      'promotion_runs',
+      'promotion_entries',
+      // [22.3.6] Appended last — see EXPECTED_TABS's own comment in registry.ts.
+      'homework',
+      'homework_assignments',
+      'homework_submissions',
+      'syllabus_topics',
+      // [25.5] Wave 2 close — seat-plan tabs, in dependency order (#1054).
+      'seat_plans',
+      'seat_plan_schedules',
+      'seat_allocations',
+      // [34.1.4] Epic 34.0's programs spine — see EXPECTED_TABS's own
+      // comment in registry.ts.
+      'programs',
+      'program_milestones',
+      'program_enrollments',
+      'milestone_achievements',
+      // [23.5] Wave 1 close — staff-HR tabs (#1086).
+      'designations',
+      'staff_hr_records',
+      'staff_designation_history',
+      'staff_family_members',
+      'staff_addresses',
+      'staff_experience',
+      'staff_education',
+      'staff_training',
+      'staff_achievements',
+      'staff_languages',
+      // [23.7] Wave 2 close — staff_documents (#1088).
+      'staff_documents',
+      // [36.4.5] Epic 36.0's staff-attendance/leave tabs — see
+      // EXPECTED_TABS's own comment in registry.ts.
+      'staff_attendance_sessions',
+      'staff_attendance_records',
+      'leave_policies',
+      'leave_records',
+      // [32.3.10] Epic 32's print setup — see EXPECTED_TABS's own comment in registry.ts.
+      'printer_profiles',
+      'print_assets',
+      'print_templates',
+      'print_template_versions',
+      'acr_form_versions',
+      'acr_criteria',
+      'acr_assessments',
+      'acr_scores',
+      'staff_incidents',
+      'surveys',
+      'survey_questions',
+      'survey_targets',
+      'survey_responses',
+      'survey_answers',
     ]);
   });
 
@@ -82,7 +165,7 @@ describe('ALL_TABS', () => {
   // design exists to prevent.
   it('is valid', () => {
     // Same partial-to-strict lifecycle as WorkbookModule: strict once all
-    // 18 tabs have landed, tolerant of not-yet-registered tabs until then.
+    // all tabs have landed, tolerant of not-yet-registered tabs until then.
     expect(() =>
       assertRegistryValid(ALL_TABS, { partial: ALL_TABS.length < EXPECTED_TABS.length }),
     ).not.toThrow();
@@ -211,7 +294,7 @@ describe('assertRegistryValid', () => {
   it('throws when a tab name is not in EXPECTED_TABS', () => {
     const tabs = [fakeTab({ name: 'student' })];
 
-    expect(() => assertRegistryValid(tabs)).toThrow(/is not one of the 20 names in EXPECTED_TABS/);
+    expect(() => assertRegistryValid(tabs)).toThrow(/is not one of the \d+ names in EXPECTED_TABS/);
   });
 
   // While epic 14.0 is in flight the four lanes land tabs independently, so

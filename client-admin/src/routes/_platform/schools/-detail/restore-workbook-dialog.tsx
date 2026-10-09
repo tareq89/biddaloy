@@ -6,7 +6,7 @@
  * `RestoreWizard`'s own doc comment for why those props exist: this
  * school is a SUPER_ADMIN's target, never their active tenant.
  *
- * `max-h-[85vh] overflow-y-auto` on `DialogContent`: `RestoreWizard`
+ * `max-h-dvh overflow-y-auto` on `DialogContent` (`size="lg"`): `RestoreWizard`
  * renders a per-tab diff table plus the confirmation field and Confirm
  * button below it, easily taller than the viewport for a real workbook —
  * `DialogContent` itself has no height cap or scroll area (it's
@@ -38,7 +38,7 @@ export function RestoreWorkbookDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
+      <DialogContent size="lg" className="max-h-dvh overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {t('schoolDetail.restoreWorkbookDialog.title', { name: schoolName })}

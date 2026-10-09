@@ -1,5 +1,7 @@
 import { useSearch } from '@tanstack/react-router';
 
+import { PAGE_SIZE_OPTIONS } from '../utils/page-size';
+
 import { useSearchNavigate } from './navigate-search';
 
 /**
@@ -50,6 +52,9 @@ export interface ListUrlStatePatch {
   filters?: Record<string, string | null>;
 }
 
+// Lives in a neutral module so `DataTable` need not import this router-aware file.
+export { PAGE_SIZE_OPTIONS };
+
 const RESERVED_KEYS = new Set(['page', 'limit', 'sort', 'order']);
 
 /** A search param the URL controls has to survive being hand-edited,
@@ -83,7 +88,14 @@ export function useListUrlState(
   const navigateSearch = useSearchNavigate();
 
   const page = parsePositiveInt(search.page, defaults.page ?? 1);
-  const limit = parsePositiveInt(search.limit, defaults.limit ?? 10);
+  const defaultLimit = defaults.limit ?? 25;
+  const rawLimit = parsePositiveInt(search.limit, defaultLimit);
+  // C15: a URL limit is honoured only if it is a standard size or the
+  // caller's own default; anything else (`?limit=7`) falls back.
+  const limit =
+    rawLimit === defaultLimit || (PAGE_SIZE_OPTIONS as readonly number[]).includes(rawLimit)
+      ? rawLimit
+      : defaultLimit;
   const sort = typeof search.sort === 'string' ? search.sort : undefined;
   const order = parseStringEnum(search.order, ['asc', 'desc'] as const) ?? 'asc';
 

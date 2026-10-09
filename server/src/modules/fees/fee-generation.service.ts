@@ -10,6 +10,8 @@ import { Repository, IsNull, In, EntityManager } from 'typeorm';
 import { Student } from '../students/entities/student.entity';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { School } from '../schools/entities/school.entity';
+import { Program } from '../programs/entities/program.entity';
+import { applyProgramAudience } from './program-audience';
 import { FeeStructure } from './entities/fee-structure.entity';
 import { StudentFee } from './entities/student-fee.entity';
 import { FeeGeneration } from './entities/fee-generation.entity';
@@ -129,6 +131,9 @@ export const FEES_GENERATED_EVENT = 'fees.generated';
 export interface FeesGeneratedEventPayload {
   tenantId: string;
   feeGenerationId: string;
+  // [Epic 38 D2] Per-bill fee_type/note so 38.2.4's listener (a later
+  // wave) can react to a FINE bill without re-querying every created row.
+  bills?: { fee_type: FeeType; note: string | null }[];
 }
 class FeesEventEmitter extends EventEmitter {}
 export const feesEvents = new FeesEventEmitter();
@@ -172,6 +177,8 @@ export class FeeGenerationService {
     private readonly studentFeeRepo: Repository<StudentFee>,
     @InjectRepository(School)
     private readonly schoolRepo: Repository<School>,
+    @InjectRepository(Program)
+    private readonly programRepo: Repository<Program>,
     private readonly feeGenerationsService: FeeGenerationsService,
     private readonly walletService: WalletService,
     private readonly auditService: AuditService,
@@ -209,7 +216,10 @@ export class FeeGenerationService {
     }
 
     return {
-      students_total: dto.student_ids.length,
+      // [34.2.2] `dto.student_ids` alone no longer reflects the target
+      // count once `program_id` can supply/intersect the set — the loaded
+      // context (already validated as the full resolved list) does.
+      students_total: context.activeStudents.length + context.inactiveStudents.length,
       inactive: context.inactiveStudents.map(toInactiveDto),
       duplicates: duplicates.map(
         ({ student_id, fee_structure_id, existing_bill_id, paid_amount }) => ({
@@ -250,6 +260,25 @@ export class FeeGenerationService {
       source?: FeeGenerationSource;
       recurringScheduleId?: string;
       manager?: EntityManager;
+      // [Epic 38 D28] Fines-only, internal — never exposed on
+      // `GenerateFeesDto`, so the `POST /fees/generate` HTTP contract is
+      // unchanged. A caller (the fines engine, a later wave) passes a
+      // per-student amount/note/incident/rule instead of billing the
+      // structure's own flat amount.
+      billOverrides?: Map<
+        string /* `${student_id}:${fee_structure_id}` */,
+        {
+          amount: number;
+          note?: string | null;
+          incident_date?: string | null;
+          fine_rule_id?: string | null;
+        }
+      >;
+      // [Epic 38 D28] A manual fine always inserts a new occurrence rather
+      // than deduping against an existing bill for the same
+      // (student, structure, period) — no approval required, unlike
+      // CREATE_ANYWAY.
+      alwaysNewOccurrence?: boolean;
     },
   ): Promise<GenerateFeesResultDto> {
     const source = options?.source ?? FeeGenerationSource.MANUAL;
@@ -257,9 +286,12 @@ export class FeeGenerationService {
     const duplicateStrategy = dto.duplicate_strategy ?? DuplicateStrategy.SKIP;
     const notifyFamilies = await this.resolveNotifyFamilies(dto, tenantId);
     const externalManager = options?.manager;
+    const billOverrides = options?.billOverrides;
+    const alwaysNewOccurrence = options?.alwaysNewOccurrence ?? false;
 
     let feeGenerationId = '';
     let generatedCount = 0;
+    let generatedBills: { fee_type: FeeType; note: string | null }[] = [];
     let skippedCount = 0;
     let removedCount = 0;
     let inactiveSkipped: InactiveStudentDto[] = [];
@@ -273,12 +305,17 @@ export class FeeGenerationService {
         : context.activeStudents;
       studentCount = targetStudents.length;
 
-      const duplicates = await this.findDuplicates(
-        targetStudents.map((s) => s.id),
-        dto.fee_structure_ids,
-        context.periodStart,
-        manager,
-      );
+      // [Epic 38 D28] Skipped entirely under alwaysNewOccurrence — that
+      // branch never consults duplicatesByKey, so running this query for
+      // it would be a wasted round trip.
+      const duplicates = alwaysNewOccurrence
+        ? []
+        : await this.findDuplicates(
+            targetStudents.map((s) => s.id),
+            dto.fee_structure_ids,
+            context.periodStart,
+            manager,
+          );
       // Group by student/structure pair — a pair can already have more than
       // one stacked bill from a prior CREATE_ANYWAY run, so we need every
       // existing bill id (to remove them all) and the highest occurrence
@@ -312,39 +349,75 @@ export class FeeGenerationService {
       // and the audit trail must reflect all of them, not just the last one.
       const approvalReasons = new Set<'REMOVE_OLDER_PAID' | 'CREATE_ANYWAY'>();
 
-      for (const student of targetStudents) {
-        for (const structure of context.structures) {
-          const key = `${student.id}:${structure.id}`;
-          const existing = duplicatesByKey.get(key);
-          if (!existing) {
-            pairsToInsert.push({ student, structure, occurrence: 1 });
-            continue;
+      // [Epic 38 D28] `alwaysNewOccurrence` bypasses duplicate detection
+      // entirely (a manual fine is never a "duplicate" of a prior fine) —
+      // computed the same `MAX(occurrence)+1` way `late-fee.service.ts`
+      // computes it for the same reason.
+      if (alwaysNewOccurrence) {
+        // Take advisory locks in a stable (id) order so two concurrent calls
+        // over overlapping students/structures can't deadlock each other.
+        const lockOrder = (a: { id: string }, b: { id: string }) => a.id.localeCompare(b.id);
+        const lockStudents = [...targetStudents].sort(lockOrder);
+        const lockStructures = [...context.structures].sort(lockOrder);
+        for (const student of lockStudents) {
+          for (const structure of lockStructures) {
+            // Serialize concurrent occurrence assignment for this (student, structure, period)
+            // triple: two concurrent manual-fine calls could otherwise both read the same
+            // MAX(occurrence) before either inserts. A row lock on student_fees can't help when
+            // no row exists yet (the first bill for this triple), so use a transaction-scoped
+            // advisory lock instead — released automatically when this transaction commits/aborts.
+            await manager.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [
+              `${student.id}:${structure.id}:${context.periodStart.toISOString()}`,
+            ]);
+            // `student_fees` has no `tenant_id` column of its own — tenancy
+            // is enforced via the `fee_structures` FK, same as every other
+            // tenant-scoped query against this table in this service.
+            const [{ next_occurrence: occurrence }] = (await manager.query(
+              `SELECT COALESCE(MAX(sf.occurrence), 0) + 1 AS next_occurrence
+                 FROM student_fees sf
+                 JOIN fee_structures fs ON fs.id = sf.fee_structure_id
+                WHERE sf.student_id = $1 AND sf.fee_structure_id = $2 AND sf.period_start = $3
+                  AND fs.tenant_id = $4`,
+              [student.id, structure.id, context.periodStart, tenantId],
+            )) as { next_occurrence: number }[];
+            pairsToInsert.push({ student, structure, occurrence });
           }
-
-          if (duplicateStrategy === DuplicateStrategy.SKIP) {
-            skippedCount += 1;
-            continue;
-          }
-
-          if (duplicateStrategy === DuplicateStrategy.REMOVE_OLDER) {
-            if (existing.anyPaid) {
-              approvalNeeded = true;
-              approvalReasons.add('REMOVE_OLDER_PAID');
+        }
+      } else {
+        for (const student of targetStudents) {
+          for (const structure of context.structures) {
+            const key = `${student.id}:${structure.id}`;
+            const existing = duplicatesByKey.get(key);
+            if (!existing) {
+              pairsToInsert.push({ student, structure, occurrence: 1 });
+              continue;
             }
-            bulkExistingIds.push(...existing.existingBillIds);
-            pairsToInsert.push({ student, structure, occurrence: 1 });
-            continue;
-          }
 
-          // CREATE_ANYWAY always needs approval — it stacks a new bill on
-          // top of one that already exists.
-          approvalNeeded = true;
-          approvalReasons.add('CREATE_ANYWAY');
-          pairsToInsert.push({
-            student,
-            structure,
-            occurrence: existing.maxOccurrence + 1,
-          });
+            if (duplicateStrategy === DuplicateStrategy.SKIP) {
+              skippedCount += 1;
+              continue;
+            }
+
+            if (duplicateStrategy === DuplicateStrategy.REMOVE_OLDER) {
+              if (existing.anyPaid) {
+                approvalNeeded = true;
+                approvalReasons.add('REMOVE_OLDER_PAID');
+              }
+              bulkExistingIds.push(...existing.existingBillIds);
+              pairsToInsert.push({ student, structure, occurrence: 1 });
+              continue;
+            }
+
+            // CREATE_ANYWAY always needs approval — it stacks a new bill on
+            // top of one that already exists.
+            approvalNeeded = true;
+            approvalReasons.add('CREATE_ANYWAY');
+            pairsToInsert.push({
+              student,
+              structure,
+              occurrence: existing.maxOccurrence + 1,
+            });
+          }
         }
       }
 
@@ -432,7 +505,26 @@ export class FeeGenerationService {
       );
 
       for (const pair of pairsToInsert) {
-        const baseAmount = Number(pair.structure.amount);
+        // [Epic 38 D2/D12] A per-student override (fines: each student
+        // owes a different amount) replaces the structure's own flat
+        // amount for both the bill total and the discount base — D12: a
+        // 100% PERCENT DiscountRule on FINE must discount the override
+        // amount, not the structure's list price.
+        const override = billOverrides?.get(`${pair.student.id}:${pair.structure.id}`);
+        if (override && override.amount <= 0) {
+          skippedCount += 1;
+          continue;
+        }
+        const baseAmount = override ? override.amount : Number(pair.structure.amount);
+        let incidentDate: Date | null = null;
+        if (override?.incident_date) {
+          incidentDate = new Date(override.incident_date);
+          if (Number.isNaN(incidentDate.getTime())) {
+            throw new BadRequestException(
+              `Invalid incident_date "${override.incident_date}" for student ${pair.student.id}`,
+            );
+          }
+        }
         const discount = await this.discountResolver.resolve({
           tenantId,
           studentId: pair.student.id,
@@ -461,6 +553,9 @@ export class FeeGenerationService {
           discount_amount: discount.amount,
           status: FeeStatus.PENDING,
           due_date: dueDate,
+          note: override?.note ?? null,
+          incident_date: incidentDate,
+          fine_rule_id: override?.fine_rule_id ?? null,
         });
       }
 
@@ -491,6 +586,13 @@ export class FeeGenerationService {
         where: { fee_generation_id: feeGenerationId },
       });
       generatedCount = createdBills.length;
+      const feeTypeByStructureId = new Map(
+        context.structures.map((s) => [s.id, s.fee_type] as const),
+      );
+      generatedBills = createdBills.map((b) => ({
+        fee_type: feeTypeByStructureId.get(b.fee_structure_id) ?? FeeType.OTHER,
+        note: b.note,
+      }));
       // Postgres gives no ordering guarantee for a plain `find()` — row
       // order can (and does, intermittently) differ from insertion order.
       // The wallet auto-apply loop below relies on `createdBills` being in
@@ -625,6 +727,7 @@ export class FeeGenerationService {
         feesEvents.emit(FEES_GENERATED_EVENT, {
           tenantId,
           feeGenerationId,
+          bills: generatedBills,
         } satisfies FeesGeneratedEventPayload);
       }
     }
@@ -646,6 +749,63 @@ export class FeeGenerationService {
       (school?.settings as Record<string, unknown> | null) ?? null,
     );
     return settings.fees?.notifyOnManualGenerationDefault ?? false;
+  }
+
+  /** [34.2.2] `dto.student_ids` and/or `dto.program_id` → the actual target
+   * student id list, for both `preview()` and `generate()` (same call site,
+   * `loadContext`, below — matches D26's "one shared helper" for the SQL
+   * fragment itself, `applyProgramAudience`). `program_id` resolves via the
+   * *same* join `fees-daily.scheduler.ts` uses for recurring schedules, and
+   * intersects with any explicit `student_ids` rather than replacing them. */
+  private async resolveStudentIds(
+    dto: GenerateFeesPreviewDto,
+    tenantId: string,
+    manager: EntityManager,
+  ): Promise<string[]> {
+    if (!dto.program_id) {
+      if (!dto.student_ids || dto.student_ids.length === 0) {
+        throw new BadRequestException('student_ids or program_id must be provided');
+      }
+      return dto.student_ids;
+    }
+
+    const program = await manager
+      .getRepository(Program)
+      .findOne({ where: { id: dto.program_id, tenant_id: tenantId } });
+    if (!program) {
+      throw new NotFoundException(`Program "${dto.program_id}" not found`);
+    }
+
+    // D17: program audience is ACTIVE-enrolment-only, matching the scheduler
+    // (which never bills a WITHDRAWN/COMPLETED student). `include_inactive`
+    // does not override this — it only controls whether an *explicit*
+    // student_ids list may include inactive students.
+    const qb = manager
+      .getRepository(Student)
+      .createQueryBuilder('s')
+      .innerJoin('s.class_section', 'cs')
+      .where('s.tenant_id = :tenantId', { tenantId })
+      .andWhere('s.deleted_at IS NULL')
+      .andWhere('s.enrollment_status = :status', { status: EnrollmentStatus.ACTIVE });
+    applyProgramAudience(qb, dto.program_id, tenantId);
+    const programStudents = await qb.select('s.id').getMany();
+    const programStudentIds = programStudents.map((s) => s.id);
+
+    const programStudentIdSet = new Set(programStudentIds);
+    const resolved =
+      !dto.student_ids || dto.student_ids.length === 0
+        ? programStudentIds
+        : dto.student_ids.filter((id) => programStudentIdSet.has(id));
+
+    if (resolved.length === 0) {
+      throw new BadRequestException('No students matched the given program_id/student_ids');
+    }
+    // Same cap the DTO's @ArrayMaxSize(5000) enforces on an explicit
+    // student_ids list — a program audience must not bypass it.
+    if (resolved.length > 5000) {
+      throw new BadRequestException('Resolved student set exceeds the 5000-student limit');
+    }
+    return resolved;
   }
 
   /** Shared validation for both `preview` and `generate`: academic year
@@ -695,12 +855,14 @@ export class FeeGenerationService {
       .map((id) => structureById.get(id))
       .filter((s): s is FeeStructure => s !== undefined);
 
+    const studentIds = await this.resolveStudentIds(dto, tenantId, manager);
+
     const students = await manager.getRepository(Student).find({
-      where: { id: In(dto.student_ids), tenant_id: tenantId, deleted_at: IsNull() },
+      where: { id: In(studentIds), tenant_id: tenantId, deleted_at: IsNull() },
     });
-    if (students.length !== new Set(dto.student_ids).size) {
+    if (students.length !== new Set(studentIds).size) {
       const foundIds = new Set(students.map((s) => s.id));
-      const missing = dto.student_ids.filter((id) => !foundIds.has(id));
+      const missing = studentIds.filter((id) => !foundIds.has(id));
       throw new NotFoundException(`Student(s) not found for this tenant: ${missing.join(', ')}`);
     }
 

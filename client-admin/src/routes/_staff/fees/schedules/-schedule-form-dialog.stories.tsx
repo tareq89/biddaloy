@@ -3,7 +3,7 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import { ScheduleFormDialog } from './-schedule-form-dialog';
 
 /**
- * #679's create/edit dialog — covers the states the issue's acceptance
+ * #679's create/edit full-page form — covers the states the issue's acceptance
  * criteria call out by name: a fresh create form, an edit form reopened
  * with a saved monthly rule, and an edit form reopened with a saved
  * weekly rule. `useAcademicYears`/`useFeeStructures`/etc. fire real

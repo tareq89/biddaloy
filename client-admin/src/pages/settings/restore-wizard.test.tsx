@@ -161,6 +161,26 @@ describe('RestoreWizard', () => {
     await waitFor(() => expect(createObjectURL).toHaveBeenCalledTimes(1));
   });
 
+  it('shows its own "Restore from a backup" heading unless hideTitle is set', async () => {
+    const first = renderWithProviders(<RestoreWizard hideTitle />, {
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+    await first.localeReady;
+    await screen.findByRole('button', { name: 'Download blank template' });
+    expect(screen.queryByRole('heading', { name: 'Restore from a backup' })).toBeNull();
+    first.unmount();
+
+    const second = renderWithProviders(<RestoreWizard />, {
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+    await second.localeReady;
+    expect(await screen.findByRole('heading', { name: 'Restore from a backup' })).toBeTruthy();
+  });
+
   it('hides the "Download blank template" button for a role without BACKUP_MANAGE (ACCOUNTANT)', async () => {
     const result = renderWithProviders(<RestoreWizard />, {
       tenantId: 'tenant-1',
@@ -335,7 +355,9 @@ describe('RestoreWizard', () => {
 
     expect(await screen.findByText('Restore complete')).toBeTruthy();
     expect(await screen.findByText('Students: 12 records')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Download pre-restore snapshot' })).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: 'Download the copy taken before the restore' }),
+    ).toBeTruthy();
   });
 
   it('progress polling renders FAILED with the failed tab, reason, snapshot link and undo copy', async () => {
@@ -366,9 +388,13 @@ describe('RestoreWizard', () => {
     expect(await screen.findByText('The restore stopped at Guardians')).toBeTruthy();
     expect(screen.getByText('Duplicate natural key')).toBeTruthy();
     expect(
-      screen.getByText('The tabs before Guardians were applied — restore the snapshot to go back'),
+      screen.getByText(
+        'Parts before Guardians were applied — restore the copy taken before to go back.',
+      ),
     ).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Download pre-restore snapshot' })).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: 'Download the copy taken before the restore' }),
+    ).toBeTruthy();
   });
 
   it('a job with no progress falls back to the indeterminate progress copy', async () => {

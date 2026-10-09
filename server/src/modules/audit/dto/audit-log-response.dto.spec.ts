@@ -23,6 +23,10 @@ function auditLogEntity(overrides: Partial<AuditLog> = {}): AuditLog {
 }
 
 describe('AuditLogResponseDto.fromEntity', () => {
+  it('entity_label is null (labels are attached by the controller, findAll only)', () => {
+    expect(AuditLogResponseDto.fromEntity(auditLogEntity({})).entity_label).toBeNull();
+  });
+
   // [8.11.10]'s "Who" column: `findAll` joins the acting user, so the row
   // must carry a readable name, not just the UUID.
   it('flattens the joined user’s full_name into performed_by_name', () => {

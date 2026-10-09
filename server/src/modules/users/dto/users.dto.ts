@@ -163,6 +163,12 @@ export class QueryUserDto {
   @IsEnum(UserStatus)
   status?: UserStatus;
 
+  /** `current` (default) lists active members; `former` lists members who left
+   * or were removed (soft-deleted `user_tenants` rows) and can be restored. */
+  @IsOptional()
+  @IsEnum(['current', 'former'])
+  membership?: 'current' | 'former';
+
   /**
    * Filters on the derived lifecycle `deriveInvitationStatus` computes from
    * `password_hash` + the newest INVITE `auth_tokens` row (12.6) — not a
@@ -172,6 +178,14 @@ export class QueryUserDto {
   @IsOptional()
   @IsEnum(['NONE', 'PENDING', 'EXPIRED', 'REVOKED', 'ACTIVATED'])
   invitation_status?: InvitationStatus;
+
+  /** [23.12] Filters to staff members whose *current* designation
+   * ([23.2]'s `staff_designation_history`, the open row where
+   * `end_date IS NULL`) is this one. Independent of `role` — a
+   * designation is a job title (23.2), not the `UserRole` enum. */
+  @IsOptional()
+  @IsUUID()
+  designation_id?: string;
 
   /** Lower bound on when this user joined *this* tenant (`UserTenant.created_at`),
    * not when their account was created globally (`User.created_at`). */
@@ -226,11 +240,6 @@ export class CreateTeacherDto {
   @IsOptional()
   @IsDateString()
   joining_date?: string;
-
-  @IsOptional()
-  @IsArray()
-  @IsUUID('4', { each: true })
-  assigned_section_ids?: string[];
 }
 
 export class UpdateTeacherDto {
@@ -255,11 +264,6 @@ export class UpdateTeacherDto {
   @IsOptional()
   @IsDateString()
   joining_date?: string | null;
-
-  @IsOptional()
-  @IsArray()
-  @IsUUID('4', { each: true })
-  assigned_section_ids?: string[];
 }
 
 export class QueryTeacherDto {

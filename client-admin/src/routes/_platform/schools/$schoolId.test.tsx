@@ -1,15 +1,18 @@
 import { UserRole } from '@biddaloy/shared';
+import { toast } from '@biddaloy/ui/components';
+import { REGION_BD_BN } from '@biddaloy/ui/i18n';
 import { cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
+import { formatDate } from '@biddaloy/ui/utils';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { routeTree } from '../../../routeTree.gen';
 
 /**
- * #535's school detail page — stats card, admins card (list + inline add
- * form + per-row resend/revoke) and the suspend/reactivate dialog, all
+ * #535's school detail page — stats card, admins card (table + add-admin
+ * dialog + per-row resend/revoke) and the suspend/reactivate dialog, all
  * rendered through the real route with the shared `schools` MSW handlers.
  * Every case renders as SUPER_ADMIN; `_platform.access.test.tsx` covers
  * the role gate.
@@ -31,21 +34,42 @@ describe('/schools/$schoolId', () => {
     await cleanupTestState();
   });
 
-  it('renders the school header with its status and the five stats', async () => {
+  it('renders the school header, facts and the stats with tenant numerals', async () => {
     renderDetail();
 
-    await screen.findByRole('heading', { name: 'Ananta School' });
+    await screen.findByRole('heading', { name: 'Ananta School', level: 1 });
     expect(screen.getByText('Active')).toBeTruthy();
+    // Facts: link name + long-form created date.
+    expect(screen.getByText('Link name')).toBeTruthy();
+    expect(screen.getByText(formatDate('2026-01-15', REGION_BD_BN))).toBeTruthy();
+    // No tab bar, no back link, no settings link.
+    expect(screen.queryByRole('tablist')).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Back to schools' })).toBeNull();
+    expect(screen.queryByRole('link', { name: /settings/i })).toBeNull();
 
-    // Stats card — one `<dd>` per metric from `GET /schools/:id/stats`.
+    // Stats card — one `<dd>` per metric from `GET /schools/:id/stats`, in
+    // Bangla digits (the default region).
     await screen.findByRole('heading', { name: 'Stats' });
-    expect(screen.getByText('Active users').nextElementSibling?.textContent).toBe('4');
-    expect(screen.getByText('Students').nextElementSibling?.textContent).toBe('30');
-    expect(screen.getByText('Communications queued').nextElementSibling?.textContent).toBe('2');
-    expect(screen.getByText('Communications failed (7d)').nextElementSibling?.textContent).toBe(
-      '1',
+    expect(screen.getByText('Active users').nextElementSibling?.textContent).toBe('৪');
+    expect(screen.getByText('Students').nextElementSibling?.textContent).toBe('৩০');
+    expect(screen.getByText('Messages waiting to send').nextElementSibling?.textContent).toBe('২');
+    expect(screen.getByText('Failed messages (last 7 days)').nextElementSibling?.textContent).toBe(
+      '১',
     );
-    expect(screen.getByText('Last activity').nextElementSibling?.textContent).not.toBe('Never');
+    expect(screen.getByText('Last used').nextElementSibling?.textContent).not.toBe('Never');
+  });
+
+  it('has exactly one filled button; suspend and restore live in the More menu', async () => {
+    const user = userEvent.setup();
+    renderDetail();
+
+    await screen.findByRole('heading', { name: 'Ananta School', level: 1 });
+    expect(screen.getAllByRole('button', { name: 'Add admin' })).toHaveLength(1);
+    expect(screen.queryByRole('button', { name: 'Suspend school' })).toBeNull();
+
+    await user.click(screen.getByRole('button', { name: 'More actions' }));
+    expect(await screen.findByRole('menuitem', { name: 'Suspend school' })).toBeTruthy();
+    expect(screen.getByRole('menuitem', { name: 'Restore data from a backup file' })).toBeTruthy();
   });
 
   it('renders "Never" for a school with no activity yet', async () => {
@@ -63,7 +87,7 @@ describe('/schools/$schoolId', () => {
     renderDetail();
 
     await screen.findByRole('heading', { name: 'Stats' });
-    expect(screen.getByText('Last activity').nextElementSibling?.textContent).toBe('Never');
+    expect(screen.getByText('Last used').nextElementSibling?.textContent).toBe('Never');
   });
 
   it('shows a retryable error in the stats card when the stats request fails', async () => {
@@ -78,17 +102,18 @@ describe('/schools/$schoolId', () => {
   it('lists admins, offering resend/revoke only for an actionable invitation', async () => {
     renderDetail();
 
-    const pendingRow = (await screen.findByText('Fatima Rahman')).closest('li') as HTMLElement;
+    const pendingRow = (await screen.findByText('Fatima Rahman')).closest('tr') as HTMLElement;
     expect(within(pendingRow).getByText('Invitation pending')).toBeTruthy();
-    expect(within(pendingRow).getByRole('button', { name: 'Resend invitation' })).toBeTruthy();
-    expect(within(pendingRow).getByRole('button', { name: 'Revoke invitation' })).toBeTruthy();
+    expect(within(pendingRow).getByRole('button', { name: 'Send invitation again' })).toBeTruthy();
+    expect(within(pendingRow).getByRole('button', { name: 'Cancel invitation' })).toBeTruthy();
 
     // ACTIVATED — the user already has a password, so there is nothing to
     // resend (`issueAndSend` would answer 409) and nothing to revoke.
-    const activatedRow = screen.getByText('Karim Ahmed').closest('li') as HTMLElement;
-    expect(within(activatedRow).getByText('01712345678')).toBeTruthy();
-    expect(within(activatedRow).queryByRole('button', { name: 'Resend invitation' })).toBeNull();
-    expect(within(activatedRow).queryByRole('button', { name: 'Revoke invitation' })).toBeNull();
+    const activatedRow = screen.getByText('Karim Ahmed').closest('tr') as HTMLElement;
+    expect(
+      within(activatedRow).queryByRole('button', { name: 'Send invitation again' }),
+    ).toBeNull();
+    expect(within(activatedRow).queryByRole('button', { name: 'Cancel invitation' })).toBeNull();
   });
 
   it('shows the empty message when the school has no admins', async () => {
@@ -96,6 +121,8 @@ describe('/schools/$schoolId', () => {
     renderDetail();
 
     expect(await screen.findByText('No admins yet.')).toBeTruthy();
+    // The empty state offers its own way to add the first admin.
+    expect(screen.getAllByRole('button', { name: 'Add admin' })).toHaveLength(2);
   });
 
   it('shows a retryable error in the admins card when the admins request fails', async () => {
@@ -110,38 +137,43 @@ describe('/schools/$schoolId', () => {
   it('resends a pending invitation from its row', async () => {
     const user = userEvent.setup();
     let resendUrl: string | null = null;
+    let resendCount = 0;
     server.use(
       http.post('/api/v1/schools/:id/admins/:userId/resend-invitation', ({ request }) => {
         resendUrl = new URL(request.url).pathname;
+        resendCount += 1;
         return new HttpResponse(null, { status: 204 });
       }),
     );
     renderDetail();
 
-    const pendingRow = (await screen.findByText('Fatima Rahman')).closest('li') as HTMLElement;
-    await user.click(within(pendingRow).getByRole('button', { name: 'Resend invitation' }));
+    const pendingRow = (await screen.findByText('Fatima Rahman')).closest('tr') as HTMLElement;
+    await user.click(within(pendingRow).getByRole('button', { name: 'Send invitation again' }));
 
     await waitFor(() =>
       expect(resendUrl).toBe(
         `/api/v1/schools/${ACTIVE_SCHOOL_ID}/admins/00000000-0000-4000-8000-000000000011/resend-invitation`,
       ),
     );
+    // One click sends exactly one invitation.
+    expect(resendCount).toBe(1);
   });
 
-  it('shows an inline error when resend fails', async () => {
+  it('shows a translated error toast when resend fails', async () => {
     const user = userEvent.setup();
     server.use(
       http.post('/api/v1/schools/:id/admins/:userId/resend-invitation', () =>
         HttpResponse.json({}, { status: 500 }),
       ),
     );
+    const toastSpy = vi.spyOn(toast, 'error').mockImplementation(() => '');
     renderDetail();
 
-    const pendingRow = (await screen.findByText('Fatima Rahman')).closest('li') as HTMLElement;
-    await user.click(within(pendingRow).getByRole('button', { name: 'Resend invitation' }));
+    const pendingRow = (await screen.findByText('Fatima Rahman')).closest('tr') as HTMLElement;
+    await user.click(within(pendingRow).getByRole('button', { name: 'Send invitation again' }));
 
-    expect(await within(pendingRow).findByRole('alert')).toBeTruthy();
-    expect(within(pendingRow).getByText('Could not resend the invitation.')).toBeTruthy();
+    await waitFor(() => expect(toastSpy).toHaveBeenCalledWith('Could not resend the invitation.'));
+    toastSpy.mockRestore();
   });
 
   it('revokes a pending invitation only after confirming in the dialog', async () => {
@@ -155,27 +187,25 @@ describe('/schools/$schoolId', () => {
     );
     renderDetail();
 
-    const pendingRow = (await screen.findByText('Fatima Rahman')).closest('li') as HTMLElement;
-    await user.click(within(pendingRow).getByRole('button', { name: 'Revoke invitation' }));
+    const pendingRow = (await screen.findByText('Fatima Rahman')).closest('tr') as HTMLElement;
+    await user.click(within(pendingRow).getByRole('button', { name: 'Cancel invitation' }));
 
-    const dialog = await screen.findByRole('dialog');
-    expect(
-      within(dialog).getByText(/revokes the pending invitation for Fatima Rahman/),
-    ).toBeTruthy();
+    const dialog = await screen.findByRole('alertdialog');
+    expect(within(dialog).getByText('Cancel this invitation?')).toBeTruthy();
     // Nothing has been sent yet — the row button only opened the dialog.
     expect(revokeUrl).toBeNull();
 
-    await user.click(within(dialog).getByRole('button', { name: 'Revoke invitation' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel invitation' }));
 
     await waitFor(() =>
       expect(revokeUrl).toBe(
         `/api/v1/schools/${ACTIVE_SCHOOL_ID}/admins/00000000-0000-4000-8000-000000000011/invitation`,
       ),
     );
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
   });
 
-  it('adds an admin from the inline form and clears it on success', async () => {
+  it('adds an admin from the dialog, closes it and refetches on success', async () => {
     const user = userEvent.setup();
     let posted: unknown = null;
     server.use(
@@ -196,17 +226,36 @@ describe('/schools/$schoolId', () => {
     );
     renderDetail();
 
-    await screen.findByRole('heading', { name: 'Add admin' });
-    const name = screen.getByLabelText('Name');
-    const email = screen.getByLabelText('Email');
-    await user.type(name, 'New Admin');
-    await user.type(email, 'new@example.com');
+    await screen.findByText('Fatima Rahman');
     await user.click(screen.getByRole('button', { name: 'Add admin' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.type(within(dialog).getByLabelText(/^Name/), 'New Admin');
+    await user.type(within(dialog).getByLabelText('Email'), 'new@example.com');
+    await user.click(within(dialog).getByRole('button', { name: 'Add admin' }));
 
     await waitFor(() => expect(posted).toEqual({ name: 'New Admin', email: 'new@example.com' }));
-    // Success clears the form for the next admin.
-    await waitFor(() => expect((name as HTMLInputElement).value).toBe(''));
-    expect((email as HTMLInputElement).value).toBe('');
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
+
+  it('asks before discarding typed values when the add-admin dialog is cancelled', async () => {
+    const user = userEvent.setup();
+    renderDetail();
+
+    await screen.findByText('Fatima Rahman');
+    await user.click(screen.getByRole('button', { name: 'Add admin' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.type(within(dialog).getByLabelText(/^Name/), 'Typed Admin');
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+
+    const confirm = await screen.findByRole('alertdialog');
+    await user.click(within(confirm).getByRole('button', { name: 'Keep editing' }));
+    expect(within(dialog).getByLabelText(/^Name/)).toHaveProperty('value', 'Typed Admin');
+
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    await user.click(
+      within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Discard' }),
+    );
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   });
 
   it('rejects an admin with neither email nor phone before sending anything', async () => {
@@ -220,15 +269,17 @@ describe('/schools/$schoolId', () => {
     );
     renderDetail();
 
-    await screen.findByRole('heading', { name: 'Add admin' });
-    await user.type(screen.getByLabelText('Name'), 'Contactless Admin');
+    await screen.findByText('Fatima Rahman');
     await user.click(screen.getByRole('button', { name: 'Add admin' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.type(within(dialog).getByLabelText(/^Name/), 'Contactless Admin');
+    await user.click(within(dialog).getByRole('button', { name: 'Add admin' }));
 
-    expect(await screen.findAllByText('Provide an email or a phone number.')).toHaveLength(2);
+    expect(await within(dialog).findAllByText('Give an email or a phone number.')).toHaveLength(2);
     expect(posted).toBe(false);
   });
 
-  it('keeps the entered values and shows the server message when adding fails', async () => {
+  it('keeps the entered values and shows a translated error when adding fails', async () => {
     const user = userEvent.setup();
     server.use(
       http.post('/api/v1/schools/:id/admins', () =>
@@ -246,14 +297,17 @@ describe('/schools/$schoolId', () => {
     );
     renderDetail();
 
-    await screen.findByRole('heading', { name: 'Add admin' });
-    const name = screen.getByLabelText('Name');
-    await user.type(name, 'Fatima Rahman');
-    await user.type(screen.getByLabelText('Email'), 'fatima@example.com');
+    await screen.findByText('Fatima Rahman');
     await user.click(screen.getByRole('button', { name: 'Add admin' }));
+    const dialog = await screen.findByRole('dialog');
+    const name = within(dialog).getByLabelText(/^Name/);
+    await user.type(name, 'Fatima Rahman');
+    await user.type(within(dialog).getByLabelText('Email'), 'fatima@example.com');
+    await user.click(within(dialog).getByRole('button', { name: 'Add admin' }));
 
-    expect(await screen.findByText('User "x" is already an ADMIN of this school')).toBeTruthy();
-    // The failed submission must not wipe what the user typed.
+    expect(await within(dialog).findByText('Could not add this admin.')).toBeTruthy();
+    // The raw server message is never shown, and the typed values stay.
+    expect(screen.queryByText(/is already an ADMIN/)).toBeNull();
     expect((name as HTMLInputElement).value).toBe('Fatima Rahman');
   });
 
@@ -274,7 +328,8 @@ describe('/schools/$schoolId', () => {
     renderDetail();
 
     await screen.findByRole('heading', { name: 'Ananta School' });
-    await user.click(screen.getByRole('button', { name: 'Suspend' }));
+    await user.click(screen.getByRole('button', { name: 'More actions' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Suspend school' }));
 
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).getByRole('heading', { name: 'Suspend school' })).toBeTruthy();
@@ -316,5 +371,50 @@ describe('/schools/$schoolId', () => {
     renderDetail('00000000-0000-4000-8000-00000000dead');
 
     expect(await screen.findByText('Could not load this school.')).toBeTruthy();
+  });
+
+  it('shows the Trial card for a school with a trial, and extends it from the dialog', async () => {
+    let body: unknown = null;
+    server.use(
+      http.get('/api/v1/schools', () =>
+        HttpResponse.json([
+          {
+            id: ACTIVE_SCHOOL_ID,
+            name: 'Ananta School',
+            slug: 'ananta-school',
+            status: 'ACTIVE',
+            created_at: '2026-01-15T00:00:00.000Z',
+            country_code: 'BD',
+            trial_ends_at: '2026-01-10T00:00:00.000Z',
+            seat_limit: 50,
+            status_reason: null,
+          },
+        ]),
+      ),
+      http.patch(`/api/v1/schools/${ACTIVE_SCHOOL_ID}/trial`, async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json({ id: ACTIVE_SCHOOL_ID });
+      }),
+    );
+    const user = userEvent.setup();
+    renderDetail();
+
+    await screen.findByRole('heading', { name: 'Trial', level: 2 });
+    expect(screen.getByText('Trial ended')).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Extend trial' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.type(within(dialog).getByLabelText('Days to add'), '14');
+    await user.type(within(dialog).getByLabelText('Reason'), 'Asked for more time');
+    await user.click(within(dialog).getByRole('button', { name: 'Extend trial' }));
+
+    await waitFor(() => expect(body).toEqual({ days: 14, reason: 'Asked for more time' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
+
+  it('hides the Trial card for a school that never had a trial', async () => {
+    renderDetail();
+    await screen.findByRole('heading', { name: 'Ananta School', level: 1 });
+    await screen.findByRole('heading', { name: 'Stats' });
+    expect(screen.queryByRole('heading', { name: 'Trial' })).toBeNull();
   });
 });

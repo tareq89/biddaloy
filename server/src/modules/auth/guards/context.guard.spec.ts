@@ -17,6 +17,7 @@ describe('ContextGuard', () => {
   let tenantStatus: {
     isActive: ReturnType<typeof vi.fn>;
     getStatus: ReturnType<typeof vi.fn>;
+    getStatusReason: ReturnType<typeof vi.fn>;
     findSchoolIdBySlug: ReturnType<typeof vi.fn>;
   };
   let configService: { get: ReturnType<typeof vi.fn> };
@@ -28,6 +29,7 @@ describe('ContextGuard', () => {
     tenantStatus = {
       isActive: vi.fn().mockResolvedValue(true),
       getStatus: vi.fn().mockResolvedValue(SchoolStatus.ACTIVE),
+      getStatusReason: vi.fn().mockResolvedValue(null),
       // Not found by default — most tests below rely on an explicitly
       // configured PLATFORM_TENANT_ID and never need dynamic resolution;
       // the ones that do (see "dynamic platform tenant resolution" below)
@@ -99,6 +101,24 @@ describe('ContextGuard', () => {
       expect(result).toBe(true);
       // TEACHER (70) > STUDENT (50), so TEACHER wins
       expect(req.currentTenant.role).toBe(UserRole.TEACHER);
+    });
+
+    it('picks TEACHER over EXAM_CONTROLLER and COMMITTEE over PARENT (D23)', async () => {
+      const run = async (roles: string[]) => {
+        const req: any = {
+          user: {
+            sub: 'user-1',
+            email: 'test@test.com',
+            phone: null,
+            memberships: roles.map((role) => ({ tenantId: 'tenant-1', role })),
+          },
+          headers: { 'x-tenant-id': 'tenant-1' },
+        };
+        await guard.canActivate(createMockContext(req));
+        return req.currentTenant.role;
+      };
+      expect(await run(['EXAM_CONTROLLER', 'TEACHER'])).toBe('TEACHER');
+      expect(await run(['PARENT', 'COMMITTEE'])).toBe('COMMITTEE');
     });
 
     it('should keep the earlier role when it already has the highest priority', async () => {
@@ -264,6 +284,26 @@ describe('ContextGuard', () => {
       expect(tenantStatus.getStatus).toHaveBeenCalledWith('tenant-1');
     });
 
+    it('adds details.reason TRIAL_EXPIRED when the trial is what suspended the school', async () => {
+      tenantStatus.getStatus.mockResolvedValue(SchoolStatus.SUSPENDED);
+      tenantStatus.getStatusReason.mockResolvedValue('TRIAL_EXPIRED');
+      const context = createMockContext({
+        user: {
+          sub: 'user-1',
+          email: 'test@test.com',
+          phone: null,
+          memberships: [{ tenantId: 'tenant-1', role: UserRole.ADMIN }],
+        },
+        headers: { 'x-tenant-id': 'tenant-1' },
+      });
+
+      const error = (await guard.canActivate(context).catch((e) => e)) as ForbiddenException;
+      expect(error.getResponse()).toEqual({
+        message: 'This school has been suspended',
+        details: { code: 'TENANT_SUSPENDED', reason: 'TRIAL_EXPIRED' },
+      });
+    });
+
     it('should allow access via another ACTIVE tenant membership for the same user', async () => {
       tenantStatus.getStatus.mockImplementation((tenantId: string) =>
         Promise.resolve(tenantId === 'tenant-2' ? SchoolStatus.ACTIVE : SchoolStatus.SUSPENDED),
@@ -306,6 +346,7 @@ describe('ContextGuard', () => {
 
       expect(result).toBe(true);
       expect(req.currentTenant).toEqual({ id: 'new-school-tenant', role: UserRole.SUPER_ADMIN });
+      expect(req).toMatchObject({ isPlatformSuperAdmin: true });
       // Unlike their OWN platform tenant, an "elsewhere" target IS resolved
       // — it must exist and be ACTIVE, just refused via platform authority
       // rather than a membership row.
@@ -396,6 +437,22 @@ describe('ContextGuard', () => {
     });
 
     // --- Security regression: privilege escalation via tenant-local SUPER_ADMIN ---
+    it('[SECURITY] a tenant-local SUPER_ADMIN acting on their own tenant is not flagged platform', async () => {
+      const req = {
+        user: {
+          sub: 'rogue-1',
+          email: 'rogue@school-a.test',
+          phone: null,
+          memberships: [{ tenantId: 'school-a', role: UserRole.SUPER_ADMIN }],
+        },
+        headers: { 'x-tenant-id': 'school-a' },
+      };
+
+      await guard.canActivate(createMockContext(req));
+
+      expect(req).toMatchObject({ isPlatformSuperAdmin: false });
+    });
+
     it("[SECURITY] a tenant-local SUPER_ADMIN (minted by that tenant's own ADMIN, not on the platform tenant) cannot reach another tenant", async () => {
       const req = {
         user: {
@@ -718,7 +775,7 @@ describe('RolesGuard', () => {
       const req = { currentTenant: { id: 'tenant-1', role: UserRole.STUDENT } };
       const context = createMockContext(req, [UserRole.ADMIN]);
 
-      expect(() => guard.canActivate(context)).toThrow(UnauthorizedException);
+      expect(() => guard.canActivate(context)).toThrow(ForbiddenException);
       expect(() => guard.canActivate(context)).toThrow('Requires one of roles: ADMIN');
     });
 

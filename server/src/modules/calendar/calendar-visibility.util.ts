@@ -1,5 +1,5 @@
 import { SelectQueryBuilder } from 'typeorm';
-import { CalendarAudience, UserRole } from '@biddaloy/shared';
+import { CalendarAudience, UserRole, hasTenantScope } from '@biddaloy/shared';
 import { CalendarEvent } from './entities/calendar-event.entity';
 
 /**
@@ -17,20 +17,13 @@ export interface CalendarViewer {
   classIds: string[];
 }
 
-const UNRESTRICTED_ROLES: ReadonlySet<string> = new Set([
-  UserRole.SUPER_ADMIN,
-  UserRole.ADMIN,
-  UserRole.EXECUTIVE,
-  UserRole.ACCOUNTANT,
-]);
-
 /**
  * The one definition of "which `CalendarEvent` rows can this viewer see",
  * applied via query builder so list and single-event reads share exactly
  * the same rule — a caller can never fetch by id what they couldn't have
  * found in the list.
  *
- * - ADMIN/EXECUTIVE/ACCOUNTANT: no filter — every event in the tenant.
+ * - Tenant-scoped roles (`ROLE_SCOPE`): no filter — every event in the tenant.
  * - TEACHER: `audience IN (ALL, STAFF)`, OR the event is scoped to one of
  *   their classes via `CalendarEventClass`.
  * - PARENT/STUDENT: `audience = ALL`, OR the event is scoped to one of
@@ -45,7 +38,7 @@ export function visibilityWhere(
   qb: SelectQueryBuilder<CalendarEvent>,
   viewer: CalendarViewer,
 ): SelectQueryBuilder<CalendarEvent> {
-  if (UNRESTRICTED_ROLES.has(viewer.role)) {
+  if (hasTenantScope(viewer.role)) {
     return qb;
   }
 

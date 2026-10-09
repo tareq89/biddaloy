@@ -7,8 +7,9 @@
  */
 import { setActiveRole, setActiveTenant } from '@biddaloy/ui/api';
 import { ApprovalModalHostProvider } from '@biddaloy/ui/hooks';
-import { I18nProvider, i18n } from '@biddaloy/ui/i18n';
+import { I18nProvider, REGION_BD_BN, i18n } from '@biddaloy/ui/i18n';
 import { apiErrorBody, cleanupTestState, createTestQueryClient, server } from '@biddaloy/ui/test';
+import { formatNumber } from '@biddaloy/ui/utils';
 import { QueryClientProvider } from '@tanstack/react-query';
 import {
   createMemoryHistory,
@@ -88,8 +89,11 @@ describe('RecomputePreviewDialog', () => {
     await renderDialog({ affectedResultCount: 3 });
 
     expect(
-      await screen.findByText("3 students' results will be recalculated against the new bands."),
+      await screen.findByText(
+        `${formatNumber(3, REGION_BD_BN)} students' results will be recalculated against the new grades.`,
+      ),
     ).toBeTruthy();
+    expect(screen.getByText('You may be asked for extra approval before saving.')).toBeTruthy();
     expect(screen.queryByLabelText('Email or phone')).toBeNull();
   });
 
@@ -105,7 +109,7 @@ describe('RecomputePreviewDialog', () => {
     const user = userEvent.setup();
     const { onConfirmed } = await renderDialog();
 
-    await user.click(await screen.findByRole('button', { name: 'Confirm' }));
+    await user.click(await screen.findByRole('button', { name: 'Save' }));
 
     await waitFor(() => expect(onConfirmed).toHaveBeenCalled());
     expect(capturedBody).toEqual({ bands: BANDS });
@@ -136,7 +140,7 @@ describe('RecomputePreviewDialog', () => {
     const user = userEvent.setup();
     const { onConfirmed } = await renderDialog();
 
-    await user.click(await screen.findByRole('button', { name: 'Confirm' }));
+    await user.click(await screen.findByRole('button', { name: 'Save' }));
 
     await screen.findByLabelText('Email or phone');
     await user.type(screen.getByLabelText('Email or phone'), 'admin@example.com');
@@ -164,7 +168,7 @@ describe('RecomputePreviewDialog', () => {
     const user = userEvent.setup();
     const { onOpenChange, onConfirmed } = await renderDialog();
 
-    await user.click(await screen.findByRole('button', { name: 'Confirm' }));
+    await user.click(await screen.findByRole('button', { name: 'Save' }));
     await user.keyboard('{Escape}'); // in flight: must be a no-op
     expect(onOpenChange).not.toHaveBeenCalled();
 
@@ -172,5 +176,22 @@ describe('RecomputePreviewDialog', () => {
 
     await user.keyboard('{Escape}'); // settled: dismissal works again
     expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it('shows our own error sentence, never the raw server text', async () => {
+    server.use(
+      http.post('/api/v1/grading/scales/:id/bands/confirm', () =>
+        HttpResponse.json(apiErrorBody(500, 'raw server text', '/x'), { status: 500 }),
+      ),
+    );
+    const user = userEvent.setup();
+    await renderDialog();
+
+    await user.click(await screen.findByRole('button', { name: 'Save' }));
+
+    expect((await screen.findByRole('alert')).textContent).toBe(
+      "Couldn't save the grade change. Please try again.",
+    );
+    expect(screen.queryByText(/raw server text/)).toBeNull();
   });
 });

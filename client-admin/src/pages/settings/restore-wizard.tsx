@@ -14,6 +14,7 @@ import {
   type TabSummaryDto,
 } from '@biddaloy/ui/hooks';
 import { useLocale, useTranslation } from '@biddaloy/ui/i18n';
+import { DownloadIcon } from 'lucide-react';
 import * as React from 'react';
 
 /**
@@ -53,11 +54,14 @@ import * as React from 'react';
 export interface RestoreWizardProps {
   tenantId?: string;
   expectedSchoolName?: string;
+  /** Backup settings renders its own card title; platform callers keep the default heading. */
+  hideTitle?: boolean;
 }
 
 export function RestoreWizard({
   tenantId,
   expectedSchoolName: expectedSchoolNameOverride,
+  hideTitle = false,
 }: RestoreWizardProps = {}) {
   const { t } = useTranslation('backup');
   const { locale } = useLocale();
@@ -133,23 +137,8 @@ export function RestoreWizard({
   const schoolProfileError = tenantId === undefined && schoolProfileQuery.isError;
 
   return (
-    <div className="flex flex-col gap-2">
-      <h3 className="text-base font-semibold">{t('restoreSectionTitle')}</h3>
-      {canManageBackup && (
-        // [14.13.2]: newcomers migrating from another system land here
-        // looking for a starting point — a blank workbook they can fill in
-        // by hand, distinct from restoring an actual backup file below.
-        <div>
-          <Button
-            type="button"
-            variant="outline"
-            loading={downloadingTemplate}
-            onClick={() => void handleDownloadTemplate()}
-          >
-            {t('downloadTemplate')}
-          </Button>
-        </div>
-      )}
+    <div className="flex flex-col gap-4">
+      {!hideTitle && <h3 className="text-base font-semibold">{t('restoreSectionTitle')}</h3>}
       <BulkUploadPreview<RestoreSummary, RequestRestoreResponse>
         accept=".xlsx"
         validate={validate}
@@ -187,6 +176,24 @@ export function RestoreWizard({
           />
         )}
       />
+      {canManageBackup && (
+        // [14.13.2]: newcomers migrating from another system land here
+        // looking for a starting point — a blank workbook they can fill in
+        // by hand, distinct from restoring an actual backup file above.
+        <div className="flex flex-col gap-2 border-t border-border-subtle pt-4 md:flex-row md:items-center md:justify-between">
+          <p className="text-text-secondary">{t('templatePrompt')}</p>
+          <Button
+            type="button"
+            variant="ghost"
+            className="w-full shrink-0 md:w-auto"
+            loading={downloadingTemplate}
+            onClick={() => void handleDownloadTemplate()}
+          >
+            <DownloadIcon aria-hidden="true" />
+            {t('downloadTemplate')}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
@@ -201,7 +208,7 @@ interface TabDiffTotals {
 /** Single pass over the per-tab diff, shared by `canCommit`'s "is there
  * anything to do" gate, the confirm slot's delete-count warning, and the
  * totals row in `RestoreDiffSummary`. */
-function sumTabDiffs(tabs: TabSummaryDto[]): TabDiffTotals {
+export function sumTabDiffs(tabs: TabSummaryDto[]): TabDiffTotals {
   return tabs.reduce(
     (acc, tab) => ({
       creates: acc.creates + tab.creates,
@@ -213,7 +220,7 @@ function sumTabDiffs(tabs: TabSummaryDto[]): TabDiffTotals {
   );
 }
 
-function tabLabel(t: ReturnType<typeof useTranslation<'backup'>>['t'], tab: string): string {
+export function tabLabel(t: ReturnType<typeof useTranslation<'backup'>>['t'], tab: string): string {
   return t(`diffTabName.${tab}`, { defaultValue: tab });
 }
 

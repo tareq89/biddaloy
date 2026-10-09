@@ -8,7 +8,13 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Reflector } from '@nestjs/core';
-import { JwtPayload, JwtMembership, UserRole, SchoolStatus } from '@biddaloy/shared';
+import {
+  JwtPayload,
+  JwtMembership,
+  UserRole,
+  SchoolStatus,
+  TRIAL_EXPIRED_REASON,
+} from '@biddaloy/shared';
 import { ROLES_KEY } from '../decorators/roles.decorator';
 import { TenantStatusService } from '../../schools/tenant-status.service';
 
@@ -22,6 +28,9 @@ const ROLE_PRIORITY: Record<string, number> = {
   ACCOUNTANT: 80,
   EXECUTIVE: 75,
   TEACHER: 70,
+  EXAM_CONTROLLER: 68,
+  OFFICE_STAFF: 66,
+  COMMITTEE: 64,
   PARENT: 60,
   STUDENT: 50,
 };
@@ -32,12 +41,12 @@ const ROLE_PRIORITY: Record<string, number> = {
  * — never "any membership anywhere with role SUPER_ADMIN".
  *
  * That distinction is the whole fix for a real privilege escalation: a
- * tenant ADMIN can mint a tenant-LOCAL SUPER_ADMIN user today
- * (`CreateUserDto.role` is a bare `@IsEnum(UserRole)`, a pre-existing gap
- * outside this guard, tracked separately — NOT fixed here). Without pinning
- * to the platform tenant, that locally-minted SUPER_ADMIN's JWT would satisfy
- * the old "any membership" check and grant them access to every OTHER
- * school's tenant via `X-Tenant-ID`.
+ * tenant ADMIN used to be able to mint a tenant-LOCAL SUPER_ADMIN user via
+ * `POST /users` (#731 — `UserService.create` now refuses that role). Rows
+ * minted before that fix can still exist, so this pin stays load-bearing:
+ * without it, such a locally-minted SUPER_ADMIN's JWT would satisfy the old
+ * "any membership" check and grant them access to every OTHER school's
+ * tenant via `X-Tenant-ID`.
  *
  * `platformTenantId` unresolved (undefined) means no membership qualifies —
  * fails closed. See `resolvePlatformTenantId` for how that id is obtained:
@@ -239,9 +248,13 @@ export class ContextGuard implements CanActivate {
         throw new UnauthorizedException(`Tenant ${tenantId} does not exist`);
       }
       if (status !== SchoolStatus.ACTIVE) {
+        const reason = await this.tenantStatus.getStatusReason(tenantId);
         throw new ForbiddenException({
           message: 'This school has been suspended',
-          details: { code: 'TENANT_SUSPENDED' },
+          details: {
+            code: 'TENANT_SUSPENDED',
+            ...(reason === TRIAL_EXPIRED_REASON ? { reason } : {}),
+          },
         });
       }
     }
@@ -253,6 +266,10 @@ export class ContextGuard implements CanActivate {
     };
 
     request.currentUser = user;
+    // Lets platform-only routes (`PlatformSuperAdminGuard`) tell a genuine
+    // platform SUPER_ADMIN from a legacy tenant-local one: both resolve to
+    // `currentTenant.role === 'SUPER_ADMIN'`.
+    request.isPlatformSuperAdmin = isPlatformSuperAdmin(user.memberships, platformTenantId);
 
     return true;
   }
@@ -295,7 +312,7 @@ export class RolesGuard implements CanActivate {
 
     const hasRole = requiredRoles.includes(currentTenant.role);
     if (!hasRole) {
-      throw new UnauthorizedException(`Requires one of roles: ${requiredRoles.join(', ')}`);
+      throw new ForbiddenException(`Requires one of roles: ${requiredRoles.join(', ')}`);
     }
 
     return true;

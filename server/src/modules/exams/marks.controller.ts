@@ -27,10 +27,10 @@ import { BatchMarksDto, GridQueryDto, GridStateActionDto, QueryProgressDto } fro
 import { Permission, UserRole, JwtPayload } from '@biddaloy/shared';
 
 /**
- * `@Roles(...)` here is only the coarse gate ("a TEACHER may attempt this
- * at all") — `MarksAuthorizationService` is the real, object-level check
- * ("which section-subjects"), matching `attendance.controller.ts`'s same
- * two-layer pattern.
+ * `@RequirePermissions(...)` here is only the coarse gate ("a TEACHER may
+ * attempt this at all") — `MarksAuthorizationService` is the real,
+ * object-level check ("which section-subjects"), matching
+ * `attendance.controller.ts`'s same two-layer pattern.
  */
 @ApiTags('marks')
 @ApiTenantAuth()
@@ -43,7 +43,6 @@ export class MarksController {
   ) {}
 
   @Get()
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE, UserRole.TEACHER)
   @RequirePermissions(Permission.MARK_VIEW)
   @ApiOperation({
     summary:
@@ -53,12 +52,19 @@ export class MarksController {
     @Param('examId', ParseUUIDPipe) examId: string,
     @Query() query: GridQueryDto,
     @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
   ) {
-    return this.gridService.getGrid(examId, query.section_id, query.subject_id, tenant.id);
+    return this.gridService.getGrid(
+      examId,
+      query.section_id,
+      query.subject_id,
+      tenant.id,
+      tenant.role,
+      user.sub,
+    );
   }
 
   @Patch()
-  @Roles(UserRole.ADMIN, UserRole.TEACHER)
   @RequirePermissions(Permission.MARK_ENTER)
   @ApiOperation({ summary: 'Batch-upsert marks for a section-subject grid.' })
   upsertBatch(
@@ -79,7 +85,6 @@ export class MarksController {
   }
 
   @Post('submit')
-  @Roles(UserRole.ADMIN, UserRole.TEACHER)
   @RequirePermissions(Permission.MARK_ENTER)
   @ApiOperation({ summary: 'Submit a section-subject grid (DRAFT -> SUBMITTED).' })
   submit(
@@ -121,7 +126,6 @@ export class MarksController {
   }
 
   @Get('progress')
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE, UserRole.TEACHER)
   @RequirePermissions(Permission.MARK_VIEW)
   @ApiOperation({
     summary: 'Grid-submission progress for an exam: counts by state plus the outstanding list.',

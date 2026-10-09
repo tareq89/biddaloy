@@ -20,6 +20,7 @@ import { toLatinDigits } from '../../common/utils/bengali-digits.util';
 import { OtpService } from './otp.service';
 import { AuthTokenService, PASSWORD_RESET_TTL_MS } from './auth-token.service';
 import { AccountAccessDeliveryService, pickChannel } from './account-access-delivery.service';
+import { assertPasswordAllowedForUser } from '../auth/password-policy';
 import { isSecretEchoEnabled } from './account-access-echo';
 import { resolveAppBaseUrl } from './app-base-url.util';
 import { ResetPasswordDto } from './dto/reset-password.dto';
@@ -118,6 +119,8 @@ export class RecoveryService {
   async reset(dto: ResetPasswordDto, context: RequestContext): Promise<AuthResult> {
     let user: User;
     let method: 'otp' | 'link';
+    // Consumed only after every check below passes, so a weak password does not burn the link.
+    let linkTokenId: string | undefined;
 
     if (dto.token) {
       const result = await this.authTokens.verify(dto.token, AuthTokenPurpose.PASSWORD_RESET);
@@ -128,7 +131,7 @@ export class RecoveryService {
       if (!found) {
         throw new UnauthorizedException('Invalid or expired link');
       }
-      await this.authTokens.consume(result.row.id);
+      linkTokenId = result.row.id;
 
       // [12.7] The token proves control of the email it was SENT to, not
       // "this user, whatever their email is now" — `sendLink` stamps that
@@ -175,6 +178,11 @@ export class RecoveryService {
       );
     }
 
+    // Rules last, after every 401 check, so a stale link or a suspended account
+    // learns nothing about the audience. A too-weak OTP-branch password still
+    // burns the OTP (accepted: the UI checklist prevents it).
+    await assertPasswordAllowedForUser(this.userTenantRepo, user.id, dto.new_password);
+    if (linkTokenId) await this.authTokens.consume(linkTokenId);
     await this.applyNewPassword(user, dto.new_password, context, {
       action: AuditAction.PASSWORD_RESET,
       performedByUserId: user.id,

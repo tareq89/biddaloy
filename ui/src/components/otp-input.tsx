@@ -26,6 +26,9 @@ export interface OtpInputProps {
    * "code" step uses a heading instead) — required rather than optional so
    * every usage stays accessible by name. */
   'aria-label': string;
+  /** Id of text that explains the code (e.g. "We sent a code to …"), read
+   * when the field takes focus straight away. */
+  'aria-describedby'?: string;
 }
 
 const OTP_LENGTH = 6;
@@ -37,6 +40,7 @@ export function OtpInput({
   disabled = false,
   invalid = false,
   'aria-label': ariaLabel,
+  'aria-describedby': ariaDescribedBy,
 }: OtpInputProps) {
   return (
     <Input
@@ -49,6 +53,7 @@ export function OtpInput({
       disabled={disabled}
       aria-invalid={invalid}
       aria-label={ariaLabel}
+      aria-describedby={ariaDescribedBy}
       onChange={(event) => {
         const normalized = toLatinDigits(event.target.value).replace(/\D/g, '');
         onValueChange(normalized.slice(0, OTP_LENGTH));

@@ -126,6 +126,7 @@ describe('ActivationService (integration)', () => {
         status: 'valid',
         full_name: 'Rahima',
         school_name: 'Test School',
+        password_audience: 'staff',
       });
     });
 
@@ -135,11 +136,48 @@ describe('ActivationService (integration)', () => {
   });
 
   describe('activate', () => {
+    async function inviteWithRoles(roles: string[]) {
+      const user = await createInvitee();
+      for (const role of roles) {
+        await dataSource.query(
+          `INSERT INTO user_tenants (user_id, tenant_id, role) VALUES ($1, $2, $3)`,
+          [user.id, SEED_TENANT_ID, role],
+        );
+      }
+      return { user, ...(await issueInvite(user.id)) };
+    }
+
+    // [13.2.2] D10: the rules depend on the roles of ALL the user's memberships.
+    it('TEACHER must meet all five rules; the invite is not burned by a weak try', async () => {
+      const { raw } = await inviteWithRoles(['TEACHER']);
+
+      await expect(service.activate(raw, 'weakpassword', context)).rejects.toMatchObject({
+        response: { details: { code: 'PASSWORD_TOO_WEAK', failed: ['upper', 'digit', 'special'] } },
+      });
+      // Same token still works with a compliant password.
+      await expect(service.activate(raw, 'Str0ng-pass', context)).resolves.toBeDefined();
+    });
+
+    it('PARENT needs only 8 characters and a digit', async () => {
+      const { raw } = await inviteWithRoles(['PARENT']);
+      await expect(service.activate(raw, 'nodigitshere', context)).rejects.toMatchObject({
+        response: { details: { failed: ['digit'] } },
+      });
+      await expect(service.activate(raw, 'simple123', context)).resolves.toBeDefined();
+    });
+
+    it('PARENT + TEACHER gets the staff rules', async () => {
+      const { raw } = await inviteWithRoles(['PARENT', 'TEACHER']);
+      await expect(service.activate(raw, 'simple123', context)).rejects.toMatchObject({
+        response: { details: { code: 'PASSWORD_TOO_WEAK' } },
+      });
+    });
+
     it('sets a bcrypt hash, consumes the token, activates the user, and returns a session', async () => {
       const user = await createInvitee();
       const { raw } = await issueInvite(user.id);
 
-      const result = await service.activate(raw, 'a-strong-password', context);
+      const result = await service.activate(raw, 'A-strong-password1', context);
 
       expect(result.access_token).toBe('fake-access-token');
       expect(fakeAuthService.startSession).toHaveBeenCalledTimes(1);
@@ -150,7 +188,9 @@ describe('ActivationService (integration)', () => {
         .findOneOrFail({ where: { id: user.id } });
       expect(updated.status).toBe(UserStatus.ACTIVE);
       expect(updated.password_hash).not.toBeNull();
-      await expect(bcrypt.compare('a-strong-password', updated.password_hash!)).resolves.toBe(true);
+      await expect(bcrypt.compare('A-strong-password1', updated.password_hash!)).resolves.toBe(
+        true,
+      );
 
       const auditRows = await dataSource
         .getRepository(AuditLog)
@@ -166,7 +206,7 @@ describe('ActivationService (integration)', () => {
       const user = await createInvitee();
       const { raw } = await issueInvite(user.id);
 
-      await service.activate(raw, 'a-strong-password', context);
+      await service.activate(raw, 'A-strong-password1', context);
 
       const updated = await dataSource
         .getRepository(User)
@@ -190,7 +230,7 @@ describe('ActivationService (integration)', () => {
         metadata: { channel: 'EMAIL', contact: 'rahima@example.com' },
       });
 
-      await service.activate(raw, 'a-strong-password', context);
+      await service.activate(raw, 'A-strong-password1', context);
 
       const updated = await dataSource
         .getRepository(User)
@@ -228,7 +268,7 @@ describe('ActivationService (integration)', () => {
         .getRepository(User)
         .update({ id: user.id }, { email: 'rahima.corrected@example.com' });
 
-      await service.activate(raw, 'a-strong-password', context);
+      await service.activate(raw, 'A-strong-password1', context);
 
       const updated = await dataSource
         .getRepository(User)
@@ -249,9 +289,9 @@ describe('ActivationService (integration)', () => {
     it('rejects a second activation of the same (now-consumed) token with 400 consumed', async () => {
       const user = await createInvitee();
       const { raw } = await issueInvite(user.id);
-      await service.activate(raw, 'a-strong-password', context);
+      await service.activate(raw, 'A-strong-password1', context);
 
-      await expect(service.activate(raw, 'another-password', context)).rejects.toMatchObject({
+      await expect(service.activate(raw, 'Another-password1', context)).rejects.toMatchObject({
         response: { message: 'consumed' },
         status: 400,
       });
@@ -261,7 +301,7 @@ describe('ActivationService (integration)', () => {
       const user = await createInvitee();
       const { raw } = await issueInvite(user.id, -1000);
 
-      await expect(service.activate(raw, 'a-strong-password', context)).rejects.toMatchObject({
+      await expect(service.activate(raw, 'A-strong-password1', context)).rejects.toMatchObject({
         response: { message: 'expired' },
         status: 400,
       });
@@ -271,7 +311,7 @@ describe('ActivationService (integration)', () => {
       const user = await createInvitee({ status: UserStatus.SUSPENDED });
       const { raw } = await issueInvite(user.id);
 
-      await expect(service.activate(raw, 'a-strong-password', context)).rejects.toBeInstanceOf(
+      await expect(service.activate(raw, 'A-strong-password1', context)).rejects.toBeInstanceOf(
         BadRequestException,
       );
 

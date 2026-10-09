@@ -7,8 +7,10 @@ import { i18n, COMMON_NAMESPACE } from '../i18n';
 import { ApiError, isTenantSuspendedError } from './errors';
 
 /**
- * Shows a permission-denied toast for any query/mutation that fails with a
- * 403, app-wide — see `ui/README.md`'s "The app's query client" section
+ * Shows a permission-denied toast for any mutation that fails with a 403,
+ * app-wide. Reads are deliberately silent: a page whose own data 403s shows
+ * its ErrorState / AccessDeniedState, and a background read a role may not
+ * make is a bug to gate at the call site, not a toast. See `ui/README.md`'s "The app's query client" section
  * for why 401 needs no handling here. `i18n.t()` directly, not
  * `useTranslation()`, since this runs outside any component's render.
  *
@@ -18,7 +20,7 @@ import { ApiError, isTenantSuspendedError } from './errors';
  * `throwOnError` below). A "permission denied" toast on top of that page
  * would contradict it.
  */
-function handleGlobalQueryError(error: unknown): void {
+function handleMutationError(error: unknown): void {
   if (error instanceof ApiError && error.statusCode === 403 && !isTenantSuspendedError(error)) {
     toast.error(i18n.t('errors.permissionDenied', { ns: COMMON_NAMESPACE }));
   }
@@ -75,7 +77,7 @@ export function createAppQueryClient(): QueryClient {
         retry: shouldRetryQuery,
       },
     },
-    queryCache: new QueryCache({ onError: handleGlobalQueryError }),
-    mutationCache: new MutationCache({ onError: handleGlobalQueryError }),
+    queryCache: new QueryCache(),
+    mutationCache: new MutationCache({ onError: handleMutationError }),
   });
 }

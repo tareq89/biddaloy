@@ -358,6 +358,8 @@ export type SectionSummary = components['schemas']['SectionSummaryDto'];
 export type StudentSummaryRow = components['schemas']['AttendanceSummaryDto'];
 export type RegisterMatrix = components['schemas']['RegisterMatrixDto'];
 export type RegisterMatrixRow = components['schemas']['RegisterMatrixRowDto'];
+export type AttendanceStreak = components['schemas']['AttendanceStreakDto'];
+export type AttendanceStreaks = components['schemas']['AttendanceStreaksDto'];
 export type LowAttendanceFlag = components['schemas']['LowAttendanceFlagDto'];
 export type LowAttendanceListResponse = components['schemas']['LowAttendanceListResponseDto'];
 
@@ -387,6 +389,29 @@ export function sectionSummaryQueryOptions(
 
 export function useSectionSummary(sectionId: string | undefined, from: string, to: string) {
   return useQuery(sectionSummaryQueryOptions(sectionId, from, to));
+}
+
+export function sectionStreaksKey(sectionId: string | undefined) {
+  return [...attendanceKeys.all, 'streaks', sectionId] as const;
+}
+
+export function sectionStreaksQueryOptions(sectionId: string | undefined) {
+  return queryOptions({
+    queryKey: sectionStreaksKey(sectionId),
+    queryFn: async ({ signal }) => {
+      const res = await apiClient.get<AttendanceStreaks>(
+        `/attendance/sections/${sectionId}/streaks`,
+        { signal },
+      );
+      return res.data;
+    },
+    enabled: sectionId !== undefined,
+    retry: shouldRetryQuery,
+  });
+}
+
+export function useAttendanceStreaks(sectionId: string | undefined) {
+  return useQuery(sectionStreaksQueryOptions(sectionId));
 }
 
 export function registerMatrixKey(sectionId: string | undefined, month: string) {

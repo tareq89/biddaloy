@@ -327,4 +327,39 @@ describe('LateFeeService (integration)', () => {
     const lateFeeBills = bills.filter((b) => b.fee_structure.fee_type === FeeType.LATE_FEE);
     expect(lateFeeBills).toHaveLength(1);
   });
+
+  it('[Epic 38 D10] an overdue FINE bill never gets a late fee, an overdue tuition bill still does', async () => {
+    const FINE_STRUCTURE_ID = '00000000-0000-4000-8000-000000000653';
+    await ds.getRepository(FeeStructure).save(
+      ds.getRepository(FeeStructure).create({
+        id: FINE_STRUCTURE_ID,
+        fee_type: FeeType.FINE,
+        name: 'Uniform Fine',
+        amount: 200,
+        class_id: SEED_CLASS_1_ID,
+        academic_year_id: SEED_ACADEMIC_YEAR_ID,
+        tenant_id: SEED_TENANT_ID,
+      }),
+    );
+    // A FINE key in `lateFees` should never reach this settings shape in
+    // practice (`LateFeesMapConstraint` rejects it), but the runtime skip
+    // here is belt-and-braces — written directly to bypass DTO validation
+    // and prove the skip itself, not just the validator.
+    await setSettings({
+      FINE: { enabled: true, grace_days: 0, kind: DiscountKind.FLAT, value: 50 },
+      MONTHLY_TUITION: { enabled: true, grace_days: 0, kind: DiscountKind.FLAT, value: 100 },
+    });
+    await seedBill('2026-03-01'); // tuition bill (default structure)
+    await seedBill('2026-03-01', { fee_structure_id: FINE_STRUCTURE_ID, total_amount: 200 });
+
+    await service.applyDue(SEED_TENANT_ID, TODAY);
+
+    const bills = await ds.getRepository(StudentFee).find({
+      where: { student_id: STUDENT_ID },
+      relations: { fee_structure: true },
+    });
+    const lateFeeBills = bills.filter((b) => b.fee_structure.fee_type === FeeType.LATE_FEE);
+    expect(lateFeeBills).toHaveLength(1); // only tuition's late fee, none for FINE
+    expect(Number(lateFeeBills[0].total_amount)).toBe(100);
+  });
 });

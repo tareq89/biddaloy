@@ -4,6 +4,35 @@ import { academicsTabs } from '../tabs/academics';
 import { peopleTabs } from '../tabs/people';
 import { feesTabs } from '../tabs/fees';
 import { gradingTabs } from '../tabs/grading';
+import { routinesTabs } from '../tabs/routines';
+import { examsTabs } from '../tabs/exams';
+import { homeworkTab } from '../tabs/academics/homework.tab';
+import { homeworkAssignmentTab } from '../tabs/academics/homework-assignment.tab';
+import { homeworkSubmissionTab } from '../tabs/academics/homework-submission.tab';
+import { syllabusTopicTab } from '../tabs/academics/syllabus-topic.tab';
+import { promotionRunsTab } from '../tabs/people/promotion-runs.tab';
+import { promotionEntriesTab } from '../tabs/people/promotion-entries.tab';
+import { seatPlansTab } from '../tabs/exams/seat-plans.tab';
+import { seatPlanSchedulesTab } from '../tabs/exams/seat-plan-schedules.tab';
+import { seatAllocationsTab } from '../tabs/exams/seat-allocations.tab';
+import { programsTabs } from '../tabs/programs';
+import { designationTab } from '../tabs/people/designation.tab';
+import { staffHrRecordTab } from '../tabs/people/staff-hr-record.tab';
+import { staffDesignationHistoryTab } from '../tabs/people/staff-designation-history.tab';
+import { staffFamilyMemberTab } from '../tabs/people/staff-family-member.tab';
+import { staffAddressTab } from '../tabs/people/staff-address.tab';
+import { staffExperienceTab } from '../tabs/people/staff-experience.tab';
+import { staffEducationTab } from '../tabs/people/staff-education.tab';
+import { staffTrainingTab } from '../tabs/people/staff-training.tab';
+import { staffAchievementTab } from '../tabs/people/staff-achievement.tab';
+import { staffLanguageTab } from '../tabs/people/staff-language.tab';
+import { staffDocumentTab } from '../tabs/people/staff-document.tab';
+import { printTabs } from '../tabs/print';
+import { attendanceTabs } from '../tabs/attendance';
+import { hrTabs } from '../tabs/hr';
+import { acrTabs } from '../tabs/people/acr.tab';
+import { incidentsTabs } from '../tabs/people/incidents.tab';
+import { surveysTabs } from '../tabs/people/surveys.tab';
 
 /**
  * Every tab name a backup workbook may contain, in apply order (epic 14.0
@@ -23,18 +52,145 @@ export const EXPECTED_TABS = [
   'class_subjects',
   'calendar_events',
   'users',
+  // [36.4.5] `staff_profiles` sits immediately before `teachers`:
+  // `teachers.staff_profile_id` now FKs it, though that column is excluded
+  // from `teachers.tab.ts` as system-derived, so there's no reverse
+  // ordering dependency.
+  'staff_profiles',
   'teachers',
   'teacher_assignments',
   'guardians',
   'students',
   'enrollments',
+  // [27.6] Epic 27.0's admission tabs. Placed here rather than at the very
+  // end of this list (unlike [22.3.6]'s homework tabs): `peopleTabs`
+  // (`tabs/people/index.ts`) appends them physically right after
+  // `enrollments`, and `ALL_TABS` must be a strict subsequence of this list
+  // (`assertRegistryValid` below) — every dependency (`sections`, `users`)
+  // is already earlier here either way.
+  'admission_intakes',
+  'admission_applicants',
+  'admission_evaluations',
+  // [39.1.3] Epic 39.0's per-student child tabs, appended by `peopleTabs` after
+  // the admission tabs; they depend on `students`, `enrollments`, `users`.
+  'student_lifecycle_events',
+  'student_notes',
+  'student_public_exams',
   'fee_structures',
+  // [38.1.2] `fine_rules` FKs `fee_structures` (its fine-category price) and
+  // is FK'd by `student_fees.fine_rule_id`, so it sits between the two.
+  'fine_rules',
   'student_fees',
   'invoices',
   'payments',
   'payment_allocations',
   'grading_scales',
   'grading_bands',
+  // [35.1.5] Exam templates depend on nothing; kept ahead of `exams`.
+  'exam_templates',
+  'exam_template_components',
+  'exams',
+  'exam_components',
+  'exam_schedules',
+  'mark_grids',
+  'marks',
+  'results',
+  'result_subjects',
+  'student_subject_choices',
+  // Epic 21.0 (class routine/timetable), appended at the end: no other
+  // tab depends on these, and they depend on tabs already earlier in
+  // this list (academic_years, sections, subjects, teachers, users).
+  'shifts',
+  'period_slots',
+  'rooms',
+  'routines',
+  'routine_slots',
+  'routine_slot_teachers',
+  'routine_substitutions',
+  'routine_change_requests',
+  // [788] Promotion tabs. Depend on `classes`/`academic_years`/`exams`/
+  // `students`/`enrollments`/`sections`, all of which are earlier in this
+  // list by this point, so appending here (rather than inside `peopleTabs`,
+  // which is spread *before* `examsTabs` in `ALL_TABS` below — too early
+  // for a tab that depends on `exams`) keeps every dependency satisfied.
+  // Placed after Epic 21.0's routine tabs (no ordering dependency between
+  // the two groups; routines landed first).
+  'promotion_runs',
+  'promotion_entries',
+  // [22.3.6] Epic 22.0's homework/syllabus tabs. Appended at the end rather
+  // than interleaved into the academics block above: `homework_assignments`
+  // depends on `sections`/`students` (people lane, registered after
+  // academics), and a dependency must appear earlier in this list than its
+  // dependent — appending here keeps every dependency already satisfied.
+  'homework',
+  'homework_assignments',
+  'homework_submissions',
+  'syllabus_topics',
+  // [25.5, #1054] Epic 787's seat-plan tabs. Appended at the very end rather
+  // than interleaved next to `exam_schedules` (their tab files live in
+  // `tabs/exams/` alongside it): `seat_allocations` depends on `rooms`
+  // (routines lane) and `users` (people lane), both of which appear later in
+  // this list than `exam_schedules` does, and a dependency must appear
+  // earlier in EXPECTED_TABS than its dependent.
+  'seat_plans',
+  'seat_plan_schedules',
+  'seat_allocations',
+  // [34.1.4] Epic 34.0's programs spine. Appended at the end: `programs`
+  // has no dependency of its own, but `program_enrollments` depends on
+  // `students` (people lane, registered earlier in ALL_TABS below) and
+  // `milestone_achievements` depends on `program_enrollments` and
+  // `program_milestones`, both of which must precede it in this list.
+  'programs',
+  'program_milestones',
+  'program_enrollments',
+  'milestone_achievements',
+  // [23.5] Epic 785's wave-1 staff-HR tabs. Appended at the very end,
+  // after every other lane's tabs: `staff_designation_history` depends on
+  // `designations` and `users` (both earlier in this list already), and
+  // nothing else in the registry depends on any of these ten, so there is
+  // no earlier slot they are required to sit in.
+  'designations',
+  'staff_hr_records',
+  'staff_designation_history',
+  'staff_family_members',
+  'staff_addresses',
+  'staff_experience',
+  'staff_education',
+  'staff_training',
+  'staff_achievements',
+  'staff_languages',
+  // [23.7] Wave 2 close — staff_documents, depends only on `users`
+  // (already earlier in this list), appended right after the rest of the
+  // staff-HR tabs.
+  'staff_documents',
+  // [36.4.5] Epic 36.0's staff-attendance/leave tabs. Appended at the end,
+  // same reasoning as the homework/syllabus block above: `staff_attendance_records`
+  // depends on `staff_profiles` (people lane, registered earlier in this
+  // list) and `leave_records` depends on both `staff_profiles` and `users` —
+  // both already satisfied by the time these are applied.
+  'staff_attendance_sessions',
+  'staff_attendance_records',
+  'leave_policies',
+  'leave_records',
+  // [32.3.10] Epic 32's print setup. Appended at the end, in dependency order:
+  // templates point at assets, and versions point at their template.
+  'printer_profiles',
+  'print_assets',
+  'print_templates',
+  'print_template_versions',
+  // [28.1.3] Epic 28.0's ACR / incident / survey tabs, appended at the end:
+  // they depend only on `users`, `academic_years`, `teachers` and `subjects`,
+  // all earlier in this list. Order is restore order.
+  'acr_form_versions',
+  'acr_criteria',
+  'acr_assessments',
+  'acr_scores',
+  'staff_incidents',
+  'surveys',
+  'survey_questions',
+  'survey_targets',
+  'survey_responses',
+  'survey_answers',
 ] as const;
 
 export type ExpectedTabName = (typeof EXPECTED_TABS)[number];
@@ -50,6 +206,59 @@ export const ALL_TABS: readonly TabSpec<any, any>[] = [
   ...peopleTabs,
   ...feesTabs,
   ...gradingTabs,
+  ...examsTabs,
+  ...routinesTabs,
+  // [788] Registered here directly (not via `peopleTabs`) so they land
+  // after `examsTabs` in this list — see the `EXPECTED_TABS` comment above.
+  promotionRunsTab,
+  promotionEntriesTab,
+  // [22.3.6] Appended after every lane's own barrel, not folded into
+  // `academicsTabs` — see the `EXPECTED_TABS` comment above on why these
+  // four must come last.
+  homeworkTab,
+  homeworkAssignmentTab,
+  homeworkSubmissionTab,
+  syllabusTopicTab,
+  // [25.5, #1054] Appended last, after `rooms` (routinesTabs) and `users`
+  // (peopleTabs) are both already registered above — see the EXPECTED_TABS
+  // comment for why these three can't live inside `examsTabs` itself.
+  seatPlansTab,
+  seatPlanSchedulesTab,
+  seatAllocationsTab,
+  // [34.1.4] Appended after every lane's own barrel, not folded into
+  // `peopleTabs` — see the `EXPECTED_TABS` comment above on why these four
+  // must come last.
+  ...programsTabs,
+  // [23.5] Epic 785's wave-1 staff-HR tabs. Registered here directly
+  // (not via `peopleTabs`), same reason `promotionRunsTab`/`seatPlansTab`
+  // above are: `EXPECTED_TABS` places them after every tab already
+  // registered above, but `peopleTabs` itself is spread earlier in
+  // `ALL_TABS` than `feesTabs`/`examsTabs`/`routinesTabs` — too early for
+  // a tab that must sit after all of those.
+  designationTab,
+  staffHrRecordTab,
+  staffDesignationHistoryTab,
+  staffFamilyMemberTab,
+  staffAddressTab,
+  staffExperienceTab,
+  staffEducationTab,
+  staffTrainingTab,
+  staffAchievementTab,
+  staffLanguageTab,
+  // [23.7] Wave 2 close.
+  staffDocumentTab,
+  // [36.4.5] Appended after every lane's own barrel, not folded into
+  // `peopleTabs` — see the `EXPECTED_TABS` comment above on why these must
+  // come last.
+  ...attendanceTabs,
+  ...hrTabs,
+  // [32.3.10] Epic 32's print setup: printers, assets, templates, template versions.
+  // Last, matching where they sit in EXPECTED_TABS.
+  ...printTabs,
+  // [28.1.3] After every lane's barrel — see the `EXPECTED_TABS` comment.
+  ...acrTabs,
+  ...incidentsTabs,
+  ...surveysTabs,
 ];
 
 export class RegistryError extends Error {

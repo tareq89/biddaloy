@@ -3,19 +3,29 @@ import {
   NotFoundException,
   ConflictException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull, In, QueryFailedError } from 'typeorm';
+import { Repository, IsNull, Not, In, QueryFailedError, type EntityManager } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { User } from './entities/user.entity';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
 import { Teacher } from '../academics/entities/teacher.entity';
 import { TeacherClassSection } from '../academics/entities/teacher-class-section.entity';
-import { ClassSection } from '../academics/entities/class-section.entity';
 import { escapeLikePattern } from '../../common/utils/escape-like.util';
 import { normalizeSearchTerm } from '../../common/utils/normalize-search-term.util';
 import { BN_COLLATION } from '../../common/constants/collation';
 import { normalizeEmail } from '../auth/normalize-identifier';
+import {
+  AuditAction,
+  EMPLOYEE_ROLES,
+  GUARDIAN_ROLES,
+  UserRole,
+  UserStatus,
+} from '@biddaloy/shared';
+import { AuditService } from '../audit/audit.service';
+import { assertPasswordAllowed } from '../auth/password-policy';
+import { StaffProfilesService } from '../staff-profiles/staff-profiles.service';
 import {
   CreateUserDto,
   UpdateUserDto,
@@ -25,6 +35,43 @@ import {
   UpdateTeacherDto,
   QueryTeacherDto,
 } from './dto/users.dto';
+import { ASSIGNMENT_TYPE_ORDER_SQL } from '../classes/classes.service';
+import type { SectionTeacherAssignment } from '../classes/classes.service';
+
+/** [#1026 gap fix] `getTeacherAssignments`'s row shape — `SectionTeacherAssignment`
+ * plus `class_id`/`class_name`, since a teacher-centric list spans multiple
+ * classes and its `DataTable` needs a class column to disambiguate. */
+export interface SectionTeacherAssignmentWithClass extends SectionTeacherAssignment {
+  class_id: string;
+  class_name: string;
+}
+
+/**
+ * Marks a row a workbook role swap ended (`users.tab`): not a departure, so it
+ * never makes anyone "former" and `restore()` never revives it (r2-m1).
+ */
+export const ROLE_SWAP_ENDED = 'ROLE_SWAP';
+const NOT_SWAPPED_SQL = `(b.metadata->>'ended_by') IS DISTINCT FROM '${ROLE_SWAP_ENDED}'`;
+
+/**
+ * Brings a soft-deleted membership back and drops its `ended_by` tag, so a
+ * later real removal of it counts as a departure again. Every path that
+ * revives a `user_tenants` row goes through here. Returns 0 when the row was
+ * not deleted (someone else revived it first).
+ */
+export async function reviveMembership(m: EntityManager, id: string): Promise<number> {
+  const result = await m
+    .createQueryBuilder()
+    .update(UserTenant)
+    .set({ deleted_at: null, metadata: () => `metadata - 'ended_by'` })
+    .where('id = :id AND deleted_at IS NOT NULL', { id })
+    .execute();
+  return result.affected ?? 0;
+}
+
+/** A soft-deleted row from the user's latest end-of-membership batch in `:tenantId`. */
+const LATEST_ENDED_SQL = `ut.deleted_at = (SELECT max(b.deleted_at) FROM user_tenants b
+  WHERE b.user_id = u.id AND b.tenant_id = :tenantId AND ${NOT_SWAPPED_SQL})`;
 
 @Injectable()
 export class UserService {
@@ -33,12 +80,25 @@ export class UserService {
     private readonly userRepo: Repository<User>,
     @InjectRepository(UserTenant)
     private readonly userTenantRepo: Repository<UserTenant>,
+    private readonly staffProfilesService: StaffProfilesService,
+    private readonly audit: AuditService,
   ) {}
 
   async create(
     dto: CreateUserDto,
     tenantId: string,
+    // [13.3.2] The staff import passes its own per-row transaction.
+    manager?: EntityManager,
   ): Promise<{ user: User; membership: UserTenant }> {
+    // #731: SUPER_ADMIN is a platform role (seeded on the platform tenant),
+    // never grantable through a tenant-scoped endpoint. Checked here, the one
+    // place that writes a membership role from request input, so no caller
+    // can skip it.
+    if (dto.role === UserRole.SUPER_ADMIN) {
+      throw new BadRequestException(
+        'The SUPER_ADMIN role cannot be assigned through this endpoint',
+      );
+    }
     // Stored lowercased, so this pre-check and the DB's case-sensitive
     // unique index agree with each other and with login. See normalizeEmail.
     const email = dto.email ? normalizeEmail(dto.email) : null;
@@ -48,7 +108,10 @@ export class UserService {
     // it, an email still owned by a soft-deleted row passes this check and
     // then fails at `save()` as an unmapped 500. Same reasoning as `update()`.
     if (email) {
-      const existing = await this.userRepo.findOne({ where: { email }, withDeleted: true });
+      const existing = await (manager?.getRepository(User) ?? this.userRepo).findOne({
+        where: { email },
+        withDeleted: true,
+      });
       if (existing) {
         throw new ConflictException(`User with email "${email}" already exists`);
       }
@@ -56,11 +119,14 @@ export class UserService {
 
     let password_hash: string | null = null;
     if (dto.password) {
+      // D10: same strength rules as every other password path.
+      assertPasswordAllowed(dto.password, [dto.role]);
       password_hash = await bcrypt.hash(dto.password, 10);
     }
 
     try {
-      return await this.userRepo.manager.transaction(async (manager) => {
+      const work = async (m: EntityManager) => {
+        const manager = m;
         const userRepo = manager.getRepository(User);
         const userTenantRepo = manager.getRepository(UserTenant);
 
@@ -79,8 +145,22 @@ export class UserService {
         });
         const savedMembership = await userTenantRepo.save(membership);
 
+        // [36.2.1] Every non-teacher staff role gets a generic staff_profiles
+        // row here, in the same transaction as the User/UserTenant insert.
+        // TEACHER is deliberately excluded: TeacherService.create makes its
+        // own staff_profiles row later, reusing the Teacher's own
+        // employee_id (mirrors the [36.1.1] migration backfill, which did
+        // the same for pre-existing teachers) — creating one here too would
+        // hit the `staff_profiles.user_id` unique constraint.
+        // COMMITTEE is deliberately absent (D16): not an employee, so not in
+        // EMPLOYEE_ROLES. SUPER_ADMIN is refused above (#731).
+        if (dto.role !== UserRole.TEACHER && EMPLOYEE_ROLES.includes(dto.role)) {
+          await this.staffProfilesService.createFor(savedUser.id, tenantId, {}, manager);
+        }
+
         return { user: savedUser, membership: savedMembership };
-      });
+      };
+      return await (manager ? work(manager) : this.userRepo.manager.transaction(work));
     } catch (err) {
       // The pre-check above is not atomic: two concurrent creates claiming the
       // same address both pass it and the loser hits the index. Map that to a
@@ -108,13 +188,30 @@ export class UserService {
     // trying to read `column.databaseName` for a "column" that isn't a
     // plain `alias.property`. `u.user_tenants` is one-to-many even though
     // this query's `ut.tenant_id` filter narrows it to one row per user.
+    // Former members are soft-deleted `user_tenants` rows: TypeORM hides them
+    // from joins unless `withDeleted()`, and `ut.deleted_at IS NOT NULL` then
+    // keeps only them. `u.deleted_at IS NULL` below still excludes dead accounts.
+    const former = query.membership === 'former';
     const buildIdQuery = () => {
-      const qb = this.userRepo
-        .createQueryBuilder('u')
+      // `withDeleted()` must come before the join: TypeORM bakes the
+      // soft-delete filter into the join's ON clause when the join is added.
+      const base = this.userRepo.createQueryBuilder('u');
+      const qb = (former ? base.withDeleted() : base)
         .select('u.id', 'id')
         .innerJoin('u.user_tenants', 'ut')
         .where('u.deleted_at IS NULL')
         .andWhere('ut.tenant_id = :tenantId', { tenantId });
+      if (former) {
+        // Same rule as `restore()`: the rows of the latest end-of-membership
+        // batch, for a user with no active STAFF role here. A TEACHER who left
+        // but is still a PARENT here (D16) is former; one who is staff again is not.
+        qb.andWhere(LATEST_ENDED_SQL).andWhere(
+          `NOT EXISTS (SELECT 1 FROM user_tenants a
+             WHERE a.user_id = u.id AND a.tenant_id = :tenantId AND a.deleted_at IS NULL
+               AND a.role NOT IN (:...guardianRoles))`,
+          { guardianRoles: [...GUARDIAN_ROLES] },
+        );
+      }
 
       if (query.role) {
         qb.andWhere('ut.role = :role', { role: query.role });
@@ -150,6 +247,27 @@ export class UserService {
         qb.andWhere(
           '(u.full_name ILIKE :search OR u.email ILIKE :search OR u.phone ILIKE :search)',
           { search: `%${search}%` },
+        );
+      }
+
+      // [23.12] Current-designation filter — an `EXISTS` against the raw
+      // `staff_designation_history` table (23.2), same "reach for the raw
+      // table name rather than import that module's entity" choice the
+      // `invitation_status` filter above makes for `auth_tokens`: this
+      // avoids a cross-module entity import between `users` and
+      // `staff-hr`. "Current" means the open row — `end_date IS NULL` —
+      // same definition `StaffHrController`'s designation-history read
+      // and `HrRecordPromotionSection`'s "Current" badge both use.
+      if (query.designation_id) {
+        qb.andWhere(
+          `EXISTS (
+            SELECT 1 FROM staff_designation_history sdh
+            WHERE sdh.user_id = u.id
+              AND sdh.tenant_id = :tenantId
+              AND sdh.end_date IS NULL
+              AND sdh.designation_id = :designationId
+          )`,
+          { designationId: query.designation_id },
         );
       }
 
@@ -199,14 +317,16 @@ export class UserService {
     } else if (query.sort === 'email') {
       idQb.orderBy('u.email', query.order === 'desc' ? 'DESC' : 'ASC');
     } else if (query.sort === 'joined_at') {
-      idQb.orderBy('ut.created_at', query.order === 'desc' ? 'DESC' : 'ASC');
+      idQb.orderBy('MIN(ut.created_at)', query.order === 'desc' ? 'DESC' : 'ASC');
     } else if (query.sort === 'status') {
       idQb.orderBy('u.status', query.order === 'desc' ? 'DESC' : 'ASC');
     } else {
       // Default order kept as-is so existing pages do not reshuffle.
       idQb.orderBy('u.created_at', 'DESC');
     }
-    idQb.addOrderBy('u.id', 'ASC').offset(skip).limit(limit);
+    // One row per user: a user with several role rows here (or a removal that
+    // ended several) must not repeat. `getCount()` already counts distinct ids.
+    idQb.groupBy('u.id').addOrderBy('u.id', 'ASC').offset(skip).limit(limit);
 
     const idRows = await idQb.getRawMany<{ id: string }>();
     const ids = idRows.map((row) => row.id);
@@ -220,11 +340,12 @@ export class UserService {
     // than one tenant must only have *this* tenant's membership row
     // hydrated onto the response, matching the original single-query
     // behavior and not leaking another tenant's membership metadata.
-    const rows = await this.userRepo
-      .createQueryBuilder('u')
+    const hydrateBase = this.userRepo.createQueryBuilder('u');
+    const hydrate = (former ? hydrateBase.withDeleted() : hydrateBase)
       .innerJoinAndSelect('u.user_tenants', 'ut', 'ut.tenant_id = :tenantId', { tenantId })
-      .where('u.id IN (:...ids)', { ids })
-      .getMany();
+      .where('u.id IN (:...ids)', { ids });
+    if (former) hydrate.andWhere(LATEST_ENDED_SQL);
+    const rows = await hydrate.getMany();
     const byId = new Map(rows.map((row) => [row.id, row]));
     const data = ids.map((id) => byId.get(id)).filter((row): row is User => row != null);
 
@@ -401,9 +522,156 @@ export class UserService {
     }
 
     await this.findOne(id, tenantId);
+    await this.endMembership(id, tenantId, requestingUserId, 'REMOVE');
+  }
 
-    // Remove only the tenant membership, not the global user record
-    await this.userTenantRepo.delete({ user_id: id, tenant_id: tenantId });
+  /**
+   * `POST users/me/leave` [13.2.1, D16]: a staff member leaves a school. Only
+   * the membership is soft-deleted (the account and its other schools stay).
+   * Guardians and students have no "leave" — the school manages them.
+   */
+  async leave(userId: string, tenantId: string): Promise<void> {
+    const rows = await this.userTenantRepo.find({
+      where: { user_id: userId, tenant_id: tenantId },
+    });
+    if (rows.length === 0) {
+      throw new NotFoundException('You are not a member of this school');
+    }
+    const cannotLeave = [UserRole.PARENT, UserRole.STUDENT, UserRole.SUPER_ADMIN];
+    // D16: only staff-role memberships end; a TEACHER who is also a PARENT keeps that row.
+    const staffRoles = rows.map((r) => r.role).filter((r) => !cannotLeave.includes(r));
+    if (staffRoles.length === 0) {
+      throw new ForbiddenException({
+        message: 'Your role cannot leave this school',
+        details: { code: 'LEAVE_NOT_ALLOWED' },
+      });
+    }
+    await this.endMembership(userId, tenantId, userId, 'LEAVE', staffRoles);
+  }
+
+  /**
+   * `POST users/:id/restore`: bring a former member back (same rows, same ids).
+   * Only the rows ended by the LATEST end-of-membership event come back: one
+   * `softDelete` stamps all its rows with the same transaction timestamp, so
+   * `deleted_at = max(deleted_at)` is exactly that batch. Older soft-deleted
+   * rows (a role a workbook swap replaced, a role the user left earlier) stay
+   * ended. "Former" means no active staff role: a TEACHER who left but is
+   * still a PARENT here (D16) can be restored.
+   *
+   * [13.3.2] With `role`, the staff import restores only that role's former row.
+   */
+  async restore(id: string, tenantId: string, actorUserId: string, role?: UserRole): Promise<void> {
+    await this.userTenantRepo.manager.transaction(async (manager) => {
+      // A soft-deleted account cannot be brought back through its membership.
+      if (!(await manager.getRepository(User).findOne({ where: { id } }))) {
+        throw new NotFoundException(`No former member with ID "${id}" found`);
+      }
+      const repo = manager.getRepository(UserTenant);
+      if (
+        await repo.count({
+          // With or without `role`: no restore for someone who still holds a staff role here.
+          where: { user_id: id, tenant_id: tenantId, role: Not(In([...GUARDIAN_ROLES])) },
+        })
+      ) {
+        throw new ConflictException({
+          message: 'This user is already a member of this school',
+          details: { code: 'ALREADY_MEMBER' },
+        });
+      }
+      // An update rather than `.restore()`, so a row a workbook swap tagged loses the tag.
+      const qb = repo
+        .createQueryBuilder()
+        .update()
+        .set({ deleted_at: null, metadata: () => `metadata - 'ended_by'` })
+        .where('user_id = :id AND tenant_id = :tenantId', { id, tenantId });
+      const result = await (
+        role
+          ? qb.andWhere('role = :role AND deleted_at IS NOT NULL', { role })
+          : qb.andWhere(
+              `deleted_at = (SELECT max(b.deleted_at) FROM user_tenants b
+                            WHERE b.user_id = :id AND b.tenant_id = :tenantId AND ${NOT_SWAPPED_SQL})`,
+            )
+      ).execute();
+      if (!result.affected) {
+        throw new NotFoundException(`No former member with ID "${id}" found`);
+      }
+      await this.audit.record(
+        {
+          action: AuditAction.UPDATE,
+          entity_type: 'Membership',
+          entity_id: id,
+          tenant_id: tenantId,
+          performed_by_user_id: actorUserId,
+          new_values: { operation: 'RESTORE', user_id: id },
+        },
+        manager,
+      );
+    });
+  }
+
+  /**
+   * Soft-deletes every membership row of `userId` in the tenant, refusing when
+   * that would leave the school without an ADMIN ("a school always has an
+   * admin"). The ADMIN rows are locked so two admins leaving at once cannot
+   * both pass the count. Always `UserTenant` repo calls — never `save()` a
+   * `User` with `user_tenants` loaded (TypeORM would orphan soft-deleted rows).
+   */
+  private async endMembership(
+    userId: string,
+    tenantId: string,
+    actorUserId: string,
+    operation: 'LEAVE' | 'REMOVE',
+    roles?: UserRole[],
+  ): Promise<void> {
+    await this.userTenantRepo.manager.transaction(async (manager) => {
+      const repo = manager.getRepository(UserTenant);
+      // Only admins who can actually sign in count: a deactivated or deleted
+      // account keeps its ADMIN row but cannot run the school. The lock stays
+      // on the membership rows (`FOR UPDATE OF ut`).
+      // ponytail: users.status is not locked; an admin deactivated mid-leave can still slip past.
+      const admins = await repo
+        .createQueryBuilder('ut')
+        .innerJoin('ut.user', 'u')
+        .where('ut.tenant_id = :tenantId AND ut.role = :role', {
+          tenantId,
+          role: UserRole.ADMIN,
+        })
+        .andWhere('u.deleted_at IS NULL AND u.status = :active', { active: UserStatus.ACTIVE })
+        .orderBy('ut.id', 'ASC') // deterministic lock order
+        .setLock('pessimistic_write', undefined, ['ut'])
+        .getMany();
+      const isAdmin = admins.some((a) => a.user_id.toLowerCase() === userId.toLowerCase());
+      const endsAdmin = isAdmin && (!roles || roles.includes(UserRole.ADMIN));
+      if (endsAdmin && admins.length === 1) {
+        throw new ConflictException({
+          message: 'A school must keep at least one admin. Add another admin first.',
+          details: { code: 'LAST_ADMIN' },
+        });
+      }
+      // `deleted_at: IsNull()`: softDelete does not skip ended rows, and
+      // re-stamping one would pull it into this batch for `restore()`.
+      const ended = await repo.softDelete({
+        user_id: userId,
+        tenant_id: tenantId,
+        deleted_at: IsNull(),
+        ...(roles ? { role: In(roles) } : {}),
+      });
+      // A concurrent leave/remove already ended it: no second 204, no second audit row.
+      if (!ended.affected) {
+        throw new NotFoundException(`No current member with ID "${userId}" found`);
+      }
+      await this.audit.record(
+        {
+          action: AuditAction.DELETE,
+          entity_type: 'Membership',
+          entity_id: userId,
+          tenant_id: tenantId,
+          performed_by_user_id: actorUserId,
+          new_values: { operation, user_id: userId },
+        },
+        manager,
+      );
+    });
   }
 }
 
@@ -418,12 +686,22 @@ export class TeacherService {
     private readonly teacherRepo: Repository<Teacher>,
     @InjectRepository(TeacherClassSection)
     private readonly tcsRepo: Repository<TeacherClassSection>,
-    @InjectRepository(ClassSection)
-    private readonly sectionRepo: Repository<ClassSection>,
+    private readonly staffProfilesService: StaffProfilesService,
   ) {}
 
-  async create(dto: CreateTeacherDto, tenantId: string): Promise<Teacher> {
-    const user = await this.userRepo.findOne({
+  async create(
+    // `employee_id` is optional for the staff import ([13.3.2]): left out, the staff profile
+    // generates one and the Teacher row reuses it.
+    dto: Omit<CreateTeacherDto, 'employee_id'> & { employee_id?: string },
+    tenantId: string,
+    // [13.3.2] The staff import runs user + teacher in one per-row transaction.
+    outer?: EntityManager,
+  ): Promise<Teacher> {
+    const m = outer ?? this.userRepo.manager;
+    const userRepo = m.getRepository(User);
+    const userTenantRepo = m.getRepository(UserTenant);
+    const teacherRepo = m.getRepository(Teacher);
+    const user = await userRepo.findOne({
       where: { id: dto.user_id, deleted_at: IsNull() },
     });
     if (!user) {
@@ -431,7 +709,7 @@ export class TeacherService {
     }
 
     // Verify user is a member of this tenant
-    const membership = await this.userTenantRepo.findOne({
+    const membership = await userTenantRepo.findOne({
       where: { user_id: dto.user_id, tenant_id: tenantId },
     });
     if (!membership) {
@@ -442,7 +720,7 @@ export class TeacherService {
     // teachers.user_id) — guard here so the client sees a mapped 409
     // instead of a raw DB constraint error. The promote dialog's
     // client-side exclusion only sees the first 100 teachers.
-    const existingProfile = await this.teacherRepo.findOne({
+    const existingProfile = await teacherRepo.findOne({
       where: { user_id: dto.user_id },
     });
     if (existingProfile) {
@@ -450,48 +728,46 @@ export class TeacherService {
     }
 
     // Check for duplicate employee_id
-    const existing = await this.teacherRepo.findOne({
-      where: { employee_id: dto.employee_id },
-    });
+    const existing = dto.employee_id
+      ? await teacherRepo.findOne({ where: { employee_id: dto.employee_id } })
+      : null;
     if (existing) {
       throw new ConflictException(`Teacher with employee ID "${dto.employee_id}" already exists`);
     }
 
-    const teacher = this.teacherRepo.create({
-      user_id: dto.user_id,
-      employee_id: dto.employee_id,
-      designations: dto.designations ?? [],
-      subject_specialization: dto.subject_specialization ?? null,
-      joining_date: dto.joining_date ? new Date(dto.joining_date) : null,
-      tenant_id: tenantId,
-    });
-    const savedTeacher = await this.teacherRepo.save(teacher);
-
-    // Assign sections if provided
-    if (dto.assigned_section_ids?.length) {
-      // Validate all sections belong to tenant
-      const sectionCount = await this.sectionRepo.count({
-        where: {
-          id: In(dto.assigned_section_ids),
-          tenant_id: tenantId,
-          deleted_at: IsNull(),
-        },
-      });
-      if (sectionCount !== dto.assigned_section_ids.length) {
-        throw new NotFoundException('One or more assigned sections not found');
-      }
-
-      const tcsEntries = dto.assigned_section_ids.map((sectionId) =>
-        this.tcsRepo.create({
-          teacher_id: savedTeacher.id,
-          section_id: sectionId,
-          tenant_id: tenantId,
-        }),
+    // [36.2.1] Teacher's own employee_id also seeds its staff_profiles row
+    // (attendance/leave key off staff_profile_id, not the Teacher table) —
+    // same reuse the [36.1.1] migration backfill did for pre-existing
+    // teachers. Profile creation, Teacher save, and section assignment all
+    // run in one transaction so a failure anywhere in this method (e.g. the
+    // section-assignment validation) can't leave an orphaned staff_profiles
+    // or Teacher row that then blocks retry via createFor's "already has a
+    // staff profile" / "already has a teacher profile" guards.
+    const joiningDate = dto.joining_date ? new Date(dto.joining_date) : null;
+    const work = async (manager: EntityManager) => {
+      const staffProfile = await this.staffProfilesService.createFor(
+        dto.user_id,
+        tenantId,
+        { employeeId: dto.employee_id, joiningDate },
+        manager,
       );
-      await this.tcsRepo.save(tcsEntries);
-    }
 
-    return this.teacherRepo.findOne({
+      const teacher = manager.create(Teacher, {
+        user_id: dto.user_id,
+        employee_id: staffProfile.employee_id,
+        designations: dto.designations ?? [],
+        subject_specialization: dto.subject_specialization ?? null,
+        joining_date: joiningDate,
+        tenant_id: tenantId,
+        staff_profile_id: staffProfile.id,
+      });
+      const teacherSaved = await manager.save(teacher);
+
+      return teacherSaved;
+    };
+    const savedTeacher = await (outer ? work(outer) : this.userRepo.manager.transaction(work));
+
+    return teacherRepo.findOne({
       where: { id: savedTeacher.id },
       relations: ['user'],
     }) as Promise<Teacher>;
@@ -549,37 +825,53 @@ export class TeacherService {
 
     await this.teacherRepo.update({ id, tenant_id: tenantId }, updateData);
 
-    // Replace assigned sections if provided
-    if (dto.assigned_section_ids !== undefined) {
-      await this.tcsRepo.delete({ teacher_id: id });
-
-      if (dto.assigned_section_ids.length > 0) {
-        // Validate all sections belong to tenant
-        const sectionCount = await this.sectionRepo.count({
-          where: {
-            id: In(dto.assigned_section_ids),
-            tenant_id: tenantId,
-            deleted_at: IsNull(),
-          },
-        });
-        if (sectionCount !== dto.assigned_section_ids.length) {
-          throw new NotFoundException('One or more assigned sections not found');
-        }
-
-        const tcsEntries = dto.assigned_section_ids.map((sectionId) =>
-          this.tcsRepo.create({
-            teacher_id: id,
-            section_id: sectionId,
-            tenant_id: tenantId,
-          }),
-        );
-        await this.tcsRepo.save(tcsEntries);
-      }
-    }
-
     return this.teacherRepo.findOne({
       where: { id, tenant_id: tenantId, deleted_at: IsNull() },
       relations: ['user'],
     }) as Promise<Teacher>;
+  }
+
+  /** [29.0] Every section this teacher is assigned to, class-teacher and
+   * subject-teacher rows alike — same join/shape as
+   * `SectionService.listSectionTeachers`, keyed by `teacher_id` instead
+   * of `section_id`, for the Staff detail tab.
+   *
+   * [#1026 gap fix] Unlike wave-3's other two screens, the Staff detail
+   * tab has no fixed class/section in scope, so its `DataTable` needs a
+   * `class` column — `SectionTeacherAssignment` (used as-is by the
+   * section-scoped screens) doesn't carry that, so this returns the wider
+   * `SectionTeacherAssignmentWithClass` shape instead of touching that interface. */
+  async getTeacherAssignments(
+    teacherId: string,
+    tenantId: string,
+  ): Promise<SectionTeacherAssignmentWithClass[]> {
+    await this.findOne(teacherId, tenantId);
+
+    const rows = await this.tcsRepo
+      .createQueryBuilder('tcs')
+      .innerJoinAndSelect('tcs.teacher', 'teacher')
+      .innerJoinAndSelect('teacher.user', 'user')
+      .innerJoinAndSelect('tcs.section', 'section')
+      .innerJoinAndSelect('section.class', 'class')
+      .leftJoinAndSelect('tcs.subject', 'subject')
+      .where('tcs.teacher_id = :teacherId', { teacherId })
+      .andWhere('tcs.tenant_id = :tenantId', { tenantId })
+      .orderBy(ASSIGNMENT_TYPE_ORDER_SQL, 'ASC')
+      .addOrderBy('user.full_name', 'ASC')
+      .getMany();
+
+    return rows.map((row) => ({
+      id: row.id,
+      teacher_id: row.teacher_id,
+      employee_id: row.teacher.employee_id,
+      full_name: row.teacher.user.full_name,
+      section_id: row.section_id,
+      section_name: row.section.section_name,
+      class_id: row.section.class_id,
+      class_name: row.section.class.name,
+      subject_id: row.subject_id,
+      subject_name: row.subject?.name_en ?? null,
+      assignment_type: row.assignment_type,
+    }));
   }
 }

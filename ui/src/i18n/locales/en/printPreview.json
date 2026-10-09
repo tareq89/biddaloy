@@ -1,0 +1,97 @@
+{
+  "title": "Print preview",
+  "header": {
+    "batch": "Round {{current}} of {{total}} · {{count}} cards",
+    "printer": "{{name}} · {{type}}"
+  },
+  "controls": {
+    "template": "Design",
+    "printer": "Printer",
+    "batchSize": "Cards per round",
+    "choosePrinter": "Choose a printer",
+    "templateLocked": "The design can't change once printing starts.",
+    "batchMax": "Up to {{max}}"
+  },
+  "printerType": {
+    "CARD": "Card printer",
+    "OFFICE": "Office printer"
+  },
+  "noTemplate": {
+    "title": "No design for this document yet",
+    "explanation": "The design decides how the card looks.",
+    "action": "Create one from a suggestion"
+  },
+  "noPrinter": {
+    "notice": "Add your first printer to be able to print.",
+    "action": "Add your first printer"
+  },
+  "print": "Print",
+  "printing": "Opening the print window…",
+  "popupBlocked": "Your browser blocked the print window. Allow pop-ups for this site, then press Print again.",
+  "printFailed": "Could not start printing. Nothing was printed.",
+  "locked": "Confirm the current round before the next one unlocks.",
+  "sides": {
+    "front": "Front",
+    "back": "Back"
+  },
+  "loading": "Loading the preview…",
+  "previewError": "Could not load the preview.",
+  "preflight": {
+    "title": "{{bad}} of {{total}} cards need attention",
+    "overflow": "Text does not fit: {{fields}}",
+    "noPhoto": "No photo",
+    "empty": "Missing: {{fields}}",
+    "printAnyway": "Print this round anyway",
+    "badge": "Check"
+  },
+  "confirm": {
+    "title": "Did all {{n}} cards print correctly?",
+    "yes": "Yes, all printed",
+    "some": "Some failed…",
+    "pick": "Tick the cards that did not print correctly.",
+    "confirm": "Confirm",
+    "saving": "Saving…",
+    "error": "Could not save your answer. Try again.",
+    "reprintFailed": "Reprint {{n}} failed",
+    "continue": "Continue",
+    "recorded": "Recorded."
+  },
+  "picker": {
+    "title": "Print ID cards",
+    "who": "Who is it for?",
+    "type": {
+      "STUDENT": "Students",
+      "STAFF": "Staff"
+    },
+    "search": "Search by name",
+    "results": "Matches",
+    "class": "Class",
+    "classPlaceholder": "Choose a class",
+    "section": "Section",
+    "sectionPlaceholder": "Choose a section",
+    "cancel": "Cancel",
+    "continue_one": "Continue with {{n}}",
+    "continue_other": "Continue with {{n}}",
+    "modeLabel": "How do you want to choose?",
+    "modeNames": "Choose by name",
+    "modeNamesHelp": "A few cards — search and tick",
+    "modeSection": "Whole section",
+    "modeSectionHelp": "Every student in one section",
+    "namesTitle": "Choose by name",
+    "namesHelp": "Search by name or roll, then tick whose card you need.",
+    "pickedLabel_one": "{{n}} chosen:",
+    "pickedLabel_other": "{{n}} chosen:",
+    "removePicked": "Remove {{name}}",
+    "clearPicked": "Clear all",
+    "limitHelp": "Showing the first {{limit}}. Type more of the name if you can't find someone.",
+    "sectionTitle": "Whole section",
+    "continueSection": "Continue with the whole section"
+  },
+  "back": "Back",
+  "round": {
+    "help": "Print and confirm a round to unlock the next.",
+    "step": "Round {{n}} · {{count}}",
+    "listLabel": "Rounds"
+  },
+  "previewLabel": "Card preview"
+}

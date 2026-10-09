@@ -1,10 +1,13 @@
 import { cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
+import { createRootRoute, createRoute } from '@tanstack/react-router';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { routeTree } from '../routeTree.gen';
+
+import { CommandPaletteLauncher } from './command-palette-launcher';
 
 /**
  * [30.5.1] `CommandPaletteLauncher` replaces the retired
@@ -39,7 +42,7 @@ describe('CommandPaletteLauncher', () => {
 
     const user = userEvent.setup();
     await user.click((await screen.findAllByRole('button', { name: 'Search (Ctrl+K)' }))[0]!);
-    await user.type(screen.getByRole('combobox', { name: 'Command palette' }), 'Karim');
+    await user.type(screen.getByRole('combobox', { name: 'Search' }), 'Karim');
 
     const option = await screen.findByRole('option', { name: /Karim Rahman/ });
     await user.click(option);
@@ -75,7 +78,7 @@ describe('CommandPaletteLauncher', () => {
 
     const user = userEvent.setup();
     await user.click((await screen.findAllByRole('button', { name: 'Search (Ctrl+K)' }))[0]!);
-    await user.type(screen.getByRole('combobox', { name: 'Command palette' }), 'Rahim');
+    await user.type(screen.getByRole('combobox', { name: 'Search' }), 'Rahim');
 
     const option = await screen.findByRole('option', { name: /Rahim Uddin/ });
     await user.click(option);
@@ -101,7 +104,7 @@ describe('CommandPaletteLauncher', () => {
 
     const user = userEvent.setup();
     await user.click((await screen.findAllByRole('button', { name: 'Search (Ctrl+K)' }))[0]!);
-    await user.type(screen.getByRole('combobox', { name: 'Command palette' }), 'Nasrin');
+    await user.type(screen.getByRole('combobox', { name: 'Search' }), 'Nasrin');
 
     const option = await screen.findByRole('option', { name: /Nasrin Akter/ });
     await user.click(option);
@@ -120,7 +123,7 @@ describe('CommandPaletteLauncher', () => {
 
     const user = userEvent.setup();
     await user.click((await screen.findAllByRole('button', { name: 'Search (Ctrl+K)' }))[0]!);
-    const input = screen.getByRole('combobox', { name: 'Command palette' });
+    const input = screen.getByRole('combobox', { name: 'Search' });
     await user.type(input, '/');
 
     await waitFor(() =>
@@ -140,9 +143,92 @@ describe('CommandPaletteLauncher', () => {
 
     const user = userEvent.setup();
     await user.click((await screen.findAllByRole('button', { name: 'Search (Ctrl+K)' }))[0]!);
-    const input = screen.getByRole('combobox', { name: 'Command palette' });
+    const input = screen.getByRole('combobox', { name: 'Search' });
     await user.type(input, '>student');
 
     await waitFor(() => expect(screen.queryByRole('option', { name: 'Add student' })).toBeNull());
+  });
+
+  it('Action tab offers a context-free action (`context: []`) from any page', async () => {
+    renderWithRouter(routeTree, {
+      initialEntries: ['/students'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await user.click((await screen.findAllByRole('button', { name: 'Search (Ctrl+K)' }))[0]!);
+    const input = screen.getByRole('combobox', { name: 'Search' });
+    await user.type(input, '>start acr');
+
+    expect(await screen.findByRole('option', { name: 'Start ACR' })).toBeTruthy();
+  });
+
+  it('COMMITTEE (no STUDENT_READ) sees Page and Action tabs only and makes no /search call', async () => {
+    let searchCalls = 0;
+    server.use(
+      http.get('/api/v1/search', () => {
+        searchCalls += 1;
+        return HttpResponse.json({});
+      }),
+    );
+    renderWithRouter(routeTree, {
+      initialEntries: ['/roles'],
+      tenantId: 'tenant-1',
+      role: 'COMMITTEE',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await user.click((await screen.findAllByRole('button', { name: 'Search (Ctrl+K)' }))[0]!);
+    const input = screen.getByRole('combobox', { name: 'Search' });
+    // No People tab, so the placeholder must not promise a people search.
+    expect(input.getAttribute('placeholder')).toBe('Search pages and actions…');
+    await user.type(input, 'ab');
+
+    expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual(['Page', 'Action']);
+    expect(searchCalls).toBe(0);
+  });
+
+  it('with `pages`, shows only the Page tab, navigates to a page and makes no /search call', async () => {
+    let searchCalls = 0;
+    server.use(
+      http.get('/api/v1/search', () => {
+        searchCalls += 1;
+        return HttpResponse.json({});
+      }),
+    );
+    const rootRoute = createRootRoute();
+    const pages = [{ id: 'results', label: 'Results page', to: '/portal/results' }];
+    const tree = rootRoute.addChildren([
+      createRoute({
+        getParentRoute: () => rootRoute,
+        path: '/',
+        component: () => <CommandPaletteLauncher pages={pages} />,
+      }),
+      createRoute({
+        getParentRoute: () => rootRoute,
+        path: '/portal/results',
+        component: () => <p data-testid="results-page" />,
+      }),
+    ]);
+    const { router } = renderWithRouter(tree, {
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Search (Ctrl+K)' }));
+    await user.type(screen.getByRole('combobox', { name: 'Search' }), 'Results');
+
+    expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual(['Page']);
+    await user.click(await screen.findByRole('option', { name: /Results page/ }));
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/portal/results'));
+    // Wait past the 300 ms search debounce, or a late /search call would be missed.
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    expect(searchCalls).toBe(0);
   });
 });

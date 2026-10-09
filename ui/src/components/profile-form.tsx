@@ -18,6 +18,7 @@
  * nothing to say about either any more.
  */
 import { zodResolver } from '@hookform/resolvers/zod';
+import { CircleAlertIcon } from 'lucide-react';
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -93,43 +94,44 @@ export function ProfileForm({
   }
 
   return (
-    <Card className="flex flex-col gap-4 p-4">
-      <h2 className="text-sm font-semibold">{t('account.profile.title')}</h2>
+    <Card padded>
+      <h2 className="text-h2">{t('account.profile.title')}</h2>
       {serverError?.message && (
-        <p role="alert" className="text-sm text-destructive">
+        <p role="alert" className="mt-3 flex items-center gap-1 text-caption text-destructive">
+          <CircleAlertIcon className="size-4" aria-hidden="true" />
           {serverError.message}
         </p>
       )}
       <Form {...form}>
-        <form
-          onSubmit={(event) => void form.handleSubmit(handleValidSubmit)(event)}
-          noValidate
-          className="flex flex-col gap-4"
-        >
-          <FormField
-            control={form.control}
-            name="full_name"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel htmlFor="account-full-name">
-                  {t('account.profile.fields.fullName')}
-                </FormLabel>
-                <FormControl>
-                  <Input
-                    {...field}
-                    id="account-full-name"
-                    autoComplete="name"
-                    disabled={submitting}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+        <form onSubmit={(event) => void form.handleSubmit(handleValidSubmit)(event)} noValidate>
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <FormField
+              control={form.control}
+              name="full_name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel htmlFor="account-full-name" required>
+                    {t('account.profile.fields.fullName')}
+                  </FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      id="account-full-name"
+                      autoComplete="name"
+                      disabled={submitting}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
 
-          <Button type="submit" loading={submitting} className="self-start">
-            {submitting ? t('account.profile.saving') : t('account.profile.save')}
-          </Button>
+          <div className="mt-4 flex justify-end border-t border-border-subtle pt-4">
+            <Button type="submit" loading={submitting} className="w-full md:w-auto">
+              {submitting ? t('account.profile.saving') : t('account.profile.save')}
+            </Button>
+          </div>
         </form>
       </Form>
     </Card>

@@ -1,6 +1,6 @@
 import { UserRole } from '@biddaloy/shared';
 import { cleanupTestState, renderWithRouter } from '@biddaloy/ui/test';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { routeTree } from '../routeTree.gen';
@@ -59,5 +59,21 @@ describe('_platform route access [#533]', () => {
     await waitFor(() =>
       expect(screen.getAllByText('Schools (platform)').length).toBeGreaterThan(0),
     );
+  });
+
+  it('[31.3.3] shows the console in the shared shell: two sidebar links, Schools current', async () => {
+    renderWithRouter(routeTree, {
+      initialEntries: ['/schools'],
+      tenantId: 'tenant-1',
+      role: UserRole.SUPER_ADMIN,
+      locale: 'en',
+    });
+
+    const nav = await screen.findByRole('navigation', { name: 'Main' });
+    const links = within(nav).getAllByRole('link');
+    expect(links.map((l) => l.textContent)).toEqual(['Schools', 'Holiday lists']);
+    expect(links[0]!.getAttribute('aria-current')).toBe('page');
+    // The old hand-made "Dashboard / Platform admin" trail is gone.
+    expect(screen.queryByRole('navigation', { name: 'Breadcrumb' })).toBeNull();
   });
 });

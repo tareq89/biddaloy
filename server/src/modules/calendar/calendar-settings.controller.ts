@@ -1,12 +1,11 @@
 import { Controller, Get, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOperation, ApiOkResponse, ApiTags } from '@nestjs/swagger';
-import { Permission, TermLabel, UserRole } from '@biddaloy/shared';
+import { Permission, TermLabel } from '@biddaloy/shared';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
@@ -21,11 +20,9 @@ import { CalendarSettingsResponseDto } from './dto/calendar-settings.dto';
  * Writes stay on the existing `PATCH /schools/:id/settings` path — this
  * controller has no mutation route.
  *
- * `@Roles` here is exactly the set of roles `CALENDAR_READ` (Epic 17's
- * "everyone who can see the calendar" permission) grants — ADMIN,
- * EXECUTIVE, ACCOUNTANT, TEACHER, PARENT, STUDENT (`permissions.ts`).
- * SUPER_ADMIN bypasses `@Roles` entirely (`ContextGuard`), matching every
- * other route in this module.
+ * Access is `CALENDAR_READ` alone (Epic 17's "everyone who can see the
+ * calendar" permission) — ADMIN, EXECUTIVE, ACCOUNTANT, TEACHER, PARENT,
+ * STUDENT (`permissions.ts`).
  */
 @ApiTags('calendar-settings')
 @ApiTenantAuth()
@@ -39,14 +36,6 @@ export class CalendarSettingsController {
   ) {}
 
   @Get()
-  @Roles(
-    UserRole.ADMIN,
-    UserRole.EXECUTIVE,
-    UserRole.ACCOUNTANT,
-    UserRole.TEACHER,
-    UserRole.PARENT,
-    UserRole.STUDENT,
-  )
   @RequirePermissions(Permission.CALENDAR_READ)
   @ApiOperation({
     summary:

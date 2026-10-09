@@ -13,6 +13,7 @@
  * with its error unannounced by accident, which is the single guarantee
  * this component exists for.
  */
+import { CircleAlertIcon } from 'lucide-react';
 import { Slot } from 'radix-ui';
 import * as React from 'react';
 import {
@@ -25,6 +26,7 @@ import {
   type FieldValues,
 } from 'react-hook-form';
 
+import { useTranslation } from '../i18n';
 import { cn } from '../primitives/lib/utils';
 
 import { Label } from './label';
@@ -96,8 +98,15 @@ function useFormField() {
   };
 }
 
-function FormLabel({ className, htmlFor, ...props }: React.ComponentProps<typeof Label>) {
+function FormLabel({
+  className,
+  htmlFor,
+  required,
+  children,
+  ...props
+}: React.ComponentProps<typeof Label> & { required?: boolean | undefined }) {
   const { error, formItemId } = useFormField();
+  const { t } = useTranslation();
   return (
     <Label
       {...props}
@@ -120,7 +129,19 @@ function FormLabel({ className, htmlFor, ...props }: React.ComponentProps<typeof
       // child's own value) — this makes `FormLabel` follow the same rule
       // instead of being the one piece still hardcoded to `formItemId`.
       htmlFor={htmlFor ?? formItemId}
-    />
+    >
+      {required ? (
+        <span>
+          {children}
+          <span className="text-destructive" aria-hidden="true">
+            *
+          </span>
+          <span className="sr-only">{t('form.required')}</span>
+        </span>
+      ) : (
+        children
+      )}
+    </Label>
   );
 }
 
@@ -148,7 +169,7 @@ function FormDescription({ className, ...props }: React.ComponentProps<'p'>) {
     <p
       data-slot="form-description"
       id={formDescriptionId}
-      className={cn('text-sm text-muted-foreground', className)}
+      className={cn('text-caption text-text-secondary', className)}
       {...props}
     />
   );
@@ -171,9 +192,10 @@ function FormMessage({ className, children, ...props }: React.ComponentProps<'p'
       data-slot="form-message"
       id={formMessageId}
       role="alert"
-      className={cn('text-sm text-destructive', className)}
+      className={cn('flex items-center gap-1 text-caption text-destructive', className)}
       {...props}
     >
+      <CircleAlertIcon className="size-3.5 shrink-0" aria-hidden="true" />
       {body}
     </p>
   );

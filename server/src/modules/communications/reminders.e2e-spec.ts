@@ -467,10 +467,9 @@ describe('Bulk Reminder Read/Preview E2E', () => {
     });
   });
   // Mandatory per server/CLAUDE.md: every route is exercised by a role the
-  // @Roles list excludes, and by a tenant header the caller has no
-  // membership in. RolesGuard answers a disallowed role with 401 (see
-  // context.guard.ts's own comment), so these pin the documented behavior
-  // rather than assuming 403.
+  // route's permission excludes, and by a tenant header the caller has no
+  // membership in. PermissionsGuard answers a role without the permission
+  // with 403; a bad tenant header is still 401.
   describe('authorization and tenant scoping', () => {
     const routes: Array<{ name: string; call: (t: string, tenant: string) => supertest.Test }> = [
       {
@@ -501,8 +500,8 @@ describe('Bulk Reminder Read/Preview E2E', () => {
     ];
 
     for (const route of routes) {
-      it(`${route.name} rejects a TEACHER — a role outside its @Roles list`, async () => {
-        await route.call(teacherToken, TENANT_ID).expect(401);
+      it(`${route.name} rejects a TEACHER — a role without the permission`, async () => {
+        await route.call(teacherToken, TENANT_ID).expect(403);
       });
 
       it(`${route.name} rejects an X-Tenant-ID the caller has no membership in`, async () => {

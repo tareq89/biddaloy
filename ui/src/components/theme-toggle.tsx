@@ -32,30 +32,44 @@ import type { ThemePreference } from '../theme/theme-storage';
 import { Button } from './button';
 import { Menu, MenuContent, MenuLabel, MenuRadioGroup, MenuRadioItem, MenuTrigger } from './menu';
 
-export function ThemeToggle() {
+/** State + announcement for the theme choice, shared by `ThemeToggle` and
+ * `UserMenu`'s Theme sub-menu. */
+export function useThemeSwitch() {
   const { t } = useTranslation('nav');
   const { theme, preference, setPreference } = useTheme();
   const [announcement, setAnnouncement] = React.useState('');
-  const isDark = theme === 'dark';
 
-  function handleValueChange(value: string): void {
+  function choose(value: string): void {
     const next = value as ThemePreference;
     if (next === preference) return;
     setPreference(next);
     setAnnouncement(t('theme.announce', { mode: t(`theme.${next}`) }));
   }
 
+  return { preference, isDark: theme === 'dark', choose, announcement };
+}
+
+export function ThemeToggle() {
+  const { t } = useTranslation('nav');
+  const { preference, isDark, choose, announcement } = useThemeSwitch();
+
   return (
     <>
       <Menu>
         <MenuTrigger asChild>
-          <Button variant="ghost" size="icon" iconOnly aria-label={t('theme.label')}>
+          <Button
+            variant="ghost"
+            size="icon"
+            iconOnly
+            className="size-11 md:size-9"
+            aria-label={t('theme.label')}
+          >
             {isDark ? <SunIcon /> : <MoonIcon />}
           </Button>
         </MenuTrigger>
         <MenuContent align="end">
           <MenuLabel>{t('theme.groupLabel')}</MenuLabel>
-          <MenuRadioGroup value={preference} onValueChange={handleValueChange}>
+          <MenuRadioGroup value={preference} onValueChange={choose}>
             <MenuRadioItem value="light">
               <SunIcon aria-hidden="true" />
               {t('theme.light')}

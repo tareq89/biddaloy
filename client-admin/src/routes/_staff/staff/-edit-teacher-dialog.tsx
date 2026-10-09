@@ -4,10 +4,6 @@
  * profile is already attached to its person; promotion is not repeated).
  * Kept separate from `-edit-user-dialog.tsx` deliberately: a teacher
  * profile and a user account are different resources.
- *
- * `assigned_section_ids` is not resent here — the server **replaces**
- * the whole set when the key is present, so omitting it entirely is what
- * leaves existing section assignments untouched.
  */
 import { TeacherDesignation } from '@biddaloy/shared';
 import { ApiError } from '@biddaloy/ui/api';

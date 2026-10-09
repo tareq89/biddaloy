@@ -24,15 +24,22 @@ export type CardProps = React.ComponentProps<'div'> & {
   /** Merge the card's styling onto the single child element instead of
    * rendering a `<div>` — e.g. a `Link` that should *be* the card. */
   asChild?: boolean;
+  /** Kit padding (`p-4 md:p-5`). Use for a content card; a card that holds a
+   * table or grid stays unpadded with `overflow-hidden`. */
+  padded?: boolean;
 };
 
-export function Card({ className, asChild = false, ...props }: CardProps) {
+export function Card({ className, asChild = false, padded = false, ...props }: CardProps) {
   const Comp = asChild ? Slot.Root : 'div';
 
   return (
     <Comp
       data-slot="card"
-      className={cn('rounded-lg border border-border-subtle bg-card shadow-e1', className)}
+      className={cn(
+        'rounded-lg border border-border-subtle bg-card shadow-e1',
+        padded && 'p-4 md:p-5',
+        className,
+      )}
       {...props}
     />
   );

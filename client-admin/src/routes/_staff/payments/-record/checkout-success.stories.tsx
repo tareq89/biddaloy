@@ -14,8 +14,6 @@ const meta: Meta<typeof CheckoutSuccess> = {
   component: CheckoutSuccess,
   args: {
     studentIds: ['student-1'],
-    onRecordAnother: () => undefined,
-    onViewInvoice: () => undefined,
   },
   parameters: {
     msw: {

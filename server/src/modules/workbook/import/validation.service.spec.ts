@@ -42,7 +42,12 @@ const keyColumn: ColumnSpec = {
 
 function makeTab(
   name: string,
-  opts: { dependsOn?: readonly string[]; existing?: FakeRow[]; refTab?: string } = {},
+  opts: {
+    dependsOn?: readonly string[];
+    existing?: FakeRow[];
+    refTab?: string;
+    allowDuplicateKeys?: boolean;
+  } = {},
 ): TabSpec<FakeRow, FakeRow> {
   const existing = opts.existing ?? [];
   const columns: readonly ColumnSpec[] = opts.refTab
@@ -61,6 +66,7 @@ function makeTab(
     columns,
     naturalKey: ['key'],
     deleteByAbsence: true,
+    allowDuplicateKeys: opts.allowDuplicateKeys,
     load: async () => existing as any,
     toRow: (_e: any, _ctx: ExportContext) => ({}),
     fromRow(
@@ -250,6 +256,128 @@ describe('ValidationService', () => {
 
     expect(result.tabs.a.errors).toHaveLength(3);
     expect(result.tabs.a.errors.map((e) => e.row).sort()).toEqual([2, 3, 4]);
+    expect(result.tabs.a.rows).toHaveLength(0);
+  });
+
+  it('allows a duplicate key on an allowDuplicateKeys tab when both rows resolve to distinct existing entities', async () => {
+    const tabA = makeTab('a', {
+      allowDuplicateKeys: true,
+      existing: [
+        { id: 'e1', key: 'dup' },
+        { id: 'e2', key: 'dup' },
+      ],
+    });
+    const tabB = makeTab('b');
+    const tabC = makeTab('c');
+
+    readWorkbook.mockResolvedValue(
+      fakeReadResult(
+        new Map([
+          [
+            'a',
+            sheet(
+              ['id', 'key'],
+              [
+                { rowNo: 2, cells: { id: 'e1', key: 'dup' } },
+                { rowNo: 3, cells: { id: 'e2', key: 'dup' } },
+              ],
+            ),
+          ],
+        ]),
+      ),
+    );
+
+    const service = new ValidationService();
+    const result = await service.validate(Buffer.from(''), 'tenant-1', manager, [tabA, tabB, tabC]);
+
+    expect(result.tabs.a.errors).toHaveLength(0);
+    expect(result.tabs.a.rows).toHaveLength(2);
+  });
+
+  it('allows a duplicate key on an allowDuplicateKeys tab when the key does not exist in the destination yet', async () => {
+    const tabA = makeTab('a', { allowDuplicateKeys: true, existing: [] });
+    const tabB = makeTab('b');
+    const tabC = makeTab('c');
+
+    readWorkbook.mockResolvedValue(
+      fakeReadResult(
+        new Map([
+          [
+            'a',
+            sheet(
+              ['id', 'key'],
+              [
+                { rowNo: 2, cells: { id: '', key: 'dup' } },
+                { rowNo: 3, cells: { id: '', key: 'dup' } },
+              ],
+            ),
+          ],
+        ]),
+      ),
+    );
+
+    const service = new ValidationService();
+    const result = await service.validate(Buffer.from(''), 'tenant-1', manager, [tabA, tabB, tabC]);
+
+    expect(result.tabs.a.errors).toHaveLength(0);
+    expect(result.tabs.a.rows).toHaveLength(2);
+  });
+
+  it('still rejects a duplicate key on an allowDuplicateKeys tab when one row has an unresolved id and the destination already has that key', async () => {
+    const tabA = makeTab('a', { allowDuplicateKeys: true, existing: [{ id: 'e1', key: 'dup' }] });
+    const tabB = makeTab('b');
+    const tabC = makeTab('c');
+
+    readWorkbook.mockResolvedValue(
+      fakeReadResult(
+        new Map([
+          [
+            'a',
+            sheet(
+              ['id', 'key'],
+              [
+                { rowNo: 2, cells: { id: '', key: 'dup' } },
+                { rowNo: 3, cells: { id: '', key: 'dup' } },
+              ],
+            ),
+          ],
+        ]),
+      ),
+    );
+
+    const service = new ValidationService();
+    const result = await service.validate(Buffer.from(''), 'tenant-1', manager, [tabA, tabB, tabC]);
+
+    expect(result.tabs.a.errors).toHaveLength(2);
+    expect(result.tabs.a.rows).toHaveLength(0);
+  });
+
+  it('still rejects a duplicate key on an allowDuplicateKeys tab when both rows carry the same id', async () => {
+    const tabA = makeTab('a', { allowDuplicateKeys: true, existing: [{ id: 'e1', key: 'dup' }] });
+    const tabB = makeTab('b');
+    const tabC = makeTab('c');
+
+    readWorkbook.mockResolvedValue(
+      fakeReadResult(
+        new Map([
+          [
+            'a',
+            sheet(
+              ['id', 'key'],
+              [
+                { rowNo: 2, cells: { id: 'e1', key: 'dup' } },
+                { rowNo: 3, cells: { id: 'e1', key: 'dup' } },
+              ],
+            ),
+          ],
+        ]),
+      ),
+    );
+
+    const service = new ValidationService();
+    const result = await service.validate(Buffer.from(''), 'tenant-1', manager, [tabA, tabB, tabC]);
+
+    expect(result.tabs.a.errors).toHaveLength(2);
     expect(result.tabs.a.rows).toHaveLength(0);
   });
 

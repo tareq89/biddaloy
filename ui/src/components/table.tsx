@@ -1,5 +1,6 @@
 import * as React from 'react';
 
+import { cn } from '../primitives/lib/utils';
 import {
   Table as TablePrimitive,
   TableBody as TableBodyPrimitive,
@@ -34,8 +35,13 @@ export function Table(props: TableProps) {
   return <TablePrimitive {...props} />;
 }
 
-export function TableHeader(props: TableHeaderProps) {
-  return <TableHeaderPrimitive {...props} />;
+export function TableHeader({ className, ...props }: TableHeaderProps) {
+  return (
+    <TableHeaderPrimitive
+      className={cn('bg-muted text-label text-text-secondary', className)}
+      {...props}
+    />
+  );
 }
 
 export function TableBody(props: TableBodyProps) {
@@ -46,16 +52,26 @@ export function TableFooter(props: TableFooterProps) {
   return <TableFooterPrimitive {...props} />;
 }
 
-export function TableRow(props: TableRowProps) {
-  return <TableRowPrimitive {...props} />;
+export function TableRow({ className, ...props }: TableRowProps) {
+  return (
+    <TableRowPrimitive
+      className={cn('border-border-subtle hover:bg-muted', className)}
+      {...props}
+    />
+  );
 }
 
-export function TableHead(props: TableHeadProps) {
-  return <TableHeadPrimitive {...props} />;
+export function TableHead({ className, ...props }: TableHeadProps) {
+  return (
+    <TableHeadPrimitive
+      className={cn('h-10 px-4 font-medium text-text-secondary', className)}
+      {...props}
+    />
+  );
 }
 
-export function TableCell(props: TableCellProps) {
-  return <TableCellPrimitive {...props} />;
+export function TableCell({ className, ...props }: TableCellProps) {
+  return <TableCellPrimitive className={cn('h-10 px-4 py-1', className)} {...props} />;
 }
 
 export function TableCaption(props: TableCaptionProps) {

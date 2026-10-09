@@ -1,4 +1,5 @@
-import { AttendanceStatus, UserRole, UserStatus } from '@biddaloy/shared';
+import { AttendanceStatus, TeacherAssignmentType, UserRole, UserStatus } from '@biddaloy/shared';
+import { currentStreaks } from '../modules/attendance/attendance-streaks.util';
 import { describe, expect, it, vi } from 'vitest';
 import type { Repository } from 'typeorm';
 import type { School } from '../modules/schools/entities/school.entity';
@@ -9,6 +10,7 @@ import type { Class } from '../modules/academics/entities/class.entity';
 import type { ClassSection } from '../modules/academics/entities/class-section.entity';
 import type { Student } from '../modules/students/entities/student.entity';
 import type { Guardian } from '../modules/students/entities/guardian.entity';
+import type { Enrollment } from '../modules/students/entities/enrollment.entity';
 import type { Subject } from '../modules/academics/entities/subject.entity';
 import type { CalendarEvent } from '../modules/calendar/entities/calendar-event.entity';
 import type { CalendarEventClass } from '../modules/calendar/entities/calendar-event-class.entity';
@@ -23,27 +25,66 @@ import type { AttendanceDevice } from '../modules/attendance/entities/attendance
 import type { ClassSubject } from '../modules/academics/entities/class-subject.entity';
 import type { GradingScale } from '../modules/grading/entities/grading-scale.entity';
 import type { GradingBand } from '../modules/grading/entities/grading-band.entity';
+import type { Homework } from '../modules/homework/entities/homework.entity';
+import type { HomeworkAssignment } from '../modules/homework/entities/homework-assignment.entity';
+import type { HomeworkSubmission } from '../modules/homework/entities/homework-submission.entity';
+import type { SyllabusTopic } from '../modules/homework/entities/syllabus-topic.entity';
+import type { Program } from '../modules/programs/entities/program.entity';
+import type { ProgramMilestone } from '../modules/programs/entities/program-milestone.entity';
+import type { ProgramEnrollment } from '../modules/programs/entities/program-enrollment.entity';
+import type { MilestoneAchievement } from '../modules/programs/entities/milestone-achievement.entity';
+import type { FeeStructure } from '../modules/fees/entities/fee-structure.entity';
+import type { FineRule } from '../modules/fees/entities/fine-rule.entity';
+import type { RecurringSchedule } from '../modules/fees/entities/recurring-schedule.entity';
+import type { RecurringScheduleStructure } from '../modules/fees/entities/recurring-schedule-structure.entity';
+import type { Shift } from '../modules/routines/entities/shift.entity';
+import type { PeriodSlot } from '../modules/routines/entities/period-slot.entity';
+import type { Room } from '../modules/routines/entities/room.entity';
+import type { Routine } from '../modules/routines/entities/routine.entity';
+import type { RoutineSlot } from '../modules/routines/entities/routine-slot.entity';
+import type { RoutineSlotTeacher } from '../modules/routines/entities/routine-slot-teacher.entity';
+import type { RoutineSubstitution } from '../modules/routines/entities/routine-substitution.entity';
+import type { RoutineChangeRequest } from '../modules/routines/entities/routine-change-request.entity';
+import type { StaffProfile } from '../modules/staff-profiles/entities/staff-profile.entity';
+import type { StaffAttendanceSession } from '../modules/staff-attendance/entities/staff-attendance-session.entity';
+import type { StaffAttendanceRecord } from '../modules/staff-attendance/entities/staff-attendance-record.entity';
+import type { LeavePolicy } from '../modules/leave/entities/leave-policy.entity';
+import type { LeaveRecord } from '../modules/leave/entities/leave-record.entity';
 import { hashDeviceKey } from '../modules/attendance/devices/device.service';
 import {
   ATTENDANCE_SEED_ABSENT_DATE,
+  ASSISTANT_TEACHER_EMAIL,
   DEMO_CLASSES,
   DEMO_ORGANISATION,
   DEMO_STUDENTS_PER_SECTION,
+  ensureAttendanceOpsSeed,
+  ensureAttendancePeriodSetting,
   ensureAttendanceSeed,
   ensureCalendarDemoSeed,
+  ensurePrintProfileDemoSeed,
+  ensurePrintDemoSeed,
+  ensurePrintHistoryDemoSeed,
+  PRINT_DEMO_REVOKE_REASON,
   ensureDemoOrganisation,
   ensureDemoStudents,
   ensureGradingDemoSeed,
+  ensureHomeworkDemoSeed,
+  ensureProgramsDemoSeed,
+  ensureProgramParticipationDemoSeed,
+  ensureFineSeedData,
   ensurePublicHolidaySet,
+  ensureRoutineSeed,
   BD_NCTB_BANDS,
   ensureRoleTestUsers,
   ensureSecondSchoolMembership,
+  ensureStaffHrSeed,
   ROLE_TEST_USERS,
   SEED_DEVICE_KEY,
 } from './seed.util';
 import {
   ATTENDANCE_SEED_ABSENT_DATE as E2E_ATTENDANCE_SEED_ABSENT_DATE,
   SEED_ACADEMIC_TERM_NAMES,
+  SEED_ASSISTANT_TEACHER_EMAIL,
   SEED_CALENDAR_EVENT_NAMES,
   SEED_DEVICE_KEY as E2E_SEED_DEVICE_KEY,
   SEED_PASSWORD_ENV,
@@ -291,9 +332,16 @@ describe('ensureRoleTestUsers', () => {
 describe('e2e seed contract', () => {
   it('matches ROLE_TEST_USERS exactly — one entry per role, same emails', () => {
     const expected = Object.fromEntries(
-      ROLE_TEST_USERS.map(({ role, email }) => [role.toLowerCase(), email]),
+      ROLE_TEST_USERS.filter(({ email }) => email !== ASSISTANT_TEACHER_EMAIL).map(
+        ({ role, email }) => [role.toLowerCase(), email],
+      ),
     );
     expect(SEED_ROLE_EMAILS).toEqual(expected);
+  });
+
+  it('[47.2.5] names the assistant teacher login the seed creates', () => {
+    expect(SEED_ASSISTANT_TEACHER_EMAIL).toBe(ASSISTANT_TEACHER_EMAIL);
+    expect(ROLE_TEST_USERS.map((u) => u.email)).toContain(ASSISTANT_TEACHER_EMAIL);
   });
 
   it('names the same password env var the seed script requires', () => {
@@ -372,12 +420,26 @@ describe('ensureDemoOrganisation', () => {
 
 describe('ensureDemoStudents', () => {
   function demoRepos() {
+    const studentRepository = mockRepo<Student>();
+    // [#1020] `ensureDemoStudents` gets the `Enrollment` repository off
+    // `studentRepository.manager` rather than through a new field on
+    // `DemoStudentRepositories` — the production code's own reasoning
+    // (avoids touching `SeedAccountRepositories`/`seed.accounts.ts`, which
+    // aren't in this ticket's territory) applies here too.
+    const enrollmentRepository = mockRepo<Enrollment>();
+    vi.mocked(enrollmentRepository.findOne).mockResolvedValue(null);
+    (
+      studentRepository as unknown as { manager: { getRepository: () => Repository<Enrollment> } }
+    ).manager = {
+      getRepository: () => enrollmentRepository,
+    };
     return {
       academicYearRepository: mockRepo<AcademicYear>(),
       classRepository: mockRepo<Class>(),
       classSectionRepository: mockRepo<ClassSection>(),
-      studentRepository: mockRepo<Student>(),
+      studentRepository,
       guardianRepository: mockRepo<Guardian>(),
+      enrollmentRepository,
     };
   }
 
@@ -412,6 +474,84 @@ describe('ensureDemoStudents', () => {
     expect(repos.classRepository.create).toHaveBeenCalledTimes(DEMO_CLASSES.length);
     expect(repos.classSectionRepository.create).toHaveBeenCalledTimes(EXPECTED_SECTIONS);
     expect(repos.studentRepository.create).toHaveBeenCalledTimes(EXPECTED_STUDENTS);
+    // [#1020] Every ACTIVE demo student gets a matching Enrollment row.
+    expect(repos.enrollmentRepository.create).toHaveBeenCalledTimes(EXPECTED_STUDENTS);
+    expect(repos.enrollmentRepository.save).toHaveBeenCalledTimes(EXPECTED_STUDENTS);
+  });
+
+  it('[#1020] does not duplicate the Enrollment row on a re-run against an already-seeded tenant', async () => {
+    const repos = demoRepos();
+    emptyDatabase(repos);
+    await ensureDemoStudents(repos, 'school-1', DEMO_ORGANISATION);
+
+    // Second run: everything already exists (students, sections, classes,
+    // academic year) — only the "existing" branch runs.
+    const repos2 = demoRepos();
+    vi.mocked(repos2.academicYearRepository.findOne).mockResolvedValue({
+      id: 'ay-1',
+      deleted_at: null,
+    } as AcademicYear);
+    vi.mocked(repos2.classRepository.findOne).mockResolvedValue({
+      id: 'class-1',
+      deleted_at: null,
+    } as Class);
+    vi.mocked(repos2.classSectionRepository.findOne).mockResolvedValue({
+      id: 'section-1',
+      deleted_at: null,
+    } as ClassSection);
+    vi.mocked(repos2.studentRepository.findOne).mockResolvedValue({
+      id: 'student-1',
+      deleted_at: null,
+    } as Student);
+    // An Enrollment already exists for every student — find-or-create must
+    // not insert a second row.
+    vi.mocked(repos2.enrollmentRepository.findOne).mockResolvedValue({
+      id: 'enrollment-1',
+      class_id: 'class-1',
+      section_id: 'section-1',
+    } as Enrollment);
+
+    await ensureDemoStudents(repos2, 'school-1', DEMO_ORGANISATION);
+
+    expect(repos2.enrollmentRepository.save).not.toHaveBeenCalled();
+  });
+
+  it('[#1020] never rewrites an existing Enrollment`s class_id/section_id on re-seed, even if it now differs from the roster slot', async () => {
+    // A real write path (PATCH, workbook restore) may have since moved
+    // this student elsewhere — re-seeding must not pull the Enrollment
+    // back to the roster's section and fight that write.
+    const repos = demoRepos();
+    vi.mocked(repos.academicYearRepository.findOne).mockResolvedValue({
+      id: 'year-1',
+      deleted_at: null,
+    } as AcademicYear);
+    vi.mocked(repos.classRepository.findOne).mockResolvedValue({
+      id: 'class-1',
+      deleted_at: null,
+    } as Class);
+    vi.mocked(repos.classSectionRepository.findOne).mockResolvedValue({
+      id: 'section-1',
+      deleted_at: null,
+    } as ClassSection);
+    vi.mocked(repos.studentRepository.findOne).mockResolvedValue({
+      id: 'student-1',
+      deleted_at: null,
+    } as Student);
+    vi.mocked(repos.guardianRepository.findOne).mockResolvedValue({
+      id: 'guardian-1',
+      deleted_at: null,
+      user_id: null,
+    } as Guardian);
+    vi.mocked(repos.enrollmentRepository.findOne).mockResolvedValue({
+      id: 'enrollment-1',
+      class_id: 'class-0',
+      section_id: 'section-0',
+    } as Enrollment);
+
+    await ensureDemoStudents(repos, 'school-1', DEMO_ORGANISATION);
+
+    expect(repos.enrollmentRepository.create).not.toHaveBeenCalled();
+    expect(repos.enrollmentRepository.save).not.toHaveBeenCalled();
   });
 
   it('[33.5.1] refuses to write a class whose shift/version/group is missing from the tenant vocabulary', async () => {
@@ -500,6 +640,13 @@ describe('ensureDemoStudents', () => {
       deleted_at: null,
       user_id: null,
     } as Guardian);
+    // [#1020] the existing student already has its Enrollment row — a
+    // second run must not create a duplicate.
+    vi.mocked(repos.enrollmentRepository.findOne).mockResolvedValue({
+      id: 'enrollment-1',
+      class_id: 'class-1',
+      section_id: 'section-1',
+    } as Enrollment);
 
     const result = await ensureDemoStudents(repos, 'school-1', DEMO_ORGANISATION);
 
@@ -820,7 +967,7 @@ describe('ensureAttendanceSeed', () => {
       byStudent.set(key, [...(byStudent.get(key) ?? []), record]);
     }
 
-    // student-3's ~9 PRESENT / 26 working days is the only one under the
+    // student-3's ~8 PRESENT / 26 working days is the only one under the
     // default 75% threshold — present-day count alone is enough to prove
     // this without re-implementing the percentage formula.
     const WORKING_DAYS = 26;
@@ -829,7 +976,7 @@ describe('ensureAttendanceSeed', () => {
     );
     const belowThreshold = presentCounts.filter((present) => present / WORKING_DAYS < 0.75);
     expect(belowThreshold).toHaveLength(1);
-    expect(presentCounts[2]).toBe(9);
+    expect(presentCounts[2]).toBe(8);
   });
 
   it('gives every status to at least one student across the roster', async () => {
@@ -870,7 +1017,47 @@ describe('ensureAttendanceSeed', () => {
       teacher_id: createdTeacher.id,
       section_id: 'section-1',
       subject_id: null,
+      assignment_type: TeacherAssignmentType.CLASS_TEACHER,
     });
+  });
+
+  it('[47.2.5] looks the class-teacher row up by assignment_type, not subject_id', async () => {
+    const repos = attendanceRepos();
+    emptyDatabase(repos);
+
+    await ensureAttendanceSeed(repos, BASE_PARAMS);
+
+    const where = vi.mocked(repos.teacherClassSectionRepository.findOne).mock.calls[0]?.[0]
+      ?.where as Record<string, unknown>;
+    expect(where.assignment_type).toBe(TeacherAssignmentType.CLASS_TEACHER);
+    expect(where).not.toHaveProperty('subject_id');
+  });
+
+  it('[47.2.5] leaves each of the three students on exactly one streak kind at the newest session', async () => {
+    const repos = attendanceRepos();
+    emptyDatabase(repos);
+
+    await ensureAttendanceSeed(repos, BASE_PARAMS);
+
+    const sessions = vi
+      .mocked(repos.attendanceSessionRepository.create)
+      .mock.calls.map(([p]) => p as { id: string; date: string });
+    const statusBySession = new Map<string, Map<string, AttendanceStatus>>();
+    for (const [p] of vi.mocked(repos.attendanceRecordRepository.create).mock.calls) {
+      const r = p as { student_id: string; session_id: string; status: AttendanceStatus };
+      const marks = statusBySession.get(r.student_id) ?? new Map<string, AttendanceStatus>();
+      marks.set(r.session_id, r.status);
+      statusBySession.set(r.student_id, marks);
+    }
+    const newestFirst = [...sessions].sort((a, b) => b.date.localeCompare(a.date));
+    const streaks = currentStreaks(newestFirst, STUDENT_IDS, statusBySession);
+
+    expect(streaks.map((s) => [s.student_id, s.status])).toEqual([
+      ['student-1', AttendanceStatus.PRESENT],
+      ['student-2', AttendanceStatus.LATE],
+      ['student-3', AttendanceStatus.ABSENT],
+    ]);
+    expect(streaks[0]!.length).toBeGreaterThanOrEqual(15);
   });
 
   it("stores the ACTIVE device's key as the SHA-256 hash of SEED_DEVICE_KEY, matching the e2e contract", async () => {
@@ -1243,5 +1430,897 @@ describe('ensureGradingDemoSeed', () => {
     expect(vi.mocked(repos.gradingScaleRepository.save)).not.toHaveBeenCalledWith(deletedCustom);
     expect(result.scales).toBe(2);
     expect(result.bands).toBe(BD_NCTB_BANDS.length * 2);
+  });
+});
+
+describe('ensureHomeworkDemoSeed', () => {
+  function homeworkRepos() {
+    return {
+      homeworkRepository: mockRepo<Homework>(),
+      homeworkAssignmentRepository: mockRepo<HomeworkAssignment>(),
+      homeworkSubmissionRepository: mockRepo<HomeworkSubmission>(),
+      syllabusTopicRepository: mockRepo<SyllabusTopic>(),
+    };
+  }
+
+  const PARAMS = {
+    schoolId: 'school-1',
+    classId: 'class-6',
+    subjectId: 'subject-math',
+    sectionId: 'section-a',
+    studentIds: ['student-1', 'student-2', 'student-3'],
+  };
+
+  it('creates one homework, one section-wide assignment, one submission per student in every status, and a sample syllabus', async () => {
+    const repos = homeworkRepos();
+    vi.mocked(repos.homeworkRepository.findOne).mockResolvedValue(null);
+    vi.mocked(repos.homeworkAssignmentRepository.findOne).mockResolvedValue(null);
+    vi.mocked(repos.homeworkSubmissionRepository.findOne).mockResolvedValue(null);
+    vi.mocked(repos.syllabusTopicRepository.findOne).mockResolvedValue(null);
+
+    const result = await ensureHomeworkDemoSeed(repos, PARAMS);
+
+    expect(result).toEqual({ homework: 1, assignments: 1, submissions: 3, syllabusTopics: 3 });
+
+    // Referential integrity: every submission/assignment/topic is scoped to
+    // the same tenant and points at ids this call was actually given.
+    const assignmentPayload = vi.mocked(repos.homeworkAssignmentRepository.create).mock
+      .calls[0][0] as Partial<HomeworkAssignment>;
+    expect(assignmentPayload.section_id).toBe(PARAMS.sectionId);
+    expect(assignmentPayload.student_id).toBeNull();
+    expect(assignmentPayload.tenant_id).toBe(PARAMS.schoolId);
+
+    const submissionPayloads = vi
+      .mocked(repos.homeworkSubmissionRepository.create)
+      .mock.calls.map(([payload]) => payload as Partial<HomeworkSubmission>);
+    expect(submissionPayloads.map((s) => s.student_id)).toEqual(PARAMS.studentIds);
+    // D13: 2 completed (DONE/SUBMITTED), 1 left NOT_SUBMITTED against a past
+    // due date — exactly the "2 submitted, 1 defaulter" fixture the
+    // analytics spec's rollup math is built against.
+    expect(submissionPayloads.map((s) => s.status)).toEqual(['DONE', 'SUBMITTED', 'NOT_SUBMITTED']);
+    expect(submissionPayloads.every((s) => s.tenant_id === PARAMS.schoolId)).toBe(true);
+
+    const topicPayloads = vi
+      .mocked(repos.syllabusTopicRepository.create)
+      .mock.calls.map(([payload]) => payload as Partial<SyllabusTopic>);
+    expect(topicPayloads.map((t) => t.status).sort()).toEqual(['DONE', 'DONE', 'PLANNED'].sort());
+  });
+
+  it('is idempotent: a second run against an already-seeded database creates nothing new', async () => {
+    const repos = homeworkRepos();
+    vi.mocked(repos.homeworkRepository.findOne).mockResolvedValue({ id: 'hw-1' } as Homework);
+    vi.mocked(repos.homeworkAssignmentRepository.findOne).mockResolvedValue({
+      id: 'assign-1',
+    } as HomeworkAssignment);
+    vi.mocked(repos.homeworkSubmissionRepository.findOne).mockResolvedValue({
+      id: 'sub-1',
+    } as HomeworkSubmission);
+    vi.mocked(repos.syllabusTopicRepository.findOne).mockResolvedValue({
+      id: 'topic-1',
+    } as SyllabusTopic);
+
+    const result = await ensureHomeworkDemoSeed(repos, PARAMS);
+
+    expect(result).toEqual({ homework: 0, assignments: 0, submissions: 0, syllabusTopics: 0 });
+    expect(vi.mocked(repos.homeworkRepository.create)).not.toHaveBeenCalled();
+    expect(vi.mocked(repos.homeworkSubmissionRepository.create)).not.toHaveBeenCalled();
+  });
+});
+
+describe('ensureProgramsDemoSeed', () => {
+  function programsRepos() {
+    return {
+      programRepository: mockRepo<Program>(),
+      programMilestoneRepository: mockRepo<ProgramMilestone>(),
+    };
+  }
+
+  const PARAMS = { schoolId: 'school-1' };
+
+  it('creates "Hifz" with 30 milestones and "Debate club" with none', async () => {
+    const repos = programsRepos();
+    vi.mocked(repos.programRepository.findOne).mockResolvedValue(null);
+    vi.mocked(repos.programMilestoneRepository.findOne).mockResolvedValue(null);
+
+    const result = await ensureProgramsDemoSeed(repos, PARAMS);
+
+    expect(result).toEqual({ programs: 2, milestones: 30 });
+
+    const programPayloads = vi
+      .mocked(repos.programRepository.create)
+      .mock.calls.map(([payload]) => payload as Partial<Program>);
+    expect(programPayloads.map((p) => p.name)).toEqual(['Hifz', 'Debate club']);
+    expect(programPayloads.find((p) => p.name === 'Hifz')?.show_on_report_card).toBe(true);
+    expect(programPayloads.find((p) => p.name === 'Debate club')?.show_on_report_card).toBe(false);
+    expect(programPayloads.every((p) => p.tenant_id === PARAMS.schoolId)).toBe(true);
+
+    const milestonePayloads = vi
+      .mocked(repos.programMilestoneRepository.create)
+      .mock.calls.map(([payload]) => payload as Partial<ProgramMilestone>);
+    expect(milestonePayloads).toHaveLength(30);
+    expect(milestonePayloads.map((m) => m.name)).toEqual(
+      Array.from({ length: 30 }, (_, i) => `Para ${i + 1}`),
+    );
+    expect(milestonePayloads.map((m) => m.sequence)).toEqual(
+      Array.from({ length: 30 }, (_, i) => i + 1),
+    );
+    expect(milestonePayloads.every((m) => m.tenant_id === PARAMS.schoolId)).toBe(true);
+  });
+
+  it('is idempotent: a second run against an already-seeded database creates nothing new', async () => {
+    const repos = programsRepos();
+    vi.mocked(repos.programRepository.findOne).mockResolvedValue({ id: 'program-1' } as Program);
+    vi.mocked(repos.programMilestoneRepository.findOne).mockResolvedValue({
+      id: 'milestone-1',
+    } as ProgramMilestone);
+
+    const result = await ensureProgramsDemoSeed(repos, PARAMS);
+
+    expect(result).toEqual({ programs: 0, milestones: 0 });
+    expect(vi.mocked(repos.programRepository.create)).not.toHaveBeenCalled();
+    expect(vi.mocked(repos.programMilestoneRepository.create)).not.toHaveBeenCalled();
+  });
+});
+
+describe('ensureProgramParticipationDemoSeed', () => {
+  function participationRepos() {
+    return {
+      programRepository: mockRepo<Program>(),
+      programMilestoneRepository: mockRepo<ProgramMilestone>(),
+      programEnrollmentRepository: mockRepo<ProgramEnrollment>(),
+      milestoneAchievementRepository: mockRepo<MilestoneAchievement>(),
+      feeStructureRepository: mockRepo<FeeStructure>(),
+      recurringScheduleRepository: mockRepo<RecurringSchedule>(),
+      recurringScheduleStructureRepository: mockRepo<RecurringScheduleStructure>(),
+    };
+  }
+
+  const STUDENT_IDS = ['s0', 's1', 's2', 's3', 's4', 's5'];
+  const PARAMS = {
+    schoolId: 'school-1',
+    academicYearId: 'year-1',
+    studentIds: STUDENT_IDS,
+    recordedByUserId: 'user-1',
+  };
+
+  function stubEmptyLookups(repos: ReturnType<typeof participationRepos>) {
+    vi.mocked(repos.programRepository.findOne).mockImplementation(async (options) => {
+      const where = options.where as Partial<Program>;
+      if (where.name === 'Hifz') return { id: 'hifz' } as Program;
+      if (where.name === 'Debate club') return { id: 'debate' } as Program;
+      return null;
+    });
+    vi.mocked(repos.programMilestoneRepository.findOne).mockImplementation(async (options) => {
+      const where = options.where as Partial<ProgramMilestone>;
+      return { id: `m-${where.sequence}` } as ProgramMilestone;
+    });
+    vi.mocked(repos.programEnrollmentRepository.findOne).mockResolvedValue(null);
+    vi.mocked(repos.milestoneAchievementRepository.findOne).mockResolvedValue(null);
+    vi.mocked(repos.feeStructureRepository.findOne).mockResolvedValue(null);
+    vi.mocked(repos.recurringScheduleRepository.findOne).mockResolvedValue(null);
+    vi.mocked(repos.recurringScheduleStructureRepository.findOne).mockResolvedValue(null);
+  }
+
+  it('creates everything on an empty database', async () => {
+    const repos = participationRepos();
+    stubEmptyLookups(repos);
+
+    const result = await ensureProgramParticipationDemoSeed(repos, PARAMS);
+
+    expect(result).toEqual({
+      enrollments: 10,
+      achievements: 25,
+      feeStructures: 1,
+      schedules: 1,
+      scheduleStructures: 1,
+    });
+
+    const enrollmentPayloads = vi
+      .mocked(repos.programEnrollmentRepository.create)
+      .mock.calls.map(([payload]) => payload as Partial<ProgramEnrollment>);
+    const hifzPayloads = enrollmentPayloads.filter((p) => p.program_id === 'hifz');
+    expect(hifzPayloads).toHaveLength(6);
+    expect(
+      hifzPayloads.slice(0, 5).every((p) => p.status === 'ACTIVE' && p.ended_on === null),
+    ).toBe(true);
+    expect(hifzPayloads[5]).toMatchObject({ status: 'WITHDRAWN', ended_on: '2026-06-30' });
+
+    const debatePayloads = enrollmentPayloads.filter((p) => p.program_id === 'debate');
+    expect(debatePayloads).toHaveLength(4);
+    expect(debatePayloads.map((p) => p.student_id)).toEqual(['s0', 's1', 's3', 's4']);
+    expect(debatePayloads.every((p) => p.status === 'ACTIVE')).toBe(true);
+
+    const achievementPayloads = vi
+      .mocked(repos.milestoneAchievementRepository.create)
+      .mock.calls.map(([payload]) => payload as Partial<MilestoneAchievement>);
+    expect(achievementPayloads).toHaveLength(25);
+    const scored = achievementPayloads.filter((a) => a.score !== null);
+    expect(scored).toHaveLength(3);
+    expect(scored.every((a) => a.grade === 'A+' && a.score === '95.00')).toBe(true);
+
+    const structurePayload = vi.mocked(repos.feeStructureRepository.create).mock
+      .calls[0][0] as Partial<FeeStructure>;
+    expect(structurePayload).toMatchObject({
+      academic_year_id: 'year-1',
+      class_id: null,
+      name: 'Hifz monthly fee',
+    });
+
+    const schedulePayload = vi.mocked(repos.recurringScheduleRepository.create).mock
+      .calls[0][0] as Partial<RecurringSchedule>;
+    expect(schedulePayload.audience).toEqual({ program_id: 'hifz', enrollment_status: 'ACTIVE' });
+    expect(schedulePayload.notify_families).toBe(false);
+    expect(schedulePayload.period_type).toBe('MONTH');
+    expect(schedulePayload.academic_year_id).toBe('year-1');
+
+    const linkPayload = vi.mocked(repos.recurringScheduleStructureRepository.create).mock
+      .calls[0][0] as Partial<RecurringScheduleStructure>;
+    expect(linkPayload.schedule_id).toBeDefined();
+    expect(linkPayload.fee_structure_id).toBeDefined();
+  });
+
+  it('is idempotent: a second run creates nothing new', async () => {
+    const repos = participationRepos();
+    vi.mocked(repos.programRepository.findOne).mockImplementation(async (options) => {
+      const where = options.where as Partial<Program>;
+      return { id: where.name === 'Hifz' ? 'hifz' : 'debate' } as Program;
+    });
+    vi.mocked(repos.programMilestoneRepository.findOne).mockResolvedValue({
+      id: 'milestone-1',
+    } as ProgramMilestone);
+    vi.mocked(repos.programEnrollmentRepository.findOne).mockResolvedValue({
+      id: 'enrollment-1',
+    } as ProgramEnrollment);
+    vi.mocked(repos.milestoneAchievementRepository.findOne).mockResolvedValue({
+      id: 'achievement-1',
+    } as MilestoneAchievement);
+    vi.mocked(repos.feeStructureRepository.findOne).mockResolvedValue({
+      id: 'structure-1',
+    } as FeeStructure);
+    vi.mocked(repos.recurringScheduleRepository.findOne).mockResolvedValue({
+      id: 'schedule-1',
+    } as RecurringSchedule);
+    vi.mocked(repos.recurringScheduleStructureRepository.findOne).mockResolvedValue({
+      id: 'link-1',
+    } as RecurringScheduleStructure);
+
+    const result = await ensureProgramParticipationDemoSeed(repos, PARAMS);
+
+    expect(result).toEqual({
+      enrollments: 0,
+      achievements: 0,
+      feeStructures: 0,
+      schedules: 0,
+      scheduleStructures: 0,
+    });
+    expect(vi.mocked(repos.programEnrollmentRepository.create)).not.toHaveBeenCalled();
+    expect(vi.mocked(repos.milestoneAchievementRepository.create)).not.toHaveBeenCalled();
+    expect(vi.mocked(repos.feeStructureRepository.create)).not.toHaveBeenCalled();
+    expect(vi.mocked(repos.recurringScheduleRepository.create)).not.toHaveBeenCalled();
+    expect(vi.mocked(repos.recurringScheduleStructureRepository.create)).not.toHaveBeenCalled();
+  });
+
+  it('throws when the programs are missing', async () => {
+    const repos = participationRepos();
+    vi.mocked(repos.programRepository.findOne).mockResolvedValue(null);
+
+    await expect(ensureProgramParticipationDemoSeed(repos, PARAMS)).rejects.toThrow();
+  });
+
+  it('throws on a short roster', async () => {
+    const repos = participationRepos();
+    stubEmptyLookups(repos);
+
+    await expect(
+      ensureProgramParticipationDemoSeed(repos, { ...PARAMS, studentIds: STUDENT_IDS.slice(0, 5) }),
+    ).rejects.toThrow();
+  });
+});
+
+describe('ensureFineSeedData', () => {
+  function fineRepos() {
+    return {
+      feeStructureRepository: mockRepo<FeeStructure>(),
+      fineRuleRepository: mockRepo<FineRule>(),
+    };
+  }
+
+  const PARAMS = { schoolId: 'school-1', academicYearId: 'year-1', classId: 'class-1' };
+
+  function stubEmptyLookups(repos: ReturnType<typeof fineRepos>) {
+    vi.mocked(repos.feeStructureRepository.findOne).mockResolvedValue(null);
+    vi.mocked(repos.fineRuleRepository.findOne).mockResolvedValue(null);
+  }
+
+  it('creates 5 fine structures and 2 fine rules on an empty database', async () => {
+    const repos = fineRepos();
+    stubEmptyLookups(repos);
+
+    const result = await ensureFineSeedData(repos, PARAMS);
+
+    expect(result).toEqual({ structures: 5, rules: 2 });
+    expect(repos.feeStructureRepository.create).toHaveBeenCalledTimes(5);
+    expect(repos.fineRuleRepository.create).toHaveBeenCalledTimes(2);
+
+    const rulePayloads = vi
+      .mocked(repos.fineRuleRepository.create)
+      .mock.calls.map(([payload]) => payload as Partial<FineRule>);
+    expect(rulePayloads.find((p) => p.trigger === 'ATTENDANCE_ABSENT')?.class_id).toBeNull();
+    expect(rulePayloads.find((p) => p.trigger === 'ATTENDANCE_LATE')?.class_id).toBe('class-1');
+  });
+
+  it('does not duplicate when everything already exists', async () => {
+    const repos = fineRepos();
+    vi.mocked(repos.feeStructureRepository.findOne).mockResolvedValue({
+      id: 'fs-1',
+    } as FeeStructure);
+    vi.mocked(repos.fineRuleRepository.findOne).mockResolvedValue({ id: 'fr-1' } as FineRule);
+
+    const result = await ensureFineSeedData(repos, PARAMS);
+
+    expect(result).toEqual({ structures: 0, rules: 0 });
+    expect(repos.feeStructureRepository.create).not.toHaveBeenCalled();
+    expect(repos.fineRuleRepository.create).not.toHaveBeenCalled();
+  });
+});
+
+describe('ensureRoutineSeed', () => {
+  function routineRepos() {
+    return {
+      userRepository: mockRepo<User>(),
+      teacherRepository: mockRepo<Teacher>(),
+      teacherClassSectionRepository: mockRepo<TeacherClassSection>(),
+      subjectRepository: mockRepo<Subject>(),
+      classRepository: mockRepo<Class>(),
+      shiftRepository: mockRepo<Shift>(),
+      periodSlotRepository: mockRepo<PeriodSlot>(),
+      roomRepository: mockRepo<Room>(),
+      routineRepository: mockRepo<Routine>(),
+      routineSlotRepository: mockRepo<RoutineSlot>(),
+      routineSlotTeacherRepository: mockRepo<RoutineSlotTeacher>(),
+      routineSubstitutionRepository: mockRepo<RoutineSubstitution>(),
+      routineChangeRequestRepository: mockRepo<RoutineChangeRequest>(),
+    };
+  }
+
+  const ROUTINE_PARAMS = {
+    schoolId: 'school-1',
+    academicYearId: 'year-1',
+    classId: 'class-1',
+    sectionAId: 'section-a',
+    sectionBId: 'section-b',
+    primaryTeacherId: 'teacher-1',
+    requestedByUserId: 'user-1',
+  };
+
+  it('skips entirely when the academic year already has a live routine this helper did not create', async () => {
+    const repos = routineRepos();
+    vi.mocked(repos.routineRepository.findOne).mockResolvedValue({
+      id: 'routine-existing',
+      name: "Admin's real routine",
+      deleted_at: null,
+    } as Routine);
+
+    const result = await ensureRoutineSeed(repos, ROUTINE_PARAMS);
+
+    expect(result).toEqual({
+      shifts: 0,
+      periodSlots: 0,
+      rooms: 0,
+      teachers: 0,
+      routines: 0,
+      slots: 0,
+      substitutions: 0,
+      changeRequests: 0,
+    });
+    expect(vi.mocked(repos.shiftRepository.save)).not.toHaveBeenCalled();
+    expect(vi.mocked(repos.classRepository.save)).not.toHaveBeenCalled();
+    expect(vi.mocked(repos.routineSlotRepository.create)).not.toHaveBeenCalled();
+    expect(vi.mocked(repos.routineChangeRequestRepository.create)).not.toHaveBeenCalled();
+  });
+
+  it('[47.2.5] makes the second teacher ASSISTANT_CLASS_TEACHER of section A, once', async () => {
+    const repos = routineRepos();
+    vi.mocked(repos.userRepository.findOne).mockResolvedValue({ id: 'user-2' } as User);
+    vi.mocked(repos.subjectRepository.findOne).mockResolvedValue({ id: 'math' } as Subject);
+
+    await ensureRoutineSeed(repos, ROUTINE_PARAMS);
+
+    const created = vi.mocked(repos.teacherClassSectionRepository.create).mock.calls;
+    expect(created).toHaveLength(1);
+    expect(created[0]?.[0]).toMatchObject({
+      section_id: 'section-a',
+      subject_id: null,
+      assignment_type: TeacherAssignmentType.ASSISTANT_CLASS_TEACHER,
+    });
+
+    // Re-run: the mapping now exists, so nothing more is created.
+    vi.mocked(repos.teacherClassSectionRepository.findOne).mockResolvedValue({
+      id: 'tcs-1',
+    } as TeacherClassSection);
+    await ensureRoutineSeed(repos, ROUTINE_PARAMS);
+    expect(vi.mocked(repos.teacherClassSectionRepository.create)).toHaveBeenCalledTimes(1);
+  });
+
+  // A database seeded before 47.2.5 holds SEED-TEACHER-0002 (globally unique
+  // employee_id) under the old routine-teacher2 user. Inserting a second row
+  // would 23505, so the existing teacher is re-pointed at the new login.
+  it('[47.2.5] re-points a legacy SEED-TEACHER-0002 at the assistant-teacher login', async () => {
+    const repos = routineRepos();
+    vi.mocked(repos.userRepository.findOne).mockResolvedValue({ id: 'user-2' } as User);
+    vi.mocked(repos.subjectRepository.findOne).mockResolvedValue({ id: 'math' } as Subject);
+    const legacy = {
+      id: 'teacher-2',
+      user_id: 'legacy-user',
+      employee_id: 'SEED-TEACHER-0002',
+      deleted_at: null,
+    } as Teacher;
+    vi.mocked(repos.teacherRepository.findOne).mockResolvedValue(legacy);
+
+    await ensureRoutineSeed(repos, ROUTINE_PARAMS);
+
+    expect(vi.mocked(repos.teacherRepository.create)).not.toHaveBeenCalled();
+    expect(vi.mocked(repos.teacherRepository.save)).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'teacher-2', user_id: 'user-2' }),
+    );
+  });
+
+  it('throws when the assistant-teacher login was not seeded first', async () => {
+    const repos = routineRepos();
+    vi.mocked(repos.subjectRepository.findOne).mockResolvedValue({ id: 'math' } as Subject);
+
+    await expect(ensureRoutineSeed(repos, ROUTINE_PARAMS)).rejects.toThrow(/ensureRoleTestUsers/);
+  });
+});
+
+describe('ensurePrintProfileDemoSeed', () => {
+  function repo<T>(data: unknown[]) {
+    const r = mockRepo<Student>();
+    vi.mocked(r.find).mockResolvedValue(data as unknown as Student[]);
+    return r as unknown as Repository<T>;
+  }
+
+  it('fills empty values, keeps set ones, and updates 0 rows on the second run', async () => {
+    const students = [
+      { id: 's1', full_name_bn: null, blood_group: null },
+      { id: 's2', full_name_bn: 'আগেরটাই', blood_group: 'O+' },
+    ];
+    const staff = [{ id: 'h1', name_bn: null, blood_group: 'B+' }];
+    const repos = {
+      studentRepository: repo<Student>(students),
+      staffHrRecordRepository: repo<never>(staff),
+    };
+
+    const first = await ensurePrintProfileDemoSeed(repos, { schoolId: 'school-1' });
+    expect(first).toEqual({ students: 1, staff: 1 });
+    expect(students[0].full_name_bn).toBeTruthy();
+    expect(students[0].blood_group).toBeTruthy();
+    expect(students[1]).toEqual({ id: 's2', full_name_bn: 'আগেরটাই', blood_group: 'O+' });
+    expect(staff[0].name_bn).toBeTruthy();
+    expect(staff[0].blood_group).toBe('B+');
+
+    const second = await ensurePrintProfileDemoSeed(repos, { schoolId: 'school-1' });
+    expect(second).toEqual({ students: 0, staff: 0 });
+  });
+});
+
+describe('ensurePrintDemoSeed', () => {
+  const SCHOOL = '11111111-1111-4111-8111-111111111111';
+  /** In-memory stand-ins: `findOne` looks at what was saved by name, like the real tables. */
+  function setup() {
+    const printers: Array<{ name: string }> = [];
+    const templates: Array<{
+      id: string;
+      name: string;
+      current_version_id: string | null;
+      archived_at: Date | null;
+    }> = [];
+    const students = [
+      { id: 's1', photo_key: null as string | null },
+      { id: 's2', photo_key: 'tenants/x/student-photo/kept.jpg' as string | null },
+    ];
+    const repos = {
+      printerRepository: {
+        findOne: vi.fn(({ where }: { where: { name: string } }) =>
+          Promise.resolve(printers.find((p) => p.name === where.name) ?? null),
+        ),
+        create: vi.fn((d: { name: string }) => d),
+        save: vi.fn((d: { name: string }) => Promise.resolve(printers.push(d))),
+      },
+      printTemplateRepository: {
+        findOne: vi.fn(({ where }: { where: { name: string } }) =>
+          Promise.resolve(templates.find((t) => t.name === where.name) ?? null),
+        ),
+      },
+      studentRepository: {
+        find: vi.fn(() => Promise.resolve(students)),
+        save: vi.fn((s: unknown) => Promise.resolve(s)),
+      },
+    };
+    const ports = {
+      createTemplate: vi.fn((key: string, name: string) => {
+        templates.push({ id: `tpl-${key}`, name, current_version_id: null, archived_at: null });
+        return Promise.resolve({ id: `tpl-${key}` });
+      }),
+      publishTemplate: vi.fn((id: string) => {
+        const t = templates.find((x) => x.id === id);
+        if (t) t.current_version_id = `ver-${id}`;
+        return Promise.resolve();
+      }),
+      setDefaultTemplate: vi.fn(() => Promise.resolve()),
+      putObject: vi.fn(() => Promise.resolve()),
+    };
+    return { repos, ports, printers, students, templates };
+  }
+  const run = (s: ReturnType<typeof setup>) =>
+    ensurePrintDemoSeed(s.repos as unknown as Parameters<typeof ensurePrintDemoSeed>[0], s.ports, {
+      schoolId: SCHOOL,
+    });
+
+  it('creates 2 printers, 2 published templates (student one is default) and a photo for students without one', async () => {
+    const s = setup();
+    const first = await run(s);
+    expect(first).toEqual({ printers: 2, templates: 2, photos: 1 });
+    expect(s.ports.createTemplate).toHaveBeenCalledWith(
+      'student-portrait-classic',
+      'Student ID card',
+    );
+    expect(s.ports.createTemplate).toHaveBeenCalledWith('staff-portrait-modern', 'Staff ID card');
+    // Both are published; each kind's first template is already the default, so only the
+    // demo's explicit set-default calls are asserted to have happened after publish.
+    expect(s.ports.publishTemplate).toHaveBeenCalledTimes(2);
+    expect(s.ports.setDefaultTemplate).toHaveBeenCalledTimes(2);
+    // The photo is a real 600x800 JPEG under this school's key prefix; an existing photo is kept.
+    const [key, body, type] = s.ports.putObject.mock.calls[0] as unknown as [
+      string,
+      Buffer,
+      string,
+    ];
+    expect(key.startsWith(`tenants/${SCHOOL}/student-photo/`)).toBe(true);
+    expect(key.endsWith('.jpg')).toBe(true);
+    expect(type).toBe('image/jpeg');
+    expect(body.subarray(0, 2).toString('hex')).toBe('ffd8');
+    expect(s.students[1]!.photo_key).toBe('tenants/x/student-photo/kept.jpg');
+  });
+
+  it('creates nothing the second time', async () => {
+    const s = setup();
+    await run(s);
+    s.ports.createTemplate.mockClear();
+    s.ports.putObject.mockClear();
+    const second = await run(s);
+    expect(second).toEqual({ printers: 0, templates: 0, photos: 0 });
+    expect(s.ports.createTemplate).not.toHaveBeenCalled();
+    expect(s.ports.putObject).not.toHaveBeenCalled();
+  });
+
+  it('resumes a draft a failed publish stranded, instead of creating a second one', async () => {
+    const s = setup();
+    s.ports.publishTemplate.mockRejectedValueOnce(new Error('publish failed'));
+    await expect(run(s)).rejects.toThrow('publish failed');
+    expect(s.templates).toHaveLength(1); // the stranded draft, never published
+    s.ports.createTemplate.mockClear();
+
+    const second = await run(s);
+
+    // The draft is published under its own id; only the other template is newly created.
+    expect(s.ports.createTemplate).toHaveBeenCalledTimes(1);
+    expect(s.ports.createTemplate).not.toHaveBeenCalledWith(
+      'student-portrait-classic',
+      'Student ID card',
+    );
+    expect(s.ports.publishTemplate).toHaveBeenCalledWith('tpl-student-portrait-classic');
+    expect(second.templates).toBe(2);
+    expect(s.templates).toHaveLength(2);
+  });
+
+  it('leaves an archived template alone', async () => {
+    const s = setup();
+    s.templates.push({
+      id: 'tpl-old',
+      name: 'Student ID card',
+      current_version_id: null,
+      archived_at: new Date(),
+    });
+
+    await run(s);
+
+    expect(s.ports.publishTemplate).not.toHaveBeenCalledWith('tpl-old');
+    expect(s.ports.createTemplate).not.toHaveBeenCalledWith(
+      'student-portrait-classic',
+      'Student ID card',
+    );
+  });
+});
+
+describe('ensurePrintHistoryDemoSeed', () => {
+  const SCHOOL = '11111111-1111-4111-8111-111111111111';
+
+  function setup(over: { jobExists?: boolean; students?: number } = {}) {
+    let n = 0;
+    const repos = {
+      printJobRepository: {
+        findOne: vi.fn(() => Promise.resolve(over.jobExists ? { id: 'j' } : null)),
+      },
+      printTemplateRepository: {
+        findOne: vi.fn(() => Promise.resolve({ id: 'tpl', current_version_id: 'v1' })),
+      },
+      printerRepository: { findOne: vi.fn(() => Promise.resolve({ id: 'printer' })) },
+      studentRepository: {
+        find: vi.fn(() =>
+          Promise.resolve(Array.from({ length: over.students ?? 10 }, (_, i) => ({ id: `s${i}` }))),
+        ),
+      },
+    };
+    const ports = {
+      createJob: vi.fn((input: { subjectIds: string[] }) => {
+        n += 1;
+        return Promise.resolve({
+          job_id: `job-${n}`,
+          items: input.subjectIds.map((id) => ({ item_id: `item-${n}-${id}`, subject_id: id })),
+        });
+      }),
+      confirmJob: vi.fn(() => Promise.resolve()),
+      reprintJob: vi.fn(() => Promise.resolve({ job_id: 'job-reprint' })),
+      revokeItem: vi.fn(() => Promise.resolve()),
+    };
+    const run = () =>
+      ensurePrintHistoryDemoSeed(
+        repos as unknown as Parameters<typeof ensurePrintHistoryDemoSeed>[0],
+        ports,
+        { schoolId: SCHOOL },
+      );
+    return { run, ports };
+  }
+
+  it('makes a confirmed job, a failed job with its reprint, and one revoked card', async () => {
+    const { run, ports } = setup();
+    expect(await run()).toEqual({ jobs: 3, revoked: 1 });
+
+    // Job 1: five students, all OK; its first card is revoked with the demo reason.
+    expect(ports.createJob.mock.calls[0]![0].subjectIds).toHaveLength(5);
+    expect(ports.confirmJob).toHaveBeenCalledWith('job-1', []);
+    expect(ports.revokeItem).toHaveBeenCalledWith('item-1-s0', PRINT_DEMO_REVOKE_REASON);
+    expect(PRINT_DEMO_REVOKE_REASON).toBe('Card lost — replaced');
+
+    // Job 2: the first card failed; it is reprinted (the service makes that copy 2), then confirmed.
+    expect(ports.createJob.mock.calls[1]![0].subjectIds).toEqual(['s5', 's6']);
+    expect(ports.confirmJob).toHaveBeenCalledWith('job-2', ['item-2-s5']);
+    expect(ports.reprintJob).toHaveBeenCalledWith('job-2', ['item-2-s5']);
+    expect(ports.confirmJob).toHaveBeenCalledWith('job-reprint', []);
+  });
+
+  it('does nothing when the demo jobs already exist', async () => {
+    const { run, ports } = setup({ jobExists: true });
+    expect(await run()).toEqual({ jobs: 0, revoked: 0 });
+    expect(ports.createJob).not.toHaveBeenCalled();
+  });
+
+  it('does nothing when there are too few students to make the demo', async () => {
+    const { run, ports } = setup({ students: 3 });
+    expect(await run()).toEqual({ jobs: 0, revoked: 0 });
+    expect(ports.createJob).not.toHaveBeenCalled();
+  });
+});
+
+describe('ensureStaffHrSeed', () => {
+  function makeStaffHrRepos() {
+    return {
+      staffProfileRepository: mockRepo<StaffProfile>(),
+      leavePolicyRepository: mockRepo<LeavePolicy>(),
+      staffAttendanceSessionRepository: mockRepo<StaffAttendanceSession>(),
+      staffAttendanceRecordRepository: mockRepo<StaffAttendanceRecord>(),
+      leaveRecordRepository: mockRepo<LeaveRecord>(),
+    };
+  }
+
+  it('creates a staff profile in the seeded school when the user has none', async () => {
+    const repos = makeStaffHrRepos();
+    vi.mocked(repos.staffProfileRepository.findOne).mockResolvedValue(null);
+
+    const result = await ensureStaffHrSeed(repos, 'school-a', [
+      { userId: 'user-1', employeeId: 'EMP-SEED-001' },
+    ]);
+
+    expect(result.staffProfiles).toBe(1);
+    expect(vi.mocked(repos.staffProfileRepository.create).mock.calls[0]?.[0]).toMatchObject({
+      tenant_id: 'school-a',
+      user_id: 'user-1',
+      employee_id: 'EMP-SEED-001',
+    });
+  });
+
+  it('looks a profile up by user alone, matching the global UQ_staff_profiles_user', async () => {
+    const repos = makeStaffHrRepos();
+    vi.mocked(repos.staffProfileRepository.findOne).mockResolvedValue(null);
+
+    await ensureStaffHrSeed(repos, 'school-a', [{ userId: 'user-1', employeeId: 'EMP-SEED-001' }]);
+
+    // A `{ tenant_id, user_id }` lookup would miss a profile in another
+    // tenant, and the insert would then violate the user-only unique key.
+    expect(repos.staffProfileRepository.findOne).toHaveBeenCalledWith({
+      where: { user_id: 'user-1' },
+    });
+  });
+
+  it('skips a user whose only profile is in another tenant instead of crashing', async () => {
+    // Real case: admin@biddaloy.test is ADMIN in both default-school and
+    // rose-valley-school, and its single profile lives in rose-valley.
+    const repos = makeStaffHrRepos();
+    vi.mocked(repos.staffProfileRepository.findOne).mockResolvedValue({
+      id: 'profile-in-b',
+      tenant_id: 'school-b',
+      user_id: 'user-1',
+    } as StaffProfile);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const result = await ensureStaffHrSeed(repos, 'school-a', [
+      { userId: 'user-1', employeeId: 'EMP-SEED-001' },
+    ]);
+
+    // No second profile is inserted for this user...
+    expect(repos.staffProfileRepository.save).not.toHaveBeenCalled();
+    expect(result.staffProfiles).toBe(0);
+    // ...and school-a's sample attendance/leave rows are never attached to
+    // school-b's profile (tenant isolation): with no usable profile, none
+    // are written at all.
+    expect(repos.staffAttendanceRecordRepository.save).not.toHaveBeenCalled();
+    expect(repos.leaveRecordRepository.save).not.toHaveBeenCalled();
+    expect(warn).toHaveBeenCalledTimes(1);
+    warn.mockRestore();
+  });
+});
+
+describe('[41.2.c] ensureAttendanceOpsSeed', () => {
+  // 2026-10-05 is a Monday; Friday is the weekly off. The five working days
+  // before it: Sun Oct 4, Sat Oct 3, Thu Oct 1, Wed Sep 30, Tue Sep 29.
+  const TODAY = '2026-10-05';
+  const WEEKLY_MONDAY_P1 = {
+    weekday: 1,
+    subject_id: 'math',
+    valid_from: '2026-01-01',
+    period_slot_id: 'p1',
+  } as unknown as RoutineSlot;
+  const PARAMS = {
+    schoolId: 'school-1',
+    today: TODAY,
+    sections: [
+      { id: 'section-a', studentIds: ['a1', 'a2', 'a3'] },
+      { id: 'section-b', studentIds: ['b1', 'b2', 'b3'] },
+    ],
+    teacherUserId: 'teacher-user-1',
+    subjectId: 'math',
+  } as const;
+
+  function opsRepos() {
+    const repos = {
+      teacherRepository: mockRepo<Teacher>(),
+      teacherClassSectionRepository: mockRepo<TeacherClassSection>(),
+      routineSlotRepository: mockRepo<RoutineSlot>(),
+      periodSlotRepository: mockRepo<PeriodSlot>(),
+      attendanceSessionRepository: mockRepo<AttendanceSession>(),
+      attendanceRecordRepository: mockRepo<AttendanceRecord>(),
+    };
+    for (const repo of Object.values(repos)) vi.mocked(repo.findOne).mockResolvedValue(null);
+    vi.mocked(repos.teacherRepository.findOne).mockResolvedValue({ id: 'teacher-1' } as Teacher);
+    vi.mocked(repos.routineSlotRepository.find).mockResolvedValue([WEEKLY_MONDAY_P1]);
+    vi.mocked(repos.periodSlotRepository.find).mockResolvedValue([
+      { id: 'p1', sequence: 1 } as PeriodSlot,
+    ]);
+    return repos;
+  }
+
+  const created = <T>(repo: { create: unknown }) =>
+    vi.mocked(repo.create as ReturnType<typeof vi.fn>).mock.calls.map(([p]) => p as T);
+
+  it('writes 5 finalized days x 2 sections, a draft, 2 period sessions and their records', async () => {
+    const repos = opsRepos();
+
+    const result = await ensureAttendanceOpsSeed(repos, PARAMS);
+
+    // 10 day sessions + B's draft; A's two Monday period-1 registers.
+    // 10 x 3 + 3 (draft) + 2 x 3 (periods) records.
+    expect(result).toEqual({ daySessions: 11, periodSessions: 2, records: 39 });
+  });
+
+  it('leaves section A with no register today and gives B a DRAFT', async () => {
+    const repos = opsRepos();
+    await ensureAttendanceOpsSeed(repos, PARAMS);
+
+    const today = created<AttendanceSession>(repos.attendanceSessionRepository).filter(
+      (s) => s.date === TODAY,
+    );
+    expect(today).toHaveLength(1);
+    expect(today[0]).toMatchObject({ section_id: 'section-b', state: 'DRAFT', period_no: null });
+  });
+
+  it('gives every period session a subject_id and keeps period registers on routine weekdays', async () => {
+    const repos = opsRepos();
+    await ensureAttendanceOpsSeed(repos, PARAMS);
+
+    const periods = created<AttendanceSession>(repos.attendanceSessionRepository).filter(
+      (s) => s.period_no !== null,
+    );
+    expect(periods.map((s) => [s.date, s.period_no, s.subject_id])).toEqual([
+      ['2026-09-28', 1, 'math'],
+      ['2026-09-21', 1, 'math'],
+    ]);
+  });
+
+  it('puts ABSENT/LATE only in the current month (the fine sweep owns last month)', async () => {
+    const repos = opsRepos();
+    await ensureAttendanceOpsSeed(repos, PARAMS);
+
+    const bad = created<AttendanceRecord>(repos.attendanceRecordRepository).filter(
+      (r) =>
+        (r.status === AttendanceStatus.ABSENT || r.status === AttendanceStatus.LATE) &&
+        !r.date!.startsWith('2026-10'),
+    );
+    expect(bad).toEqual([]);
+  });
+
+  it('shows every status across the seeded days when they fall in one month', async () => {
+    const repos = opsRepos();
+    // Tue 2026-10-13: the five working days before it are all in October.
+    await ensureAttendanceOpsSeed(repos, { ...PARAMS, today: '2026-10-13' });
+
+    const statuses = new Set(
+      created<AttendanceRecord>(repos.attendanceRecordRepository).map((r) => r.status),
+    );
+    expect(statuses).toEqual(
+      new Set([
+        AttendanceStatus.PRESENT,
+        AttendanceStatus.ABSENT,
+        AttendanceStatus.LATE,
+        AttendanceStatus.LEAVE,
+      ]),
+    );
+  });
+
+  it('never fills the day the e2e register journey marks (Thursday when today is Friday)', async () => {
+    const repos = opsRepos();
+    await ensureAttendanceOpsSeed(repos, { ...PARAMS, today: '2026-10-09' }); // a Friday
+
+    const dates = created<AttendanceSession>(repos.attendanceSessionRepository).map((s) => s.date);
+    expect(dates).not.toContain('2026-10-08');
+  });
+
+  it('maps the teacher to section B and is a no-op on a second run', async () => {
+    const repos = opsRepos();
+    await ensureAttendanceOpsSeed(repos, PARAMS);
+    expect(created(repos.teacherClassSectionRepository)).toEqual([
+      expect.objectContaining({ section_id: 'section-b', teacher_id: 'teacher-1' }),
+    ]);
+
+    vi.mocked(repos.attendanceSessionRepository.findOne).mockResolvedValue({
+      id: 's',
+    } as AttendanceSession);
+    vi.mocked(repos.attendanceRecordRepository.findOne).mockResolvedValue({} as AttendanceRecord);
+    vi.mocked(repos.teacherClassSectionRepository.findOne).mockResolvedValue(
+      {} as TeacherClassSection,
+    );
+    expect(await ensureAttendanceOpsSeed(repos, PARAMS)).toEqual({
+      daySessions: 0,
+      periodSessions: 0,
+      records: 0,
+    });
+  });
+});
+
+describe('[41.2.c] ensureAttendancePeriodSetting', () => {
+  it('turns the period switch on, keeping other attendance settings', () => {
+    const school = { settings: { attendance: { lateAfter: '09:00' } } } as unknown as School;
+    expect(ensureAttendancePeriodSetting(school)).toBe(true);
+    expect(school.settings).toMatchObject({
+      attendance: { lateAfter: '09:00', periodAttendance: { enabled: true } },
+    });
+  });
+
+  it('leaves a hand-set value alone', () => {
+    const school = {
+      settings: { attendance: { periodAttendance: { enabled: false } } },
+    } as unknown as School;
+    expect(ensureAttendancePeriodSetting(school)).toBe(false);
+    expect(school.settings).toEqual({ attendance: { periodAttendance: { enabled: false } } });
   });
 });

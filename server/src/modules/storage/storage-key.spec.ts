@@ -4,6 +4,12 @@ import { tenantObjectKey, tenantObjectKeyNamed } from './storage-key';
 const VALID_TENANT_ID = '3fa85f64-5717-4562-b3fc-2c963f66afa6';
 
 describe('tenantObjectKey', () => {
+  it.each(['svg', 'ttf', 'otf', 'woff2'])('accepts the print asset extension %s', (ext) => {
+    expect(tenantObjectKey(VALID_TENANT_ID, 'print-artwork', ext)).toMatch(
+      new RegExp(`\\.${ext}$`),
+    );
+  });
+
   it('builds a tenants/<uuid>/<category>/<uuid>.<ext> key', () => {
     const key = tenantObjectKey(VALID_TENANT_ID, 'avatars', 'png');
     expect(key).toMatch(new RegExp(`^tenants/${VALID_TENANT_ID}/avatars/[0-9a-f-]{36}\\.png$`));
@@ -41,6 +47,10 @@ describe('tenantObjectKey', () => {
 
   it('rejects an extension carrying a path segment', () => {
     expect(() => tenantObjectKey(VALID_TENANT_ID, 'avatars', '../../png')).toThrow(/not allowed/);
+  });
+
+  it.each(['svg', 'ttf', 'otf', 'woff2'])('accepts the print asset extension %s', (ext) => {
+    expect(tenantObjectKey(VALID_TENANT_ID, 'print-font', ext)).toMatch(new RegExp(`\\.${ext}$`));
   });
 
   it('accepts a mixed-case extension by normalizing it', () => {

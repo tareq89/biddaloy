@@ -25,6 +25,12 @@ import {
   BulkUploadPreviewRowDto,
 } from './dto/students.dto';
 import { AuditAction, CommunicationMedium } from '@biddaloy/shared';
+import { assertSeatsAvailable, getSeatUsage } from '../schools/trial/seat-limit.service';
+
+function isSeatLimitError(err: ConflictException): boolean {
+  const body = err.getResponse() as { details?: { code?: string } };
+  return body.details?.code === 'SEAT_LIMIT_REACHED';
+}
 
 /**
  * A row-scoped failure enriched with which spreadsheet column the problem
@@ -160,6 +166,19 @@ export class StudentBulkUploadService {
       }
     }
 
+    // [13.2.3] Every row creates an ACTIVE student, so the file as a whole must fit the seats left.
+    // Blocking (counts as a hard error) — commit also re-checks under a lock.
+    const seatUsage = await getSeatUsage(this.classRepo.manager, tenantId);
+    if (seatUsage.limit !== null && seatUsage.used + staged.length > seatUsage.limit) {
+      errors.push({
+        row: 0,
+        tab: undefined,
+        column: null,
+        severity: 'error',
+        message: `Seat limit reached: ${seatUsage.used} of ${seatUsage.limit} seats in use, and this file adds ${staged.length}`,
+      });
+    }
+
     const stagedPayload: StagedBulkUpload = {
       filename: file.originalname,
       rows: staged,
@@ -180,6 +199,7 @@ export class StudentBulkUploadService {
       preview: preview.slice(0, 20),
       errors,
       hard_error_count: errors.length,
+      seats: { ...seatUsage, new_rows: staged.length },
     };
   }
 
@@ -210,6 +230,12 @@ export class StudentBulkUploadService {
       );
     }
 
+    // [13.2.3] Refuse the whole file up front so a full school never gets a partial import. Each
+    // row's own create re-checks under the lock, which covers a concurrent create racing this one.
+    await this.classRepo.manager.transaction((m) =>
+      assertSeatsAvailable(m, tenantId, staged.rows.length),
+    );
+
     const errors: BulkUploadErrorDto[] = [];
     const createdStudentIds: string[] = [];
     const guardianCache = new Map<string, string>();
@@ -219,7 +245,12 @@ export class StudentBulkUploadService {
         const studentId = await this.createRow(row, tenantId, guardianCache, userId);
         createdStudentIds.push(studentId);
       } catch (err) {
-        if (err instanceof BadRequestException) {
+        // [13.2.3] A concurrent create can fill the school mid-commit. Report that row (and every
+        // later one, which will hit the same wall) as an error, so the audit row and the response
+        // match what was actually written instead of the whole request failing after a partial write.
+        if (err instanceof ConflictException && isSeatLimitError(err)) {
+          errors.push({ row: row.rowNumber, field: 'seat_limit', reason: err.message });
+        } else if (err instanceof BadRequestException) {
           errors.push({
             row: row.rowNumber,
             ...(err instanceof BulkRowError && err.field !== undefined ? { field: err.field } : {}),

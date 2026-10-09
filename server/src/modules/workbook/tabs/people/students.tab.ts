@@ -1,8 +1,19 @@
 import type { EntityManager } from 'typeorm';
+import { IsNull } from 'typeorm';
 import { CommunicationMedium, EnrollmentStatus } from '@biddaloy/shared';
+import { BLOOD_GROUPS } from '../../../students/dto/students.dto';
 import { Student } from '../../../students/entities/student.entity';
 import { Guardian } from '../../../students/entities/guardian.entity';
+import { Enrollment } from '../../../students/entities/enrollment.entity';
+import { ClassSection } from '../../../academics/entities/class-section.entity';
+import {
+  lockSeatUsage,
+  seatLimitError,
+  assertSeatsAvailable,
+  type SeatUsage,
+} from '../../../schools/trial/seat-limit.service';
 import { fromCell, formatDateOnly } from '../../codec/cell-format';
+import { rehomeStorageKey } from '../../codec/storage-key-scope';
 import type {
   ColumnSpec,
   ExportContext,
@@ -48,11 +59,19 @@ export interface StudentRow {
   id: string;
   registration_number: string;
   full_name: string;
+  full_name_bn: string | null;
+  blood_group: string | null;
+  photo_key: string | null;
   roll_number: number;
   class_section_id: string;
   date_of_birth: string | null;
   gender: string | null;
   home_address: string | null;
+  religion: string | null;
+  birth_reg_no: string | null;
+  health_notes: string | null;
+  father_name: string | null;
+  mother_name: string | null;
   preferred_communication: CommunicationMedium;
   enrollment_status: EnrollmentStatus;
   guardian_ids: string[];
@@ -109,6 +128,24 @@ const columns: readonly ColumnSpec[] = [
     label: { en: 'Section', bn: 'শাখা' },
   },
   {
+    key: 'full_name_bn',
+    type: 'string',
+    label: { en: 'Full name (Bangla)', bn: 'পূর্ণ নাম (বাংলা)' },
+  },
+  {
+    key: 'blood_group',
+    type: 'enum',
+    enumValues: BLOOD_GROUPS,
+    label: { en: 'Blood group', bn: 'রক্তের গ্রুপ' },
+  },
+  {
+    // Metadata only, like staff_documents' storage_key: the object it names
+    // in StorageService is not carried by the workbook.
+    key: 'photo_key',
+    type: 'string',
+    label: { en: 'Photo key', bn: 'ছবির কী' },
+  },
+  {
     key: 'date_of_birth',
     type: 'date',
     label: { en: 'Date of birth', bn: 'জন্ম তারিখ' },
@@ -123,6 +160,31 @@ const columns: readonly ColumnSpec[] = [
     key: 'home_address',
     type: 'string',
     label: { en: 'Home address', bn: 'বাসার ঠিকানা' },
+  },
+  {
+    key: 'religion',
+    type: 'string',
+    label: { en: 'Religion', bn: 'ধর্ম' },
+  },
+  {
+    key: 'birth_reg_no',
+    type: 'string',
+    label: { en: 'Birth registration no.', bn: 'জন্মনিবন্ধন নম্বর' },
+  },
+  {
+    key: 'health_notes',
+    type: 'string',
+    label: { en: 'Health notes', bn: 'স্বাস্থ্য সংক্রান্ত তথ্য' },
+  },
+  {
+    key: 'father_name',
+    type: 'string',
+    label: { en: "Father's name", bn: 'পিতার নাম' },
+  },
+  {
+    key: 'mother_name',
+    type: 'string',
+    label: { en: "Mother's name", bn: 'মাতার নাম' },
   },
   {
     // Not `required`: an empty cell defaults to the entity's own default
@@ -174,6 +236,8 @@ const excluded: readonly string[] = [
 const MAX_LENGTHS: Record<string, number> = {
   registration_number: 50,
   full_name: 100,
+  full_name_bn: 200,
+  photo_key: 255,
   gender: 10,
 };
 
@@ -218,6 +282,9 @@ export const studentsTab: TabSpec<Student, StudentRow> = {
       id: entity.id,
       registration_number: entity.registration_number,
       full_name: entity.full_name,
+      full_name_bn: entity.full_name_bn,
+      blood_group: entity.blood_group,
+      photo_key: entity.photo_key,
       roll_number: entity.roll_number,
       section: ctx.keyOf('sections', entity.class_section_id),
       class: ctx.keyOf('classes', entity.class_section?.class_id ?? ''),
@@ -228,6 +295,11 @@ export const studentsTab: TabSpec<Student, StudentRow> = {
       date_of_birth: entity.date_of_birth,
       gender: entity.gender,
       home_address: entity.home_address,
+      religion: entity.religion,
+      birth_reg_no: entity.birth_reg_no,
+      health_notes: entity.health_notes,
+      father_name: entity.father_name,
+      mother_name: entity.mother_name,
       preferred_communication: entity.preferred_communication,
       enrollment_status: entity.enrollment_status,
       guardian_phones: guardianKeys,
@@ -352,16 +424,42 @@ export const studentsTab: TabSpec<Student, StudentRow> = {
 
     if (errors.length > 0) return { errors };
 
+    // A photo key from another school must not survive a restore (see storage-key-scope.ts):
+    // the student photo route streams by the stored key. Keys outside `tenants/` are left alone.
+    let photoKey = (values.photo_key as string | null) ?? null;
+    if (photoKey) {
+      const rehomed = rehomeStorageKey(photoKey, ctx.tenantId);
+      if (rehomed?.moved) {
+        ctx.warn({
+          tab: 'students',
+          row: rowNo,
+          column: 'photo_key',
+          message: 'This photo came from another school. Its file was not copied; upload it again.',
+          severity: 'warning',
+          value: photoKey,
+        });
+        photoKey = rehomed.key;
+      }
+    }
+
     return {
       row: {
         id: values.id as string,
         registration_number: values.registration_number as string,
         full_name: values.full_name as string,
+        full_name_bn: (values.full_name_bn as string | null) ?? null,
+        blood_group: (values.blood_group as string | null) ?? null,
+        photo_key: photoKey,
         roll_number: values.roll_number as number,
         class_section_id: sectionId as string,
         date_of_birth: (values.date_of_birth as string | null) ?? null,
         gender: (values.gender as string | null) ?? null,
         home_address: (values.home_address as string | null) ?? null,
+        religion: (values.religion as string | null) ?? null,
+        birth_reg_no: (values.birth_reg_no as string | null) ?? null,
+        health_notes: (values.health_notes as string | null) ?? null,
+        father_name: (values.father_name as string | null) ?? null,
+        mother_name: (values.mother_name as string | null) ?? null,
         preferred_communication:
           (values.preferred_communication as CommunicationMedium | null) ?? CommunicationMedium.SMS,
         enrollment_status:
@@ -390,9 +488,17 @@ export const studentsTab: TabSpec<Student, StudentRow> = {
     const fields = [
       'registration_number',
       'full_name',
+      'full_name_bn',
+      'blood_group',
+      'photo_key',
       'roll_number',
       'gender',
       'home_address',
+      'religion',
+      'birth_reg_no',
+      'health_notes',
+      'father_name',
+      'mother_name',
       'preferred_communication',
       'enrollment_status',
       'user_id',
@@ -461,6 +567,20 @@ export const studentsTab: TabSpec<Student, StudentRow> = {
       );
     }
 
+    // [13.2.3] A row takes a NEW seat when it ends up ACTIVE and the student was not already an
+    // active, live one (brand new, revived from soft delete, or re-activated). Checked on the
+    // restore transaction `m` — which sees this restore's earlier rows — so the running total is
+    // the post-restore total and a throw rolls the whole tab back (no partial write).
+    // ponytail: counts before `deleteByAbsence` removals run, so a restore that swaps students at
+    // a full school can be refused conservatively; exact net count needs the processor (outside
+    // this lane).
+    const takesNewSeat =
+      row.enrollment_status === EnrollmentStatus.ACTIVE &&
+      (!student ||
+        student.deleted_at !== null ||
+        student.enrollment_status !== EnrollmentStatus.ACTIVE);
+    if (takesNewSeat) await takeSeat(m, tenantId);
+
     if (student) {
       student.deleted_at = null;
     } else {
@@ -470,6 +590,9 @@ export const studentsTab: TabSpec<Student, StudentRow> = {
     student.tenant_id = tenantId;
     student.registration_number = row.registration_number;
     student.full_name = row.full_name;
+    student.full_name_bn = row.full_name_bn;
+    student.blood_group = row.blood_group;
+    student.photo_key = row.photo_key;
     // `roll_number` is unique per `class_section_id`
     // (`IDX_ca01941430b7d99b013e6c6948`, migrations/1784175065078-InitialSchema.ts:61).
     // This tab deliberately does NOT pre-check it: the restore executor (14.10.2)
@@ -479,6 +602,11 @@ export const studentsTab: TabSpec<Student, StudentRow> = {
     student.date_of_birth = row.date_of_birth ? new Date(row.date_of_birth) : null;
     student.gender = row.gender;
     student.home_address = row.home_address;
+    student.religion = row.religion;
+    student.birth_reg_no = row.birth_reg_no;
+    student.health_notes = row.health_notes;
+    student.father_name = row.father_name;
+    student.mother_name = row.mother_name;
     student.preferred_communication = row.preferred_communication;
     student.enrollment_status = row.enrollment_status;
     student.user_id = row.user_id;
@@ -508,6 +636,57 @@ export const studentsTab: TabSpec<Student, StudentRow> = {
         .addAndRemove(toAdd, toRemove);
     }
 
+    // [#1020] Keep `Enrollment` in sync with the restored `Student` row —
+    // same reasoning as `StudentService.update()`: exam cohort resolution
+    // reads `Enrollment`, not `Student.class_section_id`. The section is
+    // the authoritative parent (see the class docstring above), so its own
+    // `class_id`/`academic_year_id` are read off it rather than
+    // re-resolving `row.class_key`/`row.academic_year_key`. Runs on the
+    // same `m` the rest of `upsert` used, so it shares the restore
+    // executor's transaction.
+    // Only an ACTIVE student should be in an ACTIVE Enrollment — a restored
+    // row for a GRADUATED/TRANSFERRED/INACTIVE student must not be synced
+    // into (or create) an ACTIVE Enrollment, or they'd reappear in exam
+    // cohorts.
+    const section =
+      saved.class_section_id && saved.enrollment_status === EnrollmentStatus.ACTIVE
+        ? await m.findOne(ClassSection, {
+            where: { id: saved.class_section_id, tenant_id: tenantId, deleted_at: IsNull() },
+            relations: ['class'],
+          })
+        : null;
+    if (section) {
+      // Keyed on the section's own academic year, not "whichever ACTIVE
+      // row is newest" — a restore that changes a student's year must
+      // update that year's enrollment, not repoint an unrelated one.
+      const currentEnrollment = await m.findOne(Enrollment, {
+        where: {
+          student_id: saved.id,
+          tenant_id: tenantId,
+          academic_year_id: section.class.academic_year_id,
+          enrollment_status: EnrollmentStatus.ACTIVE,
+        },
+      });
+      if (currentEnrollment) {
+        await m.update(
+          Enrollment,
+          { id: currentEnrollment.id },
+          { class_id: section.class_id, section_id: section.id },
+        );
+      } else {
+        await m.save(
+          Enrollment,
+          m.create(Enrollment, {
+            student_id: saved.id,
+            class_id: section.class_id,
+            section_id: section.id,
+            academic_year_id: section.class.academic_year_id,
+            tenant_id: tenantId,
+          }),
+        );
+      }
+    }
+
     return saved;
   },
 
@@ -517,7 +696,27 @@ export const studentsTab: TabSpec<Student, StudentRow> = {
   },
 };
 
-/** `date_of_birth` is nullable; `formatDateOnly` itself rejects null. */
+/**
+ * Running seat total per restore transaction: lock + count once on the first new seat, then count
+ * up in memory (the School lock is held until commit, so nobody else can add). Outside a real
+ * transaction there is no such lock, so every call re-checks.
+ */
+const seatTotals = new WeakMap<EntityManager, SeatUsage>();
+
+async function takeSeat(m: EntityManager, tenantId: string): Promise<void> {
+  if (!m.queryRunner?.isTransactionActive) return assertSeatsAvailable(m, tenantId, 1);
+  let total = seatTotals.get(m);
+  if (!total) {
+    total = await lockSeatUsage(m, tenantId);
+    seatTotals.set(m, total);
+  }
+  if (total.limit !== null && total.used + 1 > total.limit) {
+    throw seatLimitError(total.used, total.limit, 1);
+  }
+  total.used += 1;
+}
+
+/** `date_of_birth` is nullable;`formatDateOnly` itself rejects null. */
 function formatNullableDateOnly(value: Date | string | null): string | null {
   return value === null || value === undefined ? null : formatDateOnly(value);
 }

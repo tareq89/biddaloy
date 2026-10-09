@@ -20,6 +20,7 @@ import type { RecurringSchedule } from '../entities/recurring-schedule.entity';
 import { Invoice, InvoiceSnapshot } from '../../invoices/entities/invoice.entity';
 import { IssuerSnapshot } from '../../schools/profile/issuer-snapshot';
 import type { StudentDueSummary } from '../fee-dues.service';
+import type { StaffFineDto } from '../fines/dto/fines.dto';
 
 /**
  * [16.8.2] The one module that owns every family-facing (PARENT/STUDENT)
@@ -282,6 +283,14 @@ export class FamilyDueEntryDto {
   period_type: PeriodType;
   occurrence_label: string | null;
   is_late_fee: boolean;
+  /** [Epic 38 D17] `fee_structure.fee_type === 'FINE'` — lets the family
+   * portal label a fine bill distinctly from an ordinary due, same as
+   * `is_late_fee`. */
+  is_fine: boolean;
+  /** [Epic 38 D17] The fine's incident note — staff free text, but for a
+   * FINE bill it IS the reason the family owes money, so (unlike
+   * `Payment.remarks`) it is published here. Null for a non-fine due. */
+  note: string | null;
   total_amount: number;
   paid_amount: number;
   discount_amount: number;
@@ -328,6 +337,8 @@ export function toFamilyStudentDue(summary: StudentDueSummary): FamilyStudentDue
       period_type: due.period_type,
       occurrence_label: occurrenceLabel(due.occurrence),
       is_late_fee: due.is_late_fee,
+      is_fine: due.is_fine,
+      note: due.note,
       total_amount: money(due.total_amount),
       paid_amount: money(due.paid_amount),
       discount_amount: money(due.discount_amount),
@@ -634,5 +645,48 @@ export function toFamilyStudentSchedule(input: {
     fees: input.fees.map((fee) => ({ name: fee.name, amount: money(fee.amount) })),
     rule_label: ruleLabel(input.schedule.rule),
     next_period: input.next_period,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Fines (GET /fees/fines, family variant) [Epic 38.2.3]
+// ---------------------------------------------------------------------------
+
+/**
+ * Family-facing view of one FINE bill.
+ *
+ * Withheld: `fee_structure_id`, `origin` (RULE vs MANUAL is a staff-side
+ * classification of how the fine was raised) and, critically,
+ * `approved_by_user_id` — the staff member who approved a waiver, same
+ * category as every other "which staff member did this" field withheld
+ * across this module.
+ */
+export class FamilyFineDto {
+  id: string;
+  student_id: string;
+  fee_name: string;
+  note: string | null;
+  incident_date: Date | null;
+  period_start: Date;
+  total_amount: number;
+  discount_amount: number;
+  paid_amount: number;
+  status: FeeStatus;
+  due_date: Date | null;
+}
+
+export function toFamilyFine(fine: StaffFineDto): FamilyFineDto {
+  return {
+    id: fine.id,
+    student_id: fine.student_id,
+    fee_name: fine.fee_name,
+    note: fine.note,
+    incident_date: fine.incident_date,
+    period_start: fine.period_start,
+    total_amount: money(fine.total_amount),
+    discount_amount: money(fine.discount_amount),
+    paid_amount: money(fine.paid_amount),
+    status: fine.status,
+    due_date: fine.due_date,
   };
 }

@@ -1,6 +1,12 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull } from 'typeorm';
+import { Repository, IsNull, In, QueryFailedError } from 'typeorm';
+import { StudentSubjectChoice } from '../students/entities/student-subject-choice.entity';
 import { Subject } from './entities/subject.entity';
 import { ClassSubject } from './entities/class-subject.entity';
 import { Class } from './entities/class.entity';
@@ -10,7 +16,10 @@ import {
   UpdateSubjectDto,
   QuerySubjectDto,
   AttachClassSubjectDto,
+  UpdateClassSubjectDto,
 } from './dto/subjects.dto';
+import { SchoolSettingsReader } from '../schools/settings/school-settings-reader.service';
+import { assertInVocabulary } from '../schools/settings/organisation-vocabulary.util';
 
 export interface PaginatedSubjects {
   data: Subject[];
@@ -31,7 +40,25 @@ export class SubjectService {
     private readonly classRepo: Repository<Class>,
     @InjectRepository(AcademicYear)
     private readonly academicYearRepo: Repository<AcademicYear>,
+    private readonly settingsReader: SchoolSettingsReader,
   ) {}
+
+  /** [35.1.2] '' -> null; non-null must be in `organisation.groups`; a row
+   * is group-specific OR optional, never both. */
+  private async resolveGroupName(
+    groupName: string | null | undefined,
+    isOptional: boolean,
+    tenantId: string,
+  ): Promise<string | null> {
+    const group = groupName === '' || groupName === undefined ? null : groupName;
+    if (group === null) return null;
+    if (isOptional) {
+      throw new BadRequestException('A subject is either group-specific or optional, not both');
+    }
+    const organisation = await this.settingsReader.organisationVocabulary(tenantId);
+    assertInVocabulary(group, organisation.groups, 'group');
+    return group;
+  }
 
   async create(dto: CreateSubjectDto, tenantId: string): Promise<Subject> {
     const existing = await this.repo.findOne({
@@ -113,6 +140,16 @@ export class SubjectService {
       if (!locked) {
         throw new NotFoundException(`Subject with ID "${id}" not found`);
       }
+      const offerings = await manager.find(ClassSubject, {
+        where: { subject_id: id, tenant_id: tenantId },
+        select: { id: true },
+      });
+      if (offerings.length > 0) {
+        await manager.delete(StudentSubjectChoice, {
+          class_subject_id: In(offerings.map((o) => o.id)),
+          tenant_id: tenantId,
+        });
+      }
       await manager.softDelete(ClassSubject, { subject_id: id, tenant_id: tenantId });
       await manager.softDelete(Subject, { id, tenant_id: tenantId });
     });
@@ -173,6 +210,10 @@ export class SubjectService {
       );
     }
 
+    const isOptional = dto.is_optional ?? false;
+    const groupName = await this.resolveGroupName(dto.group_name, isOptional, tenantId);
+    const choiceGroup = this.resolveChoiceGroup(dto.choice_group, isOptional, groupName);
+
     const savedId = await this.repo.manager.transaction(async (manager) => {
       // Lock the subject row before trusting it as active — serializes
       // with SubjectService.remove()'s own lock on the same row, so a
@@ -212,7 +253,9 @@ export class SubjectService {
         class_id: classId,
         subject_id: dto.subject_id,
         academic_year_id: dto.academic_year_id,
-        is_optional: dto.is_optional ?? false,
+        is_optional: isOptional,
+        group_name: groupName,
+        choice_group: choiceGroup,
         tenant_id: tenantId,
       });
       const saved = await manager.save(ClassSubject, entity);
@@ -221,6 +264,75 @@ export class SubjectService {
 
     return (await this.classSubjectRepo.findOne({
       where: { id: savedId },
+      relations: ['subject'],
+    })) as ClassSubject;
+  }
+
+  /** [35.1.2] Edit is_optional / group_name on an existing offering. */
+  async updateClassSubject(
+    classId: string,
+    subjectId: string,
+    dto: UpdateClassSubjectDto,
+    tenantId: string,
+  ): Promise<ClassSubject> {
+    // Read, validate and write under one row lock: two concurrent PATCHes on
+    // the same offering would otherwise each validate against stale
+    // is_optional/group_name and the later save would clobber the other.
+    const rowId = await this.repo.manager.transaction(async (manager) => {
+      const row = await manager
+        .createQueryBuilder(ClassSubject, 'cs')
+        .setLock('pessimistic_write')
+        .where(
+          `cs.class_id = :classId AND cs.subject_id = :subjectId
+           AND cs.academic_year_id = :yearId AND cs.tenant_id = :tenantId
+           AND cs.deleted_at IS NULL`,
+          { classId, subjectId, yearId: dto.academic_year_id, tenantId },
+        )
+        .getOne();
+      if (!row) {
+        throw new NotFoundException(
+          `Subject "${subjectId}" is not offered by class "${classId}" in that academic year`,
+        );
+      }
+      const isOptional = dto.is_optional ?? row.is_optional;
+      const groupName =
+        dto.group_name !== undefined
+          ? await this.resolveGroupName(dto.group_name, isOptional, tenantId)
+          : row.group_name;
+      // group_name untouched but optional flipped on a grouped row.
+      if (isOptional && groupName !== null) {
+        throw new BadRequestException('A subject is either group-specific or optional, not both');
+      }
+      const choiceGroup = this.resolveChoiceGroup(
+        dto.choice_group !== undefined ? dto.choice_group : row.choice_group,
+        isOptional,
+        groupName,
+      );
+      row.is_optional = isOptional;
+      row.group_name = groupName;
+      row.choice_group = choiceGroup;
+      try {
+        await manager.save(ClassSubject, row);
+      } catch (err) {
+        // The picks table's trigger/unique index guard these (23505/23514). Throwing
+        // here rolls the whole transaction back, so nothing is half-applied.
+        const code = err instanceof QueryFailedError ? (err as any).code : null;
+        if (code === '23505') {
+          throw new ConflictException(
+            'Some students already picked two subjects that would now share this choice group',
+          );
+        }
+        if (code === '23514') {
+          throw new ConflictException(
+            'A fourth-subject pick exists for this offering; clear it first',
+          );
+        }
+        throw err;
+      }
+      return row.id;
+    });
+    return (await this.classSubjectRepo.findOne({
+      where: { id: rowId },
       relations: ['subject'],
     })) as ClassSubject;
   }
@@ -245,6 +357,28 @@ export class SubjectService {
         `Subject "${subjectId}" is not offered by class "${classId}" in that academic year`,
       );
     }
-    await this.classSubjectRepo.softDelete({ id: classSubject.id });
+    // Stale picks would block re-picking after re-attach (23505).
+    await this.classSubjectRepo.manager.transaction(async (manager) => {
+      await manager.delete(StudentSubjectChoice, {
+        class_subject_id: classSubject.id,
+        tenant_id: tenantId,
+      });
+      await manager.softDelete(ClassSubject, { id: classSubject.id });
+    });
+  }
+
+  /** [35.1.8] ''/undefined/null -> null; a group can't be optional or group-specific. */
+  private resolveChoiceGroup(
+    value: string | null | undefined,
+    isOptional: boolean,
+    groupName: string | null,
+  ): string | null {
+    const group = value?.trim() || null;
+    if (group !== null && (isOptional || groupName !== null)) {
+      throw new BadRequestException(
+        'A subject in a choice group cannot also be optional or group-specific',
+      );
+    }
+    return group;
   }
 }
