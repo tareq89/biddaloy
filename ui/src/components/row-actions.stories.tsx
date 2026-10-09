@@ -37,3 +37,13 @@ export const CardLayout: Story = {
     </RowActionsLayoutContext.Provider>
   ),
 };
+
+/** [67.2.11] One task-specific text action plus a neutral dismiss. */
+export const TextAction: Story = {
+  args: {
+    actions: [
+      { intent: 'edit', label: 'Take attendance', display: 'text', onClick: noop },
+      { intent: 'dismiss', label: 'Close', onClick: noop },
+    ],
+  },
+};

@@ -18,6 +18,7 @@ import {
   PrinterIcon,
   SendIcon,
   Trash2Icon,
+  XIcon,
 } from 'lucide-react';
 import * as React from 'react';
 
@@ -40,7 +41,8 @@ export type RowActionIntent =
   | 'duplicate'
   | 'archive'
   | 'restore'
-  | 'send';
+  | 'send'
+  | 'dismiss';
 
 export interface RowAction {
   intent: RowActionIntent;
@@ -49,6 +51,10 @@ export interface RowAction {
   to?: string;
   allowed?: boolean;
   icon?: React.ReactNode;
+  /** `'text'` shows icon + visible label at every width instead of a tooltip-only icon. Use it
+   * for a row's one task-specific action (e.g. "Take attendance" on the alerts worklist);
+   * generic intents keep the icon rules of 21-ui-patterns section 5. Default `'icon'`. */
+  display?: 'icon' | 'text';
   /** The action's request is in flight: clicks are ignored, the control stays focusable. */
   busy?: boolean;
   /** Copied onto the rendered button/link as the `data-focus-anchor` attribute, so
@@ -80,6 +86,8 @@ const INTENTS: Record<RowActionIntent, { icon: IconType; tone: string }> = {
   reject: { icon: CircleXIcon, tone: 'text-destructive' },
   pay: { icon: HandCoinsIcon, tone: 'text-status-paid-fg' },
   approve: { icon: CircleCheckIcon, tone: 'text-status-paid-fg' },
+  // Closing an alert is not destructive: neutral, unlike `remove`.
+  dismiss: { icon: XIcon, tone: 'text-text-secondary' },
 };
 
 const ICON_BUTTON =
@@ -87,28 +95,34 @@ const ICON_BUTTON =
 const LABELLED_BUTTON =
   'inline-flex h-11 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-md text-label font-medium hover:bg-muted';
 
+const TEXT_BUTTON =
+  'inline-flex h-11 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-md border border-border-functional px-3 text-label font-medium hover:bg-muted md:h-8';
+
 const MAX_INLINE = 3;
 
 function ActionControl({ action, labelled }: { action: RowAction; labelled: boolean }) {
   const { icon: DefaultIcon, tone } = INTENTS[action.intent];
   const glyph = action.icon ?? <DefaultIcon className="size-4" aria-hidden />;
   const anchor = action['data-focus-anchor'];
+  const text = !labelled && action.display === 'text';
   const className = cn(
-    labelled ? LABELLED_BUTTON : ICON_BUTTON,
+    labelled ? LABELLED_BUTTON : text ? TEXT_BUTTON : ICON_BUTTON,
     tone,
     action.busy && 'cursor-wait opacity-50',
   );
   const content = (
     <>
       {glyph}
-      {labelled && <span className="truncate">{action.label}</span>}
+      {(labelled || text) && (
+        <span className={labelled ? 'truncate' : undefined}>{action.label}</span>
+      )}
     </>
   );
   const control = action.to ? (
     <Link
       to={action.to}
       className={className}
-      aria-label={labelled ? undefined : action.label}
+      aria-label={labelled || text ? undefined : action.label}
       data-focus-anchor={anchor}
     >
       {content}
@@ -117,7 +131,7 @@ function ActionControl({ action, labelled }: { action: RowAction; labelled: bool
     <button
       type="button"
       className={className}
-      aria-label={labelled ? undefined : action.label}
+      aria-label={labelled || text ? undefined : action.label}
       aria-disabled={action.busy || undefined}
       aria-busy={action.busy || undefined}
       onClick={action.busy ? undefined : action.onClick}
@@ -126,7 +140,7 @@ function ActionControl({ action, labelled }: { action: RowAction; labelled: bool
       {content}
     </button>
   );
-  if (labelled) return control;
+  if (labelled || text) return control;
   return (
     <Tooltip>
       {/* The tooltip repeats `aria-label`; don't announce it twice as a description. */}
@@ -168,7 +182,10 @@ export function RowActions({ actions }: RowActionsProps) {
   const { t } = useTranslation();
   const layout = React.useContext(RowActionsLayoutContext);
   const labelled = layout === 'labelled';
-  const visible = actions.filter((action) => action.allowed !== false);
+  // Text actions sort first (stable), so the one task-specific action leads the row.
+  const visible = actions
+    .filter((action) => action.allowed !== false)
+    .sort((a, b) => Number(b.display === 'text') - Number(a.display === 'text'));
   if (visible.length === 0) return null;
 
   // More than 3: first 3 stay inline, the rest go in the menu with

@@ -102,6 +102,41 @@ describe('RowActions', () => {
     expect(await screen.findByRole('tooltip')).toBeTruthy();
   });
 
+  it('[67.2.11] a text action shows its label as visible text and is a named button', async () => {
+    const onClick = vi.fn();
+    const { container } = await renderActions([
+      { intent: 'view', label: 'View' },
+      { intent: 'edit', label: 'Take attendance', display: 'text', onClick },
+    ]);
+    const button = screen.getByRole('button', { name: 'Take attendance' });
+    expect(button.textContent).toBe('Take attendance');
+    expect(button.getAttribute('aria-label')).toBeNull();
+    // Text actions sort first.
+    expect(container.querySelectorAll('button')[0]).toBe(button);
+    await userEvent.setup().click(button);
+    expect(onClick).toHaveBeenCalledOnce();
+  });
+
+  it('[67.2.11] with 3 inline actions plus a text one, the extra goes to More', async () => {
+    await renderActions([
+      { intent: 'view', label: 'View' },
+      { intent: 'edit', label: 'Edit' },
+      { intent: 'print', label: 'Print' },
+      { intent: 'dismiss', label: 'Close', display: 'text' },
+    ]);
+    expect(screen.getByRole('button', { name: 'Close' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'More actions' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Print' })).toBeNull();
+  });
+
+  it('[67.2.11] dismiss renders the X icon with the neutral tone', async () => {
+    const { container } = await renderActions([{ intent: 'dismiss', label: 'Close' }]);
+    expect(container.querySelector('svg.lucide-x')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Close' }).className).toContain(
+      'text-text-secondary',
+    );
+  });
+
   it('is axe clean', async () => {
     const { container } = await renderActions(fiveActions());
     await expect(container).toHaveNoViolations();

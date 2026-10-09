@@ -128,6 +128,30 @@ describe('Dialog', () => {
     expect(cls).not.toContain('max-w-140');
   });
 
+  it('[67.2.11] fullScreenOnPhone adds the phone full-screen classes and keeps the size class', async () => {
+    const mk = (props: React.ComponentProps<typeof DialogContent>) => (
+      <Dialog open>
+        <DialogContent {...props}>
+          <DialogTitle>T</DialogTitle>
+        </DialogContent>
+      </Dialog>
+    );
+    const { rerender } = render(mk({}));
+    const plain = (await screen.findByRole('dialog')).className.split(/\s+/);
+    expect(plain.some((c) => c.startsWith('max-md:'))).toBe(false);
+    rerender(mk({ fullScreenOnPhone: true }));
+    const full = screen.getByRole('dialog').className.split(/\s+/);
+    for (const c of [
+      'max-md:inset-0',
+      'max-md:h-dvh',
+      'max-md:rounded-none',
+      'max-md:max-w-none',
+    ]) {
+      expect(full).toContain(c);
+    }
+    expect(full).toContain('max-w-140');
+  });
+
   it('footer has no grey band or top border', async () => {
     render(
       <Dialog open>
