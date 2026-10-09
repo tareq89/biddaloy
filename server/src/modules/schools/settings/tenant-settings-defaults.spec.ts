@@ -4,6 +4,7 @@ import {
   DEFAULT_DOCUMENTS_SETTINGS,
   DEFAULT_ORGANISATION_SETTINGS,
   DEFAULT_ROUTINE_SETTINGS,
+  DEFAULT_STUDY_PLANS_SETTINGS,
   DEFAULT_TENANT_SETTINGS,
 } from './tenant-settings-defaults';
 
@@ -29,6 +30,19 @@ describe('DEFAULT_DOCUMENTS_SETTINGS', () => {
   it('never withholds the admit card by default, and is part of DEFAULT_TENANT_SETTINGS (48.1.03)', () => {
     expect(DEFAULT_DOCUMENTS_SETTINGS).toEqual({ withholdAdmitCardForDues: false });
     expect(DEFAULT_TENANT_SETTINGS.documents).toBe(DEFAULT_DOCUMENTS_SETTINGS);
+  });
+});
+
+describe('DEFAULT_STUDY_PLANS_SETTINGS', () => {
+  it('matches D25/D26', () => {
+    expect(DEFAULT_STUDY_PLANS_SETTINGS).toEqual({
+      statusDeadline: '18:00',
+      reminderTime: '08:00',
+      escalateAfterSchoolDays: 2,
+      weeklyDigestTime: '17:00',
+      guardianDigestSms: false,
+    });
+    expect(DEFAULT_TENANT_SETTINGS.studyPlans).toBe(DEFAULT_STUDY_PLANS_SETTINGS);
   });
 });
 

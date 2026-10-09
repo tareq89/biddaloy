@@ -41,6 +41,7 @@ import type {
   SmsGatewayName,
   SmsMeteringMode,
   BackupScheduleMode,
+  StudyPlansSettings,
 } from '@biddaloy/shared';
 
 /**
@@ -663,6 +664,41 @@ export class DocumentsSettingsDto {
   serialPrefix?: string | null;
 }
 
+/** [66.1.04] `settings.studyPlans` — reminder and digest timing (D25, D26).
+ * `@OptionalSetting` (not `@IsOptional`): an explicit `null` is a 400, since
+ * clearing a field is not supported — omit it to keep the default. */
+export class StudyPlansSettingsDto implements Partial<StudyPlansSettings> {
+  @ApiPropertyOptional()
+  @OptionalSetting()
+  @IsString()
+  @Matches(HH_MM_PATTERN)
+  statusDeadline?: string;
+
+  @ApiPropertyOptional()
+  @OptionalSetting()
+  @IsString()
+  @Matches(HH_MM_PATTERN)
+  reminderTime?: string;
+
+  @ApiPropertyOptional()
+  @OptionalSetting()
+  @IsInt()
+  @Min(1)
+  @Max(10)
+  escalateAfterSchoolDays?: number;
+
+  @ApiPropertyOptional()
+  @OptionalSetting()
+  @IsString()
+  @Matches(HH_MM_PATTERN)
+  weeklyDigestTime?: string;
+
+  @ApiPropertyOptional()
+  @OptionalSetting()
+  @IsBoolean()
+  guardianDigestSms?: boolean;
+}
+
 /**
  * [33.3.1] An explicit rename instruction for one `organisation` vocabulary
  * list, carried alongside a settings PATCH rather than inferred from the
@@ -739,4 +775,8 @@ export class TenantSettingsDto {
   @OptionalSetting()
   @NestedSettings(() => DocumentsSettingsDto)
   documents?: DocumentsSettingsDto;
+
+  @OptionalSetting()
+  @NestedSettings(() => StudyPlansSettingsDto)
+  studyPlans?: StudyPlansSettingsDto;
 }

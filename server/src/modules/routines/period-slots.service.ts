@@ -15,6 +15,7 @@ import {
   ChangeoverSuggestionQueryDto,
 } from './dto/setup.dto';
 import { SchoolSettingsReader } from '../schools/settings/school-settings-reader.service';
+import { LessonDelivery } from '../study-plans/entities/lesson-delivery.entity';
 
 function timeToMinutes(time: string): number {
   const [h, m] = time.split(':').map(Number);
@@ -102,6 +103,16 @@ export class PeriodSlotsService {
         if (referencedCount > 0) {
           throw new ConflictException(
             `Cannot replace period slots for shift "${shiftId}": ${referencedCount} routine slot(s) still reference its existing slots. Remove them first.`,
+          );
+        }
+        // [66.0] Delivery history points at these slots too (FK RESTRICT);
+        // a clear 409 here instead of a raw FK error on the delete below.
+        const deliveryCount = await manager.getRepository(LessonDelivery).count({
+          where: { tenant_id: tenantId, period_slot_id: In(existing.map((slot) => slot.id)) },
+        });
+        if (deliveryCount > 0) {
+          throw new ConflictException(
+            `Cannot replace period slots for shift "${shiftId}": ${deliveryCount} recorded lesson(s) still reference its existing slots.`,
           );
         }
       }

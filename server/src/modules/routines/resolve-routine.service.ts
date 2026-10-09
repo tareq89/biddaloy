@@ -10,7 +10,8 @@ import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { Enrollment } from '../students/entities/enrollment.entity';
 import { Teacher } from '../academics/entities/teacher.entity';
 import { Subject } from '../academics/entities/subject.entity';
-import { SchoolCalendarService } from '../calendar/school-calendar.service';
+import { ClassSection } from '../academics/entities/class-section.entity';
+import { SchoolCalendarService, assertWorkingDaysRange } from '../calendar/school-calendar.service';
 import { occursOn } from './recurrence';
 import { ResolveRoutineQueryDto, ResolvedSlot } from './dto/resolve.dto';
 import {
@@ -50,6 +51,7 @@ export class ResolveRoutineService {
     @InjectRepository(Teacher) private readonly teacherRepo: Repository<Teacher>,
     @InjectRepository(Subject) private readonly subjectRepo: Repository<Subject>,
     private readonly calendarService: SchoolCalendarService,
+    @InjectRepository(ClassSection) private readonly sectionRepo: Repository<ClassSection>,
   ) {}
 
   async resolveRoutine(
@@ -63,6 +65,9 @@ export class ResolveRoutineService {
         'Exactly one of section_id, teacher_id or student_id is required',
       );
     }
+
+    // Before any early return, so a bad range is a 422 whether or not slots exist.
+    assertWorkingDaysRange(query.from, query.to);
 
     let sectionId = query.section_id ?? (await this.resolveStudentSection(query, tenantId));
     if (query.student_id && !sectionId) {
@@ -117,38 +122,82 @@ export class ResolveRoutineService {
     // unrestricted beyond the section/teacher/student filter already
     // required above).
 
-    const { dates } = await this.calendarService.getWorkingDays({
-      tenantId,
-      from: query.from,
-      to: query.to,
-      academicYearId: academicYear.id,
-    });
-    if (dates.length === 0) return [];
-
-    const slots = await this.slotRepo.find({
+    const allSlots = await this.slotRepo.find({
       where: {
         routine_id: routine.id,
         tenant_id: tenantId,
         ...(sectionId ? { section_id: sectionId } : {}),
       },
     });
-    if (slots.length === 0) return [];
+    if (allSlots.length === 0) return [];
 
-    const slotIds = slots.map((s) => s.id);
-    const periodSlotIds = Array.from(new Set(slots.map((s) => s.period_slot_id)));
-
-    const subjectIds = Array.from(new Set(slots.map((s) => s.subject_id)));
-
-    const [periodSlots, teacherRows, substitutions, subjects] = await Promise.all([
-      this.periodSlotRepo.find({ where: { id: In(periodSlotIds), tenant_id: tenantId } }),
-      this.slotTeacherRepo.find({ where: { routine_slot_id: In(slotIds), tenant_id: tenantId } }),
+    const allSlotIds = allSlots.map((s) => s.id);
+    const [teacherRows, substitutions] = await Promise.all([
+      this.slotTeacherRepo.find({
+        where: { routine_slot_id: In(allSlotIds), tenant_id: tenantId },
+      }),
       this.substitutionRepo.find({
         where: {
-          routine_slot_id: In(slotIds),
+          routine_slot_id: In(allSlotIds),
           tenant_id: tenantId,
           date: Between(query.from, query.to),
         },
       }),
+    ]);
+    const teachersBySlot = new Map<string, string[]>();
+    for (const row of teacherRows) {
+      const list = teachersBySlot.get(row.routine_slot_id) ?? [];
+      list.push(row.teacher_id);
+      teachersBySlot.set(row.routine_slot_id, list);
+    }
+
+    // A teacher query keeps only slots the teacher owns or covers in range,
+    // so the per-class working-day lookups below stay at the teacher's classes.
+    const teacherId = effectiveQuery.teacher_id;
+    const coveredSlotIds = new Set(
+      substitutions
+        .filter((sub) => teacherId && sub.substitute_teacher_id === teacherId)
+        .map((sub) => sub.routine_slot_id),
+    );
+    const slots = teacherId
+      ? allSlots.filter(
+          (s) => (teachersBySlot.get(s.id) ?? []).includes(teacherId) || coveredSlotIds.has(s.id),
+        )
+      : allSlots;
+    if (slots.length === 0) return [];
+
+    // A holiday can be scoped to one class, so working days are asked per
+    // distinct class of the slots found (D17), in parallel.
+    const sectionIds = Array.from(new Set(slots.map((s) => s.section_id)));
+    const sections = await this.sectionRepo.find({
+      where: { id: In(sectionIds), tenant_id: tenantId },
+      withDeleted: true,
+      select: { id: true, class_id: true },
+    });
+    const classBySection = new Map(sections.map((c) => [c.id, c.class_id as string | null]));
+    const classKeys = Array.from(
+      new Set<string | null>(sectionIds.map((id) => classBySection.get(id) ?? null)),
+    );
+    const workingDays = await Promise.all(
+      classKeys.map((classId) =>
+        this.calendarService.getWorkingDays({
+          tenantId,
+          from: query.from,
+          to: query.to,
+          academicYearId: academicYear.id,
+          ...(classId ? { classId } : {}),
+        }),
+      ),
+    );
+    const datesByClass = new Map(classKeys.map((classId, i) => [classId, workingDays[i]!.dates]));
+    if (Array.from(datesByClass.values()).every((d) => d.length === 0)) return [];
+
+    const periodSlotIds = Array.from(new Set(slots.map((s) => s.period_slot_id)));
+
+    const subjectIds = Array.from(new Set(slots.map((s) => s.subject_id)));
+
+    const [periodSlots, subjects] = await Promise.all([
+      this.periodSlotRepo.find({ where: { id: In(periodSlotIds), tenant_id: tenantId } }),
       // Families cannot call `GET /subjects`, so the names ride on the slot.
       this.subjectRepo.find({
         where: { id: In(subjectIds), tenant_id: tenantId },
@@ -159,12 +208,6 @@ export class ResolveRoutineService {
 
     const subjectById = new Map(subjects.map((sub) => [sub.id, sub]));
     const kindBySlot = new Map(periodSlots.map((p) => [p.id, p.kind]));
-    const teachersBySlot = new Map<string, string[]>();
-    for (const row of teacherRows) {
-      const list = teachersBySlot.get(row.routine_slot_id) ?? [];
-      list.push(row.teacher_id);
-      teachersBySlot.set(row.routine_slot_id, list);
-    }
     const substitutionByKey = new Map(
       substitutions.map((s) => [`${s.routine_slot_id}|${s.date}`, s]),
     );
@@ -177,6 +220,7 @@ export class ResolveRoutineService {
       const ownTeacherIds = teachersBySlot.get(slot.id) ?? [];
       const validTo = slot.valid_to ?? '9999-12-31';
 
+      const dates = datesByClass.get(classBySection.get(slot.section_id) ?? null) ?? [];
       for (const date of dates) {
         if (date < slot.valid_from || date > validTo) continue;
         if (!occursOn(slot, date, academicYear.start_date as unknown as string)) continue;

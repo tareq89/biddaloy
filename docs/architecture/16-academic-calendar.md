@@ -93,10 +93,12 @@ Callers that pass `classId`: the attendance summary service (one call per
 class group, and per student class in the day view). `isNonWorkingDay`
 accepts a `classId` too, but the attendance write path does not pass one
 yet (that lands in #1587).
+`ResolveRoutineService` asks per class too (66.0.02), so routine, period
+attendance and study plans skip a class-only holiday.
 Callers that stay school-wide (no `classId`): `fine-sweep.service`,
-`resolve-routine.service`, `staff-attendance-summary.service`,
+`staff-attendance-summary.service`,
 `absence-notice.scheduler` (via `isNonWorkingDay`) and the working-days
-controller. For them, a class-scoped holiday no longer removes a day.
+controller. For those, a class-scoped holiday no longer removes a day.
 
 **Draft events never count.** `published_at = null` means the event is
 invisible to working-day math and to attendance, no matter what its

@@ -58,6 +58,10 @@ function deepMergeOmittingUnset(existing: unknown, patch: unknown): unknown {
  * `periodAttendance`, which the older attendance form never sends) survive;
  * keys the patch sends replace the stored value whole.
  *
+ * `routine` is replaced wholesale when present (a cleared cap sent as `null` sticks).
+ *
+ * `studyPlans` is shallow-merged like `attendance`: omitted fields survive.
+ *
  * `communications` merges recursively (`deepMergeOmittingUnset`): saving
  * the WhatsApp section doesn't clobber an already-configured SMS section
  * sitting next to it (#8.7.13 saves per-section, not one page-wide
@@ -139,6 +143,15 @@ export function mergeTenantSettings(
     merged.documents = {
       ...(isPlainObject(merged.documents) ? merged.documents : {}),
       ...(patch.documents as Record<string, unknown>),
+    };
+  }
+
+  // [66.1.04] Shallow per field, like `attendance`: the settings page may save one
+  // field at a time, and an omitted field keeps its stored value.
+  if (patch.studyPlans !== undefined) {
+    merged.studyPlans = {
+      ...(isPlainObject(merged.studyPlans) ? merged.studyPlans : {}),
+      ...(patch.studyPlans as Record<string, unknown>),
     };
   }
 

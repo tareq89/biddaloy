@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { Copy, FileText, Plus } from 'lucide-react';
 import * as React from 'react';
 
 import { ChoiceCards } from './choice-cards';
@@ -32,3 +33,17 @@ type Story = StoryObj<typeof ChoiceCards>;
 export const Default: Story = {};
 export const ThreeColumns: Story = { args: { columns: 3 } };
 export const NothingSelected: Story = { args: { value: undefined } };
+
+const iconOptions = [
+  { value: 'scratch', title: 'Start from scratch', description: 'A blank plan', icon: Plus },
+  { value: 'template', title: 'Use a template', description: 'Pick a ready plan', icon: FileText },
+  { value: 'copy', title: 'Copy last year', description: 'Reuse and adjust', icon: Copy },
+];
+
+export const WithIcons: Story = {
+  args: { label: 'How do you want to start?', options: iconOptions, value: 'scratch', columns: 3 },
+};
+export const WithIconsPhone390: Story = {
+  args: { label: 'How do you want to start?', options: iconOptions, value: 'scratch' },
+  parameters: { viewport: { defaultViewport: 'mobile1' } },
+};

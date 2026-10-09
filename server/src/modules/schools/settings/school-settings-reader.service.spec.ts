@@ -43,3 +43,17 @@ describe('SchoolSettingsReader.feesApprovalMode [16.2.1]', () => {
     expect(await reader.feesApprovalMode('tenant-2')).toBe('OTP');
   });
 });
+
+describe('SchoolSettingsReader.studyPlansSettings [66.1.04]', () => {
+  it('returns the resolved studyPlans block', async () => {
+    const studyPlans = { statusDeadline: '17:30' };
+    const schoolsService = {
+      getResolvedSettings: vi.fn().mockResolvedValue({ version: 1, studyPlans }),
+    } as unknown as SchoolsService;
+
+    const out = await new SchoolSettingsReader(schoolsService).studyPlansSettings('t1');
+
+    expect(out).toBe(studyPlans);
+    expect(schoolsService.getResolvedSettings).toHaveBeenCalledWith('t1');
+  });
+});

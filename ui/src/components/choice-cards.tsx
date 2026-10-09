@@ -8,8 +8,12 @@
  * disabled radio on Tab and arrows, so the reasons are also the group's
  * description (one visually hidden line), which a screen reader reads on
  * entering the group.
+ *
+ * An option may carry an `icon`. Name the group with `label`, or with
+ * `labelledBy` when a visible heading already does. Labels are props — no
+ * `useTranslation`.
  */
-import { CheckIcon } from 'lucide-react';
+import { CheckIcon, type LucideIcon } from 'lucide-react';
 import { RadioGroup as RadioGroupPrimitive } from 'radix-ui';
 import * as React from 'react';
 
@@ -22,26 +26,40 @@ export interface ChoiceCardOption {
   disabled?: boolean;
   /** Shown instead of `description` when the option is disabled. */
   disabledReason?: string;
+  icon?: LucideIcon;
 }
 
-export interface ChoiceCardsProps {
-  /** Group name, read by screen readers. */
-  label: string;
+/** Exactly one of `label` / `labelledBy`: the radiogroup always has a name. */
+export type ChoiceCardsProps = {
   value: string | undefined;
   onValueChange: (value: string) => void;
   options: readonly ChoiceCardOption[];
   /** Columns from `md` up; phone is always 1. */
   columns?: 1 | 2 | 3;
-}
+  className?: string;
+} & (
+  | {
+      /** Used as `aria-label` when there is no visible heading. */
+      label: string;
+      labelledBy?: never;
+    }
+  | {
+      /** Id of the element that names the group. */
+      labelledBy: string;
+      label?: never;
+    }
+);
 
 const COLUMNS = { 1: '', 2: 'md:grid-cols-2', 3: 'md:grid-cols-3' } as const;
 
 export function ChoiceCards({
   label,
+  labelledBy,
   value,
   onValueChange,
   options,
   columns = 1,
+  className,
 }: ChoiceCardsProps) {
   const id = React.useId();
   const disabledNotes = options
@@ -52,11 +70,12 @@ export function ChoiceCards({
     <>
       <RadioGroupPrimitive.Root
         aria-label={label}
+        aria-labelledby={labelledBy}
         aria-describedby={disabledNotesId}
         value={value ?? null}
         onValueChange={onValueChange}
         data-slot="choice-cards"
-        className={cn('grid gap-3', COLUMNS[columns])}
+        className={cn('grid gap-3', COLUMNS[columns], className)}
       >
         {options.map((option, index) => {
           const note = option.disabled ? option.disabledReason : option.description;
@@ -76,8 +95,11 @@ export function ChoiceCards({
                 'disabled:cursor-not-allowed disabled:bg-muted disabled:text-text-secondary',
               )}
             >
-              <span id={titleId} className="font-semibold">
-                {option.title}
+              <span className="flex items-center gap-2">
+                {option.icon && <option.icon aria-hidden="true" className="size-5 shrink-0" />}
+                <span id={titleId} className="font-semibold">
+                  {option.title}
+                </span>
               </span>
               {note && (
                 <span id={noteId} className="text-caption text-text-secondary">
