@@ -53,7 +53,11 @@
     "deleteTitle": "ফাইলটি মুছবেন?",
     "deleteDescription": "ফাইলটি আবেদন থেকে সরে যাবে।",
     "deleteConfirm": "মুছুন",
-    "deleteCancel": "রেখে দিন"
+    "deleteCancel": "রেখে দিন",
+    "errors": {
+      "APPLICATION_ATTACHMENT_LIMIT": "এই আবেদনে আর কোনো সংযুক্তি যোগ করা যাবে না।"
+    },
+    "deleteFailed": "ফাইলটি মুছে ফেলা যায়নি। আবার চেষ্টা করুন।"
   },
   "activity": {
     "title": "কার্যক্রম",
@@ -68,7 +72,11 @@
     "commentPlaceholder": "যাঁদের ট্যাগ করা আছে তাঁরা বিজ্ঞপ্তি পাবেন",
     "commentSend": "মন্তব্য পাঠান",
     "commentFailed": "মন্তব্য পাঠানো যায়নি। আবার চেষ্টা করুন।",
-    "reason": "কারণ: {{note}}"
+    "reason": "কারণ: {{note}}",
+    "errors": {
+      "APPLICATION_TAG_INVALID": "আপনার বেছে নেওয়া একজনকে ট্যাগ করা যাচ্ছে না।",
+      "APPLICATION_TAGS_STAFF_ONLY": "শুধু কর্মীদের ট্যাগ করা যায়।"
+    }
   },
   "events": {
     "SUBMITTED": "{{actor}} আবেদন জমা দিয়েছেন",

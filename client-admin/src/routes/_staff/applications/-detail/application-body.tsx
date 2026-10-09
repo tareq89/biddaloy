@@ -1,5 +1,6 @@
-/** [52.5.2] The letter, its details and the attachments. */
 import { ApplicationStatus } from '@biddaloy/shared';
+import { ApiError } from '@biddaloy/ui/api';
+/** [52.5.2] The letter, its details and the attachments. */
 import { Button, Card, ConfirmDialog } from '@biddaloy/ui/components';
 import {
   downloadApplicationAttachment,
@@ -50,6 +51,13 @@ function amountText(
   return granted.kind === 'PERCENT' ? t('body.percent', { n }) : t('body.flat', { n });
 }
 
+const LIMIT = 'APPLICATION_ATTACHMENT_LIMIT';
+function removeErrorKey(error: unknown): string {
+  const code =
+    error instanceof ApiError ? (error.details as { code?: string } | undefined)?.code : '';
+  return code === LIMIT ? `body.errors.${LIMIT}` : 'body.deleteFailed';
+}
+
 function Attachments({ app }: { app: ApplicationDto }) {
   const { t } = useTranslation('applicationsDetail');
   const config = useRegionConfig();
@@ -97,6 +105,11 @@ function Attachments({ app }: { app: ApplicationDto }) {
           </li>
         ))}
       </ul>
+      {remove.isError && (
+        <p role="alert" className="text-caption text-destructive">
+          {t(removeErrorKey(remove.error))}
+        </p>
+      )}
       {failed && (
         <p role="alert" className="text-caption text-destructive">
           {t('body.downloadFailed')}

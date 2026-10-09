@@ -1,5 +1,6 @@
-/** [52.5.2] History, tags and the comment box. Notes are plain text, never HTML. */
 import type { UserRole } from '@biddaloy/shared';
+import { ApiError } from '@biddaloy/ui/api';
+/** [52.5.2] History, tags and the comment box. Notes are plain text, never HTML. */
 import {
   Button,
   Card,
@@ -21,6 +22,13 @@ import { SendIcon } from 'lucide-react';
 import * as React from 'react';
 
 type Translate = TFunction;
+
+const TAG_CODES = ['APPLICATION_TAG_INVALID', 'APPLICATION_TAGS_STAFF_ONLY'];
+function tagErrorKey(error: unknown): string {
+  const code =
+    error instanceof ApiError ? (error.details as { code?: string } | undefined)?.code : '';
+  return code && TAG_CODES.includes(code) ? `activity.errors.${code}` : 'activity.tagFailed';
+}
 
 const asList = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
 
@@ -98,7 +106,7 @@ function TagEditor({ app }: { app: ApplicationDto }) {
       <p className="text-caption text-text-secondary">{t('activity.tagHelp')}</p>
       {tag.isError && (
         <p role="alert" className="text-caption text-destructive">
-          {t('activity.tagFailed')}
+          {t(tagErrorKey(tag.error))}
         </p>
       )}
       <Button

@@ -131,9 +131,12 @@ describe('decision dialogs', () => {
           ? envelope(403, 'APPROVAL_REQUIRED')
           : HttpResponse.json(applicationDto({ status: 'APPROVED' }));
       }),
-      http.post('/api/v1/auth/step-up/otp/request', () => HttpResponse.json({ sent: true })),
+      http.post('/api/v1/auth/step-up/otp/request', () => HttpResponse.json({}, { status: 202 })),
       http.post('/api/v1/auth/step-up', () =>
-        HttpResponse.json({ approval_token: 'tok-1', expires_in: 300 }),
+        HttpResponse.json(
+          { approval_token: 'tok-1', approver: { id: 'u1', name: 'Admin' } },
+          { status: 201 },
+        ),
       ),
     );
     open(applicationDto({ current_step: 1 }));
@@ -142,9 +145,13 @@ describe('decision dialogs', () => {
     const dialog = await screen.findByRole('dialog');
     await user.click(within(dialog).getByRole('button', { name: 'Approve' }));
     // The shared step-up modal takes over; the first request carried no token.
-    await waitFor(() => expect(headers).toHaveLength(1));
+    await user.type(await screen.findByLabelText('Email or phone'), 'admin@example.com');
+    await user.click(screen.getByRole('button', { name: 'Send code' }));
+    await user.type(await screen.findByLabelText('Verification code'), '123456');
+    await user.click(screen.getByRole('button', { name: 'Verify' }));
+    await waitFor(() => expect(headers).toHaveLength(2));
     expect(headers[0]).toBeNull();
-    expect(await screen.findAllByRole('dialog')).not.toHaveLength(0);
+    expect(headers[1]).toBe('tok-1');
   });
 
   it('APPLICATION_CHANGED shows the translated sentence and refetches the detail', async () => {

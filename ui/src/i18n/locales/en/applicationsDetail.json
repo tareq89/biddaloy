@@ -53,7 +53,11 @@
     "deleteTitle": "Delete this file?",
     "deleteDescription": "The file will be removed from the application.",
     "deleteConfirm": "Delete",
-    "deleteCancel": "Keep it"
+    "deleteCancel": "Keep it",
+    "errors": {
+      "APPLICATION_ATTACHMENT_LIMIT": "This application already has the most attachments it can hold."
+    },
+    "deleteFailed": "The file could not be deleted. Try again."
   },
   "activity": {
     "title": "Activity",
@@ -68,7 +72,11 @@
     "commentPlaceholder": "Tagged people will get a notification",
     "commentSend": "Send comment",
     "commentFailed": "The comment could not be sent. Try again.",
-    "reason": "Reason: {{note}}"
+    "reason": "Reason: {{note}}",
+    "errors": {
+      "APPLICATION_TAG_INVALID": "One of the people you chose cannot be tagged.",
+      "APPLICATION_TAGS_STAFF_ONLY": "Only staff members can be tagged."
+    }
   },
   "events": {
     "SUBMITTED": "{{actor}} submitted the application",
