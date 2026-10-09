@@ -71,6 +71,7 @@ export async function ensureApplicationsSeed(
   if ((await repos.applicationRepository.count({ where: { tenant_id: tenantId } })) > 0) {
     console.log('Applications already seeded — skipping.');
     await ensureDecidedApplicationsSeed(repos, tenantId, adminUserId);
+    await ensureScreenApplicationsSeed(repos, tenantId);
     return;
   }
   // The staff filer is the demo teacher, not "the first profile" (that one is the admin).
@@ -205,6 +206,7 @@ export async function ensureApplicationsSeed(
   await ports.addTags(tenantId, admin, idCard.id, [{ role: UserRole.OFFICE_STAFF }]);
   await ports.comment(tenantId, admin, studentLeave.id, 'অভিভাবকের সাথে যোগাযোগ করা হয়েছে।');
   await ensureDecidedApplicationsSeed(repos, tenantId, adminUserId);
+  await ensureScreenApplicationsSeed(repos, tenantId);
 }
 
 type SeedStudent = { id: string; class_section_id: string };
@@ -567,4 +569,123 @@ async function markStudentLeave(
        WHERE attendance_records.status = 'ABSENT'`,
     [tenantId, session.id, student.id, date, actorUserId],
   );
+}
+
+const SCREEN_SEED_MARK = 'Demo screens application.';
+
+/**
+ * [52.5.8] PENDING rows for the staff screens' Playwright specs, all in the section where
+ * teacher@biddaloy.test is CLASS_TEACHER (it has 3 students, so they are reused): 4 STUDENT_LEAVE (inbox, keyboard, bulk), 1 FEE_WAIVER at
+ * step 0 (bulk must skip it, D35), 1 TESTIMONIAL filed 5 days ago (the reports' "waiting more
+ * than 3 days"). Written as rows like the decided seed. Idempotent: `letter_text` carries a mark.
+ * Leave dates are Mon-Thu in April, clear of every other seeded leave.
+ */
+export async function ensureScreenApplicationsSeed(
+  repos: ApplicationsSeedRepositories,
+  tenantId: string,
+): Promise<void> {
+  const m = repos.applicationRepository.manager;
+  const [done] = await m.query(
+    `SELECT 1 FROM applications WHERE tenant_id = $1 AND letter_text = $2 LIMIT 1`,
+    [tenantId, SCREEN_SEED_MARK],
+  );
+  if (done) return;
+  const [section] = await m.query(
+    `SELECT tcs.section_id AS id FROM teacher_class_sections tcs
+       JOIN teachers t ON t.id = tcs.teacher_id AND t.tenant_id = tcs.tenant_id
+       JOIN users u ON u.id = t.user_id
+      WHERE tcs.tenant_id = $1 AND tcs.assignment_type = 'CLASS_TEACHER' AND u.email = $2
+      LIMIT 1`,
+    [tenantId, TEACHER_EMAIL],
+  );
+  const students: { id: string }[] = section
+    ? await m.query(
+        `SELECT id FROM students WHERE tenant_id = $1 AND class_section_id = $2
+            AND deleted_at IS NULL ORDER BY registration_number LIMIT 3`,
+        [tenantId, section.id],
+      )
+    : [];
+  if (students.length === 0) {
+    console.warn('Teacher section has no students — skipping screen applications seed.');
+    return;
+  }
+  const [year] = await m.query(`SELECT id FROM academic_years WHERE tenant_id = $1 AND name = $2`, [
+    tenantId,
+    DEMO_ACADEMIC_YEAR.name,
+  ]);
+  await m.transaction(async (tx) => {
+    const [{ y, n }] = await tx.query(
+      `SELECT y, coalesce((SELECT max(serial_no) FROM applications
+                            WHERE tenant_id = $1 AND serial_year = y), 0) AS n
+         FROM (SELECT coalesce(max(serial_year), 2026) AS y FROM applications WHERE tenant_id = $1) t`,
+      [tenantId],
+    );
+    let serialNo = Number(n);
+    const insert = async (
+      type: ApplicationType,
+      studentId: string,
+      payload: Record<string, unknown>,
+      opts: { start?: string; ageDays?: number } = {},
+    ): Promise<void> => {
+      serialNo += 1;
+      // The applicant is a guardian with a login, else (a fake) the first user that is not the student.
+      const [g] = await tx.query(
+        `SELECT g.user_id FROM student_guardians sg JOIN guardians g ON g.id = sg.guardian_id
+          WHERE sg.student_id = $1 AND g.tenant_id = $2 AND g.user_id IS NOT NULL LIMIT 1`,
+        [studentId, tenantId],
+      );
+      const [fallback] = g
+        ? []
+        : await tx.query(`SELECT id AS uid FROM users WHERE email = $1`, [PARENT_EMAIL]);
+      const uid: string | undefined = g?.user_id ?? fallback?.uid;
+      if (!uid) throw new Error('screen applications seed: no applicant user for the student');
+      const [{ id }] = await tx.query(
+        `INSERT INTO applications (tenant_id, type, status, source, serial_year, serial_no,
+           academic_year_id, applicant_user_id, subject_student_id, payload, start_date, end_date,
+           current_step, letter_text, letter_locale, created_at)
+         VALUES ($1,$2,'PENDING','APP',$3,$4,$5,$6,$7,$8::jsonb,$9,$9,0,$10,'bn',
+                 now() - make_interval(days => $11))
+         RETURNING id`,
+        [
+          tenantId,
+          type,
+          Number(y),
+          serialNo,
+          year?.id ?? null,
+          uid,
+          studentId,
+          JSON.stringify(payload),
+          opts.start ?? null,
+          SCREEN_SEED_MARK,
+          opts.ageDays ?? 0,
+        ],
+      );
+      await tx.query(
+        `INSERT INTO application_events (tenant_id, application_id, actor_user_id, kind, step, created_at)
+         VALUES ($1,$2,$3,'SUBMITTED',NULL, now() - make_interval(days => $4))`,
+        [tenantId, id, uid, opts.ageDays ?? 0],
+      );
+    };
+    const leaveDays = ['2026-04-06', '2026-04-07', '2026-04-08', '2026-04-09'];
+    for (const [i, day] of leaveDays.entries()) {
+      await insert(
+        ApplicationType.STUDENT_LEAVE,
+        students[i % students.length].id,
+        { reason_kind: 'SICK', start_date: day, end_date: day, details: 'জ্বর' },
+        { start: day },
+      );
+    }
+    await insert(ApplicationType.FEE_WAIVER, students[0].id, {
+      kind: 'FLAT',
+      value: 300,
+      reason: 'আর্থিক অসুবিধা',
+    });
+    await insert(
+      ApplicationType.TESTIMONIAL,
+      students[1 % students.length].id,
+      { purpose: 'বৃত্তির আবেদন' },
+      { ageDays: 5 },
+    );
+  });
+  console.log('Screen applications seeded (6 rows).');
 }

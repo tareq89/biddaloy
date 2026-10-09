@@ -23,7 +23,11 @@ function setup(existing = 0) {
   };
   const one = (row: unknown) => ({ findOne: () => Promise.resolve(row) });
   const repos = {
-    applicationRepository: { count: () => Promise.resolve(existing + filed.length) },
+    applicationRepository: {
+      count: () => Promise.resolve(existing + filed.length),
+      // The row-writing seeds find nothing here and stop at their own guards.
+      manager: { query: () => Promise.resolve([]) },
+    },
     // Only the teacher's profile is reachable by user id; the admin's profile must not be picked.
     staffProfileRepository: {
       findOne: ({ where }: { where: { user_id: string } }) =>
