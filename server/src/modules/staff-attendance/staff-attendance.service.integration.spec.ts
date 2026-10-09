@@ -343,4 +343,144 @@ describe('StaffAttendanceService', () => {
       ).resolves.not.toThrow();
     });
   });
+
+  describe('markLeaveRange / revertLeaveRange', () => {
+    // Far future; 2031-01-05 is a Sunday.
+    const D1 = '2031-01-05';
+    const D2 = '2031-01-06';
+    const D3 = '2031-01-07';
+
+    async function newApplicationId(): Promise<string> {
+      const profile = await dataSource
+        .getRepository(StaffProfile)
+        .findOneOrFail({ where: { id: staffProfileId } });
+      const rows = await dataSource.query(
+        `INSERT INTO applications (tenant_id, type, serial_year, serial_no, subject_staff_profile_id, applicant_user_id, letter_text, letter_locale)
+         VALUES ($1, 'STAFF_LEAVE', 2031, $2, $3, $4, 'x', 'en') RETURNING id`,
+        [TENANT_ID, Math.floor(Math.random() * 1_000_000_000), staffProfileId, profile.user_id],
+      );
+      return rows[0].id as string;
+    }
+
+    async function seedMark(date: string, status: AttendanceStatus, source = 'TEACHER') {
+      await dataSource.query(
+        `INSERT INTO staff_attendance_sessions (id, tenant_id, date, version, created_at, updated_at)
+         VALUES (gen_random_uuid(), $1, $2, 1, NOW(), NOW()) ON CONFLICT DO NOTHING`,
+        [TENANT_ID, date],
+      );
+      await dataSource.query(
+        `INSERT INTO staff_attendance_records (id, tenant_id, session_id, staff_profile_id, status, source, created_at, updated_at)
+         SELECT gen_random_uuid(), $1, id, $3, $4, $5, NOW(), NOW() FROM staff_attendance_sessions WHERE tenant_id = $1 AND date = $2`,
+        [TENANT_ID, date, staffProfileId, status, source],
+      );
+    }
+
+    async function marks() {
+      return dataSource.query(
+        `SELECT s.date::text AS date, r.status, r.source, s.version FROM staff_attendance_records r
+         JOIN staff_attendance_sessions s ON s.id = r.session_id
+         WHERE r.tenant_id = $1 AND r.staff_profile_id = $2 ORDER BY s.date`,
+        [TENANT_ID, staffProfileId],
+      );
+    }
+
+    const mark = (applicationId: string, from = D1, to = D3) =>
+      dataSource.transaction((manager) =>
+        service.markLeaveRange(manager, {
+          tenantId: TENANT_ID,
+          staffProfileId,
+          from,
+          to,
+          actorUserId: ADMIN_USER_ID,
+          applicationId,
+        }),
+      );
+
+    it('unmarked -> LEAVE (SYSTEM); ABSENT -> LEAVE + audit; PRESENT untouched', async () => {
+      await seedMark(D2, AttendanceStatus.ABSENT);
+      await seedMark(D3, AttendanceStatus.PRESENT);
+      const appId = await newApplicationId();
+
+      const result = await mark(appId);
+      expect(result.dates).toEqual([D1, D2]); // PRESENT day not reported
+
+      const rows = await marks();
+      expect(rows.map((r: any) => [r.date, r.status])).toEqual([
+        [D1, 'LEAVE'],
+        [D2, 'LEAVE'],
+        [D3, 'PRESENT'],
+      ]);
+      expect(rows[0].source).toBe('SYSTEM');
+      expect(rows[0].version).toBe(2);
+      expect(rows[1].version).toBe(2);
+      expect(rows[2].version).toBe(1);
+      const audits = await dataSource.getRepository(AuditLog).find({
+        where: {
+          tenant_id: TENANT_ID,
+          entity_type: 'StaffAttendanceRecord',
+          action: AuditAction.UPDATE,
+        },
+      });
+      expect(
+        audits.some(
+          (a) =>
+            (a.old_values as any)?.status === 'ABSENT' &&
+            (a.new_values as any)?.application_id === appId,
+        ),
+      ).toBe(true);
+    });
+
+    it('skips a non-working day in the range', async () => {
+      await setTenantSettings(TENANT_ID, { weeklyOffDays: [1] }); // Monday = D2
+      const result = await mark(await newApplicationId());
+      expect(result.dates).toEqual([D1, D3]);
+      expect((await marks()).map((r: any) => r.date)).toEqual([D1, D3]);
+    });
+
+    it('a day session created concurrently by markDay does not abort the transaction', async () => {
+      const appId = await newApplicationId();
+      await dataSource.transaction(async (manager) => {
+        // session already exists (as if markDay won the race); insert-orIgnore must not throw
+        await manager.query(
+          `INSERT INTO staff_attendance_sessions (id, tenant_id, date, version, created_at, updated_at)
+           VALUES (gen_random_uuid(), $1, $2, 1, NOW(), NOW())`,
+          [TENANT_ID, D1],
+        );
+        await service.markLeaveRange(manager, {
+          tenantId: TENANT_ID,
+          staffProfileId,
+          from: D1,
+          to: D1,
+          actorUserId: ADMIN_USER_ID,
+          applicationId: appId,
+        });
+      });
+      expect((await marks()).map((r: any) => r.status)).toEqual(['LEAVE']);
+    });
+
+    it('revertLeaveRange removes only future SYSTEM LEAVE marks', async () => {
+      const appId = await newApplicationId();
+      await mark(appId); // future SYSTEM LEAVE on D1..D3
+      await seedMark(addDays(-5), AttendanceStatus.LEAVE, 'SYSTEM'); // past
+      await seedMark('2031-01-08', AttendanceStatus.LEAVE, 'TEACHER'); // future, teacher-source
+
+      const result = await dataSource.transaction((manager) =>
+        service.revertLeaveRange(manager, {
+          tenantId: TENANT_ID,
+          staffProfileId,
+          from: addDays(-5),
+          to: '2031-01-08',
+          actorUserId: ADMIN_USER_ID,
+          applicationId: appId,
+        }),
+      );
+
+      expect(result.dates).toEqual([D1, D2, D3]);
+      const rows = await marks();
+      expect(rows.map((r: any) => [r.date, r.source])).toEqual([
+        [addDays(-5), 'SYSTEM'],
+        ['2031-01-08', 'TEACHER'],
+      ]);
+    });
+  });
 });

@@ -6,7 +6,7 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource, In, QueryFailedError } from 'typeorm';
+import { DataSource, EntityManager, In, QueryFailedError } from 'typeorm';
 import {
   AttendanceSource,
   AttendanceStatus,
@@ -20,6 +20,7 @@ import { StaffProfile } from '../staff-profiles/entities/staff-profile.entity';
 import { StaffProfilesService } from '../staff-profiles/staff-profiles.service';
 import { AuditService, RecordAuditEntryInput } from '../audit/audit.service';
 import { SchoolsService } from '../schools/schools.service';
+import { SchoolCalendarService } from '../calendar/school-calendar.service';
 import {
   daysBetween,
   localToday,
@@ -57,7 +58,162 @@ export class StaffAttendanceService {
     private readonly auditService: AuditService,
     private readonly schoolsService: SchoolsService,
     private readonly staffProfilesService: StaffProfilesService,
+    private readonly schoolCalendarService: SchoolCalendarService,
   ) {}
+
+  /**
+   * D21: stamp LEAVE on every working day of an approved leave. Runs only on
+   * the caller's `manager` (no inner transaction); DB errors propagate so the
+   * caller's transaction rolls back. PRESENT/LATE/LEAVE marks are kept,
+   * ABSENT becomes LEAVE (audited). No correction-window/reason check: this is
+   * a system effect of an approval, not a manual edit.
+   */
+  async markLeaveRange(
+    manager: EntityManager,
+    params: {
+      tenantId: string;
+      staffProfileId: string;
+      from: string;
+      to: string;
+      actorUserId: string;
+      applicationId: string;
+    },
+  ): Promise<{ dates: string[] }> {
+    const { tenantId, staffProfileId, from, to, actorUserId, applicationId } = params;
+    const { dates: workingDates } = await this.schoolCalendarService.getWorkingDays({
+      tenantId,
+      from,
+      to,
+    });
+    const dates: string[] = [];
+    const sessionRepo = manager.getRepository(StaffAttendanceSession);
+    const recordRepo = manager.getRepository(StaffAttendanceRecord);
+
+    for (const date of workingDates) {
+      // orIgnore: a concurrent markDay may create the day; a unique violation
+      // here would abort the caller's whole transaction.
+      await sessionRepo
+        .createQueryBuilder()
+        .insert()
+        .values({ tenant_id: tenantId, date })
+        .orIgnore()
+        .execute();
+      const session = await sessionRepo.findOneOrFail({
+        where: { tenant_id: tenantId, date },
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      const existing = await recordRepo.findOne({
+        where: { tenant_id: tenantId, session_id: session.id, staff_profile_id: staffProfileId },
+      });
+      if (existing && existing.status !== AttendanceStatus.ABSENT) {
+        if (existing.status === AttendanceStatus.LEAVE) dates.push(date);
+        continue;
+      }
+
+      if (!existing) {
+        const created = await recordRepo.save(
+          recordRepo.create({
+            tenant_id: tenantId,
+            session_id: session.id,
+            staff_profile_id: staffProfileId,
+            status: AttendanceStatus.LEAVE,
+            source: AttendanceSource.SYSTEM,
+          }),
+        );
+        await this.auditService.record(
+          {
+            action: AuditAction.CREATE,
+            entity_type: 'StaffAttendanceRecord',
+            entity_id: created.id,
+            tenant_id: tenantId,
+            performed_by_user_id: actorUserId,
+            old_values: null,
+            new_values: { status: AttendanceStatus.LEAVE, application_id: applicationId },
+          },
+          manager,
+        );
+      } else {
+        existing.status = AttendanceStatus.LEAVE;
+        await recordRepo.save(existing);
+        await this.auditService.record(
+          {
+            action: AuditAction.UPDATE,
+            entity_type: 'StaffAttendanceRecord',
+            entity_id: existing.id,
+            tenant_id: tenantId,
+            performed_by_user_id: actorUserId,
+            old_values: { status: AttendanceStatus.ABSENT },
+            new_values: { status: AttendanceStatus.LEAVE, application_id: applicationId },
+          },
+          manager,
+        );
+      }
+      await sessionRepo.increment({ id: session.id, tenant_id: tenantId }, 'version', 1);
+      dates.push(date);
+    }
+    return { dates };
+  }
+
+  /**
+   * D31: undo `markLeaveRange` for a cancelled leave. Only future (strictly
+   * after today) SYSTEM-sourced LEAVE marks of this staff profile are
+   * deleted; past days and TEACHER-source marks stay. Returns deleted dates.
+   */
+  async revertLeaveRange(
+    manager: EntityManager,
+    params: {
+      tenantId: string;
+      staffProfileId: string;
+      from: string;
+      to: string;
+      actorUserId: string;
+      applicationId: string;
+    },
+  ): Promise<{ dates: string[] }> {
+    const { tenantId, staffProfileId, from, to, actorUserId, applicationId } = params;
+    const settings = await this.schoolsService.getResolvedSettings(tenantId);
+    const today = localToday(settings.region?.timezone ?? 'UTC');
+    const tomorrow = new Date(Date.parse(`${today}T00:00:00Z`) + 86_400_000)
+      .toISOString()
+      .slice(0, 10);
+    const start = from > tomorrow ? from : tomorrow;
+    if (start > to) return { dates: [] };
+
+    const recordRepo = manager.getRepository(StaffAttendanceRecord);
+    const rows = await recordRepo
+      .createQueryBuilder('r')
+      .innerJoinAndSelect('r.session', 's')
+      .setLock('pessimistic_write')
+      .where('r.tenant_id = :tenantId', { tenantId })
+      .andWhere('s.tenant_id = :tenantId', { tenantId })
+      .andWhere('r.staff_profile_id = :staffProfileId', { staffProfileId })
+      .andWhere('r.status = :status', { status: AttendanceStatus.LEAVE })
+      .andWhere('r.source = :source', { source: AttendanceSource.SYSTEM })
+      .andWhere('s.date BETWEEN :start AND :to', { start, to })
+      .orderBy('s.date')
+      .getMany();
+
+    for (const row of rows) {
+      await recordRepo.delete({ id: row.id, tenant_id: tenantId });
+      await manager
+        .getRepository(StaffAttendanceSession)
+        .increment({ id: row.session_id, tenant_id: tenantId }, 'version', 1);
+      await this.auditService.record(
+        {
+          action: AuditAction.DELETE,
+          entity_type: 'StaffAttendanceRecord',
+          entity_id: row.id,
+          tenant_id: tenantId,
+          performed_by_user_id: actorUserId,
+          old_values: { status: AttendanceStatus.LEAVE },
+          new_values: { application_id: applicationId },
+        },
+        manager,
+      );
+    }
+    return { dates: rows.map((r) => r.session.date) };
+  }
 
   async markDay(params: {
     tenantId: string;
