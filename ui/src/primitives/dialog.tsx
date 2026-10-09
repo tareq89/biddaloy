@@ -45,9 +45,12 @@ function DialogContent({
   showCloseButton = true,
   size = 'md',
   closeLabel = 'Close',
+  fullScreenOnPhone = false,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean;
+  /** [67.2.11] Below `md` the dialog fills the screen; from `md` up it is the normal centred `size`. */
+  fullScreenOnPhone?: boolean;
   /** Exact widths 400 / 560 / 720 px (C14). */
   size?: 'sm' | 'md' | 'lg';
   closeLabel?: string;
@@ -71,6 +74,8 @@ function DialogContent({
           // than assuming this one caller's fix is safe everywhere.
           'fixed top-1/2 left-1/2 z-50 flex max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 overflow-y-auto rounded-lg border border-border-subtle bg-surface p-5 text-body text-text-primary shadow-e3 duration-(--motion-duration-slow) outline-none data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95',
           { sm: 'max-w-100', md: 'max-w-140', lg: 'max-w-180' }[size],
+          fullScreenOnPhone &&
+            'max-md:inset-0 max-md:h-dvh max-md:max-h-none max-md:w-full max-md:max-w-none max-md:translate-x-0 max-md:translate-y-0 max-md:rounded-none max-md:border-0',
           className,
         )}
         {...props}

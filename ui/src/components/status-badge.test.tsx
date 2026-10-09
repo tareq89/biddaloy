@@ -1,4 +1,5 @@
 import {
+  AlertSeverity,
   CommunicationStatus,
   EnrollmentStatus,
   FeeStatus,
@@ -225,4 +226,19 @@ describe('StatusBadge', () => {
     await renderInEnglish(<StatusBadge tone="neutral" label="Draft" />);
     expect(screen.getByText('Draft').className).toContain('text-text-secondary');
   });
+
+  it.each([
+    [AlertSeverity.CRITICAL, 'danger', 'svg.lucide-octagon-alert', 'Urgent'],
+    [AlertSeverity.WARNING, 'warning', 'svg.lucide-triangle-alert', 'Warning'],
+    [AlertSeverity.REMINDER, 'info', 'svg.lucide-bell', 'Reminder'],
+  ])(
+    '[67.2.11] alertSeverity %s has tone %s and its own icon',
+    async (status, tone, icon, label) => {
+      const { container } = await renderInEnglish(
+        <StatusBadge domain="alertSeverity" status={status} />,
+      );
+      expect(screen.getByText(label).getAttribute('data-tone')).toBe(tone);
+      expect(container.querySelector(icon)).toBeTruthy();
+    },
+  );
 });

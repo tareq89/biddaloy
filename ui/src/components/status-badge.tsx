@@ -20,6 +20,7 @@
  * (see their own comments below).
  */
 import {
+  AlertSeverity,
   CommunicationStatus,
   EnrollmentStatus,
   FeeStatus,
@@ -30,7 +31,16 @@ import {
   SyllabusTopicStatus,
   UserStatus,
 } from '@biddaloy/shared';
-import { CircleCheck, CircleDashed, CircleMinus, Clock, TriangleAlert } from 'lucide-react';
+import {
+  Bell,
+  CircleCheck,
+  CircleDashed,
+  CircleMinus,
+  Clock,
+  OctagonAlert,
+  TriangleAlert,
+  type LucideIcon,
+} from 'lucide-react';
 import * as React from 'react';
 
 import { useTranslation } from '../i18n';
@@ -245,6 +255,20 @@ const SYLLABUS_TOPIC_STATUS_TONE: Record<SyllabusTopicStatus, StatusTone> = {
   [SyllabusTopicStatus.DONE]: 'success',
 };
 
+/** [67.2.11] Alert severity (D4/D41). Own icon set, not the tone icons: three distinct
+ * shapes so the severity survives greyscale. The alert bar and cards import this map too. */
+const ALERT_SEVERITY_TONE: Record<AlertSeverity, StatusTone> = {
+  [AlertSeverity.CRITICAL]: 'danger',
+  [AlertSeverity.WARNING]: 'warning',
+  [AlertSeverity.REMINDER]: 'info',
+};
+
+export const ALERT_SEVERITY_ICON: Record<AlertSeverity, LucideIcon> = {
+  [AlertSeverity.CRITICAL]: OctagonAlert,
+  [AlertSeverity.WARNING]: TriangleAlert,
+  [AlertSeverity.REMINDER]: Bell,
+};
+
 type NoTone = { tone?: never; label?: never };
 
 /** `{ tone, label }` form: for statuses with no shared enum. */
@@ -264,7 +288,8 @@ export type StatusBadgeProps =
   | ({ domain: 'attendance'; status: AttendanceLowStatus } & NoTone)
   | ({ domain: 'invitation'; status: InvitationStatus } & NoTone)
   | ({ domain: 'school'; status: SchoolStatusValue } & NoTone)
-  | ({ domain: 'syllabusTopic'; status: SyllabusTopicStatus } & NoTone);
+  | ({ domain: 'syllabusTopic'; status: SyllabusTopicStatus } & NoTone)
+  | ({ domain: 'alertSeverity'; status: AlertSeverity } & NoTone);
 
 type StatusDomain = Exclude<StatusBadgeProps['domain'], undefined>;
 type EnumProps = Extract<StatusBadgeProps, { domain: StatusDomain }>;
@@ -301,6 +326,8 @@ function resolveTone(props: EnumProps): StatusTone {
       return SCHOOL_STATUS_TONE[props.status];
     case 'syllabusTopic':
       return SYLLABUS_TOPIC_STATUS_TONE[props.status];
+    case 'alertSeverity':
+      return ALERT_SEVERITY_TONE[props.status];
   }
 }
 
@@ -317,7 +344,8 @@ export function StatusBadge(props: StatusBadgeProps) {
       defaultValue: humanizeStatus(props.status),
     });
   }
-  const { fg, bg, icon: Icon } = TONE_STYLES[tone];
+  const { fg, bg, icon: toneIcon } = TONE_STYLES[tone];
+  const Icon = props.domain === 'alertSeverity' ? ALERT_SEVERITY_ICON[props.status] : toneIcon;
 
   return (
     <span
