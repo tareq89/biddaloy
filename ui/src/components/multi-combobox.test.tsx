@@ -129,10 +129,42 @@ describe('MultiCombobox', () => {
 
     rerender(<Controlled initial={['six']} readOnly />);
     await user.click(screen.getByRole('combobox'));
-    await user.click(screen.getByRole('option', { name: 'Seven' }));
+    // Nothing to pick, so the list stays closed even on focus and ArrowDown.
+    await user.keyboard('{ArrowDown}');
+    expect(screen.queryByRole('listbox')).toBeNull();
+    expect(screen.getByRole('combobox').getAttribute('aria-expanded')).toBe('false');
     await user.keyboard('{Backspace}');
-    expect(screen.queryByRole('button', { name: 'Remove Seven', hidden: true })).toBeNull();
     expect(screen.getByRole('button', { name: 'Remove Six', hidden: true })).toBeTruthy();
+  });
+
+  it('labels a chip from selectedOptions when its value is not in options', () => {
+    render(
+      <MultiCombobox
+        aria-label="People"
+        options={[]}
+        selectedOptions={[{ value: 'x', label: 'Rahim' }]}
+        value={['x']}
+        onValueChange={() => {}}
+      />,
+    );
+    expect(screen.getByText('Rahim')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Remove Rahim' })).toBeTruthy();
+  });
+
+  it('removing a chip with the mouse does not open the list', async () => {
+    const user = userEvent.setup();
+    render(<Controlled initial={['six']} />);
+    await user.click(screen.getByRole('button', { name: 'Remove Six' }));
+    expect(document.activeElement).toBe(screen.getByRole('combobox'));
+    expect(screen.queryByRole('listbox')).toBeNull();
+  });
+
+  it('a list reopened after Escape starts from the first option', async () => {
+    const user = userEvent.setup();
+    render(<Controlled />);
+    await user.click(screen.getByRole('combobox'));
+    await user.keyboard('{ArrowDown}{ArrowDown}{Escape}{ArrowDown}{Enter}');
+    expect(screen.getByRole('button', { name: 'Remove Six' })).toBeTruthy();
   });
 
   it('with no match, Enter is not swallowed and no missing option is active', async () => {

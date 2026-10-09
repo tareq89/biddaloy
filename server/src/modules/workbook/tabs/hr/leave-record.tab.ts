@@ -322,6 +322,10 @@ export const leaveRecordTab: TabSpec<LeaveRecord, LeaveRecordRow> = {
     record.approved_by = row.approved_by;
     record.application_id = row.application_id;
     record.decided_at = row.decided_at ? new Date(row.decided_at) : null;
+    // `load()` eager-loads these, and a loaded relation beats its FK column on save.
+    // Clear them so a row matched by id keeps the workbook's ids, not the old links.
+    (record as { staff_profile?: unknown }).staff_profile = undefined;
+    (record as { application?: unknown }).application = undefined;
 
     return m.save(LeaveRecord, record);
   },
