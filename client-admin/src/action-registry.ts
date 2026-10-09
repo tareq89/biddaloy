@@ -296,6 +296,31 @@ export const ACTIONS: readonly PaletteAction[] = [
     group: 'administration',
     run: (ctx) => ctx.navigate({ to: '/welcome' }),
   },
+  // [67.2.06] D16 — Epic 67 attention palette actions; portal users reach alerts from the bar and bell (the portal palette has no actions for PARENT/STUDENT, who lack DASHBOARD_VIEW).
+  {
+    id: 'attention.show',
+    label: { en: 'Show alerts', bn: 'সতর্কতা দেখুন' },
+    permission: Permission.DASHBOARD_VIEW,
+    kind: 'modal',
+    group: 'administration',
+    run: (ctx) => ctx.navigate({ to: '/notifications?alerts=1' }),
+  },
+  {
+    id: 'attention.todo',
+    label: { en: 'My to-do', bn: 'আমার করণীয়' },
+    permission: Permission.DASHBOARD_VIEW,
+    kind: 'navigate',
+    group: 'administration',
+    run: (ctx) => ctx.navigate({ to: '/notifications?tab=active' }),
+  },
+  {
+    id: 'attention.settings',
+    label: { en: 'Alert settings', bn: 'সতর্কতার সেটিংস' },
+    permission: Permission.SETTINGS_MANAGE,
+    kind: 'navigate',
+    group: 'administration',
+    run: (ctx) => ctx.navigate({ to: '/settings?section=alerts' }),
+  },
   {
     id: 'staff.import',
     label: { en: 'Import staff from Excel', bn: 'এক্সেল থেকে কর্মী আমদানি করুন' },
