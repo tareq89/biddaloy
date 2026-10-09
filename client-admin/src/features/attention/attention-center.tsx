@@ -17,6 +17,7 @@ import {
   useSnoozeAttentionItem,
   type AlertItem,
 } from '@biddaloy/ui/hooks';
+import { useTranslation } from '@biddaloy/ui/i18n';
 import { Link, useNavigate } from '@tanstack/react-router';
 import * as React from 'react';
 
@@ -36,6 +37,7 @@ export function useAttentionCenter({ todoTo }: { todoTo: string }) {
   const items = useAttentionItems({ tab: 'active', pageSize: 50 }, { enabled: open });
   const hide = useHideAttentionItem();
   const snooze = useSnoozeAttentionItem();
+  const { t } = useTranslation('attention');
   const { mutate: markSeen } = useMarkAttentionSeen();
 
   const openItems = React.useMemo(
@@ -54,6 +56,14 @@ export function useAttentionCenter({ todoTo }: { todoTo: string }) {
       if (openItems.length > 0) markSeen(openItems.map((i) => i.recipientId).slice(0, 100));
     }
   }, [open, items.data, openItems, markSeen]);
+
+  // One failed or pending hide/snooze at a time: show it on that card only.
+  const itemState: Record<string, { busy?: boolean; error?: string }> = {};
+  for (const m of [hide, snooze]) {
+    const id = typeof m.variables === 'string' ? m.variables : m.variables?.recipientId;
+    if (id && m.isPending) itemState[id] = { busy: true };
+    else if (id && m.isError) itemState[id] = { error: t('item.actionFailed') };
+  }
 
   const todoHref = `${todoTo}?tab=active`;
   const data = summary.data;
@@ -91,6 +101,7 @@ export function useAttentionCenter({ todoTo }: { todoTo: string }) {
       onSnooze={(item, choice, date) =>
         snooze.mutate({ recipientId: item.recipientId, choice, ...(date ? { date } : {}) })
       }
+      itemState={itemState}
       todoHref={todoHref}
       todoCount={items.data?.total ?? 0}
       returnFocusRef={barRef}

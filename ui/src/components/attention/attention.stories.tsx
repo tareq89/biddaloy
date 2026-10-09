@@ -90,6 +90,10 @@ export const Phone: Story = {
 
 export const Loading: Story = { render: () => <Modal loading items={[]} /> };
 export const ErrorState: Story = { render: () => <Modal error items={[]} /> };
+export const ItemError: Story = {
+  render: () => <Modal itemState={{ w1: { error: 'কাজটি হয়নি। আবার চেষ্টা করুন।' } }} />,
+  globals: { locale: 'bn' },
+};
 export const Empty: Story = { render: () => <Modal items={[]} /> };
 export const Stale: Story = {
   render: () => <Modal summary={attentionSummaryFactory({ ...SUMMARY, staleMinutes: 42 })} />,
