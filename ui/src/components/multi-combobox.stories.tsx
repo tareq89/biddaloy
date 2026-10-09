@@ -30,10 +30,12 @@ function Demo({
   options = CLASS_OPTIONS,
   initial = [],
   max,
+  disabled,
 }: {
   options?: MultiComboboxOption[];
   initial?: string[];
   max?: number;
+  disabled?: boolean;
 }) {
   const [value, setValue] = useState<string[]>(initial);
   return (
@@ -44,6 +46,7 @@ function Demo({
       onValueChange={setValue}
       placeholder="Search…"
       max={max}
+      disabled={disabled}
     />
   );
 }
@@ -57,6 +60,9 @@ export const WithDescriptions: Story = {
 };
 
 export const MaxReached: Story = { render: () => <Demo initial={['six']} max={1} /> };
+
+/** Chips stay, but cannot be removed. */
+export const Disabled: Story = { render: () => <Demo initial={['six', 'eight']} disabled /> };
 
 export const Bangla: Story = {
   render: () => (

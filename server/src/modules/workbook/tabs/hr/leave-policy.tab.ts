@@ -36,6 +36,8 @@ const columns: readonly ColumnSpec[] = [
     label: { en: 'Leave type', bn: 'ছুটির ধরন' },
   },
   {
+    // Not `required`, on purpose: a blank cell is null = unlimited (D19), so an
+    // unlimited policy survives export -> restore.
     key: 'annual_quota_days',
     type: 'int',
     label: { en: 'Annual quota (days)', bn: 'বার্ষিক কোটা (দিন)' },

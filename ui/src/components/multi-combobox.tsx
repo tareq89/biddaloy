@@ -3,6 +3,9 @@
  * input, `aria-activedescendant`, always-mounted polite live region), but the
  * listbox is `aria-multiselectable`, Enter/click toggles and keeps the list
  * open, and the chosen values show as removable chips above the input.
+ *
+ * `options` may change under it (a server-side search): a chip keeps the label
+ * it was last seen with. `disabled`/`readOnly` freeze the value.
  */
 import { X } from 'lucide-react';
 import * as React from 'react';
@@ -46,6 +49,7 @@ export function MultiCombobox({
   emptyText,
   max,
   onFocus,
+  onKeyDown,
   ...props
 }: MultiComboboxProps) {
   const { t } = useTranslation();
@@ -54,8 +58,13 @@ export function MultiCombobox({
   const [open, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState('');
   const [activeIndex, setActiveIndex] = React.useState(-1);
+  // Last add/remove, for the live region; cleared as soon as the user types again.
+  const [status, setStatus] = React.useState('');
   const listboxId = React.useId();
   const inputRef = React.useRef<HTMLInputElement>(null);
+  const known = React.useRef(new Map<string, MultiComboboxOption>());
+  for (const option of options) known.current.set(option.value, option);
+  const locked = Boolean(props.disabled || props.readOnly);
 
   const trimmed = toLatinDigits(query.trim().toLowerCase());
   const filtered =
@@ -63,22 +72,30 @@ export function MultiCombobox({
       ? options
       : options.filter((option) => toLatinDigits(option.label.toLowerCase()).includes(trimmed));
   const atMax = max !== undefined && value.length >= max;
-  const chips = value.flatMap((v) => options.find((option) => option.value === v) ?? []);
+  const chips = value.map((v) => known.current.get(v) ?? { value: v, label: v });
+  const activeOption = open ? filtered[activeIndex] : undefined;
 
   function optionId(index: number): string {
     return `${listboxId}-option-${index}`;
   }
 
   function remove(optionValue: string) {
+    if (locked) return;
     onValueChange(value.filter((v) => v !== optionValue));
+    setStatus(
+      t('multiCombobox.removed', { label: known.current.get(optionValue)?.label ?? optionValue }),
+    );
     inputRef.current?.focus();
   }
 
   function toggle(option: ComboboxOption) {
+    if (locked) return;
     if (value.includes(option.value)) {
       onValueChange(value.filter((v) => v !== option.value));
+      setStatus(t('multiCombobox.removed', { label: option.label }));
     } else if (!atMax) {
       onValueChange([...value, option.value]);
+      setStatus(t('multiCombobox.added', { label: option.label }));
     } else {
       return;
     }
@@ -99,8 +116,9 @@ export function MultiCombobox({
                 {option.label}
                 <button
                   type="button"
+                  disabled={locked}
                   aria-label={t('multiCombobox.remove', { label: option.label })}
-                  className="inline-flex size-11 items-center justify-center rounded-full text-text-secondary hover:text-text-primary md:size-8"
+                  className="inline-flex size-11 items-center justify-center rounded-full text-text-secondary hover:text-text-primary disabled:hidden md:size-8"
                   onClick={() => remove(option.value)}
                 >
                   <X className="size-4" aria-hidden="true" />
@@ -117,7 +135,7 @@ export function MultiCombobox({
             aria-expanded={open}
             aria-controls={listboxId}
             aria-autocomplete="list"
-            aria-activedescendant={open && activeIndex >= 0 ? optionId(activeIndex) : undefined}
+            aria-activedescendant={activeOption ? optionId(activeIndex) : undefined}
             placeholder={placeholder}
             value={query}
             onFocus={(event) => {
@@ -128,8 +146,12 @@ export function MultiCombobox({
               setQuery(event.target.value);
               setOpen(true);
               setActiveIndex(0);
+              setStatus('');
             }}
             onKeyDown={(event) => {
+              onKeyDown?.(event);
+              // An IME uses Enter to confirm composed text; the caller may also claim the key.
+              if (event.defaultPrevented || event.nativeEvent.isComposing) return;
               if (event.key === 'ArrowDown') {
                 event.preventDefault();
                 setOpen(true);
@@ -138,15 +160,14 @@ export function MultiCombobox({
                 event.preventDefault();
                 setActiveIndex((index) => Math.max(index - 1, 0));
               } else if (event.key === 'Enter') {
-                if (open && activeIndex >= 0) {
+                // No matching option: leave Enter to the enclosing form.
+                if (activeOption) {
                   event.preventDefault();
-                  const option = filtered[activeIndex];
-                  if (option) toggle(option);
+                  toggle(activeOption);
                 }
               } else if (event.key === 'Backspace') {
-                if (query === '' && value.length > 0) {
-                  onValueChange(value.slice(0, -1));
-                }
+                const last = value[value.length - 1];
+                if (query === '' && last !== undefined) remove(last);
               } else if (event.key === 'Escape') {
                 setOpen(false);
               }
@@ -155,7 +176,7 @@ export function MultiCombobox({
         </PopoverAnchor>
       </div>
       <div aria-live="polite" className="sr-only">
-        {open ? t('combobox.results', { count: filtered.length }) : ''}
+        {status || (open ? t('combobox.results', { count: filtered.length }) : '')}
       </div>
       <PopoverContent
         className="w-(--radix-popover-trigger-width) p-1"
