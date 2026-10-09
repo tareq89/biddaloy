@@ -599,6 +599,17 @@ old ranges. The production server does not need any of them.
 | `"tmp": "^0.2.7"`         | GHSA-ph9p-34f9-6g65, GHSA-52f5-9888-hmc6 | `@lhci/cli` asks for `tmp ^0.1.0` directly, and through `inquirer` 6 → `external-editor` for `tmp ^0.0.33`                                                                                                                                           | `@lhci/cli` (and its `inquirer`) ask for `tmp` ≥ 0.2.7                  |
 | `"compression": "^1.8.2"` | GHSA-vc2v-76pw-4v95                      | `@lhci/cli` asks for `compression ^1.7.4`. 1.8.2 is in that range; the resolution makes sure a fresh install can never pick an older one.                                                                                                            | `@lhci/cli` asks for `compression` ≥ 1.8.2                              |
 
-To check whether a row can go: delete it from `resolutions`, run `yarn`, then
-`yarn audit`. If the advisory in that row does not come back, the
-resolution is no longer needed.
+A row can go only when **every** upstream range in `yarn.lock` excludes the
+vulnerable versions. A clean `yarn audit` after deleting the row does not
+prove this: Yarn 1 keeps the already-locked patched version, so the audit
+stays clean even though a fresh lockfile could resolve an old one.
+
+Example: `compression ^1.7.4` still allows the vulnerable 1.8.1. Delete the
+row today and `yarn audit` stays clean, because `yarn.lock` still says 1.8.2.
+The row can go once `@lhci/cli` asks for `^1.8.2` or higher.
+
+To check, read the ranges, not the audit:
+
+```bash
+grep -E '^"?compression@' yarn.lock   # every range listed must start at >= 1.8.2
+```
