@@ -1,0 +1,104 @@
+import { describe, expect, it } from 'vitest';
+import type { ImportContext } from '../../codec/tab-spec';
+import { applicationAttachmentsTab, applicationTagsTab } from './application-children.tab';
+import { applicationsTab } from './applications.tab';
+
+const TENANT = 'tenant-b';
+const ctx = (warnings: unknown[] = []): ImportContext => ({
+  tenantId: TENANT,
+  ref: (_tab, key) => `id-of-${key}`,
+  warn: (w) => warnings.push(w),
+});
+
+const UUID = '3f1c2b4a-5d6e-4f70-8a9b-0c1d2e3f4a5b';
+const base = {
+  id: UUID,
+  serial_year: '2026',
+  serial_no: '1',
+  type: 'GENERAL',
+  status: 'PENDING',
+  source: 'APP',
+  payload: '{}',
+  current_step: '0',
+  letter_text: 'x',
+  letter_locale: 'en',
+  applicant: 'a@x.test',
+  subject_student: 'REG-1',
+};
+
+const messages = (r: ReturnType<typeof applicationsTab.fromRow>) =>
+  'errors' in r ? r.errors.map((e) => e.message).join(' | ') : '';
+
+describe('applications tab fromRow', () => {
+  it('accepts exactly one subject', () => {
+    expect('row' in applicationsTab.fromRow(base, 2, ctx())).toBe(true);
+  });
+
+  it('rejects both subjects, and neither subject', () => {
+    const both = applicationsTab.fromRow({ ...base, subject_staff_profile: 'E-1' }, 2, ctx());
+    const neither = applicationsTab.fromRow({ ...base, subject_student: '' }, 2, ctx());
+    expect(messages(both)).toContain('Exactly one of');
+    expect(messages(neither)).toContain('Exactly one of');
+  });
+
+  it('rejects an APP row with no applicant, but accepts a PAPER row with applicant_name', () => {
+    const noApplicant = { ...base, applicant: '' };
+    expect(messages(applicationsTab.fromRow(noApplicant, 2, ctx()))).toContain('"applicant"');
+    const app = applicationsTab.fromRow(noApplicant, 2, ctx());
+    expect('errors' in app).toBe(true);
+    const paper = applicationsTab.fromRow(
+      { ...noApplicant, source: 'PAPER', applicant_name: 'Karim' },
+      2,
+      ctx(),
+    );
+    expect('row' in paper).toBe(true);
+  });
+});
+
+describe('application_tags tab fromRow', () => {
+  const tag = { id: UUID, application: '2026|1', created_by: 'a@x.test' };
+  it('rejects both user and role, and neither', () => {
+    const both = applicationTagsTab.fromRow({ ...tag, user: 'b@x.test', role: 'ADMIN' }, 2, ctx());
+    const neither = applicationTagsTab.fromRow(tag, 2, ctx());
+    expect('errors' in both && 'errors' in neither).toBe(true);
+  });
+  it('accepts a role-only tag', () => {
+    expect('row' in applicationTagsTab.fromRow({ ...tag, role: 'ADMIN' }, 2, ctx())).toBe(true);
+  });
+});
+
+describe('application_attachments tab fromRow', () => {
+  const att = {
+    id: UUID,
+    application: '2026|1',
+    file_name: 'a.pdf',
+    mime_type: 'application/pdf',
+    size_bytes: '10',
+    uploaded_by: 'a@x.test',
+  };
+
+  it("re-homes another school's storage_key to the importing school, with a warning", () => {
+    const warnings: unknown[] = [];
+    const r = applicationAttachmentsTab.fromRow(
+      { ...att, storage_key: 'tenants/tenant-a/applications/f.pdf' },
+      2,
+      ctx(warnings),
+    );
+    expect('row' in r && r.row.storage_key).toBe(`tenants/${TENANT}/applications/f.pdf`);
+    expect(warnings).toHaveLength(1);
+  });
+
+  it('rejects a key of this school that is not under applications/', () => {
+    const r = applicationAttachmentsTab.fromRow(
+      { ...att, storage_key: `tenants/${TENANT}/student-documents/f.pdf` },
+      2,
+      ctx(),
+    );
+    expect('errors' in r).toBe(true);
+  });
+
+  it('rejects a key outside tenants/', () => {
+    const r = applicationAttachmentsTab.fromRow({ ...att, storage_key: '../etc/passwd' }, 2, ctx());
+    expect('errors' in r).toBe(true);
+  });
+});

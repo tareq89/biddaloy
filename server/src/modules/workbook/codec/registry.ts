@@ -33,6 +33,7 @@ import { staffDocumentTab } from '../tabs/people/staff-document.tab';
 import { printTabs } from '../tabs/print';
 import { attendanceTabs } from '../tabs/attendance';
 import { hrTabs } from '../tabs/hr';
+import { applicationsTabs } from '../tabs/applications';
 import { acrTabs } from '../tabs/people/acr.tab';
 import { incidentsTabs } from '../tabs/people/incidents.tab';
 import { surveysTabs } from '../tabs/people/surveys.tab';
@@ -173,6 +174,11 @@ export const EXPECTED_TABS = [
   // both already satisfied by the time these are applied.
   'staff_attendance_sessions',
   'staff_attendance_records',
+  // [52.1.6] applications go before leave_records, which now refs them.
+  'applications',
+  'application_events',
+  'application_tags',
+  'application_attachments',
   'leave_policies',
   'leave_records',
   // [32.3.10] Epic 32's print setup. Appended at the end, in dependency order:
@@ -259,6 +265,8 @@ export const ALL_TABS: readonly TabSpec<any, any>[] = [
   // `peopleTabs` — see the `EXPECTED_TABS` comment above on why these must
   // come last.
   ...attendanceTabs,
+  // [52.1.6] before hrTabs: leave_records refs applications.
+  ...applicationsTabs,
   ...hrTabs,
   // [32.3.10] Epic 32's print setup: printers, assets, templates, template versions.
   // Last, matching where they sit in EXPECTED_TABS.

@@ -30,6 +30,10 @@ import {
   AttendanceStatus,
   AttendanceSource,
   LeaveType,
+  ApplicationType,
+  ApplicationStatus,
+  ApplicationSource,
+  ApplicationEventKind,
   LeaveStatus,
   TeacherAssignmentType,
 } from '@biddaloy/shared';
@@ -102,6 +106,10 @@ import { StaffProfile } from '../src/modules/staff-profiles/entities/staff-profi
 import { StaffAttendanceSession } from '../src/modules/staff-attendance/entities/staff-attendance-session.entity';
 import { StaffAttendanceRecord } from '../src/modules/staff-attendance/entities/staff-attendance-record.entity';
 import { LeavePolicy } from '../src/modules/leave/entities/leave-policy.entity';
+import { Application } from '../src/modules/applications/entities/application.entity';
+import { ApplicationEvent } from '../src/modules/applications/entities/application-event.entity';
+import { ApplicationTag } from '../src/modules/applications/entities/application-tag.entity';
+import { ApplicationAttachment } from '../src/modules/applications/entities/application-attachment.entity';
 import { LeaveRecord } from '../src/modules/leave/entities/leave-record.entity';
 import { ImportStagingService } from '../src/modules/bulk-import/import-staging.service';
 import { ValidationService } from '../src/modules/workbook/import/validation.service';
@@ -557,7 +565,60 @@ describe('workbook round trip (integration)', () => {
       dataSource.getRepository(LeavePolicy).create({
         tenant_id: TENANT_A,
         leave_type: LeaveType.CASUAL,
-        annual_quota_days: 10,
+        annual_quota_days: null, // [52.1.6] NULL = unlimited must survive the round trip as an empty cell
+      }),
+    );
+
+    // [52.1.6] One application with a SUBMITTED event, a role tag and an
+    // attachment; the leave record below points at it.
+    const application = await dataSource.getRepository(Application).save(
+      dataSource.getRepository(Application).create({
+        tenant_id: TENANT_A,
+        type: ApplicationType.STAFF_LEAVE,
+        status: ApplicationStatus.PENDING,
+        source: ApplicationSource.APP,
+        serial_year: 2026,
+        serial_no: 1,
+        subject_staff_profile_id: staffProfile.id,
+        applicant_user_id: USER_ID,
+        payload: {
+          leave_type: 'CASUAL',
+          start_date: '2026-03-20',
+          end_date: '2026-03-20',
+          reason: 'Roundtrip',
+        },
+        letter_text: 'Roundtrip letter',
+        letter_locale: 'en',
+      }),
+    );
+    await dataSource.getRepository(ApplicationEvent).save(
+      dataSource.getRepository(ApplicationEvent).create({
+        tenant_id: TENANT_A,
+        application_id: application.id,
+        actor_user_id: USER_ID,
+        kind: ApplicationEventKind.SUBMITTED,
+        step: 0,
+        data: { via: 'roundtrip' },
+        created_at: new Date('2026-03-01T09:00:00.000Z'),
+      }),
+    );
+    await dataSource.getRepository(ApplicationTag).save(
+      dataSource.getRepository(ApplicationTag).create({
+        tenant_id: TENANT_A,
+        application_id: application.id,
+        role: 'ADMIN',
+        created_by_user_id: USER_ID,
+      }),
+    );
+    await dataSource.getRepository(ApplicationAttachment).save(
+      dataSource.getRepository(ApplicationAttachment).create({
+        tenant_id: TENANT_A,
+        application_id: application.id,
+        storage_key: `tenants/${TENANT_A}/applications/${randomUUID()}.pdf`,
+        file_name: 'proof.pdf',
+        mime_type: 'application/pdf',
+        size_bytes: 1234,
+        uploaded_by_user_id: USER_ID,
       }),
     );
 
@@ -572,6 +633,7 @@ describe('workbook round trip (integration)', () => {
         status: LeaveStatus.APPROVED,
         reason: 'Roundtrip fixture leave request',
         approved_by: USER_ID,
+        application_id: application.id,
         decided_at: new Date('2026-03-05'),
       }),
     );
@@ -1881,6 +1943,11 @@ describe('workbook round trip (integration)', () => {
       'staff_attendance_records',
       'leave_policies',
       'leave_records',
+      // [52.1.6] Epic 52's applications.
+      'applications',
+      'application_events',
+      'application_tags',
+      'application_attachments',
       // [32.3.10] Epic 32's print setup.
       'printer_profiles',
       'print_assets',
@@ -2142,15 +2209,28 @@ describe('workbook round trip (integration)', () => {
     const printAssetsA = assetKeys(normalizedA, TENANT_A);
     const printAssetsB = assetKeys(normalizedB, TENANT_B);
 
+    // [52.1.6] Same rule for `application_attachments.storage_key`: B's key
+    // must carry B's school id, never A's.
+    const attachmentKeys = (w: typeof normalizedA, tenant: string) =>
+      (w.application_attachments ?? []).map((row) => {
+        expect(row.storage_key).toMatch(new RegExp(`^tenants/${tenant}/applications/`));
+        return {
+          ...row,
+          storage_key: row.storage_key?.replace(`tenants/${tenant}/`, 'tenants/<school>/'),
+        };
+      });
+
     const normalizedANoName = {
       ...normalizedA,
       school: normalizedA.school?.map(({ name: _name, ...rest }) => rest),
       print_assets: printAssetsA,
+      application_attachments: attachmentKeys(normalizedA, TENANT_A),
     };
     const normalizedBNoName = {
       ...normalizedB,
       school: normalizedB.school?.map(({ name: _name, ...rest }) => rest),
       print_assets: printAssetsB,
+      application_attachments: attachmentKeys(normalizedB, TENANT_B),
     };
 
     const diffLines = diffNormalized(normalizedANoName, normalizedBNoName);

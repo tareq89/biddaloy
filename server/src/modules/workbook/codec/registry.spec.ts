@@ -133,6 +133,11 @@ describe('EXPECTED_TABS', () => {
       // EXPECTED_TABS's own comment in registry.ts.
       'staff_attendance_sessions',
       'staff_attendance_records',
+      // [52.1.6] before leave_records, which now refs applications.
+      'applications',
+      'application_events',
+      'application_tags',
+      'application_attachments',
       'leave_policies',
       'leave_records',
       // [32.3.10] Epic 32's print setup — see EXPECTED_TABS's own comment in registry.ts.

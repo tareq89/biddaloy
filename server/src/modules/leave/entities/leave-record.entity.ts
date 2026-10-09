@@ -11,6 +11,7 @@ import {
 import { School } from '../../schools/entities/school.entity';
 import { StaffProfile } from '../../staff-profiles/entities/staff-profile.entity';
 import { User } from '../../users/entities/user.entity';
+import { Application } from '../../applications/entities/application.entity';
 import { LeaveType, LeaveStatus } from '@biddaloy/shared';
 
 /**
@@ -67,7 +68,10 @@ export class LeaveRecord {
   @Column({ type: 'timestamptz', nullable: true })
   decided_at: Date | null;
 
-  /** [52.1.2] Plain column on purpose: no relation import keeps leave free of the applications module. */
+  @ManyToOne(() => Application, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'application_id', foreignKeyConstraintName: 'FK_leave_records_application' })
+  application: Application | null;
+
   @Column({ type: 'uuid', nullable: true })
   application_id: string | null;
 
