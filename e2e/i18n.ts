@@ -62,6 +62,7 @@ import bnStudentNotes from '../ui/src/i18n/locales/bn/student-notes.json';
 import bnStudentRecords from '../ui/src/i18n/locales/bn/student-records.json';
 import bnStudents from '../ui/src/i18n/locales/bn/students.json';
 import bnSyllabus from '../ui/src/i18n/locales/bn/syllabus.json';
+import bnStudyPlans from '../ui/src/i18n/locales/bn/studyPlans.json';
 import bnTeacherAssignments from '../ui/src/i18n/locales/bn/teacherAssignments.json';
 import enAcademicYears from '../ui/src/i18n/locales/en/academicYears.json';
 import enAdmissionPublic from '../ui/src/i18n/locales/en/admission-public.json';
@@ -118,6 +119,7 @@ import enStudentNotes from '../ui/src/i18n/locales/en/student-notes.json';
 import enStudentRecords from '../ui/src/i18n/locales/en/student-records.json';
 import enStudents from '../ui/src/i18n/locales/en/students.json';
 import enSyllabus from '../ui/src/i18n/locales/en/syllabus.json';
+import enStudyPlans from '../ui/src/i18n/locales/en/studyPlans.json';
 import enTeacherAssignments from '../ui/src/i18n/locales/en/teacherAssignments.json';
 import bnRegister from '../ui/src/i18n/locales/bn/register.json';
 import bnOnboardingSetup from '../ui/src/i18n/locales/bn/onboardingSetup.json';
@@ -198,6 +200,7 @@ const catalogs = {
     'student-records': bnStudentRecords,
     students: bnStudents,
     syllabus: bnSyllabus,
+    studyPlans: bnStudyPlans,
     teacherAssignments: bnTeacherAssignments,
   },
   en: {
@@ -263,6 +266,7 @@ const catalogs = {
     'student-records': enStudentRecords,
     students: enStudents,
     syllabus: enSyllabus,
+    studyPlans: enStudyPlans,
     teacherAssignments: enTeacherAssignments,
   },
 } as const;

@@ -6,6 +6,8 @@ import {
   createClassSection,
   createExamTemplate,
   createGuardian,
+  createOfferedSubject,
+  createStudyPlan,
   createInvoice,
   createInvoiceShareToken,
   createReminderBatch,
@@ -16,6 +18,7 @@ import {
   createTeacherForSection,
   currentAcademicYearId,
   findSchoolIdBySlug,
+  findSeedSectionA,
   get,
   post,
   seededFirstTermExamId,
@@ -213,15 +216,13 @@ export async function resolvePath(
     return route.path.replace('$programId', programs[0]!.id);
   }
   if (route.path.includes('study-plans/$planId')) {
-    // [66.2] Must precede the seat-plan branch below (also `$planId`). Posts
-    // directly: the `createStudyPlan` helper in e2e/api.ts lands with wave close.
-    const chain = await createClassSection(request, session);
-    const subject = await post<{ id: string }>(request, session, '/subjects', {
-      code: `RP-${stamp.toString(36).toUpperCase()}`,
-      name_en: 'Reflow Plan Subject',
-    });
-    const plan = await post<{ id: string }>(request, session, '/study-plans', {
-      section_id: chain.sectionId,
+    // [66.2] Must precede the seat-plan branch below (also `$planId`). A plan lives in the CURRENT
+    // academic year's class (a fresh `createClassSection` year is not current, and the plan page's
+    // routine and term lookups need the real one): a fresh subject on the seeded Class 6 section A.
+    const seed = await findSeedSectionA(request, session);
+    const subject = await createOfferedSubject(request, session, seed, `Reflow Plan ${stamp}`);
+    const plan = await createStudyPlan(request, session, {
+      section_id: seed.sectionId,
       subject_id: subject.id,
       academic_term_id: null,
       lessons: [1, 2, 3].map((n) => ({ title: `Reflow Lesson ${n}`, periods: 1 })),
