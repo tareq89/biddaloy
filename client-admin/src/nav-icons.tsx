@@ -17,6 +17,7 @@ import {
   ChartLineIcon,
   ChartPieIcon,
   ClipboardCheckIcon,
+  ClipboardListIcon,
   ClipboardPenLineIcon,
   CreditCardIcon,
   DoorOpenIcon,
@@ -32,6 +33,7 @@ import {
   HandCoinsIcon,
   HistoryIcon,
   HouseIcon,
+  InboxIcon,
   IdCardIcon,
   LayersIcon,
   LayoutDashboardIcon,
@@ -67,6 +69,7 @@ import type { StaffNavItemId } from './nav-tree';
 /** [31.3.1] One distinct icon per staff nav item (nav-icons.md, D10). A missing id is a compile error. */
 export const STAFF_NAV_ICONS: Record<StaffNavItemId, LucideIcon> = {
   dashboard: LayoutDashboardIcon,
+  applications: InboxIcon,
   'people.students': GraduationCapIcon,
   'people.guardians': UsersRoundIcon,
   'people.calendar': CalendarDaysIcon,
@@ -110,6 +113,7 @@ export const STAFF_NAV_ICONS: Record<StaffNavItemId, LucideIcon> = {
   'finance.invoices': ReceiptIcon,
   'reports.collectionsReport': ChartColumnIcon,
   'reports.printables': PrinterIcon,
+  'reports.applications': ClipboardListIcon,
   'communications.sendMessage': SendIcon,
   'communications.feeReminders': BellRingIcon,
   'communications.reminderHistory': HistoryIcon,
@@ -138,6 +142,7 @@ export const PORTAL_NAV_ICONS: Record<string, LucideIcon> = {
   '/portal/exam-schedule': FileClockIcon,
   '/portal/syllabus': BookOpenIcon,
   '/portal/surveys': ClipboardPenLineIcon,
+  '/portal/applications': InboxIcon,
   '/portal/account': UserRoundIcon,
 };
 

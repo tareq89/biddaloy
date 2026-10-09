@@ -65,6 +65,10 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
   '/portal/exam-schedule': 'guardian portal uses bottom tab nav, no breadcrumb chrome',
   '/portal/fees': 'guardian portal uses bottom tab nav, no breadcrumb chrome',
   '/portal/routine': 'guardian portal uses bottom tab nav, no breadcrumb chrome',
+  '/portal/applications/': 'guardian portal uses bottom tab nav, no breadcrumb chrome',
+  '/portal/applications/new': 'guardian portal uses bottom tab nav, no breadcrumb chrome',
+  '/portal/applications/$applicationId':
+    'guardian portal uses bottom tab nav, no breadcrumb chrome',
   '/portal/surveys': 'guardian portal uses bottom tab nav, no breadcrumb chrome',
   '/portal/results': 'guardian portal uses bottom tab nav, no breadcrumb chrome',
   '/portal/syllabus': 'guardian portal uses bottom tab nav, no breadcrumb chrome',
@@ -182,6 +186,19 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
   '/_staff/attendance/staff/leave': [
     { label: { key: 'staffAttendance' } },
     { label: { key: 'leave' } },
+  ],
+  '/_staff/applications/': [{ label: { key: 'applications' } }],
+  '/_staff/applications/new': [
+    { label: { key: 'applications' } },
+    { label: { key: 'newApplication' } },
+  ],
+  '/_staff/applications/reports': [
+    { label: { key: 'applications' } },
+    { label: { key: 'applicationsReports' } },
+  ],
+  '/_staff/applications/$applicationId': [
+    { label: { key: 'applications' } },
+    { label: { key: 'applicationDetail' }, dynamic: 'entity' },
   ],
   '/_staff/fees/dues': [{ label: { key: 'studentDues' } }],
   '/_staff/payments/record': [{ label: { key: 'recordPayment' } }],

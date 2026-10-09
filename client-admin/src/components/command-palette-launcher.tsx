@@ -56,7 +56,7 @@ import {
   matchesNavSearch,
   rankByMatch,
   STAFF_NAV_GROUPS,
-  STAFF_NAV_ITEMS,
+  STAFF_TOP_NAV_ITEMS,
   type StaffNavItemDef,
   type StaffNavLabel,
 } from '../nav-tree';
@@ -253,7 +253,7 @@ export function CommandPaletteLauncher({
         trimmedQuery,
       );
     return [
-      { id: 'dashboard', label: '', results: toRows([STAFF_NAV_ITEMS.dashboard]) },
+      { id: 'dashboard', label: '', results: toRows([...STAFF_TOP_NAV_ITEMS]) },
       ...STAFF_NAV_GROUPS.map((group) => ({
         id: group.id,
         label: resolveNavLabel(group.label, 'groups'),
@@ -280,30 +280,47 @@ export function CommandPaletteLauncher({
     });
   const actionGroups = React.useMemo<GlobalSearchGroup[]>(() => {
     const locale = i18n.language.startsWith('bn') ? 'bn' : 'en';
-    return STAFF_NAV_GROUPS.map((group) => ({
-      id: group.id,
-      label: resolveNavLabel(group.label, 'groups'),
+    const toActionRow = (action: (typeof ACTIONS)[number]) => {
+      // `context: []` means "needs no entity" (ACR / incident actions), same as omitted.
+      const ctx = action.context;
+      return ctx?.length && !ctx.some((c) => availableContexts.has(c))
+        ? {
+            id: action.id,
+            label: action.label[locale],
+            disabled: true,
+            description: needsContext(ctx),
+          }
+        : { id: action.id, label: action.label[locale] };
+    };
+    const topGroup: GlobalSearchGroup = {
+      id: 'top',
+      label: '',
       results: rankByMatch(
         ACTIONS.filter(
           (action) =>
-            action.group === group.id &&
+            action.group === 'top' &&
             hasPermission(activeRole, action.permission) &&
             action.label[locale].toLowerCase().includes(trimmedQuery),
-        ).map((action) => {
-          // `context: []` means "needs no entity" (ACR / incident actions), same as omitted.
-          const ctx = action.context;
-          return ctx?.length && !ctx.some((c) => availableContexts.has(c))
-            ? {
-                id: action.id,
-                label: action.label[locale],
-                disabled: true,
-                description: needsContext(ctx),
-              }
-            : { id: action.id, label: action.label[locale] };
-        }),
+        ).map(toActionRow),
         trimmedQuery,
       ),
-    }));
+    };
+    return [
+      topGroup,
+      ...STAFF_NAV_GROUPS.map((group) => ({
+        id: group.id,
+        label: resolveNavLabel(group.label, 'groups'),
+        results: rankByMatch(
+          ACTIONS.filter(
+            (action) =>
+              action.group === group.id &&
+              hasPermission(activeRole, action.permission) &&
+              action.label[locale].toLowerCase().includes(trimmedQuery),
+          ).map(toActionRow),
+          trimmedQuery,
+        ),
+      })),
+    ];
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trimmedQuery, activeRole, availableContexts, i18n.language]);
 

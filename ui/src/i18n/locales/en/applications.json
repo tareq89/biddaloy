@@ -1,0 +1,51 @@
+{
+  "types": {
+    "STAFF_LEAVE": "Staff leave",
+    "STUDENT_LEAVE": "Student leave",
+    "FEE_WAIVER": "Fee waiver",
+    "TESTIMONIAL": "Testimonial",
+    "TRANSFER_CERTIFICATE": "Transfer certificate (TC)",
+    "READMISSION": "Readmission",
+    "SECTION_CHANGE": "Section change",
+    "SCRIPT_RECHECK": "Script recheck",
+    "ID_CARD_REPRINT": "ID card reprint",
+    "GENERAL": "General application"
+  },
+  "statuses": {
+    "PENDING": "Pending",
+    "UNDER_CONSIDERATION": "Under consideration",
+    "APPROVED": "Approved",
+    "REJECTED": "Rejected",
+    "WITHDRAWN": "Withdrawn",
+    "CANCELLED": "Cancelled"
+  },
+  "reasons": {
+    "SICK": "Illness",
+    "FAMILY": "Family reasons",
+    "OTHER": "Other"
+  },
+  "addressees": {
+    "CLASS_TEACHER": "Class teacher",
+    "HEADMASTER": "Headmaster",
+    "OFFICE": "Office",
+    "STAFF_USER": "A specific staff member"
+  },
+  "steps": {
+    "CLASS_TEACHER": "Class teacher",
+    "ADDRESSEE": "{{name}}",
+    "PERMISSION_LEAVE_APPROVE": "Leave approver",
+    "PERMISSION_DISCOUNT_RULE_MANAGE": "Accounts",
+    "PERMISSION_STUDENT_LIFECYCLE_MANAGE": "Headmaster",
+    "ROLES_ADMIN": "Headmaster",
+    "ROLES_EXAM_CONTROLLER": "Exam controller",
+    "ROLES_OFFICE_STAFF": "Office"
+  },
+  "stepOf": "Step {{current}}/{{total}} · {{label}}",
+  "source": {
+    "PAPER": "Submitted on paper"
+  },
+  "stub": {
+    "title": "Coming soon",
+    "explanation": "This page is still being built."
+  }
+}

@@ -1,0 +1,51 @@
+{
+  "types": {
+    "STAFF_LEAVE": "কর্মীর ছুটি",
+    "STUDENT_LEAVE": "শিক্ষার্থীর ছুটি",
+    "FEE_WAIVER": "ফি মওকুফ",
+    "TESTIMONIAL": "প্রশংসাপত্র",
+    "TRANSFER_CERTIFICATE": "ছাড়পত্র (টিসি)",
+    "READMISSION": "পুনরায় ভর্তি",
+    "SECTION_CHANGE": "শাখা পরিবর্তন",
+    "SCRIPT_RECHECK": "খাতা পুনর্নিরীক্ষা",
+    "ID_CARD_REPRINT": "পরিচয়পত্র পুনর্মুদ্রণ",
+    "GENERAL": "সাধারণ আবেদন"
+  },
+  "statuses": {
+    "PENDING": "অপেক্ষমাণ",
+    "UNDER_CONSIDERATION": "বিবেচনাধীন",
+    "APPROVED": "অনুমোদিত",
+    "REJECTED": "নামঞ্জুর",
+    "WITHDRAWN": "প্রত্যাহার করা হয়েছে",
+    "CANCELLED": "বাতিল"
+  },
+  "reasons": {
+    "SICK": "অসুস্থতা",
+    "FAMILY": "পারিবারিক কারণ",
+    "OTHER": "অন্যান্য"
+  },
+  "addressees": {
+    "CLASS_TEACHER": "শ্রেণি শিক্ষক",
+    "HEADMASTER": "প্রধান শিক্ষক",
+    "OFFICE": "অফিস",
+    "STAFF_USER": "নির্দিষ্ট কর্মী"
+  },
+  "steps": {
+    "CLASS_TEACHER": "শ্রেণি শিক্ষক",
+    "ADDRESSEE": "{{name}}",
+    "PERMISSION_LEAVE_APPROVE": "ছুটি অনুমোদনকারী",
+    "PERMISSION_DISCOUNT_RULE_MANAGE": "হিসাব শাখা",
+    "PERMISSION_STUDENT_LIFECYCLE_MANAGE": "প্রধান শিক্ষক",
+    "ROLES_ADMIN": "প্রধান শিক্ষক",
+    "ROLES_EXAM_CONTROLLER": "পরীক্ষা নিয়ন্ত্রক",
+    "ROLES_OFFICE_STAFF": "অফিস"
+  },
+  "stepOf": "ধাপ {{current}}/{{total}} · {{label}}",
+  "source": {
+    "PAPER": "কাগজে জমা"
+  },
+  "stub": {
+    "title": "শিগগিরই আসছে",
+    "explanation": "এই পাতাটি তৈরির কাজ চলছে।"
+  }
+}

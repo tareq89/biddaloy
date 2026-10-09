@@ -3,7 +3,7 @@ import { QueryClient } from '@tanstack/react-query';
 import { createRouter } from '@tanstack/react-router';
 import { describe, expect, it } from 'vitest';
 
-import { STAFF_NAV_GROUPS, STAFF_NAV_ITEMS } from './nav-tree';
+import { STAFF_NAV_GROUPS, STAFF_TOP_NAV_ITEMS } from './nav-tree';
 import { STAFF_ROUTE_PERMISSIONS } from './route-permissions';
 import { routeTree } from './routeTree.gen';
 
@@ -74,6 +74,8 @@ describe('STAFF_ROUTE_PERMISSIONS', () => {
  * trailing slash — see `routeTree.gen.ts`. */
 const NAV_PATH_TO_ROUTE_ID: Record<string, string> = {
   '/dashboard': '/_staff/dashboard',
+  '/applications': '/_staff/applications/',
+  '/applications/reports': '/_staff/applications/reports',
   '/students': '/_staff/students/',
   '/attendance': '/_staff/attendance/',
   '/attendance/reports': '/_staff/attendance/reports',
@@ -134,8 +136,8 @@ const NAV_PATH_TO_ROUTE_ID: Record<string, string> = {
  * shape. */
 function collectNavPermissions(): Map<string, string> {
   const found = new Map<string, string>();
-  if (STAFF_NAV_ITEMS.dashboard.permission !== undefined) {
-    found.set(STAFF_NAV_ITEMS.dashboard.to, STAFF_NAV_ITEMS.dashboard.permission);
+  for (const item of STAFF_TOP_NAV_ITEMS) {
+    if (item.permission !== undefined) found.set(item.to, item.permission);
   }
   for (const group of STAFF_NAV_GROUPS) {
     for (const item of [...(group.pinnedItems ?? []), ...group.items]) {
