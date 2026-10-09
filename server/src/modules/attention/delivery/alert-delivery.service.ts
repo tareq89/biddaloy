@@ -72,10 +72,18 @@ export class AlertDeliveryService extends WorkerHost implements OnModuleInit, On
 
   async process(job: Job<{ tenantId: string; recipientId: string }>): Promise<void> {
     if (job.name !== JOB_DELIVER_PUSH) return;
-    await this.deliver(job.data.tenantId, [job.data.recipientId]);
+    // The delay already ran to the end of quiet hours. Re-checking here could
+    // re-queue under the same jobId while this job is still active, and BullMQ
+    // drops that duplicate, so the push would be lost.
+    await this.deliver(job.data.tenantId, [job.data.recipientId], new Date(), true);
   }
 
-  async deliver(tenantId: string, recipientIds: string[], now = new Date()): Promise<void> {
+  async deliver(
+    tenantId: string,
+    recipientIds: string[],
+    now = new Date(),
+    deferred = false,
+  ): Promise<void> {
     if (recipientIds.length === 0) return;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const rows: Record<string, any>[] = await this.dataSource.query(
@@ -95,7 +103,7 @@ export class AlertDeliveryService extends WorkerHost implements OnModuleInit, On
     const tz = settings.region!.timezone;
     const locale = resolveLocale(settings.region!.locale);
     const quiet = settings.attention!.quietHours!;
-    const quietNow = isInQuietHours(localTimeHHmm(now, tz), quiet);
+    const quietNow = !deferred && isInQuietHours(localTimeHHmm(now, tz), quiet);
 
     for (const row of rows) {
       if (!isAlertRuleKey(row.rule_key) || !alertRuleMeta(row.rule_key).pushable) continue;

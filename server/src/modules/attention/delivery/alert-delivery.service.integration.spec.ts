@@ -192,6 +192,14 @@ describe('AlertDeliveryService (integration)', () => {
     expect(sendToUser).toHaveBeenCalledTimes(1);
   });
 
+  it('a deferred job pushes even if it wakes inside quiet hours (no same-jobId re-queue)', async () => {
+    const id = await add();
+    await svc.deliver(SEED_TENANT_ID, [id], new Date(NIGHT), true);
+    // Re-adding `push-<id>` while that job is active would be dropped by BullMQ.
+    expect(queueAdd).not.toHaveBeenCalled();
+    expect(sendToUser).toHaveBeenCalledTimes(1);
+  });
+
   it('ignores a recipient id from another tenant (tenant isolation)', async () => {
     const idB = await add({ tenantId: tenantB });
     await svc.deliver(SEED_TENANT_ID, [idB], new Date(DAY));
