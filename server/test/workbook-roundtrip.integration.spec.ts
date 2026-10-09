@@ -122,6 +122,7 @@ import {
   type SheetData,
 } from '../src/modules/workbook/codec/workbook-codec';
 import { ALL_TABS } from '../src/modules/workbook/codec/registry';
+import { leaveRecordTab } from '../src/modules/workbook/tabs/hr/leave-record.tab';
 import { SCHEMA_VERSION } from '../src/modules/workbook/codec/meta';
 import type { TabSpec } from '../src/modules/workbook/codec/tab-spec';
 import {
@@ -2697,6 +2698,90 @@ describe('workbook round trip (integration)', () => {
 
       expect(errors.some((m) => m.includes('never deletes'))).toBe(true);
       // Control: the same swap as a BACKUP is accepted (covered by the swap test above).
+    }, 60_000);
+  });
+
+  describe('leave_records upsert on an id-matched row', () => {
+    // Regression: `load()` eager-loads `application`, and a loaded relation beats the FK
+    // column on save. A restore matching the row by id must still apply a cleared cell.
+    it('clearing the application cell unlinks the leave, even though load() fetched the relation', async () => {
+      const tenantId = randomUUID();
+      const tag = tenantId.slice(0, 8);
+      await dataSource.getRepository(School).save(
+        dataSource.getRepository(School).create({
+          id: tenantId,
+          name: `Leave Upsert ${tag}`,
+          slug: `leave-upsert-${tag}`,
+        }),
+      );
+      const user = await dataSource.getRepository(User).save(
+        dataSource.getRepository(User).create({
+          email: `leave-upsert-${tag}@test.com`,
+          full_name: 'Leave Upsert Staff',
+        }),
+      );
+      const profile = await dataSource.getRepository(StaffProfile).save(
+        dataSource.getRepository(StaffProfile).create({
+          tenant_id: tenantId,
+          user_id: user.id,
+          employee_id: `EMP-${tag}`,
+        }),
+      );
+      const application = await dataSource.getRepository(Application).save(
+        dataSource.getRepository(Application).create({
+          tenant_id: tenantId,
+          type: ApplicationType.STAFF_LEAVE,
+          status: ApplicationStatus.APPROVED,
+          source: ApplicationSource.APP,
+          serial_year: 2026,
+          serial_no: 1,
+          subject_staff_profile_id: profile.id,
+          applicant_user_id: user.id,
+          payload: {},
+          letter_text: 'x',
+          letter_locale: 'en',
+        }),
+      );
+      const leave = await dataSource.getRepository(LeaveRecord).save(
+        dataSource.getRepository(LeaveRecord).create({
+          tenant_id: tenantId,
+          staff_profile_id: profile.id,
+          leave_type: LeaveType.CASUAL,
+          start_date: '2026-03-10',
+          end_date: '2026-03-11',
+          days: 2,
+          status: LeaveStatus.APPROVED,
+          reason: null,
+          application_id: application.id,
+        }),
+      );
+
+      const [existing] = await leaveRecordTab.load(tenantId, dataSource.manager);
+      expect(existing.application?.id).toBe(application.id);
+      await leaveRecordTab.upsert(
+        {
+          id: leave.id,
+          staff_profile_id: profile.id,
+          leave_type: LeaveType.CASUAL,
+          start_date: '2026-03-10',
+          end_date: '2026-03-11',
+          days: 2,
+          status: LeaveStatus.APPROVED,
+          reason: null,
+          approved_by: null,
+          application_id: null,
+          decided_at: null,
+          staff_profile_key: profile.employee_id,
+          approved_by_key: null,
+          application_key: null,
+        },
+        existing,
+        tenantId,
+        dataSource.manager,
+      );
+
+      const after = await dataSource.getRepository(LeaveRecord).findOneByOrFail({ id: leave.id });
+      expect(after.application_id).toBeNull();
     }, 60_000);
   });
 });

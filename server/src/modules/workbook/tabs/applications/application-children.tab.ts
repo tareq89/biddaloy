@@ -1,5 +1,6 @@
-import type { EntityManager } from 'typeorm';
+import { In, type EntityManager } from 'typeorm';
 import { APPLICATION_TAG_ROLES, ATTACHMENT_LIMITS, ApplicationEventKind } from '@biddaloy/shared';
+import { UserTenant } from '../../../auth/entities/user-tenant.entity';
 import { ApplicationAttachment } from '../../../applications/entities/application-attachment.entity';
 import { ApplicationEvent } from '../../../applications/entities/application-event.entity';
 import { ApplicationTag } from '../../../applications/entities/application-tag.entity';
@@ -265,6 +266,22 @@ export const applicationTagsTab: TabSpec<ApplicationTag, Rec> = {
   },
 
   async upsert(row: Rec, existing: ApplicationTag | null, tenantId: string, m: EntityManager) {
+    // D50: a user tag grants read access, so it must name this school's staff, never a
+    // guardian or student login. Checked here because fromRow has no database access.
+    if (row.user_id) {
+      const isStaff = await m.exists(UserTenant, {
+        where: {
+          user_id: row.user_id as string,
+          tenant_id: tenantId,
+          role: In([...APPLICATION_TAG_ROLES]),
+        },
+      });
+      if (!isStaff) {
+        throw new Error(
+          `${TAGS}: user "${String(row.user_key)}" is not staff of this school (D50).`,
+        );
+      }
+    }
     const tag = existing ?? new ApplicationTag();
     tag.tenant_id = tenantId;
     tag.application_id = row.application_id as string;

@@ -4,6 +4,7 @@ import {
   ApplicationAddressee,
   ApplicationSource,
   ApplicationStatus,
+  ApplicationSubjectKind,
   ApplicationType,
 } from '@biddaloy/shared';
 import { Application } from '../../../applications/entities/application.entity';
@@ -234,6 +235,19 @@ export const applicationsTab: TabSpec<Application, Rec> = {
           rowNo,
           'status',
           `Column "status": a ${String(out.type)} application cannot be CANCELLED.`,
+        ),
+      );
+    }
+    // The subject kind must fit the type, or the decision effects get a shape they never expect.
+    const kind = out.subject_student_id
+      ? ApplicationSubjectKind.STUDENT
+      : ApplicationSubjectKind.STAFF;
+    if (!APPLICATION_TYPES[out.type as ApplicationType].subject.includes(kind)) {
+      errors.push(
+        rowError(
+          rowNo,
+          out.subject_student_id ? 'subject_student' : 'subject_staff_profile',
+          `A ${String(out.type)} application cannot have a ${kind.toLowerCase()} subject.`,
         ),
       );
     }

@@ -5,7 +5,9 @@
  * open, and the chosen values show as removable chips above the input.
  *
  * `options` may change under it (a server-side search): a chip keeps the label
- * it was last seen with. `disabled`/`readOnly` freeze the value.
+ * it was last seen with. Pass `selectedOptions` for values that may never be in
+ * `options` (a pre-filled edit form). `disabled`/`readOnly` freeze the value and
+ * keep the list closed.
  */
 import { X } from 'lucide-react';
 import * as React from 'react';
@@ -39,6 +41,8 @@ export interface MultiComboboxProps extends Omit<
   emptyText?: string;
   /** At most this many values; the other options turn `aria-disabled`. */
   max?: number | undefined;
+  /** Labels for chosen values that may not be in `options` (a pre-filled edit form). */
+  selectedOptions?: MultiComboboxOption[] | undefined;
 }
 
 export function MultiCombobox({
@@ -48,6 +52,7 @@ export function MultiCombobox({
   placeholder,
   emptyText,
   max,
+  selectedOptions,
   onFocus,
   onKeyDown,
   ...props
@@ -55,16 +60,25 @@ export function MultiCombobox({
   const { t } = useTranslation();
   placeholder ??= t('form.selectPlaceholder');
   emptyText ??= t('table.empty');
-  const [open, setOpen] = React.useState(false);
+  const [openState, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState('');
   const [activeIndex, setActiveIndex] = React.useState(-1);
   // Last add/remove, for the live region; cleared as soon as the user types again.
   const [status, setStatus] = React.useState('');
   const listboxId = React.useId();
   const inputRef = React.useRef<HTMLInputElement>(null);
+  // Set while `remove` hands focus back to the input, so that focus does not open the list.
+  const skipOpen = React.useRef(false);
+  // Idempotent render-time cache (a value always maps to its latest option), so a discarded
+  // render cannot leave a wrong label. ponytail: grows with every option seen while mounted;
+  // prune to `value` if a caller ever streams thousands of options.
   const known = React.useRef(new Map<string, MultiComboboxOption>());
-  for (const option of options) known.current.set(option.value, option);
+  for (const option of [...(selectedOptions ?? []), ...options]) {
+    known.current.set(option.value, option);
+  }
   const locked = Boolean(props.disabled || props.readOnly);
+  // A frozen value has nothing to pick, so its list never opens.
+  const open = openState && !locked;
 
   const trimmed = toLatinDigits(query.trim().toLowerCase());
   const filtered =
@@ -85,7 +99,14 @@ export function MultiCombobox({
     setStatus(
       t('multiCombobox.removed', { label: known.current.get(optionValue)?.label ?? optionValue }),
     );
+    skipOpen.current = true;
     inputRef.current?.focus();
+    skipOpen.current = false;
+  }
+
+  function close() {
+    setOpen(false);
+    setActiveIndex(-1); // a reopened list starts from the first option
   }
 
   function toggle(option: ComboboxOption) {
@@ -104,7 +125,7 @@ export function MultiCombobox({
   }
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={(next) => (next ? setOpen(true) : close())}>
       <div className="flex flex-col gap-2">
         {chips.length > 0 && (
           <ul aria-label={t('multiCombobox.selected')} className="flex flex-wrap gap-2">
@@ -139,7 +160,7 @@ export function MultiCombobox({
             placeholder={placeholder}
             value={query}
             onFocus={(event) => {
-              setOpen(true);
+              if (!skipOpen.current) setOpen(true);
               onFocus?.(event);
             }}
             onChange={(event) => {
@@ -169,7 +190,7 @@ export function MultiCombobox({
                 const last = value[value.length - 1];
                 if (query === '' && last !== undefined) remove(last);
               } else if (event.key === 'Escape') {
-                setOpen(false);
+                close();
               }
             }}
           />
