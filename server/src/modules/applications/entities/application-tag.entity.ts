@@ -8,6 +8,7 @@ import {
   Index,
   Check,
 } from 'typeorm';
+import { APPLICATION_TAG_ROLES } from '@biddaloy/shared';
 import { School } from '../../schools/entities/school.entity';
 import { User } from '../../users/entities/user.entity';
 import { Application } from './application.entity';
@@ -15,6 +16,7 @@ import { Application } from './application.entity';
 /**
  * [52.1.2] A tagged person (`user_id`) or role (`role`) on an application
  * (D12, D14): can view and comment, never decide. Exactly one of the two is set.
+ * A role must be one of `APPLICATION_TAG_ROLES` (tenant staff, D50).
  */
 @Entity('application_tags')
 @Index('IDX_application_tags_tenant_application', ['tenant_id', 'application_id'])
@@ -26,7 +28,15 @@ import { Application } from './application.entity';
   unique: true,
   where: '"role" IS NOT NULL',
 })
+@Index('IDX_application_tags_tenant_user', ['tenant_id', 'user_id'], {
+  where: '"user_id" IS NOT NULL',
+})
+@Index('IDX_application_tags_tenant_role', ['tenant_id', 'role'], { where: '"role" IS NOT NULL' })
 @Check('CHK_application_tags_user_xor_role', `num_nonnulls("user_id", "role") = 1`)
+@Check(
+  'CHK_application_tags_role',
+  `"role" IN (${APPLICATION_TAG_ROLES.map((role) => `'${role}'`).join(', ')})`,
+)
 export class ApplicationTag {
   @PrimaryGeneratedColumn('uuid')
   id: string;

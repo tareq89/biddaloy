@@ -30,6 +30,9 @@ import { User } from '../../users/entities/user.entity';
  * - The applicant is a user, or (PAPER only) a bare `applicant_name` for a guardian
  *   with no login (D46) — `CHK_applications_applicant`.
  * - Serial is unique per school per year (D29).
+ * - The three child tables reference `(tenant_id, id)` (`UQ_applications_tenant_id`) with
+ *   composite FKs, so a child row can never name another school's application. Their
+ *   `@JoinColumn`s stay single-column (TypeORM only joins on it; the DB holds the rule).
  * - No `@OneToMany` collections on purpose: saving an entity with a partly-loaded
  *   collection makes TypeORM NULL the missing children's FKs. Query the child
  *   tables (`application_events`, `_tags`, `_attachments`) by `application_id`.
@@ -39,7 +42,11 @@ import { User } from '../../users/entities/user.entity';
 @Index('IDX_applications_tenant_subject_student', ['tenant_id', 'subject_student_id'])
 @Index('IDX_applications_tenant_subject_staff', ['tenant_id', 'subject_staff_profile_id'])
 @Index('IDX_applications_tenant_applicant', ['tenant_id', 'applicant_user_id'])
+@Index('IDX_applications_tenant_addressee_user', ['tenant_id', 'addressee_user_id'], {
+  where: '"addressee_user_id" IS NOT NULL',
+})
 @Unique('UQ_applications_tenant_serial', ['tenant_id', 'serial_year', 'serial_no'])
+@Unique('UQ_applications_tenant_id', ['tenant_id', 'id'])
 @Check(
   'CHK_applications_one_subject',
   `num_nonnulls("subject_student_id", "subject_staff_profile_id") = 1`,
