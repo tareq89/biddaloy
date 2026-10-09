@@ -67,7 +67,8 @@ describe('StaffLeaveHandler (integration)', () => {
     end: string,
     opts: { profile?: string; tenantId?: string; status?: ApplicationStatus } = {},
   ) {
-    return dataSource.getRepository(Application).save({
+    const repo = dataSource.getRepository(Application);
+    const saved = await repo.save({
       tenant_id: opts.tenantId ?? TENANT_ID,
       type: ApplicationType.STAFF_LEAVE,
       status: opts.status ?? ApplicationStatus.PENDING,
@@ -76,9 +77,13 @@ describe('StaffLeaveHandler (integration)', () => {
       applicant_user_id: SEED_ADMIN_USER_ID,
       subject_staff_profile_id: opts.profile ?? profileId,
       payload: { leave_type: LeaveType.CASUAL, start_date: start, end_date: end, reason: 'Family' },
+      start_date: start,
+      end_date: end,
       letter_text: 'x',
       letter_locale: 'en',
     });
+    // Re-read, as the decision service does: the `date` columns come back as YYYY-MM-DD.
+    return repo.findOneByOrFail({ id: saved.id });
   }
 
   const apply = (app: Application, c = ctx) => run((m) => handler.apply(m, app, c));
@@ -161,6 +166,15 @@ describe('StaffLeaveHandler (integration)', () => {
       days: 3,
       attendance_dates: [day(10), day(11), day(12)],
     });
+  });
+
+  it('datetime-shaped payload dates: the date columns drive the count, not the payload strings', async () => {
+    const app = await makeApp(`${day(10)}T00:00:00.000Z`, `${day(12)}T00:00:00.000Z`);
+    expect(app.start_date).toBe(day(10));
+    const res = await apply(app);
+    expect(res).toMatchObject({ days: 3, attendance_dates: [day(10), day(11), day(12)] });
+    const [row] = await leaveRows();
+    expect([row.start_date, row.end_date, row.days]).toEqual([day(10), day(12), 3]);
   });
 
   it('apply over quota: 422 LEAVE_BALANCE_EXCEEDED and nothing is left behind', async () => {

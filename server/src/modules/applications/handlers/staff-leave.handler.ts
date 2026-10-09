@@ -1,4 +1,9 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import type { EntityManager } from 'typeorm';
 import { LeaveStatus } from '@biddaloy/shared';
 import type { Application } from '../entities/application.entity';
@@ -20,6 +25,12 @@ export class StaffLeaveHandler {
     ctx: ApplicationEffectContext,
   ): Promise<Record<string, unknown> | null> {
     const p = app.payload as unknown as StaffLeavePayloadDto;
+    // The `date` columns, not the payload strings (as the student handler): Postgres already
+    // cut them to YYYY-MM-DD, so a datetime-shaped payload date cannot count zero days.
+    const { start_date: start, end_date: end } = app;
+    if (!start || !end) {
+      throw new UnprocessableEntityException('Leave application has no date range');
+    }
     const staffProfileId = app.subject_staff_profile_id;
     if (!staffProfileId) {
       throw new NotFoundException('Staff profile not found');
@@ -42,8 +53,8 @@ export class StaffLeaveHandler {
       .andWhere('l.staff_profile_id = :s', { s: staffProfileId })
       .andWhere('l.status = :st', { st: LeaveStatus.APPROVED })
       .andWhere('l.start_date <= :end AND l.end_date >= :start', {
-        start: p.start_date,
-        end: p.end_date,
+        start,
+        end,
       })
       .getCount();
     if (overlap > 0) {
@@ -57,8 +68,8 @@ export class StaffLeaveHandler {
       tenantId: ctx.tenantId,
       staffProfileId,
       leaveType: p.leave_type,
-      startDate: p.start_date,
-      endDate: p.end_date,
+      startDate: start,
+      endDate: end,
       reason: p.reason,
       applicationId: app.id,
       approvedByUserId: ctx.actorUserId,
@@ -76,8 +87,8 @@ export class StaffLeaveHandler {
         ? {
             follow_up: {
               kind: 'SUBSTITUTE',
-              from: p.start_date,
-              to: p.end_date,
+              from: start,
+              to: end,
               covered_for_teacher_id: teacher.id,
             },
           }

@@ -1147,7 +1147,7 @@ export class ApplicationsService {
     if (
       app.status === ApplicationStatus.APPROVED &&
       APPLICATION_TYPES[app.type].cancellable &&
-      !isApplicant
+      !(await this.reviewerScope.isOwn(manager, user, app))
     ) {
       // D41
       if (app.type === ApplicationType.STAFF_LEAVE) {

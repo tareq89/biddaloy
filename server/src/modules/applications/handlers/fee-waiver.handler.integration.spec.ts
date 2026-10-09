@@ -154,6 +154,9 @@ describe('FeeWaiverHandler (integration)', () => {
       discount_rule_id: rule.id,
       kind: 'PERCENT',
       value: 50,
+      fee_types: ['MONTHLY_TUITION'],
+      starts_on: '2026-11-01',
+      ends_on: '2027-03-31',
       approved_by_user_id: APPROVER_ID,
     });
     expect(rule).toMatchObject({
@@ -181,8 +184,18 @@ describe('FeeWaiverHandler (integration)', () => {
 
   it('granted terms drive the rule; omitted fields keep the requested value; payload untouched', async () => {
     const app = await makeApp();
-    await run((m) => handler.apply(m, app, ctx({ granted: { kind: 'FLAT', value: 500 } })));
+    const res = await run((m) =>
+      handler.apply(m, app, ctx({ granted: { kind: 'FLAT', value: 500 } })),
+    );
     const [rule] = await rulesFor();
+    // effect_result records the terms actually applied, not just the fields the approver sent.
+    expect(res).toMatchObject({
+      kind: 'FLAT',
+      value: 500,
+      fee_types: ['MONTHLY_TUITION'],
+      starts_on: '2026-11-01',
+      ends_on: '2027-03-31',
+    });
     expect(rule.kind).toBe('FLAT');
     expect(Number(rule.value)).toBe(500);
     expect(rule.fee_types).toEqual(['MONTHLY_TUITION']);
