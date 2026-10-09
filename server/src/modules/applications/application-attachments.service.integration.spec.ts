@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, beforeEach, afterAll, vi } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterAll, vi, type Mock } from 'vitest';
 import {
   BadRequestException,
   ForbiddenException,
@@ -49,8 +49,8 @@ describe('ApplicationAttachmentsService (integration)', () => {
   let applications: ApplicationsService;
   let storage: StorageService;
   let dataSource: DataSource;
-  let put: ReturnType<typeof vi.fn>;
-  let del: ReturnType<typeof vi.fn>;
+  let put: Mock<StorageService['put']>;
+  let del: Mock<StorageService['delete']>;
 
   const TENANT_B = randomUUID();
   const ctx = { ip: null, userAgent: null };
@@ -130,8 +130,8 @@ describe('ApplicationAttachmentsService (integration)', () => {
   });
 
   beforeEach(async () => {
-    put = vi.fn().mockResolvedValue(undefined);
-    del = vi.fn().mockResolvedValue(undefined);
+    put = vi.fn<StorageService['put']>().mockResolvedValue(undefined);
+    del = vi.fn<StorageService['delete']>().mockResolvedValue(undefined);
     vi.spyOn(storage, 'put').mockImplementation(put);
     vi.spyOn(storage, 'delete').mockImplementation(del);
     vi.spyOn(storage, 'get').mockImplementation(
