@@ -155,6 +155,28 @@ describe('/schools', () => {
     expect(within(neverRow).getAllByText('Never')).toHaveLength(2);
   });
 
+  it('renders the alert engine health card under the schools list', async () => {
+    const { server } = await import('@biddaloy/ui/test');
+    server.use(
+      http.get('*/platform/attention/health', () =>
+        HttpResponse.json({
+          lastSweep: { FAST: new Date().toISOString(), HOURLY: null, DAILY: null },
+          durationsMs: { FAST: 1500, HOURLY: null, DAILY: null },
+          failingRules: [],
+        }),
+      ),
+    );
+    renderWithRouter(routeTree, {
+      initialEntries: ['/schools'],
+      tenantId: 'tenant-1',
+      role: UserRole.SUPER_ADMIN,
+      locale: 'en',
+    });
+
+    expect(await screen.findByRole('heading', { name: 'Alert engine', level: 2 })).toBeTruthy();
+    expect(await screen.findByText('Running')).toBeTruthy();
+  });
+
   it('shows a loading state while the list is in flight', async () => {
     const { server } = await import('@biddaloy/ui/test');
     server.use(
