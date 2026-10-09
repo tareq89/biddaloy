@@ -1046,3 +1046,319 @@ export async function closeSurvey(
 ): Promise<SurveyResponse> {
   return post<SurveyResponse>(request, session, `/surveys/${id}/close`, {});
 }
+
+// ---------------------------------------------------------------------------
+// [66.3.99] Study plans (Epic 66)
+// ---------------------------------------------------------------------------
+
+export interface StudyPlanLessonInput {
+  title: string;
+  periods: number;
+}
+
+export interface StudyPlanBody {
+  section_id: string;
+  subject_id: string;
+  /** `null` = whole year. */
+  academic_term_id: string | null;
+  lessons?: StudyPlanLessonInput[];
+}
+
+/** `POST /study-plans`. The caller needs write scope on the section x subject (ADMIN always has it). */
+export async function createStudyPlan(
+  request: APIRequestContext,
+  session: ApiSession,
+  body: StudyPlanBody,
+): Promise<{ id: string; lessons: { id: string; title: string; periods: number }[] }> {
+  return post(request, session, '/study-plans', body);
+}
+
+/** A fresh subject offered by the class for the year — a plan needs the class to offer it. */
+export async function createOfferedSubject(
+  request: APIRequestContext,
+  session: ApiSession,
+  scope: { classId: string; academicYearId: string },
+  nameEn: string,
+): Promise<{ id: string; code: string; nameEn: string }> {
+  const code = `SP${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
+  const subject = await post<{ id: string }>(request, session, '/subjects', {
+    code,
+    name_en: nameEn,
+  });
+  await post(request, session, `/classes/${scope.classId}/subjects`, {
+    subject_id: subject.id,
+    academic_year_id: scope.academicYearId,
+  });
+  return { id: subject.id, code, nameEn };
+}
+
+/** `POST /study-plan-templates` (ADMIN / head teacher). */
+export async function createStudyPlanTemplate(
+  request: APIRequestContext,
+  session: ApiSession,
+  body: {
+    name: string;
+    class_grade: number;
+    subject_code: string;
+    lessons: StudyPlanLessonInput[];
+  },
+): Promise<{ id: string; name: string }> {
+  return post(request, session, '/study-plan-templates', body);
+}
+
+/** `PUT /lesson-deliveries` — records one period (upsert). */
+export async function putLessonDelivery(
+  request: APIRequestContext,
+  session: ApiSession,
+  body: {
+    section_id: string;
+    subject_id: string;
+    date: string;
+    period_slot_id: string;
+    status: 'TAUGHT' | 'PARTLY' | 'NOT_TAUGHT';
+    reason?: string;
+  },
+): Promise<{ id: string }> {
+  return put(request, session, '/lesson-deliveries', body);
+}
+
+/** The demo tenant's current-year "Class 6" / section "A" (the routine and study-plan seeds live there). */
+export async function findSeedSectionA(
+  request: APIRequestContext,
+  session: ApiSession,
+): Promise<{ classId: string; sectionId: string; className: string; academicYearId: string }> {
+  const classes = await get<{ data: { id: string; name: string; academic_year_id: string }[] }>(
+    request,
+    session,
+    '/classes?limit=1000',
+  );
+  const klass = classes.data.find((c) => c.name === 'Class 6');
+  if (!klass) throw new Error('seeded "Class 6" not found — run the seed script first');
+  const sections = await get<{ id: string; section_name: string }[]>(
+    request,
+    session,
+    `/classes/${klass.id}/sections`,
+  );
+  const section = sections.find((s) => s.section_name === 'A');
+  if (!section) throw new Error('seeded Class 6 section "A" not found');
+  return {
+    classId: klass.id,
+    sectionId: section.id,
+    className: klass.name,
+    academicYearId: klass.academic_year_id,
+  };
+}
+
+/** The school's own calendar: the date it is *there* now, and which weekdays are off. The server records
+ * lesson deliveries against this date, so specs must reason in it, never in the machine's timezone. */
+export interface SchoolCalendar {
+  today: string;
+  weeklyOffDays: number[];
+  isSchoolDay: (date: string) => boolean;
+}
+
+export async function schoolCalendar(
+  request: APIRequestContext,
+  session: ApiSession,
+): Promise<SchoolCalendar> {
+  const settings = await get<{ timezone: string; weeklyOffDays: number[] }>(
+    request,
+    session,
+    '/calendar-settings',
+  );
+  // en-CA formats as YYYY-MM-DD.
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: settings.timezone }).format(
+    new Date(),
+  );
+  const weekday = (date: string) => new Date(`${date}T00:00:00Z`).getUTCDay();
+  return {
+    today,
+    weeklyOffDays: settings.weeklyOffDays,
+    isSchoolDay: (date) => !settings.weeklyOffDays.includes(weekday(date)),
+  };
+}
+
+/** The latest date on or before `from` that falls on `weekday` (0 = Sunday). */
+export function lastWeekdayOnOrBefore(weekday: number, from: string): string {
+  const d = new Date(`${from}T00:00:00Z`);
+  while (d.getUTCDay() !== weekday) d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString().slice(0, 10);
+}
+
+export function addDaysIso(date: string, days: number): string {
+  const d = new Date(`${date}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+export interface StudyPlanScene {
+  classId: string;
+  className: string;
+  academicYearId: string;
+  /** Two fresh sections of the seeded Class 6: a spec's own, so no earlier run's deliveries get in the way. */
+  sectionAId: string;
+  sectionAName: string;
+  sectionBId: string;
+  sectionBName: string;
+  subject: { id: string; code: string; nameEn: string };
+  teacher: FreshTeacher;
+  routineId: string;
+  /** Period slot ids of the seeded class's shift, by sequence number. */
+  periodSlotIds: Record<number, string>;
+}
+
+/**
+ * [66.3.99] A fresh subject taught by a fresh teacher in two fresh sections of the seeded Class 6
+ * (its shift and published routine come along): the subject is offered by the class, the teacher is its
+ * SUBJECT_TEACHER in both sections (so a plan is theirs to write), and nothing else touches them. Routine slots are added per
+ * spec with `addRoutineSlot`.
+ */
+export async function createStudyPlanScene(
+  request: APIRequestContext,
+  admin: ApiSession,
+  label: string,
+): Promise<StudyPlanScene> {
+  const sectionA = await findSeedSectionA(request, admin);
+  const mkSection = async () => {
+    const name = `Z${crypto.randomUUID().slice(0, 5)}`;
+    const created = await post<{ id: string }>(
+      request,
+      admin,
+      `/classes/${sectionA.classId}/sections`,
+      { section_name: name },
+    );
+    return { id: created.id, name };
+  };
+  const sectionOne = await mkSection();
+  const sectionTwo = await mkSection();
+  const subject = await createOfferedSubject(request, admin, sectionA, `${label} Subject`);
+  const teacher = await createTeacher(request, admin, `${label} Teacher`);
+  for (const sectionId of [sectionOne.id, sectionTwo.id]) {
+    await post(request, admin, `/classes/${sectionA.classId}/sections/${sectionId}/teachers`, {
+      teacher_id: teacher.teacherId,
+      subject_id: subject.id,
+    });
+  }
+  const routines = await get<{ id: string; academic_year_id: string; state: string }[]>(
+    request,
+    admin,
+    '/routines',
+  );
+  const routine = routines.find(
+    (r) => r.academic_year_id === sectionA.academicYearId && r.state === 'PUBLISHED',
+  );
+  if (!routine) throw new Error('no published routine for the seeded year — run the seed script');
+  const klass = await get<{ shift_id: string }>(request, admin, `/classes/${sectionA.classId}`);
+  const periods = await get<{ id: string; sequence: number }[]>(
+    request,
+    admin,
+    `/routines/shifts/${klass.shift_id}/period-slots`,
+  );
+  return {
+    classId: sectionA.classId,
+    className: sectionA.className,
+    academicYearId: sectionA.academicYearId,
+    sectionAId: sectionOne.id,
+    sectionAName: sectionOne.name,
+    sectionBId: sectionTwo.id,
+    sectionBName: sectionTwo.name,
+    subject,
+    teacher,
+    routineId: routine.id,
+    periodSlotIds: Object.fromEntries(periods.map((p) => [p.sequence, p.id])),
+  };
+}
+
+/** A weekly routine slot on the published routine, taught by the scene's teacher. */
+export async function addRoutineSlot(
+  request: APIRequestContext,
+  admin: ApiSession,
+  scene: StudyPlanScene,
+  slot: { sectionId: string; subjectId?: string; weekday: number; period: number },
+): Promise<string> {
+  const periodSlotId = scene.periodSlotIds[slot.period];
+  if (!periodSlotId) throw new Error(`the seeded shift has no period ${slot.period}`);
+  const created = await post<{ slot: { id: string } }>(
+    request,
+    admin,
+    `/routines/${scene.routineId}/slots`,
+    {
+      section_id: slot.sectionId,
+      period_slot_id: periodSlotId,
+      weekday: slot.weekday,
+      subject_id: slot.subjectId ?? scene.subject.id,
+      recurrence: 'WEEKLY',
+      valid_from: '2026-01-01',
+      teacher_ids: [scene.teacher.teacherId],
+    },
+  );
+  return created.slot.id;
+}
+
+/** Removes slots a spec added to the shared seeded routine, so the next run finds the period free. */
+export async function removeRoutineSlots(
+  request: APIRequestContext,
+  admin: ApiSession,
+  slotIds: string[],
+): Promise<void> {
+  for (const id of slotIds) {
+    await request.delete(`/api/v1/routines/slots/${id}`, {
+      headers: { Authorization: `Bearer ${admin.token}`, 'X-Tenant-ID': admin.tenantId },
+    });
+  }
+}
+
+/** An API session (token + tenant) for any account by email and password — for forced calls made with a
+ * less-privileged user's own token, which the UI would never send. */
+export async function sessionForCredentials(
+  request: APIRequestContext,
+  email: string,
+  password: string,
+): Promise<ApiSession> {
+  const response = await request.post('/api/v1/auth/login', { data: { email, password } });
+  if (!response.ok()) {
+    throw new Error(`login failed for ${email}: ${response.status()} ${await response.text()}`);
+  }
+  const body = (await response.json()) as RefreshResponse;
+  const membership = body.memberships[0];
+  if (!membership) throw new Error(`no membership for ${email}`);
+  return { token: body.access_token, tenantId: membership.tenantId };
+}
+
+/** A raw request with a session's headers, for asserting a refusal (the typed helpers throw on non-2xx). */
+export async function rawRequest(
+  request: APIRequestContext,
+  session: ApiSession,
+  method: 'GET' | 'PUT' | 'POST' | 'DELETE',
+  path: string,
+  data?: object,
+): Promise<{ status: number; body: unknown }> {
+  const response = await request.fetch(`/api/v1${path}`, {
+    method,
+    headers: { Authorization: `Bearer ${session.token}`, 'X-Tenant-ID': session.tenantId },
+    ...(data ? { data } : {}),
+  });
+  const text = await response.text();
+  let body: unknown = text;
+  try {
+    body = JSON.parse(text);
+  } catch {
+    // not JSON (an HTML 404 page): keep the text
+  }
+  return { status: response.status(), body };
+}
+
+/** The seed admin's session in the SECOND seeded school (Rose Valley): a real, valid token for a different
+ * tenant, for proving that school A's data does not answer to it. */
+export async function secondSchoolAdminSession(request: APIRequestContext): Promise<ApiSession> {
+  const password = process.env[SEED_PASSWORD_ENV];
+  if (!password) throw new Error(`${SEED_PASSWORD_ENV} is not set`);
+  const response = await request.post('/api/v1/auth/login', {
+    data: { email: SEED_ROLE_EMAILS.admin, password },
+  });
+  if (!response.ok()) throw new Error(`admin login failed: ${response.status()}`);
+  const body = (await response.json()) as RefreshResponse;
+  const membership = body.memberships.find((m) => m.name === 'Rose Valley School');
+  if (!membership) throw new Error('the seed admin has no Rose Valley School membership');
+  return { token: body.access_token, tenantId: membership.tenantId };
+}
