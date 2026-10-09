@@ -1,0 +1,150 @@
+{
+  "facts": {
+    "number": "নম্বর",
+    "applicant": "আবেদনকারী",
+    "student": "শিক্ষার্থী",
+    "staff": "কর্মী",
+    "submitted": "জমা",
+    "step": "ধাপ",
+    "decision": "সিদ্ধান্ত",
+    "paper": "{{name}} · কাগজে জমা, লিখেছেন {{enteredBy}}",
+    "withRole": "{{name}} · {{role}}",
+    "classLine": "{{class}} · {{section}} · রোল {{roll}}",
+    "decisionValue": "{{status}} · {{by}} · {{date}}"
+  },
+  "roles": {
+    "SUPER_ADMIN": "সুপার অ্যাডমিন",
+    "ADMIN": "প্রধান শিক্ষক",
+    "ACCOUNTANT": "হিসাবরক্ষক",
+    "TEACHER": "শিক্ষক",
+    "PARENT": "অভিভাবক",
+    "STUDENT": "শিক্ষার্থী",
+    "EXECUTIVE": "নির্বাহী",
+    "OFFICE_STAFF": "অফিস কর্মী",
+    "EXAM_CONTROLLER": "পরীক্ষা নিয়ন্ত্রক",
+    "COMMITTEE": "কমিটি"
+  },
+  "actions": {
+    "approve": "অনুমোদন করুন",
+    "reject": "নামঞ্জুর করুন",
+    "consider": "বিবেচনাধীন রাখুন",
+    "withdraw": "তুলে নিন",
+    "cancel": "ছুটি বাতিল করুন",
+    "print": "প্রিন্ট"
+  },
+  "followUp": {
+    "print": "{{document}} প্রিন্ট করুন",
+    "marks": "নম্বর দেখুন",
+    "substitute": "বদলি শিক্ষক ঠিক করুন"
+  },
+  "body": {
+    "letterTitle": "আবেদনপত্র",
+    "letterCaption": "জমার সময় তৈরি",
+    "fieldsTitle": "আবেদনের তথ্য",
+    "grantedAmount": "অনুমোদিত পরিমাণ",
+    "value": "পরিমাণ",
+    "percent": "{{n}}%",
+    "flat": "{{n}} টাকা",
+    "attachments": "সংযুক্তি",
+    "sizeKb": "{{n}} কেবি",
+    "download": "ডাউনলোড — {{file}}",
+    "delete": "মুছুন — {{file}}",
+    "downloadFailed": "ফাইলটি ডাউনলোড করা যায়নি। আবার চেষ্টা করুন।",
+    "deleteTitle": "ফাইলটি মুছবেন?",
+    "deleteDescription": "ফাইলটি আবেদন থেকে সরে যাবে।",
+    "deleteConfirm": "মুছুন",
+    "deleteCancel": "রেখে দিন"
+  },
+  "activity": {
+    "title": "কার্যক্রম",
+    "timelineLabel": "আবেদনের ইতিহাস",
+    "empty": "এখনও কিছু হয়নি।",
+    "tagged": "ট্যাগ করা: {{names}}",
+    "tagHelp": "ট্যাগ করা ব্যক্তিরা দেখতে ও মন্তব্য করতে পারবেন, সিদ্ধান্ত দিতে পারবেন না।",
+    "addTags": "আরও কাউকে যুক্ত করুন",
+    "tagLabel": "ব্যক্তিদের ট্যাগ করুন",
+    "tagFailed": "ট্যাগ সংরক্ষণ করা যায়নি। আবার চেষ্টা করুন।",
+    "commentLabel": "মন্তব্য লিখুন",
+    "commentPlaceholder": "যাঁদের ট্যাগ করা আছে তাঁরা বিজ্ঞপ্তি পাবেন",
+    "commentSend": "মন্তব্য পাঠান",
+    "commentFailed": "মন্তব্য পাঠানো যায়নি। আবার চেষ্টা করুন।",
+    "reason": "কারণ: {{note}}"
+  },
+  "events": {
+    "SUBMITTED": "{{actor}} আবেদন জমা দিয়েছেন",
+    "STEP_APPROVED": "{{actor}} ধাপ {{n}} অনুমোদন করেছেন",
+    "stepSkipped": "শ্রেণি শিক্ষকের ধাপ বাদ পড়েছে",
+    "APPROVED": "{{actor}} অনুমোদন করেছেন",
+    "REJECTED": "{{actor}} নামঞ্জুর করেছেন",
+    "UNDER_CONSIDERATION": "{{actor}} বিবেচনাধীন রেখেছেন",
+    "WITHDRAWN": "{{actor}} আবেদন প্রত্যাহার করেছেন",
+    "CANCELLED": "{{actor}} ছুটি বাতিল করেছেন",
+    "COMMENT": "{{actor}} মন্তব্য করেছেন",
+    "TAGGED": "{{actor}} ট্যাগ করেছেন: {{names}}"
+  },
+  "dialogs": {
+    "close": "বন্ধ করুন",
+    "noteLabel": "মন্তব্য (ঐচ্ছিক)",
+    "approve": {
+      "title": "আবেদনটি অনুমোদন করবেন?",
+      "description": "আবেদনকারীকে জানানো হবে।",
+      "grantedHint": "নিচের মওকুফ দেখে নিন। এটিই চূড়ান্ত অনুমোদন।",
+      "submit": "অনুমোদন করুন"
+    },
+    "reject": {
+      "title": "আবেদনটি নামঞ্জুর করবেন?",
+      "description": "আবেদনকারীকে কারণ জানানো হবে।",
+      "reasonLabel": "নামঞ্জুরের কারণ",
+      "reasonRequired": "একটি কারণ লিখুন।",
+      "reasonTooLong": "৫০০ অক্ষরের মধ্যে লিখুন।",
+      "submit": "নামঞ্জুর করুন"
+    },
+    "consider": {
+      "title": "বিবেচনাধীন রাখবেন?",
+      "description": "আবেদনকারী দেখতে পাবেন যে আবেদনটি দেখা হচ্ছে।",
+      "submit": "বিবেচনাধীন রাখুন"
+    },
+    "cancel": {
+      "title": "ছুটি বাতিল করবেন?",
+      "description": "আজকের পরের দিনগুলোর ছুটি মুছে যাবে এবং দিনগুলো ফেরত যাবে।",
+      "reasonLabel": "বাতিলের কারণ",
+      "reasonRequired": "একটি কারণ লিখুন।",
+      "reasonTooLong": "৫০০ অক্ষরের মধ্যে লিখুন।",
+      "submit": "ছুটি বাতিল করুন"
+    },
+    "withdraw": {
+      "title": "আবেদনটি তুলে নেবেন?",
+      "description": "আবেদনটি আর দেখা হবে না। পরে নতুন আবেদন করতে পারবেন।",
+      "confirm": "তুলে নিন",
+      "keep": "রেখে দিন"
+    }
+  },
+  "errors": {
+    "NOT_A_DECIDER": "এই আবেদনে সিদ্ধান্ত দেওয়ার অধিকার আপনার নেই।",
+    "EFFECT_PERMISSION_REQUIRED": "এই অনুমোদন সম্পন্ন করার অনুমতি আপনার নেই।",
+    "APPLICATION_NOT_OPEN": "এই আবেদনে ইতিমধ্যে সিদ্ধান্ত হয়ে গেছে।",
+    "APPLICATION_CHANGED": "অন্য কেউ এরই মধ্যে সিদ্ধান্ত দিয়েছেন। পাতাটি নতুন করে আনা হয়েছে।",
+    "GRANTED_NOT_ALLOWED": "এই আবেদনে অনুমোদিত পরিমাণ দেওয়া যায় না।",
+    "INVALID_GRANTED": "অনুমোদিত পরিমাণ ঠিক নয়। দেখে আবার চেষ্টা করুন।",
+    "ALREADY_UNDER_CONSIDERATION": "আবেদনটি আগে থেকেই বিবেচনাধীন।",
+    "NOT_CANCELLABLE": "এই আবেদন বাতিল করা যায় না।",
+    "APPLICANT_CANNOT_CANCEL": "আবেদনকারী নিজের অনুমোদিত ছুটি বাতিল করতে পারেন না।",
+    "APPLICATION_NOT_PENDING": "শুধু অপেক্ষমাণ আবেদন তুলে নেওয়া যায়।",
+    "LEAVE_BALANCE_EXCEEDED": "এই দিনগুলোর জন্য ছুটির হিসাবে যথেষ্ট দিন নেই।",
+    "LEAVE_NO_WORKING_DAYS": "এই তারিখগুলোতে কোনো কাজের দিন নেই।",
+    "LEAVE_NOT_CANCELLABLE": "এই ছুটি আর বাতিল করা যায় না।",
+    "LEAVE_OVERLAP": "এটি আগে অনুমোদিত ছুটির সঙ্গে মিলে যাচ্ছে।",
+    "LEAVE_POLICY_MISSING": "এই ছুটির ধরনের জন্য কোনো নিয়ম ঠিক করা নেই। অফিসকে ঠিক করতে বলুন।",
+    "LEAVE_ALREADY_ENDED": "এই ছুটি আগেই শেষ হয়ে গেছে।",
+    "DATE_IN_FUTURE": "ভবিষ্যতের তারিখ দেওয়া যাবে না।",
+    "NO_ACTIVE_ENROLLMENT": "এই শিক্ষার্থীর কোনো চলমান ভর্তি নেই।",
+    "SECTION_UNCHANGED": "শিক্ষার্থী আগে থেকেই ওই শাখায় আছে।",
+    "NOT_FOUND": "আবেদনটি পাওয়া যায়নি।",
+    "fallback": "সিদ্ধান্ত সংরক্ষণ করা যায়নি। আবার চেষ্টা করুন।"
+  },
+  "states": {
+    "notFound": "আবেদনটি পাওয়া যায়নি",
+    "loadError": "আবেদনটি আনা যায়নি।",
+    "forbidden": "এই আবেদন দেখার অধিকার আপনার নেই।"
+  }
+}
