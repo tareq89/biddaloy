@@ -1,7 +1,6 @@
 import { ConflictException } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest';
-import { ConflictException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { getDataSourceToken } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
@@ -237,7 +236,9 @@ describe('TrialService (integration)', () => {
 
   it('warn keeps other onboarding keys; extend to unlimited is audited as null', async () => {
     const id = await newSchool(6);
-    await ds.getRepository(School).update(id, { onboarding: { step: 'profile' }, seat_limit: 10 });
+    await ds
+      .getRepository(School)
+      .update(id, { onboarding: () => `'{"step":"profile"}'`, seat_limit: 10 });
     await trial.runDaily(now);
     expect((await load(id)).onboarding).toEqual({ step: 'profile', trial_warnings: ['d7'] });
 
