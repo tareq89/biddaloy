@@ -272,6 +272,7 @@ export function CommandPaletteLauncher({
     guardian: t('commandPalette.contextNouns.guardian'),
     invoice: t('commandPalette.contextNouns.invoice'),
     gradingScale: t('commandPalette.contextNouns.gradingScale'),
+    exam: t('commandPalette.contextNouns.exam'),
   };
   const needsContext = (ctx: readonly ActionContext[]) =>
     t('commandPalette.needsContext', {

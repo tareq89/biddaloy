@@ -247,7 +247,8 @@
       "student": "একজন শিক্ষার্থী",
       "guardian": "একজন অভিভাবক",
       "invoice": "একটি চালান",
-      "gradingScale": "একটি গ্রেডিং স্কেল"
+      "gradingScale": "একটি গ্রেডিং স্কেল",
+      "exam": "একটি পরীক্ষা"
     },
     "shortcutHint": "Ctrl+K",
     "launcherPlaceholder": "অনুসন্ধান…"

@@ -202,7 +202,8 @@
       "student": "a student",
       "guardian": "a guardian",
       "invoice": "an invoice",
-      "gradingScale": "a grading scale"
+      "gradingScale": "a grading scale",
+      "exam": "an exam"
     },
     "shortcutHint": "Ctrl+K",
     "launcherPlaceholder": "Search…"
