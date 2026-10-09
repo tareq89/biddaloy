@@ -37,6 +37,18 @@ import { useLocale, useTranslation } from '../i18n';
 import { Button } from './button';
 import { NotificationList } from './notification-list';
 import { Popover, PopoverContent, PopoverHeader, PopoverTitle, PopoverTrigger } from './popover';
+import { Skeleton } from './skeleton';
+
+/** [67.2.04] The attention engine's view for the bell: badge = active count (D19). */
+export interface NotificationBellAttention {
+  count: number;
+  topTitle: string | null;
+  status: 'loading' | 'error' | 'ready';
+  onRetry: () => void;
+  onOpen: () => void;
+  /** Route path (may carry `?tab=active`) for "See all to-do". */
+  todoTo: string;
+}
 
 export interface NotificationBellProps {
   /** Overrides the translated trigger label. */
@@ -52,6 +64,14 @@ export interface NotificationBellProps {
    * tree, for the same reason `AppShellNavItem['to']` (`./app-shell.tsx`)
    * is. */
   viewAllTo?: string;
+  /** When set, the badge counts active alerts and a section lists the top one. */
+  attention?: NotificationBellAttention;
+}
+
+/** `/path?a=1` -> router `to` + `search`. */
+function splitTo(url: string) {
+  const [to = '/', query] = url.split('?');
+  return { to, search: Object.fromEntries(new URLSearchParams(query)) };
 }
 
 export function NotificationBell({
@@ -60,6 +80,7 @@ export function NotificationBell({
   emptyLabel,
   markAllReadLabel,
   viewAllTo,
+  attention,
 }: NotificationBellProps) {
   const { t } = useTranslation('nav');
   const { locale } = useLocale();
@@ -69,6 +90,7 @@ export function NotificationBell({
   // return focus to the trigger, the same as any other in-panel navigation
   // away from this popover.
   const [open, setOpen] = React.useState(false);
+  const sectionId = React.useId();
 
   const resolvedLabel = label ?? t('notifications.bellLabel');
   const resolvedPanelTitle = panelTitle ?? t('notifications.panelLabel');
@@ -76,10 +98,12 @@ export function NotificationBell({
   const resolvedMarkAllReadLabel = markAllReadLabel ?? t('notifications.markAllRead');
 
   // The kit writes `9999`, not `9,999` — no grouping.
+  const badgeCount = attention ? attention.count : unreadCount;
   const badgeText =
-    unreadCount > 9999
+    badgeCount > 9999
       ? t('notifications.badgeOverflow', { count: 9999 })
-      : new Intl.NumberFormat(locale, { useGrouping: false }).format(unreadCount);
+      : new Intl.NumberFormat(locale, { useGrouping: false }).format(badgeCount);
+  const todo = attention ? splitTo(attention.todoTo) : null;
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -90,14 +114,16 @@ export function NotificationBell({
           size="icon"
           iconOnly
           aria-label={
-            unreadCount > 0
-              ? t('notifications.bellLabelUnread', { count: unreadCount })
+            badgeCount > 0
+              ? t(attention ? 'notifications.bellLabelActive' : 'notifications.bellLabelUnread', {
+                  count: badgeCount,
+                })
               : resolvedLabel
           }
           className="relative size-11 md:size-9"
         >
           <BellIcon />
-          {unreadCount > 0 && (
+          {badgeCount > 0 && (
             <span
               aria-hidden="true"
               className="absolute start-1/2 top-0.5 ms-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1 text-caption font-medium text-destructive-foreground md:-top-0.5"
@@ -120,6 +146,54 @@ export function NotificationBell({
             {resolvedMarkAllReadLabel}
           </Button>
         </PopoverHeader>
+        {attention && todo && (
+          <section aria-labelledby={`${sectionId}-attention`} className="flex flex-col gap-2 p-2">
+            <h3 id={`${sectionId}-attention`} className="text-label text-text-secondary">
+              {t('notifications.attentionTitle')}
+            </h3>
+            {attention.status === 'loading' ? (
+              <Skeleton className="h-5 w-full" />
+            ) : attention.status === 'error' ? (
+              <>
+                <p className="text-sm">{t('notifications.attentionError')}</p>
+                <Button type="button" variant="outline" size="sm" onClick={attention.onRetry}>
+                  {t('notifications.attentionRetry')}
+                </Button>
+              </>
+            ) : attention.count === 0 ? (
+              <p className="text-sm text-text-secondary">{t('notifications.attentionNone')}</p>
+            ) : (
+              <>
+                {attention.topTitle && <p className="truncate text-sm">{attention.topTitle}</p>}
+                <div className="flex items-center justify-between gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => {
+                      setOpen(false);
+                      attention.onOpen();
+                    }}
+                  >
+                    {t('notifications.attentionOpen')}
+                  </Button>
+                  <Link
+                    to={todo.to}
+                    search={todo.search}
+                    onClick={() => setOpen(false)}
+                    className="rounded-md p-2 text-sm text-primary hover:bg-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+                  >
+                    {t('notifications.attentionTodo')}
+                  </Link>
+                </div>
+              </>
+            )}
+          </section>
+        )}
+        {attention && (
+          <h3 className="px-2 pt-2 text-label text-text-secondary">
+            {t('notifications.deviceTitle')}
+          </h3>
+        )}
         <NotificationList
           notifications={notifications}
           onMarkRead={markNotificationRead}
