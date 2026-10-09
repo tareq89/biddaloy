@@ -25,7 +25,7 @@
     "onTrack": "On track",
     "behindBy": "{{periods}} periods behind (≈{{lessons}} lessons)",
     "notReported_one": "{{count}} day not reported",
-    "notReported_other": "{{count}} day not reported",
+    "notReported_other": "{{count}} days not reported",
     "today": "Today",
     "yesterday": "Yesterday",
     "open": "Open {{name}}",
