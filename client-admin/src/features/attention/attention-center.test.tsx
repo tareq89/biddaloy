@@ -130,6 +130,19 @@ describe('useAttentionCenter', () => {
     await waitFor(() => expect(hidden).toBe(1));
   });
 
+  it('a failed hide shows an error line on that card', async () => {
+    mockAttention({ critical: 0, warning: 1, reminder: 0, activeTotal: 1 }, [
+      item({ severity: AlertSeverity.WARNING, closable: true }),
+    ]);
+    server.use(
+      http.post('*/attention/items/r1/hide', () => new HttpResponse(null, { status: 500 })),
+    );
+    renderCenter();
+    await userEvent.click(await screen.findByRole('button', { name: /1 warning/i }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Close: Trial ends soon' }));
+    expect((await screen.findByRole('alert')).textContent).toBe('That did not work. Try again.');
+  });
+
   it('?alerts=1 opens the modal and closing removes only that flag', async () => {
     mockAttention({ critical: 1, warning: 0, reminder: 0, activeTotal: 1 });
     renderCenter('/?alerts=1&keep=x');
