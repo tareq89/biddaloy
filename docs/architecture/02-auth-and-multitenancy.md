@@ -198,8 +198,7 @@ redundant and was deleted (Epic 24.0).
 `IDENTITY_SCOPED` routes are the exception: some carry no
 `@RequirePermissions` at all, and `PermissionsGuard` lets a route with no
 permission metadata through. There the `@Roles` list plus the service's own
-identity check are the gate. Example: `POST /leave/requests` and
-`GET /leave/balance` act only on the caller's own staff profile.
+identity check are the gate. Example: `GET /leave/balance` acts only on the caller's own staff profile.
 
 Which status a refused request gets depends on which guard refuses it:
 
@@ -427,10 +426,10 @@ flowchart TD
 - **Password rules depend on the role**, checked only when a password is set
   or changed (never at sign-in). Strictest role across all memberships wins.
 
-  | Roles | Rules |
-  | --- | --- |
+  | Roles                    | Rules                                       |
+  | ------------------------ | ------------------------------------------- |
   | Any staff role, or mixed | 8+ characters, upper, lower, digit, special |
-  | Only PARENT / STUDENT | 8+ characters, a digit |
+  | Only PARENT / STUDENT    | 8+ characters, a digit                      |
 
 - **Google and Facebook.** The server lists the
   configured providers (`GET /auth/social/providers`) and the UI draws one
