@@ -1,0 +1,64 @@
+{
+  "fields": {
+    "leaveType": "Leave type",
+    "startDate": "From",
+    "endDate": "To",
+    "reason": "Reason",
+    "reasonKind": "Reason for leave",
+    "details": "Details",
+    "kind": "Kind of waiver",
+    "valuePercent": "Percent (1 to 100)",
+    "valueFlat": "Amount in taka",
+    "feeTypes": "Fees it applies to",
+    "waiverStart": "Valid from (optional)",
+    "waiverEnd": "Valid until (optional)",
+    "purpose": "Purpose",
+    "leavingDate": "Leaving date",
+    "destination": "Going to (optional)",
+    "class": "Class",
+    "section": "Section",
+    "occurredOn": "Date of readmission",
+    "toSection": "Move to section",
+    "exam": "Exam",
+    "subject": "Subject",
+    "subjectLine": "Subject of the application",
+    "body": "Application"
+  },
+  "kinds": {
+    "PERCENT": "Percent",
+    "FLAT": "Flat amount"
+  },
+  "placeholders": {
+    "purpose": "For example: for admission to college",
+    "pick": "Choose"
+  },
+  "help": {
+    "balanceLeft": "Left this year: {{count}} days",
+    "unlimited": "No limit",
+    "backdate": "You can also apply for leave on past dates.",
+    "feeTypesAll": "Leave empty to cover all fees."
+  },
+  "errors": {
+    "required": "Fill in this field.",
+    "reasonRequired": "Write a reason.",
+    "pick": "Choose one.",
+    "dateRequired": "Choose a date.",
+    "endBeforeStart": "The end date must be on or after the start date.",
+    "tooShort": "Write at least 3 characters.",
+    "tooLong": "Keep it within {{max}} characters.",
+    "percentRange": "Enter a number between 1 and 100.",
+    "flatPositive": "Enter an amount greater than zero.",
+    "number": "Enter a number, up to 2 decimal places.",
+    "futureDate": "A future date is not allowed.",
+    "LEAVE_OVERLAP": "You already have leave on some of these dates. Choose different dates.",
+    "LEAVE_NO_WORKING_DAYS": "These dates have no working days. Choose dates that include a working day.",
+    "APPLICATION_ADDRESSEE_INVALID": "The person this application is addressed to is not available. Choose someone else.",
+    "server": "The application could not be saved. Try again."
+  },
+  "preview": {
+    "draftBadge": "Draft",
+    "draftNote": "This letter will be saved when you submit.",
+    "decision": "Decision: {{status}} · {{by}} · {{date}}",
+    "loadError": "The letter could not be loaded."
+  }
+}
