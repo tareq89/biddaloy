@@ -20,12 +20,17 @@ import {
 import { PlatformAttentionHealthDto } from './dto/platform-attention-health.dto';
 import { sentryCronCheckIn } from './sentry-cron';
 
-/** Stale when missing, unparsable, or older than D12's 15 minutes. */
+/**
+ * Stale when missing, unparsable, older than D12's 15 minutes, or when the
+ * sweep failed for every tenant (a fresh beat that produced nothing is not "ok").
+ */
 export function heartbeatStatus(raw: string | null, now: Date): 'ok' | 'stale' {
   if (!raw) return 'stale';
   try {
-    const at = new Date((JSON.parse(raw) as { at: string }).at).getTime();
-    return Number.isNaN(at) || now.getTime() - at > ATTENTION_STALE_AFTER_MS ? 'stale' : 'ok';
+    const hb = JSON.parse(raw) as { at: string; tenants?: number; failures?: number };
+    const at = new Date(hb.at).getTime();
+    if (Number.isNaN(at) || now.getTime() - at > ATTENTION_STALE_AFTER_MS) return 'stale';
+    return hb.tenants && hb.failures === hb.tenants ? 'stale' : 'ok';
   } catch {
     return 'stale';
   }

@@ -19,7 +19,7 @@ export function render(
 ): RuleMessage {
   const sub = (s: string) =>
     s.replace(/\{(\w+)\}/g, (m, name: string) => {
-      if (!(name in params)) return m;
+      if (!Object.hasOwn(params, name)) return m;
       const v = String(params[name]);
       return locale === 'bn' ? toBanglaDigits(v) : v;
     });

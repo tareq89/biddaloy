@@ -9,6 +9,7 @@ import { TENANT_STATUS_REDIS } from '../../schools/tenant-status.service';
 import { localDate } from '../../attendance/attendance-policy.util';
 import { attentionKeys } from '../attention.constants';
 import { AlertWriterService } from '../engine/alert-writer.service';
+import { localTimeHHmm } from '../rules/rule-context.service';
 import type { AttentionRule } from '../rules/rule.types';
 import { AttentionQueryService } from './attention-query.service';
 
@@ -46,6 +47,7 @@ describe('AttentionQueryService (integration)', () => {
         now,
         tz: 'Asia/Dhaka',
         localDate: localDate(now, 'Asia/Dhaka'),
+        localTime: localTimeHHmm(now, 'Asia/Dhaka'),
         settings: { dailyAt: '07:00' },
       }),
     };
@@ -345,6 +347,15 @@ describe('AttentionQueryService (integration)', () => {
       expect(await at('TOMORROW_MORNING')).toBe('2026-10-09T01:00:00.000Z');
       expect(await at('NEXT_SCHOOL_DAY')).toBe('2026-10-10T01:00:00.000Z');
       expect(await at('TWO_HOURS')).toBe('2026-10-08T19:30:00.000Z');
+      // 02:00 Friday Dhaka, before dailyAt: "tomorrow morning" is this coming 07:00, not Saturday's
+      const early = await svc.snooze(
+        SEED_TENANT_ID,
+        me,
+        recipientId,
+        { choice: 'TOMORROW_MORNING' },
+        new Date('2026-10-08T20:00:00Z'),
+      );
+      expect(early.snoozedUntil).toBe('2026-10-09T01:00:00.000Z');
       const [row] = await ds.query(`SELECT state FROM alert_recipients WHERE id = $1`, [
         recipientId,
       ]);
@@ -394,6 +405,12 @@ describe('AttentionQueryService (integration)', () => {
             [SEED_TENANT_ID, alertId, other, role, sid],
           );
         }
+        // A recipient the rule dropped (RESOLVED, even if seen) is not "one of Y" any more.
+        await ds.query(
+          `INSERT INTO alert_recipients (tenant_id, alert_id, user_id, role, student_id, state, seen_at)
+           VALUES ($1, $2, $3, 'TEACHER', NULL, 'RESOLVED', now())`,
+          [SEED_TENANT_ID, alertId, me],
+        );
         await svc.markSeen(SEED_TENANT_ID, me, [recipientId]);
         const res = await svc.studentAlerts(
           SEED_TENANT_ID,

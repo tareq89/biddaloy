@@ -19,6 +19,15 @@ describe('heartbeatStatus', () => {
     expect(heartbeatStatus(hb, new Date('2026-10-09T04:15:00Z'))).toBe('ok');
     expect(heartbeatStatus(hb, new Date('2026-10-09T04:15:01Z'))).toBe('stale');
   });
+
+  it('is stale when a fresh sweep failed for every tenant, ok when only some failed', () => {
+    const now = new Date('2026-10-09T04:01:00Z');
+    const beat = (tenants: number, failures: number) =>
+      JSON.stringify({ at: '2026-10-09T04:00:00Z', tenants, failures });
+    expect(heartbeatStatus(beat(3, 3), now)).toBe('stale');
+    expect(heartbeatStatus(beat(3, 1), now)).toBe('ok');
+    expect(heartbeatStatus(beat(0, 0), now)).toBe('ok'); // no tenants yet is not a failure
+  });
 });
 
 describe('AttentionHealthService', () => {

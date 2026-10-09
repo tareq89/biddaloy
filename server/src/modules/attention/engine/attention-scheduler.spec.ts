@@ -65,6 +65,7 @@ function make(rules: AttentionRule[], opts: { ctx?: Partial<RuleContext>; within
     withdrawRule: vi.fn().mockResolvedValue(undefined),
   };
   const seen = new Set<string>();
+  const counts = new Map<string, number>();
   const redis = {
     set: vi.fn(async (k: string, ..._a: unknown[]) => {
       if (_a.includes('NX')) {
@@ -74,6 +75,10 @@ function make(rules: AttentionRule[], opts: { ctx?: Partial<RuleContext>; within
       return 'OK';
     }),
     del: vi.fn(async (k: string) => seen.delete(k)),
+    incr: vi.fn(async (k: string) => {
+      counts.set(k, (counts.get(k) ?? 0) + 1);
+      return counts.get(k)!;
+    }),
     hincrby: vi.fn().mockResolvedValue(1),
     hset: vi.fn().mockResolvedValue(1),
     expire: vi.fn().mockResolvedValue(1),
@@ -157,6 +162,16 @@ describe('AttentionScheduler', () => {
     expect(evaluate).toHaveBeenCalledTimes(2);
     await sched.sweepTenant('t1', AlertCadence.DAILY, new Date('2026-10-09T01:30:00Z'));
     expect(evaluate).toHaveBeenCalledTimes(2); // success keeps the marker
+  });
+
+  it('a DAILY rule that keeps failing stops after 3 attempts that day', async () => {
+    const evaluate = vi.fn().mockRejectedValue(new Error('boom'));
+    const rule = fakeRule('homework.due_today', evaluate);
+    const { sched } = make([rule]);
+    for (const at of ['01:00', '01:15', '01:30', '01:45', '02:00']) {
+      await sched.sweepTenant('t1', AlertCadence.DAILY, new Date(`2026-10-09T${at}:00Z`));
+    }
+    expect(evaluate).toHaveBeenCalledTimes(3);
   });
 
   it('DAILY evening rule waits for eveningAt', async () => {
