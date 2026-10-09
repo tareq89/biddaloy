@@ -16,6 +16,7 @@ import {
   createTeacherForSection,
   currentAcademicYearId,
   findSchoolIdBySlug,
+  get,
   post,
   seededFirstTermExamId,
   superAdminApiSession,
