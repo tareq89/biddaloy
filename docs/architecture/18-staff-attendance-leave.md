@@ -87,8 +87,16 @@ column itself is excluded from the `teachers` tab as system-derived.
   `AttendanceStatusControl` per row, `PUT /staff-attendance/register`
   saves the whole day in one call. Reachable from the command palette
   ("Mark staff attendance").
-- **`/attendance/staff/leave`** — "My leave": live balance table +
-  a request dialog (`POST /leave/requests`). The approve/reject panel is a
-  disclosed placeholder — there is no `GET /leave/requests` list endpoint
-  yet, so it shows an honest "not available" message rather than fake data.
-  Approving today is API-only: `POST /leave/requests/:id/decide`.
+- **`/attendance/staff/leave`** — "My leave": live balance table (a
+  `null` quota shows "no limit"). Leave is no longer requested or decided
+  here. "Apply for leave" opens `/applications/new?type=STAFF_LEAVE`, and
+  deciders get a link to the applications inbox. The old
+  `POST /leave/requests` and `POST /leave/requests/:id/decide` routes are
+  gone.
+
+```mermaid
+flowchart LR
+  A["STAFF_LEAVE application<br/>/applications/new"] --> B["Decide<br/>/applications inbox"]
+  B -- approved --> C["LeaveRecord APPROVED<br/>counts against balance"]
+  B -- rejected --> D["No leave record"]
+```
