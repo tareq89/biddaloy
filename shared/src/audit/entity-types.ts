@@ -20,6 +20,7 @@ export const AUDIT_ENTITY_TYPES = [
   // [Epic 28] ACR. Audit reads hide AcrAssessment rows about the caller (D2).
   'AcrAssessment',
   'AcrFormVersion',
+  'ApplicationAttachment',
   'ApprovalToken',
   'AttendanceDevice',
   'AttendanceRecord',
