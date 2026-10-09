@@ -8,7 +8,7 @@
  * details view). ponytail: the button exists at every width rather than
  * phone-only — a tap target that also works on desktop costs nothing.
  */
-import { AlertCircleIcon, AlertTriangleIcon, InfoIcon } from 'lucide-react';
+import { AlertCircleIcon, AlertTriangleIcon, InfoIcon, type LucideIcon } from 'lucide-react';
 import * as React from 'react';
 
 import { cn } from '../primitives/lib/utils';
@@ -29,11 +29,27 @@ export interface NoticeBarProps {
   /** Optional call to action, e.g. a "Choose a plan" link. Hidden on phone. */
   action?: React.ReactNode;
   onOpenDetails?: () => void;
+  /** [67.2.02] Replaces the tone icon (e.g. the alert-severity icon). */
+  icon?: LucideIcon;
+  /** [67.2.02] Ref to the details button, for returning focus to it when its dialog closes. */
+  detailsButtonRef?: React.Ref<HTMLButtonElement>;
+  /** [67.2.02] Set to `'dialog'` when the details button opens a dialog. */
+  detailsHasPopup?: 'dialog';
   className?: string;
 }
 
-export function NoticeBar({ tone, children, action, onOpenDetails, className }: NoticeBarProps) {
-  const { icon: Icon, className: toneClass } = TONES[tone];
+export function NoticeBar({
+  tone,
+  children,
+  action,
+  onOpenDetails,
+  icon,
+  detailsButtonRef,
+  detailsHasPopup,
+  className,
+}: NoticeBarProps) {
+  const { icon: toneIcon, className: toneClass } = TONES[tone];
+  const Icon = icon ?? toneIcon;
   const body = (
     <>
       <Icon aria-hidden="true" className="size-4 shrink-0" />
@@ -57,6 +73,8 @@ export function NoticeBar({ tone, children, action, onOpenDetails, className }: 
     >
       {onOpenDetails ? (
         <Button
+          ref={detailsButtonRef}
+          aria-haspopup={detailsHasPopup}
           variant="ghost"
           size="sm"
           onClick={onOpenDetails}
