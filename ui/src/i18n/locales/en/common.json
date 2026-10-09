@@ -89,6 +89,11 @@
       "PLANNED": "Planned",
       "IN_PROGRESS": "In progress",
       "DONE": "Done"
+    },
+    "alertSeverity": {
+      "CRITICAL": "Urgent",
+      "WARNING": "Warning",
+      "REMINDER": "Reminder"
     }
   },
   "walletTransactionKind": {
