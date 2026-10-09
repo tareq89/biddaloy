@@ -502,7 +502,7 @@ function PrintDocumentPage() {
     );
   } else if (loading || !issuer) {
     body = (
-      <Skeleton role="status" aria-label={t('page.loading')} className="h-96 w-full max-w-3xl" />
+      <Skeleton role="status" aria-label={t('page.loading')} className="h-96 w-full max-w-[210mm]" />
     );
   } else if (!pages || count === 0) {
     body = <EmptyState title={t('page.empty')} explanation={t('page.emptyHint')} />;

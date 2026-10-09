@@ -16,8 +16,9 @@ import {
   Input,
 } from '@biddaloy/ui/components';
 import { useUpdateSchoolSettings, type MaskedTenantSettings } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { useFormShellMode, useWarnUnsavedChanges } from '@biddaloy/ui/shells';
+import { tenantTodayIso } from '@biddaloy/ui/utils';
 import { useForm } from 'react-hook-form';
 
 import { SettingsSaved, SettingsSection } from './settings-layout';
@@ -33,12 +34,9 @@ interface DocumentsSectionProps {
   documents: MaskedTenantSettings['documents'] | undefined;
 }
 
-/** The calendar year in Dhaka (the serial year the server stamps). */
-const dhakaYear = () =>
-  Number(new Date().toLocaleDateString('en-US', { timeZone: 'Asia/Dhaka', year: 'numeric' }));
-
 export function DocumentsSection({ schoolId, documents }: DocumentsSectionProps) {
   const { t } = useTranslation('settings');
+  const config = useRegionConfig();
   const form = useForm<FormValues>({
     defaultValues: {
       withholdAdmitCardForDues: documents?.withholdAdmitCardForDues ?? false,
@@ -52,7 +50,8 @@ export function DocumentsSection({ schoolId, documents }: DocumentsSectionProps)
   const example = formatSerial({
     prefix: prefix && SERIAL_PREFIX_PATTERN.test(prefix) ? prefix : undefined,
     kind: 'TRANSFER_CERTIFICATE',
-    year: dhakaYear(),
+    // The calendar year on the school's clock (the serial year the server stamps).
+    year: Number(tenantTodayIso(config).slice(0, 4)),
     n: 7,
   });
 
