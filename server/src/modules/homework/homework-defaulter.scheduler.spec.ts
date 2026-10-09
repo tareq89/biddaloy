@@ -12,6 +12,7 @@ describe('HomeworkDefaulterScheduler', () => {
   let queue: any;
   let assignmentRepo: any;
   let submissionRepo: any;
+  let studentRepo: any;
   let schoolsService: any;
   let homeworkNoticeService: any;
   let scheduler: HomeworkDefaulterScheduler;
@@ -19,6 +20,8 @@ describe('HomeworkDefaulterScheduler', () => {
   const ASSIGNMENT = {
     id: 'assign-1',
     tenant_id: TENANT,
+    section_id: 'sec-1',
+    student_id: null,
     due_date: '2026-01-07',
     status: HomeworkAssignmentStatus.ACTIVE,
     homework: { id: 'hw-1', title: 'Chapter 3 exercises' },
@@ -27,11 +30,8 @@ describe('HomeworkDefaulterScheduler', () => {
   beforeEach(() => {
     queue = { upsertJobScheduler: vi.fn(async () => undefined) };
     assignmentRepo = { find: vi.fn(async () => [ASSIGNMENT]) };
-    submissionRepo = {
-      find: vi.fn(async () => [
-        { id: 'sub-1', status: HomeworkSubmissionStatus.NOT_SUBMITTED, student: { id: 's-1' } },
-      ]),
-    };
+    submissionRepo = { find: vi.fn(async () => []) };
+    studentRepo = { find: vi.fn(async () => [{ id: 's-1' }]) };
     schoolsService = {
       findAll: vi.fn(async () => [{ id: TENANT, name: 'Green Valley School' }]),
       getResolvedSettings: vi.fn(async () => ({ region: { timezone: 'Asia/Dhaka' } })),
@@ -42,6 +42,7 @@ describe('HomeworkDefaulterScheduler', () => {
       queue,
       assignmentRepo,
       submissionRepo,
+      studentRepo,
       schoolsService,
       homeworkNoticeService,
     );
@@ -71,16 +72,12 @@ describe('HomeworkDefaulterScheduler', () => {
     );
   });
 
-  it('only notifies about NOT_SUBMITTED submissions', async () => {
+  it('notifies active students with no submission row, scoped by tenant', async () => {
     await scheduler.process();
 
-    expect(submissionRepo.find).toHaveBeenCalledWith(
+    expect(studentRepo.find).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({
-          tenant_id: TENANT,
-          assignment_id: 'assign-1',
-          status: HomeworkSubmissionStatus.NOT_SUBMITTED,
-        }),
+        where: expect.objectContaining({ tenant_id: TENANT, class_section_id: 'sec-1' }),
       }),
     );
     expect(homeworkNoticeService.notifyDefaulters).toHaveBeenCalledWith(
@@ -90,8 +87,27 @@ describe('HomeworkDefaulterScheduler', () => {
     );
   });
 
-  it('sends nothing when every submission is already SUBMITTED', async () => {
-    submissionRepo.find = vi.fn(async () => []);
+  it('skips students whose row is SUBMITTED, PARTIAL or DONE but keeps NOT_SUBMITTED', async () => {
+    studentRepo.find = vi.fn(async () => [{ id: 'a' }, { id: 'b' }, { id: 'c' }, { id: 'd' }]);
+    submissionRepo.find = vi.fn(async () => [
+      { student_id: 'a', status: HomeworkSubmissionStatus.SUBMITTED },
+      { student_id: 'b', status: HomeworkSubmissionStatus.PARTIAL },
+      { student_id: 'c', status: HomeworkSubmissionStatus.NOT_SUBMITTED },
+    ]);
+
+    await scheduler.process();
+
+    expect(homeworkNoticeService.notifyDefaulters).toHaveBeenCalledWith(
+      ASSIGNMENT,
+      ASSIGNMENT.homework,
+      [{ id: 'c' }, { id: 'd' }],
+    );
+  });
+
+  it('sends nothing when every target has handed in', async () => {
+    submissionRepo.find = vi.fn(async () => [
+      { student_id: 's-1', status: HomeworkSubmissionStatus.DONE },
+    ]);
 
     await scheduler.process();
 
@@ -103,7 +119,7 @@ describe('HomeworkDefaulterScheduler', () => {
 
     await scheduler.process();
 
-    expect(submissionRepo.find).not.toHaveBeenCalled();
+    expect(studentRepo.find).not.toHaveBeenCalled();
     expect(homeworkNoticeService.notifyDefaulters).not.toHaveBeenCalled();
   });
 
