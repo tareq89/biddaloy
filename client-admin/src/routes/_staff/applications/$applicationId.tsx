@@ -134,7 +134,8 @@ function ApplicationDetailPage() {
   const onDone = (kind: DecisionKind) => {
     setDialog(null);
     setNotice(undefined);
-    void queryClient.invalidateQueries({ queryKey: applicationKeys.all });
+    // The decision hooks already seed the detail and refresh lists; only the reports lag.
+    void queryClient.invalidateQueries({ queryKey: [...applicationKeys.all, 'reports'] });
     if (from === 'inbox' && (kind === 'approve' || kind === 'reject')) {
       void navigate({ to: '/applications', search: { view: 'inbox', decided: app.id } });
     }

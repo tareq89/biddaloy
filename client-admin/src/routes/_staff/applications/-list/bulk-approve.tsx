@@ -30,6 +30,9 @@ const KNOWN_CODES = new Set([
   'LEAVE_BALANCE_EXCEEDED',
   'EFFECT_PERMISSION_REQUIRED',
   'NOT_FOUND',
+  'LEAVE_OVERLAP',
+  'LEAVE_NO_WORKING_DAYS',
+  'LEAVE_POLICY_MISSING',
 ]);
 
 export function summarizeBulk(
@@ -52,26 +55,31 @@ export function summarizeBulk(
 }
 
 export function BulkApproveButton({
-  selectedCount,
+  selectedIds,
   rows,
   onDone,
 }: {
-  /** Everything selected (the 50 cap counts all of it). */
-  selectedCount: number;
-  /** Selected rows currently on screen. */
+  /** Everything selected, on any page (the selection survives paging; the 50 cap counts all). */
+  selectedIds: ReadonlySet<string>;
+  /** Selected rows currently on screen: names the results and drops known FEE_WAIVER rows. */
   rows: readonly ApplicationListItemDto[];
   onDone: (summary: BulkSummary) => void;
 }) {
   const { t } = useTranslation('applicationsList');
   const config = useTenantRegionConfig();
   const [open, setOpen] = React.useState(false);
+  const [failed, setFailed] = React.useState(false);
   const bulk = useBulkApproveApplications();
   const reasonId = React.useId();
-  const tooMany = selectedCount > BULK_APPROVE_LIMIT;
-  const sendable = rows.filter(
-    (r) => (r.type as string) !== (ApplicationType.FEE_WAIVER as string),
+  const tooMany = selectedIds.size > BULK_APPROVE_LIMIT;
+  // Off-page FEE_WAIVER picks are unknown here; the server answers NOT_BULK_APPROVABLE for them.
+  const feeWaivers = new Set(
+    rows
+      .filter((r) => (r.type as string) === (ApplicationType.FEE_WAIVER as string))
+      .map((r) => r.id),
   );
-  const excluded = rows.length - sendable.length;
+  const sendable = [...selectedIds].filter((id) => !feeWaivers.has(id));
+  const excluded = selectedIds.size - sendable.length;
 
   return (
     <>
@@ -80,7 +88,10 @@ export function BulkApproveButton({
         variant="outline"
         disabled={tooMany || sendable.length === 0}
         aria-describedby={tooMany ? reasonId : undefined}
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          setFailed(false);
+          setOpen(true);
+        }}
       >
         <CircleCheckIcon className="size-4 text-status-paid-fg" aria-hidden />
         {t('bulk.approve')}
@@ -88,6 +99,11 @@ export function BulkApproveButton({
       {tooMany && (
         <p id={reasonId} className="text-caption text-muted-foreground">
           {t('bulk.limit')}
+        </p>
+      )}
+      {failed && (
+        <p role="alert" className="text-caption text-destructive">
+          {t('bulk.failed')}
         </p>
       )}
       <ConfirmDialog
@@ -107,11 +123,15 @@ export function BulkApproveButton({
         busy={bulk.isPending}
         onConfirm={() =>
           bulk.mutate(
-            { ids: sendable.map((r) => r.id) },
+            { ids: sendable },
             {
               onSuccess: (results) => {
                 setOpen(false);
                 onDone(summarizeBulk(rows, results));
+              },
+              onError: () => {
+                setOpen(false);
+                setFailed(true);
               },
             },
           )

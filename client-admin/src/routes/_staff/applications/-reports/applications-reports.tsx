@@ -144,14 +144,15 @@ export function ApplicationsReports() {
           ) : (
             <>
               <StalePendingTable rows={report?.stale_pending} loading={query.isLoading} />
-              <OnLeaveToday data={report?.on_leave_today} />
               <div className="grid gap-6 lg:grid-cols-2">
                 <TypeStatusTable rows={report?.by_type_status} loading={query.isLoading} />
                 <MonthTable rows={report?.by_month} loading={query.isLoading} />
               </div>
-              <StaffLeaveTable rows={report?.staff_leave_days} loading={query.isLoading} />
             </>
           )}
+          {/* From leave_records, which holds pre-cut-over leave too: shown even with no applications. */}
+          <OnLeaveToday data={report?.on_leave_today} />
+          <StaffLeaveTable rows={report?.staff_leave_days} loading={query.isLoading} />
         </>
       )}
     </PageContainer>

@@ -8,7 +8,13 @@
     "preview": "Review letter"
   },
   "progress": "Step {{current}} of {{total}}",
-  "actions": { "next": "Next", "back": "Back", "cancel": "Cancel", "submit": "Submit application" },
+  "actions": {
+    "next": "Next",
+    "back": "Back",
+    "cancel": "Cancel",
+    "submit": "Submit application",
+    "retryUpload": "Retry attaching files"
+  },
   "type": {
     "label": "Type of application",
     "heading": "What do you want to apply for?",

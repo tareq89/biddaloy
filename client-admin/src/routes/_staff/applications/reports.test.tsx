@@ -111,6 +111,17 @@ describe('/applications/reports', () => {
     expect((await screen.findAllByText('আজ কেউ ছুটিতে নেই।')).length).toBe(2);
   });
 
+  it('no applications: the empty state replaces only the application tables, not leave days', async () => {
+    render(
+      { ...REPORT, by_type_status: [], by_month: [], stale_pending: [], avg_decision_hours: null },
+      { locale: 'en' },
+    );
+    expect(await screen.findByText('No applications in this period')).toBeTruthy();
+    expect(screen.queryByRole('table', { name: 'By type and status' })).toBeNull();
+    // staff_leave_days comes from leave_records, which holds pre-cut-over leave too.
+    expect(screen.getAllByText('Karim Ali').length).toBeGreaterThan(0);
+  });
+
   it('writes the chosen year to the URL and refetches with it', async () => {
     const { calls, router } = render(REPORT, { locale: 'en' });
     await screen.findByText('2026/0031');

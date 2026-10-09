@@ -53,7 +53,8 @@
     "confirm": "Approve",
     "resultTitle": "{{ok}} of {{total}} approved",
     "failedLine": "{{name}} · {{serial}} — {{reason}}",
-    "dismiss": "OK"
+    "dismiss": "OK",
+    "failed": "Could not approve the selected applications. Try again."
   },
   "errors": {
     "NOT_BULK_APPROVABLE": "This kind of application cannot be approved in bulk.",
@@ -63,6 +64,9 @@
     "LEAVE_BALANCE_EXCEEDED": "Not enough leave balance left.",
     "EFFECT_PERMISSION_REQUIRED": "You do not have the permission needed to approve this application.",
     "NOT_FOUND": "This application no longer exists.",
+    "LEAVE_OVERLAP": "This overlaps with leave that is already approved.",
+    "LEAVE_NO_WORKING_DAYS": "These dates have no working days.",
+    "LEAVE_POLICY_MISSING": "No leave policy is set up for this leave type. Ask the office to set it up.",
     "unknown": "Could not be approved."
   },
   "empty": {

@@ -26,6 +26,30 @@ describe('/applications/$applicationId', () => {
     await cleanupTestState();
   });
 
+  it('FEE_WAIVER: "Approved amount" shows only when the approver changed the amount', async () => {
+    const asked = { kind: 'FLAT', value: 200, reason: 'Hard year' };
+    // `granted` never carries the applicant's `reason`; that alone is no change.
+    const view = render(
+      applicationDto({
+        type: 'FEE_WAIVER',
+        payload: asked,
+        granted: { kind: 'FLAT', value: 200 },
+      }),
+    );
+    expect(await screen.findByText('Amount')).toBeTruthy();
+    expect(screen.queryByText('Approved amount')).toBeNull();
+    view.unmount();
+    await cleanupTestState();
+    render(
+      applicationDto({
+        type: 'FEE_WAIVER',
+        payload: asked,
+        granted: { kind: 'FLAT', value: 150 },
+      }),
+    );
+    expect(await screen.findByText('Approved amount')).toBeTruthy();
+  });
+
   it('a decider sees Approve and Reject', async () => {
     render(applicationDto());
     expect(await screen.findByRole('button', { name: 'Approve' })).toBeTruthy();

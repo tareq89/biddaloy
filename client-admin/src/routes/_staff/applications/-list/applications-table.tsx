@@ -273,7 +273,7 @@ export function ApplicationsTable({ view, onNew }: { view: ApplicationsView; onN
                 bulkActions: (
                   <>
                     <BulkApproveButton
-                      selectedCount={state.selectedIds.size}
+                      selectedIds={state.selectedIds}
                       rows={selectedRows}
                       onDone={(summary) => {
                         setResult(summary);

@@ -16,6 +16,9 @@ import * as React from 'react';
 
 import { LetterPreview } from '../../../../features/applications/letter-preview';
 
+/** The FEE_WAIVER fields an approver can change when granting (D39). */
+const GRANT_KEYS = ['kind', 'value', 'fee_types', 'start_date', 'end_date'] as const;
+
 /** Payload key -> label key in `applicationForms:fields`; keys not listed are not shown. */
 const LABEL: Record<string, string> = {
   leave_type: 'leaveType',
@@ -155,7 +158,10 @@ export function ApplicationBody({ app }: { app: ApplicationDto }) {
   const granted = app.granted;
   if (asked)
     rows.push({ key: 'value', label: t('body.value'), text: amountText(asked, t, config) });
-  if (granted && JSON.stringify(granted) !== JSON.stringify(asked)) {
+  // Only the amount fields: the payload also carries `reason`, which `granted` never has.
+  const differs = (g: Record<string, unknown>, a: Record<string, unknown> | null) =>
+    GRANT_KEYS.some((k) => JSON.stringify(g[k] ?? null) !== JSON.stringify(a?.[k] ?? null));
+  if (granted && differs(granted, asked)) {
     rows.push({
       key: 'granted',
       label: t('body.grantedAmount'),

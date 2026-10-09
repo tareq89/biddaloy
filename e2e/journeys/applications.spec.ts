@@ -3,7 +3,7 @@ import type { APIRequestContext, Page } from '@playwright/test';
 import { adminApiSession, get, post, type ApiSession } from '../api';
 import { expect, loggedIn, test } from '../fixtures/test';
 import { t } from '../i18n';
-import { fileStudentLeave, uniqueLeaveDay } from '../responsive/routes';
+import { fileStudentLeave, freeLeaveDays } from '../responsive/routes';
 import { SEED_PASSWORD_ENV, SEED_ROLE_EMAILS, type SeedRole } from '../seed-contract';
 
 // [52.5.8] The staff Applications screens, end to end: file a leave and see the balance move,
@@ -33,27 +33,71 @@ async function roleSession(request: APIRequestContext, role: SeedRole): Promise<
 
 /** Opens the kit DatePicker named `label` and picks `iso` (same pattern as `admission.spec.ts`). */
 async function pickDate(page: Page, label: string, iso: string): Promise<void> {
-  await page.getByRole('button', { name: label }).click();
-  await page.locator(`[data-date="${iso}"]`).click();
+  const grid = page.getByRole('grid');
+  const cell = page.locator(`[data-date="${iso}"]`);
+  // CI once saw the second popover dismissed right after it opened (cell "not stable", then
+  // detached): reopen and retry instead of waiting out the test timeout on a gone cell.
+  await expect(async () => {
+    if (!(await grid.isVisible())) await page.getByRole('button', { name: label }).click();
+    // The picker opens on this month; the free day may be a few months ahead.
+    for (let i = 0; i < 12 && !(await cell.isVisible()); i += 1) {
+      await page.getByRole('button', { name: t('common.date.nextMonth') }).click();
+    }
+    await cell.click({ timeout: 3_000 });
+  }).toPass({ timeout: 15_000 });
   // The closing popover of the first field must be gone before the second one opens.
-  await expect(page.getByRole('grid')).toHaveCount(0);
+  await expect(grid).toHaveCount(0);
 }
 
-function nextWeekdays(): [string, string] {
-  // The Monday and Tuesday of next week: working days under the school's Friday/Saturday weekend.
+const isoDate = (x: Date) =>
+  `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`;
+
+function nextMonday(): Date {
   const d = new Date();
   d.setDate(d.getDate() + ((8 - d.getDay()) % 7 || 7));
-  const iso = (x: Date) =>
-    `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`;
-  const monday = iso(d);
-  d.setDate(d.getDate() + 1);
-  return [monday, iso(d)];
+  return d;
+}
+
+/**
+ * The first working day from next Monday to the end of this year (the calendar API, so no seeded
+ * holiday) that none of this staff member's open or approved leaves covers: a rerun on one
+ * database must not hit LEAVE_OVERLAP, and the balance compared below is this year's.
+ */
+async function freeStaffLeaveDay(
+  request: APIRequestContext,
+  session: ApiSession,
+  staffProfileId: string,
+): Promise<string> {
+  const { dates } = await get<{ dates: string[] }>(
+    request,
+    session,
+    `/school-calendar/working-days?from=${isoDate(nextMonday())}&to=${new Date().getFullYear()}-12-31`,
+  );
+  // ponytail: one page of 100 leaves; page through if a database ever holds more.
+  const leaves = await get<{
+    data: { status: string; start_date: string | null; end_date: string | null }[];
+  }>(
+    request,
+    session,
+    `/applications?view=all&type=STAFF_LEAVE&staff_profile_id=${staffProfileId}&limit=100`,
+  );
+  const held = leaves.data.filter((a) =>
+    ['PENDING', 'UNDER_CONSIDERATION', 'APPROVED'].includes(a.status),
+  );
+  const day = dates.find((d) => !held.some((a) => a.start_date! <= d && d <= a.end_date!));
+  if (!day) throw new Error('no free working day left this year for the admin');
+  return day;
 }
 
 const rowFor = (page: Page, serial: string) =>
   page.getByRole('row').filter({ has: page.getByRole('link', { name: `আবেদন ${serial} খুলুন` }) });
 
 test.describe.serial('staff leave: file -> approve -> balance moves', () => {
+  // The balance endpoint reads the current year only: no room once next week is next year.
+  test.skip(
+    nextMonday().getFullYear() !== new Date().getFullYear(),
+    'next week is already next year',
+  );
   let applicationId: string;
   let balanceBefore: number;
   let staffProfileId: string;
@@ -96,11 +140,11 @@ test.describe.serial('staff leave: file -> approve -> balance moves', () => {
       await expect(page).toHaveURL(/\/applications\/new\?type=STAFF_LEAVE/);
       await balanceLoaded;
 
-      const [start, end] = nextWeekdays();
+      const day = await freeStaffLeaveDay(request, session, staffProfileId);
       await page.getByRole('combobox', { name: t('applicationForms.fields.leaveType') }).click();
       await page.getByRole('option', { name: t('leave.type.CASUAL') }).click();
-      await pickDate(page, t('applicationForms.fields.startDate'), start);
-      await pickDate(page, t('applicationForms.fields.endDate'), end);
+      await pickDate(page, t('applicationForms.fields.startDate'), day);
+      await pickDate(page, t('applicationForms.fields.endDate'), day);
       await page.getByLabel(t('applicationForms.fields.reason')).fill('E2E পারিবারিক কাজ');
       const next = page.getByRole('button', { name: t('applicationsNew.actions.next') });
       await next.click(); // details -> addressee
@@ -163,6 +207,17 @@ test.describe.serial('staff leave: file -> approve -> balance moves', () => {
 test.describe('bulk approve (teacher)', () => {
   test.use(loggedIn('teacher'));
 
+  // The fee waiver stays pending by design; reject it after, or reruns pile up in the inbox.
+  let waiverId: string | undefined;
+  test.afterEach(async ({ request }) => {
+    if (!waiverId) return;
+    const teacher = await roleSession(request, 'teacher');
+    await request.post(`/api/v1/applications/${waiverId}/reject`, {
+      headers: { Authorization: `Bearer ${teacher.token}`, 'X-Tenant-ID': teacher.tenantId },
+      data: { reason: 'E2E cleanup' },
+    });
+  });
+
   test('approves 3 leaves, skips the fee waiver, and says so', async ({ page, request }) => {
     // Own rows, so parallel shards never consume each other's: filed for a student in the
     // teacher's section (found from the teacher's own inbox) as paper entries by the admin.
@@ -171,17 +226,18 @@ test.describe('bulk approve (teacher)', () => {
     const inbox = await get<{ data: ListItem[] }>(request, teacher, '/applications?view=inbox');
     const studentId = inbox.data.find((a) => a.subject_student_id)?.subject_student_id;
     if (!studentId) throw new Error('teacher inbox has no student application (seed)');
-    // Distinct random working days: approving one must never overlap another of the same student.
-    const days = new Set<string>();
-    while (days.size < 3) days.add(uniqueLeaveDay());
+    // Distinct free working days: approving one must never overlap another of the same student.
     const leaves = [];
-    for (const day of days) leaves.push(await fileStudentLeave(request, admin, studentId, day));
-    const waiver = await post<{ serial: string }>(request, admin, '/applications', {
+    for (const day of await freeLeaveDays(request, admin, studentId, 3)) {
+      leaves.push(await fileStudentLeave(request, admin, studentId, day));
+    }
+    const waiver = await post<{ id: string; serial: string }>(request, admin, '/applications', {
       type: 'FEE_WAIVER',
       subject_student_id: studentId,
       applicant_name: 'E2E অভিভাবক',
       payload: { kind: 'FLAT', value: 200, reason: 'E2E' },
     });
+    waiverId = waiver.id;
 
     await page.goto('/applications?view=inbox');
     for (const { serial } of [...leaves, waiver]) {

@@ -92,6 +92,10 @@ function NewApplicationPage() {
   const me = meQuery.data;
   const myProfileId = me?.staff_profile_id ?? null;
   const submitter = useSubmitNewApplication();
+  // Once created, the flow is frozen: only "retry upload" or "open it" (edits would be lost).
+  const created = submitter.created;
+  // `?staff=` is honoured only for APPLICATION_MANAGE; anyone else may not file for another person.
+  const foreignStaff = !canManage && !!search.staff && search.staff !== me?.id;
 
   // `?type=` is honoured only when this user may file it; then the flow starts at step 2.
   const typeAllowed = (type: ApplicationType | undefined) => {
@@ -106,7 +110,7 @@ function NewApplicationPage() {
   React.useEffect(() => {
     if (seeded.current || !(meQuery.isSuccess || meQuery.isError)) return;
     seeded.current = true;
-    if (search.type && typeAllowed(search.type)) {
+    if (search.type && typeAllowed(search.type) && !foreignStaff) {
       setType(search.type);
       setStepIndex(1);
     }
@@ -256,21 +260,37 @@ function NewApplicationPage() {
       <FullPageShell
         title={t('title')}
         size="form"
-        dirty={dirty && !pending}
+        dirty={dirty && !pending && !created}
         onClose={guardedClose}
-        secondary={{
-          label: stepIndex === 0 ? t('actions.cancel') : t('actions.back'),
-          onClick: () => {
-            if (pending) return;
-            if (stepIndex > 0) goBack();
-            else if (dirty) setDiscardOpen(true);
-            else close();
-          },
-        }}
+        secondary={
+          created
+            ? {
+                label: t('submit.view'),
+                disabled: pending,
+                onClick: () =>
+                  void navigate({
+                    to: '/applications/$applicationId',
+                    params: { applicationId: created.id },
+                  }),
+              }
+            : {
+                label: stepIndex === 0 ? t('actions.cancel') : t('actions.back'),
+                onClick: () => {
+                  if (pending) return;
+                  if (stepIndex > 0) goBack();
+                  else if (dirty) setDiscardOpen(true);
+                  else close();
+                },
+              }
+        }
         primary={{
-          label: lastStep ? t('actions.submit') : t('actions.next'),
+          label: created
+            ? t('actions.retryUpload')
+            : lastStep
+              ? t('actions.submit')
+              : t('actions.next'),
           busy: pending,
-          disabled: step === 'type' && !type,
+          disabled: foreignStaff || (step === 'type' && !type),
           onClick: onPrimary,
         }}
       >
@@ -284,14 +304,19 @@ function NewApplicationPage() {
             {step === 'type' ? t('type.heading') : t(`steps.${step}`)}
           </h2>
 
-          {submitter.created && submitter.message && (
+          {foreignStaff && !meQuery.isLoading && (
+            <p role="alert" className="text-sm text-destructive">
+              {t('errors.APPLICATION_NOT_YOUR_PROFILE')}
+            </p>
+          )}
+          {created && (
             <Card padded role="alert" className="flex items-start gap-2">
               <CircleAlert className="mt-0.5 size-4 shrink-0 text-destructive" aria-hidden="true" />
               <p>
                 {t('submit.partial')} {submitter.message}{' '}
                 <Link
                   to="/applications/$applicationId"
-                  params={{ applicationId: submitter.created.id }}
+                  params={{ applicationId: created.id }}
                   className="underline"
                 >
                   {t('submit.view')}
@@ -299,7 +324,7 @@ function NewApplicationPage() {
               </p>
             </Card>
           )}
-          {!submitter.created && submitter.message && (
+          {!created && submitter.message && (
             <p role="alert" className="text-sm text-destructive">
               {submitter.message}
             </p>

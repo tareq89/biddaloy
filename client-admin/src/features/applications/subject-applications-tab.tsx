@@ -29,7 +29,9 @@ import { InboxIcon, PlusIcon } from 'lucide-react';
 import { summarize } from '../../routes/_staff/applications/-list/application-summary';
 
 export type ApplicationSubject =
-  { kind: 'STUDENT'; studentId: string } | { kind: 'STAFF'; staffProfileId: string };
+  | { kind: 'STUDENT'; studentId: string }
+  /** `userId` feeds `/applications/new?staff=`, which takes the staff member's user id. */
+  | { kind: 'STAFF'; staffProfileId: string; userId: string };
 
 export interface SubjectApplicationsTabProps {
   subject: ApplicationSubject;
@@ -81,7 +83,7 @@ export function SubjectApplicationsTab({ subject, subjectName, ns }: SubjectAppl
 
   const { data: rows, total } = query.data;
   const newSearch =
-    subject.kind === 'STUDENT' ? { student: subject.studentId } : { staff: subject.staffProfileId };
+    subject.kind === 'STUDENT' ? { student: subject.studentId } : { staff: subject.userId };
 
   const columns: DataTableColumn<ApplicationListItemDto>[] = [
     {

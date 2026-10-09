@@ -99,7 +99,7 @@ export function AddresseeStep({
                 value={state.userId}
                 onChange={(userId) => onChange({ userId })}
                 label={t('addressee.staff')}
-                describedBy="new-app-addressee-error"
+                {...(showErrors && err ? { describedBy: 'new-app-addressee-error' } : {})}
               />
             )}
             {showErrors && err && (

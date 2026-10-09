@@ -197,4 +197,26 @@ describe('decision dialogs', () => {
       await within(dialog).findByText('The decision could not be saved. Try again.'),
     ).toBeTruthy();
   });
+
+  it('Escape mid-request does not close the dialog, so its result still lands', async () => {
+    let release: () => void = () => undefined;
+    server.use(
+      http.post('/api/v1/applications/:id/reject', async () => {
+        await new Promise<void>((resolve) => (release = resolve));
+        return envelope(500, 'SOMETHING_NEW');
+      }),
+    );
+    open();
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Reject' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.type(within(dialog).getByLabelText('Reason for rejecting'), 'No');
+    await user.click(within(dialog).getByRole('button', { name: 'Reject' }));
+    await user.keyboard('{Escape}');
+    expect(screen.getByRole('dialog')).toBe(dialog);
+    release();
+    expect(
+      await within(dialog).findByText('The decision could not be saved. Try again.'),
+    ).toBeTruthy();
+  });
 });

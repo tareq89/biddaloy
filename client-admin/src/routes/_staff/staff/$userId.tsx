@@ -202,6 +202,7 @@ function StaffDetailPage() {
             content: (
               <AttendanceLeaveTab
                 staffProfileId={userQuery.data.staff_profile_id}
+                userId={userId}
                 staffName={userQuery.data.full_name}
               />
             ),
@@ -215,7 +216,11 @@ function StaffDetailPage() {
             label: t('detail.tabs.applications'),
             content: (
               <SubjectApplicationsTab
-                subject={{ kind: 'STAFF', staffProfileId: userQuery.data.staff_profile_id }}
+                subject={{
+                  kind: 'STAFF',
+                  staffProfileId: userQuery.data.staff_profile_id,
+                  userId,
+                }}
                 subjectName={userQuery.data.full_name}
                 ns="staff"
               />

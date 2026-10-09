@@ -7,7 +7,8 @@ import {
   studentFactory,
   userResponseFactory,
 } from '@biddaloy/ui/test';
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -132,6 +133,49 @@ describe('SubjectApplicationsTab', () => {
     expect(await screen.findByText('Staff leave')).toBeTruthy();
     expect(url?.searchParams.get('staff_profile_id')).toBe(STAFF_PROFILE_ID);
     expect(url?.searchParams.get('student_id')).toBeNull();
+  });
+
+  it('staff subject: "Enter a paper application" lands on /applications/new with them pre-selected', async () => {
+    // `?staff=` takes the USER id; the profile id would 404 on GET /users/:id and dead-end.
+    const USER_ID = '7a000000-0000-4000-8000-0000000000cc';
+    mockList([]);
+    server.use(
+      http.get('/api/v1/users/:id', ({ params }) =>
+        HttpResponse.json(
+          params.id === USER_ID
+            ? userResponseFactory({
+                id: USER_ID,
+                full_name: 'Abdul Karim',
+                staff_profile_id: STAFF_PROFILE_ID,
+              })
+            : userResponseFactory({ id: 'u-me', staff_profile_id: 'sp-me' }),
+        ),
+      ),
+      http.get('/api/v1/users', () =>
+        HttpResponse.json({
+          data: [{ id: USER_ID, full_name: 'Abdul Karim', staff_profile_id: STAFF_PROFILE_ID }],
+          total: 1,
+          page: 1,
+          limit: 100,
+          totalPages: 1,
+        }),
+      ),
+      http.get('/api/v1/teachers', () =>
+        HttpResponse.json({ data: [], total: 0, page: 1, limit: 10, totalPages: 1 }),
+      ),
+    );
+    renderWithRouter(routeTree, {
+      initialEntries: [`/staff/${USER_ID}?tab=applications`],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('link', { name: 'Enter a paper application' }));
+    await user.click(await screen.findByRole('radio', { name: /ID card reprint/ }));
+    await user.click(screen.getByRole('button', { name: 'Next' }));
+    const staff = await screen.findByRole('combobox', { name: 'Staff member' });
+    await waitFor(() => expect(staff).toHaveProperty('value', 'Abdul Karim'));
   });
 
   it('marks a paper application as filed on paper', async () => {

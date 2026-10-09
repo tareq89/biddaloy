@@ -448,6 +448,62 @@ describe('/staff/$userId', () => {
       expect(screen.queryByRole('tab', { name: 'Applications' })).toBeNull();
     });
 
+    describe('[52] Attendance & Leave "Request leave" link', () => {
+      // `/applications/new?staff=` takes a USER id (it loads the user, then its profile).
+      const OTHER = '7a000000-0000-4000-8000-0000000000bb';
+      function mountLeave(token?: string) {
+        server.use(
+          http.get('/api/v1/users/:id', () =>
+            HttpResponse.json(userResponseFactory({ id: OTHER, staff_profile_id: 'sp-1' })),
+          ),
+          http.get('/api/v1/teachers', () => HttpResponse.json(paginated([]))),
+          http.get('/api/v1/staff-attendance/summary', () =>
+            HttpResponse.json({
+              present_days: 0,
+              absent_days: 0,
+              late_days: 0,
+              leave_days: 0,
+              attendance_percentage: null,
+            }),
+          ),
+          http.get('/api/v1/leave/balance', () => HttpResponse.json([])),
+        );
+        renderWithRouter(routeTree, {
+          initialEntries: [`/staff/${OTHER}?tab=attendanceLeave`],
+          tenantId: 'tenant-1',
+          role: 'ADMIN',
+          locale: 'en',
+          ...(token ? { accessToken: token } : {}),
+        });
+        return screen.findByRole('heading', { name: en.detail.attendanceLeave.leaveTitle });
+      }
+
+      it('a manager files for this staff member: ?staff= is their user id, not the profile id', async () => {
+        await mountLeave();
+        const href = (await screen.findByRole('link', { name: 'Request leave' })).getAttribute(
+          'href',
+        );
+        expect(href).toContain('type=STAFF_LEAVE');
+        expect(href).toContain(`staff=${OTHER}`);
+      });
+
+      it("without APPLICATION_MANAGE there is no link on someone else's page", async () => {
+        denied.value = new Set([Permission.APPLICATION_MANAGE]);
+        await mountLeave();
+        expect(screen.queryByRole('link', { name: 'Request leave' })).toBeNull();
+      });
+
+      it('on your own page the link files for yourself (no ?staff=)', async () => {
+        denied.value = new Set([Permission.APPLICATION_MANAGE]);
+        await mountLeave(fakeToken(OTHER));
+        const href = (await screen.findByRole('link', { name: 'Request leave' })).getAttribute(
+          'href',
+        );
+        expect(href).toContain('type=STAFF_LEAVE');
+        expect(href).not.toContain('staff=');
+      });
+    });
+
     it('hides Attendance & Leave without STAFF_ATTENDANCE_READ', async () => {
       base();
       denied.value = new Set([Permission.STAFF_ATTENDANCE_READ]);

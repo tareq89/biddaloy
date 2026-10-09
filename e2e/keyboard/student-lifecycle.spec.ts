@@ -35,22 +35,27 @@ async function resetFocus(page: Page): Promise<void> {
   });
 }
 
-/** Notes, Records, Documents, Activity are the last four tabs: End reaches Activity, then ArrowLeft Documents, Records, Notes. */
+/** End reaches the last tab, then ArrowLeft walks back to `tab`, found by name: the tab set
+ * grows with permissions and epics (e.g. [52.5.2] Applications sits before Activity). */
 async function openTabByKeyboard(page: Page, tab: 'records' | 'notes'): Promise<void> {
-  const tabs = page.getByRole('tablist').first().getByRole('tab');
+  const name = t(`students.detail.tabs.${tab}`);
+  const tablist = page.getByRole('tablist').first();
+  const tabs = tablist.getByRole('tab');
+  const index = await tablist
+    .getByRole('tab', { name, exact: true })
+    .evaluate((el) =>
+      [...el.closest('[role="tablist"]')!.querySelectorAll('[role="tab"]')].indexOf(el),
+    );
   await tabs.first().focus();
   await page.keyboard.press('End');
   await expect(tabs.last()).toBeFocused();
   // Await each press: roving focus moves in a setTimeout + view transition.
-  const back = tab === 'records' ? 2 : 3;
-  for (let i = 1; i <= back; i++) {
+  for (let i = (await tabs.count()) - 2; i >= index; i--) {
     await page.keyboard.press('ArrowLeft');
-    await expect(tabs.nth(-1 - i)).toBeFocused();
+    await expect(tabs.nth(i)).toBeFocused();
   }
   await page.keyboard.press('Enter');
-  await expect(
-    page.getByRole('tabpanel', { name: t(`students.detail.tabs.${tab}`), exact: true }),
-  ).toBeVisible();
+  await expect(page.getByRole('tabpanel', { name, exact: true })).toBeVisible();
 }
 
 test.describe.configure({ mode: 'serial' });

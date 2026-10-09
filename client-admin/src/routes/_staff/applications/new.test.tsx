@@ -260,9 +260,29 @@ describe('/applications/new', () => {
     expect(screen.getByRole('link', { name: 'View the application' }).getAttribute('href')).toBe(
       '/applications/app-1',
     );
-    await user.click(screen.getByRole('button', { name: 'Submit application' }));
+    await user.click(screen.getByRole('button', { name: 'Retry attaching files' }));
     await waitFor(() => expect(seen.upload).toBe(2));
     expect(seen.create).toHaveLength(1);
+  });
+
+  it('once created, the flow is locked: no Back to edit, only retry or open the application', async () => {
+    const { router } = render('TEACHER', { search: '?type=ID_CARD_REPRINT', uploadFails: true });
+    const user = userEvent.setup();
+    await user.type(await screen.findByLabelText(/^Reason/), 'Lost it');
+    await next(user);
+    await next(user);
+    await user.upload(
+      await screen.findByLabelText('Attach files'),
+      new File(['x'], 'a.pdf', { type: 'application/pdf' }),
+    );
+    await next(user);
+    await user.click(await screen.findByRole('button', { name: 'Submit application' }));
+    await screen.findByRole('button', { name: 'Retry attaching files' });
+    // Edits after create would be dropped (the retry only uploads), so there is no way back to them.
+    expect(screen.queryByRole('button', { name: 'Back' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Submit application' })).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'View the application' }));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/applications/app-1'));
   });
 
   it('Back keeps values, and Close with changes asks to discard', async () => {
@@ -316,6 +336,13 @@ describe('/applications/new', () => {
       on_behalf_of_user_id: '7a000000-0000-4000-8000-0000000000aa',
       tags: [{ user_id: 'u-acc' }],
     });
+  });
+
+  it("without APPLICATION_MANAGE, someone else's ?staff= blocks the page instead of filing for yourself", async () => {
+    render('TEACHER', { search: '?type=STAFF_LEAVE&staff=7a000000-0000-4000-8000-0000000000aa' });
+    expect(await screen.findByText('You can only apply for your own staff profile.')).toBeTruthy();
+    expect(screen.getByText('Step 1 of 5')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Next' })).toHaveProperty('disabled', true);
   });
 
   it('the staff picker lists only users with a staff profile', async () => {

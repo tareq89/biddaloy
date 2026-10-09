@@ -29,21 +29,48 @@ import { acrBody, surveyBody } from '../fixtures/evaluations';
 import { test } from '../fixtures/test';
 
 /**
- * [52.5.8] A working day (Mon-Wed) in the demo year, random over ~40 weeks so parallel specs and
- * reruns on a reused database do not overlap each other's approved leaves.
+ * [52.5.8] `count` distinct days on which a leave for `studentId` can be approved: working days of
+ * the demo year as the calendar API reports them (so seeded public holidays and closures are never
+ * picked: LEAVE_NO_WORKING_DAYS), minus every day an APPROVED leave of this student already covers
+ * (reruns on one database pile those up: LEAVE_OVERLAP). Random, so parallel shards spread out.
+ * `session` needs CALENDAR_READ and APPLICATION_MANAGE (the admin).
  */
-export function uniqueLeaveDay(): string {
-  const monday = Date.UTC(2026, 0, 5 + 7 * Math.floor(Math.random() * 40));
-  return new Date(monday + Math.floor(Math.random() * 3) * 86_400_000).toISOString().slice(0, 10);
+export async function freeLeaveDays(
+  request: APIRequestContext,
+  session: ApiSession,
+  studentId: string,
+  count = 1,
+): Promise<string[]> {
+  const { dates } = await get<{ dates: string[] }>(
+    request,
+    session,
+    '/school-calendar/working-days?from=2026-01-01&to=2026-12-31',
+  );
+  // ponytail: one page of 100 approved leaves; page through if a database ever holds more.
+  const approved = await get<{ data: { start_date: string | null; end_date: string | null }[] }>(
+    request,
+    session,
+    `/applications?view=all&type=STUDENT_LEAVE&status=APPROVED&student_id=${studentId}&limit=100`,
+  );
+  const free = dates.filter(
+    (d) => !approved.data.some((a) => a.start_date! <= d && d <= a.end_date!),
+  );
+  const picked: string[] = [];
+  while (picked.length < count && free.length > 0) {
+    picked.push(free.splice(Math.floor(Math.random() * free.length), 1)[0]!);
+  }
+  if (picked.length < count) throw new Error(`no ${count} free leave day(s) left for ${studentId}`);
+  return picked;
 }
 
-/** Files a paper STUDENT_LEAVE (as the admin session) for `studentId` on a fresh day. */
+/** Files a paper STUDENT_LEAVE (as the admin session) for `studentId` on a free day. */
 export async function fileStudentLeave(
   request: APIRequestContext,
   session: ApiSession,
   studentId: string,
-  day = uniqueLeaveDay(),
+  day?: string,
 ): Promise<{ id: string; serial: string }> {
+  day ??= (await freeLeaveDays(request, session, studentId))[0]!;
   return post<{ id: string; serial: string }>(request, session, '/applications', {
     type: 'STUDENT_LEAVE',
     subject_student_id: studentId,

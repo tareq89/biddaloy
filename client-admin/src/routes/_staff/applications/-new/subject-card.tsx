@@ -82,12 +82,14 @@ function FieldError({ id, message }: { id: string; message: string | undefined }
 
 /** Tenant staff who have a staff profile. The list is local-filtered: 100 is the ceiling. */
 export function StaffCombobox({
+  id,
   value,
   onChange,
   label,
   invalid,
   describedBy,
 }: {
+  id?: string;
   value: string;
   onChange: (userId: string) => void;
   label: string;
@@ -100,6 +102,7 @@ export function StaffCombobox({
     .map((u) => ({ value: u.id, label: u.full_name }));
   return (
     <Combobox
+      id={id}
       aria-label={label}
       aria-invalid={invalid || undefined}
       aria-describedby={describedBy}
@@ -235,11 +238,12 @@ export function SubjectCard({
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="new-app-staff">{t('subject.staff')}</Label>
             <StaffCombobox
+              id="new-app-staff"
               value={state.staffUserId}
               onChange={(staffUserId) => onChange({ staffUserId })}
               label={t('subject.staff')}
               invalid={!!err('staff')}
-              describedBy="new-app-staff-error"
+              {...(err('staff') ? { describedBy: 'new-app-staff-error' } : {})}
             />
             <FieldError id="new-app-staff-error" message={err('staff')} />
             <p className="text-caption text-text-secondary">{t('subject.paperNote')}</p>
@@ -284,7 +288,7 @@ export function SubjectCard({
             <SelectTrigger
               id="new-app-applicant"
               aria-invalid={err('applicant') ? true : undefined}
-              aria-describedby="new-app-applicant-error"
+              aria-describedby={err('applicant') ? 'new-app-applicant-error' : undefined}
             >
               <SelectValue />
             </SelectTrigger>

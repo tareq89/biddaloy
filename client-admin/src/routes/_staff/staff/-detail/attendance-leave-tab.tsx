@@ -7,6 +7,7 @@
 import { ApplicationType, AttendanceStatus, Permission } from '@biddaloy/shared';
 import { AttendanceStatusControl, Button, ErrorState, Skeleton } from '@biddaloy/ui/components';
 import {
+  useCurrentUserId,
   useHasPermission,
   useLeaveBalance,
   useMarkStaffAttendance,
@@ -19,6 +20,8 @@ import * as React from 'react';
 
 export interface AttendanceLeaveTabProps {
   staffProfileId: string;
+  /** The staff member's user id: `/applications/new?staff=` takes a user id, not a profile id. */
+  userId: string;
   staffName: string;
 }
 
@@ -32,12 +35,20 @@ function monthStartIso(): string {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
 }
 
-export function AttendanceLeaveTab({ staffProfileId, staffName }: AttendanceLeaveTabProps) {
+export function AttendanceLeaveTab({ staffProfileId, userId, staffName }: AttendanceLeaveTabProps) {
   const { t } = useTranslation('staffAttendance');
   const { t: tLeave } = useTranslation('leave');
   const { t: ts } = useTranslation('staff');
   const regionConfig = useRegionConfig();
   const canMark = useHasPermission(Permission.STAFF_ATTENDANCE_MARK);
+  const canManageApplications = useHasPermission(Permission.APPLICATION_MANAGE);
+  const isSelf = useCurrentUserId() === userId;
+  // Own page: file for yourself. Someone else's: only APPLICATION_MANAGE enters it for them.
+  const leaveSearch = isSelf
+    ? { type: ApplicationType.STAFF_LEAVE }
+    : canManageApplications
+      ? { type: ApplicationType.STAFF_LEAVE, staff: userId }
+      : null;
   const [todayStatus, setTodayStatus] = React.useState<AttendanceStatus | null>(null);
   const markAttendance = useMarkStaffAttendance();
   const summaryQuery = useStaffAttendanceSummary(staffProfileId, monthStartIso(), todayIso());
@@ -116,14 +127,13 @@ export function AttendanceLeaveTab({ staffProfileId, staffName }: AttendanceLeav
       <section className="rounded-lg border border-border-subtle bg-surface p-4 shadow-e1 md:p-5">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-h2">{ts('detail.attendanceLeave.leaveTitle')}</h2>
-          <Button asChild variant="outline">
-            <Link
-              to="/applications/new"
-              search={{ type: ApplicationType.STAFF_LEAVE, staff: staffProfileId }}
-            >
-              {tLeave('myLeave.requestButton')}
-            </Link>
-          </Button>
+          {leaveSearch && (
+            <Button asChild variant="outline">
+              <Link to="/applications/new" search={leaveSearch}>
+                {tLeave('myLeave.requestButton')}
+              </Link>
+            </Button>
+          )}
         </div>
         <div className="mt-4">
           {balanceQuery.isPending ? (

@@ -148,7 +148,8 @@ function ApproveDialog({ app, onClose, onDone }: DialogProps) {
   };
 
   return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
+    // No close mid-request: unmounting drops `mutate()`'s onSuccess/onError (TanStack Query v5).
+    <Dialog open onOpenChange={(open) => !open && !approve.isPending && onClose()}>
       <DialogContent
         size={grantsAmount ? 'md' : 'sm'}
         closeLabel={t('dialogs.close')}
@@ -232,7 +233,7 @@ function ReasonDialog({ kind, app, onClose, onDone }: DialogProps & { kind: 'rej
   };
 
   return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
+    <Dialog open onOpenChange={(open) => !open && !mutation.isPending && onClose()}>
       <DialogContent
         size="sm"
         closeLabel={t('dialogs.close')}
@@ -287,7 +288,7 @@ function ConsiderDialog({ app, onClose, onDone }: DialogProps) {
   const noteRef = React.useRef<HTMLInputElement>(null);
 
   return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
+    <Dialog open onOpenChange={(open) => !open && !consider.isPending && onClose()}>
       <DialogContent
         size="sm"
         closeLabel={t('dialogs.close')}

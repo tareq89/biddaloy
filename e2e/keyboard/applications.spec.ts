@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 
-import { adminApiSession, get } from '../api';
+import { adminApiSession, get, type ApiSession } from '../api';
 import { expect, loggedIn, test } from '../fixtures/test';
 import { t } from '../i18n';
 import { fileStudentLeave } from '../responsive/routes';
@@ -49,6 +49,8 @@ test.describe('applications inbox (teacher), keyboard only', () => {
   // Each test works its OWN row (found by serial) and a second one stays behind as the "next" row,
   // so shards running in parallel, and reruns on one database, never consume each other's.
   let mine: string;
+  let teacher: ApiSession;
+  let filed: string[] = [];
   test.beforeEach(async ({ request }) => {
     const password = process.env[SEED_PASSWORD_ENV];
     if (!password) throw new Error(`${SEED_PASSWORD_ENV} is not set`);
@@ -59,7 +61,7 @@ test.describe('applications inbox (teacher), keyboard only', () => {
       access_token: string;
       memberships: { tenantId: string }[];
     };
-    const teacher = { token: body.access_token, tenantId: body.memberships[0]!.tenantId };
+    teacher = { token: body.access_token, tenantId: body.memberships[0]!.tenantId };
     const inbox = await get<{ data: { subject_student_id: string | null }[] }>(
       request,
       teacher,
@@ -68,8 +70,21 @@ test.describe('applications inbox (teacher), keyboard only', () => {
     const studentId = inbox.data.find((a) => a.subject_student_id)?.subject_student_id;
     if (!studentId) throw new Error('teacher inbox has no student application (seed)');
     const admin = await adminApiSession(request);
-    mine = (await fileStudentLeave(request, admin, studentId)).serial;
-    await fileStudentLeave(request, admin, studentId);
+    const own = await fileStudentLeave(request, admin, studentId);
+    const spare = await fileStudentLeave(request, admin, studentId);
+    mine = own.serial;
+    filed = [own.id, spare.id];
+  });
+
+  // The inbox lists oldest first, 25 a page: rows left pending would push later runs' rows to
+  // page 2. Best effort: a row this test already decided answers 4xx, which is fine.
+  test.afterEach(async ({ request }) => {
+    for (const id of filed) {
+      await request.post(`/api/v1/applications/${id}/reject`, {
+        headers: { Authorization: `Bearer ${teacher.token}`, 'X-Tenant-ID': teacher.tenantId },
+        data: { reason: 'E2E cleanup' },
+      });
+    }
   });
 
   test('approve: nav -> row -> Approve -> note -> Enter -> focus on the next row', async ({

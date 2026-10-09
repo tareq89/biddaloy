@@ -173,6 +173,55 @@ describe('/applications', () => {
     ).toBeTruthy();
   });
 
+  it('bulk approve sends picks from other pages too, and names a leave clash in plain words', async () => {
+    // Picked on another page: still in the URL selection, so it is sent (not silently dropped).
+    const OFF_PAGE = '00000000-0000-4000-8000-000000000009';
+    const user = userEvent.setup();
+    let sent: string[] = [];
+    mockApi({
+      pending: 1,
+      rows: [row(A1, { applicant_name: 'Alice' })],
+      onBulk: (body) => {
+        sent = body.ids;
+        return [
+          { id: OFF_PAGE, ok: true },
+          { id: A1, ok: false, error_code: 'LEAVE_OVERLAP' },
+        ];
+      },
+    });
+    mount(`?view=inbox&selected=${OFF_PAGE}`);
+    await screen.findAllByText('Alice');
+    await user.click(screen.getAllByRole('checkbox', { name: 'Select all rows on page' })[0]!);
+    await user.click(await screen.findByRole('button', { name: 'Approve selected' }));
+    const dialog = await screen.findByRole('alertdialog');
+    await user.click(within(dialog).getByRole('button', { name: 'Approve' }));
+    await waitFor(() => expect(sent).toEqual([OFF_PAGE, A1]));
+    const status = await screen.findByRole('status');
+    expect(
+      within(status).getByText(/This overlaps with leave that is already approved\./),
+    ).toBeTruthy();
+  });
+
+  it('bulk approve: a failed request closes the dialog and says so', async () => {
+    const user = userEvent.setup();
+    mockApi({ pending: 1, rows: [row(A1, { applicant_name: 'Alice' })] });
+    server.use(
+      http.post('/api/v1/applications/bulk-approve', () =>
+        HttpResponse.json({ message: 'boom' }, { status: 500 }),
+      ),
+    );
+    mount('?view=inbox');
+    await screen.findAllByText('Alice');
+    await user.click(screen.getAllByRole('checkbox', { name: 'Select all rows on page' })[0]!);
+    await user.click(await screen.findByRole('button', { name: 'Approve selected' }));
+    const dialog = await screen.findByRole('alertdialog');
+    await user.click(within(dialog).getByRole('button', { name: 'Approve' }));
+    expect(
+      await screen.findByText('Could not approve the selected applications. Try again.'),
+    ).toBeTruthy();
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+  });
+
   it('row approve links carry from=inbox&decide=approve; view carries from=inbox only on inbox', async () => {
     mockApi({ pending: 1, rows: [row(A1)] });
     const { unmount } = mount('?view=inbox');
