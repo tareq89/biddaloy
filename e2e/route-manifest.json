@@ -684,7 +684,8 @@
     {
       "path": "/portal/applications/new",
       "role": "parent",
-      "archetype": "form"
+      "archetype": "form",
+      "overlays": ["discard"]
     },
     {
       "path": "/portal/applications/$applicationId",
@@ -692,7 +693,8 @@
         "applicationId": "seeded"
       },
       "role": "parent",
-      "archetype": "detail"
+      "archetype": "detail",
+      "overlays": ["withdraw"]
     },
     {
       "path": "/portal/surveys",

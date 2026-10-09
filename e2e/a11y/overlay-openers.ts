@@ -1,7 +1,9 @@
 import type { Page } from '@playwright/test';
 import { expect, request } from '@playwright/test';
 
-import { adminApiSession, findSeedSectionA, get, rawRequest } from '../api';
+import bnPortalApplications from '../../ui/src/i18n/locales/bn/portalApplications.json';
+import enPortalApplications from '../../ui/src/i18n/locales/en/portalApplications.json';
+import { adminApiSession, apiSession, findSeedSectionA, get, rawRequest } from '../api';
 import { makeT, type Locale } from '../i18n';
 import { DetailShellPage } from '../pages/detail-shell';
 import { ListShellPage } from '../pages/list-shell';
@@ -308,6 +310,35 @@ export const overlayOpeners: Record<string, (page: Page, locale: Locale) => Prom
     const t = makeT(locale);
     await page.getByRole('radio').first().check();
     await page.getByRole('button', { name: t('applicationsNew.actions.cancel') }).click();
+    await expectDialogOpen(page);
+  },
+  // [52.6.4] The portal form. The sweep lands here without `?student=`, which sends the page back
+  // to the list, so the opener takes the list's own "New application" link. Picking a type makes
+  // the form dirty, so Cancel asks before discarding.
+  '/portal/applications/new::discard': async (page, locale) => {
+    const portal = locale === 'en' ? enPortalApplications : bnPortalApplications;
+    if (!page.url().includes('/portal/applications/new')) {
+      await page.getByRole('link', { name: portal.newApplication }).click();
+    }
+    await page.getByRole('radio').first().check();
+    await page.getByRole('button', { name: portal.new.actions.cancel, exact: true }).click();
+    await expectDialogOpen(page);
+  },
+  // The detail route resolves to the newest application, which may already be decided; Withdraw
+  // exists only on an open one the parent filed, so go to the first of those.
+  '/portal/applications/$applicationId::withdraw': async (page, locale) => {
+    const session = await apiSession(page.request, 'PARENT');
+    const mine = await get<{ data: { id: string; can: { withdraw: boolean } }[] }>(
+      page.request,
+      session,
+      '/applications?view=mine&limit=100',
+    );
+    const open = mine.data.find((a) => a.can.withdraw);
+    if (!open) throw new Error('no withdrawable application for the parent (seed)');
+    await page.goto(`/portal/applications/${open.id}`);
+    await page
+      .getByRole('button', { name: makeT(locale)('applicationsDetail.actions.withdraw') })
+      .click();
     await expectDialogOpen(page);
   },
   // [30.4.1] `ShortcutsSheet` (`ui/src/components/shortcuts-sheet.tsx`) —
