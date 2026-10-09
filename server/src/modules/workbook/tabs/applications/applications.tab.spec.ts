@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import type { EntityManager } from 'typeorm';
 import type { ImportContext } from '../../codec/tab-spec';
 import { applicationAttachmentsTab, applicationTagsTab } from './application-children.tab';
 import { applicationsTab } from './applications.tab';
@@ -69,6 +70,17 @@ describe('applications tab fromRow', () => {
     );
     expect('row' in leave).toBe(true);
   });
+
+  it('rejects a subject kind the type does not allow (APPLICATION_TYPES[type].subject)', () => {
+    const staffOnly = applicationsTab.fromRow({ ...base, type: 'STAFF_LEAVE' }, 2, ctx());
+    expect(messages(staffOnly)).toContain('cannot have a student subject');
+    const staff = applicationsTab.fromRow(
+      { ...base, type: 'STAFF_LEAVE', subject_student: '', subject_staff_profile: 'E-1' },
+      2,
+      ctx(),
+    );
+    expect('row' in staff).toBe(true);
+  });
 });
 
 describe('application_tags tab fromRow', () => {
@@ -85,6 +97,32 @@ describe('application_tags tab fromRow', () => {
     for (const role of ['Admin', 'SUPER_ADMIN', 'PARENT']) {
       expect('errors' in applicationTagsTab.fromRow({ ...tag, role }, 2, ctx())).toBe(true);
     }
+  });
+});
+
+describe('application_tags tab upsert', () => {
+  const row = {
+    id: UUID,
+    application_id: 'app-1',
+    user_id: 'guardian-1',
+    role: null,
+    created_by_user_id: 'admin-1',
+    application_key: '2026|1',
+    user_key: 'parent@x.test',
+  };
+
+  it('refuses a user tag naming someone who is not staff of this school (D50)', async () => {
+    const m = { exists: vi.fn().mockResolvedValue(false), save: vi.fn() };
+    await expect(
+      applicationTagsTab.upsert(row, null, TENANT, m as unknown as EntityManager),
+    ).rejects.toThrow('is not staff of this school');
+    expect(m.save).not.toHaveBeenCalled();
+  });
+
+  it('saves a user tag naming a staff member', async () => {
+    const m = { exists: vi.fn().mockResolvedValue(true), save: vi.fn((_e, x) => x) };
+    await applicationTagsTab.upsert(row, null, TENANT, m as unknown as EntityManager);
+    expect(m.save).toHaveBeenCalledOnce();
   });
 });
 
