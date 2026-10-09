@@ -18,6 +18,7 @@ import {
   ApplicationStatus,
   ApplicationSubjectKind,
   ApplicationType,
+  EnrollmentStatus,
   Permission,
   STAFF_ROLES,
   UserRole,
@@ -26,6 +27,7 @@ import {
 } from '@biddaloy/shared';
 import type { RequestContext } from '../../common/request-context.util';
 import { escapeLikePattern } from '../../common/utils/escape-like.util';
+import { SCHOOL_TZ } from '../../common/time';
 import { SchoolsService } from '../schools/schools.service';
 import { FamilyAccessService } from '../students/family-access.service';
 import { localToday } from '../attendance/attendance-policy.util';
@@ -314,6 +316,19 @@ export class ApplicationsService {
     }
 
     await this.assertReferencedIds(manager, tenantId, payload);
+
+    // READMISSION of an ACTIVE student can never be approved; say so now, not after step 0.
+    if (dto.type === ApplicationType.READMISSION && studentId) {
+      const [s] = await manager.query(
+        `SELECT enrollment_status FROM students WHERE id = $1 AND tenant_id = $2`,
+        [studentId, tenantId],
+      );
+      if (s?.enrollment_status === EnrollmentStatus.ACTIVE) {
+        throw new UnprocessableEntityException(
+          err('This student is already active', 'APPLICATION_SUBJECT_ACTIVE'),
+        );
+      }
+    }
 
     const family = !applicantRoles.some((r) => STAFF_ROLE_STRINGS.includes(r));
     const { addressee, addresseeUserId } = await this.resolveAddressee(
@@ -642,8 +657,10 @@ export class ApplicationsService {
 
     if (query.type) qb.andWhere('a.type = :type', { type: query.type });
     if (query.status) qb.andWhere('a.status = :status', { status: query.status });
-    if (query.from) qb.andWhere('a.created_at::date >= :from', { from: query.from });
-    if (query.to) qb.andWhere('a.created_at::date <= :to', { to: query.to });
+    // Same day boundary as `/applications/reports` (SCHOOL_TZ is a code constant, safe to inline).
+    const createdOn = `(a.created_at AT TIME ZONE '${SCHOOL_TZ}')::date`;
+    if (query.from) qb.andWhere(`${createdOn} >= :from`, { from: query.from });
+    if (query.to) qb.andWhere(`${createdOn} <= :to`, { to: query.to });
     if (query.class_id) qb.andWhere('cs.class_id = :classId', { classId: query.class_id });
     if (query.student_id)
       qb.andWhere('a.subject_student_id = :studentId', { studentId: query.student_id });
@@ -709,6 +726,10 @@ export class ApplicationsService {
   // Withdraw + comment
   // ---------------------------------------------------------------------------
 
+  /**
+   * Applicant-side actions (submit, withdraw, comment) are audited by their `application_events`
+   * row, which records actor, kind and time; only decisions also write `audit_logs` (52.3.1).
+   */
   async withdraw(
     tenantId: string,
     user: ApplicationCaller,

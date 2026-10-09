@@ -407,6 +407,9 @@ export class AttendanceService {
     if (!student) {
       throw new NotFoundException('Student not found');
     }
+    // ponytail: the student's section NOW, for every date. A backdated leave (D21) that spans a
+    // section change lands in the new section's register; resolve the section per date from
+    // `enrollments` if that case shows up.
     const section = await manager
       .getRepository(ClassSection)
       .findOne({ where: { id: student.class_section_id, tenant_id: tenantId } });

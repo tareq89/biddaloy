@@ -158,7 +158,8 @@ export class StaffAttendanceService {
   /**
    * D31: undo `markLeaveRange` for a cancelled leave. Only future (strictly
    * after today) SYSTEM-sourced LEAVE marks of this staff profile are
-   * deleted; past days and TEACHER-source marks stay. Returns deleted dates.
+   * deleted; past days and TEACHER-source marks stay. Returns deleted dates
+   * and the school's `today` it used, so the ledger can keep the same cut.
    */
   async revertLeaveRange(
     manager: EntityManager,
@@ -170,7 +171,7 @@ export class StaffAttendanceService {
       actorUserId: string;
       applicationId: string;
     },
-  ): Promise<{ dates: string[] }> {
+  ): Promise<{ dates: string[]; today: string }> {
     const { tenantId, staffProfileId, from, to, actorUserId, applicationId } = params;
     const settings = await this.schoolsService.getResolvedSettings(tenantId);
     const today = localToday(settings.region?.timezone ?? 'UTC');
@@ -178,7 +179,7 @@ export class StaffAttendanceService {
       .toISOString()
       .slice(0, 10);
     const start = from > tomorrow ? from : tomorrow;
-    if (start > to) return { dates: [] };
+    if (start > to) return { dates: [], today };
 
     const recordRepo = manager.getRepository(StaffAttendanceRecord);
     const rows = await recordRepo
@@ -212,7 +213,7 @@ export class StaffAttendanceService {
         manager,
       );
     }
-    return { dates: rows.map((r) => r.session.date) };
+    return { dates: rows.map((r) => r.session.date), today };
   }
 
   async markDay(params: {

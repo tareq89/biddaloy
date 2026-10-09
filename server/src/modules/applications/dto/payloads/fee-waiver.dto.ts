@@ -1,5 +1,6 @@
 import {
   ArrayMaxSize,
+  ArrayMinSize,
   IsArray,
   IsDateString,
   IsEnum,
@@ -27,8 +28,10 @@ export class FeeWaiverPayloadDto {
   @Min(0.01)
   value: number;
 
+  /** Omitted or `null` = all fees; an empty list would always fail at approval, so it is refused here. */
   @IsOptional()
   @IsArray()
+  @ArrayMinSize(1)
   @ArrayMaxSize(20)
   @IsEnum(FeeType, { each: true })
   fee_types?: FeeType[];

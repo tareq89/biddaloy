@@ -91,7 +91,10 @@ export class ApplicationAttachmentsService {
     files: Express.Multer.File[],
   ): Promise<ApplicationAttachmentDto[]> {
     await this.applications.get(tenantId, user, applicationId); // 404 if not visible
-    if (!files?.length) throw new BadRequestException('At least one file is required');
+    // Array check, not just `.length`: a tampered request must not pass a string here (CodeQL).
+    if (!Array.isArray(files) || files.length === 0) {
+      throw new BadRequestException('At least one file is required');
+    }
 
     const manager = this.dataSource.manager;
     const current = await this.writable(manager, tenantId, user, applicationId);

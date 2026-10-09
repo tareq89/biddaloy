@@ -508,6 +508,12 @@ describe('ApplicationsService (integration)', () => {
         payload: { kind: 'PERCENT', value: 120, reason: 'Too much' },
       };
       await expect(submit(callers.office, tooBig)).rejects.toBeInstanceOf(BadRequestException);
+      // An empty fee list would only fail at the final approval; refuse it at submit.
+      const noFees = {
+        ...feeWaiver(studentA),
+        payload: { kind: 'PERCENT', value: 10, fee_types: [], reason: 'Hardship' },
+      };
+      await expect(submit(callers.office, noFees)).rejects.toBeInstanceOf(BadRequestException);
     });
 
     it('STAFF_LEAVE defaults the subject to the caller and copies the dates; another profile is refused', async () => {
@@ -849,6 +855,23 @@ describe('ApplicationsService (integration)', () => {
       });
       expect(paged).toMatchObject({ total: 2, page: 2, limit: 1, totalPages: 2 });
       expect(paged.data).toHaveLength(1);
+    });
+  });
+
+  describe('list date filter', () => {
+    it('from/to use the school day (Asia/Dhaka), as the reports do', async () => {
+      const a = await submit(callers.parent, studentLeave(studentA));
+      // 01:30 on 5 March in Dhaka is still 4 March in UTC.
+      await dataSource.query(`UPDATE applications SET created_at = $2 WHERE id = $1`, [
+        a.id,
+        '2026-03-04T19:30:00Z',
+      ]);
+      const on5th = await service.list(SEED_TENANT_ID, callers.office, {
+        view: 'all',
+        from: '2026-03-05',
+        to: '2026-03-05',
+      });
+      expect(on5th.data.map((r) => r.id)).toEqual([a.id]);
     });
   });
 
