@@ -14,33 +14,6 @@ function toPatch(plain: Record<string, unknown>): Record<string, unknown> {
 }
 
 describe('mergeTenantSettings', () => {
-  // [#1811] Adding a section to TenantSettingsDto without listing it here is a compile error,
-  // and listing it without a merge branch fails the assertion below. `organisationRenames` is
-  // a write instruction stripped before the merge; `preset` is not in the DTO and must never
-  // be PATCHed (D37 of Epic 35).
-  const EVERY_SECTION: Record<
-    Exclude<keyof TenantSettingsDto, 'version' | 'organisationRenames'>,
-    { marker: string }
-  > = {
-    region: { marker: 'region' },
-    communications: { marker: 'communications' },
-    attendance: { marker: 'attendance' },
-    routine: { marker: 'routine' },
-    organisation: { marker: 'organisation' },
-    auth: { marker: 'auth' },
-    backup: { marker: 'backup' },
-    fees: { marker: 'fees' },
-    evaluations: { marker: 'evaluations' },
-    studyPlans: { marker: 'studyPlans' },
-  };
-
-  it('every DTO section survives a merge', () => {
-    const merged = mergeTenantSettings({}, { version: 1, ...EVERY_SECTION });
-    for (const key of Object.keys(EVERY_SECTION)) {
-      expect(merged[key]).toMatchObject({ marker: key });
-    }
-  });
-
   it('stores routine on PATCH and leaves fees alone (#1811)', () => {
     const existing = { version: 1, fees: { approvalMode: 'OTP' } };
     const merged = mergeTenantSettings(
@@ -316,6 +289,7 @@ describe('mergeTenantSettings', () => {
     fees: { marker: 'fees' },
     evaluations: { marker: 'evaluations' },
     documents: { marker: 'documents' },
+    studyPlans: { marker: 'studyPlans' },
   };
 
   it('every DTO section survives a merge (#1811 guard)', () => {

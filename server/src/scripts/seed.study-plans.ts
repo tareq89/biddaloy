@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { Repository } from 'typeorm';
+import { IsNull, type Repository } from 'typeorm';
 import { LessonDeliveryReason, LessonDeliveryStatus } from '@biddaloy/shared';
 import type { StudyPlanExamMarker, StudyPlanLesson } from '@biddaloy/shared';
 import type { AcademicYear } from '../modules/academics/entities/academic-year.entity';
@@ -100,14 +100,15 @@ export async function ensureStudyPlansSeed(
     where: { tenant_id: tenantId, code: 'SCI' },
   });
   const teacherUser = await repos.userRepository.findOne({ where: { email: TEACHER_EMAIL } });
-  // The routine seed's plain weekly Monday slot for section A.
-  const mondaySlot = section
-    ? await repos.routineSlotRepository.findOne({
-        where: { tenant_id: tenantId, section_id: section.id, weekday: 1 },
-      })
-    : null;
-  if (!year || !cls || !section || !math || !sci || !teacherUser || !mondaySlot) {
-    console.warn('Demo year/class/subjects/teacher/routine not found - skipping study plans seed.');
+  // The routine seed's plain weekly Monday MATH slot for section A.
+  const mondaySlot =
+    section && math
+      ? await repos.routineSlotRepository.findOne({
+          where: { tenant_id: tenantId, section_id: section.id, weekday: 1, subject_id: math.id },
+        })
+      : null;
+  if (!year || !cls || !section || !math || !sci || !teacherUser) {
+    console.warn('Demo year/class/subjects/teacher not found - skipping study plans seed.');
     return;
   }
 
@@ -142,7 +143,13 @@ export async function ensureStudyPlansSeed(
     markers: StudyPlanExamMarker[],
   ): Promise<void> {
     const found = await repos.planRepository.findOne({
-      where: { tenant_id: tenantId, section_id: section!.id, subject_id: subjectId },
+      where: {
+        tenant_id: tenantId,
+        section_id: section!.id,
+        subject_id: subjectId,
+        academic_year_id: year!.id,
+        academic_term_id: termId ?? IsNull(),
+      },
     });
     if (found) return;
     await repos.planRepository.save(
@@ -168,6 +175,8 @@ export async function ensureStudyPlansSeed(
   await ensurePlan(sci.id, null, planLessons(6), []);
 
   // --- deliveries ------------------------------------------------------------
+  // No Monday MATH slot in the routine seed: the plans above stand, deliveries need a slot.
+  if (!mondaySlot) return;
   if (
     await repos.deliveryRepository.findOne({
       where: { tenant_id: tenantId, section_id: section.id },

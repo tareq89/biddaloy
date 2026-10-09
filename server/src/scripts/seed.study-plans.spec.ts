@@ -1,14 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import type { Repository } from 'typeorm';
+import { FindOperator, type Repository } from 'typeorm';
 import { ensureStudyPlansSeed, type StudyPlansSeedRepositories } from './seed.study-plans';
 
-/** Minimal in-memory repo: findOne by equality, create, save. */
+/** Minimal in-memory repo: findOne by equality (and `IsNull()`), create, save. */
 class FakeRepo {
   readonly rows: Record<string, unknown>[] = [];
   private n = 0;
   constructor(private readonly prefix: string) {}
   findOne({ where }: { where: Record<string, unknown> }) {
-    const hit = this.rows.find((r) => Object.entries(where).every(([k, v]) => r[k] === v));
+    const hit = this.rows.find((r) => Object.entries(where).every(([k, v]) =>
+        v instanceof FindOperator && v.type === 'isNull' ? (r[k] ?? null) === null : r[k] === v,
+      ),
+    );
     return Promise.resolve(hit ?? null);
   }
   create(data: Record<string, unknown>) {
@@ -60,6 +63,7 @@ function setup() {
     tenant_id: TENANT,
     section_id: 'classSection-1',
     weekday: 1,
+    subject_id: 'subject-1',
     period_slot_id: 'periodSlot-1',
   });
   const repos = Object.fromEntries(

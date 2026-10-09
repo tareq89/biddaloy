@@ -1,5 +1,5 @@
 import type { EntityManager } from 'typeorm';
-import type { StudyPlanTemplateLesson } from '@biddaloy/shared';
+import { STUDY_PLAN_LIMITS, type StudyPlanTemplateLesson } from '@biddaloy/shared';
 import { StudyPlanTemplate } from '../../../study-plans/entities/study-plan-template.entity';
 import { fromCell } from '../../codec/cell-format';
 import type {
@@ -38,6 +38,11 @@ const columns: readonly ColumnSpec[] = [
   { key: 'lessons', type: 'json', required: true, label: { en: 'Lessons', bn: 'পাঠসমূহ' } },
 ];
 
+const MAX_LENGTHS: Record<string, number> = {
+  name: STUDY_PLAN_LIMITS.templateNameMax,
+  subject_code: 20,
+};
+
 export const studyPlanTemplatesTab: TabSpec<StudyPlanTemplate, StudyPlanTemplateRow> = {
   name: 'study_plan_templates',
   entity: StudyPlanTemplate,
@@ -71,8 +76,23 @@ export const studyPlanTemplatesTab: TabSpec<StudyPlanTemplate, StudyPlanTemplate
     const values: Record<string, unknown> = {};
     for (const column of columns) {
       const result = fromCell(column, cells[column.key] ?? '', 'study_plan_templates', rowNo);
-      if ('error' in result) errors.push(result.error);
-      else values[column.key] = result.value;
+      if ('error' in result) {
+        errors.push(result.error);
+        continue;
+      }
+      const limit = MAX_LENGTHS[column.key];
+      if (limit !== undefined && typeof result.value === 'string' && result.value.length > limit) {
+        errors.push({
+          tab: 'study_plan_templates',
+          row: rowNo,
+          column: column.key,
+          message: `Column "${column.key}": is longer than the ${limit} characters allowed.`,
+          severity: 'error',
+          value: cells[column.key],
+        });
+        continue;
+      }
+      values[column.key] = result.value;
     }
     if (errors.length > 0) return { errors };
 

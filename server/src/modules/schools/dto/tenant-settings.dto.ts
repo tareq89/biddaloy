@@ -776,6 +776,7 @@ export class TenantSettingsDto {
   @NestedSettings(() => DocumentsSettingsDto)
   documents?: DocumentsSettingsDto;
 
+  @OptionalSetting()
   @NestedSettings(() => StudyPlansSettingsDto)
   studyPlans?: StudyPlansSettingsDto;
 }
