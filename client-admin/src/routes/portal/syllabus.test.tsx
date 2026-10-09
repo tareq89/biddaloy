@@ -192,7 +192,7 @@ describe('/portal/syllabus', () => {
       expect.stringContaining('Mathematics'),
       expect.stringContaining('English'),
     ]);
-    expect(within(mathButton).getByText('2 lesson behind')).toBeTruthy();
+    expect(within(mathButton).getByText('2 lessons behind')).toBeTruthy();
     expect(within(mathButton).getByText('Now: lesson 18 · Fractions')).toBeTruthy();
     expect(
       screen.getByText(
