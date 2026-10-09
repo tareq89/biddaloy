@@ -192,7 +192,8 @@ const DONE = period({
   lesson: { id: 'lesson-7', number: 7, title: 'Decimals', part: 3, of: 3 },
   delivery: DELIVERY,
 });
-const NO_PLAN = period({ routine_slot_id: 'slot-3', sequence: 3, plan_id: null });
+// What the server sends for a period without a plan: no plan and no lesson (a null lesson used to crash the page).
+const NO_PLAN = period({ routine_slot_id: 'slot-3', sequence: 3, plan_id: null, lesson: null });
 const CANCELLED = period({
   routine_slot_id: 'slot-4',
   sequence: 4,
@@ -268,6 +269,14 @@ describe('/routines/my marking', () => {
     expect(link.getAttribute('href')).toContain('new=1');
     expect(screen.queryByRole('radiogroup')).toBeNull();
     expect(screen.getByText(/no study plan for English yet/)).toBeTruthy();
+  });
+
+  it('a planned period with no lesson left to teach still shows its status group', async () => {
+    setup({ periods: [period({ routine_slot_id: 'slot-5', lesson: null })] });
+    render();
+
+    expect(await screen.findByRole('radiogroup')).toBeTruthy();
+    expect(screen.queryByText("Today's lesson")).toBeNull();
   });
 
   it('a cancelled / auto period has no status group, only the explanation', async () => {

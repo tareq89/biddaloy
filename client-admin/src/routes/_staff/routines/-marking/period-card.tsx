@@ -100,7 +100,7 @@ export function PeriodCard({
         {coveringLabel && <StatusBadge tone="info" label={coveringLabel} />}
       </div>
 
-      {period.plan_id && (
+      {lesson && (
         <div className="flex flex-col gap-1 border-s-4 border-border-functional ps-3">
           <p className="text-caption text-text-secondary">{t('marking.todaysLesson')}</p>
           <p className="font-semibold">
@@ -177,7 +177,7 @@ export function PeriodCard({
         section={sectionLabel}
         subject={subjectLabel}
         period={periodText}
-        lessonTitle={lesson.title}
+        lessonTitle={lesson?.title ?? ''}
         pending={upsert.isPending}
         error={upsert.isError}
         onCloseFocus={() => {
