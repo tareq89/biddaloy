@@ -1,0 +1,112 @@
+{
+  "title": "নতুন আবেদন",
+  "steps": {
+    "type": "ধরন",
+    "details": "তথ্য",
+    "addressee": "বরাবর",
+    "attachments": "সংযুক্তি",
+    "preview": "চিঠি দেখুন"
+  },
+  "progress": "ধাপ {{current}} / {{total}}",
+  "actions": {
+    "next": "পরবর্তী",
+    "back": "পেছনে",
+    "cancel": "বাতিল করুন",
+    "submit": "আবেদন জমা দিন"
+  },
+  "type": {
+    "label": "আবেদনের ধরন",
+    "heading": "কীসের জন্য আবেদন করবেন?",
+    "disabledStudent": "শিক্ষার্থীর পক্ষে আবেদন অফিস থেকে নথিভুক্ত হয়",
+    "disabledNoProfile": "আপনার অ্যাকাউন্টে কর্মী প্রোফাইল নেই",
+    "typeHelp": {
+      "STAFF_LEAVE": "কর্মীর নৈমিত্তিক, অসুস্থতা বা অন্য ছুটি",
+      "STUDENT_LEAVE": "অভিভাবকের কাগজের চিঠি থেকে শিক্ষার্থীর ছুটি",
+      "FEE_WAIVER": "শিক্ষার্থীর ফিতে ছাড় বা মওকুফের আবেদন",
+      "TESTIMONIAL": "শিক্ষার্থীর প্রশংসাপত্র",
+      "TRANSFER_CERTIFICATE": "শিক্ষার্থী স্কুল ছাড়লে ছাড়পত্র (টিসি)",
+      "READMISSION": "স্কুল ছেড়ে যাওয়া শিক্ষার্থীকে আবার শ্রেণিতে ফেরানো",
+      "SECTION_CHANGE": "শিক্ষার্থীকে অন্য শাখায় সরানো",
+      "SCRIPT_RECHECK": "পরীক্ষার খাতা পুনর্মূল্যায়নের আবেদন",
+      "ID_CARD_REPRINT": "হারিয়ে বা নষ্ট হলে নতুন পরিচয়পত্র",
+      "GENERAL": "স্কুলের কাছে অন্য যেকোনো চিঠি"
+    }
+  },
+  "subject": {
+    "heading": "কার জন্য?",
+    "forStudent": "শিক্ষার্থীর কাগজের আবেদন লিখছি",
+    "self": "নিজের জন্য",
+    "student": "শিক্ষার্থী",
+    "studentSearch": "নাম বা রোল দিয়ে খুঁজুন",
+    "studentChange": "শিক্ষার্থী বদলান",
+    "studentRequired": "একজন শিক্ষার্থী বেছে নিন",
+    "applicant": "আবেদনকারী",
+    "applicantRequired": "কে আবেদন করছেন তা বেছে নিন",
+    "applicantNoLogin": "লগইন নেই — নাম লিখুন",
+    "applicantName": "আবেদনকারীর নাম",
+    "applicantNameRequired": "আবেদনকারীর নাম লিখুন",
+    "applicantNameTooLong": "সর্বোচ্চ ১৫০ অক্ষর",
+    "studentThemselves": "{{name}} (শিক্ষার্থী)",
+    "paperNote": "কাগজে জমা হিসেবে রেকর্ড হবে",
+    "paperStaff": "অন্য কর্মীর কাগজের আবেদন লিখছি",
+    "staff": "কর্মী",
+    "staffRequired": "একজন কর্মী বেছে নিন",
+    "noProfile": "এই ব্যক্তির কর্মী প্রোফাইল নেই",
+    "loading": "লোড হচ্ছে",
+    "loadError": "লোড করা যায়নি। আবার চেষ্টা করুন।"
+  },
+  "addressee": {
+    "heading": "বরাবর ও ট্যাগ",
+    "choose": "বরাবর",
+    "required": "চিঠি কার বরাবর তা বেছে নিন",
+    "staff": "নির্দিষ্ট কর্মী",
+    "staffRequired": "একজন কর্মী বেছে নিন",
+    "fixed": "বরাবর: {{title}}",
+    "route": "ধাপ: {{route}}",
+    "tags": "ট্যাগ (ঐচ্ছিক)",
+    "tagsHelp": "ট্যাগ করা ব্যক্তিরা দেখতে ও মন্তব্য করতে পারবেন, সিদ্ধান্ত দিতে পারবেন না।",
+    "tagsPlaceholder": "ব্যক্তি বা ভূমিকা খুঁজুন",
+    "tagRole": "ভূমিকা"
+  },
+  "attachments": {
+    "heading": "সংযুক্তি (ঐচ্ছিক)",
+    "hint": "সর্বোচ্চ {{count}}টি ফাইল, প্রতিটি {{size}} এমবি পর্যন্ত। পিডিএফ, জেপিজি বা পিএনজি।",
+    "label": "ফাইল যুক্ত করুন",
+    "tooMany": "সর্বোচ্চ {{count}}টি ফাইল",
+    "tooLarge": "{{size}} এমবির বেশি ফাইল নেওয়া যায় না: {{name}}",
+    "wrongType": "শুধু পিডিএফ, জেপিজি বা পিএনজি ফাইল: {{name}}"
+  },
+  "preview": {
+    "heading": "চিঠি দেখুন",
+    "summary": "সারসংক্ষেপ",
+    "type": "ধরন",
+    "for": "কার জন্য",
+    "to": "বরাবর",
+    "tags": "ট্যাগ",
+    "files": "ফাইল",
+    "none": "নেই"
+  },
+  "submit": {
+    "success": "আবেদন জমা হয়েছে · {{serial}}",
+    "partial": "আবেদন জমা হয়েছে, কিন্তু ফাইল যুক্ত হয়নি।",
+    "view": "আবেদনটি দেখুন"
+  },
+  "errors": {
+    "generic": "আবেদন জমা দেওয়া যায়নি। আবার চেষ্টা করুন।",
+    "APPLICATION_ATTACHMENT_LIMIT": "ফাইল বেশি বা খুব বড়। সর্বোচ্চ ৩টি ফাইল, প্রতিটি ৫ এমবি।",
+    "APPLICATION_ADDRESSEE_INVALID": "এই বরাবর এখন পাওয়া যাচ্ছে না। অন্যজনকে বেছে নিন।",
+    "APPLICATION_APPLICANT_INVALID": "এই শিক্ষার্থীর জন্য আবেদনকারী সঠিক নয়।",
+    "APPLICATION_APPLICANT_NOT_LINKED": "আবেদনকারী এই শিক্ষার্থীর অভিভাবক নন।",
+    "APPLICATION_NO_CLASS_TEACHER": "এই শিক্ষার্থীর শাখায় এখনও শ্রেণি শিক্ষক নেই। অন্য বরাবর বেছে নিন বা অফিসে জানান।",
+    "APPLICATION_ON_BEHALF_BOTH": "লগইন থাকা আবেদনকারী বা নাম লেখা, যেকোনো একটি বেছে নিন।",
+    "APPLICATION_ON_BEHALF_FORBIDDEN": "আপনি অন্যের পক্ষে আবেদন নথিভুক্ত করতে পারবেন না।",
+    "APPLICATION_TAG_INVALID": "একটি ট্যাগ সঠিক নয়।",
+    "APPLICATION_TAGS_STAFF_ONLY": "শুধু কর্মীদের ট্যাগ করা যায়।",
+    "APPLICATION_SUBJECT_ACTIVE": "এই ব্যক্তির এই ধরনের একটি আবেদন আগে থেকেই চালু আছে।",
+    "APPLICATION_SUBJECT_MISMATCH": "এই ব্যক্তি এই ধরনের আবেদনের জন্য সঠিক নন।",
+    "APPLICATION_SUBJECT_NOT_FOUND": "ব্যক্তিকে খুঁজে পাওয়া যায়নি।",
+    "APPLICATION_STUDENT_NOT_LINKED": "এই শিক্ষার্থী আপনার অ্যাকাউন্টের সঙ্গে যুক্ত নয়।",
+    "APPLICATION_NOT_YOUR_PROFILE": "আপনি শুধু নিজের কর্মী প্রোফাইলের জন্য আবেদন করতে পারবেন।",
+    "APPLICATION_REFERENCE_NOT_FOUND": "আপনার বাছাই করা শ্রেণি, শাখা বা পরীক্ষা খুঁজে পাওয়া যায়নি।"
+  }
+}
