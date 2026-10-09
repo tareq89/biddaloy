@@ -499,7 +499,7 @@ export class AttendanceService {
         changed = true;
       }
       if (changed) {
-        await sessionRepo.increment({ id: session.id }, 'version', 1);
+        await sessionRepo.increment({ id: session.id, tenant_id: tenantId }, 'version', 1);
       }
     }
     return { dates };
@@ -558,7 +558,7 @@ export class AttendanceService {
     for (const record of records) {
       const session = sessionById.get(record.session_id)!;
       await recordRepo.delete({ id: record.id, tenant_id: tenantId });
-      await sessionRepo.increment({ id: session.id }, 'version', 1);
+      await sessionRepo.increment({ id: session.id, tenant_id: tenantId }, 'version', 1);
       await this.auditService.record(
         {
           action: AuditAction.DELETE,

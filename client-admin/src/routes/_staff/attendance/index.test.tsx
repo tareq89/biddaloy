@@ -1,4 +1,6 @@
+import { REGION_BD_EN } from '@biddaloy/ui/i18n';
 import { cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
+import { tenantTodayIso } from '@biddaloy/ui/utils';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -6,10 +8,9 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { routeTree } from '../../../routeTree.gen';
 
-function todayLocalIso(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-}
+// The school's date (Asia/Dhaka in REGION_BD_EN, the `en` fallback the page
+// uses), never the runner's clock: between 18:00 and 24:00 UTC the two differ.
+const todayLocalIso = () => tenantTodayIso(REGION_BD_EN);
 
 const FINALIZED = {
   state: 'FINALIZED',

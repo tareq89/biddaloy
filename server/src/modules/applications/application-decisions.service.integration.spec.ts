@@ -494,6 +494,9 @@ describe('ApplicationDecisionsService (integration)', () => {
       for (const granted of [
         { kind: 'PERCENT', value: 500 },
         { kind: 'FLAT', value: 100, start_date: '2026-12-01', end_date: '2026-11-01' },
+        // Only the value is granted; the requested kind (PERCENT) still applies, so the
+        // merged terms are 500% and must be caught before the step-up token is spent.
+        { value: 500 },
       ]) {
         await expect(approve(callers.admin, app.id, { granted })).rejects.toBeInstanceOf(
           BadRequestException,

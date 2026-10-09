@@ -93,7 +93,10 @@ export class ApplicationDecisionsService {
         });
       }
 
-      if (dto.granted) assertDateOrderAndPercent(app.type, dto.granted); // before any write
+      // Validate the terms actually applied (request merged with the grant), before any write
+      // and before the handler spends the step-up token.
+      if (dto.granted)
+        assertDateOrderAndPercent(app.type, feeWaiverTerms(app.payload, dto.granted));
 
       if (!isFinal) {
         // Step approved: move on, skipping class-teacher steps nobody can act on (D37).
