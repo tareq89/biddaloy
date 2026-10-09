@@ -320,4 +320,34 @@ describe('StudentAlertStrip', () => {
     expect(within(dialog).getByText('Absent 3 days')).toBeTruthy();
     expect(within(dialog).getByText('Fee overdue')).toBeTruthy();
   });
+
+  it('shows busy and the error line on the targeted card only', async () => {
+    await setup(
+      <Harness
+        itemState={{ w1: { error: 'That did not work. Try again.' }, r1: { busy: true } }}
+      />,
+    );
+    const dialog = await screen.findByRole('dialog');
+    const cards = dialog.querySelectorAll<HTMLElement>('[data-alert-item]');
+    const byId = (id: string) => dialog.querySelector<HTMLElement>(`[data-alert-item="${id}"]`)!;
+    expect(cards.length).toBe(5);
+    expect(within(byId('w1')).getByRole('alert').textContent).toBe('That did not work. Try again.');
+    expect(within(dialog).getAllByRole('alert').length).toBe(1);
+    expect(
+      within(byId('r1'))
+        .getAllByRole('button')
+        .every((b) => b.hasAttribute('disabled')),
+    ).toBe(true);
+    expect(
+      within(byId('r2'))
+        .getAllByRole('button')
+        .some((b) => b.hasAttribute('disabled')),
+    ).toBe(false);
+  });
+
+  it('is axe clean when open', async () => {
+    const { baseElement } = await setup(<Harness />);
+    await screen.findByRole('dialog');
+    await expect(baseElement).toHaveNoViolations();
+  });
 });
