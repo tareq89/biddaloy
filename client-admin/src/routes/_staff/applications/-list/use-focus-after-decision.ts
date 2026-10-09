@@ -40,7 +40,7 @@ export function useFocusAfterDecision(ids: readonly string[] | undefined, settle
       if (!mounted.current) return;
       const target = nextId
         ? document.querySelector<HTMLElement>(`[data-focus-anchor="${nextId}"]`)
-        : document.querySelector<HTMLElement>('main h2');
+        : document.querySelector<HTMLElement>('main h1');
       if (target) {
         if (!nextId) target.tabIndex = -1;
         target.focus();

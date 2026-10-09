@@ -211,6 +211,19 @@ describe('/applications', () => {
     await waitFor(() => expect(router.state.location.search).not.toHaveProperty('decided'));
   });
 
+  it('empty inbox after a decision keeps focus on the page heading (D25)', async () => {
+    let list = [row(A1)];
+    mockApi({ pending: 1, rows: () => list });
+    const { router, queryClient } = mount('?view=inbox');
+    await screen.findAllByText('2026/0045');
+    await router.navigate({ to: '/applications/new' });
+    list = [];
+    await queryClient.invalidateQueries({ queryKey: ['applications'] });
+    await router.navigate({ to: '/applications', search: { view: 'inbox', decided: A1 } });
+    await waitFor(() => expect(document.activeElement?.tagName).toBe('H1'), { timeout: 3000 });
+    await waitFor(() => expect(router.state.location.search).not.toHaveProperty('decided'));
+  });
+
   it('shows empty, error and no-results states', async () => {
     mockApi({ pending: 0, rows: [] });
     mount('?view=inbox');

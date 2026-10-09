@@ -7,7 +7,8 @@
   "subtitle_one": "{{n}} application waiting for your decision · oldest {{age}} old",
   "subtitle_other": "{{n}} applications waiting for your decision · oldest {{age}} old",
   "subtitleNone": "No applications are waiting for your decision right now",
-  "days": "{{n}} days",
+  "days_one": "{{n}} day",
+  "days_other": "{{n}} days",
   "actions": {
     "new": "New application",
     "reports": "Reports"
@@ -48,7 +49,7 @@
     "confirmTitle_one": "Approve {{n}} application?",
     "confirmTitle_other": "Approve {{n}} applications?",
     "confirmBody": "Each selected application is approved at its current step.",
-    "feeWaiverExcluded": "{{n}} fee waiver application(s) cannot be approved together. Open them one by one.",
+    "confirmBodyExcluded": "Each selected application is approved at its current step. {{n}} fee waiver application(s) cannot be approved together. Open them one by one.",
     "confirm": "Approve",
     "resultTitle": "{{ok}} of {{total}} approved",
     "failedLine": "{{name}} · {{serial}} — {{reason}}",
