@@ -16,8 +16,7 @@ import {
 } from '@test/constants';
 
 /**
- * E2E test for the `leave` routes: request leave, approve it, confirm the
- * balance reflects it. See `staff-attendance.e2e-spec.ts` for the pattern
+ * E2E test for the `leave` routes: balance, policies, and the removed request routes. See `staff-attendance.e2e-spec.ts` for the pattern
  * this mirrors.
  */
 describe('Leave E2E', () => {
@@ -102,62 +101,33 @@ describe('Leave E2E', () => {
     staffProfileId = profileRes[0].id;
   });
 
-  it('requests leave, approves it, and the balance reflects it', async () => {
-    const startDate = addDays(1);
-    const endDate = addDays(3); // 3 inclusive days
-
-    const requestRes = await supertest(app.getHttpServer())
-      .post('/api/v1/leave/requests')
-      .set('Authorization', `Bearer ${adminToken}`)
-      .set('X-Tenant-ID', TENANT_ID)
-      .send({
-        staff_profile_id: staffProfileId,
-        leave_type: LeaveType.CASUAL,
-        start_date: startDate,
-        end_date: endDate,
-        reason: 'family event',
-      })
-      .expect(201);
-    expect(requestRes.body.status).toBe('PENDING');
-    expect(requestRes.body.days).toBe(3);
-    const leaveRecordId = requestRes.body.id;
-
-    const balanceBeforeRes = await supertest(app.getHttpServer())
-      .get('/api/v1/leave/balance')
-      .query({ staff_profile_id: staffProfileId })
-      .set('Authorization', `Bearer ${adminToken}`)
-      .set('X-Tenant-ID', TENANT_ID)
-      .expect(200);
-    const casualBefore = balanceBeforeRes.body.find((b: any) => b.leave_type === 'CASUAL');
-    expect(casualBefore.balance).toBe(10); // still pending, not yet approved
-
-    await supertest(app.getHttpServer())
-      .post(`/api/v1/leave/requests/${leaveRecordId}/decide`)
-      .set('Authorization', `Bearer ${adminToken}`)
-      .set('X-Tenant-ID', TENANT_ID)
-      .send({ approve: true })
-      .expect(201);
-
-    const balanceAfterRes = await supertest(app.getHttpServer())
-      .get('/api/v1/leave/balance')
-      .query({ staff_profile_id: staffProfileId })
-      .set('Authorization', `Bearer ${adminToken}`)
-      .set('X-Tenant-ID', TENANT_ID)
-      .expect(200);
-    const casualAfter = balanceAfterRes.body.find((b: any) => b.leave_type === 'CASUAL');
-    expect(casualAfter.balance).toBe(7);
-  });
-
-  it('returns 401 when X-Tenant-ID is missing', async () => {
+  it('POST /leave/requests and /decide are gone (D20); the balance read still works', async () => {
     await supertest(app.getHttpServer())
       .post('/api/v1/leave/requests')
       .set('Authorization', `Bearer ${adminToken}`)
+      .set('X-Tenant-ID', TENANT_ID)
       .send({
         staff_profile_id: staffProfileId,
         leave_type: LeaveType.CASUAL,
         start_date: addDays(1),
-        end_date: addDays(2),
+        end_date: addDays(3),
       })
+      .expect(404);
+
+    const balanceRes = await supertest(app.getHttpServer())
+      .get('/api/v1/leave/balance')
+      .query({ staff_profile_id: staffProfileId })
+      .set('Authorization', `Bearer ${adminToken}`)
+      .set('X-Tenant-ID', TENANT_ID)
+      .expect(200);
+    expect(balanceRes.body.find((b: any) => b.leave_type === 'CASUAL').balance).toBe(10);
+  });
+
+  it('returns 401 when X-Tenant-ID is missing', async () => {
+    await supertest(app.getHttpServer())
+      .get('/api/v1/leave/balance')
+      .query({ staff_profile_id: staffProfileId })
+      .set('Authorization', `Bearer ${adminToken}`)
       .expect(401);
   });
 
@@ -170,73 +140,18 @@ describe('Leave E2E', () => {
       .expect(401);
   });
 
-  it('returns 403 when a non-approver requests leave for a colleague (not their own staff profile)', async () => {
-    // The seeded admin also acts as TEACHER via X-Role — same user as
-    // ADMIN, but with a role that lacks LEAVE_APPROVE. `staffProfileId` was
-    // created for a different, unrelated user in `beforeEach`, so this is
-    // "someone else's" leave from the TEACHER caller's point of view.
-    await dataSource.query(
-      `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
-       VALUES ('${SEED_ADMIN_USER_ID}', '${TENANT_ID}', '${UserRole.TEACHER}', NOW(), NOW())
-       ON CONFLICT DO NOTHING`,
-    );
-    // Membership is embedded in the JWT at login time, so `adminToken`
-    // (issued in `beforeAll`, before this insert) does not carry the new
-    // TEACHER membership — re-login to get a fresh token, matching
-    // `attendance.e2e-spec.ts`'s pattern.
-    const teacherLoginRes = await supertest(app.getHttpServer())
-      .post('/api/v1/auth/login')
-      .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
-      .expect(200);
-    const teacherToken = teacherLoginRes.body.access_token;
-
-    await supertest(app.getHttpServer())
-      .post('/api/v1/leave/requests')
-      .set('Authorization', `Bearer ${teacherToken}`)
-      .set('X-Tenant-ID', TENANT_ID)
-      .set('X-Role', UserRole.TEACHER)
-      .send({
-        staff_profile_id: staffProfileId,
-        leave_type: LeaveType.CASUAL,
-        start_date: addDays(1),
-        end_date: addDays(2),
-      })
-      .expect(403);
-  });
-
-  it('returns 403 for a non-LEAVE_APPROVE role (STUDENT) on decide() and PUT /leave/policies/:type', async () => {
+  it('returns 403 for a non-LEAVE_APPROVE role (STUDENT) on PUT /leave/policies/:type', async () => {
     await dataSource.query(
       `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
        VALUES ('${SEED_ADMIN_USER_ID}', '${TENANT_ID}', '${UserRole.STUDENT}', NOW(), NOW())
        ON CONFLICT DO NOTHING`,
     );
-    // Re-login so the token carries the new STUDENT membership (see the
-    // colleague-scoping test above for why).
+    // Re-login so the token carries the new STUDENT membership (it is embedded at login).
     const studentLoginRes = await supertest(app.getHttpServer())
       .post('/api/v1/auth/login')
       .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
       .expect(200);
     const studentToken = studentLoginRes.body.access_token;
-
-    const requestRes = await supertest(app.getHttpServer())
-      .post('/api/v1/leave/requests')
-      .set('Authorization', `Bearer ${adminToken}`)
-      .set('X-Tenant-ID', TENANT_ID)
-      .send({
-        staff_profile_id: staffProfileId,
-        leave_type: LeaveType.CASUAL,
-        start_date: addDays(1),
-        end_date: addDays(2),
-      })
-      .expect(201);
-
-    await supertest(app.getHttpServer())
-      .post(`/api/v1/leave/requests/${requestRes.body.id}/decide`)
-      .set('Authorization', `Bearer ${studentToken}`)
-      .set('X-Tenant-ID', TENANT_ID)
-      .set('X-Role', UserRole.STUDENT)
-      .send({ approve: true })
-      .expect(403);
 
     await supertest(app.getHttpServer())
       .put(`/api/v1/leave/policies/${LeaveType.CASUAL}`)
@@ -245,19 +160,5 @@ describe('Leave E2E', () => {
       .set('X-Role', UserRole.STUDENT)
       .send({ annual_quota_days: 12 })
       .expect(403);
-  });
-
-  it('rejects a calendar-invalid date like 2026-02-31 with 400', async () => {
-    await supertest(app.getHttpServer())
-      .post('/api/v1/leave/requests')
-      .set('Authorization', `Bearer ${adminToken}`)
-      .set('X-Tenant-ID', TENANT_ID)
-      .send({
-        staff_profile_id: staffProfileId,
-        leave_type: LeaveType.CASUAL,
-        start_date: '2026-02-31',
-        end_date: '2026-03-02',
-      })
-      .expect(400);
   });
 });

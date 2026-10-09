@@ -1,13 +1,12 @@
 import {
-  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { DataSource, EntityManager, Repository } from 'typeorm';
+import { InjectRepository } from '@nestjs/typeorm';
+import { EntityManager, Repository } from 'typeorm';
 import {
   AuditAction,
   LeaveStatus,
@@ -22,30 +21,7 @@ import { StaffProfile } from '../staff-profiles/entities/staff-profile.entity';
 import { AuditService } from '../audit/audit.service';
 import { SchoolCalendarService } from '../calendar/school-calendar.service';
 import { StaffAttendanceService } from '../staff-attendance/staff-attendance.service';
-import {
-  CreateLeaveRequestDto,
-  DecideLeaveRequestDto,
-  LeaveBalanceDto,
-  LeavePolicyDto,
-  LeaveRecordDto,
-} from './dto/leave.dto';
-
-const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
-
-/** Inclusive day span between two `YYYY-MM-DD` dates. */
-function inclusiveDays(startDate: string, endDate: string): number {
-  const start = Date.UTC(
-    Number(startDate.slice(0, 4)),
-    Number(startDate.slice(5, 7)) - 1,
-    Number(startDate.slice(8, 10)),
-  );
-  const end = Date.UTC(
-    Number(endDate.slice(0, 4)),
-    Number(endDate.slice(5, 7)) - 1,
-    Number(endDate.slice(8, 10)),
-  );
-  return Math.round((end - start) / 86_400_000) + 1;
-}
+import { LeaveBalanceDto, LeavePolicyDto } from './dto/leave.dto';
 
 function currentYearRange(): { from: string; to: string } {
   const year = new Date().getUTCFullYear();
@@ -62,32 +38,15 @@ function yearRangeOf(date: string): { from: string; to: string } {
   return { from: `${year}-01-01`, to: `${year}-12-31` };
 }
 
-function toRecordDto(r: LeaveRecord): LeaveRecordDto {
-  return {
-    id: r.id,
-    staff_profile_id: r.staff_profile_id,
-    leave_type: r.leave_type,
-    start_date: r.start_date,
-    end_date: r.end_date,
-    days: r.days,
-    status: r.status,
-    reason: r.reason,
-    approved_by: r.approved_by,
-    decided_at: r.decided_at,
-  };
-}
-
 /**
- * [36.3] Request/approve/reject staff leave. Balance is always computed
- * live — `quota - sum(APPROVED days in the relevant year)`. See
- * `staff-attendance.service.ts` for the transaction+lock+audit pattern
- * `decide()`'s approve/reject paths mirror.
+ * [36.3] Staff leave balance + policies, and the approved-leave ledger writes
+ * the applications module calls. Balance is always computed live —
+ * `quota - sum(APPROVED days in the relevant year)`. Requests and decisions
+ * go through applications (D20).
  */
 @Injectable()
 export class LeaveService {
   constructor(
-    @InjectDataSource()
-    private readonly dataSource: DataSource,
     @InjectRepository(LeaveRecord)
     private readonly leaveRecordRepo: Repository<LeaveRecord>,
     @InjectRepository(LeavePolicy)
@@ -210,199 +169,6 @@ export class LeaveService {
       .andWhere('leave_record.start_date BETWEEN :from AND :to', { from, to })
       .getRawOne<{ sum: string }>();
     return Number(raw?.sum ?? 0);
-  }
-
-  async request(
-    tenantId: string,
-    dto: CreateLeaveRequestDto,
-    callerUserId: string,
-    role: UserRole,
-  ): Promise<LeaveRecordDto> {
-    if (!DATE_ONLY.test(dto.start_date) || !DATE_ONLY.test(dto.end_date)) {
-      throw new BadRequestException('start_date/end_date must be YYYY-MM-DD');
-    }
-    const days = inclusiveDays(dto.start_date, dto.end_date);
-    if (days < 1) {
-      throw new BadRequestException('end_date must not be before start_date');
-    }
-
-    await this.assertStaffProfileAccessible(tenantId, dto.staff_profile_id, callerUserId, role);
-
-    // Balance is checked against the year the leave's own start_date falls
-    // in, not the current calendar year — a request straddling a year
-    // boundary must not silently escape the quota it actually consumes.
-    const balance = await this.computeBalance(
-      this.leaveRecordRepo,
-      tenantId,
-      dto.staff_profile_id,
-      dto.leave_type,
-      yearRangeOf(dto.start_date),
-    );
-    if (balance.balance !== null && days > balance.balance) {
-      throw new UnprocessableEntityException({
-        message: `Requesting ${days} day(s) would exceed the remaining balance of ${balance.balance}`,
-        details: { code: 'LEAVE_BALANCE_EXCEEDED' },
-      });
-    }
-
-    const created = await this.leaveRecordRepo.save(
-      this.leaveRecordRepo.create({
-        tenant_id: tenantId,
-        staff_profile_id: dto.staff_profile_id,
-        leave_type: dto.leave_type,
-        start_date: dto.start_date,
-        end_date: dto.end_date,
-        days,
-        status: LeaveStatus.PENDING,
-        reason: dto.reason ?? null,
-      }),
-    );
-    return toRecordDto(created);
-  }
-
-  /**
-   * Both approve and reject wrap the status transition + audit write in one
-   * transaction, pessimistic-locking the row(s) so a concurrent decide() on
-   * the same record (approve/approve, approve/reject, or reject/reject)
-   * cannot race past the PENDING re-check. Approve additionally locks every
-   * one of the staff's records for that type/year, since it also has to
-   * re-read a live balance sum.
-   */
-  async decide(
-    tenantId: string,
-    leaveRecordId: string,
-    decidedByUserId: string,
-    dto: DecideLeaveRequestDto,
-    auditContext: { ip: string | null; userAgent: string | null },
-  ): Promise<LeaveRecordDto> {
-    if (!dto.approve) {
-      return this.dataSource.transaction(async (manager) => {
-        const recordRepo = manager.getRepository(LeaveRecord);
-
-        const record = await recordRepo.findOne({
-          where: { id: leaveRecordId, tenant_id: tenantId },
-          lock: { mode: 'pessimistic_write' },
-        });
-        if (!record) {
-          throw new NotFoundException('Leave record not found');
-        }
-        if (record.status !== LeaveStatus.PENDING) {
-          throw new UnprocessableEntityException('Only a pending request can be decided');
-        }
-
-        const oldStatus = record.status;
-        record.status = LeaveStatus.REJECTED;
-        record.approved_by = decidedByUserId;
-        record.decided_at = new Date();
-        const saved = await recordRepo.save(record);
-
-        await this.auditService.record(
-          {
-            action: AuditAction.UPDATE,
-            entity_type: 'LeaveRecord',
-            entity_id: saved.id,
-            tenant_id: tenantId,
-            performed_by_user_id: decidedByUserId,
-            ip_address: auditContext.ip,
-            user_agent: auditContext.userAgent,
-            old_values: { status: oldStatus },
-            new_values: { status: saved.status, reason: dto.reason ?? null },
-          },
-          manager,
-        );
-
-        return toRecordDto(saved);
-      });
-    }
-
-    return this.dataSource.transaction(async (manager) => {
-      const recordRepo = manager.getRepository(LeaveRecord);
-      const policyRepo = manager.getRepository(LeavePolicy);
-
-      const record = await recordRepo.findOne({
-        where: { id: leaveRecordId, tenant_id: tenantId },
-      });
-      if (!record) {
-        throw new NotFoundException('Leave record not found');
-      }
-      if (record.status !== LeaveStatus.PENDING) {
-        throw new UnprocessableEntityException('Only a pending request can be decided');
-      }
-
-      // Pessimistic lock: every one of this staff member's records for this
-      // leave type serializes here, so a second concurrent approval blocks
-      // until this transaction commits (or rolls back) and then re-reads
-      // the committed balance — it cannot see a stale, pre-approval sum.
-      const lockedRecords = await recordRepo
-        .createQueryBuilder('leave_record')
-        .setLock('pessimistic_write')
-        .where('leave_record.tenant_id = :tenantId', { tenantId })
-        .andWhere('leave_record.staff_profile_id = :staffProfileId', {
-          staffProfileId: record.staff_profile_id,
-        })
-        .andWhere('leave_record.leave_type = :leaveType', { leaveType: record.leave_type })
-        .orderBy('leave_record.id')
-        .getMany();
-
-      // Re-check status under the lock: a concurrent decide() on this same
-      // record may have committed while we were blocked acquiring the lock
-      // above. The pre-lock `record` read at the top of this function is
-      // stale once that happens — trust only the row we just locked.
-      const lockedRecord = lockedRecords.find((r) => r.id === record.id);
-      if (!lockedRecord || lockedRecord.status !== LeaveStatus.PENDING) {
-        throw new UnprocessableEntityException('Only a pending request can be decided');
-      }
-      record.status = lockedRecord.status;
-
-      const policy = await policyRepo.findOne({
-        where: { tenant_id: tenantId, leave_type: record.leave_type },
-      });
-      if (!policy) {
-        throw new NotFoundException(`No leave policy for ${record.leave_type} in this tenant`);
-      }
-      // Balance is checked against the year the leave's own start_date
-      // falls in, not the current calendar year (see `request()`).
-      const usedDays = await this.approvedDaysInRange(
-        recordRepo,
-        tenantId,
-        record.staff_profile_id,
-        record.leave_type,
-        yearRangeOf(record.start_date),
-      );
-      // null quota = unlimited (D19): skip the check
-      if (policy.annual_quota_days !== null) {
-        const balance = policy.annual_quota_days - usedDays;
-        if (record.days > balance) {
-          throw new UnprocessableEntityException({
-            message: `Approving would exceed the remaining balance of ${balance}`,
-            details: { code: 'LEAVE_BALANCE_EXCEEDED' },
-          });
-        }
-      }
-
-      const oldStatus = record.status;
-      record.status = LeaveStatus.APPROVED;
-      record.approved_by = decidedByUserId;
-      record.decided_at = new Date();
-      const saved = await recordRepo.save(record);
-
-      await this.auditService.record(
-        {
-          action: AuditAction.UPDATE,
-          entity_type: 'LeaveRecord',
-          entity_id: saved.id,
-          tenant_id: tenantId,
-          performed_by_user_id: decidedByUserId,
-          ip_address: auditContext.ip,
-          user_agent: auditContext.userAgent,
-          old_values: { status: oldStatus },
-          new_values: { status: saved.status, reason: dto.reason ?? null },
-        },
-        manager,
-      );
-
-      return toRecordDto(saved);
-    });
   }
 
   async listPolicies(tenantId: string): Promise<LeavePolicyDto[]> {

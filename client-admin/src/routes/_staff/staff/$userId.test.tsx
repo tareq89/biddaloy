@@ -429,6 +429,25 @@ describe('/staff/$userId', () => {
       expect(await screen.findByRole('tab', { name: 'Attendance & Leave' })).toBeTruthy();
     });
 
+    it('[52.5.2] shows Applications with APPLICATION_MANAGE and a staff profile; ?tab=applications opens it', async () => {
+      base();
+      server.use(
+        http.get('/api/v1/applications', () =>
+          HttpResponse.json({ data: [], total: 0, page: 1, limit: 100, totalPages: 1 }),
+        ),
+      );
+      mount('/staff/user-1?tab=applications');
+      expect(await screen.findByRole('tab', { name: 'Applications', selected: true })).toBeTruthy();
+    });
+
+    it('[52.5.2] hides Applications without APPLICATION_MANAGE', async () => {
+      base();
+      denied.value = new Set([Permission.APPLICATION_MANAGE]);
+      mount();
+      await screen.findByRole('tab', { name: 'Profile' });
+      expect(screen.queryByRole('tab', { name: 'Applications' })).toBeNull();
+    });
+
     it('hides Attendance & Leave without STAFF_ATTENDANCE_READ', async () => {
       base();
       denied.value = new Set([Permission.STAFF_ATTENDANCE_READ]);

@@ -1,7 +1,8 @@
 import { REGION_BD_BN, REGION_BD_EN } from '@biddaloy/ui/i18n';
 import { cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
 import { formatNumber } from '@biddaloy/ui/utils';
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -66,7 +67,26 @@ describe('/attendance/staff/leave', () => {
     expect(screen.getByRole('button', { name: 'Request leave' })).toBeTruthy();
   });
 
-  it('shows the plain "not available yet" empty state to a LEAVE_APPROVE holder, never "engineering"', async () => {
+  it('sends the request button to the new-application form with type=STAFF_LEAVE', async () => {
+    server.use(
+      pinEnglishRegion,
+      me(),
+      http.get('/api/v1/leave/balance', () => HttpResponse.json([])),
+    );
+
+    const { router } = renderWithRouter(routeTree, {
+      initialEntries: ['/attendance/staff/leave'],
+      tenantId: 'tenant-1',
+      role: 'TEACHER',
+      locale: 'en',
+    });
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Request leave' }));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/applications/new'));
+    expect(router.state.location.search).toMatchObject({ type: 'STAFF_LEAVE' });
+  });
+
+  it('shows a LEAVE_APPROVE holder a link to the pending STAFF_LEAVE inbox', async () => {
     server.use(
       pinEnglishRegion,
       me({ full_name: 'Admin', role: 'ADMIN', staff_profile_id: 'profile-2' }),
@@ -80,14 +100,37 @@ describe('/attendance/staff/leave', () => {
       locale: 'en',
     });
 
-    expect(await screen.findByRole('heading', { name: 'Pending requests' })).toBeTruthy();
-    expect(
-      screen.getByText('Approving staff leave requests here is not available yet.'),
-    ).toBeTruthy();
-    expect(screen.queryByText(/engineering/i)).toBeNull();
+    const link = await screen.findByRole('link', { name: 'Pending leave applications' });
+    expect(link.getAttribute('href')).toContain('/applications?');
+    expect(link.getAttribute('href')).toContain('view=inbox');
+    expect(link.getAttribute('href')).toContain('type=STAFF_LEAVE');
   });
 
-  it('does not show the approve panel to a caller without LEAVE_APPROVE', async () => {
+  it('renders "No limit" for an unlimited (null) quota', async () => {
+    server.use(
+      pinEnglishRegion,
+      me(),
+      http.get('/api/v1/leave/balance', () =>
+        HttpResponse.json([
+          { leave_type: 'EARNED', annual_quota_days: null, used_days: 4, balance: null },
+        ]),
+      ),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/attendance/staff/leave'],
+      tenantId: 'tenant-1',
+      role: 'TEACHER',
+      locale: 'en',
+    });
+
+    const earned = (await screen.findByText('Earned')).closest('tr') as HTMLElement;
+    // Quota column: the label; balance column: a dash on desktop and the label on the phone card.
+    expect(within(earned).getAllByText('No limit').length).toBeGreaterThan(0);
+    expect(within(earned).getByText('—')).toBeTruthy();
+  });
+
+  it('does not show the inbox link to a caller without LEAVE_APPROVE', async () => {
     server.use(
       pinEnglishRegion,
       me(),
@@ -104,7 +147,7 @@ describe('/attendance/staff/leave', () => {
     // Positive anchor first: the page rendered.
     expect(await screen.findByRole('heading', { level: 1, name: 'Leave' })).toBeTruthy();
     expect(await screen.findByText('No leave rules yet')).toBeTruthy();
-    expect(screen.queryByRole('heading', { name: 'Pending requests' })).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Pending leave applications' })).toBeNull();
   });
 
   it('tells a user with no staff profile so, and offers no request button', async () => {

@@ -397,6 +397,34 @@ describe('/students/$studentId', () => {
     expect(screen.queryByRole('button', { name: 'Record leaving' })).toBeNull();
   });
 
+  it('[52.5.2] the Applications tab shows for APPLICATION_MANAGE (ADMIN), not for ACCOUNTANT; ?tab=applications opens it', async () => {
+    server.use(
+      http.get('/api/v1/students/:id', () =>
+        HttpResponse.json(studentFactory({ id: 'student-1' })),
+      ),
+      http.get('/api/v1/applications', () =>
+        HttpResponse.json({ data: [], total: 0, page: 1, limit: 100, totalPages: 1 }),
+      ),
+    );
+    const { unmount } = renderWithRouter(routeTree, {
+      initialEntries: ['/students/student-1?tab=applications'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+    expect(await screen.findByRole('tab', { name: 'Applications', selected: true })).toBeTruthy();
+    unmount();
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/students/student-1'],
+      tenantId: 'tenant-1',
+      role: 'ACCOUNTANT',
+      locale: 'en',
+    });
+    await screen.findByRole('tab', { name: 'Overview' });
+    expect(screen.queryByRole('tab', { name: 'Applications' })).toBeNull();
+  });
+
   it('[8.11.3] Move class dialog PATCHes the current enrollment when one already exists', async () => {
     const student = studentFactory({ id: 'student-1', full_name: 'Rahim Uddin' });
     const targetClass = classFactory({ id: 'class-2', name: 'Class Two' });

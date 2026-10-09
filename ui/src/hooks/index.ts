@@ -18,13 +18,10 @@ export { useQueryFreshness } from './use-query-freshness';
 export { useSyncQueue } from './use-sync-queue';
 export { switchActiveTenant } from './tenant';
 export {
-  useCreateLeaveRequest,
   useLeaveBalance,
   useLeavePolicies,
   leaveBalanceQueryOptions,
-  type CreateLeaveRequestInput,
   type LeaveBalance,
-  type LeaveRecord,
 } from '../api/leave';
 export {
   useMarkStaffAttendance,

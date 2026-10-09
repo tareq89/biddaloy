@@ -1,23 +1,25 @@
 /**
- * [36.4] `/attendance/staff/leave` — "My leave" (balance + request) for
- * every signed-in staff member, plus a pending-approvals panel gated on
- * `LEAVE_APPROVE` (see `-leave-approve-list.tsx`'s own comment for why
- * that panel can't be wired up end to end yet).
+ * [36.4] `/attendance/staff/leave` — "My leave" (balance) for every signed-in
+ * staff member. Requesting and deciding leave happen on the applications pages
+ * (D20): the header button opens the new-application form, and a `LEAVE_APPROVE`
+ * holder gets a link to the pending STAFF_LEAVE inbox.
  */
-import { Permission } from '@biddaloy/shared';
-import { DataTable, EmptyState, ErrorState, type DataTableColumn } from '@biddaloy/ui/components';
+import { ApplicationType, Permission } from '@biddaloy/shared';
+import {
+  Button,
+  DataTable,
+  EmptyState,
+  ErrorState,
+  type DataTableColumn,
+} from '@biddaloy/ui/components';
 import { useCurrentUser, useHasPermission, useLeaveBalance } from '@biddaloy/ui/hooks';
 import { useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { PageContainer, PageHeader } from '@biddaloy/ui/shells';
 import { formatNumber } from '@biddaloy/ui/utils';
-import { createFileRoute } from '@tanstack/react-router';
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import { CalendarX2, Plus, UserX } from 'lucide-react';
-import * as React from 'react';
 
 import { loadRouteNamespaces } from '../../../../route-loaders';
-
-import { LeaveApproveList } from './-leave-approve-list';
-import { LeaveRequestDialog } from './-leave-request-dialog';
 
 export const Route = createFileRoute('/_staff/attendance/staff/leave')({
   loader: () => loadRouteNamespaces('leave', 'common'),
@@ -33,7 +35,7 @@ function LeavePage() {
   const currentUserQuery = useCurrentUser();
   const staffProfileId = currentUserQuery.data?.staff_profile_id ?? null;
   const balanceQuery = useLeaveBalance(staffProfileId ?? '');
-  const [requestOpen, setRequestOpen] = React.useState(false);
+  const navigate = useNavigate();
 
   const columns: DataTableColumn<BalanceRow>[] = [
     {
@@ -45,7 +47,11 @@ function LeavePage() {
     {
       id: 'quota',
       header: t('myLeave.columnQuota'),
-      accessorFn: (row) => formatNumber(row.annual_quota_days, regionConfig),
+      // null quota = unlimited (D19)
+      accessorFn: (row) =>
+        row.annual_quota_days === null
+          ? t('myLeave.noLimit')
+          : formatNumber(row.annual_quota_days, regionConfig),
       align: 'end',
     },
     {
@@ -59,13 +65,17 @@ function LeavePage() {
       header: t('myLeave.columnBalance'),
       accessorFn: (row) => (
         <>
-          <span className="hidden md:inline">{formatNumber(row.balance, regionConfig)}</span>
+          <span className="hidden md:inline">
+            {row.balance === null ? '—' : formatNumber(row.balance, regionConfig)}
+          </span>
           <span className="md:hidden">
-            {/* `count` picks the plural form; `n` is the school-formatted number. */}
-            {t('myLeave.daysLeft', {
-              count: row.balance,
-              n: formatNumber(row.balance, regionConfig),
-            })}
+            {row.balance === null
+              ? t('myLeave.noLimit')
+              : // `count` picks the plural form; `n` is the school-formatted number.
+                t('myLeave.daysLeft', {
+                  count: row.balance,
+                  n: formatNumber(row.balance, regionConfig),
+                })}
           </span>
         </>
       ),
@@ -97,7 +107,11 @@ function LeavePage() {
                   label: t('myLeave.requestButton'),
                   priority: 'primary',
                   icon: <Plus aria-hidden="true" />,
-                  onClick: () => setRequestOpen(true),
+                  onClick: () =>
+                    void navigate({
+                      to: '/applications/new',
+                      search: { type: ApplicationType.STAFF_LEAVE },
+                    }),
                 },
               ]
             : []
@@ -139,14 +153,12 @@ function LeavePage() {
         )}
       </section>
 
-      {canApprove && <LeaveApproveList />}
-
-      {staffProfileId !== null && (
-        <LeaveRequestDialog
-          open={requestOpen}
-          onOpenChange={setRequestOpen}
-          staffProfileId={staffProfileId}
-        />
+      {canApprove && (
+        <Button asChild variant="outline" className="self-start">
+          <Link to="/applications" search={{ view: 'inbox', type: ApplicationType.STAFF_LEAVE }}>
+            {t('myLeave.pendingLink')}
+          </Link>
+        </Button>
       )}
     </PageContainer>
   );
