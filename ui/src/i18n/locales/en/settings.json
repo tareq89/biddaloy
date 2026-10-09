@@ -288,6 +288,13 @@
     "providerReady": "SMS company added",
     "openSmsSettings": "Communication › add SMS company"
   },
+  "applications": {
+    "legend": "Applications",
+    "description": "How guardians are told when a decision is made on an application.",
+    "smsOnDecisionLabel": "Tell guardians the decision by SMS",
+    "smsOnDecisionHint": "Only the final decision (approved or rejected) is sent. The in-app notice always goes.",
+    "providerMissingWarning": "Decision SMS will not be sent until an SMS company is added in Communication."
+  },
   "organisation": {
     "legend": "Shift, version & group",
     "shiftsLabel": "Shifts",
