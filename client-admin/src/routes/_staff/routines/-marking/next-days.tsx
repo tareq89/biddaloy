@@ -96,7 +96,7 @@ function NextDayLessons({
             {t('agenda.periodLabel', { sequence: p.sequence })} · {p.section.name} ·{' '}
             {subjectLabel(p.subject)}
           </span>
-          {p.plan_id && (
+          {p.lesson && (
             <span className="text-caption text-text-secondary">
               {t('marking.lessonLine', { no: p.lesson.number, title: p.lesson.title })}
             </span>

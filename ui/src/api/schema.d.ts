@@ -11525,6 +11525,13 @@ export interface components {
             /** Format: uuid */
             section_id: string;
         };
+        PeriodLessonDto: {
+            id: string;
+            number: number;
+            title: string;
+            part: number;
+            of: number;
+        };
         LessonDeliveryDto: {
             id: string;
             /** @enum {string} */
@@ -11554,13 +11561,7 @@ export interface components {
             substituting: boolean;
             cancelled: boolean;
             plan_id: string | null;
-            lesson: {
-                id: string;
-                number: number;
-                title: string;
-                part: number;
-                of: number;
-            };
+            lesson: components["schemas"]["PeriodLessonDto"] | null;
             delivery: components["schemas"]["LessonDeliveryDto"] | null;
             can_mark: boolean;
         };
