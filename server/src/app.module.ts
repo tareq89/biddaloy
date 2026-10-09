@@ -56,6 +56,10 @@ import { StaffAttendanceRecord } from './modules/staff-attendance/entities/staff
 import { LeaveModule } from './modules/leave/leave.module';
 import { LeaveRecord } from './modules/leave/entities/leave-record.entity';
 import { LeavePolicy } from './modules/leave/entities/leave-policy.entity';
+import { Application } from './modules/applications/entities/application.entity';
+import { ApplicationEvent } from './modules/applications/entities/application-event.entity';
+import { ApplicationTag } from './modules/applications/entities/application-tag.entity';
+import { ApplicationAttachment } from './modules/applications/entities/application-attachment.entity';
 import { AcrModule } from './modules/acr/acr.module';
 import { IncidentsModule } from './modules/incidents/incidents.module';
 import { SurveysModule } from './modules/surveys/surveys.module';
@@ -329,6 +333,10 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
             StaffAttendanceRecord,
             LeaveRecord,
             LeavePolicy,
+            Application,
+            ApplicationEvent,
+            ApplicationTag,
+            ApplicationAttachment,
             AcrFormVersion,
             AcrCriterion,
             AcrAssessment,

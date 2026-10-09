@@ -64,7 +64,7 @@ export const leavePolicyTab: TabSpec<LeavePolicy, LeavePolicyRow> = {
     return {
       id: entity.id,
       leave_type: entity.leave_type,
-      annual_quota_days: entity.annual_quota_days,
+      annual_quota_days: entity.annual_quota_days ?? 0, // ponytail: null quota handled by 52.1.6 / 52.2.4
     };
   },
 

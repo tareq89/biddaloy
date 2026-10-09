@@ -90,6 +90,7 @@ const excluded: readonly string[] = [
   // share the same key (unlike `student_id` → `student`), so it appears
   // only in `columns`, and the completeness gate treats that as covered.
   'tenant_id', // implicit: every row is scoped to the workbook's own tenant
+  'application_id', // [52.1.2] exported as a ref column by 52.1.6
 ];
 
 export const leaveRecordTab: TabSpec<LeaveRecord, LeaveRecordRow> = {

@@ -67,6 +67,10 @@ export class LeaveRecord {
   @Column({ type: 'timestamptz', nullable: true })
   decided_at: Date | null;
 
+  /** [52.1.2] Plain column on purpose: no relation import keeps leave free of the applications module. */
+  @Column({ type: 'uuid', nullable: true })
+  application_id: string | null;
+
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;
 

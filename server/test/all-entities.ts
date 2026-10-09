@@ -105,6 +105,10 @@ import { StaffAttendanceSession } from '../src/modules/staff-attendance/entities
 import { StaffAttendanceRecord } from '../src/modules/staff-attendance/entities/staff-attendance-record.entity';
 import { LeaveRecord } from '../src/modules/leave/entities/leave-record.entity';
 import { LeavePolicy } from '../src/modules/leave/entities/leave-policy.entity';
+import { Application } from '../src/modules/applications/entities/application.entity';
+import { ApplicationEvent } from '../src/modules/applications/entities/application-event.entity';
+import { ApplicationTag } from '../src/modules/applications/entities/application-tag.entity';
+import { ApplicationAttachment } from '../src/modules/applications/entities/application-attachment.entity';
 import { AcrFormVersion } from '../src/modules/acr/entities/acr-form-version.entity';
 import { AcrCriterion } from '../src/modules/acr/entities/acr-criterion.entity';
 import { AcrAssessment } from '../src/modules/acr/entities/acr-assessment.entity';
@@ -224,6 +228,10 @@ export const ALL_ENTITIES = [
   StaffAttendanceRecord,
   LeaveRecord,
   LeavePolicy,
+  Application,
+  ApplicationEvent,
+  ApplicationTag,
+  ApplicationAttachment,
   AcrFormVersion,
   AcrCriterion,
   AcrAssessment,
