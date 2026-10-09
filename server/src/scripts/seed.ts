@@ -75,9 +75,9 @@ import {
 import { ensureStudentLifecycleSeed } from './seed.lifecycle';
 import { ensureDocumentsSeed, type DocumentsSeedPorts } from './seed.documents';
 import { ensureEvaluationsSeed } from './seed.evaluations';
-import { ensureApplicationsSeed } from './seed.applications';
+import { ensureApplicationsSeed, type ApplicationsSeedPorts } from './seed.applications';
 import { Application } from '../modules/applications/entities/application.entity';
-import { ApplicationEvent } from '../modules/applications/entities/application-event.entity';
+import { ApplicationsService } from '../modules/applications/applications.service';
 import { AcrAssessment } from '../modules/acr/entities/acr-assessment.entity';
 import { AcrCriterion } from '../modules/acr/entities/acr-criterion.entity';
 import { AcrFormVersion } from '../modules/acr/entities/acr-form-version.entity';
@@ -331,15 +331,19 @@ export async function seed() {
       lifecycleAdmin.id,
     );
 
-    // [52.1.6] Three PENDING demo applications.
+    // [52.2.7] Demo applications, filed through the real ApplicationsService.
     await ensureApplicationsSeed(
       {
         applicationRepository: dataSource.getRepository(Application),
-        eventRepository: dataSource.getRepository(ApplicationEvent),
         staffProfileRepository: dataSource.getRepository(StaffProfile),
         guardianRepository: dataSource.getRepository(Guardian),
-        academicYearRepository: dataSource.getRepository(AcademicYear),
+        userRepository,
+        userTenantRepository,
+        classSectionRepository: dataSource.getRepository(ClassSection),
+        examRepository: dataSource.getRepository(Exam),
+        subjectRepository: dataSource.getRepository(Subject),
       },
+      applicationsPorts(app),
       school.id,
       lifecycleAdmin.id,
     );
@@ -814,6 +818,17 @@ function printPorts(
       return { job_id: again.job_id };
     },
     revokeItem: async (itemId, reason) => history.revoke(await caller(), itemId, reason),
+  };
+}
+
+/** [52.2.7] The real application calls; the seed has no request, so the context is fixed. */
+function applicationsPorts(app: INestApplicationContext): ApplicationsSeedPorts {
+  const applications = app.get(ApplicationsService);
+  const ctx = { ip: null, userAgent: 'seed' };
+  return {
+    submit: (tenantId, user, dto) => applications.submit(tenantId, user, dto, ctx),
+    comment: (tenantId, user, id, note) => applications.comment(tenantId, user, id, note),
+    addTags: (tenantId, user, id, tags) => applications.addTags(tenantId, user, id, tags),
   };
 }
 

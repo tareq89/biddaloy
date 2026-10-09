@@ -451,6 +451,27 @@ describe('ApplicationsService (integration)', () => {
       expect(ok.ref_names.to_section_id).toBeTruthy();
     });
 
+    it('STAFF_LEAVE and STUDENT_LEAVE with end before start are a 400, before any working-day maths', async () => {
+      const payload = {
+        leave_type: 'CASUAL',
+        start_date: '2026-10-14',
+        end_date: '2026-10-12',
+        reason: 'Family event',
+      };
+      await expect(submit(callers.acct, staffLeave({ payload }))).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+    });
+
+    it('GENERAL with no addressee is a 422, for staff and for family', async () => {
+      await expect(submit(callers.acct, general())).rejects.toMatchObject({
+        response: { details: { code: 'APPLICATION_ADDRESSEE_INVALID' } },
+      });
+      await expect(
+        submit(callers.parent, general({ subject_student_id: studentA })),
+      ).rejects.toBeInstanceOf(UnprocessableEntityException);
+    });
+
     it('skips a leading class-teacher step only when the student has none (never the last step)', async () => {
       const feeWaiver = (student: string): CreateApplicationDto => ({
         type: ApplicationType.FEE_WAIVER,
