@@ -64,10 +64,93 @@ describe('LeaveService (unit)', () => {
       leavePolicyRepo,
       staffProfileRepo,
       auditService,
+      { getWorkingDays: vi.fn() } as any,
+      { markLeaveRange: vi.fn(), revertLeaveRange: vi.fn() } as any,
     );
   });
 
   const CURRENT_YEAR = new Date().getUTCFullYear();
+
+  describe('null quota (unlimited, D19)', () => {
+    it('getBalance returns quota null and balance null', async () => {
+      leavePolicyRepo.findOne.mockResolvedValue({ annual_quota_days: null });
+      leaveRecordRepo.createQueryBuilder.mockReturnValue(makeQueryBuilder(4));
+
+      const balance = await service.getBalance(TENANT_ID, STAFF_PROFILE_ID, LeaveType.EARNED);
+
+      expect(balance.annual_quota_days).toBeNull();
+      expect(balance.balance).toBeNull();
+      expect(balance.used_days).toBe(4);
+    });
+
+    it('request() accepts 3 days against 400 days of history', async () => {
+      leavePolicyRepo.findOne.mockResolvedValue({ annual_quota_days: null });
+      leaveRecordRepo.createQueryBuilder.mockReturnValue(makeQueryBuilder(400));
+
+      const result = await service.request(
+        TENANT_ID,
+        {
+          staff_profile_id: STAFF_PROFILE_ID,
+          leave_type: LeaveType.EARNED,
+          start_date: `${CURRENT_YEAR}-05-01`,
+          end_date: `${CURRENT_YEAR}-05-03`,
+        } as any,
+        OWNER_USER_ID,
+        UserRole.TEACHER,
+      );
+
+      expect(result.status).toBe(LeaveStatus.PENDING);
+      expect(result.days).toBe(3);
+    });
+
+    it('decide() approve skips the balance check', async () => {
+      const record = {
+        id: 'rec-1',
+        status: LeaveStatus.PENDING,
+        staff_profile_id: STAFF_PROFILE_ID,
+        leave_type: LeaveType.EARNED,
+        start_date: `${CURRENT_YEAR}-05-01`,
+        days: 50,
+      };
+      const recordRepo = {
+        findOne: vi.fn().mockResolvedValue(record),
+        save: vi.fn((x: unknown) => Promise.resolve(x)),
+        createQueryBuilder: vi
+          .fn()
+          .mockReturnValueOnce({
+            setLock: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            andWhere: vi.fn().mockReturnThis(),
+            orderBy: vi.fn().mockReturnThis(),
+            getMany: vi.fn().mockResolvedValue([record]),
+          })
+          .mockReturnValue(makeQueryBuilder(400)),
+      };
+      const policyRepo = { findOne: vi.fn().mockResolvedValue({ annual_quota_days: null }) };
+      dataSource.transaction.mockImplementation(async (cb: any) =>
+        cb({ getRepository: (e: any) => (e.name === 'LeavePolicy' ? policyRepo : recordRepo) }),
+      );
+
+      const result = await service.decide(
+        TENANT_ID,
+        'rec-1',
+        'admin-1',
+        { approve: true },
+        { ip: null, userAgent: null },
+      );
+
+      expect(result.status).toBe(LeaveStatus.APPROVED);
+    });
+
+    it('updatePolicy stores and returns null', async () => {
+      const policy = { leave_type: LeaveType.EARNED, annual_quota_days: 5 };
+      leavePolicyRepo.findOne.mockResolvedValue(policy);
+
+      const result = await service.updatePolicy(TENANT_ID, LeaveType.EARNED, null);
+
+      expect(result).toEqual({ leave_type: LeaveType.EARNED, annual_quota_days: null });
+    });
+  });
 
   describe('getBalance', () => {
     it('is quota minus approved days this year: 10-day CASUAL quota, 3 approved days -> balance 7', async () => {
