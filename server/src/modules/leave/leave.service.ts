@@ -479,7 +479,11 @@ export class LeaveService {
       .getRepository(LeavePolicy)
       .findOne({ where: { tenant_id: tenantId, leave_type: leaveType } });
     if (!policy) {
-      throw new NotFoundException(`No leave policy for ${leaveType} in this tenant`);
+      // 422, not 404: on `POST /applications/:id/approve` a 404 reads as "no such application".
+      throw new UnprocessableEntityException({
+        message: `No leave policy for ${leaveType} in this tenant`,
+        details: { code: 'LEAVE_POLICY_MISSING' },
+      });
     }
     if (policy.annual_quota_days !== null) {
       const used = await this.approvedDaysInRange(
@@ -544,8 +548,10 @@ export class LeaveService {
 
   /**
    * Cancels the APPROVED record created for an application. The balance sums
-   * only APPROVED rows, so the days come back by themselves (D31). Runs only
-   * on the caller's `manager`.
+   * only APPROVED rows, so the days come back by themselves (D31). Only days
+   * after today come back, matching the register: a leave already under way is
+   * cut to end today and stays APPROVED for the days taken. Runs only on the
+   * caller's `manager`.
    */
   async cancelApprovedLeave(
     manager: EntityManager,
@@ -564,7 +570,22 @@ export class LeaveService {
       });
     }
 
-    record.status = LeaveStatus.CANCELLED;
+    const { dates, today } = await this.staffAttendanceService.revertLeaveRange(manager, {
+      tenantId,
+      staffProfileId: record.staff_profile_id,
+      from: record.start_date,
+      to: record.end_date,
+      actorUserId,
+      applicationId,
+    });
+
+    const old = { status: record.status, end_date: record.end_date, days: record.days };
+    if (record.start_date <= today) {
+      // Under way: the days up to today were taken and keep their LEAVE marks.
+      if (record.end_date > today) record.end_date = today;
+      record.days = await this.countWorkingDays(tenantId, record.start_date, record.end_date);
+    }
+    if (record.start_date > today || record.days === 0) record.status = LeaveStatus.CANCELLED;
     await recordRepo.save(record);
     await this.auditService.record(
       {
@@ -573,20 +594,16 @@ export class LeaveService {
         entity_id: record.id,
         tenant_id: tenantId,
         performed_by_user_id: actorUserId,
-        old_values: { status: LeaveStatus.APPROVED },
-        new_values: { status: LeaveStatus.CANCELLED, reason },
+        old_values: old,
+        new_values: {
+          status: record.status,
+          end_date: record.end_date,
+          days: record.days,
+          reason,
+        },
       },
       manager,
     );
-
-    const { dates } = await this.staffAttendanceService.revertLeaveRange(manager, {
-      tenantId,
-      staffProfileId: record.staff_profile_id,
-      from: record.start_date,
-      to: record.end_date,
-      actorUserId,
-      applicationId,
-    });
     return { leave_record_id: record.id, reverted_dates: dates };
   }
 }

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { ApplicationType } from '@biddaloy/shared';
+import { todayInSchoolTz } from '../common/time';
 import {
   ensureApplicationsSeed,
   type ApplicationsSeedPorts,
@@ -59,13 +60,22 @@ function setup(existing = 0) {
 }
 
 describe('ensureApplicationsSeed', () => {
-  it('files one of each type plus two PAPER entries, tags and a comment, all through the ports', async () => {
+  it('files one of each type but READMISSION plus two PAPER entries, tags and a comment, all through the ports', async () => {
     const { filed, ports, repos, asPorts } = setup();
     await ensureApplicationsSeed(repos, asPorts, TENANT, ADMIN);
 
-    expect(filed).toHaveLength(12);
+    expect(filed).toHaveLength(11);
     const types = new Set(filed.map((f) => f.dto.type));
-    expect([...types].sort()).toEqual(Object.values(ApplicationType).sort());
+    // Every demo student is ACTIVE, and submit refuses a READMISSION for an active student.
+    expect([...types].sort()).toEqual(
+      Object.values(ApplicationType)
+        .filter((t) => t !== ApplicationType.READMISSION)
+        .sort(),
+    );
+    const tc = filed.find((f) => f.dto.type === ApplicationType.TRANSFER_CERTIFICATE)!;
+    // A future leaving date could not be approved (DATE_IN_FUTURE) on the demo.
+    const leaving = (tc.dto.payload as { leaving_date: string }).leaving_date;
+    expect(leaving <= todayInSchoolTz()).toBe(true);
     // The two paper entries come from the office user.
     const paper = filed.filter((f) => f.dto.on_behalf_of_user_id || f.dto.applicant_name);
     expect(paper.map((f) => f.caller.userId)).toEqual(['office-user', 'office-user']);

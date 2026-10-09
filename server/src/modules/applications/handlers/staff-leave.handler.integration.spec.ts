@@ -236,7 +236,7 @@ describe('StaffLeaveHandler (integration)', () => {
     await expect(apply(await makeApp(day(11), day(13)))).resolves.toMatchObject({ days: 3 });
   });
 
-  it('cancel: record CANCELLED, balance back, future SYSTEM marks gone, past and TEACHER marks kept', async () => {
+  it('cancel under way: record cut to today (days taken stay used), future SYSTEM marks gone, past and TEACHER marks kept', async () => {
     const app = await makeApp(day(-2), day(2));
     await apply(app);
     // A TEACHER-source mark on a future day must survive the revert.
@@ -251,7 +251,9 @@ describe('StaffLeaveHandler (integration)', () => {
 
     await cancel(app, 'Changed plans');
 
-    expect((await leaveRows())[0].status).toBe(LeaveStatus.CANCELLED);
+    // D31: only the future days come back, so the ledger matches the register.
+    const [row] = await leaveRows();
+    expect([row.status, row.end_date, row.days]).toEqual([LeaveStatus.APPROVED, day(0), 3]);
     const dates = (await marks()).map((r) => r.date).sort();
     // today and earlier stay, tomorrow is removed, the TEACHER mark on day(2) stays
     expect(dates).toEqual([day(-2), day(-1), day(0), day(2)]);
