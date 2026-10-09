@@ -138,7 +138,8 @@ export function AttendanceLeaveTab({ staffProfileId, staffName }: AttendanceLeav
               {balanceQuery.data.map((row) => (
                 <li key={row.leave_type} className="flex min-h-11 items-center justify-between">
                   <span>{tLeave(`type.${row.leave_type}`)}</span>
-                  <span>{num(row.balance)}</span>
+                  {/* [52.2.4] null balance = unlimited quota (D19); #2122 gives it a proper label. */}
+                  <span>{row.balance === null ? '—' : num(row.balance)}</span>
                 </li>
               ))}
             </ul>
