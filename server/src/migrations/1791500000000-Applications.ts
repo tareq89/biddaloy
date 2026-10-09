@@ -57,6 +57,7 @@ export class Applications1791500000000 implements MigrationInterface {
         "updated_at" timestamptz NOT NULL DEFAULT now(),
         CONSTRAINT "PK_applications" PRIMARY KEY ("id"),
         CONSTRAINT "UQ_applications_tenant_serial" UNIQUE ("tenant_id", "serial_year", "serial_no"),
+        CONSTRAINT "UQ_applications_tenant_id" UNIQUE ("tenant_id", "id"),
         CONSTRAINT "CHK_applications_one_subject" CHECK (num_nonnulls("subject_student_id", "subject_staff_profile_id") = 1),
         CONSTRAINT "CHK_applications_applicant" CHECK ("applicant_user_id" IS NOT NULL OR ("source" = 'PAPER' AND "applicant_name" IS NOT NULL)),
         CONSTRAINT "FK_applications_tenant" FOREIGN KEY ("tenant_id") REFERENCES "schools"("id") ON DELETE CASCADE,
@@ -81,6 +82,10 @@ export class Applications1791500000000 implements MigrationInterface {
     await queryRunner.query(
       `CREATE INDEX "IDX_applications_tenant_applicant" ON "applications" ("tenant_id", "applicant_user_id")`,
     );
+    // Inbox: "addressed to me" (D12, D49).
+    await queryRunner.query(
+      `CREATE INDEX "IDX_applications_tenant_addressee_user" ON "applications" ("tenant_id", "addressee_user_id") WHERE "addressee_user_id" IS NOT NULL`,
+    );
 
     await queryRunner.query(`
       CREATE TABLE "application_events" (
@@ -95,7 +100,7 @@ export class Applications1791500000000 implements MigrationInterface {
         "created_at" timestamptz NOT NULL DEFAULT now(),
         CONSTRAINT "PK_application_events" PRIMARY KEY ("id"),
         CONSTRAINT "FK_application_events_tenant" FOREIGN KEY ("tenant_id") REFERENCES "schools"("id") ON DELETE CASCADE,
-        CONSTRAINT "FK_application_events_application" FOREIGN KEY ("application_id") REFERENCES "applications"("id") ON DELETE CASCADE,
+        CONSTRAINT "FK_application_events_application" FOREIGN KEY ("tenant_id", "application_id") REFERENCES "applications"("tenant_id", "id") ON DELETE CASCADE,
         CONSTRAINT "FK_application_events_actor" FOREIGN KEY ("actor_user_id") REFERENCES "users"("id") ON DELETE RESTRICT
       )
     `);
@@ -114,8 +119,9 @@ export class Applications1791500000000 implements MigrationInterface {
         "created_at" timestamptz NOT NULL DEFAULT now(),
         CONSTRAINT "PK_application_tags" PRIMARY KEY ("id"),
         CONSTRAINT "CHK_application_tags_user_xor_role" CHECK (num_nonnulls("user_id", "role") = 1),
+        CONSTRAINT "CHK_application_tags_role" CHECK ("role" IN ('ADMIN', 'ACCOUNTANT', 'TEACHER', 'EXECUTIVE', 'OFFICE_STAFF', 'EXAM_CONTROLLER', 'COMMITTEE')),
         CONSTRAINT "FK_application_tags_tenant" FOREIGN KEY ("tenant_id") REFERENCES "schools"("id") ON DELETE CASCADE,
-        CONSTRAINT "FK_application_tags_application" FOREIGN KEY ("application_id") REFERENCES "applications"("id") ON DELETE CASCADE,
+        CONSTRAINT "FK_application_tags_application" FOREIGN KEY ("tenant_id", "application_id") REFERENCES "applications"("tenant_id", "id") ON DELETE CASCADE,
         CONSTRAINT "FK_application_tags_user" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE,
         CONSTRAINT "FK_application_tags_created_by" FOREIGN KEY ("created_by_user_id") REFERENCES "users"("id") ON DELETE RESTRICT
       )
@@ -128,6 +134,13 @@ export class Applications1791500000000 implements MigrationInterface {
     );
     await queryRunner.query(
       `CREATE UNIQUE INDEX "UQ_application_tags_role" ON "application_tags" ("application_id", "role") WHERE "role" IS NOT NULL`,
+    );
+    // Inbox: "tagged to me" by person or by role (D14).
+    await queryRunner.query(
+      `CREATE INDEX "IDX_application_tags_tenant_user" ON "application_tags" ("tenant_id", "user_id") WHERE "user_id" IS NOT NULL`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_application_tags_tenant_role" ON "application_tags" ("tenant_id", "role") WHERE "role" IS NOT NULL`,
     );
 
     await queryRunner.query(`
@@ -143,7 +156,7 @@ export class Applications1791500000000 implements MigrationInterface {
         "created_at" timestamptz NOT NULL DEFAULT now(),
         CONSTRAINT "PK_application_attachments" PRIMARY KEY ("id"),
         CONSTRAINT "FK_application_attachments_tenant" FOREIGN KEY ("tenant_id") REFERENCES "schools"("id") ON DELETE CASCADE,
-        CONSTRAINT "FK_application_attachments_application" FOREIGN KEY ("application_id") REFERENCES "applications"("id") ON DELETE CASCADE,
+        CONSTRAINT "FK_application_attachments_application" FOREIGN KEY ("tenant_id", "application_id") REFERENCES "applications"("tenant_id", "id") ON DELETE CASCADE,
         CONSTRAINT "FK_application_attachments_uploaded_by" FOREIGN KEY ("uploaded_by_user_id") REFERENCES "users"("id") ON DELETE RESTRICT
       )
     `);
@@ -159,6 +172,9 @@ export class Applications1791500000000 implements MigrationInterface {
     await queryRunner.query(
       `ALTER TABLE "leave_records" ADD CONSTRAINT "FK_leave_records_application" FOREIGN KEY ("application_id") REFERENCES "applications"("id") ON DELETE SET NULL`,
     );
+    // TypeORM runs a whole deploy batch in one transaction, and PG refuses a new enum value
+    // in the transaction that added it. A later migration that WRITES 'CANCELLED' must run
+    // in a separate deploy, or set `transaction = false` on itself.
     await queryRunner.query(
       `ALTER TYPE "public"."leave_status_enum" ADD VALUE IF NOT EXISTS 'CANCELLED'`,
     );
@@ -186,9 +202,8 @@ export class Applications1791500000000 implements MigrationInterface {
       `ALTER TABLE "leave_records" DROP CONSTRAINT "FK_leave_records_application"`,
     );
     await queryRunner.query(`ALTER TABLE "leave_records" DROP COLUMN "application_id"`);
-    await queryRunner.query(
-      `UPDATE "leave_policies" SET "annual_quota_days" = 0 WHERE "annual_quota_days" IS NULL`,
-    );
+    // Fails loudly (by design) if a policy is NULL = unlimited (D19): turning it into 0
+    // would silently block every approval of that leave type.
     await queryRunner.query(
       `ALTER TABLE "leave_policies" ALTER COLUMN "annual_quota_days" SET NOT NULL`,
     );

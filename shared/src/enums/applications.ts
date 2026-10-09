@@ -74,6 +74,18 @@ export type ApplicationStep =
 /** D7 */
 export const APPLICATION_OVERRIDE_ROLES = [UserRole.ADMIN, UserRole.EXECUTIVE] as const;
 
+/** D14, D50: roles a tag may name. Tenant staff only (no SUPER_ADMIN, no guardians). The DB
+ * CHECK `CHK_application_tags_role` lists the same values; change both together. */
+export const APPLICATION_TAG_ROLES = [
+  UserRole.ADMIN,
+  UserRole.ACCOUNTANT,
+  UserRole.TEACHER,
+  UserRole.EXECUTIVE,
+  UserRole.OFFICE_STAFF,
+  UserRole.EXAM_CONTROLLER,
+  UserRole.COMMITTEE,
+] as const;
+
 /** D10 */
 export const ATTACHMENT_LIMITS = {
   maxFiles: 3,

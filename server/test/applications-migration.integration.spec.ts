@@ -6,6 +6,7 @@ import { SEED_TENANT_ID, SEED_SECTION_1_ID } from '@test/constants';
 import { User } from '../src/modules/users/entities/user.entity';
 import { StaffProfile } from '../src/modules/staff-profiles/entities/staff-profile.entity';
 import { Student } from '../src/modules/students/entities/student.entity';
+import { Applications1791500000000 } from '../src/migrations/1791500000000-Applications';
 import { MovePendingLeaveToApplications1791500000100 } from '../src/migrations/1791500000100-MovePendingLeaveToApplications';
 
 /**
@@ -216,6 +217,47 @@ describe('Applications migration (integration)', () => {
       );
     });
 
+    it('tags: role must be a tenant staff role (D50)', async () => {
+      const { userId, profileId } = await staff(SEED_TENANT_ID);
+      const applicationId = await app({
+        applicant_user_id: userId,
+        subject_staff_profile_id: profileId,
+      });
+      const ins = `INSERT INTO application_tags (tenant_id, application_id, role, created_by_user_id) VALUES ($1, $2, $3, $4)`;
+      for (const bad of ['SUPER_ADMIN', 'PARENT', 'Admin']) {
+        await rejects(
+          ins,
+          [SEED_TENANT_ID, applicationId, bad, userId],
+          /CHK_application_tags_role/,
+        );
+      }
+      await ds.query(ins, [SEED_TENANT_ID, applicationId, 'OFFICE_STAFF', userId]);
+    });
+
+    it("a child row cannot name another school's application (composite tenant FK)", async () => {
+      const { userId, profileId } = await staff(SEED_TENANT_ID);
+      const applicationId = await app({
+        applicant_user_id: userId,
+        subject_staff_profile_id: profileId,
+      });
+      const other = await school(null);
+      await rejects(
+        `INSERT INTO application_events (tenant_id, application_id, actor_user_id, kind) VALUES ($1, $2, $3, 'COMMENT')`,
+        [other, applicationId, userId],
+        /FK_application_events_application/,
+      );
+      await rejects(
+        `INSERT INTO application_tags (tenant_id, application_id, role, created_by_user_id) VALUES ($1, $2, 'ADMIN', $3)`,
+        [other, applicationId, userId],
+        /FK_application_tags_application/,
+      );
+      await rejects(
+        `INSERT INTO application_attachments (tenant_id, application_id, storage_key, file_name, mime_type, size_bytes, uploaded_by_user_id) VALUES ($1, $2, 'k2', 'a.pdf', 'application/pdf', 10, $3)`,
+        [other, applicationId, userId],
+        /FK_application_attachments_application/,
+      );
+    });
+
     it('deleting an application cascades events, tags, attachments and NULLs leave_records.application_id', async () => {
       const { userId, profileId } = await staff(SEED_TENANT_ID);
       const applicationId = await app({
@@ -268,7 +310,84 @@ describe('Applications migration (integration)', () => {
     });
   });
 
+  // Runs the real schema down() then up() inside one transaction that is rolled back, so the
+  // shared worker schema is never touched (Postgres DDL is transactional).
+  describe('Applications1791500000000 round trip', () => {
+    it('down() refuses an unlimited (NULL) quota, then down() + up() rebuild every index and constraint', async () => {
+      const schema = new Applications1791500000000();
+      const unlimited = await school(null);
+      const qr = ds.createQueryRunner();
+      await qr.connect();
+      await qr.startTransaction();
+      try {
+        // down() fails loudly on rows the old schema cannot hold (D19 NULL quota, D31 CANCELLED).
+        await qr.query(`DELETE FROM leave_records WHERE status = 'CANCELLED'`);
+        await qr.query(
+          `INSERT INTO leave_policies (id, tenant_id, leave_type, annual_quota_days, created_at, updated_at) VALUES (gen_random_uuid(), $1, 'SICK', NULL, now(), now())`,
+          [unlimited],
+        );
+        await qr.query(`SAVEPOINT before_down`);
+        await expect(schema.down(qr)).rejects.toThrow(/annual_quota_days/);
+        await qr.query(`ROLLBACK TO SAVEPOINT before_down`);
+        await qr.query(`DELETE FROM leave_policies WHERE annual_quota_days IS NULL`);
+
+        await schema.down(qr);
+        const [{ gone }] = await qr.query(`SELECT to_regclass('public.applications') AS gone`);
+        expect(gone).toBeNull();
+
+        await schema.up(qr);
+        const indexes = await qr.query(
+          `SELECT indexname FROM pg_indexes WHERE tablename IN ('applications', 'application_tags')`,
+        );
+        expect(indexes.map((r: { indexname: string }) => r.indexname)).toEqual(
+          expect.arrayContaining([
+            'IDX_applications_tenant_addressee_user',
+            'IDX_application_tags_tenant_user',
+            'IDX_application_tags_tenant_role',
+            'UQ_applications_tenant_id',
+          ]),
+        );
+        const constraints = await qr.query(
+          `SELECT conname FROM pg_constraint WHERE conname = ANY($1)`,
+          [
+            [
+              'CHK_application_tags_role',
+              'FK_application_events_application',
+              'FK_application_tags_application',
+              'FK_application_attachments_application',
+              'FK_leave_records_application',
+            ],
+          ],
+        );
+        expect(constraints).toHaveLength(5);
+      } finally {
+        await qr.rollbackTransaction();
+        await qr.release();
+      }
+    });
+  });
+
   describe('MovePendingLeaveToApplications (D20)', () => {
+    it('fails loudly on a PENDING row whose staff profile is in another school', async () => {
+      const home = await school(null);
+      const elsewhere = await school(null);
+      const { profileId } = await staff(elsewhere);
+      const qr = ds.createQueryRunner();
+      await qr.connect();
+      await qr.startTransaction();
+      try {
+        await qr.query(
+          `INSERT INTO leave_records (id, tenant_id, staff_profile_id, leave_type, start_date, end_date, days, status, created_at, updated_at)
+           VALUES (gen_random_uuid(), $1, $2, 'CASUAL', '2026-03-10', '2026-03-11', 2, 'PENDING', now(), now())`,
+          [home, profileId],
+        );
+        await expect(migration.up(qr)).rejects.toThrow(/could not be moved/);
+      } finally {
+        await qr.rollbackTransaction();
+        await qr.release();
+      }
+    });
+
     it('moves PENDING leave to applications, keeps APPROVED, is idempotent, and down() restores', async () => {
       // Production shapes: a school with NO settings blob, a second school in the
       // same year with English locale, a NULL reason, and an existing serial.

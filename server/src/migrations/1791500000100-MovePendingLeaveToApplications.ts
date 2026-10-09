@@ -53,9 +53,11 @@ export class MovePendingLeaveToApplications1791500000100 implements MigrationInt
                "n"."applicant_user_id", "n"."staff_profile_id",
                jsonb_build_object('leave_type', "n"."leave_type", 'start_date', "n"."start_date", 'end_date', "n"."end_date", 'reason', "n"."reason"),
                "n"."start_date", "n"."end_date",
+               -- to_char, not date::text: the cast follows the session DateStyle. Latin digits even
+               -- in Bangla: a frozen snapshot of migrated rows, not a rendered letter.
                CASE WHEN "n"."locale" = 'en'
-                 THEN 'Leave request: ' || "n"."start_date" || ' to ' || "n"."end_date" || '. Reason: ' || "n"."reason"
-                 ELSE 'ছুটির আবেদন: ' || "n"."start_date" || ' থেকে ' || "n"."end_date" || '। কারণ: ' || "n"."reason"
+                 THEN 'Leave request: ' || to_char("n"."start_date", 'YYYY-MM-DD') || ' to ' || to_char("n"."end_date", 'YYYY-MM-DD') || '. Reason: ' || "n"."reason"
+                 ELSE 'ছুটির আবেদন: ' || to_char("n"."start_date", 'YYYY-MM-DD') || ' থেকে ' || to_char("n"."end_date", 'YYYY-MM-DD') || '। কারণ: ' || "n"."reason"
                END,
                "n"."locale", "n"."created_at", "n"."created_at"
         FROM "numbered" "n"
@@ -72,6 +74,16 @@ export class MovePendingLeaveToApplications1791500000100 implements MigrationInt
       )
       DELETE FROM "leave_records" WHERE "id" IN (SELECT "leave_id" FROM "pending")
     `);
+    // A PENDING row the CTE could not move (its staff profile is in another school) would be
+    // stranded once the old leave routes are gone. Fail loudly; the migration rolls back.
+    const [{ n }] = await queryRunner.query(
+      `SELECT count(*)::int AS "n" FROM "leave_records" WHERE "status" = 'PENDING'`,
+    );
+    if (n > 0) {
+      throw new Error(
+        `${n} PENDING leave_records row(s) could not be moved to applications: their staff profile belongs to another school.`,
+      );
+    }
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {

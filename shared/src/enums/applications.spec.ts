@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { STAFF_ROLES } from './audiences';
 import { UserRole } from './index';
 import { roleHasPermission } from './permissions';
 import * as A from './applications';
@@ -73,5 +74,12 @@ describe('applications enums [52.1.1]', () => {
     expect(A.ATTACHMENT_LIMITS.maxFiles).toBe(3);
     expect(A.ATTACHMENT_LIMITS.maxBytes).toBe(5 * 1024 * 1024);
     expect([...A.ATTACHMENT_LIMITS.mime]).toEqual(['application/pdf', 'image/jpeg', 'image/png']);
+  });
+
+  it('tag roles are every staff role except SUPER_ADMIN (D50), matching CHK_application_tags_role', () => {
+    // A new staff role fails this on purpose: decide if it is taggable, then update the DB CHECK.
+    expect([...A.APPLICATION_TAG_ROLES]).toEqual(
+      STAFF_ROLES.filter((role) => role !== UserRole.SUPER_ADMIN),
+    );
   });
 });
