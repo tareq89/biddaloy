@@ -8957,10 +8957,16 @@ export interface components {
             email?: components["schemas"]["MaskedEmailSettingsResponseDto"];
             messenger?: components["schemas"]["MaskedMessengerSettingsResponseDto"];
         };
+        DocumentsSettingsDto: {
+            withholdAdmitCardForDues?: boolean;
+            /** @example DAHS */
+            serialPrefix?: string | null;
+        };
         TenantSettingsResponseDto: {
             version: number;
             region?: components["schemas"]["RegionSettingsDto"];
             communications?: components["schemas"]["MaskedCommunicationsSettingsResponseDto"];
+            documents?: components["schemas"]["DocumentsSettingsDto"];
         };
         OrganisationRenameDto: {
             /** @enum {string} */
@@ -9076,11 +9082,6 @@ export interface components {
         };
         EvaluationsSettingsDto: {
             incidentSmsEnabled?: boolean;
-        };
-        DocumentsSettingsDto: {
-            withholdAdmitCardForDues?: boolean;
-            /** @example DAHS */
-            serialPrefix?: string | null;
         };
         TenantSettingsDto: {
             organisationRenames?: components["schemas"]["OrganisationRenameDto"][];

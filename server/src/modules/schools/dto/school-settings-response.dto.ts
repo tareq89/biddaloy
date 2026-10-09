@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { RegionSettingsDto } from './tenant-settings.dto';
+import { DocumentsSettingsDto, RegionSettingsDto } from './tenant-settings.dto';
 
 /**
  * Swagger-only shapes for `GET`/`PATCH /schools/:id/settings` — the
@@ -13,8 +13,9 @@ import { RegionSettingsDto } from './tenant-settings.dto';
  * is no `ClassSerializerInterceptor` in this app, so nothing here affects
  * runtime behavior, only the generated `ui/src/api/schema.d.ts` types.
  *
- * `region` is untouched here and reuses `RegionSettingsDto` directly — it
- * carries no secrets, so its read and write shapes are identical.
+ * `region` and `documents` are untouched here and reuse `RegionSettingsDto` /
+ * `DocumentsSettingsDto` directly — they carry no secrets, so their read and
+ * write shapes are identical.
  */
 export class MaskedSecretResponseDto {
   @ApiProperty()
@@ -113,4 +114,7 @@ export class TenantSettingsResponseDto {
 
   @ApiProperty({ type: MaskedCommunicationsSettingsResponseDto, required: false })
   communications?: MaskedCommunicationsSettingsResponseDto;
+
+  @ApiProperty({ type: DocumentsSettingsDto, required: false })
+  documents?: DocumentsSettingsDto;
 }
