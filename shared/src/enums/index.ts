@@ -264,11 +264,12 @@ export enum LeaveType {
   EARNED = 'EARNED',
 }
 
-/** [36.1.1] A `leave_records` row's approval state. */
+/** [36.1.1] A `leave_records` row's approval state. CANCELLED = an approved leave cancelled later (Epic 52 D31). */
 export enum LeaveStatus {
   PENDING = 'PENDING',
   APPROVED = 'APPROVED',
   REJECTED = 'REJECTED',
+  CANCELLED = 'CANCELLED',
 }
 
 export enum AttendanceDeviceKind {

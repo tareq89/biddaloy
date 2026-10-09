@@ -132,6 +132,10 @@ export const PERMISSION_GROUPS: readonly { id: string; permissions: readonly Per
     ],
   },
   {
+    id: 'applications',
+    permissions: [Permission.APPLICATION_SUBMIT, Permission.APPLICATION_MANAGE],
+  },
+  {
     id: 'exams',
     permissions: [
       Permission.EXAM_MANAGE,

@@ -5,6 +5,7 @@ export * from './presets/index';
 export * from './enums/permissions';
 export * from './enums/study-plans';
 export * from './types/study-plans.types';
+export * from './enums/applications';
 export * from './enums/audiences';
 export * from './types/payment.types';
 export * from './types/auth.types';
