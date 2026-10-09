@@ -89,7 +89,7 @@
     "importFromExcel": "এক্সেল থেকে আমদানি",
     "welcome": "স্কুল সেটআপ",
     "edit": "সম্পাদনা",
-    "notifications": "বিজ্ঞপ্তি",
+    "notifications": "সতর্কতা ও বিজ্ঞপ্তি",
     "security": "নিরাপত্তা",
     "schools": "স্কুল",
     "holidaySets": "ছুটির তালিকা",
@@ -106,7 +106,9 @@
     "portalSurveys": "জরিপ",
     "surveyDetail": "জরিপ",
     "myClassSection": "শাখা",
-    "printDocument": "প্রিন্ট"
+    "printDocument": "প্রিন্ট",
+    "sendAlert": "সতর্কতা পাঠান",
+    "alertsReport": "সতর্কতা প্রতিবেদন"
   },
   "groups": {
     "people": "ব্যক্তিবর্গ",
@@ -151,7 +153,7 @@
     "bellLabelUnread_other": "বিজ্ঞপ্তি, {{count}}টি অপঠিত",
     "badgeOverflow": "{{count}}+",
     "panelLabel": "বিজ্ঞপ্তি",
-    "pageTitle": "বিজ্ঞপ্তি",
+    "pageTitle": "সতর্কতা ও বিজ্ঞপ্তি",
     "pageDescription": "আপনার কাজের ফলাফল, নতুন থেকে পুরনো",
     "empty": "আপনি সব দেখে ফেলেছেন।",
     "markAllRead": "সব পঠিত হিসেবে চিহ্নিত করুন",
@@ -164,7 +166,16 @@
     "unreadCount_one": "{{n}}টি অপঠিত",
     "unreadCount_other": "{{n}}টি অপঠিত",
     "emptyTitle": "কোনো বিজ্ঞপ্তি নেই",
-    "emptyDescription": "কোনো আমদানি, পেমেন্ট বা বার্তা শেষ হলে বা ব্যর্থ হলে তা এখানে দেখা যাবে।"
+    "emptyDescription": "কোনো আমদানি, পেমেন্ট বা বার্তা শেষ হলে বা ব্যর্থ হলে তা এখানে দেখা যাবে।",
+    "attentionTitle": "আপনার মনোযোগ দরকার",
+    "attentionOpen": "দেখুন",
+    "attentionTodo": "সব করণীয় দেখুন",
+    "attentionNone": "এই মুহূর্তে আপনার কোনো করণীয় নেই।",
+    "attentionError": "সতর্কতা আনা যায়নি।",
+    "attentionRetry": "আবার চেষ্টা করুন",
+    "bellLabelActive_one": "বিজ্ঞপ্তি, {{count}}টি করণীয়",
+    "bellLabelActive_other": "বিজ্ঞপ্তি, {{count}}টি করণীয়",
+    "deviceTitle": "এই ডিভাইসে"
   },
   "theme": {
     "label": "থিম",
