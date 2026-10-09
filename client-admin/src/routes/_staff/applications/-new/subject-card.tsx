@@ -95,7 +95,9 @@ export function StaffCombobox({
   describedBy?: string;
 }) {
   const users = useUsers({ limit: 100, sort: 'full_name' });
-  const options = (users.data?.data ?? []).map((u) => ({ value: u.id, label: u.full_name }));
+  const options = (users.data?.data ?? [])
+    .filter((u) => u.staff_profile_id)
+    .map((u) => ({ value: u.id, label: u.full_name }));
   return (
     <Combobox
       aria-label={label}

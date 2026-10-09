@@ -47,7 +47,6 @@ export function AttachmentsStep({
 
   return (
     <Card padded className="flex flex-col gap-3">
-      <h2 className="text-h3">{t('attachments.heading')}</h2>
       <p className="text-text-secondary">
         {t('attachments.hint', { count: ATTACHMENT_LIMITS.maxFiles, size: MB })}
       </p>
