@@ -35,7 +35,7 @@ const page = (data: unknown[]) => ({
 });
 
 interface P {
-  lesson: { id: string; number: number; title: string; part: number; of: number };
+  lesson: { id: string; number: number; title: string; part: number; of: number } | null;
   routine_slot_id: string;
   plan_id: string | null;
   cancelled: boolean;
