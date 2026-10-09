@@ -410,6 +410,12 @@ export {
 } from './repeatable-row-form/repeatable-row-form';
 export { SocialButtons, type SocialButtonsProps } from './social-buttons';
 export { NoticeBar, type NoticeBarProps, type NoticeBarTone } from './notice-bar';
+export { AttentionBar, type AttentionBarProps } from './attention/attention-bar';
+export { AttentionModal, type AttentionModalProps } from './attention/attention-modal';
+export { AlertItemCard, type AlertItemCardProps } from './attention/alert-item-card';
+export { AlertSnoozeMenu, type AlertSnoozeMenuProps } from './attention/alert-snooze-menu';
+export { AlertSeverityBadge, type AlertSeverityBadgeProps } from './attention/alert-severity-badge';
+export { StudentAlertStrip, type StudentAlertStripProps } from './attention/student-alert-strip';
 export {
   Stepper,
   StepIndicator,
