@@ -92,6 +92,27 @@ interface Prepared {
   tags: TagKey[];
 }
 
+/**
+ * Shared by submit and by approve's `granted` (52.3.1): end >= start, and a PERCENT waiver <= 100.
+ */
+export function assertDateOrderAndPercent(
+  type: ApplicationType,
+  values: { start_date?: unknown; end_date?: unknown; kind?: unknown; value?: unknown },
+): void {
+  const start = typeof values.start_date === 'string' ? values.start_date : null;
+  const end = typeof values.end_date === 'string' ? values.end_date : null;
+  if (start && end && end < start) {
+    throw new BadRequestException('end_date must be on or after start_date');
+  }
+  if (
+    type === ApplicationType.FEE_WAIVER &&
+    values.kind === 'PERCENT' &&
+    Number(values.value) > 100
+  ) {
+    throw new BadRequestException('A percent waiver cannot exceed 100');
+  }
+}
+
 @Injectable()
 export class ApplicationsService {
   private readonly logger = new Logger(ApplicationsService.name);
@@ -336,18 +357,9 @@ export class ApplicationsService {
     }
     const payload = { ...instance } as Record<string, unknown>;
 
+    assertDateOrderAndPercent(type, payload);
     const start = typeof payload.start_date === 'string' ? payload.start_date : null;
     const end = typeof payload.end_date === 'string' ? payload.end_date : null;
-    if (start && end && end < start) {
-      throw new BadRequestException('end_date must be on or after start_date');
-    }
-    if (
-      type === ApplicationType.FEE_WAIVER &&
-      payload.kind === 'PERCENT' &&
-      Number(payload.value) > 100
-    ) {
-      throw new BadRequestException('A percent waiver cannot exceed 100');
-    }
     const isLeave = type === ApplicationType.STAFF_LEAVE || type === ApplicationType.STUDENT_LEAVE;
     return { payload, startDate: isLeave ? start : null, endDate: isLeave ? end : null };
   }
