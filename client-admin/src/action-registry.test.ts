@@ -114,7 +114,6 @@ const REGISTERED_ACTION_FILES: Record<string, string> = {
   'attendance.markStaff': 'client-admin/src/routes/_staff/attendance/staff/index.tsx',
   // Holds <FullPageShell after 52.5.3; registered in advance so the palette-coverage test is satisfied.
   'applications.new': `${R}_staff/applications/new.tsx`,
-  'leave.record': `${R}_staff/attendance/staff/-leave-request-dialog.tsx`,
   'fees.generate': `${R}_staff/fees/-generate/generate-fees-modal.tsx`,
   'fines.log': `${R}_staff/fees/fines/-modals/log-fine-modal.tsx`,
   'fines.generate': `${R}_staff/fees/fines/-modals/generate-fines-modal.tsx`,

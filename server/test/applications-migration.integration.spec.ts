@@ -8,6 +8,7 @@ import { StaffProfile } from '../src/modules/staff-profiles/entities/staff-profi
 import { Student } from '../src/modules/students/entities/student.entity';
 import { Applications1791500000000 } from '../src/migrations/1791500000000-Applications';
 import { MovePendingLeaveToApplications1791500000100 } from '../src/migrations/1791500000100-MovePendingLeaveToApplications';
+import { RerunMovePendingLeaveToApplications1791500000200 } from '../src/migrations/1791500000200-RerunMovePendingLeaveToApplications';
 
 /**
  * [52.1.2] Applications schema (constraints, cascades, leave changes) and the
@@ -525,6 +526,44 @@ describe('Applications migration (integration)', () => {
         [[a, b]],
       );
       expect(k).toBe(4);
+    });
+  });
+
+  describe('RerunMovePendingLeaveToApplications (D15)', () => {
+    const rerun = new RerunMovePendingLeaveToApplications1791500000200();
+
+    it('moves a PENDING row filed after the first move; a second run (nothing pending) changes nothing', async () => {
+      const t = await school(null);
+      const s = await staff(t);
+      await leave(t, s.profileId, 'APPROVED');
+      await migration.up(queryRunner); // first move: nothing of ours pending yet
+
+      // The old route files a PENDING row after the first move.
+      const late = await leave(t, s.profileId, 'PENDING', { reason: 'late' });
+      await rerun.up(queryRunner);
+
+      const apps = await ds.query(
+        `SELECT payload, status, subject_staff_profile_id FROM applications WHERE tenant_id = $1`,
+        [t],
+      );
+      expect(apps).toHaveLength(1);
+      expect(apps[0]).toMatchObject({ status: 'PENDING', subject_staff_profile_id: s.profileId });
+      expect(apps[0].payload.reason).toBe('late');
+      const gone = await ds.query(`SELECT 1 FROM leave_records WHERE id = $1`, [late]);
+      expect(gone).toHaveLength(0);
+
+      // Nothing pending: no new application, the APPROVED row stays.
+      await rerun.up(queryRunner);
+      const [{ n }] = await ds.query(
+        `SELECT count(*)::int AS n FROM applications WHERE tenant_id = $1`,
+        [t],
+      );
+      expect(n).toBe(1);
+      const [{ m }] = await ds.query(
+        `SELECT count(*)::int AS m FROM leave_records WHERE tenant_id = $1 AND status = 'APPROVED'`,
+        [t],
+      );
+      expect(m).toBe(1);
     });
   });
 });

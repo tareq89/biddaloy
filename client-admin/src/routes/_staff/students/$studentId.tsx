@@ -18,6 +18,7 @@ import {
 import * as React from 'react';
 import { z } from 'zod';
 
+import { SubjectApplicationsTab } from '../../../features/applications/subject-applications-tab';
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 
 import { ActivityTab } from './-detail/activity-tab';
@@ -120,6 +121,11 @@ export const Route = createFileRoute('/_staff/students/$studentId')({
         // students-7a's Activity tab reads `auditLogs:actions.*`; same
         // suspend-the-whole-page reasoning as 'fees'.
         'auditLogs',
+        // [52.5.2] Applications tab: tab copy + type/status labels + the row summary.
+        'applications',
+        'applicationsList',
+        'feeStructures',
+        'staff',
       ),
     ]),
   pendingComponent: StudentDetailPending,
@@ -146,6 +152,7 @@ const TAB_IDS = [
   'notes',
   'records',
   'documents',
+  'applications',
   'activity',
 ] as const;
 
@@ -178,6 +185,7 @@ function StudentDetailPage() {
   const canCollectFees = useHasPermission(Permission.FEE_COLLECT);
   const canSendReminder = useHasPermission(Permission.COMMUNICATION_BULK_SEND);
   const canPrint = useHasPermission(Permission.DOCUMENT_PRINT);
+  const canManageApplications = useHasPermission(Permission.APPLICATION_MANAGE);
   // The Fees/Payments/Invoices tabs format currency — same reasoning as
   // `/settings`'s own `RegionConfigProvider` wrap: `useRegionConfig()`
   // has no ambient provider above the route tree, so without this every
@@ -471,6 +479,21 @@ function StudentDetailPage() {
                       id: 'documents',
                       label: t('detail.tabs.documents'),
                       content: <DocumentsTab studentId={studentId} />,
+                    },
+                  ]
+                : []),
+              ...(canManageApplications
+                ? [
+                    {
+                      id: 'applications',
+                      label: t('detail.tabs.applications'),
+                      content: (
+                        <SubjectApplicationsTab
+                          subject={{ kind: 'STUDENT', studentId }}
+                          subjectName={studentQuery.data.full_name}
+                          ns="students"
+                        />
+                      ),
                     },
                   ]
                 : []),

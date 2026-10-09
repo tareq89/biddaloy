@@ -97,7 +97,8 @@
       "homework": "Homework",
       "records": "Records",
       "notes": "Notes",
-      "documents": "Documents"
+      "documents": "Documents",
+      "applications": "Applications"
     },
     "overview": {
       "dateOfBirth": "Date of birth",
@@ -288,6 +289,19 @@
       "view": "View result",
       "cardSubtitle": "Grade {{grade}} · GPA {{gpa}}",
       "emptyExplanation": "Results appear once marks are entered for an exam."
+    },
+    "applicationsTab": {
+      "title": "Applications",
+      "subtitle": "All applications filed for {{name}}, newest first.",
+      "newPaper": "Enter a paper application",
+      "empty": "No applications yet",
+      "emptyExplanation": "They will show up here when a parent or student applies.",
+      "error": "Couldn't load applications.",
+      "seeAll": "See all",
+      "paper": "Filed on paper",
+      "loading": "Loading applications…",
+      "typeAndSubject": "Type and subject",
+      "viewLabel": "View — {{type}} {{serial}}"
     }
   },
   "new": {
