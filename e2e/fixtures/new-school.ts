@@ -8,6 +8,8 @@ import type {
 
 import { registerTrialSchool, type RegisteredSchool } from '../api';
 import { shells } from '../config';
+import { WelcomePage } from '../pages';
+import { expect } from './test';
 
 /**
  * [13.7.1] A trial school of the spec's own (registered over the API like a
@@ -52,4 +54,14 @@ export async function newSchool(
     await api.dispose();
     throw err;
   }
+}
+
+/** A fresh school's first stop is `/welcome`; press "Do this later" so `/dashboard` and the
+ * shell open. Runs in the default (bn) locale, which `WelcomePage` reads strings in. */
+export async function skipSetup(page: Page): Promise<void> {
+  const welcome = new WelcomePage(page);
+  await page.goto('/welcome');
+  await welcome.expectLoaded();
+  await welcome.button('footer.later').click();
+  await expect(page).toHaveURL(/\/dashboard/);
 }

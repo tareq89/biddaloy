@@ -14,6 +14,7 @@ import bnAdmissionStaffApplicants from '../ui/src/i18n/locales/bn/admission-staf
 import bnAdmissionStaffIntakes from '../ui/src/i18n/locales/bn/admission-staff-intakes.json';
 import bnApproval from '../ui/src/i18n/locales/bn/approval.json';
 import bnAttendance from '../ui/src/i18n/locales/bn/attendance.json';
+import bnAttention from '../ui/src/i18n/locales/bn/attention.json';
 import bnAuth from '../ui/src/i18n/locales/bn/auth.json';
 import bnBackup from '../ui/src/i18n/locales/bn/backup.json';
 import bnBulkImport from '../ui/src/i18n/locales/bn/bulkImport.json';
@@ -70,6 +71,7 @@ import enAdmissionStaffApplicants from '../ui/src/i18n/locales/en/admission-staf
 import enAdmissionStaffIntakes from '../ui/src/i18n/locales/en/admission-staff-intakes.json';
 import enApproval from '../ui/src/i18n/locales/en/approval.json';
 import enAttendance from '../ui/src/i18n/locales/en/attendance.json';
+import enAttention from '../ui/src/i18n/locales/en/attention.json';
 import enAuth from '../ui/src/i18n/locales/en/auth.json';
 import enBackup from '../ui/src/i18n/locales/en/backup.json';
 import enBulkImport from '../ui/src/i18n/locales/en/bulkImport.json';
@@ -150,6 +152,7 @@ const catalogs = {
     'admission-staff-intakes': bnAdmissionStaffIntakes,
     approval: bnApproval,
     attendance: bnAttendance,
+    attention: bnAttention,
     auth: bnAuth,
     backup: bnBackup,
     bulkImport: bnBulkImport,
@@ -215,6 +218,7 @@ const catalogs = {
     'admission-staff-intakes': enAdmissionStaffIntakes,
     approval: enApproval,
     attendance: enAttendance,
+    attention: enAttention,
     auth: enAuth,
     backup: enBackup,
     bulkImport: enBulkImport,
