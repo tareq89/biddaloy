@@ -33,7 +33,21 @@ erDiagram
   `@VersionColumn`) is what the offline-conflict dialog checks against.
 - **`AttendanceRecord`** — one student's mark within one session.
   `source` (`TEACHER` / `DEVICE` / `IMPORT` / `SYSTEM`) says who produced it —
-  see ["Teacher authority wins"](#7-integrating-a-device).
+  see ["Teacher authority wins"](#7-integrating-a-device). Approved student
+  leave ([24-applications.md](24-applications.md)) writes `LEAVE` with
+  `source = SYSTEM` into the whole-day register (`period_no` NULL):
+
+```mermaid
+flowchart TD
+    A[Leave approved for a working day] --> B{Existing mark that day?}
+    B -- none --> C["Create LEAVE (SYSTEM)"]
+    B -- ABSENT --> D["Change to LEAVE (SYSTEM)<br/>+ audit row"]
+    B -- PRESENT or LATE --> E[Leave it alone]
+```
+
+Cancelling the leave removes only **future** `SYSTEM` `LEAVE` marks. Past days
+and teacher-marked rows stay.
+
 - **`AttendanceDevice`** / **`AttendanceDeviceEvent`** — see
   ["Integrating a device"](#7-integrating-a-device).
 - **`CalendarEvent`** (`modules/calendar`, [16-academic-calendar.md](16-academic-calendar.md)) — a
@@ -342,7 +356,8 @@ Rules:
   ones removed. With section access you see all of them; as a substitute only
   your own.
 - **Prefill.** An unsaved period register suggests `ABSENT` or `LEAVE` from
-  that day's whole-day register (`suggested_status`). It is read-only: nothing
+  that day's whole-day register (`suggested_status`), so a student on approved
+  leave is suggested `LEAVE` in every period. It is read-only: nothing
   is stored until the teacher saves.
 - **First save only is checked against the routine.** A new period register for
   a period the routine does not schedule is `400 ATTENDANCE_PERIOD_NOT_SCHEDULED`.
