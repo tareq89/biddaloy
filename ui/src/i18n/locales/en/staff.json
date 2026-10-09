@@ -482,6 +482,8 @@
       "STAFF_ATTENDANCE_READ": "View staff attendance",
       "STAFF_ATTENDANCE_MARK": "Take staff attendance",
       "LEAVE_APPROVE": "Approve leave",
+      "ALERT_SEND": "Send alerts",
+      "ALERT_REPORT_READ": "View alerts report",
       "EXAM_MANAGE": "Manage exams",
       "GRADING_SCALE_MANAGE": "Manage grading scales",
       "MARK_ENTER": "Enter marks",

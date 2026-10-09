@@ -254,6 +254,10 @@ export enum Permission {
   STAFF_ATTENDANCE_MARK = 'STAFF_ATTENDANCE_MARK',
   // [36.1.1] Approve/reject a LeaveRecord. ADMIN/EXECUTIVE only.
   LEAVE_APPROVE = 'LEAVE_APPROVE',
+  // [67.1.01] Send a manual alert (D32). ADMIN/EXECUTIVE.
+  ALERT_SEND = 'ALERT_SEND',
+  // [67.1.01] View the alerts report (D33). ADMIN/EXECUTIVE.
+  ALERT_REPORT_READ = 'ALERT_REPORT_READ',
 }
 
 import { UserRole } from './index';
@@ -380,6 +384,9 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.STAFF_ATTENDANCE_READ,
     Permission.STAFF_ATTENDANCE_MARK,
     Permission.LEAVE_APPROVE,
+    // [67.1.01] Manual alerts + alerts report.
+    Permission.ALERT_SEND,
+    Permission.ALERT_REPORT_READ,
     // [39.1.1] D22 — student lifecycle, notes, records.
     Permission.STUDENT_LIFECYCLE_MANAGE,
     Permission.STUDENT_NOTES_READ,
@@ -588,6 +595,9 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.STAFF_ATTENDANCE_READ,
     Permission.STAFF_ATTENDANCE_MARK,
     Permission.LEAVE_APPROVE,
+    // [67.1.01] Manual alerts + alerts report.
+    Permission.ALERT_SEND,
+    Permission.ALERT_REPORT_READ,
     // [39.1.1] D22 — student lifecycle, notes, records.
     Permission.STUDENT_LIFECYCLE_MANAGE,
     Permission.STUDENT_NOTES_READ,

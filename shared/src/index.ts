@@ -19,3 +19,6 @@ export * from './dto/staff-hr-record.dto';
 export * from './dto/evaluations';
 export * from './auth/password-rules';
 export * from './types/onboarding';
+export * from './enums/attention';
+export * from './attention/rule-catalogue';
+export * from './types/attention';

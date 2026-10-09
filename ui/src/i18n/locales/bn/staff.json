@@ -482,6 +482,8 @@
       "STAFF_ATTENDANCE_READ": "কর্মীর উপস্থিতি দেখা",
       "STAFF_ATTENDANCE_MARK": "কর্মীর উপস্থিতি নেওয়া",
       "LEAVE_APPROVE": "ছুটি অনুমোদন",
+      "ALERT_SEND": "সতর্কতা পাঠানো",
+      "ALERT_REPORT_READ": "সতর্কতা প্রতিবেদন দেখা",
       "EXAM_MANAGE": "পরীক্ষা পরিচালনা",
       "GRADING_SCALE_MANAGE": "গ্রেডিং স্কেল পরিচালনা",
       "MARK_ENTER": "নম্বর দেওয়া",
