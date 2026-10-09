@@ -173,7 +173,7 @@ describe('/applications', () => {
     ).toBeTruthy();
   });
 
-  it('bulk approve sends picks from other pages too, and names a leave clash in plain words', async () => {
+  it('bulk approve sends picks from other pages too, and explains each failure in plain words', async () => {
     // Picked on another page: still in the URL selection, so it is sent (not silently dropped).
     const OFF_PAGE = '00000000-0000-4000-8000-000000000009';
     const user = userEvent.setup();
@@ -184,7 +184,7 @@ describe('/applications', () => {
       onBulk: (body) => {
         sent = body.ids;
         return [
-          { id: OFF_PAGE, ok: true },
+          { id: OFF_PAGE, ok: false, error_code: 'NOT_BULK_APPROVABLE' },
           { id: A1, ok: false, error_code: 'LEAVE_OVERLAP' },
         ];
       },
@@ -199,6 +199,12 @@ describe('/applications', () => {
     const status = await screen.findByRole('status');
     expect(
       within(status).getByText(/This overlaps with leave that is already approved\./),
+    ).toBeTruthy();
+    // The off-page row is not on screen, so it has no name or serial: say where it came from.
+    expect(
+      within(status).getByText(
+        'Picked on another page — This kind of application cannot be approved in bulk.',
+      ),
     ).toBeTruthy();
   });
 

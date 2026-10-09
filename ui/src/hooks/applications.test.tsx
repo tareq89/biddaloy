@@ -24,6 +24,7 @@ import {
   useApplicationPendingCount,
   useApplications,
   useApproveApplication,
+  useCancelApplication,
   useRejectApplication,
 } from './applications';
 
@@ -173,6 +174,21 @@ describe('decision mutations', () => {
     expect(queryClient.getQueryState(applicationKeys.list({}))?.isInvalidated).toBe(true);
     expect(queryClient.getQueryState(applicationKeys.pendingCount())?.isInvalidated).toBe(true);
     expect(queryClient.getQueryState(applicationKeys.reports({}))?.isInvalidated).toBe(false);
+  });
+
+  it('cancelling a STAFF_LEAVE also refreshes the leave balance (the ledger is reversed)', async () => {
+    const dto = { id: 'a1', status: 'CANCELLED', type: 'STAFF_LEAVE' };
+    server.use(http.post('/api/v1/applications/a1/cancel', () => HttpResponse.json(dto)));
+
+    const { result, queryClient } = renderHookWithProviders(() => useCancelApplication(), {
+      tenantId: 'tenant-1',
+    });
+    queryClient.setQueryData(['leave', 'balance', 'u1'], {});
+
+    result.current.mutate({ id: 'a1', reason: 'no' });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(queryClient.getQueryState(['leave', 'balance', 'u1'])?.isInvalidated).toBe(true);
   });
 
   function Harness() {

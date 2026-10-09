@@ -98,9 +98,20 @@ test.describe.serial('staff leave: file -> approve -> balance moves', () => {
     nextMonday().getFullYear() !== new Date().getFullYear(),
     'next week is already next year',
   );
-  let applicationId: string;
+  let applicationId: string | undefined;
   let balanceBefore: number;
   let staffProfileId: string;
+
+  // Cancel the approved leave (the executive approved it; nobody cancels their own) so its CASUAL
+  // days return: reruns on one database would otherwise drain the quota into LEAVE_BALANCE_EXCEEDED.
+  test.afterAll(async ({ request }) => {
+    if (!applicationId) return;
+    const executive = await roleSession(request, 'executive');
+    await request.post(`/api/v1/applications/${applicationId}/cancel`, {
+      headers: { Authorization: `Bearer ${executive.token}`, 'X-Tenant-ID': executive.tenantId },
+      data: { reason: 'E2E cleanup' },
+    });
+  });
 
   test.describe('1. admin files a casual leave', () => {
     test.use(loggedIn('admin'));

@@ -53,6 +53,7 @@
     "confirm": "Approve",
     "resultTitle": "{{ok}} of {{total}} approved",
     "failedLine": "{{name}} · {{serial}} — {{reason}}",
+    "failedLineOffPage": "Picked on another page — {{reason}}",
     "dismiss": "OK",
     "failed": "Could not approve the selected applications. Try again."
   },

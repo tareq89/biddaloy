@@ -29,11 +29,21 @@ import { acrBody, surveyBody } from '../fixtures/evaluations';
 import { test } from '../fixtures/test';
 
 /**
- * [52.5.8] `count` distinct days on which a leave for `studentId` can be approved: working days of
- * the demo year as the calendar API reports them (so seeded public holidays and closures are never
- * picked: LEAVE_NO_WORKING_DAYS), minus every day an APPROVED leave of this student already covers
- * (reruns on one database pile those up: LEAVE_OVERLAP). Random, so parallel shards spread out.
+ * [52.5.8] `count` distinct days on which a leave for `studentId` can be approved: school working
+ * days as the calendar API reports them (so seeded public holidays and closures are never picked:
+ * LEAVE_NO_WORKING_DAYS), minus every day an APPROVED leave of this student already covers (reruns
+ * on one database pile those up: LEAVE_OVERLAP). Random, so parallel shards spread out.
  * `session` needs CALENDAR_READ and APPLICATION_MANAGE (the admin).
+ *
+ * Jan-Feb 2026 only: approving a leave writes that day's section register. A day after the newest
+ * real register (a future day, or one after the seeded month, ATTENDANCE_SEED_MONTH = 2026-03)
+ * would become the section's newest session and blank the My class streaks; Jan-Feb also holds no
+ * seeded marks to overwrite. ponytail: about 35 working days per student, shared by every rerun on
+ * one database (CI starts fresh); widen the window if local reruns run out.
+ *
+ * The call passes no class, so a closure for one class only still counts as working here while the
+ * approve (which passes the class) skips it. The seed has no class-only closure; add `classId` if a
+ * spec ever creates one.
  */
 export async function freeLeaveDays(
   request: APIRequestContext,
@@ -44,7 +54,7 @@ export async function freeLeaveDays(
   const { dates } = await get<{ dates: string[] }>(
     request,
     session,
-    '/school-calendar/working-days?from=2026-01-01&to=2026-12-31',
+    '/school-calendar/working-days?from=2026-01-01&to=2026-02-28',
   );
   // ponytail: one page of 100 approved leaves; page through if a database ever holds more.
   const approved = await get<{ data: { start_date: string | null; end_date: string | null }[] }>(

@@ -53,6 +53,7 @@
     "confirm": "অনুমোদন করুন",
     "resultTitle": "{{total}}টির মধ্যে {{ok}}টি অনুমোদিত হয়েছে",
     "failedLine": "{{name}} · {{serial}} — {{reason}}",
+    "failedLineOffPage": "অন্য পাতায় নির্বাচিত — {{reason}}",
     "dismiss": "ঠিক আছে",
     "failed": "নির্বাচিত আবেদনগুলো অনুমোদন করা যায়নি। আবার চেষ্টা করুন।"
   },

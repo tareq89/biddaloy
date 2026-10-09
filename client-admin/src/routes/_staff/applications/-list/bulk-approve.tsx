@@ -19,7 +19,8 @@ export const BULK_APPROVE_LIMIT = 50;
 export interface BulkSummary {
   total: number;
   ok: number;
-  failed: { id: string; name: string; serial: string; code: string | undefined }[];
+  /** `name` / `serial` are null for a pick made on another page (only on-screen rows are known). */
+  failed: { id: string; name: string | null; serial: string | null; code: string | undefined }[];
 }
 
 const KNOWN_CODES = new Set([
@@ -47,8 +48,8 @@ export function summarizeBulk(
       .filter((r) => !r.ok)
       .map((r) => ({
         id: r.id,
-        name: byId.get(r.id)?.applicant_name ?? '',
-        serial: byId.get(r.id)?.serial ?? '',
+        name: byId.get(r.id)?.applicant_name ?? null,
+        serial: byId.get(r.id)?.serial ?? null,
         code: r.error_code,
       })),
   };
@@ -160,15 +161,16 @@ export function BulkResultCard({
       </p>
       {summary.failed.length > 0 && (
         <ul className="list-disc space-y-1 ps-5 text-muted-foreground">
-          {summary.failed.map((f) => (
-            <li key={f.id}>
-              {t('bulk.failedLine', {
-                name: f.name,
-                serial: f.serial,
-                reason: t(`errors.${f.code && KNOWN_CODES.has(f.code) ? f.code : 'unknown'}`),
-              })}
-            </li>
-          ))}
+          {summary.failed.map((f) => {
+            const reason = t(`errors.${f.code && KNOWN_CODES.has(f.code) ? f.code : 'unknown'}`);
+            return (
+              <li key={f.id}>
+                {f.serial === null
+                  ? t('bulk.failedLineOffPage', { reason })
+                  : t('bulk.failedLine', { name: f.name ?? '', serial: f.serial, reason })}
+              </li>
+            );
+          })}
         </ul>
       )}
       <Button type="button" variant="ghost" onClick={onClose}>

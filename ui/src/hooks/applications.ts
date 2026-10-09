@@ -217,12 +217,13 @@ export async function downloadApplicationAttachment(
 
 // ---- Mutations ----
 
+/** Prefix of `leaveBalanceQueryOptions`' key (`api/leave.ts`). */
+const LEAVE_BALANCE_KEY = ['leave', 'balance'] as const;
+
 /**
  * Decision mutations answer with the fresh dto: seed the detail, refresh lists + badge only
  * (not the detail just seeded, nor letter-preview / reports / tag-options).
  */
-/** Prefix of `leaveBalanceQueryOptions`' key (`api/leave.ts`). */
-const LEAVE_BALANCE_KEY = ['leave', 'balance'] as const;
 
 function useDecisionCache() {
   const queryClient = useQueryClient();
@@ -322,10 +323,16 @@ export function useConsiderApplication() {
 
 export function useCancelApplication() {
   const onDecided = useDecisionCache();
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, reason }: { id: string; reason: string }) =>
       (await apiClient.post<ApplicationDto>(`/applications/${id}/cancel`, { reason })).data,
-    onSuccess: onDecided,
+    onSuccess: (dto) => {
+      onDecided(dto);
+      // Cancelling an approved STAFF_LEAVE reverses its ledger rows: the balance is stale too.
+      if (dto.type === 'STAFF_LEAVE')
+        void queryClient.invalidateQueries({ queryKey: LEAVE_BALANCE_KEY });
+    },
   });
 }
 
