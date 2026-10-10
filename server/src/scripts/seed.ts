@@ -77,6 +77,7 @@ import { ensureDocumentsSeed, type DocumentsSeedPorts } from './seed.documents';
 import { ensureEvaluationsSeed } from './seed.evaluations';
 import { ensureAttentionSeed } from './seed.attention';
 import { ensureAttentionRulesSeed } from './seed.attention-rules';
+import { ensureAttentionW5Seed } from './seed.attention-w5';
 import { Alert } from '../modules/attention/entities/alert.entity';
 import { AlertRecipient } from '../modules/attention/entities/alert-recipient.entity';
 import { ensureStudyPlansSeed } from './seed.study-plans';
@@ -351,6 +352,8 @@ export async function seed() {
     );
     // [67.3.08] Rows that make the W3 attention rules fire (Epic 67).
     await ensureAttentionRulesSeed(dataSource, school.id);
+    // [67.5.10] A sent manual alert + last month's alert history (Epic 67 W5).
+    if (lifecycleAdmin) await ensureAttentionW5Seed(dataSource, school.id, lifecycleAdmin.id);
 
     // [66.1.07] Demo study-plan template, two plans and four lesson deliveries.
     await ensureStudyPlansSeed(
