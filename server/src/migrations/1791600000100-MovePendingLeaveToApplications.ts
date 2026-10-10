@@ -11,7 +11,8 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * event's `migrated_from_leave_record_id` marker, for applications still PENDING.
  *
  * Serial (D29): per (tenant, year) continuing after the current max, ordered by
- * created_at. Year is taken in the school's timezone (default Asia/Dhaka).
+ * created_at. Year is taken in the school's timezone (default Asia/Dhaka, also used when the
+ * stored name is empty or not a Postgres timezone).
  */
 export class MovePendingLeaveToApplications1791600000100 implements MigrationInterface {
   name = 'MovePendingLeaveToApplications1791600000100';
@@ -26,7 +27,13 @@ export class MovePendingLeaveToApplications1791600000100 implements MigrationInt
                coalesce("lr"."reason", '') AS "reason",
                "sp"."user_id" AS "applicant_user_id",
                CASE WHEN lower(coalesce("s"."settings"->'region'->>'locale', 'bn')) LIKE 'en%' THEN 'en' ELSE 'bn' END AS "locale",
-               extract(year FROM "lr"."created_at" AT TIME ZONE coalesce("s"."settings"->'region'->>'timezone', 'Asia/Dhaka'))::int AS "serial_year"
+               -- A stored timezone is only a string (no IANA check on write), and an unknown name aborts
+               -- the whole migration: use it only when Postgres knows it, else the default.
+               extract(year FROM "lr"."created_at" AT TIME ZONE coalesce(
+                 (SELECT "tz"."name" FROM pg_timezone_names "tz"
+                  WHERE "tz"."name" = nullif(trim("s"."settings"->'region'->>'timezone'), '') LIMIT 1),
+                 'Asia/Dhaka'
+               ))::int AS "serial_year"
         FROM "leave_records" "lr"
         JOIN "staff_profiles" "sp" ON "sp"."id" = "lr"."staff_profile_id" AND "sp"."tenant_id" = "lr"."tenant_id"
         JOIN "schools" "s" ON "s"."id" = "lr"."tenant_id"

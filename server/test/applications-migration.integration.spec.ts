@@ -399,6 +399,28 @@ describe('Applications migration (integration)', () => {
       }
     });
 
+    it('falls back to Asia/Dhaka for a stored timezone Postgres does not know, instead of aborting', async () => {
+      // 2026-12-31T20:00Z is already 2027-01-01 in Dhaka (UTC+6) but still 2026 in UTC.
+      const bad = await school({ region: { timezone: 'Not/AZone' } });
+      const blank = await school({ region: { timezone: '  ' } });
+      const good = await school({ region: { timezone: 'America/New_York' } });
+      for (const id of [bad, blank, good]) {
+        const s = await staff(id);
+        await leave(id, s.profileId, 'PENDING', { created: '2026-12-31T20:00:00Z' });
+      }
+
+      await migration.up(queryRunner);
+
+      const years = await ds.query(
+        `SELECT tenant_id, serial_year FROM applications WHERE tenant_id = ANY($1)`,
+        [[bad, blank, good]],
+      );
+      const yearOf = (id: string) => years.find((r: any) => r.tenant_id === id)?.serial_year;
+      expect(yearOf(bad)).toBe(2027);
+      expect(yearOf(blank)).toBe(2027);
+      expect(yearOf(good)).toBe(2026); // a valid name is still honoured (New York is UTC-5)
+    });
+
     it('moves PENDING leave to applications, keeps APPROVED, is idempotent, and down() restores', async () => {
       // Production shapes: a school with NO settings blob, a second school in the
       // same year with English locale, a NULL reason, and an existing serial.
