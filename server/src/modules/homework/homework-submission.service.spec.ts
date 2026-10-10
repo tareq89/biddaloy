@@ -7,6 +7,8 @@ import {
   UserRole,
 } from '@biddaloy/shared';
 import { HomeworkSubmissionService } from './homework-submission.service';
+import { attentionEvents } from '../attention/attention.constants';
+import { ATTENTION_RECHECK } from '../attention/engine/attention-events';
 
 describe('HomeworkSubmissionService', () => {
   const TENANT_ID = '11111111-1111-4111-8111-111111111111';
@@ -111,6 +113,20 @@ describe('HomeworkSubmissionService', () => {
       expect(result.attachments).toHaveLength(1);
     });
 
+    it('asks the attention engine to recheck homework.not_submitted after saving', async () => {
+      const events: unknown[] = [];
+      const on = (p: unknown) => events.push(p);
+      attentionEvents.on(ATTENTION_RECHECK, on);
+      try {
+        await service.upload('assign-1', 'student-1', [FILE], studentCtx);
+      } finally {
+        attentionEvents.off(ATTENTION_RECHECK, on);
+      }
+      expect(events).toEqual([
+        { tenantId: TENANT_ID, ruleKey: 'homework.not_submitted', actorUserId: studentCtx.userId },
+      ]);
+    });
+
     it('rejects an upload after the due date', async () => {
       assignmentRepo.findOne.mockResolvedValue({ ...SECTION_ASSIGNMENT, due_date: PAST_DUE_DATE });
       await expect(
@@ -142,9 +158,9 @@ describe('HomeworkSubmissionService', () => {
 
     it('deletes the newly-uploaded objects if the save fails', async () => {
       submissionRepo.save.mockRejectedValueOnce(new Error('unique violation'));
-      await expect(
-        service.upload('assign-1', 'student-1', [FILE], studentCtx),
-      ).rejects.toThrow('unique violation');
+      await expect(service.upload('assign-1', 'student-1', [FILE], studentCtx)).rejects.toThrow(
+        'unique violation',
+      );
       expect(storage.delete).toHaveBeenCalledTimes(1);
     });
 
