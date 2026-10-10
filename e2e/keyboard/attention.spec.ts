@@ -1,9 +1,9 @@
 import type { Page } from '@playwright/test';
 
-import { raiseTrialEnding } from '../api';
+import { patch, raiseTrialEnding } from '../api';
 import { expectNoAxeViolations } from '../a11y/assert';
 import { shells } from '../config';
-import { newSchool, skipSetup, type NewSchool } from '../fixtures/new-school';
+import { newSchool, type NewSchool } from '../fixtures/new-school';
 import { expect, guest, loggedIn, test } from '../fixtures/test';
 import { makeT } from '../i18n';
 
@@ -51,7 +51,8 @@ test.describe('staff', () => {
 
   test.beforeEach(async ({ browser, playwright }) => {
     school = await newSchool(browser, playwright);
-    await skipSetup(school.page);
+    // Finished, not skipped: an unfinished wizard raises setup.incomplete (W3), which sorts first.
+    await patch(school.api, school.session, '/onboarding', { seen: true, finished: true });
     await setEnglish(school.page);
     await raiseTrialEnding(playwright, school.session.tenantId, shells.app.baseURL);
     // The recheck runs about 5 s after the trial change.
