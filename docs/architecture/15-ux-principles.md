@@ -150,6 +150,7 @@ Finance
 
 Communications
   Send message [have] (+ to staff, role-wise [partial])             A E T
+  Send an alert [67.0] — one-off bar alert to a chosen audience      A E
   Fee reminders [have] · Reminder history [have]                    A Ac E
   Notices [have]                                                    A E T
   Automatic notices [partial: absent ✓ · fine ✓ (38.0) · result/marks 19.0 · homework 22.0 · receipt 3.0]
@@ -158,11 +159,12 @@ Reports [8.15] — a hub that LINKS to screens that live with their data; no cop
   Communications · Collections [have] · Student dues [have] · Attendance [have]
   Student lists [8.15] · Student count [8.15] · Printables & documents [have, 32.0] · Certificate register · To print [48.0] · Exports [8.15]
   Applications report [52.0]
+  Alerts report [67.0] — monthly rule-alert counts per rule and section   A E
 
 Administration
   Print templates [have, 32.0] — library, then the full-screen editor
   Settings [have] → sub-pages:
-    Attendance policy & times [have] · Communication providers [have]
+    Attendance policy & times [have] · Communication providers [have] · Alerts & reminders [67.0]
     Printers [have, 32.0] (calibration, margins) · School profile & logo [have] · Region & locale [17.0] · Presets & feature toggles [N3]
     Organisation structure [have, 33.0 — Settings section, no new route; a
     shift/version/group field only shows once the tenant has 2+ entries in
@@ -171,6 +173,7 @@ Administration
   Roles & access [have, 24.0 — read-only] · Audit logs [have] · Security [have]
 
 User menu → My account (profile, password, switch school/role, language, theme, sign out)
+  My account / Security → Notification preferences [67.0] (mute push per category, quiet hours shown)
 ```
 
 ### 3.2 Guardian / student portal tree
@@ -184,21 +187,23 @@ Calendar & notices [17.0; notices have]
 Online exam & class [N6] · Programs [34.0] · Documents [Print module — follow-up epic]
 Applications [52.0] — under More on a phone
 Account [have]
+Account [have] — includes Notification preferences [67.0]
 ```
 
 ### 3.3 Platform (super-admin) tree
 
 ```text
 Schools [have] · Public holiday sets [17.0] · Preset library [N3]
-  Schools list: Trial column, ?trial filter · School detail: Trial card + "Extend trial" [13.0]
+  Schools list: Trial column, ?trial filter · Engine health card [67.0] · School detail: Trial card + "Extend trial" [13.0]
 ```
 
 Not in the nav on purpose (reached by a redirect, a link or a button):
 `/welcome` (the setup wizard, opens once for an admin of an unfinished school),
-`/register` and `/auth/social/done`. (`/staff/import` is in the nav, under
+`/register`, `/auth/social/done`, `/notifications` (from the bell and the modal footer) and `/portal/notifications` (from the portal bell). (`/staff/import` is in the nav, under
 People, as shown above.)
-The setup checklist is a card on the Dashboard, and the trial bar sits under
-the top bar for admins only. See [22-onboarding.md](22-onboarding.md).
+The setup checklist is a card on the Dashboard. The attention bar sits under the
+top bar on every shell; the trial warning is one of its rules (`trial.ending`).
+See [22-onboarding.md](22-onboarding.md) and [23-attention.md](23-attention.md).
 
 ### 3.4 Placement decisions (final)
 

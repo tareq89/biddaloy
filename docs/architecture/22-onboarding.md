@@ -121,6 +121,8 @@ stateDiagram-v2
   `status = SUSPENDED`, `status_reason = 'TRIAL_EXPIRED'`. `deleted_at` is
   never touched.
 - The admin then sees "your trial has ended, contact us" (D33).
+- The warning an admin sees in the attention bar is the `trial.ending` rule
+  (WARNING from 7 days out, CRITICAL from 2). See [23-attention.md](23-attention.md).
 - Extend is `PATCH /schools/:id/trial` with `{ days, seat_limit?, reason }`.
   Platform SUPER_ADMIN only, audited. `seat_limit: null` means unlimited.
 
