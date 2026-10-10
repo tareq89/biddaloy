@@ -10,8 +10,6 @@ import { routeTree } from '../../../routeTree.gen';
 
 // The school's date (Asia/Dhaka in REGION_BD_EN, the `en` fallback the page
 // uses), never the runner's clock: between 18:00 and 24:00 UTC the two differ.
-// The page links to the SCHOOL's today (Asia/Dhaka for an `en` teacher's fallback
-// region), not the runner's: they differ 18:00–24:00 UTC (#2140).
 const todayLocalIso = () => tenantTodayIso(REGION_BD_EN);
 
 const FINALIZED = {

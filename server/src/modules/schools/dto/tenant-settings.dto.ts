@@ -658,6 +658,9 @@ export class ApplicationsSettingsDto {
   @IsOptional()
   @IsBoolean()
   smsOnDecision?: boolean;
+}
+
+/** [67.1.06] quiet hours window. */
 export class AttentionQuietHoursDto {
   @ApiProperty({ example: '21:00' })
   @IsString()

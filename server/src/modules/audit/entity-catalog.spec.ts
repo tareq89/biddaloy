@@ -24,9 +24,6 @@ const ENTITY_TYPE_LITERAL = /entity_type:\s*'([A-Za-z_]+)'/g;
  */
 const DEPRECATED_READ_ONLY_ENTRIES = new Set(['SchoolHoliday']);
 
-// written from wave 2 of Epic 66; 66.2.99 deletes this set
-const PENDING_EPIC_66_ENTRIES = new Set(['LessonDelivery', 'StudyPlan', 'StudyPlanTemplate']);
-
 // first written by Epic 67 audit (67.5.01) — delete this set then
 const PENDING_EPIC_67_ENTRIES = new Set(['Alert']);
 
@@ -71,11 +68,9 @@ describe('audit entity-type catalog contract', () => {
     const written = collectWrittenEntityTypes(serverSrcDir);
 
     const deadEntries = AUDIT_ENTITY_TYPES.filter(
-      (type) => !written.has(type) && !DEPRECATED_READ_ONLY_ENTRIES.has(type),
       (type) =>
         !written.has(type) &&
         !DEPRECATED_READ_ONLY_ENTRIES.has(type) &&
-        !PENDING_EPIC_66_ENTRIES.has(type) &&
         !PENDING_EPIC_67_ENTRIES.has(type),
     );
     expect(deadEntries).toEqual([]);
