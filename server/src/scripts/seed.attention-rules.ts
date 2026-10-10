@@ -54,8 +54,10 @@ export async function ensureAttentionRulesSeed(ds: DataSource, tenantId: string)
   const [subject] = await q<{ subject_id: string }>(
     `SELECT subject_id FROM (
        SELECT rs.subject_id, 0 AS pri, ps.starts_at AS ord FROM routine_slots rs
-         JOIN period_slots ps ON ps.id = rs.period_slot_id
+         JOIN routines r ON r.id = rs.routine_id AND r.tenant_id = $1 AND r.deleted_at IS NULL AND r.state = 'PUBLISHED'
+         JOIN period_slots ps ON ps.id = rs.period_slot_id AND ps.tenant_id = $1
         WHERE rs.tenant_id = $1 AND rs.section_id = $2 AND rs.weekday = EXTRACT(DOW FROM $3::date)
+          AND rs.valid_from <= $3::date AND (rs.valid_to IS NULL OR rs.valid_to >= $3::date)
        UNION ALL
        SELECT subject_id, 1, NULL FROM class_subjects WHERE tenant_id = $1 AND class_id = $4
      ) s ORDER BY pri, ord NULLS LAST LIMIT 1`,
