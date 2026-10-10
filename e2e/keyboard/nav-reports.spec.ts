@@ -13,3 +13,13 @@ test.describe('Reports (accountant)', () => {
     await expectReachableInMain(page);
   });
 });
+
+test.describe('Reports (executive)', () => {
+  test.use(loggedIn('executive'));
+
+  // [67.6.02]
+  test('alerts report', async ({ page }) => {
+    await openFromSidebar(page, t('nav.items.alertsReport'));
+    await expectReachableInMain(page);
+  });
+});
