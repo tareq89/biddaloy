@@ -8,6 +8,8 @@ import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { Teacher } from '../academics/entities/teacher.entity';
 import { UpsertSubstitutionDto, QuerySubstitutionsDto } from './dto/substitution.dto';
 import { occursOn } from './recurrence';
+import { attentionEvents } from '../attention/attention.constants';
+import { emitRecheck } from '../attention/engine/attention-events';
 
 /**
  * [21.5.1] Substitutions CRUD (`ROUTINE_MANAGE`, enforced by the
@@ -67,18 +69,25 @@ export class SubstitutionsService {
     // miss on a separate existence check, then both try to insert and
     // one hits the unique index — retry that one as an update instead of
     // surfacing a raw DB error.
+    let saved: RoutineSubstitution;
     try {
-      return await this.substitutionRepo.save(this.substitutionRepo.create(values));
+      saved = await this.substitutionRepo.save(this.substitutionRepo.create(values));
     } catch (err) {
       if (!this.isUniqueViolation(err)) throw err;
       await this.substitutionRepo.update(
         { routine_slot_id: dto.routine_slot_id, date: dto.date, tenant_id: tenantId },
         values,
       );
-      return (await this.substitutionRepo.findOne({
+      saved = (await this.substitutionRepo.findOne({
         where: { routine_slot_id: dto.routine_slot_id, date: dto.date, tenant_id: tenantId },
       }))!;
     }
+    emitRecheck(attentionEvents, {
+      tenantId,
+      ruleKey: 'routine.substitution_today',
+      actorUserId: userId,
+    });
+    return saved;
   }
 
   private isUniqueViolation(err: unknown): boolean {
