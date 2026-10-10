@@ -82,7 +82,13 @@ async function teacherPage(
     scene.teacher.email,
     scene.teacher.password,
   );
-  const context = await browser.newContext({ storageState, baseURL: baseURL ?? '' });
+  // No Service Worker: on the built app it answers `/api` fetches itself, so `page.route()` (the
+  // injected `due` field) never sees them. Same reason as focus-management.spec.ts.
+  const context = await browser.newContext({
+    storageState,
+    baseURL: baseURL ?? '',
+    serviceWorkers: 'block',
+  });
   const page = await context.newPage();
   await page.clock.setFixedTime(at10InDhaka(day));
   return page;
