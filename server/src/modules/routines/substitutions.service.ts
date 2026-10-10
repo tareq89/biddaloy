@@ -87,6 +87,11 @@ export class SubstitutionsService {
       ruleKey: 'routine.substitution_today',
       actorUserId: userId,
     });
+    emitRecheck(attentionEvents, {
+      tenantId,
+      ruleKey: 'routine.changed_today',
+      actorUserId: userId,
+    });
     return saved;
   }
 
