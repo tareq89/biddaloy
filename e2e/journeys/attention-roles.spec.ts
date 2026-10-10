@@ -48,18 +48,21 @@ async function checkRole(
   { role, home, mustHaveItems }: Expectation,
 ) {
   const session = await apiSession(request, role);
-  const { items } = await get<{ items: AlertItem[] }>(
-    request,
-    session,
-    '/attention/items?tab=active&pageSize=100',
-  );
-
-  // API: every item's category is one this role may see.
   const allowed = allowedCategories(role.toUpperCase() as UserRole);
-  const outOfRole = items
-    .filter((i) => !allowed.has(i.category))
-    .map((i) => `${i.ruleKey}:${i.category}`);
-  expect(outOfRole).toEqual([]);
+  // API: every item's category is one this role may see.
+  const fetchItems = async () => {
+    const { items } = await get<{ items: AlertItem[] }>(
+      request,
+      session,
+      '/attention/items?tab=active&pageSize=100',
+    );
+    const outOfRole = items
+      .filter((i) => !allowed.has(i.category))
+      .map((i) => `${i.ruleKey}:${i.category}`);
+    expect(outOfRole).toEqual([]);
+    return items;
+  };
+  const items = await fetchItems();
   if (mustHaveItems) expect(items.length).toBeGreaterThan(0);
 
   // UI: no OPEN item means no bar (D14); otherwise every card in the modal is one of the API's.
@@ -69,6 +72,9 @@ async function checkRole(
   const open = items.filter((i) => i.state === 'OPEN');
   if (open.length === 0) {
     await page.waitForLoadState('networkidle');
+    // The e2e server runs the real scheduler (FAST sweep every 5 min): one may have opened an
+    // item since the fetch above, and then the bar is right to show.
+    if ((await fetchItems()).some((i) => i.state === 'OPEN')) return;
     await expect(bar).toHaveCount(0);
     return;
   }
@@ -81,7 +87,8 @@ async function checkRole(
   const shown = await cards.evaluateAll((els) =>
     els.map((el) => el.getAttribute('data-alert-item')),
   );
-  const known = new Set(items.map((i) => i.recipientId));
+  // Same scheduler race: a card the modal shows existed either before it opened or still after.
+  const known = new Set([...items, ...(await fetchItems())].map((i) => i.recipientId));
   expect(shown.filter((id) => !known.has(id ?? ''))).toEqual([]);
   // each card carries a severity badge
   expect(
