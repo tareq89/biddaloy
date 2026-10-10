@@ -1,8 +1,6 @@
 import type { Page } from '@playwright/test';
 import { expect, request } from '@playwright/test';
 
-import bnPortalApplications from '../../ui/src/i18n/locales/bn/portalApplications.json';
-import enPortalApplications from '../../ui/src/i18n/locales/en/portalApplications.json';
 import { adminApiSession, apiSession, findSeedSectionA, get, rawRequest } from '../api';
 import { makeT, type Locale } from '../i18n';
 import { DetailShellPage } from '../pages/detail-shell';
