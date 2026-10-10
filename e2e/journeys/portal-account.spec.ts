@@ -93,14 +93,17 @@ test('the phone AC end to end: a guardian-contact edit changes what the reminder
     const phoneField = page.locator('#account-guardian-phone');
     await phoneField.fill(newPhone);
     await page.locator('#account-guardian-phone').press('Tab');
+    // The PATCH response is the confirmation — no navigation follows a save here, and the
+    // field is still enabled the instant after the click, so it can't tell "saved" from "not yet".
+    const saved = page.waitForResponse(
+      (r) => r.request().method() === 'PATCH' && r.url().endsWith('/guardians/mine'),
+    );
     await page
       .locator('form', { has: page.locator('#account-guardian-phone') })
       .getByRole('button', { name: /./ })
       .last()
       .click();
-    // The mutation settling is the stable confirmation — no client-side
-    // navigation follows a successful save on this page.
-    await expect(phoneField).toBeEnabled();
+    expect((await saved).ok()).toBe(true);
   });
 
   await test.step('the reminder-preview endpoint now dials the new number', async () => {
