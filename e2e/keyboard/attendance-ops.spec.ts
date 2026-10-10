@@ -46,9 +46,10 @@ async function tabUntilGridCell(page: import('@playwright/test').Page) {
   throw new Error('could not reach the edit grid within 90 Tab presses');
 }
 
-/** In an open select list, arrow to the option that reads `text` (as many
- * presses as it sits away from the focused one), check focus landed on it,
- * then Enter. Focus moves a frame after each key, so it is asserted, not read. */
+/** In an open select list, arrow to the option that reads `text`, then Enter.
+ * Radix moves focus a frame after each key (and places the first focus a frame
+ * after opening), so a pre-counted burst of presses loses some under load: one
+ * press at a time, each waiting for focus to actually move. */
 async function arrowToOption(page: import('@playwright/test').Page, text: string) {
   const options = page.getByRole('option');
   // The class/section lists load after the page does; arrow keys on an empty list do nothing.
@@ -56,12 +57,15 @@ async function arrowToOption(page: import('@playwright/test').Page, text: string
   const labels = (await options.allTextContents()).map((label) => label.trim());
   const target = labels.indexOf(text);
   if (target < 0) throw new Error(`option "${text}" not in the list: ${labels.join(', ')}`);
-  const current = await options.evaluateAll((els) =>
-    els.indexOf(document.activeElement as HTMLElement),
-  );
-  const steps = target - Math.max(current, 0);
-  for (let i = 0; i < Math.abs(steps); i += 1) {
-    await page.keyboard.press(steps > 0 ? 'ArrowDown' : 'ArrowUp');
+  const focused = () =>
+    options.evaluateAll((els) => els.indexOf(document.activeElement as HTMLElement));
+  // Wait for the list to place its first focus before pressing anything.
+  await expect.poll(focused).toBeGreaterThanOrEqual(0);
+  for (let i = 0; i < labels.length; i += 1) {
+    const current = await focused();
+    if (current === target) break;
+    await page.keyboard.press(current < target ? 'ArrowDown' : 'ArrowUp');
+    await expect.poll(focused).not.toBe(current);
   }
   await expect(options.nth(target)).toBeFocused();
   await page.keyboard.press('Enter');
