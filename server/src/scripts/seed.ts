@@ -76,6 +76,7 @@ import { ensureStudentLifecycleSeed } from './seed.lifecycle';
 import { ensureDocumentsSeed, type DocumentsSeedPorts } from './seed.documents';
 import { ensureEvaluationsSeed } from './seed.evaluations';
 import { ensureAttentionSeed } from './seed.attention';
+import { ensureAttentionRulesSeed } from './seed.attention-rules';
 import { Alert } from '../modules/attention/entities/alert.entity';
 import { AlertRecipient } from '../modules/attention/entities/alert-recipient.entity';
 import { ensureStudyPlansSeed } from './seed.study-plans';
@@ -345,6 +346,8 @@ export async function seed() {
       },
       school.id,
     );
+    // [67.3.08] Rows that make the W3 attention rules fire (Epic 67).
+    await ensureAttentionRulesSeed(dataSource, school.id);
 
     // [66.1.07] Demo study-plan template, two plans and four lesson deliveries.
     await ensureStudyPlansSeed(
