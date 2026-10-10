@@ -7,6 +7,7 @@ import { ALL_ENTITIES } from '@test/all-entities';
 import { SEED_TENANT_ID } from '@test/constants';
 import { SyllabusTopicStatus, TeacherAssignmentType, UserRole } from '@biddaloy/shared';
 import { SyllabusService } from './syllabus.service';
+import { PlanScheduleService } from '../study-plans/plan-schedule.service';
 import { SyllabusTopic } from './entities/syllabus-topic.entity';
 import { TeacherScopeService } from '../classes/teacher-scope.service';
 import { AuditService } from '../audit/audit.service';
@@ -44,6 +45,7 @@ describe('SyllabusService write scope (integration)', () => {
   beforeAll(async () => {
     const module = await createTestModule(ALL_ENTITIES, [
       SyllabusService,
+      { provide: PlanScheduleService, useValue: {} },
       TeacherScopeService,
       AuditService,
     ]);

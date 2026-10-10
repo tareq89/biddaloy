@@ -21,6 +21,8 @@ import { COMMUNICATIONS_QUEUE } from '../communications/communications.constants
 // students/students.module.ts).
 import { BulkImportModule } from '../bulk-import/bulk-import.module';
 import { AuditModule } from '../audit/audit.module';
+import { StudyPlansModule } from '../study-plans/study-plans.module';
+import { StudyPlan } from '../study-plans/entities/study-plan.entity';
 import { ClassModule } from '../classes/classes.module';
 import { HomeworkController } from './homework.controller';
 import { HomeworkService } from './homework.service';
@@ -65,6 +67,7 @@ import { HomeworkAnalyticsService } from './homework-analytics.service';
       Subject,
       Student,
       CommunicationLog,
+      StudyPlan,
     ]),
     StudentModule,
     StorageModule,
@@ -74,6 +77,9 @@ import { HomeworkAnalyticsService } from './homework-analytics.service';
     // `TeacherScopeService` for `SyllabusService` write scope (66.0 D16).
     // ClassModule imports nothing from homework, so there is no cycle.
     ClassModule,
+    // 66.2.07/D31: `SyllabusService.coverageFor` reads plan schedules. StudyPlansModule
+    // imports nothing from homework, so there is no cycle.
+    StudyPlansModule,
     BullModule.registerQueue({
       name: COMMUNICATIONS_QUEUE,
       defaultJobOptions: {
