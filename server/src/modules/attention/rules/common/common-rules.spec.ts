@@ -11,7 +11,7 @@ const ctx = (extra: Partial<RuleContext> = {}): RuleContext => ({
   localDate: '2026-10-10',
   localTime: '20:00',
   isWorkingDay: true,
-  settings: {} as RuleContext['settings'],
+  settings: { eveningAt: '17:00' } as RuleContext['settings'],
   ...extra,
 });
 
@@ -73,7 +73,12 @@ describe('CalendarHolidayTomorrowRule', () => {
     const [f] = await new CalendarHolidayTomorrowRule(d as never).evaluate(
       ctx({ now: new Date('2026-12-31T18:00:00Z'), localDate: '2027-01-01' }),
     );
-    expect(d.query.mock.calls[0][1]).toEqual(['t1', '2027-01-02', true]);
+    // Changed-since cutoff: yesterday's 17:00 evening run in Dhaka (11:00Z).
+    expect(d.query.mock.calls[0][1]).toEqual([
+      't1',
+      '2027-01-02',
+      new Date('2026-12-31T11:00:00Z'),
+    ]);
     expect(f.expiresAt?.toISOString()).toBe('2027-01-01T18:00:00.000Z');
   });
 
