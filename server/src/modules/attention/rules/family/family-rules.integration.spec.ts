@@ -342,6 +342,15 @@ describe('Family rules (integration)', () => {
 
     const [soon] = await dueSoon.evaluate(ctx(A));
     expect(soon.params).toMatchObject({ amount: 400, dueDate: '2043-03-04', studentId: A.c1 });
+    // A second fee due later in the window: the sum covers both, so "due by" is the later date.
+    await ds.query(
+      `INSERT INTO student_fees (student_id, academic_year_id, fee_structure_id, period_start, period_type,
+         total_amount, status, due_date)
+       VALUES ($1, $2, $3, '2042-12-01', 'MONTH', 300, 'PENDING', '2043-03-05')`,
+      [A.c1, A.yearId, A.structureId],
+    );
+    const [soon2] = await dueSoon.evaluate(ctx(A));
+    expect(soon2.params).toMatchObject({ amount: 700, dueDate: '2043-03-05' });
     const [late1] = await overdue.evaluate(ctx(A));
     expect(late1.params).toMatchObject({ amount: 600, oldestDue: '2043-02-15' });
     expect(late1.recipients.map((r) => r.userId)).toEqual([A.parentUser]);
@@ -366,9 +375,14 @@ describe('Family rules (integration)', () => {
     expect(f.expiresAt).toEqual(new Date(`${TOMORROW}T03:00:00Z`));
     expect(await examsTomorrow.evaluate(ctx(B))).toEqual([]);
 
+    // A sitting tomorrow but no components yet: isScheduleComplete is false, the portal shows nothing.
+    const maths = await mkSubject(B, 'Math');
+    const bare = await mkExam(B, 'DRAFT', [], [maths]);
+    expect(await examsTomorrow.evaluate(ctx(B))).toEqual([]);
+    await ds.query(`UPDATE exams SET name = 'Bare' WHERE id = $1 AND tenant_id = $2`, [bare, B.id]);
+
     // A component subject without a sitting: the schedule is incomplete, so families cannot see it.
     const science = await mkSubject(B, 'Science');
-    const maths = await mkSubject(B, 'Math');
     await mkExam(B, 'DRAFT', [science, maths], [maths]);
     expect(await examsTomorrow.evaluate(ctx(B))).toEqual([]);
   });
