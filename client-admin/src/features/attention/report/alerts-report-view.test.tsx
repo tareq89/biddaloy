@@ -115,6 +115,23 @@ describe('AlertsReportView', () => {
     expect(last.get('format')).toBe('json');
   });
 
+  it.each([
+    ['2025-11', '2025-11'], // 11 months back: the oldest month the server keeps
+    ['2025-10', '2026-10'], // 12 months back: the server would 400, so it falls back to this month
+  ])('offers only the 12 months the server accepts (%s → %s)', async (asked, sent) => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-10T06:00:00Z'));
+    try {
+      const seen: URLSearchParams[] = [];
+      server.use(reportHandler(seen));
+      renderView(`/?month=${asked}`);
+      await waitFor(() => expect(seen.length).toBeGreaterThan(0));
+      expect(seen.at(-1)!.get('month')).toBe(sent);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('downloads the CSV with format=csv', async () => {
     const user = userEvent.setup();
     const seen: URLSearchParams[] = [];
