@@ -7,6 +7,7 @@ import { UserRole } from '@biddaloy/shared';
 import { AppModule } from '../../../app.module';
 import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { buildValidationPipeOptions } from '../../../validation-pipe';
+import { AttentionScheduler } from '../engine/attention-scheduler';
 import { SEED_ADMIN_PASSWORD, SEED_ADMIN_PASSWORD_HASH } from '@test/constants';
 
 /**
@@ -56,6 +57,9 @@ describe('Attention isolation E2E', () => {
     configureApiVersioning(app);
     app.useGlobalPipes(new ValidationPipe(buildValidationPipeOptions()));
     await app.init();
+    // The app's own BullMQ sweeps run every rule at the real clock (CI: Saturday 09:08 Dhaka) and
+    // can resolve or add alerts between a fixture and a read. Only this file's fixtures may write.
+    await app.get(AttentionScheduler).worker.close();
     ds = app.get(DataSource);
 
     for (const [sid, slug] of [
