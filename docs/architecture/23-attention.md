@@ -201,6 +201,25 @@ flowchart TD
 CRITICAL alerts ignore the mute. Quiet hours still hold them until the window
 ends. Details: `delivery/alert-delivery.service.ts`.
 
+**Who sets the mute.** Each user mutes categories for themselves. The mute is
+stored on the account, not the school membership, so it applies in every
+school the user belongs to. Quiet hours are a school setting and are only shown
+here.
+
+| Who            | Page              | Route                                               |
+| -------------- | ----------------- | --------------------------------------------------- |
+| Staff          | `/security`       | `GET` / `PATCH /users/me/preferences/notifications` |
+| Parent/student | `/portal/account` | same                                                |
+
+```http
+PATCH /users/me/preferences/notifications
+{ "mutedCategories": ["HOMEWORK"] }
+
+200 { "mutedCategories": ["HOMEWORK"], "quietHours": { "start": "21:00", "end": "07:00" } }
+```
+
+The user id comes from the login token, so a user can only change their own mute.
+
 ### Guardian SMS fallback (D29)
 
 Some guardians have no login, or never turned push on. For two rules
@@ -256,12 +275,24 @@ POST /attention/manual
 Limits: 20 manual sends per school in any rolling 24 hours, end date at most 30
 days out, `actionUrl` must be an app-relative path, 200 ids per audience list.
 The cap check runs inside the same lock as the insert, so two parallel sends
-cannot both slip under it.
+cannot both slip under it. Withdrawn alerts still count toward the 20.
+
+The send route has two different 429s: the per-minute request throttle, and the
+daily cap. The daily cap's error carries `details.code: "MANUAL_DAILY_LIMIT"`
+(with `details.limit`), so the page can tell them apart. The two service 400s
+carry `MANUAL_NO_RECIPIENTS` and `MANUAL_EXPIRES_RANGE`.
+
+The two pages:
+
+| Page                         | Permission          | What it shows                                       |
+| ---------------------------- | ------------------- | --------------------------------------------------- |
+| `/communications/send-alert` | `ALERT_SEND`        | The send form (full page) and the sent-alerts list. |
+| `/reports/alerts`            | `ALERT_REPORT_READ` | The monthly report with a CSV download.             |
 
 **The report** (`GET /attention/report?month=2026-10`, `ALERT_REPORT_READ`, add
 `format=csv` for a file) counts rule alerts per rule and per section. The
 section is read from **`params.sectionId`** (and `params.sectionLabel`). An
-alert without it counts in the "no section" row. So a rule that is about a
+alert without it counts in the "no section" column. So a rule that is about a
 section must put `sectionId` in its `params`.
 
 ## Monitoring
@@ -448,13 +479,13 @@ warms the caches):
 - **`platform.provider_failures` has no index and scans the table.** EXPLAIN
   shows a parallel sequential scan of `communication_logs`, 8,198 buffers, about
   30 ms at 500k rows. It runs once an hour, once for the whole platform, so
-  30-150 ms is fine today. A partial index would help a lot: when I created
+  30-150 ms is fine today. A partial index would help a lot: with
   `ON communication_logs (updated_at) WHERE status = 'FAILED'` on the same data,
-  the same query took 0.2-0.4 ms (a bitmap index scan, 74 buffers). I dropped the
-  index again; it is **not** in a migration. Add it if `communication_logs`
+  the same query took 0.2-0.4 ms (a bitmap index scan, 74 buffers). The index was
+  dropped again; it is **not** in a migration. Add it if `communication_logs`
   grows past a few million rows. The scan grows with the table, the index does not.
 
-## Run-to-run noise
+### Run-to-run noise
 
 The numbers moved by about 40 % between the two runs (FAST steady 545 ms, then
 339 ms) on identical data. That is the shared machine, not the code. The

@@ -32,13 +32,13 @@ flowchart LR
 
 ## 2. Alert thresholds (configure these in Sentry / your uptime tool)
 
-| Signal                               | Threshold                               | Where to configure                                           |
-| ------------------------------------ | --------------------------------------- | ------------------------------------------------------------ |
-| 5xx rate                             | > 1% of requests over 5 min             | Sentry alert rule on the server project                      |
-| `communications job stalled` message | any occurrence                          | Sentry alert rule (issue alert, not metric)                  |
-| Readiness failing                    | `/health/ready` returns 503 for > 2 min | Uptime monitor hitting `/health/ready` with `X-Health-Token` |
-| Attention cron check-in missed       | > 15 min, during school hours           | Sentry Cron Monitor (5-min schedule, 15-min margin)          |
-| Engine stale reported by readiness   | `checks.attention = "stale"` for > 15 min | Uptime monitor body match on `/health/ready`               |
+| Signal                               | Threshold                                 | Where to configure                                           |
+| ------------------------------------ | ----------------------------------------- | ------------------------------------------------------------ |
+| 5xx rate                             | > 1% of requests over 5 min               | Sentry alert rule on the server project                      |
+| `communications job stalled` message | any occurrence                            | Sentry alert rule (issue alert, not metric)                  |
+| Readiness failing                    | `/health/ready` returns 503 for > 2 min   | Uptime monitor hitting `/health/ready` with `X-Health-Token` |
+| Attention cron check-in missed       | > 15 min                                  | Sentry Cron Monitor (5-min schedule, 15-min margin)          |
+| Engine stale reported by readiness   | `checks.attention = "stale"` for > 15 min | Uptime monitor body match on `/health/ready`                 |
 
 ## 3. Runbooks
 
@@ -117,7 +117,7 @@ flowchart TD
    `failingRules[].lastError` is the first 200 characters of the error. Keys
    live in Redis as `attention:failing:<rule>` for 24 hours.
 4. **Slow rules.** Search the server log for `Rule <key> failed for tenant ...:
-   rule budget exceeded`. A rule gets 10 seconds, then is skipped for that
+rule budget exceeded`. A rule gets 10 seconds, then is skipped for that
    school; other rules still run. Sweep time is also logged:
    `Attention FAST sweep: 3 tenants in 412ms`.
 5. **Re-arm.** Schedulers are registered at boot with `upsertJobScheduler`, so
@@ -129,14 +129,14 @@ Measured sweep and summary timings: [23-attention.md](23-attention.md#performanc
 
 ## 4. Env var reference
 
-| Variable                    | Required in prod? | What it does                                                           |
-| --------------------------- | ----------------- | ---------------------------------------------------------------------- |
-| `SENTRY_DSN`                | No (recommended)  | Server Sentry project. Unset = server Sentry is a no-op.               |
-| `SENTRY_ENVIRONMENT`        | No                | Defaults to `NODE_ENV`.                                                |
-| `SENTRY_RELEASE`            | No                | Tags events with a release/version string.                             |
-| `SENTRY_TRACES_SAMPLE_RATE` | No                | Fraction of requests traced, default `0.1`.                            |
-| `HEALTH_TOKEN`              | No (recommended)  | Required to call `/health/ready` at all — unset means that route 404s. |
-| `LOG_LEVEL`                 | No                | Pino's log level; see `.env.example`.                                  |
+| Variable                    | Required in prod? | What it does                                                                 |
+| --------------------------- | ----------------- | ---------------------------------------------------------------------------- |
+| `SENTRY_DSN`                | No (recommended)  | Server Sentry project. Unset = server Sentry is a no-op.                     |
+| `SENTRY_ENVIRONMENT`        | No                | Defaults to `NODE_ENV`.                                                      |
+| `SENTRY_RELEASE`            | No                | Tags events with a release/version string.                                   |
+| `SENTRY_TRACES_SAMPLE_RATE` | No                | Fraction of requests traced, default `0.1`.                                  |
+| `HEALTH_TOKEN`              | No (recommended)  | Required to call `/health/ready` at all — unset means that route 404s.       |
+| `LOG_LEVEL`                 | No                | Pino's log level; see `.env.example`.                                        |
 | `ATTENTION_SENTRY_CRON_URL` | No (recommended)  | Sentry Cron Monitor check-in URL for attention sweeps; unset = no check-ins. |
 
 ## 5. Web push (VAPID keys)
