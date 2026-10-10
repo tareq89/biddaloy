@@ -17,6 +17,7 @@ import { normalizeSearchTerm } from '../../common/utils/normalize-search-term.ut
 import { BN_COLLATION } from '../../common/constants/collation';
 import { normalizeEmail } from '../auth/normalize-identifier';
 import {
+  AlertCategory,
   AuditAction,
   EMPLOYEE_ROLES,
   GUARDIAN_ROLES,
@@ -26,7 +27,6 @@ import {
 import { School } from '../schools/entities/school.entity';
 import { DEFAULT_ATTENTION_SETTINGS } from '../schools/settings/tenant-settings-defaults';
 import { resolveTenantSettings } from '../schools/settings/tenant-settings-resolver';
-import { AlertCategory } from '@biddaloy/shared';
 import type {
   UpdateNotificationPrefsDto,
   NotificationPrefsDto,
