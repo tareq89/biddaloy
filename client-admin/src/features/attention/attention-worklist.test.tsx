@@ -93,6 +93,21 @@ describe('AttentionWorklist (staff)', () => {
     expect(await screen.findByText('Closed for now')).toBeTruthy();
   });
 
+  it('never asks staff for /students/mine (parent/student only, a 403 for staff)', async () => {
+    let mine = 0;
+    server.use(
+      itemsHandler([alertItemFactory({ title: 'Staff item' })]),
+      http.get('*/students/mine', () => {
+        mine += 1;
+        return HttpResponse.json([]);
+      }),
+    );
+    renderStaff();
+
+    expect(await screen.findByText('Staff item')).toBeTruthy();
+    expect(mine).toBe(0);
+  });
+
   it('sends the category and section filters', async () => {
     const seen: URLSearchParams[] = [];
     server.use(itemsHandler([], seen));
