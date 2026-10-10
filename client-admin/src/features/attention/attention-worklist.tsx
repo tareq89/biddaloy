@@ -29,7 +29,7 @@ import {
   useAttentionItems,
   useClassSections,
   useHideAttentionItem,
-  useMyStudents,
+  myStudentsQueryOptions,
   useNotifications,
   useSnoozeAttentionItem,
   useUnreadNotificationCount,
@@ -43,6 +43,7 @@ import {
   type FilterFieldDescriptor,
 } from '@biddaloy/ui/shells';
 import { formatDateTime } from '@biddaloy/ui/utils';
+import { useQuery } from '@tanstack/react-query';
 import { ArrowRightIcon, CheckCheckIcon, InfoIcon } from 'lucide-react';
 import * as React from 'react';
 
@@ -71,8 +72,14 @@ export function AttentionWorklist({ scope, tab, onTabChange }: AttentionWorklist
   const category = CATEGORIES.find((c) => c === categoryRaw);
   const classesQuery = useAllClasses({ enabled: scope === 'staff' });
   const sectionsQuery = useClassSections(scope === 'staff' ? class_id : undefined);
-  const childrenQuery = useMyStudents();
+  // `/students/mine` is parent/student only: staff would get a 403.
+  const childrenQuery = useQuery({ ...myStudentsQueryOptions(), enabled: scope === 'portal' });
   const children = scope === 'portal' ? (childrenQuery.data ?? []) : [];
+  // A failed hide/snooze belongs to the view it happened in.
+  const resetActionErrors = () => {
+    hide.reset();
+    snooze.reset();
+  };
 
   const query = useAttentionItems({
     tab,
@@ -204,7 +211,9 @@ export function AttentionWorklist({ scope, tab, onTabChange }: AttentionWorklist
       id: 'who',
       header: t('worklist.colWho'),
       accessorFn: (item) =>
-        [item.studentName, item.sectionLabel].filter(Boolean).join(' · ') || '—',
+        item.studentName && item.sectionLabel
+          ? t('item.about', { student: item.studentName, section: item.sectionLabel })
+          : item.studentName || item.sectionLabel || '—',
       card: 'subtitle',
     },
     {
@@ -242,7 +251,13 @@ export function AttentionWorklist({ scope, tab, onTabChange }: AttentionWorklist
         title={t('worklist.title')}
         subtitle={scope === 'portal' ? t('worklist.portalSubtitle') : t('worklist.subtitle')}
       />
-      <Tabs value={tab} onValueChange={(next) => onTabChange(next as WorklistTab)}>
+      <Tabs
+        value={tab}
+        onValueChange={(next) => {
+          resetActionErrors();
+          onTabChange(next as WorklistTab);
+        }}
+      >
         <TabsList variant="line" aria-label={t('worklist.tabsLabel')}>
           <TabsTrigger value="active">
             {tab === 'active' && query.data
@@ -261,9 +276,13 @@ export function AttentionWorklist({ scope, tab, onTabChange }: AttentionWorklist
           <FilterBar
             fields={fields}
             values={state.filters}
-            onChange={(patch) =>
-              actions.setFilters({ ...patch, ...('class_id' in patch ? { section_id: null } : {}) })
-            }
+            onChange={(patch) => {
+              resetActionErrors();
+              actions.setFilters({
+                ...patch,
+                ...('class_id' in patch ? { section_id: null } : {}),
+              });
+            }}
             resultCount={total}
           />
           {(hide.isError || snooze.isError) && (

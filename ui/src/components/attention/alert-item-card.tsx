@@ -41,7 +41,10 @@ export function AlertItemCard({
   const { locale } = useLocale();
   const titleId = React.useId();
   const whyId = React.useId();
-  const about = [item.studentName, item.sectionLabel].filter(Boolean).join(' · ');
+  const about =
+    item.studentName && item.sectionLabel
+      ? t('item.about', { student: item.studentName, section: item.sectionLabel })
+      : (item.studentName ?? item.sectionLabel);
   const canSnooze = onSnooze && item.severity === AlertSeverity.WARNING && item.closable;
 
   return (
