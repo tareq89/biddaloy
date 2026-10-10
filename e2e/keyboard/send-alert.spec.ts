@@ -86,6 +86,8 @@ test('open from the sidebar, fill by keyboard, Esc asks, Ctrl+Enter sends', asyn
     // The full-page shell asks (its own dialog) before closing a dirty form.
     const ask = page.getByRole('alertdialog', { name: t('common.fullPage.discardTitle') });
     await expect(ask).toBeVisible();
+    // Visible is not yet listening: Esc only reaches the question once focus has moved into it.
+    await expect.poll(() => ask.evaluate((el) => el.contains(document.activeElement))).toBe(true);
     await page.keyboard.press('Escape'); // closes the question, not the page
     await expect(ask).toBeHidden();
     await expect(page.getByLabel(t('attention.composer.titleLabel'), { exact: true })).toHaveValue(
