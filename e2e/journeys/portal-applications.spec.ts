@@ -141,6 +141,8 @@ test.describe.serial('guardian: file, follow, comment, withdraw', () => {
         await adminApiSession(request),
         await seededChildId(request),
         2,
+        // February: the staff specs take January for the same seeded child (see `freeLeaveDays`).
+        { from: '2026-02-01', to: '2026-02-28' },
       );
       await openSeededChild(page, request);
       await fillLeaveDetails(page, days[0]!, 'E2E জ্বর');

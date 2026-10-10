@@ -87,6 +87,8 @@ describe('/portal/applications/$applicationId', () => {
       locale: 'en',
     });
     expect(await screen.findByText('This application could not be found.')).toBeTruthy();
+    expect(screen.getByRole('heading', { level: 1 })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /retry|try again/i })).toBeNull();
     expect(screen.getByRole('link', { name: 'Back to applications' })).toBeTruthy();
   });
 });

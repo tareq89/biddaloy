@@ -7,7 +7,7 @@ import {
   useApplication,
 } from '@biddaloy/ui/hooks';
 import { RegionConfigProvider, useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
-import { DetailShell, PageContainer, type PageAction } from '@biddaloy/ui/shells';
+import { DetailShell, PageContainer, PageHeader, type PageAction } from '@biddaloy/ui/shells';
 import { formatDate } from '@biddaloy/ui/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { ArrowLeftIcon, PrinterIcon, UndoIcon } from 'lucide-react';
@@ -79,11 +79,14 @@ function PortalApplicationDetailPage() {
   if (query.isError || !app) {
     const notFound = query.error instanceof ApiError && query.error.statusCode === 404;
     return (
+      // The <h1> keeps `useRouteFocus` a target; a 404 gets no "Try again" (it can never succeed).
       <PageContainer>
-        <ErrorState
-          message={notFound ? t('detail.notFound') : tDetail('states.loadError')}
-          onRetry={() => void query.refetch()}
-        />
+        <PageHeader title={t('title')} />
+        {notFound ? (
+          <p role="alert">{t('detail.notFound')}</p>
+        ) : (
+          <ErrorState message={tDetail('states.loadError')} onRetry={() => void query.refetch()} />
+        )}
         <Link
           to="/portal/applications"
           className="inline-flex min-h-11 items-center font-medium text-primary underline"

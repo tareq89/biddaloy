@@ -91,9 +91,7 @@ function PortalApplications() {
   // `view: 'mine'` already holds everything about a linked child, whoever filed it (D43). Not
   // asked until a child is known: without `student_id` the answer would only be thrown away.
   const listQuery = useApplications(
-    selected
-      ? { view: 'mine', student_id: selected.id, page, limit: PAGE_SIZE }
-      : { view: 'mine', page, limit: PAGE_SIZE },
+    { view: 'mine', ...(selected && { student_id: selected.id }), page, limit: PAGE_SIZE },
     { enabled: selected !== undefined },
   );
 

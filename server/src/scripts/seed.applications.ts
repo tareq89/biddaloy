@@ -821,7 +821,8 @@ export async function ensurePortalApplicationsSeed(
     const day = '2026-03-12';
     if (!linked) {
       console.warn(
-        'student@ could not be linked to the parent child — skipping the student-filed portal leave.',
+        'student@ could not be linked to the parent child — skipping the student-filed portal leave. ' +
+          'Later runs will not add it (the portal seed is already marked done): reset the database and re-seed after fixing the link.',
       );
     } else {
       await insert({

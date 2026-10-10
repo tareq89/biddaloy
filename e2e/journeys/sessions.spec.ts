@@ -5,9 +5,11 @@ import {
   type Page,
 } from '@playwright/test';
 
+import { adminApiSession, createInvitedParentUser, E2E_PASSWORD } from '../api';
 import { shells } from '../config';
-import { expect, loggedIn, test } from '../fixtures/test';
-import { SEED_PASSWORD_ENV, SEED_ROLE_EMAILS, type SeedRole } from '../seed-contract';
+import { expect, guest, loggedIn, test } from '../fixtures/test';
+import { ActivatePage } from '../pages/activate-page';
+import { SEED_PASSWORD_ENV, SEED_ROLE_EMAILS } from '../seed-contract';
 
 /**
  * [12.8] The "stolen phone" scenario: signing out one device's session from
@@ -15,12 +17,13 @@ import { SEED_PASSWORD_ENV, SEED_ROLE_EMAILS, type SeedRole } from '../seed-cont
  *
  * Two independent logins as the **same** role, each its own refresh-token
  * family (`refresh-token.service.ts`'s rotation model — a session is a
- * family, not a row). `student` is used, not `parent`: `parent` is the busiest seeded credential in
- * this suite (several other specs sign in as it), and any spec that
- * mutates its session state risks poisoning those. `student` carries no
- * such risk here since this spec only revokes a *session*, not the
- * password. (No spec rotates a seeded password any more:
- * `portal-account.spec.ts` changes the password of an account it mints.)
+ * family, not a row). The portal test mints and activates its **own**
+ * STUDENT account rather than signing in as a seeded one: revoking "every
+ * other session" would also sign out any parallel spec using the same
+ * seeded login (`portal-applications.spec.ts` signs in as `student`), and a
+ * fresh account starts with no stray sessions, so its baseline is a fixed
+ * 0. Same pattern as `portal-account.spec.ts`'s password test. The staff
+ * test still uses the seeded `teacher` (see its own baseline read).
  *
  * **Why the assertion after revoke is a full page load, not a client-side
  * navigation:** revoking a family kills its refresh token, but the
@@ -36,34 +39,22 @@ import { SEED_PASSWORD_ENV, SEED_ROLE_EMAILS, type SeedRole } from '../seed-cont
  * `DELETE /auth/sessions/:id` contract at all.
  */
 
-async function freshSessionStorageState(role: SeedRole) {
-  const password = process.env[SEED_PASSWORD_ENV];
-  if (!password) {
-    throw new Error(`${SEED_PASSWORD_ENV} is not set — see server/.env.example.`);
-  }
+/** A brand-new login (its own refresh family) as `credentials`, active in its `role` membership. */
+async function freshSessionStorageState(
+  credentials: { email: string; password: string } | { phone: string; password: string },
+  role: string,
+) {
   const ctx = await playwrightRequest.newContext({ baseURL: shells.app.baseURL });
   try {
-    let response;
-    let failure = '';
-    for (let attempt = 0; attempt < 5; attempt += 1) {
-      response = await ctx.post('/api/v1/auth/login', {
-        data: { email: SEED_ROLE_EMAILS[role], password },
-      });
-      if (response.ok()) break;
-      failure = `Login failed for ${SEED_ROLE_EMAILS[role]}: ${response.status()} ${await response.text()}`;
-      if (response.status() !== 401 || attempt === 4) throw new Error(failure);
-      // Belt and braces: a seeded login 401s only if some spec has moved its
-      // password (none does today), so retry briefly before giving up.
-      await new Promise((resolve) => setTimeout(resolve, 500));
+    const response = await ctx.post('/api/v1/auth/login', { data: credentials });
+    if (!response.ok()) {
+      throw new Error(`Login failed: ${response.status()} ${await response.text()}`);
     }
-    if (!response?.ok()) throw new Error(failure || 'Login failed without a response');
     const body = (await response.json()) as {
       memberships: { tenantId: string; role: string; name: string }[];
     };
-    const membership = body.memberships.find((m) => m.role === role.toUpperCase());
-    if (!membership) {
-      throw new Error(`No ${role.toUpperCase()} membership for ${SEED_ROLE_EMAILS[role]}`);
-    }
+    const membership = body.memberships.find((m) => m.role === role);
+    if (!membership) throw new Error(`No ${role} membership for this login`);
     const state = await ctx.storageState();
     return {
       ...state,
@@ -84,9 +75,20 @@ async function freshSessionStorageState(role: SeedRole) {
   }
 }
 
-async function newLoggedInContext(browser: Browser, role: SeedRole): Promise<BrowserContext> {
-  const storageState = await freshSessionStorageState(role);
+async function newLoggedInContext(
+  browser: Browser,
+  ...login: Parameters<typeof freshSessionStorageState>
+): Promise<BrowserContext> {
+  const storageState = await freshSessionStorageState(...login);
   return browser.newContext({ baseURL: shells.app.baseURL, storageState });
+}
+
+function seededTeacherLogin(): Parameters<typeof freshSessionStorageState> {
+  const password = process.env[SEED_PASSWORD_ENV];
+  if (!password) {
+    throw new Error(`${SEED_PASSWORD_ENV} is not set — see server/.env.example.`);
+  }
+  return [{ email: SEED_ROLE_EMAILS.teacher, password }, 'TEACHER'];
 }
 
 /**
@@ -105,8 +107,8 @@ async function sessionRowCount(devicePage: Page): Promise<number> {
 /**
  * Clicks every non-current row's "Sign out" button, one at a time, until
  * only the current device is left. The seeded role here can carry more
- * than the two families this test itself creates — another spec's login
- * as the same shared seed role, or (on a retry) this same test's own
+ * than the two families the staff test itself creates — another spec's login
+ * as the same shared seed role, or (on a retry) that same test's own
  * previous attempt, whose sessions were never server-side revoked even
  * though `deviceBContext.close()` below ends the browser context. Revoking
  * *every* non-current row, rather than guessing which one is "device A's",
@@ -132,49 +134,49 @@ async function revokeAllOtherSessions(devicePage: Page): Promise<void> {
 }
 
 test.describe('Portal: sign out a stolen device from another device', () => {
-  test.use(loggedIn('student'));
+  test.use(guest);
 
   test('revoking another session from a second device signs that device out', async ({
     page,
     browser,
+    request,
   }) => {
-    // `page` (from the `loggedIn('student')` fixture) is "device A" — the
-    // one whose phone gets stolen. "Device B" is a second, independent
-    // login as the same account — created only *after* device A has read
-    // its baseline below, otherwise B's own family is already in that
-    // baseline and the `+ 1` assertion is off by one.
+    // `page` is "device A" — the one whose phone gets stolen. "Device B" is
+    // a second, independent login as the same fresh account.
+    const admin = await adminApiSession(request);
+    const account = await createInvitedParentUser(request, admin, 'Sessions E2E', 'STUDENT');
     let deviceBContext: BrowserContext | undefined;
 
     try {
-      let baselineCount = 0;
-
-      await test.step('device A boots into the portal, establishing its own session', async () => {
+      await test.step('device A activates the account, establishing its own session', async () => {
+        const activate = new ActivatePage(page);
+        await activate.goto(account.token);
+        await activate.setPassword(E2E_PASSWORD);
+        await expect(page).toHaveURL(/\/portal/);
         await page.goto('/portal/account');
         await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
-        // The seeded `student` account can already carry other live
-        // families from elsewhere in the suite (this spec's own retries,
-        // or another spec's login as the same seed role) — so the baseline
-        // is whatever device A observes here, not a hardcoded 1. Note the
-        // single-device case renders `SessionList`'s empty state with no
-        // `session-row` at all, so a clean account reads as 0 here, not 1.
-        baselineCount = await sessionRowCount(page);
+        // The only device so far: `SessionList` renders its empty state,
+        // with no `session-row` at all.
+        expect(await sessionRowCount(page)).toBe(0);
       });
 
-      deviceBContext = await newLoggedInContext(browser, 'student');
+      deviceBContext = await newLoggedInContext(
+        browser,
+        { phone: account.phone, password: E2E_PASSWORD },
+        'STUDENT',
+      );
       const deviceB = await deviceBContext.newPage();
 
-      await test.step('device B opens the Devices card and sees one more session than device A did', async () => {
+      await test.step('device B opens the Devices card and sees both sessions', async () => {
         await deviceB.goto('/portal/account');
         const rows = deviceB.getByTestId('session-row');
-        // With device B added there are always at least two live
-        // families, so the list (not the empty state) is guaranteed here.
-        await expect(rows).toHaveCount(Math.max(baselineCount, 1) + 1);
+        await expect(rows).toHaveCount(2);
         // Exactly one row is device B's own (`data-current="true"`); the
         // rest, including device A's, are the ones this test revokes below.
         await expect(rows.and(deviceB.locator('[data-current="true"]'))).toHaveCount(1);
       });
 
-      await test.step("device B signs out device A's session (and any other stray one)", async () => {
+      await test.step("device B signs out device A's session", async () => {
         await revokeAllOtherSessions(deviceB);
         // Down to just the current device — `SessionList` swaps to its
         // empty state at that point (`onlyCurrentDevice`, session-list.tsx),
@@ -209,12 +211,15 @@ test.describe('Staff: sign out a device from /security', () => {
       await test.step('device A boots into the staff shell', async () => {
         await page.goto('/security');
         await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
-        // See the portal journey's own comments above on why this is a
-        // dynamic baseline read *before* device B logs in.
+        // The seeded `teacher` can already carry other live families (this
+        // spec's own retries, or another spec's login as the same role), so
+        // the baseline is whatever device A observes here, read *before*
+        // device B logs in. A single-device account shows `SessionList`'s
+        // empty state (no `session-row`), so a clean account reads 0, not 1.
         baselineCount = await sessionRowCount(page);
       });
 
-      deviceBContext = await newLoggedInContext(browser, 'teacher');
+      deviceBContext = await newLoggedInContext(browser, ...seededTeacherLogin());
       const deviceB = await deviceBContext.newPage();
 
       await test.step('device B opens /security and revokes the other session(s)', async () => {

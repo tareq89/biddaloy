@@ -128,8 +128,9 @@ test('the phone AC end to end: a guardian-contact edit changes what the reminder
  * (`AuthService.changePassword` -> `revokeAllForUser`). Under `fullyParallel:
  * true`, any spec signed in as the same seeded role at that moment gets a 401
  * at login or loses its refresh family mid-test (`portal-applications.spec.ts`
- * and `sessions.spec.ts` both sign in as `student`). A fresh account cannot
- * collide with anyone, and there is no seed password to put back afterwards.
+ * signs in as `student`). A fresh account cannot collide with anyone, and
+ * there is no seed password to put back afterwards. (`sessions.spec.ts`
+ * mints its own account for the same reason.)
  *
  * STUDENT, not PARENT, for the reason the contact-change test below gives:
  * `/portal/account` errors for a PARENT with no `guardians` row. The profile
