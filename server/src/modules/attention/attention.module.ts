@@ -15,6 +15,9 @@ import { AttentionHealthService } from './health/attention-health.service';
 import { PlatformAttentionHealthController } from './health/platform-attention-health.controller';
 import { AttentionController } from './api/attention.controller';
 import { AttentionQueryService } from './api/attention-query.service';
+import { AuditModule } from '../audit/audit.module';
+import { ManualAlertsController } from './manual/manual-alerts.controller';
+import { ManualAlertsService } from './manual/manual-alerts.service';
 import { Alert } from './entities/alert.entity';
 import { AlertRecipient } from './entities/alert-recipient.entity';
 import { RuleRegistryService } from './rules/rule-registry.service';
@@ -51,6 +54,7 @@ import { BillingRulesModule } from './rules/billing/billing-rules.module';
     SchoolsModule,
     CalendarModule,
     ClassModule,
+    AuditModule,
     SetupRulesModule,
     SystemRulesModule,
     StructureRulesModule,
@@ -67,13 +71,14 @@ import { BillingRulesModule } from './rules/billing/billing-rules.module';
     PlatformRulesModule,
     BillingRulesModule,
   ],
-  controllers: [AttentionController, PlatformAttentionHealthController],
+  controllers: [AttentionController, ManualAlertsController, PlatformAttentionHealthController],
   providers: [
     RuleRegistryService,
     RuleContextService,
     AlertWriterService,
     AttentionScheduler,
     AttentionQueryService,
+    ManualAlertsService,
     AlertDeliveryService,
     AttentionHealthService,
   ],

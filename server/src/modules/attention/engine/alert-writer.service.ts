@@ -2,6 +2,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
 import Redis from 'ioredis';
+import { randomUUID } from 'crypto';
 import { AlertRuleKey, AlertSeverity, UserRole } from '@biddaloy/shared';
 import { TENANT_STATUS_REDIS } from '../../schools/tenant-status.service';
 import {
@@ -26,7 +27,7 @@ type Row = Record<string, any>;
 interface AlertInsert {
   tenantId: string;
   ruleKey: string;
-  source: 'RULE';
+  source: 'RULE' | 'MANUAL';
   severity: string;
   category: string;
   dedupeKey: string;
@@ -37,6 +38,8 @@ interface AlertInsert {
   now: Date;
   expiresAt: Date;
   recipients: Recipient[];
+  /** MANUAL alerts only (67.5.01). */
+  manual?: { title: string; body: string; audience: object; createdByUserId: string };
 }
 
 export interface ApplyResult {
@@ -278,6 +281,62 @@ export class AlertWriterService {
     return { created, updated, resolved, openedRecipientIds: opened };
   }
 
+  /**
+   * [67.5.01] One MANUAL alert + its recipients, written in a single transaction. Never goes
+   * through `apply` (its resolve-missing step would close other manual alerts). `guard` runs
+   * inside the transaction under the tenant's manual lock, so a per-tenant cap check can't race.
+   */
+  async writeManual(
+    tenantId: string,
+    input: {
+      severity: AlertSeverity;
+      title: string;
+      body: string;
+      audience: object;
+      actionUrl?: string;
+      createdByUserId: string;
+      expiresAt: Date;
+      userIds: string[];
+    },
+    guard?: (em: EntityManager) => Promise<void>,
+  ): Promise<string> {
+    const opened: string[] = [];
+    const touched = new Set<string>();
+    const now = new Date();
+    const id = await this.dataSource.transaction(async (em) => {
+      await lockRule(em, tenantId, 'manual.alert');
+      await guard?.(em);
+      return this.insertAlertWithRecipients(
+        em,
+        {
+          tenantId,
+          ruleKey: 'manual.alert',
+          source: 'MANUAL',
+          severity: input.severity,
+          category: 'MANUAL',
+          dedupeKey: `manual:${randomUUID()}`,
+          params: {},
+          actionUrl: input.actionUrl,
+          escalationLevel: 0,
+          now,
+          expiresAt: input.expiresAt,
+          // role null = personal: shows in every role and shell (D15)
+          recipients: [...new Set(input.userIds)].map((userId) => ({ userId, role: null })),
+          manual: {
+            title: input.title,
+            body: input.body,
+            audience: input.audience,
+            createdByUserId: input.createdByUserId,
+          },
+        },
+        opened,
+        touched,
+      );
+    });
+    await this.afterCommit(tenantId, opened, touched);
+    return id!;
+  }
+
   /** Expire due ACTIVE alerts (and their live recipients) for one tenant. */
   expireDue(tenantId: string, now: Date): Promise<number> {
     return this.closeAlerts(tenantId, now, 'EXPIRED', `status = 'ACTIVE' AND expires_at <= $2`, [
@@ -340,8 +399,9 @@ export class AlertWriterService {
     const rows = await run(
       em,
       `INSERT INTO alerts (tenant_id, rule_key, source, severity, category, dedupe_key, subject_type, subject_id,
-                           params, action_url, escalation_level, raised_at, last_evaluated_at, expires_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10,$11,$12,$12,$13)
+                           params, action_url, escalation_level, raised_at, last_evaluated_at, expires_at,
+                           created_by_user_id, manual_title, manual_body, manual_audience)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10,$11,$12,$12,$13,$14,$15,$16,$17::jsonb)
        ON CONFLICT (tenant_id, rule_key, dedupe_key) WHERE status = 'ACTIVE' DO NOTHING RETURNING id`,
       [
         a.tenantId,
@@ -357,6 +417,10 @@ export class AlertWriterService {
         a.escalationLevel,
         a.now,
         a.expiresAt,
+        a.manual?.createdByUserId ?? null,
+        a.manual?.title ?? null,
+        a.manual?.body ?? null,
+        a.manual ? JSON.stringify(a.manual.audience) : null,
       ],
     );
     if (!rows.length) return null;
