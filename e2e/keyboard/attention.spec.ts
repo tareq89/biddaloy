@@ -137,6 +137,10 @@ test.describe('staff', () => {
 
 test.describe('portal', () => {
   test.use(loggedIn('parent'));
+  // The production build's service worker fetches /api itself, and `page.route()`
+  // never sees a request a service worker makes: without this the real, seeded
+  // items reach the modal instead of the stub (same as focus-management.spec.ts).
+  test.use({ serviceWorkers: 'block' });
 
   test('bar, modal with the child line, Esc returns focus, Enter on the card goes to fees', async ({
     page,
