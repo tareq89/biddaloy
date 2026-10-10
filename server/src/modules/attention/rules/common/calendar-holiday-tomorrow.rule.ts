@@ -30,6 +30,8 @@ export class CalendarHolidayTomorrowRule implements AttentionRuleShape {
   async evaluate(ctx: RuleContext): Promise<RuleFinding[]> {
     const tomorrow = addDaysIso(ctx.localDate, 1);
     // Same filters as SchoolCalendarService.getWorkingDays, school-wide branch.
+    // Announce once, on the working evening before: inside a multi-day break (today off) only a
+    // holiday that starts tomorrow is news. A break that resumes after a working day announces again.
     // ponytail: class-scoped holidays skipped, add per-class audiences when a school asks.
     const events: { id: string; name: string; audience: string; end_date: string }[] =
       await this.dataSource.query(
@@ -37,8 +39,9 @@ export class CalendarHolidayTomorrowRule implements AttentionRuleShape {
          FROM calendar_events h
          WHERE h.tenant_id = $1 AND h.deleted_at IS NULL AND h.published_at IS NOT NULL
            AND h.counts_as_working_day = false AND h.start_date <= $2 AND h.end_date >= $2
+           AND ($3::boolean OR h.start_date = $2)
            AND NOT EXISTS (SELECT 1 FROM calendar_event_classes ec WHERE ec.event_id = h.id AND ec.tenant_id = $1)`,
-        [ctx.tenantId, tomorrow],
+        [ctx.tenantId, tomorrow, ctx.isWorkingDay],
       );
     if (!events.length) return [];
 
