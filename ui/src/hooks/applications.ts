@@ -119,6 +119,10 @@ export function useApplicationPendingCount({ enabled = true }: { enabled?: boole
     // New applications arrive from other users: poll while the tab is visible.
     refetchInterval: 60_000,
     retry: shouldRetryQuery,
+    // Shell chrome (the sidebar badge), like the trial bar: a suspended
+    // school's 403 must not throw into the route boundary, which would
+    // unmount the shell (and its school switcher) on every poll [15.4.2].
+    throwOnError: false,
   });
 }
 

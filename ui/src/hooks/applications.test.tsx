@@ -3,11 +3,13 @@
  * the FEE_WAIVER step-up retry, decision cache writes, letter preview, stepLabel.
  */
 import { ApplicationType } from '@biddaloy/shared';
+import { QueryClient } from '@tanstack/react-query';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { isTenantSuspendedError } from '../api/errors';
 import { i18n } from '../i18n/i18n';
 import { REGION_BD_BN } from '../i18n/region-config';
 import { server } from '../test/msw/server';
@@ -90,6 +92,35 @@ describe('useApplicationPendingCount', () => {
     });
 
     await waitFor(() => expect(result.current.data?.total).toBe(5));
+  });
+
+  it('never rethrows a suspended school 403, even under the app client throwOnError default [15.4.2]', async () => {
+    server.use(
+      http.get('/api/v1/applications/pending-count', () =>
+        HttpResponse.json(
+          {
+            statusCode: 403,
+            message: 'This school has been suspended',
+            timestamp: new Date().toISOString(),
+            path: '/api/v1/applications/pending-count',
+            requestId: 'r1',
+            details: { code: 'TENANT_SUSPENDED' },
+          },
+          { status: 403 },
+        ),
+      ),
+    );
+    // Same rule `createAppQueryClient()` installs; a throw here would unmount the staff shell.
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, throwOnError: isTenantSuspendedError } },
+    });
+
+    const { result } = renderHookWithProviders(() => useApplicationPendingCount(), {
+      tenantId: 'tenant-1',
+      queryClient,
+    });
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
   });
 });
 
