@@ -15,7 +15,7 @@ import { I18nProvider } from '../i18n/locale-provider';
 import { createTestQueryClient, renderWithProviders } from '../test/render-with-providers';
 
 import { NotificationBell } from './notification-bell';
-import type { NotificationBellProps } from './notification-bell';
+import type { NotificationBellAttention, NotificationBellProps } from './notification-bell';
 
 /** [31.2.10] The store caps at 50 (1000 after 31.2.11), so a 4-digit or
  * overflowing count can only be reached by overriding the hook's result. */
@@ -225,5 +225,68 @@ describe('NotificationBell', () => {
     // Panel content is portaled to `document.body`, outside `container` —
     // `baseElement` (the portal's actual root) is what needs to be axe clean.
     await expect(baseElement).toHaveNoViolations();
+  });
+
+  describe('attention prop [67.2.04]', () => {
+    const attention = (
+      over: Partial<NotificationBellAttention> = {},
+    ): NotificationBellAttention => ({
+      count: 4,
+      openCount: 4,
+      topTitle: 'Fee reminders failed',
+      status: 'ready',
+      onRetry: vi.fn(),
+      onOpen: vi.fn(),
+      todoTo: '/notifications?tab=active',
+      ...over,
+    });
+
+    it('badges the active count, not the unread toasts, and Show opens the modal', async () => {
+      const user = userEvent.setup();
+      pushNotification({ tenantId: null, message: 'Bulk import finished', variant: 'success' });
+      let focusedAtOpen: Element | null = null;
+      const a = attention({ onOpen: vi.fn(() => (focusedAtOpen = document.activeElement)) });
+      await renderWithRouterInEnglish({ attention: a });
+      const trigger = await screen.findByRole('button', {
+        name: 'Notifications, 4 need your attention',
+      });
+      expect(trigger.textContent).toBe('4');
+      await user.click(trigger);
+      expect(await screen.findByText('Fee reminders failed')).toBeTruthy();
+      expect(screen.getByRole('link', { name: 'See all to-do' })).toBeTruthy();
+      await user.click(screen.getByRole('button', { name: 'Show' }));
+      expect(a.onOpen).toHaveBeenCalledTimes(1);
+      // The modal records the focused element as its opener: the bell, not the closing panel's "Show".
+      expect(focusedAtOpen).toBe(trigger);
+    });
+
+    it('shows "nothing" at zero and Retry on error', async () => {
+      const user = userEvent.setup();
+      const a = attention({ count: 0, status: 'error' });
+      await renderWithRouterInEnglish({ attention: a });
+      await user.click(await screen.findByRole('button', { name: 'Notifications' }));
+      expect(await screen.findByText('Could not load alerts.')).toBeTruthy();
+      await user.click(screen.getByRole('button', { name: 'Try again' }));
+      expect(a.onRetry).toHaveBeenCalledTimes(1);
+    });
+
+    it('hidden-only: badge shows, but no Show button (nothing open), only See all to-do', async () => {
+      const user = userEvent.setup();
+      await renderWithRouterInEnglish({
+        attention: attention({ count: 2, openCount: 0, topTitle: null }),
+      });
+      await user.click(
+        await screen.findByRole('button', { name: 'Notifications, 2 need your attention' }),
+      );
+      expect(await screen.findByRole('link', { name: 'See all to-do' })).toBeTruthy();
+      expect(screen.queryByRole('button', { name: 'Show' })).toBeNull();
+    });
+
+    it('shows the none line when ready with no alerts', async () => {
+      const user = userEvent.setup();
+      await renderWithRouterInEnglish({ attention: attention({ count: 0, topTitle: null }) });
+      await user.click(await screen.findByRole('button', { name: 'Notifications' }));
+      expect(await screen.findByText('Nothing needs you right now.')).toBeTruthy();
+    });
   });
 });

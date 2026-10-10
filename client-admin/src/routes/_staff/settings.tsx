@@ -47,6 +47,7 @@ export const Route = createFileRoute('/_staff/settings')({
       'evaluations',
       'feeStructures',
       'curriculumPreset',
+      'attention',
     ),
   pendingComponent: SettingsPending,
   component: SettingsRoute,

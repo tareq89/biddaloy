@@ -1,7 +1,12 @@
 import { EnrollmentStatus, Permission, STUDENT_CERTIFICATE_KINDS } from '@biddaloy/shared';
 import { ApiError } from '@biddaloy/ui/api';
-import { ErrorState, RoutePending, StatusBadge } from '@biddaloy/ui/components';
-import { studentQueryOptions, useHasPermission, useStudent } from '@biddaloy/ui/hooks';
+import { ErrorState, RoutePending, StatusBadge, StudentAlertStrip } from '@biddaloy/ui/components';
+import {
+  studentQueryOptions,
+  useHasPermission,
+  useStudent,
+  useStudentAttention,
+} from '@biddaloy/ui/hooks';
 import { RegionConfigProvider, useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { DetailShell, PageContainer, useDetailShellTab } from '@biddaloy/ui/shells';
 import { formatNumber, formatPhone } from '@biddaloy/ui/utils';
@@ -112,6 +117,7 @@ export const Route = createFileRoute('/_staff/students/$studentId')({
       loadRouteNamespaces(
         'students',
         'common',
+        'attention',
         'portal',
         'payments',
         'exams',
@@ -184,6 +190,8 @@ function StudentDetailPage() {
     });
   const navigateSearch = Route.useNavigate();
   const studentQuery = useStudent(studentId);
+  // [67.2.08] Never blocks the page: error/403 leaves `data` undefined and the strip renders nothing.
+  const alerts = useStudentAttention(studentId);
   const [activeTab, setActiveTab] = useDetailShellTab(TAB_IDS);
 
   const [reminderDialogOpen, setReminderDialogOpen] = React.useState(false);
@@ -274,6 +282,11 @@ function StudentDetailPage() {
         </PageContainer>
       ) : (
         <>
+          <StudentAlertStrip
+            studentName={studentQuery.data.full_name}
+            alerts={alerts.data ?? []}
+            className="mb-4"
+          />
           <DetailShell
             name={studentQuery.data.full_name}
             facts={[

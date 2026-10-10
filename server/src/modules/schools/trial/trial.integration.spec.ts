@@ -1,14 +1,15 @@
 import { ConflictException } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest';
-import { ConflictException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { getDataSourceToken } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
 import { SchoolStatus } from '@biddaloy/shared';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
-import { SEED_SECTION_1_ID, SEED_TENANT_ID } from '@test/constants';
+import { SEED_ADMIN_USER_ID, SEED_SECTION_1_ID, SEED_TENANT_ID } from '@test/constants';
+import { attentionEvents } from '../../attention/attention.constants';
+import { ATTENTION_RECHECK } from '../../attention/engine/attention-events';
 import { AuditService } from '../../audit/audit.service';
 import { School } from '../entities/school.entity';
 import { TenantStatusService } from '../tenant-status.service';
@@ -61,6 +62,29 @@ describe('TrialService (integration)', () => {
     return id;
   };
   const load = (id: string) => ds.getRepository(School).findOneOrFail({ where: { id } });
+
+  it('extend and startTrial ask the attention engine to recheck trial.ending [67.2.09]', async () => {
+    const spy = vi.fn();
+    attentionEvents.on(ATTENTION_RECHECK, spy);
+    try {
+      const id = await newSchool(100); // outside any runDaily window
+      const actor = SEED_ADMIN_USER_ID;
+      await trial.extend(id, { days: 5, reason: 'x' }, { userId: actor }, now);
+      expect(spy).toHaveBeenCalledTimes(1);
+      expect(spy).toHaveBeenCalledWith({
+        tenantId: id,
+        ruleKey: 'trial.ending',
+        actorUserId: actor,
+      });
+
+      spy.mockClear();
+      await ds.transaction((m) => trial.startTrial(id, m, now));
+      expect(spy).toHaveBeenCalledTimes(1);
+      expect(spy).toHaveBeenCalledWith({ tenantId: id, ruleKey: 'trial.ending' });
+    } finally {
+      attentionEvents.off(ATTENTION_RECHECK, spy);
+    }
+  });
 
   it('startTrial applies the D32 defaults (30 days, 10 seats) when the env is unset', async () => {
     const id = await newSchool(null);
@@ -212,7 +236,9 @@ describe('TrialService (integration)', () => {
 
   it('warn keeps other onboarding keys; extend to unlimited is audited as null', async () => {
     const id = await newSchool(6);
-    await ds.getRepository(School).update(id, { onboarding: { step: 'profile' }, seat_limit: 10 });
+    await ds
+      .getRepository(School)
+      .update(id, { onboarding: () => `'{"step":"profile"}'`, seat_limit: 10 });
     await trial.runDaily(now);
     expect((await load(id)).onboarding).toEqual({ step: 'profile', trial_warnings: ['d7'] });
 

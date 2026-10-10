@@ -78,3 +78,72 @@ export const WithViewAllLink: Story = {
     await userEvent.click(trigger);
   },
 };
+
+const open: Story['play'] = async ({ canvasElement }) => {
+  await userEvent.click(
+    await within(canvasElement).findByRole('button', { name: /Notifications/ }),
+  );
+};
+const noop = () => undefined;
+
+/** [67.2.04] Active alerts: badge = active count, top title and Show / See all to-do. */
+export const WithAttention: Story = {
+  args: {
+    attention: {
+      count: 4,
+      openCount: 4,
+      topTitle: 'Fee reminders failed to send',
+      status: 'ready',
+      onRetry: noop,
+      onOpen: noop,
+      todoTo: '/notifications?tab=active',
+    },
+  },
+  decorators: [seed(2)],
+  play: open,
+};
+
+export const AttentionNone: Story = {
+  args: {
+    attention: {
+      count: 0,
+      openCount: 0,
+      topTitle: null,
+      status: 'ready',
+      onRetry: noop,
+      onOpen: noop,
+      todoTo: '/notifications',
+    },
+  },
+  play: open,
+};
+
+export const AttentionLoading: Story = {
+  args: {
+    attention: {
+      count: 0,
+      openCount: 0,
+      topTitle: null,
+      status: 'loading',
+      onRetry: noop,
+      onOpen: noop,
+      todoTo: '/notifications',
+    },
+  },
+  play: open,
+};
+
+export const AttentionError: Story = {
+  args: {
+    attention: {
+      count: 0,
+      openCount: 0,
+      topTitle: null,
+      status: 'error',
+      onRetry: noop,
+      onOpen: noop,
+      todoTo: '/notifications',
+    },
+  },
+  play: open,
+};

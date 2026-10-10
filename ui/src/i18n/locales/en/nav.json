@@ -97,7 +97,7 @@
     "importFromExcel": "Import from Excel",
     "welcome": "Set up your school",
     "edit": "Edit",
-    "notifications": "Notifications",
+    "notifications": "Alerts & notifications",
     "security": "Security",
     "schools": "Schools",
     "holidaySets": "Holiday lists",
@@ -116,7 +116,9 @@
     "myClassSection": "Section",
     "printDocument": "Print",
     "studyPlans": "Study plans",
-    "studyPlanDetail": "Study plan"
+    "studyPlanDetail": "Study plan",
+    "sendAlert": "Send an alert",
+    "alertsReport": "Alerts report"
   },
   "groups": {
     "people": "People",
@@ -161,7 +163,7 @@
     "bellLabelUnread_other": "Notifications, {{count}} unread",
     "badgeOverflow": "{{count}}+",
     "panelLabel": "Notifications",
-    "pageTitle": "Notifications",
+    "pageTitle": "Alerts & notifications",
     "pageDescription": "Results of your work, newest first",
     "empty": "You're all caught up.",
     "markAllRead": "Mark all read",
@@ -174,7 +176,16 @@
     "unreadCount_one": "{{n}} unread",
     "unreadCount_other": "{{n}} unread",
     "emptyTitle": "No notifications",
-    "emptyDescription": "When an import, payment or message finishes or fails, it shows up here."
+    "emptyDescription": "When an import, payment or message finishes or fails, it shows up here.",
+    "attentionTitle": "Needs your attention",
+    "attentionOpen": "Show",
+    "attentionTodo": "See all to-do",
+    "attentionNone": "Nothing needs you right now.",
+    "attentionError": "Could not load alerts.",
+    "attentionRetry": "Try again",
+    "bellLabelActive_one": "Notifications, {{count}} need your attention",
+    "bellLabelActive_other": "Notifications, {{count}} need your attention",
+    "deviceTitle": "On this device"
   },
   "commandPalette": {
     "buttonLabel": "Search (Ctrl+K)",

@@ -170,6 +170,31 @@ export const TallContent: Story = {
   },
 };
 
+/** [67.2.11] Below `md` the dialog fills the screen (the alerts to-do list on a phone). */
+export const FullScreenOnPhone: Story = {
+  render: () => (
+    <Dialog defaultOpen>
+      <DialogTrigger asChild>
+        <Button>Your to-do</Button>
+      </DialogTrigger>
+      <DialogContent fullScreenOnPhone>
+        <DialogHeader>
+          <DialogTitle>Your to-do</DialogTitle>
+          <DialogDescription>
+            Full screen on a phone, a normal dialog from tablet up.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <DialogClose asChild>
+            <Button variant="outline">Close</Button>
+          </DialogClose>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  ),
+  parameters: { viewport: { defaultViewport: 'mobile1' } },
+};
+
 export const RightToLeft: Story = {
   render: () => (
     <Dialog defaultOpen>

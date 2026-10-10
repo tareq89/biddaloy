@@ -86,10 +86,10 @@ export const overlayOpeners: Record<string, (page: Page, locale: Locale) => Prom
     await new DetailShellPage(page, locale).clickAction('students.detail.actions.delete');
     await expectDialogOpen(page);
   },
-  // [13.7.1] The trial bar's details dialog. The seeded admin's school is not
+  // [13.7.1] The trial details dialog (opened by `?trial=1` since [67.2.04]). The seeded admin's school is not
   // in a trial, so the onboarding status is patched on the way in to look like
   // one (4 of 10 students, a support link so the contact button is scanned too).
-  '/dashboard::trial-details': async (page, locale) => {
+  '/dashboard::trial-details': async (page) => {
     await page.route('**/api/v1/onboarding/status', async (route) => {
       const response = await route.fetch();
       const body = (await response.json()) as object;
@@ -106,8 +106,7 @@ export const overlayOpeners: Record<string, (page: Page, locale: Locale) => Prom
         },
       });
     });
-    await page.reload();
-    await page.getByRole('button', { name: makeT(locale)('trial.details.open') }).click();
+    await page.goto('/dashboard?trial=1');
     await expectDialogOpen(page);
   },
   // `$schoolId` resolves to the seeded trial school (`responsive/routes.ts`),

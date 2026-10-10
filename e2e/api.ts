@@ -1555,3 +1555,63 @@ export async function detachOfferedSubjects(
     await request.delete(`/api/v1/subjects/${id}`, { headers });
   }
 }
+
+/** Moves a school's trial end to `days` from now. Same raw-SQL shortcut as `endTrial`. */
+export async function setTrialEndsInDays(schoolId: string, days: number): Promise<void> {
+  const url = process.env.DATABASE_URL;
+  if (!url) throw new Error('DATABASE_URL is not set — setTrialEndsInDays needs the e2e database');
+  const { Client } = (await import('pg' as string)) as {
+    Client: new (options: { connectionString: string }) => {
+      connect(): Promise<void>;
+      query(sql: string, params: unknown[]): Promise<{ rowCount: number | null }>;
+      end(): Promise<void>;
+    };
+  };
+  const client = new Client({ connectionString: url });
+  await client.connect();
+  try {
+    const { rowCount } = await client.query(
+      `UPDATE schools SET trial_ends_at = now() + ($2 || ' days')::interval WHERE id = $1`,
+      [schoolId, String(days)],
+    );
+    if (rowCount !== 1) {
+      throw new Error(
+        `setTrialEndsInDays: school ${schoolId} not found in ${new URL(url).pathname}`,
+      );
+    }
+  } finally {
+    await client.end();
+  }
+}
+
+/** `PATCH /schools/:id/trial` as the platform super admin. It also triggers the
+ * `trial.ending` recheck (about 5 s later), so a spec can raise or resolve that alert.
+ * `request` must be its own context: the super-admin login would replace the cookie
+ * jar of a context that holds a school admin's session. */
+export async function extendTrial(
+  request: APIRequestContext,
+  schoolId: string,
+  days: number,
+  reason: string,
+): Promise<void> {
+  await patch(request, await superAdminApiSession(request), `/schools/${schoolId}/trial`, {
+    days,
+    reason,
+  });
+}
+
+/** Gives a fresh school 6 trial days left, which raises its WARNING `trial.ending`
+ * alert once the recheck runs (about 5 s on). Uses its own super-admin context. */
+export async function raiseTrialEnding(
+  playwright: import('@playwright/test').PlaywrightWorkerArgs['playwright'],
+  schoolId: string,
+  baseURL: string,
+): Promise<void> {
+  const superAdmin = await playwright.request.newContext({ baseURL });
+  try {
+    await setTrialEndsInDays(schoolId, 5);
+    await extendTrial(superAdmin, schoolId, 1, 'e2e trial ending');
+  } finally {
+    await superAdmin.dispose();
+  }
+}

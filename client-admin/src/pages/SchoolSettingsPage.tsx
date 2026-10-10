@@ -27,6 +27,7 @@ import { ChevronLeftIcon } from 'lucide-react';
 import * as React from 'react';
 
 import { AcrCriteriaSection } from './settings/AcrCriteriaSection';
+import { AlertsSection } from './settings/AlertsSection';
 import { ApplicationsSection } from './settings/ApplicationsSection';
 import { AttendanceSection } from './settings/AttendanceSection';
 import { BackupSection } from './settings/backup-section';
@@ -214,6 +215,17 @@ export function SchoolSettingsPage({ backupJobId }: SchoolSettingsPageProps = {}
               />
               <EmailSection schoolId={loaded.schoolId} email={loaded.data.communications?.email} />
             </>
+          )
+        );
+      case 'alerts':
+        return (
+          loaded &&
+          loaded.data.attention && (
+            <AlertsSection
+              key={loaded.schoolId}
+              schoolId={loaded.schoolId}
+              attention={loaded.data.attention}
+            />
           )
         );
       case 'printing':

@@ -682,6 +682,11 @@
       "archetype": "list"
     },
     {
+      "path": "/portal/notifications",
+      "role": "parent",
+      "archetype": "list"
+    },
+    {
       "path": "/portal/applications/new",
       "role": "parent",
       "archetype": "form",

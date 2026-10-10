@@ -37,6 +37,20 @@ import { useLocale, useTranslation } from '../i18n';
 import { Button } from './button';
 import { NotificationList } from './notification-list';
 import { Popover, PopoverContent, PopoverHeader, PopoverTitle, PopoverTrigger } from './popover';
+import { Skeleton } from './skeleton';
+
+/** [67.2.04] The attention engine's view for the bell: badge = active count (D19). */
+export interface NotificationBellAttention {
+  count: number;
+  /** OPEN items only (the badge also counts hidden ones): the "Show" button needs one to show. */
+  openCount: number;
+  topTitle: string | null;
+  status: 'loading' | 'error' | 'ready';
+  onRetry: () => void;
+  onOpen: () => void;
+  /** Route path (may carry `?tab=active`) for "See all to-do". */
+  todoTo: string;
+}
 
 export interface NotificationBellProps {
   /** Overrides the translated trigger label. */
@@ -52,6 +66,8 @@ export interface NotificationBellProps {
    * tree, for the same reason `AppShellNavItem['to']` (`./app-shell.tsx`)
    * is. */
   viewAllTo?: string;
+  /** When set, the badge counts active alerts and a section lists the top one. */
+  attention?: NotificationBellAttention;
 }
 
 export function NotificationBell({
@@ -60,6 +76,7 @@ export function NotificationBell({
   emptyLabel,
   markAllReadLabel,
   viewAllTo,
+  attention,
 }: NotificationBellProps) {
   const { t } = useTranslation('nav');
   const { locale } = useLocale();
@@ -69,6 +86,8 @@ export function NotificationBell({
   // return focus to the trigger, the same as any other in-panel navigation
   // away from this popover.
   const [open, setOpen] = React.useState(false);
+  const sectionId = React.useId();
+  const triggerRef = React.useRef<HTMLButtonElement>(null);
 
   const resolvedLabel = label ?? t('notifications.bellLabel');
   const resolvedPanelTitle = panelTitle ?? t('notifications.panelLabel');
@@ -76,28 +95,32 @@ export function NotificationBell({
   const resolvedMarkAllReadLabel = markAllReadLabel ?? t('notifications.markAllRead');
 
   // The kit writes `9999`, not `9,999` — no grouping.
+  const badgeCount = attention ? attention.count : unreadCount;
   const badgeText =
-    unreadCount > 9999
+    badgeCount > 9999
       ? t('notifications.badgeOverflow', { count: 9999 })
-      : new Intl.NumberFormat(locale, { useGrouping: false }).format(unreadCount);
+      : new Intl.NumberFormat(locale, { useGrouping: false }).format(badgeCount);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
+          ref={triggerRef}
           type="button"
           variant="ghost"
           size="icon"
           iconOnly
           aria-label={
-            unreadCount > 0
-              ? t('notifications.bellLabelUnread', { count: unreadCount })
+            badgeCount > 0
+              ? t(attention ? 'notifications.bellLabelActive' : 'notifications.bellLabelUnread', {
+                  count: badgeCount,
+                })
               : resolvedLabel
           }
           className="relative size-11 md:size-9"
         >
           <BellIcon />
-          {unreadCount > 0 && (
+          {badgeCount > 0 && (
             <span
               aria-hidden="true"
               className="absolute start-1/2 top-0.5 ms-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1 text-caption font-medium text-destructive-foreground md:-top-0.5"
@@ -120,6 +143,59 @@ export function NotificationBell({
             {resolvedMarkAllReadLabel}
           </Button>
         </PopoverHeader>
+        {attention && (
+          <section aria-labelledby={`${sectionId}-attention`} className="flex flex-col gap-2 p-2">
+            <h3 id={`${sectionId}-attention`} className="text-label text-text-secondary">
+              {t('notifications.attentionTitle')}
+            </h3>
+            {attention.status === 'loading' ? (
+              <Skeleton className="h-5 w-full" />
+            ) : attention.status === 'error' ? (
+              <>
+                <p className="text-sm">{t('notifications.attentionError')}</p>
+                <Button type="button" variant="outline" size="sm" onClick={attention.onRetry}>
+                  {t('notifications.attentionRetry')}
+                </Button>
+              </>
+            ) : attention.count === 0 ? (
+              <p className="text-sm text-text-secondary">{t('notifications.attentionNone')}</p>
+            ) : (
+              <>
+                {attention.topTitle && <p className="truncate text-sm">{attention.topTitle}</p>}
+                <div className="flex items-center justify-between gap-2">
+                  {attention.openCount > 0 && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => {
+                        // The panel animates out, so "Show" is still focused when the modal
+                        // records its opener: hand focus to the bell first so Esc returns here.
+                        triggerRef.current?.focus();
+                        setOpen(false);
+                        attention.onOpen();
+                      }}
+                    >
+                      {t('notifications.attentionOpen')}
+                    </Button>
+                  )}
+                  <Link
+                    // The raw path: a split `search` object would JSON-quote values like `1`.
+                    to={attention.todoTo}
+                    onClick={() => setOpen(false)}
+                    className="rounded-md p-2 text-sm text-primary hover:bg-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+                  >
+                    {t('notifications.attentionTodo')}
+                  </Link>
+                </div>
+              </>
+            )}
+          </section>
+        )}
+        {attention && (
+          <h3 className="px-2 pt-2 text-label text-text-secondary">
+            {t('notifications.deviceTitle')}
+          </h3>
+        )}
         <NotificationList
           notifications={notifications}
           onMarkRead={markNotificationRead}
