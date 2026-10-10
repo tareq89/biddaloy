@@ -56,6 +56,7 @@ export class ManualAlertsController {
 
   // declared before ':id' routes
   @Post('preview')
+  @Throttle({ default: SETTINGS_RATE_LIMIT })
   @HttpCode(200)
   @ApiOperation({ summary: 'How many people an audience reaches (no write).' })
   @ApiOkResponse({ type: ManualAlertPreviewDto })
