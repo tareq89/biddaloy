@@ -42,6 +42,7 @@ export async function ensureAttentionW5Seed(
   );
   if (!manual) {
     // ponytail: expires 7x24h from now, not local end-of-day; fine for a demo row
+    // raised 25 h ago so it does not count toward the 24 h send cap (D27)
     [manual] = await q<{ id: string }>(
       `INSERT INTO alerts (tenant_id, rule_key, source, severity, category, status, dedupe_key,
                            params, raised_at, expires_at, created_by_user_id, manual_title,
@@ -58,15 +59,6 @@ export async function ensureAttentionW5Seed(
       ],
     );
   }
-  // Sending is capped at 20 manual alerts per rolling 24 hours (D27) and the cap counts seeded
-  // rows too. Backdate the demo ones (this one and ensureAttentionSeed's) so a fresh seed
-  // leaves the whole quota to whoever sends next, e2e included.
-  await q(
-    `UPDATE alerts SET raised_at = now() - interval '25 hours'
-      WHERE tenant_id = $1 AND source = 'MANUAL' AND created_by_user_id IS NULL
-        AND dedupe_key LIKE 'seed:%' AND raised_at > now() - interval '24 hours'`,
-    [tenantId],
-  );
   await q(
     `INSERT INTO alert_recipients (tenant_id, alert_id, user_id, role, state)
      SELECT $1, $2, ut.user_id, NULL, 'OPEN'
