@@ -207,6 +207,23 @@ describe('SendAlertForm', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
+  it('offers only pages every chosen role can open', async () => {
+    const user = userEvent.setup();
+    server.use(preview(5));
+    renderForm();
+    const link = await screen.findByRole('combobox', { name: 'Page to open (optional)' });
+    // ADMIN sender, no audience yet: the sender's own pages, Send an alert included.
+    await user.click(link);
+    expect(await screen.findByRole('option', { name: 'Send an alert' })).toBeTruthy();
+    await user.keyboard('{Escape}');
+
+    await fill(user, ['Teacher']);
+    await user.click(screen.getByRole('combobox', { name: 'Page to open (optional)' }));
+    expect(await screen.findByRole('option', { name: 'No page' })).toBeTruthy();
+    // a teacher cannot open the send-alert page, so it is not offered
+    expect(screen.queryByRole('option', { name: 'Send an alert' })).toBeNull();
+  });
+
   it('disables the link picker for a mixed audience', async () => {
     const user = userEvent.setup();
     server.use(preview(5));
