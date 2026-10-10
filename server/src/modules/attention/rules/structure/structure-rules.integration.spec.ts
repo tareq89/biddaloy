@@ -269,6 +269,7 @@ describe('Structure rules (integration)', () => {
     }
     expect(events).toEqual([
       { tenantId: A.id, ruleKey: 'routine.substitution_today', actorUserId: A.adminId },
+      { tenantId: A.id, ruleKey: 'routine.changed_today', actorUserId: A.adminId },
     ]);
   });
 
