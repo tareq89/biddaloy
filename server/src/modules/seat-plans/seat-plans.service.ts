@@ -109,8 +109,10 @@ export class SeatPlansService {
       list.push({ class_id: section.class_id, section_id: section.id });
       sectionsByClass.set(section.class_id, list);
     }
+    // Deleting a student soft-deletes the student row only; its ACTIVE enrollment stays, and the
+    // `student` relation comes back null. A deleted student gets no seat (a null here was a 500).
     const enrollments: EnrollmentInput[] = enrollmentRows
-      .filter((e) => e.section_id)
+      .filter((e) => e.section_id && e.student)
       .map((e) => ({
         student_id: e.student_id,
         roll_number: e.student.roll_number,

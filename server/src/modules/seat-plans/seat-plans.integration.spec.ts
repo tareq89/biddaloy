@@ -351,6 +351,41 @@ describe('SeatPlansService (integration)', () => {
     });
   });
 
+  it('seats no deleted student: an ACTIVE enrollment left by a deleted student does not crash generate', async () => {
+    const studentRepo = dataSource.getRepository(Student);
+    const deleted = await studentRepo.save(
+      studentRepo.create({
+        full_name: 'Deleted Student',
+        registration_number: 'REG-DEL',
+        roll_number: 2,
+        class_section_id: SECTION_1_ID,
+        tenant_id: SEED_TENANT_ID,
+      }),
+    );
+    await dataSource.getRepository(Enrollment).save({
+      student_id: deleted.id,
+      class_id: CLASS_1_ID,
+      section_id: SECTION_1_ID,
+      academic_year_id: ACADEMIC_YEAR_ID,
+      enrollment_status: EnrollmentStatus.ACTIVE,
+      tenant_id: SEED_TENANT_ID,
+    });
+    // What `StudentsService.remove` does: the student row only, the enrollment stays ACTIVE.
+    await studentRepo.softDelete({ id: deleted.id });
+
+    const { plan } = await service.generate(SEED_TENANT_ID, {
+      name: 'With a deleted student',
+      exam_schedule_ids: [SCHEDULE_1_ID],
+      room_ids: [ROOM_1_ID],
+      seat_order_mode: SeatOrderMode.SEQUENTIAL,
+    });
+    const seated = await allocationRepo.find({
+      where: { tenant_id: SEED_TENANT_ID, seat_plan_id: plan.id },
+    });
+    expect(seated).toHaveLength(1);
+    expect(seated[0]!.student_id).not.toBe(deleted.id);
+  });
+
   it('findAll({ examId }) returns only plans with a sitting of that exam; no examId returns all', async () => {
     const plan = (name: string, schedule: string) =>
       service.generate(SEED_TENANT_ID, {
