@@ -258,6 +258,28 @@ describe('Office rules (integration)', () => {
     expect(await acr.evaluate(ctx(A))).toEqual([]);
   });
 
+  it('personal rules skip a recipient who left this school (account kept for other schools)', async () => {
+    // acr.incomplete: an assessor of their own (A.adminId is shared with other tests).
+    await mkAcr(A, new Date(NOW.getTime() - 8 * 86400000));
+    const assessor = await mkUser(A.id, UserRole.TEACHER);
+    await ds.query(`UPDATE acr_assessments SET assessed_by = $2 WHERE tenant_id = $1`, [
+      A.id,
+      assessor,
+    ]);
+    expect(ids(await acr.evaluate(ctx(A)))).toEqual([assessor]);
+    // leave.my_request_decided: a decision 1 hour ago.
+    const decided = await mkLeave(A, 'APPROVED', new Date(NOW.getTime() - 3600_000));
+    expect(ids(await myDecided.evaluate(ctx(A)))).toEqual([decided.userId]);
+
+    // Both leave school A. Their users stay ACTIVE (they may work elsewhere).
+    await ds.query(
+      `UPDATE user_tenants SET deleted_at = NOW() WHERE tenant_id = $1 AND user_id = ANY($2)`,
+      [A.id, [assessor, decided.userId]],
+    );
+    expect(await acr.evaluate(ctx(A))).toEqual([]);
+    expect(await myDecided.evaluate(ctx(A))).toEqual([]);
+  });
+
   it('LeaveService.decide emits both rechecks, then findings and resolution follow', async () => {
     const pending = await mkLeave(A, 'PENDING');
     // Policy row so approval has a quota to check against.

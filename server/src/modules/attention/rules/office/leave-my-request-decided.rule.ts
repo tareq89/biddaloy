@@ -40,7 +40,9 @@ export class LeaveMyRequestDecidedRule implements AttentionRuleShape {
        FROM leave_records lr
        JOIN staff_profiles sp ON sp.id = lr.staff_profile_id AND sp.tenant_id = $1
        JOIN users u ON u.id = sp.user_id AND u.status = 'ACTIVE' AND u.deleted_at IS NULL
-       WHERE lr.tenant_id = $1 AND lr.status IN ('APPROVED','REJECTED') AND lr.decided_at >= $2`,
+       WHERE lr.tenant_id = $1 AND lr.status IN ('APPROVED','REJECTED') AND lr.decided_at >= $2
+         AND EXISTS (SELECT 1 FROM user_tenants ut WHERE ut.user_id = sp.user_id AND ut.tenant_id = $1
+                     AND ut.deleted_at IS NULL)`,
       [ctx.tenantId, new Date(ctx.now.getTime() - WINDOW_MS)],
     );
     return rows.map((r) => {

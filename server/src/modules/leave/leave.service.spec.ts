@@ -6,6 +6,8 @@ import {
 } from '@nestjs/common';
 import { LeaveStatus, LeaveType, UserRole } from '@biddaloy/shared';
 import { LeaveService } from './leave.service';
+import { attentionEvents } from '../attention/attention.constants';
+import { ATTENTION_RECHECK } from '../attention/engine/attention-events';
 
 /**
  * Unit tests for `LeaveService` with mocked repositories/DataSource — the
@@ -115,6 +117,34 @@ describe('LeaveService (unit)', () => {
       ).rejects.toThrow(UnprocessableEntityException);
 
       expect(leaveRecordRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('tells approvers right away: emits a leave.staff_pending recheck after the save, none on a 422', async () => {
+      const events: unknown[] = [];
+      const on = (p: unknown) => events.push(p);
+      attentionEvents.on(ATTENTION_RECHECK, on);
+      try {
+        leavePolicyRepo.findOne.mockResolvedValue({ annual_quota_days: 10 });
+        leaveRecordRepo.createQueryBuilder.mockReturnValue(makeQueryBuilder(9)); // balance = 1
+        const dto = {
+          staff_profile_id: STAFF_PROFILE_ID,
+          leave_type: LeaveType.CASUAL,
+          start_date: `${CURRENT_YEAR}-01-01`,
+          end_date: `${CURRENT_YEAR}-01-02`, // 2 days > 1 remaining
+        };
+        await expect(
+          service.request(TENANT_ID, dto, OWNER_USER_ID, UserRole.TEACHER),
+        ).rejects.toThrow(UnprocessableEntityException);
+        expect(events).toEqual([]);
+
+        leaveRecordRepo.createQueryBuilder.mockReturnValue(makeQueryBuilder(0));
+        await service.request(TENANT_ID, dto, OWNER_USER_ID, UserRole.TEACHER);
+        expect(events).toEqual([
+          { tenantId: TENANT_ID, ruleKey: 'leave.staff_pending', actorUserId: OWNER_USER_ID },
+        ]);
+      } finally {
+        attentionEvents.off(ATTENTION_RECHECK, on);
+      }
     });
 
     it('creates a PENDING row when within balance', async () => {
