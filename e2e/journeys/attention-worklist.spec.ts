@@ -1,4 +1,4 @@
-import { extendTrial, patch, raiseTrialEnding } from '../api';
+import { extendTrial, onlyAttentionRule, patch, raiseTrialEnding } from '../api';
 import { shells } from '../config';
 import { newSchool } from '../fixtures/new-school';
 import { expect, guest, test } from '../fixtures/test';
@@ -23,6 +23,8 @@ test('trial ending: raised, closed for now, then fixed and moved to History', as
   try {
     // Finished, not skipped: an unfinished wizard raises setup.incomplete (W3), a second item.
     await patch(school.api, school.session, '/onboarding', { seen: true, finished: true });
+    // The counts below assume the trial alert is the only one: no scheduled tick may add another.
+    await onlyAttentionRule(school.api, school.session, 'trial.ending');
     await page.addInitScript(() => localStorage.setItem('biddaloy:locale', 'en'));
     const bar = page
       .getByRole('status')
