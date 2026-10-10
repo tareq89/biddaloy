@@ -205,6 +205,8 @@ export function AlertsSection({ schoolId, attention }: AlertsSectionProps) {
             <FormControl>
               <Input
                 id={`alerts-${name}`}
+                // FormMessage is not rendered (the error text is ours), so point at our own line.
+                aria-describedby={fieldState.error ? `alerts-${name}-error` : undefined}
                 inputMode="numeric"
                 {...field}
                 value={field.value as string}
@@ -213,7 +215,7 @@ export function AlertsSection({ schoolId, attention }: AlertsSectionProps) {
             <span className="shrink-0 text-text-secondary">{unit}</span>
           </div>
           {fieldState.error ? (
-            <p role="alert" className="text-caption text-destructive">
+            <p id={`alerts-${name}-error`} role="alert" className="text-caption text-destructive">
               {t('settings.invalidNumber', { min, max })}
             </p>
           ) : null}

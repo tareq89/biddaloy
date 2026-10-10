@@ -23,22 +23,20 @@ import * as React from 'react';
 
 import { useLandingFlag } from '../../routes/_staff/-use-landing-flag';
 
-/** `/path?a=1` -> router `to` + `search`, so query strings survive navigation. */
-function splitUrl(url: string) {
-  const [to = '/', query] = url.split('?');
-  return { to, search: Object.fromEntries(new URLSearchParams(query)) };
-}
-
 export function useAttentionCenter({ todoTo }: { todoTo: string }) {
   const summary = useAttentionSummary();
   const [open, setOpen] = useLandingFlag('alerts', true);
   const navigate = useNavigate();
   const barRef = React.useRef<HTMLButtonElement>(null);
-  const items = useAttentionItems({ tab: 'active', pageSize: 50 }, { enabled: open });
+  // ponytail: the active tab mixes OPEN and HIDDEN rows and the modal keeps OPEN only, so past
+  // 100 (the server's page cap) OPEN items can be missed; add a `state=OPEN` items filter if that bites.
+  const items = useAttentionItems({ tab: 'active', pageSize: 100 }, { enabled: open });
   const hide = useHideAttentionItem();
   const snooze = useSnoozeAttentionItem();
   const { t } = useTranslation('attention');
   const { mutate: markSeen } = useMarkAttentionSeen();
+  const { reset: resetHide } = hide;
+  const { reset: resetSnooze } = snooze;
 
   const openItems = React.useMemo(
     () =>
@@ -47,15 +45,18 @@ export function useAttentionCenter({ todoTo }: { todoTo: string }) {
       ),
     [items.data],
   );
-  // D24: report the open ids once per open.
+  // D24: report the open ids once per open. Closing also clears a failed hide/snooze line.
   const seenSent = React.useRef(false);
   React.useEffect(() => {
-    if (!open) seenSent.current = false;
-    else if (items.data && !seenSent.current) {
+    if (!open) {
+      seenSent.current = false;
+      resetHide();
+      resetSnooze();
+    } else if (items.data && !seenSent.current) {
       seenSent.current = true;
       if (openItems.length > 0) markSeen(openItems.map((i) => i.recipientId).slice(0, 100));
     }
-  }, [open, items.data, openItems, markSeen]);
+  }, [open, items.data, openItems, markSeen, resetHide, resetSnooze]);
 
   // One failed or pending hide/snooze at a time: show it on that card only.
   const itemState: Record<string, { busy?: boolean; error?: string }> = {};
@@ -69,6 +70,7 @@ export function useAttentionCenter({ todoTo }: { todoTo: string }) {
   const data = summary.data;
   const bell: NotificationBellAttention = {
     count: data?.activeTotal ?? 0,
+    openCount: data ? data.critical + data.warning + data.reminder : 0,
     topTitle: data?.top?.title ?? null,
     status: summary.isError ? 'error' : data ? 'ready' : 'loading',
     onRetry: () => void summary.refetch(),
@@ -105,14 +107,12 @@ export function useAttentionCenter({ todoTo }: { todoTo: string }) {
       todoHref={todoHref}
       todoCount={items.data?.total ?? 0}
       returnFocusRef={barRef}
-      renderLink={(href, children) => {
-        const { to, search } = splitUrl(href);
-        return (
-          <Link to={to} search={search as never} onClick={() => setOpen(false)}>
-            {children}
-          </Link>
-        );
-      }}
+      renderLink={(href, children) => (
+        // The raw path: a split `search` object would JSON-quote values (see onPrimary).
+        <Link to={href as never} onClick={() => setOpen(false)}>
+          {children}
+        </Link>
+      )}
     />
   );
   return { bar, modal, bell };

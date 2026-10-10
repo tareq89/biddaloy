@@ -42,6 +42,8 @@ import { Skeleton } from './skeleton';
 /** [67.2.04] The attention engine's view for the bell: badge = active count (D19). */
 export interface NotificationBellAttention {
   count: number;
+  /** OPEN items only (the badge also counts hidden ones): the "Show" button needs one to show. */
+  openCount: number;
   topTitle: string | null;
   status: 'loading' | 'error' | 'ready';
   onRetry: () => void;
@@ -66,12 +68,6 @@ export interface NotificationBellProps {
   viewAllTo?: string;
   /** When set, the badge counts active alerts and a section lists the top one. */
   attention?: NotificationBellAttention;
-}
-
-/** `/path?a=1` -> router `to` + `search`. */
-function splitTo(url: string) {
-  const [to = '/', query] = url.split('?');
-  return { to, search: Object.fromEntries(new URLSearchParams(query)) };
 }
 
 export function NotificationBell({
@@ -103,7 +99,6 @@ export function NotificationBell({
     badgeCount > 9999
       ? t('notifications.badgeOverflow', { count: 9999 })
       : new Intl.NumberFormat(locale, { useGrouping: false }).format(badgeCount);
-  const todo = attention ? splitTo(attention.todoTo) : null;
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -146,7 +141,7 @@ export function NotificationBell({
             {resolvedMarkAllReadLabel}
           </Button>
         </PopoverHeader>
-        {attention && todo && (
+        {attention && (
           <section aria-labelledby={`${sectionId}-attention`} className="flex flex-col gap-2 p-2">
             <h3 id={`${sectionId}-attention`} className="text-label text-text-secondary">
               {t('notifications.attentionTitle')}
@@ -166,19 +161,21 @@ export function NotificationBell({
               <>
                 {attention.topTitle && <p className="truncate text-sm">{attention.topTitle}</p>}
                 <div className="flex items-center justify-between gap-2">
-                  <Button
-                    type="button"
-                    size="sm"
-                    onClick={() => {
-                      setOpen(false);
-                      attention.onOpen();
-                    }}
-                  >
-                    {t('notifications.attentionOpen')}
-                  </Button>
+                  {attention.openCount > 0 && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => {
+                        setOpen(false);
+                        attention.onOpen();
+                      }}
+                    >
+                      {t('notifications.attentionOpen')}
+                    </Button>
+                  )}
                   <Link
-                    to={todo.to}
-                    search={todo.search}
+                    // The raw path: a split `search` object would JSON-quote values like `1`.
+                    to={attention.todoTo}
                     onClick={() => setOpen(false)}
                     className="rounded-md p-2 text-sm text-primary hover:bg-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
                   >

@@ -2,8 +2,9 @@
  * [67.2.06] The to-do list behind the attention bar: a dialog (full screen on a
  * phone) grouping alerts Urgent, Warning, Reminder. Keyboard (D16): arrows move
  * between cards, Enter does the main action, X closes a closable card. Focus
- * returns to `returnFocusRef` on close, except after the main action (the user
- * is navigating away). Presentational: the shell wires data and callbacks.
+ * returns to whatever opened the dialog (or `returnFocusRef` if that is gone)
+ * on close, except after the main action (the user is navigating away).
+ * Presentational: the shell wires data and callbacks.
  */
 import { AlertSeverity } from '@biddaloy/shared';
 import * as React from 'react';
@@ -43,7 +44,7 @@ export interface AttentionModalProps {
   /** Where "See all to-do" goes, and how many that list holds. */
   todoHref: string;
   todoCount: number;
-  /** Focus goes here when the dialog closes (normally the bar's button). */
+  /** Focus falls back here on close when the opener is gone (normally the bar's button). */
   returnFocusRef?: React.RefObject<HTMLElement | null>;
   /** Renders the footer link through the app router; defaults to a plain `<a>`. */
   renderLink?: (href: string, children: React.ReactNode) => React.ReactNode;
@@ -70,6 +71,7 @@ export function AttentionModal({
   const { locale } = useLocale();
   const listRef = React.useRef<HTMLDivElement>(null);
   const skipReturn = React.useRef(false);
+  const opener = React.useRef<HTMLElement | null>(null);
   const idBase = React.useId();
   const numbers = new Intl.NumberFormat(locale, { useGrouping: false });
 
@@ -100,7 +102,7 @@ export function AttentionModal({
       skipReturn.current = true;
       onPrimary(item);
     } else if ((event.key === 'x' || event.key === 'X') && item && target === card) {
-      if (!item.closable) return;
+      if (!item.closable || itemState?.[item.recipientId]?.busy) return;
       event.preventDefault();
       (all[index + 1] ?? all[index - 1])?.focus();
       onHide(item);
@@ -121,13 +123,23 @@ export function AttentionModal({
         fullScreenOnPhone
         closeLabel={t('item.close')}
         onOpenAutoFocus={(event) => {
-          event.preventDefault();
-          cards()[0]?.focus();
+          // Focus has not moved yet: remember who opened us (the bar, the bell, the palette).
+          const active = document.activeElement;
+          opener.current =
+            active instanceof HTMLElement && active !== document.body ? active : null;
+          // No card yet (loading, error, empty): let Radix focus inside the dialog;
+          // the effect above takes over once cards arrive.
+          const first = cards()[0];
+          if (first) {
+            event.preventDefault();
+            first.focus();
+          }
         }}
         onCloseAutoFocus={(event) => {
-          if (!skipReturn.current) {
+          const target = opener.current?.isConnected ? opener.current : returnFocusRef?.current;
+          if (!skipReturn.current && target) {
             event.preventDefault();
-            returnFocusRef?.current?.focus();
+            target.focus();
           }
           skipReturn.current = false;
         }}

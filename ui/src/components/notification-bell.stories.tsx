@@ -91,6 +91,7 @@ export const WithAttention: Story = {
   args: {
     attention: {
       count: 4,
+      openCount: 4,
       topTitle: 'Fee reminders failed to send',
       status: 'ready',
       onRetry: noop,
@@ -106,6 +107,7 @@ export const AttentionNone: Story = {
   args: {
     attention: {
       count: 0,
+      openCount: 0,
       topTitle: null,
       status: 'ready',
       onRetry: noop,
@@ -120,6 +122,7 @@ export const AttentionLoading: Story = {
   args: {
     attention: {
       count: 0,
+      openCount: 0,
       topTitle: null,
       status: 'loading',
       onRetry: noop,
@@ -134,6 +137,7 @@ export const AttentionError: Story = {
   args: {
     attention: {
       count: 0,
+      openCount: 0,
       topTitle: null,
       status: 'error',
       onRetry: noop,
