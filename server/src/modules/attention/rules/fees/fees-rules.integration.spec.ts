@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { randomUUID } from 'crypto';
 import { BullModule } from '@nestjs/bullmq';
 import { ConfigModule } from '@nestjs/config';
 import { DataSource } from 'typeorm';
@@ -312,6 +313,50 @@ describe('Fees rules (integration)', () => {
     );
     await mkStudent({ ...A, sectionId });
     expect(await unassigned.evaluate(ctx(A))).toEqual([]);
+  });
+
+  const mkTuitionSchedule = async (t: Tenant, yearId: string, audience: Record<string, string>) => {
+    const [{ id }] = await ds.query(
+      `INSERT INTO recurring_schedules (tenant_id, academic_year_id, name, audience, rule, period_type, starts_on, ends_on)
+       VALUES ($1, $2, 'Tuition', $3, '{"kind":"MONTHLY","day_of_month":1}', 'MONTH', '2043-01-01', '2043-12-31')
+       RETURNING id`,
+      [t.id, yearId, JSON.stringify({ enrollment_status: 'ACTIVE', ...audience })],
+    );
+    await ds.query(
+      `INSERT INTO recurring_schedule_structures (schedule_id, fee_structure_id) VALUES ($1, $2)`,
+      [id, t.structureId],
+    );
+    return id as string;
+  };
+
+  it('unassigned_students: tuition billed only through a program-scoped schedule never flags classmates outside the program', async () => {
+    const inProgram = await mkStudent(A);
+    await mkStudent(A); // same section, not in the program
+    const scheduleId = await mkTuitionSchedule(A, A.yearId, { program_id: randomUUID() });
+    const [{ id: generationId }] = await ds.query(
+      `INSERT INTO fee_generations (tenant_id, academic_year_id, period_start, period_type, due_date, source,
+         recurring_schedule_id, duplicate_strategy, structures, student_count, generated_count, skipped_count, removed_count)
+       VALUES ($1, $2, '2043-03-01', 'MONTH', '2043-03-10', 'SCHEDULE', $3, 'SKIP', '[]', 1, 1, 0, 0) RETURNING id`,
+      [A.id, A.yearId, scheduleId],
+    );
+    const feeId = await mkFee(A, inProgram, { period: '2043-03-01' });
+    await ds.query(`UPDATE student_fees SET fee_generation_id = $1 WHERE id = $2`, [
+      generationId,
+      feeId,
+    ]);
+    expect(await unassigned.evaluate(ctx(A))).toEqual([]);
+  });
+
+  it("unassigned_students: an exclusion on another year's schedule does not silence this year's miss", async () => {
+    const s1 = await mkStudent(A);
+    const exemptLastYear = await mkStudent(A);
+    await mkFee(A, s1, { period: '2043-03-01' });
+    const otherYearSchedule = await mkTuitionSchedule(A, A.nextYearId, {});
+    await ds.query(
+      `INSERT INTO recurring_schedule_exclusions (schedule_id, student_id, reason) VALUES ($1, $2, 'Free studentship')`,
+      [otherYearSchedule, exemptLastYear],
+    );
+    expect((await unassigned.evaluate(ctx(A)))[0].params).toEqual({ missing: 1, month: '2043-03' });
   });
 
   it('structure_missing_new_year: next year in 30 days with no structure fires to both roles; a structure silences it', async () => {

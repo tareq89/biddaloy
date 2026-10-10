@@ -8,7 +8,8 @@ import { roleRecipients } from '../structure/role-recipients';
 /**
  * This month's tuition run billed some of a section but not every active student in it.
  * Tuition only: fines, exam or admission fees are billed to a few students on purpose.
- * Students excluded from a tuition schedule are left out on purpose too.
+ * Students excluded from this year's tuition schedule are left out on purpose too, and
+ * a program-scoped tuition schedule never makes the rest of a section look missing.
  */
 @AttentionRule()
 export class FeesUnassignedStudentsRule implements AttentionRuleShape {
@@ -45,7 +46,13 @@ export class FeesUnassignedStudentsRule implements AttentionRuleShape {
                   JOIN students s ON s.id = sf.student_id AND s.tenant_id = $1
                   JOIN fee_structures fs ON fs.id = sf.fee_structure_id AND fs.tenant_id = $1
                   WHERE sf.deleted_at IS NULL AND fs.fee_type = 'MONTHLY_TUITION'
-                    AND sf.period_type = 'MONTH' AND sf.year = $2 AND sf.month = $3)
+                    AND sf.period_type = 'MONTH' AND sf.year = $2 AND sf.month = $3
+                    -- A program-scoped schedule bills only part of a section on purpose.
+                    AND NOT EXISTS (
+                      SELECT 1 FROM fee_generations g
+                      JOIN recurring_schedules ps ON ps.id = g.recurring_schedule_id AND ps.tenant_id = $1
+                      WHERE g.id = sf.fee_generation_id AND g.tenant_id = $1
+                        AND ps.audience->>'program_id' IS NOT NULL))
        SELECT (SELECT COUNT(*) FROM m)::int AS generated,
               COUNT(*)::int AS missing
        FROM students s
@@ -54,9 +61,10 @@ export class FeesUnassignedStudentsRule implements AttentionRuleShape {
        JOIN academic_years y ON y.id = c.academic_year_id AND y.tenant_id = $1 AND y.is_current = true AND y.deleted_at IS NULL
        WHERE s.tenant_id = $1 AND s.deleted_at IS NULL AND s.enrollment_status = 'ACTIVE'
          AND s.id NOT IN (SELECT student_id FROM m)
-         -- ponytail: only sections where a classmate was billed, so classes or programs outside every
-         -- tuition schedule's audience stay quiet; a whole section skipped by mistake is also quiet.
-         -- Upgrade: resolve each schedule's audience if that ever needs flagging.
+         -- ponytail: only sections where a classmate was billed by a non-program run, so classes outside
+         -- every tuition schedule's audience stay quiet; a whole section skipped by mistake is also quiet.
+         -- A manual run narrowed to a program is not recorded on fee_generations, so it still counts.
+         -- Upgrade: resolve each schedule's audience if either ever needs fixing.
          AND s.class_section_id IN (SELECT class_section_id FROM m)
          -- Carved out of a tuition schedule on purpose (free studentship, staff children).
          AND NOT EXISTS (
@@ -65,7 +73,7 @@ export class FeesUnassignedStudentsRule implements AttentionRuleShape {
            JOIN recurring_schedule_structures rss ON rss.schedule_id = rs.id
            JOIN fee_structures f ON f.id = rss.fee_structure_id AND f.tenant_id = $1
                                 AND f.fee_type = 'MONTHLY_TUITION'
-           WHERE x.student_id = s.id)`,
+           WHERE x.student_id = s.id AND rs.academic_year_id = y.id)`,
       [ctx.tenantId, Number(month.slice(0, 4)), Number(month.slice(5, 7))],
     );
     // No generation yet this month is not this rule's business.
