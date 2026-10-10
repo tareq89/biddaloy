@@ -1143,6 +1143,32 @@ describe('rowActions', () => {
     ).toBe('false');
   });
 
+  it('row action labels follow the latest rowActions even when data is unchanged', async () => {
+    // A page whose namespace loads after the first render re-renders with new labels and the
+    // same `data`; TanStack's cached cell value used to keep the first (fallback-language) label.
+    function Relabel() {
+      const [verb, setVerb] = useState('দেখুন');
+      return (
+        <>
+          <button type="button" onClick={() => setVerb('View')}>
+            relabel
+          </button>
+          <Controlled
+            rowActions={(row) => [
+              { intent: 'view', label: `${verb} ${row.name}`, onClick: vi.fn() },
+            ]}
+          />
+        </>
+      );
+    }
+    const user = userEvent.setup();
+    await renderInEnglish(<Relabel />);
+    expect(screen.getByRole('button', { name: 'দেখুন Rahim Uddin' })).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'relabel' }));
+    expect(screen.getByRole('button', { name: 'View Rahim Uddin' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'দেখুন Rahim Uddin' })).toBeNull();
+  });
+
   it('adds no Actions header when rowActions is omitted', async () => {
     await renderInEnglish(<Controlled />);
     expect(screen.queryByRole('columnheader', { name: 'Actions' })).toBeNull();

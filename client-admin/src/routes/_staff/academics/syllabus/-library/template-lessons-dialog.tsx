@@ -46,7 +46,8 @@ export function TemplateLessonsDialog({
             onRetry={() => void query.refetch()}
           />
         ) : (
-          <ol className="max-h-[60vh] divide-y divide-border-subtle overflow-y-auto">
+          // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- scrollable region must be keyboard-reachable (axe scrollable-region-focusable)
+          <ol tabIndex={0} className="max-h-[60vh] divide-y divide-border-subtle overflow-y-auto">
             {(query.data?.lessons ?? []).map((lesson, index) => (
               <li key={lesson.id} className="flex items-start gap-3 py-2">
                 <span className="w-8 shrink-0 text-end text-text-secondary tabular-nums">

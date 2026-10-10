@@ -61,6 +61,15 @@ test('keyboard-only: register search, row details, then the To print tab', async
     await expect(page.getByRole('textbox', { name: t('printHistory.filters.search') })).toHaveValue(
       serial,
     );
+    // The serial's row is often on the unfiltered first page already: wait for the debounced
+    // search to commit and its refetch to settle, or that refetch swaps the rows (and drops focus)
+    // after the next step has focused View.
+    await expect(page).toHaveURL(new RegExp(`[?&]q=${encodeURIComponent(serial)}`));
+    // DataTable's scroll region is the only one carrying `aria-busy`.
+    await expect(page.locator('[role="region"][aria-busy]').first()).toHaveAttribute(
+      'aria-busy',
+      'false',
+    );
     await expect(page.getByRole('cell', { name: serial }).first()).toBeVisible();
     // The result count is announced through a polite live region, not only shown.
     await expect(
@@ -75,10 +84,11 @@ test('keyboard-only: register search, row details, then the To print tab', async
       .filter({ hasText: serial })
       .getByRole('button', { name: t('printHistory.actions.view') })
       .first();
+    // A short inner wait, so a lost focus is retried instead of spending the whole budget once.
     await expect(async () => {
       await view.focus();
-      await expect(view).toBeFocused();
-    }).toPass({ timeout: 5000 });
+      await expect(view).toBeFocused({ timeout: 500 });
+    }).toPass({ timeout: 10_000 });
     await page.keyboard.press('Enter');
     const dialog = page.getByRole('dialog');
     await expect(dialog).toBeVisible();

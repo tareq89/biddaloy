@@ -51,6 +51,8 @@ export function PeriodCard({
     : (delivery?.status ?? null);
 
   function pick(status: LessonDeliveryStatus) {
+    // Not `disabled` while saving: a disabled radio drops keyboard focus to <body> (D12 wants it to stay).
+    if (upsert.isPending) return;
     if (status === 'NOT_TAUGHT') {
       upsert.reset();
       return setDialogOpen(true);
@@ -150,7 +152,7 @@ export function PeriodCard({
                 section: sectionLabel,
                 subject: subjectLabel,
               })}
-              disabled={upsert.isPending || !period.can_mark}
+              disabled={!period.can_mark}
             />
           </div>
           {upsert.isError && (

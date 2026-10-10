@@ -237,11 +237,13 @@ describe('Syllabus › Study plans tab', () => {
     handlers([], { fail: true });
     render();
     const user = userEvent.setup();
-    const retry = await screen.findByRole('button', { name: 'Retry' });
+    // A 500 is retried twice with backoff (`shouldRetryQuery`) before ErrorState shows: ~3s idle,
+    // more on a loaded CI runner, past the 5s `findBy` default. Same allowance as template-editor.test.tsx.
+    const retry = await screen.findByRole('button', { name: 'Retry' }, { timeout: 12_000 });
     const before = seen.length;
     await user.click(retry);
     await waitFor(() => expect(seen.length).toBeGreaterThan(before));
-  });
+  }, 20_000);
 
   it('Bangla locale renders Bangla digits', async () => {
     handlers([row('p1')]);
