@@ -186,7 +186,6 @@ Results [19.0] · Homework [22.0] · Syllabus [22.0] · Routine [21.0]
 Calendar & notices [17.0; notices have]
 Online exam & class [N6] · Programs [34.0] · Documents [Print module — follow-up epic]
 Applications [52.0] — under More on a phone
-Account [have]
 Account [have] — includes Notification preferences [67.0]
 ```
 
