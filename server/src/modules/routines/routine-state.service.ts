@@ -5,6 +5,8 @@ import { Routine } from './entities/routine.entity';
 import { AuditService } from '../audit/audit.service';
 import { RequestContext } from '../../common/request-context.util';
 import { AuditAction, RoutineState } from '@biddaloy/shared';
+import { attentionEvents } from '../attention/attention.constants';
+import { emitRecheck } from '../attention/engine/attention-events';
 
 /**
  * D11 state machine. Legal transitions:
@@ -83,7 +85,7 @@ export class RoutineStateService {
     // Transition + its audit row commit atomically: an audit-write
     // failure rolls back the transition too, so a routine never ends up
     // e.g. PUBLISHED with no audit trail.
-    return this.dataSource.transaction(async (manager) => {
+    const result = await this.dataSource.transaction(async (manager) => {
       const routineRepo = manager.getRepository(Routine);
 
       // Atomic conditional update: only succeeds while the row is still in
@@ -91,14 +93,14 @@ export class RoutineStateService {
       // withdraw, both starting from REVIEW) can't both win — the loser's
       // zero-row update surfaces as a conflict instead of silently
       // overwriting the winner's state.
-      const result = await routineRepo.update(
+      const updated = await routineRepo.update(
         { id, tenant_id: tenantId, deleted_at: IsNull(), state: oldState },
         {
           state: to,
           published_at: to === RoutineState.PUBLISHED ? new Date() : routine.published_at,
         },
       );
-      if (result.affected === 0) {
+      if (updated.affected === 0) {
         throw new ConflictException(`Cannot move routine from "${oldState}" to "${to}"`);
       }
       const saved = await routineRepo.findOneOrFail({
@@ -122,5 +124,11 @@ export class RoutineStateService {
 
       return saved;
     });
+    emitRecheck(attentionEvents, {
+      tenantId,
+      ruleKey: 'routine.not_published',
+      actorUserId: userId ?? undefined,
+    });
+    return result;
   }
 }

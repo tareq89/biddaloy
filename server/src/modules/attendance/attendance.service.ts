@@ -55,6 +55,8 @@ import {
 import { Subject } from '../academics/entities/subject.entity';
 import { Teacher } from '../academics/entities/teacher.entity';
 import { AbsenceNoticeService } from './absence-notice.service';
+import { attentionEvents } from '../attention/attention.constants';
+import { emitRecheck } from '../attention/engine/attention-events';
 
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 const MIN_REASON_LENGTH = 3;
@@ -379,6 +381,15 @@ export class AttendanceService {
       }
     }
 
+    // Only a FINALIZED register changes attendance.not_taken; a draft save
+    // must not trigger a recheck that would stamp this user on other alerts.
+    if (result.session.state === AttendanceSessionState.FINALIZED) {
+      emitRecheck(attentionEvents, {
+        tenantId,
+        ruleKey: 'attendance.not_taken',
+        actorUserId: userId,
+      });
+    }
     return result;
   }
 
@@ -964,7 +975,7 @@ export class AttendanceService {
     }
 
     try {
-      return await this.dataSource.transaction(async (manager) => {
+      const saved = await this.dataSource.transaction(async (manager) => {
         const settings = await this.schoolsService.getResolvedSettings(tenantId);
         const policy = resolveAttendancePolicy(settings);
         const today = localToday(settings.region?.timezone ?? 'UTC');
@@ -1101,6 +1112,9 @@ export class AttendanceService {
         }
         return { saved_dates: sortedDates, versions };
       });
+      // No attention recheck: the matrix finalizes only past days, and
+      // attendance.not_taken looks at today alone.
+      return saved;
     } catch (err) {
       if (
         err instanceof QueryFailedError &&
@@ -1132,7 +1146,7 @@ export class AttendanceService {
     const { sectionId, tenantId, role, userId, date, periodNo, ip, userAgent } = params;
     await this.assertRegisterAccess(role, userId, sectionId, tenantId, date, periodNo);
 
-    return this.dataSource.transaction(async (manager) => {
+    const result = await this.dataSource.transaction(async (manager) => {
       const sessionRepo = manager.getRepository(AttendanceSession);
       const session = await sessionRepo.findOne({
         where: {
@@ -1174,6 +1188,12 @@ export class AttendanceService {
 
       return this.loadRegister(manager, { sectionId, date, periodNo, tenantId, role });
     });
+    emitRecheck(attentionEvents, {
+      tenantId,
+      ruleKey: 'attendance.not_taken',
+      actorUserId: userId,
+    });
+    return result;
   }
 
   // ---------------------------------------------------------------------

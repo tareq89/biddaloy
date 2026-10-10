@@ -6,7 +6,11 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { HomeworkAssignmentStatus, HomeworkGradingMode, HomeworkSubmissionStatus } from '@biddaloy/shared';
+import {
+  HomeworkAssignmentStatus,
+  HomeworkGradingMode,
+  HomeworkSubmissionStatus,
+} from '@biddaloy/shared';
 import { Homework } from './entities/homework.entity';
 import { HomeworkAssignment } from './entities/homework-assignment.entity';
 import { HomeworkSubmission } from './entities/homework-submission.entity';
@@ -18,6 +22,8 @@ import { tenantObjectKey } from '../storage/storage-key';
 import { UpdateHomeworkSubmissionDto } from './dto/homework-submission.dto';
 import { SchoolsService } from '../schools/schools.service';
 import { localToday } from '../attendance/attendance-policy.util';
+import { attentionEvents } from '../attention/attention.constants';
+import { emitRecheck } from '../attention/engine/attention-events';
 
 interface CallerContext {
   role: string;
@@ -192,9 +198,8 @@ export class HomeworkSubmissionService {
     // Resubmission replaces the array — the old objects are never referenced
     // again, so they'd otherwise stay in storage forever. Keep their keys to
     // delete once the new row is safely saved.
-    const previousKeys = (submission.attachments as SubmissionAttachment[] | null)?.map(
-      (a) => a.key,
-    ) ?? [];
+    const previousKeys =
+      (submission.attachments as SubmissionAttachment[] | null)?.map((a) => a.key) ?? [];
 
     submission.attachments = attachments;
     // D9: teacher override (PARTIAL/DONE) always wins — an upload never
@@ -218,6 +223,12 @@ export class HomeworkSubmissionService {
     }
     // Best-effort: a delete failure here must never mask a successful save.
     await Promise.allSettled(previousKeys.map((key) => this.storage.delete(key)));
+    // A late (after-school) upload clears the "not submitted" alert at once.
+    emitRecheck(attentionEvents, {
+      tenantId: ctx.tenantId,
+      ruleKey: 'homework.not_submitted',
+      actorUserId: ctx.userId,
+    });
     return saved;
   }
 
@@ -272,7 +283,15 @@ export class HomeworkSubmissionService {
       submission.marks = dto.marks;
     }
 
-    return this.submissionRepo.save(submission);
+    const saved = await this.submissionRepo.save(submission);
+    if (dto.status !== undefined) {
+      emitRecheck(attentionEvents, {
+        tenantId: ctx.tenantId,
+        ruleKey: 'homework.not_submitted',
+        actorUserId: ctx.userId,
+      });
+    }
+    return saved;
   }
 
   /** `GET /homework-assignments/:id/submissions` — teacher grid view. */
