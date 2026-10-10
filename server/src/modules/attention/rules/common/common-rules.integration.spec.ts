@@ -42,7 +42,7 @@ describe('Common rules (integration)', () => {
     localDate: DAY,
     localTime: '20:00',
     isWorkingDay: true,
-    settings: {} as RuleContext['settings'],
+    settings: { eveningAt: '17:00' } as RuleContext['settings'],
   });
 
   async function mkUser(tenantId: string, role: string) {
@@ -206,15 +206,35 @@ describe('Common rules (integration)', () => {
     expect(found.map((f) => f.dedupeKey.split(':').pop())).toEqual(['staff']);
   });
 
-  it('multi-day holiday: announced the working evening before, not again on each evening inside it', async () => {
-    // Day 3 of a 5-day break (2043-03-18..22): today is off, tomorrow is not the start.
+  it('multi-day holiday: announced the evening before, not again on each evening inside it', async () => {
+    // Day 3 of a 5-day break (2043-03-18..22), published long ago: tomorrow is not news.
     await mkHoliday(A, { date: '2043-03-18', end: '2043-03-22' });
     expect(await holiday.evaluate({ ...ctx(A), isWorkingDay: false })).toEqual([]);
-    // Today was a working day inside the range (break resumes): tomorrow is news again.
-    expect(await holiday.evaluate(ctx(A))).toHaveLength(2);
     // A holiday starting tomorrow is announced even when today is off (weekend before Eid).
     await mkHoliday(B);
     expect(await holiday.evaluate({ ...ctx(B), isWorkingDay: false })).toHaveLength(2);
+  });
+
+  it('a closure published today, or a break extended today, is announced once that evening', async () => {
+    // ctx: 2043-03-20 20:00 Dhaka. Yesterday's evening run was 2043-03-19 17:00 Dhaka (11:00Z).
+    const closure = await mkHoliday(A, { date: DAY, end: '2043-03-22' });
+    const changedAt = (id: string, at: string) =>
+      q(`UPDATE calendar_events SET updated_at = $2, published_at = $2 WHERE id = $1`, [id, at]);
+    // Same-day flood closure, published this morning (08:00 Dhaka).
+    await changedAt(closure, '2043-03-20T02:00:00Z');
+    expect(await holiday.evaluate({ ...ctx(A), isWorkingDay: false })).toHaveLength(2);
+    // Changed just before yesterday's run: that run announced it, tonight stays silent.
+    await changedAt(closure, '2043-03-19T10:59:00Z');
+    expect(await holiday.evaluate({ ...ctx(A), isWorkingDay: false })).toEqual([]);
+
+    // Eid break (03-18..20) announced long ago, extended today to 03-23: tonight says so.
+    const eid = await mkHoliday(B, { date: '2043-03-18', end: '2043-03-20' });
+    await q(`UPDATE calendar_events SET end_date = '2043-03-23', updated_at = $2 WHERE id = $1`, [
+      eid,
+      '2043-03-20T06:00:00Z',
+    ]);
+    const [staff] = await holiday.evaluate({ ...ctx(B), isWorkingDay: false });
+    expect(staff.params).toEqual({ name: 'Eid', until: '2043-03-23' });
   });
 
   it('does not fire: answered survey; closed survey', async () => {
