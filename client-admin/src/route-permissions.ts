@@ -91,6 +91,9 @@ export const STAFF_ROUTE_PERMISSIONS: Record<string, Permission> = {
   // state is a distinct capability from recording a new one.
   '/_staff/payments/$id': Permission.PAYMENT_READ,
   '/_staff/communications/send': Permission.COMMUNICATION_SEND,
+  // [67.5.09] Manual alerts and their report (D32, D33).
+  '/_staff/communications/send-alert': Permission.ALERT_SEND,
+  '/_staff/reports/alerts': Permission.ALERT_REPORT_READ,
   '/_staff/communications/reminders': Permission.COMMUNICATION_BULK_SEND,
   '/_staff/communications/batches/': Permission.COMMUNICATION_BULK_SEND,
   '/_staff/communications/batches/$batchId': Permission.COMMUNICATION_BULK_SEND,

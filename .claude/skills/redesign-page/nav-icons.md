@@ -82,8 +82,10 @@ two platform pages (see "Platform shell").
 | **reports — প্রতিবেদন** | | | |
 | `reports.collectionsReport` | `/reports/collections` | ফি আদায়ের প্রতিবেদন | `chart-column` |
 | `reports.printables` | `/reports/printables` | প্রিন্ট ও কাগজপত্র | `printer` |
+| `reports.alertsReport` | `/reports/alerts` | সতর্কতা প্রতিবেদন | `shield-alert` |
 | **communications — যোগাযোগ** | | | |
 | `communications.sendMessage` | `/communications/send` | বার্তা পাঠান | `send` |
+| `communications.sendAlert` | `/communications/send-alert` | সতর্কতা পাঠান | `siren` |
 | `communications.feeReminders` | `/communications/reminders` | ফি রিমাইন্ডার | `bell-ring` |
 | `communications.reminderHistory` | `/communications/batches` | রিমাইন্ডার ইতিহাস | `history` |
 | **administration — প্রশাসন** | | | |

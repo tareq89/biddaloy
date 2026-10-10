@@ -101,6 +101,8 @@ const NAV_PATH_TO_ROUTE_ID: Record<string, string> = {
   '/fees/fines': '/_staff/fees/fines/',
   '/invoices': '/_staff/invoices/',
   '/communications/send': '/_staff/communications/send',
+  '/communications/send-alert': '/_staff/communications/send-alert',
+  '/reports/alerts': '/_staff/reports/alerts',
   '/communications/reminders': '/_staff/communications/reminders',
   '/communications/batches': '/_staff/communications/batches/',
   '/academic-years': '/_staff/academic-years/',
