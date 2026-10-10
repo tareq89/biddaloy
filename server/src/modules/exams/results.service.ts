@@ -40,6 +40,8 @@ import {
 } from './result-rules';
 import { AttendanceComponentService } from './attendance-component.service';
 import { MarkGridService } from './mark-grid.service';
+import { attentionEvents } from '../attention/attention.constants';
+import { emitRecheck } from '../attention/engine/attention-events';
 import { AuditService } from '../audit/audit.service';
 import { RequestContext } from '../../common/request-context.util';
 import type { ApprovalContext } from '../auth/guards/approval.guard';
@@ -779,6 +781,10 @@ export class ResultsService {
         manager,
       );
     });
+
+    for (const ruleKey of ['results.published', 'exams.results_unpublished'] as const) {
+      emitRecheck(attentionEvents, { tenantId, ruleKey, actorUserId: userId });
+    }
   }
 
   /** Issue step 7: PUBLISHED -> PROCESSED, behind `@RequireApproval`
