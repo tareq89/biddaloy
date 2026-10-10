@@ -323,4 +323,23 @@ describe('Exams rules (integration)', () => {
     expect(seen.every((s) => s.tenantId === A.id)).toBe(true);
     expect(await unpublished.evaluate(ctx(A))).toEqual([]);
   });
+
+  it('emit: reopening results rechecks both keys, so the family item resolves and the staff item returns', async () => {
+    const exam = await mkExam(A, 'Final', 'PROCESSED', [A.math]);
+    await results.publish(exam, A.id, A.userOf.EXEC);
+    const seen: { ruleKey: string; tenantId: string }[] = [];
+    const listener = (p: { ruleKey: string; tenantId: string }) => seen.push(p);
+    attentionEvents.on(ATTENTION_RECHECK, listener);
+    try {
+      await results.reopen(exam, A.id, A.userOf.EXEC);
+    } finally {
+      attentionEvents.off(ATTENTION_RECHECK, listener);
+    }
+    expect(seen.map((s) => s.ruleKey).sort()).toEqual([
+      'exams.results_unpublished',
+      'results.published',
+    ]);
+    expect(seen.every((s) => s.tenantId === A.id)).toBe(true);
+    expect((await unpublished.evaluate(ctx(A))).map((f) => f.params.exam)).toContain('Final');
+  });
 });
