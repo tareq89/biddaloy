@@ -1,7 +1,4 @@
 {
-  "bar_one": "Trial: {{count}} day left · {{used}} of {{limit}} students",
-  "bar_other": "Trial: {{count}} days left · {{used}} of {{limit}} students",
-  "barLastDay": "Trial ends today",
   "seePlans": "See plans",
   "details": {
     "title": "About your trial",
@@ -24,8 +21,6 @@
     "bodyNoRequest": "You have {{used}} of {{limit}} students.",
     "hint": "Contact us to add more students."
   },
-  "barNoLimit_one": "Trial: {{count}} day left",
-  "barNoLimit_other": "Trial: {{count}} days left",
   "import": {
     "seats": "{{new_rows}} new students · {{used}} of {{limit}} used",
     "backToSetup": "Back to setup"
