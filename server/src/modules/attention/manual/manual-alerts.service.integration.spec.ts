@@ -339,6 +339,8 @@ describe('ManualAlertsService (integration)', () => {
       for (let i = 0; i < 20; i++) await service.send(SEED_TENANT_ID, teacher, dto());
       await expect(service.send(SEED_TENANT_ID, teacher, dto())).rejects.toMatchObject({
         status: 429,
+        // the client tells the daily cap apart from the throttler's 429 by this code
+        response: { details: { code: 'MANUAL_DAILY_LIMIT', limit: 20 } },
       });
       const [{ n }] = await ds.query(`SELECT count(*)::int n FROM alerts WHERE tenant_id = $1`, [
         SEED_TENANT_ID,
