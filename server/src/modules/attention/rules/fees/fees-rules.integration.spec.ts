@@ -275,6 +275,45 @@ describe('Fees rules (integration)', () => {
     expect(await unassigned.evaluate(ctx(A))).toEqual([]);
   });
 
+  it('unassigned_students: a student excluded from the tuition schedule is left out on purpose, so it stays silent', async () => {
+    const s1 = await mkStudent(A);
+    const exempt = await mkStudent(A);
+    await mkFee(A, s1, { period: '2043-03-01' });
+    expect((await unassigned.evaluate(ctx(A)))[0].params).toEqual({ missing: 1, month: '2043-03' });
+
+    const [{ id: scheduleId }] = await ds.query(
+      `INSERT INTO recurring_schedules (tenant_id, academic_year_id, name, audience, rule, period_type, starts_on, ends_on)
+       VALUES ($1, $2, 'Tuition', '{"enrollment_status":"ACTIVE"}', '{"kind":"MONTHLY","day_of_month":1}', 'MONTH',
+               '2043-01-01', '2043-12-31') RETURNING id`,
+      [A.id, A.yearId],
+    );
+    await ds.query(
+      `INSERT INTO recurring_schedule_structures (schedule_id, fee_structure_id) VALUES ($1, $2)`,
+      [scheduleId, A.structureId],
+    );
+    await ds.query(
+      `INSERT INTO recurring_schedule_exclusions (schedule_id, student_id, reason) VALUES ($1, $2, 'Free studentship')`,
+      [scheduleId, exempt],
+    );
+    expect(await unassigned.evaluate(ctx(A))).toEqual([]);
+  });
+
+  it('unassigned_students: a section no tuition run billed (outside every schedule) stays silent', async () => {
+    const s1 = await mkStudent(A);
+    await mkFee(A, s1, { period: '2043-03-01' });
+    // Play group: same year, no tuition schedule covers it.
+    const [{ id: classId }] = await ds.query(
+      `INSERT INTO classes (name, academic_year_id, tenant_id) VALUES ('Play', $1, $2) RETURNING id`,
+      [A.yearId, A.id],
+    );
+    const [{ id: sectionId }] = await ds.query(
+      `INSERT INTO class_sections (class_id, section_name, tenant_id) VALUES ($1, 'A', $2) RETURNING id`,
+      [classId, A.id],
+    );
+    await mkStudent({ ...A, sectionId });
+    expect(await unassigned.evaluate(ctx(A))).toEqual([]);
+  });
+
   it('structure_missing_new_year: next year in 30 days with no structure fires to both roles; a structure silences it', async () => {
     const [f] = await structureMissing.evaluate(ctx(A));
     expect(f.params).toEqual({ year: '2044', startDate: '2043-04-09' });
