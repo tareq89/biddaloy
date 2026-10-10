@@ -868,6 +868,7 @@ export const UI_ONLY_PERMISSIONS: Permission[] = [
   Permission.ALERT_SEND,
   // [67.5.01] ALERT_SEND now gates /attention/manual. ALERT_REPORT_READ stays until the report route (67.5.04) lands.
   Permission.ALERT_REPORT_READ,
+  // [67.5.01/.04] ALERT_SEND gates /attention/manual and ALERT_REPORT_READ gates /attention/report: no longer UI-only.
 ];
 
 describe('Permission matrix (regression)', () => {
