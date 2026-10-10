@@ -248,6 +248,17 @@ export async function main(argv: string[]): Promise<number> {
     console.error('refusing to run with NODE_ENV=production');
     return 2;
   }
+  // Booting runs schema sync and every onModuleInit against the target DB, so check its name
+  // first. Importing app.module copies `.env` into process.env (see script-app-context.ts).
+  await import('../app.module');
+  const envDb = process.env.DATABASE_URL
+    ? decodeURIComponent(new URL(process.env.DATABASE_URL).pathname.slice(1))
+    : '';
+  const early = perfGuardError(argv, envDb);
+  if (early) {
+    console.error(early);
+    return 2;
+  }
   const app = await createScriptAppContext();
   try {
     const { DataSource: DS } = await import('typeorm');
