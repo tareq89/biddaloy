@@ -135,7 +135,12 @@ describe('/applications/reports', () => {
 
   it('shows ErrorState and retry refetches', async () => {
     const { calls } = render(REPORT, { status: 500 });
-    const retry = await screen.findByRole('button', { name: 'আবার চেষ্টা করুন' });
+    // The reports query keeps its own retry (two backoffs, ~3 s) over the test client's retry: false.
+    const retry = await screen.findByRole(
+      'button',
+      { name: 'আবার চেষ্টা করুন' },
+      { timeout: 8000 },
+    );
     expect(screen.getByText('প্রতিবেদন আনা যায়নি।')).toBeTruthy();
     const before = calls.length;
     await userEvent.click(retry);

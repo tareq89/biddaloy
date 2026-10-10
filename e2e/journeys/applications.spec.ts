@@ -107,10 +107,13 @@ test.describe.serial('staff leave: file -> approve -> balance moves', () => {
   test.afterAll(async ({ request }) => {
     if (!applicationId) return;
     const executive = await roleSession(request, 'executive');
-    await request.post(`/api/v1/applications/${applicationId}/cancel`, {
+    const res = await request.post(`/api/v1/applications/${applicationId}/cancel`, {
       headers: { Authorization: `Bearer ${executive.token}`, 'X-Tenant-ID': executive.tenantId },
       data: { reason: 'E2E cleanup' },
     });
+    // Cleanup only: never fail the run, but say so — a silent failure brings the quota drain back.
+    if (!res.ok())
+      console.warn(`staff-leave cleanup cancel failed: ${res.status()} ${await res.text()}`);
   });
 
   test.describe('1. admin files a casual leave', () => {

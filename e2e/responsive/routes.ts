@@ -38,8 +38,9 @@ import { test } from '../fixtures/test';
  * Jan-Feb 2026 only: approving a leave writes that day's section register. A day after the newest
  * real register (a future day, or one after the seeded month, ATTENDANCE_SEED_MONTH = 2026-03)
  * would become the section's newest session and blank the My class streaks; Jan-Feb also holds no
- * seeded marks to overwrite. ponytail: about 35 working days per student, shared by every rerun on
- * one database (CI starts fresh); widen the window if local reruns run out.
+ * seeded marks to overwrite. ponytail: about 20 working days per student per window (January
+ * for staff specs, February for the portal), shared by every rerun on one database (CI starts
+ * fresh); widen the window if local reruns run out.
  *
  * The call passes no class, so a closure for one class only still counts as working here while the
  * approve (which passes the class) skips it. The seed has no class-only closure; add `classId` if a
@@ -50,11 +51,14 @@ export async function freeLeaveDays(
   session: ApiSession,
   studentId: string,
   count = 1,
+  // Staff specs take January, the portal journey February, so parallel specs filing for the same
+  // seeded child never pick one day twice (an approved overlap is a 409 LEAVE_OVERLAP).
+  window: { from: string; to: string } = { from: '2026-01-01', to: '2026-01-31' },
 ): Promise<string[]> {
   const { dates } = await get<{ dates: string[] }>(
     request,
     session,
-    '/school-calendar/working-days?from=2026-01-01&to=2026-02-28',
+    `/school-calendar/working-days?from=${window.from}&to=${window.to}`,
   );
   // ponytail: one page of 100 approved leaves; page through if a database ever holds more.
   const approved = await get<{ data: { start_date: string | null; end_date: string | null }[] }>(

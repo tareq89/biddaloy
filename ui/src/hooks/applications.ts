@@ -224,7 +224,6 @@ const LEAVE_BALANCE_KEY = ['leave', 'balance'] as const;
  * Decision mutations answer with the fresh dto: seed the detail, refresh lists + badge only
  * (not the detail just seeded, nor letter-preview / reports / tag-options).
  */
-
 function useDecisionCache() {
   const queryClient = useQueryClient();
   return (dto: ApplicationDto) => {
