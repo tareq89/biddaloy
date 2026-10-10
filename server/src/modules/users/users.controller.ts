@@ -44,6 +44,7 @@ import {
   ContactChangeConfirmPhoneDto,
   ContactChangeRequestResponseDto,
 } from './dto/contact-change.dto';
+import { NotificationPrefsDto, UpdateNotificationPrefsDto } from './dto/notification-prefs.dto';
 import { UserResponseDto } from './dto/user-response.dto';
 import {
   InviteBatchStatusResponseDto,
@@ -273,6 +274,35 @@ export class UserController {
     dto.invitation_status = await this.invitationService.statusFor(user, tenant.id);
     dto.staff_profile_id = await this.staffProfilesService.findIdByUserId(user.id);
     return dto;
+  }
+
+  /** [67.5.03] Own push mute by category. Declared above `users/:id` (see `GET users/me`). */
+  @Get('users/me/preferences/notifications')
+  @Roles(...SELF_SERVICE_ROLES)
+  @ApiOperation({
+    summary: "Read the caller's own alert-category mute and the school quiet hours.",
+  })
+  @ApiResponse({ status: 200, type: NotificationPrefsDto })
+  async getNotificationPrefs(
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() jwt: JwtPayload,
+  ) {
+    return this.userService.getNotificationPrefs(jwt.sub, tenant.id);
+  }
+
+  @Patch('users/me/preferences/notifications')
+  @Throttle({ default: SETTINGS_RATE_LIMIT })
+  @Roles(...SELF_SERVICE_ROLES)
+  @ApiOperation({
+    summary: "Replace the caller's own muted alert categories. CRITICAL is never muted.",
+  })
+  @ApiResponse({ status: 200, type: NotificationPrefsDto })
+  async updateNotificationPrefs(
+    @Body() dto: UpdateNotificationPrefsDto,
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() jwt: JwtPayload,
+  ) {
+    return this.userService.updateNotificationPrefs(jwt.sub, tenant.id, dto);
   }
 
   /**

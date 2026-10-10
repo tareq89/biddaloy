@@ -60,6 +60,18 @@ export const IDENTITY_SCOPED: IdentityScopedEntry[] = [
   },
   {
     controller: 'UserController',
+    method: 'GET',
+    path: '/users/me/preferences/notifications',
+    reason: '67.5.03 (#2083) — self-service: own push mute, id from the JWT',
+  },
+  {
+    controller: 'UserController',
+    method: 'PATCH',
+    path: '/users/me/preferences/notifications',
+    reason: '67.5.03 (#2083) — self-service: own push mute, id from the JWT',
+  },
+  {
+    controller: 'UserController',
     method: 'POST',
     path: '/users/me/contact-change',
     reason: '12.7 — self-service: changes the caller own email/phone, id from the JWT',
