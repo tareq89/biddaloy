@@ -12,18 +12,24 @@ import { focusedText, selectByTypeahead, tabUntilFocused } from './keyboard-util
 
 const THURSDAY = '2026-07-23'; // a school day, clear of every seeded holiday and closure
 
-/** The kit DatePicker, mouse-driven on purpose (see above), paging months until `iso` shows. */
+/**
+ * The kit DatePicker, mouse-driven on purpose (see above), paging months until `iso` shows.
+ * Retries with a reopen, like `journeys/portal-applications.spec.ts`: CI has seen the popover
+ * dismissed mid-paging (the month button "not stable", then detached).
+ */
 async function pickDate(page: Page, label: string, iso: string): Promise<void> {
-  await page.getByRole('button', { name: label }).click();
-  await expect(page.getByRole('grid')).toBeVisible();
+  const grid = page.getByRole('grid');
   const cell = page.locator(`[role="grid"] [data-date="${iso}"]`);
-  for (let i = 0; i < 36 && !(await cell.isVisible()); i += 1) {
-    const shown = await page.locator('[role="grid"] [data-date]').nth(15).getAttribute('data-date');
-    const key = (shown ?? iso) > iso ? 'common.date.previousMonth' : 'common.date.nextMonth';
-    await page.getByRole('button', { name: t(key) }).click();
-  }
-  await cell.click();
-  await expect(page.getByRole('grid')).toHaveCount(0);
+  await expect(async () => {
+    if (!(await grid.isVisible())) await page.getByRole('button', { name: label }).click();
+    for (let i = 0; i < 36 && !(await cell.isVisible()); i += 1) {
+      const shown = await grid.locator('[data-date]').nth(15).getAttribute('data-date');
+      const key = (shown ?? iso) > iso ? 'common.date.previousMonth' : 'common.date.nextMonth';
+      await page.getByRole('button', { name: t(key) }).click({ timeout: 3_000 });
+    }
+    await cell.click({ timeout: 3_000 });
+  }).toPass({ timeout: 20_000 });
+  await expect(grid).toHaveCount(0);
 }
 
 /** Tab to the footer primary (labelled `label`) and press Enter. */
@@ -35,6 +41,7 @@ async function next(page: Page, label: string): Promise<void> {
 test.use(loggedIn('parent'));
 
 test('keyboard-only: portal nav -> file a leave -> withdraw it', async ({ page }) => {
+  test.setTimeout(90_000); // two DatePicker picks can each retry for up to 20 s
   await page.goto('/portal');
   await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible();
   await page.evaluate(() => {
