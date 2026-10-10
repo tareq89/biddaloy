@@ -16,7 +16,8 @@ export class TrialEndingRule implements AttentionRuleShape {
   meta = alertRuleMeta('trial.ending');
   messages = {
     en: {
-      title: 'Free trial: {days} days left',
+      // Count last, so 1 and 0 days read right without plural forms.
+      title: 'Days left in your free trial: {days}',
       why: 'When the trial ends the school is paused until you choose a plan.',
       steps: ['Open the trial details', 'Choose a plan or contact support'],
       action: 'See trial details',
