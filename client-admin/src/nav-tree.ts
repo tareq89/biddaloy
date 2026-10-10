@@ -382,6 +382,21 @@ export const STAFF_NAV_ITEMS = {
     permission: Permission.COMMUNICATION_SEND,
     label: { key: 'sendMessage' },
   },
+  // [67.5.09] Manual alerts (D32) and their monthly report (D33).
+  'communications.sendAlert': {
+    id: 'communications.sendAlert',
+    to: '/communications/send-alert',
+    permission: Permission.ALERT_SEND,
+    label: { key: 'sendAlert' },
+    synonyms: ['alert', 'warning', 'announce', 'সতর্কতা'],
+  },
+  'reports.alertsReport': {
+    id: 'reports.alertsReport',
+    to: '/reports/alerts',
+    permission: Permission.ALERT_REPORT_READ,
+    label: { key: 'alertsReport' },
+    synonyms: ['alerts', 'breach', 'সতর্কতা'],
+  },
   'communications.feeReminders': {
     id: 'communications.feeReminders',
     to: '/communications/reminders',
@@ -569,6 +584,7 @@ export const STAFF_NAV_GROUPS: readonly StaffNavGroupDef[] = [
       STAFF_NAV_ITEMS['reports.collectionsReport'],
       STAFF_NAV_ITEMS['reports.printables'],
       STAFF_NAV_ITEMS['reports.applications'],
+      STAFF_NAV_ITEMS['reports.alertsReport'],
     ],
   },
   {
@@ -576,6 +592,7 @@ export const STAFF_NAV_GROUPS: readonly StaffNavGroupDef[] = [
     label: { key: 'communications' },
     items: [
       STAFF_NAV_ITEMS['communications.sendMessage'],
+      STAFF_NAV_ITEMS['communications.sendAlert'],
       STAFF_NAV_ITEMS['communications.feeReminders'],
       STAFF_NAV_ITEMS['communications.reminderHistory'],
     ],

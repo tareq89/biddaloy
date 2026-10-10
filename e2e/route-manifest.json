@@ -772,6 +772,16 @@
       "path": "/reports/collections",
       "role": "accountant",
       "archetype": "list"
+    },
+    {
+      "path": "/communications/send-alert",
+      "role": "admin",
+      "archetype": "form"
+    },
+    {
+      "path": "/reports/alerts",
+      "role": "executive",
+      "archetype": "list"
     }
   ]
 }
