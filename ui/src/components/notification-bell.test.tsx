@@ -244,7 +244,8 @@ describe('NotificationBell', () => {
     it('badges the active count, not the unread toasts, and Show opens the modal', async () => {
       const user = userEvent.setup();
       pushNotification({ tenantId: null, message: 'Bulk import finished', variant: 'success' });
-      const a = attention();
+      let focusedAtOpen: Element | null = null;
+      const a = attention({ onOpen: vi.fn(() => (focusedAtOpen = document.activeElement)) });
       await renderWithRouterInEnglish({ attention: a });
       const trigger = await screen.findByRole('button', {
         name: 'Notifications, 4 need your attention',
@@ -255,6 +256,8 @@ describe('NotificationBell', () => {
       expect(screen.getByRole('link', { name: 'See all to-do' })).toBeTruthy();
       await user.click(screen.getByRole('button', { name: 'Show' }));
       expect(a.onOpen).toHaveBeenCalledTimes(1);
+      // The modal records the focused element as its opener: the bell, not the closing panel's "Show".
+      expect(focusedAtOpen).toBe(trigger);
     });
 
     it('shows "nothing" at zero and Retry on error', async () => {

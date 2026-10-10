@@ -94,6 +94,18 @@ test.describe('staff', () => {
     await expect(dialog(page)).toBeHidden();
     await expect(page.locator(BAR)).toBeFocused();
 
+    // Opened from the bell's "Show", Esc returns to the bell, not the bar (the panel animates out).
+    const bell = page.getByRole('button', { name: /need your attention/ });
+    await bell.focus();
+    await page.keyboard.press('Enter');
+    await page.getByRole('button', { name: t('nav.notifications.attentionOpen') }).focus();
+    await page.keyboard.press('Enter');
+    await expect(cards.first()).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(dialog(page)).toBeHidden();
+    await expect(bell).toBeFocused();
+
+    await page.locator(BAR).focus();
     await page.keyboard.press('Enter');
     await expect(cards.first()).toBeFocused();
     await page.keyboard.press('Enter');
