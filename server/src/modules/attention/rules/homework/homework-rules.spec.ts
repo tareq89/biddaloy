@@ -135,15 +135,23 @@ describe('HomeworkNotSubmittedRule', () => {
   });
 
   it('a cancelled Math period does not set the trigger; the section last period end does', async () => {
-    const f = base({ slots: [mathSlot('p2', true), { ...mathSlot('p3'), subject_id: 'art' }] });
-    expect(await notSubmitted(f).evaluate(ctx({ localTime: '13:29' }))).toEqual([]);
-    expect(await notSubmitted(f).evaluate(ctx({ localTime: '13:30' }))).not.toEqual([]);
+    const f = base({ slots: [mathSlot('p1', true), { ...mathSlot('p2'), subject_id: 'art' }] });
+    expect(await notSubmitted(f).evaluate(ctx({ localTime: '10:39' }))).toEqual([]);
+    expect(await notSubmitted(f).evaluate(ctx({ localTime: '10:40' }))).not.toEqual([]);
   });
 
-  it('no routine at all: school last period end, else 16:00', async () => {
+  // FAST sweeps stop at the school's last period end (13:30) and tick every 5 min,
+  // so a trigger at 13:30 itself would usually be missed: it moves 10 min earlier.
+  it('a section ending with the school fires 10 min before the last bell', async () => {
+    const f = base({ slots: [mathSlot('p2', true), { ...mathSlot('p3'), subject_id: 'art' }] });
+    expect(await notSubmitted(f).evaluate(ctx({ localTime: '13:19' }))).toEqual([]);
+    expect(await notSubmitted(f).evaluate(ctx({ localTime: '13:20' }))).not.toEqual([]);
+  });
+
+  it('no routine at all: school last period end (less the margin), else 16:00', async () => {
     const noRoutine = base({ slots: [] });
-    expect(await notSubmitted(noRoutine).evaluate(ctx({ localTime: '13:29' }))).toEqual([]);
-    expect(await notSubmitted(noRoutine).evaluate(ctx({ localTime: '13:30' }))).not.toEqual([]);
+    expect(await notSubmitted(noRoutine).evaluate(ctx({ localTime: '13:19' }))).toEqual([]);
+    expect(await notSubmitted(noRoutine).evaluate(ctx({ localTime: '13:20' }))).not.toEqual([]);
     const nothing = base({ slots: [], periods: [] });
     expect(await notSubmitted(nothing).evaluate(ctx({ localTime: '15:59' }))).toEqual([]);
     expect(await notSubmitted(nothing).evaluate(ctx({ localTime: '16:00' }))).not.toEqual([]);

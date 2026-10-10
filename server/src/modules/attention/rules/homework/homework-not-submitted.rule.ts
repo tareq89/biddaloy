@@ -92,6 +92,18 @@ export function titleOf(titles: string[]): string {
 
 // ponytail: no routine at all — fixed fallback
 const NO_ROUTINE_FALLBACK = '16:00';
+/**
+ * FAST sweeps stop at the school's last period end and tick every 5 min
+ * (not clock-aligned), so a trigger AT that minute is usually skipped.
+ * Two ticks of margin keep the last trigger inside the window.
+ */
+const CLOSING_MARGIN_MINUTES = 10;
+
+function minusMinutes(hhmm: string, mins: number): string {
+  const [h, m] = hhmm.split(':').map(Number);
+  const t = Math.max(0, h * 60 + m - mins);
+  return `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`;
+}
 
 @AttentionRule()
 export class HomeworkNotSubmittedRule implements AttentionRuleShape {
@@ -203,7 +215,9 @@ export class HomeworkNotSubmittedRule implements AttentionRuleShape {
   /**
    * D9: the first period of the subject for the section today; else the
    * section's last period end ("school end"); else the school's last period
-   * end; else a fixed fallback. One `resolveTenantDay` + one period query.
+   * end; else a fixed fallback. Any trigger is clamped to
+   * `CLOSING_MARGIN_MINUTES` before the school's last period end, so a FAST
+   * tick still sees it. One `resolveTenantDay` + one period query.
    */
   private async triggerTimes(ctx: RuleContext) {
     const [slots, periods] = await Promise.all([
@@ -226,14 +240,18 @@ export class HomeworkNotSubmittedRule implements AttentionRuleShape {
       if (!lastEnd.has(s.section_id) || p.end > lastEnd.get(s.section_id)!)
         lastEnd.set(s.section_id, p.end);
     }
-    const schoolEnd =
-      periods
-        .map((p) => p.end)
-        .sort()
-        .pop() ?? NO_ROUTINE_FALLBACK;
+    const lastPeriodEnd = periods
+      .map((p) => p.end)
+      .sort()
+      .pop();
+    const schoolEnd = lastPeriodEnd ?? NO_ROUTINE_FALLBACK;
+    const closing = lastPeriodEnd && minusMinutes(lastPeriodEnd, CLOSING_MARGIN_MINUTES);
     return {
-      at: (sectionId: string, subjectId: string) =>
-        firstStart.get(`${sectionId}|${subjectId}`) ?? lastEnd.get(sectionId) ?? schoolEnd,
+      at: (sectionId: string, subjectId: string) => {
+        const t =
+          firstStart.get(`${sectionId}|${subjectId}`) ?? lastEnd.get(sectionId) ?? schoolEnd;
+        return closing && t > closing ? closing : t;
+      },
     };
   }
 }
