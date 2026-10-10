@@ -79,11 +79,12 @@ export async function openFeesByStudent(
   tenantId: string,
   dueSql: string,
   args: string[],
-): Promise<{ student_id: string; amount: string; first_due: string }[]> {
+): Promise<{ student_id: string; amount: string; first_due: string; last_due: string }[]> {
   return ds.query(
     `SELECT sf.student_id,
             SUM(sf.total_amount - sf.paid_amount - sf.discount_amount)::numeric AS amount,
-            to_char(MIN(sf.due_date), 'YYYY-MM-DD') AS first_due
+            to_char(MIN(sf.due_date), 'YYYY-MM-DD') AS first_due,
+            to_char(MAX(sf.due_date), 'YYYY-MM-DD') AS last_due
      FROM student_fees sf
      JOIN students s ON s.id = sf.student_id AND s.tenant_id = $1 AND s.deleted_at IS NULL
      WHERE sf.deleted_at IS NULL AND sf.status IN ('PENDING','PARTIALLY_PAID') AND ${dueSql}
