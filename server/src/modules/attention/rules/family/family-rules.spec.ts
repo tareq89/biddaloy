@@ -96,7 +96,9 @@ describe('family rules: shared contract', () => {
     } as const;
     const rowsFor: Record<string, unknown[]> = {
       'child.absent_today': [{ student_id: 's1' }],
-      'fees.due_soon': [{ student_id: 's1', amount: '10', first_due: '2026-10-11' }],
+      'fees.due_soon': [
+        { student_id: 's1', amount: '10', first_due: '2026-10-11', last_due: '2026-10-11' },
+      ],
       'fees.overdue_family': [{ student_id: 's1', amount: '10', first_due: '2026-10-01' }],
       'exams.tomorrow': [
         { student_id: 's1', subjects_en: 'Math', subjects_bn: 'গণিত', starts_at: '09:00' },
@@ -151,12 +153,17 @@ describe('ChildAbsentTodayRule', () => {
 
 describe('fee rules', () => {
   it('due_soon: a child with no PARENT recipient is dropped (no SMS fallback)', async () => {
-    const x = setup([{ student_id: 's1', amount: '500.4', first_due: '2026-10-12' }], [STUDENT]);
+    const x = setup(
+      [{ student_id: 's1', amount: '500.4', first_due: '2026-10-11', last_due: '2026-10-12' }],
+      [STUDENT],
+    );
     expect(await new FeesDueSoonRule(x.ds, x.family).evaluate(ctx())).toEqual([]);
   });
 
-  it('due_soon: window is today..+3 days; amount rounded', async () => {
-    const x = setup([{ student_id: 's1', amount: '500.4', first_due: '2026-10-12' }]);
+  it('due_soon: window is today..+3 days; amount rounded; date is the latest due date in the sum', async () => {
+    const x = setup([
+      { student_id: 's1', amount: '500.4', first_due: '2026-10-11', last_due: '2026-10-12' },
+    ]);
     const [f] = await new FeesDueSoonRule(x.ds, x.family).evaluate(ctx());
     expect(f.params).toMatchObject({ amount: 500, dueDate: '2026-10-12' });
     expect(f.dedupeKey).toBe('student:s1');

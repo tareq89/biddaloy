@@ -43,10 +43,11 @@ export class FeesDueSoonRule implements AttentionRuleShape {
       this.family,
       ctx.tenantId,
       this.meta,
+      // "৳{sum} due by {date}": the sum covers every fee in the window, so the date is the latest.
       rows.map((r) => ({
         studentId: r.student_id,
         dedupeKey: `student:${r.student_id}`,
-        params: { amount: Math.round(Number(r.amount)), dueDate: r.first_due },
+        params: { amount: Math.round(Number(r.amount)), dueDate: r.last_due },
         actionUrl: `/portal/fees?student=${r.student_id}`,
       })),
     );
