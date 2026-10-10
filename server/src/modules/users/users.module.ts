@@ -5,6 +5,7 @@ import { UserTenant } from '../auth/entities/user-tenant.entity';
 import { Teacher } from '../academics/entities/teacher.entity';
 import { TeacherClassSection } from '../academics/entities/teacher-class-section.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
+import { School } from '../schools/entities/school.entity';
 import { UserService, TeacherService } from './users.service';
 import { UserController } from './users.controller';
 import { StaffBulkUploadController } from './staff-bulk-upload.controller';
@@ -15,7 +16,14 @@ import { StaffProfilesModule } from '../staff-profiles/staff-profiles.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, UserTenant, Teacher, TeacherClassSection, ClassSection]),
+    TypeOrmModule.forFeature([
+      User,
+      UserTenant,
+      Teacher,
+      TeacherClassSection,
+      ClassSection,
+      School,
+    ]),
     AccountAccessModule,
     StaffProfilesModule,
     AuditModule,

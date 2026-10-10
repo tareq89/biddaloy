@@ -1272,10 +1272,36 @@ export {
   useMarkAttentionSeen,
   useSnoozeAttentionItem,
 } from './attention/use-attention-mutations';
+export {
+  isAudienceEmpty,
+  manualAlertKeys,
+  useManualAlertPreview,
+  useManualAlerts,
+  useSendManualAlert,
+  useWithdrawManualAlert,
+} from './attention/use-attention-manual';
+export {
+  alertsReportKeys,
+  downloadAlertsReportCsv,
+  useAlertsReport,
+} from './attention/use-alerts-report';
+export {
+  notificationPrefsKey,
+  useNotificationPrefs,
+  useUpdateNotificationPrefs,
+} from './attention/use-notification-prefs';
 export type {
   AlertItem,
   AlertItemsPage,
+  AlertsReport,
+  AlertsReportFilters,
   AttentionItemsQuery,
+  CreateManualAlertInput,
+  ManualAlert,
+  ManualAlertList,
+  ManualAlertPreview,
+  ManualAudience,
+  NotificationPrefs,
   AttentionSummary,
   PlatformAttentionHealth,
   StudentAlert,

@@ -17,12 +17,20 @@ import { normalizeSearchTerm } from '../../common/utils/normalize-search-term.ut
 import { BN_COLLATION } from '../../common/constants/collation';
 import { normalizeEmail } from '../auth/normalize-identifier';
 import {
+  AlertCategory,
   AuditAction,
   EMPLOYEE_ROLES,
   GUARDIAN_ROLES,
   UserRole,
   UserStatus,
 } from '@biddaloy/shared';
+import { School } from '../schools/entities/school.entity';
+import { DEFAULT_ATTENTION_SETTINGS } from '../schools/settings/tenant-settings-defaults';
+import { resolveTenantSettings } from '../schools/settings/tenant-settings-resolver';
+import type {
+  UpdateNotificationPrefsDto,
+  NotificationPrefsDto,
+} from './dto/notification-prefs.dto';
 import { AuditService } from '../audit/audit.service';
 import { assertPasswordAllowed } from '../auth/password-policy';
 import { StaffProfilesService } from '../staff-profiles/staff-profiles.service';
@@ -80,9 +88,51 @@ export class UserService {
     private readonly userRepo: Repository<User>,
     @InjectRepository(UserTenant)
     private readonly userTenantRepo: Repository<UserTenant>,
+    @InjectRepository(School)
+    private readonly schoolRepo: Repository<School>,
     private readonly staffProfilesService: StaffProfilesService,
     private readonly audit: AuditService,
   ) {}
+
+  /** [67.5.03] Own push mute + the school's (read-only) quiet hours. */
+  async getNotificationPrefs(userId: string, tenantId: string): Promise<NotificationPrefsDto> {
+    const user = await this.findOne(userId, tenantId); // proves membership
+    const valid = new Set<string>(Object.values(AlertCategory));
+    const raw = user.preferences?.notifications?.mutedCategories;
+    const mutedCategories = (Array.isArray(raw) ? raw : []).filter((c) =>
+      valid.has(c),
+    ) as AlertCategory[];
+    const school = await this.schoolRepo.findOne({ where: { id: tenantId } });
+    const { quietHours } =
+      resolveTenantSettings(school?.settings ?? null).attention ?? DEFAULT_ATTENTION_SETTINGS;
+    return { mutedCategories, quietHours: { start: quietHours.start, end: quietHours.end } };
+  }
+
+  /**
+   * [67.5.03] One atomic jsonb merge so sibling keys (`dashboard`, `digest`,
+   * other `notifications.*`) survive a concurrent write. `users.preferences`
+   * is per account, so the mute applies in every school the user belongs to.
+   */
+  async updateNotificationPrefs(
+    userId: string,
+    tenantId: string,
+    dto: UpdateNotificationPrefsDto,
+  ): Promise<NotificationPrefsDto> {
+    await this.findOne(userId, tenantId);
+    await this.userRepo.query(
+      `UPDATE users
+          SET preferences = COALESCE(preferences, '{}'::jsonb)
+                || jsonb_build_object('notifications',
+                     -- a non-object (array/scalar) would turn || into array concat
+                     CASE WHEN jsonb_typeof(preferences->'notifications') = 'object'
+                          THEN preferences->'notifications' ELSE '{}'::jsonb END
+                     || jsonb_build_object('mutedCategories', $2::jsonb)),
+              updated_at = now()
+        WHERE id = $1`,
+      [userId, JSON.stringify(dto.mutedCategories)],
+    );
+    return this.getNotificationPrefs(userId, tenantId);
+  }
 
   async create(
     dto: CreateUserDto,

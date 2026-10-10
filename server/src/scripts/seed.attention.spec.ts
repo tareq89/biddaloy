@@ -62,6 +62,9 @@ describe('ensureAttentionSeed', () => {
         (a) => a.source === 'MANUAL' && a.rule_key === 'manual.alert' && a.tenant_id === TENANT,
       ),
     ).toBe(true);
+    // backdated past the 24 h send cap window, so they don't use up the daily quota
+    const dayAgo = Date.now() - 24 * 3600_000;
+    expect(r.alert.rows.every((a) => (a.raised_at as Date).getTime() < dayAgo)).toBe(true);
     await ensureAttentionSeed(repos, TENANT);
     expect(r.alert.rows).toHaveLength(18);
     expect(r.recipient.rows).toHaveLength(18);

@@ -90,6 +90,11 @@ test('keyboard-only: move a lesson, add a lesson, set an exam marker', async ({
       const first = rows.filter({ hasText: LESSONS[0]! });
       await expect(first).toBeVisible();
       await tabTo(page, first, 150);
+      // The move is optimistic: reloading before its PUT lands would read back the old order.
+      const saved = page.waitForResponse(
+        (r) =>
+          r.request().method() === 'PUT' && r.url().endsWith(`/study-plans/${plan.id}/lessons`),
+      );
       await page.keyboard.press('Alt+ArrowDown');
       await expect(
         page.locator('[aria-live="polite"]').filter({
@@ -99,6 +104,7 @@ test('keyboard-only: move a lesson, add a lesson, set an exam marker', async ({
       await expect.poll(async () => (await order())[1]).toContain(LESSONS[0]!);
       // Focus follows the moved row, so the next move can follow at once.
       await expect(first).toBeFocused();
+      expect((await saved).ok()).toBe(true);
       await page.reload();
       await expect(first).toBeVisible();
       await expect.poll(async () => (await order())[1]).toContain(LESSONS[0]!);

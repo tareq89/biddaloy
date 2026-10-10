@@ -62,7 +62,9 @@ export async function ensureAttentionSeed(
             category: AlertCategory.MANUAL,
             params: {},
             action_url: isFamily ? '/portal' : '/notifications',
-            raised_at: new Date(),
+            // Sending is capped at 20 manual alerts per rolling 24 hours (D27) and the cap counts
+            // seeded rows too: raise these 25 h ago so a fresh seed leaves the whole quota free.
+            raised_at: new Date(Date.now() - 25 * 3600_000),
             expires_at: null,
             created_by_user_id: null,
             manual_title: title,

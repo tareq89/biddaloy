@@ -14,6 +14,8 @@ flowchart LR
     monitor -->|poll, token| readiness["GET /health/ready"]
     server --> liveness
     server --> readiness
+    attn["Attention scheduler"] -->|FAST sweep check-in| sentryCron["Sentry cron monitor"]
+    readiness -->|attention: stale = degraded| attn
 ```
 
 - **Sentry (client)** — render/route errors, LCP/CLS/INP. See
@@ -23,17 +25,20 @@ flowchart LR
   communications-job failure. See [§5](#5-what-gets-attached-and-what-gets-scrubbed) below.
 - **`GET /health`** — liveness. Cheap, no dependency checks. Never fails
   because Postgres or Redis is down.
-- **`GET /health/ready`** — readiness. Checks Postgres, Redis, and the
-  communications queue. Token-protected, blocked at nginx from outside the
+- **`GET /health/ready`** — readiness. Checks Postgres, Redis, the
+  communications queue, and the attention engine heartbeat (`stale` makes the
+  status `degraded`, never `fail`). Token-protected, blocked at nginx from outside the
   cluster — see [§3.2](#32-readiness-failing).
 
 ## 2. Alert thresholds (configure these in Sentry / your uptime tool)
 
-| Signal                               | Threshold                               | Where to configure                                           |
-| ------------------------------------ | --------------------------------------- | ------------------------------------------------------------ |
-| 5xx rate                             | > 1% of requests over 5 min             | Sentry alert rule on the server project                      |
-| `communications job stalled` message | any occurrence                          | Sentry alert rule (issue alert, not metric)                  |
-| Readiness failing                    | `/health/ready` returns 503 for > 2 min | Uptime monitor hitting `/health/ready` with `X-Health-Token` |
+| Signal                               | Threshold                                 | Where to configure                                           |
+| ------------------------------------ | ----------------------------------------- | ------------------------------------------------------------ |
+| 5xx rate                             | > 1% of requests over 5 min               | Sentry alert rule on the server project                      |
+| `communications job stalled` message | any occurrence                            | Sentry alert rule (issue alert, not metric)                  |
+| Readiness failing                    | `/health/ready` returns 503 for > 2 min   | Uptime monitor hitting `/health/ready` with `X-Health-Token` |
+| Attention cron check-in missed       | > 15 min                                  | Sentry Cron Monitor (5-min schedule, 15-min margin)          |
+| Engine stale reported by readiness   | `checks.attention = "stale"` for > 15 min | Uptime monitor body match on `/health/ready`                 |
 
 ## 3. Runbooks
 
@@ -85,16 +90,54 @@ body.
    window is what "stalled" means, and BullMQ already retries it once on
    your behalf before this alert fires.
 
+### 3.4 Attention engine stale or slow
+
+The engine writes a heartbeat after every sweep. "Stale" means the FAST heartbeat
+is missing, older than 15 minutes, or every school failed. Users then see old
+alerts (`GET /attention/summary` reports `staleMinutes`). Nothing else breaks.
+
+```mermaid
+flowchart TD
+    A["Stale alert or slow bar"] --> B["Platform > Schools > Engine health card"]
+    B --> C{"lastSweep recent?"}
+    C -- no --> D["Check heartbeat keys and the attention queue"]
+    C -- yes --> E{"failingRules not empty?"}
+    E -- yes --> F["Read lastError, fix that rule"]
+    E -- no --> G["Check per-rule budget logs: rule over 10 s?"]
+    D --> H["Restart the server to re-arm schedulers"]
+```
+
+1. **Heartbeat.** In Redis: `GET attention:heartbeat:FAST` (also `HOURLY`, `DAILY`).
+   Example: `{"at":"2026-10-10T08:15:02Z","durationMs":412,"tenants":3,"failures":0}`.
+   An old `at` means no sweep has finished.
+2. **Queue.** BullMQ queue `attention` (sweeps) and `attention-delivery`
+   (delayed pushes). Look for a paused queue, a dead worker, or a pile of
+   waiting jobs.
+3. **Failing rules.** `GET /platform/attention/health` (SUPER_ADMIN), or the card.
+   `failingRules[].lastError` is the first 200 characters of the error. Keys
+   live in Redis as `attention:failing:<rule>` for 24 hours.
+4. **Slow rules.** Search the server log for `Rule <key> failed for tenant ...:
+rule budget exceeded`. A rule gets 10 seconds, then is skipped for that
+   school; other rules still run. Sweep time is also logged:
+   `Attention FAST sweep: 3 tenants in 412ms`.
+5. **Re-arm.** Schedulers are registered at boot with `upsertJobScheduler`, so
+   a restart of the server re-creates them. No manual step beyond that.
+6. **Alerts look wrong but the engine is fine?** The summary is cached for 60
+   seconds; a snoozed item wakes on the next FAST sweep.
+
+Measured sweep and summary timings: [23-attention.md](23-attention.md#performance).
+
 ## 4. Env var reference
 
-| Variable                    | Required in prod? | What it does                                                           |
-| --------------------------- | ----------------- | ---------------------------------------------------------------------- |
-| `SENTRY_DSN`                | No (recommended)  | Server Sentry project. Unset = server Sentry is a no-op.               |
-| `SENTRY_ENVIRONMENT`        | No                | Defaults to `NODE_ENV`.                                                |
-| `SENTRY_RELEASE`            | No                | Tags events with a release/version string.                             |
-| `SENTRY_TRACES_SAMPLE_RATE` | No                | Fraction of requests traced, default `0.1`.                            |
-| `HEALTH_TOKEN`              | No (recommended)  | Required to call `/health/ready` at all — unset means that route 404s. |
-| `LOG_LEVEL`                 | No                | Pino's log level; see `.env.example`.                                  |
+| Variable                    | Required in prod? | What it does                                                                 |
+| --------------------------- | ----------------- | ---------------------------------------------------------------------------- |
+| `SENTRY_DSN`                | No (recommended)  | Server Sentry project. Unset = server Sentry is a no-op.                     |
+| `SENTRY_ENVIRONMENT`        | No                | Defaults to `NODE_ENV`.                                                      |
+| `SENTRY_RELEASE`            | No                | Tags events with a release/version string.                                   |
+| `SENTRY_TRACES_SAMPLE_RATE` | No                | Fraction of requests traced, default `0.1`.                                  |
+| `HEALTH_TOKEN`              | No (recommended)  | Required to call `/health/ready` at all — unset means that route 404s.       |
+| `LOG_LEVEL`                 | No                | Pino's log level; see `.env.example`.                                        |
+| `ATTENTION_SENTRY_CRON_URL` | No (recommended)  | Sentry Cron Monitor check-in URL for attention sweeps; unset = no check-ins. |
 
 ## 5. Web push (VAPID keys)
 

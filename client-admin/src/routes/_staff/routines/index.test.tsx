@@ -76,7 +76,10 @@ describe('/routines', () => {
     mockSections(CLASS_1, 'Class 6', ['A', 'B']);
     render();
 
-    const link = await screen.findByRole('link', { name: /Section A/ });
+    // findByText, not findByRole: role queries re-derive every shell link's name on each poll,
+    // which overruns the 5 s default on a loaded CI runner.
+    await screen.findByText('Section A', undefined, { timeout: 10_000 });
+    const link = screen.getByRole('link', { name: /Section A/ });
     expect(link.getAttribute('href')).toBe(`/routines/section-A?classId=${CLASS_1}`);
     expect(screen.getByRole('table', { name: 'Sections of Class 6' })).toBeTruthy();
     expect(screen.getByText(`Total ${formatNumber(2, REGION_BD_BN)}`)).toBeTruthy();
@@ -96,11 +99,11 @@ describe('/routines', () => {
     const { router } = render();
 
     const user = userEvent.setup();
-    await screen.findByRole('link', { name: /Section A/ });
+    await screen.findByText('Section A', undefined, { timeout: 10_000 });
     await user.click(screen.getByRole('combobox', { name: 'Class' }));
     await user.click(await screen.findByRole('option', { name: 'Class 7' }));
 
-    await screen.findByRole('link', { name: /Section C/ });
+    await screen.findByText('Section C', undefined, { timeout: 10_000 });
     expect(router.state.location.search).toEqual({ classId: CLASS_2 });
   });
 

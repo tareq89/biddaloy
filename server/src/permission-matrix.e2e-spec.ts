@@ -60,6 +60,18 @@ export const IDENTITY_SCOPED: IdentityScopedEntry[] = [
   },
   {
     controller: 'UserController',
+    method: 'GET',
+    path: '/users/me/preferences/notifications',
+    reason: '67.5.03 (#2083) — self-service: own push mute, id from the JWT',
+  },
+  {
+    controller: 'UserController',
+    method: 'PATCH',
+    path: '/users/me/preferences/notifications',
+    reason: '67.5.03 (#2083) — self-service: own push mute, id from the JWT',
+  },
+  {
+    controller: 'UserController',
     method: 'POST',
     path: '/users/me/contact-change',
     reason: '12.7 — self-service: changes the caller own email/phone, id from the JWT',
@@ -864,9 +876,7 @@ export const UI_ONLY_PERMISSIONS: Permission[] = [
   // [52.1.1] Plumbing ahead of the /applications routes. [52.2.1]
   // APPLICATION_SUBMIT now gates POST /applications — removed from this list.
   // [52.3.5] APPLICATION_MANAGE now gates GET /applications/reports — removed.
-  // [67.1.01] Plumbing ahead of Epic 67 W5 routes (manual alerts, alerts report) — remove from this list when those routes land.
-  Permission.ALERT_SEND,
-  Permission.ALERT_REPORT_READ,
+  // [67.5.01/.04] ALERT_SEND gates /attention/manual and ALERT_REPORT_READ gates /attention/report: no longer UI-only.
 ];
 
 describe('Permission matrix (regression)', () => {

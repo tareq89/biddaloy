@@ -31,7 +31,13 @@ import {
   SEED_SECTION_1_ID,
   SEED_ACADEMIC_YEAR_ID,
 } from '@test/constants';
-import { UserRole, TeacherDesignation, UserStatus, AuthTokenPurpose } from '@biddaloy/shared';
+import {
+  AlertCategory,
+  UserRole,
+  TeacherDesignation,
+  UserStatus,
+  AuthTokenPurpose,
+} from '@biddaloy/shared';
 
 /**
  * Integration tests for UserService and TeacherService.
@@ -733,6 +739,82 @@ describe('UserService (integration)', () => {
   // ────────────────────────
   //  findOne()
   // ────────────────────────
+  // [67.5.03] notification prefs
+  describe('notification prefs', () => {
+    const setPrefs = (id: string, prefs: unknown) =>
+      dataSource.query(`UPDATE users SET preferences = $2::jsonb WHERE id = $1`, [
+        id,
+        prefs === null ? null : JSON.stringify(prefs),
+      ]);
+    const readPrefs = async (id: string) =>
+      (await dataSource.query(`SELECT preferences FROM users WHERE id = $1`, [id]))[0].preferences;
+    const mkUser = async (name: string) =>
+      (await service.create({ full_name: name, role: UserRole.TEACHER }, TENANT_ID)).user;
+
+    it('PATCH keeps sibling preference keys and sets mutedCategories', async () => {
+      const user = await mkUser('P One');
+      await setPrefs(user.id, { dashboard: { x: 1 }, notifications: { other: true } });
+
+      const res = await service.updateNotificationPrefs(user.id, TENANT_ID, {
+        mutedCategories: [AlertCategory.HOMEWORK],
+      });
+
+      expect(res.mutedCategories).toEqual(['HOMEWORK']);
+      expect(await readPrefs(user.id)).toEqual({
+        dashboard: { x: 1 },
+        notifications: { other: true, mutedCategories: ['HOMEWORK'] },
+      });
+    });
+
+    it('PATCH on null preferences creates the notifications key', async () => {
+      const user = await mkUser('P Two');
+      await setPrefs(user.id, null);
+
+      await service.updateNotificationPrefs(user.id, TENANT_ID, {
+        mutedCategories: [AlertCategory.FEES],
+      });
+
+      expect(await readPrefs(user.id)).toEqual({ notifications: { mutedCategories: ['FEES'] } });
+    });
+
+    it('PATCH replaces a non-object notifications value instead of concatenating into it', async () => {
+      const user = await mkUser('P Five');
+      await setPrefs(user.id, { dashboard: { x: 1 }, notifications: ['stale'] });
+
+      const res = await service.updateNotificationPrefs(user.id, TENANT_ID, {
+        mutedCategories: [AlertCategory.HOMEWORK],
+      });
+
+      expect(res.mutedCategories).toEqual(['HOMEWORK']);
+      expect(await readPrefs(user.id)).toEqual({
+        dashboard: { x: 1 },
+        notifications: { mutedCategories: ['HOMEWORK'] },
+      });
+    });
+
+    it('GET returns [] and default quiet hours when nothing is set', async () => {
+      const user = await mkUser('P Three');
+      await dataSource.query(`UPDATE schools SET settings = NULL WHERE id = $1`, [TENANT_ID]);
+
+      const res = await service.getNotificationPrefs(user.id, TENANT_ID);
+
+      expect(res).toEqual({ mutedCategories: [], quietHours: { start: '21:00', end: '07:00' } });
+    });
+
+    it('GET returns the school quiet hours', async () => {
+      const user = await mkUser('P Four');
+      await dataSource.query(`UPDATE schools SET settings = $2::jsonb WHERE id = $1`, [
+        TENANT_ID,
+        JSON.stringify({ attention: { quietHours: { start: '22:30', end: '06:15' } } }),
+      ]);
+
+      const res = await service.getNotificationPrefs(user.id, TENANT_ID);
+      await dataSource.query(`UPDATE schools SET settings = NULL WHERE id = $1`, [TENANT_ID]);
+
+      expect(res.quietHours).toEqual({ start: '22:30', end: '06:15' });
+    });
+  });
+
   describe('findOne', () => {
     it('should return a user by ID', async () => {
       const { user } = await service.create(
