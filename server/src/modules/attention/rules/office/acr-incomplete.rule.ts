@@ -35,6 +35,9 @@ export class AcrIncompleteRule implements AttentionRuleShape {
          JOIN academic_years y ON y.id = a.academic_year_id AND y.tenant_id = $1 AND y.is_current = true AND y.deleted_at IS NULL
          JOIN users u ON u.id = a.assessed_by AND u.status = 'ACTIVE' AND u.deleted_at IS NULL
          WHERE a.tenant_id = $1 AND a.status = 'INCOMPLETE' AND a.updated_at < $2
+           -- An assessor who left this school keeps their account (other schools), not this nag.
+           AND EXISTS (SELECT 1 FROM user_tenants ut WHERE ut.user_id = a.assessed_by AND ut.tenant_id = $1
+                       AND ut.deleted_at IS NULL)
          GROUP BY a.assessed_by`,
         [ctx.tenantId, new Date(ctx.now.getTime() - STALE_MS)],
       );
