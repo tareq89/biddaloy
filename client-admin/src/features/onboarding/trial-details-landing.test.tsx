@@ -67,4 +67,17 @@ describe('TrialDetailsLanding', () => {
     await new Promise((r) => setTimeout(r, 50));
     expect(screen.queryByText('About your trial')).toBeNull();
   });
+
+  it('does not fetch onboarding status on a page without ?trial=1', async () => {
+    let calls = 0;
+    server.use(
+      http.get('/api/v1/onboarding/status', () => {
+        calls += 1;
+        return HttpResponse.json({});
+      }),
+    );
+    renderLanding('ADMIN', '/');
+    await new Promise((r) => setTimeout(r, 50));
+    expect(calls).toBe(0);
+  });
 });
