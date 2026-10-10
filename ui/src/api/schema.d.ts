@@ -7626,6 +7626,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/onboarding/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** How far the school's setup is, derived from real data [13.3.3]. */
+        get: operations["OnboardingController_status_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/onboarding": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Record setup path / finished / dismissed / seen. Writes only schools.onboarding. */
+        patch: operations["OnboardingController_update_v1"];
+        trace?: never;
+    };
     "/api/v1/surveys/mine": {
         parameters: {
             query?: never;
@@ -7980,40 +8014,6 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
-        trace?: never;
-    };
-    "/api/v1/onboarding/status": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** How far the school's setup is, derived from real data [13.3.3]. */
-        get: operations["OnboardingController_status_v1"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/onboarding": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** Record setup path / finished / dismissed / seen. Writes only schools.onboarding. */
-        patch: operations["OnboardingController_update_v1"];
         trace?: never;
     };
 }
@@ -14000,6 +14000,50 @@ export interface components {
             durationsMs: components["schemas"]["AttentionCadenceNumbersDto"];
             failingRules: components["schemas"]["FailingRuleDto"][];
         };
+        OnboardingItemDto: {
+            /** @enum {string} */
+            id: "profile" | "structure" | "sections" | "students" | "staff" | "feeStructures" | "guardianInvites" | "messageSettings";
+            done: boolean;
+        };
+        OnboardingCountsDto: {
+            classes: number;
+            sections: number;
+            students: number;
+            staff: number;
+        };
+        OnboardingSeatsDto: {
+            /** @description ACTIVE students. */
+            used: number;
+            /** @description NULL = unlimited. */
+            limit: number | null;
+        };
+        OnboardingTrialDto: {
+            /** Format: date-time */
+            ends_at: string;
+            days_left: number;
+            seats: components["schemas"]["OnboardingSeatsDto"];
+        };
+        OnboardingStatusDto: {
+            /** Format: date-time */
+            finished_at: string | null;
+            /** Format: date-time */
+            dismissed_at: string | null;
+            seen: boolean;
+            /** @enum {string|null} */
+            setup_path: "guided" | "excel" | "later" | null;
+            items: components["schemas"]["OnboardingItemDto"][];
+            counts: components["schemas"]["OnboardingCountsDto"];
+            /** @description NULL = not in trial. */
+            trial: components["schemas"]["OnboardingTrialDto"] | null;
+            support_url: string | null;
+        };
+        UpdateOnboardingDto: {
+            /** @enum {string} */
+            setup_path?: "guided" | "excel" | "later";
+            finished?: boolean;
+            dismissed?: boolean;
+            seen?: boolean;
+        };
         PendingSurveyQuestionDto: {
             id: string;
             text: string;
@@ -14296,50 +14340,6 @@ export interface components {
         SocialLinkStartDto: {
             /** @description Provider authorization URL to send the browser to. */
             url: string;
-        };
-        OnboardingItemDto: {
-            /** @enum {string} */
-            id: "profile" | "structure" | "sections" | "students" | "staff" | "feeStructures" | "guardianInvites" | "messageSettings";
-            done: boolean;
-        };
-        OnboardingCountsDto: {
-            classes: number;
-            sections: number;
-            students: number;
-            staff: number;
-        };
-        OnboardingSeatsDto: {
-            /** @description ACTIVE students. */
-            used: number;
-            /** @description NULL = unlimited. */
-            limit: number | null;
-        };
-        OnboardingTrialDto: {
-            /** Format: date-time */
-            ends_at: string;
-            days_left: number;
-            seats: components["schemas"]["OnboardingSeatsDto"];
-        };
-        OnboardingStatusDto: {
-            /** Format: date-time */
-            finished_at: string | null;
-            /** Format: date-time */
-            dismissed_at: string | null;
-            seen: boolean;
-            /** @enum {string|null} */
-            setup_path: "guided" | "excel" | "later" | null;
-            items: components["schemas"]["OnboardingItemDto"][];
-            counts: components["schemas"]["OnboardingCountsDto"];
-            /** @description NULL = not in trial. */
-            trial: components["schemas"]["OnboardingTrialDto"] | null;
-            support_url: string | null;
-        };
-        UpdateOnboardingDto: {
-            /** @enum {string} */
-            setup_path?: "guided" | "excel" | "later";
-            finished?: boolean;
-            dismissed?: boolean;
-            seen?: boolean;
         };
     };
     responses: never;
@@ -34062,6 +34062,72 @@ export interface operations {
             };
         };
     };
+    OnboardingController_status_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OnboardingStatusDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    OnboardingController_update_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateOnboardingDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OnboardingStatusDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     SurveyRespondController_mine_v1: {
         parameters: {
             query?: never;
@@ -34709,72 +34775,6 @@ export interface operations {
         responses: {
             /** @description Redirect back into the app. */
             302: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    OnboardingController_status_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OnboardingStatusDto"];
-                };
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    OnboardingController_update_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateOnboardingDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OnboardingStatusDto"];
-                };
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
                 headers: {
                     [name: string]: unknown;
                 };
