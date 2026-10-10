@@ -73,7 +73,7 @@ describe('CalendarHolidayTomorrowRule', () => {
     const [f] = await new CalendarHolidayTomorrowRule(d as never).evaluate(
       ctx({ now: new Date('2026-12-31T18:00:00Z'), localDate: '2027-01-01' }),
     );
-    expect(d.query.mock.calls[0][1]).toEqual(['t1', '2027-01-02']);
+    expect(d.query.mock.calls[0][1]).toEqual(['t1', '2027-01-02', true]);
     expect(f.expiresAt?.toISOString()).toBe('2027-01-01T18:00:00.000Z');
   });
 
