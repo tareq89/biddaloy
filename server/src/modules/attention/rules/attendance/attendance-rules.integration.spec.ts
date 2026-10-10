@@ -21,7 +21,7 @@ import { AttendanceRulesModule } from './attendance-rules.module';
 
 // Today (UTC), so putRegister's own date checks are satisfied.
 const DAY = new Date().toISOString().slice(0, 10);
-const WEEKDAY = ((new Date(`${DAY}T00:00:00Z`).getUTCDay() + 6) % 7) + 1; // ISO 1..7
+const WEEKDAY = new Date(`${DAY}T00:00:00Z`).getUTCDay(); // 0 = Sunday, as routine_slots.weekday
 
 describe('AttendanceNotTakenRule (integration)', () => {
   let ds: DataSource;
@@ -269,13 +269,13 @@ describe('AttendanceNotTakenRule (integration)', () => {
     expect((await daySection('14:29')).severity).toBe(AlertSeverity.WARNING);
     expect((await daySection('14:30')).severity).toBe(AlertSeverity.CRITICAL);
 
-    // The day shift's own absentAfter wins once it is configured.
+    // Own shift times move the school cutoff by the lateAfter offset: 10:00 + (12:45 - 09:00).
     await q(
       `UPDATE schools SET settings = jsonb_set(settings, '{attendance,shiftTimes}', $2::jsonb) WHERE id = $1`,
       [A.id, JSON.stringify([{ shiftId: dayShift, lateAfter: '12:45', absentAfter: '13:30' }])],
     );
-    expect((await daySection('13:29')).severity).toBe(AlertSeverity.WARNING);
-    const critical = await daySection('13:30');
+    expect((await daySection('13:44')).severity).toBe(AlertSeverity.WARNING);
+    const critical = await daySection('13:45');
     expect(critical.severity).toBe(AlertSeverity.CRITICAL);
     expect(critical.recipients.map((r) => r.userId)).toContain(A.adminId);
   });

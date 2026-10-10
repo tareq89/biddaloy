@@ -29,23 +29,22 @@ const toHHmm = (mins: number): string =>
   `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`;
 
 /**
- * The CRITICAL cutoff for one section. A shift with its own times
- * (`shiftTimes`) uses its `absentAfter`; any other section the school
- * cutoff. If that cutoff is not after the section's first bell while the
- * school's earliest first bell is before it (a later shift with no times of
- * its own), the same gap is kept from the section's own first bell, so a
- * day-shift section does not start CRITICAL.
+ * The CRITICAL cutoff for one section: the school's `cutoffTime`, moved by
+ * `shiftOffset` minutes (the section's shift `lateAfter` minus the school's;
+ * 0 when the shift has no times of its own). If that is not after the
+ * section's first bell while the school's earliest first bell is before the
+ * cutoff (a later shift), the school's gap is kept from the section's own
+ * first bell instead, so no section starts CRITICAL.
  */
 export function sectionCutoff(
   schoolCutoff: string,
-  shiftAbsentAfter: string | null,
+  shiftOffset: number,
   firstStart: string,
   schoolFirstStart: string,
 ): string {
-  if (shiftAbsentAfter) return shiftAbsentAfter;
-  const cut = toMinutes(schoolCutoff);
-  const gap = cut - toMinutes(schoolFirstStart);
-  if (cut > toMinutes(firstStart) || gap <= 0) return schoolCutoff;
+  const cut = toMinutes(schoolCutoff) + shiftOffset;
+  const gap = toMinutes(schoolCutoff) - toMinutes(schoolFirstStart);
+  if (cut > toMinutes(firstStart) || gap <= 0) return toHHmm(Math.max(0, cut));
   return toHHmm(toMinutes(firstStart) + gap);
 }
 
@@ -249,7 +248,6 @@ export class AttendanceNotTakenRule implements AttentionRuleShape {
       const shiftPolicy = policyForShift(policy, sec.shift_id);
       // ponytail: no routine -> the shift's late-after time stands in for the first bell.
       const firstStart = periods[0]?.starts_at ?? shiftPolicy.lateAfter;
-      const hasShiftTimes = shiftPolicy !== policy;
       const base = { sectionId: sec.id, sectionLabel: sec.label };
 
       // Day register.
@@ -259,7 +257,7 @@ export class AttendanceNotTakenRule implements AttentionRuleShape {
         grace,
         sectionCutoff(
           cutoff,
-          hasShiftTimes ? shiftPolicy.absentAfter : null,
+          toMinutes(shiftPolicy.lateAfter) - toMinutes(policy.lateAfter),
           firstStart,
           schoolFirstStart,
         ),

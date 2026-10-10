@@ -44,17 +44,23 @@ describe('attendanceStep (first period 08:00, grace 15, cutoff 10:00)', () => {
 
 describe('sectionCutoff (school cutoff 10:00, earliest first bell 08:00)', () => {
   it('a section that starts before the cutoff keeps the school cutoff', () => {
-    expect(sectionCutoff('10:00', null, '08:00', '08:00')).toBe('10:00');
-    expect(sectionCutoff('10:00', null, '09:30', '08:00')).toBe('10:00');
+    expect(sectionCutoff('10:00', 0, '08:00', '08:00')).toBe('10:00');
+    expect(sectionCutoff('10:00', 0, '09:30', '08:00')).toBe('10:00');
   });
   it('a later-shift section with no times of its own keeps the same 2h gap from its own bell', () => {
-    expect(sectionCutoff('10:00', null, '12:30', '08:00')).toBe('14:30');
+    expect(sectionCutoff('10:00', 0, '12:30', '08:00')).toBe('14:30');
   });
-  it("a shift with its own times uses that shift's absentAfter", () => {
-    expect(sectionCutoff('10:00', '13:30', '12:30', '08:00')).toBe('13:30');
+  it('a shift with its own times moves the school cutoff by its lateAfter offset', () => {
+    // school lateAfter 09:00, shift lateAfter 12:45 -> +225 min
+    expect(sectionCutoff('10:00', 225, '12:30', '08:00')).toBe('13:45');
+    // shift times that copy the school's: the school cutoff, not the earlier absentAfter
+    expect(sectionCutoff('11:00', 0, '08:00', '08:00')).toBe('11:00');
+  });
+  it('a shift whose moved cutoff is not after its first bell keeps the gap from that bell', () => {
+    expect(sectionCutoff('10:00', 60, '12:30', '08:00')).toBe('14:30');
   });
   it('a cutoff before every first bell stays as it is (level 2 from the bell)', () => {
-    expect(sectionCutoff('07:30', null, '08:00', '08:00')).toBe('07:30');
+    expect(sectionCutoff('07:30', 0, '08:00', '08:00')).toBe('07:30');
   });
 });
 
