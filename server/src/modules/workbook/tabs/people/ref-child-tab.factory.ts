@@ -41,6 +41,8 @@ export interface RefChildTabOptions<E> {
   refs: readonly RefSpec[];
   fields: readonly FieldSpec[];
   naturalKey: readonly string[];
+  /** Default true. False for an append-only table: a restore must never delete its rows. */
+  deleteByAbsence?: boolean;
 }
 
 type Rec = Record<string, unknown>;
@@ -64,7 +66,7 @@ function sortKeys(x: unknown): unknown {
 export function createRefChildTab<E extends { id: string }>(
   opts: RefChildTabOptions<E>,
 ): TabSpec<E, Rec> {
-  const { name, entityClass, refs, fields, naturalKey } = opts;
+  const { name, entityClass, refs, fields, naturalKey, deleteByAbsence = true } = opts;
   const typeOf = new Map(fields.map((f) => [f.key, f.type as string]));
 
   const columns: readonly ColumnSpec[] = [
@@ -86,7 +88,7 @@ export function createRefChildTab<E extends { id: string }>(
     dependsOn: [...new Set(refs.map((r) => r.tab.name))],
     columns,
     naturalKey,
-    deleteByAbsence: true,
+    deleteByAbsence,
 
     async load(tenantId: string, m: EntityManager): Promise<E[]> {
       const rows = await m.find(entityClass, { where: { tenant_id: tenantId } as never });

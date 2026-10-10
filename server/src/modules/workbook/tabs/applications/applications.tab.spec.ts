@@ -1,7 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { EntityManager } from 'typeorm';
 import type { ImportContext } from '../../codec/tab-spec';
-import { applicationAttachmentsTab, applicationTagsTab } from './application-children.tab';
+import {
+  applicationAttachmentsTab,
+  applicationEventsTab,
+  applicationTagsTab,
+} from './application-children.tab';
+import { usersTab } from '../people/users.tab';
 import { applicationsTab } from './applications.tab';
 import { ApplicationTag } from '../../../applications/entities/application-tag.entity';
 
@@ -193,5 +198,44 @@ describe('application_attachments tab fromRow', () => {
   it('rejects a key outside tenants/', () => {
     const r = applicationAttachmentsTab.fromRow({ ...att, storage_key: '../etc/passwd' }, 2, ctx());
     expect('errors' in r).toBe(true);
+  });
+});
+
+describe('application children export and restore', () => {
+  it('never deletes application events by absence (append-only timeline)', () => {
+    expect(applicationEventsTab.deleteByAbsence).toBe(false);
+    expect(applicationTagsTab.deleteByAbsence).toBe(true);
+  });
+
+  it('fails the export when a tag author is not an exportable user', async () => {
+    vi.spyOn(applicationsTab, 'load').mockResolvedValue([{ id: 'app-1' }] as never);
+    vi.spyOn(applicationsTab, 'keyOf').mockReturnValue('2026|1');
+    vi.spyOn(usersTab, 'load').mockResolvedValue([{ id: 'staff-1' }] as never);
+    vi.spyOn(usersTab, 'keyOf').mockReturnValue('s@x.test');
+    const tag = Object.assign(new ApplicationTag(), {
+      id: UUID,
+      application_id: 'app-1',
+      user_id: null,
+      created_by_user_id: 'super-admin',
+    });
+    const m = { find: vi.fn().mockResolvedValue([tag]) };
+    await expect(applicationTagsTab.load(TENANT, m as unknown as EntityManager)).rejects.toThrow(
+      'not exportable',
+    );
+  });
+
+  it('fails the export when an attachment uploader is not an exportable user', async () => {
+    vi.spyOn(usersTab, 'load').mockResolvedValue([{ id: 'staff-1' }] as never);
+    vi.spyOn(usersTab, 'keyOf').mockReturnValue('s@x.test');
+    const m = {
+      find: vi.fn().mockResolvedValue([{ id: UUID, uploaded_by_user_id: 'super-admin' }]),
+    };
+    await expect(
+      applicationAttachmentsTab.load(TENANT, m as unknown as EntityManager),
+    ).rejects.toThrow('uploader that is not exportable');
+    m.find.mockResolvedValue([{ id: UUID, uploaded_by_user_id: 'staff-1' }]);
+    await expect(
+      applicationAttachmentsTab.load(TENANT, m as unknown as EntityManager),
+    ).resolves.toHaveLength(1);
   });
 });

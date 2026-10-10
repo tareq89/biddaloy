@@ -61,6 +61,9 @@ export const applicationEventsTab = createRefChildTab<ApplicationEvent>({
   // `id` last: created_at defaults to now() (identical within one transaction), so two
   // same-kind events on one application would otherwise collide.
   naturalKey: ['application', 'kind', 'created_at', 'id'],
+  // Append-only: the factory's upsert does not copy `id`, so an older or repeated workbook would
+  // otherwise read every newer event as "absent" and delete it.
+  deleteByAbsence: false,
 });
 
 /** Loads a parent tab's rows once and returns id -> natural key. */
@@ -178,7 +181,8 @@ export const applicationTagsTab: TabSpec<ApplicationTag, Rec> = {
     for (const r of rows) {
       const app = apps.get(r.application_id);
       const user = r.user_id ? users.get(r.user_id) : '';
-      if (app === undefined || user === undefined) {
+      // `created_by` is exported as a user ref too; a SUPER_ADMIN author has none.
+      if (app === undefined || user === undefined || !users.has(r.created_by_user_id)) {
         throw new Error(
           `Workbook export: tab "${TAGS}" row ${r.id} has a parent that is not exportable.`,
         );
@@ -357,8 +361,18 @@ export const applicationAttachmentsTab: TabSpec<ApplicationAttachment, Rec> = {
   naturalKey: ['storage_key'],
   deleteByAbsence: true,
 
-  load(tenantId: string, m: EntityManager): Promise<ApplicationAttachment[]> {
-    return m.find(ApplicationAttachment, { where: { tenant_id: tenantId } });
+  async load(tenantId: string, m: EntityManager): Promise<ApplicationAttachment[]> {
+    const rows = await m.find(ApplicationAttachment, { where: { tenant_id: tenantId } });
+    const users = await keysById(usersTab, tenantId, m);
+    for (const r of rows) {
+      // `uploaded_by` is exported as a user ref; a SUPER_ADMIN uploader has none.
+      if (!users.has(r.uploaded_by_user_id)) {
+        throw new Error(
+          `Workbook export: tab "${ATT}" row ${r.id} has an uploader that is not exportable.`,
+        );
+      }
+    }
+    return rows;
   },
 
   toRow(entity: ApplicationAttachment, ctx: ExportContext): Rec {
