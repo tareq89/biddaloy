@@ -133,6 +133,23 @@ export const ACTIONS: readonly PaletteAction[] = [
     run: (ctx) => ctx.navigate({ to: '/communications/send' }),
   },
   {
+    id: 'attention.send',
+    label: { en: 'Send an alert', bn: 'সতর্কতা পাঠান' },
+    permission: Permission.ALERT_SEND,
+    kind: 'modal',
+    group: 'communications',
+    // The route is the full-page modal (like `students.add` -> `/students/new`).
+    run: (ctx) => ctx.navigate({ to: '/communications/send-alert' }),
+  },
+  {
+    id: 'attention.report',
+    label: { en: 'Alerts report', bn: 'সতর্কতা প্রতিবেদন' },
+    permission: Permission.ALERT_REPORT_READ,
+    kind: 'navigate',
+    group: 'reports',
+    run: (ctx) => ctx.navigate({ to: '/reports/alerts' }),
+  },
+  {
     id: 'communications.sendFeeReminder',
     label: { en: 'Send fee reminder', bn: 'ফি রিমাইন্ডার পাঠান' },
     permission: Permission.COMMUNICATION_BULK_SEND,
