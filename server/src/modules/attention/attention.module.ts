@@ -19,6 +19,8 @@ import { CreditsModule } from '../communications/credits/credits.module';
 import { COMMUNICATIONS_QUEUE } from '../communications/communications.constants';
 import { GuardianSmsFallbackService } from './delivery/guardian-sms-fallback.service';
 import { AuditModule } from '../audit/audit.module';
+import { AlertsReportController } from './report/alerts-report.controller';
+import { AlertsReportService } from './report/alerts-report.service';
 import { ManualAlertsController } from './manual/manual-alerts.controller';
 import { ManualAlertsService } from './manual/manual-alerts.service';
 import { Alert } from './entities/alert.entity';
@@ -76,7 +78,12 @@ import { BillingRulesModule } from './rules/billing/billing-rules.module';
     PlatformRulesModule,
     BillingRulesModule,
   ],
-  controllers: [AttentionController, ManualAlertsController, PlatformAttentionHealthController],
+  controllers: [
+    AttentionController,
+    ManualAlertsController,
+    AlertsReportController,
+    PlatformAttentionHealthController,
+  ],
   providers: [
     RuleRegistryService,
     RuleContextService,
@@ -84,6 +91,7 @@ import { BillingRulesModule } from './rules/billing/billing-rules.module';
     AttentionScheduler,
     AttentionQueryService,
     ManualAlertsService,
+    AlertsReportService,
     AlertDeliveryService,
     GuardianSmsFallbackService,
     AttentionHealthService,
