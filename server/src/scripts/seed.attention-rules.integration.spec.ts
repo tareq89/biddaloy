@@ -4,6 +4,8 @@ import { getDataSourceToken } from '@nestjs/typeorm';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
 import { localToday } from '../modules/attendance/attendance-policy.util';
+import { FeesUnassignedStudentsRule } from '../modules/attention/rules/fees/fees-unassigned-students.rule';
+import type { RuleContext } from '../modules/attention/rules/rule.types';
 import {
   ATTENTION_DEMO_EXAM,
   ATTENTION_DEMO_FEE,
@@ -207,6 +209,29 @@ describe('ensureAttentionRulesSeed (integration)', () => {
       components: 1,
       schedules: [plusDays(today, 4)],
     });
+  });
+
+  it('family block: the demo fee (type OTHER) does not raise fees.unassigned_students', async () => {
+    const { sectionId } = await addTeacherWithSection();
+    await addParentWithChild(sectionId);
+    // A classmate without the demo fee, and an ADMIN who would receive the item.
+    await q(
+      `INSERT INTO students (full_name, registration_number, roll_number, class_section_id, tenant_id, enrollment_status)
+       VALUES ('Classmate', 'REG-ATTN-2', 2, $1, $2, 'ACTIVE')`,
+      [sectionId, tenantId],
+    );
+    const [{ id: adminId }] = await q(
+      `INSERT INTO users (email, password_hash, full_name, status) VALUES ($1, 'x', 'A', 'ACTIVE') RETURNING id`,
+      [`attn-seed-admin-${Math.random().toString(36).slice(2, 9)}@example.com`],
+    );
+    await q(`INSERT INTO user_tenants (user_id, tenant_id, role) VALUES ($1, $2, 'ADMIN')`, [
+      adminId,
+      tenantId,
+    ]);
+    await ensureAttentionRulesSeed(ds, tenantId);
+
+    const ctx = { tenantId, localDate: localToday('Asia/Dhaka') } as RuleContext;
+    expect(await new FeesUnassignedStudentsRule(ds).evaluate(ctx)).toEqual([]);
   });
 
   it('missing parent warns and skips only the family block', async () => {
