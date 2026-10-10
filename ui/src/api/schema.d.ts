@@ -13905,8 +13905,6 @@ export interface components {
             createdAt: string;
         };
         /** @enum {string} */
-        UserRole: "SUPER_ADMIN" | "ADMIN" | "ACCOUNTANT" | "TEACHER" | "PARENT" | "STUDENT" | "EXECUTIVE" | "OFFICE_STAFF" | "EXAM_CONTROLLER" | "COMMITTEE";
-        /** @enum {string} */
         AlertSource: "RULE" | "MANUAL";
         /** @enum {string} */
         AlertSeverity: "CRITICAL" | "WARNING" | "REMINDER";
