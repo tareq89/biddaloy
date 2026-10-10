@@ -14,6 +14,7 @@ import {
 import { CommunicationStatus, countSmsSegments } from '@biddaloy/shared';
 import { CommunicationLog } from '../../communications/entities/communication-log.entity';
 import { SmsCreditService } from '../../communications/credits/sms-credit.service';
+import { ATTENTION_RULE_LOCK_NAMESPACE } from '../engine/alert-writer.service';
 import { GuardianSmsFallbackService } from './guardian-sms-fallback.service';
 
 /**
@@ -72,17 +73,24 @@ describe('GuardianSmsFallbackService metered SMS credit (integration, 67.5.02)',
     )[0].id as string;
   const mkGuardian = async (
     studentId: string,
-    o: { userId?: string | null; phone?: string | null; optedOut?: boolean; name?: string } = {},
+    o: {
+      userId?: string | null;
+      phone?: string | null;
+      optedOut?: boolean;
+      name?: string;
+      primary?: boolean;
+    } = {},
   ) => {
     const [g] = await ds.query(
-      `INSERT INTO guardians (full_name, relationship, user_id, phone, notifications_enabled, tenant_id)
-       VALUES ($1, 'Father', $2, $3, $4, $5) RETURNING id`,
+      `INSERT INTO guardians (full_name, relationship, user_id, phone, notifications_enabled, tenant_id, is_primary_contact)
+       VALUES ($1, 'Father', $2, $3, $4, $5, $6) RETURNING id`,
       [
         o.name ?? 'Guardian',
         o.userId ?? null,
         o.phone === undefined ? `+88017${Math.floor(Math.random() * 1e8)}` : o.phone,
         !o.optedOut,
         TENANT_ID,
+        !!o.primary,
       ],
     );
     await ds.query(`INSERT INTO student_guardians (student_id, guardian_id) VALUES ($1, $2)`, [
@@ -93,7 +101,7 @@ describe('GuardianSmsFallbackService metered SMS credit (integration, 67.5.02)',
   };
   const mkAlert = async (
     studentId: string | null,
-    o: { rule?: string; severity?: string; daysAgo?: number; name?: string } = {},
+    o: { rule?: string; severity?: string; daysAgo?: number; name?: string; params?: object } = {},
   ) =>
     (
       await ds.query(
@@ -107,7 +115,7 @@ describe('GuardianSmsFallbackService metered SMS credit (integration, 67.5.02)',
           o.severity ?? 'WARNING',
           studentId ? 'student' : null,
           studentId,
-          JSON.stringify({ studentName: o.name ?? 'Rahim' }),
+          JSON.stringify({ studentName: o.name ?? 'Rahim', ...o.params }),
           String(o.daysAgo ?? 0),
         ],
       )
@@ -258,16 +266,97 @@ describe('GuardianSmsFallbackService metered SMS credit (integration, 67.5.02)',
     expect((await ledgerFor(ds, TENANT_ID)).filter((r) => r.kind === 'RESERVE')).toHaveLength(0);
   });
 
-  it('queue failure releases the reserved share and closes the log as FAILED', async () => {
+  it('queue failure releases the reserved share, closes the log as FAILED, and the next sweep retries', async () => {
     failAdd = true;
     const student = await mkStudent('Rahim');
     await mkGuardian(student);
     await mkAlert(student);
-    await service.runTenant(school(), new Date());
+    // cap 1: the FAILED row must not use up the guardian's daily SMS
+    await service.runTenant(school({ guardianSmsDailyCap: 1 }), new Date());
     const rows = await logs();
     expect(rows).toHaveLength(1);
     expect(rows[0].status).toBe(CommunicationStatus.FAILED);
+    // the key is freed so a later sweep can retry this guardian
+    expect(rows[0].reference_key).toBeNull();
     expect(await balanceFor(ds, TENANT_ID)).toEqual({ available: 100, reserved: 0 });
+
+    failAdd = false;
+    expect(await service.runTenant(school({ guardianSmsDailyCap: 1 }), new Date())).toBe(1);
+    expect(queued).toHaveLength(1);
+  });
+
+  it('a primary contact without a phone falls back to the other guardians with one', async () => {
+    const student = await mkStudent('Rahim');
+    await mkGuardian(student, { primary: true, phone: null });
+    const other = await mkGuardian(student);
+    await mkAlert(student);
+    expect(await service.runTenant(school(), new Date())).toBe(1);
+    expect((await logs()).map((l) => l.guardian_id)).toEqual([other]);
+  });
+
+  it('a primary contact with a phone is the only one texted', async () => {
+    const student = await mkStudent('Rahim');
+    const primary = await mkGuardian(student, { primary: true });
+    await mkGuardian(student);
+    await mkAlert(student);
+    expect(await service.runTenant(school(), new Date())).toBe(1);
+    expect((await logs()).map((l) => l.guardian_id)).toEqual([primary]);
+  });
+
+  it('student resolution: params.studentId, then a PARENT recipient row', async () => {
+    const s1 = await mkStudent('Rahim');
+    const s2 = await mkStudent('Karim');
+    const g1 = await mkGuardian(s1);
+    const g2 = await mkGuardian(s2);
+    // no student subject: the student comes from params.studentId
+    const a1 = await mkAlert(null, { params: { studentId: s1 } });
+    // no subject, no params.studentId: the student comes from the recipient row
+    const a2 = await mkAlert(null, { name: 'Karim' });
+    await ds.query(
+      `INSERT INTO alert_recipients (tenant_id, alert_id, user_id, role, student_id)
+       VALUES ($1, $2, $3, 'PARENT', $4)`,
+      [TENANT_ID, a2, await mkUser('rcp'), s2],
+    );
+    expect(await service.runTenant(school(), new Date())).toBe(2);
+    const rows = await logs();
+    expect(rows.map((l) => [l.reference_key, l.student_id]).sort()).toEqual(
+      [
+        [`attention:${a1}:${g1}`, s1],
+        [`attention:${a2}:${g2}`, s2],
+      ].sort(),
+    );
+  });
+
+  it('run(): one run per tenant across replicas; a lock held elsewhere skips the tenant', async () => {
+    const student = await mkStudent('Rahim');
+    await mkGuardian(student);
+    await mkAlert(student);
+    const [{ settings }] = await ds.query(`SELECT settings FROM schools WHERE id = $1`, [
+      TENANT_ID,
+    ]);
+    await ds.query(`UPDATE schools SET settings = $2::jsonb WHERE id = $1`, [
+      TENANT_ID,
+      JSON.stringify({ ...settings, ...school().settings }),
+    ]);
+    const lockKey = [ATTENTION_RULE_LOCK_NAMESPACE, `${TENANT_ID}:sms-fallback`];
+    // another replica, on its own connection, is mid-run for this tenant
+    const replica = ds.createQueryRunner();
+    await replica.connect();
+    try {
+      await replica.query('SELECT pg_advisory_lock($1, hashtext($2))', lockKey);
+      await service.run(new Date());
+      expect(queued).toEqual([]);
+
+      await replica.query('SELECT pg_advisory_unlock($1, hashtext($2))', lockKey);
+      await service.run(new Date());
+      expect(queued).toHaveLength(1);
+    } finally {
+      await replica.release();
+      await ds.query(`UPDATE schools SET settings = $2::jsonb WHERE id = $1`, [
+        TENANT_ID,
+        JSON.stringify(settings),
+      ]);
+    }
   });
 
   it('a log that already holds the reference_key releases its share instead of leaking it', async () => {

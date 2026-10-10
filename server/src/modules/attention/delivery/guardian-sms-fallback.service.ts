@@ -19,6 +19,7 @@ import { resolveAttendancePolicy } from '../../attendance/attendance-policy.util
 import { resolveTenantSettings } from '../../schools/settings/tenant-settings-resolver';
 import { Guardian } from '../../students/entities/guardian.entity';
 import { ATTENTION_SWEEP_DONE, attentionEvents } from '../attention.constants';
+import { ATTENTION_RULE_LOCK_NAMESPACE } from '../engine/alert-writer.service';
 import { RuleRegistryService } from '../rules/rule-registry.service';
 import { localDateTimeToUtc, localTimeHHmm } from '../rules/rule-context.service';
 import { localDate } from '../../attendance/attendance-policy.util';
@@ -79,8 +80,6 @@ interface GuardianRow {
 @Injectable()
 export class GuardianSmsFallbackService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(GuardianSmsFallbackService.name);
-  /** Tenants being processed in this process: overlapping sweeps skip rather than double-reserve. */
-  private readonly running = new Set<string>();
 
   constructor(
     @InjectDataSource() private readonly dataSource: DataSource,
@@ -110,15 +109,34 @@ export class GuardianSmsFallbackService implements OnModuleInit, OnModuleDestroy
         WHERE status = 'ACTIVE' AND settings->'attention'->>'guardianSmsFallback' = 'true'`,
     );
     for (const school of schools) {
-      if (this.running.has(school.id)) continue;
-      this.running.add(school.id);
       try {
-        await this.runTenant(school, now);
+        await this.withTenantLock(school.id, () => this.runTenant(school, now));
       } catch (e) {
         this.logger.error(`guardian sms fallback failed for tenant ${school.id}: ${String(e)}`);
-      } finally {
-        this.running.delete(school.id);
       }
+    }
+  }
+
+  /**
+   * One run per tenant across every replica: a session advisory lock on a dedicated connection.
+   * An overlapping run skips the tenant (the next sweep picks it up), so the daily cap and the
+   * reservations are never computed twice at once.
+   */
+  private async withTenantLock(tenantId: string, fn: () => Promise<unknown>): Promise<void> {
+    const key = [ATTENTION_RULE_LOCK_NAMESPACE, `${tenantId}:sms-fallback`];
+    const qr = this.dataSource.createQueryRunner();
+    await qr.connect();
+    try {
+      const [{ ok }] = await qr.query('SELECT pg_try_advisory_lock($1, hashtext($2)) AS ok', key);
+      if (!ok) return;
+      try {
+        await fn();
+      } finally {
+        // only a dead connection fails this, and Postgres drops a dead session's locks
+        await qr.query('SELECT pg_advisory_unlock($1, hashtext($2))', key);
+      }
+    } finally {
+      await qr.release();
     }
   }
 
@@ -141,7 +159,8 @@ export class GuardianSmsFallbackService implements OnModuleInit, OnModuleDestroy
                          NULLIF(a.params->>'studentId', '')::uuid,
                          (SELECT r.student_id FROM alert_recipients r
                            WHERE r.alert_id = a.id AND r.tenant_id = a.tenant_id
-                             AND r.role = 'PARENT' AND r.student_id IS NOT NULL LIMIT 1)) AS student_id
+                             AND r.role = 'PARENT' AND r.student_id IS NOT NULL
+                           ORDER BY r.student_id LIMIT 1)) AS student_id
            FROM alerts a
           WHERE a.tenant_id = $1 AND a.status = 'ACTIVE' AND a.source = 'RULE'
             AND a.severity IN ('WARNING','CRITICAL') AND a.raised_at >= $2
@@ -175,7 +194,7 @@ export class GuardianSmsFallbackService implements OnModuleInit, OnModuleDestroy
       this.dataSource.query(
         `SELECT guardian_id, count(*)::int AS n FROM communication_logs
           WHERE tenant_id = $1 AND guardian_id = ANY($2::uuid[]) AND reference_key LIKE 'attention:%'
-            AND created_at >= $3 GROUP BY guardian_id`,
+            AND status <> 'FAILED' AND created_at >= $3 GROUP BY guardian_id`,
         [tenantId, guardianIds, midnight],
       ) as Promise<{ guardian_id: string; n: number }[]>,
       // D29: the absence notice already went to this guardian today, on any medium
@@ -207,11 +226,13 @@ export class GuardianSmsFallbackService implements OnModuleInit, OnModuleDestroy
 
     for (const alert of alerts) {
       const linked = guardianRows.filter((g) => g.student_id === alert.student_id);
-      // honours the guardian's notifications opt-out
-      const { guardians } = resolveReminderAudience(linked as unknown as Guardian[]);
+      // Primary-or-everyone is chosen among guardians with a phone, so a primary contact without
+      // one falls back to the others (as an opted-out primary does). Honours the opt-out.
+      const { guardians } = resolveReminderAudience(
+        linked.filter((g) => !!g.phone?.trim()) as unknown as Guardian[],
+      );
       const targets = (guardians as unknown as GuardianRow[]).filter(
         (g) =>
-          !!g.phone?.trim() &&
           (!g.user_id || !g.has_push) &&
           !done.has(fallbackReferenceKey(alert.id, g.id)) &&
           (count.get(g.id) ?? 0) < cap &&
@@ -299,9 +320,11 @@ export class GuardianSmsFallbackService implements OnModuleInit, OnModuleDestroy
     try {
       await this.queue.add('send', { logId: log.id, ...(credit ?? {}) });
     } catch (e) {
-      // no job will ever exist for this log: free its share and close the row
+      // No job will ever exist for this log: free its share and close the row. Freeing the
+      // reference_key lets the next sweep retry this guardian (and keeps it out of the daily cap).
       await release(`log:${log.id}`);
       log.status = CommunicationStatus.FAILED;
+      log.reference_key = null;
       log.metadata = { ...log.metadata, error: 'Failed to enqueue for delivery' };
       await repo.save(log);
       throw e;
