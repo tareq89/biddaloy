@@ -2,6 +2,7 @@
 // a fresh access token via the refresh cookie already in the test's
 // request context, then tenant-scoped calls with the same headers the
 // SPA sends (Bearer + X-Tenant-ID).
+import { ALERT_RULES, type AlertRuleKey } from '@biddaloy/shared';
 import type { APIRequestContext } from '@playwright/test';
 
 import type {
@@ -1612,4 +1613,23 @@ export async function raiseTrialEnding(
   } finally {
     await superAdmin.dispose();
   }
+}
+
+/** Switches off every attention rule the school can switch off except `keep`, so a
+ * scheduled tick (DAILY runs every 15 min) cannot add an alert of its own mid-test.
+ * Rules that cannot be switched off (e.g. `setup.incomplete`) are the caller's to avoid. */
+export async function onlyAttentionRule(
+  request: APIRequestContext,
+  session: ApiSession,
+  keep: AlertRuleKey,
+): Promise<void> {
+  const path = `/schools/${session.tenantId}/settings`;
+  const current = await get<{ version: number }>(request, session, path);
+  const rules = Object.fromEntries(
+    ALERT_RULES.filter((r) => r.canDisable && r.key !== keep).map((r) => [
+      r.key,
+      { enabled: false },
+    ]),
+  );
+  await patch(request, session, path, { version: current.version, attention: { rules } });
 }

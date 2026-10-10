@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 
-import { patch, raiseTrialEnding } from '../api';
+import { onlyAttentionRule, patch, raiseTrialEnding } from '../api';
 import { expectNoAxeViolations } from '../a11y/assert';
 import { shells } from '../config';
 import { newSchool, type NewSchool } from '../fixtures/new-school';
@@ -53,6 +53,8 @@ test.describe('staff', () => {
     school = await newSchool(browser, playwright);
     // Finished, not skipped: an unfinished wizard raises setup.incomplete (W3), which sorts first.
     await patch(school.api, school.session, '/onboarding', { seen: true, finished: true });
+    // The first card must be the trial: no scheduled tick may add another alert mid-test.
+    await onlyAttentionRule(school.api, school.session, 'trial.ending');
     await setEnglish(school.page);
     await raiseTrialEnding(playwright, school.session.tenantId, shells.app.baseURL);
     // The recheck runs about 5 s after the trial change.
