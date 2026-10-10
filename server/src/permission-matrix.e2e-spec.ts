@@ -370,6 +370,18 @@ interface RoleNarrowing {
 
 export const ROLE_NARROWINGS: RoleNarrowing[] = [
   {
+    controller: 'ApplicationsController',
+    method: 'GET',
+    path: '/applications/tag-options',
+    reason: '[52.2.1] D50: tags are staff-only — guardians/students never see the staff list',
+  },
+  {
+    controller: 'ApplicationsController',
+    method: 'POST',
+    path: '/applications/:id/tags',
+    reason: '[52.2.1] D50: tags are staff-only — the portal has no tag step',
+  },
+  {
     controller: 'HomeworkController',
     method: 'GET',
     path: '/homework',
@@ -818,10 +830,9 @@ export const UI_ONLY_PERMISSIONS: Permission[] = [
   // [34.2.1] PROGRAM_RECORD now gates POST /programs/:id/achievements and
   // DELETE /milestone-achievements/:id — no longer UI-only, removed from
   // this list.
-  // [52.1.1] Plumbing ahead of the /applications routes (52.2.1+). Remove
-  // APPLICATION_SUBMIT when POST /applications requires it.
-  Permission.APPLICATION_SUBMIT,
-  Permission.APPLICATION_MANAGE,
+  // [52.1.1] Plumbing ahead of the /applications routes. [52.2.1]
+  // APPLICATION_SUBMIT now gates POST /applications — removed from this list.
+  // [52.3.5] APPLICATION_MANAGE now gates GET /applications/reports — removed.
 ];
 
 describe('Permission matrix (regression)', () => {

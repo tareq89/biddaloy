@@ -239,6 +239,18 @@ describe('mergeTenantSettings', () => {
     ).toEqual({ incidentSmsEnabled: true });
   });
 
+  it('replaces applications wholesale on PATCH and preserves it when omitted (52.2.6)', () => {
+    const existing = { version: 1, applications: { smsOnDecision: true } };
+
+    expect(mergeTenantSettings(existing, toPatch({ version: 1 })).applications).toEqual({
+      smsOnDecision: true,
+    });
+    expect(
+      mergeTenantSettings(existing, toPatch({ version: 1, applications: { smsOnDecision: false } }))
+        .applications,
+    ).toEqual({ smsOnDecision: false });
+  });
+
   it('stores documents on PATCH and leaves fees untouched (48.1.03)', () => {
     const fees = { approvalMode: 'OTP' };
     const merged = mergeTenantSettings(
@@ -288,6 +300,7 @@ describe('mergeTenantSettings', () => {
     backup: { marker: 'backup' },
     fees: { marker: 'fees' },
     evaluations: { marker: 'evaluations' },
+    applications: { marker: 'applications' },
     documents: { marker: 'documents' },
     studyPlans: { marker: 'studyPlans' },
   };

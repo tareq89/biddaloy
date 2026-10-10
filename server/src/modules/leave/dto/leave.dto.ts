@@ -9,6 +9,7 @@ import {
   IsUUID,
   Min,
   MinLength,
+  ValidateIf,
 } from 'class-validator';
 import { LeaveStatus, LeaveType } from '@biddaloy/shared';
 import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
@@ -60,9 +61,11 @@ export class QueryLeaveBalanceDto {
 
 /** `PUT /leave/policies/:type` */
 export class UpdateLeavePolicyDto {
+  /** `null` = unlimited (D19). */
+  @ValidateIf((_, v) => v !== null)
   @IsInt()
   @Min(0)
-  annual_quota_days: number;
+  annual_quota_days: number | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -84,12 +87,12 @@ export class LeaveRecordDto {
 
 export class LeaveBalanceDto {
   @ApiProperty({ enum: LeaveType }) leave_type: LeaveType;
-  @ApiProperty() annual_quota_days: number;
+  @ApiProperty({ nullable: true }) annual_quota_days: number | null;
   @ApiProperty() used_days: number;
-  @ApiProperty() balance: number;
+  @ApiProperty({ nullable: true }) balance: number | null;
 }
 
 export class LeavePolicyDto {
   @ApiProperty({ enum: LeaveType }) leave_type: LeaveType;
-  @ApiProperty() annual_quota_days: number;
+  @ApiProperty({ nullable: true }) annual_quota_days: number | null;
 }
