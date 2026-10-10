@@ -340,5 +340,40 @@ export async function resolvePath(
     });
     return route.path.replace('$id', schedule.id);
   }
+  if (route.path.includes('$applicationId')) {
+    // [52.4.1] Staff: any application the admin can see. Portal: the seeded
+    // parent's own (`view=mine`). Seeded by 52.2.7 / 52.3.6.
+    const isPortal = route.path.startsWith('/portal/');
+    let id: string | undefined;
+    if (isPortal) {
+      const password = process.env[SEED_PASSWORD_ENV];
+      if (!password) throw new Error(`${SEED_PASSWORD_ENV} is not set`);
+      const login = await request.post('/api/v1/auth/login', {
+        data: { email: SEED_ROLE_EMAILS.parent, password },
+      });
+      if (!login.ok()) throw new Error(`parent login failed: ${login.status()}`);
+      const body = (await login.json()) as {
+        access_token: string;
+        memberships: { tenantId: string; role: string }[];
+      };
+      const tenantId = body.memberships.find((m) => m.role === 'PARENT')?.tenantId;
+      if (!tenantId) throw new Error('no PARENT membership for seed parent');
+      const list = await request.get('/api/v1/applications?view=mine', {
+        headers: { Authorization: `Bearer ${body.access_token}`, 'X-Tenant-ID': tenantId },
+      });
+      if (!list.ok()) throw new Error(`GET /applications failed: ${list.status()}`);
+      id = ((await list.json()) as { data: { id: string }[] }).data[0]?.id;
+    } else {
+      const list = await get<{ data: { id: string }[] }>(
+        request,
+        session,
+        '/applications?view=all',
+      );
+      id = list.data[0]?.id;
+    }
+    // The seed always creates applications: none means the seed broke, so fail, never skip.
+    if (!id) throw new Error('no application seeded (server/src/scripts/seed.applications.ts)');
+    return route.path.replace('$applicationId', id);
+  }
   throw new Error(`no resolver for ${route.path}`);
 }

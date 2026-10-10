@@ -16,11 +16,13 @@ import {
 import {
   ApprovalModalHostProvider,
   hasPermission,
+  useApplicationPendingCount,
   useActiveRole,
   useEntityLabel,
 } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { RequirePermission, RequireRole } from '@biddaloy/ui/routes';
+import { formatNumber } from '@biddaloy/ui/utils';
 import {
   createFileRoute,
   Outlet,
@@ -41,6 +43,7 @@ import {
   STAFF_BOTTOM_NAV,
   STAFF_NAV_GROUPS,
   STAFF_NAV_ITEMS,
+  STAFF_TOP_NAV_ITEMS,
   type StaffNavGroupDef,
   type StaffNavItemDef,
   type StaffNavItemId,
@@ -205,7 +208,6 @@ function StaffLayout() {
 
   const SchoolsIcon = PLATFORM_NAV_ICONS['/schools'];
   const HolidaySetsIcon = PLATFORM_NAV_ICONS['/holiday-sets'];
-  const dashboardItem = toNavItem(STAFF_NAV_ITEMS.dashboard);
 
   // [31.3.1]: each role's own bottom-bar cells. They are built from the
   // sidebar's own item defs, and `BottomNav` applies the same permission
@@ -223,7 +225,26 @@ function StaffLayout() {
   const moreActive = !visibleCells.some((i) => isPathUnder(pathname, i.to));
   const schoolName = useActiveSchoolName();
 
-  const navItems = [dashboardItem];
+  // [52.4.1] The ungrouped items above the groups. Applications carries a
+  // brand pill with the number of applications waiting on this user (a work
+  // queue, not an alarm); only fetched for roles that can see the item.
+  const regionConfig = useRegionConfig();
+  const pending = useApplicationPendingCount({
+    enabled: hasPermission(activeRole, STAFF_NAV_ITEMS.applications.permission),
+  });
+  const pendingTotal = pending.data?.total ?? 0;
+  const navItems = STAFF_TOP_NAV_ITEMS.map((def) => {
+    const item = toNavItem(def);
+    if (def.id !== 'applications' || pendingTotal === 0) return item;
+    const badge =
+      formatNumber(Math.min(pendingTotal, 9999), regionConfig) + (pendingTotal > 9999 ? '+' : '');
+    // `count` picks the plural form; `n` is the same number in the locale's digits.
+    return {
+      ...item,
+      badge,
+      badgeLabel: t('items.applicationsPending', { count: pendingTotal, n: badge }),
+    };
+  });
 
   // [30.1.3]'s restructured §3 groups — `nav-tree.ts` is the single
   // source of truth for group order/membership/permissions; this route

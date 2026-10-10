@@ -56,8 +56,9 @@ export interface PaletteAction {
   readonly alsoRequires?: readonly Permission[];
   readonly kind: ActionKind;
   /** Palette Action-tab section = the nav group of the page `run()` lands on
-   * (`administration`/`reports` for the few targets outside the nav tree). */
-  readonly group: StaffNavGroupId;
+   * (`administration`/`reports` for the few targets outside the nav tree).
+   * `top` = the ungrouped items above the groups. */
+  readonly group: StaffNavGroupId | 'top';
   readonly context?: readonly ActionContext[];
   readonly run: (ctx: ActionRunContext) => void;
 }
@@ -69,6 +70,31 @@ export interface PaletteAction {
  * verbatim from `route-permissions.ts`'s entry for the same route.
  */
 export const ACTIONS: readonly PaletteAction[] = [
+  // [52.4.1] Applications (D25). Decide rights come from the catalogue, so these only need submit.
+  {
+    id: 'applications.new',
+    label: { en: 'New application', bn: 'নতুন আবেদন' },
+    permission: Permission.APPLICATION_SUBMIT,
+    kind: 'navigate',
+    group: 'top',
+    run: (ctx) => ctx.navigate({ to: '/applications/new' }),
+  },
+  {
+    id: 'applications.inbox',
+    label: { en: 'Applications waiting for me', bn: 'আমার সিদ্ধান্তের অপেক্ষায় থাকা আবেদন' },
+    permission: Permission.APPLICATION_SUBMIT,
+    kind: 'navigate',
+    group: 'top',
+    run: (ctx) => ctx.navigate({ to: '/applications?view=inbox' }),
+  },
+  {
+    id: 'applications.apply-leave',
+    label: { en: 'Apply for leave', bn: 'ছুটির আবেদন করুন' },
+    permission: Permission.APPLICATION_SUBMIT,
+    kind: 'navigate',
+    group: 'top',
+    run: (ctx) => ctx.navigate({ to: '/applications/new?type=STAFF_LEAVE' }),
+  },
   {
     id: 'payments.record',
     label: { en: 'Record payment', bn: 'পেমেন্ট রেকর্ড করুন' },

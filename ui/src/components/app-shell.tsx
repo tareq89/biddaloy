@@ -91,6 +91,11 @@ export interface AppShellNavItem {
    * permission. Omit for an item every signed-in role should see (e.g.
    * Dashboard). */
   permission?: Permission;
+  /** Short count pill rendered after the label in the sidebar and drawer
+   * (e.g. a pending-work count). The bottom bar ignores it. */
+  badge?: string;
+  /** Screen-reader text for `badge` (ui never calls `t()`). */
+  badgeLabel?: string;
 }
 
 export interface AppShellNavGroup {
@@ -268,6 +273,17 @@ function NavLink({
           </span>
         )}
         {item.label}
+        {item.badge !== undefined && (
+          <>
+            <span
+              aria-hidden="true"
+              className="ms-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-caption font-medium text-primary-foreground"
+            >
+              {item.badge}
+            </span>
+            {item.badgeLabel !== undefined && <span className="sr-only"> {item.badgeLabel}</span>}
+          </>
+        )}
       </Link>
     </li>
   );

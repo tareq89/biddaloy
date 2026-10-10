@@ -67,6 +67,14 @@ export const STAFF_NAV_ITEMS = {
     permission: Permission.DASHBOARD_VIEW,
     label: { key: 'dashboard' },
   },
+  // [52.4.1] Top-level (ungrouped) work queue, rendered above the groups (D23).
+  applications: {
+    id: 'applications',
+    to: '/applications',
+    permission: Permission.APPLICATION_SUBMIT,
+    label: { key: 'applications' },
+    synonyms: ['application', 'leave', 'waiver', 'testimonial', 'আবেদন', 'ছুটি', 'মওকুফ'],
+  },
   'people.students': {
     id: 'people.students',
     to: '/students',
@@ -401,6 +409,12 @@ export const STAFF_NAV_ITEMS = {
     label: { key: 'printables' },
     synonyms: ['ID card', 'printed', 'reprint', 'history'],
   },
+  'reports.applications': {
+    id: 'reports.applications',
+    to: '/applications/reports',
+    permission: Permission.APPLICATION_MANAGE,
+    label: { key: 'applicationsReportsNav' },
+  },
   // [24.3.5] Read-only role comparison (D25: gated on USER_READ).
   'administration.roles': {
     id: 'administration.roles',
@@ -469,6 +483,12 @@ export function rankByMatch<T extends { label: string; disabled?: boolean }>(
     (r.disabled ? 2 : 0) + (q !== '' && r.label.toLowerCase().startsWith(q) ? 0 : 1);
   return [...results].sort((a, b) => key(a) - key(b));
 }
+
+/** [52.4.1] The ungrouped items above the groups (D23). */
+export const STAFF_TOP_NAV_ITEMS = [
+  STAFF_NAV_ITEMS.dashboard,
+  STAFF_NAV_ITEMS.applications,
+] as const;
 
 export const STAFF_NAV_GROUPS: readonly StaffNavGroupDef[] = [
   {
@@ -545,7 +565,11 @@ export const STAFF_NAV_GROUPS: readonly StaffNavGroupDef[] = [
   {
     id: 'reports',
     label: { key: 'reports' },
-    items: [STAFF_NAV_ITEMS['reports.collectionsReport'], STAFF_NAV_ITEMS['reports.printables']],
+    items: [
+      STAFF_NAV_ITEMS['reports.collectionsReport'],
+      STAFF_NAV_ITEMS['reports.printables'],
+      STAFF_NAV_ITEMS['reports.applications'],
+    ],
   },
   {
     id: 'communications',
