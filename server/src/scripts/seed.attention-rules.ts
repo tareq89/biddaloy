@@ -222,8 +222,9 @@ async function ensureFamilyRulesSeed(ds: DataSource, tenantId: string): Promise<
     );
   } else {
     await q(
-      `UPDATE exam_schedules SET date = $2, updated_at = NOW() WHERE exam_id = $1 AND deleted_at IS NULL`,
-      [exam.id, addDays(today, 1)],
+      `UPDATE exam_schedules SET date = $2, updated_at = NOW()
+       WHERE exam_id = $1 AND tenant_id = $3 AND deleted_at IS NULL`,
+      [exam.id, addDays(today, 1), tenantId],
     );
   }
 }
