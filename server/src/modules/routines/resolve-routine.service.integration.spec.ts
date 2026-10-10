@@ -331,6 +331,23 @@ describe('[67.3.03] resolveTenantDay (integration)', () => {
     expect(slots.every((s) => s.date === DAY)).toBe(true);
   });
 
+  it('leaves out the slots of a deleted section', async () => {
+    const routineId = await mkRoutine(RoutineState.PUBLISHED);
+    await mkSlot(routineId, SEED_SECTION_1_ID);
+    await mkSlot(routineId, SEED_SECTION_2_ID);
+    await ds.query(`UPDATE class_sections SET deleted_at = NOW() WHERE id = $1`, [
+      SEED_SECTION_2_ID,
+    ]);
+    try {
+      const slots = await service.resolveTenantDay(SEED_TENANT_ID, DAY);
+      expect(slots.map((s) => s.section_id)).toEqual([SEED_SECTION_1_ID]);
+    } finally {
+      await ds.query(`UPDATE class_sections SET deleted_at = NULL WHERE id = $1`, [
+        SEED_SECTION_2_ID,
+      ]);
+    }
+  });
+
   it.each([RoutineState.DRAFT, RoutineState.REVIEW])(
     '%s routine resolves to nothing',
     async (state) => {
