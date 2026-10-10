@@ -15,13 +15,12 @@ import { SEED_PASSWORD_ENV, SEED_ROLE_EMAILS, type SeedRole } from '../seed-cont
  *
  * Two independent logins as the **same** role, each its own refresh-token
  * family (`refresh-token.service.ts`'s rotation model — a session is a
- * family, not a row). `student` is used, not `parent` — `portal-account
- * .spec.ts:9-16` explains why: `parent` is the busiest seeded credential in
+ * family, not a row). `student` is used, not `parent`: `parent` is the busiest seeded credential in
  * this suite (several other specs sign in as it), and any spec that
  * mutates its session state risks poisoning those. `student` carries no
  * such risk here since this spec only revokes a *session*, not the
- * password (unlike `portal-account.spec.ts`'s own reason for picking
- * `student` over `parent` for its password-rotation test).
+ * password. (No spec rotates a seeded password any more:
+ * `portal-account.spec.ts` changes the password of an account it mints.)
  *
  * **Why the assertion after revoke is a full page load, not a client-side
  * navigation:** revoking a family kills its refresh token, but the
@@ -53,8 +52,8 @@ async function freshSessionStorageState(role: SeedRole) {
       if (response.ok()) break;
       failure = `Login failed for ${SEED_ROLE_EMAILS[role]}: ${response.status()} ${await response.text()}`;
       if (response.status() !== 401 || attempt === 4) throw new Error(failure);
-      // portal-account.spec.ts briefly rotates the student seed password;
-      // wait for its finally block to restore it before giving up.
+      // Belt and braces: a seeded login 401s only if some spec has moved its
+      // password (none does today), so retry briefly before giving up.
       await new Promise((resolve) => setTimeout(resolve, 500));
     }
     if (!response?.ok()) throw new Error(failure || 'Login failed without a response');

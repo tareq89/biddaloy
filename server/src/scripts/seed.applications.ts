@@ -701,8 +701,11 @@ const PORTAL_SEED_MARK = 'Demo portal application.';
  * becomes that child's own login (no seed linked it before), one APPROVED STUDENT_LEAVE the
  * student filed themself (D43: the guardian still sees it), and one REJECTED TESTIMONIAL with a
  * reason. The PENDING leave and the PAPER entry come from `ensureApplicationsSeed`. Written as
- * rows like the decided seed. Idempotent: `letter_text` carries a mark. Leave on Thu 12 March:
- * clear of every other seeded leave and of the BD holidays (17, 20-22, 26 March).
+ * rows like the decided seed, with ordered `created_at`s (filed the day before, decided on the
+ * day) so the activity trail reads in order. Idempotent: `letter_text` carries a mark. Leave on
+ * Thu 12 March: clear of every other seeded leave and of the BD holidays (17, 20-22, 26 March).
+ * If the student login cannot be linked to the child, the student-filed leave is skipped (the
+ * API would refuse it too: APPLICATION_APPLICANT_NOT_LINKED).
  */
 export async function ensurePortalApplicationsSeed(
   repos: ApplicationsSeedRepositories,
@@ -743,6 +746,7 @@ export async function ensurePortalApplicationsSeed(
     DEMO_ACADEMIC_YEAR.name,
   ]);
 
+  let rows = 0;
   await m.transaction(async (tx) => {
     // One login per student: only link if neither side is taken.
     await tx.query(
@@ -750,6 +754,10 @@ export async function ensurePortalApplicationsSeed(
           AND NOT EXISTS (SELECT 1 FROM students WHERE user_id = $2)`,
       [child.id, studentUser.id],
     );
+    const [{ user_id: linkedUser }] = await tx.query(`SELECT user_id FROM students WHERE id = $1`, [
+      child.id,
+    ]);
+    const linked = linkedUser === studentUser.id;
     const [{ y, n }] = await tx.query(
       `SELECT y, coalesce((SELECT max(serial_no) FROM applications
                             WHERE tenant_id = $1 AND serial_year = y), 0) AS n
@@ -764,14 +772,17 @@ export async function ensurePortalApplicationsSeed(
       payload: Record<string, unknown>;
       day?: string;
       effect?: Record<string, unknown>;
-      events: { kind: ApplicationEventKind; actor: string; note?: string }[];
+      /** One per event, ascending: the first is `created_at`, the last `decided_at`. */
+      events: { kind: ApplicationEventKind; actor: string; at: string; note?: string }[];
     }): Promise<void> => {
       serialNo += 1;
+      rows += 1;
       const [{ id }] = await tx.query(
         `INSERT INTO applications (tenant_id, type, status, source, serial_year, serial_no,
            academic_year_id, applicant_user_id, subject_student_id, payload, start_date, end_date,
-           current_step, letter_text, letter_locale, effect_result, decided_by_user_id, decided_at)
-         VALUES ($1,$2,$3,'APP',$4,$5,$6,$7,$8,$9::jsonb,$10,$10,0,$11,'bn',$12::jsonb,$13,now())
+           current_step, letter_text, letter_locale, effect_result, decided_by_user_id, decided_at,
+           created_at)
+         VALUES ($1,$2,$3,'APP',$4,$5,$6,$7,$8,$9::jsonb,$10,$10,0,$11,'bn',$12::jsonb,$13,$14,$15)
          RETURNING id`,
         [
           tenantId,
@@ -787,12 +798,14 @@ export async function ensurePortalApplicationsSeed(
           PORTAL_SEED_MARK,
           r.effect ? JSON.stringify(r.effect) : null,
           decider,
+          r.events.at(-1)!.at,
+          r.events[0]!.at,
         ],
       );
       for (const e of r.events) {
         await tx.query(
-          `INSERT INTO application_events (tenant_id, application_id, actor_user_id, kind, step, note)
-           VALUES ($1,$2,$3,$4,$5,$6)`,
+          `INSERT INTO application_events (tenant_id, application_id, actor_user_id, kind, step, note, created_at)
+           VALUES ($1,$2,$3,$4,$5,$6,$7)`,
           [
             tenantId,
             id,
@@ -800,38 +813,50 @@ export async function ensurePortalApplicationsSeed(
             e.kind,
             e.kind === ApplicationEventKind.SUBMITTED ? null : 0,
             e.note ?? null,
+            e.at,
           ],
         );
       }
     };
     const day = '2026-03-12';
-    await insert({
-      type: ApplicationType.STUDENT_LEAVE,
-      status: ApplicationStatus.APPROVED,
-      applicant: studentUser.id,
-      payload: { reason_kind: 'SICK', start_date: day, end_date: day, details: 'মাথাব্যথা' },
-      day,
-      effect: { days: 1, attendance_dates: [day] },
-      events: [
-        { kind: ApplicationEventKind.SUBMITTED, actor: studentUser.id },
-        { kind: ApplicationEventKind.APPROVED, actor: decider },
-      ],
-    });
-    await markStudentLeave(tx, tenantId, child, day, decider);
+    if (!linked) {
+      console.warn(
+        'student@ could not be linked to the parent child — skipping the student-filed portal leave.',
+      );
+    } else {
+      await insert({
+        type: ApplicationType.STUDENT_LEAVE,
+        status: ApplicationStatus.APPROVED,
+        applicant: studentUser.id,
+        payload: { reason_kind: 'SICK', start_date: day, end_date: day, details: 'মাথাব্যথা' },
+        day,
+        effect: { days: 1, attendance_dates: [day] },
+        events: [
+          {
+            kind: ApplicationEventKind.SUBMITTED,
+            actor: studentUser.id,
+            at: '2026-03-11T03:00:00Z',
+          },
+          { kind: ApplicationEventKind.APPROVED, actor: decider, at: '2026-03-12T04:00:00Z' },
+        ],
+      });
+      await markStudentLeave(tx, tenantId, child, day, decider);
+    }
     await insert({
       type: ApplicationType.TESTIMONIAL,
       status: ApplicationStatus.REJECTED,
       applicant: parentUser.id,
       payload: { purpose: 'ভিসার আবেদন' },
       events: [
-        { kind: ApplicationEventKind.SUBMITTED, actor: parentUser.id },
+        { kind: ApplicationEventKind.SUBMITTED, actor: parentUser.id, at: '2026-03-15T03:00:00Z' },
         {
           kind: ApplicationEventKind.REJECTED,
           actor: decider,
+          at: '2026-03-16T05:00:00Z',
           note: 'প্রয়োজনীয় কাগজপত্র জমা দেওয়া হয়নি।',
         },
       ],
     });
   });
-  console.log('Portal applications seeded (2 rows).');
+  console.log(`Portal applications seeded (${rows} rows).`);
 }
