@@ -10,5 +10,6 @@ import { OnboardingService } from './onboarding.service';
   imports: [ConfigModule, AuditModule, SchoolsModule],
   controllers: [OnboardingController],
   providers: [OnboardingService],
+  exports: [OnboardingService],
 })
 export class OnboardingModule {}

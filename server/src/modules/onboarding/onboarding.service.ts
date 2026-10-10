@@ -20,6 +20,8 @@ import { getSeatUsage } from '../schools/trial/seat-limit.service';
 import { DAY_MS } from '../schools/trial/trial.constants';
 import { AuditService } from '../audit/audit.service';
 import { UpdateOnboardingDto } from './dto/onboarding.dto';
+import { attentionEvents } from '../attention/attention.constants';
+import { emitRecheck } from '../attention/engine/attention-events';
 
 /**
  * [13.3.3] "How far is this school's setup?" Every checklist item is derived from real rows on
@@ -145,6 +147,7 @@ export class OnboardingService {
       old_values: { onboarding: before },
       new_values: { onboarding: next },
     });
+    emitRecheck(attentionEvents, { tenantId, ruleKey: 'setup.incomplete', actorUserId: userId });
 
     return this.getStatus(tenantId, userId);
   }
