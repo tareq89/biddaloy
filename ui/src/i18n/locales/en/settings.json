@@ -402,5 +402,34 @@
     "prefixHint": "2–8 capital letters or digits, printed before every serial.",
     "prefixExample": "Example: {{serial}}",
     "prefixInvalid": "Use 2–8 capital letters or digits."
+  },
+  "studyPlans": {
+    "legend": "Study plans",
+    "description": "Teachers report every period each day. Choose who hears about a missed report, and when.",
+    "summaryTitle": "What happens with these settings",
+    "summary": {
+      "deadline": "Time is up. Unreported periods stay \"open\".",
+      "reminder": "The teacher gets a reminder push.",
+      "reminderValue": "Next school day {{time}}",
+      "escalateValue_one": "After {{count}} school day",
+      "escalateValue_other": "After {{count}} school days",
+      "escalate": "The head teacher and admin are told.",
+      "digestValue": "End of week {{time}}",
+      "digest": "Guardians and the committee get a summary."
+    },
+    "statusDeadline": "Status deadline",
+    "statusDeadlineHelp": "Same school day. Reporting after this still counts, but late.",
+    "reminderTime": "Teacher reminder",
+    "reminderTimeHelp": "Next school day, only if something is still open.",
+    "escalateAfter": "Tell the head teacher and admin after",
+    "escalateSuffix": "school days not reported",
+    "escalateHelp": "Holidays are not counted. Between 1 and 10.",
+    "escalateRange": "Enter a number from 1 to 10.",
+    "weeklyDigestTime": "Weekly summary time",
+    "weeklyDigestHelp": "On the last working day of the week, to guardians and the committee.",
+    "guardianSms": "Also send the guardians' weekly summary by SMS",
+    "guardianSmsHelp": "Push is always sent and is free. SMS uses credits every week.",
+    "smsBalance": "Current balance: {{count}} credits",
+    "invalidTime": "Enter a time like 18:00."
   }
 }

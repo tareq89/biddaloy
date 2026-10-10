@@ -1,10 +1,9 @@
 /**
- * [21.10.1] D18: a teacher's own phone-first agenda — their own periods
- * plus whatever they are covering, marked. Every dated fact (recurrence,
- * effective dating, weekly-off/holiday exclusion, substitutions) comes
- * from `useResolveRoutine` (D14, `GET /routines/resolve`) — this route
- * only resolves display labels (subject/room/section/teacher names) and
- * builds the rolling 7-day window `RoutineAgenda` renders.
+ * [21.10.1] D18 / [66.3.01] D11: a teacher's phone-first "today" page —
+ * each period's planned lesson, reported taught / partly / not taught.
+ * Dated facts for the next days (recurrence, weekly-off/holiday exclusion,
+ * substitutions) come from `useResolveRoutine` (D14); the day being marked
+ * comes from `useMyLessonDeliveries`.
  *
  * "No published routine" is decided the same way `review.tsx` decides it
  * — no non-DRAFT `Routine` row exists for the tenant's current academic
@@ -12,24 +11,18 @@
  * response, which is also empty on an ordinary holiday.
  */
 import { Permission } from '@biddaloy/shared';
-import {
-  EmptyState,
-  ErrorState,
-  RoutePending,
-  RoutineAgenda,
-  Skeleton,
-  type RoutineAgendaDay,
-  type RoutineAgendaItem,
-} from '@biddaloy/ui/components';
+import { EmptyState, ErrorState, RoutePending, Skeleton } from '@biddaloy/ui/components';
 import {
   useAcademicYears,
-  useCalendarEvents,
-  useCalendarSettings,
+  useActiveTenant,
   useCurrentUserId,
   useHasPermission,
+  useMarkTodayAllTaught,
+  useMyLessonDeliveries,
   useResolveRoutine,
   useRoutines,
   useRooms,
+  useSchoolSettings,
   useSectionLookup,
   useSubjects,
   useTeachers,
@@ -37,32 +30,31 @@ import {
   type ResolvedSlot,
   type Routine,
 } from '@biddaloy/ui/hooks';
-import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { useTranslation } from '@biddaloy/ui/i18n';
 import { PageContainer, PageHeader } from '@biddaloy/ui/shells';
-import { formatNumber, toIsoDate } from '@biddaloy/ui/utils';
+import { toIsoDate } from '@biddaloy/ui/utils';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { CalendarClockIcon, UserRoundXIcon } from 'lucide-react';
 import * as React from 'react';
+import { z } from 'zod';
 
 import { loadRouteNamespaces } from '../../../route-loaders';
 
-import { subjectName } from './-subject-name';
+import { clampMarkingDate, addDays } from './-marking/dates';
+import { DaySummaryCard } from './-marking/day-summary-card';
+import { DueBanner } from './-marking/due-banner';
+import { NextDays, type NextDay } from './-marking/next-days';
+import { PeriodCard } from './-marking/period-card';
 
-const WEEKDAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
-const AGENDA_WINDOW_DAYS = 7;
+const searchSchema = z.object({
+  date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional()
+    .catch(undefined),
+});
 
-/** A rolling window starting today, not a calendar week — "today first"
- * (D18) is simplest as "today plus the next six days" rather than
- * re-deriving the tenant's week-start convention just to reorder it. */
-function agendaDates(): string[] {
-  const now = new Date();
-  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  return Array.from({ length: AGENDA_WINDOW_DAYS }, (_, i) => {
-    const d = new Date(start);
-    d.setDate(d.getDate() + i);
-    return toIsoDate(d);
-  });
-}
+const NEXT_DAYS = 6;
 
 /** A `DRAFT` routine is builder-only and invisible to a teacher, same
  * rule `review.tsx` applies once scoped to the current academic year —
@@ -77,6 +69,7 @@ function pickVisibleRoutine(
 }
 
 export const Route = createFileRoute('/_staff/routines/my')({
+  validateSearch: searchSchema,
   loader: () => loadRouteNamespaces('routines', 'common'),
   pendingComponent: MyRoutinePending,
   component: MyRoutinePage,
@@ -84,13 +77,15 @@ export const Route = createFileRoute('/_staff/routines/my')({
 
 function MyRoutinePage() {
   const { t, i18n } = useTranslation('routines');
-  const config = useRegionConfig();
   const navigate = useNavigate();
   const canManage = useHasPermission(Permission.ROUTINE_MANAGE);
   const currentUserId = useCurrentUserId();
-  const dates = React.useMemo(agendaDates, []);
-  const from = dates[0]!;
-  const to = dates[dates.length - 1]!;
+  const search = Route.useSearch();
+  const today = React.useMemo(() => toIsoDate(new Date()), []);
+  const date = clampMarkingDate(search.date, today); // D29
+  const isToday = date === today;
+  const tomorrow = addDays(today, 1);
+  const lastNextDay = addDays(today, NEXT_DAYS);
 
   const academicYearsQuery = useAcademicYears({});
   const currentYearId = academicYearsQuery.data?.data.find((year) => year.is_current)?.id;
@@ -106,14 +101,18 @@ function MyRoutinePage() {
   );
 
   const resolveQuery = useResolveRoutine(
-    ownTeacher ? { teacher_id: ownTeacher.id, from, to } : undefined,
+    ownTeacher
+      ? { teacher_id: ownTeacher.id, from: date < tomorrow ? date : tomorrow, to: lastNextDay }
+      : undefined,
   );
   const subjectsQuery = useSubjects({});
   const roomsQuery = useRooms();
   const sectionLookupQuery = useSectionLookup();
   const periodLookupQuery = usePeriodSlotLookup();
-  const calendarSettingsQuery = useCalendarSettings();
-  const calendarEventsQuery = useCalendarEvents({ from, to });
+  const deliveriesQuery = useMyLessonDeliveries(date);
+  const markAll = useMarkTodayAllTaught();
+  const studyPlans = useSchoolSettings(useActiveTenant() ?? '').data?.studyPlans;
+  const canMakePlan = useHasPermission(Permission.SYLLABUS_MANAGE);
 
   const frame = (body: React.ReactNode) => (
     <PageContainer size="narrow">
@@ -174,8 +173,7 @@ function MyRoutinePage() {
     roomsQuery.isPending ||
     sectionLookupQuery.isPending ||
     periodLookupQuery.isPending ||
-    calendarSettingsQuery.isPending ||
-    calendarEventsQuery.isPending
+    deliveriesQuery.isPending
   ) {
     return frame(<MyRoutineSkeleton label={t('myRoutine.loading')} />);
   }
@@ -186,8 +184,7 @@ function MyRoutinePage() {
     roomsQuery.isError ||
     sectionLookupQuery.isError ||
     periodLookupQuery.isError ||
-    calendarSettingsQuery.isError ||
-    calendarEventsQuery.isError
+    deliveriesQuery.isError
   ) {
     return frame(
       <ErrorState
@@ -199,18 +196,14 @@ function MyRoutinePage() {
           void roomsQuery.refetch();
           void sectionLookupQuery.refetch();
           void periodLookupQuery.refetch();
-          void calendarSettingsQuery.refetch();
-          void calendarEventsQuery.refetch();
+          void deliveriesQuery.refetch();
         }}
       />,
     );
   }
 
-  const subjectLabel = (id: string) =>
-    subjectName(
-      subjectsQuery.data?.data.find((subject) => subject.id === id),
-      i18n.language,
-    );
+  const subjectLabel = (subject: { name_en: string | null; name_bn: string | null }) =>
+    i18n.language.startsWith('bn') && subject.name_bn ? subject.name_bn : (subject.name_en ?? '—');
   const roomLabel = (id: string | null) => {
     if (!id) return null;
     const room = roomsQuery.data?.data.find((r) => r.id === id);
@@ -219,83 +212,84 @@ function MyRoutinePage() {
   };
   const teacherName = (id: string) =>
     teachersQuery.data?.data.find((teacher) => teacher.id === id)?.user.full_name ?? '—';
-  const sectionLabel = (id: string) => {
+  const sectionLabel = (id: string, fallback: string) => {
     const entry = sectionLookupQuery.data?.[id];
-    return entry ? `${entry.className} – ${entry.sectionName}` : '—';
+    return entry ? `${entry.className} – ${entry.sectionName}` : fallback;
   };
-  const periodLabel = (id: string) => {
-    const entry = periodLookupQuery.data?.[id];
-    return entry
-      ? t('agenda.periodLabel', { sequence: formatNumber(entry.sequence, config) })
-      : '—';
-  };
-  const weeklyOffDays = new Set(calendarSettingsQuery.data?.weeklyOffDays ?? []);
-  const holidayFor = (date: string) =>
-    (calendarEventsQuery.data?.data ?? []).find(
-      (event) =>
-        event.counts_as_working_day === false && event.start_date <= date && event.end_date >= date,
-    );
 
-  const slotsByDate = new Map<string, ResolvedSlot[]>();
-  for (const slot of resolveQuery.data ?? []) {
-    const list = slotsByDate.get(slot.date) ?? [];
-    list.push(slot);
-    slotsByDate.set(slot.date, list);
+  const slots = resolveQuery.data ?? [];
+  const day = deliveriesQuery.data;
+  // Next days: only days with periods (weekly-off / holidays are already absent).
+  const byDate = new Map<string, ResolvedSlot[]>();
+  for (const slot of slots) {
+    if (slot.date <= today || slot.cancelled) continue;
+    byDate.set(slot.date, [...(byDate.get(slot.date) ?? []), slot]);
   }
-
-  const days: RoutineAgendaDay[] = dates.map((date) => {
-    const weekday = new Date(`${date}T00:00:00`).getDay();
-    const holiday = holidayFor(date);
-    const offReason = holiday
-      ? t('agenda.holidayReason', { name: holiday.name })
-      : weeklyOffDays.has(weekday)
-        ? t('agenda.weeklyOffReason')
-        : undefined;
-
-    const items: RoutineAgendaItem[] = (slotsByDate.get(date) ?? []).map((slot) => {
-      const period = periodLookupQuery.data?.[slot.period_slot_id];
+  const nextDays: NextDay[] = [...byDate.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([d, list]) => {
+      const first = [...list].sort(
+        (x, y) =>
+          (periodLookupQuery.data?.[x.period_slot_id]?.sequence ?? 0) -
+          (periodLookupQuery.data?.[y.period_slot_id]?.sequence ?? 0),
+      )[0]!;
       return {
-        slotId: slot.routine_slot_id,
-        periodLabel: periodLabel(slot.period_slot_id),
-        startsAt: period?.starts_at ?? '',
-        endsAt: period?.ends_at ?? '',
-        sectionLabel: sectionLabel(slot.section_id),
-        subjectLabel: subjectLabel(slot.subject_id),
-        roomLabel: roomLabel(slot.room_id),
-        cancelled: slot.cancelled,
-        coveringForLabel: slot.substituted
-          ? t('agenda.coveringForLabel', {
-              name: (slot.covering_for_teacher_ids ?? []).map(teacherName).join(', '),
-            })
-          : undefined,
+        date: d,
+        periodCount: list.length,
+        firstSection: sectionLabel(first.section_id, '—'),
       };
     });
 
-    return {
-      date,
-      weekdayLabel: t(`grid.weekday.${WEEKDAY_KEYS[weekday]}`),
-      isToday: date === toIsoDate(new Date()),
-      offReason,
-      items,
-    };
-  });
-
-  return frame(<MyRoutineAgenda days={days} />);
-}
-
-/** Isolated so the day/week-view selection state doesn't force the whole
- * page (skeleton/error decisions above) to re-render on every toggle. */
-function MyRoutineAgenda({ days }: { days: RoutineAgendaDay[] }) {
-  const [selectedDate, setSelectedDate] = React.useState(days[0]?.date ?? '');
-  const [weekView, setWeekView] = React.useState(false);
-  return (
-    <RoutineAgenda
-      days={days}
-      selectedDate={selectedDate}
-      onSelectDate={setSelectedDate}
-      weekView={weekView}
-      onToggleWeekView={setWeekView}
-    />
+  return frame(
+    <div className="flex flex-col gap-4">
+      {isToday && (
+        <DueBanner
+          due={day.due}
+          today={today}
+          onReport={(d) => void navigate({ to: '/routines/my', search: { date: d } })}
+        />
+      )}
+      <DaySummaryCard
+        date={date}
+        isToday={isToday}
+        periods={day.periods}
+        statusDeadline={studyPlans?.statusDeadline ?? '18:00'}
+        bulkPending={markAll.isPending}
+        bulkFailed={markAll.isError}
+        onBulk={() => markAll.mutate()}
+        onBackToToday={() => void navigate({ to: '/routines/my', search: {} })}
+      />
+      {day.periods.length === 0 ? (
+        <p className="rounded-lg border border-border-subtle bg-surface p-4 text-text-secondary">
+          {t('agenda.emptyDay')}
+        </p>
+      ) : (
+        day.periods.map((period) => {
+          const slot = slots.find(
+            (s) => s.routine_slot_id === period.routine_slot_id && s.date === date,
+          );
+          return (
+            <PeriodCard
+              key={period.routine_slot_id}
+              period={period}
+              date={date}
+              sectionLabel={sectionLabel(period.section.id, period.section.name)}
+              subjectLabel={subjectLabel(period.subject)}
+              roomLabel={roomLabel(slot?.room_id ?? null)}
+              coveringLabel={
+                period.substituting
+                  ? t('agenda.coveringForLabel', {
+                      name: (slot?.covering_for_teacher_ids ?? []).map(teacherName).join(', '),
+                    })
+                  : undefined
+              }
+              canMakePlan={canMakePlan}
+            />
+          );
+        })
+      )}
+      <NextDays days={nextDays} subjectLabel={subjectLabel} />
+    </div>,
   );
 }
 

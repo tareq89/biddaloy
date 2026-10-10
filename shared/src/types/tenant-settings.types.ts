@@ -273,6 +273,15 @@ export interface StudyPlansSettings {
   guardianDigestSms: boolean; // default false (D26)
 }
 
+/** [66.1.04] D25 timings, D26 guardian SMS off by default. Server and admin UI share it. */
+export const DEFAULT_STUDY_PLANS_SETTINGS: StudyPlansSettings = {
+  statusDeadline: '18:00',
+  reminderTime: '08:00',
+  escalateAfterSchoolDays: 2,
+  weeklyDigestTime: '17:00',
+  guardianDigestSms: false,
+};
+
 export interface TenantSettings {
   version: typeof TENANT_SETTINGS_SCHEMA_VERSION;
   region?: RegionSettings;

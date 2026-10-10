@@ -160,6 +160,14 @@
       "archetype": "list"
     },
     {
+      "path": "/academics/study-plans/$planId",
+      "params": {
+        "planId": "seeded"
+      },
+      "role": "admin",
+      "archetype": "detail"
+    },
+    {
       "path": "/exams",
       "role": "admin",
       "archetype": "list"

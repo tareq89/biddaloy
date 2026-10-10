@@ -6,6 +6,8 @@ import {
   createClassSection,
   createExamTemplate,
   createGuardian,
+  createOfferedSubject,
+  createStudyPlan,
   createInvoice,
   createInvoiceShareToken,
   createReminderBatch,
@@ -16,6 +18,7 @@ import {
   createTeacherForSection,
   currentAcademicYearId,
   findSchoolIdBySlug,
+  findSeedSectionA,
   get,
   post,
   seededFirstTermExamId,
@@ -49,6 +52,28 @@ let sharedSessionPromise: Promise<ApiSession> | null = null;
 function sharedAdminSession(request: APIRequestContext): Promise<ApiSession> {
   sharedSessionPromise ??= adminApiSession(request);
   return sharedSessionPromise;
+}
+
+// [66.2] One plan per worker, not per viewport/theme run: each run would otherwise leave another
+// subject on seeded Class 6 section A (portal syllabus, and the wizard lists only 100 subjects).
+let studyPlanIdPromise: Promise<string> | null = null;
+function sharedStudyPlanId(
+  request: APIRequestContext,
+  session: ApiSession,
+  stamp: number,
+): Promise<string> {
+  studyPlanIdPromise ??= (async () => {
+    const seed = await findSeedSectionA(request, session);
+    const subject = await createOfferedSubject(request, session, seed, `Reflow Plan ${stamp}`);
+    const plan = await createStudyPlan(request, session, {
+      section_id: seed.sectionId,
+      subject_id: subject.id,
+      academic_term_id: null,
+      lessons: [1, 2, 3].map((n) => ({ title: `Reflow Lesson ${n}`, periods: 1 })),
+    });
+    return plan.id;
+  })();
+  return studyPlanIdPromise;
 }
 
 export async function resolvePath(
@@ -211,6 +236,12 @@ export async function resolvePath(
   if (route.path.includes('$programId')) {
     const programs = await get<{ id: string }[]>(request, session, '/programs');
     return route.path.replace('$programId', programs[0]!.id);
+  }
+  if (route.path.includes('study-plans/$planId')) {
+    // [66.2] Must precede the seat-plan branch below (also `$planId`). A plan lives in the CURRENT
+    // academic year's class (a fresh `createClassSection` year is not current, and the plan page's
+    // routine and term lookups need the real one): a fresh subject on the seeded Class 6 section A.
+    return route.path.replace('$planId', await sharedStudyPlanId(request, session, stamp));
   }
   if (route.path.includes('$planId')) {
     const plans = await get<{ id: string }[]>(request, session, '/seat-plans');

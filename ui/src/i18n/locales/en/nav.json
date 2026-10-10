@@ -106,7 +106,9 @@
     "portalSurveys": "Surveys",
     "surveyDetail": "Survey",
     "myClassSection": "Section",
-    "printDocument": "Print"
+    "printDocument": "Print",
+    "studyPlans": "Study plans",
+    "studyPlanDetail": "Study plan"
   },
   "groups": {
     "people": "People",

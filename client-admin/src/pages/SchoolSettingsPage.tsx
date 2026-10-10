@@ -50,6 +50,7 @@ import { SettingsLayout } from './settings/settings-layout';
 import { SignInSection } from './settings/SignInSection';
 import { SmsCreditSection } from './settings/SmsCreditSection';
 import { SmsSection } from './settings/SmsSection';
+import { StudyPlansSection } from './settings/StudyPlansSection';
 import { WhatsAppSection } from './settings/WhatsAppSection';
 
 /**
@@ -166,6 +167,12 @@ export function SchoolSettingsPage({ backupJobId }: SchoolSettingsPageProps = {}
                   key={loaded.schoolId}
                   schoolId={loaded.schoolId}
                   evaluations={loaded.data.evaluations}
+                  smsConfigured={isSmsReady(loaded.data.communications?.sms)}
+                />
+                <StudyPlansSection
+                  key={loaded.schoolId}
+                  schoolId={loaded.schoolId}
+                  studyPlans={loaded.data.studyPlans}
                   smsConfigured={isSmsReady(loaded.data.communications?.sms)}
                 />
               </>

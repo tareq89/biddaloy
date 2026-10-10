@@ -85,6 +85,16 @@ export class TodayAllTaughtResponseDto {
   @ApiProperty({ type: [SavedLessonDeliveryDto] }) deliveries: SavedLessonDeliveryDto[];
 }
 
+/** The lesson a period would teach. A named class, not an inline object: `nullable` on an inline object type
+ * makes the generator drop the `| null` from the client type, and the marking card then reads `lesson.title`. */
+export class PeriodLessonDto {
+  @ApiProperty() id: string;
+  @ApiProperty() number: number;
+  @ApiProperty() title: string;
+  @ApiProperty() part: number;
+  @ApiProperty() of: number;
+}
+
 export class LessonDeliveryPeriodDto {
   @ApiProperty() section: { id: string; name: string };
   @ApiProperty() subject: { id: string; name_en: string | null; name_bn: string | null };
@@ -96,8 +106,8 @@ export class LessonDeliveryPeriodDto {
   @ApiProperty() substituting: boolean;
   @ApiProperty() cancelled: boolean;
   @ApiProperty({ nullable: true, type: String }) plan_id: string | null;
-  @ApiProperty({ nullable: true })
-  lesson: { id: string; number: number; title: string; part: number; of: number } | null;
+  @ApiProperty({ nullable: true, type: PeriodLessonDto })
+  lesson: PeriodLessonDto | null;
   @ApiProperty({ nullable: true, type: LessonDeliveryDto }) delivery: LessonDeliveryDto | null;
   @ApiProperty() can_mark: boolean;
 }

@@ -45,6 +45,7 @@ function child(name: string, id: string, className: string, section: string, rol
 /** Families get a 403 from both of these, which fires the global "no
  * permission" toast — the page must never ask. */
 const forbiddenHits: string[] = [];
+const lessonDates: string[] = [];
 
 function mockCommonLookups() {
   forbiddenHits.length = 0;
@@ -102,7 +103,24 @@ function mockCommonLookups() {
       HttpResponse.json({ data: [], total: 0, page: 1, limit: 100, totalPages: 0 }),
     ),
     http.get('/api/v1/routines/resolve', () => HttpResponse.json([])),
+    http.get('/api/v1/students/:id/lessons', ({ request }) => {
+      lessonDates.push(new URL(request.url).searchParams.get('date') ?? '');
+      return HttpResponse.json([]);
+    }),
   );
+}
+
+function lessonPeriod(overrides: Record<string, unknown> = {}) {
+  return {
+    period_slot_id: 'period-1',
+    sequence: 1,
+    starts_at: '08:00:00',
+    subject: { id: SUBJECT_UUID, name_en: 'English', name_bn: 'ইংরেজি' },
+    cancelled: false,
+    lesson: { number: 12, title: 'Fractions', part: 1, of: 1 },
+    status: null,
+    ...overrides,
+  };
 }
 
 const ROUTINE = { id: 'routine-1', academic_year_id: 'year-1', created_at: '2026-01-01T00:00:00Z' };
@@ -142,6 +160,7 @@ function mockPublished(
   students = [child('Fatima', 'student-1', 'Class 6', 'A', 12)],
 ) {
   mockCommonLookups();
+  lessonDates.length = 0;
   server.use(
     http.get('/api/v1/students/mine', () => HttpResponse.json(students)),
     http.get('/api/v1/routines', () => HttpResponse.json([{ ...ROUTINE, state: 'PUBLISHED' }])),
@@ -339,5 +358,49 @@ describe('/portal/routine', () => {
 
     const row = (await screen.findByText('Period')).closest('li') as HTMLElement;
     expect(within(row).getByText('—')).toBeTruthy();
+  });
+
+  it('shows the planned lesson under the period for the selected day, with the part when split', async () => {
+    mockPublished([slot(), slot({ routine_slot_id: 'slot-2', period_slot_id: 'period-2' })]);
+    server.use(
+      http.get('/api/v1/students/:id/lessons', () =>
+        HttpResponse.json([
+          lessonPeriod({ lesson: { number: 12, title: 'Fractions', part: 1, of: 2 } }),
+          lessonPeriod({ period_slot_id: 'period-2', lesson: null }),
+        ]),
+      ),
+    );
+
+    renderRoutine();
+
+    expect(await screen.findByText(/Lesson 12: Fractions/)).toBeTruthy();
+    expect(screen.getByText(/part 1 of 2/)).toBeTruthy();
+    expect(screen.getAllByText(/^Lesson /)).toHaveLength(1);
+  });
+
+  it('requests the lessons of the day tab that is selected', async () => {
+    mockPublished([slot()]);
+
+    renderRoutine();
+
+    await screen.findByText('English');
+    await vi.waitFor(() => expect(lessonDates).toContain('2026-09-23'));
+    await userEvent.click(screen.getByRole('tab', { name: /24/ }));
+    await vi.waitFor(() => expect(lessonDates).toContain('2026-09-24'));
+  });
+
+  it('still renders the periods when the lessons call fails', async () => {
+    mockPublished([slot()]);
+    server.use(
+      http.get('/api/v1/students/:id/lessons', () =>
+        HttpResponse.json({ message: 'boom' }, { status: 500 }),
+      ),
+    );
+
+    renderRoutine();
+
+    expect(await screen.findByText('English')).toBeTruthy();
+    expect(screen.queryByText(/Lesson \d/)).toBeNull();
+    expect(screen.queryByText(/Could not load/)).toBeNull();
   });
 });

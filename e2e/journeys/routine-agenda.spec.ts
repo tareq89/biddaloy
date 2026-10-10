@@ -1,95 +1,55 @@
 import { loggedIn, expect, test } from '../fixtures/test';
 import { t } from '../i18n';
-import { escapeRegExp } from '../regex';
 
 /**
- * [21.11.1] Epic close journey: the two phone-first agenda views D18
- * describes — a teacher's "My routine" and a guardian's portal routine.
- * Local e2e runs in `bn` locale (see this repo's Playwright config), so
- * every assertion below is on an ARIA role or a translation key resolved
- * through `t()`, never raw English text — the same rule
- * `keyboard/attendance.spec.ts` follows.
+ * [21.11.1] / [66.3.01] Epic close journey: a teacher's "My routine" (today's
+ * periods to report) and a guardian's portal routine. Local e2e runs in `bn`
+ * locale (see this repo's Playwright config), so every assertion below is on
+ * an ARIA role or a translation key resolved through `t()`, never raw English.
  *
- * Both views render the same `RoutineAgenda` component
- * (`ui/src/components/routine-agenda.tsx`): a `role="group"` day
- * switcher of `aria-pressed` buttons, with today marked by `agenda.todayLabel`, and each day's
- * items list any cancelled period with `agenda.cancelledLabel`.
- *
- * **Known gap, flagged rather than hidden**: `ensureRoutineSeed`'s one
- * substitution is dated `2026-02-09` — a fixed calendar date, not
- * "today" relative to whenever this spec runs. This spec therefore
- * asserts the agenda's *shape* (day switcher, today tab, a covered/
- * cancelled item's badge rendering when one is visible in the 7-day
- * window) rather than asserting a specific seeded date always falls
- * inside "today's" rolling window — that would make the spec's pass/fail
- * depend on the calendar date it happens to run on.
+ * **Known gap, flagged rather than hidden**: the seeded periods are dated by
+ * weekday and the lesson plans depend on the seed, so which cards exist
+ * depends on the day this runs. The spec asserts the page shape, and marks
+ * taught only when a period with a plan is open.
  */
 
 test.describe('teacher: My routine, phone viewport', () => {
   test.use({ ...loggedIn('teacher'), viewport: { width: 390, height: 844 } });
 
-  test('shows a day switcher with today selected, and this week’s scheduled periods', async ({
+  test('shows today’s summary and either period cards or the empty-day message', async ({
     page,
   }) => {
     await page.goto('/routines/my');
 
-    const daySwitcher = page.getByRole('group', { name: t('routines.agenda.daySwitcherLabel') });
-    await expect(daySwitcher).toBeVisible();
-
-    // Today's tab is one of the seven, marked with the today label —
-    // asserted via the translation key so it holds in bn locale.
-    await expect(daySwitcher.getByText(t('routines.agenda.todayLabel')).first()).toBeVisible();
-
-    const todayTab = daySwitcher.getByRole('button', { pressed: true });
-    await expect(todayTab).toBeVisible();
-    await todayTab.click();
-
-    // Any of: a populated list of periods, the documented empty-day
-    // message, a weekly-off day, or a holiday — which one is valid
-    // depends on which weekday "today" happens to be when this spec runs
-    // (the seed only schedules Monday/Tuesday periods) and whether it
-    // lands on a weekly-off day or a seeded holiday.
     const main = page.getByRole('main');
+    await expect(main.getByRole('heading', { level: 2 }).first()).toBeVisible();
+    const periodCard = main.getByRole('article').first();
     const emptyDay = main.getByText(t('routines.agenda.emptyDay'));
-    const anyItem = main.getByRole('listitem').first();
-    const weeklyOff = main.getByText(t('routines.agenda.weeklyOffReason'));
-    const holiday = main.getByText(
-      new RegExp('^' + escapeRegExp(t('routines.agenda.holidayReason', { name: '' }))),
-    );
-    await expect(emptyDay.or(anyItem).or(weeklyOff).or(holiday).first()).toBeVisible();
+    await expect(periodCard.or(emptyDay).first()).toBeVisible();
   });
 
-  test('a cancelled period, when visible in the 7-day window, is labelled and struck through', async ({
-    page,
-  }) => {
+  test('marking a period taught persists after a reload', async ({ page }) => {
     await page.goto('/routines/my');
-    // `ensureRoutineSeed`'s cancellation substitution only appears if its
-    // date (2026-02-09) falls inside today's rolling window — walk the
-    // day switcher's seven tabs looking for it rather than assuming a
-    // fixed date.
-    const dayTabs = page
-      .getByRole('group', { name: t('routines.agenda.daySwitcherLabel') })
-      .getByRole('button');
-    const count = await dayTabs.count();
-    let found = false;
-    for (let i = 0; i < count; i += 1) {
-      await dayTabs.nth(i).click();
-      const badge = page.getByText(t('routines.agenda.cancelledLabel'));
-      if (await badge.isVisible().catch(() => false)) {
-        found = true;
-        break;
-      }
-    }
-    // Not a hard requirement — see the file docblock's "known gap" note —
-    // but when the badge IS found, it must be attached to a struck
-    // through subject label, never a plain unmarked one.
-    if (found) {
-      const item = page
-        .getByRole('listitem')
-        .filter({ hasText: t('routines.agenda.cancelledLabel') })
-        .first();
-      await expect(item.locator('.line-through').first()).toBeVisible();
-    }
+    // Wait out the loading skeleton before deciding whether to skip.
+    const main = page.getByRole('main');
+    await expect(
+      main
+        .getByRole('article')
+        .first()
+        .or(main.getByText(t('routines.agenda.emptyDay')))
+        .first(),
+    ).toBeVisible({ timeout: 60_000 });
+
+    const taught = page.getByRole('radio', { name: t('routines.marking.status.taught') }).first();
+    // No open planned period today: nothing to mark (see the file docblock).
+    test.skip(!(await taught.isVisible().catch(() => false)), 'no open planned period today');
+
+    await taught.click();
+    await expect(taught).toBeChecked();
+    await page.reload();
+    await expect(
+      page.getByRole('radio', { name: t('routines.marking.status.taught') }).first(),
+    ).toBeChecked();
   });
 });
 

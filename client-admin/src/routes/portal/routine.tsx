@@ -36,7 +36,9 @@ import {
   useResolveRoutine,
   useRoutines,
   useRooms,
+  useStudentLessons,
   usePeriodSlotLookup,
+  type FamilyDayPeriod,
   type ResolvedSlot,
   type Routine,
   type Student,
@@ -137,6 +139,7 @@ function useStudentMeta(): (student: Student) => string {
 
 interface RoutineItem {
   slotId: string;
+  periodSlotId: string;
   title: string;
   meta: string;
   startsAt: string;
@@ -310,6 +313,7 @@ function PortalRoutine() {
       const periodText = periodLabel(slot.period_slot_id);
       return {
         slotId: slot.routine_slot_id,
+        periodSlotId: slot.period_slot_id,
         title: subject || periodText || t('routine.periodFallback'),
         meta: [subject ? periodText : null, roomLabel(slot.room_id)].filter(Boolean).join(' · '),
         startsAt: period?.starts_at ?? '',
@@ -331,18 +335,33 @@ function PortalRoutine() {
   return (
     <PageContainer size="narrow">
       {header}
-      <PortalRoutineDays key={selected.id} days={days} config={config} />
+      <PortalRoutineDays key={selected.id} studentId={selected.id} days={days} config={config} />
     </PageContainer>
   );
 }
 
 /** Isolated so the selected-day state resets with the student (`key`) and
  * does not re-render the loading / error decisions above. */
-function PortalRoutineDays({ days, config }: { days: RoutineDay[]; config: RegionConfig }) {
+function PortalRoutineDays({
+  studentId,
+  days,
+  config,
+}: {
+  studentId: string;
+  days: RoutineDay[];
+  config: RegionConfig;
+}) {
   const { t } = useTranslation('portal');
   const { t: tRoutines } = useTranslation('routines');
   const { t: tCommon } = useTranslation('common');
   const [selectedDate, setSelectedDate] = React.useState(days[0]?.date ?? '');
+  // Lessons are an extra, not a blocker: a failed call just leaves the lines out.
+  const lessonsQuery = useStudentLessons(studentId, selectedDate);
+  const lessonByPeriod = new Map(
+    (lessonsQuery.data ?? []).flatMap((period) =>
+      period.lesson ? [[period.period_slot_id, period.lesson] as const] : [],
+    ),
+  );
 
   return (
     <Card className="overflow-hidden p-0">
@@ -392,6 +411,12 @@ function PortalRoutineDays({ days, config }: { days: RoutineDay[]; config: Regio
                         {item.title}
                       </p>
                       {item.meta && <p className="text-caption text-text-secondary">{item.meta}</p>}
+                      {day.date === selectedDate && lessonByPeriod.has(item.periodSlotId) && (
+                        <LessonLine
+                          lesson={lessonByPeriod.get(item.periodSlotId)!}
+                          config={config}
+                        />
+                      )}
                     </div>
                     {item.cancelled ? (
                       <StatusBadge tone="danger" label={tRoutines('agenda.cancelledLabel')} />
@@ -406,6 +431,26 @@ function PortalRoutineDays({ days, config }: { days: RoutineDay[]; config: Regio
         ))}
       </Tabs>
     </Card>
+  );
+}
+
+function LessonLine({
+  lesson,
+  config,
+}: {
+  lesson: NonNullable<FamilyDayPeriod['lesson']>;
+  config: RegionConfig;
+}) {
+  const { t } = useTranslation('portal');
+  return (
+    <p className="text-caption text-text-secondary">
+      {t('routine.lesson', { no: formatNumber(lesson.number, config), title: lesson.title })}
+      {lesson.of > 1 &&
+        ` · ${t('routine.lessonPart', {
+          part: formatNumber(lesson.part, config),
+          of: formatNumber(lesson.of, config),
+        })}`}
+    </p>
   );
 }
 
