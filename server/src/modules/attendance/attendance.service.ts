@@ -373,11 +373,15 @@ export class AttendanceService {
       }
     }
 
-    emitRecheck(attentionEvents, {
-      tenantId,
-      ruleKey: 'attendance.not_taken',
-      actorUserId: userId,
-    });
+    // Only a FINALIZED register changes attendance.not_taken; a draft save
+    // must not trigger a recheck that would stamp this user on other alerts.
+    if (result.session.state === AttendanceSessionState.FINALIZED) {
+      emitRecheck(attentionEvents, {
+        tenantId,
+        ruleKey: 'attendance.not_taken',
+        actorUserId: userId,
+      });
+    }
     return result;
   }
 
@@ -906,11 +910,8 @@ export class AttendanceService {
         }
         return { saved_dates: sortedDates, versions };
       });
-      emitRecheck(attentionEvents, {
-        tenantId,
-        ruleKey: 'attendance.not_taken',
-        actorUserId: userId,
-      });
+      // No attention recheck: the matrix finalizes only past days, and
+      // attendance.not_taken looks at today alone.
       return saved;
     } catch (err) {
       if (
