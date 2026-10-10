@@ -2,6 +2,7 @@
 import { UserRole } from '@biddaloy/shared';
 import { onboardingStatusQueryOptions, useActiveRole } from '@biddaloy/ui/hooks';
 import { useQuery } from '@tanstack/react-query';
+import { useSearch } from '@tanstack/react-router';
 
 import { useLandingFlag } from '../../routes/_staff/-use-landing-flag';
 
@@ -9,9 +10,12 @@ import { TrialDetailsDialog } from './trial-details-dialog';
 
 export function TrialDetailsLanding() {
   const role = useActiveRole();
+  const search = useSearch({ strict: false }) as Record<string, unknown>;
   const { data } = useQuery({
     ...onboardingStatusQueryOptions(),
-    enabled: role === UserRole.ADMIN,
+    // Mounted in the staff shell: fetch only when landing on `?trial=1`,
+    // not on every ADMIN page load.
+    enabled: role === UserRole.ADMIN && String(search.trial) === '1',
     // Shell chrome: never throw a suspension 403 [15.4.2].
     throwOnError: false,
   });
