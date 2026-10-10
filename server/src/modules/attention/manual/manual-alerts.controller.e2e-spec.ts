@@ -110,6 +110,8 @@ describe('Manual alerts API E2E', () => {
       expect(sent.body).toMatchObject({ title: 'Classes start at 9:00', status: 'ACTIVE' });
       const list = await call('get', '?pageSize=100', role).expect(200);
       expect(list.body.items.map((i: { id: string }) => i.id)).toContain(sent.body.id);
+      // an absurd page is a 400, not a float OFFSET 500
+      await call('get', '?page=1e20', role).expect(400);
       const preview = await call('post', '/preview', role)
         .send({ audience: { roles: ['TEACHER'] } })
         .expect(200);
