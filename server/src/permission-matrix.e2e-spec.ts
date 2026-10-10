@@ -862,8 +862,7 @@ export const UI_ONLY_PERMISSIONS: Permission[] = [
   // [34.2.1] PROGRAM_RECORD now gates POST /programs/:id/achievements and
   // DELETE /milestone-achievements/:id — no longer UI-only, removed from
   // this list.
-  // [67.1.01] Plumbing ahead of Epic 67 W5 routes (manual alerts, alerts report) — remove from this list when those routes land.
-  Permission.ALERT_SEND,
+  // [67.5.01] ALERT_SEND now gates /attention/manual. ALERT_REPORT_READ stays until the report route (67.5.04) lands.
   Permission.ALERT_REPORT_READ,
 ];
 
