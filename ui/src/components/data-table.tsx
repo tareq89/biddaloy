@@ -282,7 +282,9 @@ export function DataTable<TData extends RowData>({
             {
               id: ROW_ACTIONS_COLUMN_ID,
               header: t('table.actions'),
-              accessorFn: (row) => <RowActions actions={rowActionsRef.current?.(row) ?? []} />,
+              // Rendered by `cellContent` instead: TanStack caches accessor values per row until
+              // `data` changes, so an element built here kept stale labels.
+              accessorFn: () => null,
               pinned: true,
               align: 'end',
               card: 'actions',
@@ -416,6 +418,14 @@ export function DataTable<TData extends RowData>({
   });
 
   const rows = table.getRowModel().rows;
+  // Row actions come from the latest `rowActions` on every render, never the cached cell value:
+  // a page whose namespace loaded after the first render kept the fallback language's labels.
+  const cellContent = (columnId: string, original: TData, value: unknown): React.ReactNode =>
+    columnId === ROW_ACTIONS_COLUMN_ID ? (
+      <RowActions actions={rowActionsRef.current?.(original) ?? []} />
+    ) : (
+      (value as React.ReactNode)
+    );
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
   const safePage = Math.min(Math.max(page, 1), totalPages);
   const from = (safePage - 1) * pageSize + 1;
@@ -585,7 +595,7 @@ export function DataTable<TData extends RowData>({
         cells: row.getVisibleCells().map((cell) => ({
           id: cell.id,
           columnId: cell.column.id,
-          value: cell.getValue() as React.ReactNode,
+          value: cellContent(cell.column.id, row.original, cell.getValue()),
         })),
       }))
     : [];
@@ -992,7 +1002,7 @@ export function DataTable<TData extends RowData>({
                                     }
                                   }}
                                 >
-                                  {cell.getValue() as React.ReactNode}
+                                  {cellContent(cell.column.id, row.original, cell.getValue())}
                                 </td>
                               );
                             })}
