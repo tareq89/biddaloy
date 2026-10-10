@@ -15,6 +15,7 @@ import { ATTENTION_RECHECK, AttentionRecheckPayload } from '../../engine/attenti
 import { attentionEvents } from '../../attention.constants';
 import type { AttentionRule, RuleContext } from '../rule.types';
 import { SetupRulesModule } from './setup-rules.module';
+import { CommsProviderMissingRule } from './comms-provider-missing.rule';
 import { SetupIncompleteRule } from './setup-incomplete.rule';
 import { StaffInvitePendingRule } from './staff-invite-pending.rule';
 import { YearNextMissingRule } from './year-next-missing.rule';
@@ -25,6 +26,7 @@ describe('Setup rules (integration)', () => {
   let onboarding: OnboardingService;
   let schools: SchoolsService;
   let incomplete: SetupIncompleteRule;
+  let providerMissing: CommsProviderMissingRule;
   let invites: StaffInvitePendingRule;
   let yearNext: YearNextMissingRule;
   let a: string;
@@ -36,7 +38,7 @@ describe('Setup rules (integration)', () => {
   let events: AttentionRecheckPayload[];
   const onRecheck = (p: AttentionRecheckPayload) => events.push(p);
 
-  const ctx = (tenantId: string): RuleContext => ({
+  const ctx = (tenantId: string, actorUserId?: string): RuleContext => ({
     tenantId,
     now: new Date('2026-10-10T05:00:00Z'),
     tz: 'Asia/Dhaka',
@@ -44,6 +46,7 @@ describe('Setup rules (integration)', () => {
     localTime: '11:00',
     isWorkingDay: true,
     settings: {} as RuleContext['settings'],
+    actorUserId,
   });
   const mkSchool = async (n: string) =>
     (
@@ -84,15 +87,15 @@ describe('Setup rules (integration)', () => {
        VALUES ($1, $2, $3, $4, $5, NOW(), NOW())`,
       [name, start, end, current, tenantId],
     );
-  const run = async (rule: AttentionRule, tenantId: string) => {
-    const c = ctx(tenantId);
+  const run = async (rule: AttentionRule, tenantId: string, actorUserId?: string) => {
+    const c = ctx(tenantId, actorUserId);
     return writer.apply(c, rule, await rule.evaluate(c));
   };
   const alerts = (tenantId: string, ruleKey: string) =>
-    ds.query(`SELECT status FROM alerts WHERE tenant_id = $1 AND rule_key = $2`, [
-      tenantId,
-      ruleKey,
-    ]);
+    ds.query(
+      `SELECT status, resolved_by_user_id FROM alerts WHERE tenant_id = $1 AND rule_key = $2`,
+      [tenantId, ruleKey],
+    );
 
   beforeAll(async () => {
     const module = await createTestModule(
@@ -113,6 +116,7 @@ describe('Setup rules (integration)', () => {
     onboarding = get(OnboardingService);
     schools = get(SchoolsService);
     incomplete = get(SetupIncompleteRule);
+    providerMissing = get(CommsProviderMissingRule);
     invites = get(StaffInvitePendingRule);
     yearNext = get(YearNextMissingRule);
     a = await mkSchool('setup-a');
@@ -171,13 +175,56 @@ describe('Setup rules (integration)', () => {
     await year(b, '2027', '2027-01-01', '2027-12-31', false);
 
     expect((await run(yearNext, a)).created).toBe(1);
-    expect(await alerts(a, 'year.next_missing')).toEqual([{ status: 'ACTIVE' }]);
+    expect(await alerts(a, 'year.next_missing')).toEqual([
+      { status: 'ACTIVE', resolved_by_user_id: null },
+    ]);
     // B already has its next year: nothing for B.
     expect(await yearNext.evaluate(ctx(b))).toEqual([]);
 
     await year(a, '2027', '2027-01-01', '2027-12-31', false);
     await run(yearNext, a);
-    expect(await alerts(a, 'year.next_missing')).toEqual([{ status: 'RESOLVED' }]);
+    expect(await alerts(a, 'year.next_missing')).toEqual([
+      { status: 'RESOLVED', resolved_by_user_id: null },
+    ]);
+  });
+
+  it('setup.incomplete resolves with the actor once the wizard is finished', async () => {
+    expect((await run(incomplete, a)).created).toBe(1);
+    await onboarding.update(a, adminA, { finished: true });
+    await run(incomplete, a, adminA);
+    expect(await alerts(a, 'setup.incomplete')).toEqual([
+      { status: 'RESOLVED', resolved_by_user_id: adminA },
+    ]);
+  });
+
+  it('comms.provider_missing resolves with the actor once email is set up', async () => {
+    await ds.query(`UPDATE schools SET settings = settings - 'communications' WHERE id = $1`, [a]);
+    expect((await run(providerMissing, a)).created).toBe(1);
+    await ds.query(
+      `UPDATE schools SET settings = jsonb_set(COALESCE(settings, '{}'), '{communications}', $2::jsonb) WHERE id = $1`,
+      [
+        a,
+        JSON.stringify({
+          email: {
+            host: 'smtp.example.com',
+            port: 587,
+            user: 'u',
+            from: 'a@example.com',
+            password: null,
+          },
+        }),
+      ],
+    );
+    try {
+      await run(providerMissing, a, adminA);
+      expect(await alerts(a, 'comms.provider_missing')).toEqual([
+        { status: 'RESOLVED', resolved_by_user_id: adminA },
+      ]);
+    } finally {
+      await ds.query(`UPDATE schools SET settings = settings - 'communications' WHERE id = $1`, [
+        a,
+      ]);
+    }
   });
 
   it('emits recheck events from OnboardingService.update and SchoolsService.updateSettings', async () => {
