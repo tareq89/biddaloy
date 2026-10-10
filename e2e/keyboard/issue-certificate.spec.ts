@@ -85,11 +85,14 @@ test('keyboard-only: issue a testimonial from the Documents tab to the result vi
     await expect(page.getByRole('tab', { name: t('students.detail.tabs.activity') })).toBeVisible();
     const selected = page.getByRole('tab', { selected: true });
     await selected.focus();
-    // Arrow keys move focus AND select the tab. Documents sits second to last (Activity is
-    // last), so End then ArrowLeft is the short way along a strip with this many tabs.
+    // Arrow keys move focus AND select the tab. Documents sits third from the end (then
+    // Applications, then Activity), so End and two ArrowLefts is the short way along the strip.
     const activity = page.getByRole('tab', { name: t('students.detail.tabs.activity') });
+    const applications = page.getByRole('tab', { name: t('students.detail.tabs.applications') });
     await page.keyboard.press('End');
     await expect(activity).toHaveAttribute('aria-selected', 'true');
+    await page.keyboard.press('ArrowLeft');
+    await expect(applications).toHaveAttribute('aria-selected', 'true');
     await page.keyboard.press('ArrowLeft');
     await expect(documents).toHaveAttribute('aria-selected', 'true');
   });

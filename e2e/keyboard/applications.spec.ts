@@ -43,6 +43,18 @@ async function openApplicationsFromSidebar(page: Page): Promise<void> {
   await expect(heading).toBeFocused();
 }
 
+/**
+ * The inbox lists oldest first, 25 a page, and other specs leave rows behind in the shared
+ * database, so a row filed just now can sit on page 2. Narrow the list to it by its serial
+ * through the search box (the server matches `2026/0123`), still keyboard only.
+ */
+async function searchInbox(page: Page, serial: string): Promise<void> {
+  await tabUntilFocused(page, t('applicationsList.filters.searchLabel'), 40, { tag: 'input' });
+  await page.keyboard.type(serial);
+  await expect(page).toHaveURL(/[?&]q=/);
+  await expect(page.locator(`[aria-label="আবেদন ${serial} খুলুন"]`)).toBeVisible();
+}
+
 test.describe('applications inbox (teacher), keyboard only', () => {
   test.use(loggedIn('teacher'));
 
@@ -97,7 +109,8 @@ test.describe('applications inbox (teacher), keyboard only', () => {
     ).toHaveAttribute('aria-selected', 'true');
 
     // This test's own row.
-    await tabUntilFocused(page, `আবেদন ${mine} খুলুন`, 250, { exact: true });
+    await searchInbox(page, mine);
+    await tabUntilFocused(page, `আবেদন ${mine} খুলুন`, 40, { exact: true });
     const approvedSerial = mine;
     await page.keyboard.press('Enter');
 
@@ -126,7 +139,8 @@ test.describe('applications inbox (teacher), keyboard only', () => {
 
   test('reject: row reject icon -> reason -> Enter', async ({ page }) => {
     await openApplicationsFromSidebar(page);
-    await tabUntilFocused(page, `আবেদন ${mine} খুলুন`, 250, { exact: true });
+    await searchInbox(page, mine);
+    await tabUntilFocused(page, `আবেদন ${mine} খুলুন`, 40, { exact: true });
     const serial = mine;
     // Row actions are view, approve, reject in that order.
     await tabUntilFocused(page, `আবেদন ${serial} নামঞ্জুর করুন`, 3);
