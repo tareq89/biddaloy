@@ -163,6 +163,9 @@ test('keyboard-only: mark a period partly, report one not taught with a reason, 
     await test.step('period 2: ArrowRight twice reaches "not taught" and the reason dialog opens', async () => {
       await tabTo(page, radio(2, 'taught'));
       await arrow(page, 'ArrowRight');
+      // Arrowing onto "partly" picks and saves it, and a pick made while that save is pending is
+      // dropped (period-card.tsx), so wait for it to land as a careful keyboard user would.
+      await expect(card(2).getByText(t('routines.marking.badge.reported'))).toBeVisible();
       await arrow(page, 'ArrowRight');
       const dialog = page.getByRole('dialog');
       // Arrow focus already picks "not taught", which opens the dialog; Space is the same pick for a

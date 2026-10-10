@@ -163,6 +163,14 @@ test.describe('teacher: tabs, plan row, create wizard', () => {
         await page.keyboard.type(t('studyPlans.list.newPlan'));
         const option = page.getByRole('option', { name: t('studyPlans.list.newPlan') }).first();
         await expect(option).toBeVisible();
+        // Nothing is active until an ArrowDown (activeIndex starts at -1), so a bare Enter picked
+        // nothing on a slow run: arrow until the target itself is active (printables-register.spec.ts).
+        await expect(async () => {
+          if ((await option.getAttribute('aria-selected')) !== 'true') {
+            await page.keyboard.press('ArrowDown');
+          }
+          await expect(option).toHaveAttribute('aria-selected', 'true', { timeout: 500 });
+        }).toPass({ timeout: 10_000 });
         await page.keyboard.press('Enter');
         await expect(page).toHaveURL(/new=1/);
         await expect(wizard).toBeVisible();
