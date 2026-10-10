@@ -10,7 +10,7 @@ import { TrialDetailsDialog } from './trial-details-dialog';
 
 export function TrialDetailsLanding() {
   const role = useActiveRole();
-  const search = useSearch({ strict: false }) as Record<string, unknown>;
+  const search = useSearch({ strict: false });
   const { data } = useQuery({
     ...onboardingStatusQueryOptions(),
     // Mounted in the staff shell: fetch only when landing on `?trial=1`,
