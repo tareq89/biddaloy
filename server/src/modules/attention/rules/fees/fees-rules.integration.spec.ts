@@ -256,6 +256,25 @@ describe('Fees rules (integration)', () => {
     expect(await alertStatus(A, 'fees.unassigned_students')).toEqual(['RESOLVED']);
   });
 
+  it('unassigned_students: a fine or other non-tuition bill this month is not a tuition run, so it stays silent', async () => {
+    const s1 = await mkStudent(A);
+    await mkStudent(A);
+    // FinesService.logFine bills one student a MONTH-period fee for the incident month.
+    for (const feeType of ['FINE', 'OTHER']) {
+      const [{ id: structureId }] = await ds.query(
+        `INSERT INTO fee_structures (fee_type, name, amount, academic_year_id, tenant_id)
+         VALUES ($1, $2, 200, $3, $4) RETURNING id`,
+        [feeType, `${feeType} fee`, A.yearId, A.id],
+      );
+      await ds.query(
+        `INSERT INTO student_fees (student_id, academic_year_id, fee_structure_id, period_start, period_type, total_amount, status)
+         VALUES ($1, $2, $3, '2043-03-01', 'MONTH', 200, 'PENDING')`,
+        [s1, A.yearId, structureId],
+      );
+    }
+    expect(await unassigned.evaluate(ctx(A))).toEqual([]);
+  });
+
   it('structure_missing_new_year: next year in 30 days with no structure fires to both roles; a structure silences it', async () => {
     const [f] = await structureMissing.evaluate(ctx(A));
     expect(f.params).toEqual({ year: '2044', startDate: '2043-04-09' });
