@@ -173,4 +173,32 @@ export class FamilyAccessService {
     }
     return linkedIds;
   }
+
+  /**
+   * Recipients for background jobs (Epic 67). Same definition of linked as
+   * `linkedStudentsQuery`; never widen it. Set-based: one query for any
+   * number of students, tenant-scoped, soft-deletes and inactive users out.
+   */
+  async familyUsersForStudents(
+    tenantId: string,
+    studentIds: string[],
+  ): Promise<{ studentId: string; userId: string; role: UserRole.PARENT | UserRole.STUDENT }[]> {
+    if (studentIds.length === 0) return [];
+    return this.studentRepo.query(
+      `SELECT sg.student_id AS "studentId", g.user_id AS "userId", 'PARENT' AS role
+       FROM student_guardians sg
+       JOIN students s ON s.id = sg.student_id AND s.tenant_id = $1 AND s.deleted_at IS NULL
+       JOIN guardians g ON g.id = sg.guardian_id AND g.tenant_id = $1 AND g.deleted_at IS NULL AND g.user_id IS NOT NULL
+       JOIN users u ON u.id = g.user_id AND u.status = 'ACTIVE' AND u.deleted_at IS NULL
+       JOIN user_tenants ut ON ut.user_id = g.user_id AND ut.tenant_id = $1 AND ut.role = 'PARENT' AND ut.deleted_at IS NULL
+       WHERE sg.student_id = ANY($2::uuid[])
+       UNION
+       SELECT s.id, s.user_id, 'STUDENT'
+       FROM students s
+       JOIN users u ON u.id = s.user_id AND u.status = 'ACTIVE' AND u.deleted_at IS NULL
+       JOIN user_tenants ut ON ut.user_id = s.user_id AND ut.tenant_id = $1 AND ut.role = 'STUDENT' AND ut.deleted_at IS NULL
+       WHERE s.tenant_id = $1 AND s.deleted_at IS NULL AND s.id = ANY($2::uuid[])`,
+      [tenantId, studentIds],
+    );
+  }
 }
