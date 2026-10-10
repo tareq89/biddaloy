@@ -377,12 +377,88 @@ what changed and what disappeared. A rule never writes to the tables itself.
 
 ## Performance
 
-Measured by hand, never in CI. See #2094.
+Measured by hand, never in CI (#2094). Both runs of the same script on identical
+data are shown, because the numbers moved a lot between them.
 
-| Measurement                          | Budget    | Measured  | Date      |
-| ------------------------------------ | --------- | --------- | --------- |
-| FAST sweep per school (10k students) | <= 300 ms | _pending_ | _pending_ |
-| `GET /attention/summary` p95         | <= 150 ms | _pending_ | _pending_ |
+**How to run it again.** It seeds 10,000 students into the default school, so it
+only runs on a throwaway database whose name ends in `_perf`:
+
+```bash
+TEST_ENV_RUN_ID=my_perf yarn test-env run -- sh -c \
+  "yarn workspace @biddaloy/server migration:run && \
+   yarn workspace @biddaloy/server seed && \
+   yarn workspace @biddaloy/server perf:attention --confirm-db=biddaloy_test_run_my_perf"
+```
+
+The script is `server/src/scripts/perf-attention.ts`. It refuses without
+`--confirm-db=<name>` or if the name does not end in `_perf`.
+
+**Environment.** 2026-10-10, Apple M1 Pro (10 cores), 16 GB RAM, PostgreSQL 16.14,
+Node 24.20, git `fbab99403`. Other agents were running tests on the same Docker
+Postgres at the same time, so treat the timings as "about", not exact.
+
+**Data.** 10,018 students in 48 sections, 500,070 `communication_logs` rows, a
+routine for every section, 20 sections with no day register today, 5 % of the
+others absent, 200 homework assignments due today (30 % not submitted), 1,000
+overdue fees. After the sweeps the school had about 7,800 active alerts (21
+`attendance.not_taken`, 240 `child.absent_today`, 7,500
+`guardian.profile_incomplete`) and no failing rule. `homework.not_submitted`
+raised nothing on this data, so its 130 ms is the cost of its queries only.
+
+```mermaid
+flowchart LR
+    S["perf:attention"] --> A["Seed 10k students<br/>(set-based SQL)"]
+    A --> B["sweepTenant x5<br/>FAST, HOURLY, DAILY"]
+    B --> C["summary() x200 users<br/>cold, then warm"]
+    C --> D["platform.provider_failures<br/>x5 + EXPLAIN"]
+```
+
+| Measurement                                  | Budget    | Measured                                                        | Date       |
+| -------------------------------------------- | --------- | --------------------------------------------------------------- | ---------- |
+| FAST sweep per school (10k students)         | <= 300 ms | **Missed.** steady runs 315-553 ms (see below)                  | 2026-10-10 |
+| HOURLY sweep, same school                    | none yet  | steady 84-118 ms                                                | 2026-10-10 |
+| DAILY sweep, same school                     | none yet  | first run (writes 7,500 alerts) 17-21 s; steady 1.0-2.1 s       | 2026-10-10 |
+| `GET /attention/summary` p95, cold cache     | <= 150 ms | **Met.** 4.1 ms and 10.7 ms (two runs); warm p95 2.2 and 5.5 ms | 2026-10-10 |
+| `platform.provider_failures` (500k log rows) | none yet  | 34 ms median, 49 ms max (run 1); 56 ms and 151 ms (run 2)       | 2026-10-10 |
+
+All five runs of each sweep, in milliseconds (the first run writes the alerts and
+warms the caches):
+
+| Run                  | 1     | 2    | 3    | 4    | 5    |
+| -------------------- | ----- | ---- | ---- | ---- | ---- |
+| FAST, `test-env run` | 1889  | 1423 | 553  | 545  | 451  |
+| FAST, second run     | 937   | 555  | 350  | 339  | 315  |
+| HOURLY, first run    | 215   | 96   | 86   | 84   | 90   |
+| HOURLY, second run   | 184   | 118  | 98   | 91   | 86   |
+| DAILY, first run     | 17014 | 1056 | 1031 | 1350 | 1852 |
+| DAILY, second run    | 21068 | 2087 | 1355 | 1304 | 1787 |
+
+**What this says.**
+
+- **FAST misses its budget.** The steady path is 315-553 ms against 300 ms.
+  Four rules are most of it: `class.starting` (178 ms), `homework.not_submitted`
+  (130 ms), `attendance.not_taken` (65 ms), `routine.uncovered_periods` (39 ms),
+  each timed alone in run 1. A sweep is a background job every 5 minutes, so
+  users do not wait on it; the budget protects API headroom. Follow-up: #2189.
+- **The summary is far inside its budget.** It is one indexed query and a 60 s
+  cache. The 200 users were 177 parents, 22 teachers and the 1 admin that had
+  open alerts. A user with hundreds of open alerts was not measured.
+- **DAILY is slow only once a day, when it writes.** 7,500 parents each get a
+  `guardian.profile_incomplete` alert, and the first run inserts all of them.
+- **`platform.provider_failures` has no index and scans the table.** EXPLAIN
+  shows a parallel sequential scan of `communication_logs`, 8,198 buffers, about
+  30 ms at 500k rows. It runs once an hour, once for the whole platform, so
+  30-150 ms is fine today. A partial index would help a lot: when I created
+  `ON communication_logs (updated_at) WHERE status = 'FAILED'` on the same data,
+  the same query took 0.2-0.4 ms (a bitmap index scan, 74 buffers). I dropped the
+  index again; it is **not** in a migration. Add it if `communication_logs`
+  grows past a few million rows. The scan grows with the table, the index does not.
+
+## Run-to-run noise
+
+The numbers moved by about 40 % between the two runs (FAST steady 545 ms, then
+339 ms) on identical data. That is the shared machine, not the code. The
+conclusion (FAST over budget, summary well under) held in both.
 
 ## Rules owned by other epics
 
