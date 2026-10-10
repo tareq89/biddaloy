@@ -65,6 +65,8 @@ function PortalNewApplicationPage() {
   const regionConfig = useTenantRegionConfig();
   const role = useActiveRole();
   const submitter = useSubmitNewApplication();
+  // Once created, the flow is frozen: only "retry upload" or "open it" (edits would be lost).
+  const created = submitter.created;
   const studentsQuery = useMyStudents();
   const student = studentsQuery.data?.find((s) => s.id === search.student);
 
@@ -180,21 +182,37 @@ function PortalNewApplicationPage() {
       <FullPageShell
         title={t('new.title')}
         size="form"
-        dirty={dirty && !pending}
+        dirty={dirty && !pending && !created}
         onClose={() => {
           if (!pending) close();
         }}
-        secondary={{
-          label: stepIndex === 0 ? t('new.actions.cancel') : t('new.actions.back'),
-          onClick: () => {
-            if (pending) return;
-            if (stepIndex > 0) go(-1);
-            else if (dirty) setDiscardOpen(true);
-            else close();
-          },
-        }}
+        secondary={
+          created
+            ? {
+                label: t('new.view'),
+                disabled: pending,
+                onClick: () =>
+                  void navigate({
+                    to: '/portal/applications/$applicationId',
+                    params: { applicationId: created.id },
+                  }),
+              }
+            : {
+                label: stepIndex === 0 ? t('new.actions.cancel') : t('new.actions.back'),
+                onClick: () => {
+                  if (pending) return;
+                  if (stepIndex > 0) go(-1);
+                  else if (dirty) setDiscardOpen(true);
+                  else close();
+                },
+              }
+        }
         primary={{
-          label: lastStep ? t('new.actions.submit') : t('new.actions.next'),
+          label: created
+            ? t('new.actions.retryUpload')
+            : lastStep
+              ? t('new.actions.submit')
+              : t('new.actions.next'),
           busy: pending,
           disabled: (step === 'type' && !type) || !student,
           onClick: onPrimary,
@@ -210,14 +228,14 @@ function PortalNewApplicationPage() {
             {step === 'type' ? t('new.typeHeading') : t(`new.steps.${step}`)}
           </h2>
 
-          {submitter.created && submitter.message && (
+          {created && (
             <Card padded role="alert" className="flex items-start gap-2">
               <CircleAlert className="mt-0.5 size-4 shrink-0 text-destructive" aria-hidden="true" />
               <p>
                 {t('new.partial')} {submitter.message}{' '}
                 <Link
                   to="/portal/applications/$applicationId"
-                  params={{ applicationId: submitter.created.id }}
+                  params={{ applicationId: created.id }}
                   className="underline"
                 >
                   {t('new.view')}
@@ -225,7 +243,7 @@ function PortalNewApplicationPage() {
               </p>
             </Card>
           )}
-          {!submitter.created && submitter.message && (
+          {!created && submitter.message && (
             <p role="alert" className="text-sm text-destructive">
               {submitter.message}
             </p>
@@ -345,6 +363,7 @@ function AddresseeChoice({
         label={t('new.addresseeLabel')}
         value={value || undefined}
         onValueChange={(v) => onChange(v as ApplicationAddressee)}
+        // Display only: the server never lists STAFF_USER for a family and refuses it on create.
         options={(addressees.data ?? [])
           .filter((o) => o.addressee !== 'STAFF_USER')
           .map((o) => ({ value: o.addressee, title: tApp(`addressees.${o.addressee}`) }))}

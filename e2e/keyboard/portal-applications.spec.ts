@@ -1,6 +1,5 @@
 import type { Page } from '@playwright/test';
 
-import bnPortalApplications from '../../ui/src/i18n/locales/bn/portalApplications.json';
 import { expect, loggedIn, test } from '../fixtures/test';
 import { t } from '../i18n';
 
@@ -11,7 +10,6 @@ import { focusedText, selectByTypeahead, tabUntilFocused } from './keyboard-util
 // `journeys/applications.spec.ts`), and the attachments step is skipped because a native file
 // dialog cannot be driven from the page.
 
-const p = bnPortalApplications;
 const THURSDAY = '2026-07-23'; // a school day, clear of every seeded holiday and closure
 
 /** The kit DatePicker, mouse-driven on purpose (see above), paging months until `iso` shows. */
@@ -46,10 +44,15 @@ test('keyboard-only: portal nav -> file a leave -> withdraw it', async ({ page }
   });
   await tabUntilFocused(page, t('nav.items.portalApplications'), 120, { tag: 'a', exact: true });
   await page.keyboard.press('Enter');
-  await expect(page.getByRole('heading', { level: 1, name: p.title })).toBeFocused();
+  await expect(
+    page.getByRole('heading', { level: 1, name: t('portalApplications.title') }),
+  ).toBeFocused();
 
   // The page's default child may not be the one with applications; any child can file.
-  await tabUntilFocused(page, p.newApplication, 40, { tag: 'a', exact: true });
+  await tabUntilFocused(page, t('portalApplications.newApplication'), 40, {
+    tag: 'a',
+    exact: true,
+  });
   await page.keyboard.press('Enter');
   await expect(page).toHaveURL(/\/portal\/applications\/new/);
 
@@ -68,23 +71,29 @@ test('keyboard-only: portal nav -> file a leave -> withdraw it', async ({ page }
   await expect.poll(focusedValue).toBe('STUDENT_LEAVE');
   await page.keyboard.press('Space');
   await expect(page.getByRole('radio', { name: leave })).toBeChecked();
-  await next(page, p.new.actions.next);
+  await next(page, t('portalApplications.new.actions.next'));
 
   // Step 2: details.
-  await expect(page.getByRole('heading', { name: p.new.steps.details })).toBeFocused();
+  await expect(
+    page.getByRole('heading', { name: t('portalApplications.new.steps.details') }),
+  ).toBeFocused();
   await tabUntilFocused(page, t('applicationForms.fields.reasonKind'), 20);
   await selectByTypeahead(page, t('applications.reasons.SICK'));
   await pickDate(page, t('applicationForms.fields.startDate'), THURSDAY);
   await pickDate(page, t('applicationForms.fields.endDate'), THURSDAY);
   await tabUntilFocused(page, t('applicationForms.fields.details'), 20);
   await page.keyboard.type('E2E কীবোর্ড');
-  await next(page, p.new.actions.next);
+  await next(page, t('portalApplications.new.actions.next'));
 
   // Steps 3 and 4: no file, then the letter.
-  await expect(page.getByRole('heading', { name: p.new.steps.attachments })).toBeFocused();
-  await next(page, p.new.actions.next);
-  await expect(page.getByRole('heading', { name: p.new.steps.preview })).toBeFocused();
-  await next(page, p.new.actions.submit);
+  await expect(
+    page.getByRole('heading', { name: t('portalApplications.new.steps.attachments') }),
+  ).toBeFocused();
+  await next(page, t('portalApplications.new.actions.next'));
+  await expect(
+    page.getByRole('heading', { name: t('portalApplications.new.steps.preview') }),
+  ).toBeFocused();
+  await next(page, t('portalApplications.new.actions.submit'));
 
   // The detail page: its heading takes focus.
   await expect(page).toHaveURL(/\/portal\/applications\/[0-9a-f-]{36}$/);
@@ -101,4 +110,6 @@ test('keyboard-only: portal nav -> file a leave -> withdraw it', async ({ page }
   });
   await page.keyboard.press('Enter');
   await expect(page.getByText(t('applications.statuses.WITHDRAWN')).first()).toBeVisible();
+  // The Withdraw button is gone, so focus goes to the page heading, not <body>.
+  await expect(page.getByRole('heading', { level: 1 })).toBeFocused();
 });

@@ -138,6 +138,33 @@ describe('/portal/applications/new', () => {
     expect(seen.upload).toBe(0);
   });
 
+  it('a failed upload after the create freezes the flow: retry the upload or open it', async () => {
+    const seen = render(`?student=${SID}&type=ID_CARD_REPRINT`);
+    server.use(
+      http.post('/api/v1/applications/:id/attachments', () => {
+        seen.upload += 1;
+        return HttpResponse.json({ message: 'x' }, { status: 500 });
+      }),
+    );
+    const user = userEvent.setup();
+    await user.type(await screen.findByLabelText(/^Reason/), 'Lost it');
+    await next(user);
+    await user.upload(
+      await screen.findByLabelText('Attach files'),
+      new File(['x'], 'a.pdf', { type: 'application/pdf' }),
+    );
+    await next(user);
+    await user.click(await screen.findByRole('button', { name: 'Submit application' }));
+
+    const retry = await screen.findByRole('button', { name: 'Retry attaching files' });
+    // No Back (edits would be thrown away) and no discard prompt: the application exists.
+    expect(screen.queryByRole('button', { name: 'Back' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Open the application' })).toBeTruthy();
+    await user.click(retry);
+    await waitFor(() => expect(seen.upload).toBe(2));
+    expect(seen.create).toHaveLength(1);
+  });
+
   it('a student that is not one of mine goes back to the list', async () => {
     const seen = render('?student=11111111-1111-4111-8111-111111111111');
     await waitFor(() => expect(seen.router.state.location.pathname).toBe('/portal/applications'));

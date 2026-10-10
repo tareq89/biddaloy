@@ -38,10 +38,10 @@
     "typeHeading": "What do you want to apply for?",
     "typeLabel": "Type of application",
     "typeHelp": {
-      "STUDENT_LEAVE": "Leave: when your child cannot come to school because of illness or a family reason",
+      "STUDENT_LEAVE": "Leave: when the student cannot come to school because of illness or a family reason",
       "FEE_WAIVER": "Fee waiver: ask the school to reduce or waive some fees",
-      "TESTIMONIAL": "Testimonial: a letter from the school about your child",
-      "TRANSFER_CERTIFICATE": "Transfer certificate: when your child is leaving the school",
+      "TESTIMONIAL": "Testimonial: a letter from the school about the student",
+      "TRANSFER_CERTIFICATE": "Transfer certificate: when the student is leaving the school",
       "ID_CARD_REPRINT": "ID card: a new card after it is lost or damaged",
       "GENERAL": "Other: any other letter to the school"
     },
@@ -52,11 +52,12 @@
       "next": "Next",
       "back": "Back",
       "cancel": "Cancel",
-      "submit": "Submit application"
+      "submit": "Submit application",
+      "retryUpload": "Retry attaching files"
     },
     "summary": "Summary",
     "type": "Type",
-    "for": "Child",
+    "for": "Student",
     "to": "To",
     "files": "Files",
     "none": "None",

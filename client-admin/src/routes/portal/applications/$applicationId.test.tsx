@@ -40,6 +40,10 @@ describe('/portal/applications/$applicationId', () => {
     const dialog = await screen.findByRole('alertdialog');
     await user.click(within(dialog).getByRole('button', { name: 'Withdraw' }));
     await waitFor(() => expect(withdrawn).toEqual([applicationDto().id]));
+    // The Withdraw button is gone, so focus goes to the page heading rather than <body>.
+    await waitFor(() =>
+      expect(document.activeElement).toBe(screen.getByRole('heading', { level: 1 })),
+    );
   });
 
   it('never shows Approve, even when the server says can.decide', async () => {

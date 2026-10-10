@@ -1,4 +1,3 @@
-import { ApplicationStatus, ApplicationType } from '@biddaloy/shared';
 import {
   Button,
   Card,
@@ -31,25 +30,10 @@ import { summarize } from '../../_staff/applications/-list/application-summary';
 
 const PAGE_SIZE = 25;
 
-/** [52.6.1] Same search keys as the staff list minus `view`/`class_id`, plus the chosen child. */
+/** [52.6.1] The chosen child and the page. No filters yet; add their keys with the filters. */
 const portalApplicationsSearchSchema = z.object({
   student: z.string().optional().catch(undefined),
-  type: z.nativeEnum(ApplicationType).optional().catch(undefined),
-  status: z.nativeEnum(ApplicationStatus).optional().catch(undefined),
-  from: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/)
-    .optional()
-    .catch(undefined),
-  to: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/)
-    .optional()
-    .catch(undefined),
-  q: z.string().optional().catch(undefined),
   page: z.number().int().positive().optional().catch(undefined),
-  limit: z.number().int().positive().optional().catch(undefined),
-  decided: z.string().uuid().optional().catch(undefined),
 });
 
 export const Route = createFileRoute('/portal/applications/')({
@@ -104,23 +88,25 @@ function PortalApplications() {
         });
   };
 
-  // `view: 'mine'` already holds everything about a linked child, whoever filed it (D43).
+  // `view: 'mine'` already holds everything about a linked child, whoever filed it (D43). Not
+  // asked until a child is known: without `student_id` the answer would only be thrown away.
   const listQuery = useApplications(
     selected
       ? { view: 'mine', student_id: selected.id, page, limit: PAGE_SIZE }
       : { view: 'mine', page, limit: PAGE_SIZE },
+    { enabled: selected !== undefined },
+  );
+
+  // Same frame as the empty state, so a failed load still has its <h1>.
+  const failed = (onRetry: () => void) => (
+    <PageContainer size="narrow">
+      <PageHeader title={t('title')} />
+      <ErrorState message={t('error.message')} retryLabel={t('error.retry')} onRetry={onRetry} />
+    </PageContainer>
   );
 
   if (studentsQuery.isPending) return <ListSkeleton label={t('loading')} />;
-  if (studentsQuery.isError) {
-    return (
-      <ErrorState
-        message={t('error.message')}
-        retryLabel={t('error.retry')}
-        onRetry={() => void studentsQuery.refetch()}
-      />
-    );
-  }
+  if (studentsQuery.isError) return failed(() => void studentsQuery.refetch());
   if (students.length === 0 || selected === undefined) {
     return (
       <PageContainer size="narrow">
@@ -158,15 +144,7 @@ function PortalApplications() {
   );
 
   if (listQuery.isPending) return <ListSkeleton label={t('loading')} showPicker={!!picker} />;
-  if (listQuery.isError) {
-    return (
-      <ErrorState
-        message={t('error.message')}
-        retryLabel={t('error.retry')}
-        onRetry={() => void listQuery.refetch()}
-      />
-    );
-  }
+  if (listQuery.isError) return failed(() => void listQuery.refetch());
 
   const { data: rows, total } = listQuery.data;
   return (

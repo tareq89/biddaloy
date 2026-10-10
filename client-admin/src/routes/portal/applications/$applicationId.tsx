@@ -2,15 +2,13 @@ import { ApiError } from '@biddaloy/ui/api';
 import { ErrorState, RoutePending, StatusBadge } from '@biddaloy/ui/components';
 import {
   APPLICATION_STATUS_TONE,
-  applicationKeys,
   applicationQueryOptions,
   stepLabel,
   useApplication,
 } from '@biddaloy/ui/hooks';
-import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { RegionConfigProvider, useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { DetailShell, PageContainer, type PageAction } from '@biddaloy/ui/shells';
 import { formatDate } from '@biddaloy/ui/utils';
-import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { ArrowLeftIcon, PrinterIcon, UndoIcon } from 'lucide-react';
 import * as React from 'react';
@@ -40,12 +38,19 @@ export const Route = createFileRoute('/portal/applications/$applicationId')({
       ),
     ]),
   pendingComponent: PortalApplicationDetailPending,
-  component: PortalApplicationDetailPage,
+  component: PortalApplicationDetailRoute,
 });
+
+function PortalApplicationDetailRoute() {
+  return (
+    <RegionConfigProvider>
+      <PortalApplicationDetailPage />
+    </RegionConfigProvider>
+  );
+}
 
 function PortalApplicationDetailPage() {
   const { applicationId } = Route.useParams();
-  const queryClient = useQueryClient();
   const { t } = useTranslation('portalApplications');
   const { t: tDetail } = useTranslation('applicationsDetail');
   const { t: tApp } = useTranslation('applications');
@@ -54,6 +59,21 @@ function PortalApplicationDetailPage() {
   const app = query.data;
   const [withdrawing, setWithdrawing] = React.useState(false);
   const [notice, setNotice] = React.useState<string | undefined>();
+  // After a withdraw the Withdraw button is gone, so the dialog has nothing to hand focus back to.
+  // Queued after the dialog's own (unmount) focus restore, which would otherwise land on <body>.
+  const [refocus, setRefocus] = React.useState(false);
+  React.useEffect(() => {
+    if (!refocus) return;
+    const id = setTimeout(() => {
+      const heading = document.querySelector<HTMLElement>('main h1');
+      if (heading) {
+        heading.tabIndex = -1;
+        heading.focus();
+      }
+      setRefocus(false);
+    });
+    return () => clearTimeout(id);
+  }, [refocus]);
 
   if (query.isPending) return <PortalApplicationDetailPending />;
   if (query.isError || !app) {
@@ -158,7 +178,7 @@ function PortalApplicationDetailPage() {
         onDone={() => {
           setWithdrawing(false);
           setNotice(undefined);
-          void queryClient.invalidateQueries({ queryKey: applicationKeys.all });
+          setRefocus(true);
         }}
         onNotice={setNotice}
       />

@@ -49,6 +49,7 @@ import bnPayments from '../ui/src/i18n/locales/bn/payments.json';
 import bnPerformance from '../ui/src/i18n/locales/bn/performance.json';
 import bnPlatform from '../ui/src/i18n/locales/bn/platform.json';
 import bnPortal from '../ui/src/i18n/locales/bn/portal.json';
+import bnPortalApplications from '../ui/src/i18n/locales/bn/portalApplications.json';
 import bnPrintEditor from '../ui/src/i18n/locales/bn/printEditor.json';
 import bnPrintHistory from '../ui/src/i18n/locales/bn/printHistory.json';
 import bnPrintPreview from '../ui/src/i18n/locales/bn/printPreview.json';
@@ -112,6 +113,7 @@ import enPayments from '../ui/src/i18n/locales/en/payments.json';
 import enPerformance from '../ui/src/i18n/locales/en/performance.json';
 import enPlatform from '../ui/src/i18n/locales/en/platform.json';
 import enPortal from '../ui/src/i18n/locales/en/portal.json';
+import enPortalApplications from '../ui/src/i18n/locales/en/portalApplications.json';
 import enPrintEditor from '../ui/src/i18n/locales/en/printEditor.json';
 import enPrintHistory from '../ui/src/i18n/locales/en/printHistory.json';
 import enPrintPreview from '../ui/src/i18n/locales/en/printPreview.json';
@@ -199,6 +201,7 @@ const catalogs = {
     payments: bnPayments,
     platform: bnPlatform,
     portal: bnPortal,
+    portalApplications: bnPortalApplications,
     printEditor: bnPrintEditor,
     printHistory: bnPrintHistory,
     printPreview: bnPrintPreview,
@@ -271,6 +274,7 @@ const catalogs = {
     payments: enPayments,
     platform: enPlatform,
     portal: enPortal,
+    portalApplications: enPortalApplications,
     printEditor: enPrintEditor,
     printHistory: enPrintHistory,
     printPreview: enPrintPreview,

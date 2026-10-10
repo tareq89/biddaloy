@@ -59,7 +59,7 @@ erDiagram
         jsonb effect_result "what the handler did"
     }
     application_events {
-        enum kind "SUBMITTED STEP_APPROVED APPROVED REJECTED COMMENT TAGGED"
+        enum kind "SUBMITTED STEP_APPROVED APPROVED REJECTED UNDER_CONSIDERATION WITHDRAWN CANCELLED COMMENT TAGGED"
         int step
         text note
         uuid actor_user_id
@@ -75,8 +75,8 @@ erDiagram
 
 Two details worth knowing:
 
-- **The serial** looks like `2026/0045`: school, year, then a running number that restarts
-  each year. `nextApplicationSerial` (`server/src/modules/applications/application-serial.ts`)
+- **The serial** looks like `2026/0045`: the year, then a running number. Each school counts
+  on its own, and the count restarts each year (the school is not part of the text). `nextApplicationSerial` (`server/src/modules/applications/application-serial.ts`)
   takes a Postgres advisory lock first, so two people submitting at once cannot get the same
   number. Digits are always Latin, even in a Bangla school.
 - **The letter is a snapshot.** The text is written once, at submit, into `letter_text`
@@ -270,23 +270,62 @@ When the class teacher approves, the two dates become `LEAVE` marks in the class
 
 ## 8. Screens
 
-| Route                                 | Shape                                     | Primary action                              |
-| ------------------------------------- | ----------------------------------------- | ------------------------------------------- |
-| `/applications`                       | list with tabs: Inbox, Mine, All          | open a row; select rows, then Bulk approve  |
-| `/applications/new`                   | stepper: type, subject, form, attachments | Submit (`?type=STAFF_LEAVE` pre-picks type) |
-| `/applications/$applicationId`        | the letter, trail, side panel             | Approve / Reject / Consider                 |
-| `/applications/reports`               | filters, summary tiles, tables            | read, filter by year and dates              |
-| student detail `?tab=applications`    | that student's applications               | read that student's applications            |
-| staff detail `?tab=applications`      | that person's applications                | read that person's applications             |
-| `/portal/applications`                | the guardian's or student's own list      | open one, or start a new application        |
-| `/portal/applications/new`            | simple form, pick the child               | Submit                                      |
-| `/portal/applications/$applicationId` | read-only status and trail                | follow, comment, Withdraw (while open)      |
+| Route                                 | Shape                                       | Primary action                              |
+| ------------------------------------- | ------------------------------------------- | ------------------------------------------- |
+| `/applications`                       | list with tabs: Inbox, Mine, All            | open a row; select rows, then Bulk approve  |
+| `/applications/new`                   | stepper: type, subject, form, attachments   | Submit (`?type=STAFF_LEAVE` pre-picks type) |
+| `/applications/$applicationId`        | the letter, trail, side panel               | Approve / Reject / Consider                 |
+| `/applications/reports`               | filters, summary tiles, tables              | read, filter by year and dates              |
+| student detail `?tab=applications`    | that student's applications                 | read that student's applications            |
+| staff detail `?tab=applications`      | that person's applications                  | read that person's applications             |
+| `/portal/applications`                | the guardian's or student's own list        | open one, or start a new application        |
+| `/portal/applications/new`            | stepper: type, details, attachments, letter | Submit (child comes from `?student=`)       |
+| `/portal/applications/$applicationId` | status, letter and trail; never a decision  | comment; Withdraw (applicant, while open)   |
 
+- **Portal form.** There is no child picker on the form. The list's "New application" link
+  carries the child, e.g. `/portal/applications/new?student=8b7e…`. Without `?student=`, or
+  with a child who is not yours, the form sends you back to the list. A family never gets the
+  tag step (the tag list names school staff).
 - **Nav.** "Applications" is a top-level staff item above the groups
   (`client-admin/src/nav-tree.ts`, gate `APPLICATION_SUBMIT`). The report is also in the
   Reports hub. In the portal it sits under **More**, not in the bottom bar.
 - **Command palette actions:** `applications.new`, `applications.inbox`,
   `applications.apply-leave` (`client-admin/src/action-registry.ts`).
+
+### What a family sees in the portal
+
+The portal list asks for `GET /applications?view=mine&student_id=<child>`. `view=mine` is one
+rule in `applications.service.ts`; `student_id` only narrows it further, it never widens it.
+An application is in a caller's `mine` when **any** of these is true (D43):
+
+```mermaid
+flowchart LR
+    A[An application] --> Q{"Is the caller…"}
+    Q -- "the applicant" --> Y[In 'mine']
+    Q -- "the person who entered it (paper entry)" --> Y
+    Q -- "the subject: the student's own login,<br/>or the staff member it is about" --> Y
+    Q -- "a guardian linked to the subject student" --> Y
+    Q -- "none of these" --> N["Not listed.<br/>GET /applications/:id answers 404"]
+```
+
+Example, one family: the guardian `parent@` and their child Rahim, whose own login is
+`student@`.
+
+| Application                                                      | Guardian sees it? | Rahim sees it?  | Who may withdraw |
+| ---------------------------------------------------------------- | ----------------- | --------------- | ---------------- |
+| Leave the guardian filed for Rahim                               | yes (applicant)   | yes (subject)   | the guardian     |
+| Leave Rahim filed himself                                        | yes (linked)      | yes (applicant) | Rahim            |
+| Paper entry the office made for the guardian                     | yes (applicant)   | yes (subject)   | the guardian     |
+| Paper entry under a typed name only (`applicant_name`, no login) | yes (linked)      | yes (subject)   | nobody           |
+| Another family's leave                                           | no (404)          | no (404)        | —                |
+
+- **Withdraw is applicant-only.** The service checks `applicant_user_id`; seeing an
+  application is not enough to take it back.
+- **Never a decision.** The detail page shows only Withdraw and Print, whatever `can` says,
+  and the server's reviewer rules never let a family decide anyway.
+- **Addressees.** For `GENERAL`, `GET /applications/addressees?student_id=` lists class
+  teacher, headmaster and office, and only for a child linked to the caller. A family is never
+  offered a named staff member (`STAFF_USER`), and create refuses one.
 
 **The keyboard path for a decider** (a rule that every step stays reachable without a mouse):
 

@@ -316,12 +316,14 @@ export const overlayOpeners: Record<string, (page: Page, locale: Locale) => Prom
   // to the list, so the opener takes the list's own "New application" link. Picking a type makes
   // the form dirty, so Cancel asks before discarding.
   '/portal/applications/new::discard': async (page, locale) => {
-    const portal = locale === 'en' ? enPortalApplications : bnPortalApplications;
+    const t = makeT(locale);
     if (!page.url().includes('/portal/applications/new')) {
-      await page.getByRole('link', { name: portal.newApplication }).click();
+      await page.getByRole('link', { name: t('portalApplications.newApplication') }).click();
     }
     await page.getByRole('radio').first().check();
-    await page.getByRole('button', { name: portal.new.actions.cancel, exact: true }).click();
+    await page
+      .getByRole('button', { name: t('portalApplications.new.actions.cancel'), exact: true })
+      .click();
     await expectDialogOpen(page);
   },
   // The detail route resolves to the newest application, which may already be decided; Withdraw
