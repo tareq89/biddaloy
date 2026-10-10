@@ -7110,6 +7110,297 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/applications/pending-count": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The caller's inbox count: exactly what view=inbox lists */
+        get: operations["ApplicationReportsController_pendingCount_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/applications/reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Counts, timings, stale list, who is on leave today, staff leave days */
+        get: operations["ApplicationReportsController_reports_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/applications/bulk-approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Approve up to 50 applications; one failure never stops the rest */
+        post: operations["ApplicationDecisionsController_bulkApprove_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/applications/{id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Approve the current step (the final step runs the effect) */
+        post: operations["ApplicationDecisionsController_approve_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/applications/{id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reject an open application (reason required) */
+        post: operations["ApplicationDecisionsController_reject_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/applications/{id}/consider": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark an application under consideration (the step does not advance) */
+        post: operations["ApplicationDecisionsController_consider_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/applications/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel an approved leave application (reverses the effect) */
+        post: operations["ApplicationDecisionsController_cancel_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/applications/{id}/attachments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Attach up to 3 files (PDF, JPG, PNG; 5 MB each) to a pending application */
+        post: operations["ApplicationAttachmentsController_upload_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/applications/{id}/attachments/{attachmentId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Download one attachment (anyone who can view the application) */
+        get: operations["ApplicationAttachmentsController_download_v1"];
+        put?: never;
+        post?: never;
+        /** Remove an attachment from a pending application */
+        delete: operations["ApplicationAttachmentsController_remove_v1"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/applications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List applications: inbox (to decide), mine, or all */
+        get: operations["ApplicationsController_list_v1"];
+        put?: never;
+        /** Submit an application (any of the 10 types) */
+        post: operations["ApplicationsController_submit_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/applications/addressees": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Who a general application can be addressed to */
+        get: operations["ApplicationsController_addressees_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/applications/tag-options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Staff users and roles that can be tagged */
+        get: operations["ApplicationsController_tagOptions_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/applications/letter-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Render the letter for a draft application; writes nothing */
+        post: operations["ApplicationsController_letterPreview_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/applications/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One application with its events, tags and attachments */
+        get: operations["ApplicationsController_get_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/applications/{id}/withdraw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Withdraw your own pending application */
+        post: operations["ApplicationsController_withdraw_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/applications/{id}/comments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add a comment to an application you can see */
+        post: operations["ApplicationsController_comment_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/applications/{id}/tags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Tag people or roles on an application */
+        post: operations["ApplicationsController_addTags_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/acr/criteria": {
         parameters: {
             query?: never;
@@ -9787,6 +10078,9 @@ export interface components {
         EvaluationsSettingsDto: {
             incidentSmsEnabled?: boolean;
         };
+        ApplicationsSettingsDto: {
+            smsOnDecision?: boolean;
+        };
         StudyPlansSettingsDto: {
             statusDeadline?: string;
             reminderTime?: string;
@@ -9807,6 +10101,7 @@ export interface components {
             backup?: components["schemas"]["BackupSettingsDto"];
             fees?: components["schemas"]["FeesSettingsDto"];
             evaluations?: components["schemas"]["EvaluationsSettingsDto"];
+            applications?: components["schemas"]["ApplicationsSettingsDto"];
             documents?: components["schemas"]["DocumentsSettingsDto"];
             studyPlans?: components["schemas"]["StudyPlansSettingsDto"];
         };
@@ -13093,17 +13388,343 @@ export interface components {
         LeaveBalanceDto: {
             /** @enum {string} */
             leave_type: "CASUAL" | "SICK" | "MATERNITY" | "PATERNITY" | "EARNED";
-            annual_quota_days: number;
+            annual_quota_days: number | null;
             used_days: number;
-            balance: number;
+            balance: number | null;
         };
         LeavePolicyDto: {
             /** @enum {string} */
             leave_type: "CASUAL" | "SICK" | "MATERNITY" | "PATERNITY" | "EARNED";
-            annual_quota_days: number;
+            annual_quota_days: number | null;
         };
         UpdateLeavePolicyDto: {
-            annual_quota_days: number;
+            annual_quota_days: number | null;
+        };
+        /** @enum {string} */
+        ApplicationType: "STAFF_LEAVE" | "STUDENT_LEAVE" | "FEE_WAIVER" | "TESTIMONIAL" | "TRANSFER_CERTIFICATE" | "READMISSION" | "SECTION_CHANGE" | "SCRIPT_RECHECK" | "ID_CARD_REPRINT" | "GENERAL";
+        PendingTypeCountDto: {
+            type: components["schemas"]["ApplicationType"];
+            count: number;
+        };
+        PendingCountDto: {
+            total: number;
+            by_type: components["schemas"]["PendingTypeCountDto"][];
+            /** Format: date-time */
+            oldest_pending_at: string | null;
+        };
+        /** @enum {string} */
+        ApplicationStatus: "PENDING" | "UNDER_CONSIDERATION" | "APPROVED" | "REJECTED" | "WITHDRAWN" | "CANCELLED";
+        ReportTypeStatusRowDto: {
+            type: components["schemas"]["ApplicationType"];
+            status: components["schemas"]["ApplicationStatus"];
+            count: number;
+        };
+        ReportMonthRowDto: {
+            /** @example 2026-09 */
+            month: string;
+            submitted: number;
+            approved: number;
+            rejected: number;
+        };
+        StalePendingRowDto: {
+            /** Format: uuid */
+            id: string;
+            /** @example 2026/0045 */
+            serial: string;
+            type: components["schemas"]["ApplicationType"];
+            applicant_name: string | null;
+            current_step: number;
+            /** Format: date-time */
+            created_at: string;
+        };
+        OnLeaveStaffRowDto: {
+            /** Format: uuid */
+            staff_profile_id: string;
+            name: string;
+            leave_type: string;
+            /** @example 2026-10-10 */
+            end_date: string;
+        };
+        OnLeaveStudentRowDto: {
+            /** Format: uuid */
+            student_id: string;
+            name: string;
+            class_name: string;
+            section_name: string;
+            /** @example 2026-10-09 */
+            end_date: string;
+        };
+        OnLeaveTodayDto: {
+            staff: components["schemas"]["OnLeaveStaffRowDto"][];
+            students: components["schemas"]["OnLeaveStudentRowDto"][];
+        };
+        StaffLeaveDaysRowDto: {
+            /** Format: uuid */
+            staff_profile_id: string;
+            name: string;
+            /**
+             * @example {
+             *       "SICK": 3
+             *     }
+             */
+            by_type: {
+                [key: string]: number;
+            };
+            /**
+             * @example {
+             *       "2026-10": 3
+             *     }
+             */
+            by_month: {
+                [key: string]: number;
+            };
+        };
+        ApplicationReportsDto: {
+            by_type_status: components["schemas"]["ReportTypeStatusRowDto"][];
+            by_month: components["schemas"]["ReportMonthRowDto"][];
+            avg_decision_hours: number | null;
+            stale_pending: components["schemas"]["StalePendingRowDto"][];
+            on_leave_today: components["schemas"]["OnLeaveTodayDto"];
+            staff_leave_days: components["schemas"]["StaffLeaveDaysRowDto"][];
+        };
+        BulkApproveDto: {
+            ids: string[];
+            note?: string;
+        };
+        BulkApproveResultDto: {
+            id: string;
+            ok: boolean;
+            error_code?: string;
+        };
+        GrantedFeeWaiverDto: {
+            /** @enum {string} */
+            kind: "PERCENT" | "FLAT";
+            value: number;
+            fee_types?: ("MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "FINE" | "OTHER")[];
+            start_date?: string;
+            end_date?: string;
+        };
+        ApproveApplicationDto: {
+            note?: string;
+            granted?: components["schemas"]["GrantedFeeWaiverDto"];
+        };
+        /** @enum {string} */
+        ApplicationSource: "APP" | "PAPER";
+        /** @enum {string} */
+        UserRole: "SUPER_ADMIN" | "ADMIN" | "ACCOUNTANT" | "TEACHER" | "PARENT" | "STUDENT" | "EXECUTIVE" | "OFFICE_STAFF" | "EXAM_CONTROLLER" | "COMMITTEE";
+        /** @enum {string} */
+        ApplicationSubjectKind: "STUDENT" | "STAFF";
+        /** @enum {string} */
+        ApplicationAddressee: "CLASS_TEACHER" | "HEADMASTER" | "OFFICE" | "STAFF_USER";
+        ApplicationCanDto: {
+            decide: boolean;
+            consider: boolean;
+            withdraw: boolean;
+            cancel: boolean;
+            comment: boolean;
+        };
+        /** @enum {string} */
+        ApplicationEventKind: "SUBMITTED" | "STEP_APPROVED" | "APPROVED" | "REJECTED" | "UNDER_CONSIDERATION" | "WITHDRAWN" | "CANCELLED" | "COMMENT" | "TAGGED";
+        ApplicationEventDto: {
+            id: string;
+            kind: components["schemas"]["ApplicationEventKind"];
+            step: number | null;
+            actor_user_id: string;
+            actor_name: string;
+            note: string | null;
+            data: {
+                [key: string]: unknown;
+            } | null;
+            created_at: string;
+        };
+        ApplicationTagDto: {
+            id: string;
+            user_id: string | null;
+            user_name: string | null;
+            role: components["schemas"]["UserRole"] | null;
+        };
+        ApplicationAttachmentDto: {
+            id: string;
+            file_name: string;
+            mime_type: string;
+            size_bytes: number;
+            uploaded_by_user_id: string;
+            created_at: string;
+        };
+        ApplicationDto: {
+            id: string;
+            serial: string;
+            serial_year: number;
+            serial_no: number;
+            type: components["schemas"]["ApplicationType"];
+            status: components["schemas"]["ApplicationStatus"];
+            source: components["schemas"]["ApplicationSource"];
+            academic_year_id: string | null;
+            applicant_user_id: string | null;
+            applicant_name: string;
+            applicant_role: components["schemas"]["UserRole"] | null;
+            entered_by_user_id: string | null;
+            entered_by_name: string | null;
+            subject_kind: components["schemas"]["ApplicationSubjectKind"];
+            subject_student_id: string | null;
+            subject_staff_profile_id: string | null;
+            subject_name: string;
+            subject_class_name: string | null;
+            subject_section_name: string | null;
+            subject_roll: string | null;
+            subject_designation: string | null;
+            payload: {
+                [key: string]: unknown;
+            };
+            ref_names: {
+                [key: string]: string;
+            };
+            start_date: string | null;
+            end_date: string | null;
+            addressee: components["schemas"]["ApplicationAddressee"] | null;
+            addressee_user_id: string | null;
+            addressee_name: string | null;
+            current_step: number;
+            step_count: number;
+            decided_by_user_id: string | null;
+            decided_by_name: string | null;
+            decided_at: string | null;
+            created_at: string;
+            can: components["schemas"]["ApplicationCanDto"];
+            letter_text: string;
+            letter_locale: string;
+            granted: {
+                [key: string]: unknown;
+            } | null;
+            effect_result: {
+                [key: string]: unknown;
+            } | null;
+            events: components["schemas"]["ApplicationEventDto"][];
+            tags: components["schemas"]["ApplicationTagDto"][];
+            attachments: components["schemas"]["ApplicationAttachmentDto"][];
+        };
+        RejectApplicationDto: {
+            reason: string;
+        };
+        ConsiderApplicationDto: {
+            note?: string;
+        };
+        CancelApplicationDto: {
+            reason: string;
+        };
+        ApplicationTagInput: {
+            /** Format: uuid */
+            user_id?: string;
+            role?: components["schemas"]["UserRole"];
+        };
+        CreateApplicationDto: {
+            type: components["schemas"]["ApplicationType"];
+            /** Format: uuid */
+            subject_student_id?: string;
+            /** Format: uuid */
+            subject_staff_profile_id?: string;
+            payload: {
+                [key: string]: unknown;
+            };
+            addressee?: components["schemas"]["ApplicationAddressee"];
+            /** Format: uuid */
+            addressee_user_id?: string;
+            /** Format: uuid */
+            on_behalf_of_user_id?: string;
+            applicant_name?: string;
+            tags?: components["schemas"]["ApplicationTagInput"][];
+        };
+        ApplicationListItemDto: {
+            id: string;
+            serial: string;
+            serial_year: number;
+            serial_no: number;
+            type: components["schemas"]["ApplicationType"];
+            status: components["schemas"]["ApplicationStatus"];
+            source: components["schemas"]["ApplicationSource"];
+            academic_year_id: string | null;
+            applicant_user_id: string | null;
+            applicant_name: string;
+            applicant_role: components["schemas"]["UserRole"] | null;
+            entered_by_user_id: string | null;
+            entered_by_name: string | null;
+            subject_kind: components["schemas"]["ApplicationSubjectKind"];
+            subject_student_id: string | null;
+            subject_staff_profile_id: string | null;
+            subject_name: string;
+            subject_class_name: string | null;
+            subject_section_name: string | null;
+            subject_roll: string | null;
+            subject_designation: string | null;
+            payload: {
+                [key: string]: unknown;
+            };
+            ref_names: {
+                [key: string]: string;
+            };
+            start_date: string | null;
+            end_date: string | null;
+            addressee: components["schemas"]["ApplicationAddressee"] | null;
+            addressee_user_id: string | null;
+            addressee_name: string | null;
+            current_step: number;
+            step_count: number;
+            decided_by_user_id: string | null;
+            decided_by_name: string | null;
+            decided_at: string | null;
+            created_at: string;
+            can: components["schemas"]["ApplicationCanDto"];
+        };
+        ApplicationListDto: {
+            data: components["schemas"]["ApplicationListItemDto"][];
+            total: number;
+            page: number;
+            limit: number;
+            totalPages: number;
+        };
+        AddresseeUserDto: {
+            id: string;
+            full_name: string;
+        };
+        AddresseeOptionDto: {
+            addressee: components["schemas"]["ApplicationAddressee"];
+            user: components["schemas"]["AddresseeUserDto"] | null;
+            role: components["schemas"]["UserRole"] | null;
+        };
+        TagUserOptionDto: {
+            id: string;
+            full_name: string;
+            role: components["schemas"]["UserRole"];
+        };
+        TagOptionsDto: {
+            users: components["schemas"]["TagUserOptionDto"][];
+            roles: components["schemas"]["UserRole"][];
+        };
+        LetterPreviewDto: {
+            type: components["schemas"]["ApplicationType"];
+            /** Format: uuid */
+            subject_student_id?: string;
+            /** Format: uuid */
+            subject_staff_profile_id?: string;
+            payload: {
+                [key: string]: unknown;
+            };
+            addressee?: components["schemas"]["ApplicationAddressee"];
+            /** Format: uuid */
+            addressee_user_id?: string;
+            /** Format: uuid */
+            on_behalf_of_user_id?: string;
+            applicant_name?: string;
+        };
+        LetterPreviewResultDto: {
+            letter_text: string;
+            letter_locale: string;
+        };
+        CommentDto: {
+            note: string;
+        };
+        AddTagsDto: {
+            tags: components["schemas"]["ApplicationTagInput"][];
         };
         AcrCriterionResponseDto: {
             id: string;
@@ -32004,6 +32625,677 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LeavePolicyDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ApplicationReportsController_pendingCount_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PendingCountDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ApplicationReportsController_reports_v1: {
+        parameters: {
+            query?: {
+                academic_year_id?: string;
+                from?: string;
+                to?: string;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationReportsDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ApplicationDecisionsController_bulkApprove_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkApproveDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkApproveResultDto"][];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ApplicationDecisionsController_approve_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApproveApplicationDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ApplicationDecisionsController_reject_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RejectApplicationDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ApplicationDecisionsController_consider_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsiderApplicationDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ApplicationDecisionsController_cancel_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CancelApplicationDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ApplicationAttachmentsController_upload_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    files?: string[];
+                };
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationAttachmentDto"][];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ApplicationAttachmentsController_download_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+                attachmentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ApplicationAttachmentsController_remove_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+                attachmentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ApplicationsController_list_v1: {
+        parameters: {
+            query?: {
+                view?: "inbox" | "mine" | "all";
+                type?: components["schemas"]["ApplicationType"];
+                status?: components["schemas"]["ApplicationStatus"];
+                from?: string;
+                to?: string;
+                class_id?: string;
+                student_id?: string;
+                staff_profile_id?: string;
+                q?: string;
+                page?: number;
+                limit?: number;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationListDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ApplicationsController_submit_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateApplicationDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ApplicationsController_addressees_v1: {
+        parameters: {
+            query?: {
+                student_id?: string;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AddresseeOptionDto"][];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ApplicationsController_tagOptions_v1: {
+        parameters: {
+            query?: {
+                q?: string;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TagOptionsDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ApplicationsController_letterPreview_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LetterPreviewDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LetterPreviewResultDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ApplicationsController_get_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ApplicationsController_withdraw_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ApplicationsController_comment_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommentDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationEventDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ApplicationsController_addTags_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddTagsDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
