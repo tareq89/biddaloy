@@ -1,6 +1,12 @@
 import { Controller, Get, Query, Res, StreamableFile, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiExtraModels,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+  getSchemaPath,
+} from '@nestjs/swagger';
 import type { Response } from 'express';
 import { Permission } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../../auth/guards/context.guard';
@@ -24,7 +30,14 @@ export class AlertsReportController {
   @ApiOperation({
     summary: 'Monthly rule-alert counts per rule and section (JSON, or CSV with format=csv).',
   })
-  @ApiOkResponse({ type: AlertsReportDto })
+  @ApiExtraModels(AlertsReportDto)
+  @ApiOkResponse({
+    description: 'The report as JSON, or as a CSV download when format=csv.',
+    content: {
+      'application/json': { schema: { $ref: getSchemaPath(AlertsReportDto) } },
+      'text/csv': { schema: { type: 'string' } },
+    },
+  })
   async get(
     @CurrentTenant() tenant: { id: string },
     @Query() query: AlertsReportQueryDto,

@@ -34451,12 +34451,14 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
+            /** @description The report as JSON, or as a CSV download when format=csv. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["AlertsReportDto"];
+                    "text/csv": string;
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
