@@ -37,6 +37,8 @@ import { UserTenant } from '../auth/entities/user-tenant.entity';
 import { Student } from '../students/entities/student.entity';
 import { CommunicationLog } from '../communications/entities/communication-log.entity';
 import { AuditLog } from '../audit/entities/audit-log.entity';
+import { attentionEvents } from '../attention/attention.constants';
+import { emitRecheck } from '../attention/engine/attention-events';
 import { UpdateSchoolStatusDto } from './dto/update-school-status.dto';
 import { Class } from '../academics/entities/class.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
@@ -349,6 +351,11 @@ export class SchoolsService {
     });
 
     this.settingsCache.invalidate(schoolId);
+    if (plainPatch.communications !== undefined) {
+      for (const ruleKey of ['comms.provider_missing', 'setup.incomplete'] as const) {
+        emitRecheck(attentionEvents, { tenantId: schoolId, ruleKey, actorUserId: userId });
+      }
+    }
     const resolved = resolveTenantSettings(settings);
     return maskSecretFields(
       resolved as unknown as Record<string, unknown>,
