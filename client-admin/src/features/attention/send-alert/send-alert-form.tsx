@@ -86,11 +86,18 @@ export function SendAlertForm({ onClose }: { onClose: () => void }) {
   const inFlight = React.useRef(false);
 
   const send = useSendManualAlert();
-  const preview = useManualAlertPreview(useDebouncedValue(audience, 300));
+  const preview = useManualAlertPreview(useDebouncedValue(audience, 400));
   const kind = audienceKind(audience);
   const linkOptions = useLinkOptions(kind);
   const actionUrl = linkOptions.some((o) => o.value === link) ? link : '';
-  const count = isAudienceEmpty(audience) ? undefined : preview.data?.recipientCount;
+  // The preview endpoint is rate-limited: on a failure (429) keep showing the last count.
+  const [lastCount, setLastCount] = React.useState<number | undefined>();
+  React.useEffect(() => {
+    if (preview.data) setLastCount(preview.data.recipientCount);
+  }, [preview.data]);
+  const count = isAudienceEmpty(audience)
+    ? undefined
+    : (preview.data?.recipientCount ?? (preview.isError ? lastCount : undefined));
 
   const dirty = title !== '' || message !== '' || !isAudienceEmpty(audience);
   const reason = !title.trim()

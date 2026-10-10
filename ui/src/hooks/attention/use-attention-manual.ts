@@ -64,6 +64,9 @@ export function useManualAlertPreview(audience: ManualAudience) {
     queryFn: ({ signal }) => previewManualAlert(audience, signal),
     enabled: !isAudienceEmpty(audience),
     placeholderData: keepPreviousData,
+    // Rate-limited endpoint (20/min): refetch only when the audience changes.
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
     retry: shouldRetryQuery,
   });
 }
