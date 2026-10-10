@@ -31,6 +31,7 @@ import { CircleMinusIcon, KeyRoundIcon, PencilIcon } from 'lucide-react';
 import * as React from 'react';
 import { z } from 'zod';
 
+import { SubjectApplicationsTab } from '../../../features/applications/subject-applications-tab';
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 
 import { AcrTab } from './-detail/acr-tab';
@@ -68,6 +69,10 @@ export const Route = createFileRoute('/_staff/staff/$userId')({
         'evaluations',
         'performance',
         'printHistory',
+        // [52.5.2] Applications tab: type/status labels + the row summary.
+        'applications',
+        'applicationsList',
+        'feeStructures',
         'common',
       ),
     ]),
@@ -89,6 +94,7 @@ function StaffDetailPage() {
   const canReadHrRecord = useHasPermission(Permission.STAFF_HR_READ);
   const canReadAcr = useHasPermission(Permission.ACR_READ);
   const canReadStaffAttendance = useHasPermission(Permission.STAFF_ATTENDANCE_READ);
+  const canManageApplications = useHasPermission(Permission.APPLICATION_MANAGE);
   const search = Route.useSearch();
   // D18: a staff card exposes HR data, so printing needs both permissions.
   const canPrintStaffCard = useHasPermission(Permission.DOCUMENT_PRINT) && canReadHrRecord;
@@ -106,6 +112,7 @@ function StaffDetailPage() {
     ...(canReadAcr ? (['acr', 'incidents', 'performance'] as const) : []),
     ...(canPrintStaffCard ? (['documents'] as const) : []),
     ...(hasStaffProfile && canReadStaffAttendance ? (['attendanceLeave'] as const) : []),
+    ...(hasStaffProfile && canManageApplications ? (['applications'] as const) : []),
     ...(canReadAuditLogs ? (['loginHistory'] as const) : []),
   ] as const;
   const [activeTab, setActiveTab] = useDetailShellTab(tabIds);
@@ -195,7 +202,27 @@ function StaffDetailPage() {
             content: (
               <AttendanceLeaveTab
                 staffProfileId={userQuery.data.staff_profile_id}
+                userId={userId}
                 staffName={userQuery.data.full_name}
+              />
+            ),
+          },
+        ]
+      : []),
+    ...(hasStaffProfile && canManageApplications && userQuery.data?.staff_profile_id
+      ? [
+          {
+            id: 'applications',
+            label: t('detail.tabs.applications'),
+            content: (
+              <SubjectApplicationsTab
+                subject={{
+                  kind: 'STAFF',
+                  staffProfileId: userQuery.data.staff_profile_id,
+                  userId,
+                }}
+                subjectName={userQuery.data.full_name}
+                ns="staff"
               />
             ),
           },

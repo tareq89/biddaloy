@@ -1,22 +1,13 @@
-import { useMutation, useQuery, useQueryClient, queryOptions } from '@tanstack/react-query';
+import { useQuery, queryOptions } from '@tanstack/react-query';
 
 import { apiClient } from './client';
 import type { components } from './schema';
 
 /**
- * [36.4/#1102] Typed hooks over `POST /leave/requests`, `GET /leave/balance`
- * and `GET /leave/policies` — shapes come from the regenerated `schema.d.ts`
- * now, not hand-typed interfaces.
- *
- * No `GET /leave/requests` (list) exists on the server yet, so there is no
- * hook here for a pending-requests list or a `decide` mutation — both
- * would need a record id this client has no way to obtain. See
- * `-leave-approve-list.tsx`'s own comment for how the approve panel
- * handles that gap.
+ * [36.4/#1102] Typed hooks over `GET /leave/balance` and `GET /leave/policies`.
+ * Requesting and deciding leave go through applications (D20), not here.
  */
 
-export type CreateLeaveRequestInput = components['schemas']['CreateLeaveRequestDto'];
-export type LeaveRecord = components['schemas']['LeaveRecordDto'];
 export type LeaveBalance = components['schemas']['LeaveBalanceDto'];
 
 export function leaveBalanceQueryOptions(staffProfileId: string) {
@@ -46,24 +37,6 @@ export function useLeavePolicies() {
         { signal },
       );
       return res.data;
-    },
-  });
-}
-
-/** [36.4] Requests leave for `input.staff_profile_id` — server rejects
- * (400/409, surfaced via `ApiError.message`) when it would exceed that
- * leave type's remaining balance for the year. */
-export function useCreateLeaveRequest() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (input: CreateLeaveRequestInput) => {
-      const res = await apiClient.post<LeaveRecord>('/leave/requests', input);
-      return res.data;
-    },
-    onSuccess: (_data, input) => {
-      void queryClient.invalidateQueries({
-        queryKey: ['leave', 'balance', input.staff_profile_id],
-      });
     },
   });
 }

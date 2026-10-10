@@ -27,6 +27,104 @@ import {
 } from '../api';
 import { acrBody, surveyBody } from '../fixtures/evaluations';
 import { test } from '../fixtures/test';
+
+/**
+ * [52.5.8] `count` distinct days on which a leave for `studentId` can be approved: school working
+ * days as the calendar API reports them (so seeded public holidays and closures are never picked:
+ * LEAVE_NO_WORKING_DAYS), minus every day an APPROVED leave of this student already covers (reruns
+ * on one database pile those up: LEAVE_OVERLAP). Random, so parallel shards spread out.
+ * `session` needs CALENDAR_READ and APPLICATION_MANAGE (the admin).
+ *
+ * Jan-Feb 2026 only: approving a leave writes that day's section register. A day after the newest
+ * real register (a future day, or one after the seeded month, ATTENDANCE_SEED_MONTH = 2026-03)
+ * would become the section's newest session and blank the My class streaks; Jan-Feb also holds no
+ * seeded marks to overwrite. ponytail: about 20 working days per student per window (January
+ * for staff specs, February for the portal), shared by every rerun on one database (CI starts
+ * fresh); widen the window if local reruns run out.
+ *
+ * The call passes no class, so a closure for one class only still counts as working here while the
+ * approve (which passes the class) skips it. The seed has no class-only closure; add `classId` if a
+ * spec ever creates one.
+ */
+export async function freeLeaveDays(
+  request: APIRequestContext,
+  session: ApiSession,
+  studentId: string,
+  count = 1,
+  // Staff specs take January, the portal journey February, so parallel specs filing for the same
+  // seeded child never pick one day twice (an approved overlap is a 409 LEAVE_OVERLAP).
+  window: { from: string; to: string } = { from: '2026-01-01', to: '2026-01-31' },
+): Promise<string[]> {
+  const { dates } = await get<{ dates: string[] }>(
+    request,
+    session,
+    `/school-calendar/working-days?from=${window.from}&to=${window.to}`,
+  );
+  // ponytail: one page of 100 approved leaves; page through if a database ever holds more.
+  const approved = await get<{ data: { start_date: string | null; end_date: string | null }[] }>(
+    request,
+    session,
+    `/applications?view=all&type=STUDENT_LEAVE&status=APPROVED&student_id=${studentId}&limit=100`,
+  );
+  const free = dates.filter(
+    (d) => !approved.data.some((a) => a.start_date! <= d && d <= a.end_date!),
+  );
+  const picked: string[] = [];
+  while (picked.length < count && free.length > 0) {
+    picked.push(free.splice(Math.floor(Math.random() * free.length), 1)[0]!);
+  }
+  if (picked.length < count) throw new Error(`no ${count} free leave day(s) left for ${studentId}`);
+  return picked;
+}
+
+/** Files a paper STUDENT_LEAVE (as the admin session) for `studentId` on a free day. */
+export async function fileStudentLeave(
+  request: APIRequestContext,
+  session: ApiSession,
+  studentId: string,
+  day?: string,
+): Promise<{ id: string; serial: string }> {
+  day ??= (await freeLeaveDays(request, session, studentId))[0]!;
+  return post<{ id: string; serial: string }>(request, session, '/applications', {
+    type: 'STUDENT_LEAVE',
+    subject_student_id: studentId,
+    applicant_name: 'E2E অভিভাবক',
+    payload: { reason_kind: 'SICK', start_date: day, end_date: day, details: 'E2E' },
+  });
+}
+
+/** Makes sure the admin's inbox holds at least `count` rows the admin can decide; returns the first. */
+export async function ensureDecidableApplications(
+  request: APIRequestContext,
+  session: ApiSession,
+  count: number,
+): Promise<string> {
+  const decidable = async () =>
+    (
+      await get<{ data: { id: string; can: { decide: boolean } }[] }>(
+        request,
+        session,
+        '/applications?view=inbox&limit=100',
+      )
+    ).data.filter((a) => a.can.decide);
+  let rows = await decidable();
+  if (rows.length < count) {
+    const all = await get<{ data: { subject_student_id: string | null }[] }>(
+      request,
+      session,
+      '/applications?view=all',
+    );
+    const studentId = all.data.find((a) => a.subject_student_id)?.subject_student_id;
+    if (!studentId) throw new Error('no student application seeded (seed.applications.ts)');
+    for (let i = rows.length; i < count; i += 1) {
+      await fileStudentLeave(request, session, studentId);
+    }
+    rows = await decidable();
+  }
+  const first = rows[0];
+  if (!first) throw new Error('admin has no decidable application');
+  return first.id;
+}
 import manifest from '../route-manifest.json';
 import { SEED_PASSWORD_ENV, SEED_ROLE_EMAILS, SEED_TRIAL_SCHOOL } from '../seed-contract';
 
@@ -364,12 +462,8 @@ export async function resolvePath(
       if (!list.ok()) throw new Error(`GET /applications failed: ${list.status()}`);
       id = ((await list.json()) as { data: { id: string }[] }).data[0]?.id;
     } else {
-      const list = await get<{ data: { id: string }[] }>(
-        request,
-        session,
-        '/applications?view=all',
-      );
-      id = list.data[0]?.id;
+      // [52.5.8] The overlays (approve / reject / consider) need a row the admin can decide.
+      id = await ensureDecidableApplications(request, session, 1);
     }
     // The seed always creates applications: none means the seed broke, so fail, never skip.
     if (!id) throw new Error('no application seeded (server/src/scripts/seed.applications.ts)');

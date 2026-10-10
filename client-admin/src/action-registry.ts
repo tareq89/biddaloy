@@ -205,14 +205,6 @@ export const ACTIONS: readonly PaletteAction[] = [
     run: (ctx) => ctx.navigate({ to: '/attendance/staff' }),
   },
   {
-    id: 'leave.record',
-    label: { en: 'Record leave', bn: 'ছুটি রেকর্ড করুন' },
-    permission: Permission.STAFF_ATTENDANCE_READ,
-    kind: 'modal',
-    group: 'attendance',
-    run: (ctx) => ctx.navigate({ to: '/attendance/staff/leave' }),
-  },
-  {
     id: 'fees.generate',
     label: { en: 'Create fee bills', bn: 'ফির বিল তৈরি করুন' },
     permission: Permission.FEE_GENERATE,

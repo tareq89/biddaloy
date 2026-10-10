@@ -1,12 +1,13 @@
 /**
  * [36.4] Staff detail's "Attendance & Leave" tab — this one staff
  * member's attendance (mark today's status + this month's summary) and
- * leave (balance + request), scoped by `staffProfileId` rather than the
+ * leave (balance + a link to the leave application form), scoped by `staffProfileId` rather than the
  * whole-roster grid `../../attendance/staff/index.tsx` renders.
  */
-import { AttendanceStatus, Permission } from '@biddaloy/shared';
+import { ApplicationType, AttendanceStatus, Permission } from '@biddaloy/shared';
 import { AttendanceStatusControl, Button, ErrorState, Skeleton } from '@biddaloy/ui/components';
 import {
+  useCurrentUserId,
   useHasPermission,
   useLeaveBalance,
   useMarkStaffAttendance,
@@ -14,12 +15,13 @@ import {
 } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { formatNumber } from '@biddaloy/ui/utils';
+import { Link } from '@tanstack/react-router';
 import * as React from 'react';
-
-import { LeaveRequestDialog } from '../../attendance/staff/-leave-request-dialog';
 
 export interface AttendanceLeaveTabProps {
   staffProfileId: string;
+  /** The staff member's user id: `/applications/new?staff=` takes a user id, not a profile id. */
+  userId: string;
   staffName: string;
 }
 
@@ -33,14 +35,21 @@ function monthStartIso(): string {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
 }
 
-export function AttendanceLeaveTab({ staffProfileId, staffName }: AttendanceLeaveTabProps) {
+export function AttendanceLeaveTab({ staffProfileId, userId, staffName }: AttendanceLeaveTabProps) {
   const { t } = useTranslation('staffAttendance');
   const { t: tLeave } = useTranslation('leave');
   const { t: ts } = useTranslation('staff');
   const regionConfig = useRegionConfig();
   const canMark = useHasPermission(Permission.STAFF_ATTENDANCE_MARK);
+  const canManageApplications = useHasPermission(Permission.APPLICATION_MANAGE);
+  const isSelf = useCurrentUserId() === userId;
+  // Own page: file for yourself. Someone else's: only APPLICATION_MANAGE enters it for them.
+  const leaveSearch = isSelf
+    ? { type: ApplicationType.STAFF_LEAVE }
+    : canManageApplications
+      ? { type: ApplicationType.STAFF_LEAVE, staff: userId }
+      : null;
   const [todayStatus, setTodayStatus] = React.useState<AttendanceStatus | null>(null);
-  const [requestOpen, setRequestOpen] = React.useState(false);
   const markAttendance = useMarkStaffAttendance();
   const summaryQuery = useStaffAttendanceSummary(staffProfileId, monthStartIso(), todayIso());
   const balanceQuery = useLeaveBalance(staffProfileId);
@@ -118,9 +127,13 @@ export function AttendanceLeaveTab({ staffProfileId, staffName }: AttendanceLeav
       <section className="rounded-lg border border-border-subtle bg-surface p-4 shadow-e1 md:p-5">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-h2">{ts('detail.attendanceLeave.leaveTitle')}</h2>
-          <Button type="button" variant="outline" onClick={() => setRequestOpen(true)}>
-            {tLeave('myLeave.requestButton')}
-          </Button>
+          {leaveSearch && (
+            <Button asChild variant="outline">
+              <Link to="/applications/new" search={leaveSearch}>
+                {tLeave('myLeave.requestButton')}
+              </Link>
+            </Button>
+          )}
         </div>
         <div className="mt-4">
           {balanceQuery.isPending ? (
@@ -138,20 +151,14 @@ export function AttendanceLeaveTab({ staffProfileId, staffName }: AttendanceLeav
               {balanceQuery.data.map((row) => (
                 <li key={row.leave_type} className="flex min-h-11 items-center justify-between">
                   <span>{tLeave(`type.${row.leave_type}`)}</span>
-                  {/* [52.2.4] null balance = unlimited quota (D19); #2122 gives it a proper label. */}
-                  <span>{row.balance === null ? '—' : num(row.balance)}</span>
+                  {/* null balance = unlimited quota (D19) */}
+                  <span>{row.balance === null ? tLeave('myLeave.noLimit') : num(row.balance)}</span>
                 </li>
               ))}
             </ul>
           )}
         </div>
       </section>
-
-      <LeaveRequestDialog
-        open={requestOpen}
-        onOpenChange={setRequestOpen}
-        staffProfileId={staffProfileId}
-      />
     </div>
   );
 }

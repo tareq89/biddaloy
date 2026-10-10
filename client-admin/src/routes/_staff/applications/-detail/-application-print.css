@@ -1,0 +1,28 @@
+/* [52.5.2] Print only the letter and its decision block. `LetterPreview` sets the id.
+ * Scoped under `body:has(...)` so this sheet, which stays loaded after leaving the page,
+ * cannot affect other pages' printouts (#1322). `@page` cannot be scoped.
+ * Needs a manual print-preview check; no unit test can cover it. */
+@media print {
+  body:has(#application-letter-print-area) * {
+    visibility: hidden;
+  }
+
+  body:has(#application-letter-print-area) #application-letter-print-area,
+  body:has(#application-letter-print-area) #application-letter-print-area * {
+    visibility: visible;
+  }
+
+  #application-letter-print-area {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    border: 0;
+    padding: 0;
+    color: #000;
+    background: #fff;
+  }
+
+  @page {
+    margin: 18mm;
+  }
+}

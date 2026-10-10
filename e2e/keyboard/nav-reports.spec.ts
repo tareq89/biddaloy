@@ -13,3 +13,12 @@ test.describe('Reports (accountant)', () => {
     await expectReachableInMain(page);
   });
 });
+
+test.describe('Reports (admin)', () => {
+  test.use(loggedIn('admin'));
+
+  test('applications report', async ({ page }) => {
+    await openFromSidebar(page, t('nav.items.applicationsReportsNav'));
+    await expectReachableInMain(page);
+  });
+});

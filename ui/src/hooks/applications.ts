@@ -217,6 +217,9 @@ export async function downloadApplicationAttachment(
 
 // ---- Mutations ----
 
+/** Prefix of `leaveBalanceQueryOptions`' key (`api/leave.ts`). */
+const LEAVE_BALANCE_KEY = ['leave', 'balance'] as const;
+
 /**
  * Decision mutations answer with the fresh dto: seed the detail, refresh lists + badge only
  * (not the detail just seeded, nor letter-preview / reports / tag-options).
@@ -319,10 +322,16 @@ export function useConsiderApplication() {
 
 export function useCancelApplication() {
   const onDecided = useDecisionCache();
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, reason }: { id: string; reason: string }) =>
       (await apiClient.post<ApplicationDto>(`/applications/${id}/cancel`, { reason })).data,
-    onSuccess: onDecided,
+    onSuccess: (dto) => {
+      onDecided(dto);
+      // Cancelling an approved STAFF_LEAVE reverses its ledger rows: the balance is stale too.
+      if (dto.type === 'STAFF_LEAVE')
+        void queryClient.invalidateQueries({ queryKey: LEAVE_BALANCE_KEY });
+    },
   });
 }
 
@@ -333,6 +342,7 @@ export function useBulkApproveApplications() {
       (await apiClient.post<BulkApproveResult[]>('/applications/bulk-approve', input)).data,
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: applicationKeys.all });
+      void queryClient.invalidateQueries({ queryKey: LEAVE_BALANCE_KEY });
     },
   });
 }
@@ -343,13 +353,23 @@ export function useBulkApproveApplications() {
  */
 export function useApproveApplication() {
   const onDecided = useDecisionCache();
+  const queryClient = useQueryClient();
   return useApprovedMutation(
     async (input: { id: string } & ApproveApplicationInput, options) => {
       const { id, ...body } = input;
       return (await apiClient.post<ApplicationDto>(`/applications/${id}/approve`, body, options))
         .data;
     },
-    { approvalScope: ApprovalScope.DISCOUNT_RULES_MANAGE, retry: false, onSuccess: onDecided },
+    {
+      approvalScope: ApprovalScope.DISCOUNT_RULES_MANAGE,
+      retry: false,
+      onSuccess: (dto: ApplicationDto) => {
+        onDecided(dto);
+        // An approved STAFF_LEAVE writes the ledger: the balance shown elsewhere is now stale.
+        if (dto.type === 'STAFF_LEAVE')
+          void queryClient.invalidateQueries({ queryKey: LEAVE_BALANCE_KEY });
+      },
+    },
   );
 }
 

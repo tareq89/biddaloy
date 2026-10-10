@@ -294,23 +294,12 @@ export const IDENTITY_SCOPED: IdentityScopedEntry[] = [
   },
   {
     controller: 'LeaveController',
-    method: 'POST',
-    path: '/leave/requests',
-    reason:
-      '[36.3] self-or-approver scoped: no separate REQUEST permission exists, so the service ' +
-      "requires the target staff_profile_id to resolve to the caller's own user_id (403 " +
-      'otherwise) unless the caller holds LEAVE_APPROVE, in which case it may file for any ' +
-      'staff profile in tenant. LEAVE_APPROVE is otherwise reserved for the admin ' +
-      'decide/policy routes below, which do declare @RequirePermissions.',
-  },
-  {
-    controller: 'LeaveController',
     method: 'GET',
     path: '/leave/balance',
     reason:
-      '[36.3] same self-or-approver scoping as POST /leave/requests — no separate leave-read ' +
-      "permission; the service requires staff_profile_id to be the caller's own unless they " +
-      'hold LEAVE_APPROVE.',
+      '[36.3] self-or-approver scoped: no separate leave-read permission; the service requires ' +
+      "staff_profile_id to be the caller's own user_id (403 otherwise) unless the caller holds " +
+      'LEAVE_APPROVE.',
   },
   {
     controller: 'LeaveController',
