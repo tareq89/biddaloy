@@ -36,6 +36,7 @@ at hand instead of loading the whole set.
 | [20-presets.md](20-presets.md) | Working on `modules/presets` — curriculum packs (NCTB, Alia, Qawmi, Cambridge, Blank), applying or resetting a school's preset, subject choice groups, exam templates from a pack, or adding a new board or country |
 | [21-ui-patterns.md](21-ui-patterns.md) | Designing, planning or building any screen: page shapes, page vs full-page modal vs dialog, table / filter / form rules, date-number-money formats, phone rules, wording, the component catalogue, and how to mock a screen up from the kit |
 | [22-onboarding.md](22-onboarding.md) | Working on `/register`, the welcome wizard and setup checklist, the free trial and seat limit, first-password, or Google sign-in |
+| [23-attention.md](23-attention.md) | Working on the attention bar/modal, alert rules, the to-do/history page, manual alerts, the alerts report, push mute/quiet hours, or the guardian SMS fallback |
 
 For practical "how do I run/develop/test this" instructions, see the root
 [`README.md`](../../README.md) — these docs cover the *why* behind the
