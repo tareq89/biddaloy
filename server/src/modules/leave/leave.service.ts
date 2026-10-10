@@ -19,6 +19,8 @@ import { LeaveRecord } from './entities/leave-record.entity';
 import { LeavePolicy } from './entities/leave-policy.entity';
 import { StaffProfile } from '../staff-profiles/entities/staff-profile.entity';
 import { AuditService } from '../audit/audit.service';
+import { attentionEvents } from '../attention/attention.constants';
+import { emitRecheck } from '../attention/engine/attention-events';
 import {
   CreateLeaveRequestDto,
   DecideLeaveRequestDto,
@@ -263,6 +265,27 @@ export class LeaveService {
    * re-read a live balance sum.
    */
   async decide(
+    tenantId: string,
+    leaveRecordId: string,
+    decidedByUserId: string,
+    dto: DecideLeaveRequestDto,
+    auditContext: { ip: string | null; userAgent: string | null },
+  ): Promise<LeaveRecordDto> {
+    const result = await this.decideInTransaction(
+      tenantId,
+      leaveRecordId,
+      decidedByUserId,
+      dto,
+      auditContext,
+    );
+    // Only after the transaction resolved: a rejected 422 must not emit.
+    for (const ruleKey of ['leave.my_request_decided', 'leave.staff_pending'] as const) {
+      emitRecheck(attentionEvents, { tenantId, ruleKey, actorUserId: decidedByUserId });
+    }
+    return result;
+  }
+
+  private async decideInTransaction(
     tenantId: string,
     leaveRecordId: string,
     decidedByUserId: string,
