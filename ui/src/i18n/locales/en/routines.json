@@ -481,6 +481,6 @@
     },
     "nextDays": "Next days",
     "nextDayMeta_one": "{{count}} period · first {{section}}",
-    "nextDayMeta_other": "{{count}} period · first {{section}}"
+    "nextDayMeta_other": "{{count}} periods · first {{section}}"
   }
 }

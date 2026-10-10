@@ -245,6 +245,27 @@ describe('/routines/my marking', () => {
     expect(seen.puts[0]).toMatchObject({ status: 'NOT_TAUGHT', reason: 'TEACHER_ABSENT' });
   });
 
+  it('Enter on a reason radio reports; Enter on Cancel cancels and saves nothing', async () => {
+    setup({ periods: [OPEN] });
+    const user = userEvent.setup();
+    render();
+
+    await user.click(await screen.findByRole('radio', { name: 'Not taught' }));
+    let dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('radio', { name: 'Teacher absent' }));
+    within(dialog).getByRole('button', { name: 'Cancel' }).focus();
+    await user.keyboard('{Enter}');
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(seen.puts).toHaveLength(0);
+
+    await user.click(screen.getByRole('radio', { name: 'Not taught' }));
+    dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('radio', { name: 'Teacher absent' }));
+    await user.keyboard('{Enter}');
+    await waitFor(() => expect(seen.puts).toHaveLength(1));
+    expect(seen.puts[0]).toMatchObject({ status: 'NOT_TAUGHT', reason: 'TEACHER_ABSENT' });
+  });
+
   it('Esc closes the dialog and focus returns to the not-taught button', async () => {
     setup({ periods: [OPEN] });
     const user = userEvent.setup();

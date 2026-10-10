@@ -91,7 +91,11 @@ export function NotTaughtDialog({
           }}
           onKeyDown={(event) => {
             // Radix radios swallow Enter; D12 wants Enter to report.
-            if (event.key === 'Enter' && !(event.target instanceof HTMLTextAreaElement)) {
+            if (
+              event.key === 'Enter' &&
+              event.target instanceof HTMLElement &&
+              event.target.getAttribute('role') === 'radio'
+            ) {
               event.preventDefault();
               submit();
             }

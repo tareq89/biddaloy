@@ -30,6 +30,15 @@ test.describe('teacher: My routine, phone viewport', () => {
 
   test('marking a period taught persists after a reload', async ({ page }) => {
     await page.goto('/routines/my');
+    // Wait out the loading skeleton before deciding whether to skip.
+    const main = page.getByRole('main');
+    await expect(
+      main
+        .getByRole('article')
+        .first()
+        .or(main.getByText(t('routines.agenda.emptyDay')))
+        .first(),
+    ).toBeVisible({ timeout: 60_000 });
 
     const taught = page.getByRole('radio', { name: t('routines.marking.status.taught') }).first();
     // No open planned period today: nothing to mark (see the file docblock).

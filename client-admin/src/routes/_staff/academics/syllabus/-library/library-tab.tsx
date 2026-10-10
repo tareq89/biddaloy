@@ -204,7 +204,7 @@ export function LibraryTab({
       {deleteFailed && <NoticeBar tone="danger">{t('library.deleteFailed')}</NoticeBar>}
       <DataTable
         tableId="study-plan-templates"
-        caption={t('library.add')}
+        caption={t('library.caption')}
         columns={columns}
         rowActions={rowActions}
         data={rows}

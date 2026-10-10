@@ -163,7 +163,7 @@ function SyllabusPage() {
               canManage
                 ? (template) =>
                     void navigate({
-                      search: (prev) => ({ ...prev, tab: 'plans', new: 1, template }),
+                      search: { tab: 'plans', new: 1, template },
                     })
                 : undefined
             }

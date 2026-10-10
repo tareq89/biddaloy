@@ -23,7 +23,7 @@ const STORED = {
 };
 
 function mockCredits(body: object = { metering: 'OFF', available: 0, reserved: 0, ledger: {} }) {
-  server.use(http.get('/api/v1/communications/sms-credits', () => HttpResponse.json(body)));
+  server.use(http.get(`/api/v1/schools/${SCHOOL_ID}/sms-credits`, () => HttpResponse.json(body)));
 }
 
 function mockPatch() {
@@ -177,6 +177,6 @@ describe('StudyPlansSection', () => {
 
     const summary = await screen.findByRole('region', { name: 'এখনকার সেটিংয়ে যা হয়' });
     expect(summary.textContent).toContain('সন্ধ্যা ৬:০০');
-    expect(summary.textContent).toContain('পরদিন সকাল ৮:০০');
+    expect(summary.textContent).toContain('পরের স্কুল-দিন সকাল ৮:০০');
   });
 });

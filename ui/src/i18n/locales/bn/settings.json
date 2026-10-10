@@ -410,7 +410,7 @@
     "summary": {
       "deadline": "সময় শেষ। না জানানো পিরিয়ড \"বাকি\" থাকে।",
       "reminder": "শিক্ষক মনে করানোর পুশ পান।",
-      "reminderValue": "পরদিন {{time}}",
+      "reminderValue": "পরের স্কুল-দিন {{time}}",
       "escalateValue_one": "{{count}} স্কুল-দিন পর",
       "escalateValue_other": "{{count}} স্কুল-দিন পর",
       "escalate": "প্রধান শিক্ষক ও অ্যাডমিন জানেন।",

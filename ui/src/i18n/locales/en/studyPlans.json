@@ -52,9 +52,9 @@
     "section": "Section",
     "carryOver": {
       "title_one": "Add the {{count}} lesson left from last term?",
-      "title_other": "Add the {{count}} lesson left from last term?",
+      "title_other": "Add the {{count}} lessons left from last term?",
       "body": "These were not taught in {{term}}. They go at the start; you can move or delete them later.",
-      "confirm_one": "Yes, add these {{count}} lessons at the start",
+      "confirm_one": "Yes, add this lesson at the start",
       "confirm_other": "Yes, add these {{count}} lessons at the start"
     },
     "source": {
@@ -67,7 +67,7 @@
       "csvHelp": "Upload a file you downloaded or wrote in Excel."
     },
     "templatesFor_one": "{{class}} · {{subject}} — {{count}} template",
-    "templatesFor_other": "{{class}} · {{subject}} — {{count}} template",
+    "templatesFor_other": "{{class}} · {{subject}} — {{count}} templates",
     "templateMeta": "{{lessons}} lessons · {{periods}} periods · updated {{date}}",
     "noTemplates": "No template for this class and subject yet.",
     "openLibrary": "Open the template library",
@@ -116,6 +116,7 @@
       "delete": "Delete {{name}}"
     },
     "add": "Add template",
+    "caption": "Template library",
     "addFromCsv": "Add from CSV",
     "form": {
       "name": "Template name",

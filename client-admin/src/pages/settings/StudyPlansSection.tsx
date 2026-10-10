@@ -76,7 +76,7 @@ export function StudyPlansSection({
   });
   useWarnUnsavedChanges(form.formState.isDirty);
   const updateSettings = useUpdateSchoolSettings(schoolId);
-  const credits = useSmsCredits(1, 1);
+  const credits = useSmsCredits(1, 1, schoolId);
   const balance = credits.data?.metering === 'PLATFORM' ? credits.data.available : undefined;
 
   const live = form.watch();
@@ -92,7 +92,10 @@ export function StudyPlansSection({
     };
     updateSettings.mutate(
       { version: 1, studyPlans: studyPlansPatch },
-      { onSuccess: () => form.reset(values, { keepIsSubmitSuccessful: true }) },
+      {
+        onSuccess: () =>
+          form.reset(values, { keepIsSubmitSuccessful: true, keepDirtyValues: true }),
+      },
     );
   }
 
@@ -226,7 +229,7 @@ export function StudyPlansSection({
                   <Checkbox
                     id="studyPlans-guardianDigestSms"
                     checked={field.value}
-                    disabled={!smsConfigured}
+                    disabled={!smsConfigured && !field.value}
                     aria-describedby="studyPlans-guardianSmsHint"
                     onCheckedChange={(checked) => field.onChange(checked === true)}
                   />
