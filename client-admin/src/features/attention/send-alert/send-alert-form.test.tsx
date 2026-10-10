@@ -36,6 +36,21 @@ async function fill(user: ReturnType<typeof userEvent.setup>, roles: string[] = 
   }
 }
 
+const sendFails = (status: number, message: string | string[], details?: object) =>
+  http.post('*/attention/manual', () =>
+    HttpResponse.json(
+      {
+        statusCode: status,
+        message,
+        timestamp: '2026-10-10T00:00:00.000Z',
+        path: '/api/v1/attention/manual',
+        requestId: 'req-1',
+        ...(details ? { details } : {}),
+      },
+      { status },
+    ),
+  );
+
 const preview = (recipientCount: number) =>
   http.post('*/attention/manual/preview', () => HttpResponse.json({ recipientCount }));
 
@@ -91,33 +106,62 @@ describe('SendAlertForm', () => {
     expect(screen.getByRole('button', { name: 'Send' })).toHaveProperty('disabled', true);
   });
 
-  it('shows the daily-limit message on a 429', async () => {
+  it.each([
+    [
+      'the daily cap',
+      sendFails(429, 'Daily limit of 20 alerts reached', {
+        code: 'MANUAL_DAILY_LIMIT',
+        limit: 20,
+      }),
+      /^Daily limit of [2২][0০] alerts reached\. Try again tomorrow\.$/,
+    ],
+    [
+      'the per-minute throttle',
+      sendFails(429, 'ThrottlerException: Too Many Requests'),
+      /^Too many tries\. Wait a minute and try again\.$/,
+    ],
+    [
+      'an audience that emptied',
+      sendFails(400, 'No one matches this audience', { code: 'MANUAL_NO_RECIPIENTS' }),
+      /^Nobody matches these groups\.$/,
+    ],
+    [
+      'a class-validator field error (own copy, not the English server text)',
+      sendFails(400, ['title should not be empty']),
+      /^Check the title\.$/,
+    ],
+  ])('explains a failed send: %s', async (_name, handler, text) => {
     const user = userEvent.setup();
-    server.use(
-      preview(3),
-      http.post('*/attention/manual', () =>
-        HttpResponse.json(
-          {
-            statusCode: 429,
-            message: 'Daily limit of 20 alerts reached',
-            timestamp: '2026-10-10T00:00:00.000Z',
-            path: '/api/v1/attention/manual',
-            requestId: 'req-1',
-          },
-          { status: 429 },
-        ),
-      ),
-    );
+    server.use(preview(3), handler);
     renderForm();
     await fill(user);
     await screen.findByText(/^[3৩] people in total$/);
     await user.click(screen.getByRole('button', { name: 'Send' }));
-    expect(
-      await screen.findByText(/^Daily limit of [2২][0০] alerts reached\. Try again tomorrow\.$/),
-    ).toBeTruthy();
+    expect(await screen.findByText(text)).toBeTruthy();
   });
 
-  it('keeps the last count when the rate-limited preview answers 429', async () => {
+  it('does not send on Ctrl+Enter while a confirm dialog is open', async () => {
+    const user = userEvent.setup();
+    let posted = false;
+    server.use(
+      preview(3),
+      http.post('*/attention/manual', () => {
+        posted = true;
+        return HttpResponse.json({ id: 'a-1', recipientCount: 3 }, { status: 201 });
+      }),
+    );
+    renderForm();
+    await fill(user);
+    await screen.findByText(/^[3৩] people in total$/);
+    // Esc opens the shell's own discard prompt, which this form does not track
+    await user.keyboard('{Escape}');
+    await screen.findByRole('alertdialog');
+    await user.keyboard('{Control>}{Enter}{/Control}');
+    await new Promise((r) => setTimeout(r, 50));
+    expect(posted).toBe(false);
+  });
+
+  it('keeps the last count, marked stale, when the rate-limited preview answers 429', async () => {
     const user = userEvent.setup();
     let calls = 0;
     server.use(
@@ -145,6 +189,10 @@ describe('SendAlertForm', () => {
     await user.click(await screen.findByRole('option', { name: 'Accountant' }));
     await waitFor(() => expect(calls).toBe(2));
     expect(await screen.findByText(/^[5৫] people in total$/)).toBeTruthy();
+    // the kept count belongs to the previous audience, so it is marked as possibly stale
+    expect(
+      await screen.findByText('Could not refresh the count, so it may be out of date.'),
+    ).toBeTruthy();
     expect(screen.queryByText('Nobody matches these groups.')).toBeNull();
   });
 

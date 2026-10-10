@@ -504,6 +504,15 @@
     "sent_one": "Sent to {{n}} person",
     "sent_other": "Sent to {{n}} people",
     "dailyLimit": "Daily limit of {{n}} alerts reached. Try again tomorrow.",
+    "countStale": "Could not refresh the count, so it may be out of date.",
+    "tooFast": "Too many tries. Wait a minute and try again.",
+    "badDate": "Pick an end date between today and {{n}} days from today.",
+    "errors": {
+      "title": "Check the title.",
+      "body": "Check the message.",
+      "actionUrl": "Pick a page from the list.",
+      "expiresOn": "Pick a valid end date."
+    },
     "discardTitle": "Discard this alert?",
     "discardBody": "What you wrote will be lost.",
     "discard": "Discard",

@@ -32,7 +32,12 @@ import {
 } from '@biddaloy/ui/hooks';
 import { useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { FullPageShell } from '@biddaloy/ui/shells';
-import { renderDigits, tenantTodayIso, toIsoDate } from '@biddaloy/ui/utils';
+import {
+  parseValidationFieldErrors,
+  renderDigits,
+  tenantTodayIso,
+  toIsoDate,
+} from '@biddaloy/ui/utils';
 import { CircleAlert } from 'lucide-react';
 import * as React from 'react';
 
@@ -42,7 +47,6 @@ import { SentAlertsCard } from './sent-alerts-card';
 
 const TITLE_MAX = 140;
 const MESSAGE_MAX = 500;
-const DAILY_CAP = 20;
 const MAX_DAYS_AHEAD = 30;
 const SEVERITIES = ['WARNING', 'REMINDER'] as const;
 const NO_LINK = '__none__';
@@ -90,7 +94,8 @@ export function SendAlertForm({ onClose }: { onClose: () => void }) {
   const kind = audienceKind(audience);
   const linkOptions = useLinkOptions(kind);
   const actionUrl = linkOptions.some((o) => o.value === link) ? link : '';
-  // The preview endpoint is rate-limited: on a failure (429) keep showing the last count.
+  // The preview endpoint is rate-limited: on a failure (429) keep showing the last count, marked
+  // as possibly out of date. While a new audience loads, `data` is still the old audience's count.
   const [lastCount, setLastCount] = React.useState<number | undefined>();
   React.useEffect(() => {
     if (preview.data) setLastCount(preview.data.recipientCount);
@@ -98,6 +103,7 @@ export function SendAlertForm({ onClose }: { onClose: () => void }) {
   const count = isAudienceEmpty(audience)
     ? undefined
     : (preview.data?.recipientCount ?? (preview.isError ? lastCount : undefined));
+  const countIsCurrent = !preview.isError && !preview.isPlaceholderData;
 
   const dirty = title !== '' || message !== '' || !isAudienceEmpty(audience);
   const reason = !title.trim()
@@ -106,7 +112,7 @@ export function SendAlertForm({ onClose }: { onClose: () => void }) {
       ? t('composer.needMessage')
       : isAudienceEmpty(audience)
         ? t('composer.needAudience')
-        : count === 0
+        : count === 0 && countIsCurrent
           ? t('composer.nobody')
           : undefined;
 
@@ -132,13 +138,22 @@ export function SendAlertForm({ onClose }: { onClose: () => void }) {
       );
       onClose();
     } catch (error) {
-      if (error instanceof ApiError && error.statusCode === 429) {
-        setFormError(t('composer.dailyLimit', { n: fmt(DAILY_CAP) }));
-      } else if (error instanceof ApiError && error.statusCode === 400) {
+      const apiError = error instanceof ApiError ? error : undefined;
+      const code = apiError?.details?.code;
+      if (code === 'MANUAL_DAILY_LIMIT') {
+        setFormError(t('composer.dailyLimit', { n: fmt(Number(apiError?.details?.limit)) }));
+      } else if (apiError?.statusCode === 429) {
+        // the per-minute throttler, not the daily cap
+        setFormError(t('composer.tooFast'));
+      } else if (code === 'MANUAL_NO_RECIPIENTS') {
+        setFormError(t('composer.nobody'));
+      } else if (code === 'MANUAL_EXPIRES_RANGE') {
+        setFieldErrors({ expiresOn: t('composer.badDate', { n: fmt(MAX_DAYS_AHEAD) }) });
+      } else if (apiError?.statusCode === 400) {
+        // class-validator text is English: show our own per-field copy instead
         const errors: Record<string, string> = {};
-        for (const message of error.messages) {
-          const field = FIELDS.find((f) => message === f || message.startsWith(`${f} `));
-          if (field) errors[field] = message;
+        for (const field of Object.keys(parseValidationFieldErrors(apiError.messages, FIELDS))) {
+          errors[field] = t(`composer.errors.${field}`);
         }
         setFieldErrors(errors);
         if (Object.keys(errors).length === 0) setFormError(tCommon('status.error'));
@@ -150,10 +165,15 @@ export function SendAlertForm({ onClose }: { onClose: () => void }) {
     }
   }
 
-  // Ctrl/Cmd+Enter sends from anywhere in the page (the shell is a modal).
+  // Ctrl/Cmd+Enter sends from anywhere in the page (the shell is a modal), but not while a
+  // confirm dialog (the discard prompts, withdraw) is open on top of it.
   React.useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Enter' && (event.ctrlKey || event.metaKey) && !discardOpen) {
+      if (
+        event.key === 'Enter' &&
+        (event.ctrlKey || event.metaKey) &&
+        !document.querySelector('[role="alertdialog"]')
+      ) {
         event.preventDefault();
         void submit();
       }
@@ -328,14 +348,16 @@ export function SendAlertForm({ onClose }: { onClose: () => void }) {
                 aria-live="polite"
                 className="rounded-md border border-border-subtle bg-muted p-3"
               >
-                {count === undefined ? null : count === 0 ? (
+                {count === undefined ? null : count === 0 && countIsCurrent ? (
                   <p>{t('composer.nobody')}</p>
                 ) : (
                   <>
                     <p className="text-label">
                       {t('composer.recipients', { count, n: fmt(count) })}
                     </p>
-                    <p className="text-caption text-text-secondary">{t('composer.onceNote')}</p>
+                    <p className="text-caption text-text-secondary">
+                      {preview.isError ? t('composer.countStale') : t('composer.onceNote')}
+                    </p>
                   </>
                 )}
               </div>
