@@ -14,6 +14,17 @@ task, not the whole set.
 Package-specific conventions live in that package's own `CLAUDE.md` (e.g.
 `server/CLAUDE.md` for NestJS testing standards) rather than here.
 
+## Seed data rule (always, for any change that touches the database)
+
+Any epic, ticket or bug fix that adds or changes a table or column also
+updates the **demo seed** (`server/src/scripts/demo-seed/`), so the feature has
+realistic data in the demo school. A CI coverage guard enforces it once
+Epic 58 (#1732) Wave 1 lands. Before that, record the gap as
+[`docs/architecture/22-demo-seed.md`](docs/architecture/22-demo-seed.md)
+says. Follow that doc's safety rules: no literal dates, fresh DB only,
+`ctx.rng` only, real services for "today", no real contacts. The dev seed
+(`yarn seed`) stays e2e-only.
+
 ## Documentation style (always, for any doc in this repo)
 
 Any time you write or edit documentation — root or package `README.md`,

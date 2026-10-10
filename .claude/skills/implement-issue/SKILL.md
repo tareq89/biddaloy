@@ -286,6 +286,12 @@ follow-up noise in the PR diff. Who reviews depends on the **review tier**:
   this session. (It's a skill, so you invoke it directly — unlike `/model`,
   this one really runs.)
 
+Either tier, one check the reviewer must not skip: **a diff that adds or
+changes a table or column must also cover it in the demo seed**
+(`docs/architecture/22-demo-seed.md`, rule and safety list). Bug fixes are
+included. A schema change with no slice, no `DEMO_SEED_EXEMPT` reason and
+(before #2161) no PR line is a finding.
+
 Act on what it finds:
 
 - Fix anything real. Re-run tests and lint after the fixes.
