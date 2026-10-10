@@ -114,7 +114,7 @@ const ROWS: Row[] = [
   ['class.starting', C.PERIOD, S.REMINDER, [K.FAST], [R.TEACHER], true, true, false],
   ['routine.substitution_today', C.PERIOD, S.REMINDER, [K.DAILY, K.ON_CHANGE], [R.TEACHER], true, true, false],
   ['routine.uncovered_periods', C.PERIOD, S.WARNING, [K.FAST], [R.EXECUTIVE, R.ADMIN], true, true, false],
-  ['homework.not_submitted', C.HOMEWORK, S.WARNING, [K.FAST], [R.STUDENT, R.PARENT, R.TEACHER], true, true, false],
+  ['homework.not_submitted', C.HOMEWORK, S.WARNING, [K.FAST, K.ON_CHANGE], [R.STUDENT, R.PARENT, R.TEACHER], true, true, false],
   ['homework.due_today', C.HOMEWORK, S.REMINDER, [K.DAILY], [R.STUDENT], false, true, false],
   ['homework.due_tomorrow', C.HOMEWORK, S.REMINDER, [K.DAILY], [R.STUDENT, R.PARENT], false, true, false],
   ['homework.to_grade', C.HOMEWORK, S.REMINDER, [K.DAILY], [R.TEACHER], false, true, false],
@@ -159,7 +159,17 @@ const ROWS: Row[] = [
 ];
 
 export const ALERT_RULES: readonly AlertRuleMeta[] = ROWS.map(
-  ([key, category, severity, cadence, roles, pushable, canDisable, guardianSmsFallback, ownerEpic]) => ({
+  ([
+    key,
+    category,
+    severity,
+    cadence,
+    roles,
+    pushable,
+    canDisable,
+    guardianSmsFallback,
+    ownerEpic,
+  ]) => ({
     key,
     category,
     severity,
