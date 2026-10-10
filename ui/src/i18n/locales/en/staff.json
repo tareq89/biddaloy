@@ -499,6 +499,8 @@
       "LEAVE_APPROVE": "Approve leave",
       "APPLICATION_SUBMIT": "Submit applications",
       "APPLICATION_MANAGE": "Manage all applications",
+      "ALERT_SEND": "Send alerts",
+      "ALERT_REPORT_READ": "View alerts report",
       "EXAM_MANAGE": "Manage exams",
       "GRADING_SCALE_MANAGE": "Manage grading scales",
       "MARK_ENTER": "Enter marks",

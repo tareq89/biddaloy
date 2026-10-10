@@ -23,6 +23,9 @@ import {
  * why they need their own cadence.
  */
 export const TRANSACTIONAL_TABLES_CHILD_FIRST = [
+  // [67.1.02] attention engine; recipients FK alerts, so they clear first.
+  'alert_recipients',
+  'alerts',
   // [28.1.2] ACR / incidents / surveys. Child-first within each group; all
   // FK (RESTRICT) to users/teachers/subjects/academic_years, so they clear
   // before those tables.

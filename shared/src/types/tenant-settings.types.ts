@@ -1,4 +1,5 @@
 import type { ApprovalMode, TermLabel } from '../enums';
+import type { AttentionSettings } from './attention';
 
 /**
  * Shape of the JSON blob stored on `schools.settings`. `version` is a
@@ -303,4 +304,5 @@ export interface TenantSettings {
   applications?: ApplicationsSettings;
   documents?: DocumentsSettings;
   studyPlans?: StudyPlansSettings;
+  attention?: AttentionSettings;
 }

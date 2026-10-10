@@ -64,6 +64,7 @@ import { ApplicationTag } from './modules/applications/entities/application-tag.
 import { ApplicationAttachment } from './modules/applications/entities/application-attachment.entity';
 import { AcrModule } from './modules/acr/acr.module';
 import { IncidentsModule } from './modules/incidents/incidents.module';
+import { AttentionModule } from './modules/attention/attention.module';
 import { SurveysModule } from './modules/surveys/surveys.module';
 import { RegistrationModule } from './modules/registration/registration.module';
 import { OnboardingModule } from './modules/onboarding/onboarding.module';
@@ -75,6 +76,8 @@ import { AcrCriterion } from './modules/acr/entities/acr-criterion.entity';
 import { AcrAssessment } from './modules/acr/entities/acr-assessment.entity';
 import { AcrScore } from './modules/acr/entities/acr-score.entity';
 import { StaffIncident } from './modules/incidents/entities/staff-incident.entity';
+import { Alert } from './modules/attention/entities/alert.entity';
+import { AlertRecipient } from './modules/attention/entities/alert-recipient.entity';
 import { Survey } from './modules/surveys/entities/survey.entity';
 import { SurveyQuestion } from './modules/surveys/entities/survey-question.entity';
 import { SurveyTarget } from './modules/surveys/entities/survey-target.entity';
@@ -350,6 +353,8 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
             AcrAssessment,
             AcrScore,
             StaffIncident,
+            Alert,
+            AlertRecipient,
             Survey,
             SurveyQuestion,
             SurveyTarget,
@@ -452,6 +457,7 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
     ApplicationsModule,
     AcrModule,
     IncidentsModule,
+    AttentionModule,
     SurveysModule,
     PerformanceModule,
     RegistrationModule,

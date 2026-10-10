@@ -3,14 +3,18 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { DataSource } from 'typeorm';
 import Redis from 'ioredis';
+import { AlertCadence } from '@biddaloy/shared';
+import { attentionKeys } from '../attention/attention.constants';
+import { heartbeatStatus } from '../attention/health/attention-health.service';
 import { COMMUNICATIONS_QUEUE } from '../communications/communications.constants';
 
 export interface ReadinessResult {
-  status: 'ok' | 'fail';
+  status: 'ok' | 'degraded' | 'fail';
   checks: {
     db: 'ok' | 'fail';
     redis: 'ok' | 'fail';
     queue: 'ok' | 'fail';
+    attention: 'ok' | 'stale';
   };
 }
 
@@ -54,14 +58,21 @@ export class HealthService {
   ) {}
 
   async readiness(): Promise<ReadinessResult> {
-    const [db, redis, queue] = await Promise.all([
+    const [db, redis, queue, attention] = await Promise.all([
       this.probeDb(),
       this.probeRedis(),
       this.probeQueue(),
+      this.probeAttention(),
     ]);
 
-    const status = db === 'ok' && redis === 'ok' && queue === 'ok' ? 'ok' : 'fail';
-    return { status, checks: { db, redis, queue } };
+    // A stale engine degrades but never fails: it must not pull the API out of the load balancer.
+    const status =
+      db !== 'ok' || redis !== 'ok' || queue !== 'ok'
+        ? 'fail'
+        : attention === 'stale'
+          ? 'degraded'
+          : 'ok';
+    return { status, checks: { db, redis, queue, attention } };
   }
 
   private async probeDb(): Promise<'ok' | 'fail'> {
@@ -88,6 +99,24 @@ export class HealthService {
       return 'ok';
     } catch {
       return 'fail';
+    } finally {
+      redis.disconnect();
+    }
+  }
+
+  private async probeAttention(): Promise<'ok' | 'stale'> {
+    const redis = new Redis(process.env.REDIS_URL ?? 'redis://127.0.0.1:6379', {
+      lazyConnect: true,
+      maxRetriesPerRequest: 1,
+    });
+    try {
+      const raw = await withTimeout(
+        redis.get(attentionKeys.heartbeat(AlertCadence.FAST)),
+        PROBE_TIMEOUT_MS,
+      );
+      return heartbeatStatus(raw, new Date());
+    } catch {
+      return 'stale';
     } finally {
       redis.disconnect();
     }

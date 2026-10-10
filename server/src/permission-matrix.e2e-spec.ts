@@ -160,6 +160,41 @@ export const IDENTITY_SCOPED: IdentityScopedEntry[] = [
       "[13.3.3] self-service: writes only schools.onboarding of the caller's own active tenant (ADMIN only), never a path id.",
   },
   {
+    controller: 'AttentionController',
+    method: 'GET',
+    path: '/attention/summary',
+    reason:
+      "[67.1.07] self-service: only the caller's own alert_recipients rows (user_id from the JWT) in the active tenant.",
+  },
+  {
+    controller: 'AttentionController',
+    method: 'GET',
+    path: '/attention/items',
+    reason:
+      "[67.1.07] self-service: only the caller's own alert_recipients rows (user_id from the JWT) in the active tenant.",
+  },
+  {
+    controller: 'AttentionController',
+    method: 'POST',
+    path: '/attention/items/seen',
+    reason:
+      "[67.1.07] self-service: only the caller's own alert_recipients rows (user_id from the JWT) in the active tenant.",
+  },
+  {
+    controller: 'AttentionController',
+    method: 'POST',
+    path: '/attention/items/:recipientId/hide',
+    reason:
+      "[67.1.07] self-service: only the caller's own alert_recipients rows (user_id from the JWT) in the active tenant.",
+  },
+  {
+    controller: 'AttentionController',
+    method: 'POST',
+    path: '/attention/items/:recipientId/snooze',
+    reason:
+      "[67.1.07] self-service: only the caller's own alert_recipients rows (user_id from the JWT) in the active tenant.",
+  },
+  {
     controller: 'SchoolProfileController',
     method: 'GET',
     path: '/schools/me/profile',
@@ -219,6 +254,13 @@ export const IDENTITY_SCOPED: IdentityScopedEntry[] = [
     path: '/platform/backups/health',
     reason:
       '14.12.3/#617 — platform route (SUPER_ADMIN cross-school backup health), same rationale as GET /schools.',
+  },
+  {
+    controller: 'PlatformAttentionHealthController',
+    method: 'GET',
+    path: '/platform/attention/health',
+    reason:
+      '[67.1.09] platform route (SUPER_ADMIN reads engine health, no tenant data), same rationale as GET /platform/backups/health.',
   },
   {
     controller: 'PublicHolidaysController',
@@ -822,6 +864,9 @@ export const UI_ONLY_PERMISSIONS: Permission[] = [
   // [52.1.1] Plumbing ahead of the /applications routes. [52.2.1]
   // APPLICATION_SUBMIT now gates POST /applications — removed from this list.
   // [52.3.5] APPLICATION_MANAGE now gates GET /applications/reports — removed.
+  // [67.1.01] Plumbing ahead of Epic 67 W5 routes (manual alerts, alerts report) — remove from this list when those routes land.
+  Permission.ALERT_SEND,
+  Permission.ALERT_REPORT_READ,
 ];
 
 describe('Permission matrix (regression)', () => {

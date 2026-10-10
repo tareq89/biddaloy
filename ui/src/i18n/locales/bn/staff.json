@@ -499,6 +499,8 @@
       "LEAVE_APPROVE": "ছুটি অনুমোদন",
       "APPLICATION_SUBMIT": "আবেদন জমা দেওয়া",
       "APPLICATION_MANAGE": "সব আবেদন পরিচালনা",
+      "ALERT_SEND": "সতর্কতা পাঠানো",
+      "ALERT_REPORT_READ": "সতর্কতা প্রতিবেদন দেখা",
       "EXAM_MANAGE": "পরীক্ষা পরিচালনা",
       "GRADING_SCALE_MANAGE": "গ্রেডিং স্কেল পরিচালনা",
       "MARK_ENTER": "নম্বর দেওয়া",

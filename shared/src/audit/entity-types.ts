@@ -22,6 +22,7 @@ export const AUDIT_ENTITY_TYPES = [
   'AcrFormVersion',
   'Application',
   'ApplicationAttachment',
+  'Alert',
   'ApprovalToken',
   'AttendanceDevice',
   'AttendanceRecord',

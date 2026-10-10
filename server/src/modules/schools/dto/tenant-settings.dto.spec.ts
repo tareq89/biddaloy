@@ -4,6 +4,7 @@ import { validate } from 'class-validator';
 import { TenantSettingsDto, TENANT_SETTINGS_SCHEMA_VERSION } from './tenant-settings.dto';
 import {
   DEFAULT_ATTENDANCE_SETTINGS,
+  DEFAULT_ATTENTION_SETTINGS,
   DEFAULT_AUTH_SETTINGS,
   DEFAULT_FEES_SETTINGS,
   DEFAULT_REGION_SETTINGS,
@@ -1069,6 +1070,32 @@ describe('TenantSettingsDto', () => {
       expect(routineError?.children?.some((e) => e.property === 'subjectPeriodsPerWeek')).toBe(
         true,
       );
+    });
+  });
+
+  describe('attention [67.1.06]', () => {
+    const attErr = async (attention: unknown) =>
+      (
+        await validate(
+          toDto({ version: TENANT_SETTINGS_SCHEMA_VERSION, attention }),
+          VALIDATION_OPTIONS,
+        )
+      ).find((e) => e.property === 'attention');
+
+    it('accepts {} and the full defaults object', async () => {
+      expect(await attErr({})).toBeUndefined();
+      expect(await attErr({ ...DEFAULT_ATTENTION_SETTINGS })).toBeUndefined();
+    });
+
+    it('rejects bad time, partial quietHours, out-of-range minutes', async () => {
+      expect(await attErr({ dailyAt: '7:00' })).toBeDefined();
+      expect(await attErr({ quietHours: { start: '21:00' } })).toBeDefined();
+      expect(await attErr({ attendanceGraceMinutes: 121 })).toBeDefined();
+    });
+
+    it('rejects switching off a non-disableable rule (D34)', async () => {
+      expect(await attErr({ rules: { 'attendance.not_taken': { enabled: false } } })).toBeDefined();
+      expect(await attErr({ rules: { 'system.backup_failed': { enabled: false } } })).toBeDefined();
     });
   });
 });

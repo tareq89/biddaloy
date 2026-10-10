@@ -2,6 +2,7 @@ import { TENANT_SETTINGS_SCHEMA_VERSION } from '../dto/tenant-settings.dto';
 import { ApprovalMode, DEFAULT_STUDY_PLANS_SETTINGS, TermLabel } from '@biddaloy/shared';
 import type {
   AttendancePolicySettings,
+  AttentionSettings,
   AuthSettings,
   BackupSettings,
   DocumentsSettings,
@@ -121,6 +122,21 @@ export const DEFAULT_DOCUMENTS_SETTINGS: DocumentsSettings = { withholdAdmitCard
 // [66.1.04] Lives in @biddaloy/shared so the admin UI reads the same constant.
 export { DEFAULT_STUDY_PLANS_SETTINGS };
 
+/** [67.1.06] D10 sweep times, D23 quiet hours, D29 guardian SMS off + cap 2, D34 thresholds. */
+export const DEFAULT_ATTENTION_SETTINGS: AttentionSettings = {
+  rules: {},
+  attendanceGraceMinutes: 15,
+  classStartingLeadMinutes: 10,
+  dailyAt: '07:00',
+  eveningAt: '17:00',
+  quietHours: { start: '21:00', end: '07:00' },
+  guardianSmsFallback: false,
+  guardianSmsDailyCap: 2,
+  smsCreditLowThreshold: 200,
+  failedMessagesThreshold: 10,
+  escalateAttendanceToHeads: true,
+};
+
 export const DEFAULT_TENANT_SETTINGS: TenantSettings = {
   version: TENANT_SETTINGS_SCHEMA_VERSION,
   region: DEFAULT_REGION_SETTINGS,
@@ -132,4 +148,5 @@ export const DEFAULT_TENANT_SETTINGS: TenantSettings = {
   fees: DEFAULT_FEES_SETTINGS,
   documents: DEFAULT_DOCUMENTS_SETTINGS,
   studyPlans: DEFAULT_STUDY_PLANS_SETTINGS,
+  attention: DEFAULT_ATTENTION_SETTINGS,
 };
