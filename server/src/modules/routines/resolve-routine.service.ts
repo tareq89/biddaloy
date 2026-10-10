@@ -137,7 +137,8 @@ export class ResolveRoutineService {
   /**
    * D14: still the only resolver; this is the whole-school form for
    * background jobs (Epic 67). PUBLISHED routine only, every section,
-   * breaks excluded, substitutions and cancellations applied.
+   * breaks excluded, substitutions and cancellations applied, deleted
+   * sections left out.
    */
   async resolveTenantDay(tenantId: string, date: string): Promise<ResolvedSlot[]> {
     const academicYear = await this.yearRepo
@@ -151,7 +152,24 @@ export class ResolveRoutineService {
       where: { tenant_id: tenantId, academic_year_id: academicYear.id, deleted_at: IsNull() },
     });
     if (!routine || routine.state !== RoutineState.PUBLISHED) return [];
-    return this.expandSlots(tenantId, academicYear, routine, date, date, null, undefined, false);
+    const slots = await this.expandSlots(
+      tenantId,
+      academicYear,
+      routine,
+      date,
+      date,
+      null,
+      undefined,
+      false,
+    );
+    if (!slots.length) return [];
+    // A deleted section keeps its routine slots; a background job must not see them.
+    const live = await this.sectionRepo.find({
+      where: { id: In([...new Set(slots.map((s) => s.section_id))]), tenant_id: tenantId },
+      select: { id: true },
+    });
+    const liveIds = new Set(live.map((s) => s.id));
+    return slots.filter((s) => liveIds.has(s.section_id));
   }
 
   private async expandSlots(
