@@ -74,10 +74,10 @@ async function freshLogin(
   try {
     // Deliberately a single attempt, no 401 retry. An earlier version
     // retried to ride out `journeys/portal-account.spec.ts`'s password
-    // rotation, which used to move the SHARED `parent` credential; that
-    // test now rotates `student` instead — a role no other spec signs in
-    // as — so a 401 here means the seed password is genuinely wrong and
-    // is worth failing on immediately. Retrying only bought a slower,
+    // rotation, which used to move a SHARED seeded credential; that test
+    // now changes the password of an account it mints itself, so a 401
+    // here means the seed password is genuinely wrong and is worth
+    // failing on immediately. Retrying only bought a slower,
     // noisier failure (nine 401s per fixture in the CI log) and hid which
     // test had stranded the account.
     const response = await ctx.post('/api/v1/auth/login', {

@@ -199,6 +199,10 @@ export const PALETTE_ALLOW_LIST: readonly PaletteAllowListEntry[] = [
     reason: 'Unsaved-changes confirm inside the form',
   },
   { file: `${R}portal.tsx`, reason: 'Portal phone drawer, not an action' },
+  {
+    file: `${R}portal/applications/new.tsx`,
+    reason: 'Guardian portal page; the staff palette does not cover the portal',
+  },
   { file: `${R}_platform/schools/new.tsx`, reason: 'Platform console, pages-only palette' },
   {
     file: `${R}_platform/schools/-detail/add-admin-form.tsx`,

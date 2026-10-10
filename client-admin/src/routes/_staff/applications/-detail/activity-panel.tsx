@@ -181,7 +181,8 @@ function CommentBox({ app }: { app: ApplicationDto }) {
   );
 }
 
-export function ActivityPanel({ app }: { app: ApplicationDto }) {
+/** `canTag={false}` hides the tag adder (the family portal); the tag line itself still shows. */
+export function ActivityPanel({ app, canTag = true }: { app: ApplicationDto; canTag?: boolean }) {
   const { t } = useTranslation('applicationsDetail');
   const items = app.events.map((e) => eventItem(e, app, t));
   const tagged = app.tags
@@ -196,7 +197,7 @@ export function ActivityPanel({ app }: { app: ApplicationDto }) {
         emptyText={t('activity.empty')}
       />
       {tagged && <p className="text-text-secondary">{t('activity.tagged', { names: tagged })}</p>}
-      {app.can.comment && <TagEditor app={app} />}
+      {canTag && app.can.comment && <TagEditor app={app} />}
       {app.can.comment && <CommentBox app={app} />}
     </Card>
   );

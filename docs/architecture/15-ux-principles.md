@@ -89,6 +89,8 @@ Roles: **A** admin · **Ac** accountant · **E** executive · **T** teacher ·
 
 ```text
 Dashboard [partial → 8.10.7, 8.15]                                  A Ac E T
+Applications [52.0] — top level, pending-count badge                A Ac E T (+ office, exam controller)
+  New application · Application detail
 
 People
   Students [have]                                                   A Ac E T
@@ -97,6 +99,7 @@ People
       + Results [19.0] · Homework [22.0] · Programs & milestones [34.0] · Notes [N11] · Records [N11]
       + Performance [28.0, have — MARK_VIEW]
       + Subjects (optional/4th) [19.0] · Fines [N8] · Documents [have, 32.0]
+      + Applications [52.0, APPLICATION_MANAGE]
   Guardians [have] → detail: Information, Linked students, Payments, Communication
   Staff [partial] — ONE register (teachers, employees, administration, principal/VP as designations)
     Import from Excel [13.0, /staff/import]                         A
@@ -105,6 +108,7 @@ People
       + HR record [23.0] · Teaching assignments [29.0+23.0] · Attendance & leave [N5]
       + ACR · Incidents · Performance [28.0, have — ACR_READ, admin only]
       + Documents [have, 32.0] · Website profile [N13]
+      + Applications [52.0, APPLICATION_MANAGE]
     Teaching assignments (bulk view) [29.0+23.0]                    A E
     Evaluations [28.0, have] — tabs ACR · Surveys · Incidents         A
       Survey detail (results sealed until closed)
@@ -125,7 +129,7 @@ Academics
 
 Attendance
   Students [have] · Monthly grid [have] · Upload device file [partial] · Period/subject-wise [have]
-  Staff [N5] · Leave · Report for payroll                           A E (Ac)
+  Staff [N5] · Leave (balance only; requests → Applications)        A E (Ac)
   Reports [have] · Yearly summary [partial] · Defaulters [have] · Submission check-list [have]
   Printable register [have] · Sheet layout [Print module — follow-up epic]
 
@@ -153,6 +157,7 @@ Communications
 Reports [8.15] — a hub that LINKS to screens that live with their data; no copies
   Communications · Collections [have] · Student dues [have] · Attendance [have]
   Student lists [8.15] · Student count [8.15] · Printables & documents [have, 32.0] · Certificate register · To print [48.0] · Exports [8.15]
+  Applications report [52.0]
 
 Administration
   Print templates [have, 32.0] — library, then the full-screen editor
@@ -177,6 +182,7 @@ Attendance [have]
 Results [19.0] · Homework [22.0] · Syllabus [22.0] · Routine [21.0]
 Calendar & notices [17.0; notices have]
 Online exam & class [N6] · Programs [34.0] · Documents [Print module — follow-up epic]
+Applications [52.0] — under More on a phone
 Account [have]
 ```
 
@@ -210,6 +216,7 @@ the top bar for admins only. See [22-onboarding.md](22-onboarding.md).
 | P10 | **Resolved (Epic 24.0):** Users merged into **People › Staff**. "Add user" is a dialog (`client-admin/src/routes/_staff/staff/-add-user-dialog.tsx`); there is no `administration.users` item.                                                                                                                                                                                                                                                                                                                          |
 | P11 | Coaching centres reuse Class/Section, relabelled Course/Batch via tenant label overrides — not Programs. Programs are supplementary tracks (hifz, trades, labs, attachment).                                                                                                                                                                                                                                                                                                                                            |
 | P12 | **My class** (Epic 47.0) lives under **Academics**, next to My routine. TEACHER only (`MY_CLASS_VIEW`). Routes `/my-class` and `/my-class/$sectionId`; palette actions `my-class.open` and `my-class.take-attendance` (`/my-class?then=attendance`). One section redirects straight to its page. A teacher with no class-teacher or assistant section sees "You are not a class teacher of any section yet — ask an admin." A section card shows a role badge (class teacher or assistant). Current academic year only. |
+| P13 | **Applications** is a top-level staff item (like Dashboard) because every staff role both files and decides; its report also sits in the Reports hub (P5). Portal item "আবেদন" sits under More.                                                                                                                                                                                                                                                                                                                         |
 
 ## 4. Command palette — `Ctrl/Cmd+K`
 

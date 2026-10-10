@@ -179,6 +179,13 @@ function PortalLayout() {
       // the same role-gated case as `/portal/attendance` above.
     },
     {
+      to: '/portal/applications',
+      label: t('items.portalApplications'),
+      // [52.6.1] PARENT and STUDENT both hold `APPLICATION_SUBMIT` (D22). Not a bottom-bar
+      // cell: it lives under "More".
+      permission: Permission.APPLICATION_SUBMIT,
+    },
+    {
       to: '/portal/account',
       label: t('items.portalAccount'),
       // [8.14.4] No `permission`: every signed-in role in this shell owns

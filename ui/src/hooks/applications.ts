@@ -99,8 +99,12 @@ export function useApplication(id: string | undefined) {
   return useQuery({ ...applicationQueryOptions(id ?? ''), enabled: id !== undefined && id !== '' });
 }
 
-export function useApplications(filters: ApplicationFilters = {}) {
+export function useApplications(
+  filters: ApplicationFilters = {},
+  { enabled = true }: { enabled?: boolean } = {},
+) {
   return useQuery({
+    enabled,
     queryKey: applicationKeys.list(filters),
     queryFn: async ({ signal }) =>
       (await apiClient.get<ApplicationListDto>('/applications', { params: filters, signal })).data,

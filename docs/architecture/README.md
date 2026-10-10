@@ -2,7 +2,7 @@
 
 This is the source of truth for how SchoolManager is actually built. It replaces
 the old planning documents from before the system existed — those captured
-the *original vision*; these docs describe *what was actually built*,
+the _original vision_; these docs describe _what was actually built_,
 including every place implementation diverged from that original plan (and
 why).
 
@@ -38,7 +38,8 @@ at hand instead of loading the whole set.
 | [22-demo-seed.md](22-demo-seed.md) | Adding or changing **any table or column** (the demo seed must get rows for it), working on `seed:demo`, the demo site, `DEMO_MODE`, or load-test data |
 | [22-onboarding.md](22-onboarding.md) | Working on `/register`, the welcome wizard and setup checklist, the free trial and seat limit, first-password, or Google sign-in |
 | [23-study-plans.md](23-study-plans.md) | Working on `modules/study-plans` — lesson plans per section and subject, marking periods taught, how expected dates are computed, the study-plan template library and CSV, or the late-marking escalation |
+| [24-applications.md](24-applications.md) | Working on `modules/applications` — any application type (leave, fee waiver, certificates, general letters), who decides it, what approval does, the inbox/pending count, or the portal application pages |
 
 For practical "how do I run/develop/test this" instructions, see the root
-[`README.md`](../../README.md) — these docs cover the *why* behind the
-architecture, README covers the *how* of working in the repo day to day.
+[`README.md`](../../README.md) — these docs cover the _why_ behind the
+architecture, README covers the _how_ of working in the repo day to day.

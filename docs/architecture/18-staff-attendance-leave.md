@@ -17,7 +17,8 @@ erDiagram
     School                  ||--o{ StaffProfile              : scopes
     StaffProfile            ||--o{ StaffAttendanceRecord      : "marked in"
     StaffAttendanceSession  ||--o{ StaffAttendanceRecord      : "marks staff in"
-    StaffProfile            ||--o{ LeaveRecord                : "requests"
+    StaffProfile            ||--o{ LeaveRecord                : "approved leave"
+    Application             ||--o| LeaveRecord                : "creates on approval"
     School                  ||--o{ LeavePolicy                : "quota per type"
     User                    ||--o| Teacher                    : "extends, if a teacher"
 ```
@@ -35,11 +36,14 @@ erDiagram
 - **`StaffAttendanceRecord`** — one staff member's mark within one session:
   `PRESENT` / `ABSENT` / `LATE` / `LEAVE` (same enum values as student
   attendance, reused, not shared rows).
-- **`LeavePolicy`** — a tenant's annual quota (in days) for one `LeaveType`
+- **`LeavePolicy`** — a tenant's annual quota (in days, or `null` = unlimited) for one `LeaveType`
   (`CASUAL` / `SICK` / `MATERNITY` / `PATERNITY` / `EARNED`). Seeded with
   D9 defaults for every tenant.
-- **`LeaveRecord`** — one leave request: a date range, a status
-  (`PENDING` / `APPROVED` / `REJECTED`), and who decided it.
+- **`LeaveRecord`** — one approved leave: a date range, a status
+  (`APPROVED` / `REJECTED` / `CANCELLED`), and who decided it. It is created by
+  approving a `STAFF_LEAVE` **application** (`application_id` points back), see
+  [24-applications.md](24-applications.md). New requests are never `PENDING`
+  rows; the old `PENDING` rows were moved into `applications` (D20).
 
 ## 2. The balance formula (D12)
 
@@ -53,16 +57,18 @@ balance = policy.annual_quota_days − sum(days of every APPROVED
 ```
 
 Concrete example: the CASUAL policy default is 10 days/year. A staff member
-requests 2026-03-10 → 2026-03-11 (2 days) and it gets approved:
+applies for 2026-03-10 → 2026-03-11 and it gets approved. Days are **working
+days** (`SchoolCalendarService.getWorkingDays`), so a weekend or holiday in the
+range does not count. 2 working days:
 
 ```json
 // GET /leave/balance?staff_profile_id=<id>
 [{ "leave_type": "CASUAL", "annual_quota_days": 10, "used_days": 2, "balance": 8 }]
 ```
 
-A `PENDING` or `REJECTED` record contributes nothing — only `APPROVED` rows
-count, which is why requesting leave never moves the balance by itself;
-only the approval decision does.
+Only `APPROVED` rows count, so filing an application never moves the balance;
+only the approval does. A `CANCELLED` leave gives its days back. A `null` quota
+means unlimited: the balance is `null` and used days are only tracked.
 
 ## 3. Workbook (backup/restore)
 
