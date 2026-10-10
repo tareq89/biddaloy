@@ -876,10 +876,6 @@ export const UI_ONLY_PERMISSIONS: Permission[] = [
   // [52.1.1] Plumbing ahead of the /applications routes. [52.2.1]
   // APPLICATION_SUBMIT now gates POST /applications — removed from this list.
   // [52.3.5] APPLICATION_MANAGE now gates GET /applications/reports — removed.
-  // [67.1.01] Plumbing ahead of Epic 67 W5 routes (manual alerts, alerts report) — remove from this list when those routes land.
-  Permission.ALERT_SEND,
-  // [67.5.01] ALERT_SEND now gates /attention/manual. ALERT_REPORT_READ stays until the report route (67.5.04) lands.
-  Permission.ALERT_REPORT_READ,
   // [67.5.01/.04] ALERT_SEND gates /attention/manual and ALERT_REPORT_READ gates /attention/report: no longer UI-only.
 ];
 
