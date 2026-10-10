@@ -16,7 +16,9 @@ const message = 'Bring your attendance register to the staff room.';
 test.describe.configure({ mode: 'serial' });
 
 test.afterAll(async ({ playwright }) => {
-  // Leave the seed clean (the daily cap is 20): withdraw whatever this run left active.
+  // Withdraw what this run left active so no one's bar keeps it. This does NOT free the daily
+  // cap (20 per 24 h; withdrawn alerts count too). This spec and keyboard/send-alert send 2 a
+  // run, so ~10 local reruns on one DB within 24 h hit the cap: reseed the DB if that happens.
   const ctx = await playwright.request.newContext({ baseURL: shells.app.baseURL });
   try {
     const session = await adminApiSession(ctx);

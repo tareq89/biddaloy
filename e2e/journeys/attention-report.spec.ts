@@ -43,12 +43,14 @@ test.describe('executive', () => {
       await expect(fixed.getByText(num(30))).toBeVisible();
     });
 
-    await test.step('attendance not taken has a non-zero section cell', async () => {
+    await test.step('attendance not taken is split by section', async () => {
       const row = page
         .getByRole('row')
         .filter({ hasText: t('attention.rules.attendance.not_taken.name') });
       await expect(row).toHaveCount(1);
-      await expect(row.getByRole('cell', { name: num(10) }).first()).toBeVisible();
+      // The seed spreads its 10 rows over 3 sections as 4/3/3; 10 is only the Total cell.
+      await expect(row.getByRole('cell', { name: num(4) })).toBeVisible();
+      await expect(row.getByRole('cell', { name: num(10) })).toBeVisible();
     });
 
     await test.step('CSV downloads under its month name', async () => {
