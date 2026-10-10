@@ -48,6 +48,27 @@ async function openSeededChild(page: Page, request: APIRequestContext) {
   await page.goto(`/portal/exam-schedule?student=${child.id}`);
 }
 
+/** The exam whose roster carries {@link SEEDED_CHILD_REG}, with a published seat plan. */
+const SEEDED_EXAM = 'First Term Exam';
+
+/**
+ * Tabs to the "Print admit card" button inside {@link SEEDED_EXAM}'s card. Every upcoming exam
+ * has one, and [67.4.07]'s family seed adds an earlier demo exam with no seat plan (its print
+ * is "not ready"), so the first button in Tab order is not the one these tests mean.
+ */
+async function tabToSeededExamPrint(page: Page) {
+  for (let i = 0; i < 5; i += 1) {
+    await tabUntilFocused(page, t('portal.examSchedule.admitCard.print'), 90, { tag: 'BUTTON' });
+    const exam = await page.evaluate(
+      () =>
+        document.activeElement?.closest('[data-slot="card"]')?.querySelector('h2')?.textContent ??
+        '',
+    );
+    if (exam === SEEDED_EXAM) return;
+  }
+  throw new Error(`could not Tab to the "${SEEDED_EXAM}" print button`);
+}
+
 /** `window.open` is stubbed; the printed HTML lands on `window.__printHtml`. */
 async function stubPrintWindow(page: Page) {
   await page.addInitScript(() => {
@@ -137,7 +158,7 @@ test.describe('Parent prints the admit card', () => {
     const print = page.getByRole('button', { name: t('portal.examSchedule.admitCard.print') });
     await expect(print.first()).toBeVisible();
 
-    await tabUntilFocused(page, t('portal.examSchedule.admitCard.print'), 90, { tag: 'BUTTON' });
+    await tabToSeededExamPrint(page);
     await page.keyboard.press('Enter');
 
     // The page shows the English full name; the printed card carries the Bangla one, so assert
@@ -170,7 +191,7 @@ test.describe('Parent prints the admit card', () => {
       page.getByRole('button', { name: t('portal.examSchedule.admitCard.print') }).first(),
     ).toBeVisible();
 
-    await tabUntilFocused(page, t('portal.examSchedule.admitCard.print'), 90, { tag: 'BUTTON' });
+    await tabToSeededExamPrint(page);
     await page.keyboard.press('Enter');
 
     await expect(
