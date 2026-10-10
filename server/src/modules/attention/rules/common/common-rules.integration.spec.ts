@@ -61,15 +61,15 @@ describe('Common rules (integration)', () => {
 
   async function mkHoliday(
     t: Tenant,
-    over: { audience?: string; date?: string; published?: boolean } = {},
+    over: { audience?: string; date?: string; end?: string; published?: boolean } = {},
   ) {
     const date = over.date ?? TOMORROW;
     const [{ id }] = await q(
       `INSERT INTO calendar_events (tenant_id, academic_year_id, type, start_date, end_date, name,
          counts_as_working_day, audience, published_at)
-       VALUES ($1, $2, 'HOLIDAY', $3, $3, 'Eid', false, $4, ${over.published === false ? 'NULL' : 'NOW()'})
+       VALUES ($1, $2, 'HOLIDAY', $3, $5, 'Eid', false, $4, ${over.published === false ? 'NULL' : 'NOW()'})
        RETURNING id`,
-      [t.id, t.yearId, date, over.audience ?? 'ALL'],
+      [t.id, t.yearId, date, over.audience ?? 'ALL', over.end ?? date],
     );
     return id as string;
   }
@@ -204,6 +204,17 @@ describe('Common rules (integration)', () => {
     await mkHoliday(A, { audience: 'STAFF' });
     const found = await holiday.evaluate(ctx(A));
     expect(found.map((f) => f.dedupeKey.split(':').pop())).toEqual(['staff']);
+  });
+
+  it('multi-day holiday: announced the working evening before, not again on each evening inside it', async () => {
+    // Day 3 of a 5-day break (2043-03-18..22): today is off, tomorrow is not the start.
+    await mkHoliday(A, { date: '2043-03-18', end: '2043-03-22' });
+    expect(await holiday.evaluate({ ...ctx(A), isWorkingDay: false })).toEqual([]);
+    // Today was a working day inside the range (break resumes): tomorrow is news again.
+    expect(await holiday.evaluate(ctx(A))).toHaveLength(2);
+    // A holiday starting tomorrow is announced even when today is off (weekend before Eid).
+    await mkHoliday(B);
+    expect(await holiday.evaluate({ ...ctx(B), isWorkingDay: false })).toHaveLength(2);
   });
 
   it('does not fire: answered survey; closed survey', async () => {
