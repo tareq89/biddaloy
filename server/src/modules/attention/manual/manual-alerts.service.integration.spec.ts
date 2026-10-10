@@ -190,15 +190,78 @@ describe('ManualAlertsService (integration)', () => {
       expect(ids.filter((i) => i === teacher)).toHaveLength(1);
     });
 
-    it('tenant isolation: another school sees nobody from this school', async () => {
-      await student(studentUser, 'ACTIVE', 6);
-      const r = await service.preview(tenantB, {
-        roles: [UserRole.TEACHER],
-        sectionIds: [sectionId],
-        guardiansOfSectionIds: [sectionId],
-        userIds: [teacher],
-      });
-      expect(r.recipientCount).toBe(0);
+    it('tenant isolation: each audience branch reaches only its own school', async () => {
+      // Multi-school users: live members of tenant B too, so the membership check alone lets
+      // them through and only each branch's own tenant_id filter keeps school A's rows out.
+      await member(teacher, UserRole.PARENT, false, tenantB);
+      await member(studentUser, UserRole.STUDENT, false, tenantB);
+      await member(guardianUser, UserRole.PARENT, false, tenantB);
+      const guardianUser2 = await mkUser('guardian2');
+      await member(guardianUser2, UserRole.PARENT, false, tenantB);
+      // tenant B's own year, class and section, with one B student in it
+      const [{ id: yearB }] = await ds.query(
+        `INSERT INTO academic_years (name, start_date, end_date, is_current, tenant_id)
+         VALUES ('B year', '2026-01-01', '2026-12-31', true, $1) RETURNING id`,
+        [tenantB],
+      );
+      const [{ id: classB }] = await ds.query(
+        `INSERT INTO classes (tenant_id, name, academic_year_id) VALUES ($1, 'B Class', $2) RETURNING id`,
+        [tenantB, yearB],
+      );
+      const [{ id: sectionB }] = await ds.query(
+        `INSERT INTO class_sections (tenant_id, class_id, section_name) VALUES ($1, $2, 'B') RETURNING id`,
+        [tenantB, classB],
+      );
+      const [{ id: studentB }] = await ds.query(
+        `INSERT INTO students (full_name, registration_number, roll_number, class_section_id, tenant_id, enrollment_status)
+         VALUES ('Manual Student', $1, 1, $2, $3, 'ACTIVE') RETURNING id`,
+        [`MAN-B-${stamp}`, sectionB, tenantB],
+      );
+      const studentA = await student(studentUser, 'ACTIVE', 6);
+      // Cross-tenant guardian links, one per filter: a B guardian on an A student (caught only by
+      // s.tenant_id) and an A guardian on the B student (caught only by g.tenant_id).
+      const link = async (userId: string, tenant: string, studentId: string) => {
+        const [g] = await ds.query(
+          `INSERT INTO guardians (full_name, relationship, user_id, tenant_id) VALUES ('Parent', 'Father', $1, $2) RETURNING id`,
+          [userId, tenant],
+        );
+        await ds.query(`INSERT INTO student_guardians (student_id, guardian_id) VALUES ($1, $2)`, [
+          studentId,
+          g.id,
+        ]);
+        return g.id as string;
+      };
+      const guardians = [
+        await link(guardianUser, tenantB, studentA),
+        await link(guardianUser2, SEED_TENANT_ID, studentB),
+      ];
+      const count = async (audience: CreateManualAlertDto['audience']) =>
+        (await service.preview(tenantB, audience)).recipientCount;
+
+      try {
+        // a TEACHER of A who is only a PARENT in B (ut.tenant_id)
+        expect(await count({ roles: [UserRole.TEACHER] })).toBe(0);
+        // an A student with a B login (s.tenant_id)
+        expect(await count({ sectionIds: [sectionId] })).toBe(0);
+        // both cross-tenant guardian links (s.tenant_id, g.tenant_id)
+        expect(await count({ guardiansOfSectionIds: [sectionId, sectionB] })).toBe(0);
+        // a user with no B membership (the EXISTS check)
+        expect(await count({ userIds: [teacher2] })).toBe(0);
+        // not vacuous: these same users ARE reachable in B through a legitimate branch
+        expect(await count({ userIds: [teacher, studentUser, guardianUser, guardianUser2] })).toBe(
+          4,
+        );
+      } finally {
+        await ds.query(`DELETE FROM user_tenants WHERE tenant_id = $1`, [tenantB]);
+        await ds.query(`DELETE FROM student_guardians WHERE guardian_id = ANY($1::uuid[])`, [
+          guardians,
+        ]);
+        await ds.query(`DELETE FROM guardians WHERE id = ANY($1::uuid[])`, [guardians]);
+        await ds.query(`DELETE FROM students WHERE tenant_id = $1`, [tenantB]);
+        await ds.query(`DELETE FROM class_sections WHERE id = $1`, [sectionB]);
+        await ds.query(`DELETE FROM classes WHERE id = $1`, [classB]);
+        await ds.query(`DELETE FROM academic_years WHERE id = $1`, [yearB]);
+      }
     });
 
     it('rejects an empty audience and SUPER_ADMIN', async () => {
