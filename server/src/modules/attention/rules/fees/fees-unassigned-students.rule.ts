@@ -5,7 +5,10 @@ import { AttentionRule } from '../attention-rule.decorator';
 import type { AttentionRule as AttentionRuleShape, RuleContext, RuleFinding } from '../rule.types';
 import { roleRecipients } from '../structure/role-recipients';
 
-/** This month's fees exist for some students but not all active current-year ones. */
+/**
+ * This month's tuition run exists for some students but not all active current-year ones.
+ * Tuition only: fines, exam or admission fees are billed to a few students on purpose.
+ */
 @AttentionRule()
 export class FeesUnassignedStudentsRule implements AttentionRuleShape {
   readonly meta = alertRuleMeta('fees.unassigned_students');
@@ -39,7 +42,9 @@ export class FeesUnassignedStudentsRule implements AttentionRuleShape {
     const [row]: { generated: number; missing: number }[] = await this.dataSource.query(
       `WITH m AS (SELECT DISTINCT sf.student_id FROM student_fees sf
                   JOIN students s ON s.id = sf.student_id AND s.tenant_id = $1
-                  WHERE sf.deleted_at IS NULL AND sf.period_type = 'MONTH' AND sf.year = $2 AND sf.month = $3)
+                  JOIN fee_structures fs ON fs.id = sf.fee_structure_id AND fs.tenant_id = $1
+                  WHERE sf.deleted_at IS NULL AND fs.fee_type = 'MONTHLY_TUITION'
+                    AND sf.period_type = 'MONTH' AND sf.year = $2 AND sf.month = $3)
        SELECT (SELECT COUNT(*) FROM m)::int AS generated,
               COUNT(*)::int AS missing
        FROM students s
