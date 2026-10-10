@@ -269,6 +269,21 @@ describe('Attention role matrix (integration)', () => {
     expect(violations).toEqual([]);
   });
 
+  it("every recipient's stamped role is that user's real role in the alert's school", async () => {
+    // The role on a row is whatever the rule wrote, so check it against the membership:
+    // a family rule that sent to the ADMIN user while stamping PARENT fails here.
+    await prepare();
+    const violations = await q(
+      `SELECT a.rule_key, r.role, r.user_id FROM alert_recipients r JOIN alerts a ON a.id = r.alert_id
+       WHERE a.tenant_id = ANY($1) AND a.source = 'RULE'
+         AND NOT EXISTS (SELECT 1 FROM user_tenants ut
+                         WHERE ut.user_id = r.user_id AND ut.tenant_id = a.tenant_id AND ut.deleted_at IS NULL
+                           AND (r.role IS NULL OR ut.role::text = r.role))`,
+      [[tenantId, platformTenantId].filter(Boolean)],
+    );
+    expect(violations).toEqual([]);
+  });
+
   it('role-less (personal) rows only come from personal rules', async () => {
     await prepare();
     const violations = (await rows())
@@ -298,20 +313,22 @@ describe('Attention role matrix (integration)', () => {
     expect(violations).toEqual([]);
   });
 
-  it('SUPER_ADMIN of a normal school gets nothing from school rules', async () => {
+  it('SUPER_ADMIN of a normal school gets nothing, and no platform alert lands in a school', async () => {
     await prepare();
-    const platformKeys = new Set(
-      ALERT_RULES.filter((r) => r.category === AlertCategory.PLATFORM).map((r) => r.key),
-    );
-    const violations = await q(
+    const toSuperAdmin = await q(
       `SELECT a.rule_key FROM alert_recipients r JOIN alerts a ON a.id = r.alert_id
        WHERE a.tenant_id = $1 AND a.source = 'RULE' AND r.role = 'SUPER_ADMIN'`,
       [tenantId],
     );
-    expect(
-      violations
-        .map((v: { rule_key: string }) => v.rule_key)
-        .filter((k: string) => !platformKeys.has(k as never)),
-    ).toEqual([]);
+    expect(toSuperAdmin).toEqual([]);
+    // Platform rules belong to the platform tenant only, whoever they would address.
+    const platformKeys = ALERT_RULES.filter((r) => r.category === AlertCategory.PLATFORM).map(
+      (r) => r.key,
+    );
+    const platformInSchool = await q(
+      `SELECT rule_key FROM alerts WHERE tenant_id = $1 AND rule_key = ANY($2)`,
+      [tenantId, platformKeys],
+    );
+    expect(platformInSchool).toEqual([]);
   });
 });
