@@ -199,6 +199,7 @@ exists? Push the answer into a decision (either "new, because `<X>`" or
 ## Screens                                   ← only if UI; which shell / pattern each screen reuses
 ## UX requirements       ← per screen: tree path, keyboard path, palette actions, breadcrumb, empty/error states, phone layout (15-ux-principles §8)
 ## Backup & restore coverage ← entities added → workbook tab + round-trip test + seed rows, and the ticket that does it
+## Demo seed coverage     ← every table/column added or changed → which demo-seed slice covers it (or DEMO_SEED_EXEMPT + reason), and the ticket (docs/architecture/22-demo-seed.md)
 ## No-silent-gaps checklist ← route manifest · nav tree · action registry · i18n en+bn · workbook tab · seed — each with its ticket
 ## Review tier overrides                     ← optional explicit money-tier list; otherwise implement-epic's path rule applies
 ## Out of scope
@@ -237,6 +238,14 @@ Slicing rules — these are what make `implement-epic` run without conflicts:
   `ui/src/hooks/**`, `ui/src/i18n/locales/**`.
 - **Every wave ends with a wave-close ticket**: seed data, api-types
   regeneration, e2e for that wave's screens. Wave N+1 depends on it.
+- **Every schema change ships demo-seed data.** A wave that adds or changes a
+  table or column carries a demo-seed slice step: in that wave's close ticket,
+  or in its own ticket when the story is big. Name the slice file
+  (`server/src/scripts/demo-seed/slices/<area>.ts`), the rows the demo school
+  needs, and which demo login card sees them. Follow the safety rules in
+  `docs/architecture/22-demo-seed.md`. The dev seed (`yarn seed`) is extra,
+  and only when e2e needs it. Phase 0 checks the epic's tables against the
+  slice list; Phase 3 never offers "skip demo data" as an *out* item.
 - **Money-tier tickets** (migrations, fees/invoices/reports/auth internals,
   anything that deletes or bulk-mutates tenant data) get their own line in
   the epic's *Review tier overrides* so nobody has to infer it later.
@@ -296,6 +305,8 @@ which is on GitHub.
   body.
 - Never write a sub-issue without all five sections; never let two tickets in
   a wave share a file; never let two tickets touch `shared/`.
+- Never plan a table or column without its demo-seed slice ticket (or a
+  `DEMO_SEED_EXEMPT` reason) and its line in **Demo seed coverage**.
 - Never create issues before Phase 4 is done — editing forty bodies after a
 - Never write an epic with a screen without the UX round and the three UX/coverage
   sections; never add a route, entity or action without the registry guard that

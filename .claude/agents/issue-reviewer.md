@@ -96,6 +96,13 @@ judge it against the plan and the repo's invariants:
   leak or collision, even if a comment claims the key is globally unique —
   verify that claim against the actual DB constraint/migration, don't take the
   comment's word for it.
+- **Schema change without demo-seed data.** If the diff adds or changes an
+  entity, column or migration, the same diff must cover it in the demo seed
+  (`server/src/scripts/demo-seed/slices/`). The other acceptable outcome is a
+  `DEMO_SEED_EXEMPT` entry with a reason, or, before Epic 58's guard (#2161)
+  is on main, the PR line described in `docs/architecture/22-demo-seed.md`.
+  Also check the doc's safety rules on any seed diff: no literal dates, no
+  `Math.random`/`Date.now`, real services for "today", no real contacts.
 
 ### 5. Verify the suite yourself
 
