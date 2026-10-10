@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import { UnauthorizedException } from '@nestjs/common';
 import { DataSource, Repository } from 'typeorm';
 import { TestingModule } from '@nestjs/testing';
@@ -372,6 +372,60 @@ describe('FamilyAccessService (integration)', () => {
           SEED_TENANT_ID,
         ),
       ).rejects.toBeInstanceOf(UnauthorizedException);
+    });
+  });
+
+  describe('[67.3.06] familyUsersForStudents', () => {
+    const addMembership = (userId: string, role: string, tenantId = SEED_TENANT_ID) =>
+      dataSource.query(
+        `INSERT INTO user_tenants (user_id, tenant_id, role) VALUES ($1, $2, $3)
+         ON CONFLICT DO NOTHING`,
+        [userId, tenantId, role],
+      );
+
+    it('returns a PARENT row for a guardian with a login and a STUDENT row for a student with one', async () => {
+      const child = await makeStudent({ user_id: STUDENT_USER_ID });
+      await linkGuardian(PARENT_USER_ID, [child]);
+      await addMembership(PARENT_USER_ID, 'PARENT');
+      await addMembership(STUDENT_USER_ID, 'STUDENT');
+
+      const rows = await service.familyUsersForStudents(SEED_TENANT_ID, [child.id]);
+
+      expect(rows).toHaveLength(2);
+      expect(rows).toContainEqual({ studentId: child.id, userId: PARENT_USER_ID, role: 'PARENT' });
+      expect(rows).toContainEqual({
+        studentId: child.id,
+        userId: STUDENT_USER_ID,
+        role: 'STUDENT',
+      });
+    });
+
+    it('skips a guardian without user_id and a soft-deleted guardian', async () => {
+      const child = await makeStudent();
+      await linkGuardian(null, [child]);
+      const deleted = await linkGuardian(PARENT_USER_ID, [child]);
+      await addMembership(PARENT_USER_ID, 'PARENT');
+      await guardianRepo.softDelete({ id: deleted.id });
+
+      expect(await service.familyUsersForStudents(SEED_TENANT_ID, [child.id])).toEqual([]);
+    });
+
+    it("returns nothing for another tenant's student, even if its id is passed in", async () => {
+      const theirs = await makeStudent({
+        tenant_id: TENANT_B,
+        class_section_id: TENANT_B_SECTION,
+      });
+      await linkGuardian(PARENT_USER_ID, [theirs], TENANT_B);
+      await addMembership(PARENT_USER_ID, 'PARENT', TENANT_B);
+
+      expect(await service.familyUsersForStudents(SEED_TENANT_ID, [theirs.id])).toEqual([]);
+    });
+
+    it('returns [] for an empty id list without querying', async () => {
+      const spy = vi.spyOn(studentRepo, 'query');
+      expect(await service.familyUsersForStudents(SEED_TENANT_ID, [])).toEqual([]);
+      expect(spy).not.toHaveBeenCalled();
+      spy.mockRestore();
     });
   });
 
