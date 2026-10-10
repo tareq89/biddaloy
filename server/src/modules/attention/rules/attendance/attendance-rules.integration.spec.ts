@@ -230,6 +230,56 @@ describe('AttendanceNotTakenRule (integration)', () => {
     );
   });
 
+  it('two shifts: a day-shift section is not CRITICAL at its own first bell', async () => {
+    const [{ id: dayShift }] = await q(
+      `INSERT INTO shifts (tenant_id, name, day_starts_at, day_ends_at, sequence)
+       VALUES ($1, $2, '12:30', '17:00', 1) RETURNING id`,
+      [A.id, `D-${rand()}`],
+    );
+    const [{ id: classId }] = await q(
+      `INSERT INTO classes (name, academic_year_id, tenant_id, shift_id) VALUES ('Eight', $1, $2, $3) RETURNING id`,
+      [A.yearId, A.id, dayShift],
+    );
+    const [{ id: sectionId }] = await q(
+      `INSERT INTO class_sections (class_id, section_name, tenant_id) VALUES ($1, 'D', $2) RETURNING id`,
+      [classId, A.id],
+    );
+    await q(
+      `INSERT INTO teacher_class_sections (teacher_id, section_id, assignment_type, tenant_id)
+       VALUES ($1, $2, 'CLASS_TEACHER', $3)`,
+      [A.teacherOf.CT, sectionId, A.id],
+    );
+    const [{ id: periodId }] = await q(
+      `INSERT INTO period_slots (tenant_id, shift_id, sequence, kind, starts_at, ends_at)
+       VALUES ($1, $2, 1, 'CLASS', '12:30', '13:10') RETURNING id`,
+      [A.id, dayShift],
+    );
+    await q(
+      `INSERT INTO routine_slots (tenant_id, routine_id, section_id, period_slot_id, weekday, subject_id,
+         recurrence, recurrence_offset, valid_from)
+       SELECT $1, rs.routine_id, $2, $3, $4, rs.subject_id, 'WEEKLY', 0, '2020-01-01'
+       FROM routine_slots rs WHERE rs.id = $5`,
+      [A.id, sectionId, periodId, WEEKDAY, A.slotId],
+    );
+    const daySection = async (time: string) =>
+      (await rule.evaluate(ctx(A, time))).find((f) => f.subject!.id === sectionId)!;
+
+    // No shift times: the school's 10:00 cutoff (2h after the 08:00 bell) is kept 2h after 12:30.
+    expect((await daySection('12:35')).severity).toBe(AlertSeverity.REMINDER);
+    expect((await daySection('14:29')).severity).toBe(AlertSeverity.WARNING);
+    expect((await daySection('14:30')).severity).toBe(AlertSeverity.CRITICAL);
+
+    // The day shift's own absentAfter wins once it is configured.
+    await q(
+      `UPDATE schools SET settings = jsonb_set(settings, '{attendance,shiftTimes}', $2::jsonb) WHERE id = $1`,
+      [A.id, JSON.stringify([{ shiftId: dayShift, lateAfter: '12:45', absentAfter: '13:30' }])],
+    );
+    expect((await daySection('13:29')).severity).toBe(AlertSeverity.WARNING);
+    const critical = await daySection('13:30');
+    expect(critical.severity).toBe(AlertSeverity.CRITICAL);
+    expect(critical.recipients.map((r) => r.userId)).toContain(A.adminId);
+  });
+
   it('delegation: CT on approved leave and period 1 covered by SUB -> AT + SUB, not CT', async () => {
     await q(
       `INSERT INTO leave_records (tenant_id, staff_profile_id, leave_type, start_date, end_date, days, status)

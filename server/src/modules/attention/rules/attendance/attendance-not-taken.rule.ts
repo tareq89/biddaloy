@@ -1,7 +1,10 @@
 import { InjectDataSource } from '@nestjs/typeorm';
 import type { DataSource } from 'typeorm';
 import { alertRuleMeta, AlertSeverity, UserRole } from '@biddaloy/shared';
-import { resolveAttendancePolicy } from '../../../attendance/attendance-policy.util';
+import {
+  policyForShift,
+  resolveAttendancePolicy,
+} from '../../../attendance/attendance-policy.util';
 import { toPeriods, type ResolvedPeriod } from '../../../attendance/attendance-periods.util';
 import { ResolveRoutineService } from '../../../routines/resolve-routine.service';
 import { SchoolsService } from '../../../schools/schools.service';
@@ -20,6 +23,30 @@ import { roleRecipients } from '../structure/role-recipients';
 export function toMinutes(hhmm: string): number {
   const [h, m] = hhmm.split(':').map(Number);
   return h * 60 + m;
+}
+
+const toHHmm = (mins: number): string =>
+  `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`;
+
+/**
+ * The CRITICAL cutoff for one section. A shift with its own times
+ * (`shiftTimes`) uses its `absentAfter`; any other section the school
+ * cutoff. If that cutoff is not after the section's first bell while the
+ * school's earliest first bell is before it (a later shift with no times of
+ * its own), the same gap is kept from the section's own first bell, so a
+ * day-shift section does not start CRITICAL.
+ */
+export function sectionCutoff(
+  schoolCutoff: string,
+  shiftAbsentAfter: string | null,
+  firstStart: string,
+  schoolFirstStart: string,
+): string {
+  if (shiftAbsentAfter) return shiftAbsentAfter;
+  const cut = toMinutes(schoolCutoff);
+  const gap = cut - toMinutes(schoolFirstStart);
+  if (cut > toMinutes(firstStart) || gap <= 0) return schoolCutoff;
+  return toHHmm(toMinutes(firstStart) + gap);
 }
 
 /**
@@ -117,8 +144,8 @@ export class AttendanceNotTakenRule implements AttentionRuleShape {
       this.dataSource.query(sql, params);
 
     const [sections, holidayClasses, slots, sessions, homeroom, leaves] = await Promise.all([
-      q<{ id: string; class_id: string; label: string }>(
-        `SELECT cs.id, cs.class_id, c.name || '-' || cs.section_name AS label
+      q<{ id: string; class_id: string; shift_id: string | null; label: string }>(
+        `SELECT cs.id, cs.class_id, c.shift_id, c.name || '-' || cs.section_name AS label
          FROM class_sections cs
          JOIN classes c ON c.id = cs.class_id AND c.tenant_id = $1 AND c.deleted_at IS NULL
          JOIN academic_years y ON y.id = c.academic_year_id AND y.tenant_id = $1 AND y.is_current = true AND y.deleted_at IS NULL
@@ -202,6 +229,14 @@ export class AttendanceNotTakenRule implements AttentionRuleShape {
     );
     const slotsOf = new Map<string, typeof slots>();
     for (const s of slots) slotsOf.set(s.section_id, [...(slotsOf.get(s.section_id) ?? []), s]);
+    const periodsOf = new Map(
+      sections.map((sec) => [sec.id, toPeriods(slotsOf.get(sec.id) ?? [], periodSlots)]),
+    );
+    const schoolFirstStart =
+      [...periodsOf.values()]
+        .map((p) => p[0]?.starts_at)
+        .filter((x): x is string => !!x)
+        .sort()[0] ?? policy.lateAfter;
 
     type Draft = Omit<RuleFinding, 'recipients'> & { teacherUsers: string[]; heads: UserRole[] };
     const drafts: Draft[] = [];
@@ -210,9 +245,11 @@ export class AttendanceNotTakenRule implements AttentionRuleShape {
     for (const sec of sections) {
       if (holiday.has(sec.class_id)) continue;
       const sectionSlots = slotsOf.get(sec.id) ?? [];
-      const periods: ResolvedPeriod[] = toPeriods(sectionSlots, periodSlots);
-      // ponytail: no routine -> the school's late-after time stands in for the first bell.
-      const firstStart = periods[0]?.starts_at ?? policy.lateAfter;
+      const periods: ResolvedPeriod[] = periodsOf.get(sec.id) ?? [];
+      const shiftPolicy = policyForShift(policy, sec.shift_id);
+      // ponytail: no routine -> the shift's late-after time stands in for the first bell.
+      const firstStart = periods[0]?.starts_at ?? shiftPolicy.lateAfter;
+      const hasShiftTimes = shiftPolicy !== policy;
       const base = { sectionId: sec.id, sectionLabel: sec.label };
 
       // Day register.
@@ -220,7 +257,12 @@ export class AttendanceNotTakenRule implements AttentionRuleShape {
         ctx.localTime,
         firstStart,
         grace,
-        cutoff,
+        sectionCutoff(
+          cutoff,
+          hasShiftTimes ? shiftPolicy.absentAfter : null,
+          firstStart,
+          schoolFirstStart,
+        ),
         ctx.settings.escalateAttendanceToHeads,
       );
       if (step !== 'BEFORE_START' && !finalized.has(`${sec.id}|`)) {
