@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { InjectDataSource } from '@nestjs/typeorm';
@@ -222,14 +223,17 @@ export class GuardianSmsFallbackService implements OnModuleInit, OnModuleDestroy
       if (!rule) continue;
       const text = `${schoolName}: ${render(rule.messages, 'bn', alert.params).title}`;
       const segments = countSmsSegments(text).segments;
-      // Fresh key per call: a replay for the same alert must reserve again, not no-op.
-      const batchId = `attention:${alert.id}:${now.getTime()}`;
+      // Fresh key AND reference_id per reservation: settlePart caps a settlement by summing every
+      // DEBIT/RELEASE sharing the reference_id, so a second reservation for the same alert (a later
+      // sweep, another replica) must not share one. The alert id stays in the log's metadata.
+      const ref = randomUUID();
+      const batchId = `attention:${alert.id}:${ref}`;
       if (metered) {
         const reserved = await this.credits.reserve(
           tenantId,
           segments * targets.length,
           `batch:${batchId}`,
-          { type: 'batch', id: alert.id },
+          { type: 'batch', id: ref },
         );
         if (!reserved.ok) {
           this.logger.warn(`Not enough SMS credit for fallback of alert ${alert.id} (${tenantId})`);
