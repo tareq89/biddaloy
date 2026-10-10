@@ -7,6 +7,7 @@ import { UserRole } from '@biddaloy/shared';
 import { AppModule } from '../../../app.module';
 import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { buildValidationPipeOptions } from '../../../validation-pipe';
+import { AttentionScheduler } from '../engine/attention-scheduler';
 import {
   SEED_TENANT_ID,
   SEED_ADMIN_EMAIL,
@@ -50,6 +51,8 @@ describe('Alerts report API E2E', () => {
     configureApiVersioning(app);
     app.useGlobalPipes(new ValidationPipe(buildValidationPipeOptions()));
     await app.init();
+    // The live BullMQ scheduler sweeps on the real clock and would race exact-count assertions.
+    await app.get(AttentionScheduler).worker.close();
     ds = app.get(DataSource);
     for (const role of [
       UserRole.EXECUTIVE,
