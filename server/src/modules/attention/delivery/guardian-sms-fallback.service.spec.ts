@@ -44,7 +44,16 @@ describe('fallbackReferenceKey', () => {
 describe('GuardianSmsFallbackService gates', () => {
   const build = (query = vi.fn().mockResolvedValue([])) => {
     const service = new GuardianSmsFallbackService(
-      { query, getRepository: vi.fn() } as any,
+      {
+        query,
+        getRepository: vi.fn(),
+        // the per-tenant advisory lock is always granted here
+        createQueryRunner: () => ({
+          connect: vi.fn(),
+          query: vi.fn().mockResolvedValue([{ ok: true }]),
+          release: vi.fn(),
+        }),
+      } as any,
       { add: vi.fn() } as any,
       { isMetered: vi.fn(), reserve: vi.fn() } as any,
       { get: vi.fn() } as any,
