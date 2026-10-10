@@ -123,7 +123,9 @@ export class UserService {
       `UPDATE users
           SET preferences = COALESCE(preferences, '{}'::jsonb)
                 || jsonb_build_object('notifications',
-                     COALESCE(preferences->'notifications', '{}'::jsonb)
+                     -- a non-object (array/scalar) would turn || into array concat
+                     CASE WHEN jsonb_typeof(preferences->'notifications') = 'object'
+                          THEN preferences->'notifications' ELSE '{}'::jsonb END
                      || jsonb_build_object('mutedCategories', $2::jsonb)),
               updated_at = now()
         WHERE id = $1`,

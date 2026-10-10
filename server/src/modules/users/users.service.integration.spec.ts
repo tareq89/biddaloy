@@ -777,6 +777,21 @@ describe('UserService (integration)', () => {
       expect(await readPrefs(user.id)).toEqual({ notifications: { mutedCategories: ['FEES'] } });
     });
 
+    it('PATCH replaces a non-object notifications value instead of concatenating into it', async () => {
+      const user = await mkUser('P Five');
+      await setPrefs(user.id, { dashboard: { x: 1 }, notifications: ['stale'] });
+
+      const res = await service.updateNotificationPrefs(user.id, TENANT_ID, {
+        mutedCategories: [AlertCategory.HOMEWORK],
+      });
+
+      expect(res.mutedCategories).toEqual(['HOMEWORK']);
+      expect(await readPrefs(user.id)).toEqual({
+        dashboard: { x: 1 },
+        notifications: { mutedCategories: ['HOMEWORK'] },
+      });
+    });
+
     it('GET returns [] and default quiet hours when nothing is set', async () => {
       const user = await mkUser('P Three');
       await dataSource.query(`UPDATE schools SET settings = NULL WHERE id = $1`, [TENANT_ID]);
