@@ -117,6 +117,37 @@ describe('SendAlertForm', () => {
     ).toBeTruthy();
   });
 
+  it('keeps the last count when the rate-limited preview answers 429', async () => {
+    const user = userEvent.setup();
+    let calls = 0;
+    server.use(
+      http.post('*/attention/manual/preview', () => {
+        calls += 1;
+        return calls === 1
+          ? HttpResponse.json({ recipientCount: 5 })
+          : HttpResponse.json(
+              {
+                statusCode: 429,
+                message: 'Too many requests',
+                timestamp: '2026-10-10T00:00:00.000Z',
+                path: '/api/v1/attention/manual/preview',
+                requestId: 'req-2',
+              },
+              { status: 429 },
+            );
+      }),
+    );
+    renderForm();
+    await fill(user);
+    expect(await screen.findByText(/^[5৫] people in total$/)).toBeTruthy();
+
+    await user.type(screen.getByRole('combobox', { name: 'Add a role' }), 'Accountant');
+    await user.click(await screen.findByRole('option', { name: 'Accountant' }));
+    await waitFor(() => expect(calls).toBe(2));
+    expect(await screen.findByText(/^[5৫] people in total$/)).toBeTruthy();
+    expect(screen.queryByText('Nobody matches these groups.')).toBeNull();
+  });
+
   it('asks before discarding what was typed', async () => {
     const user = userEvent.setup();
     const onClose = renderForm();
