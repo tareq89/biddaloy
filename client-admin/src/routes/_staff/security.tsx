@@ -6,12 +6,14 @@
  * `DASHBOARD_VIEW` (see `route-permissions.ts`'s own comment) — this is the
  * caller's own session history, not tenant data.
  */
+import type { UserRole } from '@biddaloy/shared';
 import { decodeAccessTokenMemberships } from '@biddaloy/ui/api';
 import { ErrorState, RoutePending, SessionList, toast } from '@biddaloy/ui/components';
 import {
   logoutAll,
   sessionsQueryOptions,
   useAccessToken,
+  useActiveRole,
   useRevokeSession,
 } from '@biddaloy/ui/hooks';
 import {
@@ -26,6 +28,7 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import * as React from 'react';
 
 import { CalendarFeedCard } from '../../components/calendar-feed-card';
+import { NotificationPrefsCard } from '../../features/attention/notification-prefs/notification-prefs-card';
 import { LeaveSchoolSection } from '../../features/sign-in-methods/leave-school-section';
 import { SignInMethodsCard } from '../../features/sign-in-methods/sign-in-methods-card';
 import { loadRouteNamespaces } from '../../route-loaders';
@@ -34,7 +37,7 @@ export const Route = createFileRoute('/_staff/security')({
   // [17.4.3]: `calendarFeed` loaded alongside `auth` so the mounted
   // `CalendarFeedCard` never suspends into a blank namespace on first
   // visit — same rule `loadRouteNamespaces`'s own docstring documents.
-  loader: () => loadRouteNamespaces('auth', 'calendarFeed', 'nav', 'signInMethods'),
+  loader: () => loadRouteNamespaces('auth', 'calendarFeed', 'nav', 'signInMethods', 'attention'),
   pendingComponent: SecurityPending,
   component: SecurityRoute,
 });
@@ -61,6 +64,7 @@ function SecurityPage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const accessToken = useAccessToken();
+  const role = useActiveRole();
 
   const sessionsQuery = useQuery(sessionsQueryOptions());
   const revokeSession = useRevokeSession();
@@ -139,6 +143,7 @@ function SecurityPage() {
         roles={decodeAccessTokenMemberships(accessToken ?? '').map((m) => m.role)}
       />
       <CalendarFeedCard />
+      {role !== null && <NotificationPrefsCard role={role as UserRole} />}
       <LeaveSchoolSection />
     </PageContainer>
   );
