@@ -2,8 +2,9 @@
  * [67.2.06] The to-do list behind the attention bar: a dialog (full screen on a
  * phone) grouping alerts Urgent, Warning, Reminder. Keyboard (D16): arrows move
  * between cards, Enter does the main action, X closes a closable card. Focus
- * returns to whatever opened the dialog (or `returnFocusRef` if that is gone)
- * on close, except after the main action (the user is navigating away).
+ * returns to whatever opened the dialog on close (then `returnFocusRef`, then
+ * the shell's `<main>` if both are gone, e.g. the bar unmounted after the last
+ * alert was hidden), except after the main action (the user is navigating away).
  * Presentational: the shell wires data and callbacks.
  */
 import { AlertSeverity } from '@biddaloy/shared';
@@ -12,6 +13,7 @@ import * as React from 'react';
 import type { AlertItem, AttentionSummary, SnoozeChoice } from '../../api/attention';
 import { useLocale, useTranslation } from '../../i18n';
 import { formatRelativeAge } from '../../utils';
+import { APP_SHELL_MAIN_ID } from '../app-shell';
 import {
   Dialog,
   DialogContent,
@@ -78,10 +80,13 @@ export function AttentionModal({
   const cards = () =>
     Array.from(listRef.current?.querySelectorAll<HTMLElement>('[data-alert-item]') ?? []);
 
-  // The cards may arrive after the dialog opens (onOpenAutoFocus finds none): focus the first once they do.
+  // The cards may arrive after the dialog opens (onOpenAutoFocus finds none), or after a
+  // Retry (loading stays false through it): focus the first once they do.
+  const showingCards = !loading && !error && items.length > 0;
   React.useEffect(() => {
-    if (open && !loading && !listRef.current?.contains(document.activeElement)) cards()[0]?.focus();
-  }, [open, loading]);
+    if (open && showingCards && !listRef.current?.contains(document.activeElement))
+      cards()[0]?.focus();
+  }, [open, showingCards]);
 
   function handleKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
     const target = event.target as HTMLElement;
@@ -136,7 +141,9 @@ export function AttentionModal({
           }
         }}
         onCloseAutoFocus={(event) => {
-          const target = opener.current?.isConnected ? opener.current : returnFocusRef?.current;
+          const target =
+            (opener.current?.isConnected ? opener.current : returnFocusRef?.current) ??
+            document.getElementById(APP_SHELL_MAIN_ID);
           if (!skipReturn.current && target) {
             event.preventDefault();
             target.focus();

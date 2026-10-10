@@ -14,6 +14,7 @@ import {
   studentAlertFactory,
 } from '../../test/factories/attention.factory';
 import { renderWithProviders } from '../../test/render-with-providers';
+import { APP_SHELL_MAIN_ID } from '../app-shell';
 
 import { AlertItemCard } from './alert-item-card';
 import { AlertSnoozeMenu } from './alert-snooze-menu';
@@ -342,6 +343,65 @@ describe('AttentionModal', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     await waitFor(() =>
       expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Bell' })),
+    );
+  });
+
+  it('falls back to <main> when the opener and the bar are both gone', async () => {
+    // Hiding the last alert unmounts the bar while the dialog stays open.
+    function LastAlert() {
+      const [open, setOpen] = React.useState(false);
+      const [bar, setBar] = React.useState(true);
+      const barRef = React.useRef<HTMLButtonElement>(null);
+      return (
+        <main id={APP_SHELL_MAIN_ID} tabIndex={-1}>
+          {bar && (
+            <button ref={barRef} type="button" onClick={() => setOpen(true)}>
+              Bar
+            </button>
+          )}
+          <AttentionModal
+            open={open}
+            onOpenChange={setOpen}
+            items={[warning('1')]}
+            summary={undefined}
+            onRetry={vi.fn()}
+            onPrimary={vi.fn()}
+            onHide={() => setBar(false)}
+            onSnooze={vi.fn()}
+            todoHref="/notifications"
+            todoCount={1}
+            returnFocusRef={barRef}
+          />
+        </main>
+      );
+    }
+    const user = userEvent.setup();
+    await setup(<LastAlert />);
+    await user.click(await screen.findByRole('button', { name: 'Bar' }));
+    const dialog = await screen.findByRole('dialog');
+    await waitFor(() =>
+      expect(document.activeElement).toBe(dialog.querySelector('[data-alert-item="w1"]')),
+    );
+    await user.keyboard('x');
+    expect(screen.queryByRole('button', { name: 'Bar' })).toBeNull();
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    await waitFor(() =>
+      expect(document.activeElement).toBe(document.getElementById(APP_SHELL_MAIN_ID)),
+    );
+  });
+
+  it('a successful Retry focuses the first card', async () => {
+    function Retry() {
+      const [ok, setOk] = React.useState(false);
+      return <Harness error={!ok} items={ok ? [warning('1')] : []} onRetry={() => setOk(true)} />;
+    }
+    const user = userEvent.setup();
+    await setup(<Retry />);
+    await user.click(await screen.findByRole('button', { name: 'Try again' }));
+    const dialog = await screen.findByRole('dialog');
+    await waitFor(() =>
+      expect(document.activeElement).toBe(dialog.querySelector('[data-alert-item="w1"]')),
     );
   });
 

@@ -87,6 +87,7 @@ export function NotificationBell({
   // away from this popover.
   const [open, setOpen] = React.useState(false);
   const sectionId = React.useId();
+  const triggerRef = React.useRef<HTMLButtonElement>(null);
 
   const resolvedLabel = label ?? t('notifications.bellLabel');
   const resolvedPanelTitle = panelTitle ?? t('notifications.panelLabel');
@@ -104,6 +105,7 @@ export function NotificationBell({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
+          ref={triggerRef}
           type="button"
           variant="ghost"
           size="icon"
@@ -166,6 +168,9 @@ export function NotificationBell({
                       type="button"
                       size="sm"
                       onClick={() => {
+                        // The panel animates out, so "Show" is still focused when the modal
+                        // records its opener: hand focus to the bell first so Esc returns here.
+                        triggerRef.current?.focus();
                         setOpen(false);
                         attention.onOpen();
                       }}
