@@ -9,6 +9,7 @@ import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { buildValidationPipeOptions } from '../../../validation-pipe';
 import { SEED_ADMIN_PASSWORD, SEED_ADMIN_PASSWORD_HASH } from '@test/constants';
 import { AlertWriterService } from '../engine/alert-writer.service';
+import { AttentionScheduler } from '../engine/attention-scheduler';
 import { RuleContextService } from './rule-context.service';
 import { RuleRegistryService } from './rule-registry.service';
 
@@ -147,6 +148,9 @@ describe('Attention W4 E2E: family rules', () => {
     app.useGlobalPipes(new ValidationPipe(buildValidationPipeOptions()));
     await app.init();
     ds = app.get(DataSource);
+    // The app's own BullMQ sweeps run every rule at the real clock (CI: Saturday 09:08 Dhaka) and
+    // can resolve or add alerts between runRules and a read. Only this file's runRules may write.
+    await app.get(AttentionScheduler).worker.close();
 
     for (const [sid, slug] of [
       [SCHOOL_A, 'attn-w4-a'],
@@ -224,8 +228,6 @@ describe('Attention W4 E2E: family rules', () => {
     await mkSchool(SCHOOL_B, 'G_B');
   });
 
-  // The app's own scheduler sweeps at the real clock and would resolve fixtures dated for NOW, so
-  // the rules run right before each test's reads rather than in beforeEach.
   const runBoth = async () => {
     await runRules(SCHOOL_A);
     await runRules(SCHOOL_B);
