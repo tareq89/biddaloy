@@ -16,6 +16,7 @@ const title = `E2E keyboard alert ${Date.now()}`;
 test.use({ ...loggedIn('admin'), e2eLocale: 'en', actionTimeout: 15_000 });
 
 test.afterAll(async ({ playwright }) => {
+  // Withdraw so no one's bar keeps it. Withdrawn alerts still count toward the daily cap.
   const ctx = await playwright.request.newContext({ baseURL: shells.app.baseURL });
   try {
     const session = await adminApiSession(ctx);
