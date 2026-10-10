@@ -48,12 +48,17 @@ export class ManualAlertsService {
     const now = new Date();
     const ctx = await this.ruleContext.build(tenantId, now, actorUserId);
     if (dto.expiresOn < ctx.localDate || dto.expiresOn > addDaysIso(ctx.localDate, MAX_DAYS_AHEAD))
-      throw new BadRequestException(
-        `Pick an end date between today and ${MAX_DAYS_AHEAD} days from today`,
-      );
+      throw new BadRequestException({
+        message: `Pick an end date between today and ${MAX_DAYS_AHEAD} days from today`,
+        details: { code: 'MANUAL_EXPIRES_RANGE' },
+      });
 
     const userIds = await this.resolveRecipientUserIds(tenantId, dto.audience);
-    if (!userIds.length) throw new BadRequestException('No one matches this audience');
+    if (!userIds.length)
+      throw new BadRequestException({
+        message: 'No one matches this audience',
+        details: { code: 'MANUAL_NO_RECIPIENTS' },
+      });
 
     const id = await this.writer.writeManual(
       tenantId,
@@ -76,8 +81,12 @@ export class ManualAlertsService {
           [tenantId],
         );
         if (n >= MANUAL_DAILY_CAP)
+          // `details.code` tells this apart from the per-minute throttler's own 429
           throw new HttpException(
-            `Daily limit of ${MANUAL_DAILY_CAP} alerts reached`,
+            {
+              message: `Daily limit of ${MANUAL_DAILY_CAP} alerts reached`,
+              details: { code: 'MANUAL_DAILY_LIMIT', limit: MANUAL_DAILY_CAP },
+            },
             HttpStatus.TOO_MANY_REQUESTS,
           );
       },
