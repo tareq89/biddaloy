@@ -79,6 +79,9 @@ import { ensureStudyPlansSeed } from './seed.study-plans';
 import { StudyPlan } from '../modules/study-plans/entities/study-plan.entity';
 import { StudyPlanTemplate } from '../modules/study-plans/entities/study-plan-template.entity';
 import { LessonDelivery } from '../modules/study-plans/entities/lesson-delivery.entity';
+import { ensureApplicationsSeed } from './seed.applications';
+import { Application } from '../modules/applications/entities/application.entity';
+import { ApplicationEvent } from '../modules/applications/entities/application-event.entity';
 import { AcrAssessment } from '../modules/acr/entities/acr-assessment.entity';
 import { AcrCriterion } from '../modules/acr/entities/acr-criterion.entity';
 import { AcrFormVersion } from '../modules/acr/entities/acr-form-version.entity';
@@ -349,6 +352,19 @@ export async function seed() {
         deliveryRepository: dataSource.getRepository(LessonDelivery),
       },
       school.id,
+    );
+
+    // [52.1.6] Three PENDING demo applications.
+    await ensureApplicationsSeed(
+      {
+        applicationRepository: dataSource.getRepository(Application),
+        eventRepository: dataSource.getRepository(ApplicationEvent),
+        staffProfileRepository: dataSource.getRepository(StaffProfile),
+        guardianRepository: dataSource.getRepository(Guardian),
+        academicYearRepository: dataSource.getRepository(AcademicYear),
+      },
+      school.id,
+      lifecycleAdmin.id,
     );
   }
 

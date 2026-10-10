@@ -180,6 +180,13 @@ export const TRANSACTIONAL_TABLES_CHILD_FIRST = [
   // `teachers.staff_profile_id` FKs `staff_profiles` too, so `staff_profiles`
   // must clear last of this group (after `teachers`, above).
   'leave_records',
+  // [52.1.2] Applications — children first. `leave_records.application_id` FKs
+  // `applications`, so they clear after `leave_records`; they FK users,
+  // students and staff_profiles, so before those.
+  'application_attachments',
+  'application_tags',
+  'application_events',
+  'applications',
   'staff_attendance_records',
   'staff_attendance_sessions',
   'leave_policies',

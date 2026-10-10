@@ -286,6 +286,12 @@
     "results_one": "{{count}}টি ফলাফল",
     "results_other": "{{count}}টি ফলাফল"
   },
+  "multiCombobox": {
+    "added": "{{label}} যোগ হয়েছে",
+    "remove": "{{label}} সরান",
+    "removed": "{{label}} সরানো হয়েছে",
+    "selected": "বাছাই করা"
+  },
   "fullPage": {
     "discardTitle": "পরিবর্তনগুলো বাদ দেবেন?",
     "discardDescription": "কিছু পরিবর্তন এখনো সংরক্ষণ হয়নি। এখন বন্ধ করলে সেগুলো মুছে যাবে।",

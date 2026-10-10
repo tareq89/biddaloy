@@ -180,9 +180,10 @@ export class LeaveService {
     );
     return {
       leave_type: leaveType,
-      annual_quota_days: policy.annual_quota_days,
+      // ponytail: a workbook import can already store null (unlimited, D19); read as 0 until 52.2.4 (#2105) reads it as unlimited
+      annual_quota_days: policy.annual_quota_days ?? 0,
       used_days: usedDays,
-      balance: policy.annual_quota_days - usedDays,
+      balance: (policy.annual_quota_days ?? 0) - usedDays,
     };
   }
 
@@ -363,7 +364,8 @@ export class LeaveService {
         record.leave_type,
         yearRangeOf(record.start_date),
       );
-      const balance = policy.annual_quota_days - usedDays;
+      // ponytail: a workbook import can already store null (unlimited, D19); read as 0 until 52.2.4 (#2105) reads it as unlimited
+      const balance = (policy.annual_quota_days ?? 0) - usedDays;
       if (record.days > balance) {
         throw new UnprocessableEntityException({
           message: `Approving would exceed the remaining balance of ${balance}`,
@@ -400,7 +402,8 @@ export class LeaveService {
     const policies = await this.leavePolicyRepo.find({ where: { tenant_id: tenantId } });
     return policies.map((p) => ({
       leave_type: p.leave_type,
-      annual_quota_days: p.annual_quota_days,
+      // ponytail: a workbook import can already store null (unlimited, D19); read as 0 until 52.2.4 (#2105) reads it as unlimited
+      annual_quota_days: p.annual_quota_days ?? 0,
     }));
   }
 
@@ -412,6 +415,7 @@ export class LeaveService {
     const policy = await this.getPolicy(tenantId, leaveType);
     policy.annual_quota_days = annualQuotaDays;
     const saved = await this.leavePolicyRepo.save(policy);
-    return { leave_type: saved.leave_type, annual_quota_days: saved.annual_quota_days };
+    // ponytail: a workbook import can already store null (unlimited, D19); read as 0 until 52.2.4 (#2105) reads it as unlimited
+    return { leave_type: saved.leave_type, annual_quota_days: saved.annual_quota_days ?? 0 };
   }
 }

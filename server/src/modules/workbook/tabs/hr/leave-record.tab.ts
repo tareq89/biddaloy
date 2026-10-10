@@ -1,7 +1,9 @@
-import type { EntityManager } from 'typeorm';
-import { LeaveType, LeaveStatus } from '@biddaloy/shared';
+import { IsNull, type EntityManager } from 'typeorm';
+import { LeaveType, LeaveStatus, ApplicationStatus, ApplicationType } from '@biddaloy/shared';
+import { Application } from '../../../applications/entities/application.entity';
 import { LeaveRecord } from '../../../leave/entities/leave-record.entity';
 import { fromCell } from '../../codec/cell-format';
+import { applicationsTab } from '../applications/applications.tab';
 import type {
   ColumnSpec,
   ExportContext,
@@ -17,11 +19,11 @@ import type {
  * (`server/src/modules/leave/entities/leave-record.entity.ts`, migration
  * `1789800014000-StaffAttendanceLeave.ts`). No unique DB constraint exists
  * on this table beyond `id`, unlike every other tab so far — the natural
- * key here is a judgment call: `(staff_profile, start_date, end_date)`,
- * which is unique in practice (a staff member does not file two leave
- * requests spanning the exact same dates) and lets export/import match a
- * row across a restore without ever inventing a new uuid for an
- * unmodified request.
+ * key here is a judgment call: `(staff_profile, start_date, end_date,
+ * application)`. Staff and dates alone are not enough since D31: a CANCELLED
+ * leave and a later re-approved leave for the same dates both stay in the
+ * ledger, each with its own application. Rows from before Epic 52 have no
+ * application and keep matching on staff and dates.
  */
 export interface LeaveRecordRow {
   id: string;
@@ -33,9 +35,11 @@ export interface LeaveRecordRow {
   status: LeaveStatus;
   reason: string | null;
   approved_by: string | null;
+  application_id: string | null;
   decided_at: string | null;
   staff_profile_key: string;
   approved_by_key: string | null;
+  application_key: string | null;
 }
 
 const columns: readonly ColumnSpec[] = [
@@ -77,6 +81,12 @@ const columns: readonly ColumnSpec[] = [
     ref: 'users',
     label: { en: 'Approved by', bn: 'অনুমোদনকারী' },
   },
+  {
+    key: 'application',
+    type: 'ref',
+    ref: 'applications',
+    label: { en: 'Application', bn: 'আবেদন' },
+  },
   { key: 'decided_at', type: 'datetime', label: { en: 'Decided at', bn: 'সিদ্ধান্তের সময়' } },
 ];
 
@@ -90,24 +100,25 @@ const excluded: readonly string[] = [
   // share the same key (unlike `student_id` → `student`), so it appears
   // only in `columns`, and the completeness gate treats that as covered.
   'tenant_id', // implicit: every row is scoped to the workbook's own tenant
+  'application_id', // exported instead as the `application` ref column
 ];
 
 export const leaveRecordTab: TabSpec<LeaveRecord, LeaveRecordRow> = {
   name: 'leave_records',
   entity: LeaveRecord,
   excluded,
-  dependsOn: ['staff_profiles', 'users'],
+  dependsOn: ['staff_profiles', 'users', 'applications'],
   columns,
-  naturalKey: ['staff_profile', 'start_date', 'end_date'],
+  naturalKey: ['staff_profile', 'start_date', 'end_date', 'application'],
   deleteByAbsence: true,
 
   load(tenantId: string, m: EntityManager): Promise<LeaveRecord[]> {
-    // `staff_profile` is needed eagerly: `keyOf` reads its natural-key field
-    // directly off the relation. `approver` is resolved via `ctx.keyOf` from
-    // the stored id, so no eager relation is needed for it.
+    // `staff_profile` and `application` are needed eagerly: `keyOf` reads their
+    // natural-key fields directly off the relations. `approver` is resolved via
+    // `ctx.keyOf` from the stored id, so no eager relation is needed for it.
     return m.find(LeaveRecord, {
       where: { tenant_id: tenantId },
-      relations: ['staff_profile'],
+      relations: ['staff_profile', 'application'],
     });
   },
 
@@ -122,6 +133,7 @@ export const leaveRecordTab: TabSpec<LeaveRecord, LeaveRecordRow> = {
       status: entity.status,
       reason: entity.reason,
       approved_by: entity.approved_by ? ctx.keyOf('users', entity.approved_by) : null,
+      application: entity.application_id ? ctx.keyOf('applications', entity.application_id) : null,
       decided_at: entity.decided_at,
     };
   },
@@ -193,6 +205,25 @@ export const leaveRecordTab: TabSpec<LeaveRecord, LeaveRecordRow> = {
       }
     }
 
+    // `application` is optional: only leave granted from an application has one.
+    const applicationKey = (values.application as string | null) ?? '';
+    let applicationId: string | null = null;
+    if (applicationKey) {
+      const resolved = ctx.ref('applications', applicationKey);
+      if (!resolved) {
+        errors.push({
+          tab: 'leave_records',
+          row: rowNo,
+          column: 'application',
+          message: `Column "application": no application with the key "${applicationKey}" was found.`,
+          severity: 'error',
+          value: applicationKey,
+        });
+      } else {
+        applicationId = resolved;
+      }
+    }
+
     if (errors.length > 0) return { errors };
 
     return {
@@ -206,17 +237,21 @@ export const leaveRecordTab: TabSpec<LeaveRecord, LeaveRecordRow> = {
         status: (values.status as LeaveStatus | null) ?? LeaveStatus.PENDING,
         reason: (values.reason as string | null) ?? null,
         approved_by: approvedById,
+        application_id: applicationId,
         decided_at: (values.decided_at as string | null) ?? null,
         staff_profile_key: staffProfileKey,
         approved_by_key: approvedByKey ? approvedByKey : null,
+        application_key: applicationKey ? applicationKey : null,
       },
     };
   },
 
   keyOf(x: LeaveRecordRow | LeaveRecord): string {
-    const staffProfileKey =
-      x instanceof LeaveRecord ? (x.staff_profile?.employee_id ?? '') : x.staff_profile_key;
-    return `${staffProfileKey}|${x.start_date}|${x.end_date}`;
+    if (x instanceof LeaveRecord) {
+      const app = x.application ? applicationsTab.keyOf(x.application) : '';
+      return `${x.staff_profile?.employee_id ?? ''}|${x.start_date}|${x.end_date}|${app}`;
+    }
+    return `${x.staff_profile_key}|${x.start_date}|${x.end_date}|${x.application_key ?? ''}`;
   },
 
   diffFields(row: LeaveRecordRow, existing: LeaveRecord): string[] {
@@ -229,6 +264,7 @@ export const leaveRecordTab: TabSpec<LeaveRecord, LeaveRecordRow> = {
     if (row.status !== existing.status) changed.push('status');
     if (row.reason !== existing.reason) changed.push('reason');
     if (row.approved_by !== existing.approved_by) changed.push('approved_by');
+    if (row.application_id !== existing.application_id) changed.push('application');
     const rowDecidedAt = row.decided_at;
     const existingDecidedAt = existing.decided_at ? existing.decided_at.toISOString() : null;
     if (rowDecidedAt !== existingDecidedAt) changed.push('decided_at');
@@ -249,11 +285,33 @@ export const leaveRecordTab: TabSpec<LeaveRecord, LeaveRecordRow> = {
           staff_profile_id: row.staff_profile_id,
           start_date: row.start_date,
           end_date: row.end_date,
+          application_id: row.application_id ?? IsNull(),
         },
       })) ??
       new LeaveRecord();
 
     record.tenant_id = tenantId;
+    if (row.application_id) {
+      // Tenant-scoped: the linked application must be this staff member's own leave
+      // application, decided the same way (D31: APPROVED, or CANCELLED for a cancelled leave).
+      const app = await m.findOne(Application, {
+        where: { id: row.application_id, tenant_id: tenantId },
+      });
+      const wanted =
+        row.status === LeaveStatus.CANCELLED
+          ? ApplicationStatus.CANCELLED
+          : ApplicationStatus.APPROVED;
+      if (
+        !app ||
+        app.type !== ApplicationType.STAFF_LEAVE ||
+        app.subject_staff_profile_id !== row.staff_profile_id ||
+        app.status !== wanted
+      ) {
+        throw new Error(
+          `Leave record ${row.staff_profile_key}|${row.start_date}: "application" must be a ${wanted} STAFF_LEAVE application for the same staff member.`,
+        );
+      }
+    }
     record.staff_profile_id = row.staff_profile_id;
     record.leave_type = row.leave_type;
     record.start_date = row.start_date;
@@ -262,7 +320,12 @@ export const leaveRecordTab: TabSpec<LeaveRecord, LeaveRecordRow> = {
     record.status = row.status;
     record.reason = row.reason;
     record.approved_by = row.approved_by;
+    record.application_id = row.application_id;
     record.decided_at = row.decided_at ? new Date(row.decided_at) : null;
+    // `load()` eager-loads these, and a loaded relation beats its FK column on save.
+    // Clear them so a row matched by id keeps the workbook's ids, not the old links.
+    (record as { staff_profile?: unknown }).staff_profile = undefined;
+    (record as { application?: unknown }).application = undefined;
 
     return m.save(LeaveRecord, record);
   },

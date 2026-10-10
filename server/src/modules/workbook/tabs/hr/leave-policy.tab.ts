@@ -23,7 +23,7 @@ import type {
 export interface LeavePolicyRow {
   id: string;
   leave_type: LeaveType;
-  annual_quota_days: number;
+  annual_quota_days: number | null; // null = unlimited (D19)
 }
 
 const columns: readonly ColumnSpec[] = [
@@ -36,9 +36,10 @@ const columns: readonly ColumnSpec[] = [
     label: { en: 'Leave type', bn: 'ছুটির ধরন' },
   },
   {
+    // Not `required`, on purpose: a blank cell is null = unlimited (D19), so an
+    // unlimited policy survives export -> restore.
     key: 'annual_quota_days',
     type: 'int',
-    required: true,
     label: { en: 'Annual quota (days)', bn: 'বার্ষিক কোটা (দিন)' },
   },
 ];
@@ -92,7 +93,7 @@ export const leavePolicyTab: TabSpec<LeavePolicy, LeavePolicyRow> = {
       row: {
         id: values.id as string,
         leave_type: values.leave_type as LeaveType,
-        annual_quota_days: values.annual_quota_days as number,
+        annual_quota_days: (values.annual_quota_days as number | null) ?? null,
       },
     };
   },

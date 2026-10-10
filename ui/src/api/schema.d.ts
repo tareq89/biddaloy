@@ -13080,7 +13080,7 @@ export interface components {
             end_date: string;
             days: number;
             /** @enum {string} */
-            status: "PENDING" | "APPROVED" | "REJECTED";
+            status: "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
             reason: string | null;
             approved_by: string | null;
             /** Format: date-time */

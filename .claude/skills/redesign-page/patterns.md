@@ -369,6 +369,10 @@ Trigger as DatePicker with `calendar-range`, text = `formatMonth(value)`. Popove
 
 Built on `Combobox`. Trigger as DatePicker with `clock`, text = `formatTime(value)`. Popover: a listbox of times `w-full rounded-lg border border-border-subtle bg-surface p-1 shadow-e2 md:w-72`; option `flex h-11 items-center justify-between rounded-md px-3 md:h-8`; selected `bg-secondary font-semibold text-secondary-foreground` + `check`. Typing filters the list.
 
+### MultiCombobox (new) — Epic 52
+
+Use `MultiCombobox` from `@biddaloy/ui` to pick several people or roles. The `Combobox` pattern (focus stays on the input; Arrow keys move, Enter toggles and the list stays open), with an `aria-multiselectable` listbox. Chosen values show as chips above the input in `<ul aria-label="Selected">`: `inline-flex min-h-11 items-center gap-1 rounded-full border border-border-subtle bg-muted px-3 text-body md:min-h-8`, each with an `X` icon button (`size-11 md:size-8`, `aria-label="Remove {label}"`). Option rows `min-h-11 md:min-h-8`, optional second line `text-caption text-text-secondary`. Backspace on an empty input removes the last chip. At `max`, unselected options are `aria-disabled`. Props: `options[{value,label,description?}]`, `value: string[]`, `onValueChange`, `aria-label`, `placeholder?`, `emptyText?`, `max?`.
+
 ## 7. Overlays
 
 ### Dialog — D17, D21
@@ -473,6 +477,10 @@ Use `ChoiceCards` from `@biddaloy/ui` to pick one kind or language. A radio grou
 ### StudentPicker (existing) — portal child picker
 
 Use `StudentPicker` from `@biddaloy/ui` (already used by the portal exam schedule). A `<nav aria-label>` of chips: `flex min-h-11 flex-col justify-center gap-0.5 rounded-lg border px-3 py-1.5`; active `border-primary bg-secondary`, others `border-border-subtle bg-surface hover:bg-muted`; name `font-semibold`, meta `text-caption text-text-secondary`. Hidden when there are fewer than two children. Props: `label`, `items[{id,name,meta}]`, `selectedId`, `to`.
+
+### Timeline (new) — Epic 52
+
+Use `Timeline` from `@biddaloy/ui` for an application's or record's event history. `<ol aria-label class="divide-y divide-border-subtle">`; each `<li class="flex flex-col gap-1 py-3">` holds an optional `StatusBadge` (`tone`, `badge`) beside the title (`font-medium`), then `<time dateTime class="text-text-secondary">` as date and time (`formatDateTime`), then the optional body. The caller orders the items; an empty list shows `emptyText` as `text-text-secondary`. Props: `items[{id,title,time /* ISO */,tone?,badge?,body?}]`, `aria-label`, `emptyText?`.
 
 ### Print type sizes — D38
 
