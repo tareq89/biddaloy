@@ -853,6 +853,11 @@ export class ResultsService {
         manager,
       );
     });
+
+    // Withdrawn results: resolve the families' "results are out" and raise the staff's "not published".
+    for (const ruleKey of ['results.published', 'exams.results_unpublished'] as const) {
+      emitRecheck(attentionEvents, { tenantId, ruleKey, actorUserId: userId });
+    }
   }
 
   /** [19.8.1] The results panel's per-student rows — not in the plan's own
