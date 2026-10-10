@@ -42,7 +42,10 @@ test.describe('admin sends', () => {
 
   test('picks one teacher, sees 1 recipient, sends', async ({ page }) => {
     await page.goto('/communications/send-alert');
-    await expect(page.getByRole('heading', { name: t('attention.composer.title') })).toBeVisible();
+    // First load of a cold page: CI has taken over 5 s here (the page was fine, just late).
+    await expect(page.getByRole('heading', { name: t('attention.composer.title') })).toBeVisible({
+      timeout: 15_000,
+    });
 
     await page.getByLabel(t('attention.composer.titleLabel'), { exact: true }).fill(title);
     await page.getByLabel(t('attention.composer.messageLabel'), { exact: true }).fill(message);
@@ -65,7 +68,9 @@ test.describe('teacher receives', () => {
 
   test('the alert is in To-do', async ({ page }) => {
     await page.goto('/notifications?tab=active');
-    await expect(page.getByRole('row').filter({ hasText: title })).toHaveCount(1);
+    await expect(page.getByRole('row').filter({ hasText: title })).toHaveCount(1, {
+      timeout: 15_000,
+    });
   });
 });
 
