@@ -4,7 +4,7 @@ import { alertRuleMeta, UserRole } from '@biddaloy/shared';
 import { FamilyAccessService } from '../../../students/family-access.service';
 import { ResolveRoutineService } from '../../../routines/resolve-routine.service';
 import { AttentionRule } from '../attention-rule.decorator';
-import { endOfLocalDay } from '../rule-context.service';
+import { endOfLocalDay, localDateTimeToUtc } from '../rule-context.service';
 import type { AttentionRule as AttentionRuleShape, RuleContext, RuleFinding } from '../rule.types';
 
 export interface NotSubmittedRow {
@@ -18,6 +18,8 @@ export interface NotSubmittedRow {
   sectionLabel: string;
   studentId: string;
   studentName: string;
+  /** When the assignment was posted. */
+  createdAt: Date;
 }
 
 /**
@@ -34,14 +36,14 @@ export async function loadNotSubmitted(
     `SELECT x.assignment_id AS "assignmentId", h.id AS "homeworkId", h.title, h.subject_id AS "subjectId",
             sub.name_en AS subject_en, COALESCE(sub.name_bn, sub.name_en) AS subject_bn,
             x.section_id AS "sectionId", c.name || '-' || cs.section_name AS "sectionLabel",
-            x.student_id AS "studentId", st.full_name AS "studentName"
+            x.student_id AS "studentId", st.full_name AS "studentName", x.created_at AS "createdAt"
      FROM (
-       SELECT ha.id AS assignment_id, ha.homework_id, ha.section_id, s.id AS student_id
+       SELECT ha.id AS assignment_id, ha.homework_id, ha.section_id, s.id AS student_id, ha.created_at
        FROM homework_assignments ha
        JOIN students s ON s.class_section_id = ha.section_id AND s.tenant_id = $1 AND s.deleted_at IS NULL AND s.enrollment_status = 'ACTIVE'
        WHERE ha.tenant_id = $1 AND ha.status = 'ACTIVE' AND ha.due_date = $2 AND ha.section_id IS NOT NULL
        UNION ALL
-       SELECT ha.id, ha.homework_id, s.class_section_id, s.id
+       SELECT ha.id, ha.homework_id, s.class_section_id, s.id, ha.created_at
        FROM homework_assignments ha
        JOIN students s ON s.id = ha.student_id AND s.tenant_id = $1 AND s.deleted_at IS NULL AND s.enrollment_status = 'ACTIVE'
        WHERE ha.tenant_id = $1 AND ha.status = 'ACTIVE' AND ha.due_date = $2 AND ha.student_id IS NOT NULL
@@ -135,7 +137,15 @@ export class HomeworkNotSubmittedRule implements AttentionRuleShape {
     if (!rows.length) return [];
 
     const triggers = await this.triggerTimes(ctx);
-    const active = rows.filter((r) => ctx.localTime >= triggers.at(r.sectionId, r.subjectId));
+    // Homework posted after its own trigger was never owed before the class: skipping it
+    // keeps an after-school ON_CHANGE recheck to resolving alerts, never raising new ones.
+    const active = rows.filter((r) => {
+      const at = triggers.at(r.sectionId, r.subjectId);
+      return (
+        ctx.localTime >= at &&
+        new Date(r.createdAt) <= localDateTimeToUtc(ctx.localDate, at, ctx.tz)
+      );
+    });
     if (!active.length) return [];
 
     const [familyUsers, teachers] = await Promise.all([
