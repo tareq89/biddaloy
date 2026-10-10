@@ -100,10 +100,11 @@ describe('/students', () => {
     });
 
     // A cold route-tree render loads lazy routes and i18n namespaces first;
-    // on a busy CI shard that outlasts the 1s default.
-    await screen.findByRole('link', { name: 'View' }, { timeout: 5000 });
+    // on a busy CI shard that outlasts even 5s (#437; failed again on PR #2041
+    // while taking 0.6s locally). The ceiling costs nothing when it passes.
+    await screen.findByRole('link', { name: 'View' }, { timeout: 15_000 });
     expect(screen.queryByRole('link', { name: 'Collect fees' })).toBeNull();
-  });
+  }, 20_000);
 
   it('bulk-selecting rows reveals Send reminder and Export CSV, hides them again once cleared', async () => {
     const students = [
