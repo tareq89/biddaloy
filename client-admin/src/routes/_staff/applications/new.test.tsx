@@ -374,7 +374,8 @@ describe('/applications/new', () => {
 
   it('renders in Bangla with the page title', async () => {
     render('TEACHER', { locale: 'bn' });
-    expect(await screen.findByText('ধরন')).toBeTruthy();
+    // The step name shows in the phone label and the desktop list (the shared Stepper), so twice.
+    expect((await screen.findAllByText('ধরন')).length).toBeGreaterThan(0);
     await waitFor(() => expect(document.title.startsWith('নতুন আবেদন')).toBe(true));
   });
 });
