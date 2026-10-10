@@ -57,7 +57,7 @@ export function useWithdrawManualAlert() {
   });
 }
 
-/** The caller debounces `audience` (300 ms) before passing it. */
+/** The caller debounces `audience` (400 ms) before passing it. */
 export function useManualAlertPreview(audience: ManualAudience) {
   return useQuery({
     queryKey: ['attention-manual', 'preview', audience] as const,
