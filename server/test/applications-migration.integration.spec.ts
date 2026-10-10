@@ -6,8 +6,8 @@ import { SEED_TENANT_ID, SEED_SECTION_1_ID } from '@test/constants';
 import { User } from '../src/modules/users/entities/user.entity';
 import { StaffProfile } from '../src/modules/staff-profiles/entities/staff-profile.entity';
 import { Student } from '../src/modules/students/entities/student.entity';
-import { Applications1791500000000 } from '../src/migrations/1791500000000-Applications';
-import { MovePendingLeaveToApplications1791500000100 } from '../src/migrations/1791500000100-MovePendingLeaveToApplications';
+import { Applications1791600000000 } from '../src/migrations/1791600000000-Applications';
+import { MovePendingLeaveToApplications1791600000100 } from '../src/migrations/1791600000100-MovePendingLeaveToApplications';
 
 /**
  * [52.1.2] Applications schema (constraints, cascades, leave changes) and the
@@ -19,7 +19,7 @@ import { MovePendingLeaveToApplications1791500000100 } from '../src/migrations/1
 describe('Applications migration (integration)', () => {
   let ds: DataSource;
   let queryRunner: QueryRunner;
-  const migration = new MovePendingLeaveToApplications1791500000100();
+  const migration = new MovePendingLeaveToApplications1791600000100();
   const schoolIds: string[] = [];
   let seq = 0;
 
@@ -323,9 +323,9 @@ describe('Applications migration (integration)', () => {
 
   // Runs the real schema down() then up() inside one transaction that is rolled back, so the
   // shared worker schema is never touched (Postgres DDL is transactional).
-  describe('Applications1791500000000 round trip', () => {
+  describe('Applications1791600000000 round trip', () => {
     it('down() refuses an unlimited (NULL) quota, then down() + up() rebuild every index and constraint', async () => {
-      const schema = new Applications1791500000000();
+      const schema = new Applications1791600000000();
       const unlimited = await school(null);
       const qr = ds.createQueryRunner();
       await qr.connect();

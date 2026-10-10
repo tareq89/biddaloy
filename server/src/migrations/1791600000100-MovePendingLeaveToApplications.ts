@@ -13,8 +13,8 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * Serial (D29): per (tenant, year) continuing after the current max, ordered by
  * created_at. Year is taken in the school's timezone (default Asia/Dhaka).
  */
-export class MovePendingLeaveToApplications1791500000100 implements MigrationInterface {
-  name = 'MovePendingLeaveToApplications1791500000100';
+export class MovePendingLeaveToApplications1791600000100 implements MigrationInterface {
+  name = 'MovePendingLeaveToApplications1791600000100';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     // One statement so the new application ids line up with the leave ids they

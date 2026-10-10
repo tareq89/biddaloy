@@ -6,8 +6,8 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * `leave_records.application_id` and the `CANCELLED` leave status (D31).
  * PENDING leave rows are moved by the next migration, not here.
  */
-export class Applications1791500000000 implements MigrationInterface {
-  name = 'Applications1791500000000';
+export class Applications1791600000000 implements MigrationInterface {
+  name = 'Applications1791600000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(

@@ -69,7 +69,7 @@ export class LeaveRecord {
   decided_at: Date | null;
 
   // In the DB this FK is composite: (tenant_id, application_id) → applications(tenant_id, id),
-  // ON DELETE SET NULL ("application_id") (migration 1791500000000).
+  // ON DELETE SET NULL ("application_id") (migration 1791600000000).
   @ManyToOne(() => Application, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'application_id', foreignKeyConstraintName: 'FK_leave_records_application' })
   application: Application | null;

@@ -24,7 +24,7 @@ import { User } from '../../users/entities/user.entity';
 
 /**
  * [52.1.2] One application (আবেদনপত্র) of any of the 10 types. Matches migration
- * `Applications1791500000000` exactly.
+ * `Applications1791600000000` exactly.
  *
  * - Exactly one subject (student xor staff profile) — `CHK_applications_one_subject`.
  * - The applicant is a user, or (PAPER only) a bare `applicant_name` for a guardian
