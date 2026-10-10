@@ -80,14 +80,16 @@ export async function ensureAttentionRulesSeed(ds: DataSource, tenantId: string)
            VALUES ($1, $2, $3, $4, 'TICK', '[]', NOW(), NOW()) RETURNING id`,
           [tenantId, title, subject.subject_id, section.class_id],
         );
+        // Posted a day back: homework.not_submitted skips homework posted after its trigger.
         await q(
           `INSERT INTO homework_assignments (tenant_id, homework_id, section_id, assigned_date, due_date, status, created_at, updated_at)
-           VALUES ($1, $2, $3, $4, $5, 'ACTIVE', NOW(), NOW())`,
+           VALUES ($1, $2, $3, $4, $5, 'ACTIVE', NOW() - interval '1 day', NOW())`,
           [tenantId, hw.id, section.section_id, today, dues[i]],
         );
       } else {
         await q(
-          `UPDATE homework_assignments SET assigned_date = $4, due_date = $5, status = 'ACTIVE', updated_at = NOW()
+          `UPDATE homework_assignments SET assigned_date = $4, due_date = $5, status = 'ACTIVE',
+             created_at = NOW() - interval '1 day', updated_at = NOW()
            WHERE tenant_id = $1 AND homework_id = $2 AND section_id = $3`,
           [tenantId, hw.id, section.section_id, today, dues[i]],
         );

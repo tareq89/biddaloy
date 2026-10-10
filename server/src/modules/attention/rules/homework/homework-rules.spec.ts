@@ -20,6 +20,7 @@ const row = (studentId: string, extra = {}) => ({
   sectionLabel: '7-B',
   studentId,
   studentName: `Kid ${studentId}`,
+  createdAt: new Date('2026-10-09T03:00:00Z'),
   ...extra,
 });
 const PARENT = (s: string) => ({ studentId: s, userId: `p-${s}`, role: UserRole.PARENT });
@@ -155,6 +156,20 @@ describe('HomeworkNotSubmittedRule', () => {
     const nothing = base({ slots: [], periods: [] });
     expect(await notSubmitted(nothing).evaluate(ctx({ localTime: '15:59' }))).toEqual([]);
     expect(await notSubmitted(nothing).evaluate(ctx({ localTime: '16:00' }))).not.toEqual([]);
+  });
+
+  // An after-school recheck must not raise homework that was posted after its own trigger.
+  it('homework posted after its trigger (10:00) is never raised, even at night', async () => {
+    const late = { createdAt: localDateTimeToUtc('2026-10-10', '20:00', 'Asia/Dhaka') };
+    const f = base({ notSubmitted: [row('s1', late), row('s2')] });
+    const findings = await notSubmitted(f).evaluate(ctx({ localTime: '21:00' }));
+    expect(findings.map((x) => x.dedupeKey)).not.toContain('student:s1:2026-10-10:as1');
+    expect(findings.map((x) => x.dedupeKey)).toContain('student:s2:2026-10-10:as1');
+    expect(
+      await notSubmitted(base({ notSubmitted: [row('s1', late)] })).evaluate(
+        ctx({ localTime: '21:00' }),
+      ),
+    ).toEqual([]);
   });
 
   it('non-working day: nothing', async () => {
