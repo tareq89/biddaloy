@@ -232,6 +232,7 @@ describe('NotificationBell', () => {
       over: Partial<NotificationBellAttention> = {},
     ): NotificationBellAttention => ({
       count: 4,
+      openCount: 4,
       topTitle: 'Fee reminders failed',
       status: 'ready',
       onRetry: vi.fn(),
@@ -264,6 +265,18 @@ describe('NotificationBell', () => {
       expect(await screen.findByText('Could not load alerts.')).toBeTruthy();
       await user.click(screen.getByRole('button', { name: 'Try again' }));
       expect(a.onRetry).toHaveBeenCalledTimes(1);
+    });
+
+    it('hidden-only: badge shows, but no Show button (nothing open), only See all to-do', async () => {
+      const user = userEvent.setup();
+      await renderWithRouterInEnglish({
+        attention: attention({ count: 2, openCount: 0, topTitle: null }),
+      });
+      await user.click(
+        await screen.findByRole('button', { name: 'Notifications, 2 need your attention' }),
+      );
+      expect(await screen.findByRole('link', { name: 'See all to-do' })).toBeTruthy();
+      expect(screen.queryByRole('button', { name: 'Show' })).toBeNull();
     });
 
     it('shows the none line when ready with no alerts', async () => {

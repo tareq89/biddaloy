@@ -294,6 +294,66 @@ describe('AttentionModal', () => {
     await setup(<Harness items={[]} />);
     await screen.findByText('Nothing needs you right now.');
   });
+
+  it('with no card to focus (empty, error), focus still moves into the dialog', async () => {
+    const empty = await setup(<Harness items={[]} />);
+    const dialog = await screen.findByRole('dialog');
+    await waitFor(() => expect(dialog.contains(document.activeElement)).toBe(true));
+    empty.unmount();
+
+    await setup(<Harness error items={[]} />);
+    const errDialog = await screen.findByRole('dialog');
+    await waitFor(() => expect(errDialog.contains(document.activeElement)).toBe(true));
+  });
+
+  it('focus returns to whatever opened the dialog, not always the bar', async () => {
+    function Openers() {
+      const [open, setOpen] = React.useState(false);
+      const barRef = React.useRef<HTMLButtonElement>(null);
+      return (
+        <>
+          <button ref={barRef} type="button">
+            Bar
+          </button>
+          <button type="button" onClick={() => setOpen(true)}>
+            Bell
+          </button>
+          <AttentionModal
+            open={open}
+            onOpenChange={setOpen}
+            items={[warning('1')]}
+            summary={undefined}
+            onRetry={vi.fn()}
+            onPrimary={vi.fn()}
+            onHide={vi.fn()}
+            onSnooze={vi.fn()}
+            todoHref="/notifications"
+            todoCount={1}
+            returnFocusRef={barRef}
+          />
+        </>
+      );
+    }
+    const user = userEvent.setup();
+    await setup(<Openers />);
+    await user.click(await screen.findByRole('button', { name: 'Bell' }));
+    await screen.findByRole('dialog');
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    await waitFor(() =>
+      expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Bell' })),
+    );
+  });
+
+  it('X on a card whose hide is in flight does not hide it again', async () => {
+    const onHide = vi.fn();
+    const user = userEvent.setup();
+    await setup(<Harness onHide={onHide} itemState={{ w1: { busy: true } }} />);
+    const dialog = await screen.findByRole('dialog');
+    dialog.querySelector<HTMLElement>('[data-alert-item="w1"]')!.focus();
+    await user.keyboard('x');
+    expect(onHide).not.toHaveBeenCalled();
+  });
 });
 
 describe('StudentAlertStrip', () => {
