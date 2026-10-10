@@ -35,7 +35,8 @@ import { useSectionOptions } from '../use-section-options';
 import { AlertsReportFacts } from './alerts-report-facts';
 import { AlertsReportTable } from './alerts-report-table';
 
-const MONTHS_BACK = 12;
+// D31: the server keeps (and accepts) this month plus the 11 before it
+const MONTHS_SHOWN = 12;
 const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
 
 /** Rules a school can see in the report: no platform / manual / epic-owned ones (same set as Settings). */
@@ -44,10 +45,10 @@ const REPORT_RULES = ALERT_RULES.filter(
     !r.ownerEpic && r.category !== AlertCategory.PLATFORM && r.category !== AlertCategory.MANUAL,
 );
 
-/** `"2026-10"` and the 12 months before it, newest first. */
+/** `"2026-10"` and the 11 months before it, newest first. */
 function recentMonths(current: string): string[] {
   const [y = 0, m = 1] = current.split('-').map(Number);
-  return Array.from({ length: MONTHS_BACK + 1 }, (_, i) => {
+  return Array.from({ length: MONTHS_SHOWN }, (_, i) => {
     const index = y * 12 + (m - 1) - i;
     return `${Math.floor(index / 12)}-${String((index % 12) + 1).padStart(2, '0')}`;
   });
