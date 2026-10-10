@@ -227,6 +227,8 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
   '/_staff/print/document': [{ label: { key: 'printDocument' } }],
   '/_staff/reports/printables': [{ label: { key: 'printables' } }],
   '/_staff/communications/send': [{ label: { key: 'sendMessage' } }],
+  '/_staff/communications/send-alert': [{ label: { key: 'sendAlert' } }],
+  '/_staff/reports/alerts': [{ label: { key: 'alertsReport' } }],
   '/_staff/communications/reminders': [{ label: { key: 'feeReminders' } }],
   '/_staff/communications/batches/': [{ label: { key: 'reminderHistory' } }],
   '/_staff/roles/': [{ label: { key: 'rolesAccess' } }],
