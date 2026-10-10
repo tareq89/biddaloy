@@ -1,7 +1,8 @@
 /**
  * [67.5.05] Pages the optional "Page to open" link may point at. A link only
  * works if every recipient uses the same app, so the list follows the audience:
- * staff pages (those the sender can see), portal pages, or none when mixed.
+ * staff pages (those every chosen role can open, else those the sender can
+ * see), portal pages, or none when mixed.
  */
 import {
   hasPermission,
@@ -48,7 +49,7 @@ export function audienceKind(audience: ManualAudience): AudienceKind {
   return staff && portal ? 'mixed' : portal ? 'portal' : 'staff';
 }
 
-export function useLinkOptions(kind: AudienceKind): LinkOption[] {
+export function useLinkOptions(kind: AudienceKind, roles?: readonly string[]): LinkOption[] {
   const { t } = useTranslation('nav');
   const role = useActiveRole();
   const entity: Record<string, string> = {
@@ -65,8 +66,13 @@ export function useLinkOptions(kind: AudienceKind): LinkOption[] {
   if (kind === 'portal') {
     return PORTAL_PAGES.map(([value, key]) => ({ value, label: t(`items.${key}`) }));
   }
+  // ponytail: named people (userIds) are judged by the sender's own permissions; their roles
+  // are not known here. Filter by their roles if wrong links to them show up.
+  const viewers = roles?.length ? roles : [role];
   return Object.values(STAFF_NAV_ITEMS)
-    .filter((item) => !('permission' in item) || hasPermission(role, item.permission))
+    .filter(
+      (item) => !('permission' in item) || viewers.every((r) => hasPermission(r, item.permission)),
+    )
     .map((item) => ({
       value: item.to,
       label: 'entity' in item.label ? entity[item.label.entity]! : t(`items.${item.label.key}`),

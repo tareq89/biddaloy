@@ -92,7 +92,7 @@ export function SendAlertForm({ onClose }: { onClose: () => void }) {
   const send = useSendManualAlert();
   const preview = useManualAlertPreview(useDebouncedValue(audience, 400));
   const kind = audienceKind(audience);
-  const linkOptions = useLinkOptions(kind);
+  const linkOptions = useLinkOptions(kind, audience.roles);
   const actionUrl = linkOptions.some((o) => o.value === link) ? link : '';
   // The preview endpoint is rate-limited: on a failure (429) keep showing the last count, marked
   // as possibly out of date. While a new audience loads, `data` is still the old audience's count.
