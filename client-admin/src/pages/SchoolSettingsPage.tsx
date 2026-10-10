@@ -27,8 +27,8 @@ import { ChevronLeftIcon } from 'lucide-react';
 import * as React from 'react';
 
 import { AcrCriteriaSection } from './settings/AcrCriteriaSection';
-import { ApplicationsSection } from './settings/ApplicationsSection';
 import { AlertsSection } from './settings/AlertsSection';
+import { ApplicationsSection } from './settings/ApplicationsSection';
 import { AttendanceSection } from './settings/AttendanceSection';
 import { BackupSection } from './settings/backup-section';
 import { CalendarSection } from './settings/CalendarSection';

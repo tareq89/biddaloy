@@ -1553,6 +1553,8 @@ export async function detachOfferedSubjects(
       { headers },
     );
     await request.delete(`/api/v1/subjects/${id}`, { headers });
+  }
+}
 
 /** Moves a school's trial end to `days` from now. Same raw-SQL shortcut as `endTrial`. */
 export async function setTrialEndsInDays(schoolId: string, days: number): Promise<void> {

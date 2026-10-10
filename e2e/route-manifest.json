@@ -678,6 +678,10 @@
     },
     {
       "path": "/portal/applications",
+      "role": "parent",
+      "archetype": "list"
+    },
+    {
       "path": "/portal/notifications",
       "role": "parent",
       "archetype": "list"
