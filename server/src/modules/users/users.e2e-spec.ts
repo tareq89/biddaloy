@@ -559,4 +559,93 @@ describe('Users & Teachers E2E [8.11.8]', () => {
         .expect(404);
     });
   });
+
+  describe('[67.5.03] /users/me/preferences/notifications', () => {
+    const PATH = '/api/v1/users/me/preferences/notifications';
+    const PARENT_ID = '00000000-0000-4000-8000-000000000213';
+    let teacherToken: string;
+    let parentToken: string;
+
+    const login = async (email: string) =>
+      (
+        await request()
+          .post('/api/v1/auth/login')
+          .send({ email, password: SEED_ADMIN_PASSWORD })
+          .expect(200)
+      ).body.access_token as string;
+    const prefsOf = async (id: string) =>
+      (await dataSource.query(`SELECT preferences FROM users WHERE id = $1`, [id]))[0].preferences;
+
+    beforeAll(async () => {
+      await dataSource.query(
+        `INSERT INTO users (id, email, password_hash, full_name, status, created_at, updated_at)
+         VALUES ($1, 'parent-prefs@example.com', $2, 'Prefs Parent', 'ACTIVE', NOW(), NOW())
+         ON CONFLICT (id) DO NOTHING`,
+        [PARENT_ID, SEED_ADMIN_PASSWORD_HASH],
+      );
+      await dataSource.query(
+        `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
+         VALUES ($1, $2, $3, NOW(), NOW()) ON CONFLICT DO NOTHING`,
+        [PARENT_ID, TENANT_A, UserRole.PARENT],
+      );
+      teacherToken = await login('staff-a@example.com');
+      parentToken = await login('parent-prefs@example.com');
+    });
+
+    afterAll(async () => {
+      await dataSource.query('DELETE FROM user_tenants WHERE user_id = $1', [PARENT_ID]);
+      await dataSource.query('DELETE FROM users WHERE id = $1', [PARENT_ID]);
+    });
+
+    const call = (method: 'get' | 'patch', token: string) =>
+      request()[method](PATH).set('Authorization', `Bearer ${token}`).set('X-Tenant-ID', TENANT_A);
+
+    it('TEACHER and PARENT can read and change only their own mute', async () => {
+      const other = await prefsOf(MEMBER_B_ID);
+
+      const t = await call('patch', teacherToken)
+        .send({ mutedCategories: ['HOMEWORK'] })
+        .expect(200);
+      expect(t.body.mutedCategories).toEqual(['HOMEWORK']);
+      expect(t.body.quietHours).toEqual({ start: '21:00', end: '07:00' });
+
+      await call('patch', parentToken)
+        .send({ mutedCategories: ['FEES', 'COMMON'] })
+        .expect(200);
+
+      expect((await call('get', teacherToken).expect(200)).body.mutedCategories).toEqual([
+        'HOMEWORK',
+      ]);
+      expect((await call('get', parentToken).expect(200)).body.mutedCategories).toEqual([
+        'FEES',
+        'COMMON',
+      ]);
+      // Nobody else's row moved.
+      expect(await prefsOf(MEMBER_B_ID)).toEqual(other);
+    });
+
+    it('GET /users/me still returns preferences including the new key', async () => {
+      const res = await request()
+        .get('/api/v1/users/me')
+        .set('Authorization', `Bearer ${teacherToken}`)
+        .set('X-Tenant-ID', TENANT_A)
+        .expect(200);
+      expect(res.body.preferences?.notifications?.mutedCategories).toEqual(['HOMEWORK']);
+    });
+
+    it.each([
+      ['unknown category', { mutedCategories: ['NOPE'] }],
+      ['more than 16 items', { mutedCategories: Array(17).fill('FEES') }],
+      ['extra key', { mutedCategories: [], userId: MEMBER_B_ID }],
+      ['duplicates', { mutedCategories: ['FEES', 'FEES'] }],
+    ])('rejects %s with 400', async (_name, body) => {
+      await call('patch', teacherToken).send(body).expect(400);
+    });
+
+    it('rejects a missing X-Tenant-ID', async () => {
+      const res = await request().get(PATH).set('Authorization', `Bearer ${teacherToken}`);
+      expect(res.status).toBeGreaterThanOrEqual(400);
+      expect(res.status).toBeLessThan(500);
+    });
+  });
 });
