@@ -33,7 +33,7 @@ export class ExamsTomorrowRule implements AttentionRuleShape {
 
   async evaluate(ctx: RuleContext): Promise<RuleFinding[]> {
     const tomorrow = addDaysIso(ctx.localDate, 1);
-    // Only exams whose every component subject is scheduled (families can see the schedule).
+    // Same as ExamSchedulesService.isScheduleComplete: at least one component, every one scheduled.
     const rows: {
       student_id: string;
       subjects_en: string;
@@ -49,6 +49,7 @@ export class ExamsTomorrowRule implements AttentionRuleShape {
        JOIN class_sections cs ON cs.class_id = e.class_id AND cs.tenant_id = $1 AND cs.deleted_at IS NULL
        JOIN students st ON st.class_section_id = cs.id AND st.tenant_id = $1 AND st.deleted_at IS NULL AND st.enrollment_status = 'ACTIVE'
        WHERE es.tenant_id = $1 AND es.deleted_at IS NULL AND es.date = $2
+         AND EXISTS (SELECT 1 FROM exam_components ec0 WHERE ec0.tenant_id = $1 AND ec0.exam_id = e.id AND ec0.deleted_at IS NULL)
          AND NOT EXISTS (SELECT 1 FROM exam_components ec WHERE ec.tenant_id = $1 AND ec.exam_id = e.id AND ec.deleted_at IS NULL
                          AND NOT EXISTS (SELECT 1 FROM exam_schedules s2 WHERE s2.tenant_id = $1 AND s2.exam_id = e.id AND s2.subject_id = ec.subject_id AND s2.deleted_at IS NULL))
        GROUP BY st.id`,
