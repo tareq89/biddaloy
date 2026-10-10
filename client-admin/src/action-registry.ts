@@ -560,6 +560,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     label: { en: "Mark today's lessons", bn: 'আজকের পাঠ জানান' },
     permission: Permission.ROUTINE_READ,
     kind: 'navigate',
+    group: 'academics',
     run: (ctx) => ctx.navigate({ to: '/routines/my' }),
   },
   {
@@ -567,6 +568,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     label: { en: 'Open study plans', bn: 'পাঠ পরিকল্পনা খুলুন' },
     permission: Permission.SYLLABUS_READ,
     kind: 'navigate',
+    group: 'academics',
     // No prefill: `ActionRunContext` carries no section or subject (D46).
     run: (ctx) => ctx.navigate({ to: '/academics/syllabus?tab=plans' }),
   },
@@ -577,6 +579,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     // thing this opens (see ROUTE_PERMISSION_EXCEPTIONS in the test).
     permission: Permission.SYLLABUS_MANAGE,
     kind: 'modal',
+    group: 'academics',
     run: (ctx) => ctx.navigate({ to: '/academics/syllabus?tab=plans&new=1' }),
   },
   {
@@ -584,6 +587,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     label: { en: 'Template library', bn: 'টেমপ্লেট লাইব্রেরি' },
     permission: Permission.SYLLABUS_READ,
     kind: 'navigate',
+    group: 'academics',
     run: (ctx) => ctx.navigate({ to: '/academics/syllabus?tab=library' }),
   },
   {
