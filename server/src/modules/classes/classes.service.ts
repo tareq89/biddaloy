@@ -25,6 +25,8 @@ import { AuditService } from '../audit/audit.service';
 import { RequestContext } from '../../common/request-context.util';
 import { SchoolSettingsReader } from '../schools/settings/school-settings-reader.service';
 import { isUniqueViolationOn } from '../staff-profiles/staff-profiles.service';
+import { attentionEvents } from '../attention/attention.constants';
+import { emitRecheck } from '../attention/engine/attention-events';
 import { assertInVocabulary } from '../schools/settings/organisation-vocabulary.util';
 
 /** [8.11.2] — `SectionService.findAll`'s per-section enrolled count, so the
@@ -625,7 +627,7 @@ export class SectionService {
       new ConflictException({ message, details: { code } });
 
     try {
-      return await this.teacherClassSectionRepo.manager.transaction(async (manager) => {
+      const result = await this.teacherClassSectionRepo.manager.transaction(async (manager) => {
         const repo = manager.getRepository(TeacherClassSection);
         const removeRow = async (row: TeacherClassSection) => {
           await repo.delete({ id: row.id, tenant_id: tenantId });
@@ -738,6 +740,12 @@ export class SectionService {
 
         return saved;
       });
+      emitRecheck(attentionEvents, {
+        tenantId,
+        ruleKey: 'section.no_class_teacher',
+        actorUserId: userId ?? undefined,
+      });
+      return result;
     } catch (error) {
       // A concurrent request won the race past the pre-checks.
       if (
@@ -800,6 +808,11 @@ export class SectionService {
         },
         manager,
       );
+    });
+    emitRecheck(attentionEvents, {
+      tenantId,
+      ruleKey: 'section.no_class_teacher',
+      actorUserId: userId ?? undefined,
     });
   }
 

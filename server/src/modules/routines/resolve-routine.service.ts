@@ -122,6 +122,48 @@ export class ResolveRoutineService {
     // unrestricted beyond the section/teacher/student filter already
     // required above).
 
+    return this.expandSlots(
+      tenantId,
+      academicYear,
+      routine,
+      query.from,
+      query.to,
+      sectionId,
+      effectiveQuery.teacher_id,
+      !!query.include_breaks,
+    );
+  }
+
+  /**
+   * D14: still the only resolver; this is the whole-school form for
+   * background jobs (Epic 67). PUBLISHED routine only, every section,
+   * breaks excluded, substitutions and cancellations applied.
+   */
+  async resolveTenantDay(tenantId: string, date: string): Promise<ResolvedSlot[]> {
+    const academicYear = await this.yearRepo
+      .createQueryBuilder('y')
+      .where('y.tenant_id = :tenantId', { tenantId })
+      .andWhere('y.deleted_at IS NULL')
+      .andWhere('y.start_date <= :date AND y.end_date >= :date', { date })
+      .getOne();
+    if (!academicYear) return [];
+    const routine = await this.routineRepo.findOne({
+      where: { tenant_id: tenantId, academic_year_id: academicYear.id, deleted_at: IsNull() },
+    });
+    if (!routine || routine.state !== RoutineState.PUBLISHED) return [];
+    return this.expandSlots(tenantId, academicYear, routine, date, date, null, undefined, false);
+  }
+
+  private async expandSlots(
+    tenantId: string,
+    academicYear: AcademicYear,
+    routine: Routine,
+    from: string,
+    to: string,
+    sectionId: string | null,
+    teacherId: string | undefined,
+    includeBreaks: boolean,
+  ): Promise<ResolvedSlot[]> {
     const allSlots = await this.slotRepo.find({
       where: {
         routine_id: routine.id,
@@ -140,7 +182,7 @@ export class ResolveRoutineService {
         where: {
           routine_slot_id: In(allSlotIds),
           tenant_id: tenantId,
-          date: Between(query.from, query.to),
+          date: Between(from, to),
         },
       }),
     ]);
@@ -153,7 +195,6 @@ export class ResolveRoutineService {
 
     // A teacher query keeps only slots the teacher owns or covers in range,
     // so the per-class working-day lookups below stay at the teacher's classes.
-    const teacherId = effectiveQuery.teacher_id;
     const coveredSlotIds = new Set(
       substitutions
         .filter((sub) => teacherId && sub.substitute_teacher_id === teacherId)
@@ -182,8 +223,8 @@ export class ResolveRoutineService {
       classKeys.map((classId) =>
         this.calendarService.getWorkingDays({
           tenantId,
-          from: query.from,
-          to: query.to,
+          from,
+          to,
           academicYearId: academicYear.id,
           ...(classId ? { classId } : {}),
         }),
@@ -215,7 +256,7 @@ export class ResolveRoutineService {
     const results: ResolvedSlot[] = [];
     for (const slot of slots) {
       const kind = kindBySlot.get(slot.period_slot_id) ?? PeriodSlotKind.CLASS;
-      if (kind === PeriodSlotKind.BREAK && !query.include_breaks) continue;
+      if (kind === PeriodSlotKind.BREAK && !includeBreaks) continue;
 
       const ownTeacherIds = teachersBySlot.get(slot.id) ?? [];
       const validTo = slot.valid_to ?? '9999-12-31';
@@ -229,10 +270,9 @@ export class ResolveRoutineService {
         const cancelled = sub?.is_cancelled ?? false;
         const substituted = !!sub?.substitute_teacher_id;
 
-        if (effectiveQuery.teacher_id) {
-          const isOwn = ownTeacherIds.includes(effectiveQuery.teacher_id) && !substituted;
-          const isCovering =
-            substituted && sub!.substitute_teacher_id === effectiveQuery.teacher_id;
+        if (teacherId) {
+          const isOwn = ownTeacherIds.includes(teacherId) && !substituted;
+          const isCovering = substituted && sub!.substitute_teacher_id === teacherId;
           if (!isOwn && !isCovering) continue;
         }
 
