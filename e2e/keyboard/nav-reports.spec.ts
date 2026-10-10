@@ -19,6 +19,10 @@ test.describe('Reports (admin)', () => {
 
   test('applications report', async ({ page }) => {
     await openFromSidebar(page, t('nav.items.applicationsReportsNav'));
+    await expectReachableInMain(page);
+  });
+});
+
 test.describe('Reports (executive)', () => {
   test.use(loggedIn('executive'));
 
