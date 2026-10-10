@@ -19,13 +19,14 @@ const ctx = (extra: Partial<RuleContext> = {}): RuleContext => ({
   ...extra,
 });
 
+/** roleRecipients' query (other rules also read user_tenants, inside an EXISTS). */
+const isRoleQuery = (sql: string) => sql.includes('DISTINCT ON (ut.user_id)');
+
 /** Recipient query returns `recipients`; every other query returns `rows`. */
 function ds(rows: unknown[], recipients: unknown[] = [{ userId: 'u1', role: UserRole.ADMIN }]) {
   const query = vi
     .fn()
-    .mockImplementation(async (sql: string) =>
-      sql.includes('FROM user_tenants') ? recipients : rows,
-    );
+    .mockImplementation(async (sql: string) => (isRoleQuery(sql) ? recipients : rows));
   return { query };
 }
 
@@ -73,7 +74,7 @@ describe('count rules (applications, students, leave pending)', () => {
     const rule = new LeaveStaffPendingRule(d as never);
     const [f] = await rule.evaluate(ctx());
     expect(f.params).toEqual({ count: 2, firstStart: '2026-10-12' });
-    const roleCall = d.query.mock.calls.find((c) => String(c[0]).includes('FROM user_tenants'))!;
+    const roleCall = d.query.mock.calls.find((c) => isRoleQuery(String(c[0])))!;
     expect(roleCall[1]).toEqual([
       't1',
       rule.meta.roles.filter((r) => roleHasPermission(r, Permission.LEAVE_APPROVE)),

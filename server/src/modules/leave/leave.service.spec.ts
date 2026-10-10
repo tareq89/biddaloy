@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { LeaveStatus, LeaveType } from '@biddaloy/shared';
 import { LeaveService } from './leave.service';
+import { attentionEvents } from '../attention/attention.constants';
+import { ATTENTION_RECHECK } from '../attention/engine/attention-events';
 
 /**
  * Unit tests for `LeaveService` with mocked repositories — the
@@ -104,6 +106,239 @@ describe('LeaveService (unit)', () => {
         'leave_record.status = :status',
         expect.objectContaining({ status: LeaveStatus.APPROVED }),
       );
+    });
+  });
+
+  describe('request', () => {
+    it('rejects a request that would exceed the remaining balance', async () => {
+      leavePolicyRepo.findOne.mockResolvedValue({ annual_quota_days: 10 });
+      leaveRecordRepo.createQueryBuilder.mockReturnValue(makeQueryBuilder(8)); // balance = 2
+
+      await expect(
+        service.request(
+          TENANT_ID,
+          {
+            staff_profile_id: STAFF_PROFILE_ID,
+            leave_type: LeaveType.CASUAL,
+            start_date: `${CURRENT_YEAR}-01-01`,
+            end_date: `${CURRENT_YEAR}-01-05`, // 5 days > 2 remaining
+          },
+          OWNER_USER_ID,
+          UserRole.TEACHER,
+        ),
+      ).rejects.toThrow(UnprocessableEntityException);
+
+      expect(leaveRecordRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('tells approvers right away: emits a leave.staff_pending recheck after the save, none on a 422', async () => {
+      const events: unknown[] = [];
+      const on = (p: unknown) => events.push(p);
+      attentionEvents.on(ATTENTION_RECHECK, on);
+      try {
+        leavePolicyRepo.findOne.mockResolvedValue({ annual_quota_days: 10 });
+        leaveRecordRepo.createQueryBuilder.mockReturnValue(makeQueryBuilder(9)); // balance = 1
+        const dto = {
+          staff_profile_id: STAFF_PROFILE_ID,
+          leave_type: LeaveType.CASUAL,
+          start_date: `${CURRENT_YEAR}-01-01`,
+          end_date: `${CURRENT_YEAR}-01-02`, // 2 days > 1 remaining
+        };
+        await expect(
+          service.request(TENANT_ID, dto, OWNER_USER_ID, UserRole.TEACHER),
+        ).rejects.toThrow(UnprocessableEntityException);
+        expect(events).toEqual([]);
+
+        leaveRecordRepo.createQueryBuilder.mockReturnValue(makeQueryBuilder(0));
+        await service.request(TENANT_ID, dto, OWNER_USER_ID, UserRole.TEACHER);
+        expect(events).toEqual([
+          { tenantId: TENANT_ID, ruleKey: 'leave.staff_pending', actorUserId: OWNER_USER_ID },
+        ]);
+      } finally {
+        attentionEvents.off(ATTENTION_RECHECK, on);
+      }
+    });
+
+    it('creates a PENDING row when within balance', async () => {
+      leavePolicyRepo.findOne.mockResolvedValue({ annual_quota_days: 10 });
+      leaveRecordRepo.createQueryBuilder.mockReturnValue(makeQueryBuilder(3)); // balance = 7
+
+      const result = await service.request(
+        TENANT_ID,
+        {
+          staff_profile_id: STAFF_PROFILE_ID,
+          leave_type: LeaveType.CASUAL,
+          start_date: `${CURRENT_YEAR}-01-01`,
+          end_date: `${CURRENT_YEAR}-01-02`, // 2 inclusive days
+        },
+        OWNER_USER_ID,
+        UserRole.TEACHER,
+      );
+
+      expect(result.status).toBe(LeaveStatus.PENDING);
+      expect(result.days).toBe(2);
+    });
+
+    it('checks the balance against the year of start_date, not the current calendar year', async () => {
+      leavePolicyRepo.findOne.mockResolvedValue({ annual_quota_days: 10 });
+      const qb = makeQueryBuilder(0);
+      leaveRecordRepo.createQueryBuilder.mockReturnValue(qb);
+
+      await service.request(
+        TENANT_ID,
+        {
+          staff_profile_id: STAFF_PROFILE_ID,
+          leave_type: LeaveType.CASUAL,
+          start_date: `${CURRENT_YEAR + 1}-01-01`,
+          end_date: `${CURRENT_YEAR + 1}-01-02`,
+        },
+        OWNER_USER_ID,
+        UserRole.TEACHER,
+      );
+
+      expect(qb.andWhere).toHaveBeenCalledWith('leave_record.start_date BETWEEN :from AND :to', {
+        from: `${CURRENT_YEAR + 1}-01-01`,
+        to: `${CURRENT_YEAR + 1}-12-31`,
+      });
+    });
+
+    it('rejects with NotFoundException when the staff profile is not in this tenant', async () => {
+      staffProfileRepo.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.request(
+          TENANT_ID,
+          {
+            staff_profile_id: 'foreign-profile',
+            leave_type: LeaveType.CASUAL,
+            start_date: `${CURRENT_YEAR}-01-01`,
+            end_date: `${CURRENT_YEAR}-01-02`,
+          },
+          OWNER_USER_ID,
+          UserRole.TEACHER,
+        ),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('rejects with ForbiddenException when a non-approver requests leave for someone else', async () => {
+      await expect(
+        service.request(
+          TENANT_ID,
+          {
+            staff_profile_id: STAFF_PROFILE_ID,
+            leave_type: LeaveType.CASUAL,
+            start_date: `${CURRENT_YEAR}-01-01`,
+            end_date: `${CURRENT_YEAR}-01-02`,
+          },
+          OTHER_USER_ID,
+          UserRole.TEACHER,
+        ),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('allows an ADMIN (holds LEAVE_APPROVE) to request leave on behalf of another staff profile', async () => {
+      leavePolicyRepo.findOne.mockResolvedValue({ annual_quota_days: 10 });
+      leaveRecordRepo.createQueryBuilder.mockReturnValue(makeQueryBuilder(0));
+
+      const result = await service.request(
+        TENANT_ID,
+        {
+          staff_profile_id: STAFF_PROFILE_ID,
+          leave_type: LeaveType.CASUAL,
+          start_date: `${CURRENT_YEAR}-01-01`,
+          end_date: `${CURRENT_YEAR}-01-02`,
+        },
+        OTHER_USER_ID,
+        UserRole.ADMIN,
+      );
+
+      expect(result.status).toBe(LeaveStatus.PENDING);
+    });
+  });
+
+  describe('decide — reject', () => {
+    function mockRejectTransaction(record: any) {
+      const recordRepo = {
+        findOne: vi.fn().mockResolvedValue(record),
+        save: vi.fn((x: unknown) => Promise.resolve(x)),
+      };
+      dataSource.transaction.mockImplementation(async (cb: any) =>
+        cb({ getRepository: () => recordRepo }),
+      );
+      return recordRepo;
+    }
+
+    it('rejecting needs no balance re-check and writes an audit row with old/new status', async () => {
+      const record = {
+        id: 'rec-1',
+        status: LeaveStatus.PENDING,
+        staff_profile_id: STAFF_PROFILE_ID,
+        leave_type: LeaveType.CASUAL,
+        days: 2,
+      };
+      mockRejectTransaction(record);
+
+      const result = await service.decide(
+        TENANT_ID,
+        'rec-1',
+        'admin-1',
+        { approve: false },
+        {
+          ip: null,
+          userAgent: null,
+        },
+      );
+
+      expect(result.status).toBe(LeaveStatus.REJECTED);
+      expect(auditService.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          entity_type: 'LeaveRecord',
+          old_values: { status: LeaveStatus.PENDING },
+          new_values: expect.objectContaining({ status: LeaveStatus.REJECTED }),
+        }),
+        expect.anything(),
+      );
+    });
+
+    it('rejects with UnprocessableEntityException when the record is not PENDING (lost the reject-vs-approve race)', async () => {
+      const record = {
+        id: 'rec-1',
+        status: LeaveStatus.APPROVED,
+        staff_profile_id: STAFF_PROFILE_ID,
+        leave_type: LeaveType.CASUAL,
+        days: 2,
+      };
+      mockRejectTransaction(record);
+
+      await expect(
+        service.decide(
+          TENANT_ID,
+          'rec-1',
+          'admin-1',
+          { approve: false },
+          {
+            ip: null,
+            userAgent: null,
+          },
+        ),
+      ).rejects.toThrow(UnprocessableEntityException);
+    });
+
+    it('rejects with NotFoundException when the record does not exist in this tenant', async () => {
+      mockRejectTransaction(null);
+
+      await expect(
+        service.decide(
+          TENANT_ID,
+          'rec-missing',
+          'admin-1',
+          { approve: false },
+          {
+            ip: null,
+            userAgent: null,
+          },
+        ),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 });

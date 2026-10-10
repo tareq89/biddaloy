@@ -242,6 +242,12 @@ export class LeaveService {
         reason: dto.reason ?? null,
       }),
     );
+    // No transaction here: the row is committed, so approvers can hear about it now.
+    emitRecheck(attentionEvents, {
+      tenantId,
+      ruleKey: 'leave.staff_pending',
+      actorUserId: callerUserId,
+    });
     return toRecordDto(created);
   }
 
