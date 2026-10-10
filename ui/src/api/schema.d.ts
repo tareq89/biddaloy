@@ -2877,6 +2877,24 @@ export interface paths {
         patch: operations["UserController_updateMe_v1"];
         trace?: never;
     };
+    "/api/v1/users/me/preferences/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read the caller's own alert-category mute and the school quiet hours. */
+        get: operations["UserController_getNotificationPrefs_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Replace the caller's own muted alert categories. CRITICAL is never muted. */
+        patch: operations["UserController_updateNotificationPrefs_v1"];
+        trace?: never;
+    };
     "/api/v1/users/me/contact-change": {
         parameters: {
             query?: never;
@@ -7609,6 +7627,75 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/attention/manual": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Manual alerts this school sent, newest first. */
+        get: operations["ManualAlertsController_list_v1"];
+        put?: never;
+        /** Send a WARNING or REMINDER alert to a chosen audience. */
+        post: operations["ManualAlertsController_send_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/attention/manual/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** How many people an audience reaches (no write). */
+        post: operations["ManualAlertsController_preview_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/attention/manual/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Withdraw a manual alert from every recipient. */
+        delete: operations["ManualAlertsController_withdraw_v1"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/attention/report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Monthly rule-alert counts per rule and section (JSON, or CSV with format=csv). */
+        get: operations["AlertsReportController_get_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/platform/attention/health": {
         parameters: {
             query?: never;
@@ -10715,6 +10802,20 @@ export interface components {
             failed: number;
             queued: number;
         };
+        QuietHoursDto: {
+            /** @example 21:00 */
+            start: string;
+            /** @example 07:00 */
+            end: string;
+        };
+        NotificationPrefsDto: {
+            mutedCategories: ("SETUP" | "SYSTEM" | "STRUCTURE" | "ATTENDANCE" | "PERIOD" | "HOMEWORK" | "CLASS" | "STUDY_PLAN" | "FEES" | "EXAMS" | "OFFICE" | "FAMILY" | "COMMON" | "PLATFORM" | "BILLING" | "MANUAL")[];
+            /** @description The school's setting; read-only here. */
+            quietHours: components["schemas"]["QuietHoursDto"];
+        };
+        UpdateNotificationPrefsDto: {
+            mutedCategories: ("SETUP" | "SYSTEM" | "STRUCTURE" | "ATTENDANCE" | "PERIOD" | "HOMEWORK" | "CLASS" | "STUDY_PLAN" | "FEES" | "EXAMS" | "OFFICE" | "FAMILY" | "COMMON" | "PLATFORM" | "BILLING" | "MANUAL")[];
+        };
         UpdateOwnProfileDto: {
             full_name?: string;
             profile_picture_url?: string;
@@ -11724,7 +11825,7 @@ export interface components {
             subject_id: string;
             name: string;
             /** @enum {string} */
-            kind: "OTHER" | "WRITTEN" | "MCQ" | "VIVA" | "LAB" | "PRACTICAL" | "MONTHLY_TEST" | "ATTENDANCE";
+            kind: "OTHER" | "ATTENDANCE" | "WRITTEN" | "MCQ" | "VIVA" | "LAB" | "PRACTICAL" | "MONTHLY_TEST";
             /** @enum {string} */
             source?: "MANUAL" | "DERIVED";
             full_marks: string;
@@ -11741,7 +11842,7 @@ export interface components {
             subject_id: string;
             name: string;
             /** @enum {string} */
-            kind: "OTHER" | "WRITTEN" | "MCQ" | "VIVA" | "LAB" | "PRACTICAL" | "MONTHLY_TEST" | "ATTENDANCE";
+            kind: "OTHER" | "ATTENDANCE" | "WRITTEN" | "MCQ" | "VIVA" | "LAB" | "PRACTICAL" | "MONTHLY_TEST";
             /** @enum {string} */
             source: "MANUAL" | "DERIVED";
             full_marks: string;
@@ -11764,7 +11865,7 @@ export interface components {
         UpdateExamComponentDto: {
             name?: string;
             /** @enum {string} */
-            kind?: "OTHER" | "WRITTEN" | "MCQ" | "VIVA" | "LAB" | "PRACTICAL" | "MONTHLY_TEST" | "ATTENDANCE";
+            kind?: "OTHER" | "ATTENDANCE" | "WRITTEN" | "MCQ" | "VIVA" | "LAB" | "PRACTICAL" | "MONTHLY_TEST";
             /** @enum {string} */
             source?: "MANUAL" | "DERIVED";
             full_marks?: string;
@@ -11782,7 +11883,7 @@ export interface components {
         ExamTemplateComponentDto: {
             name: string;
             /** @enum {string} */
-            kind: "OTHER" | "WRITTEN" | "MCQ" | "VIVA" | "LAB" | "PRACTICAL" | "MONTHLY_TEST" | "ATTENDANCE";
+            kind: "OTHER" | "ATTENDANCE" | "WRITTEN" | "MCQ" | "VIVA" | "LAB" | "PRACTICAL" | "MONTHLY_TEST";
             full: number;
             pass: number;
             sequence: number;
@@ -11808,7 +11909,7 @@ export interface components {
         ExamTemplateComponentInputDto: {
             name: string;
             /** @enum {string} */
-            kind: "OTHER" | "WRITTEN" | "MCQ" | "VIVA" | "LAB" | "PRACTICAL" | "MONTHLY_TEST" | "ATTENDANCE";
+            kind: "OTHER" | "ATTENDANCE" | "WRITTEN" | "MCQ" | "VIVA" | "LAB" | "PRACTICAL" | "MONTHLY_TEST";
             full: number;
             pass: number;
         };
@@ -13979,6 +14080,92 @@ export interface components {
             raisedAt: string;
             seenCount: number;
             recipientCount: number;
+        };
+        ManualAudienceDto: {
+            roles?: components["schemas"]["UserRole"][];
+            /** @description Active students of these sections (those with a login). */
+            sectionIds?: string[];
+            /** @description Named users of this school. */
+            userIds?: string[];
+            /** @description Guardians (with a login) of active students of these sections. */
+            guardiansOfSectionIds?: string[];
+        };
+        CreateManualAlertDto: {
+            audience: components["schemas"]["ManualAudienceDto"];
+            /** @enum {string} */
+            severity: "WARNING" | "REMINDER";
+            title: string;
+            body: string;
+            /**
+             * @description App-relative path only.
+             * @example /routines/my
+             */
+            actionUrl?: string;
+            /**
+             * @description Last day shown (school-local), up to 30 days out.
+             * @example 2026-10-10
+             */
+            expiresOn: string;
+        };
+        ManualAlertDto: {
+            /** Format: uuid */
+            id: string;
+            severity: components["schemas"]["AlertSeverity"];
+            title: string;
+            body: string;
+            actionUrl: string | null;
+            audience: components["schemas"]["ManualAudienceDto"];
+            /** Format: date-time */
+            raisedAt: string;
+            /** Format: date-time */
+            expiresAt: string | null;
+            status: string;
+            createdByName: string | null;
+            recipientCount: number;
+            seenCount: number;
+        };
+        PreviewManualAlertDto: {
+            audience: components["schemas"]["ManualAudienceDto"];
+        };
+        ManualAlertPreviewDto: {
+            recipientCount: number;
+        };
+        ManualAlertListDto: {
+            items: components["schemas"]["ManualAlertDto"][];
+            total: number;
+        };
+        AlertsReportFactsDto: {
+            total: number;
+            resolved: number;
+            avgResolveMinutes: number | null;
+            open: number;
+            openCritical: number;
+            previousMonthTotal: number;
+        };
+        AlertsReportSectionDto: {
+            /** Format: uuid */
+            id: string;
+            label: string;
+        };
+        AlertsReportCellDto: {
+            /** Format: uuid */
+            sectionId: string | null;
+            count: number;
+        };
+        AlertsReportRowDto: {
+            ruleKey: string;
+            category: components["schemas"]["AlertCategory"];
+            severity: components["schemas"]["AlertSeverity"];
+            /** @description One cell per section, then "no section". */
+            cells: components["schemas"]["AlertsReportCellDto"][];
+            total: number;
+        };
+        AlertsReportDto: {
+            /** @example 2026-10 */
+            month: string;
+            facts: components["schemas"]["AlertsReportFactsDto"];
+            sections: components["schemas"]["AlertsReportSectionDto"][];
+            rows: components["schemas"]["AlertsReportRowDto"][];
         };
         AttentionCadenceStringsDto: {
             FAST: string | null;
@@ -22003,6 +22190,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UserResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    UserController_getNotificationPrefs_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationPrefsDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    UserController_updateNotificationPrefs_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateNotificationPrefsDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationPrefsDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
@@ -34032,6 +34285,178 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StudentAlertDto"][];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ManualAlertsController_list_v1: {
+        parameters: {
+            query?: {
+                page?: number;
+                pageSize?: number;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ManualAlertListDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ManualAlertsController_send_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateManualAlertDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ManualAlertDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ManualAlertsController_preview_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PreviewManualAlertDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ManualAlertPreviewDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ManualAlertsController_withdraw_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AlertsReportController_get_v1: {
+        parameters: {
+            query: {
+                /** @description School-local month, within the last 12 months. */
+                month: string;
+                ruleKey?: "setup.incomplete" | "trial.ending" | "comms.provider_missing" | "staff.invite_pending" | "year.next_missing" | "comms.sms_credit_low" | "comms.failed_messages" | "system.backup_failed" | "routine.not_published" | "section.no_class_teacher" | "routine.subject_no_teacher" | "guardian.contact_missing" | "attendance.not_taken" | "class.starting" | "routine.substitution_today" | "routine.uncovered_periods" | "homework.not_submitted" | "homework.due_today" | "homework.due_tomorrow" | "homework.to_grade" | "class.absent_streak" | "class.guardian_contact_missing" | "fees.overdue_rising" | "fees.reminders_pending" | "fees.unassigned_students" | "fees.structure_missing_new_year" | "exams.marks_overdue" | "exams.my_marks_due" | "exams.results_unpublished" | "exams.schedule_unpublished" | "exams.seat_plan_missing" | "admission.applications_pending" | "admission.intake_window" | "students.records_incomplete" | "leave.staff_pending" | "leave.my_request_decided" | "acr.incomplete" | "child.absent_today" | "fees.due_soon" | "fees.overdue_family" | "exams.tomorrow" | "results.published" | "routine.changed_today" | "guardian.profile_incomplete" | "calendar.holiday_tomorrow" | "surveys.pending" | "platform.backup_failing" | "platform.trials_ending" | "platform.provider_failures" | "study_plan.unreported" | "study_plan.behind" | "admin.mfa_missing" | "approvals.pending" | "print.queue_pending" | "billing.renewal_due" | "students.at_risk" | "committee.monthly_report_ready";
+                sectionId?: string;
+                format?: "json" | "csv";
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlertsReportDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
