@@ -199,7 +199,9 @@ describe('GuardianSmsFallbackService metered SMS credit (integration, 67.5.02)',
     const reserves = (await ledgerFor(ds, TENANT_ID)).filter((r) => r.kind === 'RESERVE');
     expect(reserves).toHaveLength(1);
     expect(reserves[0].units).toBe(units * 2);
-    expect(reserves[0].idempotency_key).toMatch(new RegExp(`^batch:attention:${alertId}:\\d+$`));
+    expect(reserves[0].idempotency_key).toMatch(
+      new RegExp(`^batch:attention:${alertId}:[0-9a-f-]{36}$`),
+    );
     expect(queued.every((j) => j.data.segments === units && j.data.batchId)).toBe(true);
     const [rcp] = await ds.query(`SELECT sms_sent_at FROM alert_recipients WHERE alert_id = $1`, [
       alertId,
@@ -214,6 +216,25 @@ describe('GuardianSmsFallbackService metered SMS credit (integration, 67.5.02)',
     expect(await service.runTenant(school(), new Date())).toBe(0);
     expect(await logs()).toHaveLength(2);
     expect((await ledgerFor(ds, TENANT_ID)).filter((r) => r.kind === 'RESERVE')).toHaveLength(1);
+  });
+
+  it('a second reservation for the same alert settles in full: nothing stranded in reserved', async () => {
+    const student = await mkStudent('Rahim');
+    await mkGuardian(student);
+    await mkAlert(student);
+    const processor = makeProcessor(ds, credits, 'ACCEPTED');
+
+    expect(await service.runTenant(school(), new Date())).toBe(1);
+    for (const job of queued.splice(0)) await runJob(processor, job.data);
+
+    // a guardian linked later the same day: the next sweep reserves again for the same alert
+    await mkGuardian(student);
+    expect(await service.runTenant(school(), new Date(Date.now() + 1000))).toBe(1);
+    for (const job of queued.splice(0)) await runJob(processor, job.data);
+
+    expect((await ledgerFor(ds, TENANT_ID)).filter((r) => r.kind === 'RESERVE')).toHaveLength(2);
+    expect(await balanceFor(ds, TENANT_ID)).toEqual({ available: 100 - units * 2, reserved: 0 });
+    expect((await logs()).every((l) => l.metadata?.credit === 'DEBITED')).toBe(true);
   });
 
   it('insufficient credit: nothing queued, no log, balance unchanged', async () => {
