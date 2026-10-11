@@ -15,6 +15,11 @@ import {
   CommunicationStatus,
 } from '@biddaloy/shared';
 
+// Every student these tests mark is still enrolled in the section (#2269).
+vi.mock('../enrollments/section-roster', () => ({
+  sectionRosterStudentIds: vi.fn(async () => ['s-1', 's-2', 's-3']),
+}));
+
 const TENANT = 'tenant-1';
 const SECTION = 'section-1';
 const DATE = '2026-09-04';

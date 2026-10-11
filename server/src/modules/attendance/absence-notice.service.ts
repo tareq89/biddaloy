@@ -33,6 +33,7 @@ import {
   ReminderTemplateVars,
 } from '../communications/reminder-template.util';
 import { resolveFeeNotificationLocale } from '../communications/fee-notification-template.util';
+import { sectionRosterStudentIds } from '../enrollments/section-roster';
 import { AuditService } from '../audit/audit.service';
 import { SchoolsService } from '../schools/schools.service';
 import { SmsCreditService } from '../communications/credits/sms-credit.service';
@@ -103,11 +104,13 @@ export const DEFAULT_ABSENCE_NOTICE_TEMPLATE =
 export const ABSENCE_NOTICE_TEMPLATE_BN =
   'প্রিয় অভিভাবক, {{student_names}} আজ ({{date}}) {{school_name}}-এর {{section_name}}-এ অনুপস্থিত ছিল। ভুল হলে স্কুলে যোগাযোগ করুন।';
 
-/** [D16] Sent when a teacher corrects a child to not-absent after the notice went out. */
+/** [D16] Sent when a teacher corrects a child to not-absent after the notice
+ * went out. Neutral on purpose: the new status may be PRESENT, LATE or LEAVE,
+ * and the register may be from an earlier day (#2262). */
 const ABSENCE_CORRECTION_TEMPLATE_EN =
-  'Correction: {{student_names}} was marked present today ({{date}}). Sorry for the earlier message.';
+  'Correction: {{student_names}} was not absent on {{date}}. Sorry for the earlier message.';
 const ABSENCE_CORRECTION_TEMPLATE_BN =
-  'সংশোধন: {{student_names}} আজ ({{date}}) উপস্থিত ছিল। আগের বার্তার জন্য দুঃখিত।';
+  'সংশোধন: {{student_names}} {{date}} তারিখে অনুপস্থিত ছিল না। আগের বার্তার জন্য দুঃখিত।';
 
 /**
  * Builds and sends the guardian-facing "your child was marked absent today"
@@ -226,11 +229,16 @@ export class AbsenceNoticeService {
         ...(only ? { student_id: only.studentId } : {}),
       },
     });
-    if (absentRecords.length === 0) {
+    // #2269: a child who left the section since the register was marked is
+    // not texted about it.
+    const roster = new Set(
+      await sectionRosterStudentIds(manager, tenantId, session.section_id, { excludeLeft: true }),
+    );
+    const studentIds = absentRecords.map((r) => r.student_id).filter((id) => roster.has(id));
+    if (studentIds.length === 0) {
       return { recipients: [], skipped: [], template };
     }
 
-    const studentIds = absentRecords.map((r) => r.student_id);
     const students = await studentRepo.find({
       where: { id: In(studentIds), tenant_id: tenantId },
       relations: ['guardians'],
@@ -527,11 +535,13 @@ export class AbsenceNoticeService {
 
   /**
    * [D16] A teacher corrected one record after the register was notified.
-   * ABSENT -> not absent: if that child was in the notice, say sorry once.
-   * not absent -> ABSENT: if the child was never noticed, send the normal
-   * absence notice for that child alone. Guardians of other children get
-   * nothing. Callers wrap it in try/catch because the correction itself
-   * has already committed.
+   * The guardian's latest message about this child and register must match
+   * the record (#2262). So compare with what they were last told: the newest
+   * notice or correction for this child that did not fail. Nothing told
+   * counts as "not absent". Send only when the absent / not-absent answer
+   * differs: a "sorry" after a notice, a notice after a "sorry" (or after
+   * nothing). Guardians of other children get nothing. Callers wrap it in
+   * try/catch because the correction itself has already committed.
    */
   async notifyCorrection(params: {
     tenantId: string;
@@ -542,9 +552,8 @@ export class AbsenceNoticeService {
     userId: string;
   }): Promise<void> {
     const { tenantId, sessionId, studentId, oldStatus, newStatus, userId } = params;
-    const wasAbsent = oldStatus === AttendanceStatus.ABSENT;
     const isAbsent = newStatus === AttendanceStatus.ABSENT;
-    if (wasAbsent === isAbsent) return;
+    if ((oldStatus === AttendanceStatus.ABSENT) === isAbsent) return;
 
     const session = await this.sessionRepo.findOne({
       where: { id: sessionId, tenant_id: tenantId },
@@ -553,26 +562,23 @@ export class AbsenceNoticeService {
     const settings = await this.schoolsService.getResolvedSettings(tenantId);
     if (!resolveAttendancePolicy(settings).autoAbsentNotification.enabled) return;
 
-    const [{ notified }] = (await this.dataSource.query(
-      `SELECT EXISTS (
-         SELECT 1 FROM communication_logs l
+    const [{ last_told, batches }] = (await this.dataSource.query(
+      `SELECT (array_agg(b.filters_applied->>'purpose' ORDER BY l.created_at DESC)
+                 FILTER (WHERE l.status <> $5))[1] AS last_told,
+              count(DISTINCT l.reminder_batch_id)::int AS batches
+         FROM communication_logs l
          JOIN reminder_batches b ON b.id = l.reminder_batch_id AND b.tenant_id = $1
-         WHERE l.tenant_id = $1 AND l.metadata->'student_ids' @> to_jsonb($4::text)
-           AND b.filters_applied->>'purpose' = 'ABSENCE_NOTICE'
-           AND b.filters_applied->>'section_id' = $2 AND b.filters_applied->>'date' = $3
-       ) AS notified`,
-      [tenantId, session.section_id, session.date, studentId],
-    )) as { notified: boolean }[];
-    // Only a notified child gets a "sorry"; only an un-notified one gets a first notice.
-    if (wasAbsent !== notified) return;
+        WHERE l.tenant_id = $1 AND l.metadata->'student_ids' @> to_jsonb($4::text)
+          AND b.filters_applied->>'purpose' IN ('ABSENCE_NOTICE', 'ABSENCE_CORRECTION')
+          AND b.filters_applied->>'section_id' = $2 AND b.filters_applied->>'date' = $3`,
+      [tenantId, session.section_id, session.date, studentId, CommunicationStatus.FAILED],
+    )) as { last_told: string | null; batches: number }[];
+    if ((last_told === 'ABSENCE_NOTICE') === isAbsent) return;
 
-    const keyPrefix = `absence-correction:${sessionId}:${studentId}:${newStatus}`;
-    const [{ sent }] = (await this.dataSource.query(
-      `SELECT EXISTS (SELECT 1 FROM communication_logs
-         WHERE tenant_id = $1 AND reference_key LIKE $2) AS sent`,
-      [tenantId, `${keyPrefix}:%`],
-    )) as { sent: boolean }[];
-    if (sent) return;
+    // One key per message in this child's thread (FAILED ones included, so a
+    // retry after a failure gets a fresh key): two racing corrections that
+    // both decided to send share a key, and the unique index lets one through.
+    const keyPrefix = `absence-told:${sessionId}:${studentId}:${batches + 1}`;
 
     const { sectionName, schoolName } = await this.loadSectionContext(tenantId, session.section_id);
     const { recipients, template } = await this.resolveAbsentees(
