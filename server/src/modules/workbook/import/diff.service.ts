@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type { EntityManager } from 'typeorm';
 import { ALL_TABS } from '../codec/registry';
+import { INSERT_ONLY_TABS } from '../codec/insert-only-tabs';
 import type { TabSpec } from '../codec/tab-spec';
 import type { ValidatedWorkbook } from './validated-workbook';
 import type { DiffCounts, DiffReport, TabDiff } from './diff-report';
@@ -99,7 +100,11 @@ export class DiffService {
       // rows. Never let that read as "the user deleted every row" — gate
       // deletion on the workbook not being a template, regardless of what
       // any individual `TabSpec.deleteByAbsence` says.
-      if (tabSpec.deleteByAbsence && validated.meta.kind !== 'TEMPLATE') {
+      if (
+        tabSpec.deleteByAbsence &&
+        !INSERT_ONLY_TABS.has(tabSpec.name) &&
+        validated.meta.kind !== 'TEMPLATE'
+      ) {
         for (const entity of existing) {
           const id: unknown = (entity as { id?: unknown }).id;
           if (typeof id === 'string' && !matchedIds.has(id)) {

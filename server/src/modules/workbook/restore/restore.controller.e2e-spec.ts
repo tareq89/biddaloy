@@ -112,7 +112,7 @@ describe('POST /backup/restore E2E', () => {
         exported_at: new Date().toISOString(),
         app_version: 'test',
         source_school_name: name,
-        source_school_slug: 'restore-e2e-fresh',
+        source_school_slug: 'restore-e2e-fresh-school',
       },
       rowsFor: async function* (tab) {
         if (tab.name === 'school') {
@@ -357,7 +357,7 @@ describe('POST /backup/restore E2E', () => {
         exported_at: new Date().toISOString(),
         app_version: 'test',
         source_school_name: JOIN_SCHOOL_NAME,
-        source_school_slug: 'restore-e2e-join',
+        source_school_slug: 'restore-e2e-join-school',
       },
       rowsFor: async function* (tab) {
         if (tab.name === 'school') {

@@ -5,6 +5,7 @@ import {
   NotFoundException,
   BadRequestException,
   ConflictException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -31,6 +32,8 @@ export interface RequestRestoreInput {
   staging_id: string;
   confirmation: string;
   invite_users?: boolean;
+  /** D13: only a platform SUPER_ADMIN may restore another school's backup. */
+  isPlatformSuperAdmin?: boolean;
 }
 
 export interface RequestRestoreResult {
@@ -83,6 +86,16 @@ export class RestoreService {
     }
 
     const school = await this.schools.findOneOrFail({ where: { id: tenantId } });
+    if (
+      staged.meta.kind !== 'TEMPLATE' &&
+      staged.meta.source_school_slug !== school.slug &&
+      !input.isPlatformSuperAdmin
+    ) {
+      throw new ForbiddenException({
+        code: 'RESTORE_OTHER_SCHOOL_PLATFORM_ONLY',
+        message: 'This backup is from another school. Only platform support can restore it here.',
+      });
+    }
     if (input.confirmation.trim() !== school.name) {
       // Message never echoes the expected school name.
       throw new BadRequestException({
