@@ -15,6 +15,8 @@
  * POS 58mm and 80mm receipts render at that fixed width on screen too
  * (a cashier previewing before printing), not only inside `@media print`.
  */
+import { amountInWords } from '@biddaloy/shared';
+
 import type { RegionConfig } from '../../i18n';
 import { formatDate, formatServerAmount, parseServerDate } from '../../utils';
 
@@ -73,6 +75,7 @@ export interface InvoiceReceiptProps {
     change: string;
     paymentMethod: string;
     paymentDate: string;
+    inWords: string;
   };
 }
 
@@ -154,6 +157,14 @@ export function InvoiceReceipt({ receipt, width, config, labels }: InvoiceReceip
         <div className="flex justify-between gap-2 font-semibold">
           <span>{labels.paid}</span>
           <span>{formatServerAmount(receipt.totals.paid, config)}</span>
+        </div>
+        {/* amountInWords takes the absolute value itself, so a credit note reads positive. */}
+        <div className="text-xs text-muted-foreground">
+          {labels.inWords}:{' '}
+          {amountInWords(
+            receipt.totals.paid,
+            config.locale.toLowerCase().startsWith('bn') ? 'bn' : 'en',
+          )}
         </div>
         {receipt.totals.change > 0 && (
           <div className="flex justify-between gap-2">

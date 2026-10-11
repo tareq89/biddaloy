@@ -1,3 +1,4 @@
+import { amountInWords } from '@biddaloy/shared';
 import { Invoice } from './entities/invoice.entity';
 import { IssuerSnapshot } from '../schools/profile/issuer-snapshot';
 import {
@@ -90,7 +91,9 @@ export function renderInvoicePosHtml(
       ${totals.wallet_added ? lineRow('Wallet added', formatAmount(signedAmount(totals.wallet_added, invoice))) : ''}
       ${lineRow('Paid', formatAmount(signedAmount(totals.paid, invoice)), { emphasis: true })}
       ${totals.change ? lineRow('Change', formatAmount(signedAmount(totals.change, invoice))) : ''}
-    </div>`;
+    </div>
+    <div class="in-words">In words: ${escapeHtml(amountInWords(totals.paid, 'en'))}</div>
+    <div class="in-words">কথায়: ${escapeHtml(amountInWords(totals.paid, 'bn'))}</div>`;
 
   const payment = snapshot.payment;
   const paymentLine = `Paid via ${escapeHtml(payment.method)}${payment.reference ? ` &middot; ${escapeHtml(payment.reference)}` : ''}`;
@@ -137,6 +140,7 @@ export function renderInvoicePosHtml(
   .row-left { flex: 1; word-break: break-word; }
   .row-right { white-space: nowrap; }
   .row-emphasis { font-weight: bold; }
+  .in-words { margin-top: 4px; font-size: 11px; }
   .totals { margin-top: 4px; page-break-inside: avoid; }
   .payment-line { margin-top: 4px; }
   .qr-section { text-align: center; page-break-inside: avoid; }
