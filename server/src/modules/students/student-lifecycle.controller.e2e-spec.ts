@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterAll, vi } from 'vitest';
 import supertest = require('supertest');
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
@@ -7,6 +7,7 @@ import { AppModule } from '../../app.module';
 import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { buildValidationPipeOptions } from '../../validation-pipe';
 import { UserRole } from '@biddaloy/shared';
+import { StudentLifecycleService } from './student-lifecycle.service';
 import {
   SEED_TENANT_ID,
   SEED_ADMIN_EMAIL,
@@ -129,6 +130,21 @@ describe('StudentLifecycleController (guards)', () => {
     ]);
     const [row] = await ds.query(`SELECT status FROM student_fees WHERE id = $1`, [later]);
     expect(row.status).toBe('PENDING');
+  });
+
+  it('#2272: a failing bill read after the committed leave still returns 201 with an empty list', async () => {
+    const spy = vi
+      .spyOn(app.get(StudentLifecycleService), 'billsDueAfter')
+      .mockRejectedValueOnce(new Error('read failed'));
+    try {
+      const res = await as(http().post(`/api/v1/students/${studentId}/leave`), UserRole.ADMIN)
+        .send(body)
+        .expect(201);
+      expect(res.body.event_type).toBe('WITHDRAWN');
+      expect(res.body.bills_due_after_leave).toEqual([]);
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   it('tenant B admin with tenant A student gets 404 and no list', async () => {
